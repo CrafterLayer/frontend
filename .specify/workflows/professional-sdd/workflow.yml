@@ -1,0 +1,203 @@
+schema_version: "1.0"
+
+workflow:
+  id: professional-sdd
+  name: "Professional Monorepo SDD"
+  version: "1.2.0"
+  author: craftkit-builder
+  description: "Full scoped Spec Kit cycle with clarification, analysis, review approval, convergence, and handoff"
+
+requires:
+  speckit_version: ">=1.0.0"
+  integrations:
+    any:
+      - claude
+      - codex
+      - cursor-agent
+
+inputs:
+  spec:
+    type: string
+    required: true
+    prompt: "Describe the feature or platform change"
+  scope:
+    type: string
+    required: true
+    prompt: "Exact workspace, app, package, or cross-cutting scope"
+  feature_directory:
+    type: string
+    required: true
+    prompt: "Scoped feature directory matching SPECIFY_FEATURE_DIRECTORY"
+  integration:
+    type: string
+    default: auto
+    prompt: "Integration to use; auto uses the current Spec Kit default"
+  spec_verdict:
+    type: string
+    default: ""
+    enum: ["", approve, reject]
+  plan_verdict:
+    type: string
+    default: ""
+    enum: ["", approve, reject]
+  tasks_verdict:
+    type: string
+    default: ""
+    enum: ["", approve, reject]
+  review_verdict:
+    type: string
+    default: ""
+    enum: ["", approve, reject]
+  convergence_review_verdict:
+    type: string
+    default: ""
+    enum: ["", approve, reject]
+  delivery_verdict:
+    type: string
+    default: ""
+    enum: ["", approve, reject]
+  handoff_verdict:
+    type: string
+    default: ""
+    enum: ["", approve, reject]
+
+steps:
+  - id: specify
+    command: speckit.specify
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Scope: {{ inputs.scope }}. Feature directory: {{ inputs.feature_directory }}. Feature: {{ inputs.spec }}"
+
+  - id: clarify
+    command: speckit.clarify
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Resolve material ambiguity for scope {{ inputs.scope }}"
+
+  - id: approve-spec
+    type: gate
+    message: "Approve the clarified specification and declared monorepo scope before planning."
+    show_file: "{{ inputs.feature_directory }}/spec.md"
+    options: [approve, reject]
+    verdict_input: spec_verdict
+    on_reject: retry
+
+  - id: plan
+    command: speckit.plan
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Plan the approved feature at {{ inputs.feature_directory }} for scope {{ inputs.scope }}"
+
+  - id: checklist
+    command: speckit.checklist
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Validate requirement completeness, architecture boundaries, UI artifacts, and delivery gates"
+
+  - id: approve-plan
+    type: gate
+    message: "Approve the architecture, package ownership, verification, and rollout plan before task generation."
+    show_file: "{{ inputs.feature_directory }}/plan.md"
+    options: [approve, reject]
+    verdict_input: plan_verdict
+    on_reject: retry
+
+  - id: tasks
+    command: speckit.tasks
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Generate complete dependency-ordered tasks for scope {{ inputs.scope }}"
+
+  - id: analyze
+    command: speckit.analyze
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Check spec, plan, tasks, constitution, UI artifacts, and monorepo consistency"
+
+  - id: approve-tasks
+    type: gate
+    message: "Approve the analyzed task set before implementation."
+    show_file: "{{ inputs.feature_directory }}/tasks.md"
+    options: [approve, reject]
+    verdict_input: tasks_verdict
+    on_reject: retry
+
+  - id: implement
+    command: speckit.implement
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Implement only the approved tasks for scope {{ inputs.scope }}"
+
+  - id: review
+    command: speckit.workspace.review
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Review the implementation at {{ inputs.feature_directory }} for scope {{ inputs.scope }}"
+
+  - id: approve-review
+    type: gate
+    message: "The independent implementation review has run. Approve only after accepted findings are fixed and checks rerun."
+    show_file: "{{ inputs.feature_directory }}/tasks.md"
+    options: [approve, reject]
+    verdict_input: review_verdict
+    on_reject: retry
+
+  - id: converge
+    command: speckit.converge
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Converge the verified implementation for scope {{ inputs.scope }} against all active artifacts"
+
+  - id: implement-convergence-tasks
+    command: speckit.implement
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Implement every task added by convergence for scope {{ inputs.scope }}; no-op only when no incomplete task remains"
+
+  - id: review-convergence
+    command: speckit.workspace.review
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Review convergence-task implementation at {{ inputs.feature_directory }} for scope {{ inputs.scope }}"
+
+  - id: approve-convergence-review
+    type: gate
+    message: "The second independent implementation review has run. Approve only after convergence tasks and accepted findings are complete."
+    show_file: "{{ inputs.feature_directory }}/tasks.md"
+    options: [approve, reject]
+    verdict_input: convergence_review_verdict
+    on_reject: retry
+
+  - id: final-converge
+    command: speckit.converge
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Perform the final artifact-to-implementation convergence audit for scope {{ inputs.scope }}"
+
+  - id: approve-delivery
+    type: gate
+    message: "Approve delivery only when final convergence added no unfinished work and verification is complete."
+    show_file: "{{ inputs.feature_directory }}/tasks.md"
+    options: [approve, reject]
+    verdict_input: delivery_verdict
+    on_reject: retry
+
+  - id: handoff
+    command: speckit.workspace.handoff
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Record the completed or paused state for {{ inputs.feature_directory }} in scope {{ inputs.scope }}"
+
+  - id: approve-handoff
+    type: gate
+    message: "Approve the canonical shared handoff before generating the commit proposal."
+    show_file: ".specify/agents/HANDOFF.md"
+    options: [approve, reject]
+    verdict_input: handoff_verdict
+    on_reject: retry
+
+  - id: commit-message
+    command: speckit.workspace.commit
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "Generate a non-committing Conventional Commit proposal for {{ inputs.feature_directory }} in scope {{ inputs.scope }}"

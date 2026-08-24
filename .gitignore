@@ -1,0 +1,40 @@
+# Dependencies and package-manager caches
+node_modules/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.cache/
+
+# Framework, build, test, and Storybook output
+dist/
+build/
+.next/
+.nuxt/
+.output/
+.vite/
+.turbo/
+.nx/
+coverage/
+storybook-static/
+playwright-report/
+test-results/
+.eslintcache
+*.tsbuildinfo
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and local editor/OS state
+*.log
+.DS_Store
+.idea/
+*.swp
+*.swo
+
+# Machine-local Spec Kit locks and regenerated caches
+.specify/.workflow-install.lock
+.specify/extensions/*/.specify-dev/
+.specify/presets/*/.composed/

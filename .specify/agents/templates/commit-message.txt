@@ -1,0 +1,16 @@
+# type(scope): imperative summary
+#
+# Why:
+# - explain the problem or reason
+#
+# What:
+# - summarize the cohesive changes in the staged diff
+#
+# Tests:
+# - list exact commands and outcomes, or: not run (<reason>)
+#
+# Refs:
+# - optional issue or Spec Kit feature path
+#
+# Breaking changes:
+# - add ! to the header and a BREAKING CHANGE: footer

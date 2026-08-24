@@ -1,0 +1,4 @@
+{
+  "extends": "@craftkit/typescript-config/node.json",
+  "files": []
+}

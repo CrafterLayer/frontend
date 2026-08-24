@@ -1,0 +1,21 @@
+---
+description: Shared Spec Kit governance for this monorepo
+alwaysApply: true
+---
+
+# Cursor Project Instructions
+
+Read and follow `AGENTS.md` as the shared entrypoint. The canonical rules and
+continuity state live under `.specify/`; do not maintain a Cursor-only copy.
+
+For React or UI work, load `.specify/agents/rules/react-ui.md`. For monorepo,
+delegation, review, or commit work, use the matching rule routed by
+`.specify/agents/README.md`.
+
+Cursor invokes the installed Spec Kit skills as `/speckit-<command>`.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+at specs/workspace/001-monorepo-foundation/plan.md
+<!-- SPECKIT END -->

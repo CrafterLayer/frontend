@@ -1,0 +1,85 @@
+import { Canvas, Controls, Meta, Stories } from '@storybook/addon-docs/blocks';
+import * as ButtonStories from './Button.stories';
+
+<Meta of={ButtonStories} />
+
+# Button
+
+`Button` is the domain-agnostic action primitive owned by `@craftkit/ui`. Use it for a
+user-triggered action such as submitting a form, confirming a choice, or opening a flow. Use a link
+for navigation and a purpose-built control for toggles or selections.
+
+<Canvas of={ButtonStories.Default} />
+
+## Usage
+
+Import the component through the package root and load the package stylesheet once in the consuming
+application shell.
+
+```tsx
+import { Button } from '@craftkit/ui';
+import '@craftkit/ui/styles.css';
+
+export function ProjectAction() {
+  return <Button onClick={() => openProject()}>Open project</Button>;
+}
+```
+
+Do not deep-import the component folder. Product data, routing, and application state stay in the
+owning feature; pass only the native action handler and presentation props the button needs.
+
+## Public API
+
+<Controls of={ButtonStories.Default} />
+
+| Prop                | Type                                              | Default     | Purpose                                                                      |
+| ------------------- | ------------------------------------------------- | ----------- | ---------------------------------------------------------------------------- |
+| `variant`           | `'primary' \| 'secondary' \| 'ghost' \| 'danger'` | `'primary'` | Communicates visual intent without changing semantics.                       |
+| `size`              | `'small' \| 'medium' \| 'large'`                  | `'medium'`  | Selects the visual size and hit area.                                        |
+| `loading`           | `boolean`                                         | `false`     | Prevents activation and exposes busy state.                                  |
+| `loadingLabel`      | `string`                                          | `'Loading'` | Announces the in-progress action. Use specific copy.                         |
+| `fullWidth`         | `boolean`                                         | `false`     | Fills the available inline size.                                             |
+| native button props | `ComponentPropsWithRef<'button'>`                 | —           | Includes handlers, `disabled`, ARIA attributes, and the React 19 `ref` prop. |
+
+The native `type` defaults to `button` to avoid accidental form submission. Set `type="submit"`
+explicitly for a form submit action.
+
+## Variants and states
+
+- `primary` is the default high-emphasis action.
+- `secondary` is a lower-emphasis bordered action.
+- `ghost` is for low-emphasis actions on a neutral surface.
+- `danger` is reserved for destructive or difficult-to-reverse actions.
+- `disabled` prevents activation when an action is unavailable.
+- `loading` disables duplicate activation, sets `aria-busy`, and announces `loadingLabel`.
+- `fullWidth` adapts the button to narrow or stacked layouts without assuming a viewport.
+
+<Stories includePrimary={false} />
+
+## Accessibility and keyboard behavior
+
+The component renders a native `<button>`, so Enter and Space activation, disabled semantics, and
+focus management remain browser-native. A visible `:focus-visible` ring is provided. Loading state
+uses `aria-busy="true"`, disables repeat activation, and exposes a named status. Always provide
+concise visible action text and a loading label that describes the same action, such as
+`Saving changes`.
+
+Do not remove the focus style, communicate intent by color alone, or use `aria-disabled` as a
+replacement for the native `disabled` behavior. Storybook runs axe checks as errors for every
+rendered story.
+
+## Responsive, RTL, and theme guidance
+
+Spacing and sizing use CSS logical properties, so the button works in LTR and RTL without component
+overrides. `fullWidth` uses inline size and can be composed in responsive parent layouts. Colors are
+defined through component custom properties with accessible defaults; a future approved theme
+package may override those properties at an owning theme boundary. Keep labels short enough for
+narrow layouts, but allow wrapping when translated text needs it. Reduced-motion preferences remove
+transitions and reduce spinner motion.
+
+## Limitations
+
+`Button` does not perform navigation, own confirmation dialogs, fetch data, or infer application
+permissions. It exposes no imperative API beyond the native element ref. Icon only actions are not
+covered by this primitive's current documented examples and require an explicit accessible-label
+design review.

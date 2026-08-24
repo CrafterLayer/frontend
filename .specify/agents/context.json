@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-24",
+  "project": {
+    "name": "craftkit-builder",
+    "workspace": "frontend",
+    "shape": "large-multi-application-monorepo",
+    "phase": "monorepo-foundation-planning",
+    "applicationScaffoldPresent": false,
+    "documentationScaffoldPresent": true,
+    "gitRepositoryPresent": true,
+    "gitBranch": "main",
+    "gitCommitCount": 0
+  },
+  "technologyBaseline": {
+    "react": {
+      "target": "19.2.8",
+      "status": "required-not-installed",
+      "verifiedAt": "2026-08-24",
+      "policy": "Re-check the latest patched React 19.2 release before installation and keep react and react-dom identical."
+    },
+    "typescript": {
+      "required": true,
+      "status": "not-installed"
+    },
+    "storybook": {
+      "requiredForUi": true,
+      "status": "not-installed"
+    },
+    "testRunner": {
+      "required": true,
+      "status": "not-selected"
+    },
+    "monorepoTool": {
+      "status": "not-selected",
+      "selectionOwner": "first approved technical plan"
+    }
+  },
+  "specKit": {
+    "version": "1.0.1",
+    "root": ".specify",
+    "defaultIntegration": "claude",
+    "installedIntegrations": [
+      "claude",
+      "codex",
+      "cursor-agent"
+    ],
+    "extensions": [
+      "agent-context@1.0.0",
+      "workspace@1.1.0"
+    ],
+    "presets": [
+      "react-monorepo-quality@1.0.2"
+    ],
+    "workflows": [
+      "speckit@1.0.0",
+      "professional-sdd@1.2.0"
+    ],
+    "professionalWorkflowSteps": 21,
+    "integrationStatus": {
+      "state": "warning-intentional-preset-composition",
+      "modifiedManagedFiles": 9,
+      "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade"
+    },
+    "activeFeature": "specs/workspace/001-monorepo-foundation",
+    "scopeModel": "root governance plus scoped feature directories; member projects only for independent governance or release needs"
+  },
+  "sourcesOfTruth": {
+    "constitution": ".specify/memory/constitution.md",
+    "agentSystem": ".specify/agents/README.md",
+    "durableMemory": ".specify/agents/MEMORY.md",
+    "handoff": ".specify/agents/HANDOFF.md",
+    "rules": ".specify/agents/rules",
+    "documentationIndex": "docs/README.md",
+    "architectureIndex": "docs/architecture/README.md",
+    "architectureDecisions": "docs/architecture/decisions",
+    "developmentDocs": "docs/development",
+    "testingDocs": "docs/testing",
+    "runbooks": "docs/runbooks",
+    "commitTemplate": ".specify/agents/templates/commit-message.txt",
+    "extensionSource": ".specify/agents/extensions/workspace",
+    "presetSource": ".specify/agents/presets/react-monorepo-quality",
+    "workflowSource": ".specify/agents/workflows/professional-sdd/workflow.yml"
+  },
+  "resume": {
+    "loadOrder": [
+      "AGENTS.md",
+      ".specify/memory/constitution.md",
+      "active feature spec.md, plan.md, and tasks.md",
+      ".specify/agents/context.json",
+      ".specify/agents/HANDOFF.md",
+      ".specify/agents/MEMORY.md",
+      "one task-matching rule",
+      "one relevant docs page when architecture, setup, testing, or operations is in scope"
+    ]
+  },
+  "currentWork": {
+    "status": "in-progress",
+    "scope": "workspace",
+    "activeSpec": "specs/workspace/001-monorepo-foundation/spec.md",
+    "nextAction": "Complete the approved pnpm and Turborepo foundation plan, tasks, implementation, review, and convergence."
+  },
+  "qualityGates": {
+    "governanceConfigured": true,
+    "applicationToolingConfigured": false,
+    "mandatoryAgentGates": [
+      "clarify",
+      "spec approval",
+      "plan approval",
+      "analyze",
+      "tasks approval",
+      "post-implementation review",
+      "converge",
+      "convergence repair and second review",
+      "final convergence",
+      "handoff approval",
+      "commit-message proposal"
+    ],
+    "deferredUntilApplicationScaffold": [
+      "lint",
+      "typecheck",
+      "test",
+      "build-storybook",
+      "build"
+    ]
+  }
+}

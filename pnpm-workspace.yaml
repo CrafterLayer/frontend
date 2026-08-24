@@ -1,0 +1,55 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+catalog:
+  "@tanstack/react-query": 5.102.2
+  "@eslint/js": 10.0.1
+  "@storybook/addon-a11y": 10.5.10
+  "@storybook/addon-docs": 10.5.10
+  "@storybook/addon-vitest": 10.5.10
+  "@storybook/react-vite": 10.5.10
+  "@testing-library/dom": 10.4.1
+  "@testing-library/jest-dom": 7.0.0
+  "@testing-library/react": 16.3.2
+  "@testing-library/user-event": 14.6.6
+  "@types/node": 24.13.3
+  "@types/react": 19.2.18
+  "@types/react-dom": 19.2.5
+  "@vitejs/plugin-react": 6.1.0
+  "@vitest/browser-playwright": 4.1.11
+  "@vitest/coverage-v8": 4.1.11
+  eslint: 10.9.0
+  eslint-config-prettier: 10.1.8
+  eslint-plugin-react-hooks: 7.1.1
+  eslint-plugin-react-refresh: 0.5.4
+  eslint-plugin-storybook: 10.5.10
+  globals: 17.11.0
+  jsdom: 30.0.1
+  playwright: 1.62.1
+  prettier: 3.9.6
+  react: 19.2.8
+  react-dom: 19.2.8
+  react-router: 8.3.0
+  storybook: 10.5.10
+  turbo: 2.10.10
+  typescript: 6.0.3
+  typescript-eslint: 8.67.0
+  vite: 8.2.2
+  vitest: 4.1.11
+
+sharedWorkspaceLockfile: true
+saveWorkspaceProtocol: rolling
+catalogMode: prefer
+disallowWorkspaceCycles: true
+failIfNoMatch: true
+engineStrict: true
+strictPeerDependencies: true
+strictDepBuilds: true
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
+
+allowBuilds:
+  esbuild: true

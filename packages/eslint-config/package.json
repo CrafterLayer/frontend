@@ -1,0 +1,31 @@
+{
+  "name": "@craftkit/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./base": "./src/base.mjs",
+    "./react": "./src/react.mjs",
+    "./storybook": "./src/storybook.mjs"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "eslint": ">=10 <11",
+    "typescript": ">=6 <6.1"
+  },
+  "dependencies": {
+    "@eslint/js": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "eslint-plugin-react-refresh": "catalog:",
+    "eslint-plugin-storybook": "catalog:",
+    "globals": "catalog:",
+    "typescript-eslint": "catalog:"
+  }
+}

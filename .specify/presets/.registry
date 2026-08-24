@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "presets": {
+    "react-monorepo-quality": {
+      "version": "1.0.2",
+      "source": "local",
+      "manifest_hash": "sha256:2efaf8d49de17ddf1d02194365883a25b7d2b28d0d7f5dce276f2b838cd9fd03",
+      "enabled": true,
+      "priority": 5,
+      "registered_commands": {
+        "claude": [
+          "speckit.plan",
+          "speckit.tasks",
+          "speckit.implement"
+        ],
+        "codex": [
+          "speckit.plan",
+          "speckit.tasks",
+          "speckit.implement"
+        ],
+        "cursor-agent": [
+          "speckit.plan",
+          "speckit.tasks",
+          "speckit.implement"
+        ]
+      },
+      "registered_skills": {
+        "claude": [
+          "speckit-plan",
+          "speckit-tasks",
+          "speckit-implement"
+        ],
+        "codex": [
+          "speckit-plan",
+          "speckit-tasks",
+          "speckit-implement"
+        ],
+        "cursor-agent": [
+          "speckit-plan",
+          "speckit-tasks",
+          "speckit-implement"
+        ]
+      },
+      "installed_at": "2026-08-24T16:59:59.638149+00:00"
+    }
+  }
+}

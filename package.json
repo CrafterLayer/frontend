@@ -1,0 +1,48 @@
+{
+  "name": "craftkit-builder-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.23.0",
+  "engines": {
+    "node": ">=24.15.0 <25",
+    "pnpm": "11.23.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.23.0",
+      "onFail": "error"
+    }
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "test:storybook": "turbo run test:storybook --filter=@craftkit/storybook",
+    "storybook": "turbo run storybook --filter=@craftkit/storybook",
+    "build-storybook": "turbo run build-storybook --filter=@craftkit/storybook",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "check:workspace": "node packages/workspace-tools/src/cli/check-workspace.mjs",
+    "check:components": "node packages/workspace-tools/src/cli/check-components.mjs",
+    "check:bundles": "turbo run check:size --filter=@craftkit/query --filter=@craftkit/routing",
+    "check:boundaries": "turbo boundaries",
+    "test:workspace": "pnpm --filter @craftkit/workspace-tools test",
+    "check:graph": "turbo run lint typecheck test build build-storybook --dry=json",
+    "verify": "pnpm format:check && pnpm test:workspace && pnpm check:workspace && pnpm check:components && pnpm check:boundaries && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm check:bundles && pnpm test:storybook && pnpm build-storybook"
+  },
+  "devDependencies": {
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@craftkit/workspace-tools": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "@craftkit/test-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./react": {
+      "types": "./src/react.d.ts",
+      "default": "./src/react.mjs"
+    },
+    "./setup": "./src/setup.ts",
+    "./storybook": {
+      "types": "./src/storybook.d.ts",
+      "default": "./src/storybook.mjs"
+    }
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "vite": ">=8 <9",
+    "vitest": ">=4 <5"
+  },
+  "dependencies": {
+    "@storybook/addon-vitest": "catalog:",
+    "@testing-library/jest-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/browser-playwright": "catalog:"
+  },
+  "devDependencies": {
+    "@craftkit/typescript-config": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

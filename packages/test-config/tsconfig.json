@@ -1,0 +1,7 @@
+{
+  "extends": "@craftkit/typescript-config/node.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts"
+  ]
+}

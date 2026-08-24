@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "agent-context": {
+      "version": "1.0.0",
+      "source": "local",
+      "manifest_hash": "sha256:9a1dc02d2d0139bb03860392ecacef79183be2c442feda2f9ccaa4e5907b1e47",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.agent-context.update"
+        ],
+        "codex": [
+          "speckit.agent-context.update"
+        ],
+        "cursor-agent": [
+          "speckit.agent-context.update"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-24T16:26:22.104614+00:00"
+    },
+    "workspace": {
+      "version": "1.1.0",
+      "source": "local",
+      "manifest_hash": "sha256:3adfea618c922f5dcecb733c6241d6e749f9538603b11d1de6a299f22e39cfca",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.workspace.review",
+          "speckit.workspace.handoff",
+          "speckit.workspace.commit"
+        ],
+        "codex": [
+          "speckit.workspace.review",
+          "speckit.workspace.handoff",
+          "speckit.workspace.commit"
+        ],
+        "cursor-agent": [
+          "speckit.workspace.review",
+          "speckit.workspace.handoff",
+          "speckit.workspace.commit"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-24T16:59:55.295897+00:00"
+    }
+  }
+}

@@ -1,0 +1,52 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Hebron
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    groups:
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react*"
+      storybook:
+        patterns:
+          - storybook
+          - "@storybook/*"
+      vitest:
+        patterns:
+          - vitest
+          - "@vitest/*"
+      linting:
+        patterns:
+          - eslint
+          - "@eslint/*"
+          - "eslint-*"
+          - typescript-eslint
+      workspace-toolchain:
+        patterns:
+          - pnpm
+          - turbo
+          - typescript
+          - vite
+          - "@vitejs/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Asia/Hebron
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"

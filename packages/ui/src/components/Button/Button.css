@@ -1,0 +1,153 @@
+.craftkit-button {
+  --craftkit-button-background: #155eef;
+  --craftkit-button-border: #155eef;
+  --craftkit-button-color: #ffffff;
+  --craftkit-button-focus: #84adff;
+
+  position: relative;
+  display: inline-flex;
+  min-block-size: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-block: 0.625rem;
+  padding-inline: 1rem;
+  border: 1px solid var(--craftkit-button-border);
+  border-radius: 0.625rem;
+  background: var(--craftkit-button-background);
+  color: var(--craftkit-button-color);
+  font: inherit;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 80ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.craftkit-button:hover:not(:disabled) {
+  --craftkit-button-background: #004eeb;
+  --craftkit-button-border: #004eeb;
+}
+
+.craftkit-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.craftkit-button:focus-visible {
+  outline: 3px solid var(--craftkit-button-focus);
+  outline-offset: 3px;
+}
+
+.craftkit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.craftkit-button[data-variant='secondary'] {
+  --craftkit-button-background: #ffffff;
+  --craftkit-button-border: #98a2b3;
+  --craftkit-button-color: #344054;
+}
+
+.craftkit-button[data-variant='secondary']:hover:not(:disabled) {
+  --craftkit-button-background: #f2f4f7;
+  --craftkit-button-border: #667085;
+}
+
+.craftkit-button[data-variant='ghost'] {
+  --craftkit-button-background: transparent;
+  --craftkit-button-border: transparent;
+  --craftkit-button-color: #175cd3;
+}
+
+.craftkit-button[data-variant='ghost']:hover:not(:disabled) {
+  --craftkit-button-background: #eff4ff;
+  --craftkit-button-border: #eff4ff;
+}
+
+.craftkit-button[data-variant='danger'] {
+  --craftkit-button-background: #d92d20;
+  --craftkit-button-border: #d92d20;
+  --craftkit-button-focus: #fda29b;
+}
+
+.craftkit-button[data-variant='danger']:hover:not(:disabled) {
+  --craftkit-button-background: #b42318;
+  --craftkit-button-border: #b42318;
+}
+
+.craftkit-button[data-size='small'] {
+  min-block-size: 2.25rem;
+  padding-block: 0.4375rem;
+  padding-inline: 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.craftkit-button[data-size='large'] {
+  min-block-size: 3.25rem;
+  padding-block: 0.8125rem;
+  padding-inline: 1.25rem;
+  font-size: 1.0625rem;
+}
+
+.craftkit-button[data-full-width='true'] {
+  inline-size: 100%;
+}
+
+.craftkit-button[data-loading='true'] .craftkit-button__content {
+  visibility: hidden;
+}
+
+.craftkit-button__loading {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.craftkit-button__spinner {
+  inline-size: 1em;
+  block-size: 1em;
+  border: 0.125em solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: craftkit-button-spin 700ms linear infinite;
+}
+
+.craftkit-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes craftkit-button-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .craftkit-button {
+    transition: none;
+  }
+
+  .craftkit-button__spinner {
+    animation: none;
+  }
+}

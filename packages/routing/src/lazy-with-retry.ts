@@ -1,27 +1,33 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-export type LazyWithRetryOptions<TModule, TProps extends object> = {
+export interface LazyWithRetryOptions<TModule, TProps extends object> {
   baseDelayMs?: number;
   maxRetries?: number;
   resolveComponent?: (module: TModule) => ComponentType<TProps>;
-};
+}
 
-export type PreloadableLazyComponent<TProps extends object> = LazyExoticComponent<
+export interface PreloadableLazyComponent<TProps extends object> extends LazyExoticComponent<
   ComponentType<TProps>
-> & {
+> {
   preload: () => Promise<void>;
-};
+}
 
-type LazyModule<TProps extends object> = {
+interface LazyModule<TProps extends object> {
   default: ComponentType<TProps>;
-};
+}
 
-type LazyImportRuntime = {
+interface LazyImportRuntime {
   random: () => number;
   reloadChunkOnce: (cause: unknown) => boolean;
   sleep: (milliseconds: number) => Promise<void>;
   waitUntilOnline: () => Promise<void>;
-};
+}
+
+interface ChunkReloadEnvironment {
+  now: () => number;
+  reload: () => void;
+  storage: Pick<Storage, 'getItem' | 'setItem'>;
+}
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_BASE_DELAY_MS = 500;
@@ -36,41 +42,62 @@ export function isChunkLoadError(error: unknown): boolean {
   );
 }
 
-function sleep(milliseconds: number): Promise<void> {
+/** @internal Exported only for focused package tests. */
+export function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
 }
 
-async function waitUntilOnline(): Promise<void> {
-  if (
-    typeof window === 'undefined' ||
-    typeof navigator === 'undefined' ||
-    navigator.onLine
-  ) {
+/** @internal Exported only for focused package tests. */
+export async function waitUntilOnline(): Promise<void> {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined' || navigator.onLine) {
     return;
   }
 
   await new Promise<void>((resolve) => {
-    window.addEventListener('online', () => resolve(), { once: true });
+    window.addEventListener(
+      'online',
+      () => {
+        resolve();
+      },
+      { once: true },
+    );
   });
 }
 
-function reloadChunkOnce(cause: unknown): boolean {
+function getBrowserReloadEnvironment(): ChunkReloadEnvironment | undefined {
   if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  return {
+    now: Date.now,
+    reload: window.location.reload.bind(window.location),
+    storage: window.sessionStorage,
+  };
+}
+
+/** @internal Exported only for focused package tests. */
+export function reloadChunkOnce(
+  _cause: unknown,
+  environment: ChunkReloadEnvironment | undefined = getBrowserReloadEnvironment(),
+): boolean {
+  if (!environment) {
     return false;
   }
 
   try {
-    const previousTimestamp = window.sessionStorage.getItem(RELOAD_TIMESTAMP_KEY);
+    const previousTimestamp = environment.storage.getItem(RELOAD_TIMESTAMP_KEY);
     const previousReload = previousTimestamp ? Number(previousTimestamp) : 0;
+    const now = environment.now();
 
-    if (Number.isFinite(previousReload) && Date.now() - previousReload <= RELOAD_COOLDOWN_MS) {
+    if (Number.isFinite(previousReload) && now - previousReload <= RELOAD_COOLDOWN_MS) {
       return false;
     }
 
-    window.sessionStorage.setItem(RELOAD_TIMESTAMP_KEY, String(Date.now()));
-    window.location.reload();
+    environment.storage.setItem(RELOAD_TIMESTAMP_KEY, String(now));
+    environment.reload();
     return true;
   } catch {
     // Reloading without a durable guard can create an infinite deployment loop.
@@ -118,15 +145,15 @@ export async function loadWithRetry<
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     try {
       const module = await importModule();
-      const component = resolveComponent
+      const component: unknown = resolveComponent
         ? resolveComponent(module)
         : (module as unknown as LazyModule<TProps>).default;
 
-      if (!component) {
+      if (typeof component !== 'function') {
         throw new TypeError('Lazy module must expose a default component or resolveComponent');
       }
 
-      return { default: component };
+      return { default: component as ComponentType<TProps> };
     } catch (error) {
       lastError = error;
 

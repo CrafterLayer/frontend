@@ -1,3 +1,4 @@
+import { createMemoryRouter } from 'react-router';
 import type { PatchRoutesOnNavigationFunctionArgs, RouteObject } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,6 +15,7 @@ function createNavigationArgs(
   signal: AbortSignal = new AbortController().signal,
 ): PatchRoutesOnNavigationFunctionArgs {
   return {
+    fetcherKey: undefined,
     matches: [],
     patch,
     path,
@@ -40,14 +42,29 @@ describe('mapRouteTree', () => {
 describe('createDeferredRoutePatcher', () => {
   it('rejects duplicate keys and empty path patterns before navigation', () => {
     const duplicate: DeferredRoutePatch[] = [
-      { key: 'settings', loadChildren: async () => [], pathPatterns: ['/a'], routeId: 'root' },
-      { key: 'settings', loadChildren: async () => [], pathPatterns: ['/b'], routeId: 'root' },
+      {
+        key: 'settings',
+        loadChildren: () => Promise.resolve([]),
+        pathPatterns: ['/a'],
+        routeId: 'root',
+      },
+      {
+        key: 'settings',
+        loadChildren: () => Promise.resolve([]),
+        pathPatterns: ['/b'],
+        routeId: 'root',
+      },
     ];
 
     expect(() => createDeferredRoutePatcher(duplicate)).toThrow(/must be unique/);
     expect(() =>
       createDeferredRoutePatcher([
-        { key: 'empty', loadChildren: async () => [], pathPatterns: [], routeId: 'root' },
+        {
+          key: 'empty',
+          loadChildren: () => Promise.resolve([]),
+          pathPatterns: [],
+          routeId: 'root',
+        },
       ]),
     ).toThrow(/path pattern/);
   });
@@ -57,8 +74,18 @@ describe('createDeferredRoutePatcher', () => {
     const second = Promise.withResolvers<readonly RouteObject[]>();
     const patch = vi.fn();
     const patcher = createDeferredRoutePatcher([
-      { key: 'first', loadChildren: () => first.promise, pathPatterns: ['/area/*'], routeId: 'root' },
-      { key: 'second', loadChildren: () => second.promise, pathPatterns: ['/area/*'], routeId: 'first' },
+      {
+        key: 'first',
+        loadChildren: () => first.promise,
+        pathPatterns: ['/area/*'],
+        routeId: 'root',
+      },
+      {
+        key: 'second',
+        loadChildren: () => second.promise,
+        pathPatterns: ['/area/*'],
+        routeId: 'first',
+      },
     ]);
 
     const navigation = patcher.patchRoutesOnNavigation(createNavigationArgs('/area/page', patch));
@@ -91,7 +118,7 @@ describe('createDeferredRoutePatcher', () => {
   });
 
   it('preloads code without patching and reuses it during navigation', async () => {
-    const loadChildren = vi.fn(async () => [route('reports')]);
+    const loadChildren = vi.fn(() => Promise.resolve([route('reports')]));
     const patch = vi.fn();
     const patcher = createDeferredRoutePatcher([
       { key: 'reports', loadChildren, pathPatterns: ['/reports/*'], routeId: 'root' },
@@ -108,7 +135,7 @@ describe('createDeferredRoutePatcher', () => {
 
   it('does not patch an aborted navigation and keeps loaded code for the next navigation', async () => {
     const controller = new AbortController();
-    const loadChildren = vi.fn(async () => [route('billing')]);
+    const loadChildren = vi.fn(() => Promise.resolve([route('billing')]));
     const patch = vi.fn();
     const patcher = createDeferredRoutePatcher([
       { key: 'billing', loadChildren, pathPatterns: ['/billing'], routeId: 'root' },
@@ -145,7 +172,7 @@ describe('createDeferredRoutePatcher', () => {
   });
 
   it('skips non-matching or guarded branches', async () => {
-    const loadChildren = vi.fn(async () => [route('private')]);
+    const loadChildren = vi.fn(() => Promise.resolve([route('private')]));
     const patch = vi.fn();
     const patchRoutes = createPatchRoutesOnNavigation([
       {
@@ -162,5 +189,31 @@ describe('createDeferredRoutePatcher', () => {
 
     expect(loadChildren).not.toHaveBeenCalled();
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('patches a deferred branch through the real React Router v8 navigation contract', async () => {
+    const loadChildren = vi.fn(() =>
+      Promise.resolve<readonly RouteObject[]>([{ id: 'reports', path: 'reports' }]),
+    );
+    const patcher = createDeferredRoutePatcher([
+      { key: 'reports', loadChildren, pathPatterns: ['/reports'], routeId: 'root' },
+    ]);
+    const router = createMemoryRouter(
+      [{ id: 'root', path: '/', children: [{ id: 'home', index: true }] }],
+      {
+        initialEntries: ['/'],
+        patchRoutesOnNavigation: patcher.patchRoutesOnNavigation,
+      },
+    );
+
+    try {
+      await router.navigate('/reports');
+
+      expect(router.state.location.pathname).toBe('/reports');
+      expect(router.state.matches.map((match) => match.route.id)).toEqual(['root', 'reports']);
+      expect(loadChildren).toHaveBeenCalledOnce();
+    } finally {
+      router.dispose();
+    }
   });
 });

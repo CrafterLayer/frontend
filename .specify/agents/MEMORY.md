@@ -32,6 +32,21 @@ Current work belongs in `HANDOFF.md` and `context.json`.
   and commit-message commands; `react-monorepo-quality` wraps core delivery commands; and
   `professional-sdd` is the full gated workflow. Generated integration skills are never
   edited directly.
+- `@craftkit/query` creates caller-owned QueryClient instances and never exports a shared
+  singleton. Browser roots may retain one client; SSR creates one client per request.
+- `@craftkit/routing` targets React Router 8, imports DOM `RouterProvider` from
+  `react-router/dom`, and keeps deferred child modules behind stable explicit parent ids.
+- Route performance is governed by the Spec Kit `routing-performance` extension: measure
+  production chunks, separate code and data prefetch, use repeat-safe intent prefetch, and
+  keep host runtimes external from private library builds.
+- `@craftkit/icons` is intentionally a metadata-only placeholder. It must remain free of
+  source, runtime exports, dependencies, glyphs, tests, builds, and Storybook wiring until
+  a separately approved icon-system specification exists.
+- The `professional-sdd` workflow uses a fresh Codex invocation with `gpt-5.6-terra` for
+  both mandatory implementation reviews, independent of the implementation integration.
+  `gpt-5.6-luna` is an explicit fast-triage override, not a silent final-review fallback.
+  If Codex or the selected reviewer model is unavailable, fail and report the missing
+  review.
 
 ## Reusable Failure Modes
 
@@ -51,10 +66,15 @@ Current work belongs in `HANDOFF.md` and `context.json`.
   `implement` skills as modified base-managed files. When those are the only nine
   modifications and the preset registry owns all three integrations, treat the warning as
   expected composition; do not force an upgrade without re-checking this behavior.
+- With the current dependency graph, pnpm's `trustPolicy: no-downgrade` rejects transitive
+  `semver@6.3.1` from Babel. A one-time reviewed exclusion can generate the lockfile, but
+  never persist or broaden a trust exception without explicit approval and a documented
+  removal condition.
 
 ## Staleness Conditions
 
-Re-validate this file when React changes major version, the monorepo tool is selected,
-the workspace layout is created or moved, package boundaries change, Spec Kit changes
-its extension, preset, workflow, or monorepo model, or the user changes the
-one-component/docs/story/test contract.
+Re-validate this file when React, React Router, TanStack Query, or the selected reviewer
+model changes major version or availability; the workspace layout is moved; package
+boundaries change; an icon implementation is approved; the Babel dependency no longer
+requires `semver@6.3.1`; Spec Kit changes its extension, preset, workflow, or monorepo
+model; or the user changes the one-component, docs, story, and test contract.

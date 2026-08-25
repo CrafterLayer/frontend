@@ -37,10 +37,7 @@ export type {
 } from 'react-router';
 
 export { lazyWithRetry } from './lazy-with-retry';
-export type {
-  LazyWithRetryOptions,
-  PreloadableLazyComponent,
-} from './lazy-with-retry';
+export type { LazyWithRetryOptions, PreloadableLazyComponent } from './lazy-with-retry';
 export {
   createDeferredRoutePatcher,
   createPatchRoutesOnNavigation,

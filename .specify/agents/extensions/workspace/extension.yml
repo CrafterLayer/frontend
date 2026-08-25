@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: workspace
   name: "Workspace Governance"
-  version: "1.1.0"
+  version: "1.2.0"
   description: "Shared review, handoff, and commit-message commands for the monorepo"
   author: craftkit-builder
   license: MIT

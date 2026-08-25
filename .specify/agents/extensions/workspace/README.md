@@ -13,3 +13,7 @@ status is visible and review/handoff are not executed twice. Direct command user
 the matching operation when they are not running the full workflow. The extension source
 lives under `.specify/agents/`; install or reconcile it through Spec Kit instead of
 editing generated agent skills.
+
+The cross-integration review command remains model-neutral. The `professional-sdd`
+workflow binds its two review steps to Codex with `gpt-5.6-terra` by default, with Luna
+available only through an explicit workflow input override.

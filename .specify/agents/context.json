@@ -1,39 +1,49 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-24",
+  "updatedAt": "2026-08-25",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "monorepo-foundation-planning",
+    "phase": "routing-query-foundation-convergence",
     "applicationScaffoldPresent": false,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "main",
-    "gitCommitCount": 0
+    "gitCommitCount": 1
   },
   "technologyBaseline": {
     "react": {
       "target": "19.2.8",
-      "status": "required-not-installed",
-      "verifiedAt": "2026-08-24",
+      "status": "installed",
+      "verifiedAt": "2026-08-25",
       "policy": "Re-check the latest patched React 19.2 release before installation and keep react and react-dom identical."
     },
     "typescript": {
       "required": true,
-      "status": "not-installed"
+      "status": "installed-6.0.3"
     },
     "storybook": {
       "requiredForUi": true,
-      "status": "not-installed"
+      "status": "installed-10.5.10"
     },
     "testRunner": {
       "required": true,
-      "status": "not-selected"
+      "status": "vitest-4.1.11"
     },
     "monorepoTool": {
-      "status": "not-selected",
-      "selectionOwner": "first approved technical plan"
+      "status": "pnpm-11.23.0-and-turborepo-2.10.10",
+      "selectionOwner": "specs/workspace/001-monorepo-foundation"
+    },
+    "query": {
+      "status": "implemented",
+      "version": "@tanstack/react-query-5.102.2",
+      "ownership": "caller-owned QueryClient instances"
+    },
+    "routing": {
+      "status": "implemented",
+      "version": "react-router-8.3.0",
+      "pattern": "stable parent tree plus patchRoutesOnNavigation deferred children"
     }
   },
   "specKit": {
@@ -47,22 +57,29 @@
     ],
     "extensions": [
       "agent-context@1.0.0",
-      "workspace@1.1.0"
+      "workspace@1.2.0",
+      "routing-performance@1.0.0"
     ],
     "presets": [
       "react-monorepo-quality@1.0.2"
     ],
     "workflows": [
       "speckit@1.0.0",
-      "professional-sdd@1.2.0"
+      "professional-sdd@1.3.0"
     ],
     "professionalWorkflowSteps": 21,
+    "reviewerProfile": {
+      "integration": "codex",
+      "model": "gpt-5.6-terra",
+      "fastTriageOverride": "gpt-5.6-luna",
+      "fallback": "fail-closed when Codex or the selected model is unavailable"
+    },
     "integrationStatus": {
       "state": "warning-intentional-preset-composition",
       "modifiedManagedFiles": 9,
       "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade"
     },
-    "activeFeature": "specs/workspace/001-monorepo-foundation",
+    "activeFeature": "specs/workspace/002-routing-query-foundation",
     "scopeModel": "root governance plus scoped feature directories; member projects only for independent governance or release needs"
   },
   "sourcesOfTruth": {
@@ -79,6 +96,7 @@
     "runbooks": "docs/runbooks",
     "commitTemplate": ".specify/agents/templates/commit-message.txt",
     "extensionSource": ".specify/agents/extensions/workspace",
+    "routingPerformanceExtensionSource": ".specify/agents/extensions/routing-performance",
     "presetSource": ".specify/agents/presets/react-monorepo-quality",
     "workflowSource": ".specify/agents/workflows/professional-sdd/workflow.yml"
   },
@@ -95,14 +113,14 @@
     ]
   },
   "currentWork": {
-    "status": "in-progress",
+    "status": "requested-scope-complete-with-aggregate-blockers",
     "scope": "workspace",
-    "activeSpec": "specs/workspace/001-monorepo-foundation/spec.md",
-    "nextAction": "Complete the approved pnpm and Turborepo foundation plan, tasks, implementation, review, and convergence."
+    "activeSpec": "specs/workspace/002-routing-query-foundation/spec.md",
+    "nextAction": "Treat pnpm trust-policy and pre-existing Storybook/UI aggregate failures as a separate stabilization scope unless explicitly authorized."
   },
   "qualityGates": {
     "governanceConfigured": true,
-    "applicationToolingConfigured": false,
+    "applicationToolingConfigured": true,
     "mandatoryAgentGates": [
       "clarify",
       "spec approval",
@@ -116,12 +134,6 @@
       "handoff approval",
       "commit-message proposal"
     ],
-    "deferredUntilApplicationScaffold": [
-      "lint",
-      "typecheck",
-      "test",
-      "build-storybook",
-      "build"
-    ]
+    "deferredUntilApplicationScaffold": []
   }
 }

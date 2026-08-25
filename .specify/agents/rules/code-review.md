@@ -13,6 +13,27 @@ user asks for a review or readiness verdict.
 6. Fix accepted findings, then rerun affected checks.
 7. Run `speckit-converge` after implementation and review to find remaining artifact gaps.
 
+## Independent Reviewer Profile
+
+The `professional-sdd` workflow MUST dispatch both implementation-review steps through
+a fresh Codex CLI process using `gpt-5.6-terra` by default, regardless of whether Claude,
+Codex, or Cursor performed the implementation. The workflow owns this model binding so
+every integration uses the same reviewer contract.
+
+- Terra is the default final reviewer because this role prioritizes review quality while
+  keeping cost below the flagship coding model.
+- `gpt-5.6-luna` is an explicit cost-sensitive option for fast triage or large repetitive
+  diffs. It does not silently replace the Terra final review for material work.
+- The reviewer starts from the constitution, active artifacts, repository state, and real
+  diff. It MUST NOT accept the implementer's conclusions as evidence.
+- Review remains read-only. The reviewer reports findings; the primary implementation
+  agent owns accepted fixes, reruns, integration, and the user-facing verdict.
+- If Codex or the selected review model is unavailable, the workflow MUST fail and report
+  the missing review. It MUST NOT silently fall back to the implementation agent.
+
+Direct invocation of `speckit.workspace.review` uses the model selected by the calling
+tool. Use `professional-sdd` when the pinned independent reviewer is required.
+
 ## Review Priorities
 
 Review in this order:

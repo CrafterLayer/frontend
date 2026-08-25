@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 import { createQueryClient } from './create-query-client';
 import { QueryProvider } from './QueryProvider';
 
-type ClientProbeProps = {
+interface ClientProbeProps {
   expected: QueryClient;
   label: string;
-};
+}
 
 function ClientProbe({ expected, label }: ClientProbeProps) {
   const client = useQueryClient();
@@ -26,6 +26,6 @@ describe('QueryProvider', () => {
       </QueryProvider>,
     );
 
-    expect(screen.getByText('isolated client')).toBeVisible();
+    expect(screen.getByText('isolated client').textContent).toBe('isolated client');
   });
 });

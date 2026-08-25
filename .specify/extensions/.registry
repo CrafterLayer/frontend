@@ -21,10 +21,30 @@
       "registered_skills": [],
       "installed_at": "2026-08-24T16:26:22.104614+00:00"
     },
-    "workspace": {
-      "version": "1.1.0",
+    "routing-performance": {
+      "version": "1.0.0",
       "source": "local",
-      "manifest_hash": "sha256:3adfea618c922f5dcecb733c6241d6e749f9538603b11d1de6a299f22e39cfca",
+      "manifest_hash": "sha256:f622fe48dcb3074ac81f720be4e4bd5d47b16d67df00a296f4cebdd14eb7426a",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.routing-performance.optimize"
+        ],
+        "codex": [
+          "speckit.routing-performance.optimize"
+        ],
+        "cursor-agent": [
+          "speckit.routing-performance.optimize"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-25T09:51:50.273218+00:00"
+    },
+    "workspace": {
+      "version": "1.2.0",
+      "source": "local",
+      "manifest_hash": "sha256:706b404b49a7a9b0eeb8f5bc3844343dada7d8e3b4bad3756aeb53e8e1527c31",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
@@ -45,7 +65,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-08-24T16:59:55.295897+00:00"
+      "installed_at": "2026-08-25T10:08:50.039396+00:00"
     }
   }
 }

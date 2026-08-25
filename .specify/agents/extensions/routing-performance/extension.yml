@@ -1,0 +1,26 @@
+schema_version: "1.0"
+
+extension:
+  id: routing-performance
+  name: "Routing Performance"
+  version: "1.0.0"
+  description: "Shared route lazy-loading, query prefetch, and bundle-size workflow"
+  author: craftkit-builder
+  license: MIT
+  effect: read-write
+
+requires:
+  speckit_version: ">=1.0.0"
+
+provides:
+  commands:
+    - name: speckit.routing-performance.optimize
+      file: commands/speckit.routing-performance.optimize.md
+      description: "Analyze or implement route/query lazy boundaries and verify bundle impact"
+
+tags:
+  - routing
+  - tanstack-query
+  - lazy-loading
+  - bundles
+  - performance

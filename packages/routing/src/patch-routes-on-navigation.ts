@@ -4,20 +4,20 @@ import type {
   PatchRoutesOnNavigationFunctionArgs,
 } from 'react-router';
 
-export type DeferredRoutePatchPath = PathPattern<string> | string;
+export type DeferredRoutePatchPath = PathPattern | string;
 
-export type DeferredRoutePatch = {
+export interface DeferredRoutePatch {
   key: string;
   loadChildren: () => Promise<readonly RouteObject[]>;
   pathPatterns: readonly DeferredRoutePatchPath[];
   routeId: string | null;
   shouldPatch?: (args: PatchRoutesOnNavigationFunctionArgs) => boolean;
-};
+}
 
-export type DeferredRoutePatcher = {
+export interface DeferredRoutePatcher {
   patchRoutesOnNavigation: PatchRoutesOnNavigationFunction;
   preload: (path: string) => Promise<void>;
-};
+}
 
 export type RouteTreeMapper = (route: RouteObject) => RouteObject;
 
@@ -34,10 +34,7 @@ export function mapRouteTree(
   });
 }
 
-function matchesPatchPath(
-  pathPatterns: readonly DeferredRoutePatchPath[],
-  path: string,
-): boolean {
+function matchesPatchPath(pathPatterns: readonly DeferredRoutePatchPath[], path: string): boolean {
   return pathPatterns.some((pattern) => Boolean(matchPath(pattern, path)));
 }
 
@@ -96,8 +93,7 @@ export function createDeferredRoutePatcher(
 
   const preload = async (path: string): Promise<void> => {
     const matchingPatches = patches.filter(
-      (patch) =>
-        !appliedPatchKeys.has(patch.key) && matchesPatchPath(patch.pathPatterns, path),
+      (patch) => !appliedPatchKeys.has(patch.key) && matchesPatchPath(patch.pathPatterns, path),
     );
 
     await Promise.all(matchingPatches.map(loadPatchChildren));

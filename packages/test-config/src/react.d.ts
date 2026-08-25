@@ -1,3 +1,5 @@
-import type { UserConfig } from 'vitest/config';
+import type { ViteUserConfigExport } from 'vitest/config';
 
-export declare function createReactTestConfig(overrides?: UserConfig): UserConfig;
+export declare function createReactTestConfig(
+  overrides?: ViteUserConfigExport,
+): ViteUserConfigExport;

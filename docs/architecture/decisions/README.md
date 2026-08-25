@@ -1,12 +1,15 @@
 # Architecture Decision Records
 
-Architecture Decision Records (ADRs) capture material technical choices that affect
-multiple features, applications, packages, delivery workflows, or long-term maintenance.
+Architecture Decision Records (ADRs) capture material technical choices that affect multiple
+features, applications, packages, delivery workflows, or long-term maintenance.
 
 ## Accepted Decisions
 
-- [`0001-select-pnpm-turborepo.md`](0001-select-pnpm-turborepo.md) — pnpm 11 and
-  Turborepo 2 own the deterministic workspace graph and cache.
+- [`0001-select-pnpm-turborepo.md`](0001-select-pnpm-turborepo.md) — pnpm 11 and Turborepo 2 own the
+  deterministic workspace graph and cache.
+- [`0002-select-routing-query-foundations.md`](0002-select-routing-query-foundations.md) —
+  caller-owned TanStack Query clients, React Router v8 deferred-route helpers, and measured package
+  budgets.
 
 ## Naming
 
@@ -17,8 +20,8 @@ Use sequential filenames with a short kebab-case title:
 0002-select-application-framework.md
 ```
 
-Copy [`0000-template.md`](0000-template.md) and replace every placeholder. Do not edit a
-historical ADR to hide a changed decision; supersede it with a new ADR and link both.
+Copy [`0000-template.md`](0000-template.md) and replace every placeholder. Do not edit a historical
+ADR to hide a changed decision; supersede it with a new ADR and link both.
 
 ## Status Lifecycle
 
@@ -31,10 +34,8 @@ historical ADR to hide a changed decision; supersede it with a new ADR and link 
 
 ## When an ADR Is Required
 
-Create an ADR for choices such as framework and workspace tooling, rendering strategy,
-package boundaries, cross-app state or API contracts, authentication architecture,
-deployment topology, observability, or an intentional exception to the standard
-dependency model.
+Create an ADR for choices such as framework and workspace tooling, rendering strategy, package
+boundaries, cross-app state or API contracts, authentication architecture, deployment topology,
+observability, or an intentional exception to the standard dependency model.
 
-A small implementation detail local to one feature normally belongs in its Spec Kit
-plan instead.
+A small implementation detail local to one feature normally belongs in its Spec Kit plan instead.

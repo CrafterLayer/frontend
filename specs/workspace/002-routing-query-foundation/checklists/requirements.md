@@ -17,6 +17,7 @@
 - [x] Query client ownership and SSR isolation are testable
 - [x] Deferred route patching, abort, concurrency, retry, and preload behavior are testable
 - [x] Bundle externalization and byte budgets are measurable
+- [x] The icon request is bounded to an empty package with no libraries or glyph content
 - [x] Spec Kit rule and generated command ownership are explicit
 - [x] Edge cases, assumptions, rollback, and staleness conditions are covered
 

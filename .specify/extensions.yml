@@ -1,5 +1,6 @@
 installed:
 - agent-context
+- routing-performance
 - workspace
 settings:
   auto_execute_hooks: true

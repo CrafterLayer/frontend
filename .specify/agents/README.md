@@ -28,6 +28,7 @@ Do not load every rule on every task. Do not copy detailed policy into `AGENTS.m
 | --- | --- |
 | React components, hooks, UI architecture, Storybook, component tests | `rules/react-ui.md` |
 | Apps, packages, dependency boundaries, cross-app features, Spec Kit scope | `rules/monorepo.md` |
+| React Router trees, route/query prefetch, lazy chunks, bundle size | `rules/routing-performance.md` |
 | Sub-agents, parallel work, context transfer, interrupted work | `rules/collaboration.md` |
 | Reviewing implementation or a diff | `rules/code-review.md` |
 | Generating or validating a commit message | `rules/commits.md` |
@@ -63,9 +64,17 @@ be reduced to optional cleanup. The `workspace` extension provides:
 | Shared context and handoff refresh | `/speckit-workspace-handoff` | `$speckit-workspace-handoff` |
 | Diff-based commit message | `/speckit-workspace-commit` | `$speckit-workspace-commit` |
 
+The `routing-performance` extension adds the shared
+`speckit.routing-performance.optimize` operation for route/query lazy-boundary and bundle
+audits.
 The `professional-sdd` workflow runs review, final handoff, and commit-message generation
 as explicit engine steps. This makes their status observable and prevents duplicate hook
 execution. The commit step generates text only; it never stages, commits, or pushes.
+
+Both workflow review steps always start a fresh Codex reviewer with `gpt-5.6-terra`, even
+when Claude or Cursor implements the change. Use `review_model=gpt-5.6-luna` only for an
+explicit fast, cost-sensitive triage pass. If Codex or the selected model is unavailable,
+the workflow fails closed instead of silently self-reviewing in the implementer context.
 
 Use the installed `professional-sdd` workflow for significant product or platform work:
 
@@ -104,7 +113,8 @@ SPECIFY_FEATURE_DIRECTORY="specs/apps/<app>/<feature>" \
   -i 'scope=app:<app>' \
   -i 'feature_directory=specs/apps/<app>/<feature>' \
   -i 'spec=<feature description>' \
-  -i 'integration=claude'
+  -i 'integration=claude' \
+  -i 'review_model=gpt-5.6-terra'
 ```
 
 Each approval gate is interactive by default. For non-TTY automation, pass the matching

@@ -25,7 +25,7 @@ describe('createQueryClient', () => {
     const client = createQueryClient({ onQueryError });
 
     await expect(
-      client.fetchQuery({
+      client.query({
         queryFn: () => Promise.reject(error),
         queryKey: ['failing-query'],
         retry: false,

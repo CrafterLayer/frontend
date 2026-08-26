@@ -22,13 +22,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Install pinned pnpm and Node
-        uses: pnpm/setup@v2.0.1
+        uses: pnpm/setup@v2.0.2
         with:
           version: 11.23.0
           runtime: node@24.19.0

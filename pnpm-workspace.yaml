@@ -1,31 +1,40 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
+  - 'packages/builder/*'
+  - 'packages/builder/extensions/*'
 
 catalog:
-  "@tanstack/react-query": 5.102.2
-  "@eslint/js": 10.0.1
-  "@storybook/addon-a11y": 10.5.10
-  "@storybook/addon-docs": 10.5.10
-  "@storybook/addon-vitest": 10.5.10
-  "@storybook/react-vite": 10.5.10
-  "@testing-library/dom": 10.4.1
-  "@testing-library/jest-dom": 7.0.0
-  "@testing-library/react": 16.3.2
-  "@testing-library/user-event": 14.6.6
-  "@types/node": 24.13.3
-  "@types/react": 19.2.18
-  "@types/react-dom": 19.2.5
-  "@vitejs/plugin-react": 6.1.0
-  "@vitest/browser-playwright": 4.1.11
-  "@vitest/coverage-v8": 4.1.11
+  '@tanstack/react-query': 5.102.2
+  '@tiptap/core': 3.30.3
+  '@tiptap/pm': 3.30.3
+  '@tiptap/react': 3.30.3
+  '@tiptap/starter-kit': 3.30.3
+  '@eslint/js': 10.0.1
+  '@storybook/addon-a11y': 10.5.10
+  '@storybook/addon-docs': 10.5.10
+  '@storybook/addon-vitest': 10.5.10
+  '@storybook/react-vite': 10.5.10
+  '@testing-library/dom': 10.4.1
+  '@testing-library/jest-dom': 7.0.0
+  '@testing-library/react': 16.3.2
+  '@testing-library/user-event': 14.6.6
+  '@types/node': 24.13.3
+  '@types/react': 19.2.18
+  '@types/react-dom': 19.2.5
+  '@vitejs/plugin-react': 6.1.0
+  '@vitest/browser-playwright': 4.1.11
+  '@vitest/coverage-v8': 4.1.11
   eslint: 10.9.0
   eslint-config-prettier: 10.1.8
   eslint-plugin-react-hooks: 7.1.1
   eslint-plugin-react-refresh: 0.5.4
   eslint-plugin-storybook: 10.5.10
+  fast-check: 4.9.0
   globals: 17.11.0
+  immer: 11.1.18
   jsdom: 30.0.1
+  nanoid: 6.0.1
   playwright: 1.62.1
   prettier: 3.9.6
   react: 19.2.8
@@ -37,6 +46,8 @@ catalog:
   typescript-eslint: 8.67.0
   vite: 8.2.2
   vitest: 4.1.11
+  zod: 4.4.3
+  zustand: 5.0.15
 
 sharedWorkspaceLockfile: true
 saveWorkspaceProtocol: rolling
@@ -49,6 +60,12 @@ strictDepBuilds: true
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 trustPolicy: no-downgrade
+# User-authorized exact exception (session 2026-08-25, delegated decision per HANDOFF
+# "Next Exact Action"): transitive semver@6.3.1 from the existing Babel toolchain is
+# older than the semver majors already trusted elsewhere in the graph, tripping
+# no-downgrade. Scope is this one exact version; do not broaden.
+trustPolicyExclude:
+  - semver@6.3.1
 blockExoticSubdeps: true
 
 allowBuilds:

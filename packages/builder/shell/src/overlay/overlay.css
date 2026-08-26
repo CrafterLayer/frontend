@@ -1,0 +1,84 @@
+/* Canvas chrome (005 R6/R11): shell-owned --bldr-* tokens with inline fallbacks,
+   logical properties only, transforms for geometry. Independent of the document's
+   --t-* theme — chrome must stay readable over any content theme. */
+
+.bldr-overlay {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Outline boxes are MEASURED-GEOMETRY chrome: their origin and translate() use
+   physical coordinates on purpose — logical insets would move the origin under
+   RTL and corrupt the measured math. (The logical-properties law governs
+   content flow styling; labels below stay logical.) */
+.bldr-outline {
+  border-radius: 2px;
+  height: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  width: 0;
+}
+
+.bldr-outline--hover {
+  outline: 1px dashed var(--bldr-hover, #6366f1);
+  outline-offset: 1px;
+}
+
+.bldr-outline--selection {
+  outline: 2px solid var(--bldr-selection, #4f46e5);
+  outline-offset: 1px;
+}
+
+.bldr-outline__label {
+  background: var(--bldr-selection, #4f46e5);
+  border-radius: 3px;
+  color: var(--bldr-label-text, #ffffff);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  inset-block-start: -20px;
+  inset-inline-start: 0;
+  line-height: 1;
+  padding-block: 3px;
+  padding-inline: 6px;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.bldr-outline--hover .bldr-outline__label {
+  background: var(--bldr-hover, #6366f1);
+}
+
+/* Drag chrome (B2b) — same physical-geometry exception as the outlines. */
+.bldr-drag-ghost {
+  border: 2px dashed var(--bldr-selection, #4f46e5);
+  border-radius: 4px;
+  left: 0;
+  opacity: 0.6;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+}
+
+.bldr-drop-indicator {
+  background: var(--bldr-drop, #16a34a);
+  border-radius: 1px;
+  left: 0;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+}
+
+.bldr-drop-parent {
+  border-radius: 4px;
+  left: 0;
+  outline: 1px dashed var(--bldr-drop, #16a34a);
+  outline-offset: 2px;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+}

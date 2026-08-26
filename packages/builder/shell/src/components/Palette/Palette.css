@@ -1,0 +1,50 @@
+.bldr-palette {
+  background: var(--bldr-panel, #f8fafc);
+  border-inline-end: 1px solid var(--bldr-panel-border, #e2e8f0);
+  inline-size: 180px;
+  overflow-y: auto;
+  padding-block: 12px;
+  padding-inline: 12px;
+}
+
+.bldr-palette__title {
+  color: var(--bldr-panel-text, #334155);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-block: 0 8px;
+  text-transform: uppercase;
+}
+
+.bldr-palette__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bldr-palette__entry {
+  background: var(--bldr-panel-item, #ffffff);
+  border: 1px solid var(--bldr-panel-border, #e2e8f0);
+  border-radius: 6px;
+  color: var(--bldr-panel-text, #334155);
+  cursor: grab;
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: 13px;
+  inline-size: 100%;
+  padding-block: 8px;
+  padding-inline: 10px;
+  text-align: start;
+}
+
+.bldr-palette__entry:hover {
+  border-color: var(--bldr-selection, #4f46e5);
+}
+
+.bldr-palette__entry:focus-visible {
+  outline: 2px solid var(--bldr-selection, #4f46e5);
+  outline-offset: 1px;
+}

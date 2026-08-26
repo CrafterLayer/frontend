@@ -9,6 +9,11 @@
     "rootDir": "./src",
     "types": ["react", "react-dom"]
   },
-  "include": ["src/index.ts", "src/components/**/*.ts", "src/components/**/*.tsx"],
+  "include": [
+    "src/index.ts",
+    "src/globals.d.ts",
+    "src/components/**/*.ts",
+    "src/components/**/*.tsx"
+  ],
   "exclude": ["src/**/*.stories.tsx", "src/**/*.test.tsx"]
 }

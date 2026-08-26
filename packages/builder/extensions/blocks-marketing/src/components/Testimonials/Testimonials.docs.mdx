@@ -1,0 +1,24 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TestimonialsStories from './Testimonials.stories';
+
+<Meta of={TestimonialsStories} />
+
+# Testimonials
+
+Customer quotes with attribution, rendered as semantic figures.
+
+## Props (intent-only)
+
+- `heading: string (1–80) = 'Loved by teams'`
+- `items (≤6): Array<{ quote (1–240); author (1–60); role? (≤60) }> = []`
+
+## Accessibility
+
+A labelled `section`; each quote is a `figure` with a `blockquote` and a `figcaption` naming the
+author.
+
+## Theming & RTL
+
+Tokens + logical properties; the accent bar uses `border-inline-start`, so it sits on the reading
+side in both directions.

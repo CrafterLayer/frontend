@@ -1,4 +1,4 @@
-import type { UserConfig } from 'vitest/config';
+import type { ViteUserConfig } from 'vitest/config';
 
 export interface StorybookTestConfigOptions {
   configDir: string;
@@ -7,4 +7,4 @@ export interface StorybookTestConfigOptions {
 
 export declare function createStorybookTestConfig(
   options: StorybookTestConfigOptions,
-): UserConfig;
+): ViteUserConfig;

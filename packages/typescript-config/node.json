@@ -3,13 +3,9 @@
   "display": "CraftKit Node",
   "extends": "./base.json",
   "compilerOptions": {
-    "lib": [
-      "ES2024"
-    ],
+    "lib": ["ES2024"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   }
 }

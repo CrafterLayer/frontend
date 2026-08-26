@@ -1,0 +1,28 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as NodeViewStories from './NodeView.stories';
+
+<Meta of={NodeViewStories} />
+
+# NodeView
+
+The live renderer's per-node unit — the subscription boundary that makes scoped re-rendering real:
+it subscribes to exactly one node and to the registry epoch.
+
+## Usage
+
+Internal to `DocumentView`; not part of the preset's public surface. Documented because it IS the
+performance law's mechanism.
+
+## API
+
+- `kernel: BuilderKernel` — by prop (the renderer never imports the react-bindings context; layer
+  law).
+- `id: NodeId`, `breakpoint: RenderBreakpoint`.
+- `onBlockRender?: (nodeId) => void` — test instrumentation for SC-002 counting.
+
+## Behavior
+
+- Registered type → block renderer with cascade-resolved props and slot children in document order.
+- Unregistered type (never loaded, or disposed at runtime) → `UnknownBlock`.
+- Removed node → renders nothing (parents update in the same commit).

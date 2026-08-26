@@ -1,0 +1,38 @@
+.bldr-richtext {
+  color: var(--t-text, #111827);
+  /* Typography is INHERITED from the page/block that hosts the prose — the
+     theme token set carries colors, radius, and gap, never fonts (§11
+     convergence fix: `--t-font-*` named variables no theme can ever set). */
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+.bldr-richtext p {
+  margin-block: 0.5em;
+}
+
+.bldr-richtext h2,
+.bldr-richtext h3,
+.bldr-richtext h4 {
+  font-family: inherit;
+  line-height: 1.25;
+  margin-block: 0.75em 0.35em;
+}
+
+.bldr-richtext ul,
+.bldr-richtext ol {
+  margin-block: 0.5em;
+  padding-inline-start: 1.5em;
+}
+
+.bldr-richtext__link {
+  /* A REAL token (§11 convergence fix): `--t-primary` was never in the set, so
+     links were permanently hardcoded — including ~3.8:1 on the dark surface. */
+  color: var(--t-accent, #4f46e5);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.bldr-richtext__dead-link {
+  text-decoration: underline dotted;
+}

@@ -33,7 +33,9 @@ jobs:
           version: 11.23.0
           runtime: node@24.19.0
           install: false
-          cache: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          cache:
+            ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name
+            == github.repository }}
 
       - name: Confirm toolchain identity
         run: |

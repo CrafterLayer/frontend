@@ -1,0 +1,41 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as FieldControlsStories from './FieldControls.stories';
+
+<Meta of={FieldControlsStories} />
+
+# FieldControls
+
+The Inspector's default field library (milestone B3a) — five small controls, one catalog entry,
+because they ship and evolve as a single unit behind field resolution: `TextField` (string),
+`SelectField` (enum, members derived from the schema itself), `SwitchField` (boolean), `NumberField`
+(number), and `ReadOnlyField` (the accessible fallback for anything unmatched). They are INTERNAL to
+the shell: apps never import them; extensions replace them per-property through the field-type
+contribution point.
+
+## The contract they implement
+
+Every control consumes the public `FieldProps` (`schema`, `value`, `path`, `onChange`, `disabled`)
+plus shell extras (`controlId`, `describedBy`, `placeholder`) the Inspector row provides. Commits go
+through `onChange` — one call per change, which the host turns into one kernel transaction;
+validation lives at the door, never in the control.
+
+## Draft discipline (document truth)
+
+Text and number controls hold a LOCAL DRAFT only for states the document cannot hold yet — an
+emptied `.min(1)` string, a trailing-dot number. The draft is seeded on the first change (never on
+focus) and is dropped the moment an incoming value is not this draft's own commit — so undo, redo,
+and external writes always show through, even mid-focus, and a rejected value stays visible
+(described via `aria-describedby`) instead of snapping back under the caret.
+
+## When not to use
+
+Never directly from an app — compose the `Inspector` instead. For a custom editing experience,
+contribute a field type (`FieldTypeDef`) rather than forking a control.
+
+## Known limitations
+
+- `NumberField` accepts what `type="number"` accepts; locale-specific separators are the browser's
+  business.
+- `ReadOnlyField` shows compact JSON — large objects are readable but unformatted (rich leaf editing
+  is B3b's scope).

@@ -1,0 +1,29 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PageStories from './Page.stories';
+
+<Meta of={PageStories} />
+
+# Page
+
+The structural document root shipped by the preset's `defaultBlocks` starter set: a `main` landmark
+flowing its `default` slot children in document order.
+
+## Usage
+
+Documents start with one `page` node as their root; applications never place it by hand —
+`emptyDocument()` and fixtures do. Its vocabulary lists every insertable top-level type, including
+`announcement` (whose renderer registers at runtime in the playground demo).
+
+## Props
+
+- `title: string = ''` — used as the landmark's accessible label when non-empty.
+
+## Slots
+
+- `default` — allows: hero, features, pricing, testimonials, cta, announcement.
+
+## Accessibility / RTL / Theming
+
+`main` landmark; logical properties and `--t-*` tokens only, so direction and theme come from the
+frame.

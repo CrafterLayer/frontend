@@ -1,0 +1,13 @@
+.bldr-page {
+  background: var(--t-surface, #ffffff);
+  color: var(--t-text, #111827);
+  display: flex;
+  flex-direction: column;
+  gap: var(--t-gap, 16px);
+  margin-inline: auto;
+  max-inline-size: 72rem;
+  min-block-size: 100%;
+  padding-block: var(--t-gap, 16px);
+  padding-inline: var(--t-gap, 16px);
+  text-align: start;
+}

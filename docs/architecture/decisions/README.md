@@ -10,6 +10,12 @@ features, applications, packages, delivery workflows, or long-term maintenance.
 - [`0002-select-routing-query-foundations.md`](0002-select-routing-query-foundations.md) —
   caller-owned TanStack Query clients, React Router v8 deferred-route helpers, and measured package
   budgets.
+- [`0003-builder-dependency-law.md`](0003-builder-dependency-law.md) — the builder layer law (schema
+  ← core ← engines ← shell ← extensions ← preset) enforced by the workspace validators instead of
+  experimental Turbo tags.
+- [`0004-builder-tier2-declarative-model.md`](0004-builder-tier2-declarative-model.md) — tier-2
+  builder content is JsonValue-typed declarative data compiled by Tier-1; executable content is
+  structurally unrepresentable and rejected in depth.
 
 ## Naming
 

@@ -1,0 +1,64 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as RichTextFieldStories from './RichTextField.stories';
+
+<Meta of={RichTextFieldStories} />
+
+# RichTextField
+
+The contributed rich-text editor (milestone B3b) — the workspace's FIRST third-party editing
+dependency, contained to this one extension package. It reaches the inspector through the standard
+field-type contribution point: `richTextExtension` registers a lazy field whose `match` recognizes
+the `richText()` schema marker, so blocks declare rich properties with zero panel code and sessions
+that never edit rich text never load the engine.
+
+## Commit law
+
+Every editor update commits exactly ONE transaction: the engine's JSON is projected onto the stored
+whitelist (extra engine attributes stripped) and dispatched through the door, which remains the
+strict authority. Document truth holds both ways — an incoming value that is not this field's own
+last emission (undo, redo, external writes) re-seeds the editor; own emissions never round-trip into
+caret fights.
+
+## The subset
+
+StarterKit configured DOWN to the stored whitelist: paragraphs, headings 2–4, bold, italic, links,
+bullet/ordered lists, hard breaks. Everything else (code, blockquote, strike, underline, rules) is
+disabled at the editor, and the door rejects it regardless.
+
+## Usage
+
+```tsx
+import { createBuilder, richTextExtension, richText } from '@craftkit/builder';
+
+const kernel = createBuilder({ document, extensions: [myBlocks, richTextExtension] });
+// A block declares: props: z.object({ body: richText() }) — nothing else needed.
+```
+
+## API (the public FieldProps contract)
+
+| Prop       | Type                   | Notes                                       |
+| ---------- | ---------------------- | ------------------------------------------- |
+| `schema`   | `z.ZodType`            | the marked rich-text declaration            |
+| `value`    | `unknown`              | stored JSON (document truth)                |
+| `path`     | `(string \| number)[]` | commit path; responsive paths show a notice |
+| `onChange` | `(next) => void`       | ONE call per commit                         |
+| `disabled` | `boolean`              | mirrors into the editor's editable state    |
+
+## Accessibility & RTL
+
+The toolbar is a labeled group of real buttons with `aria-pressed`; the content area is the engine's
+accessible editing surface; the B3a row supplies the structural property label. Direction follows
+the document (see the RTL story).
+
+## When not to use
+
+Plain strings belong to the default text field; rendering stored rich text belongs to the
+zero-dependency `RichText` component — never mount an editor on the read path.
+
+## Known limitations
+
+- Responsive rich-text overrides are deferred (the field shows a notice under override buckets and
+  edits the base only).
+- The link button uses a minimal prompt flow; the design milestone replaces it.
+- Editing keyboard shortcuts are the engine's defaults (Cmd/Ctrl-B, -I, list shortcuts).

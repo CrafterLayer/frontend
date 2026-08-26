@@ -1,0 +1,25 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as FeaturesStories from './Features.stories';
+
+<Meta of={FeaturesStories} />
+
+# Features
+
+A grid of feature cards driven entirely by document data.
+
+## Props (intent-only)
+
+- `heading: string (1–80) = 'Features'`
+- `columns: '2' | '3' = '3'`
+- `items: Array<{ title: string (1–60); body: string (1–160) }> = []`
+
+## Accessibility
+
+A labelled `section` with an `h2` heading and a semantic `ul` list; each card is a list item with an
+`h3`.
+
+## Theming & RTL
+
+Tokens + logical properties only; `text-align: start` follows the document direction. An empty
+`items` list renders just the heading (no placeholder rows).

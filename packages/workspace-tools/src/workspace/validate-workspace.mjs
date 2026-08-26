@@ -1,8 +1,13 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { createDiagnostic, compareDiagnostics } from '../shared/diagnostics.mjs';
 import { isPathInside } from '../shared/paths.mjs';
 import { discoverWorkspace } from './discover-workspace.mjs';
+import {
+  validateBuilderBoundaries,
+  validateRootContainedDependencies,
+} from './validate-builder-boundaries.mjs';
 
 const DEPENDENCY_SECTIONS = Object.freeze([
   'dependencies',
@@ -28,6 +33,10 @@ export async function validateWorkspace(repositoryRoot) {
 
   const graph = validateDependencies(discovery.members, membersByName, diagnostics);
   validateCycles(graph, membersByName, diagnostics);
+  validateBuilderBoundaries(discovery.members, membersByName, diagnostics);
+  // The root manifest is not a member, but anything declared there hoists into
+  // every package's resolution path (008 §10 review fix).
+  await validateRootManifest(discovery.repositoryRoot, diagnostics);
 
   diagnostics.sort(compareDiagnostics);
 
@@ -37,6 +46,20 @@ export async function validateWorkspace(repositoryRoot) {
     diagnostics,
     valid: diagnostics.length === 0,
   };
+}
+
+/**
+ * @param {string} repositoryRoot
+ * @param {import('../shared/diagnostics.mjs').ContractDiagnostic[]} diagnostics
+ */
+async function validateRootManifest(repositoryRoot, diagnostics) {
+  const manifestPath = path.join(repositoryRoot, 'package.json');
+  try {
+    const raw = await readFile(manifestPath, 'utf8');
+    validateRootContainedDependencies(JSON.parse(raw), 'package.json', diagnostics);
+  } catch {
+    // A repository without a root manifest is out of scope for this check.
+  }
 }
 
 function indexMembersByName(members) {
@@ -127,7 +150,7 @@ function validateDependencies(members, membersByName, diagnostics) {
               code: 'MISSING_WORKSPACE_TARGET',
               ownerPath: member.manifestPath,
               dependency: dependencyName,
-              message: `${section} declares "${dependencyName}": "${range}", but no direct apps/* or packages/* member has that name.`,
+              message: `${section} declares "${dependencyName}": "${range}", but no apps/*, packages/*, or packages/builder/* member has that name.`,
             }),
           );
           continue;

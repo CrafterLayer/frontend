@@ -1,0 +1,19 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as RegisterDemoExtensionStories from './RegisterDemoExtension.stories';
+
+<Meta of={RegisterDemoExtensionStories} />
+
+# RegisterDemoExtension
+
+Registers the `playground-demo` extension AT RUNTIME and inserts one announcement through an
+ordinary kernel command — proving that a block whose renderer never shipped at mount becomes usable
+without a reload. Disposing downgrades the block on screen to the explicit fallback marker.
+
+## API
+
+- `kernel: BuilderKernel`
+
+## Accessibility
+
+A single action button whose label states the next action.

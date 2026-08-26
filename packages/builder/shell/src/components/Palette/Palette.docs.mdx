@@ -1,0 +1,47 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PaletteStories from './Palette.stories';
+
+<Meta of={PaletteStories} />
+
+# Palette
+
+The registered block vocabulary as an insertable list (milestone B2b). Entries come straight from
+the kernel's registry catalog — display names from block schema descriptions — and stay live under
+runtime extension registration and disposal (the kernel-intrinsic catalog version, the same
+race-proof pattern the canvas uses).
+
+## Two insert paths
+
+- **Keyboard / click**: activating an entry inserts AFTER the current selection when its parent slot
+  accepts the type; otherwise the placement walks UP from the selection to the document root and
+  appends into the first slot whose rules accept it. If nothing accepts, nothing is dispatched and
+  the palette's polite live region explains why.
+- **Drag**: pressing an entry hands an insert payload to the editing canvas through its drag handle;
+  from that point the canvas owns the ghost, the insertion indicator, and target resolution — the
+  same session machinery as rearranging, so every rule (allow lists, max counts, one transaction per
+  drop, zero-trace cancel) holds identically.
+
+## Usage
+
+```tsx
+import { EditorCanvas, Palette } from '@craftkit/builder';
+
+const [handle, setHandle] = useState<CanvasDragHandle>();
+<Palette kernel={kernel} dragHandle={handle} />
+<EditorCanvas kernel={kernel} theme={theme} editable onDragHandle={setHandle} />;
+```
+
+## API
+
+| Prop         | Type               | Notes                                                   |
+| ------------ | ------------------ | ------------------------------------------------------- |
+| `kernel`     | `BuilderKernel`    | required; by prop (the shell never reads React context) |
+| `dragHandle` | `CanvasDragHandle` | optional; absent ⇒ keyboard-insert only                 |
+
+## Accessibility
+
+A labelled `nav` of real buttons — activation, focus, and announcement behavior are native; the
+insert outcome is voiced through a polite live region. RTL follows logical properties throughout.
+
+<Canvas of={PaletteStories.Default} />

@@ -1,0 +1,77 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EditorCanvasStories from './EditorCanvas.stories';
+
+<Meta of={EditorCanvasStories} />
+
+# EditorCanvas
+
+The builder's read-only canvas (milestone B2a): the B1 preview frame plus canvas chrome — a hover
+outline under the pointer, a persistent selection outline with the block's display name, keyboard
+traversal, and extension-contributed canvas tools. **Zero editing gestures**: nothing on this canvas
+mutates the document; drag, drop, resize and inline editing arrive with later milestones.
+
+## Usage
+
+```tsx
+import { EditorCanvas, createBuilder, lightTheme } from '@craftkit/builder';
+
+<EditorCanvas kernel={kernel} theme={lightTheme} />;
+```
+
+The kernel arrives **by prop**. Clicking a block calls `kernel.setSelection([id])` — selection made
+programmatically or by any other surface renders identically, because the chrome draws FROM kernel
+state (single source of truth).
+
+## The zero-render law
+
+Pointer movement, hovering, selecting, and clearing cause **zero document-content re-renders**.
+React renders this component's scaffold once; the hot path lives in plain TypeScript machinery that
+positions prebuilt chrome elements directly, batched to the display's frame rhythm. Geometry comes
+from an observer-invalidated index (element resize, scroll, viewport resize, direction flip) — never
+from polling and never from per-interaction measurement.
+
+## API
+
+| Prop            | Type                      | Notes                                                                                                                                                                        |
+| --------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kernel`        | `BuilderKernel`           | required; by prop                                                                                                                                                            |
+| `theme`         | `Theme`                   | forwarded to the preview frame's token variables                                                                                                                             |
+| `title`         | `string`                  | accessible name (default "Editor canvas")                                                                                                                                    |
+| `onToolError`   | `(toolId, error) => void` | canvas-tool failures are contained here                                                                                                                                      |
+| `geometryPorts` | `Partial<GeometryPorts>`  | test-only injection (jsdom has no layout)                                                                                                                                    |
+| `onBlockRender` | `(nodeId) => void`        | test/dev instrumentation (zero-render proofs)                                                                                                                                |
+| `editable`      | `boolean`                 | B2b drag editing; absent ⇒ B2a byte-compatible                                                                                                                               |
+| `onDragHandle`  | `(handle) => void`        | receives the external-insert entry point                                                                                                                                     |
+| `frameWidth`    | `number`                  | B3a device emulation: narrows + centers the frame shell (the overlay layer shares its origin, so chrome stays aligned with zero coordinate translation); absent ⇒ full width |
+
+Known limitation: `frameWidth` caps at 100% of the host (`maxInlineSize`), so on a viewport narrower
+than the chosen width the visual frame is narrower than the editing bucket's width — the bucket
+follows the CHOSEN width (intent), not the measured one. Invalid widths (0, negative, NaN) fall back
+to full width. Pass `breakpoint` alongside `frameWidth` so the content renders the same bucket the
+inspector edits.
+
+## Accessibility
+
+The canvas host is a focusable named region. Arrow keys traverse siblings (Down/Up) and step
+into/out of slots (Right/Left, mirrored under RTL content); Escape clears; Tab is never trapped. A
+polite live region announces `<name> selected` / `Selection cleared` — the dependable channel across
+the frame boundary — while outlines carry the visible name label.
+
+## Drag editing (`editable`)
+
+With `editable`, pressing a block and crossing a 4px threshold starts a drag session — ghost
+outline, valid-target highlight, and an insertion indicator that flips before/after with the pointer
+half (an empty container is targetable through the middle band). The session is pure chrome until
+the drop: exactly ONE `moveNode`/`insertNode` transaction on commit, byte-identical zero-trace on
+cancel (Escape, no-target release, or the node vanishing mid-drag). Slot rules (allow lists, `max`
+with the own-slot exemption, never-into-own-subtree) gate targets at resolution time and provably
+agree with the command door. `Alt+Arrows` performs the same moves without a pointer; the palette
+hands insert payloads into the same session through `onDragHandle`. Without `editable`, none of this
+machinery exists — B2a behavior is byte-compatible.
+
+## RTL and theming
+
+Chrome geometry is measured (physical) and therefore direction-proof; a live `dir` flip reflows the
+content and the observer channel repositions the chrome. Chrome colors read shell-owned `--bldr-*`
+custom properties with fallbacks, independent of the document's `--t-*` theme.

@@ -1,0 +1,40 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LayersTreeStories from './LayersTree.stories';
+
+<Meta of={LayersTreeStories} />
+
+# LayersTree
+
+The document's structure as a navigable tree (milestone B2b). Rows derive from the SAME ordering
+model the canvas traverses — slots in schema declaration order, children in array order — so tree
+order and canvas order can never disagree. Selection is the kernel's own state in both directions:
+clicking a row selects on the canvas, and a selection made anywhere else highlights the row and
+expands its ancestors to reveal it.
+
+Expand/collapse is pure view state — it never touches the document, history, or transaction log.
+Document changes (undo included) re-derive the rows without reload; a removed selected node's
+highlight clears because the kernel itself prunes dangling selection ids.
+
+## Usage
+
+```tsx
+import { LayersTree } from '@craftkit/builder';
+
+<LayersTree kernel={kernel} />;
+```
+
+## API
+
+| Prop     | Type            | Notes                                                   |
+| -------- | --------------- | ------------------------------------------------------- |
+| `kernel` | `BuilderKernel` | required; by prop (the shell never reads React context) |
+
+## Accessibility
+
+A labelled ARIA tree (`tree`/`treeitem`, `aria-expanded`, `aria-selected`, `aria-level`) with roving
+tabindex: Up/Down walk VISIBLE rows, Right/Left expand-or-step-in and collapse-or-step-out (mirrored
+under RTL content), Enter/Space select. Focus follows the active row only while it is already inside
+the tree — the component never steals focus on mount or reveal.
+
+<Canvas of={LayersTreeStories.Default} />

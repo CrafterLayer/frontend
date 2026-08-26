@@ -8,6 +8,7 @@
   ],
   "exports": {
     "./base.json": "./base.json",
+    "./headless.json": "./headless.json",
     "./node.json": "./node.json",
     "./react-library.json": "./react-library.json",
     "./storybook.json": "./storybook.json"

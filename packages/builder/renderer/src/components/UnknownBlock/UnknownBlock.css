@@ -1,0 +1,10 @@
+.bldr-unknown-block {
+  border: 1px dashed var(--t-text-muted, #6b7280);
+  border-radius: var(--t-radius, 8px);
+  color: var(--t-text-muted, #6b7280);
+  font-size: 0.875rem;
+  margin-block: var(--t-gap, 16px);
+  padding-block: 8px;
+  padding-inline: 12px;
+  text-align: start;
+}

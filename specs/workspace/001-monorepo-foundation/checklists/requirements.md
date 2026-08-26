@@ -33,7 +33,7 @@
 
 ## Notes
 
-- pnpm and Turborepo are explicit user-selected constraints, so naming them does not count
-  as accidental solution leakage.
-- Exact compatible versions and configuration details are resolved in `research.md` and
-  `plan.md` from current primary sources.
+- pnpm and Turborepo are explicit user-selected constraints, so naming them does not count as
+  accidental solution leakage.
+- Exact compatible versions and configuration details are resolved in `research.md` and `plan.md`
+  from current primary sources.

@@ -1,0 +1,47 @@
+.mkt-features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--t-gap, 16px);
+  padding-block: 32px;
+  text-align: start;
+}
+
+.mkt-features__heading {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mkt-features__grid {
+  display: grid;
+  gap: var(--t-gap, 16px);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkt-features__grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mkt-features__grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mkt-features__card {
+  background: var(--t-surface, #ffffff);
+  border: 1px solid var(--t-text-muted, #6b7280);
+  border-radius: var(--t-radius, 12px);
+  padding-block: 16px;
+  padding-inline: 16px;
+}
+
+.mkt-features__title {
+  font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+.mkt-features__body {
+  color: var(--t-text-muted, #6b7280);
+  margin: 0;
+}

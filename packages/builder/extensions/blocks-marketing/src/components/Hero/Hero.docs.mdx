@@ -1,0 +1,40 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as HeroStories from './Hero.stories';
+
+<Meta of={HeroStories} />
+
+# Hero
+
+The opening section of a page: one large heading, optional supporting body, and up to two
+call-to-action buttons in its `actions` slot.
+
+## Document usage
+
+```json
+{
+  "type": "hero",
+  "props": { "tone": "dark", "align": "center", "heading": "عود يليق بذوقك" },
+  "slots": { "actions": ["cta-1"] }
+}
+```
+
+## Props (intent-only)
+
+- `tone: 'light' | 'dark' = 'light'`
+- `align: 'start' | 'center' = 'center'` — logical alignment (RTL-safe).
+- `heading: string (1–80) = 'Your headline'`
+- `body?: string (≤200)`
+
+## Slots
+
+- `actions` — allows `cta`, max 2.
+
+## Accessibility
+
+A labelled `section` landmark whose name is the heading; the heading is a real `h1`.
+
+## Theming & RTL
+
+Only `--t-*` tokens and logical properties; `align: start` follows the document direction
+automatically.

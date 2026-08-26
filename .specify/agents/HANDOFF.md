@@ -1,77 +1,86 @@
 # Active Work Handoff
 
-**Status:** Requested scope implemented; aggregate workspace verification remains blocked
+**Status:** idle — B3b rich text implemented, reviewed (two independent lenses), converged
+(13-agent adversarial audit), and fully verified; commit authorization pending for
+B0 + B1 + B2a + B2b + B3a + B3b
 
-**Updated:** 2026-08-25
+**Updated:** 2026-08-26
 
-**Scope:** Workspace packages and shared routing-performance governance
+**Scope:** `specs/workspace/008-builder-b3b-rich-text` (workspace scope: ONE new member
+`@craftkit/builder-richtext` owning the workspace's first third-party editing dependency; a
+layer-0 schema module; a zero-dependency renderer component; one adopting block; a new
+workspace-validator rule; preset surface and playground composition)
 
-**Active Spec:** `specs/workspace/002-routing-query-foundation`
+**Active Spec:** `specs/workspace/008-builder-b3b-rich-text` (all artifacts complete; tasks
+20/20 done incl. Phase 7 Convergence)
 
 ## Objective
 
-Finish the shared query and routing foundations, retain `@craftkit/icons` as an empty
-metadata-only package, and converge the Spec Kit routing-performance workflow.
+Rich-text leaf props end to end: declare a rich property in a block schema, edit it through
+the B3a field road with a real editor, render it everywhere through a dependency-free path —
+and adopt the editing engine as an isolated, auditable, mechanically-contained decision.
 
 ## Completed
 
-- `@craftkit/query` owns explicit QueryClient construction, provider wiring, curated
-  exports, cache error callbacks, and per-request SSR isolation guidance.
-- `@craftkit/routing` owns React Router 8 exports, a deferred route patcher with ordered
-  application/concurrent import dedupe/abort safety/retryable failures, and preloadable
-  lazy components with bounded stale-chunk recovery.
-- `@craftkit/icons` contains only `package.json`; it has no source, runtime entry,
-  dependency, glyph, build, test, or Storybook contract.
-- Query and routing production builds externalize host runtimes and pass 8 KiB and 16 KiB
-  raw entry budgets respectively.
-- The `routing-performance` Spec Kit extension is installed and its generated skills are
-  synchronized for Claude, Codex, and Cursor.
-- `professional-sdd` dispatches both independent review steps through a fresh Codex
-  process using `gpt-5.6-terra` by default; Luna is an explicit fast-triage override only.
-- ADR 0002 and the architecture/development indexes describe the package boundaries and
-  performance workflow.
+- **Dependency decision (the milestone's reason to exist)**: `@tiptap/{react,starter-kit,
+  core,pm}@3.30.3` exact catalog pins, published 2026-08-24 (≥ 24h policy), 50 packages, zero
+  lockfile collisions, zero trust-policy prompts — recorded with the transitive inventory and
+  the no-downgrade proof in research R1 / contract §6.
+- **Containment made MECHANICAL**: new `BUILDER_CONTAINED_DEPENDENCY` validator rule — only
+  `@craftkit/builder-richtext` may declare the engine, in any dependency section, including
+  through an npm ALIAS, and including the WORKSPACE ROOT manifest (which hoists into every
+  package's resolution path). Five workspace-tools tests; the negative executed and reverted.
+  A discovery-derived import-graph test matches import SPECIFIERS (prose is not a leak; a
+  `.ProseMirror` style copy is).
+- **Schema door** (`schema/src/rich-text/`): `richText()` (meta marker + strict whitelist),
+  `isRichTextSchema`, `emptyRichText`, `RichTextDoc` types. The whitelist is deliberately no
+  looser than what a ProseMirror-family editor can LOAD — non-empty doc, list items opening
+  with a paragraph, one mark of a kind — because a document the door accepts but the editor
+  cannot open gets silently emptied and then overwritten by the next keystroke. An iterative
+  depth pre-check is piped ahead of shape validation (recursive zod overflows first).
+- **Renderer** (`renderer/src/components/RichText/`): zero-dependency whitelist renderer with
+  a hostile-href allowlist (backslash protocol-relative smuggling included), unknown-type
+  degradation, a recursion ceiling whose escape hatch is itself iterative, first-link-mark-only
+  anchors (nested anchors break DOM/static parity), and canvas≡static parity asserted.
+- **Editor** (`extensions/richtext/`): lazy contributed field through the B3a road; StarterKit
+  configured DOWN to the stored whitelist with the RENDERER's allowlist as its link gate; one
+  projected transaction per update; document truth on external writes AND on refused ones;
+  loud `onContentError` instead of a silent empty; live a11y attributes on the contenteditable
+  (`EditorContent` spreads onto a wrapper div, which cannot be labeled); focus-preserving
+  toolbar; split into RichTextField / RichTextEditor / RichTextToolbar / ToolbarButton /
+  ResponsiveNotice.
+- **Adoption**: `RichTextBlock` in blocks-marketing with zero panel code; the playground
+  landing fixture carries one; scenario 8 proves the whole loop including a real toolbar edit.
+- **Shell addition**: `FieldControlProps.labelledBy` (additive) so any contributed
+  non-labelable surface can name itself.
+- **Storybook**: the `direction` global is now actually wired — every RTL story in the
+  repository had been rendering LTR, so the standing RTL evidence proved nothing.
+
+## Verification (all green, 2026-08-26)
+
+`pnpm verify` EXIT=0. Builder-family unit tests 551 (schema 100, core 89, react 10,
+renderer 70, shell 177, blocks 22, richtext 23, preset 45, playground 15); Storybook Chromium
+98 at a11y error; gates 18 members / 28 components / 531 boundary files; boundary negatives
+executed+reverted (LAYER_VIOLATION, FAMILY_ACCESS, CONTAINED_DEPENDENCY).
+
+## Blockers / Decisions Required (USER)
+
+- **Commit authorization** for six pending batches, in order, never merged: B0 (003+chore),
+  B1 (004), B2a (005), B2b (006), B3a (007), B3b (008). NO commit has ever been made
+  (standing instruction "بس ما تسوي commit").
 
 ## Next Exact Action
 
-Treat workspace-wide stabilization as a separate authorized scope. It requires a decision
-on the exact pnpm exception `trustPolicyExclude: semver@6.3.1`, followed by fixes for the
-pre-existing Storybook/UI aggregate failures. Do not weaken the global trust policy,
-broaden the exception, or change unrelated Storybook/UI files implicitly.
+**B3c — inline editing & floating toolbars** (`specs/workspace/009-builder-b3c-inline-editing`,
+spec.md written): edit text where it lives on the canvas, a bubble toolbar for quick
+formatting, and a block action bar — the "feels like Puck" gestures. USER DIRECTION
+(2026-08-26): study Puck and GrapesJS and ADOPT/VENDOR their proven techniques rather than
+inventing from scratch; a prior-art research pass is the first task and must land before any
+design is fixed. Then B4 (transforms/code-view), then the DESIGN MILESTONE (user decision:
+after B4; hand-rolled token system, not Tailwind), then B5+.
 
-## Changed Files
+## Recovery
 
-See the current workspace diff or file listing. Do not use this section as a substitute
-for inspecting the actual diff.
-
-## Verification
-
-- Query: lint/typecheck/build/size passed; 4 tests passed with 100% coverage.
-- Routing: lint/typecheck/build/size passed; 21 tests passed with 98.11% statement and
-  96.72% branch coverage. The tests include real React Router 8 navigation patching.
-- Output sizes: query `dist/index.js` 1,523 bytes; routing `dist/index.js` 4,602 bytes.
-- Query/routing ESLint, workspace structure validation, component validation, Turbo
-  boundaries, graph planning, and independent read-only review passed.
-- Spec Kit 1.0.1 reports the expected nine preset-composed managed-file warnings, with no
-  missing or invalid manifest paths.
-
-## Blockers
-
-The lockfile was generated after a one-time reviewed exclusion, but an ordinary frozen
-install is blocked by pnpm's `no-downgrade` policy for transitive `semver@6.3.1` from the
-existing Babel toolchain. Persisting the exact exception requires user approval. The
-unchanged baseline also has three separate aggregate failures: root ESLint cannot attach
-Storybook's dot-directory files to its TS project, UI coverage counts a stories file and
-misses its global threshold, and Storybook rejects simultaneous MDX docs plus the existing
-`autodocs` tag. These files were deliberately left unchanged to preserve task scope.
-
-## Replacement Template
-
-When pausing unfinished work, replace the sections above with:
-
-- objective and declared monorepo scope;
-- active spec, plan, and tasks paths;
-- completed work with exact file paths;
-- next executable steps in order;
-- verification commands and outcomes;
-- blockers and required user decisions; and
-- any safe rollback or recovery notes.
+Everything re-derivable from `specs/workspace/008-builder-b3b-rich-text/*` (contract §§1–8 is
+the full as-implemented record, including the dual-review and convergence fix logs) plus
+`pnpm verify`. No uncommitted state outside the working tree.

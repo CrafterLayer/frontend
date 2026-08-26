@@ -7,6 +7,9 @@ import { toRepositoryPath } from '../shared/paths.mjs';
 const MEMBER_ROOTS = Object.freeze([
   Object.freeze({ directory: 'apps', kind: 'app' }),
   Object.freeze({ directory: 'packages', kind: 'package' }),
+  // Builder family: nested grouping folders without their own package.json.
+  Object.freeze({ directory: 'packages/builder', kind: 'package' }),
+  Object.freeze({ directory: 'packages/builder/extensions', kind: 'package' }),
 ]);
 
 /**
@@ -24,8 +27,11 @@ const MEMBER_ROOTS = Object.freeze([
  */
 
 /**
- * Discover only direct `apps/*` and `packages/*` directories that own a package.json.
- * Nested fixtures and generated output are intentionally outside this member model.
+ * Discover the directories that own a package.json under the declared member roots:
+ * direct `apps/*` and `packages/*`, plus the nested builder family
+ * (`packages/builder/*` and `packages/builder/extensions/*`). Grouping folders
+ * without a manifest, nested fixtures, and generated output are intentionally
+ * outside this member model.
  *
  * @param {string} repositoryRoot
  * @returns {Promise<{repositoryRoot: string, members: WorkspaceMember[], diagnostics: import('../shared/diagnostics.mjs').ContractDiagnostic[]}>}

@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-25",
+  "updatedAt": "2026-08-26",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "routing-query-foundation-convergence",
-    "applicationScaffoldPresent": false,
+    "phase": "builder-b3b-rich-text-delivered",
+    "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "main",
-    "gitCommitCount": 1
+    "gitCommitCount": 2
   },
   "technologyBaseline": {
     "react": {
@@ -44,6 +44,49 @@
       "status": "implemented",
       "version": "react-router-8.3.0",
       "pattern": "stable parent tree plus patchRoutesOnNavigation deferred children"
+    },
+    "builderKernel": {
+      "status": "implemented",
+      "packages": [
+        "@craftkit/builder-schema",
+        "@craftkit/builder-core"
+      ],
+      "dependencies": "zod-4.4.3, immer-11.1.18, zustand-5.0.15 (vanilla), nanoid-6.0.1, fast-check-4.9.0",
+      "mode": "internal-packages (src exports, no build step)",
+      "boundaryEnforcement": "workspace-tools validate-builder-boundaries (ADR 0003)",
+      "securityModel": "tier-2 declarative JsonValue-only (ADR 0004)",
+      "note": "B3a fixed a latent B0 defect: dispatch now appends log/history BEFORE store.write (uSES snapshots are checked synchronously inside the notification) — 003 contract §15."
+    },
+    "builderView": {
+      "status": "implemented",
+      "packages": [
+        "@craftkit/builder-react",
+        "@craftkit/builder-renderer",
+        "@craftkit/builder",
+        "@craftkit/builder-blocks-marketing",
+        "@craftkit/playground"
+      ],
+      "entrypointLaw": "apps import ONLY @craftkit/builder (BUILDER_FAMILY_ACCESS is CI-fatal); layer-2 siblings never import each other — the renderer takes the kernel by prop",
+      "registrySnapshot": "kernel-intrinsic extensions.version() read via useSyncExternalStore (never listener-derived)",
+      "theming": "CSS custom properties --t-*; blocks use logical properties only"
+    },
+    "builderShell": {
+      "status": "implemented-inspector-devices-preview",
+      "packages": [
+        "@craftkit/builder-shell"
+      ],
+      "scope": "B2a read-only canvas + B2b drag editing + B3a editing surface: schema-generated Inspector (zero panel code per block; guarded one-dispatch commits; structural group labeling; per-def lazy field-type cache with containment and R8 focus lock), default field library (draft discipline: external writes always win), DeviceBar + bucketForWidth (768/1024 half-open, drafts commit on blur/Enter only), EditorCanvas frameWidth+breakpoint (frame shell shares origin with overlay), PreviewMode (publish-safe path, zero-tx round trip, modal-surface Escape, view-state dir override).",
+      "performanceLaw": "merge gates count (0 content re-renders, observer-attributed updates); wall-clock budgets belong to uncontended evidence runs only",
+      "chromeTheming": "shell-owned --bldr-* custom properties with inline fallbacks, independent of the document --t-* theme"
+    },
+    "builderRichText": {
+      "status": "implemented",
+      "packages": [
+        "@craftkit/builder-richtext"
+      ],
+      "dependencies": "@tiptap/{react,starter-kit,core,pm} 3.30.3 (exact catalog pins)",
+      "containment": "BUILDER_CONTAINED_DEPENDENCY validator rule (all sections + npm aliases + the workspace ROOT manifest) plus a discovery-derived import-specifier graph test",
+      "readPath": "zero-dependency RichText renderer — canvas, preview, and static output never load the engine"
     }
   },
   "specKit": {
@@ -79,7 +122,7 @@
       "modifiedManagedFiles": 9,
       "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade"
     },
-    "activeFeature": "specs/workspace/002-routing-query-foundation",
+    "activeFeature": "specs/workspace/008-builder-b3b-rich-text",
     "scopeModel": "root governance plus scoped feature directories; member projects only for independent governance or release needs"
   },
   "sourcesOfTruth": {
@@ -113,10 +156,10 @@
     ]
   },
   "currentWork": {
-    "status": "requested-scope-complete-with-aggregate-blockers",
+    "status": "b3b-implemented-reviewed-converged-awaiting-commit-authorization",
     "scope": "workspace",
-    "activeSpec": "specs/workspace/002-routing-query-foundation/spec.md",
-    "nextAction": "Treat pnpm trust-policy and pre-existing Storybook/UI aggregate failures as a separate stabilization scope unless explicitly authorized."
+    "activeSpec": "specs/workspace/008-builder-b3b-rich-text/spec.md",
+    "nextAction": "User authorizes committing B0+B1+B2a+B2b+B3a+B3b via the /speckit-workspace-commit proposals (never auto-committed). Milestone order: B3c inline editing + floating toolbars (specs/workspace/009-builder-b3c-inline-editing — user direction 2026-08-26: study Puck/GrapesJS and adopt/vendor proven techniques, prior-art research first) -> B4 transforms/code-view -> DESIGN MILESTONE (hand-rolled token system, not Tailwind) -> B5+ (ai -> widgets -> import/history)."
   },
   "qualityGates": {
     "governanceConfigured": true,

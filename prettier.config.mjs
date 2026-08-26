@@ -1,13 +1,13 @@
 /** @type {import('prettier').Config} */
 const config = {
-  arrowParens: "always",
+  arrowParens: 'always',
   bracketSameLine: false,
   printWidth: 100,
-  proseWrap: "always",
+  proseWrap: 'always',
   semi: true,
   singleQuote: true,
   tabWidth: 2,
-  trailingComma: "all",
+  trailingComma: 'all',
 };
 
 export default config;

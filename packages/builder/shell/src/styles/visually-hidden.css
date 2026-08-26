@@ -1,0 +1,10 @@
+/* The ONE definition of the screen-reader-only utility (007 review M2): every
+   component that renders a live region or hidden label imports this file. */
+.bldr-visually-hidden {
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}

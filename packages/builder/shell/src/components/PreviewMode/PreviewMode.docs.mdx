@@ -1,0 +1,71 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PreviewModeStories from './PreviewMode.stories';
+
+<Meta of={PreviewModeStories} />
+
+# PreviewMode
+
+The "see it as a visitor" surface (milestone B3a). Renders the document through the PUBLISH-SAFE
+path — the isolated themed frame plus the live document tree with no geometry attachment, no overlay
+chrome, and no editable wiring. Content stays live (an external document change renders through) and
+interactive, exactly as the published page would behave.
+
+## Zero transactions, by construction
+
+Preview never dispatches: the whole enter → interact → direction-flip → exit round trip creates zero
+transactions and the document stays reference-identical. The direction toggle is VIEW state
+(`dirOverride`) applied to the frame only — the playground's document-mutating flip (`setDocMeta`)
+remains a separate, deliberate path. Selection is untouched, so exiting restores the editing surface
+exactly as it was left.
+
+## Exits
+
+Preview is a modal surface: focus moves into the region on entry, and Escape is bound at the HOST
+DOCUMENT for the preview's lifetime — it exits wherever focus happens to be, including inside the
+preview frame (which carries its own listener, since keydown does not cross document boundaries). A
+floating "Exit preview" control is always visible. All paths call the same `onExit`.
+
+## Usage
+
+```tsx
+import { PreviewMode } from '@craftkit/builder';
+
+{previewing ? (
+  <PreviewMode
+    kernel={kernel}
+    theme={theme}
+    dirOverride={flipped ? oppositeDir : null}
+    onExit={() => setPreviewing(false)}
+  />
+) : (
+  /* the editing composition */
+)}
+```
+
+## API
+
+| Prop          | Type                       | Notes                                           |
+| ------------- | -------------------------- | ----------------------------------------------- |
+| `kernel`      | `BuilderKernel`            | required; read-only here — never dispatched to  |
+| `theme`       | `Theme`                    | required; the frame's injected token theme      |
+| `dirOverride` | `ContentDirection \| null` | optional view-state direction; null = document  |
+| `onExit`      | `() => void`               | required; Escape (both documents) + exit button |
+
+## Accessibility & RTL
+
+A labeled, focusable region (focused on entry); the exit control is a real button; entry announces
+through a named polite region ("Preview messages") as a post-mount mutation. The direction override
+renders true RTL inside the frame.
+
+## When not to use
+
+Not a publish pipeline — it renders the live kernel document; static output is
+`renderStaticMarkup`'s job.
+
+## Known limitations
+
+- Preview renders the desktop/base breakpoint at full width; previewing responsive overrides under
+  an emulated device width is a follow-up (the contract declares no width input yet).
+- Exit-focus restoration is the composing surface's responsibility (it knows which trigger opened
+  the preview).

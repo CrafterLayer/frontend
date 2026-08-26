@@ -1,0 +1,29 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as UnknownBlockStories from './UnknownBlock.stories';
+
+<Meta of={UnknownBlockStories} />
+
+# UnknownBlock
+
+The explicit fallback the renderers show for a document node whose type has no registered renderer —
+either because the extension never loaded or because it was disposed while its nodes were on screen.
+
+## Usage
+
+Never used directly by applications: `DocumentView` and `StaticDocument` render it automatically. It
+names the missing type so authors and developers can tell WHAT is missing, and it must never break
+surrounding content.
+
+## API
+
+- `type: string` — the unregistered node type.
+
+## Accessibility
+
+Rendered as a `role="note"` aside with readable text; it is informational and non-interactive.
+
+## Theming & RTL
+
+Uses only `--t-*` tokens with fallbacks and logical properties, so it follows the frame's theme and
+direction automatically.

@@ -1,0 +1,58 @@
+.mkt-pricing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--t-gap, 16px);
+  padding-block: 32px;
+  text-align: start;
+}
+
+.mkt-pricing__heading {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mkt-pricing__grid {
+  display: grid;
+  gap: var(--t-gap, 16px);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkt-pricing__plan {
+  border: 1px solid var(--t-text-muted, #6b7280);
+  border-radius: var(--t-radius, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block: 20px;
+  padding-inline: 20px;
+}
+
+.mkt-pricing__plan--highlighted {
+  border-color: var(--t-accent, #4f46e5);
+  box-shadow: 0 0 0 1px var(--t-accent, #4f46e5);
+}
+
+.mkt-pricing__name {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.mkt-pricing__price {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.mkt-pricing__period {
+  color: var(--t-text-muted, #6b7280);
+  font-size: 0.9rem;
+}
+
+.mkt-pricing__features {
+  color: var(--t-text-muted, #6b7280);
+  margin: 0;
+  padding-inline-start: 18px;
+}

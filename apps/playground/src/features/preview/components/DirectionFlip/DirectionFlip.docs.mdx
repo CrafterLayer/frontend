@@ -1,0 +1,18 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as DirectionFlipStories from './DirectionFlip.stories';
+
+<Meta of={DirectionFlipStories} />
+
+# DirectionFlip
+
+Flips the document's content direction via `dispatch('setDocMeta', { dir })` — an ordinary undoable
+command; the preview frame follows live while the host UI's direction is untouched.
+
+## API
+
+- `kernel: BuilderKernel`
+
+## Accessibility
+
+A labelled button announcing the current and next direction.

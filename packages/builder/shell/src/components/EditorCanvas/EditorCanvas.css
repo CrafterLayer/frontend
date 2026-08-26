@@ -1,0 +1,18 @@
+.bldr-canvas-host {
+  block-size: 100%;
+  inline-size: 100%;
+  position: relative;
+}
+
+/* Device emulation shell (007 §6): the frame and its overlay layer share this
+   origin, so a narrowed, centered frame keeps chrome aligned by construction. */
+.bldr-canvas-frame-shell {
+  block-size: 100%;
+  margin-inline: auto;
+  position: relative;
+}
+
+.bldr-canvas-host:focus-visible {
+  outline: 2px solid var(--bldr-selection, #4f46e5);
+  outline-offset: 2px;
+}

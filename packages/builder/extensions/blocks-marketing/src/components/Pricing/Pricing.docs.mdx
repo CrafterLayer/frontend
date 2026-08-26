@@ -1,0 +1,25 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PricingStories from './Pricing.stories';
+
+<Meta of={PricingStories} />
+
+# Pricing
+
+Plans side by side from document data; one plan may be highlighted as recommended.
+
+## Props (intent-only)
+
+- `heading: string (1–80) = 'Pricing'`
+- `plans (≤4): Array<{ name (1–40); price (1–20); period: 'month' | 'year'; features: string[] (≤8, each ≤80); highlighted?: boolean }> = []`
+
+## Accessibility
+
+A labelled `section`; plans are a semantic list; each plan has an `h3` and its features are a nested
+list. Highlighting is conveyed by the accent border AND by document order/reading — never color
+alone carrying meaning beyond emphasis.
+
+## Theming & RTL
+
+Tokens + logical properties; `padding-inline-start` keeps the feature bullets on the correct side in
+RTL.

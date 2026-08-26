@@ -1,0 +1,25 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CtaStories from './Cta.stories';
+
+<Meta of={CtaStories} />
+
+# Cta
+
+A call-to-action button: short label, emphasis level, optional supporting note. Used standalone on a
+page or inside a hero's `actions` slot.
+
+## Props (intent-only)
+
+- `label: string (1–40) = 'Get started'`
+- `emphasis: 'primary' | 'ghost' = 'primary'`
+- `note?: string (≤80)` — small supporting text under the button.
+
+## Accessibility
+
+A real `button` element (keyboard-reachable, labelled by its visible text); the focus ring uses the
+accent token and stays visible in both themes.
+
+## Theming & RTL
+
+Accent/token driven; the note aligns with `text-align: start`, following the document direction.

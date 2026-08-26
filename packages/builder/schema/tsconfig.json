@@ -1,0 +1,10 @@
+{
+  "extends": "@craftkit/typescript-config/headless.json",
+  "compilerOptions": {
+    // No ambient type packages: kernel source must not see Node/DOM/test globals.
+    // Module imports (zod, `import type` from react) resolve normally.
+    "types": []
+  },
+  "include": ["src", "vitest.config.ts"],
+  "exclude": ["coverage"]
+}

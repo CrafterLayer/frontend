@@ -1,0 +1,76 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as InspectorStories from './Inspector.stories';
+
+<Meta of={InspectorStories} />
+
+# Inspector
+
+The generated properties panel (milestone B3a). Selecting a block renders that block's schema as
+labeled controls — text for strings, select for enumerations, switch for booleans, number inputs for
+numbers, with optional/default/nullable wrappers unwrapped and everything else shown as an
+accessible read-only value. Blocks ship ZERO panel code: the panel derives entirely from the schema
+the block already registers.
+
+## Document truth, one transaction per commit
+
+Every committed change is exactly one kernel dispatch — `setProp` in the base bucket,
+`setResponsive` under tablet/mobile. Controls render from the document (undo, redo, and external
+edits show through; the panel holds no copy of its own), and a value the schema rejects at the door
+changes nothing: the rejection reason appears next to the control via `aria-describedby` and in the
+panel's polite live region.
+
+## Responsive buckets
+
+With `bucket="tablet"` (or `"mobile"`) the panel reads and writes that bucket's overrides: a marked
+override chip shows exactly where the bucket owns a value, the clear affordance removes it in one
+transaction, and inherited base values appear as placeholders (text/number) or effective values
+(select/switch). Only VALUES ever vary by bucket — structure never does (Law R).
+
+## Extensible field types
+
+Resolution consults the registry's field-type contributions first: the highest `match(schema)` score
+wins, ties break by registration order, components load lazily, and a contribution that fails to
+load or throws falls back to the default control for that one property — the rest of the panel keeps
+working. A focused control keeps its renderer until blur, so a runtime registration never steals the
+caret mid-typing.
+
+## Usage
+
+```tsx
+import { Inspector } from '@craftkit/builder';
+
+<Inspector kernel={kernel} bucket={bucket} />;
+```
+
+## API
+
+| Prop     | Type            | Notes                                                      |
+| -------- | --------------- | ---------------------------------------------------------- |
+| `kernel` | `BuilderKernel` | required; by prop (the shell never reads React context)    |
+| `bucket` | `EditingBucket` | optional; `'base'` (default) edits props, others overrides |
+
+## Accessibility & RTL
+
+Labeling is STRUCTURAL: every control slot is a named group (`aria-labelledby` the property key,
+description chain included), so a contributed component always renders inside a context that carries
+the property name; input-like renderers take their own name via `controlId` and the visible label
+(contributed input-like fields should consume `controlId`). Rejections attach via `aria-describedby`
+(the override marker joins the same description chain); commits, rejections, and clears announce
+through a named polite region ("Inspector messages"). All layout uses logical properties, so LTR and
+RTL shells render correctly (see the RTL story).
+
+## When not to use
+
+Not a form library — it edits exactly the selected block's schema properties through the kernel
+door. For app-owned settings UI, use your own forms; for custom property editors, contribute a field
+type.
+
+## Known limitations
+
+- One node at a time: a multi-id selection edits the first id (the shell's single-selection law
+  since B2a).
+- Choice controls (select/switch) under an override bucket show the effective value; pinning an
+  override EQUAL to the base takes two changes (away and back) — text/number express inheritance as
+  a placeholder instead.
+- Rich text leaf props are B3b's scope (its own dependency decision).

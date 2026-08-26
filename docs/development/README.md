@@ -4,8 +4,8 @@
 
 ## Guides
 
-- [`workspace.md`](workspace.md) — Node/pnpm setup, root and filtered commands, member
-  creation, dependency security, cache behavior, and troubleshooting.
+- [`workspace.md`](workspace.md) — Node/pnpm setup, root and filtered commands, member creation,
+  dependency security, cache behavior, and troubleshooting.
 
 This directory will own repeatable developer workflows shared across the monorepo:
 
@@ -19,8 +19,8 @@ This directory will own repeatable developer workflows shared across the monorep
 - contribution and review workflow.
 
 The package manager and workspace task runner are approved in
-[`ADR 0001`](../architecture/decisions/0001-select-pnpm-turborepo.md). Each command added
-here must be runnable from the path it documents and state the expected outcome.
+[`ADR 0001`](../architecture/decisions/0001-select-pnpm-turborepo.md). Each command added here must
+be runnable from the path it documents and state the expected outcome.
 
-Member-specific setup belongs in `apps/<app>/README.md` or `packages/<package>/README.md`
-and should link back to shared workspace setup rather than copying it.
+Member-specific setup belongs in `apps/<app>/README.md` or `packages/<package>/README.md` and should
+link back to shared workspace setup rather than copying it.

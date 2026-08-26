@@ -1,0 +1,19 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as FixturePickerStories from './FixturePicker.stories';
+
+<Meta of={FixturePickerStories} />
+
+# FixturePicker
+
+Controlled select choosing the playground's fixture document (marketing landing or empty page).
+Switching fixtures recreates the kernel — documents are data, kernels are sessions.
+
+## API
+
+- `value: 'landing' | 'empty'`
+- `onChange(next)`
+
+## Accessibility
+
+A native labelled `select`.

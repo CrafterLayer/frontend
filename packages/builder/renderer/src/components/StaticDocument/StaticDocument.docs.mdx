@@ -1,0 +1,31 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StaticDocumentStories from './StaticDocument.stories';
+
+<Meta of={StaticDocumentStories} />
+
+# StaticDocument
+
+Publish-grade rendering: the whole document as a pure function of (document, blocks, breakpoint). No
+kernel, no subscriptions, no effects — the same input always yields the same output, which the tests
+assert byte-for-byte via `renderStaticMarkup`.
+
+## Usage
+
+```tsx
+<StaticDocument document={doc} blocks={registry.block} breakpoint="mobile" />;
+// or, for a string:
+renderStaticMarkup(doc, { blocks: registry.block, breakpoint: 'mobile' });
+```
+
+## API
+
+- `document: BuilderDocument`
+- `blocks: (type) => RegisteredBlock | undefined` — any lookup with the registry's `block` shape
+  works; publishing pipelines can pass a plain map.
+- `breakpoint?: 'desktop' | 'tablet' | 'mobile'` — cascade-resolved per the kernel law.
+
+## Parity
+
+Live (`DocumentView`) and static output share the same per-node markup shape by construction; the
+US3 suite asserts content parity on the fixtures.

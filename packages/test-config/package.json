@@ -7,6 +7,10 @@
     "src"
   ],
   "exports": {
+    "./node": {
+      "types": "./src/node.d.ts",
+      "default": "./src/node.mjs"
+    },
     "./react": {
       "types": "./src/react.d.ts",
       "default": "./src/react.mjs"
@@ -29,6 +33,7 @@
   "dependencies": {
     "@storybook/addon-vitest": "catalog:",
     "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/browser-playwright": "catalog:"
   },

@@ -82,3 +82,25 @@
   top: 0;
   visibility: hidden;
 }
+
+/* Floating toolbars (B3c) — the host positions these imperatively, so the only
+   job here is to make them a fixed origin that accepts pointer input while the
+   layer around them stays transparent to it. Physical origin: same
+   measured-geometry exception as the outlines above. */
+.bldr-floating {
+  left: 0;
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  z-index: 2;
+}
+
+/* While a block's text is open for editing in place, the surface's own focus
+   ring is the chrome — the selection outline and its label stand down rather
+   than stacking three borders on one paragraph. `display`, not `visibility`:
+   the controller writes visibility inline on the hot path and must win the
+   moment the session ends. */
+.bldr-overlay--editing .bldr-outline--selection {
+  display: none;
+}

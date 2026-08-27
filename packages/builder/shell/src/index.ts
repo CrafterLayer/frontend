@@ -35,3 +35,34 @@ export {
   type InlineSessionHandle,
 } from './overlay/inline-session';
 export { InlineTextSurface, type InlineTextSurfaceProps } from './components/InlineTextSurface';
+export { InlineRichSurface } from './components/InlineRichSurface';
+export {
+  isMarkActive,
+  plainTextOf,
+  replaceRange,
+  richTextLength,
+  toggleMark,
+  type TextRange,
+  type ToggleableMark,
+} from './inline/mark-range';
+export { TextBubble, type TextBubbleAction, type TextBubbleProps } from './components/TextBubble';
+export { BlockActionBar, type BlockActionBarProps } from './components/BlockActionBar';
+export {
+  performBlockAction,
+  resolveBlockActions,
+  type BlockAction,
+  type BlockActionId,
+  type BlockActionResult,
+} from './overlay/block-actions';
+export {
+  createAnchorChannel,
+  type AnchorChannel,
+  type AnchorSnapshot,
+} from './overlay/anchor-channel';
+export {
+  createFloatingHost,
+  systemFloatingPorts,
+  type FloatingHost,
+  type FloatingHostPorts,
+  type FloatingTarget,
+} from './overlay/floating-host';

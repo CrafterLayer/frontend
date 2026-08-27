@@ -25,9 +25,16 @@ and theme); use it directly for custom canvas hosts.
   tablet ← mobile).
 - `onBlockRender?: (nodeId) => void` — instrumentation used by the scoped-re-render law tests; leave
   unset in applications.
+- `attachNodeElement?: (nodeId, element) => void` — edit-mode geometry attachment used by the
+  canvas.
+- `inlineEdit?: InlineEditSeam` — optional stable, node-keyed subscription owned by the canvas. Each
+  `NodeView` subscribes only to its own id; opening or closing a session notifies only the affected
+  node.
 
 ## Guarantees
 
 - One node change ⇒ exactly one block view re-render (verified on the 1,000-node stress fixture).
+- Opening an inline edit ⇒ only the named block view re-renders (also verified on the 1,000-node
+  fixture).
 - Runtime extension registration/disposal is reflected without reload.
 - Unknown types degrade to `UnknownBlock`, never breaking siblings.

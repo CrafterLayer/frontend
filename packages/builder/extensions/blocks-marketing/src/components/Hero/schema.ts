@@ -15,6 +15,7 @@ export const heroSchema = defineBlockSchema({
     heading: z.string().min(1).max(80).default('Your headline'),
     body: z.string().max(200).optional(),
   }),
+  inlineEditable: 'heading',
   slots: { actions: { allow: ['cta'], max: 2 } },
   examples: heroExamples,
 });

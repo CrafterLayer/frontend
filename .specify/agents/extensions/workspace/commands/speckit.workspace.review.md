@@ -37,10 +37,12 @@ could not run. A review finding does not authorize its fix.
    constitution gates. Do not invent requirements that are absent from those sources.
 4. Run the narrowest useful checks, then owning-package and affected-workspace checks in
    the order defined by the monorepo rule. Never describe an unavailable check as passed.
-5. For a material change, delegate one bounded independent read-only review when the
-   active agent supports sub-agents. Give it the exact scope and prohibit edits, commits,
-   pushes, dependency changes, and external writes. The primary agent remains responsible
-   for validating every returned finding.
+5. When caller metadata identifies this process as the `professional-sdd` workflow's fresh
+   independent reviewer, do not sub-delegate; this process is already the separated review lens
+   and recursive delegation is prohibited. Otherwise, for a material coordinator-owned review,
+   delegate one bounded independent read-only review when the active agent supports sub-agents.
+   Give it the exact scope and prohibit edits, commits, pushes, dependency changes, and external
+   writes. The primary agent remains responsible for validating every returned finding.
 6. Reject nested or sibling component declarations. For every added UI component, verify
    implementation, local export, typed Storybook story, MDX documentation, and behavioral
    test. Check accessibility, keyboard behavior, RTL, responsiveness, theme states, and

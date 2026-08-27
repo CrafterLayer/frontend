@@ -21,6 +21,7 @@ export const featuresSchema = defineBlockSchema({
       )
       .default([]),
   }),
+  inlineEditable: 'heading',
   examples: featuresExamples,
 });
 

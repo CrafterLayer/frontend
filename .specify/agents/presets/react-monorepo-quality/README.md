@@ -3,7 +3,9 @@
 This preset wraps the official Spec Kit `plan`, `tasks`, and `implement` commands. It does
 not fork the core workflow. It adds the repository's required monorepo scope, component
 decomposition, Storybook, MDX documentation, behavioral testing, review, convergence, and
-handoff obligations at runtime.
+handoff obligations at runtime. The implementation wrapper also loads the shared collaboration
+contract whenever bounded workers contributed, so delegated evidence is integrated through the
+same scope and verification gates.
 
 The source is owned under `.specify/agents/`. Install it with:
 

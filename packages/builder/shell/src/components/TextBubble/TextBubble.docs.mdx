@@ -1,0 +1,101 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TextBubbleStories from './TextBubble.stories';
+
+<Meta of={TextBubbleStories} />
+
+# TextBubble
+
+The CONTENT of the floating formatting toolbar shown over a non-empty text selection during an
+inline rich-text edit (milestone B3c, 009 contract §5). It renders the action buttons — which ones,
+which are pressed, which are disabled — and the arrow element. It computes no geometry at all.
+
+## Why geometry lives in the host, not here
+
+A floating bar has two halves that must not share a rhythm. Its content (buttons, pressed state)
+changes when the document or the selection changes — that is React's job, and it is this component.
+Its position changes on every scroll, resize, and reflow — that must never reach React, so the
+floating host (`overlay/floating-host.ts`) writes it straight to the DOM: the `transform`,
+`visibility`, `data-placement`, and the `--bldr-arrow-x` custom property land on the host element
+that React portals this component into. Scrolling a canvas with an open toolbar renders zero
+components — the property a bar that recomputes its style in render cannot have.
+
+The host's placement engine (`positionFloating`) FLIPS rather than clamps: it prefers above, flips
+below when host space at the frame top leaves no room, and only when neither side fits takes the
+side with more room. Clamping (the GrapesJS behavior) parks the toolbar on top of the very selection
+it formats. The bubble's CSS reads the outcome — `data-placement` flips the arrow to the
+anchor-facing edge, `--bldr-arrow-x` keeps it aimed at the selection after an inline shift.
+
+## Focus preservation (risk 2)
+
+The one failure every prior implementation hit: pressing a formatting button moves focus out of the
+editor, which collapses the selection that Bold was about to format. The bubble cancels
+`pointerdown` AND `mousedown` (the compatibility path) with `preventDefault` on the whole group, so
+mouse activation never moves focus; commands run on `click`. It also stops `pointerdown`,
+`mousedown`, and `click` propagation so the canvas selection path never sees layer-origin input
+(risk 9 — otherwise Bold deselects the block). Keyboard activation deliberately DOES focus the
+button — that is where the `aria-pressed` change is announced.
+
+## Usage
+
+```tsx
+// The canvas owns the pairing: a floating host for geometry, a portal for content.
+const host = createFloatingHost({ layer, align: 'center', arrowSize: 10 });
+host.place({ anchor: selectionAnchor, frame, viewport, dir }); // on selection/scroll/resize
+
+createPortal(
+  <TextBubble
+    dir={dir}
+    actions={[
+      { id: 'bold', label: 'Bold', pressed: isBold, run: toggleBold },
+      { id: 'italic', label: 'Italic', pressed: isItalic, run: toggleItalic },
+      { id: 'clear', label: 'Clear formatting', run: clearMarks }, // one-shot: no `pressed`
+    ]}
+  />,
+  host.element,
+);
+```
+
+Each `run` must be ONE transaction through the kernel door and must preserve the selection (009 §5
+b3). The canvas decides whether the bubble is mounted at all — no selection means no bubble, not an
+invisible one.
+
+## API
+
+| Prop      | Type                 | Notes                                                      |
+| --------- | -------------------- | ---------------------------------------------------------- |
+| `dir`     | `'ltr' \| 'rtl'`     | required; sets `dir` on the group so reading order mirrors |
+| `actions` | `TextBubbleAction[]` | required; one `<button>` per entry, in order               |
+
+`TextBubbleAction`:
+
+| Field      | Type                 | Notes                                                               |
+| ---------- | -------------------- | ------------------------------------------------------------------- |
+| `id`       | `string`             | stable React key                                                    |
+| `label`    | `string`             | accessible name and visible text                                    |
+| `pressed`  | `boolean` (optional) | toggles only — omit ENTIRELY for one-shot actions (no aria-pressed) |
+| `disabled` | `boolean` (optional) | rendered disabled, styled and semantic; never fires                 |
+| `run`      | `() => void`         | the command; a property function, never an unbound method           |
+
+## Accessibility & RTL
+
+A labeled `role="group"` ("Formatting") of real `<button>`s. Toggles expose `aria-pressed`; one-shot
+actions (Clear formatting, Link) carry no `aria-pressed` at all — a pressed state on a non-toggle
+misreports the control. Disabled actions stay in the DOM, styled and semantically `disabled`.
+`:focus-visible` rings are distinguishable from hover and pressed. Under RTL the group's `dir` flips
+the reading order of the buttons; the arrow's offset stays physical on purpose, because the host's
+measured geometry already accounts for direction (the overlay's measured-geometry exception).
+
+## When not to use
+
+- Block-level actions (duplicate, delete, move) belong to the block action bar, not here.
+- The inspector's rich-text field has its own static toolbar (`RichTextField`); this bubble exists
+  only for in-canvas inline editing.
+
+## Known limitations
+
+- Content only: rendered outside a floating host the bubble is unpositioned and its arrow has no
+  placement — tests and stories provide a host stand-in (`data-placement`, `--bldr-arrow-x`).
+- The arrow paints behind the bubble via `z-index: -1`, which relies on the host's stacking context
+  (`.bldr-floating` sets `z-index`).
+- Actions render in the order given; the component imposes no grouping or overflow behavior.

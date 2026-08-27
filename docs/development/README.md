@@ -6,6 +6,8 @@
 
 - [`workspace.md`](workspace.md) — Node/pnpm setup, root and filtered commands, member creation,
   dependency security, cache behavior, and troubleshooting.
+- [`agent-collaboration.md`](agent-collaboration.md) — Claude/Codex task distribution, bridge
+  preflight, least-privilege worker profiles, review separation, and failure handling.
 
 This directory will own repeatable developer workflows shared across the monorepo:
 

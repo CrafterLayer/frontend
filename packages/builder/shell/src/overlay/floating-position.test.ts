@@ -177,3 +177,47 @@ describe('positionFloating — robustness (p3)', () => {
     expect(at({})).toEqual(at({}));
   });
 });
+
+describe('prefer: below (the block action bar side)', () => {
+  const base = {
+    size: { width: 120, height: 32 },
+    frame: { x: 0, y: 200, width: 800, height: 600 },
+    viewport: { width: 1200, height: 1000 },
+    dir: 'ltr' as const,
+  };
+
+  it('places below when there is room below', () => {
+    const placed = positionFloating({
+      ...base,
+      anchor: { x: 100, y: 100, width: 200, height: 40 },
+      prefer: 'below',
+    });
+    expect(placed.placement).toBe('below');
+    expect(placed.y).toBe(148); // 100 + 40 + 8
+  });
+
+  it('FLIPS above when the frame bottom leaves no room below', () => {
+    // Anchor bottom at host y = 200 + 560 + 40 = 800; viewport 1000 leaves 160
+    // of room… so push further: viewport 820 leaves -20.
+    const placed = positionFloating({
+      ...base,
+      viewport: { width: 1200, height: 820 },
+      anchor: { x: 100, y: 560, width: 200, height: 40 },
+      prefer: 'below',
+    });
+    expect(placed.placement).toBe('above');
+    expect(placed.y).toBe(520); // 560 - 32 - 8
+  });
+
+  it('with no room on either side, takes the side with more room', () => {
+    const placed = positionFloating({
+      ...base,
+      frame: { x: 0, y: -10, width: 800, height: 600 },
+      viewport: { width: 1200, height: 60 },
+      anchor: { x: 100, y: 20, width: 200, height: 20 },
+      prefer: 'below',
+    });
+    // roomAbove = -10 + 20 - 40 = -30; roomBelow = 60 - (-10 + 40 + 40) = -10.
+    expect(placed.placement).toBe('below');
+  });
+});

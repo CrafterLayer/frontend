@@ -1,0 +1,25 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StoryStories from './Story.stories';
+
+<Meta of={StoryStories} />
+
+# Story
+
+The playground's B3c inline-editing demo block: a rich prose passage whose schema declares
+`inlineEditable: 'content'` — declaration as data. On an editable canvas the block opens the
+contributed rich editor in place (double-click or Enter), the formatting bubble rides the live text
+selection, and every commit is exactly one transaction.
+
+## Props (intent-only)
+
+- `content: richText()` — the block's text, edited in place
+
+## Rendering
+
+Reads through the zero-dependency `RichText` path; while an inline edit is open the canvas swaps the
+prop for the live editor element, which this renderer returns as-is.
+
+## Theming & RTL
+
+Plain prose with theme tokens inherited from the page; direction follows the document.

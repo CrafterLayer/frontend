@@ -20,6 +20,6 @@
       "invoke_separator": "-"
     }
   },
-  "integration": "claude",
-  "default_integration": "claude"
+  "integration": "codex",
+  "default_integration": "codex"
 }

@@ -11,7 +11,7 @@ import {
 } from '@craftkit/builder-core/testing';
 
 import { withPassThroughRenderers } from '../../test-utils';
-import { DocumentView } from './DocumentView';
+import { DocumentView, type InlineEditSeam } from './DocumentView';
 
 function makeKernel(document = landingFixture()) {
   return createBuilder({
@@ -55,6 +55,43 @@ describe('DocumentView (US1)', () => {
       kernel.setSelection(['txt-1-1']);
     });
     expect(counts.size).toBe(0);
+  });
+
+  it('SC-002: OPENING an inline edit reaches only its named node on the 1,000-node stress doc', () => {
+    const kernel = makeKernel(stressDocument(1000));
+    const counts = new Map<string, number>();
+    const onBlockRender = (id: string) => counts.set(id, (counts.get(id) ?? 0) + 1);
+    type Target = NonNullable<ReturnType<InlineEditSeam['getSnapshot']>>;
+    const listeners = new Map<string, Set<() => void>>();
+    let open: { nodeId: string; target: Target } | null = null;
+    const seam: InlineEditSeam = {
+      subscribe: (nodeId, listener) => {
+        const own = listeners.get(nodeId) ?? new Set<() => void>();
+        own.add(listener);
+        listeners.set(nodeId, own);
+        return () => {
+          own.delete(listener);
+        };
+      },
+      getSnapshot: (nodeId) => (open?.nodeId === nodeId ? open.target : null),
+    };
+    render(<DocumentView kernel={kernel} onBlockRender={onBlockRender} inlineEdit={seam} />);
+    counts.clear();
+
+    act(() => {
+      open = {
+        nodeId: 'txt-3-7',
+        target: {
+          propKey: 'content',
+          render: ({ value }) => (typeof value === 'string' ? value : null),
+        },
+      };
+      for (const listener of listeners.get('txt-3-7') ?? []) {
+        listener();
+      }
+    });
+
+    expect([...counts.entries()]).toEqual([['txt-3-7', 1]]);
   });
 
   it('Law-S audit holds with a mounted view: every observable change pairs 1:1 with a transaction (FR-017)', () => {

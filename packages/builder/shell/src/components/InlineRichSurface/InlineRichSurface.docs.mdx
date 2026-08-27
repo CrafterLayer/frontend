@@ -1,0 +1,60 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as InlineRichSurfaceStories from './InlineRichSurface.stories';
+
+<Meta of={InlineRichSurfaceStories} />
+
+# InlineRichSurface
+
+Rich inline editing **with no editing engine** (milestone B3c, contract §15). Select a word on the
+canvas, press **Bold**, and exactly that word is marked — in the stored document, not in CSS.
+
+## Why it exists
+
+The shell is layer 3 and may never import an editing engine. Until this surface, "rich" inline
+editing required the contributed TipTap extension — and a builder whose headline feature only works
+when an optional package is installed is not a builder. This is the built-in path: every block that
+declares `inlineEditable` on a rich-text property is editable out of the box.
+
+A contributed editor still **outranks** it. Register one through the `inlineEditors` contribution
+point and the canvas uses that instead, for headings, lists, links, and engine-level undo.
+
+## How it works
+
+| Concern             | Where it lives                                                                |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Rendering           | the renderer's `RichText` — the SAME read path the published page uses        |
+| Selection → offsets | `inline/dom-range.ts` (`offsetsOfSelection`, `applyOffsets`, `rangeGeometry`) |
+| Document edits      | `inline/mark-range.ts` (`toggleMark`, `replaceRange`) — pure, no DOM          |
+| Chrome              | the canvas: this surface only REPORTS its selection and its actions           |
+
+The offset space is the document's text with ONE separator position between adjacent blocks
+(`plainTextOf` renders those as `\n`). The separator is what makes the mapping unambiguous: without
+it, the end of one paragraph and the start of the next are the same number, and typing at a
+paragraph's start lands in the previous one — a defect adversarial verification caught before this
+surface shipped (contract §16).
+
+## Controlled contenteditable
+
+Every input is intercepted (`beforeinput`, native listener) and applied to the **document**; the
+browser's own mutation is refused. React stays the single authority over the DOM, so the stored
+document can never drift from what is on screen. After each commit the caret is restored by offset
+in a layout effect, which is what makes typing feel continuous through a round trip to the kernel
+and back.
+
+Listeners are native, not React props: this surface is portaled into the preview **iframe**, and
+React's synthetic events do not cross that boundary.
+
+## Accessibility & RTL
+
+A named multiline `textbox` that takes focus when the session opens. Escape exits. Arrow keys,
+Home/End, and selection chords move the caret and never reach the canvas traversal behind it.
+`dir="auto"`, so mixed Arabic/English prose follows its own content.
+
+## Known limitations
+
+- **Bold and italic only.** Headings, lists, and links are the contributed engine's job.
+- **No composition (IME) support.** Composition inputs are refused rather than allowed to corrupt
+  the document; use the contributed editor where IME matters.
+- **No editor-local undo.** Undo is the kernel's, at document level — one transaction per change.
+- Pasting inserts **plain text** on purpose; pasting formatting belongs to the engine.

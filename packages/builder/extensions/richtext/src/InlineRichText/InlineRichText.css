@@ -1,0 +1,49 @@
+/* Inline chrome (009 contract §4 t2): editing must look exactly like the
+   rendered block, so the surface INHERITS the block's own typography and adds
+   no box of its own. The descendant rules neutralize the inspector-field
+   chrome that RichTextField.css puts on the shared editor markup whenever both
+   stylesheets are loaded — inline specificity (two classes) wins regardless of
+   load order. */
+.bldr-inline-richtext {
+  position: relative;
+}
+
+/* The surface suppresses the UA outline (as the field does), so the inline
+   root REPLACES it — the repo rejects suppressed focus indicators
+   (WCAG 2.4.7). */
+.bldr-inline-richtext:focus-within {
+  outline: 2px solid var(--bldr-selection, #4f46e5);
+  outline-offset: 2px;
+}
+
+.bldr-inline-richtext .bldr-richtext-field {
+  border: 0;
+  border-radius: 0;
+}
+
+/* The ring lives on the inline root above — never two rings for one focus. */
+.bldr-inline-richtext .bldr-richtext-field:focus-within {
+  outline: none;
+}
+
+.bldr-inline-richtext .bldr-richtext-field__content {
+  padding: 0;
+}
+
+.bldr-inline-richtext .bldr-richtext-field__surface {
+  font-size: inherit;
+  line-height: inherit;
+  min-block-size: 0;
+  /* Suppressed exactly as in the field; replaced by the root ring above. */
+  outline: none;
+}
+
+/* Visually hidden, still in the accessibility tree: names the surface. */
+.bldr-inline-richtext__label {
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}

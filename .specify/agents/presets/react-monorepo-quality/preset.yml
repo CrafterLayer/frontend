@@ -3,8 +3,8 @@ schema_version: "1.0"
 preset:
   id: react-monorepo-quality
   name: "React Monorepo Quality"
-  version: "1.0.2"
-  description: "Wraps Spec Kit planning, tasks, and implementation with mandatory monorepo and UI quality gates"
+  version: "1.0.3"
+  description: "Wraps Spec Kit planning, tasks, implementation, delegation integration, and UI quality gates"
   author: craftkit-builder
   license: MIT
 

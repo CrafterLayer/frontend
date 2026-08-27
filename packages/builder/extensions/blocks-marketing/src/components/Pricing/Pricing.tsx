@@ -5,10 +5,16 @@ import type { BlockRenderProps } from '@craftkit/builder-schema';
 import type { PricingProps } from './schema';
 
 /** Pricing plans from document data; the highlighted plan is visibly recommended. */
-export function Pricing({ props }: BlockRenderProps<PricingProps>) {
+export function Pricing({ node, props }: BlockRenderProps<PricingProps>) {
+  // The accessible name comes from the VISIBLE heading, never a copy of
+  // its text: inline editing swaps that property for an editor element, and
+  // an element in aria-label stringifies to "[object Object]" (009 §12).
+  const headingId = `${node.id}-heading`;
   return (
-    <section className="mkt-pricing" aria-label={props.heading}>
-      <h2 className="mkt-pricing__heading">{props.heading}</h2>
+    <section className="mkt-pricing" aria-labelledby={headingId}>
+      <h2 id={headingId} className="mkt-pricing__heading">
+        {props.heading}
+      </h2>
       <ul className="mkt-pricing__grid">
         {props.plans.map((plan) => (
           <li

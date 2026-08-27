@@ -75,6 +75,13 @@ export interface RegistryRead {
    * B3a additive (007 contract §2): the second typed consumer of the point.
    */
   fieldTypes: () => readonly FieldTypeDef[];
+  /**
+   * The editing surface for a declared inline kind — FIRST registration wins,
+   * which is deterministic because extensions register in topological order.
+   * B3c additive (009 contract §11): the third typed consumer of the point.
+   */
+  inlineEditor: (kind: InlineEditableKind) => InlineEditorDef | undefined;
+  inlineEditors: () => readonly InlineEditorDef[];
   keymaps: () => readonly KeymapDef[];
   /** Tier-2 catalogs — lookups behave identically for trusted and hydrated content. */
   composition: (id: string) => CompositionDef | undefined;
@@ -140,6 +147,72 @@ export interface FieldTypeDef {
   /** Priority score; 0 = no match; highest wins. */
   match(schema: z.ZodType): number;
   load: () => Promise<{ default: ComponentType<FieldProps> }>;
+}
+
+/** The kinds a block may declare through `inlineEditable` (B3c). */
+export type InlineEditableKind = 'text' | 'rich';
+
+/** A rectangle in the canvas overlay's LAYER-LOCAL space. */
+export interface InlineRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where the current text selection is drawn. A selection spanning lines is not
+ * one rectangle, so per-line rects travel with the union box and let the canvas
+ * hug the line its toolbar actually opens against.
+ */
+export interface InlineSelectionAnchor {
+  box: InlineRect;
+  rects?: InlineRect[];
+}
+
+/** One button in the canvas's floating formatting bubble. */
+export interface InlineFormatAction {
+  id: string;
+  /** Accessible label; the shell resolves i18n. */
+  label: string;
+  /** Present ONLY for toggles — a one-shot action carries no pressed state. */
+  pressed?: boolean;
+  disabled?: boolean;
+  /** Exactly one transaction, with the selection preserved. */
+  run: () => void;
+}
+
+/**
+ * What an inline editor receives. The editor owns text semantics; the canvas
+ * owns chrome and geometry — so the editor REPORTS its selection and the
+ * actions available for it, and the shell draws the bubble. That split is why
+ * the shell (layer 3) never imports an editing engine from an extension
+ * (layer 4), and why the chrome looks the same whoever contributes the editor.
+ */
+export interface InlineEditorProps {
+  value: unknown;
+  /** The property being edited — the editor's accessible name. */
+  label: string;
+  /** ONE call per change; the canvas turns it into one dispatch. */
+  onCommit: (next: unknown) => void;
+  /** Escape, or any other reason the editor is done. */
+  onExit: () => void;
+  /** Selection geometry, or null when there is nothing to format. */
+  onAnchor: (anchor: InlineSelectionAnchor | null) => void;
+  /** Actions for the CURRENT selection; an empty list shows no bubble. */
+  onActions: (actions: InlineFormatAction[]) => void;
+}
+
+/**
+ * An editing surface for one declared inline kind (B3c). Lazy by contract, like
+ * every other implementation-bearing contribution: registering the manifest must
+ * not pull an editing engine into the bundle, so a session that never inline-edits
+ * rich text never loads one.
+ */
+export interface InlineEditorDef {
+  id: string;
+  kind: InlineEditableKind;
+  load: () => Promise<{ default: ComponentType<InlineEditorProps> }>;
 }
 
 /** Mounts imperatively into the overlay layer, returns cleanup — no React on the hot path. */

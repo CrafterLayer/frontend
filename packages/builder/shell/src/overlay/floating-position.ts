@@ -81,6 +81,14 @@ export interface FloatingInput {
   visible?: { width: number; height: number };
   dir: 'ltr' | 'rtl';
   /**
+   * Preferred side. `above` suits a selection bubble (never cover what is
+   * being formatted); `below` suits the block action bar — the selection
+   * outline's name chip owns the block's top edge, and stacking the bar there
+   * collides with it. Either side still FLIPS when host space runs out.
+   * Default: `above`.
+   */
+  prefer?: 'above' | 'below';
+  /**
    * Inline alignment: `center` suits a selection bubble (what every editor
    * does), `start` suits a bar attached to a block — and "start" is the
    * READING start, so it mirrors under RTL. Default: `center`.
@@ -131,7 +139,18 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
   const needed = size.height + gap;
   const roomAbove = frame.y + first.y - needed;
   const roomBelow = viewport.height - (frame.y + last.y + last.height + needed);
-  const placeAbove = roomAbove >= 0 ? true : roomBelow >= 0 ? false : roomAbove >= roomBelow;
+  const placeAbove =
+    (input.prefer ?? 'above') === 'above'
+      ? roomAbove >= 0
+        ? true
+        : roomBelow >= 0
+          ? false
+          : roomAbove >= roomBelow
+      : roomBelow >= 0
+        ? false
+        : roomAbove >= 0
+          ? true
+          : roomAbove >= roomBelow;
 
   // inline — hug the line the toolbar actually opens against, not the union.
   const line = placeAbove ? first : last;

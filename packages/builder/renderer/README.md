@@ -25,6 +25,13 @@ Layer 2 — depends only on `@craftkit/builder-{schema,core}`; `react` and `reac
   `--t-*` CSS custom properties.
 - `useKernelNode` / `useKernelSelector` / `useRegistryEpoch` — `useSyncExternalStore` wiring over
   the kernel's read-only facade, for view code that receives a kernel by prop.
+- `InlineEditSeam` (B3c) — **the edit boundary**. `DocumentView`/`NodeView` accept a seam naming ONE
+  node and ONE property; for that node only, the property's stored value is replaced by the element
+  the seam renders, so a block that renders `{props.heading}` renders the editor exactly where its
+  text is drawn. Everything else about the block is untouched, and the swap is scoped to that node's
+  subtree. The stored type is `JsonValue`; at this one boundary, in edit mode only, it is an element
+  — which is why a block must render its declared inline property as CONTENT and never pass it to an
+  attribute or an accessible name (it would stringify).
 
 ## Development
 

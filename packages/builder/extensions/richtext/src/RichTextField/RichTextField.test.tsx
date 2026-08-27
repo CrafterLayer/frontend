@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { z } from 'zod';
@@ -553,5 +553,99 @@ describe('§11 convergence fixes — the rejection path is real, not assumed', (
     expect(reason?.textContent ?? '').toContain('locked by policy');
     // The editor is back on document truth, not stranded on the refused state.
     expect(surface?.textContent).toContain('Start');
+  });
+});
+
+describe('B3c stale-echo protocol — two commits in one frame (009 field report)', () => {
+  /**
+   * The browser race jsdom's act() normally hides: TWO commits land before
+   * React hands EITHER back, then the first echoes late as a NEW object with
+   * the OLDER content. A reconcile that only remembers "the last emission"
+   * reads that stale echo as an external write and re-seeds the editor
+   * BACKWARDS — a caret teleport that eats the newest change. Deleting the
+   * emission ring (back to a single string) must fail these tests.
+   */
+  const staleHarness = () => {
+    const emissions: unknown[] = [];
+    // A mutable cell, not a reassigned outer binding: the React compiler's lint
+    // forbids the latter, and the test needs a handle on the host's setter.
+    const handle: { editor: Editor | null; deliver: (next: unknown) => void } = {
+      editor: null,
+      deliver: () => undefined,
+    };
+    const seedValue = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start' }] }],
+    };
+    function Host() {
+      const [value, setValue] = useState<unknown>(seedValue);
+      // Published from an EFFECT: writing to an outer binding during render is
+      // what the React compiler's immutability rule forbids.
+      useEffect(() => {
+        handle.deliver = setValue;
+      }, []);
+      return (
+        <RichTextField
+          schema={richText()}
+          value={value}
+          path={['props', 'body']}
+          onChange={(next) => {
+            emissions.push(next);
+          }}
+          onEditorReady={(instance) => {
+            handle.editor = instance;
+          }}
+        />
+      );
+    }
+    render(<Host />);
+    const ed = handle.editor;
+    if (ed === null) {
+      throw new Error('editor must mount');
+    }
+    const copyOf = (index: number) => JSON.parse(JSON.stringify(emissions[index])) as unknown;
+    return {
+      ed,
+      emissions,
+      deliver: (next: unknown) => {
+        handle.deliver(next);
+      },
+      copyOf,
+    };
+  };
+
+  it('a STALE echo of an older commit never re-seeds the editor backwards', () => {
+    const h = staleHarness();
+    act(() => {
+      h.ed.chain().focus('end').insertContent(' one').run();
+      h.ed.chain().focus('end').insertContent(' two').run();
+      // The FIRST commit's echo arrives — late, and a NEW object.
+      h.deliver(h.copyOf(0));
+    });
+    expect(h.emissions).toHaveLength(2);
+    // THE GUARD: the newest change survives its predecessor's late echo.
+    expect(h.ed.getText()).toBe('Start one two');
+
+    act(() => {
+      h.deliver(h.copyOf(1)); // the fresh echo settles everything
+    });
+    expect(h.ed.getText()).toBe('Start one two');
+  });
+
+  it('an external revert that RESEMBLES a stale echo still wins, one beat later', async () => {
+    // A kernel undo landing between an emission and its echo produces the SAME
+    // observable input as the stale echo. The protocol skips first (so typing
+    // never teleports), then re-runs one beat later: the value is still there,
+    // identity unchanged — now it is document truth, and it re-seeds.
+    const h = staleHarness();
+    act(() => {
+      h.ed.chain().focus('end').insertContent(' one').run();
+      h.ed.chain().focus('end').insertContent(' two').run();
+      h.deliver(h.copyOf(0));
+    });
+    expect(h.ed.getText()).toBe('Start one two');
+    await vi.waitFor(() => {
+      expect(h.ed.getText()).toBe('Start one');
+    });
   });
 });

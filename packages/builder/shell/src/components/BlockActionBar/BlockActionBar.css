@@ -1,0 +1,62 @@
+/* Content skin ONLY: the floating host (.bldr-floating, overlay.css) owns
+   position, transform, visibility, and pointer-events — nothing geometric may
+   live here. Logical properties throughout; there is no measured-geometry
+   exception to take because this element never positions itself.
+
+   Same floating-surface language as the text bubble: white card, hairline
+   border, layered shadow, quiet evenly-sized actions. The bar sits a step
+   SMALLER than the bubble — it is ambient chrome that follows every selection,
+   so it must read as furniture, not as a dialog. */
+.bldr-block-actions {
+  align-items: center;
+  background: var(--bldr-surface, #ffffff);
+  border: 1px solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  border-radius: 0.5rem;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 8%),
+    0 6px 20px rgb(15 23 42 / 12%);
+  display: flex;
+  gap: 2px;
+  padding: 0.1875rem;
+}
+
+.bldr-block-actions__action {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 0.375rem;
+  color: var(--bldr-panel-text, #334155);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: 0.75rem;
+  font-weight: 500;
+  justify-content: center;
+  line-height: 1;
+  min-block-size: 1.625rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+  white-space: nowrap;
+}
+
+.bldr-block-actions__action:enabled:hover {
+  background: var(--bldr-surface-hover, rgb(15 23 42 / 6%));
+}
+
+.bldr-block-actions__action:enabled:active {
+  background: var(--bldr-surface-active, rgb(15 23 42 / 10%));
+}
+
+.bldr-block-actions__action:focus-visible {
+  outline: 2px solid var(--bldr-selection, #4f46e5);
+  outline-offset: 1px;
+}
+
+.bldr-block-actions__action:disabled {
+  color: var(--bldr-panel-muted, #64748b);
+  cursor: default;
+  opacity: 0.45;
+}

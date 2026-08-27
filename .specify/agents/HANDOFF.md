@@ -1,86 +1,121 @@
 # Active Work Handoff
 
-**Status:** idle — B3b rich text implemented, reviewed (two independent lenses), converged
-(13-agent adversarial audit), and fully verified; commit authorization pending for
-B0 + B1 + B2a + B2b + B3a + B3b
+**Status:** paused — the observable Claude-to-Codex bridge is implemented and verified, but Spec Kit
+regeneration for the inactive Claude and Cursor integrations awaits one explicit user choice. B3c
+implementation remains in the working tree; its evidence, dual review, convergence, final handoff,
+and commit proposal tasks remain open.
 
-**Updated:** 2026-08-26
+**Updated:** 2026-08-27
 
-**Scope:** `specs/workspace/008-builder-b3b-rich-text` (workspace scope: ONE new member
-`@craftkit/builder-richtext` owning the workspace's first third-party editing dependency; a
-layer-0 schema module; a zero-dependency renderer component; one adopting block; a new
-workspace-validator rule; preset surface and playground composition)
+**Scope:** `specs/workspace/009-builder-b3c-inline-editing` plus workspace agent governance under
+`.specify/agents/`.
 
-**Active Spec:** `specs/workspace/008-builder-b3b-rich-text` (all artifacts complete; tasks
-20/20 done incl. Phase 7 Convergence)
+**Active Spec:** `specs/workspace/009-builder-b3c-inline-editing`.
 
 ## Objective
 
-Rich-text leaf props end to end: declare a rich property in a block schema, edit it through
-the B3a field road with a real editor, render it everywhere through a dependency-free path —
-and adopt the editing engine as an isolated, auditable, mechanically-contained decision.
+Finish B3c inline editing and floating toolbars without weakening its transaction, rendering,
+accessibility, or containment laws. Codex is now the project default and remains self-contained for
+Codex-initiated work; Claude remains an optional coordinator that may delegate bounded path-disjoint
+work to Codex through the transport-neutral Spec Kit contract.
 
 ## Completed
 
-- **Dependency decision (the milestone's reason to exist)**: `@tiptap/{react,starter-kit,
-  core,pm}@3.30.3` exact catalog pins, published 2026-08-24 (≥ 24h policy), 50 packages, zero
-  lockfile collisions, zero trust-policy prompts — recorded with the transitive inventory and
-  the no-downgrade proof in research R1 / contract §6.
-- **Containment made MECHANICAL**: new `BUILDER_CONTAINED_DEPENDENCY` validator rule — only
-  `@craftkit/builder-richtext` may declare the engine, in any dependency section, including
-  through an npm ALIAS, and including the WORKSPACE ROOT manifest (which hoists into every
-  package's resolution path). Five workspace-tools tests; the negative executed and reverted.
-  A discovery-derived import-graph test matches import SPECIFIERS (prose is not a leak; a
-  `.ProseMirror` style copy is).
-- **Schema door** (`schema/src/rich-text/`): `richText()` (meta marker + strict whitelist),
-  `isRichTextSchema`, `emptyRichText`, `RichTextDoc` types. The whitelist is deliberately no
-  looser than what a ProseMirror-family editor can LOAD — non-empty doc, list items opening
-  with a paragraph, one mark of a kind — because a document the door accepts but the editor
-  cannot open gets silently emptied and then overwritten by the next keystroke. An iterative
-  depth pre-check is piped ahead of shape validation (recursive zod overflows first).
-- **Renderer** (`renderer/src/components/RichText/`): zero-dependency whitelist renderer with
-  a hostile-href allowlist (backslash protocol-relative smuggling included), unknown-type
-  degradation, a recursion ceiling whose escape hatch is itself iterative, first-link-mark-only
-  anchors (nested anchors break DOM/static parity), and canvas≡static parity asserted.
-- **Editor** (`extensions/richtext/`): lazy contributed field through the B3a road; StarterKit
-  configured DOWN to the stored whitelist with the RENDERER's allowlist as its link gate; one
-  projected transaction per update; document truth on external writes AND on refused ones;
-  loud `onContentError` instead of a silent empty; live a11y attributes on the contenteditable
-  (`EditorContent` spreads onto a wrapper div, which cannot be labeled); focus-preserving
-  toolbar; split into RichTextField / RichTextEditor / RichTextToolbar / ToolbarButton /
-  ResponsiveNotice.
-- **Adoption**: `RichTextBlock` in blocks-marketing with zero panel code; the playground
-  landing fixture carries one; scenario 8 proves the whole loop including a real toolbar edit.
-- **Shell addition**: `FieldControlProps.labelledBy` (additive) so any contributed
-  non-labelable surface can name itself.
-- **Storybook**: the `direction` global is now actually wired — every RTL story in the
-  repository had been rendering LTR, so the standing RTL evidence proved nothing.
+- B3c tasks T001-T019 and field-report tasks T025-T030 are marked complete in `tasks.md`; their
+  existing implementation diff was not modified by the collaboration-governance work.
+- Constitution v1.2.0 formalizes coordinator ownership, least-privilege workers, non-overlapping
+  write leases, no recursive delegation, evidence-based integration, and fail-closed required work.
+- `workspace@1.4.1` adds `speckit.workspace.delegate`, the engine-visible delegation result
+  contract, and recursion-safe review behavior; generated skills exist for Claude, Codex, and
+  Cursor.
+- `react-monorepo-quality@1.0.3` makes `speckit-implement` load the collaboration contract when
+  worker output is integrated.
+- `professional-sdd@1.5.0` has 24 steps. It initializes and validates a run-local delegation result
+  before implementation; `required` accepts only delegated work with an independently accepted
+  result. Mandatory reviews use a packaged fresh ephemeral Codex launcher with enforced
+  read-only/never-approve flags and non-empty evidence gates.
+- `.mcp.json` now keeps both adapters without replacing or interrupting the existing one:
+  `codex-craftkit-async` for observable read-only work and `codex-craftkit-worker` as the
+  synchronous fallback for explicitly authorized writes. Both avoid the user-scope `codex` name
+  collision; local trust remains ignored and per-machine.
+- The async adapter exposes start/status/result/cancel over dependency-free MCP stdio. It enforces
+  read-only, never-approve, ignored user config, disabled plugins, a core-only model shell
+  environment, repository-contained `cwd`, bounded state/output/concurrency, and POSIX process-group
+  cleanup; Windows fails closed.
+- `docs/development/agent-collaboration.md` records topology, preflight, task envelopes, exact
+  sandbox/approval profiles, troubleshooting, and migration conditions.
+- Project routing is deliberately one-way by default: Codex does not auto-start Claude; an explicit
+  Claude session may call Codex. Long read-only work uses `codex-craftkit-async`, whose status reads
+  local state every 30–55 seconds without starting another Codex call.
 
-## Verification (all green, 2026-08-26)
+## Verification
 
-`pnpm verify` EXIT=0. Builder-family unit tests 551 (schema 100, core 89, react 10,
-renderer 70, shell 177, blocks 22, richtext 23, preset 45, playground 15); Storybook Chromium
-98 at a11y error; gates 18 members / 28 components / 531 boundary files; boundary negatives
-executed+reverted (LAYER_VIOLATION, FAMILY_ACCESS, CONTAINED_DEPENDENCY).
+- `specify extension list`: workspace v1.4.1, four commands.
+- `specify preset list`: react-monorepo-quality v1.0.3, priority 5.
+- `specify workflow info professional-sdd`: v1.5.0, 24 steps, delegation prepare/verify and two
+  enforced Codex review launcher steps present.
+- `specify integration status --json`: default Codex, all three integrations installed, no missing
+  or invalid managed files; the known nine preset-composition warnings remain expected.
+- Source and installed extension/workflow/preset files match; the installed extension has only its
+  expected generated `.specify-dev` directory in addition.
+- `claude mcp get codex-craftkit-async`: Project config, Connected. The synchronous worker also
+  reports Connected from the real host; its expected sandbox-only state-database failure was not
+  treated as a transport regression.
+- End-to-end async smoke: one real `start → status → result` task returned
+  `# Spec Kit Agent System`. A SHA-256 snapshot of `git diff --binary HEAD` plus every Git-visible
+  untracked path, mode, and content matched before and after
+  (`c14ee48de057e81516e4164db78c44d2fb587be2d99af7983fafbae7554222ba`).
+- `node --test .specify/agents/bridges/codex-async/tests/*.test.mjs`: 18 tests passed, covering MCP
+  negotiation/no-batch behavior, immediate start, coalesced status, result integrity, failure,
+  cancellation, concurrency, late stdout, SIGTERM lifecycle, secret/config isolation arguments,
+  descendant cleanup on cancel and successful completion, and the Windows fail-closed guard.
+- A separate read-only reviewer reported no blocking findings after process lifecycle, MCP protocol,
+  user-config/plugin isolation, and success-path descendant cleanup repairs.
+- `node --test .specify/workflows/professional-sdd/tests/runtime-enforcement.test.mjs`: six tests
+  passed, covering required/auto/off delegation results, malformed or stale state, exact Codex
+  sandbox/approval/ephemeral arguments, rejection of exit-zero review without fresh evidence, and
+  termination of a hung reviewer before the outer workflow timeout.
+- JSON parsing, constitution placeholder/version checks, and `git diff --check` passed for the
+  governance work.
+- B3c application/package suites were not rerun by this governance task; T020 remains the source of
+  truth for that evidence.
 
-## Blockers / Decisions Required (USER)
+## Incomplete
 
-- **Commit authorization** for six pending batches, in order, never merged: B0 (003+chore),
-  B1 (004), B2a (005), B2b (006), B3a (007), B3b (008). NO commit has ever been made
-  (standing instruction "بس ما تسوي commit").
+- Recreate the four generated workspace skills for Claude and Cursor. Spec Kit 1.0.1 only exposes
+  this through temporarily selecting each installed integration. The attempted Claude switch was
+  rejected to preserve the user's Codex-only default; do not retry without explicit permission, and
+  always return the final default to Codex if permission is given.
+- T020: run and record the B3c evidence sequence.
+- T021: two independent read-only final reviews and accepted-finding repairs.
+- T022: convergence/adversarial verification and the editor-local-undo decision.
+- T023: final B3c handoff refresh after product verification.
+- T024: generate a commit proposal only.
+
+## Decisions / Blockers
+
+- No commit, push, or deployment is authorized.
+- Codex-initiated tasks stay in Codex unless the user explicitly selects Claude. Claude-to-Codex
+  bounded delegation remains available for deliberate load distribution.
+- Do not silently switch the Spec Kit default to regenerate inactive integration skills. The user
+  must explicitly approve the temporary switch after being told why it is needed.
+- `codex mcp-server` is deprecated. The current adapter is verified compatibility plumbing, not
+  permanent policy; migrate to the official Codex Claude Code plugin/app-server path when installed.
 
 ## Next Exact Action
 
-**B3c — inline editing & floating toolbars** (`specs/workspace/009-builder-b3c-inline-editing`,
-spec.md written): edit text where it lives on the canvas, a bubble toolbar for quick
-formatting, and a block action bar — the "feels like Puck" gestures. USER DIRECTION
-(2026-08-26): study Puck and GrapesJS and ADOPT/VENDOR their proven techniques rather than
-inventing from scratch; a prior-art research pass is the first task and must land before any
-design is fixed. Then B4 (transforms/code-view), then the DESIGN MILESTONE (user decision:
-after B4; hand-rolled token system, not Tailwind), then B5+.
+Ask whether Spec Kit may temporarily select Claude and Cursor solely to regenerate `workspace@1.4.1`
+skills, then restore Codex as default. If approved, run each supported activation, verify all three
+generated skill sets and final default Codex, and rerun integration status. If not approved, leave
+Codex default and report that Claude/Cursor still use the MCP config and shared documents but lack
+the regenerated delegate/review/handoff/commit skills. Then execute T020 from
+`specs/workspace/009-builder-b3c-inline-editing/tasks.md` and proceed through T024.
 
 ## Recovery
 
-Everything re-derivable from `specs/workspace/008-builder-b3b-rich-text/*` (contract §§1–8 is
-the full as-implemented record, including the dual-review and convergence fix logs) plus
-`pnpm verify`. No uncommitted state outside the working tree.
+The product state is recoverable from the 009 spec, plan, contract, tasks, and current working tree.
+The collaboration system is recoverable from the constitution, `rules/collaboration.md`, the local
+async bridge, workspace extension/preset/workflow sources, and
+`docs/development/agent-collaboration.md`. Reconcile generated integrations through Spec Kit; never
+hand-edit their skill folders. The async bridge is additive: removing only its `.mcp.json` entry and
+`.specify/agents/bridges/codex-async/` leaves the synchronous adapter unchanged.

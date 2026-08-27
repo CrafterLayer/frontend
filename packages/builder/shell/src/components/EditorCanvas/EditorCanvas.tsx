@@ -1,21 +1,44 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from 'react';
+import { createPortal } from 'react-dom';
 
 import type { BuilderKernel } from '@craftkit/builder-core';
 import {
   CanvasFrame,
   DocumentView,
   useKernelSelector,
+  type InlineEditSeam,
   type RenderBreakpoint,
   type Theme,
 } from '@craftkit/builder-renderer';
-import type { NodeId } from '@craftkit/builder-schema';
+import type {
+  InlineEditableKind,
+  InlineEditorProps,
+  InlineFormatAction,
+  InlineSelectionAnchor,
+  NodeId,
+} from '@craftkit/builder-schema';
 
 import { performMoveAction, resolveMoveAction } from '../../keyboard/move-actions';
 import { resolveTraversalAction, traverse, type SlotOrderLookup } from '../../keyboard/traversal';
+import { createAnchorChannel, type AnchorChannel } from '../../overlay/anchor-channel';
+import { performBlockAction, resolveBlockActions } from '../../overlay/block-actions';
 import { createDragSession, type DragSession } from '../../overlay/drag-session';
+import { createFloatingHost, type FloatingHostPorts } from '../../overlay/floating-host';
 import { createFrameBridge } from '../../overlay/frame-bridge';
 import { createInlineSession, type InlineSession } from '../../overlay/inline-session';
+import { BlockActionBar } from '../BlockActionBar';
+import { InlineRichSurface } from '../InlineRichSurface';
 import { InlineTextSurface } from '../InlineTextSurface';
+import { TextBubble } from '../TextBubble';
 import { createOverlayController, type OverlayController } from '../../overlay/overlay-controller';
 import { createToolHost, type ToolHost } from '../../overlay/tool-host';
 import {
@@ -37,6 +60,8 @@ export interface EditorCanvasProps {
   onToolError?: ((toolId: string, error: unknown) => void) | undefined;
   /** Test-only geometry injection (jsdom has no layout). */
   geometryPorts?: Partial<GeometryPorts> | undefined;
+  /** Test-only floating-toolbar measurement injection (same reason). */
+  floatingPorts?: Partial<FloatingHostPorts> | undefined;
   /** Test/dev instrumentation forwarded to the live renderer (SC-001 counting). */
   onBlockRender?: ((nodeId: NodeId) => void) | undefined;
   /**
@@ -77,7 +102,140 @@ interface Machinery {
   controller: OverlayController;
   tools: ToolHost;
   session: DragSession | null;
+  anchors: AnchorChannel;
   detachListeners: () => void;
+}
+
+/**
+ * The floating toolbars' mount points (009 §10). React portals their CONTENT
+ * into these elements and never positions them; the hosts write `transform`
+ * from the anchor channel, so a canvas scroll with an open toolbar renders
+ * nothing at all.
+ */
+interface FloatingMounts {
+  text: HTMLElement;
+  block: HTMLElement;
+}
+
+/** Stable empty list, so "no bubble" never allocates a new array per render. */
+const NO_ACTIONS: InlineFormatAction[] = [];
+
+type InlineEditTarget = NonNullable<ReturnType<InlineEditSeam['getSnapshot']>>;
+type InlineEditEntryPoint = NonNullable<InlineEditTarget['entryPoint']>;
+type InlineEditEntryIntent =
+  { kind: 'pointer'; clientX: number; clientY: number } | { kind: 'keyboard' };
+
+interface InlineEditBinding {
+  nodeId: NodeId;
+  target: InlineEditTarget;
+}
+
+interface MutableInlineEditSeam extends InlineEditSeam {
+  set: (binding: InlineEditBinding | null) => void;
+}
+
+/**
+ * A node-keyed external store owned by the canvas. Its object identity never
+ * changes, and an update notifies only the node losing or gaining the seam —
+ * opening an edit therefore cannot fan a prop change through the whole tree.
+ */
+function createMutableInlineEditSeam(): MutableInlineEditSeam {
+  let current: InlineEditBinding | null = null;
+  const listeners = new Map<NodeId, Set<() => void>>();
+
+  const notify = (nodeId: NodeId) => {
+    for (const listener of [...(listeners.get(nodeId) ?? [])]) {
+      listener();
+    }
+  };
+
+  return {
+    subscribe: (nodeId, listener) => {
+      const own = listeners.get(nodeId) ?? new Set<() => void>();
+      own.add(listener);
+      listeners.set(nodeId, own);
+      return () => {
+        own.delete(listener);
+        if (own.size === 0) {
+          listeners.delete(nodeId);
+        }
+      };
+    },
+    getSnapshot: (nodeId) => (current?.nodeId === nodeId ? current.target : null),
+    set: (binding) => {
+      if (Object.is(current, binding)) {
+        return;
+      }
+      const previousId = current?.nodeId;
+      current = binding;
+      const nextId = binding?.nodeId;
+      if (previousId !== undefined) {
+        notify(previousId);
+      }
+      if (nextId !== undefined && nextId !== previousId) {
+        notify(nextId);
+      }
+    },
+  };
+}
+
+function inlineRectOf(rect: Pick<DOMRect, 'x' | 'y' | 'width' | 'height'>) {
+  if (
+    !Number.isFinite(rect.x) ||
+    !Number.isFinite(rect.y) ||
+    !Number.isFinite(rect.width) ||
+    !Number.isFinite(rect.height) ||
+    rect.width <= 0 ||
+    rect.height <= 0
+  ) {
+    return null;
+  }
+  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+}
+
+/** Read the live frame-document range; never retain its geometry in React. */
+function measureTextSelection(
+  frameDocument: Document,
+  editedElement: HTMLElement,
+): InlineSelectionAnchor | null {
+  const selection = frameDocument.getSelection();
+  if (selection === null || selection.rangeCount === 0 || selection.isCollapsed) {
+    return null;
+  }
+  const range = selection.getRangeAt(0);
+  if (
+    range.collapsed ||
+    (range.commonAncestorContainer !== editedElement &&
+      !editedElement.contains(range.commonAncestorContainer))
+  ) {
+    return null;
+  }
+  const measuredRange = range as unknown as {
+    getClientRects?: (() => ArrayLike<DOMRect>) | undefined;
+    getBoundingClientRect?: (() => DOMRect) | undefined;
+  };
+  const rects = Array.from(measuredRange.getClientRects?.call(range) ?? [])
+    .map(inlineRectOf)
+    .filter((rect): rect is NonNullable<typeof rect> => rect !== null);
+  const bounding = measuredRange.getBoundingClientRect?.call(range);
+  const box = bounding === undefined ? null : inlineRectOf(bounding);
+  const [firstRect, ...remainingRects] = rects;
+  let union: InlineSelectionAnchor['box'];
+  if (box !== null) {
+    union = box;
+  } else {
+    if (firstRect === undefined) {
+      return null;
+    }
+    union = remainingRects.reduce((current, rect) => {
+      const right = Math.max(current.x + current.width, rect.x + rect.width);
+      const bottom = Math.max(current.y + current.height, rect.y + rect.height);
+      const x = Math.min(current.x, rect.x);
+      const y = Math.min(current.y, rect.y);
+      return { x, y, width: right - x, height: bottom - y };
+    }, firstRect);
+  }
+  return rects.length === 0 ? { box: union } : { box: union, rects };
 }
 
 /**
@@ -94,6 +252,7 @@ export function EditorCanvas({
   title = 'Editor canvas',
   onToolError,
   geometryPorts,
+  floatingPorts,
   onBlockRender,
   editable = false,
   onDragHandle,
@@ -133,7 +292,32 @@ export function EditorCanvas({
   // (idempotent begin, end on selection change, end when the node vanishes);
   // React holds only the current value so the seam can render.
   const [inlineSession, setInlineSession] = useState<InlineSession | null>(null);
+  const [inlineEntryPoint, setInlineEntryPoint] = useState<InlineEditEntryPoint | null>(null);
+  const [inlineRejection, setInlineRejection] = useState<string | null>(null);
+  const inlineRejectionId = `${useId()}-inline-rejection`;
+  const inlineEntryKeyRef = useRef(0);
   const sessionRef = useRef<ReturnType<typeof createInlineSession> | null>(null);
+  const inlineEditSeam = useMemo(() => createMutableInlineEditSeam(), []);
+
+  // Floating chrome (009 §10). These three pieces of state change on
+  // BOUNDARIES only — mount, gesture start/end, selection — never per pointer
+  // move and never per scroll frame, which is what keeps the toolbars off
+  // React's hot path while still letting React own their content.
+  const [floating, setFloating] = useState<FloatingMounts | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [textActions, setTextActions] = useState<InlineFormatAction[]>([]);
+  const textMeasureRef = useRef<Parameters<AnchorChannel['setText']>[0]>(null);
+  // The contributed editor, KEYED by the kind it serves. Loaded on demand — a
+  // session that never inline-edits rich text never pulls an editing engine in —
+  // and kept afterwards, so reopening the same kind costs nothing.
+  const [loadedEditor, setLoadedEditor] = useState<{
+    kind: InlineEditableKind;
+    /** Null means the contribution failed and the built-in fallback won. */
+    Component: ComponentType<InlineEditorProps> | null;
+  } | null>(null);
+  // The snapshot handler lives in plain TS and must read the CURRENT direction
+  // without re-subscribing the whole machinery when it flips.
+  const dirRef = useRef<'ltr' | 'rtl'>('ltr');
   useEffect(() => {
     if (!editable) {
       return undefined;
@@ -149,14 +333,60 @@ export function EditorCanvas({
     };
   }, [kernel, editable]);
 
+  const beginInlineEdit = useCallback((nodeId: NodeId, entry: InlineEditEntryIntent): boolean => {
+    const handle = sessionRef.current;
+    if (handle === null) {
+      return false;
+    }
+    const key = inlineEntryKeyRef.current + 1;
+    const entryPoint: InlineEditEntryPoint =
+      entry.kind === 'pointer'
+        ? { key, kind: 'pointer', clientX: entry.clientX, clientY: entry.clientY }
+        : { key, kind: 'keyboard' };
+    inlineEntryKeyRef.current = entryPoint.key;
+    setInlineEntryPoint(entryPoint);
+    setInlineRejection(null);
+    setTextActions([]);
+    textMeasureRef.current = null;
+    machineryRef.current?.anchors.setText(null);
+    const opened = handle.begin(nodeId);
+    if (!opened) {
+      setInlineEntryPoint(null);
+    }
+    return opened;
+  }, []);
+
+  const reportTextAnchor = useCallback(
+    (anchor: InlineSelectionAnchor | null) => {
+      const session = sessionRef.current?.current() ?? null;
+      const measure =
+        anchor === null || session === null
+          ? null
+          : () => {
+              const frameDocument = frame?.contentDocument;
+              const editedElement = elementsRef.current.get(session.nodeId);
+              return frameDocument === null ||
+                frameDocument === undefined ||
+                editedElement === undefined
+                ? null
+                : measureTextSelection(frameDocument, editedElement);
+            };
+      textMeasureRef.current = measure;
+      machineryRef.current?.anchors.setText(measure);
+    },
+    [frame],
+  );
+
   const [gestureMessage, setGestureMessage] = useState({ text: '', nonce: 0 });
   const announceGestureRef = useRef((message: string) => {
     setGestureMessage((current) => ({ text: message, nonce: current.nonce + 1 }));
   });
   const suppressClickRef = useRef(false);
   const onDragHandleRef = useRef(onDragHandle);
+  const onToolErrorRef = useRef(onToolError);
   useEffect(() => {
     onDragHandleRef.current = onDragHandle;
+    onToolErrorRef.current = onToolError;
   });
 
   const attachNodeElement = useCallback((id: NodeId, element: HTMLElement | null) => {
@@ -194,6 +424,47 @@ export function EditorCanvas({
     const tools = createToolHost({ kernel, index, layer, onToolError });
     tools.start();
 
+    // Floating chrome (009 §10). The bridge is the ONE place frame and host
+    // space meet; the channel rides the rect index's existing invalidation, so
+    // toolbars follow the content without anything polling.
+    const bridge = createFrameBridge(frame);
+    const textHost = createFloatingHost({
+      layer,
+      className: 'bldr-floating--bubble',
+      align: 'center',
+      arrowSize: 10,
+      ...(floatingPorts === undefined ? {} : { ports: floatingPorts }),
+    });
+    // Below-centre, because the selection outline's name chip owns the block's
+    // top-start corner — stacking the bar there collides with it (and
+    // below-centre is where the reference design seats it).
+    const blockHost = createFloatingHost({
+      layer,
+      className: 'bldr-floating--actions',
+      align: 'center',
+      prefer: 'below',
+      ...(floatingPorts === undefined ? {} : { ports: floatingPorts }),
+    });
+    const anchors = createAnchorChannel({
+      index,
+      bridge,
+      schedule: ports.schedule,
+      onSnapshot: (snapshot) => {
+        const common = {
+          frame: snapshot.frame,
+          viewport: snapshot.viewport,
+          visible: snapshot.visible,
+          dir: dirRef.current,
+        };
+        blockHost.place({ anchor: snapshot.block, ...common });
+        textHost.place({ anchor: snapshot.text, ...common });
+      },
+    });
+    anchors.setText(textMeasureRef.current);
+    // ONE setState for the whole mount: React needs the portal targets, and
+    // after this it never hears about geometry again.
+    setFloating({ text: textHost.element, block: blockHost.element });
+
     // B2b: the drag session exists only on editable canvases (FR-012).
     const session = editable
       ? createDragSession({
@@ -209,6 +480,10 @@ export function EditorCanvas({
             if (active) {
               controller.setHover(null);
             }
+            // A gesture BOUNDARY, never a pointer move: the action bar is not
+            // mounted while a drag is in flight (US3/AC4), and comes back on
+            // release without a second gesture.
+            setDragging(active);
           },
         })
       : null;
@@ -218,9 +493,14 @@ export function EditorCanvas({
       // host drops a target whose node no longer exists, so an undo that removes
       // the targeted node cannot leave orphaned tool chrome behind (FR-007) —
       // hover included, even though no pointer moved.
-      tools.notifySelection(kernel.context.store.getState().selection[0] ?? null);
+      const selected = kernel.context.store.getState().selection[0] ?? null;
+      tools.notifySelection(selected);
       tools.notifyHover(controller.hoveredId());
+      // Same law for the action bar: its anchor follows the selection, and a
+      // node that vanished has no rect, so the bar hides instead of stranding.
+      anchors.setBlock(selected);
     });
+    anchors.setBlock(kernel.context.store.getState().selection[0] ?? null);
 
     const onPointerDown = (event: MouseEvent) => {
       const id = index.nodeAt(event.clientX, event.clientY);
@@ -283,7 +563,6 @@ export function EditorCanvas({
     // forever and hijack the next unrelated gesture. Coordinates are bridged in
     // toFrame — the ONE place the two spaces meet (006 contract p3); out-of-
     // viewport values are the session's own no-target signal (s6).
-    const bridge = createFrameBridge(frame);
     const toFrame = bridge.toFrame;
     const hostDocument = frame.ownerDocument;
     const hostWindow = hostDocument.defaultView;
@@ -325,6 +604,7 @@ export function EditorCanvas({
       controller,
       tools,
       session,
+      anchors,
       detachListeners: () => {
         frameDocument.removeEventListener('pointerdown', onPointerDown);
         frameDocument.removeEventListener('pointermove', onPointerMove);
@@ -343,13 +623,102 @@ export function EditorCanvas({
       session?.dispose();
       tools.dispose();
       controller.dispose();
+      anchors.dispose();
+      textHost.dispose();
+      blockHost.dispose();
       index.dispose();
       offSelection();
       machineryRef.current = null;
+      setFloating(null);
+      setDragging(false);
     };
     // geometryPorts/onToolError are test/instrumentation inputs, stable per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frame, kernel]);
+
+  // A direction flip changes where every toolbar sits without moving a single
+  // rect, so the channel is told explicitly — the rect index has nothing to
+  // invalidate here (RTL is placement, not geometry).
+  useEffect(() => {
+    dirRef.current = dir;
+    machineryRef.current?.anchors.refresh();
+  }, [dir]);
+
+  // While a block's text is open IN PLACE, the editing surface's own focus ring
+  // is the chrome. Stacking the selection outline and its name label on top
+  // reads as three competing borders around one paragraph — the double-chrome
+  // defect. A class on the layer, so the hot path stays untouched.
+  useEffect(() => {
+    layerRef.current?.classList.toggle('bldr-overlay--editing', inlineSession !== null);
+  }, [inlineSession]);
+
+  // Closing the session retires the LIVE measurement source HERE rather than
+  // trusting the editor to report its own farewell. Geometry never enters
+  // React state; the channel invokes the source on every observer-driven flush.
+  useEffect(() => {
+    if (inlineSession !== null) {
+      return;
+    }
+    textMeasureRef.current = null;
+    machineryRef.current?.anchors.setText(null);
+  }, [inlineSession]);
+
+  const visibleTextActions = inlineSession === null ? NO_ACTIONS : textActions;
+
+  /**
+   * Resolve the OPEN session's editor from the registry (009 §11). The
+   * contribution is lazy by contract, so this is the one moment an editing
+   * engine may load — and only for a session that actually needs it, which is
+   * exactly the containment law the loader counter proves (SC-005). A kind with
+   * no contribution never opens a session at all, so the only fallback here is
+   * the canvas's own plain-text surface.
+   */
+  useEffect(() => {
+    if (inlineSession === null) {
+      return undefined;
+    }
+    const kind = inlineSession.kind;
+    const def = kernel.context.registry.inlineEditor(kind);
+    if (def === undefined || loadedEditor?.kind === kind) {
+      return undefined;
+    }
+    let live = true;
+    void def
+      .load()
+      .then((module) => {
+        if (live) {
+          setLoadedEditor({ kind, Component: module.default });
+        }
+        return undefined;
+      })
+      .catch((error: unknown) => {
+        // A broken contribution must not take the canvas down: the session
+        // stays open on the built-in surface, and the failure is reported
+        // through the same sink a failing canvas tool uses. Nothing mounted
+        // while the loader was pending, so the fallback is still the ONE
+        // surface this session ever mounts.
+        if (live) {
+          setLoadedEditor({ kind, Component: null });
+        }
+        onToolErrorRef.current?.(def.id, error);
+      });
+    return () => {
+      live = false;
+    };
+  }, [inlineSession, kernel, loadedEditor]);
+
+  // Derived, never cleared by an effect: an editor loaded for another kind is
+  // simply not this session's editor.
+  const contributedEditor =
+    inlineSession !== null &&
+    loadedEditor?.kind === inlineSession.kind &&
+    loadedEditor.Component !== null
+      ? loadedEditor.Component
+      : null;
+  const contributedEditorPending =
+    inlineSession !== null &&
+    kernel.context.registry.inlineEditor(inlineSession.kind) !== undefined &&
+    loadedEditor?.kind !== inlineSession.kind;
 
   const slotOrder = useCallback<SlotOrderLookup>(
     (type) => {
@@ -419,11 +788,11 @@ export function EditorCanvas({
         // Kernel truth, never a render closure: this listener lives on the frame
         // document and must act on the selection as it IS.
         const selected = kernel.context.store.getState().selection[0];
-        return selected === undefined ? false : handle.begin(selected);
+        return selected === undefined ? false : beginInlineEdit(selected, { kind: 'keyboard' });
       }
       return false;
     },
-    [kernel],
+    [kernel, beginInlineEdit],
   );
 
   useEffect(() => {
@@ -448,7 +817,14 @@ export function EditorCanvas({
         return;
       }
       const hit = machinery.index.nodeAt(event.clientX, event.clientY);
-      if (hit !== undefined && handle.begin(hit)) {
+      if (
+        hit !== undefined &&
+        beginInlineEdit(hit, {
+          kind: 'pointer',
+          clientX: event.clientX,
+          clientY: event.clientY,
+        })
+      ) {
         // A block that declares nothing inline-editable is INERT (US1/AC6):
         // begin() returned false and the double-click stays a plain click.
         event.preventDefault();
@@ -460,7 +836,7 @@ export function EditorCanvas({
       frameDocument.removeEventListener('keydown', onFrameKeyDown);
       frameDocument.removeEventListener('dblclick', onFrameDoubleClick);
     };
-  }, [frame, handleTraversalKey, handleInlineKey]);
+  }, [frame, handleTraversalKey, handleInlineKey, beginInlineEdit]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -476,52 +852,148 @@ export function EditorCanvas({
   );
 
   /**
-   * The seam handed to the renderer (009 §7). It names ONE node and ONE prop,
-   * so the swap — and the re-render — is scoped to that node's subtree; every
-   * other node's memoized view is untouched (FR-009).
+   * The descriptor written into the stable node-keyed seam. A contributed
+   * implementation is CHOSEN before anything swaps into the block: while its
+   * loader is pending `render` is null, so the block keeps its ordinary output
+   * and exactly one editing surface mounts when resolution finishes.
    */
-  const inlineEdit = useMemo(() => {
+  const inlineEditBinding = useMemo<InlineEditBinding | null>(() => {
     if (inlineSession === null) {
-      return undefined;
+      return null;
     }
     const { nodeId, propKey, kind } = inlineSession;
+    const commit = (next: unknown) => {
+      // The SAME door as the inspector: one dispatch per commit, and history's
+      // typing merge owns undo granularity (FR-003).
+      try {
+        kernel.dispatch('setProp', { id: nodeId, key: propKey, value: next }, 'user');
+        setInlineRejection(null);
+      } catch (error) {
+        // A door rejection leaves the document untouched; the surface keeps
+        // what was typed so the editor can correct it in place. The reason is
+        // visible next to, and described by, the same live control.
+        setInlineRejection(error instanceof Error ? error.message : String(error));
+        announceGestureRef.current(`${propKey} rejected`);
+      }
+    };
+    const exit = () => {
+      sessionRef.current?.end();
+    };
+    const Contributed = contributedEditor;
     return {
       nodeId,
-      propKey,
-      render: ({ value }: { nodeId: NodeId; propKey: string; value: unknown }) =>
-        kind === 'text' ? (
-          <InlineTextSurface
-            value={value}
-            label={propKey}
-            singleLine
-            onCommit={(next) => {
-              // The SAME door as the inspector: one dispatch per commit, and
-              // history's typing merge owns undo granularity (FR-003).
-              try {
-                kernel.dispatch('setProp', { id: nodeId, key: propKey, value: next }, 'user');
-              } catch {
-                // A door rejection leaves the document untouched; the surface
-                // keeps what was typed so the editor can correct it in place.
+      target: {
+        propKey,
+        render: contributedEditorPending
+          ? null
+          : ({ value }) => {
+              // A contributed editor outranks the built-ins wherever an
+              // extension registered one (009 §11). A resolved loader failure
+              // uses the built-in, but a PENDING loader never mounts it first.
+              if (Contributed !== null) {
+                return (
+                  <Contributed
+                    value={value}
+                    label={propKey}
+                    onCommit={commit}
+                    onExit={exit}
+                    onAnchor={reportTextAnchor}
+                    onActions={setTextActions}
+                  />
+                );
               }
-            }}
-            onExit={() => {
-              sessionRef.current?.end();
-            }}
-          />
-        ) : null,
+              return kind === 'rich' ? (
+                <InlineRichSurface
+                  value={value}
+                  label={propKey}
+                  onCommit={commit}
+                  onExit={exit}
+                  onAnchor={reportTextAnchor}
+                  onActions={setTextActions}
+                />
+              ) : (
+                <InlineTextSurface
+                  value={value}
+                  label={propKey}
+                  singleLine
+                  onCommit={commit}
+                  onExit={exit}
+                />
+              );
+            },
+        ...(inlineEntryPoint === null ? {} : { entryPoint: inlineEntryPoint }),
+        ...(inlineRejection === null
+          ? {}
+          : { rejection: { id: inlineRejectionId, message: inlineRejection } }),
+      },
     };
-  }, [inlineSession, kernel]);
+  }, [
+    inlineSession,
+    kernel,
+    contributedEditor,
+    contributedEditorPending,
+    inlineEntryPoint,
+    inlineRejection,
+    inlineRejectionId,
+    reportTextAnchor,
+  ]);
 
-  const announcement = useMemo(() => {
+  useLayoutEffect(() => {
+    inlineEditSeam.set(inlineEditBinding);
+  }, [inlineEditBinding, inlineEditSeam]);
+
+  // The document itself, so the action bar's gates track edits: a node that
+  // just became last must show "Move later" disabled without another click.
+  const doc = useKernelSelector(
+    kernel,
+    useCallback(
+      (state: ReturnType<BuilderKernel['context']['store']['getState']>) => state.doc,
+      [],
+    ),
+  );
+
+  const selectedName = useMemo(() => {
+    const node = selectedId === null ? undefined : doc.nodes[selectedId];
+    if (node === undefined) {
+      return null;
+    }
+    return kernel.context.registry.block(node.type)?.schema.description ?? node.type;
+  }, [kernel, doc, selectedId]);
+
+  const announcement = useMemo(
     // A selection id that no longer resolves to a live node is "no selection"
     // for announcement purposes — never read a raw internal id aloud.
-    const node = selectedId === null ? undefined : kernel.getDocument().nodes[selectedId];
-    if (node === undefined) {
-      return 'Selection cleared';
-    }
-    const name = kernel.context.registry.block(node.type)?.schema.description ?? node.type;
-    return `${name} selected`;
-  }, [kernel, selectedId]);
+    () => (selectedName === null ? 'Selection cleared' : `${selectedName} selected`),
+    [selectedName],
+  );
+
+  const blockActions = useMemo(
+    () =>
+      selectedId === null || doc.nodes[selectedId] === undefined
+        ? []
+        : resolveBlockActions(kernel, selectedId),
+    [kernel, doc, selectedId],
+  );
+
+  const runBlockAction = useCallback(
+    (id: string) => {
+      const selected = kernel.context.store.getState().selection[0];
+      if (selected === undefined) {
+        return;
+      }
+      if (id === 'editText') {
+        const opened = beginInlineEdit(selected, { kind: 'keyboard' });
+        announceGestureRef.current(
+          opened ? `Editing ${selectedName ?? 'text'}` : 'Text editing is no longer available',
+        );
+        return;
+      }
+      // ONE dispatch, and the resulting selection is the action's own decision
+      // (US3/AC2). Refusals are announced, never thrown at the door.
+      announceGestureRef.current(performBlockAction(kernel, selected, id).announcement);
+    },
+    [kernel, beginInlineEdit, selectedName],
+  );
 
   return (
     <div
@@ -548,10 +1020,36 @@ export function EditorCanvas({
             breakpoint={breakpoint ?? 'desktop'}
             attachNodeElement={attachNodeElement}
             onBlockRender={onBlockRender}
-            inlineEdit={inlineEdit}
+            inlineEdit={inlineEditSeam}
           />
         </CanvasFrame>
         <div ref={layerRef} className="bldr-overlay" data-testid="bldr-overlay" />
+        {/* Floating chrome: React owns the CONTENT, the hosts own the geometry.
+            The bubble exists only while an editor reports actions for a live
+            selection, so a plain-text surface never shows one (US2/AC5). */}
+        {floating !== null && visibleTextActions.length > 0
+          ? createPortal(<TextBubble dir={dir} actions={visibleTextActions} />, floating.text)
+          : null}
+        {/* The action bar belongs to a SELECTED block that is not busy being
+            something else: not while a drag is in flight (US3/AC4), and not
+            while its own text is open for editing — the bubble owns that
+            moment, and two toolbars over one block is noise, not power. */}
+        {floating !== null &&
+        editable &&
+        !dragging &&
+        inlineSession === null &&
+        selectedName !== null &&
+        blockActions.length > 0
+          ? createPortal(
+              <BlockActionBar
+                label={`Actions for ${selectedName}`}
+                actions={blockActions}
+                onAction={runBlockAction}
+                dir={dir}
+              />,
+              floating.block,
+            )
+          : null}
       </div>
       <output className="bldr-visually-hidden" aria-live="polite" aria-label="Selection">
         {announcement}

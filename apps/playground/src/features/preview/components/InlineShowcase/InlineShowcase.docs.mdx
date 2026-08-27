@@ -1,0 +1,32 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as InlineShowcaseStories from './InlineShowcase.stories';
+
+<Meta of={InlineShowcaseStories} />
+
+# InlineShowcase
+
+This is the story to open to FEEL the builder.
+
+It mounts the playground's `'inline'` fixture on a real editable `EditorCanvas` — the full product
+path, nothing mocked: kernel → canvas → lazily loaded TipTap editor → floating bubble → one kernel
+transaction per action. The rich editor is a lazy extension contribution; the canvas only loads an
+editing engine the moment a rich block is actually opened.
+
+## Try it by hand
+
+- **Double-click** the prose to edit it in place — same box, same typography.
+- **Select a word** and the formatting bubble appears over the selection; Bold bolds exactly that
+  word, never the whole paragraph.
+- **Click a block** and use the block action bar to duplicate or move it.
+
+## What the play() proves
+
+In real Chromium: double-click opens the lazily loaded editor, a real DOM word selection raises the
+bubble, pressing Bold wraps exactly the selected word in `<strong>` (paragraph text unchanged, the
+rest of it outside the strong) as exactly one kernel transaction — then unbolds it so a rerun starts
+from the same document.
+
+## API
+
+- `kernel: BuilderKernel`

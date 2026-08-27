@@ -1,31 +1,35 @@
-schema_version: "1.0"
+schema_version: '1.0'
 
 extension:
   id: workspace
-  name: "Workspace Governance"
-  version: "1.2.0"
-  description: "Shared review, handoff, and commit-message commands for the monorepo"
+  name: 'Workspace Governance'
+  version: '1.4.1'
+  description: 'Shared delegation, review, handoff, and commit-message commands for the monorepo'
   author: craftkit-builder
   license: MIT
   effect: read-write
 
 requires:
-  speckit_version: ">=1.0.0"
+  speckit_version: '>=1.0.0'
 
 provides:
   commands:
+    - name: speckit.workspace.delegate
+      file: commands/speckit.workspace.delegate.md
+      description: 'Delegate bounded approved work and integrate the returned evidence'
     - name: speckit.workspace.review
       file: commands/speckit.workspace.review.md
-      description: "Review an implementation against its Spec Kit artifacts and workspace rules"
+      description: 'Review an implementation against its Spec Kit artifacts and workspace rules'
     - name: speckit.workspace.handoff
       file: commands/speckit.workspace.handoff.md
-      description: "Refresh the shared context and exact continuation handoff"
+      description: 'Refresh the shared context and exact continuation handoff'
     - name: speckit.workspace.commit
       file: commands/speckit.workspace.commit.md
-      description: "Generate a Conventional Commit message from the real diff without committing"
+      description: 'Generate a Conventional Commit message from the real diff without committing'
 
 tags:
   - agent
+  - delegation
   - monorepo
   - review
   - handoff

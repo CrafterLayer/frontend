@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -333,5 +333,191 @@ describe('scenario 8 (B3b) — rich text end to end', () => {
     await screen.findByRole('region', { name: 'Editor canvas' });
     expect(txCount()).toBe(beforePreview); // zero transactions across preview
     expect(await screen.findByRole('button', { name: 'Bold' })).toBeInTheDocument(); // selection intact
+  });
+});
+
+describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in lockstep', () => {
+  const fetchSpy = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchSpy);
+    // ProseMirror measures selection geometry jsdom does not implement.
+    Range.prototype.getClientRects = function getClientRectsStub() {
+      return [] as unknown as DOMRectList;
+    };
+    Range.prototype.getBoundingClientRect = function getBoundingClientRectStub() {
+      return new DOMRect(0, 0, 0, 0);
+    };
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    fetchSpy.mockReset();
+  });
+
+  it('select → edit inline → format via the bubble → duplicate via the action bar → undo, in lockstep', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Fixture' }), 'inline');
+    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
+    const host = await screen.findByRole('region', { name: 'Editor canvas' });
+    const editorDocument = (): Document => {
+      const doc = screen.getByTitle<HTMLIFrameElement>('Editor canvas').contentDocument;
+      if (doc === null) {
+        throw new Error('no contentDocument');
+      }
+      return doc;
+    };
+    await waitFor(() => {
+      expect(editorDocument().body.textContent).toContain('Edit me in place');
+    });
+    // The lockstep pair, both LIVE in the app already: the header's Law-S
+    // counter (every observable change pairs 1:1 with a transaction) and the
+    // canvas's selection status. The whole scenario reads only these two.
+    const txCount = () => Number(screen.getByRole('status', { name: 'Transactions' }).textContent);
+    const rowNamed = (pattern: RegExp) =>
+      within(screen.getByRole('tree', { name: 'Document structure' }))
+        .getAllByRole('treeitem')
+        .find((row) => pattern.test(row.textContent));
+    expect(txCount()).toBe(0); // a fresh fixture starts with an empty log
+
+    // SELECT: the announcement via the layers tree. View state, never a tx.
+    const noteRow = rowNamed(/announcement bar/);
+    expect(noteRow).toBeDefined();
+    await user.click(within(noteRow!).getByText(/announcement bar/));
+    expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent('selected');
+    expect(txCount()).toBe(0);
+
+    // EDIT INLINE: Enter opens the DECLARED string prop in place (keyboard
+    // parity with the double-click); opening dispatches nothing.
+    host.focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(editorDocument().querySelector('.bldr-inline-text')).not.toBeNull();
+    });
+    const surface = editorDocument().querySelector<HTMLElement>('.bldr-inline-text');
+    expect(surface?.getAttribute('aria-label')).toBe('message');
+    expect(txCount()).toBe(0);
+
+    // One inline commit = ONE transaction, and the canvas follows.
+    act(() => {
+      if (surface !== null) {
+        surface.textContent = 'Edited in place';
+        surface.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    await waitFor(() => {
+      expect(txCount()).toBe(1);
+    });
+    await waitFor(() => {
+      expect(editorDocument().body.textContent).toContain('Edited in place');
+    });
+
+    // Escape ends the edit, keeps the selection, commits nothing further.
+    host.focus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(editorDocument().querySelector('.bldr-inline-text')).toBeNull();
+    });
+    expect(txCount()).toBe(1);
+
+    // RICH: the story's content opens the CONTRIBUTED editor, resolved lazily
+    // from the registry — mounting an editor is never a commit.
+    const taleRow = rowNamed(/story passage/);
+    expect(taleRow).toBeDefined();
+    await user.click(within(taleRow!).getByText(/story passage/));
+    host.focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(
+        editorDocument().querySelector('.bldr-inline-richtext [contenteditable="true"]'),
+      ).not.toBeNull();
+    });
+    expect(txCount()).toBe(1);
+
+    // A LIVE text selection inside the edit raises the formatting bubble
+    // (Ctrl+A is the engine's own select-all keybinding).
+    const prose = editorDocument().querySelector<HTMLElement>(
+      '.bldr-inline-richtext [contenteditable="true"]',
+    );
+    expect(prose).not.toBeNull();
+    act(() => {
+      prose?.focus();
+      prose?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'a',
+          code: 'KeyA',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(document.querySelector('.bldr-text-bubble')).not.toBeNull();
+    });
+    const bubble = document.querySelector<HTMLElement>('.bldr-text-bubble');
+    expect(bubble).not.toBeNull();
+    expect(txCount()).toBe(1); // selecting text is never a transaction
+
+    // One bubble action = ONE transaction, and the edit survives it. (Floating
+    // chrome positions through real geometry, which jsdom zeroes — the hosts
+    // sit visibility-hidden here, and hidden content computes no accessible
+    // name, so the floating buttons are found by their visible text instead.)
+    await user.click(within(bubble!).getByText('Bold'));
+    await waitFor(() => {
+      expect(txCount()).toBe(2);
+    });
+    expect(
+      editorDocument().querySelector('.bldr-inline-richtext [contenteditable="true"]'),
+    ).not.toBeNull();
+
+    // Selecting the announcement again ends the rich session; the read path
+    // now renders the bold that was committed through the bubble.
+    await user.click(within(rowNamed(/announcement bar/)!).getByText(/announcement bar/));
+    await waitFor(() => {
+      expect(editorDocument().querySelector('.bldr-inline-richtext')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(editorDocument().querySelector('.pg-story strong')).not.toBeNull();
+    });
+    expect(txCount()).toBe(2);
+
+    // ACTION BAR: attached to the selection on an editable canvas. One press =
+    // ONE transaction, and the defined resulting selection is the DUPLICATE.
+    await waitFor(() => {
+      expect(document.querySelector('.bldr-block-actions')).not.toBeNull();
+    });
+    const bar = document.querySelector<HTMLElement>('.bldr-block-actions');
+    expect(bar?.getAttribute('role')).toBe('toolbar');
+    expect(bar?.getAttribute('aria-label')).toContain('Actions for');
+    await user.click(within(bar!).getByText('Duplicate'));
+    await waitFor(() => {
+      expect(txCount()).toBe(3);
+    });
+    await waitFor(() => {
+      expect(editorDocument().querySelectorAll('.pg-announcement')).toHaveLength(2);
+    });
+    expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent('selected');
+
+    // UNDO walks the three edits back ONE at a time — and the counter never
+    // moves, because undo replays history rather than appending to it.
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => {
+      expect(editorDocument().querySelectorAll('.pg-announcement')).toHaveLength(1);
+    });
+    expect(txCount()).toBe(3);
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => {
+      expect(editorDocument().querySelector('.pg-story strong')).toBeNull();
+    });
+    expect(txCount()).toBe(3);
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => {
+      expect(editorDocument().body.textContent).toContain('Edit me in place');
+    });
+    expect(txCount()).toBe(3);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

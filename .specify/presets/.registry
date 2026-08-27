@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "presets": {
     "react-monorepo-quality": {
-      "version": "1.0.2",
+      "version": "1.0.3",
       "source": "local",
-      "manifest_hash": "sha256:2efaf8d49de17ddf1d02194365883a25b7d2b28d0d7f5dce276f2b838cd9fd03",
+      "manifest_hash": "sha256:c5b0c116d572eace5c5dd20de6cab989d9511b707251dd9dc4e2fbaa60b5b087",
       "enabled": true,
       "priority": 5,
       "registered_commands": {
@@ -41,7 +41,7 @@
           "speckit-implement"
         ]
       },
-      "installed_at": "2026-08-24T16:59:59.638149+00:00"
+      "installed_at": "2026-08-26T20:24:25.231764+00:00"
     }
   }
 }

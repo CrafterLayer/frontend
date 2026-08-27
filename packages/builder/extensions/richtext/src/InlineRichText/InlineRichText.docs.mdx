@@ -1,0 +1,94 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as InlineRichTextStories from './InlineRichText.stories';
+
+<Meta of={InlineRichTextStories} />
+
+# InlineRichText
+
+The rich editing surface used INSIDE the canvas (milestone B3c, US1/US2) — the SAME B3b editor in
+inline chrome, never a second engine. Where `RichTextField` is the inspector's field (block toolbar,
+panel styling), `InlineRichText` is the canvas seam's surface: no toolbar (the floating text bubble
+replaces it), typography inherited from the block it edits, and a selection channel that feeds the
+bubble's anchor. It stays inside the one package allowed to depend on the editing engine, so the
+containment law (engine loads lazily, published path engine-free) is untouched.
+
+## Commit law
+
+Inherited from `RichTextEditor`, not reimplemented: every editor update calls `onCommit` exactly
+ONCE with the engine JSON projected onto the stored whitelist; mounting, exiting, and external
+re-seeds call it zero times. Document truth holds both ways — an incoming `value` that is not this
+surface's own last emission (undo, redo, another surface's write) re-seeds the editor without a
+commit, and a host that refuses a commit leaves the editor reconciled back to the stored value.
+
+## The selection channel
+
+`onSelectionChange` reports the current selection's anchor — `{ box, rects }`, structurally the
+shell's `FloatingAnchor` — in FRAME-viewport coordinates (the editor's own document; layer-local is
+preview-local, so the shell hands it to `positionFloating` unconverted). It fires on every selection
+update, after every transaction, on focus and blur, and once with `null` on unmount. The value is
+`null` whenever `shouldShowBubble` says no bubble belongs on screen: collapsed selection, empty text
+block, unfocused editor, not editable. `rects` carries one box per selected line, so a multi-line
+selection lets the bubble hug the first or last line instead of the union box.
+
+Both halves are reimplemented TipTap bubble-menu logic (MIT, attributed in the source and in
+`vendor/VENDOR.md`): `selectionAnchorOf(editor)` and `shouldShowBubble(editor, menuElement?)` are
+exported for the shell's own wiring.
+
+## Usage
+
+On the canvas this surface is resolved from the REGISTRY, not imported: the extension contributes a
+lazy `inlineEditors` entry whose module (`./inline-editor`) adapts this component to the schema's
+`InlineEditorProps` — commit/exit/anchor pass through, and an `onActions` channel reports the FR-006
+formatting actions (bold, italic, link, clear) for the current selection so the shell can draw the
+bubble without ever importing the engine. Direct use looks like this:
+
+```tsx
+import { InlineRichText } from '@craftkit/builder-richtext';
+
+<InlineRichText
+  label="Article body"
+  value={node.props.body} // document truth
+  onCommit={(next) => kernel.dispatch('setProp', { id, key: 'body', value: next }, 'user')}
+  onExit={endInlineSession} // Escape
+  onSelectionChange={setBubbleAnchor} // frame-viewport anchor or null
+/>;
+```
+
+## API
+
+| Prop                | Type                                        | Notes                                     |
+| ------------------- | ------------------------------------------- | ----------------------------------------- |
+| `value`             | `unknown`                                   | stored rich-text JSON (document truth)    |
+| `onCommit`          | `(next: RichTextDoc) => void`               | ONE call per editor update                |
+| `onExit`            | `() => void`                                | Escape pressed inside the surface         |
+| `onSelectionChange` | `(anchor: SelectionAnchor \| null) => void` | the bubble channel; `null` = hide         |
+| `label`             | `string`                                    | accessible name for the editing surface   |
+| `onEditorReady`     | `(editor: Editor) => void`                  | dev/test instrumentation, once per editor |
+
+`SelectionAnchor` is `{ box, rects }` of `{ x, y, width, height }` boxes — per-line `rects`, union
+`box`, all frame-viewport relative.
+
+## Accessibility & RTL
+
+The contenteditable surface is a named (`label` via a visually hidden element), multiline textbox
+with `dir="auto"`, so mixed ar/en prose follows its own direction (see the RTL story). The surface
+suppresses the UA outline exactly as the field does, and the inline root replaces it with a
+`:focus-within` ring — a focus indicator is always visible. Escape leaves without committing; the
+event is not swallowed, so the host's frame-level gesture handling stays authoritative.
+
+## When not to use
+
+- Inspector editing belongs to `RichTextField` — it brings the block toolbar and panel chrome.
+- Rendering stored rich text belongs to the zero-dependency `RichText` component — never mount an
+  editor on the read path.
+- Plain-text inline properties belong to the shell's `InlineTextSurface` — no engine involved.
+
+## Known limitations
+
+- The surface renders no formatting controls of its own: without a host-wired bubble, formatting is
+  keyboard shortcuts only (Cmd/Ctrl-B, -I, the engine's defaults).
+- `shouldShowBubble` needs the bubble to keep pointer-down from stealing focus (contract §5 b2);
+  pass the menu element to it when the bubble may own focus.
+- Anchor coordinates are frame-viewport; hosts outside the canvas frame must project them themselves
+  (the canvas shell already does).

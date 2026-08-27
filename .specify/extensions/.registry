@@ -42,30 +42,21 @@
       "installed_at": "2026-08-25T09:51:50.273218+00:00"
     },
     "workspace": {
-      "version": "1.2.0",
+      "version": "1.4.1",
       "source": "local",
-      "manifest_hash": "sha256:706b404b49a7a9b0eeb8f5bc3844343dada7d8e3b4bad3756aeb53e8e1527c31",
+      "manifest_hash": "sha256:7a29312197eb314acac03f10f28f44a2d93de00fe5d802681116919d84e8aa34",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
-        "claude": [
-          "speckit.workspace.review",
-          "speckit.workspace.handoff",
-          "speckit.workspace.commit"
-        ],
         "codex": [
-          "speckit.workspace.review",
-          "speckit.workspace.handoff",
-          "speckit.workspace.commit"
-        ],
-        "cursor-agent": [
+          "speckit.workspace.delegate",
           "speckit.workspace.review",
           "speckit.workspace.handoff",
           "speckit.workspace.commit"
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-08-25T10:08:50.039396+00:00"
+      "installed_at": "2026-08-26T21:45:13.452416+00:00"
     }
   }
 }

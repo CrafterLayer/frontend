@@ -22,6 +22,7 @@ export const testimonialsSchema = defineBlockSchema({
       .max(6)
       .default([]),
   }),
+  inlineEditable: 'heading',
   examples: testimonialsExamples,
 });
 

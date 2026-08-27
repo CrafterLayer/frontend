@@ -24,6 +24,7 @@ export const pricingSchema = defineBlockSchema({
       .max(4)
       .default([]),
   }),
+  inlineEditable: 'heading',
   examples: pricingExamples,
 });
 

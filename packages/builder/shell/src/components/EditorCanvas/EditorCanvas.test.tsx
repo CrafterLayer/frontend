@@ -1,3 +1,5 @@
+import { isValidElement } from 'react';
+
 import { act, render, screen } from '@testing-library/react';
 import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,8 +9,11 @@ import { fixedClock, seededIds, stressDocument } from '@craftkit/builder-core/te
 import { lightTheme } from '@craftkit/builder-renderer';
 import {
   defineBlockSchema,
+  emptyRichText,
+  richText,
   type BlockRenderComponent,
   type BuilderDocument,
+  type InlineEditorProps,
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
@@ -1048,7 +1053,16 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     contributes: {
       blocks: [
         block('page', 'Page', { default: { allow: ['headline', 'plain'] } }),
-        inlineBlock('headline', 'Headline', true),
+        {
+          schema: defineBlockSchema({
+            type: 'headline',
+            description: 'Headline',
+            props: z.object({ label: z.string().min(1).max(80) }),
+            inlineEditable: 'label',
+            examples: [],
+          }),
+          render: LabelRender,
+        },
         inlineBlock('plain', 'Plain', false),
       ],
     },
@@ -1101,10 +1115,10 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     const wrapperOf = (id: string) =>
       frameDocument.querySelector<HTMLElement>(`[data-bldr-node="${id}"]`);
     const surface = () => frameDocument.querySelector<HTMLElement>('.bldr-inline-text');
-    const doubleClick = (id: string) => {
+    const doubleClick = (id: string, clientX = 10, clientY = 10) => {
       hitTarget = wrapperOf(id);
       act(() => {
-        frameDocument.dispatchEvent(new MouseEvent('dblclick', { clientX: 10, clientY: 10 }));
+        frameDocument.dispatchEvent(new MouseEvent('dblclick', { clientX, clientY }));
       });
     };
     const frameKey = (key: string) => {
@@ -1132,11 +1146,33 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     expect(h.kernel.context.store.getState().selection).toEqual(['h1']); // still selected
   });
 
+  it('AC1: pointer entry restores the caret at the double-click coordinates', () => {
+    const h = inlineHarness();
+    h.kernel.setSelection(['h1']);
+    const caretPositionFromPoint = vi.fn(() => {
+      const text = h.surface()?.firstChild;
+      return text === null || text === undefined ? null : { offsetNode: text, offset: 4 };
+    });
+    Object.defineProperty(h.frameDocument, 'caretPositionFromPoint', {
+      configurable: true,
+      value: caretPositionFromPoint,
+    });
+
+    h.doubleClick('h1', 37, 19);
+
+    expect(caretPositionFromPoint).toHaveBeenCalledWith(37, 19);
+    expect(h.frameDocument.getSelection()?.anchorNode).toBe(h.surface()?.firstChild);
+    expect(h.frameDocument.getSelection()?.anchorOffset).toBe(4);
+  });
+
   it('AC1: Enter opens the SELECTED node — keyboard parity with the pointer', () => {
     const h = inlineHarness();
     h.kernel.setSelection(['h1']);
     h.frameKey('Enter');
     expect(h.surface()).not.toBeNull();
+    expect(h.surface()).toHaveFocus();
+    expect(h.frameDocument.getSelection()?.anchorNode).toBe(h.surface());
+    expect(h.frameDocument.getSelection()?.anchorOffset).toBe(h.surface()?.childNodes.length);
   });
 
   it('AC2: typing is ONE transaction per commit and the canvas follows', () => {
@@ -1152,6 +1188,41 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     });
     expect(h.kernel.transactions().length).toBe(before + 1);
     expect(labelOf(h.kernel, 'h1')).toBe('Edited title');
+  });
+
+  it('FR-003: a door rejection stays control-adjacent and editing continues', () => {
+    const h = inlineHarness();
+    h.kernel.setSelection(['h1']);
+    h.doubleClick('h1');
+    const editable = h.surface();
+    const before = h.kernel.transactions().length;
+
+    act(() => {
+      if (editable !== null) {
+        editable.textContent = '';
+        editable.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+
+    expect(h.kernel.transactions()).toHaveLength(before);
+    expect(labelOf(h.kernel, 'h1')).toBe('Editable title');
+    expect(editable?.textContent).toBe('');
+    expect(editable).toHaveFocus();
+    const describedBy = editable?.getAttribute('aria-describedby');
+    expect(describedBy).not.toBeNull();
+    const rejection = h.frameDocument.getElementById(describedBy ?? '');
+    expect(rejection?.textContent.length ?? 0).toBeGreaterThan(0);
+    expect(h.wrapperOf('h1')?.contains(rejection ?? null)).toBe(true);
+
+    act(() => {
+      if (editable !== null) {
+        editable.textContent = 'Corrected';
+        editable.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    expect(labelOf(h.kernel, 'h1')).toBe('Corrected');
+    expect(h.frameDocument.querySelector('[data-bldr-inline-rejection]')).toBeNull();
+    expect(editable?.getAttribute('aria-describedby')).toBeNull();
   });
 
   it('AC3: Escape ends editing, keeps the selection, and commits nothing further', () => {
@@ -1221,6 +1292,24 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     expect(new Set(h.renders)).toEqual(new Set(['h1']));
   });
 
+  it('the selection chrome STANDS DOWN while the text is edited in place (polish law)', () => {
+    // The double-chrome defect: selection outline + name label + the surface's
+    // own focus ring stacked three borders on one paragraph. While a session is
+    // open the layer carries the editing class and the outline yields.
+    const h = inlineHarness();
+    h.kernel.setSelection(['h1']);
+    const layer = h.view.container.querySelector<HTMLElement>('.bldr-overlay');
+    expect(layer?.classList.contains('bldr-overlay--editing')).toBe(false);
+
+    h.doubleClick('h1');
+    expect(h.surface()).not.toBeNull();
+    expect(layer?.classList.contains('bldr-overlay--editing')).toBe(true);
+
+    h.frameKey('Escape');
+    expect(h.surface()).toBeNull();
+    expect(layer?.classList.contains('bldr-overlay--editing')).toBe(false);
+  });
+
   it('the session ends when the edited node VANISHES beneath the caret', () => {
     const h = inlineHarness();
     h.kernel.setSelection(['h1']);
@@ -1231,5 +1320,625 @@ describe('EditorCanvas inline editing (009 US1)', () => {
       h.kernel.dispatch('removeNode', { id: 'h1' }, 'user');
     });
     expect(h.surface()).toBeNull();
+  });
+});
+
+describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
+  /**
+   * A contributed inline editor with NO editing engine behind it. The canvas's
+   * contract with an editor is exactly four callbacks, so testing the seam
+   * against a real engine would test the engine — the rich editor has its own
+   * suite, and Chromium proves the two together.
+   */
+  interface FakeHandle {
+    anchor: InlineEditorProps['onAnchor'];
+    actions: InlineEditorProps['onActions'];
+    commit: InlineEditorProps['onCommit'];
+    exit: InlineEditorProps['onExit'];
+  }
+  let fake: FakeHandle | null = null;
+  const loads = { count: 0 };
+
+  function FakeInlineEditor({
+    value,
+    label,
+    onCommit,
+    onExit,
+    onAnchor,
+    onActions,
+  }: InlineEditorProps) {
+    fake = { anchor: onAnchor, actions: onActions, commit: onCommit, exit: onExit };
+    return (
+      <span data-testid="fake-inline" aria-label={label}>
+        {typeof value === 'string' ? value : 'rich'}
+      </span>
+    );
+  }
+
+  const FAKE_EDITOR: TrustedExtensionManifest = {
+    tier: 1,
+    name: 'fake-inline-editor',
+    version: '1.0.0',
+    contributes: {
+      inlineEditors: [
+        {
+          id: 'fake.rich',
+          kind: 'rich',
+          load: () => {
+            loads.count += 1;
+            return Promise.resolve({ default: FakeInlineEditor });
+          },
+        },
+      ],
+    },
+  };
+
+  /** Renders the swapped element when editing, a placeholder otherwise. */
+  const BodyRender: BlockRenderComponent = ((props: { props: { body?: unknown } }) => (
+    <span data-testid="body">
+      {isValidElement(props.props.body) ? props.props.body : 'rich text'}
+    </span>
+  )) as BlockRenderComponent;
+
+  const FLOAT_BLOCKS: TrustedExtensionManifest = {
+    tier: 1,
+    name: 'float-blocks',
+    version: '1.0.0',
+    contributes: {
+      blocks: [
+        block('page', 'Page', { default: { allow: ['headline', 'prose', 'plain'] } }),
+        inlineBlock('headline', 'Headline', true),
+        inlineBlock('plain', 'Plain', false),
+        {
+          schema: defineBlockSchema({
+            type: 'prose',
+            description: 'Prose',
+            props: z.object({ body: richText().default(emptyRichText() as never) }),
+            inlineEditable: 'body',
+            examples: [],
+          }),
+          render: BodyRender,
+        },
+      ],
+    },
+  };
+
+  const FLOAT_DOC: BuilderDocument = {
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'ltr',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'page', props: {}, slots: { default: ['h1', 'pr', 'p1'] } },
+      h1: { id: 'h1', type: 'headline', props: { label: 'Editable title' } },
+      pr: { id: 'pr', type: 'prose', props: {} },
+      p1: { id: 'p1', type: 'plain', props: { label: 'Not editable' } },
+    },
+  };
+
+  function floatingHarness(
+    options: {
+      editable?: boolean;
+      /** The stress document swaps in the shared fixture blocks (T015). */
+      document?: BuilderDocument;
+      blocks?: TrustedExtensionManifest;
+      /** Per-node geometry; one constant box unless a test needs room to mirror. */
+      rect?: { x: number; y: number; width: number; height: number };
+    } = {},
+  ) {
+    fake = null;
+    loads.count = 0;
+    const kernel = createBuilder({
+      document: options.document ?? FLOAT_DOC,
+      extensions: [options.blocks ?? FLOAT_BLOCKS, FAKE_EDITOR],
+      ports: { clock: fixedClock(), ids: seededIds('float') },
+    });
+    let hitTarget: Element | null = null;
+    const renders: string[] = [];
+    const queue: (() => void)[] = [];
+    const ports: Partial<GeometryPorts> = {
+      measure: () => options.rect ?? { x: 5, y: 6, width: 50, height: 20 },
+      hitTest: () => hitTarget,
+      viewport: () => ({ width: 400, height: 600 }),
+      schedule: (callback) => {
+        queue.push(callback);
+        return () => undefined;
+      },
+    };
+    const view = render(
+      <EditorCanvas
+        kernel={kernel}
+        theme={lightTheme}
+        geometryPorts={ports}
+        floatingPorts={{
+          measure: () => ({ width: 120, height: 32 }),
+          observe: () => () => undefined,
+        }}
+        onBlockRender={(id) => renders.push(id)}
+        editable={options.editable ?? true}
+      />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>('Editor canvas');
+    let frameBox = { x: 0, y: 100, width: 400, height: 600 };
+    frame.getBoundingClientRect = () => frameBox as DOMRect;
+    const frameDocument = frame.contentDocument;
+    if (frameDocument === null) {
+      throw new Error('frame must expose a document');
+    }
+    let selectionBox = { x: 10, y: 40, width: 60, height: 18 };
+    const tick = () => {
+      act(() => {
+        for (const callback of queue.splice(0)) {
+          callback();
+        }
+      });
+    };
+    const wrapperOf = (id: string) =>
+      frameDocument.querySelector<HTMLElement>(`[data-bldr-node="${id}"]`);
+    const doubleClick = (id: string) => {
+      hitTarget = wrapperOf(id);
+      act(() => {
+        frameDocument.dispatchEvent(new MouseEvent('dblclick', { clientX: 10, clientY: 10 }));
+      });
+    };
+    const pressOn = (id: string, x: number, y: number) => {
+      hitTarget = wrapperOf(id);
+      frameDocument.dispatchEvent(new MouseEvent('pointerdown', { clientX: x, clientY: y }));
+    };
+    const dragTo = (x: number, y: number) => {
+      frameDocument.dispatchEvent(new MouseEvent('pointermove', { clientX: x, clientY: y }));
+    };
+    /** The contributed editor arrives through a promise; let it land. */
+    const settle = async () => {
+      await act(async () => {
+        await Promise.resolve();
+      });
+      tick();
+    };
+    const openRich = async () => {
+      kernel.setSelection(['pr']);
+      doubleClick('pr');
+      await settle();
+    };
+    const report = (actions: Parameters<InlineEditorProps['onActions']>[0]) => {
+      act(() => {
+        const text = frameDocument.querySelector('[data-testid="fake-inline"]')?.firstChild;
+        if (text !== null && text !== undefined) {
+          const range = frameDocument.createRange();
+          range.selectNodeContents(text);
+          Object.defineProperties(range, {
+            getBoundingClientRect: {
+              configurable: true,
+              value: () => selectionBox,
+            },
+            getClientRects: {
+              configurable: true,
+              value: () => [selectionBox],
+            },
+          });
+          const selection = frameDocument.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }
+        fake?.anchor(actions.length === 0 ? null : { box: selectionBox });
+        fake?.actions(actions);
+      });
+      tick();
+    };
+    return {
+      kernel,
+      view,
+      frameDocument,
+      renders,
+      tick,
+      settle,
+      hover: (id: string | null) => {
+        hitTarget = id === null ? null : wrapperOf(id);
+        act(() => {
+          frameDocument.dispatchEvent(new MouseEvent('pointermove', { clientX: 3, clientY: 4 }));
+        });
+      },
+      doubleClick,
+      pressOn,
+      dragTo,
+      openRich,
+      report,
+      setFrameBox: (next: typeof frameBox) => {
+        frameBox = next;
+      },
+      setSelectionBox: (next: typeof selectionBox) => {
+        selectionBox = next;
+      },
+      host: (kind: 'bubble' | 'actions') =>
+        view.container.querySelector<HTMLElement>(`.bldr-floating--${kind}`),
+      bubble: () => view.container.querySelector<HTMLElement>('.bldr-text-bubble'),
+      bar: () => view.container.querySelector<HTMLElement>('.bldr-block-actions'),
+    };
+  }
+
+  const BOLD = [{ id: 'bold', label: 'Bold', pressed: false, run: () => undefined }];
+
+  it('D2: a contributed rich editor resolves before the ONE editing surface mounts', async () => {
+    const h = floatingHarness();
+    h.kernel.setSelection(['pr']);
+    h.doubleClick('pr');
+
+    // The contribution is still in its promise turn: ordinary block output
+    // stays mounted, and the built-in surface must never flash in first.
+    expect(h.frameDocument.querySelector('[data-testid="fake-inline"]')).toBeNull();
+    expect(h.frameDocument.querySelector('.bldr-inline-rich')).toBeNull();
+    expect(h.frameDocument.querySelector('[data-testid="body"]')).toHaveTextContent('rich text');
+
+    await h.settle();
+    expect(h.frameDocument.querySelector('[data-testid="fake-inline"]')).not.toBeNull();
+    expect(h.frameDocument.querySelector('.bldr-inline-rich')).toBeNull();
+  });
+
+  it('US2/AC1: a live selection inside the contributed editor raises the bubble', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    // The editor lives in the PREVIEW document — the canvas portals it there.
+    expect(h.frameDocument.querySelector('[data-testid="fake-inline"]')).not.toBeNull();
+    expect(loads.count).toBe(1); // the engine loads ONCE, and only for this session
+    expect(h.bubble()).toBeNull(); // …and not before there is anything to format
+
+    h.report(BOLD);
+    const bubble = h.bubble();
+    expect(bubble).not.toBeNull();
+    expect(bubble?.getAttribute('role')).toBe('group');
+    expect(bubble?.getAttribute('aria-label')).toBe('Formatting');
+    expect(h.host('bubble')?.style.visibility).toBe('visible');
+  });
+
+  it('US2/AC2: a bubble action is ONE transaction, and the session survives it', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    let applied = 0;
+    h.kernel.context.events.on('tx.applied', () => {
+      applied += 1;
+    });
+    h.report([
+      {
+        id: 'bold',
+        label: 'Bold',
+        pressed: false,
+        run: () => {
+          fake?.commit(emptyRichText());
+        },
+      },
+    ]);
+
+    act(() => {
+      h.view.container.querySelector<HTMLButtonElement>('.bldr-text-bubble button')?.click();
+    });
+    expect(applied).toBe(1);
+    // The editor is still open and still selected — formatting must never end
+    // the edit it was invoked from.
+    expect(h.frameDocument.querySelector('[data-testid="fake-inline"]')).not.toBeNull();
+    expect(h.kernel.context.store.getState().selection).toEqual(['pr']);
+  });
+
+  it('US2/AC3: the bubble goes when the selection collapses, and when the edit exits', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    h.report(BOLD);
+    expect(h.bubble()).not.toBeNull();
+
+    h.report([]); // collapsed — nothing to format
+    expect(h.bubble()).toBeNull();
+
+    h.report(BOLD);
+    expect(h.bubble()).not.toBeNull();
+    act(() => {
+      fake?.exit();
+    });
+    h.tick();
+    // Ending the session retires the bubble WITHOUT trusting the editor to
+    // report its own farewell.
+    expect(h.bubble()).toBeNull();
+    expect(h.host('bubble')?.style.visibility).toBe('hidden');
+  });
+
+  it('US2/AC4: the bubble RE-MEASURES its selection when the frame scrolls', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    h.report(BOLD);
+    expect(h.host('bubble')?.dataset['placement']).toBe('above');
+    const initialTransform = h.host('bubble')?.style.transform;
+
+    // The selection itself reflowed without another editor callback. A frozen
+    // anchor would replay y=40 here; the live range moves the host instead.
+    h.setSelectionBox({ x: 24, y: 240, width: 90, height: 18 });
+    act(() => {
+      h.frameDocument.dispatchEvent(new Event('scroll'));
+    });
+    h.tick();
+    expect(h.host('bubble')?.style.transform).not.toBe(initialTransform);
+
+    // The frame scrolls to the top of the host viewport: there is no longer room
+    // above the anchor, so the bubble flips below it.
+    // The canvas scrolls the frame under the selection: no pointer, no key, no
+    // React state — the index invalidates and the channel re-places the bubble.
+    h.setSelectionBox({ x: 10, y: 40, width: 60, height: 18 });
+    h.setFrameBox({ x: 0, y: -20, width: 400, height: 600 });
+    act(() => {
+      h.frameDocument.dispatchEvent(new Event('scroll'));
+    });
+    h.tick();
+    expect(h.host('bubble')?.dataset['placement']).toBe('below');
+
+    // …and a host resize is the same channel, not a second mechanism.
+    h.setFrameBox({ x: 0, y: 300, width: 400, height: 600 });
+    act(() => {
+      h.frameDocument.defaultView?.dispatchEvent(new Event('resize'));
+    });
+    h.tick();
+    expect(h.host('bubble')?.dataset['placement']).toBe('above');
+
+    // When live selection geometry leaves the visible frame area, the host
+    // hides even though the editor has not emitted a collapse callback.
+    h.setSelectionBox({ x: 24, y: 700, width: 90, height: 18 });
+    act(() => {
+      h.frameDocument.dispatchEvent(new Event('scroll'));
+    });
+    h.tick();
+    expect(h.host('bubble')?.style.visibility).toBe('hidden');
+  });
+
+  it('US2/AC5: a plain-text surface never raises a bubble', async () => {
+    const h = floatingHarness();
+    h.kernel.setSelection(['h1']);
+    h.doubleClick('h1');
+    await h.settle();
+
+    expect(h.frameDocument.querySelector('.bldr-inline-text')).not.toBeNull();
+    expect(loads.count).toBe(0); // plain text is the canvas's own surface
+    expect(h.bubble()).toBeNull();
+  });
+
+  it('US4/T015: the toolbars position on the 1,000-node stress document at ZERO content renders', () => {
+    const h = floatingHarness({ document: stressDocument(1000), blocks: TEST_BLOCKS });
+    h.tick();
+    h.renders.length = 0;
+
+    // Select a node deep in the document: the action bar appears…
+    act(() => {
+      h.kernel.setSelection(['txt-5-5']);
+    });
+    h.tick();
+    expect(h.bar()).not.toBeNull();
+
+    // …and now the expensive part — the frame scrolls repeatedly under it. Each
+    // scroll re-measures and re-writes the bar's transform through the channel.
+    for (let step = 0; step < 30; step += 1) {
+      h.setFrameBox({ x: 0, y: 100 - step * 10, width: 400, height: 600 });
+      act(() => {
+        h.frameDocument.dispatchEvent(new Event('scroll'));
+      });
+      h.tick();
+    }
+    expect(h.host('actions')?.style.visibility).toBe('visible');
+
+    // Hovering a different node moves the hover chrome, not the content.
+    h.hover('txt-1-1');
+    h.tick();
+    h.hover(null);
+    h.tick();
+
+    // THE LAW: none of that rendered a single block (SC-002).
+    expect(h.renders).toEqual([]);
+    // …and no editing engine was fetched, because nothing rich was edited.
+    expect(loads.count).toBe(0);
+  });
+
+  it('US4/T015: an inline commit re-renders exactly ONE node, on the stress document', async () => {
+    // A stress document made of ordinary blocks plus one editable headline: the
+    // commit path must not widen just because the document is large.
+    const big = stressDocument(1000);
+    const doc: BuilderDocument = {
+      ...big,
+      nodes: {
+        ...big.nodes,
+        headline: { id: 'headline', type: 'headline', props: { label: 'Edit me' } },
+        [big.rootId]: {
+          ...big.nodes[big.rootId]!,
+          slots: {
+            default: ['headline', ...(big.nodes[big.rootId]?.slots?.['default'] ?? [])],
+          },
+        },
+      },
+    };
+    const BLOCKS: TrustedExtensionManifest = {
+      tier: 1,
+      name: 'stress-plus-inline',
+      version: '1.0.0',
+      contributes: {
+        blocks: [
+          block('page', 'Page', { default: { allow: ['section', 'headline'] } }),
+          block('section', 'Section', { default: { allow: ['text', 'section'] } }),
+          block('text', 'Text'),
+          inlineBlock('headline', 'Headline', true),
+        ],
+      },
+    };
+    const h = floatingHarness({ document: doc, blocks: BLOCKS });
+    h.tick();
+
+    act(() => {
+      h.kernel.setSelection(['headline']);
+    });
+    h.renders.length = 0;
+    h.doubleClick('headline');
+    await h.settle();
+    const surface = h.frameDocument.querySelector<HTMLElement>('.bldr-inline-text');
+    expect(surface).not.toBeNull();
+    // D5: opening the seam reaches only the named node; the other 999 nodes
+    // never receive a changing prop or a broad subscription notification.
+    expect(h.renders).toEqual(['headline']);
+    h.renders.length = 0;
+
+    act(() => {
+      if (surface !== null) {
+        surface.textContent = 'Edited in place';
+        surface.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    expect(new Set(h.renders)).toEqual(new Set(['headline']));
+    expect(h.kernel.getDocument().nodes['headline']?.props['label']).toBe('Edited in place');
+  });
+
+  it('US4/T016: the bar sits BELOW-CENTRE — off the name chip, stable under RTL', () => {
+    const h = floatingHarness({ rect: { x: 40, y: 200, width: 300, height: 60 } });
+    act(() => {
+      h.kernel.setSelection(['pr']);
+    });
+    h.tick();
+    // Below the block (200 + 60 + 8), centred on it (40 + 150 - 60): the
+    // selection outline's name chip owns the top-start corner, so the bar may
+    // never sit there.
+    expect(h.host('actions')?.style.transform).toBe('translate(130px, 268px)');
+    expect(h.host('actions')?.dataset['placement']).toBe('below');
+
+    act(() => {
+      h.kernel.dispatch('setDocMeta', { dir: 'rtl' });
+    });
+    h.tick();
+    // A centred bar is direction-stable BY CONSTRUCTION — that is the RTL
+    // statement for this surface (start-aligned mirroring is proven in the
+    // pure suite). The flip still re-placed through the explicit refresh.
+    expect(h.host('actions')?.style.transform).toBe('translate(130px, 268px)');
+    expect(h.host('actions')?.dataset['placement']).toBe('below');
+  });
+
+  it('US3/AC1: selecting a block raises its action bar, named after the block', () => {
+    const h = floatingHarness();
+    h.tick();
+    expect(h.bar()).toBeNull();
+
+    act(() => {
+      h.kernel.setSelection(['pr']);
+    });
+    h.tick();
+    const bar = h.bar();
+    expect(bar?.getAttribute('role')).toBe('toolbar');
+    expect(bar?.getAttribute('aria-label')).toBe('Actions for Prose');
+    expect(h.host('actions')?.style.visibility).toBe('visible');
+  });
+
+  it('US3/AC2: an action is ONE transaction with the defined resulting selection', () => {
+    const h = floatingHarness();
+    act(() => {
+      h.kernel.setSelection(['pr']);
+    });
+    h.tick();
+    let applied = 0;
+    h.kernel.context.events.on('tx.applied', () => {
+      applied += 1;
+    });
+    const before = h.kernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
+
+    act(() => {
+      h.view.container.querySelector<HTMLButtonElement>('.bldr-block-actions button')?.click();
+    });
+    expect(applied).toBe(1);
+    expect(h.kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(before + 1);
+    // Duplicate leaves the DUPLICATE selected — the bar follows the new node.
+    const selected = h.kernel.context.store.getState().selection[0];
+    expect(selected).not.toBe('pr');
+    expect(selected === undefined ? undefined : h.kernel.getDocument().nodes[selected]?.type).toBe(
+      'prose',
+    );
+  });
+
+  it('US3/AC3: what cannot apply is DISABLED, never missing (stable layout)', () => {
+    const h = floatingHarness();
+    act(() => {
+      h.kernel.setSelection(['h1']); // first child: nothing earlier to move to
+    });
+    h.tick();
+    const labels = [...(h.bar()?.querySelectorAll('button') ?? [])].map((button) => [
+      button.textContent,
+      button.disabled,
+    ]);
+    expect(labels).toEqual([
+      ['Duplicate', false],
+      ['Delete', false],
+      ['Move earlier', true],
+      ['Move later', false],
+      ['Edit text', false],
+    ]);
+
+    act(() => {
+      h.kernel.setSelection(['root']); // the root can be none of these things
+    });
+    h.tick();
+    expect(
+      [...(h.bar()?.querySelectorAll('button') ?? [])].every((button) => button.disabled),
+    ).toBe(true);
+  });
+
+  it('US3/a1: Edit text opens the inline session with ZERO dispatches', () => {
+    const h = floatingHarness();
+    act(() => {
+      h.kernel.setSelection(['h1']);
+    });
+    h.tick();
+    const before = h.kernel.transactions().length;
+    const editText = [...(h.bar()?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Edit text',
+    );
+
+    act(() => {
+      editText?.click();
+    });
+
+    expect(h.kernel.transactions()).toHaveLength(before);
+    expect(h.frameDocument.querySelector('.bldr-inline-text')).not.toBeNull();
+    expect(h.bar()).toBeNull();
+  });
+
+  it('US3/AC4: the bar is absent during a drag, and absent on a read-only canvas', () => {
+    const h = floatingHarness();
+    act(() => {
+      h.kernel.setSelection(['pr']);
+    });
+    h.tick();
+    expect(h.bar()).not.toBeNull();
+
+    // A press that crosses the threshold suppresses hover chrome and the bar.
+    act(() => {
+      h.pressOn('pr', 10, 10);
+      h.dragTo(60, 90);
+    });
+    h.tick();
+    expect(h.bar()).toBeNull();
+
+    act(() => {
+      h.frameDocument.dispatchEvent(new MouseEvent('pointerup', {}));
+    });
+    h.tick();
+    expect(h.bar()).not.toBeNull(); // and back, without a second gesture
+  });
+
+  it('US3: a read-only canvas has no action bar at all (B2a stays byte-compatible)', () => {
+    const h = floatingHarness({ editable: false });
+    act(() => {
+      h.kernel.setSelection(['pr']);
+    });
+    h.tick();
+    expect(h.bar()).toBeNull();
+  });
+
+  it('US3: the bar stands down while the block is being edited in place', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    // Two toolbars over one block is noise: the bubble owns this moment.
+    expect(h.bar()).toBeNull();
+
+    act(() => {
+      fake?.exit();
+    });
+    h.tick();
+    expect(h.bar()).not.toBeNull();
   });
 });

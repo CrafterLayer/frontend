@@ -53,11 +53,35 @@ its origin — a layout-only change), and the inspector's non-base buckets read/
 publish-safe path — no attachment, no chrome, live content, Escape from either document, a
 view-state direction override, and zero transactions for the whole round trip.
 
+## B3c — editing where the content lives
+
+A block declares one property as `inlineEditable`; a double-click (or Enter on the selection) opens
+that property in place, and the renderer's seam swaps its VALUE for an editing surface on exactly
+one node — same typography, same box, no dialog, one node's subtree re-rendered. Plain strings open
+`InlineTextSurface` (adapted from Puck — see `vendor/VENDOR.md`); rich text opens
+`InlineRichSurface`, the **engine-free** built-in: select a word, press Bold, and exactly that word
+is marked and stored, with the document edited by pure functions (`inline/mark-range.ts`) over a
+selection mapped through `inline/dom-range.ts`. A contributed editor from the registry's
+`inlineEditors` point outranks either built-in when an extension registers one — that is the upgrade
+path to headings, lists, links, and engine-level undo — and a session that edits no rich text still
+loads no engine.
+
+Two floating toolbars sit above the preview: `TextBubble` over a live text selection and
+`BlockActionBar` over the selected block (duplicate / delete / move earlier / move later, one
+transaction each with a defined resulting selection, absent during a drag and while the block's own
+text is open). Both are **content-only** components. Their geometry belongs to `createFloatingHost`,
+which measures its own content and writes `transform` straight to the DOM from `createAnchorChannel`
+— the same observer-driven invalidation the outlines ride. `positionFloating` supplies
+flip/shift/arrow/hide/inline placement as a pure function, with no positioning library and no
+auto-update loop.
+
 ## Performance laws (merge-gated by counting, not wall-clock)
 
-Hover/select/sweep ⇒ 0 content re-renders (proven on the 1,000-node stress document); geometry
-updates are 100% observer-attributed (no polling, no per-interaction measurement); browser-truth
-positioning is asserted by Storybook play functions in real Chromium.
+Hover/select/sweep ⇒ 0 content re-renders (proven on the 1,000-node stress document), and so does
+scrolling a canvas with a toolbar open — toolbar positioning is a direct DOM write, never a render;
+geometry updates are 100% observer-attributed (no polling, no per-interaction measurement);
+browser-truth positioning, inline editing, and bubble activation are asserted by Storybook play
+functions in real Chromium.
 
 ## Development
 

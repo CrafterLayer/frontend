@@ -57,17 +57,30 @@ export {
   type TokenName,
 } from '@craftkit/builder-renderer';
 
-// Shell (canvas + panels — B2a/B2b/B3a)
+// Shell (canvas + panels — B2a/B2b/B3a; inline editing — B3c). B3c adds the
+// content components (in-place text surface, formatting bubble, block action
+// bar) and the block-action helpers; the floating/anchor/session plumbing the
+// canvas drives internally stays off the surface, the same policy that keeps
+// createRectIndex and systemGeometryPorts internal.
 export {
   BUCKET_THRESHOLDS,
+  BlockActionBar,
   DeviceBar,
   EditorCanvas,
+  InlineTextSurface,
   Inspector,
   LayersTree,
   Palette,
   PreviewMode,
+  TextBubble,
   bucketForWidth,
   defineCanvasTool,
+  performBlockAction,
+  resolveBlockActions,
+  type BlockAction,
+  type BlockActionBarProps,
+  type BlockActionId,
+  type BlockActionResult,
   type CanvasDragHandle,
   type CanvasToolTarget,
   type DeviceBarProps,
@@ -76,13 +89,17 @@ export {
   type DropTarget,
   type EditingBucket,
   type EditorCanvasProps,
+  type FloatingHostPorts,
   type GeometryPorts,
+  type InlineTextSurfaceProps,
   type InspectorProps,
   type LayersTreeProps,
   type NodeRect,
   type PaletteProps,
   type PreviewModeProps,
   type RectIndex,
+  type TextBubbleAction,
+  type TextBubbleProps,
 } from '@craftkit/builder-shell';
 
 // Kernel access (creation + command authoring + helpers)
@@ -99,7 +116,9 @@ export {
   type OpenDocumentOptions,
 } from '@craftkit/builder-core';
 
-// Contract authoring applications legitimately need (custom blocks/extensions)
+// Contract authoring applications legitimately need (custom blocks/extensions).
+// The Inline* types (B3c, 009 §11) let a block declare `inlineEditable` and let
+// an extension contribute an inline editor via `inlineEditors`.
 export {
   defineBlockSchema,
   emptyRichText,
@@ -114,6 +133,12 @@ export {
   type ContentDirection,
   type FieldProps,
   type FieldTypeDef,
+  type InlineEditableKind,
+  type InlineEditorDef,
+  type InlineEditorProps,
+  type InlineFormatAction,
+  type InlineRect,
+  type InlineSelectionAnchor,
   type JsonValue,
   type Node,
   type NodeId,

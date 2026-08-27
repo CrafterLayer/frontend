@@ -5,10 +5,16 @@ import type { BlockRenderProps } from '@craftkit/builder-schema';
 import type { TestimonialsProps } from './schema';
 
 /** Customer quotes as semantic figures with attributed captions. */
-export function Testimonials({ props }: BlockRenderProps<TestimonialsProps>) {
+export function Testimonials({ node, props }: BlockRenderProps<TestimonialsProps>) {
+  // The accessible name comes from the VISIBLE heading, never a copy of
+  // its text: inline editing swaps that property for an editor element, and
+  // an element in aria-label stringifies to "[object Object]" (009 §12).
+  const headingId = `${node.id}-heading`;
   return (
-    <section className="mkt-testimonials" aria-label={props.heading}>
-      <h2 className="mkt-testimonials__heading">{props.heading}</h2>
+    <section className="mkt-testimonials" aria-labelledby={headingId}>
+      <h2 id={headingId} className="mkt-testimonials__heading">
+        {props.heading}
+      </h2>
       <ul className="mkt-testimonials__grid">
         {props.items.map((item) => (
           <li key={`${item.author}-${item.quote.slice(0, 16)}`}>

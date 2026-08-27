@@ -116,6 +116,66 @@ describe('US2 — extension lifecycle', () => {
     expect(kernel.extensions.has('tools-clash')).toBe(false);
   });
 
+  it('resolves an inline editor by kind — FIRST registration wins (009 §11)', () => {
+    const kernel = testKernel();
+    const editor = (id: string, kind: 'text' | 'rich') => ({
+      id,
+      kind,
+      load: () => Promise.resolve({ default: () => null }),
+    });
+    kernel.extensions.register({
+      tier: 1,
+      name: 'inline-a',
+      version: '1.0.0',
+      contributes: { inlineEditors: [editor('rich-first', 'rich'), editor('plain', 'text')] },
+    });
+    kernel.extensions.register({
+      tier: 1,
+      name: 'inline-b',
+      version: '1.0.0',
+      contributes: { inlineEditors: [editor('rich-second', 'rich')] },
+    });
+
+    // Deterministic because extensions register in topological order — never
+    // "whichever extension happened to load last".
+    expect(kernel.context.registry.inlineEditor('rich')?.id).toBe('rich-first');
+    expect(kernel.context.registry.inlineEditor('text')?.id).toBe('plain');
+    expect(kernel.context.registry.inlineEditors()).toHaveLength(3);
+
+    // LAZY BY CONTRACT: registering a manifest must not pull an editing engine
+    // into the bundle — the def carries a loader, never a component.
+    expect(typeof kernel.context.registry.inlineEditor('rich')?.load).toBe('function');
+
+    kernel.extensions.dispose('inline-a');
+    expect(kernel.context.registry.inlineEditor('rich')?.id).toBe('rich-second');
+    expect(kernel.context.registry.inlineEditor('text')).toBeUndefined();
+
+    kernel.extensions.dispose('inline-b');
+    expect(kernel.context.registry.inlineEditors()).toEqual([]);
+  });
+
+  it('rejects a duplicate inline-editor id all-or-nothing', () => {
+    const kernel = testKernel();
+    const editor = (id: string) => ({
+      id,
+      kind: 'rich' as const,
+      load: () => Promise.resolve({ default: () => null }),
+    });
+    kernel.extensions.register({
+      tier: 1,
+      name: 'inline-first',
+      version: '1.0.0',
+      contributes: { inlineEditors: [editor('rich')] },
+    });
+    const clashing = blockManifest('inline-clash', 'fresh-inline-block');
+    clashing.contributes = { ...clashing.contributes, inlineEditors: [editor('rich')] };
+    expect(() => {
+      kernel.extensions.register(clashing);
+    }).toThrow(/already registered/);
+    expect(kernel.context.registry.block('fresh-inline-block')).toBeUndefined();
+    expect(kernel.extensions.has('inline-clash')).toBe(false);
+  });
+
   it('catalogs field types in REGISTRATION ORDER, removes them on disposal (007 §2)', () => {
     // Insertion order is contractual: resolveField ties break by position.
     const kernel = testKernel();

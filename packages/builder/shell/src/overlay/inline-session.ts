@@ -80,6 +80,14 @@ function isRichTextDeclaration(schema: {
   }
 }
 
+/**
+ * Every DECLARED kind is editable, so the only thing that makes a gesture inert
+ * is a block declaring nothing: the canvas ships a built-in surface for both
+ * kinds — plain text, and engine-free rich text with bold/italic over a real
+ * selection (009 §15). A contributed editor (§11) still wins where an extension
+ * registers one, and because that contribution is lazy, resolving it never
+ * loads an editing engine (the containment law).
+ */
 export function createInlineSession(kernel: BuilderKernel): InlineSessionHandle {
   let session: InlineSession | null = null;
   const listeners = new Set<(next: InlineSession | null) => void>();

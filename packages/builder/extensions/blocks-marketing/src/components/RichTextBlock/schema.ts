@@ -13,6 +13,7 @@ export const richTextBlockSchema = defineBlockSchema({
   props: z.object({
     content: richText().default(emptyRichText() as never),
   }),
+  inlineEditable: 'content',
   examples: richTextBlockExamples,
 });
 

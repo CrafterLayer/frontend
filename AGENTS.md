@@ -53,8 +53,7 @@ extension provides `speckit.workspace.review`, `speckit.workspace.handoff`, and
 `.specify/agents/README.md`.
 
 <!-- SPECKIT START -->
-
-For additional context about technologies to be used, project structure, shell commands, and other
-important information, read the current plan at
-specs/workspace/009-builder-b3c-inline-editing/plan.md
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+at specs/workspace/009-builder-b3c-inline-editing/plan.md
 <!-- SPECKIT END -->

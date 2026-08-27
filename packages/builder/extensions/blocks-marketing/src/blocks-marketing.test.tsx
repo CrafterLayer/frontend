@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { render, screen } from '@testing-library/react';
 import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
@@ -7,6 +9,11 @@ import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import { defineBlockSchema, type TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { blocksMarketing } from './index';
+import { Features } from './components/Features';
+import { Hero } from './components/Hero';
+import { Pricing } from './components/Pricing';
+import { RichTextBlock } from './components/RichTextBlock';
+import { Testimonials } from './components/Testimonials';
 
 /** A minimal structural host for the marketing vocabulary (US2 acceptance). */
 const hostPage: TrustedExtensionManifest = {
@@ -119,5 +126,112 @@ describe('US2 — blocks-marketing extension', () => {
     render(<DocumentView kernel={kernel} />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('مرحبا بالعالم');
     expect(screen.getByRole('button', { name: 'ابدأ الآن' })).toBeInTheDocument();
+  });
+});
+
+describe('B3c — inline editing readiness (009 §12)', () => {
+  it('every block declares the property that IS its visible text', () => {
+    const kernel = marketingKernel();
+    const declared = Object.fromEntries(
+      kernel.context.registry
+        .blocks()
+        .map((entry) => [entry.schema.type, entry.schema.inlineEditable]),
+    );
+    // Declaring this is what makes a block editable on the canvas at all. A
+    // block that renders text and declares nothing is inert to the gesture.
+    expect(declared).toMatchObject({
+      hero: 'heading',
+      features: 'heading',
+      pricing: 'heading',
+      testimonials: 'heading',
+      richText: 'content',
+    });
+    // The CTA's label is the CONTENT OF A BUTTON, and a button is not a text
+    // container — Chromium will not place a caret inside one. Declaring it
+    // would ship a gesture that silently does nothing, so it stays an
+    // inspector property.
+    expect(declared['cta']).toBeUndefined();
+  });
+
+  it('names sections from the VISIBLE heading, never a second copy of its text', () => {
+    // THE DEFECT THIS GUARDS: inline editing swaps the declared property for a
+    // React element. A section that named itself `aria-label={props.heading}`
+    // would then announce "[object Object]" the moment the editor opened —
+    // invisible in every test that only edits through the inspector.
+    const namedByItsHeading = (element: ReactElement, nodeId: string, heading: string) => {
+      const { container, unmount } = render(element);
+      const section = container.querySelector('section');
+      expect(section?.getAttribute('aria-label')).toBeNull();
+      expect(section?.getAttribute('aria-labelledby')).toBe(`${nodeId}-heading`);
+      expect(container.querySelector(`#${nodeId}-heading`)?.textContent).toBe(heading);
+      unmount();
+    };
+    const node = (id: string, type: string) => ({ id, type, props: {} });
+    const inert = { data: {}, isCanvas: false } as const;
+
+    namedByItsHeading(
+      <Hero
+        node={node('n-hero', 'hero')}
+        props={{ tone: 'light', align: 'center', heading: 'Named hero' }}
+        slots={{}}
+        {...inert}
+      />,
+      'n-hero',
+      'Named hero',
+    );
+    namedByItsHeading(
+      <Features
+        node={node('n-features', 'features')}
+        props={{ heading: 'Named features', columns: '3', items: [] }}
+        slots={{}}
+        {...inert}
+      />,
+      'n-features',
+      'Named features',
+    );
+    namedByItsHeading(
+      <Pricing
+        node={node('n-pricing', 'pricing')}
+        props={{ heading: 'Named pricing', plans: [] }}
+        slots={{}}
+        {...inert}
+      />,
+      'n-pricing',
+      'Named pricing',
+    );
+    namedByItsHeading(
+      <Testimonials
+        node={node('n-quotes', 'testimonials')}
+        props={{
+          heading: 'Named quotes',
+          // One with a role and one without: the naming fixture doubles as the
+          // cover for the optional-role branch.
+          items: [
+            { quote: 'q', author: 'a', role: 'CTO' },
+            { quote: 'q2', author: 'b' },
+          ],
+        }}
+        slots={{}}
+        {...inert}
+      />,
+      'n-quotes',
+      'Named quotes',
+    );
+  });
+
+  it('renders the EDITOR itself when the declared prop is an element (rich text)', () => {
+    const inert = { data: {}, isCanvas: false } as const;
+    // RichTextBlock passes its declared property to a component rather than
+    // rendering it, so the seam's element would never reach the DOM without
+    // this branch — the editor would open into nothing.
+    const { container } = render(
+      <RichTextBlock
+        node={{ id: 'n-rich', type: 'richText', props: {} }}
+        props={{ content: <mark data-testid="the-editor">editing</mark> }}
+        slots={{}}
+        {...inert}
+      />,
+    );
+    expect(container.querySelector('[data-testid="the-editor"]')?.textContent).toBe('editing');
   });
 });

@@ -16,3 +16,14 @@
   outline: 2px solid var(--bldr-selection, #4f46e5);
   outline-offset: 2px;
 }
+
+/* Door rejections stay next to the live in-canvas control, matching the
+   Inspector's described-control precedent instead of looking like lost input. */
+.bldr-inline-rejection {
+  color: var(--bldr-danger, #b42318);
+  display: block;
+  font:
+    500 0.75rem/1.35 system-ui,
+    sans-serif;
+  margin-block-start: 0.25rem;
+}

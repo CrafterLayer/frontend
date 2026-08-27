@@ -1,13 +1,12 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 -> 1.1.0
+- Version change: 1.1.0 -> 1.2.0
 - Modified principles:
-  - III. One Component per TSX File (clarified feature-owned UI placement)
-  - VIII. Monorepo Boundaries and Scoped Specifications (added shared API boundaries)
-- Added principle:
-  - IX. Vertical Feature Ownership and Thin Delivery Layers
+  - VI. Shared Context and Deliberate Delegation (formalized cross-runtime orchestration,
+    bounded worker authority, and fail-closed bridge behavior)
 - Updated section:
-  - Architecture and Artifact Standards (canonical app, feature, page, route, and API shape)
+  - Agent Workflow and Delivery Gates (added explicit task partition and delegation gate)
+- Added sections: none
 - Removed sections: none
 - Deferred items: none
 -->
@@ -105,11 +104,33 @@ replaceable task state belongs in `.specify/agents/HANDOFF.md` and
 sensitive values MUST NOT be stored in these files.
 
 Sub-agents MAY be used only for concrete, bounded work that can proceed independently.
-Delegated tasks MUST define the deliverable, allowed paths, verification, and whether the
-task is read-only or may edit. Parallel agents MUST NOT receive overlapping write scopes.
-The primary agent retains ownership of integration, review, final verification, and the
-user-facing result. A permanent context-heavy sub-agent registry is forbidden unless the
-user explicitly requests one.
+The agent that accepts the user request is the coordinating primary agent unless the user
+explicitly assigns that role elsewhere. Every delegated task MUST define its objective and
+deliverable, read or write authority, exact allowed paths, source-of-truth artifacts,
+verification, prohibited actions, and evidence to return. Parallel agents MUST NOT receive
+overlapping write scopes.
+
+Cross-runtime delegation through MCP, an agent plugin, a CLI, or a future transport MUST obey
+the same contract. Transport configuration is an adapter, never a second source of governance.
+A delegated worker MUST NOT widen its scope, recursively delegate or spawn additional workers
+without explicit coordinator authority, or commit, push, deploy, install dependencies, or mutate
+external state unless the task contract and current user authorization explicitly allow that
+action. The coordinator MUST select the working directory, least-privilege sandbox and approval
+policy, and any model override deliberately; an unbounded or danger-full-access default is
+forbidden.
+
+The coordinator retains ownership of task partitioning, integration, review, final verification,
+continuity updates, and the user-facing result. It MUST verify bridge availability before relying
+on delegation. A required independent review or required delegation MUST fail closed when the
+selected worker is unavailable; optional parallel work MAY continue in the coordinator only when
+that fallback is reported and does not weaken an acceptance gate. A permanent context-heavy
+sub-agent registry is forbidden unless the user explicitly requests one.
+
+Workflow enforcement MUST be observable outside an agent's prose. Required delegation MUST emit a
+run-local structured result that a separate engine step validates before implementation. Mandatory
+Codex review MUST start a fresh process with an explicitly enforced read-only sandbox and
+never-approve policy, produce non-empty review evidence, and expose that evidence to the following
+approval gate. A workflow-designated independent reviewer MUST NOT recursively delegate review.
 
 ### VII. Commit Integrity
 
@@ -267,10 +288,12 @@ Each feature follows the Spec Kit lifecycle:
 4. Produce the technical plan and record architecture and dependency-graph decisions.
 5. Generate dependency-ordered tasks with documentation, stories, tests, review, and
    verification represented explicitly.
-6. Implement in small coherent changes with non-overlapping package ownership.
-7. Review the diff and run package-level checks before affected workspace checks.
-8. Converge implementation against the specification, plan, and tasks.
-9. Update shared context or handoff state before pausing or transferring work.
+6. Partition the approved task graph; delegate only independently verifiable, path-disjoint work
+   through the shared collaboration contract and record which agent owns each active write scope.
+7. Integrate delegated evidence, then implement remaining work in small coherent changes.
+8. Review the diff and run package-level checks before affected workspace checks.
+9. Converge implementation against the specification, plan, and tasks.
+10. Update shared context or handoff state before pausing or transferring work.
 
 UI task lists MUST NOT collapse implementation, docs, Storybook, and tests into an
 optional final note. Those artifacts are part of the component's definition of done.
@@ -290,4 +313,4 @@ without changed obligations. Every feature plan and every code review MUST inclu
 constitution compliance check. Exceptions require a documented rationale, owner, and
 removal condition in the active plan; undocumented exceptions are invalid.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-24 | **Last Amended**: 2026-08-25
+**Version**: 1.2.0 | **Ratified**: 2026-08-24 | **Last Amended**: 2026-08-26

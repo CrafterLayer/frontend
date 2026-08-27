@@ -11,7 +11,9 @@ import {
 } from '@craftkit/builder';
 import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
-export type PlaygroundFixture = 'empty' | 'landing';
+import { demoExtension } from './demo-extension';
+
+export type PlaygroundFixture = 'empty' | 'landing' | 'inline';
 
 /** The playground's own marketing landing document (real vocabulary, ar+en). */
 export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument {
@@ -113,19 +115,62 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
   return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
 }
 
+/**
+ * The B3c inline-editing fixture: one block with an inline-editable STRING
+ * prop (the announcement's message) and one with an inline-editable RICH prop
+ * (the story's content) — the smallest document that walks select → edit in
+ * place → format via the bubble → act via the block action bar.
+ */
+export function inlineEditing(dir: ContentDirection = 'ltr'): BuilderDocument {
+  const nodes: Record<string, Node> = {
+    root: {
+      id: 'root',
+      type: 'page',
+      props: { title: 'Inline editing' },
+      slots: { default: ['note', 'tale'] },
+    },
+    note: { id: 'note', type: 'announcement', props: { message: 'Edit me in place' } },
+    tale: {
+      id: 'tale',
+      type: 'story',
+      props: {
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Select this line and make it bold.' }],
+            },
+          ],
+        },
+      },
+    },
+  };
+  return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
+}
+
 export function createPlaygroundKernel(
   options: { fixture?: PlaygroundFixture; dir?: ContentDirection } = {},
 ): BuilderKernel {
   const dir = options.dir ?? 'ltr';
+  const fixture = options.fixture ?? 'landing';
   const document =
-    (options.fixture ?? 'landing') === 'landing'
+    fixture === 'landing'
       ? marketingLanding(dir)
-      : emptyDocument('site', dir);
+      : fixture === 'inline'
+        ? inlineEditing(dir)
+        : emptyDocument('site', dir);
 
   // Deterministic by construction; zero backend, zero network (FR-014).
   return createBuilder({
     document,
-    extensions: [defaultBlocks, blocksMarketing, richTextExtension],
+    // The inline fixture's document HOLDS the demo blocks, so their schemas
+    // must be live at creation; landing and empty keep the FR-013 story —
+    // registration happens at runtime through <RegisterDemoExtension/>.
+    extensions:
+      fixture === 'inline'
+        ? [defaultBlocks, blocksMarketing, richTextExtension, demoExtension]
+        : [defaultBlocks, blocksMarketing, richTextExtension],
     ports: { clock: fixedClock(), ids: seededIds('pg') },
   });
 }

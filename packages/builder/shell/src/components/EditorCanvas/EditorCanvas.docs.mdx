@@ -6,10 +6,8 @@ import * as EditorCanvasStories from './EditorCanvas.stories';
 
 # EditorCanvas
 
-The builder's read-only canvas (milestone B2a): the B1 preview frame plus canvas chrome — a hover
-outline under the pointer, a persistent selection outline with the block's display name, keyboard
-traversal, and extension-contributed canvas tools. **Zero editing gestures**: nothing on this canvas
-mutates the document; drag, drop, resize and inline editing arrive with later milestones.
+The builder's live canvas: the isolated preview frame plus selection chrome, keyboard traversal,
+drag editing, a selected-block action bar, and B3c inline editing at the block's own text seam.
 
 ## Usage
 
@@ -27,9 +25,9 @@ state (single source of truth).
 
 Pointer movement, hovering, selecting, and clearing cause **zero document-content re-renders**.
 React renders this component's scaffold once; the hot path lives in plain TypeScript machinery that
-positions prebuilt chrome elements directly, batched to the display's frame rhythm. Geometry comes
-from an observer-invalidated index (element resize, scroll, viewport resize, direction flip) — never
-from polling and never from per-interaction measurement.
+positions prebuilt chrome elements directly, batched to the display's frame rhythm. Opening or
+closing an inline edit reaches only the named node through a stable node-keyed subscription; it does
+not replace the seam prop across all 1,000 stress nodes.
 
 ## API
 
@@ -69,6 +67,27 @@ with the own-slot exemption, never-into-own-subtree) gate targets at resolution 
 agree with the command door. `Alt+Arrows` performs the same moves without a pointer; the palette
 hands insert payloads into the same session through `onDragHandle`. Without `editable`, none of this
 machinery exists — B2a behavior is byte-compatible.
+
+## Inline editing (`editable`)
+
+Double-click a declared inline-editable value, press Enter on its selected block, or choose **Edit
+text** from the action bar. Entry is view state and dispatches nothing. Pointer entry retains the
+gesture coordinates so the caret opens at the clicked character; keyboard entry opens at the logical
+end.
+
+Contributed rich editors are resolved before the block swaps to an editing surface. While the lazy
+editor is loading, the block keeps its ordinary rendered output, so a built-in editor never mounts
+only to be replaced. If the contribution fails to load, the built-in surface becomes the one chosen
+fallback and the failure is reported through `onToolError`.
+
+Rich-selection geometry is measured from the live frame selection on every observer-driven anchor
+flush. No rectangle is retained in React state, so the formatting bubble follows scroll and reflow
+and hides when the selection is no longer visible. A rejected `setProp` keeps the draft and session
+open and renders the door's message next to the editing control through `aria-describedby`.
+
+The selected-block bar contains duplicate, delete, move earlier, move later, and conditionally
+**Edit text**. The last action is present only when the block declares an inline target and opens
+the session directly; it deliberately does not enter the structural action dispatch path.
 
 ## RTL and theming
 

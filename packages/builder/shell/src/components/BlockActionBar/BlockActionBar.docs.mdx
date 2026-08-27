@@ -1,0 +1,100 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BlockActionBarStories from './BlockActionBar.stories';
+
+<Meta of={BlockActionBarStories} />
+
+# BlockActionBar
+
+The quick-action bar attached to the selected block (milestone B3c, US3): duplicate, delete, move
+earlier, move later, and Edit text when the block declares `inlineEditable`. The canvas resolves
+what is valid for the selected node through `resolveBlockActions`; its four structural actions use
+`performBlockAction`, while the canvas opens Edit text directly. The bar itself is pure content.
+
+## Defined dispatch and resulting selection
+
+Every structural action is EXACTLY one dispatch through the kernel door, announced, and leaves a
+defined selection (contract §6 a2). Edit text is the deliberate zero-dispatch exception:
+
+| Action                  | Dispatch        | Selected afterwards                                                         |
+| ----------------------- | --------------- | --------------------------------------------------------------------------- |
+| Duplicate               | `duplicateNode` | the duplicate (seated immediately after its origin)                         |
+| Delete                  | `removeNode`    | the sibling that takes the seat, else the new last sibling, else the parent |
+| Move earlier/Move later | `moveNode`      | the moved node                                                              |
+| Edit text               | none            | the same block; opens canvas view state                                     |
+
+Edit text is deliberately outside `performBlockAction`: entering an inline session is view state and
+dispatches nothing (contract §3). It appears only when `inlineTargetOf` resolves the selected
+block's declaration; the canvas handles it by opening that session.
+
+An action that cannot apply — deleting the document root, moving the first child earlier, the last
+child later, duplicating into a full slot — is reported DISABLED by `resolveBlockActions` and
+refused by `performBlockAction` with the same reason, so it never fails at the door (a3, US3/AC3).
+The unit suite forces each closed gate straight at the door to prove the disable is not arbitrary.
+
+## Positioning belongs to the floating host
+
+The bar is content-only. The canvas portals it into a `createFloatingHost` element seated
+BELOW-CENTRE (`prefer: 'below'`, `align: 'center'`) — the selection outline's name chip owns the
+block's top-start corner, so the bar may never sit there, and a centred bar is direction-stable
+under RTL by construction. The HOST runs `positionFloating`: prefer-below with a FLIP above at the
+frame's bottom edge, inline shift with padding, hidden when the anchor scrolls out of the frame's
+visible area, hidden for the duration of a drag session (a4) and while the block's own text is open
+for inline editing. Nothing geometric lives in this component — which is what keeps scroll-time
+repositioning at zero React renders.
+
+## Usage
+
+```tsx
+import { BlockActionBar, performBlockAction, resolveBlockActions } from '@craftkit/builder';
+
+const actions = resolveBlockActions(kernel, selectedId);
+createPortal(
+  <BlockActionBar
+    label={`Actions for ${blockDescription}`}
+    actions={actions}
+    onAction={(id) => {
+      if (id === 'editText') {
+        inlineSession.begin(selectedId); // zero document dispatches
+        return;
+      }
+      const { announcement } = performBlockAction(kernel, selectedId, id);
+      announce(announcement); // the selection is already applied to the kernel
+    }}
+    dir={doc.dir}
+  />,
+  floatingHost.element,
+);
+```
+
+## API
+
+| Prop       | Type                   | Notes                                                 |
+| ---------- | ---------------------- | ----------------------------------------------------- |
+| `label`    | `string`               | required; accessible name — name the selected block   |
+| `actions`  | `BlockAction[]`        | required; from `resolveBlockActions`, order preserved |
+| `onAction` | `(id: string) => void` | required; one call per activation                     |
+| `dir`      | `'ltr' \| 'rtl'`       | mirrors the arrow-key pair; default `ltr`             |
+
+## Accessibility & RTL
+
+A labeled `role="toolbar"` that EARNS the role: one tab stop with roving tabindex, ArrowRight /
+ArrowLeft move between enabled actions (mirrored under RTL — forward is the reading direction, the
+same rule as canvas traversal), Home/End jump to the edges, and Tab leaves the bar entirely. Actions
+are real buttons with native `disabled` semantics and `:focus-visible` rings. Activating a button
+cancels pointerdown and mousedown and stops click propagation, so it never steals focus and never
+re-enters the canvas selection path. Announcements are the caller's job: `performBlockAction`
+returns the message for the canvas's polite region.
+
+## When not to use
+
+Not a context menu and not a property editor — property editing belongs to the Inspector, and text
+editing belongs to the inline surfaces. Anything needing its own positioning should ride a floating
+host, not grow one here.
+
+## Known limitations
+
+- Disabled actions keep their seat in the layout but leave the roving order (native `disabled`
+  cannot take focus); a bar whose actions are ALL disabled — the document root — has no tab stop.
+- Edit text is omitted, rather than disabled, when the selected block has no `inlineEditable`
+  declaration. The four structural actions retain their stable seats and disabled edge states.

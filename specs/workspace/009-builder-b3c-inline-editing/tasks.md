@@ -43,44 +43,45 @@ remains withheld; the final task produces a proposal only.
 
 ## Phase 4: User Story 2 — The formatting bubble (P2)
 
-- [ ] T010 [US2] Selection-rect channel in the richtext extension: `selectionUpdate` →
+- [x] T010 [US2] Selection-rect channel in the richtext extension: `selectionUpdate` →
       `posToDOMRect` → layer-local anchor, with the VENDORED BubbleMenu `shouldShow` logic
       (attributed; `@tiptap/core` only, no new package)
-- [ ] T011 [US2] `TextBubble` shell component (contract §5) — FULL contract; pointer-down
+- [x] T011 [US2] `TextBubble` shell component (contract §5) — FULL contract; pointer-down
       cancellation + the canvas layer-origin click guard (risks 2 and 9)
-- [ ] T012 [US2] US2 acceptance: AC1–AC5 (appears on non-empty selection, one tx per action with the
+- [x] T012 [US2] US2 acceptance: AC1–AC5 (appears on non-empty selection, one tx per action with the
       selection preserved, disappears on collapse/exit/out-of-view, stays anchored across frame
       scroll and resize, absent for plain-text surfaces)
 
 ## Phase 5: User Story 3 — Block action bar (P3)
 
-- [ ] T013 [US3] `BlockActionBar` as a `'selection'` canvas tool (contract §6) — FULL contract;
+- [x] T013 [US3] `BlockActionBar` as a `'selection'` canvas tool (contract §6) — FULL contract;
       duplicate / delete / move earlier / move later / edit text
-- [ ] T014 [US3] US3 acceptance: AC1–AC5 (anchored to the outline, one tx + expected resulting
+- [x] T014 [US3] US3 acceptance: AC1–AC5 (anchored to the outline, one tx + expected resulting
       selection per action, invalid actions absent-or-disabled, hidden during a drag,
       keyboard-operable)
 
 ## Phase 6: User Story 4 — The laws survive (P4)
 
-- [ ] T015 [US4] Zero-render and containment proofs on the 1,000-node stress document:
+- [x] T015 [US4] Zero-render and containment proofs on the 1,000-node stress document:
       hover/select/scroll/toolbar positioning ⇒ 0 content renders; an inline commit ⇒ exactly one
       node's subtree; the engine loader ⇒ 0 invocations without rich inline editing
-- [ ] T016 [US4] RTL acceptance across all three surfaces + the Chromium browser-truth stories
+- [x] T016 [US4] RTL acceptance across all three surfaces + the Chromium browser-truth stories
       (enter-edit, bubble format, exit) inside the real frame (SC-006)
 
 ## Phase 7: Integration, polish & delivery gates
 
-- [ ] T017 Preset surface additions + surface.test entries
-- [ ] T018 Playground scenario 9: select → edit inline → bubble-format → action-bar duplicate → undo
+- [x] T017 Preset surface additions + surface.test entries
+- [x] T018 Playground scenario 9: select → edit inline → bubble-format → action-bar duplicate → undo
       lockstep, with the Law-S counter
-- [ ] T019 [P] Docs coherence: shell/renderer README notes; VENDOR.md cross-links from the adapted
+- [x] T019 [P] Docs coherence: shell/renderer README notes; VENDOR.md cross-links from the adapted
       components
 - [ ] T020 Evidence run per quickstart: narrow → gates + boundary negatives → storybook
       catalog-presence → full `pnpm verify`; record here
 - [ ] T021 Final diff review (two independent read-only reviewers); fix accepted findings with
       regression tests; re-run affected checks
 - [ ] T022 /speckit-converge (multi-agent audit + adversarial verification, with a MUTATION check on
-      at least one recorded fix — the B3b lesson); implement appended gaps
+      at least one recorded fix — the B3b lesson); implement appended gaps. MUST ALSO decide the
+      editor-local-undo semantics (contract §14 convergence item)
 - [ ] T023 /speckit-workspace-handoff (HANDOFF/context/MEMORY refresh)
 - [ ] T024 /speckit-workspace-commit proposal ONLY — commit authorization remains withheld
 
@@ -98,3 +99,20 @@ T017 → T018; T019 [P]; T020 → T021 → T022 → T023 → T024
 MVP = Phases 1–3 (editing where the content lives). The bubble and the action bar are what make it
 feel like a builder; the laws phase is what keeps it one. Prior art is adopted, not re-derived:
 research R1 fixes exactly what is vendored, reused, and written fresh.
+
+## Phase 8: Field-report fixes (raised by the user while B3c was in flight)
+
+- [x] T025 Polish law: one chrome at a time — the selection outline and its name chip stand down
+      while a block's text is open for editing (contract §13); jsdom + Chromium proofs
+- [x] T026 The block action bar moves to BELOW-CENTRE (`prefer: 'below'`), off the outline's name
+      chip; `prefer` added to positionFloating with its own table tests
+- [x] T027 Shared floating-surface skin for the bubble and the bar (white card, hairline border,
+      layered shadow, evenly-sized quiet actions) — structural only, the design milestone re-skins
+- [x] T028 Stale-echo protocol in the rich editor's reconcile (contract §14) — a REAL browser race
+      the Chromium gate caught and jsdom's act() had hidden; two mutation-verified regressions
+- [x] T029 `InlineRichSurface`: the BUILT-IN engine-free rich surface (contract §15) — real per-word
+      bold/italic, stored not painted — with the pure cores `inline/mark-range.ts` and
+      `inline/dom-range.ts`, full component contract, and the Chromium headline proof
+- [x] T030 Adversarial verification of the two cores (2 build agents + 3 lenses each), then a
+      fix-and-independently-re-confirm pass: 21 confirmed defects fixed, every fix carrying a
+      mutation-checked regression test (contract §17); offset model made unambiguous (§16)

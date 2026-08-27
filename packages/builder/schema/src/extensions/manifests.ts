@@ -6,6 +6,7 @@ import type {
   BlockRenderComponent,
   DataSourceDef,
   FieldTypeDef,
+  InlineEditorDef,
   KernelApi,
   KeymapDef,
   OverlayToolDef,
@@ -31,6 +32,7 @@ export interface TrustedExtensionManifest {
     commands?: Record<string, RegisteredCommand>;
     panels?: PanelContribution[];
     fieldTypes?: FieldTypeDef[];
+    inlineEditors?: InlineEditorDef[];
     canvasTools?: OverlayToolDef[];
     projections?: ProjectionDef[];
     dataSources?: DataSourceDef[];

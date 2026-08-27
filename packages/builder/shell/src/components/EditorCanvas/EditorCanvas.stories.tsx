@@ -1,12 +1,16 @@
-import { expect, waitFor } from 'storybook/test';
+import { isValidElement } from 'react';
+
+import { expect, waitFor, within } from 'storybook/test';
 import { z } from 'zod';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { createBuilder } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
-import { darkTheme, lightTheme } from '@craftkit/builder-renderer';
+import { RichText, darkTheme, lightTheme } from '@craftkit/builder-renderer';
 import {
   defineBlockSchema,
+  emptyRichText,
+  richText,
   type BlockRenderComponent,
   type BlockRenderProps,
   type BuilderDocument,
@@ -342,5 +346,366 @@ export const DeviceWidth: Story = {
     await expect(width).toBe(834);
     const frame = frameOf(canvasElement);
     await expect(frame.getBoundingClientRect().width).toBe(width);
+  },
+};
+
+// ── B3c: inline editing and the floating toolbars ───────────────────────────
+// Browser truth is the point of these three. jsdom has no layout, so it cannot
+// answer the questions that decide whether this milestone FEELS right: does the
+// editor land on the text, does a toolbar sit over its target, does pressing a
+// formatting button leave the caret alone. Chromium can.
+
+const EditableText = ((props: BlockRenderProps<{ label: string }>) => (
+  <p
+    data-demo-node={props.node.id}
+    style={{ font: '600 24px/1.3 system-ui, sans-serif', margin: 0, padding: '16px 20px' }}
+  >
+    {props.props.label}
+  </p>
+)) as unknown as BlockRenderComponent;
+
+const editableBlocks = (
+  extra?: TrustedExtensionManifest['contributes'],
+): TrustedExtensionManifest => ({
+  tier: 1,
+  name: 'canvas-editable-blocks',
+  version: '1.0.0',
+  contributes: {
+    blocks: [
+      {
+        schema: defineBlockSchema({
+          type: 'edit-page',
+          description: 'Editable page',
+          props: z.object({}),
+          slots: { default: { allow: ['edit-text'] } },
+          examples: [],
+        }),
+        render: Root,
+      },
+      {
+        schema: defineBlockSchema({
+          type: 'edit-text',
+          description: 'Editable text',
+          props: z.object({ label: z.string().default('Text') }),
+          inlineEditable: 'label',
+          examples: [],
+        }),
+        render: EditableText,
+      },
+    ],
+    ...extra,
+  },
+});
+
+const editableDocument = (dir: 'ltr' | 'rtl' = 'ltr'): BuilderDocument => ({
+  schemaVersion: 1,
+  surface: 'site',
+  dir,
+  rootId: 'root',
+  nodes: {
+    root: { id: 'root', type: 'edit-page', props: {}, slots: { default: ['first', 'second'] } },
+    first: {
+      id: 'first',
+      type: 'edit-text',
+      props: { label: dir === 'rtl' ? 'حرّر هذا النص' : 'Edit this line' },
+    },
+    second: {
+      id: 'second',
+      type: 'edit-text',
+      props: { label: dir === 'rtl' ? 'وهذا أيضًا' : 'And this one' },
+    },
+  },
+});
+
+const editableKernel = (
+  dir: 'ltr' | 'rtl' = 'ltr',
+  extra?: TrustedExtensionManifest['contributes'],
+) =>
+  createBuilder({
+    document: editableDocument(dir),
+    extensions: [editableBlocks(extra)],
+    ports: { clock: fixedClock(), ids: seededIds('inline-story') },
+  });
+
+/** Props are JsonValue: read the label as the string this block declares. */
+const labelOf = (kernel: ReturnType<typeof createBuilder>, id: string): string => {
+  const value = kernel.getDocument().nodes[id]?.props['label'];
+  return typeof value === 'string' ? value : '';
+};
+
+/** Renders the swapped-in editor when editing, the stored prose otherwise. */
+const Prose = ((props: BlockRenderProps<{ body: unknown }>) => (
+  <p
+    data-demo-node={props.node.id}
+    style={{ font: '400 22px/1.5 Georgia, serif', margin: 0, padding: '20px 24px' }}
+  >
+    {isValidElement(props.props.body) ? props.props.body : <RichText value={props.props.body} />}
+  </p>
+)) as unknown as BlockRenderComponent;
+
+const proseBlocks: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'canvas-prose-blocks',
+  version: '1.0.0',
+  contributes: {
+    blocks: [
+      {
+        schema: defineBlockSchema({
+          type: 'prose-page',
+          description: 'Prose page',
+          props: z.object({}),
+          slots: { default: { allow: ['prose'] } },
+          examples: [],
+        }),
+        render: Root,
+      },
+      {
+        schema: defineBlockSchema({
+          type: 'prose',
+          description: 'Prose',
+          props: z.object({ body: richText().default(emptyRichText() as never) }),
+          inlineEditable: 'body',
+          examples: [],
+        }),
+        render: Prose,
+      },
+    ],
+  },
+};
+
+const inlineKernel = editableKernel();
+export const InlineEditing: Story = {
+  args: { kernel: inlineKernel, theme: lightTheme, editable: true },
+  play: async ({ canvasElement }) => {
+    // BROWSER TRUTH: a double-click inside the preview opens the declared
+    // property where the text is drawn — same box, same typography — and a real
+    // input event commits through the door. Written relative to the current
+    // value so an Interactions rerun proves the same property.
+    const frame = frameOf(canvasElement);
+    const target = await waitFor(() => {
+      const found = frame.contentDocument?.querySelector<HTMLElement>('[data-bldr-node="first"]');
+      if (!found) {
+        throw new Error('the first block must render');
+      }
+      return found;
+    });
+    inlineKernel.setSelection(['first']);
+    const box = target.getBoundingClientRect();
+    frame.contentDocument?.dispatchEvent(
+      new MouseEvent('dblclick', {
+        bubbles: true,
+        clientX: box.x + box.width / 2,
+        clientY: box.y + box.height / 2,
+      }),
+    );
+
+    const surface = await waitFor(() => {
+      const found = frame.contentDocument?.querySelector<HTMLElement>('.bldr-inline-text');
+      if (!found) {
+        throw new Error('the inline surface must open in place');
+      }
+      return found;
+    });
+    // It is EDITABLE on first paint — a keystroke in a not-yet-live frame is
+    // dropped by a real browser, and only a browser can catch that.
+    await expect(surface).toHaveAttribute('contenteditable', 'plaintext-only');
+    // POLISH LAW: the selection outline and its label stand down while the
+    // surface is open — one focus ring, never three stacked chromes.
+    const outline = canvasElement.querySelector<HTMLElement>('.bldr-outline--selection');
+    if (outline !== null) {
+      await expect(outline).not.toBeVisible();
+    }
+    // …and it occupies the text's own box, not a dialog somewhere else.
+    const surfaceBox = surface.getBoundingClientRect();
+    await expect(Math.abs(surfaceBox.y - box.y)).toBeLessThan(24);
+
+    const before = labelOf(inlineKernel, 'first');
+    surface.textContent = `${before}!`;
+    surface.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    await waitFor(async () => {
+      await expect(inlineKernel.getDocument().nodes['first']?.props['label']).toBe(`${before}!`);
+    });
+  },
+};
+
+const actionKernel = editableKernel();
+export const BlockActions: Story = {
+  args: { kernel: actionKernel, theme: lightTheme, editable: true },
+  play: async ({ canvasElement }) => {
+    // BROWSER TRUTH: the bar is MEASURED and placed against the real outline —
+    // the one thing the pure placement suite cannot check.
+    const frame = frameOf(canvasElement);
+    await waitFor(async () => {
+      await expect(frame.contentDocument?.querySelector('[data-bldr-node="second"]')).toBeTruthy();
+    });
+    actionKernel.setSelection(['second']);
+
+    const host = await waitFor(() => {
+      const found = canvasElement.querySelector<HTMLElement>('.bldr-floating--actions');
+      if (found?.style.visibility !== 'visible') {
+        throw new Error('the action bar must be placed and visible');
+      }
+      return found;
+    });
+    const bar = host.querySelector<HTMLElement>('.bldr-block-actions');
+    await expect(bar).toHaveAttribute('role', 'toolbar');
+    await expect(bar).toHaveAccessibleName('Actions for Editable text');
+
+    // It sits BELOW the block and CENTRED on it — the selection outline's name
+    // chip owns the top-start corner, so the bar may never be placed there.
+    const outline = canvasElement.querySelector<HTMLElement>('.bldr-outline--selection');
+    const outlineBox = outline?.getBoundingClientRect();
+    const hostBox = host.getBoundingClientRect();
+    const centreOf = (box: DOMRect | undefined) =>
+      box === undefined ? -999 : box.x + box.width / 2;
+    await expect(Math.abs(centreOf(hostBox) - centreOf(outlineBox))).toBeLessThan(8);
+    await expect(host.dataset['placement']).toBe('below');
+    await expect(hostBox.y).toBeGreaterThan(outlineBox?.y ?? 0);
+
+    // Duplicate is exactly one transaction and leaves the copy selected —
+    // asserted RELATIVE to the current document so reruns stay honest.
+    const before = actionKernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
+    const duplicate = host.querySelector<HTMLButtonElement>('button');
+    duplicate?.click();
+    await waitFor(async () => {
+      await expect(actionKernel.getDocument().nodes['root']?.slots?.['default']?.length).toBe(
+        before + 1,
+      );
+    });
+  },
+};
+
+/**
+ * The bubble story runs on the BUILT-IN rich surface (009 §15) — no contributed
+ * editor, no editing engine — so what you see here is what the builder does out
+ * of the box: select a word, press Bold, and exactly that word is marked and
+ * STORED. Nothing about this demo is painted on.
+ */
+const bubbleKernel = createBuilder({
+  document: {
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'ltr',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'prose-page', props: {}, slots: { default: ['intro'] } },
+      intro: {
+        id: 'intro',
+        type: 'prose',
+        props: {
+          body: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Select a word in this line and press Bold.' }],
+              },
+            ],
+          },
+        },
+      },
+    },
+  },
+  extensions: [proseBlocks],
+  ports: { clock: fixedClock(), ids: seededIds('bubble-story') },
+});
+
+export const FormattingBubble: Story = {
+  args: { kernel: bubbleKernel, theme: lightTheme, editable: true },
+  play: async ({ canvasElement }) => {
+    // BROWSER TRUTH for the headline behaviour: select ONE WORD, press Bold,
+    // and exactly that word is marked — in the stored document, not in CSS.
+    // jsdom cannot do this at all: it has no layout and no real selection.
+    const frame = frameOf(canvasElement);
+    const target = await waitFor(() => {
+      const found = frame.contentDocument?.querySelector<HTMLElement>('[data-bldr-node="intro"]');
+      if (!found) {
+        throw new Error('the prose block must render');
+      }
+      return found;
+    });
+    bubbleKernel.setSelection(['intro']);
+    const box = target.getBoundingClientRect();
+    frame.contentDocument?.dispatchEvent(
+      new MouseEvent('dblclick', {
+        bubbles: true,
+        clientX: box.x + box.width / 2,
+        clientY: box.y + box.height / 2,
+      }),
+    );
+
+    const surface = await waitFor(() => {
+      const found = frame.contentDocument?.querySelector<HTMLElement>('.bldr-inline-rich');
+      if (!found) {
+        throw new Error('the built-in rich surface must open in place');
+      }
+      return found;
+    });
+
+    // Select the word "word" through a REAL DOM range in the frame's own
+    // selection — the same thing a double-click by hand produces.
+    const applyWordSelection = () => {
+      const walker = frame.contentDocument?.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
+      const first = walker?.nextNode();
+      if (first === null || first === undefined) {
+        throw new Error('the surface must render text');
+      }
+      const text = first.textContent ?? '';
+      const at = text.indexOf('word');
+      const range = frame.contentDocument?.createRange();
+      range?.setStart(first, at);
+      range?.setEnd(first, at + 'word'.length);
+      const selection = frame.contentWindow?.getSelection();
+      selection?.removeAllRanges();
+      if (range !== undefined) {
+        selection?.addRange(range);
+      }
+    };
+    surface.focus();
+    applyWordSelection();
+
+    const host = await waitFor(() => {
+      const found = canvasElement.querySelector<HTMLElement>('.bldr-floating--bubble');
+      if (found?.style.visibility !== 'visible') {
+        applyWordSelection(); // a focus race, not a failure — re-apply and wait
+        throw new Error('the bubble must be placed and visible');
+      }
+      return found;
+    });
+    await expect(host.querySelector('.bldr-text-bubble')).toHaveAccessibleName('Formatting');
+
+    // POLISH LAW: the surface's own focus ring is the only chrome while
+    // editing — the selection outline and its name label stand down.
+    const outline = canvasElement.querySelector<HTMLElement>('.bldr-outline--selection');
+    if (outline !== null) {
+      await expect(outline).not.toBeVisible();
+    }
+
+    // RISK 2, in a real browser: pressing an action must not move focus, or
+    // Bold would destroy the very selection it formats.
+    const bold = within(host).getByRole('button', { name: 'Bold' });
+    const press = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
+    bold.dispatchEvent(press);
+    await expect(press.defaultPrevented).toBe(true);
+
+    // THE HEADLINE — asserted RELATIVE to the current state, so a rerun in the
+    // Interactions panel proves the same property from wherever it starts.
+    const beforeTx = bubbleKernel.transactions().length;
+    const wasBold = bold.getAttribute('aria-pressed') === 'true';
+    bold.click();
+    await waitFor(async () => {
+      await expect(bubbleKernel.transactions().length).toBe(beforeTx + 1);
+    });
+    const strong = frame.contentDocument?.querySelector('.bldr-inline-rich strong');
+    if (wasBold) {
+      await expect(strong).toBeNull(); // toggled OFF — and nothing else changed
+    } else {
+      await expect(strong?.textContent).toBe('word'); // exactly the selection
+    }
+    // The paragraph's text is untouched either way: formatting marks it, never
+    // rewrites it.
+    await expect(frame.contentDocument?.querySelector('.bldr-inline-rich')?.textContent).toBe(
+      'Select a word in this line and press Bold.',
+    );
   },
 };

@@ -4,6 +4,7 @@ import {
   type DeclarativeExtensionManifest,
   type DeclarativeWidgetTypeDef,
   type FieldTypeDef,
+  type InlineEditorDef,
   type KeymapDef,
   type OverlayToolDef,
   type RegisteredBlock,
@@ -39,6 +40,9 @@ export function createRegistry(): RegistryHandle {
   const canvasTools = new Map<string, Owned<OverlayToolDef>>();
   // Insertion order IS the contract: fieldTypes() ties break by registration position.
   const fieldTypes = new Map<string, Owned<FieldTypeDef>>();
+  // Same law: registration order decides, so `inlineEditor(kind)` is the FIRST
+  // contribution for that kind — never "whichever extension loaded last".
+  const inlineEditors = new Map<string, Owned<InlineEditorDef>>();
   let keymaps: Owned<KeymapDef>[] = [];
   // Remaining contribution kinds are stored opaquely per point until their
   // consumers arrive (panels/fields in B3, projections in B4, …).
@@ -65,6 +69,15 @@ export function createRegistry(): RegistryHandle {
             a.id.localeCompare(b.id),
         ),
     fieldTypes: () => [...fieldTypes.values()].map((owned) => owned.item),
+    inlineEditor: (kind) => {
+      for (const owned of inlineEditors.values()) {
+        if (owned.item.kind === kind) {
+          return owned.item;
+        }
+      }
+      return undefined;
+    },
+    inlineEditors: () => [...inlineEditors.values()].map((owned) => owned.item),
     keymaps: () => keymaps.map((owned) => owned.item),
     composition: (compositionId) => compositions.get(compositionId)?.item,
     compositions(surface?: Surface) {
@@ -129,6 +142,16 @@ export function createRegistry(): RegistryHandle {
           );
         }
       }
+      for (const editor of contributes.inlineEditors ?? []) {
+        const existing = inlineEditors.get(editor.id);
+        if (existing !== undefined) {
+          throw builderError(
+            'ext/duplicate',
+            `Inline editor "${editor.id}" from "${owner}" is already registered by "${existing.owner}".`,
+            ['contributes', 'inlineEditors'],
+          );
+        }
+      }
 
       for (const contribution of contributes.blocks ?? []) {
         blocks.set(contribution.schema.type, {
@@ -146,6 +169,9 @@ export function createRegistry(): RegistryHandle {
       for (const field of contributes.fieldTypes ?? []) {
         fieldTypes.set(field.id, { owner, item: field });
       }
+      for (const editor of contributes.inlineEditors ?? []) {
+        inlineEditors.set(editor.id, { owner, item: editor });
+      }
       for (const keymap of contributes.keymaps ?? []) {
         keymaps.push({ owner, item: keymap });
       }
@@ -156,6 +182,7 @@ export function createRegistry(): RegistryHandle {
           point === 'commands' ||
           point === 'canvasTools' ||
           point === 'fieldTypes' ||
+          point === 'inlineEditors' ||
           point === 'keymaps'
         ) {
           continue;
@@ -231,6 +258,11 @@ export function createRegistry(): RegistryHandle {
       for (const [fieldId, owned] of [...fieldTypes]) {
         if (owned.owner === owner) {
           fieldTypes.delete(fieldId);
+        }
+      }
+      for (const [editorId, owned] of [...inlineEditors]) {
+        if (owned.owner === owner) {
+          inlineEditors.delete(editorId);
         }
       }
       keymaps = keymaps.filter((owned) => owned.owner !== owner);

@@ -17,6 +17,12 @@ export interface RichTextFieldProps extends FieldProps {
    * (the `onBlockRender` / `geometryPorts` precedent). Hosts never pass it.
    */
   onEditorReady?: ((editor: Editor) => void) | undefined;
+  /**
+   * B3c inline chrome (009 contract §4 t2): the canvas surface reuses this
+   * editor while the floating bubble replaces the block toolbar. Additive and
+   * optional — inspector hosts never pass it; omitting it changes nothing.
+   */
+  hideToolbar?: boolean | undefined;
 }
 
 /**

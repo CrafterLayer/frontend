@@ -35,6 +35,8 @@ test-results/
 *.swo
 
 # Machine-local Spec Kit locks and regenerated caches
+.claude/settings.local.json
 .specify/.workflow-install.lock
+.specify/workflows/runs/
 .specify/extensions/*/.specify-dev/
 .specify/presets/*/.composed/

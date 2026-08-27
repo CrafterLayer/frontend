@@ -21,12 +21,13 @@ point and the canvas uses that instead, for headings, lists, links, and engine-l
 
 ## How it works
 
-| Concern             | Where it lives                                                                |
-| ------------------- | ----------------------------------------------------------------------------- |
-| Rendering           | the renderer's `RichText` — the SAME read path the published page uses        |
-| Selection → offsets | `inline/dom-range.ts` (`offsetsOfSelection`, `applyOffsets`, `rangeGeometry`) |
-| Document edits      | `inline/mark-range.ts` (`toggleMark`, `replaceRange`) — pure, no DOM          |
-| Chrome              | the canvas: this surface only REPORTS its selection and its actions           |
+| Concern             | Where it lives                                                                   |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Rendering           | the renderer's `RichText` — the SAME read path the published page uses           |
+| Selection semantics | `inline/dom-range.ts` (`offsetsOfSelection`, `applyOffsets`)                     |
+| Selection geometry  | deferred source; `rangeGeometry` runs only in the coalesced anchor-channel flush |
+| Document edits      | `inline/mark-range.ts` (`toggleMark`, `replaceRange`) — pure, no DOM             |
+| Chrome              | the canvas: this surface only REPORTS its selection and its actions              |
 
 The offset space is the document's text with ONE separator position between adjacent blocks
 (`plainTextOf` renders those as `\n`). The separator is what makes the mapping unambiguous: without
@@ -45,16 +46,27 @@ and back.
 Listeners are native, not React props: this surface is portaled into the preview **iframe**, and
 React's synthetic events do not cross that boundary.
 
+Selection interactions report only presence, document offsets, available actions, and pressed state.
+The canvas keeps the deferred measurement source in its plain-TypeScript anchor channel; neither
+this surface nor React state reads or retains per-frame rectangles. Rapid drag or Shift-arrow
+updates therefore coalesce into one geometry read on the next scheduled flush.
+
 ## Accessibility & RTL
 
-A named multiline `textbox` that takes focus when the session opens. Escape exits. Arrow keys,
-Home/End, and selection chords move the caret and never reach the canvas traversal behind it.
-`dir="auto"`, so mixed Arabic/English prose follows its own content.
+A named multiline `textbox` that takes focus when the session opens. With a non-empty selection,
+ordinary forward Tab asks the canvas to focus its first enabled formatting action; it cancels the
+key only when that move succeeds. The surface bookmarks the exact document offsets, keeps them live
+while host chrome owns focus, and reapplies them when Shift+Tab or Escape returns. Escape inside the
+surface still exits. Arrow keys, Home/End, and selection chords move the caret and never reach the
+canvas traversal behind it. `dir="auto"`, so mixed Arabic/English prose follows its own content.
 
 ## Known limitations
 
 - **Bold and italic only.** Headings, lists, and links are the contributed engine's job.
+- **Native formatting inputs are refused.** Browser `format*` input types cannot bypass document
+  truth; use the Bold/Italic bubble actions, or the contributed engine for richer formatting.
 - **No composition (IME) support.** Composition inputs are refused rather than allowed to corrupt
   the document; use the contributed editor where IME matters.
-- **No editor-local undo.** Undo is the kernel's, at document level — one transaction per change.
+- **No editor-local history.** `historyUndo`/`historyRedo` inputs are refused; undo is the kernel's,
+  at document level — one transaction per change.
 - Pasting inserts **plain text** on purpose; pasting formatting belongs to the engine.

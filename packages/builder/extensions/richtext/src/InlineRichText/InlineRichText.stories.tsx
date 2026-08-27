@@ -8,7 +8,7 @@ import type { Editor } from '@tiptap/react';
 import type { RichTextDoc } from '@craftkit/builder-schema';
 
 import { InlineRichText } from './InlineRichText';
-import type { SelectionAnchor } from './selection-anchor';
+import type { SelectionAnchorReport } from './selection-anchor';
 
 const seed = (text: string): RichTextDoc => ({
   type: 'doc',
@@ -31,7 +31,7 @@ function SurfaceHarness({
   text: string;
   label: string;
   dir?: 'rtl';
-  onSelectionChange?: (anchor: SelectionAnchor | null) => void;
+  onSelectionChange?: (report: SelectionAnchorReport | null) => void;
   onEditorReady?: (editor: Editor) => void;
   onCommit?: (next: RichTextDoc) => void;
   onExit?: () => void;
@@ -132,20 +132,20 @@ export const CommitLaw: Story = {
 let selectionEditor: Editor | null = null;
 
 function SelectionHarness() {
-  const [anchor, setAnchor] = useState<SelectionAnchor | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
   return (
     <div>
       <SurfaceHarness
         text="Select some of this text"
         label="Article body"
-        onSelectionChange={setAnchor}
+        onSelectionChange={(report) => {
+          setHasSelection(report !== null);
+        }}
         onEditorReady={(instance) => {
           selectionEditor = instance;
         }}
       />
-      <p data-testid="anchor-status">
-        {anchor === null ? 'no anchor' : `anchor over ${String(anchor.rects.length)} line rect(s)`}
-      </p>
+      <p data-testid="anchor-status">{hasSelection ? 'selection active' : 'no selection'}</p>
     </div>
   );
 }
@@ -164,14 +164,12 @@ export const SelectionChannel: Story = {
     ed.view.dom.focus();
     ed.commands.setTextSelection({ from: 1, to: 12 });
     await waitFor(async () => {
-      await expect(canvas.getByTestId('anchor-status')).toHaveTextContent(
-        /anchor over \d+ line rect/,
-      );
+      await expect(canvas.getByTestId('anchor-status')).toHaveTextContent('selection active');
     });
     // Collapsing the selection closes the channel — ends where a rerun starts.
     ed.commands.setTextSelection({ from: 1, to: 1 });
     await waitFor(async () => {
-      await expect(canvas.getByTestId('anchor-status')).toHaveTextContent('no anchor');
+      await expect(canvas.getByTestId('anchor-status')).toHaveTextContent('no selection');
     });
   },
 };

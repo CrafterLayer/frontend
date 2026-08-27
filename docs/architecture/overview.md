@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-**Status:** Current workspace foundation; product applications are not scaffolded yet.
+**Status:** Current workspace foundation plus one private local product application.
 
 ## Purpose
 
@@ -34,6 +34,8 @@ flowchart TD
 - `packages/<integration>` owns transport and typed external-system boundaries.
 - `packages/<tooling>` owns shared TypeScript, lint, test, Storybook, or build configuration.
 - `apps/storybook` owns the one workspace UI catalog and is not a product deployable.
+- `apps/adaptive-spec-router` owns a private local product trial for explainable task routing, dual
+  plan-review freshness, and evidence visibility. It has no backend or deployment target.
 - `.specify/` owns governance, agent workflows, and feature-delivery artifacts.
 - `docs/` explains architecture and repeatable engineering or operational practice.
 
@@ -56,8 +58,12 @@ are documented in [monorepo.md](monorepo.md) and [workspace.md](../development/w
 
 ## Product Runtime and Deployment
 
-No runtime framework or deployment topology has been approved yet. When those choices are made,
-update this document with:
+Adaptive Spec Router is a browser-only Vite React local demo. Its deterministic data stays in
+memory; it has no authentication, external service, repository access, or deployed runtime. This
+bounded app decision is recorded in [ADR 0005](decisions/0005-adaptive-spec-router-local-demo.md).
+
+Future product runtime and deployment choices remain undecided. When those choices are made, update
+this document with:
 
 - deployable application inventory and responsibilities;
 - browser/server/edge execution boundaries;

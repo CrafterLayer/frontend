@@ -262,6 +262,39 @@ describe('EditorCanvas (005 US1)', () => {
     expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent('Section selected');
   });
 
+  it('R3: consecutive same-named selections produce distinct live-region mutations', async () => {
+    const h = harness();
+    const region = screen.getByRole('status', { name: 'Selection' });
+    const mutations: string[] = [];
+    const observer = new MutationObserver(() => {
+      mutations.push(region.textContent);
+    });
+    observer.observe(region, { childList: true, characterData: true, subtree: true });
+
+    act(() => {
+      h.kernel.setSelection(['a']);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const first = region.textContent;
+    const afterFirst = mutations.length;
+
+    act(() => {
+      h.kernel.setSelection(['b']);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const second = region.textContent;
+    observer.disconnect();
+
+    expect(first.replaceAll('\u200b', '')).toBe('Section selected');
+    expect(second.replaceAll('\u200b', '')).toBe('Section selected');
+    expect(second).not.toBe(first);
+    expect(mutations.length).toBeGreaterThan(afterFirst);
+  });
+
   it('keyboard traversal walks siblings, steps in and out, and Escape clears (US3/SC-004)', async () => {
     const h = harness();
     const host = screen.getByRole('region', { name: 'Editor canvas' });
@@ -1225,17 +1258,22 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     expect(editable?.getAttribute('aria-describedby')).toBeNull();
   });
 
-  it('AC3: Escape ends editing, keeps the selection, and commits nothing further', () => {
+  it('R1/AC3: plain-text Escape restores canvas focus before the editor unmounts', () => {
     const h = inlineHarness();
     h.kernel.setSelection(['h1']);
     h.doubleClick('h1');
-    expect(h.surface()).not.toBeNull();
+    const surface = h.surface();
+    expect(surface).not.toBeNull();
+    expect(surface).toHaveFocus();
     const before = h.kernel.transactions().length;
 
-    h.frameKey('Escape');
+    act(() => {
+      surface?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
     expect(h.surface()).toBeNull();
     expect(h.kernel.context.store.getState().selection).toEqual(['h1']);
     expect(h.kernel.transactions().length).toBe(before);
+    expect(screen.getByRole('region', { name: 'Editor canvas' })).toHaveFocus();
   });
 
   it('AC4: selecting another block ends the session', () => {
@@ -1326,7 +1364,7 @@ describe('EditorCanvas inline editing (009 US1)', () => {
 describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
   /**
    * A contributed inline editor with NO editing engine behind it. The canvas's
-   * contract with an editor is exactly four callbacks, so testing the seam
+   * contract with an editor is a small callback seam, so testing the seam
    * against a real engine would test the engine — the rich editor has its own
    * suite, and Chromium proves the two together.
    */
@@ -1335,6 +1373,7 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     actions: InlineEditorProps['onActions'];
     commit: InlineEditorProps['onCommit'];
     exit: InlineEditorProps['onExit'];
+    requestFormattingMenuFocus: InlineEditorProps['requestFormattingMenuFocus'];
   }
   let fake: FakeHandle | null = null;
   const loads = { count: 0 };
@@ -1346,8 +1385,15 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     onExit,
     onAnchor,
     onActions,
+    requestFormattingMenuFocus,
   }: InlineEditorProps) {
-    fake = { anchor: onAnchor, actions: onActions, commit: onCommit, exit: onExit };
+    fake = {
+      anchor: onAnchor,
+      actions: onActions,
+      commit: onCommit,
+      exit: onExit,
+      requestFormattingMenuFocus,
+    };
     return (
       <span data-testid="fake-inline" aria-label={label}>
         {typeof value === 'string' ? value : 'rich'}
@@ -1419,6 +1465,8 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
   function floatingHarness(
     options: {
       editable?: boolean;
+      /** Omit the fake contribution to exercise the built-in rich surface. */
+      contributedEditor?: boolean;
       /** The stress document swaps in the shared fixture blocks (T015). */
       document?: BuilderDocument;
       blocks?: TrustedExtensionManifest;
@@ -1430,7 +1478,10 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     loads.count = 0;
     const kernel = createBuilder({
       document: options.document ?? FLOAT_DOC,
-      extensions: [options.blocks ?? FLOAT_BLOCKS, FAKE_EDITOR],
+      extensions:
+        options.contributedEditor === false
+          ? [options.blocks ?? FLOAT_BLOCKS]
+          : [options.blocks ?? FLOAT_BLOCKS, FAKE_EDITOR],
       ports: { clock: fixedClock(), ids: seededIds('float') },
     });
     let hitTarget: Element | null = null;
@@ -1506,21 +1557,17 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
         if (text !== null && text !== undefined) {
           const range = frameDocument.createRange();
           range.selectNodeContents(text);
-          Object.defineProperties(range, {
-            getBoundingClientRect: {
-              configurable: true,
-              value: () => selectionBox,
-            },
-            getClientRects: {
-              configurable: true,
-              value: () => [selectionBox],
-            },
-          });
           const selection = frameDocument.getSelection();
           selection?.removeAllRanges();
           selection?.addRange(range);
         }
-        fake?.anchor(actions.length === 0 ? null : { box: selectionBox });
+        fake?.anchor(
+          actions.length === 0
+            ? null
+            : {
+                measure: () => ({ box: selectionBox }),
+              },
+        );
         fake?.actions(actions);
       });
       tick();
@@ -1543,6 +1590,7 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
       dragTo,
       openRich,
       report,
+      pendingFlushes: () => queue.length,
       setFrameBox: (next: typeof frameBox) => {
         frameBox = next;
       },
@@ -1588,6 +1636,226 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     expect(bubble?.getAttribute('role')).toBe('group');
     expect(bubble?.getAttribute('aria-label')).toBe('Formatting');
     expect(h.host('bubble')?.style.visibility).toBe('visible');
+  });
+
+  it('T036: built-in selection geometry is read once per coalesced anchor flush', async () => {
+    const documentWithText: BuilderDocument = {
+      ...FLOAT_DOC,
+      nodes: {
+        ...FLOAT_DOC.nodes,
+        pr: {
+          id: 'pr',
+          type: 'prose',
+          props: {
+            body: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Select rapidly' }],
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+    const h = floatingHarness({ contributedEditor: false, document: documentWithText });
+    await h.openRich();
+    const surface = h.frameDocument.querySelector<HTMLElement>('.bldr-inline-rich');
+    if (surface === null) {
+      throw new Error('the built-in rich surface must render');
+    }
+    expect(h.frameDocument.activeElement).toBe(surface);
+
+    const originalCreateRange = h.frameDocument.createRange.bind(h.frameDocument);
+    let clientRectReads = 0;
+    let boundingRectReads = 0;
+    Object.defineProperty(h.frameDocument, 'createRange', {
+      configurable: true,
+      value: () => {
+        const range = originalCreateRange();
+        Object.defineProperties(range, {
+          getClientRects: {
+            configurable: true,
+            value: () => {
+              clientRectReads += 1;
+              return [new DOMRect(10, 40, 60, 18)] as unknown as DOMRectList;
+            },
+          },
+          getBoundingClientRect: {
+            configurable: true,
+            value: () => {
+              boundingRectReads += 1;
+              return new DOMRect(10, 40, 60, 18);
+            },
+          },
+        });
+        return range;
+      },
+    });
+
+    try {
+      const text = h.frameDocument.createTreeWalker(surface, NodeFilter.SHOW_TEXT).nextNode();
+      if (text === null) {
+        throw new Error('the built-in rich surface must render selectable text');
+      }
+      const selection = h.frameDocument.getSelection();
+      if (selection === null) {
+        throw new Error('the frame must expose a selection');
+      }
+
+      const interactionEndpoints = [1, 2, 3, 4, 5, 6];
+      act(() => {
+        for (const to of interactionEndpoints) {
+          const range = h.frameDocument.createRange();
+          range.setStart(text, 0);
+          range.setEnd(text, to);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          h.frameDocument.dispatchEvent(new Event('selectionchange'));
+        }
+      });
+
+      // Semantics arrive on every interaction, but geometry stays untouched
+      // until the ONE anchor-channel callback scheduled for this burst runs.
+      expect(h.bubble()).not.toBeNull();
+      expect(clientRectReads + boundingRectReads).toBe(0);
+      const scheduledFlushes = h.pendingFlushes();
+      expect(scheduledFlushes).toBe(1);
+      expect(interactionEndpoints.length).toBeGreaterThan(scheduledFlushes);
+
+      h.tick();
+      const geometryReads = clientRectReads + boundingRectReads;
+      expect(geometryReads).toBeGreaterThan(0);
+      expect(geometryReads).toBeLessThanOrEqual(scheduledFlushes);
+      expect(h.host('bubble')?.style.visibility).toBe('visible');
+    } finally {
+      Reflect.deleteProperty(h.frameDocument, 'createRange');
+    }
+  });
+
+  it('R1: built-in rich Escape restores canvas focus before the editor unmounts', async () => {
+    const h = floatingHarness({ contributedEditor: false });
+    await h.openRich();
+    const surface = h.frameDocument.querySelector<HTMLElement>('.bldr-inline-rich');
+    expect(surface).not.toBeNull();
+    expect(surface).toHaveFocus();
+
+    act(() => {
+      surface?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(h.frameDocument.querySelector('.bldr-inline-rich')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Editor canvas' })).toHaveFocus();
+  });
+
+  it('R1: contributed rich Escape callback restores canvas focus before unmount', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    const surface = h.frameDocument.querySelector<HTMLElement>('[data-testid="fake-inline"]');
+    expect(surface).not.toBeNull();
+    surface?.setAttribute('tabindex', '0');
+    surface?.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key === 'Escape') {
+          fake?.exit();
+        }
+      },
+      { once: true },
+    );
+    surface?.focus();
+    expect(surface).toHaveFocus();
+
+    act(() => {
+      surface?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(h.frameDocument.querySelector('[data-testid="fake-inline"]')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Editor canvas' })).toHaveFocus();
+  });
+
+  it.each([
+    ['Escape', { key: 'Escape' }],
+    ['Shift+Tab', { key: 'Tab', shiftKey: true }],
+  ])(
+    'T035: %s returns from the first enabled host action, then editor Escape exits',
+    async (_name, init) => {
+      const h = floatingHarness();
+      await h.openRich();
+      h.report([
+        { id: 'clear', label: 'Clear formatting', disabled: true, run: () => undefined },
+        ...BOLD,
+      ]);
+      const surface = h.frameDocument.querySelector<HTMLElement>('[data-testid="fake-inline"]');
+      const bold = h.bubble()?.querySelector<HTMLButtonElement>('button:not(:disabled)');
+      expect(surface).not.toBeNull();
+      expect(bold).not.toBeNull();
+      surface?.setAttribute('tabindex', '0');
+      surface?.focus();
+      surface?.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === 'Escape') {
+            fake?.exit();
+          }
+        },
+        { once: true },
+      );
+      const selection = h.frameDocument.getSelection();
+      const bookmark =
+        selection !== null && selection.rangeCount > 0
+          ? selection.getRangeAt(0).cloneRange()
+          : null;
+
+      const moved = fake?.requestFormattingMenuFocus?.(() => {
+        surface?.focus();
+        if (bookmark !== null) {
+          const currentSelection = h.frameDocument.getSelection();
+          currentSelection?.removeAllRanges();
+          currentSelection?.addRange(bookmark);
+        }
+      });
+      expect(moved).toBe(true);
+      expect(bold).toHaveFocus();
+      const returnKey = new KeyboardEvent('keydown', {
+        ...init,
+        bubbles: true,
+        cancelable: true,
+      });
+      act(() => {
+        bold?.dispatchEvent(returnKey);
+      });
+
+      expect(returnKey.defaultPrevented).toBe(true);
+      expect(surface).toHaveFocus();
+      expect(h.frameDocument.querySelector('[data-testid="fake-inline"]')).not.toBeNull();
+
+      act(() => {
+        surface?.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+        );
+      });
+      expect(h.frameDocument.querySelector('[data-testid="fake-inline"]')).toBeNull();
+      expect(screen.getByRole('region', { name: 'Editor canvas' })).toHaveFocus();
+    },
+  );
+
+  it('T035: no rendered or enabled formatting action leaves native navigation available', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    const surface = h.frameDocument.querySelector<HTMLElement>('[data-testid="fake-inline"]');
+    surface?.setAttribute('tabindex', '0');
+    surface?.focus();
+
+    h.report([]);
+    expect(fake?.requestFormattingMenuFocus?.(() => undefined)).toBe(false);
+    expect(surface).toHaveFocus();
+
+    h.report([{ id: 'bold', label: 'Bold', disabled: true, run: () => undefined }]);
+    expect(fake?.requestFormattingMenuFocus?.(() => undefined)).toBe(false);
+    expect(surface).toHaveFocus();
   });
 
   it('US2/AC2: a bubble action is ONE transaction, and the session survives it', async () => {
@@ -1731,7 +1999,7 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     expect(loads.count).toBe(0);
   });
 
-  it('US4/T015: an inline commit re-renders exactly ONE node, on the stress document', async () => {
+  it('R4/US4/T015: opening, committing, and closing each re-render exactly ONE stress node', async () => {
     // A stress document made of ordinary blocks plus one editable headline: the
     // commit path must not widen just because the document is large.
     const big = stressDocument(1000);
@@ -1785,6 +2053,13 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     });
     expect(new Set(h.renders)).toEqual(new Set(['headline']));
     expect(h.kernel.getDocument().nodes['headline']?.props['label']).toBe('Edited in place');
+
+    h.renders.length = 0;
+    act(() => {
+      h.frameDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(h.frameDocument.querySelector('.bldr-inline-text')).toBeNull();
+    expect(h.renders).toEqual(['headline']);
   });
 
   it('US4/T016: the bar sits BELOW-CENTRE — off the name chip, stable under RTL', () => {

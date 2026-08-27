@@ -1,4 +1,4 @@
-import { expect, waitFor, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { createPlaygroundKernel } from '../../create-playground-kernel';
@@ -157,17 +157,43 @@ export const Showcase: Story = {
     const bubble = bubbleHost.querySelector<HTMLElement>('.bldr-text-bubble');
     await expect(bubble).toHaveAccessibleName('Formatting');
 
+    // A real user's Tab is delivered to the focused TipTap surface in the
+    // FRAME document. Scope the keyboard there; host-scoped userEvent would
+    // start from the iframe element and bypass the editor's native listener.
+    await expect(canvasElement.ownerDocument.activeElement).toBe(frame);
+    await expect(frameDocument.activeElement).toBe(surface);
+    const delivery: { event: KeyboardEvent | null } = { event: null };
+    const observeFrameTab = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') {
+        delivery.event = event;
+      }
+    };
+    frameDocument.addEventListener('keydown', observeFrameTab, { capture: true, once: true });
+    await userEvent.keyboard('{Tab}', { document: frameDocument });
+    frameDocument.removeEventListener('keydown', observeFrameTab, true);
+    await expect(delivery.event).not.toBeNull();
+    await expect(delivery.event?.defaultPrevented).toBe(true);
+
     // Press Bold: exactly the selected word becomes bold, the paragraph's text
     // is untouched, the rest of it is NOT inside a strong, and the kernel
     // advanced by exactly ONE transaction.
     const storedContent = () =>
       JSON.stringify(kernel.getDocument().nodes['tale']?.props['content'] ?? null);
+    // `surface` lives in the FRAME document, and jest-dom's toHaveFocus() type-guards
+    // with an instanceof against the HOST realm's HTMLElement — which a frame element
+    // fails, so the matcher rejects it before it ever checks focus. Frame-side focus is
+    // therefore asserted against the frame's own activeElement: the same claim, made in
+    // the realm where it is true. Host-side elements keep using toHaveFocus().
     const boldButton = () => within(bubbleHost).getByRole('button', { name: 'Bold' });
+    await expect(boldButton()).toHaveFocus();
+    await expect(frameWindow.getSelection()?.toString()).toBe(word);
     const beforeBold = kernel.transactions().length;
-    boldButton().click();
+    await userEvent.keyboard('{Enter}', { document: bubbleHost.ownerDocument });
 
     await waitFor(async () => {
       await expect(surface.querySelector('strong')?.textContent).toBe(word);
+      await expect(frameDocument.activeElement).toBe(surface);
+      await expect(frameWindow.getSelection()?.toString()).toBe(word);
     });
     await expect(paragraphOf().textContent).toBe(fullText);
     await expect(surface.querySelectorAll('strong')).toHaveLength(1);
@@ -177,13 +203,38 @@ export const Showcase: Story = {
 
     // Rerun-idempotent: unbold the SAME word — the strong is gone, one more
     // transaction, and the document is back where this play began.
+    await userEvent.keyboard('{Tab}', { document: frameDocument });
+    await expect(boldButton()).toHaveFocus();
+    await expect(frameWindow.getSelection()?.toString()).toBe(word);
     const beforeUnbold = kernel.transactions().length;
-    boldButton().click();
+    await userEvent.keyboard('{Enter}', { document: bubbleHost.ownerDocument });
     await waitFor(async () => {
       await expect(surface.querySelector('strong')).toBeNull();
+      await expect(frameDocument.activeElement).toBe(surface);
+      await expect(frameWindow.getSelection()?.toString()).toBe(word);
     });
     await expect(paragraphOf().textContent).toBe(fullText);
     await expect(kernel.transactions().length).toBe(beforeUnbold + 1);
     await expect(storedContent()).not.toContain('"bold"');
+
+    // Bubble Escape returns to TipTap with its ProseMirror selection intact;
+    // the next Escape, delivered to that frame editor, exits the session and
+    // restores the stable canvas continuation target.
+    await userEvent.keyboard('{Tab}', { document: frameDocument });
+    await expect(boldButton()).toHaveFocus();
+    await userEvent.keyboard('{Escape}', { document: bubbleHost.ownerDocument });
+    await expect(frameDocument.activeElement).toBe(surface);
+    await expect(frameWindow.getSelection()?.toString()).toBe(word);
+    const continuation = canvasElement.querySelector<HTMLElement>('.bldr-canvas-host');
+    if (continuation === null) {
+      throw new Error('the canvas continuation region must stay mounted');
+    }
+    await userEvent.keyboard('{Escape}', { document: frameDocument });
+    await waitFor(async () => {
+      await expect(
+        frameDocument.querySelector('.bldr-richtext-field__surface, .ProseMirror'),
+      ).toBeNull();
+      await expect(continuation).toHaveFocus();
+    });
   },
 };

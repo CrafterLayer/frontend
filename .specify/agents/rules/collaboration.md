@@ -75,42 +75,46 @@ lease in `HANDOFF.md` only when work pauses while that lease still matters.
 
 The same contract applies whether the worker is started as a native sub-agent, through MCP, through
 an agent plugin, through a CLI, or through a future transport. For Claude-to-Codex delegation,
-prefer the official Codex Claude Code plugin backed by the Codex app server when it is installed.
-Until then, `.mcp.json` exposes two replaceable project adapters:
+use the installed official `codex@openai-codex` Claude Code plugin backed by the Codex app server.
+Do not route new work through any Codex MCP server, including a user-scoped server named `codex`,
+the retired `codex-craftkit-worker` and `codex-craftkit-async` adapters, or the deprecated
+`codex mcp-server` command. Those MCP adapters are not governance truth.
 
-- `codex-craftkit-async` is the default for bounded read-only discovery and review. It starts one
-  ephemeral Codex call, stores progress locally, and lets Claude report coalesced status while the
-  call continues.
-- `codex-craftkit-worker` remains the synchronous compatibility fallback for explicitly authorized
-  implementation because async write approvals are not relayed by the v1 bridge. It uses the
-  deprecated `codex mcp-server` command and must not become governance truth.
-
-No rule, specification, or product task may depend on either adapter's protocol details.
+Run `/codex:setup` after installing or upgrading the plugin. For a new bounded task, use a fresh
+thread. Use `/codex:rescue --background --fresh <task>` for substantial investigation or an
+explicitly authorized fix, and `/codex:review --background` for review-only work. The user observes
+the same background job on demand through `/codex:status <job-id> --wait`, fetches terminal output
+through `/codex:result <job-id>`, and uses `/codex:cancel <job-id>` only when cancellation is
+explicitly chosen. Continue with `--resume` only when the new instruction belongs to that same
+bounded task. When a workflow engine must receive and validate the result in its current step, use
+the foreground `--wait` route instead of leaving the workflow result pending.
 
 The project default integration is Codex. A task initiated inside Codex stays in Codex: it MUST NOT
 launch Claude, switch the workflow integration to Claude, or create a Codex-to-Claude delegation
 chain unless the current user explicitly requests Claude for that task. Claude remains an available
-entrypoint and MAY call Codex for bounded work through the configured bridge. This direction is
+entrypoint and MAY call Codex for bounded work through the official plugin. This direction is
 intentional: it avoids agent ping-pong and duplicated context while preserving Claude-to-Codex load
 distribution.
 
-Before dispatch, verify the transport in the current host session. Set the exact repository `cwd`,
-use `sandbox=read-only` with `approval-policy=never` for exploration/review, use
-`sandbox=workspace-write` with `approval-policy=on-request` only for authorized implementation, and
-never default to `danger-full-access`. Start a fresh worker session for each new task. Continue a
-worker thread only for the same bounded task; mandatory independent review always starts fresh. Do
-not replace the worker's project instructions with transport-level base instructions.
+Before dispatch, verify `/codex:setup` reports ready in the current Claude host and use the exact
+repository as the worker `cwd`. Discovery, review, diagnosis, and research are read-only unless the
+user explicitly authorizes a fix. A fix request may use the plugin's workspace-write profile only
+for the approved scope; never broaden it to unrestricted filesystem access. The plugin owns its
+runtime flags, while the Spec Kit task envelope remains the authority boundary. Start a fresh worker
+session for each new task, continue a worker thread only for the same bounded task, and always start
+mandatory independent review fresh. Do not replace the worker's project instructions with
+transport-level base instructions.
 
-For a long read-only task through `codex-craftkit-async`, the coordinator starts once, immediately
-tells the user that work is running, then requests status with the last sequence and a 30–55 second
-wait. Status reads bridge memory and MUST NOT start another Codex call. Print only meaningful phase
-or activity changes; do not tight-poll, invent a percentage, expose reasoning, or repeat the whole
-task context. Read the final result only after the task becomes terminal. Cancel only after the user
-or coordinating workflow explicitly chooses to stop that exact task.
+For a long background task, start it once and immediately tell the user it is running. The user may
+invoke `/codex:status <job-id> --wait --timeout-ms 30000` for a meaningful checkpoint; this reads the
+plugin's tracked job rather than starting another Codex task. Report only the actual phase and
+latest activity, not a fabricated percentage or raw reasoning. Fetch `/codex:result <job-id>` only
+after terminal status. Status and result are on-demand commands, so Claude MUST NOT promise
+continuous unsolicited progress or treat a static task label as proof that the job is frozen.
 
 Never place Codex state, authentication, credentials, or private payloads in the repository to make
-a bridge connect. Runtime configuration may select a user-scoped writable state directory, but that
-adapter stays outside Spec Kit policy and outside versioned secrets.
+a transport connect. Runtime state stays user-scoped and outside Spec Kit policy and versioned
+secrets.
 
 ## Primary Agent Responsibilities
 

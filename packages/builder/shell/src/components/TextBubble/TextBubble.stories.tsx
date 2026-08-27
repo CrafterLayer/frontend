@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 
 import { expect, userEvent, within } from 'storybook/test';
 import type { Meta, StoryObj } from '@storybook/react-vite';
@@ -8,6 +8,7 @@ import { TextBubble, type TextBubbleAction } from './TextBubble';
 const meta = {
   title: 'Builder/Shell/TextBubble',
   component: TextBubble,
+  args: { onReturnFocus: () => true },
 } satisfies Meta<typeof TextBubble>;
 export default meta;
 
@@ -40,6 +41,7 @@ function BubbleDemo({
   const [bold, setBold] = useState(initialBold);
   const [italic, setItalic] = useState(false);
   const [runCount, setRunCount] = useState(0);
+  const editorRef = useRef<HTMLParagraphElement | null>(null);
   const ran = () => {
     setRunCount((current) => current + 1);
   };
@@ -81,9 +83,21 @@ function BubbleDemo({
       }}
     >
       <div data-placement="above" style={hostStyle}>
-        <TextBubble dir={dir} actions={actions} />
+        <TextBubble
+          dir={dir}
+          actions={actions}
+          onReturnFocus={() => {
+            const editor = editorRef.current;
+            if (editor === null) {
+              return false;
+            }
+            editor.focus({ preventScroll: true });
+            return editor.ownerDocument.activeElement === editor;
+          }}
+        />
       </div>
       <p
+        ref={editorRef}
         contentEditable
         suppressContentEditableWarning
         data-testid="editor"
@@ -128,6 +142,11 @@ export const Default: Story = {
 
     await userEvent.click(bold);
     await expect(bold).toHaveAttribute('aria-pressed', 'false');
+    await expect(editor).toHaveFocus();
+
+    // Keyboard users can leave host chrome without ending their edit.
+    bold.focus();
+    await userEvent.keyboard('{Escape}');
     await expect(editor).toHaveFocus();
   },
 };

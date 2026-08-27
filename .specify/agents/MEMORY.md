@@ -54,8 +54,13 @@ belongs in `HANDOFF.md` and `context.json`.
   wording alone is not an execution boundary.
 - Codex is the project default integration. Codex-initiated work stays within Codex and does not
   invoke Claude unless the current user explicitly asks for Claude. Claude remains an optional
-  entrypoint and may call Codex through the project bridge for bounded work. This one-way routing
-  avoids agent ping-pong and duplicated context; it is not a guarantee of lower total token usage.
+  entrypoint and may call Codex through the official `codex@openai-codex` plugin for bounded work.
+  This one-way routing avoids agent ping-pong and duplicated context; it is not a guarantee of lower
+  total token usage.
+- The official Claude Code plugin supersedes the local `codex-craftkit-async` and
+  `codex-craftkit-worker` experiments. Background jobs expose on-demand `/codex:status` and
+  `/codex:result`; these commands do not provide unsolicited continuous progress. A workflow that
+  must validate a result in the current step uses the plugin's foreground `--wait` route.
 
 ## Reusable Failure Modes
 
@@ -87,6 +92,9 @@ belongs in `HANDOFF.md` and `context.json`.
 - If a Claude-to-Codex bridge closes at startup, distinguish project-server name resolution,
   per-machine trust, and writable user-scoped Codex state from Spec Kit composition. Never move
   state or authentication into the repository; required delegation fails closed.
+- If Claude shows only a static `Tinkering...` row, it is using the retired synchronous MCP route.
+  Let in-flight work terminate, reload plugins or start a fresh session, and use the official plugin;
+  do not start a duplicate task based only on a quiet UI label.
 
 ## Staleness Conditions
 
@@ -319,15 +327,13 @@ Stale when: a later ADR supersedes 0003, or a milestone re-plans the gesture/pan
   rejected-commit reconcile was recorded as "fixed with regression tests"; deleting the fix left
   every suite green. Deleting the line is the only proof a regression test exists.
 
-## Claude-to-Codex Async Bridge (added 2026-08-27)
+## Retired Claude-to-Codex Async Bridge (superseded 2026-08-27)
 
 - Codex remains the default and never auto-starts Claude. An explicit Claude coordinator may call
   Codex one way; this avoids agent ping-pong but does not guarantee lower total token usage.
-- `codex-craftkit-async` is read-only by design. It starts exactly one ephemeral Codex JSONL call;
-  status reads bounded in-memory progress every 30–55 seconds and starts no additional Codex call.
-  The synchronous `codex-craftkit-worker` remains only for explicitly authorized writes until an
-  approval-capable official plugin/app-server transport is installed.
-- Process completion means the child `close` event, a completed turn, a non-empty report, and no
-  surviving POSIX process-group member. Cancel, timeout, shutdown, and success all clean
-  descendants; Windows fails closed. Revalidate these assumptions when Codex JSONL/MCP behavior,
-  Node child semantics, or the official Claude plugin path changes.
+- `codex-craftkit-async` was a read-only experiment that started one ephemeral Codex JSONL call and
+  exposed bounded in-memory status. `codex-craftkit-worker` used deprecated `codex mcp-server` for
+  synchronous work. The installed official plugin supersedes both; never restore them as a fallback.
+- For safe removal, let any in-flight child reach terminal state and close its Claude session before
+  deleting `.mcp.json` or the bridge source. The old server cancels live children when its stdio
+  connection shuts down, so changing project MCP configuration mid-task can lose the result.

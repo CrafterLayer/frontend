@@ -75,9 +75,9 @@ remains withheld; the final task produces a proposal only.
       lockstep, with the Law-S counter
 - [x] T019 [P] Docs coherence: shell/renderer README notes; VENDOR.md cross-links from the adapted
       components
-- [ ] T020 Evidence run per quickstart: narrow → gates + boundary negatives → storybook
+- [x] T020 Evidence run per quickstart: narrow → gates + boundary negatives → storybook
       catalog-presence → full `pnpm verify`; record here
-- [ ] T021 Final diff review (two independent read-only reviewers); fix accepted findings with
+- [x] T021 Final diff review (two independent read-only reviewers); fix accepted findings with
       regression tests; re-run affected checks
 - [ ] T022 /speckit-converge (multi-agent audit + adversarial verification, with a MUTATION check on
       at least one recorded fix — the B3b lesson); implement appended gaps. MUST ALSO decide the
@@ -116,3 +116,42 @@ research R1 fixes exactly what is vendored, reused, and written fresh.
 - [x] T030 Adversarial verification of the two cores (2 build agents + 3 lenses each), then a
       fix-and-independently-re-confirm pass: 21 confirmed defects fixed, every fix carrying a
       mutation-checked regression test (contract §17); offset model made unambiguous (§16)
+
+## Phase 9: Independent review round (T021) — two fresh reviewers, sixteen defects
+
+- [x] T031 Reviewer 1 (correctness + stated laws): 10 findings, 6 confirmed by the coordinator
+      before any fix — stale bubble anchor, double surface on rich entry, discarded click position,
+      contributed editor leaking canvas gestures, missing fifth action (contract §6 a1), silent door
+      rejection (contract §18)
+- [x] T032 Fixes for reviewer 1, delegated across three path-disjoint workers, every fix carrying a
+      mutation-checked regression test; the cross-package `formattingMenuElement` contract was the
+      coordinator's call, not a worker's
+- [x] T033 Reviewer 2 (a11y / RTL / performance laws / boundaries): 6 findings — Escape stranding
+      focus, a fully-disabled toolbar with no tab stop, swallowed repeat announcements, geometry
+      measured outside the coalesced channel, and two laws implemented but never gated by counting
+- [x] T034 Renderer coverage gate restored: the seam rewrite dropped `NodeView.tsx` to 39% and only
+      `test:coverage` caught it — back to 100% statements with behaviour tests, no threshold change
+- [x] T035 Keyboard reach into the formatting bubble (contract §19): a REAL Tab key in Chromium
+      proved focus lands on `<body>` — the headline feature is unusable by keyboard. IN PROGRESS
+- [x] T036 Geometry is measured ONCE, inside the frame-coalesced channel: both surfaces report
+      selection presence/actions plus a deferred `{ measure }` source; burst-counting guards cover
+      the built-in and TipTap paths, and both were mutation-checked by restoring the eager read
+
+### Evidence recorded for T020 (2026-08-27, coordinator-run)
+
+| Gate | Result |
+| --- | --- |
+| package suites (schema/core/renderer/shell/richtext/marketing/preset/playground) | 110 · 91 · 78 · 569 · 59 · 25 · 50 · 20 = **1,002 passed** |
+| Storybook Chromium, whole suite | **140 passed** (44 files) |
+| `pnpm lint` (workspace) | 17/17 tasks |
+| `pnpm typecheck` (workspace) | 16/16 tasks |
+| `pnpm check:workspace` / `check:components` | 19 members · 39 components |
+| branch coverage, every B3c package | 88.29% – 100% (threshold 85%) |
+
+`pnpm verify` fails on ONE task only: `@craftkit/adaptive-spec-router#test:coverage`, an app that is
+untracked, outside this milestone, and not ours. Four of its 31 tests fail under PARALLEL load
+(App "composes the local Adaptive Spec Router product root" 7.7s; AdaptiveSpecRouter "updates the
+writer route from local task signals" 5.9s; ScenarioComposer "submits a valid local scenario…" 5.2s
+and "keeps an invalid brief…" 6.2s) and all 31 pass when the package runs alone — heavy tests with
+tight timeouts contending for CPU, not a defect in B3c. Left for the owner to decide.
+

@@ -6,6 +6,7 @@ import { safeHref } from '@craftkit/builder-renderer';
 import type { InlineEditorProps, InlineFormatAction } from '@craftkit/builder-schema';
 
 import { InlineRichText } from './InlineRichText';
+import { subscribeBubbleReports } from './bubble-reporting';
 import { shouldShowBubble } from './should-show';
 
 /**
@@ -46,8 +47,11 @@ function runLink(editor: Editor): void {
  * never strands the caret or drops the selection (risk 2). Empty whenever
  * `shouldShowBubble` says no bubble belongs on screen.
  */
-function formatActions(editor: Editor): InlineFormatAction[] {
-  if (!shouldShowBubble(editor)) {
+function formatActions(
+  editor: Editor,
+  formattingMenuElement?: Element | null,
+): InlineFormatAction[] {
+  if (!shouldShowBubble(editor, formattingMenuElement)) {
     return [];
   }
   const can = editor.can();
@@ -101,10 +105,10 @@ interface InlineRichTextEditorProps extends InlineEditorProps {
 
 /**
  * Default export by contract: `InlineEditorDef.load` resolves this module and
- * mounts `default`. Commit, exit, and the anchor channel pass straight through
- * to `InlineRichText` (its `SelectionAnchor` is structurally the schema's
- * `InlineSelectionAnchor`); the actions channel is wired here from the same
- * `selectionUpdate`/`transaction`/`focus`/`blur` signals the anchor uses.
+ * mounts `default`. Commit, exit, and the deferred anchor source pass straight
+ * through to `InlineRichText` (its report is structurally the schema's additive
+ * anchor-report union); the actions channel is wired here from the same
+ * `selectionUpdate`/`transaction`/`focus`/`blur` signals the source uses.
  */
 export default function InlineRichTextEditor({
   value,
@@ -113,6 +117,8 @@ export default function InlineRichTextEditor({
   onExit,
   onAnchor,
   onActions,
+  requestFormattingMenuFocus,
+  formattingMenuElement,
   onEditorReady,
 }: InlineRichTextEditorProps) {
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -129,22 +135,15 @@ export default function InlineRichTextEditor({
       return;
     }
     const report = () => {
-      actionsRef.current(formatActions(editor));
+      actionsRef.current(formatActions(editor, formattingMenuElement));
     };
-    report();
-    editor.on('selectionUpdate', report);
-    editor.on('transaction', report);
-    editor.on('focus', report);
-    editor.on('blur', report);
+    const unsubscribe = subscribeBubbleReports({ editor, formattingMenuElement, report });
     return () => {
-      editor.off('selectionUpdate', report);
-      editor.off('transaction', report);
-      editor.off('focus', report);
-      editor.off('blur', report);
+      unsubscribe();
       // Editing ended: an empty list hides the bubble — never stranded chrome.
       actionsRef.current([]);
     };
-  }, [editor]);
+  }, [editor, formattingMenuElement]);
 
   return (
     <InlineRichText
@@ -153,6 +152,8 @@ export default function InlineRichTextEditor({
       onCommit={onCommit}
       onExit={onExit}
       onSelectionChange={onAnchor}
+      requestFormattingMenuFocus={requestFormattingMenuFocus}
+      formattingMenuElement={formattingMenuElement}
       onEditorReady={(instance) => {
         setEditor(instance);
         readyRef.current?.(instance);

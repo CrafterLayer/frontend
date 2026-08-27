@@ -16,6 +16,9 @@ features, applications, packages, delivery workflows, or long-term maintenance.
 - [`0004-builder-tier2-declarative-model.md`](0004-builder-tier2-declarative-model.md) — tier-2
   builder content is JsonValue-typed declarative data compiled by Tier-1; executable content is
   structurally unrepresentable and rejected in depth.
+- [`0005-adaptive-spec-router-local-demo.md`](0005-adaptive-spec-router-local-demo.md) — Adaptive
+  Spec Router is a private Vite React local product trial with deterministic in-memory data and no
+  provider, credential, repository, or deployment integration.
 
 ## Naming
 

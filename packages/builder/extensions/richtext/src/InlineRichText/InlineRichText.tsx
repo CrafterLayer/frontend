@@ -2,10 +2,16 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import type { Editor } from '@tiptap/react';
 
-import { richText, type RichTextDoc } from '@craftkit/builder-schema';
+import { richText, type InlineEditorProps, type RichTextDoc } from '@craftkit/builder-schema';
 
 import { RichTextEditor } from '../RichTextField/RichTextEditor';
-import { selectionAnchorOf, type SelectionAnchor } from './selection-anchor';
+import { subscribeBubbleReports } from './bubble-reporting';
+import {
+  liveViewOf,
+  selectionAnchorOf,
+  type SelectionAnchorReport,
+  type SelectionAnchorSource,
+} from './selection-anchor';
 import { shouldShowBubble } from './should-show';
 import './InlineRichText.css';
 
@@ -21,12 +27,17 @@ export interface InlineRichTextProps {
   /** Escape inside the surface — the host ends the inline session (§3 s2). */
   onExit?: (() => void) | undefined;
   /**
-   * The selection channel (§5 b1): a frame-viewport anchor whenever the bubble
-   * should show, `null` whenever it should not — reported on every selection
-   * update, after every transaction, on focus/blur, and once on unmount so a
-   * bubble is never stranded.
+   * The selection channel (§5 b1): a deferred frame-viewport anchor source
+   * whenever the bubble should show, `null` whenever it should not — reported
+   * on every selection update, after every transaction, on focus/blur, and
+   * once on unmount so a bubble is never stranded. Geometry is read only when
+   * the frame-coalesced canvas channel later invokes the source.
    */
-  onSelectionChange?: ((anchor: SelectionAnchor | null) => void) | undefined;
+  onSelectionChange?: ((report: SelectionAnchorReport | null) => void) | undefined;
+  /** Canvas-owned formatting host; focus inside it still belongs to this edit. */
+  formattingMenuElement?: Element | null | undefined;
+  /** Frame-side Tab asks the canvas to focus its first enabled formatting action. */
+  requestFormattingMenuFocus?: InlineEditorProps['requestFormattingMenuFocus'];
   /** Accessible name for the editing surface. */
   label?: string | undefined;
   /**
@@ -54,6 +65,8 @@ export function InlineRichText({
   onCommit,
   onExit,
   onSelectionChange,
+  requestFormattingMenuFocus,
+  formattingMenuElement,
   label,
   onEditorReady,
 }: InlineRichTextProps) {
@@ -67,11 +80,13 @@ export function InlineRichText({
   const exitRef = useRef(onExit);
   const selectionRef = useRef(onSelectionChange);
   const readyRef = useRef(onEditorReady);
+  const requestFormattingMenuFocusRef = useRef(requestFormattingMenuFocus);
   useEffect(() => {
     commitRef.current = onCommit;
     exitRef.current = onExit;
     selectionRef.current = onSelectionChange;
     readyRef.current = onEditorReady;
+    requestFormattingMenuFocusRef.current = requestFormattingMenuFocus;
   });
 
   // The editor only ever emits `toStoredRichText` output — the projection onto
@@ -85,7 +100,8 @@ export function InlineRichText({
     readyRef.current?.(instance);
   }, []);
 
-  // The selection channel: anchor when the bubble should show, null when not.
+  // Selection visibility is synchronous; geometry stays deferred until the
+  // canvas's frame-coalesced anchor channel invokes this source.
   useEffect(() => {
     if (editor === null) {
       return;
@@ -95,27 +111,62 @@ export function InlineRichText({
       if (notify === undefined) {
         return;
       }
-      notify(shouldShowBubble(editor) ? selectionAnchorOf(editor) : null);
+      if (!shouldShowBubble(editor, formattingMenuElement)) {
+        notify(null);
+        return;
+      }
+      const source: SelectionAnchorSource = {
+        measure: () =>
+          shouldShowBubble(editor, formattingMenuElement) ? selectionAnchorOf(editor) : null,
+      };
+      notify(source);
     };
-    report();
-    editor.on('selectionUpdate', report);
-    editor.on('transaction', report);
-    editor.on('focus', report);
-    editor.on('blur', report);
+    const unsubscribe = subscribeBubbleReports({ editor, formattingMenuElement, report });
     return () => {
-      editor.off('selectionUpdate', report);
-      editor.off('transaction', report);
-      editor.off('focus', report);
-      editor.off('blur', report);
+      unsubscribe();
       // Editing ended: never leave a stranded bubble (§5 b1).
       selectionRef.current?.(null);
     };
+  }, [editor, formattingMenuElement]);
+
+  // Capture ONLY the cross-document forward-Tab bridge before ProseMirror's
+  // keymaps can consume it (for example inside a list). Every other editing key
+  // remains on the existing bubble-phase path below.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container === null || editor === null) {
+      return undefined;
+    }
+    const onKeyDownCapture = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+      const request = requestFormattingMenuFocusRef.current;
+      if (request === undefined) {
+        return;
+      }
+      const moved = request(() => {
+        liveViewOf(editor)?.focus();
+      });
+      if (!moved) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    container.addEventListener('keydown', onKeyDownCapture, true);
+    return () => {
+      container.removeEventListener('keydown', onKeyDownCapture, true);
+    };
   }, [editor]);
 
-  // Escape → onExit. A NATIVE listener: React's synthetic events do not cross
-  // the frame boundary for content portaled into the preview document (009 §9
-  // record 2). The event is not swallowed — the host owns global Escape
-  // semantics (frame-document gestures, §7 c2); exits are idempotent (§3 s2).
+  // Native containment: React's synthetic events do not cross the frame
+  // boundary for content portaled into the preview document (009 §9 record 2).
+  // Canvas gesture listeners live on that SAME frame document, so every
+  // ordinary editing key and pointer gesture stops here. Escape remains the
+  // session-level law: this surface exits and lets the host's idempotent exit
+  // listener see it too. Nothing is default-cancelled — caret movement and
+  // drag-to-select remain the browser/editor's own behavior.
   useEffect(() => {
     const container = containerRef.current;
     if (container === null) {
@@ -124,11 +175,22 @@ export function InlineRichText({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         exitRef.current?.();
+        return;
       }
+      event.stopPropagation();
+    };
+    const stop = (event: Event) => {
+      event.stopPropagation();
     };
     container.addEventListener('keydown', onKeyDown);
+    container.addEventListener('click', stop);
+    container.addEventListener('pointerdown', stop);
+    container.addEventListener('dblclick', stop);
     return () => {
       container.removeEventListener('keydown', onKeyDown);
+      container.removeEventListener('click', stop);
+      container.removeEventListener('pointerdown', stop);
+      container.removeEventListener('dblclick', stop);
     };
   }, []);
 

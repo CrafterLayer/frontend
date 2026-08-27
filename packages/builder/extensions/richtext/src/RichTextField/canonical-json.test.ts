@@ -29,4 +29,40 @@ describe('canonicalJson (008 §8 item 13)', () => {
     expect(canonicalJson('x')).toBe('"x"');
     expect(canonicalJson([1, 'a', null])).toBe('[1,"a",null]');
   });
+
+  it('degrades BigInt and excessively deep stored values to bounded JSON instead of throwing', () => {
+    expect(canonicalJson({ value: 1n })).toBe('{"value":null}');
+
+    let deeplyNested: unknown = 'leaf';
+    for (let depth = 0; depth < 20_000; depth += 1) {
+      deeplyNested = { child: deeplyNested };
+    }
+    const canonical = canonicalJson(deeplyNested);
+    expect(JSON.parse(canonical) as unknown).toBeDefined();
+    expect(canonical).toContain('null');
+    expect(canonical.length).toBeLessThan(2_048);
+  });
+
+  it('keeps the byte-for-byte canonical form of valid stored rich text', () => {
+    const valid = {
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [
+            {
+              type: 'text',
+              text: 'Hello',
+              marks: [{ type: 'link', attrs: { href: '/docs' } }, { type: 'bold' }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(canonicalJson(valid)).toBe(
+      '{"content":[{"attrs":{"level":2},"content":[{"marks":[{"attrs":{"href":"/docs"},"type":"link"},{"type":"bold"}],"text":"Hello","type":"text"}],"type":"heading"}],"type":"doc"}',
+    );
+  });
 });

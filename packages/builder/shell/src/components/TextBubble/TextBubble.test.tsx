@@ -13,6 +13,7 @@ function renderBubble(overrides: Partial<TextBubbleProps> = {}) {
   const runs = { bold: vi.fn(), italic: vi.fn(), clear: vi.fn() };
   const props: TextBubbleProps = {
     dir: 'ltr',
+    onReturnFocus: () => true,
     actions: [
       { id: 'bold', label: 'Bold', pressed: true, run: runs.bold },
       { id: 'italic', label: 'Italic', pressed: false, run: runs.italic },
@@ -87,6 +88,7 @@ describe('TextBubble (009 contract §5)', () => {
     render(
       <TextBubble
         dir="ltr"
+        onReturnFocus={() => true}
         actions={[{ id: 'clear', label: 'Clear formatting', disabled: true, run }]}
       />,
     );
@@ -99,5 +101,45 @@ describe('TextBubble (009 contract §5)', () => {
   it('carries the content direction on the group, so reading order flips under RTL', () => {
     renderBubble({ dir: 'rtl' });
     expect(screen.getByRole('group', { name: 'Formatting' })).toHaveAttribute('dir', 'rtl');
+  });
+
+  it.each([
+    ['Escape', { key: 'Escape' }],
+    ['Shift+Tab', { key: 'Tab', shiftKey: true }],
+  ])('%s returns from the first enabled action and consumes that host key', (_name, init) => {
+    const onReturnFocus = vi.fn(() => true);
+    renderBubble({
+      onReturnFocus,
+      actions: [
+        { id: 'clear', label: 'Clear formatting', disabled: true, run: vi.fn() },
+        { id: 'bold', label: 'Bold', run: vi.fn() },
+      ],
+    });
+    const bold = screen.getByRole('button', { name: 'Bold' });
+    bold.focus();
+    const event = createEvent.keyDown(bold, init);
+
+    fireEvent(bold, event);
+
+    expect(onReturnFocus).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('Shift+Tab from a later action remains native, and a failed return consumes nothing', () => {
+    const onReturnFocus = vi.fn(() => false);
+    renderBubble({ onReturnFocus });
+    const italic = screen.getByRole('button', { name: 'Italic' });
+    italic.focus();
+    const fromLater = createEvent.keyDown(italic, { key: 'Tab', shiftKey: true });
+    fireEvent(italic, fromLater);
+    expect(onReturnFocus).not.toHaveBeenCalled();
+    expect(fromLater.defaultPrevented).toBe(false);
+
+    const bold = screen.getByRole('button', { name: 'Bold' });
+    bold.focus();
+    const failedEscape = createEvent.keyDown(bold, { key: 'Escape' });
+    fireEvent(bold, failedEscape);
+    expect(onReturnFocus).toHaveBeenCalledTimes(1);
+    expect(failedEscape.defaultPrevented).toBe(false);
   });
 });

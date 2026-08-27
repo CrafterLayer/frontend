@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { Editor } from '@tiptap/react';
@@ -8,7 +8,7 @@ import type { Editor } from '@tiptap/react';
 import type { RichTextDoc } from '@craftkit/builder-schema';
 
 import { InlineRichText } from './InlineRichText';
-import type { SelectionAnchor } from './selection-anchor';
+import type { SelectionAnchorReport } from './selection-anchor';
 
 // ProseMirror measures selection geometry jsdom does not implement — inert
 // stubs keep the EDITING logic (the part under test) fully real (the
@@ -38,7 +38,7 @@ function Harness({
 }: {
   onCommit?: (next: RichTextDoc) => void;
   onExit?: () => void;
-  onSelectionChange?: (anchor: SelectionAnchor | null) => void;
+  onSelectionChange?: (report: SelectionAnchorReport | null) => void;
   onEditor: (editor: Editor) => void;
 }) {
   const [value, setValue] = useState<unknown>(seed('Start'));
@@ -107,7 +107,51 @@ describe('InlineRichText — the canvas rich surface (009 contract §4 t2)', () 
     expect(onCommit).not.toHaveBeenCalled();
   });
 
-  it('selection channel: an anchor for a selection, null on collapse, null on unmount', () => {
+  it('contains native canvas gestures while Escape still exits the inline session', () => {
+    const onExit = vi.fn();
+    render(<Harness onExit={onExit} onEditor={() => undefined} />);
+    const surface = surfaceOf();
+    const onPointerDown = vi.fn();
+    const onClick = vi.fn();
+    const onDoubleClick = vi.fn();
+    const onKeyDown = vi.fn();
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('click', onClick);
+    document.addEventListener('dblclick', onDoubleClick);
+    document.addEventListener('keydown', onKeyDown);
+
+    try {
+      const pointerDown = createEvent.pointerDown(surface);
+      fireEvent(surface, pointerDown);
+      const click = createEvent.click(surface);
+      fireEvent(surface, click);
+      const doubleClick = createEvent.dblClick(surface);
+      fireEvent(surface, doubleClick);
+      fireEvent.keyDown(surface, { key: 'ArrowRight' });
+
+      expect(onPointerDown).not.toHaveBeenCalled();
+      expect(onClick).not.toHaveBeenCalled();
+      expect(onDoubleClick).not.toHaveBeenCalled();
+      expect(onKeyDown).not.toHaveBeenCalled();
+      // Containment must not cancel the editor's own selection/caret behavior.
+      expect(pointerDown.defaultPrevented).toBe(false);
+      expect(click.defaultPrevented).toBe(false);
+      expect(doubleClick.defaultPrevented).toBe(false);
+
+      fireEvent.keyDown(surface, { key: 'Escape' });
+      expect(onExit).toHaveBeenCalledTimes(1);
+      // Escape remains the session-level gesture and may reach the canvas's
+      // idempotent exit listener; only ordinary editing keys are contained.
+      expect(onKeyDown).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('dblclick', onDoubleClick);
+      document.removeEventListener('keydown', onKeyDown);
+    }
+  });
+
+  it('selection channel: a deferred source for a selection, null on collapse and unmount', () => {
     const onSelection = vi.fn();
     let editor: Editor | null = null;
     const view = render(
@@ -128,19 +172,10 @@ describe('InlineRichText — the canvas rich surface (009 contract §4 t2)', () 
       ed.view.dom.focus();
       ed.commands.setTextSelection({ from: 1, to: 6 });
     });
-    const anchor = onSelection.mock.lastCall?.[0] as SelectionAnchor | null;
-    expect(anchor).not.toBeNull();
-    // The FloatingAnchor shape (§2): a union box plus per-line rects. (jsdom
-    // geometry is all zeros — the SHAPE is what this proves; the numbers are
-    // proven in selection-anchor.test.ts.)
-    expect(anchor?.box).toEqual({
-      x: expect.any(Number) as number,
-      y: expect.any(Number) as number,
-      width: expect.any(Number) as number,
-      height: expect.any(Number) as number,
-    });
-    expect(Array.isArray(anchor?.rects)).toBe(true);
-    expect(anchor?.rects.length).toBeGreaterThan(0);
+    const report = onSelection.mock.lastCall?.[0] as SelectionAnchorReport | null;
+    expect(report).toEqual({ measure: expect.any(Function) as () => unknown });
+    // Geometry correctness stays in selection-anchor.test.ts; the adapter's
+    // merge gate proves this source is invoked only by a scheduled flush.
 
     act(() => {
       ed.chain().setTextSelection({ from: 3, to: 3 }).run();

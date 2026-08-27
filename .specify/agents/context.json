@@ -5,7 +5,7 @@
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "builder-b3c-inline-editing-verification",
+    "phase": "adaptive-spec-router-local-evaluation",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
@@ -100,39 +100,25 @@
     },
     "deliveryOrchestration": {
       "coordinator": "initiating integration; Codex by project default",
-      "worker": "native Codex workers for Codex runs; observable read-only Codex workers through the async project adapter when Claude coordinates; synchronous fallback only for authorized writes",
+      "worker": "native Codex workers for Codex runs; official codex@openai-codex plugin jobs backed by the Codex app server when Claude coordinates",
       "operation": "speckit.workspace.delegate",
       "modes": ["auto", "required", "off"],
       "routingPolicy": {
         "codexInitiated": "stay in Codex; never invoke Claude unless the current user explicitly requests Claude",
-        "claudeInitiated": "Claude may call Codex through the project bridge for bounded approved work",
+        "claudeInitiated": "Claude may call Codex through the official plugin for bounded approved work",
         "purpose": "avoid agent ping-pong and duplicated context while retaining one-way load distribution"
       },
-      "projectAdapters": {
-        "asyncReadOnly": {
-          "config": ".mcp.json",
-          "serverId": "codex-craftkit-async",
-          "transport": "stdio Node wrapper over codex exec --json --ephemeral",
-          "status": "connected-from-claude-host",
-          "verifiedAt": "2026-08-27",
-          "smokeTestVerifiedAt": "2026-08-27",
-          "smokeTest": "one real start-status-result task returned the expected README heading; SHA-256 of tracked binary diff plus Git-visible untracked paths, modes, and contents matched before and after",
-          "smokeSnapshotSha256": "c14ee48de057e81516e4164db78c44d2fb587be2d99af7983fafbae7554222ba",
-          "tools": ["codex_start", "codex_status", "codex_result", "codex_cancel"],
-          "safety": "read-only and never-approve; user config and plugins disabled; core-only shell environment; repository-contained cwd; bounded in-memory state; POSIX process-group cleanup; Windows fails closed",
-          "progress": "status reads local state with 30-55 second coalescing and starts no additional Codex call"
-        },
-        "synchronousWriteFallback": {
-          "config": ".mcp.json",
-          "serverId": "codex-craftkit-worker",
-          "transport": "stdio codex mcp-server",
-          "status": "connected-from-claude-host",
-          "verifiedAt": "2026-08-27",
-          "lifecycle": "compatibility-only; codex mcp-server is deprecated",
-          "use": "explicitly authorized implementation until the official plugin or an approval-capable async transport is installed"
-        },
-        "preferredReplacement": "official Codex plugin for Claude Code backed by the Codex app server",
-        "trust": "per-machine and uncommitted"
+      "claudeCodexTransport": {
+        "plugin": "codex@openai-codex",
+        "version": "1.0.6",
+        "transport": "official Codex app server companion",
+        "status": "installed-enabled-and-ready",
+        "verifiedAt": "2026-08-27",
+        "smokeTest": "one fresh background read-only task exposed starting, thread-ready, turn-started, and terminal phases and returned the expected README heading without touching files",
+        "commands": ["/codex:setup", "/codex:rescue", "/codex:review", "/codex:status", "/codex:result", "/codex:cancel"],
+        "progress": "status and result are on-demand user commands over the same tracked job; they do not promise unsolicited continuous progress",
+        "legacyProjectMcp": "project MCP entries and bridge source removed; a pre-cutover Claude session may retain in-memory tools until its current task finishes and the session closes; any user-scoped generic codex MCP remains out of project scope and is forbidden by workspace routing",
+        "trust": "plugin installation and Codex authentication are user-scoped and uncommitted"
       },
       "delegationGate": "run-local delegation.json is initialized pending and engine-validated; required accepts only delegated work with an accepted result",
       "reviewLane": "fresh ephemeral Codex process with engine-enforced read-only and never-approve flags plus a 29-minute internal deadline below the workflow timeout, never the implementation worker thread"
@@ -141,9 +127,9 @@
       "state": "warning-intentional-preset-composition",
       "modifiedManagedFiles": 9,
       "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade",
-      "extensionSkillSync": "workspace@1.4.1 is generated for the default Codex integration; Claude and Cursor regeneration is pending explicit permission because Spec Kit 1.0.1 requires temporarily changing the default integration"
+      "extensionSkillSync": "workspace@1.4.1 source and installed copy use the official plugin route; generated Codex, Claude, and Cursor skill regeneration remains deferred because forced recomposition could overwrite unrelated modified skills"
     },
-    "activeFeature": "specs/workspace/009-builder-b3c-inline-editing",
+    "activeFeature": "specs/workspace/010-adaptive-spec-router",
     "scopeModel": "root governance plus scoped feature directories; member projects only for independent governance or release needs"
   },
   "sourcesOfTruth": {
@@ -181,10 +167,10 @@
     ]
   },
   "currentWork": {
-    "status": "b3c-implemented-awaiting-evidence-review-convergence",
+    "status": "adaptive-spec-router-implemented-browser-smoke-pending",
     "scope": "workspace",
-    "activeSpec": "specs/workspace/009-builder-b3c-inline-editing/spec.md",
-    "nextAction": "First resolve whether Spec Kit may temporarily activate Claude and Cursor solely to regenerate workspace@1.4.1 skills, always returning the default to Codex. Then complete B3c T020 evidence, T021 dual review, T022 convergence, T023 handoff, and T024 commit proposal only. No commit is authorized. Codex remains the default and self-contained; Claude may call the connected read-only async Codex bridge, with the synchronous bridge reserved for authorized writes."
+    "activeSpec": "specs/workspace/010-adaptive-spec-router/spec.md",
+    "nextAction": "Run the Adaptive Spec Router manually at 375px and 1440px: apply a scenario, make a material plan revision, and reset the demo. Then obtain the user's product feedback before authorizing extraction, live-provider adapters, a public repository, licensing, or publication. Do not interfere with any separately running legacy Claude-to-Codex task or with the existing B3c worktree. No commit is authorized. Codex remains the default and self-contained; Claude uses only the official codex@openai-codex plugin for new cross-runtime work."
   },
   "qualityGates": {
     "governanceConfigured": true,

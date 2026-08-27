@@ -1,6 +1,6 @@
 import { isValidElement } from 'react';
 
-import { expect, waitFor, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { z } from 'zod';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
@@ -641,25 +641,31 @@ export const FormattingBubble: Story = {
       }
       return found;
     });
+    const frameDocument = frame.contentDocument;
+    const frameWindow = frame.contentWindow;
+    if (frameDocument === null || frameWindow === null) {
+      throw new Error('the preview frame must expose its document and window');
+    }
 
     // Select the word "word" through a REAL DOM range in the frame's own
     // selection — the same thing a double-click by hand produces.
     const applyWordSelection = () => {
-      const walker = frame.contentDocument?.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
-      const first = walker?.nextNode();
-      if (first === null || first === undefined) {
+      const walker = frameDocument.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
+      const first = walker.nextNode();
+      if (first === null) {
         throw new Error('the surface must render text');
       }
       const text = first.textContent ?? '';
       const at = text.indexOf('word');
-      const range = frame.contentDocument?.createRange();
-      range?.setStart(first, at);
-      range?.setEnd(first, at + 'word'.length);
-      const selection = frame.contentWindow?.getSelection();
-      selection?.removeAllRanges();
-      if (range !== undefined) {
-        selection?.addRange(range);
+      const range = frameDocument.createRange();
+      range.setStart(first, at);
+      range.setEnd(first, at + 'word'.length);
+      const selection = frameWindow.getSelection();
+      if (selection === null) {
+        throw new Error('the preview frame must expose its selection');
       }
+      selection.removeAllRanges();
+      selection.addRange(range);
     };
     surface.focus();
     applyWordSelection();
@@ -684,6 +690,28 @@ export const FormattingBubble: Story = {
     // RISK 2, in a real browser: pressing an action must not move focus, or
     // Bold would destroy the very selection it formats.
     const bold = within(host).getByRole('button', { name: 'Bold' });
+    // KEYBOARD TRUTH: once an iframe descendant owns focus, the HOST document's
+    // active element is the iframe while the FRAME document's active element is
+    // the editor. Storybook's direct `userEvent.tab()` is host-scoped, so it
+    // would simulate tabbing FROM the iframe element and never deliver a key to
+    // the editor. Scope the keyboard to the frame document, exactly where a real
+    // user's Tab keydown is delivered, and prove that native listener fired.
+    await expect(canvasElement.ownerDocument.activeElement).toBe(frame);
+    await expect(frameDocument.activeElement).toBe(surface);
+    const delivery: { event: KeyboardEvent | null } = { event: null };
+    const observeFrameTab = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') {
+        delivery.event = event;
+      }
+    };
+    surface.addEventListener('keydown', observeFrameTab, { capture: true, once: true });
+    await userEvent.keyboard('{Tab}', { document: frameDocument });
+    surface.removeEventListener('keydown', observeFrameTab, true);
+    await expect(delivery.event).not.toBeNull();
+    await expect(delivery.event?.defaultPrevented).toBe(true);
+    await expect(bold).toHaveFocus();
+    await expect(frameWindow.getSelection()?.toString()).toBe('word');
+
     const press = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
     bold.dispatchEvent(press);
     await expect(press.defaultPrevented).toBe(true);
@@ -692,7 +720,7 @@ export const FormattingBubble: Story = {
     // Interactions panel proves the same property from wherever it starts.
     const beforeTx = bubbleKernel.transactions().length;
     const wasBold = bold.getAttribute('aria-pressed') === 'true';
-    bold.click();
+    await userEvent.keyboard('{Enter}', { document: bold.ownerDocument });
     await waitFor(async () => {
       await expect(bubbleKernel.transactions().length).toBe(beforeTx + 1);
     });
@@ -707,5 +735,26 @@ export const FormattingBubble: Story = {
     await expect(frame.contentDocument?.querySelector('.bldr-inline-rich')?.textContent).toBe(
       'Select a word in this line and press Bold.',
     );
+
+    // Escape from HOST chrome returns to the frame editor first, preserving the
+    // semantic selection; a SECOND Escape from the editor keeps the established
+    // session-exit path and restores the stable canvas continuation target.
+    const continuation = canvasElement.querySelector<HTMLElement>('.bldr-canvas-host');
+    if (continuation === null) {
+      throw new Error('the canvas continuation region must stay mounted');
+    }
+    await expect(bold).toHaveFocus();
+    await userEvent.keyboard('{Escape}', { document: bold.ownerDocument });
+    await expect(surface).toHaveFocus();
+    await expect(frameWindow.getSelection()?.toString()).toBe('word');
+    await expect(frameDocument.querySelector('.bldr-inline-rich')).not.toBeNull();
+    await expect(canvasElement.ownerDocument.activeElement).toBe(frame);
+    await expect(frameDocument.activeElement).toBe(surface);
+
+    await userEvent.keyboard('{Escape}', { document: frameDocument });
+    await waitFor(async () => {
+      await expect(frameDocument.querySelector('.bldr-inline-rich')).toBeNull();
+      await expect(continuation).toHaveFocus();
+    });
   },
 };

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   applyOffsets,
+  offsetsOfDomRange,
   offsetsOfSelection,
   plainTextOfDom,
   rangeGeometry,
@@ -230,6 +231,34 @@ describe('hard-break parity — doc(para(a, hardBreak, b), para(cd))', () => {
       expect(applyOffsets(root, { from: offset, to: offset }, selectionOf())).toBe(true);
       expect(offsetsOfSelection(root, selectionOf())).toEqual({ from: offset, to: offset });
     }
+  });
+
+  it('maps a browser target range over the break through the same offset walk', () => {
+    const root = mount(HARD_BREAK_DOC);
+    const target = document.createRange();
+    target.setStart(textAt(root, 0), 1);
+    target.setEnd(el(root, 'p'), 2);
+    expect(offsetsOfDomRange(root, target)).toEqual({
+      from: BEFORE_BREAK,
+      to: AFTER_BREAK,
+    });
+  });
+
+  it('measures the break interval from BEFORE the br to AFTER it', () => {
+    const root = mount(HARD_BREAK_DOC);
+    const first = textAt(root, 0);
+    const paragraph = el(root, 'p');
+    stubRects([{ x: 4, y: 8, width: 2, height: 12 }]);
+    expect(rangeGeometry(root, { from: BEFORE_BREAK, to: AFTER_BREAK })).toEqual({
+      box: { x: 4, y: 8, width: 2, height: 12 },
+      rects: [{ x: 4, y: 8, width: 2, height: 12 }],
+    });
+    expect(lastMeasured()).toEqual({
+      startContainer: first,
+      startOffset: 1,
+      endContainer: paragraph,
+      endOffset: 2,
+    });
   });
 });
 

@@ -21,9 +21,8 @@ two Codex reviews through a packaged launcher that enforces a fresh ephemeral pr
 `sandbox=read-only`, and `approval-policy=never`; `gpt-5.6-terra` is the default, with Luna
 available only through an explicit workflow input override.
 
-The delegation command is transport-neutral. Claude should prefer the official Codex plugin/app
-server bridge when installed. The project currently uses `codex-craftkit-async` for observable,
-read-only background work and keeps `codex-craftkit-worker` only as a synchronous compatibility
-fallback for authorized writes. Async status reads local state every 30–55 seconds and does not
-start another Codex call. See `docs/development/agent-collaboration.md` for setup, preflight, and
-failure handling.
+The delegation command is transport-neutral. Claude uses the installed official
+`codex@openai-codex` plugin backed by the Codex app server. Substantial work runs in the background;
+`/codex:status` exposes the tracked phase and activity, while `/codex:result` returns terminal
+output. The retired project MCP adapters are not valid routes for new work. See
+`docs/development/agent-collaboration.md` for setup, preflight, and failure handling.

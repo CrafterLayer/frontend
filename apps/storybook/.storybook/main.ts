@@ -10,6 +10,8 @@ const config = {
     '../../../packages/builder/extensions/*/src/**/*.docs.mdx',
     '../../../apps/playground/src/**/*.stories.@(ts|tsx)',
     '../../../apps/playground/src/**/*.docs.mdx',
+    '../../../apps/adaptive-spec-router/src/**/*.stories.@(ts|tsx)',
+    '../../../apps/adaptive-spec-router/src/**/*.docs.mdx',
   ],
   addons: ['@storybook/addon-docs', '@storybook/addon-a11y', '@storybook/addon-vitest'],
   framework: {

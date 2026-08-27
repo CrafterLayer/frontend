@@ -170,6 +170,25 @@ export interface InlineSelectionAnchor {
   rects?: InlineRect[];
 }
 
+/**
+ * A live selection anchor whose geometry is deliberately deferred.
+ *
+ * Non-null presence says there is something to format. The shell keeps this
+ * descriptor out of React state and invokes `measure` only from its
+ * frame-coalesced anchor-channel flush. The object wrapper is intentional: a
+ * naked function handed to a React state setter would be invoked as an updater.
+ */
+export interface InlineSelectionAnchorSource {
+  measure: () => InlineSelectionAnchor | null;
+}
+
+/**
+ * Additive selection-report contract. Pre-B3c-closeout contributions may still
+ * hand over an already measured anchor; current editors must use the deferred
+ * source so selection interactions never force layout.
+ */
+export type InlineSelectionAnchorReport = InlineSelectionAnchor | InlineSelectionAnchorSource;
+
 /** One button in the canvas's floating formatting bubble. */
 export interface InlineFormatAction {
   id: string;
@@ -197,10 +216,34 @@ export interface InlineEditorProps {
   onCommit: (next: unknown) => void;
   /** Escape, or any other reason the editor is done. */
   onExit: () => void;
-  /** Selection geometry, or null when there is nothing to format. */
-  onAnchor: (anchor: InlineSelectionAnchor | null) => void;
+  /**
+   * Selection visibility plus its deferred anchor source, or null when there
+   * is nothing to format. Geometry sources are invoked only by the shell's
+   * frame-coalesced anchor channel. The measured-anchor branch is retained for
+   * additive compatibility; new and first-party editors must report a source.
+   */
+  onAnchor: (report: InlineSelectionAnchorReport | null) => void;
   /** Actions for the CURRENT selection; an empty list shows no bubble. */
   onActions: (actions: InlineFormatAction[]) => void;
+  /**
+   * Ask the canvas to move focus to its first enabled formatting action.
+   *
+   * The editor supplies the only safe way back because it owns selection
+   * semantics (DOM offsets, ProseMirror state, or another engine-specific
+   * bookmark). The canvas returns true ONLY when host-document focus actually
+   * moved; false leaves native Tab navigation untouched, so empty or fully
+   * disabled chrome can never become a focus trap.
+   */
+  requestFormattingMenuFocus?: ((returnFocusToEditor: () => void) => boolean) | undefined;
+  /**
+   * The canvas's own formatting chrome (the floating bubble's host element),
+   * when there is one. An editor reports its actions on focus changes, and
+   * without this it cannot tell "focus moved to MY toolbar" from "focus left
+   * editing" — so Tabbing toward a bubble button would unmount the very
+   * control the user is moving to. Keep reporting while this element owns
+   * focus. Optional: an editor that never reports on blur can ignore it.
+   */
+  formattingMenuElement?: Element | null | undefined;
 }
 
 /**

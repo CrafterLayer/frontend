@@ -1,121 +1,107 @@
 # Active Work Handoff
 
-**Status:** paused — the observable Claude-to-Codex bridge is implemented and verified, but Spec Kit
-regeneration for the inactive Claude and Cursor integrations awaits one explicit user choice. B3c
-implementation remains in the working tree; its evidence, dual review, convergence, final handoff,
-and commit proposal tasks remain open.
+**Status:** ready for local user evaluation — all implementation and automated gates for Adaptive
+Spec Router are complete; the manual responsive browser smoke remains pending.
 
 **Updated:** 2026-08-27
 
-**Scope:** `specs/workspace/009-builder-b3c-inline-editing` plus workspace agent governance under
-`.specify/agents/`.
+**Scope:** `specs/workspace/010-adaptive-spec-router` and
+`apps/adaptive-spec-router`.
 
-**Active Spec:** `specs/workspace/009-builder-b3c-inline-editing`.
+**Active Spec:** `specs/workspace/010-adaptive-spec-router/spec.md`.
 
 ## Objective
 
-Finish B3c inline editing and floating toolbars without weakening its transaction, rendering,
-accessibility, or containment laws. Codex is now the project default and remains self-contained for
-Codex-initiated work; Claude remains an optional coordinator that may delegate bounded path-disjoint
-work to Codex through the transport-neutral Spec Kit contract.
+Evaluate a private, deterministic product dashboard for explainable Claude/Codex task routing before
+any decision to extract, connect providers, create a public repository, or publish. This feature is
+not an agent runner and must not create a live provider, MCP, source-code, credential, or repository
+integration.
 
 ## Completed
 
-- B3c tasks T001-T019 and field-report tasks T025-T030 are marked complete in `tasks.md`; their
-  existing implementation diff was not modified by the collaboration-governance work.
-- Constitution v1.2.0 formalizes coordinator ownership, least-privilege workers, non-overlapping
-  write leases, no recursive delegation, evidence-based integration, and fail-closed required work.
-- `workspace@1.4.1` adds `speckit.workspace.delegate`, the engine-visible delegation result
-  contract, and recursion-safe review behavior; generated skills exist for Claude, Codex, and
-  Cursor.
-- `react-monorepo-quality@1.0.3` makes `speckit-implement` load the collaboration contract when
-  worker output is integrated.
-- `professional-sdd@1.5.0` has 24 steps. It initializes and validates a run-local delegation result
-  before implementation; `required` accepts only delegated work with an independently accepted
-  result. Mandatory reviews use a packaged fresh ephemeral Codex launcher with enforced
-  read-only/never-approve flags and non-empty evidence gates.
-- `.mcp.json` now keeps both adapters without replacing or interrupting the existing one:
-  `codex-craftkit-async` for observable read-only work and `codex-craftkit-worker` as the
-  synchronous fallback for explicitly authorized writes. Both avoid the user-scope `codex` name
-  collision; local trust remains ignored and per-machine.
-- The async adapter exposes start/status/result/cancel over dependency-free MCP stdio. It enforces
-  read-only, never-approve, ignored user config, disabled plugins, a core-only model shell
-  environment, repository-contained `cwd`, bounded state/output/concurrency, and POSIX process-group
-  cleanup; Windows fails closed.
-- `docs/development/agent-collaboration.md` records topology, preflight, task envelopes, exact
-  sandbox/approval profiles, troubleshooting, and migration conditions.
-- Project routing is deliberately one-way by default: Codex does not auto-start Claude; an explicit
-  Claude session may call Codex. Long read-only work uses `codex-craftkit-async`, whose status reads
-  local state every 30–55 seconds without starting another Codex call.
+- Created the isolated `@craftkit/adaptive-spec-router` Vite React application with an explicit
+  local-demo boundary and no external side effects.
+- Default operation is **Codex-native**: it keeps Codex work in Codex and never starts Claude
+  automatically. **Claude-adaptive** is an explicit user-selected, one-way evaluation mode.
+- Added deterministic model-aware routes: Luna/Terra/Sol and Sonnet/Opus, clear provider/model
+  unavailability fallback, one designated writer, and an independent reviewer.
+- Added a frozen plan revision audit that requires current Claude and Codex reviews before a writer
+  lease becomes active. Material revisions make old reviews stale; typed findings expose severity,
+  requirement, and next action.
+- Added an illustrative evidence console, active/reserved/no writer-lease states, release-gate
+  safety, responsive styling, reset behavior, keyboard-visible controls, component stories, MDX
+  documentation, and behavior tests.
+- Created ADR 0005 and complete Spec Kit artifacts under
+  `specs/workspace/010-adaptive-spec-router/`.
+- Independent routing and governance reviews were completed. Their accepted findings were repaired,
+  including the final case where an invalid scenario could otherwise keep a release state waiting.
 
 ## Verification
 
-- `specify extension list`: workspace v1.4.1, four commands.
-- `specify preset list`: react-monorepo-quality v1.0.3, priority 5.
-- `specify workflow info professional-sdd`: v1.5.0, 24 steps, delegation prepare/verify and two
-  enforced Codex review launcher steps present.
-- `specify integration status --json`: default Codex, all three integrations installed, no missing
-  or invalid managed files; the known nine preset-composition warnings remain expected.
-- Source and installed extension/workflow/preset files match; the installed extension has only its
-  expected generated `.specify-dev` directory in addition.
-- `claude mcp get codex-craftkit-async`: Project config, Connected. The synchronous worker also
-  reports Connected from the real host; its expected sandbox-only state-database failure was not
-  treated as a transport regression.
-- End-to-end async smoke: one real `start → status → result` task returned
-  `# Spec Kit Agent System`. A SHA-256 snapshot of `git diff --binary HEAD` plus every Git-visible
-  untracked path, mode, and content matched before and after
-  (`c14ee48de057e81516e4164db78c44d2fb587be2d99af7983fafbae7554222ba`).
-- `node --test .specify/agents/bridges/codex-async/tests/*.test.mjs`: 18 tests passed, covering MCP
-  negotiation/no-batch behavior, immediate start, coalesced status, result integrity, failure,
-  cancellation, concurrency, late stdout, SIGTERM lifecycle, secret/config isolation arguments,
-  descendant cleanup on cancel and successful completion, and the Windows fail-closed guard.
-- A separate read-only reviewer reported no blocking findings after process lifecycle, MCP protocol,
-  user-config/plugin isolation, and success-path descendant cleanup repairs.
-- `node --test .specify/workflows/professional-sdd/tests/runtime-enforcement.test.mjs`: six tests
-  passed, covering required/auto/off delegation results, malformed or stale state, exact Codex
-  sandbox/approval/ephemeral arguments, rejection of exit-zero review without fresh evidence, and
-  termination of a hung reviewer before the outer workflow timeout.
-- JSON parsing, constitution placeholder/version checks, and `git diff --check` passed for the
-  governance work.
-- B3c application/package suites were not rerun by this governance task; T020 remains the source of
-  truth for that evidence.
+- `pnpm --filter @craftkit/adaptive-spec-router lint` passed.
+- `pnpm --filter @craftkit/adaptive-spec-router typecheck` passed.
+- `pnpm --filter @craftkit/adaptive-spec-router test` passed: 31 tests in 7 files.
+- `pnpm --filter @craftkit/adaptive-spec-router build` passed: 66.55 kB gzip JavaScript.
+- Direct central Storybook build passed. The catalog retains its existing generic large-chunk warning;
+  it is not a feature build failure.
+- `pnpm check:components`, `pnpm check:workspace`, and `pnpm check:boundaries` passed.
+- `git diff --check` passed.
+- The local Vite HTTP response was smoke-checked. In-app browser automation was unavailable in this
+  environment, so it is not represented as an interaction or responsive verification.
 
 ## Incomplete
 
-- Recreate the four generated workspace skills for Claude and Cursor. Spec Kit 1.0.1 only exposes
-  this through temporarily selecting each installed integration. The attempted Claude switch was
-  rejected to preserve the user's Codex-only default; do not retry without explicit permission, and
-  always return the final default to Codex if permission is given.
-- T020: run and record the B3c evidence sequence.
-- T021: two independent read-only final reviews and accepted-finding repairs.
-- T022: convergence/adversarial verification and the editor-local-undo decision.
-- T023: final B3c handoff refresh after product verification.
-- T024: generate a commit proposal only.
+- T021 only: manually inspect the local dashboard at **375px** and **1440px**. Apply a scenario,
+  create a material plan revision, and use **Reset demo**. Verify that critical information remains
+  reachable and labelled in both widths.
+- Obtain user feedback before authorizing any extraction, licensing, public GitHub repository,
+  publishing, deployment, credentials, live provider adapter, persistence, or multi-user work.
 
-## Decisions / Blockers
+## Decisions / Boundaries
 
-- No commit, push, or deployment is authorized.
-- Codex-initiated tasks stay in Codex unless the user explicitly selects Claude. Claude-to-Codex
-  bounded delegation remains available for deliberate load distribution.
-- Do not silently switch the Spec Kit default to regenerate inactive integration skills. The user
-  must explicitly approve the temporary switch after being told why it is needed.
-- `codex mcp-server` is deprecated. The current adapter is verified compatibility plumbing, not
-  permanent policy; migrate to the official Codex Claude Code plugin/app-server path when installed.
+- No commit, push, deployment, or publication is authorized.
+- The interface displays policy examples only; it does not claim model availability or provider
+  telemetry is live.
+- A fallback must be visibly reported; no silent downgrade is allowed.
+- A single bounded writer lease is required. Reviewers remain independent and read-only in the
+  product model.
+- The existing B3c worktree and any separately running Claude-to-Codex migration are out of scope
+  for this feature follow-up. Preserve them and use their own feature artifacts for continuation.
 
 ## Next Exact Action
 
-Ask whether Spec Kit may temporarily select Claude and Cursor solely to regenerate `workspace@1.4.1`
-skills, then restore Codex as default. If approved, run each supported activation, verify all three
-generated skill sets and final default Codex, and rerun integration status. If not approved, leave
-Codex default and report that Claude/Cursor still use the MCP config and shared documents but lack
-the regenerated delegate/review/handoff/commit skills. Then execute T020 from
-`specs/workspace/009-builder-b3c-inline-editing/tasks.md` and proceed through T024.
+Run:
+
+```bash
+pnpm --filter @craftkit/adaptive-spec-router dev
+```
+
+At 375px and 1440px, test the default Codex-native route, explicitly select Claude-adaptive for a
+critical route, change the plan revision to observe stale reviews, and reset the demo. Then capture
+the user's product feedback and create a separate approved specification for any live integration or
+public release phase.
 
 ## Recovery
 
-The product state is recoverable from the 009 spec, plan, contract, tasks, and current working tree.
-The collaboration system is recoverable from the constitution, `rules/collaboration.md`, the local
-async bridge, workspace extension/preset/workflow sources, and
-`docs/development/agent-collaboration.md`. Reconcile generated integrations through Spec Kit; never
-hand-edit their skill folders. The async bridge is additive: removing only its `.mcp.json` entry and
-`.specify/agents/bridges/codex-async/` leaves the synchronous adapter unchanged.
+The product can be reconstructed from its spec, plan, contracts, tasks, ADR 0005, app README, and
+feature-local source. No external system state exists to recover. Resume at T021; do not re-run
+implementation work unless the user reports a product defect.
+
+## Parallel Claude-to-Codex Transport Cutover
+
+- The user-scoped official `codex@openai-codex` plugin v1.0.6 is installed, enabled, authenticated,
+  and ready. A real background smoke exposed tracked phases and returned the expected result without
+  touching files; fresh Claude `/codex:setup` and `/codex:status` commands also passed.
+- `.mcp.json` and `.specify/agents/bridges/codex-async/` were removed after the in-flight async and
+  synchronous results were delivered. New work must use `/codex:rescue --background --fresh`, with
+  user-invoked `/codex:status` and `/codex:result`; progress is on demand, not an unsolicited feed.
+- A Claude session opened before the cutover still has the retired MCP tools in memory and may keep
+  showing `Tinkering...`. Let its current call finish, then close that session and start a new one;
+  do not kill an in-flight write task merely to reload transport.
+- A user-scoped generic `codex` MCP server remains available for other projects but is failed and is
+  explicitly forbidden by this workspace's routing. Do not remove it globally without separate
+  authorization.
+- Regenerating all integration-native workspace skills remains deferred: the forced Spec Kit
+  recomposition would overwrite unrelated modified generated skills. The canonical extension,
+  collaboration rule, runbook, `AGENTS.md`, and `CLAUDE.md` are updated; do not hand-edit generated
+  skill folders.

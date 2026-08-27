@@ -19,6 +19,8 @@ remain scoped to future application decisions.
   workspace package-manager and task-graph decision.
 - [`decisions/0002-select-routing-query-foundations.md`](decisions/0002-select-routing-query-foundations.md)
   — accepted caller-owned query, deferred-route helper, and bundle-budget decision.
+- [`decisions/0005-adaptive-spec-router-local-demo.md`](decisions/0005-adaptive-spec-router-local-demo.md)
+  — accepted private Vite React product app for locally evaluating explainable agent routing.
 
 ## Architecture Rules
 
@@ -41,4 +43,6 @@ React-Vite Storybook catalog. The
 [routing/query foundation](../../specs/workspace/002-routing-query-foundation/plan.md) then selected
 shared package contracts and React Router v8 helpers. Neither decision selects an application
 framework, app bundler, concrete route tree, server/runtime boundary, deployment platform, remote
-cache, or public release workflow. Each requires its own scoped plan and ADR.
+cache, or public release workflow for future product apps. Adaptive Spec Router is the first bounded
+exception: [ADR 0005](decisions/0005-adaptive-spec-router-local-demo.md) selects a private Vite
+React local-demo boundary only; it does not establish a public deployment or release workflow.

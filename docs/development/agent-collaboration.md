@@ -1,13 +1,14 @@
 # Claude and Codex Collaboration
 
-**Status:** Current collaboration contract with an additive observable read-only bridge and a
-deprecated synchronous compatibility fallback.
+**Status:** Current collaboration contract using the official Codex plugin for Claude Code and its
+observable background-job runtime.
 
 **Scope and owner:** Workspace agent operations owned by Spec Kit. This guide explains local runtime
 setup and troubleshooting; policy remains in the constitution and collaboration rule.
 
 **Related sources:** `.specify/memory/constitution.md`, `.specify/agents/rules/collaboration.md`,
-`speckit.workspace.delegate`, `.mcp.json`, and the `professional-sdd` workflow.
+`speckit.workspace.delegate`, the official `codex@openai-codex` plugin, and the `professional-sdd`
+workflow.
 
 ## Operating Topology
 
@@ -17,8 +18,8 @@ Codex entry (project default)
     -> fresh read-only Codex reviewer
 
 Claude entry (explicit)
-    -> Claude coordinator -> codex-craftkit-async -> observable read-only Codex worker(s)
-    -> codex-craftkit-worker only for explicitly authorized writes
+    -> Claude coordinator -> official Codex plugin -> observable background Codex job(s)
+    -> /codex:status and /codex:result expose tracked progress and terminal output
     -> coordinator verifies evidence and integrates
     -> fresh read-only Codex reviewer
 ```
@@ -44,35 +45,33 @@ depend on task size and partition quality.
 
 ## Transport Status
 
-The preferred long-term Claude-to-Codex transport is the official Codex plugin for Claude Code,
-backed by the Codex app server. The repository adapters remain replaceable transport plumbing; the
-[official Codex CLI reference](https://developers.openai.com/codex/cli/reference) is the source of
-truth for the installed CLI surface.
+Claude-to-Codex delegation uses the installed official `codex@openai-codex` plugin backed by the
+Codex app server. The
+[official Codex CLI reference](https://developers.openai.com/codex/cli/reference) marks
+`codex mcp-server` as deprecated in favor of this plugin, and the
+[Codex app-server guide](https://developers.openai.com/codex/app-server) documents the streamed
+event model behind it.
 
-This repository currently registers two project adapters in `.mcp.json`:
+The plugin owns transport state outside the repository and exposes repository-scoped jobs through
+Claude commands. It must not place Codex authentication, state databases, tokens, or private
+payloads in the worktree. The retired `codex-craftkit-async` and `codex-craftkit-worker` experiments
+are not valid routes for new sessions. A user-scoped MCP server named `codex` may still be visible
+for unrelated projects; this workspace must not select it as a fallback.
 
-- `codex-craftkit-async`: the default for bounded read-only discovery and review. Its local Node
-  wrapper starts `codex exec --json --ephemeral`, exposes start/status/result/cancel, and keeps one
-  model call alive while Claude reads coalesced progress from memory.
-- `codex-craftkit-worker`: the synchronous fallback for explicitly authorized implementation. It
-  still uses deprecated `codex mcp-server` because the async v1 bridge intentionally does not relay
-  write approvals.
-
-Both use stdio and commit no secrets or environment values. The async worker enforces read-only,
-never-approve, ignored user config, disabled local/remote plugins, a core-only model shell
-environment, repository-contained `cwd`, bounded concurrency and output, and full POSIX process
-group cleanup. It fails closed on Windows rather than risk leaving descendant processes alive.
-
-The unique ids avoid colliding with user-scoped servers named `codex`. Claude's trust decision is
-machine-local in the ignored `.claude/settings.local.json`; each developer must approve the project
-servers on their own machine. Never commit `CODEX_HOME`, authentication files, access tokens, or an
-absolute user directory.
-
-The Spec Kit collaboration contract is transport-neutral. Migrating from either project adapter to
-the official plugin must not require changes to feature specs, task envelopes, path leases, review
-separation, or completion gates.
+The Spec Kit collaboration contract remains transport-neutral. The official plugin changes how a
+worker starts and how progress is read; it does not change feature specs, task envelopes, path
+leases, independent review, or completion gates.
 
 ## Session Preflight
+
+Install the user-scoped plugin once on each developer machine:
+
+```bash
+claude plugin marketplace add openai/codex-plugin-cc
+claude plugin install codex@openai-codex
+```
+
+Then run `/reload-plugins` in an existing Claude session or start a fresh session.
 
 Run these checks from the repository root in the Claude host environment that will start Codex:
 
@@ -82,23 +81,28 @@ command -v codex
 claude --version
 codex --version
 codex login status
-claude mcp get codex-craftkit-async
-claude mcp get codex-craftkit-worker
+claude plugin list
 specify integration status --json
 ```
 
-Each adapter is healthy only when its `claude mcp get` output identifies `Project config` and
-reports `Connected`. A valid `.mcp.json` proves configuration only, and `specify integration status`
-proves managed Spec Kit integrity only; neither substitutes for the connection checks.
-
-After setup or an upgrade, invoke the async bridge directly from a fresh Claude session for one
-diagnostic probe. Do not invoke `speckit.workspace.delegate`: that operation is reserved for
-approved feature tasks.
+`claude plugin list` must show `codex@openai-codex` enabled. In a fresh or reloaded Claude session,
+run:
 
 ```text
-Call `codex_start` on the project MCP server `codex-craftkit-async` once. Read only
-`.specify/agents/README.md`, return its first heading, and do not edit files. Then call
-`codex_status` with the returned sequence until terminal and call `codex_result` once.
+/codex:setup
+```
+
+The setup command must report that Codex is installed, authenticated, and ready. Plugin health and
+Spec Kit composition are separate checks; neither substitutes for the other.
+
+After setup or an upgrade, run one fresh read-only diagnostic from Claude. Do not invoke
+`speckit.workspace.delegate`: that operation is reserved for approved feature tasks.
+
+```text
+/codex:rescue --background --fresh Read only .specify/agents/README.md, return its first Markdown
+heading, and do not edit files.
+/codex:status
+/codex:result <job-id>
 ```
 
 Before and after the probe, compare `git diff --binary HEAD` and the path-plus-content hashes of
@@ -110,22 +114,24 @@ snapshot.
 
 ## Observable Progress Contract
 
-For a long read-only task, Claude starts exactly one async Codex call and immediately tells the user
-that it is running. It then calls status with the last seen sequence and `wait_ms=30000-55000`.
-Status reads local bridge memory; it does not resend the prompt or consume another Codex call.
-Claude prints only meaningful phase or activity changes and fetches the full result after terminal
-status.
+For a long interactive task, Claude starts exactly one background Codex job and immediately returns
+the job id instead of blocking behind a static `Tinkering...` row. The user invokes
+`/codex:status <job-id> --wait --timeout-ms 30000` whenever a checkpoint is wanted and
+`/codex:result <job-id>` after terminal status. These commands read the same stored job; they do not
+resend the prompt or start a duplicate Codex task.
 
-Do not tight-poll, invent a completion percentage, show raw reasoning, or repeat the whole task
-context in each update. A status tool call adds a small amount of Claude tool/context overhead even
-though Codex usage does not increase. Cancellation requires an explicit user or coordinating
-workflow choice and targets only the named async task; it never touches the synchronous adapter.
+Status is on demand, not a continuous unsolicited feed. Do not promise automatic progress, tight
+poll, invent a completion percentage, show raw reasoning, or repeat the whole task context.
+Cancellation requires an explicit user or coordinating-workflow choice and targets only the named
+job. When a workflow step must validate the worker result before proceeding, use
+`/codex:rescue --wait --fresh <task>` so the step receives terminal output instead of leaving its
+run-local result pending.
 
 ## Delegation Modes
 
 | Mode       | Behavior                                                                                                                                |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto`     | Delegate only when the bridge is healthy and a safe independent slice exists; otherwise report the local fallback or pending task.      |
+| `auto`     | Delegate only when the plugin is healthy and a safe independent slice exists; otherwise report the local fallback or pending task.      |
 | `required` | Proceed only after the engine validates at least one delegated and independently accepted result; otherwise stop before implementation. |
 | `off`      | Record an explicit no-op and keep execution in the coordinator.                                                                         |
 
@@ -142,14 +148,18 @@ silently surviving the step.
 
 ## Worker Profiles
 
-| Work                               | Project adapter         | Sandbox                   | Approval policy              | Session                 |
-| ---------------------------------- | ----------------------- | ------------------------- | ---------------------------- | ----------------------- |
-| Discovery or review                | `codex-craftkit-async`  | `sandbox=read-only`       | `approval-policy=never`      | fresh                   |
-| Authorized implementation          | `codex-craftkit-worker` | `sandbox=workspace-write` | `approval-policy=on-request` | fresh per task          |
-| Follow-up on the same bounded task | original safe transport | unchanged                 | unchanged                    | continue that task only |
+| Work                               | Official plugin route                        | Authority                                 | Session        |
+| ---------------------------------- | -------------------------------------------- | ----------------------------------------- | -------------- |
+| Discovery, diagnosis, or research  | `/codex:rescue --background --fresh <task>`  | explicitly read-only                      | fresh          |
+| Review                             | `/codex:review --background`                 | review-only                               | fresh          |
+| Authorized implementation          | `/codex:rescue --background --fresh <task>`  | plugin write profile within task envelope | fresh per task |
+| Workflow-blocking delegated work   | `/codex:rescue --wait --fresh <task>`        | follows the approved delegation envelope  | fresh          |
+| Follow-up on the same bounded task | `/codex:rescue --background --resume <task>` | unchanged                                 | same task only |
 
-Never default a worker to `danger-full-access`. A model override is deliberate only when the user,
-workflow, or approved plan requires one. Do not use transport-level base instructions to erase the
+The official rescue command defaults explicit fix requests to its write-capable profile. State
+read-only intent in discovery, diagnosis, and research envelopes, and never broaden a worker to
+unrestricted filesystem access. A model or effort override is deliberate only when the user,
+workflow, or approved plan requires one. Do not use transport-level instructions to erase the
 repository's Spec Kit load order.
 
 Every dispatch includes the objective, deliverable, read/write authority, exact allowed paths,
@@ -158,23 +168,20 @@ coordinator inspects the real files and diff and reruns checks before accepting 
 
 ## Troubleshooting
 
-| Symptom                                                | Meaning and response                                                                                                                                                      |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Server resolves at `User config`                       | A user-scoped name is shadowing the project adapter. Use the exact `codex-craftkit-async` or `codex-craftkit-worker` id; do not reuse generic `codex`.                    |
-| `CONNECTION_CLOSED` with a read-only state database    | The host cannot write Codex's user-scoped state. Run the check from the real Claude host and repair user-state permissions; never move state or auth into the repository. |
-| Bridge absent or untrusted                             | Approve the project server locally, then repeat the preflight. Do not commit the local trust file.                                                                        |
-| New bridge configured but tools are absent             | Finish the active synchronous call, then start a fresh Claude session so it reloads `.mcp.json`; do not interrupt in-flight work.                                         |
-| Async task looks frozen                                | Call status with the last sequence and a 30–55 second wait. A quiet reasoning interval is valid; do not start a duplicate worker.                                         |
-| Spec Kit status is healthy but delegation fails        | Spec Kit composition and MCP health are separate. Diagnose the bridge without reinstalling generated skills.                                                              |
-| Bridge works but a generated delegate skill is missing | Reconcile the workspace extension and all three integrations through Spec Kit; never hand-edit generated skill folders.                                                   |
-| Required worker unavailable                            | Stop and report the failed gate. Do not silently self-review or weaken the requested distribution.                                                                        |
-
-The MCP Inspector can examine the deprecated server protocol, but it downloads/runs an external
-package and is not part of the default preflight.
+| Symptom                                  | Meaning and response                                                                                                                                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Only `Tinkering...` is visible           | The session is still using a retired synchronous MCP task row. Let in-flight work finish, reload plugins or start a fresh session, and use the official plugin for the next task. |
+| Background job appears quiet             | Run `/codex:status <job-id> --wait --timeout-ms 30000`. Quiet reasoning intervals are valid; do not start a duplicate job.                                                        |
+| `/codex:*` commands are absent           | Run `/reload-plugins` or start a new Claude session. Confirm `codex@openai-codex` is enabled with `claude plugin list`.                                                           |
+| `/codex:setup` reports not ready         | Repair the user-scoped Codex CLI installation or login in the real Claude host. Never move authentication or state into the repository.                                           |
+| A generic `codex` MCP server is visible  | It is separate from the official plugin and may belong to another project. Leave it untouched globally, but never select it for this workspace.                                   |
+| Spec Kit is healthy but delegation fails | Spec Kit composition and plugin health are separate. Diagnose `/codex:setup` without weakening workflow gates.                                                                    |
+| A generated workspace skill is missing   | Reconcile the workspace extension for all installed integrations through Spec Kit; never hand-edit generated skill folders.                                                       |
+| Required worker unavailable              | Stop and report the failed gate. Do not silently self-review or weaken the requested distribution.                                                                                |
 
 ## Staleness Conditions
 
-Revalidate this guide when OpenAI removes `codex mcp-server`, the official Claude Code plugin is
-installed, Codex JSONL or MCP protocol behavior changes, either project server id changes, Spec Kit
-changes its integration composition behavior, or the project default integration or workflow
-coordinator, delegation, or review semantics change.
+Revalidate this guide when the official Claude Code plugin changes its command or permission
+contract, the Codex app-server event model changes, Spec Kit changes its integration composition
+behavior, or the project default integration or workflow coordinator, delegation, or review
+semantics change.

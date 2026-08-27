@@ -85,17 +85,18 @@ checks before accepting them. Workers never recursively delegate or own final in
 
 Codex is the project default integration. Work started inside Codex stays in Codex and does not
 start Claude unless the user explicitly selects Claude for that task. Claude remains installed as an
-optional entrypoint and may call Codex through the project bridge for bounded delivery or review.
+optional entrypoint and may call Codex through the official `codex@openai-codex` plugin for bounded
+delivery or review.
 This one-way default avoids duplicated context and cross-agent ping-pong; it does not claim that
 delegation always reduces total token usage.
 
-For Claude-to-Codex work, the preferred long-term transport is the official Codex Claude Code plugin
-backed by the Codex app server. Until it is installed, `.mcp.json` provides `codex-craftkit-async`
-for observable read-only work and keeps `codex-craftkit-worker` as the synchronous compatibility
-fallback for explicitly authorized writes. The v1 async bridge never edits files or relays
-approvals. Runtime setup, progress cadence, and health checks live in
-`docs/development/agent-collaboration.md`; replacing either adapter must not change the
-constitution, workflow, or task contracts.
+For Claude-to-Codex work, use the installed official Codex Claude Code plugin backed by the Codex
+app server. Start substantial work with `/codex:rescue --background --fresh`, inspect real progress
+with `/codex:status`, and read terminal output with `/codex:result`. Do not select the retired
+`codex-craftkit-worker`, `codex-craftkit-async`, or a user-scoped generic `codex` MCP route for new
+work. Runtime setup, progress cadence, and health checks live in
+`docs/development/agent-collaboration.md`; transport changes must not change the constitution,
+workflow, or task contracts.
 
 Use the installed `professional-sdd` workflow for significant product or platform work:
 

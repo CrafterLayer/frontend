@@ -15,6 +15,12 @@ export interface TextBubbleProps {
   dir: 'ltr' | 'rtl';
   /** Formatting actions, one button each, in order. */
   actions: TextBubbleAction[];
+  /** Return to the editor-owned selection bookmark; true means focus moved. */
+  onReturnFocus: () => boolean;
+}
+
+function firstEnabledAction(group: HTMLElement): HTMLButtonElement | null {
+  return group.querySelector<HTMLButtonElement>('.bldr-text-bubble__action:not(:disabled)');
 }
 
 /**
@@ -35,7 +41,7 @@ export interface TextBubbleProps {
  * click; keyboard activation therefore leaves focus on the button, where the
  * `aria-pressed` change is actually announced — the ToolbarButton lesson.
  */
-export function TextBubble({ dir, actions }: TextBubbleProps) {
+export function TextBubble({ dir, actions, onReturnFocus }: TextBubbleProps) {
   return (
     <div
       className="bldr-text-bubble"
@@ -54,6 +60,24 @@ export function TextBubble({ dir, actions }: TextBubbleProps) {
       }}
       onClick={(event) => {
         // RISK 9: the canvas selection path never sees layer-origin clicks.
+        event.stopPropagation();
+      }}
+      onKeyDown={(event) => {
+        const group = event.currentTarget;
+        const activeElement = group.ownerDocument.activeElement;
+        if (activeElement === null || !group.contains(activeElement)) {
+          return;
+        }
+        const returnsFromChrome =
+          event.key === 'Escape' ||
+          (event.key === 'Tab' && event.shiftKey && activeElement === firstEnabledAction(group));
+        if (!returnsFromChrome || !onReturnFocus()) {
+          return;
+        }
+        // This host-document Escape must not bubble through the React portal to
+        // EditorCanvas and close the session. It returns to the editor first;
+        // Escape there retains the established session-exit behavior.
+        event.preventDefault();
         event.stopPropagation();
       }}
     >

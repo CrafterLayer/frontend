@@ -1,0 +1,33 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ScenarioComposerStories from './ScenarioComposer.stories';
+
+<Meta of={ScenarioComposerStories} />
+
+# ScenarioComposer
+
+`ScenarioComposer` owns the local task signal form for Adaptive Spec Router. It accepts a task
+workflow entry mode, brief, work class, risk level, provider availability, and an illustrative
+unavailable model tier before handing a complete scenario to the feature composition root.
+
+## Use when
+
+Use it at the start of a local route-evaluation flow. Do not use it to collect credentials, source
+code, or a live provider prompt.
+
+## API
+
+- `scenario` supplies the current deterministic scenario.
+- `onApply(nextScenario)` receives a trimmed, valid scenario only.
+
+## Behavior and accessibility
+
+The form uses labels, native selects, a semantic fieldset for provider lanes, and an alert for
+validation errors. It is keyboard operable. `Codex-native` and `Claude-adaptive` are explicit
+choices; selected unavailable tiers produce visible policy fallbacks. At least one lane and a
+twelve-character brief are required before applying the policy.
+
+## Responsive constraints
+
+The select controls collapse to a single column on narrow viewports. Provider labels remain textual
+and do not rely on coloured indicators.

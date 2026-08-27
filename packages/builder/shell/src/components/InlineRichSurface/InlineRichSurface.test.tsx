@@ -1,7 +1,7 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { InlineFormatAction, InlineSelectionAnchor } from '@craftkit/builder-schema';
+import type { InlineFormatAction, InlineSelectionAnchorReport } from '@craftkit/builder-schema';
 
 import { plainTextOf } from '../../inline/mark-range';
 import { InlineRichSurface } from './InlineRichSurface';
@@ -13,11 +13,21 @@ const doc = (text: string) => ({
   content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
 });
 
+const hardBreakDoc = {
+  type: 'doc',
+  content: [
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'a' }, { type: 'hardBreak' }, { type: 'text', text: 'b' }],
+    },
+  ],
+};
+
 interface Harness {
   surface: HTMLElement;
   commits: unknown[];
   actions: InlineFormatAction[][];
-  anchors: (InlineSelectionAnchor | null)[];
+  anchors: (InlineSelectionAnchorReport | null)[];
   exits: number;
   rerender: (value: unknown) => void;
 }
@@ -25,7 +35,7 @@ interface Harness {
 function mount(value: unknown = doc('Select a word here')): Harness {
   const commits: unknown[] = [];
   const actions: InlineFormatAction[][] = [];
-  const anchors: (InlineSelectionAnchor | null)[] = [];
+  const anchors: (InlineSelectionAnchorReport | null)[] = [];
   const state = { exits: 0 };
   const view = render(
     <InlineRichSurface
@@ -211,6 +221,34 @@ describe('InlineRichSurface (009 contract §15)', () => {
     expect(JSON.stringify(h.commits.at(-1))).toContain('"a"');
   });
 
+  it('Backspace after a hard break removes the BREAK, never the preceding character', () => {
+    const h = mount(hardBreakDoc);
+    const hardBreak = h.surface.querySelector('br');
+    if (hardBreak === null) {
+      throw new Error('the rich surface must render its hard break');
+    }
+    const parent = hardBreak.parentNode;
+    if (parent === null) {
+      throw new Error('the rendered hard break must have a parent');
+    }
+    const index = Array.from(parent.childNodes).indexOf(hardBreak);
+    const range = document.createRange();
+    range.setStart(parent, index + 1);
+    range.collapse(true);
+    selectRange(range);
+
+    const event = new InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'deleteContentBackward',
+    });
+    act(() => {
+      h.surface.dispatchEvent(event);
+    });
+    expect(event.defaultPrevented).toBe(true);
+    expect(plainTextOf(h.commits.at(-1))).toBe('ab');
+  });
+
   it.each(STANDARD_TARGET_DELETIONS)(
     '%s deletes the exact browser target range instead of swallowing the command',
     (inputType) => {
@@ -242,12 +280,19 @@ describe('InlineRichSurface (009 contract §15)', () => {
     expect(plainTextOf(h.commits.at(-1))).toBe('a');
   });
 
-  it('refuses inputs it does not model rather than corrupting the document', () => {
+  it.each([
+    'insertCompositionText',
+    'deleteCompositionText',
+    'deleteByComposition',
+    'formatBold',
+    'historyUndo',
+    'historyRedo',
+  ])('%s is deliberately refused rather than corrupting document truth', (inputType) => {
     const h = mount();
     const event = new InputEvent('beforeinput', {
       bubbles: true,
       cancelable: true,
-      inputType: 'formatBold',
+      inputType,
     });
     act(() => {
       h.surface.dispatchEvent(event);
@@ -289,6 +334,101 @@ describe('InlineRichSurface (009 contract §15)', () => {
     });
     document.removeEventListener('keydown', listener);
     expect(sawArrow).toBe(false);
+  });
+
+  it('Tab reaches formatting chrome and its bookmark restores the exact selection', () => {
+    const menu = document.createElement('div');
+    const boldButton = document.createElement('button');
+    menu.append(boldButton);
+    document.body.append(menu);
+    const actions: InlineFormatAction[][] = [];
+    const commits: unknown[] = [];
+    const bookmark: { restore: (() => void) | null } = { restore: null };
+    const requestFormattingMenuFocus = vi.fn((restore: () => void) => {
+      bookmark.restore = restore;
+      boldButton.focus();
+      return boldButton.ownerDocument.activeElement === boldButton;
+    });
+    const view = render(
+      <InlineRichSurface
+        value={doc('Select a word here')}
+        label="body"
+        onCommit={(next) => commits.push(next)}
+        onExit={vi.fn()}
+        onAnchor={vi.fn()}
+        onActions={(next) => actions.push(next)}
+        requestFormattingMenuFocus={requestFormattingMenuFocus}
+        formattingMenuElement={menu}
+      />,
+    );
+    const surface = view.container.querySelector<HTMLElement>('.bldr-inline-rich');
+    if (surface === null) {
+      throw new Error('the rich surface must render');
+    }
+    selectWord(surface, 'word');
+    const tab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    act(() => {
+      surface.dispatchEvent(tab);
+    });
+
+    expect(requestFormattingMenuFocus).toHaveBeenCalledTimes(1);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(boldButton.ownerDocument.activeElement).toBe(boldButton);
+    expect(document.getSelection()?.toString()).toBe('word');
+
+    // Prove the action owns a semantic bookmark, not the browser's incidental
+    // retained Range: erase the live range, then run the already-reported action.
+    document.getSelection()?.removeAllRanges();
+    const bold = (actions.at(-1) ?? []).find((action) => action.id === 'bold');
+    act(() => {
+      bold?.run();
+    });
+    expect(JSON.stringify(commits.at(-1))).toContain('"word"');
+    expect(JSON.stringify(commits.at(-1))).toContain('"bold"');
+
+    act(() => {
+      bookmark.restore?.();
+    });
+    expect(surface).toHaveFocus();
+    expect(document.getSelection()?.toString()).toBe('word');
+    menu.remove();
+  });
+
+  it('Tab stays native when no enabled formatting destination accepts focus', () => {
+    const requestFormattingMenuFocus = vi.fn(() => false);
+    const view = render(
+      <InlineRichSurface
+        value={doc('Select a word here')}
+        label="body"
+        onCommit={vi.fn()}
+        onExit={vi.fn()}
+        onAnchor={vi.fn()}
+        onActions={vi.fn()}
+        requestFormattingMenuFocus={requestFormattingMenuFocus}
+      />,
+    );
+    const surface = view.container.querySelector<HTMLElement>('.bldr-inline-rich');
+    if (surface === null) {
+      throw new Error('the rich surface must render');
+    }
+    selectWord(surface, 'word');
+    const tab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    act(() => {
+      surface.dispatchEvent(tab);
+    });
+
+    expect(requestFormattingMenuFocus).toHaveBeenCalledTimes(1);
+    expect(tab.defaultPrevented).toBe(false);
   });
 
   it('clicks place the caret without re-entering the canvas selection path', () => {

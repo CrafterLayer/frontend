@@ -77,6 +77,8 @@ export {
   type InlineFormatAction,
   type InlineRect,
   type InlineSelectionAnchor,
+  type InlineSelectionAnchorReport,
+  type InlineSelectionAnchorSource,
   type KernelApi,
   type KernelEvents,
   type KernelState,

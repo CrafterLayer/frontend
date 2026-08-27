@@ -145,6 +145,23 @@ describe('createAnchorChannel (009 §2/§7)', () => {
     expect(measurements).toBe(3);
   });
 
+  it('measures only the latest source after rapid selection reports coalesce', () => {
+    const h = harness();
+    let measurements = 0;
+    for (const x of [10, 20, 30, 40, 50]) {
+      h.channel.setText(() => {
+        measurements += 1;
+        return { box: { x, y: 40, width: 60, height: 18 } };
+      });
+    }
+
+    expect(measurements).toBe(0);
+    expect(h.queue).toHaveLength(1);
+    h.flush();
+    expect(measurements).toBe(1);
+    expect(h.snapshots.at(-1)?.text?.box.x).toBe(50);
+  });
+
   it('setting the SAME block again does not schedule redundant work', () => {
     const h = harness();
     h.channel.setBlock('a');

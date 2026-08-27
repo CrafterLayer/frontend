@@ -48,12 +48,12 @@ routing.
 under `docs/architecture/`; do not create a competing root architecture tree.
 
 The installed `professional-sdd` workflow orchestrates that path. The local Workspace Governance
-extension provides `speckit.workspace.review`, `speckit.workspace.handoff`, and
-`speckit.workspace.commit`; use their integration-native skill names documented in
-`.specify/agents/README.md`.
+extension provides `speckit.workspace.delegate`, `speckit.workspace.review`,
+`speckit.workspace.handoff`, and `speckit.workspace.commit`; use their integration-native skill
+names documented in `.specify/agents/README.md`.
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
-at specs/workspace/009-builder-b3c-inline-editing/plan.md
+
+For additional context about technologies to be used, project structure, shell commands, and other
+important information, read the current plan at specs/workspace/010-adaptive-spec-router/plan.md
 <!-- SPECKIT END -->

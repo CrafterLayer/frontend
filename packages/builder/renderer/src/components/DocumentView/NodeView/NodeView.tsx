@@ -211,6 +211,7 @@ function NodeViewInner({
       return undefined;
     }
     const Observer = root.ownerDocument.defaultView?.MutationObserver;
+    /* v8 ignore next 3 -- mounted React DOM in supported browsers always exposes MutationObserver. */
     if (Observer === undefined) {
       return undefined;
     }

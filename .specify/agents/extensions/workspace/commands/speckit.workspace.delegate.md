@@ -52,35 +52,41 @@ leases. Do not create a permanent worker registry.
 
 ## Transport Selection and Preflight
 
-Use the best available Codex transport exposed to the active integration. For Claude, prefer the
-official Codex Claude Code plugin backed by the Codex app server when installed. Otherwise use
-`codex-craftkit-async` for read-only discovery/review and reserve the synchronous
-`codex-craftkit-worker` compatibility adapter for explicitly authorized implementation. The async v1
-adapter MUST NOT receive a write task because it deliberately has no approval relay. Policy MUST NOT
-depend on either adapter's tool schema.
+Use the best available Codex transport exposed to the active integration. For Claude, use the
+installed official `codex@openai-codex` plugin backed by the Codex app server. Do not select the
+user-scoped generic `codex` MCP server, the retired `codex-craftkit-async` or
+`codex-craftkit-worker` adapters, or deprecated `codex mcp-server` routes for new work. Policy MUST
+NOT depend on a transport's command or tool schema.
 
 Before dispatch:
 
-1. verify that the selected transport is visible and healthy in the current host session;
+1. verify that `/codex:setup` reports ready in the current Claude host session;
 2. use the repository root as the worker `cwd`;
 3. start a fresh worker session for a new task; continue a thread only for the same bounded task;
-4. use `sandbox=read-only` plus `approval-policy=never` for discovery and review;
-5. use `sandbox=workspace-write` plus `approval-policy=on-request` for authorized implementation;
-6. never select `danger-full-access` as a default; and
-7. set a model override only when the caller, active workflow, or approved plan requires one.
+4. state read-only intent explicitly for discovery, review, diagnosis, or research;
+5. allow the plugin's workspace-write profile only for an explicitly authorized fix and only within
+   the delegation envelope;
+6. never broaden the task to unrestricted filesystem access; and
+7. set a model or effort override only when the caller, active workflow, or approved plan requires
+   one.
 
-For a read-only task on `codex-craftkit-async`:
+For an interactive substantial Claude-to-Codex task:
 
-1. start the bounded task once and immediately report that it is running;
-2. pass the returned sequence to status with a 30–55 second wait;
+1. start it once with `/codex:rescue --background --fresh <task>` and immediately report that it is
+   running;
+2. tell the user that `/codex:status <job-id> --wait --timeout-ms 30000` provides a real checkpoint;
 3. print a compact update only when phase or meaningful activity changes;
-4. continue status reads without resending the prompt or starting another Codex call;
-5. fetch the result only after terminal status; and
-6. cancel only after an explicit user or coordinating-workflow choice for that exact task.
+4. continue status reads without resending the task or starting another Codex job;
+5. fetch `/codex:result <job-id>` only after terminal status; and
+6. call `/codex:cancel <job-id>` only after an explicit user or coordinating-workflow choice for
+   that exact task.
 
-Status polling reads local bridge state. It adds small Claude tool/context overhead but zero new
-Codex calls; tight polling, fabricated percentages, raw reasoning, and repeated task context are
-forbidden.
+Status and result are on-demand user commands: they read plugin-tracked job state rather than
+starting another Codex task. Do not promise continuous unsolicited progress. Tight polling,
+fabricated percentages, raw reasoning, and repeated task context are forbidden. When a workflow
+engine must receive, inspect, and record the worker result in its current step, use
+`/codex:rescue --wait --fresh <task>` instead of background mode so `delegation.json` does not remain
+pending.
 
 An MCP or plugin connection can fail when the host cannot write the worker's user-scoped state.
 Never redirect Codex state, authentication, or credentials into the repository to make a probe pass.

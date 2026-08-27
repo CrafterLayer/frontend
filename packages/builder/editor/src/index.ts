@@ -139,6 +139,8 @@ export {
   type InlineFormatAction,
   type InlineRect,
   type InlineSelectionAnchor,
+  type InlineSelectionAnchorReport,
+  type InlineSelectionAnchorSource,
   type JsonValue,
   type Node,
   type NodeId,

@@ -86,6 +86,7 @@ export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBar
       className="bldr-block-actions"
       role="toolbar"
       aria-label={label}
+      {...(enabledIndexes.length === 0 ? { tabIndex: 0 } : {})}
       onKeyDown={onKeyDown}
       onPointerDown={swallowPress}
       onMouseDown={swallowPress}

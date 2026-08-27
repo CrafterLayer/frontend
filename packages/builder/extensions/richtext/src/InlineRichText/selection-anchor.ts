@@ -40,6 +40,14 @@ export interface SelectionAnchor {
   rects: SelectionBox[];
 }
 
+/** Geometry source invoked only by the shell's frame-coalesced anchor flush. */
+export interface SelectionAnchorSource {
+  measure: () => SelectionAnchor | null;
+}
+
+/** Additive direct-component report: legacy geometry or the deferred source. */
+export type SelectionAnchorReport = SelectionAnchor | SelectionAnchorSource;
+
 const toBox = (rect: { x: number; y: number; width: number; height: number }): SelectionBox => ({
   x: rect.x,
   y: rect.y,

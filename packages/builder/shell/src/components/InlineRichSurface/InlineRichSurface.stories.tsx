@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { expect, waitFor, within } from 'storybook/test';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import type { InlineFormatAction, InlineSelectionAnchor } from '@craftkit/builder-schema';
+import type { InlineFormatAction } from '@craftkit/builder-schema';
 
 import { InlineRichSurface } from './InlineRichSurface';
 
@@ -29,7 +29,7 @@ type Story = StoryObj<typeof meta>;
 function Hosted({ initial, dir }: { initial: string; dir?: 'rtl' }) {
   const [value, setValue] = useState<unknown>(doc(initial));
   const [actions, setActions] = useState<InlineFormatAction[]>([]);
-  const [anchor, setAnchor] = useState<InlineSelectionAnchor | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
   return (
     <div style={{ font: '400 22px/1.5 Georgia, serif', padding: '1.5rem' }} dir={dir}>
       <InlineRichSurface
@@ -37,7 +37,9 @@ function Hosted({ initial, dir }: { initial: string; dir?: 'rtl' }) {
         label="Article body"
         onCommit={setValue}
         onExit={() => undefined}
-        onAnchor={setAnchor}
+        onAnchor={(report) => {
+          setHasSelection(report !== null);
+        }}
         onActions={setActions}
       />
       <div style={{ display: 'flex', gap: 8, marginBlockStart: '1.5rem' }}>
@@ -61,9 +63,7 @@ function Hosted({ initial, dir }: { initial: string; dir?: 'rtl' }) {
         {JSON.stringify(value)}
       </p>
       <p data-testid="anchor" style={{ font: '12px/1.4 monospace' }}>
-        {anchor === null
-          ? 'no selection'
-          : `selection over ${String(anchor.rects?.length ?? 1)} line(s)`}
+        {hasSelection ? 'selection active' : 'no selection'}
       </p>
     </div>
   );
@@ -129,7 +129,7 @@ export const MarksExactlyTheSelection: Story = {
       }
       return found;
     });
-    await expect(canvas.getByTestId('anchor')).toHaveTextContent(/selection over \d+ line/);
+    await expect(canvas.getByTestId('anchor')).toHaveTextContent('selection active');
 
     const wasPressed = bold.getAttribute('aria-pressed') === 'true';
     bold.click();

@@ -157,7 +157,7 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     expect(duplicate).toHaveFocus();
   });
 
-  it('keeps disabled actions in the layout but out of the tab order', async () => {
+  it('keeps disabled actions laid out while the toolbar becomes the sole tab stop', async () => {
     const user = userEvent.setup();
     const allDisabled = ACTIONS.map((action) => ({ ...action, enabled: false }));
     render(
@@ -166,8 +166,20 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
         <button type="button">after</button>
       </>,
     );
+    const toolbar = screen.getByRole('toolbar', { name: 'Actions for Root' });
+    const disabledActions = toolbar.querySelectorAll('button');
     expect(screen.getAllByRole('button')).toHaveLength(6); // 5 rendered + "after"
-    await user.tab(); // nothing in the bar can take focus
+    expect(disabledActions).toHaveLength(5);
+    for (const action of disabledActions) {
+      expect(action).toBeDisabled();
+      expect(action).toHaveAttribute('tabindex', '-1');
+    }
+
+    await user.tab();
+    expect(toolbar).toHaveFocus();
+    expect(toolbar).toHaveAttribute('tabindex', '0');
+
+    await user.tab();
     expect(screen.getByRole('button', { name: 'after' })).toHaveFocus();
   });
 });

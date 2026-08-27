@@ -112,6 +112,7 @@ interface TextBubbleProps {
   /** Layer-local anchor for the current selection, or null when there is none. */
   anchor: Box | null;
   actions: { id: string; label: string; pressed?: boolean; run: () => void }[];
+  onReturnFocus: () => boolean; // editor-owned bookmark; true only when focus moved
 }
 // b1. Shown only for a NON-EMPTY selection inside a rich inline edit; hidden when the
 //     selection collapses, editing ends, or the anchor leaves the frame viewport.
@@ -121,6 +122,9 @@ interface TextBubbleProps {
 // b4. `shouldShow` + the selection→rect derivation are VENDORED LOGIC from TipTap's
 //     BubbleMenu plugin (MIT, attributed); `posToDOMRect`/`isTextSelection` come from the
 //     already-pinned `@tiptap/core` — no new package (research R2).
+// b5. Unmodified forward Tab from the frame editor requests the first ENABLED host action.
+//     Shift+Tab from that first action or Escape from the bubble restores the editor-owned
+//     selection bookmark. A failed request cancels nothing, so empty/disabled chrome is no trap.
 ```
 
 ## 6. Block action bar (`overlay/block-actions.ts`)
@@ -201,7 +205,7 @@ interface AnchorSnapshot {
   visible: { width: number; height: number };
 }
 createAnchorChannel({ index, bridge, schedule, onSnapshot }): AnchorChannel
-  // setBlock(nodeId | null) · setText(anchor | null) · refresh() · dispose()
+  // setBlock(nodeId | null) · setText(measure | null) · refresh() · dispose()
 
 createFloatingHost({ layer, className?, align?, gap?, arrowSize?, ports? }): FloatingHost
   // element (React's portal target) · place(target) · reposition() · placement() · dispose()
@@ -213,6 +217,12 @@ burst into ONE scheduled flush. The prior art polls rects at 10 fps precisely be
 signal, and the library alternative walks scroll ancestors for the same reason (research R0/R2).
 Nothing here polls, and `onSnapshot` is never called synchronously, so positioning stays on the
 frame rhythm.
+
+**ONE geometry read, inside that rhythm.** An editor reports selection PRESENCE and semantics on
+every interaction, plus a `{ measure }` source that reads its live range later. `setText` retains
+only that callback; a burst of drag/Shift-arrow reports replaces the source in O(1) and schedules
+one flush. Only `compute()` invokes it. No editor interaction handler and no React state may call or
+retain `getClientRects()` / `getBoundingClientRect()` results.
 
 **Why a host rather than a styled component.** A floating bar has two halves that must not share a
 rhythm: its CONTENT (which buttons, which are pressed) changes with the document and belongs to
@@ -238,21 +248,33 @@ interface InlineEditorDef {
   kind: 'text' | 'rich';
   load: () => Promise<{ default: ComponentType<InlineEditorProps> }>;
 }
+interface InlineSelectionAnchorSource {
+  /** Called only by the frame-coalesced anchor-channel flush. */
+  measure: () => InlineSelectionAnchor | null;
+}
+type InlineSelectionAnchorReport =
+  | InlineSelectionAnchor // additive compatibility for older contributions
+  | InlineSelectionAnchorSource; // required path for current editors
 interface InlineEditorProps {
   value: unknown;
   label: string;
   onCommit: (next: unknown) => void; // ONE call per change
   onExit: () => void;
-  onAnchor: (anchor: InlineSelectionAnchor | null) => void; // layer-local geometry
+  onAnchor: (report: InlineSelectionAnchorReport | null) => void;
   onActions: (actions: InlineFormatAction[]) => void; // empty ⇒ no bubble
+  requestFormattingMenuFocus?: (returnFocusToEditor: () => void) => boolean;
+  formattingMenuElement?: Element | null; // focus boundary; never engine introspection by shell
 }
 registry.inlineEditor(kind); // FIRST registration wins — extensions register topologically
 ```
 
 **The split this encodes.** The editor owns SEMANTICS — which marks exist, whether they are active,
-how to toggle them, where the selection is. The canvas owns CHROME — it draws the same bubble
-whoever contributed the editor, positions it, and hides it. That is why a contributed editor renders
-no toolbar of its own, and why the shell needs no knowledge of any engine.
+how to toggle them, whether there is a selection, and how that selection can be measured later. The
+canvas owns CHROME and the frame rhythm — it draws the same bubble whoever contributed the editor,
+positions it, and hides it. First-party editors report the deferred source; the premeasured branch
+exists only to keep the contract additive for older contributions and is never stored in React. That
+is why a contributed editor renders no toolbar of its own, and why the shell needs no knowledge of
+any engine.
 
 **Consequences, each with a proof:**
 
@@ -377,7 +399,7 @@ anywhere.
 ```
 inline/mark-range.ts   pure, no DOM   richTextLength · plainTextOf · isMarkActive · toggleMark · replaceRange
 inline/dom-range.ts    DOM only       offsetsOfSelection · applyOffsets · rangeGeometry
-components/InlineRichSurface/         renders via the renderer's RichText; reports selection + actions
+components/InlineRichSurface/         renders via RichText; reports semantics + deferred anchor + actions
 ```
 
 **The offset model** (the reason the mapping is exact rather than approximate): document text
@@ -390,6 +412,11 @@ DOCUMENT; the browser's own mutation is refused. React stays the single authorit
 stored truth can never drift from what is on screen. The caret is restored by offset in a layout
 effect after each commit, which is what makes typing feel continuous through a round trip to the
 kernel and back.
+
+Selection interactions derive only semantic document offsets and formatting state. The surface
+reports `{ measure: () => rangeGeometry(root, offsets) }`; it never invokes that function itself.
+The anchor channel calls the latest source once during its scheduled flush, so scroll/reflow still
+re-resolves the same characters while rapid selection changes never force layout per interaction.
 
 **Precedence.** A contributed editor (§11) still outranks the built-in wherever an extension
 registers one — that is the upgrade path for headings, lists, links, and engine-level undo. With
@@ -468,3 +495,93 @@ document the write door cannot produce:
 
 Both are parity notes for whoever extends the block vocabulary; neither is reachable from the
 builder's own read/write path today.
+
+## 18. What two independent reviews caught (the second close-out round)
+
+B3c was already green — every package suite passing, Chromium stories passing, `pnpm verify` clean —
+when two INDEPENDENT reviewers (fresh contexts, different lenses, neither the implementer) were run
+against it. Between them they found **sixteen** real defects. That is the record worth keeping: a
+green suite is evidence that the tests pass, not that the feature is right.
+
+**Reviewer 1 — correctness and the stated laws.** Six confirmed by the coordinator before any fix:
+
+| Defect                                                                        | What the user would hit                                                                                     |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| the anchor channel replayed a FROZEN selection rect                           | the bubble stayed put when the preview scrolled, and failed to hide when the selection left the view        |
+| the built-in surface mounted first, then was swapped for a contributed editor | two surfaces mounted; focus and caret were lost on entry                                                    |
+| the double-click's coordinates were discarded                                 | the caret opened at the END of the text instead of where the user clicked                                   |
+| the contributed editor attached only a `keydown` listener                     | dragging to select text could start a BLOCK DRAG; clicks pulled focus out; arrows moved the block selection |
+| the action bar shipped four actions                                           | contract §6 a1 requires five — "edit text" was missing                                                      |
+| an empty `catch` around the commit                                            | a door rejection looked exactly like a lost edit                                                            |
+
+**Reviewer 2 — accessibility, RTL, the performance laws, boundaries.** Four more, plus two "the law
+is implemented but nothing gates it" gaps:
+
+| Defect                                                                           | What the user would hit                                      |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Escape unmounted the focused editor and focused nothing                          | a keyboard user lost their place entirely                    |
+| a fully-disabled toolbar had NO tab stop                                         | a rendered `role="toolbar"` unreachable by Tab               |
+| identical consecutive announcements                                              | traversing "Text" → "Text" announced nothing the second time |
+| both surfaces measured geometry per interaction, then the channel measured again | geometry read outside the frame-coalesced channel            |
+| closing an edit was never render-counted                                         | a regression that broadcast on close would have passed       |
+| keyboard reach into the bubble was never proven in a browser                     | see §19 — it was broken                                      |
+
+**The lesson, stated for the milestones after this one**: an implementer's own suite proves the code
+does what the implementer thought. It cannot notice a law the implementer forgot, a gate that counts
+the wrong moment, or an interaction nobody tried. Independent review with a DIFFERENT lens is not
+ceremony — here it was worth sixteen defects, two of which made the headline feature unusable by
+keyboard.
+
+## 19. Browser truth beat every unit test (the Tab defect)
+
+Reviewer 2 flagged "keyboard traversal from the frame editor into the formatting chrome lacks
+browser-level verification" as **unproven** — the unit tests called `.focus()` programmatically and
+the Chromium story used pointer events, so neither exercised the real path.
+
+Adding the missing proof — a Chromium play that presses a REAL Tab key — turned the "unproven" note
+into a confirmed defect: focus lands on `<body>`. The editing surface is portaled INSIDE the preview
+iframe and the bubble into a HOST-document overlay element, and sequential focus navigation does not
+carry across that boundary the way the DOM order suggests. **A keyboard user could not reach Bold at
+all.**
+
+Every unit test in the suite passed while this was true, because `.focus()` moves focus by fiat and
+a `click()` never needed focus to travel. Only a real key press in a real browser could find it. The
+rule this leaves behind: **when a behaviour depends on the browser MOVING focus — across a document
+boundary especially — the proof must be a real key event in a real browser.** A programmatic
+`focus()` proves the destination is focusABLE, never that a user can get there.
+
+**T035 resolution — ordinary Tab, with editor-owned restoration.** The frame-side editor listens
+NATIVELY for an unmodified forward Tab and asks the canvas to focus its first enabled formatting
+action. The editor supplies the return callback because only it can preserve selection semantics:
+the built-in surface bookmarks document offsets; TipTap retains its ProseMirror selection and
+restores the live `EditorView`. The shell knows only host chrome, focuses the first enabled button,
+and reports success against that button's own `ownerDocument.activeElement`. Tab is cancelled only
+on success, so an empty or fully disabled bubble cannot trap focus. Shift+Tab from the first enabled
+action or Escape anywhere in the bubble returns to the editor with the selection intact; Escape in
+the editor still exits the session and focuses the canvas host.
+
+This chose Tab over Alt+F10 because it is the ordinary, discoverable sequential-navigation gesture
+already used to explore controls: no hidden shortcut must be learned. The Chromium story remains the
+browser-truth guard — it starts in the iframe, presses a real Tab, asserts host Bold focus and the
+frame selection, returns with Escape, then uses the editor's second Escape to exit.
+
+## 20. T036 — selection geometry has one frame-coalesced owner
+
+Both first-party editors now report selection **presence and semantics** synchronously, but publish
+geometry only as an opaque `{ measure }` source. The built-in surface derives actions and pressed
+state from document offsets; the TipTap surface derives actions from editor state and re-checks its
+BubbleMenu visibility predicate when the source is eventually invoked. Neither interaction path
+calls `getClientRects()` or `getBoundingClientRect()`.
+
+`InlineEditorProps.onAnchor` additively accepts `InlineSelectionAnchorSource` alongside the legacy
+premeasured anchor. The object wrapper is deliberate: a naked function passed through a React state
+setter can be mistaken for an updater. `EditorCanvas` unwraps the source into the plain-TypeScript
+anchor channel, whose scheduled `compute()` is the only owner allowed to invoke it. The legacy arm
+remains source compatible, but every in-repository implementer uses the deferred form.
+
+The merge guard counts the actual DOM rect APIs across a rapid burst, not merely calls to a mock
+callback. Six built-in selection changes and five TipTap selection commands each coalesce to one
+scheduled flush; both tests assert zero geometry reads before that flush and no more geometry reads
+than scheduled flushes after it. Mutation proof reintroduced `rangeGeometry(...)` in the built-in
+reporter and `selectionAnchorOf(...)` in the TipTap reporter: the guards failed with respectively
+six and ten pre-flush reads, then returned green when those eager calls were removed.

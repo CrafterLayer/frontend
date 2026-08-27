@@ -52,9 +52,13 @@ inspector edits.
 ## Accessibility
 
 The canvas host is a focusable named region. Arrow keys traverse siblings (Down/Up) and step
-into/out of slots (Right/Left, mirrored under RTL content); Escape clears; Tab is never trapped. A
-polite live region announces `<name> selected` / `Selection cleared` — the dependable channel across
-the frame boundary — while outlines carry the visible name label.
+into/out of slots (Right/Left, mirrored under RTL content); Escape clears. During a rich inline
+selection, ordinary forward Tab crosses the iframe boundary to the first enabled formatting action
+in the host bubble. Shift+Tab from that first action or Escape from anywhere in the bubble returns
+to the editor with its selection intact; Escape in the editor then exits to the canvas host. If the
+bubble has no enabled action, Tab is not cancelled, so chrome never becomes a focus trap. A polite
+live region announces `<name> selected` / `Selection cleared` — the dependable channel across the
+frame boundary — while outlines carry the visible name label.
 
 ## Drag editing (`editable`)
 
@@ -84,6 +88,12 @@ Rich-selection geometry is measured from the live frame selection on every obser
 flush. No rectangle is retained in React state, so the formatting bubble follows scroll and reflow
 and hides when the selection is no longer visible. A rejected `setProp` keeps the draft and session
 open and renders the door's message next to the editing control through `aria-describedby`.
+
+Focus uses the same ownership split as formatting: the frame-side editor intercepts only an
+unmodified forward Tab and supplies an editor-specific selection bookmark; the shell finds and
+focuses the first enabled host-side action. The editor cancels Tab only after the shell confirms the
+move, and owns restoration. This keeps the shell engine-free while making the ordinary sequential
+navigation gesture work across two documents.
 
 The selected-block bar contains duplicate, delete, move earlier, move later, and conditionally
 **Edit text**. The last action is present only when the block declares an inline target and opens

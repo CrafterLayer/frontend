@@ -24,6 +24,8 @@ import type {
   InlineEditorProps,
   InlineFormatAction,
   InlineSelectionAnchor,
+  InlineSelectionAnchorReport,
+  InlineSelectionAnchorSource,
   NodeId,
 } from '@craftkit/builder-schema';
 
@@ -193,7 +195,17 @@ function inlineRectOf(rect: Pick<DOMRect, 'x' | 'y' | 'width' | 'height'>) {
   return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
 }
 
-/** Read the live frame-document range; never retain its geometry in React. */
+function isInlineSelectionAnchorSource(
+  report: InlineSelectionAnchorReport,
+): report is InlineSelectionAnchorSource {
+  return 'measure' in report;
+}
+
+/**
+ * Compatibility measurement for a pre-closeout editor that reports a frozen
+ * anchor. Current editors provide their own deferred source instead. Either
+ * way, the rect APIs are reached only when the anchor channel flushes.
+ */
 function measureTextSelection(
   frameDocument: Document,
   editedElement: HTMLElement,
@@ -294,9 +306,12 @@ export function EditorCanvas({
   const [inlineSession, setInlineSession] = useState<InlineSession | null>(null);
   const [inlineEntryPoint, setInlineEntryPoint] = useState<InlineEditEntryPoint | null>(null);
   const [inlineRejection, setInlineRejection] = useState<string | null>(null);
+  const [selectionNonce, setSelectionNonce] = useState(0);
   const inlineRejectionId = `${useId()}-inline-rejection`;
   const inlineEntryKeyRef = useRef(0);
   const sessionRef = useRef<ReturnType<typeof createInlineSession> | null>(null);
+  const surfaceEscapeHandledRef = useRef(false);
+  const returnFocusToEditorRef = useRef<(() => void) | null>(null);
   const inlineEditSeam = useMemo(() => createMutableInlineEditSeam(), []);
 
   // Floating chrome (009 §10). These three pieces of state change on
@@ -315,6 +330,46 @@ export function EditorCanvas({
     /** Null means the contribution failed and the built-in fallback won. */
     Component: ComponentType<InlineEditorProps> | null;
   } | null>(null);
+
+  const reportTextActions = useCallback((actions: InlineFormatAction[]) => {
+    if (actions.length === 0) {
+      returnFocusToEditorRef.current = null;
+    }
+    setTextActions(actions);
+  }, []);
+
+  const requestFormattingMenuFocus = useCallback(
+    (returnFocusToEditor: () => void): boolean => {
+      const menu = floating?.text;
+      if (menu === undefined) {
+        return false;
+      }
+      const firstAction = menu.querySelector<HTMLButtonElement>(
+        '.bldr-text-bubble__action:not(:disabled)',
+      );
+      if (firstAction === null) {
+        return false;
+      }
+      returnFocusToEditorRef.current = returnFocusToEditor;
+      firstAction.focus({ preventScroll: true });
+      if (firstAction.ownerDocument.activeElement === firstAction) {
+        return true;
+      }
+      returnFocusToEditorRef.current = null;
+      return false;
+    },
+    [floating],
+  );
+
+  const returnFocusToEditor = useCallback((): boolean => {
+    const restore = returnFocusToEditorRef.current;
+    if (restore === null) {
+      return false;
+    }
+    returnFocusToEditorRef.current = null;
+    restore();
+    return true;
+  }, []);
   // The snapshot handler lives in plain TS and must read the CURRENT direction
   // without re-subscribing the whole machinery when it flips.
   const dirRef = useRef<'ltr' | 'rtl'>('ltr');
@@ -333,6 +388,20 @@ export function EditorCanvas({
     };
   }, [kernel, editable]);
 
+  // A live region announces DOM mutations, not semantic equality. Selection
+  // itself is the signal: moving from one "Text" block to another must still
+  // toggle the region even though its spoken message is unchanged.
+  useEffect(
+    () =>
+      kernel.context.store.select(
+        (state) => state.selection,
+        () => {
+          setSelectionNonce((current) => current + 1);
+        },
+      ),
+    [kernel],
+  );
+
   const beginInlineEdit = useCallback((nodeId: NodeId, entry: InlineEditEntryIntent): boolean => {
     const handle = sessionRef.current;
     if (handle === null) {
@@ -347,6 +416,7 @@ export function EditorCanvas({
     setInlineEntryPoint(entryPoint);
     setInlineRejection(null);
     setTextActions([]);
+    returnFocusToEditorRef.current = null;
     textMeasureRef.current = null;
     machineryRef.current?.anchors.setText(null);
     const opened = handle.begin(nodeId);
@@ -357,20 +427,22 @@ export function EditorCanvas({
   }, []);
 
   const reportTextAnchor = useCallback(
-    (anchor: InlineSelectionAnchor | null) => {
+    (report: InlineSelectionAnchorReport | null) => {
       const session = sessionRef.current?.current() ?? null;
       const measure =
-        anchor === null || session === null
+        report === null || session === null
           ? null
-          : () => {
-              const frameDocument = frame?.contentDocument;
-              const editedElement = elementsRef.current.get(session.nodeId);
-              return frameDocument === null ||
-                frameDocument === undefined ||
-                editedElement === undefined
-                ? null
-                : measureTextSelection(frameDocument, editedElement);
-            };
+          : isInlineSelectionAnchorSource(report)
+            ? report.measure
+            : () => {
+                const frameDocument = frame?.contentDocument;
+                const editedElement = elementsRef.current.get(session.nodeId);
+                return frameDocument === null ||
+                  frameDocument === undefined ||
+                  editedElement === undefined
+                  ? null
+                  : measureTextSelection(frameDocument, editedElement);
+              };
       textMeasureRef.current = measure;
       machineryRef.current?.anchors.setText(measure);
     },
@@ -665,6 +737,12 @@ export function EditorCanvas({
 
   const visibleTextActions = inlineSession === null ? NO_ACTIONS : textActions;
 
+  useEffect(() => {
+    if (inlineSession === null || visibleTextActions.length === 0) {
+      returnFocusToEditorRef.current = null;
+    }
+  }, [inlineSession, visibleTextActions.length]);
+
   /**
    * Resolve the OPEN session's editor from the registry (009 §11). The
    * contribution is lazy by contract, so this is the one moment an editing
@@ -764,6 +842,27 @@ export function EditorCanvas({
     },
     [kernel, dir, slotOrder, editable],
   );
+
+  /** Keyboard exits move focus before the focused editing chrome unmounts. */
+  const endInlineEditFromKeyboard = useCallback(() => {
+    returnFocusToEditorRef.current = null;
+    hostRef.current?.focus({ preventScroll: true });
+    sessionRef.current?.end();
+  }, []);
+
+  const endInlineEditFromSurfaceKeyboard = useCallback(() => {
+    // The surface's native listener runs before the frame document listener.
+    // Mark that SAME Escape as consumed so it cannot fall through to canvas
+    // traversal after `end()` synchronously clears the session handle.
+    surfaceEscapeHandledRef.current = true;
+    endInlineEditFromKeyboard();
+    queueMicrotask(() => {
+      // A contributed editor may stop propagation after calling onExit. Do not
+      // let that leave a marker which could swallow a later, unrelated key.
+      surfaceEscapeHandledRef.current = false;
+    });
+  }, [endInlineEditFromKeyboard]);
+
   // Belt and braces: if focus reaches the frame by any route (a tab into the
   // iframe, a programmatic focus), traversal still works there. Keydown does not
   // cross document boundaries, so this can never double-handle with the host's
@@ -781,7 +880,7 @@ export function EditorCanvas({
         return false;
       }
       if (key === 'Escape' && handle.current() !== null) {
-        handle.end();
+        endInlineEditFromKeyboard();
         return true;
       }
       if (key === 'Enter' && handle.current() === null) {
@@ -792,7 +891,7 @@ export function EditorCanvas({
       }
       return false;
     },
-    [kernel, beginInlineEdit],
+    [kernel, beginInlineEdit, endInlineEditFromKeyboard],
   );
 
   useEffect(() => {
@@ -802,6 +901,24 @@ export function EditorCanvas({
       return;
     }
     const onFrameKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && surfaceEscapeHandledRef.current) {
+        event.preventDefault();
+        return;
+      }
+      // The focused surface calls `onExit` before this document-level listener
+      // sees the same Escape. Focus on the host plus an already-ended session
+      // means that keyboard exit was handled; never reinterpret it as canvas
+      // traversal and clear the block selection.
+      const host = hostRef.current;
+      if (
+        event.key === 'Escape' &&
+        sessionRef.current?.current() === null &&
+        host !== null &&
+        host.ownerDocument.activeElement === host
+      ) {
+        event.preventDefault();
+        return;
+      }
       if (handleInlineKey(event.key)) {
         event.preventDefault();
         return;
@@ -840,6 +957,10 @@ export function EditorCanvas({
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
+      if (event.key === 'Escape' && surfaceEscapeHandledRef.current) {
+        event.preventDefault();
+        return;
+      }
       if (handleInlineKey(event.key)) {
         event.preventDefault();
         return;
@@ -877,7 +998,7 @@ export function EditorCanvas({
       }
     };
     const exit = () => {
-      sessionRef.current?.end();
+      endInlineEditFromSurfaceKeyboard();
     };
     const Contributed = contributedEditor;
     return {
@@ -898,7 +1019,9 @@ export function EditorCanvas({
                     onCommit={commit}
                     onExit={exit}
                     onAnchor={reportTextAnchor}
-                    onActions={setTextActions}
+                    onActions={reportTextActions}
+                    requestFormattingMenuFocus={requestFormattingMenuFocus}
+                    formattingMenuElement={floating?.text ?? null}
                   />
                 );
               }
@@ -909,7 +1032,9 @@ export function EditorCanvas({
                   onCommit={commit}
                   onExit={exit}
                   onAnchor={reportTextAnchor}
-                  onActions={setTextActions}
+                  onActions={reportTextActions}
+                  requestFormattingMenuFocus={requestFormattingMenuFocus}
+                  formattingMenuElement={floating?.text ?? null}
                 />
               ) : (
                 <InlineTextSurface
@@ -936,6 +1061,10 @@ export function EditorCanvas({
     inlineRejection,
     inlineRejectionId,
     reportTextAnchor,
+    reportTextActions,
+    requestFormattingMenuFocus,
+    floating,
+    endInlineEditFromSurfaceKeyboard,
   ]);
 
   useLayoutEffect(() => {
@@ -1028,7 +1157,14 @@ export function EditorCanvas({
             The bubble exists only while an editor reports actions for a live
             selection, so a plain-text surface never shows one (US2/AC5). */}
         {floating !== null && visibleTextActions.length > 0
-          ? createPortal(<TextBubble dir={dir} actions={visibleTextActions} />, floating.text)
+          ? createPortal(
+              <TextBubble
+                dir={dir}
+                actions={visibleTextActions}
+                onReturnFocus={returnFocusToEditor}
+              />,
+              floating.text,
+            )
           : null}
         {/* The action bar belongs to a SELECTED block that is not busy being
             something else: not while a drag is in flight (US3/AC4), and not
@@ -1053,6 +1189,7 @@ export function EditorCanvas({
       </div>
       <output className="bldr-visually-hidden" aria-live="polite" aria-label="Selection">
         {announcement}
+        {selectionNonce % 2 === 1 ? '​' : ''}
       </output>
       <output className="bldr-visually-hidden" aria-live="polite" aria-label="Gesture">
         {gestureMessage.text}

@@ -34,7 +34,9 @@ editor, which collapses the selection that Bold was about to format. The bubble 
 mouse activation never moves focus; commands run on `click`. It also stops `pointerdown`,
 `mousedown`, and `click` propagation so the canvas selection path never sees layer-origin input
 (risk 9 — otherwise Bold deselects the block). Keyboard activation deliberately DOES focus the
-button — that is where the `aria-pressed` change is announced.
+button — that is where the `aria-pressed` change is announced. Escape from the bubble, or Shift+Tab
+from its first enabled action, calls the editor-owned return bookmark and consumes the host key only
+when focus can genuinely return. A later action keeps ordinary reverse traversal.
 
 ## Usage
 
@@ -46,6 +48,7 @@ host.place({ anchor: selectionAnchor, frame, viewport, dir }); // on selection/s
 createPortal(
   <TextBubble
     dir={dir}
+    onReturnFocus={restoreEditorSelection}
     actions={[
       { id: 'bold', label: 'Bold', pressed: isBold, run: toggleBold },
       { id: 'italic', label: 'Italic', pressed: isItalic, run: toggleItalic },
@@ -62,10 +65,11 @@ invisible one.
 
 ## API
 
-| Prop      | Type                 | Notes                                                      |
-| --------- | -------------------- | ---------------------------------------------------------- |
-| `dir`     | `'ltr' \| 'rtl'`     | required; sets `dir` on the group so reading order mirrors |
-| `actions` | `TextBubbleAction[]` | required; one `<button>` per entry, in order               |
+| Prop            | Type                 | Notes                                                              |
+| --------------- | -------------------- | ------------------------------------------------------------------ |
+| `dir`           | `'ltr' \| 'rtl'`     | required; sets `dir` on the group so reading order mirrors         |
+| `actions`       | `TextBubbleAction[]` | required; one `<button>` per entry, in order                       |
+| `onReturnFocus` | `() => boolean`      | restores the editor bookmark; true only when focus genuinely moved |
 
 `TextBubbleAction`:
 
@@ -82,9 +86,11 @@ invisible one.
 A labeled `role="group"` ("Formatting") of real `<button>`s. Toggles expose `aria-pressed`; one-shot
 actions (Clear formatting, Link) carry no `aria-pressed` at all — a pressed state on a non-toggle
 misreports the control. Disabled actions stay in the DOM, styled and semantically `disabled`.
-`:focus-visible` rings are distinguishable from hover and pressed. Under RTL the group's `dir` flips
-the reading order of the buttons; the arrow's offset stays physical on purpose, because the host's
-measured geometry already accounts for direction (the overlay's measured-geometry exception).
+Ordinary Tab from the selected text lands on the first enabled action; Shift+Tab or Escape returns
+to the selected text. `:focus-visible` rings are distinguishable from hover and pressed. Under RTL
+the group's `dir` flips the reading order of the buttons; the arrow's offset stays physical on
+purpose, because the host's measured geometry already accounts for direction (the overlay's
+measured-geometry exception).
 
 ## When not to use
 

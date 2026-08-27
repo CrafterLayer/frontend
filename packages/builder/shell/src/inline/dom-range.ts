@@ -45,6 +45,14 @@ export interface RangeGeometry {
   rects: RangeBox[];
 }
 
+/** The boundary-point contract shared by live `Range` and browser `StaticRange`. */
+export interface DomRangeLike {
+  readonly startContainer: Node;
+  readonly startOffset: number;
+  readonly endContainer: Node;
+  readonly endOffset: number;
+}
+
 const clamp = (value: number, low: number, high: number): number =>
   Math.min(Math.max(value, low), high);
 
@@ -117,8 +125,9 @@ const isInline = (element: Element): boolean => INLINE_TAGS.has(element.tagName)
 const isHardBreak = (node: Node): node is HTMLBRElement =>
   node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'BR';
 
-const unitLength = (unit: InlineUnit): number =>
-  unit.nodeType === Node.TEXT_NODE ? (unit as Text).data.length : 1;
+const isTextUnit = (unit: InlineUnit): unit is Text => unit.nodeType === Node.TEXT_NODE;
+
+const unitLength = (unit: InlineUnit): number => (isTextUnit(unit) ? unit.data.length : 1);
 
 /** The inline container a text node or hard break belongs to. */
 function blockOf(node: Node, root: HTMLElement): Element {
@@ -200,8 +209,7 @@ function segmentsOf(root: HTMLElement): Segment[] {
 const lastOf = (segments: readonly Segment[]): Segment | undefined => segments[segments.length - 1];
 
 /** Text and hard-break units the document holds — block separators excluded. */
-const contentLengthOf = (segments: readonly Segment[]): number =>
-  lastOf(segments)?.contentEnd ?? 0;
+const contentLengthOf = (segments: readonly Segment[]): number => lastOf(segments)?.contentEnd ?? 0;
 
 /** Offsets the document spans — one separator per container boundary. */
 function lengthOf(segments: readonly Segment[]): number {
@@ -257,14 +265,14 @@ function locate(root: HTMLElement, segments: readonly Segment[], at: number): Po
   let seen = target.contentStart + index;
   for (const unit of target.units) {
     const next = seen + unitLength(unit);
-    if (unit.nodeType === Node.TEXT_NODE) {
+    if (isTextUnit(unit)) {
       if (at <= next) {
         return { node: unit, offset: at - seen };
       }
     } else if (at <= next) {
       const parent = unit.parentNode;
       if (parent !== null) {
-        const childIndex = Array.prototype.indexOf.call(parent.childNodes, unit) as number;
+        const childIndex = Array.prototype.indexOf.call(parent.childNodes, unit);
         // `at === seen` is BEFORE the break; `at === seen + 1` is AFTER it.
         return { node: parent, offset: childIndex + (at > seen ? 1 : 0) };
       }
@@ -287,12 +295,10 @@ function isAfterRoot(root: HTMLElement, container: Node, offset: number): boolea
     while (child.parentNode !== null && child.parentNode !== container) {
       child = child.parentNode;
     }
-    const childIndex = Array.prototype.indexOf.call(container.childNodes, child) as number;
+    const childIndex = Array.prototype.indexOf.call(container.childNodes, child);
     return clamp(offset, 0, container.childNodes.length) > childIndex;
   }
-  return (
-    root.compareDocumentPosition(container) & Node.DOCUMENT_POSITION_FOLLOWING
-  ) !== 0;
+  return (root.compareDocumentPosition(container) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 }
 
 /** The direct child of `ancestor` that contains `node`. */
@@ -308,12 +314,10 @@ function childUnder(ancestor: Node, node: Node): Node {
 function unitBeforePoint(unit: InlineUnit, container: Node, offset: number): boolean {
   if (container.contains(unit)) {
     const child = childUnder(container, unit);
-    const childIndex = Array.prototype.indexOf.call(container.childNodes, child) as number;
+    const childIndex = Array.prototype.indexOf.call(container.childNodes, child);
     return childIndex < clamp(offset, 0, container.childNodes.length);
   }
-  return (
-    container.compareDocumentPosition(unit) & Node.DOCUMENT_POSITION_PRECEDING
-  ) !== 0;
+  return (container.compareDocumentPosition(unit) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
 }
 
 /**
@@ -336,7 +340,7 @@ function contentBefore(
   let before = 0;
   for (const segment of segments) {
     for (const unit of segment.units) {
-      if (unit === container && unit.nodeType === Node.TEXT_NODE) {
+      if (unit === container && isTextUnit(unit)) {
         before += clamp(offset, 0, unit.data.length);
       } else if (unitBeforePoint(unit, container, offset)) {
         before += unitLength(unit);
@@ -384,6 +388,29 @@ const offsetOfPoint = (
   return content + containerOfPoint(segments, container, content);
 };
 
+/**
+ * Map two DOM boundary points through the module's ONE offset walk. A range
+ * that wraps `root` from an ancestor still resolves to the whole document;
+ * one that sits wholly outside on the same side is not a range in this editor.
+ */
+function offsetsOfPoints(
+  root: HTMLElement,
+  segments: readonly Segment[],
+  firstNode: Node,
+  firstOffset: number,
+  secondNode: Node,
+  secondOffset: number,
+): TextRange | null {
+  const first = offsetOfPoint(root, segments, firstNode, firstOffset);
+  const second = offsetOfPoint(root, segments, secondNode, secondOffset);
+  const from = Math.min(first, second);
+  const to = Math.max(first, second);
+  if (from === to && !root.contains(firstNode) && !root.contains(secondNode)) {
+    return null;
+  }
+  return { from, to };
+}
+
 /** Length of the DOM in the exact offset model shared with `mark-range.ts`. */
 export function richTextLengthOfDom(root: HTMLElement): number {
   return lengthOf(segmentsOf(root));
@@ -392,12 +419,24 @@ export function richTextLengthOfDom(root: HTMLElement): number {
 /** DOM text in the shared model: `<br>` and block separators render as `\n`. */
 export function plainTextOfDom(root: HTMLElement): string {
   return segmentsOf(root)
-    .map((segment) =>
-      segment.units
-        .map((unit) => (unit.nodeType === Node.TEXT_NODE ? unit.data : '\n'))
-        .join(''),
-    )
+    .map((segment) => segment.units.map((unit) => (isTextUnit(unit) ? unit.data : '\n')).join(''))
     .join('\n');
+}
+
+/**
+ * A browser-provided target range expressed in the shared document offsets.
+ * `beforeinput.getTargetRanges()` returns `StaticRange`; accepting only its
+ * boundary contract also keeps this directly testable with an ordinary Range.
+ */
+export function offsetsOfDomRange(root: HTMLElement, range: DomRangeLike): TextRange | null {
+  return offsetsOfPoints(
+    root,
+    segmentsOf(root),
+    range.startContainer,
+    range.startOffset,
+    range.endContainer,
+    range.endOffset,
+  );
 }
 
 /**
@@ -418,22 +457,16 @@ export function offsetsOfSelection(
   if (anchorNode === null || focusNode === null) {
     return null;
   }
-  const segments = segmentsOf(root);
-
-  const anchor = offsetOfPoint(root, segments, anchorNode, selection.anchorOffset);
-  const focus = offsetOfPoint(root, segments, focusNode, selection.focusOffset);
   // A BACKWARD selection (focus before anchor) is the same span to the
   // document; direction is a caret concern, not an offset one.
-  const from = Math.min(anchor, focus);
-  const to = Math.max(anchor, focus);
-
-  // Neither end inside root: either the selection sits entirely elsewhere —
-  // both ends collapsed onto the same edge — or it WRAPS root, which is what a
-  // select-all in an ancestor looks like and is kept as root's whole span.
-  if (from === to && !root.contains(anchorNode) && !root.contains(focusNode)) {
-    return null;
-  }
-  return { from, to };
+  return offsetsOfPoints(
+    root,
+    segmentsOf(root),
+    anchorNode,
+    selection.anchorOffset,
+    focusNode,
+    selection.focusOffset,
+  );
 }
 
 /**

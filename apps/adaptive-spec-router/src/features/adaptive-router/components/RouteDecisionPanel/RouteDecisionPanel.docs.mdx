@@ -1,0 +1,32 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as RouteDecisionPanelStories from './RouteDecisionPanel.stories';
+
+<Meta of={RouteDecisionPanelStories} />
+
+# RouteDecisionPanel
+
+`RouteDecisionPanel` displays a deterministic policy result. It always makes the writer, reviewer,
+reasoning effort, safety lane, decision signals, workflow boundary, and fallback state visible
+together.
+
+## Use when
+
+Use it after a scenario has enough context for an illustrative route. Its `null` state explains why
+the product cannot responsibly show a recommendation yet.
+
+## API
+
+- `decision` accepts a `RouteDecision` from the local routing policy or `null` for an unavailable
+  route.
+- `scenario` provides the workflow entry mode needed to explain an unavailable route accurately.
+
+## Accessibility and constraints
+
+The writer and reviewer cards use semantic article labels. Critical meaning is repeated in text, not
+only colour. The layout stacks at narrow widths and never represents simultaneous writers as safe.
+
+## Limitation
+
+The panel reports deterministic local policy only. `Codex-native` never starts Claude; the panel
+does not select, start, inspect, or bill a real model.

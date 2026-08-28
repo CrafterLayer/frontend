@@ -604,6 +604,9 @@ importers:
       '@craftkit/builder-blocks-marketing':
         specifier: workspace:*
         version: link:../extensions/blocks-marketing
+      '@craftkit/builder-code-view':
+        specifier: workspace:*
+        version: link:../extensions/code-view
       '@craftkit/builder-core':
         specifier: workspace:*
         version: link:../core
@@ -714,6 +717,76 @@ importers:
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 6.1.0(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2))
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(@vitest/browser@4.1.11)(vitest@4.1.11)
+      jsdom:
+        specifier: 'catalog:'
+        version: 30.0.1
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.8(react@19.2.8)
+      storybook:
+        specifier: 'catalog:'
+        version: 10.5.10(@types/react@19.2.18)(prettier@3.9.6)(react@19.2.8)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2))
+
+  packages/builder/extensions/code-view:
+    dependencies:
+      '@craftkit/builder-schema':
+        specifier: workspace:*
+        version: link:../../schema
+      '@craftkit/builder-transforms':
+        specifier: workspace:*
+        version: link:../../transforms
+    devDependencies:
+      '@craftkit/builder-core':
+        specifier: workspace:*
+        version: link:../../core
+      '@craftkit/eslint-config':
+        specifier: workspace:*
+        version: link:../../../eslint-config
+      '@craftkit/test-config':
+        specifier: workspace:*
+        version: link:../../../test-config
+      '@craftkit/typescript-config':
+        specifier: workspace:*
+        version: link:../../../typescript-config
+      '@storybook/addon-docs':
+        specifier: 'catalog:'
+        version: 10.5.10(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(esbuild@0.28.2)(storybook@10.5.10(@types/react@19.2.18)(prettier@3.9.6)(react@19.2.8))(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2))
+      '@storybook/react-vite':
+        specifier: 'catalog:'
+        version: 10.5.10(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(storybook@10.5.10(@types/react@19.2.18)(prettier@3.9.6)(react@19.2.8))(supports-color@7.2.0)(typescript@6.0.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2))
+      '@testing-library/react':
+        specifier: 'catalog:'
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@testing-library/user-event':
+        specifier: 'catalog:'
+        version: 14.6.6(@testing-library/dom@10.4.1)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -1061,6 +1134,37 @@ importers:
       storybook:
         specifier: 'catalog:'
         version: 10.5.10(@types/react@19.2.18)(prettier@3.9.6)(react@19.2.8)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2))
+
+  packages/builder/transforms:
+    dependencies:
+      '@craftkit/builder-schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      '@craftkit/eslint-config':
+        specifier: workspace:*
+        version: link:../../eslint-config
+      '@craftkit/test-config':
+        specifier: workspace:*
+        version: link:../../test-config
+      '@craftkit/typescript-config':
+        specifier: workspace:*
+        version: link:../../typescript-config
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(@vitest/browser@4.1.11)(vitest@4.1.11)
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.9.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

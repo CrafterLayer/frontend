@@ -79,11 +79,11 @@ remains withheld; the final task produces a proposal only.
       catalog-presence → full `pnpm verify`; record here
 - [x] T021 Final diff review (two independent read-only reviewers); fix accepted findings with
       regression tests; re-run affected checks
-- [ ] T022 /speckit-converge (multi-agent audit + adversarial verification, with a MUTATION check on
+- [x] T022 /speckit-converge (multi-agent audit + adversarial verification, with a MUTATION check on
       at least one recorded fix — the B3b lesson); implement appended gaps. MUST ALSO decide the
       editor-local-undo semantics (contract §14 convergence item)
-- [ ] T023 /speckit-workspace-handoff (HANDOFF/context/MEMORY refresh)
-- [ ] T024 /speckit-workspace-commit proposal ONLY — commit authorization remains withheld
+- [x] T023 /speckit-workspace-handoff (HANDOFF/context/MEMORY refresh)
+- [x] T024 /speckit-workspace-commit proposal ONLY — commit authorization remains withheld
 
 ## Dependencies
 
@@ -139,19 +139,18 @@ research R1 fixes exactly what is vendored, reused, and written fresh.
 
 ### Evidence recorded for T020 (2026-08-27, coordinator-run)
 
-| Gate | Result |
-| --- | --- |
+| Gate                                                                             | Result                                                     |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | package suites (schema/core/renderer/shell/richtext/marketing/preset/playground) | 110 · 91 · 78 · 569 · 59 · 25 · 50 · 20 = **1,002 passed** |
-| Storybook Chromium, whole suite | **140 passed** (44 files) |
-| `pnpm lint` (workspace) | 17/17 tasks |
-| `pnpm typecheck` (workspace) | 16/16 tasks |
-| `pnpm check:workspace` / `check:components` | 19 members · 39 components |
-| branch coverage, every B3c package | 88.29% – 100% (threshold 85%) |
+| Storybook Chromium, whole suite                                                  | **140 passed** (44 files)                                  |
+| `pnpm lint` (workspace)                                                          | 17/17 tasks                                                |
+| `pnpm typecheck` (workspace)                                                     | 16/16 tasks                                                |
+| `pnpm check:workspace` / `check:components`                                      | 19 members · 39 components                                 |
+| branch coverage, every B3c package                                               | 88.29% – 100% (threshold 85%)                              |
 
 `pnpm verify` fails on ONE task only: `@craftkit/adaptive-spec-router#test:coverage`, an app that is
-untracked, outside this milestone, and not ours. Four of its 31 tests fail under PARALLEL load
-(App "composes the local Adaptive Spec Router product root" 7.7s; AdaptiveSpecRouter "updates the
-writer route from local task signals" 5.9s; ScenarioComposer "submits a valid local scenario…" 5.2s
-and "keeps an invalid brief…" 6.2s) and all 31 pass when the package runs alone — heavy tests with
-tight timeouts contending for CPU, not a defect in B3c. Left for the owner to decide.
-
+untracked, outside this milestone, and not ours. Four of its 31 tests fail under PARALLEL load (App
+"composes the local Adaptive Spec Router product root" 7.7s; AdaptiveSpecRouter "updates the writer
+route from local task signals" 5.9s; ScenarioComposer "submits a valid local scenario…" 5.2s and
+"keeps an invalid brief…" 6.2s) and all 31 pass when the package runs alone — heavy tests with tight
+timeouts contending for CPU, not a defect in B3c. Left for the owner to decide.

@@ -5,7 +5,9 @@ import { BuilderError } from '@craftkit/builder-schema';
 import { createBuilder, type BuilderKernel } from '../kernel/create-builder';
 import { fixedClock, seededIds } from '../testing/fixed-ports';
 import { fixtureBlocks, landingFixture } from '../testing/fixtures';
-import { insertedNodeId } from './core-commands';
+import { coreCommands, insertedNodeId } from './core-commands';
+
+const RESERVED_PATCH_PATH_SEGMENTS = ['__proto__', 'constructor', 'prototype'] as const;
 
 function kernelWithLanding(): BuilderKernel {
   return createBuilder({
@@ -185,5 +187,131 @@ describe('structural guards', () => {
       () => kernel.dispatch('groupNodes', { ids: ['cta1', 'cta2'], groupType: 'box' }),
       /accepts \[button\]/,
     );
+  });
+});
+
+describe('applyPatches — the code view door (011 contract §4 p1)', () => {
+  // The one command whose input comes from parsed TEXT, not from a handler
+  // that preserves invariants by construction — so the resulting document is
+  // validated in full before the door commits.
+  it('lands a whole batch as ONE transaction, and one undo restores exactly', () => {
+    const kernel = kernelWithLanding();
+    const before = kernel.getDocument();
+    kernel.dispatch('applyPatches', {
+      patches: [
+        { op: 'replace', path: ['nodes', 'p1', 'props', 'content'], value: 'edited as code' },
+        { op: 'replace', path: ['nodes', 'hero1', 'props', 'heading'], value: 'New heading' },
+      ],
+    });
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(kernel.getDocument().nodes['p1']?.props['content']).toBe('edited as code');
+    expect(kernel.getDocument().nodes['hero1']?.props['heading']).toBe('New heading');
+    kernel.undo();
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
+  it('REJECTS a batch that produces an invalid document, with zero partial change', () => {
+    const kernel = kernelWithLanding();
+    const before = kernel.getDocument();
+    // Removing a node while its slot still references it orphans the child —
+    // exactly what hand-edited text can produce.
+    expect(() =>
+      kernel.dispatch('applyPatches', {
+        patches: [{ op: 'remove', path: ['nodes', 'p1'] }],
+      }),
+    ).toThrow(BuilderError);
+    expect(kernel.getDocument()).toBe(before);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('refuses to change schemaVersion — migrations own that field (Law M)', () => {
+    const kernel = kernelWithLanding();
+    expect(() =>
+      kernel.dispatch('applyPatches', {
+        patches: [{ op: 'replace', path: ['schemaVersion'], value: 999 }],
+      }),
+    ).toThrow(/schemaVersion/);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('a hostile path cannot address the prototype', () => {
+    const kernel = kernelWithLanding();
+    expect(() =>
+      kernel.dispatch('applyPatches', {
+        patches: [{ op: 'replace', path: ['nodes', '__proto__', 'polluted'], value: true }],
+      }),
+    ).toThrow(BuilderError);
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+  });
+
+  it.each(RESERVED_PATCH_PATH_SEGMENTS)(
+    'rejects reserved string path segment "%s" in the zod door with a typed refusal',
+    (segment) => {
+      const kernel = kernelWithLanding();
+      const before = kernel.getDocument();
+      const args = {
+        patches: [
+          {
+            op: 'add' as const,
+            path: ['nodes', segment],
+            value: { id: segment, type: 'text', props: { content: 'must not land' } },
+          },
+        ],
+      };
+
+      expect(coreCommands.applyPatches.argsSchema.safeParse(args).success).toBe(false);
+
+      let refusal: unknown;
+      try {
+        kernel.dispatch('applyPatches', args);
+      } catch (error) {
+        refusal = error;
+      }
+
+      expect(refusal).toBeInstanceOf(BuilderError);
+      if (!(refusal instanceof BuilderError)) {
+        throw new Error('Reserved patch path did not produce a typed BuilderError refusal.');
+      }
+      expect(refusal.code).toBe('cmd/invalid-args');
+      expect(refusal.message).toMatch(/reserved object key/i);
+      expect(refusal.path).toEqual(['patches', 0, 'path', 1]);
+      expect(kernel.getDocument()).toBe(before);
+      expect(kernel.transactions()).toHaveLength(0);
+    },
+  );
+
+  it('zod refuses a value-less replace and an empty batch inside the door (Law V)', () => {
+    const kernel = kernelWithLanding();
+    expect(() =>
+      kernel.dispatch('applyPatches', {
+        patches: [{ op: 'replace', path: ['nodes', 'p1', 'props', 'content'] }],
+      }),
+    ).toThrow(BuilderError);
+    expect(() => kernel.dispatch('applyPatches', { patches: [] })).toThrow(BuilderError);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('a structural batch that stays VALID is accepted (remove node + its slot entry)', () => {
+    const kernel = kernelWithLanding();
+    const rootSlots = kernel.getDocument().nodes['root']?.slots?.['default'];
+    if (rootSlots === undefined) {
+      throw new Error('fixture root must have a default slot');
+    }
+    const index = rootSlots.indexOf('sec1');
+    expect(index).toBeGreaterThanOrEqual(0);
+    // The section subtree: sec1 plus everything inside it must go together.
+    const doc = kernel.getDocument();
+    const inSec1 = Object.values(doc.nodes).filter(
+      (node) =>
+        ['sec1'].includes(node.id) ||
+        Object.values(doc.nodes['sec1']?.slots ?? {}).some((ids) => ids.includes(node.id)),
+    );
+    const patches = [
+      { op: 'remove' as const, path: ['nodes', 'root', 'slots', 'default', index] },
+      ...inSec1.map((node) => ({ op: 'remove' as const, path: ['nodes', node.id] })),
+    ];
+    kernel.dispatch('applyPatches', { patches });
+    expect(kernel.getDocument().nodes['sec1']).toBeUndefined();
+    expect(kernel.transactions()).toHaveLength(1);
   });
 });

@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 
 import { type BlockSchema, defineBlockSchema } from '../blocks/define-block-schema';
+import { BuilderError } from '../errors';
+import { MAX_JSON_DEPTH, type JsonValue } from '../json/json-value';
 import type { BuilderDocument, Node } from './types';
 import { type BlockSchemaLookup, validateDocument } from './validate';
 
@@ -13,6 +15,14 @@ function doc(nodeSeeds: NodeSeed[], rootId = 'root'): BuilderDocument {
     nodes[seed.id] = { props: {}, ...seed };
   }
   return { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId, nodes };
+}
+
+function nestedArrays(depth: number): JsonValue {
+  let value: JsonValue = null;
+  for (let level = 0; level < depth; level += 1) {
+    value = [value];
+  }
+  return value;
 }
 
 function codes(document: BuilderDocument, lookup?: BlockSchemaLookup): string[] {
@@ -65,6 +75,47 @@ describe('validateDocument — structural pass', () => {
       { id: 'b1', type: 'button', props: { label: 'Go' } },
     ]);
     expect(validateDocument(document)).toEqual([]);
+  });
+
+  it('refuses a RESERVED node id — the patch door cannot address one (011 T033)', () => {
+    // Domain alignment, the same discipline as MAX_JSON_DEPTH: the kernel's
+    // patch door rejects these as path segments, so a document holding one
+    // would project to text whose patches can never be applied — the round-trip
+    // law would be false for it. Accepted and applicable must stay one set.
+    for (const reserved of ['__proto__', 'constructor', 'prototype']) {
+      const nodes: Record<string, unknown> = {};
+      Object.defineProperty(nodes, reserved, {
+        configurable: true,
+        enumerable: true,
+        value: { id: reserved, type: 'page', props: {} },
+        writable: true,
+      });
+      const document = {
+        schemaVersion: 1,
+        surface: 'site',
+        dir: 'ltr',
+        rootId: reserved,
+        nodes,
+      } as unknown as Parameters<typeof validateDocument>[0];
+      expect(validateDocument(document).map((error) => error.code)).toContain(
+        'doc/reserved-node-id',
+      );
+    }
+  });
+
+  it('refuses a RESERVED prop key through the Law J walk (011 T033)', () => {
+    const document = doc([
+      {
+        id: 'root',
+        type: 'page',
+        // JSON.parse is the only way to get an OWN `__proto__` key: an object
+        // literal would set the prototype instead of defining a property.
+        props: JSON.parse('{"title": "Home", "__proto__": 1}') as Record<string, JsonValue>,
+      },
+    ]);
+    const errors = validateDocument(document);
+    expect(errors.map((error) => error.code)).toContain('doc/non-json-value');
+    expect(errors.some((error) => error.message.includes('reserved object key'))).toBe(true);
   });
 
   it('reports a missing root', () => {
@@ -153,6 +204,32 @@ describe('validateDocument — structural pass', () => {
     const errors = validateDocument(document);
     expect(errors[0]?.code).toBe('doc/non-json-value');
     expect(errors[0]?.path).toEqual(['nodes', 'root', 'props', 'handler']);
+  });
+
+  it('refuses MAX_JSON_DEPTH + 1 at the Law J document door with a typed error', () => {
+    const document = doc([
+      {
+        id: 'root',
+        type: 'page',
+        props: { deep: nestedArrays(MAX_JSON_DEPTH + 1) },
+      },
+    ]);
+
+    const errors = validateDocument(document);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(BuilderError);
+    expect(errors[0]).toMatchObject({
+      name: 'BuilderError',
+      code: 'doc/non-json-value',
+      message: 'Documents hold plain data only; found max-depth value.',
+    });
+    expect(errors[0]?.path).toEqual([
+      'nodes',
+      'root',
+      'props',
+      'deep',
+      ...Array.from({ length: MAX_JSON_DEPTH + 1 }, () => 0),
+    ]);
   });
 
   it('reports non-finite numbers distinctly', () => {

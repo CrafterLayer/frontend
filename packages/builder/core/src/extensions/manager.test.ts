@@ -176,6 +176,112 @@ describe('US2 — extension lifecycle', () => {
     expect(kernel.extensions.has('inline-clash')).toBe(false);
   });
 
+  it('catalogs panels by id and slot, lazily, and removes them on disposal (011 §4)', () => {
+    const kernel = testKernel();
+    const panel = (id: string, slot: 'left' | 'right' | 'bottom' | 'modal') => ({
+      id,
+      slot,
+      title: `panel.${id}`,
+      load: () => Promise.resolve({ default: () => null }),
+    });
+    kernel.extensions.register({
+      tier: 1,
+      name: 'panels-a',
+      version: '1.0.0',
+      contributes: { panels: [panel('code-view', 'bottom'), panel('outline', 'left')] },
+    });
+
+    expect(kernel.context.registry.panel('code-view')?.slot).toBe('bottom');
+    expect(kernel.context.registry.panels().map((entry) => entry.id)).toEqual([
+      'code-view',
+      'outline',
+    ]);
+    expect(kernel.context.registry.panels('left').map((entry) => entry.id)).toEqual(['outline']);
+
+    // LAZY BY CONTRACT (SC-006): registering a panel must not pull its
+    // implementation in — the contribution carries a loader, never a component.
+    expect(typeof kernel.context.registry.panel('code-view')?.load).toBe('function');
+
+    kernel.extensions.dispose('panels-a');
+    expect(kernel.context.registry.panels()).toEqual([]);
+  });
+
+  it('rejects a duplicate panel id all-or-nothing', () => {
+    const kernel = testKernel();
+    const panel = (id: string) => ({
+      id,
+      slot: 'bottom' as const,
+      title: `panel.${id}`,
+      load: () => Promise.resolve({ default: () => null }),
+    });
+    kernel.extensions.register({
+      tier: 1,
+      name: 'panels-first',
+      version: '1.0.0',
+      contributes: { panels: [panel('code-view')] },
+    });
+    const clashing = blockManifest('panels-clash', 'fresh-panel-block');
+    clashing.contributes = { ...clashing.contributes, panels: [panel('code-view')] };
+    expect(() => {
+      kernel.extensions.register(clashing);
+    }).toThrow(/already registered/);
+    expect(kernel.context.registry.block('fresh-panel-block')).toBeUndefined();
+    expect(kernel.extensions.has('panels-clash')).toBe(false);
+  });
+
+  it('resolves projections by id and removes them on disposal (011 §1)', () => {
+    // Declared since B0, first consumed by B4: the point must behave exactly
+    // like the other typed catalogs — stable order, O(1) lookup, clean removal.
+    const kernel = testKernel();
+    const projection = (id: string) => ({
+      id,
+      project: () => '',
+      parse: () => ({ ok: true as const, patches: [] }),
+    });
+    kernel.extensions.register({
+      tier: 1,
+      name: 'projections-a',
+      version: '1.0.0',
+      contributes: { projections: [projection('canonical-json'), projection('mdx')] },
+    });
+
+    expect(kernel.context.registry.projection('canonical-json')?.id).toBe('canonical-json');
+    expect(kernel.context.registry.projections().map((entry) => entry.id)).toEqual([
+      'canonical-json',
+      'mdx',
+    ]);
+    expect(kernel.context.registry.projection('missing')).toBeUndefined();
+
+    kernel.extensions.dispose('projections-a');
+    expect(kernel.context.registry.projections()).toEqual([]);
+  });
+
+  it('rejects a duplicate projection id all-or-nothing', () => {
+    const kernel = testKernel();
+    const projection = (id: string) => ({
+      id,
+      project: () => '',
+      parse: () => ({ ok: true as const, patches: [] }),
+    });
+    kernel.extensions.register({
+      tier: 1,
+      name: 'projections-first',
+      version: '1.0.0',
+      contributes: { projections: [projection('canonical-json')] },
+    });
+    const clashing = blockManifest('projections-clash', 'fresh-projection-block');
+    clashing.contributes = {
+      ...clashing.contributes,
+      projections: [projection('canonical-json')],
+    };
+    expect(() => {
+      kernel.extensions.register(clashing);
+    }).toThrow(/already registered/);
+    // NOTHING from the clashing manifest survives — not even its valid block.
+    expect(kernel.context.registry.block('fresh-projection-block')).toBeUndefined();
+    expect(kernel.extensions.has('projections-clash')).toBe(false);
+  });
+
   it('catalogs field types in REGISTRATION ORDER, removes them on disposal (007 §2)', () => {
     // Insertion order is contractual: resolveField ties break by position.
     const kernel = testKernel();

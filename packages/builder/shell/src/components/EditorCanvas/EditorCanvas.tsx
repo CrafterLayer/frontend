@@ -74,6 +74,13 @@ export interface EditorCanvasProps {
   /** Receives the canvas drag handle so external panels (palette) can start inserts. */
   onDragHandle?: ((handle: CanvasDragHandle) => void) | undefined;
   /**
+   * Receives a narrow control over the OPEN inline editing session, so a host
+   * surface that becomes a SECOND editing target (the code view, B4) can end
+   * the first one before opening. Two live editing surfaces over one document
+   * is the defect this exists to prevent (011 spec edge case 7).
+   */
+  onInlineEditHandle?: ((handle: CanvasInlineEditHandle) => void) | undefined;
+  /**
    * B3a (007 contract §6): preview frame width in px (device emulation);
    * absent ⇒ full width. Layout-only — the frame shell narrows and centers,
    * and the overlay layer shares its origin, so no hot path changes.
@@ -86,6 +93,17 @@ export interface EditorCanvasProps {
    * desktop, byte-compatible with 005/006.
    */
   breakpoint?: RenderBreakpoint | undefined;
+}
+
+/**
+ * What a host may do to an inline editing session it does not own: ask whether
+ * one is open, and end it. Deliberately not "start" — beginning an edit is a
+ * canvas gesture, and deliberately not a commit/cancel choice: `end` closes
+ * without dispatching, exactly as Escape on the canvas does.
+ */
+export interface CanvasInlineEditHandle {
+  isEditing(): boolean;
+  end(): void;
 }
 
 /** External insert entry point (006 contract §6): host coordinates, bridged internally. */
@@ -268,6 +286,7 @@ export function EditorCanvas({
   onBlockRender,
   editable = false,
   onDragHandle,
+  onInlineEditHandle,
   frameWidth,
   breakpoint,
 }: EditorCanvasProps) {
@@ -373,6 +392,13 @@ export function EditorCanvas({
   // The snapshot handler lives in plain TS and must read the CURRENT direction
   // without re-subscribing the whole machinery when it flips.
   const dirRef = useRef<'ltr' | 'rtl'>('ltr');
+  // Synced BEFORE the session effect below reads it: the handle callback must
+  // not join that effect's dependencies, or every render of a host passing an
+  // inline arrow would tear down and rebuild the author's open editing session.
+  const onInlineEditHandleRef = useRef(onInlineEditHandle);
+  useEffect(() => {
+    onInlineEditHandleRef.current = onInlineEditHandle;
+  });
   useEffect(() => {
     if (!editable) {
       return undefined;
@@ -380,6 +406,12 @@ export function EditorCanvas({
     const handle = createInlineSession(kernel);
     sessionRef.current = handle;
     const off = handle.subscribe(setInlineSession);
+    onInlineEditHandleRef.current?.({
+      isEditing: () => handle.current() !== null,
+      end: () => {
+        handle.end();
+      },
+    });
     return () => {
       off();
       handle.dispose();

@@ -6,6 +6,8 @@ import {
   type FieldTypeDef,
   type InlineEditorDef,
   type KeymapDef,
+  type PanelContribution,
+  type ProjectionDef,
   type OverlayToolDef,
   type RegisteredBlock,
   type RegisteredCommand,
@@ -43,6 +45,8 @@ export function createRegistry(): RegistryHandle {
   // Same law: registration order decides, so `inlineEditor(kind)` is the FIRST
   // contribution for that kind — never "whichever extension loaded last".
   const inlineEditors = new Map<string, Owned<InlineEditorDef>>();
+  const projections = new Map<string, Owned<ProjectionDef>>();
+  const panels = new Map<string, Owned<PanelContribution>>();
   let keymaps: Owned<KeymapDef>[] = [];
   // Remaining contribution kinds are stored opaquely per point until their
   // consumers arrive (panels/fields in B3, projections in B4, …).
@@ -78,6 +82,13 @@ export function createRegistry(): RegistryHandle {
       return undefined;
     },
     inlineEditors: () => [...inlineEditors.values()].map((owned) => owned.item),
+    projection: (id) => projections.get(id)?.item,
+    projections: () => [...projections.values()].map((owned) => owned.item),
+    panel: (id) => panels.get(id)?.item,
+    panels(slot?: PanelContribution['slot']) {
+      const all = [...panels.values()].map((owned) => owned.item);
+      return slot === undefined ? all : all.filter((entry) => entry.slot === slot);
+    },
     keymaps: () => keymaps.map((owned) => owned.item),
     composition: (compositionId) => compositions.get(compositionId)?.item,
     compositions(surface?: Surface) {
@@ -152,6 +163,26 @@ export function createRegistry(): RegistryHandle {
           );
         }
       }
+      for (const projection of contributes.projections ?? []) {
+        const existing = projections.get(projection.id);
+        if (existing !== undefined) {
+          throw builderError(
+            'ext/duplicate',
+            `Projection "${projection.id}" from "${owner}" is already registered by "${existing.owner}".`,
+            ['contributes', 'projections'],
+          );
+        }
+      }
+      for (const panel of contributes.panels ?? []) {
+        const existing = panels.get(panel.id);
+        if (existing !== undefined) {
+          throw builderError(
+            'ext/duplicate',
+            `Panel "${panel.id}" from "${owner}" is already registered by "${existing.owner}".`,
+            ['contributes', 'panels'],
+          );
+        }
+      }
 
       for (const contribution of contributes.blocks ?? []) {
         blocks.set(contribution.schema.type, {
@@ -172,6 +203,12 @@ export function createRegistry(): RegistryHandle {
       for (const editor of contributes.inlineEditors ?? []) {
         inlineEditors.set(editor.id, { owner, item: editor });
       }
+      for (const projection of contributes.projections ?? []) {
+        projections.set(projection.id, { owner, item: projection });
+      }
+      for (const panel of contributes.panels ?? []) {
+        panels.set(panel.id, { owner, item: panel });
+      }
       for (const keymap of contributes.keymaps ?? []) {
         keymaps.push({ owner, item: keymap });
       }
@@ -183,6 +220,8 @@ export function createRegistry(): RegistryHandle {
           point === 'canvasTools' ||
           point === 'fieldTypes' ||
           point === 'inlineEditors' ||
+          point === 'projections' ||
+          point === 'panels' ||
           point === 'keymaps'
         ) {
           continue;
@@ -263,6 +302,16 @@ export function createRegistry(): RegistryHandle {
       for (const [editorId, owned] of [...inlineEditors]) {
         if (owned.owner === owner) {
           inlineEditors.delete(editorId);
+        }
+      }
+      for (const [projectionId, owned] of [...projections]) {
+        if (owned.owner === owner) {
+          projections.delete(projectionId);
+        }
+      }
+      for (const [panelId, owned] of [...panels]) {
+        if (owned.owner === owner) {
+          panels.delete(panelId);
         }
       }
       keymaps = keymaps.filter((owned) => owned.owner !== owner);

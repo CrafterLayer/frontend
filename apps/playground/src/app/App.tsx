@@ -21,8 +21,10 @@ import {
 import { DirectionFlip } from '../features/preview/components/DirectionFlip';
 import { EditMode } from '../features/preview/components/EditMode';
 import { FixturePicker } from '../features/preview/components/FixturePicker';
+import { CodeViewShowcase } from '../features/preview/components/CodeViewShowcase';
 import { RegisterDemoExtension } from '../features/preview/components/RegisterDemoExtension';
 import { ThemePicker, type ThemeName } from '../features/preview/components/ThemePicker';
+import { useTransactionCount } from '../features/preview/use-transaction-count';
 
 /**
  * Thin composition shell: fixtures + deterministic ports + the preset entrypoint.
@@ -53,10 +55,7 @@ export function App() {
     (onStoreChange: () => void) => kernel.context.store.subscribe(onStoreChange),
     [kernel],
   );
-  const txCount = useSyncExternalStore(
-    txSubscribe,
-    useCallback(() => kernel.transactions().length, [kernel]),
-  );
+  const txCount = useTransactionCount(kernel);
   // Subscribed read (never a bare render-body getState): the preview flip
   // derives from the LIVE document direction.
   const docDir = useSyncExternalStore(
@@ -65,6 +64,7 @@ export function App() {
   );
 
   const theme = themeName === 'light' ? lightTheme : darkTheme;
+  const showcaseOwnsLawSControls = editMode && fixture === 'code-view';
 
   if (preview) {
     // US4: EVERY piece of editing chrome disappears — the preview surface plus
@@ -118,22 +118,26 @@ export function App() {
         <DirectionFlip kernel={kernel} />
         <EditMode value={editMode} onChange={setEditMode} />
         <RegisterDemoExtension key={fixture} kernel={kernel} />
-        <button
-          type="button"
-          onClick={() => {
-            kernel.undo();
-          }}
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            kernel.redo();
-          }}
-        >
-          Redo
-        </button>
+        {showcaseOwnsLawSControls ? null : (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                kernel.undo();
+              }}
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                kernel.redo();
+              }}
+            >
+              Redo
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -142,9 +146,11 @@ export function App() {
         >
           Preview
         </button>
-        <output aria-label="Transactions" data-testid="pg-tx-count">
-          {txCount}
-        </output>
+        {showcaseOwnsLawSControls ? null : (
+          <output aria-label="Transactions" data-testid="pg-tx-count">
+            {txCount}
+          </output>
+        )}
         <output
           aria-live="polite"
           aria-label="Mode"
@@ -160,10 +166,16 @@ export function App() {
           {modeMessage.text}
           {modeMessage.nonce % 2 === 1 ? '​' : ''}
         </output>
-        {editMode ? <DeviceBar value={device} onChange={setDevice} /> : null}
+        {editMode && fixture !== 'code-view' ? (
+          <DeviceBar value={device} onChange={setDevice} />
+        ) : null}
       </header>
       <div style={{ display: 'flex', flex: 1, minBlockSize: 0 }}>
-        {editMode ? (
+        {editMode && fixture === 'code-view' ? (
+          <div style={{ flex: 1, minInlineSize: 0, overflow: 'auto' }}>
+            <CodeViewShowcase key={fixture} kernel={kernel} />
+          </div>
+        ) : editMode ? (
           <>
             <Palette kernel={kernel} dragHandle={dragHandle} />
             <div style={{ flex: 1, minInlineSize: 0 }}>

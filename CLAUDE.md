@@ -18,5 +18,6 @@ of falling back to an MCP adapter.
 <!-- SPECKIT START -->
 
 For additional context about technologies to be used, project structure, shell commands, and other
-important information, read the current plan at specs/workspace/010-adaptive-spec-router/plan.md
+important information, read the current plan at
+specs/workspace/011-builder-b4-transforms-code-view/plan.md
 <!-- SPECKIT END -->

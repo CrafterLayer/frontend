@@ -8,7 +8,7 @@ describe('FixturePicker', () => {
   it('reflects the value and reports selection changes', async () => {
     const onChange = vi.fn();
     render(<FixturePicker value="landing" onChange={onChange} />);
-    await userEvent.setup().selectOptions(screen.getByRole('combobox'), 'empty');
-    expect(onChange).toHaveBeenCalledWith('empty');
+    await userEvent.setup().selectOptions(screen.getByRole('combobox'), 'code-view');
+    expect(onChange).toHaveBeenCalledWith('code-view');
   });
 });

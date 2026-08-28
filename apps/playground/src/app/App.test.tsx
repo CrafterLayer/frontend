@@ -294,7 +294,13 @@ describe('scenario 8 (B3b) — rich text end to end', () => {
     expect(richRow).toBeDefined();
     await user.click(within(richRow!).getByText(/Free-form rich text/));
     const before = txCount();
-    expect(await screen.findByRole('button', { name: 'Bold' })).toBeInTheDocument();
+    // LAZY EDITOR ROAD: this waits on a dynamic import plus an engine mount, not on a
+    // render, so it needs more than testing-library's 1s render budget — under parallel
+    // CPU load the import alone outlives it (observed 1.9s in `pnpm verify`).
+    const LAZY_EDITOR_BUDGET = { timeout: 5000 };
+    expect(
+      await screen.findByRole('button', { name: 'Bold' }, LAZY_EDITOR_BUDGET),
+    ).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Formatting' })).toBeInTheDocument();
     expect(txCount()).toBe(before); // mounting an editor is never a commit
 
@@ -332,7 +338,9 @@ describe('scenario 8 (B3b) — rich text end to end', () => {
     await user.keyboard('{Escape}');
     await screen.findByRole('region', { name: 'Editor canvas' });
     expect(txCount()).toBe(beforePreview); // zero transactions across preview
-    expect(await screen.findByRole('button', { name: 'Bold' })).toBeInTheDocument(); // selection intact
+    expect(
+      await screen.findByRole('button', { name: 'Bold' }, LAZY_EDITOR_BUDGET),
+    ).toBeInTheDocument(); // selection intact
   });
 });
 
@@ -519,5 +527,27 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
     });
     expect(txCount()).toBe(3);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('scenario 10 (B4) — code view and the canvas in lockstep', () => {
+  it('registers the code-view fixture and leaves its lazy panel closed until requested', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Fixture' }), 'code-view');
+    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
+
+    expect(await screen.findByRole('region', { name: 'Code view showcase' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open code view' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Code view' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Transactions' })).toHaveTextContent('0');
+
+    const frame = screen.getByTitle<HTMLIFrameElement>('Editor canvas');
+    await waitFor(() => {
+      expect(frame.contentDocument?.body.textContent).toContain(
+        'Build pages your kernel can prove',
+      );
+    });
   });
 });

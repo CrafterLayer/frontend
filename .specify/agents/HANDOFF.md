@@ -1,107 +1,105 @@
 # Active Work Handoff
 
-**Status:** ready for local user evaluation — all implementation and automated gates for Adaptive
-Spec Router are complete; the manual responsive browser smoke remains pending.
+**Status:** Builder **B4 is complete and converged**; every automated gate is green
+(`pnpm verify` EXIT=0, all 12 stages). Blocked only on the user: **nothing has been committed and
+commit authorization remains withheld.** The single remaining task is a commit-message proposal as
+TEXT.
 
-**Updated:** 2026-08-27
+**Updated:** 2026-08-28
 
-**Scope:** `specs/workspace/010-adaptive-spec-router` and
-`apps/adaptive-spec-router`.
+**Scope:** `specs/workspace/011-builder-b4-transforms-code-view` with
+`packages/builder/{schema,core,transforms,shell,editor,extensions/code-view}`, `apps/playground`,
+`packages/{ui,test-config,workspace-tools}`, and `apps/storybook`.
 
-**Active Spec:** `specs/workspace/010-adaptive-spec-router/spec.md`.
+**Active Spec:** `specs/workspace/011-builder-b4-transforms-code-view/spec.md`.
+
+**Out of scope, do not touch:** `apps/adaptive-spec-router` and
+`specs/workspace/010-adaptive-spec-router` are the user's separately-owned, untracked work. The user
+said so explicitly. Leave both alone.
 
 ## Objective
 
-Evaluate a private, deterministic product dashboard for explainable Claude/Codex task routing before
-any decision to extract, connect providers, create a public repository, or publish. This feature is
-not an agent runner and must not create a live provider, MCP, source-code, credential, or repository
-integration.
+Make the document editable as CODE without ever letting the two representations disagree: a
+transforms layer that projects a builder document to canonical text and parses it back into patches,
+a code-view panel that applies through the same kernel door every other edit uses, the round-trip
+law proven by property testing as a merge-blocking gate, all heavy work off the rendering path, and
+the panel's implementation loaded only when it is first opened.
 
 ## Completed
 
-- Created the isolated `@craftkit/adaptive-spec-router` Vite React application with an explicit
-  local-demo boundary and no external side effects.
-- Default operation is **Codex-native**: it keeps Codex work in Codex and never starts Claude
-  automatically. **Claude-adaptive** is an explicit user-selected, one-way evaluation mode.
-- Added deterministic model-aware routes: Luna/Terra/Sol and Sonnet/Opus, clear provider/model
-  unavailability fallback, one designated writer, and an independent reviewer.
-- Added a frozen plan revision audit that requires current Claude and Codex reviews before a writer
-  lease becomes active. Material revisions make old reviews stale; typed findings expose severity,
-  requirement, and next action.
-- Added an illustrative evidence console, active/reserved/no writer-lease states, release-gate
-  safety, responsive styling, reset behavior, keyboard-visible controls, component stories, MDX
-  documentation, and behavior tests.
-- Created ADR 0005 and complete Spec Kit artifacts under
-  `specs/workspace/010-adaptive-spec-router/`.
-- Independent routing and governance reviews were completed. Their accepted findings were repaired,
-  including the final case where an invalid scenario could otherwise keep a release state waiting.
+- **`@craftkit/builder-transforms`** (layer 2, new, headless): canonical strict two-space JSON
+  projection (sorted keys, slot order semantic, absent ≠ present-empty, duplicate keys rejected),
+  an own strict parser with one-based error lines, the scoped envelope, and node-granular
+  `documentPatches`. Registry-directed `fast-check` generators — validation as ASSERTION, never as
+  a filter.
+- **`@craftkit/builder-code-view`** (layer 4, new): the manifest with ONE lazy panel and ONE
+  projection contribution, a handwritten typed `postMessage` protocol, the worker entry, the client
+  (generation counting, one in-flight plus one coalesced, stale drop, payload-aware document
+  dedupe), `CodeViewPanel`, `CodeViewErrors`, and a test-only `./testing` subpath.
+- **Two dormant B0 contribution points finished**: `projections` AND `panels` are now reachable
+  through `RegistryRead`. `panels` is the road every later surface arrives on (B5/B6/B7).
+- **Kernel door**: the `applyPatches` command, `-0` canonicalisation at the dispatch door and at
+  document open, and `MAX_JSON_DEPTH` / reserved-key refusal in Law J and the document validator.
+- **Shell**: `CanvasInlineEditHandle`, so a host can end a live inline edit before opening a second
+  editing surface (spec edge case 7).
+- **Preset + playground**: surface additions, scenario 10 (select → open → edit → apply → undo),
+  and the kernel adapter with globally monotonic revisions.
+- **Two independent reviews** (`gpt-5.6-sol`, fresh sessions, opposite lenses) found **17 findings,
+  7 HIGH, in a suite that was entirely green**. All fixed; **every mutation re-run by the
+  coordinator rather than taken on the fixer's report.** Full record in `tasks.md` § "T033 record".
+- **`/speckit-converge`** → Phase 9 (T037–T039), documentation drift only, completed.
 
-## Verification
+## Gates and outcomes (2026-08-28)
 
-- `pnpm --filter @craftkit/adaptive-spec-router lint` passed.
-- `pnpm --filter @craftkit/adaptive-spec-router typecheck` passed.
-- `pnpm --filter @craftkit/adaptive-spec-router test` passed: 31 tests in 7 files.
-- `pnpm --filter @craftkit/adaptive-spec-router build` passed: 66.55 kB gzip JavaScript.
-- Direct central Storybook build passed. The catalog retains its existing generic large-chunk warning;
-  it is not a feature build failure.
-- `pnpm check:components`, `pnpm check:workspace`, and `pnpm check:boundaries` passed.
-- `git diff --check` passed.
-- The local Vite HTTP response was smoke-checked. In-app browser automation was unavailable in this
-  environment, so it is not represented as an interaction or responsive verification.
+`PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm verify` → **EXIT=0**.
+
+| Package                        | Tests |
+| ------------------------------ | ----: |
+| `@craftkit/builder-schema`     |   120 |
+| `@craftkit/builder-core`       |   106 |
+| `@craftkit/builder-transforms` |   106 |
+| `@craftkit/builder-code-view`  |    86 |
+| `@craftkit/builder-shell`      |   571 |
+| `@craftkit/builder` (preset)   |    55 |
+| `@craftkit/playground`         |    33 |
+| `@craftkit/workspace-tools`    |    38 |
+| Storybook (Chromium)           |   153 |
+
+`check:workspace` 21 members · `check:components` 44 components · coverage thresholds met in every
+package **with no exclusions added and no threshold lowered**.
 
 ## Incomplete
 
-- T021 only: manually inspect the local dashboard at **375px** and **1440px**. Apply a scenario,
-  create a material plan revision, and use **Reset demo**. Verify that critical information remains
-  reachable and labelled in both widths.
-- Obtain user feedback before authorizing any extraction, licensing, public GitHub repository,
-  publishing, deployment, credentials, live provider adapter, persistence, or multi-user work.
+- **T036** — a commit-message proposal, TEXT ONLY. No `git commit`, no `git add`, no push.
 
-## Decisions / Boundaries
+## Blockers
 
-- No commit, push, deployment, or publication is authorized.
-- The interface displays policy examples only; it does not claim model availability or provider
-  telemetry is live.
-- A fallback must be visibly reported; no silent downgrade is allowed.
-- A single bounded writer lease is required. Reviewers remain independent and read-only in the
-  product model.
-- The existing B3c worktree and any separately running Claude-to-Codex migration are out of scope
-  for this feature follow-up. Preserve them and use their own feature artifacts for continuation.
+- **Commit authorization is withheld.** The user's standing instruction is that agents never commit.
+  The user commits themselves.
 
-## Next Exact Action
+## Decisions required from the user
 
-Run:
+1. Authorize (or not) a commit for B4.
+2. Choose what follows B4: the **design milestone** (the CraftKit mockup the user supplied as the
+   reference UI) or **B5**. The design milestone was scheduled to follow B4.
 
-```bash
-pnpm --filter @craftkit/adaptive-spec-router dev
-```
+## Next executable steps
 
-At 375px and 1440px, test the default Codex-native route, explicitly select Claude-adaptive for a
-critical route, change the plan revision to observe stale reviews, and reset the demo. Then capture
-the user's product feedback and create a separate approved specification for any live integration or
-public release phase.
+1. Produce the B4 commit-message proposal as text (T036) and mark it complete in `tasks.md`.
+2. Wait for the user's choice between the design milestone and B5.
 
-## Recovery
+## Recovery notes
 
-The product can be reconstructed from its spec, plan, contracts, tasks, ADR 0005, app README, and
-feature-local source. No external system state exists to recover. Resume at T021; do not re-run
-implementation work unless the user reports a product defect.
-
-## Parallel Claude-to-Codex Transport Cutover
-
-- The user-scoped official `codex@openai-codex` plugin v1.0.6 is installed, enabled, authenticated,
-  and ready. A real background smoke exposed tracked phases and returned the expected result without
-  touching files; fresh Claude `/codex:setup` and `/codex:status` commands also passed.
-- `.mcp.json` and `.specify/agents/bridges/codex-async/` were removed after the in-flight async and
-  synchronous results were delivered. New work must use `/codex:rescue --background --fresh`, with
-  user-invoked `/codex:status` and `/codex:result`; progress is on demand, not an unsolicited feed.
-- A Claude session opened before the cutover still has the retired MCP tools in memory and may keep
-  showing `Tinkering...`. Let its current call finish, then close that session and start a new one;
-  do not kill an in-flight write task merely to reload transport.
-- A user-scoped generic `codex` MCP server remains available for other projects but is failed and is
-  explicitly forbidden by this workspace's routing. Do not remove it globally without separate
-  authorization.
-- Regenerating all integration-native workspace skills remains deferred: the forced Spec Kit
-  recomposition would overwrite unrelated modified generated skills. The canonical extension,
-  collaboration rule, runbook, `AGENTS.md`, and `CLAUDE.md` are updated; do not hand-edit generated
-  skill folders.
+- Prefix every shell command with
+  `PATH="/usr/bin:/bin:$HOME/.nvm/versions/node/v24.19.0/bin:$PATH"`; add
+  `PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false` when pnpm attempts a forbidden auto-install.
+- `pnpm --filter X test -- path` does NOT filter to that path; pass the path directly, or run
+  `pnpm exec vitest run <path>` from inside the package.
+- Chromium stories run from `apps/storybook`:
+  `pnpm exec vitest run --project=storybook <relative path>`.
+- Codex delegation goes through the official plugin only (`/codex:rescue --background --fresh`),
+  never an MCP transport. The plugin's `--effort` flag rejects `ultra`; leave the flag off and let
+  `~/.codex/config.toml` (`model_reasoning_effort = "ultra"`) apply. **Lease work in small,
+  path-disjoint slices** — two oversized jobs stalled for an hour without a single write and had to
+  be cancelled and re-cut; the re-cut jobs reached verification in eleven minutes.
+- Never trust a delegated agent's mutation report. Re-run each mutation yourself.

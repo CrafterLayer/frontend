@@ -26,7 +26,7 @@ describe('PlanReviewAudit', () => {
   });
 
   it('opens a typed finding with its requirement, severity, and next action', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <PlanReviewAudit
@@ -59,7 +59,7 @@ describe('PlanReviewAudit', () => {
 
   it('requests a material revision only while the plan is ready', async () => {
     const onMaterialRevision = vi.fn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <PlanReviewAudit

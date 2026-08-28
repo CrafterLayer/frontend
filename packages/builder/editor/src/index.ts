@@ -10,6 +10,19 @@ export { defaultBlocks } from './default-blocks';
 // registerable manifest.
 export { richTextExtension } from '@craftkit/builder-richtext';
 
+// Code view (B4): the panel and the canonical-JSON projection ship as a
+// registerable manifest. Its implementation is behind a lazy panel
+// contribution, so an app that never opens the panel pays nothing for it
+// (SC-006) — and the codec itself stays in the worker, off the render path.
+export {
+  codeViewExtension,
+  createCodeViewWorkerClient,
+  type CodeViewKernel,
+  type CodeViewPanelProps,
+  type TransformWorkerClient,
+  type WorkerLike,
+} from '@craftkit/builder-code-view';
+
 // The first content extension ships with the preset (starter-kit style).
 export {
   blocksMarketing,
@@ -82,6 +95,7 @@ export {
   type BlockActionId,
   type BlockActionResult,
   type CanvasDragHandle,
+  type CanvasInlineEditHandle,
   type CanvasToolTarget,
   type DeviceBarProps,
   type DeviceState,

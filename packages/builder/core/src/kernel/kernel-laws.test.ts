@@ -47,6 +47,31 @@ describe('Law J — JSON purity at the door', () => {
     expect(codeFor(1n)).toBe('cmd/invalid-args');
     expect(codeFor(Number.NaN)).toBe('cmd/invalid-args');
   });
+
+  it('canonicalises -0 to 0 at the door — normalised, never rejected (011 R2)', () => {
+    // -0 passes the finite-number guard yet JSON prints it as "0", so it could
+    // never survive a textual round trip. The door normalises it BEFORE the
+    // handler runs; the stored value is exactly 0.
+    const kernel = testKernel();
+    kernel.dispatch('setProp', { id: 'p1', key: 'weight', value: -0 });
+    const stored = kernel.getDocument().nodes['p1']?.props['weight'];
+    expect(Object.is(stored, 0)).toBe(true);
+    expect(Object.is(stored, -0)).toBe(false);
+    expect(kernel.transactions()).toHaveLength(1); // a real change, one transaction
+  });
+
+  it('canonicalises -0 on OPEN — an existing stored document is repaired, not refused', () => {
+    const document = landingFixture();
+    const carrier = document.nodes['p1'];
+    if (carrier === undefined) {
+      throw new Error('fixture must contain p1');
+    }
+    carrier.props['weight'] = -0;
+    const kernel = testKernel(document);
+    const stored = kernel.getDocument().nodes['p1']?.props['weight'];
+    expect(Object.is(stored, 0)).toBe(true);
+    expect(kernel.transactions()).toHaveLength(0); // opening is not an edit
+  });
 });
 
 describe('Law S — sealed store', () => {

@@ -1,0 +1,97 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CodeViewPanelStories from './CodeViewPanel.stories';
+
+<Meta of={CodeViewPanelStories} />
+
+# CodeViewPanel
+
+The B4 source projection for a builder document or selected node. It owns the exact draft an author
+typed, delegates projection and parsing to the transform worker, and sends one accepted patch batch
+through the host-owned kernel door.
+
+## When to use
+
+Use it as the trusted builder's lazy bottom panel when authors need canonical document or selected-
+subtree editing. Do not use it as a general JSON editor, a read-only code sample, or an editor that
+requires highlighting, completion, folding, search, or multi-cursor behavior.
+
+## Round-trip law
+
+For a valid registered document, parsing its canonical projection produces no semantic change. After
+an edit, applying the returned patches and projecting again produces the edited canonical text. The
+panel never treats textarea text as document truth: the kernel remains authoritative, and a clean
+draft re-projects when selection or revision changes.
+
+A dirty draft is pinned to its original `{scope, baseRevision}`. If either changes, the panel
+reports `conflict` and sends no parse or dispatch against the new target. Invalid text and a refused
+patch batch likewise remain visible exactly as typed while the document and history stay unchanged.
+
+## Why a textarea
+
+B4 requires editing, clipboard and IME behavior, line diagnostics, and debounced parsing—not syntax
+highlighting, folding, completion, or multi-cursor editing. A native labelled `textarea` provides
+the required keyboard, mobile, and screen-reader semantics with **0 KB** of editor dependency cost.
+
+The B4 research measured a minimal CodeMirror 6 setup at about **250 KB minified / 75 KB gzip**
+(about 400/135 KB with a language) and a full Monaco integration at about **846 KB gzip** plus
+worker assets. The Monaco figure is a measured real integration, not a claimed minimum. Those costs
+do not buy a requirement in this milestone, so the dependency-free control is deliberate.
+
+## Host API
+
+| Prop           | Meaning                                                                              |
+| -------------- | ------------------------------------------------------------------------------------ |
+| `kernel`       | Stable subscribed snapshot plus the single patch-batch dispatch door                 |
+| `workerClient` | Injectable transform client; the browser host supplies a module Worker, jsdom a fake |
+| `projectionId` | Worker-local codec identifier; defaults to `canonical-json`                          |
+| `debounceMs`   | Quiet period before the current pinned draft is parsed; defaults to 300 ms           |
+| `label`        | Visible accessible name for the textarea; defaults to “Document code”                |
+
+`kernel.getSnapshot()` returns the document, selection, registered block type names, and a monotonic
+document revision that changes for every document write, including undo and redo. `kernel.dispatch`
+must adapt the complete patch array to exactly one normal kernel command authored by `codeview`.
+
+## Composition
+
+Resolve the contribution only when the panel opens, create the public module-worker client at that
+same boundary, and keep both ports host-owned:
+
+```tsx
+const contribution = builder.context.registry.panel('code-view');
+if (contribution === undefined) throw new Error('Code view is not registered.');
+
+const { default: Panel } = await contribution.load();
+const workerClient = await createCodeViewWorkerClient();
+
+root.render(<Panel kernel={codeViewKernelAdapter} workerClient={workerClient} />);
+// The host calls workerClient.terminate() when it releases this panel session.
+```
+
+The adapter must treat kernel identity as session identity. Replacing it re-projects a clean draft
+and conflicts a dirty one even when the replacement happens to have the same revision and scope.
+Give every replacement kernel a fresh worker client: document revisions are namespaced to one kernel
+session, and the client deliberately deduplicates snapshots within that namespace.
+
+## States
+
+- `clean`: the projection matches current kernel truth.
+- `typing`: a dirty pinned draft is inside the debounce window.
+- `busy`: the current projection or parse is in flight.
+- `invalid`: parsing failed or the kernel door refused the patch batch.
+- `conflict`: scope, revision, or kernel ownership moved underneath a dirty draft.
+
+## Accessibility and direction
+
+The textarea has a visible label, stable `aria-describedby`, `aria-invalid`, and `aria-busy`. A
+parse settles one polite announcement for the whole result. Error buttons focus the textarea and
+select the named line. The panel follows document direction while source text remains LTR, and all
+layout spacing uses logical properties.
+
+## Known limitations
+
+- Diagnostics select a whole line because the codec currently exposes no column.
+- There is no syntax highlighting, gutter, folding, search, or completion. Revisit the editor choice
+  only when one becomes a requirement or the maximum-size fixture demonstrates a measured failure.
+- The host must provide the worker lifecycle and generic validated patch command; the extension does
+  not reach a global kernel or construct a Worker during render.

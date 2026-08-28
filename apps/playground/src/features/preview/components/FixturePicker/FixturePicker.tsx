@@ -19,6 +19,7 @@ export function FixturePicker({ value, onChange }: FixturePickerProps) {
         <option value="landing">Marketing landing</option>
         <option value="empty">Empty page</option>
         <option value="inline">Inline editing</option>
+        <option value="code-view">Code view</option>
       </select>
     </label>
   );

@@ -337,3 +337,82 @@ Stale when: a later ADR supersedes 0003, or a milestone re-plans the gesture/pan
 - For safe removal, let any in-flight child reach terminal state and close its Claude session before
   deleting `.mcp.json` or the bridge source. The old server cancels live children when its stdio
   connection shuts down, so changing project MCP configuration mid-task can lose the result.
+
+## A green suite is not evidence the feature is right (2026-08-27, B3c)
+
+Milestone B3c reached "every gate green" — 1,002 package tests, 140 Chromium stories, lint and
+typecheck clean — and then two INDEPENDENT reviewers with different lenses found **sixteen** real
+defects in it, two of which made the headline feature unusable by keyboard.
+
+What made them findable was that the reviewers were fresh contexts reading the CONTRACT, not the
+implementer re-reading their own tests. An implementer's suite proves the code does what the
+implementer thought; it cannot notice a law they forgot, a gate that counts the wrong moment, or an
+interaction nobody tried.
+
+**Apply from B4 on:** before declaring a milestone done, run at least two independent reviews with
+DIFFERENT lenses (correctness-and-laws; accessibility/RTL/performance/boundaries), and treat
+"implemented but nothing gates it" as a finding in its own right. Stale when a milestone ships with
+no independent review and no defects surface later — that has not happened yet.
+
+## Programmatic focus() proves focusable, never reachable (2026-08-27, B3c §19)
+
+A reviewer flagged keyboard reach into the canvas's formatting bubble as "unproven". Adding the
+missing proof — a REAL Tab key in Chromium — turned it into a confirmed defect: focus landed on
+`<body>`, so a keyboard user could not reach Bold at all. Every unit test had passed, because
+`.focus()` moves focus by fiat and `click()` never needs focus to travel.
+
+Two traps found while proving it, both worth remembering:
+- `userEvent.tab()` acts on the HOST document; with focus inside an iframe the host's
+  `activeElement` is the IFRAME element, so it never dispatches a keydown into the frame. Deliver
+  the key to the frame document instead.
+- jest-dom's `toHaveFocus()` type-guards with an `instanceof` against the host realm, so it REJECTS
+  a frame-realm element before checking focus. Assert `frameDocument.activeElement` instead.
+
+**Apply whenever a behaviour depends on the browser MOVING focus** — across a document boundary
+especially. Stale if the harness gains real cross-frame focus support.
+
+
+## One accepted domain, one applicable domain (2026-08-28, B4 T033)
+
+Two holes in B4's round-trip law had the same shape: a document the kernel ACCEPTS whose projection
+parses back into patches the kernel REFUSES. `parse(project(d))` cannot reproduce such a `d`, so the
+merge-blocking law was false for it and only the generators' failure to produce those documents hid
+the fact.
+
+- `isJsonValue` admitted unbounded nesting while the strict scanner stopped at 256, so a valid
+  document ~253 levels deep failed to parse its own projection.
+- `__proto__`, `constructor` and `prototype` were legal as node ids and prop keys while the patch
+  door refused them as path segments — such a document could be read and never written.
+
+Both were closed by narrowing the ACCEPTED domain (`MAX_JSON_DEPTH = 128`; Law J `reserved-key` plus
+`doc/reserved-node-id`), never by widening the door — widening would mean teaching the kernel to
+write keys that poison prototypes.
+
+**Apply whenever a door refuses something**: the validator must refuse it too, or a round-trip law
+over that data is quietly false. And guard the law WHERE IT LIVES — the first mutation left the
+schema suite green while only `transforms` caught it, which is how a law drifts out of its own
+package. Stale only if the patch door stops constraining path segments.
+
+## The generators are part of the law, not decoration (2026-08-28, B4 T033)
+
+`fast-check` deliberately biases string generation toward prototype-poisoning words, so
+`nodeIdArbitrary` produced `constructor` on its own the moment reserved ids became invalid — and the
+generated-document validity ASSERTION caught it immediately. That is exactly what
+validation-as-assertion (never as a filter) exists for: a filter would have silently skipped those
+cases and left the law unproven over them.
+
+**Apply when property-testing a domain that later narrows**: the generator must narrow with it, by
+an explicit filter at the source, and the assertion must stay an assertion. Stale if fast-check
+drops its interesting-value bias.
+
+## Integrate before believing two green fixes (2026-08-28, B4 T033)
+
+Two independently-correct fixes produced a defect neither could see. The worker client began failing
+closed when one revision arrived with two different payloads (right), and every reopen of the code
+view built a fresh adapter whose revision counter restarted at 0 (right) — together they offered
+revision 0 twice with different documents and killed the shared worker. Found only by writing a
+close/reopen integration test AFTER both landed, and fixed by making revisions global: a revision
+identifies a document STATE, not an adapter's age.
+
+**Apply after any parallel, path-disjoint delegation**: merging green leases is not integration.
+Write the test that crosses the seam. Stale never — it is a property of parallel work.

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@craftkit/builder-blocks-marketing": "workspace:*",
+    "@craftkit/builder-code-view": "workspace:*",
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-react": "workspace:*",
     "@craftkit/builder-renderer": "workspace:*",

@@ -1,0 +1,60 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CodeViewErrorsStories from './CodeViewErrors.stories';
+
+<Meta of={CodeViewErrorsStories} />
+
+# CodeViewErrors
+
+The diagnostic navigator owned by the B4 code-view extension (contract p6). It presents the errors
+from one settled parse as a native list and returns an author to the exact one-based source line.
+
+## When to use
+
+Render it beside the code textarea after every settled parse, including a successful parse with an
+empty `errors` array. Do not use it as a general notification list: its focus and line-selection
+behavior requires the exact textarea draft that produced the diagnostics.
+
+## Composition
+
+The source, diagnostics, and ref must all belong to the same retained draft:
+
+```tsx
+const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+<textarea ref={textareaRef} value={draft} onChange={onDraftChange} />
+<CodeViewErrors
+  errors={errors}
+  source={draft}
+  textareaRef={textareaRef}
+  announcement={settledSummary}
+  announcementNonce={settlementNumber}
+/>
+```
+
+## API
+
+| Prop                | Meaning                                                                 |
+| ------------------- | ----------------------------------------------------------------------- |
+| `errors`            | The complete diagnostics from one parse; every line is one-based        |
+| `source`            | The exact retained textarea draft whose offsets are selected            |
+| `textareaRef`       | The real textarea to focus and select                                   |
+| `announcement`      | One settled summary for the whole parse                                 |
+| `announcementNonce` | Changes repeated summaries once per settlement without a spoken counter |
+
+## Accessibility and interaction
+
+Diagnostics use `ul`/`li` semantics and real buttons. Choosing one focuses the textarea and selects
+the named line with `setSelectionRange`; an out-of-range line safely selects the source end. The
+visible line badge is `aria-hidden` decoration because the button's accessible name already says
+“Line N”. There is exactly one atomic polite output per parse, never one live region per error.
+
+The layout uses logical properties and follows an RTL ancestor. Source-line offsets are character
+offsets and do not change with direction.
+
+## Known limitations
+
+- The component selects a whole source line, not a token column; the codec contract currently
+  exposes line numbers only.
+- It does not draw a gutter or one DOM node per source line. The native textarea remains the only
+  source surface, which keeps large drafts cheap.

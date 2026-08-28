@@ -1,4 +1,5 @@
 import {
+  canonicalizeJsonValue,
   LATEST_SCHEMA_VERSION,
   validateDocument,
   type Author,
@@ -91,8 +92,12 @@ export function emptyDocument(
 export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel {
   const clock = options.ports?.clock ?? systemClock;
   const ids = options.ports?.ids ?? systemIds;
-  const document =
-    options.document ?? emptyDocument(options.surface ?? 'site', options.dir ?? 'ltr');
+  // The -0 load boundary (011 research R2): a stored document may carry -0
+  // from before the rule existed; it normalises to 0 on OPEN — never rejected,
+  // so no existing document breaks. Clean documents come back by reference.
+  const document = canonicalizeJsonValue(
+    options.document ?? emptyDocument(options.surface ?? 'site', options.dir ?? 'ltr'),
+  );
 
   const store = createKernelStore({
     doc: document,

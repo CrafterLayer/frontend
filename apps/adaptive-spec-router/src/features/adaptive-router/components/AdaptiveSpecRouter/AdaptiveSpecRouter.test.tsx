@@ -6,7 +6,7 @@ import { AdaptiveSpecRouter } from './AdaptiveSpecRouter';
 
 describe('AdaptiveSpecRouter', () => {
   it('updates the writer route from local task signals', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.selectOptions(screen.getByLabelText('Workflow entry point'), 'claude-adaptive');
@@ -30,7 +30,7 @@ describe('AdaptiveSpecRouter', () => {
   });
 
   it('clears the applied route when the current draft is rejected as insufficient', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.clear(screen.getByLabelText('Task brief'));
@@ -43,7 +43,7 @@ describe('AdaptiveSpecRouter', () => {
   });
 
   it('blocks release when an invalid draft replaces an otherwise review-ready route', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.selectOptions(screen.getByLabelText('Workflow entry point'), 'claude-adaptive');
@@ -58,7 +58,7 @@ describe('AdaptiveSpecRouter', () => {
   });
 
   it('exposes a model-tier fallback instead of silently keeping an unavailable preferred model', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.selectOptions(screen.getByLabelText('Workflow entry point'), 'claude-adaptive');
@@ -72,7 +72,7 @@ describe('AdaptiveSpecRouter', () => {
   });
 
   it('invalidates dual plan approval after a material revision', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.selectOptions(screen.getByLabelText('Workflow entry point'), 'claude-adaptive');
@@ -85,7 +85,7 @@ describe('AdaptiveSpecRouter', () => {
   });
 
   it('does not claim a dual plan review when Codex is unavailable in Claude-adaptive mode', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.selectOptions(screen.getByLabelText('Workflow entry point'), 'claude-adaptive');
@@ -98,7 +98,7 @@ describe('AdaptiveSpecRouter', () => {
   });
 
   it('resets the altered scenario and revision to the deterministic example', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.selectOptions(screen.getByLabelText('Workflow entry point'), 'claude-adaptive');
@@ -117,7 +117,7 @@ describe('AdaptiveSpecRouter', () => {
   });
 
   it('resets an unapplied draft as well as the last applied scenario', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<AdaptiveSpecRouter />);
 
     await user.clear(screen.getByLabelText('Task brief'));

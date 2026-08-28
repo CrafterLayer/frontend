@@ -17,6 +17,8 @@ import {
   type Surface,
 } from '@craftkit/builder-schema';
 
+import { validateDocument } from '@craftkit/builder-schema';
+
 import { current } from '../patches/immer';
 import { defineCommand } from './define-command';
 
@@ -43,11 +45,30 @@ export interface CoreCommands {
     wrapperSlot?: SlotName;
   };
   groupNodes: { ids: NodeId[]; groupType: string; groupProps?: Record<string, JsonValue> };
+  applyPatches: { patches: DocumentPatch[] };
+}
+
+/** One immer-style patch over the document root, as the transforms codec emits. */
+export interface DocumentPatch {
+  op: 'add' | 'remove' | 'replace';
+  path: (string | number)[];
+  value?: JsonValue | undefined;
 }
 export type CoreCommandName = keyof CoreCommands;
 
 const id = z.string().min(1);
 const slotName = z.string().min(1);
+const RESERVED_PATCH_PATH_SEGMENTS: ReadonlySet<string> = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+]);
+const patchPathSegment = z.union([
+  z.string().refine((segment) => !RESERVED_PATCH_PATH_SEGMENTS.has(segment), {
+    message: 'Patch paths may not contain a reserved object key.',
+  }),
+  z.number().int().min(0),
+]);
 
 export const coreCommands: Record<CoreCommandName, RegisteredCommand> = {
   insertNode: defineCommand({
@@ -325,6 +346,52 @@ export const coreCommands: Record<CoreCommandName, RegisteredCommand> = {
       }
     },
   }),
+  applyPatches: defineCommand({
+    args: z.strictObject({
+      patches: z
+        .array(
+          z
+            .strictObject({
+              op: z.enum(['add', 'remove', 'replace']),
+              path: z.array(patchPathSegment).min(1),
+              value: jsonValueZod.optional(),
+            })
+            .refine((patch) => patch.op === 'remove' || patch.value !== undefined, {
+              message: 'add/replace patches must carry a value',
+            }),
+        )
+        .min(1),
+    }),
+    run: (args) => (draft, rt) => {
+      // The code view's door (011 contract §4 p1): one textual edit arrives as
+      // one BATCH of patches and must land as one transaction. Unlike every
+      // other command, the batch does not come from a handler that preserves
+      // invariants by construction — it comes from parsed TEXT — so the
+      // resulting document is validated IN FULL before the door commits.
+      // O(document) per apply is accepted: applies are debounced, never
+      // per-keystroke (§4 p3), and a corrupted document is never cheap.
+      const before = draft.schemaVersion;
+      for (const patch of args.patches) {
+        applyOnePatch(draft, patch);
+      }
+      if (draft.schemaVersion !== before) {
+        throw builderError(
+          'doc/invalid-patch',
+          'A patch batch may not change schemaVersion; migrations own that field (Law M).',
+          ['patches'],
+        );
+      }
+      const violations = validateDocument(current(draft), rt.blocks);
+      if (violations.length > 0) {
+        const first = violations[0];
+        throw builderError(
+          'doc/invalid-patch',
+          `The patch batch produces an invalid document: ${first?.message ?? 'unknown violation'}`,
+          first?.path ?? ['patches'],
+        );
+      }
+    },
+  }),
 };
 
 /** Extract the id of the node an insert/duplicate/wrap/group transaction created. */
@@ -549,4 +616,61 @@ function cloneSubtree(draft: BuilderDocument, rt: CommandRuntime, sourceId: Node
     throw builderError('cmd/structural-violation', 'Duplicate failed to allocate ids.', ['id']);
   }
   return cloneRoot;
+}
+
+/**
+ * Apply one immer-style patch to the document draft. Own-property access only:
+ * a hostile path like ["nodes", "__proto__"] must address a document key or
+ * fail, never the prototype (the same discipline as the codec's parser).
+ */
+function applyOnePatch(draft: BuilderDocument, patch: DocumentPatch): void {
+  const parentPath = patch.path.slice(0, -1);
+  const last = patch.path[patch.path.length - 1];
+  let target: unknown = draft;
+  for (const step of parentPath) {
+    if (Array.isArray(target)) {
+      target = typeof step === 'number' ? target[step] : undefined;
+    } else if (typeof target === 'object' && target !== null) {
+      target = Object.hasOwn(target, step) ? (target as Record<string, unknown>)[step] : undefined;
+    } else {
+      target = undefined;
+    }
+    if (target === undefined) {
+      throw builderError(
+        'doc/invalid-patch',
+        `Patch path does not exist in the document: ${patch.path.join('/')}`,
+        patch.path,
+      );
+    }
+  }
+  if (Array.isArray(target)) {
+    if (typeof last !== 'number') {
+      throw builderError('doc/invalid-patch', 'Array patches need a numeric index.', patch.path);
+    }
+    if (patch.op === 'add') {
+      target.splice(last, 0, patch.value);
+    } else if (patch.op === 'remove') {
+      target.splice(last, 1);
+    } else {
+      target[last] = patch.value;
+    }
+    return;
+  }
+  if (typeof target !== 'object' || target === null) {
+    throw builderError('doc/invalid-patch', 'Patch parent is not a container.', patch.path);
+  }
+  const record = target as Record<string, unknown>;
+  const key = String(last);
+  if (patch.op === 'remove') {
+    if (!Object.hasOwn(record, key)) {
+      throw builderError(
+        'doc/invalid-patch',
+        'Cannot remove a key that does not exist.',
+        patch.path,
+      );
+    }
+    delete record[key];
+    return;
+  }
+  record[key] = patch.value;
 }

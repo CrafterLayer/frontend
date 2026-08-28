@@ -1,5 +1,6 @@
 import {
   builderError,
+  canonicalizeJsonValue,
   findJsonViolation,
   type Author,
   type BuilderDocument,
@@ -53,7 +54,12 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
       throw builderError('cmd/unknown', `No command named "${command}" is registered.`);
     }
 
-    const mutator = registered.apply(args); // Law V: parses or throws cmd/invalid-args
+    // The -0 boundary (011 research R2): canonicalise BEFORE the handler runs,
+    // so a value JSON cannot print never reaches the draft — patches and the
+    // next document stay consistent by construction. Identity-preserving, so a
+    // clean payload costs nothing.
+    const canonicalArgs = canonicalizeJsonValue(args);
+    const mutator = registered.apply(canonicalArgs); // Law V: parses or throws cmd/invalid-args
     const state = deps.store.getState();
     const [nextDoc, patches, inverse] = produceWithPatches(state.doc, (draft) => {
       mutator(draft, deps.runtime);

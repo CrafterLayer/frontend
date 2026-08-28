@@ -82,6 +82,20 @@ export interface RegistryRead {
    */
   inlineEditor: (kind: InlineEditableKind) => InlineEditorDef | undefined;
   inlineEditors: () => readonly InlineEditorDef[];
+  /**
+   * Textual projections by id — declared since B0, first consumed by B4's code
+   * view (011 contract §1). Registration order is stable; duplicate ids are
+   * rejected all-or-nothing like every other typed point.
+   */
+  projection: (id: string) => ProjectionDef | undefined;
+  projections: () => readonly ProjectionDef[];
+  /**
+   * Panels in REGISTRATION ORDER, filtered by slot when asked. Declared since
+   * B0, first consumed by B4's code view: a panel's implementation is behind
+   * `load()`, so registering one costs nothing until it is opened (SC-006).
+   */
+  panel: (id: string) => PanelContribution | undefined;
+  panels: (slot?: PanelContribution['slot']) => readonly PanelContribution[];
   keymaps: () => readonly KeymapDef[];
   /** Tier-2 catalogs — lookups behave identically for trusted and hydrated content. */
   composition: (id: string) => CompositionDef | undefined;
@@ -273,6 +287,17 @@ export interface OverlayToolDef {
   load: () => Promise<{ default: OverlayToolRenderer }>;
 }
 
+/**
+ * The vocabulary a projection's parser may consult without importing the
+ * registry: the CALLER owns the registry and hands the parser this one
+ * question. Without it a parser can only infer vocabulary from the base
+ * document, which wrongly rejects REGISTERED types the document does not use
+ * yet (011 T033 review, finding 5).
+ */
+export interface ProjectionPorts {
+  blockExists(type: string): boolean;
+}
+
 /** Executed inside the transforms worker from B4 on. */
 export interface ProjectionDef {
   id: string;
@@ -280,6 +305,7 @@ export interface ProjectionDef {
   parse(
     text: string,
     doc: BuilderDocument,
+    ports: ProjectionPorts,
     scope?: { nodeId: NodeId },
   ): { ok: true; patches: Patch[] } | { ok: false; errors: { line: number; message: string }[] };
 }

@@ -6,7 +6,11 @@
 export { BUCKET_THRESHOLDS, bucketForWidth, type EditingBucket } from './devices/buckets';
 export { DeviceBar, type DeviceBarProps, type DeviceState } from './components/DeviceBar';
 export { EditorCanvas } from './components/EditorCanvas';
-export type { CanvasDragHandle, EditorCanvasProps } from './components/EditorCanvas';
+export type {
+  CanvasDragHandle,
+  CanvasInlineEditHandle,
+  EditorCanvasProps,
+} from './components/EditorCanvas';
 export { Inspector, type InspectorProps } from './components/Inspector';
 export { LayersTree, type LayersTreeProps } from './components/LayersTree';
 export { Palette, type PaletteProps } from './components/Palette';

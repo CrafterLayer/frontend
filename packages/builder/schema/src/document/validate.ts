@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { BlockSchema } from '../blocks/define-block-schema';
 import { findRawStyleLiterals } from '../blocks/style-values';
 import { type BuilderError, builderError } from '../errors';
-import { findJsonViolation, type JsonValue } from '../json/json-value';
+import { RESERVED_JSON_KEYS, findJsonViolation, type JsonValue } from '../json/json-value';
 import { BREAKPOINTS, type BuilderDocument, type Node, type NodeId } from './types';
 
 export type BlockSchemaLookup = (type: string) => BlockSchema | undefined;
@@ -42,6 +42,19 @@ export function validateDocument(doc: BuilderDocument, lookup?: BlockSchemaLooku
 
 function validateNodeShapes(doc: BuilderDocument, errors: BuilderError[]): void {
   for (const [key, node] of Object.entries(doc.nodes)) {
+    if (RESERVED_JSON_KEYS.has(key)) {
+      // Same law as Law J's reserved object keys: the patch door refuses these
+      // as path segments, so a node stored under one could be projected but
+      // never written back. Refusing it keeps the accepted and the applicable
+      // domains identical (011 T033 review, second residual).
+      errors.push(
+        builderError(
+          'doc/reserved-node-id',
+          `Node id "${key}" is a reserved object key; the patch door cannot address it.`,
+          ['nodes', key],
+        ),
+      );
+    }
     if (node.id !== key) {
       errors.push(
         builderError(
@@ -74,7 +87,7 @@ function validateNodeShapes(doc: BuilderDocument, errors: BuilderError[]): void 
       }
     }
 
-    pushJsonErrors(node.props, ['nodes', key, 'props'], errors);
+    pushJsonRecordErrors(node.props, ['nodes', key, 'props'], errors);
 
     for (const [breakpoint, override] of Object.entries(node.responsive ?? {})) {
       if (!(BREAKPOINTS as readonly string[]).includes(breakpoint)) {
@@ -86,7 +99,7 @@ function validateNodeShapes(doc: BuilderDocument, errors: BuilderError[]): void 
           ),
         );
       }
-      pushJsonErrors(override, ['nodes', key, 'responsive', breakpoint], errors);
+      pushJsonRecordErrors(override, ['nodes', key, 'responsive', breakpoint], errors);
     }
 
     for (const [bindingKey, path] of Object.entries(node.bindings ?? {})) {
@@ -384,7 +397,53 @@ function pushJsonErrors(
   if (violation === undefined) {
     return;
   }
+  pushJsonViolation(violation, basePath, errors);
+}
+
+function pushJsonRecordErrors(
+  value: unknown,
+  basePath: (string | number)[],
+  errors: BuilderError[],
+): void {
+  const violation = findJsonViolation(value);
+  if (violation === undefined) {
+    return;
+  }
+
+  if (violation.kind !== 'max-depth' || !isPlainRecord(value)) {
+    pushJsonViolation(violation, basePath, errors);
+    return;
+  }
+
+  for (const [key, entry] of Object.entries(value)) {
+    pushJsonErrors(entry, [...basePath, key], errors);
+  }
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function pushJsonViolation(
+  violation: NonNullable<ReturnType<typeof findJsonViolation>>,
+  basePath: (string | number)[],
+  errors: BuilderError[],
+): void {
   const path = [...basePath, ...violation.path];
+  if (violation.kind === 'reserved-key') {
+    errors.push(
+      builderError(
+        'doc/non-json-value',
+        'Documents may not use a reserved object key; the patch door cannot write it.',
+        path,
+      ),
+    );
+    return;
+  }
   if (violation.kind === 'non-finite-number') {
     errors.push(
       builderError('doc/non-finite-number', 'Numbers in a document must be finite.', path),

@@ -8,7 +8,7 @@ import { ScenarioComposer } from './ScenarioComposer';
 describe('ScenarioComposer', () => {
   it('submits a valid local scenario with its selected task signals', async () => {
     const onApply = vi.fn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <ScenarioComposer scenario={initialScenario} onApply={onApply} onInvalid={() => undefined} />,
@@ -35,7 +35,7 @@ describe('ScenarioComposer', () => {
 
   it('keeps an invalid brief from manufacturing a route', async () => {
     const onApply = vi.fn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     const onInvalid = vi.fn();
     render(<ScenarioComposer scenario={initialScenario} onApply={onApply} onInvalid={onInvalid} />);

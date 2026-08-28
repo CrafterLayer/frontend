@@ -6,6 +6,9 @@ export {
   type JsonObject,
   type JsonViolation,
   type JsonViolationKind,
+  MAX_JSON_DEPTH,
+  RESERVED_JSON_KEYS,
+  canonicalizeJsonValue,
   findJsonViolation,
   isJsonValue,
 } from './json/json-value';
@@ -88,6 +91,7 @@ export {
   type PanelContribution,
   type PanelProps,
   type ProjectionDef,
+  type ProjectionPorts,
   type RegisteredBlock,
   type RegistryRead,
   type StateFacade,

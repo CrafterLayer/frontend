@@ -18,7 +18,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import type { GeometryPorts } from '../../rects';
-import { EditorCanvas, type CanvasDragHandle } from './EditorCanvas';
+import { EditorCanvas, type CanvasDragHandle, type CanvasInlineEditHandle } from './EditorCanvas';
 
 // Pass-through renderers so the whole tree MOUNTS (fixture NullRenders would
 // leave slot children unmounted and nothing to attach geometry to).
@@ -1474,6 +1474,7 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
       rect?: { x: number; y: number; width: number; height: number };
     } = {},
   ) {
+    const inlineEdit: { handle: CanvasInlineEditHandle | null } = { handle: null };
     fake = null;
     loads.count = 0;
     const kernel = createBuilder({
@@ -1506,6 +1507,9 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
           observe: () => () => undefined,
         }}
         onBlockRender={(id) => renders.push(id)}
+        onInlineEditHandle={(handle) => {
+          inlineEdit.handle = handle;
+        }}
         editable={options.editable ?? true}
       />,
     );
@@ -1597,6 +1601,7 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
       setSelectionBox: (next: typeof selectionBox) => {
         selectionBox = next;
       },
+      inlineEdit,
       host: (kind: 'bubble' | 'actions') =>
         view.container.querySelector<HTMLElement>(`.bldr-floating--${kind}`),
       bubble: () => view.container.querySelector<HTMLElement>('.bldr-text-bubble'),
@@ -2171,6 +2176,49 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     expect(h.frameDocument.querySelector('.bldr-inline-text')).not.toBeNull();
     expect(h.bar()).toBeNull();
   });
+
+  // Any live editing surface, whichever kind owns the node: the built-in plain
+  // and rich surfaces, or a contributed editor. The handle closes a SESSION, so
+  // the guarantee must hold for every surface a session can mount.
+  const EDITING_SURFACES = '.bldr-inline-text, .bldr-inline-rich, [data-testid="fake-inline"]';
+
+  it.each([
+    ['a contributed editor', true],
+    ['the built-in rich surface', false],
+  ])(
+    'hands the host a way to END an inline session it does not own — %s (011 edge case 7)',
+    async (_label, contributedEditor) => {
+      // The code view is a SECOND editing surface over the same node. Without
+      // this, opening it left the inline editor live underneath — two editors,
+      // one document (011 T033 review, finding 1).
+      const h = floatingHarness({ contributedEditor });
+      const handle = h.inlineEdit.handle;
+      if (handle === null) {
+        throw new Error('the editable canvas must hand out an inline-edit handle');
+      }
+
+      expect(handle.isEditing()).toBe(false);
+      await h.openRich();
+      expect(handle.isEditing()).toBe(true);
+      expect(h.frameDocument.querySelector(EDITING_SURFACES)).not.toBeNull();
+
+      const before = h.kernel.transactions().length;
+      act(() => {
+        handle.end();
+      });
+
+      expect(handle.isEditing()).toBe(false);
+      expect(h.frameDocument.querySelector(EDITING_SURFACES)).toBeNull();
+      // Ending is not committing: the host asked to close a surface, not to
+      // record an edit, so the change history must not move.
+      expect(h.kernel.transactions()).toHaveLength(before);
+      // Idempotent — a host that ends twice must not throw or dispatch.
+      act(() => {
+        handle.end();
+      });
+      expect(h.kernel.transactions()).toHaveLength(before);
+    },
+  );
 
   it('US3/AC4: the bar is absent during a drag, and absent on a read-only canvas', () => {
     const h = floatingHarness();

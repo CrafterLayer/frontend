@@ -1,5 +1,6 @@
 import {
   blocksMarketing,
+  codeViewExtension,
   createBuilder,
   defaultBlocks,
   emptyDocument,
@@ -13,7 +14,7 @@ import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
 import { demoExtension } from './demo-extension';
 
-export type PlaygroundFixture = 'empty' | 'landing' | 'inline';
+export type PlaygroundFixture = 'code-view' | 'empty' | 'landing' | 'inline';
 
 /** The playground's own marketing landing document (real vocabulary, ar+en). */
 export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument {
@@ -149,6 +150,37 @@ export function inlineEditing(dir: ContentDirection = 'ltr'): BuilderDocument {
   return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
 }
 
+/** The smallest registry-valid page that proves scoped code editing and refusal. */
+export function codeViewEditing(dir: ContentDirection = 'ltr'): BuilderDocument {
+  const nodes: Record<string, Node> = {
+    root: {
+      id: 'root',
+      type: 'page',
+      props: { title: 'Code view editing' },
+      slots: { default: ['hero'] },
+    },
+    hero: {
+      id: 'hero',
+      type: 'hero',
+      props: {
+        tone: 'dark',
+        align: 'center',
+        heading: 'Build pages your kernel can prove',
+        body: 'كل تعديل يمر من باب واحد — وقابل للتراجع.',
+      },
+      responsive: { mobile: { align: 'start' } },
+      slots: { actions: ['cta-start', 'cta-docs'] },
+    },
+    'cta-start': { id: 'cta-start', type: 'cta', props: { label: 'Get started' } },
+    'cta-docs': {
+      id: 'cta-docs',
+      type: 'cta',
+      props: { label: 'اقرأ التوثيق', emphasis: 'ghost' },
+    },
+  };
+  return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
+}
+
 export function createPlaygroundKernel(
   options: { fixture?: PlaygroundFixture; dir?: ContentDirection } = {},
 ): BuilderKernel {
@@ -157,9 +189,11 @@ export function createPlaygroundKernel(
   const document =
     fixture === 'landing'
       ? marketingLanding(dir)
-      : fixture === 'inline'
-        ? inlineEditing(dir)
-        : emptyDocument('site', dir);
+      : fixture === 'code-view'
+        ? codeViewEditing(dir)
+        : fixture === 'inline'
+          ? inlineEditing(dir)
+          : emptyDocument('site', dir);
 
   // Deterministic by construction; zero backend, zero network (FR-014).
   return createBuilder({
@@ -169,8 +203,8 @@ export function createPlaygroundKernel(
     // registration happens at runtime through <RegisterDemoExtension/>.
     extensions:
       fixture === 'inline'
-        ? [defaultBlocks, blocksMarketing, richTextExtension, demoExtension]
-        : [defaultBlocks, blocksMarketing, richTextExtension],
+        ? [defaultBlocks, blocksMarketing, richTextExtension, codeViewExtension, demoExtension]
+        : [defaultBlocks, blocksMarketing, richTextExtension, codeViewExtension],
     ports: { clock: fixedClock(), ids: seededIds('pg') },
   });
 }

@@ -10,6 +10,8 @@ export type BuilderErrorCode =
   | 'doc/dangling-child'
   | 'doc/empty-slot-array'
   | 'doc/id-mismatch'
+  | 'doc/reserved-node-id'
+  | 'doc/invalid-patch'
   | 'doc/invalid-slot-name'
   | 'doc/unknown-type'
   | 'doc/unknown-slot'

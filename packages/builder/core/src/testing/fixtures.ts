@@ -73,7 +73,9 @@ export const fixtureBlocks: TrustedExtensionManifest = {
         schema: defineBlockSchema({
           type: 'text',
           description: 'Test paragraph.',
-          props: z.object({ content: z.string().default('') }),
+          // `weight` exists for numeric-boundary tests (e.g. the -0 door);
+          // optional with no default, so no existing fixture document changes.
+          props: z.object({ content: z.string().default(''), weight: z.number().optional() }),
           examples: [],
         }),
         render: NullRender,

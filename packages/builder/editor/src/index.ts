@@ -27,6 +27,47 @@ export {
   type ShellMetrics,
 } from '@craftkit/builder-theme';
 
+/*
+  Motion (013): the vocabulary comes from the schema so an application can
+  author or validate a MotionSpec, and the renderer's helpers turn one into DOM
+  attributes. The stylesheet is a separate door — `@craftkit/builder/motion.css`
+  — because Tailwind and the browser both need to SEE the CSS, and a TypeScript
+  re-export would hide it.
+*/
+export {
+  MOTION_DELAYS,
+  MOTION_DURATIONS,
+  MOTION_EASINGS,
+  MOTION_PROP,
+  MOTION_STAGGERS,
+  REVEAL_EFFECTS,
+  SCROLL_EFFECTS,
+  motionSpecSchema,
+  validateDocumentMotion,
+  validateMotionSpec,
+  type MotionDelay,
+  type MotionDuration,
+  type MotionEasing,
+  type MotionSpec,
+  type MotionStagger,
+  type RevealEffect,
+  type ScrollEffect,
+} from '@craftkit/builder-schema';
+export { MOTION_CLASS, buildMotionCss, motionAttributes } from '@craftkit/builder-renderer';
+
+/*
+  The animation ENGINE is reached only through a dynamic door. Re-exporting the
+  component statically here would put `motion` in every application's main
+  bundle, and containment would hold on paper while every published page paid
+  for an engine it does not use. `needsMotionEngine` answers cheaply, and it
+  answers "no" for everything the CSS baseline already handles.
+*/
+export {
+  loadMotionStage,
+  needsMotionEngine,
+  type MotionStageProps,
+} from '@craftkit/builder-motion';
+
 export { Builder, type BuilderProps } from './components/Builder';
 export { BuilderTheme, type BuilderThemeProps } from './components/BuilderTheme';
 export { Page, pageSchema } from './components/Page';

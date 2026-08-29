@@ -43,10 +43,17 @@ reuse, and every candidate here has exactly one credible consumer.
 **Language/Version**: TypeScript 6.0.3, React 19.2.8 (`react` and `react-dom` pinned identical).
 Node 24 LTS.
 
-**Primary Dependencies**: No new runtime dependency is introduced by this feature. Existing: zod
-4.4.3 (schema), immer 11.1.18 + zustand 5.0.15 vanilla + nanoid 6.0.1 (core), fast-check 4.9.0 (dev,
-property laws). The agent reaches a model over `fetch` through the existing provider port; no model
-SDK enters the workspace.
+**Primary Dependencies** _(revised 2026-08-29 — this section previously read "No new runtime
+dependency is introduced by this feature", which the requester's Tailwind and animation direction
+made false; the claim is corrected rather than quietly dropped)_:
+
+New, all verified against the registry before install and pinned in the root catalog — `tailwindcss`
+4.3.3 and `@tailwindcss/vite` 4.3.3 (app-level build tooling), `@tailwindcss/typography` 0.5.20,
+`clsx` 2.1.1 and `tailwind-merge` 3.6.0 (class composition in the block library), and `motion`
+13.1.1 (the animation engine, **contained** — see D8/D9). Existing: zod 4.4.3 (schema), immer
+11.1.18 + zustand 5.0.15 vanilla + nanoid 6.0.1 (core), fast-check 4.9.0 (dev, property laws). The
+agent reaches a model over `fetch` through the existing provider port; no model SDK enters the
+workspace.
 
 **Storage**: None. A site is in-memory kernel state, projected to canonical JSON text. The asset
 library is populated by a host-supplied port; this feature ships a local implementation and a
@@ -291,6 +298,51 @@ requires, and `setResponsive` already writes per-breakpoint prop overrides throu
 missing is not capability but **coverage**: existing marketing blocks do not all carry deliberate
 narrow behaviour. Phase D is therefore block work, not kernel work — a genuinely cheaper answer than
 the spec's framing assumed.
+
+### D8 — Tailwind v4 binds to the tokens; it does not replace them
+
+Added 2026-08-29 at the requester's direction ("engine + editor + AI").
+
+`@theme inline` declares every Tailwind namespace as `var(--t-…)`, generated from the token
+vocabulary by `packages/builder/renderer/src/tailwind/token-bridge.ts` and held equal to its
+checked-in stylesheet by a drift gate — the same arrangement `chrome.css` already uses. The result
+is that `bg-accent` compiles to `background-color: var(--t-accent)`: a **reference, not a value**.
+Re-point the token and every page moves, so FR-012 survives Tailwind's arrival intact.
+
+`inline` is load-bearing rather than stylistic. A plain `@theme` copies the declared value into
+Tailwind's own variable once; the utility would then freeze at the starting palette and a runtime
+design-system change would move nothing.
+
+The mapping is **mechanical and one-to-one** with token names. `--color-foreground` would read
+better than `--color-text`, and that is precisely the temptation refused: a nicer name is a
+translation table, a translation table is a second source of truth, and it drifts the first time a
+token is added. An exhaustiveness test makes an unmapped token a failure.
+
+**The agent never authors class strings.** It emits tokens and named intents; the block chooses the
+utilities. Measured on the existing code, this is not a stylistic preference: `style-values.ts`
+refuses hex colours and px lengths, and `p-4` / `bg-blue-500` pass straight through it. A guard that
+looks like protection would have provided none, while the design system quietly stopped being
+addressable and SC-004's distinctiveness collapsed into Tailwind's default palette.
+
+### D9 — Motion is data at layer 0; the engine is contained at layer 4
+
+The vocabulary (`packages/builder/schema/src/motion/`) is a closed union of entrance effects,
+scroll-linked effects, and **named timing steps** — validated at the same door as every other prop.
+It sits at layer 0 for two reasons: the planner at layer 2 must be able to emit motion and have it
+refused when it invents an effect, and a document carrying motion must round-trip whether or not any
+animation engine is loaded.
+
+Timing is a named step, never a number. `duration: 300` is a literal in exactly the way
+`padding: '16px'` is, and it would make motion the one part of the design system a theme edit could
+not move.
+
+`motion` 13.1.1 is **contained** in a layer-4 extension, following the precedent the workspace
+already set for tiptap: the read, publish, and static-output paths render a document carrying motion
+without loading the engine. Extensions under `packages/builder/extensions/` receive
+`EXTENSION_LAYER` automatically, so no `BUILDER_LAYERS` entry is needed.
+
+Absence means stillness, and a viewer's reduced-motion preference is honoured — motion is opted
+into, never defaulted on.
 
 ## Project Structure
 

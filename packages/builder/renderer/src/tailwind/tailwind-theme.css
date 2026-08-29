@@ -1,0 +1,71 @@
+/*
+  GENERATED FILE — do not edit by hand.
+
+  Produced by packages/builder/renderer/src/tailwind/token-bridge.ts and held
+  equal to its generator by token-bridge.test.ts. Edit the generator.
+
+  Every declaration points at a --t-* custom property rather than a value, so
+  Tailwind utilities resolve through the site's generated design system. A
+  document therefore still holds no literal: bg-accent is a reference, not a
+  colour.
+*/
+
+@theme inline {
+  --color-accent: var(--t-accent);
+  --color-accent-text: var(--t-accent-text);
+  --spacing-bar-compact: var(--t-bar-height-compact);
+  --spacing-bar-regular: var(--t-bar-height-regular);
+  --spacing-bar-tall: var(--t-bar-height-tall);
+  --border-width: var(--t-border-width);
+  --container-content-narrow: var(--t-content-width-narrow);
+  --container-content-standard: var(--t-content-width-standard);
+  --container-content-wide: var(--t-content-width-wide);
+  --spacing-control-block-lg: var(--t-control-padding-block-lg);
+  --spacing-control-block-md: var(--t-control-padding-block-md);
+  --spacing-control-block-sm: var(--t-control-padding-block-sm);
+  --spacing-control-inline-lg: var(--t-control-padding-inline-lg);
+  --spacing-control-inline-md: var(--t-control-padding-inline-md);
+  --spacing-control-inline-sm: var(--t-control-padding-inline-sm);
+  --font-mono: var(--t-font-family-mono);
+  --font-sans: var(--t-font-family-sans);
+  --font-serif: var(--t-font-family-serif);
+  --text-base: var(--t-font-size-base);
+  --text-lg: var(--t-font-size-lg);
+  --text-sm: var(--t-font-size-sm);
+  --text-xl: var(--t-font-size-xl);
+  --text-xs: var(--t-font-size-xs);
+  --text-2xl: var(--t-font-size-xxl);
+  --font-weight-bold: var(--t-font-weight-bold);
+  --font-weight-medium: var(--t-font-weight-medium);
+  --font-weight-regular: var(--t-font-weight-regular);
+  --font-weight-semibold: var(--t-font-weight-semibold);
+  --spacing-gap: var(--t-gap);
+  --spacing-gap-lg: var(--t-gap-lg);
+  --spacing-gap-sm: var(--t-gap-sm);
+  --spacing-gap-xs: var(--t-gap-xs);
+  --container-grid-min-track: var(--t-grid-min-track);
+  --spacing-gutter: var(--t-gutter);
+  --tracking-normal: var(--t-letter-spacing-normal);
+  --tracking-tight: var(--t-letter-spacing-tight);
+  --tracking-wide: var(--t-letter-spacing-wide);
+  --leading-normal: var(--t-line-height-normal);
+  --leading-relaxed: var(--t-line-height-relaxed);
+  --leading-tight: var(--t-line-height-tight);
+  --spacing-motion-distance: var(--t-motion-distance);
+  --spacing-motion-parallax: var(--t-motion-parallax);
+  --container-page: var(--t-page-width);
+  --radius-base: var(--t-radius);
+  --spacing-section-lg: var(--t-section-spacing-lg);
+  --spacing-section-md: var(--t-section-spacing-md);
+  --spacing-section-sm: var(--t-section-spacing-sm);
+  --shadow-soft: var(--t-shadow-soft);
+  --shadow-strong: var(--t-shadow-strong);
+  --spacing-unit: var(--t-space-unit);
+  --color-success: var(--t-success);
+  --color-success-text: var(--t-success-text);
+  --color-surface: var(--t-surface);
+  --color-surface-inverse: var(--t-surface-inverse);
+  --color-text: var(--t-text);
+  --color-text-inverse: var(--t-text-inverse);
+  --color-text-muted: var(--t-text-muted);
+}

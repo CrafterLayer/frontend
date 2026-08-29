@@ -48,6 +48,23 @@ const CONTAINED_DEPENDENCIES = Object.freeze([
     matches: (name) => name.startsWith('@tiptap/') || name.startsWith('prosemirror-'),
     owners: Object.freeze(new Set(['@craftkit/builder-richtext'])),
   }),
+  /*
+    The animation engine (013). Contained for the same reason as the editor:
+    motion is CSS by default — reveals and scroll effects run on an
+    `animation-timeline: view()` with no JavaScript at all — and the engine
+    exists only for the handful of effects CSS cannot express, chiefly pinning
+    a section while the page scrolls past it.
+
+    Left uncontained, a renderer or block would eventually import it "just for
+    this one section" and every published page would start paying for an engine
+    it does not need. Naming the rule here is what makes "the publish path
+    never loads the engine" mechanical rather than a promise in a comment.
+  */
+  Object.freeze({
+    label: 'animation engine',
+    matches: (name) => name === 'motion' || name.startsWith('motion/') || name === 'framer-motion',
+    owners: Object.freeze(new Set(['@craftkit/builder-motion'])),
+  }),
 ]);
 
 /**
@@ -62,8 +79,27 @@ const CONTAINED_DEPENDENCIES = Object.freeze([
 function containedRuleFor(name, spec) {
   const aliasTarget = typeof spec === 'string' && spec.startsWith('npm:') ? spec.slice(4) : '';
   return CONTAINED_DEPENDENCIES.find(
-    (rule) => rule.matches(name) || (aliasTarget !== '' && rule.matches(aliasTarget)),
+    (rule) => rule.matches(name) || (aliasTarget !== '' && rule.matches(stripVersion(aliasTarget))),
   );
+}
+
+/**
+ * `npm:motion@13.1.1` names the package `motion`, not `motion@13.1.1`.
+ *
+ * The version was not stripped before, and the omission was invisible because
+ * the only contained rule matched a SCOPE prefix (`@tiptap/`), which survives a
+ * trailing version. A rule matching a bare name — the animation engine, and any
+ * future unscoped package — was smuggleable through an alias. Found by the
+ * 013 alias test, which existed precisely to check that the rule fires.
+ *
+ * The leading `@` of a scoped name is deliberately preserved: only a LATER `@`
+ * introduces a version.
+ *
+ * @param {string} target
+ */
+function stripVersion(target) {
+  const versionAt = target.lastIndexOf('@');
+  return versionAt > 0 ? target.slice(0, versionAt) : target;
 }
 
 /**

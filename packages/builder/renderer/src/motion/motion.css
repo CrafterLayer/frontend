@@ -1,0 +1,326 @@
+/*
+  GENERATED FILE — do not edit by hand.
+
+  Produced by packages/builder/renderer/src/motion/motion-css.ts and held equal
+  to its generator by motion-css.test.ts. Edit the generator.
+
+  Motion runs here as pure CSS: keyframes driven by a view() timeline, with no
+  JavaScript and no animation engine. That is what lets the publish path and
+  static output animate a document without loading anything (FR-063).
+*/
+
+@keyframes bldr-motion-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='fade'] {
+  animation-name: bldr-motion-fade;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--t-motion-distance, 24px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='fade-up'] {
+  animation-name: bldr-motion-fade-up;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--t-motion-distance, 24px) * -1));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='fade-down'] {
+  animation-name: bldr-motion-fade-down;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-fade-left {
+  from {
+    opacity: 0;
+    transform: translateX(var(--t-motion-distance, 24px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='fade-left'] {
+  animation-name: bldr-motion-fade-left;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-fade-right {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--t-motion-distance, 24px) * -1));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='fade-right'] {
+  animation-name: bldr-motion-fade-right;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='zoom-in'] {
+  animation-name: bldr-motion-zoom-in;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-zoom-out {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='zoom-out'] {
+  animation-name: bldr-motion-zoom-out;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bldr-motion[data-reveal='blur-in'] {
+  animation-name: bldr-motion-blur-in;
+  animation-timeline: view();
+  animation-range: entry 0% cover 32%;
+  animation-fill-mode: both;
+}
+
+@keyframes bldr-motion-parallax-slow {
+  from {
+    transform: translateY(calc(var(--t-motion-parallax, 40px) * -1));
+  }
+  to {
+    transform: translateY(var(--t-motion-parallax, 40px));
+  }
+}
+.bldr-motion[data-scroll='parallax-slow'] {
+  animation-name: bldr-motion-parallax-slow;
+  animation-timeline: view();
+  animation-range: cover 0% cover 100%;
+  animation-fill-mode: both;
+  animation-timing-function: linear;
+}
+
+@keyframes bldr-motion-parallax-fast {
+  from {
+    transform: translateY(calc(var(--t-motion-parallax, 40px) * -2));
+  }
+  to {
+    transform: translateY(calc(var(--t-motion-parallax, 40px) * 2));
+  }
+}
+.bldr-motion[data-scroll='parallax-fast'] {
+  animation-name: bldr-motion-parallax-fast;
+  animation-timeline: view();
+  animation-range: cover 0% cover 100%;
+  animation-fill-mode: both;
+  animation-timing-function: linear;
+}
+
+@keyframes bldr-motion-scale-on-scroll {
+  from {
+    transform: scale(0.88);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.bldr-motion[data-scroll='scale-on-scroll'] {
+  animation-name: bldr-motion-scale-on-scroll;
+  animation-timeline: view();
+  animation-range: cover 0% cover 100%;
+  animation-fill-mode: both;
+  animation-timing-function: linear;
+}
+
+@keyframes bldr-motion-fade-on-scroll {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.bldr-motion[data-scroll='fade-on-scroll'] {
+  animation-name: bldr-motion-fade-on-scroll;
+  animation-timeline: view();
+  animation-range: cover 0% cover 100%;
+  animation-fill-mode: both;
+  animation-timing-function: linear;
+}
+
+@keyframes bldr-motion-blur-on-scroll {
+  from {
+    filter: blur(8px);
+  }
+  to {
+    filter: none;
+  }
+}
+.bldr-motion[data-scroll='blur-on-scroll'] {
+  animation-name: bldr-motion-blur-on-scroll;
+  animation-timeline: view();
+  animation-range: cover 0% cover 100%;
+  animation-fill-mode: both;
+  animation-timing-function: linear;
+}
+
+@keyframes bldr-motion-scrub-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.bldr-motion[data-scroll='scrub-reveal'] {
+  animation-name: bldr-motion-scrub-reveal;
+  animation-timeline: view();
+  animation-range: cover 0% cover 100%;
+  animation-fill-mode: both;
+  animation-timing-function: linear;
+}
+
+.bldr-motion[data-duration='instant'] {
+  animation-duration: 120ms;
+}
+.bldr-motion[data-duration='fast'] {
+  animation-duration: 220ms;
+}
+.bldr-motion[data-duration='normal'] {
+  animation-duration: 420ms;
+}
+.bldr-motion[data-duration='slow'] {
+  animation-duration: 700ms;
+}
+.bldr-motion[data-duration='deliberate'] {
+  animation-duration: 1100ms;
+}
+.bldr-motion[data-delay='none'] {
+  animation-delay: 0ms;
+}
+.bldr-motion[data-delay='short'] {
+  animation-delay: 80ms;
+}
+.bldr-motion[data-delay='medium'] {
+  animation-delay: 180ms;
+}
+.bldr-motion[data-delay='long'] {
+  animation-delay: 320ms;
+}
+.bldr-motion[data-easing='linear'] {
+  animation-timing-function: linear;
+}
+.bldr-motion[data-easing='ease-out'] {
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bldr-motion[data-easing='ease-in-out'] {
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+}
+.bldr-motion[data-easing='spring'] {
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bldr-motion[data-easing='bounce'] {
+  animation-timing-function: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+.bldr-motion[data-stagger='none'] > * {
+  animation-delay: calc(0ms * var(--stagger-index, 0));
+}
+.bldr-motion[data-stagger='tight'] > * {
+  animation-delay: calc(60ms * var(--stagger-index, 0));
+}
+.bldr-motion[data-stagger='normal'] > * {
+  animation-delay: calc(110ms * var(--stagger-index, 0));
+}
+.bldr-motion[data-stagger='loose'] > * {
+  animation-delay: calc(200ms * var(--stagger-index, 0));
+}
+
+@supports not (animation-timeline: view()) {
+  .bldr-motion {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+    clip-path: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-motion,
+  .bldr-motion > * {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+  }
+}

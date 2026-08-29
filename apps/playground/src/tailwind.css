@@ -1,0 +1,24 @@
+/*
+  The playground's Tailwind entry.
+
+  Order matters and is not stylistic. `tailwindcss` first, because the preset's
+  door contributes an `@theme` block that Tailwind reads as CONFIGURATION — it
+  has to be loaded before it can be configured. The door second, so every
+  utility resolves through the site's --t-* design system rather than carrying
+  a value of its own.
+*/
+@import 'tailwindcss';
+@import '@craftkit/builder/tailwind.css';
+
+/* Motion: pure CSS on a view() timeline. No engine is loaded by this import. */
+@import '@craftkit/builder/motion.css';
+
+/*
+  Tailwind v4 discovers utilities by scanning source text. The builder's
+  components live outside this app's root, so they are named explicitly here —
+  without this, a class used only inside a package would be generated in dev
+  and vanish from the production build, which is the worst version of this bug
+  because it does not reproduce locally.
+*/
+@source '../../../packages/builder/**/src/**/*.{ts,tsx}';
+@source '../../../packages/ui/src/**/*.{ts,tsx}';

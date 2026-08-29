@@ -17,6 +17,8 @@ catalog:
   '@storybook/addon-docs': 10.5.10
   '@storybook/addon-vitest': 10.5.10
   '@storybook/react-vite': 10.5.10
+  '@tailwindcss/vite': 4.3.3
+  '@tailwindcss/typography': 0.5.20
   '@testing-library/dom': 10.4.1
   '@testing-library/jest-dom': 7.0.0
   '@testing-library/react': 16.3.2
@@ -27,6 +29,7 @@ catalog:
   '@vitejs/plugin-react': 6.1.0
   '@vitest/browser-playwright': 4.1.11
   '@vitest/coverage-v8': 4.1.11
+  clsx: 2.1.1
   eslint: 10.9.0
   eslint-config-prettier: 10.1.8
   eslint-plugin-react-hooks: 7.1.1
@@ -36,6 +39,7 @@ catalog:
   globals: 17.11.0
   immer: 11.1.18
   jsdom: 30.0.1
+  motion: 13.1.1
   nanoid: 6.0.1
   playwright: 1.62.1
   prettier: 3.9.6
@@ -43,6 +47,8 @@ catalog:
   react-dom: 19.2.8
   react-router: 8.3.0
   storybook: 10.5.10
+  'tailwind-merge': 3.6.0
+  tailwindcss: 4.3.3
   turbo: 2.10.10
   typescript: 6.0.3
   typescript-eslint: 8.67.0

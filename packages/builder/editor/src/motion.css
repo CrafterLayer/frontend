@@ -1,0 +1,6 @@
+/* The preset's motion door.
+   Applications reach the builder family ONLY through @craftkit/builder
+   (ADR 0003), stylesheets included. Import this once at the application root
+   and every generated page animates — with no animation engine loaded, because
+   the sheet is pure CSS driven by a view() timeline. */
+@import '@craftkit/builder-renderer/motion.css';

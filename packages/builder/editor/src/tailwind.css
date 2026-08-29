@@ -1,0 +1,10 @@
+/* The preset's Tailwind door.
+   Same reasoning as chrome.css: applications reach the builder family ONLY
+   through @craftkit/builder (ADR 0003), and a stylesheet is no exception. This
+   forwards to the package that owns the token bridge.
+
+   Import this AFTER `@import 'tailwindcss'` in the application's CSS entry.
+   Tailwind v4 reads `@theme` as configuration, so the block has to arrive once
+   Tailwind itself is loaded; putting it first leaves the namespaces undefined
+   and every token utility silently missing. */
+@import '@craftkit/builder-renderer/tailwind.css';

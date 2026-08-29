@@ -29,3 +29,12 @@ export { themeToCssVars, tokenCssName, type Theme, type TokenName } from './reso
 export { darkTheme, lightTheme } from './themes';
 export { useKernelNode, useKernelSelector, useRegistryEpoch } from './subscribe';
 export { RichText, safeHref, type RichTextProps } from './components/RichText';
+
+/*
+  Motion (013). The CSS baseline: reveals and scroll effects run on a view()
+  timeline with no JavaScript, so the publish path and static output animate a
+  document without loading any engine. `motionAttributes` turns a validated
+  MotionSpec into DOM attributes — never inline style, so no timing literal
+  ever reaches a document.
+*/
+export { MOTION_CLASS, buildMotionCss, motionAttributes } from './motion';

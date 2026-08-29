@@ -15,6 +15,14 @@
     "./css": {
       "types": "./src/chrome.css.d.ts",
       "default": "./src/chrome.css"
+    },
+    "./tailwind.css": {
+      "types": "./src/tailwind.css.d.ts",
+      "default": "./src/tailwind.css"
+    },
+    "./motion.css": {
+      "types": "./src/motion.css.d.ts",
+      "default": "./src/motion.css"
     }
   },
   "scripts": {
@@ -28,6 +36,7 @@
     "@craftkit/builder-blocks-marketing": "workspace:*",
     "@craftkit/builder-code-view": "workspace:*",
     "@craftkit/builder-core": "workspace:*",
+    "@craftkit/builder-motion": "workspace:*",
     "@craftkit/builder-react": "workspace:*",
     "@craftkit/builder-renderer": "workspace:*",
     "@craftkit/builder-richtext": "workspace:*",

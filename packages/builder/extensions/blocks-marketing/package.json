@@ -19,9 +19,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@craftkit/builder-renderer": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",
-    "zod": "catalog:",
-    "@craftkit/builder-renderer": "workspace:*"
+    "clsx": "catalog:",
+    "tailwind-merge": "catalog:",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "react": "catalog:"

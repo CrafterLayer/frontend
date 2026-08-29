@@ -431,6 +431,38 @@ run the distinctiveness check across unrelated briefs and produce its measured r
   generation MUST still complete and MUST label the affected positions rather than leave them
   silently blank.
 
+**The styling system**
+
+- **FR-055**: The page's styling system MUST be a utility framework whose every design value
+  resolves through the project design system rather than carrying a value of its own. A utility that
+  paints a colour MUST reference a token, so re-pointing that token moves every page that uses it.
+- **FR-056**: The binding between the token vocabulary and the utility framework MUST be generated
+  from the vocabulary, never hand-maintained, and a checked-in generated stylesheet MUST be held
+  equal to its generator by a gate that fails when they disagree.
+- **FR-057**: Adding a token without deciding where it belongs in the utility framework MUST fail
+  the build rather than silently producing a utility that resolves to nothing.
+- **FR-058**: The agent MUST NOT author raw utility class strings into documents. It emits tokens
+  and named intents; the block decides which utilities express them. A class string is opaque to
+  validation, carries literal values, and would make the design system unaddressable.
+- **FR-059**: The styling system MUST serve the generated pages, the block library, and the editor's
+  own surfaces, while the editor's appearance stays independent of the page's (FR-015).
+
+**Motion**
+
+- **FR-060**: Motion MUST be declarative document data drawn from a closed vocabulary — entrance
+  effects, scroll-linked effects, and named timing steps — validated at the same door as every other
+  prop. An effect the vocabulary does not contain MUST be refused, never silently ignored.
+- **FR-061**: Motion timing MUST be expressed as named steps, never as raw durations. A millisecond
+  count is a literal in exactly the way a pixel length is, and would make motion the one part of the
+  design system a theme change could not move.
+- **FR-062**: Motion MUST be expressible per breakpoint, so a page may animate on a wide screen and
+  stay still on a phone.
+- **FR-063**: The animation engine MUST be contained: the read, publish, and static-output paths
+  MUST render a document carrying motion without loading it, exactly as the rich-text engine is
+  contained today.
+- **FR-064**: Generated motion MUST honour a viewer's reduced-motion preference, and the absence of
+  a motion value MUST mean stillness — motion is opted into, never defaulted on.
+
 **Evidence and evaluation**
 
 - **FR-052**: A recorded evaluation protocol MUST exist that generates a fixed brief set through
@@ -528,6 +560,22 @@ requester on 2026-08-29 and are now binding requirements rather than assumptions
   an explicit versioned contract so a future service can absorb the whole pipeline behind one
   endpoint without changing its client. A deterministic offline implementation stays available so
   every scenario here is testable without a network.
+
+- **Tailwind v4 is the styling system, bound to the tokens** (FR-055 through FR-059). Added
+  2026-08-29 at the requester's direction: "engine + editor + AI", and "everything that gets built
+  has to be built on it so the thing is completely professional — I don't want anything random."
+  Tailwind v4's `@theme inline` declares every namespace as `var(--t-…)`, so `bg-accent` compiles to
+  `background-color: var(--t-accent)` — a reference, not a colour. That is what lets Tailwind serve
+  the request without costing the design system its addressability. The agent still emits tokens and
+  named intents and never authors a class string: `p-4` and `bg-blue-500` are literal values in
+  class clothing, they would make a token edit unable to move a page, and — measured on the existing
+  code — `style-values.ts` does not catch them, so the guard that looks like protection here gives
+  none.
+
+- **Motion is declarative data from a closed vocabulary** (FR-060 through FR-064). Added the same
+  day, with the same reasoning applied one layer further: a named step (`duration: 'normal'`)
+  survives a theme change, a raw `300` does not. The engine is contained the way the rich-text
+  engine already is, so the publish path never loads it.
 
 - **Imagery is selected from a project asset library, not generated** (FR-044 through FR-051). The
   library is populated locally in this feature. The agent may only place assets the library holds.

@@ -10,7 +10,15 @@
     "src"
   ],
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tailwind.css": {
+      "types": "./src/tailwind/tailwind-theme.css.d.ts",
+      "default": "./src/tailwind/tailwind-theme.css"
+    },
+    "./motion.css": {
+      "types": "./src/motion/motion.css.d.ts",
+      "default": "./src/motion/motion.css"
+    }
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",

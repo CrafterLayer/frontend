@@ -138,3 +138,72 @@ export {
   type RichTextListItem,
   type RichTextMark,
 } from './rich-text/rich-text';
+
+/*
+  Asset library (013): the layer-0 CONTRACT only — identity, metadata, the
+  one-method port, and the law that every reference must resolve to a held
+  asset. Selection lives at layer 2; the library's contents are site data.
+  The agent can only ever emit an assetId, so an invented address is a
+  validation failure rather than a broken image.
+*/
+export {
+  type AssetEntry,
+  type AssetEntryValidationIssue,
+  type AssetEntryValidationResult,
+  type AssetId,
+  type AssetLibraryPort,
+  type AssetRef,
+  type AssetReferenceIssue,
+  type CollectedAssetRef,
+  type ImageProp,
+  assetEntrySchema,
+  assetRefSchema,
+  collectAssetRefs,
+  imagePropSchema,
+  isAssetRef,
+  validateAssetEntry,
+  validateAssetReferences,
+} from './assets';
+
+/*
+  Motion (013): the vocabulary, at layer 0 so the planner can EMIT motion and
+  have it refused at the door, and so a document carrying motion round-trips
+  whether or not any animation engine is loaded. Scales are named STEPS — a
+  raw millisecond count is a literal in exactly the way '16px' is. The engine
+  that renders these steps is a contained extension; this is only the contract.
+*/
+export {
+  MOTION_DELAYS,
+  MOTION_DURATIONS,
+  MOTION_EASINGS,
+  MOTION_PROP,
+  MOTION_STAGGERS,
+  REVEAL_EFFECTS,
+  SCROLL_EFFECTS,
+  motionSpecSchema,
+  validateDocumentMotion,
+  validateMotionSpec,
+  type MotionDelay,
+  type MotionDuration,
+  type MotionEasing,
+  type MotionSpec,
+  type MotionStagger,
+  type MotionValidationIssue,
+  type MotionValidationResult,
+  type RevealEffect,
+  type ScrollEffect,
+} from './motion';
+
+/*
+  The page's design tokens (013). They live at layer 0 because the AI planner
+  is layer 2, the renderer is layer 2, and ADR 0003 forbids sideways edges —
+  so the planner could not otherwise import the vocabulary it generates. The
+  renderer re-exports all of it, so no existing import broke.
+*/
+export {
+  tokenCssName,
+  type ColorToken,
+  type MeasurementToken,
+  type Theme,
+  type TokenName,
+} from './theme';

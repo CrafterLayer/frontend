@@ -23,6 +23,8 @@
     "@craftkit/typescript-config": "workspace:*",
     "@storybook/addon-docs": "catalog:",
     "@storybook/react-vite": "catalog:",
+    "@tailwindcss/typography": "catalog:",
+    "@tailwindcss/vite": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
     "@types/node": "catalog:",
@@ -32,6 +34,7 @@
     "@vitest/coverage-v8": "catalog:",
     "jsdom": "catalog:",
     "storybook": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

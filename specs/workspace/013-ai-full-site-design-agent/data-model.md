@@ -229,8 +229,14 @@ backend-backed one that also accepts uploads.
 whose `assetId` is absent from `site.assets`. An invented address is a validation failure, not a
 broken image.
 
-**Deliberate absence** (FR-047) is `undefined` plus a labelled reason on the block, never an
-`AssetRef` pointing nowhere.
+**Deliberate absence** (FR-047) is the second arm of the `ImageProp` union —
+`{ absent: true; reason: string }` — never an `AssetRef` pointing nowhere.
+
+> **Corrected 2026-08-29.** This paragraph previously said absence was `undefined` plus a labelled
+> reason, which contradicted [contracts/asset-library.md](./contracts/asset-library.md) §5. The
+> contract is right and the prose was wrong: `undefined` is indistinguishable from "nobody set this
+> yet", so it cannot carry a reason and cannot be told apart from the unfilled placeholder FR-047
+> exists to forbid. A closed union makes the placeholder unrepresentable, which is the whole point.
 
 ---
 

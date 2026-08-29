@@ -1,0 +1,119 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as MotionStageStories from './MotionStage.stories';
+
+<Meta of={MotionStageStories} />
+
+# MotionStage
+
+## Purpose and ownership
+
+Owned by `@craftkit/builder-motion`, the **contained** animation engine at layer 4.
+
+Read this before reaching for it: **you probably do not need it.** Reveals and every scroll effect
+except pinning are plain CSS in `@craftkit/builder-renderer/motion.css`, driven by an
+`animation-timeline: view()`. That baseline runs on the compositor, loads no JavaScript, and is what
+lets the publish path and static output animate a page without an engine at all.
+
+`MotionStage` exists for the remainder:
+
+1. **Pinning.** Holding a section still while the page scrolls past it has no CSS expression. That
+   is why `scroll: 'pin'` is deliberately **absent** from the stylesheet rather than present and
+   inert — an effect that silently does nothing is worse than one that visibly needs the engine.
+2. **Stagger indices.** A cascade needs each child to know its position. `sibling-index()` would say
+   it in CSS, but it is not portable yet, so the index is set here as a custom property the
+   stylesheet's `calc()` reads.
+
+## When to use, and when not to
+
+| Situation                                           | Use                                              |
+| --------------------------------------------------- | ------------------------------------------------ |
+| A section fades, slides, zooms, or blurs on entry   | **No.** The stylesheet already does it           |
+| Parallax, scale, fade, or blur driven by scroll     | **No.** Also the stylesheet                      |
+| A section must stay put while the page scrolls past | **Yes**                                          |
+| Children must animate in sequence                   | **Yes**, for the index                           |
+| You want a duration in milliseconds                 | **No**, and not anywhere. Timing is a named step |
+
+## Props
+
+| Prop        | Type                      | Default     | Notes                                                              |
+| ----------- | ------------------------- | ----------- | ------------------------------------------------------------------ |
+| `spec`      | `MotionSpec \| undefined` | `undefined` | The validated intent. Absent or empty means the stage does nothing |
+| `children`  | `ReactNode`               | —           | Content. Non-element children pass through untouched               |
+| `className` | `string \| undefined`     | `undefined` | Merged after the motion class                                      |
+
+`MotionSpec` comes from `@craftkit/builder-schema` and is a **closed vocabulary**. An invented
+effect is a validation failure at the door, not a section that quietly never moves.
+
+## Variants and state
+
+`Still` renders one plain element and touches no engine API. `Reveal` and `Parallax` add attributes
+the stylesheet reads and still run no JavaScript. `Staggered` sets `--stagger-index` on each child.
+`Pinned` is the only story that engages the engine. `SwitchedOff` must leave **no** class and **no**
+attributes behind.
+
+## Accessibility
+
+Reduced motion is honoured in two places, and both matter.
+
+The stylesheet disables every animation under `prefers-reduced-motion: reduce` **and restores
+opacity while doing so** — without that, `animation-fill-mode: both` leaves an element frozen at its
+start frame and the accessibility preference turns into a blank page.
+
+This component removes **pinning** under the same preference. Pinning is motion, arguably the most
+disorienting kind, so the preference removes it rather than softening it.
+
+The stage adds no roles, labels, or focus behaviour. It is a layout wrapper; the content inside
+keeps its own semantics, and reading order is unchanged.
+
+## Responsive, RTL, and theme
+
+Motion is a per-breakpoint prop, so a page may animate on a wide screen and stay still on a phone —
+a real responsive choice, and one the document validator checks inside breakpoint overrides.
+
+Travel distances resolve from `--t-motion-distance` and `--t-motion-parallax`, so a restrained brand
+can shorten every reveal in one edit. They are real theme tokens; they became tokens because the
+coverage gate correctly refused them as hard-coded lengths wearing a token's clothes.
+
+Motion itself is direction-agnostic. `fade-left` and `fade-right` describe travel, not reading
+order.
+
+## Composition
+
+The package's front door is deliberately dynamic, so `MotionStage` is **not** a static export of
+`@craftkit/builder-motion` — a static re-export would put the engine in every application's main
+bundle. Ask first, then load:
+
+```tsx
+import { lazy, Suspense } from 'react';
+import { loadMotionStage, needsMotionEngine } from '@craftkit/builder';
+
+const Stage = lazy(async () => ({ default: await loadMotionStage() }));
+
+// Almost always false: the CSS baseline already handles reveals and scroll.
+return needsMotionEngine(spec) ? (
+  <Suspense fallback={<div className="mkt-section">{cards}</div>}>
+    <Stage spec={spec} className="mkt-section">
+      {cards}
+    </Stage>
+  </Suspense>
+) : (
+  <div className="mkt-section" {...motionAttributes(spec)}>
+    {cards}
+  </div>
+);
+```
+
+A story or a test that wants the component eagerly imports `@craftkit/builder-motion/stage` and pays
+for it deliberately.
+
+## Known limitations
+
+- **`spring` easing is approximated in CSS** by a cubic-bézier. Real spring physics needs the
+  engine; the baseline gets as close as a bézier can.
+- **Pinning requires this package.** A `pin` on a page that never loads the extension does nothing —
+  by design, and visibly rather than silently.
+- **Browsers without scroll-driven animation support** show the content plainly visible, with
+  nothing hidden waiting on a timeline that will never run.
+- **`motion` may be declared only here.** `check:workspace` fails any other member that names it,
+  including through an npm alias.

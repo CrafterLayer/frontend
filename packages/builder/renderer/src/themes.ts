@@ -70,6 +70,8 @@ const measurements = {
   fontFamilySerif: "Georgia, Cambria, 'Times New Roman', 'Noto Naskh Arabic', serif",
   fontFamilyMono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   fontSizeSm: '0.8125rem',
+  motionDistance: '24px',
+  motionParallax: '40px',
   controlPaddingBlockSm: '8px',
   controlPaddingBlockMd: '10px',
   controlPaddingBlockLg: '14px',

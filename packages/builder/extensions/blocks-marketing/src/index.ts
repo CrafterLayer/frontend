@@ -5,6 +5,7 @@ import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { Cta, ctaSchema } from './components/Cta';
 import { Features, featuresSchema } from './components/Features';
+import { NavLinks, navLinksSchema } from './components/NavLinks';
 import { PageFooter, pageFooterSchema } from './components/PageFooter';
 import { PageHeader, pageHeaderSchema } from './components/PageHeader';
 import { Stack, stackSchema } from './components/Stack';
@@ -29,6 +30,8 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: pricingSchema, render: Pricing },
       { schema: testimonialsSchema, render: Testimonials },
       { schema: ctaSchema, render: Cta },
+      // A row of links: the composition primitive a header or footer slot holds.
+      { schema: navLinksSchema, render: NavLinks },
       { schema: richTextBlockSchema, render: RichTextBlock },
     ],
   },

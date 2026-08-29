@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -9,76 +9,120 @@ import { pageHeaderSchema } from './schema';
 const node: Node = { id: 'page-header-test', type: 'pageHeader', props: {} };
 
 describe('PageHeader', () => {
-  it('partitions colour roles, optional text, and defaults exactly', () => {
-    const colourRoles = new Set(['background', 'textColor']);
-    const optionalText = new Set([
-      'tagline',
-      'brandHref',
-      'actionLabel',
-      'actionHref',
-      'secondaryActionLabel',
-      'secondaryActionHref',
-    ]);
-    const defaulted = new Set([
-      'brand',
-      'links',
+  it('declares exactly the start center and end slots with the shared allow list', () => {
+    const allowed = ['richText', 'cta', 'navLinks', 'stack'];
+
+    expect(pageHeaderSchema.slots).toStrictEqual({
+      start: { allow: allowed },
+      center: { allow: allowed },
+      end: { allow: allowed },
+    });
+    expect(Object.keys(pageHeaderSchema.slots ?? {})).toEqual(['start', 'center', 'end']);
+    expect(pageHeaderSchema).not.toHaveProperty('inlineEditable');
+  });
+
+  it('keeps exactly the surviving container properties and their intentional defaults', () => {
+    const colourRoles = ['background', 'textColor'];
+    const defaulted = [
       'layout',
       'density',
-      'brandSize',
-      'navStyle',
-      'navCase',
-      'navWeight',
-      'actionStyle',
-      'actionSize',
       'border',
       'shadow',
-      'sticky',
-      'translucent',
       'align',
       'tone',
       'spacing',
       'width',
-    ]);
-    const allProperties = new Set([...colourRoles, ...optionalText, ...defaulted]);
-
-    expect(allProperties.size).toBe(colourRoles.size + optionalText.size + defaulted.size);
-    expect([...allProperties].sort()).toEqual(Object.keys(pageHeaderSchema.props.shape).sort());
-
+      'sticky',
+      'translucent',
+    ];
+    const declared = [...colourRoles, ...defaulted];
     const defaults = pageHeaderSchema.props.parse({});
-    expect(Object.keys(defaults).sort()).toEqual([...defaulted].sort());
+
+    expect(Object.keys(pageHeaderSchema.props.shape).sort()).toEqual(declared.sort());
+    expect(Object.keys(defaults).sort()).toEqual(defaulted.sort());
     expect(defaults).toStrictEqual({
-      actionSize: 'md',
-      actionStyle: 'solid',
-      align: 'start',
-      border: 'none',
-      brand: 'Your brand',
-      brandSize: 'md',
-      density: 'regular',
       layout: 'split',
-      links: [],
-      navCase: 'normal',
-      navStyle: 'plain',
-      navWeight: 'medium',
+      density: 'regular',
+      border: 'none',
       shadow: 'none',
-      spacing: 'sm',
-      sticky: false,
+      align: 'start',
       tone: 'transparent',
-      translucent: false,
+      spacing: 'sm',
       width: 'wide',
+      sticky: false,
+      translucent: false,
     });
 
-    for (const property of colourRoles) {
-      expect(Object.hasOwn(defaults, property), property).toBe(false);
-    }
-    for (const property of optionalText) {
-      expect(Object.hasOwn(defaults, property), property).toBe(false);
-    }
-    for (const property of defaulted) {
-      expect(Object.hasOwn(defaults, property), property).toBe(true);
+    for (const role of colourRoles) {
+      expect(Object.hasOwn(defaults, role), `${role} must let tone decide`).toBe(false);
     }
   });
 
-  it('renders chosen roles as kebab-cased page custom properties', () => {
+  it('groups every surviving property under design except sticky and translucent under advanced', () => {
+    expect(pageHeaderSchema.propertyGroups).toStrictEqual({
+      layout: { tab: 'design', section: 'Layout' },
+      density: { tab: 'design', section: 'Layout' },
+      align: { tab: 'design', section: 'Layout' },
+      width: { tab: 'design', section: 'Layout' },
+      background: { tab: 'design', section: 'Colour', kind: 'color-role' },
+      textColor: { tab: 'design', section: 'Colour', kind: 'color-role' },
+      tone: { tab: 'design', section: 'Colour' },
+      border: { tab: 'design', section: 'Edge' },
+      shadow: { tab: 'design', section: 'Edge' },
+      spacing: { tab: 'design', section: 'Spacing' },
+      sticky: { tab: 'advanced', section: 'Behaviour' },
+      translucent: { tab: 'advanced', section: 'Behaviour' },
+    });
+    expect(Object.keys(pageHeaderSchema.propertyGroups ?? {}).sort()).toEqual(
+      Object.keys(pageHeaderSchema.props.shape).sort(),
+    );
+  });
+
+  it('renders all three slot children in start center end reading order', () => {
+    const { container } = render(
+      <PageHeader
+        node={node}
+        props={pageHeaderSchema.props.parse({})}
+        slots={{
+          start: <span>Start child</span>,
+          center: <span>Center child</span>,
+          end: <span>End child</span>,
+        }}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const header = screen.getByRole('banner');
+    const slotElements = [...container.querySelectorAll('.mkt-header__slot')];
+    const bar = container.querySelector('.mkt-header__bar');
+
+    expect(slotElements.map((element) => element.className)).toEqual([
+      'mkt-header__slot mkt-header__slot--start',
+      'mkt-header__slot mkt-header__slot--center',
+      'mkt-header__slot mkt-header__slot--end',
+    ]);
+    expect(slotElements.map((element) => element.textContent)).toEqual([
+      'Start child',
+      'Center child',
+      'End child',
+    ]);
+    expect(header).not.toHaveAttribute('aria-labelledby');
+    expect(header).toHaveClass(
+      'mkt-header--layout-split',
+      'mkt-header--density-regular',
+      'mkt-header--border-none',
+      'mkt-header--shadow-none',
+      'mkt-section--tone-transparent',
+      'mkt-section--spacing-sm',
+    );
+    expect(bar).toHaveClass(
+      'mkt-section__content--align-start',
+      'mkt-section__content--width-wide',
+    );
+  });
+
+  it('renders chosen colour roles as kebab cased theme variables', () => {
     render(
       <PageHeader
         node={node}
@@ -97,11 +141,11 @@ describe('PageHeader', () => {
     expect(header.style.color).toBe('var(--t-accent-text)');
   });
 
-  it('keeps its root free of inline colour when no role is chosen', () => {
-    render(
+  it('applies translucent only when the header is sticky', () => {
+    const { rerender } = render(
       <PageHeader
         node={node}
-        props={pageHeaderSchema.props.parse({})}
+        props={pageHeaderSchema.props.parse({ sticky: false, translucent: true })}
         slots={{}}
         data={{}}
         isCanvas={false}
@@ -109,58 +153,30 @@ describe('PageHeader', () => {
     );
 
     const header = screen.getByRole('banner');
-    expect(header).not.toHaveAttribute('style');
-    expect(header.style.background).toBe('');
-    expect(header.style.color).toBe('');
-  });
-
-  it('labels the visible brand and nests links in Page navigation', () => {
-    const props = pageHeaderSchema.props.parse({
-      brand: 'CraftKit',
-      links: [
-        { label: 'Docs', href: '/docs' },
-        { label: 'Pricing', href: '/pricing' },
-      ],
-    });
-    render(<PageHeader node={node} props={props} slots={{}} data={{}} isCanvas={false} />);
-
-    const header = screen.getByRole('banner', { name: 'CraftKit' });
-    const brand = screen.getByText('CraftKit', { selector: 'strong' });
-    const navigation = screen.getByRole('navigation', { name: 'Page' });
-
-    expect(brand).toHaveAttribute('id', 'page-header-test-brand');
-    expect(header).toHaveAttribute('aria-labelledby', brand.id);
-    expect(navigation).toContainElement(screen.getByRole('link', { name: 'Docs' }));
-    expect(within(navigation).getByRole('link', { name: 'Docs' })).toHaveAttribute('href', '/docs');
-    expect(within(navigation).getByRole('link', { name: 'Pricing' })).toHaveAttribute(
-      'href',
-      '/pricing',
-    );
-  });
-
-  it('adds the sticky class only when sticky is true', () => {
-    const { rerender } = render(
-      <PageHeader
-        node={node}
-        props={pageHeaderSchema.props.parse({ brand: 'CraftKit', sticky: true })}
-        slots={{}}
-        data={{}}
-        isCanvas={false}
-      />,
-    );
-
-    expect(screen.getByRole('banner', { name: 'CraftKit' })).toHaveClass('mkt-header--sticky');
+    expect(header).not.toHaveClass('mkt-header--sticky');
+    expect(header).not.toHaveClass('mkt-header--translucent');
 
     rerender(
       <PageHeader
         node={node}
-        props={pageHeaderSchema.props.parse({ brand: 'CraftKit', sticky: false })}
+        props={pageHeaderSchema.props.parse({ sticky: true, translucent: true })}
         slots={{}}
         data={{}}
         isCanvas={false}
       />,
     );
+    expect(header).toHaveClass('mkt-header--sticky', 'mkt-header--translucent');
 
-    expect(screen.getByRole('banner', { name: 'CraftKit' })).not.toHaveClass('mkt-header--sticky');
+    rerender(
+      <PageHeader
+        node={node}
+        props={pageHeaderSchema.props.parse({ sticky: true, translucent: false })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    expect(header).toHaveClass('mkt-header--sticky');
+    expect(header).not.toHaveClass('mkt-header--translucent');
   });
 });

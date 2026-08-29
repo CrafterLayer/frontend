@@ -477,4 +477,52 @@ describe('inline-editor — the registry adapter (009 inlineEditors contribution
     expect(lastActions(onActions)).toEqual([]);
     expect(onAnchor).toHaveBeenLastCalledWith(null);
   });
+
+  it('unsets an active link, applies italic, and clears formatting through one commit per action', () => {
+    const { onActions, onCommit, ed } = mount();
+    const action = (id: InlineFormatAction['id']) => {
+      const found = lastActions(onActions).find((candidate) => candidate.id === id);
+      if (found === undefined) {
+        throw new Error(`Expected ${id} action for the current selection`);
+      }
+      return found;
+    };
+
+    selectStart(ed);
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'https://example.com/docs'),
+    );
+    try {
+      act(() => {
+        action('link').run();
+      });
+      expect(onCommit).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(onCommit.mock.lastCall?.[0])).toContain('https://example.com/docs');
+      expect(action('link').pressed).toBe(true);
+
+      act(() => {
+        action('link').run();
+      });
+      expect(onCommit).toHaveBeenCalledTimes(2);
+      expect(JSON.stringify(onCommit.mock.lastCall?.[0])).not.toContain('https://example.com/docs');
+      expect(action('link').pressed).toBe(false);
+
+      act(() => {
+        action('italic').run();
+      });
+      expect(onCommit).toHaveBeenCalledTimes(3);
+      expect(JSON.stringify(onCommit.mock.lastCall?.[0])).toContain('"italic"');
+
+      act(() => {
+        action('clear').run();
+      });
+      expect(onCommit).toHaveBeenCalledTimes(4);
+      expect(JSON.stringify(onCommit.mock.lastCall?.[0])).not.toContain('"italic"');
+      expect(ed.state.selection.from).toBe(1);
+      expect(ed.state.selection.to).toBe(6);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

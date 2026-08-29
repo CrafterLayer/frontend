@@ -199,18 +199,21 @@ export const ControlRenderingContract: Story = {
       await expect(new Set(maxWidths).size).toBe(4);
     });
 
-    await step('every column choice changes resolved tracks and measured cards', async () => {
-      const grids = (['1', '2', '3', '4'] as const).map((columns) =>
-        proofElement(canvasElement, `features-columns-${columns}`, '.mkt-features__grid'),
-      );
-      const templates = grids.map((grid) => getComputedStyle(grid).gridTemplateColumns);
-      await expect(new Set(templates).size).toBe(4);
-      const cardWidths = grids.map((grid) => {
-        const card = grid.querySelector<HTMLElement>('.mkt-features__card');
-        if (card === null) throw new Error('Missing feature card');
-        return card.getBoundingClientRect().width;
-      });
-      await expect(cardWidths[0] ?? 0).toBeGreaterThan(cardWidths[3] ?? 0);
-    });
+    await step(
+      'two and four columns resolve distinct tracks and measured card widths',
+      async () => {
+        const grids = (['1', '2', '3', '4'] as const).map((columns) =>
+          proofElement(canvasElement, `features-columns-${columns}`, '.mkt-features__grid'),
+        );
+        const templates = grids.map((grid) => getComputedStyle(grid).gridTemplateColumns);
+        await expect(new Set(templates).size).toBe(4);
+        const cardWidths = grids.map((grid) => {
+          const card = grid.querySelector<HTMLElement>('.mkt-features__card');
+          if (card === null) throw new Error('Missing feature card');
+          return card.getBoundingClientRect().width;
+        });
+        await expect(cardWidths[1] ?? 0).toBeGreaterThan(cardWidths[3] ?? 0);
+      },
+    );
   },
 };

@@ -304,8 +304,24 @@
 }
 
 /* One focus ring for the entire product. A component may re-colour it through
-   the token; none may remove it. */
-.bldr-root :focus-visible {
+   the token, and a COMPOSITE control may DELEGATE it — it may never remove it.
+
+   Delegation exists because this rule is a descendant selector, so it also
+   lands on the inner editable surface of a control that is one THING to the
+   person using it: a rich-text field is a toolbar plus a surface inside one
+   border, and an assistant composer is a textarea plus its send button. Those
+   inner elements each tried to opt out with an "outline: none" of their own,
+   which is one class and loses to this rule's two — so the product drew a ring
+   around the wrapper AND a second one around the surface inside it. Measured:
+   two identical 2px accent rings, 1px apart.
+
+   A specificity war cannot settle that, because every component would have to
+   out-weigh a rule it does not own. So the opt-out is DECLARED instead:
+   data-bldr-focus-ring="delegated" on the inner element says the ring is drawn
+   by an ancestor's :focus-within. It is greppable, it is visible in the markup
+   where a reviewer meets it, and it cannot express "no ring at all" — only
+   "the ring belongs to my wrapper". */
+.bldr-root :focus-visible:not([data-bldr-focus-ring='delegated']) {
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
   outline-offset: var(--bldr-focus-ring-offset);
 }

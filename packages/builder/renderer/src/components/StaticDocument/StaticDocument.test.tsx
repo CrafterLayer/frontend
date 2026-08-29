@@ -34,8 +34,18 @@ describe('US3 — static rendering', () => {
   });
 
   it('SC-003b: live and static renders of the same document match in content', () => {
+    /*
+      `isCanvas={false}` is the meaningful comparison, not an accommodation.
+
+      The canvas legitimately adds affordances the reader must never see — slot
+      wrappers the drop resolver measures, empty-slot boxes, a block's own
+      editing hints. Comparing the canvas against the published output would
+      only ever assert that those affordances do not exist. What has to match is
+      the two PUBLISHED shapes, and this is the gate that catches either path
+      drifting from the other.
+    */
     const kernel = makeKernel();
-    const live = render(<DocumentView kernel={kernel} />);
+    const live = render(<DocumentView kernel={kernel} isCanvas={false} />);
     const liveHtml = live.container.innerHTML;
     const staticHtml = renderStaticMarkup(kernel.getDocument(), { blocks: lookupFrom(kernel) });
     expect(liveHtml).toBe(staticHtml);

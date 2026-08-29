@@ -10,7 +10,7 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
-import type { NodeRect, RectIndex } from '../rects';
+import type { NodeRect, RectIndex, SlotRect } from '../rects';
 import { resolveDropTarget, seatOf, slotAccepts, type DragPayload } from './drop-resolver';
 
 const NullRender: BlockRenderComponent = () => null;
@@ -66,11 +66,60 @@ const DOC: BuilderDocument = {
   },
 };
 
+const MULTI_SLOT_VOCAB: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'multi-slot-drop-vocab',
+  version: '1.0.0',
+  contributes: {
+    blocks: [
+      block('multi-page', { default: { allow: ['three-slot'] } }),
+      block('three-slot', {
+        start: { allow: ['text', 'button'] },
+        center: { allow: ['text'] },
+        end: { allow: ['text', 'button'] },
+      }),
+      block('text'),
+      block('button'),
+    ],
+  },
+};
+
+const MULTI_SLOT_DOC: BuilderDocument = {
+  schemaVersion: 1,
+  surface: 'site',
+  dir: 'ltr',
+  rootId: 'root',
+  nodes: {
+    root: {
+      id: 'root',
+      type: 'multi-page',
+      props: {},
+      slots: { default: ['layout'] },
+    },
+    layout: {
+      id: 'layout',
+      type: 'three-slot',
+      props: {},
+      slots: { start: ['startText'], end: ['endText'] },
+    },
+    startText: { id: 'startText', type: 'text', props: {} },
+    endText: { id: 'endText', type: 'text', props: {} },
+  },
+};
+
 function makeKernel(document: BuilderDocument = DOC) {
   return createBuilder({
     document,
     extensions: [VOCAB],
     ports: { clock: fixedClock(), ids: seededIds('dr') },
+  });
+}
+
+function makeMultiSlotKernel() {
+  return createBuilder({
+    document: MULTI_SLOT_DOC,
+    extensions: [MULTI_SLOT_VOCAB],
+    ports: { clock: fixedClock(), ids: seededIds('multi-slot') },
   });
 }
 
@@ -88,13 +137,55 @@ const RECTS: Record<string, NodeRect> = {
   secEmpty: { nodeId: 'secEmpty', x: 10, y: 540, width: 380, height: 120, version: 0 },
 };
 
-function stubIndex(hovered: () => string | undefined): RectIndex {
+const MULTI_SLOT_RECTS: Record<string, SlotRect> = {
+  'layout/start': {
+    ownerNodeId: 'layout',
+    slotName: 'start',
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+    version: 0,
+  },
+  'layout/center': {
+    ownerNodeId: 'layout',
+    slotName: 'center',
+    x: 100,
+    y: 0,
+    width: 100,
+    height: 100,
+    version: 0,
+  },
+  'layout/end': {
+    ownerNodeId: 'layout',
+    slotName: 'end',
+    x: 200,
+    y: 0,
+    width: 100,
+    height: 100,
+    version: 0,
+  },
+};
+
+const MULTI_NODE_RECTS: Record<string, NodeRect> = {
+  root: { nodeId: 'root', x: 0, y: 0, width: 300, height: 100, version: 0 },
+  layout: { nodeId: 'layout', x: 0, y: 0, width: 300, height: 100, version: 0 },
+  startText: { nodeId: 'startText', x: 0, y: 0, width: 100, height: 100, version: 0 },
+  endText: { nodeId: 'endText', x: 200, y: 0, width: 100, height: 100, version: 0 },
+};
+
+function stubIndex(
+  hovered: () => string | undefined,
+  nodeRects: Readonly<Record<string, NodeRect>> = RECTS,
+  slotRects: Readonly<Record<string, SlotRect>> = {},
+): RectIndex {
   return {
     attach: () => undefined,
     detach: () => undefined,
-    rect: (id) => RECTS[id],
+    rect: (id) => nodeRects[id],
+    slotRect: (id, slot) => slotRects[`${id}/${slot}`],
     nodeAt: () => hovered(),
-    has: (id) => id in RECTS,
+    has: (id) => id in nodeRects,
     element: () => undefined,
     version: () => 0,
     onInvalidate: () => () => undefined,
@@ -156,6 +247,72 @@ describe('slotAccepts (contract §2 r2)', () => {
 });
 
 describe('resolveDropTarget (contract §2 r1 — three-band rule)', () => {
+  it('targets empty center and populated end slots by pointer geometry instead of schema order', () => {
+    const kernel = makeMultiSlotKernel();
+    const index = stubIndex(() => 'layout', MULTI_NODE_RECTS, MULTI_SLOT_RECTS);
+    const payload: DragPayload = { kind: 'insert', type: 'text' };
+
+    const center = resolveDropTarget(
+      kernel.getDocument(),
+      kernel.context.registry,
+      index,
+      payload,
+      150,
+      50,
+    );
+    const end = resolveDropTarget(
+      kernel.getDocument(),
+      kernel.context.registry,
+      index,
+      payload,
+      250,
+      50,
+    );
+
+    expect(center).toMatchObject({ parentId: 'layout', slot: 'center', index: 0 });
+    expect(end).toMatchObject({ parentId: 'layout', slot: 'end', index: 1 });
+  });
+
+  it('keeps the single default slot through the first-accepting fallback', () => {
+    const kernel = makeKernel();
+    const outsideSlotRect: Record<string, SlotRect> = {
+      'secEmpty/default': {
+        ownerNodeId: 'secEmpty',
+        slotName: 'default',
+        x: 900,
+        y: 900,
+        width: 20,
+        height: 20,
+        version: 0,
+      },
+    };
+    const resolved = resolveDropTarget(
+      kernel.getDocument(),
+      kernel.context.registry,
+      stubIndex(() => 'secEmpty', RECTS, outsideSlotRect),
+      { kind: 'insert', type: 'text' },
+      50,
+      600,
+    );
+
+    expect(resolved).toMatchObject({ parentId: 'secEmpty', slot: 'default', index: 0 });
+  });
+
+  it('never chooses a pointer-contained slot that refuses the payload', () => {
+    const kernel = makeMultiSlotKernel();
+    const resolved = resolveDropTarget(
+      kernel.getDocument(),
+      kernel.context.registry,
+      stubIndex(() => 'layout', MULTI_NODE_RECTS, MULTI_SLOT_RECTS),
+      { kind: 'insert', type: 'button' },
+      150,
+      50,
+    );
+
+    expect(resolved).toMatchObject({ parentId: 'layout', slot: 'start', index: 1 });
+    expect(resolved?.slot).not.toBe('center');
+  });
+
   it('outer quarters resolve sibling gaps: before above the midline, after below (US1/AC2)', () => {
     const kernel = makeKernel();
     const payload: DragPayload = { kind: 'move', id: 't3' };

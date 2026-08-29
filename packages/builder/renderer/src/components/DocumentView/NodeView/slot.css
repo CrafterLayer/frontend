@@ -1,0 +1,40 @@
+/*
+  The empty-slot drop area.
+
+  This exists because of a bug the unit tests could not see. The slot wrapper
+  carried the right class and the right attributes — every assertion passed — and
+  it measured 0×0 in a real browser, because nothing styled it. A drop target
+  with no area is a drop target nobody can hit, and jsdom computes no layout, so
+  only the browser could say so.
+
+  It is CANVAS-only: `NodeView` emits the wrapper solely when `isCanvas`, and a
+  published page carries neither the box nor its label.
+
+  Page tokens (`--t-*`) rather than chrome tokens, because this renders inside
+  the page's own document where `--bldr-*` is not defined. The renderer's
+  tokens.test.ts enforces both halves of that.
+*/
+.bldr-slot-empty {
+  align-items: center;
+  border: var(--t-border-width, 1px) dashed
+    color-mix(in srgb, var(--t-text-muted, #6b7280) 55%, transparent);
+  border-radius: var(--t-radius, 12px);
+  box-sizing: border-box;
+  color: var(--t-text-muted, #6b7280);
+  display: flex;
+  font-size: var(--t-font-size-sm, 0.8125rem);
+  justify-content: center;
+  /*
+    A floor, not a fixed height: the box has to be big enough to aim at with a
+    pointer, and free to grow when it sits in a tall region.
+  */
+  min-block-size: var(--t-bar-height-compact, 48px);
+  min-inline-size: var(--t-grid-min-track, 12rem);
+  padding: var(--t-gap-sm, 8px);
+  /* A slot in a flex row should claim its share rather than collapse. */
+  flex: 1 1 auto;
+}
+
+.bldr-slot-empty__label {
+  opacity: 0.85;
+}

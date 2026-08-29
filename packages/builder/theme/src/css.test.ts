@@ -118,6 +118,32 @@ describe('the stylesheet is derived, never maintained', () => {
     expect(css).toContain('.bldr-root :focus-visible');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
   });
+
+  it('lets a composite control DELEGATE the ring, and never simply drop it', () => {
+    /*
+      The ring rule is a DESCENDANT selector, so it also lands on the inner
+      surface of a control that is one thing to the person using it. Those
+      surfaces opted out with an "outline: none" of their own — one class
+      against this rule's two — and lost, so the rich-text field drew a ring
+      around its wrapper AND a second one around the surface inside it.
+
+      The escape hatch is declared rather than fought for. It matters that it
+      can only ever mean "my wrapper draws it": there is no value of this
+      attribute that removes the ring, which is why the product law survives
+      the fix.
+    */
+    const css = generated();
+    const rule = css.slice(css.indexOf('.bldr-root :focus-visible'));
+    const selector = rule.slice(0, rule.indexOf('{')).trim();
+
+    expect(selector).toBe(".bldr-root :focus-visible:not([data-bldr-focus-ring='delegated'])");
+
+    // Non-vacuous: the sheet must still paint a real ring, not merely carry a
+    // selector that excludes things.
+    const body = rule.slice(rule.indexOf('{'), rule.indexOf('}'));
+    expect(body).toContain(`var(${TOKEN_PREFIX}focus-ring-width) solid`);
+    expect(body).toContain(`var(${TOKEN_PREFIX}focus-ring)`);
+  });
 });
 
 describe('runtime override — the point of the package', () => {

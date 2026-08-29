@@ -217,7 +217,16 @@ body,
    A thread that scrolls and a composer pinned to the foot — the shape every
    chat has, because it is the shape the reading order needs: history above,
    the thing you are writing where your hands are. The panel owns the height;
-   only the thread scrolls, so the composer never walks off the bottom. */
+   only the thread scrolls, so the composer never walks off the bottom.
+
+   THE SIGNATURE: a proposal's outcome is a colour on its leading edge, not a
+   sentence you have to read — accent while pending, success once applied,
+   danger if the kernel door refused it, muted once discarded. Scan the
+   thread top to bottom and the stripes alone tell the story; the words are
+   there for when you stop scanning. Every colour below is a state token this
+   theme already ships (`@craftkit/builder-theme`), so light/dark and any
+   future re-theme move this panel for free — nothing here is a literal. */
+
 .pg-chat {
   block-size: 100%;
   display: grid;
@@ -229,21 +238,206 @@ body,
   border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-xs);
+  gap: var(--bldr-space-sm);
   padding: var(--bldr-space-3xl);
+}
+
+.pg-chat__title {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+}
+
+.pg-chat__brand {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.pg-chat__brand-mark {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-space-6xl);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-space-6xl);
+  justify-content: center;
 }
 
 .pg-chat__head h2 {
   color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-title);
+  font-size: var(--bldr-font-size-display);
   font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What the assistant can see, stated. A person cannot judge a proposal
+   without knowing what it was looking at. The leading dot borrows the
+   accent colour so this line reads as LIVE status, not filler copy. */
+.pg-chat__sees {
+  align-items: center;
+  color: var(--bldr-panel-text-soft);
+  display: flex;
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-xs);
   margin: var(--bldr-space-0);
 }
 
-.pg-chat__head p {
-  color: var(--bldr-panel-muted);
+.pg-chat__sees::before {
+  background: var(--bldr-accent);
+  block-size: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-full);
+  content: '';
+  flex: none;
+  inline-size: var(--bldr-space-sm);
+}
+
+/* CONVERSATION HISTORY as a menu, not a native select.
+   A `<select>` renders the past as a form field to be filled in. What this
+   actually is, is a list of things you have already said — so it opens as a
+   popup that can carry each chat's own weight (how many messages it holds)
+   and mark which one you are in. The trigger stays one quiet line until
+   pressed, because history is a place you go back to, not a control you
+   operate every turn. */
+.pg-chat__sessions {
+  position: relative;
+}
+
+.pg-chat__sessions-trigger {
+  align-items: center;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__sessions-trigger:hover {
+  background: var(--bldr-surface-hover);
+  border-color: var(--bldr-accent-ring);
+}
+
+.pg-chat__sessions-trigger:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-chat__sessions-title {
+  flex: 1;
   font-size: var(--bldr-font-size-micro);
-  margin: var(--bldr-space-0);
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chat__sessions-count {
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-semibold);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.pg-chat__sessions-chevron {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex: none;
+  transition: rotate var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__sessions-trigger[aria-expanded='true'] .pg-chat__sessions-chevron {
+  rotate: 180deg;
+}
+
+/* The popup floats over the thread, so it needs the OVERLAY elevation — the
+   raised shadow a panel uses would let the thread's own cards read through it. */
+.pg-chat__sessions-menu {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-overlay);
+  display: flex;
+  flex-direction: column;
+  inset-block-start: calc(100% + var(--bldr-space-xs));
+  inset-inline: 0;
+  max-block-size: calc(var(--bldr-space-6xl) * 7);
+  overflow-y: auto;
+  padding: var(--bldr-space-xs);
+  position: absolute;
+  z-index: 20;
+}
+
+.pg-chat__sessions-item {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+  text-align: start;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__sessions-item:hover {
+  background: var(--bldr-surface-hover);
+}
+
+.pg-chat__sessions-item:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-focus-ring-offset) * -1);
+}
+
+.pg-chat__sessions-item[aria-checked='true'] {
+  background: var(--bldr-accent-soft);
+}
+
+.pg-chat__sessions-item-check {
+  align-items: center;
+  color: var(--bldr-accent);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-space-3xl);
+  justify-content: center;
+}
+
+.pg-chat__sessions-item-title {
+  flex: 1;
+  font-size: var(--bldr-font-size-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chat__sessions-item-meta {
+  color: var(--bldr-panel-muted);
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
 }
 
 .pg-chat__thread {
@@ -258,50 +452,107 @@ body,
 /* An opener a person can press is worth more than a paragraph telling them
    what to type — and each of these is a request that genuinely works. */
 .pg-chat__empty {
+  align-items: center;
   color: var(--bldr-panel-muted);
   display: flex;
   flex-direction: column;
   font-size: var(--bldr-font-size-caption);
   gap: var(--bldr-space-lg);
   line-height: var(--bldr-line-height-normal);
+  text-align: center;
+}
+
+.pg-chat__empty-mark {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: calc(var(--bldr-space-6xl) * 1.5);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  display: flex;
+  inline-size: calc(var(--bldr-space-6xl) * 1.5);
+  justify-content: center;
+}
+
+.pg-chat__empty-mark svg {
+  block-size: var(--bldr-space-5xl);
+  inline-size: var(--bldr-space-5xl);
 }
 
 .pg-chat__empty p {
   margin: var(--bldr-space-0);
+  max-inline-size: 30ch;
 }
 
 .pg-chat__starters {
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: var(--bldr-space-sm);
   list-style: none;
   margin: var(--bldr-space-0);
   padding: var(--bldr-space-0);
-}
-
-.pg-chat__starters button {
-  background: var(--bldr-panel-control);
-  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-full);
-  color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-caption);
-  inline-size: 100%;
-  min-block-size: var(--bldr-control-lg);
-  padding-inline: var(--bldr-space-xl);
   text-align: start;
 }
 
-.pg-chat__starters button:hover {
-  background: var(--bldr-surface-hover);
+.pg-chat__starter {
+  align-items: center;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  gap: var(--bldr-space-md);
+  inline-size: 100%;
+  padding: var(--bldr-space-sm);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__starter:hover {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent-ring);
+  color: var(--bldr-accent);
+}
+
+.pg-chat__starter:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-chat__starter-icon {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-control-sm);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-control-sm);
+  justify-content: center;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__starter:hover .pg-chat__starter-icon {
+  background: var(--bldr-accent-soft-hover);
+}
+
+.pg-chat__starter-text {
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
 }
 
 /* The person's turn sits to the trailing edge in a filled bubble; the
-   assistant's runs full width unadorned. Asymmetry is what makes a thread
-   readable at a glance without reading it. */
+   assistant's runs full width behind its own avatar. Asymmetry is what
+   makes a thread readable at a glance without reading it. */
 .pg-chat__you {
   align-self: end;
   background: var(--bldr-accent-soft);
   border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-raised);
   color: var(--bldr-panel-text);
   font-size: var(--bldr-font-size-caption);
   line-height: var(--bldr-line-height-normal);
@@ -311,34 +562,135 @@ body,
 }
 
 .pg-chat__reply {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--bldr-space-sm);
+}
+
+.pg-chat__avatar {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-space-5xl);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-space-5xl);
+  justify-content: center;
+}
+
+.pg-chat__reply-body {
   display: flex;
   flex-direction: column;
   gap: var(--bldr-space-md);
+  min-inline-size: 0;
 }
 
-.pg-chat__rationale,
-.pg-chat__thinking,
-.pg-chat__refused,
-.pg-chat__applied {
+.pg-chat__thinking {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  gap: var(--bldr-space-sm);
+}
+
+.pg-chat__thinking p {
   font-size: var(--bldr-font-size-caption);
   line-height: var(--bldr-line-height-normal);
   margin: var(--bldr-space-0);
 }
 
-.pg-chat__rationale {
-  color: var(--bldr-panel-text);
+.pg-chat__thinking-dots {
+  display: inline-flex;
+  gap: var(--bldr-space-2xs);
 }
 
-.pg-chat__thinking {
-  color: var(--bldr-panel-muted);
+.pg-chat__thinking-dots span {
+  animation: pg-chat-pulse 1.1s var(--bldr-easing) infinite;
+  background: currentColor;
+  block-size: var(--bldr-space-xs);
+  border-radius: var(--bldr-radius-full);
+  inline-size: var(--bldr-space-xs);
+}
+
+.pg-chat__thinking-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.pg-chat__thinking-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes pg-chat-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__thinking-dots span {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* The signature card: every assistant outcome after "thinking" lands here.
+   The leading edge carries the state; the box around it never changes. */
+.pg-chat__card {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-inline-start: var(--bldr-border-focus) solid var(--bldr-accent);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-raised);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-xl);
+}
+
+.pg-chat__card--applied {
+  border-inline-start-color: var(--bldr-success);
+}
+
+.pg-chat__card--refused {
+  align-items: flex-start;
+  border-inline-start-color: var(--bldr-danger);
+  flex-direction: row;
+}
+
+.pg-chat__card--refused svg {
+  color: var(--bldr-danger);
+  flex: none;
+  margin-block-start: 1px;
+}
+
+.pg-chat__card--discarded {
+  background: var(--bldr-surface-sunken);
+  border-inline-start-color: var(--bldr-panel-border-strong);
+  opacity: 0.72;
+}
+
+.pg-chat__rationale {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
 }
 
 .pg-chat__refused {
-  color: var(--bldr-danger);
-}
-
-.pg-chat__applied {
-  color: var(--bldr-success);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
 }
 
 /* The commands, in the mono face, because they are the exact thing that will
@@ -356,121 +708,163 @@ body,
   padding: var(--bldr-space-md) var(--bldr-space-md) var(--bldr-space-md) var(--bldr-space-6xl);
 }
 
+.pg-chat__steps li::marker {
+  color: var(--bldr-accent);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
 .pg-chat__decide {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--bldr-space-md);
 }
 
-.pg-chat__decide button {
-  background: var(--bldr-panel-control);
-  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-md);
-  color: var(--bldr-panel-text);
+.pg-chat__applied {
+  align-items: center;
+  color: var(--bldr-success);
+  display: flex;
+  flex-wrap: wrap;
   font-size: var(--bldr-font-size-caption);
-  min-block-size: var(--bldr-control-lg);
-  padding-inline: var(--bldr-space-xl);
-}
-
-.pg-chat__accept {
-  background: var(--bldr-accent);
-  border-color: var(--bldr-accent);
-  color: var(--bldr-accent-text);
-  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-sm);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
 }
 
 .pg-chat__composer {
   border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-md);
+  gap: var(--bldr-space-sm);
   padding: var(--bldr-space-3xl);
 }
 
-.pg-chat__composer textarea {
+/* THE COMPOSER: one card, not a stack of controls.
+   The field and its send action share a single bordered surface, so the panel
+   ends in one object rather than in two rectangles a person has to read as
+   related. Focus lights the whole card; while the assistant is working the
+   same edge breathes, which is the only place this panel spends motion on
+   atmosphere rather than on status. */
+.pg-chat__composer-card {
   background: var(--bldr-input-bg);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-md);
+  border-radius: var(--bldr-radius-xl);
+  box-shadow: var(--bldr-shadow-raised);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    box-shadow var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* The aura sits OUTSIDE the border on its own layer: an inset shadow on the
+   card itself would be clipped by the textarea's own background, and painting
+   it on the border would move the box. Inset -1px keeps it flush to the edge
+   at every radius. */
+.pg-chat__composer-glow {
+  border-radius: inherit;
+  inset: -1px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity var(--bldr-duration-move) var(--bldr-easing);
+}
+
+/* The CARD owns the focus ring for the whole composer, exactly as
+   `.bldr-richtext-field` does for its own composite field: the field and its
+   send button are one control, so one ring belongs around the pair rather
+   than a second box drawn inside the first. The ring is a real `outline`, not
+   a shadow — the product's law is that focus may be re-coloured but never
+   removed, and a decorative glow is not an indicator. */
+.pg-chat__composer-card:focus-within {
+  border-color: var(--bldr-accent);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-chat__composer-card:focus-within .pg-chat__composer-glow {
+  box-shadow: 0 0 var(--bldr-space-4xl) var(--bldr-accent-soft-hover);
+  opacity: 1;
+}
+
+/* Working: the same aura, breathing. The card's own border holds still — only
+   the glow's opacity moves, so nothing in the layout is animated. */
+.pg-chat__composer-card[data-busy] {
+  border-color: var(--bldr-accent);
+}
+
+/* The working glow carries a ring as well as a halo, and can do so safely:
+   the field is DISABLED while the assistant thinks, so it cannot also hold
+   focus, and the two treatments can never stack into a doubled edge. */
+.pg-chat__composer-card[data-busy] .pg-chat__composer-glow {
+  animation: pg-chat-glow 1.8s var(--bldr-easing) infinite;
+  box-shadow:
+    0 0 0 var(--bldr-focus-ring-width) var(--bldr-accent-ring),
+    0 0 var(--bldr-space-5xl) var(--bldr-space-xs) var(--bldr-accent-ring);
+  opacity: 1;
+}
+
+@keyframes pg-chat-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__composer-card[data-busy] .pg-chat__composer-glow {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.pg-chat__composer-card textarea {
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
   color: var(--bldr-panel-text);
   font: inherit;
   font-size: var(--bldr-font-size-caption);
-  padding: var(--bldr-space-md);
+  line-height: var(--bldr-line-height-normal);
+  outline: none;
+  padding: var(--bldr-space-xl) var(--bldr-space-xl) var(--bldr-space-md);
+  position: relative;
   resize: none;
 }
 
-.pg-chat__send {
-  background: var(--bldr-accent);
-  border: var(--bldr-border-hairline) solid var(--bldr-accent);
-  border-radius: var(--bldr-radius-md);
-  color: var(--bldr-accent-text);
-  font-size: var(--bldr-font-size-caption);
-  font-weight: var(--bldr-font-weight-medium);
-  min-block-size: var(--bldr-control-lg);
-}
-
-.pg-chat__send:disabled,
-.pg-chat__composer textarea:disabled {
-  background: var(--bldr-panel-control);
-  border-color: var(--bldr-panel-border-strong);
+.pg-chat__composer-card textarea::placeholder {
   color: var(--bldr-panel-muted);
 }
 
-/* Conversation management: a new chat, and a way back to the old ones. */
-.pg-chat__title {
+.pg-chat__composer-card textarea:disabled {
+  color: var(--bldr-panel-muted);
+}
+
+/* NO divider. The field and the send button are one object; a rule between
+   them re-created the two stacked boxes this card exists to replace. */
+.pg-chat__composer-actions {
   align-items: center;
   display: flex;
-  gap: var(--bldr-space-md);
-  justify-content: space-between;
-}
-
-.pg-chat__new {
-  background: var(--bldr-panel-control);
-  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-full);
-  color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-micro);
-  min-block-size: var(--bldr-control-sm);
-  padding-inline: var(--bldr-space-lg);
-}
-
-.pg-chat__new:hover {
-  background: var(--bldr-surface-hover);
-}
-
-/* What the assistant can see, stated. A person cannot judge a proposal
-   without knowing what it was looking at. */
-.pg-chat__sees {
-  color: var(--bldr-panel-text-soft);
-  font-family: var(--bldr-font-mono);
-  font-size: var(--bldr-font-size-micro);
-  margin: var(--bldr-space-0);
-}
-
-.pg-chat__sessions select {
-  background: var(--bldr-panel-control);
-  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-md);
-  color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-micro);
-  inline-size: 100%;
-  min-block-size: var(--bldr-control-sm);
-  padding-inline: var(--bldr-space-md);
-}
-
-/* Undo sits WITH the applied change, not in a toast that vanishes before a
-   person has finished reading what happened. */
-.pg-chat__undo {
-  background: transparent;
-  border: var(--bldr-border-hairline) solid var(--bldr-success);
-  border-radius: var(--bldr-radius-md);
-  color: var(--bldr-success);
-  font-size: var(--bldr-font-size-micro);
-  min-block-size: var(--bldr-control-sm);
-  padding-inline: var(--bldr-space-md);
+  justify-content: flex-end;
+  padding: var(--bldr-space-0) var(--bldr-space-md) var(--bldr-space-md);
+  position: relative;
 }
 
 .pg-chat__guarantee {
+  align-items: center;
   color: var(--bldr-panel-muted);
+  display: flex;
   font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-xs);
   line-height: var(--bldr-line-height-snug);
   margin: var(--bldr-space-0);
+}
+
+.pg-chat__guarantee svg {
+  flex: none;
 }

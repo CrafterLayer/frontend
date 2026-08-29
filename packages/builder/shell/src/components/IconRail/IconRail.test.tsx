@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -127,5 +130,91 @@ describe('IconRail', () => {
       expect(button).toHaveAttribute('data-size', 'lg');
       expect(button).toHaveAttribute('data-variant', 'quiet');
     }
+  });
+});
+
+/**
+ * THE RAIL OVERRIDES A PRIMITIVE IT RENDERS, so it has to out-specify it.
+ *
+ * This is a source contract rather than a rendered one on purpose: CSS `:hover`
+ * follows the real cursor, so a synthetic hover event cannot prove it, and jsdom
+ * resolves no cascade at all. The defect was never about markup — it was that
+ * `ChromeButton`'s quiet-hover selector carries FOUR compound parts and the
+ * rail's carried two or three, so the light chrome won every tie. Measured in
+ * Chromium before the fix: hovering any rail tab painted `--bldr-surface-hover`
+ * (a 6%-black tint, invisible on a near-black rail) and hovering the SELECTED
+ * tab replaced its accent fill with that same grey.
+ */
+describe('the rail out-specifies the button primitive it re-skins', () => {
+  /**
+   * Specificity's (classes + attributes + pseudo-classes) column — the only one
+   * these selectors use. `:hover`/`:enabled` count here; `::before` would not,
+   * and no selector compared below carries an id, an element, or `:not()`.
+   */
+  const weigh = (selector: string): number => {
+    const withoutPseudoElements = selector.replaceAll('::', ' ');
+    const classes = withoutPseudoElements.match(/\.[\w-]+/g) ?? [];
+    const attributes = withoutPseudoElements.match(/\[[^\]]+\]/g) ?? [];
+    const pseudoClasses = withoutPseudoElements.match(/:[\w-]+/g) ?? [];
+    return classes.length + attributes.length + pseudoClasses.length;
+  };
+
+  const selectorsFrom = (css: string, matching: RegExp): string[] =>
+    css
+      .replaceAll(/\/\*[\s\S]*?\*\//g, '') // a rule's own comment may quote a selector
+      .split('}')
+      .map((block) => block.split('{')[0]?.trim() ?? '')
+      .flatMap((prelude) => prelude.split(','))
+      .map((selector) => selector.replaceAll(/\s+/g, ' ').trim())
+      .filter((selector) => matching.test(selector));
+
+  const read = (component: string) =>
+    readFileSync(join(process.cwd(), 'src', 'components', component, `${component}.css`), 'utf8');
+
+  const railCss = read('IconRail');
+  const chromeButtonCss = read('ChromeButton');
+
+  it('weighs its own hover and press above the quiet ChromeButton states', () => {
+    const primitive = selectorsFrom(chromeButtonCss, /data-variant='quiet'.*:(hover|active)/);
+    const rail = selectorsFrom(railCss, /icon-rail__button.*:(hover|active)/);
+
+    // Non-vacuous: an empty match set would make every comparison below vacuous,
+    // which is exactly how a renamed selector would slip past this gate.
+    expect(primitive.length).toBeGreaterThan(0);
+    expect(rail.length).toBeGreaterThan(0);
+
+    const heaviestPrimitive = Math.max(...primitive.map(weigh));
+    // Reported as a pair so a failure names the selector that lost, not just a number.
+    const losers = rail
+      .map((selector) => ({ selector, weight: weigh(selector) }))
+      .filter((rule) => rule.weight <= heaviestPrimitive);
+    expect(losers).toEqual([]);
+  });
+
+  it('keeps the selected tab heavier than the rail hover that would otherwise grey it out', () => {
+    const railHover = selectorsFrom(
+      railCss,
+      /icon-rail__button\[data-variant='quiet'\]:enabled:hover/,
+    );
+    const selectedHover = selectorsFrom(railCss, /aria-current='page'\]:enabled:hover/);
+
+    expect(railHover.length).toBeGreaterThan(0);
+    expect(selectedHover.length).toBeGreaterThan(0);
+    expect(Math.min(...selectedHover.map(weigh))).toBeGreaterThan(
+      Math.max(...railHover.map(weigh)),
+    );
+  });
+
+  it('re-colours the product focus ring rather than removing it', () => {
+    const focus = selectorsFrom(railCss, /icon-rail__button:focus-visible/);
+    expect(focus.length).toBeGreaterThan(0);
+    // Heavier than the product-wide `.bldr-root :focus-visible`, which is two.
+    expect(Math.min(...focus.map(weigh))).toBeGreaterThan(2);
+
+    const declarations = railCss.slice(railCss.indexOf(focus[0] ?? ''));
+    const body = declarations.slice(declarations.indexOf('{'), declarations.indexOf('}'));
+    expect(body).toContain('outline-color');
+    // Removing the ring is the one thing a component may never do.
+    expect(body).not.toMatch(/outline\s*:\s*(none|0)/);
   });
 });

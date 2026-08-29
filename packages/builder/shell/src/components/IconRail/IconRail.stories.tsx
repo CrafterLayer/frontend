@@ -123,3 +123,77 @@ export const RightToLeft: Story = {
     </div>
   ),
 };
+
+/** Resolve a chrome token to the colour the browser actually paints. */
+function paintedToken(root: HTMLElement, token: string): string {
+  const view = root.ownerDocument.defaultView;
+  if (view === null) {
+    throw new Error('The rail has no rendering window');
+  }
+  const probe = root.ownerDocument.createElement('span');
+  probe.style.color = `var(${token})`;
+  root.append(probe);
+  const painted = view.getComputedStyle(probe).color;
+  probe.remove();
+  return painted;
+}
+
+/**
+ * The product publishes ONE focus ring and permits a component to re-colour it.
+ * The rail must, because the ring's own token is the same violet as the accent
+ * the selected tab is filled with.
+ *
+ * `activeId` is the FIRST item on purpose: one Tab then lands on the selected
+ * tab, which is the element whose ring this story is about.
+ */
+export const FocusRingContrastsWithTheSelectedFill: Story = {
+  name: 'Focus ring contrasts with the selected fill',
+  args: {
+    items: PRIMARY_ITEMS,
+    activeId: 'pages',
+    onSelect: () => undefined,
+  },
+  render: (args) => (
+    <div className="bldr-root" data-testid="rail-root">
+      <IconRail {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const root = canvasElement.querySelector<HTMLElement>('[data-testid="rail-root"]');
+    if (root === null) {
+      throw new Error('The rail root must render');
+    }
+    const view = root.ownerDocument.defaultView;
+    if (view === null) {
+      throw new Error('The rail has no rendering window');
+    }
+
+    /*
+      Non-vacuous, and the reason this story exists: `--bldr-focus-ring` IS
+      `--bldr-accent`. Drawn unchanged on the selected tab, the ring was the
+      fill's own colour separated from it by a 1px gap of dark rail — a doubled
+      border rather than a focus indicator. If these two ever stop being equal
+      this assertion fails and the override can simply be deleted.
+    */
+    await expect(paintedToken(root, '--bldr-focus-ring')).toBe(paintedToken(root, '--bldr-accent'));
+
+    const selected = canvas.getByRole('button', { name: 'Pages' });
+    // The selected tab carries the accent fill the ring has to survive.
+    await expect(view.getComputedStyle(selected).backgroundColor).toBe(
+      paintedToken(root, '--bldr-accent'),
+    );
+
+    canvasElement.ownerDocument.body.focus();
+    await userEvent.tab();
+    await expect(selected).toHaveFocus();
+
+    const painted = view.getComputedStyle(selected);
+    // The ring is still drawn — re-coloured, never removed.
+    await expect(painted.outlineStyle).toBe('solid');
+    await expect(Number.parseFloat(painted.outlineWidth)).toBeGreaterThan(0);
+    // And it is no longer the colour of the thing it is meant to outline.
+    await expect(painted.outlineColor).not.toBe(painted.backgroundColor);
+    await expect(painted.outlineColor).toBe(paintedToken(root, '--bldr-rail-text-strong'));
+  },
+};

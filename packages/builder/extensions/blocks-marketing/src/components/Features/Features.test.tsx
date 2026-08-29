@@ -44,6 +44,82 @@ describe('Features', () => {
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   });
 
+  it('applies a background colour role without setting text colour', () => {
+    render(
+      <Features
+        node={node}
+        props={featuresSchema.props.parse({
+          heading: 'Background role features',
+          body: 'Colour coverage.',
+          background: 'surfaceInverse',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Background role features' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('');
+  });
+
+  it('applies a text colour role without setting background', () => {
+    render(
+      <Features
+        node={node}
+        props={featuresSchema.props.parse({
+          heading: 'Text role features',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Text role features' });
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('applies both colour roles', () => {
+    render(
+      <Features
+        node={node}
+        props={featuresSchema.props.parse({
+          heading: 'Both roles features',
+          background: 'surfaceInverse',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Both roles features' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('does not add an inline colour style when no role is chosen', () => {
+    render(
+      <Features
+        node={node}
+        props={featuresSchema.props.parse({ heading: 'Uncoloured features' })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Uncoloured features' });
+    expect(section).not.toHaveAttribute('style');
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('');
+  });
+
   it('schema rejects malformed items', () => {
     expect(featuresSchema.props.safeParse({ items: [{ title: '', body: 'x' }] }).success).toBe(
       false,

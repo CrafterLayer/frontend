@@ -6,63 +6,80 @@ import * as PageFooterStories from './PageFooter.stories';
 
 # PageFooter
 
-`PageFooter` closes a page with optional supporting text, grouped navigation, and an optional legal
-line. Use it once at the bottom of a page; do not use it as a generic card footer or for unrelated
-navigation in the middle of content.
+`PageFooter` is a two-slot container for the end of a page. It owns footer presentation, while its
+children own all content. Authors can delete or replace either region with text, actions,
+navigation, or nested layouts without changing the footer schema. Use it once at the bottom of a
+page; do not use it as a card footer or as navigation in the middle of content.
 
 ## Usage
 
 ```json
 {
+  "id": "page-footer",
   "type": "pageFooter",
   "props": {
-    "statement": "Composable pages for growing teams.",
-    "columns": [
-      {
-        "heading": "Product",
-        "links": [{ "label": "Features", "href": "/features" }]
-      }
-    ],
-    "legal": "© 2026 CraftKit",
+    "layout": "columns",
+    "bottomBar": true,
     "background": "surfaceInverse",
-    "textColor": "accentText"
+    "textColor": "textInverse"
+  },
+  "slots": {
+    "default": ["footer-copy", "footer-links"],
+    "bottom": ["footer-legal", "footer-social"]
   }
 }
 ```
 
-## API
+The ids in each slot refer to ordinary child blocks in the document. Content is never stored in a
+footer-specific `brand`, `statement`, link-column, social, or legal property.
 
-| Prop         | Type and default                                            | Purpose                                                                         |
-| ------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `statement`  | `string` (optional)                                         | Supporting text, up to 120 characters.                                          |
-| `columns`    | `Array<{ heading, links }>` = `[]`                          | Up to four link groups, each with a 1–24 character heading and up to six links. |
-| `legal`      | `string` (optional)                                         | Legal or copyright line, up to 120 characters.                                  |
-| `align`      | `start \| center \| end` = `start`                          | Logical alignment of the inner content.                                         |
-| `background` | `surface \| surfaceInverse \| accent` (optional)            | Page colour role, deliberately unset by default.                                |
-| `textColor`  | `text \| textInverse \| textMuted \| accentText` (optional) | Page colour role, deliberately unset by default.                                |
-| `tone`       | section tone = `transparent`                                | Section tone used when colour roles are omitted.                                |
-| `spacing`    | section spacing = `lg`                                      | Token-backed vertical section spacing.                                          |
-| `width`      | section width = `wide`                                      | Maximum width of the inner footer content.                                      |
+## Slots
 
-Each link has a 1–24 character label and a 1–200 character URL.
+| Slot      | Allowed child blocks                       | Purpose                                                |
+| --------- | ------------------------------------------ | ------------------------------------------------------ |
+| `default` | `richText`, `cta`, `navLinks`, and `stack` | The main footer body.                                  |
+| `bottom`  | `richText`, `cta`, `navLinks`, and `stack` | The region that usually holds legal or social content. |
 
-## Variants
+Both slots accept any number of the listed blocks. Use `stack` when a region needs a nested row,
+column, or group of blocks.
 
-- **Default** shows a statement, grouped links, and a legal line with the neutral transparent tone.
-- **InverseColour** resolves `surfaceInverse` and `accentText` to the page's `--t-surface-inverse`
-  and `--t-accent-text` custom properties.
-- Omit `statement` or `legal` when the page does not need them; neither creates a placeholder.
+## Properties
+
+| Prop         | Type and default                                            | Purpose                                                            |
+| ------------ | ----------------------------------------------------------- | ------------------------------------------------------------------ |
+| `layout`     | `columns \| centered \| split` = `columns`                  | Arranges the two slots while they share the main flow.             |
+| `bottomBar`  | `boolean` = `false`                                         | Moves `bottom` into its own row under a rule.                      |
+| `border`     | `none \| top` = `none`                                      | Adds an outer logical block-start border.                          |
+| `align`      | `start \| center \| end` = `start`                          | Sets logical alignment for the inner content.                      |
+| `background` | `surface \| surfaceInverse \| accent` (optional)            | Page colour role; deliberately unset so `tone` decides by default. |
+| `textColor`  | `text \| textInverse \| textMuted \| accentText` (optional) | Page text role; deliberately unset so `tone` decides by default.   |
+| `tone`       | `transparent \| light \| dark` = `transparent`              | Supplies the section colour treatment when roles are not selected. |
+| `spacing`    | `none \| sm \| md \| lg` = `lg`                             | Token-backed logical block spacing.                                |
+| `width`      | `narrow \| standard \| wide \| full` = `wide`               | Maximum inline size of the footer content.                         |
+
+All properties except `bottomBar` appear on the design tab. `bottomBar` appears under advanced
+structure because it changes the slot's DOM placement.
+
+## Variants and states
+
+- **Default** renders populated body and bottom slots in the main columns flow.
+- **Split** lets both regions claim their natural share and wrap as space narrows.
+- **BottomBar** moves only the bottom slot into a ruled row beneath the body.
+- **InverseColour** demonstrates page-owned colour roles, not literal colours.
+- **CanvasEmpty** shows distinct body and bottom drop hints. Preview and published rendering never
+  include those hints.
 
 ## Accessibility
 
-The root is a semantic footer landmark. Every column is its own `nav`, named by the same visible
-heading shown in that column, and every destination is a native anchor. Keep column headings and
-link labels distinct so assistive technology can identify the navigation group and destination.
+The root is a semantic footer landmark. Slotted blocks retain their own semantics, accessible names,
+native links, and keyboard behavior; the container does not rewrite them. On the canvas, an empty
+slot is exposed as a named status hint so the two drop regions are distinguishable. Those hints are
+authoring scaffolding and are omitted whenever `isCanvas` is false.
 
-## RTL, responsive, and theme behavior
+## RTL, responsive, theme, and content behavior
 
-The footer uses logical alignment and token-backed logical sizing, so it follows the page's writing
-direction without physical left/right assumptions. Columns wrap on narrow layouts while retaining a
-minimum inline size. Colour roles reference page-owned `--t-*` variables rather than literal
-colours. When roles are absent, the root has no inline background or text colour and the section
-tone remains in control.
+Layout uses logical properties and logical alignment, so the same document mirrors with its content
+direction. Columns and split layouts wrap instead of forcing the two regions below their usable
+minimum. Every measurement and colour comes from a page-owned `--t-*` token. The footer never uses
+editor chrome tokens and never applies link, heading, or paragraph styling to arbitrary slotted
+children.

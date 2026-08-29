@@ -7,12 +7,27 @@ import { PageFooter } from './PageFooter';
 import { pageFooterSchema } from './schema';
 
 const node: Node = { id: 'page-footer-story', type: 'pageFooter', props: {} };
+const populatedSlots = {
+  default: (
+    <div>
+      <strong>CraftKit</strong>
+      <p>Composable pages for growing teams.</p>
+    </div>
+  ),
+  bottom: (
+    <div>
+      <small>© 2026 CraftKit</small>
+      <nav aria-label="Footer utilities">
+        <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+      </nav>
+    </div>
+  ),
+};
 
 const meta = {
   title: 'Builder/Blocks/PageFooter',
   component: PageFooter,
   parameters: { layout: 'padded' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof PageFooter>;
 
 export default meta;
@@ -21,15 +36,8 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     node,
-    props: pageFooterSchema.props.parse({
-      columns: [
-        { heading: 'Product', links: [{ label: 'Features', href: '/features' }] },
-        { heading: 'Company', links: [{ label: 'About', href: '/about' }] },
-      ],
-      legal: '© 2026 CraftKit',
-      statement: 'Composable pages for growing teams.',
-    }),
-    slots: {},
+    props: pageFooterSchema.props.parse({}),
+    slots: populatedSlots,
     data: {},
     isCanvas: false,
   },
@@ -37,7 +45,27 @@ export const Default: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByRole('contentinfo')).toBeInTheDocument();
-    await expect(canvas.getByRole('navigation', { name: 'Product' })).toBeInTheDocument();
+    await expect(canvas.getByText('Composable pages for growing teams.')).toBeInTheDocument();
+    await expect(canvas.getByRole('navigation', { name: 'Footer utilities' })).toBeInTheDocument();
+  },
+};
+
+export const Split: Story = {
+  args: {
+    ...Default.args,
+    props: pageFooterSchema.props.parse({ layout: 'split' }),
+  },
+};
+
+export const BottomBar: Story = {
+  args: {
+    ...Default.args,
+    props: pageFooterSchema.props.parse({ bottomBar: true }),
+  },
+  play: async ({ canvasElement }) => {
+    const bottomBar = canvasElement.querySelector('.mkt-footer__bottom');
+
+    await expect(bottomBar).toContainElement(within(canvasElement).getByText('© 2026 CraftKit'));
   },
 };
 
@@ -46,15 +74,13 @@ export const InverseColour: Story = {
     ...Default.args,
     props: pageFooterSchema.props.parse({
       background: 'surfaceInverse',
-      columns: [{ heading: 'Resources', links: [{ label: 'Guides', href: '/guides' }] }],
-      legal: '© 2026 CraftKit',
-      textColor: 'accentText',
+      textColor: 'textInverse',
     }),
   },
   play: async ({ canvasElement }) => {
     const footer = within(canvasElement).getByRole('contentinfo');
 
     await expect(footer.style.background).toBe('var(--t-surface-inverse)');
-    await expect(footer.style.color).toBe('var(--t-accent-text)');
+    await expect(footer.style.color).toBe('var(--t-text-inverse)');
   },
 };

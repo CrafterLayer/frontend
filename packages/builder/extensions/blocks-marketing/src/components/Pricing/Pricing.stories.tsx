@@ -35,11 +35,29 @@ export const Empty: Story = {
 
 const proofPlans = [
   {
+    name: 'Starter',
+    price: '$9',
+    period: 'month' as const,
+    features: ['One project', 'Email support'],
+  },
+  {
     name: 'Professional',
     price: '$29',
     period: 'month' as const,
     features: ['Unlimited projects', 'Priority support'],
     highlighted: true,
+  },
+  {
+    name: 'Business',
+    price: '$79',
+    period: 'month' as const,
+    features: ['Team workspaces', 'Priority support'],
+  },
+  {
+    name: 'Enterprise',
+    price: 'Custom',
+    period: 'year' as const,
+    features: ['Custom terms', 'Dedicated support'],
   },
 ];
 
@@ -198,18 +216,21 @@ export const ControlRenderingContract: Story = {
       await expect(new Set(maxWidths).size).toBe(4);
     });
 
-    await step('every column choice changes resolved tracks and measured plan widths', async () => {
-      const grids = (['auto', '2', '3', '4'] as const).map((columns) =>
-        proofElement(canvasElement, `pricing-columns-${columns}`, '.mkt-pricing__grid'),
-      );
-      const templates = grids.map((grid) => getComputedStyle(grid).gridTemplateColumns);
-      await expect(new Set(templates).size).toBe(4);
-      const planWidths = grids.map((grid) => {
-        const plan = grid.querySelector<HTMLElement>('.mkt-pricing__plan');
-        if (plan === null) throw new Error('Missing pricing plan');
-        return plan.getBoundingClientRect().width;
-      });
-      await expect(planWidths[0] ?? 0).toBeGreaterThan(planWidths[3] ?? 0);
-    });
+    await step(
+      'two and four columns resolve distinct tracks and measured plan widths',
+      async () => {
+        const grids = (['auto', '2', '3', '4'] as const).map((columns) =>
+          proofElement(canvasElement, `pricing-columns-${columns}`, '.mkt-pricing__grid'),
+        );
+        const templates = grids.map((grid) => getComputedStyle(grid).gridTemplateColumns);
+        await expect(new Set(templates).size).toBe(4);
+        const planWidths = grids.map((grid) => {
+          const plan = grid.querySelector<HTMLElement>('.mkt-pricing__plan');
+          if (plan === null) throw new Error('Missing pricing plan');
+          return plan.getBoundingClientRect().width;
+        });
+        await expect(planWidths[1] ?? 0).toBeGreaterThan(planWidths[3] ?? 0);
+      },
+    );
   },
 };

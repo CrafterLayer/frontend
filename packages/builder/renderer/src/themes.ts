@@ -65,6 +65,8 @@ export const lightTheme: Theme = {
   textMuted: '#6b7280',
   accent: '#4f46e5',
   accentText: '#ffffff',
+  success: '#047857',
+  successText: '#ffffff',
   ...measurements,
 };
 
@@ -76,5 +78,7 @@ export const darkTheme: Theme = {
   textMuted: '#9ca3af',
   accent: '#818cf8',
   accentText: '#0b1120',
+  success: '#34d399',
+  successText: '#0b1120',
   ...measurements,
 };

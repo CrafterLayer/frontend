@@ -52,7 +52,23 @@
   text-align: center;
 }
 
-.bldr-icon-rail__button:hover {
+/* THE RAIL IS THE ONE DARK SURFACE, so it cannot borrow the light chrome's
+   interaction states — and it was.
+
+   `ChromeButton` styles its quiet hover as `.bldr-chrome-button[data-variant='quiet']:enabled:hover`,
+   which is FOUR compound parts; the rules here carried two or three and lost
+   every tie. Measured on the dark rail: hovering any tab painted
+   `--bldr-surface-hover` — a 6%-black tint, invisible on a near-black ground —
+   and turned the label `--bldr-accent` violet instead of brightening it, while
+   hovering the SELECTED tab replaced its accent fill with that same grey and
+   dropped it out of its selected state entirely.
+
+   So each rule below is deliberately specific enough to win on its own terms
+   rather than on stylesheet order: the rail's own hover carries five parts,
+   and the selected tab's carries six so it outranks the rail's. This is a
+   consumer overriding the primitive it renders, and it has to say so in the
+   selector. */
+.bldr-icon-rail .bldr-icon-rail__button[data-variant='quiet']:enabled:hover {
   background-color: var(--bldr-rail-raised);
   color: var(--bldr-rail-text-strong);
 }
@@ -62,10 +78,21 @@
   color: var(--bldr-accent-text);
 }
 
-.bldr-icon-rail__button[aria-current='page']:hover,
-.bldr-icon-rail__button:active {
+/* Selected stays selected under the pointer: it deepens, it does not grey out. */
+.bldr-icon-rail .bldr-icon-rail__button[data-variant='quiet'][aria-current='page']:enabled:hover,
+.bldr-icon-rail .bldr-icon-rail__button[data-variant='quiet']:enabled:active {
   background-color: var(--bldr-accent-strong);
   color: var(--bldr-accent-text);
+}
+
+/* The focus ring is RE-COLOURED here, never removed — the product publishes one
+   ring and permits exactly this. It has to be: `--bldr-focus-ring` is the same
+   violet as `--bldr-accent`, so on the selected tab the ring was drawn in the
+   fill's own colour, separated from it by a 1px gap of dark rail. That reads as
+   a doubled border, not as focus. Near-white reads as a ring against both the
+   near-black rail and the violet fill it may land on. */
+.bldr-icon-rail .bldr-icon-rail__button:focus-visible {
+  outline-color: var(--bldr-rail-text-strong);
 }
 
 .bldr-icon-rail__icon {

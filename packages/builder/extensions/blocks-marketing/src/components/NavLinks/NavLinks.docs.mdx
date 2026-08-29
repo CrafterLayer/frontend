@@ -1,0 +1,54 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as NavLinksStories from './NavLinks.stories';
+
+<Meta of={NavLinksStories} />
+
+# NavLinks
+
+An inline navigation list for freely composed page slots. Use it in a header, a footer column, or
+beside other blocks when a compact group of destinations is needed. Use a richer content block when
+the items need descriptions, icons, actions, or nested navigation.
+
+## Props (intent-only)
+
+- `links: Array<{ label: string (1–24); href: string (1–200) }> = []` — at most 10 links.
+- `direction: 'row' | 'column' = 'row'`
+- `style: 'plain' | 'underline' | 'pill' = 'plain'`
+- `textCase: 'normal' | 'uppercase' = 'normal'`
+- `weight: 'regular' | 'medium' | 'semibold' = 'medium'`
+- `gap: 'none' | 'sm' | 'md' | 'lg' = 'md'`
+- `wrap: 'nowrap' | 'wrap' = 'wrap'`
+- `background?: 'surface' | 'surfaceInverse' | 'accent'`
+- `textColor?: 'text' | 'textInverse' | 'textMuted' | 'accentText'`
+
+## Variants and empty state
+
+`plain` removes decoration, `underline` keeps every destination visibly underlined, and `pill` adds
+a tokenized border and control padding. Direction, gap, wrapping, text case, and weight are
+independent. An empty block shows a short setup hint only on the builder canvas; published output
+renders nothing.
+
+## Accessibility
+
+Non-empty output is a named `nav` landmark containing a semantic list of real anchors. Links follow
+native keyboard and browser behavior, and the theme accent provides their focus-visible outline.
+Empty output never creates a navigation landmark. Link labels should be distinct and meaningful out
+of context; avoid repeated labels such as “Learn more.”
+
+## Theming, responsive behavior, and RTL
+
+Color roles resolve through the page theme, while spacing, borders, radii, tracking, and pill
+padding use page measurement tokens. Row order follows the document's reading direction, logical CSS
+keeps padding direction-safe, and wrapping is enabled by default for constrained containers.
+
+## Composition example
+
+Use a `row` with `plain` or `underline` styling in a page header. Use a `column` with a smaller gap
+inside a footer column. The block stays independent of either container, so the same content can be
+moved elsewhere without changing its schema.
+
+## Known limitations
+
+Each item supports one visible label and one destination. Nested menus, icons, descriptions,
+per-link targets, and custom landmark labels are intentionally outside this compact block.

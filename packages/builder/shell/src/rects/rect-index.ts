@@ -1,9 +1,22 @@
-import type { NodeId } from '@craftkit/builder-schema';
+import type { NodeId, SlotName } from '@craftkit/builder-schema';
 
 import { systemGeometryPorts, type GeometryPorts } from './geometry-ports';
 
 export interface NodeRect {
   nodeId: NodeId;
+  /** Preview-local coordinates (= chrome-layer-local; see GeometryPorts). */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Index version this measurement was taken at. */
+  version: number;
+}
+
+export interface SlotRect {
+  /** Deliberately distinct from NodeRect.nodeId: slot and node geometry cannot share a key. */
+  ownerNodeId: NodeId;
+  slotName: SlotName;
   /** Preview-local coordinates (= chrome-layer-local; see GeometryPorts). */
   x: number;
   y: number;
@@ -19,6 +32,13 @@ export interface RectIndex {
   detach(id: NodeId): void;
   /** Lazy: re-measures ONLY this element, and only when its cache is stale. */
   rect(id: NodeId): NodeRect | undefined;
+  /**
+   * Slot geometry uses a separate namespace and cache. Empty slots measure their
+   * real wrapper; populated `display: contents` slots union their direct child
+   * node rects. Optional so existing injected node-only test doubles retain the
+   * legacy first-slot fallback.
+   */
+  slotRect?(ownerNodeId: NodeId, slotName: SlotName): SlotRect | undefined;
   /** Identity from point hit-testing — zero measurement on the pointer path. */
   nodeAt(clientX: number, clientY: number): NodeId | undefined;
   has(id: NodeId): boolean;
@@ -62,6 +82,8 @@ export function createRectIndex(options: {
 
   const elements = new Map<NodeId, HTMLElement>();
   const rects = new Map<NodeId, NodeRect>();
+  const slotElements = new Map<NodeId, Map<SlotName, HTMLElement>>();
+  const slotRects = new Map<NodeId, Map<SlotName, SlotRect>>();
   let version = 0;
   let measures = 0;
   let invalidations = 0;
@@ -83,6 +105,83 @@ export function createRectIndex(options: {
   // install a stub when they need to drive it.
   const resizeObserver =
     typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(invalidate);
+  const observedEmptySlots = new Set<HTMLElement>();
+
+  const updateEmptySlotObservation = (element: HTMLElement) => {
+    const isEmpty = element.classList.contains('bldr-slot-empty');
+    if (isEmpty && !observedEmptySlots.has(element)) {
+      observedEmptySlots.add(element);
+      resizeObserver?.observe(element);
+    } else if (!isEmpty && observedEmptySlots.delete(element)) {
+      resizeObserver?.unobserve(element);
+    }
+  };
+
+  const forgetOwnedSlotElements = (ownerNodeId: NodeId) => {
+    const owned = slotElements.get(ownerNodeId);
+    if (owned !== undefined) {
+      for (const element of owned.values()) {
+        if (observedEmptySlots.delete(element)) {
+          resizeObserver?.unobserve(element);
+        }
+      }
+    }
+    slotElements.delete(ownerNodeId);
+    slotRects.delete(ownerNodeId);
+  };
+
+  const slotElementOf = (ownerNodeId: NodeId, slotName: SlotName): HTMLElement | undefined => {
+    const owner = elements.get(ownerNodeId);
+    if (owner === undefined) {
+      return undefined;
+    }
+    const cached = slotElements.get(ownerNodeId)?.get(slotName);
+    if (
+      cached !== undefined &&
+      owner.contains(cached) &&
+      cached.getAttribute('data-bldr-slot-of') === ownerNodeId &&
+      cached.getAttribute('data-bldr-slot') === slotName
+    ) {
+      updateEmptySlotObservation(cached);
+      return cached;
+    }
+    if (cached !== undefined && observedEmptySlots.delete(cached)) {
+      resizeObserver?.unobserve(cached);
+    }
+
+    for (const candidate of owner.querySelectorAll<HTMLElement>(
+      '[data-bldr-slot][data-bldr-slot-of]',
+    )) {
+      if (
+        candidate.getAttribute('data-bldr-slot-of') === ownerNodeId &&
+        candidate.getAttribute('data-bldr-slot') === slotName
+      ) {
+        const owned = slotElements.get(ownerNodeId) ?? new Map<SlotName, HTMLElement>();
+        owned.set(slotName, candidate);
+        slotElements.set(ownerNodeId, owned);
+        updateEmptySlotObservation(candidate);
+        return candidate;
+      }
+    }
+    slotElements.get(ownerNodeId)?.delete(slotName);
+    return undefined;
+  };
+
+  const rectOf = (id: NodeId): NodeRect | undefined => {
+    const element = elements.get(id);
+    if (element === undefined) {
+      return undefined;
+    }
+    const cached = rects.get(id);
+    if (cached?.version === version) {
+      return cached;
+    }
+    measures += 1;
+    const measured = ports.measure(element);
+    const record: NodeRect = { nodeId: id, ...measured, version };
+    rects.set(id, record);
+    return record;
+  };
 
   const dirObserver = new MutationObserver(invalidate);
   dirObserver.observe(frameDocument.documentElement, {
@@ -113,6 +212,7 @@ export function createRectIndex(options: {
       }
       if (previous !== undefined) {
         resizeObserver?.unobserve(previous);
+        forgetOwnedSlotElements(id);
       }
       elements.set(id, element);
       resizeObserver?.observe(element);
@@ -124,23 +224,56 @@ export function createRectIndex(options: {
         return;
       }
       resizeObserver?.unobserve(element);
+      forgetOwnedSlotElements(id);
       elements.delete(id);
       rects.delete(id);
       invalidate();
     },
-    rect(id) {
-      const element = elements.get(id);
-      if (element === undefined) {
-        return undefined;
-      }
-      const cached = rects.get(id);
+    rect: rectOf,
+    slotRect(ownerNodeId, slotName) {
+      const cached = slotRects.get(ownerNodeId)?.get(slotName);
       if (cached?.version === version) {
         return cached;
       }
-      measures += 1;
-      const measured = ports.measure(element);
-      const record: NodeRect = { nodeId: id, ...measured, version };
-      rects.set(id, record);
+      const slotElement = slotElementOf(ownerNodeId, slotName);
+      if (slotElement === undefined) {
+        return undefined;
+      }
+
+      let measured: { x: number; y: number; width: number; height: number };
+      if (slotElement.classList.contains('bldr-slot-empty')) {
+        measures += 1;
+        measured = ports.measure(slotElement);
+      } else {
+        const children = [...slotElement.children];
+        const firstChild = children[0];
+        const firstId = firstChild?.getAttribute('data-bldr-node');
+        const firstRect = firstId === null || firstId === undefined ? undefined : rectOf(firstId);
+        if (firstRect === undefined) {
+          return undefined;
+        }
+        let left = firstRect.x;
+        let top = firstRect.y;
+        let right = firstRect.x + firstRect.width;
+        let bottom = firstRect.y + firstRect.height;
+        for (const child of children.slice(1)) {
+          const childId = child.getAttribute('data-bldr-node');
+          const childRect = childId === null ? undefined : rectOf(childId);
+          if (childRect === undefined) {
+            return undefined;
+          }
+          left = Math.min(left, childRect.x);
+          top = Math.min(top, childRect.y);
+          right = Math.max(right, childRect.x + childRect.width);
+          bottom = Math.max(bottom, childRect.y + childRect.height);
+        }
+        measured = { x: left, y: top, width: right - left, height: bottom - top };
+      }
+
+      const record: SlotRect = { ownerNodeId, slotName, ...measured, version };
+      const owned = slotRects.get(ownerNodeId) ?? new Map<SlotName, SlotRect>();
+      owned.set(slotName, record);
+      slotRects.set(ownerNodeId, owned);
       return record;
     },
     nodeAt(clientX, clientY) {
@@ -168,6 +301,9 @@ export function createRectIndex(options: {
       frameDocument.defaultView?.removeEventListener('resize', invalidate);
       elements.clear();
       rects.clear();
+      slotElements.clear();
+      slotRects.clear();
+      observedEmptySlots.clear();
     },
   };
 }

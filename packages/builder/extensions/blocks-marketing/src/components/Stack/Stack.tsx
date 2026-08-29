@@ -38,19 +38,7 @@ export function Stack({ node, props, slots }: BlockRenderProps<StackProps>) {
   return (
     <div className={className} data-bldr-stack={node.id} style={sectionColorStyle(props)}>
       <div className={`mkt-section__content mkt-section__content--width-${props.width}`}>
-        {children === undefined ? (
-          /*
-            An empty container is not nothing — it is a drop target a person has
-            just made and is about to fill. Rendering literally nothing collapses
-            it to zero height, so it cannot be hit, and the page appears to have
-            swallowed the block that was just added.
-          */
-          <p className="mkt-stack__empty" role="status">
-            Empty container — drop a block here.
-          </p>
-        ) : (
-          children
-        )}
+        {children}
       </div>
     </div>
   );

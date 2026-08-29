@@ -1,29 +1,28 @@
 import type { JsonValue } from '@craftkit/builder-schema';
 
-/** Few-shots for AI context assembly — written FOR the model. */
+/** Few-shots for AI context assembly — content is composed through slots. */
 export const pageFooterExamples: { prompt: string; node: JsonValue }[] = [
   {
-    prompt: 'فوتر بعمودين وسطر حقوق',
+    prompt: 'فوتر مقسوم مع صف سفلي منفصل',
     node: {
       type: 'pageFooter',
       props: {
-        statement: 'نصنع أدوات تحرير تُثبت ما تفعله.',
-        columns: [
-          { heading: 'المنتج', links: [{ label: 'المزايا', href: '/features' }] },
-          { heading: 'الشركة', links: [{ label: 'من نحن', href: '/about' }] },
-        ],
-        legal: '© 2026 CraftKit',
+        layout: 'split',
+        bottomBar: true,
+        align: 'start',
+        spacing: 'lg',
+        width: 'wide',
       },
     },
   },
   {
-    prompt: 'a dark footer with a legal line',
+    prompt: 'a dark centered footer container',
     node: {
       type: 'pageFooter',
       props: {
+        layout: 'centered',
         background: 'surfaceInverse',
         textColor: 'textInverse',
-        legal: '© 2026 Startly. All rights reserved.',
         spacing: 'lg',
       },
     },

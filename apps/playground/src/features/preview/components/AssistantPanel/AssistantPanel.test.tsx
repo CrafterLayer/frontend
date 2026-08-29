@@ -237,17 +237,82 @@ describe('AssistantPanel', () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole('button', { name: 'New chat' }));
-    expect(
-      screen.getByRole<HTMLSelectElement>('combobox', { name: 'Conversation' }),
-    ).toBeInTheDocument();
+    const history = screen.getByRole('button', { name: 'Conversation' });
+    expect(history).toHaveAccessibleName('Conversation');
     expect(
       screen.getByText('Ask for a section and I will propose the exact changes.'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'New chat', selected: true })).toBeInTheDocument();
+
+    await user.click(history);
+    expect(
+      screen.getByRole('menuitemradio', { name: /New chat/, checked: true }),
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
 
     await requestPlan(user, 'add a hero');
 
-    expect(screen.getByRole('option', { name: 'add a hero', selected: true })).toBeInTheDocument();
-    expect(screen.getAllByRole('option', { name: 'New chat' })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Conversation' }));
+    expect(
+      screen.getByRole('menuitemradio', { name: /add a hero/, checked: true }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('menuitemradio', { name: /New chat/ })).toHaveLength(1);
+  });
+
+  it('opens the conversation history on demand and closes it on Escape', async () => {
+    const { user } = renderPanel();
+
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    // History is a place you go back to, so nothing is on screen until asked for.
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    const history = screen.getByRole('button', { name: 'Conversation' });
+    await user.click(history);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(2);
+
+    // Escape returns focus to the trigger rather than dropping it on the body.
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(history).toHaveFocus();
+  });
+
+  it('walks the history with the arrow keys the menu role promises', async () => {
+    const { user } = renderPanel();
+
+    await requestPlan(user, 'add a hero');
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    await user.click(screen.getByRole('button', { name: 'Conversation' }));
+
+    // Focus enters on the chat you are in, not on the top of the list.
+    const current = screen.getByRole('menuitemradio', { name: /New chat/ });
+    const other = screen.getByRole('menuitemradio', { name: /add a hero/ });
+    expect(current).toHaveFocus();
+
+    // Each assertion names the element focus must LAND on — `not.toHaveFocus`
+    // would pass just as well if focus had fallen through to the body.
+    await user.keyboard('{ArrowDown}');
+    expect(other).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(current).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(other).toHaveFocus();
+    await user.keyboard('{End}');
+    expect(current).toHaveFocus();
+  });
+
+  it('switches to the conversation chosen from the history and shows its own turns', async () => {
+    const { user } = renderPanel();
+
+    await requestPlan(user, 'add a hero');
+    // The proposal belongs to the chat it was made in, not to the panel.
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Conversation' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /add a hero/ }));
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.getByText(/Add a hero block to root\.default/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
   });
 });

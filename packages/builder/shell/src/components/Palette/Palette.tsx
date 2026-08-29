@@ -106,7 +106,14 @@ function categoryForBlock(type: string): PaletteCategory {
     key.includes('media') ||
     key.includes('video') ||
     key.includes('embed') ||
-    key.includes('form')
+    key.includes('form') ||
+    /*
+      A row of links is CONTENT — it is words a person writes. The marketing
+      group above claims `navbar` and `navigation` first, and it is checked
+      first, so a site's masthead nav stays where it was.
+    */
+    key.includes('link') ||
+    key.includes('nav')
   ) {
     return 'Content';
   }

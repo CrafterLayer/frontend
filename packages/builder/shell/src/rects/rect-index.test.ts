@@ -48,6 +48,22 @@ function nodeElement(frame: HTMLIFrameElement, id: string): HTMLElement {
   return wrapper;
 }
 
+function slotElement(
+  owner: HTMLElement,
+  slotName: string,
+  children: readonly HTMLElement[] = [],
+): HTMLElement {
+  const wrapper = owner.ownerDocument.createElement('div');
+  wrapper.setAttribute('data-bldr-slot', slotName);
+  wrapper.setAttribute('data-bldr-slot-of', owner.getAttribute('data-bldr-node') ?? '');
+  if (children.length === 0) {
+    wrapper.className = 'bldr-slot-empty';
+  }
+  wrapper.append(...children);
+  owner.appendChild(wrapper);
+  return wrapper;
+}
+
 describe('createRectIndex (005 contract §1)', () => {
   let frame: HTMLIFrameElement;
   let index: RectIndex;
@@ -91,6 +107,65 @@ describe('createRectIndex (005 contract §1)', () => {
     expect(index.stats().measures).toBe(2); // only the read node re-measured
     expect(index.rect('b')).toBeDefined();
     expect(index.stats().measures).toBe(3);
+  });
+
+  it('measures an empty slot from its own wrapper in a slot-only cache', () => {
+    const owner = nodeElement(frame, 'owner');
+    const emptySlot = slotElement(owner, 'center');
+    measurePort.mockImplementation((element: HTMLElement) =>
+      element === emptySlot
+        ? { x: 40, y: 50, width: 60, height: 70 }
+        : { x: 1, y: 2, width: 300, height: 400 },
+    );
+    index.attach('owner', owner);
+
+    const nodeRect = index.rect('owner');
+    const slotRect = index.slotRect?.('owner', 'center');
+    expect(nodeRect).toMatchObject({ nodeId: 'owner', x: 1, y: 2, width: 300, height: 400 });
+    expect(slotRect).toMatchObject({
+      ownerNodeId: 'owner',
+      slotName: 'center',
+      x: 40,
+      y: 50,
+      width: 60,
+      height: 70,
+    });
+    expect(slotRect).not.toBe(nodeRect);
+    expect(index.slotRect?.('owner', 'center')).toBe(slotRect);
+  });
+
+  it('unions a populated display-contents slot from its direct child node rects', () => {
+    const owner = nodeElement(frame, 'owner');
+    const first = nodeElement(frame, 'first');
+    const second = nodeElement(frame, 'second');
+    const populatedSlot = slotElement(owner, 'default', [first, second]);
+    populatedSlot.style.display = 'contents';
+    measurePort.mockImplementation((element: HTMLElement) => {
+      switch (element.getAttribute('data-bldr-node')) {
+        case 'first':
+          return { x: 10, y: 20, width: 30, height: 20 };
+        case 'second':
+          return { x: 50, y: 60, width: 30, height: 30 };
+        default:
+          return { x: 0, y: 0, width: 500, height: 500 };
+      }
+    });
+    index.attach('owner', owner);
+    index.attach('first', first);
+    index.attach('second', second);
+
+    const rect = index.slotRect?.('owner', 'default');
+    expect(rect).toMatchObject({
+      ownerNodeId: 'owner',
+      slotName: 'default',
+      x: 10,
+      y: 20,
+      width: 70,
+      height: 70,
+    });
+    expect(measurePort).not.toHaveBeenCalledWith(populatedSlot);
+    expect(index.stats().measures).toBe(2);
+    expect(index.slotRect?.('owner', 'default')).toBe(rect);
   });
 
   it('every observation channel bumps the version without measuring', () => {

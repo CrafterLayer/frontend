@@ -20,7 +20,6 @@
      itself can only ever be right in one place. */
   inline-size: 100%;
   min-block-size: 0;
-  overflow-y: auto;
   padding-block: var(--bldr-space-xl);
   padding-inline: var(--bldr-space-md);
 }

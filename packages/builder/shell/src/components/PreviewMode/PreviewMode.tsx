@@ -5,6 +5,7 @@ import {
   CanvasFrame,
   DocumentView,
   useKernelSelector,
+  type RenderBreakpoint,
   type Theme,
 } from '@craftkit/builder-renderer';
 import type { ContentDirection } from '@craftkit/builder-schema';
@@ -18,6 +19,15 @@ export interface PreviewModeProps {
   theme: Theme;
   /** View-state direction override; null/absent = the document's own direction. */
   dirOverride?: ContentDirection | null | undefined;
+  /**
+   * The device the person is previewing AT.
+   *
+   * Preview used to render at the default breakpoint whatever device was
+   * selected, so a tablet override simply never appeared — the one thing
+   * preview exists to show. Defaulted rather than required so every existing
+   * caller keeps working, and the playground now passes its selection.
+   */
+  breakpoint?: RenderBreakpoint | undefined;
   /** Escape (host or frame) triggers this too. */
   onExit: () => void;
 }
@@ -32,7 +42,7 @@ export interface PreviewModeProps {
  * unmounts whatever had focus, so exit must not depend on where focus landed —
  * plus the frame document (keydown does not cross documents, the B2b law).
  */
-export function PreviewMode({ kernel, theme, dirOverride, onExit }: PreviewModeProps) {
+export function PreviewMode({ kernel, theme, dirOverride, breakpoint, onExit }: PreviewModeProps) {
   const docDir = useKernelSelector(
     kernel,
     useCallback(
@@ -110,7 +120,7 @@ export function PreviewMode({ kernel, theme, dirOverride, onExit }: PreviewModeP
           canvas: a block's editing-only scaffolding — empty-state hints, drop
           affordances — must not reach the person reading the finished page.
         */}
-        <DocumentView kernel={kernel} isCanvas={false} />
+        <DocumentView kernel={kernel} isCanvas={false} breakpoint={breakpoint} />
       </CanvasFrame>
       <button type="button" className="bldr-preview__exit" onClick={onExit}>
         Exit preview

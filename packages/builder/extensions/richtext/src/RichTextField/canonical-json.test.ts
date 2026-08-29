@@ -43,6 +43,45 @@ describe('canonicalJson (008 §8 item 13)', () => {
     expect(canonical.length).toBeLessThan(2_048);
   });
 
+  it('degrades cyclic and inaccessible persisted values without interrupting reconciliation', () => {
+    const cyclicObject: { self?: unknown } = {};
+    cyclicObject.self = cyclicObject;
+    const cyclicArray: unknown[] = [];
+    cyclicArray.push(cyclicArray);
+    const throwingGetter = Object.defineProperty({}, 'value', {
+      enumerable: true,
+      get: () => {
+        throw new Error('storage read failed');
+      },
+    });
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+
+    expect(canonicalJson(cyclicObject)).toBe('{"self":null}');
+    expect(canonicalJson(cyclicArray)).toBe('[null]');
+    expect(canonicalJson(throwingGetter)).toBe('null');
+    expect(canonicalJson(revoked.proxy)).toBe('null');
+  });
+
+  it('degrades an array whose persisted iterator throws instead of propagating the read failure', () => {
+    const throwingArray = new Proxy<unknown[]>([], {
+      get(target, key, receiver) {
+        if (key === Symbol.iterator) {
+          throw new Error('array storage read failed');
+        }
+        return Reflect.get(target, key, receiver) as unknown;
+      },
+    });
+
+    expect(canonicalJson(throwingArray)).toBe('null');
+  });
+
+  it('degrades non-JSON primitive values to the explicit persisted-value fallback', () => {
+    expect(canonicalJson(() => undefined)).toBe('null');
+    expect(canonicalJson(Symbol('persisted'))).toBe('null');
+    expect(canonicalJson(1n)).toBe('null');
+  });
+
   it('keeps the byte-for-byte canonical form of valid stored rich text', () => {
     const valid = {
       type: 'doc',

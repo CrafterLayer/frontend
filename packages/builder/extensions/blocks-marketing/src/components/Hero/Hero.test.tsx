@@ -37,6 +37,150 @@ describe('Hero', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('applies a background colour role without setting text colour', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({
+          heading: 'Background role hero',
+          background: 'surfaceInverse',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Background role hero' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('');
+  });
+
+  it('applies a text colour role without setting background', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({
+          heading: 'Text role hero',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Text role hero' });
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('applies both colour roles', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({
+          heading: 'Both roles hero',
+          background: 'surfaceInverse',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Both roles hero' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('does not add an inline colour style when no role is chosen', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({ heading: 'Uncoloured hero' })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Uncoloured hero' });
+    expect(section).not.toHaveAttribute('style');
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('');
+  });
+
+  it('renders the optional eyebrow when supplied', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({
+          heading: 'Eyebrow hero',
+          eyebrow: 'New release',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(screen.getByText('New release')).toHaveClass('mkt-hero__eyebrow');
+  });
+
+  it('adds a modifier class for every defined action layout property', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({
+          heading: 'Configured actions',
+          layoutDirection: 'row',
+          layoutJustify: 'center',
+          layoutAlign: 'end',
+          layoutGap: 'lg',
+          layoutWrap: 'wrap',
+        })}
+        slots={{ actions: <button type="button">Explore</button> }}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const actions = screen.getByRole('button', { name: 'Explore' }).parentElement;
+    if (actions === null) throw new Error('Expected Hero actions wrapper');
+    expect(actions).toHaveClass(
+      'mkt-hero__actions--direction-row',
+      'mkt-hero__actions--justify-center',
+      'mkt-hero__actions--align-end',
+      'mkt-hero__actions--gap-lg',
+      'mkt-hero__actions--wrap-wrap',
+    );
+  });
+
+  it('omits every action layout modifier when the layout properties are undefined', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({ heading: 'Unconfigured actions' })}
+        slots={{ actions: <button type="button">Explore</button> }}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const actions = screen.getByRole('button', { name: 'Explore' }).parentElement;
+    if (actions === null) throw new Error('Expected Hero actions wrapper');
+    expect(actions).not.toHaveClass(
+      'mkt-hero__actions--direction-row',
+      'mkt-hero__actions--justify-center',
+      'mkt-hero__actions--align-end',
+      'mkt-hero__actions--gap-lg',
+      'mkt-hero__actions--wrap-wrap',
+    );
+    expect(actions.className).not.toContain('mkt-hero__actions--');
+  });
+
   it('schema: enforces the heading length and the actions slot vocabulary', () => {
     expect(heroSchema.props.safeParse({ heading: '' }).success).toBe(false);
     expect(heroSchema.slots?.['actions']).toEqual({ allow: ['cta'], max: 2 });

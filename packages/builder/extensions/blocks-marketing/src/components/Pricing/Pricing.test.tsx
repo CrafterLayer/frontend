@@ -55,6 +55,82 @@ describe('Pricing', () => {
     );
   });
 
+  it('applies a background colour role without setting text colour', () => {
+    render(
+      <Pricing
+        node={node}
+        props={pricingSchema.props.parse({
+          heading: 'Background role pricing',
+          body: 'Colour coverage.',
+          background: 'surfaceInverse',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Background role pricing' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('');
+  });
+
+  it('applies a text colour role without setting background', () => {
+    render(
+      <Pricing
+        node={node}
+        props={pricingSchema.props.parse({
+          heading: 'Text role pricing',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Text role pricing' });
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('applies both colour roles', () => {
+    render(
+      <Pricing
+        node={node}
+        props={pricingSchema.props.parse({
+          heading: 'Both roles pricing',
+          background: 'surfaceInverse',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Both roles pricing' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('does not add an inline colour style when no role is chosen', () => {
+    render(
+      <Pricing
+        node={node}
+        props={pricingSchema.props.parse({ heading: 'Uncoloured pricing' })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Uncoloured pricing' });
+    expect(section).not.toHaveAttribute('style');
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('');
+  });
+
   it('schema bounds plans and features', () => {
     const tooMany = Array.from({ length: 5 }, (_, index) => ({
       name: `P${String(index)}`,

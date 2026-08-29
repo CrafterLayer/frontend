@@ -15,6 +15,8 @@ import { resolveResponsiveProps, type RenderBreakpoint } from '../../../resolve/
 import { useKernelNode, useRegistryEpoch } from '../../../subscribe';
 import { UnknownBlock } from '../../UnknownBlock';
 
+import './slot.css';
+
 export interface NodeViewProps {
   kernel: BuilderKernel;
   id: NodeId;
@@ -292,8 +294,16 @@ function NodeViewInner({
     content = <UnknownBlock type={node.type} />;
   } else {
     const slots: Record<SlotName, ReactNode> = {};
-    for (const [slotName, childIds] of Object.entries(node.slots ?? {})) {
-      slots[slotName] = childIds.map((childId) => (
+    const declaredSlotNames = Object.keys(entry?.schema.slots ?? {});
+    const declaredSlots = new Set(declaredSlotNames);
+    const slotNames = [
+      ...declaredSlotNames,
+      ...Object.keys(node.slots ?? {}).filter((slotName) => !declaredSlots.has(slotName)),
+    ];
+    for (const slotName of slotNames) {
+      const childIds = node.slots?.[slotName] ?? [];
+      const hasChildren = childIds.length > 0;
+      const children = childIds.map((childId) => (
         <NodeView
           key={childId}
           kernel={kernel}
@@ -305,6 +315,38 @@ function NodeViewInner({
           isCanvas={isCanvas}
         />
       ));
+
+      /*
+        The slot wrapper is CANVAS scaffolding, not page content.
+
+        It exists so the drop resolver can measure a slot and target it — an
+        empty slot is a real box precisely so a person can drop into it, and a
+        filled one is `display: contents` so it adds no box and Stack's row
+        layout is untouched. None of that means anything to a reader of the
+        finished page, and `data-bldr-*` attributes in published HTML are the
+        same mistake as an editing hint reaching a published page. So the
+        published render emits the children bare, and `StaticDocument` matches
+        it exactly.
+      */
+      slots[slotName] = isCanvas ? (
+        <div
+          data-bldr-slot={slotName}
+          data-bldr-slot-of={id}
+          className={hasChildren ? undefined : 'bldr-slot-empty'}
+          style={hasChildren ? { display: 'contents' } : undefined}
+        >
+          {children}
+          {hasChildren ? null : (
+            /*
+              The slot's NAME, because three identical dashed boxes tell a person
+              nothing about which region they are about to fill.
+            */
+            <span className="bldr-slot-empty__label">{slotName}</span>
+          )}
+        </div>
+      ) : (
+        children
+      );
     }
     // The single un-erasure boundary (see BlockRenderComponent): stored renderers
     // are typed over `never`; here they receive their real resolved props.

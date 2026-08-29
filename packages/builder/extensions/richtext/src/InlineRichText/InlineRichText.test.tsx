@@ -107,6 +107,29 @@ describe('InlineRichText — the canvas rich surface (009 contract §4 t2)', () 
     expect(onCommit).not.toHaveBeenCalled();
   });
 
+  it('leaves forward Tab native when the host provides no formatting-focus bridge', () => {
+    let editor: Editor | null = null;
+    render(
+      <Harness
+        onEditor={(instance) => {
+          editor = instance;
+        }}
+      />,
+    );
+    const ed = editor as unknown as Editor;
+    const tab = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Tab',
+    });
+
+    act(() => {
+      ed.view.dom.dispatchEvent(tab);
+    });
+
+    expect(tab.defaultPrevented).toBe(false);
+  });
+
   it('contains native canvas gestures while Escape still exits the inline session', () => {
     const onExit = vi.fn();
     render(<Harness onExit={onExit} onEditor={() => undefined} />);
@@ -191,6 +214,34 @@ describe('InlineRichText — the canvas rich surface (009 contract §4 t2)', () 
     // stranded bubble (§5 b1).
     view.unmount();
     expect(onSelection).toHaveBeenLastCalledWith(null);
+  });
+
+  it('a queued anchor source rechecks eligibility when the selection collapses before measurement', () => {
+    const onSelection = vi.fn();
+    let editor: Editor | null = null;
+    render(
+      <Harness
+        onSelectionChange={onSelection}
+        onEditor={(instance) => {
+          editor = instance;
+        }}
+      />,
+    );
+    const ed = editor as unknown as Editor;
+
+    act(() => {
+      ed.view.dom.focus();
+      ed.commands.setTextSelection({ from: 1, to: 6 });
+    });
+    const report = onSelection.mock.lastCall?.[0] as SelectionAnchorReport | null | undefined;
+    if (report === null || report === undefined || !('measure' in report)) {
+      throw new Error('A selected editor must report a deferred anchor source');
+    }
+
+    act(() => {
+      ed.commands.setTextSelection({ from: 3, to: 3 });
+    });
+    expect(report.measure()).toBeNull();
   });
 
   it('document truth: an external value re-seeds the editor with ZERO commits', () => {

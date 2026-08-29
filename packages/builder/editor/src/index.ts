@@ -108,6 +108,7 @@ export {
 // createRectIndex and systemGeometryPorts internal.
 export {
   BuilderShell,
+  ChromeButton,
   IconRail,
   StatusBar,
   TopBar,
@@ -132,6 +133,9 @@ export {
   type CanvasDragHandle,
   type CanvasInlineEditHandle,
   type CanvasToolTarget,
+  type ChromeButtonProps,
+  type ChromeButtonSize,
+  type ChromeButtonVariant,
   type DeviceBarProps,
   type DeviceState,
   type DragPayload,

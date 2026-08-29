@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect } from 'storybook/test';
 
 import { createBuilder } from '@craftkit/builder-core';
 import {
@@ -7,6 +8,8 @@ import {
   landingFixture,
   seededIds,
 } from '@craftkit/builder-core/testing';
+
+import { withPassThroughRenderers } from '../../test-utils';
 
 import { DocumentView } from './DocumentView';
 
@@ -33,4 +36,39 @@ export const LandingFixture: Story = {
 
 export const MobileBreakpoint: Story = {
   args: { kernel: storyKernel(), breakpoint: 'mobile' },
+};
+
+export const EmptySlotIsHittable: Story = {
+  args: {
+    kernel: createBuilder({
+      document: {
+        schemaVersion: 1,
+        surface: 'site',
+        dir: 'ltr',
+        rootId: 'root',
+        nodes: { root: { id: 'root', type: 'page', props: { title: 'Empty' } } },
+      },
+      extensions: [withPassThroughRenderers(fixtureBlocks)],
+      ports: { clock: fixedClock(), ids: seededIds('empty') },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    /*
+      A BROWSER gate, because jsdom cannot fail it.
+
+      This box shipped once with the right class and the right attributes —
+      every unit assertion passed — and measured 0×0, because nothing styled it.
+      A drop target with no area is a drop target nobody can hit, and it is the
+      only way to put the first block into an empty region.
+    */
+    const box = canvasElement.querySelector('.bldr-slot-empty');
+    await expect(box).not.toBeNull();
+
+    const rect = (box as HTMLElement).getBoundingClientRect();
+    await expect(rect.height).toBeGreaterThan(20);
+    await expect(rect.width).toBeGreaterThan(20);
+
+    // And it says WHICH region, so three of them are not three identical boxes.
+    await expect((box as HTMLElement).textContent).toBe('default');
+  },
 };

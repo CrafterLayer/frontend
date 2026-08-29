@@ -1,0 +1,91 @@
+.mkt-nav-links {
+  box-sizing: border-box;
+  display: inline-flex;
+  max-inline-size: 100%;
+}
+
+.mkt-nav-links__list {
+  align-items: center;
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mkt-nav-links--direction-row .mkt-nav-links__list {
+  flex-direction: row;
+}
+
+.mkt-nav-links--direction-column .mkt-nav-links__list {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.mkt-nav-links--gap-none .mkt-nav-links__list {
+  gap: 0;
+}
+
+.mkt-nav-links--gap-sm .mkt-nav-links__list {
+  gap: var(--t-gap-sm, 8px);
+}
+
+.mkt-nav-links--gap-md .mkt-nav-links__list {
+  gap: var(--t-gap, 16px);
+}
+
+.mkt-nav-links--gap-lg .mkt-nav-links__list {
+  gap: var(--t-gap-lg, 32px);
+}
+
+.mkt-nav-links--wrap-wrap .mkt-nav-links__list {
+  flex-wrap: wrap;
+}
+
+.mkt-nav-links--wrap-nowrap .mkt-nav-links__list {
+  flex-wrap: nowrap;
+}
+
+.mkt-nav-links__link {
+  color: inherit;
+  display: inline-flex;
+  text-decoration: none;
+}
+
+.mkt-nav-links--style-underline .mkt-nav-links__link {
+  text-decoration-line: underline;
+  text-decoration-thickness: var(--t-border-width, 1px);
+  text-underline-offset: var(--t-gap-xs, 4px);
+}
+
+.mkt-nav-links--style-pill .mkt-nav-links__link {
+  border: var(--t-border-width, 1px) solid currentColor;
+  border-radius: var(--t-radius, 12px);
+  padding-block: var(--t-control-padding-block-sm, 8px);
+  padding-inline: var(--t-control-padding-inline-sm, 14px);
+}
+
+.mkt-nav-links--case-normal .mkt-nav-links__link {
+  text-transform: none;
+}
+
+.mkt-nav-links--case-uppercase .mkt-nav-links__link {
+  letter-spacing: var(--t-letter-spacing-wide, 0.06em);
+  text-transform: uppercase;
+}
+
+.mkt-nav-links--weight-regular .mkt-nav-links__link {
+  font-weight: 400;
+}
+
+.mkt-nav-links--weight-medium .mkt-nav-links__link {
+  font-weight: 500;
+}
+
+.mkt-nav-links--weight-semibold .mkt-nav-links__link {
+  font-weight: 600;
+}
+
+.mkt-nav-links__link:focus-visible {
+  outline: calc(var(--t-border-width, 1px) * 2) solid var(--t-accent, #4f46e5);
+  outline-offset: calc(var(--t-border-width, 1px) * 2);
+}

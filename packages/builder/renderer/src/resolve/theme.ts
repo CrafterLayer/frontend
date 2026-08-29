@@ -14,7 +14,21 @@
  * re-pointing the theme cannot move it.
  */
 export type ColorToken =
-  'surface' | 'surfaceInverse' | 'text' | 'textInverse' | 'textMuted' | 'accent' | 'accentText';
+  | 'surface'
+  | 'surfaceInverse'
+  | 'text'
+  | 'textInverse'
+  | 'textMuted'
+  | 'accent'
+  | 'accentText'
+  /*
+    Status. A page says "saved", "sold out" or "beta" as often as it says "buy",
+    and the demo announcement block was already reaching for `--t-success` —
+    which no theme defined, so every one of those resolved to a hard-coded green
+    forever, unmovable by any theme.
+  */
+  | 'success'
+  | 'successText';
 
 export type MeasurementToken =
   | 'radius'

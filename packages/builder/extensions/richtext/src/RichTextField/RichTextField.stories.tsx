@@ -370,10 +370,16 @@ export const ResponsiveToolbarFit: Story = {
       <div data-toolbar-fixture="narrow" style={{ inlineSize: '312px', maxInlineSize: '100%' }}>
         <RichTextField {...args} />
       </div>
+      <div
+        data-toolbar-fixture="constrained"
+        style={{ inlineSize: '242px', maxInlineSize: '100%' }}
+      >
+        <RichTextField {...args} />
+      </div>
     </div>
   ),
   play: async ({ canvasElement }) => {
-    const assertContained = async (fixtureName: 'wide' | 'narrow') => {
+    const assertContained = async (fixtureName: 'wide' | 'narrow' | 'constrained') => {
       const fixture = canvasElement.querySelector<HTMLElement>(
         `[data-toolbar-fixture="${fixtureName}"]`,
       );
@@ -403,14 +409,20 @@ export const ResponsiveToolbarFit: Story = {
       return new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top))).size;
     };
 
-    // Mutation guard: `flex-wrap: nowrap` makes the 312px fixture overflow and
-    // this named story fail; shrinking the targets makes the wide-row proof lie.
+    // Mutation guard: wider targets make the 312px fixture wrap; disabling
+    // wrapping makes the constrained fixture overflow.
     const wideRows = await assertContained('wide');
     const narrowRows = await assertContained('narrow');
+    const constrainedRows = await assertContained('constrained');
     await expect(wideRows).toBe(1);
-    await expect(narrowRows).toBeGreaterThan(1);
+    await expect(narrowRows).toBe(wideRows);
+    await expect(constrainedRows).toBeGreaterThan(narrowRows);
     const narrow = canvasElement.querySelector<HTMLElement>('[data-toolbar-fixture="narrow"]');
+    const constrained = canvasElement.querySelector<HTMLElement>(
+      '[data-toolbar-fixture="constrained"]',
+    );
     await expect(narrow?.getBoundingClientRect().width).toBe(312);
+    await expect(constrained?.getBoundingClientRect().width).toBe(242);
   },
 };
 
@@ -444,5 +456,54 @@ export const ResponsiveNoticeState: Story = {
     await expect(canvasElement).toHaveTextContent(/switch to desktop/i);
     // e5: the notice must not instantiate the engine.
     await expect(canvasElement.querySelector('.bldr-richtext-field__surface')).toBeNull();
+  },
+};
+
+/**
+ * The field is ONE control, so focusing it draws ONE ring.
+ *
+ * Wrapped in `.bldr-root` on purpose: that is what brings the product-wide
+ * focus rule into scope, and without it this story could never reproduce the
+ * defect it guards. Measured before the fix: the wrapper and the surface inside
+ * it both painted an identical 2px accent ring, 1px apart.
+ */
+export const OneRingForTheWholeField: Story = {
+  name: 'Focusing the field draws exactly one ring',
+  args: { ...stateArgs, value: emptyRichText() },
+  render: (args) => (
+    <div className="bldr-root">
+      <RichTextField {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const field = canvasElement.querySelector<HTMLElement>('.bldr-richtext-field');
+    const surface = canvasElement.querySelector<HTMLElement>('.bldr-richtext-field__surface');
+    if (field === null || surface === null) {
+      throw new Error('The field and its editing surface must render');
+    }
+    const view = canvasElement.ownerDocument.defaultView;
+    if (view === null) {
+      throw new Error('The field has no rendering window');
+    }
+
+    surface.focus();
+    await expect(surface).toHaveFocus();
+
+    // Non-vacuous: the wrapper must actually be drawing a ring, or "only one
+    // ring" would be satisfied by a field that shows no focus at all.
+    const wrapper = view.getComputedStyle(field);
+    await expect(wrapper.outlineStyle).toBe('solid');
+    await expect(Number.parseFloat(wrapper.outlineWidth)).toBeGreaterThan(0);
+
+    // The surface delegates rather than removing: the ring moved, it did not go.
+    await expect(surface.getAttribute('data-bldr-focus-ring')).toBe('delegated');
+    await expect(view.getComputedStyle(surface).outlineStyle).toBe('none');
+
+    // And exactly one element in the focus chain paints one.
+    const painting = [field, surface].filter((element) => {
+      const painted = view.getComputedStyle(element);
+      return painted.outlineStyle !== 'none' && Number.parseFloat(painted.outlineWidth) > 0;
+    });
+    await expect(painting).toEqual([field]);
   },
 };

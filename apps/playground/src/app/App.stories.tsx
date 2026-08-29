@@ -33,11 +33,12 @@ export const UnsupportedClaimsAreAbsent: Story = {
     await expect(canvas.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     await expect(canvas.queryByRole('button', { name: 'Publish options' })).not.toBeInTheDocument();
 
-    // Opening the harness makes Edit mode reachable at both wide and narrow
-    // story viewports without rendering a second copy of the control.
-    await userEvent.click(canvas.getByRole('button', { name: 'Harness' }));
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Edit mode' }));
-    await userEvent.click(canvas.getByRole('button', { name: 'Harness' }));
+    // Scenario controls live in the Settings rail; Harness labels the controls
+    // there rather than acting as an action-band button.
+    await userEvent.click(canvas.getByRole('button', { name: 'Settings' }));
+    const harness = await canvas.findByRole('region', { name: 'Scenario harness' });
+    await expect(within(harness).getByRole('heading', { name: 'Harness' })).toBeVisible();
+    await expect(within(harness).getByRole('combobox', { name: 'Fixture' })).toBeVisible();
     const status = await canvas.findByRole('region', { name: 'Editor status' });
 
     // Non-vacuous anchor: the status bar is mounted and carries the one real
@@ -57,13 +58,15 @@ export const DefaultPreviewUsesTheSelectedBreakpoint: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Harness' }));
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Edit mode' }));
-    // Close the overlay before testing the rail and inspector. Mutation that
-    // kills the next line: delete this click so the named group remains open.
-    await userEvent.click(canvas.getByRole('button', { name: 'Harness' }));
-    await expect(canvas.queryByRole('group', { name: 'Scenario harness' })).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole('button', { name: 'Settings' }));
+    const harness = await canvas.findByRole('region', { name: 'Scenario harness' });
+    await expect(within(harness).getByRole('heading', { name: 'Harness' })).toBeVisible();
+    await expect(within(harness).getByRole('combobox', { name: 'Fixture' })).toBeVisible();
+    // A person leaves Settings by choosing the real Layers rail destination.
     await userEvent.click(canvas.getByRole('button', { name: 'Layers' }));
+    await expect(
+      canvas.queryByRole('region', { name: 'Scenario harness' }),
+    ).not.toBeInTheDocument();
 
     const tree = await canvas.findByRole('tree', { name: 'Document structure' });
     const hero = within(tree)
@@ -79,9 +82,8 @@ export const DefaultPreviewUsesTheSelectedBreakpoint: Story = {
     await userEvent.click(heading);
     await userEvent.paste('Tablet preview truth');
 
-    // Leave editing without resetting the selected device. The default branch
-    // is the exact branch that used to ignore the selector.
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Edit mode' }));
+    // Preview carries the selected device into the publish-safe frame.
+    await userEvent.click(canvas.getByRole('button', { name: 'Preview' }));
     const preview = await canvas.findByTitle<HTMLIFrameElement>('Preview');
     await waitFor(async () => {
       // Mutation that kills this line: remove `breakpoint={breakpoint}` from
@@ -89,9 +91,14 @@ export const DefaultPreviewUsesTheSelectedBreakpoint: Story = {
       await expect(previewBody(preview)).toHaveTextContent('Tablet preview truth');
     });
 
-    await userEvent.click(canvas.getByRole('radio', { name: 'Desktop' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Exit preview' }));
+    await userEvent.click(await canvas.findByRole('radio', { name: 'Desktop' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Preview' }));
+    const desktopPreview = await canvas.findByTitle<HTMLIFrameElement>('Preview');
     await waitFor(async () => {
-      await expect(previewBody(preview)).toHaveTextContent('Build pages your kernel can prove');
+      await expect(previewBody(desktopPreview)).toHaveTextContent(
+        'Build pages your kernel can prove',
+      );
     });
   },
 };

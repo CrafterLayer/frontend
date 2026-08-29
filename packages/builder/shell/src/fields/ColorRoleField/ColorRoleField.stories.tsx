@@ -18,7 +18,6 @@ if (lightSurface === undefined || darkSurface === undefined) {
 const meta = {
   title: 'Builder/Shell/Fields/ColorRoleField',
   component: ColorRoleField,
-  tags: ['autodocs'],
   decorators: [
     (Story) => (
       <div className="bldr-root" style={{ maxInlineSize: '20rem', padding: '1rem' }}>

@@ -52,6 +52,8 @@ const ROLE_NAMES: Readonly<Record<ColorRole, { name: string; kind: 'ground' | 'i
   textInverse: { name: 'Inverse text', kind: 'ink' },
   textMuted: { name: 'Muted text', kind: 'ink' },
   accentText: { name: 'On accent', kind: 'ink' },
+  success: { name: 'Success', kind: 'ground' },
+  successText: { name: 'On success', kind: 'ink' },
 };
 
 /** The declared colour roles, in the order a picker should show them. */
@@ -63,6 +65,8 @@ export const COLOR_ROLES: readonly ColorRole[] = [
   'textInverse',
   'textMuted',
   'accentText',
+  'success',
+  'successText',
 ];
 
 export function isColorRole(value: string): value is ColorRole {

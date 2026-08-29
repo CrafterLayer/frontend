@@ -38,11 +38,32 @@ The context line is deliberately explicit: it says either `the whole page` or `<
 and updates when the live kernel selection changes. If the preflight refuses a command, the panel
 shows the kernel's actual reason rather than replacing it with a generic apology.
 
+## Reading the thread at a glance
+
+Every assistant outcome lands in one card whose **leading edge carries the state**: accent while a
+plan is pending, success once applied, danger when the kernel door refused it, and a muted edge once
+discarded. Scanning the stripe down the thread tells you what happened without reading a word — the
+text is there for when you stop scanning. Colour is never the only signal: each state also carries
+its own icon and wording, so the stripe is a shortcut rather than the message.
+
+Motion is spent in exactly two places, both of them status rather than atmosphere: the three-dot
+pulse while a proposal is being generated, and the composer's glow while the assistant is working.
+Both resolve to a still state under `prefers-reduced-motion`.
+
 ## Accessibility
 
 The panel is a named region, the thread is a named log, the composer has a programmatic label, and
-all decisions use native buttons. Enter sends a request; Shift+Enter adds a line. The conversation
-switcher is a labelled native select and appears only when more than one chat exists.
+all decisions use native buttons. Enter sends a request; Shift+Enter adds a line.
+
+The conversation history appears only when more than one chat exists. It is a labelled button that
+opens a `menu` of `menuitemradio` entries — the past is a list of things you have already said, not
+a form field to fill in, so it carries each chat's own weight (its message count) and marks the one
+you are in. It closes on Escape or on a press outside it, and Escape returns focus to the trigger
+rather than dropping it on the document body.
+
+The composer is one focus surface: the field and its send action share a card, so the ring is drawn
+around the pair by `:focus-within` and the field's own ring is suppressed — the same composite-field
+pattern `.bldr-richtext-field` uses. The ring MOVES; it is never removed.
 
 ## Layout, direction, and content
 

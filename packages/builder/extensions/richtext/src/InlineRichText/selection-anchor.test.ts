@@ -109,6 +109,50 @@ describe('selectionAnchorOf (009 contract §5 b4 — vendored TipTap logic + per
     expect(anchor?.rects).toEqual([{ x: 5, y: 40, width: 200, height: 4 }]);
   });
 
+  it('uses a node-view wrapper when present and falls back to positional geometry for non-elements', () => {
+    const wrapperRect = new DOMRect(40, 50, 120, 20);
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('data-node-view-wrapper', '');
+    wrapper.getBoundingClientRect = () => wrapperRect;
+    wrapper.getClientRects = () => [] as unknown as DOMRectList;
+    const node = document.createElement('section');
+    node.getBoundingClientRect = () => new DOMRect(1, 2, 3, 4);
+    node.append(wrapper);
+    const { view } = makeView({ nodeDOM: (pos: number) => (pos === HR_POS ? node : null) });
+
+    const wrapped = selectionAnchorOf(makeEditor(NodeSelection.create(doc, HR_POS), view));
+    expect(wrapped).toEqual({
+      box: { x: 40, y: 50, width: 120, height: 20 },
+      rects: [{ x: 40, y: 50, width: 120, height: 20 }],
+    });
+
+    const fallback = makeView();
+    Object.defineProperty(fallback.view, 'nodeDOM', {
+      configurable: true,
+      value: () => fallback.text,
+    });
+    expect(
+      selectionAnchorOf(makeEditor(NodeSelection.create(doc, HR_POS), fallback.view))?.box,
+    ).toEqual({ x: 130, y: 10, width: 10, height: 16 });
+  });
+
+  it('keeps a node view that is itself the wrapper as its selection anchor', () => {
+    const wrapperRect = new DOMRect(25, 70, 80, 18);
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('data-node-view-wrapper', '');
+    wrapper.getBoundingClientRect = () => wrapperRect;
+    wrapper.getClientRects = () => [wrapperRect] as unknown as DOMRectList;
+    const outerNode = document.createElement('section');
+    outerNode.getBoundingClientRect = () => new DOMRect(1, 2, 3, 4);
+    outerNode.append(wrapper);
+    const { view } = makeView({ nodeDOM: (pos: number) => (pos === HR_POS ? wrapper : null) });
+
+    expect(selectionAnchorOf(makeEditor(NodeSelection.create(doc, HR_POS), view))).toEqual({
+      box: { x: 25, y: 70, width: 80, height: 18 },
+      rects: [{ x: 25, y: 70, width: 80, height: 18 }],
+    });
+  });
+
   it('a range the DOM refuses degrades to the union box instead of throwing', () => {
     rangeRects = [new DOMRect(10, 10, 50, 16)];
     const { view } = makeView({

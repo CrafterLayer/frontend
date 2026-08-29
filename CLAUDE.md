@@ -53,6 +53,25 @@ During this experiment, prefer the `boundedrelay` MCP server registered in `.mcp
 `/codex:rescue`. Read `docs/getting-started.md` in the `claude-codex-worker` project for the tool
 surface. Keep delegated tasks bounded and read-only unless the user explicitly enables proposals.
 
+**Codex model per task kind.** BoundedRelay does not pick a model on its own, and by design it never
+will — its `AGENTS.md` forbids shipping a built-in "best model" table. Model choice is project-owned
+data instead, in `boundedrelay-profile.json` at this repo root (`codexPolicy`, precedence `byRisk` →
+`byKind` → `default`). To use it, pass that file as `projectProfile` to `codex_worker_sdd_route`,
+read `assignments[].codexPolicy`, then pass that exact `model` + `reasoningEffort` to
+`codex_worker_analyze` / `codex_worker_propose` — the analyze/propose tools do not read the profile
+themselves.
+
+- **Write tasks carry required checks.** `requiredChecks` attaches check IDs to write work
+  (`byAuthority.write` = typecheck + lint + test, plus per-kind/risk additions). BoundedRelay never
+  runs them — it only attaches them as required evidence, so a proposal is not done until those
+  commands have actually been run and reported.
+- **Change it:** edit `boundedrelay-profile.json`, then re-validate with
+  `node <worker>/dist/cli.js profile validate < boundedrelay-profile.json`.
+- **Turn it off:** omit `projectProfile` from the route call. Routing falls back to the plain v0.1
+  router and Codex uses the default from `~/.codex/config.toml` (currently `gpt-5.6-sol` + `ultra`).
+- The server allowlist stays authoritative: any model in the profile must also be in
+  `CCW_ALLOWED_MODELS`, or the route call fails before a job is created.
+
 <!-- SPECKIT START -->
 
 For additional context about technologies to be used, project structure, shell commands, and other

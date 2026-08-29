@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 
 import {
   applyAiPlan,
+  ChromeButton,
   createLocalAiPlanProvider,
   generateAiPlan,
   systemClock,
@@ -10,6 +19,19 @@ import {
   type AiPlanProvider,
   type BuilderKernel,
 } from '@craftkit/builder';
+
+import {
+  IconAlert,
+  IconCheck,
+  IconChevron,
+  IconClose,
+  IconCode,
+  IconPlus,
+  IconSend,
+  IconShield,
+  IconSparkle,
+  IconUndo,
+} from './AssistantPanel.icons';
 
 export interface AssistantPanelProps {
   kernel: BuilderKernel;
@@ -108,8 +130,12 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
   const [activeId, setActiveId] = useState('session-1');
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const sessionsRef = useRef<HTMLDivElement | null>(null);
+  const sessionsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const inputId = useId();
+  const sessionsListId = useId();
   const subscribeToKernel = useCallback(
     (onStoreChange: () => void) => kernel.context.store.subscribe(onStoreChange),
     [kernel],
@@ -145,6 +171,41 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
       thread.scrollTop = thread.scrollHeight;
     }
   }, [turns]);
+
+  /*
+    The history popup dismisses the way every popup a person has used does:
+    Escape, or a press anywhere outside it. Escape returns focus to the
+    trigger — a menu that closes into nowhere strands a keyboard user on the
+    document body with no way back to what they just left.
+  */
+  useEffect(() => {
+    if (!sessionsOpen) {
+      return;
+    }
+    // Focus enters on the chat you are IN, so the arrows start from where the
+    // reader already is rather than from the top of a list they did not choose.
+    sessionsRef.current
+      ?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]')
+      ?.focus();
+    const onPointerDown = (event: PointerEvent) => {
+      const menu = sessionsRef.current;
+      if (menu !== null && !menu.contains(event.target as Node)) {
+        setSessionsOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSessionsOpen(false);
+        sessionsTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [sessionsOpen]);
 
   /**
    * What the assistant can SEE, stated rather than guessed at.
@@ -258,6 +319,38 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
     [kernel, patchTurns],
   );
 
+  /**
+   * Arrow keys through the history, because `role="menu"` PROMISES them.
+   *
+   * The items are native buttons, so Tab already reaches each one — but a menu
+   * that answers Tab and ignores ArrowDown is a menu only in the accessibility
+   * tree, and a screen-reader user who is told "menu" reaches for the arrows
+   * first. Home/End are part of the same promise.
+   */
+  const moveThroughSessions = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
+    if (!keys.includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    const items = [
+      ...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]'),
+    ];
+    if (items.length === 0) {
+      return;
+    }
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : event.key === 'ArrowDown'
+            ? (current + 1) % items.length
+            : (current - 1 + items.length) % items.length;
+    items[next]?.focus();
+  }, []);
+
   const discard = useCallback(
     (id: string) => {
       patchTurns((previous) =>
@@ -275,45 +368,95 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
     <section className="pg-chat" aria-label="Assistant">
       <header className="pg-chat__head">
         <div className="pg-chat__title">
-          <h2>Assistant</h2>
-          <button type="button" className="pg-chat__new" onClick={startNewChat}>
+          <div className="pg-chat__brand">
+            <span className="pg-chat__brand-mark" aria-hidden="true">
+              <IconSparkle />
+            </span>
+            <h2>Assistant</h2>
+          </div>
+          <ChromeButton variant="quiet" size="sm" onClick={startNewChat}>
+            <IconPlus />
             New chat
-          </button>
+          </ChromeButton>
         </div>
         <p className="pg-chat__sees">Sees: {sees}</p>
         {sessions.length > 1 ? (
-          <label className="pg-chat__sessions">
-            <span className="bldr-visually-hidden">Conversation</span>
-            <select
-              value={activeId}
-              onChange={(event) => {
-                setActiveId(event.currentTarget.value);
+          <div className="pg-chat__sessions" ref={sessionsRef}>
+            <button
+              type="button"
+              className="pg-chat__sessions-trigger"
+              ref={sessionsTriggerRef}
+              aria-label="Conversation"
+              aria-haspopup="menu"
+              aria-expanded={sessionsOpen}
+              aria-controls={sessionsOpen ? sessionsListId : undefined}
+              onClick={() => {
+                setSessionsOpen((open) => !open);
               }}
             >
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.title}
-                </option>
-              ))}
-            </select>
-          </label>
+              <span className="pg-chat__sessions-title">{active?.title ?? 'New chat'}</span>
+              <span className="pg-chat__sessions-count">{sessions.length}</span>
+              <span className="pg-chat__sessions-chevron" aria-hidden="true">
+                <IconChevron />
+              </span>
+            </button>
+            {sessionsOpen ? (
+              <div
+                className="pg-chat__sessions-menu"
+                id={sessionsListId}
+                role="menu"
+                onKeyDown={moveThroughSessions}
+              >
+                {sessions.map((session) => (
+                  <button
+                    key={session.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={session.id === activeId}
+                    className="pg-chat__sessions-item"
+                    onClick={() => {
+                      setActiveId(session.id);
+                      setSessionsOpen(false);
+                    }}
+                  >
+                    <span className="pg-chat__sessions-item-check" aria-hidden="true">
+                      {session.id === activeId ? <IconCheck /> : null}
+                    </span>
+                    <span className="pg-chat__sessions-item-title">{session.title}</span>
+                    <span className="pg-chat__sessions-item-meta">
+                      {session.turns.length === 0
+                        ? 'Empty'
+                        : `${String(session.turns.length)} messages`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </header>
 
       <div className="pg-chat__thread" ref={threadRef} role="log" aria-label="Conversation">
         {turns.length === 0 ? (
           <div className="pg-chat__empty">
+            <span className="pg-chat__empty-mark" aria-hidden="true">
+              <IconSparkle />
+            </span>
             <p>Ask for a section and I will propose the exact changes.</p>
             <ul className="pg-chat__starters">
               {STARTERS.map((starter) => (
                 <li key={starter}>
                   <button
                     type="button"
+                    className="pg-chat__starter"
                     onClick={() => {
                       void ask(starter);
                     }}
                   >
-                    {starter}
+                    <span className="pg-chat__starter-icon" aria-hidden="true">
+                      <IconPlus />
+                    </span>
+                    <span className="pg-chat__starter-text">{starter}</span>
                   </button>
                 </li>
               ))}
@@ -328,60 +471,90 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
             </p>
           ) : (
             <div key={turn.id} className="pg-chat__reply">
-              {turn.kind === 'thinking' ? (
-                <p className="pg-chat__thinking">Reading {turn.subject}…</p>
-              ) : null}
-              {turn.kind === 'refused' ? <p className="pg-chat__refused">{turn.text}</p> : null}
-              {turn.kind === 'discarded' ? <p className="pg-chat__refused">Discarded.</p> : null}
-              {turn.kind === 'plan' ? (
-                <>
-                  <p className="pg-chat__rationale">{turn.plan.rationale}</p>
-                  <ol className="pg-chat__steps">
-                    {turn.plan.commands.map((step, index) => (
-                      <li key={`${turn.id}-${String(index)}`}>{step.command}</li>
-                    ))}
-                  </ol>
-                  {turn.applied ? (
-                    <p className="pg-chat__applied">
-                      Applied as one change.{' '}
-                      <button
-                        type="button"
-                        className="pg-chat__undo"
-                        onClick={() => {
-                          kernel.undo();
-                        }}
-                      >
-                        Undo
-                      </button>
-                    </p>
-                  ) : (
-                    <div className="pg-chat__decide">
-                      <button
-                        type="button"
-                        className="pg-chat__accept"
-                        onClick={() => {
-                          accept(turn.id, turn.plan);
-                        }}
-                      >
-                        Apply
-                      </button>
-                      {onReviewAsCode === undefined ? null : (
-                        <button type="button" onClick={onReviewAsCode}>
-                          Review as code
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          discard(turn.id);
-                        }}
-                      >
-                        Discard
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : null}
+              <span className="pg-chat__avatar" aria-hidden="true">
+                <IconSparkle />
+              </span>
+              <div className="pg-chat__reply-body">
+                {turn.kind === 'thinking' ? (
+                  <div className="pg-chat__thinking">
+                    <span className="pg-chat__thinking-dots" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <p>Reading {turn.subject}…</p>
+                  </div>
+                ) : null}
+                {turn.kind === 'refused' ? (
+                  <div className="pg-chat__card pg-chat__card--refused">
+                    <IconAlert />
+                    <p className="pg-chat__refused">{turn.text}</p>
+                  </div>
+                ) : null}
+                {turn.kind === 'discarded' ? (
+                  <div className="pg-chat__card pg-chat__card--discarded">
+                    <p className="pg-chat__refused">Discarded.</p>
+                  </div>
+                ) : null}
+                {turn.kind === 'plan' ? (
+                  <div
+                    className={`pg-chat__card ${
+                      turn.applied ? 'pg-chat__card--applied' : 'pg-chat__card--pending'
+                    }`}
+                  >
+                    <p className="pg-chat__rationale">{turn.plan.rationale}</p>
+                    <ol className="pg-chat__steps">
+                      {turn.plan.commands.map((step, index) => (
+                        <li key={`${turn.id}-${String(index)}`}>{step.command}</li>
+                      ))}
+                    </ol>
+                    {turn.applied ? (
+                      <p className="pg-chat__applied">
+                        <IconCheck />
+                        Applied as one change.{' '}
+                        <ChromeButton
+                          variant="quiet"
+                          size="sm"
+                          onClick={() => {
+                            kernel.undo();
+                          }}
+                        >
+                          <IconUndo />
+                          Undo
+                        </ChromeButton>
+                      </p>
+                    ) : (
+                      <div className="pg-chat__decide">
+                        <ChromeButton
+                          variant="primary"
+                          onClick={() => {
+                            accept(turn.id, turn.plan);
+                          }}
+                        >
+                          <IconCheck />
+                          Apply
+                        </ChromeButton>
+                        {onReviewAsCode === undefined ? null : (
+                          <ChromeButton variant="quiet" size="sm" onClick={onReviewAsCode}>
+                            <IconCode />
+                            Review as code
+                          </ChromeButton>
+                        )}
+                        <ChromeButton
+                          variant="quiet"
+                          size="sm"
+                          onClick={() => {
+                            discard(turn.id);
+                          }}
+                        >
+                          <IconClose />
+                          Discard
+                        </ChromeButton>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ),
         )}
@@ -394,36 +567,54 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
           void ask(draft);
         }}
       >
-        <label className="bldr-visually-hidden" htmlFor={inputId}>
-          Ask the assistant
-        </label>
-        <textarea
-          id={inputId}
-          rows={2}
-          value={draft}
-          placeholder="Ask for a change…"
-          disabled={busy}
-          onChange={(event) => {
-            setDraft(event.currentTarget.value);
-          }}
-          onKeyDown={(event) => {
-            // Enter sends, Shift+Enter writes a line — the convention every
-            // chat uses, and the one a person's hands already know.
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault();
-              void ask(draft);
-            }
-          }}
-        />
-        <button
-          type="submit"
-          className="pg-chat__send"
-          disabled={busy || draft.trim().length === 0}
-        >
-          Send
-        </button>
+        <div className="pg-chat__composer-card" data-busy={busy ? '' : undefined}>
+          {/* The glow is DECORATION over the card's own edge, so it can animate
+              while the assistant works without moving anything in the layout. */}
+          <span className="pg-chat__composer-glow" aria-hidden="true" />
+          <label className="bldr-visually-hidden" htmlFor={inputId}>
+            Ask the assistant
+          </label>
+          <textarea
+            id={inputId}
+            rows={2}
+            value={draft}
+            placeholder="Ask for a change…"
+            disabled={busy}
+            /* The field and its send button are ONE control, so the ring is
+               drawn around the card by :focus-within. See the stylesheet. */
+            data-bldr-focus-ring="delegated"
+            onChange={(event) => {
+              setDraft(event.currentTarget.value);
+            }}
+            onKeyDown={(event) => {
+              // Enter sends, Shift+Enter writes a line — the convention every
+              // chat uses, and the one a person's hands already know.
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                void ask(draft);
+              }
+            }}
+          />
+          <div className="pg-chat__composer-actions">
+            <ChromeButton
+              variant="icon"
+              tone="primary"
+              size="sm"
+              aria-label="Send"
+              disabled={busy || draft.trim().length === 0}
+              onClick={() => {
+                void ask(draft);
+              }}
+            >
+              <IconSend />
+            </ChromeButton>
+          </div>
+        </div>
         {/* The whole guarantee, in one line, where the decision is made. */}
-        <p className="pg-chat__guarantee">Whatever you apply is one entry in history, one undo.</p>
+        <p className="pg-chat__guarantee">
+          <IconShield />
+          Whatever you apply is one entry in history, one undo.
+        </p>
       </form>
     </section>
   );

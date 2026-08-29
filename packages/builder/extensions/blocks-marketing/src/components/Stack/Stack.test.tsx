@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -85,7 +85,12 @@ describe('Stack', () => {
     expect(container.querySelector('.mkt-section__content')).toHaveClass(
       'mkt-section__content--width-standard',
     );
-    expect(screen.getByText('Empty container — drop a block here.')).toBeInTheDocument();
+    /*
+      No empty-state assertion here any more: the drop affordance for an empty
+      slot moved to the RENDERER, which emits one measurable, labelled box for
+      every block. It is gated there (NodeView.test.tsx) rather than
+      re-implemented and re-asserted per block.
+    */
   });
 
   it('schema: assigns every declared property to an explicit inspector tab', () => {
@@ -97,13 +102,5 @@ describe('Stack', () => {
       const group = Object.entries(propertyGroups).find(([name]) => name === property)?.[1];
       expect(group?.tab, `${property} must declare an inspector tab`).toBeDefined();
     }
-  });
-
-  it('accessibility: announces an empty Stack as a discoverable drop target', () => {
-    const props = stackSchema.props.parse({});
-
-    render(<Stack node={node} props={props} slots={{}} data={{}} isCanvas={false} />);
-
-    expect(screen.getByRole('status')).toHaveTextContent('Empty container — drop a block here.');
   });
 });

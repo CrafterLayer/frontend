@@ -41,6 +41,82 @@ describe('Testimonials', () => {
     expect(screen.queryByRole('figure')).not.toBeInTheDocument();
   });
 
+  it('applies a background colour role without setting text colour', () => {
+    render(
+      <Testimonials
+        node={node}
+        props={testimonialsSchema.props.parse({
+          heading: 'Background role testimonials',
+          body: 'Colour coverage.',
+          background: 'surfaceInverse',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Background role testimonials' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('');
+  });
+
+  it('applies a text colour role without setting background', () => {
+    render(
+      <Testimonials
+        node={node}
+        props={testimonialsSchema.props.parse({
+          heading: 'Text role testimonials',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Text role testimonials' });
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('applies both colour roles', () => {
+    render(
+      <Testimonials
+        node={node}
+        props={testimonialsSchema.props.parse({
+          heading: 'Both roles testimonials',
+          background: 'surfaceInverse',
+          textColor: 'accentText',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Both roles testimonials' });
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
+  it('does not add an inline colour style when no role is chosen', () => {
+    render(
+      <Testimonials
+        node={node}
+        props={testimonialsSchema.props.parse({ heading: 'Uncoloured testimonials' })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Uncoloured testimonials' });
+    expect(section).not.toHaveAttribute('style');
+    expect(section.style.background).toBe('');
+    expect(section.style.color).toBe('');
+  });
+
   it('schema bounds quote count and lengths', () => {
     expect(
       testimonialsSchema.props.safeParse({ items: [{ quote: '', author: 'x' }] }).success,

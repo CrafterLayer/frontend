@@ -1,18 +1,45 @@
+import type { CSSProperties } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 
 import type { Node } from '@craftkit/builder-schema';
+import { lightTheme, tokenCssName, type TokenName } from '@craftkit/builder-renderer';
 
 import { Hero } from './Hero';
 import { heroSchema } from './schema';
 
 const node: Node = { id: 'hero-story', type: 'hero', props: {} };
 
+/*
+  Blocks read the PAGE theme, so a story that measures one has to mount it.
+
+  Without this the block falls back to the literals in its own stylesheet and a
+  token assertion can only ever restate them. Worse, this story used to read
+  `--bldr-space-*` — the EDITOR's scale — against a block styled from `--t-gap*`:
+  6px measured against 8px, two vocabularies that are kept apart precisely so a
+  dark editor never repaints a light page.
+*/
 const meta = {
   title: 'Builder/Blocks/Hero',
   component: Hero,
   parameters: { layout: 'padded' },
+  decorators: [
+    (Story) => (
+      <div data-page-theme style={pageThemeStyle()}>
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof Hero>;
+
+/** The page theme as inline custom properties, so `var(--t-…)` resolves. */
+function pageThemeStyle(): CSSProperties {
+  const style: Record<string, string> = {};
+  for (const [name, value] of Object.entries(lightTheme)) {
+    style[tokenCssName(name as TokenName)] = value;
+  }
+  return style as CSSProperties;
+}
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -117,6 +144,12 @@ const inlineSpaces = (container: DOMRect, first: DOMRect, second: DOMRect) => ({
 
 const blockCenter = (rect: DOMRect) => rect.top + rect.height / 2;
 
+const gutterTokenProofStyle = { '--t-gutter': '26px' } as CSSProperties;
+const smallGapTokenProofStyle = {
+  '--t-gap-sm': '10px',
+  inlineSize: '36rem',
+} as CSSProperties;
+
 export const ControlRenderingContract: Story = {
   args: Light.args,
   parameters: { layout: 'fullscreen' },
@@ -163,7 +196,11 @@ export const ControlRenderingContract: Story = {
         </div>
       ))}
       {(['none', 'sm', 'md', 'lg'] as const).map((spacing) => (
-        <div key={spacing} data-testid={`hero-spacing-${spacing}`}>
+        <div
+          key={spacing}
+          data-testid={`hero-spacing-${spacing}`}
+          style={spacing === 'lg' ? gutterTokenProofStyle : undefined}
+        >
           <Hero
             node={{ ...node, id: `hero-spacing-${spacing}` }}
             props={proofProps({ heading: `Spacing ${spacing}`, spacing })}
@@ -217,17 +254,23 @@ export const ControlRenderingContract: Story = {
       await expect(styles[1]?.color).not.toBe(styles[2]?.color);
     });
 
-    await step('spacing follows the resolved scale and retains the legacy default', async () => {
-      const paddings = (['none', 'sm', 'md', 'lg'] as const).map((spacing) =>
-        Number.parseFloat(
-          getComputedStyle(proofElement(canvasElement, `hero-spacing-${spacing}`, 'section'))
-            .paddingBlockStart,
-        ),
-      );
-      await expect(paddings).toEqual([0, 16, 32, 64]);
-      const legacy = getComputedStyle(proofElement(canvasElement, 'hero-spacing-lg', 'section'));
-      await expect(legacy.paddingInlineStart).toBe('24px');
-    });
+    await step(
+      'spacing follows the resolved scale and the content column inherits its gutter',
+      async () => {
+        const paddings = (['none', 'sm', 'md', 'lg'] as const).map((spacing) =>
+          Number.parseFloat(
+            getComputedStyle(proofElement(canvasElement, `hero-spacing-${spacing}`, 'section'))
+              .paddingBlockStart,
+          ),
+        );
+        await expect(paddings).toEqual([0, 16, 32, 64]);
+        const content = proofElement(canvasElement, 'hero-spacing-lg', '.mkt-hero__content');
+        const contentStyle = getComputedStyle(content);
+        const gutter = Number.parseFloat(contentStyle.getPropertyValue('--t-gutter'));
+        await expect(gutter).toBeGreaterThan(0);
+        await expect(Number.parseFloat(contentStyle.paddingInlineStart)).toBe(gutter);
+      },
+    );
 
     await step(
       'content width constrains the inner wrapper without shrinking the surface',
@@ -265,7 +308,7 @@ export const FlexLayoutRenderingContract: Story = {
   parameters: { layout: 'fullscreen' },
   render: () => (
     <div style={{ display: 'grid', gap: '2rem', inlineSize: '100%' }}>
-      <div data-testid="hero-layout-default" style={{ inlineSize: '36rem' }}>
+      <div data-testid="hero-layout-default" style={smallGapTokenProofStyle}>
         <Hero
           node={{ ...node, id: 'hero-layout-default' }}
           props={heroSchema.props.parse({ align: 'center', heading: 'Legacy defaults' })}
@@ -410,12 +453,14 @@ export const FlexLayoutRenderingContract: Story = {
     </div>
   ),
   play: async ({ canvasElement, step }) => {
-    await step('omitted layout props retain the legacy slot geometry', async () => {
+    await step('omitted layout props retain the tokenised action layout', async () => {
       const { container } = layoutElements(canvasElement, 'hero-layout-default');
       const style = getComputedStyle(container);
+      const smallGap = Number.parseFloat(style.getPropertyValue('--t-gap-sm'));
       await expect(style.flexDirection).toBe('row');
       await expect(style.flexWrap).toBe('nowrap');
-      await expect(style.gap).toBe('12px');
+      await expect(smallGap).toBeGreaterThan(0);
+      await expect(Number.parseFloat(style.gap)).toBe(smallGap);
       await expect(style.justifyContent).toBe('center');
       await expect(style.alignItems).toBe('normal');
     });
@@ -478,13 +523,16 @@ export const FlexLayoutRenderingContract: Story = {
           const { first, second } = layoutElements(canvasElement, `hero-layout-gap-${layoutGap}`);
           return physicalGap(first.getBoundingClientRect(), second.getBoundingClientRect());
         });
-        const rootStyle = getComputedStyle(document.documentElement);
-        const tokenValues = [
-          '--bldr-space-0',
-          '--bldr-space-sm',
-          '--bldr-space-md',
-          '--bldr-space-lg',
-        ].map((token) => Number.parseFloat(rootStyle.getPropertyValue(token)));
+        /*
+          The PAGE scale, read from the theme the block actually consumes — not
+          the editor's `--bldr-space-*`, which is a different vocabulary with
+          different values (6px where the page says 8px).
+        */
+        const themed = canvasElement.querySelector('[data-page-theme]');
+        const scale = getComputedStyle(themed ?? canvasElement);
+        const tokenValues = ['--t-space-0', '--t-gap-sm', '--t-gap', '--t-gap-lg'].map((token) =>
+          token === '--t-space-0' ? 0 : Number.parseFloat(scale.getPropertyValue(token)),
+        );
 
         await expect(gaps[1] ?? 0).toBeGreaterThan(0);
         await expect(gaps[3] ?? 0).toBeGreaterThan(gaps[1] ?? 0);

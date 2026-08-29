@@ -172,6 +172,7 @@ export function App() {
           kernel={kernel}
           theme={theme}
           dirOverride={dirOverride}
+          breakpoint={breakpoint}
           onExit={() => {
             setPreview(false);
             setPreviewFlipped(false);

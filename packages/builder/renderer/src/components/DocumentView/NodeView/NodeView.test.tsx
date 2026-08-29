@@ -13,6 +13,7 @@ import {
 import type {
   BlockRenderComponent,
   BlockRenderProps,
+  BuilderDocument,
   NodeId,
   TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
@@ -120,6 +121,16 @@ function makeKernel(document = landingFixture()) {
   });
 }
 
+function directSlotChildIds(wrapper: HTMLElement): string[] {
+  return [...wrapper.children].map((child) => {
+    const canvasId = child.getAttribute('data-bldr-node');
+    if (canvasId !== null) {
+      return canvasId;
+    }
+    return (child.getAttribute('data-testid') ?? '').replace(/^node-/, '');
+  });
+}
+
 function firstTextNode(element: HTMLElement): Text {
   const node = element.firstChild;
   if (node?.nodeType !== Node.TEXT_NODE) {
@@ -170,6 +181,100 @@ describe('NodeView', () => {
     const kernel = makeKernel();
     const { container } = render(<NodeView kernel={kernel} id="ghost" breakpoint="desktop" />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('wraps a populated slot as display contents on canvas, and not at all in preview', () => {
+    /*
+      The wrapper is CANVAS scaffolding: it exists so the drop resolver can
+      measure a slot. `display: contents` is what makes it free — the box does
+      not participate in layout, so Stack's row of flex items stays a row.
+
+      Preview gets the children bare. A `data-bldr-*` attribute in published
+      HTML is the same mistake as an editing hint reaching a published page, and
+      StaticDocument emits no wrapper — the two published shapes must match,
+      which is what SC-003b pins.
+    */
+    const canvas = render(
+      <NodeView
+        kernel={makeKernel()}
+        id="root"
+        breakpoint="desktop"
+        attachNodeElement={() => undefined}
+        isCanvas
+      />,
+    );
+    const canvasHost = screen.getByTestId('slot-root-default');
+    const wrapper = canvasHost.firstElementChild;
+    if (!(wrapper instanceof HTMLElement)) {
+      throw new Error('expected the block slot host to contain the renderer slot wrapper');
+    }
+
+    expect(canvasHost.children).toHaveLength(1);
+    expect(wrapper).toHaveAttribute('data-bldr-slot', 'default');
+    expect(wrapper).toHaveAttribute('data-bldr-slot-of', 'root');
+    expect(wrapper).not.toHaveClass('bldr-slot-empty');
+    expect(wrapper.style.display).toBe('contents');
+    expect(directSlotChildIds(wrapper)).toEqual(['hero1', 'sec1']);
+    canvas.unmount();
+
+    render(<NodeView kernel={makeKernel()} id="root" breakpoint="desktop" isCanvas={false} />);
+    const previewHost = screen.getByTestId('slot-root-default');
+
+    // The children sit directly in the block's own slot host — no wrapper.
+    expect(previewHost.querySelector('[data-bldr-slot]')).toBeNull();
+    expect(directSlotChildIds(previewHost)).toEqual(['hero1', 'sec1']);
+  });
+
+  it('renders a schema-declared empty slot as a real measurable box on canvas only', () => {
+    const emptyDocument: BuilderDocument = {
+      schemaVersion: 1,
+      surface: 'site',
+      dir: 'ltr',
+      rootId: 'root',
+      nodes: { root: { id: 'root', type: 'page', props: { title: 'Empty' } } },
+    };
+
+    /*
+      An empty slot is the one that MUST be droppable — it is where the first
+      block in a region goes — and a `display: contents` box cannot be measured,
+      so this one is real. In preview an empty slot is simply nothing.
+    */
+    const canvas = render(
+      <NodeView
+        kernel={makeKernel(emptyDocument)}
+        id="root"
+        breakpoint="desktop"
+        attachNodeElement={() => undefined}
+        isCanvas
+      />,
+    );
+    const wrapper = screen.getByTestId('slot-root-default').firstElementChild;
+    if (!(wrapper instanceof HTMLElement)) {
+      throw new Error('expected an empty renderer slot wrapper');
+    }
+
+    expect(wrapper).toHaveAttribute('data-bldr-slot', 'default');
+    expect(wrapper).toHaveAttribute('data-bldr-slot-of', 'root');
+    expect(wrapper).toHaveClass('bldr-slot-empty');
+    expect(wrapper).not.toHaveAttribute('style');
+    /*
+      The box carries the slot's NAME. Three identical dashed rectangles tell a
+      person nothing about which region they are filling — and the geometry that
+      makes the box hittable at all is a browser question, pinned in the
+      Chromium story rather than here, because jsdom computes no layout.
+    */
+    expect(wrapper.textContent).toBe('default');
+    canvas.unmount();
+
+    render(
+      <NodeView
+        kernel={makeKernel(emptyDocument)}
+        id="root"
+        breakpoint="desktop"
+        isCanvas={false}
+      />,
+    );
+    expect(screen.getByTestId('slot-root-default').querySelector('[data-bldr-slot]')).toBeNull();
   });
 
   it('swaps only the matching node property and keeps stored output for other or pending nodes', () => {

@@ -1,10 +1,4 @@
-/*
-  The page footer.
-
-  Page tokens (`--t-*`) only — a footer is page, not chrome — and logical
-  properties throughout, so the same document reads correctly in Arabic and in
-  English without a second set of rules.
-*/
+/* Page tokens only: the footer belongs to the authored page, not editor chrome. */
 
 .mkt-footer {
   border-color: color-mix(in srgb, currentcolor 14%, transparent);
@@ -16,203 +10,57 @@
   border-block-start-width: var(--t-border-width, 1px);
 }
 
-.mkt-footer__body {
+.mkt-footer__content {
   display: flex;
   flex-direction: column;
   gap: var(--t-gap-lg, 32px);
 }
 
-/* ── Intro ─────────────────────────────────────────────────────────────────── */
-
-.mkt-footer__intro {
-  display: flex;
-  flex-direction: column;
-  gap: var(--t-gap-sm, 8px);
-  max-inline-size: 42rem;
-}
-
-.mkt-footer__brand {
-  font-size: var(--t-font-size-lg, 1.125rem);
-}
-
-.mkt-footer__statement {
-  margin: 0;
-  opacity: 0.85;
-}
-
-/* ── Columns ───────────────────────────────────────────────────────────────── */
-
-/*
-  The declared count is a MAXIMUM, not a promise.
-
-  `auto-fit` fits as many tracks as will hold their minimum, and that minimum is
-  `max(the floor, an Nth of the row)`. Above the floor the Nth wins, so exactly N
-  columns appear and never more; below it the floor wins and the grid drops to
-  N-1 rather than going straight from four columns to one. The formula reads the
-  CONTAINER, so it is right in a 764px editor canvas and a 1440px page alike and
-  needs no breakpoint literal at all.
-*/
-.mkt-footer__columns {
+.mkt-footer__body {
   display: grid;
   gap: var(--t-gap-lg, 32px);
   inline-size: 100%;
 }
 
-.mkt-footer__columns--auto {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--t-grid-min-track, 12rem)), 1fr));
-}
-
-.mkt-footer__columns--2 {
-  grid-template-columns: repeat(
-    auto-fit,
-    minmax(
-      min(100%, max(var(--t-grid-min-track, 12rem), (100% - 1 * var(--t-gap-lg, 32px)) / 2)),
-      1fr
-    )
-  );
-}
-
-.mkt-footer__columns--3 {
-  grid-template-columns: repeat(
-    auto-fit,
-    minmax(
-      min(100%, max(var(--t-grid-min-track, 12rem), (100% - 2 * var(--t-gap-lg, 32px)) / 3)),
-      1fr
-    )
-  );
-}
-
-.mkt-footer__columns--4 {
-  grid-template-columns: repeat(
-    auto-fit,
-    minmax(
-      min(100%, max(var(--t-grid-min-track, 12rem), (100% - 3 * var(--t-gap-lg, 32px)) / 4)),
-      1fr
-    )
-  );
-}
-
-.mkt-footer__columns h2 {
-  font-size: var(--t-font-size-sm, 0.8125rem);
-  margin: 0 0 var(--t-gap-sm, 8px);
-}
-
-.mkt-footer--headings-uppercase .mkt-footer__columns h2 {
-  letter-spacing: var(--t-letter-spacing-wide, 0.06em);
-  opacity: 0.7;
-  text-transform: uppercase;
-}
-
-.mkt-footer__columns ul {
-  display: flex;
-  flex-direction: column;
-  gap: var(--t-gap-sm, 8px);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-/* ── Links ─────────────────────────────────────────────────────────────────── */
-
-.mkt-footer a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.mkt-footer--links-plain a:hover {
-  opacity: 0.7;
-}
-
-.mkt-footer--links-underline a {
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
-  text-underline-offset: 0.25em;
-}
-
-.mkt-footer--links-underline a:hover {
-  text-decoration-color: currentcolor;
-}
-
-/* ── Social ────────────────────────────────────────────────────────────────── */
-
-.mkt-footer__social {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--t-gap, 16px);
-}
-
-/* ── Legal and the bottom bar ──────────────────────────────────────────────── */
-
-.mkt-footer__legal {
-  font-size: var(--t-font-size-sm, 0.8125rem);
-  margin: 0;
-  opacity: 0.75;
-}
-
-/*
-  The bottom bar is a rule plus a row. `space-between` puts the legal line and
-  the social links at opposite READING edges, and the wrap keeps them stacked
-  rather than crushed when the page is narrow.
-*/
-.mkt-footer__bottom {
-  align-items: center;
-  border-block-start: var(--t-border-width, 1px) solid
-    color-mix(in srgb, currentcolor 14%, transparent);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--t-gap, 16px);
-  justify-content: space-between;
-  padding-block-start: var(--t-gap, 16px);
-}
-
-/* ── Layouts ───────────────────────────────────────────────────────────────── */
-
-.mkt-footer--layout-centered .mkt-footer__body {
-  align-items: center;
-  text-align: center;
-}
-
-.mkt-footer--layout-centered .mkt-footer__intro,
-.mkt-footer--layout-centered .mkt-footer__social,
-.mkt-footer--layout-centered .mkt-footer__bottom {
-  justify-content: center;
-}
-
-.mkt-footer--layout-centered .mkt-footer__columns {
-  text-align: center;
-}
-
-.mkt-footer--layout-centered .mkt-footer__columns ul {
-  align-items: center;
-}
-
-/*
-  `split` puts the intro beside the columns rather than above them — the shape a
-  site with a strong wordmark reaches for. `min-inline-size: 0` is what lets the
-  two actually share the row: a grid item's automatic minimum is its content, so
-  a long statement would otherwise refuse to narrow and overflow the page.
-*/
-.mkt-footer--layout-split .mkt-footer__body {
-  align-items: start;
-  display: grid;
-  gap: var(--t-gap-lg, 32px);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-}
-
-.mkt-footer--layout-split .mkt-footer__intro,
-.mkt-footer--layout-split .mkt-footer__columns {
+.mkt-footer__slot {
   min-inline-size: 0;
 }
 
-.mkt-footer--layout-split .mkt-footer__bottom {
-  grid-column: 1 / -1;
+/*
+  The two regions ALWAYS stack; `layout` never changes that.
+
+  `columns` used to lay the body and the bottom slot as two equal grid tracks,
+  which put "bottom" beside the body rather than beneath it — a region named for
+  its position, rendered somewhere else. What the regions HOLD is the author's
+  composition (drop a `stack` in for columns); what this container decides is how
+  those two rows sit.
+*/
+.mkt-footer--layout-columns .mkt-footer__body,
+.mkt-footer--layout-centered .mkt-footer__body,
+.mkt-footer--layout-split .mkt-footer__body {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-/* `minimal` is one line. The renderer drops the columns; this centres the rest. */
-.mkt-footer--layout-minimal .mkt-footer__body {
-  align-items: center;
-  flex-direction: row;
+.mkt-footer--layout-centered .mkt-footer__body {
+  justify-items: center;
+  text-align: center;
+}
+
+/*
+  `split` spreads each region's own children to opposite READING edges — the
+  shape a bottom row wants when it carries a legal line and a set of links.
+*/
+.mkt-footer--layout-split .mkt-footer__slot {
+  display: flex;
   flex-wrap: wrap;
   gap: var(--t-gap, 16px);
   justify-content: space-between;
+}
+
+/* With bottomBar enabled, the bottom slot moves here as its own ruled row. */
+.mkt-footer__bottom {
+  border-block-start: var(--t-border-width, 1px) solid
+    color-mix(in srgb, currentcolor 14%, transparent);
+  inline-size: 100%;
+  padding-block-start: var(--t-gap, 16px);
 }

@@ -1,17 +1,13 @@
 /*
-  The page header.
-
-  Page tokens (`--t-*`) throughout, never chrome tokens: the page carries its own
-  theme so a dark editor never repaints a light page, and a header is page.
-  Logical properties throughout too — `inline-start` rather than `left` — so the
-  same document lays out correctly in Arabic and in English with no second set of
-  rules.
+  Page tokens only: the header belongs to the authored page, not the editor.
+  Every directional declaration is logical so the same slot order mirrors with
+  the document's writing direction.
 */
 
 .mkt-header {
-  border-color: color-mix(in srgb, currentcolor 14%, transparent);
-  border-style: solid;
-  border-width: 0;
+  border-block-end-color: color-mix(in srgb, currentcolor 14%, transparent);
+  border-block-end-style: solid;
+  border-block-end-width: 0;
 }
 
 /* ── Edge ──────────────────────────────────────────────────────────────────── */
@@ -28,7 +24,7 @@
   box-shadow: var(--t-shadow-strong, 0 4px 6px -1px rgb(15 23 42 / 10%));
 }
 
-/* ── The bar ───────────────────────────────────────────────────────────────── */
+/* ── Slot bar ──────────────────────────────────────────────────────────────── */
 
 .mkt-header__bar {
   align-items: center;
@@ -37,14 +33,12 @@
   gap: var(--t-gap, 16px);
 }
 
-/*
-  Density is a MINIMUM height, not a padding.
+.mkt-header__slot {
+  align-items: center;
+  display: flex;
+  min-inline-size: 0;
+}
 
-  A header whose height comes from padding grows whenever its content does, so
-  two headers with different link counts sit at different heights on the same
-  site. A floor plus centred content keeps the bar the size it was designed to
-  be and lets a tall logo push past it when it genuinely must.
-*/
 .mkt-header--density-compact .mkt-header__bar {
   min-block-size: var(--t-bar-height-compact, 48px);
 }
@@ -59,243 +53,46 @@
 
 /* ── Layout ────────────────────────────────────────────────────────────────── */
 
-/*
-  Four arrangements, each a different answer to "where does the nav go".
-
-  `margin-inline-start: auto` on the actions is what pins them to the far edge
-  without a spacer element — and being logical, it pins them to the READING far
-  edge, which is the left one in Arabic.
-*/
-.mkt-header--layout-split .mkt-header__nav {
+/* The center slot moves away from start; end follows after the wider rhythm. */
+.mkt-header--layout-split .mkt-header__slot--center {
   margin-inline-start: auto;
 }
 
-.mkt-header--layout-split .mkt-header__actions {
+.mkt-header--layout-split .mkt-header__slot--end {
   margin-inline-start: var(--t-gap-lg, 32px);
 }
 
-/* Nav immediately after the wordmark; actions still at the far edge. */
-.mkt-header--layout-navStart .mkt-header__nav {
+/* The center slot follows start while end stays at the reading far edge. */
+.mkt-header--layout-navStart .mkt-header__slot--center {
   margin-inline-start: var(--t-gap-lg, 32px);
 }
 
-.mkt-header--layout-navStart .mkt-header__actions {
+.mkt-header--layout-navStart .mkt-header__slot--end {
   margin-inline-start: auto;
 }
 
-/* Everything on one centred line. */
 .mkt-header--layout-centered .mkt-header__bar {
   justify-content: center;
 }
 
-/*
-  Wordmark on its own line, navigation beneath it. `flex-basis: 100%` makes each
-  region claim a full row without a media query, which is what lets the same
-  arrangement hold in a 764px canvas and a 1440px page.
-*/
 .mkt-header--layout-stacked .mkt-header__bar {
   justify-content: center;
   text-align: center;
 }
 
-.mkt-header--layout-stacked .mkt-header__brand,
-.mkt-header--layout-stacked .mkt-header__nav,
-.mkt-header--layout-stacked .mkt-header__actions {
+.mkt-header--layout-stacked .mkt-header__slot {
   flex-basis: 100%;
   justify-content: center;
 }
 
-/* ── Brand ─────────────────────────────────────────────────────────────────── */
-
-.mkt-header__brand {
-  align-items: baseline;
-  display: flex;
-  gap: var(--t-gap-sm, 8px);
-  min-inline-size: 0;
-}
-
-.mkt-header__brand--sm {
-  font-size: var(--t-font-size-lg, 1.125rem);
-}
-
-.mkt-header__brand--md {
-  font-size: var(--t-font-size-xl, 1.375rem);
-}
-
-.mkt-header__brand--lg {
-  font-size: calc(var(--t-font-size-xl, 1.375rem) * 1.25);
-}
-
-.mkt-header__brand-link {
-  color: inherit;
-  text-decoration: none;
-}
-
-.mkt-header__tagline {
-  font-size: var(--t-font-size-sm, 0.8125rem);
-  font-weight: 400;
-  opacity: 0.75;
-}
-
-/* ── Navigation ────────────────────────────────────────────────────────────── */
-
-.mkt-header__nav {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--t-gap, 16px);
-}
-
-.mkt-header__nav a {
-  border-radius: var(--t-radius, 12px);
-  color: inherit;
-  text-decoration: none;
-}
-
-.mkt-header__nav--case-uppercase a {
-  font-size: var(--t-font-size-sm, 0.8125rem);
-  letter-spacing: var(--t-letter-spacing-wide, 0.06em);
-  text-transform: uppercase;
-}
-
-.mkt-header__nav--weight-regular a {
-  font-weight: 400;
-}
-
-.mkt-header__nav--weight-medium a {
-  font-weight: 500;
-}
-
-.mkt-header__nav--weight-semibold a {
-  font-weight: 600;
-}
-
-.mkt-header__nav--plain a:hover {
-  opacity: 0.7;
-}
-
-/*
-  An underline that grows from nothing rather than appearing: `text-decoration`
-  cannot be animated, so the rule is a pseudo-element the link owns. Kept off
-  `border-bottom` because a border changes the link's box and nudges its
-  neighbours on hover.
-*/
-.mkt-header__nav--underline a {
-  padding-block-end: 2px;
-  position: relative;
-}
-
-.mkt-header__nav--underline a::after {
-  background: currentcolor;
-  block-size: var(--t-border-width, 1px);
-  content: '';
-  inset-block-end: 0;
-  inset-inline-start: 0;
-  position: absolute;
-  transform: scaleX(0);
-  transform-origin: inline-start;
-  transition: transform 150ms ease;
-  inline-size: 100%;
-}
-
-.mkt-header__nav--underline a:hover::after,
-.mkt-header__nav--underline a:focus-visible::after {
-  transform: scaleX(1);
-}
-
-.mkt-header__nav--pill a {
-  padding-block: var(--t-control-padding-block-sm, 8px);
-  padding-inline: var(--t-control-padding-inline-sm, 14px);
-  transition: background-color 150ms ease;
-}
-
-.mkt-header__nav--pill a:hover,
-.mkt-header__nav--pill a:focus-visible {
-  background: color-mix(in srgb, currentcolor 10%, transparent);
-}
-
-/* ── Actions ───────────────────────────────────────────────────────────────── */
-
-.mkt-header__actions {
-  align-items: center;
-  display: flex;
-  gap: var(--t-gap-sm, 8px);
-}
-
-.mkt-header__action {
-  border: var(--t-border-width, 1px) solid transparent;
-  border-radius: var(--t-radius, 12px);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.mkt-header__action--sm {
-  font-size: var(--t-font-size-sm, 0.8125rem);
-  padding-block: var(--t-control-padding-block-sm, 8px);
-  padding-inline: var(--t-control-padding-inline-sm, 14px);
-}
-
-.mkt-header__action--md {
-  padding-block: var(--t-control-padding-block-md, 10px);
-  padding-inline: var(--t-control-padding-inline-md, 20px);
-}
-
-.mkt-header__action--lg {
-  font-size: var(--t-font-size-lg, 1.125rem);
-  padding-block: var(--t-control-padding-block-lg, 14px);
-  padding-inline: var(--t-control-padding-inline-lg, 28px);
-}
-
-/*
-  `solid` reads the ACCENT roles rather than the header's own colours: a call to
-  action that inherits its bar's ground is a call to action nobody sees.
-*/
-.mkt-header__action--solid {
-  background: var(--t-accent, #4f46e5);
-  color: var(--t-accent-text, #ffffff);
-}
-
-.mkt-header__action--outline {
-  background: transparent;
-  border-color: currentcolor;
-  color: inherit;
-}
-
-.mkt-header__action--ghost {
-  background: transparent;
-  color: inherit;
-  font-weight: 500;
-}
-
-.mkt-header__action--ghost:hover {
-  background: color-mix(in srgb, currentcolor 10%, transparent);
-}
-
 /* ── Sticky ────────────────────────────────────────────────────────────────── */
 
-/*
-  Sticky is a real behaviour, not a look. `inset-block-start` rather than `top`
-  because this product mirrors, and a header pinned with a physical side is a
-  header pinned wrongly in half the world's writing modes.
-*/
 .mkt-header--sticky {
   inset-block-start: 0;
   position: sticky;
   z-index: 10;
 }
 
-/*
-  Translucency only means anything while the page scrolls under the bar, which
-  is why it is scoped to `--sticky`. The fallback matters: without
-  `backdrop-filter` the bar would be see-through with nothing blurring behind
-  it, so the ground stays mostly opaque and only lightens where the effect
-  is supported.
-*/
 .mkt-header--translucent {
   background-color: color-mix(in srgb, currentcolor 4%, transparent);
 }

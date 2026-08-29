@@ -278,6 +278,39 @@ describe('US1 — rich text through the field road (008 contract §3)', () => {
     expect(document.querySelector('.bldr-richtext-field__surface')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('e5: a non-string responsive bucket receives the generic breakpoint notice', () => {
+    const onChange = vi.fn();
+    render(
+      <RichTextField
+        schema={richText()}
+        value={emptyRichText()}
+        path={['responsive', 2, 'body']}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByText(/no this breakpoint override yet/i)).toBeInTheDocument();
+    expect(document.querySelector('.bldr-richtext-field__surface')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('reports externally stored content the editor cannot open without replacing it', () => {
+    const onChange = vi.fn();
+    render(
+      <RichTextField
+        schema={richText()}
+        value={{ type: 'doc', content: [{ type: 'horizontalRule' }] }}
+        path={['props', 'body']}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'This content cannot be opened for editing — it was left untouched.',
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe('US3 — containment (008 contract §3 e1)', () => {

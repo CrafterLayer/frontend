@@ -17,7 +17,6 @@
      ground showed through below the last card, as a band of a different shade. */
   inline-size: 100%;
   min-block-size: 0;
-  overflow-block: auto;
   padding-block: var(--bldr-panel-padding);
   padding-inline: var(--bldr-panel-padding);
 }
@@ -138,6 +137,14 @@
   background: var(--bldr-panel-control);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   border-radius: var(--bldr-radius-md);
+  /* The grid stretches the CELL to the tallest card in the row; without this
+     the button kept its own content height and sat short inside it. Measured:
+     a row holding "Page Header" grew its cells to 102px while "Page" and
+     "Stack" stayed 86px — three cards of two different sizes on one row, which
+     reads as a rendering fault rather than a layout. A name that wraps is
+     normal in a 3-column palette, so the row's height must govern every card
+     in it. */
+  block-size: 100%;
   box-sizing: border-box;
   color: var(--bldr-panel-text);
   cursor: grab;

@@ -68,6 +68,14 @@ export function RichTextEditor({
       // Mixed ar/en prose: the editor follows its own content's direction.
       dir: 'auto',
       class: 'bldr-richtext-field__surface',
+      /*
+        The field is ONE control — a toolbar and this surface inside a single
+        border — so the focus ring belongs around the pair, and the wrapper
+        draws it with :focus-within. Without this the product-wide ring landed
+        here too and the field showed TWO identical rings, 1px apart.
+        The stylesheet's own comment carries the rule.
+      */
+      'data-bldr-focus-ring': 'delegated',
     }),
     [controlId, labelledBy, describedBy],
   );

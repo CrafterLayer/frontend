@@ -533,7 +533,13 @@ export const DeviceOverrideCapability: Story = {
     // `const supportsDeviceOverride = responsiveCapable && hasOverride;`.
     const canvas = within(canvasElement);
     const inspector = canvas.getByRole('region', { name: 'Inspector' });
-    const width = canvas.getByRole('spinbutton', { name: 'width' });
+    await userEvent.click(within(inspector).getByRole('tab', { name: 'Design' }));
+    const designPanel = within(inspector).getByRole('tabpanel', { name: 'Design' });
+    await expect(within(inspector).getByRole('tab', { name: 'Design' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const width = within(designPanel).getByRole('spinbutton', { name: 'width' });
     const row = width.closest<HTMLElement>('.bldr-inspector__row');
     if (row === null) {
       throw new Error('The width row did not expose a device-override glyph.');

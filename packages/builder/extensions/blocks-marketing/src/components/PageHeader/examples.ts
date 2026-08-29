@@ -1,36 +1,44 @@
 import type { JsonValue } from '@craftkit/builder-schema';
 
-/** Few-shots for AI context assembly — written FOR the model. */
+/**
+ * Few-shots for AI context assembly — written FOR the model.
+ *
+ * Slot values are node ids: the referenced rich text, navigation, CTA, or
+ * stack blocks own all authored content. PageHeader owns only their placement.
+ */
 export const pageHeaderExamples: { prompt: string; node: JsonValue }[] = [
   {
-    prompt: 'هيدر بسيط باسم المتجر وثلاثة روابط',
+    prompt: 'هيدر بكتلة علامة في البداية وروابط في الوسط وزر في النهاية',
     node: {
       type: 'pageHeader',
       props: {
-        brand: 'متجر العود',
-        links: [
-          { label: 'المنتجات', href: '/products' },
-          { label: 'من نحن', href: '/about' },
-          { label: 'تواصل', href: '/contact' },
-        ],
-        actionLabel: 'تسوّق الآن',
+        layout: 'split',
         background: 'surface',
         textColor: 'text',
+      },
+      slots: {
+        start: ['brand-text'],
+        center: ['primary-navigation'],
+        end: ['shop-action'],
       },
     },
   },
   {
-    prompt: 'a dark sticky header with an accent action',
+    prompt: 'a dark sticky header whose three regions are independently replaceable',
     node: {
       type: 'pageHeader',
       props: {
-        brand: 'Startly',
-        tagline: 'Ship faster',
+        layout: 'navStart',
         sticky: true,
+        translucent: true,
         background: 'surfaceInverse',
         textColor: 'textInverse',
-        actionLabel: 'Get started',
         width: 'wide',
+      },
+      slots: {
+        start: ['identity-group'],
+        center: ['section-links'],
+        end: ['account-actions'],
       },
     },
   },

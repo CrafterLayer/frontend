@@ -265,3 +265,93 @@ export const FillsItsContainer: Story = {
     await expect(painted.borderInlineEndWidth).toBe('0px');
   },
 };
+
+/*
+  Its own vocabulary, because the wrap IS the fixture. The shared VOCAB is all
+  short single words, so a row of it can never reproduce the defect; `pageHeader`
+  titles to "Page Header", which wraps in a rail-width column and makes its row
+  taller than the cards beside it.
+*/
+const WRAPPING_VOCAB: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'palette-story-wrapping-vocab',
+  version: '1.0.0',
+  contributes: {
+    blocks: [
+      block('page', 'The page root.', {
+        default: { allow: ['pageHeader', 'hero', 'grid'] },
+      }),
+      block('pageHeader', 'A masthead with navigation.'),
+      block('hero', 'A lead section.'),
+      block('grid', 'A repeated grid layout.'),
+    ],
+  },
+};
+
+const wrappingKernel = createBuilder({
+  document: doc('ltr'),
+  extensions: [WRAPPING_VOCAB],
+  ports: { clock: fixedClock(), ids: seededIds('pw') },
+});
+
+/**
+ * Every card on a row is the same height, including the row that holds a name
+ * long enough to wrap. Narrow on purpose: the wrap is the whole point, and a
+ * wide container would never produce one.
+ */
+export const CardsOnARowMatchHeight: Story = {
+  args: { kernel: wrappingKernel },
+  render: (args) => (
+    <div data-testid="narrow-panel" style={{ blockSize: '520px', inlineSize: '288px' }}>
+      <Palette {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    /*
+      Measured, because this is what the browser showed and no test did: the
+      grid stretches each CELL to the tallest card on its row, but the card
+      itself kept its own content height and sat short inside that cell. A row
+      carrying a wrapped name rendered cells at 102px with 86px cards beside it
+      — three cards, two sizes, one row, which reads as a rendering fault.
+    */
+    const entries = [...canvasElement.querySelectorAll<HTMLElement>('.bldr-palette__entry')];
+
+    // Non-vacuous: without a wrapped label every row is trivially uniform, so
+    // this contract would pass on a palette that never exercises it.
+    const wrapped = entries.filter((entry) => {
+      const name = entry.querySelector<HTMLElement>('.bldr-palette__entry-name');
+      if (name === null) {
+        throw new Error('Every palette entry must render its name');
+      }
+      const lineHeight = Number.parseFloat(getComputedStyle(name).lineHeight);
+      return name.getBoundingClientRect().height > lineHeight * 1.5;
+    });
+    await expect(entries.length).toBeGreaterThan(3);
+    await expect(wrapped.length).toBeGreaterThan(0);
+
+    // Group by row: same top edge ⇒ same row, whatever the column count is.
+    const rows = new Map<number, HTMLElement[]>();
+    for (const entry of entries) {
+      const top = Math.round(entry.getBoundingClientRect().top);
+      rows.set(top, [...(rows.get(top) ?? []), entry]);
+    }
+    const sharedRows = [...rows.values()].filter((row) => row.length > 1);
+    await expect(sharedRows.length).toBeGreaterThan(0);
+
+    for (const row of sharedRows) {
+      const heights = row.map((entry) => Math.round(entry.getBoundingClientRect().height));
+      await expect(new Set(heights).size).toBe(1);
+    }
+
+    // And the card fills the cell it was given, which is what makes that true.
+    for (const entry of entries) {
+      const cell = entry.parentElement;
+      if (cell === null) {
+        throw new Error('Every palette entry must sit in a grid cell');
+      }
+      await expect(Math.round(entry.getBoundingClientRect().height)).toBe(
+        Math.round(cell.getBoundingClientRect().height),
+      );
+    }
+  },
+};

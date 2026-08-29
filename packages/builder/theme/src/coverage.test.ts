@@ -149,6 +149,52 @@ describe('every token a component reads is a token the theme defines', () => {
   });
 });
 
+/**
+ * DELEGATION IS A PROMISE, and this is the gate that collects on it.
+ *
+ * `data-bldr-focus-ring="delegated"` says "an ancestor draws my ring". Nothing
+ * in CSS can check that the ancestor exists, so a component could delegate to
+ * nobody and silently ship an unfocusable-looking control — the exact outcome
+ * the product law forbids. Every delegating file must therefore also contain a
+ * `:focus-within` rule that paints an outline.
+ */
+describe('every delegated focus ring is drawn by somebody', () => {
+  const DELEGATION = 'data-bldr-focus-ring';
+  const delegatingFiles = [
+    ...new Set(
+      SEARCH_ROOTS.flatMap((root) => sourceFiles(join(REPO, root)))
+        .filter((file) => !SKIP_PATH_PARTS.some((part) => file.slice(REPO.length).includes(part)))
+        .filter((file) => readFileSync(file, 'utf8').includes(DELEGATION))
+        .map((file) => file.slice(REPO.length)),
+    ),
+  ];
+
+  it('finds the delegations, so an empty pass is impossible', () => {
+    // If this ever drops to zero the suite below would go green while proving
+    // nothing — which is the shape of the bug the whole file guards against.
+    expect(delegatingFiles.length).toBeGreaterThan(0);
+  });
+
+  it.each(delegatingFiles)('%s has a wrapper that paints the ring instead', (relative) => {
+    /*
+      The markup that delegates and the stylesheet that draws are different
+      files, so the pair is checked per COMPONENT FOLDER rather than per file.
+    */
+    const folder = join(REPO, relative).slice(0, join(REPO, relative).lastIndexOf('/'));
+    const siblings = sourceFiles(folder).map((file) => readFileSync(file, 'utf8'));
+    // The playground keeps its chrome in one app-level sheet beside the folder.
+    const appSheet = join(REPO, 'apps/playground/src/app/App.css');
+    const pool = relative.includes('apps/playground')
+      ? [...siblings, readFileSync(appSheet, 'utf8')]
+      : siblings;
+
+    const drawsRing = pool.some(
+      (source) => source.includes(':focus-within') && /outline(-color)?\s*:/.test(source),
+    );
+    expect({ file: relative, drawsRing }).toEqual({ file: relative, drawsRing: true });
+  });
+});
+
 describe('both themes answer the whole contract', () => {
   it.each([
     ['light', lightChromeTheme],

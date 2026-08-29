@@ -12,7 +12,7 @@ export type { InlineEditSeam };
 export interface DocumentViewProps {
   /** Layer law: the kernel arrives BY PROP — this package never imports builder-react. */
   kernel: BuilderKernel;
-  breakpoint?: RenderBreakpoint;
+  breakpoint?: RenderBreakpoint | undefined;
   /** Test/dev instrumentation (SC-002); no-op in production usage. */
   onBlockRender?: ((nodeId: NodeId) => void) | undefined;
   /** Edit-mode geometry attachment (005 contract §2); see NodeViewProps. */

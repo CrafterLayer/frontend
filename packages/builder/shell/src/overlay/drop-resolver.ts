@@ -170,6 +170,14 @@ function intoIndicator(rect: {
   };
 }
 
+function containsPoint(
+  rect: { x: number; y: number; width: number; height: number },
+  x: number,
+  y: number,
+): boolean {
+  return x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
+}
+
 /**
  * Pure drop resolution (contract §2 r1, three-band rule): bounded to one
  * hit-test plus one parent-chain walk per pointer move — never a tree scan.
@@ -184,22 +192,37 @@ export function resolveDropTarget(
   y: number,
 ): DropTarget | null {
   const intoTargetOf = (id: NodeId): DropTarget | null => {
-    const rect = index.rect(id);
-    if (rect === undefined) {
+    const nodeRect = index.rect(id);
+    if (nodeRect === undefined) {
       return null;
     }
+    let firstAcceptingSlot: SlotName | undefined;
     for (const slot of slotNamesOf(doc, registry, id)) {
-      if (slotAccepts(doc, registry, id, slot, payload)) {
+      if (!slotAccepts(doc, registry, id, slot, payload)) {
+        continue;
+      }
+      firstAcceptingSlot ??= slot;
+      const slotRect = index.slotRect?.(id, slot);
+      if (slotRect !== undefined && containsPoint(slotRect, x, y)) {
         const end = doc.nodes[id]?.slots?.[slot]?.length ?? 0;
         return {
           parentId: id,
           slot,
           index: postRemovalIndex(doc, payload, id, slot, end),
-          indicatorRect: intoIndicator(rect),
+          indicatorRect: intoIndicator(slotRect),
         };
       }
     }
-    return null;
+    if (firstAcceptingSlot === undefined) {
+      return null;
+    }
+    const end = doc.nodes[id]?.slots?.[firstAcceptingSlot]?.length ?? 0;
+    return {
+      parentId: id,
+      slot: firstAcceptingSlot,
+      index: postRemovalIndex(doc, payload, id, firstAcceptingSlot, end),
+      indicatorRect: intoIndicator(nodeRect),
+    };
   };
 
   const gapTargetOf = (id: NodeId): DropTarget | null => {

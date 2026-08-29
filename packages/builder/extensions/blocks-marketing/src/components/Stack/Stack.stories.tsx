@@ -92,14 +92,3 @@ export const GapIsReal: Story = {
     await expect(b.left - a.right).toBeGreaterThan(8);
   },
 };
-
-export const Empty: Story = {
-  args: { ...args({}), slots: {} },
-  play: async ({ canvasElement }) => {
-    // An empty container must still be a target: rendering nothing collapses it
-    // to zero height and the block a person just added appears to vanish.
-    const empty = canvasElement.querySelector('.mkt-stack__empty');
-    await expect(empty).not.toBeNull();
-    await expect((empty as HTMLElement).getBoundingClientRect().height).toBeGreaterThan(20);
-  },
-};

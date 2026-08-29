@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 
 import { z } from 'zod';
 import { expect, userEvent, within } from 'storybook/test';
@@ -104,8 +104,14 @@ function KernelStage({
   const [selected, setSelected] = useState(initialSelected);
   const [announcement, setAnnouncement] = useState('');
   const [editing, setEditing] = useState(false);
+  const subscribe = useCallback(
+    (listener: () => void) => kernel.context.store.subscribe(listener),
+    [kernel],
+  );
+  const getSnapshot = useCallback(() => kernel.context.store.getState(), [kernel]);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const actions = resolveBlockActions(kernel, selected);
-  const children = kernel.getDocument().nodes['sA']?.slots?.['default'] ?? [];
+  const children = snapshot.doc.nodes['sA']?.slots?.['default'] ?? [];
   return (
     <div style={{ display: 'grid', gap: '0.75rem', padding: '1rem', maxInlineSize: '30rem' }}>
       <BlockActionBar
@@ -167,7 +173,7 @@ export const Default: Story = {
     await expect(selectedAfter).not.toBe(selectedBefore);
     const order = readText(canvas.getByTestId('children')).split(' ');
     await expect(order.indexOf(selectedAfter)).toBe(order.indexOf(selectedBefore) + 1);
-    await expect(canvas.getByTestId('announcement')).toHaveTextContent('Duplicated text');
+    await expect(canvas.getByTestId('announcement')).toHaveTextContent('Duplicated Text');
   },
 };
 
@@ -185,7 +191,7 @@ export const MoveRoundTrip: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Move later' }));
     await expect(canvas.getByTestId('tx-count')).toHaveTextContent(String(txBefore + 1));
     await expect(canvas.getByTestId('selected')).toHaveTextContent(selectedBefore);
-    await expect(canvas.getByTestId('announcement')).toHaveTextContent('Moved text later');
+    await expect(canvas.getByTestId('announcement')).toHaveTextContent('Moved Text later');
 
     await userEvent.click(canvas.getByRole('button', { name: 'Move earlier' }));
     await expect(canvas.getByTestId('tx-count')).toHaveTextContent(String(txBefore + 2));

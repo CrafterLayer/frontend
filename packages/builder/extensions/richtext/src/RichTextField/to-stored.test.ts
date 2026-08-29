@@ -110,6 +110,24 @@ describe('toStoredRichText (008 contract §3 e2 projection)', () => {
       });
     }
   });
+
+  it('drops primitive top-level blocks and defaults an attribute-free heading to level 2', () => {
+    expect(
+      toStoredRichText({
+        type: 'doc',
+        content: [42, { type: 'heading', content: [{ type: 'text', text: 'Heading' }] }],
+      }),
+    ).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Heading' }],
+        },
+      ],
+    });
+  });
 });
 
 describe('§10 review fixes — the projection can never produce a door-invalid document', () => {

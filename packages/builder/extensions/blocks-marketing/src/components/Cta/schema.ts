@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
+import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { ctaExamples } from './examples';
 
 export const ctaSchema = defineBlockSchema({
@@ -17,6 +19,8 @@ export const ctaSchema = defineBlockSchema({
     size: z.enum(['sm', 'md', 'lg']).default('md'),
     width: z.enum(['fit', 'full']).default('fit'),
     ...sectionColorProps,
+    ...sectionTypographyProps,
+    ...sectionSpacingProps,
   }),
   /*
     Where each property appears in the inspector, declared by the BLOCK.
@@ -33,6 +37,8 @@ export const ctaSchema = defineBlockSchema({
     size: { tab: 'design', section: 'Style' },
     width: { tab: 'design', section: 'Width' },
     ...sectionColorGroups,
+    ...sectionTypographyGroups,
+    ...sectionSpacingGroups,
   },
   examples: ctaExamples,
 });

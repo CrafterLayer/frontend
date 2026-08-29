@@ -63,16 +63,22 @@ function sortedSlots(node: Node): Readonly<Record<string, readonly NodeId[]>> {
 }
 
 function documentNode(node: Node): AiDocumentNodeContext {
-  return { id: node.id, type: node.type, slots: sortedSlots(node) };
+  return {
+    id: node.id,
+    type: node.type,
+    // Full props for every node: page text lives here, and "change the word X"
+    // is only answerable when the provider can actually read the page's words.
+    props: Object.fromEntries(
+      Object.entries(node.props)
+        .sort(([left], [right]) => compareText(left, right))
+        .map(([key, value]) => [key, cloneJson(value)]),
+    ),
+    slots: sortedSlots(node),
+  };
 }
 
 function selectedNode(node: Node): AiSelectedNodeContext {
-  return {
-    ...documentNode(node),
-    props: Object.fromEntries(
-      Object.entries(node.props).map(([key, value]) => [key, cloneJson(value)]),
-    ),
-  };
+  return documentNode(node);
 }
 
 function collectBlocks(ctx: KernelApi): readonly AiBlockContext[] {

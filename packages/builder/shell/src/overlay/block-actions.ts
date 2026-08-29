@@ -18,7 +18,7 @@ import { inlineTargetOf } from './inline-session';
  */
 
 type StructuralBlockActionId = 'duplicate' | 'delete' | 'moveEarlier' | 'moveLater';
-export type BlockActionId = StructuralBlockActionId | 'editText';
+export type BlockActionId = StructuralBlockActionId | 'editText' | 'selectParent';
 
 export interface BlockAction {
   id: BlockActionId;
@@ -117,15 +117,30 @@ export function resolveBlockActions(kernel: BuilderKernel, nodeId: NodeId): Bloc
   if (kernel.getDocument().nodes[nodeId] === undefined) {
     return [];
   }
-  const { gates } = planFor(kernel, nodeId);
+  const { gates, seat } = planFor(kernel, nodeId);
+  /*
+    Select parent comes FIRST, and changes no document at all.
+
+    Blocks nest — a link row inside a header's `end` slot inside the page — and
+    once they do, the commonest thing a person needs is to step OUT of what
+    they clicked into. Clicking the parent on the canvas is often impossible:
+    the child covers it. GrapesJS puts this control first in its element
+    toolbar for exactly that reason.
+
+    It is disabled on the document root, which has no parent to step to.
+  */
+  const parentAction: BlockAction[] = [
+    { id: 'selectParent', label: 'Select parent', enabled: seat !== undefined },
+  ];
   const structural: BlockAction[] = ACTION_ORDER.map((id) => ({
     id,
     label: ACTION_LABELS[id],
     enabled: gates[id].enabled,
   }));
+  const actions = [...parentAction, ...structural];
   return inlineTargetOf(kernel, nodeId) === null
-    ? structural
-    : [...structural, { id: 'editText', label: 'Edit text', enabled: true }];
+    ? actions
+    : [...actions, { id: 'editText', label: 'Edit text', enabled: true }];
 }
 
 /**
@@ -141,6 +156,27 @@ export function performBlockAction(
   nodeId: NodeId,
   actionId: string,
 ): BlockActionResult {
+  if (actionId === 'selectParent') {
+    /*
+      Selection-only: no dispatch, no transaction, nothing to undo. Stepping to
+      a parent is navigation, and putting it in the history would make Undo mean
+      two different things depending on what you last did.
+    */
+    const doc = kernel.getDocument();
+    if (doc.nodes[nodeId] === undefined) {
+      return { ok: false, announcement: 'The block no longer exists', selection: null };
+    }
+    const seat = seatOf(doc, nodeId);
+    if (seat === undefined) {
+      return { ok: false, announcement: 'Already at the outermost block', selection: nodeId };
+    }
+    kernel.setSelection([seat.parentId]);
+    return {
+      ok: true,
+      announcement: `Selected ${blockDisplayName(kernel, seat.parentId)}`,
+      selection: seat.parentId,
+    };
+  }
   if (actionId === 'editText') {
     return {
       ok: false,

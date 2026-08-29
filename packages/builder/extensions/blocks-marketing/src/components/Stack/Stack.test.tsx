@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Node } from '@craftkit/builder-schema';
 
 import { sectionColorProps } from '../section-color';
+import { sectionSpacingProps } from '../section-spacing';
 import { Stack } from './Stack';
 import { stackSchema } from './schema';
 
@@ -21,8 +22,17 @@ describe('Stack', () => {
       'richText',
       // A link row is a composition primitive, so a container holds one.
       'navLinks',
+      // And so are the other two layout primitives: a grid nests in a stack the
+      // way a stack nests in a grid, and a picture goes wherever content goes.
+      'grid',
+      'image',
     ];
-    const refused = ['page', 'image', 'button', 'unknown'];
+    /*
+      `image` moved from refused to accepted when the Image block arrived — a
+      picture belongs wherever content belongs. `page` stays refused because the
+      document root is never nested, and the other two never existed.
+    */
+    const refused = ['page', 'button', 'unknown'];
     const allowed = stackSchema.slots?.['default']?.allow;
 
     expect(allowed).toEqual(accepted);
@@ -35,25 +45,37 @@ describe('Stack', () => {
     expect(allowed).toContain(stackSchema.type);
   });
 
-  it('schema: defaults every layout property, and deliberately defaults no colour', () => {
+  it('schema: defaults every layout property, and deliberately defaults no colour or spacing', () => {
     const props = stackSchema.props.parse({});
 
     /*
       Every LAYOUT property carries a default, because a container whose
       direction is undefined renders per a stylesheet nobody can see from the
-      inspector. Colour is the deliberate exception and is asserted as such
-      rather than excused: an unset role means "the tone decides", and a default
-      here would have repainted every page written before colour existed.
+      inspector. Colour and spacing are deliberate exceptions and are asserted
+      as such rather than excused: unset means "the tone/block decides", and a
+      default here would have restyled every page written before these controls.
     */
     const colorKeys = Object.keys(sectionColorProps);
+    const spacingKeys = Object.keys(sectionSpacingProps);
+    const optionalKeys = [...colorKeys, ...spacingKeys];
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
-    for (const key of colorKeys) {
+    expect(spacingKeys.sort()).toEqual([
+      'marginBlockEnd',
+      'marginBlockStart',
+      'marginInlineEnd',
+      'marginInlineStart',
+      'paddingBlockEnd',
+      'paddingBlockStart',
+      'paddingInlineEnd',
+      'paddingInlineStart',
+    ]);
+    for (const key of optionalKeys) {
       expect(stackSchema.props.shape, key).toHaveProperty(key);
       expect(props, key).not.toHaveProperty(key);
     }
     expect(Object.keys(props).sort()).toEqual(
       Object.keys(stackSchema.props.shape)
-        .filter((key) => !colorKeys.includes(key))
+        .filter((key) => !optionalKeys.includes(key))
         .sort(),
     );
     expect(props).toStrictEqual({
@@ -71,7 +93,8 @@ describe('Stack', () => {
       <Stack node={node} props={props} slots={{}} data={{}} isCanvas={false} />,
     );
 
-    expect(container.querySelector(`[data-bldr-stack="${node.id}"]`)).toHaveClass(
+    const root = container.querySelector(`[data-bldr-stack="${node.id}"]`);
+    expect(root).toHaveClass(
       'mkt-section',
       'mkt-stack',
       'mkt-section--tone-transparent',
@@ -82,6 +105,7 @@ describe('Stack', () => {
       'mkt-stack--gap-md',
       'mkt-stack--wrap-wrap',
     );
+    expect(root).not.toHaveAttribute('style');
     expect(container.querySelector('.mkt-section__content')).toHaveClass(
       'mkt-section__content--width-standard',
     );
@@ -91,6 +115,25 @@ describe('Stack', () => {
       every block. It is gated there (NodeView.test.tsx) rather than
       re-implemented and re-asserted per block.
     */
+  });
+
+  it('renderer: merges a colour role and spacing step on the root', () => {
+    const { container } = render(
+      <Stack
+        node={node}
+        props={stackSchema.props.parse({
+          background: 'surfaceInverse',
+          paddingBlockStart: 3,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const root = container.querySelector<HTMLElement>(`[data-bldr-stack="${node.id}"]`);
+    expect(root?.style.background).toBe('var(--t-surface-inverse)');
+    expect(root?.style.paddingBlockStart).toBe('calc(var(--t-space-unit, 4px) * 3)');
   });
 
   it('schema: assigns every declared property to an explicit inspector tab', () => {

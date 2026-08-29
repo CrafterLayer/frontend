@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { defineBlockSchema, emptyRichText, richText } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
+import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { richTextBlockExamples } from './examples';
 
 export const richTextBlockSchema = defineBlockSchema({
@@ -14,13 +16,18 @@ export const richTextBlockSchema = defineBlockSchema({
   props: z.object({
     content: richText().default(emptyRichText() as never),
     ...sectionColorProps,
+    ...sectionTypographyProps,
+    ...sectionSpacingProps,
   }),
   /*
-    The prose block's only non-content properties are its colours, so this is
-    the whole of its Design tab. `content` stays out of the groups deliberately:
-    it is edited on the canvas, not in a row.
+    `content` stays out of the groups deliberately: it is edited on the canvas,
+    not in an Inspector row. The shared style controls make up its Design tab.
   */
-  propertyGroups: { ...sectionColorGroups },
+  propertyGroups: {
+    ...sectionColorGroups,
+    ...sectionTypographyGroups,
+    ...sectionSpacingGroups,
+  },
   inlineEditable: 'content',
   examples: richTextBlockExamples,
 });

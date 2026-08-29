@@ -9,4 +9,5 @@ export {
   type AiPlanWireAttempt,
   type AiPlanWireRequest,
   type AiPlanWireResponse,
+  type AiPlanWireStatus,
 } from './wire';

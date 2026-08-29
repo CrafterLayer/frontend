@@ -120,6 +120,28 @@ describe('Features', () => {
     expect(section.style.color).toBe('');
   });
 
+  it('applies shared typography, spacing, and colour controls on the root', () => {
+    render(
+      <Features
+        node={node}
+        props={featuresSchema.props.parse({
+          heading: 'Styled features',
+          textColor: 'accentText',
+          fontWeight: 'bold',
+          marginBlockEnd: 4,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Styled features' });
+    expect(section).toHaveClass('mkt-type--weight-bold');
+    expect(section.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * 4)');
+    expect(section.style.color).toBe('var(--t-accent-text)');
+  });
+
   it('schema rejects malformed items', () => {
     expect(featuresSchema.props.safeParse({ items: [{ title: '', body: 'x' }] }).success).toBe(
       false,
@@ -136,6 +158,32 @@ describe('Features', () => {
       width: 'full',
     });
     expect(props.body).toBeUndefined();
+    for (const sharedProp of [
+      'background',
+      'textColor',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'lineHeight',
+      'letterSpacing',
+      'textAlign',
+      'textCase',
+      'paddingBlockStart',
+      'paddingBlockEnd',
+      'paddingInlineStart',
+      'paddingInlineEnd',
+      'marginBlockStart',
+      'marginBlockEnd',
+      'marginInlineStart',
+      'marginInlineEnd',
+    ] as const) {
+      expect(Object.hasOwn(featuresSchema.props.shape, sharedProp), sharedProp).toBe(true);
+      expect(Object.hasOwn(props, sharedProp), `${sharedProp} must not be defaulted`).toBe(false);
+      expect(
+        featuresSchema.propertyGroups?.[sharedProp],
+        `${sharedProp} property group`,
+      ).toBeDefined();
+    }
 
     const accepted = [
       ...['start', 'center', 'end'].map((align) => ({ align })),

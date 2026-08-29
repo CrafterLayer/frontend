@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Node } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { Grid } from './Grid';
 import { gridSchema, type GridProps } from './schema';
 
@@ -24,18 +25,30 @@ describe('Grid', () => {
     ]);
   });
 
-  it('schema: defaults every non-colour property and deliberately defaults no colour role', () => {
+  it('schema: defaults layout properties and deliberately defaults no colour or spacing', () => {
     const props = gridSchema.props.parse({});
     const colorKeys = Object.keys(sectionColorProps);
+    const spacingKeys = Object.keys(sectionSpacingProps);
+    const optionalKeys = [...colorKeys, ...spacingKeys];
 
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
-    for (const key of colorKeys) {
+    expect(spacingKeys.sort()).toEqual([
+      'marginBlockEnd',
+      'marginBlockStart',
+      'marginInlineEnd',
+      'marginInlineStart',
+      'paddingBlockEnd',
+      'paddingBlockStart',
+      'paddingInlineEnd',
+      'paddingInlineStart',
+    ]);
+    for (const key of optionalKeys) {
       expect(gridSchema.props.shape, key).toHaveProperty(key);
       expect(props, key).not.toHaveProperty(key);
     }
     expect(Object.keys(props).sort()).toEqual(
       Object.keys(gridSchema.props.shape)
-        .filter((key) => !colorKeys.includes(key))
+        .filter((key) => !optionalKeys.includes(key))
         .sort(),
     );
     expect(props).toStrictEqual({
@@ -52,7 +65,8 @@ describe('Grid', () => {
     const { container } = render(
       <Grid node={node} props={props} slots={{}} data={{}} isCanvas={false} />,
     );
-    expect(container.querySelector(`[data-bldr-grid="${node.id}"]`)).toHaveClass(
+    const root = container.querySelector(`[data-bldr-grid="${node.id}"]`);
+    expect(root).toHaveClass(
       'mkt-section',
       'mkt-grid',
       'mkt-section--tone-transparent',
@@ -63,6 +77,7 @@ describe('Grid', () => {
       'mkt-grid--justify-start',
       'mkt-grid--flow-row',
     );
+    expect(root).not.toHaveAttribute('style');
     expect(container.querySelector('.mkt-section__content')).toHaveClass(
       'mkt-section__content--width-standard',
     );
@@ -79,6 +94,7 @@ describe('Grid', () => {
       spacing: { tab: 'design', section: 'Spacing' },
       width: { tab: 'design', section: 'Width' },
       ...sectionColorGroups,
+      ...sectionSpacingGroups,
     });
     expect(Object.keys(gridSchema.propertyGroups ?? {}).sort()).toEqual(
       Object.keys(gridSchema.props.shape).sort(),
@@ -125,5 +141,21 @@ describe('Grid', () => {
     expect(root?.style.background).toBe('var(--t-surface-inverse)');
     expect(root?.style.color).toBe('');
     expect(screen.getByText('Grid child')).toBeInTheDocument();
+  });
+
+  it('renderer: merges a colour role and spacing step on the root', () => {
+    const { container } = render(
+      <Grid
+        node={node}
+        props={gridSchema.props.parse({ textColor: 'textInverse', paddingInlineEnd: 5 })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const root = container.querySelector<HTMLElement>(`[data-bldr-grid="${node.id}"]`);
+    expect(root?.style.color).toBe('var(--t-text-inverse)');
+    expect(root?.style.paddingInlineEnd).toBe('calc(var(--t-space-unit, 4px) * 5)');
   });
 });

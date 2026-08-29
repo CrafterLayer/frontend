@@ -15,19 +15,22 @@ the items need descriptions, icons, actions, or nested navigation.
 - `links: Array<{ label: string (1–24); href: string (1–200) }> = []` — at most 10 links.
 - `direction: 'row' | 'column' = 'row'`
 - `style: 'plain' | 'underline' | 'pill' = 'plain'`
-- `textCase: 'normal' | 'uppercase' = 'normal'`
-- `weight: 'regular' | 'medium' | 'semibold' = 'medium'`
 - `gap: 'none' | 'sm' | 'md' | 'lg' = 'md'`
 - `wrap: 'nowrap' | 'wrap' = 'wrap'`
 - `background?: 'surface' | 'surfaceInverse' | 'accent'`
 - `textColor?: 'text' | 'textInverse' | 'textMuted' | 'accentText'`
+- Shared typography is optional and has no defaults: `fontFamily`, `fontSize`, `fontWeight`,
+  `lineHeight`, `letterSpacing`, `textAlign`, and `textCase`. Unset values inherit; set values use
+  the page theme's named scale.
+- Logical padding and margin step properties are optional and have no defaults. Unset values leave
+  the block's own spacing intact.
 
 ## Variants and empty state
 
 `plain` removes decoration, `underline` keeps every destination visibly underlined, and `pill` adds
-a tokenized border and control padding. Direction, gap, wrapping, text case, and weight are
-independent. An empty block shows a short setup hint only on the builder canvas; published output
-renders nothing.
+a tokenized border and control padding. Direction, gap, wrapping, and the shared typography choices
+are independent. An empty block shows a short setup hint only on the builder canvas; published
+output renders nothing.
 
 ## Accessibility
 

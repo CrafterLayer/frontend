@@ -2,11 +2,7 @@
 // implements exactly this shape; everything else — registry lookup, args
 // schemas, the scratch-kernel dry run — stays on this side of the wire, so a
 // wrong server can only ever produce a rejected proposal, never a document.
-import type {
-  AiPlan,
-  AiPlanValidationIssue,
-  AssembledAiContext,
-} from '../types';
+import type { AiPlan, AiPlanValidationIssue, AssembledAiContext } from '../types';
 
 export const AI_PLAN_WIRE_VERSION = 1;
 
@@ -26,3 +22,24 @@ export interface AiPlanWireRequest {
 
 /** A server answers with a plan, or with an explicit refusal it can word itself. */
 export type AiPlanWireResponse = AiPlan | { refusal: string };
+
+/**
+ * OPTIONAL streaming shape. The client advertises
+ * `accept: text/event-stream, application/json`; a server that streams answers
+ * the same POST as SSE instead of one JSON body:
+ *
+ *   event: status
+ *   data: {"text": "Reading the catalog…"}     (any number of these)
+ *
+ *   event: result
+ *   data: <AiPlanWireResponse>                  (exactly one, then the stream ends)
+ *
+ * `status` text feeds the UI's live narration; `result` is validated exactly
+ * like the plain JSON body. A server that ignores the accept header and
+ * answers plain JSON remains fully conformant. Aborting the request is the
+ * cancellation signal — a server should stop the underlying work when the
+ * connection closes.
+ */
+export interface AiPlanWireStatus {
+  text: string;
+}

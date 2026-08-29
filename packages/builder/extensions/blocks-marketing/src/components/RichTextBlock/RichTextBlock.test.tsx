@@ -46,16 +46,60 @@ describe('RichTextBlock (008 contract §4)', () => {
         content: { type: 'doc', content: [{ type: 'iframe' }] },
       }).success,
     ).toBe(false);
+
+    const defaults = richTextBlockSchema.props.parse({});
+    expect(Object.keys(defaults)).toEqual(['content']);
+    const optionalSharedStyleProps = [
+      'background',
+      'textColor',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'lineHeight',
+      'letterSpacing',
+      'textAlign',
+      'textCase',
+      'paddingBlockStart',
+      'paddingBlockEnd',
+      'paddingInlineStart',
+      'paddingInlineEnd',
+      'marginBlockStart',
+      'marginBlockEnd',
+      'marginInlineStart',
+      'marginInlineEnd',
+    ] as const;
+    for (const property of optionalSharedStyleProps) {
+      expect(richTextBlockSchema.props.shape).toHaveProperty(property);
+      expect(richTextBlockSchema.propertyGroups).toHaveProperty(property);
+      expect(defaults).not.toHaveProperty(property);
+    }
   });
 
   it('renders prose through the zero-dependency read path', () => {
-    render(<RichTextBlock {...renderProps(CONTENT)} />);
+    const { container } = render(<RichTextBlock {...renderProps(CONTENT)} />);
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('About us');
     expect(screen.getByRole('link', { name: 'tools' })).toHaveAttribute(
       'href',
       'https://example.com',
     );
     expect(document.querySelector('strong')).toHaveTextContent('reliable');
+    expect(container.firstElementChild).not.toHaveAttribute('style');
+  });
+
+  it('applies shared typography and spacing with colour roles on the root', () => {
+    const props = richTextBlockSchema.props.parse({
+      content: CONTENT,
+      textColor: 'textMuted',
+      fontSize: 'lg',
+      marginBlockEnd: 5,
+    });
+    const blockRenderProps = { ...renderProps(props.content), props };
+    const { container } = render(<RichTextBlock {...blockRenderProps} />);
+
+    const section = container.firstElementChild as HTMLElement;
+    expect(section).toHaveClass('mkt-richtext', 'mkt-type--size-lg');
+    expect(section.style.color).toBe('var(--t-text-muted)');
+    expect(section.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * 5)');
   });
 
   it('US2/AC1 parity: static output carries the same text and structure', () => {

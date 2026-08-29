@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionAlignments, sectionWidths } from '../section-options';
 import { imageExamples } from './examples';
 
@@ -21,6 +22,7 @@ export const imageSchema = defineBlockSchema({
     width: z.enum(sectionWidths).default('standard'),
     align: z.enum(sectionAlignments).default('start'),
     ...sectionColorProps,
+    ...sectionSpacingProps,
   }),
   propertyGroups: {
     src: { tab: 'content', section: 'Image' },
@@ -32,6 +34,7 @@ export const imageSchema = defineBlockSchema({
     width: { tab: 'design', section: 'Layout' },
     align: { tab: 'design', section: 'Layout' },
     ...sectionColorGroups,
+    ...sectionSpacingGroups,
   },
   examples: imageExamples,
 });

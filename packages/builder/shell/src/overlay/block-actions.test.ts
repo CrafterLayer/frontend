@@ -79,9 +79,12 @@ const enabledOf = (kernel: ReturnType<typeof makeKernel>, id: string) =>
   Object.fromEntries(resolveBlockActions(kernel, id).map((action) => [action.id, action.enabled]));
 
 describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
-  it('adds Edit text as the fifth action only for an inline-editable block', () => {
+  it('adds Edit text as the last action only for an inline-editable block', () => {
     const kernel = makeKernel();
     expect(resolveBlockActions(kernel, 't2')).toEqual([
+      // Select parent leads: once blocks nest, stepping OUT is the commonest
+      // move, and the child usually covers the parent on the canvas.
+      { id: 'selectParent', label: 'Select parent', enabled: true },
       { id: 'duplicate', label: 'Duplicate', enabled: true },
       { id: 'delete', label: 'Delete', enabled: true },
       { id: 'moveEarlier', label: 'Move earlier', enabled: true },
@@ -89,6 +92,7 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       { id: 'editText', label: 'Edit text', enabled: true },
     ]);
     expect(resolveBlockActions(kernel, 'sA').map((action) => action.id)).toEqual([
+      'selectParent',
       'duplicate',
       'delete',
       'moveEarlier',
@@ -99,6 +103,7 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
   it('disables the edges: first cannot move earlier, last cannot move later', () => {
     const kernel = makeKernel();
     expect(enabledOf(kernel, 't1')).toEqual({
+      selectParent: true,
       duplicate: true,
       delete: true,
       moveEarlier: false,
@@ -106,6 +111,7 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       editText: true,
     });
     expect(enabledOf(kernel, 'sInner')).toEqual({
+      selectParent: true,
       duplicate: true,
       delete: true,
       moveEarlier: true,
@@ -116,6 +122,8 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
   it('disables everything for the document root (US3/AC3 — never a door failure)', () => {
     const kernel = makeKernel();
     expect(enabledOf(kernel, 'root')).toEqual({
+      // The root has no parent to step to, so this is closed here too.
+      selectParent: false,
       duplicate: false,
       delete: false,
       moveEarlier: false,
@@ -126,6 +134,7 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
   it('disables duplicate when the parent slot is at capacity', () => {
     const kernel = makeKernel();
     expect(enabledOf(kernel, 'tCap')).toEqual({
+      selectParent: true,
       duplicate: false,
       delete: true,
       moveEarlier: false, // only child: both edges at once
@@ -141,6 +150,37 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
 });
 
 describe('performBlockAction — one dispatch, defined resulting selection (a2)', () => {
+  it('select parent: moves the selection out one level and records NO transaction', () => {
+    /*
+      Navigation, not an edit. Putting a step-out in the history would make Undo
+      mean two different things depending on what a person last did — sometimes
+      "put my block back", sometimes "reselect the child".
+    */
+    const kernel = makeKernel();
+    kernel.setSelection(['sInner']);
+    const before = kernel.transactions().length;
+    const document = kernel.getDocument();
+
+    const result = performBlockAction(kernel, 'sInner', 'selectParent');
+
+    expect(result.ok).toBe(true);
+    expect(result.selection).toBe('sA');
+    expect(kernel.context.store.getState().selection).toEqual(['sA']);
+    expect(kernel.transactions()).toHaveLength(before);
+    expect(kernel.getDocument()).toBe(document); // reference-identical: nothing moved
+  });
+
+  it('select parent: refused at the document root, which has nothing to step to', () => {
+    const kernel = makeKernel();
+    const before = kernel.transactions().length;
+
+    const result = performBlockAction(kernel, 'root', 'selectParent');
+
+    expect(result.ok).toBe(false);
+    expect(result.announcement).toBe('Already at the outermost block');
+    expect(kernel.transactions()).toHaveLength(before);
+  });
+
   it('duplicate: +1 transaction, clone lands after the origin, clone selected', () => {
     const kernel = makeKernel();
     const result = performBlockAction(kernel, 't1', 'duplicate');

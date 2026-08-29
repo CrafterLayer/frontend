@@ -77,10 +77,28 @@ describe('AI context assembly', () => {
     expect(context.document.nodes.find((node) => node.id === 'hero1')).toEqual({
       id: 'hero1',
       type: 'hero',
+      props: { heading: 'Build faster', tone: 'dark' },
       slots: { actions: ['cta1', 'cta2'] },
     });
     expect(context.fragments[0]?.body).toContain('"propsSchema"');
     expect(context.fragments[0]?.body).toContain('"slots"');
+  });
+
+  it('lets a provider locate page text WITHOUT a selection: every document node carries its props', () => {
+    const kernel = contextKernel();
+    // Nothing selected — the situation where "change the word X" used to be
+    // unanswerable, because document nodes carried only ids, types, and slots.
+    const context = assembleAiContext(kernel.context, { selection: [] });
+
+    expect(context.document.nodes.find((node) => node.id === 'p1')).toEqual({
+      id: 'p1',
+      type: 'text',
+      props: { content: 'Welcome aboard.' },
+      slots: {},
+    });
+    const shape = context.fragments.find((fragment) => fragment.title === 'Document shape');
+    expect(shape?.body).toContain('Welcome aboard.');
+    expect(shape?.body).toContain('Build faster');
   });
 
   it('is stable, filters missing selected nodes from details, and estimates custom fragments', () => {

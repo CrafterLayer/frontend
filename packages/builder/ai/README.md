@@ -110,5 +110,18 @@ Transport errors surface as `RemoteAiProviderError` with a human sentence (unrea
 non-JSON, malformed shape, or `timed out after <ms>`; default timeout 30s, configurable via
 `timeoutMs`). Auth goes in `headers`; the fetch implementation is injectable for tests.
 
+### Streaming and cancellation (optional)
+
+The provider advertises `accept: text/event-stream, application/json` on every POST. A server may
+answer the same request as SSE — any number of `event: status` frames (`data: {"text": "..."}`)
+narrating the work, then exactly one `event: result` frame whose data is the usual wire response.
+Status text feeds the UI's live progress line; a server that ignores the header and answers plain
+JSON stays fully conformant.
+
+Cancellation is the closed connection: `propose`/`repair` accept `{ signal, onProgress }`
+(`AiProposeOptions`), Stop in the UI aborts the fetch, and a conforming server kills the underlying
+model work when the request closes. A caller's own abort surfaces as the platform `AbortError`,
+never as a provider error.
+
 In the playground, set `VITE_AI_PLAN_ENDPOINT=https://your-server/plan` and the AssistantPanel
 switches from the local deterministic provider to the remote one — no code change.

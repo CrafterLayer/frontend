@@ -68,7 +68,7 @@ const measurements = {
   fontFamilySans:
     "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans Arabic', sans-serif",
   fontFamilySerif: "Georgia, Cambria, 'Times New Roman', 'Noto Naskh Arabic', serif",
-  fontFamilyMono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+  fontFamilyMono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   fontSizeSm: '0.8125rem',
   controlPaddingBlockSm: '8px',
   controlPaddingBlockMd: '10px',

@@ -4,6 +4,8 @@ import './Hero.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionSpacingStyle } from '../section-spacing';
+import { sectionTypographyClasses } from '../section-typography';
 
 import type { HeroProps } from './schema';
 
@@ -13,6 +15,19 @@ export function Hero({ node, props, slots }: BlockRenderProps<HeroProps>) {
   // its text: inline editing swaps that property for an editor element, and
   // an element in aria-label stringifies to "[object Object]" (009 §12).
   const headingId = `${node.id}-heading`;
+  const typographyClassName = sectionTypographyClasses(props);
+  const rootClassName = [
+    `mkt-section mkt-hero mkt-hero--${props.tone} mkt-hero--${props.align} mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`,
+    typographyClassName,
+  ]
+    .filter((className) => className !== '')
+    .join(' ');
+  const colorStyle = sectionColorStyle(props);
+  const spacingStyle = sectionSpacingStyle(props);
+  const rootStyle =
+    colorStyle === undefined && spacingStyle === undefined
+      ? undefined
+      : { ...colorStyle, ...spacingStyle };
   const actionsClassName = [
     'mkt-hero__actions',
     props.layoutDirection === undefined
@@ -28,11 +43,7 @@ export function Hero({ node, props, slots }: BlockRenderProps<HeroProps>) {
     .filter((className) => className !== undefined)
     .join(' ');
   return (
-    <section
-      className={`mkt-section mkt-hero mkt-hero--${props.tone} mkt-hero--${props.align} mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`}
-      style={sectionColorStyle(props)}
-      aria-labelledby={headingId}
-    >
+    <section className={rootClassName} style={rootStyle} aria-labelledby={headingId}>
       <div
         className={`mkt-section__content mkt-hero__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width}`}
       >

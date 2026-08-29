@@ -57,7 +57,20 @@ const EDIT_TEXT =
   '<path d="M10.7 2.3a1.5 1.5 0 0 1 2.1 2.1L6.4 10.8 3.2 11.8l1-3.2z"/>' +
   '<path d="M2.4 14.2h11.2"/>';
 
+/*
+  Select parent: a corner turning UP and OUT of a box.
+
+  Not a bare arrow — a plain ↑ reads as "move up", which is what `moveEarlier`
+  does, and two actions in one bar must not share a mark. The path leaves the
+  enclosing shape, which is the thing the action actually does.
+*/
+const SELECT_PARENT =
+  '<path d="M4.5 13.5h7a2 2 0 0 0 2-2v-3"/>' +
+  '<path d="M8 6.5V2.5"/>' +
+  '<path d="M5.5 5 8 2.5 10.5 5"/>';
+
 export const BLOCK_ACTION_ICONS: Readonly<Record<BlockActionId, ReactElement>> = {
+  selectParent: glyph(SELECT_PARENT),
   duplicate: glyph(DUPLICATE),
   delete: glyph(DELETE),
   moveEarlier: glyph(MOVE_EARLIER),

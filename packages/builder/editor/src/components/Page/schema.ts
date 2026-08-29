@@ -6,6 +6,13 @@ import { defineBlockSchema } from '@craftkit/builder-schema';
  * The structural document root. Its vocabulary lists every insertable top-level
  * type — including 'announcement', whose RENDERER only arrives at runtime in the
  * playground demo (registering it late is exactly what FR-013 demonstrates).
+ *
+ * Page-specific settings belong to this root Page block's props, not document
+ * metadata. `surface`, `dir`, `rootId`, and `schemaVersion` describe the document
+ * itself; changing that contract would require a Law M migration. Block props
+ * already pass through the validated, undoable edit door, and each future page
+ * document carries its own settings on its root Page. Defaulted additions remain
+ * backward-compatible because Zod supplies them when existing props are parsed.
  */
 export const pageSchema = defineBlockSchema({
   type: 'page',
@@ -13,7 +20,26 @@ export const pageSchema = defineBlockSchema({
     'The page root. Holds top-level sections in order. Exactly one per document; never nested.',
   props: z.object({
     title: z.string().max(120).default(''),
+    description: z.string().max(200).default(''),
+    slug: z.string().max(120).default(''),
+    socialTitle: z.string().max(120).optional(),
+    socialDescription: z.string().max(200).optional(),
+    socialImage: z.string().max(2000).optional(),
+    contentWidth: z.enum(['narrow', 'standard', 'wide', 'full']).default('standard'),
+    noIndex: z.boolean().default(false),
+    lang: z.string().max(12).default(''),
   }),
+  propertyGroups: {
+    title: { tab: 'content', section: 'Identity' },
+    description: { tab: 'content', section: 'Identity' },
+    slug: { tab: 'content', section: 'Identity' },
+    socialTitle: { tab: 'content', section: 'Sharing' },
+    socialDescription: { tab: 'content', section: 'Sharing' },
+    socialImage: { tab: 'content', section: 'Sharing' },
+    contentWidth: { tab: 'design', section: 'Appearance' },
+    noIndex: { tab: 'advanced', section: 'Indexing' },
+    lang: { tab: 'advanced', section: 'Indexing' },
+  },
   slots: {
     default: {
       /*
@@ -34,6 +60,10 @@ export const pageSchema = defineBlockSchema({
         'announcement',
         'richText',
         'navLinks',
+        // The two layout primitives, and pictures. A page holds them directly,
+        // not only inside a container — the commonest thing anyone drops.
+        'grid',
+        'image',
         // The layout container, so a page can hold columns rather than only
         // a vertical run of sections.
         'stack',

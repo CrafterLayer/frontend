@@ -2167,10 +2167,12 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     });
     h.tick();
 
-    const button = h.view.container.querySelector<HTMLButtonElement>('.bldr-block-actions button');
-    expect(button).not.toBeNull();
-    if (button === null) {
-      throw new Error('the block action bar rendered no buttons');
+    const button = [
+      ...h.view.container.querySelectorAll<HTMLButtonElement>('.bldr-block-actions button'),
+    ].find((candidate) => candidate.textContent === 'Duplicate');
+    expect(button).toBeDefined();
+    if (button === undefined) {
+      throw new Error('the block action bar rendered no Duplicate button');
     }
     let applied = 0;
     h.kernel.context.events.on('tx.applied', () => {
@@ -2199,7 +2201,11 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     const before = h.kernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
 
     act(() => {
-      h.view.container.querySelector<HTMLButtonElement>('.bldr-block-actions button')?.click();
+      // BY NAME, not by position: Select parent now leads the bar and dispatches
+      // nothing, so a positional pick would silently test a different action.
+      [...h.view.container.querySelectorAll<HTMLButtonElement>('.bldr-block-actions button')]
+        .find((button) => button.textContent === 'Duplicate')
+        ?.click();
     });
     expect(applied).toBe(1);
     expect(h.kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(before + 1);
@@ -2222,6 +2228,8 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
       button.disabled,
     ]);
     expect(labels).toEqual([
+      // Select parent leads and is open here: `h1` sits inside the page root.
+      ['Select parent', false],
       ['Duplicate', false],
       ['Delete', false],
       ['Move earlier', true],

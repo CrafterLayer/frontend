@@ -5,6 +5,8 @@ import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { Cta, ctaSchema } from './components/Cta';
 import { Features, featuresSchema } from './components/Features';
+import { Grid, gridSchema } from './components/Grid';
+import { Image, imageSchema } from './components/Image';
 import { NavLinks, navLinksSchema } from './components/NavLinks';
 import { PageFooter, pageFooterSchema } from './components/PageFooter';
 import { PageHeader, pageHeaderSchema } from './components/PageHeader';
@@ -25,6 +27,9 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: pageHeaderSchema, render: PageHeader },
       { schema: pageFooterSchema, render: PageFooter },
       { schema: stackSchema, render: Stack },
+      // The other layout primitive: a grid, where Stack is a flex row or column.
+      { schema: gridSchema, render: Grid },
+      { schema: imageSchema, render: Image },
       { schema: heroSchema, render: Hero },
       { schema: featuresSchema, render: Features },
       { schema: pricingSchema, render: Pricing },

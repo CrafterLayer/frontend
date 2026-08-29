@@ -98,7 +98,7 @@
   --bldr-duration-move: 180ms;
   --bldr-easing: cubic-bezier(0.2, 0, 0.13, 1);
 
-  --bldr-rail-width: 76px;
+  --bldr-rail-width: 68px;
   --bldr-panel-width: 288px;
   --bldr-inspector-width: 312px;
   --bldr-assistant-width: 376px;
@@ -282,7 +282,7 @@
 /* Density is a layout decision, independent of colour: a host may run the dark
    theme comfortably or the light theme tight. */
 [data-bldr-density='compact'] {
-  --bldr-rail-width: 60px;
+  --bldr-rail-width: 56px;
   --bldr-panel-width: 248px;
   --bldr-inspector-width: 272px;
   --bldr-assistant-width: 332px;

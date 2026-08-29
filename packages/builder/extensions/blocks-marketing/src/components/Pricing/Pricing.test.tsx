@@ -131,6 +131,28 @@ describe('Pricing', () => {
     expect(section.style.color).toBe('');
   });
 
+  it('applies shared typography, spacing, and colour controls on the root', () => {
+    render(
+      <Pricing
+        node={node}
+        props={pricingSchema.props.parse({
+          heading: 'Styled pricing',
+          background: 'surfaceInverse',
+          lineHeight: 'relaxed',
+          paddingBlockEnd: 5,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Styled pricing' });
+    expect(section).toHaveClass('mkt-type--line-height-relaxed');
+    expect(section.style.paddingBlockEnd).toBe('calc(var(--t-space-unit, 4px) * 5)');
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+  });
+
   it('schema bounds plans and features', () => {
     const tooMany = Array.from({ length: 5 }, (_, index) => ({
       name: `P${String(index)}`,
@@ -151,6 +173,32 @@ describe('Pricing', () => {
       width: 'full',
     });
     expect(props.body).toBeUndefined();
+    for (const sharedProp of [
+      'background',
+      'textColor',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'lineHeight',
+      'letterSpacing',
+      'textAlign',
+      'textCase',
+      'paddingBlockStart',
+      'paddingBlockEnd',
+      'paddingInlineStart',
+      'paddingInlineEnd',
+      'marginBlockStart',
+      'marginBlockEnd',
+      'marginInlineStart',
+      'marginInlineEnd',
+    ] as const) {
+      expect(Object.hasOwn(pricingSchema.props.shape, sharedProp), sharedProp).toBe(true);
+      expect(Object.hasOwn(props, sharedProp), `${sharedProp} must not be defaulted`).toBe(false);
+      expect(
+        pricingSchema.propertyGroups?.[sharedProp],
+        `${sharedProp} property group`,
+      ).toBeDefined();
+    }
 
     const accepted = [
       ...['start', 'center', 'end'].map((align) => ({ align })),

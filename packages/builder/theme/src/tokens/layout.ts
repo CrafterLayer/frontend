@@ -150,7 +150,14 @@ export interface ShellMetrics {
 }
 
 export const comfortable: ShellMetrics = {
-  'rail-width': '76px',
+  /*
+    The rail is pure navigation, so every pixel it takes is a pixel the page
+    being edited does not get. 76px was drawn for a tab whose height was pinned
+    at 36px and therefore had to buy its presence with width; now that a tab is
+    a tile that sizes to its own content, the band can give the canvas 8px back
+    and still hold a 17px glyph over its label.
+  */
+  'rail-width': '68px',
   'panel-width': '288px',
   'inspector-width': '312px',
   'assistant-width': '376px',
@@ -165,7 +172,7 @@ export const comfortable: ShellMetrics = {
 };
 
 export const compact: ShellMetrics = {
-  'rail-width': '60px',
+  'rail-width': '56px',
   'panel-width': '248px',
   'inspector-width': '272px',
   'assistant-width': '332px',

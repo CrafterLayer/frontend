@@ -9,6 +9,8 @@ import {
   sectionWidths,
 } from '../section-options';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
+import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { pricingExamples } from './examples';
 
 export const pricingSchema = defineBlockSchema({
@@ -37,6 +39,8 @@ export const pricingSchema = defineBlockSchema({
     spacing: z.enum(sectionSpacings).default('md'),
     width: z.enum(sectionWidths).default('full'),
     ...sectionColorProps,
+    ...sectionTypographyProps,
+    ...sectionSpacingProps,
   }),
   /*
     Where each property appears in the inspector, declared by the BLOCK.
@@ -56,6 +60,8 @@ export const pricingSchema = defineBlockSchema({
     spacing: { tab: 'design', section: 'Spacing' },
     width: { tab: 'design', section: 'Width' },
     ...sectionColorGroups,
+    ...sectionTypographyGroups,
+    ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
   examples: pricingExamples,

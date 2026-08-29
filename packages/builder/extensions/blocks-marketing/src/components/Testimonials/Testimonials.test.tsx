@@ -100,6 +100,28 @@ describe('Testimonials', () => {
     expect(section.style.color).toBe('var(--t-accent-text)');
   });
 
+  it('applies shared typography and spacing with colour roles on the root', () => {
+    render(
+      <Testimonials
+        node={node}
+        props={testimonialsSchema.props.parse({
+          heading: 'Shared style testimonials',
+          background: 'surfaceInverse',
+          fontFamily: 'serif',
+          paddingInlineStart: 3,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Shared style testimonials' });
+    expect(section).toHaveClass('mkt-type--family-serif');
+    expect(section.style.background).toBe('var(--t-surface-inverse)');
+    expect(section.style.paddingInlineStart).toBe('calc(var(--t-space-unit, 4px) * 3)');
+  });
+
   it('does not add an inline colour style when no role is chosen', () => {
     render(
       <Testimonials
@@ -133,6 +155,31 @@ describe('Testimonials', () => {
       width: 'full',
     });
     expect(props.body).toBeUndefined();
+
+    const optionalSharedStyleProps = [
+      'background',
+      'textColor',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'lineHeight',
+      'letterSpacing',
+      'textAlign',
+      'textCase',
+      'paddingBlockStart',
+      'paddingBlockEnd',
+      'paddingInlineStart',
+      'paddingInlineEnd',
+      'marginBlockStart',
+      'marginBlockEnd',
+      'marginInlineStart',
+      'marginInlineEnd',
+    ] as const;
+    for (const property of optionalSharedStyleProps) {
+      expect(testimonialsSchema.props.shape).toHaveProperty(property);
+      expect(testimonialsSchema.propertyGroups).toHaveProperty(property);
+      expect(props).not.toHaveProperty(property);
+    }
 
     const accepted = [
       ...['start', 'center', 'end'].map((align) => ({ align })),

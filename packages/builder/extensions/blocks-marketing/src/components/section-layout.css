@@ -118,7 +118,8 @@
 }
 
 .mkt-type--family-sans {
-  font-family: var(--t-font-family-sans,
+  font-family: var(
+    --t-font-family-sans,
     system-ui,
     -apple-system,
     'Segoe UI',
@@ -131,7 +132,8 @@
 }
 
 .mkt-type--family-serif {
-  font-family: var(--t-font-family-serif,
+  font-family: var(
+    --t-font-family-serif,
     Georgia,
     Cambria,
     'Times New Roman',
@@ -141,13 +143,7 @@
 }
 
 .mkt-type--family-mono {
-  font-family: var(--t-font-family-mono,
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Consolas,
-    monospace
-  );
+  font-family: var(--t-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }
 
 .mkt-type--size-xs {

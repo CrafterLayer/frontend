@@ -47,9 +47,38 @@
   gap: var(--bldr-space-2xs);
   inline-size: 100%;
   line-height: var(--bldr-line-height-tight);
-  padding-block: var(--bldr-space-0);
   padding-inline: var(--bldr-space-2xs);
   text-align: center;
+}
+
+/* A RAIL TAB IS A TILE, not a row control.
+   `ChromeButton` at the `lg` scale PINS `block-size` to 36px, which is right
+   for a control that sits in a row of text — and wrong for this one, which
+   stacks an icon over a label and spans the rail's full width. Measured at
+   36px: the two stacked lines came to ~32px, so the selected tab was a 62x36
+   pill holding 2px of air, reading as a wide slab rather than a tab.
+
+   Height is therefore given back to CONTENT, with the touch target as its
+   floor: `hit-target-min` is the accessibility floor (WCAG 2.5.5) and this is
+   exactly the kind of target layout.ts means by "anything a finger reaches".
+   The result is a near-square tile that keeps its proportion at either density
+   and in any language, because nothing here is a fixed number.
+
+   The selector carries the rail's own class purely for WEIGHT: ChromeButton
+   sizes itself with two compound parts, and a rule that merely ties with it is
+   settled by whichever stylesheet the bundler emits last. */
+.bldr-icon-rail .bldr-icon-rail__button[data-size='lg'] {
+  /*
+    A DECLARED step, not the content's own idea of a height.
+    Letting the tile size to its content was the obvious fix and the wrong one:
+    the height then depends on the host's glyph and label, so the same rail
+    measured 48px in the playground and 44px in a story — two products, one
+    stylesheet. `hit-target-min` is the scale step layout.ts reserves for
+    "anything a finger reaches", which is what primary navigation is, so the
+    tile takes it outright and every host gets the same rail.
+  */
+  block-size: var(--bldr-hit-target-min);
+  padding-block: var(--bldr-space-0);
 }
 
 /* THE RAIL IS THE ONE DARK SURFACE, so it cannot borrow the light chrome's

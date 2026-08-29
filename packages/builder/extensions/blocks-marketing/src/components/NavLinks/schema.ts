@@ -4,6 +4,8 @@ import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
 import { sectionDirections, sectionSpacings, sectionWraps } from '../section-options';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
+import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { navLinksExamples } from './examples';
 
 export const navLinksSchema = defineBlockSchema({
@@ -23,21 +25,21 @@ export const navLinksSchema = defineBlockSchema({
       .default([]),
     direction: z.enum(sectionDirections).default('row'),
     style: z.enum(['plain', 'underline', 'pill']).default('plain'),
-    textCase: z.enum(['normal', 'uppercase']).default('normal'),
-    weight: z.enum(['regular', 'medium', 'semibold']).default('medium'),
     gap: z.enum(sectionSpacings).default('md'),
     wrap: z.enum(sectionWraps).default('wrap'),
     ...sectionColorProps,
+    ...sectionTypographyProps,
+    ...sectionSpacingProps,
   }),
   propertyGroups: {
     links: { tab: 'content', section: 'Links' },
     direction: { tab: 'design', section: 'Layout' },
     style: { tab: 'design', section: 'Style' },
-    textCase: { tab: 'design', section: 'Typography' },
-    weight: { tab: 'design', section: 'Typography' },
     gap: { tab: 'design', section: 'Spacing' },
     wrap: { tab: 'advanced', section: 'Layout' },
     ...sectionColorGroups,
+    ...sectionTypographyGroups,
+    ...sectionSpacingGroups,
   },
   examples: navLinksExamples,
 });

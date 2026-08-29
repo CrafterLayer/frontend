@@ -4,6 +4,8 @@ import './Pricing.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionSpacingStyle } from '../section-spacing';
+import { sectionTypographyClasses } from '../section-typography';
 
 import type { PricingProps } from './schema';
 
@@ -13,12 +15,21 @@ export function Pricing({ node, props }: BlockRenderProps<PricingProps>) {
   // its text: inline editing swaps that property for an editor element, and
   // an element in aria-label stringifies to "[object Object]" (009 §12).
   const headingId = `${node.id}-heading`;
+  const typographyClassName = sectionTypographyClasses(props);
+  const rootClassName = [
+    `mkt-section mkt-pricing mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`,
+    typographyClassName,
+  ]
+    .filter((className) => className !== '')
+    .join(' ');
+  const colorStyle = sectionColorStyle(props);
+  const spacingStyle = sectionSpacingStyle(props);
+  const rootStyle =
+    colorStyle === undefined && spacingStyle === undefined
+      ? undefined
+      : { ...colorStyle, ...spacingStyle };
   return (
-    <section
-      className={`mkt-section mkt-pricing mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`}
-      style={sectionColorStyle(props)}
-      aria-labelledby={headingId}
-    >
+    <section className={rootClassName} style={rootStyle} aria-labelledby={headingId}>
       <div
         className={`mkt-section__content mkt-pricing__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width}`}
       >

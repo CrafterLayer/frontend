@@ -219,6 +219,44 @@ describe('Palette (006 contract §4)', () => {
     }
   });
 
+  it('a selected CONTAINER receives the block inside it, not beside it', async () => {
+    /*
+      Measured in a browser: selecting an empty Grid and pressing a palette tile
+      put the block BESIDE the grid. The condition that produces it is precise —
+      the PARENT must also accept the type, so the sibling rule fires first and
+      wins. With a parent that refuses, the walk-up already lands inside and the
+      bug is invisible, which is why this fixture gives BOTH the container and
+      its parent the same vocabulary.
+    */
+    const BOTH_ACCEPT: TrustedExtensionManifest = {
+      tier: 1,
+      name: 'palette-both-accept',
+      version: '1.0.0',
+      contributes: {
+        blocks: [
+          block('page', 'Page', { default: { allow: ['section', 'text'] } }),
+          block('section', 'Section', { default: { allow: ['text'] } }),
+          block('text', 'Text'),
+        ],
+      },
+    };
+    const kernel = createBuilder({
+      document: DOC,
+      extensions: [BOTH_ACCEPT],
+      ports: { clock: fixedClock(), ids: seededIds('into') },
+    });
+    kernel.setSelection(['s1']);
+    const user = userEvent.setup();
+    render(<Palette kernel={kernel} />);
+
+    await user.click(screen.getByRole('button', { name: 'Text' }));
+
+    expect(kernel.getDocument().nodes['s1']?.slots?.['default']).toHaveLength(2);
+    // And NOT beside it: the page keeps its single child.
+    expect(kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(1);
+    expect(kernel.transactions()).toHaveLength(1);
+  });
+
   it('p2: keyboard activation inserts AFTER the selected node when its slot accepts', async () => {
     const kernel = makeKernel();
     kernel.setSelection(['t1']);

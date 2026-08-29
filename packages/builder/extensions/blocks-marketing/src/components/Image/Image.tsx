@@ -3,6 +3,7 @@ import './Image.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionSpacingStyle } from '../section-spacing';
 
 import type { ImageProps } from './schema';
 
@@ -12,12 +13,18 @@ export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
     `mkt-image mkt-image--fit-${props.fit} mkt-image--ratio-${props.ratio} ` +
     `mkt-image--radius-${props.radius} mkt-image--width-${props.width} ` +
     `mkt-image--align-${props.align}`;
+  const colorStyle = sectionColorStyle(props);
+  const spacingStyle = sectionSpacingStyle(props);
+  const style =
+    colorStyle === undefined && spacingStyle === undefined
+      ? undefined
+      : { ...colorStyle, ...spacingStyle };
 
   if (props.src === undefined) {
     if (!isCanvas) return null;
 
     return (
-      <div className={className} style={sectionColorStyle(props)}>
+      <div className={className} style={style}>
         <div className="mkt-image__placeholder">Add an image URL.</div>
       </div>
     );
@@ -26,7 +33,7 @@ export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
   const needsAltText = !props.decorative && props.alt.trim().length === 0;
 
   return (
-    <div className={className} style={sectionColorStyle(props)}>
+    <div className={className} style={style}>
       <img
         className="mkt-image__media"
         src={props.src}

@@ -208,9 +208,22 @@ export const AssembledEditorChromeHeights: Story = {
       );
       await expect(fullScale.size).toBe(3);
 
+      /*
+        All THREE declared steps now appear in assembled chrome, and that is a
+        decision rather than drift: `sm` for controls inside a dense panel, `lg`
+        for the bars, and `touch` for the rail's navigation tiles — the step
+        layout.ts reserves for "anything a finger reaches".
+
+        What this gate protects is unchanged and is asserted above: every
+        measured height must be one of the declared steps. A tile that sized
+        itself to its own glyph and label would fail that check, which is
+        exactly how it caught this rail measuring 48px in one host and 44px in
+        another before the height was pinned to a token.
+      */
       const expectedHeights = [
         roundedLength(resolvedLength(fixture, CHROME_BUTTON_SIZE_TOKENS.sm)),
         roundedLength(resolvedLength(fixture, CHROME_BUTTON_SIZE_TOKENS.lg)),
+        roundedLength(resolvedLength(fixture, CHROME_BUTTON_SIZE_TOKENS.touch)),
       ].sort((left, right) => left - right);
       const measuredHeights = new Set<number>();
 
@@ -225,7 +238,7 @@ export const AssembledEditorChromeHeights: Story = {
       }
 
       const distinctHeights = [...measuredHeights].sort((left, right) => left - right);
-      await expect(distinctHeights.length).toBeLessThanOrEqual(2);
+      await expect(distinctHeights.length).toBeLessThanOrEqual(3);
       await expect(distinctHeights).toEqual(expectedHeights);
     });
   },

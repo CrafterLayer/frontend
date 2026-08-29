@@ -17,13 +17,38 @@ Documents start with one `page` node as their root; applications never place it 
 
 ## Props
 
-- `title: string = ''` — used as the landmark's accessible label when non-empty.
+The Inspector groups every setting explicitly:
+
+- Content / Identity
+  - `title: string = ''` — the page name and the landmark's accessible label when non-empty.
+  - `description: string = ''` — page summary, up to 200 characters.
+  - `slug: string = ''` — path segment, up to 120 characters; empty represents the site root.
+- Content / Sharing
+  - `socialTitle?: string` — optional sharing title; publishing integrations fall back to `title`
+    when it is unset.
+  - `socialDescription?: string` — optional sharing summary.
+  - `socialImage?: string` — optional sharing-image URL.
+- Design / Appearance
+  - `contentWidth: 'narrow' | 'standard' | 'wide' | 'full' = 'standard'` — caps the root at the
+    matching document-theme width; `full` removes the cap.
+- Advanced / Indexing
+  - `noIndex: boolean = false` — asks publishing integrations to keep the page out of search
+    indexes.
+  - `lang: string = ''` — BCP-47 language tag; empty inherits the document language.
+
+Description, path, sharing, and indexing values remain inspector metadata. `Page` does not render
+them as visible canvas or preview content, and it does not pretend that a nested `main` owns the
+document head. Publishing integrations can consume the props at their proper document boundary.
 
 ## Slots
 
-- `default` — allows: hero, features, pricing, testimonials, cta, announcement.
+- `default` — accepts the top-level block vocabulary declared by `pageSchema`; that schema remains
+  the exact allow-list authority.
 
 ## Accessibility / RTL / Theming
 
-`main` landmark; logical properties and `--t-*` tokens only, so direction and theme come from the
-frame.
+`main` landmark; an empty title omits its accessible name, and an empty `lang` omits the attribute
+instead of declaring the language unknown. Width variants use only logical sizing and the real
+document-theme tokens: narrow (`--t-content-width-narrow`, 40rem fallback), standard
+(`--t-content-width-standard`, 64rem fallback), and wide (`--t-content-width-wide`, 80rem fallback).
+Full width needs no invented token. Direction and colour continue to come from the frame.

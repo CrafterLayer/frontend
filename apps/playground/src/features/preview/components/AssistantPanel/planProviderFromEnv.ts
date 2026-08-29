@@ -17,5 +17,7 @@ export function planProviderFromEnv(
   if (endpoint === '') {
     return undefined;
   }
-  return createRemoteAiPlanProvider({ endpoint });
+  // Generous deadline: a dev bridge fronting a CLI-spawned model can take a
+  // minute; a production server should answer far inside this.
+  return createRemoteAiPlanProvider({ endpoint, timeoutMs: 120_000 });
 }

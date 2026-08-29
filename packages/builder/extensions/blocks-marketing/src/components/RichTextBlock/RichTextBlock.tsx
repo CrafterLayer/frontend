@@ -1,3 +1,4 @@
+import '../section-layout.css';
 import './RichTextBlock.css';
 
 import { isValidElement } from 'react';
@@ -5,6 +6,8 @@ import { isValidElement } from 'react';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionSpacingStyle } from '../section-spacing';
+import { sectionTypographyClasses } from '../section-typography';
 import { RichText } from '@craftkit/builder-renderer';
 
 import type { RichTextBlockProps } from './schema';
@@ -21,8 +24,17 @@ import type { RichTextBlockProps } from './schema';
  * editor exactly where the prose is drawn. Reading mode is untouched.
  */
 export function RichTextBlock({ props }: BlockRenderProps<RichTextBlockProps>) {
+  const typographyClassName = sectionTypographyClasses(props);
+  const className = ['mkt-richtext', typographyClassName].filter(Boolean).join(' ');
+  const colorStyle = sectionColorStyle(props);
+  const spacingStyle = sectionSpacingStyle(props);
+  const style =
+    colorStyle === undefined && spacingStyle === undefined
+      ? undefined
+      : { ...colorStyle, ...spacingStyle };
+
   return (
-    <section className="mkt-richtext" style={sectionColorStyle(props)}>
+    <section className={className} style={style}>
       {isValidElement(props.content) ? props.content : <RichText value={props.content} />}
     </section>
   );

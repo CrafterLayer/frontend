@@ -67,7 +67,7 @@ export const PillColumn: Story = {
       direction: 'column',
       style: 'pill',
       textCase: 'uppercase',
-      weight: 'semibold',
+      fontWeight: 'semibold',
       gap: 'sm',
       wrap: 'nowrap',
     }),
@@ -98,7 +98,7 @@ export const ArabicRtl: Story = {
         { label: 'تواصل معنا', href: '/contact' },
       ],
       style: 'underline',
-      weight: 'medium',
+      fontWeight: 'medium',
     }),
   },
 };

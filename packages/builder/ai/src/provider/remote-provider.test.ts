@@ -11,7 +11,13 @@ function context(): AssembledAiContext {
     fragments: [{ title: 'Blocks', body: 'hero — A hero.', tokens: 4 }],
     totalTokens: 4,
     blocks: [
-      { type: 'hero', description: 'A hero.', propsSchema: { type: 'object' }, examples: [], slots: [] },
+      {
+        type: 'hero',
+        description: 'A hero.',
+        propsSchema: { type: 'object' },
+        examples: [],
+        slots: [],
+      },
     ],
     document: { schemaVersion: 1, surface: 'landing', dir: 'ltr', rootId: 'root', nodes: [] },
     selection: { ids: [], nodes: [] },
@@ -116,9 +122,7 @@ describe('createRemoteAiPlanProvider', () => {
   });
 
   it('rejects a non-JSON response body with a provider error', async () => {
-    const { fetchImpl } = fakeFetch(
-      () => new Response('<html>gateway</html>', { status: 200 }),
-    );
+    const { fetchImpl } = fakeFetch(() => new Response('<html>gateway</html>', { status: 200 }));
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
 
     await expect(provider.propose('add a hero', context())).rejects.toThrow(/not valid JSON/);
@@ -148,6 +152,79 @@ describe('createRemoteAiPlanProvider', () => {
     });
 
     await expect(provider.propose('add a hero', context())).rejects.toThrow(/timed out after 5ms/);
+  });
+
+  it('advertises SSE alongside JSON so a streaming server can pick it', async () => {
+    const { calls, fetchImpl } = fakeFetch(() => jsonResponse(plan));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await provider.propose('add a hero', context());
+
+    expect(new Headers(calls[0]?.init.headers).get('accept')).toBe(
+      'text/event-stream, application/json',
+    );
+  });
+
+  it('reads a streaming answer: status events reach onProgress, result becomes the plan', async () => {
+    const stream = [
+      'event: status\ndata: {"text":"Reading the catalog…"}\n\n',
+      'event: status\ndata: {"text":"Drafted 2 commands…"}\n\n',
+      `event: result\ndata: ${JSON.stringify(plan)}\n\n`,
+    ].join('');
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+    const progress: string[] = [];
+
+    const proposed = await provider.propose('add a hero', context(), {
+      onProgress: (text) => progress.push(text),
+    });
+
+    expect(proposed).toEqual(plan);
+    expect(progress).toEqual(['Reading the catalog…', 'Drafted 2 commands…']);
+  });
+
+  it('treats a streamed refusal result exactly like a JSON refusal', async () => {
+    const stream = 'event: result\ndata: {"refusal":"Not an edit request."}\n\n';
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('hello', context())).rejects.toThrow(
+      new RemoteAiProviderError('Not an edit request.'),
+    );
+  });
+
+  it('rejects a stream that ends without a result event', async () => {
+    const stream = 'event: status\ndata: {"text":"thinking…"}\n\n';
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toThrow(
+      /ended without a result/,
+    );
+  });
+
+  it('cancels through the caller signal and rethrows the abort, not a timeout error', async () => {
+    const controller = new AbortController();
+    const provider = createRemoteAiPlanProvider({
+      endpoint: ENDPOINT,
+      fetch: (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        }),
+    });
+
+    const pending = provider.propose('add a hero', context(), { signal: controller.signal });
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   it('repairs by resending the failed plan and its issues under attempt', async () => {

@@ -101,6 +101,38 @@ describe('generateAiPlan repair loop', () => {
     expect(repaired).toBe(false);
   });
 
+  it('hands the live options (signal + onProgress) to propose and to repair', async () => {
+    const controller = new AbortController();
+    const onProgress = () => undefined;
+    const seen: ('propose' | 'repair')[] = [];
+    const provider: AiPlanProvider = {
+      propose: (_request, _context, options) => {
+        seen.push('propose');
+        expect(options?.signal).toBe(controller.signal);
+        expect(options?.onProgress).toBe(onProgress);
+        return Promise.resolve(badPlan);
+      },
+      repair: (_request, _context, _plan, _issues, options) => {
+        seen.push('repair');
+        expect(options?.signal).toBe(controller.signal);
+        expect(options?.onProgress).toBe(onProgress);
+        return Promise.resolve(goodPlan);
+      },
+    };
+
+    const plan = await generateAiPlan({
+      kernel: planKernel(),
+      provider,
+      request: 'add copy',
+      validationPorts: { clock: fixedClock(20), ids: seededIds('live-options') },
+      signal: controller.signal,
+      onProgress,
+    });
+
+    expect(plan).toEqual(goodPlan);
+    expect(seen).toEqual(['propose', 'repair']);
+  });
+
   it('still rejects immediately for a provider without a repair method', async () => {
     const provider: AiPlanProvider = { propose: () => Promise.resolve(badPlan) };
 

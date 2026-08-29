@@ -30,6 +30,7 @@ import {
   IconSend,
   IconShield,
   IconSparkle,
+  IconStop,
   IconUndo,
 } from './AssistantPanel.icons';
 
@@ -53,6 +54,13 @@ type Turn =
       readonly from: 'assistant';
       readonly kind: 'thinking';
       readonly subject: string;
+      /** The provider's own last words about what it is doing, when it streams them. */
+      readonly progress?: string;
+    }
+  | {
+      readonly id: string;
+      readonly from: 'assistant';
+      readonly kind: 'stopped';
     }
   | {
       readonly id: string;
@@ -131,6 +139,8 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  /** The running request's controller; present exactly while `busy`. */
+  const abortRef = useRef<AbortController | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const sessionsRef = useRef<HTMLDivElement | null>(null);
   const sessionsTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -261,6 +271,8 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
         ),
       );
 
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         const plan = await generateAiPlan({
           kernel,
@@ -268,6 +280,18 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
           request: trimmed,
           validationPorts: preflightPorts(),
           selection: kernel.context.store.getState().selection,
+          signal: controller.signal,
+          // The provider's narration lands ON the thinking turn, so the wait
+          // reads as work in progress rather than as a frozen spinner.
+          onProgress: (progress) => {
+            patchTurns((previous) =>
+              previous.map((turn) =>
+                turn.id === thinkingId && turn.from === 'assistant' && turn.kind === 'thinking'
+                  ? { ...turn, progress }
+                  : turn,
+              ),
+            );
+          },
         });
         patchTurns((previous) =>
           previous.map((turn) =>
@@ -277,22 +301,36 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
           ),
         );
       } catch (cause: unknown) {
-        // The refusal prints the RULE, not a soft apology: when the kernel
-        // refuses the assistant, a person is owed the name of what refused it.
-        const text = kernelReason(cause);
-        patchTurns((previous) =>
-          previous.map((turn) =>
-            turn.id === thinkingId
-              ? { id: turn.id, from: 'assistant', kind: 'refused', text }
-              : turn,
-          ),
-        );
+        if (controller.signal.aborted) {
+          // The person pressed Stop. That is an outcome, not an error.
+          patchTurns((previous) =>
+            previous.map((turn) =>
+              turn.id === thinkingId ? { id: turn.id, from: 'assistant', kind: 'stopped' } : turn,
+            ),
+          );
+        } else {
+          // The refusal prints the RULE, not a soft apology: when the kernel
+          // refuses the assistant, a person is owed the name of what refused it.
+          const text = kernelReason(cause);
+          patchTurns((previous) =>
+            previous.map((turn) =>
+              turn.id === thinkingId
+                ? { id: turn.id, from: 'assistant', kind: 'refused', text }
+                : turn,
+            ),
+          );
+        }
       } finally {
+        abortRef.current = null;
         setBusy(false);
       }
     },
     [activeId, busy, kernel, nextId, patchTurns, planProvider, selectedType],
   );
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   const accept = useCallback(
     (id: string, plan: AiPlan) => {
@@ -482,7 +520,12 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
                       <span />
                       <span />
                     </span>
-                    <p>Reading {turn.subject}…</p>
+                    <p>{turn.progress ?? `Reading ${turn.subject}…`}</p>
+                  </div>
+                ) : null}
+                {turn.kind === 'stopped' ? (
+                  <div className="pg-chat__card pg-chat__card--discarded">
+                    <p className="pg-chat__refused">Stopped.</p>
                   </div>
                 ) : null}
                 {turn.kind === 'refused' ? (
@@ -568,8 +611,12 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
         }}
       >
         <div className="pg-chat__composer-card" data-busy={busy ? '' : undefined}>
-          {/* The glow is DECORATION over the card's own edge, so it can animate
-              while the assistant works without moving anything in the layout. */}
+          {/* The aurora is DECORATION over the card's own edge, so it can
+              animate while the assistant works without moving anything in the
+              layout. Two layers, one gradient: the aura is the blurred halo,
+              the glow is the crisp ring — split because the ring's mask would
+              clip the halo if they shared an element. */}
+          <span className="pg-chat__composer-aura" aria-hidden="true" />
           <span className="pg-chat__composer-glow" aria-hidden="true" />
           <label className="bldr-visually-hidden" htmlFor={inputId}>
             Ask the assistant
@@ -600,13 +647,20 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
               variant="icon"
               tone="primary"
               size="sm"
-              aria-label="Send"
-              disabled={busy || draft.trim().length === 0}
+              /* One slot, two verbs: while the assistant works, the send slot
+                 IS the stop control — the same place the hand just was, and a
+                 promise that a running request is never out of reach. */
+              aria-label={busy ? 'Stop' : 'Send'}
+              disabled={!busy && draft.trim().length === 0}
               onClick={() => {
-                void ask(draft);
+                if (busy) {
+                  stop();
+                } else {
+                  void ask(draft);
+                }
               }}
             >
-              <IconSend />
+              {busy ? <IconStop /> : <IconSend />}
             </ChromeButton>
           </div>
         </div>

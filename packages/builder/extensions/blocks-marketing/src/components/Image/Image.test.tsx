@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
 
+import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { Image } from './Image';
 import { imageExamples } from './examples';
 import { imageSchema, type ImageProps } from './schema';
@@ -60,6 +62,7 @@ describe('Image', () => {
     const { container, rerender } = renderImage(props, true);
 
     expect(screen.getByText('Add an image URL.')).toBeVisible();
+    expect(container.querySelector('.mkt-image')).not.toHaveAttribute('style');
 
     rerender(<Image node={node} props={props} slots={{}} data={{}} isCanvas={false} />);
     expect(container).toBeEmptyDOMElement();
@@ -112,8 +115,58 @@ describe('Image', () => {
     );
   });
 
-  it('schema defaults every authored property except src and colour roles', () => {
-    expect(imageSchema.props.parse({})).toEqual({
+  it('renderer: merges colour and spacing on both rendered root variants', () => {
+    const props = imageSchema.props.parse({
+      background: 'surfaceInverse',
+      marginBlockEnd: -2,
+    });
+    const { container, rerender } = renderImage(props, true);
+
+    let root = container.querySelector<HTMLElement>('.mkt-image');
+    expect(root?.style.background).toBe('var(--t-surface-inverse)');
+    expect(root?.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * -2)');
+
+    rerender(
+      <Image
+        node={node}
+        props={{ ...props, src: SOURCE, alt: 'Product image' }}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    root = container.querySelector<HTMLElement>('.mkt-image');
+    expect(root?.style.background).toBe('var(--t-surface-inverse)');
+    expect(root?.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * -2)');
+  });
+
+  it('schema defaults authored properties except src, colour roles, and spacing', () => {
+    const props = imageSchema.props.parse({});
+    const colorKeys = Object.keys(sectionColorProps);
+    const spacingKeys = Object.keys(sectionSpacingProps);
+    const noDefaultKeys = ['src', ...colorKeys, ...spacingKeys];
+
+    expect(colorKeys.sort()).toEqual(['background', 'textColor']);
+    expect(spacingKeys.sort()).toEqual([
+      'marginBlockEnd',
+      'marginBlockStart',
+      'marginInlineEnd',
+      'marginInlineStart',
+      'paddingBlockEnd',
+      'paddingBlockStart',
+      'paddingInlineEnd',
+      'paddingInlineStart',
+    ]);
+    for (const key of noDefaultKeys) {
+      expect(imageSchema.props.shape, key).toHaveProperty(key);
+      expect(props, key).not.toHaveProperty(key);
+    }
+    expect(Object.keys(props).sort()).toEqual(
+      Object.keys(imageSchema.props.shape)
+        .filter((key) => !noDefaultKeys.includes(key))
+        .sort(),
+    );
+    expect(props).toEqual({
       alt: '',
       decorative: false,
       fit: 'cover',
@@ -163,8 +216,8 @@ describe('Image', () => {
       radius: { tab: 'design', section: 'Image' },
       width: { tab: 'design', section: 'Layout' },
       align: { tab: 'design', section: 'Layout' },
-      background: { tab: 'design', section: 'Colour', kind: 'color-role' },
-      textColor: { tab: 'design', section: 'Colour', kind: 'color-role' },
+      ...sectionColorGroups,
+      ...sectionSpacingGroups,
     });
   });
 

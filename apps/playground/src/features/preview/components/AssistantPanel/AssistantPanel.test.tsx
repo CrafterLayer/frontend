@@ -7,6 +7,8 @@ import { fixedClock, seededIds } from '@craftkit/builder/testing';
 import {
   createBuilder,
   defineBlockSchema,
+  type AiPlan,
+  type AiPlanProvider,
   type BuilderKernel,
   type TrustedExtensionManifest,
 } from '@craftkit/builder';
@@ -314,5 +316,71 @@ describe('AssistantPanel', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByText(/Add a hero block to root\.default/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+  });
+
+  it('turns the send action into a Stop while working, and Stop really cancels', async () => {
+    const provider: AiPlanProvider = {
+      propose: (_request, _context, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        }),
+    };
+    const { user } = renderPanel({ planProvider: provider });
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+    await user.type(composer, 'add a hero');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    const stop = await screen.findByRole('button', { name: 'Stop' });
+    await user.click(stop);
+
+    await waitFor(() => {
+      expect(screen.getByText('Stopped.')).toBeInTheDocument();
+    });
+    // The composer is usable again, and nothing pretends a proposal exists.
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Ask the assistant' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+  });
+
+  it('narrates the provider progress live while a request runs', async () => {
+    let finish: ((plan: AiPlan) => void) | undefined;
+    let report: ((text: string) => void) | undefined;
+    const provider: AiPlanProvider = {
+      propose: (_request, _context, options) =>
+        new Promise((resolve) => {
+          report = options?.onProgress;
+          finish = resolve;
+        }),
+    };
+    const { user } = renderPanel({ planProvider: provider });
+    await user.type(
+      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Ask the assistant' }),
+      'add a hero',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await screen.findByText(/Reading the page/);
+    act(() => {
+      report?.('Drafting the plan\u2026');
+    });
+    await screen.findByText('Drafting the plan\u2026');
+    act(() => {
+      report?.('Wrote 1 command\u2026');
+    });
+    await screen.findByText('Wrote 1 command\u2026');
+
+    act(() => {
+      finish?.({
+        rationale: 'Add a hero block to root.default.',
+        commands: [{ command: 'insertNode', args: { type: 'hero', parentId: 'root' } }],
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+    });
   });
 });

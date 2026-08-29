@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
 
+import { sectionColorGroups } from '../section-color';
+import { sectionSpacingGroups } from '../section-spacing';
+import { sectionTypographyGroups } from '../section-typography';
 import { NavLinks } from './NavLinks';
 import { navLinksSchema } from './schema';
 
@@ -21,7 +24,7 @@ describe('NavLinks', () => {
           direction: 'column',
           style: 'pill',
           textCase: 'uppercase',
-          weight: 'semibold',
+          fontWeight: 'semibold',
           gap: 'lg',
           wrap: 'nowrap',
           background: 'surfaceInverse',
@@ -37,8 +40,8 @@ describe('NavLinks', () => {
     expect(navigation).toHaveClass(
       'mkt-nav-links--direction-column',
       'mkt-nav-links--style-pill',
-      'mkt-nav-links--case-uppercase',
-      'mkt-nav-links--weight-semibold',
+      'mkt-type--case-uppercase',
+      'mkt-type--weight-semibold',
       'mkt-nav-links--gap-lg',
       'mkt-nav-links--wrap-nowrap',
     );
@@ -54,11 +57,24 @@ describe('NavLinks', () => {
 
   it('shows the empty editing hint on the canvas without creating a navigation landmark', () => {
     render(
-      <NavLinks node={node} props={navLinksSchema.props.parse({})} slots={{}} data={{}} isCanvas />,
+      <NavLinks
+        node={node}
+        props={navLinksSchema.props.parse({
+          textColor: 'textMuted',
+          textAlign: 'center',
+          marginInlineStart: 2,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas
+      />,
     );
 
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-    expect(screen.getByText('This block has no links yet.')).toHaveClass('mkt-section__hint');
+    const hint = screen.getByText('This block has no links yet.');
+    expect(hint).toHaveClass('mkt-section__hint', 'mkt-type--align-center');
+    expect(hint.style.color).toBe('var(--t-text-muted)');
+    expect(hint.style.marginInlineStart).toBe('calc(var(--t-space-unit, 4px) * 2)');
   });
 
   it('renders no editing scaffold or landmark for an empty published block', () => {
@@ -77,26 +93,81 @@ describe('NavLinks', () => {
     expect(screen.queryByText('This block has no links yet.')).not.toBeInTheDocument();
   });
 
+  it('applies shared typography and spacing with colour roles on the navigation root', () => {
+    render(
+      <NavLinks
+        node={node}
+        props={navLinksSchema.props.parse({
+          links: [{ label: 'Docs', href: '/docs' }],
+          background: 'accent',
+          fontFamily: 'mono',
+          paddingBlockStart: 4,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const navigation = screen.getByRole('navigation', { name: 'Navigation links' });
+    expect(navigation).toHaveClass('mkt-type--family-mono');
+    expect(navigation.style.background).toBe('var(--t-accent)');
+    expect(navigation.style.paddingBlockStart).toBe('calc(var(--t-space-unit, 4px) * 4)');
+  });
+
   it('schema: enforces defaults, enums, surfaces, and an inspector group for every property', () => {
     expect(navLinksSchema.type).toBe('navLinks');
     expect(navLinksSchema.surfaces).toEqual(['site', 'store', 'docs']);
-    expect(navLinksSchema.props.parse({})).toStrictEqual({
+    const defaults = navLinksSchema.props.parse({});
+    expect(defaults).toStrictEqual({
       links: [],
       direction: 'row',
       style: 'plain',
-      textCase: 'normal',
-      weight: 'medium',
       gap: 'md',
       wrap: 'wrap',
     });
 
+    const optionalSharedStyleProps = [
+      'background',
+      'textColor',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'lineHeight',
+      'letterSpacing',
+      'textAlign',
+      'textCase',
+      'paddingBlockStart',
+      'paddingBlockEnd',
+      'paddingInlineStart',
+      'paddingInlineEnd',
+      'marginBlockStart',
+      'marginBlockEnd',
+      'marginInlineStart',
+      'marginInlineEnd',
+    ] as const;
+    for (const property of optionalSharedStyleProps) {
+      expect(navLinksSchema.props.shape).toHaveProperty(property);
+      expect(navLinksSchema.propertyGroups).toHaveProperty(property);
+      expect(defaults).not.toHaveProperty(property);
+    }
+    expect(navLinksSchema.props.shape).not.toHaveProperty('weight');
+    expect(navLinksSchema.propertyGroups).not.toHaveProperty('weight');
+
     const accepted = [
       ...['row', 'column'].map((direction) => ({ direction })),
       ...['plain', 'underline', 'pill'].map((style) => ({ style })),
+      ...['sans', 'serif', 'mono'].map((fontFamily) => ({ fontFamily })),
+      ...['xs', 'sm', 'base', 'lg', 'xl', 'xxl'].map((fontSize) => ({ fontSize })),
+      ...['regular', 'medium', 'semibold', 'bold'].map((fontWeight) => ({ fontWeight })),
+      ...['tight', 'normal', 'relaxed'].map((lineHeight) => ({ lineHeight })),
+      ...['tight', 'normal', 'wide'].map((letterSpacing) => ({ letterSpacing })),
+      ...['start', 'center', 'end'].map((textAlign) => ({ textAlign })),
       ...['normal', 'uppercase'].map((textCase) => ({ textCase })),
-      ...['regular', 'medium', 'semibold'].map((weight) => ({ weight })),
       ...['none', 'sm', 'md', 'lg'].map((gap) => ({ gap })),
       ...['nowrap', 'wrap'].map((wrap) => ({ wrap })),
+      { paddingBlockStart: 64 },
+      { marginInlineEnd: -32 },
     ];
     for (const candidate of accepted) {
       expect(navLinksSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(
@@ -108,9 +179,11 @@ describe('NavLinks', () => {
       { direction: 'grid' },
       { style: 'button' },
       { textCase: 'capitalize' },
-      { weight: 'bold' },
+      { fontWeight: 'black' },
       { gap: 'xl' },
       { wrap: 'balance' },
+      { paddingBlockStart: 65 },
+      { marginInlineEnd: -33 },
     ];
     for (const candidate of rejected) {
       expect(navLinksSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(
@@ -122,12 +195,11 @@ describe('NavLinks', () => {
       links: { tab: 'content', section: 'Links' },
       direction: { tab: 'design', section: 'Layout' },
       style: { tab: 'design', section: 'Style' },
-      textCase: { tab: 'design', section: 'Typography' },
-      weight: { tab: 'design', section: 'Typography' },
       gap: { tab: 'design', section: 'Spacing' },
       wrap: { tab: 'advanced', section: 'Layout' },
-      background: { tab: 'design', section: 'Colour', kind: 'color-role' },
-      textColor: { tab: 'design', section: 'Colour', kind: 'color-role' },
+      ...sectionColorGroups,
+      ...sectionTypographyGroups,
+      ...sectionSpacingGroups,
     });
     expect(Object.keys(navLinksSchema.propertyGroups ?? {}).sort()).toEqual(
       Object.keys(navLinksSchema.props.shape).sort(),

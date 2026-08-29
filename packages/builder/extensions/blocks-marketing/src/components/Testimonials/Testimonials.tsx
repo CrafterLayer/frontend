@@ -4,6 +4,8 @@ import './Testimonials.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionSpacingStyle } from '../section-spacing';
+import { sectionTypographyClasses } from '../section-typography';
 
 import type { TestimonialsProps } from './schema';
 
@@ -13,12 +15,25 @@ export function Testimonials({ node, props }: BlockRenderProps<TestimonialsProps
   // its text: inline editing swaps that property for an editor element, and
   // an element in aria-label stringifies to "[object Object]" (009 §12).
   const headingId = `${node.id}-heading`;
+  const typographyClassName = sectionTypographyClasses(props);
+  const className = [
+    'mkt-section',
+    'mkt-testimonials',
+    `mkt-section--tone-${props.tone}`,
+    `mkt-section--spacing-${props.spacing}`,
+    typographyClassName,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const colorStyle = sectionColorStyle(props);
+  const spacingStyle = sectionSpacingStyle(props);
+  const style =
+    colorStyle === undefined && spacingStyle === undefined
+      ? undefined
+      : { ...colorStyle, ...spacingStyle };
+
   return (
-    <section
-      className={`mkt-section mkt-testimonials mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`}
-      style={sectionColorStyle(props)}
-      aria-labelledby={headingId}
-    >
+    <section className={className} style={style} aria-labelledby={headingId}>
       <div
         className={`mkt-section__content mkt-testimonials__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width}`}
       >

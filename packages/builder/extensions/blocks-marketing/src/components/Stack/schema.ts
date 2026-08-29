@@ -10,6 +10,7 @@ import {
   sectionWraps,
 } from '../section-options';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { stackExamples } from './examples';
 
 /**
@@ -35,6 +36,8 @@ const STACK_CHILDREN = [
   'cta',
   'richText',
   'navLinks',
+  'grid',
+  'image',
 ] as const;
 
 export const stackSchema = defineBlockSchema({
@@ -57,6 +60,7 @@ export const stackSchema = defineBlockSchema({
     spacing: z.enum(sectionSpacings).default('none'),
     width: z.enum(sectionWidths).default('standard'),
     ...sectionColorProps,
+    ...sectionSpacingProps,
   }),
   propertyGroups: {
     direction: { tab: 'design', section: 'Layout' },
@@ -68,6 +72,7 @@ export const stackSchema = defineBlockSchema({
     spacing: { tab: 'design', section: 'Spacing' },
     width: { tab: 'design', section: 'Width' },
     ...sectionColorGroups,
+    ...sectionSpacingGroups,
   },
   slots: { default: { allow: [...STACK_CHILDREN] } },
   examples: stackExamples,

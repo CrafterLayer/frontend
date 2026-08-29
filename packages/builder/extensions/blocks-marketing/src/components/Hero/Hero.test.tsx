@@ -112,6 +112,28 @@ describe('Hero', () => {
     expect(section.style.color).toBe('');
   });
 
+  it('applies shared typography, spacing, and colour controls on the root', () => {
+    render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({
+          heading: 'Styled hero',
+          background: 'accent',
+          fontSize: 'xl',
+          paddingInlineStart: 3,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Styled hero' });
+    expect(section).toHaveClass('mkt-type--size-xl');
+    expect(section.style.paddingInlineStart).toBe('calc(var(--t-space-unit, 4px) * 3)');
+    expect(section.style.background).toBe('var(--t-accent)');
+  });
+
   it('renders the optional eyebrow when supplied', () => {
     render(
       <Hero
@@ -195,6 +217,31 @@ describe('Hero', () => {
       width: 'full',
     });
     expect(defaults.eyebrow).toBeUndefined();
+    for (const sharedProp of [
+      'background',
+      'textColor',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'lineHeight',
+      'letterSpacing',
+      'textAlign',
+      'textCase',
+      'paddingBlockStart',
+      'paddingBlockEnd',
+      'paddingInlineStart',
+      'paddingInlineEnd',
+      'marginBlockStart',
+      'marginBlockEnd',
+      'marginInlineStart',
+      'marginInlineEnd',
+    ] as const) {
+      expect(Object.hasOwn(heroSchema.props.shape, sharedProp), sharedProp).toBe(true);
+      expect(Object.hasOwn(defaults, sharedProp), `${sharedProp} must not be defaulted`).toBe(
+        false,
+      );
+      expect(heroSchema.propertyGroups?.[sharedProp], `${sharedProp} property group`).toBeDefined();
+    }
     for (const layoutProp of [
       'layoutDirection',
       'layoutJustify',

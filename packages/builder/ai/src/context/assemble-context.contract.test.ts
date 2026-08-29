@@ -191,7 +191,7 @@ describe('AI context-provider contracts', () => {
 
   // Mutation proof: in assemble-context.ts, replace `nodes: Object.values(doc.nodes)` in
   // `collectDocument` with `nodes: []`; the exact real-document assertion below must fail.
-  it('serializes the live document shape without inventing props', () => {
+  it('serializes the live document shape with every node’s own props, inventing none', () => {
     const kernel = contextKernel();
     const shape = bodyOf(documentShapeContextProvider.collect(kernel.context, []));
 
@@ -201,15 +201,36 @@ describe('AI context-provider contracts', () => {
       dir: 'ltr',
       rootId: 'root',
       nodes: [
-        { id: 'article-1', type: 'context-article', slots: {} },
-        { id: 'hero-1', type: 'context-hero', slots: { actions: ['hero-cta'] } },
-        { id: 'hero-cta', type: 'context-cta', slots: {} },
+        {
+          id: 'article-1',
+          type: 'context-article',
+          props: { summary: 'The kernel is the only writer.', title: 'Safe plans' },
+          slots: {},
+        },
+        {
+          id: 'hero-1',
+          type: 'context-hero',
+          props: { heading: 'Build safely', tone: 'bold' },
+          slots: { actions: ['hero-cta'] },
+        },
+        {
+          id: 'hero-cta',
+          type: 'context-cta',
+          props: { href: '/start', label: 'Start now' },
+          slots: {},
+        },
         {
           id: 'root',
           type: 'context-page',
+          props: { title: 'Context fixture' },
           slots: { main: ['hero-1', 'article-1'], sidebar: ['side-cta'] },
         },
-        { id: 'side-cta', type: 'context-cta', slots: {} },
+        {
+          id: 'side-cta',
+          type: 'context-cta',
+          props: { href: '/docs', label: 'Read docs' },
+          slots: {},
+        },
       ],
     });
 

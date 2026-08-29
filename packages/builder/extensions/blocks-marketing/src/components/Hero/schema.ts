@@ -11,6 +11,8 @@ import {
   sectionWraps,
 } from '../section-options';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
+import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { heroExamples } from './examples';
 
 export const heroSchema = defineBlockSchema({
@@ -32,6 +34,8 @@ export const heroSchema = defineBlockSchema({
     layoutGap: z.enum(sectionSpacings).optional(),
     layoutWrap: z.enum(sectionWraps).optional(),
     ...sectionColorProps,
+    ...sectionTypographyProps,
+    ...sectionSpacingProps,
   }),
   propertyGroups: {
     layoutDirection: { tab: 'design', section: 'Layout' },
@@ -40,6 +44,8 @@ export const heroSchema = defineBlockSchema({
     layoutGap: { tab: 'design', section: 'Layout' },
     layoutWrap: { tab: 'design', section: 'Layout' },
     ...sectionColorGroups,
+    ...sectionTypographyGroups,
+    ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
   slots: { actions: { allow: ['cta'], max: 2 } },

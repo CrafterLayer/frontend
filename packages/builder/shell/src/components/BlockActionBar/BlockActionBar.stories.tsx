@@ -252,13 +252,23 @@ export const KeyboardOperable: Story = {
     const txBefore = Number(readText(canvas.getByTestId('tx-count')));
     const selectedBefore = readText(canvas.getByTestId('selected'));
 
+    /*
+      The bar's single tab stop is its FIRST action, which is now Select parent
+      — stepping out of a nested block is the commonest move once blocks nest.
+      Walking from there to Duplicate is what proves the roving arrows cross the
+      new button rather than starting after it.
+    */
     await userEvent.tab();
+    await expect(canvas.getByRole('button', { name: 'Select parent' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
     await expect(canvas.getByRole('button', { name: 'Duplicate' })).toHaveFocus();
     await userEvent.keyboard('{ArrowRight}');
     await expect(canvas.getByRole('button', { name: 'Delete' })).toHaveFocus();
     await userEvent.keyboard('{ArrowLeft}');
     await expect(canvas.getByRole('button', { name: 'Duplicate' })).toHaveFocus();
 
+    // Enter on DUPLICATE: Select parent moves the selection and dispatches
+    // nothing, so pressing it here would prove the opposite of the claim.
     await userEvent.keyboard('{Enter}');
     await expect(canvas.getByTestId('tx-count')).toHaveTextContent(String(txBefore + 1));
     await expect(readText(canvas.getByTestId('selected'))).not.toBe(selectedBefore);
@@ -288,6 +298,8 @@ export const RightToLeft: Story = {
     // Forward is the READING direction: under RTL the arrow pair mirrors.
     const canvas = within(canvasElement);
     await userEvent.tab();
+    await expect(canvas.getByRole('button', { name: 'Select parent' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}');
     await expect(canvas.getByRole('button', { name: 'Duplicate' })).toHaveFocus();
     await userEvent.keyboard('{ArrowLeft}');
     await expect(canvas.getByRole('button', { name: 'Delete' })).toHaveFocus();

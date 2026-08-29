@@ -4,6 +4,7 @@ import './Stack.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionSpacingStyle } from '../section-spacing';
 
 import type { StackProps } from './schema';
 
@@ -34,9 +35,15 @@ export function Stack({ node, props, slots }: BlockRenderProps<StackProps>) {
   ].join(' ');
 
   const children = slots['default'];
+  const colorStyle = sectionColorStyle(props);
+  const spacingStyle = sectionSpacingStyle(props);
+  const style =
+    colorStyle === undefined && spacingStyle === undefined
+      ? undefined
+      : { ...colorStyle, ...spacingStyle };
 
   return (
-    <div className={className} data-bldr-stack={node.id} style={sectionColorStyle(props)}>
+    <div className={className} data-bldr-stack={node.id} style={style}>
       <div className={`mkt-section__content mkt-section__content--width-${props.width}`}>
         {children}
       </div>

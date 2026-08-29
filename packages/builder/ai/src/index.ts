@@ -20,6 +20,7 @@ export {
   type AiPlanWireAttempt,
   type AiPlanWireRequest,
   type AiPlanWireResponse,
+  type AiPlanWireStatus,
   type RemoteAiPlanProviderOptions,
 } from './provider';
 export {
@@ -43,6 +44,7 @@ export {
   type AiPlanStep,
   type AiPlanValidationIssue,
   type AiPlanValidationResult,
+  type AiProposeOptions,
   type AiSelectedNodeContext,
   type AiSelectionContext,
   type AiValidationPorts,

@@ -11,3 +11,19 @@
   padding-inline: var(--t-gap, 16px);
   text-align: start;
 }
+
+.bldr-page[data-content-width='narrow'] {
+  max-inline-size: var(--t-content-width-narrow, 40rem);
+}
+
+.bldr-page[data-content-width='standard'] {
+  max-inline-size: var(--t-content-width-standard, 64rem);
+}
+
+.bldr-page[data-content-width='wide'] {
+  max-inline-size: var(--t-content-width-wide, 80rem);
+}
+
+.bldr-page[data-content-width='full'] {
+  max-inline-size: none;
+}

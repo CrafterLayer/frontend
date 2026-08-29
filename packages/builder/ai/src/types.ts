@@ -29,6 +29,12 @@ export interface AiBlockContext {
 export interface AiDocumentNodeContext {
   id: NodeId;
   type: string;
+  /**
+   * The node's full props, for EVERY node — not only the selection. "Change
+   * the word X" names content, not a node id; a provider can only find that
+   * word if the document context actually contains the page's text.
+   */
+  props: Readonly<Record<string, JsonValue>>;
   slots: Readonly<Record<SlotName, readonly NodeId[]>>;
 }
 
@@ -40,9 +46,8 @@ export interface AiDocumentContext {
   nodes: readonly AiDocumentNodeContext[];
 }
 
-export interface AiSelectedNodeContext extends AiDocumentNodeContext {
-  props: Readonly<Record<string, JsonValue>>;
-}
+/** Kept as its own name: selection marks FOCUS, even though every document node now carries props. */
+export type AiSelectedNodeContext = AiDocumentNodeContext;
 
 export interface AiSelectionContext {
   ids: readonly NodeId[];
@@ -67,9 +72,25 @@ export interface AiPlan {
   commands: readonly AiPlanStep[];
 }
 
+/**
+ * Live options for one proposal. `signal` cancels the work for real — a
+ * provider must stop, not merely ignore the answer — and surfaces as the
+ * platform's AbortError, never as a provider failure. `onProgress` carries the
+ * provider's own words about what it is doing right now, for a UI to show
+ * while the person waits.
+ */
+export interface AiProposeOptions {
+  signal?: AbortSignal;
+  onProgress?: (text: string) => void;
+}
+
 /** The provider boundary. A network-backed provider implements the same contract. */
 export interface AiPlanProvider {
-  propose(request: string, context: AssembledAiContext): Promise<AiPlan>;
+  propose(
+    request: string,
+    context: AssembledAiContext,
+    options?: AiProposeOptions,
+  ): Promise<AiPlan>;
   /**
    * Optional one-shot second chance: called with the rejected plan and its
    * validation issues when the first proposal fails the kernel door. The
@@ -80,6 +101,7 @@ export interface AiPlanProvider {
     context: AssembledAiContext,
     plan: AiPlan,
     issues: readonly AiPlanValidationIssue[],
+    options?: AiProposeOptions,
   ): Promise<AiPlan>;
 }
 

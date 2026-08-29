@@ -565,7 +565,12 @@ export const BlockActions: Story = {
     // Duplicate is exactly one transaction and leaves the copy selected —
     // asserted RELATIVE to the current document so reruns stay honest.
     const before = actionKernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
-    const duplicate = host.querySelector<HTMLButtonElement>('button');
+    /*
+      BY ACTION, not by position: Select parent now leads the bar and dispatches
+      nothing, so `querySelector('button')` would silently press a different
+      control and this story would assert the wrong thing while looking fine.
+    */
+    const duplicate = host.querySelector<HTMLButtonElement>('[data-action="duplicate"]');
     duplicate?.click();
     await waitFor(async () => {
       await expect(actionKernel.getDocument().nodes['root']?.slots?.['default']?.length).toBe(

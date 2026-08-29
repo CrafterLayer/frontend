@@ -56,8 +56,7 @@
    its quiet hover with four compound parts, and a rule that merely ties with it
    is decided by whichever stylesheet the bundler happens to emit last. Measured
    at the tie: this rule lost, and Delete hovered exactly like Duplicate. */
-.bldr-block-actions
-  .bldr-block-actions__action[data-action='delete']:enabled:hover {
+.bldr-block-actions .bldr-block-actions__action[data-action='delete']:enabled:hover {
   background: var(--bldr-danger-soft);
   color: var(--bldr-danger);
 }

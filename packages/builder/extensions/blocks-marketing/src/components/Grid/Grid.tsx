@@ -4,6 +4,7 @@ import './Grid.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionSpacingStyle } from '../section-spacing';
 
 import type { GridProps } from './schema';
 
@@ -20,9 +21,15 @@ export function Grid({ node, props, slots }: BlockRenderProps<GridProps>) {
     `mkt-grid--justify-${props.justify}`,
     `mkt-grid--flow-${props.flow}`,
   ].join(' ');
+  const colorStyle = sectionColorStyle(props);
+  const spacingStyle = sectionSpacingStyle(props);
+  const style =
+    colorStyle === undefined && spacingStyle === undefined
+      ? undefined
+      : { ...colorStyle, ...spacingStyle };
 
   return (
-    <div className={className} data-bldr-grid={node.id} style={sectionColorStyle(props)}>
+    <div className={className} data-bldr-grid={node.id} style={style}>
       <div className={`mkt-section__content mkt-section__content--width-${props.width}`}>
         {slots['default']}
       </div>

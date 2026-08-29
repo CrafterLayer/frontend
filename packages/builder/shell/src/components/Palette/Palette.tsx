@@ -240,6 +240,29 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
         setMessage(`Inserted ${type}`);
       };
 
+      /*
+        INTO the selection first, when the selection is a container that accepts
+        the type.
+
+        Measured: selecting an empty Grid and clicking a palette tile put the
+        block BESIDE the grid, because the rule below fires first and inserts
+        after the selection in the selection's PARENT slot. A person who has
+        just selected a container and pressed a block means "put it in here" —
+        every builder behaves this way, and without it an empty container has no
+        keyboard-reachable way to receive its first child at all.
+
+        Leaves are unaffected: they declare no slots, so this falls straight
+        through to the sibling rule, which is what the p2 gates below pin.
+      */
+      if (selected !== undefined) {
+        const selectedType = doc.nodes[selected]?.type ?? '';
+        for (const slot of Object.keys(registry.block(selectedType)?.schema.slots ?? {})) {
+          if (slotAccepts(doc, registry, selected, slot, payload)) {
+            commit(selected, slot, doc.nodes[selected]?.slots?.[slot]?.length ?? 0);
+            return;
+          }
+        }
+      }
       // p2: AFTER the selection in its parent slot when accepted…
       if (selected !== undefined) {
         const seat = seatOf(doc, selected);

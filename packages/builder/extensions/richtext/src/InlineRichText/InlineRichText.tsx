@@ -210,6 +210,14 @@ export function InlineRichText({
         onChange={handleCommit}
         labelledBy={label === undefined ? undefined : labelId}
         hideToolbar
+        /*
+          Editing happens IN the page, so it writes in the page's prose context.
+          `.bldr-richtext` is the renderer's own prose stylesheet — the one the
+          published output uses — so the surface cannot drift from the result.
+          Naming the class (rather than copying its rules) is what keeps a
+          single source: a margin changed in the renderer moves both at once.
+        */
+        surfaceClassName="bldr-richtext"
         onEditorReady={handleReady}
       />
     </div>

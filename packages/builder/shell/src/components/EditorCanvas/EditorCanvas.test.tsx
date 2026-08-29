@@ -777,16 +777,61 @@ describe('cross-document gesture safety (006 review Criticals)', () => {
     const before = h.kernel.getDocument();
     h.pointerDown(h.wrapperOf('c'), 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
+    /*
+      The window genuinely losing focus is what this cancel is for, and
+      `hasFocus()` is how the platform says so — jsdom reports true by default,
+      which would make the blur look like the in-app one below.
+    */
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
     act(() => {
       h.frameDocument.defaultView?.frameElement?.ownerDocument.defaultView?.dispatchEvent(
         new Event('blur'),
       );
     });
+    hasFocus.mockRestore();
     expect(h.kernel.getDocument()).toBe(before);
     expect(h.kernel.transactions()).toHaveLength(0);
     expect(h.view.container.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility).toBe(
       'hidden',
     );
+  });
+
+  it('a blur that only moved focus INTO the canvas leaves the drag alive', () => {
+    /*
+      The defect this pins, measured in a browser before it was fixed: the canvas
+      lives in an iframe, so pressing a block moves focus into that iframe and
+      the host document fires `blur` — on EVERY real internal drag. The handler
+      cancelled on it, so a person could pick a block up, watch the ghost and the
+      indicator follow their pointer, release, and have nothing happen at all.
+
+      No test caught it because the drag tests and stories dispatch synthetic
+      events straight at the frame document, and synthetic events move no focus.
+      So this one asserts the CONDITION rather than the focus mechanics:
+      `hasFocus()` stays true while focus is anywhere in this document or a
+      descendant browsing context.
+    */
+    const h = harness(TEST_DOC, { editable: true, rects: DRAG_RECTS });
+    h.tick();
+    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
+
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    act(() => {
+      h.frameDocument.defaultView?.frameElement?.ownerDocument.defaultView?.dispatchEvent(
+        new Event('blur'),
+      );
+    });
+    hasFocus.mockRestore();
+
+    // Still dragging: the ghost is up and the drop can still land.
+    expect(h.view.container.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility).toBe(
+      'visible',
+    );
+
+    act(() => {
+      h.frameDocument.defaultView?.parent.document.dispatchEvent(new PointerEvent('pointerup', {}));
+    });
+    expect(h.kernel.transactions()).toHaveLength(1);
   });
 
   it('a REPEATED gesture outcome still mutates the live region (AT announcement)', async () => {

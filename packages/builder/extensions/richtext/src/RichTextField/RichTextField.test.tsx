@@ -229,7 +229,16 @@ describe('US1 — rich text through the field road (008 contract §3)', () => {
 
     // Lazy load resolves in a microtask; the toolbar proves the CONTRIBUTED
     // editor mounted for the marked prop (title stays a plain text field).
-    expect(await screen.findByRole('button', { name: 'Bold' })).toBeInTheDocument();
+    /*
+      A longer wait, not a weaker claim: the toolbar arrives through a real
+      dynamic `import()`, so how long it takes is a function of machine load,
+      not of the product. Under `pnpm verify`'s parallel run this resolved in
+      1401ms and the default one-second patience failed it — a red suite that
+      said nothing about the code.
+    */
+    expect(
+      await screen.findByRole('button', { name: 'Bold' }, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Formatting' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'title' })).toHaveValue('Hello');
     // H1 (§10 review): the CONTENTEDITABLE itself is named and described —

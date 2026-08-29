@@ -186,4 +186,36 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     await user.tab();
     expect(screen.getByRole('button', { name: 'after' })).toHaveFocus();
   });
+
+  /**
+   * ICON-ONLY, BUT NEVER NAMELESS.
+   *
+   * Five worded actions made this bar as wide as the block it floats over,
+   * which is the opposite of ambient furniture. The words did not go away —
+   * they moved into visually-hidden text, which is what the accessibility tree
+   * and these tests read. A glyph plus `aria-label` would have worked too and
+   * been worse: two names for one action, free to drift apart.
+   */
+  it('shows a mark for every action while the name stays in the accessibility tree', () => {
+    render(<BlockActionBar label="Actions for Text" actions={ACTIONS} onAction={vi.fn()} />);
+    const toolbar = screen.getByRole('toolbar', { name: 'Actions for Text' });
+
+    for (const action of ACTIONS) {
+      const button = screen.getByRole('button', { name: action.label });
+      // A mark a person can see...
+      const mark = button.querySelector('svg');
+      expect(mark).not.toBeNull();
+      expect(mark).toHaveAttribute('aria-hidden', 'true');
+      // ...and the name they cannot, which is the ONE accessible name.
+      expect(button.querySelector('.bldr-visually-hidden')?.textContent).toBe(action.label);
+      expect(button).not.toHaveAttribute('aria-label');
+      // Styling hooks on the id, so a rule never has to match English prose.
+      expect(button).toHaveAttribute('data-action', action.id);
+    }
+
+    // Non-vacuous: every action really is distinct, so a single shared glyph
+    // could not satisfy the loop above.
+    const marks = [...toolbar.querySelectorAll('svg')].map((svg) => svg.innerHTML);
+    expect(new Set(marks).size).toBe(ACTIONS.length);
+  });
 });

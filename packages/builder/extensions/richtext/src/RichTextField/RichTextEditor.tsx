@@ -32,6 +32,7 @@ export function RichTextEditor({
   labelledBy,
   onEditorReady,
   hideToolbar,
+  surfaceClassName,
 }: RichTextFieldProps) {
   /**
    * The editor's UN-ACKNOWLEDGED emissions, oldest→newest, as canonical JSON.
@@ -67,7 +68,14 @@ export function RichTextEditor({
       'aria-multiline': 'true',
       // Mixed ar/en prose: the editor follows its own content's direction.
       dir: 'auto',
-      class: 'bldr-richtext-field__surface',
+      /*
+        The prose class comes FIRST as a plain join rather than a template so
+        an absent one cannot leave a trailing space in the attribute.
+      */
+      class:
+        surfaceClassName === undefined
+          ? 'bldr-richtext-field__surface'
+          : `bldr-richtext-field__surface ${surfaceClassName}`,
       /*
         The field is ONE control — a toolbar and this surface inside a single
         border — so the focus ring belongs around the pair, and the wrapper
@@ -77,7 +85,7 @@ export function RichTextEditor({
       */
       'data-bldr-focus-ring': 'delegated',
     }),
-    [controlId, labelledBy, describedBy],
+    [controlId, labelledBy, describedBy, surfaceClassName],
   );
 
   const editor = useEditor({

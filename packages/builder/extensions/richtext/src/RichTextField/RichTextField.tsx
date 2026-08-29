@@ -23,6 +23,21 @@ export interface RichTextFieldProps extends FieldProps {
    * optional — inspector hosts never pass it; omitting it changes nothing.
    */
   hideToolbar?: boolean | undefined;
+  /**
+   * The PROSE CONTEXT the editing surface writes inside — the same class the
+   * rendered output carries, so the two cannot style prose differently.
+   *
+   * Measured defect this closed: inline editing replaces the rendered
+   * `.bldr-richtext` wrapper with the editor, and the prose typography left
+   * with it. Paragraphs fell back to the user agent's 1em margins where the
+   * page renders 0.5em, so a block GREW as soon as you edited it — 40px to
+   * 83px on an empty rich-text block — and shrank again when you stopped.
+   *
+   * Canvas hosts pass their renderer's prose class. Inspector hosts must NOT:
+   * that class paints with the PAGE theme (`--t-text`), which is undefined in
+   * the editor's own chrome and would put page-coloured text on a panel.
+   */
+  surfaceClassName?: string | undefined;
 }
 
 /**

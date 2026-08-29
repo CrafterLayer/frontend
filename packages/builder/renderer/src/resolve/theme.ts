@@ -51,6 +51,17 @@ export type MeasurementToken =
   | 'pageWidth'
   /* The narrowest a grid column may get before the grid drops a column. */
   | 'gridMinTrack'
+  /*
+    What ONE STEP of spacing is worth.
+
+    Padding and margin are typed as NUMBERS of steps, not lengths: the law in
+    `packages/builder/schema/src/blocks/style-values.ts` scans strings and
+    refuses `"16px"`, and a number is not a literal. So a person types `4` and
+    the renderer resolves `calc(var(--t-space-unit) * 4)` — a real numeric
+    control that still leaves the theme in charge of the rhythm. Re-point this
+    one token and every margin on the site rescales together.
+  */
+  | 'spaceUnit'
   /* A hairline. Every page border reads this, so one edit restyles the site. */
   | 'borderWidth'
   /* Elevation, as two named steps rather than a shadow anyone can hand-write. */
@@ -65,6 +76,30 @@ export type MeasurementToken =
   | 'fontSizeXl'
   /* The tracking an uppercase label needs to stay readable. */
   | 'letterSpacingWide'
+  /*
+    Typography, as a SCALE rather than free numbers.
+
+    GrapesJS offers `font-size: 14px` and `color: black` straight into the
+    element's style. This product cannot: a document may hold no literal, which
+    is exactly what lets one theme edit restyle every page ever authored. So the
+    control offers a step on this scale and the document stores the step's NAME.
+  */
+  | 'fontSizeXs'
+  | 'fontSizeBase'
+  | 'fontSizeXxl'
+  | 'fontWeightRegular'
+  | 'fontWeightMedium'
+  | 'fontWeightSemibold'
+  | 'fontWeightBold'
+  | 'lineHeightTight'
+  | 'lineHeightNormal'
+  | 'lineHeightRelaxed'
+  | 'letterSpacingTight'
+  | 'letterSpacingNormal'
+  /* The families a page may set. Stacks, so a missing face still renders. */
+  | 'fontFamilySans'
+  | 'fontFamilySerif'
+  | 'fontFamilyMono'
   /* Type. */
   | 'fontSizeSm'
   /* The inside of a control, which is what makes a button feel its size. */

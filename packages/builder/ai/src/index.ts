@@ -11,7 +11,17 @@ export {
   selectionContextProvider,
   type AssembleAiContextOptions,
 } from './context';
-export { LocalAiProviderError, createLocalAiPlanProvider } from './provider';
+export {
+  AI_PLAN_WIRE_VERSION,
+  LocalAiProviderError,
+  RemoteAiProviderError,
+  createLocalAiPlanProvider,
+  createRemoteAiPlanProvider,
+  type AiPlanWireAttempt,
+  type AiPlanWireRequest,
+  type AiPlanWireResponse,
+  type RemoteAiPlanProviderOptions,
+} from './provider';
 export {
   AiPlanRejectedError,
   applyAiPlan,

@@ -684,7 +684,30 @@ export function EditorCanvas({
       }
     };
     const onHostBlur = () => {
-      if (session !== null && session.phase() !== 'idle') {
+      if (session === null || session.phase() === 'idle') {
+        return;
+      }
+      /*
+        Only a blur that takes focus OUT OF THE APP cancels a drag.
+
+        The canvas lives in an iframe, so pressing a block moves focus into that
+        iframe and the host document fires `blur` — every real internal drag,
+        every time. This handler cancelled on that, so a person could pick a
+        block up, watch the ghost and the drop indicator follow their pointer,
+        release, and have nothing happen. Measured in a browser: ghost shown,
+        indicator on target, release announced "Drag cancelled", zero
+        transactions.
+
+        No test caught it because the drag stories dispatch synthetic events
+        straight at the frame document — synthetic events move no focus, so the
+        blur never fired in a test.
+
+        `hasFocus()` is the distinction the spec already draws: it stays true
+        while focus is anywhere inside this document OR a descendant browsing
+        context, and goes false when the window or tab loses focus — which is
+        the case this cancel was written for.
+      */
+      if (!hostDocument.hasFocus()) {
         session.cancel(); // the gesture's events are gone for good — zero trace
       }
     };

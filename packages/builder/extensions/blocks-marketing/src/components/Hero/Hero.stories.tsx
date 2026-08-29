@@ -14,10 +14,13 @@ const node: Node = { id: 'hero-story', type: 'hero', props: {} };
   Blocks read the PAGE theme, so a story that measures one has to mount it.
 
   Without this the block falls back to the literals in its own stylesheet and a
-  token assertion can only ever restate them. Worse, this story used to read
-  `--bldr-space-*` — the EDITOR's scale — against a block styled from `--t-gap*`:
-  6px measured against 8px, two vocabularies that are kept apart precisely so a
-  dark editor never repaints a light page.
+  token assertion can only ever restate them. Worse, this story used to read the
+  EDITOR's spacing scale against a block styled from the PAGE's: 6px measured
+  against 8px, two vocabularies kept deliberately apart so a dark editor never
+  repaints a light page.
+
+  (Written without naming the editor's tokens literally: the theme package scans
+  source for token usages, and a name in a comment reads as a real one.)
 */
 const meta = {
   title: 'Builder/Blocks/Hero',
@@ -38,7 +41,7 @@ function pageThemeStyle(): CSSProperties {
   for (const [name, value] of Object.entries(lightTheme)) {
     style[tokenCssName(name as TokenName)] = value;
   }
-  return style as CSSProperties;
+  return style;
 }
 
 export default meta;
@@ -525,7 +528,7 @@ export const FlexLayoutRenderingContract: Story = {
         });
         /*
           The PAGE scale, read from the theme the block actually consumes — not
-          the editor's `--bldr-space-*`, which is a different vocabulary with
+          the editor's own spacing scale, which is a different vocabulary with
           different values (6px where the page says 8px).
         */
         const themed = canvasElement.querySelector('[data-page-theme]');

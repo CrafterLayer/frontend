@@ -1,0 +1,97 @@
+/*
+  A declared column count is a maximum. The track floor makes the grid drop
+  one column at a time as its own container narrows, without viewport media
+  queries and without crushing content below a usable inline size.
+*/
+
+.mkt-grid > .mkt-section__content {
+  display: grid;
+  inline-size: 100%;
+}
+
+.mkt-grid--columns-1 > .mkt-section__content {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(var(--t-grid-min-track, 12rem), (100% - 0 * var(--t-gap, 16px)) / 1)), 1fr)
+  );
+}
+
+.mkt-grid--columns-2 > .mkt-section__content {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(var(--t-grid-min-track, 12rem), (100% - 1 * var(--t-gap, 16px)) / 2)), 1fr)
+  );
+}
+
+.mkt-grid--columns-3 > .mkt-section__content {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(var(--t-grid-min-track, 12rem), (100% - 2 * var(--t-gap, 16px)) / 3)), 1fr)
+  );
+}
+
+.mkt-grid--columns-4 > .mkt-section__content {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(var(--t-grid-min-track, 12rem), (100% - 3 * var(--t-gap, 16px)) / 4)), 1fr)
+  );
+}
+
+.mkt-grid--columns-6 > .mkt-section__content {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(var(--t-grid-min-track, 12rem), (100% - 5 * var(--t-gap, 16px)) / 6)), 1fr)
+  );
+}
+
+.mkt-grid--gap-none > .mkt-section__content {
+  gap: 0;
+}
+
+.mkt-grid--gap-sm > .mkt-section__content {
+  gap: var(--t-gap-sm, 8px);
+}
+
+.mkt-grid--gap-md > .mkt-section__content {
+  gap: var(--t-gap, 16px);
+}
+
+.mkt-grid--gap-lg > .mkt-section__content {
+  gap: var(--t-gap-lg, 32px);
+}
+
+.mkt-grid--align-start > .mkt-section__content {
+  align-items: start;
+}
+
+.mkt-grid--align-center > .mkt-section__content {
+  align-items: center;
+}
+
+.mkt-grid--align-end > .mkt-section__content {
+  align-items: end;
+}
+
+.mkt-grid--justify-start > .mkt-section__content {
+  justify-items: start;
+}
+
+.mkt-grid--justify-center > .mkt-section__content {
+  justify-items: center;
+}
+
+.mkt-grid--justify-end > .mkt-section__content {
+  justify-items: end;
+}
+
+.mkt-grid--flow-row > .mkt-section__content {
+  grid-auto-flow: row;
+}
+
+.mkt-grid--flow-dense > .mkt-section__content {
+  grid-auto-flow: dense;
+}
+
+.mkt-grid > .mkt-section__content > * {
+  min-inline-size: 0;
+}

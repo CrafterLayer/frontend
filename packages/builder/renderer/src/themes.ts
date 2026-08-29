@@ -33,6 +33,7 @@ const measurements = {
     — the control appearing to disobey them in the one place they were looking.
   */
   gridMinTrack: '12rem',
+  spaceUnit: '4px',
   borderWidth: '1px',
   /*
     Two steps, not a scale: a page needs "lifted" and "floating" and nothing
@@ -47,6 +48,27 @@ const measurements = {
   fontSizeLg: '1.125rem',
   fontSizeXl: '1.375rem',
   letterSpacingWide: '0.06em',
+  fontSizeXs: '0.75rem',
+  fontSizeBase: '1rem',
+  fontSizeXxl: '1.75rem',
+  fontWeightRegular: '400',
+  fontWeightMedium: '500',
+  fontWeightSemibold: '600',
+  fontWeightBold: '700',
+  lineHeightTight: '1.2',
+  lineHeightNormal: '1.5',
+  lineHeightRelaxed: '1.75',
+  letterSpacingTight: '-0.01em',
+  letterSpacingNormal: '0',
+  /*
+    Families are STACKS, never a single face: a page that names one font and
+    nothing else renders in whatever the browser falls back to the moment that
+    face fails to load.
+  */
+  fontFamilySans:
+    "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans Arabic', sans-serif",
+  fontFamilySerif: "Georgia, Cambria, 'Times New Roman', 'Noto Naskh Arabic', serif",
+  fontFamilyMono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   fontSizeSm: '0.8125rem',
   controlPaddingBlockSm: '8px',
   controlPaddingBlockMd: '10px',

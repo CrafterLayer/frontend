@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { useState } from 'react';
 
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
@@ -280,5 +283,59 @@ describe('InlineRichText — the canvas rich surface (009 contract §4 t2)', () 
     expect(surface).toHaveAttribute('aria-multiline', 'true');
     expect(surface).toHaveAttribute('dir', 'auto');
     expect(surface).toHaveClass('bldr-richtext-field__surface');
+  });
+
+  /**
+   * EDITING MUST NOT RESIZE THE BLOCK.
+   *
+   * Inline editing replaces the rendered `.bldr-richtext` wrapper with this
+   * editor, and the prose typography used to leave with it: paragraphs fell
+   * back to the user agent's 1em margins where the page renders 0.5em, and the
+   * editor set its lines at the host's `normal` where the page sets 1.6. A
+   * rich-text block therefore CHANGED HEIGHT the moment you clicked into it —
+   * measured in Chromium at 122px rendered against 115px editing, and 40px
+   * against 83px on an empty one.
+   *
+   * jsdom resolves no cascade, so the fix is held as a SOURCE contract: the
+   * surface must carry the renderer's prose class, the field's panel
+   * typography must stand down for it, and the inline sheet must not re-declare
+   * the typography it once used to escape that panel scale.
+   */
+  it('writes inside the renderer prose context so editing cannot resize the block', () => {
+    render(<Harness onEditor={() => undefined} />);
+    const surface = screen.getByRole('textbox', { name: 'Article body' });
+    expect(surface).toHaveClass('bldr-richtext');
+  });
+});
+
+describe('the prose context is one stylesheet, not two', () => {
+  const read = (file: string) =>
+    readFileSync(join(process.cwd(), 'src', file), 'utf8').replaceAll(/\/\*[\s\S]*?\*\//g, '');
+
+  const fieldCss = read('RichTextField/RichTextField.css');
+  const inlineCss = read('InlineRichText/InlineRichText.css');
+
+  it('lets the panel scale apply only where no prose context was supplied', () => {
+    // Both rules are ONE class, so leaving this to the cascade would let the
+    // bundler's load order decide which typography a canvas surface gets.
+    expect(fieldCss).toContain('.bldr-richtext-field__surface:not(.bldr-richtext)');
+
+    const gated = fieldCss.slice(fieldCss.indexOf('.bldr-richtext-field__surface:not('));
+    const body = gated.slice(gated.indexOf('{'), gated.indexOf('}'));
+    expect(body).toContain('font-size');
+    expect(body).toContain('line-height');
+  });
+
+  it('leaves prose typography to the prose class, never restating it inline', () => {
+    const rule = inlineCss.slice(
+      inlineCss.indexOf('.bldr-inline-richtext .bldr-richtext-field__surface'),
+    );
+    const body = rule.slice(rule.indexOf('{'), rule.indexOf('}'));
+
+    // Non-vacuous: the rule must still exist and still do its real job.
+    expect(body).toContain('min-block-size');
+    // These two are what defeated the prose class and resized the block.
+    expect(body).not.toContain('font-size');
+    expect(body).not.toContain('line-height');
   });
 });

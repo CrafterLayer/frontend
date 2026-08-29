@@ -1,0 +1,67 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as GridStories from './Grid.stories';
+
+<Meta of={GridStories} />
+
+# Grid
+
+`Grid` is the marketing grid container for site, store, and documentation surfaces. It places whole
+blocks into a token-backed CSS grid while treating the chosen column count as a responsive maximum.
+
+## When to use
+
+Use `Grid` when sibling blocks need aligned two-dimensional tracks, such as feature collections,
+card groups, or mixed marketing sections. Use `Stack` when the relationship is primarily one row or
+one column. Avoid either container for layout that belongs inside a leaf block.
+
+## Props
+
+- `columns: '1' | '2' | '3' | '4' | '6' = '3'` — maximum track count.
+- `gap: 'none' | 'sm' | 'md' | 'lg' = 'md'` — token-backed row and column gap.
+- `align: 'start' | 'center' | 'end' = 'start'` — block-axis placement within each cell.
+- `justify: 'start' | 'center' | 'end' = 'start'` — inline-axis placement within each cell.
+- `flow: 'row' | 'dense' = 'row'` — normal placement or gap backfilling.
+- `tone: 'transparent' | 'light' | 'dark' = 'transparent'` — section colour treatment.
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'none'` — outer section spacing.
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'standard'` — inner content width.
+- `background` and `textColor` — optional theme colour roles. Neither has a default; when unset, the
+  tone decides.
+
+## Slots and composition
+
+The `default` slot accepts exactly `stack`, `grid`, `hero`, `features`, `pricing`, `testimonials`,
+`cta`, `richText`, and `navLinks`. Both layout containers are allowed, so a grid may nest another
+grid or use a stack inside one cell.
+
+```json
+{
+  "type": "grid",
+  "props": { "columns": "3", "gap": "md", "width": "wide" },
+  "slots": { "default": ["first-card", "second-card", "third-card"] }
+}
+```
+
+The renderer owns the canvas affordance for an empty slot. `Grid` renders the supplied slot node
+directly and adds no competing block-level hint.
+
+## Responsive behavior and RTL
+
+The column count is a maximum, not a forced count. Each track keeps the theme's minimum usable
+width; as the container narrows, the grid drops from three tracks to two and then one instead of
+crushing content or collapsing at a viewport breakpoint. This responds to the editor canvas and a
+published page independently.
+
+Sizing and spacing use logical properties. `start` and `end` therefore follow the document's
+content direction without a separate Arabic layout.
+
+## Dense flow and accessibility
+
+`dense` backfills visual gaps but does not change DOM order. Use it only when that difference will
+not make the reading or keyboard order confusing. Grid itself adds no landmark or keyboard
+behavior; its child blocks retain their own headings, landmarks, links, and controls.
+
+## Theme constraints
+
+Layout uses only page theme tokens and explicit fallbacks. Colour-role props resolve to the same
+theme vocabulary, while an unset role leaves the selected tone in control.

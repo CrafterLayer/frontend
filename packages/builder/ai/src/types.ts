@@ -67,9 +67,20 @@ export interface AiPlan {
   commands: readonly AiPlanStep[];
 }
 
-/** The provider boundary. Network-backed providers can implement the same single method later. */
+/** The provider boundary. A network-backed provider implements the same contract. */
 export interface AiPlanProvider {
   propose(request: string, context: AssembledAiContext): Promise<AiPlan>;
+  /**
+   * Optional one-shot second chance: called with the rejected plan and its
+   * validation issues when the first proposal fails the kernel door. The
+   * repaired plan is validated exactly like the first; there is no third try.
+   */
+  repair?(
+    request: string,
+    context: AssembledAiContext,
+    plan: AiPlan,
+    issues: readonly AiPlanValidationIssue[],
+  ): Promise<AiPlan>;
 }
 
 /** Dedicated deterministic capabilities for preflight; never borrow the live kernel's instances. */

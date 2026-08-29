@@ -116,3 +116,120 @@
   padding: var(--t-gap-sm, 8px);
   text-align: center;
 }
+
+.mkt-type--family-sans {
+  font-family: var(--t-font-family-sans,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans Arabic',
+    sans-serif
+  );
+}
+
+.mkt-type--family-serif {
+  font-family: var(--t-font-family-serif,
+    Georgia,
+    Cambria,
+    'Times New Roman',
+    'Noto Naskh Arabic',
+    serif
+  );
+}
+
+.mkt-type--family-mono {
+  font-family: var(--t-font-family-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace
+  );
+}
+
+.mkt-type--size-xs {
+  font-size: var(--t-font-size-xs, 0.75rem);
+}
+
+.mkt-type--size-sm {
+  font-size: var(--t-font-size-sm, 0.8125rem);
+}
+
+.mkt-type--size-base {
+  font-size: var(--t-font-size-base, 1rem);
+}
+
+.mkt-type--size-lg {
+  font-size: var(--t-font-size-lg, 1.125rem);
+}
+
+.mkt-type--size-xl {
+  font-size: var(--t-font-size-xl, 1.375rem);
+}
+
+.mkt-type--size-xxl {
+  font-size: var(--t-font-size-xxl, 1.75rem);
+}
+
+.mkt-type--weight-regular {
+  font-weight: var(--t-font-weight-regular, 400);
+}
+
+.mkt-type--weight-medium {
+  font-weight: var(--t-font-weight-medium, 500);
+}
+
+.mkt-type--weight-semibold {
+  font-weight: var(--t-font-weight-semibold, 600);
+}
+
+.mkt-type--weight-bold {
+  font-weight: var(--t-font-weight-bold, 700);
+}
+
+.mkt-type--line-height-tight {
+  line-height: var(--t-line-height-tight, 1.2);
+}
+
+.mkt-type--line-height-normal {
+  line-height: var(--t-line-height-normal, 1.5);
+}
+
+.mkt-type--line-height-relaxed {
+  line-height: var(--t-line-height-relaxed, 1.75);
+}
+
+.mkt-type--letter-spacing-tight {
+  letter-spacing: var(--t-letter-spacing-tight, -0.01em);
+}
+
+.mkt-type--letter-spacing-normal {
+  letter-spacing: var(--t-letter-spacing-normal, 0);
+}
+
+.mkt-type--letter-spacing-wide {
+  letter-spacing: var(--t-letter-spacing-wide, 0.06em);
+}
+
+.mkt-type--align-start {
+  text-align: start;
+}
+
+.mkt-type--align-center {
+  text-align: center;
+}
+
+.mkt-type--align-end {
+  text-align: end;
+}
+
+.mkt-type--case-normal {
+  text-transform: none;
+}
+
+.mkt-type--case-uppercase {
+  text-transform: uppercase;
+}

@@ -74,3 +74,41 @@ must not fake grouping by writing patches or documents around the door.
 
 `@craftkit/builder-ai/testing` exports `createScriptedAiPlanProvider()` for consumer tests that need
 to exercise provider rejection or application without a model or network.
+
+## Connecting a server
+
+`createRemoteAiPlanProvider({ endpoint })` turns one HTTP endpoint into an `AiPlanProvider`. The
+wire contract lives in `src/provider/wire.ts` and is exported (`AiPlanWireRequest`,
+`AiPlanWireResponse`, `AI_PLAN_WIRE_VERSION`) so a TypeScript server can import the exact types.
+
+The provider POSTs:
+
+```jsonc
+{
+  "version": 1,
+  "request": "add a pricing section with three plans",
+  "context": { "fragments": [...], "totalTokens": 812, "blocks": [...], "document": {...}, "selection": {...} },
+  // Present only on the single repair retry after a rejected proposal:
+  "attempt": { "plan": { ... }, "issues": [{ "code": "invalid-args", "message": "...", "step": 0 }] }
+}
+```
+
+The server answers `200` with either a plan or an explicit refusal:
+
+```jsonc
+{ "rationale": "Insert a pricing section.", "commands": [{ "command": "insertNode", "args": { ... } }] }
+// or
+{ "refusal": "I could not turn that into a change." }
+```
+
+Everything else stays client-side: the response still walks the live registry, per-command args
+schemas, and the scratch-kernel dry run. A wrong server can produce a rejected proposal, never a
+document write. Providers with a `repair` method (the remote one has it) get exactly one retry with
+the rejected plan and its issues; there is no third attempt.
+
+Transport errors surface as `RemoteAiProviderError` with a human sentence (unreachable, status,
+non-JSON, malformed shape, or `timed out after <ms>`; default timeout 30s, configurable via
+`timeoutMs`). Auth goes in `headers`; the fetch implementation is injectable for tests.
+
+In the playground, set `VITE_AI_PLAN_ENDPOINT=https://your-server/plan` and the AssistantPanel
+switches from the local deterministic provider to the remote one — no code change.

@@ -1,0 +1,123 @@
+.mkt-image {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  background: var(--t-surface, #ffffff);
+  color: var(--t-text-muted, #6b7280);
+}
+
+.mkt-image--width-narrow {
+  max-inline-size: min(100%, var(--t-content-width-narrow, 40rem));
+}
+
+.mkt-image--width-standard {
+  max-inline-size: min(100%, var(--t-content-width-standard, 64rem));
+}
+
+.mkt-image--width-wide {
+  max-inline-size: min(100%, var(--t-content-width-wide, 80rem));
+}
+
+.mkt-image--width-full {
+  max-inline-size: 100%;
+}
+
+.mkt-image--align-start {
+  margin-inline-start: 0;
+  margin-inline-end: auto;
+}
+
+.mkt-image--align-center {
+  margin-inline: auto;
+}
+
+.mkt-image--align-end {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+}
+
+.mkt-image__media,
+.mkt-image__placeholder {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  background: inherit;
+}
+
+.mkt-image__media {
+  display: block;
+  block-size: auto;
+}
+
+.mkt-image--fit-cover .mkt-image__media {
+  object-fit: cover;
+}
+
+.mkt-image--fit-contain .mkt-image__media {
+  object-fit: contain;
+}
+
+.mkt-image--fit-fill .mkt-image__media {
+  object-fit: fill;
+}
+
+.mkt-image--ratio-square .mkt-image__media,
+.mkt-image--ratio-square .mkt-image__placeholder {
+  aspect-ratio: 1 / 1;
+}
+
+.mkt-image--ratio-wide .mkt-image__media,
+.mkt-image--ratio-wide .mkt-image__placeholder {
+  aspect-ratio: 16 / 9;
+}
+
+.mkt-image--ratio-portrait .mkt-image__media,
+.mkt-image--ratio-portrait .mkt-image__placeholder {
+  aspect-ratio: 3 / 4;
+}
+
+.mkt-image--radius-none .mkt-image__media,
+.mkt-image--radius-none .mkt-image__placeholder {
+  border-radius: 0;
+}
+
+.mkt-image--radius-sm .mkt-image__media,
+.mkt-image--radius-sm .mkt-image__placeholder {
+  border-radius: calc(var(--t-radius, 12px) / 2);
+}
+
+.mkt-image--radius-md .mkt-image__media,
+.mkt-image--radius-md .mkt-image__placeholder {
+  border-radius: var(--t-radius, 12px);
+}
+
+.mkt-image--radius-full .mkt-image__media,
+.mkt-image--radius-full .mkt-image__placeholder {
+  border-radius: 9999px;
+}
+
+.mkt-image__placeholder {
+  display: grid;
+  min-block-size: 12rem;
+  place-items: center;
+  border: var(--t-border-width, 1px) dashed var(--t-text-muted, #6b7280);
+  padding-block: var(--t-section-spacing-sm, 16px);
+  padding-inline: var(--t-gutter, 24px);
+  text-align: center;
+}
+
+.mkt-image--ratio-square .mkt-image__placeholder,
+.mkt-image--ratio-wide .mkt-image__placeholder,
+.mkt-image--ratio-portrait .mkt-image__placeholder {
+  min-block-size: 0;
+}
+
+.mkt-image__warning {
+  margin-block: var(--t-gap-xs, 4px) 0;
+  margin-inline: 0;
+  color: inherit;
+  font-size: var(--t-font-size-sm, 0.8125rem);
+  font-weight: var(--t-font-weight-semibold, 600);
+  line-height: var(--t-line-height-normal, 1.5);
+  text-align: start;
+}

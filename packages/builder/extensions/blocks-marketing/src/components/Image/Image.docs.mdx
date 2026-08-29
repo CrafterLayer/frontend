@@ -1,0 +1,51 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ImageStories from './Image.stories';
+
+<Meta of={ImageStories} />
+
+# Image
+
+A publish-safe image primitive for site, store, and docs surfaces. A newly dropped block may have no
+source yet; the editor canvas shows setup guidance while preview and published output stay empty.
+
+## Props
+
+| Prop         | Type                                         | Default      | Notes                                      |
+| ------------ | -------------------------------------------- | ------------ | ------------------------------------------ |
+| `src`        | `string` (≤2000)                             | none         | Optional URL; no source publishes nothing. |
+| `alt`        | `string` (≤160)                              | `''`         | Never inferred from `src` or a filename.   |
+| `decorative` | `boolean`                                    | `false`      | Forces `alt=""` and suppresses warnings.   |
+| `fit`        | `'cover' \| 'contain' \| 'fill'`             | `'cover'`    | Maps directly to `object-fit`.             |
+| `ratio`      | `'auto' \| 'square' \| 'wide' \| 'portrait'` | `'auto'`     | Auto, 1:1, 16:9, or 3:4.                   |
+| `radius`     | `'none' \| 'sm' \| 'md' \| 'full'`           | `'none'`     | Theme-scaled corner treatment.             |
+| `width`      | `'narrow' \| 'standard' \| 'wide' \| 'full'` | `'standard'` | Never exceeds the parent column.           |
+| `align`      | `'start' \| 'center' \| 'end'`               | `'start'`    | Uses logical alignment for RTL.            |
+| `background` | colour role                                  | none         | Visible behind `contain` and placeholders. |
+| `textColor`  | colour role                                  | none         | Colours canvas-only guidance.              |
+
+## Accessibility
+
+Decorative images render only an empty alternative (`alt=""`) and expose no generated label.
+Informative images preserve the authored `alt` exactly. If an informative image has empty alt text,
+the canvas shows a visible warning; preview and published pages never render that editor guidance.
+The block never manufactures alternative text from the URL or filename.
+
+## Empty and loading behavior
+
+With no `src`, the canvas renders a placeholder so an author can select and configure the block.
+Outside the canvas it returns no markup. Real images use native lazy loading and asynchronous
+decoding; there is no network-dependent story because the catalog uses an inline data URI.
+
+## Sizing, themes, and RTL
+
+Ratio and fit control the image's content box. The media always has `max-inline-size: 100%`; its
+natural block size is retained in `auto` ratio. Width and alignment use logical CSS, so start/end
+mirror with document direction. Background and text are theme roles rather than stored colour
+literals.
+
+## Known limitations
+
+- The block accepts a URL string but does not upload, crop, or transform media.
+- It does not infer dimensions or alternative text.
+- Broken remote URLs use the browser's native broken-image behavior.

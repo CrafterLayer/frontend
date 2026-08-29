@@ -484,10 +484,22 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(screen.queryByRole('region', { name: 'Inspector' })).not.toBeInTheDocument();
     const previewFrame = screen.getByTitle<HTMLIFrameElement>('Preview');
     await waitFor(() => {
-      expect(previewFrame.contentDocument?.body.textContent).toContain(
-        'Build pages your kernel can prove', // desktop renders the BASE value
-      );
+      /*
+        Preview renders AT the selected device.
+
+        This used to assert the base value — that preview ignored the tablet the
+        person had chosen — which described a defect rather than a requirement:
+        `PreviewMode` took no breakpoint at all, so the override a person had
+        just authored was invisible in the one view meant to show the published
+        result. Now the device carries through, and the base value must NOT
+        appear, which is what makes this catch the regression rather than
+        tolerate it.
+      */
+      expect(previewFrame.contentDocument?.body.textContent).toContain('Tablet headline');
     });
+    expect(previewFrame.contentDocument?.body.textContent).not.toContain(
+      'Build pages your kernel can prove',
+    );
     expect(previewFrame.contentDocument?.querySelector('[data-bldr-node]')).toBeNull();
 
     // Direction flip is pure view state: the frame flips, the document does not.

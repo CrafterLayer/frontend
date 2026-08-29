@@ -1,5 +1,6 @@
 import './App.css';
 import { AssistantPanel } from '../features/preview/components/AssistantPanel';
+import { planProviderFromEnv } from '../features/preview/components/AssistantPanel/planProviderFromEnv';
 import { RailSectionNotice } from './rail-section-notice';
 import { RAIL_SECTIONS, RAIL_UTILITIES } from './rail-sections';
 import { useRecentChanges } from './use-recent-changes';
@@ -59,6 +60,13 @@ function deviceForBucket(name: TopBarDevice): DeviceState {
   }
   return { width: 1280, bucket: 'base' };
 }
+
+/**
+ * Resolved once at module load: a remote assistant server when
+ * VITE_AI_PLAN_ENDPOINT is set, otherwise undefined and the panel keeps its
+ * built-in deterministic provider.
+ */
+const envPlanProvider = planProviderFromEnv(import.meta.env);
 
 export function App() {
   const [themeName, setThemeName] = useState<ThemeName>('light');
@@ -292,6 +300,7 @@ export function App() {
             railSection === 'assistant' ? (
               <AssistantPanel
                 kernel={kernel}
+                planProvider={envPlanProvider}
                 onReviewAsCode={() => {
                   setRailSection('code');
                 }}

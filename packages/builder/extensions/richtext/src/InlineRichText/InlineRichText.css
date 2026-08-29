@@ -30,9 +30,14 @@
   padding: 0;
 }
 
+/* NO typography here any more. These rules used to force `font-size: inherit`
+   and `line-height: inherit` to escape the panel scale the field applies — but
+   they out-specified the PROSE class the surface now carries, so the editor set
+   its lines at the section's `normal` while the page set them at 1.6, and the
+   block resized the moment you started editing. The field's chrome typography
+   already stands down for a prose surface, so the prose class is free to win
+   and nothing here needs to fight it. */
 .bldr-inline-richtext .bldr-richtext-field__surface {
-  font-size: inherit;
-  line-height: inherit;
   min-block-size: 0;
   /* Suppressed exactly as in the field; replaced by the root ring above. */
   outline: none;

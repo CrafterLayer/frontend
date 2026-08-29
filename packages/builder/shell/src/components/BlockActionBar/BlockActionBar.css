@@ -27,6 +27,13 @@
   padding: var(--bldr-space-xs);
 }
 
+/* ICON-ONLY, and square because of it.
+   Five worded actions made this bar as wide as the block it floats over, which
+   is the opposite of ambient furniture — it covered the page it was meant to
+   act on. The name is still in the DOM as visually-hidden text (that is the
+   accessible name), and `title` gives the pointer a hint, so nothing is lost
+   but the width. `inline-size` matches the `lg` ChromeButton height exactly, so
+   the target stays square at either density. */
 .bldr-block-actions__action {
   background: none;
   border: 0;
@@ -34,9 +41,25 @@
   color: var(--bldr-panel-text, #334155);
   font-size: var(--bldr-font-size-caption);
   font-weight: var(--bldr-font-weight-medium);
+  inline-size: var(--bldr-control-lg);
   line-height: var(--bldr-line-height-tight);
   padding-block: var(--bldr-space-0);
-  padding-inline: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-0);
+}
+
+/* Delete reads as the destructive one BEFORE it is pressed, not after. Hover
+   only: a bar that is permanently half red makes the safe actions look unsafe.
+   Keyed on the action ID, never on the label — the label is prose that
+   translates, and a selector that reads English would silently stop matching.
+
+   Carries the bar's own class as well, purely for WEIGHT: `ChromeButton` styles
+   its quiet hover with four compound parts, and a rule that merely ties with it
+   is decided by whichever stylesheet the bundler happens to emit last. Measured
+   at the tie: this rule lost, and Delete hovered exactly like Duplicate. */
+.bldr-block-actions
+  .bldr-block-actions__action[data-action='delete']:enabled:hover {
+  background: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
 }
 
 .bldr-block-actions__action:enabled:hover {

@@ -2,6 +2,8 @@ import { useRef, useState, type KeyboardEvent, type SyntheticEvent } from 'react
 
 import { ChromeButton } from '../ChromeButton';
 import type { BlockAction } from '../../overlay/block-actions';
+import { BLOCK_ACTION_ICONS } from './BlockActionBar.icons';
+import '../../styles/visually-hidden.css';
 import './BlockActionBar.css';
 
 export interface BlockActionBarProps {
@@ -102,6 +104,8 @@ export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBar
             buttons.current[index] = element;
           }}
           className="bldr-block-actions__action"
+          /* The id, not the label: what a rule keys on must not be prose. */
+          data-action={action.id}
           size="lg"
           variant="quiet"
           disabled={!action.enabled}
@@ -112,8 +116,16 @@ export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBar
           onClick={() => {
             onAction(action.id);
           }}
+          /* A hover hint for the pointer. It is NOT the accessible name — the
+             visually-hidden text below is, and it stays the name whether or not
+             a platform surfaces `title` at all. */
+          title={action.label}
         >
-          {action.label}
+          {BLOCK_ACTION_ICONS[action.id]}
+          {/* The name lives in the DOM, just not on screen: an icon-only bar
+              that carries its labels this way keeps one accessible name per
+              action and needs no parallel `aria-label` to drift from it. */}
+          <span className="bldr-visually-hidden">{action.label}</span>
         </ChromeButton>
       ))}
     </div>

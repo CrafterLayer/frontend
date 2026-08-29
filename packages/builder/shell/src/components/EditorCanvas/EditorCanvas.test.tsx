@@ -1,6 +1,7 @@
 import { isValidElement } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -2103,6 +2104,41 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     expect(bar?.getAttribute('role')).toBe('toolbar');
     expect(bar?.getAttribute('aria-label')).toBe('Actions for Prose');
     expect(h.host('actions')?.style.visibility).toBe('visible');
+  });
+
+  it('Enter activates a block action — the canvas must not eat its own chrome\u2019s keys', async () => {
+    /*
+      Measured on a fresh page: with Delete focused, Enter left the document
+      untouched and threw focus into the iframe, while Space on the SAME button
+      deleted correctly. A button that answers one activation key and not the
+      other is broken for keyboard users, and the button was never the problem —
+      the canvas host's `onKeyDown` claims Enter to begin an inline edit and
+      calls `preventDefault`, and the floating chrome renders inside that host,
+      so the key bubbled to it and its native activation was cancelled.
+    */
+    const h = floatingHarness();
+    act(() => {
+      h.kernel.setSelection(['pr']);
+    });
+    h.tick();
+
+    const button = h.view.container.querySelector<HTMLButtonElement>('.bldr-block-actions button');
+    expect(button).not.toBeNull();
+    if (button === null) {
+      throw new Error('the block action bar rendered no buttons');
+    }
+    let applied = 0;
+    h.kernel.context.events.on('tx.applied', () => {
+      applied += 1;
+    });
+    const before = h.kernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
+
+    button.focus();
+    expect(button).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(applied).toBe(1);
+    expect(h.kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(before + 1);
   });
 
   it('US3/AC2: an action is ONE transaction with the defined resulting selection', () => {

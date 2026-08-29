@@ -3,8 +3,22 @@
    --t-* theme — chrome must stay readable over any content theme. */
 
 .bldr-overlay {
+  container-type: inline-size;
   inset: 0;
-  overflow: hidden;
+  /*
+    `clip`, never `hidden`. `overflow: hidden` makes an element a SCROLL
+    CONTAINER — scrollable programmatically even with no scrollbar — so the
+    browser's own scroll-into-view on focus moves it. Measured: with the last
+    block selected, one Tab onto the (clipped) block action bar scrolled this
+    layer from 0 to 22, and nothing ever puts it back. The chrome then points at
+    the wrong pixels for the rest of the session: the selection outline sat at
+    host y 866.4 while the block it outlined was at 888.4, and every hover
+    outline, name chip and drop indicator was off by the same 22px.
+
+    `overflow: clip` clips identically and creates no scroll container, so there
+    is nothing for focus to scroll.
+  */
+  overflow: clip;
   pointer-events: none;
   position: absolute;
 }
@@ -14,7 +28,7 @@
    RTL and corrupt the measured math. (The logical-properties law governs
    content flow styling; labels below stay logical.) */
 .bldr-outline {
-  border-radius: 2px;
+  border-radius: var(--bldr-border-thick);
   height: 0;
   left: 0;
   position: absolute;
@@ -24,29 +38,55 @@
 }
 
 .bldr-outline--hover {
-  outline: 1px dashed var(--bldr-hover, #6366f1);
-  outline-offset: 1px;
+  outline: var(--bldr-border-hairline) dashed var(--bldr-hover, #6366f1);
+  outline-offset: var(--bldr-border-hairline);
 }
 
 .bldr-outline--selection {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 1px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
 }
 
 .bldr-outline__label {
   background: var(--bldr-selection, #4f46e5);
-  border-radius: 3px;
+  border-radius: var(--bldr-border-focus);
+  box-sizing: border-box;
   color: var(--bldr-label-text, #ffffff);
   font-family: var(--bldr-font, system-ui, sans-serif);
-  font-size: 11px;
+  font-size: var(--bldr-font-size-caption);
   font-weight: 600;
   inset-block-start: -20px;
   inset-inline-start: 0;
   line-height: 1;
-  padding-block: 3px;
-  padding-inline: 6px;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-block: var(--bldr-border-focus);
+  padding-inline: var(--bldr-space-sm);
   position: absolute;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The label may be slightly wider than a narrow block, but never wider than
+   the remaining canvas space. `100cqi` is the .bldr-overlay query container;
+   the controller supplies the rect's already-known physical x coordinate. */
+.bldr-outline > .bldr-outline__label {
+  inset-inline-start: max(0px, calc(0px - var(--bldr-outline-canvas-x, 0px)));
+  max-inline-size: min(
+    calc(100% + var(--bldr-space-5xl)),
+    max(0px, calc(100cqi - max(var(--bldr-outline-canvas-x, 0px), 0px)))
+  );
+}
+
+/* Under RTL the logical start is the outline's physical right edge, so the
+   available canvas space is x + outline width instead of canvas width - x. */
+.bldr-outline > .bldr-outline__label:dir(rtl) {
+  inset-inline-start: max(0px, calc(var(--bldr-outline-canvas-x, 0px) + 100% - 100cqi));
+  max-inline-size: min(
+    calc(100% + var(--bldr-space-5xl)),
+    max(0px, min(100cqi, calc(var(--bldr-outline-canvas-x, 0px) + 100%)))
+  );
 }
 
 .bldr-outline--hover .bldr-outline__label {
@@ -55,8 +95,8 @@
 
 /* Drag chrome (B2b) — same physical-geometry exception as the outlines. */
 .bldr-drag-ghost {
-  border: 2px dashed var(--bldr-selection, #4f46e5);
-  border-radius: 4px;
+  border: var(--bldr-border-thick) dashed var(--bldr-selection, #4f46e5);
+  border-radius: var(--bldr-space-xs);
   left: 0;
   opacity: 0.6;
   position: absolute;
@@ -66,7 +106,7 @@
 
 .bldr-drop-indicator {
   background: var(--bldr-drop, #16a34a);
-  border-radius: 1px;
+  border-radius: var(--bldr-border-hairline);
   left: 0;
   position: absolute;
   top: 0;
@@ -74,10 +114,10 @@
 }
 
 .bldr-drop-parent {
-  border-radius: 4px;
+  border-radius: var(--bldr-space-xs);
   left: 0;
-  outline: 1px dashed var(--bldr-drop, #16a34a);
-  outline-offset: 2px;
+  outline: var(--bldr-border-hairline) dashed var(--bldr-drop, #16a34a);
+  outline-offset: var(--bldr-border-thick);
   position: absolute;
   top: 0;
   visibility: hidden;

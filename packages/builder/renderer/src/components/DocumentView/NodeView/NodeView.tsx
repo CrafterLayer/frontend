@@ -28,6 +28,17 @@ export interface NodeViewProps {
    */
   attachNodeElement?: ((id: NodeId, element: HTMLElement | null) => void) | undefined;
   /**
+   * Whether this tree is the EDITING canvas.
+   *
+   * It used to be the literal `true` on the line that renders a block, which
+   * made it a lie in the one place it mattered: preview renders through this
+   * same view, so a block that showed editing scaffolding behind `isCanvas`
+   * showed it to the reader of the finished page as well. Defaults to `true`
+   * because every existing caller of this view IS the canvas; preview is the
+   * one that has to say otherwise.
+   */
+  isCanvas?: boolean | undefined;
+  /**
    * Inline editing seam (009 contract §7). When the descriptor names THIS node,
    * the named property's value is replaced by the element the editor returns,
    * so the block renders its editing surface exactly where the text lives
@@ -162,6 +173,7 @@ function NodeViewInner({
   onBlockRender,
   attachNodeElement,
   inlineEdit,
+  isCanvas = true,
 }: NodeViewProps) {
   const node = useKernelNode(kernel, id);
   useRegistryEpoch(kernel);
@@ -290,6 +302,7 @@ function NodeViewInner({
           onBlockRender={onBlockRender}
           attachNodeElement={attachNodeElement}
           inlineEdit={inlineEdit}
+          isCanvas={isCanvas}
         />
       ));
     }
@@ -340,7 +353,7 @@ function NodeViewInner({
       };
       resolved = swapped as typeof stored;
     }
-    content = <Block node={node} props={resolved} slots={slots} data={{}} isCanvas />;
+    content = <Block node={node} props={resolved} slots={slots} data={{}} isCanvas={isCanvas} />;
   }
 
   if (attachNodeElement === undefined) {

@@ -6,10 +6,33 @@ import * as PaletteStories from './Palette.stories';
 
 # Palette
 
-The registered block vocabulary as an insertable list (milestone B2b). Entries come straight from
-the kernel's registry catalog — display names from block schema descriptions — and stay live under
-runtime extension registration and disposal (the kernel-intrinsic catalog version, the same
-race-proof pattern the canvas uses).
+The registered block vocabulary as a searchable, grouped insert surface. Entries come straight from
+the kernel's registry catalog and stay live under runtime extension registration and disposal (the
+kernel-intrinsic catalog version, the same race-proof pattern the canvas uses). First-party block
+types receive compact card names; custom extension types keep their schema description as the
+display-name fallback. Search also matches the full model-facing schema description.
+
+## Information design
+
+- **Layout**: page, section, container, columns, grid, row, stack, spacer, and divider types.
+- **Content**: text, rich text, heading, paragraph, image, media, video, embed, and form types.
+- **Marketing**: hero, features, pricing, testimonials, CTA, FAQ, navigation, footer, banner, and
+  announcement types.
+- **Other**: registered types that do not advertise one of those roles in their type key.
+
+Every group is independently collapsible for the lifetime of the mounted palette. Filtering keeps
+that state intact and matches card names, type keys, descriptions, and category names. When no block
+matches, the panel tells the author to try another block name.
+
+Card diagrams are semantic miniatures rather than a repeated generic glyph: Hero uses headline,
+body, action, and media shapes; Columns uses three vertical bands; Grid and Features use a 3×2
+matrix; Pricing, Testimonials, CTA, text, media, and structural sections each have their own shape.
+Unknown types alone use the generic fallback. Every diagram sits in a token-sized rounded square:
+the tile resolves `--bldr-accent-soft` and its glyph resolves `--bldr-accent`. Hover, keyboard
+focus, and the native pressed state used during drag handoff keep distinct token-backed treatments
+without changing the card button's semantics. Because the soft accent is theme-specific, a Chromium
+story reads both painted colours with `getComputedStyle` in explicit light and dark themes and first
+proves those themes resolve to different values.
 
 ## Two insert paths
 
@@ -41,7 +64,24 @@ const [handle, setHandle] = useState<CanvasDragHandle>();
 
 ## Accessibility
 
-A labelled `nav` of real buttons — activation, focus, and announcement behavior are native; the
-insert outcome is voiced through a polite live region. RTL follows logical properties throughout.
+A labelled `nav` contains a labelled native search input, heading-level category controls, and real
+block buttons. Category controls expose `aria-expanded`, retain an `aria-controls` relationship to
+their labelled regions, and stay keyboard reachable. Diagrams and search glyphs are decorative; each
+card's visible block name is its accessible name. Insert outcomes are voiced through a polite live
+region, and the empty search result is a status with actionable guidance.
+
+The component uses the shared builder focus ring and only `--bldr-*` theme tokens. Logical
+properties make the search glyphs, padding, border edge, and card grid mirror under RTL without a
+direction-specific stylesheet.
 
 <Canvas of={PaletteStories.Default} />
+
+<Canvas of={PaletteStories.AccentTileThemeContract} />
+
+<Canvas of={PaletteStories.SearchMatches} />
+
+<Canvas of={PaletteStories.SearchMatchesNothing} />
+
+<Canvas of={PaletteStories.CollapsedGroup} />
+
+<Canvas of={PaletteStories.RightToLeft} />

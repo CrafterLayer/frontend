@@ -1,0 +1,66 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PageHeaderStories from './PageHeader.stories';
+
+<Meta of={PageHeaderStories} />
+
+# PageHeader
+
+`PageHeader` is the page-level masthead: a visible brand, optional supporting tagline, page
+navigation, and an optional non-interactive action label. Use one at the top of a page; do not use
+it for a subsection heading or for a control that needs button behavior.
+
+## Usage
+
+```json
+{
+  "type": "pageHeader",
+  "props": {
+    "brand": "CraftKit",
+    "tagline": "Composable pages",
+    "links": [{ "label": "Docs", "href": "/docs" }],
+    "background": "surfaceInverse",
+    "textColor": "accentText",
+    "sticky": true
+  }
+}
+```
+
+## API
+
+| Prop          | Type and default                                            | Purpose                                                                         |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `brand`       | `string` = `Your brand`                                     | Visible page brand, 1–40 characters.                                            |
+| `tagline`     | `string` (optional)                                         | Supporting brand text, up to 80 characters.                                     |
+| `links`       | `Array<{ label, href }>` = `[]`                             | Up to six page-navigation links; labels are 1–24 and URLs are 1–200 characters. |
+| `actionLabel` | `string` (optional)                                         | Short presentational label, up to 24 characters; it is not a button.            |
+| `sticky`      | `boolean` = `false`                                         | Pins the header at the logical block start while its scroll container moves.    |
+| `align`       | `start \| center \| end` = `start`                          | Logical alignment of the header bar.                                            |
+| `background`  | `surface \| surfaceInverse \| accent` (optional)            | Page colour role, deliberately unset by default.                                |
+| `textColor`   | `text \| textInverse \| textMuted \| accentText` (optional) | Page colour role, deliberately unset by default.                                |
+| `tone`        | section tone = `transparent`                                | Section tone used when colour roles are omitted.                                |
+| `spacing`     | section spacing = `sm`                                      | Token-backed vertical section spacing.                                          |
+| `width`       | section width = `wide`                                      | Maximum width of the inner header bar.                                          |
+
+## Variants
+
+- **Default** uses the neutral transparent tone and no inline colour roles, preserving the page tone
+  selected by the surrounding document.
+- **InverseColour** resolves `surfaceInverse` and `accentText` to `--t-surface-inverse` and
+  `--t-accent-text` on the page.
+- **Sticky** adds a real `position: sticky` header, not a visual imitation.
+
+## Accessibility
+
+The header landmark is labelled by the visible brand element through `aria-labelledby`, so an inline
+editor can replace the brand's content without corrupting the accessible name. Each navigation link
+is a native anchor inside a `nav` labelled “Page”. Keep link labels distinct and descriptive. Use a
+real CTA block for an activating action; `actionLabel` is deliberately text only.
+
+## RTL, responsive, and theme behavior
+
+Alignment uses logical `start` and `end` values, and the sticky inset uses `inset-block-start`, so
+the component follows the page's writing direction without physical left/right rules. The bar wraps
+when space is limited. Colour roles are not literal colours: they map to page-owned `--t-*` custom
+properties. Leaving either role unset creates no inline background or foreground style, letting the
+section tone and page theme decide the result.

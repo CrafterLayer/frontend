@@ -145,7 +145,7 @@ describe('performBlockAction — one dispatch, defined resulting selection (a2)'
     const kernel = makeKernel();
     const result = performBlockAction(kernel, 't1', 'duplicate');
     expect(result.ok).toBe(true);
-    expect(result.announcement).toBe('Duplicated text');
+    expect(result.announcement).toBe('Duplicated Text');
     expect(kernel.transactions()).toHaveLength(1);
 
     const children = kernel.getDocument().nodes['sA']?.slots?.['default'] ?? [];
@@ -161,7 +161,7 @@ describe('performBlockAction — one dispatch, defined resulting selection (a2)'
     const kernel = makeKernel();
     const result = performBlockAction(kernel, 't1', 'delete');
     expect(result.ok).toBe(true);
-    expect(result.announcement).toBe('Deleted text');
+    expect(result.announcement).toBe('Deleted Text');
     expect(kernel.transactions()).toHaveLength(1);
     expect(kernel.getDocument().nodes['t1']).toBeUndefined();
     expect(kernel.getDocument().nodes['sA']?.slots?.['default']).toEqual(['t2', 'sInner']);
@@ -193,7 +193,7 @@ describe('performBlockAction — one dispatch, defined resulting selection (a2)'
     const kernel = makeKernel();
     const result = performBlockAction(kernel, 't2', 'moveEarlier');
     expect(result.ok).toBe(true);
-    expect(result.announcement).toBe('Moved text earlier');
+    expect(result.announcement).toBe('Moved Text earlier');
     expect(kernel.transactions()).toHaveLength(1);
     expect(kernel.getDocument().nodes['sA']?.slots?.['default']).toEqual(['t2', 't1', 'sInner']);
     expect(result.selection).toBe('t2');
@@ -204,7 +204,7 @@ describe('performBlockAction — one dispatch, defined resulting selection (a2)'
     const kernel = makeKernel();
     const result = performBlockAction(kernel, 't1', 'moveLater');
     expect(result.ok).toBe(true);
-    expect(result.announcement).toBe('Moved text later');
+    expect(result.announcement).toBe('Moved Text later');
     expect(kernel.transactions()).toHaveLength(1);
     expect(kernel.getDocument().nodes['sA']?.slots?.['default']).toEqual(['t2', 't1', 'sInner']);
     expect(result.selection).toBe('t1');

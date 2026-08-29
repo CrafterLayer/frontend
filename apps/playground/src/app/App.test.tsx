@@ -1,17 +1,108 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
 
+/** Opens the rail's Settings destination, where the scenario harness lives. */
+async function openHarness(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole('button', { name: 'Settings' }));
+}
+
+/**
+ * Opens the rail's Layers destination.
+ *
+ * Blocks and Layers share the left column, the way they do in every builder of
+ * this shape: one panel, two destinations, and the right column left entirely
+ * to the inspector. A test that wants the tree therefore asks for it the same
+ * way a person does.
+ */
+async function openLayers(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
+  await user.click(screen.getByRole('button', { name: 'Layers' }));
+  return screen.getByRole('tree', { name: 'Document structure' });
+}
+
+/** Back to the palette. */
+async function openBlocks(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole('button', { name: 'Blocks' }));
+}
+
+/**
+ * The document the app is showing, whichever surface is up.
+ *
+ * The app used to OPEN in a preview — `editMode` started false — so this
+ * reached for the frame titled "Preview". It opens as the editor now, because a
+ * builder does not have an edit switch; `Preview` is a button you press. So the
+ * helper takes whichever surface is mounted.
+ */
 function frameDocument(): Document {
-  const frame = screen.getByTitle<HTMLIFrameElement>('Preview');
+  const frame =
+    screen.queryByTitle<HTMLIFrameElement>('Editor canvas') ??
+    screen.getByTitle<HTMLIFrameElement>('Preview');
   const doc = frame.contentDocument;
   if (doc === null) {
     throw new Error('no contentDocument');
   }
   return doc;
 }
+
+describe('the app frame must not reach into the page being edited', () => {
+  // CanvasFrame MIRRORS this document's head stylesheets into the preview
+  // iframe so the page inherits the host's fonts. That makes any GLOBAL rule
+  // here a rule on the author's page too.
+  //
+  // Measured defect this pins: `body { overflow: hidden }`, written to stop the
+  // app's own page scrolling, crossed into the frame — and because CSS
+  // propagates body's overflow to the viewport, a 1239px page was clamped
+  // inside an 866px frame with no way to reach its bottom. Clipping belongs to
+  // `.pg-app`, which exists only in this document.
+  // jsdom serves modules over http, so `import.meta.url` is not a file URL
+  // here; vitest's cwd is the app root, which is all this gate needs.
+  // Comments are stripped first: a rule's own explanation often quotes the
+  // very pattern the gate forbids, and a gate that reads prose is not reading
+  // the stylesheet.
+  const appCss = readFileSync(join(process.cwd(), 'src', 'app', 'App.css'), 'utf8').replaceAll(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+
+  const globalBlocks = (selector: RegExp): string[] =>
+    [...appCss.matchAll(/(^|\n)([^@{}\n][^{}]*)\{([^}]*)\}/g)]
+      .filter((match) => selector.test(match[2] ?? ''))
+      .map((match) => match[3] ?? '');
+
+  it('never clips or scrolls on a global element selector', () => {
+    for (const body of globalBlocks(/(^|,)\s*(html|body|\*)\s*(,|$)/m)) {
+      expect(body).not.toMatch(/overflow/);
+    }
+  });
+
+  it('scopes its clipping to the app root, which the frame never sees', () => {
+    const scoped = globalBlocks(/\.pg-app/);
+    expect(scoped.some((body) => body.includes('overflow: hidden'))).toBe(true);
+  });
+
+  // Measured in Chromium: every control the SHELL owns sits at exactly 44px
+  // (`--bldr-hit-target-min`), while the harness's own controls came in at
+  // 13-27px — a 22px button fails WCAG 2.2 SC 2.5.8, and a 13px checkbox is a
+  // thing to aim at. jsdom cannot measure a box, so this gate holds the
+  // narrower line it CAN hold: the harness sizes its controls from the token
+  // and never from a literal that would drift away from it.
+  it('sizes every harness control from the hit-target token', () => {
+    const harness = globalBlocks(/\.pg-settings/);
+    const sizing = harness.flatMap((body) => [...body.matchAll(/min-block-size:\s*([^;]+);/g)]);
+
+    // Non-vacuous: a file that had stopped sizing its controls at all would
+    // otherwise sail through, and that is the state this gate was written for.
+    expect(sizing.length).toBeGreaterThanOrEqual(2);
+    for (const declaration of sizing) {
+      expect(declaration[1]?.trim()).toBe('var(--bldr-hit-target-min)');
+    }
+  });
+});
 
 describe('US4 — the playground proves it end-to-end', () => {
   const fetchSpy = vi.fn();
@@ -45,7 +136,9 @@ describe('US4 — the playground proves it end-to-end', () => {
     const bodyBefore = frameDocument().body;
     const styleBefore = frameDocument().getElementById('bldr-theme-tokens');
 
-    await userEvent.setup().click(screen.getByRole('radio', { name: 'dark' }));
+    const themeUser = userEvent.setup();
+    await openHarness(themeUser);
+    await themeUser.click(screen.getByRole('radio', { name: 'dark' }));
     await waitFor(() => {
       expect(frameDocument().getElementById('bldr-theme-tokens')?.textContent).toContain(
         '--t-surface: #0b1120;',
@@ -69,6 +162,7 @@ describe('US4 — the playground proves it end-to-end', () => {
       expect(frameDocument().documentElement.getAttribute('dir')).toBe('ltr');
     });
 
+    await openHarness(user);
     await user.click(screen.getByRole('button', { name: /ltr → rtl/ }));
     await waitFor(() => {
       expect(frameDocument().documentElement.getAttribute('dir')).toBe('rtl');
@@ -85,6 +179,52 @@ describe('US4 — the playground proves it end-to-end', () => {
     });
   });
 
+  it('keeps Undo and Redo availability in lockstep with live kernel history', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    const redo = screen.getByRole('button', { name: 'Redo' });
+
+    // Mutations that kill these first two lines: replace either subscribed
+    // kernel fact with the old `!showcaseOwnsLawSControls` constant. A new
+    // session has no cursor to move in either direction.
+    expect(undo).toBeDisabled();
+    expect(redo).toBeDisabled();
+
+    // Blocks is where the app opens, so the palette is already there — this
+    // gate needs a real edit in the history, not a harness control.
+    const palette = screen.getByRole('navigation', { name: 'Block palette' });
+    const hero = within(palette)
+      .getAllByRole('listitem')
+      .map((item) => within(item).getByRole('button'))
+      .find((entry) => entry.textContent.includes('Hero'));
+    if (hero === undefined) {
+      throw new Error('the palette must offer a Hero block for the history gate');
+    }
+    await user.click(hero);
+    await waitFor(() => {
+      // Mutation that kills this line: make the canUndo snapshot always false.
+      expect(undo).toBeEnabled();
+      expect(redo).toBeDisabled();
+    });
+
+    await user.click(undo);
+    await waitFor(() => {
+      // Mutation that kills this line: replace both dedicated subscriptions
+      // with bare kernel reads. This non-direction history move changes no
+      // separate doc-direction snapshot, so the stale enabled state remains.
+      expect(undo).toBeDisabled();
+      // Mutation that kills this line: make the canRedo snapshot always false.
+      expect(redo).toBeEnabled();
+    });
+
+    await user.click(redo);
+    await waitFor(() => {
+      expect(undo).toBeEnabled();
+      expect(redo).toBeDisabled();
+    });
+  });
+
   it('scenario 4 (SC-005): runtime registration renders the announcement; disposal shows the fallback', async () => {
     render(<App />);
     const user = userEvent.setup();
@@ -92,6 +232,7 @@ describe('US4 — the playground proves it end-to-end', () => {
       expect(frameDocument().querySelector('main.bldr-page')).not.toBeNull();
     });
 
+    await openHarness(user);
     await user.click(screen.getByRole('button', { name: 'Register demo extension' }));
     await waitFor(() => {
       expect(frameDocument().body.textContent).toContain('Registered at runtime — no reload.');
@@ -108,7 +249,6 @@ describe('US4 — the playground proves it end-to-end', () => {
     render(<App />);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
     const host = await screen.findByRole('region', { name: 'Editor canvas' });
     await waitFor(() => {
       const frame = screen.getByTitle<HTMLIFrameElement>('Editor canvas');
@@ -116,6 +256,7 @@ describe('US4 — the playground proves it end-to-end', () => {
     });
 
     // Runtime-registered canvas tool (FR-012/FR-013): badge on selection…
+    await openHarness(user);
     await user.click(screen.getByRole('button', { name: 'Register demo extension' }));
     host.focus();
     await user.keyboard('{ArrowDown}');
@@ -143,8 +284,9 @@ describe('US4 — the playground proves it end-to-end', () => {
   it('scenario 6 (B2b/SC-004): a page is hand-built from the palette and arranged by keyboard — N+M transactions', async () => {
     render(<App />);
     const user = userEvent.setup();
+    await openHarness(user);
     await user.selectOptions(screen.getByRole('combobox', { name: 'Fixture' }), 'empty');
-    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
+    await openBlocks(user);
     const host = await screen.findByRole('region', { name: 'Editor canvas' });
     await waitFor(() => {
       const frame = screen.getByTitle<HTMLIFrameElement>('Editor canvas');
@@ -152,18 +294,38 @@ describe('US4 — the playground proves it end-to-end', () => {
     });
     const treeRows = () =>
       within(screen.getByRole('tree', { name: 'Document structure' })).getAllByRole('treeitem');
+    await openLayers(user);
     const rowsBefore = treeRows().length; // the empty page (root alone)
+    await openBlocks(user);
     const txCount = () => Number(screen.getByRole('status', { name: 'Transactions' }).textContent);
     expect(txCount()).toBe(0); // a fresh fixture starts with an empty log
 
     // Build: three inserts from the palette — each is ONE transaction, each
     // lands after the previous selection, whatever the vocabulary's labels are.
     const palette = screen.getByRole('navigation', { name: 'Block palette' });
-    const entries = within(palette).getAllByRole('button');
+    // The BLOCK CARDS, not every button in the panel: the palette also carries
+    // a filter control and one collapse toggle per category, and asking for
+    // "all buttons" quietly picked those up the moment the panel grew chrome.
+    // The cards are the list items — that is what makes them addressable.
+    const entries = within(palette)
+      .getAllByRole('listitem')
+      .map((item) => within(item).getByRole('button'));
     expect(entries.length).toBeGreaterThanOrEqual(3);
-    await user.click(entries.at(1)!);
-    await user.click(entries.at(2)!);
-    await user.click(entries.at(2)!);
+    // The SAME block three times, chosen by NAME and chosen because the page
+    // root's slot ALLOWS it. Clicking by index worked only while the palette
+    // was a flat list in one particular order; once it grew categories the
+    // indices moved, and an insert the schema refuses is a legal no-op — so
+    // the arithmetic below was quietly measuring two inserts instead of three.
+    // Naming the block states what the scenario actually needs: three siblings
+    // under the root.
+    const hero = entries.find((entry) => entry.textContent.includes('Hero'));
+    if (hero === undefined) {
+      throw new Error('the palette must offer a Hero block for this scenario');
+    }
+    await user.click(hero);
+    await user.click(hero);
+    await user.click(hero);
+    await openLayers(user);
     expect(treeRows().length).toBe(rowsBefore + 3); // N inserts visible everywhere
     expect(txCount()).toBe(3); // N = 3, exactly
 
@@ -177,10 +339,97 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it('tells the shell the layer tree is not something to drop when space runs short', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const shell = await screen.findByRole('application', { name: 'Playground editor' });
+
+    // The palette keeps the old bargain: below 1180 the canvas wins and the
+    // palette goes, because it is a source you dip into.
+    expect(shell).toHaveAttribute('data-bldr-panel-priority', 'optional');
+
+    await openLayers(user);
+    // The structure of the document is how a person navigates it. Measured in
+    // the browser, without this the tree vanished between 900 and 1180 while
+    // the rail still marked Layers as the open destination.
+    expect(shell).toHaveAttribute('data-bldr-panel-priority', 'essential');
+
+    await openBlocks(user);
+    expect(shell).toHaveAttribute('data-bldr-panel-priority', 'optional');
+  });
+
+  it('keeps the action band for the product and puts the harness in Settings', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Editor canvas' });
+
+    // The band used to carry a fixture picker, an edit-mode checkbox, a
+    // "Harness" disclosure and a bare digit. None of that is product.
+    expect(screen.queryByRole('combobox', { name: 'Fixture' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Edit mode' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Harness' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    const harness = screen.getByRole('region', { name: 'Scenario harness' });
+    expect(within(harness).getByRole('combobox', { name: 'Fixture' })).toBeInTheDocument();
+    expect(
+      within(harness).getByRole('button', { name: 'Register demo extension' }),
+    ).toBeInTheDocument();
+
+    // The sealed-store counter stays in the DOM for the law, unseen.
+    expect(Number(screen.getByRole('status', { name: 'Transactions' }).textContent)).toBe(0);
+  });
+
+  it('gives the layer tree a destination of its own, and the inspector its whole column', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Editor canvas' });
+
+    // Blocks and Layers share the left column; the tree used to sit on top of
+    // the inspector and take a third of the right one, where a rail item
+    // claiming to be "Layers" could only point at it.
+    expect(screen.queryByRole('tree', { name: 'Document structure' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Inspector' })).toBeInTheDocument();
+
+    const tree = await openLayers(user);
+    expect(tree).toBeInTheDocument();
+    // Both at once: choosing a layer and editing it is one motion, so the
+    // inspector must not be what the tree replaced.
+    expect(screen.getByRole('region', { name: 'Inspector' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Block palette' })).not.toBeInTheDocument();
+
+    await openBlocks(user);
+    expect(screen.queryByRole('tree', { name: 'Document structure' })).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Block palette' })).toBeInTheDocument();
+  });
+
+  it('the rail actually moves the panel — it used to draw a selection and ignore the click', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Editor canvas' });
+
+    const blocks = screen.getByRole('button', { name: 'Blocks' });
+    const assets = screen.getByRole('button', { name: 'Assets' });
+    expect(blocks).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('navigation', { name: 'Block palette' })).toBeInTheDocument();
+
+    await user.click(assets);
+    // The claim is not that the highlight moved — the old rail did that much
+    // with a hard-coded id. It is that the PANEL changed.
+    expect(assets).toHaveAttribute('aria-current', 'page');
+    expect(blocks).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('navigation', { name: 'Block palette' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Assets' })).toBeInTheDocument();
+
+    await user.click(blocks);
+    expect(screen.getByRole('navigation', { name: 'Block palette' })).toBeInTheDocument();
+  });
+
   it('scenario 7 (B3a): device → override edit → preview round trip, every view-state law intact', async () => {
     render(<App />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
     await screen.findByRole('region', { name: 'Editor canvas' });
     await waitFor(() => {
       const frame = screen.getByTitle<HTMLIFrameElement>('Editor canvas');
@@ -189,12 +438,13 @@ describe('US4 — the playground proves it end-to-end', () => {
     const txCount = () => Number(screen.getByRole('status', { name: 'Transactions' }).textContent);
 
     // Select the hero via the layers tree (jsdom cannot hit-test the frame).
-    const tree = screen.getByRole('tree', { name: 'Document structure' });
+    const tree = await openLayers(user);
     const heroRow = within(tree)
       .getAllByRole('treeitem')
-      .find((row) => row.textContent.includes('Opening section'));
+      // The tree shows a short NAME now, not the schema's description sentence.
+      .find((row) => row.textContent.includes('Hero'));
     expect(heroRow).toBeDefined();
-    await user.click(within(heroRow!).getByText(/Opening section/));
+    await user.click(within(heroRow!).getByText(/^Hero$/));
 
     // The generated panel appears with the hero's own schema — zero panel code.
     const inspector = screen.getByRole('region', { name: 'Inspector' });
@@ -203,7 +453,10 @@ describe('US4 — the playground proves it end-to-end', () => {
     );
 
     // Device: tablet preset narrows the REAL frame shell and re-buckets edits.
-    await user.click(screen.getByRole('button', { name: 'Tablet' }));
+    // The top bar carries the ONLY device switcher now. A second copy used to
+    // ride in a band below it, and this line proved the copy — not the control
+    // an author reaches for. Reaching for the real one is the point of the test.
+    await user.click(screen.getByRole('radio', { name: 'Tablet' }));
     const shell = document.querySelector<HTMLElement>('.bldr-canvas-frame-shell');
     expect(shell?.style.inlineSize).toBe('834px');
     expect(within(inspector).getByText('Editing tablet overrides')).toBeInTheDocument();
@@ -274,7 +527,6 @@ describe('scenario 8 (B3b) — rich text end to end', () => {
     vi.stubGlobal('fetch', vi.fn());
     render(<App />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
     await screen.findByRole('region', { name: 'Editor canvas' });
     const txCount = () => Number(screen.getByRole('status', { name: 'Transactions' }).textContent);
 
@@ -287,12 +539,12 @@ describe('scenario 8 (B3b) — rich text end to end', () => {
 
     // Selecting the rich block resolves the CONTRIBUTED editor lazily — the
     // real registered extension, zero panel code anywhere.
-    const tree = screen.getByRole('tree', { name: 'Document structure' });
+    const tree = await openLayers(user);
     const richRow = within(tree)
       .getAllByRole('treeitem')
-      .find((row) => row.textContent.includes('Free-form rich text'));
+      .find((row) => row.textContent.includes('Rich Text'));
     expect(richRow).toBeDefined();
-    await user.click(within(richRow!).getByText(/Free-form rich text/));
+    await user.click(within(richRow!).getByText(/^Rich Text$/));
     const before = txCount();
     // LAZY EDITOR ROAD: this waits on a dynamic import plus an engine mount, not on a
     // render, so it needs more than testing-library's 1s render budget — under parallel
@@ -365,8 +617,9 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
   it('select → edit inline → format via the bubble → duplicate via the action bar → undo, in lockstep', async () => {
     render(<App />);
     const user = userEvent.setup();
+    await openHarness(user);
     await user.selectOptions(screen.getByRole('combobox', { name: 'Fixture' }), 'inline');
-    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
+    await openBlocks(user);
     const host = await screen.findByRole('region', { name: 'Editor canvas' });
     const editorDocument = (): Document => {
       const doc = screen.getByTitle<HTMLIFrameElement>('Editor canvas').contentDocument;
@@ -382,16 +635,17 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
     // counter (every observable change pairs 1:1 with a transaction) and the
     // canvas's selection status. The whole scenario reads only these two.
     const txCount = () => Number(screen.getByRole('status', { name: 'Transactions' }).textContent);
+    const layerTree = await openLayers(user);
     const rowNamed = (pattern: RegExp) =>
-      within(screen.getByRole('tree', { name: 'Document structure' }))
+      within(layerTree)
         .getAllByRole('treeitem')
         .find((row) => pattern.test(row.textContent));
     expect(txCount()).toBe(0); // a fresh fixture starts with an empty log
 
     // SELECT: the announcement via the layers tree. View state, never a tx.
-    const noteRow = rowNamed(/announcement bar/);
+    const noteRow = rowNamed(/^Announcement/);
     expect(noteRow).toBeDefined();
-    await user.click(within(noteRow!).getByText(/announcement bar/));
+    await user.click(within(noteRow!).getByText(/^Announcement$/));
     expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent('selected');
     expect(txCount()).toBe(0);
 
@@ -430,9 +684,9 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
 
     // RICH: the story's content opens the CONTRIBUTED editor, resolved lazily
     // from the registry — mounting an editor is never a commit.
-    const taleRow = rowNamed(/story passage/);
+    const taleRow = rowNamed(/^Story/);
     expect(taleRow).toBeDefined();
-    await user.click(within(taleRow!).getByText(/story passage/));
+    await user.click(within(taleRow!).getByText(/^Story$/));
     host.focus();
     await user.keyboard('{Enter}');
     await waitFor(() => {
@@ -481,7 +735,7 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
 
     // Selecting the announcement again ends the rich session; the read path
     // now renders the bold that was committed through the bubble.
-    await user.click(within(rowNamed(/announcement bar/)!).getByText(/announcement bar/));
+    await user.click(within(rowNamed(/^Announcement/)!).getByText(/^Announcement$/));
     await waitFor(() => {
       expect(editorDocument().querySelector('.bldr-inline-richtext')).toBeNull();
     });
@@ -531,12 +785,20 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
 });
 
 describe('scenario 10 (B4) — code view and the canvas in lockstep', () => {
-  it('registers the code-view fixture and leaves its lazy panel closed until requested', async () => {
+  it('opens the code view from the rail and leaves its lazy panel closed until requested', async () => {
     render(<App />);
     const user = userEvent.setup();
 
+    await openHarness(user);
     await user.selectOptions(screen.getByRole('combobox', { name: 'Fixture' }), 'code-view');
-    await user.click(screen.getByRole('checkbox', { name: 'Edit mode' }));
+    await openBlocks(user);
+
+    // The fixture chooses a DOCUMENT. Opening the code view is the rail's job —
+    // it used to be a side effect of picking a fixture, which made a harness
+    // setting the only door to a product feature and left the rail's own Code
+    // item with nothing to do but describe where that feature was.
+    expect(screen.queryByRole('region', { name: 'Code view showcase' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Code' }));
 
     expect(await screen.findByRole('region', { name: 'Code view showcase' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open code view' })).toBeInTheDocument();

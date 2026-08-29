@@ -42,8 +42,11 @@ export function RegisterDemoExtension({ kernel }: RegisterDemoExtensionProps) {
         });
         setRegistered(insertedNodeId(tx.patches) !== undefined);
       }}
+      /* Short on screen, whole in the accessible name — the bar is 56px and the
+         harness must not push the product's controls out of it. */
+      aria-label="Register demo extension"
     >
-      Register demo extension
+      Demo ext
     </button>
   );
 }

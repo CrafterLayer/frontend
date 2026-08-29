@@ -36,11 +36,20 @@ describe('TextBubble (009 contract §5)', () => {
 
   it('reports pressed state for toggles ONLY — an action carries no aria-pressed', () => {
     renderBubble();
-    expect(screen.getByRole('button', { name: 'Bold' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Italic' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Clear formatting' })).not.toHaveAttribute(
-      'aria-pressed',
-    );
+    const bold = screen.getByRole('button', { name: 'Bold' });
+    const italic = screen.getByRole('button', { name: 'Italic' });
+    const clear = screen.getByRole('button', { name: 'Clear formatting' });
+
+    expect(bold).toHaveAttribute('aria-pressed', 'true');
+    expect(italic).toHaveAttribute('aria-pressed', 'false');
+    expect(clear).not.toHaveAttribute('aria-pressed');
+    expect(bold).toHaveAttribute('data-variant', 'toggle');
+    expect(italic).toHaveAttribute('data-variant', 'toggle');
+    expect(clear).toHaveAttribute('data-variant', 'quiet');
+    for (const action of [bold, italic, clear]) {
+      expect(action).toHaveAttribute('data-bldr-chrome-button', '');
+      expect(action).toHaveAttribute('data-size', 'lg');
+    }
   });
 
   it('every action fires exactly once through a real click — its own and only its own', async () => {

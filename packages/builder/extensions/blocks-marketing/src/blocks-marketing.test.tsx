@@ -9,11 +9,12 @@ import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import { defineBlockSchema, type TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { blocksMarketing } from './index';
-import { Features } from './components/Features';
-import { Hero } from './components/Hero';
-import { Pricing } from './components/Pricing';
+import { ctaExamples, ctaSchema } from './components/Cta';
+import { Features, featuresExamples, featuresSchema } from './components/Features';
+import { Hero, heroExamples, heroSchema } from './components/Hero';
+import { Pricing, pricingExamples, pricingSchema } from './components/Pricing';
 import { RichTextBlock } from './components/RichTextBlock';
-import { Testimonials } from './components/Testimonials';
+import { Testimonials, testimonialsExamples, testimonialsSchema } from './components/Testimonials';
 
 /** A minimal structural host for the marketing vocabulary (US2 acceptance). */
 const hostPage: TrustedExtensionManifest = {
@@ -56,6 +57,71 @@ describe('US2 — blocks-marketing extension', () => {
       expect(entry?.schema.examples.length ?? 0).toBeGreaterThan(0);
     }
     expect(kernel.context.registry.blocks('site').length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('model-facing examples parse and exercise every expanded control', () => {
+    const contracts = [
+      {
+        type: 'hero',
+        schema: heroSchema,
+        examples: heroExamples,
+        keys: [
+          'eyebrow',
+          'align',
+          'tone',
+          'spacing',
+          'width',
+          'layoutDirection',
+          'layoutJustify',
+          'layoutAlign',
+          'layoutGap',
+          'layoutWrap',
+        ],
+      },
+      {
+        type: 'features',
+        schema: featuresSchema,
+        examples: featuresExamples,
+        keys: ['body', 'align', 'tone', 'spacing', 'width', 'columns'],
+      },
+      {
+        type: 'pricing',
+        schema: pricingSchema,
+        examples: pricingExamples,
+        keys: ['body', 'align', 'tone', 'spacing', 'width', 'columns'],
+      },
+      {
+        type: 'testimonials',
+        schema: testimonialsSchema,
+        examples: testimonialsExamples,
+        keys: ['body', 'align', 'tone', 'spacing', 'width', 'columns'],
+      },
+      {
+        type: 'cta',
+        schema: ctaSchema,
+        examples: ctaExamples,
+        keys: ['size', 'width'],
+      },
+    ] as const;
+
+    for (const contract of contracts) {
+      const exercised = new Set<string>();
+      for (const example of contract.examples) {
+        const props = (example.node as { props?: unknown }).props;
+        expect(
+          contract.schema.props.safeParse(props).success,
+          `${contract.type}: ${example.prompt}`,
+        ).toBe(true);
+        if (typeof props === 'object' && props !== null) {
+          for (const key of Object.keys(props)) {
+            exercised.add(key);
+          }
+        }
+      }
+      for (const key of contract.keys) {
+        expect(exercised.has(key), `${contract.type}.${key}`).toBe(true);
+      }
+    }
   });
 
   it('scenario 2+4: a document built from all five blocks renders values and enforces slot rules', () => {
@@ -172,7 +238,7 @@ describe('B3c — inline editing readiness (009 §12)', () => {
     namedByItsHeading(
       <Hero
         node={node('n-hero', 'hero')}
-        props={{ tone: 'light', align: 'center', heading: 'Named hero' }}
+        props={heroSchema.props.parse({ tone: 'light', align: 'center', heading: 'Named hero' })}
         slots={{}}
         {...inert}
       />,
@@ -182,7 +248,7 @@ describe('B3c — inline editing readiness (009 §12)', () => {
     namedByItsHeading(
       <Features
         node={node('n-features', 'features')}
-        props={{ heading: 'Named features', columns: '3', items: [] }}
+        props={featuresSchema.props.parse({ heading: 'Named features', columns: '3', items: [] })}
         slots={{}}
         {...inert}
       />,
@@ -192,7 +258,7 @@ describe('B3c — inline editing readiness (009 §12)', () => {
     namedByItsHeading(
       <Pricing
         node={node('n-pricing', 'pricing')}
-        props={{ heading: 'Named pricing', plans: [] }}
+        props={pricingSchema.props.parse({ heading: 'Named pricing', plans: [] })}
         slots={{}}
         {...inert}
       />,
@@ -202,7 +268,7 @@ describe('B3c — inline editing readiness (009 §12)', () => {
     namedByItsHeading(
       <Testimonials
         node={node('n-quotes', 'testimonials')}
-        props={{
+        props={testimonialsSchema.props.parse({
           heading: 'Named quotes',
           // One with a role and one without: the naming fixture doubles as the
           // cover for the optional-role branch.
@@ -210,7 +276,7 @@ describe('B3c — inline editing readiness (009 §12)', () => {
             { quote: 'q', author: 'a', role: 'CTO' },
             { quote: 'q2', author: 'b' },
           ],
-        }}
+        })}
         slots={{}}
         {...inert}
       />,

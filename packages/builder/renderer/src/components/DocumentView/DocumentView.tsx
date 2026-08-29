@@ -19,6 +19,8 @@ export interface DocumentViewProps {
   attachNodeElement?: ((id: NodeId, element: HTMLElement | null) => void) | undefined;
   /** Inline editing seam (009 §7): forwarded to the ONE node it names. */
   inlineEdit?: InlineEditSeam | undefined;
+  /** False for preview: blocks stop rendering their editing-only scaffolding. */
+  isCanvas?: boolean | undefined;
 }
 
 /**
@@ -32,6 +34,7 @@ export function DocumentView({
   onBlockRender,
   attachNodeElement,
   inlineEdit,
+  isCanvas,
 }: DocumentViewProps) {
   const rootId = useKernelSelector(
     kernel,
@@ -48,6 +51,7 @@ export function DocumentView({
       onBlockRender={onBlockRender}
       attachNodeElement={attachNodeElement}
       inlineEdit={inlineEdit}
+      isCanvas={isCanvas}
     />
   );
 }

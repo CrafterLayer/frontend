@@ -35,6 +35,7 @@ function stubIndex(rectFor?: (id: string) => boolean): RectIndex {
         : undefined,
     nodeAt: () => undefined,
     has: () => true,
+    element: () => undefined,
     version: () => 0,
     onInvalidate: () => () => undefined,
     stats: () => ({ measures: 0, invalidations: 0 }),

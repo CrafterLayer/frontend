@@ -54,12 +54,23 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
   // disposal effect below never observed a session it was never told about
   // (011 T033 review, finding 9).
   const mountedRef = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    /*
+      The BODY matters as much as the cleanup. This effect used to be
+      cleanup-only, so under `StrictMode` — which this app runs — React's
+      simulated unmount set the flag to false and nothing ever set it back.
+      From then on every open took the "component went away" branch: it disposed
+      the adapter it had just built, terminated the worker it had just started,
+      and returned without clearing `opening`. No error was thrown and none was
+      shown, so in a real browser the button read "Opening code view…" forever
+      and the code view could not be opened at all. Every module still loaded
+      with a 200, which is why nothing in the network or the console said so.
+    */
+    mountedRef.current = true;
+    return () => {
       mountedRef.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   useEffect(
     () => () => {
@@ -122,11 +133,27 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
   };
 
   return (
-    <section aria-label="Code view showcase" style={{ display: 'flex', flexDirection: 'column' }}>
+    <section
+      aria-label="Code view showcase"
+      /*
+        Fills the region it is placed in, and divides THAT — it used to be a
+        column of intrinsic heights, so with the panel open it measured 991px
+        inside a 907px canvas region and the editor's last lines sat below the
+        fold. The canvas takes what is left after the strip; the panel takes a
+        bounded share and scrolls inside itself.
+      */
+      style={{
+        blockSize: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        minBlockSize: 0,
+      }}
+    >
       <div
         style={{
           alignItems: 'center',
           display: 'flex',
+          flex: '0 0 auto',
           flexWrap: 'wrap',
           gap: '12px',
           padding: '10px 16px',
@@ -168,7 +195,7 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
         </output>
       </div>
       {openError === null ? null : <p role="alert">{openError}</p>}
-      <div style={{ blockSize: '560px' }}>
+      <div style={{ flex: '1 1 auto', minBlockSize: 0 }}>
         <EditorCanvas
           kernel={kernel}
           theme={lightTheme}
@@ -183,6 +210,7 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
         // builder; the code view is not an exception. The handler sits on the
         // wrapper so it catches the key wherever focus is inside the panel.
         <div
+          style={{ flex: '0 1 auto', maxBlockSize: '45%', minBlockSize: 0, overflow: 'auto' }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.stopPropagation();

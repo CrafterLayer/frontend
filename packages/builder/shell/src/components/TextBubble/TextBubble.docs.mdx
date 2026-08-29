@@ -92,6 +92,11 @@ the group's `dir` flips the reading order of the buttons; the arrow's offset sta
 purpose, because the host's measured geometry already accounts for direction (the overlay's
 measured-geometry exception).
 
+Both one-shot and pressed actions use `ChromeButton` at the default `lg` height. A pressed action
+selects the `toggle` variant and therefore must keep its boolean `aria-pressed`; a one-shot action
+selects `quiet` and cannot accidentally emit that state. The floating desktop toolbar no longer
+claims the reserved finger-target size.
+
 ## When not to use
 
 - Block-level actions (duplicate, delete, move) belong to the block action bar, not here.

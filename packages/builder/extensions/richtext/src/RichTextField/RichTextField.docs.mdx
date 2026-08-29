@@ -47,9 +47,22 @@ const kernel = createBuilder({ document, extensions: [myBlocks, richTextExtensio
 
 ## Accessibility & RTL
 
-The toolbar is a labeled group of real buttons with `aria-pressed`; the content area is the engine's
-accessible editing surface; the B3a row supplies the structural property label. Direction follows
-the document (see the RTL story).
+The toolbar is a labeled group of eight icon-only buttons. Every glyph uses the builder's 16px,
+1.5-stroke, round-cap `currentColor` icon language, so hover and pressed colors flow through the
+same theme roles as the rest of the editor. The button names remain exactly **Bold**, **Italic**,
+**Heading 2**, **Heading 3**, **Bulleted list**, **Numbered list**, **Link**, and **Clear
+formatting** through explicit `aria-label` values; toggle commands retain `aria-pressed`, while
+Clear formatting remains an action without a pressed state.
+
+Hovering a command or reaching it by keyboard focus reveals the same name in a styled visual
+tooltip. The tooltip is `aria-hidden` because the button already owns the accessible name, avoiding
+a duplicate announcement. Its motion is removed under `prefers-reduced-motion`, and its measured
+position is clamped to the toolbar in both content directions. No native `title` attribute is used.
+
+Targets use `--bldr-hit-target-min`. At widths that can hold all eight minimum targets, commands
+stay on one row; inside the 312px inspector they wrap without horizontal overflow. The content area
+remains the engine's accessible editing surface, the B3a row supplies the structural property label,
+and direction follows the document (see the RTL story).
 
 ## When not to use
 

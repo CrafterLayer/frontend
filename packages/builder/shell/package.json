@@ -22,6 +22,8 @@
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-renderer": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",
+    "@radix-ui/react-popover": "catalog:",
+    "@uiw/react-color-sketch": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {

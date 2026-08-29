@@ -24,6 +24,7 @@ const BUILDER_LAYERS = Object.freeze({
   '@craftkit/builder-react': 2,
   '@craftkit/builder-renderer': 2,
   '@craftkit/builder-transforms': 2,
+  '@craftkit/builder-theme': 2,
   '@craftkit/builder-ai': 2,
   '@craftkit/builder-shell': 3,
   [BUILDER_PRESET_NAME]: 5,

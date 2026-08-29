@@ -1,13 +1,14 @@
 import type { z } from 'zod';
 
-import type { FieldTypeDef, RegistryRead } from '@craftkit/builder-schema';
+import type { BlockPropertyKind, FieldTypeDef, RegistryRead } from '@craftkit/builder-schema';
 
 /**
- * Field resolution (007 contract §1): schema → contributed field type (highest
- * `match(schema)` score > 0, ties by REGISTRATION ORDER) → default control after
- * unwrapping optional/default/nullable → accessible read-only fallback.
+ * Field resolution (007 contract §1): an explicit declared kind → contributed
+ * field type (highest `match(schema)` score > 0, ties by REGISTRATION ORDER) →
+ * default control after unwrapping optional/default/nullable → accessible
+ * read-only fallback.
  */
-export type DefaultControl = 'text' | 'select' | 'switch' | 'number';
+export type DefaultControl = 'text' | 'select' | 'switch' | 'number' | 'repeater' | 'color-role';
 
 export type ResolvedField =
   | { kind: 'contributed'; def: FieldTypeDef }
@@ -78,12 +79,22 @@ export function defaultFieldFor(schema: z.ZodType): ResolvedField {
       return { kind: 'default', control: 'switch' };
     case 'number':
       return { kind: 'default', control: 'number' };
+    case 'array':
+      return { kind: 'default', control: 'repeater' };
     default:
       return { kind: 'readonly' };
   }
 }
 
-export function resolveField(registry: RegistryRead, schema: z.ZodType): ResolvedField {
+export function resolveField(
+  registry: RegistryRead,
+  schema: z.ZodType,
+  declaredKind?: BlockPropertyKind,
+): ResolvedField {
+  if (declaredKind === 'color-role') {
+    return { kind: 'default', control: 'color-role' };
+  }
+
   let winner: FieldTypeDef | undefined;
   let best = 0;
   for (const def of registry.fieldTypes()) {

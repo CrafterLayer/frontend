@@ -1,6 +1,9 @@
+import '../section-layout.css';
 import './Features.css';
 
 import type { BlockRenderProps } from '@craftkit/builder-schema';
+
+import { sectionColorStyle } from '../section-color';
 
 import type { FeaturesProps } from './schema';
 
@@ -11,18 +14,29 @@ export function Features({ node, props }: BlockRenderProps<FeaturesProps>) {
   // an element in aria-label stringifies to "[object Object]" (009 §12).
   const headingId = `${node.id}-heading`;
   return (
-    <section className="mkt-features" aria-labelledby={headingId}>
-      <h2 id={headingId} className="mkt-features__heading">
-        {props.heading}
-      </h2>
-      <ul className={`mkt-features__grid mkt-features__grid--${props.columns}`}>
-        {props.items.map((item) => (
-          <li key={item.title} className="mkt-features__card">
-            <h3 className="mkt-features__title">{item.title}</h3>
-            <p className="mkt-features__body">{item.body}</p>
-          </li>
-        ))}
-      </ul>
+    <section
+      className={`mkt-section mkt-features mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`}
+      style={sectionColorStyle(props)}
+      aria-labelledby={headingId}
+    >
+      <div
+        className={`mkt-section__content mkt-features__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width}`}
+      >
+        <h2 id={headingId} className="mkt-features__heading">
+          {props.heading}
+        </h2>
+        {props.body === undefined ? null : (
+          <p className="mkt-section__intro mkt-features__intro">{props.body}</p>
+        )}
+        <ul className={`mkt-features__grid mkt-features__grid--${props.columns}`}>
+          {props.items.map((item) => (
+            <li key={item.title} className="mkt-features__card">
+              <h3 className="mkt-features__title">{item.title}</h3>
+              <p className="mkt-features__body">{item.body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

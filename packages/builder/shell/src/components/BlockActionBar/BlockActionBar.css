@@ -10,36 +10,33 @@
 .bldr-block-actions {
   align-items: center;
   background: var(--bldr-surface, #ffffff);
-  border: 1px solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
-  border-radius: 0.5rem;
-  box-shadow:
-    0 1px 2px rgb(15 23 42 / 8%),
-    0 6px 20px rgb(15 23 42 / 12%);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  /*
+    Tokens, not literals and not `rem`. Two defects lived in this rule. The
+    shadow was a hard-coded light-theme value, so on the dark editor this
+    surface floated with no elevation at all — the theme publishes
+    `--bldr-shadow-floating` precisely so both grounds get the right weight.
+    And every size was in `rem`, which resolves against the ROOT font size of a
+    document this component does not control: a host at 14px root shrank these
+    hit targets to 24.5px without anyone touching the editor.
+  */
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
   display: flex;
-  gap: 2px;
-  padding: 0.1875rem;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-xs);
 }
 
 .bldr-block-actions__action {
-  align-items: center;
   background: none;
   border: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--bldr-radius-md);
   color: var(--bldr-panel-text, #334155);
-  cursor: pointer;
-  display: inline-flex;
-  font-family: var(--bldr-font, system-ui, sans-serif);
-  font-size: 0.75rem;
-  font-weight: 500;
-  justify-content: center;
-  line-height: 1;
-  min-block-size: 1.625rem;
-  padding-block: 0.25rem;
-  padding-inline: 0.5rem;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-  white-space: nowrap;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-tight);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-md);
 }
 
 .bldr-block-actions__action:enabled:hover {
@@ -51,8 +48,8 @@
 }
 
 .bldr-block-actions__action:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 1px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
 }
 
 .bldr-block-actions__action:disabled {

@@ -1,0 +1,118 @@
+.mkt-section {
+  box-sizing: border-box;
+  inline-size: 100%;
+}
+
+.mkt-section.mkt-section--spacing-none {
+  padding-block: 0;
+}
+
+.mkt-section.mkt-section--spacing-sm {
+  padding-block: var(--t-section-spacing-sm, 16px);
+}
+
+.mkt-section.mkt-section--spacing-md {
+  padding-block: var(--t-section-spacing-md, 32px);
+}
+
+.mkt-section.mkt-section--spacing-lg {
+  padding-block: var(--t-section-spacing-lg, 64px);
+}
+
+.mkt-section.mkt-section--tone-transparent {
+  background-color: transparent;
+  color: inherit;
+}
+
+.mkt-section.mkt-section--tone-light {
+  background-color: var(--t-surface, #ffffff);
+  color: var(--t-text, #111827);
+}
+
+.mkt-section.mkt-section--tone-dark {
+  background-color: var(--t-surface-inverse, #111827);
+  color: var(--t-text-inverse, #f9fafb);
+}
+
+/*
+  The content column.
+
+  `padding-inline` is the page's edge, and it was missing: a section at full
+  width, or any section on a phone, put its text against the glass with nothing
+  between. The padding sits here rather than on each block so that a person who
+  moves `--t-gutter` moves every section at once — which is the entire reason the
+  measurement is a token.
+*/
+.mkt-section__content {
+  box-sizing: border-box;
+  inline-size: 100%;
+  margin-inline: auto;
+  padding-inline: var(--t-gutter, 24px);
+}
+
+.mkt-section__content.mkt-section__content--align-start {
+  align-items: flex-start;
+  text-align: start;
+}
+
+.mkt-section__content.mkt-section__content--align-center {
+  align-items: center;
+  text-align: center;
+}
+
+.mkt-section__content.mkt-section__content--align-end {
+  align-items: flex-end;
+  text-align: end;
+}
+
+.mkt-section__content--width-narrow {
+  max-inline-size: calc(var(--t-content-width-narrow, 40rem) + var(--t-gutter, 24px) * 2);
+}
+
+.mkt-section__content--width-standard {
+  max-inline-size: calc(var(--t-content-width-standard, 64rem) + var(--t-gutter, 24px) * 2);
+}
+
+.mkt-section__content--width-wide {
+  max-inline-size: calc(var(--t-content-width-wide, 80rem) + var(--t-gutter, 24px) * 2);
+}
+
+.mkt-section__content--width-full {
+  max-inline-size: none;
+}
+
+.mkt-section__intro {
+  color: var(--t-text-muted, #6b7280);
+  margin: 0;
+  max-inline-size: 60ch;
+}
+
+.mkt-section--tone-dark .mkt-section__intro {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/*
+  What an empty block says for itself.
+
+  A footer someone has just added holds no statement, no columns and no legal
+  line, so it renders as a blank rectangle — the block appears to have been
+  swallowed, and nothing on the canvas says what to do next. The hint is
+  `isCanvas`-only: it is scaffolding for the person editing, and a published
+  page must never carry it.
+*/
+.mkt-section__hint {
+  /*
+    A tinted ground rather than a dashed border: a border needs a WIDTH, and the
+    page theme has no width token to spell one with. Inventing `--t-hairline`
+    here would have been the exact failure this package's tokens.test.ts exists
+    to catch — a `var()` that resolves to its fallback forever.
+  */
+  background: color-mix(in srgb, var(--t-text-muted, #6b7280) 10%, transparent);
+  border-radius: var(--t-radius, 12px);
+  color: var(--t-text-muted, #6b7280);
+  font-size: var(--t-font-size-sm, 0.8125rem);
+  margin: 0;
+  padding: var(--t-gap-sm, 8px);
+  text-align: center;
+}

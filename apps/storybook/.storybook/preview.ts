@@ -1,6 +1,8 @@
 import type { Preview } from '@storybook/react-vite';
 
 import '@craftkit/ui/styles.css';
+// Without this every builder story renders on fallback values rather than the theme.
+import '@craftkit/builder/css';
 
 /**
  * Direction global (008 §10 review fix): stories declaring

@@ -1,0 +1,242 @@
+.bldr-topbar {
+  align-items: center;
+  background-color: var(--bldr-surface);
+  block-size: var(--bldr-topbar-height);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: grid;
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-xl);
+  grid-template-columns:
+    minmax(var(--bldr-space-0), 1fr) auto
+    minmax(var(--bldr-space-0), 1fr);
+  inline-size: 100%;
+  min-block-size: var(--bldr-topbar-height);
+  padding-inline: var(--bldr-space-xl);
+}
+
+/* `justify-self` sizes a grid item to its CONTENT, not to its track, so an
+   over-full region grows past the column and overflows the bar instead of
+   shrinking inside it. The cap turns that fit-content back into fit-the-track.
+   Measured: without it a host's `extra` was drawn at x = -745 on a 1600px
+   viewport, straight across the device switcher. */
+.bldr-topbar__start {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-self: start;
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-topbar__logo {
+  align-items: center;
+  background-color: var(--bldr-accent-soft);
+  block-size: var(--bldr-control-height);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent);
+  display: inline-flex;
+  flex: none;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-bold);
+  inline-size: var(--bldr-control-height);
+  justify-content: center;
+  line-height: var(--bldr-line-height-tight);
+  overflow: hidden;
+}
+
+.bldr-topbar__product-name {
+  color: var(--bldr-panel-text);
+  display: block;
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-topbar__devices {
+  align-items: center;
+  background-color: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  display: inline-flex;
+  gap: var(--bldr-space-2xs);
+  justify-self: center;
+}
+
+.bldr-topbar__device {
+  background-color: var(--bldr-surface-sunken);
+  border: none;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-0);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-topbar__device:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-topbar__device[aria-checked='true'] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent);
+}
+
+.bldr-topbar__device[aria-checked='true']:hover {
+  background-color: var(--bldr-accent-soft-hover);
+  color: var(--bldr-accent-strong);
+}
+
+.bldr-topbar__end {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  justify-content: flex-end;
+  justify-self: end;
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+}
+
+/* The host's own slot. It holds content this component has never seen, so the
+   one thing it must never do is escape: `flex: none` here meant a wide `extra`
+   refused to shrink and drew straight over the centre track — the device
+   switcher measured 138px wide and 1062px of host content was painted across
+   it. A slot for arbitrary content shrinks and scrolls inside itself. */
+.bldr-topbar__extra {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: inline-flex;
+  flex: 0 1 auto;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-xs);
+  line-height: var(--bldr-line-height-snug);
+  /* The token, not `100%`: a percentage resolves against a containing block
+     whose own height is `auto` here, so it is simply ignored — measured at
+     318px inside a var(--bldr-topbar-height) bar. */
+  max-block-size: var(--bldr-topbar-height);
+  min-inline-size: var(--bldr-space-0);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.bldr-topbar__icon-button {
+  background-color: var(--bldr-panel-control);
+  border: none;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-0);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-topbar__icon-button:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-accent);
+}
+
+.bldr-topbar__icon-button:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-accent-strong);
+}
+
+.bldr-topbar__icon-button:disabled,
+.bldr-topbar__icon-button:disabled:hover,
+.bldr-topbar__icon-button:disabled:active {
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+.bldr-topbar__divider {
+  align-self: center;
+  block-size: var(--bldr-control-height);
+  border-inline-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  flex: none;
+  margin-inline: var(--bldr-space-2xs);
+}
+
+.bldr-topbar__preview {
+  background-color: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-sm);
+  line-height: var(--bldr-line-height-tight);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-xl);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-topbar__preview:hover {
+  background-color: var(--bldr-surface-hover);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-strong);
+}
+
+.bldr-topbar__preview:active {
+  background-color: var(--bldr-surface-active);
+  border-color: var(--bldr-accent-strong);
+  color: var(--bldr-accent-strong);
+}
+
+.bldr-topbar__publish {
+  align-items: stretch;
+  background-color: var(--bldr-accent);
+  border-radius: var(--bldr-radius-md);
+  display: inline-flex;
+  flex: none;
+}
+
+.bldr-topbar__publish-main,
+.bldr-topbar__publish-options {
+  background-color: var(--bldr-accent);
+  border: none;
+  border-radius: var(--bldr-radius-none);
+  color: var(--bldr-accent-text);
+  line-height: var(--bldr-line-height-tight);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-topbar__publish-main {
+  border-end-start-radius: var(--bldr-radius-md);
+  border-start-start-radius: var(--bldr-radius-md);
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-semibold);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-xl);
+}
+
+.bldr-topbar__publish-options {
+  border-end-end-radius: var(--bldr-radius-md);
+  border-inline-start: var(--bldr-border-hairline) solid var(--bldr-accent-ring);
+  border-start-end-radius: var(--bldr-radius-md);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-0);
+}
+
+.bldr-topbar__publish-main:hover,
+.bldr-topbar__publish-options:hover,
+.bldr-topbar__publish-main:active,
+.bldr-topbar__publish-options:active {
+  background-color: var(--bldr-accent-strong);
+  color: var(--bldr-accent-text);
+}

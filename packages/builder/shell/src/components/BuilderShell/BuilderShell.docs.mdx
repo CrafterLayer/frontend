@@ -1,0 +1,116 @@
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+
+import * as BuilderShellStories from './BuilderShell.stories';
+
+<Meta of={BuilderShellStories} />
+
+# BuilderShell
+
+The editor's layout, and the only component in the product that knows what that layout is.
+
+## Purpose
+
+Everything `BuilderShell` places is a **slot**. It imports no palette, no inspector, no canvas — so
+the layout can change without touching them, and they can change without touching it. Before it, the
+playground assembled the editor from nested flexboxes with inline sizes, which meant the layout was
+true in one file and approximated in every other.
+
+## Usage
+
+```tsx
+import { BuilderShell } from '@craftkit/builder';
+
+<BuilderShell
+  top={<TopBar kernel={kernel} />}
+  rail={<IconRail items={sections} activeId="blocks" />}
+  panel={<Palette kernel={kernel} />}
+  canvas={<EditorCanvas kernel={kernel} theme={lightTheme} editable />}
+  dock={codeViewOpen ? <CodeViewPanel … /> : undefined}
+  aside={<Inspector kernel={kernel} bucket={bucket} />}
+  status={<StatusBar kernel={kernel} />}
+/>;
+```
+
+## API
+
+| Prop             | Type                        | Notes                                                                 |
+| ---------------- | --------------------------- | --------------------------------------------------------------------- |
+| `canvas`         | `ReactNode`                 | **Required.** The only region with no reserved size.                  |
+| `rail`           | `ReactNode`                 | The primary navigation rail.                                          |
+| `panel`          | `ReactNode`                 | Blocks, layers, assets.                                               |
+| `panelPriority`  | `'optional' \| 'essential'` | Whether a narrow viewport may drop the panel. Defaults to `optional`. |
+| `dock`           | `ReactNode`                 | Code view or the assistant, under the canvas.                         |
+| `aside`          | `ReactNode`                 | The inspector, or whatever replaces it.                               |
+| `top` / `status` | `ReactNode`                 | The two full-width bands.                                             |
+| `label`          | `string`                    | Names the editor; defaults to `Builder`.                              |
+| `className`      | `string`                    | Merged **after** `bldr-shell`, never instead of it.                   |
+
+## Three decisions, each with an obvious wrong answer
+
+**Sizes are tokens, not props.** A `panelWidth` prop would put the number in every call site.
+`--bldr-panel-width` puts it in the theme, so density is one decision and a host can re-point it at
+runtime exactly like a colour.
+
+**An absent region costs nothing.** The component renders no element for a region it was not given,
+and the stylesheet collapses that track with `:has()`. Computing a `grid-template` in JavaScript
+instead would make the layout true in two places and eventually in neither.
+
+**Only the grid scrolls its regions.** The shell fills its container and hides its own overflow;
+each region scrolls inside its track. An editor that scrolls as a page loses its toolbars the moment
+the document grows.
+
+The canvas is the one region with no reserved size — everything else is measured and the canvas is
+what remains. That is the whole argument for "every pixel goes to the page".
+
+## Variants
+
+<Canvas of={BuilderShellStories.FullEditor} />
+<Canvas of={BuilderShellStories.WithDock} />
+
+The dock belongs to the **canvas column**, not to the outer grid. If it were a sibling of the canvas
+at the top level, opening the code view would narrow the palette and the inspector too — which is
+not what "docked under the page" means.
+
+<Canvas of={BuilderShellStories.AssistantOpen} />
+
+Opening the assistant folds the palette away rather than squeezing the page, and the story asserts
+that the freed pixels went to the canvas.
+
+<Canvas of={BuilderShellStories.CanvasOnly} />
+<Canvas of={BuilderShellStories.RightToLeft} />
+
+## Accessibility
+
+- The shell is a `role="application"` region with an accessible name, so assistive technology can
+  announce it and jump to it.
+- **DOM order is the contract.** Grid areas can place a region anywhere on screen, which makes it
+  easy to ship a tab sequence that jumps around; a test pins the child order to the visual one.
+- The component sets no `tabindex` and traps nothing. Focus lives with the regions.
+
+## Responsive
+
+Two breakpoints, both expressed as layout rather than as JavaScript:
+
+- **below 1180px** the panel is hidden — the canvas is the subject, and the inspector is what you
+  act with, so the palette goes first;
+- **below 900px** the inspector follows.
+
+That first rule is only right for SOME panel contents, and this component never sees which it was
+handed — that is what a slot means. A palette is a source you dip into and can go; the document's
+structure is how a person navigates the page and cannot. So the host decides, with
+`panelPriority="essential"`, and the canvas narrows instead of the panel disappearing.
+
+The default stays `optional`, which is the behaviour every existing host already has. It matters:
+before the prop existed, moving a layer tree into the panel made it vanish between 900 and 1180
+while the navigation still marked it as the open destination — the shell was deleting content on the
+host's behalf, which is the one thing a container must never do.
+
+A host that wants more room without losing a region reaches for `density="compact"` on
+`BuilderTheme`, which tightens every band instead of removing one.
+
+## RTL
+
+Logical properties throughout, so the whole editor mirrors with no second stylesheet and no
+JavaScript: the rail moves to the right, borders swap edges, and the dock stays under the canvas.
+The `RightToLeft` story asserts the rail actually ends up on the far side rather than merely
+rendering.

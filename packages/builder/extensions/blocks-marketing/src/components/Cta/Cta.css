@@ -1,17 +1,48 @@
 .mkt-cta {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--t-gap-xs, 4px);
+}
+
+.mkt-cta--full {
+  display: flex;
+  inline-size: 100%;
 }
 
 .mkt-cta__button {
   border: 1px solid transparent;
   border-radius: var(--t-radius, 12px);
   cursor: pointer;
-  font-size: 1rem;
   font-weight: 600;
-  padding-block: 10px;
-  padding-inline: 20px;
+}
+
+/*
+  Size lives entirely in the modifier. The base used to set a padding and a font
+  size too, which every modifier then overrode — three declarations that looked
+  like the button's defaults and could never apply, because `size` is a required
+  property with a default and its class is therefore always present.
+*/
+
+.mkt-cta__button--sm {
+  font-size: 0.875rem;
+  padding-block: var(--t-control-padding-block-sm, 8px);
+  padding-inline: var(--t-control-padding-inline-sm, 14px);
+}
+
+.mkt-cta__button--md {
+  font-size: 1rem;
+  padding-block: var(--t-control-padding-block-md, 10px);
+  padding-inline: var(--t-control-padding-inline-md, 20px);
+}
+
+.mkt-cta__button--lg {
+  font-size: 1.125rem;
+  padding-block: var(--t-control-padding-block-lg, 14px);
+  padding-inline: var(--t-control-padding-inline-lg, 28px);
+}
+
+.mkt-cta--full .mkt-cta__button {
+  inline-size: 100%;
 }
 
 .mkt-cta__button--primary {

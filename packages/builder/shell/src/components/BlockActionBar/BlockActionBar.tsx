@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type SyntheticEvent } from 'react';
 
+import { ChromeButton } from '../ChromeButton';
 import type { BlockAction } from '../../overlay/block-actions';
 import './BlockActionBar.css';
 
@@ -95,13 +96,14 @@ export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBar
       }}
     >
       {actions.map((action, index) => (
-        <button
+        <ChromeButton
           key={action.id}
           ref={(element) => {
             buttons.current[index] = element;
           }}
-          type="button"
           className="bldr-block-actions__action"
+          size="lg"
+          variant="quiet"
           disabled={!action.enabled}
           tabIndex={index === tabStop ? 0 : -1}
           onFocus={() => {
@@ -112,7 +114,7 @@ export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBar
           }}
         >
           {action.label}
-        </button>
+        </ChromeButton>
       ))}
     </div>
   );

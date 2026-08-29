@@ -5,15 +5,15 @@
 }
 
 .bldr-preview:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 2px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-thick);
 }
 
 .bldr-preview__exit {
   background: var(--bldr-panel, #f8fafc);
-  border: 1px solid var(--bldr-panel-border, #e2e8f0);
-  border-radius: 999px;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border, #e2e8f0);
+  border-radius: var(--bldr-radius-full);
+  box-shadow: 0 var(--bldr-border-hairline) var(--bldr-space-xs) rgb(0 0 0 / 15%);
   color: var(--bldr-panel-text, #334155);
   cursor: pointer;
   font-family: var(--bldr-font, system-ui, sans-serif);

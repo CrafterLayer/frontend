@@ -160,6 +160,260 @@ const stateArgs = {
   onChange: () => undefined,
 };
 
+const COMMAND_NAMES = [
+  'Bold',
+  'Italic',
+  'Heading 2',
+  'Heading 3',
+  'Bulleted list',
+  'Numbered list',
+  'Link',
+  'Clear formatting',
+] as const;
+
+export const IconHouseStyle: Story = {
+  name: 'Chromium · icon house style',
+  args: { ...stateArgs, value: emptyRichText() },
+  render: (args) => (
+    <div style={{ inlineSize: '420px', maxInlineSize: '100%' }}>
+      <RichTextField {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const buttons = canvas.getAllByRole('button');
+    const view = canvasElement.ownerDocument.defaultView;
+    if (view === null) {
+      throw new Error('Chromium window must exist');
+    }
+    const renderedGlyphs = new Set<string>();
+
+    // Mutation guard: changing any glyph to a 2px/square/non-currentColor
+    // idiom makes this named Chromium story fail on resolved styles.
+    await expect(buttons).toHaveLength(COMMAND_NAMES.length);
+    for (const [index, button] of buttons.entries()) {
+      const commandName = COMMAND_NAMES[index];
+      if (commandName === undefined) {
+        throw new Error(`Unexpected toolbar button at index ${String(index)}`);
+      }
+      await expect(button).toHaveAccessibleName(commandName);
+      const buttonBox = button.getBoundingClientRect();
+      const buttonStyle = view.getComputedStyle(button);
+      const minimumInlineSize = Number.parseFloat(buttonStyle.minInlineSize);
+      const minimumBlockSize = Number.parseFloat(buttonStyle.minBlockSize);
+      await expect(minimumInlineSize).toBeGreaterThan(0);
+      await expect(minimumBlockSize).toBeGreaterThan(0);
+      await expect(buttonBox.width).toBeGreaterThanOrEqual(minimumInlineSize);
+      await expect(buttonBox.height).toBeGreaterThanOrEqual(minimumBlockSize);
+
+      const icon = button.querySelector('svg');
+      if (icon === null) {
+        throw new Error(`${commandName} must render an SVG icon`);
+      }
+      const iconBox = icon.getBoundingClientRect();
+      const paintedBox = icon.getBBox();
+      const iconStyle = view.getComputedStyle(icon);
+      renderedGlyphs.add(icon.innerHTML);
+
+      await expect(iconBox.width).toBe(17);
+      await expect(iconBox.height).toBe(17);
+      await expect(paintedBox.width).toBeGreaterThan(0);
+      await expect(paintedBox.height).toBeGreaterThan(0);
+      await expect(icon.getAttribute('viewBox')).toBe('0 0 16 16');
+      await expect(iconStyle.fill).toBe('none');
+      await expect(iconStyle.stroke).toBe(buttonStyle.color);
+      await expect(iconStyle.strokeWidth).toBe('1.5px');
+      await expect(iconStyle.strokeLinecap).toBe('round');
+      await expect(iconStyle.strokeLinejoin).toBe('round');
+      await expect(icon).toHaveAttribute('aria-hidden', 'true');
+      await expect(icon).toHaveAttribute('focusable', 'false');
+    }
+    await expect(renderedGlyphs.size).toBe(COMMAND_NAMES.length);
+
+    const bold = canvas.getByRole('button', { name: 'Bold' });
+    const italic = canvas.getByRole('button', { name: 'Italic' });
+    if (bold.getAttribute('aria-pressed') !== 'true') {
+      await userEvent.click(bold);
+    }
+    await waitFor(async () => {
+      await expect(bold).toHaveAttribute('aria-pressed', 'true');
+      const pressedStyle = view.getComputedStyle(bold);
+      const idleStyle = view.getComputedStyle(italic);
+      await expect(pressedStyle.backgroundColor).not.toBe(idleStyle.backgroundColor);
+      await expect(pressedStyle.borderColor).not.toBe(idleStyle.borderColor);
+      await expect(pressedStyle.color).not.toBe(idleStyle.color);
+    });
+
+    const stylesheetRules = Array.from(canvasElement.ownerDocument.styleSheets).flatMap(
+      (stylesheet) => {
+        try {
+          return Array.from(stylesheet.cssRules, (rule) => rule.cssText);
+        } catch {
+          return [];
+        }
+      },
+    );
+    // Mutation guard: deleting the reduced-motion tooltip override makes this
+    // named Chromium story fail even when the default transition still works.
+    await expect(
+      stylesheetRules.some(
+        (rule) =>
+          rule.includes('@media (prefers-reduced-motion: reduce)') &&
+          rule.includes('.bldr-richtext-field__tooltip') &&
+          rule.includes('transition: none'),
+      ),
+    ).toBe(true);
+  },
+};
+
+export const TooltipHoverFocusAndContainment: Story = {
+  name: 'Chromium · tooltip hover, focus, and containment',
+  args: { ...stateArgs, value: emptyRichText() },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: '24px' }}>
+      <div data-tooltip-fixture="ltr" dir="ltr" style={{ inlineSize: '312px' }}>
+        <RichTextField {...args} />
+      </div>
+      <div data-tooltip-fixture="rtl" dir="rtl" style={{ inlineSize: '312px' }}>
+        <RichTextField {...args} />
+      </div>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const view = canvasElement.ownerDocument.defaultView;
+    if (view === null) {
+      throw new Error('Chromium window must exist');
+    }
+
+    const getFixture = (direction: 'ltr' | 'rtl') => {
+      const fixture = canvasElement.querySelector<HTMLElement>(
+        `[data-tooltip-fixture="${direction}"]`,
+      );
+      if (fixture === null) {
+        throw new Error(`${direction} tooltip fixture must render`);
+      }
+      const fixtureCanvas = within(fixture);
+      return {
+        toolbar: fixtureCanvas.getByRole('group', { name: 'Formatting' }),
+        tooltip: fixtureCanvas.getByRole('tooltip', { hidden: true }),
+        clear: fixtureCanvas.getByRole('button', { name: 'Clear formatting' }),
+        bold: fixtureCanvas.getByRole('button', { name: 'Bold' }),
+      };
+    };
+    const ltr = getFixture('ltr');
+    const rtl = getFixture('rtl');
+
+    const expectVisibleInsideToolbar = async (
+      toolbar: HTMLElement,
+      tooltip: HTMLElement,
+      anchor: HTMLElement,
+      label: string,
+    ) => {
+      await waitFor(async () => {
+        const tooltipStyle = view.getComputedStyle(tooltip);
+        await expect(tooltip).toHaveTextContent(label);
+        await expect(tooltipStyle.visibility).toBe('visible');
+        await expect(Number.parseFloat(tooltipStyle.opacity)).toBe(1);
+
+        const toolbarBox = toolbar.getBoundingClientRect();
+        const tooltipBox = tooltip.getBoundingClientRect();
+        const anchorBox = anchor.getBoundingClientRect();
+        const anchorCenter = anchorBox.left + anchorBox.width / 2;
+        await expect(toolbarBox.width).toBeGreaterThan(0);
+        await expect(toolbarBox.height).toBeGreaterThan(0);
+        await expect(tooltipBox.width).toBeGreaterThan(0);
+        await expect(tooltipBox.height).toBeGreaterThan(0);
+        await expect(anchorBox.width).toBeGreaterThan(0);
+        await expect(tooltipBox.left).toBeGreaterThanOrEqual(toolbarBox.left - 0.5);
+        await expect(tooltipBox.right).toBeLessThanOrEqual(toolbarBox.right + 0.5);
+        await expect(tooltipBox.top).toBeGreaterThanOrEqual(toolbarBox.top - 0.5);
+        await expect(tooltipBox.bottom).toBeLessThanOrEqual(toolbarBox.bottom + 0.5);
+        await expect(anchorCenter).toBeGreaterThanOrEqual(tooltipBox.left - 0.5);
+        await expect(anchorCenter).toBeLessThanOrEqual(tooltipBox.right + 0.5);
+      });
+    };
+
+    await expect(ltr.tooltip).toHaveAttribute('aria-hidden', 'true');
+    await expect(rtl.tooltip).toHaveAttribute('aria-hidden', 'true');
+    await expect(view.getComputedStyle(ltr.toolbar).direction).toBe('ltr');
+    await expect(view.getComputedStyle(rtl.toolbar).direction).toBe('rtl');
+    await expect(view.getComputedStyle(ltr.tooltip).visibility).toBe('hidden');
+    await expect(view.getComputedStyle(rtl.tooltip).visibility).toBe('hidden');
+
+    // Mutation guard: removing the hover event, focus event, either direction's
+    // positioning branch, or edge clamping makes this named story fail.
+    await userEvent.hover(ltr.clear);
+    await expectVisibleInsideToolbar(ltr.toolbar, ltr.tooltip, ltr.clear, 'Clear formatting');
+    await userEvent.unhover(ltr.clear);
+    await waitFor(async () => {
+      await expect(view.getComputedStyle(ltr.tooltip).visibility).toBe('hidden');
+    });
+
+    canvasElement.ownerDocument.body.focus();
+    await userEvent.tab();
+    await expect(ltr.bold).toHaveFocus();
+    await expectVisibleInsideToolbar(ltr.toolbar, ltr.tooltip, ltr.bold, 'Bold');
+
+    await userEvent.hover(rtl.clear);
+    await expectVisibleInsideToolbar(rtl.toolbar, rtl.tooltip, rtl.clear, 'Clear formatting');
+  },
+};
+
+export const ResponsiveToolbarFit: Story = {
+  name: 'Chromium · responsive toolbar fit',
+  args: { ...stateArgs, value: emptyRichText() },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: '24px' }}>
+      <div data-toolbar-fixture="wide" style={{ inlineSize: '420px', maxInlineSize: '100%' }}>
+        <RichTextField {...args} />
+      </div>
+      <div data-toolbar-fixture="narrow" style={{ inlineSize: '312px', maxInlineSize: '100%' }}>
+        <RichTextField {...args} />
+      </div>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const assertContained = async (fixtureName: 'wide' | 'narrow') => {
+      const fixture = canvasElement.querySelector<HTMLElement>(
+        `[data-toolbar-fixture="${fixtureName}"]`,
+      );
+      if (fixture === null) {
+        throw new Error(`${fixtureName} toolbar fixture must render`);
+      }
+      const toolbar = within(fixture).getByRole('group', { name: 'Formatting' });
+      const buttons = within(fixture).getAllByRole('button');
+      const fixtureBox = fixture.getBoundingClientRect();
+      const toolbarBox = toolbar.getBoundingClientRect();
+
+      await expect(fixtureBox.width).toBeGreaterThan(0);
+      await expect(toolbarBox.width).toBeGreaterThan(0);
+      await expect(buttons).toHaveLength(COMMAND_NAMES.length);
+      await expect(toolbar.scrollWidth).toBeLessThanOrEqual(toolbar.clientWidth);
+      await expect(toolbarBox.left).toBeGreaterThanOrEqual(fixtureBox.left - 0.5);
+      await expect(toolbarBox.right).toBeLessThanOrEqual(fixtureBox.right + 0.5);
+      await expect(toolbarBox.top).toBeGreaterThanOrEqual(fixtureBox.top - 0.5);
+      await expect(toolbarBox.bottom).toBeLessThanOrEqual(fixtureBox.bottom + 0.5);
+      for (const button of buttons) {
+        const buttonBox = button.getBoundingClientRect();
+        await expect(buttonBox.width).toBeGreaterThan(0);
+        await expect(buttonBox.height).toBeGreaterThan(0);
+        await expect(buttonBox.left).toBeGreaterThanOrEqual(toolbarBox.left - 0.5);
+        await expect(buttonBox.right).toBeLessThanOrEqual(toolbarBox.right + 0.5);
+      }
+      return new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top))).size;
+    };
+
+    // Mutation guard: `flex-wrap: nowrap` makes the 312px fixture overflow and
+    // this named story fail; shrinking the targets makes the wide-row proof lie.
+    const wideRows = await assertContained('wide');
+    const narrowRows = await assertContained('narrow');
+    await expect(wideRows).toBe(1);
+    await expect(narrowRows).toBeGreaterThan(1);
+    const narrow = canvasElement.querySelector<HTMLElement>('[data-toolbar-fixture="narrow"]');
+    await expect(narrow?.getBoundingClientRect().width).toBe(312);
+  },
+};
+
 export const Empty: Story = {
   args: { ...stateArgs, value: emptyRichText() },
   render: (args) => <RichTextField {...args} />,

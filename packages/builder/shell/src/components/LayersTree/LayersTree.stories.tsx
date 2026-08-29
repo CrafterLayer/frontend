@@ -14,10 +14,10 @@ import {
 import { LayersTree } from './LayersTree';
 
 const NullRender: BlockRenderComponent = () => null;
-const block = (type: string, label: string, slots?: Record<string, { allow: string[] }>) => ({
+const block = (type: string, description: string, slots?: Record<string, { allow: string[] }>) => ({
   schema: defineBlockSchema({
     type,
-    description: label,
+    description,
     props: z.object({}),
     ...(slots === undefined ? {} : { slots }),
     examples: [],
@@ -31,9 +31,24 @@ const VOCAB: TrustedExtensionManifest = {
   version: '1.0.0',
   contributes: {
     blocks: [
-      block('page', 'Page', { default: { allow: ['section'] } }),
-      block('section', 'Section', { default: { allow: ['text', 'section'] } }),
-      block('text', 'Text'),
+      block(
+        'page',
+        'The page root. Holds top-level sections in order. Exactly one per document; never nested.',
+        { default: { allow: ['hero', 'section'] } },
+      ),
+      block(
+        'hero',
+        'Opening section at the top of a page: a large heading, optional supporting body, and up to two call-to-action buttons. Use once per page.',
+        { default: { allow: ['cta'] } },
+      ),
+      block(
+        'cta',
+        'A call-to-action button with a short label and an emphasis level; optionally a small supporting note underneath.',
+      ),
+      block('section', 'A structural section that groups related page content.', {
+        default: { allow: ['text', 'section'] },
+      }),
+      block('text', 'A paragraph of editable text content.'),
     ],
   },
 };
@@ -45,8 +60,14 @@ const DOC: BuilderDocument = {
   rootId: 'root',
   nodes: {
     root: { id: 'root', type: 'page', props: {}, slots: { default: ['hero', 'body'] } },
-    hero: { id: 'hero', type: 'section', props: {}, slots: { default: ['h1'] } },
-    h1: { id: 'h1', type: 'text', props: {} },
+    hero: {
+      id: 'hero',
+      type: 'hero',
+      props: {},
+      slots: { default: ['cta-start', 'cta-docs'] },
+    },
+    'cta-start': { id: 'cta-start', type: 'cta', props: {} },
+    'cta-docs': { id: 'cta-docs', type: 'cta', props: {} },
     body: { id: 'body', type: 'section', props: {}, slots: { default: ['p1', 'nested'] } },
     p1: { id: 'p1', type: 'text', props: {} },
     nested: { id: 'nested', type: 'section', props: {}, slots: { default: ['p2'] } },
@@ -64,6 +85,13 @@ const makeKernel = () =>
 const meta = {
   title: 'Builder/Shell/LayersTree',
   component: LayersTree,
+  decorators: [
+    (Story) => (
+      <div className="bldr-root">
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof LayersTree>;
 export default meta;
 

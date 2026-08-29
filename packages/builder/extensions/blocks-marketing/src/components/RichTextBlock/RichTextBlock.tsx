@@ -3,6 +3,8 @@ import './RichTextBlock.css';
 import { isValidElement } from 'react';
 
 import type { BlockRenderProps } from '@craftkit/builder-schema';
+
+import { sectionColorStyle } from '../section-color';
 import { RichText } from '@craftkit/builder-renderer';
 
 import type { RichTextBlockProps } from './schema';
@@ -20,7 +22,7 @@ import type { RichTextBlockProps } from './schema';
  */
 export function RichTextBlock({ props }: BlockRenderProps<RichTextBlockProps>) {
   return (
-    <section className="mkt-richtext">
+    <section className="mkt-richtext" style={sectionColorStyle(props)}>
       {isValidElement(props.content) ? props.content : <RichText value={props.content} />}
     </section>
   );

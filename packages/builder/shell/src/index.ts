@@ -4,6 +4,24 @@
 // B2b adds drag editing; B3a adds the inspector, devices, and preview mode.
 
 export { BUCKET_THRESHOLDS, bucketForWidth, type EditingBucket } from './devices/buckets';
+export { BuilderShell, type BuilderShellProps } from './components/BuilderShell';
+export {
+  CHROME_BUTTON_SIZE_TOKENS,
+  CHROME_BUTTON_VARIANTS,
+  ChromeButton,
+  type ChromeButtonProps,
+  type ChromeButtonSize,
+  type ChromeButtonVariant,
+} from './components/ChromeButton';
+export { IconRail, type IconRailProps, type RailItem } from './components/IconRail';
+export {
+  StatusBar,
+  type ChangeDoor,
+  type RecentChange,
+  type StatusBarProps,
+  type StatusBarTool,
+} from './components/StatusBar';
+export { TopBar, type TopBarDevice, type TopBarProps } from './components/TopBar';
 export { DeviceBar, type DeviceBarProps, type DeviceState } from './components/DeviceBar';
 export { EditorCanvas } from './components/EditorCanvas';
 export type {

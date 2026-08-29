@@ -11,7 +11,13 @@ Customer quotes with attribution, rendered as semantic figures.
 ## Props (intent-only)
 
 - `heading: string (1–80) = 'Loved by teams'`
+- `body?: string (1–200)` — supporting copy below the heading.
 - `items (≤6): Array<{ quote (1–240); author (1–60); role? (≤60) }> = []`
+- `columns: 'auto' | '1' | '2' | '3' = 'auto'`
+- `align: 'start' | 'center' | 'end' = 'start'`
+- `tone: 'transparent' | 'light' | 'dark' = 'transparent'`
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'md'`
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'full'`
 
 ## Accessibility
 
@@ -21,4 +27,5 @@ author.
 ## Theming & RTL
 
 Tokens + logical properties; the accent bar uses `border-inline-start`, so it sits on the reading
-side in both directions.
+side in both directions. `auto` preserves the responsive card grid while fixed columns provide an
+explicit layout choice.

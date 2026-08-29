@@ -1,0 +1,295 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+import { createBuilder, insertedNodeId } from '@craftkit/builder-core';
+import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
+import {
+  defineBlockSchema,
+  type BlockRenderComponent,
+  type TrustedExtensionManifest,
+} from '@craftkit/builder-schema';
+
+import { assembleAiContext } from '../context';
+import { applyAiPlan } from '../plan/apply-plan';
+import { generateAiPlan } from '../plan/generate-plan';
+import { createLocalAiPlanProvider, LocalAiProviderError } from './local-provider';
+
+const NullRender: BlockRenderComponent = () => null;
+
+const pricingSchema = defineBlockSchema({
+  type: 'pricing',
+  description:
+    'Pricing plans side by side: each plan has a name, price, billing period, and feature list.',
+  props: z.object({
+    heading: z.string().min(1).max(80).default('Pricing'),
+    plans: z
+      .array(
+        z.object({
+          name: z.string().min(1).max(40),
+          price: z.string().min(1).max(20),
+          period: z.enum(['month', 'year']),
+          features: z.array(z.string().min(1).max(80)).max(8),
+          highlighted: z.boolean().optional(),
+        }),
+      )
+      .max(4)
+      .default([]),
+    columns: z.enum(['auto', '2', '3', '4']).default('auto'),
+  }),
+  examples: [
+    {
+      prompt: 'simple two-plan yearly pricing',
+      node: {
+        type: 'pricing',
+        props: {
+          heading: 'Simple pricing',
+          columns: '2',
+          plans: [
+            { name: 'Solo', price: '$90', period: 'year', features: ['1 seat'] },
+            {
+              name: 'Team',
+              price: '$290',
+              period: 'year',
+              features: ['10 seats'],
+              highlighted: true,
+            },
+          ],
+        },
+      },
+    },
+  ],
+});
+
+const featureSchema = defineBlockSchema({
+  type: 'features',
+  description: 'A grid of feature cards with a title and body.',
+  props: z.object({
+    items: z.array(z.object({ title: z.string(), body: z.string() })).default([]),
+    columns: z.enum(['1', '2', '3', '4']).default('3'),
+  }),
+  examples: [
+    {
+      prompt: 'two product features',
+      node: {
+        type: 'features',
+        props: { items: [{ title: 'Fast', body: 'Ships quickly.' }], columns: '1' },
+      },
+    },
+  ],
+});
+
+const pageSchema = defineBlockSchema({
+  type: 'page',
+  description: 'The root page that accepts marketing sections.',
+  props: z.object({}),
+  slots: { default: { allow: ['pricing', 'features'], max: 8 } },
+  examples: [],
+});
+
+const vocabulary: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'ai-local-provider-vocabulary',
+  version: '0.0.0',
+  contributes: {
+    blocks: [
+      { schema: pageSchema, render: NullRender },
+      { schema: pricingSchema, render: NullRender },
+      { schema: featureSchema, render: NullRender },
+    ],
+  },
+};
+
+function pricingKernel() {
+  return createBuilder({
+    document: {
+      schemaVersion: 1,
+      surface: 'site',
+      dir: 'ltr',
+      rootId: 'root',
+      nodes: { root: { id: 'root', type: 'page', props: {} } },
+    },
+    extensions: [vocabulary],
+    ports: { clock: fixedClock(1_000), ids: seededIds('pricing') },
+  });
+}
+
+function validationPorts(seed: string) {
+  return { clock: fixedClock(2_000), ids: seededIds(seed) };
+}
+
+describe('local deterministic AI provider', () => {
+  it('isolates nested provider context from the live document and registered examples', () => {
+    const kernel = pricingKernel();
+    const transaction = kernel.dispatch('insertNode', {
+      type: 'pricing',
+      parentId: 'root',
+      props: {
+        heading: 'Safe pricing',
+        columns: '2',
+        plans: [
+          { name: 'Solo', price: '$9', period: 'month', features: ['One seat'] },
+          { name: 'Team', price: '$29', period: 'month', features: ['Ten seats'] },
+        ],
+      },
+    });
+    const nodeId = insertedNodeId(transaction.patches);
+    expect(nodeId).toBeDefined();
+    kernel.setSelection(nodeId === undefined ? [] : [nodeId]);
+
+    const context = assembleAiContext(kernel.context);
+    const selectedPlans = context.selection.nodes[0]?.props['plans'];
+    const selectedFirst = Array.isArray(selectedPlans) ? selectedPlans[0] : undefined;
+    if (
+      typeof selectedFirst === 'object' &&
+      selectedFirst !== null &&
+      !Array.isArray(selectedFirst)
+    ) {
+      selectedFirst['name'] = 'Mutated outside dispatch';
+    }
+    const example = context.blocks.find(({ type }) => type === 'pricing')?.examples[0]?.node;
+    if (typeof example === 'object' && example !== null && !Array.isArray(example)) {
+      const props = example['props'];
+      if (typeof props === 'object' && props !== null && !Array.isArray(props)) {
+        const plans = props['plans'];
+        const first = Array.isArray(plans) ? plans[0] : undefined;
+        if (typeof first === 'object' && first !== null && !Array.isArray(first)) {
+          first['name'] = 'Mutated example';
+        }
+      }
+    }
+
+    const livePlans =
+      nodeId === undefined ? undefined : kernel.getDocument().nodes[nodeId]?.props['plans'];
+    const liveFirst = Array.isArray(livePlans) ? livePlans[0] : undefined;
+    expect(liveFirst).toMatchObject({ name: 'Solo' });
+    expect(pricingSchema.examples[0]?.node).toMatchObject({
+      props: { plans: [{ name: 'Solo' }, { name: 'Team' }] },
+    });
+    expect(kernel.transactions()).toHaveLength(1);
+  });
+
+  it('turns "add a pricing section with three plans" into a real valid block plan', async () => {
+    const kernel = pricingKernel();
+    const plan = await generateAiPlan({
+      kernel,
+      provider: createLocalAiPlanProvider(),
+      request: 'add a pricing section with three plans',
+      validationPorts: validationPorts('generate-pricing'),
+    });
+
+    expect(plan).toMatchObject({
+      commands: [
+        {
+          command: 'insertNode',
+          args: {
+            type: 'pricing',
+            parentId: 'root',
+            slot: 'default',
+            props: { columns: '3' },
+          },
+        },
+      ],
+    });
+    const step = plan.commands[0];
+    const args =
+      step !== undefined && typeof step.args === 'object' && step.args !== null
+        ? (step.args as Record<string, unknown>)
+        : {};
+    const props = args['props'] as Record<string, unknown> | undefined;
+    expect(props?.['plans']).toHaveLength(3);
+
+    const applied = applyAiPlan({
+      kernel,
+      plan,
+      validationPorts: validationPorts('apply-pricing'),
+    });
+    expect(applied).toMatchObject({ mode: 'sequence' });
+    expect(applied.transactions).toHaveLength(1);
+    const nodeId = insertedNodeId(applied.transactions[0]?.patches ?? []);
+    expect(nodeId).toBeDefined();
+    expect(kernel.getDocument().nodes[nodeId ?? '']).toMatchObject({
+      type: 'pricing',
+      props: { columns: '3', plans: expect.any(Array) as unknown },
+    });
+    expect(kernel.getDocument().nodes[nodeId ?? '']?.props['plans']).toHaveLength(3);
+  });
+
+  it('uses the current selection when it exposes a compatible slot', async () => {
+    const kernel = pricingKernel();
+    kernel.dispatch('insertNode', { type: 'features', parentId: 'root' });
+    kernel.setSelection(['root']);
+    const plan = await generateAiPlan({
+      kernel,
+      provider: createLocalAiPlanProvider(),
+      request: 'add two feature items',
+      validationPorts: validationPorts('selected-target'),
+    });
+    expect(plan.commands[0]).toMatchObject({
+      command: 'insertNode',
+      args: {
+        type: 'features',
+        parentId: 'root',
+        slot: 'default',
+        props: { columns: '2', items: expect.any(Array) as unknown },
+      },
+    });
+    const args = plan.commands[0]?.args as Record<string, unknown>;
+    const props = args['props'] as Record<string, unknown>;
+    expect(props['items']).toHaveLength(2);
+  });
+
+  it('understands Arabic-Indic counts and respects the array maximum', async () => {
+    const kernel = pricingKernel();
+    const plan = await generateAiPlan({
+      kernel,
+      provider: createLocalAiPlanProvider(),
+      request: 'pricing with ٩ plans',
+      validationPorts: validationPorts('arabic-digits'),
+    });
+    const step = plan.commands[0];
+    const args = step?.args as Record<string, unknown>;
+    const props = args['props'] as Record<string, unknown>;
+    expect(props['plans']).toHaveLength(4);
+    expect(props['columns']).toBe('4');
+
+    const singular = await generateAiPlan({
+      kernel: pricingKernel(),
+      provider: createLocalAiPlanProvider(),
+      request: 'pricing with ٣ plan',
+      validationPorts: validationPorts('singular-array-key'),
+    });
+    const singularArgs = singular.commands[0]?.args as Record<string, unknown>;
+    const singularProps = singularArgs['props'] as Record<string, unknown>;
+    expect(singularProps['plans']).toHaveLength(3);
+  });
+
+  it('refuses empty, unmatched, and structurally unplaceable requests', async () => {
+    const provider = createLocalAiPlanProvider();
+    const kernel = pricingKernel();
+    const context = assembleAiContext(kernel.context);
+
+    await expect(provider.propose('', context)).rejects.toThrow(LocalAiProviderError);
+    await expect(provider.propose('add an orbital telescope', context)).rejects.toThrow(
+      /No registered block matches/,
+    );
+    await expect(provider.propose('add a telescope', context)).rejects.toThrow(
+      /No registered block matches/,
+    );
+    await expect(provider.propose('!!!', context)).rejects.toThrow(/No registered block matches/);
+
+    const missingSelection = {
+      ...context,
+      selection: { ids: ['ghost'], nodes: [] },
+    };
+    await expect(provider.propose('add pricing', missingSelection)).resolves.toMatchObject({
+      commands: [{ args: { parentId: 'root' } }],
+    });
+
+    const fullKernel = pricingKernel();
+    for (let index = 0; index < 8; index += 1) {
+      fullKernel.dispatch('insertNode', { type: 'features', parentId: 'root' });
+    }
+    const fullContext = assembleAiContext(fullKernel.context);
+    await expect(provider.propose('add pricing', fullContext)).rejects.toThrow(/available slot/);
+  });
+});

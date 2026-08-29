@@ -1,0 +1,50 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as RepeaterFieldStories from './RepeaterField.stories';
+
+<Meta of={RepeaterFieldStories} />
+
+# RepeaterField
+
+`RepeaterField` is the Inspector's schema-generated editor for array properties. Use it only through
+the Inspector row renderer: every element field recurses into that same row path, including nested
+arrays.
+
+Each element is a collapsible card. The label is the first non-empty required string in the element
+object's declaration order, then the first non-empty declared string, then its numbered item
+fallback. A primitive string labels itself. Local card identity moves with the element, so collapsed
+state and child-row feedback never jump to a neighboring item after reorder or removal.
+
+An empty array visibly says `No items yet.` and still presents its Add item control whenever the
+schema can supply a valid seed and its maximum allows another item. The empty message is not a
+replacement for the add control.
+
+## Transactions and validation
+
+Add, remove, move up, and move down each propose exactly one new root-array value to the supplied
+`commit` door. Nested text and number rows draft while typing and propose the rebuilt root array
+once on blur or Enter. A rejected proposal records no accepted transaction, leaves document truth
+unchanged, and stays adjacent to the item action that caused it rather than appearing on another
+card.
+
+Array elements recurse through the Inspector's same row renderer. For example, a Pricing block's
+`plans[].features` array uses another `RepeaterField`; its add and remove actions rebuild the
+feature array, then its plan, then the one root `plans` value through the same commit door.
+
+The array schema supplies its element shape and minimum/maximum bounds. Add and Remove become native
+disabled buttons at their bound, and visible text explains why. Move Up is disabled for the first
+element and Move Down for the last, preventing a non-action at either end. If a supported element
+has no default, the field creates a recursively valid starting value from required strings, the
+first enum member, booleans, numbers, objects, and nested arrays.
+
+## Accessibility and keyboard behavior
+
+The cards form an ordered list. Each disclosure is a button with `aria-expanded` and
+`aria-controls`; its field region is a named group. Move Up, Move Down, Remove, and Add are native
+buttons, so reordering works with Enter or Space without a drag gesture. After a keyboard move,
+focus follows the moved card. Bound reasons and door rejections are connected only to the causing
+control through `aria-describedby`; a rejection on one child card is not announced as a description
+of its siblings.
+
+The component uses the Inspector control scale. It does not use the larger canvas-chrome touch
+target.

@@ -138,7 +138,18 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
   const last = rects[rects.length - 1] ?? union;
   const needed = size.height + gap;
   const roomAbove = frame.y + first.y - needed;
-  const roomBelow = viewport.height - (frame.y + last.y + last.height + needed);
+  /*
+    Room below is measured against the CLIP BOX, not the window. `viewport` is
+    `window.innerHeight`, which counts the status bar and everything else
+    outside the canvas as free space — so for the last block on a scrolled page
+    this said there was room, the bar was placed below, and the layer clipped it.
+    Measured: the bar landed at y 955-989 while its clipping parent ended at 963,
+    leaving a 4px sliver of each 26px button visible and the status bar catching
+    every click aimed at the centre. `visible` IS the clip box, which is why it
+    was already passed in; it was only ever consulted for the off-screen test.
+  */
+  const clipBottom = Math.min(viewport.height, frame.y + visible.height);
+  const roomBelow = clipBottom - (frame.y + last.y + last.height + needed);
   const placeAbove =
     (input.prefer ?? 'above') === 'above'
       ? roomAbove >= 0
@@ -176,9 +187,16 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
       ? 0
       : clamp(arrowTarget, arrowLimit, Math.max(size.width - arrowLimit, arrowLimit));
 
+  /*
+    And clamp against the clip box at BOTH ends. Only the top was clamped, so
+    nothing stopped a placement running past the bottom edge into a region the
+    layer does not paint.
+  */
+  const maxY = Math.max(visible.height - size.height, 0);
+
   return {
     x,
-    y: Math.max(y, 0),
+    y: Math.min(Math.max(y, 0), maxY),
     placement: placeAbove ? 'above' : 'below',
     hidden,
     arrowOffset,

@@ -1,3 +1,5 @@
+import { StrictMode } from 'react';
+
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -67,6 +69,37 @@ afterEach(() => {
 });
 
 describe('CodeViewShowcase', () => {
+  it('opens under StrictMode, which is how the application actually runs it', async () => {
+    /*
+      THE GATE THIS COMPONENT WAS MISSING, and the reason it was missing: every
+      other test in this file renders the showcase bare, while `main.tsx` wraps
+      the app in `StrictMode`. React then mounts, unmounts and remounts, and the
+      component's mounted flag was a `useRef(true)` with a cleanup-only effect —
+      so the simulated unmount set it to false and NOTHING set it back.
+
+      From then on the open path took its "the component went away" branch: it
+      disposed the adapter it had just built, terminated the worker it had just
+      started, and returned without clearing `opening`. Nothing threw, so
+      nothing was shown. In a real browser the button read "Opening code view…"
+      forever and the feature could not be opened at all — while every module
+      it needed still loaded with a 200.
+    */
+    const kernel = createPlaygroundKernel({ fixture: 'code-view' });
+    render(
+      <StrictMode>
+        <CodeViewShowcase kernel={kernel} workerClient={testClient()} debounceMs={0} />
+      </StrictMode>,
+    );
+
+    const open = screen.getByRole('button', { name: 'Open code view' });
+    await userEvent.setup().click(open);
+
+    expect(await screen.findByRole('textbox', { name: 'Document code' })).toBeInTheDocument();
+    // And the control finished its journey rather than being stranded mid-open.
+    expect(screen.getByRole('button', { name: 'Close code view' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Opening code view…' })).not.toBeInTheDocument();
+  });
+
   it('keeps the contributed panel unloaded until Open code view is pressed', async () => {
     const kernel = createPlaygroundKernel({ fixture: 'code-view' });
     const load = vi.spyOn(codeViewContribution(kernel), 'load');

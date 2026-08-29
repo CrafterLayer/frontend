@@ -10,9 +10,9 @@
 
 .bldr-inline-rich:focus-visible,
 .bldr-inline-rich:focus {
-  border-radius: 2px;
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 2px;
+  border-radius: var(--bldr-border-thick);
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-thick);
 }
 
 /* The document's own blocks keep their flow; the surface never re-styles what

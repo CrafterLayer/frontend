@@ -1,59 +1,110 @@
 .bldr-layers {
-  background: var(--bldr-panel, #f8fafc);
-  border-inline-start: 1px solid var(--bldr-panel-border, #e2e8f0);
-  inline-size: 200px;
+  background: var(--bldr-panel);
+  /* Fills the region that places it, in BOTH axes. Leaving the block size to
+     content left the tree 276px tall in a 907px column, with the column's own
+     ground showing beneath it — the same defect the palette had, in the other
+     direction. */
+  block-size: 100%;
+  /* NO separator of its own. The shell region that places this panel already
+     draws the line between itself and the canvas; a component that draws one
+     too puts two var(--bldr-border-hairline) rules in the same place — measured, both were painted at
+     the panel's trailing edge. Worse, a border that is correct in one position
+     is wrong in every other: the layer tree's leading border made sense beside
+     the canvas and became a stray line against the rail the moment the tree
+     moved into the left panel. Separators belong to whoever decides placement. */
+  box-sizing: border-box;
+  /* The CONTAINER decides how wide a panel is. This used to name the left
+     panel's width token, which is wrong wherever the tree actually lives: in
+     the playground it sits in the var(--bldr-inspector-width) inspector column and drew itself var(--bldr-panel-width)
+     wide, leaving a 23px sliver of bare column beside it. A panel that sizes
+     itself can only ever be right in one place. */
+  inline-size: 100%;
+  min-block-size: 0;
   overflow-y: auto;
-  padding-block: 12px;
-  padding-inline: 8px;
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-space-md);
 }
 
 .bldr-layers__title {
-  color: var(--bldr-panel-text, #334155);
-  font-family: var(--bldr-font, system-ui, sans-serif);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  margin-block: 0 8px;
-  padding-inline-start: 8px;
+  color: var(--bldr-panel-text);
+  font: var(--bldr-font-weight-bold) var(--bldr-font-size-caption) / var(--bldr-line-height-tight)
+    var(--bldr-font);
+  margin-block: var(--bldr-space-0) var(--bldr-space-md);
+  padding-inline-start: var(--bldr-space-md);
   text-transform: uppercase;
 }
 
 .bldr-layers__tree {
   list-style: none;
-  margin: 0;
-  padding: 0;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
 }
 
 .bldr-layers__row {
   align-items: center;
-  border-radius: 4px;
-  color: var(--bldr-panel-text, #334155);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
   cursor: pointer;
   display: flex;
-  font-family: var(--bldr-font, system-ui, sans-serif);
-  font-size: 13px;
-  gap: 4px;
-  padding-block: 4px;
-  padding-inline-end: 8px;
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-snug)
+    var(--bldr-font);
+  gap: var(--bldr-space-xs);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  padding-block: var(--bldr-space-xs);
+  padding-inline-end: var(--bldr-space-md);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+  white-space: nowrap;
 }
 
 .bldr-layers__row:hover {
-  background: var(--bldr-panel-item, #ffffff);
+  background: var(--bldr-accent-soft);
 }
 
 .bldr-layers__row--selected {
-  background: var(--bldr-selection, #4f46e5);
-  color: var(--bldr-label-text, #ffffff);
+  background: var(--bldr-accent-soft);
+  color: var(--bldr-accent);
 }
 
-.bldr-layers__row:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: -2px;
+.bldr-layers__label {
+  align-items: baseline;
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--bldr-space-sm);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bldr-layers__name {
+  flex: 0 1 auto;
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-layers__identity {
+  color: var(--bldr-panel-muted);
+  flex: 1 1 auto;
+  font-size: var(--bldr-font-size-caption);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-layers__row:hover .bldr-layers__identity,
+.bldr-layers__row--selected .bldr-layers__identity {
+  color: var(--bldr-panel-text-soft);
 }
 
 .bldr-layers__toggle {
   display: inline-block;
-  inline-size: 14px;
+  flex: 0 0 var(--bldr-space-2xl);
+  inline-size: var(--bldr-space-2xl);
   text-align: center;
   user-select: none;
 }

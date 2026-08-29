@@ -11,32 +11,53 @@
 }
 
 .bldr-richtext-field__toolbar {
-  border-block-end: 1px solid var(--bldr-panel-border, #e2e8f0);
+  border-block-end: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border, #e2e8f0);
+  box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.125rem;
-  padding: 0.25rem;
+  gap: var(--bldr-space-2xs);
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+  padding: var(--bldr-space-xs);
+  position: relative;
 }
 
 .bldr-richtext-field__tool {
+  align-items: center;
   background: none;
-  border: 1px solid transparent;
-  border-radius: 0.25rem;
+  border: calc(var(--bldr-space-2xs) / 2) solid transparent;
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
   color: var(--bldr-panel-text, #334155);
   cursor: pointer;
+  display: inline-flex;
+  /*
+    The PANEL scale, not the touch target. 44px is WCAG 2.2 AAA's finger size
+    and belongs to the top bar and the floating canvas chrome. Measured here:
+    eight 44x44 buttons wrapped onto two rows and made the toolbar 281x99 inside
+    a 312px column — a formatting bar taller than the text it formats. At 28 the
+    same eight fit one row and still clear the AA floor of 24 with room.
+  */
+  flex: 0 0 var(--bldr-control-sm);
   font-family: var(--bldr-font, system-ui, sans-serif);
-  font-size: 0.6875rem;
-  padding: 0.125rem 0.375rem;
+  justify-content: center;
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: var(--bldr-control-sm);
+  padding: var(--bldr-space-0);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
 }
 
 .bldr-richtext-field__tool:hover:not(:disabled) {
-  background: var(--bldr-accent-soft, #dbeafe);
+  background: var(--bldr-surface-hover);
 }
 
 /* Focus is distinguishable from hover and from pressed (review H2). */
 .bldr-richtext-field__tool:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 1px;
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
 }
 
 .bldr-richtext-field__tool[aria-pressed='true'] {
@@ -45,10 +66,52 @@
   color: var(--bldr-accent, #2563eb);
 }
 
+.bldr-richtext-field__tool[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--bldr-accent-soft-hover);
+}
+
 .bldr-richtext-field__tool:disabled {
   color: var(--bldr-panel-muted, #64748b);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.bldr-richtext-field__tooltip {
+  background: var(--bldr-panel-text);
+  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  box-shadow: var(--bldr-shadow-raised);
+  box-sizing: border-box;
+  color: var(--bldr-panel);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-snug);
+  max-inline-size: calc(100% - var(--bldr-space-md));
+  opacity: 0;
+  overflow: hidden;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  pointer-events: none;
+  position: absolute;
+  text-overflow: ellipsis;
+  transition:
+    opacity var(--bldr-duration-state) var(--bldr-easing),
+    visibility var(--bldr-duration-state) var(--bldr-easing);
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.bldr-richtext-field__tooltip[data-visible='true'] {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-richtext-field__tool,
+  .bldr-richtext-field__tooltip {
+    transition: none;
+  }
 }
 
 .bldr-richtext-field__content {

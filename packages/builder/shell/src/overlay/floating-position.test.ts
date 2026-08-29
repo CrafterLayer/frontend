@@ -209,6 +209,31 @@ describe('prefer: below (the block action bar side)', () => {
     expect(placed.y).toBe(520); // 560 - 32 - 8
   });
 
+  it('never places a toolbar past the bottom of the box that clips it', () => {
+    /*
+      The window is not the clip box. `viewport` here is 1000 tall, but the
+      layer this toolbar lives in is the frame — 600 tall from host y 200, so it
+      ends at 800. Measured in the real product before this was fixed: the block
+      action bar for the last block on a scrolled page landed at y 955-989 while
+      its clipping parent ended at 963. Four of each button's 26 pixels stayed
+      visible; the status bar caught every click aimed at the centre and nothing
+      happened, with no feedback.
+    */
+    const placed = positionFloating({
+      ...base,
+      anchor: { x: 100, y: 540, width: 200, height: 40 },
+      prefer: 'below',
+    });
+
+    // Non-vacuous: the window genuinely has room, which is exactly the trap.
+    const roomInWindow = base.viewport.height - (base.frame.y + 540 + 40 + 32 + 8);
+    expect(roomInWindow).toBeGreaterThan(0);
+
+    // Whatever it chooses, it must stay inside the 600-tall clip box.
+    expect(placed.y).toBeGreaterThanOrEqual(0);
+    expect(placed.y + base.size.height).toBeLessThanOrEqual(base.frame.height);
+  });
+
   it('with no room on either side, takes the side with more room', () => {
     const placed = positionFloating({
       ...base,

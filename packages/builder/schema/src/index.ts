@@ -34,7 +34,15 @@ export { type BlockSchemaLookup, validateDocument } from './document/validate';
 
 export { type Migration, type MigrationRunner, createMigrationRunner } from './document/migrations';
 
-export { type BlockSchema, type SlotDecl, defineBlockSchema } from './blocks/define-block-schema';
+export {
+  type BlockPropertyGroup,
+  type BlockPropertyGroups,
+  type BlockPropertyKind,
+  type BlockPropertyTab,
+  type BlockSchema,
+  type SlotDecl,
+  defineBlockSchema,
+} from './blocks/define-block-schema';
 
 export {
   type RawStyleLiteral,

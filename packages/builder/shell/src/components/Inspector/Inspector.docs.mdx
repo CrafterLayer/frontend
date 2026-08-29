@@ -6,71 +6,272 @@ import * as InspectorStories from './Inspector.stories';
 
 # Inspector
 
-The generated properties panel (milestone B3a). Selecting a block renders that block's schema as
-labeled controls — text for strings, select for enumerations, switch for booleans, number inputs for
-numbers, with optional/default/nullable wrappers unwrapped and everything else shown as an
-accessible read-only value. Blocks ship ZERO panel code: the panel derives entirely from the schema
-the block already registers.
+The generated properties panel for the selected builder block. The block schema owns the editable
+properties and their information architecture; the Inspector owns tabs, collapsible sections,
+controls, validation feedback, responsive overrides, and commits through the kernel door.
 
-## Document truth, one transaction per commit
+## Declaring tabs and sections
 
-Every committed change is exactly one kernel dispatch — `setProp` in the base bucket,
-`setResponsive` under tablet/mobile. Controls render from the document (undo, redo, and external
-edits show through; the panel holds no copy of its own), and a value the schema rejects at the door
-changes nothing: the rejection reason appears next to the control via `aria-describedby` and in the
-panel's polite live region.
+`BlockSchema.propertyGroups` is an optional map whose keys are checked against that schema's actual
+`props` keys. Each entry chooses one fixed tab and may name a section:
+
+```tsx
+const textBlock = defineBlockSchema({
+  type: 'text',
+  description: 'Editable text block.',
+  props: z.object({
+    text: z.string().default('Text'),
+    font: z.string().default('Inter'),
+    align: z.enum(['start', 'center', 'end']).default('start'),
+    responsive: z.boolean().default(true),
+  }),
+  propertyGroups: {
+    text: { tab: 'content', section: 'Content' },
+    font: { tab: 'design', section: 'Typography' },
+    align: { tab: 'design', section: 'Alignment' },
+    responsive: { tab: 'advanced', section: 'Responsive' },
+  },
+  examples: [],
+});
+```
+
+The tab union is exactly `'content' | 'design' | 'advanced'`. A misspelled property key or tab is a
+TypeScript error. Existing blocks need no migration: **every property with no declaration defaults
+to the Content tab**. If an entry declares a tab but omits `section`, its section label defaults to
+that tab's visible label (`Content`, `Design`, or `Advanced`).
+
+The Inspector iterates the real props shape and then looks up each declaration. It never creates a
+row from metadata and never infers a tab, section, pair, or control kind from a property's name, Zod
+type, or responsive bucket. This keeps the strip honest even when declarations are partial.
+
+## Declaring a page colour role
+
+A colour-bearing property uses the same keyed declaration and adds `kind: 'color-role'`. The
+property name is irrelevant; a string named `color`, `colour`, `paint`, or anything else remains an
+ordinary field until the block declares the kind explicitly.
+
+```tsx
+const card = defineBlockSchema({
+  type: 'card',
+  description: 'A themed card.',
+  props: z.object({
+    paint: z.enum(['surface', 'surfaceInverse', 'accent']).default('surface'),
+  }),
+  propertyGroups: {
+    paint: { tab: 'design', section: 'Color', kind: 'color-role' },
+  },
+  examples: [],
+});
+```
+
+The picker offers the renderer palette's complete role list. Every option carries the role's human
+name and uses the active page theme's resolved value for its swatch. Choosing an option writes only
+the role string through `setProp` or `setResponsive`; the resolved colour value never crosses the
+document door. The block renderer consumes that role as its matching `--t-*` custom property, so a
+theme change can repaint the page without rewriting any block.
+
+The Zod property remains the persisted-value authority. A block should constrain it to the roles it
+can render; if it declares a narrower subset than the shared palette, choosing an unsupported role
+is rejected by the ordinary door and the reason stays on that row with no transaction.
+
+## Declaring a paired grid
+
+The optional `pair` declaration belongs on **each** of the two properties that form a compact grid.
+It supplies the stable pair identity, one shared heading, and the cell caption; the Inspector never
+guesses a partner from names such as `marginTop` and `marginBottom`.
+
+```tsx
+propertyGroups: {
+  marginTop: {
+    tab: 'design',
+    section: 'Spacing',
+    pair: { id: 'margin', label: 'Margin', cellLabel: 'Top' },
+  },
+  marginBottom: {
+    tab: 'design',
+    section: 'Spacing',
+    pair: { id: 'margin', label: 'Margin', cellLabel: 'Bottom' },
+  },
+}
+```
+
+A valid pair has exactly two properties with the same non-empty `id`, in the same resolved tab and
+section, with the same pair label and different cell labels. The pending schema-side
+`BlockPropertyGroup.pair` contract will validate that authoring rule; until it lands, the Inspector
+defensively keeps a missing or malformed declaration as ordinary rows; unpaired properties in the
+same section remain full-width rows.
+
+Block authors declare content copy and arrays under Content; layout, spacing, alignment, width, and
+tone under Design; and structural or escape-hatch values under Advanced. A tab with no declared or
+defaulted rows is omitted instead of opening an empty panel.
+
+## Information hierarchy
+
+Only tabs containing real rows render. The active tab exposes one `tabpanel`; inactive populated
+panels stay mounted but hidden so drafts, field errors, lazy contributions, and focus locks survive
+a tab round trip. Sections retain schema property order, use first occurrence for section order,
+start expanded, and collapse independently through buttons with `aria-expanded` and `aria-controls`.
+Declared pairs retain that property order inside their two-cell grid.
+
+The professional story declares these sections:
+
+- **Typography** — Font, Weight, Size, Line height, and Letter spacing;
+- **Alignment** — a compact icon segmented control;
+- **Color** — the declared page-role group, with one truthful swatch and human name per role;
+- **Spacing** — declared Margin and Padding pairs in a two-by-two grid, plus any unpaired rows;
+- **Width** — a full-width numeric control with a unit suffix; and
+- **Responsive** — a labelled switch.
+
+## Field layout and presentation
+
+Every property label sits above its control. Native and contributed controls receive the complete
+row width in the resolved Inspector column instead of sharing it with a fixed label column. The
+visible label is humanized while the established property key remains the control's accessible name.
+
+- Text, select, switch, number, and read-only fallbacks retain their established behavior.
+- Numbers show a unit suffix; dimension-like values use `px`, durations use `ms`, angles use `deg`,
+  and other numbers show an explicit unitless dash. Numeric values use the builder mono face and
+  tabular numerals.
+- A property declared as `kind: 'color-role'` renders the role radiogroup. An undeclared string
+  remains the ordinary text control regardless of its name.
+- Enums with three or more supported alignment or direction members render as icon segments. Each
+  segment is exactly `var(--bldr-control-sm)` in both axes, never a stretched fraction of the row,
+  and exposes its selection through `aria-pressed`.
+- Booleans remain native labelled inputs with `role="switch"` and a tokenized switch skin.
+- Arrays render as repeaters; unsupported non-array schemas remain accessible read-only values.
+- A declared pair renders one `fieldset`/`legend` heading and two labelled cells. The visible
+  `Top`/`Bottom` captions come from the declaration; each control keeps its original property key as
+  its accessible name.
+
+All component styling reads the `--bldr-*` theme contract. The Inspector declares no fallback
+colors, sizes, spacing, radii, or motion values.
+
+## Repeater arrays
+
+Every array element renders as a collapsible card. For object elements, the card label uses the
+first non-empty required string in schema declaration order, then the first non-empty declared
+string, then `Item N`. This yields `title` for Features, `name` for Pricing, and `quote` for
+Testimonials. Primitive strings, including `Pricing.plans[].features`, label themselves.
+
+The card body is not a separate form implementation. It sends every object property or primitive
+element back through `InspectorRow`, and a nested array recurses into another repeater through the
+same path. Add builds a valid starting element from schema defaults and required scalar/object/array
+shapes. Empty arrays state `No items yet.` and keep Add visible.
+
+Add, Remove, Move Up, and Move Down each rebuild the root array immutably and call the existing
+property commit door once. Text and number descendants keep a local draft while typing and commit
+the rebuilt array once on blur or Enter. Array minimum and maximum bounds disable the corresponding
+controls with a visible reason. Door refusals stay on the nested row or repeater action that caused
+them, while the document remains unchanged.
+
+## Defaults and document truth
+
+`effectiveValue` resolves a row from the stored document value first and otherwise asks its Zod
+schema for the declared default. That is why a newly added defaulted property displays the value the
+block promises instead of an empty dash in an older document. The same effective base value is used
+for responsive inheritance; an absent responsive override still means “inherit,” never “write the
+default into the override bucket.”
+
+Every committed change is exactly one kernel dispatch: `setProp` in the base bucket and
+`setResponsive` under tablet/mobile. A repeater descendant still writes the complete top-level array
+through that same door; it never gains a nested mutation path. Undo, redo, and external writes
+therefore flow back from document truth. A value rejected by validation changes nothing; its reason
+appears immediately after the control, joins that control's `aria-describedby` chain, and is
+announced by the named polite live region.
 
 ## Responsive buckets
 
-With `bucket="tablet"` (or `"mobile"`) the panel reads and writes that bucket's overrides: a marked
-override chip shows exactly where the bucket owns a value, the clear affordance removes it in one
-transaction, and inherited base values appear as placeholders (text/number) or effective values
-(select/switch). Only VALUES ever vary by bucket — structure never does (Law R).
+With `bucket="tablet"` (or `"mobile"`) the same declared tab and section structure remains in place.
+A badge identifies each owned override, its clear button removes the override in one transaction,
+and inherited base values appear as placeholders for text/number or effective values for
+select/switch controls. Only values vary by breakpoint. Every root property row also carries the
+non-interactive screen glyph named `Supports device overrides` before an override exists, so the
+capability is visible without claiming an override was already made. Repeater descendants do not
+receive that glyph because they commit through their root array row.
 
 ## Extensible field types
 
-Resolution consults the registry's field-type contributions first: the highest `match(schema)` score
-wins, ties break by registration order, components load lazily, and a contribution that fails to
-load or throws falls back to the default control for that one property — the rest of the panel keeps
-working. A focused control keeps its renderer until blur, so a runtime registration never steals the
-caret mid-typing.
+An explicit declared kind resolves first, because block-owned semantics must not change with
+registration order. For properties without one, resolution consults registered field-type
+contributions: the highest `match(schema)` score wins, ties break by registration order, and
+components load lazily through the per-definition cache. A contribution that fails to load or throws
+falls back to the default control for that one property. A focused row keeps its resolved renderer
+until focus leaves, so runtime registration cannot steal a caret mid-edit.
 
 ## Usage
 
 ```tsx
-import { Inspector } from '@craftkit/builder';
+import { Inspector, lightTheme } from '@craftkit/builder';
 
-<Inspector kernel={kernel} bucket={bucket} />;
+<Inspector kernel={kernel} bucket={bucket} theme={lightTheme} />;
 ```
 
 ## API
 
-| Prop     | Type            | Notes                                                      |
-| -------- | --------------- | ---------------------------------------------------------- |
-| `kernel` | `BuilderKernel` | required; by prop (the shell never reads React context)    |
-| `bucket` | `EditingBucket` | optional; `'base'` (default) edits props, others overrides |
+| Prop     | Type            | Notes                                                               |
+| -------- | --------------- | ------------------------------------------------------------------- |
+| `kernel` | `BuilderKernel` | required; by prop (the shell never reads React context)             |
+| `bucket` | `EditingBucket` | optional; `'base'` (default) edits props, others overrides          |
+| `theme`  | `Theme`         | active page theme for role swatches; starter light theme by default |
 
-## Accessibility & RTL
+## Accessibility and keyboard behavior
 
-Labeling is STRUCTURAL: every control slot is a named group (`aria-labelledby` the property key,
-description chain included), so a contributed component always renders inside a context that carries
-the property name; input-like renderers take their own name via `controlId` and the visible label
-(contributed input-like fields should consume `controlId`). Rejections attach via `aria-describedby`
-(the override marker joins the same description chain); commits, rejections, and clears announce
-through a named polite region ("Inspector messages"). All layout uses logical properties, so LTR and
-RTL shells render correctly (see the RTL story).
+The strip uses `role="tablist"`, `role="tab"`, and `role="tabpanel"`. Exactly one rendered tab has
+`aria-selected="true"` and `tabIndex={0}`. Left/Right arrows move and activate with wraparound; Home
+and End move to the first and last populated tab. Every panel is labelled by its controlling tab
+through `aria-labelledby`. The component never emits `aria-current="page"` because these are
+property views, not page navigation.
+
+Every control slot is a structural named group. Native controls connect to the visible property
+label with `htmlFor`; composite segments use the label ID through `aria-labelledby`. Rejections and
+responsive badges share the control's description chain. Logical properties preserve the same
+ordering and sizing in RTL.
+
+The role picker is a real radiogroup with one sequential tab stop. Left/Up and Right/Down arrows
+move and select with wraparound; each radio's accessible name contains the role's human name. The
+swatch is decorative and hidden from the accessibility tree. A rejected choice leaves the stored
+radio checked and associates the visible reason with the radiogroup.
+
+The device-override glyph is a sibling of the field label, not part of its label or description
+chain. It has the accessible name `Supports device overrides`, and cannot change a field's name,
+value, or commit behavior.
+
+Repeater cards use disclosure buttons with `aria-expanded` and `aria-controls`. Add, Remove, Move
+Up, and Move Down are native buttons; Enter and Space reorder without a drag gesture, and focus
+follows the moved item. Card-local collapse and feedback state follows that same item through the
+reorder. Disabled bound controls reference the visible minimum or maximum reason, while a rejected
+structural action describes only its causing control and card.
+
+## Story states
+
+- `EmptyState` keeps the selected-block area visible with an invitation.
+- `DeclaredPropertyTabs` proves the declaration-backed semantics and labelled panel.
+- `AllSectionsExpanded` visits all three populated tabs and their declared sections.
+- `LabelAboveFullWidthControl` measures label/control geometry and the Spacing two-by-two grid in
+  Chromium, including a declared pair and an unpaired Spacing row.
+- `SegmentedAlignmentControlScale` measures each segment against the resolved small-control token in
+  Chromium.
+- `DeviceOverrideCapability` measures the breakpoint glyph against the small-control token and
+  checks its 16-unit, `currentColor`, 1.5-stroke SVG idiom in Chromium.
+- `RepeaterControlScaleAndFit` proves the real nested Pricing repeater stays inside the Inspector
+  column and every interactive control resolves within the accepted compact-control height range.
+- `ColorRolePaletteReflectsToCanvas` proves each swatch resolves, the group fits the Inspector token
+  width, one role transaction lands, and the rendered block's resolved background changes.
+- `CollapsedSection`, `InvalidValueRefusal`, `TabletOverrides`, `ContributedField`, and
+  `RightToLeft` retain the behavioral and state variants.
 
 ## When not to use
 
-Not a form library — it edits exactly the selected block's schema properties through the kernel
-door. For app-owned settings UI, use your own forms; for custom property editors, contribute a field
+This is not a general form library. It edits exactly the selected block's schema properties through
+the kernel door. App-owned settings use their own forms; custom property editors contribute a field
 type.
 
 ## Known limitations
 
-- One node at a time: a multi-id selection edits the first id (the shell's single-selection law
-  since B2a).
-- Choice controls (select/switch) under an override bucket show the effective value; pinning an
-  override EQUAL to the base takes two changes (away and back) — text/number express inheritance as
-  a placeholder instead.
-- Rich text leaf props are B3b's scope (its own dependency decision).
+- One node is edited at a time; a multi-id selection uses the first id.
+- Under an override bucket, select/switch controls show the effective value. Pinning an override
+  equal to the base takes a change away and back; text/number controls express inheritance with a
+  placeholder.
+- Unit presentation is limited to the property meanings already carried by property keys; unknown
+  numeric meanings use the explicit unitless dash.
+- Rich-text leaf properties retain their separately owned editor contract.

@@ -13,7 +13,12 @@ describe('Hero', () => {
     render(
       <Hero
         node={node}
-        props={{ tone: 'dark', align: 'start', heading: 'Build faster', body: 'Now.' }}
+        props={heroSchema.props.parse({
+          tone: 'dark',
+          align: 'start',
+          heading: 'Build faster',
+          body: 'Now.',
+        })}
         slots={{ actions: <button type="button">Go</button> }}
         data={{}}
         isCanvas={false}
@@ -35,5 +40,65 @@ describe('Hero', () => {
   it('schema: enforces the heading length and the actions slot vocabulary', () => {
     expect(heroSchema.props.safeParse({ heading: '' }).success).toBe(false);
     expect(heroSchema.slots?.['actions']).toEqual({ allow: ['cta'], max: 2 });
+  });
+
+  it('schema: enforces the complete Hero builder-control contract additively', () => {
+    const defaults = heroSchema.props.parse({});
+    expect(defaults).toMatchObject({
+      align: 'center',
+      spacing: 'lg',
+      tone: 'light',
+      width: 'full',
+    });
+    expect(defaults.eyebrow).toBeUndefined();
+    for (const layoutProp of [
+      'layoutDirection',
+      'layoutJustify',
+      'layoutAlign',
+      'layoutGap',
+      'layoutWrap',
+    ]) {
+      expect(Object.hasOwn(defaults, layoutProp), layoutProp).toBe(false);
+      expect(
+        heroSchema.propertyGroups?.[layoutProp as keyof typeof heroSchema.propertyGroups],
+      ).toEqual({
+        tab: 'design',
+        section: 'Layout',
+      });
+    }
+
+    const accepted = [
+      ...['start', 'center', 'end'].map((align) => ({ align })),
+      ...['transparent', 'light', 'dark'].map((tone) => ({ tone })),
+      ...['none', 'sm', 'md', 'lg'].map((spacing) => ({ spacing })),
+      ...['narrow', 'standard', 'wide', 'full'].map((width) => ({ width })),
+      ...['row', 'column'].map((layoutDirection) => ({ layoutDirection })),
+      ...['start', 'center', 'end'].map((layoutJustify) => ({ layoutJustify })),
+      ...['start', 'center', 'end'].map((layoutAlign) => ({ layoutAlign })),
+      ...['none', 'sm', 'md', 'lg'].map((layoutGap) => ({ layoutGap })),
+      ...['nowrap', 'wrap'].map((layoutWrap) => ({ layoutWrap })),
+      { eyebrow: 'New release' },
+    ];
+    for (const candidate of accepted) {
+      expect(heroSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(true);
+    }
+
+    const rejected = [
+      { eyebrow: '' },
+      { eyebrow: 'x'.repeat(61) },
+      { eyebrow: 42 },
+      { align: 'justify' },
+      { tone: 'muted' },
+      { spacing: 'xl' },
+      { width: 'auto' },
+      { layoutDirection: 'row-reverse' },
+      { layoutJustify: 'space-between' },
+      { layoutAlign: 'stretch' },
+      { layoutGap: '16px' },
+      { layoutWrap: 'wrap-reverse' },
+    ];
+    for (const candidate of rejected) {
+      expect(heroSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(false);
+    }
   });
 });

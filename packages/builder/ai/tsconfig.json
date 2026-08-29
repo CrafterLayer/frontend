@@ -1,0 +1,9 @@
+{
+  "extends": "@craftkit/typescript-config/headless.json",
+  "compilerOptions": {
+    // Headless layer 2: plans can see the schema and kernel, never React or the DOM.
+    "types": []
+  },
+  "include": ["src", "vitest.config.ts"],
+  "exclude": ["coverage"]
+}

@@ -11,7 +11,13 @@ Plans side by side from document data; one plan may be highlighted as recommende
 ## Props (intent-only)
 
 - `heading: string (1–80) = 'Pricing'`
+- `body?: string (1–200)` — supporting copy below the heading.
 - `plans (≤4): Array<{ name (1–40); price (1–20); period: 'month' | 'year'; features: string[] (≤8, each ≤80); highlighted?: boolean }> = []`
+- `columns: 'auto' | '2' | '3' | '4' = 'auto'`
+- `align: 'start' | 'center' | 'end' = 'start'`
+- `tone: 'transparent' | 'light' | 'dark' = 'transparent'`
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'md'`
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'full'`
 
 ## Accessibility
 
@@ -21,5 +27,6 @@ alone carrying meaning beyond emphasis.
 
 ## Theming & RTL
 
-Tokens + logical properties; `padding-inline-start` keeps the feature bullets on the correct side in
-RTL.
+Tokens + logical properties; `padding-inline-start` keeps feature bullets on the correct side in
+RTL. `auto` preserves the responsive plan grid; fixed columns let an author choose a deliberate
+layout.

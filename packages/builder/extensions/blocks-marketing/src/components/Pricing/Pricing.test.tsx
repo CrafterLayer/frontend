@@ -13,7 +13,7 @@ describe('Pricing', () => {
     render(
       <Pricing
         node={node}
-        props={{
+        props={pricingSchema.props.parse({
           heading: 'Simple pricing',
           plans: [
             { name: 'Solo', price: '$9', period: 'month', features: ['1 seat', 'Email support'] },
@@ -25,7 +25,7 @@ describe('Pricing', () => {
               highlighted: true,
             },
           ],
-        }}
+        })}
         slots={{}}
         data={{}}
         isCanvas={false}
@@ -41,10 +41,10 @@ describe('Pricing', () => {
     render(
       <Pricing
         node={node}
-        props={{
+        props={pricingSchema.props.parse({
           heading: 'Pricing',
           plans: [{ name: 'Team', price: '$29', period: 'year', features: [], highlighted: true }],
-        }}
+        })}
         slots={{}}
         data={{}}
         isCanvas={false}
@@ -63,5 +63,47 @@ describe('Pricing', () => {
       features: [],
     }));
     expect(pricingSchema.props.safeParse({ plans: tooMany }).success).toBe(false);
+  });
+
+  it('schema: enforces the complete Pricing builder-control contract', () => {
+    const props = pricingSchema.props.parse({});
+    expect(props).toMatchObject({
+      align: 'start',
+      columns: 'auto',
+      spacing: 'md',
+      tone: 'transparent',
+      width: 'full',
+    });
+    expect(props.body).toBeUndefined();
+
+    const accepted = [
+      ...['start', 'center', 'end'].map((align) => ({ align })),
+      ...['transparent', 'light', 'dark'].map((tone) => ({ tone })),
+      ...['none', 'sm', 'md', 'lg'].map((spacing) => ({ spacing })),
+      ...['narrow', 'standard', 'wide', 'full'].map((width) => ({ width })),
+      ...['auto', '2', '3', '4'].map((columns) => ({ columns })),
+      { body: 'Choose the plan that fits.' },
+    ];
+    for (const candidate of accepted) {
+      expect(pricingSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(
+        true,
+      );
+    }
+
+    const rejected = [
+      { body: '' },
+      { body: 'x'.repeat(201) },
+      { body: 42 },
+      { align: 'justify' },
+      { tone: 'muted' },
+      { spacing: 'xl' },
+      { width: 'auto' },
+      { columns: '1' },
+    ];
+    for (const candidate of rejected) {
+      expect(pricingSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(
+        false,
+      );
+    }
   });
 });

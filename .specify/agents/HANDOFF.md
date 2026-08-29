@@ -1,17 +1,13 @@
 # Active Work Handoff
 
-**Status:** Builder **B4 is complete and converged**; every automated gate is green
-(`pnpm verify` EXIT=0, all 12 stages). Blocked only on the user: **nothing has been committed and
-commit authorization remains withheld.** The single remaining task is a commit-message proposal as
-TEXT.
+**Status:** Builder **B4 is complete and committed** (`602c690`). The **design milestone** that
+follows it is implemented and its Spec Kit artifacts are written. Work is now blocked only on the
+user: **nothing since B4 has been committed and commit authorization remains withheld.**
 
 **Updated:** 2026-08-28
 
-**Scope:** `specs/workspace/011-builder-b4-transforms-code-view` with
-`packages/builder/{schema,core,transforms,shell,editor,extensions/code-view}`, `apps/playground`,
-`packages/{ui,test-config,workspace-tools}`, and `apps/storybook`.
-
-**Active Spec:** `specs/workspace/011-builder-b4-transforms-code-view/spec.md`.
+**Scope:** `specs/workspace/012-builder-design-chrome-theme` with `packages/builder/theme` (new),
+`packages/builder/{shell,editor}`, `apps/playground`, and `apps/storybook`.
 
 **Out of scope, do not touch:** `apps/adaptive-spec-router` and
 `specs/workspace/010-adaptive-spec-router` are the user's separately-owned, untracked work. The user
@@ -19,58 +15,42 @@ said so explicitly. Leave both alone.
 
 ## Objective
 
-Make the document editable as CODE without ever letting the two representations disagree: a
-transforms layer that projects a builder document to canonical text and parses it back into patches,
-a code-view panel that applies through the same kernel door every other edit uses, the round-trip
-law proven by property testing as a merge-blocking gate, all heavy work off the rendering path, and
-the panel's implementation loaded only when it is first opened.
+Give the builder one place where every colour, size and motion value is decided, make that place
+overridable at runtime without a fork, and spend the screen on the page being edited rather than on
+the editor's own furniture.
 
 ## Completed
 
-- **`@craftkit/builder-transforms`** (layer 2, new, headless): canonical strict two-space JSON
-  projection (sorted keys, slot order semantic, absent ≠ present-empty, duplicate keys rejected),
-  an own strict parser with one-based error lines, the scoped envelope, and node-granular
-  `documentPatches`. Registry-directed `fast-check` generators — validation as ASSERTION, never as
-  a filter.
-- **`@craftkit/builder-code-view`** (layer 4, new): the manifest with ONE lazy panel and ONE
-  projection contribution, a handwritten typed `postMessage` protocol, the worker entry, the client
-  (generation counting, one in-flight plus one coalesced, stale drop, payload-aware document
-  dedupe), `CodeViewPanel`, `CodeViewErrors`, and a test-only `./testing` subpath.
-- **Two dormant B0 contribution points finished**: `projections` AND `panels` are now reachable
-  through `RegistryRead`. `panels` is the road every later surface arrives on (B5/B6/B7).
-- **Kernel door**: the `applyPatches` command, `-0` canonicalisation at the dispatch door and at
-  document open, and `MAX_JSON_DEPTH` / reserved-key refusal in Law J and the document validator.
-- **Shell**: `CanvasInlineEditHandle`, so a host can end a live inline edit before opening a second
-  editing surface (spec edge case 7).
-- **Preset + playground**: surface additions, scenario 10 (select → open → edit → apply → undo),
-  and the kernel adapter with globally monotonic revisions.
-- **Two independent reviews** (`gpt-5.6-sol`, fresh sessions, opposite lenses) found **17 findings,
-  7 HIGH, in a suite that was entirely green**. All fixed; **every mutation re-run by the
-  coordinator rather than taken on the fixer's report.** Full record in `tasks.md` § "T033 record".
-- **`/speckit-converge`** → Phase 9 (T037–T039), documentation drift only, completed.
+- **`@craftkit/builder-theme`** (layer 2, new, zero runtime deps): primitive ramps, a closed
+  `CHROME_TOKENS` union, light and dark themes written only as primitive references, the layout
+  scale, two densities, and a generated `chrome.css`. It closed a real defect: `--bldr-*` tokens
+  were never defined anywhere, twenty stylesheets ran on fallbacks, and two files disagreed on
+  `--bldr-accent`.
+- **Three gates that measure rather than assert**: WCAG contrast computed in Chromium over 18
+  pairings x 2 themes; a token-coverage scan across `packages/builder`, `packages/ui` and
+  `apps/playground`; and a drift gate holding the checked-in stylesheet equal to its generator.
+- **`BuilderShell`** plus `IconRail`, `TopBar`, `StatusBar` (new) and re-skins of `Palette`,
+  `LayersTree` and `Inspector`, each with the full six-artifact contract.
+- **The playground** composes them, surfaces the kernel's `author` field as provenance for the first
+  time since B0, and now lets a person choose the EDITOR's appearance separately from the page's.
+- **Twelve defects the browser found after the artifacts were written** — recorded as Phase 7 of
+  `tasks.md` with the measurement that exposed each one. Several passed every existing test while
+  the product was broken; the most serious is that the dark theme had never applied at all, because
+  the stylesheet keyed its explicit-choice blocks on `:root` while the component stamps its own
+  element.
 
-## Gates and outcomes (2026-08-28)
+## Gates and outcomes
 
-`PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm verify` → **EXIT=0**.
+Run `PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm verify` and read the EXIT CODE, not a wrapper's.
+`pnpm verify > log; echo $?` reports the ECHO's status — capture pnpm's own exit in braces or check
+the log's tail. Three runs were misread that way during this session before the mistake was caught.
 
-| Package                        | Tests |
-| ------------------------------ | ----: |
-| `@craftkit/builder-schema`     |   120 |
-| `@craftkit/builder-core`       |   106 |
-| `@craftkit/builder-transforms` |   106 |
-| `@craftkit/builder-code-view`  |    86 |
-| `@craftkit/builder-shell`      |   571 |
-| `@craftkit/builder` (preset)   |    55 |
-| `@craftkit/playground`         |    33 |
-| `@craftkit/workspace-tools`    |    38 |
-| Storybook (Chromium)           |   153 |
-
-`check:workspace` 21 members · `check:components` 44 components · coverage thresholds met in every
-package **with no exclusions added and no threshold lowered**.
+`check:components` 50 components. Chromium stories run from `apps/storybook`:
+`pnpm exec vitest run --project=storybook <relative path>`.
 
 ## Incomplete
 
-- **T036** — a commit-message proposal, TEXT ONLY. No `git commit`, no `git add`, no push.
+- A commit-message proposal for the design milestone, TEXT ONLY. No `git commit`, no `git add`.
 
 ## Blockers
 
@@ -79,14 +59,8 @@ package **with no exclusions added and no threshold lowered**.
 
 ## Decisions required from the user
 
-1. Authorize (or not) a commit for B4.
-2. Choose what follows B4: the **design milestone** (the CraftKit mockup the user supplied as the
-   reference UI) or **B5**. The design milestone was scheduled to follow B4.
-
-## Next executable steps
-
-1. Produce the B4 commit-message proposal as text (T036) and mark it complete in `tasks.md`.
-2. Wait for the user's choice between the design milestone and B5.
+1. Authorize (or not) a commit for the design milestone.
+2. Choose what follows it: **B5** (per the master plan) or further design work.
 
 ## Recovery notes
 
@@ -95,11 +69,14 @@ package **with no exclusions added and no threshold lowered**.
   `PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false` when pnpm attempts a forbidden auto-install.
 - `pnpm --filter X test -- path` does NOT filter to that path; pass the path directly, or run
   `pnpm exec vitest run <path>` from inside the package.
-- Chromium stories run from `apps/storybook`:
-  `pnpm exec vitest run --project=storybook <relative path>`.
-- Codex delegation goes through the official plugin only (`/codex:rescue --background --fresh`),
-  never an MCP transport. The plugin's `--effort` flag rejects `ultra`; leave the flag off and let
-  `~/.codex/config.toml` (`model_reasoning_effort = "ultra"`) apply. **Lease work in small,
-  path-disjoint slices** — two oversized jobs stalled for an hour without a single write and had to
-  be cancelled and re-cut; the re-cut jobs reached verification in eleven minutes.
+- The playground dev server runs on **5175**. Port 5173 serves the user's own out-of-scope app.
+- `dev-browser` needs the Node 22 PATH; `saveScreenshot(buf, name)` is a global, not a method on
+  `browser`.
+- jsdom cannot measure a box, prove an overlap, or resolve a custom property. Every claim about
+  size, position, contrast or theme resolution belongs in a Chromium story.
+- A CSS gate that reads the stylesheet must strip comments first: a rule's own explanation often
+  quotes the pattern the gate forbids.
+- Codex delegation goes through the official plugin only (`/codex:rescue --background`), never an
+  MCP transport. The plugin's `--effort` flag rejects `ultra`; leave the flag off and let
+  `~/.codex/config.toml` apply. Lease work in small, path-disjoint slices.
 - Never trust a delegated agent's mutation report. Re-run each mutation yourself.

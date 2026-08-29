@@ -5,7 +5,9 @@ packages:
   - 'packages/builder/extensions/*'
 
 catalog:
+  '@radix-ui/react-popover': 1.1.23
   '@tanstack/react-query': 5.102.2
+  '@uiw/react-color-sketch': 2.10.3
   '@tiptap/core': 3.30.3
   '@tiptap/pm': 3.30.3
   '@tiptap/react': 3.30.3

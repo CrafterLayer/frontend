@@ -17,11 +17,20 @@ export function DirectionFlip({ kernel }: DirectionFlipProps) {
   return (
     <button
       type="button"
+      /*
+        The spoken name still says the whole thing; only the drawn text is
+        short. The harness shares a 56px bar with the product's own controls,
+        and a button that spells out its full sentence pushed its neighbours
+        past the edge of the bar — where they were still focusable and no
+        longer clickable. WCAG 2.5.3 is satisfied because the visible text is
+        contained in the accessible name.
+      */
+      aria-label={`Direction: ${dir} → ${next}`}
       onClick={() => {
         kernel.dispatch('setDocMeta', { dir: next });
       }}
     >
-      Direction: {dir} → {next}
+      {next.toUpperCase()}
     </button>
   );
 }

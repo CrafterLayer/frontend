@@ -1,0 +1,73 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ColorRoleFieldStories from './ColorRoleField.stories';
+
+<Meta of={ColorRoleFieldStories} />
+
+# ColorRoleField
+
+`ColorRoleField` is the Inspector control for a declared page-colour role. The inline row makes the
+seven named roles visible and selectable. Its separate trigger opens a compact Radix Popover
+containing the maintained `@uiw/react-color-sketch` Sketch picker and a reminder that changing a
+role affects every place that uses it.
+
+## Usage
+
+Give the field the palette resolved from the active page theme. Pass `onRetheme` only when the host
+can update that live theme; omitting it intentionally removes both the trigger and the Popover.
+
+```tsx
+<ColorRoleField
+  schema={colorRoleSchema}
+  path={['props', 'background']}
+  value={block.props.background}
+  onChange={(role) => commitProperty(role)}
+  palette={paletteOf(activeTheme)}
+  onRetheme={(role, hex) => updateThemeRole(role, hex)}
+  labelledBy="background-label"
+  describedBy="background-description"
+/>
+```
+
+## API
+
+| Prop                                     | Required | Contract                                                                                                                        |
+| ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `value`                                  | Yes      | The controlled role name currently stored by the document.                                                                      |
+| `onChange`                               | Yes      | Commits one selected role name through the normal field door.                                                                   |
+| `palette`                                | Yes      | The active theme's `PaletteEntry[]`: role, human name, and resolved swatch value.                                               |
+| `onRetheme`                              | No       | Receives `(role, hex)` while the Sketch picker changes that role in the live theme. Its absence removes the trigger and picker. |
+| `disabled`                               | No       | Disables both the role radios and the optional trigger.                                                                         |
+| `controlId`, `labelledBy`, `describedBy` | No       | Inspector-provided structural and descriptive relationships.                                                                    |
+
+`schema` and `path` are the standard `FieldControlProps` supplied by the Inspector.
+
+## Role versus re-theme
+
+These are deliberately different writes:
+
+- Selecting an inline role calls `onChange(role)`. The document stores the role name such as
+  `accent`; it never stores a hex literal. That is what lets a whole page re-theme later.
+- Dragging in Sketch calls `onRetheme(role, '#rrggbb')`. It re-points the active role's value in the
+  live theme and repaints every block using that role. The document is untouched.
+
+Do not provide a generic hex editor for this property. If the host cannot re-theme the live palette,
+leave `onRetheme` undefined so the UI does not offer a picker that cannot persist its result.
+
+## Accessibility
+
+The role row is a named `radiogroup` of radio buttons. It has one roving Tab stop; Arrow Left/Up
+moves to the previous role and Arrow Right/Down moves to the next role, with selection and focus
+moving together. Each role has its human name as its accessible name, not just a colour swatch.
+
+The optional trigger is named “Edit the &lt;role name&gt; colour”. Radix owns the Popover's
+dismissal: Escape closes it and returns focus to that trigger, while pointer dismissal and placement
+are handled by the same dependency. The picker remains optional because an inoperable re-theme
+control would be misleading.
+
+## RTL and theme notes
+
+The field uses logical CSS properties, so the role names and trigger follow the host direction. The
+role grid is only visual layout: arrow navigation follows one stable role order in either direction.
+Pass a fresh `paletteOf(activeTheme)` whenever the page theme changes; swatches and the trigger read
+the active role's current palette value rather than retaining an old colour snapshot.

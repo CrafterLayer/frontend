@@ -1,6 +1,7 @@
 import { insertedNodeId, type BuilderKernel } from '@craftkit/builder-core';
 import type { NodeId, SlotName } from '@craftkit/builder-schema';
 
+import { blockDisplayName } from '../naming/block-display-name';
 import { seatOf } from './drop-resolver';
 import { inlineTargetOf } from './inline-session';
 
@@ -60,14 +61,6 @@ interface ActionPlan {
   seat: { parentId: NodeId; slot: SlotName; index: number } | undefined;
   siblings: readonly NodeId[];
 }
-
-const labelOf = (kernel: BuilderKernel, id: NodeId): string => {
-  const type = kernel.getDocument().nodes[id]?.type;
-  if (type === undefined) {
-    return id;
-  }
-  return kernel.context.registry.block(type)?.schema.description ?? type;
-};
 
 /**
  * One derivation feeds BOTH the resolve and the perform paths, so a disabled
@@ -172,7 +165,7 @@ export function performBlockAction(
     return { ok: false, announcement: 'The block has no place in the document', selection: nodeId };
   }
   const { seat, siblings } = plan;
-  const label = labelOf(kernel, nodeId);
+  const label = blockDisplayName(kernel, nodeId);
 
   const select = (id: NodeId): NodeId => {
     kernel.setSelection([id]);

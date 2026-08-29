@@ -3,13 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "*.css"
+  ],
   "files": [
     "src"
   ],
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./css": {
+      "types": "./src/chrome.css.d.ts",
+      "default": "./src/chrome.css"
+    }
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -18,6 +24,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@craftkit/builder-ai": "workspace:*",
     "@craftkit/builder-blocks-marketing": "workspace:*",
     "@craftkit/builder-code-view": "workspace:*",
     "@craftkit/builder-core": "workspace:*",
@@ -26,6 +33,7 @@
     "@craftkit/builder-richtext": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",
     "@craftkit/builder-shell": "workspace:*",
+    "@craftkit/builder-theme": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

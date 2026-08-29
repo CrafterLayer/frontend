@@ -1,0 +1,228 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+import { createBuilder } from '@craftkit/builder-core';
+import {
+  fakeExtension,
+  fixedClock,
+  fixtureBlocks,
+  landingFixture,
+  seededIds,
+} from '@craftkit/builder-core/testing';
+import { defineBlockSchema, type TrustedExtensionManifest } from '@craftkit/builder-schema';
+
+import { createScriptedAiPlanProvider } from '../testing';
+import type { AiPlan } from '../types';
+import { generateAiPlan } from './generate-plan';
+import { AiPlanRejectedError, assertValidAiPlan, validateAiPlan } from './validate-plan';
+
+function planKernel() {
+  return createBuilder({
+    document: landingFixture(),
+    extensions: [fixtureBlocks, fakeExtension],
+    ports: { clock: fixedClock(10), ids: seededIds('live') },
+  });
+}
+
+function validationPorts(seed = 'validate') {
+  return { clock: fixedClock(20), ids: seededIds(seed) };
+}
+
+const unknownChildHost: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'unknown-child-host',
+  version: '0.0.0',
+  contributes: {
+    blocks: [
+      {
+        schema: defineBlockSchema({
+          type: 'page',
+          description: 'A test root whose slot names an unavailable child type.',
+          props: z.object({}),
+          slots: { default: { allow: ['ghost'] } },
+          examples: [],
+        }),
+        render: () => null,
+      },
+    ],
+  },
+};
+
+function unknownChildKernel() {
+  return createBuilder({
+    extensions: [unknownChildHost],
+    ports: { clock: fixedClock(10), ids: seededIds('unknown-child-live') },
+  });
+}
+
+const validPlan: AiPlan = {
+  rationale: 'Add supporting copy to the existing section.',
+  commands: [
+    {
+      command: 'insertNode',
+      args: { type: 'text', props: { content: 'Generated copy' }, parentId: 'sec1' },
+    },
+  ],
+};
+
+describe('AI plan validation', () => {
+  it('accepts a typed command plan only after it survives the real scratch-kernel door', () => {
+    const kernel = planKernel();
+    const before = kernel.getDocument();
+
+    expect(validateAiPlan(validPlan, kernel, validationPorts())).toEqual({
+      ok: true,
+      plan: validPlan,
+    });
+    expect(kernel.getDocument()).toBe(before);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('validates registered extension commands in the same ordered dry run', () => {
+    const kernel = planKernel();
+    const plan: AiPlan = {
+      rationale: 'Exercise a contributed command.',
+      commands: [{ command: 'fake.tag', args: { id: 'ghost' } }],
+    };
+    expect(validateAiPlan(plan, kernel, validationPorts('extension'))).toEqual({ ok: true, plan });
+  });
+
+  it.each([
+    ['a scalar plan', null, 'An AI plan must be an object.'],
+    ['an empty rationale', { rationale: '', commands: [{}] }, 'non-empty rationale'],
+    ['no commands', { rationale: 'Nothing', commands: [] }, 'at least one command'],
+    ['a scalar command', { rationale: 'Bad step', commands: [1] }, 'step 0 must be an object'],
+    [
+      'a missing command name',
+      { rationale: 'Bad name', commands: [{ args: {} }] },
+      'needs a command name',
+    ],
+    [
+      'missing args',
+      { rationale: 'Bad args', commands: [{ command: 'insertNode' }] },
+      'needs command arguments',
+    ],
+  ])('rejects %s structurally', (_name, candidate, message) => {
+    const result = validateAiPlan(candidate, planKernel(), validationPorts('shape'));
+    expect(result).toMatchObject({ ok: false });
+    if (!result.ok) {
+      expect(result.issues[0]?.code).toBe('invalid-plan');
+      expect(result.issues[0]?.message).toContain(message);
+    }
+  });
+
+  it('rejects an unknown command before dry-run', () => {
+    const result = validateAiPlan(
+      { rationale: 'Unknown.', commands: [{ command: 'invent', args: {} }] },
+      planKernel(),
+      validationPorts('unknown-command'),
+    );
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-command',
+          message: 'Step 0 names unknown command "invent".',
+          step: 0,
+        },
+      ],
+    });
+  });
+
+  it('rejects malformed command arguments before a handler can see them', () => {
+    const result = validateAiPlan(
+      {
+        rationale: 'Malformed.',
+        commands: [{ command: 'insertNode', args: { type: 'text' } }],
+      },
+      planKernel(),
+      validationPorts('invalid-args'),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'invalid-args', step: 0 }],
+    });
+  });
+
+  it.each([
+    [
+      'child rejected by the slot',
+      { type: 'text', parentId: 'hero1', slot: 'actions' },
+      'accepts [button]',
+    ],
+    [
+      'props rejected by the block schema',
+      { type: 'hero', parentId: 'root', props: { tone: 'neon', heading: 'No' } },
+      'failed its schema',
+    ],
+  ])('refuses a plan with %s', (_name, args, expected) => {
+    const result = validateAiPlan(
+      { rationale: 'Invalid structural proposal.', commands: [{ command: 'insertNode', args }] },
+      planKernel(),
+      validationPorts('door'),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'door-rejected', step: 0 }],
+    });
+    if (!result.ok) {
+      expect(result.issues[0]?.message).toContain(expected);
+    }
+  });
+
+  it('refuses an unknown block type even when the parent slot names it as allowed', () => {
+    const result = validateAiPlan(
+      {
+        rationale: 'Try an unavailable registered type.',
+        commands: [{ command: 'insertNode', args: { type: 'ghost', parentId: 'root' } }],
+      },
+      unknownChildKernel(),
+      validationPorts('unknown-block'),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'door-rejected', step: 0 }],
+    });
+    if (!result.ok) {
+      expect(result.issues[0]?.message).toContain('not registered');
+    }
+  });
+
+  it('refuses to return an invalid provider proposal', async () => {
+    const invalid: AiPlan = {
+      rationale: 'Try to bypass the registry.',
+      commands: [{ command: 'insertNode', args: { type: 'ghost', parentId: 'root', props: {} } }],
+    };
+
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider: createScriptedAiPlanProvider(invalid),
+        request: 'add a ghost block',
+        validationPorts: validationPorts('provider-refusal'),
+      }),
+    ).rejects.toMatchObject({ name: 'AiPlanRejectedError' });
+  });
+
+  it('passes an explicit selection and provider list into context assembly', async () => {
+    const plan = await generateAiPlan({
+      kernel: planKernel(),
+      provider: createScriptedAiPlanProvider(validPlan),
+      request: 'add supporting copy',
+      selection: ['sec1'],
+      contextProviders: [],
+      validationPorts: validationPorts('context-options'),
+    });
+    expect(plan).toEqual(validPlan);
+  });
+
+  it('the assertion surface carries every validation issue', () => {
+    expect(() =>
+      assertValidAiPlan(
+        { rationale: 'Bad.', commands: [{ command: 'missing', args: {} }] },
+        planKernel(),
+        validationPorts('assert'),
+      ),
+    ).toThrow(AiPlanRejectedError);
+  });
+});

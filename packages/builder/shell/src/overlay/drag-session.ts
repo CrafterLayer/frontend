@@ -1,5 +1,6 @@
 import { insertedNodeId, type BuilderKernel } from '@craftkit/builder-core';
 
+import { blockDisplayName, displayNameForBlockType } from '../naming/block-display-name';
 import type { GeometryPorts, RectIndex } from '../rects';
 import { createDragChrome, type DragChrome } from './drag-chrome';
 import { resolveDropTarget, seatOf, type DragPayload, type DropTarget } from './drop-resolver';
@@ -53,12 +54,14 @@ export function createDragSession(options: {
   let disposed = false;
 
   const labelFor = (candidate: DragPayload): string => {
-    const type =
-      candidate.kind === 'insert' ? candidate.type : kernel.getDocument().nodes[candidate.id]?.type;
-    if (type === undefined) {
-      return candidate.kind === 'move' ? candidate.id : 'block';
+    if (candidate.kind === 'move') {
+      return blockDisplayName(kernel, candidate.id);
     }
-    return kernel.context.registry.block(type)?.schema.description ?? type;
+    // An insert has no node id yet. Keep an unregistered contribution's raw
+    // type for the same diagnostic reason blockDisplayName does.
+    return kernel.context.registry.block(candidate.type) === undefined
+      ? candidate.type
+      : displayNameForBlockType(candidate.type);
   };
 
   const reset = () => {
@@ -141,7 +144,18 @@ export function createDragSession(options: {
       payload?.kind === 'move' &&
       kernel.getDocument().nodes[payload.id] === undefined
     ) {
-      announce('Drag cancelled');
+      /*
+        The RESET still happens for `pending` — that is the self-cancel law and
+        it must not weaken. The ANNOUNCEMENT is a different question: a gesture
+        that never became a drag has nothing to cancel, and saying so is a plain
+        untruth. Measured on a fresh page: one ordinary left-click to select a
+        block put "Drag cancelled" into the Gesture live region, so a
+        screen-reader user was told a drag had been cancelled every time they
+        chose a block.
+      */
+      if (phase === 'active') {
+        announce('Drag cancelled');
+      }
       reset();
     }
   });

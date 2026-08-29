@@ -14,6 +14,8 @@ page or inside a hero's `actions` slot.
 - `label: string (1–40) = 'Get started'`
 - `emphasis: 'primary' | 'ghost' = 'primary'`
 - `note?: string (≤80)` — small supporting text under the button.
+- `size: 'sm' | 'md' | 'lg' = 'md'`
+- `width: 'fit' | 'full' = 'fit'`
 
 ## Accessibility
 
@@ -23,3 +25,4 @@ accent token and stays visible in both themes.
 ## Theming & RTL
 
 Accent/token driven; the note aligns with `text-align: start`, following the document direction.
+Size maps to tokenized control padding, and full width fills the space supplied by its parent.

@@ -19,10 +19,14 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
   it('renders a labeled toolbar of real buttons in the resolved order', () => {
     render(<BlockActionBar label="Actions for Text" actions={ACTIONS} onAction={vi.fn()} />);
     const toolbar = screen.getByRole('toolbar', { name: 'Actions for Text' });
-    const labels = Array.from(toolbar.querySelectorAll('button')).map(
-      (button) => button.textContent,
-    );
+    const buttons = Array.from(toolbar.querySelectorAll('button'));
+    const labels = buttons.map((button) => button.textContent);
     expect(labels).toEqual(['Duplicate', 'Delete', 'Move earlier', 'Move later', 'Edit text']);
+    for (const button of buttons) {
+      expect(button).toHaveAttribute('data-bldr-chrome-button', '');
+      expect(button).toHaveAttribute('data-size', 'lg');
+      expect(button).toHaveAttribute('data-variant', 'quiet');
+    }
     expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Duplicate' })).not.toBeDisabled();
   });

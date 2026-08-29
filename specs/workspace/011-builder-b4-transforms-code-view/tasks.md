@@ -284,7 +284,13 @@ re-cut into smaller leases; the re-cut jobs reached verification in eleven minut
       FAILED (1 failed | 24 passed); restored; 25 passed. The record is not a claim — the guard is
       alive.
 - [x] T035 /speckit-workspace-handoff (HANDOFF/context/MEMORY refresh)
-- [ ] T036 /speckit-workspace-commit proposal ONLY — commit authorization remains withheld
+- [x] T036 /speckit-workspace-commit proposal ONLY — commit authorization remains withheld —
+      Delivered in-session as TEXT on 2026-08-28, based on the UNSTAGED working tree (nothing was
+      staged, added, or committed). The proposal recommends a FOUR-way split rather than one commit:
+      B4 itself; the shared test-timeout chore (a different cause — CPU contention under the full
+      gate — touching packages B4 never touched); the component-discovery fix plus the Spec Kit
+      agent-context pointers; and `apps/adaptive-spec-router/**`, which is the user's separately
+      owned work and must never be swept into a B4 commit.
 
 ## Dependencies
 

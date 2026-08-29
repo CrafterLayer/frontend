@@ -12,6 +12,35 @@ export interface SlotDecl {
   max?: number;
 }
 
+/** The fixed top-level destinations available to generated property panels. */
+export type BlockPropertyTab = 'content' | 'design' | 'advanced';
+
+/** An explicit Inspector control kind declared by the block, never inferred from a prop name. */
+export type BlockPropertyKind = 'color-role';
+
+/** A block-owned declaration of where one property appears in the Inspector. */
+export interface BlockPropertyGroup {
+  readonly tab: BlockPropertyTab;
+  readonly section?: string;
+  readonly kind?: BlockPropertyKind;
+}
+
+type PropertyKeyOf<P extends z.ZodType> =
+  unknown extends z.output<P>
+    ? string
+    : z.output<P> extends Record<string, unknown>
+      ? Extract<keyof z.output<P>, string>
+      : never;
+
+/**
+ * Optional property-panel placement keyed only by keys declared in `props`.
+ * An omitted property always belongs to the Content tab; consumers may choose
+ * a presentational default section for declarations that omit `section`.
+ */
+export type BlockPropertyGroups<P extends z.ZodType = z.ZodType> = Readonly<
+  Partial<Record<PropertyKeyOf<P>, BlockPropertyGroup>>
+>;
+
 /**
  * Declarative description of one block kind. Carries NO renderer — rendering is
  * attached only inside trusted (tier-1) manifests at registration time (Law T).
@@ -24,6 +53,11 @@ export interface BlockSchema<P extends z.ZodType = z.ZodType> {
   surfaces?: Surface[];
   /** Enums over free numbers; intent over pixels. Must stay JSON-representable. */
   props: P;
+  /**
+   * Inspector placement declared by the block. Optional for compatibility:
+   * every property without an entry defaults to the Content tab.
+   */
+  propertyGroups?: BlockPropertyGroups<NoInfer<P>>;
   slots?: Record<SlotName, SlotDecl>;
   /**
    * The property edited IN PLACE on the canvas (009 contract §1). Absent ⇒ the

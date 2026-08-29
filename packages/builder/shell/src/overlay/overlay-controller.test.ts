@@ -48,6 +48,7 @@ function fakeIndex(rects: Record<string, Partial<NodeRect>>): RectIndex & {
         : undefined,
     nodeAt: () => undefined,
     has: (id) => id in rects,
+    element: () => undefined,
     version: () => version,
     onInvalidate: (listener) => {
       listeners.add(listener);

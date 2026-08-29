@@ -105,7 +105,12 @@ export function PreviewMode({ kernel, theme, dirOverride, onExit }: PreviewModeP
   return (
     <div ref={regionRef} className="bldr-preview" role="region" aria-label="Preview" tabIndex={0}>
       <CanvasFrame theme={theme} dir={dir} title="Preview" onFrame={setFrame}>
-        <DocumentView kernel={kernel} />
+        {/*
+          `isCanvas={false}` is the whole difference between this and the
+          canvas: a block's editing-only scaffolding — empty-state hints, drop
+          affordances — must not reach the person reading the finished page.
+        */}
+        <DocumentView kernel={kernel} isCanvas={false} />
       </CanvasFrame>
       <button type="button" className="bldr-preview__exit" onClick={onExit}>
         Exit preview

@@ -242,7 +242,17 @@ describe('US1 — rich text through the field road (008 contract §3)', () => {
     expect(surface).toHaveAttribute('dir', 'auto');
     const labelledBy = surface?.getAttribute('aria-labelledby');
     expect(labelledBy).not.toBeNull();
-    expect(document.getElementById(labelledBy ?? '')?.textContent).toBe('body');
+    /*
+      The ACCESSIBLE NAME, not the raw text. The inspector's label now shows a
+      humanised "Body" to the eye and carries the exact property key for
+      assistive technology, so the element's `textContent` is "Bodybody" while
+      what a screen reader announces is "body" — the visible half is
+      `aria-hidden`. Reading `textContent` measured the wrong thing and would
+      fail again the next time a label gains any decoration.
+    */
+    expect(surface).toHaveAccessibleName('body');
+    const label = document.getElementById(labelledBy ?? '');
+    expect(label?.querySelector('[aria-hidden="true"]')?.textContent).toBe('Body');
 
     act(() => {
       kernel.extensions.dispose('craftkit.rich-text');
@@ -313,6 +323,34 @@ describe('US3 — containment (008 contract §3 e1)', () => {
 });
 
 describe('toolbar interactions (FR-007 — every control commits through the door)', () => {
+  it('keeps every toolbar button accessible name exactly unchanged', () => {
+    const kernel = makeKernel();
+    render(<FieldHarness kernel={kernel} onEditor={() => undefined} />);
+
+    const expectedNames = [
+      'Bold',
+      'Italic',
+      'Heading 2',
+      'Heading 3',
+      'Bulleted list',
+      'Numbered list',
+      'Link',
+      'Clear formatting',
+    ] as const;
+    const buttons = screen.getAllByRole('button');
+
+    // Mutation guard: removing or changing `aria-label={label}` makes this
+    // named test fail because every visible glyph is deliberately aria-hidden.
+    expect(buttons).toHaveLength(expectedNames.length);
+    expectedNames.forEach((name, index) => {
+      expect(buttons[index]).toHaveAttribute('aria-label', name);
+      expect(buttons[index]).toHaveAccessibleName(name);
+    });
+    expect(screen.getByRole('button', { name: 'Clear formatting' })).not.toHaveAttribute(
+      'aria-pressed',
+    );
+  });
+
   it('each labeled button applies its format as ONE commit; link prompts and unsets', () => {
     const kernel = makeKernel();
     let editor: Editor | null = null;
@@ -341,14 +379,45 @@ describe('toolbar interactions (FR-007 — every control commits through the doo
       click(name);
       expect(txCount(kernel), name).toBe(before + 1);
       expect(JSON.stringify(bodyOf(kernel)), name).toContain(marker);
+      expect(screen.getByRole('button', { name }), name).toHaveAttribute('aria-pressed', 'true');
     };
 
+    for (const name of [
+      'Bold',
+      'Italic',
+      'Heading 2',
+      'Heading 3',
+      'Bulleted list',
+      'Numbered list',
+      'Link',
+    ]) {
+      expect(screen.getByRole('button', { name }), name).toHaveAttribute('aria-pressed', 'false');
+    }
+
+    clickCommits('Bold', '"bold"');
+    selectAll();
+    const beforeBoldOff = txCount(kernel);
+    click('Bold');
+    expect(txCount(kernel), 'Bold toggles off').toBe(beforeBoldOff + 1);
+    expect(JSON.stringify(bodyOf(kernel)), 'Bold toggles off').not.toContain('"bold"');
+    expect(screen.getByRole('button', { name: 'Bold' }), 'Bold toggles off').toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     clickCommits('Bold', '"bold"');
     clickCommits('Italic', '"italic"');
     clickCommits('Heading 2', '"level":2');
     clickCommits('Heading 3', '"level":3');
+    expect(screen.getByRole('button', { name: 'Heading 2' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     clickCommits('Bulleted list', '"bulletList"');
     clickCommits('Numbered list', '"orderedList"');
+    expect(screen.getByRole('button', { name: 'Bulleted list' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
 
     // aria-pressed mirrors editor state on the active formats.
     selectAll();
@@ -368,6 +437,7 @@ describe('toolbar interactions (FR-007 — every control commits through the doo
     click('Link');
     expect(txCount(kernel)).toBe(beforeLink + 2);
     expect(JSON.stringify(bodyOf(kernel))).not.toContain('https://example.com/docs');
+    expect(screen.getByRole('button', { name: 'Link' })).toHaveAttribute('aria-pressed', 'false');
     vi.unstubAllGlobals();
 
     // Clear formatting strips marks and nodes back to paragraphs.
@@ -378,6 +448,17 @@ describe('toolbar interactions (FR-007 — every control commits through the doo
     const cleared = JSON.stringify(bodyOf(kernel));
     expect(cleared).not.toContain('"bold"');
     expect(cleared).not.toContain('"orderedList"');
+    for (const name of [
+      'Bold',
+      'Italic',
+      'Heading 2',
+      'Heading 3',
+      'Bulleted list',
+      'Numbered list',
+      'Link',
+    ]) {
+      expect(screen.getByRole('button', { name }), name).toHaveAttribute('aria-pressed', 'false');
+    }
   });
 
   it('a cancelled link prompt commits nothing', () => {

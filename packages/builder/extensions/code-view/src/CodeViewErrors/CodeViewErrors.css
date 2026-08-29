@@ -5,10 +5,10 @@
 
 /* The summary remains in the accessibility tree without taking panel space. */
 .bldr-code-errors__announcement {
-  block-size: 1px;
+  block-size: var(--bldr-border-hairline);
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
-  inline-size: 1px;
+  inline-size: var(--bldr-border-hairline);
   overflow: hidden;
   position: absolute;
   white-space: nowrap;
@@ -39,15 +39,15 @@
 }
 
 .bldr-code-errors__button:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 1px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
 }
 
 .bldr-code-errors__line {
   background: color-mix(in srgb, var(--bldr-danger, #dc2626) 10%, transparent);
   border-radius: 0.25rem;
   font-variant-numeric: tabular-nums;
-  min-inline-size: 2rem;
+  min-inline-size: var(--bldr-space-6xl);
   padding-inline: 0.25rem;
   text-align: center;
 }

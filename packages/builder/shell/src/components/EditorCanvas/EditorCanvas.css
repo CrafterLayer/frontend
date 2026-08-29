@@ -13,8 +13,8 @@
 }
 
 .bldr-canvas-host:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 2px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-thick);
 }
 
 /* Door rejections stay next to the live in-canvas control, matching the

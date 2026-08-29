@@ -86,6 +86,10 @@ cancels pointerdown and mousedown and stops click propagation, so it never steal
 re-enters the canvas selection path. Announcements are the caller's job: `performBlockAction`
 returns the message for the canvas's polite region.
 
+Every action is a quiet `ChromeButton` at the default `lg` (`--bldr-control-lg`) height. The bar is
+pointer-adjacent desktop chrome, not a dedicated coarse-pointer surface, so the previous touch-size
+minimum is intentionally not retained.
+
 ## When not to use
 
 Not a context menu and not a property editor — property editing belongs to the Inspector, and text

@@ -1,6 +1,8 @@
 import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import type { BlockRenderProps } from '@craftkit/builder-schema';
+
 import { createBuilder } from '@craftkit/builder-core';
 import {
   fixedClock,
@@ -225,5 +227,57 @@ describe('DocumentView (US1)', () => {
       kernel.extensions.dispose('fixture-blocks-passthrough');
     });
     expect(screen.getByRole('note')).toHaveTextContent('page');
+  });
+});
+
+describe('isCanvas is a fact, not a literal', () => {
+  /*
+    The regression this pins: NodeView rendered `isCanvas` as the bare literal
+    `true`, and preview renders through this same view. Any block that showed
+    editing-only scaffolding behind the flag — an empty-state hint, a drop
+    affordance — therefore showed it to the reader of the finished page too.
+  */
+  function recordingKernel(seen: boolean[], seed: string) {
+    function Recorder({ node, slots, isCanvas }: BlockRenderProps) {
+      seen.push(isCanvas);
+      return <div data-node-id={node.id}>{Object.values(slots)}</div>;
+    }
+
+    const base = withPassThroughRenderers(fixtureBlocks);
+    return createBuilder({
+      document: landingFixture(),
+      extensions: [
+        {
+          ...base,
+          contributes: {
+            ...base.contributes,
+            blocks: (base.contributes?.blocks ?? []).map((contribution) => ({
+              schema: contribution.schema,
+              render: Recorder,
+            })),
+          },
+        },
+      ],
+      ports: { clock: fixedClock(), ids: seededIds(seed) },
+    });
+  }
+
+  it('defaults to true, because every ordinary caller is the canvas', () => {
+    const seen: boolean[] = [];
+    render(<DocumentView kernel={recordingKernel(seen, 'dv-canvas')} />);
+
+    expect(seen.length).toBeGreaterThan(1);
+    // A set, not `.every`: a failure then names what was actually recorded.
+    expect([...new Set(seen)]).toEqual([true]);
+  });
+
+  it('is false for every node when the host says it is not the canvas', () => {
+    const seen: boolean[] = [];
+    render(<DocumentView kernel={recordingKernel(seen, 'dv-preview')} isCanvas={false} />);
+
+    // Every node, not just the root: the flag has to survive the recursion, and
+    // a literal `true` deeper in the tree is exactly the bug being pinned.
+    expect(seen.length).toBeGreaterThan(1);
+    expect([...new Set(seen)]).toEqual([false]);
   });
 });

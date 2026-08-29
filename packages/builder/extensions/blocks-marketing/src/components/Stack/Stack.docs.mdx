@@ -1,0 +1,68 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StackStories from './Stack.stories';
+
+<Meta of={StackStories} />
+
+# Stack
+
+`Stack` is the marketing layout container. It holds other marketing blocks along the reading axis in
+a row or a column, and it may hold another `Stack` so authors can compose columns.
+
+## When to use
+
+Use `Stack` when the page needs a layout relationship between whole blocks: a vertical content
+group, a row of columns, or a nested combination of the two. Do not use it to arrange text or
+controls that belong inside one content block; those remain the responsibility of that block.
+
+## Props
+
+- `direction: 'row' | 'column' = 'column'` — the main reading-axis direction.
+- `justify: 'start' | 'center' | 'end' = 'start'` — placement along that axis.
+- `align: 'start' | 'center' | 'end' = 'start'` — placement across that axis.
+- `gap: 'none' | 'sm' | 'md' | 'lg' = 'md'` — token-backed space between children.
+- `wrap: 'nowrap' | 'wrap' = 'wrap'` — whether row children may continue on another line.
+- `tone: 'transparent' | 'light' | 'dark' = 'transparent'` — full-width section treatment.
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'none'` — outer section spacing.
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'standard'` — inner content width.
+
+Parsing an empty props object supplies every default above. Those defaults render a transparent,
+standard-width column with start alignment, medium gap, wrapping enabled, and no outer spacing.
+
+## Slots and composition
+
+The `default` slot accepts exactly `stack`, `hero`, `features`, `pricing`, `testimonials`, `cta`,
+and `richText`. The `stack` entry is deliberate: nest a `Stack` inside a row to make each child a
+column.
+
+`allow` is written out explicitly rather than computed. The drag-and-drop resolver reads that exact
+list to decide whether a drop is legal; a derived expression would turn a rejected drop into an
+unexplainable refusal.
+
+```json
+{
+  "type": "stack",
+  "props": { "direction": "row", "gap": "lg" },
+  "slots": {
+    "default": ["left-column", "right-column"]
+  }
+}
+```
+
+Both referenced children may themselves be `stack` nodes with `direction: 'column'`.
+
+## Layout, responsive behavior, and RTL
+
+`row` follows the reading axis, while start and end remain logical directions, so the same document
+composes correctly in left-to-right and right-to-left content. Rows share available inline space.
+Each row child has `min-inline-size: 0`; without it, flex items retain their natural minimum width,
+and a supposed two-column row overflows instead of splitting into columns.
+
+Use wrapping for smaller available widths. Keep nested structures shallow enough that an author can
+still select and understand every level.
+
+## Accessibility
+
+An empty container remains visible and announces that a block can be dropped into it. This preserves
+a discoverable target instead of collapsing an unfinished composition to nothing. Child blocks own
+their own landmarks, headings, and interactive semantics.

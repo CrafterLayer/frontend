@@ -1,3 +1,4 @@
+import { ChromeButton } from '../ChromeButton';
 import './TextBubble.css';
 
 export interface TextBubbleAction {
@@ -81,20 +82,36 @@ export function TextBubble({ dir, actions, onReturnFocus }: TextBubbleProps) {
         event.stopPropagation();
       }}
     >
-      {actions.map((action) => (
-        <button
-          key={action.id}
-          type="button"
-          className="bldr-text-bubble__action"
-          disabled={action.disabled === true}
-          {...(action.pressed === undefined ? {} : { 'aria-pressed': action.pressed })}
-          onClick={() => {
-            action.run();
-          }}
-        >
-          {action.label}
-        </button>
-      ))}
+      {actions.map((action) =>
+        action.pressed === undefined ? (
+          <ChromeButton
+            key={action.id}
+            className="bldr-text-bubble__action"
+            disabled={action.disabled === true}
+            size="lg"
+            variant="quiet"
+            onClick={() => {
+              action.run();
+            }}
+          >
+            {action.label}
+          </ChromeButton>
+        ) : (
+          <ChromeButton
+            key={action.id}
+            className="bldr-text-bubble__action"
+            disabled={action.disabled === true}
+            size="lg"
+            variant="toggle"
+            aria-pressed={action.pressed}
+            onClick={() => {
+              action.run();
+            }}
+          >
+            {action.label}
+          </ChromeButton>
+        ),
+      )}
       {/* The pointer: positioned by the host's --bldr-arrow-x, flipped by its
           data-placement — pure CSS, no geometry in this component. */}
       <span aria-hidden="true" className="bldr-text-bubble__arrow" />

@@ -5,7 +5,7 @@
   flex-direction: column;
   gap: var(--t-gap, 16px);
   margin-inline: auto;
-  max-inline-size: 72rem;
+  max-inline-size: var(--t-page-width, 1152px);
   min-block-size: 100%;
   padding-block: var(--t-gap, 16px);
   padding-inline: var(--t-gap, 16px);

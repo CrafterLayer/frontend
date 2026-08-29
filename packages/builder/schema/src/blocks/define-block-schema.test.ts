@@ -3,7 +3,56 @@ import { describe, expect, it } from 'vitest';
 
 import { BuilderError } from '../errors';
 import { blockPropsJsonSchema } from '../json-schema';
-import { defineBlockSchema } from './define-block-schema';
+import {
+  type BlockPropertyGroup,
+  type BlockSchema,
+  defineBlockSchema,
+} from './define-block-schema';
+
+function propertyGroupTypeAssertions(): void {
+  const props = z.object({ heading: z.string(), alignment: z.string() });
+
+  defineBlockSchema({
+    type: 'type-check',
+    description: 'Compile-time property-group checks.',
+    props,
+    propertyGroups: {
+      // @ts-expect-error -- misspelled property keys must fail at compile time.
+      hedaing: { tab: 'content' },
+    },
+    examples: [],
+  });
+
+  defineBlockSchema({
+    type: 'type-check-tab',
+    description: 'Compile-time property-tab checks.',
+    props,
+    propertyGroups: {
+      heading: {
+        // @ts-expect-error -- tabs are a closed union.
+        tab: 'style',
+      },
+    },
+    examples: [],
+  });
+
+  defineBlockSchema({
+    type: 'type-check-kind',
+    description: 'Compile-time property-kind checks.',
+    props,
+    propertyGroups: {
+      heading: {
+        tab: 'design',
+        // Mutation gate: widening BlockPropertyKind to string makes typecheck report TS2578 here.
+        // @ts-expect-error -- property kinds are a closed union.
+        kind: 'color',
+      },
+    },
+    examples: [],
+  });
+}
+
+void propertyGroupTypeAssertions;
 
 describe('defineBlockSchema', () => {
   it('accepts a JSON-representable schema and freezes it', () => {
@@ -16,6 +65,50 @@ describe('defineBlockSchema', () => {
     });
     expect(Object.isFrozen(block)).toBe(true);
     expect(block.type).toBe('hero');
+  });
+
+  it('preserves optional typed property groups while ungrouped properties remain valid', () => {
+    const props = z.object({ heading: z.string(), alignment: z.string(), eyebrow: z.string() });
+    const block = defineBlockSchema({
+      type: 'grouped-hero',
+      description: 'Opening section with declared Inspector placement.',
+      props,
+      propertyGroups: {
+        heading: { tab: 'content', section: 'Copy' },
+        alignment: { tab: 'design', section: 'Alignment' },
+      },
+      examples: [],
+    });
+
+    expect(block.propertyGroups).toEqual({
+      heading: { tab: 'content', section: 'Copy' },
+      alignment: { tab: 'design', section: 'Alignment' },
+    });
+    expect(block.propertyGroups?.eyebrow).toBeUndefined();
+
+    const erased: BlockSchema = block;
+    const erasedGroup: BlockPropertyGroup | undefined = erased.propertyGroups?.['heading'];
+    expect(erasedGroup?.tab).toBe('content');
+  });
+
+  it('preserves an explicit color-role kind through typed and erased BlockSchema views', () => {
+    const block = defineBlockSchema({
+      type: 'color-role-card',
+      description: 'Card with an explicitly declared page color role.',
+      props: z.object({ background: z.string() }),
+      propertyGroups: {
+        background: { tab: 'design', section: 'Color', kind: 'color-role' },
+      },
+      examples: [],
+    });
+
+    // Mutation gate: clone propertyGroups while omitting `kind` before returning the block; this
+    // named test fails with expected "color-role", received undefined.
+    expect(block.propertyGroups?.background?.kind).toBe('color-role');
+
+    const erased: BlockSchema = block;
+    const erasedGroup: BlockPropertyGroup | undefined = erased.propertyGroups?.['background'];
+    expect(erasedGroup?.kind).toBe('color-role');
   });
 
   it.each([

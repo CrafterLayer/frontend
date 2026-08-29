@@ -1,0 +1,92 @@
+/*
+  The container's own layout.
+
+  Logical properties throughout: `row` is the READING axis, so the same document
+  lays out correctly in Arabic and in English with no second set of rules and no
+  `dir`-specific overrides. Every page length comes from the page's `--t-*`
+  theme tokens, never from raw numeric CSS or editor chrome tokens.
+*/
+
+.mkt-stack > .mkt-section__content {
+  display: flex;
+}
+
+.mkt-stack--direction-row > .mkt-section__content {
+  flex-direction: row;
+}
+
+.mkt-stack--direction-column > .mkt-section__content {
+  flex-direction: column;
+}
+
+/* Along the main axis. */
+.mkt-stack--justify-start > .mkt-section__content {
+  justify-content: flex-start;
+}
+
+.mkt-stack--justify-center > .mkt-section__content {
+  justify-content: center;
+}
+
+.mkt-stack--justify-end > .mkt-section__content {
+  justify-content: flex-end;
+}
+
+/* Across it. */
+.mkt-stack--align-start > .mkt-section__content {
+  align-items: flex-start;
+}
+
+.mkt-stack--align-center > .mkt-section__content {
+  align-items: center;
+}
+
+.mkt-stack--align-end > .mkt-section__content {
+  align-items: flex-end;
+}
+
+.mkt-stack--gap-none > .mkt-section__content {
+  gap: 0;
+}
+
+.mkt-stack--gap-sm > .mkt-section__content {
+  gap: var(--t-gap-sm);
+}
+
+.mkt-stack--gap-md > .mkt-section__content {
+  gap: var(--t-gap);
+}
+
+.mkt-stack--gap-lg > .mkt-section__content {
+  gap: var(--t-gap-lg);
+}
+
+.mkt-stack--wrap-wrap > .mkt-section__content {
+  flex-wrap: wrap;
+}
+
+.mkt-stack--wrap-nowrap > .mkt-section__content {
+  flex-wrap: nowrap;
+}
+
+/*
+  A row's children share the width rather than each demanding their own: without
+  this a two-column row is two blocks at their natural widths with a gap, which
+  is not a column layout at all. `min-inline-size: 0` is what lets them actually
+  shrink — a flex item's automatic minimum is its content, so long text refuses
+  to narrow and the row overflows instead of splitting.
+*/
+.mkt-stack--direction-row > .mkt-section__content > * {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.mkt-stack__empty {
+  border: thin dashed var(--t-text-muted, #6b7280);
+  border-radius: var(--t-radius);
+  color: var(--t-text-muted, #6b7280);
+  inline-size: 100%;
+  margin: 0;
+  padding: var(--t-gap);
+  text-align: center;
+}

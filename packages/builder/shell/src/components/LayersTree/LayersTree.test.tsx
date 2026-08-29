@@ -15,10 +15,10 @@ import {
 import { LayersTree } from './LayersTree';
 
 const NullRender: BlockRenderComponent = () => null;
-const block = (type: string, label: string, slots?: Record<string, { allow: string[] }>) => ({
+const block = (type: string, description: string, slots?: Record<string, { allow: string[] }>) => ({
   schema: defineBlockSchema({
     type,
-    description: label,
+    description,
     props: z.object({}),
     ...(slots === undefined ? {} : { slots }),
     examples: [],
@@ -26,15 +26,24 @@ const block = (type: string, label: string, slots?: Record<string, { allow: stri
   render: NullRender,
 });
 
+const PAGE_DESCRIPTION =
+  'The page root. Holds top-level sections in order. Exactly one per document; never nested.';
+const SECTION_DESCRIPTION = 'A structural section that groups related page content.';
+const TEXT_DESCRIPTION = 'A paragraph of editable text content.';
+const HERO_DESCRIPTION =
+  'Opening section at the top of a page: a large heading, optional supporting body, and up to two call-to-action buttons. Use once per page.';
+const CTA_DESCRIPTION =
+  'A call-to-action button with a short label and an emphasis level; optionally a small supporting note underneath.';
+
 const VOCAB: TrustedExtensionManifest = {
   tier: 1,
   name: 'layers-vocab',
   version: '1.0.0',
   contributes: {
     blocks: [
-      block('page', 'Page', { default: { allow: ['section'] } }),
-      block('section', 'Section', { default: { allow: ['text', 'section'] } }),
-      block('text', 'Text'),
+      block('page', PAGE_DESCRIPTION, { default: { allow: ['section'] } }),
+      block('section', SECTION_DESCRIPTION, { default: { allow: ['text', 'section'] } }),
+      block('text', TEXT_DESCRIPTION),
     ],
   },
 };
@@ -60,13 +69,104 @@ const makeKernel = () =>
     ports: { clock: fixedClock(), ids: seededIds('lt') },
   });
 
-const rowNames = () =>
-  screen.getAllByRole('treeitem').map((row) => row.textContent.replace(/[▸▾]/g, '').trim());
+const IDENTITY_VOCAB: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'layers-identity-vocab',
+  version: '1.0.0',
+  contributes: {
+    blocks: [
+      block('page', PAGE_DESCRIPTION, { default: { allow: ['hero'] } }),
+      block('hero', HERO_DESCRIPTION, { default: { allow: ['cta'] } }),
+      block('cta', CTA_DESCRIPTION),
+    ],
+  },
+};
+
+const IDENTITY_DOC: BuilderDocument = {
+  schemaVersion: 1,
+  surface: 'site',
+  dir: 'ltr',
+  rootId: 'root',
+  nodes: {
+    root: { id: 'root', type: 'page', props: {}, slots: { default: ['hero-main'] } },
+    'hero-main': {
+      id: 'hero-main',
+      type: 'hero',
+      props: {},
+      slots: { default: ['cta-primary', 'cta-secondary'] },
+    },
+    'cta-primary': { id: 'cta-primary', type: 'cta', props: {} },
+    'cta-secondary': { id: 'cta-secondary', type: 'cta', props: {} },
+  },
+};
+
+const makeIdentityKernel = () =>
+  createBuilder({
+    document: IDENTITY_DOC,
+    extensions: [IDENTITY_VOCAB],
+    ports: { clock: fixedClock(), ids: seededIds('identity') },
+  });
+
+const treeItemForText = (text: string): HTMLElement => {
+  const row = screen.getByText(text).closest<HTMLElement>('[role="treeitem"]');
+  if (row === null) {
+    throw new Error(`expected ${text} to belong to a treeitem`);
+  }
+  return row;
+};
+
+const rowText = (selector: string): string[] =>
+  screen.getAllByRole('treeitem').map((row) => {
+    const value = row.querySelector(selector);
+    if (value === null) {
+      throw new Error(`expected every treeitem to contain ${selector}`);
+    }
+    return value.textContent.trim();
+  });
+
+const rowNames = () => rowText('.bldr-layers__name');
+const rowIdentities = () => rowText('.bldr-layers__identity');
 
 describe('LayersTree (006 contract §5)', () => {
+  it('renders a short type-derived name instead of the schema description', () => {
+    render(<LayersTree kernel={makeIdentityKernel()} />);
+
+    const heroRow = treeItemForText('Hero');
+    expect(heroRow).toHaveTextContent('Hero');
+    expect(heroRow).not.toHaveTextContent(HERO_DESCRIPTION);
+    expect(screen.queryByText(HERO_DESCRIPTION)).not.toBeInTheDocument();
+  });
+
+  it('shows node ids so same-type siblings remain distinguishable', () => {
+    render(<LayersTree kernel={makeIdentityKernel()} />);
+
+    const primaryRow = treeItemForText('cta-primary');
+    const secondaryRow = treeItemForText('cta-secondary');
+    expect(primaryRow).not.toBe(secondaryRow);
+    expect(primaryRow).toHaveTextContent('cta-primary');
+    expect(primaryRow).not.toHaveTextContent('cta-secondary');
+    expect(secondaryRow).toHaveTextContent('cta-secondary');
+    expect(secondaryRow).not.toHaveTextContent('cta-primary');
+    expect(primaryRow.textContent).not.toBe(secondaryRow.textContent);
+  });
+
+  it('preserves the CTA acronym in the type-derived name', () => {
+    render(<LayersTree kernel={makeIdentityKernel()} />);
+
+    expect(screen.getAllByText('CTA')).toHaveLength(2);
+    expect(screen.queryByText('Cta')).not.toBeInTheDocument();
+  });
+
+  it('keeps the schema description on the row title', () => {
+    render(<LayersTree kernel={makeIdentityKernel()} />);
+
+    expect(treeItemForText('Hero')).toHaveAttribute('title', HERO_DESCRIPTION);
+  });
+
   it('l1: every node appears once, nested, in canvas order — with explicit set positions', () => {
     render(<LayersTree kernel={makeKernel()} />);
     expect(rowNames()).toEqual(['Page', 'Section', 'Text', 'Text', 'Section']);
+    expect(rowIdentities()).toEqual(['root', 'sA', 't1', 't2', 'sB']);
     const rows = screen.getAllByRole('treeitem');
     expect(rows.map((row) => row.getAttribute('aria-level'))).toEqual(['1', '2', '3', '3', '2']);
     // The DOM is flat, so ARIA position must be explicit (posinset/setsize):

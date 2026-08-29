@@ -989,6 +989,20 @@ export function EditorCanvas({
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
+      /*
+        The canvas answers only for ITSELF. This handler sits on the focusable
+        canvas host, and the editor's floating chrome — the block action bar,
+        the text bubble — renders inside it, so their key events bubble here
+        too. `handleInlineKey` claims Enter (it begins an inline edit) and calls
+        `preventDefault`, which cancelled the native activation of every button
+        in that chrome: measured, focusing Delete and pressing Enter left the
+        document unchanged and threw focus into the iframe, while Space on the
+        same button deleted correctly. A button that answers Space and not Enter
+        is broken for keyboard users, and the cause was never the button.
+      */
+      if (event.target !== event.currentTarget) {
+        return;
+      }
       if (event.key === 'Escape' && surfaceEscapeHandledRef.current) {
         event.preventDefault();
         return;

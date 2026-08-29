@@ -5,6 +5,9 @@ import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { Cta, ctaSchema } from './components/Cta';
 import { Features, featuresSchema } from './components/Features';
+import { PageFooter, pageFooterSchema } from './components/PageFooter';
+import { PageHeader, pageHeaderSchema } from './components/PageHeader';
+import { Stack, stackSchema } from './components/Stack';
 import { Hero, heroSchema } from './components/Hero';
 import { Pricing, pricingSchema } from './components/Pricing';
 import { RichTextBlock, richTextBlockSchema } from './components/RichTextBlock';
@@ -16,6 +19,11 @@ export const blocksMarketing: TrustedExtensionManifest = {
   version: '0.1.0',
   contributes: {
     blocks: [
+      // The container comes first: it is what the others go INSIDE.
+      // A page is framed before it is filled.
+      { schema: pageHeaderSchema, render: PageHeader },
+      { schema: pageFooterSchema, render: PageFooter },
+      { schema: stackSchema, render: Stack },
       { schema: heroSchema, render: Hero },
       { schema: featuresSchema, render: Features },
       { schema: pricingSchema, render: Pricing },

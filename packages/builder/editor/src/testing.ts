@@ -8,3 +8,7 @@ export {
   createLoopbackWorkerLike,
   createTransformWorkerClient,
 } from '@craftkit/builder-code-view/testing';
+
+// The AI engine's deterministic provider, for the same reason as the above:
+// applications reach every builder fixture through the preset.
+export { createScriptedAiPlanProvider } from '@craftkit/builder-ai/testing';

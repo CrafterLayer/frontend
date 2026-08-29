@@ -91,8 +91,11 @@ This one-way default avoids duplicated context and cross-agent ping-pong; it doe
 delegation always reduces total token usage.
 
 For Claude-to-Codex work, use the installed official Codex Claude Code plugin backed by the Codex
-app server. Start substantial work with `/codex:rescue --background --fresh`, inspect real progress
-with `/codex:status`, and read terminal output with `/codex:result`. Do not select the retired
+app server. Start the first substantial task of a conversation with `/codex:rescue --background
+--fresh`. For sequential follow-up work in that same conversation use `--resume`, so one Claude
+chat maps to one Codex thread instead of opening a new chat per request. Parallel agents each need
+their own `--fresh` thread. Inspect real progress with `/codex:status`, and read terminal output
+with `/codex:result`. Do not select the retired
 `codex-craftkit-worker`, `codex-craftkit-async`, or a user-scoped generic `codex` MCP route for new
 work. Runtime setup, progress cadence, and health checks live in
 `docs/development/agent-collaboration.md`; transport changes must not change the constitution,

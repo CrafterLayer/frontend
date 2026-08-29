@@ -1,0 +1,476 @@
+/* The playground runs the builder as a WHOLE PAGE, so it owns the page's own
+   frame. This is deliberately here and not in @craftkit/builder-theme: a
+   builder embedded inside a larger application must never reset its host's
+   body, and a design system that did would be unusable in exactly the case
+   the product is built for.
+
+   Measured defect this closed: the user agent's default 8px body margin made
+   the document 1098px tall inside a 1000px viewport, so the whole editor
+   scrolled as a page — toolbars and status bar sliding away — and the shell
+   could never actually fill the screen. */
+html,
+body,
+#root {
+  block-size: 100%;
+  margin: 0;
+}
+
+/* NOTHING global may clip or scroll here.
+   `CanvasFrame` MIRRORS this document's head stylesheets into the preview
+   iframe so the page inherits the host's fonts — a deliberate feature. That
+   means a global rule written for the app's own page frame also lands on the
+   PAGE BEING EDITED. A `body { overflow: hidden }` here did exactly that: the
+   author's 1239px page was clamped inside an 866px frame with no way to reach
+   its bottom, because CSS propagates body's overflow to the frame's viewport.
+   Clipping belongs to `.pg-app`, which exists only in this document. */
+
+.pg-app {
+  /* The harness panel is positioned against this, so the app root has to be a
+     containing block — `overflow` alone never was one. */
+  position: relative;
+  /* 100% of a full-height chain, not 100vh: on mobile browsers vh includes
+     retracting chrome and the layout jumps as it retracts. */
+  block-size: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The reusable TopBar has a publish surface for hosts that own a real publish
+   operation. This in-memory playground does not: drawing either half of the
+   split action would promise an operation that cannot happen. Remove the
+   complete group from layout, hit-testing, and the accessibility tree here. */
+.pg-app .bldr-topbar__publish {
+  display: none;
+}
+
+/* The scenario shows the layers tree AND the inspector in the one aside track.
+   Stacking two full-height panels there made the region's content 1809px tall
+   inside an 866px track; sharing the track is the layout, not a scrollbar. The
+   tree takes what it needs up to a bound, the inspector takes the rest, and
+   each scrolls inside its own share. */
+/* The account tile the rail pins to its foot. The rail places whatever it is
+   handed; what that tile IS belongs to the host. */
+.pg-avatar {
+  align-items: center;
+  background: var(--bldr-accent);
+  block-size: 30px;
+  border-radius: var(--bldr-radius-lg);
+  color: var(--bldr-accent-text);
+  display: flex;
+  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-caption) / 1 var(--bldr-font);
+  inline-size: 30px;
+  justify-content: center;
+  letter-spacing: 0.03em;
+}
+
+/* The playground's own scenario controls. They are a HARNESS, not product
+   chrome, so they read as one quiet group inside the bar's `extra` slot rather
+   than competing with the editor's primary controls for attention. */
+.pg-tools {
+  align-items: center;
+  display: flex;
+  /* NOT `wrap`. In a 56px bar a wrapped row has nowhere to go: measured, this
+     cluster grew to three rows spanning 0..148px, and the two rows below the
+     bar landed on top of the preview iframe — present, focusable, and
+     impossible to click. One row that scrolls beats three rows that escape. */
+  flex-wrap: nowrap;
+  gap: var(--bldr-space-md);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-tools > * {
+  flex: none;
+}
+
+/* Arbitrary width entry — the one thing the device band carried that the top
+   bar does not. It rides in the harness group rather than in a band of its own. */
+.pg-width {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  gap: var(--bldr-space-sm);
+}
+
+.pg-width input {
+  background: var(--bldr-input-bg);
+  border: 1px solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font: var(--bldr-font-weight-medium) var(--bldr-font-size-caption) / 1 var(--bldr-font-mono);
+  font-variant-numeric: tabular-nums;
+  inline-size: 5.5rem;
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+/* What a rail section says before it has a panel of its own. Quiet on purpose:
+   it is a status report, not a feature. */
+.pg-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-4xl) var(--bldr-space-3xl);
+}
+
+.pg-notice h2 {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-notice p {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  max-inline-size: 30ch;
+}
+
+/* The sealed-store counter, captioned so it reads as instrumentation rather
+   than as a stray digit in the action band. */
+.pg-tx {
+  align-items: baseline;
+  color: var(--bldr-panel-muted);
+  display: inline-flex;
+  gap: var(--bldr-space-xs);
+  font-size: var(--bldr-font-size-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pg-tx output {
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The scenario harness, in the panel the rail gives it. */
+.pg-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xl);
+  padding: var(--bldr-space-4xl) var(--bldr-space-3xl);
+}
+
+.pg-settings h2 {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-settings > p {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0) var(--bldr-space-0) var(--bldr-space-md);
+}
+
+.pg-settings fieldset {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.pg-settings legend {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  letter-spacing: 0.04em;
+  padding-inline: var(--bldr-space-0);
+  text-transform: uppercase;
+}
+
+.pg-settings label {
+  align-items: center;
+  color: var(--bldr-panel-text);
+  display: inline-flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-hit-target-min);
+}
+
+.pg-settings input[type='radio'] {
+  accent-color: var(--bldr-accent);
+  margin: var(--bldr-space-0);
+}
+
+.pg-settings button,
+.pg-settings select,
+.pg-settings input[type='number'] {
+  background: var(--bldr-panel-control);
+  border: 1px solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font-family: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-hit-target-min);
+  padding-inline: var(--bldr-space-md);
+}
+
+/* ── The assistant, as a conversation ──────────────────────────────────────
+   A thread that scrolls and a composer pinned to the foot — the shape every
+   chat has, because it is the shape the reading order needs: history above,
+   the thing you are writing where your hands are. The panel owns the height;
+   only the thread scrolls, so the composer never walks off the bottom. */
+.pg-chat {
+  block-size: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-block-size: 0;
+}
+
+.pg-chat__head {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  padding: var(--bldr-space-3xl);
+}
+
+.pg-chat__head h2 {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__head p {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xl);
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: var(--bldr-space-3xl);
+}
+
+/* An opener a person can press is worth more than a paragraph telling them
+   what to type — and each of these is a request that genuinely works. */
+.pg-chat__empty {
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-lg);
+  line-height: var(--bldr-line-height-normal);
+}
+
+.pg-chat__empty p {
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__starters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.pg-chat__starters button {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-lg);
+  padding-inline: var(--bldr-space-xl);
+  text-align: start;
+}
+
+.pg-chat__starters button:hover {
+  background: var(--bldr-surface-hover);
+}
+
+/* The person's turn sits to the trailing edge in a filled bubble; the
+   assistant's runs full width unadorned. Asymmetry is what makes a thread
+   readable at a glance without reading it. */
+.pg-chat__you {
+  align-self: end;
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-lg);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  max-inline-size: 85%;
+  padding: var(--bldr-space-md) var(--bldr-space-xl);
+}
+
+.pg-chat__reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+}
+
+.pg-chat__rationale,
+.pg-chat__thinking,
+.pg-chat__refused,
+.pg-chat__applied {
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__rationale {
+  color: var(--bldr-panel-text);
+}
+
+.pg-chat__thinking {
+  color: var(--bldr-panel-muted);
+}
+
+.pg-chat__refused {
+  color: var(--bldr-danger);
+}
+
+.pg-chat__applied {
+  color: var(--bldr-success);
+}
+
+/* The commands, in the mono face, because they are the exact thing that will
+   pass through the door — not a paraphrase of it. */
+.pg-chat__steps {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text-soft);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-xs);
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-md) var(--bldr-space-md) var(--bldr-space-md) var(--bldr-space-6xl);
+}
+
+.pg-chat__decide {
+  display: flex;
+  gap: var(--bldr-space-md);
+}
+
+.pg-chat__decide button {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-lg);
+  padding-inline: var(--bldr-space-xl);
+}
+
+.pg-chat__accept {
+  background: var(--bldr-accent);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.pg-chat__composer {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-3xl);
+}
+
+.pg-chat__composer textarea {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  padding: var(--bldr-space-md);
+  resize: none;
+}
+
+.pg-chat__send {
+  background: var(--bldr-accent);
+  border: var(--bldr-border-hairline) solid var(--bldr-accent);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-text);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  min-block-size: var(--bldr-control-lg);
+}
+
+.pg-chat__send:disabled,
+.pg-chat__composer textarea:disabled {
+  background: var(--bldr-panel-control);
+  border-color: var(--bldr-panel-border-strong);
+  color: var(--bldr-panel-muted);
+}
+
+/* Conversation management: a new chat, and a way back to the old ones. */
+.pg-chat__title {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+}
+
+.pg-chat__new {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-micro);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-lg);
+}
+
+.pg-chat__new:hover {
+  background: var(--bldr-surface-hover);
+}
+
+/* What the assistant can see, stated. A person cannot judge a proposal
+   without knowing what it was looking at. */
+.pg-chat__sees {
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__sessions select {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-micro);
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+/* Undo sits WITH the applied change, not in a toast that vanishes before a
+   person has finished reading what happened. */
+.pg-chat__undo {
+  background: transparent;
+  border: var(--bldr-border-hairline) solid var(--bldr-success);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-success);
+  font-size: var(--bldr-font-size-micro);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.pg-chat__guarantee {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-snug);
+  margin: var(--bldr-space-0);
+}

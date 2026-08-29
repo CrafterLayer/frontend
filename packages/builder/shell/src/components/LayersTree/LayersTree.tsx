@@ -5,6 +5,7 @@ import { useKernelSelector } from '@craftkit/builder-renderer';
 import type { NodeId } from '@craftkit/builder-schema';
 
 import { orderedChildren, parentOf, type SlotOrderLookup } from '../../keyboard/traversal';
+import { blockDisplayName } from '../../naming/block-display-name';
 import './LayersTree.css';
 
 export interface LayersTreeProps {
@@ -20,6 +21,16 @@ interface Row {
    *  cannot convey these, so ARIA requires them explicitly with aria-level. */
   posInSet: number;
   setSize: number;
+}
+
+interface RowPresentation {
+  name: string;
+  description: string | undefined;
+}
+
+function rowPaddingForDepth(depth: number): string {
+  const layers = Array.from({ length: depth }, () => 'var(--bldr-space-2xl)');
+  return `calc(${['var(--bldr-space-md)', ...layers].join(' + ')})`;
 }
 
 /**
@@ -97,13 +108,14 @@ export function LayersTree({ kernel }: LayersTreeProps) {
     }
   }
 
-  const labelOf = useCallback(
-    (id: NodeId): string => {
+  const presentationOf = useCallback(
+    (id: NodeId): RowPresentation => {
       const type = doc.nodes[id]?.type;
-      if (type === undefined) {
-        return id;
-      }
-      return kernel.context.registry.block(type)?.schema.description ?? type;
+      return {
+        name: blockDisplayName(kernel, id),
+        description:
+          type === undefined ? undefined : kernel.context.registry.block(type)?.schema.description,
+      };
     },
     [doc, kernel],
   );
@@ -227,54 +239,61 @@ export function LayersTree({ kernel }: LayersTreeProps) {
     >
       <h2 className="bldr-layers__title">Layers</h2>
       <ul role="tree" className="bldr-layers__tree" aria-label="Document structure">
-        {rows.map((row) => (
-          <li
-            key={row.id}
-            ref={(element) => {
-              if (element === null) {
-                rowRefs.current.delete(row.id);
-              } else {
-                rowRefs.current.set(row.id, element);
-              }
-            }}
-            role="treeitem"
-            aria-selected={selectedId === row.id}
-            {...(row.expandable ? { 'aria-expanded': !collapsed.has(row.id) } : {})}
-            aria-level={row.depth + 1}
-            aria-posinset={row.posInSet}
-            aria-setsize={row.setSize}
-            tabIndex={activeRow === row.id ? 0 : -1}
-            className={`bldr-layers__row${selectedId === row.id ? ' bldr-layers__row--selected' : ''}`}
-            style={{ paddingInlineStart: `${String(8 + row.depth * 14)}px` }}
-            onClick={() => {
-              setActiveRow(row.id);
-              kernel.setSelection([row.id]);
-            }}
-            onKeyDown={(event) => {
-              onRowKeyDown(event, row);
-            }}
-            onFocus={() => {
-              focusInsideRef.current = true;
-              setActiveRow(row.id);
-            }}
-          >
-            {row.expandable ? (
-              <span
-                className="bldr-layers__toggle"
-                aria-hidden="true"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggle(row.id);
-                }}
-              >
-                {collapsed.has(row.id) ? '▸' : '▾'}
+        {rows.map((row) => {
+          const presentation = presentationOf(row.id);
+          return (
+            <li
+              key={row.id}
+              ref={(element) => {
+                if (element === null) {
+                  rowRefs.current.delete(row.id);
+                } else {
+                  rowRefs.current.set(row.id, element);
+                }
+              }}
+              role="treeitem"
+              aria-selected={selectedId === row.id}
+              {...(row.expandable ? { 'aria-expanded': !collapsed.has(row.id) } : {})}
+              aria-level={row.depth + 1}
+              aria-posinset={row.posInSet}
+              aria-setsize={row.setSize}
+              tabIndex={activeRow === row.id ? 0 : -1}
+              title={presentation.description}
+              className={`bldr-layers__row${selectedId === row.id ? ' bldr-layers__row--selected' : ''}`}
+              style={{ paddingInlineStart: rowPaddingForDepth(row.depth) }}
+              onClick={() => {
+                setActiveRow(row.id);
+                kernel.setSelection([row.id]);
+              }}
+              onKeyDown={(event) => {
+                onRowKeyDown(event, row);
+              }}
+              onFocus={() => {
+                focusInsideRef.current = true;
+                setActiveRow(row.id);
+              }}
+            >
+              {row.expandable ? (
+                <span
+                  className="bldr-layers__toggle"
+                  aria-hidden="true"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggle(row.id);
+                  }}
+                >
+                  {collapsed.has(row.id) ? '▸' : '▾'}
+                </span>
+              ) : (
+                <span className="bldr-layers__toggle" aria-hidden="true" />
+              )}
+              <span className="bldr-layers__label">
+                <span className="bldr-layers__name">{presentation.name}</span>
+                <span className="bldr-layers__identity">{row.id}</span>
               </span>
-            ) : (
-              <span className="bldr-layers__toggle" aria-hidden="true" />
-            )}
-            {labelOf(row.id)}
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

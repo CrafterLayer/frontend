@@ -11,8 +11,13 @@ A grid of feature cards driven entirely by document data.
 ## Props (intent-only)
 
 - `heading: string (1–80) = 'Features'`
-- `columns: '2' | '3' = '3'`
+- `body?: string (1–200)` — supporting copy below the heading.
 - `items: Array<{ title: string (1–60); body: string (1–160) }> = []`
+- `columns: '1' | '2' | '3' | '4' = '3'`
+- `align: 'start' | 'center' | 'end' = 'start'`
+- `tone: 'transparent' | 'light' | 'dark' = 'transparent'`
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'md'`
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'full'`
 
 ## Accessibility
 
@@ -21,5 +26,6 @@ A labelled `section` with an `h2` heading and a semantic `ul` list; each card is
 
 ## Theming & RTL
 
-Tokens + logical properties only; `text-align: start` follows the document direction. An empty
-`items` list renders just the heading (no placeholder rows).
+Tokens + logical properties only; alignment follows the document direction. Tone paints the full
+section while width constrains its inner content. An empty `items` list renders its heading and
+optional supporting copy with no placeholder rows.

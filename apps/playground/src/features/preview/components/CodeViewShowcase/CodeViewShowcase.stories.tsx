@@ -148,3 +148,72 @@ export const OneEditingSurface: Story = {
     await expect(surfaceKernel.transactions()).toHaveLength(before);
   },
 };
+
+const fitKernel = createPlaygroundKernel({ fixture: 'code-view' });
+fitKernel.setSelection(['hero']);
+
+/**
+ * The showcase inside a region SHORTER than its content wants to be — which is
+ * the only shape it ever has in the application.
+ */
+export const FitsItsRegion: Story = {
+  args: { kernel: fitKernel, debounceMs: 0 },
+  render: (args) => (
+    <div data-testid="canvas-region" style={{ blockSize: '620px', inlineSize: '900px' }}>
+      <CodeViewShowcase {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open code view' }));
+    const textarea = await canvas.findByRole<HTMLTextAreaElement>(
+      'textbox',
+      { name: 'Document code' },
+      { timeout: 10_000 },
+    );
+    await waitFor(
+      async () => {
+        await expect(textarea.value.length).toBeGreaterThan(100);
+      },
+      { timeout: 10_000 },
+    );
+
+    /*
+      Measured, because this failed in the real product and no test saw it: the
+      showcase was a column of intrinsic heights with the canvas pinned to a
+      hard-coded 560px, so with the panel open it stood 991px tall inside a
+      907px region and the editor's last lines sat below the fold. jsdom
+      reports every one of those boxes as zero.
+    */
+    const region = canvasElement.querySelector('[data-testid="canvas-region"]');
+    const showcase = canvasElement.querySelector('[aria-label="Code view showcase"]');
+    if (region === null || showcase === null) {
+      throw new Error('The showcase did not render inside its region');
+    }
+    const regionBox = region.getBoundingClientRect();
+    const showcaseBox = showcase.getBoundingClientRect();
+
+    // Non-vacuous: with the panel closed anything fits, so prove it is open.
+    await expect(canvas.getByRole('button', { name: 'Close code view' })).toBeEnabled();
+    await expect(regionBox.height).toBeGreaterThan(400);
+
+    await expect(Math.round(showcaseBox.height)).toBe(Math.round(regionBox.height));
+    await expect(showcaseBox.bottom).toBeLessThanOrEqual(regionBox.bottom + 1);
+    await expect(region.scrollHeight).toBeLessThanOrEqual(region.clientHeight + 1);
+
+    /*
+      The assertions above are not enough on their own, and finding that out is
+      why this comment exists: with the section stretched to its region but the
+      canvas still pinned to a fixed height, the section keeps the RIGHT height
+      while its contents overflow inside it — every box above still matches and
+      the editor is still cut off. The real claim is that nothing inside the
+      showcase overflows it, and that every child stays within its bounds.
+    */
+    await expect(showcase.scrollHeight).toBeLessThanOrEqual(showcase.clientHeight + 1);
+    for (const child of showcase.children) {
+      const childBox = child.getBoundingClientRect();
+      await expect(childBox.bottom).toBeLessThanOrEqual(showcaseBox.bottom + 1);
+      await expect(childBox.top).toBeGreaterThanOrEqual(showcaseBox.top - 1);
+    }
+  },
+};

@@ -19,6 +19,7 @@ function stubIndex(): RectIndex {
     rect: (id) => ({ nodeId: id, x: 9, y: 9, width: 20, height: 20, version: 1 }),
     nodeAt: () => undefined,
     has: () => true,
+    element: () => undefined,
     version: () => 1,
     onInvalidate: () => () => undefined,
     stats: () => ({ measures: 0, invalidations: 0 }),

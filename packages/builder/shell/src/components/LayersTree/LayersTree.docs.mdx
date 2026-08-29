@@ -12,6 +12,13 @@ order and canvas order can never disagree. Selection is the kernel's own state i
 clicking a row selects on the canvas, and a selection made anywhere else highlights the row and
 expands its ancestors to reveal it.
 
+Each row uses a short name derived from the block type (`hero` → `Hero`, `cta` → `CTA`) because
+`BlockSchema` does not yet expose a human-facing name. That fallback is isolated in
+`displayNameForBlockType`, so a future schema name replaces one call instead of another round of UI
+guesswork. The stable node id is shown as quieter secondary text: unlike arbitrary props, it is
+always present and lets authors distinguish same-type siblings immediately. The model-facing schema
+description remains available as the row's native `title` tooltip.
+
 Expand/collapse is pure view state — it never touches the document, history, or transaction log.
 Document changes (undo included) re-derive the rows without reload; a removed selected node's
 highlight clears because the kernel itself prunes dangling selection ids.
@@ -35,6 +42,10 @@ import { LayersTree } from '@craftkit/builder';
 A labelled ARIA tree (`tree`/`treeitem`, `aria-expanded`, `aria-selected`, `aria-level`) with roving
 tabindex: Up/Down walk VISIBLE rows, Right/Left expand-or-step-in and collapse-or-step-out (mirrored
 under RTL content), Enter/Space select. Focus follows the active row only while it is already inside
-the tree — the component never steals focus on mount or reveal.
+the tree — the component never steals focus on mount or reveal. The visible name and node id both
+remain in the treeitem's accessible name; the tooltip does not replace them with prose.
+
+Rows are always one line. Both the primary name and the quieter id stay non-wrapping and truncate
+with an ellipsis when the panel is narrower than their combined content.
 
 <Canvas of={LayersTreeStories.Default} />

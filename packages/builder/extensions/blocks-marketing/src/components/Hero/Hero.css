@@ -1,10 +1,22 @@
+/*
+  The hero sets no padding and no ground of its own.
+
+  It used to set both, which put it in a specificity fight with the
+  `mkt-section--spacing-*` and `mkt-section--tone-*` classes on the SAME element:
+  the section rules won, so the hero's own `padding-block: 64px` did nothing
+  while looking authoritative, and its `padding-inline: 24px` was the only
+  horizontal breathing room any block had — now the content column's gutter.
+*/
 .mkt-hero {
   border-radius: var(--t-radius, 12px);
+}
+
+.mkt-hero__content {
+  align-items: center;
   display: flex;
   flex-direction: column;
   gap: var(--t-gap, 16px);
-  padding-block: 64px;
-  padding-inline: 24px;
+  text-align: center;
 }
 
 .mkt-hero--light {
@@ -17,18 +29,28 @@
   color: var(--t-text-inverse, #f9fafb);
 }
 
-.mkt-hero--start {
-  align-items: flex-start;
-  text-align: start;
+.mkt-hero__eyebrow {
+  color: var(--t-accent, #4f46e5);
+  font-size: var(--t-font-size-sm, 0.8125rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
 }
 
-.mkt-hero--center {
-  align-items: center;
-  text-align: center;
+.mkt-hero--dark .mkt-hero__eyebrow {
+  color: inherit;
+  opacity: 0.85;
 }
 
+/*
+  Fluid rather than fixed: 2.25rem is a good desktop headline and a wrapping mess
+  at 360px. The floor is what keeps it readable, the ceiling what stops it
+  swallowing a wide page.
+*/
 .mkt-hero__heading {
-  font-size: 2.25rem;
+  font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
+  text-wrap: balance;
   font-weight: 600;
   line-height: 1.15;
   margin: 0;
@@ -47,5 +69,74 @@
 
 .mkt-hero__actions {
   display: flex;
-  gap: 12px;
+  gap: var(--t-gap-sm, 8px);
+  inline-size: 100%;
+}
+
+.mkt-hero--start .mkt-hero__actions {
+  justify-content: flex-start;
+}
+
+.mkt-hero--center .mkt-hero__actions {
+  justify-content: center;
+}
+
+.mkt-hero--end .mkt-hero__actions {
+  justify-content: flex-end;
+}
+
+.mkt-hero__actions--direction-row {
+  flex-direction: row;
+}
+
+.mkt-hero__actions--direction-column {
+  flex-direction: column;
+}
+
+.mkt-hero__actions.mkt-hero__actions--justify-start {
+  justify-content: flex-start;
+}
+
+.mkt-hero__actions.mkt-hero__actions--justify-center {
+  justify-content: center;
+}
+
+.mkt-hero__actions.mkt-hero__actions--justify-end {
+  justify-content: flex-end;
+}
+
+.mkt-hero__actions--align-start {
+  align-items: flex-start;
+}
+
+.mkt-hero__actions--align-center {
+  align-items: center;
+}
+
+.mkt-hero__actions--align-end {
+  align-items: flex-end;
+}
+
+.mkt-hero__actions--gap-none {
+  gap: 0;
+}
+
+.mkt-hero__actions--gap-sm {
+  gap: var(--t-gap-sm, 8px);
+}
+
+.mkt-hero__actions--gap-md {
+  gap: var(--t-gap, 16px);
+}
+
+.mkt-hero__actions--gap-lg {
+  gap: var(--t-gap-lg, 32px);
+}
+
+.mkt-hero__actions--wrap-nowrap {
+  flex-wrap: nowrap;
+}
+
+.mkt-hero__actions--wrap-wrap {
+  flex-wrap: wrap;
 }

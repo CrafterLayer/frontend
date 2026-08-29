@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@craftkit/builder": "workspace:*",
     "@craftkit/ui": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:"

@@ -1,0 +1,71 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssistantPanelStories from './AssistantPanel.stories';
+
+<Meta of={AssistantPanelStories} />
+
+# AssistantPanel
+
+`AssistantPanel` is the playground-owned conversation surface for proposing builder changes. It
+never writes while a proposal is being discussed: each request creates its own turn, runs the
+commands against a scratch kernel, then waits for an explicit **Apply**.
+
+## Use it for
+
+Use this component in an editor rail when an author needs an inspectable, undoable proposed change.
+Use the optional code-review action when the host can show the proposal through the separate code
+view workflow.
+
+Do not use it as a general chat surface or as a way to bypass the builder kernel. All accepted
+commands still cross the same validated document door as a direct edit.
+
+## API
+
+- `kernel` — required live `BuilderKernel`. The panel reads its document and selection, dry-runs
+  proposals on a scratch kernel, and applies accepted commands with `author: 'ai'`.
+- `onReviewAsCode` — optional callback. When absent, the **Review as code** action is not rendered.
+- `planProvider` — optional proposal source for a deterministic or embedded host. The default is the
+  local provider; every provider result still receives the same kernel preflight.
+
+## Conversation and safety
+
+Each proposal remains attached to the message that requested it. Asking again never replaces an
+older plan. **Discard** marks that plan as discarded without touching the document. **Apply**
+records the commands as the assistant and exposes an in-thread **Undo**; the normal kernel history
+restores the exact prior document.
+
+The context line is deliberately explicit: it says either `the whole page` or `<type> · selected`,
+and updates when the live kernel selection changes. If the preflight refuses a command, the panel
+shows the kernel's actual reason rather than replacing it with a generic apology.
+
+## Accessibility
+
+The panel is a named region, the thread is a named log, the composer has a programmatic label, and
+all decisions use native buttons. Enter sends a request; Shift+Enter adds a line. The conversation
+switcher is a labelled native select and appears only when more than one chat exists.
+
+## Layout, direction, and content
+
+The host rail supplies `--bldr-panel-width`; the `CompactColumn` story renders at that token and
+proves no horizontal overflow. The panel grid leaves the composer at the foot and makes only the
+thread scroll. Its CSS uses logical properties, so the chrome inherits content direction. Keep
+requests concise enough for a conversation title; the first request names a new chat.
+
+## Composition
+
+```tsx
+<AssistantPanel
+  kernel={kernel}
+  onReviewAsCode={() => {
+    openCodeView();
+  }}
+/>
+```
+
+## Known limits
+
+This is a local deterministic proposal experience, not a remote model integration. A host that needs
+a different proposal source supplies `planProvider`, but it must still produce declarative kernel
+commands that pass the scratch-kernel preflight. If the live document changes before **Apply**, the
+same kernel door can still refuse the plan; the thread shows that real reason and leaves the plan
+unapplied.

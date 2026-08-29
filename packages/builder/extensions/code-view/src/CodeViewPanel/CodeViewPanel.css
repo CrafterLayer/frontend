@@ -21,7 +21,7 @@
 
 .bldr-code-view__status {
   background: var(--bldr-panel-border, #e2e8f0);
-  border-radius: 999px;
+  border-radius: var(--bldr-radius-full);
   font-size: 0.6875rem;
   padding: 0.125rem 0.5rem;
   text-transform: uppercase;
@@ -39,7 +39,7 @@
 
 .bldr-code-view__textarea {
   background: var(--bldr-panel-control, #ffffff);
-  border: 1px solid var(--bldr-panel-border, #cbd5e1);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border, #cbd5e1);
   border-radius: 0.25rem;
   box-sizing: border-box;
   color: var(--bldr-panel-text, #0f172a);
@@ -51,7 +51,7 @@
     Consolas,
     monospace;
   inline-size: 100%;
-  min-block-size: 18rem;
+  min-block-size: var(--bldr-measure-dock);
   padding: 0.625rem;
   resize: vertical;
   tab-size: 2;
@@ -60,8 +60,8 @@
 
 .bldr-code-view__textarea:focus-visible {
   border-color: var(--bldr-selection, #4f46e5);
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 1px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
 }
 
 .bldr-code-view__textarea[aria-invalid='true'] {
@@ -80,7 +80,7 @@
 
 .bldr-code-view__discard {
   background: var(--bldr-panel-control, #ffffff);
-  border: 1px solid var(--bldr-panel-border, #cbd5e1);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border, #cbd5e1);
   border-radius: 0.25rem;
   color: inherit;
   cursor: pointer;
@@ -90,6 +90,6 @@
 }
 
 .bldr-code-view__discard:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 1px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
 }

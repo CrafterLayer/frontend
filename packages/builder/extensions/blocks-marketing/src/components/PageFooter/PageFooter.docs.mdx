@@ -1,0 +1,68 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PageFooterStories from './PageFooter.stories';
+
+<Meta of={PageFooterStories} />
+
+# PageFooter
+
+`PageFooter` closes a page with optional supporting text, grouped navigation, and an optional legal
+line. Use it once at the bottom of a page; do not use it as a generic card footer or for unrelated
+navigation in the middle of content.
+
+## Usage
+
+```json
+{
+  "type": "pageFooter",
+  "props": {
+    "statement": "Composable pages for growing teams.",
+    "columns": [
+      {
+        "heading": "Product",
+        "links": [{ "label": "Features", "href": "/features" }]
+      }
+    ],
+    "legal": "© 2026 CraftKit",
+    "background": "surfaceInverse",
+    "textColor": "accentText"
+  }
+}
+```
+
+## API
+
+| Prop         | Type and default                                            | Purpose                                                                         |
+| ------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `statement`  | `string` (optional)                                         | Supporting text, up to 120 characters.                                          |
+| `columns`    | `Array<{ heading, links }>` = `[]`                          | Up to four link groups, each with a 1–24 character heading and up to six links. |
+| `legal`      | `string` (optional)                                         | Legal or copyright line, up to 120 characters.                                  |
+| `align`      | `start \| center \| end` = `start`                          | Logical alignment of the inner content.                                         |
+| `background` | `surface \| surfaceInverse \| accent` (optional)            | Page colour role, deliberately unset by default.                                |
+| `textColor`  | `text \| textInverse \| textMuted \| accentText` (optional) | Page colour role, deliberately unset by default.                                |
+| `tone`       | section tone = `transparent`                                | Section tone used when colour roles are omitted.                                |
+| `spacing`    | section spacing = `lg`                                      | Token-backed vertical section spacing.                                          |
+| `width`      | section width = `wide`                                      | Maximum width of the inner footer content.                                      |
+
+Each link has a 1–24 character label and a 1–200 character URL.
+
+## Variants
+
+- **Default** shows a statement, grouped links, and a legal line with the neutral transparent tone.
+- **InverseColour** resolves `surfaceInverse` and `accentText` to the page's `--t-surface-inverse`
+  and `--t-accent-text` custom properties.
+- Omit `statement` or `legal` when the page does not need them; neither creates a placeholder.
+
+## Accessibility
+
+The root is a semantic footer landmark. Every column is its own `nav`, named by the same visible
+heading shown in that column, and every destination is a native anchor. Keep column headings and
+link labels distinct so assistive technology can identify the navigation group and destination.
+
+## RTL, responsive, and theme behavior
+
+The footer uses logical alignment and token-backed logical sizing, so it follows the page's writing
+direction without physical left/right assumptions. Columns wrap on narrow layouts while retaining a
+minimum inline size. Colour roles reference page-owned `--t-*` variables rather than literal
+colours. When roles are absent, the root has no inline background or text colour and the section
+tone remains in control.

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "/Users/abode/.nvm/versions/node/v22.19.0/bin/playwright-mcp",
+      "args": ["--headless"]
+    },
+    "boundedrelay": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/abode/Documents/craftkit-builder/claude-codex-worker/dist/cli.js", "serve"],
+      "env": {
+        "CCW_ALLOWED_ROOTS": "/Users/abode/Documents/craftkit-builder/frontend",
+        "CCW_ENABLE_PROPOSALS": "true"
+      }
+    }
+  }
+}

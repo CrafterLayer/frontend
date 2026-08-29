@@ -9,6 +9,6 @@
 
 .bldr-inline-text:focus-visible,
 .bldr-inline-text[contenteditable='plaintext-only']:focus {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 2px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-thick);
 }

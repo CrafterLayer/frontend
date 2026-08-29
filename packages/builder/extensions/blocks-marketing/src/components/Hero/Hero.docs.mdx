@@ -14,17 +14,42 @@ call-to-action buttons in its `actions` slot.
 ```json
 {
   "type": "hero",
-  "props": { "tone": "dark", "align": "center", "heading": "عود يليق بذوقك" },
+  "props": {
+    "eyebrow": "مجموعة خاصة",
+    "tone": "dark",
+    "align": "end",
+    "spacing": "lg",
+    "width": "wide",
+    "layoutDirection": "row",
+    "layoutJustify": "end",
+    "layoutAlign": "center",
+    "layoutGap": "md",
+    "layoutWrap": "wrap",
+    "heading": "عود يليق بذوقك"
+  },
   "slots": { "actions": ["cta-1"] }
 }
 ```
 
 ## Props (intent-only)
 
-- `tone: 'light' | 'dark' = 'light'`
-- `align: 'start' | 'center' = 'center'` — logical alignment (RTL-safe).
+- `eyebrow?: string (1–60)` — short overline above the heading.
 - `heading: string (1–80) = 'Your headline'`
 - `body?: string (≤200)`
+- `align: 'start' | 'center' | 'end' = 'center'` — logical alignment (RTL-safe).
+- `tone: 'transparent' | 'light' | 'dark' = 'light'`
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'lg'` — vertical section spacing.
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'full'` — inner content width; the tone remains
+  full-bleed.
+- `layoutDirection?: 'row' | 'column'` — main-axis direction for child blocks in `actions`.
+- `layoutJustify?: 'start' | 'center' | 'end'` — child alignment along the main axis.
+- `layoutAlign?: 'start' | 'center' | 'end'` — child alignment along the cross axis.
+- `layoutGap?: 'none' | 'sm' | 'md' | 'lg'` — token-backed space between child blocks.
+- `layoutWrap?: 'nowrap' | 'wrap'` — whether child blocks may continue on another flex line.
+
+All layout properties are optional so existing documents keep their exact rendering: an omitted
+layout remains a row with no wrapping, the legacy 12px action gap, stretch cross-axis behavior, and
+main-axis alignment derived from `align`. Supplying a layout property overrides only that concern.
 
 ## Slots
 
@@ -36,5 +61,7 @@ A labelled `section` landmark whose name is the heading; the heading is a real `
 
 ## Theming & RTL
 
-Only `--t-*` tokens and logical properties; `align: start` follows the document direction
-automatically.
+Logical properties and flex start/end semantics make `row` mirror from the writing direction; no
+physical left/right rule is used. Explicit layout gaps resolve only through
+`--bldr-space-0|sm|md|lg`; documents never carry a pixel literal. The defaults retain the original
+light, centered, 64-unit-spaced, full-width Hero and its legacy action geometry.

@@ -58,6 +58,57 @@ const makeKernel = () =>
     ports: { clock: fixedClock(), ids: seededIds('pl') },
   });
 
+describe('a tile is named, never described', () => {
+  /*
+    The regression this pins: `blockName` fell back to the schema's
+    `description` for any type not in its map, so the first block anyone added
+    rendered a full sentence inside a tile and shoved the column apart. The
+    description here is deliberately a real one — long, with punctuation — so
+    the assertion cannot pass by the fixture being a single word.
+  */
+  const SENTENCE =
+    'A pane split in two, with a media panel on one side and a column of prose on the other.';
+
+  /*
+    Deliberately a type NOT in `KNOWN_BLOCK_NAMES` — the map is the early
+    return, so a listed type would exercise the map and prove nothing about the
+    fallback this test exists to pin.
+  */
+  const UNLISTED_TYPE = 'splitPanel';
+
+  const UNLISTED: TrustedExtensionManifest = {
+    tier: 1,
+    name: 'palette-unlisted',
+    version: '1.0.0',
+    contributes: {
+      blocks: [
+        block('page', 'Page', { default: { allow: [UNLISTED_TYPE] } }),
+        block(UNLISTED_TYPE, SENTENCE),
+      ],
+    },
+  };
+
+  const kernel = () =>
+    createBuilder({
+      document: {
+        schemaVersion: 1,
+        surface: 'site',
+        dir: 'ltr',
+        rootId: 'root',
+        nodes: { root: { id: 'root', type: 'page', props: {}, slots: {} } },
+      },
+      extensions: [UNLISTED],
+      ports: { clock: fixedClock(), ids: seededIds('un') },
+    });
+
+  it('titles an unlisted block from its type instead of printing its description', () => {
+    render(<Palette kernel={kernel()} />);
+
+    expect(screen.getByText('Split Panel')).toBeInTheDocument();
+    expect(screen.queryByText(SENTENCE)).not.toBeInTheDocument();
+  });
+});
+
 describe('Palette (006 contract §4)', () => {
   it('p1: lists the registered vocabulary with display names, live under runtime changes', () => {
     const kernel = makeKernel();
@@ -80,6 +131,92 @@ describe('Palette (006 contract §4)', () => {
       kernel.extensions.dispose('late');
     });
     expect(screen.queryByRole('button', { name: 'Banner' })).not.toBeInTheDocument();
+  });
+
+  it('filters visible block cards as the author types', async () => {
+    const kernel = makeKernel();
+    const user = userEvent.setup();
+    render(<Palette kernel={kernel} />);
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search blocks' }), 'section');
+
+    expect(screen.getByRole('button', { name: 'Section' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Page' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Text' })).not.toBeInTheDocument();
+  });
+
+  it('collapses one category without hiding the others and exposes its expanded state', async () => {
+    const kernel = makeKernel();
+    const user = userEvent.setup();
+    render(<Palette kernel={kernel} />);
+
+    const layoutToggle = screen.getByRole('button', { name: 'Layout' });
+    const layoutRegionId = layoutToggle.getAttribute('aria-controls');
+    const layoutRegion = document.getElementById(layoutRegionId ?? '');
+    expect(layoutToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(layoutRegion).toHaveAttribute('role', 'region');
+    expect(layoutRegion).not.toHaveAttribute('hidden');
+
+    await user.click(layoutToggle);
+
+    expect(layoutToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(layoutRegion).toHaveAttribute('hidden');
+    expect(screen.queryByRole('button', { name: 'Page' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Section' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Text' })).toBeInTheDocument();
+
+    await user.click(layoutToggle);
+    expect(layoutToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Page' })).toBeInTheDocument();
+  });
+
+  it('shows actionable guidance when the search has no matches', async () => {
+    const kernel = makeKernel();
+    const user = userEvent.setup();
+    render(<Palette kernel={kernel} />);
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search blocks' }), 'carousel');
+
+    expect(screen.getByText('No blocks found. Try another block name.')).toBeInTheDocument();
+  });
+
+  it('draws each known block family with its semantic miniature', () => {
+    const kernel = makeKernel();
+    kernel.extensions.register({
+      tier: 1,
+      name: 'diagram-vocabulary',
+      version: '1.0.0',
+      contributes: {
+        blocks: [
+          block('hero', 'Opening section'),
+          block('columns', 'Multi-column layout'),
+          block('grid', 'Repeated layout'),
+          block('pricing', 'Plan comparison'),
+          block('testimonials', 'Customer quotes'),
+          block('cta', 'Call to action'),
+          block('image', 'Responsive media'),
+        ],
+      },
+    });
+    render(<Palette kernel={kernel} />);
+
+    const expectedDiagrams = [
+      ['Page', 'section'],
+      ['Text', 'text'],
+      ['Hero', 'hero'],
+      ['Columns', 'columns'],
+      ['Grid', 'grid'],
+      ['Pricing', 'pricing'],
+      ['Testimonials', 'testimonial'],
+      ['CTA', 'action'],
+      ['Image', 'media'],
+    ] as const;
+
+    for (const [name, diagram] of expectedDiagrams) {
+      expect(
+        screen.getByRole('button', { name }).querySelector('svg[data-diagram]'),
+      ).toHaveAttribute('data-diagram', diagram);
+    }
   });
 
   it('p2: keyboard activation inserts AFTER the selected node when its slot accepts', async () => {

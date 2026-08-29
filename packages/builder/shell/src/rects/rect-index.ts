@@ -22,6 +22,13 @@ export interface RectIndex {
   /** Identity from point hit-testing — zero measurement on the pointer path. */
   nodeAt(clientX: number, clientY: number): NodeId | undefined;
   has(id: NodeId): boolean;
+  /**
+   * The attached element, for chrome that must mark a node's STATE on the node
+   * itself rather than only draw over it. Read-only by contract: the index owns
+   * membership, and a caller that moved geometry through here would put the
+   * cache and the page out of step.
+   */
+  element(id: NodeId): HTMLElement | undefined;
   /** Monotonic; bumped by observation only (FR-002). */
   version(): number;
   /**
@@ -142,6 +149,7 @@ export function createRectIndex(options: {
       return wrapper?.getAttribute('data-bldr-node') ?? undefined;
     },
     has: (id) => elements.has(id),
+    element: (id) => elements.get(id),
     version: () => version,
     onInvalidate(listener) {
       invalidateListeners.add(listener);

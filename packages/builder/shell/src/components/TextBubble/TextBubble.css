@@ -17,41 +17,39 @@
 .bldr-text-bubble {
   align-items: center;
   background: var(--bldr-surface, #ffffff);
-  border: 1px solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
-  border-radius: 0.5rem;
-  box-shadow:
-    0 1px 2px rgb(15 23 42 / 8%),
-    0 8px 24px rgb(15 23 42 / 14%);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  /*
+    Tokens, not literals and not `rem`. Two defects lived in this rule. The
+    shadow was a hard-coded light-theme value, so on the dark editor this
+    surface floated with no elevation at all — the theme publishes
+    `--bldr-shadow-floating` precisely so both grounds get the right weight.
+    And every size was in `rem`, which resolves against the ROOT font size of a
+    document this component does not control: a host at 14px root shrank these
+    hit targets to 24.5px without anyone touching the editor.
+  */
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
   display: flex;
   font-family: var(--bldr-font, system-ui, sans-serif);
-  gap: 2px;
-  padding: 0.25rem;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-xs);
   /* The layer around the host is transparent to input; the bubble itself must
      accept it wherever it renders (host, stories, tests). */
   pointer-events: auto;
 }
 
 .bldr-text-bubble__action {
-  align-items: center;
   background: none;
   border: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--bldr-radius-md);
   color: var(--bldr-panel-text, #334155);
-  cursor: pointer;
-  display: inline-flex;
   font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  justify-content: center;
-  line-height: 1;
-  min-block-size: 1.75rem;
-  min-inline-size: 1.75rem;
-  padding-block: 0.3125rem;
-  padding-inline: 0.5rem;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-  white-space: nowrap;
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-tight);
+  min-inline-size: var(--bldr-control-lg);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-md);
 }
 
 .bldr-text-bubble__action:hover:not(:disabled) {
@@ -64,8 +62,8 @@
 
 /* Focus is distinguishable from hover and from pressed. */
 .bldr-text-bubble__action:focus-visible {
-  outline: 2px solid var(--bldr-selection, #4f46e5);
-  outline-offset: 1px;
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
 }
 
 .bldr-text-bubble__action[aria-pressed='true'] {
@@ -83,16 +81,15 @@
   opacity: 0.5;
 }
 
-/* The pointer: a 10px square rotated 45°, centred on the host-written
-   --bldr-arrow-x (physical left offset; the margin recentres the square) and
+/* The pointer: a token-sized square rotated 45°, centred on the host-written
+   --bldr-arrow-x (physical left offset; translate recentres the square) and
    painted behind the bubble's own background so only the protruding half
    shows. The host's z-index establishes the stacking context this relies on. */
 .bldr-text-bubble__arrow {
   background: var(--bldr-surface, #ffffff);
-  block-size: 10px;
-  inline-size: 10px;
+  block-size: var(--bldr-space-lg);
+  inline-size: var(--bldr-space-lg);
   left: var(--bldr-arrow-x, 50%);
-  margin-left: -5px;
   pointer-events: none;
   position: absolute;
   transform: rotate(45deg);
@@ -103,13 +100,15 @@
    Above the selection it points DOWN (bordered lower sides), below it points
    UP (bordered upper sides). */
 [data-placement='above'] .bldr-text-bubble__arrow {
-  border-bottom: 1px solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
-  border-right: 1px solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
-  bottom: -5px;
+  border-bottom: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  border-right: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  bottom: var(--bldr-space-0);
+  translate: -50% 50%;
 }
 
 [data-placement='below'] .bldr-text-bubble__arrow {
-  border-left: 1px solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
-  border-top: 1px solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
-  top: -5px;
+  border-left: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  border-top: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  top: var(--bldr-space-0);
+  translate: -50% -50%;
 }

@@ -1,0 +1,81 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as IconRailStories from './IconRail.stories';
+
+<Meta of={IconRailStories} />
+
+# IconRail
+
+`IconRail` is the builder shell's primary navigation. It owns the editor's one dark surface and
+keeps the main sections at inline-start, utility sections pinned to the block-end, and caller-owned
+account content below those utilities.
+
+## Usage
+
+```tsx
+import { IconRail } from '@craftkit/builder-shell';
+
+<IconRail
+  items={[
+    { id: 'pages', label: 'Pages', icon: <PagesIcon /> },
+    { id: 'blocks', label: 'Blocks', icon: <BlocksIcon /> },
+  ]}
+  secondary={[{ id: 'settings', label: 'Settings', icon: <SettingsIcon /> }]}
+  activeId="pages"
+  onSelect={(id) => {
+    openSection(id);
+  }}
+  account={<AccountAvatar />}
+/>;
+```
+
+The caller owns selection state and supplies 16- or 18-pixel inline SVG icons. Labels are always
+visible below their icons; they are not tooltip replacements.
+
+## API
+
+| Prop        | Type                   | Default            | Notes                                       |
+| ----------- | ---------------------- | ------------------ | ------------------------------------------- |
+| `items`     | `readonly RailItem[]`  | required           | Primary items in visual and DOM order       |
+| `secondary` | `readonly RailItem[]`  | `[]`               | Utility items pinned above the account      |
+| `activeId`  | `string`               | none               | Matching item receives `aria-current`       |
+| `onSelect`  | `(id: string) => void` | none               | Fires from native button activation         |
+| `account`   | `ReactNode`            | none               | Caller-owned account content at block-end   |
+| `label`     | `string`               | `Builder sections` | Accessible name for the navigation landmark |
+
+`RailItem` contains a stable `id`, a visible `label`, and a caller-supplied `icon`.
+
+## Variants
+
+The default rail contains only the primary group.
+
+<Canvas of={IconRailStories.Default} />
+
+The active section uses the accent surface and carries `aria-current="page"`.
+
+<Canvas of={IconRailStories.WithActiveItem} />
+
+Secondary actions stay at the block-end, with the account tile below them.
+
+<Canvas of={IconRailStories.WithSecondaryGroup} />
+
+## Accessibility
+
+The navigation landmark contains real lists of native `button` elements. Each icon wrapper is hidden
+from assistive technology so the visible label is also the button's accessible name. Native Tab,
+Enter, and Space behavior is preserved; the component adds no roving focus or custom keyboard
+handler. Focus appearance comes from the builder theme's shared `.bldr-root :focus-visible` rule.
+The active destination alone exposes `aria-current="page"`. Every navigation item is a quiet
+`ChromeButton` at the default `lg` (`--bldr-control-lg`) height; this desktop editor rail is not a
+finger-specific surface, so it does not opt into the reserved `touch` size.
+
+## RTL and theming
+
+All geometry uses logical properties, so the rail mirrors to inline-end when inherited direction is
+RTL without a second stylesheet.
+
+<Canvas of={IconRailStories.RightToLeft} />
+
+Every colour, radius, type size, spacing, rail width, hit target, and transition comes from the
+`@craftkit/builder-theme` contract. Hover, active, and pressed states change colour only; no item
+changes size or scales.

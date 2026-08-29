@@ -14,10 +14,16 @@ import type { NodeRect, RectIndex } from '../rects';
 import { createDragSession } from './drag-session';
 
 const NullRender: BlockRenderComponent = () => null;
-const block = (type: string, slots?: Record<string, { allow: string[]; max?: number }>) => ({
+const TEXT_DESCRIPTION =
+  'A text block for long-form catalogue copy. This prose explains authoring intent and usage in detail.';
+const block = (
+  type: string,
+  slots?: Record<string, { allow: string[]; max?: number }>,
+  description = `${type[0]?.toUpperCase() ?? ''}${type.slice(1)}`,
+) => ({
   schema: defineBlockSchema({
     type,
-    description: `${type[0]?.toUpperCase() ?? ''}${type.slice(1)}`,
+    description,
     props: z.object({}),
     ...(slots === undefined ? {} : { slots }),
     examples: [],
@@ -35,7 +41,7 @@ const VOCAB: TrustedExtensionManifest = {
       block('section', { default: { allow: ['text'] } }),
       block('hero', { actions: { allow: ['button'], max: 2 } }),
       block('button'),
-      block('text'),
+      block('text', undefined, TEXT_DESCRIPTION),
     ],
   },
 };
@@ -84,6 +90,7 @@ function setup() {
     rect: (id) => RECTS[id],
     nodeAt: () => hovered,
     has: (id) => id in RECTS,
+    element: () => undefined,
     version: () => 0,
     onInvalidate: (listener) => {
       invalidateListeners.add(listener);
@@ -174,6 +181,26 @@ describe('createDragSession (006 contract §1)', () => {
     expect(h.announcements.at(-1)).toBe('Kept in place');
   });
 
+  it('announces a moved block by display name rather than catalogue prose', () => {
+    const h = setup();
+    expect(TEXT_DESCRIPTION).toContain('.');
+
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.move(90, 90);
+    const ghostLabel = h.layer.querySelector('.bldr-drag-ghost')?.textContent;
+
+    h.setHovered('t2');
+    h.session.move(100, 225);
+    h.tick();
+    h.session.release();
+
+    const announcement = h.announcements.at(-1);
+    expect(announcement).toBe('Moved Text');
+    expect(announcement).not.toContain(TEXT_DESCRIPTION);
+    expect(announcement).not.toContain('.');
+    expect(ghostLabel).toBe('Text');
+  });
+
   it('s4: cancel is zero-trace — document reference-identical, chrome gone', () => {
     const h = setup();
     const before = h.kernel.getDocument();
@@ -218,6 +245,23 @@ describe('createDragSession (006 contract §1)', () => {
     expect(h.kernel.getDocument()).toBe(before);
     expect(h.kernel.transactions()).toHaveLength(0);
     expect(h.announcements.at(-1)).toBe('No valid target');
+  });
+
+  it('s4b: a PENDING gesture self-cancels silently — nothing started, so nothing was cancelled', () => {
+    const h = setup();
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    expect(h.session.phase()).toBe('pending'); // pressed, never moved
+    const announcementsBefore = h.announcements.length;
+
+    h.kernel.dispatch('removeNode', { id: 't1' });
+
+    // The self-cancel law is unchanged: the session still resets.
+    expect(h.session.phase()).toBe('idle');
+    // But it says nothing. Measured on a fresh page before this gate existed:
+    // one ordinary click to select a block announced "Drag cancelled", so a
+    // screen-reader user was told a drag had been cancelled every time they
+    // chose a block.
+    expect(h.announcements).toHaveLength(announcementsBefore);
   });
 
   it('s4: a move payload whose node disappears mid-drag self-cancels', () => {

@@ -1,13 +1,43 @@
 # Active Work Handoff
 
-**Status:** Builder **B4 is complete and committed** (`602c690`). The **design milestone** that
-follows it is implemented and its Spec Kit artifacts are written. Work is now blocked only on the
-user: **nothing since B4 has been committed and commit authorization remains withheld.**
+**Status:** Builder **B4 is complete and committed** (`602c690`). The **design milestone** (012) is
+implemented, its artifacts are written, and it remains uncommitted — **commit authorization is still
+withheld**. The user has chosen what follows it: not B5, but **013, the AI Full-Site Design Agent**.
+Its `spec.md`, `plan.md`, Phase 0/1 artifacts, and `tasks.md` (158 tasks) are written, and a green
+pre-change baseline is recorded in `013-.../baseline.md` (`PNPM_EXIT=0`, **58 components** — the 50
+in this file's older note was stale). **No implementation code has been written for 013.**
 
-**Updated:** 2026-08-28
+**013 is blocked on ONE thing: the user committing 012.** The user asked for Codex to do the writing
+to reduce cost. BoundedRelay is verified healthy (authenticated, `proposalsEnabled: true`,
+`maxConcurrent: 2`, write roots `packages/builder`, `apps/playground`, `apps/storybook`), but
+`codex_worker_workspace` reports `proposalReady: false` — **"The Git working tree is not clean"**,
+82 uncommitted files. Codex proposes from an isolated clone, so it can write nothing until the tree
+is clean. Do NOT stash as a workaround: 013's Phase 2 edits `renderer` and `schema` files that 012
+has already modified, so patches would be built against stale code and conflict on unstash.
 
-**Scope:** `specs/workspace/012-builder-design-chrome-theme` with `packages/builder/theme` (new),
-`packages/builder/{shell,editor}`, `apps/playground`, and `apps/storybook`.
+**Updated:** 2026-08-29
+
+**Scope (active):** `specs/workspace/013-ai-full-site-design-agent` — workspace, cross-cutting.
+Planned members: `packages/builder/{schema,core,transforms,renderer,ai,shell}`,
+`packages/builder/extensions/{blocks-marketing,code-view}`, `packages/builder` preset,
+`apps/{playground,storybook}`. `@craftkit/builder-theme` is deliberately untouched (editor chrome
+stays separate from the generated page design system).
+
+**Scope (previous, still uncommitted):** `specs/workspace/012-builder-design-chrome-theme` with
+`packages/builder/theme` (new), `packages/builder/{shell,editor}`, `apps/playground`, and
+`apps/storybook`.
+
+**013 decisions already fixed by the user — do not relitigate:** the site WRAPS pages (each page
+stays an independently valid `BuilderDocument` at `schemaVersion` 1); reasoning runs client-side
+against a replaceable endpoint with a published stage contract, and no reasoning service enters this
+workspace; imagery is SELECTED from a local asset library behind a replaceable port, never generated
+and never invented. Recorded in the spec's `Resolved Decisions`.
+
+**013's load-bearing finding:** the page's design tokens (`Theme`, `ColorToken`, `MeasurementToken`)
+live in `@craftkit/builder-renderer` at layer 2, the same layer as `@craftkit/builder-ai`. ADR 0003
+forbids sideways edges, so the agent cannot import the vocabulary it must generate. They move DOWN to
+`@craftkit/builder-schema` (layer 0), with re-exports so no consumer import breaks. This is why the
+plan touches layer 0 at all. See `research.md` R1.
 
 **Out of scope, do not touch:** `apps/adaptive-spec-router` and
 `specs/workspace/010-adaptive-spec-router` are the user's separately-owned, untracked work. The user
@@ -80,3 +110,15 @@ the log's tail. Three runs were misread that way during this session before the 
   MCP transport. The plugin's `--effort` flag rejects `ultra`; leave the flag off and let
   `~/.codex/config.toml` apply. Lease work in small, path-disjoint slices.
 - Never trust a delegated agent's mutation report. Re-run each mutation yourself.
+- **Spec Kit's bash scripts need PyYAML and `/usr/bin/python3` does not have it.**
+  `setup-plan.sh` fails with `PyYAML is required to resolve preset template composition`, and
+  `agent-context/scripts/bash/update-agent-context.sh` silently SKIPS with exit 0 — which is why
+  `.cursor/rules/project-governance.mdc` was still pointing at feature 010 while `CLAUDE.md` and
+  `AGENTS.md` pointed at 011. Install PyYAML for the interpreter Spec Kit invokes, or every
+  plan/tasks cycle keeps needing the manual fallback: copy `.specify/templates/<name>-template.md`
+  directly (verified equivalent — the `react-monorepo-quality` preset wraps COMMANDS only and
+  provides no template overrides), and hand-edit the `<!-- SPECKIT START -->` block in all three
+  files listed in `agent-context-config.yml`.
+- `head` on this machine is shadowed by an HTML tool. Prefix shell commands with
+  `PATH="/usr/bin:/bin:$HOME/.nvm/versions/node/v24.19.0/bin:$PATH"` or `head -40` fails with
+  `Unknown option: 4`.

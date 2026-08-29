@@ -56,7 +56,16 @@ describe('NavLinks', () => {
   });
 
   it('shows the empty editing hint on the canvas without creating a navigation landmark', () => {
-    render(
+    const { rerender } = render(
+      <NavLinks node={node} props={navLinksSchema.props.parse({})} slots={{}} data={{}} isCanvas />,
+    );
+
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    let hint = screen.getByText('This block has no links yet.');
+    expect(hint).toHaveAttribute('class', 'mkt-section__hint');
+    expect(hint).not.toHaveAttribute('style');
+
+    rerender(
       <NavLinks
         node={node}
         props={navLinksSchema.props.parse({
@@ -70,8 +79,7 @@ describe('NavLinks', () => {
       />,
     );
 
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-    const hint = screen.getByText('This block has no links yet.');
+    hint = screen.getByText('This block has no links yet.');
     expect(hint).toHaveClass('mkt-section__hint', 'mkt-type--align-center');
     expect(hint.style.color).toBe('var(--t-text-muted)');
     expect(hint.style.marginInlineStart).toBe('calc(var(--t-space-unit, 4px) * 2)');
@@ -113,6 +121,53 @@ describe('NavLinks', () => {
     expect(navigation).toHaveClass('mkt-type--family-mono');
     expect(navigation.style.background).toBe('var(--t-accent)');
     expect(navigation.style.paddingBlockStart).toBe('calc(var(--t-space-unit, 4px) * 4)');
+  });
+
+  it('maps persisted NavLinks typography to shared classes without restoring schema controls', () => {
+    const legacyNode = { ...node, props: { textCase: 'uppercase', weight: 'regular' } };
+    const { rerender } = render(
+      <NavLinks
+        node={legacyNode}
+        props={navLinksSchema.props.parse({
+          links: [{ label: 'Legacy docs', href: '/legacy' }],
+          textCase: 'uppercase',
+          weight: 'regular',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    const navigation = screen.getByRole('navigation', { name: 'Navigation links' });
+    expect(navigation).toHaveClass(
+      'mkt-type--case-uppercase',
+      'mkt-type--letter-spacing-wide',
+      'mkt-type--weight-regular',
+    );
+    expect(navigation.className).not.toContain('mkt-nav-links--case-');
+    expect(navigation.className).not.toContain('mkt-nav-links--weight-');
+    expect(navLinksSchema.props.shape).not.toHaveProperty('weight');
+
+    rerender(
+      <NavLinks
+        node={legacyNode}
+        props={navLinksSchema.props.parse({
+          links: [{ label: 'Legacy docs', href: '/legacy' }],
+          fontWeight: 'bold',
+          textCase: 'uppercase',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    expect(navigation).toHaveClass(
+      'mkt-type--case-uppercase',
+      'mkt-type--letter-spacing-wide',
+      'mkt-type--weight-bold',
+    );
+    expect(navigation).not.toHaveClass('mkt-type--weight-regular');
   });
 
   it('schema: enforces defaults, enums, surfaces, and an inspector group for every property', () => {

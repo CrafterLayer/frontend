@@ -112,6 +112,31 @@ describe('Hero', () => {
     expect(section.style.color).toBe('');
   });
 
+  it('carries NO style attribute when neither colour nor spacing is set', () => {
+    /*
+      Nothing chosen ⇒ nothing inline. An inline value outranks the stylesheet,
+      so a block that hard-coded one — or a shared helper that started returning
+      a default — would silently restyle every page authored before these
+      controls existed.
+
+      Stated precisely, because I checked: `undefined` versus `{}` is NOT what
+      this pins. React omits the attribute for an empty object too, so that
+      distinction has no observable difference and nothing to gate. What this
+      catches is a real value arriving when none was asked for.
+    */
+    const { container } = render(
+      <Hero
+        node={node}
+        props={heroSchema.props.parse({ heading: 'Plain' })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(container.querySelector('.mkt-hero')).not.toHaveAttribute('style');
+  });
+
   it('applies shared typography, spacing, and colour controls on the root', () => {
     render(
       <Hero

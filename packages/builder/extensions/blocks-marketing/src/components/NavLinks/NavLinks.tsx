@@ -10,8 +10,20 @@ import { sectionTypographyClasses } from '../section-typography';
 import type { NavLinksProps } from './schema';
 
 /** A compact navigation list for freely composed page slots and standalone layouts. */
-export function NavLinks({ props, isCanvas }: BlockRenderProps<NavLinksProps>) {
+export function NavLinks({ node, props, isCanvas }: BlockRenderProps<NavLinksProps>) {
   const typographyClassName = sectionTypographyClasses(props);
+  const legacyWeight = node.props['weight'];
+  const hasLegacyWeight =
+    legacyWeight === 'regular' || legacyWeight === 'medium' || legacyWeight === 'semibold';
+  const legacyFontWeight =
+    props.fontWeight === undefined && hasLegacyWeight ? legacyWeight : undefined;
+  const legacyTypographyClassName = sectionTypographyClasses({
+    fontWeight: legacyFontWeight,
+    letterSpacing:
+      props.letterSpacing === undefined && hasLegacyWeight && props.textCase === 'uppercase'
+        ? 'wide'
+        : undefined,
+  });
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
   const style =
@@ -24,7 +36,9 @@ export function NavLinks({ props, isCanvas }: BlockRenderProps<NavLinksProps>) {
 
     return (
       <p
-        className={['mkt-section__hint', typographyClassName].filter(Boolean).join(' ')}
+        className={['mkt-section__hint', typographyClassName, legacyTypographyClassName]
+          .filter(Boolean)
+          .join(' ')}
         style={style}
       >
         This block has no links yet.
@@ -39,6 +53,7 @@ export function NavLinks({ props, isCanvas }: BlockRenderProps<NavLinksProps>) {
     `mkt-nav-links--gap-${props.gap}`,
     `mkt-nav-links--wrap-${props.wrap}`,
     typographyClassName,
+    legacyTypographyClassName,
   ]
     .filter(Boolean)
     .join(' ');

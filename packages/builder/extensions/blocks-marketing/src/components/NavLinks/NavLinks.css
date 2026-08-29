@@ -64,27 +64,6 @@
   padding-inline: var(--t-control-padding-inline-sm, 14px);
 }
 
-.mkt-nav-links--case-normal .mkt-nav-links__link {
-  text-transform: none;
-}
-
-.mkt-nav-links--case-uppercase .mkt-nav-links__link {
-  letter-spacing: var(--t-letter-spacing-wide, 0.06em);
-  text-transform: uppercase;
-}
-
-.mkt-nav-links--weight-regular .mkt-nav-links__link {
-  font-weight: 400;
-}
-
-.mkt-nav-links--weight-medium .mkt-nav-links__link {
-  font-weight: 500;
-}
-
-.mkt-nav-links--weight-semibold .mkt-nav-links__link {
-  font-weight: 600;
-}
-
 .mkt-nav-links__link:focus-visible {
   outline: calc(var(--t-border-width, 1px) * 2) solid var(--t-accent, #4f46e5);
   outline-offset: calc(var(--t-border-width, 1px) * 2);

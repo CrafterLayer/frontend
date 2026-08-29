@@ -56,5 +56,5 @@ names documented in `.specify/agents/README.md`.
 
 For additional context about technologies to be used, project structure, shell commands, and other
 important information, read the current plan at
-specs/workspace/011-builder-b4-transforms-code-view/plan.md
+specs/workspace/013-ai-full-site-design-agent/plan.md
 <!-- SPECKIT END -->

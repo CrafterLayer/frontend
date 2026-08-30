@@ -13,6 +13,7 @@ import { PageHeader, pageHeaderSchema } from './components/PageHeader';
 import { Stack, stackSchema } from './components/Stack';
 import { Hero, heroSchema } from './components/Hero';
 import { Pricing, pricingSchema } from './components/Pricing';
+import { PricingPlan, pricingPlanSchema } from './components/PricingPlan';
 import { RichTextBlock, richTextBlockSchema } from './components/RichTextBlock';
 import { Testimonials, testimonialsSchema } from './components/Testimonials';
 
@@ -33,6 +34,8 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: heroSchema, render: Hero },
       { schema: featuresSchema, render: Features },
       { schema: pricingSchema, render: Pricing },
+      // The card that goes inside it. Composed, so a plan can hold a button.
+      { schema: pricingPlanSchema, render: PricingPlan },
       { schema: testimonialsSchema, render: Testimonials },
       { schema: ctaSchema, render: Cta },
       // A row of links: the composition primitive a header or footer slot holds.
@@ -46,6 +49,7 @@ export { Cta, ctaSchema, type CtaProps } from './components/Cta';
 export { Features, featuresSchema, type FeaturesProps } from './components/Features';
 export { Hero, heroSchema, type HeroProps } from './components/Hero';
 export { Pricing, pricingSchema, type PricingProps } from './components/Pricing';
+export { PricingPlan, pricingPlanSchema, type PricingPlanProps } from './components/PricingPlan';
 export {
   RichTextBlock,
   richTextBlockSchema,

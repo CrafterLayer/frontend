@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Node } from '@craftkit/builder-schema';
 
 import { sectionColorProps } from '../section-color';
+import { sectionMotionProps } from '../section-motion';
 import { PageFooter } from './PageFooter';
 import { footerBorders, footerLayouts, pageFooterSchema } from './schema';
 
@@ -21,13 +22,16 @@ describe('PageFooter', () => {
 
   it('schema defaults every container property and deliberately defaults no colour', () => {
     const colourRoles = Object.keys(sectionColorProps);
+    const motionKeys = Object.keys(sectionMotionProps);
     const defaulted = ['layout', 'border', 'align', 'tone', 'spacing', 'width', 'bottomBar'];
     const declared = Object.keys(pageFooterSchema.props.shape);
     const defaults = pageFooterSchema.props.parse({});
 
     expect(footerLayouts).toEqual(['columns', 'centered', 'split']);
     expect(footerBorders).toEqual(['none', 'top']);
-    expect(declared.sort()).toEqual([...defaulted, ...colourRoles].sort());
+    expect(declared.sort()).toEqual(
+      [...defaulted, ...colourRoles, ...motionKeys, 'gutter', 'className'].sort(),
+    );
     expect(defaults).toStrictEqual({
       layout: 'columns',
       border: 'none',
@@ -47,8 +51,10 @@ describe('PageFooter', () => {
 
     const groups = pageFooterSchema.propertyGroups ?? {};
     expect(Object.keys(groups).sort()).toEqual([...declared].sort());
+    // bottomBar and the raw-utility escape hatch live in Advanced; everything else is Design.
+    const advanced = ['bottomBar', 'className'];
     for (const [property, group] of Object.entries(groups)) {
-      expect(group.tab, property).toBe(property === 'bottomBar' ? 'advanced' : 'design');
+      expect(group.tab, property).toBe(advanced.includes(property) ? 'advanced' : 'design');
     }
   });
 

@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
 
+import { sectionCustomGroups } from '../section-custom';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+
 import { PageHeader } from './PageHeader';
 import { pageHeaderSchema } from './schema';
 
@@ -23,6 +26,12 @@ describe('PageHeader', () => {
 
   it('keeps exactly the surviving container properties and their intentional defaults', () => {
     const colourRoles = ['background', 'textColor'];
+    /*
+      Optional and defaulted by nothing, exactly like the colour roles: a header
+      that has always been still must not start moving because a new property
+      arrived with an opinion.
+    */
+    const motionKeys = Object.keys(sectionMotionProps);
     const defaulted = [
       'layout',
       'density',
@@ -35,7 +44,7 @@ describe('PageHeader', () => {
       'sticky',
       'translucent',
     ];
-    const declared = [...colourRoles, ...defaulted];
+    const declared = [...colourRoles, ...motionKeys, ...defaulted, 'gutter', 'className'];
     const defaults = pageHeaderSchema.props.parse({});
 
     expect(Object.keys(pageHeaderSchema.props.shape).sort()).toEqual(declared.sort());
@@ -72,6 +81,8 @@ describe('PageHeader', () => {
       spacing: { tab: 'design', section: 'Spacing' },
       sticky: { tab: 'advanced', section: 'Behaviour' },
       translucent: { tab: 'advanced', section: 'Behaviour' },
+      ...sectionMotionGroups,
+      ...sectionCustomGroups,
     });
     expect(Object.keys(pageHeaderSchema.propertyGroups ?? {}).sort()).toEqual(
       Object.keys(pageHeaderSchema.props.shape).sort(),

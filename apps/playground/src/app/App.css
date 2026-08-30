@@ -1060,3 +1060,92 @@ body,
 .pg-chat__guarantee svg {
   flex: none;
 }
+
+/* Step rows: the human sentence leads, the exact command rides in mono at the
+   trailing edge — visible truth, never the headline. */
+.pg-chat__steps li {
+  align-items: baseline;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+}
+
+.pg-chat__step-title {
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-chat__step-cmd {
+  color: var(--bldr-panel-muted);
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
+}
+
+/* ── THE PREVIEW DIALOG ────────────────────────────────────────────────────
+   The would-be page over a dimmed editor. The page area is a PAGE: white and
+   its own world, exactly what publish would produce, so what you accept is
+   what you saw. */
+.pg-chat__preview-backdrop {
+  align-items: center;
+  backdrop-filter: blur(3px);
+  background: rgb(9 9 14 / 55%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: var(--bldr-space-4xl);
+  position: fixed;
+  z-index: 60;
+}
+
+.pg-chat__preview {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  box-shadow:
+    0 0 0 1px rgb(124 108 255 / 35%),
+    0 24px 80px rgb(9 9 14 / 60%);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  inline-size: min(72rem, 100%);
+  max-block-size: 100%;
+  overflow: hidden;
+}
+
+.pg-chat__preview-head {
+  align-items: center;
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-xl) var(--bldr-space-3xl);
+}
+
+.pg-chat__preview-head h3 {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__preview-head p {
+  color: var(--bldr-panel-muted);
+  flex: 1;
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+/* The page itself: white on purpose, in both themes — this is the reader's
+   world, not the editor's chrome. */
+.pg-chat__preview-page {
+  background: #fff;
+  color: #18181b;
+  overflow: auto;
+}
+
+.pg-chat__preview-actions {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: flex-end;
+  padding: var(--bldr-space-lg) var(--bldr-space-3xl);
+}

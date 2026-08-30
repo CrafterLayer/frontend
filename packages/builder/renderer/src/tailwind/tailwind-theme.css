@@ -60,7 +60,7 @@
   --spacing-section-sm: var(--t-section-spacing-sm);
   --shadow-soft: var(--t-shadow-soft);
   --shadow-strong: var(--t-shadow-strong);
-  --spacing-unit: var(--t-space-unit);
+  --spacing: var(--t-space-unit);
   --color-success: var(--t-success);
   --color-success-text: var(--t-success-text);
   --color-surface: var(--t-surface);

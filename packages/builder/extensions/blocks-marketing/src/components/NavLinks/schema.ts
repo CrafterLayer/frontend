@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import { sectionDirections, sectionSpacings, sectionWraps } from '../section-options';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
@@ -28,6 +30,8 @@ export const navLinksSchema = defineBlockSchema({
     gap: z.enum(sectionSpacings).default('md'),
     wrap: z.enum(sectionWraps).default('wrap'),
     ...sectionColorProps,
+    ...sectionMotionProps,
+    ...sectionCustomProps,
     ...sectionTypographyProps,
     ...sectionSpacingProps,
   }),
@@ -38,6 +42,8 @@ export const navLinksSchema = defineBlockSchema({
     gap: { tab: 'design', section: 'Spacing' },
     wrap: { tab: 'advanced', section: 'Layout' },
     ...sectionColorGroups,
+    ...sectionMotionGroups,
+    ...sectionCustomGroups,
     ...sectionTypographyGroups,
     ...sectionSpacingGroups,
   },

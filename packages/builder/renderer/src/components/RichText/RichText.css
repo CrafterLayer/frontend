@@ -7,8 +7,27 @@
   line-height: 1.6;
 }
 
-.bldr-richtext p {
-  margin-block: 0.5em;
+/* Rhythm lives BETWEEN siblings, never on a child's own box.
+
+   `p { margin-block: 0.5em }` looked local and was not: the first and last
+   child's margin escapes through the block's edges, so every rich-text block
+   reported a half-line of space above and below it that no section, no
+   inspector control, and no theme token had asked for — space the author can
+   see and cannot find. Sibling-only rules produce the identical prose with a
+   box that measures exactly its content. */
+.bldr-richtext > * {
+  margin-block: 0;
+}
+
+.bldr-richtext > * + * {
+  margin-block-start: 0.5em;
+}
+
+/* A heading opens a new idea, so it wants more air above it than a paragraph
+   does — and stays tight to the prose it introduces, which the sibling rule
+   above already handles. */
+.bldr-richtext > * + :is(h2, h3, h4) {
+  margin-block-start: 0.75em;
 }
 
 .bldr-richtext h2,
@@ -16,12 +35,10 @@
 .bldr-richtext h4 {
   font-family: inherit;
   line-height: 1.25;
-  margin-block: 0.75em 0.35em;
 }
 
 .bldr-richtext ul,
 .bldr-richtext ol {
-  margin-block: 0.5em;
   padding-inline-start: 1.5em;
 }
 

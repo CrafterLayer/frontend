@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Node } from '@craftkit/builder-schema';
 
 import { sectionColorProps } from '../section-color';
+import { sectionMotionProps } from '../section-motion';
 import { sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyProps } from '../section-typography';
 import { Cta } from './Cta';
@@ -64,10 +65,18 @@ describe('Cta', () => {
   it('schema: enforces the complete CTA builder-control contract', () => {
     const props = ctaSchema.props.parse({});
     const colorKeys = Object.keys(sectionColorProps);
+    const motionKeys = Object.keys(sectionMotionProps);
     const typographyKeys = Object.keys(sectionTypographyProps);
     const spacingKeys = Object.keys(sectionSpacingProps);
-    const sharedOptionalKeys = [...colorKeys, ...typographyKeys, ...spacingKeys];
-    const noDefaultKeys = ['note', ...sharedOptionalKeys];
+    const sharedOptionalKeys = [
+      ...motionKeys,
+      ...colorKeys,
+      ...typographyKeys,
+      ...spacingKeys,
+      'gutter',
+      'className',
+    ];
+    const noDefaultKeys = [...motionKeys, 'note', ...sharedOptionalKeys];
 
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
     expect(typographyKeys.sort()).toEqual([

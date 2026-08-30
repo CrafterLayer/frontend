@@ -1,0 +1,76 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PricingPlanStories from './PricingPlan.stories';
+
+<Meta of={PricingPlanStories} />
+
+# PricingPlan
+
+## Purpose and ownership
+
+Owned by `@craftkit/builder-blocks-marketing`. One plan card inside a
+[Pricing](?path=/docs/builder-blocks-pricing--docs) section.
+
+## Why this block exists
+
+`pricing` used to carry its plans as **data** — an array of
+`{ name, price, period, features: string[] }` that the section rendered itself. That shape can
+express a feature list and nothing else. It could not hold a button, an image, a badge, or a note,
+which meant the one thing every real pricing section needs — a call to action inside each card — was
+impossible to author.
+
+It was a template wearing a builder block's clothes.
+
+A plan is now a real node with a real slot. The card owns its name, its price, and its emphasis;
+everything **inside** it is composed.
+
+## Props
+
+| Prop                      | Type                          | Default    | Notes                      |
+| ------------------------- | ----------------------------- | ---------- | -------------------------- |
+| `name`                    | `string` (1–40)               | `'Plan'`   | Required. Inline-editable  |
+| `price`                   | `string` (1–24)               | `'$0'`     | **Text, not a number**     |
+| `period`                  | `'once' \| 'month' \| 'year'` | `'month'`  |                            |
+| `emphasis`                | `'normal' \| 'featured'`      | `'normal'` |                            |
+| `background`, `textColor` | colour role                   | —          | Optional                   |
+| `motion`                  | `MotionSpec`                  | —          | From the closed vocabulary |
+
+**`price` is text on purpose.** Prices are written as people read them — `$29`, `٢٩ د.أ`, `Free`,
+`Contact us`. A numeric field would force a currency decision into the schema that belongs to the
+copy.
+
+## Slots
+
+`default` accepts `stack`, `grid`, `richText`, `cta`, `image`, `navLinks`, and `features`.
+
+`pricingPlan` is absent from its own list: a plan inside a plan is not a layout anyone means, and
+permitting it costs a person a confusing drop target for no gain.
+
+## Two design decisions
+
+**Featured is outlined, not repainted.** A card painted in the accent competes with the button
+inside it, and the reader then has two things shouting and no idea which to press. Emphasis is a
+border and a shadow.
+
+**The body grows.** `flex-1` on the composed area is what keeps a row of cards with unequal content
+aligned at the footer — the detail that separates a real pricing table from three boxes of different
+heights.
+
+## Styling
+
+Entirely token-bound Tailwind utilities; this block ships **no stylesheet**. `bg-surface` compiles
+to `background-color: var(--t-surface)`, and `p-6` to `calc(var(--t-space-unit) * 6)` — six steps of
+the site's own rhythm, not twenty-four pixels. Re-point one token and every card moves.
+
+## Accessibility
+
+The name is an `<h3>`, so a screen reader can list the plans. The price and its period share one
+paragraph, so they announce as `"$29 per month"` rather than as two unrelated fragments.
+
+The card is an `<article>`: a self-contained unit a reader can navigate to.
+
+## Known limitations
+
+- **It must live inside a pricing section** to be laid out as a column of a row; rendered elsewhere
+  it is simply a card.
+- **Emphasis has two levels.** A third would need a name nobody has yet asked for.

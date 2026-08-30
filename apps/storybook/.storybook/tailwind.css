@@ -1,0 +1,27 @@
+/*
+  Storybook's Tailwind entry.
+
+  It exists so a story renders through exactly the pipeline a real page does.
+  A catalog whose components resolve their utilities differently from the
+  product is a catalog that lies — and it lies in the one direction that costs
+  most, by making a broken component look correct in review.
+
+  Order matches the playground's entry and is not stylistic: `tailwindcss`
+  first, because the preset's door contributes an `@theme` block Tailwind reads
+  as CONFIGURATION and cannot apply before it is itself loaded.
+*/
+@import 'tailwindcss';
+@import '@craftkit/builder/tailwind.css';
+
+/* Motion: pure CSS on a view() timeline. This import loads no engine. */
+@import '@craftkit/builder/motion.css';
+
+/*
+  Tailwind discovers utilities by scanning source text, and every component in
+  this catalog lives outside the Storybook app. Without these, a class used
+  only inside a package would work in `storybook dev` and vanish from
+  `build-storybook` — a difference that does not reproduce locally.
+*/
+@source '../../../packages/builder/**/src/**/*.{ts,tsx}';
+@source '../../../packages/ui/src/**/*.{ts,tsx}';
+@source '../../../apps/playground/src/**/*.{ts,tsx}';

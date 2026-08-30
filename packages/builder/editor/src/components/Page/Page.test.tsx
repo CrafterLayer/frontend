@@ -21,7 +21,7 @@ describe('Page', () => {
       title: 'Landing',
       description: '',
       slug: '',
-      contentWidth: 'standard',
+      contentWidth: 'full',
       noIndex: false,
       lang: '',
     });

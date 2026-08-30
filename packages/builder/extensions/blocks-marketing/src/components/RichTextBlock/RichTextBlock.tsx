@@ -6,6 +6,7 @@ import { isValidElement } from 'react';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionMotionAttributes } from '../section-motion';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 import { RichText } from '@craftkit/builder-renderer';
@@ -25,7 +26,15 @@ import type { RichTextBlockProps } from './schema';
  */
 export function RichTextBlock({ props }: BlockRenderProps<RichTextBlockProps>) {
   const typographyClassName = sectionTypographyClasses(props);
-  const className = ['mkt-richtext', typographyClassName].filter(Boolean).join(' ');
+  /*
+    Motion arrives as ATTRIBUTES, never as inline style: the stylesheet stays
+    the one place any timing lives, so a document carries a named step and never
+    a duration. `class` is pulled out because React spells it `className`.
+  */
+  const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
+  const className = ['mkt-richtext', typographyClassName, motionClassName]
+    .filter(Boolean)
+    .join(' ');
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
   const style =
@@ -34,7 +43,7 @@ export function RichTextBlock({ props }: BlockRenderProps<RichTextBlockProps>) {
       : { ...colorStyle, ...spacingStyle };
 
   return (
-    <section className={className} style={style}>
+    <section className={className} style={style} {...motionData}>
       {isValidElement(props.content) ? props.content : <RichText value={props.content} />}
     </section>
   );

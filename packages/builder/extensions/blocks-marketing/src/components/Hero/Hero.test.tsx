@@ -134,7 +134,7 @@ describe('Hero', () => {
       />,
     );
 
-    expect(container.querySelector('.mkt-hero')).not.toHaveAttribute('style');
+    expect(container.querySelector('section')).not.toHaveAttribute('style');
   });
 
   it('applies shared typography, spacing, and colour controls on the root', () => {
@@ -173,7 +173,12 @@ describe('Hero', () => {
       />,
     );
 
-    expect(screen.getByText('New release')).toHaveClass('mkt-hero__eyebrow');
+    /*
+      The eyebrow is asserted by its ROLE in the layout — muted, small, tracked —
+      rather than by a BEM class name. The block carries no stylesheet now, so a
+      class name would pin an implementation detail instead of the intent.
+    */
+    expect(screen.getByText('New release')).toHaveClass('text-text-muted');
   });
 
   it('adds a modifier class for every defined action layout property', () => {
@@ -196,13 +201,17 @@ describe('Hero', () => {
 
     const actions = screen.getByRole('button', { name: 'Explore' }).parentElement;
     if (actions === null) throw new Error('Expected Hero actions wrapper');
-    expect(actions).toHaveClass(
-      'mkt-hero__actions--direction-row',
-      'mkt-hero__actions--justify-center',
-      'mkt-hero__actions--align-end',
-      'mkt-hero__actions--gap-lg',
-      'mkt-hero__actions--wrap-wrap',
-    );
+
+    /*
+      Every layout prop still reaches the DOM — it just arrives as the utility
+      the shared map assigns rather than as a BEM modifier. Asserting the
+      utilities keeps the test honest about what the browser will actually do.
+    */
+    expect(actions).toHaveClass('flex-row');
+    expect(actions).toHaveClass('justify-center');
+    expect(actions).toHaveClass('items-end');
+    expect(actions).toHaveClass('gap-gap-lg');
+    expect(actions).toHaveClass('flex-wrap');
   });
 
   it('omits every action layout modifier when the layout properties are undefined', () => {
@@ -316,5 +325,79 @@ describe('Hero', () => {
     for (const candidate of rejected) {
       expect(heroSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(false);
     }
+  });
+});
+
+/*
+  The end-to-end proof for motion, at the one place all four layers meet.
+
+  Schema (a closed vocabulary at layer 0) -> block prop -> renderer attributes
+  -> the CSS baseline's selectors. Each layer has its own tests; these are the
+  ones that fail if the layers stop agreeing with each other.
+*/
+function renderHero(overrides: Record<string, unknown>) {
+  return render(
+    <Hero
+      node={node}
+      props={heroSchema.props.parse({ heading: 'Build faster', ...overrides })}
+      slots={{}}
+      data={{}}
+      isCanvas={false}
+    />,
+  );
+}
+
+describe('Hero motion', () => {
+  it('carries a chosen motion onto the section as attributes', () => {
+    const { container } = renderHero({
+      motion: { reveal: 'fade-up', duration: 'slow', easing: 'spring' },
+    });
+    const section = container.querySelector('section');
+
+    expect(section?.className).toContain('bldr-motion');
+    expect(section?.getAttribute('data-reveal')).toBe('fade-up');
+    expect(section?.getAttribute('data-duration')).toBe('slow');
+    expect(section?.getAttribute('data-easing')).toBe('spring');
+  });
+
+  /*
+    Absence means stillness. A still section must carry no motion class at all,
+    or the reduced-motion and no-timeline fallback rules stay pointed at an
+    element that was never animating.
+  */
+  it('leaves a still section completely unmarked', () => {
+    const { container } = renderHero({});
+    const section = container.querySelector('section');
+
+    expect(section?.className).not.toContain('bldr-motion');
+    expect(section?.getAttribute('data-reveal')).toBeNull();
+  });
+
+  it('treats an explicit none as stillness rather than as a value', () => {
+    const { container } = renderHero({ motion: { reveal: 'none' } });
+
+    expect(container.querySelector('section')?.className).not.toContain('bldr-motion');
+  });
+
+  /*
+    The law the whole vocabulary exists to keep. A timing must never reach the
+    DOM as a number - the stylesheet owns what a step is worth, which is what
+    lets one theme edit retime every animation on the site.
+  */
+  it('never writes a duration into the markup', () => {
+    const { container } = renderHero({ motion: { reveal: 'fade', duration: 'deliberate' } });
+    const section = container.querySelector('section');
+
+    expect(section?.getAttribute('style') ?? '').not.toMatch(/\d+ms/);
+    expect(section?.outerHTML ?? '').not.toMatch(/\d+ms/);
+  });
+
+  it('keeps the block classes alongside the motion class', () => {
+    const { container } = renderHero({ motion: { reveal: 'fade' } });
+    const className = container.querySelector('section')?.className ?? '';
+
+    // The block's own shell utilities survive alongside the motion class.
+    expect(className).toContain('box-border');
+    expect(className).toContain('bldr-motion');
   });
 });

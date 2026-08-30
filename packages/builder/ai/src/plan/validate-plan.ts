@@ -57,7 +57,13 @@ function parsePlan(candidate: unknown): AiPlanValidationResult {
     if (!Object.hasOwn(rawCommand, 'args')) {
       return invalidPlan(`AI plan step ${String(step)} needs command arguments.`);
     }
-    commands.push({ command, args: rawCommand['args'] });
+    // A human title is carried when it is one; anything else is dropped, not fatal.
+    const title = rawCommand['title'];
+    commands.push({
+      command,
+      args: rawCommand['args'],
+      ...(typeof title === 'string' && title.trim() !== '' ? { title } : {}),
+    });
   }
   return { ok: true, plan: { rationale, commands } };
 }
@@ -87,7 +93,8 @@ function commandIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanVali
   return issues;
 }
 
-function validationManifest(plan: AiPlan, kernel: BuilderKernel): TrustedExtensionManifest {
+/** @internal Shared with previewAiPlan: the scratch world a plan is rehearsed in. */
+export function validationManifest(plan: AiPlan, kernel: BuilderKernel): TrustedExtensionManifest {
   const commands: Record<string, RegisteredCommand> = {};
   for (const step of plan.commands) {
     if (Object.hasOwn(coreCommands, step.command) || Object.hasOwn(commands, step.command)) {
@@ -126,6 +133,13 @@ function dryRun(
     extensions: [validationManifest(plan, kernel)],
     ports,
   });
+  /*
+    The plan answers for NEW damage only. A live document can already carry a
+    violation (a schema evolved after the node was written); charging every
+    later plan with that old sin would freeze the assistant on exactly the
+    documents that most need editing.
+  */
+  const priorIssues = new Set(scratch.validate().map((issue) => issue.message));
   for (const [index, step] of plan.commands.entries()) {
     try {
       scratch.dispatch(step.command, step.args, 'ai');
@@ -142,7 +156,9 @@ function dryRun(
       };
     }
   }
-  const documentIssues = scratch.validate();
+  const documentIssues = scratch
+    .validate()
+    .filter((issue) => !priorIssues.has(issue.message));
   if (documentIssues.length > 0) {
     return {
       ok: false,

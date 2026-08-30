@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { defineBlockSchema, emptyRichText, richText } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { richTextBlockExamples } from './examples';
@@ -16,6 +18,8 @@ export const richTextBlockSchema = defineBlockSchema({
   props: z.object({
     content: richText().default(emptyRichText() as never),
     ...sectionColorProps,
+    ...sectionMotionProps,
+    ...sectionCustomProps,
     ...sectionTypographyProps,
     ...sectionSpacingProps,
   }),
@@ -25,6 +29,8 @@ export const richTextBlockSchema = defineBlockSchema({
   */
   propertyGroups: {
     ...sectionColorGroups,
+    ...sectionMotionGroups,
+    ...sectionCustomGroups,
     ...sectionTypographyGroups,
     ...sectionSpacingGroups,
   },

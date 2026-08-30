@@ -1,11 +1,13 @@
 import type { ComponentType, ReactNode } from 'react';
 
-import type {
-  BlockRenderProps,
-  BuilderDocument,
-  NodeId,
-  RegisteredBlock,
-  SlotName,
+import {
+  blockPropDefaults,
+  withBlockPropDefaults,
+  type BlockRenderProps,
+  type BuilderDocument,
+  type NodeId,
+  type RegisteredBlock,
+  type SlotName,
 } from '@craftkit/builder-schema';
 
 import { resolveResponsiveProps, type RenderBreakpoint } from '../../../resolve/responsive';
@@ -29,7 +31,8 @@ export function StaticNode({ document, id, blocks, breakpoint }: StaticNodeProps
     return null;
   }
 
-  const render = blocks(node.type)?.render;
+  const entry = blocks(node.type);
+  const render = entry?.render;
   if (render === undefined) {
     return <UnknownBlock type={node.type} />;
   }
@@ -51,7 +54,16 @@ export function StaticNode({ document, id, blocks, breakpoint }: StaticNodeProps
   return (
     <Block
       node={node}
-      props={resolveResponsiveProps(node, breakpoint)}
+      /*
+        Defaults are filled here for the same reason the canvas fills them, and
+        with the same call: the published path and the canvas must render a
+        document identically, and a repair applied to only one of them would be
+        a new way for them to disagree.
+      */
+      props={withBlockPropDefaults(
+        resolveResponsiveProps(node, breakpoint),
+        entry === undefined ? {} : blockPropDefaults(entry.schema.props),
+      )}
       slots={slots}
       data={{}}
       isCanvas={false}

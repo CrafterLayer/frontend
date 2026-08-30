@@ -92,6 +92,14 @@ export {
 } from '@craftkit/builder-code-view';
 
 // The first content extension ships with the preset (starter-kit style).
+/*
+  Visual effects adapted from Aceternity UI (MIT), and the curated primitive
+  catalog. Both ship as registerable manifests, so an application composes them
+  the same way it composes the marketing pack.
+*/
+export { builderAceternity, auroraBackgroundSchema } from '@craftkit/builder-aceternity';
+export { builderPrimitives } from '@craftkit/builder-primitives';
+
 export {
   blocksMarketing,
   type CtaProps,

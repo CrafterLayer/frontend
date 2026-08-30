@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import type { Node } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionCustomGroups } from '../section-custom';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { Grid } from './Grid';
 import { gridSchema, type GridProps } from './schema';
@@ -28,8 +30,10 @@ describe('Grid', () => {
   it('schema: defaults layout properties and deliberately defaults no colour or spacing', () => {
     const props = gridSchema.props.parse({});
     const colorKeys = Object.keys(sectionColorProps);
+    const motionKeys = Object.keys(sectionMotionProps);
     const spacingKeys = Object.keys(sectionSpacingProps);
-    const optionalKeys = [...colorKeys, ...spacingKeys];
+    // gutter and className are the shared per-section customisation props: in shape, never defaulted.
+    const optionalKeys = [...motionKeys, ...colorKeys, ...spacingKeys, 'gutter', 'className'];
 
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
     expect(spacingKeys.sort()).toEqual([
@@ -94,7 +98,9 @@ describe('Grid', () => {
       spacing: { tab: 'design', section: 'Spacing' },
       width: { tab: 'design', section: 'Width' },
       ...sectionColorGroups,
+      ...sectionMotionGroups,
       ...sectionSpacingGroups,
+      ...sectionCustomGroups,
     });
     expect(Object.keys(gridSchema.propertyGroups ?? {}).sort()).toEqual(
       Object.keys(gridSchema.props.shape).sort(),

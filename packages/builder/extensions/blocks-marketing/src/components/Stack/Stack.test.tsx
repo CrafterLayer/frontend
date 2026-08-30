@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Node } from '@craftkit/builder-schema';
 
 import { sectionColorProps } from '../section-color';
+import { sectionMotionProps } from '../section-motion';
 import { sectionSpacingProps } from '../section-spacing';
 import { Stack } from './Stack';
 import { stackSchema } from './schema';
@@ -56,8 +57,10 @@ describe('Stack', () => {
       default here would have restyled every page written before these controls.
     */
     const colorKeys = Object.keys(sectionColorProps);
+    const motionKeys = Object.keys(sectionMotionProps);
     const spacingKeys = Object.keys(sectionSpacingProps);
-    const optionalKeys = [...colorKeys, ...spacingKeys];
+    // gutter and className are the shared per-section customisation props: in shape, never defaulted.
+    const optionalKeys = [...motionKeys, ...colorKeys, ...spacingKeys, 'gutter', 'className'];
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
     expect(spacingKeys.sort()).toEqual([
       'marginBlockEnd',

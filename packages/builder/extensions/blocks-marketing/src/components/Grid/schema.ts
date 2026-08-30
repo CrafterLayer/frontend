@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import {
   sectionAlignments,
@@ -43,6 +45,8 @@ export const gridSchema = defineBlockSchema({
     spacing: z.enum(sectionSpacings).default('none'),
     width: z.enum(sectionWidths).default('standard'),
     ...sectionColorProps,
+    ...sectionMotionProps,
+    ...sectionCustomProps,
     ...sectionSpacingProps,
   }),
   propertyGroups: {
@@ -55,6 +59,8 @@ export const gridSchema = defineBlockSchema({
     spacing: { tab: 'design', section: 'Spacing' },
     width: { tab: 'design', section: 'Width' },
     ...sectionColorGroups,
+    ...sectionMotionGroups,
+    ...sectionCustomGroups,
     ...sectionSpacingGroups,
   },
   slots: { default: { allow: [...GRID_CHILDREN] } },

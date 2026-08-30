@@ -79,7 +79,25 @@ export const TAILWIND_NAMESPACE: Record<TokenName, TailwindBinding> = {
     One step of spacing. Padding props are typed as NUMBERS of steps, never
     lengths, so this token is what `calc(var(--t-space-unit) * n)` multiplies.
   */
-  spaceUnit: { namespace: 'spacing', suffix: 'unit' },
+  /*
+    The base of Tailwind's OWN numeric scale, not just a named step.
+
+    `--spacing` is what `p-4`, `gap-6`, and `mt-2` multiply: Tailwind v4 emits
+    `calc(var(--spacing) * 4)`. Binding it here makes the entire default scale
+    token-derived, which changes what `p-4` MEANS in this codebase — it is four
+    steps of the site's own rhythm, not sixteen pixels.
+
+    That matters because the intent-only law already types padding as a NUMBER
+    of steps rather than a length; `style-values.ts` refuses `'16px'` and
+    accepts `4`. So Tailwind's numeric scale was never the enemy. An earlier
+    version of this project banned it outright, which was wrong: it would have
+    forced a named token for every internal gap a block needs, including the
+    ones that are not design-system decisions at all.
+
+    The default PALETTE stays banned. `bg-blue-500` is a real literal with no
+    token behind it, and no binding here can make it one.
+  */
+  spaceUnit: { namespace: 'raw', suffix: 'spacing' },
 
   // The inside of a control.
   controlPaddingBlockSm: { namespace: 'spacing', suffix: 'control-block-sm' },

@@ -9,6 +9,8 @@ import {
   sectionWidths,
 } from '../section-options';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { featuresExamples } from './examples';
@@ -35,6 +37,8 @@ export const featuresSchema = defineBlockSchema({
     spacing: z.enum(sectionSpacings).default('md'),
     width: z.enum(sectionWidths).default('full'),
     ...sectionColorProps,
+    ...sectionMotionProps,
+    ...sectionCustomProps,
     ...sectionTypographyProps,
     ...sectionSpacingProps,
   }),
@@ -56,6 +60,8 @@ export const featuresSchema = defineBlockSchema({
     spacing: { tab: 'design', section: 'Spacing' },
     width: { tab: 'design', section: 'Width' },
     ...sectionColorGroups,
+    ...sectionMotionGroups,
+    ...sectionCustomGroups,
     ...sectionTypographyGroups,
     ...sectionSpacingGroups,
   },

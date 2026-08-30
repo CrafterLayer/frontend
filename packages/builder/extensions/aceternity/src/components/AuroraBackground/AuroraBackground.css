@@ -1,0 +1,119 @@
+/*
+  Aurora — adapted from Aceternity UI (MIT).
+
+  Verbatim source: vendor/aceternity/AuroraBackground.upstream.tsx
+  Provenance and the full list of changes: vendor/VENDOR.md
+
+  ## Why this is a stylesheet and not the original's class string
+
+  Upstream expresses the whole effect as Tailwind arbitrary values —
+  `[--aurora:repeating-linear-gradient(100deg,var(--blue-500)_10%,…)]`,
+  `[background-size:300%,_200%]`, `blur-[10px]`. That is a reasonable choice for
+  a copy-paste snippet and the wrong one here for two reasons:
+
+  1. Every colour in it is Tailwind's own palette. An aurora that stays blue
+     while the site's accent is terracotta is not a themed page, and the whole
+     argument for a generated design system collapses at the one element people
+     look at first.
+  2. Arbitrary values are exactly what this project refuses to store, and a
+     block whose implementation is a wall of them cannot be honestly described
+     as token-bound.
+
+  So the gradients are written here, once, in terms of `--t-*`. Re-point the
+  accent and the aurora follows it.
+*/
+
+.acy-aurora {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/*
+  The moving layer.
+
+  `::before` rather than a second element: the effect is decoration, and a
+  pseudo-element cannot be reached by the accessibility tree, focused, or
+  selected — which is the correct status for something no reader will ever
+  interact with.
+*/
+.acy-aurora::before {
+  content: '';
+  position: absolute;
+  /*
+    Oversized on purpose. The blur below samples beyond the box, and an exactly
+    -sized layer shows a hard edge where the blur runs out.
+  */
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+
+  /*
+    Two stacked repeating gradients: one in the surface colour to break the
+    aurora into bands, one in the brand colours to give it its hue. Both read
+    from tokens, so a site with a warm palette gets a warm aurora.
+  */
+  background-image:
+    repeating-linear-gradient(
+      100deg,
+      var(--t-surface) 0%,
+      var(--t-surface) 7%,
+      transparent 10%,
+      transparent 12%,
+      var(--t-surface) 16%
+    ),
+    repeating-linear-gradient(
+      100deg,
+      var(--t-accent) 10%,
+      var(--t-success) 15%,
+      var(--t-accent) 20%,
+      var(--t-text-muted) 25%,
+      var(--t-accent) 30%
+    );
+  background-size:
+    300% 200%,
+    200% 100%;
+  background-position:
+    50% 50%,
+    50% 50%;
+
+  filter: blur(10px);
+  /* Set per instance by the component; the fallbacks keep it sane alone. */
+  opacity: var(--acy-aurora-opacity, 0.45);
+  will-change: transform;
+
+  animation: acy-aurora-drift 60s linear infinite;
+  animation-play-state: var(--acy-aurora-play, running);
+
+  /*
+    Fades the effect out toward the far corner so it frames content rather than
+    competing with it. Prefixed for Safari, which still needs it.
+  */
+  -webkit-mask-image: radial-gradient(ellipse at 100% 0%, black 10%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 100% 0%, black 10%, transparent 70%);
+}
+
+@keyframes acy-aurora-drift {
+  from {
+    background-position:
+      50% 50%,
+      50% 50%;
+  }
+  to {
+    background-position:
+      350% 50%,
+      350% 50%;
+  }
+}
+
+/*
+  A person who asked their system to reduce motion gets the aurora as a still
+  image — the colour without the drift. Removing it entirely would take away
+  the section's whole visual identity for no accessibility gain; a static
+  gradient causes nobody harm.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .acy-aurora::before {
+    animation: none;
+  }
+}

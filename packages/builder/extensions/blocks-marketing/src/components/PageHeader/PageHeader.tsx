@@ -4,6 +4,7 @@ import './PageHeader.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionMotionAttributes } from '../section-motion';
 
 import type { PageHeaderProps } from './schema';
 
@@ -28,6 +29,12 @@ const headerSlotNames = ['start', 'center', 'end'] as const;
  * the active page theme rather than storing a literal colour.
  */
 export function PageHeader({ props, slots }: BlockRenderProps<PageHeaderProps>) {
+  /*
+    Motion arrives as ATTRIBUTES, never as inline style: the stylesheet stays
+    the one place any timing lives, so a document carries a named step and never
+    a duration. `class` is pulled out because React spells it `className`.
+  */
+  const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const className = [
     'mkt-section',
     'mkt-header',
@@ -39,12 +46,13 @@ export function PageHeader({ props, slots }: BlockRenderProps<PageHeaderProps>) 
     `mkt-section--spacing-${props.spacing}`,
     props.sticky ? 'mkt-header--sticky' : undefined,
     props.sticky && props.translucent ? 'mkt-header--translucent' : undefined,
+    motionClassName ?? '',
   ]
     .filter((name) => name !== undefined)
     .join(' ');
 
   return (
-    <header className={className} style={sectionColorStyle(props)}>
+    <header className={className} {...motionData} style={sectionColorStyle(props)}>
       <div
         className={`mkt-section__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width} mkt-header__bar`}
       >

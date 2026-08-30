@@ -3,6 +3,9 @@ import type { Preview } from '@storybook/react-vite';
 import '@craftkit/ui/styles.css';
 // Without this every builder story renders on fallback values rather than the theme.
 import '@craftkit/builder/css';
+// Tailwind + the token bridge + the motion baseline, so a story renders through
+// exactly the pipeline a real page does.
+import './tailwind.css';
 
 /**
  * Direction global (008 §10 review fix): stories declaring

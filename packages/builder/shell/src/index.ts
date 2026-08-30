@@ -88,3 +88,10 @@ export {
   type FloatingHostPorts,
   type FloatingTarget,
 } from './overlay/floating-host';
+
+/*
+  The motion control (013). Exported so a host can compose it directly; blocks
+  reach it by declaring `kind: 'motion'` on the property and letting the
+  inspector resolve it.
+*/
+export { MotionField } from './fields/MotionField';

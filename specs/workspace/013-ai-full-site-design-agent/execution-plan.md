@@ -169,9 +169,9 @@ Tailwind and motion arrived after `tasks.md` was written. These are additions, t
 - [x] Motion extension with containment proof — Claude
 - [ ] Block library migration to utilities — Codex wave 7
 - [ ] Editor chrome on Tailwind — Codex
-- [ ] Storybook Tailwind wiring so stories render as pages do — Claude
+- [x] Storybook Tailwind wiring so stories render as pages do — Claude
 - [ ] Scroll-effect rendering — Claude
-- [ ] Motion inspector field so a person can set it by hand — Claude
+- [x] Motion inspector field so a person can set it by hand — Claude
 - [ ] `check:workspace` rule containing `motion` to its extension, mirroring the tiptap rule —
       Claude
 

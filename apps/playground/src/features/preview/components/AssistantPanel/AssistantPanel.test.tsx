@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -382,5 +382,68 @@ describe('AssistantPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
     });
+  });
+
+  it('names each step in human words — the title when given, a derived label otherwise', async () => {
+    const provider = createScriptedAiPlanProvider({
+      rationale: 'Add a hero and retitle the existing one.',
+      commands: [
+        {
+          command: 'insertNode',
+          args: { type: 'pricing', parentId: 'root' },
+          title: 'إضافة قسم الأسعار',
+        },
+        { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'New' } },
+      ],
+    });
+    const { user } = renderPanel({ planProvider: provider });
+
+    await requestPlan(user, 'add pricing and retitle');
+
+    // The model's own words lead…
+    expect(screen.getByText('إضافة قسم الأسعار')).toBeInTheDocument();
+    // …a missing title falls back to a derived human label, not a command name…
+    expect(screen.getByText('Change heading of selected-hero')).toBeInTheDocument();
+    // …and the exact command stays visible as the technical truth of the step.
+    expect(screen.getByText('insertNode')).toBeInTheDocument();
+    expect(screen.getByText('setProp')).toBeInTheDocument();
+  });
+
+  it('previews the WOULD-BE page in a dialog without touching the document, then applies from it', async () => {
+    const { kernel, user } = renderPanel();
+    const before = structuredClone(kernel.getDocument());
+
+    await requestPlan(user, 'add a pricing section');
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Preview' });
+    expect(dialog).toBeInTheDocument();
+    // Looking is not applying.
+    expect(kernel.getDocument()).toEqual(before);
+    expect(kernel.transactions()).toHaveLength(0);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Preview' })).not.toBeInTheDocument();
+    });
+    expect(Object.keys(kernel.getDocument().nodes).length).toBe(
+      Object.keys(before.nodes).length + 1,
+    );
+    expect(screen.getByText(/Applied as one change/)).toBeInTheDocument();
+  });
+
+  it('closes the preview dialog on Escape with nothing applied', async () => {
+    const { kernel, user } = renderPanel();
+    const before = structuredClone(kernel.getDocument());
+
+    await requestPlan(user, 'add a pricing section');
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByRole('dialog', { name: 'Preview' });
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Preview' })).not.toBeInTheDocument();
+    });
+    expect(kernel.getDocument()).toEqual(before);
   });
 });

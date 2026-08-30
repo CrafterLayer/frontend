@@ -16,7 +16,13 @@ export interface SlotDecl {
 export type BlockPropertyTab = 'content' | 'design' | 'advanced';
 
 /** An explicit Inspector control kind declared by the block, never inferred from a prop name. */
-export type BlockPropertyKind = 'color-role';
+/*
+  A block-declared hint that a property is one recognised decision rather than
+  whatever its zod shape happens to look like. `motion` is an object of six
+  optional enums; without the declaration it resolves to the read-only fallback,
+  which is technically correct and useless.
+*/
+export type BlockPropertyKind = 'color-role' | 'motion';
 
 /** A block-owned declaration of where one property appears in the Inspector. */
 export interface BlockPropertyGroup {

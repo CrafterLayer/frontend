@@ -13,10 +13,14 @@ import {
   ChromeButton,
   createLocalAiPlanProvider,
   generateAiPlan,
+  previewAiPlan,
+  StaticDocument,
   systemClock,
   systemIds,
   type AiPlan,
   type AiPlanProvider,
+  type AiPlanStep,
+  type BuilderDocument,
   type BuilderKernel,
 } from '@craftkit/builder';
 
@@ -26,6 +30,7 @@ import {
   IconChevron,
   IconClose,
   IconCode,
+  IconEye,
   IconPlus,
   IconSend,
   IconShield,
@@ -112,6 +117,50 @@ function kernelReason(cause: unknown): string {
   return cause instanceof Error ? cause.message : 'I could not turn that into a change.';
 }
 
+function argText(args: unknown, key: string): string | undefined {
+  if (typeof args !== 'object' || args === null) {
+    return undefined;
+  }
+  const value = (args as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+/**
+ * The words a person reads for one step. The provider's own title wins — it
+ * speaks the requester's language — and every builtin command still has a
+ * plain-English fallback, so a step is never announced as its function name.
+ */
+function describeStep(step: AiPlanStep): string {
+  if (step.title !== undefined) {
+    return step.title;
+  }
+  const type = argText(step.args, 'type');
+  const id = argText(step.args, 'id');
+  const key = argText(step.args, 'key');
+  switch (step.command) {
+    case 'insertNode':
+      return `Add ${type ?? 'a block'}`;
+    case 'setProp':
+      return `Change ${key ?? 'a property'} of ${id ?? 'a block'}`;
+    case 'removeNode':
+      return `Remove ${id ?? 'a block'}`;
+    case 'moveNode':
+      return `Move ${id ?? 'a block'}`;
+    case 'duplicateNode':
+      return `Duplicate ${id ?? 'a block'}`;
+    case 'wrapNode':
+      return `Wrap ${id ?? 'a block'} in ${argText(step.args, 'wrapperType') ?? 'a container'}`;
+    case 'groupNodes':
+      return `Group blocks into ${argText(step.args, 'groupType') ?? 'a group'}`;
+    case 'setBinding':
+      return `Bind ${key ?? 'a property'} of ${id ?? 'a block'}`;
+    case 'setResponsive':
+      return `Adjust ${key ?? 'a property'} per breakpoint on ${id ?? 'a block'}`;
+    default:
+      return step.command;
+  }
+}
+
 /**
  * The assistant, as a conversation.
  *
@@ -141,6 +190,16 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
   const [sessionsOpen, setSessionsOpen] = useState(false);
   /** The running request's controller; present exactly while `busy`. */
   const abortRef = useRef<AbortController | null>(null);
+  /**
+   * The open preview: the plan's turn id, the plan, and the WOULD-BE document
+   * the scratch rehearsal produced. Looking never writes; Apply from here goes
+   * through the same accept() as the card's own button.
+   */
+  const [preview, setPreview] = useState<{
+    id: string;
+    plan: AiPlan;
+    document: BuilderDocument;
+  } | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const sessionsRef = useRef<HTMLDivElement | null>(null);
   const sessionsTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -389,6 +448,42 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
     items[next]?.focus();
   }, []);
 
+  /** Rehearse the plan on a scratch kernel and show the result. Looking ≠ applying. */
+  const openPreview = useCallback(
+    (id: string, plan: AiPlan) => {
+      try {
+        const document = previewAiPlan({ kernel, plan, validationPorts: preflightPorts() });
+        setPreview({ id, plan, document });
+      } catch (cause: unknown) {
+        const text = kernelReason(cause);
+        patchTurns((previous) =>
+          previous.map((turn) =>
+            turn.id === id && turn.from === 'assistant' && turn.kind === 'plan'
+              ? { id: turn.id, from: 'assistant', kind: 'refused', text }
+              : turn,
+          ),
+        );
+      }
+    },
+    [kernel, patchTurns],
+  );
+
+  // The dialog answers Escape like every dialog a person has used.
+  useEffect(() => {
+    if (preview === null) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreview(null);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [preview]);
+
   const discard = useCallback(
     (id: string) => {
       patchTurns((previous) =>
@@ -546,9 +641,14 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
                     }`}
                   >
                     <p className="pg-chat__rationale">{turn.plan.rationale}</p>
+                    {/* Each step in a person's words; the exact command rides
+                        along in mono as the technical truth, never the headline. */}
                     <ol className="pg-chat__steps">
                       {turn.plan.commands.map((step, index) => (
-                        <li key={`${turn.id}-${String(index)}`}>{step.command}</li>
+                        <li key={`${turn.id}-${String(index)}`}>
+                          <span className="pg-chat__step-title">{describeStep(step)}</span>
+                          <code className="pg-chat__step-cmd">{step.command}</code>
+                        </li>
                       ))}
                     </ol>
                     {turn.applied ? (
@@ -576,6 +676,16 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
                         >
                           <IconCheck />
                           Apply
+                        </ChromeButton>
+                        <ChromeButton
+                          variant="quiet"
+                          size="sm"
+                          onClick={() => {
+                            openPreview(turn.id, turn.plan);
+                          }}
+                        >
+                          <IconEye />
+                          Preview
                         </ChromeButton>
                         {onReviewAsCode === undefined ? null : (
                           <ChromeButton variant="quiet" size="sm" onClick={onReviewAsCode}>
@@ -670,6 +780,63 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
           Whatever you apply is one entry in history, one undo.
         </p>
       </form>
+
+      {/*
+        THE PREVIEW: the would-be page, rendered from the scratch rehearsal.
+        Same static renderer the published path uses, same registry, zero
+        writes — builder.io's accept-with-your-eyes-open pattern, through this
+        kernel's own door.
+      */}
+      {preview === null ? null : (
+        <div
+          className="pg-chat__preview-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPreview(null);
+            }
+          }}
+        >
+          <div className="pg-chat__preview" role="dialog" aria-label="Preview" aria-modal="true">
+            <header className="pg-chat__preview-head">
+              <h3>Preview</h3>
+              <p>How the page will look after this change. Nothing is applied yet.</p>
+              <ChromeButton
+                variant="icon"
+                size="sm"
+                aria-label="Close preview"
+                onClick={() => {
+                  setPreview(null);
+                }}
+              >
+                <IconClose />
+              </ChromeButton>
+            </header>
+            <div className="pg-chat__preview-page">
+              <StaticDocument document={preview.document} blocks={kernel.context.registry.block} />
+            </div>
+            <footer className="pg-chat__preview-actions">
+              <ChromeButton
+                variant="primary"
+                onClick={() => {
+                  accept(preview.id, preview.plan);
+                  setPreview(null);
+                }}
+              >
+                <IconCheck />
+                Apply
+              </ChromeButton>
+              <ChromeButton
+                variant="quiet"
+                onClick={() => {
+                  setPreview(null);
+                }}
+              >
+                Close
+              </ChromeButton>
+            </footer>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

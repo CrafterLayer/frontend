@@ -28,10 +28,12 @@ export {
   applyAiPlan,
   assertValidAiPlan,
   generateAiPlan,
+  previewAiPlan,
   validateAiPlan,
   type AppliedAiPlan,
   type ApplyAiPlanOptions,
   type GenerateAiPlanOptions,
+  type PreviewAiPlanOptions,
 } from './plan';
 export {
   type AiBlockContext,

@@ -1,0 +1,21 @@
+{
+  "name": "@craftkit/component-foundry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.mjs",
+    "./gates": "./src/gates/run-gates.mjs",
+    "./request": "./src/request/component-request.mjs",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node --check src/index.mjs",
+    "lint": "node --check src/index.mjs",
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "node --check src/index.mjs"
+  }
+}

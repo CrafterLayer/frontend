@@ -1,17 +1,36 @@
+/* The page is the DOCUMENT SURFACE, not a card sitting on one.
+
+   It used to carry `padding: var(--t-gap)` and clamp itself to
+   `--t-page-width`, which was true when sections had no layout of their own.
+   They do now: every marketing section renders a `w-full` shell (its ground
+   and its `py-section-*` rhythm) wrapping an `mx-auto max-w-* px-gutter`
+   content column. With both layers active the page's own inset was counted
+   twice — a hero authored `gutter: 'none', width: 'full'` still floated 16px
+   off the glass with a 1024px ceiling above it, so "edge to edge" was not
+   expressible from the document at all. Puck's canvas makes the same call: the
+   frame is full-bleed and the measure belongs to the page's settings.
+
+   So the inset is gone, and the ceiling is opt-in via `contentWidth`. The
+   `gap` between children went with it for the same reason: a 16px strip
+   between two coloured bands is the page's background showing through a seam
+   the author never drew. A block that wants breathing room asks for it; the
+   page no longer decides on its behalf. */
 .bldr-page {
   background: var(--t-surface, #ffffff);
   color: var(--t-text, #111827);
   display: flex;
   flex-direction: column;
-  gap: var(--t-gap, 16px);
+  inline-size: 100%;
+  /* Meaningful only once `contentWidth` sets a ceiling; harmless while none is. */
   margin-inline: auto;
-  max-inline-size: var(--t-page-width, 1152px);
+  max-inline-size: none;
   min-block-size: 100%;
-  padding-block: var(--t-gap, 16px);
-  padding-inline: var(--t-gap, 16px);
   text-align: start;
 }
 
+/* The measure, chosen in Page settings. Choosing one narrows the whole
+   document — full-bleed grounds included — which is the point: it is the page
+   saying how wide it reads, not a default nobody asked for. */
 .bldr-page[data-content-width='narrow'] {
   max-inline-size: var(--t-content-width-narrow, 40rem);
 }

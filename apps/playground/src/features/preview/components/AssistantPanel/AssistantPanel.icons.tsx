@@ -39,6 +39,8 @@ const CHECK = '<path d="M3.5 8.5 6.5 11.5 12.5 4.5"/>';
 const CLOSE = '<path d="M4 4l8 8M12 4l-8 8"/>';
 const UNDO = '<path d="M4.5 7.5A4.5 4.5 0 1 1 5 12"/><path d="M4.5 4v3.5H8"/>';
 // A filled square reads as STOP at 16px where an outlined one reads as a checkbox.
+const EYE =
+  '<path d="M1.8 8s2.2-4.2 6.2-4.2S14.2 8 14.2 8s-2.2 4.2-6.2 4.2S1.8 8 1.8 8z"/><circle cx="8" cy="8" r="1.8"/>';
 const STOP =
   '<rect x="4.25" y="4.25" width="7.5" height="7.5" rx="1" fill="currentColor" stroke="none"/>';
 // Shared with the rail's CODE tab glyph — "Review as code" hands off to that tab.
@@ -56,6 +58,7 @@ export const IconCheck = () => <Icon paths={CHECK} />;
 export const IconClose = () => <Icon paths={CLOSE} />;
 export const IconUndo = () => <Icon paths={UNDO} />;
 export const IconStop = () => <Icon paths={STOP} />;
+export const IconEye = () => <Icon paths={EYE} />;
 export const IconCode = () => <Icon paths={CODE} />;
 export const IconAlert = () => <Icon paths={ALERT} />;
 export const IconShield = () => <Icon paths={SHIELD} />;

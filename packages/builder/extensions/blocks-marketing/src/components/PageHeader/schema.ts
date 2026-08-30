@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import {
   sectionAlignments,
   sectionSpacings,
@@ -38,6 +40,8 @@ export const pageHeaderSchema = defineBlockSchema({
     border: z.enum(headerBorders).default('none'),
     shadow: z.enum(headerShadows).default('none'),
     ...sectionColorProps,
+    ...sectionMotionProps,
+    ...sectionCustomProps,
     align: z.enum(sectionAlignments).default('start'),
     tone: z.enum(sectionTones).default('transparent'),
     spacing: z.enum(sectionSpacings).default('sm'),
@@ -51,6 +55,8 @@ export const pageHeaderSchema = defineBlockSchema({
     align: { tab: 'design', section: 'Layout' },
     width: { tab: 'design', section: 'Layout' },
     ...sectionColorGroups,
+    ...sectionMotionGroups,
+    ...sectionCustomGroups,
     tone: { tab: 'design', section: 'Colour' },
     border: { tab: 'design', section: 'Edge' },
     shadow: { tab: 'design', section: 'Edge' },

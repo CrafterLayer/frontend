@@ -1,0 +1,16 @@
+/*
+  The accordion container.
+
+  Every measurement resolves from a --t-* page token, never a literal: the
+  document holds no length, so re-pointing one theme value restyles every
+  accordion on every page ever authored. The fallbacks exist for the same
+  reason the section stylesheets carry them — a page rendered outside a themed
+  frame still has to be readable.
+*/
+.pri-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--t-gap-sm, 8px);
+  inline-size: 100%;
+  min-inline-size: 0;
+}

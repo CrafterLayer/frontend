@@ -1,5 +1,14 @@
 import type { JsonValue } from '@craftkit/builder-schema';
 
+/**
+ * Few-shots for AI context assembly — written FOR the model.
+ *
+ * Neither example carries a `plans` array, and that absence is the lesson. The
+ * plans are `pricingPlan` NODES that go in this block's slot, so the assistant
+ * has to learn that this section owns the heading and the column count and
+ * nothing else. An example showing plan data here would teach exactly the shape
+ * that made a button inside a card impossible.
+ */
 export const pricingExamples: { prompt: string; node: JsonValue }[] = [
   {
     prompt: 'ثلاث باقات شهرية والوسطى مميزة',
@@ -13,17 +22,6 @@ export const pricingExamples: { prompt: string; node: JsonValue }[] = [
         tone: 'dark',
         spacing: 'lg',
         width: 'wide',
-        plans: [
-          { name: 'البداية', price: '٩$', period: 'month', features: ['مشروع واحد', 'دعم بريدي'] },
-          {
-            name: 'النمو',
-            price: '٢٩$',
-            period: 'month',
-            features: ['مشاريع بلا حدود', 'دعم أولوية'],
-            highlighted: true,
-          },
-          { name: 'الشركات', price: 'تواصل معنا', period: 'month', features: ['تخصيص كامل'] },
-        ],
       },
     },
   },
@@ -35,20 +33,10 @@ export const pricingExamples: { prompt: string; node: JsonValue }[] = [
         heading: 'Simple pricing',
         body: 'Start small and scale when your team is ready.',
         columns: '2',
-        align: 'start',
+        align: 'center',
         tone: 'transparent',
-        spacing: 'md',
+        spacing: 'lg',
         width: 'standard',
-        plans: [
-          { name: 'Solo', price: '$90', period: 'year', features: ['1 seat'] },
-          {
-            name: 'Team',
-            price: '$290',
-            period: 'year',
-            features: ['10 seats'],
-            highlighted: true,
-          },
-        ],
       },
     },
   },

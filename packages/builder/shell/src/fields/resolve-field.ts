@@ -8,7 +8,8 @@ import type { BlockPropertyKind, FieldTypeDef, RegistryRead } from '@craftkit/bu
  * default control after unwrapping optional/default/nullable → accessible
  * read-only fallback.
  */
-export type DefaultControl = 'text' | 'select' | 'switch' | 'number' | 'repeater' | 'color-role';
+export type DefaultControl =
+  'text' | 'select' | 'switch' | 'number' | 'repeater' | 'color-role' | 'motion';
 
 export type ResolvedField =
   | { kind: 'contributed'; def: FieldTypeDef }
@@ -93,6 +94,9 @@ export function resolveField(
 ): ResolvedField {
   if (declaredKind === 'color-role') {
     return { kind: 'default', control: 'color-role' };
+  }
+  if (declaredKind === 'motion') {
+    return { kind: 'default', control: 'motion' };
   }
 
   let winner: FieldTypeDef | undefined;

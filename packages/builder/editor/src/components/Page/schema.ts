@@ -25,7 +25,13 @@ export const pageSchema = defineBlockSchema({
     socialTitle: z.string().max(120).optional(),
     socialDescription: z.string().max(200).optional(),
     socialImage: z.string().max(2000).optional(),
-    contentWidth: z.enum(['narrow', 'standard', 'wide', 'full']).default('standard'),
+    /*
+      Full-bleed by default. Sections already own their content column and
+      their gutter, so a page-level ceiling clamped them a second time and made
+      an edge-to-edge hero impossible to author. The measure stays available —
+      it is just a CHOICE made here now, not a floor nobody opted into.
+    */
+    contentWidth: z.enum(['narrow', 'standard', 'wide', 'full']).default('full'),
     noIndex: z.boolean().default(false),
     lang: z.string().max(12).default(''),
   }),
@@ -72,6 +78,10 @@ export const pageSchema = defineBlockSchema({
         // mistake no inspector control can undo.
         'pageHeader',
         'pageFooter',
+        // The animated backdrop container (aceternity). The playground's own
+        // default document mounts one on the page root; a list that refuses
+        // what the fixtures already do makes every assistant plan invalid.
+        'auroraBackground',
       ],
     },
   },

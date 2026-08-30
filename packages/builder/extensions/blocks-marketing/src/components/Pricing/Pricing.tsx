@@ -1,63 +1,101 @@
-import '../section-layout.css';
-import './Pricing.css';
-
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
+import { GAP_CLASSES, cx, sectionContentClasses, sectionShellClasses } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
+import { sectionMotionAttributes } from '../section-motion';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
 import type { PricingProps } from './schema';
 
-/** Pricing plans from document data; the highlighted plan is visibly recommended. */
-export function Pricing({ node, props }: BlockRenderProps<PricingProps>) {
-  // The accessible name comes from the VISIBLE heading, never a copy of
-  // its text: inline editing swaps that property for an editor element, and
-  // an element in aria-label stringifies to "[object Object]" (009 §12).
+/**
+ * A pricing section: a heading, an optional lead, and a row of composed plans.
+ *
+ * ## What changed, and why
+ *
+ * This block used to carry its plans as DATA — an array of
+ * `{ name, price, period, features: string[] }` — and render them itself. That
+ * shape could express a feature list and nothing else, so the one thing every
+ * real pricing section needs, a call-to-action button inside each card, was
+ * impossible to author. The block was a template wearing a builder block's
+ * clothes.
+ *
+ * The plans are now `pricingPlan` nodes in a slot. This block owns the
+ * heading, the rhythm, and the column count; it has no opinion about what is
+ * inside a card, which is what makes a button, a badge, or an image possible
+ * without a schema change.
+ *
+ * ## Why the columns are a grid rather than a flex row
+ *
+ * Cards in a flex row size to their content, so a plan with two features ends
+ * up narrower than one with six. A grid gives every card the same track, which
+ * is what a person means by "three plans".
+ */
+const COLUMN_CLASSES: Record<PricingProps['columns'], string> = {
+  /*
+    `auto` is a real responsive rule, not a guess: fill as many tracks as fit
+    at the minimum readable card width, which is itself a token. One
+    declaration replaces the breakpoint ladder every pricing section otherwise
+    grows.
+  */
+  auto: 'grid-cols-[repeat(auto-fit,minmax(min(100%,var(--container-grid-min-track)),1fr))]',
+  '2': 'grid-cols-1 sm:grid-cols-2',
+  '3': 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  '4': 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+};
+
+export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) {
+  /*
+    The accessible name comes from the VISIBLE heading, never a copy of its
+    text: inline editing swaps that property for an editor element, and an
+    element in `aria-label` stringifies to "[object Object]".
+  */
   const headingId = `${node.id}-heading`;
-  const typographyClassName = sectionTypographyClasses(props);
-  const rootClassName = [
-    `mkt-section mkt-pricing mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`,
-    typographyClassName,
-  ]
-    .filter((className) => className !== '')
-    .join(' ');
+  const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
+
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
   const rootStyle =
     colorStyle === undefined && spacingStyle === undefined
       ? undefined
       : { ...colorStyle, ...spacingStyle };
+
   return (
-    <section className={rootClassName} style={rootStyle} aria-labelledby={headingId}>
+    <section
+      className={cx(
+        sectionShellClasses(props.tone, props.spacing),
+        sectionTypographyClasses(props),
+        motionClassName,
+        /* The caller's own utilities go LAST so they win a conflict. */
+        props.className,
+      )}
+      style={rootStyle}
+      aria-labelledby={headingId}
+      {...motionData}
+    >
       <div
-        className={`mkt-section__content mkt-pricing__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width}`}
-      >
-        <h2 id={headingId} className="mkt-pricing__heading">
-          {props.heading}
-        </h2>
-        {props.body === undefined ? null : (
-          <p className="mkt-section__intro mkt-pricing__intro">{props.body}</p>
+        className={cx(
+          sectionContentClasses(props.width, props.align, props.gutter),
+          'flex flex-col gap-6',
         )}
-        <ul className={`mkt-pricing__grid mkt-pricing__grid--${props.columns}`}>
-          {props.plans.map((plan) => (
-            <li
-              key={plan.name}
-              className={`mkt-pricing__plan${plan.highlighted === true ? ' mkt-pricing__plan--highlighted' : ''}`}
-            >
-              <h3 className="mkt-pricing__name">{plan.name}</h3>
-              <p className="mkt-pricing__price">
-                <strong>{plan.price}</strong>
-                <span className="mkt-pricing__period">/{plan.period}</span>
-              </p>
-              <ul className="mkt-pricing__features">
-                {plan.features.map((feature) => (
-                  <li key={feature}>{feature}</li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
+      >
+        <header className="flex min-w-0 flex-col gap-2">
+          <h2 id={headingId} className="text-2xl font-bold leading-tight">
+            {props.heading}
+          </h2>
+          {props.body === undefined ? null : (
+            <p className="max-w-content-narrow text-text-muted">{props.body}</p>
+          )}
+        </header>
+
+        {/*
+          `items-stretch` is what keeps a row of cards the same height, which is
+          what lets each card's footer line up with its neighbours. Without it
+          a plan with fewer features sits short and the row reads as broken.
+        */}
+        <div className={cx('grid items-stretch', COLUMN_CLASSES[props.columns], GAP_CLASSES.md)}>
+          {slots['default']}
+        </div>
       </div>
     </section>
   );

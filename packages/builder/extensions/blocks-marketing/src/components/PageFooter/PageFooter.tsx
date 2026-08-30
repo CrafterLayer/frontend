@@ -4,6 +4,7 @@ import './PageFooter.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionMotionAttributes } from '../section-motion';
 
 import type { PageFooterProps } from './schema';
 
@@ -23,6 +24,12 @@ export function PageFooter({ props, slots }: BlockRenderProps<PageFooterProps>) 
   const body = slots['default'];
   const bottom = slots['bottom'];
 
+  /*
+    Motion arrives as ATTRIBUTES, never as inline style: the stylesheet stays
+    the one place any timing lives, so a document carries a named step and never
+    a duration. `class` is pulled out because React spells it `className`.
+  */
+  const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const className = [
     'mkt-section',
     'mkt-footer',
@@ -30,10 +37,13 @@ export function PageFooter({ props, slots }: BlockRenderProps<PageFooterProps>) 
     `mkt-footer--border-${props.border}`,
     `mkt-section--tone-${props.tone}`,
     `mkt-section--spacing-${props.spacing}`,
-  ].join(' ');
+    motionClassName ?? '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <footer className={className} style={sectionColorStyle(props)}>
+    <footer className={className} style={sectionColorStyle(props)} {...motionData}>
       <div
         className={`mkt-section__content mkt-section__content--width-${props.width} mkt-section__content--align-${props.align} mkt-footer__content`}
       >

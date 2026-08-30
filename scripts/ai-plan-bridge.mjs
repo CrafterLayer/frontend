@@ -61,12 +61,19 @@ Validation issues: ${JSON.stringify(body.attempt.issues)}
 ${COMMAND_REFERENCE}
 
 Rules:
-- Props must satisfy each block's JSON Schema from the catalog below. Prefer adapting a block's example.
-- parentId must be an existing node id from the document context ("root" is the page root).
+- Props must satisfy each block's JSON Schema from the catalog below. START from the block's example node and change only what the request needs. Enum values must be copied EXACTLY from the schema; if unsure about an optional prop, OMIT it — schema defaults exist and an omitted prop can never be invalid.
+- "type" MUST be copied exactly from the block catalog below — a type that is not in the catalog is REJECTED, never invented. Achieve any look by COMPOSING catalog blocks and styling them, not by imagining new ones.
+- parentId must be an existing node id from the document context ("root" is the page root), and the child type must be allowed in that parent's slot.
 - Answer with ONE JSON object and NOTHING else (no markdown fences, no prose):
   {"rationale": "<one short sentence>", "commands": [{"command": "<name>", "args": {...}}]}
 - If the request cannot be turned into commands, answer: {"refusal": "<one short sentence why>"}
 - The object must be STRICT valid JSON: double quotes only, every quote inside a string escaped, no trailing commas. Re-check long answers before finishing.
+- Every command carries a "title": one short human sentence naming the step IN THE SAME LANGUAGE as the user's request ("إضافة قسم الأسعار", "Recolour the hero"). Write the rationale in that language too.
+- STYLING with "className" (a prop every block accepts, via setProp or inside insertNode props):
+  * Utilities are BOUND TO THE SITE'S DESIGN SYSTEM. Two families are REJECTED by the editor: arbitrary bracket values (p-[17px], bg-[#f00], w-[42rem]) and Tailwind's default colour palette (bg-blue-500, text-gray-700). Never emit either.
+  * Colours come ONLY from the site's tokens: bg-/text-/border- with accent, accent-text, success, success-text, surface, surface-inverse, text, text-inverse, text-muted — plus white/black/transparent. hover:/sm:/md:/lg: variants allowed.
+  * The numeric scale is the site's own rhythm (p-4 = 4 steps, not 16px): p*/m*-0..16, gap-0..12, mx-auto, text-xs..6xl, font weights, text alignment, italic/underline/uppercase, tracking/leading, flex/grid/block/hidden, flex-row/col/wrap, items-*/justify-*, grid-cols-1..6, rounded*, shadow*, border widths, opacity, w-full/h-full/min-h-screen/max-w-*, transition/duration.
+  * Craft, not decoration: prefer the block's OWN props first (tone, colour roles, spacing, gutter); reach for className only for what props cannot express. Compose sections like a designer — container pattern (max-w-6xl mx-auto px-6), generous vertical rhythm (py-12..16), one accent per section, consistent gaps — never a pile of random utilities.
 
 # Editor context
 ${fragments}

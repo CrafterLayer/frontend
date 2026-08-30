@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
 
+import { sectionCustomGroups } from '../section-custom';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { Image } from './Image';
 import { imageExamples } from './examples';
@@ -143,8 +145,16 @@ describe('Image', () => {
   it('schema defaults authored properties except src, colour roles, and spacing', () => {
     const props = imageSchema.props.parse({});
     const colorKeys = Object.keys(sectionColorProps);
+    const motionKeys = Object.keys(sectionMotionProps);
     const spacingKeys = Object.keys(sectionSpacingProps);
-    const noDefaultKeys = ['src', ...colorKeys, ...spacingKeys];
+    const noDefaultKeys = [
+      ...motionKeys,
+      'src',
+      ...colorKeys,
+      ...spacingKeys,
+      'gutter',
+      'className',
+    ];
 
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
     expect(spacingKeys.sort()).toEqual([
@@ -217,7 +227,9 @@ describe('Image', () => {
       width: { tab: 'design', section: 'Layout' },
       align: { tab: 'design', section: 'Layout' },
       ...sectionColorGroups,
+      ...sectionMotionGroups,
       ...sectionSpacingGroups,
+      ...sectionCustomGroups,
     });
   });
 

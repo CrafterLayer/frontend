@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import type { StorybookConfig } from '@storybook/react-vite';
 
 const config = {
@@ -18,6 +19,16 @@ const config = {
     name: '@storybook/react-vite',
     options: {},
   },
+  /*
+    Storybook owns its own Vite config, so the Tailwind plugin has to be added
+    here as well as in the playground. Without it the catalog renders every
+    utility as an unknown class and a component that is correct in the product
+    looks broken in review.
+  */
+  viteFinal: (config) => ({
+    ...config,
+    plugins: [...(config.plugins ?? []), tailwindcss()],
+  }),
 } satisfies StorybookConfig;
 
 export default config;

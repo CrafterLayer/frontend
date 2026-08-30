@@ -1,0 +1,100 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as MotionFieldStories from './MotionField.stories';
+
+<Meta of={MotionFieldStories} />
+
+# MotionField
+
+## Purpose and ownership
+
+Owned by `@craftkit/builder-shell`. The inspector control for a block's motion.
+
+A block reaches it by declaring `kind: 'motion'` on the property. That declaration is the whole
+reason this component exists: motion is one prop holding an object of six optional enums, and
+without the declaration the inspector's default resolution falls through to the read-only fallback —
+technically correct, and useless. The schema can say "an object with six optional enums"; only the
+vocabulary knows those six are **one decision a person makes together**.
+
+The same reasoning already produced `color-role`, and this follows it deliberately rather than
+inventing a second mechanism.
+
+## When to use, and when not to
+
+Declare `kind: 'motion'` on any property typed as `motionSpecSchema`. Do not use this control for
+anything else — it is not a generic object editor, and every option it offers comes from the motion
+vocabulary rather than from the schema it is handed.
+
+## Props
+
+Standard `FieldControlProps`. `value` is the stored `MotionSpec`; anything that is not an object is
+treated as no motion at all, which is the state a hand-edited document or an older schema produces.
+
+## Variants and state
+
+`Empty` is the default — every row reads `—`. `Reveal`, `ScrollDriven`, and `Staggered` show the
+three shapes a real choice takes. `FullySpecified` sets every part at once. `Disabled` is how the
+inspector renders a row that cannot be edited. `MalformedValue` proves the control degrades instead
+of crashing the panel.
+
+## Two rules this control enforces, not just displays
+
+**No literal can enter through it.** Every input is a `select` over a closed vocabulary. There is no
+free-text and no numeric field anywhere, so `duration: 300` is not expressible from the inspector —
+which matters because a millisecond count is a literal in exactly the way `'16px'` is, and would
+make motion the one part of the design system a theme change could not move. A test asserts the
+absence of text and number inputs.
+
+**Clearing removes the key.** A JSON document cannot hold `undefined`, and "replay off" is the
+absence of `repeat` rather than `repeat: false`. Both render identically, so storing the explicit
+`false` would leave a key that means nothing — and two documents that behave the same would stop
+being equal, which the round-trip law would then have to explain.
+
+## Accessibility
+
+Each row is a real `<label htmlFor>` bound to its control, so every part is reachable by its
+accessible name — `On entry`, `While scrolling`, `Duration`, `Delay`, `Easing`, `Stagger children`,
+`Replay on re-entry`.
+
+Each control carries `aria-describedby` pointing at its hint. The hints are not decoration: `pin`
+needing the extension, and timing being a named step rather than a number, are the two things a
+person otherwise learns by trying and failing.
+
+The whole control is a `<fieldset>` named by the row's property label through `aria-labelledby`, so
+a screen reader announces the group before its parts. Disabling the row disables the fieldset, which
+disables every control inside it.
+
+## Responsive, RTL, and theme
+
+Motion is a per-breakpoint prop, so this control appears in breakpoint buckets like any other and a
+page can animate on a wide screen while staying still on a phone.
+
+Labels and hints mirror under RTL; the vocabulary does not translate, because `fade-right` describes
+travel rather than reading order.
+
+Every measurement in the stylesheet is a chrome token.
+`packages/builder/theme/src/measurements.test.ts` refuses a raw `px` or `rem` anywhere under
+`shell/src`, which is what lets a host re-point one scale and move the whole editor.
+
+## Composition
+
+```ts
+defineBlockSchema({
+  type: 'hero',
+  props: z.object({
+    heading: z.string(),
+    motion: motionSpecSchema.optional(),
+  }),
+  properties: {
+    motion: { tab: 'design', kind: 'motion' },
+  },
+});
+```
+
+## Known limitations
+
+- **The control does not preview the motion.** It sets intent; the canvas shows the result.
+- **`pin` and stagger need `@craftkit/builder-motion`.** The hints say so, and a page that never
+  loads the extension simply does not pin — visibly rather than silently.
+- **The vocabulary is closed by design.** A motion this control cannot express is a motion the
+  document cannot hold, which is the point rather than a gap.

@@ -9,7 +9,13 @@ import {
 } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder-core';
-import type { BlockRenderProps, NodeId, SlotName } from '@craftkit/builder-schema';
+import {
+  blockPropDefaults,
+  withBlockPropDefaults,
+  type BlockRenderProps,
+  type NodeId,
+  type SlotName,
+} from '@craftkit/builder-schema';
 
 import { resolveResponsiveProps, type RenderBreakpoint } from '../../../resolve/responsive';
 import { useKernelNode, useRegistryEpoch } from '../../../subscribe';
@@ -351,7 +357,20 @@ function NodeViewInner({
     // The single un-erasure boundary (see BlockRenderComponent): stored renderers
     // are typed over `never`; here they receive their real resolved props.
     const Block = render as ComponentType<BlockRenderProps>;
-    const stored = resolveResponsiveProps(node, breakpoint);
+    /*
+      Schema defaults, filled for props the document omits.
+
+      A block declaring `spacing: z.enum(...).default('lg')` did not render at
+      'lg': nothing on this path ever parsed props against the schema, so an
+      omitted prop arrived `undefined` and went straight into a class name.
+      Defaults are FILLED rather than the props PARSED — a parse would reject
+      the React element the inline-edit boundary swaps in below, and would
+      coerce values a person actually stored.
+    */
+    const stored = withBlockPropDefaults(
+      resolveResponsiveProps(node, breakpoint),
+      entry === undefined ? {} : blockPropDefaults(entry.schema.props),
+    );
     let resolved = stored;
     if (activeInlineEdit !== null && activeInlineEdit.render !== null) {
       // THE EDIT BOUNDARY, declared rather than hidden: the prop's VALUE becomes

@@ -5,7 +5,11 @@ packages:
   - 'packages/builder/extensions/*'
 
 catalog:
+  '@radix-ui/react-accordion': 1.2.20
+  '@radix-ui/react-dialog': 1.1.23
   '@radix-ui/react-popover': 1.1.23
+  '@radix-ui/react-slider': 1.4.7
+  '@radix-ui/react-tabs': 1.1.21
   '@tanstack/react-query': 5.102.2
   '@uiw/react-color-sketch': 2.10.3
   '@tiptap/core': 3.30.3

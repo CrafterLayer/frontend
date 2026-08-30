@@ -1,0 +1,57 @@
+/*
+  The motion control.
+
+  Every measurement here is a chrome token. `packages/builder/theme/src/
+  measurements.test.ts` refuses a raw px or rem anywhere under `shell/src`, and
+  that refusal is what lets a host re-point one scale and move the whole editor.
+
+  The layout is deliberately a stack of labelled rows rather than a compact grid
+  of seven selects. Motion is one decision made from several parts, and a person
+  choosing "on entry" needs to see that "duration" applies to it — a grid hides
+  that relationship to save vertical space the inspector can afford here.
+*/
+.bldr-motion-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  /* A fieldset carries a default border and inline padding in every browser. */
+  border: 0;
+  margin: 0;
+  padding: 0;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.bldr-motion-field__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+.bldr-motion-field__label {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-tight);
+}
+
+/*
+  The hint is what stops this control from being a row of enum names a person
+  has to guess at: "pin needs the extension" and "never a number of
+  milliseconds" are the two things someone learns the hard way otherwise.
+*/
+.bldr-motion-field__hint {
+  margin: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-tight);
+}
+
+/*
+  A disabled fieldset greys its legend but not its own text, so the muting is
+  stated rather than inherited.
+*/
+.bldr-motion-field:disabled .bldr-motion-field__label,
+.bldr-motion-field:disabled .bldr-motion-field__hint {
+  color: var(--bldr-panel-text-soft);
+}

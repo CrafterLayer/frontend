@@ -225,4 +225,76 @@ describe('AI plan validation', () => {
       ),
     ).toThrow(AiPlanRejectedError);
   });
+
+  it('carries a human step title through validation and drops a non-string one', () => {
+    const kernel = planKernel();
+    const titled = {
+      rationale: 'Add copy with a named step.',
+      commands: [
+        {
+          command: 'insertNode',
+          args: { type: 'text', props: { content: 'Generated copy' }, parentId: 'sec1' },
+          title: 'إضافة نص ترحيبي',
+        },
+      ],
+    };
+
+    const result = validateAiPlan(titled, kernel, validationPorts('titled'));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.plan.commands[0]?.title).toBe('إضافة نص ترحيبي');
+    }
+
+    const badTitle = {
+      rationale: 'Numeric title.',
+      commands: [
+        {
+          command: 'insertNode',
+          args: { type: 'text', props: { content: 'x' }, parentId: 'sec1' },
+          title: 7,
+        },
+      ],
+    };
+    const lenient = validateAiPlan(badTitle, planKernel(), validationPorts('bad-title'));
+    expect(lenient.ok).toBe(true);
+    if (lenient.ok) {
+      expect(lenient.plan.commands[0]?.title).toBeUndefined();
+    }
+  });
+
+  it('blames a plan only for NEW damage: pre-existing document violations do not reject it', () => {
+    // A document that is ALREADY invalid (tone outside the enum) before any plan.
+    const kernel = createBuilder({
+      document: {
+        ...landingFixture(),
+        nodes: {
+          ...landingFixture().nodes,
+          hero1: {
+            id: 'hero1',
+            type: 'hero',
+            props: { tone: 'purple', heading: 'Build faster' },
+            slots: { actions: ['cta1', 'cta2'] },
+          },
+        },
+      },
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(10), ids: seededIds('stale-live') },
+    });
+
+    // A perfectly good plan that never touches the stale node must pass…
+    expect(validateAiPlan(validPlan, kernel, validationPorts('stale-ok'))).toEqual({
+      ok: true,
+      plan: validPlan,
+    });
+
+    // …while a plan that CREATES a new violation is still rejected.
+    const breaking: AiPlan = {
+      rationale: 'Push the section count past its cap.',
+      commands: [
+        { command: 'setProp', args: { id: 'p1', key: 'content', value: 42 } },
+      ],
+    };
+    const result = validateAiPlan(breaking, kernel, validationPorts('stale-broken'));
+    expect(result.ok).toBe(false);
+  });
 });

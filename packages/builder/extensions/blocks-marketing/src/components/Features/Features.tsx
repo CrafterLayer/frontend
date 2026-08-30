@@ -4,6 +4,7 @@ import './Features.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionMotionAttributes } from '../section-motion';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
@@ -16,9 +17,16 @@ export function Features({ node, props }: BlockRenderProps<FeaturesProps>) {
   // an element in aria-label stringifies to "[object Object]" (009 §12).
   const headingId = `${node.id}-heading`;
   const typographyClassName = sectionTypographyClasses(props);
+  /*
+    Motion arrives as ATTRIBUTES, never as inline style: the stylesheet stays
+    the one place any timing lives, so a document carries a named step and never
+    a duration. `class` is pulled out because React spells it `className`.
+  */
+  const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const rootClassName = [
     `mkt-section mkt-features mkt-section--tone-${props.tone} mkt-section--spacing-${props.spacing}`,
     typographyClassName,
+    motionClassName ?? '',
   ]
     .filter((className) => className !== '')
     .join(' ');
@@ -29,7 +37,12 @@ export function Features({ node, props }: BlockRenderProps<FeaturesProps>) {
       ? undefined
       : { ...colorStyle, ...spacingStyle };
   return (
-    <section className={rootClassName} style={rootStyle} aria-labelledby={headingId}>
+    <section
+      className={rootClassName}
+      {...motionData}
+      style={rootStyle}
+      aria-labelledby={headingId}
+    >
       <div
         className={`mkt-section__content mkt-features__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width}`}
       >

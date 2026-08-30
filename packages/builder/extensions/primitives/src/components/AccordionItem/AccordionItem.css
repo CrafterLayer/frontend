@@ -1,0 +1,86 @@
+/*
+  One collapsible section.
+
+  Logical properties throughout (`border-block-end`, `padding-inline`) so an
+  RTL document mirrors without a second stylesheet — the same rule every block
+  in this workspace follows.
+*/
+.pri-accordion-item {
+  border-block-end: var(--t-border-width, 1px) solid var(--t-text-muted, #6b7280);
+  min-inline-size: 0;
+}
+
+.pri-accordion-item__header {
+  margin: 0;
+}
+
+/*
+  The trigger is a real button, so it is focusable, activates on Enter and
+  Space, and announces its expanded state — all of which Radix wires. What is
+  set here is only how it looks.
+*/
+.pri-accordion-item__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--t-gap-sm, 8px);
+  inline-size: 100%;
+  padding-block: var(--t-control-padding-block-md, 10px);
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: var(--t-font-size-lg, 1.125rem);
+  font-weight: var(--t-font-weight-medium, 500);
+  line-height: var(--t-line-height-tight, 1.2);
+  text-align: start;
+  cursor: pointer;
+}
+
+.pri-accordion-item__trigger:focus-visible {
+  outline: 2px solid var(--t-accent, #4f46e5);
+  outline-offset: 2px;
+}
+
+.pri-accordion-item__title {
+  min-inline-size: 0;
+}
+
+/*
+  The chevron is drawn from borders rather than shipped as an icon file: one
+  fewer asset on the published path, and it inherits `currentColor` so it
+  follows the text through every theme without being told to.
+
+  It rotates on the ROOT's state attribute, which Radix sets — no JavaScript of
+  ours observes anything.
+*/
+.pri-accordion-item__chevron {
+  flex: none;
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: rotate(45deg);
+  transform-origin: center;
+  transition: transform 150ms ease;
+}
+
+.pri-accordion-item__trigger[data-state='open'] .pri-accordion-item__chevron {
+  transform: rotate(-135deg);
+}
+
+/*
+  A person who asked their system to reduce motion gets the state change
+  without the sweep. The chevron still turns — it just arrives.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .pri-accordion-item__chevron {
+    transition: none;
+  }
+}
+
+.pri-accordion-item__body {
+  padding-block-end: var(--t-gap, 16px);
+  color: var(--t-text, #111827);
+}

@@ -207,3 +207,80 @@ export {
   type Theme,
   type TokenName,
 } from './theme';
+
+/*
+  Block prop defaults (013 repair). A schema declaring `.default('lg')` did not
+  actually produce 'lg' on the render path: nothing ever parsed props against
+  the schema, so an omitted prop reached the block as `undefined` and was
+  interpolated into a class name matching no rule. Measured in the browser on
+  the playground's own landing page, that was eight dead classes and a hero with
+  0px block padding.
+*/
+export { blockPropDefaults, withBlockPropDefaults } from './blocks/prop-defaults';
+
+/*
+  The SITE (013). The unit of work becomes a site: an ordered page set, its
+  shared regions, one design system, and one asset table — validated as a whole
+  at the layer that already owns documents.
+
+  Each page nests a `BuilderDocument` VERBATIM at the current page format, which
+  is what "the site wraps pages" means concretely: a page lifted out of a site
+  is still a valid document, and every proof B0–B4 bought keeps holding without
+  being re-derived at a new shape.
+*/
+export {
+  LATEST_SITE_VERSION,
+  builderSiteSchema,
+  migrateSite,
+  pageIdSchema,
+  sharedRegionIdSchema,
+  sharedRegionKindSchema,
+  sharedRegionSchema,
+  siteDesignSystemSchema,
+  siteFromDocument,
+  sitePageSchema,
+  validateSite,
+  type BuilderSite,
+  type PageId,
+  type SharedRegion,
+  type SharedRegionId,
+  type SharedRegionKind,
+  type SiteDesignSystem,
+  type SitePage,
+  type SiteValidationIssue,
+  type SiteValidationResult,
+} from './site';
+
+/*
+  Contrast, at layer 0 because the planner has to reason about it WHILE it
+  chooses a palette, not after. `luminanceForRatio` inverts the WCAG formula so
+  a colour can be built to clear a ratio instead of measured and retried — the
+  retry loop is unbounded, and its successes drift every generated palette
+  toward the same safe grey.
+*/
+export {
+  CONTRAST_LARGE_TEXT,
+  CONTRAST_NORMAL_TEXT,
+  checkContrast,
+  contrastRatio,
+  luminanceForRatio,
+  parseHex,
+  relativeLuminance,
+  type ContrastCheck,
+  type Rgb,
+} from './theme';
+
+/*
+  Utility classes a document may hold (013). Allowed, because the bridge binds
+  Tailwind's `--spacing` to `--t-space-unit`: `p-4` is four STEPS of the site's
+  rhythm, not sixteen pixels. Exactly two families are refused — arbitrary
+  values in brackets, and Tailwind's own colour palette — because those are the
+  only ones the design system cannot reach.
+*/
+export {
+  findRejectedUtilities,
+  isStorableUtilityClass,
+  splitUtilities,
+  type UtilityRejection,
+  type UtilityRejectionCode,
+} from './blocks/utility-classes';

@@ -4,6 +4,7 @@ import './NavLinks.css';
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { sectionColorStyle } from '../section-color';
+import { sectionMotionAttributes } from '../section-motion';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
@@ -46,6 +47,12 @@ export function NavLinks({ node, props, isCanvas }: BlockRenderProps<NavLinksPro
     );
   }
 
+  /*
+    Motion arrives as ATTRIBUTES, never as inline style: the stylesheet stays
+    the one place any timing lives, so a document carries a named step and never
+    a duration. `class` is pulled out because React spells it `className`.
+  */
+  const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const className = [
     'mkt-nav-links',
     `mkt-nav-links--direction-${props.direction}`,
@@ -54,12 +61,13 @@ export function NavLinks({ node, props, isCanvas }: BlockRenderProps<NavLinksPro
     `mkt-nav-links--wrap-${props.wrap}`,
     typographyClassName,
     legacyTypographyClassName,
+    motionClassName ?? '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <nav aria-label="Navigation links" className={className} style={style}>
+    <nav aria-label="Navigation links" className={className} {...motionData} style={style}>
       <ul className="mkt-nav-links__list">
         {props.links.map((link, index) => (
           <li key={`${link.href}-${String(index)}`} className="mkt-nav-links__item">

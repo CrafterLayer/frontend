@@ -32,6 +32,7 @@ import {
   resolveField,
   type DefaultControl,
 } from '../../fields/resolve-field';
+import { MotionField } from '../../fields/MotionField';
 import { FieldErrorBoundary } from './FieldErrorBoundary';
 import { RepeaterField } from './RepeaterField';
 
@@ -42,6 +43,13 @@ const DEFAULT_CONTROLS: Record<ScalarDefaultControl, ComponentType<FieldControlP
   select: SelectField,
   switch: SwitchField,
   number: NumberField,
+  /*
+    Motion joins the scalar map rather than needing its own branch the way
+    `color-role` and `repeater` do: it takes plain FieldControlProps and renders
+    one self-contained fieldset, so nothing about the row has to know it is
+    composite.
+  */
+  motion: MotionField,
 };
 
 /**

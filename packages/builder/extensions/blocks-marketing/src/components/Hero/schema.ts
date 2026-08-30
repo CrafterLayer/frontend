@@ -11,6 +11,8 @@ import {
   sectionWraps,
 } from '../section-options';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { heroExamples } from './examples';
@@ -36,6 +38,8 @@ export const heroSchema = defineBlockSchema({
     ...sectionColorProps,
     ...sectionTypographyProps,
     ...sectionSpacingProps,
+    ...sectionMotionProps,
+    ...sectionCustomProps,
   }),
   propertyGroups: {
     layoutDirection: { tab: 'design', section: 'Layout' },
@@ -46,6 +50,8 @@ export const heroSchema = defineBlockSchema({
     ...sectionColorGroups,
     ...sectionTypographyGroups,
     ...sectionSpacingGroups,
+    ...sectionMotionGroups,
+    ...sectionCustomGroups,
   },
   inlineEditable: 'heading',
   slots: { actions: { allow: ['cta'], max: 2 } },

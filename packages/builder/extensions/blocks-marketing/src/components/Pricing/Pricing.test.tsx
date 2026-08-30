@@ -9,50 +9,66 @@ import { pricingSchema } from './schema';
 const node: Node = { id: 'p', type: 'pricing', props: {} };
 
 describe('Pricing', () => {
-  it('renders each plan with name, price, period, and features', () => {
+  /*
+    The re-architecture, asserted.
+
+    Plans used to be an array of `{ name, price, period, features: string[] }`
+    rendered by this block. That shape could express a feature list and nothing
+    else, so a call-to-action button inside a card — the one thing every real
+    pricing section needs — was impossible to author. Plans are nodes in a slot
+    now, and this section has no opinion about what is inside one.
+  */
+  it('renders whatever the slot holds, having no opinion about a plan', () => {
     render(
       <Pricing
         node={node}
-        props={pricingSchema.props.parse({
-          heading: 'Simple pricing',
-          plans: [
-            { name: 'Solo', price: '$9', period: 'month', features: ['1 seat', 'Email support'] },
-            {
-              name: 'Team',
-              price: '$29',
-              period: 'month',
-              features: ['10 seats'],
-              highlighted: true,
-            },
-          ],
-        })}
-        slots={{}}
+        props={pricingSchema.props.parse({ heading: 'Simple pricing' })}
+        slots={{
+          default: (
+            <article>
+              <h3>Team</h3>
+              <button type="button">Choose Team</button>
+            </article>
+          ),
+        }}
         data={{}}
         isCanvas={false}
       />,
     );
-    expect(screen.getByRole('region', { name: 'Simple pricing' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: 'Team' })).toBeInTheDocument();
-    expect(screen.getByText('$9')).toBeInTheDocument();
-    expect(screen.getByText('1 seat')).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { name: 'Team' })).toBeInTheDocument();
+    // The assertion the old shape could not have made.
+    expect(screen.getByRole('button', { name: 'Choose Team' })).toBeInTheDocument();
   });
 
-  it('marks the highlighted plan visually via the modifier class', () => {
-    render(
+  it('accepts only plan cards in its slot', () => {
+    expect(pricingSchema.slots?.['default']?.allow).toEqual(['pricingPlan']);
+  });
+
+  /*
+    A schema that still carried `plans` would let a document hold plan DATA
+    that nothing renders — invisible content, which is worse than an error.
+  */
+  it('no longer carries plans as data', () => {
+    expect(pricingSchema.props.shape).not.toHaveProperty('plans');
+  });
+
+  it('gives every card the same track rather than sizing it to its content', () => {
+    const { container } = render(
       <Pricing
         node={node}
-        props={pricingSchema.props.parse({
-          heading: 'Pricing',
-          plans: [{ name: 'Team', price: '$29', period: 'year', features: [], highlighted: true }],
-        })}
-        slots={{}}
+        props={pricingSchema.props.parse({ heading: 'Pricing', columns: '3' })}
+        slots={{ default: <article>A</article> }}
         data={{}}
         isCanvas={false}
       />,
     );
-    expect(screen.getByRole('heading', { level: 3, name: 'Team' }).closest('li')).toHaveClass(
-      'mkt-pricing__plan--highlighted',
-    );
+
+    // A grid, and stretched: cards in a flex row size to their content, so a
+    // plan with two features ends up narrower than one with six.
+    const grid = container.querySelector('.grid');
+    expect(grid?.className).toContain('items-stretch');
+    expect(grid?.className).toContain('lg:grid-cols-3');
   });
 
   it('applies a background colour role without setting text colour', () => {
@@ -153,14 +169,10 @@ describe('Pricing', () => {
     expect(section.style.background).toBe('var(--t-surface-inverse)');
   });
 
-  it('schema bounds plans and features', () => {
-    const tooMany = Array.from({ length: 5 }, (_, index) => ({
-      name: `P${String(index)}`,
-      price: '$1',
-      period: 'month' as const,
-      features: [],
-    }));
-    expect(pricingSchema.props.safeParse({ plans: tooMany }).success).toBe(false);
+  it('still bounds the copy it does own', () => {
+    expect(pricingSchema.props.safeParse({ heading: '' }).success).toBe(false);
+    expect(pricingSchema.props.safeParse({ heading: 'x'.repeat(81) }).success).toBe(false);
+    expect(pricingSchema.props.safeParse({ heading: 'Pricing' }).success).toBe(true);
   });
 
   it('schema: enforces the complete Pricing builder-control contract', () => {

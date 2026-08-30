@@ -65,6 +65,13 @@ export interface AssembledAiContext {
 export interface AiPlanStep {
   command: string;
   args: unknown;
+  /**
+   * Optional human sentence for this step, written by the provider in the
+   * requester's own language ("إضافة قسم الأسعار", "Recolour the hero"). A UI
+   * shows this instead of the raw command name; the command stays the truth
+   * the kernel executes.
+   */
+  title?: string;
 }
 
 export interface AiPlan {

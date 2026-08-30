@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
 
+import { sectionCustomGroups } from '../section-custom';
 import { sectionColorGroups } from '../section-color';
+import { sectionMotionGroups } from '../section-motion';
 import { sectionSpacingGroups } from '../section-spacing';
 import { sectionTypographyGroups } from '../section-typography';
 import { NavLinks } from './NavLinks';
@@ -253,8 +255,10 @@ describe('NavLinks', () => {
       gap: { tab: 'design', section: 'Spacing' },
       wrap: { tab: 'advanced', section: 'Layout' },
       ...sectionColorGroups,
+      ...sectionMotionGroups,
       ...sectionTypographyGroups,
       ...sectionSpacingGroups,
+      ...sectionCustomGroups,
     });
     expect(Object.keys(navLinksSchema.propertyGroups ?? {}).sort()).toEqual(
       Object.keys(navLinksSchema.props.shape).sort(),

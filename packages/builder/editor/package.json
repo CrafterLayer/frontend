@@ -32,11 +32,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@craftkit/builder-aceternity": "workspace:*",
     "@craftkit/builder-ai": "workspace:*",
     "@craftkit/builder-blocks-marketing": "workspace:*",
     "@craftkit/builder-code-view": "workspace:*",
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-motion": "workspace:*",
+    "@craftkit/builder-primitives": "workspace:*",
     "@craftkit/builder-react": "workspace:*",
     "@craftkit/builder-renderer": "workspace:*",
     "@craftkit/builder-richtext": "workspace:*",

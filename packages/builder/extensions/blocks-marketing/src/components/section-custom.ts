@@ -68,7 +68,7 @@ export const sectionCustomGroups: Readonly<Record<string, BlockPropertyGroup>> =
     guided controls behind on purpose, and putting this beside the tone picker
     would invite it as a first resort rather than a last one.
   */
-  className: { tab: 'advanced', section: 'Custom classes' },
+  className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
 };
 
 /*

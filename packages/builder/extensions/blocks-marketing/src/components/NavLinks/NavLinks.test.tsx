@@ -14,7 +14,7 @@ import { navLinksSchema } from './schema';
 const node: Node = { id: 'nav-links', type: 'navLinks', props: {} };
 
 describe('NavLinks', () => {
-  it('renders a labelled navigation list of real links with the design modifiers', () => {
+  it('renders a labelled navigation list of real links with the design utilities', () => {
     render(
       <NavLinks
         node={node}
@@ -39,13 +39,18 @@ describe('NavLinks', () => {
     );
 
     const navigation = screen.getByRole('navigation', { name: 'Navigation links' });
-    expect(navigation).toHaveClass(
-      'mkt-nav-links--direction-column',
-      'mkt-nav-links--style-pill',
-      'mkt-type--case-uppercase',
-      'mkt-type--weight-semibold',
-      'mkt-nav-links--gap-lg',
-      'mkt-nav-links--wrap-nowrap',
+    expect(navigation).toHaveClass('mkt-type--case-uppercase', 'mkt-type--weight-semibold');
+    expect(navigation.firstElementChild).toHaveClass(
+      'flex-col',
+      'items-start',
+      'gap-gap-lg',
+      'flex-nowrap',
+    );
+    expect(screen.getByRole('link', { name: 'About' })).toHaveClass(
+      'rounded-base',
+      'border-current',
+      'px-control-inline-sm',
+      'py-control-block-sm',
     );
     expect(navigation).toHaveStyle({
       background: 'var(--t-surface-inverse)',
@@ -64,7 +69,13 @@ describe('NavLinks', () => {
 
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     let hint = screen.getByText('This block has no links yet.');
-    expect(hint).toHaveAttribute('class', 'mkt-section__hint');
+    expect(hint).toHaveClass(
+      'rounded-base',
+      'bg-text-muted/10',
+      'p-gap-sm',
+      'text-center',
+      'text-text-muted',
+    );
     expect(hint).not.toHaveAttribute('style');
 
     rerender(
@@ -82,7 +93,7 @@ describe('NavLinks', () => {
     );
 
     hint = screen.getByText('This block has no links yet.');
-    expect(hint).toHaveClass('mkt-section__hint', 'mkt-type--align-center');
+    expect(hint).toHaveClass('mkt-type--align-center');
     expect(hint.style.color).toBe('var(--t-text-muted)');
     expect(hint.style.marginInlineStart).toBe('calc(var(--t-space-unit, 4px) * 2)');
   });
@@ -147,8 +158,6 @@ describe('NavLinks', () => {
       'mkt-type--letter-spacing-wide',
       'mkt-type--weight-regular',
     );
-    expect(navigation.className).not.toContain('mkt-nav-links--case-');
-    expect(navigation.className).not.toContain('mkt-nav-links--weight-');
     expect(navLinksSchema.props.shape).not.toHaveProperty('weight');
 
     rerender(
@@ -288,6 +297,11 @@ describe('NavLinks', () => {
     );
     expect(
       navLinksSchema.props.safeParse({ links: [{ label: 'Home', href: 'x'.repeat(201) }] }).success,
+    ).toBe(false);
+    expect(
+      navLinksSchema.props.safeParse({
+        links: [{ label: 'Unsafe', href: 'javascript:alert(1)' }],
+      }).success,
     ).toBe(false);
   });
 });

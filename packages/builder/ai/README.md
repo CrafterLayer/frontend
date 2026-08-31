@@ -18,16 +18,19 @@ of commands bypasses the invariant this package exists to preserve.
 
 ## What ships
 
-- Three `AiContextProvider` implementations for the registered block vocabulary, current selection,
-  and flat document shape. Block context includes model-facing descriptions, JSON Schema props
-  summaries, few-shot examples, and accepted slots. Every fragment carries a deterministic
-  character-based token estimate for budgeting.
+- Four `AiContextProvider` implementations for the registered block vocabulary, page-template
+  catalog, current selection, and flat document shape. Block context includes model-facing
+  descriptions, JSON Schema props summaries, few-shot examples, and accepted slots; template context
+  names each composition, its root type, section count, and block vocabulary. Every fragment carries
+  a deterministic character-based token estimate for budgeting.
 - `AiPlanProvider`, a one-method provider port. A future model-backed adapter implements the same
   `propose(request, context)` contract.
 - `createLocalAiPlanProvider()`, a deterministic, offline implementation that scores the request
   against registry-owned types, descriptions, prop names, and examples. It adapts requested list
   counts when the chosen example and schema support them. For example, “add a pricing section with
-  three plans” emits one real `insertNode` command with three schema-valid plans.
+  three plans” emits one real `insertNode` command with three schema-valid plans. A full-page or
+  template request chooses a registered composition and emits one atomic `insertComposition`
+  command.
 - Runtime plan validation through the real kernel door, plus `applyAiPlan()` for explicit
   AI-authored dispatch.
 
@@ -63,12 +66,12 @@ must inject equivalent deterministic capabilities rather than reaching for ambie
 
 ## Undo semantics
 
-The current kernel has no transaction-group API. `applyAiPlan()` therefore reports
-`mode: 'sequence'` and dispatches commands in order. Each command uses the kernel's native history
-semantics. The local provider currently emits one insertion command for block-generation requests,
-so that concrete generation path is one transaction and one undo step. A future multi-command plan
-is a clearly visible sequence until core provides a genuine grouped dispatch contract; this package
-must not fake grouping by writing patches or documents around the door.
+The kernel now provides the genuine grouped contract this section used to wait for:
+`kernel.dispatchGroup(steps, author)` runs every step over ONE immer produce — one transaction, one
+history entry, one undo, and atomic (a failing step commits nothing). `applyAiPlan()` uses it and
+reports `mode: 'group'`, which makes the panel's "one entry in history, one undo" literally true for
+a plan of any size. Grouping happens inside the door, never by writing patches or documents around
+it.
 
 ## Testing subpath
 
@@ -87,7 +90,7 @@ The provider POSTs:
 {
   "version": 1,
   "request": "add a pricing section with three plans",
-  "context": { "fragments": [...], "totalTokens": 812, "blocks": [...], "document": {...}, "selection": {...} },
+  "context": { "fragments": [...], "totalTokens": 812, "blocks": [...], "templates": [...], "document": {...}, "selection": {...} },
   // Present only on the single repair retry after a rejected proposal:
   "attempt": { "plan": { ... }, "issues": [{ "code": "invalid-args", "message": "...", "step": 0 }] }
 }
@@ -125,3 +128,36 @@ never as a provider error.
 
 In the playground, set `VITE_AI_PLAN_ENDPOINT=https://your-server/plan` and the AssistantPanel
 switches from the local deterministic provider to the remote one — no code change.
+
+## Planning, memory, and caching
+
+- **Conversation history.** `generateAiPlan({ history })` (and `AiProposeOptions.history`) carries
+  the chat so far — `{ role, text }` turns, oldest first — onto the wire as `history`, so "make it
+  blue" can resolve against what the previous turn added. The AssistantPanel sends its thread
+  automatically.
+- **Session memory.** `createMemoryContextProvider({ load })` turns any host-owned note store into a
+  context fragment every provider sees. The engine owns the seam, never the storage: the panel feeds
+  it the rationale of each applied plan; another product can feed it preferences from a database.
+  Pass it alongside `BUILDER_AI_CONTEXT_PROVIDERS` via `contextProviders`.
+- **Plan caching.** `createCachingAiPlanProvider(inner, { capacity })` wraps any provider with an
+  LRU keyed on (request, document, selection, history): a repeated ask on an unchanged page answers
+  instantly and costs nothing. `repair` is never cached — a repair exists because the cached shape
+  of an answer was wrong.
+- **Staged planning.** A plan may carry `followUp`: when a request is too big for one safe plan, the
+  provider delivers the most valuable stage and words the next request there, in the requester's
+  language. UIs offer it as a one-tap continuation; nothing runs automatically. The dev bridge pairs
+  this with a hard per-plan command cap.
+- **Step titles.** Each plan step may carry `title`, the provider's own human sentence in the
+  requester's language; UIs show it instead of the command name, with the command kept visible as
+  the technical truth. `previewAiPlan()` returns the WOULD-BE document for a look-before-apply
+  dialog, and validation charges a plan only for NEW damage — a pre-existing schema violation in the
+  live document never blocks an unrelated edit.
+
+## Taking this engine to another project
+
+The package is headless and portable by construction. It needs exactly three things from a host: a
+`BuilderKernel` (document + registry + door), deterministic `AiValidationPorts` for rehearsals, and
+an `AiPlanProvider` (local, remote via the wire contract above, wrapped in caching, or your own).
+Everything UI-side — panels, preview dialogs, progress, stop — consumes only the public API of this
+package, so a different product embeds the same engine by implementing the same three seams and
+nothing else.

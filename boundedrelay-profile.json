@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "profileId": "craftkit-builder-frontend",
-  "profileVersion": "2.0.0",
+  "profileVersion": "2.1.0",
   "laneCapabilities": {
     "codex": [
       { "id": "analysis", "score": 4 },
@@ -97,7 +97,9 @@
     "byKind": {
       "implementation": ["ck-components"],
       "refactor": ["ck-boundaries"],
-      "integration": ["ck-boundaries"]
+      "integration": ["ck-boundaries"],
+      "debugging": ["ck-test"],
+      "testing": ["ck-test"]
     },
     "byRisk": {
       "high": ["ck-boundaries"],
@@ -109,21 +111,24 @@
   },
   "codexPolicy": {
     "default": {
-      "model": "gpt-5.6-luna",
-      "reasoningEffort": "low"
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "high"
     },
     "byKind": {
-      "testing": { "model": "gpt-5.6-luna", "reasoningEffort": "medium" },
-      "planning": { "model": "gpt-5.6-terra", "reasoningEffort": "medium" },
-      "implementation": { "model": "gpt-5.6-terra", "reasoningEffort": "medium" },
-      "refactor": { "model": "gpt-5.6-terra", "reasoningEffort": "medium" },
-      "integration": { "model": "gpt-5.6-terra", "reasoningEffort": "medium" },
-      "review": { "model": "gpt-5.6-terra", "reasoningEffort": "high" },
-      "debugging": { "model": "gpt-5.6-terra", "reasoningEffort": "high" },
-      "architecture": { "model": "gpt-5.6-terra", "reasoningEffort": "high" },
-      "security-review": { "model": "gpt-5.6-sol", "reasoningEffort": "high" }
+      "documentation": { "model": "gpt-5.6-luna", "reasoningEffort": "medium" },
+      "analysis": { "model": "gpt-5.6-sol", "reasoningEffort": "high" },
+      "testing": { "model": "gpt-5.6-sol", "reasoningEffort": "high" },
+      "planning": { "model": "gpt-5.6-sol", "reasoningEffort": "xhigh" },
+      "review": { "model": "gpt-5.6-sol", "reasoningEffort": "xhigh" },
+      "implementation": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "refactor": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "integration": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "debugging": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "architecture": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "security-review": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" }
     },
     "byRisk": {
+      "high": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
       "critical": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" }
     }
   },

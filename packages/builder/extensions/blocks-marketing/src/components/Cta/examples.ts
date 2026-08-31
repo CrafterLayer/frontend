@@ -5,7 +5,7 @@ export const ctaExamples: { prompt: string; node: JsonValue }[] = [
     prompt: 'زر تسوق الآن أساسي',
     node: {
       type: 'cta',
-      props: { label: 'تسوّق الآن', emphasis: 'primary', size: 'lg', width: 'full' },
+      props: { label: 'تسوّق الآن', href: '/shop', emphasis: 'primary', size: 'lg', width: 'full' },
     },
   },
   {
@@ -14,7 +14,8 @@ export const ctaExamples: { prompt: string; node: JsonValue }[] = [
       type: 'cta',
       props: {
         label: 'Learn more',
-        emphasis: 'ghost',
+        href: '#features',
+        emphasis: 'link',
         note: 'Free 14-day trial',
         size: 'sm',
         width: 'fit',

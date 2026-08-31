@@ -6,6 +6,7 @@ import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import {
   defineBlockSchema,
   type BlockRenderComponent,
+  type DeclarativeExtensionManifest,
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
@@ -99,8 +100,35 @@ const vocabulary: TrustedExtensionManifest = {
   },
 };
 
+const starterTemplate: DeclarativeExtensionManifest = {
+  tier: 2,
+  name: 'ai-local-provider-templates',
+  version: '0.0.0',
+  contributes: {
+    compositions: [
+      {
+        id: 'starter-page',
+        name: 'Starter landing page',
+        version: 1,
+        surfaces: ['site'],
+        rootId: 'starter-features',
+        nodes: {
+          'starter-features': {
+            id: 'starter-features',
+            type: 'features',
+            props: {
+              items: [{ title: 'Built to convert', body: 'A complete starting point.' }],
+              columns: '1',
+            },
+          },
+        },
+      },
+    ],
+  },
+};
+
 function pricingKernel() {
-  return createBuilder({
+  const kernel = createBuilder({
     document: {
       schemaVersion: 1,
       surface: 'site',
@@ -111,6 +139,8 @@ function pricingKernel() {
     extensions: [vocabulary],
     ports: { clock: fixedClock(1_000), ids: seededIds('pricing') },
   });
+  kernel.extensions.hydrateDeclarative(starterTemplate);
+  return kernel;
 }
 
 function validationPorts(seed: string) {
@@ -118,6 +148,49 @@ function validationPorts(seed: string) {
 }
 
 describe('local deterministic AI provider', () => {
+  it('selects and inserts a registered landing-page template as one undoable command', async () => {
+    const kernel = pricingKernel();
+    const context = assembleAiContext(kernel.context);
+
+    expect(context.templates).toEqual([
+      {
+        id: 'starter-page',
+        name: 'Starter landing page',
+        rootType: 'features',
+        nodeCount: 1,
+        blockTypes: ['features'],
+      },
+    ]);
+
+    const plan = await generateAiPlan({
+      kernel,
+      provider: createLocalAiPlanProvider(),
+      request: 'build a complete landing page from the starter template',
+      validationPorts: validationPorts('template-plan'),
+    });
+
+    expect(plan.commands).toEqual([
+      {
+        command: 'insertComposition',
+        args: { compositionId: 'starter-page', parentId: 'root', slot: 'default' },
+      },
+    ]);
+
+    const applied = applyAiPlan({
+      kernel,
+      plan,
+      validationPorts: validationPorts('template-apply'),
+    });
+    expect(applied.transactions).toHaveLength(1);
+    expect(Object.values(kernel.getDocument().nodes).some((node) => node.type === 'features')).toBe(
+      true,
+    );
+    expect(kernel.undo()).toBe(true);
+    expect(Object.values(kernel.getDocument().nodes).some((node) => node.type === 'features')).toBe(
+      false,
+    );
+  });
+
   it('isolates nested provider context from the live document and registered examples', () => {
     const kernel = pricingKernel();
     const transaction = kernel.dispatch('insertNode', {
@@ -203,7 +276,7 @@ describe('local deterministic AI provider', () => {
       plan,
       validationPorts: validationPorts('apply-pricing'),
     });
-    expect(applied).toMatchObject({ mode: 'sequence' });
+    expect(applied).toMatchObject({ mode: 'group' });
     expect(applied.transactions).toHaveLength(1);
     const nodeId = insertedNodeId(applied.transactions[0]?.patches ?? []);
     expect(nodeId).toBeDefined();

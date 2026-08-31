@@ -1,0 +1,105 @@
+import type { JsonValue } from '@craftkit/builder-schema';
+
+export const comparisonTableExamples: { prompt: string; node: JsonValue }[] = [
+  {
+    prompt: 'a professional SaaS plan comparison table',
+    node: {
+      type: 'comparisonTable',
+      props: {
+        eyebrow: 'Simple, transparent pricing',
+        heading: 'Choose the plan that matches your momentum',
+        body: 'Start with the essentials and move up when your team needs deeper control.',
+        featureLabel: 'What is included',
+        plans: [
+          {
+            name: 'Starter',
+            description: 'For small teams',
+            price: '$19',
+            period: '/ month',
+            actionLabel: 'Start free',
+            actionHref: '/signup?plan=starter',
+          },
+          {
+            name: 'Growth',
+            description: 'For scaling teams',
+            price: '$49',
+            period: '/ month',
+            badge: 'Most popular',
+            actionLabel: 'Start free',
+            actionHref: '/signup?plan=growth',
+            featured: true,
+          },
+          {
+            name: 'Scale',
+            description: 'For complex operations',
+            price: 'Custom',
+            actionLabel: 'Talk to sales',
+            actionHref: '/contact',
+          },
+        ],
+        rows: [
+          { feature: 'Published projects', values: ['3', 'Unlimited', 'Unlimited'] },
+          { feature: 'Team members', values: ['2', '15', 'Unlimited'] },
+          {
+            feature: 'Advanced permissions',
+            values: ['—', 'Included', 'Included'],
+            highlight: true,
+          },
+          { feature: 'Priority support', values: ['Community', '48 hours', 'Dedicated'] },
+        ],
+        showActions: true,
+        emptyValue: '—',
+        scrollLabel: 'Scrollable pricing plan comparison',
+        note: 'All plans include a 14-day trial. No credit card required.',
+        variant: 'boxed',
+        align: 'center',
+        tone: 'transparent',
+        spacing: 'lg',
+        width: 'wide',
+      },
+    },
+  },
+  {
+    prompt: 'جدول مقارنة باقات عربي احترافي',
+    node: {
+      type: 'comparisonTable',
+      props: {
+        eyebrow: 'باقات واضحة',
+        heading: 'قارن واختر ما يناسب فريقك',
+        body: 'كل ما تحتاجه للبدء، مع خيارات تنمو مع عملك.',
+        featureLabel: 'الميزات',
+        plans: [
+          {
+            name: 'أساسي',
+            price: '١٩ د.أ',
+            period: '/ شهريًا',
+            actionLabel: 'ابدأ الآن',
+            actionHref: '/ar/signup/basic',
+          },
+          {
+            name: 'احترافي',
+            price: '٤٩ د.أ',
+            period: '/ شهريًا',
+            badge: 'الأكثر طلبًا',
+            actionLabel: 'جرّب مجانًا',
+            actionHref: '/ar/signup/pro',
+            featured: true,
+          },
+        ],
+        rows: [
+          { feature: 'المشاريع', values: ['٣', 'غير محدودة'] },
+          { feature: 'أعضاء الفريق', values: ['٢', '١٥'] },
+          { feature: 'الدعم', values: ['عبر البريد', 'أولوية'] },
+        ],
+        showActions: true,
+        emptyValue: '—',
+        scrollLabel: 'جدول مقارنة الباقات قابل للتمرير',
+        variant: 'contrast',
+        align: 'center',
+        tone: 'light',
+        spacing: 'lg',
+        width: 'wide',
+      },
+    },
+  },
+];

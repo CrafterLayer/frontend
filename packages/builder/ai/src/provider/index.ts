@@ -1,3 +1,7 @@
+export {
+  createCachingAiPlanProvider,
+  type CachingAiPlanProviderOptions,
+} from './caching-provider';
 export { LocalAiProviderError, createLocalAiPlanProvider } from './local-provider';
 export {
   RemoteAiProviderError,

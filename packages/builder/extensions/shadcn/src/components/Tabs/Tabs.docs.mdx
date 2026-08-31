@@ -1,0 +1,41 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TabsStories from './Tabs.stories';
+
+<Meta of={TabsStories} />
+
+# Tabs
+
+A row of tabs over swappable panels. Built on Radix, adapted from shadcn/ui.
+
+<Canvas of={TabsStories.Default} />
+
+## The panels are blocks, and they own their labels
+
+The obvious shape is `tabs: [{ label, content }]` on one block. That is the shape that made a button
+inside a Pricing card impossible: content squeezed into a prop can be a string and nothing else.
+
+So a panel is a **node**. It holds any blocks, and because a tab needs a name, the label lives on
+the panel rather than on the strip.
+
+The strip reads each panel's `{ id, label }` off the child **element props** — React data, identical
+on the canvas and in static output. Reading `data-bldr-node` or text content off the DOM is the
+mistake the Accordion made once: that attribute is canvas scaffolding, so the tabs would have worked
+while editing and rendered unlabelled once published.
+
+## Why a child that is not a panel is ignored
+
+An empty slot on the canvas renders a drop placeholder, and a placeholder is a valid React element.
+A forgiving reader turned it into a tab called "Tab 1" that existed while editing and vanished when
+published. Both `id` and `label` are required now; anything else is skipped, and the placeholder
+still renders so the slot can be dropped into.
+
+## What Radix is doing that is worth the dependency
+
+Roving tabindex, arrow keys with Home/End, the `aria-controls` / `aria-labelledby` pairing between
+every trigger and its panel, and focus moving to the panel on activation.
+
+Styling follows `data-[state=active]` rather than a class toggled in JavaScript, so the active tab
+is correct on the first paint — there is no frame where every tab looks selected.
+
+<Canvas of={TabsStories.KeyboardContract} />

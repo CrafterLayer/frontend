@@ -78,8 +78,8 @@ function createAssistantKernel(): BuilderKernel {
 function renderPanel(props: Partial<AssistantPanelProps> = {}) {
   const kernel = props.kernel ?? createAssistantKernel();
   const user = userEvent.setup();
-  render(<AssistantPanel kernel={kernel} {...props} />);
-  return { kernel, user };
+  const { unmount } = render(<AssistantPanel kernel={kernel} {...props} />);
+  return { kernel, user, unmount };
 }
 
 async function requestPlan(
@@ -445,5 +445,156 @@ describe('AssistantPanel', () => {
       expect(screen.queryByRole('dialog', { name: 'Preview' })).not.toBeInTheDocument();
     });
     expect(kernel.getDocument()).toEqual(before);
+  });
+
+  it('carries the conversation history and the applied-changes memory into the next ask', async () => {
+    const captured: { history?: unknown; memory?: string | undefined }[] = [];
+    const provider: AiPlanProvider = {
+      propose: (request, context, options) => {
+        captured.push({
+          history: options?.history,
+          memory: context.fragments.find((f) => f.title === 'Session memory')?.body,
+        });
+        return Promise.resolve(
+          request.startsWith('add')
+            ? {
+                rationale: 'Add a pricing block to root.default.',
+                commands: [{ command: 'insertNode', args: { type: 'pricing', parentId: 'root' } }],
+              }
+            : {
+                rationale: 'Retitle the existing hero.',
+                commands: [
+                  {
+                    command: 'setProp',
+                    args: { id: 'selected-hero', key: 'heading', value: 'Hi' },
+                  },
+                ],
+              },
+        );
+      },
+    };
+    const { user } = renderPanel({ planProvider: provider });
+
+    await requestPlan(user, 'add a pricing section');
+    await user.click(screen.getAllByRole('button', { name: 'Apply' })[0]!);
+    await requestPlan(user, 'retitle the hero');
+
+    // First ask: empty past, empty memory.
+    expect(captured[0]?.history).toEqual([]);
+    expect(captured[0]?.memory).toContain('Nothing recorded yet');
+    // Second ask: the full first exchange, and what was actually applied.
+    expect(captured[1]?.history).toEqual([
+      { role: 'user', text: 'add a pricing section' },
+      { role: 'assistant', text: 'Add a pricing block to root.default.' },
+    ]);
+    expect(captured[1]?.memory).toContain('Add a pricing block to root.default.');
+  });
+
+  it('offers the plan own follow-up as a one-tap continuation', async () => {
+    const asks: string[] = [];
+    const provider: AiPlanProvider = {
+      propose: (request) => {
+        asks.push(request);
+        return Promise.resolve({
+          rationale: 'Stage one: the pricing section.',
+          commands: [{ command: 'insertNode', args: { type: 'pricing', parentId: 'root' } }],
+          followUp: 'كمل التنسيق والألوان',
+        });
+      },
+    };
+    const { user } = renderPanel({ planProvider: provider });
+
+    await requestPlan(user, 'ابني صفحة كاملة');
+    const continueButton = screen.getByRole('button', { name: /كمل التنسيق والألوان/ });
+    await user.click(continueButton);
+
+    await waitFor(() => {
+      expect(asks).toEqual(['ابني صفحة كاملة', 'كمل التنسيق والألوان']);
+    });
+  });
+
+  it('persists the conversation under persistKey and revives it on the next mount', async () => {
+    const first = renderPanel({ persistKey: 'assistant-e2e-test' });
+    await requestPlan(first.user, 'add a pricing section');
+    expect(screen.getByText('add a pricing section')).toBeInTheDocument();
+    first.unmount();
+
+    const second = renderPanel({ persistKey: 'assistant-e2e-test' });
+    expect(screen.getByText('add a pricing section')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+    second.unmount();
+    window.localStorage.removeItem('assistant-e2e-test');
+  });
+
+  it('Auto mode applies a validated plan immediately — still one undoable change', async () => {
+    const { kernel, user } = renderPanel();
+    const before = structuredClone(kernel.getDocument());
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+    await user.type(composer, 'add a pricing section');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Applied as one change/)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(Object.keys(kernel.getDocument().nodes).length).toBe(
+      Object.keys(before.nodes).length + 1,
+    );
+    expect(kernel.undo()).toBe(true);
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
+  it('Plan mode proposes without offering Apply — exploring is never applying', async () => {
+    const { kernel, user } = renderPanel();
+    const before = structuredClone(kernel.getDocument());
+
+    await user.click(screen.getByRole('radio', { name: 'Plan' }));
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+    await user.type(composer, 'add a pricing section');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Add a pricing block to root\.default/)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
+  it('typing @ opens the page mention picker and the pick becomes the request context', async () => {
+    let seenSelection: readonly string[] = [];
+    const provider: AiPlanProvider = {
+      propose: (_request, context) => {
+        seenSelection = context.selection.ids;
+        return Promise.resolve({
+          rationale: 'Retitle the mentioned hero.',
+          commands: [
+            { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Hi' } },
+          ],
+        });
+      },
+    };
+    const { user } = renderPanel({ planProvider: provider });
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+
+    await user.type(composer, 'retitle @');
+    const option = await screen.findByRole('option', { name: /selected-hero/ });
+    await user.click(option);
+
+    expect(composer.value).toContain('@selected-hero');
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+    });
+    expect(seenSelection).toEqual(['selected-hero']);
   });
 });

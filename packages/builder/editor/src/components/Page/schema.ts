@@ -59,9 +59,21 @@ export const pageSchema = defineBlockSchema({
       */
       allow: [
         'hero',
+        'announcementBar',
+        'logoCloud',
         'features',
+        'bento-grid',
+        'content-section',
+        'stats',
+        'processSteps',
+        'team',
         'pricing',
         'testimonials',
+        'comparisonTable',
+        'faq',
+        'blogGrid',
+        'contact',
+        'newsletter',
         'cta',
         'announcement',
         'richText',
@@ -78,10 +90,24 @@ export const pageSchema = defineBlockSchema({
         // mistake no inspector control can undo.
         'pageHeader',
         'pageFooter',
-        // The animated backdrop container (aceternity). The playground's own
+        // The animated backdrop containers (aceternity). The playground's own
         // default document mounts one on the page root; a list that refuses
         // what the fixtures already do makes every assistant plan invalid.
+        // Both are page-level BACKGROUNDS — they take a section as a child, so
+        // omitting one from this list is the same as not shipping it: the
+        // palette offers a block the root will not accept.
         'auroraBackground',
+        'cloudShader',
+        // The travelling-border container (magic ui). Same argument: it is a
+        // wrapper, and a wrapper the page root refuses can never be used.
+        'shineBorder',
+        // shadcn containers. `card` and `tabs` are page-level structures in
+        // their own right — a FAQ is a page of tabs, a feature row is a page
+        // of cards — so refusing them at the root would leave both reachable
+        // only from inside something else.
+        'card',
+        'tabs',
+        'shadcnAlert',
       ],
     },
   },

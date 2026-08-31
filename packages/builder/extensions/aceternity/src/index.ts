@@ -17,13 +17,17 @@
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { AuroraBackground, auroraBackgroundSchema } from './components/AuroraBackground';
+import { CloudShader, cloudShaderSchema } from './components/CloudShader';
 
 export const builderAceternity: TrustedExtensionManifest = {
   tier: 1,
   name: 'aceternity',
   version: '0.1.0',
   contributes: {
-    blocks: [{ schema: auroraBackgroundSchema, render: AuroraBackground }],
+    blocks: [
+      { schema: auroraBackgroundSchema, render: AuroraBackground },
+      { schema: cloudShaderSchema, render: CloudShader },
+    ],
   },
 };
 
@@ -32,3 +36,6 @@ export {
   auroraBackgroundSchema,
   type AuroraBackgroundProps,
 } from './components/AuroraBackground';
+
+export { CloudShader, cloudShaderSchema, type CloudShaderProps } from './components/CloudShader';
+export { CLOUD_ROLES, type CloudRole } from './components/CloudShader/colors';

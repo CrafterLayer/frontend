@@ -42,6 +42,10 @@ export type ColorToken =
 
 export type MeasurementToken =
   | 'radius'
+  | 'radiusSm'
+  | 'radiusLg'
+  | 'radiusXl'
+  | 'radiusPill'
   /* The rhythm between things inside a section. */
   | 'gap'
   | 'gapXs'
@@ -51,6 +55,7 @@ export type MeasurementToken =
   | 'sectionSpacingSm'
   | 'sectionSpacingMd'
   | 'sectionSpacingLg'
+  | 'sectionSpacingXl'
   /* The breathing room at the page's edge — without it text meets the glass. */
   | 'gutter'
   /* How wide a column of content is allowed to get. */
@@ -77,6 +82,7 @@ export type MeasurementToken =
   /* Elevation, as two named steps rather than a shadow anyone can hand-write. */
   | 'shadowSoft'
   | 'shadowStrong'
+  | 'shadowElevated'
   /* The bar heights a header offers, as a scale rather than free numbers. */
   | 'barHeightCompact'
   | 'barHeightRegular'
@@ -97,6 +103,10 @@ export type MeasurementToken =
   | 'fontSizeXs'
   | 'fontSizeBase'
   | 'fontSizeXxl'
+  | 'fontSize3xl'
+  | 'fontSize4xl'
+  | 'fontSize5xl'
+  | 'fontSize6xl'
   | 'fontWeightRegular'
   | 'fontWeightMedium'
   | 'fontWeightSemibold'

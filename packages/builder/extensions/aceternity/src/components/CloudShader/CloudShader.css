@@ -1,0 +1,52 @@
+/*
+  The cloud field.
+
+  The stylesheet carries two things the shader cannot: the layer order that
+  keeps content above the canvas, and a real sky for every device that will
+  never run the shader at all.
+*/
+.acy-cloud {
+  isolation: isolate;
+  /*
+    The CSS sky. Not a placeholder colour — this IS the background on a
+    browser with WebGL disabled, a blocklisted driver, or a print stylesheet,
+    and it is drawn from the same tokens the shader samples so the two agree.
+  */
+  background-image: linear-gradient(to bottom, var(--t-accent), var(--t-surface));
+}
+
+.acy-cloud__canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  block-size: 100%;
+  inline-size: 100%;
+  /* Weather is not a target. */
+  pointer-events: none;
+  display: block;
+}
+
+/*
+  Until the first frame proves the context works, the canvas stays out of the
+  way and the gradient above shows through. A canvas that failed to initialise
+  paints opaque black in some drivers, which is worse than any fallback.
+*/
+.acy-cloud[data-acy-cloud-fallback='true'] .acy-cloud__canvas {
+  opacity: 0;
+}
+
+.acy-cloud__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+/*
+  A person who asked their system to reduce motion still gets the sky — the
+  component simply stops advancing time. Removing the effect entirely would
+  take the section's whole identity for no accessibility gain; a still cloud
+  field causes nobody harm.
+*/

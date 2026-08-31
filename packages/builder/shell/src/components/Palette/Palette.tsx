@@ -17,9 +17,14 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   action: 'Action',
   announcement: 'Announcement',
   banner: 'Banner',
+  bentogrid: 'Bento Grid',
+  bloggrid: 'Blog Grid',
   button: 'Button',
   columns: 'Columns',
   container: 'Container',
+  contact: 'Contact',
+  contentsection: 'Content Section',
+  comparisontable: 'Comparison Table',
   cta: 'CTA',
   divider: 'Divider',
   embed: 'Embed',
@@ -33,6 +38,7 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   heading: 'Heading',
   hero: 'Hero',
   image: 'Image',
+  logocloud: 'Logo Cloud',
   media: 'Media',
   navbar: 'Navigation',
   navigation: 'Navigation',
@@ -40,6 +46,7 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   pagefooter: 'Page Footer',
   pageheader: 'Page Header',
   paragraph: 'Paragraph',
+  processsteps: 'Process Steps',
   plan: 'Plan',
   pricing: 'Pricing',
   quote: 'Quote',
@@ -47,12 +54,15 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   richtext: 'Rich Text',
   row: 'Row',
   section: 'Section',
+  stats: 'Stats',
   spacer: 'Spacer',
   stack: 'Stack',
   testimonial: 'Testimonial',
   testimonials: 'Testimonials',
+  team: 'Team',
   text: 'Text',
   video: 'Video',
+  newsletter: 'Newsletter',
 };
 
 interface PaletteEntry {
@@ -61,6 +71,23 @@ interface PaletteEntry {
   readonly searchText: string;
   readonly type: string;
 }
+
+interface TemplateEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly previewKind: 'agency' | 'commerce' | 'saas' | 'services';
+  readonly rootType: string;
+  readonly sectionCount: number;
+  readonly searchText: string;
+}
+
+interface InsertionPlacement {
+  readonly parentId: NodeId;
+  readonly slot: string;
+  readonly index: number;
+}
+
+type PaletteView = 'blocks' | 'templates';
 
 function normalizedBlockType(type: string): string {
   return type.replace(/[^a-zA-Z0-9]/g, '').toLocaleLowerCase();
@@ -80,7 +107,17 @@ function categoryForBlock(type: string): PaletteCategory {
     key.includes('navbar') ||
     key.includes('footer') ||
     key.includes('banner') ||
-    key.includes('announcement')
+    key.includes('announcement') ||
+    key.includes('logo') ||
+    key.includes('stats') ||
+    key.includes('bento') ||
+    key.includes('contentsection') ||
+    key.includes('process') ||
+    key.includes('newsletter') ||
+    key.includes('team') ||
+    key.includes('blog') ||
+    key.includes('contact') ||
+    key.includes('comparison')
   ) {
     return 'Marketing';
   }
@@ -151,6 +188,57 @@ function titleFromType(type: string): string {
     .join(' ');
 }
 
+function templatePreviewKind(id: string, name: string): TemplateEntry['previewKind'] {
+  const key = `${id} ${name}`.toLocaleLowerCase();
+  if (key.includes('agency') || key.includes('studio')) return 'agency';
+  if (key.includes('commerce') || key.includes('store') || key.includes('shop')) return 'commerce';
+  if (key.includes('service') || key.includes('consult')) return 'services';
+  return 'saas';
+}
+
+/** Resolve click/keyboard placement once so blocks and templates obey identical slot rules. */
+function insertionPlacement(kernel: BuilderKernel, type: string): InsertionPlacement | undefined {
+  const doc = kernel.getDocument();
+  const registry = kernel.context.registry;
+  const payload = { kind: 'insert', type } as const;
+  const selected = kernel.context.store.getState().selection[0];
+
+  // A selected container receives the new content before sibling placement is considered.
+  if (selected !== undefined) {
+    const selectedType = doc.nodes[selected]?.type ?? '';
+    for (const slot of Object.keys(registry.block(selectedType)?.schema.slots ?? {})) {
+      if (slotAccepts(doc, registry, selected, slot, payload)) {
+        return { parentId: selected, slot, index: doc.nodes[selected]?.slots?.[slot]?.length ?? 0 };
+      }
+    }
+  }
+
+  // A selected leaf gets a sibling immediately after itself when that seat accepts the type.
+  if (selected !== undefined) {
+    const seat = seatOf(doc, selected);
+    if (seat !== undefined && slotAccepts(doc, registry, seat.parentId, seat.slot, payload)) {
+      return { parentId: seat.parentId, slot: seat.slot, index: seat.index + 1 };
+    }
+  }
+
+  // Otherwise walk toward the root and append to the first compatible slot.
+  let candidate: NodeId | undefined = selected ?? doc.rootId;
+  while (candidate !== undefined) {
+    const candidateType = doc.nodes[candidate]?.type ?? '';
+    for (const slot of Object.keys(registry.block(candidateType)?.schema.slots ?? {})) {
+      if (slotAccepts(doc, registry, candidate, slot, payload)) {
+        return {
+          parentId: candidate,
+          slot,
+          index: doc.nodes[candidate]?.slots?.[slot]?.length ?? 0,
+        };
+      }
+    }
+    candidate = candidate === doc.rootId ? undefined : seatOf(doc, candidate)?.parentId;
+  }
+  return undefined;
+}
+
 export interface PaletteProps {
   /** BY PROP — the shell never reads React context. */
   kernel: BuilderKernel;
@@ -169,6 +257,7 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
   const paletteId = useId();
   const searchId = `${paletteId}-search`;
   const [query, setQuery] = useState('');
+  const [view, setView] = useState<PaletteView>('blocks');
   const [collapsedCategories, setCollapsedCategories] = useState<ReadonlySet<PaletteCategory>>(
     () => new Set(),
   );
@@ -215,6 +304,29 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
     });
   }, [kernel, catalogVersion]);
 
+  const templates = useMemo(() => {
+    void catalogVersion;
+    const surface = kernel.getDocument().surface;
+    return kernel.context.registry.compositions(surface).flatMap((composition): TemplateEntry[] => {
+      const root = composition.nodes[composition.rootId];
+      if (root === undefined) return [];
+      const sectionCount = Object.values(root.slots ?? {}).reduce(
+        (total, children) => total + children.length,
+        0,
+      );
+      return [
+        {
+          id: composition.id,
+          name: composition.name,
+          previewKind: templatePreviewKind(composition.id, composition.name),
+          rootType: root.type,
+          sectionCount: Math.max(1, sectionCount),
+          searchText: `${composition.name} ${composition.id} ${root.type}`.toLocaleLowerCase(),
+        },
+      ];
+    });
+  }, [kernel, catalogVersion]);
+
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleEntries = entries.filter(
     (entry) => normalizedQuery === '' || entry.searchText.includes(normalizedQuery),
@@ -223,67 +335,36 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
     category,
     entries: visibleEntries.filter((entry) => entry.category === category),
   })).filter((group) => group.entries.length > 0);
+  const visibleTemplates = templates.filter(
+    (entry) => normalizedQuery === '' || entry.searchText.includes(normalizedQuery),
+  );
 
   const insertAtSelection = useCallback(
     (type: string) => {
-      const doc = kernel.getDocument();
-      const registry = kernel.context.registry;
-      const payload = { kind: 'insert', type } as const;
-      const selected = kernel.context.store.getState().selection[0];
-
-      const commit = (parentId: NodeId, slot: string, index: number) => {
-        const tx = kernel.dispatch('insertNode', { type, parentId, slot, index });
-        const inserted = insertedNodeId(tx.patches);
-        if (inserted !== undefined) {
-          kernel.setSelection([inserted]);
-        }
-        setMessage(`Inserted ${type}`);
-      };
-
-      /*
-        INTO the selection first, when the selection is a container that accepts
-        the type.
-
-        Measured: selecting an empty Grid and clicking a palette tile put the
-        block BESIDE the grid, because the rule below fires first and inserts
-        after the selection in the selection's PARENT slot. A person who has
-        just selected a container and pressed a block means "put it in here" —
-        every builder behaves this way, and without it an empty container has no
-        keyboard-reachable way to receive its first child at all.
-
-        Leaves are unaffected: they declare no slots, so this falls straight
-        through to the sibling rule, which is what the p2 gates below pin.
-      */
-      if (selected !== undefined) {
-        const selectedType = doc.nodes[selected]?.type ?? '';
-        for (const slot of Object.keys(registry.block(selectedType)?.schema.slots ?? {})) {
-          if (slotAccepts(doc, registry, selected, slot, payload)) {
-            commit(selected, slot, doc.nodes[selected]?.slots?.[slot]?.length ?? 0);
-            return;
-          }
-        }
+      const placement = insertionPlacement(kernel, type);
+      if (placement === undefined) {
+        setMessage(`No slot accepts ${type} here`);
+        return;
       }
-      // p2: AFTER the selection in its parent slot when accepted…
-      if (selected !== undefined) {
-        const seat = seatOf(doc, selected);
-        if (seat !== undefined && slotAccepts(doc, registry, seat.parentId, seat.slot, payload)) {
-          commit(seat.parentId, seat.slot, seat.index + 1);
-          return;
-        }
+      const tx = kernel.dispatch('insertNode', { type, ...placement });
+      const inserted = insertedNodeId(tx.patches);
+      if (inserted !== undefined) kernel.setSelection([inserted]);
+      setMessage(`Inserted ${type}`);
+    },
+    [kernel, setMessage],
+  );
+
+  const insertTemplateAtSelection = useCallback(
+    (compositionId: string, rootType: string) => {
+      const placement = insertionPlacement(kernel, rootType);
+      if (placement === undefined) {
+        setMessage(`No slot accepts template ${compositionId} here`);
+        return;
       }
-      // …else the first accepting slot walking selection → root (append).
-      let candidate: NodeId | undefined = selected ?? doc.rootId;
-      while (candidate !== undefined) {
-        const candidateType = doc.nodes[candidate]?.type ?? '';
-        for (const slot of Object.keys(registry.block(candidateType)?.schema.slots ?? {})) {
-          if (slotAccepts(doc, registry, candidate, slot, payload)) {
-            commit(candidate, slot, doc.nodes[candidate]?.slots?.[slot]?.length ?? 0);
-            return;
-          }
-        }
-        candidate = candidate === doc.rootId ? undefined : seatOf(doc, candidate)?.parentId;
-      }
-      setMessage(`No slot accepts ${type} here`);
+      const tx = kernel.dispatch('insertComposition', { compositionId, ...placement });
+      const inserted = insertedNodeId(tx.patches);
+      if (inserted !== undefined) kernel.setSelection([inserted]);
+      setMessage(`Inserted template ${compositionId}`);
     },
     [kernel, setMessage],
   );
@@ -302,16 +383,35 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
 
   return (
     <nav className="bldr-palette" aria-label="Block palette">
+      <div className="bldr-palette__tabs" role="tablist" aria-label="Palette content">
+        {(['blocks', 'templates'] as const).map((candidate) => (
+          <button
+            key={candidate}
+            type="button"
+            role="tab"
+            className="bldr-palette__tab"
+            aria-selected={view === candidate}
+            onClick={() => {
+              setView(candidate);
+              setQuery('');
+            }}
+          >
+            {candidate === 'blocks'
+              ? 'Blocks'
+              : `Templates${templates.length > 0 ? ` ${String(templates.length)}` : ''}`}
+          </button>
+        ))}
+      </div>
       <div className="bldr-palette__search">
         <label className="bldr-visually-hidden" htmlFor={searchId}>
-          Search blocks
+          {view === 'blocks' ? 'Search blocks' : 'Search templates'}
         </label>
         <input
           id={searchId}
           className="bldr-palette__search-input"
           type="search"
           value={query}
-          placeholder="Search blocks"
+          placeholder={view === 'blocks' ? 'Search blocks' : 'Search templates'}
           onChange={(event) => {
             setQuery(event.currentTarget.value);
           }}
@@ -340,7 +440,46 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
         </svg>
       </div>
 
-      {groups.length === 0 ? (
+      {view === 'templates' ? (
+        visibleTemplates.length === 0 ? (
+          <p className="bldr-palette__empty" role="status">
+            {templates.length === 0
+              ? 'No templates are registered for this surface.'
+              : 'No templates found. Try another name.'}
+          </p>
+        ) : (
+          <ul className="bldr-palette__template-grid">
+            {visibleTemplates.map((template) => (
+              <li key={template.id}>
+                <button
+                  type="button"
+                  className="bldr-palette__template"
+                  onClick={() => {
+                    insertTemplateAtSelection(template.id, template.rootType);
+                  }}
+                >
+                  <span
+                    className="bldr-palette__template-preview"
+                    data-preview-kind={template.previewKind}
+                    aria-hidden="true"
+                  >
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span className="bldr-palette__template-copy">
+                    <strong>{template.name}</strong>
+                    <small>{`${String(template.sectionCount)} responsive ${template.sectionCount === 1 ? 'section' : 'sections'}`}</small>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : groups.length === 0 ? (
         <p className="bldr-palette__empty" role="status">
           No blocks found. Try another block name.
         </p>

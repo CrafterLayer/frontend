@@ -1,0 +1,25 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TabPanelStories from './TabPanel.stories';
+
+<Meta of={TabPanelStories} />
+
+# Tab Panel
+
+One panel inside a [Tabs](?path=/docs/builder-shadcn-tabs--docs) block. Its label becomes the tab.
+
+<Canvas of={TabPanelStories.Open} />
+
+## Why the panel owns its label
+
+The alternative was an array of `{ label, content }` on the Tabs block — the shape that made a
+button inside a Pricing card impossible. A panel holds **blocks**, so it has to be a node; and a
+node that is a tab needs its own name, so the label lives here.
+
+`value` is the node id, which is what pairs this panel with its trigger. The strip reads the same id
+off this element's props, so the two agree without either of them touching the DOM.
+
+## The focus ring is not decoration
+
+Radix moves focus to the panel when a tab is activated. Without a visible ring a keyboard user is
+moved somewhere invisible, which is worse than not moving them at all.

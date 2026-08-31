@@ -3,6 +3,9 @@ import { expect, within } from 'storybook/test';
 
 import type { Node } from '@craftkit/builder-schema';
 
+import { PricingPlan } from '../PricingPlan/PricingPlan';
+import { pricingPlanSchema } from '../PricingPlan/schema';
+
 import { pricingExamples } from './examples';
 import { Pricing } from './Pricing';
 import { pricingSchema } from './schema';
@@ -10,6 +13,38 @@ import { pricingSchema } from './schema';
 const node: Node = { id: 'pricing-story', type: 'pricing', props: {} };
 const exampleProps = (index: number) =>
   pricingSchema.props.parse((pricingExamples[index]?.node as { props: unknown }).props);
+
+/*
+  The plans are CHILDREN, not data.
+
+  This block used to take a `plans` array and render the cards itself, and
+  these stories still passed one alongside `slots={{}}` — so after the section
+  became a container they rendered an empty grid while every assertion about
+  the grid went on passing. The composed shape is the thing under test now, so
+  the stories build it: a `pricingPlan` node per column, exactly as a document
+  holds them.
+*/
+const planSpecs = [
+  { name: 'Starter', price: '$9', period: 'month' as const },
+  { name: 'Professional', price: '$29', period: 'month' as const, emphasis: 'featured' as const },
+  { name: 'Business', price: '$79', period: 'month' as const },
+  { name: 'Enterprise', price: 'Custom', period: 'year' as const },
+];
+
+const planSlot = (count = planSpecs.length) => ({
+  default: planSpecs
+    .slice(0, count)
+    .map((spec) => (
+      <PricingPlan
+        key={spec.name}
+        node={{ id: `plan-${spec.name}`, type: 'pricingPlan', props: {} }}
+        props={pricingPlanSchema.props.parse(spec)}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />
+    )),
+});
 
 const meta = {
   title: 'Builder/Blocks/Pricing',
@@ -21,48 +56,20 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const TwoPlans: Story = {
-  args: { node, props: exampleProps(1), slots: {}, data: {}, isCanvas: false },
+  args: { node, props: exampleProps(1), slots: planSlot(2), data: {}, isCanvas: false },
 };
 
 export const ArabicRtlHighlighted: Story = {
   globals: { direction: 'rtl' },
-  args: { node, props: exampleProps(0), slots: {}, data: {}, isCanvas: false },
+  args: { node, props: exampleProps(0), slots: planSlot(3), data: {}, isCanvas: false },
 };
 
 export const Empty: Story = {
   args: { node, props: pricingSchema.props.parse({}), slots: {}, data: {}, isCanvas: false },
 };
 
-const proofPlans = [
-  {
-    name: 'Starter',
-    price: '$9',
-    period: 'month' as const,
-    features: ['One project', 'Email support'],
-  },
-  {
-    name: 'Professional',
-    price: '$29',
-    period: 'month' as const,
-    features: ['Unlimited projects', 'Priority support'],
-    highlighted: true,
-  },
-  {
-    name: 'Business',
-    price: '$79',
-    period: 'month' as const,
-    features: ['Team workspaces', 'Priority support'],
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: 'year' as const,
-    features: ['Custom terms', 'Dedicated support'],
-  },
-];
-
 const proofProps = (overrides: Record<string, unknown>) =>
-  pricingSchema.props.parse({ heading: 'Pricing controls', plans: proofPlans, ...overrides });
+  pricingSchema.props.parse({ heading: 'Pricing controls', ...overrides });
 
 const proofElement = (canvasElement: HTMLElement, testId: string, selector: string) => {
   const element = within(canvasElement).getByTestId(testId).querySelector<HTMLElement>(selector);
@@ -81,7 +88,7 @@ export const ControlRenderingContract: Story = {
         <Pricing
           node={{ ...node, id: 'pricing-body-absent' }}
           props={proofProps({ heading: 'Supporting copy absent' })}
-          slots={{}}
+          slots={planSlot()}
           data={{}}
           isCanvas={false}
         />
@@ -93,7 +100,7 @@ export const ControlRenderingContract: Story = {
             body: 'Choose what fits today.',
             heading: 'Supporting copy present',
           })}
-          slots={{}}
+          slots={planSlot()}
           data={{}}
           isCanvas={false}
         />
@@ -103,7 +110,7 @@ export const ControlRenderingContract: Story = {
           <Pricing
             node={{ ...node, id: `pricing-align-${align}` }}
             props={proofProps({ align, heading: `Alignment ${align}` })}
-            slots={{}}
+            slots={planSlot()}
             data={{}}
             isCanvas={false}
           />
@@ -114,7 +121,7 @@ export const ControlRenderingContract: Story = {
           <Pricing
             node={{ ...node, id: `pricing-tone-${tone}` }}
             props={proofProps({ heading: `Tone ${tone}`, tone })}
-            slots={{}}
+            slots={planSlot()}
             data={{}}
             isCanvas={false}
           />
@@ -125,7 +132,7 @@ export const ControlRenderingContract: Story = {
           <Pricing
             node={{ ...node, id: `pricing-spacing-${spacing}` }}
             props={proofProps({ heading: `Spacing ${spacing}`, spacing })}
-            slots={{}}
+            slots={planSlot()}
             data={{}}
             isCanvas={false}
           />
@@ -136,7 +143,7 @@ export const ControlRenderingContract: Story = {
           <Pricing
             node={{ ...node, id: `pricing-width-${width}` }}
             props={proofProps({ heading: `Width ${width}`, width })}
-            slots={{}}
+            slots={planSlot()}
             data={{}}
             isCanvas={false}
           />
@@ -147,7 +154,7 @@ export const ControlRenderingContract: Story = {
           <Pricing
             node={{ ...node, id: `pricing-columns-${columns}` }}
             props={proofProps({ columns, heading: `Columns ${columns}`, width: 'full' })}
-            slots={{}}
+            slots={planSlot()}
             data={{}}
             isCanvas={false}
           />
@@ -157,9 +164,17 @@ export const ControlRenderingContract: Story = {
   ),
   play: async ({ canvasElement, step }) => {
     await step('supporting copy paints and changes measured content', async () => {
-      const absent = proofElement(canvasElement, 'pricing-body-absent', '.mkt-pricing__content');
-      const present = proofElement(canvasElement, 'pricing-body-present', '.mkt-pricing__content');
-      const body = proofElement(canvasElement, 'pricing-body-present', '.mkt-pricing__intro');
+      const absent = proofElement(
+        canvasElement,
+        'pricing-body-absent',
+        '[data-mkt-part="content"]',
+      );
+      const present = proofElement(
+        canvasElement,
+        'pricing-body-present',
+        '[data-mkt-part="content"]',
+      );
+      const body = proofElement(canvasElement, 'pricing-body-present', '[data-mkt-part="intro"]');
       await expect(body.getBoundingClientRect().height).toBeGreaterThan(0);
       await expect(present.getBoundingClientRect().height).toBeGreaterThan(
         absent.getBoundingClientRect().height,
@@ -170,7 +185,7 @@ export const ControlRenderingContract: Story = {
       const alignments = (['start', 'center', 'end'] as const).map(
         (align) =>
           getComputedStyle(
-            proofElement(canvasElement, `pricing-align-${align}`, '.mkt-pricing__content'),
+            proofElement(canvasElement, `pricing-align-${align}`, '[data-mkt-part="content"]'),
           ).textAlign,
       );
       await expect(alignments).toEqual(['start', 'center', 'end']);
@@ -202,7 +217,7 @@ export const ControlRenderingContract: Story = {
           proofElement(
             canvasElement,
             `pricing-width-${width}`,
-            '.mkt-pricing__content',
+            '[data-mkt-part="content"]',
           ).getBoundingClientRect().width,
       );
       await expect(new Set(roots).size).toBe(1);
@@ -210,7 +225,7 @@ export const ControlRenderingContract: Story = {
       const maxWidths = (['narrow', 'standard', 'wide', 'full'] as const).map(
         (width) =>
           getComputedStyle(
-            proofElement(canvasElement, `pricing-width-${width}`, '.mkt-pricing__content'),
+            proofElement(canvasElement, `pricing-width-${width}`, '[data-mkt-part="content"]'),
           ).maxInlineSize,
       );
       await expect(new Set(maxWidths).size).toBe(4);
@@ -220,12 +235,12 @@ export const ControlRenderingContract: Story = {
       'two and four columns resolve distinct tracks and measured plan widths',
       async () => {
         const grids = (['auto', '2', '3', '4'] as const).map((columns) =>
-          proofElement(canvasElement, `pricing-columns-${columns}`, '.mkt-pricing__grid'),
+          proofElement(canvasElement, `pricing-columns-${columns}`, '[data-mkt-part="grid"]'),
         );
         const templates = grids.map((grid) => getComputedStyle(grid).gridTemplateColumns);
         await expect(new Set(templates).size).toBe(4);
         const planWidths = grids.map((grid) => {
-          const plan = grid.querySelector<HTMLElement>('.mkt-pricing__plan');
+          const plan = grid.querySelector<HTMLElement>('[data-mkt-part="plan"]');
           if (plan === null) throw new Error('Missing pricing plan');
           return plan.getBoundingClientRect().width;
         });

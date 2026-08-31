@@ -30,6 +30,118 @@ function expectViolation(fn: () => unknown, pattern: RegExp): void {
 }
 
 describe('structural guards', () => {
+  it('insertComposition detach-clones a validated template as one undoable transaction', () => {
+    const kernel = kernelWithLanding();
+    kernel.extensions.hydrateDeclarative({
+      tier: 2,
+      name: 'test-compositions',
+      version: '1.0.0',
+      contributes: {
+        compositions: [
+          {
+            id: 'feature-pack',
+            name: 'Feature pack',
+            version: 1,
+            surfaces: ['site'],
+            rootId: 'pack-root',
+            nodes: {
+              'pack-root': {
+                id: 'pack-root',
+                type: 'box',
+                props: { padding: 'roomy' },
+                slots: { default: ['pack-copy'] },
+              },
+              'pack-copy': {
+                id: 'pack-copy',
+                type: 'text',
+                props: { content: 'A complete reusable section.' },
+              },
+            },
+          },
+        ],
+      },
+    });
+    const before = structuredClone(kernel.getDocument());
+
+    const tx = kernel.dispatch('insertComposition', {
+      compositionId: 'feature-pack',
+      parentId: 'root',
+      slot: 'default',
+      index: 1,
+    });
+    const inserted = insertedNodeId(tx.patches);
+
+    expect(inserted).toBe('c-0001');
+    expect(kernel.getDocument().nodes['root']?.slots?.['default']).toEqual([
+      'hero1',
+      'c-0001',
+      'sec1',
+    ]);
+    expect(kernel.getDocument().nodes['c-0001']).toMatchObject({
+      id: 'c-0001',
+      type: 'box',
+      slots: { default: ['c-0002'] },
+    });
+    expect(kernel.getDocument().nodes['c-0002']?.props['content']).toBe(
+      'A complete reusable section.',
+    );
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(kernel.validate()).toEqual([]);
+
+    expect(kernel.undo()).toBe(true);
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
+  it('insertComposition rejects a stale or surface-incompatible template with zero trace', () => {
+    const kernel = kernelWithLanding();
+    kernel.extensions.hydrateDeclarative({
+      tier: 2,
+      name: 'broken-compositions',
+      version: '1.0.0',
+      contributes: {
+        compositions: [
+          {
+            id: 'unknown-block-pack',
+            name: 'Unknown block pack',
+            version: 1,
+            rootId: 'unknown-root',
+            nodes: {
+              'unknown-root': { id: 'unknown-root', type: 'not-installed', props: {} },
+            },
+          },
+          {
+            id: 'docs-only-pack',
+            name: 'Docs only pack',
+            version: 1,
+            surfaces: ['docs'],
+            rootId: 'docs-root',
+            nodes: { 'docs-root': { id: 'docs-root', type: 'text', props: {} } },
+          },
+        ],
+      },
+    });
+    const before = kernel.getDocument();
+
+    expectViolation(
+      () =>
+        kernel.dispatch('insertComposition', {
+          compositionId: 'unknown-block-pack',
+          parentId: 'root',
+        }),
+      /invalid.*unregistered type/i,
+    );
+    expectViolation(
+      () =>
+        kernel.dispatch('insertComposition', {
+          compositionId: 'docs-only-pack',
+          parentId: 'root',
+        }),
+      /not available on surface/i,
+    );
+    expect(kernel.getDocument()).toBe(before);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
   it('insertNode rejects unknown parents, undeclared slots, disallowed types, and capacity overflow', () => {
     const kernel = kernelWithLanding();
     expectViolation(

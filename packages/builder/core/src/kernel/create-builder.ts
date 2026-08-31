@@ -19,7 +19,9 @@ import {
 } from '@craftkit/builder-schema';
 
 import { coreCommands, type CoreCommandName, type CoreCommands } from '../commands/core-commands';
-import { createDispatcher } from '../commands/dispatch';
+import { createDispatcher, type GroupStep } from '../commands/dispatch';
+
+export type { GroupStep };
 import { createEventBus } from '../events/bus';
 import { createExtensionManager, type ExtensionManagerHandle } from '../extensions/manager';
 import { systemClock } from '../ports/system-clock';
@@ -52,6 +54,12 @@ export interface BuilderKernel {
     <K extends CoreCommandName>(command: K, args: CoreCommands[K], author?: Author): Transaction;
     (command: string, args: unknown, author?: Author): Transaction;
   };
+  /**
+   * The grouped door: every step in ONE transaction — one history entry, one
+   * undo, and atomic (a failing step leaves nothing behind). The contract that
+   * lets a multi-command AI plan honour "one change, one undo".
+   */
+  dispatchGroup(steps: readonly GroupStep[], author?: Author): Transaction;
   /** Extension lifecycle: register / registerAll / hydrateDeclarative / dispose. */
   extensions: ExtensionManagerHandle;
   /** Convenience alias for `extensions.register`. */
@@ -109,7 +117,11 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
   registry.register(KERNEL_OWNER, { commands: coreCommands });
 
   const lookup: BlockSchemaLookup = (type) => registry.read.block(type)?.schema;
-  const runtime: CommandRuntime = { ids, blocks: lookup };
+  const runtime: CommandRuntime = {
+    ids,
+    blocks: lookup,
+    compositions: (id) => registry.read.composition(id),
+  };
   const dispatcher = createDispatcher({
     store,
     registry: registry.read,
@@ -161,7 +173,14 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
   }
 
   function dispatch(command: string, args: unknown, author?: Author): Transaction {
-    const tx = dispatcher.dispatch(command, args, author);
+    return afterDoor(dispatcher.dispatch(command, args, author));
+  }
+
+  function dispatchGroup(steps: readonly GroupStep[], author?: Author): Transaction {
+    return afterDoor(dispatcher.dispatchGroup(steps, author));
+  }
+
+  function afterDoor(tx: Transaction): Transaction {
     if (
       persistence !== undefined &&
       tx.patches.length > 0 &&
@@ -177,6 +196,7 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
   return {
     context,
     dispatch,
+    dispatchGroup,
     extensions: manager,
     registerExtension: (manifest) => {
       manager.register(manifest);

@@ -64,6 +64,7 @@ export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) 
     <section
       className={cx(
         sectionShellClasses(props.tone, props.spacing),
+        '@container',
         sectionTypographyClasses(props),
         motionClassName,
         /* The caller's own utilities go LAST so they win a conflict. */
@@ -74,17 +75,22 @@ export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) 
       {...motionData}
     >
       <div
+        /* Structural hook for the rendering proofs — see Hero.tsx. */
+        data-mkt-part="content"
         className={cx(
           sectionContentClasses(props.width, props.align, props.gutter),
-          'flex flex-col gap-6',
+          'flex flex-col gap-10',
         )}
       >
-        <header className="flex min-w-0 flex-col gap-2">
-          <h2 id={headingId} className="text-2xl font-bold leading-tight">
+        <header className="flex min-w-0 max-w-content-narrow flex-col gap-3">
+          <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">Plans</p>
+          <h2 id={headingId} className="m-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl">
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
-            <p className="max-w-content-narrow text-text-muted">{props.body}</p>
+            <p data-mkt-part="intro" className="m-0 max-w-content-narrow text-lg leading-relaxed text-text-muted">
+              {props.body}
+            </p>
           )}
         </header>
 
@@ -93,7 +99,10 @@ export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) 
           what lets each card's footer line up with its neighbours. Without it
           a plan with fewer features sits short and the row reads as broken.
         */}
-        <div className={cx('grid items-stretch', COLUMN_CLASSES[props.columns], GAP_CLASSES.md)}>
+        <div
+          data-mkt-part="grid"
+          className={cx('grid items-stretch', COLUMN_CLASSES[props.columns], GAP_CLASSES.lg)}
+        >
           {slots['default']}
         </div>
       </div>

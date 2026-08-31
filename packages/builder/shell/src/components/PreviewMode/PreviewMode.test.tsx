@@ -80,6 +80,22 @@ const frameDoc = () => {
 };
 
 describe('US4 — preview mode (007 contract §5)', () => {
+  it('renders at the requested viewport width and rejects collapsing invalid widths', () => {
+    const kernel = makeKernel();
+    const view = render(
+      <PreviewMode kernel={kernel} theme={lightTheme} frameWidth={390} onExit={vi.fn()} />,
+    );
+    const frameShell = view.container.querySelector<HTMLElement>('.bldr-preview__frame');
+
+    expect(frameShell).toHaveStyle({ inlineSize: '390px', maxInlineSize: '100%' });
+
+    view.rerender(
+      <PreviewMode kernel={kernel} theme={lightTheme} frameWidth={0} onExit={vi.fn()} />,
+    );
+    expect(frameShell?.style.inlineSize).toBe('');
+    expect(frameShell?.style.maxInlineSize).toBe('');
+  });
+
   it('p1: renders the publish-safe path — content live, ZERO editing chrome', () => {
     const kernel = makeKernel();
     const { container } = render(

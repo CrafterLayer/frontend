@@ -1,7 +1,17 @@
 .bldr-preview {
+  background: var(--bldr-ground, #eef0f5);
   block-size: 100%;
   inline-size: 100%;
+  overflow: hidden;
   position: relative;
+}
+
+.bldr-preview__frame {
+  background: var(--bldr-surface, #ffffff);
+  block-size: 100%;
+  box-shadow: var(--bldr-shadow-raised, 0 1px 3px rgb(15 23 42 / 12%));
+  inline-size: 100%;
+  margin-inline: auto;
 }
 
 .bldr-preview:focus-visible {

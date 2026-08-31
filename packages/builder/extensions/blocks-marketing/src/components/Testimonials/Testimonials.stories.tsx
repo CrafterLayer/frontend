@@ -160,17 +160,17 @@ export const ControlRenderingContract: Story = {
       const absent = proofElement(
         canvasElement,
         'testimonials-body-absent',
-        '.mkt-testimonials__content',
+        '[data-testimonials-content]',
       );
       const present = proofElement(
         canvasElement,
         'testimonials-body-present',
-        '.mkt-testimonials__content',
+        '[data-testimonials-content]',
       );
       const body = proofElement(
         canvasElement,
         'testimonials-body-present',
-        '.mkt-testimonials__intro',
+        '[data-testimonials-intro]',
       );
       await expect(body.getBoundingClientRect().height).toBeGreaterThan(0);
       await expect(present.getBoundingClientRect().height).toBeGreaterThan(
@@ -185,7 +185,7 @@ export const ControlRenderingContract: Story = {
             proofElement(
               canvasElement,
               `testimonials-align-${align}`,
-              '.mkt-testimonials__content',
+              '[data-testimonials-content]',
             ),
           ).textAlign,
       );
@@ -222,7 +222,7 @@ export const ControlRenderingContract: Story = {
           proofElement(
             canvasElement,
             `testimonials-width-${width}`,
-            '.mkt-testimonials__content',
+            '[data-testimonials-content]',
           ).getBoundingClientRect().width,
       );
       await expect(new Set(roots).size).toBe(1);
@@ -233,22 +233,22 @@ export const ControlRenderingContract: Story = {
             proofElement(
               canvasElement,
               `testimonials-width-${width}`,
-              '.mkt-testimonials__content',
+              '[data-testimonials-content]',
             ),
-          ).maxInlineSize,
+          ).maxWidth,
       );
       await expect(new Set(maxWidths).size).toBe(4);
     });
 
     await step('fixed columns and responsive auto produce distinct measured layouts', async () => {
       const fixedGrids = (['1', '2', '3'] as const).map((columns) =>
-        proofElement(canvasElement, `testimonials-columns-${columns}`, '.mkt-testimonials__grid'),
+        proofElement(canvasElement, `testimonials-columns-${columns}`, '[data-testimonials-grid]'),
       );
       await expect(
         new Set(fixedGrids.map((grid) => getComputedStyle(grid).gridTemplateColumns)).size,
       ).toBe(3);
       const cardWidths = fixedGrids.map((grid) => {
-        const card = grid.querySelector<HTMLElement>('.mkt-testimonials__card');
+        const card = grid.querySelector<HTMLElement>('[data-testimonials-card]');
         if (card === null) throw new Error('Missing testimonial card');
         return card.getBoundingClientRect().width;
       });
@@ -257,12 +257,12 @@ export const ControlRenderingContract: Story = {
       const autoWide = proofElement(
         canvasElement,
         'testimonials-columns-auto-wide',
-        '.mkt-testimonials__grid',
+        '[data-testimonials-grid]',
       );
       const autoNarrow = proofElement(
         canvasElement,
         'testimonials-columns-auto-narrow',
-        '.mkt-testimonials__grid',
+        '[data-testimonials-grid]',
       );
       await expect(getComputedStyle(autoWide).gridTemplateColumns).not.toBe(
         getComputedStyle(autoNarrow).gridTemplateColumns,

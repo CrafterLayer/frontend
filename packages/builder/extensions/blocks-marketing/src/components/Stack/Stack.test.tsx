@@ -16,9 +16,21 @@ describe('Stack', () => {
     const accepted = [
       'stack',
       'hero',
+      'announcementBar',
+      'logoCloud',
       'features',
+      'bento-grid',
+      'content-section',
+      'stats',
+      'processSteps',
+      'team',
       'pricing',
       'testimonials',
+      'comparisonTable',
+      'faq',
+      'blogGrid',
+      'contact',
+      'newsletter',
       'cta',
       'richText',
       // A link row is a composition primitive, so a container holds one.
@@ -97,20 +109,15 @@ describe('Stack', () => {
     );
 
     const root = container.querySelector(`[data-bldr-stack="${node.id}"]`);
-    expect(root).toHaveClass(
-      'mkt-section',
-      'mkt-stack',
-      'mkt-section--tone-transparent',
-      'mkt-section--spacing-none',
-      'mkt-stack--direction-column',
-      'mkt-stack--justify-start',
-      'mkt-stack--align-start',
-      'mkt-stack--gap-md',
-      'mkt-stack--wrap-wrap',
-    );
+    expect(root).toHaveClass('box-border', 'w-full', 'bg-transparent', 'text-inherit', 'py-0');
     expect(root).not.toHaveAttribute('style');
-    expect(container.querySelector('.mkt-section__content')).toHaveClass(
-      'mkt-section__content--width-standard',
+    expect(root?.firstElementChild).toHaveClass(
+      'max-w-content-standard',
+      'flex-col',
+      'justify-start',
+      'items-start',
+      'gap-gap',
+      'flex-wrap',
     );
     /*
       No empty-state assertion here any more: the drop affordance for an empty

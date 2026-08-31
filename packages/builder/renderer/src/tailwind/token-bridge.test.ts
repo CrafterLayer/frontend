@@ -10,11 +10,39 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import type { TokenName } from '../resolve/theme';
+import { tokenCssName, type TokenName } from '../resolve/theme';
 import { lightTheme } from '../themes';
 import { TAILWIND_NAMESPACE, buildTailwindThemeCss, tailwindVarName } from './token-bridge';
 
 const CHECKED_IN_CSS = fileURLToPath(new URL('./tailwind-theme.css', import.meta.url));
+
+/**
+ * The declarations inside `@theme`, each on one line regardless of how it was
+ * printed.
+ *
+ * A long fallback (the font stacks name every face) is wrapped across lines to
+ * match Prettier, which formats this file like any other. That is a layout
+ * decision, and none of the laws below are about layout — so they read the
+ * normalised form and stay true whichever way it is printed.
+ */
+function themeDeclarations(css: string): string[] {
+  const body = css.slice(
+    css.indexOf('@theme inline {') + '@theme inline {'.length,
+    css.lastIndexOf('}'),
+  );
+  return (
+    body
+      .replace(/\s+/g, ' ')
+      /* The wrap puts a space after `var(` and before `)`; unwrapping removes it. */
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')')
+      .replace(/,\s*\)/g, ')')
+      .split(';')
+      .map((declaration) => declaration.trim())
+      .filter((declaration) => declaration.length > 0)
+      .map((declaration) => `${declaration};`)
+  );
+}
 
 describe('tailwind token bridge', () => {
   /*
@@ -30,13 +58,47 @@ describe('tailwind token bridge', () => {
     expect(boundTokens).toEqual(themeTokens);
   });
 
-  it('points every binding at a --t-* custom property, never at a value', () => {
-    const css = buildTailwindThemeCss();
-    const declarations = css.match(/^\s{2}--[\w-]+: .+;$/gm) ?? [];
+  it('points every binding at a --t-* custom property, never at a bare value', () => {
+    const declarations = themeDeclarations(buildTailwindThemeCss());
 
     expect(declarations.length).toBe(Object.keys(lightTheme).length);
     for (const declaration of declarations) {
-      expect(declaration).toMatch(/: var\(--t-[a-z0-9-]+\);$/);
+      /*
+        A fallback is allowed; a value in the token's PLACE is not. The
+        distinction is the whole product: `var(--t-accent, #4f46e5)` still
+        moves when the design system re-points the token, and a plain
+        `#4f46e5` never does.
+      */
+      expect(declaration).toMatch(/^--[\w-]+: var\(--t-[a-z0-9-]+, .+\);$/);
+    }
+  });
+
+  /*
+    The fallback is not decoration.
+
+    `--t-*` is written into a document by exactly one thing — `CanvasFrame`,
+    into the editor's preview frame. `StaticDocument`, the publish path, emits
+    no theme at all. That was survivable while blocks were styled by
+    stylesheets reading `var(--t-space-unit, 4px)`; the Tailwind migration
+    deleted those files and every fallback in them, and a bare
+    `var(--t-gap-lg)` resolves to nothing, which sends `gap` back to `normal`.
+    The Chromium story `Stack > Gap Is Real` measured exactly that: 0px where
+    the block requires more than 8.
+
+    So this asserts the fallback is the token's own value in the theme being
+    generated from — a wrong-but-present fallback would pass a regex and still
+    publish a page laid out to a palette nobody chose.
+  */
+  it('falls back to the generating theme, so an unthemed page still has its geometry', () => {
+    const declarations = new Set(themeDeclarations(buildTailwindThemeCss(lightTheme)));
+
+    for (const [name, value] of Object.entries(lightTheme)) {
+      const token = name as TokenName;
+      const collapsed = value.replace(/\s+/g, ' ');
+
+      expect(declarations).toContain(
+        `${tailwindVarName(token)}: var(${tokenCssName(token)}, ${collapsed});`,
+      );
     }
   });
 

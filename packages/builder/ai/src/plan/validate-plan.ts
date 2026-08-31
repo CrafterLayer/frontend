@@ -65,7 +65,16 @@ function parsePlan(candidate: unknown): AiPlanValidationResult {
       ...(typeof title === 'string' && title.trim() !== '' ? { title } : {}),
     });
   }
-  return { ok: true, plan: { rationale, commands } };
+  // A staged-work suggestion rides along when it is a real sentence.
+  const followUp = candidate['followUp'];
+  return {
+    ok: true,
+    plan: {
+      rationale,
+      commands,
+      ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
+    },
+  };
 }
 
 function commandIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanValidationIssue[] {
@@ -119,6 +128,29 @@ export function validationManifest(plan: AiPlan, kernel: BuilderKernel): Trusted
   };
 }
 
+/** @internal Build the isolated rehearsal kernel with both executable and declarative vocabulary. */
+export function createValidationKernel(
+  plan: AiPlan,
+  kernel: BuilderKernel,
+  ports: AiValidationPorts,
+): BuilderKernel {
+  const scratch = createBuilder({
+    document: kernel.getDocument(),
+    extensions: [validationManifest(plan, kernel)],
+    ports,
+  });
+  const compositions = kernel.context.registry.compositions();
+  if (compositions.length > 0) {
+    scratch.extensions.hydrateDeclarative({
+      tier: 2,
+      name: '@craftkit/builder-ai-validation-compositions',
+      version: '0.0.0',
+      contributes: { compositions: [...compositions] },
+    });
+  }
+  return scratch;
+}
+
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
@@ -128,11 +160,7 @@ function dryRun(
   kernel: BuilderKernel,
   ports: AiValidationPorts,
 ): AiPlanValidationResult {
-  const scratch = createBuilder({
-    document: kernel.getDocument(),
-    extensions: [validationManifest(plan, kernel)],
-    ports,
-  });
+  const scratch = createValidationKernel(plan, kernel, ports);
   /*
     The plan answers for NEW damage only. A live document can already carry a
     violation (a schema evolved after the node was written); charging every
@@ -156,9 +184,7 @@ function dryRun(
       };
     }
   }
-  const documentIssues = scratch
-    .validate()
-    .filter((issue) => !priorIssues.has(issue.message));
+  const documentIssues = scratch.validate().filter((issue) => !priorIssues.has(issue.message));
   if (documentIssues.length > 0) {
     return {
       ok: false,

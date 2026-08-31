@@ -8,6 +8,7 @@ import {
   defineBlockSchema,
   type BlockRenderComponent,
   type BuilderDocument,
+  type DeclarativeExtensionManifest,
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
@@ -54,12 +55,33 @@ const doc = (dir: 'ltr' | 'rtl'): BuilderDocument => ({
   nodes: { root: { id: 'root', type: 'page', props: {}, slots: { default: [] } } },
 });
 
-const makeKernel = (dir: 'ltr' | 'rtl' = 'ltr') =>
-  createBuilder({
+const TEMPLATE_FIXTURE: DeclarativeExtensionManifest = {
+  tier: 2,
+  name: 'palette-story-templates',
+  version: '1.0.0',
+  contributes: {
+    compositions: [
+      {
+        id: 'starter-landing-page',
+        name: 'Starter landing page',
+        version: 1,
+        surfaces: ['site'],
+        rootId: 'starter-hero',
+        nodes: { 'starter-hero': { id: 'starter-hero', type: 'hero', props: {} } },
+      },
+    ],
+  },
+};
+
+const makeKernel = (dir: 'ltr' | 'rtl' = 'ltr') => {
+  const kernel = createBuilder({
     document: doc(dir),
     extensions: [VOCAB],
     ports: { clock: fixedClock(), ids: seededIds('ps') },
   });
+  kernel.extensions.hydrateDeclarative(TEMPLATE_FIXTURE);
+  return kernel;
+};
 
 const meta = {
   title: 'Builder/Shell/Palette',
@@ -213,6 +235,22 @@ export const KeyboardInsert: Story = {
       const after = insertKernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
       await expect(after).toBe(before + 1);
     });
+  },
+};
+
+const templateInsertKernel = makeKernel();
+export const TemplateInsert: Story = {
+  name: 'Atomic template insert',
+  args: { kernel: templateInsertKernel },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const before = templateInsertKernel.transactions().length;
+    await userEvent.click(canvas.getByRole('tab', { name: /Templates/u }));
+    await userEvent.click(canvas.getByRole('button', { name: /Starter landing page/u }));
+    await waitFor(async () => {
+      await expect(templateInsertKernel.transactions()).toHaveLength(before + 1);
+    });
+    await expect(templateInsertKernel.validate()).toEqual([]);
   },
 };
 

@@ -10,13 +10,16 @@ import {
 
 import {
   applyAiPlan,
+  BUILDER_AI_CONTEXT_PROVIDERS,
   ChromeButton,
   createLocalAiPlanProvider,
+  createMemoryContextProvider,
   generateAiPlan,
   previewAiPlan,
   StaticDocument,
   systemClock,
   systemIds,
+  type AiChatTurn,
   type AiPlan,
   type AiPlanProvider,
   type AiPlanStep,
@@ -45,6 +48,12 @@ export interface AssistantPanelProps {
   onReviewAsCode?: (() => void) | undefined;
   /** Optional proposal source for an embedded or deterministic host. */
   planProvider?: AiPlanProvider | undefined;
+  /**
+   * localStorage key for reviving conversations across reloads. Absent ⇒ the
+   * panel stays fully in-memory (the portable default: the engine never
+   * assumes a browser store; the HOST opts in).
+   */
+  persistKey?: string | undefined;
 }
 
 /**
@@ -84,7 +93,26 @@ type Turn =
       readonly kind: 'plan';
       readonly plan: AiPlan;
       readonly applied: boolean;
+      /** The mode this plan was proposed under; absent (revived old data) reads as 'ask'. */
+      readonly mode?: AssistantMode;
     };
+
+/**
+ * How eagerly the assistant acts, the way Claude's own modes read:
+ * Ask proposes and waits for Apply; Auto applies a validated plan immediately
+ * (still one atomic, undoable change); Plan only ever plans — the card offers
+ * Preview and discussion, never Apply.
+ */
+export type AssistantMode = 'ask' | 'auto' | 'plan';
+
+const MODES: readonly { id: AssistantMode; label: string; hint: string }[] = [
+  { id: 'ask', label: 'Ask', hint: 'Propose, then wait for Apply' },
+  { id: 'auto', label: 'Auto', hint: 'Apply validated plans immediately' },
+  { id: 'plan', label: 'Plan', hint: 'Only plan — never apply' },
+];
+
+const MENTION_PATTERN = /@([A-Za-z0-9_-]*)$/;
+const MENTION_IDS = /@([A-Za-z0-9_-]+)/g;
 
 interface Session {
   readonly id: string;
@@ -161,6 +189,46 @@ function describeStep(step: AiPlanStep): string {
   }
 }
 
+interface PersistedPanelState {
+  readonly sessions: readonly Session[];
+  readonly activeId: string;
+}
+
+/**
+ * Revive a saved conversation, defensively: storage can be missing, blocked,
+ * or stale. A turn saved mid-thought becomes 'stopped' — a reload killed that
+ * request, and a spinner that nothing will ever resolve is a lie.
+ */
+function reviveSessions(persistKey: string | undefined): PersistedPanelState | null {
+  if (persistKey === undefined) {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(persistKey);
+    if (raw === null) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as PersistedPanelState;
+    // Checked via a separate binding: Array.isArray on a readonly-array
+    // property would narrow it to any[] and un-type every turn below.
+    const sessionsShape: unknown = parsed.sessions;
+    if (!Array.isArray(sessionsShape) || typeof parsed.activeId !== 'string') {
+      return null;
+    }
+    const sessions = parsed.sessions.map((session) => ({
+      ...session,
+      turns: session.turns.map((turn) =>
+        turn.from === 'assistant' && turn.kind === 'thinking'
+          ? ({ id: turn.id, from: 'assistant', kind: 'stopped' } as const)
+          : turn,
+      ),
+    }));
+    return { sessions, activeId: parsed.activeId };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The assistant, as a conversation.
  *
@@ -174,22 +242,60 @@ function describeStep(step: AiPlanStep): string {
  * the instant you press Enter is a magic trick; one that says what it intends
  * and can be refused is a tool.
  */
-export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: AssistantPanelProps) {
+export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKey }: AssistantPanelProps) {
   const counter = useRef(1);
   const nextId = useCallback((prefix: string) => {
     counter.current += 1;
     return `${prefix}-${String(counter.current)}`;
   }, []);
 
-  const [sessions, setSessions] = useState<readonly Session[]>(() => [
-    { id: 'session-1', title: 'New chat', turns: [] },
-  ]);
-  const [activeId, setActiveId] = useState('session-1');
+  const [sessions, setSessions] = useState<readonly Session[]>(
+    () => reviveSessions(persistKey)?.sessions ?? [{ id: 'session-1', title: 'New chat', turns: [] }],
+  );
+  const [activeId, setActiveId] = useState(
+    () => reviveSessions(persistKey)?.activeId ?? 'session-1',
+  );
+
+  // Every settled change is written back; a blocked store fails silently — the
+  // conversation still works, it just forgets on reload.
+  useEffect(() => {
+    if (persistKey === undefined) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(persistKey, JSON.stringify({ sessions, activeId }));
+    } catch {
+      // Storage full or blocked: in-memory behaviour continues unchanged.
+    }
+  }, [activeId, persistKey, sessions]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<AssistantMode>('ask');
+  /** The @-mention in progress: the text typed after the trailing @, or null. */
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
   /** The running request's controller; present exactly while `busy`. */
   const abortRef = useRef<AbortController | null>(null);
+  /**
+   * WHAT WAS ACTUALLY BUILT: the rationale of every applied plan, in order.
+   * Fed back to the planner as a "Session memory" context fragment, so the
+   * assistant knows the page's story — not only its current shape.
+   */
+  const [memory] = useState(() => {
+    // A plain mutable list, owned by the closure — deliberately NOT state:
+    // notes feed the next request's context, they never drive a render.
+    const notes: string[] = [];
+    return {
+      note: (text: string) => {
+        notes.push(text);
+        if (notes.length > 20) {
+          notes.shift();
+        }
+      },
+      provider: createMemoryContextProvider({ load: () => [...notes] }),
+    };
+  });
+  const memoryProvider = memory.provider;
   /**
    * The open preview: the plan's turn id, the plan, and the WOULD-BE document
    * the scratch rehearsal produced. Looking never writes; Apply from here goes
@@ -330,15 +436,45 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
         ),
       );
 
+      /*
+        The conversation IS the context: what was asked and what the assistant
+        answered, oldest first, capped so an old chat cannot crowd out the
+        document. Thinking bubbles and stop markers carry no meaning here.
+      */
+      const history: AiChatTurn[] = (active?.turns ?? [])
+        .flatMap<AiChatTurn>((turn) => {
+          if (turn.from === 'you') {
+            return [{ role: 'user', text: turn.text }];
+          }
+          if (turn.kind === 'plan') {
+            return [{ role: 'assistant', text: turn.plan.rationale }];
+          }
+          if (turn.kind === 'refused') {
+            return [{ role: 'assistant', text: turn.text }];
+          }
+          return [];
+        })
+        .slice(-12);
+
       const controller = new AbortController();
       abortRef.current = controller;
+      /*
+        @mentions ARE the selection: naming a block in the request is the most
+        direct way a person points at it, so named blocks (that really exist)
+        replace the canvas selection as the request's focus.
+      */
+      const mentioned = [...trimmed.matchAll(MENTION_IDS)]
+        .map((match) => match[1] ?? '')
+        .filter((id) => kernel.getDocument().nodes[id] !== undefined);
       try {
         const plan = await generateAiPlan({
           kernel,
           provider: planProvider ?? createLocalAiPlanProvider(),
           request: trimmed,
           validationPorts: preflightPorts(),
-          selection: kernel.context.store.getState().selection,
+          selection: mentioned.length > 0 ? mentioned : kernel.context.store.getState().selection,
+          history,
+          contextProviders: [...BUILDER_AI_CONTEXT_PROVIDERS, memoryProvider],
           signal: controller.signal,
           // The provider's narration lands ON the thinking turn, so the wait
           // reads as work in progress rather than as a frozen spinner.
@@ -352,10 +488,18 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
             );
           },
         });
+        // Auto mode: the validated plan goes straight through the grouped
+        // door — one atomic transaction, one undo — and the card lands already
+        // applied. Any apply failure falls to the same catch as a rejection.
+        if (mode === 'auto') {
+          applyAiPlan({ kernel, plan, validationPorts: preflightPorts() });
+          memory.note(plan.rationale);
+        }
+        const applied = mode === 'auto';
         patchTurns((previous) =>
           previous.map((turn) =>
             turn.id === thinkingId
-              ? { id: turn.id, from: 'assistant', kind: 'plan', plan, applied: false }
+              ? { id: turn.id, from: 'assistant', kind: 'plan', plan, applied, mode }
               : turn,
           ),
         );
@@ -384,17 +528,52 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
         setBusy(false);
       }
     },
-    [activeId, busy, kernel, nextId, patchTurns, planProvider, selectedType],
+    [active, activeId, busy, kernel, memory, memoryProvider, mode, nextId, patchTurns, planProvider, selectedType],
   );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
   }, []);
 
+  /** Every block a trailing @ can point at, filtered as the person types. */
+  const mentionCandidates =
+    mentionQuery === null
+      ? []
+      : Object.values(kernel.getDocument().nodes)
+          .filter(
+            (node) =>
+              node.id !== kernel.getDocument().rootId &&
+              (node.id.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+                node.type.toLowerCase().includes(mentionQuery.toLowerCase())),
+          )
+          .slice(0, 8)
+          .map((node) => {
+            const excerpt = Object.values(node.props).find(
+              (value): value is string => typeof value === 'string' && value.trim() !== '',
+            );
+            return { id: node.id, type: node.type, excerpt: excerpt?.slice(0, 48) };
+          });
+
+  const pickMention = useCallback(
+    (id: string) => {
+      setDraft((current) => {
+        const query = mentionQuery ?? '';
+        const at = current.lastIndexOf(`@${query}`);
+        if (at < 0) {
+          return `${current}@${id} `;
+        }
+        return `${current.slice(0, at)}@${id} ${current.slice(at + query.length + 1)}`;
+      });
+      setMentionQuery(null);
+    },
+    [mentionQuery],
+  );
+
   const accept = useCallback(
     (id: string, plan: AiPlan) => {
       try {
         applyAiPlan({ kernel, plan, validationPorts: preflightPorts() });
+        memory.note(plan.rationale);
         patchTurns((previous) =>
           previous.map((turn) =>
             turn.id === id && turn.from === 'assistant' && turn.kind === 'plan'
@@ -413,7 +592,7 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
         );
       }
     },
-    [kernel, patchTurns],
+    [kernel, memory, patchTurns],
   );
 
   /**
@@ -668,15 +847,19 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
                       </p>
                     ) : (
                       <div className="pg-chat__decide">
-                        <ChromeButton
-                          variant="primary"
-                          onClick={() => {
-                            accept(turn.id, turn.plan);
-                          }}
-                        >
-                          <IconCheck />
-                          Apply
-                        </ChromeButton>
+                        {/* A plan proposed in Plan mode never offers Apply:
+                            exploring must not be one misclick from writing. */}
+                        {(turn.mode ?? 'ask') === 'plan' ? null : (
+                          <ChromeButton
+                            variant="primary"
+                            onClick={() => {
+                              accept(turn.id, turn.plan);
+                            }}
+                          >
+                            <IconCheck />
+                            Apply
+                          </ChromeButton>
+                        )}
                         <ChromeButton
                           variant="quiet"
                           size="sm"
@@ -704,6 +887,22 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
                           Discard
                         </ChromeButton>
                       </div>
+                    )}
+                    {/* The plan's own "and next…" — staged work as one tap,
+                        never applied automatically. */}
+                    {turn.plan.followUp === undefined ? null : (
+                      <ChromeButton
+                        variant="quiet"
+                        size="sm"
+                        className="pg-chat__continue"
+                        disabled={busy}
+                        onClick={() => {
+                          void ask(turn.plan.followUp ?? '');
+                        }}
+                      >
+                        <IconSparkle />
+                        <span className="pg-chat__continue-text">{turn.plan.followUp}</span>
+                      </ChromeButton>
                     )}
                   </div>
                 ) : null}
@@ -741,9 +940,18 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
                drawn around the card by :focus-within. See the stylesheet. */
             data-bldr-focus-ring="delegated"
             onChange={(event) => {
-              setDraft(event.currentTarget.value);
+              const value = event.currentTarget.value;
+              setDraft(value);
+              const caret = event.currentTarget.selectionStart;
+              const match = MENTION_PATTERN.exec(value.slice(0, caret));
+              setMentionQuery(match === null ? null : (match[1] ?? ''));
             }}
             onKeyDown={(event) => {
+              if (event.key === 'Escape' && mentionQuery !== null) {
+                event.preventDefault();
+                setMentionQuery(null);
+                return;
+              }
               // Enter sends, Shift+Enter writes a line — the convention every
               // chat uses, and the one a person's hands already know.
               if (event.key === 'Enter' && !event.shiftKey) {
@@ -752,7 +960,51 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider }: Assista
               }
             }}
           />
+          {mentionQuery === null ? null : (
+            <div className="pg-chat__mentions" role="listbox" aria-label="Mention a block">
+              {mentionCandidates.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  className="pg-chat__mention"
+                  onClick={() => {
+                    pickMention(candidate.id);
+                  }}
+                >
+                  <span className="pg-chat__mention-id">@{candidate.id}</span>
+                  <span className="pg-chat__mention-type">{candidate.type}</span>
+                  {candidate.excerpt === undefined ? null : (
+                    <span className="pg-chat__mention-excerpt">{candidate.excerpt}</span>
+                  )}
+                </button>
+              ))}
+              {mentionCandidates.length === 0 ? (
+                <p className="pg-chat__mention-empty">No matching block.</p>
+              ) : null}
+            </div>
+          )}
           <div className="pg-chat__composer-actions">
+            {/* The mode row, where Claude keeps its own: part of the composer,
+                read before every send. */}
+            <div className="pg-chat__modes" role="radiogroup" aria-label="Assistant mode">
+              {MODES.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === candidate.id}
+                  title={candidate.hint}
+                  className="pg-chat__mode"
+                  onClick={() => {
+                    setMode(candidate.id);
+                  }}
+                >
+                  {candidate.label}
+                </button>
+              ))}
+            </div>
             <ChromeButton
               variant="icon"
               tone="primary"

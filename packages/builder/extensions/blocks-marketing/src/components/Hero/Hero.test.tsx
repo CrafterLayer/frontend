@@ -37,6 +37,32 @@ describe('Hero', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('hides an empty optional media drop zone unless the author chooses the split variant', () => {
+    const emptyMediaNode: Node = { ...node, slots: { media: [] } };
+    const { rerender } = render(
+      <Hero
+        node={emptyMediaNode}
+        props={heroSchema.props.parse({ heading: 'Centered hero' })}
+        slots={{ media: <span>Media drop zone</span> }}
+        data={{}}
+        isCanvas
+      />,
+    );
+
+    expect(screen.queryByText('Media drop zone')).not.toBeInTheDocument();
+
+    rerender(
+      <Hero
+        node={emptyMediaNode}
+        props={heroSchema.props.parse({ heading: 'Split hero', variant: 'split' })}
+        slots={{ media: <span>Media drop zone</span> }}
+        data={{}}
+        isCanvas
+      />,
+    );
+    expect(screen.getByText('Media drop zone')).toBeInTheDocument();
+  });
+
   it('applies a background colour role without setting text colour', () => {
     render(
       <Hero
@@ -178,7 +204,7 @@ describe('Hero', () => {
       rather than by a BEM class name. The block carries no stylesheet now, so a
       class name would pin an implementation detail instead of the intent.
     */
-    expect(screen.getByText('New release')).toHaveClass('text-text-muted');
+    expect(screen.getByText('New release')).toHaveClass('text-accent');
   });
 
   it('adds a modifier class for every defined action layout property', () => {
@@ -214,32 +240,61 @@ describe('Hero', () => {
     expect(actions).toHaveClass('flex-wrap');
   });
 
-  it('omits every action layout modifier when the layout properties are undefined', () => {
-    render(
-      <Hero
-        node={node}
-        props={heroSchema.props.parse({ heading: 'Unconfigured actions' })}
-        slots={{ actions: <button type="button">Explore</button> }}
-        data={{}}
-        isCanvas={false}
-      />,
-    );
+  /*
+    This replaces an assertion that had become vacuous.
 
-    const actions = screen.getByRole('button', { name: 'Explore' }).parentElement;
-    if (actions === null) throw new Error('Expected Hero actions wrapper');
-    expect(actions).not.toHaveClass(
-      'mkt-hero__actions--direction-row',
-      'mkt-hero__actions--justify-center',
-      'mkt-hero__actions--align-end',
-      'mkt-hero__actions--gap-lg',
-      'mkt-hero__actions--wrap-wrap',
-    );
-    expect(actions.className).not.toContain('mkt-hero__actions--');
+    It used to read `not.toHaveClass('mkt-hero__actions--direction-row', …)`
+    and prove that an unconfigured action row carried no layout modifier. Those
+    class names stopped existing with the Tailwind migration, so the test went
+    on passing while checking nothing — and it could never fail again.
+
+    The behaviour worth pinning is the one that actually replaced them: the row
+    has no modifiers to omit, it has a FALLBACK CHAIN, and the interesting link
+    in it is `layoutJustify ?? props.align`. An action row in a centred hero
+    centres itself; the same row in an end-aligned hero follows the section
+    rather than staying centred. Two sections, asserted against each other, is
+    what makes that non-vacuous — a hard-coded default would satisfy either one
+    alone.
+  */
+  it('falls back to the documented layout defaults, following the section alignment', () => {
+    const actionsFor = (align: 'center' | 'end'): HTMLElement => {
+      const { unmount } = render(
+        <Hero
+          node={node}
+          props={heroSchema.props.parse({ heading: 'Unconfigured actions', align })}
+          slots={{ actions: <button type="button">Explore</button> }}
+          data={{}}
+          isCanvas={false}
+        />,
+      );
+      const wrapper = screen.getByRole('button', { name: 'Explore' }).parentElement;
+      if (wrapper === null) throw new Error('Expected Hero actions wrapper');
+      const className = wrapper.className;
+      unmount();
+      /* Detached, but the class list is the whole subject of the assertion. */
+      const detached = document.createElement('div');
+      detached.className = className;
+      return detached;
+    };
+
+    const centred = actionsFor('center');
+    expect(centred).toHaveClass('flex-row');
+    expect(centred).toHaveClass('items-center');
+    expect(centred).toHaveClass('gap-gap-sm');
+    expect(centred).toHaveClass('flex-wrap');
+    expect(centred).toHaveClass('justify-center');
+
+    /* The link under test: justification tracks the section, it is not fixed. */
+    expect(actionsFor('end')).toHaveClass('justify-end');
   });
 
   it('schema: enforces the heading length and the actions slot vocabulary', () => {
     expect(heroSchema.props.safeParse({ heading: '' }).success).toBe(false);
     expect(heroSchema.slots?.['actions']).toEqual({ allow: ['cta'], max: 2 });
+    expect(heroSchema.slots?.['media']).toEqual({
+      allow: ['image', 'grid', 'stack', 'richText'],
+      max: 1,
+    });
   });
 
   it('schema: enforces the complete Hero builder-control contract additively', () => {
@@ -248,6 +303,7 @@ describe('Hero', () => {
       align: 'center',
       spacing: 'lg',
       tone: 'light',
+      variant: 'centered',
       width: 'full',
     });
     expect(defaults.eyebrow).toBeUndefined();
@@ -302,7 +358,9 @@ describe('Hero', () => {
       ...['start', 'center', 'end'].map((layoutAlign) => ({ layoutAlign })),
       ...['none', 'sm', 'md', 'lg'].map((layoutGap) => ({ layoutGap })),
       ...['nowrap', 'wrap'].map((layoutWrap) => ({ layoutWrap })),
+      ...['centered', 'split', 'editorial'].map((variant) => ({ variant })),
       { eyebrow: 'New release' },
+      { trustLine: 'Trusted by more than 4,000 teams.' },
     ];
     for (const candidate of accepted) {
       expect(heroSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(true);
@@ -321,6 +379,8 @@ describe('Hero', () => {
       { layoutAlign: 'stretch' },
       { layoutGap: '16px' },
       { layoutWrap: 'wrap-reverse' },
+      { variant: 'fullscreen' },
+      { trustLine: '' },
     ];
     for (const candidate of rejected) {
       expect(heroSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(false);

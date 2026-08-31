@@ -181,6 +181,7 @@ export function App() {
           theme={theme}
           dirOverride={dirOverride}
           breakpoint={breakpoint}
+          frameWidth={device.width}
           onExit={() => {
             setPreview(false);
             setPreviewFlipped(false);
@@ -301,6 +302,7 @@ export function App() {
               <AssistantPanel
                 kernel={kernel}
                 planProvider={envPlanProvider}
+                persistKey="pg-assistant-sessions-v1"
                 onReviewAsCode={() => {
                   setRailSection('code');
                 }}

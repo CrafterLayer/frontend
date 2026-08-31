@@ -1,43 +1,61 @@
-# @craftkit/builder-blocks-marketing
+# `@craftkit/builder-blocks-marketing`
 
-The first real content extension: five landing-page blocks — `hero`, `features`, `pricing`,
-`testimonials`, `cta` — shipped as one trusted (tier-1) manifest, `blocksMarketing`. Each block is a
-complete mechanically-validated component: `schema.ts` (zod props + slot rules), `examples.ts`
-(Arabic + English AI-ready examples), implementation, plain-CSS stylesheet, typed stories, MDX docs,
-behavior test, and local index.
+CraftKit's production marketing vocabulary: 25 responsive block types plus four original,
+ready-to-insert landing-page templates. The package ships executable block schemas and renderers as
+the trusted tier-1 `blocksMarketing` manifest; reusable page compositions ship separately as the
+JSON-pure tier-2 `marketingTemplates` manifest.
 
 Normative source:
-[`specs/workspace/004-builder-b1-react-foundation`](../../../../specs/workspace/004-builder-b1-react-foundation/plan.md)
-(prop vocabularies in `contracts/builder-view.md` §5). Layer 4 (extension) of ADR 0003 — depends
-only on `@craftkit/builder-schema`; `react` is a peer; extensions never import extensions.
-
-## Styling rules
-
-- Plain CSS files, imported by their component (`sideEffects: ["**/*.css"]`).
-- **Logical properties only** (`margin-inline`, `padding-block`, `text-align: start`) — RTL works by
-  `dir` alone, with zero direction-specific rules.
-- Content surfaces read `var(--t-*)` design tokens; explicit child-layout gaps map the shared
-  `none|sm|md|lg` intent to `var(--bldr-space-*)`. The document itself stays intent-only (the
-  kernel's no-px/no-hex law governs document props, CSS owns values).
+[`specs/workspace/013-ai-full-site-design-agent`](../../../../specs/workspace/013-ai-full-site-design-agent/plan.md).
+This remains a layer-4 extension: it depends on `@craftkit/builder-schema`, never on an application
+or another extension.
 
 ## Block vocabulary
 
-| type           | content props          | layout and surface props                 | slots                          |
-| -------------- | ---------------------- | ---------------------------------------- | ------------------------------ |
-| `hero`         | eyebrow, heading, body | tone, align, spacing, width, flex layout | `actions` (allow `cta`, max 2) |
-| `features`     | heading, body, items[] | columns, align, tone, spacing, width     | —                              |
-| `pricing`      | heading, body, plans[] | columns, align, tone, spacing, width     | —                              |
-| `testimonials` | heading, body, items[] | columns, align, tone, spacing, width     | —                              |
-| `cta`          | label, note            | emphasis, size, width                    | —                              |
+| Family                | Registered types                                                    |
+| --------------------- | ------------------------------------------------------------------- |
+| Page chrome           | `pageHeader`, `pageFooter`, `navLinks`                              |
+| Layout and media      | `stack`, `grid`, `image`, `richText`                                |
+| Opening and trust     | `announcementBar`, `hero`, `logoCloud`, `stats`, `testimonials`     |
+| Product story         | `features`, `bento-grid`, `content-section`, `processSteps`, `team` |
+| Conversion            | `pricing`, `pricingPlan`, `comparisonTable`, `cta`, `newsletter`    |
+| Education and contact | `faq`, `blogGrid`, `contact`                                        |
 
-Section controls are intent-only enums: logical alignment (`start`, `center`, `end`), vertical
-spacing (`none`, `sm`, `md`, `lg`), content width (`narrow`, `standard`, `wide`, `full`), and tone
-(`transparent`, `light`, `dark`). Renderers map those choices to CSS tokens; documents never store
-pixel or color literals.
+Every new component owns its implementation, zod schema, AI-ready examples, local export,
+behavior-focused test, Storybook story, and MDX documentation. Section schemas expose explicit
+content/design/advanced inspector groups and preserve optional/no-default compatibility for shared
+typography and spacing controls.
 
-Only schemas with child slots expose flex layout. Today that is `hero.actions`: optional direction
-(`row`, `column`), main- and cross-axis alignment (`start`, `center`, `end`), gap (the shared
-spacing vocabulary), and wrapping (`nowrap`, `wrap`). Omission preserves the legacy slot geometry.
+## Ready templates
+
+`marketingTemplates` contributes four original compositions inspired by the information architecture
+of professional Tailwind marketing pages, without copying paid template code:
+
+- `saas-launch` — product-led SaaS page.
+- `creative-agency` — studio and portfolio page.
+- `commerce-launch` — editorial commerce launch, available to `site` and `store` surfaces.
+- `professional-services` — consulting and services page.
+
+Each composition contains at least nine coherent sections, validates against the live block registry
+before insertion, lands through one `insertComposition` transaction, and undoes in one step.
+
+```ts
+import { blocksMarketing, marketingTemplates } from '@craftkit/builder-blocks-marketing';
+import { createBuilder } from '@craftkit/builder-core';
+
+const kernel = createBuilder({ extensions: [blocksMarketing] });
+kernel.extensions.hydrateDeclarative(marketingTemplates);
+```
+
+## Styling and safety
+
+- Renderers use token-bound Tailwind utilities backed by `--t-*`; blocks do not name palette colors
+  or store pixel/hex values in documents.
+- Container-query layouts, logical properties, and direction-neutral spacing make the same block
+  responsive and RTL-safe.
+- Motion uses the closed, tokenized motion vocabulary and respects reduced-motion preferences.
+- Links and form actions reject unsafe schemes such as `javascript:` at the schema door.
+- Optional slots do not leak editing placeholders into a published or visually complete section.
 
 ## Development
 
@@ -47,5 +65,4 @@ pnpm --filter @craftkit/builder-blocks-marketing typecheck
 pnpm --filter @craftkit/builder-blocks-marketing test
 ```
 
-Stories render in the workspace Storybook (`pnpm --filter @craftkit/storybook dev`) with the a11y
-addon at error level.
+Stories render in the workspace Storybook with accessibility checks enabled at error level.

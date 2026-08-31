@@ -31,6 +31,12 @@ export interface CoreCommands {
     slot?: SlotName;
     index?: number;
   };
+  insertComposition: {
+    compositionId: string;
+    parentId: NodeId;
+    slot?: SlotName;
+    index?: number;
+  };
   removeNode: { id: NodeId };
   moveNode: { id: NodeId; toParentId: NodeId; toSlot?: SlotName; toIndex?: number };
   setProp: { id: NodeId; key: string; value: JsonValue };
@@ -94,6 +100,74 @@ export const coreCommands: Record<CoreCommandName, RegisteredCommand> = {
         props: parseProps(rt, args.type, args.props),
       };
       insertIntoSlot(parent, slot, nodeId, args.index);
+    },
+  }),
+
+  insertComposition: defineCommand({
+    args: z.strictObject({
+      compositionId: z.string().min(1),
+      parentId: id,
+      slot: slotName.optional(),
+      index: z.number().int().min(0).optional(),
+    }),
+    run: (args) => (draft, rt) => {
+      const composition = rt.compositions(args.compositionId);
+      if (composition === undefined) {
+        throw builderError(
+          'cmd/structural-violation',
+          `Composition "${args.compositionId}" is not registered.`,
+          ['compositionId'],
+        );
+      }
+      if (composition.surfaces !== undefined && !composition.surfaces.includes(draft.surface)) {
+        throw builderError(
+          'cmd/structural-violation',
+          `Composition "${composition.id}" is not available on surface "${draft.surface}".`,
+          ['compositionId'],
+        );
+      }
+
+      const compositionRoot = composition.nodes[composition.rootId];
+      if (compositionRoot === undefined) {
+        throw builderError(
+          'cmd/structural-violation',
+          `Composition "${composition.id}" has no root node "${composition.rootId}".`,
+          ['compositionId'],
+        );
+      }
+
+      /*
+        Validate the stored subtree before allocating or attaching anything.
+        Tier-2 hydration proves JSON purity and shape; this second gate proves
+        the template against the LIVE block vocabulary and its current slot
+        contracts. A stale template therefore leaves no partial document.
+      */
+      const candidate: BuilderDocument = {
+        schemaVersion: draft.schemaVersion,
+        surface: draft.surface,
+        dir: draft.dir,
+        rootId: composition.rootId,
+        nodes: composition.nodes,
+      };
+      const violations = validateDocument(candidate, rt.blocks);
+      if (violations.length > 0) {
+        const first = violations[0];
+        throw builderError(
+          'cmd/structural-violation',
+          `Composition "${composition.id}" is invalid: ${first?.message ?? 'unknown violation'}`,
+          first?.path ?? ['compositionId'],
+        );
+      }
+
+      const parent = requireNode(draft, args.parentId);
+      const slot = args.slot ?? DEFAULT_SLOT;
+      const decl = requireSlotDecl(rt, parent, slot);
+      requireAllowed(decl.allow, compositionRoot.type, parent.id, slot);
+      const occupancy = parent.slots?.[slot]?.length ?? 0;
+      requireCapacity(decl.max, occupancy + 1, parent.id, slot);
+
+      const rootId = cloneComposition(draft, rt, composition.rootId, composition.nodes);
+      insertIntoSlot(parent, slot, rootId, args.index);
     },
   }),
 
@@ -614,6 +688,54 @@ function cloneSubtree(draft: BuilderDocument, rt: CommandRuntime, sourceId: Node
   const cloneRoot = idMap.get(sourceId);
   if (cloneRoot === undefined) {
     throw builderError('cmd/structural-violation', 'Duplicate failed to allocate ids.', ['id']);
+  }
+  return cloneRoot;
+}
+
+/** Detach-clone a validated declarative composition with fresh deterministic ids. */
+function cloneComposition(
+  draft: BuilderDocument,
+  rt: CommandRuntime,
+  sourceRootId: NodeId,
+  sourceNodes: Readonly<Record<NodeId, Node>>,
+): NodeId {
+  const orderedIds: NodeId[] = [];
+  const pending: NodeId[] = [sourceRootId];
+  while (pending.length > 0) {
+    const sourceId = pending.pop();
+    if (sourceId === undefined) continue;
+    orderedIds.push(sourceId);
+    const source = sourceNodes[sourceId];
+    const children = Object.values(source?.slots ?? {}).flat();
+    pending.push(...[...children].reverse());
+  }
+
+  const idMap = new Map<NodeId, NodeId>();
+  for (const sourceId of orderedIds) {
+    idMap.set(sourceId, rt.ids.newId());
+  }
+
+  for (const sourceId of orderedIds) {
+    const source = sourceNodes[sourceId];
+    const targetId = idMap.get(sourceId);
+    if (source === undefined || targetId === undefined) continue;
+    const clone = structuredClone(source);
+    clone.id = targetId;
+    if (clone.slots !== undefined) {
+      for (const [slot, children] of Object.entries(clone.slots)) {
+        clone.slots[slot] = children.map((childId) => idMap.get(childId) ?? childId);
+      }
+    }
+    draft.nodes[targetId] = clone;
+  }
+
+  const cloneRoot = idMap.get(sourceRootId);
+  if (cloneRoot === undefined) {
+    throw builderError(
+      'cmd/structural-violation',
+      'Composition insertion failed to allocate a root id.',
+      ['compositionId'],
+    );
   }
   return cloneRoot;
 }

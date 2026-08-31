@@ -44,6 +44,24 @@ function pageThemeStyle(): CSSProperties {
   return style;
 }
 
+/**
+ * A subtree with NO design system, which is what publishing produces.
+ *
+ * `initial` on a custom property is the one way to un-declare it: it sets the
+ * guaranteed-invalid value, so `var(--t-gap-lg, 32px)` takes its fallback
+ * exactly as it would on a page where the token was never written at all. That
+ * is reachable per element rather than only at `:root` because `@theme inline`
+ * compiles a utility to `gap: var(--t-gap-lg, 32px)` directly, instead of
+ * routing it through a variable resolved once at the document root.
+ */
+function unthemedStyle(): CSSProperties {
+  const style: Record<string, string> = {};
+  for (const name of Object.keys(lightTheme)) {
+    style[tokenCssName(name as TokenName)] = 'initial';
+  }
+  return style;
+}
+
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -128,7 +146,7 @@ const layoutProps = (overrides: Record<string, unknown> = {}) =>
   });
 
 const layoutElements = (canvasElement: HTMLElement, testId: string) => {
-  const container = proofElement(canvasElement, testId, '.mkt-hero__actions');
+  const container = proofElement(canvasElement, testId, '[data-mkt-part="actions"]');
   const first = container.querySelector<HTMLElement>('[data-layout-child="first"]');
   const second = container.querySelector<HTMLElement>('[data-layout-child="second"]');
   if (first === null || second === null) {
@@ -228,9 +246,21 @@ export const ControlRenderingContract: Story = {
   ),
   play: async ({ canvasElement, step }) => {
     await step('eyebrow paints and changes measured content', async () => {
-      const absent = proofElement(canvasElement, 'hero-eyebrow-absent', '.mkt-hero__content');
-      const present = proofElement(canvasElement, 'hero-eyebrow-present', '.mkt-hero__content');
-      const eyebrow = proofElement(canvasElement, 'hero-eyebrow-present', '.mkt-hero__eyebrow');
+      const absent = proofElement(
+        canvasElement,
+        'hero-eyebrow-absent',
+        '[data-mkt-part="content"]',
+      );
+      const present = proofElement(
+        canvasElement,
+        'hero-eyebrow-present',
+        '[data-mkt-part="content"]',
+      );
+      const eyebrow = proofElement(
+        canvasElement,
+        'hero-eyebrow-present',
+        '[data-mkt-part="eyebrow"]',
+      );
       await expect(eyebrow.getBoundingClientRect().height).toBeGreaterThan(0);
       await expect(present.getBoundingClientRect().height).toBeGreaterThan(
         absent.getBoundingClientRect().height,
@@ -239,7 +269,9 @@ export const ControlRenderingContract: Story = {
 
     await step('logical alignment resolves start, center, and end distinctly', async () => {
       const styles = (['start', 'center', 'end'] as const).map((align) =>
-        getComputedStyle(proofElement(canvasElement, `hero-align-${align}`, '.mkt-hero__content')),
+        getComputedStyle(
+          proofElement(canvasElement, `hero-align-${align}`, '[data-mkt-part="content"]'),
+        ),
       );
       await expect(styles.map((style) => style.textAlign)).toEqual(['start', 'center', 'end']);
       await expect(styles.map((style) => style.alignItems)).toEqual([
@@ -267,7 +299,7 @@ export const ControlRenderingContract: Story = {
           ),
         );
         await expect(paddings).toEqual([0, 16, 32, 64]);
-        const content = proofElement(canvasElement, 'hero-spacing-lg', '.mkt-hero__content');
+        const content = proofElement(canvasElement, 'hero-spacing-lg', '[data-mkt-part="content"]');
         const contentStyle = getComputedStyle(content);
         const gutter = Number.parseFloat(contentStyle.getPropertyValue('--t-gutter'));
         await expect(gutter).toBeGreaterThan(0);
@@ -288,7 +320,7 @@ export const ControlRenderingContract: Story = {
             proofElement(
               canvasElement,
               `hero-width-${width}`,
-              '.mkt-hero__content',
+              '[data-mkt-part="content"]',
             ).getBoundingClientRect().width,
         );
         await expect(new Set(roots).size).toBe(1);
@@ -296,7 +328,7 @@ export const ControlRenderingContract: Story = {
         const maxWidths = (['narrow', 'standard', 'wide', 'full'] as const).map(
           (width) =>
             getComputedStyle(
-              proofElement(canvasElement, `hero-width-${width}`, '.mkt-hero__content'),
+              proofElement(canvasElement, `hero-width-${width}`, '[data-mkt-part="content"]'),
             ).maxInlineSize,
         );
         await expect(new Set(maxWidths).size).toBe(4);
@@ -461,11 +493,18 @@ export const FlexLayoutRenderingContract: Story = {
       const style = getComputedStyle(container);
       const smallGap = Number.parseFloat(style.getPropertyValue('--t-gap-sm'));
       await expect(style.flexDirection).toBe('row');
-      await expect(style.flexWrap).toBe('nowrap');
+      /*
+        `wrap`, not the browser's `nowrap`. The old action row applied no
+        modifier when a layout prop was omitted and inherited whatever flex
+        does by default — which put two CTAs off the side of a phone. The
+        current default is stated: an unconfigured row wraps, and its items
+        centre on the cross axis so buttons of different heights line up.
+      */
+      await expect(style.flexWrap).toBe('wrap');
+      await expect(style.alignItems).toBe('center');
       await expect(smallGap).toBeGreaterThan(0);
       await expect(Number.parseFloat(style.gap)).toBe(smallGap);
       await expect(style.justifyContent).toBe('center');
-      await expect(style.alignItems).toBe('normal');
     });
 
     await step('row direction places slot children side by side', async () => {
@@ -583,6 +622,94 @@ export const FlexLayoutRenderingContract: Story = {
       await expect(
         Math.abs(ltrSecond.left - ltrContainer.left - (rtlContainer.right - rtlSecond.right)),
       ).toBeLessThan(1);
+    });
+  },
+};
+
+/**
+ * The proof that a published page still has geometry.
+ *
+ * `--t-*` is written by exactly one thing in the product — `CanvasFrame`, into
+ * the editor's preview frame — and for a long time publishing wrote none. That
+ * was invisible while each block shipped a stylesheet reading
+ * `var(--t-space-unit, 4px)`: the fallbacks in those files were holding every
+ * published page together. The Tailwind migration deleted the stylesheets and
+ * with them every fallback, and this block measured 0px where it needs 64.
+ *
+ * The theme bridge carries the fallbacks now, and `StaticDocument` publishes
+ * the document's own design system on top of them. This story guards the
+ * floor: strip the tokens and the page must still lay out.
+ *
+ * It is deliberately NOT a check that the numbers equal the starter theme —
+ * that would fail every time somebody tunes a default. What must never happen
+ * is a section with no padding, a column with no width, and buttons touching.
+ */
+export const UnthemedPublishContract: Story = {
+  args: Light.args,
+  parameters: { layout: 'fullscreen' },
+  render: () => (
+    <div style={{ ...unthemedStyle(), inlineSize: '60rem' }} data-testid="unthemed">
+      <Hero
+        node={{ ...node, id: 'hero-unthemed' }}
+        props={heroSchema.props.parse({
+          heading: 'Published without a design system',
+          body: 'Every length here comes from a fallback in the theme bridge.',
+          spacing: 'lg',
+          width: 'standard',
+          gutter: 'md',
+        })}
+        slots={{
+          actions: (
+            <>
+              <button type="button">Primary</button>
+              <button type="button">Secondary</button>
+            </>
+          ),
+        }}
+        data={{}}
+        isCanvas={false}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement, step }) => {
+    const root = within(canvasElement).getByTestId('unthemed');
+    const section = root.querySelector('section');
+    const content = root.querySelector<HTMLElement>('[data-mkt-part="content"]');
+    const actions = root.querySelector<HTMLElement>('[data-mkt-part="actions"]');
+    if (section === null || content === null || actions === null) {
+      throw new Error('Expected the hero to render its section, column and action row');
+    }
+
+    await step('the tokens really are gone', async () => {
+      /*
+        Without this the story would pass just as well against a themed page,
+        and would be proving nothing about the fallback.
+      */
+      await expect(getComputedStyle(root).getPropertyValue('--t-gap-lg').trim()).toBe('');
+      await expect(getComputedStyle(root).getPropertyValue('--t-space-unit').trim()).toBe('');
+    });
+
+    await step('the section still has its rhythm', async () => {
+      const style = getComputedStyle(section);
+      await expect(Number.parseFloat(style.paddingBlockStart)).toBeGreaterThan(0);
+      await expect(Number.parseFloat(style.paddingBlockEnd)).toBeGreaterThan(0);
+    });
+
+    await step('the column still has a width and a gutter', async () => {
+      const style = getComputedStyle(content);
+      await expect(style.maxWidth).not.toBe('none');
+      await expect(Number.parseFloat(style.maxWidth)).toBeGreaterThan(0);
+      await expect(Number.parseFloat(style.paddingInlineStart)).toBeGreaterThan(0);
+      await expect(Number.parseFloat(style.rowGap)).toBeGreaterThan(0);
+    });
+
+    await step('the buttons are not touching', async () => {
+      const [first, second] = [...actions.children] as HTMLElement[];
+      if (first === undefined || second === undefined) {
+        throw new Error('Expected two actions');
+      }
+      const gap = second.getBoundingClientRect().left - first.getBoundingClientRect().right;
+      await expect(gap).toBeGreaterThan(0);
     });
   },
 };

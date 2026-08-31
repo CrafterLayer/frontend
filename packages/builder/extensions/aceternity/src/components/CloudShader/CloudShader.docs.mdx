@@ -1,0 +1,71 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CloudShaderStories from './CloudShader.stories';
+
+<Meta of={CloudShaderStories} />
+
+# Cloud Shader
+
+Soft procedural clouds drifting across a sky, drawn on the GPU. A hero — or any section — goes
+inside it.
+
+<Canvas of={CloudShaderStories.Scattered} />
+
+## Where this came from
+
+Inspired by [Aceternity UI's Cloud Shader](https://ui.aceternity.com/components/cloud-shader). Their
+implementation is distributed through `npx shadcn add @aceternity/cloud-shader` rather than
+published on the page, so **nothing here is copied** — the fragment shader in `shader.ts` is written
+from scratch against the same contract. That leaves the component with no licence question attached
+to it, and it is recorded in `vendor/VENDOR.md` beside the components that genuinely are vendored,
+because "inspired by" and "adapted from" are different claims.
+
+## Colours are roles
+
+Upstream's props are `cloudColor="#fbf8f2"`, `skyTopColor="#3876ba"`, `skyBottomColor="#8cbfe8"`.
+Stored in a document those are three literals the design system can never reach — a blue sky on a
+terracotta brand, permanently.
+
+This block stores **role names** and resolves them against the element at paint time, so re-pointing
+`--t-accent` re-colours the sky. It reads them off the element rather than `:root`, which is what
+lets a published page carry a design system through `StaticDocument`'s inline theme.
+
+<Canvas of={CloudShaderStories.InvertedSky} />
+
+## Why this block runs JavaScript when nothing else does
+
+Every other effect in this workspace is a CSS keyframe on an `animation-timeline: view()`, and a
+published page downloads nothing at all to animate. A raymarched cloud field cannot be that.
+Pretending otherwise would mean shipping a worse effect and calling it the same one.
+
+The cost is contained rather than denied:
+
+- The shader lives in this block. A page without one loads none of it.
+- The render loop **stops when the section leaves the viewport** — a shader running behind content
+  the reader has scrolled past is a fan spinning for nothing.
+- Device pixel ratio is capped at 2. A cloud field is low-frequency, so a 3× display would spend
+  triple the fragments on detail the effect does not contain — and the phones with the highest
+  ratios can least afford it.
+- `prefers-reduced-motion` freezes time rather than removing the sky.
+
+## When there is no GPU
+
+WebGL is genuinely absent in real places: a hardened browser, a blocklisted driver, a headless
+renderer. The block draws a **CSS gradient sky from the same tokens the shader samples**, and only
+reveals the canvas once a context has actually compiled and drawn. A background that throws takes
+the page with it; this one degrades to something that still looks deliberate.
+
+<Canvas of={CloudShaderStories.Still} />
+
+## Controls
+
+| Prop                                            | Meaning                                                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `detail`                                        | FBM octaves — genuinely "how much structure", not a sprite count. `intricate` costs real GPU time on a phone. |
+| `coverage`                                      | `clear` · `scattered` · `overcast` — the density threshold.                                                   |
+| `speed`                                         | `still` · `drifting` · `brisk`.                                                                               |
+| `animate`                                       | Off is a real choice; a page with three moving backgrounds is unreadable.                                     |
+| `skyTopColor` / `skyBottomColor` / `cloudColor` | Design-system roles.                                                                                          |
+| `minHeight`                                     | `half` by default, so an empty sky is still a sky.                                                            |
+
+<Canvas of={CloudShaderStories.Overcast} />

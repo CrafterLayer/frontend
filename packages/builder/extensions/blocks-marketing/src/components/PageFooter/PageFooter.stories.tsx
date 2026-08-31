@@ -63,7 +63,7 @@ export const BottomBar: Story = {
     props: pageFooterSchema.props.parse({ bottomBar: true }),
   },
   play: async ({ canvasElement }) => {
-    const bottomBar = canvasElement.querySelector('.mkt-footer__bottom');
+    const bottomBar = canvasElement.querySelector('[data-page-footer-region="bottom"]');
 
     await expect(bottomBar).toContainElement(within(canvasElement).getByText('© 2026 CraftKit'));
   },

@@ -30,8 +30,37 @@ describe('Cta', () => {
     const button = screen.getByRole('button', { name: 'Learn more' });
     expect(button).toBeInTheDocument();
     expect(screen.getByText('Free trial')).toBeInTheDocument();
-    expect(button.parentElement).toHaveAttribute('class', 'mkt-cta mkt-cta--fit');
+    expect(button.parentElement).toHaveClass('inline-flex', 'flex-col', 'gap-gap-xs');
+    expect(button).toHaveClass(
+      'border-accent/40',
+      'bg-transparent',
+      'text-accent',
+      'px-control-inline-md',
+      'py-control-block-md',
+    );
     expect(button.parentElement).not.toHaveAttribute('style');
+  });
+
+  it('renders a safe destination as a real link and protects new tabs', () => {
+    render(
+      <Cta
+        node={node}
+        props={ctaSchema.props.parse({
+          label: 'Open docs',
+          href: '/docs',
+          newTab: true,
+          emphasis: 'link',
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open docs' })).toHaveAttribute('href', '/docs');
+    expect(screen.getByRole('link', { name: 'Open docs' })).toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('link', { name: 'Open docs' })).toHaveAttribute('rel', 'noreferrer');
   });
 
   it('renderer: applies shared typography and merged colour/spacing to the root', () => {
@@ -76,7 +105,7 @@ describe('Cta', () => {
       'gutter',
       'className',
     ];
-    const noDefaultKeys = [...motionKeys, 'note', ...sharedOptionalKeys];
+    const noDefaultKeys = [...motionKeys, 'href', 'note', ...sharedOptionalKeys];
 
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
     expect(typographyKeys.sort()).toEqual([
@@ -110,6 +139,7 @@ describe('Cta', () => {
     expect(props).toEqual({
       emphasis: 'primary',
       label: 'Get started',
+      newTab: false,
       size: 'md',
       width: 'fit',
     });
@@ -123,6 +153,13 @@ describe('Cta', () => {
     for (const width of ['fit', 'full']) {
       expect(ctaSchema.props.safeParse({ width }).success, `width=${width}`).toBe(true);
     }
+    for (const emphasis of ['primary', 'secondary', 'ghost', 'link']) {
+      expect(ctaSchema.props.safeParse({ emphasis }).success, `emphasis=${emphasis}`).toBe(true);
+    }
+    for (const href of ['/pricing', '#faq', 'https://example.com', 'mailto:hello@example.com']) {
+      expect(ctaSchema.props.safeParse({ href }).success, `href=${href}`).toBe(true);
+    }
+    expect(ctaSchema.props.safeParse({ href: 'javascript:alert(1)' }).success).toBe(false);
     expect(ctaSchema.props.safeParse({ size: 'xl' }).success).toBe(false);
     expect(ctaSchema.props.safeParse({ width: 'auto' }).success).toBe(false);
   });

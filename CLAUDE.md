@@ -68,9 +68,69 @@ themselves.
 - **Change it:** edit `boundedrelay-profile.json`, then re-validate with
   `node <worker>/dist/cli.js profile validate < boundedrelay-profile.json`.
 - **Turn it off:** omit `projectProfile` from the route call. Routing falls back to the plain v0.1
-  router and Codex uses the default from `~/.codex/config.toml` (currently `gpt-5.6-sol` + `ultra`).
+  router. Codex does NOT read `~/.codex/config.toml` (the worker passes `--ignore-user-config`);
+  omitted model/effort fall back to the server env defaults in `.mcp.json`
+  (`CCW_DEFAULT_MODEL=gpt-5.6-sol`, `CCW_DEFAULT_REASONING_EFFORT=high`).
 - The server allowlist stays authoritative: any model in the profile must also be in
   `CCW_ALLOWED_MODELS`, or the route call fails before a job is created.
+
+## Codex delegation playbook (BoundedRelay)
+
+The worker runs codex with `--ignore-user-config`: `~/.codex/config.toml` never applies to
+delegated jobs. Follow these rules on every delegation.
+
+**1. Every analyze/propose call passes explicit `model`, `reasoningEffort`, and `timeoutMs`.**
+Resolve them from `boundedrelay-profile.json` `codexPolicy` (`byRisk` → `byKind` → `default`) even
+when skipping the route tool. Floor is `medium` — never `low` beyond a single-file lookup. Scale
+`timeoutMs`: 900000 (15m) quick lookups; 1800000 (30m) standard analyze/review; 2400000 (40m)
+propose or debugging; up to 5400000 (90m) for sol+ultra multi-package work. A timeout or output
+kill now salvages a partial result, but plan budgets so it does not happen.
+
+**2. The task body carries the context** (budget ~90k chars; the schema rejects oversize, never
+truncates). Analyze template: GOAL · ACCEPTANCE CRITERIA · REPO ORIENTATION (pnpm monorepo;
+relevant paths under `packages/builder/*` and `apps/*`; wire v1, block-owned className, tokens-only
+colours) · FILES TO READ FIRST (5–15 paths) · KEY EXCERPTS (verbatim load-bearing snippets,
+regenerated at send time) · YOU MAY RUN (`rg`, `pnpm typecheck`, targeted
+`pnpm vitest run <path> --reporter=dot 2>&1 | tail -40` — always pipe long output through `tail`) ·
+OUTPUT CONTRACT (findings as `file:line — claim — evidence`, severity, what was ruled out, open
+questions). For propose: the clone is bootstrapped (`CCW_PROPOSAL_BOOTSTRAP` runs an offline pnpm
+install), so REQUIRE Codex to run `pnpm typecheck` + targeted `pnpm vitest run <path>` on its own
+patch before finalizing and to report the exact commands and outcomes. Fetch `expectedRevision`
+from `codex_worker_workspace` immediately before the call; keep `writePaths` narrow and under the
+profile's `writePolicy.allowedRoots`.
+
+**3. Always pass `cwd` = the repo root.** Name target subdirectories inside the task text.
+
+**4. Chain iterative work:** first job `persistSession: true`; follow-ups pass the returned
+`sessionId` as `resumeSessionId` — strictly sequential, never resume one session concurrently.
+Restate what changed since the previous job. Cap a chain at ~3 resumes, then start fresh with a
+distilled brief. Never resume FROM a proposal job (its clone is deleted at finalize) — resume the
+analyze session instead.
+
+**5. Host verification loop after every propose (mandatory):** fetch with `includePatch: true`,
+verify `patchSha256`, apply in a scratch `git worktree` (or a clean tree at the same revision), run
+the routed `requiredChecks` from the profile. On failure send ONE follow-up propose with
+`resumeSessionId`, a fresh `expectedRevision`, the failing command, and the last ~100 relevant
+output lines; at most 2 feedback rounds, then take over on the host. Only a fully passing patch
+lands.
+
+**6. One rich task vs a routed DAG:** single kind + one write scope + ≤5 effortPoints → one
+well-briefed task. Multi-package, mixed kinds, multiple write scopes, or high/critical risk →
+`codex_worker_sdd_route` with `projectProfile`, execute waves in order, copy each
+`assignments[].codexPolicy` verbatim.
+
+**7. Do not delegate:** planning/architecture/docs (host-first; the profile entries are the
+fallback when such tasks ARE routed), work needing browser/MCP/network tools, trivial <10-line
+edits, or vague "look around" prompts — sharpen them into the template first. TDD-style
+implementation IS delegable now: the bootstrapped clone lets Codex run typecheck/tests in its own
+loop.
+
+**8. Failure triage:** read `error.code` + `error.diagnostics` + `progress` from the result; a
+failed job may carry a partial `finalMessage` marked `finalMessagePartial`. TIMEOUT with high
+eventCount → split the task; TIMEOUT with eventCount≈0 → check `codex_worker_capabilities`;
+OUTPUT_LIMIT_EXCEEDED → resubmit with stronger quiet-output instructions; WORKTREE_DIRTY or
+REVISION_MISMATCH → refresh workspace state and resubmit; two RUNTIME_FAILED in a row → do it on
+the host. Use a fresh `idempotencyKey` suffix (`-v2`) per retry.
 
 <!-- SPECKIT START -->
 

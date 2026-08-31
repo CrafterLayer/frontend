@@ -37,6 +37,19 @@
   selected — which is the correct status for something no reader will ever
   interact with.
 */
+/*
+  Content sits ABOVE the effect.
+
+  The effect layer used to be `z-index: -1`, which puts it behind the element's
+  own background — fine while the aurora had none, and fatal the moment it
+  paints its own ground. Lifting the children instead keeps one ordering that
+  works either way: ground, then aurora, then content.
+*/
+.acy-aurora > * {
+  position: relative;
+  z-index: 1;
+}
+
 .acy-aurora::before {
   content: '';
   position: absolute;
@@ -45,7 +58,7 @@
     -sized layer shows a hard edge where the blur runs out.
   */
   inset: -10%;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
 
   /*
@@ -53,14 +66,23 @@
     aurora into bands, one in the brand colours to give it its hue. Both read
     from tokens, so a site with a warm palette gets a warm aurora.
   */
+  /*
+    `currentColor` for the banding layer rather than `--t-surface`.
+
+    The bands exist to break the glow into ribbons, so they have to read
+    against the aurora's OWN ground. Hard-coded to the light surface they were
+    invisible on a dark tone — which is the tone an aurora is almost always
+    set to — and the effect collapsed into one flat wash. `currentColor` is the
+    ink the tone already chose, so the ribbons show on both.
+  */
   background-image:
     repeating-linear-gradient(
       100deg,
-      var(--t-surface) 0%,
-      var(--t-surface) 7%,
+      currentColor 0%,
+      currentColor 7%,
       transparent 10%,
       transparent 12%,
-      var(--t-surface) 16%
+      currentColor 16%
     ),
     repeating-linear-gradient(
       100deg,

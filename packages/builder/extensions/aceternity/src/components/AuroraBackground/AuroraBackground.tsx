@@ -36,6 +36,17 @@ const INTENSITY_OPACITY: Record<AuroraBackgroundProps['intensity'], string> = {
   bold: '0.7',
 };
 
+/*
+  Ground and ink as a PAIR, never a ground alone. A section that set its
+  background without setting its text inherits whatever the page had, and the
+  one combination nobody checks is light-on-light.
+*/
+const TONE_CLASSES: Record<AuroraBackgroundProps['tone'], string> = {
+  transparent: 'bg-transparent text-inherit',
+  light: 'bg-surface text-text',
+  dark: 'bg-surface-inverse text-text-inverse',
+};
+
 const MIN_HEIGHT_CLASSES: Record<AuroraBackgroundProps['minHeight'], string> = {
   none: '',
   half: 'min-h-[50svh]',
@@ -55,6 +66,7 @@ export function AuroraBackground({ props, slots }: BlockRenderProps<AuroraBackgr
       className={clsx(
         'acy-aurora',
         'flex w-full flex-col justify-center',
+        TONE_CLASSES[props.tone],
         MIN_HEIGHT_CLASSES[props.minHeight],
         motionClassName,
         /* The document's own utilities go LAST, so a caller wins a conflict. */

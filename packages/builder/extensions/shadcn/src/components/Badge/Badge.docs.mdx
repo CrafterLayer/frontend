@@ -1,0 +1,30 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BadgeStories from './Badge.stories';
+
+<Meta of={BadgeStories} />
+
+# Badge
+
+A small label — "New", "Most popular", "Beta". Adapted from shadcn/ui.
+
+<Canvas of={BadgeStories.Accent} />
+
+## Every variant carries its own ink
+
+Upstream's variants read `bg-primary text-primary-foreground`, `bg-destructive …`,
+`border text-foreground` — shadcn's own theme contract. Adopted as-is they install a second design
+system beside `--t-*`.
+
+The four below are the same ideas in roles this site can re-point, and each one sets **ground and
+ink together**. A badge is small, and small is where contrast fails; one that set a background and
+inherited its text colour would be unreadable on exactly the surfaces nobody tests.
+
+<Canvas of={BadgeStories.Outline} />
+
+## The label is short by contract
+
+32 characters, because a badge is read at a glance and one that wraps to two lines has stopped being
+a badge. It edits in place on the canvas, since the label **is** the visible text.
+
+<Canvas of={BadgeStories.ArabicRtl} />

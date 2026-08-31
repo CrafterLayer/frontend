@@ -115,7 +115,8 @@ export const ControlRenderingContract: Story = {
         fit.getBoundingClientRect().width,
       );
       await expect(full.getBoundingClientRect().width).toBe(
-        proofElement(canvasElement, 'cta-width-full', '.mkt-cta').getBoundingClientRect().width,
+        proofElement(canvasElement, 'cta-width-full', '[data-cta-root]').getBoundingClientRect()
+          .width,
       );
     });
   },

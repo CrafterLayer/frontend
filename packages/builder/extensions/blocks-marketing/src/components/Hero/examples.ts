@@ -7,6 +7,7 @@ export const heroExamples: { prompt: string; node: JsonValue }[] = [
     node: {
       type: 'hero',
       props: {
+        variant: 'editorial',
         eyebrow: 'مجموعة العود الخاصة',
         tone: 'dark',
         align: 'center',
@@ -19,6 +20,7 @@ export const heroExamples: { prompt: string; node: JsonValue }[] = [
         layoutWrap: 'wrap',
         heading: 'عود يليق بذوقك',
         body: 'تركيبات فاخرة تدوم طويلاً',
+        trustLine: 'شحن مجاني · استبدال خلال 30 يوماً',
       },
     },
   },
@@ -27,6 +29,7 @@ export const heroExamples: { prompt: string; node: JsonValue }[] = [
     node: {
       type: 'hero',
       props: {
+        variant: 'split',
         eyebrow: 'Analytics without blind spots',
         tone: 'light',
         align: 'end',

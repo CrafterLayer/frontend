@@ -21,6 +21,7 @@ export const testimonialsSchema = defineBlockSchema({
     'Customer quotes with author names and optional roles, presented as cards under a section heading.',
   surfaces: ['site', 'store'],
   props: z.object({
+    eyebrow: z.string().min(1).max(60).optional(),
     heading: z.string().min(1).max(80).default('Loved by teams'),
     body: z.string().min(1).max(200).optional(),
     items: z
@@ -29,11 +30,14 @@ export const testimonialsSchema = defineBlockSchema({
           quote: z.string().min(1).max(240),
           author: z.string().min(1).max(60),
           role: z.string().max(60).optional(),
+          company: z.string().max(60).optional(),
+          rating: z.number().int().min(1).max(5).optional(),
         }),
       )
       .max(6)
       .default([]),
     columns: z.enum(['auto', '1', '2', '3']).default('auto'),
+    variant: z.enum(['cards', 'spotlight', 'wall']).default('cards'),
     align: z.enum(sectionAlignments).default('start'),
     tone: z.enum(sectionTones).default('transparent'),
     spacing: z.enum(sectionSpacings).default('md'),
@@ -53,10 +57,12 @@ export const testimonialsSchema = defineBlockSchema({
     shaping it, or making a rare structural choice.
   */
   propertyGroups: {
+    eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
     body: { tab: 'content', section: 'Text' },
     items: { tab: 'content', section: 'Quotes' },
     columns: { tab: 'design', section: 'Layout' },
+    variant: { tab: 'design', section: 'Layout' },
     align: { tab: 'design', section: 'Alignment' },
     tone: { tab: 'design', section: 'Colour' },
     spacing: { tab: 'design', section: 'Spacing' },

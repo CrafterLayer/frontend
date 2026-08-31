@@ -93,3 +93,36 @@ There is nothing to depend on, which makes it the clearest possible case for the
 - **Reduced motion.** Upstream has no `prefers-reduced-motion` handling. Ours stops the drift and
   keeps the gradient — removing the effect entirely would cost the section its identity for no
   accessibility gain.
+
+## magicui — the shine border
+
+| | |
+| --- | --- |
+| Upstream | [Magic UI](https://magicui.design/docs/components/shine-border) |
+| License | MIT — `vendor/magicui/LICENSE` |
+| Verbatim copy | `vendor/magicui/ShineBorder.upstream.tsx` |
+| Adapted into | `packages/builder/extensions/magicui/src/components/ShineBorder/` |
+
+**Why vendored rather than depended on**: Magic UI ships as a copy-paste catalog, like Aceternity.
+There is nothing to depend on.
+
+**What we kept verbatim, because it is the reason to vendor at all**: the mask-composite trick that
+paints a gradient on the BORDER only. Two masks — one clipped to the content box, one to the whole
+box — composited with `exclude` cut the fill out and leave the ring. Four lines, and genuinely
+annoying to rediscover. Both the prefixed and unprefixed spellings ship, because WebKit still wants
+the prefix.
+
+**What we changed in the adaptation** (and why):
+
+- **Numbers became named steps.** Upstream takes `borderRadius={8}`, `borderWidth={1}`,
+  `duration={14}`, `color="#000000"`. Every one is a literal a theme cannot move — a black shine on
+  a terracotta brand, an 8px radius on a page whose corners are 12. `weight` now resolves to
+  multiples of `--t-border-width`, `speed` to a duration the stylesheet owns, and the gradient reads
+  `--t-accent` and `--t-success`.
+- **Arbitrary values became a stylesheet.** Upstream carries the whole effect in
+  `before:[background-image:--background-radial-gradient]` and friends. Arbitrary values are exactly
+  what this project refuses to store, and a block whose implementation is a wall of them cannot be
+  described as token-bound.
+- **Reduced motion.** Upstream guards with `motion-safe:` on the animation only. Ours stops the
+  travel and keeps the ring — losing the border entirely would cost the element its identity for no
+  accessibility gain.

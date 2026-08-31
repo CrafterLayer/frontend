@@ -21,12 +21,19 @@ import type { KernelStoreHandle } from '../state/store';
 
 export interface Dispatcher {
   dispatch: (command: string, args: unknown, author?: Author) => Transaction;
+  dispatchGroup: (steps: readonly GroupStep[], author?: Author) => Transaction;
   undo: () => boolean;
   redo: () => boolean;
   canUndo: () => boolean;
   canRedo: () => boolean;
   log: TransactionLog;
   history: History;
+}
+
+/** One member of a grouped dispatch: the same (command, args) shape the door takes. */
+export interface GroupStep {
+  command: string;
+  args: unknown;
 }
 
 interface DispatcherDeps {
@@ -65,6 +72,47 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
       mutator(draft, deps.runtime);
     });
 
+    return commit(command, author, state, nextDoc, patches, inverse);
+  }
+
+  /**
+   * The GROUPED door (the contract `@craftkit/builder-ai` waited for): every
+   * step's args parse first (Law V, fail fast), then all mutators run over ONE
+   * immer produce — one patch set, one inverse, ONE transaction, one undo.
+   * A throw anywhere leaves document, log, and history untouched, exactly like
+   * a single rejected dispatch: grouping buys atomicity, not new risk.
+   */
+  function dispatchGroup(steps: readonly GroupStep[], author: Author = 'user'): Transaction {
+    if (steps.length === 0) {
+      throw builderError('cmd/invalid-args', 'A dispatch group needs at least one step.');
+    }
+    const mutators = steps.map((step) => {
+      const registered = deps.registry.command(step.command);
+      if (registered === undefined) {
+        throw builderError('cmd/unknown', `No command named "${step.command}" is registered.`);
+      }
+      return registered.apply(canonicalizeJsonValue(step.args));
+    });
+    const state = deps.store.getState();
+    const [nextDoc, patches, inverse] = produceWithPatches(state.doc, (draft) => {
+      for (const mutator of mutators) {
+        mutator(draft, deps.runtime);
+      }
+    });
+
+    const label =
+      steps.length === 1 ? (steps[0]?.command ?? 'group') : `group(${String(steps.length)})`;
+    return commit(label, author, state, nextDoc, patches, inverse);
+  }
+
+  function commit(
+    command: string,
+    author: Author,
+    state: ReturnType<KernelStoreHandle['getState']>,
+    nextDoc: BuilderDocument,
+    patches: Patch[],
+    inverse: Patch[],
+  ): Transaction {
     assertJsonPatches(patches);
 
     const tx: Transaction = {
@@ -122,6 +170,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
 
   return {
     dispatch,
+    dispatchGroup,
     undo: () => applyHistory(history.undo(), (tx) => tx.inverse, 'history.undone'),
     redo: () => applyHistory(history.redo(), (tx) => tx.patches, 'history.redone'),
     canUndo: () => history.canUndo(),

@@ -36,6 +36,8 @@ import { PreviewMode } from '@craftkit/builder';
     kernel={kernel}
     theme={theme}
     dirOverride={flipped ? oppositeDir : null}
+    breakpoint="mobile"
+    frameWidth={390}
     onExit={() => setPreviewing(false)}
   />
 ) : (
@@ -45,12 +47,14 @@ import { PreviewMode } from '@craftkit/builder';
 
 ## API
 
-| Prop          | Type                       | Notes                                           |
-| ------------- | -------------------------- | ----------------------------------------------- |
-| `kernel`      | `BuilderKernel`            | required; read-only here — never dispatched to  |
-| `theme`       | `Theme`                    | required; the frame's injected token theme      |
-| `dirOverride` | `ContentDirection \| null` | optional view-state direction; null = document  |
-| `onExit`      | `() => void`               | required; Escape (both documents) + exit button |
+| Prop          | Type                       | Notes                                                 |
+| ------------- | -------------------------- | ----------------------------------------------------- |
+| `kernel`      | `BuilderKernel`            | required; read-only here — never dispatched to        |
+| `theme`       | `Theme`                    | required; the frame's injected token theme            |
+| `dirOverride` | `ContentDirection \| null` | optional view-state direction; null = document        |
+| `breakpoint`  | `RenderBreakpoint`         | optional responsive prop bucket                       |
+| `frameWidth`  | `number`                   | optional real iframe viewport width in CSS pixels     |
+| `onExit`      | `() => void`               | required; Escape (both documents) and the exit button |
 
 ## Accessibility & RTL
 
@@ -63,9 +67,7 @@ renders true RTL inside the frame.
 Not a publish pipeline — it renders the live kernel document; static output is
 `renderStaticMarkup`'s job.
 
-## Known limitations
-
-- Preview renders the desktop/base breakpoint at full width; previewing responsive overrides under
-  an emulated device width is a follow-up (the contract declares no width input yet).
-- Exit-focus restoration is the composing surface's responsibility (it knows which trigger opened
-  the preview).
+`breakpoint` and `frameWidth` are deliberately separate: the former selects responsive document
+overrides; the latter gives CSS media/container queries the same physical viewport. A composing
+surface should pass both from one device selection. Exit-focus restoration remains the composing
+surface's responsibility because it knows which trigger opened the preview.

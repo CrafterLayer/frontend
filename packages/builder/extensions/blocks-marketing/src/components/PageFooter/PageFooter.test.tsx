@@ -102,8 +102,8 @@ describe('PageFooter', () => {
     );
 
     let bottomRegion = container.querySelector('[data-page-footer-slot="bottom"]');
-    expect(bottomRegion?.parentElement).toHaveClass('mkt-footer__body');
-    expect(container.querySelector('.mkt-footer__bottom')).not.toBeInTheDocument();
+    expect(bottomRegion?.parentElement).toHaveAttribute('data-page-footer-region', 'body');
+    expect(container.querySelector('[data-page-footer-region="bottom"]')).not.toBeInTheDocument();
 
     rerender(
       <PageFooter
@@ -116,9 +116,11 @@ describe('PageFooter', () => {
     );
 
     bottomRegion = container.querySelector('[data-page-footer-slot="bottom"]');
-    expect(bottomRegion?.parentElement).toHaveClass('mkt-footer__bottom');
+    expect(bottomRegion?.parentElement).toHaveAttribute('data-page-footer-region', 'bottom');
     expect(
-      container.querySelector('.mkt-footer__body > [data-page-footer-slot="bottom"]'),
+      container.querySelector(
+        '[data-page-footer-region="body"] > [data-page-footer-slot="bottom"]',
+      ),
     ).toBeNull();
     expect(screen.getAllByText('Bottom')).toHaveLength(1);
   });

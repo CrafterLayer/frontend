@@ -1,0 +1,102 @@
+/*
+  Shine border — adapted from Magic UI (MIT).
+
+  Verbatim source: vendor/magicui/ShineBorder.upstream.tsx
+  Provenance and the full list of changes: vendor/VENDOR.md
+
+  ## Why this is a stylesheet rather than the original's class string
+
+  Upstream carries the entire effect in Tailwind arbitrary values —
+  `before:[background-image:--background-radial-gradient]`,
+  `before:[background-size:300%_300%]`, `before:![mask-composite:exclude]`,
+  `rounded-[--border-radius]` — driven by inline custom properties computed from
+  NUMERIC props (`borderRadius = 8`, `borderWidth = 1`, `duration = 14`).
+
+  Two things had to change for it to belong here:
+
+  1. **The numbers.** `borderRadius={8}` is a literal pixel value in a prop, and
+     this project's whole argument is that a document stores intent rather than
+     lengths. The radius now reads `--t-radius` and the width `--t-border-width`,
+     so the shine matches every other edge on the page and moves with the theme.
+  2. **The colour.** Upstream defaults to `#000000` and expects a hex or an array
+     of them. A generated site would have had a black shine on a terracotta
+     brand. The gradient reads `--t-accent` and `--t-success`.
+
+  What is kept verbatim is the part worth vendoring: the mask-composite trick
+  that paints a gradient on the BORDER only. `mask-composite: exclude` with a
+  content-box mask cuts the fill out of the padding box and leaves the ring —
+  which is cheap to copy and genuinely annoying to rediscover.
+*/
+
+.mgc-shine {
+  position: relative;
+  border-radius: var(--t-radius);
+  isolation: isolate;
+}
+
+.mgc-shine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  border-radius: inherit;
+  /* The ring's thickness. A hairline by default, like every other edge here. */
+  padding: var(--mgc-shine-width, var(--t-border-width));
+
+  /*
+    A radial gradient that is mostly transparent, so what a viewer sees is a
+    travelling highlight rather than a full-colour border.
+  */
+  background-image: radial-gradient(
+    transparent,
+    transparent,
+    var(--t-accent),
+    var(--t-success),
+    transparent,
+    transparent
+  );
+  background-size: 300% 300%;
+
+  /*
+    THE trick, kept from upstream. Two masks — one clipped to the content box,
+    one to the whole box — composited with `exclude` cut the fill out and leave
+    only the ring. Both spellings are needed: WebKit still wants the prefix.
+  */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  will-change: background-position;
+  animation: mgc-shine-travel var(--mgc-shine-duration, 14s) linear infinite;
+  animation-play-state: var(--mgc-shine-play, running);
+}
+
+@keyframes mgc-shine-travel {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+/*
+  A travelling highlight is exactly the kind of ambient motion a reduced-motion
+  preference is asking about. The border stays — losing it would take the
+  element's whole identity — and it simply stops moving.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .mgc-shine::before {
+    animation: none;
+  }
+}

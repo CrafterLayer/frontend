@@ -1,11 +1,14 @@
 import {
   blocksMarketing,
   builderAceternity,
+  builderMagicUi,
   builderPrimitives,
+  builderShadcn,
   codeViewExtension,
   createBuilder,
   defaultBlocks,
   emptyDocument,
+  marketingTemplates,
   richTextExtension,
   type BuilderDocument,
   type BuilderKernel,
@@ -26,17 +29,52 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       type: 'page',
       props: { title: 'CraftKit Landing' },
       slots: {
-        default: ['aurora', 'about', 'showcase', 'features', 'pricing', 'quotes', 'closing'],
+        default: [
+          'announcement',
+          'aurora',
+          'logos',
+          'about',
+          'rich-story',
+          'showcase',
+          'bento',
+          'stats',
+          'features',
+          'pricing',
+          'quotes',
+          'faq',
+          'newsletter',
+        ],
+      },
+    },
+    announcement: {
+      id: 'announcement',
+      type: 'announcementBar',
+      props: {
+        label: 'New',
+        message: 'Professional page templates are now available in the builder.',
+        linkLabel: 'Explore the library',
+        href: '#templates',
+        emphasis: 'inverse',
+        layout: 'inline',
+        density: 'compact',
+        align: 'center',
+        tone: 'dark',
+        spacing: 'none',
+        width: 'wide',
       },
     },
     hero: {
       id: 'hero',
       type: 'hero',
       props: {
-        tone: 'dark',
+        /* Content, not a ground — the aurora it sits in owns both. */
+        tone: 'transparent',
         align: 'center',
+        variant: 'centered',
+        eyebrow: 'The professional website builder',
         heading: 'Build pages your kernel can prove',
-        body: 'كل تعديل يمر من باب واحد — وقابل للتراجع.',
+        body: 'Design a complete, production-ready experience from premium blocks while every change stays validated and reversible.',
+        trustLine: 'Original templates · Responsive by default · RTL ready',
         /*
           Motion, as a NAMED STEP rather than a duration. The stylesheet decides
           what 'normal' is worth, so re-pointing one theme value retimes every
@@ -55,6 +93,28 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       responsive: { mobile: { align: 'start', motion: { reveal: 'none' } } },
       slots: { actions: ['cta-start', 'cta-docs'] },
     },
+    logos: {
+      id: 'logos',
+      type: 'logoCloud',
+      props: {
+        eyebrow: 'Built for ambitious teams',
+        heading: 'A dependable foundation from first concept to global launch',
+        body: 'Product, studio, and commerce teams share the same professional design vocabulary.',
+        variant: 'minimal',
+        columns: '5',
+        align: 'center',
+        tone: 'transparent',
+        spacing: 'md',
+        width: 'wide',
+        items: [
+          { name: 'Northstar', descriptor: 'Product' },
+          { name: 'Arcform', descriptor: 'Design' },
+          { name: 'Meridian', descriptor: 'Commerce' },
+          { name: 'Canopy', descriptor: 'Operations' },
+          { name: 'Fieldwork', descriptor: 'Research' },
+        ],
+      },
+    },
     /*
       Aceternity's aurora, adapted to this project's tokens.
 
@@ -63,21 +123,21 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       against --t-*, it follows whatever palette the design system generated.
       `className` here is arbitrary Tailwind, checked at the door.
 
-      `minHeight: 'none'` and no radius, deliberately. The aurora CENTRES what
-      it frames, so a half-screen band around an opaque dark hero drew the
-      gradient only in the strips above and below it — read as unexplained
-      space at the top of the page, and the rounded corners made the hero look
-      like a card floating on the canvas rather than the page's opening. An
-      aurora hugs its child; give the hero `tone: 'transparent'` if the
-      gradient should be the hero's own ground and the band comes back.
+      The hero inside is `tone: 'transparent'`, and that is the whole
+      arrangement rather than a detail: an aurora is a BACKGROUND, so a child
+      painting its own opaque ground hides it completely. This document shipped
+      with a dark hero inside a dark aurora and the effect was invisible — the
+      block looked broken to anyone who opened the page. The aurora owns the
+      ground and the ink now; the hero is content.
     */
     aurora: {
       id: 'aurora',
       type: 'auroraBackground',
       props: {
-        intensity: 'normal',
+        tone: 'dark',
+        intensity: 'bold',
         animate: true,
-        minHeight: 'none',
+        minHeight: 'half',
       },
       slots: { default: ['hero'] },
     },
@@ -104,6 +164,31 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
     },
     about: {
       id: 'about',
+      type: 'content-section',
+      props: {
+        eyebrow: 'Designed as a system',
+        heading: 'Move fast without trading away quality or control',
+        body: 'CraftKit combines a curated design vocabulary with a deterministic editing kernel. The result is a builder that stays expressive, inspectable, and safe as the site grows.',
+        layout: 'editorial',
+        highlights: [
+          {
+            title: 'One validated door',
+            body: 'Every edit becomes a transparent transaction with reliable undo.',
+          },
+          {
+            title: 'A real design language',
+            body: 'Responsive spacing, typography, surfaces, and motion stay token-bound.',
+          },
+        ],
+        link: { label: 'See the architecture', href: '#architecture' },
+        align: 'start',
+        tone: 'light',
+        spacing: 'lg',
+        width: 'wide',
+      },
+    },
+    'rich-story': {
+      id: 'rich-story',
       type: 'richText',
       props: {
         content: {
@@ -123,9 +208,12 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
                 {
                   type: 'text',
                   text: 'validated door',
-                  marks: [{ type: 'link', attrs: { href: 'https://example.com/laws' } }],
+                  marks: [{ type: 'link', attrs: { href: '#architecture' } }],
                 },
-                { type: 'text', text: '.' },
+                {
+                  type: 'text',
+                  text: ', so design freedom never creates a second mutation path.',
+                },
               ],
             },
           ],
@@ -138,16 +226,102 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       type: 'cta',
       props: { label: 'اقرأ التوثيق', emphasis: 'ghost' },
     },
+    bento: {
+      id: 'bento',
+      type: 'bento-grid',
+      props: {
+        eyebrow: 'Everything works together',
+        heading: 'A professional building system, not a pile of disconnected widgets',
+        body: 'Compose rich sections, preserve design coherence, and keep the document portable.',
+        layout: 'mosaic',
+        align: 'start',
+        tone: 'transparent',
+        spacing: 'lg',
+        width: 'wide',
+        items: [
+          {
+            kicker: 'Vocabulary',
+            title: '25 production-ready block types',
+            body: 'From hero and bento layouts to comparisons, FAQs, contact, and editorial content.',
+            metric: '25',
+            size: 'featured',
+            emphasis: 'inverse',
+          },
+          {
+            kicker: 'Templates',
+            title: 'Complete pages in one action',
+            body: 'Start with a coherent layout and then refine every block independently.',
+            metric: '4',
+            size: 'tall',
+            emphasis: 'accent',
+          },
+          {
+            kicker: 'Safety',
+            title: 'Atomic changes',
+            body: 'Validation happens before the document changes.',
+            size: 'small',
+            emphasis: 'neutral',
+          },
+          {
+            kicker: 'Reach',
+            title: 'Responsive and RTL-ready',
+            body: 'Logical properties and container queries adapt without fragile overrides.',
+            size: 'wide',
+            emphasis: 'neutral',
+          },
+        ],
+      },
+    },
+    stats: {
+      id: 'stats',
+      type: 'stats',
+      props: {
+        eyebrow: 'Quality you can inspect',
+        heading: 'A stronger starting point for every launch',
+        body: 'The library is designed to reduce repetitive setup while keeping every decision editable.',
+        variant: 'cards',
+        columns: '4',
+        headerLayout: 'split',
+        align: 'start',
+        tone: 'light',
+        spacing: 'lg',
+        width: 'wide',
+        items: [
+          { value: '25', label: 'Block types', detail: 'Across the full marketing journey' },
+          { value: '4', label: 'Page templates', detail: 'Inserted as one transaction' },
+          { value: '100%', label: 'Token-bound', detail: 'No theme-breaking magic values' },
+          { value: 'RTL', label: 'Native direction', detail: 'The same document model' },
+        ],
+      },
+    },
     features: {
       id: 'features',
       type: 'features',
       props: {
+        eyebrow: 'Built for real work',
         heading: 'Why CraftKit',
+        body: 'The core guarantees stay invisible when you design—and dependable when you ship.',
+        variant: 'cards',
         columns: '3',
         items: [
-          { title: 'Deterministic', body: 'Same seed, same history — bit for bit.' },
-          { title: 'Sealed', body: 'One validated door; no second mutation path.' },
-          { title: 'ثنائي الاتجاه', body: 'RTL و LTR بنفس المستند.' },
+          {
+            kicker: 'Predictable',
+            icon: '01',
+            title: 'Deterministic',
+            body: 'Same seed, same history — bit for bit.',
+          },
+          {
+            kicker: 'Protected',
+            icon: '02',
+            title: 'Sealed',
+            body: 'One validated door; no second mutation path.',
+          },
+          {
+            kicker: 'Global',
+            icon: '03',
+            title: 'ثنائي الاتجاه',
+            body: 'RTL و LTR بنفس المستند.',
+          },
         ],
       },
     },
@@ -240,11 +414,88 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       id: 'quotes',
       type: 'testimonials',
       props: {
+        eyebrow: 'What teams notice',
         heading: 'Loved by teams',
-        items: [{ quote: 'أفضل تجربة بناء صفحات جربناها.', author: 'سارة', role: 'مؤسِّسة' }],
+        body: 'A builder can feel fast without becoming careless.',
+        variant: 'spotlight',
+        items: [
+          {
+            quote: 'أفضل تجربة بناء صفحات جربناها. أخيرًا السرعة والجودة في نفس المكان.',
+            author: 'سارة',
+            role: 'مؤسِّسة',
+            company: 'مدار',
+            rating: 5,
+          },
+          {
+            quote:
+              'We moved from a rough idea to a coherent launch page without fighting the system.',
+            author: 'Maya Chen',
+            role: 'Product lead',
+            company: 'Northstar',
+            rating: 5,
+          },
+        ],
       },
     },
-    closing: { id: 'closing', type: 'cta', props: { label: 'Start free', note: '14-day trial' } },
+    faq: {
+      id: 'faq',
+      type: 'faq',
+      props: {
+        eyebrow: 'Answers, upfront',
+        heading: 'Everything you need before you start building',
+        body: 'Straight answers about templates, customization, and document safety.',
+        layout: 'columns',
+        variant: 'cards',
+        openFirst: true,
+        showNumbers: false,
+        align: 'start',
+        tone: 'transparent',
+        spacing: 'lg',
+        width: 'wide',
+        items: [
+          {
+            question: 'Can I customize every template?',
+            answer:
+              'Yes. A template inserts ordinary registered blocks, so every supported property remains editable.',
+          },
+          {
+            question: 'Does inserting a template create many undo steps?',
+            answer:
+              'No. The complete composition is validated and inserted as one atomic transaction.',
+          },
+          {
+            question: 'Will the sections work on mobile?',
+            answer:
+              'Each professional block uses responsive, container-aware layouts and logical spacing.',
+          },
+          {
+            question: 'Can the same page be used in Arabic?',
+            answer:
+              'Yes. The document direction can switch to RTL without maintaining a separate component set.',
+          },
+        ],
+      },
+    },
+    newsletter: {
+      id: 'newsletter',
+      type: 'newsletter',
+      props: {
+        eyebrow: 'Product notes',
+        heading: 'Build the next version with us',
+        body: 'A concise note about new blocks, templates, and the decisions behind them.',
+        emailLabel: 'Work email',
+        placeholder: 'name@company.com',
+        buttonLabel: 'Join the list',
+        privacy: 'No noise. Unsubscribe in one click.',
+        action: '/subscribe',
+        variant: 'split',
+        formLayout: 'row',
+        align: 'start',
+        tone: 'dark',
+        spacing: 'lg',
+        width: 'wide',
+      },
+    },
   };
   return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
 }
@@ -329,7 +580,7 @@ export function createPlaygroundKernel(
           : emptyDocument('site', dir);
 
   // Deterministic by construction; zero backend, zero network (FR-014).
-  return createBuilder({
+  const kernel = createBuilder({
     document,
     // The inline fixture's document HOLDS the demo blocks, so their schemas
     // must be live at creation; landing and empty keep the FR-013 story —
@@ -341,6 +592,8 @@ export function createPlaygroundKernel(
             blocksMarketing,
             builderPrimitives,
             builderAceternity,
+            builderMagicUi,
+            builderShadcn,
             richTextExtension,
             codeViewExtension,
             demoExtension,
@@ -350,9 +603,13 @@ export function createPlaygroundKernel(
             blocksMarketing,
             builderPrimitives,
             builderAceternity,
+            builderMagicUi,
+            builderShadcn,
             richTextExtension,
             codeViewExtension,
           ],
     ports: { clock: fixedClock(), ids: seededIds('pg') },
   });
+  kernel.extensions.hydrateDeclarative(marketingTemplates);
+  return kernel;
 }

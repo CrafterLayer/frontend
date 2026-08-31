@@ -3,6 +3,7 @@ import type { z } from 'zod';
 import type { BlockSchemaLookup } from './document/validate';
 import type { BuilderDocument } from './document/types';
 import type { IdPort } from './ports';
+import type { CompositionDef } from './widgets/contract';
 
 /**
  * Deterministic capabilities available inside a command body: id allocation (Law D)
@@ -12,6 +13,8 @@ import type { IdPort } from './ports';
 export interface CommandRuntime {
   ids: IdPort;
   blocks: BlockSchemaLookup;
+  /** Live lookup so commands can detach-clone declarative templates safely. */
+  compositions: (id: string) => CompositionDef | undefined;
 }
 
 /**

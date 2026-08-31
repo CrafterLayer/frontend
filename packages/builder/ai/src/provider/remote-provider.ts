@@ -47,7 +47,12 @@ function parseWireResponse(payload: unknown): AiPlan {
     typeof payload['rationale'] === 'string' &&
     Array.isArray(payload['commands'])
   ) {
-    return { rationale: payload['rationale'], commands: payload['commands'] as AiPlan['commands'] };
+    const followUp = payload['followUp'];
+    return {
+      rationale: payload['rationale'],
+      commands: payload['commands'] as AiPlan['commands'],
+      ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
+    };
   }
   throw new RemoteAiProviderError(
     'The assistant server answered with something that is not a plan or a refusal.',
@@ -213,7 +218,15 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       context: AssembledAiContext,
       live?: AiProposeOptions,
     ): Promise<AiPlan> {
-      return post({ version: AI_PLAN_WIRE_VERSION, request, context }, live);
+      return post(
+        {
+          version: AI_PLAN_WIRE_VERSION,
+          request,
+          context,
+          ...(live?.history === undefined ? {} : { history: live.history }),
+        },
+        live,
+      );
     },
     repair(
       request: string,
@@ -223,7 +236,13 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       live?: AiProposeOptions,
     ): Promise<AiPlan> {
       return post(
-        { version: AI_PLAN_WIRE_VERSION, request, context, attempt: { plan, issues } },
+        {
+          version: AI_PLAN_WIRE_VERSION,
+          request,
+          context,
+          ...(live?.history === undefined ? {} : { history: live.history }),
+          attempt: { plan, issues },
+        },
         live,
       );
     },

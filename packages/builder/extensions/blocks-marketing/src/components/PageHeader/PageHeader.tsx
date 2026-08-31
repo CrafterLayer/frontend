@@ -1,25 +1,39 @@
-import '../section-layout.css';
-import './PageHeader.css';
-
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
+import { cx, sectionContentClasses, sectionShellClasses } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
 import { sectionMotionAttributes } from '../section-motion';
 
 import type { PageHeaderProps } from './schema';
 
 const headerSlotNames = ['start', 'center', 'end'] as const;
+type HeaderSlotName = (typeof headerSlotNames)[number];
 
-/*
-  Empty slots are the RENDERER's affordance, not each block's.
+const DENSITY_CLASSES: Record<PageHeaderProps['density'], string> = {
+  compact: 'min-h-bar-compact',
+  regular: 'min-h-bar-regular',
+  tall: 'min-h-bar-tall',
+};
 
-  A block used to render its own "drop here" hint when a slot came through
-  empty. That stopped being possible the moment the renderer began wrapping
-  every slot so the drop resolver could measure it: the slot is now always a
-  single wrapper element, never undefined, so the branch could not fire. It also
-  should not — one dashed, labelled, measurable box emitted in one place beats
-  the same idea re-implemented per block and drifting.
-*/
+const BORDER_CLASSES: Record<PageHeaderProps['border'], string | undefined> = {
+  none: undefined,
+  bottom: 'border-b',
+};
+
+const SHADOW_CLASSES: Record<PageHeaderProps['shadow'], string | undefined> = {
+  none: undefined,
+  soft: 'shadow-soft',
+  strong: 'shadow-strong',
+};
+
+function slotLayoutClasses(layout: PageHeaderProps['layout'], slotName: HeaderSlotName): string {
+  if (layout === 'stacked') return 'basis-full justify-center';
+  if (layout === 'split' && slotName === 'center') return 'ms-auto';
+  if (layout === 'split' && slotName === 'end') return 'ms-gap-lg';
+  if (layout === 'navStart' && slotName === 'center') return 'ms-gap-lg';
+  if (layout === 'navStart' && slotName === 'end') return 'ms-auto';
+  return '';
+}
 
 /**
  * A page header whose content belongs entirely to its three slots.
@@ -29,42 +43,44 @@ const headerSlotNames = ['start', 'center', 'end'] as const;
  * the active page theme rather than storing a literal colour.
  */
 export function PageHeader({ props, slots }: BlockRenderProps<PageHeaderProps>) {
-  /*
-    Motion arrives as ATTRIBUTES, never as inline style: the stylesheet stays
-    the one place any timing lives, so a document carries a named step and never
-    a duration. `class` is pulled out because React spells it `className`.
-  */
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
-  const className = [
-    'mkt-section',
-    'mkt-header',
-    `mkt-header--layout-${props.layout}`,
-    `mkt-header--density-${props.density}`,
-    `mkt-header--border-${props.border}`,
-    `mkt-header--shadow-${props.shadow}`,
-    `mkt-section--tone-${props.tone}`,
-    `mkt-section--spacing-${props.spacing}`,
-    props.sticky ? 'mkt-header--sticky' : undefined,
-    props.sticky && props.translucent ? 'mkt-header--translucent' : undefined,
-    motionClassName ?? '',
-  ]
-    .filter((name) => name !== undefined)
-    .join(' ');
+  const centered = props.layout === 'centered' || props.layout === 'stacked';
 
   return (
-    <header className={className} {...motionData} style={sectionColorStyle(props)}>
+    <header
+      className={cx(
+        sectionShellClasses(props.tone, props.spacing),
+        'isolate border-0 border-solid border-current/15 transition duration-200',
+        BORDER_CLASSES[props.border],
+        SHADOW_CLASSES[props.shadow],
+        props.sticky ? 'sticky top-0 z-20' : undefined,
+        props.sticky && props.translucent
+          ? 'bg-current/5 backdrop-blur-md backdrop-saturate-150'
+          : undefined,
+        motionClassName,
+        props.className,
+      )}
+      {...motionData}
+      style={sectionColorStyle(props)}
+    >
       <div
-        className={`mkt-section__content mkt-section__content--align-${props.align} mkt-section__content--width-${props.width} mkt-header__bar`}
+        className={cx(
+          sectionContentClasses(props.width, props.align, props.gutter),
+          'flex flex-wrap items-center gap-gap @container',
+          DENSITY_CLASSES[props.density],
+          centered ? 'justify-center' : undefined,
+          props.layout === 'stacked' ? 'text-center' : undefined,
+        )}
       >
-        {headerSlotNames.map((slotName) => {
-          const content = slots[slotName];
-
-          return (
-            <div key={slotName} className={`mkt-header__slot mkt-header__slot--${slotName}`}>
-              {content}
-            </div>
-          );
-        })}
+        {headerSlotNames.map((slotName) => (
+          <div
+            key={slotName}
+            className={cx('flex min-w-0 items-center', slotLayoutClasses(props.layout, slotName))}
+            data-page-header-slot={slotName}
+          >
+            {slots[slotName]}
+          </div>
+        ))}
       </div>
     </header>
   );

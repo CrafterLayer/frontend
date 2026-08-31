@@ -30,8 +30,10 @@ export function PricingPlan({ props, slots }: BlockRenderProps<PricingPlanProps>
 
   return (
     <article
+      /* Structural hook for the rendering proofs — see Hero.tsx. */
+      data-mkt-part="plan"
       className={cx(
-        'flex min-w-0 flex-col gap-4 rounded-base p-6',
+        'relative flex min-w-0 flex-col gap-6 overflow-hidden rounded-xl p-6 @md:p-8',
         'bg-surface text-text',
         /*
           The featured card is raised and outlined rather than recoloured. A
@@ -39,7 +41,7 @@ export function PricingPlan({ props, slots }: BlockRenderProps<PricingPlanProps>
           reader then has two things shouting and no idea which to press.
         */
         featured
-          ? 'border-2 border-accent shadow-strong'
+          ? 'border-2 border-accent shadow-elevated'
           : 'border border-text-muted/25 shadow-soft',
         motionClassName,
         /* Last, so a caller's utility wins a conflict with the card's own. */
@@ -48,10 +50,15 @@ export function PricingPlan({ props, slots }: BlockRenderProps<PricingPlanProps>
       style={sectionColorStyle(props)}
       {...motionData}
     >
-      <header className="flex min-w-0 flex-col gap-1">
-        <h3 className="text-lg font-semibold leading-tight">{props.name}</h3>
+      {featured ? (
+        <span className="absolute end-4 top-4 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+          Popular
+        </span>
+      ) : null}
+      <header className="flex min-w-0 flex-col gap-2 pe-16">
+        <h3 className="m-0 text-lg font-semibold leading-tight">{props.name}</h3>
         <p className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold leading-tight">{props.price}</span>
+          <span className="text-3xl font-bold leading-tight tracking-tight">{props.price}</span>
           {/*
             The period is muted and small because it modifies the price rather
             than competing with it — and it is inside the same paragraph so a

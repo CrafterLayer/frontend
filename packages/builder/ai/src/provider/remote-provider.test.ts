@@ -246,4 +246,27 @@ describe('createRemoteAiPlanProvider', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]?.body.attempt).toEqual({ plan, issues });
   });
+
+  it('sends the conversation history on the wire when the caller provides it', async () => {
+    const { calls, fetchImpl } = fakeFetch(() => jsonResponse(plan));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+    const history = [
+      { role: 'user' as const, text: 'add a hero' },
+      { role: 'assistant' as const, text: 'Added a hero titled Welcome.' },
+    ];
+
+    await provider.propose('make it blue', context(), { history });
+
+    expect(calls[0]?.body.history).toEqual(history);
+  });
+
+  it('carries the plan followUp suggestion through the wire', async () => {
+    const staged = { ...plan, followUp: 'كمل التنسيق والألوان' };
+    const { fetchImpl } = fakeFetch(() => jsonResponse(staged));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    const proposed = await provider.propose('build a whole page', context());
+
+    expect(proposed.followUp).toBe('كمل التنسيق والألوان');
+  });
 });

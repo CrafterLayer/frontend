@@ -97,7 +97,12 @@ describe('RichTextBlock (008 contract §4)', () => {
     const { container } = render(<RichTextBlock {...blockRenderProps} />);
 
     const section = container.firstElementChild as HTMLElement;
-    expect(section).toHaveClass('mkt-richtext', 'mkt-type--size-lg');
+    expect(section).toHaveClass(
+      'max-w-content-narrow',
+      'px-gutter',
+      'py-section-sm',
+      'mkt-type--size-lg',
+    );
     expect(section.style.color).toBe('var(--t-text-muted)');
     expect(section.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * 5)');
   });

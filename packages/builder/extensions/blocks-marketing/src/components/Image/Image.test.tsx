@@ -64,13 +64,13 @@ describe('Image', () => {
     const { container, rerender } = renderImage(props, true);
 
     expect(screen.getByText('Add an image URL.')).toBeVisible();
-    expect(container.querySelector('.mkt-image')).not.toHaveAttribute('style');
+    expect(container.firstElementChild).not.toHaveAttribute('style');
 
     rerender(<Image node={node} props={props} slots={{}} data={{}} isCanvas={false} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('fit, ratio, and radius values apply their modifier classes', () => {
+  it('fit, ratio, and radius values apply their utilities', () => {
     const base = imageSchema.props.parse({ src: SOURCE, alt: 'Product image' });
     const { rerender } = renderImage(base, false);
 
@@ -78,27 +78,36 @@ describe('Image', () => {
       rerender(
         <Image node={node} props={{ ...base, fit }} slots={{}} data={{}} isCanvas={false} />,
       );
-      expect(screen.getByRole('img', { name: 'Product image' }).closest('.mkt-image')).toHaveClass(
-        `mkt-image--fit-${fit}`,
-      );
+      const fitClass = { cover: 'object-cover', contain: 'object-contain', fill: 'object-fill' }[
+        fit
+      ];
+      expect(screen.getByRole('img', { name: 'Product image' })).toHaveClass(fitClass);
     }
 
     for (const ratio of ['auto', 'square', 'wide', 'portrait'] as const) {
       rerender(
         <Image node={node} props={{ ...base, ratio }} slots={{}} data={{}} isCanvas={false} />,
       );
-      expect(screen.getByRole('img', { name: 'Product image' }).closest('.mkt-image')).toHaveClass(
-        `mkt-image--ratio-${ratio}`,
-      );
+      const ratioClass = {
+        auto: 'aspect-auto',
+        square: 'aspect-square',
+        wide: 'aspect-video',
+        portrait: 'aspect-3/4',
+      }[ratio];
+      expect(screen.getByRole('img', { name: 'Product image' })).toHaveClass(ratioClass);
     }
 
     for (const radius of ['none', 'sm', 'md', 'full'] as const) {
       rerender(
         <Image node={node} props={{ ...base, radius }} slots={{}} data={{}} isCanvas={false} />,
       );
-      expect(screen.getByRole('img', { name: 'Product image' }).closest('.mkt-image')).toHaveClass(
-        `mkt-image--radius-${radius}`,
-      );
+      const radiusClass = {
+        none: 'rounded-none',
+        sm: 'rounded-sm',
+        md: 'rounded-base',
+        full: 'rounded-full',
+      }[radius];
+      expect(screen.getByRole('img', { name: 'Product image' })).toHaveClass(radiusClass);
     }
   });
 
@@ -112,7 +121,7 @@ describe('Image', () => {
       false,
     );
 
-    expect(container.querySelector<HTMLElement>('.mkt-image')?.style.background).toBe(
+    expect((container.firstElementChild as HTMLElement).style.background).toBe(
       'var(--t-surface-inverse)',
     );
   });
@@ -124,9 +133,9 @@ describe('Image', () => {
     });
     const { container, rerender } = renderImage(props, true);
 
-    let root = container.querySelector<HTMLElement>('.mkt-image');
-    expect(root?.style.background).toBe('var(--t-surface-inverse)');
-    expect(root?.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * -2)');
+    let root = container.firstElementChild as HTMLElement;
+    expect(root.style.background).toBe('var(--t-surface-inverse)');
+    expect(root.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * -2)');
 
     rerender(
       <Image
@@ -137,9 +146,9 @@ describe('Image', () => {
         isCanvas={false}
       />,
     );
-    root = container.querySelector<HTMLElement>('.mkt-image');
-    expect(root?.style.background).toBe('var(--t-surface-inverse)');
-    expect(root?.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * -2)');
+    root = container.firstElementChild as HTMLElement;
+    expect(root.style.background).toBe('var(--t-surface-inverse)');
+    expect(root.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * -2)');
   });
 
   it('schema defaults authored properties except src, colour roles, and spacing', () => {

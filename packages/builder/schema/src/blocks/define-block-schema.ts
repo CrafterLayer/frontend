@@ -22,7 +22,7 @@ export type BlockPropertyTab = 'content' | 'design' | 'advanced';
   optional enums; without the declaration it resolves to the read-only fallback,
   which is technically correct and useless.
 */
-export type BlockPropertyKind = 'color-role' | 'motion';
+export type BlockPropertyKind = 'color-role' | 'motion' | 'utility-classes';
 
 /** A block-owned declaration of where one property appears in the Inspector. */
 export interface BlockPropertyGroup {

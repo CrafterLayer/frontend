@@ -28,6 +28,8 @@ export interface PreviewModeProps {
    * caller keeps working, and the playground now passes its selection.
    */
   breakpoint?: RenderBreakpoint | undefined;
+  /** Viewport width in CSS pixels; omitted or invalid means the available width. */
+  frameWidth?: number | undefined;
   /** Escape (host or frame) triggers this too. */
   onExit: () => void;
 }
@@ -42,7 +44,14 @@ export interface PreviewModeProps {
  * unmounts whatever had focus, so exit must not depend on where focus landed —
  * plus the frame document (keydown does not cross documents, the B2b law).
  */
-export function PreviewMode({ kernel, theme, dirOverride, breakpoint, onExit }: PreviewModeProps) {
+export function PreviewMode({
+  kernel,
+  theme,
+  dirOverride,
+  breakpoint,
+  frameWidth,
+  onExit,
+}: PreviewModeProps) {
   const docDir = useKernelSelector(
     kernel,
     useCallback(
@@ -114,14 +123,23 @@ export function PreviewMode({ kernel, theme, dirOverride, breakpoint, onExit }: 
 
   return (
     <div ref={regionRef} className="bldr-preview" role="region" aria-label="Preview" tabIndex={0}>
-      <CanvasFrame theme={theme} dir={dir} title="Preview" onFrame={setFrame}>
-        {/*
-          `isCanvas={false}` is the whole difference between this and the
-          canvas: a block's editing-only scaffolding — empty-state hints, drop
-          affordances — must not reach the person reading the finished page.
-        */}
-        <DocumentView kernel={kernel} isCanvas={false} breakpoint={breakpoint} />
-      </CanvasFrame>
+      <div
+        className="bldr-preview__frame"
+        style={
+          frameWidth !== undefined && Number.isFinite(frameWidth) && frameWidth >= 1
+            ? { inlineSize: `${String(frameWidth)}px`, maxInlineSize: '100%' }
+            : undefined
+        }
+      >
+        <CanvasFrame theme={theme} dir={dir} title="Preview" onFrame={setFrame}>
+          {/*
+            `isCanvas={false}` is the whole difference between this and the
+            canvas: a block's editing-only scaffolding — empty-state hints, drop
+            affordances — must not reach the person reading the finished page.
+          */}
+          <DocumentView kernel={kernel} isCanvas={false} breakpoint={breakpoint} />
+        </CanvasFrame>
+      </div>
       <button type="button" className="bldr-preview__exit" onClick={onExit}>
         Exit preview
       </button>

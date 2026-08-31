@@ -73,6 +73,7 @@ export const TAILWIND_NAMESPACE: Record<TokenName, TailwindBinding> = {
   sectionSpacingSm: { namespace: 'spacing', suffix: 'section-sm' },
   sectionSpacingMd: { namespace: 'spacing', suffix: 'section-md' },
   sectionSpacingLg: { namespace: 'spacing', suffix: 'section-lg' },
+  sectionSpacingXl: { namespace: 'spacing', suffix: 'section-xl' },
   gutter: { namespace: 'spacing', suffix: 'gutter' },
 
   /*
@@ -125,8 +126,13 @@ export const TAILWIND_NAMESPACE: Record<TokenName, TailwindBinding> = {
 
   // Shape and elevation.
   radius: { namespace: 'radius', suffix: 'base' },
+  radiusSm: { namespace: 'radius', suffix: 'sm' },
+  radiusLg: { namespace: 'radius', suffix: 'lg' },
+  radiusXl: { namespace: 'radius', suffix: 'xl' },
+  radiusPill: { namespace: 'radius', suffix: 'full' },
   shadowSoft: { namespace: 'shadow', suffix: 'soft' },
   shadowStrong: { namespace: 'shadow', suffix: 'strong' },
+  shadowElevated: { namespace: 'shadow', suffix: 'elevated' },
 
   // Type.
   fontFamilySans: { namespace: 'font', suffix: 'sans' },
@@ -138,6 +144,10 @@ export const TAILWIND_NAMESPACE: Record<TokenName, TailwindBinding> = {
   fontSizeLg: { namespace: 'text', suffix: 'lg' },
   fontSizeXl: { namespace: 'text', suffix: 'xl' },
   fontSizeXxl: { namespace: 'text', suffix: '2xl' },
+  fontSize3xl: { namespace: 'text', suffix: '3xl' },
+  fontSize4xl: { namespace: 'text', suffix: '4xl' },
+  fontSize5xl: { namespace: 'text', suffix: '5xl' },
+  fontSize6xl: { namespace: 'text', suffix: '6xl' },
   fontWeightRegular: { namespace: 'font-weight', suffix: 'regular' },
   fontWeightMedium: { namespace: 'font-weight', suffix: 'medium' },
   fontWeightSemibold: { namespace: 'font-weight', suffix: 'semibold' },
@@ -175,6 +185,11 @@ const HEADER = `/*
   Tailwind utilities resolve through the site's generated design system. A
   document therefore still holds no literal: bg-accent is a reference, not a
   colour.
+
+  Each var() carries the default theme's value as its FALLBACK. The token still
+  wins wherever one is set, so re-pointing --t-accent moves every page exactly
+  as before; the fallback only decides what happens where no theme has been
+  applied at all.
 */`;
 
 /**
@@ -185,13 +200,73 @@ const HEADER = `/*
  * referring through to `var(--t-…)`, which is what lets a design-system change
  * at runtime move an already-rendered page. A non-inline theme would bake the
  * starting palette in and quietly break FR-012.
+ *
+ * ## Why every var() carries a fallback
+ *
+ * Only `CanvasFrame` writes `--t-*` into a document, and it writes them into
+ * the editor's preview frame. `StaticDocument` — the publish path — emits no
+ * theme at all. While the blocks were styled by stylesheets that read
+ * `var(--t-space-unit, 4px)`, that gap was invisible: the fallbacks in those
+ * files kept a published page laid out. The Tailwind migration deleted the
+ * stylesheets and, with them, every fallback — so a bare `var(--t-gap-lg)`
+ * resolved to nothing, `gap` fell back to `normal`, and the page lost its
+ * geometry. The Chromium story `Stack > Gap Is Real` measured 0px where it
+ * required more than 8, which is the same collapse a published page would
+ * have shipped with.
+ *
+ * The fallback comes from the theme being generated FROM, so the block is a
+ * complete design system on its own and `--t-*` overrides it when present.
+ * That is strictly what the stylesheets used to do, restored in one place
+ * instead of thirteen.
  */
+/*
+  Prettier's print width, matched deliberately.
+
+  This file is written to disk and checked by `format:check` like any other, so
+  a generator that emits its own shape puts two tools in a fight nobody wins.
+  The font stacks are the only declarations long enough to reach it — and they
+  reach it easily, because a fallback stack names every face.
+*/
+const PRINT_WIDTH = 100;
+
+/** Split on the commas BETWEEN arguments, never one inside a nested value. */
+function splitArguments(value: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (character === '(') depth += 1;
+    else if (character === ')') depth -= 1;
+    else if (character === ',' && depth === 0) {
+      parts.push(value.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  parts.push(value.slice(start).trim());
+  return parts;
+}
+
+/** One declaration, in the shape Prettier would print it. */
+function declaration(name: string, args: string): string {
+  const single = `  ${name}: var(${args});`;
+  if (single.length <= PRINT_WIDTH) {
+    return single;
+  }
+  const lines = splitArguments(args).map((argument) => `    ${argument},`);
+  /* Prettier drops the trailing comma before the closing paren. */
+  const last = lines.length - 1;
+  lines[last] = lines[last]?.replace(/,$/, '') ?? '';
+  return [`  ${name}: var(`, ...lines, '  );'].join('\n');
+}
+
 export function buildTailwindThemeCss(theme: Theme = lightTheme): string {
   const tokens = Object.keys(theme) as TokenName[];
   const declarations = tokens
     .slice()
     .sort()
-    .map((token) => `  ${tailwindVarName(token)}: var(${tokenCssName(token)});`)
+    .map((token) => declaration(tailwindVarName(token), `${tokenCssName(token)}, ${theme[token]}`))
     .join('\n');
 
   return `${HEADER}\n\n@theme inline {\n${declarations}\n}\n`;

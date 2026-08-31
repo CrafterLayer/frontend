@@ -70,20 +70,16 @@ describe('Grid', () => {
       <Grid node={node} props={props} slots={{}} data={{}} isCanvas={false} />,
     );
     const root = container.querySelector(`[data-bldr-grid="${node.id}"]`);
-    expect(root).toHaveClass(
-      'mkt-section',
-      'mkt-grid',
-      'mkt-section--tone-transparent',
-      'mkt-section--spacing-none',
-      'mkt-grid--columns-3',
-      'mkt-grid--gap-md',
-      'mkt-grid--align-start',
-      'mkt-grid--justify-start',
-      'mkt-grid--flow-row',
-    );
+    expect(root).toHaveClass('box-border', 'w-full', 'bg-transparent', 'text-inherit', 'py-0');
     expect(root).not.toHaveAttribute('style');
-    expect(container.querySelector('.mkt-section__content')).toHaveClass(
-      'mkt-section__content--width-standard',
+    expect(root?.firstElementChild).toHaveClass(
+      'max-w-content-standard',
+      'grid',
+      '@lg:grid-cols-3',
+      'gap-gap',
+      'items-start',
+      'justify-items-start',
+      'grid-flow-row',
     );
   });
 
@@ -125,10 +121,17 @@ describe('Grid', () => {
       </>,
     );
 
+    const expected = {
+      '1': 'grid-cols-1',
+      '2': '@sm:grid-cols-2',
+      '3': '@lg:grid-cols-3',
+      '4': '@xl:grid-cols-4',
+      '6': '@2xl:grid-cols-6',
+    } as const;
     for (const count of columns) {
-      expect(container.querySelector(`[data-bldr-grid="grid-${count}"]`)).toHaveClass(
-        `mkt-grid--columns-${count}`,
-      );
+      expect(
+        container.querySelector(`[data-bldr-grid="grid-${count}"]`)?.firstElementChild,
+      ).toHaveClass(expected[count]);
     }
   });
 

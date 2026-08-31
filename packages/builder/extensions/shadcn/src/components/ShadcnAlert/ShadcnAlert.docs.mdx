@@ -1,0 +1,37 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AlertStories from './ShadcnAlert.stories';
+
+<Meta of={AlertStories} />
+
+# Alert
+
+A callout that says something the reader needs to notice. Adapted from shadcn/ui.
+
+<Canvas of={AlertStories.Info} />
+
+## Severity is not only a colour
+
+Upstream ships `default` and `destructive`, and the difference between them is a text colour. That
+is a message a colour-blind reader receives as "a message" — the severity, the most important thing
+about an alert, arrives through the one channel some people do not have.
+
+Here the variant also changes what the element **reports**:
+
+| Variant     | Role     | Behaviour                            |
+| ----------- | -------- | ------------------------------------ |
+| `info`      | `status` | Waits for a pause before announcing. |
+| `attention` | `status` | Same, with a stronger outline.       |
+| `critical`  | `alert`  | Interrupts.                          |
+
+Getting this backwards is how a page ends up shouting a hint over whatever the reader was doing.
+Colour is the third signal, after the role and the glyph.
+
+<Canvas of={AlertStories.Critical} />
+
+## The body takes blocks
+
+The same argument the Card makes. An alert whose body is a string holds a sentence; a real one holds
+a sentence **and a link to the thing that fixes it**.
+
+<Canvas of={AlertStories.SeverityContract} />

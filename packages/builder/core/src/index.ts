@@ -7,6 +7,7 @@ export {
   emptyDocument,
   PERSIST_COALESCE_EVERY,
   type BuilderKernel,
+  type GroupStep,
   type CreateBuilderOptions,
 } from './kernel/create-builder';
 export { openDocument, type OpenDocumentOptions } from './kernel/open-document';

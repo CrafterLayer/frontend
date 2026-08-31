@@ -1,77 +1,68 @@
-import '../section-layout.css';
-import './PageFooter.css';
-
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
+import { ALIGN_CLASSES, cx, sectionContentClasses, sectionShellClasses } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
 import { sectionMotionAttributes } from '../section-motion';
 
 import type { PageFooterProps } from './schema';
 
-/*
-  Empty slots are the RENDERER's affordance, not each block's.
-
-  A block used to render its own "drop here" hint when a slot came through
-  empty. That stopped being possible the moment the renderer began wrapping
-  every slot so the drop resolver could measure it: the slot is now always a
-  single wrapper element, never undefined, so the branch could not fire. It also
-  should not — one dashed, labelled, measurable box emitted in one place beats
-  the same idea re-implemented per block and drifting.
-*/
+const BORDER_CLASSES: Record<PageFooterProps['border'], string | undefined> = {
+  none: undefined,
+  top: 'border-t',
+};
 
 /** A two-slot page footer whose children remain fully author-composable. */
 export function PageFooter({ props, slots }: BlockRenderProps<PageFooterProps>) {
-  const body = slots['default'];
-  const bottom = slots['bottom'];
-
-  /*
-    Motion arrives as ATTRIBUTES, never as inline style: the stylesheet stays
-    the one place any timing lives, so a document carries a named step and never
-    a duration. `class` is pulled out because React spells it `className`.
-  */
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
-  const className = [
-    'mkt-section',
-    'mkt-footer',
-    `mkt-footer--layout-${props.layout}`,
-    `mkt-footer--border-${props.border}`,
-    `mkt-section--tone-${props.tone}`,
-    `mkt-section--spacing-${props.spacing}`,
-    motionClassName ?? '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const slotClasses = cx(
+    'min-w-0',
+    props.layout === 'split' ? 'flex flex-wrap justify-between gap-gap' : undefined,
+  );
 
   return (
-    <footer className={className} style={sectionColorStyle(props)} {...motionData}>
+    <footer
+      className={cx(
+        sectionShellClasses(props.tone, props.spacing),
+        '@container border-0 border-solid border-current/15',
+        BORDER_CLASSES[props.border],
+        motionClassName,
+        props.className,
+      )}
+      style={sectionColorStyle(props)}
+      {...motionData}
+    >
       <div
-        className={`mkt-section__content mkt-section__content--width-${props.width} mkt-section__content--align-${props.align} mkt-footer__content`}
+        className={cx(
+          sectionContentClasses(props.width, props.align, props.gutter),
+          'flex flex-col gap-gap-lg',
+          ALIGN_CLASSES[props.align],
+        )}
       >
-        <div className="mkt-footer__body">
-          <div
-            className="mkt-footer__slot mkt-footer__slot--default"
-            data-page-footer-slot="default"
-          >
-            {body}
+        <div
+          className={cx(
+          'grid w-full grid-cols-1 gap-10',
+            props.layout === 'centered' ? 'justify-items-center text-center' : undefined,
+          )}
+          data-page-footer-region="body"
+        >
+          <div className={slotClasses} data-page-footer-slot="default">
+            {slots['default']}
           </div>
 
           {props.bottomBar ? null : (
-            <div
-              className="mkt-footer__slot mkt-footer__slot--bottom"
-              data-page-footer-slot="bottom"
-            >
-              {bottom}
+            <div className={slotClasses} data-page-footer-slot="bottom">
+              {slots['bottom']}
             </div>
           )}
         </div>
 
         {props.bottomBar ? (
-          <div className="mkt-footer__bottom">
-            <div
-              className="mkt-footer__slot mkt-footer__slot--bottom"
-              data-page-footer-slot="bottom"
-            >
-              {bottom}
+          <div
+            className="w-full border-t border-current/15 pt-gap"
+            data-page-footer-region="bottom"
+          >
+            <div className={slotClasses} data-page-footer-slot="bottom">
+              {slots['bottom']}
             </div>
           </div>
         ) : null}

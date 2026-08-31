@@ -5,6 +5,8 @@ export {
   documentShapeContextProvider,
   estimateContextTokens,
   selectionContextProvider,
+  templateCatalogContextProvider,
   type AssembleAiContextOptions,
 } from './assemble-context';
 export { builderAiContextExtension } from './manifest';
+export { createMemoryContextProvider, type MemoryContextProviderOptions } from './memory-provider';

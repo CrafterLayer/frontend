@@ -39,11 +39,32 @@ export const auroraBackgroundSchema = defineBlockSchema({
     */
     intensity: z.enum(['subtle', 'normal', 'bold']).default('normal'),
     /*
+      The aurora's own ground and ink.
+
+      Not decoration — it is what makes the block work at all. The effect is a
+      background, so anything inside it that paints its own opaque ground hides
+      it completely; the block shipped that way and read as broken, because the
+      one child its description recommends (a hero) is opaque by default. The
+      aurora owns the ground now and the section inside is expected to be
+      `tone: 'transparent'`, which is the arrangement upstream assumes too.
+
+      `dark` by default: an aurora is a glow, and a glow needs something to glow
+      against.
+    */
+    tone: z.enum(['light', 'dark', 'transparent']).default('dark'),
+    /*
       Whether the aurora drifts at all. Off is a real choice — a page with three
       moving backgrounds is a page nobody can read.
     */
     animate: z.boolean().default(true),
-    minHeight: z.enum(['none', 'half', 'screen']).default('none'),
+    /*
+      `half`, not `none`. A freshly inserted aurora with an empty slot has no
+      content to take its height from, so `none` made it a 48px strip with a
+      slot placeholder in it — a person adds the block, sees nothing that looks
+      like an aurora, and concludes it is broken. A block's default has to show
+      what the block IS.
+    */
+    minHeight: z.enum(['none', 'half', 'screen']).default('half'),
     motion: motionSpecSchema.optional(),
     /*
       Arbitrary Tailwind, validated at the door by the same layer-0 rule every
@@ -67,11 +88,12 @@ export const auroraBackgroundSchema = defineBlockSchema({
       .optional(),
   }),
   propertyGroups: {
+    tone: { tab: 'design', section: 'Aurora' },
     intensity: { tab: 'design', section: 'Aurora' },
     animate: { tab: 'design', section: 'Aurora' },
     minHeight: { tab: 'design', section: 'Layout' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
-    className: { tab: 'advanced', section: 'Custom classes' },
+    className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
   },
   slots: { default: { allow: [...AURORA_CHILDREN] } },
   examples: auroraExamples,

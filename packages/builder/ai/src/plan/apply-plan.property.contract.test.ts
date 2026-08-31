@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder } from '@craftkit/builder-core';
-import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
+import { fixedClock, fixtureBlocks, landingFixture, seededIds } from '@craftkit/builder-core/testing';
 import {
   defineBlockSchema,
   type BlockRenderComponent,
@@ -140,10 +140,9 @@ describe('AI plan application properties', () => {
               validationPorts: validationPorts(seed),
             });
 
-            expect(applied.transactions).toHaveLength(plan.commands.length);
-            expect(applied.transactions.map((transaction) => transaction.author)).toEqual(
-              plan.commands.map(() => 'ai'),
-            );
+            // The grouped door: however many commands, ONE ai-authored transaction.
+            expect(applied.transactions).toHaveLength(1);
+            expect(applied.transactions[0]?.author).toBe('ai');
             expect(kernel.getDocument()).not.toEqual(before);
 
             while (kernel.undo()) {
@@ -200,5 +199,37 @@ describe('AI plan application properties', () => {
     expect(kernel.transactions()).toEqual(beforeTransactions);
     expect(dispatch).not.toHaveBeenCalled();
     expect(thrown).toBeInstanceOf(AiPlanRejectedError);
+  });
+
+  it('applies a multi-command plan as ONE transaction that ONE undo fully reverses', () => {
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(10), ids: seededIds('grouped-apply') },
+    });
+    const before = structuredClone(kernel.getDocument());
+    const plan: AiPlan = {
+      rationale: 'Two inserts and a retitle, as one change.',
+      commands: [
+        { command: 'setProp', args: { id: 'hero1', key: 'heading', value: 'One change' } },
+        { command: 'insertNode', args: { type: 'text', props: { content: 'A' }, parentId: 'sec1' } },
+        { command: 'insertNode', args: { type: 'text', props: { content: 'B' }, parentId: 'sec1' } },
+      ],
+    };
+
+    const applied = applyAiPlan({
+      kernel,
+      plan,
+      validationPorts: { clock: fixedClock(20), ids: seededIds('grouped-preflight') },
+    });
+
+    expect(applied.mode).toBe('group');
+    expect(applied.transactions).toHaveLength(1);
+    expect(applied.transactions[0]?.author).toBe('ai');
+    expect(kernel.transactions()).toHaveLength(1);
+
+    expect(kernel.undo()).toBe(true);
+    expect(kernel.getDocument()).toEqual(before);
+    expect(kernel.canUndo()).toBe(false);
   });
 });

@@ -14,6 +14,10 @@ import type { Theme } from './resolve/theme';
  */
 const measurements = {
   radius: '12px',
+  radiusSm: '8px',
+  radiusLg: '16px',
+  radiusXl: '24px',
+  radiusPill: '9999px',
   gap: '16px',
   gapXs: '4px',
   gapSm: '8px',
@@ -21,6 +25,7 @@ const measurements = {
   sectionSpacingSm: '16px',
   sectionSpacingMd: '32px',
   sectionSpacingLg: '64px',
+  sectionSpacingXl: '96px',
   gutter: '24px',
   contentWidthNarrow: '40rem',
   contentWidthStandard: '64rem',
@@ -40,8 +45,9 @@ const measurements = {
     between. Both are neutral rather than tinted, because a shadow that carries
     a hue fights every accent a person picks.
   */
-  shadowSoft: '0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.10)',
-  shadowStrong: '0 4px 6px -1px rgba(15, 23, 42, 0.10), 0 2px 4px -2px rgba(15, 23, 42, 0.10)',
+  shadowSoft: '0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.1)',
+  shadowStrong: '0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.1)',
+  shadowElevated: '0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.1)',
   barHeightCompact: '48px',
   barHeightRegular: '64px',
   barHeightTall: '88px',
@@ -51,6 +57,10 @@ const measurements = {
   fontSizeXs: '0.75rem',
   fontSizeBase: '1rem',
   fontSizeXxl: '1.75rem',
+  fontSize3xl: '2.25rem',
+  fontSize4xl: '3rem',
+  fontSize5xl: '3.75rem',
+  fontSize6xl: '4.5rem',
   fontWeightRegular: '400',
   fontWeightMedium: '500',
   fontWeightSemibold: '600',

@@ -26,9 +26,18 @@ describe('Features', () => {
         isCanvas={false}
       />,
     );
-    expect(screen.getByRole('region', { name: 'Why us' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Why us' })).toHaveClass(
+      'bg-transparent',
+      'py-section-md',
+      '@container',
+    );
+    expect(screen.getByRole('list')).toHaveClass('grid', '@sm:grid-cols-2', 'gap-gap');
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.getByRole('heading', { level: 3, name: 'Fast' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Fast' }).closest('li')).toHaveClass(
+      'rounded-xl',
+      'bg-surface',
+      'p-6',
+    );
   });
 
   it('renders no list items for the empty default', () => {
@@ -155,6 +164,7 @@ describe('Features', () => {
       columns: '3',
       spacing: 'md',
       tone: 'transparent',
+      variant: 'cards',
       width: 'full',
     });
     expect(props.body).toBeUndefined();
@@ -191,7 +201,10 @@ describe('Features', () => {
       ...['none', 'sm', 'md', 'lg'].map((spacing) => ({ spacing })),
       ...['narrow', 'standard', 'wide', 'full'].map((width) => ({ width })),
       ...['1', '2', '3', '4'].map((columns) => ({ columns })),
+      ...['cards', 'bordered', 'minimal'].map((variant) => ({ variant })),
+      { eyebrow: 'One platform' },
       { body: 'Everything your team needs.' },
+      { items: [{ icon: '↗', kicker: 'Speed', title: 'Fast', body: 'Very fast.' }] },
     ];
     for (const candidate of accepted) {
       expect(featuresSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(
@@ -208,6 +221,9 @@ describe('Features', () => {
       { spacing: 'xl' },
       { width: 'auto' },
       { columns: '5' },
+      { variant: 'tiles' },
+      { eyebrow: '' },
+      { items: [{ icon: 'way-too-long', title: 'Fast', body: 'Very fast.' }] },
     ];
     for (const candidate of rejected) {
       expect(featuresSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(

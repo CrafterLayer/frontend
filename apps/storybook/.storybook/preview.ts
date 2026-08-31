@@ -7,12 +7,49 @@ import '@craftkit/builder/css';
 // exactly the pipeline a real page does.
 import './tailwind.css';
 
+/*
+  AFTER the stylesheets, deliberately.
+
+  This is a value import, but importing `@craftkit/builder` pulls in every
+  component module with it — and each one carries a side-effect `import
+  './X.css'`. Placed above the lines below, it injected every component
+  stylesheet BEFORE chrome.css, which silently reordered the cascade: IconRail's
+  focus-ring override lost to the base rule and the ring went back to being the
+  same violet as the fill it outlines.
+*/
+import { lightTheme, themeToCssVars } from '@craftkit/builder';
+
 /**
  * Direction global (008 §10 review fix): stories declaring
  * `globals: { direction: 'rtl' }` were rendering LTR — `direction` is not a
  * Storybook built-in, so nothing applied it. RTL coverage is a standing
  * requirement of this repository, and the RTL stories are the evidence for it.
  */
+/**
+ * The catalog's design system.
+ *
+ * `--t-*` is written into a document by exactly one thing in the product —
+ * `CanvasFrame`, into the editor's preview frame. A story renders a block
+ * directly, so until this existed the catalog had no tokens at all: every
+ * `var(--t-gap-sm)` resolved to nothing and the stories that read a token back
+ * measured `NaN`. The header of this file claims a story renders through the
+ * same pipeline a real page does; this is part of what makes that true rather
+ * than aspirational.
+ *
+ * It is the DEFAULT theme, applied once at `:root`, exactly as `CanvasFrame`
+ * applies whichever theme a document carries. A story that wants a different
+ * palette overrides the tokens on its own root.
+ */
+if (typeof document !== 'undefined') {
+  const id = 'craftkit-storybook-tokens';
+  if (document.getElementById(id) === null) {
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = themeToCssVars(lightTheme);
+    document.head.appendChild(style);
+  }
+}
+
 const preview = {
   initialGlobals: {
     direction: 'ltr',

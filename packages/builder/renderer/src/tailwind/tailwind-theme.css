@@ -8,64 +8,108 @@
   Tailwind utilities resolve through the site's generated design system. A
   document therefore still holds no literal: bg-accent is a reference, not a
   colour.
+
+  Each var() carries the default theme's value as its FALLBACK. The token still
+  wins wherever one is set, so re-pointing --t-accent moves every page exactly
+  as before; the fallback only decides what happens where no theme has been
+  applied at all.
 */
 
 @theme inline {
-  --color-accent: var(--t-accent);
-  --color-accent-text: var(--t-accent-text);
-  --spacing-bar-compact: var(--t-bar-height-compact);
-  --spacing-bar-regular: var(--t-bar-height-regular);
-  --spacing-bar-tall: var(--t-bar-height-tall);
-  --border-width: var(--t-border-width);
-  --container-content-narrow: var(--t-content-width-narrow);
-  --container-content-standard: var(--t-content-width-standard);
-  --container-content-wide: var(--t-content-width-wide);
-  --spacing-control-block-lg: var(--t-control-padding-block-lg);
-  --spacing-control-block-md: var(--t-control-padding-block-md);
-  --spacing-control-block-sm: var(--t-control-padding-block-sm);
-  --spacing-control-inline-lg: var(--t-control-padding-inline-lg);
-  --spacing-control-inline-md: var(--t-control-padding-inline-md);
-  --spacing-control-inline-sm: var(--t-control-padding-inline-sm);
-  --font-mono: var(--t-font-family-mono);
-  --font-sans: var(--t-font-family-sans);
-  --font-serif: var(--t-font-family-serif);
-  --text-base: var(--t-font-size-base);
-  --text-lg: var(--t-font-size-lg);
-  --text-sm: var(--t-font-size-sm);
-  --text-xl: var(--t-font-size-xl);
-  --text-xs: var(--t-font-size-xs);
-  --text-2xl: var(--t-font-size-xxl);
-  --font-weight-bold: var(--t-font-weight-bold);
-  --font-weight-medium: var(--t-font-weight-medium);
-  --font-weight-regular: var(--t-font-weight-regular);
-  --font-weight-semibold: var(--t-font-weight-semibold);
-  --spacing-gap: var(--t-gap);
-  --spacing-gap-lg: var(--t-gap-lg);
-  --spacing-gap-sm: var(--t-gap-sm);
-  --spacing-gap-xs: var(--t-gap-xs);
-  --container-grid-min-track: var(--t-grid-min-track);
-  --spacing-gutter: var(--t-gutter);
-  --tracking-normal: var(--t-letter-spacing-normal);
-  --tracking-tight: var(--t-letter-spacing-tight);
-  --tracking-wide: var(--t-letter-spacing-wide);
-  --leading-normal: var(--t-line-height-normal);
-  --leading-relaxed: var(--t-line-height-relaxed);
-  --leading-tight: var(--t-line-height-tight);
-  --spacing-motion-distance: var(--t-motion-distance);
-  --spacing-motion-parallax: var(--t-motion-parallax);
-  --container-page: var(--t-page-width);
-  --radius-base: var(--t-radius);
-  --spacing-section-lg: var(--t-section-spacing-lg);
-  --spacing-section-md: var(--t-section-spacing-md);
-  --spacing-section-sm: var(--t-section-spacing-sm);
-  --shadow-soft: var(--t-shadow-soft);
-  --shadow-strong: var(--t-shadow-strong);
-  --spacing: var(--t-space-unit);
-  --color-success: var(--t-success);
-  --color-success-text: var(--t-success-text);
-  --color-surface: var(--t-surface);
-  --color-surface-inverse: var(--t-surface-inverse);
-  --color-text: var(--t-text);
-  --color-text-inverse: var(--t-text-inverse);
-  --color-text-muted: var(--t-text-muted);
+  --color-accent: var(--t-accent, #4f46e5);
+  --color-accent-text: var(--t-accent-text, #ffffff);
+  --spacing-bar-compact: var(--t-bar-height-compact, 48px);
+  --spacing-bar-regular: var(--t-bar-height-regular, 64px);
+  --spacing-bar-tall: var(--t-bar-height-tall, 88px);
+  --border-width: var(--t-border-width, 1px);
+  --container-content-narrow: var(--t-content-width-narrow, 40rem);
+  --container-content-standard: var(--t-content-width-standard, 64rem);
+  --container-content-wide: var(--t-content-width-wide, 80rem);
+  --spacing-control-block-lg: var(--t-control-padding-block-lg, 14px);
+  --spacing-control-block-md: var(--t-control-padding-block-md, 10px);
+  --spacing-control-block-sm: var(--t-control-padding-block-sm, 8px);
+  --spacing-control-inline-lg: var(--t-control-padding-inline-lg, 28px);
+  --spacing-control-inline-md: var(--t-control-padding-inline-md, 20px);
+  --spacing-control-inline-sm: var(--t-control-padding-inline-sm, 14px);
+  --font-mono: var(--t-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  --font-sans: var(
+    --t-font-family-sans,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans Arabic',
+    sans-serif
+  );
+  --font-serif: var(
+    --t-font-family-serif,
+    Georgia,
+    Cambria,
+    'Times New Roman',
+    'Noto Naskh Arabic',
+    serif
+  );
+  --text-3xl: var(--t-font-size3xl, 2.25rem);
+  --text-4xl: var(--t-font-size4xl, 3rem);
+  --text-5xl: var(--t-font-size5xl, 3.75rem);
+  --text-6xl: var(--t-font-size6xl, 4.5rem);
+  --text-base: var(--t-font-size-base, 1rem);
+  --text-lg: var(--t-font-size-lg, 1.125rem);
+  --text-sm: var(--t-font-size-sm, 0.8125rem);
+  --text-xl: var(--t-font-size-xl, 1.375rem);
+  --text-xs: var(--t-font-size-xs, 0.75rem);
+  --text-2xl: var(--t-font-size-xxl, 1.75rem);
+  --font-weight-bold: var(--t-font-weight-bold, 700);
+  --font-weight-medium: var(--t-font-weight-medium, 500);
+  --font-weight-regular: var(--t-font-weight-regular, 400);
+  --font-weight-semibold: var(--t-font-weight-semibold, 600);
+  --spacing-gap: var(--t-gap, 16px);
+  --spacing-gap-lg: var(--t-gap-lg, 32px);
+  --spacing-gap-sm: var(--t-gap-sm, 8px);
+  --spacing-gap-xs: var(--t-gap-xs, 4px);
+  --container-grid-min-track: var(--t-grid-min-track, 12rem);
+  --spacing-gutter: var(--t-gutter, 24px);
+  --tracking-normal: var(--t-letter-spacing-normal, 0);
+  --tracking-tight: var(--t-letter-spacing-tight, -0.01em);
+  --tracking-wide: var(--t-letter-spacing-wide, 0.06em);
+  --leading-normal: var(--t-line-height-normal, 1.5);
+  --leading-relaxed: var(--t-line-height-relaxed, 1.75);
+  --leading-tight: var(--t-line-height-tight, 1.2);
+  --spacing-motion-distance: var(--t-motion-distance, 24px);
+  --spacing-motion-parallax: var(--t-motion-parallax, 40px);
+  --container-page: var(--t-page-width, 1152px);
+  --radius-base: var(--t-radius, 12px);
+  --radius-lg: var(--t-radius-lg, 16px);
+  --radius-full: var(--t-radius-pill, 9999px);
+  --radius-sm: var(--t-radius-sm, 8px);
+  --radius-xl: var(--t-radius-xl, 24px);
+  --spacing-section-lg: var(--t-section-spacing-lg, 64px);
+  --spacing-section-md: var(--t-section-spacing-md, 32px);
+  --spacing-section-sm: var(--t-section-spacing-sm, 16px);
+  --spacing-section-xl: var(--t-section-spacing-xl, 96px);
+  --shadow-elevated: var(
+    --t-shadow-elevated,
+    0 20px 25px -5px rgba(15, 23, 42, 0.1),
+    0 8px 10px -6px rgba(15, 23, 42, 0.1)
+  );
+  --shadow-soft: var(
+    --t-shadow-soft,
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 1px 3px rgba(15, 23, 42, 0.1)
+  );
+  --shadow-strong: var(
+    --t-shadow-strong,
+    0 4px 6px -1px rgba(15, 23, 42, 0.1),
+    0 2px 4px -2px rgba(15, 23, 42, 0.1)
+  );
+  --spacing: var(--t-space-unit, 4px);
+  --color-success: var(--t-success, #047857);
+  --color-success-text: var(--t-success-text, #ffffff);
+  --color-surface: var(--t-surface, #ffffff);
+  --color-surface-inverse: var(--t-surface-inverse, #111827);
+  --color-text: var(--t-text, #111827);
+  --color-text-inverse: var(--t-text-inverse, #f9fafb);
+  --color-text-muted: var(--t-text-muted, #6b7280);
 }

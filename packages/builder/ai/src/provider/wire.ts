@@ -2,7 +2,7 @@
 // implements exactly this shape; everything else — registry lookup, args
 // schemas, the scratch-kernel dry run — stays on this side of the wire, so a
 // wrong server can only ever produce a rejected proposal, never a document.
-import type { AiPlan, AiPlanValidationIssue, AssembledAiContext } from '../types';
+import type { AiChatTurn, AiPlan, AiPlanValidationIssue, AssembledAiContext } from '../types';
 
 export const AI_PLAN_WIRE_VERSION = 1;
 
@@ -17,6 +17,8 @@ export interface AiPlanWireRequest {
   version: typeof AI_PLAN_WIRE_VERSION;
   request: string;
   context: AssembledAiContext;
+  /** The conversation so far, oldest first, so follow-up requests resolve. */
+  history?: readonly AiChatTurn[];
   attempt?: AiPlanWireAttempt;
 }
 

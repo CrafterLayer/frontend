@@ -1,0 +1,28 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ComparisonTableStories from './ComparisonTable.stories';
+
+<Meta of={ComparisonTableStories} />
+
+# Comparison Table
+
+A semantic comparison section for pricing tiers, product editions, service packages, or competing
+options. It keeps the dense information of a table while giving featured plans, pricing, badges, and
+actions an intentional visual hierarchy.
+
+## Content model
+
+- Up to four `plans`, with optional description, price, period, badge, action, and featured state.
+- Up to sixteen `rows`; each row has a feature label and up to four display values.
+- Missing values use the editable `emptyValue`, so imperfect drafts remain structurally valid.
+- `variant: 'boxed' | 'minimal' | 'contrast' = 'boxed'`
+- `showActions: boolean = true` removes calls to action without changing plan data.
+- `scrollLabel` localizes the accessible name of the horizontal scroll region.
+
+## Accessibility and responsive behavior
+
+The visible heading labels the section and is repeated as the table caption for a stable table name.
+Plan names are column headers and feature names are row headers, so every value has both
+associations in assistive technology. On narrow builder columns the table remains intact inside a
+keyboard-focusable, labelled horizontal scroll region. Action URLs reject unsafe schemes, and all
+visual styling resolves through theme roles and spacing tokens.

@@ -33,6 +33,7 @@ import {
   type DefaultControl,
 } from '../../fields/resolve-field';
 import { MotionField } from '../../fields/MotionField';
+import { UtilityClassField } from '../../fields/UtilityClassField';
 import { FieldErrorBoundary } from './FieldErrorBoundary';
 import { RepeaterField } from './RepeaterField';
 
@@ -50,6 +51,13 @@ const DEFAULT_CONTROLS: Record<ScalarDefaultControl, ComponentType<FieldControlP
     composite.
   */
   motion: MotionField,
+  /*
+    So does the class editor. It renders chips and an input rather than one
+    element, but the row's label is a SIBLING carrying `htmlFor` — so pointing
+    it at the input is both possible and better than naming a group: clicking
+    "Custom classes" puts the caret where a person is about to type.
+  */
+  'utility-classes': UtilityClassField,
 };
 
 /**

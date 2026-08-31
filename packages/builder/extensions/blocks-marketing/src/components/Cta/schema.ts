@@ -9,6 +9,21 @@ import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { ctaExamples } from './examples';
 
+const safeHref = z
+  .string()
+  .min(1)
+  .max(2000)
+  .refine(
+    (value) =>
+      value.startsWith('/') ||
+      value.startsWith('#') ||
+      value.startsWith('https://') ||
+      value.startsWith('http://') ||
+      value.startsWith('mailto:') ||
+      value.startsWith('tel:'),
+    { message: 'Links must use http(s), mailto, tel, a root-relative path, or an anchor.' },
+  );
+
 export const ctaSchema = defineBlockSchema({
   type: 'cta',
   description:
@@ -16,7 +31,9 @@ export const ctaSchema = defineBlockSchema({
   surfaces: ['site', 'store'],
   props: z.object({
     label: z.string().min(1).max(40).default('Get started'),
-    emphasis: z.enum(['primary', 'ghost']).default('primary'),
+    href: safeHref.optional(),
+    newTab: z.boolean().default(false),
+    emphasis: z.enum(['primary', 'secondary', 'ghost', 'link']).default('primary'),
     note: z.string().max(80).optional(),
     size: z.enum(['sm', 'md', 'lg']).default('md'),
     width: z.enum(['fit', 'full']).default('fit'),
@@ -36,6 +53,8 @@ export const ctaSchema = defineBlockSchema({
   */
   propertyGroups: {
     label: { tab: 'content', section: 'Text' },
+    href: { tab: 'content', section: 'Link' },
+    newTab: { tab: 'advanced', section: 'Link' },
     note: { tab: 'content', section: 'Text' },
     emphasis: { tab: 'design', section: 'Style' },
     size: { tab: 'design', section: 'Style' },

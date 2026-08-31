@@ -10,6 +10,16 @@ import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { navLinksExamples } from './examples';
 
+const safeHrefSchema = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine(
+    (href) =>
+      href.startsWith('/') || href.startsWith('#') || /^(?:https?:|mailto:|tel:)/u.test(href),
+    { message: 'Link must be relative or use http, https, mailto, or tel.' },
+  );
+
 export const navLinksSchema = defineBlockSchema({
   type: 'navLinks',
   description:
@@ -20,7 +30,7 @@ export const navLinksSchema = defineBlockSchema({
       .array(
         z.object({
           label: z.string().min(1).max(24),
-          href: z.string().min(1).max(200),
+          href: safeHrefSchema,
         }),
       )
       .max(10)

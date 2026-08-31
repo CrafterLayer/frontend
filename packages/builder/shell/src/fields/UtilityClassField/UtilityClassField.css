@@ -1,0 +1,125 @@
+/*
+  The Tailwind class control.
+
+  Every measurement here is a chrome token. `packages/builder/theme/src/
+  measurements.test.ts` refuses a raw px or rem anywhere under `shell/src`, and
+  that refusal is what lets a host re-point one scale and move the whole editor.
+*/
+.bldr-utility-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+/*
+  A wrapping row of chips.
+
+  `list-style: none` with the semantics kept: a list of applied classes IS a
+  list, and a screen reader announcing "9 items" is telling the person exactly
+  what the control holds.
+*/
+.bldr-utility-field__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.bldr-utility-field__chip {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-sm);
+  display: inline-flex;
+  gap: var(--bldr-space-xs);
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
+}
+
+/*
+  Monospace, because these are code. A class read in the panel has to be
+  comparable character by character with the same class in a source file —
+  `flex-col` and `flex-cot` are one glyph apart in a proportional face.
+*/
+.bldr-utility-field__chip-name {
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-utility-field__remove {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
+  justify-content: center;
+  line-height: var(--bldr-line-height-tight);
+  padding: 0;
+  /* A square the size of the text it sits beside — a tap target, not a glyph. */
+  block-size: var(--bldr-control-sm);
+  inline-size: var(--bldr-control-sm);
+}
+
+.bldr-utility-field__remove:hover:not(:disabled) {
+  background: var(--bldr-accent-soft-hover);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-utility-field__remove:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-utility-field__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.bldr-utility-field__input {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  block-size: var(--bldr-control-height-sm);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-utility-field__input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/*
+  Red border AND a written reason. Colour alone fails anyone who cannot see it,
+  and "invalid" alone fails everyone — the message names the class and the
+  replacement, because the point is to teach the vocabulary, not to block.
+*/
+.bldr-utility-field__input[aria-invalid='true'] {
+  border-color: var(--bldr-danger-border);
+}
+
+.bldr-utility-field__rejection {
+  color: var(--bldr-danger);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-snug);
+  margin: 0;
+}

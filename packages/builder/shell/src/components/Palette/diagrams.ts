@@ -126,7 +126,7 @@ function diagramKey(type: string): string {
 export function diagramForBlockType(type: string): BlockDiagram {
   const key = diagramKey(type);
 
-  if (key.includes('pricing') || key.includes('plan')) {
+  if (key.includes('pricing') || key.includes('plan') || key.includes('comparison')) {
     return { kind: 'pricing', parts: pricingDiagram() };
   }
   if (key.includes('testimonial') || key.includes('review') || key.includes('quote')) {
@@ -146,7 +146,15 @@ export function diagramForBlockType(type: string): BlockDiagram {
   if (key.includes('column') || key.includes('row')) {
     return { kind: 'columns', parts: columnsDiagram() };
   }
-  if (key.includes('grid') || key.includes('feature') || key.includes('gallery')) {
+  if (
+    key.includes('grid') ||
+    key.includes('feature') ||
+    key.includes('gallery') ||
+    key.includes('logo') ||
+    key.includes('stats') ||
+    key.includes('team') ||
+    key.includes('blog')
+  ) {
     return { kind: 'grid', parts: gridDiagram() };
   }
   if (
@@ -154,7 +162,9 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('text') ||
     key.includes('heading') ||
     key.includes('paragraph') ||
-    key.includes('faq')
+    key.includes('faq') ||
+    key.includes('contentsection') ||
+    key.includes('process')
   ) {
     return { kind: 'text', parts: textDiagram() };
   }
@@ -162,7 +172,9 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('image') ||
     key.includes('media') ||
     key.includes('video') ||
-    key.includes('embed')
+    key.includes('embed') ||
+    key.includes('contact') ||
+    key.includes('newsletter')
   ) {
     return { kind: 'media', parts: mediaDiagram() };
   }

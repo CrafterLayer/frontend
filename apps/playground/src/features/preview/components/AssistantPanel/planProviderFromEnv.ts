@@ -1,4 +1,8 @@
-import { createRemoteAiPlanProvider, type AiPlanProvider } from '@craftkit/builder';
+import {
+  createCachingAiPlanProvider,
+  createRemoteAiPlanProvider,
+  type AiPlanProvider,
+} from '@craftkit/builder';
 
 /**
  * The one wiring point between the playground and a real assistant server.
@@ -18,6 +22,7 @@ export function planProviderFromEnv(
     return undefined;
   }
   // Generous deadline: a dev bridge fronting a CLI-spawned model can take a
-  // minute; a production server should answer far inside this.
-  return createRemoteAiPlanProvider({ endpoint, timeoutMs: 120_000 });
+  // minute; a production server should answer far inside this. The cache makes
+  // a repeated ask on an unchanged page instant and free.
+  return createCachingAiPlanProvider(createRemoteAiPlanProvider({ endpoint, timeoutMs: 120_000 }));
 }

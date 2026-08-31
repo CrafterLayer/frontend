@@ -6,11 +6,13 @@ import * as PaletteStories from './Palette.stories';
 
 # Palette
 
-The registered block vocabulary as a searchable, grouped insert surface. Entries come straight from
-the kernel's registry catalog and stay live under runtime extension registration and disposal (the
-kernel-intrinsic catalog version, the same race-proof pattern the canvas uses). First-party block
-types receive compact card names; custom extension types keep their schema description as the
-display-name fallback. Search also matches the full model-facing schema description.
+The registered block and page-template vocabulary as a searchable insert surface. The **Blocks** tab
+groups individual primitives; the **Templates** tab exposes complete responsive compositions. Both
+catalogs come straight from the kernel registry and stay live under runtime extension registration
+and disposal (the kernel-intrinsic catalog version, the same race-proof pattern the canvas uses).
+First-party block types receive compact card names; custom extension types keep their schema
+description as the display-name fallback. Search also matches the full model-facing schema
+description.
 
 ## Information design
 
@@ -45,6 +47,11 @@ proves those themes resolve to different values.
   same session machinery as rearranging, so every rule (allow lists, max counts, one transaction per
   drop, zero-trace cancel) holds identically.
 
+Template activation follows the same selection-aware placement rule, then dispatches a single
+`insertComposition` command. The kernel validates the entire stored subtree against the live block
+schemas before allocating an id or changing the document, and the whole page lands as one
+transaction with one-step undo.
+
 ## Usage
 
 ```tsx
@@ -75,6 +82,8 @@ properties make the search glyphs, padding, border edge, and card grid mirror un
 direction-specific stylesheet.
 
 <Canvas of={PaletteStories.Default} />
+
+<Canvas of={PaletteStories.TemplateInsert} />
 
 <Canvas of={PaletteStories.AccentTileThemeContract} />
 

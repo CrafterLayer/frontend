@@ -1,0 +1,32 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ContentSectionStories from './ContentSection.stories';
+
+<Meta of={ContentSectionStories} />
+
+# Content section
+
+A narrative section for company stories, product explanations, case-study context, and editorial
+content. Media is optional; an absent image never leaves an empty published placeholder.
+
+## Props
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–110)`
+- `body: string (1–600)`
+- `highlights: Array<{ title, body }>` — up to six supporting points.
+- `imageSrc?`, `imageAlt`, `caption?`, and `imageFit: 'cover' | 'contain'`
+- `mediaPosition: 'start' | 'end'`
+- `link?: { label, href }`
+- `layout: 'split' | 'stacked' | 'editorial'`
+- Shared section design controls.
+
+## Accessibility
+
+The visible `h2` names the section. Supporting points are a list, the action is a real anchor, and
+media uses native image alternative text and an optional `figcaption`.
+
+## Responsive and RTL behavior
+
+Split and editorial layouts become two columns only when their container is wide enough. Logical
+border and padding utilities keep the editorial rule on the reading-start edge in both LTR and RTL.

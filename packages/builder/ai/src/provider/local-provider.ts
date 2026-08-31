@@ -5,6 +5,7 @@ import type {
   AiBlockExampleContext,
   AiPlan,
   AiPlanProvider,
+  AiTemplateContext,
   AssembledAiContext,
 } from '../types';
 
@@ -171,6 +172,75 @@ function findInsertionTarget(
     }
   }
   return undefined;
+}
+
+const TEMPLATE_INTENT_PHRASES = Object.freeze([
+  'template',
+  'landing page',
+  'full page',
+  'complete page',
+  'whole page',
+  'full site',
+  'complete site',
+  'whole site',
+  'website',
+  'from scratch',
+  'قالب',
+  'صفحة كاملة',
+  'صفحه كامله',
+  'صفحة متكاملة',
+  'صفحه متكامله',
+  'موقع كامل',
+  'موقع متكامل',
+]);
+
+function hasTemplateIntent(request: string): boolean {
+  const normalizedRequest = normalize(request);
+  return TEMPLATE_INTENT_PHRASES.some((phrase) => normalizedRequest.includes(normalize(phrase)));
+}
+
+function scoreTemplate(template: AiTemplateContext, request: string): number {
+  const requestWords = wordSet(request);
+  const normalizedRequest = normalize(request);
+  const normalizedName = normalize(template.name);
+  const normalizedId = normalize(template.id);
+  let score = normalizedRequest.includes(normalizedName) ? 100 : 0;
+  score += normalizedRequest.includes(normalizedId) ? 100 : 0;
+  score += overlapScore(requestWords, template.name, 20);
+  score += overlapScore(requestWords, template.id, 16);
+  for (const type of template.blockTypes) {
+    score += overlapScore(requestWords, type, 2);
+  }
+  return score;
+}
+
+function chooseTemplate(
+  request: string,
+  context: AssembledAiContext,
+): { template: AiTemplateContext; target: { parentId: string; slot: string } } | undefined {
+  const templates = context.templates ?? [];
+  if (!hasTemplateIntent(request) || templates.length === 0) {
+    return undefined;
+  }
+
+  return templates
+    .map((template, index) => ({
+      template,
+      index,
+      score: scoreTemplate(template, request),
+      target: findInsertionTarget(context, template.rootType),
+    }))
+    .filter(
+      (
+        candidate,
+      ): candidate is {
+        template: AiTemplateContext;
+        index: number;
+        score: number;
+        target: { parentId: string; slot: string };
+      } => candidate.target !== undefined,
+    )
+    .sort((left, right) => right.score - left.score || left.index - right.index)[0];
 }
 
 function exampleScore(example: AiBlockExampleContext, requestWords: ReadonlySet<string>): number {
@@ -344,6 +414,19 @@ function chooseBlock(
 function proposeLocally(request: string, context: AssembledAiContext): AiPlan {
   if (request.trim() === '') {
     throw new LocalAiProviderError('A non-empty request is required.');
+  }
+  const templateChoice = chooseTemplate(request, context);
+  if (templateChoice !== undefined) {
+    const { template, target } = templateChoice;
+    return {
+      rationale: `Insert the registered ${template.name} template into ${target.parentId}.${target.slot} as one validated, undoable change.`,
+      commands: [
+        {
+          command: 'insertComposition',
+          args: { compositionId: template.id, parentId: target.parentId, slot: target.slot },
+        },
+      ],
+    };
   }
   const { block, target } = chooseBlock(request, context);
   const props = adaptRequestedCount(block, propsFromBestExample(block, wordSet(request)), request);

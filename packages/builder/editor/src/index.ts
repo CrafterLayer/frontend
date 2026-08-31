@@ -97,16 +97,42 @@ export {
   catalog. Both ship as registerable manifests, so an application composes them
   the same way it composes the marketing pack.
 */
-export { builderAceternity, auroraBackgroundSchema } from '@craftkit/builder-aceternity';
+export {
+  builderAceternity,
+  auroraBackgroundSchema,
+  cloudShaderSchema,
+} from '@craftkit/builder-aceternity';
+export { builderMagicUi, shineBorderSchema } from '@craftkit/builder-magicui';
 export { builderPrimitives } from '@craftkit/builder-primitives';
+export {
+  builderShadcn,
+  cardSchema,
+  badgeSchema,
+  shadcnAlertSchema,
+  tabsSchema,
+  tabPanelSchema,
+} from '@craftkit/builder-shadcn';
 
 export {
   blocksMarketing,
+  marketingTemplates,
+  type AnnouncementBarProps,
+  type BentoGridProps,
+  type BlogGridProps,
+  type ComparisonTableProps,
+  type ContactProps,
+  type ContentSectionProps,
   type CtaProps,
+  type FaqProps,
   type RichTextBlockProps,
   type FeaturesProps,
   type HeroProps,
+  type LogoCloudProps,
+  type NewsletterProps,
   type PricingProps,
+  type ProcessStepsProps,
+  type StatsProps,
+  type TeamProps,
   type TestimonialsProps,
 } from '@craftkit/builder-blocks-marketing';
 

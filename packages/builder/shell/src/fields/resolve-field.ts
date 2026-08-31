@@ -9,7 +9,14 @@ import type { BlockPropertyKind, FieldTypeDef, RegistryRead } from '@craftkit/bu
  * read-only fallback.
  */
 export type DefaultControl =
-  'text' | 'select' | 'switch' | 'number' | 'repeater' | 'color-role' | 'motion';
+  | 'text'
+  | 'select'
+  | 'switch'
+  | 'number'
+  | 'repeater'
+  | 'color-role'
+  | 'motion'
+  | 'utility-classes';
 
 export type ResolvedField =
   | { kind: 'contributed'; def: FieldTypeDef }
@@ -94,6 +101,9 @@ export function resolveField(
 ): ResolvedField {
   if (declaredKind === 'color-role') {
     return { kind: 'default', control: 'color-role' };
+  }
+  if (declaredKind === 'utility-classes') {
+    return { kind: 'default', control: 'utility-classes' };
   }
   if (declaredKind === 'motion') {
     return { kind: 'default', control: 'motion' };

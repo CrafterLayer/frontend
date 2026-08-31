@@ -1,0 +1,32 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as NewsletterStories from './Newsletter.stories';
+
+<Meta of={NewsletterStories} />
+
+# Newsletter
+
+A production-shaped newsletter signup section with native email validation, an editable submission
+endpoint, and visible privacy context. Inline, card, and split treatments cover compact and campaign
+layouts without changing the content contract.
+
+## Props
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–100)` and `body?: string (1–240)`
+- `emailLabel`, `placeholder`, and `buttonLabel`
+- `privacy?: string (1–180)`
+- `action: string = '/subscribe'`
+- `variant: 'inline' | 'card' | 'split'`
+- `formLayout: 'row' | 'stacked'`
+- Shared section design controls.
+
+## Accessibility
+
+The form uses a programmatic label, native `type="email"` validation, autocomplete metadata, and a
+submit button. When privacy copy exists, the email field references it with `aria-describedby`.
+
+## Responsive and RTL behavior
+
+The row form becomes horizontal only when its own container is wide enough; split presentation uses
+the same rule. Logical alignment and spacing preserve reading order in RTL.

@@ -14,6 +14,7 @@ import type {
   AiDocumentNodeContext,
   AiSelectedNodeContext,
   AiSelectionContext,
+  AiTemplateContext,
   AssembledAiContext,
 } from '../types';
 
@@ -52,6 +53,32 @@ export function estimateContextTokens(title: string, body: string): number {
 function fragment(title: string, value: unknown): ContextFragment {
   const body = stableStringify(value);
   return { title, body, tokens: estimateContextTokens(title, body) };
+}
+
+/**
+ * Prompt-side excerpting for the document-shape FRAGMENT only. A page can hold
+ * essays; a planner needs to locate text, not re-read it, and one giant prop
+ * would crowd the catalog out of the window. The marker is explicit so a model
+ * knows the value continues — and the structured `context.document` keeps every
+ * exact byte for consumers that need the real thing.
+ */
+const PROMPT_STRING_LIMIT = 400;
+
+function excerptForPrompt(value: JsonValue): JsonValue {
+  if (typeof value === 'string') {
+    return value.length > PROMPT_STRING_LIMIT
+      ? `${value.slice(0, PROMPT_STRING_LIMIT)}… [truncated]`
+      : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(excerptForPrompt);
+  }
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [key, excerptForPrompt(child)]),
+  );
 }
 
 function sortedSlots(node: Node): Readonly<Record<string, readonly NodeId[]>> {
@@ -102,6 +129,21 @@ function collectBlocks(ctx: KernelApi): readonly AiBlockContext[] {
     .sort((left, right) => compareText(left.type, right.type));
 }
 
+function collectTemplates(ctx: KernelApi): readonly AiTemplateContext[] {
+  return ctx.registry.compositions(ctx.surface).map((composition) => {
+    const root = composition.nodes[composition.rootId];
+    return {
+      id: composition.id,
+      name: composition.name,
+      rootType: root?.type ?? 'unknown',
+      nodeCount: Object.keys(composition.nodes).length,
+      blockTypes: [...new Set(Object.values(composition.nodes).map((node) => node.type))].sort(
+        compareText,
+      ),
+    };
+  });
+}
+
 function collectDocument(ctx: KernelApi): AiDocumentContext {
   const { doc } = ctx.store.getState();
   return {
@@ -133,6 +175,13 @@ export const blockCatalogContextProvider: AiContextProvider = {
   },
 };
 
+export const templateCatalogContextProvider: AiContextProvider = {
+  id: 'craftkit.template-catalog',
+  collect(ctx) {
+    return fragment('Registered page templates', collectTemplates(ctx));
+  },
+};
+
 export const selectionContextProvider: AiContextProvider = {
   id: 'craftkit.selection',
   collect(ctx, selection) {
@@ -143,12 +192,16 @@ export const selectionContextProvider: AiContextProvider = {
 export const documentShapeContextProvider: AiContextProvider = {
   id: 'craftkit.document-shape',
   collect(ctx) {
-    return fragment('Document shape', collectDocument(ctx));
+    return fragment(
+      'Document shape',
+      excerptForPrompt(collectDocument(ctx) as unknown as JsonValue),
+    );
   },
 };
 
 export const BUILDER_AI_CONTEXT_PROVIDERS: readonly AiContextProvider[] = Object.freeze([
   blockCatalogContextProvider,
+  templateCatalogContextProvider,
   selectionContextProvider,
   documentShapeContextProvider,
 ]);
@@ -180,6 +233,7 @@ export function assembleAiContext(
     fragments,
     totalTokens: fragments.reduce((total, current) => total + current.tokens, 0),
     blocks: collectBlocks(ctx),
+    templates: collectTemplates(ctx),
     document: collectDocument(ctx),
     selection: collectSelection(ctx, selection),
   };

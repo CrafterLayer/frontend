@@ -1,0 +1,32 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TeamStories from './Team.stories';
+
+<Meta of={TeamStories} />
+
+# Team
+
+A production-ready people section for leadership, studio, and company pages. `cards` is the most
+visual layout, `editorial` gives every biography more room, and `compact` works for dense rosters.
+
+## Content model
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–80) = 'Meet the team'`
+- `body?: string (1–240)`
+- `members (≤12)` contain a name, role, and optional biography, portrait, alt text, and profile URL.
+- `profileLabel: string (1–40) = 'View profile'` localizes the repeated profile action.
+- `variant: 'cards' | 'editorial' | 'compact' = 'cards'`
+- `columns: '2' | '3' | '4' = '4'`
+
+The standard shared section controls provide alignment, tone, spacing, width, token colour roles,
+motion, typography, logical padding/margins, gutter, and validated utility classes.
+
+## Accessibility and responsive behavior
+
+The section is labelled by its visible heading and the people are a semantic list. A supplied
+portrait uses its authored alt text; an image without alt text is decorative because the adjacent
+name already identifies the person. Initials are also hidden from assistive technology. Profile
+links include the member name in their accessible label. Container queries collapse every layout
+inside the actual space allocated by the builder, independent of viewport width, and all spacing
+uses logical or token-bound utilities for RTL safety.

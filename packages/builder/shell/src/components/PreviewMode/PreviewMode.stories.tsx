@@ -93,6 +93,20 @@ export const DirectionOverride: Story = {
   args: { kernel: makeKernel(), theme: lightTheme, dirOverride: 'rtl', onExit: () => undefined },
 };
 
+export const MobileViewport: Story = {
+  args: {
+    kernel: makeKernel(),
+    theme: lightTheme,
+    breakpoint: 'mobile',
+    frameWidth: 390,
+    onExit: () => undefined,
+  },
+  play: async ({ canvasElement }) => {
+    const frameShell = canvasElement.querySelector<HTMLElement>('.bldr-preview__frame');
+    await expect(frameShell?.style.inlineSize).toBe('390px');
+  },
+};
+
 const exitKernel = makeKernel();
 export const ExitControl: Story = {
   args: { kernel: exitKernel, theme: lightTheme, onExit: fn() },

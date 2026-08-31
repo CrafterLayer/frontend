@@ -297,4 +297,30 @@ describe('AI plan validation', () => {
     const result = validateAiPlan(breaking, kernel, validationPorts('stale-broken'));
     expect(result.ok).toBe(false);
   });
+
+  it('carries a follow-up suggestion through validation and drops a non-string one', () => {
+    const staged = {
+      rationale: 'Stage one: the structure.',
+      commands: [
+        {
+          command: 'insertNode',
+          args: { type: 'text', props: { content: 'Generated copy' }, parentId: 'sec1' },
+        },
+      ],
+      followUp: 'كمل التنسيق والألوان',
+    };
+
+    const result = validateAiPlan(staged, planKernel(), validationPorts('follow-up'));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.plan.followUp).toBe('كمل التنسيق والألوان');
+    }
+
+    const bad = { ...staged, followUp: 9 };
+    const lenient = validateAiPlan(bad, planKernel(), validationPorts('follow-up-bad'));
+    expect(lenient.ok).toBe(true);
+    if (lenient.ok) {
+      expect(lenient.plan.followUp).toBeUndefined();
+    }
+  });
 });

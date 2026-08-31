@@ -87,7 +87,7 @@ describe('PricingPlan', () => {
     const card = container.firstElementChild;
 
     expect(card?.className).toContain('border-accent');
-    expect(card?.className).toContain('shadow-strong');
+    expect(card?.className).toContain('shadow-elevated');
     expect(card?.className).not.toContain('bg-accent');
   });
 

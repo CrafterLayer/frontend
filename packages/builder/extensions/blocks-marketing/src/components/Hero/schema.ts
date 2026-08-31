@@ -23,9 +23,11 @@ export const heroSchema = defineBlockSchema({
     'Opening section at the top of a page: a large heading, optional supporting body, and up to two call-to-action buttons. Use once per page.',
   surfaces: ['site', 'store'],
   props: z.object({
+    variant: z.enum(['centered', 'split', 'editorial']).default('centered'),
     eyebrow: z.string().min(1).max(60).optional(),
     heading: z.string().min(1).max(80).default('Your headline'),
     body: z.string().max(200).optional(),
+    trustLine: z.string().min(1).max(120).optional(),
     align: z.enum(sectionAlignments).default('center'),
     tone: z.enum(sectionTones).default('light'),
     spacing: z.enum(sectionSpacings).default('lg'),
@@ -42,6 +44,11 @@ export const heroSchema = defineBlockSchema({
     ...sectionCustomProps,
   }),
   propertyGroups: {
+    variant: { tab: 'design', section: 'Layout' },
+    eyebrow: { tab: 'content', section: 'Text' },
+    heading: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text' },
+    trustLine: { tab: 'content', section: 'Text' },
     layoutDirection: { tab: 'design', section: 'Layout' },
     layoutJustify: { tab: 'design', section: 'Layout' },
     layoutAlign: { tab: 'design', section: 'Layout' },
@@ -54,7 +61,10 @@ export const heroSchema = defineBlockSchema({
     ...sectionCustomGroups,
   },
   inlineEditable: 'heading',
-  slots: { actions: { allow: ['cta'], max: 2 } },
+  slots: {
+    actions: { allow: ['cta'], max: 2 },
+    media: { allow: ['image', 'grid', 'stack', 'richText'], max: 1 },
+  },
   examples: heroExamples,
 });
 

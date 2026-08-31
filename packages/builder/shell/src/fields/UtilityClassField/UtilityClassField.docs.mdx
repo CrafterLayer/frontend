@@ -1,0 +1,65 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as UtilityClassFieldStories from './UtilityClassField.stories';
+
+<Meta of={UtilityClassFieldStories} />
+
+# UtilityClassField
+
+The control behind every block's **Custom classes** property. It is what makes "style this block
+with Tailwind" a thing a person can actually do, rather than a string field they have to already
+know the answer for.
+
+<Canvas of={UtilityClassFieldStories.WithClasses} />
+
+## Why a chip editor and not a text input
+
+It was a text input. Three things were wrong with it, and all three are the difference between a
+control that exists and a control that gets used:
+
+- **Nothing offered any classes.** A person had to arrive already knowing the vocabulary, which
+  meant the property was reachable only by whoever wrote the blocks.
+- **A rejection bounced the whole string.** One bad class discarded the eight good ones beside it,
+  and the reason arrived after the typing was finished.
+- **Removing one class meant editing a string with a caret**, in a panel column narrow enough that a
+  nine-class list scrolled sideways.
+
+Classes are discrete things, so they are edited as discrete things.
+
+## What it refuses, and why refusal is the right answer
+
+Two families, from `schema/src/blocks/utility-classes.ts`:
+
+| Refused                        | Why                                                                                                                               |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `p-[17px]`, `bg-[#ff0000]`     | A length or a colour wearing brackets. Nothing behind it moves when the theme changes.                                            |
+| `bg-blue-500`, `text-gray-700` | A real colour the site's design system cannot reach — the one that leaves a page half in brand colours and half in Tailwind blue. |
+
+Everything else is accepted, **including responsive and state variants** — `sm:flex-row`,
+`lg:py-section-lg`, `hover:bg-accent`. That breadth is the point: banning the whole system to catch
+two bad cases is what cost the blocks their customisability in the first place.
+
+A refused class is not stored and flagged, it is refused at entry with the replacement named.
+`bg-blue-500` in a document is not a styling mistake — it is a page the design system can no longer
+move.
+
+<Canvas of={UtilityClassFieldStories.RefusalContract} />
+
+## Suggestions guide; they do not gate
+
+The list offered is the vocabulary that resolves through **this project's** tokens — `bg-accent`
+compiles to `var(--t-accent)`, `p-4` to `calc(var(--t-space-unit) * 4)` — plus the structural
+utilities people reach for when a block's own controls run out. A class outside the list is still
+accepted. The gate is `findRejectedUtilities`, and it is the only gate.
+
+## Accessibility
+
+- Each chip's remove button is named after **its own class** — `Remove flex-col`, never nine buttons
+  all called "Remove".
+- The refusal is an `alert` and reaches the input through `aria-describedby`, so the reason is
+  available to someone who cannot see the red border.
+- `Backspace` in an empty field removes the last chip, which is what every tag input does and what
+  hands expect.
+- The input carries the `combobox` role, because it does offer a list of values.
+
+<Canvas of={UtilityClassFieldStories.Empty} />

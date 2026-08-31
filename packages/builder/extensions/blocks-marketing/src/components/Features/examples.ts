@@ -6,6 +6,7 @@ export const featuresExamples: { prompt: string; node: JsonValue }[] = [
     node: {
       type: 'features',
       props: {
+        eyebrow: 'منصة واحدة، رؤية كاملة',
         heading: 'لماذا نحن؟',
         body: 'كل ما تحتاجه لاتخاذ قرار أسرع بثقة.',
         columns: '3',
@@ -13,10 +14,11 @@ export const featuresExamples: { prompt: string; node: JsonValue }[] = [
         tone: 'light',
         spacing: 'lg',
         width: 'standard',
+        variant: 'cards',
         items: [
-          { title: 'سرعة فائقة', body: 'لوحات تتحدث لحظياً بدون انتظار.' },
-          { title: 'خصوصية أولاً', body: 'بياناتك تبقى عندك دائماً.' },
-          { title: 'تكامل سهل', body: 'اربط أدواتك بدقائق.' },
+          { icon: '↗', kicker: 'أداء', title: 'سرعة فائقة', body: 'لوحات تتحدث لحظياً بدون انتظار.' },
+          { icon: '✓', kicker: 'أمان', title: 'خصوصية أولاً', body: 'بياناتك تبقى عندك دائماً.' },
+          { icon: '+', kicker: 'تكامل', title: 'تكامل سهل', body: 'اربط أدواتك بدقائق.' },
         ],
       },
     },
@@ -33,6 +35,7 @@ export const featuresExamples: { prompt: string; node: JsonValue }[] = [
         tone: 'transparent',
         spacing: 'md',
         width: 'narrow',
+        variant: 'bordered',
         items: [
           { title: 'Typed end to end', body: 'Contracts checked at every boundary.' },
           { title: 'Deterministic', body: 'Same input, same output, every run.' },

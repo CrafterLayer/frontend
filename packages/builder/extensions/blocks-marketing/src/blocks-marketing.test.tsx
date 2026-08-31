@@ -48,15 +48,34 @@ function marketingKernel() {
 }
 
 describe('US2 — blocks-marketing extension', () => {
-  it('scenario 1: all five block types are discoverable with model-facing descriptions and examples', () => {
+  it('scenario 1: the complete professional vocabulary is discoverable with model-facing descriptions and examples', () => {
     const kernel = marketingKernel();
-    for (const type of ['hero', 'features', 'pricing', 'testimonials', 'cta']) {
+    const professionalTypes = [
+      'announcementBar',
+      'hero',
+      'logoCloud',
+      'features',
+      'bento-grid',
+      'content-section',
+      'stats',
+      'processSteps',
+      'team',
+      'pricing',
+      'testimonials',
+      'comparisonTable',
+      'faq',
+      'blogGrid',
+      'contact',
+      'newsletter',
+      'cta',
+    ];
+    for (const type of professionalTypes) {
       const entry = kernel.context.registry.block(type);
       expect(entry, type).toBeDefined();
       expect(entry?.schema.description.length ?? 0).toBeGreaterThan(20);
       expect(entry?.schema.examples.length ?? 0).toBeGreaterThan(0);
     }
-    expect(kernel.context.registry.blocks('site').length).toBeGreaterThanOrEqual(5);
+    expect(kernel.context.registry.blocks('site').length).toBeGreaterThanOrEqual(25);
   });
 
   it('model-facing examples parse and exercise every expanded control', () => {

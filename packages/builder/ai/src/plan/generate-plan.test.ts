@@ -145,4 +145,67 @@ describe('generateAiPlan repair loop', () => {
       }),
     ).rejects.toThrow(AiPlanRejectedError);
   });
+
+  it('forwards the conversation history to the provider', async () => {
+    const history = [{ role: 'user' as const, text: 'add a hero' }];
+    let seen: unknown;
+    const provider: AiPlanProvider = {
+      propose: (_request, _context, options) => {
+        seen = options?.history;
+        return Promise.resolve(goodPlan);
+      },
+    };
+
+    await generateAiPlan({
+      kernel: planKernel(),
+      provider,
+      request: 'make it blue',
+      validationPorts: { clock: fixedClock(20), ids: seededIds('history') },
+      history,
+    });
+
+    expect(seen).toEqual(history);
+  });
+
+  it('gives the provider a SECOND repair round before giving up', async () => {
+    const stillBad: AiPlan = {
+      rationale: 'Second wrong answer.',
+      commands: [{ command: 'alsoInvented', args: {} }],
+    };
+    const seen: string[] = [];
+    const provider: AiPlanProvider = {
+      propose: () => Promise.resolve(badPlan),
+      repair: (_request, _context, plan) => {
+        seen.push(plan.commands[0]?.command ?? '?');
+        return Promise.resolve(seen.length === 1 ? stillBad : goodPlan);
+      },
+    };
+
+    const plan = await generateAiPlan({
+      kernel: planKernel(),
+      provider,
+      request: 'add copy',
+      validationPorts: { clock: fixedClock(20), ids: seededIds('two-rounds') },
+    });
+
+    expect(plan).toEqual(goodPlan);
+    // Round 1 saw the original failure; round 2 saw ITS OWN failed repair.
+    expect(seen).toEqual(['invent', 'alsoInvented']);
+  });
+
+  it('stops after two failed repairs with the final issues', async () => {
+    const provider: AiPlanProvider = {
+      propose: () => Promise.resolve(badPlan),
+      repair: () => Promise.resolve(badPlan),
+    };
+
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider,
+        request: 'add copy',
+        validationPorts: { clock: fixedClock(20), ids: seededIds('exhausted') },
+      }),
+    ).rejects.toThrow(AiPlanRejectedError);
+  });
 });

@@ -56,17 +56,24 @@ Previous plan: ${JSON.stringify(body.attempt.plan)}
 Validation issues: ${JSON.stringify(body.attempt.issues)}
 `;
 
+  const history = (body.history ?? [])
+    .map((turn) => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.text}`)
+    .join('\n');
+  const conversation = history === '' ? '' : `\n# Conversation so far\n${history}\n`;
+
   return `You are the planning engine of a page builder. You NEVER write documents; you propose kernel commands that the editor validates and applies itself.
 
 ${COMMAND_REFERENCE}
 
 Rules:
 - Props must satisfy each block's JSON Schema from the catalog below. START from the block's example node and change only what the request needs. Enum values must be copied EXACTLY from the schema; if unsure about an optional prop, OMIT it — schema defaults exist and an omitted prop can never be invalid.
+- A prop value ending in "… [truncated]" is an EXCERPT of longer content: never write it back with setProp and never rewrite that prop wholesale — edit other props, or ask the user.
 - "type" MUST be copied exactly from the block catalog below — a type that is not in the catalog is REJECTED, never invented. Achieve any look by COMPOSING catalog blocks and styling them, not by imagining new ones.
 - parentId must be an existing node id from the document context ("root" is the page root), and the child type must be allowed in that parent's slot.
 - Answer with ONE JSON object and NOTHING else (no markdown fences, no prose):
   {"rationale": "<one short sentence>", "commands": [{"command": "<name>", "args": {...}}]}
 - If the request cannot be turned into commands, answer: {"refusal": "<one short sentence why>"}
+- STAGED WORK — HARD LIMIT: a plan carries AT MOST 8 commands. A request that needs more (a whole page, a redesign) is delivered in stages: do the most valuable ≤8 commands now — structure before decoration — and put the NEXT stage's request in "followUp", in the user's language (e.g. "كمل التنسيق والألوان"). followUp is REQUIRED whenever the limit stopped you before the request was fully satisfied, and omitted only when this plan finishes the request. Never exceed the limit; a 60-command plan is a failure even when correct.
 - The object must be STRICT valid JSON: double quotes only, every quote inside a string escaped, no trailing commas. Re-check long answers before finishing.
 - Every command carries a "title": one short human sentence naming the step IN THE SAME LANGUAGE as the user's request ("إضافة قسم الأسعار", "Recolour the hero"). Write the rationale in that language too.
 - STYLING with "className" (a prop every block accepts, via setProp or inside insertNode props):
@@ -77,7 +84,7 @@ Rules:
 
 # Editor context
 ${fragments}
-${repair}
+${conversation}${repair}
 # User request
 ${body.request}`;
 }
@@ -236,7 +243,13 @@ function toWireResponse(modelText) {
   if (typeof parsed.rationale !== 'string' || !Array.isArray(parsed.commands)) {
     throw new Error('Model answer is neither a plan nor a refusal.');
   }
-  return { rationale: parsed.rationale, commands: parsed.commands };
+  return {
+    rationale: parsed.rationale,
+    commands: parsed.commands,
+    ...(typeof parsed.followUp === 'string' && parsed.followUp !== ''
+      ? { followUp: parsed.followUp }
+      : {}),
+  };
 }
 
 const server = createServer((req, res) => {

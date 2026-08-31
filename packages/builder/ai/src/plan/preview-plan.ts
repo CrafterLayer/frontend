@@ -1,8 +1,8 @@
-import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
+import type { BuilderKernel } from '@craftkit/builder-core';
 import type { BuilderDocument } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiValidationPorts } from '../types';
-import { assertValidAiPlan, validationManifest } from './validate-plan';
+import { assertValidAiPlan, createValidationKernel } from './validate-plan';
 
 export interface PreviewAiPlanOptions {
   kernel: BuilderKernel;
@@ -19,11 +19,7 @@ export interface PreviewAiPlanOptions {
  */
 export function previewAiPlan(options: PreviewAiPlanOptions): BuilderDocument {
   const plan = assertValidAiPlan(options.plan, options.kernel, options.validationPorts);
-  const scratch = createBuilder({
-    document: options.kernel.getDocument(),
-    extensions: [validationManifest(plan, options.kernel)],
-    ports: options.validationPorts,
-  });
+  const scratch = createValidationKernel(plan, options.kernel, options.validationPorts);
   for (const step of plan.commands) {
     scratch.dispatch(step.command, step.args, 'ai');
   }

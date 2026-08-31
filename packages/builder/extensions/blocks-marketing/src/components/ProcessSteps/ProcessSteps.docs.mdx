@@ -1,0 +1,52 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as ProcessStepsStories from './ProcessSteps.stories';
+
+<Meta of={ProcessStepsStories} />
+
+# Process Steps
+
+An ordered explanation of a service methodology, onboarding flow, implementation plan, or customer
+journey. Use it when sequence matters. Use feature cards when the items are independent rather than
+ordered.
+
+<Canvas of={ProcessStepsStories.Default} />
+<Controls />
+
+## Public props and defaults
+
+- `eyebrow`, `heading`, and `body` provide a complete introduction. Omitting a value uses the
+  professional default copy.
+- `steps` accepts up to eight `{ title, body, meta? }` records and defaults to a four-stage launch
+  process. Empty arrays are supported without placeholder content.
+- `variant = 'cards'` supports `minimal` and `accented` alternatives.
+- `layout = 'horizontal'` uses a responsive grid; `vertical` creates one constrained reading column.
+  `columns = 'auto'` may be set to two, three, or four for horizontal layouts.
+- `showNumbers = true` displays decorative sequence badges. When false, a small accent marker
+  preserves rhythm while the ordered list retains sequence semantics.
+- Shared section controls remain optional, inherited, token-bound, and available in the Inspector.
+
+## Accessibility
+
+The visible `h2` labels the section and an ordered list communicates sequence. Every step has an
+`h3`; numbers and markers are decorative because list semantics already announce position. There are
+no hidden interactions or motion that bypasses the shared reduced-motion contract.
+
+## Responsive, RTL, and content guidance
+
+Horizontal layouts progressively gain columns through container queries. Vertical borders, padding,
+and alignment use logical properties, so the timeline edge follows LTR and RTL direction. Use
+imperative titles, one outcome per step, and a short `meta` value for phase, owner, or timing.
+
+## Example
+
+```ts
+processStepsSchema.props.parse({
+  heading: 'From brief to launch',
+  layout: 'horizontal',
+  steps: [
+    { title: 'Discover', body: 'Understand the audience.', meta: 'Week 01' },
+    { title: 'Deliver', body: 'Build, validate, and publish.', meta: 'Week 04' },
+  ],
+});
+```

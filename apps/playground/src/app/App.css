@@ -1026,7 +1026,8 @@ body,
 .pg-chat__composer-actions {
   align-items: center;
   display: flex;
-  justify-content: flex-end;
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
   padding: var(--bldr-space-0) var(--bldr-space-md) var(--bldr-space-md);
   position: relative;
 }
@@ -1148,4 +1149,135 @@ body,
   gap: var(--bldr-space-md);
   justify-content: flex-end;
   padding: var(--bldr-space-lg) var(--bldr-space-3xl);
+}
+
+
+/* ── MODES, the way Claude wears them: quiet pills inside the composer, the
+   active one lit. Ask proposes, Auto applies, Plan only plans. */
+.pg-chat__modes {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-full);
+  display: inline-flex;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-2xs);
+}
+
+.pg-chat__mode {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-medium);
+  min-block-size: var(--bldr-space-4xl);
+  padding-inline: var(--bldr-space-lg);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__mode:hover {
+  color: var(--bldr-panel-text);
+}
+
+.pg-chat__mode[aria-checked='true'] {
+  background: var(--pg-magic-linear);
+  color: #fff;
+}
+
+.pg-chat__mode:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* ── THE @ MENTION PICKER: blocks on the page, one press each. Floats over
+   the thread from the composer's top edge, like every mention menu. */
+.pg-chat__mentions {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  bottom: calc(100% + var(--bldr-space-sm));
+  box-shadow: var(--bldr-shadow-overlay);
+  display: flex;
+  flex-direction: column;
+  inset-inline: var(--bldr-space-md);
+  max-block-size: calc(var(--bldr-space-6xl) * 6);
+  overflow-y: auto;
+  padding: var(--bldr-space-xs);
+  position: absolute;
+  z-index: 30;
+}
+
+.pg-chat__mention {
+  align-items: baseline;
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+  text-align: start;
+}
+
+.pg-chat__mention:hover {
+  background: var(--bldr-surface-hover);
+}
+
+.pg-chat__mention:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-focus-ring-offset) * -1);
+}
+
+.pg-chat__mention-id {
+  color: var(--bldr-accent);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-chat__mention-type {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.pg-chat__mention-excerpt {
+  color: var(--bldr-panel-text-soft);
+  flex: 1;
+  font-size: var(--bldr-font-size-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chat__mention-empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-md);
+}
+
+/* ── The continue chip: a full-width, WRAPPING suggestion — long Arabic
+   follow-ups fold inside the card instead of running off its edge. */
+.pg-chat__composer .pg-chat__composer-actions .bldr-chrome-button.pg-chat__continue,
+.pg-chat__card .bldr-chrome-button.pg-chat__continue {
+  align-items: flex-start;
+  block-size: auto;
+  inline-size: 100%;
+  justify-content: flex-start;
+  min-block-size: var(--bldr-control-sm);
+  padding-block: var(--bldr-space-sm);
+  text-align: start;
+  white-space: normal;
+}
+
+.pg-chat__continue-text {
+  flex: 1;
+  line-height: var(--bldr-line-height-snug);
+  overflow-wrap: anywhere;
+  white-space: normal;
 }

@@ -22,7 +22,17 @@ describe('Testimonials', () => {
         isCanvas={false}
       />,
     );
-    expect(screen.getByRole('region', { name: 'Loved by teams' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Loved by teams' })).toHaveClass(
+      'bg-transparent',
+      'py-section-md',
+      '@container',
+    );
+    expect(screen.getByRole('list')).toHaveClass('grid', '@lg:grid-cols-3', 'gap-gap');
+    expect(screen.getByRole('figure')).toHaveClass(
+      'rounded-xl',
+      'border',
+      'bg-surface',
+    );
     expect(screen.getByRole('figure')).toHaveTextContent('Boring tests, happy team.');
     expect(screen.getByText(/Rana/)).toBeInTheDocument();
     expect(screen.getByText(/Staff Engineer/)).toBeInTheDocument();
@@ -152,6 +162,7 @@ describe('Testimonials', () => {
       columns: 'auto',
       spacing: 'md',
       tone: 'transparent',
+      variant: 'cards',
       width: 'full',
     });
     expect(props.body).toBeUndefined();
@@ -187,6 +198,19 @@ describe('Testimonials', () => {
       ...['none', 'sm', 'md', 'lg'].map((spacing) => ({ spacing })),
       ...['narrow', 'standard', 'wide', 'full'].map((width) => ({ width })),
       ...['auto', '1', '2', '3'].map((columns) => ({ columns })),
+      ...['cards', 'spotlight', 'wall'].map((variant) => ({ variant })),
+      { eyebrow: 'Customer stories' },
+      {
+        items: [
+          {
+            quote: 'The best launch we have had.',
+            author: 'Rana',
+            role: 'Founder',
+            company: 'Northstar',
+            rating: 5,
+          },
+        ],
+      },
       { body: 'Stories from teams shipping with CraftKit.' },
     ];
     for (const candidate of accepted) {
@@ -204,6 +228,9 @@ describe('Testimonials', () => {
       { spacing: 'xl' },
       { width: 'auto' },
       { columns: '4' },
+      { variant: 'carousel' },
+      { eyebrow: '' },
+      { items: [{ quote: 'Good', author: 'Rana', rating: 6 }] },
     ];
     for (const candidate of rejected) {
       expect(testimonialsSchema.props.safeParse(candidate).success, JSON.stringify(candidate)).toBe(

@@ -105,13 +105,13 @@ describe('PageHeader', () => {
     );
 
     const header = screen.getByRole('banner');
-    const slotElements = [...container.querySelectorAll('.mkt-header__slot')];
-    const bar = container.querySelector('.mkt-header__bar');
+    const slotElements = [...container.querySelectorAll('[data-page-header-slot]')];
+    const bar = header.firstElementChild;
 
-    expect(slotElements.map((element) => element.className)).toEqual([
-      'mkt-header__slot mkt-header__slot--start',
-      'mkt-header__slot mkt-header__slot--center',
-      'mkt-header__slot mkt-header__slot--end',
+    expect(slotElements.map((element) => element.getAttribute('data-page-header-slot'))).toEqual([
+      'start',
+      'center',
+      'end',
     ]);
     expect(slotElements.map((element) => element.textContent)).toEqual([
       'Start child',
@@ -120,17 +120,15 @@ describe('PageHeader', () => {
     ]);
     expect(header).not.toHaveAttribute('aria-labelledby');
     expect(header).toHaveClass(
-      'mkt-header--layout-split',
-      'mkt-header--density-regular',
-      'mkt-header--border-none',
-      'mkt-header--shadow-none',
-      'mkt-section--tone-transparent',
-      'mkt-section--spacing-sm',
+      'box-border',
+      'w-full',
+      'bg-transparent',
+      'text-inherit',
+      'py-section-sm',
     );
-    expect(bar).toHaveClass(
-      'mkt-section__content--align-start',
-      'mkt-section__content--width-wide',
-    );
+    expect(bar).toHaveClass('max-w-content-wide', 'text-start', 'min-h-bar-regular');
+    expect(slotElements[1]).toHaveClass('ms-auto');
+    expect(slotElements[2]).toHaveClass('ms-gap-lg');
   });
 
   it('renders chosen colour roles as kebab cased theme variables', () => {
@@ -164,8 +162,7 @@ describe('PageHeader', () => {
     );
 
     const header = screen.getByRole('banner');
-    expect(header).not.toHaveClass('mkt-header--sticky');
-    expect(header).not.toHaveClass('mkt-header--translucent');
+    expect(header).not.toHaveClass('sticky', 'bg-current/5');
 
     rerender(
       <PageHeader
@@ -176,7 +173,14 @@ describe('PageHeader', () => {
         isCanvas={false}
       />,
     );
-    expect(header).toHaveClass('mkt-header--sticky', 'mkt-header--translucent');
+    expect(header).toHaveClass(
+      'sticky',
+      'top-0',
+      'z-20',
+      'bg-current/5',
+      'backdrop-blur-md',
+      'backdrop-saturate-150',
+    );
 
     rerender(
       <PageHeader
@@ -187,7 +191,7 @@ describe('PageHeader', () => {
         isCanvas={false}
       />,
     );
-    expect(header).toHaveClass('mkt-header--sticky');
-    expect(header).not.toHaveClass('mkt-header--translucent');
+    expect(header).toHaveClass('sticky');
+    expect(header).not.toHaveClass('bg-current/5');
   });
 });

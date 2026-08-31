@@ -136,13 +136,13 @@ export const ControlRenderingContract: Story = {
   ),
   play: async ({ canvasElement, step }) => {
     await step('supporting copy paints and changes measured content', async () => {
-      const absent = proofElement(canvasElement, 'features-body-absent', '.mkt-features__content');
+      const absent = proofElement(canvasElement, 'features-body-absent', '[data-features-content]');
       const present = proofElement(
         canvasElement,
         'features-body-present',
-        '.mkt-features__content',
+        '[data-features-content]',
       );
-      const body = proofElement(canvasElement, 'features-body-present', '.mkt-features__intro');
+      const body = proofElement(canvasElement, 'features-body-present', '[data-features-intro]');
       await expect(body.getBoundingClientRect().height).toBeGreaterThan(0);
       await expect(present.getBoundingClientRect().height).toBeGreaterThan(
         absent.getBoundingClientRect().height,
@@ -153,7 +153,7 @@ export const ControlRenderingContract: Story = {
       const alignments = (['start', 'center', 'end'] as const).map(
         (align) =>
           getComputedStyle(
-            proofElement(canvasElement, `features-align-${align}`, '.mkt-features__content'),
+            proofElement(canvasElement, `features-align-${align}`, '[data-features-content]'),
           ).textAlign,
       );
       await expect(alignments).toEqual(['start', 'center', 'end']);
@@ -185,7 +185,7 @@ export const ControlRenderingContract: Story = {
           proofElement(
             canvasElement,
             `features-width-${width}`,
-            '.mkt-features__content',
+            '[data-features-content]',
           ).getBoundingClientRect().width,
       );
       await expect(new Set(roots).size).toBe(1);
@@ -193,8 +193,8 @@ export const ControlRenderingContract: Story = {
       const maxWidths = (['narrow', 'standard', 'wide', 'full'] as const).map(
         (width) =>
           getComputedStyle(
-            proofElement(canvasElement, `features-width-${width}`, '.mkt-features__content'),
-          ).maxInlineSize,
+            proofElement(canvasElement, `features-width-${width}`, '[data-features-content]'),
+          ).maxWidth,
       );
       await expect(new Set(maxWidths).size).toBe(4);
     });
@@ -203,12 +203,12 @@ export const ControlRenderingContract: Story = {
       'two and four columns resolve distinct tracks and measured card widths',
       async () => {
         const grids = (['1', '2', '3', '4'] as const).map((columns) =>
-          proofElement(canvasElement, `features-columns-${columns}`, '.mkt-features__grid'),
+          proofElement(canvasElement, `features-columns-${columns}`, '[data-features-grid]'),
         );
         const templates = grids.map((grid) => getComputedStyle(grid).gridTemplateColumns);
         await expect(new Set(templates).size).toBe(4);
         const cardWidths = grids.map((grid) => {
-          const card = grid.querySelector<HTMLElement>('.mkt-features__card');
+          const card = grid.querySelector<HTMLElement>('[data-features-card]');
           if (card === null) throw new Error('Missing feature card');
           return card.getBoundingClientRect().width;
         });

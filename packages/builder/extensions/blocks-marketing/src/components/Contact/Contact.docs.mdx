@@ -1,0 +1,27 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ContactStories from './Contact.stories';
+
+<Meta of={ContactStories} />
+
+# Contact
+
+A complete contact section instead of a decorative form mock. It combines direct contact paths,
+availability copy, and a name/email/message form whose labels and submission endpoint are authored
+in the document.
+
+## Layout and behavior
+
+- `variant: 'split' | 'card' | 'centered' = 'split'`
+- `showForm: boolean = true` supports details-only contact sections.
+- `formAction?: relative | http(s) URL` and `method: 'post' | 'get' = 'post'` control publication.
+- Every visible form string is editable for localization.
+- Email and phone values become `mailto:` and whitespace-normalized `tel:` links.
+
+## Accessibility and safety
+
+The section and form are labelled by their visible headings. Every input has a persistent label,
+appropriate name, type, autocomplete hint, and required state. Builder-canvas submission is
+prevented so editing never navigates away; published output preserves the authored form action.
+Unsafe form-action schemes are rejected by the schema. Layout uses container queries and logical
+spacing, so it responds to the builder column and reads correctly in RTL.

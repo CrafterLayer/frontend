@@ -145,6 +145,57 @@ describe('Palette (006 contract §4)', () => {
     expect(screen.queryByRole('button', { name: 'Text' })).not.toBeInTheDocument();
   });
 
+  it('lists registered templates and inserts a complete composition as one undoable change', async () => {
+    const kernel = makeKernel();
+    kernel.extensions.hydrateDeclarative({
+      tier: 2,
+      name: 'palette-templates',
+      version: '1.0.0',
+      contributes: {
+        compositions: [
+          {
+            id: 'saas-launch',
+            name: 'SaaS launch',
+            version: 1,
+            surfaces: ['site'],
+            rootId: 'template-section',
+            nodes: {
+              'template-section': {
+                id: 'template-section',
+                type: 'section',
+                props: {},
+                slots: { default: ['template-copy'] },
+              },
+              'template-copy': { id: 'template-copy', type: 'text', props: {} },
+            },
+          },
+        ],
+      },
+    });
+    const before = structuredClone(kernel.getDocument());
+    const user = userEvent.setup();
+    render(<Palette kernel={kernel} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Templates 1' }));
+    expect(screen.getByRole('searchbox', { name: 'Search templates' })).toBeInTheDocument();
+    const templateButton = screen.getByRole('button', { name: /SaaS launch/ });
+    expect(templateButton).toHaveTextContent('1 responsive section');
+    expect(templateButton.querySelector('.bldr-palette__template-preview')).toHaveAttribute(
+      'data-preview-kind',
+      'saas',
+    );
+    await user.click(templateButton);
+
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(2);
+    expect(kernel.context.store.getState().selection).toEqual(['pl-0001']);
+    expect(screen.getByRole('status', { name: 'Palette' })).toHaveTextContent(
+      'Inserted template saas-launch',
+    );
+    expect(kernel.undo()).toBe(true);
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
   it('collapses one category without hiding the others and exposes its expanded state', async () => {
     const kernel = makeKernel();
     const user = userEvent.setup();

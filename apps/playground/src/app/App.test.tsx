@@ -483,6 +483,7 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(screen.queryByRole('navigation', { name: 'Block palette' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Inspector' })).not.toBeInTheDocument();
     const previewFrame = screen.getByTitle<HTMLIFrameElement>('Preview');
+    expect(previewFrame.parentElement).toHaveStyle({ inlineSize: '834px', maxInlineSize: '100%' });
     await waitFor(() => {
       /*
         Preview renders AT the selected device.

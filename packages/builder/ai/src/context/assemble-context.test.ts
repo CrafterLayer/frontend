@@ -33,12 +33,14 @@ describe('AI context assembly', () => {
 
     expect(BUILDER_AI_CONTEXT_PROVIDERS.map((provider) => provider.id)).toEqual([
       'craftkit.block-catalog',
+      'craftkit.template-catalog',
       'craftkit.selection',
       'craftkit.document-shape',
     ]);
     expect(builderAiContextExtension.contributes?.aiContext).toEqual(BUILDER_AI_CONTEXT_PROVIDERS);
     expect(context.fragments.map((fragment) => fragment.title)).toEqual([
       'Registered block vocabulary',
+      'Registered page templates',
       'Current selection',
       'Document shape',
     ]);
@@ -49,6 +51,7 @@ describe('AI context assembly', () => {
     expect(context.totalTokens).toBe(
       context.fragments.reduce((total, fragment) => total + (fragment.tokens ?? 0), 0),
     );
+    expect(context.templates).toEqual([]);
 
     const hero = context.blocks.find((block) => block.type === 'hero');
     expect(hero).toMatchObject({
@@ -151,5 +154,20 @@ describe('AI context assembly', () => {
     expect(context.totalTokens).toBe(
       context.fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
     );
+  });
+
+  it('trims very long string props in the document FRAGMENT only, marked, leaving data intact', () => {
+    const kernel = contextKernel();
+    const essay = 'x'.repeat(2000);
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: essay });
+
+    const context = assembleAiContext(kernel.context, { selection: [] });
+
+    // The prompt-facing fragment carries a marked excerpt…
+    const shape = context.fragments.find((fragment) => fragment.title === 'Document shape');
+    expect(shape?.body).not.toContain(essay);
+    expect(shape?.body).toContain('… [truncated]');
+    // …while the structured context keeps the exact value for consumers that need it.
+    expect(context.document.nodes.find((node) => node.id === 'p1')?.props['content']).toBe(essay);
   });
 });

@@ -1,0 +1,52 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as LogoCloudStories from './LogoCloud.stories';
+
+<Meta of={LogoCloudStories} />
+
+# Logo Cloud
+
+A social-proof section for customers, partners, integrations, sponsors, or publications. It uses
+typographic marks and optional descriptors, so it remains polished before an asset library or
+approved logo files are available. Replace it with an image-based partner component when exact brand
+artwork and usage approvals are essential.
+
+<Canvas of={LogoCloudStories.Default} />
+<Controls />
+
+## Public props and defaults
+
+- `eyebrow`, `heading`, and optional `body` own the section introduction.
+- `items` accepts up to 12 `{ name, descriptor? }` records and defaults to six complete sample
+  marks. An empty array is valid and renders no invented placeholders.
+- `variant = 'cards'` also supports `minimal` and `framed`.
+- `columns = '6'` supports three through six requested columns, collapsing responsively.
+- Alignment, tone, section spacing, width, gutter, colour roles, motion, typography, and logical
+  spacing use the shared marketing-section contracts.
+
+## Accessibility
+
+The visible heading labels the section. Brands form a semantic unordered list, the generated
+monogram is decorative, and the full brand name remains text in the accessibility tree. This
+component does not create links because a logo cloud is proof by default, not navigation.
+
+## Responsive, RTL, and content guidance
+
+Container queries collapse the grid to two columns before progressively honoring the requested
+count. Logical alignment and spacing work in LTR and RTL. Use short, distinct names, keep
+descriptors to a category rather than a sentence, and obtain permission before displaying real
+customer brands.
+
+## Example
+
+```ts
+logoCloudSchema.props.parse({
+  heading: 'Trusted from prototype to global rollout',
+  variant: 'cards',
+  columns: '5',
+  items: [
+    { name: 'Northstar', descriptor: 'Analytics' },
+    { name: 'Canopy', descriptor: 'Collaboration' },
+  ],
+});
+```

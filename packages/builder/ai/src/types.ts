@@ -54,10 +54,21 @@ export interface AiSelectionContext {
   nodes: readonly AiSelectedNodeContext[];
 }
 
+/** A registered page/template composition that AI may insert atomically. */
+export interface AiTemplateContext {
+  id: string;
+  name: string;
+  rootType: string;
+  nodeCount: number;
+  blockTypes: readonly string[];
+}
+
 export interface AssembledAiContext {
   fragments: readonly ContextFragment[];
   totalTokens: number;
   blocks: readonly AiBlockContext[];
+  /** Optional for backwards-compatible provider fixtures created outside the assembler. */
+  templates?: readonly AiTemplateContext[];
   document: AiDocumentContext;
   selection: AiSelectionContext;
 }
@@ -77,6 +88,19 @@ export interface AiPlanStep {
 export interface AiPlan {
   rationale: string;
   commands: readonly AiPlanStep[];
+  /**
+   * Optional staged-work suggestion: when a request is too big for one safe
+   * plan, the provider does the most valuable stage now and words the NEXT
+   * request here, in the requester's language. A UI offers it as a one-tap
+   * continuation; nothing applies it automatically.
+   */
+  followUp?: string;
+}
+
+/** One prior exchange in the conversation the request belongs to. */
+export interface AiChatTurn {
+  role: 'user' | 'assistant';
+  text: string;
 }
 
 /**
@@ -84,11 +108,13 @@ export interface AiPlan {
  * provider must stop, not merely ignore the answer — and surfaces as the
  * platform's AbortError, never as a provider failure. `onProgress` carries the
  * provider's own words about what it is doing right now, for a UI to show
- * while the person waits.
+ * while the person waits. `history` is the conversation so far, so "make it
+ * blue" can mean the hero the previous turn just added.
  */
 export interface AiProposeOptions {
   signal?: AbortSignal;
   onProgress?: (text: string) => void;
+  history?: readonly AiChatTurn[];
 }
 
 /** The provider boundary. A network-backed provider implements the same contract. */

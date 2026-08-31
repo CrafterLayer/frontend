@@ -70,6 +70,6 @@ export const Sticky: Story = {
   play: async ({ canvasElement }) => {
     const header = within(canvasElement).getByRole('banner');
 
-    await expect(header).toHaveClass('mkt-header--sticky', 'mkt-header--translucent');
+    await expect(header).toHaveClass('sticky', 'bg-current/5', 'backdrop-blur-md');
   },
 };

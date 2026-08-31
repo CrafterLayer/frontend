@@ -4,10 +4,13 @@ import type { BuilderDocument, RegisteredBlock } from '@craftkit/builder-schema'
 
 import { StaticDocument } from './components/StaticDocument';
 import type { RenderBreakpoint } from './resolve/responsive';
+import type { Theme } from './resolve/theme';
 
 export interface RenderStaticOptions {
   blocks: (type: string) => RegisteredBlock | undefined;
   breakpoint?: RenderBreakpoint;
+  /** The design system to publish with. Omitted, the bridge defaults apply. */
+  theme?: Theme;
 }
 
 /**
@@ -23,6 +26,7 @@ export function renderStaticMarkup(
       document={document}
       blocks={options.blocks}
       breakpoint={options.breakpoint ?? 'desktop'}
+      {...(options.theme === undefined ? {} : { theme: options.theme })}
     />,
   );
 }

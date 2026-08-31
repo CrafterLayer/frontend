@@ -16,7 +16,9 @@ const safeHrefSchema = z
   .max(200)
   .refine(
     (href) =>
-      href.startsWith('/') || href.startsWith('#') || /^(?:https?:|mailto:|tel:)/u.test(href),
+      (href.startsWith('/') && !href.startsWith('//') && !href.startsWith('/\\')) ||
+      href.startsWith('#') ||
+      /^(?:https?:|mailto:|tel:)/u.test(href),
     { message: 'Link must be relative or use http, https, mailto, or tel.' },
   );
 

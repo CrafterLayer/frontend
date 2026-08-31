@@ -12,6 +12,10 @@ import { cloudShaderExamples } from './examples';
 /** What a sky may frame. Generous, because a background goes behind things. */
 const CLOUD_CHILDREN = [
   'hero',
+  'promoBanner',
+  'carousel',
+  'videoSection',
+  'gallery',
   'stack',
   'grid',
   'richText',
@@ -19,6 +23,14 @@ const CLOUD_CHILDREN = [
   'image',
   'features',
   'pricing',
+  'testimonials',
+  'portfolioGrid',
+  'productGrid',
+  'formSection',
+  'newsletter',
+  'marquee',
+  'card',
+  'button',
 ] as const;
 
 /*

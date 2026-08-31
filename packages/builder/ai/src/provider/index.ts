@@ -1,7 +1,4 @@
-export {
-  createCachingAiPlanProvider,
-  type CachingAiPlanProviderOptions,
-} from './caching-provider';
+export { createCachingAiPlanProvider, type CachingAiPlanProviderOptions } from './caching-provider';
 export { LocalAiProviderError, createLocalAiPlanProvider } from './local-provider';
 export {
   RemoteAiProviderError,
@@ -10,6 +7,7 @@ export {
 } from './remote-provider';
 export {
   AI_PLAN_WIRE_VERSION,
+  estimateAiPlanWireRequestTokens,
   type AiPlanWireAttempt,
   type AiPlanWireRequest,
   type AiPlanWireResponse,

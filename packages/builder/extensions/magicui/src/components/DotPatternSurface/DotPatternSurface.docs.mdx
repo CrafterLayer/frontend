@@ -1,0 +1,37 @@
+import { Canvas, Controls, Meta, Stories } from '@storybook/addon-docs/blocks';
+
+import * as DotPatternSurfaceStories from './DotPatternSurface.stories';
+
+<Meta of={DotPatternSurfaceStories} />
+
+# Dot Pattern Surface
+
+A compositional Magic UI-inspired surface. The dot field is decorative; the default slot owns the
+real content and can hold the broad, explicit site/store vocabulary declared by the schema.
+
+<Canvas of={DotPatternSurfaceStories.SubtleSurface} />
+
+## Token contract
+
+- `density` maps to multiples of `--t-space-unit`.
+- `size` maps to multiples of `--t-border-width`.
+- `tone` maps to muted text, accent, or inverse-text roles.
+- `intensity` is a named opacity step resolved only inside the component.
+- Padding and radius use the generated Tailwind token bridge.
+
+The document stores only those names. It never stores a radial gradient, CSS length, palette colour,
+or mask expression.
+
+## Fade, direction, and motion
+
+`fade` controls whether and how strongly a radial mask concentrates the pattern. `maskPosition`
+supports center, top, bottom, logical inline start, and logical inline end. CSS reverses the logical
+positions under RTL. Pattern drift is opt-in with `animate`; reduced-motion always stops it while
+leaving the static field visible. Optional reveal motion remains a separate closed-vocabulary
+Builder concern.
+
+The pattern is a pointer-inert pseudo-element, so it adds no noise to the accessibility tree and
+cannot block interaction with slotted content.
+
+<Controls />
+<Stories />

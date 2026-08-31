@@ -19,9 +19,15 @@ const safeHrefSchema = z
   .string()
   .min(1)
   .max(500)
-  .refine((value) => /^(#|\/|https?:\/\/|mailto:|tel:)/i.test(value), {
-    message: 'Link must be relative or use http, https, mailto, or tel.',
-  });
+  .refine(
+    (value) =>
+      value.startsWith('#') ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^(https?:\/\/|mailto:|tel:)/i.test(value),
+    {
+      message: 'Link must be relative or use http, https, mailto, or tel.',
+    },
+  );
 
 export const contentSectionSchema = defineBlockSchema({
   type: 'content-section',
@@ -31,7 +37,11 @@ export const contentSectionSchema = defineBlockSchema({
   props: z.object({
     eyebrow: z.string().min(1).max(40).optional(),
     heading: z.string().min(1).max(110).default('A clearer way to move forward'),
-    body: z.string().min(1).max(600).default('Tell the story behind the work and the outcome it creates.'),
+    body: z
+      .string()
+      .min(1)
+      .max(600)
+      .default('Tell the story behind the work and the outcome it creates.'),
     highlights: z
       .array(
         z.object({

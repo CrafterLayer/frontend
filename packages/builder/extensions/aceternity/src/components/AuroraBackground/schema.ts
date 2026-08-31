@@ -17,6 +17,10 @@ import { auroraExamples } from './examples';
  */
 const AURORA_CHILDREN = [
   'hero',
+  'promoBanner',
+  'carousel',
+  'videoSection',
+  'gallery',
   'stack',
   'grid',
   'richText',
@@ -24,6 +28,14 @@ const AURORA_CHILDREN = [
   'image',
   'features',
   'pricing',
+  'testimonials',
+  'portfolioGrid',
+  'productGrid',
+  'formSection',
+  'newsletter',
+  'marquee',
+  'card',
+  'button',
 ] as const;
 
 export const auroraBackgroundSchema = defineBlockSchema({

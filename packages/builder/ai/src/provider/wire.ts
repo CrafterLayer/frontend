@@ -6,6 +6,23 @@ import type { AiChatTurn, AiPlan, AiPlanValidationIssue, AssembledAiContext } fr
 
 export const AI_PLAN_WIRE_VERSION = 1;
 
+const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, candidate: unknown) => {
+    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
+      return candidate;
+    }
+    return Object.fromEntries(
+      Object.entries(candidate).sort(([left], [right]) => compareText(left, right)),
+    );
+  });
+}
+
 /** A prior proposal that failed validation, echoed back so the server can repair it. */
 export interface AiPlanWireAttempt {
   plan: AiPlan;
@@ -20,6 +37,23 @@ export interface AiPlanWireRequest {
   /** The conversation so far, oldest first, so follow-up requests resolve. */
   history?: readonly AiChatTurn[];
   attempt?: AiPlanWireAttempt;
+}
+
+/**
+ * Deterministic estimate for the exact request envelope a remote provider
+ * serializes. Only wire-contract fields participate, in canonical order, so
+ * request text, history, and a rejected repair attempt cannot bypass the same
+ * hard budget that protects the assembled context.
+ */
+export function estimateAiPlanWireRequestTokens(request: AiPlanWireRequest): number {
+  const canonical: AiPlanWireRequest = {
+    version: request.version,
+    request: request.request,
+    context: request.context,
+    ...(request.history === undefined ? {} : { history: request.history }),
+    ...(request.attempt === undefined ? {} : { attempt: request.attempt }),
+  };
+  return Math.max(1, Math.ceil(stableStringify(canonical).length / CHARACTERS_PER_TOKEN_ESTIMATE));
 }
 
 /** A server answers with a plan, or with an explicit refusal it can word itself. */

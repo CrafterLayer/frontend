@@ -18,6 +18,7 @@ import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { AuroraBackground, auroraBackgroundSchema } from './components/AuroraBackground';
 import { CloudShader, cloudShaderSchema } from './components/CloudShader';
+import { SpotlightSurface, spotlightSurfaceSchema } from './components/SpotlightSurface';
 
 export const builderAceternity: TrustedExtensionManifest = {
   tier: 1,
@@ -27,6 +28,7 @@ export const builderAceternity: TrustedExtensionManifest = {
     blocks: [
       { schema: auroraBackgroundSchema, render: AuroraBackground },
       { schema: cloudShaderSchema, render: CloudShader },
+      { schema: spotlightSurfaceSchema, render: SpotlightSurface },
     ],
   },
 };
@@ -39,3 +41,8 @@ export {
 
 export { CloudShader, cloudShaderSchema, type CloudShaderProps } from './components/CloudShader';
 export { CLOUD_ROLES, type CloudRole } from './components/CloudShader/colors';
+export {
+  SpotlightSurface,
+  spotlightSurfaceSchema,
+  type SpotlightSurfaceProps,
+} from './components/SpotlightSurface';

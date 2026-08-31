@@ -9,7 +9,7 @@ import '../../styles/visually-hidden.css';
 import './Palette.css';
 import { diagramForBlockType } from './diagrams';
 
-const PALETTE_CATEGORIES = ['Layout', 'Content', 'Marketing', 'Other'] as const;
+const PALETTE_CATEGORIES = ['Layout', 'Content', 'Marketing', 'Primary'] as const;
 
 type PaletteCategory = (typeof PALETTE_CATEGORIES)[number];
 
@@ -18,8 +18,10 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   announcement: 'Announcement',
   banner: 'Banner',
   bentogrid: 'Bento Grid',
+  breadcrumbs: 'Breadcrumbs',
   bloggrid: 'Blog Grid',
   button: 'Button',
+  carousel: 'Carousel',
   columns: 'Columns',
   container: 'Container',
   contact: 'Contact',
@@ -27,18 +29,21 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   comparisontable: 'Comparison Table',
   cta: 'CTA',
   divider: 'Divider',
+  dialog: 'Dialog',
   embed: 'Embed',
   faq: 'FAQ',
   feature: 'Feature',
   features: 'Features',
   footer: 'Footer',
   form: 'Form',
+  formsection: 'Form Section',
   gallery: 'Gallery',
   grid: 'Grid',
   heading: 'Heading',
   hero: 'Hero',
   image: 'Image',
   logocloud: 'Logo Cloud',
+  marquee: 'Marquee',
   media: 'Media',
   navbar: 'Navigation',
   navigation: 'Navigation',
@@ -46,7 +51,12 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   pagefooter: 'Page Footer',
   pageheader: 'Page Header',
   paragraph: 'Paragraph',
+  pagination: 'Pagination',
   processsteps: 'Process Steps',
+  portfoliogrid: 'Portfolio Grid',
+  productgrid: 'Product Grid',
+  progress: 'Progress',
+  promobanner: 'Promo Banner',
   plan: 'Plan',
   pricing: 'Pricing',
   quote: 'Quote',
@@ -54,15 +64,19 @@ const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   richtext: 'Rich Text',
   row: 'Row',
   section: 'Section',
+  separator: 'Separator',
   stats: 'Stats',
   spacer: 'Spacer',
   stack: 'Stack',
+  spotlightsurface: 'Spotlight Surface',
   testimonial: 'Testimonial',
   testimonials: 'Testimonials',
   team: 'Team',
   text: 'Text',
   video: 'Video',
+  videosection: 'Video Section',
   newsletter: 'Newsletter',
+  avatargroup: 'Avatar Group',
 };
 
 interface PaletteEntry {
@@ -117,7 +131,13 @@ function categoryForBlock(type: string): PaletteCategory {
     key.includes('team') ||
     key.includes('blog') ||
     key.includes('contact') ||
-    key.includes('comparison')
+    key.includes('comparison') ||
+    key.includes('carousel') ||
+    key.includes('gallery') ||
+    key.includes('videosection') ||
+    key.includes('formsection') ||
+    key.includes('portfolio') ||
+    key.includes('productgrid')
   ) {
     return 'Marketing';
   }
@@ -154,7 +174,7 @@ function categoryForBlock(type: string): PaletteCategory {
   ) {
     return 'Content';
   }
-  return 'Other';
+  return 'Primary';
 }
 
 /**

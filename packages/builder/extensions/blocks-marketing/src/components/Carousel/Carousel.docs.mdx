@@ -1,0 +1,39 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CarouselStories from './Carousel.stories';
+
+<Meta of={CarouselStories} />
+
+# Carousel
+
+A production-oriented content slider for product stories, destinations, campaigns, and featured
+work. It renders one active slide at a time instead of moving a hidden strip with literal
+transforms.
+
+## Content contract
+
+- `heading`, optional `eyebrow` and `body` introduce the section.
+- Up to ten slides provide a title, optional label/body, optional safe image, and optional safe CTA.
+- `variant` supports `card`, `split`, and immersive `media` presentation.
+- `mediaPosition` and `mediaAspect` shape responsive media without changing content.
+
+## Controls and autoplay
+
+Previous/next buttons, direct indicators, Home/End, and direction-aware arrow keys are supported.
+Autoplay is **off by default**. When enabled it pauses during pointer or focus interaction, exposes
+a pause/resume control, and does not start under `prefers-reduced-motion` unless the visitor
+explicitly presses Play. Intervals are named design intents rather than values stored in the
+document.
+
+## Accessibility
+
+The labelled section declares the carousel role description. The active slide is a named group,
+controls reference it with `aria-controls`, the current indicator uses `aria-current`, and a polite
+status announces manual changes without announcing every autoplay tick.
+
+## Safety, theming, and RTL
+
+CTA destinations allow relative paths, fragments, HTTP(S), mail, or telephone links. Media allows
+only relative and HTTP(S) sources; executable and protocol-relative URLs are rejected by the schema.
+All visuals use token-backed utilities, logical alignment, and container queries. Arrow semantics
+and keyboard direction adapt to RTL.

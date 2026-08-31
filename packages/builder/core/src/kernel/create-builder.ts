@@ -19,9 +19,14 @@ import {
 } from '@craftkit/builder-schema';
 
 import { coreCommands, type CoreCommandName, type CoreCommands } from '../commands/core-commands';
-import { createDispatcher, type GroupStep } from '../commands/dispatch';
+import {
+  createDispatcher,
+  type GroupedDispatchOptions,
+  type GroupStep,
+} from '../commands/dispatch';
 
-export type { GroupStep };
+export { GROUPED_DISPATCH_LABEL_MAX_LENGTH } from '../commands/dispatch';
+export type { GroupedDispatchOptions, GroupStep };
 import { createEventBus } from '../events/bus';
 import { createExtensionManager, type ExtensionManagerHandle } from '../extensions/manager';
 import { systemClock } from '../ports/system-clock';
@@ -59,7 +64,10 @@ export interface BuilderKernel {
    * undo, and atomic (a failing step leaves nothing behind). The contract that
    * lets a multi-command AI plan honour "one change, one undo".
    */
-  dispatchGroup(steps: readonly GroupStep[], author?: Author): Transaction;
+  dispatchGroup(
+    steps: readonly GroupStep[],
+    authorOrOptions?: Author | GroupedDispatchOptions,
+  ): Transaction;
   /** Extension lifecycle: register / registerAll / hydrateDeclarative / dispose. */
   extensions: ExtensionManagerHandle;
   /** Convenience alias for `extensions.register`. */
@@ -176,8 +184,11 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
     return afterDoor(dispatcher.dispatch(command, args, author));
   }
 
-  function dispatchGroup(steps: readonly GroupStep[], author?: Author): Transaction {
-    return afterDoor(dispatcher.dispatchGroup(steps, author));
+  function dispatchGroup(
+    steps: readonly GroupStep[],
+    authorOrOptions?: Author | GroupedDispatchOptions,
+  ): Transaction {
+    return afterDoor(dispatcher.dispatchGroup(steps, authorOrOptions));
   }
 
   function afterDoor(tx: Transaction): Transaction {

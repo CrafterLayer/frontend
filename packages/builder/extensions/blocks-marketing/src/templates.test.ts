@@ -86,7 +86,11 @@ describe('professional marketing templates', () => {
 
     for (const type of [
       'announcementBar',
+      'promoBanner',
       'hero',
+      'carousel',
+      'videoSection',
+      'gallery',
       'logoCloud',
       'features',
       'bento-grid',
@@ -94,11 +98,14 @@ describe('professional marketing templates', () => {
       'stats',
       'processSteps',
       'team',
+      'portfolioGrid',
+      'productGrid',
       'testimonials',
       'comparisonTable',
       'faq',
       'blogGrid',
       'contact',
+      'formSection',
       'newsletter',
       'cta',
     ]) {

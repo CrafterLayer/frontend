@@ -8,6 +8,7 @@ import {
   seededIds,
 } from '@craftkit/builder-core/testing';
 
+import { createAiSkillRegistry } from '../skills';
 import type { AiPlan, AiPlanProvider, AiPlanValidationIssue } from '../types';
 import { generateAiPlan } from './generate-plan';
 import { AiPlanRejectedError } from './validate-plan';
@@ -167,7 +168,7 @@ describe('generateAiPlan repair loop', () => {
     expect(seen).toEqual(history);
   });
 
-  it('gives the provider a SECOND repair round before giving up', async () => {
+  it('never makes a second repair attempt when the single repair remains invalid', async () => {
     const stillBad: AiPlan = {
       rationale: 'Second wrong answer.',
       commands: [{ command: 'alsoInvented', args: {} }],
@@ -177,26 +178,30 @@ describe('generateAiPlan repair loop', () => {
       propose: () => Promise.resolve(badPlan),
       repair: (_request, _context, plan) => {
         seen.push(plan.commands[0]?.command ?? '?');
-        return Promise.resolve(seen.length === 1 ? stillBad : goodPlan);
+        return Promise.resolve(stillBad);
       },
     };
 
-    const plan = await generateAiPlan({
-      kernel: planKernel(),
-      provider,
-      request: 'add copy',
-      validationPorts: { clock: fixedClock(20), ids: seededIds('two-rounds') },
-    });
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider,
+        request: 'add copy',
+        validationPorts: { clock: fixedClock(20), ids: seededIds('one-round') },
+      }),
+    ).rejects.toThrow(/alsoInvented/);
 
-    expect(plan).toEqual(goodPlan);
-    // Round 1 saw the original failure; round 2 saw ITS OWN failed repair.
-    expect(seen).toEqual(['invent', 'alsoInvented']);
+    expect(seen).toEqual(['invent']);
   });
 
-  it('stops after two failed repairs with the final issues', async () => {
+  it('stops after one failed repair with the final issues', async () => {
+    let repairs = 0;
     const provider: AiPlanProvider = {
       propose: () => Promise.resolve(badPlan),
-      repair: () => Promise.resolve(badPlan),
+      repair: () => {
+        repairs += 1;
+        return Promise.resolve(badPlan);
+      },
     };
 
     await expect(
@@ -207,5 +212,151 @@ describe('generateAiPlan repair loop', () => {
         validationPorts: { clock: fixedClock(20), ids: seededIds('exhausted') },
       }),
     ).rejects.toThrow(AiPlanRejectedError);
+    expect(repairs).toBe(1);
+  });
+
+  it('activates selected-block skills, discloses their bodies, and repairs policy violations once', async () => {
+    const registry = createAiSkillRegistry([
+      {
+        schemaVersion: 1,
+        id: 'craftkit.hero-copy',
+        name: 'Hero copy',
+        description: 'Improve the selected hero copy.',
+        version: '2.0.0',
+        instructions: 'Write one precise hero heading.',
+        activation: { mode: 'auto', selectedBlockTypes: ['hero'] },
+        restrictToCommands: ['setProp'],
+      },
+    ]);
+    const issues: AiPlanValidationIssue[][] = [];
+    const provider: AiPlanProvider = {
+      propose: (_request, context) => {
+        expect(context.skills).toEqual([
+          expect.objectContaining({ id: 'craftkit.hero-copy', reason: 'auto' }),
+        ]);
+        expect(context.fragments.at(-1)?.body).toContain('Write one precise hero heading.');
+        return Promise.resolve(goodPlan); // insertNode is outside the skill restriction
+      },
+      repair: (_request, _context, _plan, rejected) => {
+        issues.push([...rejected]);
+        return Promise.resolve({
+          rationale: 'Use the skill-restricted edit command.',
+          commands: [
+            { command: 'setProp', args: { id: 'hero1', key: 'heading', value: 'Sharper copy' } },
+          ],
+        });
+      },
+    };
+
+    const generated = await generateAiPlan({
+      kernel: planKernel(),
+      provider,
+      request: 'Improve this heading',
+      selection: ['hero1'],
+      skillRegistry: registry,
+      validationPorts: { clock: fixedClock(20), ids: seededIds('skill-generation') },
+    });
+
+    expect(generated.commands[0]?.command).toBe('setProp');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.[0]?.code).toBe('policy-rejected');
+  });
+
+  it('fails before provider work when the complete serialized context exceeds its hard budget', async () => {
+    let proposed = false;
+
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider: {
+          propose: () => {
+            proposed = true;
+            return Promise.resolve(goodPlan);
+          },
+        },
+        request: 'add copy',
+        contextProviders: [
+          { id: 'large', collect: () => ({ title: 'Large', body: 'x'.repeat(1_000) }) },
+        ],
+        maxContextTokens: 10,
+        validationPorts: { clock: fixedClock(20), ids: seededIds('context-budget') },
+      }),
+    ).rejects.toThrow(/context.*budget/i);
+
+    expect(proposed).toBe(false);
+  });
+
+  it('rejects an oversized request before calling the proposal provider', async () => {
+    let proposed = false;
+
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider: {
+          propose: () => {
+            proposed = true;
+            return Promise.resolve(goodPlan);
+          },
+        },
+        request: 'x'.repeat(100_000),
+        maxContextTokens: 10_000,
+        validationPorts: { clock: fixedClock(20), ids: seededIds('request-budget') },
+      }),
+    ).rejects.toThrow(/context.*budget/i);
+
+    expect(proposed).toBe(false);
+  });
+
+  it('rejects oversized conversation history before calling the proposal provider', async () => {
+    let proposed = false;
+
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider: {
+          propose: () => {
+            proposed = true;
+            return Promise.resolve(goodPlan);
+          },
+        },
+        request: 'add copy',
+        history: [{ role: 'user', text: 'x'.repeat(100_000) }],
+        maxContextTokens: 10_000,
+        validationPorts: { clock: fixedClock(20), ids: seededIds('history-budget') },
+      }),
+    ).rejects.toThrow(/context.*budget/i);
+
+    expect(proposed).toBe(false);
+  });
+
+  it('rejects an oversized repair wire attempt before calling the repair provider', async () => {
+    let proposed = false;
+    let repaired = false;
+    const oversizedRejectedPlan: AiPlan = {
+      rationale: 'x'.repeat(100_000),
+      commands: [{ command: 'invent', args: {} }],
+    };
+
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider: {
+          propose: () => {
+            proposed = true;
+            return Promise.resolve(oversizedRejectedPlan);
+          },
+          repair: () => {
+            repaired = true;
+            return Promise.resolve(goodPlan);
+          },
+        },
+        request: 'add copy',
+        maxContextTokens: 10_000,
+        validationPorts: { clock: fixedClock(20), ids: seededIds('repair-budget') },
+      }),
+    ).rejects.toThrow(/context.*budget/i);
+
+    expect(proposed).toBe(true);
+    expect(repaired).toBe(false);
   });
 });

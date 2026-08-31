@@ -1,0 +1,39 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ProductGridStories from './ProductGrid.stories';
+
+<Meta of={ProductGridStories} />
+
+# Product Grid
+
+A commerce-ready product section with real merchandising hierarchy: product imagery, current and
+original prices, badges, ratings, review counts, and a clear call to action. The `featured` variant
+promotes one authored product—or the first product when none is marked—without changing the product
+data.
+
+## Content model
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–80) = 'Featured products'`
+- `body?: string (1–240)`
+- `products (≤12)` require name, display price, and safe URL. Description, previous price, image,
+  alt text, badge, 0–5 rating, localized rating label, review count, and featured state are
+  optional.
+- `actionLabel: string (1–40) = 'View product'`
+- `showRatings: boolean = true`
+- `ratingPrefix`, `ratingSuffix`, and `reviewCountLabel` localize generated accessible labels.
+- `variant: 'grid' | 'featured' = 'grid'`
+- `columns: '2' | '3' | '4' = '4'`
+- `imageRatio: 'square' | 'portrait' = 'square'`
+
+Shared section controls remain optional with no defaults and provide token roles, motion,
+typography, logical spacing, gutter, and validated utility classes.
+
+## Accessibility and responsive behavior
+
+Products are semantic `article` elements in a list. Images preserve authored alternatives and become
+decorative when adjacent product copy already carries their meaning. Each star treatment is one
+labelled image exposing the exact rating and review count rather than five noisy glyphs. Repeated
+calls to action include the product name. Unsafe URL protocols are rejected. Container queries
+follow the builder column, badge positioning uses logical `start`, RTL copy remains natural, and
+hover motion is removed for reduced-motion users.

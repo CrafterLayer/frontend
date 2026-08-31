@@ -24,6 +24,14 @@ const SHINE_CHILDREN = [
   'image',
   'features',
   'pricingPlan',
+  'testimonials',
+  'formSection',
+  'productGrid',
+  'portfolioGrid',
+  'card',
+  'button',
+  'avatarGroup',
+  'progress',
 ] as const;
 
 export const shineBorderSchema = defineBlockSchema({

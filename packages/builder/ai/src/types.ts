@@ -7,6 +7,8 @@ import type {
   SlotName,
 } from '@craftkit/builder-schema';
 
+import type { AiSkillActivationPin, AiSkillManifestV1 } from './skills';
+
 export interface AiBlockSlotContext {
   name: SlotName;
   allow: readonly string[];
@@ -71,6 +73,10 @@ export interface AssembledAiContext {
   templates?: readonly AiTemplateContext[];
   document: AiDocumentContext;
   selection: AiSelectionContext;
+  /** Progressive-disclosure metadata; never contains instruction/reference bodies. */
+  skillCatalog?: readonly AiSkillManifestV1[];
+  /** Version/fingerprint pins only. Full bodies live exactly once in `fragments`. */
+  skills?: readonly AiSkillActivationPin[];
 }
 
 export interface AiPlanStep {
@@ -145,7 +151,7 @@ export interface AiValidationPorts {
 }
 
 export interface AiPlanValidationIssue {
-  code: 'invalid-plan' | 'unknown-command' | 'invalid-args' | 'door-rejected';
+  code: 'invalid-plan' | 'unknown-command' | 'invalid-args' | 'policy-rejected' | 'door-rejected';
   message: string;
   step?: number;
 }

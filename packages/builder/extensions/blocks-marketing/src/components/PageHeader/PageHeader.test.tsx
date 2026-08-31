@@ -13,7 +13,7 @@ const node: Node = { id: 'page-header-test', type: 'pageHeader', props: {} };
 
 describe('PageHeader', () => {
   it('declares exactly the start center and end slots with the shared allow list', () => {
-    const allowed = ['richText', 'cta', 'navLinks', 'stack'];
+    const allowed = ['richText', 'cta', 'button', 'navLinks', 'stack'];
 
     expect(pageHeaderSchema.slots).toStrictEqual({
       start: { allow: allowed },

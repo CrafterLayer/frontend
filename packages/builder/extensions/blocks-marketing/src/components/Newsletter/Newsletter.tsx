@@ -18,8 +18,7 @@ import type { NewsletterProps } from './schema';
 
 const PANEL_CLASSES: Record<NewsletterProps['variant'], string> = {
   inline: 'flex flex-col',
-  card:
-    'flex flex-col rounded-xl border border-text-muted/20 bg-surface p-6 text-text shadow-elevated @lg:p-10',
+  card: 'flex flex-col rounded-xl border border-text-muted/20 bg-surface p-6 text-text shadow-elevated @lg:p-10',
   split:
     'grid grid-cols-1 overflow-hidden rounded-xl border border-text-muted/20 bg-surface text-text shadow-elevated @lg:grid-cols-2',
 };
@@ -65,9 +64,7 @@ export function Newsletter({ node, props }: BlockRenderProps<NewsletterProps>) {
               <p
                 className={cx(
                   'm-0 text-sm font-semibold tracking-wide uppercase',
-                  isSplit || props.tone === 'dark'
-                    ? 'text-inherit opacity-70'
-                    : 'text-text-muted',
+                  isSplit || props.tone === 'dark' ? 'text-inherit opacity-70' : 'text-text-muted',
                 )}
               >
                 {props.eyebrow}
@@ -83,9 +80,7 @@ export function Newsletter({ node, props }: BlockRenderProps<NewsletterProps>) {
               <p
                 className={cx(
                   'm-0 max-w-content-narrow leading-relaxed text-pretty',
-                  isSplit || props.tone === 'dark'
-                    ? 'text-inherit opacity-80'
-                    : 'text-text-muted',
+                  isSplit || props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
                 )}
               >
                 {props.body}

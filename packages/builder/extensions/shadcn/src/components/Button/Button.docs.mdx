@@ -1,0 +1,29 @@
+import { Meta, Canvas, Controls, Stories } from '@storybook/addon-docs/blocks';
+
+import * as ButtonStories from './Button.stories';
+
+<Meta of={ButtonStories} />
+
+# Button
+
+A Builder-native adaptation of the shadcn/ui button pattern, mapped to Craftkit role tokens rather
+than a second colour system.
+
+<Canvas of={ButtonStories.Solid} />
+
+## Semantics
+
+- With `href`, the block renders a real anchor. Without it, the block renders a native button.
+- New-tab links receive `noopener` and `noreferrer` automatically.
+- Destinations are limited to relative paths, fragments, `http`, `https`, `mailto`, and `tel`.
+- Icon glyphs are decorative; the visible label remains the accessible name.
+- Motion and custom utilities pass through the same validated Builder contracts used by the rest of
+  the catalog.
+
+## Design controls
+
+Authors can choose four variants, three sizes, three radii, full or intrinsic width, logical
+alignment, icon choice and position, and optional motion.
+
+<Controls />
+<Stories />

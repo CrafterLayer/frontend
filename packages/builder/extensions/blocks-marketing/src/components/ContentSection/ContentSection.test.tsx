@@ -74,10 +74,9 @@ describe('ContentSection', () => {
       />,
     );
 
-    expect(screen.getByText('A composed story.').closest('[data-content-section-copy]')).toHaveClass(
-      'border-s-4',
-      'ps-gap-lg',
-    );
+    expect(
+      screen.getByText('A composed story.').closest('[data-content-section-copy]'),
+    ).toHaveClass('border-s-4', 'ps-gap-lg');
     expect(screen.getByRole('figure')).toHaveClass('order-first');
   });
 

@@ -5,8 +5,10 @@
 export {
   createBuilder,
   emptyDocument,
+  GROUPED_DISPATCH_LABEL_MAX_LENGTH,
   PERSIST_COALESCE_EVERY,
   type BuilderKernel,
+  type GroupedDispatchOptions,
   type GroupStep,
   type CreateBuilderOptions,
 } from './kernel/create-builder';

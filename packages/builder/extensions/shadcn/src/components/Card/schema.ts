@@ -26,6 +26,14 @@ const CARD_CHILDREN = [
   'badge',
   'shadcnAlert',
   'accordion',
+  'button',
+  'separator',
+  'avatarGroup',
+  'progress',
+  'breadcrumbs',
+  'dialog',
+  'pagination',
+  'formSection',
 ] as const;
 
 export const cardSchema = defineBlockSchema({

@@ -16,6 +16,13 @@ options: the site **wraps** pages rather than replacing them; reasoning runs **c
 a replaceable endpoint with a published stage contract; imagery is **selected** from a project asset
 library rather than generated.
 
+A fourth direction was added on 2026-09-01 after a source audit of the requester's three reference
+projects: the agent accepts **versioned declarative skills** and runs through a bounded, observable
+headless state machine. This is not free-form prompt injection and it is not a filesystem tool.
+Skills are progressively disclosed, selected per request, fingerprinted, budgeted, and permitted
+only to narrow the host's command policy. The existing scratch-kernel and grouped command door stay
+the authority boundary.
+
 The technical shape follows from one discovery made while reading the layer law. The page's design
 tokens (`Theme`, `ColorToken`, `MeasurementToken`) live today in `@craftkit/builder-renderer`, which
 sits at **layer 2** — the same layer as `@craftkit/builder-ai`. The builder dependency law (ADR
@@ -150,21 +157,21 @@ before the next cycle by making PyYAML available to the interpreter Spec Kit inv
 Ownership, dependency direction, and public-API effect. Layers per ADR 0003 as enforced in
 `packages/workspace-tools/.../validate-builder-boundaries.mjs`.
 
-| Member                                          | Layer | Change                                                                                                                                                                                  | Public API effect                                                                                  |
-| ----------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `@craftkit/builder-schema`                      | 0     | **Major.** Site type + validator + site version/migration; token vocabulary moved down from the renderer; asset-library contract; asset-reference prop type.                            | Additive exports plus one **relocation** (`Theme`, `ColorToken`, `MeasurementToken`, `TokenName`). |
-| `@craftkit/builder-core`                        | 1     | Site-scoped commands (`addPage`, `removePage`, `renamePage`, `reorderPage`, `setSharedRegion`, `setDesignToken`, `setDesignSystem`, `registerAsset`) and site-aware open/empty helpers. | Additive. `CoreCommandName` union widens.                                                          |
-| `@craftkit/builder-transforms`                  | 2     | Site manifest projection + parse; the site-level round-trip law layered on the existing per-page law.                                                                                   | Additive (`projectSite`, `parseSite`, `SITE_MANIFEST_PROJECTION_ID`).                              |
-| `@craftkit/builder-renderer`                    | 2     | Resolve the theme from site data instead of a module constant; resolve asset references; re-export the relocated token types for source compatibility.                                  | **Behavioural change** at `themeToCssVars`/`DocumentView`; type re-exports preserved.              |
-| `@craftkit/builder-ai`                          | 2     | **Major.** The five-stage pipeline, the versioned stage contracts, the site-scoped refinement path, asset selection, offline deterministic stage implementations.                       | Additive; existing `generateAiPlan`/`applyAiPlan` remain and stay the single-change path.          |
-| `@craftkit/builder-shell`                       | 3     | Four new editor surfaces (page navigator, generation progress, design-system panel, asset picker).                                                                                      | Additive.                                                                                          |
-| `@craftkit/builder-extensions/blocks-marketing` | 4     | Block vocabulary breadth + responsive completeness for every section.                                                                                                                   | Additive block types; existing prop shapes preserved.                                              |
-| `@craftkit/builder-extensions/code-view`        | 4     | Worker protocol gains a `site` scope; the panel can project a site.                                                                                                                     | Additive protocol variant.                                                                         |
-| `@craftkit/builder` (preset)                    | 5     | Re-export the new surface so apps keep importing one entrypoint.                                                                                                                        | Additive.                                                                                          |
-| `@craftkit/builder-theme`                       | 2     | **Unchanged.** It owns _editor chrome_ (`--bldr-*`); the generated site design system is `--t-*`. FR-015 is satisfied by not touching it.                                               |
-| `apps/playground`                               | app   | Compose the new surfaces; supply the local asset library; extend `AssistantPanel` from one-shot to staged.                                                                              | App-owned.                                                                                         |
-| `apps/storybook`                                | app   | Collect the new stories and the Chromium measurement gates.                                                                                                                             | App-owned.                                                                                         |
-| `apps/adaptive-spec-router`                     | app   | **Out of scope, untouched** — the user's separately-owned work per `HANDOFF.md`.                                                                                                        |
+| Member                                          | Layer | Change                                                                                                                                                                                                                               | Public API effect                                                                                                  |
+| ----------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `@craftkit/builder-schema`                      | 0     | **Major.** Site type + validator + site version/migration; token vocabulary moved down from the renderer; asset-library contract; asset-reference prop type.                                                                         | Additive exports plus one **relocation** (`Theme`, `ColorToken`, `MeasurementToken`, `TokenName`).                 |
+| `@craftkit/builder-core`                        | 1     | Site-scoped commands (`addPage`, `removePage`, `renamePage`, `reorderPage`, `setSharedRegion`, `setDesignToken`, `setDesignSystem`, `registerAsset`), site-aware open/empty helpers, and a human-labelled grouped dispatch contract. | Additive. `CoreCommandName` widens; grouped dispatch accepts a backward-compatible options form.                   |
+| `@craftkit/builder-transforms`                  | 2     | Site manifest projection + parse; the site-level round-trip law layered on the existing per-page law.                                                                                                                                | Additive (`projectSite`, `parseSite`, `SITE_MANIFEST_PROJECTION_ID`).                                              |
+| `@craftkit/builder-renderer`                    | 2     | Resolve the theme from site data instead of a module constant; resolve asset references; re-export the relocated token types for source compatibility.                                                                               | **Behavioural change** at `themeToCssVars`/`DocumentView`; type re-exports preserved.                              |
+| `@craftkit/builder-ai`                          | 2     | **Major.** The five-stage pipeline, versioned stage contracts, site-scoped refinement, asset selection, declarative skill registry/resolver, bounded agent runner, and deterministic offline implementations.                        | Additive; existing `generateAiPlan`/`applyAiPlan` remain. Skills and the runner converge on the same command path. |
+| `@craftkit/builder-shell`                       | 3     | Four new editor surfaces (page navigator, generation progress, design-system panel, asset picker).                                                                                                                                   | Additive.                                                                                                          |
+| `@craftkit/builder-extensions/blocks-marketing` | 4     | Block vocabulary breadth + responsive completeness for every section.                                                                                                                                                                | Additive block types; existing prop shapes preserved.                                                              |
+| `@craftkit/builder-extensions/code-view`        | 4     | Worker protocol gains a `site` scope; the panel can project a site.                                                                                                                                                                  | Additive protocol variant.                                                                                         |
+| `@craftkit/builder` (preset)                    | 5     | Re-export the new surface so apps keep importing one entrypoint.                                                                                                                                                                     | Additive.                                                                                                          |
+| `@craftkit/builder-theme`                       | 2     | **Unchanged.** It owns _editor chrome_ (`--bldr-*`); the generated site design system is `--t-*`. FR-015 is satisfied by not touching it.                                                                                            |
+| `apps/playground`                               | app   | Compose the new surfaces; supply the local asset library; extend `AssistantPanel` from one-shot to staged.                                                                                                                           | App-owned.                                                                                                         |
+| `apps/storybook`                                | app   | Collect the new stories and the Chromium measurement gates.                                                                                                                                                                          | App-owned.                                                                                                         |
+| `apps/adaptive-spec-router`                     | app   | **Out of scope, untouched** — the user's separately-owned work per `HANDOFF.md`.                                                                                                                                                     |
 
 **Dependency direction before and after**: unchanged in shape and strictly improved in one place.
 Every new edge is downward (`ai(2) → schema(0)`, `ai(2) → core(1)`, `shell(3) → schema(0)`,
@@ -344,6 +351,47 @@ without loading the engine. Extensions under `packages/builder/extensions/` rece
 Absence means stillness, and a viewer's reduced-motion preference is honoured — motion is opted
 into, never defaulted on.
 
+### D10 — Skills are progressively disclosed data; the agent run is a bounded state machine
+
+The source audit in [research.md](./research.md) R11 showed that `open-builder` has the strongest
+Skills mechanics of the three references: metadata discovery, explicit request-local selection,
+content preparation under a hard cap, and an immutable run policy. It also showed exactly what not
+to copy: raw XML-like instruction injection, capability union, URL imports, and host-interpreter
+scripts. `open-v0` contributes live canvas context categories; `OpenLovable` contributes visible
+streamed operations. Neither supplies Builder's validation or rollback guarantees.
+
+`@craftkit/builder-ai` therefore owns a new, headless Skills surface:
+
+1. `defineAiSkill()` validates and canonicalizes one v1 definition, computes its deterministic
+   fingerprint, and refuses functions, scripts, unsafe ids, oversized bodies, or unsafe reference
+   paths.
+2. `createAiSkillRegistry()` is immutable. It exposes small catalog entries separately from
+   `readSkill()`/`readReference()` and prepares full content only for selected, required, always-on,
+   or deterministically auto-matched skills.
+3. Resolution is request-local, input-order independent, dependency/conflict aware, and bounded by
+   skill count and token budget. Explicit errors fail closed before the provider call; optional
+   auto-matches may be omitted only with structured reasons.
+4. A skill's `restrictToCommands` is a restriction, not a grant. The effective set is the
+   intersection of the current run policy and every active restriction; registered kernel commands
+   remain the final authority.
+5. The assembled context carries catalog metadata plus active structured bodies, and plan-cache
+   identity includes that complete context. No XML tags or executable content are used.
+
+The same package adds `runAiAgent()`, a UI-independent coordinator with injected run id and clock.
+Its state sequence is
+`started → resolving-skills → gathering-context → proposing → validating → proposed → completed`
+for review-only runs, or `... → validating → applying → completed` for auto-apply runs.
+Every emitted event carries a monotonic sequence; exactly one terminal event is legal.
+`apply: 'never'` supports Ask/Plan review, while `apply: 'auto'` applies the already validated batch
+through the grouped door as one AI-authored, human-labelled transaction. A host-owned synchronous
+run lease is rechecked around cache/provider results and immediately before application, so a late
+run cannot recover authority merely because its provider ignored an abort signal.
+
+The existing provider boundary stays replaceable. The first version deliberately has no model SDK,
+MCP, subagents, skill scripts, URL imports, or direct filesystem/process tool. Those capabilities
+need independent authorization and sandbox contracts; adding them here would weaken the product
+before it improves it.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -391,6 +439,16 @@ packages/builder/transforms/src/codec/
 └── ../testing/site-arbitraries.ts    # fast-check generators for the manifest law
 
 packages/builder/ai/src/
+├── skills/
+│   ├── types.ts                       # v1 definitions, catalog, activation, policy
+│   ├── define-skill.ts                # runtime validation + canonical fingerprint
+│   ├── registry.ts                    # metadata discovery + progressive read surface
+│   ├── resolve-skills.ts              # deterministic dependencies/conflicts/budgets
+│   ├── command-policy.ts              # host ∩ active-skill restriction
+│   └── builtins.ts                    # reviewed first-party instruction-only skills
+├── agent/
+│   ├── types.ts                       # run states, events, outcomes, bounds
+│   └── run-agent.ts                   # bounded headless coordinator
 ├── pipeline/
 │   ├── wire.ts                       # versioned per-stage request/response contracts
 │   ├── stage-provider.ts             # SiteStageProvider port
@@ -468,6 +526,7 @@ revertable.
 | **F** | ai, shell, playground | Refinement path; the four shell surfaces; `SiteBriefForm`; playground composition. **P1 stories 1, 2, 3 become true together here.** | `check:components` 56, full component contracts  |
 | **G** | schema, ai            | Asset library contract, local port, selection, structural rejection of invented references. **US6.**                                 | Property: zero unresolvable references           |
 | **H** | specs, apps/storybook | Evaluation harness: blind comparison protocol, distinctiveness measurement, durable evidence. **US7.**                               | Recorded evidence artifacts                      |
+| **I** | ai, core              | Versioned Skills runtime, cache/policy correctness, bounded agent runner, typed events, human-labelled grouped apply. **US8.**       | AI/core focused tests + mutation/property proofs |
 
 Phases A–C are pure substrate and touch no UI. Phase F is the milestone: it is the first point at
 which a person can type a brief and get a site, and it is deliberately gated behind A, B, C, and E
@@ -489,6 +548,7 @@ pnpm format:check
 pnpm exec vitest run packages/builder/schema/src/site
 pnpm exec vitest run packages/builder/transforms/src/codec/site-codec.test.ts
 pnpm exec vitest run packages/builder/ai/src/pipeline
+pnpm exec vitest run packages/builder/ai/src/skills packages/builder/ai/src/agent
 
 # 3. Owning package
 pnpm --filter @craftkit/builder-schema lint typecheck test
@@ -537,6 +597,9 @@ or read the log tail.
 | ------------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Layer-0 change invalidates everything downstream | `@craftkit/builder-schema` is the graph root  | Phase A is isolated and lands green before anything depends on it; the token move keeps re-exports so no consumer import breaks           |
 | Site-scale text projection makes code view slow  | The document channel re-clones on site change | Per-page scopes (D6) exist so page editing never serializes the site; the off-thread proof is re-run at site scope, counted not timed     |
+| Skill content becomes hidden authority           | Prompt text can look like policy              | Structured bodies, trust metadata, progressive disclosure, command-policy intersection, no scripts, and kernel execution-time validation  |
+| Cached plan ignores changed expertise            | Memory/skills/catalog are host-owned context  | Cache the complete canonical assembled context and check cancellation before returning a hit                                              |
+| Late provider result mutates a newer run         | Async streams outlive UI intent               | Request-local run id, AbortSignal plus host-owned run-lease checks at every boundary, monotonic terminal event law, no stale progress/validation/apply |
 | Two version numbers drift                        | Site v1 and page v1 evolve separately         | One migration table each, mirroring the existing pattern; the composition law fails loudly if a page shape the manifest expects has moved |
 | Generated design systems look alike              | The failure mode competitors are judged on    | SC-004 measures it across 10 unrelated briefs with a recorded threshold, in Phase H, before the feature can be called done                |
 | The agent invents image URLs                     | The classic generation failure                | Structural, not prompted: assembly rejects any reference not in the site asset table (D4)                                                 |

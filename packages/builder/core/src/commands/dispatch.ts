@@ -21,7 +21,10 @@ import type { KernelStoreHandle } from '../state/store';
 
 export interface Dispatcher {
   dispatch: (command: string, args: unknown, author?: Author) => Transaction;
-  dispatchGroup: (steps: readonly GroupStep[], author?: Author) => Transaction;
+  dispatchGroup: (
+    steps: readonly GroupStep[],
+    authorOrOptions?: Author | GroupedDispatchOptions,
+  ) => Transaction;
   undo: () => boolean;
   redo: () => boolean;
   canUndo: () => boolean;
@@ -34,6 +37,15 @@ export interface Dispatcher {
 export interface GroupStep {
   command: string;
   args: unknown;
+}
+
+/** Maximum stored history label length for one grouped dispatch. */
+export const GROUPED_DISPATCH_LABEL_MAX_LENGTH = 160;
+
+/** Optional grouped-door metadata; the legacy direct `Author` argument stays valid. */
+export interface GroupedDispatchOptions {
+  author?: Author;
+  label?: string;
 }
 
 interface DispatcherDeps {
@@ -56,6 +68,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
   const history = createHistory();
 
   function dispatch(command: string, args: unknown, author: Author = 'user'): Transaction {
+    assertAuthor(author);
     const registered = deps.registry.command(command);
     if (registered === undefined) {
       throw builderError('cmd/unknown', `No command named "${command}" is registered.`);
@@ -82,10 +95,16 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
    * A throw anywhere leaves document, log, and history untouched, exactly like
    * a single rejected dispatch: grouping buys atomicity, not new risk.
    */
-  function dispatchGroup(steps: readonly GroupStep[], author: Author = 'user'): Transaction {
+  function dispatchGroup(
+    steps: readonly GroupStep[],
+    authorOrOptions?: Author | GroupedDispatchOptions,
+  ): Transaction {
     if (steps.length === 0) {
       throw builderError('cmd/invalid-args', 'A dispatch group needs at least one step.');
     }
+    const defaultLabel =
+      steps.length === 1 ? (steps[0]?.command ?? 'group') : `group(${String(steps.length)})`;
+    const { author, label } = normalizeGroupedDispatchOptions(authorOrOptions, defaultLabel);
     const mutators = steps.map((step) => {
       const registered = deps.registry.command(step.command);
       if (registered === undefined) {
@@ -100,8 +119,6 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
       }
     });
 
-    const label =
-      steps.length === 1 ? (steps[0]?.command ?? 'group') : `group(${String(steps.length)})`;
     return commit(label, author, state, nextDoc, patches, inverse);
   }
 
@@ -178,6 +195,57 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     log,
     history,
   };
+}
+
+function normalizeGroupedDispatchOptions(
+  authorOrOptions: unknown,
+  defaultLabel: string,
+): { author: Author; label: string } {
+  if (authorOrOptions === undefined) {
+    return { author: 'user', label: defaultLabel };
+  }
+  if (typeof authorOrOptions === 'string') {
+    assertAuthor(authorOrOptions);
+    return { author: authorOrOptions, label: defaultLabel };
+  }
+  if (
+    typeof authorOrOptions !== 'object' ||
+    authorOrOptions === null ||
+    Array.isArray(authorOrOptions)
+  ) {
+    throw builderError('cmd/invalid-args', 'Grouped dispatch options must be an object.');
+  }
+
+  const options = authorOrOptions as { author?: unknown; label?: unknown };
+  const author = options.author ?? 'user';
+  assertAuthor(author);
+  if (options.label === undefined) {
+    return { author, label: defaultLabel };
+  }
+  if (typeof options.label !== 'string') {
+    throw builderError('cmd/invalid-args', 'A grouped dispatch label must be a string.');
+  }
+
+  const label = options.label.trim();
+  if (label.length === 0) {
+    throw builderError('cmd/invalid-args', 'A grouped dispatch label must not be empty.');
+  }
+  if (label.length > GROUPED_DISPATCH_LABEL_MAX_LENGTH) {
+    throw builderError(
+      'cmd/invalid-args',
+      `A grouped dispatch label must be at most ${String(GROUPED_DISPATCH_LABEL_MAX_LENGTH)} characters.`,
+    );
+  }
+  return { author, label };
+}
+
+function assertAuthor(value: unknown): asserts value is Author {
+  if (value !== 'user' && value !== 'ai' && value !== 'codeview') {
+    throw builderError(
+      'cmd/invalid-args',
+      'A command author must be one of "user", "ai", or "codeview".',
+    );
+  }
 }
 
 function assertJsonPatches(

@@ -1,0 +1,36 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PortfolioGridStories from './PortfolioGrid.stories';
+
+<Meta of={PortfolioGridStories} />
+
+# Portfolio Grid
+
+A production portfolio section for agency work, product case studies, launches, or transformation
+stories. It combines concise project narratives with outcome metrics instead of reducing work to a
+decorative image gallery.
+
+## Content model
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–80) = 'Selected work'`
+- `body?: string (1–240)`
+- `items (≤12)` require category, title, summary, and a safe case-study URL. Images and up to three
+  label/value metrics are optional.
+- `actionLabel: string (1–40) = 'View case study'`
+- `showMetrics: boolean = true`
+- `variant: 'grid' | 'editorial' = 'grid'`
+- `columns: '2' | '3' = '3'` controls only the grid variant.
+
+The standard section controls add alignment, tone, spacing, width, token colour roles, motion,
+typography, logical padding and margins, gutter, and validated utility classes. Shared controls are
+optional with no defaults, preserving existing authored documents.
+
+## Accessibility and responsive behavior
+
+The section is labelled by its visible heading and each project is a semantic `article` inside a
+list. Authored image descriptions are preserved; missing alt text makes optional imagery decorative
+because the adjacent project title carries the meaning. Metrics use `dl`, and repeated links include
+the project title in their accessible name. Container queries adapt to the actual builder column,
+logical spacing remains RTL-safe, unsafe URL protocols are rejected, and hover motion is disabled
+when reduced motion is requested.

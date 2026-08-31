@@ -1,0 +1,28 @@
+import { Meta, Canvas, Controls, Stories } from '@storybook/addon-docs/blocks';
+
+import * as MarqueeStories from './Marquee.stories';
+
+<Meta of={MarqueeStories} />
+
+# Marquee
+
+An original Builder-native marquee inspired by Magic UI's motion language. It supports partner
+logos, customer quotes, compact announcements, and linked cards without adding a runtime animation
+dependency.
+
+<Canvas of={MarqueeStories.Logos} />
+
+## Accessibility
+
+The second visual copy required for a seamless loop is hidden from assistive technology and removed
+from the keyboard order. When `prefers-reduced-motion: reduce` is active, animation stops, the
+duplicate disappears, and the primary list becomes horizontally scrollable.
+
+## Customization
+
+Authors control the item collection, semantic region label, presentation, speed, direction, one or
+two rows, hover pause, edge fade, tone, radius, motion, and safe custom utilities. Item links and
+images reject unsafe protocols at the schema boundary.
+
+<Controls />
+<Stories />

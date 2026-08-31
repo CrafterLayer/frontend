@@ -1,0 +1,34 @@
+import { Canvas, Controls, Meta, Stories } from '@storybook/addon-docs/blocks';
+
+import * as ShimmerButtonStories from './ShimmerButton.stories';
+
+<Meta of={ShimmerButtonStories} />
+
+# Shimmer Button
+
+A Builder-native action inspired by Magic UI's shimmer treatment. It keeps the useful visual idea
+but replaces literal colours, dimensions, and user-authored CSS with Craftkit roles and named intent
+controls.
+
+<Canvas of={ShimmerButtonStories.PrimaryAction} />
+
+## Semantics and safety
+
+- With `href`, the block renders a real anchor. Without it, it renders a native button with the
+  authored `button`, `submit`, or `reset` type.
+- New-tab links automatically receive `noopener` and `noreferrer`.
+- Destinations reject executable and protocol-relative URLs.
+- The visible label is the accessible name and the focus ring always uses the accent role.
+- Motion and custom utilities use the shared closed-vocabulary and validation contracts.
+
+## Shimmer controls
+
+`speed`, `intensity`, and `animate` are document intents. The component maps them to local CSS
+variables; the document never stores seconds, percentages, or literal colours. The highlight is a
+pointer-inert pseudo-element behind the label. When animation is disabled—or the reader requests
+reduced motion—the action keeps a restrained static sheen instead of disappearing or moving.
+
+Tone, size, width, logical alignment, and radius use the generated Builder token bridge.
+
+<Controls />
+<Stories />

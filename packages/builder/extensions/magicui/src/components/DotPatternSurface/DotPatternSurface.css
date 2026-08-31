@@ -1,0 +1,101 @@
+.mgc-dot-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  --mgc-dot-mask-x: 50%;
+  --mgc-dot-mask-y: 50%;
+}
+
+.mgc-dot-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--mgc-dot-opacity, 0.22);
+  background-image: radial-gradient(
+    circle,
+    var(--mgc-dot-color, var(--t-text-muted)) 0 var(--mgc-dot-size, var(--t-border-width)),
+    transparent calc(var(--mgc-dot-size, var(--t-border-width)) + var(--t-border-width, 1px))
+  );
+  background-size: var(--mgc-dot-gap, calc(var(--t-space-unit, 4px) * 5))
+    var(--mgc-dot-gap, calc(var(--t-space-unit, 4px) * 5));
+  background-position: 0 0;
+  animation: mgc-dot-drift 8s linear infinite;
+  animation-play-state: var(--mgc-dot-play, running);
+}
+
+.mgc-dot-surface__content {
+  position: relative;
+  z-index: 1;
+  min-inline-size: 0;
+}
+
+.mgc-dot-surface[data-dot-fade='soft']::before {
+  -webkit-mask-image: radial-gradient(
+    circle at var(--mgc-dot-mask-x) var(--mgc-dot-mask-y),
+    black 38%,
+    transparent 94%
+  );
+  mask-image: radial-gradient(
+    circle at var(--mgc-dot-mask-x) var(--mgc-dot-mask-y),
+    black 38%,
+    transparent 94%
+  );
+}
+
+.mgc-dot-surface[data-dot-fade='strong']::before {
+  -webkit-mask-image: radial-gradient(
+    circle at var(--mgc-dot-mask-x) var(--mgc-dot-mask-y),
+    black 12%,
+    transparent 74%
+  );
+  mask-image: radial-gradient(
+    circle at var(--mgc-dot-mask-x) var(--mgc-dot-mask-y),
+    black 12%,
+    transparent 74%
+  );
+}
+
+.mgc-dot-surface[data-dot-mask='inlineStart'] {
+  --mgc-dot-mask-x: 0%;
+}
+
+.mgc-dot-surface[data-dot-mask='inlineEnd'] {
+  --mgc-dot-mask-x: 100%;
+}
+
+[dir='rtl'] .mgc-dot-surface[data-dot-mask='inlineStart'] {
+  --mgc-dot-mask-x: 100%;
+}
+
+[dir='rtl'] .mgc-dot-surface[data-dot-mask='inlineEnd'] {
+  --mgc-dot-mask-x: 0%;
+}
+
+.mgc-dot-surface[data-dot-mask='top'] {
+  --mgc-dot-mask-y: 0%;
+}
+
+.mgc-dot-surface[data-dot-mask='bottom'] {
+  --mgc-dot-mask-y: 100%;
+}
+
+.mgc-dot-surface[data-dot-animate='false']::before {
+  animation: none;
+}
+
+@keyframes mgc-dot-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: var(--mgc-dot-gap) var(--mgc-dot-gap);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mgc-dot-surface::before {
+    animation: none;
+  }
+}

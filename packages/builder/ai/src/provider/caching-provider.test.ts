@@ -62,6 +62,111 @@ describe('createCachingAiPlanProvider', () => {
     expect(inner.calls()).toBe(4);
   });
 
+  it('keys every context field, including fragments, catalogs, selection details, and skills', async () => {
+    const inner = countingProvider();
+    const cached = createCachingAiPlanProvider(inner.provider);
+    const base = context();
+    const variants: AssembledAiContext[] = [
+      { ...base, fragments: [{ title: 'Memory', body: 'Remember blue.', tokens: 4 }] },
+      { ...base, totalTokens: 7 },
+      {
+        ...base,
+        blocks: [
+          {
+            type: 'hero',
+            description: 'Hero',
+            propsSchema: {},
+            examples: [],
+            slots: [],
+          },
+        ],
+      },
+      {
+        ...base,
+        templates: [
+          {
+            id: 'landing',
+            name: 'Landing',
+            rootType: 'section',
+            nodeCount: 3,
+            blockTypes: ['hero'],
+          },
+        ],
+      },
+      {
+        ...base,
+        selection: {
+          ids: [],
+          nodes: [{ id: 'hero1', type: 'hero', props: { heading: 'Selected' }, slots: {} }],
+        },
+      },
+      {
+        ...base,
+        skillCatalog: [
+          {
+            schemaVersion: 1,
+            id: 'skill.design',
+            name: 'Design',
+            description: 'Design skill',
+            version: '1.0.0',
+            tags: [],
+            source: 'host',
+            trust: 'reviewed',
+            activation: { mode: 'explicit' },
+            priority: 0,
+            dependencies: [],
+            conflicts: [],
+            referencePaths: [],
+            contentFingerprint: 'skill-v1-12345678',
+          },
+        ],
+      },
+      {
+        ...base,
+        skills: [
+          {
+            id: 'skill.design',
+            version: '1.0.0',
+            contentFingerprint: 'skill-v1-12345678',
+            reason: 'explicit',
+          },
+        ],
+      },
+    ];
+
+    await cached.propose('same ask', base);
+    for (const variant of variants) await cached.propose('same ask', variant);
+
+    expect(inner.calls()).toBe(variants.length + 1);
+  });
+
+  it('checks cancellation before a cache hit and after an inner provider resolves', async () => {
+    const inner = countingProvider();
+    const cached = createCachingAiPlanProvider(inner.provider);
+    await cached.propose('warm', context());
+
+    const alreadyAborted = new AbortController();
+    alreadyAborted.abort();
+    await expect(
+      cached.propose('warm', context(), { signal: alreadyAborted.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(inner.calls()).toBe(1);
+
+    let release: ((value: AiPlan) => void) | undefined;
+    const delayed = createCachingAiPlanProvider({
+      propose: () =>
+        new Promise<AiPlan>((resolve) => {
+          release = resolve;
+        }),
+    });
+    const midFlight = new AbortController();
+    const pending = delayed.propose('slow', context(), { signal: midFlight.signal });
+    midFlight.abort();
+    release?.(plan);
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('never caches repair — a rejected plan must reach the model again', async () => {
     const inner = countingProvider();
     const cached = createCachingAiPlanProvider(inner.provider);
@@ -82,5 +187,11 @@ describe('createCachingAiPlanProvider', () => {
     await cached.propose('one', context()); // miss again
 
     expect(inner.calls()).toBe(4);
+  });
+
+  it.each([0, -1, 1.5, Number.NaN])('rejects invalid capacity %s', (capacity) => {
+    expect(() => createCachingAiPlanProvider(countingProvider().provider, { capacity })).toThrow(
+      /capacity/i,
+    );
   });
 });

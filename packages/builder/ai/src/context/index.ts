@@ -3,6 +3,7 @@ export {
   assembleAiContext,
   blockCatalogContextProvider,
   documentShapeContextProvider,
+  estimateAssembledAiContextTokens,
   estimateContextTokens,
   selectionContextProvider,
   templateCatalogContextProvider,

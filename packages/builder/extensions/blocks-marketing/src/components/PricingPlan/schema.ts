@@ -35,6 +35,9 @@ const PRICING_PLAN_CHILDREN = [
   'image',
   'navLinks',
   'features',
+  'button',
+  'badge',
+  'separator',
 ] as const;
 
 export const pricingPlanSchema = defineBlockSchema({

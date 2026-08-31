@@ -17,6 +17,7 @@ import type {
   AiTemplateContext,
   AssembledAiContext,
 } from '../types';
+import type { AiPreparedSkillContext } from '../skills';
 
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
 
@@ -50,7 +51,12 @@ export function estimateContextTokens(title: string, body: string): number {
   return Math.max(1, Math.ceil(characters / CHARACTERS_PER_TOKEN_ESTIMATE));
 }
 
-function fragment(title: string, value: unknown): ContextFragment {
+/** Conservative estimate for the complete provider/wire payload, not only fragments. */
+export function estimateAssembledAiContextTokens(context: AssembledAiContext): number {
+  return Math.max(1, Math.ceil(stableStringify(context).length / CHARACTERS_PER_TOKEN_ESTIMATE));
+}
+
+function fragment(title: string, value: unknown): ContextFragment & { tokens: number } {
   const body = stableStringify(value);
   return { title, body, tokens: estimateContextTokens(title, body) };
 }
@@ -209,6 +215,24 @@ export const BUILDER_AI_CONTEXT_PROVIDERS: readonly AiContextProvider[] = Object
 export interface AssembleAiContextOptions {
   selection?: readonly NodeId[];
   providers?: readonly AiContextProvider[];
+  /** Prepared per-request skill data; no ambient global activation state. */
+  skillContext?: AiPreparedSkillContext;
+}
+
+function defaultContextProviders(ctx: KernelApi): readonly AiContextProvider[] {
+  const providers = new Map(
+    BUILDER_AI_CONTEXT_PROVIDERS.map((provider) => [provider.id, provider]),
+  );
+  for (const provider of ctx.registry.aiContextProviders()) {
+    const existing = providers.get(provider.id);
+    if (existing !== undefined && existing !== provider) {
+      throw new Error(
+        `AI context provider id "${provider.id}" conflicts with a built-in provider.`,
+      );
+    }
+    providers.set(provider.id, provider);
+  }
+  return [...providers.values()];
 }
 
 function usableTokenCount(tokens: number | undefined): tokens is number {
@@ -221,20 +245,36 @@ export function assembleAiContext(
 ): AssembledAiContext {
   const selection = options.selection ?? ctx.store.getState().selection;
   const providerSelection = [...selection];
-  const fragments = (options.providers ?? BUILDER_AI_CONTEXT_PROVIDERS).map((provider) => {
+  const providerFragments = (options.providers ?? defaultContextProviders(ctx)).map((provider) => {
     const collected = provider.collect(ctx, providerSelection);
     const tokens = usableTokenCount(collected.tokens)
       ? collected.tokens
       : estimateContextTokens(collected.title, collected.body);
     return { ...collected, tokens };
   });
+  const skillFragments =
+    options.skillContext === undefined
+      ? []
+      : [
+          fragment('Available AI skills', options.skillContext.catalog),
+          ...options.skillContext.active.map((skill) =>
+            fragment(`Active AI skill: ${skill.id}`, skill),
+          ),
+        ];
+  const fragments = [...providerFragments, ...skillFragments];
 
-  return {
+  const base = {
     fragments,
     totalTokens: fragments.reduce((total, current) => total + current.tokens, 0),
     blocks: collectBlocks(ctx),
     templates: collectTemplates(ctx),
     document: collectDocument(ctx),
     selection: collectSelection(ctx, selection),
+  };
+  if (options.skillContext === undefined) return base;
+  return {
+    ...base,
+    skillCatalog: options.skillContext.catalog,
+    skills: options.skillContext.activations,
   };
 }

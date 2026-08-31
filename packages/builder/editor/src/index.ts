@@ -101,16 +101,31 @@ export {
   builderAceternity,
   auroraBackgroundSchema,
   cloudShaderSchema,
+  spotlightSurfaceSchema,
 } from '@craftkit/builder-aceternity';
-export { builderMagicUi, shineBorderSchema } from '@craftkit/builder-magicui';
+export { builderMagicUi, marqueeSchema, shineBorderSchema } from '@craftkit/builder-magicui';
 export { builderPrimitives } from '@craftkit/builder-primitives';
 export {
   builderShadcn,
+  avatarGroupSchema,
+  breadcrumbsSchema,
+  buttonSchema,
   cardSchema,
+  dialogSchema,
+  paginationSchema,
+  progressSchema,
+  separatorSchema,
   badgeSchema,
   shadcnAlertSchema,
   tabsSchema,
   tabPanelSchema,
+  type AvatarGroupProps,
+  type BreadcrumbsProps,
+  type ButtonProps,
+  type DialogProps,
+  type PaginationProps,
+  type ProgressProps,
+  type SeparatorProps,
 } from '@craftkit/builder-shadcn';
 
 export {
@@ -119,21 +134,28 @@ export {
   type AnnouncementBarProps,
   type BentoGridProps,
   type BlogGridProps,
+  type CarouselProps,
   type ComparisonTableProps,
   type ContactProps,
   type ContentSectionProps,
   type CtaProps,
   type FaqProps,
+  type FormSectionProps,
+  type GalleryProps,
   type RichTextBlockProps,
   type FeaturesProps,
   type HeroProps,
   type LogoCloudProps,
   type NewsletterProps,
   type PricingProps,
+  type PortfolioGridProps,
+  type ProductGridProps,
+  type PromoBannerProps,
   type ProcessStepsProps,
   type StatsProps,
   type TeamProps,
   type TestimonialsProps,
+  type VideoSectionProps,
 } from '@craftkit/builder-blocks-marketing';
 
 // React bindings

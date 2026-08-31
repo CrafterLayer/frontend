@@ -22,9 +22,15 @@ const formActionSchema = z
   .string()
   .min(1)
   .max(2000)
-  .refine((value) => /^(#|\/|https?:\/\/)/i.test(value), {
-    message: 'Form action must be a relative, http, or https URL.',
-  });
+  .refine(
+    (value) =>
+      value.startsWith('#') ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^https?:\/\//i.test(value),
+    {
+      message: 'Form action must be a relative, http, or https URL.',
+    },
+  );
 
 export const contactSchema = defineBlockSchema({
   type: 'contact',

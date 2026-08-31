@@ -13,6 +13,7 @@
 */
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
+import { Marquee, marqueeSchema } from './components/Marquee';
 import { ShineBorder, shineBorderSchema } from './components/ShineBorder';
 
 export const builderMagicUi: TrustedExtensionManifest = {
@@ -20,8 +21,12 @@ export const builderMagicUi: TrustedExtensionManifest = {
   name: 'magicui',
   version: '0.1.0',
   contributes: {
-    blocks: [{ schema: shineBorderSchema, render: ShineBorder }],
+    blocks: [
+      { schema: shineBorderSchema, render: ShineBorder },
+      { schema: marqueeSchema, render: Marquee },
+    ],
   },
 };
 
 export { ShineBorder, shineBorderSchema, type ShineBorderProps } from './components/ShineBorder';
+export { Marquee, marqueeItemSchema, marqueeSchema, type MarqueeProps } from './components/Marquee';

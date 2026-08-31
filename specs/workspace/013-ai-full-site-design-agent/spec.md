@@ -256,6 +256,45 @@ run the distinctiveness check across unrelated briefs and produce its measured r
 
 ---
 
+### User Story 8 - Give the agent trusted skills (Priority: P1 — foundational)
+
+A person or host application can give the agent one or more reusable skills — for example a brand
+voice, an accessibility discipline, or a page-composition method. The agent can discover skill
+metadata cheaply, loads the full instructions only for skills selected or deterministically matched
+to the current request, shows which versions influenced the run, and remains unable to gain a
+command or capability the host did not already authorize.
+
+This story was added after the original numbering, in response to the requester's 2026-09-01
+direction to strengthen the agent from the best parts of `open-builder`, `open-v0`, and
+`OpenLovable`. Despite its number, it is foundational and precedes the site-generation stories.
+
+**Why this priority**: A professional agent needs reusable expertise without turning prompt text
+into authority. Skills must improve reasoning while the kernel, not the skill, remains the security
+and mutation boundary.
+
+**Independent Test**: Register several skills, select one explicitly, let another auto-match, and
+run the same request twice. Confirm that only metadata for unselected skills reaches the context,
+the selected bodies and their exact versions/fingerprints are recorded, resolution is deterministic,
+an oversized or conflicting explicit selection fails before the provider runs, and a plan outside
+the effective command policy reaches neither the scratch nor live document.
+
+**Acceptance Scenarios**:
+
+1. **Given** a registry of skills, **When** no skill is selected, **Then** the provider sees a small
+   discoverable catalog but not every skill's full instructions.
+2. **Given** explicit skill ids, **When** a run begins, **Then** their validated instruction bodies,
+   dependencies, versions, and fingerprints are prepared for that run only and survive retry.
+3. **Given** auto-match rules, **When** the same request and selection are resolved repeatedly,
+   **Then** the same ordered skill set is produced with no ambient time or randomness.
+4. **Given** two conflicting skills or an unknown dependency in an explicit selection, **When**
+   resolution runs, **Then** the run fails closed before a provider call or document write.
+5. **Given** a skill that restricts commands, **When** the provider proposes a command outside the
+   intersection of host policy and skill policy, **Then** validation rejects it and nothing changes.
+6. **Given** a cancelled or superseded run, **When** a late provider or cache result arrives,
+   **Then** it cannot apply commands or emit a successful terminal event.
+
+---
+
 ### Edge Cases
 
 - **A brief with no business in it.** Empty input, a single word, or text that describes no business
@@ -288,6 +327,18 @@ run the distinctiveness check across unrelated briefs and produce its measured r
   asset, not a broken image, and the site must remain valid.
 - **An untrusted generation result.** Any escape-hatch markup must be sanitized before it can reach
   the page, and must remain the single exception to primitive composition.
+- **A skill containing prompt delimiters or instruction-looking markup.** Skill content remains a
+  structured data field; it cannot close a prompt section or masquerade as platform policy.
+- **A skill selected twice or supplied in a different input order.** It activates once and resolves
+  to the same canonical order and fingerprinted run context.
+- **An oversized selected skill set.** Explicit selection fails with a budget issue before the
+  provider runs; automatically matched skills may be omitted only with an observable reason.
+- **Conflicting or cyclic skill dependencies.** Resolution fails closed and names the cycle or
+  conflict; it never guesses which explicit skill the person meant.
+- **A cache hit after memory, catalog, or selected-skill content changed.** It is a miss. A cache
+  entry is valid only for the complete assembled context and skill fingerprints.
+- **A request already aborted before cache lookup.** It surfaces `AbortError`; cached work is never
+  allowed to revive a cancelled run.
 
 ## Requirements _(mandatory)_
 
@@ -463,6 +514,42 @@ run the distinctiveness check across unrelated briefs and produce its measured r
 - **FR-064**: Generated motion MUST honour a viewer's reduced-motion preference, and the absence of
   a motion value MUST mean stillness — motion is opted into, never defaulted on.
 
+**Agent skills and bounded run control**
+
+- **FR-065**: A skill MUST be declarative, runtime-validated, JSON-canonical data with a stable id,
+  semantic version, description, instruction body, activation policy, trust/source metadata, and a
+  deterministic content fingerprint. Skill scripts and executable hooks MUST NOT exist in v1.
+- **FR-066**: The context MUST expose discoverable metadata for registered skills separately from
+  their instruction bodies. Full instructions MUST be loaded only for skills selected explicitly,
+  required as dependencies, configured as always-on, or deterministically matched to the request.
+- **FR-067**: Skill activation MUST be request-local. Every run and retry MUST pin the activated
+  skills' ids, versions, and fingerprints; activation from one run MUST NOT leak into another.
+- **FR-068**: Resolution MUST be deterministic, order-independent, dependency-aware, conflict-aware,
+  and budgeted. Unknown, conflicting, cyclic, untrusted, or over-budget explicit selections MUST
+  fail before the provider is called.
+- **FR-069**: A skill MUST NOT grant authority. Its command declaration may only narrow the current
+  host/session policy; effective authority is the intersection of host policy, run mode, skill
+  restrictions, and commands actually registered in the kernel.
+- **FR-070**: Skill bodies and references MUST travel as structured content with bounded sizes and
+  deterministic serialization. Prompt delimiters inside content MUST remain data and MUST NOT alter
+  platform policy or surrounding prompt structure.
+- **FR-071**: An agent run MUST expose typed, monotonically sequenced events with a run id and
+  injected timestamp for skill resolution, context assembly, proposal, validation, application,
+  failure, cancellation, and terminal completion. Exactly one terminal event is permitted.
+- **FR-072**: Every run MUST enforce explicit bounds for active skills, skill/context tokens,
+  commands, and repair rounds. The default validation repair budget remains one; no silent third
+  provider attempt is permitted.
+- **FR-073**: A validated command batch MUST apply through the grouped kernel door as one
+  AI-authored history entry carrying a human label. Preflight MUST exercise the same grouped door,
+  not a weaker per-command approximation.
+- **FR-074**: Cancellation and run supersession MUST be checked before cached results, provider
+  results, validation, and application. A stale run MUST be incapable of mutating the live kernel.
+- **FR-075**: A plan cache key MUST cover the complete assembled context, conversation history, and
+  activated skill fingerprints. Memory, catalog, template, block, selection, or skill changes MUST
+  invalidate the entry.
+- **FR-076**: Existing callers that provide no skill registry MUST retain the current command-plan
+  behavior; skills are additive and do not create a second mutation path.
+
 **Evidence and evaluation**
 
 - **FR-052**: A recorded evaluation protocol MUST exist that generates a fixed brief set through
@@ -500,6 +587,12 @@ run the distinctiveness check across unrelated briefs and produce its measured r
 - **Refinement Request**: One follow-up instruction against an existing site, its resolved target,
   the change it produced, and its single undo step.
 - **Evaluation Record**: The durable evidence of one comparison or distinctiveness run.
+- **Agent Skill**: A validated, versioned, non-executable expertise bundle. Its metadata is
+  discoverable; its full content is request-local and cannot grant capabilities.
+- **Skill Activation**: The pinned id, version, fingerprint, reason, dependencies, budget cost, and
+  command restriction for one skill in one run.
+- **Agent Run**: A bounded state machine over skill resolution, context assembly, proposal,
+  validation, optional grouped application, and one terminal result, identified by a run id.
 
 ## Success Criteria _(mandatory)_
 
@@ -539,6 +632,16 @@ run the distinctiveness check across unrelated briefs and produce its measured r
 - **SC-014**: An existing single-page document upgrades to a one-page site and back to its rendered
   result with no loss, and every page of every generated site remains independently valid when taken
   out of its site.
+- **SC-015**: Across 1,000 shuffled registry/selection inputs, skill resolution produces the same
+  ordered activations and fingerprints for equal requests, selections, and policies.
+- **SC-016**: Unselected skill instruction bytes reaching provider context equal zero; selected and
+  auto-matched skills reach it exactly once with their recorded version and fingerprint.
+- **SC-017**: 100% of commands outside the effective run/skill policy are rejected before a live
+  transaction; the count of policy-bypassing writes is zero.
+- **SC-018**: Every run's event sequence is monotonic, begins with `run.started`, ends in exactly
+  one completed/failed/cancelled event, and emits no event or write after that terminal event.
+- **SC-019**: Changing only memory, a context fragment, block/template catalog data, or one selected
+  skill byte produces a plan-cache miss; a pre-aborted lookup always produces `AbortError`.
 
 ## Resolved Decisions
 
@@ -584,6 +687,14 @@ requester on 2026-08-29 and are now binding requirements rather than assumptions
   touching how generation selects from it. Model-generated imagery is therefore a future way to
   populate the library, not a separate path into the page.
 
+- **Skills are declarative expertise, never executable authority** (FR-065 through FR-076). The
+  strongest reusable pattern from `open-builder` is progressive disclosure plus request-local
+  selection; its script execution and capability-union semantics are deliberately not copied.
+  `open-v0` contributes live-canvas context categories, and `OpenLovable` contributes visible
+  streamed operations, but Builder keeps typed command batches, scratch preflight, and atomic apply.
+  Skill bodies are structured and fingerprinted, scripts are absent, and the effective command set
+  can only shrink relative to host policy.
+
 ## Assumptions
 
 - The block vocabulary needed for professional pages does not exist in sufficient breadth today.
@@ -608,6 +719,9 @@ requester on 2026-08-29 and are now binding requirements rather than assumptions
 - The asset library available during this feature is populated locally and is small. Imagery variety
   is therefore bounded by the library, and the distinctiveness measure in SC-004 deliberately
   excludes imagery for that reason.
+- Skill definitions are supplied by trusted application code in v1. Importing skills from a URL,
+  executing skill scripts, and installing dependencies are intentionally deferred until an
+  authenticated review, hashing, sandbox, and atomic-install contract exists.
 - "Professional" is judged by the recorded evaluation, not by the implementing agent's own
   assessment.
 
@@ -628,3 +742,5 @@ requester on 2026-08-29 and are now binding requirements rather than assumptions
 - Search-engine optimization beyond a page's own title and description.
 - Analytics, consent management, and third-party embeds beyond the single sanitized escape hatch.
 - Automated access to, or scraping of, any competitor product.
+- Skill scripts, arbitrary tool execution, URL-based skill import, dependency installation by a
+  skill, and any skill API that reads or writes the filesystem directly.

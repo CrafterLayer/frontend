@@ -97,6 +97,21 @@ describe('US1 — build and edit through commands with reliable undo', () => {
     expect(aiTx.inverse.length).toBeGreaterThan(0);
   });
 
+  it('rejects an invalid runtime author before dispatch can change provenance or state', () => {
+    const kernel = testKernel(landingFixture());
+    const before = kernel.getDocument();
+
+    expect(() =>
+      kernel.dispatch(
+        'setProp',
+        { id: 'p1', key: 'content', value: 'Invalid provenance' },
+        'robot' as 'ai',
+      ),
+    ).toThrow(/author/i);
+    expect(kernel.getDocument()).toBe(before);
+    expect(kernel.transactions()).toEqual([]);
+  });
+
   it('unknown commands are rejected as cmd/unknown', () => {
     const kernel = testKernel();
     expect(() => kernel.dispatch('teleport', {})).toThrow(/No command named/);

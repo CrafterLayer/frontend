@@ -1,5 +1,6 @@
 import {
   builderError,
+  type AiContextProvider,
   type CompositionDef,
   type DeclarativeExtensionManifest,
   type DeclarativeWidgetTypeDef,
@@ -47,6 +48,8 @@ export function createRegistry(): RegistryHandle {
   const inlineEditors = new Map<string, Owned<InlineEditorDef>>();
   const projections = new Map<string, Owned<ProjectionDef>>();
   const panels = new Map<string, Owned<PanelContribution>>();
+  // Provider order is prompt-significant, so the insertion order is public contract.
+  const aiContextProviders = new Map<string, Owned<AiContextProvider>>();
   let keymaps: Owned<KeymapDef>[] = [];
   // Remaining contribution kinds are stored opaquely per point until their
   // consumers arrive (panels/fields in B3, projections in B4, …).
@@ -64,6 +67,7 @@ export function createRegistry(): RegistryHandle {
       );
     },
     command: (name) => commands.get(name)?.item,
+    commandNames: () => [...commands.keys()],
     canvasTools: () =>
       [...canvasTools.values()]
         .map((owned) => owned.item)
@@ -89,6 +93,7 @@ export function createRegistry(): RegistryHandle {
       const all = [...panels.values()].map((owned) => owned.item);
       return slot === undefined ? all : all.filter((entry) => entry.slot === slot);
     },
+    aiContextProviders: () => [...aiContextProviders.values()].map((owned) => owned.item),
     keymaps: () => keymaps.map((owned) => owned.item),
     composition: (compositionId) => compositions.get(compositionId)?.item,
     compositions(surface?: Surface) {
@@ -183,6 +188,25 @@ export function createRegistry(): RegistryHandle {
           );
         }
       }
+      const manifestAiProviderIds = new Set<string>();
+      for (const provider of contributes.aiContext ?? []) {
+        const existing = aiContextProviders.get(provider.id);
+        if (existing !== undefined) {
+          throw builderError(
+            'ext/duplicate',
+            `AI context provider "${provider.id}" from "${owner}" is already registered by "${existing.owner}".`,
+            ['contributes', 'aiContext'],
+          );
+        }
+        if (manifestAiProviderIds.has(provider.id)) {
+          throw builderError(
+            'ext/duplicate',
+            `AI context provider "${provider.id}" appears more than once in extension "${owner}".`,
+            ['contributes', 'aiContext'],
+          );
+        }
+        manifestAiProviderIds.add(provider.id);
+      }
 
       for (const contribution of contributes.blocks ?? []) {
         blocks.set(contribution.schema.type, {
@@ -209,6 +233,9 @@ export function createRegistry(): RegistryHandle {
       for (const panel of contributes.panels ?? []) {
         panels.set(panel.id, { owner, item: panel });
       }
+      for (const provider of contributes.aiContext ?? []) {
+        aiContextProviders.set(provider.id, { owner, item: provider });
+      }
       for (const keymap of contributes.keymaps ?? []) {
         keymaps.push({ owner, item: keymap });
       }
@@ -222,6 +249,7 @@ export function createRegistry(): RegistryHandle {
           point === 'inlineEditors' ||
           point === 'projections' ||
           point === 'panels' ||
+          point === 'aiContext' ||
           point === 'keymaps'
         ) {
           continue;
@@ -312,6 +340,11 @@ export function createRegistry(): RegistryHandle {
       for (const [panelId, owned] of [...panels]) {
         if (owned.owner === owner) {
           panels.delete(panelId);
+        }
+      }
+      for (const [providerId, owned] of [...aiContextProviders]) {
+        if (owned.owner === owner) {
+          aiContextProviders.delete(providerId);
         }
       }
       keymaps = keymaps.filter((owned) => owned.owner !== owner);

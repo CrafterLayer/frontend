@@ -136,11 +136,18 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('cta') ||
     key.includes('button') ||
     key.includes('action') ||
-    key.includes('form')
+    key.includes('form') ||
+    key.includes('progress')
   ) {
     return { kind: 'action', parts: actionDiagram() };
   }
-  if (key.includes('hero') || key.includes('banner') || key.includes('announcement')) {
+  if (
+    key.includes('hero') ||
+    key.includes('banner') ||
+    key.includes('announcement') ||
+    key.includes('spotlight') ||
+    key.includes('aurora')
+  ) {
     return { kind: 'hero', parts: heroDiagram() };
   }
   if (key.includes('column') || key.includes('row')) {
@@ -153,7 +160,11 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('logo') ||
     key.includes('stats') ||
     key.includes('team') ||
-    key.includes('blog')
+    key.includes('blog') ||
+    key.includes('portfolio') ||
+    key.includes('product') ||
+    key.includes('marquee') ||
+    key.includes('avatar')
   ) {
     return { kind: 'grid', parts: gridDiagram() };
   }
@@ -174,7 +185,8 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('video') ||
     key.includes('embed') ||
     key.includes('contact') ||
-    key.includes('newsletter')
+    key.includes('newsletter') ||
+    key.includes('carousel')
   ) {
     return { kind: 'media', parts: mediaDiagram() };
   }

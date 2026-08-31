@@ -52,7 +52,11 @@ describe('US2 — blocks-marketing extension', () => {
     const kernel = marketingKernel();
     const professionalTypes = [
       'announcementBar',
+      'promoBanner',
       'hero',
+      'carousel',
+      'videoSection',
+      'gallery',
       'logoCloud',
       'features',
       'bento-grid',
@@ -60,12 +64,15 @@ describe('US2 — blocks-marketing extension', () => {
       'stats',
       'processSteps',
       'team',
+      'portfolioGrid',
+      'productGrid',
       'pricing',
       'testimonials',
       'comparisonTable',
       'faq',
       'blogGrid',
       'contact',
+      'formSection',
       'newsletter',
       'cta',
     ];
@@ -75,7 +82,22 @@ describe('US2 — blocks-marketing extension', () => {
       expect(entry?.schema.description.length ?? 0).toBeGreaterThan(20);
       expect(entry?.schema.examples.length ?? 0).toBeGreaterThan(0);
     }
-    expect(kernel.context.registry.blocks('site').length).toBeGreaterThanOrEqual(25);
+    expect(kernel.context.registry.blocks('site').length).toBeGreaterThanOrEqual(32);
+  });
+
+  it('every registered model-facing example parses through its live block contract', () => {
+    const kernel = marketingKernel();
+
+    for (const entry of kernel.context.registry.blocks('site')) {
+      for (const example of entry.schema.examples) {
+        const exampleNode = example.node as { props?: unknown; type?: unknown };
+        expect(exampleNode.type, `${entry.schema.type}: ${example.prompt}`).toBe(entry.schema.type);
+        expect(
+          entry.schema.props.safeParse(exampleNode.props ?? {}).success,
+          `${entry.schema.type}: ${example.prompt}`,
+        ).toBe(true);
+      }
+    }
   });
 
   it('model-facing examples parse and exercise every expanded control', () => {
@@ -185,7 +207,7 @@ describe('US2 — blocks-marketing extension', () => {
     ).toThrow(/at most 2/);
     expect(() =>
       kernel.dispatch('insertNode', { type: 'features', parentId: heroId, slot: 'actions' }),
-    ).toThrow(/accepts \[cta\]/);
+    ).toThrow(/accepts \[cta, button\]/);
   });
 
   it('renders a marketing document end-to-end through the registered renderers', async () => {

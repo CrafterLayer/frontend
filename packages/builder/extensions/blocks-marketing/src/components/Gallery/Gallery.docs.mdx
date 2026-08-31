@@ -1,0 +1,68 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as GalleryStories from './Gallery.stories';
+
+<Meta of={GalleryStories} />
+
+# Gallery
+
+A Builder-native image collection for portfolios, product stories, venues, case studies, and
+editorial pages. Use it when the relationship between several images matters. Use the standalone
+Image block for a single supporting visual.
+
+<Canvas of={GalleryStories.Editorial} />
+<Controls />
+
+## Public props and defaults
+
+- `eyebrow?`, `heading`, and `body?` own the introduction. The heading labels the section.
+- `items` accepts up to 16 records with `src`, `alt`, `decorative`, optional `caption`, optional
+  safe `href`, and optional `featured`. It defaults to an empty array rather than publishing fake
+  work.
+- `layout = 'grid'` supports a regular responsive grid; `editorial` promotes the explicitly featured
+  item, or the first item when none is marked.
+- `columns = '3'` applies to the grid layout and supports two through four requested columns.
+- `aspect = 'landscape'`, `imageFit = 'cover'`, `showCaptions = true`, and `captionStyle = 'below'`
+  control media presentation.
+- `linkImages = false` keeps figures static. Enabling it creates semantic full-size links using each
+  item `href` or its safe image source. `newTab = true` and `linkLabel` control those links.
+- Shared alignment, tone, spacing, width, gutter, colour, motion, typography, logical spacing, and
+  validated utility-class controls remain optional and token-bound.
+
+## Accessibility and canvas behavior
+
+The section uses a visible `h2`, a semantic list, `figure`/`figcaption`, lazy images, and explicit
+alt text. Set `decorative: true` only when an image adds no information; the rendered alt then
+becomes empty. Missing alt text for informative images produces a canvas-only warning. Full-size
+links have an accessible action name and are prevented from navigating while the page is being
+edited.
+
+This block deliberately avoids a modal lightbox. A correct lightbox needs focus trapping, focus
+return, Escape handling, background inertness, scroll locking, and canvas coordination; a semantic
+link is safer until the builder owns that complete dialog primitive.
+
+## Responsive, RTL, and content guidance
+
+Container queries collapse every layout to one column before adding columns based on the space the
+block actually receives. Editorial promotion changes visual span without changing source order.
+Logical alignment and inset utilities support RTL. Image transitions only exist for real links and
+are disabled under reduced-motion preferences. Supply properly sized source assets; this schema does
+not fabricate a `srcset` from URLs it cannot verify.
+
+## Example
+
+```ts
+gallerySchema.props.parse({
+  heading: 'Selected spaces',
+  layout: 'editorial',
+  linkImages: true,
+  items: [
+    {
+      src: '/images/courtyard.jpg',
+      alt: 'Sunlit courtyard framed by stone walls',
+      caption: 'Courtyard House',
+      featured: true,
+    },
+  ],
+});
+```

@@ -19,9 +19,15 @@ const formActionSchema = z
   .string()
   .min(1)
   .max(500)
-  .refine((value) => /^(#|\/|https?:\/\/)/i.test(value), {
-    message: 'Form action must be relative or use http or https.',
-  });
+  .refine(
+    (value) =>
+      value.startsWith('#') ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^https?:\/\//i.test(value),
+    {
+      message: 'Form action must be relative or use http or https.',
+    },
+  );
 
 export const newsletterSchema = defineBlockSchema({
   type: 'newsletter',

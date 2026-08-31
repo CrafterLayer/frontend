@@ -132,6 +132,33 @@ describe('AI context assembly', () => {
     ]);
   });
 
+  it('automatically collects trusted extension context without manual provider plumbing', () => {
+    const contributed: AiContextProvider = {
+      id: 'acme.brand-memory',
+      collect: () => ({ title: 'Brand memory', body: 'Use the approved cobalt palette.' }),
+    };
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [
+        fixtureBlocks,
+        {
+          tier: 1,
+          name: 'acme-ai-context',
+          version: '1.0.0',
+          contributes: { aiContext: [contributed] },
+        },
+      ],
+      ports: { clock: fixedClock(100), ids: seededIds('registered-context') },
+    });
+
+    const context = assembleAiContext(kernel.context);
+
+    expect(context.fragments.map(({ title }) => title)).toContain('Brand memory');
+    expect(context.fragments.find(({ title }) => title === 'Brand memory')?.body).toContain(
+      'cobalt',
+    );
+  });
+
   it('re-estimates invalid contributed token counts without overriding an explicit zero', () => {
     const kernel = contextKernel();
     const providers: AiContextProvider[] = [

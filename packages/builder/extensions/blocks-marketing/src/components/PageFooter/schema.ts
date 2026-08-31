@@ -62,8 +62,8 @@ export const pageFooterSchema = defineBlockSchema({
     bottomBar: { tab: 'advanced', section: 'Structure' },
   },
   slots: {
-    default: { allow: ['richText', 'cta', 'navLinks', 'stack'] },
-    bottom: { allow: ['richText', 'cta', 'navLinks', 'stack'] },
+    default: { allow: ['richText', 'cta', 'button', 'navLinks', 'stack'] },
+    bottom: { allow: ['richText', 'cta', 'button', 'navLinks', 'stack'] },
   },
   examples: pageFooterExamples,
 });

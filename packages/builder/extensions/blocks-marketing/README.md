@@ -1,6 +1,6 @@
 # `@craftkit/builder-blocks-marketing`
 
-CraftKit's production marketing vocabulary: 25 responsive block types plus four original,
+CraftKit's production marketing vocabulary: 32 responsive block types plus four original,
 ready-to-insert landing-page templates. The package ships executable block schemas and renderers as
 the trusted tier-1 `blocksMarketing` manifest; reusable page compositions ship separately as the
 JSON-pure tier-2 `marketingTemplates` manifest.
@@ -12,14 +12,15 @@ or another extension.
 
 ## Block vocabulary
 
-| Family                | Registered types                                                    |
-| --------------------- | ------------------------------------------------------------------- |
-| Page chrome           | `pageHeader`, `pageFooter`, `navLinks`                              |
-| Layout and media      | `stack`, `grid`, `image`, `richText`                                |
-| Opening and trust     | `announcementBar`, `hero`, `logoCloud`, `stats`, `testimonials`     |
-| Product story         | `features`, `bento-grid`, `content-section`, `processSteps`, `team` |
-| Conversion            | `pricing`, `pricingPlan`, `comparisonTable`, `cta`, `newsletter`    |
-| Education and contact | `faq`, `blogGrid`, `contact`                                        |
+| Family                    | Registered types                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| Page chrome               | `pageHeader`, `pageFooter`, `navLinks`                                                     |
+| Layout and media          | `stack`, `grid`, `image`, `richText`, `gallery`, `videoSection`                            |
+| Opening, motion and trust | `announcementBar`, `promoBanner`, `hero`, `carousel`, `logoCloud`, `stats`, `testimonials` |
+| Product story             | `features`, `bento-grid`, `content-section`, `processSteps`, `team`                        |
+| Work and commerce         | `portfolioGrid`, `productGrid`                                                             |
+| Conversion                | `pricing`, `pricingPlan`, `comparisonTable`, `cta`, `newsletter`, `formSection`            |
+| Education and contact     | `faq`, `blogGrid`, `contact`                                                               |
 
 Every new component owns its implementation, zod schema, AI-ready examples, local export,
 behavior-focused test, Storybook story, and MDX documentation. Section schemas expose explicit
@@ -32,9 +33,10 @@ typography and spacing controls.
 of professional Tailwind marketing pages, without copying paid template code:
 
 - `saas-launch` — product-led SaaS page.
-- `creative-agency` — studio and portfolio page.
-- `commerce-launch` — editorial commerce launch, available to `site` and `store` surfaces.
-- `professional-services` — consulting and services page.
+- `creative-agency` — studio and portfolio page with case studies and editorial gallery.
+- `commerce-launch` — editorial commerce launch with a featured product grid and promotional banner,
+  available to `site` and `store` surfaces.
+- `professional-services` — consulting and services page with a configurable enquiry form.
 
 Each composition contains at least nine coherent sections, validates against the live block registry
 before insertion, lands through one `insertComposition` transaction, and undoes in one step.

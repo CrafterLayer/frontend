@@ -1,0 +1,29 @@
+import { Canvas, Controls, Meta, Stories } from '@storybook/addon-docs/blocks';
+
+import * as SeparatorStories from './Separator.stories';
+
+<Meta of={SeparatorStories} />
+
+# Separator
+
+A Builder-native adaptation of the shadcn separator pattern. It separates related regions without
+introducing a second colour system or storing literal CSS values in the document.
+
+<Canvas of={SeparatorStories.LabelledAccent} />
+
+## Semantics and controls
+
+- Every variant exposes `role="separator"` and the authored horizontal or vertical orientation.
+- An optional visible label also becomes the separator's accessible name.
+- `tone` selects subtle, accent, or inverse token roles.
+- `style` selects solid, dashed, or dotted borders.
+- `thickness` selects token-compatible hairline, medium, or strong borders.
+- `spacing` uses the Builder spacing scale; horizontal separators use block rhythm and vertical
+  separators use logical inline rhythm.
+- Motion and custom utilities use the same validated contracts as the rest of the package.
+
+Vertical labels rotate within a fixed token-sized column. Border placement uses logical
+`border-inline-start`, so directionality remains correct in RTL.
+
+<Controls />
+<Stories />

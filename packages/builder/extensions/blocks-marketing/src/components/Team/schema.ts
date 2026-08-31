@@ -22,9 +22,15 @@ const safeHrefSchema = z
   .string()
   .min(1)
   .max(2000)
-  .refine((value) => /^(#|\/|https?:\/\/|mailto:|tel:)/i.test(value), {
-    message: 'Profile link must be relative or use http, https, mailto, or tel.',
-  });
+  .refine(
+    (value) =>
+      value.startsWith('#') ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^(https?:\/\/|mailto:|tel:)/i.test(value),
+    {
+      message: 'Profile link must be relative or use http, https, mailto, or tel.',
+    },
+  );
 
 export const teamSchema = defineBlockSchema({
   type: 'team',

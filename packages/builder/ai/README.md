@@ -4,7 +4,7 @@ Headless command-planning engine for CraftKit Builder.
 
 ## The rule that must not be broken
 
-**AI proposes kernel commands. It never creates, replaces, or writes a `BuilderDocument`.**
+**AI proposes kernel commands. It never creates, replaces, or writes a document or a site.**
 
 Every proposal is an ordered list of `{ command, args }`. Before the proposal is returned, this
 package looks up every command in the live registry, parses its arguments with that command's own
@@ -33,6 +33,12 @@ of commands bypasses the invariant this package exists to preserve.
   command.
 - Runtime plan validation through the real kernel door, plus `applyAiPlan()` for explicit
   AI-authored dispatch.
+- A versioned, immutable Skills registry with metadata-only discovery, explicit body/reference
+  reads, deterministic request-local activation, dependencies, conflicts, trust policy, content
+  fingerprints, and hard count/token limits.
+- `runAiAgent()`, a UI-independent bounded coordinator with sequenced events, injected time/run id,
+  real cancellation plus host-owned supersession leases, one repair at most, review-only or
+  automatic apply, and exactly one terminal event.
 
 ## Usage
 
@@ -64,14 +70,107 @@ Validation ports are injected and dedicated to the scratch kernel. Do not borrow
 stateful port instances: a preflight insertion consumes IDs in the scratch session. Production code
 must inject equivalent deterministic capabilities rather than reaching for ambient time or entropy.
 
+## Skills and bounded agent runs
+
+A Skill is reviewed data, not executable code. It may add instructions and logical text references,
+and it may **narrow** the commands available to one request. It cannot register commands, grant a
+tool, run a script, import a URL, access the filesystem/network, or write Builder state.
+
+The simplest safe setup uses the reviewed built-ins and runs in proposal-only mode by default:
+
+```ts
+import {
+  createCraftkitAiSkillRegistry,
+  createRemoteAiPlanProvider,
+  runAiAgent,
+} from '@craftkit/builder-ai';
+
+let currentAssistantRunId: string | undefined;
+const runId = 'assistant-turn-42';
+currentAssistantRunId = runId;
+const result = await runAiAgent({
+  runId,
+  clock: deterministicRunClock,
+  kernel,
+  provider: createRemoteAiPlanProvider({ endpoint: '/api/ai/plan' }),
+  request: 'صمم صفحة هبوط احترافية',
+  validationPorts: deterministicScratchPorts,
+  skillRegistry: createCraftkitAiSkillRegistry(),
+  apply: 'never',
+  signal: abortController.signal,
+  // Fail closed if a newer turn replaces this one, even when a provider ignores abort.
+  isCurrentRun: (candidate) => candidate === currentAssistantRunId,
+  onEvent: (event) => renderAgentProgress(event),
+});
+
+// `result.plan` is validated but nothing changed until the host explicitly applies it.
+```
+
+A host can supply its own Skill without changing this package or creating another write path:
+
+```ts
+import { createCraftkitAiSkillRegistry } from '@craftkit/builder-ai';
+
+const skillRegistry = createCraftkitAiSkillRegistry([
+  {
+    schemaVersion: 1,
+    id: 'acme.brand-voice',
+    name: 'Acme brand voice',
+    description: 'Apply the reviewed Acme writing rules.',
+    version: '1.0.0',
+    instructions: 'Use direct, concrete language. Preserve approved product names.',
+    activation: { mode: 'explicit' },
+    references: { 'voice/checklist.md': 'Short headings. Specific claims. One action per CTA.' },
+    restrictToCommands: ['setProp'],
+  },
+]);
+
+await runAiAgent({
+  // same required ports/kernel/provider as above
+  runId: 'brand-edit-7',
+  clock: deterministicRunClock,
+  kernel,
+  provider,
+  request: 'Rewrite the selected hero',
+  validationPorts: deterministicScratchPorts,
+  skillRegistry,
+  selectedSkillIds: ['acme.brand-voice'],
+  apply: 'auto',
+});
+```
+
+Discovery is progressive: `registry.list()`/`get()` expose manifests and fingerprints, while
+`readSkill()`/`readReference()` disclose bodies explicitly. A prepared request includes full bodies
+only for active Skills. Activation is local to that run; there is no global active-Skill singleton.
+
+Command authority is always restrictive:
+
+```text
+live registered commands
+  ∩ session allowedCommands
+  ∩ every active Skill restriction
+  − session deniedCommands
+```
+
+The same effective policy is checked during scratch validation and immediately before live grouped
+application. The runner also bounds active Skills, Skill tokens, complete serialized context, and
+plan command count. The context budget covers the canonical wire request, conversation history, and
+the rejected attempt on the single repair—not only the assembled fragments. Untrusted Skills remain
+discoverable but need explicit host opt-in.
+
+For interactive surfaces, pass both controls: `AbortSignal` stops cooperative provider work, while
+`isCurrentRun` is the synchronous authority check that prevents a late cache/provider result from
+validating or applying after a newer run takes ownership. A missing or non-`true` lease answer fails
+closed. Proposal-only runs emit `plan.proposed`; auto-apply runs transition directly from validation
+to `plan.applying`.
+
 ## Undo semantics
 
-The kernel now provides the genuine grouped contract this section used to wait for:
-`kernel.dispatchGroup(steps, author)` runs every step over ONE immer produce — one transaction, one
-history entry, one undo, and atomic (a failing step commits nothing). `applyAiPlan()` uses it and
-reports `mode: 'group'`, which makes the panel's "one entry in history, one undo" literally true for
-a plan of any size. Grouping happens inside the door, never by writing patches or documents around
-it.
+The kernel grouped door accepts both the legacy `kernel.dispatchGroup(steps, author)` form and
+`kernel.dispatchGroup(steps, { author, label })`. It runs every step over ONE immer produce — one
+human-labelled transaction, one history entry, one undo, and atomic failure. Scratch preflight and
+live AI application use this same grouped path. Grouping happens inside the door, never by writing
+patches or documents around it.
 
 ## Testing subpath
 
@@ -138,11 +237,12 @@ switches from the local deterministic provider to the remote one — no code cha
 - **Session memory.** `createMemoryContextProvider({ load })` turns any host-owned note store into a
   context fragment every provider sees. The engine owns the seam, never the storage: the panel feeds
   it the rationale of each applied plan; another product can feed it preferences from a database.
-  Pass it alongside `BUILDER_AI_CONTEXT_PROVIDERS` via `contextProviders`.
+  Register it through `contributes.aiContext` and the live registry supplies it automatically, or
+  pass an explicit `contextProviders` list when intentionally overriding provider selection.
 - **Plan caching.** `createCachingAiPlanProvider(inner, { capacity })` wraps any provider with an
-  LRU keyed on (request, document, selection, history): a repeated ask on an unchanged page answers
-  instantly and costs nothing. `repair` is never cached — a repair exists because the cached shape
-  of an answer was wrong.
+  LRU keyed on the request, conversation, and the complete canonical assembled context — fragments,
+  memory, blocks, templates, selection detail, document, Skill catalog, and activation fingerprints.
+  A changed input is always a miss; an aborted hit never returns. `repair` is never cached.
 - **Staged planning.** A plan may carry `followUp`: when a request is too big for one safe plan, the
   provider delivers the most valuable stage and words the next request there, in the requester's
   language. UIs offer it as a one-tap continuation; nothing runs automatically. The dev bridge pairs

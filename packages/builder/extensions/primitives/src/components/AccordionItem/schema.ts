@@ -24,6 +24,12 @@ const ACCORDION_ITEM_CHILDREN = [
   'cta',
   'features',
   'navLinks',
+  'button',
+  'separator',
+  'avatarGroup',
+  'progress',
+  'gallery',
+  'videoSection',
 ] as const;
 
 export const accordionItemSchema = defineBlockSchema({

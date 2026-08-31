@@ -1,0 +1,28 @@
+import { Meta, Canvas, Controls, Stories } from '@storybook/addon-docs/blocks';
+
+import * as SpotlightSurfaceStories from './SpotlightSurface.stories';
+
+<Meta of={SpotlightSurfaceStories} />
+
+# Spotlight Surface
+
+An original, Builder-native backdrop inspired by Aceternity UI's spotlight language. It uses role
+tokens instead of a fixed blue palette and frames one high-priority section without adding an
+animation dependency.
+
+<Canvas of={SpotlightSurfaceStories.Soft} />
+
+## Composition
+
+The default slot accepts the main marketing sections, primary containers, buttons, the Magic UI
+marquee, and the existing shine border. Use one spotlight around a hero or CTA; repeating it around
+every section removes the hierarchy it is meant to create.
+
+## Motion and theming
+
+Position, intensity, variant, light or dark tone, minimum height, and animation are named schema
+intents. Colours resolve through `--t-accent`, `--t-success`, surface, and text roles. Ambient drift
+stops under `prefers-reduced-motion` while the static spotlight remains visible.
+
+<Controls />
+<Stories />

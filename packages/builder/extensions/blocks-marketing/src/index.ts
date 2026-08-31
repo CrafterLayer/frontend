@@ -8,11 +8,14 @@ import { Cta, ctaSchema } from './components/Cta';
 import { AnnouncementBar, announcementBarSchema } from './components/AnnouncementBar';
 import { BentoGrid, bentoGridSchema } from './components/BentoGrid';
 import { BlogGrid, blogGridSchema } from './components/BlogGrid';
+import { Carousel, carouselSchema } from './components/Carousel';
 import { ComparisonTable, comparisonTableSchema } from './components/ComparisonTable';
 import { Contact, contactSchema } from './components/Contact';
 import { ContentSection, contentSectionSchema } from './components/ContentSection';
 import { Faq, faqSchema } from './components/Faq';
 import { Features, featuresSchema } from './components/Features';
+import { FormSection, formSectionSchema } from './components/FormSection';
+import { Gallery, gallerySchema } from './components/Gallery';
 import { Grid, gridSchema } from './components/Grid';
 import { Image, imageSchema } from './components/Image';
 import { NavLinks, navLinksSchema } from './components/NavLinks';
@@ -23,12 +26,16 @@ import { Stack, stackSchema } from './components/Stack';
 import { Hero, heroSchema } from './components/Hero';
 import { Pricing, pricingSchema } from './components/Pricing';
 import { PricingPlan, pricingPlanSchema } from './components/PricingPlan';
+import { ProductGrid, productGridSchema } from './components/ProductGrid';
 import { ProcessSteps, processStepsSchema } from './components/ProcessSteps';
+import { PromoBanner, promoBannerSchema } from './components/PromoBanner';
+import { PortfolioGrid, portfolioGridSchema } from './components/PortfolioGrid';
 import { RichTextBlock, richTextBlockSchema } from './components/RichTextBlock';
 import { Testimonials, testimonialsSchema } from './components/Testimonials';
 import { LogoCloud, logoCloudSchema } from './components/LogoCloud';
 import { Stats, statsSchema } from './components/Stats';
 import { Team, teamSchema } from './components/Team';
+import { VideoSection, videoSectionSchema } from './components/VideoSection';
 
 export const blocksMarketing: TrustedExtensionManifest = {
   tier: 1,
@@ -45,7 +52,11 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: gridSchema, render: Grid },
       { schema: imageSchema, render: Image },
       { schema: announcementBarSchema, render: AnnouncementBar },
+      { schema: promoBannerSchema, render: PromoBanner },
       { schema: heroSchema, render: Hero },
+      { schema: carouselSchema, render: Carousel },
+      { schema: videoSectionSchema, render: VideoSection },
+      { schema: gallerySchema, render: Gallery },
       { schema: logoCloudSchema, render: LogoCloud },
       { schema: featuresSchema, render: Features },
       { schema: bentoGridSchema, render: BentoGrid },
@@ -53,6 +64,8 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: statsSchema, render: Stats },
       { schema: processStepsSchema, render: ProcessSteps },
       { schema: teamSchema, render: Team },
+      { schema: portfolioGridSchema, render: PortfolioGrid },
+      { schema: productGridSchema, render: ProductGrid },
       { schema: pricingSchema, render: Pricing },
       // The card that goes inside it. Composed, so a plan can hold a button.
       { schema: pricingPlanSchema, render: PricingPlan },
@@ -61,6 +74,7 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: faqSchema, render: Faq },
       { schema: blogGridSchema, render: BlogGrid },
       { schema: contactSchema, render: Contact },
+      { schema: formSectionSchema, render: FormSection },
       { schema: newsletterSchema, render: Newsletter },
       { schema: ctaSchema, render: Cta },
       // A row of links: the composition primitive a header or footer slot holds.
@@ -80,6 +94,7 @@ export {
 } from './components/AnnouncementBar';
 export { BentoGrid, bentoGridSchema, type BentoGridProps } from './components/BentoGrid';
 export { BlogGrid, blogGridSchema, type BlogGridProps } from './components/BlogGrid';
+export { Carousel, carouselSchema, type CarouselProps } from './components/Carousel';
 export {
   ComparisonTable,
   comparisonTableSchema,
@@ -93,8 +108,17 @@ export {
 } from './components/ContentSection';
 export { Faq, faqSchema, type FaqProps } from './components/Faq';
 export { Features, featuresSchema, type FeaturesProps } from './components/Features';
+export { FormSection, formSectionSchema, type FormSectionProps } from './components/FormSection';
+export { Gallery, gallerySchema, type GalleryProps } from './components/Gallery';
 export { Hero, heroSchema, type HeroProps } from './components/Hero';
 export { Pricing, pricingSchema, type PricingProps } from './components/Pricing';
+export {
+  PortfolioGrid,
+  portfolioGridSchema,
+  type PortfolioGridProps,
+} from './components/PortfolioGrid';
+export { ProductGrid, productGridSchema, type ProductGridProps } from './components/ProductGrid';
+export { PromoBanner, promoBannerSchema, type PromoBannerProps } from './components/PromoBanner';
 export { LogoCloud, logoCloudSchema, type LogoCloudProps } from './components/LogoCloud';
 export { Newsletter, newsletterSchema, type NewsletterProps } from './components/Newsletter';
 export { PricingPlan, pricingPlanSchema, type PricingPlanProps } from './components/PricingPlan';
@@ -115,3 +139,8 @@ export {
 } from './components/Testimonials';
 export { Stats, statsSchema, type StatsProps } from './components/Stats';
 export { Team, teamSchema, type TeamProps } from './components/Team';
+export {
+  VideoSection,
+  videoSectionSchema,
+  type VideoSectionProps,
+} from './components/VideoSection';

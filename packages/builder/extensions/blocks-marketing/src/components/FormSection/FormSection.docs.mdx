@@ -1,0 +1,33 @@
+import { Meta, Canvas, Controls, Stories } from '@storybook/addon-docs/blocks';
+
+import * as FormSectionStories from './FormSection.stories';
+
+<Meta of={FormSectionStories} />
+
+# Form Section
+
+A Builder-native form section for lead capture, applications, bookings, surveys, and custom
+workflows. Authors configure an ordered field collection instead of being locked to one contact-form
+shape.
+
+<Canvas of={FormSectionStories.Split} />
+
+## Behaviour and safety
+
+- Supports text, email, telephone, URL, number, date, textarea, select, and checkbox fields.
+- Every control has a visible label, stable generated id, optional helper text, and native required
+  semantics.
+- Field ids and names must be unique so labels and submitted payloads remain unambiguous.
+- Submission is prevented only inside the Builder canvas. Published forms retain their native `get`
+  or `post` behaviour.
+- Form actions accept only relative, `http`, or `https` URLs.
+- Layout, control density, radius, button treatment, section colour, typography, spacing, motion,
+  and safe custom utilities remain explicit schema controls.
+
+## Variants
+
+`split` pairs editorial copy with the form, `card` creates a raised conversion surface, and
+`minimal` removes the visual container for quiet page compositions.
+
+<Controls />
+<Stories />

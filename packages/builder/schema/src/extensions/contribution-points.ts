@@ -66,6 +66,11 @@ export interface RegistryRead {
   blocks: (surface?: Surface) => readonly RegisteredBlock[];
   command: (name: string) => RegisteredCommand | undefined;
   /**
+   * Every live command name in REGISTRATION ORDER. Core commands therefore
+   * precede extension commands, and disposing an extension removes its names.
+   */
+  commandNames: () => readonly string[];
+  /**
    * Canvas tools sorted by ascending `order` (undefined last, ties by id).
    * B2a additive (005 contract §4): the first typed consumer of the point.
    */
@@ -96,6 +101,8 @@ export interface RegistryRead {
    */
   panel: (id: string) => PanelContribution | undefined;
   panels: (slot?: PanelContribution['slot']) => readonly PanelContribution[];
+  /** Trusted AI context providers in stable extension/manifest registration order. */
+  aiContextProviders: () => readonly AiContextProvider[];
   keymaps: () => readonly KeymapDef[];
   /** Tier-2 catalogs — lookups behave identically for trusted and hydrated content. */
   composition: (id: string) => CompositionDef | undefined;

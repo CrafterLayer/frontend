@@ -9,7 +9,9 @@ import { contentSectionSchema } from './schema';
 
 const node: Node = { id: 'content-story', type: 'content-section', props: {} };
 const exampleProps = (index: number) =>
-  contentSectionSchema.props.parse((contentSectionExamples[index]?.node as { props: unknown }).props);
+  contentSectionSchema.props.parse(
+    (contentSectionExamples[index]?.node as { props: unknown }).props,
+  );
 
 const meta = {
   title: 'Builder/Blocks/ContentSection',

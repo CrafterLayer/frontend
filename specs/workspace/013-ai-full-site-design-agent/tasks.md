@@ -201,6 +201,81 @@ story work can begin.
 
 ---
 
+## Phase 2i: User Story 8 — Trusted Skills and Bounded Agent Core (P1, foundational)
+
+**Goal**: Let a host give the agent versioned reusable skills without turning prompt text into
+authority; make one run deterministic, bounded, observable, cache-correct, and convergent on the
+same grouped kernel door used for live application.
+
+**Why this phase is numbered 2i**: US8 was added after the original 158-task plan, so its task ids
+continue at T159. It is nevertheless foundational and may complete before the site substrate; it
+depends only on the existing single-page command planner and grouped core dispatch.
+
+- [x] T159 [US8] Record the three-project source audit, requirements, decision, and public contract
+      in `research.md` R11, `spec.md` FR-065–FR-076, `plan.md` D10, and `contracts/agent-skills.md`
+- [x] T160 [US8] Write definition/registry red tests in
+      `packages/builder/ai/src/skills/skill-registry.test.ts` for runtime validation, canonical
+      fingerprints, metadata-only discovery, explicit reads, duplicate ids, size/path limits, and
+      caller-mutation isolation
+- [x] T161 [US8] Implement the v1 types, constants, runtime validator, canonicalizer, fingerprint,
+      and immutable progressive registry in
+      `packages/builder/ai/src/skills/{types,define-skill,registry}.ts`
+- [x] T162 [US8] Write resolution red/property tests in
+      `packages/builder/ai/src/skills/resolve-skills.property.test.ts` — 1,000 shuffled inputs,
+      explicit/always/auto/dependency activation, cycles, conflicts, trust, count/token budgets, and
+      observable auto omissions
+- [x] T163 [US8] Implement deterministic request-local resolution in
+      `packages/builder/ai/src/skills/resolve-skills.ts`
+- [x] T164 [US8] Add reviewed, instruction-only first-party skills in
+      `packages/builder/ai/src/skills/builtins.ts` for safe Builder editing, professional page
+      composition, and precise refinement; no script, URL, or ambient runtime capability
+- [x] T165 [US8] Write context red tests proving catalog metadata and active bodies are separate,
+      active bodies appear exactly once, prompt-looking delimiters remain data, and the skill
+      fingerprints reach the provider in `packages/builder/ai/src/context/assemble-context.test.ts`
+- [x] T166 [US8] Integrate prepared Skills into `AssembledAiContext`, context assembly, and
+      `generateAiPlan()` through additive options in
+      `packages/builder/ai/src/{types.ts,context/assemble-context.ts,plan/generate-plan.ts}`
+- [x] T167 [US8] Write cache red tests for memory/fragment/block/template/skill changes and an
+      already-aborted cache hit in `packages/builder/ai/src/provider/caching-provider.test.ts`
+- [x] T168 [US8] Make cache identity cover the complete canonical assembled context and check
+      cancellation before lookup/return in `packages/builder/ai/src/provider/caching-provider.ts`
+- [x] T169 [US8] Write command-policy red tests in
+      `packages/builder/ai/src/plan/skill-command-policy.test.ts` proving host/skill intersection,
+      deny precedence, command cap, unknown command refusal, and zero scratch/live writes
+- [x] T170 [US8] Implement command-policy composition and enforce it in plan parse/validation/repair
+      through `packages/builder/ai/src/skills/command-policy.ts` and
+      `packages/builder/ai/src/plan/{generate-plan,validate-plan,apply-plan}.ts`
+- [x] T171 [US8] Restore the approved one-repair default in
+      `packages/builder/ai/src/plan/generate-plan.ts` and update its tests; a third provider attempt
+      must be impossible unless a later versioned contract explicitly changes the budget
+- [x] T172 [US8] Extend grouped dispatch with the backward-compatible `{ author, label }` options,
+      use the plan rationale as the AI history label, and make scratch preflight execute the same
+      grouped door in `packages/builder/core/src/commands/dispatch.ts`,
+      `packages/builder/core/src/kernel/create-builder.ts`, and AI plan tests
+- [x] T173 [US8] Define `AiAgentRunState`, typed sequenced `AiAgentEvent`, bounded policy, and typed
+      outcomes in `packages/builder/ai/src/agent/types.ts`
+- [x] T174 [US8] Write runner red tests in `packages/builder/ai/src/agent/run-agent.test.ts` for
+      event order, injected time/run id, explicit Skills, propose-only, auto apply, one transaction
+      and undo, failure, pre-abort, mid-run cancellation, and no post-terminal event/write
+- [x] T175 [US8] Implement the UI-independent bounded coordinator in
+      `packages/builder/ai/src/agent/run-agent.ts`
+- [x] T176 [US8] Export the skills/agent surfaces from `packages/builder/ai/src/index.ts`, update
+      `packages/builder/ai/README.md` with the progressive-disclosure and capability-intersection
+      invariants, and add an integration example that supplies a host Skill
+- [x] T177 [US8] Run named mutation checks for cache context identity, skill dependency/conflict
+      resolution, policy intersection, cancellation-before-apply, and exactly-one-terminal-event;
+      observe each failing test before restoring the source
+- [ ] T178 [US8] Run the US8 gate: focused Skills/agent/core tests, `builder-ai` lint/typecheck/test
+      and coverage, `builder-core` lint/typecheck/test, `pnpm check:workspace`,
+      `pnpm check:boundaries`, and `git diff --check`; record unavailable or unrelated failures
+      separately
+
+**Checkpoint**: a host can give the agent validated Skills; the run discloses and pins them,
+enforces their restrictive policy, emits a complete typed trace, and either returns a validated
+proposal or applies one atomic AI-authored change.
+
+---
+
 ## Phase 3: User Story 1 — Describe a business, receive a whole site (P1) 🎯 MVP
 
 **Goal**: A one-paragraph brief becomes a complete, valid, multi-page site through five observable
@@ -618,6 +693,10 @@ mutually independent) → US7 (P3, depends on US1 and US2 existing).
 - T048–T049 (stage contracts) block T050–T058
 - T058 (`generateSite`) blocks T104 (refinement reuses its machinery)
 - T144 (brief set) blocks T145 and T148
+- T160 → T161; T162 → T163; T165 → T166; T167 → T168; T169 → T170; T173–T174 → T175; T160–T175 block
+  T176–T178
+- US8's Skills runtime is independent of the site schema substrate, but T170/T172 serialize on the
+  already-dirty AI/core integration files and MUST NOT run beside another writer on those paths
 
 **Deliberately deferred**: per [plan.md](./plan.md)'s open item, Phase 7's block-vocabulary breadth
 is scoped from the structure stage's real needs — T122 runs AFTER T051 exists, so the block list is
@@ -628,6 +707,8 @@ derived rather than guessed.
 - **Phase 1**: T002, T003
 - **Phase 2**: sub-phase 2c (T018–T020) runs alongside 2b (T010–T017) — disjoint paths
 - **Phase 3**: T050, T051, T052, T053 are four separate stage files
+- **Phase 2i**: T160/T162/T167/T169/T174 are test-first tasks over disjoint new or test files until
+  their paired implementations begin; all shared barrels and plan/core integration remain serial
 - **Phase 3 UI**: `GenerationProgress` (T067–T071), `SitePages` (T072–T076), and `SiteBriefForm`
   (T078–T082) are three disjoint component folders in two packages
 - **Phase 10**: T149, T150, T151
@@ -647,5 +728,8 @@ which the product is competitive rather than merely functional.
 in parallel by path-disjoint agents. US7 measures the rest and cannot be self-certified — it is the
 one phase whose completion is not in an implementing agent's gift.
 
-**Total**: 158 tasks. Setup 3 · Foundational 44 · US1 38 · US2 18 · US3 11 · US4 7 · US5 7 · US6 15
-· US7 5 · Polish 10.
+**Agent-core prerequisite added 2026-09-01**: US8 (T159–T178) precedes the competitive P1 milestone
+and may land independently of the site model because it only widens the existing command planner.
+
+**Total**: 178 tasks. Setup 3 · Foundational 44 · US8 20 · US1 38 · US2 18 · US3 11 · US4 7 · US5 7
+· US6 15 · US7 5 · Polish 10.

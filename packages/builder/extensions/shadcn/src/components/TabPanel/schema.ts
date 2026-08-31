@@ -17,6 +17,18 @@ const PANEL_CHILDREN = [
   'shadcnAlert',
   'pricing',
   'features',
+  'formSection',
+  'gallery',
+  'videoSection',
+  'portfolioGrid',
+  'productGrid',
+  'button',
+  'separator',
+  'avatarGroup',
+  'progress',
+  'breadcrumbs',
+  'pagination',
+  'accordion',
 ] as const;
 
 export const tabPanelSchema = defineBlockSchema({

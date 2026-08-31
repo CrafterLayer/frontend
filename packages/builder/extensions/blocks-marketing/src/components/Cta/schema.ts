@@ -15,7 +15,7 @@ const safeHref = z
   .max(2000)
   .refine(
     (value) =>
-      value.startsWith('/') ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
       value.startsWith('#') ||
       value.startsWith('https://') ||
       value.startsWith('http://') ||

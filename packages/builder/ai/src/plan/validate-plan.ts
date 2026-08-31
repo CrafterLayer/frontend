@@ -13,6 +13,7 @@ import type {
   AiPlanValidationResult,
   AiValidationPorts,
 } from '../types';
+import type { AiEffectiveCommandPolicy } from '../skills';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -102,6 +103,34 @@ function commandIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanVali
   return issues;
 }
 
+function policyIssues(
+  plan: AiPlan,
+  policy: AiEffectiveCommandPolicy | undefined,
+): readonly AiPlanValidationIssue[] {
+  if (policy === undefined) return [];
+  if (plan.commands.length > policy.maxCommands) {
+    return [
+      {
+        code: 'policy-rejected',
+        message: `The active AI policy allows at most ${String(policy.maxCommands)} command${policy.maxCommands === 1 ? '' : 's'}; the plan contains ${String(plan.commands.length)}.`,
+      },
+    ];
+  }
+
+  const allowed = new Set(policy.allowedCommands);
+  return plan.commands.flatMap((step, index) =>
+    allowed.has(step.command)
+      ? []
+      : [
+          {
+            code: 'policy-rejected' as const,
+            message: `Step ${String(index)} command "${step.command}" is not allowed by the active AI policy.`,
+            step: index,
+          },
+        ],
+  );
+}
+
 /** @internal Shared with previewAiPlan: the scratch world a plan is rehearsed in. */
 export function validationManifest(plan: AiPlan, kernel: BuilderKernel): TrustedExtensionManifest {
   const commands: Record<string, RegisteredCommand> = {};
@@ -168,21 +197,23 @@ function dryRun(
     documents that most need editing.
   */
   const priorIssues = new Set(scratch.validate().map((issue) => issue.message));
-  for (const [index, step] of plan.commands.entries()) {
-    try {
-      scratch.dispatch(step.command, step.args, 'ai');
-    } catch (cause) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: 'door-rejected',
-            message: `Step ${String(index)} was rejected by the kernel door: ${errorMessage(cause)}`,
-            step: index,
-          },
-        ],
-      };
-    }
+  try {
+    scratch.dispatchGroup(
+      plan.commands.map((step) => ({ command: step.command, args: step.args })),
+      { author: 'ai', label: 'AI plan validation' },
+    );
+  } catch (cause) {
+    const step = plan.commands.length === 1 ? 0 : undefined;
+    return {
+      ok: false,
+      issues: [
+        {
+          code: 'door-rejected',
+          message: `${step === undefined ? 'The grouped plan' : `Step ${String(step)}`} was rejected by the kernel door: ${errorMessage(cause)}`,
+          ...(step === undefined ? {} : { step }),
+        },
+      ],
+    };
   }
   const documentIssues = scratch.validate().filter((issue) => !priorIssues.has(issue.message));
   if (documentIssues.length > 0) {
@@ -204,21 +235,27 @@ export function validateAiPlan(
   candidate: unknown,
   kernel: BuilderKernel,
   ports: AiValidationPorts,
+  policy?: AiEffectiveCommandPolicy,
 ): AiPlanValidationResult {
   const parsed = parsePlan(candidate);
   if (!parsed.ok) {
     return parsed;
   }
   const issues = commandIssues(parsed.plan, kernel);
-  return issues.length > 0 ? { ok: false, issues } : dryRun(parsed.plan, kernel, ports);
+  if (issues.length > 0) return { ok: false, issues };
+  const rejectedByPolicy = policyIssues(parsed.plan, policy);
+  return rejectedByPolicy.length > 0
+    ? { ok: false, issues: rejectedByPolicy }
+    : dryRun(parsed.plan, kernel, ports);
 }
 
 export function assertValidAiPlan(
   candidate: unknown,
   kernel: BuilderKernel,
   ports: AiValidationPorts,
+  policy?: AiEffectiveCommandPolicy,
 ): AiPlan {
-  const result = validateAiPlan(candidate, kernel, ports);
+  const result = validateAiPlan(candidate, kernel, ports, policy);
   if (!result.ok) {
     throw new AiPlanRejectedError(result.issues);
   }

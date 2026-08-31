@@ -13,23 +13,32 @@ export interface CachingAiPlanProviderOptions {
 
 const DEFAULT_CAPACITY = 32;
 
-/**
- * The cache key covers everything that changes what a correct answer IS: the
- * request's words, the document the plan will land on, the current selection,
- * and the conversation so far. Fragments and token counts are derived from the
- * same state, so they add bytes without adding discrimination.
- */
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, candidate: unknown) => {
+    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
+      return candidate;
+    }
+    return Object.fromEntries(
+      Object.entries(candidate).sort(([left], [right]) => compareText(left, right)),
+    );
+  });
+}
+
+/** Every prompt-visible context byte participates in cache identity. */
 function cacheKey(
   request: string,
   context: AssembledAiContext,
   live: AiProposeOptions | undefined,
 ): string {
-  return JSON.stringify([
-    request,
-    context.document,
-    context.selection.ids,
-    live?.history ?? [],
-  ]);
+  return stableStringify({ context, history: live?.history ?? [], request });
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted === true) signal.throwIfAborted();
 }
 
 /**
@@ -45,6 +54,9 @@ export function createCachingAiPlanProvider(
   options: CachingAiPlanProviderOptions = {},
 ): AiPlanProvider {
   const capacity = options.capacity ?? DEFAULT_CAPACITY;
+  if (!Number.isSafeInteger(capacity) || capacity <= 0) {
+    throw new RangeError('AI plan cache capacity must be a positive safe integer.');
+  }
   const cache = new Map<string, AiPlan>();
   const innerRepair = inner.repair?.bind(inner);
 
@@ -54,15 +66,21 @@ export function createCachingAiPlanProvider(
       context: AssembledAiContext,
       live?: AiProposeOptions,
     ): Promise<AiPlan> {
+      throwIfAborted(live?.signal);
       const key = cacheKey(request, context, live);
+      throwIfAborted(live?.signal);
       const hit = cache.get(key);
       if (hit !== undefined) {
+        throwIfAborted(live?.signal);
         // Refresh recency so a hot ask survives longer than a stale one.
         cache.delete(key);
         cache.set(key, hit);
         return hit;
       }
       const plan = await inner.propose(request, context, live);
+      // An inner provider may ignore cancellation; never cache or return its
+      // stale answer after the caller has ended the run.
+      throwIfAborted(live?.signal);
       cache.set(key, plan);
       if (cache.size > capacity) {
         const oldest = cache.keys().next().value;

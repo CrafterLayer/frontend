@@ -12,7 +12,7 @@ const node: Node = { id: 'page-footer-test', type: 'pageFooter', props: {} };
 
 describe('PageFooter', () => {
   it('schema declares exactly the default and bottom slots', () => {
-    const allowed = ['richText', 'cta', 'navLinks', 'stack'];
+    const allowed = ['richText', 'cta', 'button', 'navLinks', 'stack'];
     const slots = pageFooterSchema.slots ?? {};
 
     expect(Object.keys(slots)).toEqual(['default', 'bottom']);

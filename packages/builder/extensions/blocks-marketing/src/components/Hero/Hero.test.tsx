@@ -290,7 +290,7 @@ describe('Hero', () => {
 
   it('schema: enforces the heading length and the actions slot vocabulary', () => {
     expect(heroSchema.props.safeParse({ heading: '' }).success).toBe(false);
-    expect(heroSchema.slots?.['actions']).toEqual({ allow: ['cta'], max: 2 });
+    expect(heroSchema.slots?.['actions']).toEqual({ allow: ['cta', 'button'], max: 2 });
     expect(heroSchema.slots?.['media']).toEqual({
       allow: ['image', 'grid', 'stack', 'richText'],
       max: 1,

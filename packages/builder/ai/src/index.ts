@@ -2,12 +2,23 @@
 // it never constructs or replaces a BuilderDocument.
 
 export {
+  runAiAgent,
+  type AiAgentEvent,
+  type AiAgentEventBase,
+  type AiAgentPolicy,
+  type AiAgentRunResult,
+  type AiAgentRunState,
+  type RunAiAgentOptions,
+} from './agent';
+
+export {
   BUILDER_AI_CONTEXT_PROVIDERS,
   assembleAiContext,
   blockCatalogContextProvider,
   builderAiContextExtension,
   documentShapeContextProvider,
   createMemoryContextProvider,
+  estimateAssembledAiContextTokens,
   estimateContextTokens,
   selectionContextProvider,
   templateCatalogContextProvider,
@@ -21,6 +32,7 @@ export {
   createCachingAiPlanProvider,
   createLocalAiPlanProvider,
   createRemoteAiPlanProvider,
+  estimateAiPlanWireRequestTokens,
   type CachingAiPlanProviderOptions,
   type AiPlanWireAttempt,
   type AiPlanWireRequest,
@@ -29,6 +41,8 @@ export {
   type RemoteAiPlanProviderOptions,
 } from './provider';
 export {
+  DEFAULT_AI_CONTEXT_TOKEN_BUDGET,
+  AiContextBudgetError,
   AiPlanRejectedError,
   applyAiPlan,
   assertValidAiPlan,
@@ -40,6 +54,42 @@ export {
   type GenerateAiPlanOptions,
   type PreviewAiPlanOptions,
 } from './plan';
+export {
+  AI_SKILL_MAX_INSTRUCTION_BYTES,
+  AI_SKILL_MAX_REFERENCES,
+  AI_SKILL_MAX_REFERENCE_BYTES,
+  AI_SKILL_MAX_REGISTRY_SIZE,
+  AI_SKILL_MAX_TOTAL_REFERENCE_BYTES,
+  CRAFTKIT_AI_SKILL_DEFINITIONS,
+  DEFAULT_AI_MAX_COMMANDS,
+  DEFAULT_AI_SKILL_MAX_ACTIVE,
+  DEFAULT_AI_SKILL_TOKEN_BUDGET,
+  AiCommandPolicyError,
+  AiSkillRegistryError,
+  AiSkillResolutionError,
+  createAiSkillRegistry,
+  createCraftkitAiSkillRegistry,
+  defineAiSkill,
+  resolveAiCommandPolicy,
+  resolveAiSkills,
+  type AiActiveSkillContext,
+  type AiCommandPolicy,
+  type AiDefinedSkillV1,
+  type AiEffectiveCommandPolicy,
+  type AiPreparedSkillContext,
+  type AiSkillActivation,
+  type AiSkillActivationPin,
+  type AiSkillActivationReason,
+  type AiSkillDefinitionV1,
+  type AiSkillManifestV1,
+  type AiSkillOmission,
+  type AiSkillOmissionCode,
+  type AiSkillPrepareOptions,
+  type AiSkillRegistry,
+  type AiSkillSource,
+  type AiSkillTrust,
+  type ResolveAiCommandPolicyOptions,
+} from './skills';
 export {
   type AiBlockContext,
   type AiBlockExampleContext,

@@ -17,6 +17,10 @@ describe('Stack', () => {
       'stack',
       'hero',
       'announcementBar',
+      'promoBanner',
+      'carousel',
+      'videoSection',
+      'gallery',
       'logoCloud',
       'features',
       'bento-grid',
@@ -24,12 +28,15 @@ describe('Stack', () => {
       'stats',
       'processSteps',
       'team',
+      'portfolioGrid',
+      'productGrid',
       'pricing',
       'testimonials',
       'comparisonTable',
       'faq',
       'blogGrid',
       'contact',
+      'formSection',
       'newsletter',
       'cta',
       'richText',
@@ -39,13 +46,29 @@ describe('Stack', () => {
       // way a stack nests in a grid, and a picture goes wherever content goes.
       'grid',
       'image',
+      'button',
+      'separator',
+      'avatarGroup',
+      'progress',
+      'breadcrumbs',
+      'dialog',
+      'pagination',
+      'card',
+      'tabs',
+      'shadcnAlert',
+      'accordion',
+      'auroraBackground',
+      'cloudShader',
+      'spotlightSurface',
+      'shineBorder',
+      'marquee',
     ];
     /*
       `image` moved from refused to accepted when the Image block arrived — a
       picture belongs wherever content belongs. `page` stays refused because the
       document root is never nested, and the other two never existed.
     */
-    const refused = ['page', 'button', 'unknown'];
+    const refused = ['page', 'unknown'];
     const allowed = stackSchema.slots?.['default']?.allow;
 
     expect(allowed).toEqual(accepted);

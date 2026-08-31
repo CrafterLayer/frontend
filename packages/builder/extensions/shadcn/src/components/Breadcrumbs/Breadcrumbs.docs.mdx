@@ -1,0 +1,35 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BreadcrumbsStories from './Breadcrumbs.stories';
+
+<Meta of={BreadcrumbsStories} />
+
+# Breadcrumbs
+
+A semantic breadcrumb navigation trail adapted from shadcn/ui. It renders a named `nav`, an ordered
+list, native links for ancestors, and exactly one final item with `aria-current="page"`.
+
+<Canvas of={BreadcrumbsStories.Default} />
+
+## Safe structure, not decorative text
+
+Destinations accept relative paths, fragments, and HTTP(S) URLs only. Unsafe schemes never enter the
+document. The current page must be the final item; when no item is explicitly marked, the last item
+becomes current automatically. Separators are decorative and ignored by assistive technology.
+
+## Responsive without losing context
+
+Trails longer than four items can collapse their middle ancestors below the component's medium
+container breakpoint. The first ancestor, immediate parent, and current page remain visible; the
+complete trail returns when the container has room. Set `collapse` to `none` when every level must
+remain visible.
+
+<Canvas of={BreadcrumbsStories.LongResponsiveTrail} />
+
+## RTL and theme roles
+
+Layout relies on logical order and spacing. The chevron mirrors in RTL while slash and dot stay
+neutral. Default, muted, and inverse tones use CraftKit roles; inverse always pairs its ground and
+ink and adds a token shadow for a finished navigation surface.
+
+<Canvas of={BreadcrumbsStories.ArabicRtl} />

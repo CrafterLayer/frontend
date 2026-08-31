@@ -17,8 +17,14 @@ export const contentSectionExamples: { prompt: string; node: JsonValue }[] = [
         imageAlt: 'Modern timber and glass home surrounded by trees',
         caption: 'North House — completed 2025',
         highlights: [
-          { title: 'Context first', body: 'Every decision begins with the site and the people who use it.' },
-          { title: 'Built to endure', body: 'Low-impact materials selected for performance and graceful aging.' },
+          {
+            title: 'Context first',
+            body: 'Every decision begins with the site and the people who use it.',
+          },
+          {
+            title: 'Built to endure',
+            body: 'Low-impact materials selected for performance and graceful aging.',
+          },
         ],
         link: { label: 'Explore our approach', href: '/approach' },
         align: 'start',

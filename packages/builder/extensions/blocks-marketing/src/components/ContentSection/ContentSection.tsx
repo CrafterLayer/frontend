@@ -97,7 +97,10 @@ export function ContentSection({ node, props }: BlockRenderProps<ContentSectionP
           </div>
 
           {props.highlights.length === 0 ? null : (
-            <ul className="m-0 grid w-full list-none gap-gap p-0 @sm:grid-cols-2" data-content-highlights="">
+            <ul
+              className="m-0 grid w-full list-none gap-gap p-0 @sm:grid-cols-2"
+              data-content-highlights=""
+            >
               {props.highlights.map((highlight, index) => (
                 <li
                   key={`${highlight.title}-${String(index)}`}

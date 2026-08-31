@@ -65,9 +65,9 @@ export const pageHeaderSchema = defineBlockSchema({
     translucent: { tab: 'advanced', section: 'Behaviour' },
   },
   slots: {
-    start: { allow: ['richText', 'cta', 'navLinks', 'stack'] },
-    center: { allow: ['richText', 'cta', 'navLinks', 'stack'] },
-    end: { allow: ['richText', 'cta', 'navLinks', 'stack'] },
+    start: { allow: ['richText', 'cta', 'button', 'navLinks', 'stack'] },
+    center: { allow: ['richText', 'cta', 'button', 'navLinks', 'stack'] },
+    end: { allow: ['richText', 'cta', 'button', 'navLinks', 'stack'] },
   },
   examples: pageHeaderExamples,
 });

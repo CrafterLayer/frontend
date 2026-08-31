@@ -265,3 +265,57 @@ worked around.
 **Follow-up for the user**: make PyYAML available to the interpreter Spec Kit invokes before the
 next cycle, or `/speckit-tasks` will hit the same failure. This is environment repair, not feature
 work.
+
+---
+
+## R11 — What the three local reference agents actually prove about Skills
+
+**Question**: The requester named `open-builder`, `open-v0`, and `OpenLovable` as references and
+asked for the strongest professional ideas missing here. Which parts are production-worthy, and
+which would weaken Builder's safety model?
+
+**Finding — `open-builder`**: it is the only one of the three with a real runtime Skills system.
+`src/lib/skills/registry.ts` separates discoverable metadata from full `SKILL.md` content, prepares
+explicit selections per request under a 128 KiB cap, and `active-context.ts` keeps activation local
+to one run. `src/lib/ai/tools-schema.ts` snapshots run id, mode, platform, policy version, active
+skills, and allowed dynamic tools, then filters the tool set before presentation. Its plan-mode
+barrier withholds writes until approval and rotates the run boundary before unlocking them.
+
+The reference also exposes failure modes not to inherit: forced skill bodies are interpolated into
+XML-like prompt tags without the escaping applied to custom prompts; multiple skill tool lists are
+combined by union; imported URL and script execution widen the security surface; and React
+orchestration has accumulated into a very large hook. Builder therefore takes progressive
+disclosure, request-local activation, fingerprints, immutable run policy, and execution-time
+rechecks — but not scripts, URL import, capability union, raw prompt tags, or a React-owned core.
+
+**Finding — `open-v0`**: `backend/main.py::chat` runs a genuine Agentlys tool loop and passes useful
+live page context — route, viewport, scroll position, and selected element. That context taxonomy is
+worth adding to Builder later. The loop itself registers a broad `CodeEditor` tool with no visible
+command schema, scratch preflight, step budget, or rollback, so it is not an acceptable execution
+boundary.
+
+**Finding — `OpenLovable`**: `server/gemini.ts::generateResponse` is one Gemini completion, not an
+agent loop. `src/lib/parser.ts::StreamingParser` turns XML-like model text into file/dependency HTTP
+mutations while streaming. Its useful idea is presentation: people can see named operations and
+status during generation. Builder should express that as typed run events and typed commands, never
+as browser-parsed markup or fire-and-forget filesystem calls.
+
+**Decision**: Build a new declarative `AgentSkillRegistry` and bounded headless agent runner inside
+`@craftkit/builder-ai`. Skills are JSON-canonical data with version/fingerprint/trust metadata,
+metadata-only discovery, request-local full content, deterministic selection, dependencies,
+conflicts, and budgets. They may only narrow a host command policy. The runner emits typed sequenced
+events and converges on the existing scratch-kernel + grouped command door.
+
+**Rationale**: This preserves the one advantage Builder already has over all three references: AI
+never receives a filesystem or document-write capability. It proposes typed commands; validation and
+the kernel remain the only authority.
+
+**Alternatives rejected**:
+
+- _Copy `open-builder` Skills wholesale_: imports filesystem, scripts, and tool semantics that do
+  not belong in a browser/headless layer-2 package.
+- _Treat a skill as one more free-form prompt_: no version pin, no budget, no capability boundary,
+  no cache invalidation, and no observable activation.
+- _Let the browser parse tool markup_: repeats OpenLovable's partial-write and rollback failure.
+- _Give the model a broad editor tool_: repeats open-v0's prompt-only authorization and bypasses
+  Builder's strongest invariant.

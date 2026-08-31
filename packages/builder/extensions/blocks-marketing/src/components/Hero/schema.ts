@@ -62,7 +62,7 @@ export const heroSchema = defineBlockSchema({
   },
   inlineEditable: 'heading',
   slots: {
-    actions: { allow: ['cta'], max: 2 },
+    actions: { allow: ['cta', 'button'], max: 2 },
     media: { allow: ['image', 'grid', 'stack', 'richText'], max: 1 },
   },
   examples: heroExamples,

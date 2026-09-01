@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
@@ -50,7 +51,7 @@ const INTENSITY_STRENGTH: Record<ShimmerButtonProps['intensity'], string> = {
 };
 
 /** A semantic action with one restrained, token-bound travelling highlight. */
-export function ShimmerButton({ props }: BlockRenderProps<ShimmerButtonProps>) {
+export function ShimmerButton({ props, isCanvas }: BlockRenderProps<ShimmerButtonProps>) {
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const actionClassName = clsx(
     'mgc-shimmer-button',
@@ -69,6 +70,9 @@ export function ShimmerButton({ props }: BlockRenderProps<ShimmerButtonProps>) {
     ['--mgc-shimmer-play' as string]: props.animate ? 'running' : 'paused',
   };
   const content = <span className="mgc-shimmer-button__label">{props.label}</span>;
+  const guardCanvasAction = (event: ReactMouseEvent<HTMLElement>) => {
+    if (isCanvas) event.preventDefault();
+  };
 
   return (
     <div className={clsx('flex min-w-0', ALIGN_CLASSES[props.align])}>
@@ -77,6 +81,7 @@ export function ShimmerButton({ props }: BlockRenderProps<ShimmerButtonProps>) {
           className={actionClassName}
           style={style}
           type={props.type}
+          onClick={guardCanvasAction}
           data-shimmer-animate={props.animate ? 'true' : 'false'}
           {...motionData}
         >
@@ -89,6 +94,7 @@ export function ShimmerButton({ props }: BlockRenderProps<ShimmerButtonProps>) {
           href={props.href}
           target={props.openInNewTab ? '_blank' : undefined}
           rel={props.openInNewTab ? 'noreferrer noopener' : undefined}
+          onClick={guardCanvasAction}
           data-shimmer-animate={props.animate ? 'true' : 'false'}
           {...motionData}
         >

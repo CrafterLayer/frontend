@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { Node, NodeId } from '@craftkit/builder-schema';
@@ -21,6 +21,47 @@ export function useKernelNode(kernel: BuilderKernel, id: NodeId): Node | undefin
     [kernel, id],
   );
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+/**
+ * Opt-in direct-child subscription for blocks that declare slot metadata.
+ * The selected nodes are JSON-pure, so their serialized snapshot is a stable
+ * primitive until their public metadata actually changes. This satisfies
+ * useSyncExternalStore without turning ordinary parent containers into
+ * whole-subtree subscribers.
+ */
+export function useKernelNodes(
+  kernel: BuilderKernel,
+  ids: readonly NodeId[],
+): readonly (Node | undefined)[] {
+  const idsKey = JSON.stringify(ids);
+  const stableIds = useMemo(() => JSON.parse(idsKey) as readonly NodeId[], [idsKey]);
+
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      const disposers = stableIds.map((id) =>
+        kernel.context.store.subscribeNode(id, () => {
+          onStoreChange();
+        }),
+      );
+      return () => {
+        for (const dispose of disposers) {
+          dispose();
+        }
+      };
+    },
+    [kernel, stableIds],
+  );
+  const getSnapshot = useCallback(() => {
+    const nodes = kernel.context.store.getState().doc.nodes;
+    return JSON.stringify(stableIds.map((id) => nodes[id] ?? null));
+  }, [kernel, stableIds]);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+  return useMemo(
+    () => (JSON.parse(snapshot) as readonly (Node | null)[]).map((node) => node ?? undefined),
+    [snapshot],
+  );
 }
 
 /**

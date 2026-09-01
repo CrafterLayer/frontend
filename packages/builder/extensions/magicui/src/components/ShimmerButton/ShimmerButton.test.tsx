@@ -8,14 +8,14 @@ import { shimmerButtonSchema } from './schema';
 
 const node: Node = { id: 'shimmer-button', type: 'shimmerButton', props: {} };
 
-function renderShimmerButton(overrides: Record<string, unknown> = {}) {
+function renderShimmerButton(overrides: Record<string, unknown> = {}, isCanvas = false) {
   return render(
     <ShimmerButton
       node={node}
       props={shimmerButtonSchema.props.parse(overrides)}
       slots={{}}
       data={{}}
-      isCanvas={false}
+      isCanvas={isCanvas}
     />,
   );
 }
@@ -38,6 +38,16 @@ describe('ShimmerButton', () => {
     expect(link).toHaveAttribute('href', 'https://example.com/guide');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noreferrer noopener');
+  });
+
+  it('prevents navigation on the canvas without hiding the authored destination', () => {
+    renderShimmerButton({ label: 'Canvas shimmer', href: '/destination' }, true);
+    const link = screen.getByRole('link', { name: 'Canvas shimmer' });
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(link).toHaveAttribute('href', '/destination');
   });
 
   it('maps visual controls to token utilities and named effect variables', () => {
@@ -92,6 +102,7 @@ describe('ShimmerButton', () => {
       false,
     );
     expect(shimmerButtonSchema.props.safeParse({ href: '//example.com' }).success).toBe(false);
+    expect(shimmerButtonSchema.props.safeParse({ href: '/\\example.com' }).success).toBe(false);
     expect(shimmerButtonSchema.props.safeParse({ className: 'bg-blue-500' }).success).toBe(false);
     expect(shimmerButtonSchema.props.safeParse({ className: 'md:w-full' }).success).toBe(true);
   });

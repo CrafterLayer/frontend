@@ -120,6 +120,79 @@ describe('runAiAgent', () => {
     expect(live.getDocument()).toEqual(before);
   });
 
+  it('cannot report failure after a throwing kernel observer watches a committed apply', async () => {
+    const live = kernel();
+    const events: AiAgentEvent[] = [];
+    live.context.events.on('tx.applied', () => {
+      throw new Error('telemetry observer failed');
+    });
+
+    const result = await runAiAgent({
+      runId: 'run-observer-isolation',
+      clock: fixedClock(250),
+      kernel: live,
+      provider: { propose: () => Promise.resolve(validPlan) },
+      request: 'Improve this hero',
+      validationPorts: validationPorts('observer-isolation'),
+      apply: 'auto',
+      onEvent: (event) => events.push(event),
+    });
+
+    expect(result.status).toBe('applied');
+    expect(live.transactions()).toHaveLength(1);
+    expect(events.at(-1)?.type).toBe('run.completed');
+    expect(events.map(({ type }) => type)).not.toContain('run.failed');
+  });
+
+  it('does not let a telemetry observer mutate the detached validated proposal', async () => {
+    const providerPlan: AiPlan = {
+      rationale: 'Set the original heading.',
+      commands: [
+        {
+          command: 'setProp',
+          args: { id: 'hero1', key: 'heading', value: 'Original heading' },
+        },
+      ],
+    };
+    const attemptMutation = (mutation: () => void): void => {
+      try {
+        mutation();
+      } catch {
+        // The observer receives a deeply frozen validated proposal.
+      }
+    };
+    const result = await runAiAgent({
+      runId: 'run-observer-plan-isolation',
+      clock: fixedClock(260),
+      kernel: kernel(),
+      provider: { propose: () => Promise.resolve(providerPlan) },
+      request: 'Improve this hero',
+      validationPorts: validationPorts('observer-plan-isolation'),
+      onEvent: (event) => {
+        if (event.type !== 'plan.proposed') return;
+        attemptMutation(() => {
+          (event.plan as { rationale: string }).rationale = 'Observer changed it';
+        });
+        attemptMutation(() => {
+          (event.plan.commands as AiPlan['commands'][number][]).push({
+            command: 'removeNode',
+            args: { id: 'hero1' },
+          });
+        });
+        attemptMutation(() => {
+          (event.plan.commands[0]?.args as { value: string }).value = 'Observer changed it';
+        });
+      },
+    });
+
+    expect(result.plan).not.toBe(providerPlan);
+    expect(result.plan.commands[0]?.args).not.toBe(providerPlan.commands[0]?.args);
+    expect(result.plan).toEqual(providerPlan);
+    expect(Object.isFrozen(result.plan)).toBe(true);
+    expect(Object.isFrozen(result.plan.commands)).toBe(true);
+    expect(Object.isFrozen(result.plan.commands[0]?.args)).toBe(true);
+  });
+
   it('surfaces validation and performs at most one repair', async () => {
     let calls = 0;
     const events: AiAgentEvent[] = [];

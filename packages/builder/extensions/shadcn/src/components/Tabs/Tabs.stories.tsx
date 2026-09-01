@@ -27,10 +27,22 @@ const panels = [
   panel('yearly', 'Yearly', '$290 per year — two months free.'),
 ];
 
+const panelMetadata = [
+  { id: 'monthly', type: 'tabPanel', props: { label: 'Monthly' } },
+  { id: 'yearly', type: 'tabPanel', props: { label: 'Yearly' } },
+];
+
 const meta = {
   title: 'Builder/Shadcn/Tabs',
   component: Tabs,
-  args: { node, slots: { default: panels }, data: {}, isCanvas: false },
+  tags: ['autodocs'],
+  args: {
+    node,
+    slots: { default: panels },
+    slotChildren: { default: panelMetadata },
+    data: {},
+    isCanvas: false,
+  },
 } satisfies Meta<typeof Tabs>;
 
 export default meta;

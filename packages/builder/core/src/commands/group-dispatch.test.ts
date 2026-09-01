@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { createBuilder } from '../kernel/create-builder';
 import { GROUPED_DISPATCH_LABEL_MAX_LENGTH } from './dispatch';
@@ -144,7 +147,40 @@ describe('dispatchGroup', () => {
     const before = k.getDocument();
 
     expect(() => k.dispatchGroup([...THREE_STEPS], 'robot' as 'ai')).toThrow(/author/i);
+    expect(() => k.dispatchGroup([...THREE_STEPS], { author: null as unknown as 'ai' })).toThrow(
+      /author/i,
+    );
     expect(k.getDocument()).toBe(before);
     expect(k.transactions()).toEqual([]);
+  });
+
+  it('bounds the derived legacy label even when an extension command name is oversized', () => {
+    const longCommand = `extension.${'x'.repeat(GROUPED_DISPATCH_LABEL_MAX_LENGTH)}`;
+    const extension: TrustedExtensionManifest = {
+      tier: 1,
+      name: '@craftkit/test-long-command',
+      version: '1.0.0',
+      contributes: {
+        commands: {
+          [longCommand]: {
+            argsSchema: z.strictObject({}),
+            apply: () => (draft) => {
+              draft.dir = 'rtl';
+            },
+          },
+        },
+      },
+    };
+    const k = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks, extension],
+      ports: { clock: fixedClock(10), ids: seededIds('long-label') },
+    });
+
+    const tx = k.dispatchGroup([{ command: longCommand, args: {} }]);
+
+    expect(tx.command).toBe(longCommand.slice(0, GROUPED_DISPATCH_LABEL_MAX_LENGTH));
+    expect(tx.command).toHaveLength(GROUPED_DISPATCH_LABEL_MAX_LENGTH);
+    expect(k.transactions()).toEqual([tx]);
   });
 });

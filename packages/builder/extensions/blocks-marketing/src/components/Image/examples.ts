@@ -6,7 +6,7 @@ export const imageExamples: { prompt: string; node: JsonValue }[] = [
     node: {
       type: 'image',
       props: {
-        src: 'https://images.example.com/jerusalem.jpg',
+        src: 'https://images.unsplash.com/photo-1527414674854-bd016e1d3496?auto=format&fit=crop&w=1600&q=80',
         alt: 'قبة الصخرة ومباني البلدة القديمة وقت الغروب',
         ratio: 'wide',
         radius: 'md',
@@ -18,7 +18,7 @@ export const imageExamples: { prompt: string; node: JsonValue }[] = [
     node: {
       type: 'image',
       props: {
-        src: 'https://images.example.com/product.jpg',
+        src: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=1200&q=80',
         alt: 'Green travel backpack on a neutral background',
         fit: 'contain',
         ratio: 'square',

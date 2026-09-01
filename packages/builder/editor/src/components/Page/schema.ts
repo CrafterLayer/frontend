@@ -110,6 +110,8 @@ export const pageSchema = defineBlockSchema({
         // wrapper, and a wrapper the page root refuses can never be used.
         'shineBorder',
         'marquee',
+        'dotPatternSurface',
+        'shimmerButton',
         // shadcn containers. `card` and `tabs` are page-level structures in
         // their own right — a FAQ is a page of tabs, a feature row is a page
         // of cards — so refusing them at the root would leave both reachable

@@ -15,6 +15,15 @@
   background-image: linear-gradient(to bottom, var(--t-accent), var(--t-surface));
 }
 
+/* Named states keep viewport sizing out of arbitrary Tailwind values. */
+.acy-cloud[data-acy-cloud-min-height='half'] {
+  min-block-size: 50svh;
+}
+
+.acy-cloud[data-acy-cloud-min-height='screen'] {
+  min-block-size: 100svh;
+}
+
 .acy-cloud__canvas {
   position: absolute;
   inset: 0;

@@ -74,9 +74,16 @@ export {
 export { type CommandInput, type CommandRuntime, type RegisteredCommand } from './commands';
 
 export {
+  type AiContextBlockCatalogEntry,
+  type AiContextCompositionCatalogEntry,
   type AiContextProvider,
+  type AiContextReadApi,
+  type AiContextRegistryRead,
+  type AiContextStateRead,
+  type AiContextWidgetCatalogEntry,
   type BlockRenderComponent,
   type BlockRenderProps,
+  type BlockSlotChildMetadata,
   type ContextFragment,
   type DataSourceDef,
   type EventBus,

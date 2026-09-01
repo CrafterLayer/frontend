@@ -27,7 +27,8 @@ export const productGridExamples: { prompt: string; node: JsonValue }[] = [
             description:
               'Warm, focused light with a weighted base and three considered brightness levels.',
             price: '$189',
-            imageSrc: '/images/products/arc-lamp.jpg',
+            imageSrc:
+              'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1600&q=80',
             imageAlt: 'Matte black Arc task lamp on an oak writing desk',
             badge: 'Bestseller',
             href: '/products/arc-task-lamp',
@@ -41,8 +42,6 @@ export const productGridExamples: { prompt: string; node: JsonValue }[] = [
               'Vegetable-tanned leather shaped for keys, cards, and the small things worth keeping close.',
             price: '$64',
             originalPrice: '$79',
-            imageSrc: '/images/products/fold-tray.jpg',
-            imageAlt: 'Tan leather tray holding keys and a watch',
             badge: 'Limited',
             href: '/products/fold-tray',
             rating: 4.7,

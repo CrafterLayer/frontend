@@ -16,8 +16,9 @@ The alternative was an array of `{ label, content }` on the Tabs block — the s
 button inside a Pricing card impossible. A panel holds **blocks**, so it has to be a node; and a
 node that is a tab needs its own name, so the label lives here.
 
-`value` is the node id, which is what pairs this panel with its trigger. The strip reads the same id
-off this element's props, so the two agree without either of them touching the DOM.
+`value` is the node id, which is what pairs this panel with its trigger. The strip receives that
+same id and this panel's resolved label through the builder's typed slot-child metadata contract, so
+the two agree without inspecting rendered components or the DOM.
 
 ## The focus ring is not decoration
 

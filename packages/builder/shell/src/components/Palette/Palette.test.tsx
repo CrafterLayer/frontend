@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
@@ -246,6 +246,27 @@ describe('Palette (006 contract §4)', () => {
           block('testimonials', 'Customer quotes'),
           block('cta', 'Call to action'),
           block('image', 'Responsive media'),
+          block('button', 'Button'),
+          block('separator', 'Separator'),
+          block('avatarGroup', 'Avatar group'),
+          block('progress', 'Progress'),
+          block('breadcrumbs', 'Breadcrumbs'),
+          block('dialog', 'Dialog'),
+          block('pagination', 'Pagination'),
+          block('card', 'Card'),
+          block('badge', 'Badge'),
+          block('shadcnAlert', 'Alert'),
+          block('tabs', 'Tabs'),
+          block('tabPanel', 'Tab panel'),
+          block('accordion', 'Accordion'),
+          block('accordionItem', 'Accordion item'),
+          block('auroraBackground', 'Aurora background'),
+          block('cloudShader', 'Cloud shader'),
+          block('spotlightSurface', 'Spotlight surface'),
+          block('shineBorder', 'Shine border'),
+          block('marquee', 'Marquee'),
+          block('shimmerButton', 'Shimmer button'),
+          block('dotPatternSurface', 'Dot pattern surface'),
         ],
       },
     });
@@ -261,12 +282,64 @@ describe('Palette (006 contract §4)', () => {
       ['Testimonials', 'testimonial'],
       ['CTA', 'action'],
       ['Image', 'media'],
+      ['Button', 'action'],
+      ['Separator', 'section'],
+      ['Avatar Group', 'grid'],
+      ['Progress', 'action'],
+      ['Breadcrumbs', 'columns'],
+      ['Dialog', 'action'],
+      ['Pagination', 'columns'],
+      ['Card', 'section'],
+      ['Badge', 'section'],
+      ['Alert', 'section'],
+      ['Tabs', 'columns'],
+      ['Tab Panel', 'section'],
+      ['Accordion', 'text'],
+      ['Accordion Item', 'text'],
+      ['Aurora Background', 'hero'],
+      ['Cloud Shader', 'hero'],
+      ['Spotlight Surface', 'hero'],
+      ['Shine Border', 'section'],
+      ['Marquee', 'grid'],
+      ['Shimmer Button', 'action'],
+      ['Dot Pattern Surface', 'hero'],
     ] as const;
 
     for (const [name, diagram] of expectedDiagrams) {
-      expect(
-        screen.getByRole('button', { name }).querySelector('svg[data-diagram]'),
-      ).toHaveAttribute('data-diagram', diagram);
+      const miniature = screen.getByRole('button', { name }).querySelector('svg[data-diagram]');
+      expect(miniature).toHaveAttribute('data-diagram', diagram);
+      expect(miniature).not.toHaveAttribute('data-diagram', 'generic');
+    }
+
+    const primaryToggle = screen.getByRole('button', { name: 'Primary' });
+    const primaryRegion = document.getElementById(
+      primaryToggle.getAttribute('aria-controls') ?? '',
+    );
+    expect(primaryRegion).not.toBeNull();
+    for (const name of [
+      'Button',
+      'Separator',
+      'Avatar Group',
+      'Progress',
+      'Breadcrumbs',
+      'Dialog',
+      'Pagination',
+      'Card',
+      'Badge',
+      'Alert',
+      'Tabs',
+      'Tab Panel',
+      'Accordion',
+      'Accordion Item',
+      'Aurora Background',
+      'Cloud Shader',
+      'Spotlight Surface',
+      'Shine Border',
+      'Marquee',
+      'Shimmer Button',
+      'Dot Pattern Surface',
+    ]) {
+      expect(within(primaryRegion!).getByRole('button', { name })).toBeInTheDocument();
     }
   });
 

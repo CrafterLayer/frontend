@@ -47,24 +47,33 @@ describe('Gallery', () => {
     );
   });
 
-  it('keeps decorative images out of the accessible image tree and warns for missing alt on canvas', () => {
+  it('keeps decorative images out of the accessible image tree', () => {
     const { container } = renderGallery(
       gallerySchema.props.parse({
         heading: 'Accessible gallery',
-        items: [
-          { src: IMAGE_SOURCE, decorative: true },
-          { src: '/needs-alt.jpg', alt: '' },
-        ],
+        items: [{ src: IMAGE_SOURCE, decorative: true }],
       }),
       true,
     );
 
-    expect(container.querySelectorAll('img')).toHaveLength(2);
+    expect(container.querySelectorAll('img')).toHaveLength(1);
     for (const image of container.querySelectorAll('img')) {
       expect(image).toHaveAttribute('alt', '');
     }
-    expect(screen.getAllByText('This image needs alt text.')).toHaveLength(1);
     expect(screen.queryAllByRole('img')).toHaveLength(0);
+  });
+
+  it('requires nonempty alt text for informative images but permits decorative empty alt', () => {
+    expect(
+      gallerySchema.props.safeParse({
+        items: [{ src: '/informative.jpg', alt: '', decorative: false }],
+      }).success,
+    ).toBe(false);
+    expect(
+      gallerySchema.props.safeParse({
+        items: [{ src: '/decorative.jpg', alt: '', decorative: true }],
+      }).success,
+    ).toBe(true);
   });
 
   it('renders safe full-size links and prevents navigation on the builder canvas', () => {
@@ -178,6 +187,21 @@ describe('Gallery', () => {
     ).toBe(false);
     expect(
       gallerySchema.props.safeParse({ items: [{ src: '//evil.example/image.jpg' }] }).success,
+    ).toBe(false);
+    expect(
+      gallerySchema.props.safeParse({
+        items: [{ src: '/\\evil.example/image.jpg', alt: 'Unsafe image' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      gallerySchema.props.safeParse({
+        items: [{ src: '/safe.jpg', alt: 'Safe image', href: '//evil.example/image.jpg' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      gallerySchema.props.safeParse({
+        items: [{ src: '/safe.jpg', alt: 'Safe image', href: '/\\evil.example/image.jpg' }],
+      }).success,
     ).toBe(false);
   });
 

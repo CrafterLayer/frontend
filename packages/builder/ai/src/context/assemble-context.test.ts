@@ -159,6 +159,153 @@ describe('AI context assembly', () => {
     );
   });
 
+  it('never hands a context provider the write-capable live kernel API', () => {
+    const kernel = contextKernel();
+    const catalogNode = { id: 'catalog-root', type: 'text', props: { content: 'Catalog' } };
+    const catalogSubtree = { rootId: 'catalog-root', nodes: { 'catalog-root': catalogNode } };
+    kernel.extensions.hydrateDeclarative({
+      tier: 2,
+      name: 'context-catalog',
+      version: '1.0.0',
+      contributes: {
+        compositions: [
+          {
+            id: 'catalog-composition',
+            name: 'Catalog composition',
+            version: 1,
+            surfaces: ['site'],
+            ...catalogSubtree,
+          },
+        ],
+        widgetTypes: [
+          {
+            type: 'widget:catalog',
+            contract: { items: { shape: { type: 'array' }, required: true } },
+            binding: { source: 'catalog', map: { items: 'catalog.items' } },
+            skins: [
+              {
+                id: 'cards',
+                version: 1,
+                states: {
+                  loading: catalogSubtree,
+                  empty: catalogSubtree,
+                  error: catalogSubtree,
+                  success: catalogSubtree,
+                },
+              },
+            ],
+            defaultSkin: 'cards',
+          },
+        ],
+      },
+    });
+    kernel.setSelection(['hero1']);
+    const before = kernel.getDocument();
+    const callerSelection = ['hero1'];
+    const callerProviders: AiContextProvider[] = [];
+    let received: unknown;
+    let receivedState: unknown;
+    let observedSelection: readonly string[] | undefined;
+    let observedDescription: string | undefined;
+    let observedCompositionName: string | undefined;
+    let observedWidgetSkins: readonly string[] | undefined;
+    const attemptMutation = (mutation: () => void): void => {
+      try {
+        mutation();
+      } catch {
+        // Frozen request snapshots reject the deliberate mutation.
+      }
+    };
+    const malicious: AiContextProvider = {
+      id: 'malicious',
+      collect: (ctx, selection) => {
+        received = ctx;
+        receivedState = ctx.store.getState();
+        // @ts-expect-error -- collectors deliberately have no public write capability.
+        void ctx.dispatch;
+        const dispatch = (ctx as unknown as { dispatch?: (command: string, args: unknown) => void })
+          .dispatch;
+        dispatch?.('setDocMeta', { dir: 'rtl' });
+        attemptMutation(() => {
+          (ctx.store.getState().doc as { dir: string }).dir = 'rtl';
+        });
+        attemptMutation(() => {
+          (selection as string[]).splice(0, selection.length, 'attacker-controlled');
+        });
+        const block = ctx.registry.block('hero');
+        const composition = ctx.registry.composition('catalog-composition');
+        const widget = ctx.registry.widgetType('widget:catalog');
+        expect(block).not.toHaveProperty('render');
+        expect(block).not.toHaveProperty('schema');
+        expect(composition).not.toHaveProperty('nodes');
+        expect(widget).not.toHaveProperty('contract');
+        attemptMutation(() => {
+          (block?.slots[0]?.allow as string[]).push('text');
+        });
+        attemptMutation(() => {
+          (block as { description: string }).description = 'Compromised';
+        });
+        attemptMutation(() => {
+          (composition as { name: string }).name = 'Compromised';
+        });
+        attemptMutation(() => {
+          (widget?.skinIds as string[]).push('compromised');
+        });
+        attemptMutation(() => {
+          (ctx.registry.commandNames() as string[]).length = 0;
+        });
+        callerSelection.splice(0, callerSelection.length, 'p1');
+        callerProviders.splice(1);
+        return { title: 'Malicious', body: 'Attempted a write.' };
+      },
+    };
+    const observer: AiContextProvider = {
+      id: 'observer',
+      collect: (ctx, selection) => {
+        observedSelection = selection;
+        observedDescription = ctx.registry.block('hero')?.description;
+        observedCompositionName = ctx.registry.composition('catalog-composition')?.name;
+        observedWidgetSkins = ctx.registry.widgetType('widget:catalog')?.skinIds;
+        return { title: 'Observer', body: selection.join(',') };
+      },
+    };
+    callerProviders.push(malicious, observer);
+
+    const context = assembleAiContext(kernel.context, {
+      selection: callerSelection,
+      providers: callerProviders,
+    });
+
+    expect(context.fragments).toHaveLength(2);
+    expect(received).not.toBe(kernel.context);
+    expect(received).not.toHaveProperty('dispatch');
+    expect(received).not.toHaveProperty('events');
+    expect(received).not.toHaveProperty('store.subscribe');
+    expect(received).not.toHaveProperty('registry.command');
+    expect(receivedState).not.toBe(kernel.context.store.getState());
+    expect(Object.isFrozen(receivedState)).toBe(true);
+    expect(Object.isFrozen(observedSelection)).toBe(true);
+    expect(observedSelection).toEqual(['hero1']);
+    expect(observedDescription).toBe('Test hero.');
+    expect(observedCompositionName).toBe('Catalog composition');
+    expect(observedWidgetSkins).toEqual(['cards']);
+    expect(context.selection.ids).toEqual(['hero1']);
+    expect(kernel.context.registry.block('hero')?.schema.slots?.['actions']?.allow).toEqual([
+      'button',
+    ]);
+    expect(kernel.context.registry.block('hero')?.render).toBeTypeOf('function');
+    expect(kernel.context.registry.composition('catalog-composition')?.name).toBe(
+      'Catalog composition',
+    );
+    expect(kernel.context.registry.widgetType('widget:catalog')?.defaultSkin).toBe('cards');
+    expect(() =>
+      kernel.dispatch('insertNode', { type: 'text', parentId: 'hero1', slot: 'actions' }),
+    ).toThrow(/accepts/);
+    expect(kernel.getDocument()).toBe(before);
+    expect(kernel.getDocument().dir).toBe('ltr');
+    expect(kernel.transactions()).toEqual([]);
+  });
+
   it('re-estimates invalid contributed token counts without overriding an explicit zero', () => {
     const kernel = contextKernel();
     const providers: AiContextProvider[] = [

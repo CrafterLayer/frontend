@@ -79,6 +79,11 @@ themselves.
 The worker runs codex with `--ignore-user-config`: `~/.codex/config.toml` never applies to
 delegated jobs. Follow these rules on every delegation.
 
+**0. Node 24 is required.** This repo's `engines.node` is `>=24.15.0 <25`. `.mcp.json` pins the
+server's `PATH` with Node 24 first (Node 22's bin stays later because `codex` lives there). Without
+it every proposal fails at `ERR_PNPM_UNSUPPORTED_ENGINE` during the clone bootstrap. If you ever
+see that error, check that PATH pin before anything else.
+
 **1. Every analyze/propose call passes explicit `model`, `reasoningEffort`, and `timeoutMs`.**
 Resolve them from `boundedrelay-profile.json` `codexPolicy` (`byRisk` → `byKind` → `default`) even
 when skipping the route tool. Floor is `medium` — never `low` beyond a single-file lookup. Scale
@@ -103,6 +108,8 @@ profile's `writePolicy.allowedRoots`.
 
 **4. Chain iterative work:** first job `persistSession: true`; follow-ups pass the returned
 `sessionId` as `resumeSessionId` — strictly sequential, never resume one session concurrently.
+A resumed job still needs its own explicit `model` and `reasoningEffort` (rule 1 applies to every
+call, resumes included).
 Restate what changed since the previous job. Cap a chain at ~3 resumes, then start fresh with a
 distilled brief. Never resume FROM a proposal job (its clone is deleted at finalize) — resume the
 analyze session instead.

@@ -7,6 +7,7 @@ import { sectionColorGroups, sectionColorProps } from '../section-color';
 import { sectionCustomGroups } from '../section-custom';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
+import { stackSchema } from '../Stack/schema';
 import { Grid } from './Grid';
 import { gridSchema, type GridProps } from './schema';
 
@@ -23,6 +24,7 @@ describe('Grid', () => {
       'carousel',
       'videoSection',
       'gallery',
+      'logoCloud',
       'features',
       'bento-grid',
       'content-section',
@@ -54,9 +56,17 @@ describe('Grid', () => {
       'tabs',
       'shadcnAlert',
       'accordion',
+      'auroraBackground',
+      'cloudShader',
+      'spotlightSurface',
       'shineBorder',
       'marquee',
+      'dotPatternSurface',
+      'shimmerButton',
     ]);
+    expect(new Set(gridSchema.slots?.['default']?.allow)).toEqual(
+      new Set(stackSchema.slots?.['default']?.allow),
+    );
   });
 
   it('schema: defaults layout properties and deliberately defaults no colour or spacing', () => {

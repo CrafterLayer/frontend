@@ -28,8 +28,9 @@ export const blogGridExamples: { prompt: string; node: JsonValue }[] = [
             publishedLabel: 'August 24, 2026',
             dateTime: '2026-08-24',
             readingTime: '7 min read',
-            imageSrc: '/images/insights/product-system.jpg',
-            imageAlt: 'Design notes and interface sketches arranged on a studio desk',
+            imageSrc:
+              'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=80',
+            imageAlt: 'Laptop and product notes arranged on a focused studio desk',
             featured: true,
           },
           {

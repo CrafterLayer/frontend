@@ -60,11 +60,12 @@ describe('defineBlockSchema', () => {
       type: 'hero',
       description: 'Opening section.',
       props: z.object({ tone: z.enum(['light', 'dark']).default('light') }),
-      slots: { actions: { allow: ['button'], max: 2 } },
+      slots: { actions: { allow: ['button'], max: 2, exposeChildMetadata: true } },
       examples: [{ prompt: 'hero', node: { type: 'hero', props: {} } }],
     });
     expect(Object.isFrozen(block)).toBe(true);
     expect(block.type).toBe('hero');
+    expect(block.slots?.['actions']?.exposeChildMetadata).toBe(true);
   });
 
   it('preserves optional typed property groups while ungrouped properties remain valid', () => {

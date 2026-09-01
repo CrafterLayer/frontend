@@ -8,24 +8,38 @@ import {
 
 import { marqueeExamples } from './examples';
 
-const safeUrlSchema = z
+const safeDestinationSchema = z
   .string()
   .min(1)
   .max(2000)
-  .refine((value) =>
-    value.startsWith('#') ||
-    (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
-    /^(https?:\/\/|mailto:|tel:)/i.test(value), {
-    message: 'URL must be relative or use http, https, mailto, or tel.',
-  });
+  .refine(
+    (value) =>
+      value.startsWith('#') ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^(https?:\/\/|mailto:|tel:)/i.test(value),
+    {
+      message: 'URL must be relative or use http, https, mailto, or tel.',
+    },
+  );
+
+const safeImageUrlSchema = z
+  .string()
+  .min(1)
+  .max(2000)
+  .refine(
+    (value) =>
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^https?:\/\//i.test(value),
+    { message: 'Image URL must be a safe root-relative, http, or https URL.' },
+  );
 
 export const marqueeItemSchema = z.object({
   title: z.string().min(1).max(100),
   description: z.string().min(1).max(200).optional(),
   meta: z.string().min(1).max(60).optional(),
-  imageUrl: safeUrlSchema.optional(),
+  imageUrl: safeImageUrlSchema.optional(),
   imageAlt: z.string().max(140).optional(),
-  href: safeUrlSchema.optional(),
+  href: safeDestinationSchema.optional(),
 });
 
 const defaultItems = z.array(marqueeItemSchema).parse([
@@ -43,6 +57,8 @@ export const marqueeSchema = defineBlockSchema({
   surfaces: ['site', 'store'],
   props: z.object({
     label: z.string().min(1).max(100).default('Highlights'),
+    pauseLabel: z.string().min(1).max(60).default('Pause animation'),
+    resumeLabel: z.string().min(1).max(60).default('Resume animation'),
     items: z.array(marqueeItemSchema).min(2).max(24).default(defaultItems),
     presentation: z.enum(['logos', 'cards', 'compact']).default('logos'),
     direction: z.enum(['forward', 'reverse']).default('forward'),
@@ -66,6 +82,8 @@ export const marqueeSchema = defineBlockSchema({
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Accessibility' },
+    pauseLabel: { tab: 'content', section: 'Accessibility' },
+    resumeLabel: { tab: 'content', section: 'Accessibility' },
     items: { tab: 'content', section: 'Items' },
     presentation: { tab: 'design', section: 'Appearance' },
     direction: { tab: 'design', section: 'Motion' },

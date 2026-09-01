@@ -135,6 +135,35 @@ describe('FormSection', () => {
     expect(formSectionSchema.props.safeParse({ action: '//evil.example/collect' }).success).toBe(
       false,
     );
+    expect(formSectionSchema.props.safeParse({ action: '/\\evil.example/collect' }).success).toBe(
+      false,
+    );
+    expect(
+      formSectionSchema.props.safeParse({
+        fields: [
+          {
+            id: 'empty-select',
+            name: 'empty_select',
+            type: 'select',
+            label: 'Empty select',
+            options: [],
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      formSectionSchema.props.safeParse({
+        fields: [
+          {
+            id: 'valid-select',
+            name: 'valid_select',
+            type: 'select',
+            label: 'Valid select',
+            options: [{ label: 'One', value: 'one' }],
+          },
+        ],
+      }).success,
+    ).toBe(true);
     expect(
       formSectionSchema.props.safeParse({
         fields: [

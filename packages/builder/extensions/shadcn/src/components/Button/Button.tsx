@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
@@ -39,7 +40,7 @@ const ICONS: Record<Exclude<ButtonProps['icon'], 'none'>, string> = {
 };
 
 /** A token-bound action that preserves native link and button semantics. */
-export function Button({ props }: BlockRenderProps<ButtonProps>) {
+export function Button({ props, isCanvas }: BlockRenderProps<ButtonProps>) {
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const icon =
     props.icon === 'none' ? null : (
@@ -63,11 +64,14 @@ export function Button({ props }: BlockRenderProps<ButtonProps>) {
       {props.iconPosition === 'end' ? icon : null}
     </>
   );
+  const guardCanvasAction = (event: ReactMouseEvent<HTMLElement>) => {
+    if (isCanvas) event.preventDefault();
+  };
 
   return (
     <div className={clsx('flex min-w-0', ALIGN_CLASSES[props.align])}>
       {props.href === undefined ? (
-        <button className={className} type={props.type} {...motionData}>
+        <button className={className} type={props.type} onClick={guardCanvasAction} {...motionData}>
           {content}
         </button>
       ) : (
@@ -76,6 +80,7 @@ export function Button({ props }: BlockRenderProps<ButtonProps>) {
           href={props.href}
           target={props.openInNewTab ? '_blank' : undefined}
           rel={props.openInNewTab ? 'noreferrer noopener' : undefined}
+          onClick={guardCanvasAction}
           {...motionData}
         >
           {content}

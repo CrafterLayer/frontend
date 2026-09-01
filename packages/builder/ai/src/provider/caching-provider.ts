@@ -94,13 +94,18 @@ export function createCachingAiPlanProvider(
   // Mirror the inner surface exactly: a repair-less provider must stay
   // repair-less, or generateAiPlan would walk a repair path that cannot exist.
   if (innerRepair !== undefined) {
-    provider.repair = (
+    provider.repair = async (
       request: string,
       context: AssembledAiContext,
       plan: AiPlan,
       issues: readonly AiPlanValidationIssue[],
       live?: AiProposeOptions,
-    ): Promise<AiPlan> => innerRepair(request, context, plan, issues, live);
+    ): Promise<AiPlan> => {
+      throwIfAborted(live?.signal);
+      const repaired = await innerRepair(request, context, plan, issues, live);
+      throwIfAborted(live?.signal);
+      return repaired;
+    };
   }
   return provider;
 }

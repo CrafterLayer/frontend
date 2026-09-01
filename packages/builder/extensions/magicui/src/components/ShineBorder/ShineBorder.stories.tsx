@@ -18,10 +18,7 @@ const card = (
 const meta = {
   title: 'Builder/MagicUI/ShineBorder',
   component: ShineBorder,
-  /*
-    No `tags: ['autodocs']`: an authored docs page is attached with
-    <Meta of={...}>, and Storybook refuses both for one component.
-  */
+  tags: ['autodocs'],
   args: { node, slots: { default: card }, data: {}, isCanvas: false },
   decorators: [
     (Story) => (

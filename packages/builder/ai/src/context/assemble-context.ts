@@ -1,11 +1,21 @@
 import {
   blockPropsJsonSchema,
+  type AiContextBlockCatalogEntry,
+  type AiContextCompositionCatalogEntry,
   type AiContextProvider,
+  type AiContextReadApi,
+  type AiContextWidgetCatalogEntry,
+  type BuilderDocument,
+  type CompositionDef,
   type ContextFragment,
+  type DeclarativeWidgetTypeDef,
   type JsonValue,
   type KernelApi,
+  type KernelState,
   type Node,
   type NodeId,
+  type RegisteredBlock,
+  type Surface,
 } from '@craftkit/builder-schema';
 
 import type {
@@ -20,6 +30,153 @@ import type {
 import type { AiPreparedSkillContext } from '../skills';
 
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
+
+type AiContextAssemblySource = Pick<KernelApi, 'store' | 'registry' | 'surface'>;
+
+function deepFreezeJson(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) {
+    for (const child of value) deepFreezeJson(child);
+    Object.freeze(value);
+    return value;
+  }
+  if (typeof value !== 'object' || value === null) return value;
+  for (const child of Object.values(value)) deepFreezeJson(child);
+  Object.freeze(value);
+  return value;
+}
+
+function detachedStateSnapshot(ctx: AiContextAssemblySource): Readonly<KernelState> {
+  const live = ctx.store.getState();
+  const doc = deepFreezeJson(
+    cloneJson(live.doc as unknown as JsonValue),
+  ) as unknown as BuilderDocument;
+  const selection = [...live.selection];
+  Object.freeze(selection);
+  return Object.freeze({ doc, selection, seq: live.seq });
+}
+
+function frozenStrings(values: readonly string[]): readonly string[] {
+  return Object.freeze([...values]);
+}
+
+function blockCatalogEntry({ schema }: RegisteredBlock): AiContextBlockCatalogEntry {
+  const examples = Object.freeze(
+    schema.examples.map((example) =>
+      Object.freeze({
+        prompt: example.prompt,
+        node: deepFreezeJson(cloneJson(example.node)),
+      }),
+    ),
+  );
+  const slots = Object.freeze(
+    Object.entries(schema.slots ?? {})
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([name, declaration]) =>
+        Object.freeze({
+          name,
+          allow: frozenStrings([...declaration.allow].sort(compareText)),
+          ...(declaration.max === undefined ? {} : { max: declaration.max }),
+        }),
+      ),
+  );
+  return Object.freeze({
+    type: schema.type,
+    description: schema.description,
+    propsSchema: deepFreezeJson(cloneJson(blockPropsJsonSchema(schema))),
+    ...(schema.surfaces === undefined
+      ? {}
+      : { surfaces: frozenStrings([...schema.surfaces].sort(compareText)) }),
+    ...(schema.inlineEditable === undefined ? {} : { inlineEditable: schema.inlineEditable }),
+    examples,
+    slots,
+  });
+}
+
+function compositionCatalogEntry(composition: CompositionDef): AiContextCompositionCatalogEntry {
+  const root = composition.nodes[composition.rootId];
+  return Object.freeze({
+    id: composition.id,
+    name: composition.name,
+    version: composition.version,
+    ...(composition.surfaces === undefined
+      ? {}
+      : { surfaces: frozenStrings([...composition.surfaces].sort(compareText)) }),
+    rootType: root?.type ?? 'unknown',
+    nodeCount: Object.keys(composition.nodes).length,
+    blockTypes: frozenStrings(
+      [...new Set(Object.values(composition.nodes).map((node) => node.type))].sort(compareText),
+    ),
+  });
+}
+
+function widgetCatalogEntry(widget: DeclarativeWidgetTypeDef): AiContextWidgetCatalogEntry {
+  return Object.freeze({
+    type: widget.type,
+    defaultSkin: widget.defaultSkin,
+    skinIds: frozenStrings(widget.skins.map(({ id }) => id).sort(compareText)),
+    contractFields: frozenStrings(Object.keys(widget.contract).sort(compareText)),
+    bindingSource: widget.binding.source,
+  });
+}
+
+function visibleOnSurface(
+  entry: { readonly surfaces?: readonly Surface[] },
+  surface: Surface,
+): boolean {
+  return entry.surfaces === undefined || entry.surfaces.includes(surface);
+}
+
+function createAiContextReadApi(ctx: AiContextAssemblySource): AiContextReadApi {
+  const snapshot = detachedStateSnapshot(ctx);
+  const blocks = Object.freeze(
+    ctx.registry
+      .blocks()
+      .map(blockCatalogEntry)
+      .sort((left, right) => compareText(left.type, right.type)),
+  );
+  const blocksByType = new Map(blocks.map((entry) => [entry.type, entry]));
+  const compositions = Object.freeze(
+    ctx.registry
+      .compositions()
+      .map(compositionCatalogEntry)
+      .sort((left, right) => compareText(left.id, right.id)),
+  );
+  const compositionsById = new Map(compositions.map((entry) => [entry.id, entry]));
+  const widgetTypes = Object.freeze(
+    ctx.registry
+      .widgetTypes()
+      .map(widgetCatalogEntry)
+      .sort((left, right) => compareText(left.type, right.type)),
+  );
+  const widgetTypesByType = new Map(widgetTypes.map((entry) => [entry.type, entry]));
+  const commandNames = frozenStrings(ctx.registry.commandNames());
+  const store: AiContextReadApi['store'] = Object.freeze({
+    getState: () => snapshot,
+  });
+  const registry: AiContextReadApi['registry'] = Object.freeze({
+    block: (type: string) => blocksByType.get(type),
+    blocks: (surface?: Surface) =>
+      surface === undefined
+        ? blocks
+        : Object.freeze(blocks.filter((entry) => visibleOnSurface(entry, surface))),
+    commandNames: () => commandNames,
+    composition: (id: string) => compositionsById.get(id),
+    compositions: (surface?: Surface) =>
+      surface === undefined
+        ? compositions
+        : Object.freeze(compositions.filter((entry) => visibleOnSurface(entry, surface))),
+    widgetType: (type: string) => widgetTypesByType.get(type as `widget:${string}`),
+    widgetTypes: () => widgetTypes,
+  });
+  const readApi: AiContextReadApi = {
+    store,
+    registry,
+    get surface() {
+      return snapshot.doc.surface;
+    },
+  };
+  return Object.freeze(readApi);
+}
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -114,43 +271,37 @@ function selectedNode(node: Node): AiSelectedNodeContext {
   return documentNode(node);
 }
 
-function collectBlocks(ctx: KernelApi): readonly AiBlockContext[] {
+function collectBlocks(ctx: AiContextReadApi): readonly AiBlockContext[] {
   return ctx.registry
     .blocks(ctx.surface)
-    .map(({ schema }) => ({
-      type: schema.type,
-      description: schema.description,
-      propsSchema: cloneJson(blockPropsJsonSchema(schema)),
-      examples: schema.examples.map((example) => ({
+    .map((entry) => ({
+      type: entry.type,
+      description: entry.description,
+      propsSchema: cloneJson(entry.propsSchema),
+      examples: entry.examples.map((example) => ({
         prompt: example.prompt,
         node: cloneJson(example.node),
       })),
-      slots: Object.entries(schema.slots ?? {})
-        .sort(([left], [right]) => compareText(left, right))
-        .map(([name, declaration]) => {
-          const slot = { name, allow: [...declaration.allow].sort(compareText) };
-          return declaration.max === undefined ? slot : { ...slot, max: declaration.max };
-        }),
+      slots: entry.slots.map((slot) => ({
+        name: slot.name,
+        allow: [...slot.allow],
+        ...(slot.max === undefined ? {} : { max: slot.max }),
+      })),
     }))
     .sort((left, right) => compareText(left.type, right.type));
 }
 
-function collectTemplates(ctx: KernelApi): readonly AiTemplateContext[] {
-  return ctx.registry.compositions(ctx.surface).map((composition) => {
-    const root = composition.nodes[composition.rootId];
-    return {
-      id: composition.id,
-      name: composition.name,
-      rootType: root?.type ?? 'unknown',
-      nodeCount: Object.keys(composition.nodes).length,
-      blockTypes: [...new Set(Object.values(composition.nodes).map((node) => node.type))].sort(
-        compareText,
-      ),
-    };
-  });
+function collectTemplates(ctx: AiContextReadApi): readonly AiTemplateContext[] {
+  return ctx.registry.compositions(ctx.surface).map((composition) => ({
+    id: composition.id,
+    name: composition.name,
+    rootType: composition.rootType,
+    nodeCount: composition.nodeCount,
+    blockTypes: [...composition.blockTypes],
+  }));
 }
 
-function collectDocument(ctx: KernelApi): AiDocumentContext {
+function collectDocument(ctx: AiContextReadApi): AiDocumentContext {
   const { doc } = ctx.store.getState();
   return {
     schemaVersion: doc.schemaVersion,
@@ -163,7 +314,7 @@ function collectDocument(ctx: KernelApi): AiDocumentContext {
   };
 }
 
-function collectSelection(ctx: KernelApi, selection: readonly NodeId[]): AiSelectionContext {
+function collectSelection(ctx: AiContextReadApi, selection: readonly NodeId[]): AiSelectionContext {
   const { doc } = ctx.store.getState();
   return {
     ids: [...selection],
@@ -219,7 +370,7 @@ export interface AssembleAiContextOptions {
   skillContext?: AiPreparedSkillContext;
 }
 
-function defaultContextProviders(ctx: KernelApi): readonly AiContextProvider[] {
+function defaultContextProviders(ctx: AiContextAssemblySource): readonly AiContextProvider[] {
   const providers = new Map(
     BUILDER_AI_CONTEXT_PROVIDERS.map((provider) => [provider.id, provider]),
   );
@@ -240,13 +391,14 @@ function usableTokenCount(tokens: number | undefined): tokens is number {
 }
 
 export function assembleAiContext(
-  ctx: KernelApi,
+  ctx: AiContextAssemblySource,
   options: AssembleAiContextOptions = {},
 ): AssembledAiContext {
-  const selection = options.selection ?? ctx.store.getState().selection;
-  const providerSelection = [...selection];
-  const providerFragments = (options.providers ?? defaultContextProviders(ctx)).map((provider) => {
-    const collected = provider.collect(ctx, providerSelection);
+  const readCtx = createAiContextReadApi(ctx);
+  const selection = Object.freeze([...(options.selection ?? readCtx.store.getState().selection)]);
+  const providers = Object.freeze([...(options.providers ?? defaultContextProviders(ctx))]);
+  const providerFragments = providers.map((provider) => {
+    const collected = provider.collect(readCtx, selection);
     const tokens = usableTokenCount(collected.tokens)
       ? collected.tokens
       : estimateContextTokens(collected.title, collected.body);
@@ -266,10 +418,10 @@ export function assembleAiContext(
   const base = {
     fragments,
     totalTokens: fragments.reduce((total, current) => total + current.tokens, 0),
-    blocks: collectBlocks(ctx),
-    templates: collectTemplates(ctx),
-    document: collectDocument(ctx),
-    selection: collectSelection(ctx, selection),
+    blocks: collectBlocks(readCtx),
+    templates: collectTemplates(readCtx),
+    document: collectDocument(readCtx),
+    selection: collectSelection(readCtx, selection),
   };
   if (options.skillContext === undefined) return base;
   return {

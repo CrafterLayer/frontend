@@ -41,7 +41,9 @@ export const shadcnAlertSchema = defineBlockSchema({
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
   },
   inlineEditable: 'title',
-  slots: { default: { allow: ['richText', 'cta', 'button', 'navLinks'] } },
+  slots: {
+    default: { allow: ['richText', 'cta', 'button', 'shimmerButton', 'navLinks'] },
+  },
   examples: shadcnAlertExamples,
 });
 

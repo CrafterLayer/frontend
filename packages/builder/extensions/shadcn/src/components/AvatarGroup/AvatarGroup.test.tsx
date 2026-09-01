@@ -86,7 +86,11 @@ describe('AvatarGroup', () => {
       maxVisible: 5,
       overflowLabel: 'More people:',
       overlap: 'medium',
-      people: [],
+      people: [
+        { name: 'Maya Chen', initials: 'MC' },
+        { name: 'Omar Haddad', initials: 'OH' },
+        { name: 'Lina Faris', initials: 'LF' },
+      ],
       shape: 'circle',
       size: 'medium',
       tone: 'accent',

@@ -29,9 +29,16 @@ const SHINE_CHILDREN = [
   'productGrid',
   'portfolioGrid',
   'card',
+  'badge',
   'button',
   'avatarGroup',
   'progress',
+  'breadcrumbs',
+  'dialog',
+  'pagination',
+  'shadcnAlert',
+  'tabs',
+  'shimmerButton',
 ] as const;
 
 export const shineBorderSchema = defineBlockSchema({
@@ -74,7 +81,7 @@ export const shineBorderSchema = defineBlockSchema({
     weight: { tab: 'design', section: 'Shine' },
     animate: { tab: 'design', section: 'Shine' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
-    className: { tab: 'advanced', section: 'Custom classes' },
+    className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
   },
   slots: { default: { allow: [...SHINE_CHILDREN] } },
   examples: shineBorderExamples,

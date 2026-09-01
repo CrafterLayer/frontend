@@ -18,10 +18,7 @@ const content = (
 const meta = {
   title: 'Builder/Aceternity/CloudShader',
   component: CloudShader,
-  /*
-    No `tags: ['autodocs']`: an authored docs page is attached with
-    <Meta of={...}>, and Storybook refuses both for one component.
-  */
+  tags: ['autodocs'],
   args: { node, slots: { default: content }, data: {}, isCanvas: false },
 } satisfies Meta<typeof CloudShader>;
 

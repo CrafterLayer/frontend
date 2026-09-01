@@ -1,0 +1,18 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as MarqueeTrackStories from './MarqueeTrack.stories';
+
+<Meta of={MarqueeTrackStories} />
+
+# Marquee Track
+
+The focused row boundary used by `Marquee`. Its first list is semantic; the seamless copy and every
+list in a secondary decorative row are `aria-hidden` and contain no anchors, preventing duplicate
+announcements and keyboard stops.
+
+<Canvas of={MarqueeTrackStories.Primary} />
+
+The component is independently covered because canvas navigation guards and duplicate accessibility
+are track-level responsibilities, while pause state and overall section semantics belong to Marquee.
+Primary, auxiliary, and context-menu link activation are all suppressed on the editing canvas while
+the authored destination remains intact for published output.

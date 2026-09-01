@@ -49,6 +49,11 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
   const primaryRef = useRef<HTMLAnchorElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
+  const hasActionClose =
+    props.closeOnAction &&
+    (props.primaryAction !== undefined || props.secondaryAction !== undefined);
+  /* A backdrop-only route excludes keyboard and switch users, so it never counts as sufficient. */
+  const showGuaranteedClose = props.showCloseButton || (!props.closeOnEscape && !hasActionClose);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -114,7 +119,6 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
   const handleAction = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (isCanvas) {
       event.preventDefault();
-      return;
     }
     if (props.closeOnAction) closeDialog();
   };
@@ -167,7 +171,7 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
           tabIndex={-1}
           data-dialog-panel=""
         >
-          {props.showCloseButton ? (
+          {showGuaranteedClose ? (
             <button
               ref={closeRef}
               className="absolute top-4 end-4 inline-grid size-10 cursor-pointer place-items-center rounded-full border border-current/20 bg-current/10 text-xl leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"

@@ -15,6 +15,7 @@ const meta = {
   title: 'Builder/MagicUI/Shimmer Button',
   component: ShimmerButton,
   parameters: { layout: 'centered' },
+  tags: ['autodocs'],
 } satisfies Meta<typeof ShimmerButton>;
 
 export default meta;

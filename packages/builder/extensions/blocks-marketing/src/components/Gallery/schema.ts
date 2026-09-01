@@ -46,6 +46,25 @@ const safeImageHrefSchema = z
     },
   );
 
+const galleryItemSchema = z
+  .object({
+    src: safeImageSourceSchema,
+    alt: z.string().max(160).default(''),
+    decorative: z.boolean().default(false),
+    caption: z.string().min(1).max(180).optional(),
+    href: safeImageHrefSchema.optional(),
+    featured: z.boolean().optional(),
+  })
+  .superRefine((item, context) => {
+    if (!item.decorative && item.alt.trim().length === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Informative gallery images require nonempty alt text.',
+        path: ['alt'],
+      });
+    }
+  });
+
 export const gallerySchema = defineBlockSchema({
   type: 'gallery',
   description:
@@ -55,19 +74,7 @@ export const gallerySchema = defineBlockSchema({
     eyebrow: z.string().min(1).max(40).optional(),
     heading: z.string().min(1).max(100).default('Work that rewards a closer look'),
     body: z.string().min(1).max(260).optional(),
-    items: z
-      .array(
-        z.object({
-          src: safeImageSourceSchema,
-          alt: z.string().max(160).default(''),
-          decorative: z.boolean().default(false),
-          caption: z.string().min(1).max(180).optional(),
-          href: safeImageHrefSchema.optional(),
-          featured: z.boolean().optional(),
-        }),
-      )
-      .max(16)
-      .default([]),
+    items: z.array(galleryItemSchema).max(16).default([]),
     layout: z.enum(['grid', 'editorial']).default('grid'),
     columns: z.enum(['2', '3', '4']).default('3'),
     aspect: z.enum(['landscape', 'square', 'portrait']).default('landscape'),

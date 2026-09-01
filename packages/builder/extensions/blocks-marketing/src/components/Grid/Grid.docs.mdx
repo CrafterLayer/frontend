@@ -30,8 +30,16 @@ one column. Avoid either container for layout that belongs inside a leaf block.
 
 ## Slots and composition
 
-The `default` slot accepts exactly `stack`, `grid`, `hero`, `features`, `pricing`, `testimonials`,
-`cta`, `richText`, and `navLinks`. Both layout containers are allowed, so a grid may nest another
+The `default` slot supports a broad, explicit set of registered blocks: nested `stack` and `grid`
+containers, marketing sections, content and media primitives, approved shadcn compositions, and
+visual-enhancement wrappers. Current section support includes `carousel`, `promoBanner`,
+`videoSection`, `gallery`, `portfolioGrid`, `productGrid`, and `formSection`, as well as established
+blocks such as `hero`, `features`, `pricing`, `testimonials`, `faq`, `newsletter`, `cta`,
+`richText`, and `navLinks`.
+
+`GRID_CHILDREN` in `schema.ts` is the canonical allowlist and is intentionally explicit. Consult it
+when adding or auditing a block; this overview describes the composition categories rather than
+duplicating a list that can drift. Both layout containers are allowed, so a grid may nest another
 grid or use a stack inside one cell.
 
 ```json

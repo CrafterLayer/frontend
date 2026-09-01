@@ -6,8 +6,10 @@ import * as CloudShaderStories from './CloudShader.stories';
 
 # Cloud Shader
 
-Soft procedural clouds drifting across a sky, drawn on the GPU. A hero — or any section — goes
-inside it.
+Soft procedural clouds drifting across a sky, drawn on the GPU. Its slot accepts the supported
+marketing and primary vocabulary, including cards, alerts, tabs, progress, breadcrumbs, dialogs, and
+pagination. CloudShader itself and the other background effects are deliberately excluded, so
+full-surface GPU and ambient effects cannot recurse into one another.
 
 <Canvas of={CloudShaderStories.Scattered} />
 
@@ -41,12 +43,13 @@ Pretending otherwise would mean shipping a worse effect and calling it the same 
 The cost is contained rather than denied:
 
 - The shader lives in this block. A page without one loads none of it.
-- The render loop **stops when the section leaves the viewport** — a shader running behind content
-  the reader has scrolled past is a fan spinning for nothing.
+- The render loop **stops when the section leaves the viewport or the document is hidden** — a
+  shader running behind content nobody can see is a fan spinning for nothing.
 - Device pixel ratio is capped at 2. A cloud field is low-frequency, so a 3× display would spend
   triple the fragments on detail the effect does not contain — and the phones with the highest
   ratios can least afford it.
-- `prefers-reduced-motion` freezes time rather than removing the sky.
+- `animate=false`, `speed='still'`, and `prefers-reduced-motion` each render one still frame and
+  schedule no animation frame at all. The static sky remains visible without recurring GPU work.
 
 ## When there is no GPU
 

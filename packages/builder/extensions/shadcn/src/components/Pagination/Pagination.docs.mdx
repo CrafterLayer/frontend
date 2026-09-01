@@ -19,13 +19,17 @@ destinations are generated unless safe overrides are provided.
 ## Explicit mode
 
 Provide labelled items with optional safe hrefs, current state, and disabled state. Previous and
-next links are explicit in this mode, making it suitable for named or non-numeric sequences.
+next links are explicit in this mode, making it suitable for named or non-numeric sequences. At most
+one enabled item may be declared current. Legacy collections without a current marker remain valid;
+the first enabled item becomes the effective current page at render time.
 
 ## Variants and theming
 
 `full` renders the page range; `compact` renders previous/current-status/next. Small, medium, and
 large controls combine with start, center, or end alignment and transparent, surface, or inverse
-token treatments. Motion and custom utilities remain optional and validated.
+token treatments. Compact explicit mode derives its position and count from the explicit items,
+never from unrelated generated-page fields. Motion and custom utilities remain optional and
+validated.
 
 ## Accessibility and RTL
 

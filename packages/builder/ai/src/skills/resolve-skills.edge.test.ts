@@ -38,6 +38,28 @@ describe('AI skill resolution edge policy', () => {
     ]);
   });
 
+  it('activates an auto match only once when a higher-priority match already loaded it as a dependency', () => {
+    const registry = createAiSkillRegistry([
+      skill('skill.parent', {
+        priority: 10,
+        dependencies: ['skill.child'],
+        activation: { mode: 'auto', keywords: ['match'] },
+      }),
+      skill('skill.child', {
+        priority: 1,
+        activation: { mode: 'auto', keywords: ['match'] },
+      }),
+    ]);
+
+    const prepared = registry.prepare({ request: 'match' });
+
+    expect(prepared.active.map(({ id, reason }) => [id, reason])).toEqual([
+      ['skill.child', 'dependency'],
+      ['skill.parent', 'auto'],
+    ]);
+    expect(prepared.activations.map(({ id }) => id)).toEqual(['skill.child', 'skill.parent']);
+  });
+
   it('omits lower-priority optional conflicts but errors for broken auto dependencies', () => {
     const conflicting = createAiSkillRegistry([
       skill('skill.winner', {
@@ -117,5 +139,19 @@ describe('AI skill resolution edge policy', () => {
         maxActiveSkills: 1,
       }),
     ).toThrow(/active skill limit/i);
+  });
+
+  it('charges large but valid canonical metadata against the active skill token budget', () => {
+    const registry = createAiSkillRegistry([
+      skill('skill.metadata-heavy', { description: 'x'.repeat(1_000) }),
+    ]);
+
+    expect(() =>
+      registry.prepare({
+        request: 'x',
+        selectedSkillIds: ['skill.metadata-heavy'],
+        maxSkillTokens: 100,
+      }),
+    ).toThrow(/budget/i);
   });
 });

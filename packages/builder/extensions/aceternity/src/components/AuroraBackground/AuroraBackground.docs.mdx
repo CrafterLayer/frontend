@@ -8,8 +8,10 @@ import * as AuroraStories from './AuroraBackground.stories';
 
 ## Purpose and ownership
 
-Owned by `@craftkit/builder-aceternity`. A slow, drifting gradient behind a section — put a hero, or
-anything else, inside it.
+Owned by `@craftkit/builder-aceternity`. A slow, drifting gradient behind a supported content block,
+such as a hero, card, tabs, alert, progress indicator, or pagination control. The slot intentionally
+excludes Aurora itself and the other background effects, preventing recursive or competing
+full-surface animation stacks.
 
 ## Provenance
 
@@ -42,13 +44,14 @@ anything.
 
 ## Props
 
-| Prop        | Type                             | Default    | Notes                              |
-| ----------- | -------------------------------- | ---------- | ---------------------------------- |
-| `intensity` | `'subtle' \| 'normal' \| 'bold'` | `'normal'` | Named steps, not an opacity number |
-| `animate`   | `boolean`                        | `true`     | Stillness is a real choice         |
-| `minHeight` | `'none' \| 'half' \| 'screen'`   | `'none'`   | Measured in `svh`                  |
-| `motion`    | `MotionSpec`                     | —          | From the closed vocabulary         |
-| `className` | validated utilities              | —          | Full Tailwind, checked at the door |
+| Prop        | Type                                 | Default    | Notes                              |
+| ----------- | ------------------------------------ | ---------- | ---------------------------------- |
+| `intensity` | `'subtle' \| 'normal' \| 'bold'`     | `'normal'` | Named steps, not an opacity number |
+| `tone`      | `'light' \| 'dark' \| 'transparent'` | `'dark'`   | Chooses the paired ground and ink  |
+| `animate`   | `boolean`                            | `true`     | Stillness is a real choice         |
+| `minHeight` | `'none' \| 'half' \| 'screen'`       | `'half'`   | Measured in `svh`                  |
+| `motion`    | `MotionSpec`                         | —          | From the closed vocabulary         |
+| `className` | validated utilities                  | —          | Full Tailwind, checked at the door |
 
 `className` is what makes this customisable by a person **or a planner**: any layout, spacing, or
 responsive utility is accepted, and exactly two families are refused — arbitrary values in brackets

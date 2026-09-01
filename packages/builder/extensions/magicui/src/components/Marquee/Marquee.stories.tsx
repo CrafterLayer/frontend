@@ -10,6 +10,7 @@ const node: Node = { id: 'marquee-story', type: 'marquee', props: {} };
 const meta = {
   title: 'Builder/MagicUI/Marquee',
   component: Marquee,
+  tags: ['autodocs'],
   args: {
     node,
     props: marqueeSchema.props.parse({}),
@@ -48,6 +49,16 @@ export const CompactReverse: Story = {
       direction: 'reverse',
       speed: 'fast',
       edgeFade: false,
+    }),
+  },
+};
+
+export const ManualPause: Story = {
+  args: {
+    props: marqueeSchema.props.parse({
+      pauseOnHover: false,
+      pauseLabel: 'Pause partner movement',
+      resumeLabel: 'Resume partner movement',
     }),
   },
 };

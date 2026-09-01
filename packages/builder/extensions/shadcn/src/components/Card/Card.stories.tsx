@@ -18,10 +18,7 @@ const footer = (
 const meta = {
   title: 'Builder/Shadcn/Card',
   component: Card,
-  /*
-    No `tags: ['autodocs']`: an authored docs page is attached with
-    <Meta of={...}>, and Storybook refuses both for one component.
-  */
+  tags: ['autodocs'],
   args: { node, slots: { default: body }, data: {}, isCanvas: false },
 } satisfies Meta<typeof Card>;
 

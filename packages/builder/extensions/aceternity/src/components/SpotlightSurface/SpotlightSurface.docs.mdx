@@ -14,15 +14,18 @@ animation dependency.
 
 ## Composition
 
-The default slot accepts the main marketing sections, primary containers, buttons, the Magic UI
-marquee, and the existing shine border. Use one spotlight around a hero or CTA; repeating it around
-every section removes the hierarchy it is meant to create.
+The default slot accepts the main marketing sections, primary containers and controls (including
+cards, badges, alerts, tabs, progress, breadcrumbs, dialogs, and pagination), the Magic UI marquee,
+and the existing shine border. It intentionally excludes other background effects and itself, so
+effects cannot recurse into an expensive stack. Use one spotlight around a hero or CTA; repeating it
+around every section removes the hierarchy it is meant to create.
 
 ## Motion and theming
 
 Position, intensity, variant, light or dark tone, minimum height, and animation are named schema
 intents. Colours resolve through `--t-accent`, `--t-success`, surface, and text roles. Ambient drift
-stops under `prefers-reduced-motion` while the static spotlight remains visible.
+stops under `prefers-reduced-motion` while the static spotlight remains visible. `start` and `end`
+use logical inline positioning, so they mirror with the inherited writing direction in RTL.
 
 <Controls />
 <Stories />

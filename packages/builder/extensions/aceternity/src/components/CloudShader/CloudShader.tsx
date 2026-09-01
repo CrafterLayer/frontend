@@ -41,16 +41,9 @@ const COVERAGE: Record<CloudShaderProps['coverage'], number> = {
 
 const SPEED: Record<CloudShaderProps['speed'], number> = { still: 0, drifting: 0.5, brisk: 1.4 };
 
-const MIN_HEIGHT_CLASSES: Record<CloudShaderProps['minHeight'], string> = {
-  none: '',
-  half: 'min-h-[50svh]',
-  /*
-    `svh`, not `vh`. On a phone `100vh` is the viewport WITHOUT browser chrome,
-    so a full-height hero sits partly under the address bar until the user
-    scrolls.
-  */
-  screen: 'min-h-[100svh]',
-};
+interface CloudLoopController {
+  setAnimating: (next: boolean) => void;
+}
 
 export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -78,6 +71,7 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
     belong to the props.
   */
   const sessionRef = useRef<CloudSession | null>(null);
+  const loopControllerRef = useRef<CloudLoopController | null>(null);
   const elapsedRef = useRef(0);
 
   useEffect(() => {
@@ -96,7 +90,8 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
 
     let frame = 0;
     let visible = true;
-    let start = 0;
+    let animating = false;
+    let start: number | null = null;
 
     const measure = () => {
       const rect = host.getBoundingClientRect();
@@ -104,12 +99,13 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
     };
 
     const render = (now: number) => {
-      if (start === 0) {
-        start = now;
-      }
+      frame = 0;
+      start ??= now - elapsedRef.current * 1000;
       elapsedRef.current = (now - start) / 1000;
       session.draw(elapsedRef.current);
-      frame = window.requestAnimationFrame(render);
+      if (animating && visible && !document.hidden) {
+        frame = window.requestAnimationFrame(render);
+      }
     };
 
     const stop = () => {
@@ -117,20 +113,29 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
         window.cancelAnimationFrame(frame);
         frame = 0;
       }
+      start = null;
     };
 
     const startLoop = () => {
-      if (frame !== 0 || !visible) {
+      if (frame !== 0 || !animating || !visible || document.hidden) {
         return;
       }
-      /* Rebase, so a resumed loop continues rather than leaps. */
-      start = performance.now() - elapsedRef.current * 1000;
       frame = window.requestAnimationFrame(render);
     };
 
+    const loopController: CloudLoopController = {
+      setAnimating(next) {
+        animating = next;
+        if (animating) {
+          startLoop();
+        } else {
+          stop();
+        }
+      },
+    };
+    loopControllerRef.current = loopController;
+
     measure();
-    session.draw(0);
-    setFallback(false);
 
     const resizeObserver = new ResizeObserver(() => {
       measure();
@@ -153,12 +158,23 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
     });
     intersection.observe(host);
 
-    startLoop();
+    const handleDocumentVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        startLoop();
+      }
+    };
+    document.addEventListener('visibilitychange', handleDocumentVisibility);
 
     return () => {
       stop();
       resizeObserver.disconnect();
       intersection.disconnect();
+      document.removeEventListener('visibilitychange', handleDocumentVisibility);
+      if (loopControllerRef.current === loopController) {
+        loopControllerRef.current = null;
+      }
       sessionRef.current = null;
       session.dispose();
     };
@@ -168,22 +184,27 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
   useEffect(() => {
     const host = hostRef.current;
     const session = sessionRef.current;
-    if (host === null || session === null) {
+    const loopController = loopControllerRef.current;
+    if (host === null || session === null || loopController === null) {
       return;
     }
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     const apply = () => {
+      const shouldAnimate = animate && speed !== 'still' && !reduced.matches;
       session.update({
         octaves: OCTAVES[detail],
         coverage: COVERAGE[coverage],
-        speed: animate && !reduced.matches ? SPEED[speed] : 0,
+        speed: shouldAnimate ? SPEED[speed] : 0,
         cloud: readRole(host, cloudColor, [0.98, 0.97, 0.95]),
         skyTop: readRole(host, skyTopColor, [0.22, 0.46, 0.73]),
         skyBottom: readRole(host, skyBottomColor, [0.55, 0.75, 0.91]),
       });
+      /* A still cloud is painted once; it never burns a RAF just to redraw itself. */
       session.draw(elapsedRef.current);
+      setFallback(false);
+      loopController.setAnimating(shouldAnimate);
     };
 
     apply();
@@ -191,7 +212,7 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
     return () => {
       reduced.removeEventListener('change', apply);
     };
-  }, [detail, coverage, speed, animate, cloudColor, skyTopColor, skyBottomColor, fallback]);
+  }, [detail, coverage, speed, animate, cloudColor, skyTopColor, skyBottomColor]);
 
   return (
     <div
@@ -199,12 +220,12 @@ export function CloudShader({ props, slots }: BlockRenderProps<CloudShaderProps>
       className={clsx(
         'acy-cloud',
         'relative flex w-full flex-col justify-center overflow-hidden',
-        MIN_HEIGHT_CLASSES[props.minHeight],
         motionClassName,
         /* The document's own utilities go LAST, so a caller wins a conflict. */
         props.className,
       )}
       data-acy-cloud-fallback={fallback ? 'true' : undefined}
+      data-acy-cloud-min-height={props.minHeight}
       {...motionData}
     >
       {/*

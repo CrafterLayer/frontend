@@ -22,7 +22,8 @@
     transparent 70%
   );
   filter: blur(18px);
-  transform: translate3d(var(--ace-spotlight-x), -44%, 0);
+  inset-block-start: -44%;
+  inset-inline-start: var(--ace-spotlight-inline-offset);
   animation: ace-spotlight-drift 12s ease-in-out infinite alternate;
 }
 
@@ -39,15 +40,15 @@
 }
 
 .ace-spotlight[data-spotlight-position='start'] {
-  --ace-spotlight-x: -34%;
+  --ace-spotlight-inline-offset: -34%;
 }
 
 .ace-spotlight[data-spotlight-position='center'] {
-  --ace-spotlight-x: 20%;
+  --ace-spotlight-inline-offset: 20%;
 }
 
 .ace-spotlight[data-spotlight-position='end'] {
-  --ace-spotlight-x: 62%;
+  --ace-spotlight-inline-offset: 62%;
 }
 
 .ace-spotlight[data-spotlight-intensity='subtle'] {

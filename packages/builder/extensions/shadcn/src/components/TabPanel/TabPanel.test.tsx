@@ -66,4 +66,8 @@ describe('TabPanel', () => {
     expect(tabPanelSchema.props.safeParse({ className: 'p-[13px]' }).success).toBe(false);
     expect(tabPanelSchema.props.safeParse({ className: 'gap-6' }).success).toBe(true);
   });
+
+  it('schema: accepts a dialog as panel content', () => {
+    expect(tabPanelSchema.slots?.['default']?.allow).toContain('dialog');
+  });
 });

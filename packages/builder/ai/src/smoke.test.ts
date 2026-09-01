@@ -6,7 +6,13 @@ import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import { defineBlockSchema, type TrustedExtensionManifest } from '@craftkit/builder-schema';
 import { z } from 'zod';
 
-import { applyAiPlan, createLocalAiPlanProvider, generateAiPlan } from './index';
+import {
+  AI_SKILL_MAX_MANIFEST_METADATA_BYTES,
+  AI_SKILL_MAX_METADATA_ENTRY_BYTES,
+  applyAiPlan,
+  createLocalAiPlanProvider,
+  generateAiPlan,
+} from './index';
 
 /*
   A tiny vocabulary of its own. Layer 2 may not depend on a layer-4 extension —
@@ -113,5 +119,12 @@ describe('generating blocks from a request', () => {
       kernel.undo();
     }
     expect(kernel.getDocument()).toEqual(original);
+  });
+});
+
+describe('public package surface', () => {
+  it('exports the authoritative Skill metadata bounds from the root entrypoint', () => {
+    expect(AI_SKILL_MAX_METADATA_ENTRY_BYTES).toBe(4 * 1024);
+    expect(AI_SKILL_MAX_MANIFEST_METADATA_BYTES).toBe(64 * 1024);
   });
 });

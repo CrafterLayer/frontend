@@ -33,6 +33,22 @@ const safeHrefSchema = z
     },
   );
 
+const safeWebImageSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2000)
+  .refine(
+    (value) =>
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^https?:\/\//i.test(value) ||
+      /^data:image\/(?:avif|gif|jpeg|png|webp);/i.test(value),
+    {
+      message:
+        'Product images must use http(s), a root-relative path, or a supported raster data URL.',
+    },
+  );
+
 export const productGridSchema = defineBlockSchema({
   type: 'productGrid',
   description:
@@ -49,7 +65,7 @@ export const productGridSchema = defineBlockSchema({
           description: z.string().min(1).max(220).optional(),
           price: z.string().min(1).max(40),
           originalPrice: z.string().min(1).max(40).optional(),
-          imageSrc: z.string().min(1).max(2000).optional(),
+          imageSrc: safeWebImageSchema.optional(),
           imageAlt: z.string().max(160).optional(),
           badge: z.string().min(1).max(40).optional(),
           href: safeHrefSchema,

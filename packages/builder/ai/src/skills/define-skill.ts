@@ -1,5 +1,6 @@
 import { AiSkillRegistryError } from './errors';
 import { compareSkillText } from './compare';
+import { sha256Hex } from './sha256';
 import type {
   AiDefinedSkillV1,
   AiSkillActivation,
@@ -12,6 +13,10 @@ export const AI_SKILL_MAX_INSTRUCTION_BYTES = 128 * 1024;
 export const AI_SKILL_MAX_REFERENCE_BYTES = 128 * 1024;
 export const AI_SKILL_MAX_TOTAL_REFERENCE_BYTES = 256 * 1024;
 export const AI_SKILL_MAX_REFERENCES = 64;
+/** Maximum UTF-8 size of one list entry stored in canonical skill metadata. */
+export const AI_SKILL_MAX_METADATA_ENTRY_BYTES = 4 * 1024;
+/** Maximum UTF-8 size of one complete canonical skill manifest, before its fingerprint. */
+export const AI_SKILL_MAX_MANIFEST_METADATA_BYTES = 64 * 1024;
 
 const MAX_ID_LENGTH = 96;
 const MAX_NAME_LENGTH = 120;
@@ -120,10 +125,26 @@ function uniqueSortedStrings(
 
   const seen = new Set<string>();
   const result = value.map((entry, index) => {
-    if (typeof entry !== 'string' || entry.trim().length === 0) {
+    if (typeof entry !== 'string') {
       return fail('invalid-list-entry', `${field}[${String(index)}] must be a non-empty string.`);
     }
-    const normalized = normalize(entry, index);
+    const trimmed = entry.trim();
+    if (trimmed.length === 0) {
+      return fail('invalid-list-entry', `${field}[${String(index)}] must be a non-empty string.`);
+    }
+    if (byteLength(trimmed) > AI_SKILL_MAX_METADATA_ENTRY_BYTES) {
+      return fail(
+        'metadata-entry-too-large',
+        `${field}[${String(index)}] exceeds the per-entry metadata byte limit of ${String(AI_SKILL_MAX_METADATA_ENTRY_BYTES)} bytes.`,
+      );
+    }
+    const normalized = normalize(trimmed, index);
+    if (byteLength(normalized) > AI_SKILL_MAX_METADATA_ENTRY_BYTES) {
+      return fail(
+        'metadata-entry-too-large',
+        `${field}[${String(index)}] exceeds the per-entry metadata byte limit of ${String(AI_SKILL_MAX_METADATA_ENTRY_BYTES)} bytes after normalization.`,
+      );
+    }
     if (seen.has(normalized)) {
       return fail('duplicate-list-entry', `${field} contains duplicate value ${normalized}.`);
     }
@@ -200,7 +221,9 @@ function referencePath(value: string): string {
 }
 
 function canonicalReferences(references: unknown): Readonly<Record<string, string>> {
-  if (references === undefined) return Object.freeze({});
+  if (references === undefined) {
+    return Object.freeze(Object.create(null) as Record<string, string>);
+  }
   if (!isRecord(references)) {
     return fail('invalid-references', 'references must be a record of logical paths to text.');
   }
@@ -255,12 +278,7 @@ function canonicalTrust(value: unknown, source: AiSkillSource): AiSkillTrust {
 }
 
 function fingerprint(canonicalContent: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < canonicalContent.length; index += 1) {
-    hash ^= canonicalContent.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return `skill-v1-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+  return `skill-v1-sha256-${sha256Hex(canonicalContent)}`;
 }
 
 export function defineAiSkill(definition: unknown): AiDefinedSkillV1 {
@@ -305,10 +323,11 @@ export function defineAiSkill(definition: unknown): AiDefinedSkillV1 {
   if (dependencies.includes(id) || conflicts.includes(id)) {
     return fail('self-reference', 'A skill cannot depend on or conflict with itself.');
   }
-  const restrictToCommands = uniqueSortedStrings(
-    candidate['restrictToCommands'],
-    'restrictToCommands',
-  );
+  const rawCommandRestriction = candidate['restrictToCommands'];
+  const restrictToCommands =
+    rawCommandRestriction === undefined
+      ? undefined
+      : uniqueSortedStrings(rawCommandRestriction, 'restrictToCommands');
   const references = canonicalReferences(candidate['references']);
   const rawPriority = candidate['priority'];
   if (rawPriority !== undefined && typeof rawPriority !== 'number') {
@@ -317,6 +336,30 @@ export function defineAiSkill(definition: unknown): AiDefinedSkillV1 {
   const priority = rawPriority ?? 0;
   if (!Number.isSafeInteger(priority) || priority < -1_000 || priority > 1_000) {
     return fail('invalid-priority', 'priority must be a safe integer between -1000 and 1000.');
+  }
+
+  const referencePaths = Object.freeze(Object.keys(references));
+  const manifestMetadata = {
+    schemaVersion: 1 as const,
+    id,
+    name,
+    description,
+    version,
+    tags,
+    source,
+    trust,
+    activation,
+    priority,
+    dependencies,
+    conflicts,
+    restrictToCommands,
+    referencePaths,
+  };
+  if (byteLength(JSON.stringify(manifestMetadata)) > AI_SKILL_MAX_MANIFEST_METADATA_BYTES) {
+    return fail(
+      'manifest-metadata-too-large',
+      `Skill manifest metadata exceeds the aggregate byte limit of ${String(AI_SKILL_MAX_MANIFEST_METADATA_BYTES)} bytes.`,
+    );
   }
 
   const fingerprintInput = JSON.stringify({
@@ -350,11 +393,11 @@ export function defineAiSkill(definition: unknown): AiDefinedSkillV1 {
     priority,
     dependencies,
     conflicts,
-    referencePaths: Object.freeze(Object.keys(references)),
+    referencePaths,
     contentFingerprint: fingerprint(fingerprintInput),
   };
   const manifest: AiSkillManifestV1 = Object.freeze(
-    restrictToCommands.length > 0 ? { ...manifestBase, restrictToCommands } : manifestBase,
+    restrictToCommands === undefined ? manifestBase : { ...manifestBase, restrictToCommands },
   );
 
   return Object.freeze({

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -30,7 +30,7 @@ const items = [
   },
 ];
 
-function renderPortfolio(overrides: Record<string, unknown> = {}) {
+function renderPortfolio(overrides: Record<string, unknown> = {}, isCanvas = false) {
   return render(
     <PortfolioGrid
       node={node}
@@ -41,7 +41,7 @@ function renderPortfolio(overrides: Record<string, unknown> = {}) {
       })}
       slots={{}}
       data={{}}
-      isCanvas={false}
+      isCanvas={isCanvas}
     />,
   );
 }
@@ -82,6 +82,34 @@ describe('PortfolioGrid', () => {
     expect(screen.getByText('A', { selector: '[aria-hidden="true"]' })).toBeInTheDocument();
   });
 
+  it('renders a professional empty state on canvas only', () => {
+    const { rerender } = renderPortfolio({ items: [] }, true);
+    expect(screen.getByText('Add case studies to showcase your strongest outcomes.')).toBeVisible();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+
+    rerender(
+      <PortfolioGrid
+        node={node}
+        props={portfolioGridSchema.props.parse({ heading: 'Selected work', items: [] })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    expect(
+      screen.queryByText('Add case studies to showcase your strongest outcomes.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('preserves case-study anchors but prevents navigation on the builder canvas', () => {
+    renderPortfolio({}, true);
+    const action = screen.getByRole('link', {
+      name: 'View case study: A clearer finance workspace',
+    });
+    expect(action).toHaveAttribute('href', '/work/finance');
+    expect(fireEvent.click(action)).toBe(false);
+  });
+
   it('combines shared token colour, typography, and logical spacing on the section', () => {
     renderPortfolio({ background: 'surfaceInverse', fontFamily: 'serif', paddingInlineStart: 4 });
     const section = screen.getByRole('region', { name: 'Selected work' });
@@ -113,6 +141,57 @@ describe('PortfolioGrid', () => {
             title: 'Unsafe link',
             summary: 'This URL must be rejected.',
             href: 'javascript:alert(1)',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      portfolioGridSchema.props.safeParse({
+        items: [
+          {
+            category: 'Unsafe',
+            title: 'Backslash link',
+            summary: 'This URL must be rejected.',
+            href: '/\\evil.example/work',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      portfolioGridSchema.props.safeParse({
+        items: [
+          {
+            category: 'Unsafe',
+            title: 'Executable image',
+            summary: 'This media URL must be rejected.',
+            imageSrc: 'javascript:alert(1)',
+            href: '/work',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      portfolioGridSchema.props.safeParse({
+        items: [
+          {
+            category: 'Unsafe',
+            title: 'Protocol-relative image',
+            summary: 'This media URL must be rejected.',
+            imageSrc: '//evil.example/work.jpg',
+            href: '/work',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      portfolioGridSchema.props.safeParse({
+        items: [
+          {
+            category: 'Unsafe',
+            title: 'Backslash image',
+            summary: 'This media URL must be rejected.',
+            imageSrc: '/\\evil.example/work.jpg',
+            href: '/work',
           },
         ],
       }).success,

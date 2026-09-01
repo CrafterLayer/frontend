@@ -31,6 +31,7 @@ const meta = {
   title: 'Builder/MagicUI/Dot Pattern Surface',
   component: DotPatternSurface,
   parameters: { layout: 'padded' },
+  tags: ['autodocs'],
 } satisfies Meta<typeof DotPatternSurface>;
 
 export default meta;

@@ -31,13 +31,17 @@ standard-width column with start alignment, medium gap, wrapping enabled, and no
 
 ## Slots and composition
 
-The `default` slot accepts exactly `stack`, `hero`, `features`, `pricing`, `testimonials`, `cta`,
-and `richText`. The `stack` entry is deliberate: nest a `Stack` inside a row to make each child a
+The `default` slot supports the extension's broad composition surface: nested layout containers,
+registered marketing sections, content and media primitives, approved shadcn compositions, and
+visual-enhancement wrappers. That includes current section blocks such as `carousel`, `promoBanner`,
+`videoSection`, `gallery`, `portfolioGrid`, `productGrid`, and `formSection`, alongside established
+blocks such as `hero`, `features`, `pricing`, `testimonials`, `faq`, `newsletter`, `cta`, and
+`richText`. The `stack` entry is deliberate: nest a `Stack` inside a row to make each child a
 column.
 
-`allow` is written out explicitly rather than computed. The drag-and-drop resolver reads that exact
-list to decide whether a drop is legal; a derived expression would turn a rejected drop into an
-unexplainable refusal.
+The canonical allowlist remains the explicit `STACK_CHILDREN` declaration in `schema.ts`. The
+drag-and-drop resolver reads that contract to decide whether a drop is legal, so refer to the schema
+when adding or auditing a newly registered block instead of treating this overview as a frozen list.
 
 ```json
 {

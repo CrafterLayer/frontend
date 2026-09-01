@@ -12,6 +12,7 @@ const body = <p style={{ margin: 0 }}>Read the migration notes before Friday.</p
 const meta = {
   title: 'Builder/Shadcn/Alert',
   component: ShadcnAlert,
+  tags: ['autodocs'],
   args: { node, slots: { default: body }, data: {}, isCanvas: false },
 } satisfies Meta<typeof ShadcnAlert>;
 

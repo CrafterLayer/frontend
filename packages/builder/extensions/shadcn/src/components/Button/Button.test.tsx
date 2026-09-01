@@ -8,14 +8,14 @@ import { buttonSchema } from './schema';
 
 const node: Node = { id: 'button', type: 'button', props: {} };
 
-function renderButton(overrides: Record<string, unknown> = {}) {
+function renderButton(overrides: Record<string, unknown> = {}, isCanvas = false) {
   return render(
     <Button
       node={node}
       props={buttonSchema.props.parse(overrides)}
       slots={{}}
       data={{}}
-      isCanvas={false}
+      isCanvas={isCanvas}
     />,
   );
 }
@@ -37,6 +37,16 @@ describe('Button', () => {
       'rel',
       'noreferrer noopener',
     );
+  });
+
+  it('keeps authored destinations visible but suppresses navigation on the canvas', () => {
+    renderButton({ label: 'Canvas action', href: '/destination' }, true);
+    const link = screen.getByRole('link', { name: 'Canvas action' });
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(link).toHaveAttribute('href', '/destination');
   });
 
   it('applies visual, sizing, alignment, and icon controls', () => {

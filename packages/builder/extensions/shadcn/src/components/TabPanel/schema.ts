@@ -28,7 +28,9 @@ const PANEL_CHILDREN = [
   'progress',
   'breadcrumbs',
   'pagination',
+  'dialog',
   'accordion',
+  'shimmerButton',
 ] as const;
 
 export const tabPanelSchema = defineBlockSchema({

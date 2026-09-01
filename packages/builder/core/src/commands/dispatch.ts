@@ -102,8 +102,9 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     if (steps.length === 0) {
       throw builderError('cmd/invalid-args', 'A dispatch group needs at least one step.');
     }
-    const defaultLabel =
-      steps.length === 1 ? (steps[0]?.command ?? 'group') : `group(${String(steps.length)})`;
+    const defaultLabel = (
+      steps.length === 1 ? (steps[0]?.command ?? 'group') : `group(${String(steps.length)})`
+    ).slice(0, GROUPED_DISPATCH_LABEL_MAX_LENGTH);
     const { author, label } = normalizeGroupedDispatchOptions(authorOrOptions, defaultLabel);
     const mutators = steps.map((step) => {
       const registered = deps.registry.command(step.command);
@@ -217,7 +218,7 @@ function normalizeGroupedDispatchOptions(
   }
 
   const options = authorOrOptions as { author?: unknown; label?: unknown };
-  const author = options.author ?? 'user';
+  const author = options.author === undefined ? 'user' : options.author;
   assertAuthor(author);
   if (options.label === undefined) {
     return { author, label: defaultLabel };

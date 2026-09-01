@@ -379,13 +379,13 @@ streamed operations. Neither supplies Builder's validation or rollback guarantee
 
 The same package adds `runAiAgent()`, a UI-independent coordinator with injected run id and clock.
 Its state sequence is
-`started → resolving-skills → gathering-context → proposing → validating → proposed → completed`
-for review-only runs, or `... → validating → applying → completed` for auto-apply runs.
-Every emitted event carries a monotonic sequence; exactly one terminal event is legal.
-`apply: 'never'` supports Ask/Plan review, while `apply: 'auto'` applies the already validated batch
-through the grouped door as one AI-authored, human-labelled transaction. A host-owned synchronous
-run lease is rechecked around cache/provider results and immediately before application, so a late
-run cannot recover authority merely because its provider ignored an abort signal.
+`started → resolving-skills → gathering-context → proposing → validating → proposed → completed` for
+review-only runs, or `... → validating → applying → completed` for auto-apply runs. Every emitted
+event carries a monotonic sequence; exactly one terminal event is legal. `apply: 'never'` supports
+Ask/Plan review, while `apply: 'auto'` applies the already validated batch through the grouped door
+as one AI-authored, human-labelled transaction. A host-owned synchronous run lease is rechecked
+around cache/provider results and immediately before application, so a late run cannot recover
+authority merely because its provider ignored an abort signal.
 
 The existing provider boundary stays replaceable. The first version deliberately has no model SDK,
 MCP, subagents, skill scripts, URL imports, or direct filesystem/process tool. Those capabilities
@@ -593,17 +593,17 @@ or read the log tail.
 
 ## Risks
 
-| Risk                                             | Why it is real here                           | Mitigation held in this plan                                                                                                              |
-| ------------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Layer-0 change invalidates everything downstream | `@craftkit/builder-schema` is the graph root  | Phase A is isolated and lands green before anything depends on it; the token move keeps re-exports so no consumer import breaks           |
-| Site-scale text projection makes code view slow  | The document channel re-clones on site change | Per-page scopes (D6) exist so page editing never serializes the site; the off-thread proof is re-run at site scope, counted not timed     |
-| Skill content becomes hidden authority           | Prompt text can look like policy              | Structured bodies, trust metadata, progressive disclosure, command-policy intersection, no scripts, and kernel execution-time validation  |
-| Cached plan ignores changed expertise            | Memory/skills/catalog are host-owned context  | Cache the complete canonical assembled context and check cancellation before returning a hit                                              |
+| Risk                                             | Why it is real here                           | Mitigation held in this plan                                                                                                                           |
+| ------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Layer-0 change invalidates everything downstream | `@craftkit/builder-schema` is the graph root  | Phase A is isolated and lands green before anything depends on it; the token move keeps re-exports so no consumer import breaks                        |
+| Site-scale text projection makes code view slow  | The document channel re-clones on site change | Per-page scopes (D6) exist so page editing never serializes the site; the off-thread proof is re-run at site scope, counted not timed                  |
+| Skill content becomes hidden authority           | Prompt text can look like policy              | Structured bodies, trust metadata, progressive disclosure, command-policy intersection, no scripts, and kernel execution-time validation               |
+| Cached plan ignores changed expertise            | Memory/skills/catalog are host-owned context  | Cache the complete canonical assembled context and check cancellation before returning a hit                                                           |
 | Late provider result mutates a newer run         | Async streams outlive UI intent               | Request-local run id, AbortSignal plus host-owned run-lease checks at every boundary, monotonic terminal event law, no stale progress/validation/apply |
-| Two version numbers drift                        | Site v1 and page v1 evolve separately         | One migration table each, mirroring the existing pattern; the composition law fails loudly if a page shape the manifest expects has moved |
-| Generated design systems look alike              | The failure mode competitors are judged on    | SC-004 measures it across 10 unrelated briefs with a recorded threshold, in Phase H, before the feature can be called done                |
-| The agent invents image URLs                     | The classic generation failure                | Structural, not prompted: assembly rejects any reference not in the site asset table (D4)                                                 |
-| "Professional" is self-assessed                  | The spec's central competitive claim          | Phase H requires human raters and durable evidence; the implementing agent's own opinion is explicitly not evidence                       |
+| Two version numbers drift                        | Site v1 and page v1 evolve separately         | One migration table each, mirroring the existing pattern; the composition law fails loudly if a page shape the manifest expects has moved              |
+| Generated design systems look alike              | The failure mode competitors are judged on    | SC-004 measures it across 10 unrelated briefs with a recorded threshold, in Phase H, before the feature can be called done                             |
+| The agent invents image URLs                     | The classic generation failure                | Structural, not prompted: assembly rejects any reference not in the site asset table (D4)                                                              |
+| "Professional" is self-assessed                  | The spec's central competitive claim          | Phase H requires human raters and durable evidence; the implementing agent's own opinion is explicitly not evidence                                    |
 
 ## Open Items for `/speckit-tasks`
 

@@ -26,4 +26,20 @@ describe('event bus', () => {
 
     expect(seen).toEqual(['a:one', 'b:one', 'b:two']);
   });
+
+  it('isolates a throwing observer so committed work is not reported as failed', () => {
+    const bus = createEventBus();
+    const seen: string[] = [];
+    bus.on('extension.disposed', () => {
+      throw new Error('observer failed');
+    });
+    bus.on('extension.disposed', ({ name }) => {
+      seen.push(name);
+    });
+
+    expect(() => {
+      bus.emit('extension.disposed', { name: 'safe' });
+    }).not.toThrow();
+    expect(seen).toEqual(['safe']);
+  });
 });

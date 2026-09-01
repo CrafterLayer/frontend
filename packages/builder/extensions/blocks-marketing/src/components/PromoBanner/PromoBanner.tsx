@@ -1,5 +1,7 @@
 import '../section-layout.css';
 
+import type { MouseEvent } from 'react';
+
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
@@ -63,8 +65,12 @@ const MEDIA_ASPECT_CLASSES: Readonly<Record<PromoBannerProps['mediaAspect'], str
   portrait: 'aspect-3/4',
 };
 
+function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
+  event.preventDefault();
+}
+
 /** A campaign banner with token-bound surface, responsive media, and safe primary actions. */
-export function PromoBanner({ node, props }: BlockRenderProps<PromoBannerProps>) {
+export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBannerProps>) {
   const headingId = `${node.id}-heading`;
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
@@ -95,6 +101,7 @@ export function PromoBanner({ node, props }: BlockRenderProps<PromoBannerProps>)
             'relative w-full min-w-0 overflow-hidden border',
             RADIUS_CLASSES[props.radius],
             LAYOUT_CLASSES[props.variant],
+            props.variant === 'split' && !hasMedia ? '@lg:grid-cols-1' : undefined,
             isMediaOverlay
               ? 'border-text/10 bg-surface shadow-elevated'
               : PANEL_STYLE_CLASSES[props.panelStyle],
@@ -180,6 +187,7 @@ export function PromoBanner({ node, props }: BlockRenderProps<PromoBannerProps>)
                         : 'border-current/25 bg-transparent text-inherit',
                     )}
                     href={action.href}
+                    onClick={isCanvas ? preventCanvasNavigation : undefined}
                   >
                     {action.label}
                   </a>

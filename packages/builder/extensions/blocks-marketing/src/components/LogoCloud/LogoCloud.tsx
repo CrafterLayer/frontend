@@ -17,16 +17,17 @@ import { sectionTypographyClasses } from '../section-typography';
 import type { LogoCloudProps } from './schema';
 
 const COLUMN_CLASSES: Readonly<Record<LogoCloudProps['columns'], string>> = {
-  '3': 'grid-cols-2 @sm:grid-cols-3',
-  '4': 'grid-cols-2 @sm:grid-cols-4',
-  '5': 'grid-cols-2 @sm:grid-cols-3 @xl:grid-cols-5',
-  '6': 'grid-cols-2 @sm:grid-cols-3 @xl:grid-cols-6',
+  '3': 'grid-cols-1 @sm:grid-cols-2 @xl:grid-cols-3',
+  '4': 'grid-cols-1 @sm:grid-cols-2 @3xl:grid-cols-4',
+  '5': 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3 @4xl:grid-cols-5',
+  '6': 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3 @5xl:grid-cols-6',
 };
 
 const ITEM_CLASSES: Readonly<Record<LogoCloudProps['variant'], string>> = {
-  minimal: 'border-y border-current/10 bg-transparent px-4 py-5',
-  cards: 'rounded-xl border border-text/10 bg-surface px-5 py-6 text-text shadow-soft',
-  framed: 'rounded-base bg-surface/80 px-5 py-6 text-text',
+  minimal: 'border-y border-current/10 bg-transparent px-3 py-4 @md:px-4 @md:py-5',
+  cards:
+    'rounded-xl border border-text/10 bg-surface px-3 py-5 text-text shadow-soft @md:px-5 @md:py-6',
+  framed: 'rounded-base bg-surface/80 px-3 py-5 text-text @md:px-5 @md:py-6',
 };
 
 /** A semantic collection of text-first brand marks that remains useful without external assets. */
@@ -119,16 +120,18 @@ export function LogoCloud({ node, props }: BlockRenderProps<LogoCloudProps>) {
               >
                 <span
                   aria-hidden="true"
-                  className="grid size-12 shrink-0 place-items-center rounded-xl border border-accent/15 bg-accent/10 text-sm font-bold text-accent"
+                  className="grid size-10 shrink-0 place-items-center rounded-xl border border-accent/15 bg-accent/10 text-sm font-bold text-accent @md:size-12"
                 >
                   {monogram}
                 </span>
                 <span className="flex min-w-0 flex-col text-start">
-                  <span className="truncate text-lg font-bold tracking-tight">{item.name}</span>
+                  <span className="break-words text-base leading-tight font-bold tracking-tight @md:text-lg">
+                    {item.name}
+                  </span>
                   {item.descriptor === undefined ? null : (
                     <span
                       className={cx(
-                        'truncate text-xs',
+                        'break-words text-xs leading-snug',
                         props.variant === 'minimal' && props.tone === 'dark'
                           ? 'text-inherit opacity-70'
                           : 'text-text-muted',

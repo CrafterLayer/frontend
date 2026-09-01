@@ -75,6 +75,8 @@ const STACK_CHILDREN = [
   'spotlightSurface',
   'shineBorder',
   'marquee',
+  'dotPatternSurface',
+  'shimmerButton',
 ] as const;
 
 export const stackSchema = defineBlockSchema({

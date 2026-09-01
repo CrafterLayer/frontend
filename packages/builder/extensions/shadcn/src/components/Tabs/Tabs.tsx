@@ -1,8 +1,8 @@
-import { Children, isValidElement } from 'react';
+import { useState } from 'react';
 import * as RadixTabs from '@radix-ui/react-tabs';
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import type { BlockRenderProps, BlockSlotChildMetadata } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
 import type { TabsProps } from './schema';
@@ -12,15 +12,10 @@ import type { TabsProps } from './schema';
  *
  * ## Where the labels come from
  *
- * From the DOCUMENT, never from the rendered children. `node.slots` holds the
- * child ids and `document` is not available here, so each panel carries its own
- * label in its props and this reads them off the child ELEMENTS' props — which
- * is React data, present identically on the canvas and in static output.
- *
- * The tempting alternative — reading `data-bldr-node` or text content off the
- * DOM — is the mistake the Accordion already made once: that attribute is
- * canvas scaffolding, so the tabs would have worked while editing and rendered
- * unlabelled once published.
+ * From the DOCUMENT, never from rendered React children. The schema opts its
+ * default slot into `slotChildren`, a small public metadata view supplied
+ * identically by DocumentView and StaticDocument. Tabs therefore knows nothing
+ * about NodeView, StaticNode, canvas wrappers, or their implementation props.
  *
  * ## What Radix is doing that is worth the dependency
  *
@@ -45,18 +40,10 @@ interface PanelSummary {
  * "Tab 1" that existed only while editing. A tab strip that disagrees with the
  * published page is worse than one that is briefly empty.
  */
-function summarise(children: React.ReactNode): PanelSummary[] {
-  return Children.toArray(children).flatMap((child) => {
-    if (!isValidElement(child)) {
-      return [];
-    }
-    const props = child.props as { node?: { id?: unknown }; props?: { label?: unknown } };
-    const id = props.node?.id;
-    const label = props.props?.label;
-    if (typeof id !== 'string' || typeof label !== 'string') {
-      return [];
-    }
-    return [{ id, label }];
+function summarise(children: readonly BlockSlotChildMetadata[]): PanelSummary[] {
+  return children.flatMap((child) => {
+    const label = child.props['label'];
+    return child.type === 'tabPanel' && typeof label === 'string' ? [{ id: child.id, label }] : [];
   });
 }
 
@@ -66,12 +53,16 @@ const ALIGN_CLASSES: Record<TabsProps['align'], string> = {
   end: 'justify-end',
 };
 
-export function Tabs({ node, props, slots }: BlockRenderProps<TabsProps>) {
+export function Tabs({ node, props, slots, slotChildren }: BlockRenderProps<TabsProps>) {
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
-  const panels = summarise(slots['default']);
+  const panels = summarise(slotChildren?.['default'] ?? []);
   const first = panels[0];
+  const [selectedPanelId, setSelectedPanelId] = useState<string>();
+  const activePanelId = panels.some((panel) => panel.id === selectedPanelId)
+    ? selectedPanelId
+    : first?.id;
 
-  if (first === undefined) {
+  if (first === undefined || activePanelId === undefined) {
     /*
       An empty tab strip renders nothing rather than an empty chrome bar. On the
       canvas the slot placeholder still shows, so a person adding the block is
@@ -82,7 +73,8 @@ export function Tabs({ node, props, slots }: BlockRenderProps<TabsProps>) {
 
   return (
     <RadixTabs.Root
-      defaultValue={first.id}
+      value={activePanelId}
+      onValueChange={setSelectedPanelId}
       className={clsx(
         'flex min-w-0 flex-col gap-4',
         motionClassName,

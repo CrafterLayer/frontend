@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useSyncExternalStore,
   type ComponentType,
@@ -13,12 +14,14 @@ import {
   blockPropDefaults,
   withBlockPropDefaults,
   type BlockRenderProps,
+  type BlockSlotChildMetadata,
   type NodeId,
   type SlotName,
 } from '@craftkit/builder-schema';
 
 import { resolveResponsiveProps, type RenderBreakpoint } from '../../../resolve/responsive';
-import { useKernelNode, useRegistryEpoch } from '../../../subscribe';
+import { resolveSlotChildMetadata } from '../../../resolve/slot-child-metadata';
+import { useKernelNode, useKernelNodes, useRegistryEpoch } from '../../../subscribe';
 import { UnknownBlock } from '../../UnknownBlock';
 
 import './slot.css';
@@ -185,6 +188,20 @@ function NodeViewInner({
 }: NodeViewProps) {
   const node = useKernelNode(kernel, id);
   useRegistryEpoch(kernel);
+  const entry = node === undefined ? undefined : kernel.context.registry.block(node.type);
+  const metadataChildIds = useMemo(() => {
+    if (node === undefined || entry === undefined) {
+      return [];
+    }
+    return Object.entries(entry.schema.slots ?? {}).flatMap(([slotName, declaration]) =>
+      declaration.exposeChildMetadata ? (node.slots?.[slotName] ?? []) : [],
+    );
+  }, [entry, node]);
+  const metadataChildNodes = useKernelNodes(kernel, metadataChildIds);
+  const metadataNodesById = useMemo(
+    () => new Map(metadataChildIds.map((childId, index) => [childId, metadataChildNodes[index]])),
+    [metadataChildIds, metadataChildNodes],
+  );
   const elementRef = useRef<HTMLDivElement | null>(null);
   const attachRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -292,7 +309,6 @@ function NodeViewInner({
   // Test/dev instrumentation only (SC-002 counting); no-op in production usage.
   onBlockRender?.(id);
 
-  const entry = kernel.context.registry.block(node.type);
   const render = entry?.render;
 
   let content: ReactNode;
@@ -300,6 +316,7 @@ function NodeViewInner({
     content = <UnknownBlock type={node.type} />;
   } else {
     const slots: Record<SlotName, ReactNode> = {};
+    const slotChildren: Record<SlotName, readonly BlockSlotChildMetadata[]> = {};
     const declaredSlotNames = Object.keys(entry?.schema.slots ?? {});
     const declaredSlots = new Set(declaredSlotNames);
     const slotNames = [
@@ -308,6 +325,14 @@ function NodeViewInner({
     ];
     for (const slotName of slotNames) {
       const childIds = node.slots?.[slotName] ?? [];
+      if (entry?.schema.slots?.[slotName]?.exposeChildMetadata === true) {
+        slotChildren[slotName] = childIds.flatMap((childId) => {
+          const child = metadataNodesById.get(childId);
+          return child === undefined
+            ? []
+            : [resolveSlotChildMetadata(child, kernel.context.registry.block, breakpoint)];
+        });
+      }
       const hasChildren = childIds.length > 0;
       const children = childIds.map((childId) => (
         <NodeView
@@ -414,7 +439,16 @@ function NodeViewInner({
       };
       resolved = swapped as typeof stored;
     }
-    content = <Block node={node} props={resolved} slots={slots} data={{}} isCanvas={isCanvas} />;
+    content = (
+      <Block
+        node={node}
+        props={resolved}
+        slots={slots}
+        slotChildren={slotChildren}
+        data={{}}
+        isCanvas={isCanvas}
+      />
+    );
   }
 
   if (attachNodeElement === undefined) {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -29,7 +29,7 @@ const products = [
   },
 ];
 
-function renderProducts(overrides: Record<string, unknown> = {}) {
+function renderProducts(overrides: Record<string, unknown> = {}, isCanvas = false) {
   return render(
     <ProductGrid
       node={node}
@@ -40,7 +40,7 @@ function renderProducts(overrides: Record<string, unknown> = {}) {
       })}
       slots={{}}
       data={{}}
-      isCanvas={false}
+      isCanvas={isCanvas}
     />,
   );
 }
@@ -111,6 +111,41 @@ describe('ProductGrid', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the authored fractional rating rather than rounding to whole stars', () => {
+    renderProducts({ products: [{ ...products[0], rating: 4.7 }] });
+
+    const rating = screen.getByRole('img', { name: 'Rated 4.7 out of 5, 128 reviews' });
+    expect(rating.querySelector('[data-rating-fill="0.7"]')).toBeInTheDocument();
+  });
+
+  it('renders a professional empty state on canvas only', () => {
+    const { rerender } = renderProducts({ products: [] }, true);
+    expect(
+      screen.getByText('Add products to build a polished, shoppable collection.'),
+    ).toBeVisible();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+
+    rerender(
+      <ProductGrid
+        node={node}
+        props={productGridSchema.props.parse({ heading: 'Shop the collection', products: [] })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    expect(
+      screen.queryByText('Add products to build a polished, shoppable collection.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('preserves product anchors but prevents navigation on the builder canvas', () => {
+    renderProducts({}, true);
+    const action = screen.getByRole('link', { name: 'View product: Arc task lamp' });
+    expect(action).toHaveAttribute('href', '/products/lamp');
+    expect(fireEvent.click(action)).toBe(false);
+  });
+
   it('combines shared token colour, typography, and logical spacing on the section', () => {
     renderProducts({ background: 'surfaceInverse', fontSize: 'lg', marginInlineEnd: 3 });
     const section = screen.getByRole('region', { name: 'Shop the collection' });
@@ -141,6 +176,47 @@ describe('ProductGrid', () => {
     expect(
       productGridSchema.props.safeParse({
         products: [{ name: 'Unsafe', price: '$10', href: 'javascript:alert(1)' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      productGridSchema.props.safeParse({
+        products: [{ name: 'Unsafe', price: '$10', href: '/\\evil.example/product' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      productGridSchema.props.safeParse({
+        products: [
+          {
+            name: 'Executable image',
+            price: '$10',
+            imageSrc: 'javascript:alert(1)',
+            href: '/',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      productGridSchema.props.safeParse({
+        products: [
+          {
+            name: 'Unsafe image',
+            price: '$10',
+            imageSrc: '//evil.example/product.jpg',
+            href: '/',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      productGridSchema.props.safeParse({
+        products: [
+          {
+            name: 'Unsafe image',
+            price: '$10',
+            imageSrc: '/\\evil.example/product.jpg',
+            href: '/',
+          },
+        ],
       }).success,
     ).toBe(false);
     expect(

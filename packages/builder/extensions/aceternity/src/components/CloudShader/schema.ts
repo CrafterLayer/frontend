@@ -30,7 +30,17 @@ const CLOUD_CHILDREN = [
   'newsletter',
   'marquee',
   'card',
+  'badge',
+  'shadcnAlert',
+  'tabs',
+  'separator',
+  'avatarGroup',
+  'progress',
+  'breadcrumbs',
+  'dialog',
+  'pagination',
   'button',
+  'shimmerButton',
 ] as const;
 
 /*

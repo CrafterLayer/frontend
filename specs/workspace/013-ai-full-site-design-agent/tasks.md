@@ -231,7 +231,7 @@ depends only on the existing single-page command planner and grouped core dispat
       composition, and precise refinement; no script, URL, or ambient runtime capability
 - [x] T165 [US8] Write context red tests proving catalog metadata and active bodies are separate,
       active bodies appear exactly once, prompt-looking delimiters remain data, and the skill
-      fingerprints reach the provider in `packages/builder/ai/src/context/assemble-context.test.ts`
+      fingerprints reach the provider in `packages/builder/ai/src/context/skill-context.test.ts`
 - [x] T166 [US8] Integrate prepared Skills into `AssembledAiContext`, context assembly, and
       `generateAiPlan()` through additive options in
       `packages/builder/ai/src/{types.ts,context/assemble-context.ts,plan/generate-plan.ts}`
@@ -240,8 +240,8 @@ depends only on the existing single-page command planner and grouped core dispat
 - [x] T168 [US8] Make cache identity cover the complete canonical assembled context and check
       cancellation before lookup/return in `packages/builder/ai/src/provider/caching-provider.ts`
 - [x] T169 [US8] Write command-policy red tests in
-      `packages/builder/ai/src/plan/skill-command-policy.test.ts` proving host/skill intersection,
-      deny precedence, command cap, unknown command refusal, and zero scratch/live writes
+      `packages/builder/ai/src/skills/command-policy.test.ts` proving host/skill intersection, deny
+      precedence, command cap, unknown command refusal, and zero scratch/live writes
 - [x] T170 [US8] Implement command-policy composition and enforce it in plan parse/validation/repair
       through `packages/builder/ai/src/skills/command-policy.ts` and
       `packages/builder/ai/src/plan/{generate-plan,validate-plan,apply-plan}.ts`
@@ -251,12 +251,14 @@ depends only on the existing single-page command planner and grouped core dispat
 - [x] T172 [US8] Extend grouped dispatch with the backward-compatible `{ author, label }` options,
       use the plan rationale as the AI history label, and make scratch preflight execute the same
       grouped door in `packages/builder/core/src/commands/dispatch.ts`,
-      `packages/builder/core/src/kernel/create-builder.ts`, and AI plan tests
+      `packages/builder/core/src/kernel/create-builder.ts`, and AI plan tests; reject invalid
+      runtime authors before any state/provenance change
 - [x] T173 [US8] Define `AiAgentRunState`, typed sequenced `AiAgentEvent`, bounded policy, and typed
       outcomes in `packages/builder/ai/src/agent/types.ts`
 - [x] T174 [US8] Write runner red tests in `packages/builder/ai/src/agent/run-agent.test.ts` for
       event order, injected time/run id, explicit Skills, propose-only, auto apply, one transaction
-      and undo, failure, pre-abort, mid-run cancellation, and no post-terminal event/write
+      and undo, failure, pre-abort, mid-run cancellation, host-owned run supersession, fail-closed
+      runtime modes, and no stale/post-terminal event/write
 - [x] T175 [US8] Implement the UI-independent bounded coordinator in
       `packages/builder/ai/src/agent/run-agent.ts`
 - [x] T176 [US8] Export the skills/agent surfaces from `packages/builder/ai/src/index.ts`, update
@@ -265,10 +267,10 @@ depends only on the existing single-page command planner and grouped core dispat
 - [x] T177 [US8] Run named mutation checks for cache context identity, skill dependency/conflict
       resolution, policy intersection, cancellation-before-apply, and exactly-one-terminal-event;
       observe each failing test before restoring the source
-- [ ] T178 [US8] Run the US8 gate: focused Skills/agent/core tests, `builder-ai` lint/typecheck/test
-      and coverage, `builder-core` lint/typecheck/test, `pnpm check:workspace`,
-      `pnpm check:boundaries`, and `git diff --check`; record unavailable or unrelated failures
-      separately
+- [x] T178 [US8] Run the US8 gate: focused Skills/agent/core tests, `builder-ai` lint/typecheck/test
+      and coverage, `builder-core` lint/typecheck/test, `builder-schema` lint/typecheck/test,
+      `pnpm check:workspace`, `pnpm check:boundaries`, and `git diff --check`; record unavailable or
+      unrelated failures separately in `verification-agent-skills.md`
 
 **Checkpoint**: a host can give the agent validated Skills; the run discloses and pins them,
 enforces their restrictive policy, emits a complete typed trace, and either returns a validated

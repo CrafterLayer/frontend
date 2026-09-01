@@ -15,14 +15,16 @@ dependency.
 ## Accessibility
 
 The second visual copy required for a seamless loop is hidden from assistive technology and removed
-from the keyboard order. When `prefers-reduced-motion: reduce` is active, animation stops, the
+from the keyboard order. A visible button always pauses and resumes every row, including when
+`pauseOnHover` is false. When `prefers-reduced-motion: reduce` is active, animation stops, the
 duplicate disappears, and the primary list becomes horizontally scrollable.
 
 ## Customization
 
-Authors control the item collection, semantic region label, presentation, speed, direction, one or
-two rows, hover pause, edge fade, tone, radius, motion, and safe custom utilities. Item links and
-images reject unsafe protocols at the schema boundary.
+Authors control the item collection, semantic region and pause/resume labels, presentation, speed,
+direction, one or two rows, hover pause, edge fade, tone, radius, motion, and safe custom utilities.
+Destination URLs may use web, mail, or telephone schemes; image URLs use the narrower root-relative,
+HTTP, or HTTPS policy.
 
 <Controls />
 <Stories />

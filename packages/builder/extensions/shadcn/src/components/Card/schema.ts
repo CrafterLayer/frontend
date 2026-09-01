@@ -34,6 +34,7 @@ const CARD_CHILDREN = [
   'dialog',
   'pagination',
   'formSection',
+  'shimmerButton',
 ] as const;
 
 export const cardSchema = defineBlockSchema({

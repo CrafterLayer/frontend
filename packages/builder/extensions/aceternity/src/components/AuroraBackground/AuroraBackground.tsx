@@ -47,17 +47,6 @@ const TONE_CLASSES: Record<AuroraBackgroundProps['tone'], string> = {
   dark: 'bg-surface-inverse text-text-inverse',
 };
 
-const MIN_HEIGHT_CLASSES: Record<AuroraBackgroundProps['minHeight'], string> = {
-  none: '',
-  half: 'min-h-[50svh]',
-  /*
-    `svh`, not `vh`. On a phone, `100vh` is the viewport WITHOUT the browser
-    chrome, so a full-height hero sits partly under the address bar until the
-    user scrolls — the single most common mobile layout bug of the last decade.
-  */
-  screen: 'min-h-[100svh]',
-};
-
 export function AuroraBackground({ props, slots }: BlockRenderProps<AuroraBackgroundProps>) {
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
 
@@ -67,7 +56,6 @@ export function AuroraBackground({ props, slots }: BlockRenderProps<AuroraBackgr
         'acy-aurora',
         'flex w-full flex-col justify-center',
         TONE_CLASSES[props.tone],
-        MIN_HEIGHT_CLASSES[props.minHeight],
         motionClassName,
         /* The document's own utilities go LAST, so a caller wins a conflict. */
         props.className,
@@ -82,6 +70,7 @@ export function AuroraBackground({ props, slots }: BlockRenderProps<AuroraBackgr
         ['--acy-aurora-opacity' as string]: INTENSITY_OPACITY[props.intensity],
         ['--acy-aurora-play' as string]: props.animate ? 'running' : 'paused',
       }}
+      data-acy-aurora-min-height={props.minHeight}
       {...motionData}
     >
       {slots['default']}

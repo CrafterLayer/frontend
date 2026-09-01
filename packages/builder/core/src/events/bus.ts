@@ -13,7 +13,13 @@ export function createEventBus(): EventBus {
         return;
       }
       for (const listener of [...set]) {
-        listener(payload);
+        try {
+          listener(payload);
+        } catch {
+          // Events announce state that is already committed. An observer is
+          // never allowed to turn that success into a false failure or prevent
+          // delivery to the remaining observers.
+        }
       }
     },
     on(event, cb) {

@@ -51,6 +51,25 @@ const utilityClasses = z
         .join(' '),
   });
 
+const paginationItemsSchema = z
+  .array(
+    z.object({
+      label: z.string().min(1).max(64),
+      href: safePageDestination.optional(),
+      current: z.boolean().default(false),
+      disabled: z.boolean().default(false),
+    }),
+  )
+  .max(30)
+  .refine(
+    (items) => {
+      const currentItems = items.filter((item) => item.current);
+      return currentItems.length <= 1 && currentItems[0]?.disabled !== true;
+    },
+    { error: 'Choose at most one current page, and keep that page enabled.' },
+  )
+  .default([]);
+
 export const paginationSchema = defineBlockSchema({
   type: 'pagination',
   description:
@@ -70,17 +89,7 @@ export const paginationSchema = defineBlockSchema({
     pageHrefTemplate: pageHrefTemplate.default('?page={page}'),
     previousHref: safePageDestination.optional(),
     nextHref: safePageDestination.optional(),
-    items: z
-      .array(
-        z.object({
-          label: z.string().min(1).max(64),
-          href: safePageDestination.optional(),
-          current: z.boolean().default(false),
-          disabled: z.boolean().default(false),
-        }),
-      )
-      .max(30)
-      .default([]),
+    items: paginationItemsSchema,
     variant: z.enum(['full', 'compact']).default('full'),
     size: z.enum(['sm', 'md', 'lg']).default('md'),
     align: z.enum(['start', 'center', 'end']).default('center'),

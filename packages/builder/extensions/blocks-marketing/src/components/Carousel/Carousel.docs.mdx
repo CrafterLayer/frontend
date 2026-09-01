@@ -20,10 +20,11 @@ transforms.
 ## Controls and autoplay
 
 Previous/next buttons, direct indicators, Home/End, and direction-aware arrow keys are supported.
-Autoplay is **off by default**. When enabled it pauses during pointer or focus interaction, exposes
-a pause/resume control, and does not start under `prefers-reduced-motion` unless the visitor
-explicitly presses Play. Intervals are named design intents rather than values stored in the
-document.
+Indicator buttons retain a minimum 24-by-24-pixel target around their compact visual dot. Autoplay
+is **off by default**. When enabled, keyboard focus always pauses it; pointer hover also pauses it
+when `pauseOnInteraction` is enabled. The carousel exposes a pause/resume control and does not start
+under `prefers-reduced-motion` unless the visitor explicitly presses Play. Intervals are named
+design intents rather than values stored in the document.
 
 ## Accessibility
 
@@ -34,6 +35,9 @@ status announces manual changes without announcing every autoplay tick.
 ## Safety, theming, and RTL
 
 CTA destinations allow relative paths, fragments, HTTP(S), mail, or telephone links. Media allows
-only relative and HTTP(S) sources; executable and protocol-relative URLs are rejected by the schema.
-All visuals use token-backed utilities, logical alignment, and container queries. Arrow semantics
-and keyboard direction adapt to RTL.
+only relative and HTTP(S) sources; executable, protocol-relative, and slash-backslash URLs are
+rejected by the schema. CTA anchors remain semantic but cannot navigate while the block is on the
+builder canvas. A split slide collapses to one copy column when no media is present. All visuals use
+token-backed utilities, logical alignment, and container queries. Arrow semantics and keyboard
+direction adapt to RTL, while the numeric progress remains isolated in its natural `current / total`
+order.

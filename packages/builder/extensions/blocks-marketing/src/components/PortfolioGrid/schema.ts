@@ -32,6 +32,22 @@ const safeHrefSchema = z
     },
   );
 
+const safeWebImageSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2000)
+  .refine(
+    (value) =>
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^https?:\/\//i.test(value) ||
+      /^data:image\/(?:avif|gif|jpeg|png|webp);/i.test(value),
+    {
+      message:
+        'Project images must use http(s), a root-relative path, or a supported raster data URL.',
+    },
+  );
+
 export const portfolioGridSchema = defineBlockSchema({
   type: 'portfolioGrid',
   description:
@@ -47,7 +63,7 @@ export const portfolioGridSchema = defineBlockSchema({
           category: z.string().min(1).max(50),
           title: z.string().min(1).max(100),
           summary: z.string().min(1).max(260),
-          imageSrc: z.string().min(1).max(2000).optional(),
+          imageSrc: safeWebImageSchema.optional(),
           imageAlt: z.string().max(160).optional(),
           href: safeHrefSchema,
           metrics: z

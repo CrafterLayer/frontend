@@ -128,6 +128,62 @@ describe('createRemoteAiPlanProvider', () => {
     await expect(provider.propose('add a hero', context())).rejects.toThrow(/not valid JSON/);
   });
 
+  it('rejects an oversized response from Content-Length before touching its body', async () => {
+    let bodyAccesses = 0;
+    const oversized = {
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        'content-length': '65',
+        'content-type': 'application/json',
+      }),
+      get body() {
+        bodyAccesses += 1;
+        throw new Error('The response body must not be touched.');
+      },
+    } as unknown as Response;
+    const { fetchImpl } = fakeFetch(() => oversized);
+    const provider = createRemoteAiPlanProvider({
+      endpoint: ENDPOINT,
+      fetch: fetchImpl,
+      maxResponseBytes: 64,
+    });
+
+    await expect(provider.propose('add a hero', context())).rejects.toThrow(
+      /maximum response size of 64 bytes/,
+    );
+    expect(bodyAccesses).toBe(0);
+  });
+
+  it('counts streamed JSON bytes and rejects a body that exceeds the configured maximum', async () => {
+    const { fetchImpl } = fakeFetch(() => jsonResponse(plan));
+    const provider = createRemoteAiPlanProvider({
+      endpoint: ENDPOINT,
+      fetch: fetchImpl,
+      maxResponseBytes: 64,
+    });
+
+    await expect(provider.propose('add a hero', context())).rejects.toThrow(
+      /maximum response size of 64 bytes/,
+    );
+  });
+
+  it('bounds SSE frames and total streamed bytes by the configured response maximum', async () => {
+    const stream = `event: result\ndata: ${JSON.stringify({ ...plan, rationale: 'x'.repeat(128) })}\n\n`;
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const provider = createRemoteAiPlanProvider({
+      endpoint: ENDPOINT,
+      fetch: fetchImpl,
+      maxResponseBytes: 64,
+    });
+
+    await expect(provider.propose('add a hero', context())).rejects.toThrow(
+      /maximum response size of 64 bytes/,
+    );
+  });
+
   it('wraps a network failure in a provider error', async () => {
     const provider = createRemoteAiPlanProvider({
       endpoint: ENDPOINT,
@@ -185,6 +241,40 @@ describe('createRemoteAiPlanProvider', () => {
     expect(progress).toEqual(['Reading the catalog…', 'Drafted 2 commands…']);
   });
 
+  it('accepts standard CRLF-delimited SSE frames', async () => {
+    const stream = [
+      'event: status\r\ndata: {"text":"Working"}\r\n\r\n',
+      `event: result\r\ndata: ${JSON.stringify(plan)}\r\n\r\n`,
+    ].join('');
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const progress: string[] = [];
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(
+      provider.propose('add a hero', context(), {
+        onProgress: (text) => progress.push(text),
+      }),
+    ).resolves.toEqual(plan);
+    expect(progress).toEqual(['Working']);
+  });
+
+  it('fails closed when an SSE stream contains more than one result', async () => {
+    const stream = [
+      `event: result\ndata: ${JSON.stringify(plan)}\n\n`,
+      `event: result\ndata: ${JSON.stringify({ ...plan, rationale: 'Override' })}\n\n`,
+    ].join('');
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toThrow(
+      /more than one result/i,
+    );
+  });
+
   it('treats a streamed refusal result exactly like a JSON refusal', async () => {
     const stream = 'event: result\ndata: {"refusal":"Not an edit request."}\n\n';
     const { fetchImpl } = fakeFetch(
@@ -223,6 +313,40 @@ describe('createRemoteAiPlanProvider', () => {
 
     const pending = provider.propose('add a hero', context(), { signal: controller.signal });
     controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('does not call fetch when the caller signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const { calls, fetchImpl } = fakeFetch(() => jsonResponse(plan));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(
+      provider.propose('add a hero', context(), { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('does not return a response when fetch ignores a mid-flight caller abort', async () => {
+    let release: ((response: Response) => void) | undefined;
+    let fetchCalls = 0;
+    const controller = new AbortController();
+    const provider = createRemoteAiPlanProvider({
+      endpoint: ENDPOINT,
+      fetch: () => {
+        fetchCalls += 1;
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      },
+    });
+
+    const pending = provider.propose('add a hero', context(), { signal: controller.signal });
+    expect(fetchCalls).toBe(1);
+    controller.abort();
+    release?.(jsonResponse(plan));
 
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
   });
@@ -269,4 +393,19 @@ describe('createRemoteAiPlanProvider', () => {
 
     expect(proposed.followUp).toBe('كمل التنسيق والألوان');
   });
+
+  it.each([0, -1, 1.5, Number.NaN])('rejects invalid maxResponseBytes %s', (maxResponseBytes) => {
+    expect(() => createRemoteAiPlanProvider({ endpoint: ENDPOINT, maxResponseBytes })).toThrow(
+      /maxResponseBytes/i,
+    );
+  });
+
+  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects invalid timeoutMs %s',
+    (timeoutMs) => {
+      expect(() => createRemoteAiPlanProvider({ endpoint: ENDPOINT, timeoutMs })).toThrow(
+        /timeoutMs/i,
+      );
+    },
+  );
 });

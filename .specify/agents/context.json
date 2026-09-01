@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-28",
+  "updatedAt": "2026-09-01",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "builder-b4-converged-awaiting-commit-authorization",
+    "phase": "ai-full-site-agent-in-progress-us8-agent-core-verified",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "builder-core",
-    "gitCommitCount": 3
+    "gitCommitCount": 15
   },
   "technologyBaseline": {
     "react": {
@@ -178,7 +178,7 @@
       "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade",
       "extensionSkillSync": "workspace@1.4.1 source and installed copy use the official plugin route; generated Codex, Claude, and Cursor skill regeneration remains deferred because forced recomposition could overwrite unrelated modified skills"
     },
-    "activeFeature": "specs/workspace/011-builder-b4-transforms-code-view",
+    "activeFeature": "specs/workspace/013-ai-full-site-design-agent",
     "scopeModel": "root governance plus scoped feature directories; member projects only for independent governance or release needs"
   },
   "sourcesOfTruth": {
@@ -216,10 +216,10 @@
     ]
   },
   "currentWork": {
-    "status": "builder-b4-complete-and-converged-awaiting-commit-authorization",
-    "scope": "workspace",
-    "activeSpec": "specs/workspace/011-builder-b4-transforms-code-view/spec.md",
-    "nextAction": "B4 is finished: pnpm verify EXIT=0 (all 12 stages), two independent reviews closed with 17 findings fixed and every mutation re-run by the coordinator, and /speckit-converge appended Phase 9 (T037-T039, documentation drift only) which is complete. ONLY T036 remains: produce a commit-message proposal as TEXT — no commit, no push, no staging. Commit authorization remains withheld by the user. After that the user decides between the DESIGN milestone (the CraftKit mockup) and B5. Do not touch apps/adaptive-spec-router: it is the user's separately-owned untracked work, explicitly out of scope."
+    "status": "paused-us8-complete-feature-013-still-active",
+    "scope": "workspace-cross-cutting-agent-core",
+    "activeSpec": "specs/workspace/013-ai-full-site-design-agent/spec.md",
+    "nextAction": "US8 T159-T178 is implemented and verified. Before selecting the next unchecked 013 task, reconcile tasks.md against the current dirty worktree and the user's separate active UI/blocks session; preserve those changes and declare a non-overlapping path lease. Verification evidence is in verification-agent-skills.md. No commit, push, or deploy is authorized."
   },
   "qualityGates": {
     "governanceConfigured": true,

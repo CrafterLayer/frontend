@@ -22,7 +22,9 @@ page background, Escape semantics, and the top-layer backdrop rather than recrea
 
 Initial focus can target the close control, primary action, or dialog panel. Focus returns to the
 trigger on close. Escape, backdrop click, action close, and close-control visibility are independent
-schema policies. The browser remains responsible for containing focus while the modal is open.
+schema policies. If an authored combination removes every keyboard-operable route, the renderer
+restores the close control; a backdrop click never counts as the only route. The browser remains
+responsible for containing focus while the modal is open.
 
 ## Canvas and URL safety
 

@@ -17,6 +17,7 @@ const content = (
 const meta = {
   title: 'Builder/Aceternity/SpotlightSurface',
   component: SpotlightSurface,
+  tags: ['autodocs'],
   args: {
     node,
     props: spotlightSurfaceSchema.props.parse({ minHeight: 'compact' }),
@@ -52,4 +53,21 @@ export const DualLight: Story = {
       minHeight: 'compact',
     }),
   },
+};
+
+export const RightToLeft: Story = {
+  args: {
+    props: spotlightSurfaceSchema.props.parse({
+      position: 'start',
+      intensity: 'strong',
+      minHeight: 'compact',
+    }),
+  },
+  decorators: [
+    (Story) => (
+      <div dir="rtl">
+        <Story />
+      </div>
+    ),
+  ],
 };

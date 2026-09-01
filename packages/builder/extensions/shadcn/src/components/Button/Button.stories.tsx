@@ -10,6 +10,7 @@ const node: Node = { id: 'button-story', type: 'button', props: {} };
 const meta = {
   title: 'Builder/Shadcn/Button',
   component: Button,
+  tags: ['autodocs'],
   args: {
     node,
     props: buttonSchema.props.parse({

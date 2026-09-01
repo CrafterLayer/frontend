@@ -3,17 +3,19 @@
   layer 4.
 
   The second effects pack, and it exists to prove the first one generalised:
-  Aceternity and Magic UI are both copy-paste catalogs, both MIT, both built on
-  Tailwind, and both adapted the same way — verbatim source under `vendor/`,
-  the effect rewritten against `--t-*` so it follows the generated design
-  system instead of shipping its author's palette.
+  both source catalogs are adapted through the same extension boundary. The
+  implementations here are original, token-bound Builder blocks rather than
+  pasted catalog source, so they follow the generated design system instead of
+  shipping another author's palette or document contract.
 
   Adding a third catalog needs no architectural change at all. That was the
   point of doing the first two this way.
 */
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
+import { DotPatternSurface, dotPatternSurfaceSchema } from './components/DotPatternSurface';
 import { Marquee, marqueeSchema } from './components/Marquee';
+import { ShimmerButton, shimmerButtonSchema } from './components/ShimmerButton';
 import { ShineBorder, shineBorderSchema } from './components/ShineBorder';
 
 export const builderMagicUi: TrustedExtensionManifest = {
@@ -24,9 +26,27 @@ export const builderMagicUi: TrustedExtensionManifest = {
     blocks: [
       { schema: shineBorderSchema, render: ShineBorder },
       { schema: marqueeSchema, render: Marquee },
+      { schema: shimmerButtonSchema, render: ShimmerButton },
+      { schema: dotPatternSurfaceSchema, render: DotPatternSurface },
     ],
   },
 };
 
 export { ShineBorder, shineBorderSchema, type ShineBorderProps } from './components/ShineBorder';
-export { Marquee, marqueeItemSchema, marqueeSchema, type MarqueeProps } from './components/Marquee';
+export {
+  Marquee,
+  marqueeItemSchema,
+  marqueeSchema,
+  type MarqueeItem,
+  type MarqueeProps,
+} from './components/Marquee';
+export {
+  ShimmerButton,
+  shimmerButtonSchema,
+  type ShimmerButtonProps,
+} from './components/ShimmerButton';
+export {
+  DotPatternSurface,
+  dotPatternSurfaceSchema,
+  type DotPatternSurfaceProps,
+} from './components/DotPatternSurface';

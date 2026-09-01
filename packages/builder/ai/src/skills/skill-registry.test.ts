@@ -43,7 +43,14 @@ describe('AI Skill registry', () => {
     );
 
     expect(first.manifest).toEqual(second.manifest);
-    expect(first.manifest.contentFingerprint).toMatch(/^skill-v1-[a-f0-9]{8}$/);
+    expect(first.manifest.contentFingerprint).toMatch(/^skill-v1-sha256-[a-f0-9]{64}$/);
+  });
+
+  it('does not preserve the known collision from the retired 32-bit fingerprint', () => {
+    const first = defineAiSkill(definition({ instructions: 'Instruction si50cm' }));
+    const second = defineAiSkill(definition({ instructions: 'Instruction mv4upg' }));
+
+    expect(first.manifest.contentFingerprint).not.toBe(second.manifest.contentFingerprint);
   });
 
   it('exposes metadata separately and discloses bodies only through explicit reads', () => {

@@ -33,9 +33,21 @@ describe('LogoCloud', () => {
       '@container',
       'bg-surface',
     );
-    expect(screen.getByRole('list')).toHaveClass('grid', '@sm:grid-cols-3');
+    expect(screen.getByRole('list')).toHaveClass(
+      'grid',
+      'grid-cols-1',
+      '@sm:grid-cols-2',
+      '@xl:grid-cols-3',
+    );
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
-    expect(screen.getByText('Northstar').closest('li')).toHaveClass('rounded-xl', 'shadow-soft');
+    expect(screen.getByText('Northstar')).toHaveClass('break-words');
+    expect(screen.getByText('Northstar')).not.toHaveClass('truncate');
+    expect(screen.getByText('Northstar').closest('li')).toHaveClass(
+      'rounded-xl',
+      'px-3',
+      '@md:px-5',
+      'shadow-soft',
+    );
     expect(screen.getByText('Analytics')).toBeVisible();
   });
 
@@ -93,5 +105,37 @@ describe('LogoCloud', () => {
     });
     expect(logoCloudSchema.props.safeParse({ items: [{ name: '' }] }).success).toBe(false);
     expect(logoCloudSchema.props.safeParse({ columns: '7' }).success).toBe(false);
+  });
+
+  it('keeps every requested density readable through container-aware breakpoints', () => {
+    const props = logoCloudSchema.props.parse({ items: [{ name: 'Northstar' }] });
+    const columns = ['3', '4', '5', '6'] as const;
+    const { container } = render(
+      <>
+        {columns.map((count) => (
+          <LogoCloud
+            key={count}
+            node={{ ...node, id: `logos-${count}` }}
+            props={{ ...props, columns: count }}
+            slots={{}}
+            data={{}}
+            isCanvas={false}
+          />
+        ))}
+      </>,
+    );
+
+    const wideBreakpoints = {
+      '3': '@xl:grid-cols-3',
+      '4': '@3xl:grid-cols-4',
+      '5': '@4xl:grid-cols-5',
+      '6': '@5xl:grid-cols-6',
+    } as const;
+    for (const count of columns) {
+      const grid = container.querySelector(
+        `[aria-labelledby="logos-${count}-heading"] [data-logo-cloud-grid]`,
+      );
+      expect(grid).toHaveClass('grid-cols-1', '@sm:grid-cols-2', wideBreakpoints[count]);
+    }
   });
 });

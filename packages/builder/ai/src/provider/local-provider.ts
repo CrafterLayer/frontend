@@ -5,9 +5,22 @@ import type {
   AiBlockExampleContext,
   AiPlan,
   AiPlanProvider,
+  AiProposeOptions,
   AiTemplateContext,
   AssembledAiContext,
 } from '../types';
+
+function callerAbortError(signal: AbortSignal | undefined): Error | undefined {
+  if (signal?.aborted !== true) return undefined;
+  const reason: unknown = signal.reason;
+  if (reason instanceof Error && reason.name === 'AbortError') return reason;
+  return new DOMException('The operation was aborted.', 'AbortError');
+}
+
+function throwIfCallerAborted(signal: AbortSignal | undefined): void {
+  const error = callerAbortError(signal);
+  if (error !== undefined) throw error;
+}
 
 const NUMBER_WORDS: Readonly<Record<string, number>> = Object.freeze({
   one: 1,
@@ -443,8 +456,11 @@ function proposeLocally(request: string, context: AssembledAiContext): AiPlan {
 
 export function createLocalAiPlanProvider(): AiPlanProvider {
   return {
-    propose(request, context) {
-      return Promise.resolve().then(() => proposeLocally(request, context));
+    async propose(request, context, live?: AiProposeOptions) {
+      throwIfCallerAborted(live?.signal);
+      await Promise.resolve();
+      throwIfCallerAborted(live?.signal);
+      return proposeLocally(request, context);
     },
   };
 }

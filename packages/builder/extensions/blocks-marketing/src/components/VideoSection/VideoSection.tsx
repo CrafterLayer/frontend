@@ -1,5 +1,7 @@
 import '../section-layout.css';
 
+import type { MouseEvent } from 'react';
+
 import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
@@ -25,6 +27,10 @@ const VIDEO_FIT_CLASSES: Readonly<Record<VideoSectionProps['videoFit'], string>>
   cover: 'object-cover',
   contain: 'object-contain',
 };
+
+function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
+  event.preventDefault();
+}
 
 /** A native-video storytelling section with safe media sources and an accessible text fallback. */
 export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSectionProps>) {
@@ -55,7 +61,7 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
         className={cx(
           sectionContentClasses(props.width, props.align, props.gutter),
           props.layout === 'split'
-            ? 'grid grid-cols-1 items-center @lg:grid-cols-2'
+            ? cx('grid grid-cols-1 items-center', showMedia ? '@lg:grid-cols-2' : '@lg:grid-cols-1')
             : 'flex flex-col',
           props.layout === 'centered' ? ALIGN_CLASSES[props.align] : undefined,
           GAP_CLASSES.lg,
@@ -106,6 +112,7 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
               href={props.cta.href}
               target={props.cta.newTab ? '_blank' : undefined}
               rel={props.cta.newTab ? 'noreferrer' : undefined}
+              onClick={isCanvas ? preventCanvasNavigation : undefined}
             >
               {props.cta.label}
               <span aria-hidden="true" className="text-lg leading-none">

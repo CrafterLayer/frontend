@@ -37,7 +37,7 @@ export const tabsSchema = defineBlockSchema({
     to build triggers from, so the constraint is what makes the block work
     rather than a restriction on it.
   */
-  slots: { default: { allow: ['tabPanel'] } },
+  slots: { default: { allow: ['tabPanel'], exposeChildMetadata: true } },
   examples: tabsExamples,
 });
 

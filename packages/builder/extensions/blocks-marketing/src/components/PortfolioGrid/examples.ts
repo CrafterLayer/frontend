@@ -23,7 +23,8 @@ export const portfolioGridExamples: { prompt: string; node: JsonValue }[] = [
             title: 'A calmer way to understand company cash flow',
             summary:
               'We rebuilt a fragmented finance workflow into one clear operating view for founders and finance teams.',
-            imageSrc: '/images/work/ledger.jpg',
+            imageSrc:
+              'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=80',
             imageAlt: 'Financial dashboard showing cash flow trends and forecasts',
             href: '/work/ledger',
             metrics: [
@@ -37,8 +38,9 @@ export const portfolioGridExamples: { prompt: string; node: JsonValue }[] = [
             title: 'Care coordination without the paperwork maze',
             summary:
               'A role-aware platform that helps clinical teams resolve referrals before patients fall through the cracks.',
-            imageSrc: '/images/work/care.jpg',
-            imageAlt: 'Care coordination timeline for a patient referral',
+            imageSrc:
+              'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1600&q=80',
+            imageAlt: 'Healthcare professional reviewing care information with a colleague',
             href: '/work/care-coordination',
             metrics: [
               { label: 'Resolution time', value: '−42%' },

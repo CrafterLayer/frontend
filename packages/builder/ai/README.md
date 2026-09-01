@@ -22,7 +22,10 @@ of commands bypasses the invariant this package exists to preserve.
   catalog, current selection, and flat document shape. Block context includes model-facing
   descriptions, JSON Schema props summaries, few-shot examples, and accepted slots; template context
   names each composition, its root type, section count, and block vocabulary. Every fragment carries
-  a deterministic character-based token estimate for budgeting.
+  a deterministic character-based token estimate for budgeting. Extension collectors receive a
+  detached, deeply frozen state snapshot and a data-only registry catalog—never `dispatch`, event or
+  subscription handles, renderers, Zod instances, stored composition nodes, or live registry
+  objects.
 - `AiPlanProvider`, a one-method provider port. A future model-backed adapter implements the same
   `propose(request, context)` contract.
 - `createLocalAiPlanProvider()`, a deterministic, offline implementation that scores the request
@@ -35,7 +38,7 @@ of commands bypasses the invariant this package exists to preserve.
   AI-authored dispatch.
 - A versioned, immutable Skills registry with metadata-only discovery, explicit body/reference
   reads, deterministic request-local activation, dependencies, conflicts, trust policy, content
-  fingerprints, and hard count/token limits.
+  fingerprints backed by SHA-256, and hard count/token limits.
 - `runAiAgent()`, a UI-independent bounded coordinator with sequenced events, injected time/run id,
   real cancellation plus host-owned supersession leases, one repair at most, review-only or
   automatic apply, and exactly one terminal event.
@@ -142,6 +145,10 @@ await runAiAgent({
 Discovery is progressive: `registry.list()`/`get()` expose manifests and fingerprints, while
 `readSkill()`/`readReference()` disclose bodies explicitly. A prepared request includes full bodies
 only for active Skills. Activation is local to that run; there is no global active-Skill singleton.
+Definitions are bounded before and after canonicalization: individual metadata entries, aggregate
+manifest metadata, instructions, reference count, per-reference bytes, total reference bytes, and
+registry size all have exported hard limits. The per-run Skill-token budget charges the exact active
+Skill payload—including identity, rationale, restrictions, instructions, and references.
 
 Command authority is always restrictive:
 
@@ -170,7 +177,9 @@ The kernel grouped door accepts both the legacy `kernel.dispatchGroup(steps, aut
 `kernel.dispatchGroup(steps, { author, label })`. It runs every step over ONE immer produce — one
 human-labelled transaction, one history entry, one undo, and atomic failure. Scratch preflight and
 live AI application use this same grouped path. Grouping happens inside the door, never by writing
-patches or documents around it.
+patches or documents around it. Post-commit event/store observers are isolated: a broken UI or
+telemetry listener cannot turn an already committed transaction into a false agent failure or stop
+delivery to later observers.
 
 ## Testing subpath
 
@@ -205,12 +214,16 @@ The server answers `200` with either a plan or an explicit refusal:
 
 Everything else stays client-side: the response still walks the live registry, per-command args
 schemas, and the scratch-kernel dry run. A wrong server can produce a rejected proposal, never a
-document write. Providers with a `repair` method (the remote one has it) get exactly one retry with
-the rejected plan and its issues; there is no third attempt.
+document write. Validated plans are detached and deeply frozen JSON command data before they reach
+telemetry or callers, so an observer cannot rewrite the proposal after validation. Providers with a
+`repair` method (the remote one has it) get exactly one retry with the rejected plan and its issues;
+there is no third attempt.
 
 Transport errors surface as `RemoteAiProviderError` with a human sentence (unreachable, status,
 non-JSON, malformed shape, or `timed out after <ms>`; default timeout 30s, configurable via
-`timeoutMs`). Auth goes in `headers`; the fetch implementation is injectable for tests.
+`timeoutMs`). JSON and SSE responses are byte-counted while streaming and capped at 1 MiB by default
+(`maxResponseBytes` is configurable); an oversized declared `Content-Length` is rejected before the
+body is read. Auth goes in `headers`; the fetch implementation is injectable for tests.
 
 ### Streaming and cancellation (optional)
 
@@ -218,12 +231,14 @@ The provider advertises `accept: text/event-stream, application/json` on every P
 answer the same request as SSE — any number of `event: status` frames (`data: {"text": "..."}`)
 narrating the work, then exactly one `event: result` frame whose data is the usual wire response.
 Status text feeds the UI's live progress line; a server that ignores the header and answers plain
-JSON stays fully conformant.
+JSON stays fully conformant. LF and standard CRLF framing are accepted; duplicate result frames or
+data after the result fail closed.
 
 Cancellation is the closed connection: `propose`/`repair` accept `{ signal, onProgress }`
 (`AiProposeOptions`), Stop in the UI aborts the fetch, and a conforming server kills the underlying
 model work when the request closes. A caller's own abort surfaces as the platform `AbortError`,
-never as a provider error.
+never as a provider error. Remote, local, cache-hit, and repair paths re-check the signal after
+every async boundary so an adapter that ignores abort still cannot return a stale result.
 
 In the playground, set `VITE_AI_PLAN_ENDPOINT=https://your-server/plan` and the AssistantPanel
 switches from the local deterministic provider to the remote one — no code change.

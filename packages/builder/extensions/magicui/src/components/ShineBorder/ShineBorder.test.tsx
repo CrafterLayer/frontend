@@ -114,6 +114,20 @@ describe('ShineBorder', () => {
 
       expect(allow).toContain('pricingPlan');
       expect(allow).toContain('cta');
+      expect(allow).toEqual(
+        expect.arrayContaining([
+          'badge',
+          'breadcrumbs',
+          'dialog',
+          'pagination',
+          'shadcnAlert',
+          'tabs',
+        ]),
+      );
+    });
+
+    it('declares custom classes as validated utility input', () => {
+      expect(shineBorderSchema.propertyGroups?.className?.kind).toBe('utility-classes');
     });
 
     it('stores no literal colour, length, or duration', () => {

@@ -16,8 +16,8 @@ import type { TabPanelProps } from './schema';
  * its own name, so the label lives here.
  *
  * `value` is the node id, which is what pairs this panel with its trigger.
- * The parent reads the same id off this element's props, so the two agree
- * without either of them touching the DOM.
+ * The parent receives the same id through the builder's typed child metadata,
+ * so the two agree without inspecting this component or touching the DOM.
  */
 export function TabPanel({ node, props, slots }: BlockRenderProps<TabPanelProps>) {
   return (

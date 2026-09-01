@@ -18,6 +18,8 @@ shape.
 - Every control has a visible label, stable generated id, optional helper text, and native required
   semantics.
 - Field ids and names must be unique so labels and submitted payloads remain unambiguous.
+- A `select` field must provide at least one option; empty select controls are rejected by the
+  schema.
 - Submission is prevented only inside the Builder canvas. Published forms retain their native `get`
   or `post` behaviour.
 - Form actions accept only relative, `http`, or `https` URLs.

@@ -30,12 +30,15 @@ matches, the panel tells the author to try another block name.
 Card diagrams are semantic miniatures rather than a repeated generic glyph: Hero uses headline,
 body, action, and media shapes; Columns uses three vertical bands; Grid and Features use a 3×2
 matrix; Pricing, Testimonials, CTA, text, media, and structural sections each have their own shape.
-Unknown types alone use the generic fallback. Every diagram sits in a token-sized rounded square:
-the tile resolves `--bldr-accent-soft` and its glyph resolves `--bldr-accent`. Hover, keyboard
-focus, and the native pressed state used during drag handoff keep distinct token-backed treatments
-without changing the card button's semantics. Because the soft accent is theme-specific, a Chromium
-story reads both painted colours with `getComputedStyle` in explicit light and dark themes and first
-proves those themes resolve to different values.
+Every known Primary and effects block is mapped too: navigation controls use the ordered-band
+miniature, controls use the action miniature, avatar and marquee collections use the grid, ambient
+effects use the hero or surface miniature, and accordion content uses the text miniature. Unknown
+types alone use the generic fallback. Every diagram sits in a token-sized rounded square: the tile
+resolves `--bldr-accent-soft` and its glyph resolves `--bldr-accent`. Hover, keyboard focus, and the
+native pressed state used during drag handoff keep distinct token-backed treatments without changing
+the card button's semantics. Because the soft accent is theme-specific, a Chromium story reads both
+painted colours with `getComputedStyle` in explicit light and dark themes and first proves those
+themes resolve to different values.
 
 ## Two insert paths
 

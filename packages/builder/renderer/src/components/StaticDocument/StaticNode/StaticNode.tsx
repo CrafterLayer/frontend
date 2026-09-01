@@ -4,6 +4,7 @@ import {
   blockPropDefaults,
   withBlockPropDefaults,
   type BlockRenderProps,
+  type BlockSlotChildMetadata,
   type BuilderDocument,
   type NodeId,
   type RegisteredBlock,
@@ -11,6 +12,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { resolveResponsiveProps, type RenderBreakpoint } from '../../../resolve/responsive';
+import { resolveSlotChildMetadata } from '../../../resolve/slot-child-metadata';
 import { UnknownBlock } from '../../UnknownBlock';
 
 export interface StaticNodeProps {
@@ -38,7 +40,21 @@ export function StaticNode({ document, id, blocks, breakpoint }: StaticNodeProps
   }
 
   const slots: Record<SlotName, ReactNode> = {};
-  for (const [slotName, childIds] of Object.entries(node.slots ?? {})) {
+  const slotChildren: Record<SlotName, readonly BlockSlotChildMetadata[]> = {};
+  const declaredSlotNames = Object.keys(entry?.schema.slots ?? {});
+  const declaredSlots = new Set(declaredSlotNames);
+  const slotNames = [
+    ...declaredSlotNames,
+    ...Object.keys(node.slots ?? {}).filter((slotName) => !declaredSlots.has(slotName)),
+  ];
+  for (const slotName of slotNames) {
+    const childIds = node.slots?.[slotName] ?? [];
+    if (entry?.schema.slots?.[slotName]?.exposeChildMetadata === true) {
+      slotChildren[slotName] = childIds.flatMap((childId) => {
+        const child = document.nodes[childId];
+        return child === undefined ? [] : [resolveSlotChildMetadata(child, blocks, breakpoint)];
+      });
+    }
     slots[slotName] = childIds.map((childId) => (
       <StaticNode
         key={childId}
@@ -65,6 +81,7 @@ export function StaticNode({ document, id, blocks, breakpoint }: StaticNodeProps
         entry === undefined ? {} : blockPropDefaults(entry.schema.props),
       )}
       slots={slots}
+      slotChildren={slotChildren}
       data={{}}
       isCanvas={false}
     />

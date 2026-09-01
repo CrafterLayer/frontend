@@ -2,9 +2,11 @@ import { coreCommands, createBuilder } from '@craftkit/builder-core';
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type {
   BlockRenderComponent,
+  JsonValue,
   RegisteredCommand,
   TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
+import { isJsonValue } from '@craftkit/builder-schema';
 
 import type {
   AiPlan,
@@ -33,6 +35,20 @@ function invalidPlan(message: string): AiPlanValidationResult {
   return { ok: false, issues: [{ code: 'invalid-plan', message }] };
 }
 
+function detachedFrozenJson(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) {
+    const clone = value.map(detachedFrozenJson);
+    Object.freeze(clone);
+    return clone;
+  }
+  if (typeof value !== 'object' || value === null) return value;
+  const clone = Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [key, detachedFrozenJson(child)]),
+  );
+  Object.freeze(clone);
+  return clone;
+}
+
 function parsePlan(candidate: unknown): AiPlanValidationResult {
   if (!isRecord(candidate)) {
     return invalidPlan('An AI plan must be an object.');
@@ -58,23 +74,29 @@ function parsePlan(candidate: unknown): AiPlanValidationResult {
     if (!Object.hasOwn(rawCommand, 'args')) {
       return invalidPlan(`AI plan step ${String(step)} needs command arguments.`);
     }
+    const args = rawCommand['args'];
+    if (!isJsonValue(args)) {
+      return invalidPlan(`AI plan step ${String(step)} arguments must be JSON data.`);
+    }
     // A human title is carried when it is one; anything else is dropped, not fatal.
     const title = rawCommand['title'];
-    commands.push({
-      command,
-      args: rawCommand['args'],
-      ...(typeof title === 'string' && title.trim() !== '' ? { title } : {}),
-    });
+    commands.push(
+      Object.freeze({
+        command,
+        args: detachedFrozenJson(args),
+        ...(typeof title === 'string' && title.trim() !== '' ? { title } : {}),
+      }),
+    );
   }
   // A staged-work suggestion rides along when it is a real sentence.
   const followUp = candidate['followUp'];
   return {
     ok: true,
-    plan: {
+    plan: Object.freeze({
       rationale,
-      commands,
+      commands: Object.freeze(commands),
       ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
-    },
+    }),
   };
 }
 
@@ -109,12 +131,7 @@ function policyIssues(
 ): readonly AiPlanValidationIssue[] {
   if (policy === undefined) return [];
   if (plan.commands.length > policy.maxCommands) {
-    return [
-      {
-        code: 'policy-rejected',
-        message: `The active AI policy allows at most ${String(policy.maxCommands)} command${policy.maxCommands === 1 ? '' : 's'}; the plan contains ${String(plan.commands.length)}.`,
-      },
-    ];
+    return [commandLimitIssue(plan.commands.length, policy.maxCommands)];
   }
 
   const allowed = new Set(policy.allowedCommands);
@@ -129,6 +146,24 @@ function policyIssues(
           },
         ],
   );
+}
+
+function commandLimitIssue(commandCount: number, maxCommands: number): AiPlanValidationIssue {
+  return {
+    code: 'policy-rejected',
+    message: `The active AI policy allows at most ${String(maxCommands)} command${maxCommands === 1 ? '' : 's'}; the plan contains ${String(commandCount)}.`,
+  };
+}
+
+function rawCommandLimitIssue(
+  candidate: unknown,
+  policy: AiEffectiveCommandPolicy | undefined,
+): AiPlanValidationIssue | undefined {
+  if (policy === undefined || !isRecord(candidate)) return undefined;
+  const rawCommands = candidate['commands'];
+  return Array.isArray(rawCommands) && rawCommands.length > policy.maxCommands
+    ? commandLimitIssue(rawCommands.length, policy.maxCommands)
+    : undefined;
 }
 
 /** @internal Shared with previewAiPlan: the scratch world a plan is rehearsed in. */
@@ -237,6 +272,8 @@ export function validateAiPlan(
   ports: AiValidationPorts,
   policy?: AiEffectiveCommandPolicy,
 ): AiPlanValidationResult {
+  const overLimit = rawCommandLimitIssue(candidate, policy);
+  if (overLimit !== undefined) return { ok: false, issues: [overLimit] };
   const parsed = parsePlan(candidate);
   if (!parsed.ok) {
     return parsed;

@@ -12,9 +12,17 @@ import type {
   SlotName,
   Surface,
 } from '../document/types';
+import type { JsonValue } from '../json/json-value';
 import type { DataSource } from '../ports';
 import type { Patch, Transaction } from '../transactions';
 import type { RegisteredCommand } from '../commands';
+
+/** A direct slot child's renderer-safe, document-derived identity and props. */
+export interface BlockSlotChildMetadata {
+  readonly id: NodeId;
+  readonly type: string;
+  readonly props: Readonly<Record<string, unknown>>;
+}
 
 /** Props a trusted block renderer receives (consumed from B1 on; type-only React here). */
 export interface BlockRenderProps<P = unknown> {
@@ -22,6 +30,11 @@ export interface BlockRenderProps<P = unknown> {
   /** Validated and responsive-resolved for the active breakpoint. */
   props: P;
   slots: Record<SlotName, ReactNode>;
+  /**
+   * Present only for slots whose schema opts into child metadata. Optional for
+   * backward compatibility with existing renderers and direct component use.
+   */
+  slotChildren?: Readonly<Record<SlotName, readonly BlockSlotChildMetadata[]>>;
   /** Resolved bindings. */
   data: Record<string, unknown>;
   isCanvas: boolean;
@@ -328,9 +341,78 @@ export interface ContextFragment {
   tokens?: number;
 }
 
+/**
+ * Least-authority store view handed to AI context collectors. Context assembly
+ * is a read operation, so providers do not receive subscriptions or any kernel
+ * write door.
+ */
+export interface AiContextStateRead {
+  getState(): Readonly<KernelState>;
+}
+
+/** JSON-only block vocabulary exposed to prompt-context collectors. */
+export interface AiContextBlockCatalogEntry {
+  readonly type: string;
+  readonly description: string;
+  readonly propsSchema: JsonValue;
+  readonly surfaces?: readonly Surface[];
+  readonly inlineEditable?: string;
+  readonly examples: readonly {
+    readonly prompt: string;
+    readonly node: JsonValue;
+  }[];
+  readonly slots: readonly {
+    readonly name: SlotName;
+    readonly allow: readonly string[];
+    readonly max?: number;
+  }[];
+}
+
+/** Bounded composition summary; stored nodes never cross the collector boundary. */
+export interface AiContextCompositionCatalogEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly version: number;
+  readonly surfaces?: readonly Surface[];
+  readonly rootType: string;
+  readonly nodeCount: number;
+  readonly blockTypes: readonly string[];
+}
+
+/** Bounded widget summary; executable interpreters and stored payloads stay private. */
+export interface AiContextWidgetCatalogEntry {
+  readonly type: `widget:${string}`;
+  readonly defaultSkin: string;
+  readonly skinIds: readonly string[];
+  readonly contractFields: readonly string[];
+  readonly bindingSource: string;
+}
+
+/**
+ * Safe registry catalog for prompt context. Command implementations and lazy
+ * executable/live contribution objects are intentionally absent; providers
+ * inspect detached, frozen summaries without obtaining a mutation path.
+ */
+export interface AiContextRegistryRead {
+  block: (type: string) => AiContextBlockCatalogEntry | undefined;
+  blocks: (surface?: Surface) => readonly AiContextBlockCatalogEntry[];
+  commandNames: () => readonly string[];
+  composition: (id: string) => AiContextCompositionCatalogEntry | undefined;
+  compositions: (surface?: Surface) => readonly AiContextCompositionCatalogEntry[];
+  widgetType: (type: string) => AiContextWidgetCatalogEntry | undefined;
+  widgetTypes: () => readonly AiContextWidgetCatalogEntry[];
+}
+
+/** The complete capability surface available to an AI context provider. */
+export interface AiContextReadApi {
+  readonly store: AiContextStateRead;
+  readonly registry: AiContextRegistryRead;
+  readonly surface: Surface;
+}
+
 export interface AiContextProvider {
   id: string;
-  collect(ctx: KernelApi, selection: NodeId[]): ContextFragment;
+  collect(ctx: AiContextReadApi, selection: readonly NodeId[]): ContextFragment;
 }
 
 /** Data only; the shell binds the actual key handler. */

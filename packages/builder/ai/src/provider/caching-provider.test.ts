@@ -177,6 +177,41 @@ describe('createCachingAiPlanProvider', () => {
     expect(inner.calls()).toBe(2);
   });
 
+  it('checks cancellation before repair delegation and after a delayed repair resolves', async () => {
+    let repairCalls = 0;
+    let release: ((value: AiPlan) => void) | undefined;
+    let delayRepair = false;
+    const cached = createCachingAiPlanProvider({
+      propose: () => Promise.resolve(plan),
+      repair: () => {
+        repairCalls += 1;
+        if (!delayRepair) return Promise.resolve(plan);
+        return new Promise<AiPlan>((resolve) => {
+          release = resolve;
+        });
+      },
+    });
+    const repair = cached.repair?.bind(cached);
+    expect(repair).toBeDefined();
+    if (repair === undefined) throw new Error('Caching provider must preserve inner repair.');
+
+    const alreadyAborted = new AbortController();
+    alreadyAborted.abort();
+    await expect(
+      repair('add a hero', context(), plan, [], { signal: alreadyAborted.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(repairCalls).toBe(0);
+
+    delayRepair = true;
+    const midFlight = new AbortController();
+    const pending = repair('add a hero', context(), plan, [], { signal: midFlight.signal });
+    expect(repairCalls).toBe(1);
+    midFlight.abort();
+    release?.(plan);
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('evicts the oldest entry once past capacity', async () => {
     const inner = countingProvider();
     const cached = createCachingAiPlanProvider(inner.provider, { capacity: 2 });

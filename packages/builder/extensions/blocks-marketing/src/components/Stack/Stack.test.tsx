@@ -62,6 +62,8 @@ describe('Stack', () => {
       'spotlightSurface',
       'shineBorder',
       'marquee',
+      'dotPatternSurface',
+      'shimmerButton',
     ];
     /*
       `image` moved from refused to accepted when the Image block arrived — a

@@ -104,12 +104,61 @@ describe('Dialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open canvas dialog' }));
     const link = screen.getByRole('link', { name: 'Visit destination' });
+    const dialog = link.closest('dialog');
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     link.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
     expect(link).toHaveAttribute('href', '/destination');
-    expect(screen.getByRole('dialog', { name: 'Canvas dialog' })).toHaveAttribute('open');
+    expect(dialog).not.toHaveAttribute('open');
+  });
+
+  it('always renders one close route when authored policies would otherwise trap focus', async () => {
+    const user = userEvent.setup();
+    render(
+      <Dialog
+        node={node}
+        props={dialogSchema.props.parse({
+          triggerLabel: 'Open guarded dialog',
+          title: 'Guarded dialog',
+          showCloseButton: false,
+          closeOnEscape: false,
+          closeOnOverlay: false,
+          closeOnAction: false,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open guarded dialog' }));
+    expect(screen.getByRole('button', { name: 'Close dialog' })).toBeInTheDocument();
+  });
+
+  it('does not treat a pointer-only backdrop as the keyboard close route', async () => {
+    const user = userEvent.setup();
+    render(
+      <Dialog
+        node={node}
+        props={dialogSchema.props.parse({
+          triggerLabel: 'Open backdrop dialog',
+          title: 'Backdrop dialog',
+          showCloseButton: false,
+          closeOnEscape: false,
+          closeOnOverlay: true,
+          closeOnAction: false,
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open backdrop dialog' }));
+    const dialog = screen.getByRole('dialog', { name: 'Backdrop dialog' });
+    await user.click(screen.getByRole('button', { name: 'Close dialog' }));
+    expect(dialog).not.toHaveAttribute('open');
   });
 
   it('renders size, tone, trigger variant, and primary-focus intent', async () => {

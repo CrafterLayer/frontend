@@ -22,7 +22,7 @@ const safeDestination = z
   .refine(
     (value) =>
       value.startsWith('#') ||
-      (value.startsWith('/') && !value.startsWith('//')) ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
       /^(https?:\/\/|mailto:|tel:)/i.test(value),
     { error: 'Use a relative path, fragment, or an http, https, mailto, or tel URL.' },
   );
@@ -32,7 +32,9 @@ const safeMediaSource = z
   .min(1)
   .max(2000)
   .refine(
-    (value) => (value.startsWith('/') && !value.startsWith('//')) || /^https?:\/\//i.test(value),
+    (value) =>
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^https?:\/\//i.test(value),
     { error: 'Media must use a relative path or an http or https URL.' },
   );
 

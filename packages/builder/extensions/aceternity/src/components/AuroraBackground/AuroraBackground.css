@@ -30,6 +30,19 @@
 }
 
 /*
+  Named component states keep viewport sizing out of arbitrary Tailwind values.
+  `svh`, not `vh`: the small viewport excludes transient browser chrome, so a
+  full-height hero is not hidden under the address bar on first paint.
+*/
+.acy-aurora[data-acy-aurora-min-height='half'] {
+  min-block-size: 50svh;
+}
+
+.acy-aurora[data-acy-aurora-min-height='screen'] {
+  min-block-size: 100svh;
+}
+
+/*
   The moving layer.
 
   `::before` rather than a second element: the effect is decoration, and a

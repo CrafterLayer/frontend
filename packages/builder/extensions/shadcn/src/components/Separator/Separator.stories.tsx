@@ -12,6 +12,7 @@ const meta = {
   title: 'Builder/Shadcn/Separator',
   component: Separator,
   parameters: { layout: 'padded' },
+  tags: ['autodocs'],
   args: {
     node,
     props: separatorSchema.props.parse({}),

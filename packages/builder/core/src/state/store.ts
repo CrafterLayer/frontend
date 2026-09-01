@@ -17,6 +17,16 @@ export interface KernelStoreHandle {
   write(next: KernelState, changedNodes: Iterable<NodeId>): void;
 }
 
+function notifyObserver(callback: () => void): void {
+  try {
+    callback();
+  } catch {
+    // Store observers run after Zustand has accepted the new state. They are
+    // views/telemetry, not transaction participants, so they cannot roll back
+    // or make a committed command appear to have failed.
+  }
+}
+
 export function createKernelStore(initial: KernelState): KernelStoreHandle {
   const store = createStore<KernelState>()(() => initial);
   const nodeListeners = new Map<NodeId, Set<(node: Node | undefined) => void>>();
@@ -25,7 +35,9 @@ export function createKernelStore(initial: KernelState): KernelStoreHandle {
     getState: () => store.getState(),
     subscribe: (listener) =>
       store.subscribe((state) => {
-        listener(state);
+        notifyObserver(() => {
+          listener(state);
+        });
       }),
     subscribeNode(id, listener) {
       let set = nodeListeners.get(id);
@@ -44,11 +56,13 @@ export function createKernelStore(initial: KernelState): KernelStoreHandle {
     select(selector, listener) {
       let previous = selector(store.getState());
       return store.subscribe((state) => {
-        const next = selector(state);
-        if (!Object.is(next, previous)) {
-          previous = next;
-          listener(next);
-        }
+        notifyObserver(() => {
+          const next = selector(state);
+          if (!Object.is(next, previous)) {
+            previous = next;
+            listener(next);
+          }
+        });
       });
     },
   };
@@ -65,7 +79,9 @@ export function createKernelStore(initial: KernelState): KernelStoreHandle {
         }
         const node = next.doc.nodes[id];
         for (const listener of [...set]) {
-          listener(node);
+          notifyObserver(() => {
+            listener(node);
+          });
         }
       }
     },

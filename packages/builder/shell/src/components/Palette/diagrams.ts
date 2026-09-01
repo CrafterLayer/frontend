@@ -135,9 +135,11 @@ export function diagramForBlockType(type: string): BlockDiagram {
   if (
     key.includes('cta') ||
     key.includes('button') ||
+    key.includes('shimmer') ||
     key.includes('action') ||
     key.includes('form') ||
-    key.includes('progress')
+    key.includes('progress') ||
+    key === 'dialog'
   ) {
     return { kind: 'action', parts: actionDiagram() };
   }
@@ -146,11 +148,19 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('banner') ||
     key.includes('announcement') ||
     key.includes('spotlight') ||
-    key.includes('aurora')
+    key.includes('aurora') ||
+    key.includes('dotpattern') ||
+    key.includes('cloudshader')
   ) {
     return { kind: 'hero', parts: heroDiagram() };
   }
-  if (key.includes('column') || key.includes('row')) {
+  if (
+    key.includes('column') ||
+    key.includes('row') ||
+    key === 'breadcrumbs' ||
+    key === 'pagination' ||
+    key === 'tabs'
+  ) {
     return { kind: 'columns', parts: columnsDiagram() };
   }
   if (
@@ -175,7 +185,8 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('paragraph') ||
     key.includes('faq') ||
     key.includes('contentsection') ||
-    key.includes('process')
+    key.includes('process') ||
+    key.includes('accordion')
   ) {
     return { kind: 'text', parts: textDiagram() };
   }
@@ -199,7 +210,13 @@ export function diagramForBlockType(type: string): BlockDiagram {
     key.includes('footer') ||
     key.includes('stack') ||
     key.includes('spacer') ||
-    key.includes('divider')
+    key.includes('divider') ||
+    key === 'card' ||
+    key === 'badge' ||
+    key === 'separator' ||
+    key === 'shadcnalert' ||
+    key === 'tabpanel' ||
+    key === 'shineborder'
   ) {
     return { kind: 'section', parts: sectionDiagram() };
   }

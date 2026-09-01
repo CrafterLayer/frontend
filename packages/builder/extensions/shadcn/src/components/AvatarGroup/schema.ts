@@ -44,7 +44,11 @@ export const avatarGroupSchema = defineBlockSchema({
         }),
       )
       .max(20)
-      .default([]),
+      .default([
+        { name: 'Maya Chen', initials: 'MC' },
+        { name: 'Omar Haddad', initials: 'OH' },
+        { name: 'Lina Faris', initials: 'LF' },
+      ]),
     size: z.enum(avatarGroupSizes).default('medium'),
     overlap: z.enum(avatarGroupOverlaps).default('medium'),
     maxVisible: z.number().int().min(1).max(12).default(5),

@@ -10,6 +10,7 @@ const node: Node = { id: 'badge', type: 'badge', props: {} };
 const meta = {
   title: 'Builder/Shadcn/Badge',
   component: Badge,
+  tags: ['autodocs'],
   args: { node, slots: {}, data: {}, isCanvas: false },
 } satisfies Meta<typeof Badge>;
 

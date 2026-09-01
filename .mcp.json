@@ -10,6 +10,7 @@
       "command": "node",
       "args": ["/Users/abode/Documents/craftkit-builder/claude-codex-worker/dist/cli.js", "serve"],
       "env": {
+        "PATH": "/Users/abode/.nvm/versions/node/v24.19.0/bin:/Users/abode/.nvm/versions/node/v22.19.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         "CCW_ALLOWED_ROOTS": "/Users/abode/Documents/craftkit-builder/frontend",
         "CCW_ENABLE_PROPOSALS": "true",
         "CCW_ALLOWED_MODELS": "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna",

@@ -58,7 +58,15 @@ export interface AiSkillManifestV1 {
 `defineAiSkill()` performs runtime validation, canonical sorting/copying, and fingerprinting. It
 rejects duplicate list entries, unsafe ids or reference paths, invalid versions, empty required
 text, oversized content, executable values, and unsupported `schemaVersion` values. Returned data is
-detached from caller-owned arrays/objects.
+detached from caller-owned arrays/objects. `contentFingerprint` uses the explicit
+`skill-v1-sha256-<64 lowercase hex>` format over the complete canonical content; a 32-bit checksum
+is not sufficient for audit pins or cache identity.
+
+The exported v1 storage bounds are 4 KiB per metadata entry, 64 KiB for the canonical aggregate
+manifest metadata, 128 KiB for instructions, 64 references, 128 KiB per reference, 256 KiB across
+references, and 256 definitions per registry. Limits are measured as UTF-8 bytes and apply before
+and after normalization where normalization can change an entry. The request budget charges the
+exact serialized `AiActiveSkillContext`, not only instruction/reference bodies.
 
 V1 carries instructions and references only. It has no scripts, URLs, functions, imports, package
 installation, filesystem paths outside its own logical reference names, or process/network hooks.
@@ -162,6 +170,13 @@ memory, any fragment, block/template catalog, selection, active skill version/bo
 is therefore a miss. `AbortSignal.aborted` is checked before cache lookup and before a cached result
 is returned.
 
+An extension `AiContextProvider` receives a least-authority `AiContextReadApi`, not `KernelApi`.
+State and selection are detached, deeply frozen request snapshots. The registry surface is a frozen,
+data-only catalog: block props are JSON Schema; block renderers/Zod objects, stored composition
+nodes, widget payloads, command implementations, subscriptions, events, and mutation doors are
+absent. Provider and selection arrays are snapshotted before collection, so one provider cannot
+change what a later provider sees or what final context records.
+
 ---
 
 ## 6. Bounded agent run
@@ -212,7 +227,15 @@ lease answer other than `true` is cancellation: stale progress is suppressed, on
 cooperative resource-cancellation channel; the lease remains the final mutation authority when a
 provider ignores it. The runner uses one repair by default and never silently performs a third
 provider attempt. `apply: 'never'` returns a validated proposal for review; `apply: 'auto'` applies
-the exact validated commands as one transaction.
+the exact validated commands as one transaction. Command arguments must be JSON data, and the
+validated plan is detached and deeply frozen before a proposal event or result exposes it; telemetry
+observers therefore cannot mutate post-validation authority.
+
+Remote transport accepts JSON or SSE but byte-counts the stream and rejects responses above the
+configured `maxResponseBytes` (1 MiB by default), including an early `Content-Length` refusal.
+Remote/local/cache proposal and repair paths check caller cancellation before work and after async
+results, preserving caller aborts as `AbortError` rather than converting them into timeouts. SSE
+accepts LF or CRLF frame delimiters and rejects a second result or any later data frame.
 
 ---
 
@@ -233,7 +256,8 @@ The old `dispatchGroup(steps, author)` form remains accepted. The label is store
 transaction's `command` field, because that is the current history-facing human label. Preflight
 executes the complete batch through the scratch kernel's grouped door; live apply repeats the same
 grouped path. A mid-group failure changes no document, log, history, or persistence position. When
-no label is supplied, AI application derives a bounded label from the plan rationale.
+no label is supplied, AI application derives a bounded label from the plan rationale. Post-commit
+event/store observer failures are isolated from transaction outcome and from later observers.
 
 ---
 

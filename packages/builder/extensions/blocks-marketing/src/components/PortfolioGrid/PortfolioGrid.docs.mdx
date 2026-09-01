@@ -31,6 +31,8 @@ optional with no defaults, preserving existing authored documents.
 The section is labelled by its visible heading and each project is a semantic `article` inside a
 list. Authored image descriptions are preserved; missing alt text makes optional imagery decorative
 because the adjacent project title carries the meaning. Metrics use `dl`, and repeated links include
-the project title in their accessible name. Container queries adapt to the actual builder column,
-logical spacing remains RTL-safe, unsafe URL protocols are rejected, and hover motion is disabled
-when reduced motion is requested.
+the project title in their accessible name. Safe raster-image and destination schemas reject
+executable, protocol-relative, and slash-backslash URLs. Links stay semantic but cannot navigate on
+the canvas, where an empty portfolio receives clear setup guidance. Container queries adapt to the
+actual builder column, logical spacing remains RTL-safe, and hover motion is disabled when reduced
+motion is requested.

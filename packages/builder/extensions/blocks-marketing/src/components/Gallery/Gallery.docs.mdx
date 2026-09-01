@@ -33,9 +33,9 @@ Image block for a single supporting visual.
 
 The section uses a visible `h2`, a semantic list, `figure`/`figcaption`, lazy images, and explicit
 alt text. Set `decorative: true` only when an image adds no information; the rendered alt then
-becomes empty. Missing alt text for informative images produces a canvas-only warning. Full-size
-links have an accessible action name and are prevented from navigating while the page is being
-edited.
+becomes empty. The schema rejects informative images whose alt text is empty, so inaccessible
+content cannot silently reach preview or publication. Full-size links have an accessible action name
+and are prevented from navigating while the page is being edited.
 
 This block deliberately avoids a modal lightbox. A correct lightbox needs focus trapping, focus
 return, Escape handling, background inertness, scroll locking, and canvas coordination; a semantic

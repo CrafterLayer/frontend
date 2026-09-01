@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -110,6 +110,34 @@ describe('VideoSection', () => {
     expect(container.querySelector('[data-video-section-media]')).toHaveClass('@lg:order-first');
   });
 
+  it('preserves the CTA anchor but prevents navigation on the builder canvas', () => {
+    renderVideoSection(
+      videoSectionSchema.props.parse({
+        heading: 'Canvas video action',
+        cta: { label: 'View the case study', href: '/case-study' },
+      }),
+      true,
+    );
+
+    const action = screen.getByRole('link', { name: /View the case study/ });
+    expect(action).toHaveAttribute('href', '/case-study');
+    expect(fireEvent.click(action)).toBe(false);
+  });
+
+  it('collapses the published split layout when no media is configured', () => {
+    const { container } = renderVideoSection(
+      videoSectionSchema.props.parse({ heading: 'Copy-only video section', layout: 'split' }),
+    );
+
+    expect(container.querySelector('[data-video-section-layout]')).toHaveClass(
+      'grid',
+      '@lg:grid-cols-1',
+    );
+    expect(container.querySelector('[data-video-section-layout]')).not.toHaveClass(
+      '@lg:grid-cols-2',
+    );
+  });
+
   it('applies shared token roles, typography, spacing, and custom utilities', () => {
     renderVideoSection(
       videoSectionSchema.props.parse({
@@ -178,6 +206,31 @@ describe('VideoSection', () => {
     expect(videoSectionSchema.props.safeParse({ src: '//evil.example/video.mp4' }).success).toBe(
       false,
     );
+    expect(videoSectionSchema.props.safeParse({ src: '/\\evil.example/video.mp4' }).success).toBe(
+      false,
+    );
+    expect(
+      videoSectionSchema.props.safeParse({ poster: '//evil.example/poster.jpg' }).success,
+    ).toBe(false);
+    expect(
+      videoSectionSchema.props.safeParse({ poster: '/\\evil.example/poster.jpg' }).success,
+    ).toBe(false);
+    expect(
+      videoSectionSchema.props.safeParse({ captionsSrc: '//evil.example/captions.vtt' }).success,
+    ).toBe(false);
+    expect(
+      videoSectionSchema.props.safeParse({ captionsSrc: '/\\evil.example/captions.vtt' }).success,
+    ).toBe(false);
+    expect(
+      videoSectionSchema.props.safeParse({
+        cta: { label: 'Unsafe', href: '//evil.example/path' },
+      }).success,
+    ).toBe(false);
+    expect(
+      videoSectionSchema.props.safeParse({
+        cta: { label: 'Unsafe', href: '/\\evil.example/path' },
+      }).success,
+    ).toBe(false);
   });
 
   it('declares every inspector group and bilingual examples', () => {

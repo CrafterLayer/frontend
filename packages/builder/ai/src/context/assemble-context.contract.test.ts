@@ -11,13 +11,7 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
-import {
-  assembleAiContext,
-  blockCatalogContextProvider,
-  documentShapeContextProvider,
-  estimateContextTokens,
-  selectionContextProvider,
-} from './assemble-context';
+import { assembleAiContext, estimateContextTokens } from './assemble-context';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -147,12 +141,20 @@ function bodyOf(fragment: { body: string }): unknown {
   return JSON.parse(fragment.body) as unknown;
 }
 
+function assembledBody(kernel: ReturnType<typeof contextKernel>, title: string): unknown {
+  const fragment = assembleAiContext(kernel.context).fragments.find(
+    (candidate) => candidate.title === title,
+  );
+  if (fragment === undefined) throw new Error(`Missing context fragment "${title}".`);
+  return bodyOf(fragment);
+}
+
 describe('AI context-provider contracts', () => {
   // Mutation proof: in assemble-context.ts, replace `collectBlocks(ctx)` in
   // `blockCatalogContextProvider.collect` with `[]`; the exact catalog assertion below must fail.
   it('serializes every active registered block model contract', () => {
     const kernel = contextKernel();
-    const catalog = bodyOf(blockCatalogContextProvider.collect(kernel.context, []));
+    const catalog = assembledBody(kernel, 'Registered block vocabulary');
 
     expect(catalog).toEqual([
       {
@@ -193,7 +195,7 @@ describe('AI context-provider contracts', () => {
   // `collectDocument` with `nodes: []`; the exact real-document assertion below must fail.
   it('serializes the live document shape with every node’s own props, inventing none', () => {
     const kernel = contextKernel();
-    const shape = bodyOf(documentShapeContextProvider.collect(kernel.context, []));
+    const shape = assembledBody(kernel, 'Document shape');
 
     expect(shape).toEqual({
       schemaVersion: 1,
@@ -235,9 +237,7 @@ describe('AI context-provider contracts', () => {
     });
 
     kernel.dispatch('setDocMeta', { dir: 'rtl' });
-    expect(
-      (bodyOf(documentShapeContextProvider.collect(kernel.context, [])) as { dir: string }).dir,
-    ).toBe('rtl');
+    expect((assembledBody(kernel, 'Document shape') as { dir: string }).dir).toBe('rtl');
   });
 
   // Mutation proof: in assemble-context.ts, replace `collectSelection(ctx, selection)` in
@@ -246,9 +246,7 @@ describe('AI context-provider contracts', () => {
     const kernel = contextKernel();
     kernel.setSelection(['article-1', 'hero-1']);
 
-    const selection = bodyOf(
-      selectionContextProvider.collect(kernel.context, kernel.context.store.getState().selection),
-    );
+    const selection = assembledBody(kernel, 'Current selection');
 
     expect(selection).toEqual({
       ids: ['article-1', 'hero-1'],

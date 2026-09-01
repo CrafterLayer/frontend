@@ -74,6 +74,13 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
     props.siblingCount,
     props.showFirstLast,
   );
+  const declaredExplicitCurrentIndex = props.items.findIndex((item) => item.current);
+  const explicitCurrentIndex =
+    declaredExplicitCurrentIndex >= 0
+      ? declaredExplicitCurrentIndex
+      : props.items.findIndex((item) => !item.disabled);
+  const statusCurrent = props.mode === 'explicit' ? explicitCurrentIndex + 1 : currentPage;
+  const statusCount = props.mode === 'explicit' ? props.items.length : props.pageCount;
   const previousHref =
     props.mode === 'explicit'
       ? props.previousHref
@@ -148,12 +155,12 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
 
         {props.variant === 'compact' ? (
           <li className="px-2 text-sm font-semibold tabular-nums" aria-live="polite">
-            {props.pageLabel} {String(currentPage)} / {String(props.pageCount)}
+            {props.pageLabel} {String(statusCurrent)} / {String(statusCount)}
           </li>
         ) : props.mode === 'explicit' ? (
           props.items.map((item, index) => (
             <li key={`${item.label}-${String(index)}`}>
-              {item.current ? (
+              {index === explicitCurrentIndex ? (
                 <span
                   className={clsx(
                     'inline-flex items-center justify-center rounded-lg border border-accent bg-accent font-semibold text-accent-text shadow-soft',

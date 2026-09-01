@@ -74,6 +74,31 @@ describe('AI plan command-policy enforcement', () => {
     if (!result.ok) expect(result.issues[0]?.message).toContain('at most 1 command');
   });
 
+  it('rejects an oversized raw command array before reading or parsing its steps', () => {
+    let stepReads = 0;
+    const unreadableStep = new Proxy(
+      {},
+      {
+        get() {
+          stepReads += 1;
+          throw new Error('an over-budget step must not be inspected');
+        },
+      },
+    );
+    const oversized = {
+      rationale: 'Do far too much work.',
+      commands: Array.from({ length: 10_000 }, () => unreadableStep),
+    };
+
+    const result = validateAiPlan(oversized, kernel(), ports('raw-bound'), {
+      allowedCommands: ['setProp'],
+      maxCommands: 1,
+    });
+
+    expect(result).toMatchObject({ ok: false, issues: [{ code: 'policy-rejected' }] });
+    expect(stepReads).toBe(0);
+  });
+
   it('rechecks policy at apply time and leaves the live kernel untouched on denial', () => {
     const live = kernel();
     const before = live.getDocument();

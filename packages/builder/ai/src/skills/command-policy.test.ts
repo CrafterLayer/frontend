@@ -9,8 +9,8 @@ import {
 
 const REGISTERED = ['insertNode', 'removeNode', 'setProp', 'setDocMeta'] as const;
 
-function restrictedSkill(id: string, restrictToCommands: readonly string[]): AiSkillDefinitionV1 {
-  return {
+function restrictedSkill(id: string, restrictToCommands?: readonly string[]): AiSkillDefinitionV1 {
+  const base: AiSkillDefinitionV1 = {
     schemaVersion: 1,
     id,
     name: id,
@@ -18,8 +18,8 @@ function restrictedSkill(id: string, restrictToCommands: readonly string[]): AiS
     version: '1.0.0',
     instructions: `Use only the commands declared by ${id}.`,
     activation: { mode: 'explicit' },
-    restrictToCommands,
   };
+  return restrictToCommands === undefined ? base : { ...base, restrictToCommands };
 }
 
 describe('AI command policy', () => {
@@ -64,6 +64,35 @@ describe('AI command policy', () => {
       allowedCommands: [],
       maxCommands: 64,
     });
+  });
+
+  it('preserves an explicit empty skill restriction as deny-all while omission stays unrestricted', () => {
+    const unrestricted = createAiSkillRegistry([restrictedSkill('skill.unrestricted')]);
+    const denyAll = createAiSkillRegistry([restrictedSkill('skill.deny-all', [])]);
+
+    expect(unrestricted.get('skill.unrestricted')?.restrictToCommands).toBeUndefined();
+    expect(
+      unrestricted.prepare({ request: 'x', selectedSkillIds: ['skill.unrestricted'] })
+        .effectiveCommandRestriction,
+    ).toBeUndefined();
+
+    expect(denyAll.get('skill.deny-all')?.restrictToCommands).toEqual([]);
+    const denyAllContext = denyAll.prepare({
+      request: 'x',
+      selectedSkillIds: ['skill.deny-all'],
+    });
+    expect(denyAllContext.active[0]?.restrictToCommands).toEqual([]);
+    expect(denyAllContext.effectiveCommandRestriction).toEqual([]);
+    expect(
+      resolveAiCommandPolicy({ registeredCommands: REGISTERED, skills: denyAllContext }),
+    ).toEqual({
+      allowedCommands: [],
+      maxCommands: 64,
+    });
+
+    expect(denyAll.get('skill.deny-all')?.contentFingerprint).not.toBe(
+      unrestricted.get('skill.unrestricted')?.contentFingerprint,
+    );
   });
 
   it.each([

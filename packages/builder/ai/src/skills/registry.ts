@@ -59,8 +59,8 @@ export function createAiSkillRegistry(
       requireSkill(entries, id).manifest.referencePaths,
     readReference: (id: string, path: string): string => {
       const skill = requireSkill(entries, id);
-      const reference = skill.references[path];
-      if (reference === undefined) {
+      const reference = Object.hasOwn(skill.references, path) ? skill.references[path] : undefined;
+      if (typeof reference !== 'string') {
         throw new AiSkillRegistryError(
           'unknown-reference',
           `Unknown reference ${path} for skill ${id}.`,

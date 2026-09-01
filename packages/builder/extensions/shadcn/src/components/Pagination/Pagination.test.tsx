@@ -119,13 +119,87 @@ describe('Pagination', () => {
     );
     expect(
       paginationSchema.props.safeParse({
-        items: [{ label: 'Unsafe', href: '//example.com' }],
+        items: [{ label: 'Unsafe', href: '//example.com', current: true }],
       }).success,
     ).toBe(false);
     expect(paginationSchema.props.safeParse({ pageHrefTemplate: '/page' }).success).toBe(false);
     expect(
       paginationSchema.props.safeParse({ pageHrefTemplate: 'javascript:{page}' }).success,
     ).toBe(false);
+  });
+
+  it('keeps the outer props object inspectable and accepts legacy empty or no-current items', () => {
+    expect(paginationSchema.props.shape.items).toBeDefined();
+    expect(paginationSchema.props.parse({}).items).toEqual([]);
+    expect(paginationSchema.props.safeParse({ items: [] }).success).toBe(true);
+    expect(
+      paginationSchema.props.safeParse({ items: [{ label: 'One' }, { label: 'Two' }] }).success,
+    ).toBe(true);
+    expect(
+      paginationSchema.props.safeParse({
+        items: [
+          { label: 'One', current: true },
+          { label: 'Two', current: true },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      paginationSchema.props.safeParse({ items: [{ label: 'One', current: true, disabled: true }] })
+        .success,
+    ).toBe(false);
+    expect(
+      paginationSchema.props.safeParse({
+        items: [{ label: 'One', current: true }, { label: 'Two' }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('renders the first enabled legacy item as current without requiring persisted current state', () => {
+    render(
+      <Pagination
+        node={node}
+        props={paginationSchema.props.parse({
+          mode: 'explicit',
+          items: [
+            { label: 'Unavailable', disabled: true },
+            { label: 'First enabled', href: '/first' },
+            { label: 'Later', href: '/later' },
+          ],
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(screen.getByText('First enabled')).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('link', { name: 'First enabled' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Later' })).toHaveAttribute('href', '/later');
+  });
+
+  it('derives compact explicit status from the effective item and explicit item count', () => {
+    render(
+      <Pagination
+        node={node}
+        props={paginationSchema.props.parse({
+          mode: 'explicit',
+          variant: 'compact',
+          currentPage: 99,
+          pageCount: 100,
+          items: [
+            { label: 'Unavailable', disabled: true },
+            { label: 'First enabled', href: '/first' },
+            { label: 'Later', href: '/later' },
+          ],
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(screen.getByText('Page 2 / 3')).toHaveAttribute('aria-live', 'polite');
+    expect(screen.queryByText('Page 99 / 100')).not.toBeInTheDocument();
   });
 
   it('keeps motion and utility classes optional and validated', () => {

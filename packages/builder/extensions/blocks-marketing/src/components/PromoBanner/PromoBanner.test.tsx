@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -81,6 +81,7 @@ describe('PromoBanner', () => {
           headline: 'Copy only',
           imageSrc: '/hidden.jpg',
           showMedia: false,
+          variant: 'split',
         })}
         slots={{}}
         data={{}}
@@ -90,6 +91,31 @@ describe('PromoBanner', () => {
 
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByText('Copy only')).toBeVisible();
+    expect(screen.getByText('Copy only').closest('[data-promo-panel]')).toHaveClass(
+      '@lg:grid-cols-1',
+    );
+    expect(screen.getByText('Copy only').closest('[data-promo-panel]')).not.toHaveClass(
+      '@lg:grid-cols-2',
+    );
+  });
+
+  it('preserves action anchors but prevents navigation on the builder canvas', () => {
+    render(
+      <PromoBanner
+        node={node}
+        props={promoBannerSchema.props.parse({
+          headline: 'Canvas promotion',
+          actions: [{ label: 'Start now', href: '/start' }],
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={true}
+      />,
+    );
+
+    const action = screen.getByRole('link', { name: 'Start now' });
+    expect(action).toHaveAttribute('href', '/start');
+    expect(fireEvent.click(action)).toBe(false);
   });
 
   it('rejects executable and protocol-relative URLs at the schema boundary', () => {
@@ -104,6 +130,19 @@ describe('PromoBanner', () => {
     expect(promoBannerSchema.props.safeParse({ imageSrc: '//example.com/image.jpg' }).success).toBe(
       false,
     );
+    expect(
+      promoBannerSchema.props.safeParse({
+        actions: [{ label: 'Unsafe', href: '//evil.example/path' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      promoBannerSchema.props.safeParse({ imageSrc: '/\\evil.example/image.jpg' }).success,
+    ).toBe(false);
+    expect(
+      promoBannerSchema.props.safeParse({
+        actions: [{ label: 'Unsafe', href: '/\\evil.example/path' }],
+      }).success,
+    ).toBe(false);
   });
 
   it('applies shared colour, typography, and logical spacing controls', () => {

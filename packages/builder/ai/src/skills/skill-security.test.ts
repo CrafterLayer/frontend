@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AI_SKILL_MAX_MANIFEST_METADATA_BYTES,
+  AI_SKILL_MAX_METADATA_ENTRY_BYTES,
   AI_SKILL_MAX_REFERENCES,
   AI_SKILL_MAX_REFERENCE_BYTES,
   AI_SKILL_MAX_TOTAL_REFERENCE_BYTES,
+  AiSkillRegistryError,
+  createAiSkillRegistry,
   defineAiSkill,
   type AiSkillDefinitionV1,
 } from './index';
@@ -51,14 +55,11 @@ describe('AI skill runtime hardening', () => {
     'a/../guide.md',
     '__proto__/guide.md',
     'constructor/guide.md',
-  ])(
-    'rejects unsafe logical reference %s',
-    (path) => {
-      expect(() => defineAiSkill(definition({ references: { [path]: 'text' } }))).toThrow(
-        /reference/i,
-      );
-    },
-  );
+  ])('rejects unsafe logical reference %s', (path) => {
+    expect(() => defineAiSkill(definition({ references: { [path]: 'text' } }))).toThrow(
+      /reference/i,
+    );
+  });
 
   it('enforces reference count, per-body bytes, and total bytes', () => {
     const tooMany = Object.fromEntries(
@@ -82,9 +83,48 @@ describe('AI skill runtime hardening', () => {
     expect(() => defineAiSkill(definition({ references: oversizedTotal }))).toThrow(/total byte/i);
   });
 
+  it.each([
+    ['command restriction', { restrictToCommands: ['x'.repeat(1_000_000)] }],
+    ['tag', { tags: ['x'.repeat(1_000_000)] }],
+    ['auto keyword', { activation: { mode: 'auto', keywords: ['x'.repeat(1_000_000)] } }],
+  ])('rejects a million-character %s metadata entry', (_name, override) => {
+    expect(() => defineAiSkill(definition(override))).toThrow(/metadata|byte|limit/i);
+  });
+
+  it('enforces the exported per-entry metadata byte boundary', () => {
+    expect(() =>
+      defineAiSkill(definition({ tags: ['x'.repeat(AI_SKILL_MAX_METADATA_ENTRY_BYTES)] })),
+    ).not.toThrow();
+    expect(() =>
+      defineAiSkill(definition({ tags: ['x'.repeat(AI_SKILL_MAX_METADATA_ENTRY_BYTES + 1)] })),
+    ).toThrow(/per-entry metadata byte limit/i);
+  });
+
+  it('rejects aggregate manifest metadata that is individually valid but collectively oversized', () => {
+    const tagCount = 80;
+    const tagPayloadBytes = Math.floor(AI_SKILL_MAX_MANIFEST_METADATA_BYTES / tagCount) + 32;
+    expect(tagPayloadBytes + 4).toBeLessThanOrEqual(AI_SKILL_MAX_METADATA_ENTRY_BYTES);
+    const tags = Array.from(
+      { length: tagCount },
+      (_value, index) => `${String(index).padStart(3, '0')}-${'x'.repeat(tagPayloadBytes)}`,
+    );
+
+    expect(() => defineAiSkill(definition({ tags }))).toThrow(/metadata|byte|limit/i);
+  });
+
   it('derives builtin trust only for a builtin source', () => {
     const skill = defineAiSkill(definition({ source: 'builtin' }));
 
     expect(skill.manifest).toMatchObject({ source: 'builtin', trust: 'builtin' });
   });
+
+  it.each(['constructor', '__proto__', 'prototype'])(
+    'never resolves inherited reference key %s when references are omitted',
+    (path) => {
+      const registry = createAiSkillRegistry([definition()]);
+
+      expect(() => registry.readReference('security.skill', path)).toThrow(AiSkillRegistryError);
+      expect(() => registry.readReference('security.skill', path)).toThrow(/unknown reference/i);
+    },
+  );
 });

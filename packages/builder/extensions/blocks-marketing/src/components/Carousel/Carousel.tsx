@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
   type FocusEvent,
   type KeyboardEvent,
+  type MouseEvent,
 } from 'react';
 
 import type { BlockRenderProps } from '@craftkit/builder-schema';
@@ -74,6 +75,10 @@ function serverReducedMotionSnapshot(): boolean {
   return false;
 }
 
+function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
+  event.preventDefault();
+}
+
 /** An accessible, keyboard-operable carousel with opt-in and user-controllable autoplay. */
 export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselProps>) {
   const headingId = `${node.id}-heading`;
@@ -95,12 +100,9 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
   const isTerminalSlide = !props.loop && activeIndex === maximumIndex;
   const playbackEnabled =
     props.autoplay && !pausedByUser && (!prefersReducedMotion || reducedMotionOverride);
-  const isInteracting = isPointerInside || isFocusInside;
+  const shouldPauseForInteraction = isFocusInside || (props.pauseOnInteraction && isPointerInside);
   const shouldAdvance =
-    playbackEnabled &&
-    itemCount > 1 &&
-    !isTerminalSlide &&
-    !(props.pauseOnInteraction && isInteracting);
+    playbackEnabled && itemCount > 1 && !isTerminalSlide && !shouldPauseForInteraction;
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -253,6 +255,9 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
             className={cx(
               'relative w-full min-w-0 overflow-hidden rounded-xl border border-text/10 shadow-elevated',
               SLIDE_CLASSES[props.variant],
+              props.variant === 'split' && activeItem.imageSrc === undefined
+                ? '@lg:grid-cols-1'
+                : undefined,
             )}
             role="group"
             aria-roledescription="slide"
@@ -315,6 +320,7 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
                 <a
                   className="inline-flex min-h-11 items-center justify-center self-start rounded-lg bg-accent px-control-inline-md py-control-block-md font-semibold text-accent-text shadow-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                   href={activeItem.action.href}
+                  onClick={isCanvas ? preventCanvasNavigation : undefined}
                 >
                   {activeItem.action.label}
                 </a>
@@ -382,10 +388,7 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
                 {props.items.map((item, index) => (
                   <button
                     key={`${item.title}-${String(index)}`}
-                    className={cx(
-                      'h-2 cursor-pointer rounded-full border-0 p-0',
-                      index === activeIndex ? 'w-8 bg-accent' : 'w-2 bg-text-muted/30',
-                    )}
+                    className="inline-grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     type="button"
                     aria-label={`${props.goToLabel} ${String(index + 1)}: ${item.title}`}
                     aria-current={index === activeIndex ? 'true' : undefined}
@@ -393,12 +396,21 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
                     onClick={() => {
                       selectSlide(index);
                     }}
-                  />
+                  >
+                    <span
+                      className={cx(
+                        'h-2 rounded-full',
+                        index === activeIndex ? 'w-4 bg-accent' : 'w-2 bg-text-muted/30',
+                      )}
+                      data-carousel-indicator-dot=""
+                      aria-hidden="true"
+                    />
+                  </button>
                 ))}
               </div>
             ) : null}
 
-            <span className="text-sm font-semibold tabular-nums" aria-hidden="true">
+            <span className="text-sm font-semibold tabular-nums" dir="ltr" aria-hidden="true">
               {String(activeIndex + 1).padStart(2, '0')} / {String(itemCount).padStart(2, '0')}
             </span>
           </div>

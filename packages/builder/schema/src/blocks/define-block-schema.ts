@@ -10,6 +10,13 @@ export interface SlotDecl {
   allow: string[];
   /** Maximum number of children; unlimited when absent. */
   max?: number;
+  /**
+   * Supply this slot's direct children to the parent renderer as typed,
+   * responsive-resolved metadata. Opt-in keeps ordinary containers subscribed
+   * only to their own node while enabling document-driven controls such as
+   * Tabs to derive labels without inspecting renderer internals.
+   */
+  exposeChildMetadata?: boolean;
 }
 
 /** The fixed top-level destinations available to generated property panels. */

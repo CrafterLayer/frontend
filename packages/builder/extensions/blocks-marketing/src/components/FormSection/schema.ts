@@ -48,30 +48,40 @@ const fieldOptionSchema = z.object({
   value: z.string().min(1).max(120),
 });
 
-export const formSectionFieldSchema = z.object({
-  id: z
-    .string()
-    .min(1)
-    .max(48)
-    .regex(
-      /^[a-z][a-z0-9-]*$/i,
-      'Field id must begin with a letter and use letters, numbers, or dashes.',
-    ),
-  name: z
-    .string()
-    .min(1)
-    .max(80)
-    .regex(/^[a-z][a-z0-9_-]*$/i, 'Field name must begin with a letter.'),
-  type: z.enum(formSectionFieldTypes).default('text'),
-  label: z.string().min(1).max(80),
-  placeholder: z.string().max(120).optional(),
-  helper: z.string().max(180).optional(),
-  autoComplete: z.string().max(80).optional(),
-  required: z.boolean().default(false),
-  width: z.enum(['full', 'half']).default('full'),
-  rows: z.number().int().min(3).max(12).default(5),
-  options: z.array(fieldOptionSchema).max(16).default([]),
-});
+export const formSectionFieldSchema = z
+  .object({
+    id: z
+      .string()
+      .min(1)
+      .max(48)
+      .regex(
+        /^[a-z][a-z0-9-]*$/i,
+        'Field id must begin with a letter and use letters, numbers, or dashes.',
+      ),
+    name: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[a-z][a-z0-9_-]*$/i, 'Field name must begin with a letter.'),
+    type: z.enum(formSectionFieldTypes).default('text'),
+    label: z.string().min(1).max(80),
+    placeholder: z.string().max(120).optional(),
+    helper: z.string().max(180).optional(),
+    autoComplete: z.string().max(80).optional(),
+    required: z.boolean().default(false),
+    width: z.enum(['full', 'half']).default('full'),
+    rows: z.number().int().min(3).max(12).default(5),
+    options: z.array(fieldOptionSchema).max(16).default([]),
+  })
+  .superRefine((field, context) => {
+    if (field.type === 'select' && field.options.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Select fields require at least one option.',
+        path: ['options'],
+      });
+    }
+  });
 
 const defaultFields = z.array(formSectionFieldSchema).parse([
   {

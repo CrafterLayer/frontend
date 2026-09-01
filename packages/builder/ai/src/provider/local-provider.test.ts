@@ -365,4 +365,23 @@ describe('local deterministic AI provider', () => {
     const fullContext = assembleAiContext(fullKernel.context);
     await expect(provider.propose('add pricing', fullContext)).rejects.toThrow(/available slot/);
   });
+
+  it('rejects caller cancellation before work and before its queued microtask runs', async () => {
+    const provider = createLocalAiPlanProvider();
+    const assembled = assembleAiContext(pricingKernel().context);
+
+    const alreadyAborted = new AbortController();
+    alreadyAborted.abort();
+    await expect(
+      provider.propose('add pricing', assembled, { signal: alreadyAborted.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    const beforeMicrotask = new AbortController();
+    const pending = provider.propose('add pricing', assembled, {
+      signal: beforeMicrotask.signal,
+    });
+    beforeMicrotask.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
 });

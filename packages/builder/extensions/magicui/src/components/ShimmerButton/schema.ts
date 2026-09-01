@@ -18,9 +18,15 @@ const safeHrefSchema = z
   .string()
   .min(1)
   .max(2000)
-  .refine((value) => /^(#|\/(?!\/)|https?:\/\/|mailto:|tel:)/i.test(value), {
-    message: 'Link must be a relative path, fragment, or an http, https, mailto, or tel URL.',
-  });
+  .refine(
+    (value) =>
+      value.startsWith('#') ||
+      (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) ||
+      /^(https?:\/\/|mailto:|tel:)/i.test(value),
+    {
+      message: 'Link must be a relative path, fragment, or an http, https, mailto, or tel URL.',
+    },
+  );
 
 export const shimmerButtonSchema = defineBlockSchema({
   type: 'shimmerButton',

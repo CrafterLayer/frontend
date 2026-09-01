@@ -44,4 +44,34 @@ describe('state facade', () => {
     kernel.undo();
     expect(seen).toEqual([undefined]);
   });
+
+  it('isolates throwing state, selector, and node observers after an atomic write', () => {
+    const kernel = testKernel();
+    const seen: string[] = [];
+    kernel.context.store.subscribe(() => {
+      throw new Error('state observer failed');
+    });
+    kernel.context.store.subscribe(() => {
+      seen.push('state');
+    });
+    kernel.context.store.select(
+      (state) => state.doc.nodes['p1']?.props['content'],
+      () => {
+        throw new Error('selector observer failed');
+      },
+    );
+    kernel.context.store.subscribeNode('p1', () => {
+      throw new Error('node observer failed');
+    });
+    kernel.context.store.subscribeNode('p1', () => {
+      seen.push('node');
+    });
+
+    expect(() =>
+      kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'Committed safely' }),
+    ).not.toThrow();
+    expect(seen).toEqual(['state', 'node']);
+    expect(kernel.getDocument().nodes['p1']?.props['content']).toBe('Committed safely');
+    expect(kernel.transactions()).toHaveLength(1);
+  });
 });

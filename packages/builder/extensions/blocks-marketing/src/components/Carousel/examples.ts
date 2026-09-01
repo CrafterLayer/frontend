@@ -81,7 +81,7 @@ export const carouselExamples: { prompt: string; node: JsonValue }[] = [
             title: 'ليلتان تحت سماء وادي رم',
             body: 'مخيم صغير، دليل محلي، ومسار يبتعد عن الطرق المعتادة.',
             imageSrc:
-              'https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?auto=format&fit=crop&w=1600&q=80',
+              'https://images.unsplash.com/photo-1568801556940-e5b3a55fa6ea?auto=format&fit=crop&w=1600&q=80',
             imageAlt: 'تكوينات صخرية في وادي صحراوي عند الغروب',
             action: { label: 'اكتشف الرحلة', href: '/journeys/wadi-rum' },
           },

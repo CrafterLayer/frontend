@@ -23,12 +23,15 @@ collections. It can remain copy-led or introduce responsive media without changi
 - Shared colour, motion, typography, custom class, and logical spacing controls remain optional and
   do not rewrite existing documents with new defaults.
 
+The split variant collapses to one copy column whenever media is absent or intentionally hidden, so
+it never reserves a blank half-panel.
+
 ## Accessibility, safety, and RTL
 
 The semantic complementary region is named by its visible headline. Actions are real anchors with
-visible focus styles. Destinations reject executable and protocol-relative URLs; media accepts only
-relative and HTTP(S) sources. Container queries and logical positioning serve LTR and RTL from the
-same markup.
+visible focus styles and are prevented from navigating on the builder canvas. Destinations reject
+executable, protocol-relative, and slash-backslash URLs; media accepts only safe relative and
+HTTP(S) sources. Container queries and logical positioning serve LTR and RTL from the same markup.
 
 The block intentionally does not expose a cosmetic dismiss button. A trustworthy dismissal needs a
 persistence contract and host-owned consent state; hiding content only until the next render would

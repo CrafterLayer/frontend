@@ -246,4 +246,17 @@ describe('Image', () => {
     expect(imageExamples.some(({ prompt }) => /[\u0600-\u06ff]/u.test(prompt))).toBe(true);
     expect(imageExamples.some(({ prompt }) => /[a-z]/iu.test(prompt))).toBe(true);
   });
+
+  it('ships renderable HTTPS Unsplash sources instead of placeholder media domains', () => {
+    const sources = imageExamples.map(({ node: exampleNode }) => {
+      const example = exampleNode as { props: unknown };
+      return imageSchema.props.parse(example.props).src;
+    });
+
+    expect(sources).toHaveLength(2);
+    for (const source of sources) {
+      expect(source).toMatch(/^https:\/\/images\.unsplash\.com\/photo-/);
+      expect(source).not.toContain('example.com');
+    }
+  });
 });

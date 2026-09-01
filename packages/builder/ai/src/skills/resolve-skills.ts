@@ -24,14 +24,6 @@ function resolutionError(code: string, message: string): never {
   throw new AiSkillResolutionError(code, message);
 }
 
-function estimateTokens(skill: AiDefinedSkillV1): number {
-  const references = Object.entries(skill.references).map(([path, content]) => ({ path, content }));
-  return Math.max(
-    1,
-    Math.ceil(JSON.stringify({ instructions: skill.instructions, references }).length / 4),
-  );
-}
-
 function sourceRank(manifest: AiSkillManifestV1): number {
   return manifest.source === 'builtin' ? 0 : 1;
 }
@@ -85,6 +77,12 @@ function activeContext(candidate: Candidate): AiActiveSkillContext {
       ? base
       : { ...base, restrictToCommands: manifest.restrictToCommands },
   );
+}
+
+function estimateTokens(candidate: Candidate): number {
+  // Budget the exact canonical active fragment, including identity, reason,
+  // description, command restriction, instructions, and reference metadata.
+  return Math.max(1, Math.ceil(JSON.stringify(activeContext(candidate)).length / 4));
 }
 
 function effectiveRestriction(candidates: readonly Candidate[]): readonly string[] | undefined {
@@ -227,10 +225,7 @@ export function resolveAiSkills(
     }
   }
 
-  let totalTokens = accepted.reduce(
-    (total, candidate) => total + estimateTokens(candidate.skill),
-    0,
-  );
+  let totalTokens = accepted.reduce((total, candidate) => total + estimateTokens(candidate), 0);
   if (accepted.length > maxActiveSkills) {
     return resolutionError('active-limit', 'Mandatory skills exceed the active skill limit.');
   }
@@ -256,6 +251,10 @@ export function resolveAiSkills(
 
     for (const skill of autoMatches) {
       const id = skill.manifest.id;
+      // A higher-priority auto skill may already have activated this matching
+      // skill through its dependency closure. The snapshot still contains it,
+      // so re-check live membership before accounting or exposing it again.
+      if (candidates.has(id)) continue;
       const root: Candidate = { skill, reason: 'auto', mandatory: false };
       const closure = new Map<string, Candidate>([[id, root]]);
       addDependencies(entries, [root], closure);
@@ -312,7 +311,7 @@ export function resolveAiSkills(
         continue;
       }
       const tokens = optionalGroup.reduce(
-        (total, candidate) => total + estimateTokens(candidate.skill),
+        (total, candidate) => total + estimateTokens(candidate),
         0,
       );
       if (totalTokens + tokens > maxSkillTokens) {

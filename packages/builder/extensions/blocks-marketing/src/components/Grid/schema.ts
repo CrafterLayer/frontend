@@ -27,6 +27,7 @@ const GRID_CHILDREN = [
   'carousel',
   'videoSection',
   'gallery',
+  'logoCloud',
   'features',
   'bento-grid',
   'content-section',
@@ -58,8 +59,13 @@ const GRID_CHILDREN = [
   'tabs',
   'shadcnAlert',
   'accordion',
+  'auroraBackground',
+  'cloudShader',
+  'spotlightSurface',
   'shineBorder',
   'marquee',
+  'dotPatternSurface',
+  'shimmerButton',
 ] as const;
 
 export const gridSchema = defineBlockSchema({

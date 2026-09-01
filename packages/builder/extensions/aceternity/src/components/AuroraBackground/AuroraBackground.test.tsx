@@ -77,14 +77,16 @@ describe('AuroraBackground', () => {
   */
   it('measures full height in svh so a phone does not hide the top of it', () => {
     const { container } = renderAurora({ minHeight: 'screen' });
+    const root = container.firstElementChild;
 
-    expect(container.firstElementChild?.className).toContain('svh');
-    expect(container.firstElementChild?.className).not.toMatch(/min-h-\[100vh\]/);
+    expect(root).toHaveAttribute('data-acy-aurora-min-height', 'screen');
+    expect(root?.className).not.toMatch(/min-h-\[/);
   });
 
   it('claims no height when none was asked for', () => {
     const { container } = renderAurora({ minHeight: 'none' });
 
+    expect(container.firstElementChild).toHaveAttribute('data-acy-aurora-min-height', 'none');
     expect(container.firstElementChild?.className).not.toMatch(/min-h-/);
   });
 
@@ -129,8 +131,27 @@ describe('AuroraBackground', () => {
       );
     });
 
-    it('frames a hero, which is what people reach for it to do', () => {
-      expect(auroraBackgroundSchema.slots?.['default']?.allow).toContain('hero');
+    it('frames the complete supported marketing and primary vocabulary', () => {
+      expect(auroraBackgroundSchema.slots?.['default']?.allow).toEqual(
+        expect.arrayContaining([
+          'hero',
+          'card',
+          'badge',
+          'shadcnAlert',
+          'tabs',
+          'separator',
+          'avatarGroup',
+          'progress',
+          'breadcrumbs',
+          'dialog',
+          'pagination',
+          'button',
+          'shimmerButton',
+        ]),
+      );
+      expect(auroraBackgroundSchema.slots?.['default']?.allow).not.toContain('auroraBackground');
+      expect(auroraBackgroundSchema.slots?.['default']?.allow).not.toContain('cloudShader');
+      expect(auroraBackgroundSchema.slots?.['default']?.allow).not.toContain('spotlightSurface');
     });
 
     it('stores no literal colour or length of its own', () => {

@@ -41,15 +41,17 @@ meaning is fully conveyed by nearby text. The block has no autoplay, so reduced-
 playback preferences remain respected.
 
 Every media and CTA URL is allowlisted at the schema boundary. `javascript:` and arbitrary iframe
-HTML are rejected. Missing video media shows setup guidance only on the canvas and disappears from
-published output.
+HTML are rejected, as are protocol-relative and slash-backslash URL forms. CTA anchors remain
+semantic but cannot navigate on the builder canvas. Missing video media shows setup guidance only on
+the canvas and disappears from published output.
 
 ## Responsive, RTL, and content guidance
 
 Container queries activate the split layout only when the block itself is wide enough. Logical
-ordering and alignment support RTL. Keep the poster representative, compress video for the web,
-provide captions for speech and meaningful audio, and put a transcript near the section when the
-video contains information not covered by the surrounding copy.
+ordering and alignment support RTL. A published split section with no media collapses to one copy
+column. Keep the poster representative, compress video for the web, provide captions for speech and
+meaningful audio, and put a transcript near the section when the video contains information not
+covered by the surrounding copy.
 
 ## Example
 

@@ -15,6 +15,7 @@ const meta = {
   title: 'Builder/Shadcn/Avatar Group',
   component: AvatarGroup,
   parameters: { layout: 'centered' },
+  tags: ['autodocs'],
 } satisfies Meta<typeof AvatarGroup>;
 
 export default meta;
@@ -53,7 +54,7 @@ export const CompactCustomers: Story = {
 export const Empty: Story = {
   args: {
     node: { ...node, id: 'avatar-group-empty' },
-    props: avatarGroupSchema.props.parse({ groupLabel: 'No people yet' }),
+    props: avatarGroupSchema.props.parse({ groupLabel: 'No people yet', people: [] }),
     slots: {},
     data: {},
     isCanvas: true,

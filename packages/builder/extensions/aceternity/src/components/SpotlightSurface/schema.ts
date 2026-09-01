@@ -30,7 +30,17 @@ const SPOTLIGHT_CHILDREN = [
   'marquee',
   'card',
   'shineBorder',
+  'badge',
+  'shadcnAlert',
+  'tabs',
+  'separator',
+  'avatarGroup',
+  'progress',
+  'breadcrumbs',
+  'dialog',
+  'pagination',
   'button',
+  'shimmerButton',
 ] as const;
 
 export const spotlightSurfaceSchema = defineBlockSchema({

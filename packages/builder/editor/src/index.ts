@@ -102,9 +102,30 @@ export {
   auroraBackgroundSchema,
   cloudShaderSchema,
   spotlightSurfaceSchema,
+  type AuroraBackgroundProps,
+  type CloudShaderProps,
+  type SpotlightSurfaceProps,
 } from '@craftkit/builder-aceternity';
-export { builderMagicUi, marqueeSchema, shineBorderSchema } from '@craftkit/builder-magicui';
-export { builderPrimitives } from '@craftkit/builder-primitives';
+export {
+  builderMagicUi,
+  dotPatternSurfaceSchema,
+  marqueeItemSchema,
+  marqueeSchema,
+  shimmerButtonSchema,
+  shineBorderSchema,
+  type DotPatternSurfaceProps,
+  type MarqueeItem,
+  type MarqueeProps,
+  type ShimmerButtonProps,
+  type ShineBorderProps,
+} from '@craftkit/builder-magicui';
+export {
+  accordionItemSchema,
+  accordionSchema,
+  builderPrimitives,
+  type AccordionItemProps,
+  type AccordionProps,
+} from '@craftkit/builder-primitives';
 export {
   builderShadcn,
   avatarGroupSchema,
@@ -122,10 +143,15 @@ export {
   type AvatarGroupProps,
   type BreadcrumbsProps,
   type ButtonProps,
+  type BadgeProps,
+  type CardProps,
   type DialogProps,
   type PaginationProps,
   type ProgressProps,
   type SeparatorProps,
+  type ShadcnAlertProps,
+  type TabPanelProps,
+  type TabsProps,
 } from '@craftkit/builder-shadcn';
 
 export {
@@ -292,6 +318,7 @@ export {
   richText,
   type Author,
   type BlockRenderProps,
+  type BlockSlotChildMetadata,
   type BlockSchema,
   type Breakpoint,
   type BuilderDocument,
@@ -311,6 +338,7 @@ export {
   type Node,
   type NodeId,
   type RichTextDoc,
+  type SlotDecl,
   type SlotName,
   type Surface,
   type Transaction,

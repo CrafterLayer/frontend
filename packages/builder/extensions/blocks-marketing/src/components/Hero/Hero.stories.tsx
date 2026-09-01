@@ -675,9 +675,10 @@ export const UnthemedPublishContract: Story = {
     const root = within(canvasElement).getByTestId('unthemed');
     const section = root.querySelector('section');
     const content = root.querySelector<HTMLElement>('[data-mkt-part="content"]');
+    const copy = root.querySelector<HTMLElement>('[data-mkt-part="copy"]');
     const actions = root.querySelector<HTMLElement>('[data-mkt-part="actions"]');
-    if (section === null || content === null || actions === null) {
-      throw new Error('Expected the hero to render its section, column and action row');
+    if (section === null || content === null || copy === null || actions === null) {
+      throw new Error('Expected the hero to render its section, column, copy stack and action row');
     }
 
     await step('the tokens really are gone', async () => {
@@ -700,7 +701,14 @@ export const UnthemedPublishContract: Story = {
       await expect(style.maxWidth).not.toBe('none');
       await expect(Number.parseFloat(style.maxWidth)).toBeGreaterThan(0);
       await expect(Number.parseFloat(style.paddingInlineStart)).toBeGreaterThan(0);
-      await expect(Number.parseFloat(style.rowGap)).toBeGreaterThan(0);
+      /*
+        The rhythm between eyebrow, headline, body and actions lives on the
+        COPY stack (`gap-6`), not on the outer column, which holds a single
+        child and has never had a gap. This step used to read `rowGap` off
+        `content`, got `normal`, parsed it to NaN, and failed on every Chromium
+        run — a stale story, not a collapsed page. Measured where the gap is.
+      */
+      await expect(Number.parseFloat(getComputedStyle(copy).rowGap)).toBeGreaterThan(0);
     });
 
     await step('the buttons are not touching', async () => {

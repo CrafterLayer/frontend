@@ -1,6 +1,8 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { AiContextProvider, ClockPort, NodeId } from '@craftkit/builder-schema';
 
+import type { AiCompositionPolicy } from '../context/composition-policy';
+
 import type { AppliedAiPlan } from '../plan/apply-plan';
 import type { AiValidatedProposal } from '../plan/validated-proposal';
 import type { AiRunFailure } from './errors';
@@ -42,6 +44,15 @@ export interface RunAiAgentOptions {
   skillRegistry?: AiSkillRegistry;
   selectedSkillIds?: readonly string[];
   policy?: Partial<AiAgentPolicy>;
+  /**
+   * How much of the registry this run may see, and how strictly the classes it
+   * writes are policed. Forwarded verbatim to `generateAiPlan`.
+   *
+   * Present here because a run that could not choose was a run stuck with the
+   * most expensive catalog: the policy existed and the bounded runner — the
+   * canonical path every real host takes — had no way to pass it.
+   */
+  composition?: AiCompositionPolicy;
   apply?: 'never' | 'auto';
   label?: string;
   signal?: AbortSignal;

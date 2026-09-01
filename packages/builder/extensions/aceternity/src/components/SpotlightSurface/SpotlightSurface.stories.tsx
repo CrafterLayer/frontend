@@ -17,7 +17,6 @@ const content = (
 const meta = {
   title: 'Builder/Aceternity/SpotlightSurface',
   component: SpotlightSurface,
-  tags: ['autodocs'],
   args: {
     node,
     props: spotlightSurfaceSchema.props.parse({ minHeight: 'compact' }),

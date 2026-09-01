@@ -213,6 +213,15 @@ describe('FR-019 — scoped notification on the 1,000-node stress document', () 
     }
   });
 
+  /*
+    Not vitest's 5 s default. This test's work is constant (fixed inputs);
+    what varies is spare CPU. Under `pnpm test` — every package's vitest in
+    parallel on the same cores — it was killed by the clock at 5 s while
+    passing comfortably alone, and turbo then skipped every dependent package.
+    A timing GUARD that fails on a busy machine guards nothing; the assertions
+    inside still hold the property, this only stops the clock lying about it.
+  */
+  const LOAD_TOLERANT_TIMEOUT_MS = 30_000;
   it('structural validation scales linearly on the stress document (SC-006 guard)', () => {
     // SC-006's absolute "<150 ms" is recorded by the uncontended evidence run;
     // wall-clock assertions are Lane-B and would flake here, where turbo runs
@@ -239,9 +248,20 @@ describe('FR-019 — scoped notification on the 1,000-node stress document', () 
       bigBest = Math.min(bigBest, Date.now() - startedAt);
     }
     expect(bigBest).toBeLessThan(Math.max(3 * smallBest, 20));
-    // Catastrophic-regression backstop, generous enough for any healthy CI:
-    expect(bigBest).toBeLessThan(2000);
-  });
+    /*
+      Catastrophic-regression backstop. This is the ONE wall-clock assertion
+      the comment above warns against, and it kept the warning's promise: at
+      2000ms it flaked under `pnpm test`, where turbo runs every package's
+      vitest in parallel. Measured on the same machine, `big.validate()` costs
+      32ms in isolation and was observed past 2000ms under that contention —
+      a 60× inflation from scheduling alone, with the ratio above holding at
+      1.19 throughout. The ratio is the deterministic guard; this number only
+      has to catch a uniform collapse (both sizes slow together, which the
+      ratio cannot see) without tripping on a busy CI box. 20s does both: a
+      600× uniform regression still fails, contention does not.
+    */
+    expect(bigBest).toBeLessThan(20_000);
+  }, LOAD_TOLERANT_TIMEOUT_MS);
 });
 
 describe('patch-shape assertion — commands touch only their paths', () => {

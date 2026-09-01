@@ -1,6 +1,7 @@
 import {
   blocksMarketing,
   builderAceternity,
+  builderCustomCode,
   builderMagicUi,
   builderPrimitives,
   builderShadcn,
@@ -760,6 +761,7 @@ export function createPlaygroundKernel(
             builderPrimitives,
             builderAceternity,
             builderMagicUi,
+            builderCustomCode,
             builderShadcn,
             richTextExtension,
             codeViewExtension,
@@ -771,6 +773,7 @@ export function createPlaygroundKernel(
             builderPrimitives,
             builderAceternity,
             builderMagicUi,
+            builderCustomCode,
             builderShadcn,
             richTextExtension,
             codeViewExtension,

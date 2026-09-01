@@ -2,6 +2,15 @@ import tailwindcss from '@tailwindcss/vite';
 import type { StorybookConfig } from '@storybook/react-vite';
 
 const config = {
+  /*
+    Docs pages: every component with a `*.docs.mdx` attaches it with
+    `<Meta of={Stories} />`, and that MDX IS the component's docs page. Such a
+    stories file must NOT also carry `tags: ['autodocs']` — Storybook 10's
+    indexer refuses the pair as a duplicate docs entry ("You created a
+    component docs page … but also tagged the CSF file with 'autodocs'"), and
+    one such pair failed this app's test task on every run. Keep `autodocs`
+    only on a stories file that has no attached MDX.
+  */
   stories: [
     '../../../packages/ui/src/**/*.stories.@(js|jsx|mjs|ts|tsx)',
     '../../../packages/ui/src/**/*.docs.mdx',

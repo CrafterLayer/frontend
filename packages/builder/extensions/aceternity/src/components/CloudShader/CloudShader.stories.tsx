@@ -18,7 +18,6 @@ const content = (
 const meta = {
   title: 'Builder/Aceternity/CloudShader',
   component: CloudShader,
-  tags: ['autodocs'],
   args: { node, slots: { default: content }, data: {}, isCanvas: false },
 } satisfies Meta<typeof CloudShader>;
 

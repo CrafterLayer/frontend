@@ -444,6 +444,15 @@ describe('US2 — extension lifecycle', () => {
     expect(kernel.context.registry.block('blk-boom')).toBeUndefined();
   });
 
+  /*
+    Not vitest's 5 s default. This test's work is constant (fixed inputs);
+    what varies is spare CPU. Under `pnpm test` — every package's vitest in
+    parallel on the same cores — it was killed by the clock at 5 s while
+    passing comfortably alone, and turbo then skipped every dependent package.
+    A timing GUARD that fails on a busy machine guards nothing; the assertions
+    inside still hold the property, this only stops the clock lying about it.
+  */
+  const LOAD_TOLERANT_TIMEOUT_MS = 30_000;
   it('scenario 4 (SC-005): lookup cost stays flat from 10 to 1,000 contributions', () => {
     const kernel = testKernel();
     for (let index = 0; index < 10; index += 1) {
@@ -467,5 +476,5 @@ describe('US2 — extension lifecycle', () => {
     // Map-backed lookups: generous ceiling, catches accidental O(n) scans.
     expect(bigCatalog / smallCatalog).toBeLessThan(5);
     expect(kernel.context.registry.block('b-500')).toBeDefined();
-  });
+  }, LOAD_TOLERANT_TIMEOUT_MS);
 });

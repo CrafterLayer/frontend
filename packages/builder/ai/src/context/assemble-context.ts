@@ -37,6 +37,12 @@ import type {
 } from '../types';
 import type { AiPreparedSkillContext } from '../skills';
 import { canonicalJsonStringify, estimateCanonicalJsonTokens } from '../internal/canonical-json';
+import {
+  blockIsInCatalogScope,
+  resolveAiCompositionPolicy,
+  type AiCompositionPolicy,
+  type ResolvedAiCompositionPolicy,
+} from './composition-policy';
 
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
 
@@ -338,26 +344,59 @@ function documentNode(node: Node): AiDocumentNodeContext {
   };
 }
 
-function collectBlocks(ctx: AiContextReadApi): readonly AiBlockContext[] {
+type RegistryBlockEntry = ReturnType<AiContextReadApi['registry']['blocks']>[number];
+
+/**
+ * Identity only: what the block IS called and what it is FOR. Always present,
+ * in every mode — this is the vocabulary, and a name the model never sees is a
+ * block it can never ask for.
+ */
+function blockIndexEntry(entry: RegistryBlockEntry): AiBlockContext {
+  return {
+    type: entry.type,
+    description: entry.description,
+  };
+}
+
+/** Identity plus everything needed to actually author the block's props. */
+function blockDetailEntry(entry: RegistryBlockEntry): AiBlockContext {
+  const propertyIntents = propertyIntentSummary(entry.propertyGroups);
+  return {
+    ...blockIndexEntry(entry),
+    propsSchema: cloneJson(entry.propsSchema),
+    ...(propertyIntents === undefined ? {} : { propertyIntents }),
+    examples: entry.examples.map((example) => ({
+      prompt: example.prompt,
+      node: cloneJson(example.node),
+    })),
+    slots: entry.slots.map((slot) => ({
+      name: slot.name,
+      allow: [...slot.allow],
+      ...(slot.max === undefined ? {} : { max: slot.max }),
+    })),
+  };
+}
+
+/**
+ * The catalog, at the cost the run asked for.
+ *
+ * The sort is not cosmetic and must stay outside the mode branch: a stable
+ * type order is what lets an unchanged registry serialize to identical bytes
+ * across requests, and identical bytes are the precondition for caching the
+ * prompt prefix. Sorting inside a branch would work today and silently stop
+ * working the first time a mode forgot it.
+ */
+function collectBlocks(
+  ctx: AiContextReadApi,
+  policy: ResolvedAiCompositionPolicy,
+): readonly AiBlockContext[] {
   return ctx.registry
     .blocks(ctx.surface)
-    .map((entry) => {
-      const propertyIntents = propertyIntentSummary(entry.propertyGroups);
-      return {
-        type: entry.type,
-        description: entry.description,
-        propsSchema: cloneJson(entry.propsSchema),
-        ...(propertyIntents === undefined ? {} : { propertyIntents }),
-        examples: entry.examples.map((example) => ({
-          prompt: example.prompt,
-          node: cloneJson(example.node),
-        })),
-        slots: entry.slots.map((slot) => ({
-          name: slot.name,
-          allow: [...slot.allow],
-          ...(slot.max === undefined ? {} : { max: slot.max }),
-        })),
-      };
+    .flatMap((entry) => {
+      if (blockIsInCatalogScope(policy, entry.type)) return [blockDetailEntry(entry)];
+      // `none` states nothing about a block the run did not ask for — not
+      // even its name. The model composes; it does not choose from a list.
+      return policy.catalogMode === 'none' ? [] : [blockIndexEntry(entry)];
     })
     .sort((left, right) => compareText(left.type, right.type));
 }
@@ -434,7 +473,15 @@ export const blockCatalogContextProvider: AiContextProvider = {
         trust: 'builtin',
         title: 'Registered block vocabulary',
       },
-      collectBlocks(ctx),
+      /*
+        The standalone provider has no run to read a policy from, so it states
+        the whole vocabulary. It is also never the path that costs: built-ins
+        are recognised by `additiveContextProviders` and never become
+        fragments — `assembleAiContext` reads their structured form directly,
+        under the run's policy. This branch exists for a host that collects the
+        provider by itself.
+      */
+      collectBlocks(ctx, resolveAiCompositionPolicy(undefined)),
     );
   },
 };
@@ -501,6 +548,11 @@ export interface AssembleAiContextOptions {
   allowedCommands?: readonly string[];
   /** Prepared per-request skill data; no ambient global activation state. */
   skillContext?: AiPreparedSkillContext;
+  /**
+   * How much of the registry crosses the wire this run. Omitted ⇒ the full
+   * catalog, exactly as before this option existed.
+   */
+  composition?: AiCompositionPolicy;
 }
 
 const BUILTIN_CONTEXT_PROVIDERS = new Map(
@@ -541,6 +593,7 @@ export function assembleAiContext(
   options: AssembleAiContextOptions = {},
 ): AssembledAiContext {
   const readCtx = createAiContextReadApi(ctx);
+  const composition = resolveAiCompositionPolicy(options.composition);
   const selection = Object.freeze([...(options.selection ?? readCtx.store.getState().selection)]);
   const additions = Object.freeze([
     ...(options.providers ?? []),
@@ -610,7 +663,7 @@ export function assembleAiContext(
   const base = {
     fragments,
     totalTokens: fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
-    blocks: collectBlocks(readCtx),
+    blocks: collectBlocks(readCtx, composition),
     templates: collectTemplates(readCtx),
     document: collectDocument(readCtx),
     selection: collectSelection(readCtx, selection),

@@ -44,6 +44,42 @@ describe('dispatchGroup', () => {
     expect(k.getDocument().nodes['hero1']?.props['heading']).toBe('Grouped');
   });
 
+  /*
+    The uSES ordering, for the GROUPED door (003 contract §15).
+
+    `store.write` is the observable moment, and React's `useSyncExternalStore`
+    reads its snapshot SYNCHRONOUSLY inside the notification. A subscriber that
+    derives from the log — `transactions().length` is the real case — must
+    already see this transaction by then. Record after notifying and the
+    change-check bails out, leaving the view one event behind FOREVER rather
+    than merely late; nothing later re-notifies to repair it.
+
+    Grouped dispatch shares `commit()` with single dispatch today, so this is
+    also the test that notices if the group path ever grows its own commit.
+  */
+  it('has already logged and recorded the group by the time subscribers are notified', () => {
+    const k = kernel();
+    const seen: { transactions: number; canUndo: boolean; heading: unknown }[] = [];
+
+    const unsubscribe = k.context.store.subscribe(() => {
+      seen.push({
+        transactions: k.transactions().length,
+        canUndo: k.canUndo(),
+        heading: k.getDocument().nodes['hero1']?.props['heading'],
+      });
+    });
+
+    expect(k.transactions()).toHaveLength(0);
+    k.dispatchGroup([...THREE_STEPS], { author: 'ai', label: 'Grouped write' });
+    unsubscribe();
+
+    expect(seen).not.toHaveLength(0);
+    /* One notification, and the log/history/document all agree inside it. */
+    expect(seen[0]?.transactions).toBe(1);
+    expect(seen[0]?.canUndo).toBe(true);
+    expect(seen[0]?.heading).toBe('Grouped');
+  });
+
   it('is atomic: a failing middle step leaves document, log, and history untouched', () => {
     const k = kernel();
     const before = structuredClone(k.getDocument());

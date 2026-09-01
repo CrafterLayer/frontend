@@ -18,7 +18,6 @@ const footer = (
 const meta = {
   title: 'Builder/Shadcn/Card',
   component: Card,
-  tags: ['autodocs'],
   args: { node, slots: { default: body }, data: {}, isCanvas: false },
 } satisfies Meta<typeof Card>;
 

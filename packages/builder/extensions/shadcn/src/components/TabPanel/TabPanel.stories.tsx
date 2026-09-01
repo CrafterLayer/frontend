@@ -11,7 +11,6 @@ const node: Node = { id: 'monthly', type: 'tabPanel', props: {} };
 const meta = {
   title: 'Builder/Shadcn/TabPanel',
   component: TabPanel,
-  tags: ['autodocs'],
   /*
     Radix's Content asserts it is inside a Root — correctly, since a panel with
     no strip has nothing to be controlled by. The decorator is the real

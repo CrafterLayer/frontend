@@ -37,6 +37,7 @@
     "@craftkit/builder-blocks-marketing": "workspace:*",
     "@craftkit/builder-code-view": "workspace:*",
     "@craftkit/builder-core": "workspace:*",
+    "@craftkit/builder-custom-code": "workspace:*",
     "@craftkit/builder-magicui": "workspace:*",
     "@craftkit/builder-motion": "workspace:*",
     "@craftkit/builder-primitives": "workspace:*",

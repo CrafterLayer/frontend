@@ -9,6 +9,13 @@ export {
 } from './components/DocumentView';
 export { StaticDocument, type StaticDocumentProps } from './components/StaticDocument';
 export { UnknownBlock, type UnknownBlockProps } from './components/UnknownBlock';
+export {
+  CustomCode,
+  CustomCodeRegistryContext,
+  useCustomCodeBlockLookup,
+  type CustomCodeBlockLookup,
+  type CustomCodeProps,
+} from './components/CustomCode';
 export { renderStaticMarkup, type RenderStaticOptions } from './render-static-markup';
 
 export { resolveResponsiveProps, type RenderBreakpoint } from './resolve/responsive';

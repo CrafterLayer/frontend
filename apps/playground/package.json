@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite --open",
+    "generate:vocabulary": "node --experimental-strip-types scripts/generate-ai-vocabulary.mjs",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",

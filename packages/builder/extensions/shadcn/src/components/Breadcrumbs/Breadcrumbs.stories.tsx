@@ -11,7 +11,6 @@ const node: Node = { id: 'breadcrumbs-story', type: 'breadcrumbs', props: {} };
 const meta = {
   title: 'Builder/Shadcn/Breadcrumbs',
   component: Breadcrumbs,
-  tags: ['autodocs'],
   parameters: { layout: 'padded' },
   args: {
     node,

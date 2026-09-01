@@ -1,6 +1,6 @@
 /**
  * Href sanitization (008 contract §2 r2). Allowlist, never blocklist: http(s),
- * mailto, and clearly relative paths pass; EVERYTHING else — javascript:,
+ * mailto, tel, and clearly relative paths pass; EVERYTHING else — javascript:,
  * data:, vbscript:, control-character/whitespace smuggling, protocol-relative
  * "//evil" — is neutralized (undefined ⇒ the link renders as plain text).
  */
@@ -24,7 +24,13 @@ export function safeHref(href: string): string | undefined {
   if (href === '') {
     return undefined;
   }
-  if (/^(?:https?:|mailto:)/i.test(href)) {
+  /*
+    `tel:` joined the allowlist with the free-composition work: a CV or a
+    contact section links a phone number, and the scheme carries no script
+    surface — the whitespace/control-character refusal above already keeps
+    it to a plain number.
+  */
+  if (/^(?:https?:|mailto:|tel:)/i.test(href)) {
     return href;
   }
   if (href.startsWith('//')) {

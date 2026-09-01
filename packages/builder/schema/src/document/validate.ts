@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type { BlockSchema } from '../blocks/define-block-schema';
 import { findRawStyleLiterals } from '../blocks/style-values';
+import { isCustomCodeTreeSchema, isCustomCssSchema } from '../custom-code/custom-code-tree';
 import { type BuilderError, builderError } from '../errors';
 import { RESERVED_JSON_KEYS, findJsonViolation, type JsonValue } from '../json/json-value';
 import { BREAKPOINTS, type BuilderDocument, type Node, type NodeId } from './types';
@@ -279,7 +280,7 @@ function validateAgainstRegistry(
 
     validateSlotsAgainstSchema(doc, key, node, schema, errors);
     validatePropsAgainstSchema(key, node, schema, errors);
-    validateStyleLaw(key, node, errors);
+    validateStyleLaw(key, node, stylePropsExemptFromLaw(lookup(node.type)), errors);
   }
 }
 
@@ -369,7 +370,43 @@ function validatePropsAgainstSchema(
   }
 }
 
-function validateStyleLaw(key: string, node: Node, errors: BuilderError[]): void {
+/**
+ * Props the intent-only law does not apply to.
+ *
+ * The law exists so a registered block's props hold ROLES the site can
+ * re-theme — `bg-accent`, not `#1e3a8a`. Two kinds of prop are authored
+ * values by their nature and were never meant to be governed by it:
+ *
+ * - a stylesheet (`customCss()`): CSS is made of colour codes and lengths;
+ *   a stylesheet with none of them is a stylesheet that cannot say anything;
+ * - a composed region (`customCodeTree()`): its text may say "Ticket #ff0",
+ *   and its classes are policed by the AI door's own vocabulary law.
+ *
+ * Recognised by the DECLARATION marker, never by prop name — the rule every
+ * marker in this package follows — so a block that names its stylesheet
+ * `styles` is exempt and one that names a plain string `css` is not.
+ *
+ * This was found on the first live run: the assistant's stylesheet held a hex
+ * colour, this law refused the whole plan, and the assistant retreated to
+ * tokens the person had not asked for.
+ */
+function stylePropsExemptFromLaw(schema: BlockSchema | undefined): ReadonlySet<string> {
+  if (schema === undefined) return new Set();
+  const shape = (schema.props._zod.def as { shape?: Record<string, z.ZodType> }).shape;
+  if (shape === undefined) return new Set();
+  return new Set(
+    Object.entries(shape)
+      .filter(([, field]) => isCustomCssSchema(field) || isCustomCodeTreeSchema(field))
+      .map(([name]) => name),
+  );
+}
+
+function validateStyleLaw(
+  key: string,
+  node: Node,
+  exempt: ReadonlySet<string>,
+  errors: BuilderError[],
+): void {
   const scopes: [string, JsonValue][] = [['props', node.props]];
   for (const [breakpoint, override] of Object.entries(node.responsive ?? {})) {
     scopes.push([`responsive.${breakpoint}`, override]);
@@ -377,6 +414,8 @@ function validateStyleLaw(key: string, node: Node, errors: BuilderError[]): void
 
   for (const [scope, value] of scopes) {
     for (const hit of findRawStyleLiterals(value)) {
+      const prop = hit.path[0];
+      if (typeof prop === 'string' && exempt.has(prop)) continue;
       errors.push(
         builderError(
           'doc/raw-style-literal',

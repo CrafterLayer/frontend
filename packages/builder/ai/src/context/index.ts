@@ -9,6 +9,13 @@ export {
   templateCatalogContextProvider,
   type AssembleAiContextOptions,
 } from './assemble-context';
+export {
+  blockIsInCatalogScope,
+  resolveAiCompositionPolicy,
+  type AiCatalogMode,
+  type AiCompositionPolicy,
+  type ResolvedAiCompositionPolicy,
+} from './composition-policy';
 export { builderAiContextExtension } from './manifest';
 export {
   AI_MEMORY_MAX_COMMAND_NAME_LENGTH,

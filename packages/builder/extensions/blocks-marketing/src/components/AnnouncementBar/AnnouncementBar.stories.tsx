@@ -17,7 +17,6 @@ const meta = {
   title: 'Builder/Blocks/Announcement Bar',
   component: AnnouncementBar,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof AnnouncementBar>;
 
 export default meta;

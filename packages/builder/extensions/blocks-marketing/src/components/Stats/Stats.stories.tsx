@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Blocks/Stats',
   component: Stats,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof Stats>;
 
 export default meta;

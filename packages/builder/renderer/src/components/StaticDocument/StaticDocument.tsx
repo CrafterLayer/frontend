@@ -4,6 +4,7 @@ import type { BuilderDocument, RegisteredBlock } from '@craftkit/builder-schema'
 
 import type { RenderBreakpoint } from '../../resolve/responsive';
 import { type Theme, tokenCssName } from '../../resolve/theme';
+import { CustomCodeRegistryContext } from '../CustomCode';
 import { StaticNode } from './StaticNode';
 
 export interface StaticDocumentProps {
@@ -62,8 +63,16 @@ export function StaticDocument({
   breakpoint = 'desktop',
   theme,
 }: StaticDocumentProps) {
+  /*
+    The same `blocks` lookup this path already takes IS what a custom-code
+    tree needs to resolve a component reference — which is why the context
+    carries a lookup function rather than a kernel. Publishing therefore
+    resolves references identically to the canvas, with no kernel present.
+  */
   const tree = (
-    <StaticNode document={document} id={document.rootId} blocks={blocks} breakpoint={breakpoint} />
+    <CustomCodeRegistryContext.Provider value={blocks}>
+      <StaticNode document={document} id={document.rootId} blocks={blocks} breakpoint={breakpoint} />
+    </CustomCodeRegistryContext.Provider>
   );
 
   if (theme === undefined) {

@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Blocks/Process Steps',
   component: ProcessSteps,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof ProcessSteps>;
 
 export default meta;

@@ -31,14 +31,31 @@ export interface AiBlockPropertyIntentContext {
   kinds: Readonly<Partial<Record<BlockPropertyKind, readonly string[]>>>;
 }
 
+/**
+ * One registered block as the model sees it.
+ *
+ * `type` and `description` are the IDENTITY and always present: a mode that
+ * hid them would hide the block's existence, and a vocabulary the model cannot
+ * name is a block that may as well not be registered.
+ *
+ * Everything below them is DETAIL, and detail is what costs. Measured on the
+ * playground's landing fixture, the 54-block catalog serialized to 57,851 of
+ * the request's 61,578 tokens — 94% — because every block shipped its full
+ * JSON Schema, examples, and slot table whether or not the request touched it.
+ * The detail fields are therefore optional, present exactly when the run's
+ * `AiCatalogMode` says this block is in scope. Read them with a guard.
+ */
 export interface AiBlockContext {
   type: string;
   description: string;
-  propsSchema: JsonValue;
+  /** Present in `full` mode, and in `scoped` mode for the scoped types. */
+  propsSchema?: JsonValue;
   /** Declared design/Inspector intent grouped to avoid repeating section chrome on the wire. */
   propertyIntents?: AiBlockPropertyIntentContext;
-  examples: readonly AiBlockExampleContext[];
-  slots: readonly AiBlockSlotContext[];
+  /** Present in `full` mode, and in `scoped` mode for the scoped types. */
+  examples?: readonly AiBlockExampleContext[];
+  /** Present in `full` mode, and in `scoped` mode for the scoped types. */
+  slots?: readonly AiBlockSlotContext[];
 }
 
 export interface AiDocumentNodeContext {

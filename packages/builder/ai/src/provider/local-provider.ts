@@ -164,7 +164,7 @@ function scoreBlock(block: AiBlockContext, request: string): number {
   for (const key of Object.keys(schemaProperties(block))) {
     score += overlapScore(requestWords, key, 8);
   }
-  for (const example of block.examples) {
+  for (const example of block.examples ?? []) {
     score += overlapScore(requestWords, example.prompt, 6);
   }
   return score;
@@ -188,7 +188,13 @@ function findInsertionTarget(
     if (parent === undefined || parentBlock === undefined) {
       continue;
     }
-    for (const slot of parentBlock.slots) {
+    /*
+      A catalog assembled in `index`/`scoped` mode states the parent's identity
+      without its slot table. This provider cannot invent a legal destination
+      from a name, so an un-detailed parent is simply not a candidate — the
+      search moves on rather than proposing an insertion the door would reject.
+    */
+    for (const slot of parentBlock.slots ?? []) {
       const occupancy = parent.slots[slot.name]?.length ?? 0;
       if (slot.allow.includes(childType) && (slot.max === undefined || occupancy < slot.max)) {
         return { parentId, slot: slot.name };
@@ -275,7 +281,7 @@ function propsFromBestExample(
   block: AiBlockContext,
   requestWords: ReadonlySet<string>,
 ): Record<string, JsonValue> {
-  const ranked = block.examples
+  const ranked = (block.examples ?? [])
     .map((example, index) => ({ example, index, score: exampleScore(example, requestWords) }))
     .sort((left, right) => right.score - left.score || left.index - right.index);
 

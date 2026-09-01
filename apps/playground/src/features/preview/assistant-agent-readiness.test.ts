@@ -18,7 +18,13 @@ const DUPLICATED_BUILTIN_FRAGMENT_SOURCES = new Set([
   'craftkit.document-shape',
   'craftkit.selection',
 ]);
-const LANDING_BLOCK_COUNT = 54;
+/*
+  55 since the free-composition block (`customCode`) joined the registry: the
+  count is asserted rather than derived so that a pack silently failing to
+  register shows up here as a number, not as an assistant that quietly stops
+  offering half the catalog.
+*/
+const LANDING_BLOCK_COUNT = 55;
 const LANDING_NODE_COUNT = 27;
 
 async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'empty'>) {

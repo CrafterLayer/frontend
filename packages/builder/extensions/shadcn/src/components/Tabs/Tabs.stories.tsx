@@ -35,7 +35,13 @@ const panelMetadata = [
 const meta = {
   title: 'Builder/Shadcn/Tabs',
   component: Tabs,
-  tags: ['autodocs'],
+  /*
+    No `autodocs` tag: `Tabs.docs.mdx` is attached to this file with
+    `<Meta of={TabsStories} />` and IS the docs page. Storybook's indexer
+    refused the pair ("You created a component docs page … but also tagged the
+    CSF file with 'autodocs'"), which failed the storybook test task on every
+    run. One docs page per component; the authored one wins.
+  */
   args: {
     node,
     slots: { default: panels },

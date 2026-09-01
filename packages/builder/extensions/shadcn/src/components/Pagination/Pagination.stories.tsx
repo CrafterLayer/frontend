@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/shadcn/Pagination',
   component: Pagination,
   parameters: { layout: 'padded' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof Pagination>;
 
 export default meta;

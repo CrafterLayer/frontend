@@ -119,6 +119,32 @@ export {
   type ShimmerButtonProps,
   type ShineBorderProps,
 } from '@craftkit/builder-magicui';
+/*
+  Free composition: the block, the CSS door it shares with the page root, and
+  the utility vocabulary. The vocabulary is exported because it is the SOURCE
+  the application's Tailwind directives are generated from — an app that cannot
+  import it would have to restate the list, which is the drift this design
+  exists to prevent.
+*/
+export {
+  CUSTOM_CLASS_PREFIX,
+  UTILITY_VOCABULARY,
+  expandUtilityPattern,
+  isCustomHookClass,
+  unknownUtilityClasses,
+  utilitySourceDirectives,
+  utilityVocabulary,
+  type UtilityPattern,
+} from '@craftkit/builder-schema';
+export {
+  builderCustomCode,
+  customCodeSchema,
+  findCssRejection,
+  scopeCustomCodeCss,
+  type CssRejection,
+  type CustomCodeBlockProps,
+  type CustomCodeCssPolicy,
+} from '@craftkit/builder-custom-code';
 export {
   accordionItemSchema,
   accordionSchema,

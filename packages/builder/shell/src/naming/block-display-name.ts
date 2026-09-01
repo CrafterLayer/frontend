@@ -31,6 +31,40 @@ export function displayNameForBlockType(type: string): string {
     .join(' ');
 }
 
+/**
+ * The maximum length of an instance label before it is elided.
+ *
+ * A layers row is one line. A label the schema permits at 80 characters would
+ * push the node id out of view, and the id is what a person falls back to when
+ * two rows read alike.
+ */
+const MAX_INSTANCE_LABEL = 32;
+
+/**
+ * A node's own name, when it carries one.
+ *
+ * Most blocks are identified perfectly well by their TYPE — a page holds one
+ * hero and one pricing table, and "Hero" says everything. Some do not: a page
+ * of four freely composed regions reads as "Custom Code" four times, which
+ * names the mechanism and hides the content. Those blocks declare a `label`
+ * prop, and this is where it wins.
+ *
+ * Read by convention rather than by a schema flag deliberately: the prop is
+ * already declared, already validated, and already shown in the Inspector, so
+ * a second declaration saying "and it is the display name" would be a fact
+ * stated twice. Any block gaining a `label: string` prop gets this behaviour
+ * for free, which is the intended contract.
+ */
+function instanceLabel(kernel: BuilderKernel, nodeId: NodeId): string | undefined {
+  const label = kernel.getDocument().nodes[nodeId]?.props['label'];
+  if (typeof label !== 'string') return undefined;
+  const trimmed = label.trim();
+  if (trimmed === '') return undefined;
+  return trimmed.length > MAX_INSTANCE_LABEL
+    ? `${trimmed.slice(0, MAX_INSTANCE_LABEL - 1)}…`
+    : trimmed;
+}
+
 export function blockDisplayName(kernel: BuilderKernel, nodeId: NodeId): string {
   const type = kernel.getDocument().nodes[nodeId]?.type;
   if (type === undefined) {
@@ -42,5 +76,5 @@ export function blockDisplayName(kernel: BuilderKernel, nodeId: NodeId): string 
     // registry knowledge and make the missing registration harder to diagnose.
     return type;
   }
-  return displayNameForBlockType(type);
+  return instanceLabel(kernel, nodeId) ?? displayNameForBlockType(type);
 }

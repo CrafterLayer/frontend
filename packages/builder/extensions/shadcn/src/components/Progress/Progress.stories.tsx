@@ -11,7 +11,6 @@ const node: Node = { id: 'progress-story', type: 'progress', props: {} };
 const meta = {
   title: 'Builder/Shadcn/Progress',
   component: Progress,
-  tags: ['autodocs'],
   parameters: { layout: 'padded' },
   args: {
     node,

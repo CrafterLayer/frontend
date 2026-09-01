@@ -1,7 +1,12 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { AiContextProvider, NodeId } from '@craftkit/builder-schema';
 
-import { assembleAiContext, type AssembleAiContextOptions } from '../context';
+import {
+  assembleAiContext,
+  resolveAiCompositionPolicy,
+  type AiCompositionPolicy,
+  type AssembleAiContextOptions,
+} from '../context';
 import { isAiProviderError } from '../provider/errors';
 import {
   AI_PLAN_WIRE_VERSION,
@@ -50,6 +55,12 @@ export interface GenerateAiPlanOptions {
   maxSkillTokens?: number;
   /** Hard bound over the complete serialized provider context. */
   maxContextTokens?: number;
+  /**
+   * How much of the block registry this run may see. Omitted ⇒ the full
+   * catalog. With `catalogMode: 'scoped'` and no explicit type list, the scope
+   * is the selection's own block types — "the block the user pointed at".
+   */
+  composition?: AiCompositionPolicy;
   /** Session restrictions are intersected with the registry and active skills. */
   policy?: Partial<AiCommandPolicy>;
 }
@@ -101,7 +112,34 @@ function contextOptions(
   if (skillContext !== undefined) {
     context.skillContext = skillContext;
   }
+  const composition = compositionPolicy(options);
+  if (composition !== undefined) {
+    context.composition = composition;
+  }
   return context;
+}
+
+/**
+ * Resolve the run's catalog policy, filling in the one thing the caller should
+ * never have to restate: WHICH types are in scope.
+ *
+ * A host asking for `'scoped'` means "the block the user is holding". That set
+ * is already derivable here from the selection, and deriving it here is what
+ * keeps the two from disagreeing — a host that computed its own list would
+ * drift from the selection the same request was assembled against.
+ * An explicit `scopedBlockTypes` still wins, for hosts that scope by something
+ * other than selection.
+ */
+function compositionPolicy(options: GenerateAiPlanOptions): AiCompositionPolicy | undefined {
+  const requested = options.composition;
+  if (requested === undefined) return undefined;
+  // `scoped` and `none` both mean "the blocks the person put in front of me";
+  // the selection is where those blocks are.
+  const derivesFromSelection = requested.catalogMode === 'scoped' || requested.catalogMode === 'none';
+  if (!derivesFromSelection || requested.scopedBlockTypes !== undefined) {
+    return requested;
+  }
+  return { ...requested, scopedBlockTypes: selectedBlockTypes(options) };
 }
 
 function selectedBlockTypes(options: GenerateAiPlanOptions): readonly string[] {
@@ -218,7 +256,13 @@ async function repairAiPlanOnce(
   assertWireRequestBudget(wireRequest(options, context, attempt), maxContextTokens);
   const candidate = await repair(options.request, context, attempt.plan, attempt.issues, live);
   throwIfAborted(options.signal);
-  const repaired = validateAiPlan(candidate, options.kernel, options.validationPorts, policy);
+  const repaired = validateAiPlan(
+    candidate,
+    options.kernel,
+    options.validationPorts,
+    policy,
+    resolveAiCompositionPolicy(options.composition),
+  );
   if (!repaired.ok) throw new AiPlanRejectedError(repaired.issues);
   return repaired.plan;
 }
@@ -281,7 +325,13 @@ export async function generateAiPlanWithPreparedSkills(
     );
   }
   throwIfAborted(options.signal);
-  const first = validateAiPlan(candidate, options.kernel, options.validationPorts, policy);
+  const first = validateAiPlan(
+    candidate,
+    options.kernel,
+    options.validationPorts,
+    policy,
+    resolveAiCompositionPolicy(options.composition),
+  );
   if (first.ok) return first.plan;
   if (repair === undefined) throw new AiPlanRejectedError(first.issues);
 

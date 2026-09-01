@@ -6,7 +6,14 @@ import type {
   RegisteredCommand,
   TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
-import { isJsonValue } from '@craftkit/builder-schema';
+import {
+  customCodeClassNames,
+  customCodeIconNames,
+  findRejectedUtilities,
+  isJsonValue,
+  isLucideIconName,
+  unknownUtilityClasses,
+} from '@craftkit/builder-schema';
 
 import type {
   AiPlan,
@@ -16,6 +23,7 @@ import type {
   AiValidationPorts,
 } from '../types';
 import { DEFAULT_AI_MAX_OPERATIONS, type AiEffectiveCommandPolicy } from '../skills';
+import type { ResolvedAiCompositionPolicy } from '../context/composition-policy';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -387,6 +395,116 @@ function utilityClassIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPla
   return issues;
 }
 
+/**
+ * Every custom-code tree a plan writes, wherever in the args it appears.
+ *
+ * Deliberately shape-driven rather than command-driven: a tree can arrive as
+ * `insertNode` props, a `setProp` value, or a JSON patch value, and a list of
+ * command names to inspect would go stale the first time a new command carried
+ * one. What identifies a tree is that it LOOKS like one.
+ */
+function customCodeTreesInArgs(args: unknown): readonly unknown[] {
+  const found: unknown[] = [];
+  const stack: unknown[] = [args];
+  let visited = 0;
+  while (stack.length > 0 && visited < 10_000) {
+    const value = stack.pop();
+    visited += 1;
+    if (Array.isArray(value)) {
+      for (const item of value) stack.push(item);
+      continue;
+    }
+    if (typeof value !== 'object' || value === null) continue;
+    const record = value as Record<string, unknown>;
+    if (record['kind'] === 'root' && Array.isArray(record['children'])) {
+      found.push(record);
+      continue;
+    }
+    for (const child of Object.values(record)) stack.push(child);
+  }
+  return found;
+}
+
+/**
+ * Refuse a class name the runtime vocabulary does not generate.
+ *
+ * This is not a style rule. A class outside the vocabulary has NO CSS: it is
+ * inert on the canvas, silently absent from the production build, and reports
+ * nothing anywhere. The failure it produces — "the page renders unstyled and
+ * no one can say why" — is the single most expensive way this feature could
+ * fail, so it is caught at the door where a name can still be reported.
+ */
+function customCodeVocabularyIssues(
+  plan: AiPlan,
+  colourPolicy: 'free' | 'tokens',
+): readonly AiPlanValidationIssue[] {
+  const issues: AiPlanValidationIssue[] = [];
+  plan.commands.forEach((step, index) => {
+    for (const tree of customCodeTreesInArgs(step.args)) {
+      const classNames = customCodeClassNames(tree);
+
+      /*
+        The THEMING law — roles only, no palette — applies to a tree only when
+        the host asks for it. By default the assistant composes with the whole
+        palette, the way any Tailwind user does; that was the product's
+        decision, made after a first version refused "white text on a travel
+        photo" as a colour violation. Arbitrary values (`bg-[#hex]`) are still
+        refused below, by the generation law, because they have no CSS at all.
+      */
+      const rejected =
+        colourPolicy === 'tokens'
+          ? [
+              ...new Map(
+                classNames
+                  .flatMap((value) => findRejectedUtilities(value))
+                  .map((rejection) => [rejection.utility, rejection]),
+              ).values(),
+            ]
+          : [];
+      if (rejected.length > 0) {
+        issues.push({
+          code: 'policy-rejected',
+          message: `Step ${String(index)} writes ${String(rejected.length)} unusable class(es) into a custom-code tree. ${rejected[0]?.message ?? ''}`,
+          step: index,
+        });
+        continue;
+      }
+
+      /*
+        Icons, by existence. An icon the set does not have draws a visible
+        placeholder rather than nothing — but a placeholder on a published
+        page is still a defect, and the name is knowable here, so it is
+        refused here, by name.
+      */
+      const unknownIcons = customCodeIconNames(tree).filter((name) => !isLucideIconName(name));
+      if (unknownIcons.length > 0) {
+        issues.push({
+          code: 'policy-rejected',
+          message: `Step ${String(index)} names icons that are not in the Lucide set: ${unknownIcons
+            .slice(0, 8)
+            .join(', ')}. Use exact kebab-case names from lucide.dev/icons.`,
+          step: index,
+        });
+        continue;
+      }
+
+      // Then the GENERATION law: a class with no CSS fails silently otherwise.
+      const unknown = [
+        ...new Set(classNames.flatMap((value) => unknownUtilityClasses(value))),
+      ];
+      if (unknown.length === 0) continue;
+      issues.push({
+        code: 'policy-rejected',
+        message: `Step ${String(index)} uses utility classes with no generated CSS: ${unknown
+          .slice(0, 8)
+          .join(', ')}${unknown.length > 8 ? `, and ${String(unknown.length - 8)} more` : ''}. Use a class from the site vocabulary, or name it "ck-…" and style it in the block's own css prop.`,
+        step: index,
+      });
+    }
+  });
+  return issues;
+}
+
 /** @internal Shared with previewAiPlan: the scratch world a plan is rehearsed in. */
 export function validationManifest(plan: AiPlan, kernel: BuilderKernel): TrustedExtensionManifest {
   const commands: Record<string, RegisteredCommand> = {};
@@ -492,6 +610,7 @@ export function validateAiPlan(
   kernel: BuilderKernel,
   ports: AiValidationPorts,
   policy?: AiEffectiveCommandPolicy,
+  composition?: Partial<Pick<ResolvedAiCompositionPolicy, 'enforceUtilityVocabulary' | 'colourPolicy'>>,
 ): AiPlanValidationResult {
   const overLimit = rawCommandLimitIssue(candidate, policy);
   if (overLimit !== undefined) return { ok: false, issues: [overLimit] };
@@ -505,6 +624,18 @@ export function validateAiPlan(
   if (issues.length > 0) return { ok: false, issues };
   const utilityIssues = utilityClassIssues(parsed.plan, kernel);
   if (utilityIssues.length > 0) return { ok: false, issues: utilityIssues };
+  /*
+    Enforced unless a host opts out, which is the opposite of every other knob
+    on this policy — see `enforceUtilityVocabulary` for why silence, not
+    strictness, is the failure being guarded against here.
+  */
+  if (composition?.enforceUtilityVocabulary !== false) {
+    const vocabularyIssues = customCodeVocabularyIssues(
+      parsed.plan,
+      composition?.colourPolicy ?? 'free',
+    );
+    if (vocabularyIssues.length > 0) return { ok: false, issues: vocabularyIssues };
+  }
   const rejectedByPolicy = policyIssues(parsed.plan, policy);
   return rejectedByPolicy.length > 0
     ? { ok: false, issues: rejectedByPolicy }

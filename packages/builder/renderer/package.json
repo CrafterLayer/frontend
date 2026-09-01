@@ -21,6 +21,7 @@
     }
   },
   "scripts": {
+    "generate:icons": "node scripts/generate-lucide-icon-names.mjs",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
@@ -28,7 +29,8 @@
   },
   "dependencies": {
     "@craftkit/builder-core": "workspace:*",
-    "@craftkit/builder-schema": "workspace:*"
+    "@craftkit/builder-schema": "workspace:*",
+    "lucide": "catalog:"
   },
   "peerDependencies": {
     "react": "catalog:",

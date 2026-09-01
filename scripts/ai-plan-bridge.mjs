@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 /**
+ * DEPRECATED — superseded by `apps/ai-server` (`pnpm --filter @craftkit/ai-server dev`).
+ *
+ * This bridge spawns the Claude CLI per request and builds its OWN prompt, so
+ * none of the server's behaviour — catalog modes, the composition escape
+ * hatch, icons, free colours, skills in the cached segment — reaches the
+ * model through it. It kept running on port 8787 for hours after the server
+ * existed, and every "live run" went here unnoticed. It stays only so an old
+ * `.env.local` does not break; it warns loudly at startup and will be removed.
+ *
  * Authenticated, loopback-only development bridge for the Builder AI wire
  * contract. The model proposes commands; the browser-side agent still owns
  * policy, scratch-kernel preflight, approval, apply, and undo.
@@ -732,6 +741,7 @@ export function startAiPlanBridgeFromEnv(env = process.env) {
     bodyTimeoutMs,
     killGraceMs,
   });
+  console.warn('[ai-plan-bridge] DEPRECATED: use `pnpm --filter @craftkit/ai-server dev` — this bridge builds its own prompt and the server\'s catalog modes, escape hatch, icons, and skills never reach the model through it.');
   server.listen(port, LOOPBACK_HOST, () => {
     console.log(`AI plan bridge listening on http://${LOOPBACK_HOST}:${String(port)}/plan.`);
     console.log('Requests require AI_BRIDGE_TOKEN; no Claude tools or project configuration load.');

@@ -18,7 +18,6 @@ const card = (
 const meta = {
   title: 'Builder/MagicUI/ShineBorder',
   component: ShineBorder,
-  tags: ['autodocs'],
   args: { node, slots: { default: card }, data: {}, isCanvas: false },
   decorators: [
     (Story) => (

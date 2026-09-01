@@ -24,6 +24,9 @@ describe('Page', () => {
       contentWidth: 'full',
       noIndex: false,
       lang: '',
+      // Page-scoped CSS defaults to empty: a page that declares none renders
+      // no <style> at all, rather than an empty one.
+      pageCss: '',
     });
     expect(props).not.toHaveProperty('socialTitle');
     expect(props).not.toHaveProperty('socialDescription');
@@ -43,6 +46,7 @@ describe('Page', () => {
       socialImage: { tab: 'content', section: 'Sharing' },
       contentWidth: { tab: 'design', section: 'Appearance' },
       noIndex: { tab: 'advanced', section: 'Indexing' },
+      pageCss: { tab: 'advanced', section: 'Custom CSS' },
       lang: { tab: 'advanced', section: 'Indexing' },
     });
   });

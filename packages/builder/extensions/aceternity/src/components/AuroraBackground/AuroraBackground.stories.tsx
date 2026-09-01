@@ -17,7 +17,6 @@ const content = (
 const meta = {
   title: 'Builder/Aceternity/AuroraBackground',
   component: AuroraBackground,
-  tags: ['autodocs'],
   args: { node, slots: { default: content }, data: {}, isCanvas: false },
 } satisfies Meta<typeof AuroraBackground>;
 

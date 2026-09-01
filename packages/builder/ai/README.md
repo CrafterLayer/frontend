@@ -40,6 +40,11 @@ of commands bypasses the invariant this package exists to preserve.
 - A versioned, immutable Skills registry with metadata-only discovery, explicit body/reference
   reads, deterministic request-local activation, dependencies, conflicts, trust policy, content
   fingerprints backed by SHA-256, and hard count/token limits.
+- `AiCompositionPolicy`, one per-run object deciding how much of the registry crosses the wire
+  (`catalogMode`) and how strictly the classes an assistant writes are policed. Every key is
+  optional; every omission resolves to the freest behaviour that works, which is what lets a future
+  guard arrive as one more optional key rather than a signature change through four layers. See
+  [What the assistant may see, and what it may build](#what-the-assistant-may-see-and-what-it-may-build).
 - `runAiAgent()`, a UI-independent bounded coordinator with sequenced typed events, classified
   failures, injected time/run id, real cancellation plus host-owned supersession leases, one repair
   at most, review-only or automatic apply, and exactly one terminal event.
@@ -248,6 +253,11 @@ to exercise provider rejection or application without a model or network.
 
 ## Connecting a server
 
+> A reference implementation ships in this repo: [`apps/ai-server`](../../../apps/ai-server) — one
+> POST to Claude with the prompt laid out for caching, the plan constrained to the schema the
+> request carries, and every failure translated into the taxonomy below. `pnpm --filter
+> @craftkit/ai-server dev`, then `VITE_AI_PLAN_ENDPOINT=http://localhost:8787`.
+
 `createRemoteAiPlanProvider({ endpoint })` turns one HTTP endpoint into an `AiPlanProvider`. The
 wire contract lives in `src/provider/wire.ts` and is exported (`AiPlanWireRequest`,
 `AiPlanWireResponse`, `AI_PLAN_WIRE_VERSION`) so a TypeScript server can import the exact types.
@@ -320,6 +330,145 @@ Claude CLI development bridge, generate a random session secret and put the same
 `127.0.0.1`, allows only the configured `AI_BRIDGE_ALLOWED_ORIGINS`, disables Claude tools and
 customizations, caps bodies/output, and returns `429` when its bounded concurrency is occupied.
 Never reuse the development bridge as a production assistant server.
+
+## What the assistant may see, and what it may build
+
+Two decisions, one object. `AiCompositionPolicy` is passed per run — never read from module state,
+so two runs in the same process may disagree — and every key is optional, with every `undefined`
+resolving to the freest behaviour that works.
+
+### The catalog is a cost, and the cost is a choice
+
+Measured on the playground's real registry, the block catalog was **57,851 of 61,578 tokens** — 94%
+of a request, against a 64,000 budget — because every registered block shipped its full JSON Schema,
+examples, and slot table whether or not the request touched it.
+
+```ts
+await generateAiPlan({
+  kernel,
+  provider,
+  request: 'a CV page',
+  validationPorts,
+  composition: { catalogMode: 'index' },
+});
+```
+
+| `catalogMode` | What crosses the wire | Real registry |
+| ------------- | --------------------- | ------------- |
+| `'full'` (default) | every block, in full | 63,782 tokens |
+| `'scoped'` | names for all, detail for the types in scope | 9,484 |
+| `'index'` | `type` + `description` only | 8,330 |
+| `'none'` | the escape hatch, plus the types in scope, in full — **no other block, not even by name** | **~4,500** |
+
+`'none'` is "the model builds the page": from elements, the utility vocabulary, and scoped CSS. A
+registered block reaches it only when the person adds one to the request by selecting or
+@-mentioning it — the selection becomes `scopedBlockTypes`, and exactly those blocks arrive with
+their schemas, referenceable as `component` nodes. The input is what the person wants from the
+site, not an inventory of what exists.
+
+`'scoped'` with no explicit `scopedBlockTypes` derives them from the SELECTION — which is exactly
+"the user pointed at this block and asked to change it". Deriving it here rather than at the call
+site is what keeps it from disagreeing with the selection the same request was assembled against.
+
+**The default is `full` deliberately.** A cheaper default is correct only for a host whose assistant
+can build without per-block schemas; trading cost for a broken proposal is not a trade this library
+makes on a caller's behalf.
+
+### The escape hatch is exempt from that economy
+
+`customCode` keeps full detail in every mode (`alwaysDetailedBlockTypes`, default `['customCode']`).
+Without the exemption, `index` mode would tell the model an escape hatch exists and give it no way
+to write one — strictly worse than either endpoint. It costs ~1,000 tokens, fixed, whatever the
+registry's size.
+
+The block stores a TREE, not markup, so the document stays JSON and the door still validates every
+write. Two node kinds:
+
+```jsonc
+{ "kind": "root", "children": [
+  { "kind": "element", "tag": "section", "className": "grid gap-8 bg-surface p-16 md:grid-cols-3",
+    "children": [
+      { "kind": "element", "tag": "h1", "className": "ck-name text-6xl", "text": "Reem Haddad" },
+      { "kind": "component", "component": "card", "props": {} }  // any registered block, by type
+    ] } ] }
+```
+
+A `component` node resolves through the registry and is validated against that block's OWN schema
+before rendering — free composition is not unvalidated composition. An unknown type, or props that
+fail, render `UnknownBlock` rather than a half-configured component.
+
+### Colours are free (by product decision)
+
+A custom-code tree may use Tailwind's whole palette (`bg-slate-900`, `text-blue-500`,
+`from-indigo-500` — all generated) and any exact value in its `css` (`#1e3a8a`, `rgb()`,
+gradients, an https background image). Such colours do not follow the site theme — re-point
+`--t-accent` and they stay put — and that trade was chosen deliberately after a first version
+refused "white text on a travel photo" as a colour violation. The roles (`bg-accent`,
+`var(--t-accent)`) remain available and are recommended when a page should re-theme.
+
+`colourPolicy: 'tokens'` restores the theming law for trees. It never left for a registered
+block's own `className` prop, and the kernel door's raw-literal law still applies to every prop
+except those declared as `customCss()` or `customCodeTree()`.
+
+### Two laws bound what it may write, and they are not the same law
+
+| | `findRejectedUtilities` | `unknownUtilityClasses` |
+| --- | --- | --- |
+| asks | may a document STORE this class? | will this class HAVE any CSS? |
+| law | theming — no arbitrary values, no default palette | generation — Tailwind emits only what it saw |
+| shape | denylist | allowlist (2,697 utilities) |
+
+The door runs **both** over a tree. The second exists because a class Tailwind never generated has
+no CSS at all: it works in dev if some other file happens to mention it, vanishes from the
+production build, and reports nothing either way. Refusing at the door turns that silence into a
+named validation issue. Set `enforceUtilityVocabulary: false` where the CSS comes from somewhere
+other than this workspace's vocabulary.
+
+The vocabulary is DATA (`UTILITY_VOCABULARY`), and the application's Tailwind `@source inline(...)`
+directives are generated from it — one source, two consumers, with a test that fails if they drift.
+
+### Icons
+
+`{ "kind": "icon", "name": "map-pin" }` draws a [Lucide](https://lucide.dev/icons/) icon by its
+kebab-case name — a leaf node with optional `size`, `strokeWidth`, `className`, and `label`
+(present ⇒ `role="img"`; absent ⇒ decorative and hidden). It is a node kind rather than an `svg`
+tag on purpose: an authored `<svg>` is a drawing surface, and a surface accepts everything the
+tree exists to make unrepresentable. A name is not a surface — the renderer draws the set's path
+data itself, synchronously, so the static publish path emits the same markup as the canvas.
+
+The 1,791 names live at layer 0 (`lucideIconNames()`, generated from the installed package by
+`pnpm --filter @craftkit/builder-renderer generate:icons`), so the door refuses an unknown icon by
+name without this package depending on the icon library; a renderer test proves every listed
+name resolves in the installed set. **Lucide ships no brand logos** — no `github`, `linkedin`,
+`twitter` — and the prompt says so, steering the model to `link`/`globe` beside the text instead.
+
+### Links and buttons
+
+`a` and `button` are in the tag vocabulary (35 tags), each with a policy the renderer enforces:
+an `href` passes the same `safeHref` rule as a rich-text link (https, mailto, tel, relative — never
+`javascript:`), an external link gets `rel="noopener noreferrer"`, only `target="_blank"` is honoured,
+and on the editing canvas a click on a link is swallowed so the editor is never navigated away. A
+`button` is always `type="button"` — a styled affordance with no handler and no submit; behaviour is
+wired by a registered block or the host, never by the tree.
+
+### Region-scoped CSS, and the `ck-` namespace
+
+A region's `css` prop is sanitised (refused: `@import` except from Google Fonts / bunny.net,
+`url(http://…)` and `url(//…)`, `expression()`, `behavior`, `-moz-binding`, `javascript:`, an
+early `</style>`) and scoped by rewriting every selector to `[data-ck="<nodeId>"] …`. `@keyframes`
+and `@font-face` pass through untouched — they carry no selectors, and prefixing one silently
+breaks the animation. `url(https://…)` is allowed: a background photo is ordinary design work.
+
+The refusal list is matched against a **normalised** copy — comments stripped, CSS escapes decoded
+— so `@\69mport`, `u\72l(`, and `@/**/import` are seen for what the browser will make of them; the
+rendered text stays the author's own. A web-font `@import` from an allowed host is lifted in front
+of the scoped rules, where CSS requires it.
+
+Hook it with `ck-`-prefixed classes. That namespace is the one exemption from the generation law,
+because its CSS is expected to come from the region itself — without it the `css` prop would exist
+and be unusable, since no selector could match a class the door admitted. Brackets are refused even
+under the prefix: `ck-[17px]` is an arbitrary value wearing a prefix, and the namespace grants no
+exemption from the theming law.
 
 ## Planning, memory, and caching
 

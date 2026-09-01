@@ -13,6 +13,14 @@ export {
   type ChromeButtonSize,
   type ChromeButtonVariant,
 } from './components/ChromeButton';
+export {
+  GENERATION_STAGE_IDS,
+  GenerationProgress,
+  type GenerationProgressProps,
+  type GenerationStage,
+  type GenerationStageId,
+  type GenerationStageStatus,
+} from './components/GenerationProgress';
 export { IconRail, type IconRailProps, type RailItem } from './components/IconRail';
 export {
   StatusBar,

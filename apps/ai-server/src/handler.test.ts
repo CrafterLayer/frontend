@@ -1,0 +1,306 @@
+import Anthropic from '@anthropic-ai/sdk';
+import { describe, expect, it, vi } from 'vitest';
+
+import { createHandler } from './handler';
+
+/**
+ * The wire contract, tested against a faked Claude.
+ *
+ * No test here calls the API. What is being verified is the TRANSLATION —
+ * every way Claude can answer or fail becoming one of the three shapes
+ * `remote-provider` knows how to read. That translation is this server's whole
+ * job, and it is the part a live smoke test would exercise least.
+ */
+
+interface FakeMessage {
+  readonly stop_reason?: string;
+  readonly stop_details?: { readonly explanation: string } | null;
+  readonly content?: { readonly type: string; readonly text: string }[];
+  readonly usage?: Record<string, number>;
+}
+
+/** A client whose `messages.stream` resolves to whatever the test supplies. */
+function fakeClient(
+  answer: FakeMessage | (() => never),
+  onThinking?: readonly string[],
+): Anthropic {
+  return {
+    messages: {
+      stream: () => ({
+        on: (event: string, listener: (delta: string) => void) => {
+          if (event === 'thinking' && onThinking !== undefined) {
+            for (const delta of onThinking) listener(delta);
+          }
+        },
+        finalMessage: () => {
+          if (typeof answer === 'function') answer();
+          return Promise.resolve({
+            stop_reason: 'end_turn',
+            stop_details: null,
+            content: [],
+            usage: { input_tokens: 10, output_tokens: 5 },
+            ...(typeof answer === 'function' ? {} : answer),
+          });
+        },
+      }),
+    },
+  } as unknown as Anthropic;
+}
+
+const PLAN = { rationale: 'add a hero', commands: [{ command: 'insertNode', args: {} }] };
+
+function planAnswer(): FakeMessage {
+  return {
+    content: [{ type: 'text', text: JSON.stringify(PLAN) }],
+    usage: {
+      input_tokens: 400,
+      output_tokens: 220,
+      cache_read_input_tokens: 57_000,
+      cache_creation_input_tokens: 0,
+    },
+  };
+}
+
+function wireBody(overrides: Record<string, unknown> = {}): unknown {
+  return {
+    version: 1,
+    request: 'add a hero',
+    context: {
+      fragments: [],
+      totalTokens: 0,
+      blocks: [],
+      document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'root', nodes: [] },
+      selection: { ids: [] },
+      outputContract: { version: 1, schema: { type: 'object' } },
+    },
+    ...overrides,
+  };
+}
+
+function post(body: unknown, headers: Record<string, string> = {}): Request {
+  return new Request('http://localhost/plan', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  });
+}
+
+describe('transport', () => {
+  it('answers a plan as a bare JSON body, which is what the client parses', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()) });
+
+    const response = await handle(post(wireBody()));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(PLAN);
+  });
+
+  it('rejects anything but POST', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()) });
+
+    const response = await handle(new Request('http://localhost/plan', { method: 'GET' }));
+
+    expect(response.status).toBe(405);
+  });
+
+  it('refuses a body that is not a version-1 wire request', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()) });
+
+    expect((await handle(post({ version: 99 }))).status).toBe(400);
+    expect((await handle(post({ version: 1, request: 'x' }))).status).toBe(400);
+  });
+
+  it('requires the bearer token when one is configured', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()), authToken: 'secret' });
+
+    expect((await handle(post(wireBody()))).status).toBe(401);
+    expect((await handle(post(wireBody(), { authorization: 'Bearer wrong' }))).status).toBe(401);
+    expect(
+      (await handle(post(wireBody(), { authorization: 'Bearer secret' }))).status,
+    ).toBe(200);
+  });
+});
+
+describe('answer translation', () => {
+  it('returns a safety decline as a 200 refusal, not an error status', async () => {
+    /*
+      It is an ANSWER, and the wire has a shape for it. A 4xx would make the
+      client report a transport failure and lose the explanation entirely.
+    */
+    const handle = createHandler({
+      client: fakeClient({ stop_reason: 'refusal', stop_details: { explanation: 'No.' } }),
+    });
+
+    const response = await handle(post(wireBody()));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ version: 1, refusal: 'No.' });
+  });
+
+  it('reports a truncated plan as invalid output with advice, not as a broken plan', async () => {
+    const handle = createHandler({ client: fakeClient({ stop_reason: 'max_tokens' }) });
+
+    const body = (await handle(post(wireBody()))).json() as Promise<{
+      invalidOutput: { message: string };
+    }>;
+
+    expect((await body).invalidOutput.message).toContain('smaller change');
+  });
+
+  it('reports unparseable output rather than forwarding it to the validator', async () => {
+    const handle = createHandler({
+      client: fakeClient({ content: [{ type: 'text', text: 'not json at all' }] }),
+    });
+
+    const response = await handle(post(wireBody()));
+
+    expect(await response.json()).toMatchObject({ version: 1, invalidOutput: {} });
+  });
+
+  it('reports an empty answer', async () => {
+    const handle = createHandler({ client: fakeClient({ content: [] }) });
+
+    expect(await (await handle(post(wireBody()))).json()).toMatchObject({ invalidOutput: {} });
+  });
+
+  it('refuses to guess a plan shape when the request carried no output contract', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()) });
+    const body = wireBody({
+      context: {
+        fragments: [],
+        totalTokens: 0,
+        blocks: [],
+        document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'root', nodes: [] },
+        selection: { ids: [] },
+      },
+    });
+
+    expect(await (await handle(post(body))).json()).toMatchObject({ invalidOutput: {} });
+  });
+});
+
+describe('failure translation', () => {
+  function throwing(error: Error): Anthropic {
+    return fakeClient(() => {
+      throw error;
+    });
+  }
+
+  it('maps rate limiting to 429, which the client treats as retryable', async () => {
+    const error = Object.create(Anthropic.RateLimitError.prototype) as Error;
+    const handle = createHandler({ client: throwing(error) });
+
+    expect((await handle(post(wireBody()))).status).toBe(429);
+  });
+
+  it('maps a malformed upstream request to 400, which the client treats as terminal', async () => {
+    const error = Object.create(Anthropic.BadRequestError.prototype) as Error;
+    const handle = createHandler({ client: throwing(error) });
+
+    expect((await handle(post(wireBody()))).status).toBe(400);
+  });
+
+  it('never leaks a raw SDK message or a stack to the client', async () => {
+    const error = new Error('ENOTFOUND api.anthropic.com at /internal/path.ts:42');
+    const handle = createHandler({ client: throwing(error) });
+
+    const body = (await (await handle(post(wireBody()))).json()) as { error: string };
+
+    expect(body.error).not.toContain('ENOTFOUND');
+    expect(body.error).not.toContain('.ts:');
+  });
+
+  it('says the key is missing plainly, since that is a deployment mistake', async () => {
+    const error = Object.create(Anthropic.AuthenticationError.prototype) as Error;
+    const handle = createHandler({ client: throwing(error) });
+
+    const body = (await (await handle(post(wireBody()))).json()) as { error: string };
+
+    expect(body.error).toContain('API key');
+  });
+});
+
+describe('streaming', () => {
+  async function readStream(response: Response): Promise<string> {
+    const body: ReadableStream<Uint8Array> | null = response.body;
+    if (body === null) return '';
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      text += decoder.decode(chunk.value);
+    }
+    return text;
+  }
+
+  it('streams status frames then exactly one result', async () => {
+    const handle = createHandler({
+      client: fakeClient(planAnswer(), ['Reading the catalog\n', 'Choosing a parent\n']),
+    });
+
+    const response = await handle(
+      post(wireBody(), { accept: 'text/event-stream, application/json' }),
+    );
+    const body = await readStream(response);
+
+    expect(response.headers.get('content-type')).toBe('text/event-stream');
+    expect(body).toContain('event: status');
+    expect(body).toContain('Reading the catalog');
+    expect(body.match(/event: result/gu)).toHaveLength(1);
+  });
+
+  it('carries a mid-stream failure as a result frame, the only shape left', async () => {
+    // The status code is already sent by then; an invalid-output result is the
+    // one answer that still reaches the client's taxonomy.
+    const error = Object.create(Anthropic.RateLimitError.prototype) as Error;
+    const handle = createHandler({
+      client: fakeClient(() => {
+        throw error;
+      }),
+    });
+
+    const body = await readStream(
+      await handle(post(wireBody(), { accept: 'text/event-stream' })),
+    );
+
+    expect(body).toContain('event: result');
+    expect(body).toContain('rate limited');
+  });
+
+  it('answers plain JSON when the client did not ask for a stream', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()) });
+
+    const response = await handle(post(wireBody(), { accept: 'application/json' }));
+
+    expect(response.headers.get('content-type')).toBe('application/json');
+  });
+});
+
+describe('usage reporting', () => {
+  it('reports the cached share, the number that reveals a broken prefix', async () => {
+    const onUsage = vi.fn();
+    const handle = createHandler({ client: fakeClient(planAnswer()), onUsage });
+
+    await handle(post(wireBody()));
+
+    expect(onUsage).toHaveBeenCalledTimes(1);
+    const report = onUsage.mock.calls[0]?.[0] as { cachedShare: number; cacheReadTokens: number };
+    expect(report.cacheReadTokens).toBe(57_000);
+    // ~99%: a figure near zero would mean the catalog is being re-billed.
+    expect(report.cachedShare).toBeGreaterThan(0.98);
+  });
+
+  it('reports nothing for an answer that never became a plan', async () => {
+    const onUsage = vi.fn();
+    const handle = createHandler({
+      client: fakeClient({ stop_reason: 'refusal', stop_details: { explanation: 'No.' } }),
+      onUsage,
+    });
+
+    await handle(post(wireBody()));
+
+    expect(onUsage).not.toHaveBeenCalled();
+  });
+});

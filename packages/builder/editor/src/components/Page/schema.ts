@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { defineBlockSchema } from '@craftkit/builder-schema';
+import { customCss, defineBlockSchema } from '@craftkit/builder-schema';
 
 /**
  * The structural document root. Its vocabulary lists every insertable top-level
@@ -34,6 +34,21 @@ export const pageSchema = defineBlockSchema({
     contentWidth: z.enum(['narrow', 'standard', 'wide', 'full']).default('full'),
     noIndex: z.boolean().default(false),
     lang: z.string().max(12).default(''),
+    /*
+      Page-scoped CSS.
+
+      The layer above utility classes and below nothing: `@keyframes`,
+      `@font-face`, and the shared gradients a page's regions reference. It
+      lives on the page root rather than on each region because those three are
+      exactly the things that must be declared ONCE and used from several
+      places — a keyframe redeclared per region is the same animation compiled
+      four times.
+
+      It is sanitised and scoped by the renderer, never rendered raw. Region-
+      local rules belong on the region's own `css` prop instead, where they are
+      scoped to that region and cannot reach a sibling.
+    */
+    pageCss: customCss(20_000),
   }),
   propertyGroups: {
     title: { tab: 'content', section: 'Identity' },
@@ -44,6 +59,7 @@ export const pageSchema = defineBlockSchema({
     socialImage: { tab: 'content', section: 'Sharing' },
     contentWidth: { tab: 'design', section: 'Appearance' },
     noIndex: { tab: 'advanced', section: 'Indexing' },
+    pageCss: { tab: 'advanced', section: 'Custom CSS' },
     lang: { tab: 'advanced', section: 'Indexing' },
   },
   slots: {
@@ -129,6 +145,12 @@ export const pageSchema = defineBlockSchema({
         'dialog',
         'pagination',
         'accordion',
+        // The assistant's free-composition region. Root-level by necessity:
+        // it exists for requests no registered section expresses, and those
+        // are page-level requests ("a CV page", "a diagonal timeline"). A
+        // vocabulary that admits it only inside a container would leave the
+        // one case it was built for unreachable.
+        'customCode',
       ],
     },
   },

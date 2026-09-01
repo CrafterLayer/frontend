@@ -302,6 +302,13 @@ export function App() {
               <AssistantPanel
                 kernel={kernel}
                 planProvider={envPlanProvider}
+                /*
+                  The one place that knows what the provider is: it came from
+                  VITE_AI_PLAN_ENDPOINT, so it is a model over the network and
+                  gets the cheap catalog. Absent, the offline provider answers
+                  and needs the full one.
+                */
+                providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
                 persistKey="pg-assistant-sessions-v1"
                 onReviewAsCode={() => {
                   setRailSection('code');

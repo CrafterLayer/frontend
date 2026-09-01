@@ -152,6 +152,60 @@ export {
 } from './rich-text/rich-text';
 
 /*
+  Free composition (the assistant's escape hatch): the layer-0 CONTRACT only —
+  the node vocabulary, the two ceilings, and the walks that the AI door and the
+  Inspector share. Rendering is the renderer's concern; this file states only
+  what may be STORED, and states it strictly.
+
+  Named `custom-code` rather than `composition` because this registry already
+  calls page templates "compositions" (`CompositionDef`, `registry.compositions`
+  — see ./widgets/contract). Two meanings for one word in one export surface is
+  a bug waiting on a reader's assumption.
+*/
+export {
+  CUSTOM_CODE_ATTRIBUTES,
+  CUSTOM_CODE_MAX_DEPTH,
+  CUSTOM_CODE_MAX_NODES,
+  CUSTOM_CODE_META_KEY,
+  CUSTOM_CODE_META_VALUE,
+  CUSTOM_CODE_ICON_NAME,
+  CUSTOM_CODE_TAGS,
+  CUSTOM_CSS_META_VALUE,
+  customCodeClassNames,
+  customCodeComponentTypes,
+  customCodeIconNames,
+  customCodeTree,
+  customCodeTreeSchema,
+  customCss,
+  emptyCustomCodeTree,
+  isCustomCodeTag,
+  isCustomCodeTreeSchema,
+  isCustomCssSchema,
+  type CustomCodeAttribute,
+  type CustomCodeComponent,
+  type CustomCodeElement,
+  type CustomCodeIcon,
+  type CustomCodeNode,
+  type CustomCodeRoot,
+  type CustomCodeTag,
+} from './custom-code/custom-code-tree';
+export {
+  LUCIDE_VERSION,
+  isLucideIconName,
+  lucideIconNames,
+} from './custom-code/lucide-icon-names';
+export {
+  CUSTOM_CLASS_PREFIX,
+  UTILITY_VOCABULARY,
+  expandUtilityPattern,
+  isCustomHookClass,
+  unknownUtilityClasses,
+  utilitySourceDirectives,
+  utilityVocabulary,
+  type UtilityPattern,
+} from './custom-code/utility-vocabulary';
+
+/*
   Asset library (013): the layer-0 CONTRACT only — identity, metadata, the
   one-method port, and the law that every reference must resolve to a held
   asset. Selection lives at layer 2; the library's contents are site data.
@@ -280,6 +334,34 @@ export {
   relativeLuminance,
   type ContrastCheck,
   type Rgb,
+} from './theme';
+
+/*
+  The generated DESIGN SYSTEM (013): a token map plus the provenance around it
+  — the name, the type pairing, the seed that reproduces it, and the pairings
+  it AUTHORIZES.
+
+  The vocabulary is also published at runtime. `tokens.ts` states it as types,
+  which vanish at build, so a validator that must reject an unknown token key
+  had nothing to check against. The lists below are derived from maps declared
+  `satisfies Record<Token, true>`, which makes the compiler refuse a missing or
+  extra name — one vocabulary, enforced, rather than a type union and a
+  hand-copied array that drift the first time a token is added.
+*/
+export {
+  COLOR_TOKENS,
+  MEASUREMENT_TOKENS,
+  TOKEN_NAMES,
+  isColorToken,
+  isTokenName,
+  validateDesignSystem,
+  type DesignPairing,
+  type DesignSystem,
+  type DesignSystemIssue,
+  type DesignSystemIssueCode,
+  type DesignSystemValidationResult,
+  type DesignTypography,
+  type PairingSize,
 } from './theme';
 
 /*

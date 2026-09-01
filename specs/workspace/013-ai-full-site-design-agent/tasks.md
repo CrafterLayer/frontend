@@ -89,14 +89,14 @@ C.
       comments exactly
 - [ ] T011 Re-export all four moved types from `packages/builder/renderer/src/resolve/theme.ts` so
       no existing consumer import breaks (contracts/site-model.md §1)
-- [ ] T012 Define `DesignSystem` (name, tokens, typography, pairings, seed) in
+- [x] T012 Define `DesignSystem` (name, tokens, typography, pairings, seed) in
       `packages/builder/schema/src/theme/design-system.ts` per [data-model.md](./data-model.md) §2
-- [ ] T013 Implement `contrastRatio()` as a pure function in
+- [x] T013 Implement `contrastRatio()` as a pure function in
       `packages/builder/schema/src/theme/contrast.ts`
-- [ ] T014 Implement `validateDesignSystem()` in `packages/builder/schema/src/theme/validate.ts` —
+- [x] T014 Implement `validateDesignSystem()` in `packages/builder/schema/src/theme/validate.ts` —
       rejects an unknown token key and any authorized pairing below 4.5:1 normal / 3:1 large
       (FR-014)
-- [ ] T015 [P] Write design-system validator tests in
+- [x] T015 [P] Write design-system validator tests in
       `packages/builder/schema/src/theme/validate.test.ts`, including a system that passes and one
       that fails on exactly one pairing
 - [ ] T016 Resolve `--t-*` from site design-system data instead of the module constant in
@@ -135,13 +135,13 @@ C.
 - [ ] T026 Write the refusal tests in `packages/builder/core/src/commands/site-commands.test.ts` for
       all six refusals in [contracts/site-model.md](./contracts/site-model.md) §2 — each must be a
       validation failure with NO partial write
-- [ ] T027 Implement `dispatchGroup()` in `packages/builder/core/src/commands/dispatch-group.ts` —
+- [x] T027 Implement `dispatchGroup()` in `packages/builder/core/src/commands/dispatch-group.ts` —
       all-or-nothing, one history entry, one `author`, a human label. This closes the
       `mode: 'sequence'` gap that FR-034 and FR-037 require (research R5)
-- [ ] T028 Write `dispatchGroup` tests in
+- [x] T028 Write `dispatchGroup` tests in
       `packages/builder/core/src/commands/dispatch-group.test.ts` proving one undo step reverses the
       whole group, and that a mid-group failure applies nothing
-- [ ] T029 Verify the log/history-before-`store.write` ordering still holds for grouped dispatch in
+- [x] T029 Verify the log/history-before-`store.write` ordering still holds for grouped dispatch in
       `packages/builder/core/src/commands/dispatch-group.test.ts` (003 contract §15 — uSES snapshots
       are read synchronously inside the notification)
 - [ ] T030 Export `dispatchGroup` and the site commands from `packages/builder/core/src/index.ts`
@@ -347,19 +347,19 @@ stage.
 
 ### `GenerationProgress` component — `@craftkit/builder-shell` (layer 3)
 
-- [ ] T067 [US1] Implement `GenerationProgress` in
+- [x] T067 [US1] Implement `GenerationProgress` in
       `packages/builder/shell/src/components/GenerationProgress/GenerationProgress.tsx` — named
       stages, `aria-live` polite announcements, a keyboard-reachable cancel, no focus steal
-- [ ] T068 [US1] Add the local export in
+- [x] T068 [US1] Add the local export in
       `packages/builder/shell/src/components/GenerationProgress/index.ts`
-- [ ] T069 [US1] Write typed CSF stories in
+- [x] T069 [US1] Write typed CSF stories in
       `packages/builder/shell/src/components/GenerationProgress/GenerationProgress.stories.tsx` —
       idle, each running stage, complete, failed, cancelled, RTL, plus a `play` interaction for
       cancel
-- [ ] T070 [US1] Write
+- [x] T070 [US1] Write
       `packages/builder/shell/src/components/GenerationProgress/GenerationProgress.docs.mdx` —
       purpose, stage vocabulary, cancel contract, accessibility, limitations
-- [ ] T071 [US1] Write behavioural tests in
+- [x] T071 [US1] Write behavioural tests in
       `packages/builder/shell/src/components/GenerationProgress/GenerationProgress.test.tsx` — stage
       announcement, cancel callback, failure text, via accessible queries
 
@@ -873,3 +873,244 @@ runner, and has one canonical, policy-pinned, resource-bounded path from request
 application. Phase 3 may build the full-site pipeline on this foundation.
 
 **Total after the production-readiness audit**: 211 tasks.
+
+---
+
+## Phase 12 — Catalog economy and free composition (US10)
+
+**Why this phase exists.** The assembled context was measured at 61,578 tokens against a hard
+budget of 64,000 (`DEFAULT_AI_CONTEXT_TOKEN_BUDGET`) — 96% consumed before the user's first
+character, and 94% of it the block catalog, shipped whole on every request whether or not the
+request touched a block. The same measurement exposed the ceiling on design: a request the 54-block
+catalog had no shape for had no answer but "the nearest section that already exists".
+
+Both are one problem. The catalog is expensive BECAUSE every shape must be pre-registered; make the
+assistant able to compose, and the catalog no longer has to be exhaustive on the wire.
+
+### 12a — Catalog modes
+
+- [x] T212 [US10] Split `collectBlocks` in
+      `packages/builder/ai/src/context/assemble-context.ts` into index/detail entry builders behind
+      an `AiCatalogMode` (`index` | `scoped` | `full`); keep the type sort outside the mode branch so
+      an unchanged registry still serializes to identical bytes (the precondition for prompt caching)
+- [x] T213 [US10] Add `AiCompositionPolicy` (`packages/builder/ai/src/context/composition-policy.ts`)
+      as the single per-run dial, every key optional and every `undefined` resolving to the freest
+      behaviour that works; resolve once at the assembly boundary so no downstream code re-derives a
+      default
+- [x] T214 [US10] Make `AiBlockContext.propsSchema`/`examples`/`slots` optional and guard the one
+      consumer (`local-provider.ts`), degrading to "not a candidate" rather than proposing an
+      insertion the door would reject
+- [x] T215 [US10] Thread the policy through `generateAiPlan`, deriving `scoped` types from the
+      existing `selectedBlockTypes` so the host cannot disagree with the selection the same request
+      was assembled against
+- [x] T216 [US10] Keep `full` as the default: a cheaper default is correct only once the assistant
+      can build without per-block schemas, and trading cost for a broken proposal is not a trade the
+      library may make on a caller's behalf
+
+### 12b — The composition block
+
+- [x] T217 [US10] Add the custom-code tree contract
+      (`packages/builder/schema/src/custom-code/custom-code-tree.ts`): 33-tag vocabulary, 8-attribute
+      allowlist, depth AND node ceilings enforced by an ITERATIVE pre-check piped ahead of shape
+      validation (a recursive guard overflows before zod runs)
+- [x] T218 [US10] Add `CustomCode` to the renderer, following the `RichText` precedent exactly —
+      tolerant read, allowlisted tags, `safeHref`-style `src` policy, and no
+      `dangerouslySetInnerHTML` on any path
+- [x] T219 [US10] Resolve component references through a renderer-owned React context carrying a
+      `RegistryRead.block` LOOKUP (not a kernel), provided by both `DocumentView` and
+      `StaticDocument`, so publishing resolves references with no kernel present
+- [x] T220 [US10] Validate a reference's props against the referenced block's OWN schema before
+      rendering; fail to `UnknownBlock` rather than render a half-configured component
+- [x] T221 [US10] Ship `@craftkit/builder-custom-code` (block, scoped-CSS door, Inspector fields) and
+      register `customCode` in the page root vocabulary
+- [x] T222 [US10] Exempt the escape hatch from the economy that makes it necessary
+      (`alwaysDetailedBlockTypes`): in `index` mode every other block loses its schema, and a
+      `customCode` without one would tell the model an escape hatch exists and give it no way to
+      write one
+
+### 12c — Styling freedom, and the two laws that bound it
+
+- [x] T223 [US10] State the runtime utility vocabulary as DATA
+      (`packages/builder/schema/src/custom-code/utility-vocabulary.ts`, 57 patterns → 2,697
+      utilities) and GENERATE the application's `@source inline(...)` directives from it; a drift
+      gate in `apps/playground` fails if the two stop matching
+- [x] T224 [US10] Refuse, at the AI door, a tree class with no generated CSS — the failure that
+      otherwise works in dev, vanishes in the production build, and reports nothing either way
+- [x] T225 [US10] Reserve the `ck-` namespace for classes styled by a region's own stylesheet;
+      without it the `css` prop existed and was unusable, since no selector could match a class the
+      door admitted. Bracketed names are refused even under the prefix
+- [x] T226 [US10] Run BOTH class laws over a tree — `findRejectedUtilities` (theming: no arbitrary
+      values, no default palette) and `unknownUtilityClasses` (generation) — and prove by test that
+      no vocabulary entry can ever contradict the theming law
+- [x] T227 [US10] Add `pageCss` to the page root and `css` to each region, sanitised by a shared
+      refusal list (7 constructs) and scoped by selector rewriting, with `@keyframes`/`@font-face`
+      passing through untouched
+- [x] T228 [US10] Declare both stylesheet props with a `customCss()` marker so the Inspector matches
+      on a DECLARATION, never a property name
+
+### 12d — Editing and identity
+
+- [x] T229 [US10] Contribute lazy Inspector controls for the tree and the stylesheet; both parse
+      before committing, refuse rather than strip, and dispatch once per edit session rather than per
+      keystroke (one undo entry per character makes undo useless for exactly the edit it matters on)
+- [x] T230 [US10] Read a node's own `label` in `blockDisplayName` — the single place a node is named,
+      so the layers tree and screen-reader announcements improve together, and any block declaring a
+      `label` prop gets the behaviour without a second declaration
+
+### 12e — Evidence
+
+- [x] T231 [US10] Cost gate against the REAL registry (`apps/playground`): `full` 63,782 · `index`
+      8,330 · `scoped` 9,484 tokens, with the index figure decomposed in the test so a regression
+      names its own cause
+- [x] T232 [US10] Canvas/static parity suite: identical markup from `DocumentView` and
+      `renderStaticMarkup`, scoped CSS present in published output, refused CSS absent from it
+- [x] T233 [US10] Example-validity suite: the shipped catalog example — the model's only instruction
+      manual, and present in every mode — passes every gate a real proposal passes
+- [x] T234 [US10] `pnpm lint` (28/28), `pnpm typecheck` (27/27), and per-package tests across
+      schema/renderer/ai/custom-code/shell/core/playground, green across two consecutive full runs
+
+**Checkpoint**: The catalog is a per-run decision rather than a constant, the assistant can compose
+what no registered block expresses, and every class and stylesheet it writes passes a door that
+names what it refused.
+
+### Deliberately NOT done, and why
+
+- **The default is still `full`.** Flipping it to `index` now saves ~87% for every host without them
+  asking; that is a product decision, not a library one, and it is one value change away.
+- **`remote-provider` still has no server.** The wire contract is complete and tested; nothing
+  behind it exists, so every measurement here is of the request that WOULD be sent.
+- **`kernel-laws.test.ts` flakes under parallel load.** Measured in isolation, `validate()` costs
+  32ms at a 1.19 ratio — unchanged by this work. The flake is its final wall-clock assertion
+  (`bigBest < 2000`), which the test's own comment argues wall-clock assertions should not be. Left
+  alone: it is an unrelated guard test, and its fix is one line someone should make deliberately.
+
+**Total after the catalog-economy phase**: 234 tasks.
+
+---
+
+## Phase 13 — The Claude server, and the review that followed (US10)
+
+**Why this phase exists.** Every measurement in Phase 12 was of a request that WOULD be sent:
+`remote-provider` was a tested wire contract with nothing behind it. This phase puts a server there,
+then reviews the whole of Phases 12–13 for anything green-but-broken — and finds one.
+
+### 13a — `@craftkit/ai-server`
+
+- [x] T235 [US10] `apps/ai-server`: one POST, three answers (plan / refusal / versioned
+      invalid-output), platform `Request`/`Response` so the handler is framework-free and testable
+      without a socket
+- [x] T236 [US10] Prompt layout as the cost design: frozen rules → catalog (cache breakpoint) →
+      document/history/request in `messages`; breakpoint written only when the segment clears the
+      ~1024-token cache floor
+- [x] T237 [US10] `output_config.format` = the JSON Schema the request CARRIES
+      (`context.outputContract.schema`) — the shape the model is constrained to and the shape the
+      door accepts have one source
+- [x] T238 [US10] Failure translation with the client's taxonomy intact: refusal is `200`,
+      rate-limit `429`, bad upstream `400`, missing key `500` + plain sentence, disconnect `499`;
+      no SDK message or stack ever crosses
+- [x] T239 [US10] SSE: `status` frames from Claude's own thinking summary, exactly one `result`;
+      client disconnect aborts the SDK call
+- [x] T240 [US10] SDK pinned to the newest release inside the repo's `minimumReleaseAge`
+      (0.122.0); 0.72 lacked adaptive thinking and `stop_details`
+- [x] T241 [US10] `catalogPolicyFor`: catalog mode is a property of the PROVIDER — offline scores
+      on schemas and needs `full`; a model needs names and gets `index`/`scoped`. `runAiAgent`
+      gained `composition` so the canonical path can carry it at all
+
+### 13b — What the review found
+
+- [x] T242 [US10] **The server did not start.** Lint, typecheck, 29 tests: green. `node
+      --experimental-strip-types src/main.ts`: `ERR_MODULE_NOT_FOUND` on the first extensionless
+      import inside `@craftkit/builder-ai`. Fixed by building (Vite SSR, `noExternal: @craftkit/*`,
+      ~20 kB `dist/main.js`) and by splitting the untested Node adapter into `server.ts` with
+      socket-level tests (port 0, real fetch, abort-on-disconnect)
+- [x] T243 [US10] The cost gate measured the CONTEXT while the budget charges the WIRE request;
+      re-pointed at `estimateAiPlanWireRequestTokens`. Measured: `full` fits a bare request with
+      ~200 tokens of headroom and overflows on the **twelfth** short follow-up
+- [x] T244 [US10] `kernel-laws` wall-clock backstop raised 2 s → 20 s with the measurement written
+      in (32 ms isolated, >2 s under `pnpm test` contention, ratio 1.19 throughout)
+- [x] T245 [US10] Storybook indexing: 29 stories files carried `tags: ['autodocs']` beside an
+      attached `*.docs.mdx`; Storybook 10 refuses the pair. Tag removed where an attached page
+      exists (2 kept), rule recorded in `.storybook/main.ts`. Result: 461/463 stories run in
+      Chromium where none ran before
+- [x] T246 [US10] Regenerated Tailwind vocabulary verified a strict superset of the previous one
+      (1,293 → 2,697, 0 lost) — the check the regeneration should have shipped with
+- [x] T247 [US10] `apps/playground/.env.example` documenting the two endpoint variables
+- [x] T248 [US10] **Found by the first Chromium run that ever got past indexing**: `catalogPolicyFor`
+      inferred `remote` from `planProvider !== undefined`, so every story double that wraps
+      `createLocalAiPlanProvider()` (fail-then-succeed, answer-late) was handed an `index` catalog and
+      proposed nothing — two stories failed with "no Apply button". Replaced inference with a
+      declared `providerKind` prop on `AssistantPanel`; `App.tsx`, the one place that knows it wired
+      a remote provider, says `'remote'`; every other caller defaults to `'offline'`. Six unit tests
+      pin the decision table
+
+**Checkpoint**: A request from the playground reaches Claude and comes back as a validated plan.
+The one gate that never existed — "does the process start" — now does.
+
+- [x] T249 [US10] Catalog mode `'none'`: the escape hatch plus the selected/mentioned blocks in
+      full, and no other block at all — not even by name. The playground's remote path runs under
+      it; `generate-plan` derives the added blocks from the selection. The server now ships the
+      exact utility vocabulary (57 patterns, ~750 cached tokens) in the prompt's stable segment, and
+      its rules forbid inventing a component type: a reference is valid only for a type in the
+      catalog given
+
+- [x] T250 [US10] Icons: `lucide@1.38.0` (mature per `minimumReleaseAge`) as a renderer dependency;
+      an `icon` LEAF node kind in the tree (name/size/strokeWidth/className/label) instead of an
+      `svg` tag, so no drawing surface is ever opened; 1,791 kebab names generated into layer 0 from
+      lucide's per-icon FILES (PascalCase keys are ambiguous: `ArrowDown01`) with a renderer drift
+      test; the door refuses an unknown icon by name; synchronous drawing keeps canvas/static
+      parity. Found by the first test run: Lucide has no brand logos, and the prompt's own examples
+      used `github` — examples and rules corrected, and a door test pins the `github` refusal
+
+- [x] T251 [US10] `page-independence.property.test.ts` (schema) timed out at the 5 s default under
+      `pnpm test` contention (8,032 ms; passes alone) and took 17 dependent packages down with it.
+      Given a 30 s timeout with the measurement in the comment — the same treatment as
+      `kernel-laws`, for the same reason: fixed seed, constant work, variable spare CPU
+
+- [x] T252 [US10] **Found by the first LIVE run** (the owner, a real key, Arabic request "a farewell
+      banner over a travel photo from the internet"): the plan was refused for raw colour codes and
+      the assistant had to retreat to tokens and a panel. Three laws had been applied to composed
+      regions that the product's owner never wanted there: the AI door's theming law on tree
+      classes, the kernel door's raw-literal scan on `css`/`tree` props, and the CSS sanitizer's
+      refusal of every external `url()`. Now: `colourPolicy` defaults to `'free'` (Tailwind's
+      palette generated into the vocabulary, +2,178 utilities); `customCss()`/`customCodeTree()`
+      props are exempt from the raw-literal scan; `url(https://…)` is allowed (http and `//` still
+      refused); the prompt says colours and images are free and where exact values go. The theming
+      law is one policy value away, and untouched for registered blocks
+- [x] T253 [US10] `manager.test.ts` SC-005 (core) timed out under `pnpm test` load like the two
+      before it; 30 s timeout with the measurement, same rationale. `apps/playground` gained
+      `generate:vocabulary` so the Tailwind block is regenerated by a script, not by hand
+
+- [x] T254 [US10] **From the owner's screenshot**: a refused stylesheet was dropped whole and the
+      canvas said nothing — an unstyled panel with no reason. `CustomCodeBlock` and the page root
+      now render a `role="note"` naming the refused construct on the canvas only; the published
+      page never carries it. Four tests, including the https background image that used to vanish
+
+- [x] T255 [US10] CSS sanitizer hardening: the refusal list is matched against a normalised copy
+      (comments stripped, hex and character escapes decoded) so `@\69mport`, `u\72l(`, and
+      `@/**/import` are refused as the browser would read them; rendered text is untouched.
+      Web-font `@import` from `fonts.googleapis.com` / `fonts.bunny.net` (https only, exact host)
+      is allowed and lifted in front of the scoped rules; look-alike hosts and a second import
+      behind a font import are still refused. 12 new tests
+- [x] T256 [US10] `a` and `button` join the tag vocabulary (35): `href` through `safeHref`
+      (which now also admits `tel:` — a contact section links a phone number, and the scheme has
+      no script surface), `rel="noopener noreferrer"` on external links, only `target="_blank"`,
+      clicks swallowed on the canvas; `button` is always `type="button"` with no handler. 9 new
+      tests. A CV page without a link was the argument
+
+- [x] T257 [US10] The last two Chromium failures, diagnosed by running them (a temporary
+      `console.log` of computed styles, then removed): both were STALE STORIES, not product
+      defects. `Hero > Unthemed Publish Contract` read `rowGap` off the outer column, which holds
+      one child and never had a gap — the rhythm lives on the copy stack (`gap-6`); it now measures
+      there. `VideoSection > Split` quoted example copy that had been rewritten; it now asserts
+      against the rendered example's own heading and video label. Filtered Chromium run: 7 passed
+      (the two included). Storybook is expected at 463/463 on the next full run
+
+- [x] T258 [US10] **Port 8787 was not this server.** `scripts/ai-plan-bridge.mjs` — an older
+      CLI-spawning dev bridge with its own prompt — had held the playground's endpoint for hours;
+      every "live run" went there, and its wording is the "invalid plan response" in the owner's
+      screenshot. The bridge is now marked DEPRECATED in its header and warns at startup; the
+      server README and `.env.example` say how to check the port. `DEFAULT_MAX_TOKENS` raised
+      16k → 32k: a six-region landing page as a JSON tree runs to 15–25k output tokens, and a
+      cut-off plan is no plan. The verification record's "first live run" section corrected
+
+**Total after the server phase**: 258 tasks.

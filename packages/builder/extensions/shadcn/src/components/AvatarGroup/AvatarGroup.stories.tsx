@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Shadcn/Avatar Group',
   component: AvatarGroup,
   parameters: { layout: 'centered' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof AvatarGroup>;
 
 export default meta;

@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Blocks/Logo Cloud',
   component: LogoCloud,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof LogoCloud>;
 
 export default meta;

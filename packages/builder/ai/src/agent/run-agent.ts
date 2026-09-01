@@ -130,6 +130,7 @@ function generationOptions(
       ? {}
       : { maxContextTokens: options.policy.maxContextTokens }),
     ...(options.policy === undefined ? {} : { policy: options.policy }),
+    ...(options.composition === undefined ? {} : { composition: options.composition }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
     ...(onProgress === undefined ? {} : { onProgress }),
   };

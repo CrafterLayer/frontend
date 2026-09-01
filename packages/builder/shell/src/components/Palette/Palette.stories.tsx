@@ -86,7 +86,6 @@ const makeKernel = (dir: 'ltr' | 'rtl' = 'ltr') => {
 const meta = {
   title: 'Builder/Shell/Palette',
   component: Palette,
-  tags: ['autodocs'],
   decorators: [
     (Story) => (
       <div className="bldr-root">

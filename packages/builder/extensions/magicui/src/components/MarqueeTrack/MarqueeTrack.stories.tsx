@@ -5,7 +5,6 @@ import { MarqueeTrack } from './MarqueeTrack';
 const meta = {
   title: 'Builder/MagicUI/Marquee/Track',
   component: MarqueeTrack,
-  tags: ['autodocs'],
   parameters: { layout: 'fullscreen' },
   args: {
     items: [

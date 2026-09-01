@@ -49,6 +49,7 @@ import {
   IconUndo,
 } from './AssistantPanel.icons';
 import { describeStep, shortSkillFingerprint } from './AssistantPanel.utils';
+import { catalogPolicyFor, type ProviderKind } from './catalogPolicyFor';
 
 export interface AssistantPanelProps {
   kernel: BuilderKernel;
@@ -56,6 +57,15 @@ export interface AssistantPanelProps {
   onReviewAsCode?: (() => void) | undefined;
   /** Optional proposal source for an embedded or deterministic host. */
   planProvider?: AiPlanProvider | undefined;
+  /**
+   * What `planProvider` IS, declared by whoever wired it. Decides how much of
+   * the block catalog each run sends: an offline provider scores schemas and
+   * needs all of them; a remote model needs names. Defaults to `'offline'`,
+   * which is also right for every test double that wraps the offline one —
+   * inferring `'remote'` from the mere presence of a provider starved exactly
+   * those doubles and was reverted.
+   */
+  providerKind?: ProviderKind | undefined;
   /** Host-owned, data-only expertise available to this assistant surface. */
   skillRegistry?: AiSkillRegistry | undefined;
   /** Explicit Skills to activate for every request on this surface. */
@@ -244,6 +254,7 @@ export function AssistantPanel({
   kernel,
   onReviewAsCode,
   planProvider,
+  providerKind = 'offline',
   skillRegistry,
   selectedSkillIds,
   agentPolicy,
@@ -507,7 +518,16 @@ export function AssistantPanel({
           ...(memory.hasRecords() ? { additionalContextProviders: [memoryProvider] } : {}),
           skillRegistry: skillRegistry ?? DEFAULT_AI_SKILL_REGISTRY,
           ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
-          ...(agentPolicy === undefined ? {} : { policy: agentPolicy }),
+          /*
+            The host's policy wins over the catalog helper's, always: the helper
+            supplies a budget the offline path needs, not a decision a host may
+            not override.
+          */
+          ...catalogPolicyFor(
+            providerKind,
+            mentioned.length > 0 ? mentioned : kernel.context.store.getState().selection,
+            agentPolicy,
+          ),
           apply: mode === 'auto' ? 'auto' : 'never',
           signal: controller.signal,
           isCurrentRun: (candidateRunId) => activeRunRef.current?.runId === candidateRunId,
@@ -588,6 +608,7 @@ export function AssistantPanel({
       onAgentEvent,
       patchTurns,
       planProvider,
+      providerKind,
       selectedSkillIds,
       selectedType,
       skillRegistry,

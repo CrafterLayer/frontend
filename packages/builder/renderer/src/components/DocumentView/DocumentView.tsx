@@ -5,6 +5,7 @@ import type { NodeId } from '@craftkit/builder-schema';
 
 import type { RenderBreakpoint } from '../../resolve/responsive';
 import { useKernelSelector } from '../../subscribe';
+import { CustomCodeRegistryContext } from '../CustomCode';
 import { NodeView, type InlineEditSeam } from './NodeView';
 
 export type { InlineEditSeam };
@@ -43,15 +44,28 @@ export function DocumentView({
       [],
     ),
   );
+  /*
+    Bound to the KERNEL, not to a render pass: the identity is stable for as
+    long as this kernel is, so providing it never re-renders the tree. Runtime
+    registration (FR-013) still lands, because `registry.block` reads through
+    to whatever is registered at call time — `NodeView` subscribes to the
+    registry epoch and re-renders, and this lookup then answers freshly.
+  */
+  const blockLookup = useCallback(
+    (type: string) => kernel.context.registry.block(type),
+    [kernel],
+  );
   return (
-    <NodeView
-      kernel={kernel}
-      id={rootId}
-      breakpoint={breakpoint}
-      onBlockRender={onBlockRender}
-      attachNodeElement={attachNodeElement}
-      inlineEdit={inlineEdit}
-      isCanvas={isCanvas}
-    />
+    <CustomCodeRegistryContext.Provider value={blockLookup}>
+      <NodeView
+        kernel={kernel}
+        id={rootId}
+        breakpoint={breakpoint}
+        onBlockRender={onBlockRender}
+        attachNodeElement={attachNodeElement}
+        inlineEdit={inlineEdit}
+        isCanvas={isCanvas}
+      />
+    </CustomCodeRegistryContext.Provider>
   );
 }

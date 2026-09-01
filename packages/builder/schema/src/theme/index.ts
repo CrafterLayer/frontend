@@ -17,3 +17,22 @@ export {
   type ContrastCheck,
   type Rgb,
 } from './contrast';
+
+export {
+  COLOR_TOKENS,
+  MEASUREMENT_TOKENS,
+  TOKEN_NAMES,
+  isColorToken,
+  isTokenName,
+  type DesignPairing,
+  type DesignSystem,
+  type DesignTypography,
+  type PairingSize,
+} from './design-system';
+
+export {
+  validateDesignSystem,
+  type DesignSystemIssue,
+  type DesignSystemIssueCode,
+  type DesignSystemValidationResult,
+} from './validate';

@@ -67,6 +67,14 @@ const siteArbitrary: Arbitrary<BuilderSite> = fc
   }));
 
 describe('site page independence (SC-014)', () => {
+  /*
+    Not the default 5 s. Two hundred generated sites validate in well under it
+    alone, and in 8,032 ms under `pnpm test`, where turbo runs every package's
+    vitest in parallel on the same cores — the run was killed by the clock, not
+    by a failure, and it took 17 dependent packages down with it. The seed is
+    fixed, so the work is constant; only the machine's spare capacity varies.
+  */
+  const PROPERTY_TIMEOUT_MS = 30_000;
   it(`every page lifted out of a generated site validates alone (${String(RUNS)} cases, seed ${String(SEED)})`, () => {
     let generatedSites = 0;
     let liftedPages = 0;
@@ -92,5 +100,5 @@ describe('site page independence (SC-014)', () => {
     */
     expect(generatedSites).toBe(RUNS);
     expect(liftedPages).toBeGreaterThanOrEqual(RUNS);
-  });
+  }, PROPERTY_TIMEOUT_MS);
 });

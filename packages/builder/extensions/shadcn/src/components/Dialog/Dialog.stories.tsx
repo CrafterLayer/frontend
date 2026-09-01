@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/shadcn/Dialog',
   component: Dialog,
   parameters: { layout: 'centered' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof Dialog>;
 
 export default meta;

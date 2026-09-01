@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Blocks/Promo Banner',
   component: PromoBanner,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof PromoBanner>;
 
 export default meta;

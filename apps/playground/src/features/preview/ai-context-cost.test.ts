@@ -1,0 +1,132 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  DEFAULT_AI_CONTEXT_TOKEN_BUDGET,
+  assembleAiContext,
+  estimateAiPlanWireRequestTokens,
+  type AiCatalogMode,
+} from '@craftkit/builder';
+
+import { createPlaygroundKernel } from './create-playground-kernel';
+
+/**
+ * The cost gate.
+ *
+ * ## Why this measures the WIRE request and not the context
+ *
+ * An earlier version of this file measured `assembleAiContext` alone and
+ * asserted it under the budget. It passed at 63,782 — and the product still
+ * threw `AiContextBudgetError: estimated 64,218, maximum 64,000` on a real
+ * request, because the budget is not charged against the context. It is
+ * charged against the whole envelope: `assertWireRequestBudget` in
+ * generate-plan.ts sizes `{version, request, context, history?, attempt?}`.
+ *
+ * So the context fitting proves nothing. A gate that measures a different
+ * quantity from the one that fails is worse than no gate: it reports safety
+ * while the margin is gone.
+ *
+ * The margin was gone because this work registered a 55th block. That is the
+ * ordinary act of authoring the earlier note warned about, and it took eleven
+ * days to arrive — which is the argument for measuring the real quantity here.
+ */
+function measure(mode: AiCatalogMode, request: string, history: readonly string[] = []): number {
+  const kernel = createPlaygroundKernel({ fixture: 'landing' });
+  return estimateAiPlanWireRequestTokens({
+    version: 1,
+    request,
+    context: assembleAiContext(kernel.context, { composition: { catalogMode: mode } }),
+    ...(history.length === 0
+      ? {}
+      : { history: history.map((text) => ({ role: 'user' as const, text })) }),
+  });
+}
+
+/** A request of the size a person actually types. */
+const TYPICAL_REQUEST = 'اعمل لي صفحة سيرة ذاتية احترافية بخلفية داكنة وقسم مهارات وتجارب';
+
+describe('AI context cost', () => {
+  it('index mode leaves the budget almost entirely to the conversation', () => {
+    /*
+      ~8,700 today: ~2,600 catalog + ~3,300 document + ~1,000 escape hatch (see
+      AiCompositionPolicy.alwaysDetailedBlockTypes) + the request itself.
+
+      The ceiling leaves room for the registry to roughly double, and still
+      fails loudly if a mode regression put per-block schemas back.
+    */
+    expect(measure('index', TYPICAL_REQUEST)).toBeLessThan(12_000);
+  });
+
+  it('none mode — what the playground actually sends — is the document plus the escape hatch', () => {
+    /*
+      ~4,500: ~3,300 document + ~1,000 escape hatch + the request. No block
+      names at all; a block reaches the model only when the person selects or
+      mentions it. This is the mode the remote provider runs under.
+    */
+    const none = measure('none', TYPICAL_REQUEST);
+
+    expect(none).toBeLessThan(measure('index', TYPICAL_REQUEST));
+    expect(none).toBeLessThan(7_000);
+  });
+
+  it('scoped mode stays cheap with a block expanded', () => {
+    expect(measure('scoped', TYPICAL_REQUEST)).toBeLessThan(14_000);
+  });
+
+  it('index mode survives a long conversation, which full mode has no room for', () => {
+    const history = Array.from(
+      { length: 20 },
+      (_unused, at) => `Turn ${String(at)}: change the hero heading and make the section darker.`,
+    );
+
+    expect(measure('index', TYPICAL_REQUEST, history)).toBeLessThan(
+      DEFAULT_AI_CONTEXT_TOKEN_BUDGET,
+    );
+  });
+
+  it('records how little headroom full mode has left: one short follow-up', () => {
+    /*
+      The number that matters, stated precisely rather than rounded into a
+      reassurance.
+
+      A bare request in `full` mode fits — with about 200 tokens to spare
+      against a 64,000 budget. That is roughly 800 characters: ONE short
+      follow-up turn, and the run throws `AiContextBudgetError` before the
+      provider is reached. Which is exactly how this surfaced in the app, on a
+      second message rather than a first.
+
+      So the assertion is on the MARGIN, not on the total. A test asserting
+      `full < 64_000` passes today and tells the reader the mode is healthy,
+      which is the opposite of true.
+    */
+    const bare = measure('full', TYPICAL_REQUEST);
+    const headroom = DEFAULT_AI_CONTEXT_TOKEN_BUDGET - bare;
+
+    expect(headroom).toBeLessThan(2_000);
+  });
+
+  it('full mode runs out mid-conversation, which is why it is not the wire default', () => {
+    /*
+      Measured, not guessed: a bare request in `full` costs 63,799 and each
+      short turn adds ~17, so the twelfth follow-up throws
+      `AiContextBudgetError` — mid-session, on a page that was working, with no
+      warning on the eleventh.
+
+      A ceiling reached by CONVERSING is the worst shape this failure could
+      take: it does not reproduce on a fresh chat, so it reads as random.
+    */
+    const turn = 'اجعل العنوان أكبر وغيّر لون الخلفية للأغمق';
+    const twelve = Array.from({ length: 12 }, () => turn);
+
+    expect(measure('full', TYPICAL_REQUEST, twelve)).toBeGreaterThan(
+      DEFAULT_AI_CONTEXT_TOKEN_BUDGET,
+    );
+    // And index mode is nowhere near it, with the same conversation.
+    expect(measure('index', TYPICAL_REQUEST, twelve)).toBeLessThan(
+      DEFAULT_AI_CONTEXT_TOKEN_BUDGET / 4,
+    );
+  });
+
+  it('index mode is a large multiple cheaper than full, not a marginal saving', () => {
+    expect(measure('full', TYPICAL_REQUEST) / measure('index', TYPICAL_REQUEST)).toBeGreaterThan(5);
+  });
+});

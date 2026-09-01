@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Blocks/Video Section',
   component: VideoSection,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof VideoSection>;
 
 export default meta;
@@ -29,12 +28,18 @@ export const Split: Story = {
     data: {},
     isCanvas: false,
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
+    /*
+      Asserted against the rendered example's OWN text, not a remembered
+      string: the examples were rewritten and this play kept quoting the old
+      copy ("Watch a rough brief"), so the story failed on every Chromium run
+      while the component was right — a `<section>` is named by its heading,
+      and the video by its label.
+    */
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole('region', { name: /Watch a rough brief/i })).toBeVisible();
-    await expect(canvas.getByLabelText('CraftKit product workflow overview')).toHaveAttribute(
-      'controls',
-    );
+    const { heading, videoLabel } = args.props;
+    await expect(canvas.getByRole('region', { name: heading })).toBeVisible();
+    await expect(canvas.getByLabelText(videoLabel ?? heading)).toHaveAttribute('controls');
   },
 };
 

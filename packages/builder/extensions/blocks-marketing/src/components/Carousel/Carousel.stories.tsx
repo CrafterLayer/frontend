@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Blocks/Carousel',
   component: Carousel,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof Carousel>;
 
 export default meta;

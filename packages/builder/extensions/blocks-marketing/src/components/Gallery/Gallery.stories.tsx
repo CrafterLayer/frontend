@@ -15,7 +15,6 @@ const meta = {
   title: 'Builder/Blocks/Gallery',
   component: Gallery,
   parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
 } satisfies Meta<typeof Gallery>;
 
 export default meta;

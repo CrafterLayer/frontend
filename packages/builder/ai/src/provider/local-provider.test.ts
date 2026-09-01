@@ -274,7 +274,7 @@ describe('local deterministic AI provider', () => {
     ) {
       selectedFirst['name'] = 'Mutated outside dispatch';
     }
-    const example = context.blocks.find(({ type }) => type === 'pricing')?.examples[0]?.node;
+    const example = context.blocks.find(({ type }) => type === 'pricing')?.examples?.[0]?.node;
     if (typeof example === 'object' && example !== null && !Array.isArray(example)) {
       const props = example['props'];
       if (typeof props === 'object' && props !== null && !Array.isArray(props)) {

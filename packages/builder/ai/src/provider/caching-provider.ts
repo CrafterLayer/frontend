@@ -5,6 +5,7 @@ import type {
   AiProposeOptions,
   AssembledAiContext,
 } from '../types';
+import { canonicalJsonStringify } from '../internal/canonical-json';
 
 export interface CachingAiPlanProviderOptions {
   /** Entries kept before the oldest is evicted. */
@@ -13,28 +14,13 @@ export interface CachingAiPlanProviderOptions {
 
 const DEFAULT_CAPACITY = 32;
 
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(value, (_key, candidate: unknown) => {
-    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
-      return candidate;
-    }
-    return Object.fromEntries(
-      Object.entries(candidate).sort(([left], [right]) => compareText(left, right)),
-    );
-  });
-}
-
 /** Every prompt-visible context byte participates in cache identity. */
 function cacheKey(
   request: string,
   context: AssembledAiContext,
   live: AiProposeOptions | undefined,
 ): string {
-  return stableStringify({ context, history: live?.history ?? [], request });
+  return canonicalJsonStringify({ context, history: live?.history ?? [], request });
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {

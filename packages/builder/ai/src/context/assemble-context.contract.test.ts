@@ -6,6 +6,8 @@ import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import {
   blockPropsJsonSchema,
   defineBlockSchema,
+  isJsonValue,
+  type AiContextProvider,
   type BlockRenderComponent,
   type BuilderDocument,
   type TrustedExtensionManifest,
@@ -30,6 +32,10 @@ const hero = defineBlockSchema({
   type: 'context-hero',
   description: 'A prominent opening section with a headline and optional action buttons.',
   props: z.object({ heading: z.string().min(1).max(80), tone: z.enum(['calm', 'bold']) }),
+  propertyGroups: {
+    heading: { tab: 'content', section: 'Copy' },
+    tone: { tab: 'design', section: 'Appearance', kind: 'color-role' },
+  },
   slots: { actions: { allow: ['context-cta'], max: 2 } },
   examples: [
     {
@@ -123,6 +129,9 @@ function documentFixture(): BuilderDocument {
         id: 'hero-1',
         type: 'context-hero',
         props: { heading: 'Build safely', tone: 'bold' },
+        bindings: { heading: 'cms.hero.heading' },
+        variantOf: 'featured',
+        responsive: { mobile: { tone: 'calm' } },
         slots: { actions: ['hero-cta'] },
       },
     },
@@ -137,24 +146,13 @@ function contextKernel() {
   });
 }
 
-function bodyOf(fragment: { body: string }): unknown {
-  return JSON.parse(fragment.body) as unknown;
-}
-
-function assembledBody(kernel: ReturnType<typeof contextKernel>, title: string): unknown {
-  const fragment = assembleAiContext(kernel.context).fragments.find(
-    (candidate) => candidate.title === title,
-  );
-  if (fragment === undefined) throw new Error(`Missing context fragment "${title}".`);
-  return bodyOf(fragment);
-}
-
 describe('AI context-provider contracts', () => {
-  // Mutation proof: in assemble-context.ts, replace `collectBlocks(ctx)` in
-  // `blockCatalogContextProvider.collect` with `[]`; the exact catalog assertion below must fail.
-  it('serializes every active registered block model contract', () => {
+  // Mutation proof: in assemble-context.ts, replace `blocks: collectBlocks(readCtx)` with `[]`;
+  // the exact structured catalog assertion below must fail.
+  it('serializes every active registered block model contract once, including property intent', () => {
     const kernel = contextKernel();
-    const catalog = assembledBody(kernel, 'Registered block vocabulary');
+    const context = assembleAiContext(kernel.context);
+    const catalog = context.blocks;
 
     expect(catalog).toEqual([
       {
@@ -175,6 +173,10 @@ describe('AI context-provider contracts', () => {
         type: 'context-hero',
         description: hero.description,
         propsSchema: blockPropsJsonSchema(hero),
+        propertyIntents: {
+          tabs: { content: ['heading'], design: ['tone'] },
+          kinds: { 'color-role': ['tone'] },
+        },
         examples: hero.examples,
         slots: [{ name: 'actions', allow: ['context-cta'], max: 2 }],
       },
@@ -189,13 +191,14 @@ describe('AI context-provider contracts', () => {
         ],
       },
     ]);
+    expect(context.fragments).toEqual([]);
   });
 
   // Mutation proof: in assemble-context.ts, replace `nodes: Object.values(doc.nodes)` in
   // `collectDocument` with `nodes: []`; the exact real-document assertion below must fail.
   it('serializes the live document shape with every node’s own props, inventing none', () => {
     const kernel = contextKernel();
-    const shape = assembledBody(kernel, 'Document shape');
+    const shape = assembleAiContext(kernel.context).document;
 
     expect(shape).toEqual({
       schemaVersion: 1,
@@ -213,6 +216,9 @@ describe('AI context-provider contracts', () => {
           id: 'hero-1',
           type: 'context-hero',
           props: { heading: 'Build safely', tone: 'bold' },
+          bindings: { heading: 'cms.hero.heading' },
+          variantOf: 'featured',
+          responsive: { mobile: { tone: 'calm' } },
           slots: { actions: ['hero-cta'] },
         },
         {
@@ -237,34 +243,19 @@ describe('AI context-provider contracts', () => {
     });
 
     kernel.dispatch('setDocMeta', { dir: 'rtl' });
-    expect((assembledBody(kernel, 'Document shape') as { dir: string }).dir).toBe('rtl');
+    expect(assembleAiContext(kernel.context).document.dir).toBe('rtl');
   });
 
-  // Mutation proof: in assemble-context.ts, replace `collectSelection(ctx, selection)` in
-  // `selectionContextProvider.collect` with `collectSelection(ctx, [])`; this live-selection assertion must fail.
-  it('follows the live selection order and exposes selected props', () => {
+  // Mutation proof: in assemble-context.ts, replace `selection: collectSelection(readCtx, selection)`
+  // with `selection: collectSelection(readCtx, [])`; this live-selection assertion must fail.
+  it('keeps selection as ordered focus ids without duplicating canonical node facts', () => {
     const kernel = contextKernel();
     kernel.setSelection(['article-1', 'hero-1']);
 
-    const selection = assembledBody(kernel, 'Current selection');
+    const selection = assembleAiContext(kernel.context).selection;
 
-    expect(selection).toEqual({
-      ids: ['article-1', 'hero-1'],
-      nodes: [
-        {
-          id: 'article-1',
-          type: 'context-article',
-          props: { title: 'Safe plans', summary: 'The kernel is the only writer.' },
-          slots: {},
-        },
-        {
-          id: 'hero-1',
-          type: 'context-hero',
-          props: { heading: 'Build safely', tone: 'bold' },
-          slots: { actions: ['hero-cta'] },
-        },
-      ],
-    });
+    expect(selection).toEqual({ ids: ['article-1', 'hero-1'] });
+    expect(JSON.stringify(selection)).not.toContain('Build safely');
 
     kernel.setSelection(['side-cta']);
     expect(assembleAiContext(kernel.context).selection.ids).toEqual(['side-cta']);
@@ -287,7 +278,98 @@ describe('AI context-provider contracts', () => {
       providers: [{ id: 'unbudgeted', collect: () => ({ title: 'a', body: 'bbb' }) }],
     });
 
-    expect(context.fragments).toEqual([{ title: 'a', body: 'bbb', tokens: 2 }]);
+    expect(context.fragments).toEqual([
+      {
+        source: 'unbudgeted',
+        kind: 'data',
+        trust: 'reviewed',
+        title: 'a',
+        body: 'bbb',
+        tokens: 2,
+      },
+    ]);
     expect(context.totalTokens).toBe(2);
+    expect(Object.isFrozen(context.fragments[0])).toBe(true);
+  });
+
+  it('exposes only allowlisted live command schemas plus a versioned output contract', () => {
+    const kernel = contextKernel();
+    let providerCommands: unknown;
+    const inspector: AiContextProvider = {
+      id: 'contract.inspector',
+      collect: (ctx) => {
+        providerCommands = ctx.registry.commands();
+        return { title: 'Inspector', body: 'Observed the data-only catalog.' };
+      },
+    };
+
+    const context = assembleAiContext(kernel.context, {
+      allowedCommands: ['setProp', 'insertNode', 'not-registered'],
+      additionalContextProviders: [inspector],
+    });
+
+    expect(context.commands?.map(({ name }) => name)).toEqual(['insertNode', 'setProp']);
+    for (const command of context.commands ?? []) {
+      expect(isJsonValue(command.argsSchema)).toBe(true);
+      expect(Object.isFrozen(command)).toBe(true);
+      expect(Object.isFrozen(command.argsSchema)).toBe(true);
+      expect(command).not.toHaveProperty('apply');
+      expect(JSON.stringify(command.argsSchema)).not.toContain('_zod');
+    }
+    expect(context.outputContract).toMatchObject({
+      version: 1,
+      schema: {
+        type: 'object',
+        required: ['rationale', 'commands'],
+        properties: {
+          rationale: { type: 'string', minLength: 1, pattern: '\\S' },
+          commands: expect.objectContaining({ type: 'array', minItems: 1 }) as unknown,
+          followUp: { type: 'string' },
+        },
+      },
+    });
+    expect(context.outputContract?.schema).not.toHaveProperty('followUp');
+    expect(isJsonValue(context.outputContract?.schema)).toBe(true);
+    expect(context.omissions).toEqual([
+      {
+        source: 'commands',
+        reason: 'policy-filtered',
+        omittedCount: kernel.context.registry.commandNames().length - 2,
+      },
+    ]);
+
+    const patchSchema = assembleAiContext(kernel.context, {
+      allowedCommands: ['applyPatches'],
+    }).commands?.[0]?.argsSchema as {
+      properties?: {
+        patches?: {
+          items?: {
+            oneOf?: readonly {
+              required?: readonly string[];
+              properties?: { path?: { items?: { anyOf?: readonly { pattern?: string }[] } } };
+            }[];
+          };
+        };
+      };
+    };
+    expect(patchSchema.properties?.patches?.items?.oneOf?.[1]?.required).toContain('value');
+    const safePathPattern =
+      patchSchema.properties?.patches?.items?.oneOf?.[0]?.properties?.path?.items?.anyOf?.[0]
+        ?.pattern;
+    expect(safePathPattern).toBeDefined();
+    expect(new RegExp(safePathPattern ?? '').test('__proto__')).toBe(false);
+
+    const setDocMetaSchema = assembleAiContext(kernel.context, {
+      allowedCommands: ['setDocMeta'],
+    }).commands?.[0]?.argsSchema as { anyOf?: readonly { required?: readonly string[] }[] };
+    expect(setDocMetaSchema.anyOf?.map(({ required }) => required)).toEqual([['dir'], ['surface']]);
+
+    expect(Array.isArray(providerCommands)).toBe(true);
+    expect(Object.isFrozen(providerCommands)).toBe(true);
+    expect(providerCommands).not.toBe(kernel.context.registry.commandNames());
+    for (const command of providerCommands as readonly Record<string, unknown>[]) {
+      expect(command).not.toHaveProperty('apply');
+      expect(command).not.toHaveProperty('argsSchema._zod');
+    }
   });
 });

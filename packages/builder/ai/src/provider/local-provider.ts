@@ -9,6 +9,10 @@ import type {
   AiTemplateContext,
   AssembledAiContext,
 } from '../types';
+import { AiProviderError, type AiProviderErrorDetails } from './errors';
+
+/** Hard ceiling for any collection whose size is inferred from request text. */
+export const LOCAL_AI_MAX_COLLECTION_ITEMS = 64;
 
 function callerAbortError(signal: AbortSignal | undefined): Error | undefined {
   if (signal?.aborted !== true) return undefined;
@@ -87,8 +91,15 @@ const REQUEST_STOP_WORDS: ReadonlySet<string> = new Set([
   'with',
 ]);
 
-export class LocalAiProviderError extends Error {
+export class LocalAiProviderError extends AiProviderError {
   override readonly name = 'LocalAiProviderError';
+
+  constructor(
+    message: string,
+    details: AiProviderErrorDetails = { code: 'refusal', retryable: false },
+  ) {
+    super(message, details);
+  }
 }
 
 function compareText(left: string, right: string): number {
@@ -287,9 +298,8 @@ function normalizeDigits(value: string): string {
 
 function requestedCount(request: string): number | undefined {
   for (const word of words(normalizeDigits(request))) {
-    const fromWord = NUMBER_WORDS[word];
-    if (fromWord !== undefined) {
-      return fromWord;
+    if (Object.hasOwn(NUMBER_WORDS, word)) {
+      return NUMBER_WORDS[word];
     }
     if (/^\d+$/u.test(word)) {
       const parsed = Number(word);
@@ -356,25 +366,38 @@ function adaptRequestedCount(
   block: AiBlockContext,
   props: Record<string, JsonValue>,
   request: string,
-): Record<string, JsonValue> {
+): {
+  props: Record<string, JsonValue>;
+  limit: { requested: number; applied: number } | undefined;
+} {
   const count = requestedCount(request);
   if (count === undefined) {
-    return props;
+    return { props, limit: undefined };
   }
   const requestWords = wordSet(request);
   const key = mentionedArrayKey(block, props, requestWords);
   if (key === undefined) {
-    return props;
+    return { props, limit: undefined };
   }
   const current = props[key];
   if (!Array.isArray(current) || current.length === 0) {
-    return props;
+    return { props, limit: undefined };
   }
 
   const propertySchema = schemaProperties(block)[key];
-  const minimum = arrayLimit(propertySchema, 'minItems') ?? 0;
-  const maximum = arrayLimit(propertySchema, 'maxItems') ?? count;
-  const target = Math.max(minimum, Math.min(count, maximum));
+  const minimum = Math.max(0, arrayLimit(propertySchema, 'minItems') ?? 0);
+  const declaredMaximum = arrayLimit(propertySchema, 'maxItems');
+  const safeMaximum = Math.min(
+    LOCAL_AI_MAX_COLLECTION_ITEMS,
+    declaredMaximum ?? LOCAL_AI_MAX_COLLECTION_ITEMS,
+  );
+  if (minimum > safeMaximum) {
+    throw new LocalAiProviderError(
+      `The registered ${block.type}.${key} minimum exceeds the local provider collection limit of ${String(LOCAL_AI_MAX_COLLECTION_ITEMS)} items.`,
+      { code: 'resource-limit', retryable: false },
+    );
+  }
+  const target = Math.max(minimum, Math.min(count, safeMaximum));
   const adjusted = Array.from({ length: target }, (_unused, index) => {
     const existing = current[index];
     if (existing !== undefined) {
@@ -392,7 +415,10 @@ function adaptRequestedCount(
   if (typeof columns === 'string' && Array.isArray(enumValues) && enumValues.includes(countText)) {
     props['columns'] = countText;
   }
-  return props;
+  return {
+    props,
+    limit: count > target ? { requested: count, applied: target } : undefined,
+  };
 }
 
 function chooseBlock(
@@ -442,13 +468,26 @@ function proposeLocally(request: string, context: AssembledAiContext): AiPlan {
     };
   }
   const { block, target } = chooseBlock(request, context);
-  const props = adaptRequestedCount(block, propsFromBestExample(block, wordSet(request)), request);
+  const adapted = adaptRequestedCount(
+    block,
+    propsFromBestExample(block, wordSet(request)),
+    request,
+  );
+  const limitNotice =
+    adapted.limit === undefined
+      ? ''
+      : ` The requested collection was limited from ${String(adapted.limit.requested)} to ${String(adapted.limit.applied)} items before allocation.`;
   return {
-    rationale: `Add a ${block.type} block to ${target.parentId}.${target.slot} using the registered vocabulary that best matches the request.`,
+    rationale: `Add a ${block.type} block to ${target.parentId}.${target.slot} using the registered vocabulary that best matches the request.${limitNotice}`,
     commands: [
       {
         command: 'insertNode',
-        args: { type: block.type, props, parentId: target.parentId, slot: target.slot },
+        args: {
+          type: block.type,
+          props: adapted.props,
+          parentId: target.parentId,
+          slot: target.slot,
+        },
       },
     ],
   };

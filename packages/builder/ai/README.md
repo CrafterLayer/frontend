@@ -18,14 +18,14 @@ of commands bypasses the invariant this package exists to preserve.
 
 ## What ships
 
-- Four `AiContextProvider` implementations for the registered block vocabulary, page-template
-  catalog, current selection, and flat document shape. Block context includes model-facing
-  descriptions, JSON Schema props summaries, few-shot examples, and accepted slots; template context
-  names each composition, its root type, section count, and block vocabulary. Every fragment carries
-  a deterministic character-based token estimate for budgeting. Extension collectors receive a
-  detached, deeply frozen state snapshot and a data-only registry catalog—never `dispatch`, event or
-  subscription handles, renderers, Zod instances, stored composition nodes, or live registry
-  objects.
+- One canonical provider envelope. Blocks, templates, document state, and selection each have one
+  structured representation; `fragments` is reserved for additive host, memory, and active-Skill
+  context. Every fragment is frozen and preserves its `source`, `kind`, and `trust` boundary. The
+  envelope also carries the effective command catalog as JSON Schema data, the versioned plan-output
+  contract, explicit policy-omission counts, and block-declared property intent. Context collectors
+  receive a detached, deeply frozen snapshot and a data-only registry catalog—never `dispatch`,
+  event or subscription handles, renderers, Zod instances, command implementations, stored
+  composition nodes, or live registry objects.
 - `AiPlanProvider`, a one-method provider port. A future model-backed adapter implements the same
   `propose(request, context)` contract.
 - `createLocalAiPlanProvider()`, a deterministic, offline implementation that scores the request
@@ -34,34 +34,42 @@ of commands bypasses the invariant this package exists to preserve.
   three plans” emits one real `insertNode` command with three schema-valid plans. A full-page or
   template request chooses a registered composition and emits one atomic `insertComposition`
   command.
-- Runtime plan validation through the real kernel door, plus `applyAiPlan()` for explicit
-  AI-authored dispatch.
+- Runtime plan validation through the real kernel door, authenticated `AiValidatedProposal` values
+  that pin plan + effective policy + Skill activations + context identity, and `applyAiPlan()` for
+  explicit AI-authored dispatch.
 - A versioned, immutable Skills registry with metadata-only discovery, explicit body/reference
   reads, deterministic request-local activation, dependencies, conflicts, trust policy, content
   fingerprints backed by SHA-256, and hard count/token limits.
-- `runAiAgent()`, a UI-independent bounded coordinator with sequenced events, injected time/run id,
-  real cancellation plus host-owned supersession leases, one repair at most, review-only or
-  automatic apply, and exactly one terminal event.
+- `runAiAgent()`, a UI-independent bounded coordinator with sequenced typed events, classified
+  failures, injected time/run id, real cancellation plus host-owned supersession leases, one repair
+  at most, review-only or automatic apply, and exactly one terminal event.
 
 ## Usage
 
 ```ts
-import { applyAiPlan, createLocalAiPlanProvider, generateAiPlan } from '@craftkit/builder-ai';
+import { applyAiPlan, createLocalAiPlanProvider, runAiAgent } from '@craftkit/builder-ai';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 
-const plan = await generateAiPlan({
+const proposalPorts = {
+  clock: fixedClock(0),
+  ids: seededIds('ai-proposal-preflight'),
+};
+
+const result = await runAiAgent({
+  runId: 'assistant-turn-1',
+  clock: fixedClock(0),
   kernel,
   provider: createLocalAiPlanProvider(),
   request: 'add a pricing section with three plans',
-  validationPorts: {
-    clock: fixedClock(0),
-    ids: seededIds('ai-preflight'),
-  },
+  validationPorts: proposalPorts,
+  apply: 'never',
 });
 
+// Proposal-only mode has not changed the document. The authenticated proposal
+// already pins the exact plan, effective authority, Skills, and context identity.
 const application = applyAiPlan({
   kernel,
-  plan,
+  proposal: result.proposal,
   validationPorts: {
     clock: fixedClock(0),
     ids: seededIds('ai-apply-preflight'),
@@ -72,6 +80,8 @@ const application = applyAiPlan({
 Validation ports are injected and dedicated to the scratch kernel. Do not borrow the live kernel's
 stateful port instances: a preflight insertion consumes IDs in the scratch session. Production code
 must inject equivalent deterministic capabilities rather than reaching for ambient time or entropy.
+Low-level compatibility calls may pass `plan + policy` together; omitting policy or combining a
+validated proposal with substituted plan/policy data fails closed.
 
 ## Skills and bounded agent runs
 
@@ -106,7 +116,7 @@ const result = await runAiAgent({
   onEvent: (event) => renderAgentProgress(event),
 });
 
-// `result.plan` is validated but nothing changed until the host explicitly applies it.
+// `result.proposal` is authenticated and immutable, but nothing changed until the host applies it.
 ```
 
 A host can supply its own Skill without changing this package or creating another write path:
@@ -171,6 +181,56 @@ validating or applying after a newer run takes ownership. A missing or non-`true
 closed. Proposal-only runs emit `plan.proposed`; auto-apply runs transition directly from validation
 to `plan.applying`.
 
+### Observable events and typed retry UX
+
+`onEvent` receives a discriminated `AiAgentEvent` stream. `seq` is monotonic inside one `runId`,
+`at` comes from the injected clock, and exactly one of `run.completed`, `run.cancelled`, or
+`run.failed` is terminal. Observer exceptions are isolated and cannot change the run outcome.
+
+```ts
+await runAiAgent({
+  // ...kernel, provider, request, runId, clock, validationPorts
+  onEvent(event) {
+    if (event.type === 'skills.resolved') {
+      showActivationPins(event.activations); // id, version, fingerprint, reason
+    } else if (event.type === 'plan.progress') {
+      showProgress(event.text);
+    } else if (event.type === 'run.failed') {
+      showFailure({
+        code: event.error.code,
+        message: event.error.message,
+        canRetry: event.error.retryable,
+      });
+    }
+  },
+});
+```
+
+Known failures are exposed as frozen `AiRunFailure` data with `source`, stable `code`, human
+`message`, `retryable`, and optional HTTP `status`. Provider codes distinguish refusal, invalid
+output, HTTP status, timeout, network, response/resource limits, stream protocol, endpoint policy,
+cancellation, and observer failure. The runner additionally classifies context-budget, memory,
+Skill/policy, plan-validation, proposal-integrity, kernel, and unknown failures.
+
+Retry only when `retryable === true`, and always create a fresh `runId` and cancellation controller.
+Do not infer retryability from prose or HTTP status alone. Context-budget, policy, unsafe-command,
+and explicit-refusal failures require changed input or host policy and are intentionally not
+retryable. The original error is still thrown to the caller after `run.failed`, so non-UI hosts may
+use ordinary `try/catch` while telemetry consumes the typed event.
+
+### Unsafe commands and property intent
+
+- The live registry is the upper authority bound; session and active-Skill policies can only reduce
+  it.
+- `applyPatches` is denied by default even when registered. A host must explicitly allow it, and
+  every nested patch consumes the bounded operation budget before any scratch or live dispatch.
+- Properties declared with `propertyIntents.kinds['utility-classes']` are human-only. AI plans that
+  author them through `setProp`, `setResponsive`, `insertNode`, or nested patches are rejected.
+- Providers receive only the effective command catalog and JSON argument contracts. Registered
+  implementations and Zod objects never cross the provider boundary.
+- Preview and apply re-check the authenticated proposal's pinned authority. A copied proposal,
+  substituted plan, broader policy, or missing compatibility policy fails closed.
+
 ## Undo semantics
 
 The kernel grouped door accepts both the legacy `kernel.dispatchGroup(steps, author)` form and
@@ -198,7 +258,18 @@ The provider POSTs:
 {
   "version": 1,
   "request": "add a pricing section with three plans",
-  "context": { "fragments": [...], "totalTokens": 812, "blocks": [...], "templates": [...], "document": {...}, "selection": {...} },
+  "context": {
+    "blocks": [...],
+    "templates": [...],
+    "document": {...},
+    "selection": {...},
+    "commands": [{ "name": "insertNode", "argsSchema": {...} }],
+    "outputContract": { "version": 1, "schema": {...} },
+    "fragments": [
+      { "source": "acme.brand-voice", "kind": "instruction", "trust": "reviewed", "title": "Active AI skill: acme.brand-voice", "body": "...", "tokens": 42 }
+    ],
+    "omissions": [{ "source": "commands", "reason": "policy-filtered", "omittedCount": 3 }]
+  },
   // Present only on the single repair retry after a rejected proposal:
   "attempt": { "plan": { ... }, "issues": [{ "code": "invalid-args", "message": "...", "step": 0 }] }
 }
@@ -219,11 +290,13 @@ telemetry or callers, so an observer cannot rewrite the proposal after validatio
 `repair` method (the remote one has it) get exactly one retry with the rejected plan and its issues;
 there is no third attempt.
 
-Transport errors surface as `RemoteAiProviderError` with a human sentence (unreachable, status,
-non-JSON, malformed shape, or `timed out after <ms>`; default timeout 30s, configurable via
-`timeoutMs`). JSON and SSE responses are byte-counted while streaming and capped at 1 MiB by default
-(`maxResponseBytes` is configurable); an oversized declared `Content-Length` is rejected before the
-body is read. Auth goes in `headers`; the fetch implementation is injectable for tests.
+Provider failures extend `AiProviderError`, so hosts read `code`, `retryable`, and optional `status`
+without parsing the human sentence. The remote adapter defaults to HTTPS-only endpoints, refuses
+redirects, sends `credentials: 'omit'` with `referrerPolicy: 'no-referrer'`, and accepts HTTP only
+through the explicit development-only `allowInsecureHttp` option. JSON and SSE responses are
+byte-counted while streaming and capped at 1 MiB by default (`maxResponseBytes` is configurable); an
+oversized declared `Content-Length` is rejected before the body is read. Caller-supplied auth goes
+in `headers`; the fetch implementation is injectable for tests.
 
 ### Streaming and cancellation (optional)
 
@@ -241,7 +314,12 @@ never as a provider error. Remote, local, cache-hit, and repair paths re-check t
 every async boundary so an adapter that ignores abort still cannot return a stale result.
 
 In the playground, set `VITE_AI_PLAN_ENDPOINT=https://your-server/plan` and the AssistantPanel
-switches from the local deterministic provider to the remote one — no code change.
+switches from the local deterministic provider to the remote one — no code change. For the local
+Claude CLI development bridge, generate a random session secret and put the same value in
+`AI_BRIDGE_TOKEN` (bridge process) and `VITE_AI_PLAN_TOKEN` (playground). The bridge binds only to
+`127.0.0.1`, allows only the configured `AI_BRIDGE_ALLOWED_ORIGINS`, disables Claude tools and
+customizations, caps bodies/output, and returns `429` when its bounded concurrency is occupied.
+Never reuse the development bridge as a production assistant server.
 
 ## Planning, memory, and caching
 
@@ -249,15 +327,17 @@ switches from the local deterministic provider to the remote one — no code cha
   the chat so far — `{ role, text }` turns, oldest first — onto the wire as `history`, so "make it
   blue" can resolve against what the previous turn added. The AssistantPanel sends its thread
   automatically.
-- **Session memory.** `createMemoryContextProvider({ load })` turns any host-owned note store into a
-  context fragment every provider sees. The engine owns the seam, never the storage: the panel feeds
-  it the rationale of each applied plan; another product can feed it preferences from a database.
-  Register it through `contributes.aiContext` and the live registry supplies it automatically, or
-  pass an explicit `contextProviders` list when intentionally overriding provider selection.
+- **Session memory.** `createMemoryContextProvider({ load })` accepts bounded, host-authored v1
+  records (`source: 'host'`, `trust: 'reviewed'`, typed outcome kind, summary, and optional command
+  names) and serializes them as one provenance-labelled data fragment. Unknown fields are discarded;
+  model rationale or instruction-looking text never becomes durable trusted memory. Register the
+  provider through `contributes.aiContext` or pass it through `additionalContextProviders`; both
+  compose additively with registry contributions.
 - **Plan caching.** `createCachingAiPlanProvider(inner, { capacity })` wraps any provider with an
   LRU keyed on the request, conversation, and the complete canonical assembled context — fragments,
-  memory, blocks, templates, selection detail, document, Skill catalog, and activation fingerprints.
-  A changed input is always a miss; an aborted hit never returns. `repair` is never cached.
+  memory, blocks/property intent, templates, selection, document, effective commands, output
+  contract, omissions, Skill catalog, and activation fingerprints. A changed input is always a miss;
+  object insertion order is irrelevant, an aborted hit never returns, and `repair` is never cached.
 - **Staged planning.** A plan may carry `followUp`: when a request is too big for one safe plan, the
   provider delivers the most valuable stage and words the next request there, in the requester's
   language. UIs offer it as a one-tap continuation; nothing runs automatically. The dev bridge pairs
@@ -267,6 +347,15 @@ switches from the local deterministic provider to the remote one — no code cha
   the technical truth. `previewAiPlan()` returns the WOULD-BE document for a look-before-apply
   dialog, and validation charges a plan only for NEW damage — a pre-existing schema violation in the
   live document never blocks an unrelated edit.
+
+## Why `p-limit` is not a dependency
+
+The agent request path is deliberately sequential: resolve Skills, assemble context, propose,
+validate/repair once, then optionally apply. The development bridge also must not queue untrusted
+inbound work: it admits a bounded number of active requests and immediately returns `429` for the
+rest. `p-limit` would add a Promise queue but would not bound pending requests, so it is the wrong
+primitive for that security boundary. Reconsider it only when a trusted multi-page pipeline
+deliberately runs per-page provider calls in parallel and also owns an explicit pending-work cap.
 
 ## Taking this engine to another project
 

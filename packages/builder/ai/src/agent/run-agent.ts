@@ -1,6 +1,7 @@
 import { estimateAssembledAiContextTokens } from '../context';
 import type { AiPlan, AiPlanProvider, AssembledAiContext } from '../types';
 import { applyAiPlan } from '../plan/apply-plan';
+import { createAiValidatedProposal } from '../plan/validated-proposal';
 import {
   generateAiPlanWithPreparedSkills,
   prepareAiSkillsForGeneration,
@@ -9,6 +10,7 @@ import {
 } from '../plan/generate-plan';
 import type { AiPreparedSkillContext } from '../skills';
 import type { AiAgentEvent, AiAgentRunResult, RunAiAgentOptions } from './types';
+import { classifyAiRunFailure } from './errors';
 
 type EventPayload<T = AiAgentEvent> = T extends AiAgentEvent
   ? Omit<T, 'runId' | 'seq' | 'at'>
@@ -22,6 +24,13 @@ const TERMINAL_EVENTS: ReadonlySet<AiAgentEvent['type']> = new Set([
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
+}
+
+function normalizeCancellation(cause: unknown): Error {
+  if (cause instanceof Error && cause.name === 'AbortError') return cause;
+  const error = new Error(errorMessage(cause));
+  error.name = 'AbortError';
+  return error;
 }
 
 function supersededRunError(runId: string): Error {
@@ -100,6 +109,9 @@ function generationOptions(
     ...(options.contextProviders === undefined
       ? {}
       : { contextProviders: options.contextProviders }),
+    ...(options.additionalContextProviders === undefined
+      ? {}
+      : { additionalContextProviders: options.additionalContextProviders }),
     ...(options.history === undefined ? {} : { history: options.history }),
     ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
     ...(options.selectedSkillIds === undefined
@@ -213,23 +225,30 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       }
     });
     const policy = resolveAiPolicyForGeneration(preparedOptions, skills);
-    const plan = await generateAiPlanWithPreparedSkills(preparedOptions, skills);
+    const plan = await generateAiPlanWithPreparedSkills(preparedOptions, skills, policy);
     assertRunActive(options);
     if (assembledContext === undefined) {
       throw new Error('The AI provider was not given an assembled context.');
     }
+    const proposal = createAiValidatedProposal({
+      plan,
+      policy,
+      skillActivations: skills?.activations ?? [],
+      context: assembledContext,
+    });
 
     if (apply === 'never') {
-      emit({ type: 'plan.proposed', plan });
+      emit({ type: 'plan.proposed', plan: proposal.plan, proposal });
       assertRunActive(options);
       emit({ type: 'run.completed', status: 'proposed' });
       return Object.freeze({
         runId: options.runId,
         status: 'proposed',
-        plan,
+        proposal,
+        plan: proposal.plan,
         context: assembledContext,
         ...(skills === undefined ? {} : { skills }),
-        policy,
+        policy: proposal.policy,
       });
     }
 
@@ -237,27 +256,28 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
     assertRunActive(options);
     const applied = applyAiPlan({
       kernel: options.kernel,
-      plan,
+      proposal,
       validationPorts: options.validationPorts,
-      policy,
       ...(options.label === undefined ? {} : { label: options.label }),
     });
     emit({ type: 'run.completed', status: 'applied' });
     return Object.freeze({
       runId: options.runId,
       status: 'applied',
-      plan,
+      proposal,
+      plan: proposal.plan,
       context: assembledContext,
       ...(skills === undefined ? {} : { skills }),
-      policy,
+      policy: proposal.policy,
       applied,
     });
   } catch (cause) {
     if (isCancellation(cause, options.signal)) {
-      emit({ type: 'run.cancelled', reason: errorMessage(cause) });
-    } else {
-      emit({ type: 'run.failed', error: errorMessage(cause) });
+      const cancellation = normalizeCancellation(cause);
+      emit({ type: 'run.cancelled', error: classifyAiRunFailure(cancellation) });
+      throw cancellation;
     }
+    emit({ type: 'run.failed', error: classifyAiRunFailure(cause) });
     throw cause;
   }
 }

@@ -99,6 +99,65 @@ describe('AI plan command-policy enforcement', () => {
     expect(stepReads).toBe(0);
   });
 
+  it('rejects 5,000 nested patches before schema parsing or scratch work', () => {
+    const live = kernel();
+    const before = live.getDocument();
+    let patchReads = 0;
+    const unreadablePatch = new Proxy(
+      {},
+      {
+        get() {
+          patchReads += 1;
+          throw new Error('an over-budget patch must not be inspected');
+        },
+        ownKeys() {
+          patchReads += 1;
+          throw new Error('an over-budget patch must not be materialized');
+        },
+      },
+    );
+    const result = validateAiPlan(
+      {
+        rationale: 'Attempt one unbounded bulk mutation.',
+        commands: [
+          {
+            command: 'applyPatches',
+            args: {
+              patches: Array.from({ length: 5_000 }, () => unreadablePatch),
+            },
+          },
+        ],
+      },
+      live,
+      ports('nested-bound'),
+      { allowedCommands: ['applyPatches'], maxCommands: 64, maxOperations: 256 },
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'policy-rejected' }],
+    });
+    if (!result.ok) expect(result.issues[0]?.message).toContain('nested operations');
+    expect(patchReads).toBe(0);
+    expect(live.getDocument()).toBe(before);
+    expect(live.transactions()).toEqual([]);
+  });
+
+  it('fails closed when apply is invoked without a runtime policy', () => {
+    const live = kernel();
+    const before = live.getDocument();
+
+    expect(() =>
+      applyAiPlan({
+        kernel: live,
+        plan,
+        validationPorts: ports('missing-policy'),
+      } as never),
+    ).toThrow(/policy/i);
+    expect(live.getDocument()).toBe(before);
+    expect(live.transactions()).toEqual([]);
+  });
+
   it('rechecks policy at apply time and leaves the live kernel untouched on denial', () => {
     const live = kernel();
     const before = live.getDocument();

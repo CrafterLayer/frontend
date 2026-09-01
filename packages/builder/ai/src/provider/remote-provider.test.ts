@@ -1,14 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AiPlan, AiPlanValidationIssue, AssembledAiContext } from '../types';
-import { RemoteAiProviderError, createRemoteAiPlanProvider } from './remote-provider';
-import type { AiPlanWireRequest } from './wire';
+import { createRemoteAiPlanProvider } from './remote-provider';
+import { AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH, type AiPlanWireRequest } from './wire';
 
 const ENDPOINT = 'https://assistant.example.test/plan';
 
 function context(): AssembledAiContext {
   return {
-    fragments: [{ title: 'Blocks', body: 'hero — A hero.', tokens: 4 }],
+    fragments: [
+      {
+        source: 'test:remote-provider',
+        kind: 'data',
+        trust: 'builtin',
+        title: 'Blocks',
+        body: 'hero — A hero.',
+        tokens: 4,
+      },
+    ],
     totalTokens: 4,
     blocks: [
       {
@@ -20,7 +29,7 @@ function context(): AssembledAiContext {
       },
     ],
     document: { schemaVersion: 1, surface: 'landing', dir: 'ltr', rootId: 'root', nodes: [] },
-    selection: { ids: [], nodes: [] },
+    selection: { ids: [] },
   };
 }
 
@@ -72,6 +81,9 @@ describe('createRemoteAiPlanProvider', () => {
     const [call] = calls;
     expect(call?.input).toBe(ENDPOINT);
     expect(call?.init.method).toBe('POST');
+    expect(call?.init.redirect).toBe('error');
+    expect(call?.init.credentials).toBe('omit');
+    expect(call?.init.referrerPolicy).toBe('no-referrer');
     expect(new Headers(call?.init.headers).get('content-type')).toBe('application/json');
     expect(call?.body).toMatchObject({
       version: 1,
@@ -79,6 +91,39 @@ describe('createRemoteAiPlanProvider', () => {
       context: { totalTokens: 4 },
     });
     expect(call?.body.attempt).toBeUndefined();
+  });
+
+  it.each([
+    'relative/plan',
+    'http://assistant.example.test/plan',
+    'ftp://assistant.example.test/plan',
+  ])('rejects an endpoint outside the default HTTPS policy: %s', (endpoint) => {
+    expect(() => createRemoteAiPlanProvider({ endpoint })).toThrow(/https/i);
+  });
+
+  it('allows an insecure HTTP endpoint only through the explicit development option', async () => {
+    const endpoint = 'http://127.0.0.1:8787/plan';
+    const { calls, fetchImpl } = fakeFetch(() => jsonResponse(plan));
+    const provider = createRemoteAiPlanProvider({
+      endpoint,
+      allowInsecureHttp: true,
+      fetch: fetchImpl,
+    });
+
+    await expect(provider.propose('add a hero', context())).resolves.toEqual(plan);
+    expect(calls[0]?.input).toBe(endpoint);
+  });
+
+  it('refuses a redirected response even when an injected fetch ignores redirect:error', async () => {
+    const redirected = jsonResponse(plan);
+    Object.defineProperty(redirected, 'redirected', { value: true });
+    const { fetchImpl } = fakeFetch(() => redirected);
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
+      code: 'endpoint-policy',
+      retryable: false,
+    });
   });
 
   it('sends configured headers with every request', async () => {
@@ -98,18 +143,24 @@ describe('createRemoteAiPlanProvider', () => {
     const { fetchImpl } = fakeFetch(() => jsonResponse({ refusal: 'I cannot plan that.' }));
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
 
-    await expect(provider.propose('do the impossible', context())).rejects.toThrow(
-      new RemoteAiProviderError('I cannot plan that.'),
-    );
+    await expect(provider.propose('do the impossible', context())).rejects.toMatchObject({
+      name: 'RemoteAiProviderError',
+      message: 'I cannot plan that.',
+      code: 'refusal',
+      retryable: false,
+    });
   });
 
   it('reports a non-2xx response by status without inventing a plan', async () => {
     const { fetchImpl } = fakeFetch(() => jsonResponse({ error: 'boom' }, 503));
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
 
-    await expect(provider.propose('add a hero', context())).rejects.toThrow(
-      /The assistant server answered with status 503\./,
-    );
+    await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
+      message: 'The assistant server answered with status 503.',
+      code: 'http-status',
+      retryable: true,
+      status: 503,
+    });
   });
 
   it('rejects a malformed response body instead of passing it downstream', async () => {
@@ -121,6 +172,107 @@ describe('createRemoteAiPlanProvider', () => {
     );
   });
 
+  it('rejects an explicitly versioned response from a different wire version', async () => {
+    const { fetchImpl } = fakeFetch(() => jsonResponse({ ...plan, version: 2 }));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
+      code: 'invalid-output',
+      retryable: true,
+    });
+  });
+
+  it('classifies a versioned invalid-output response with its bounded server message', async () => {
+    const message = 'The model returned prose instead of the plan object.';
+    const { fetchImpl } = fakeFetch(() => jsonResponse({ version: 1, invalidOutput: { message } }));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
+      name: 'RemoteAiProviderError',
+      message,
+      code: 'invalid-output',
+      retryable: true,
+    });
+  });
+
+  it('limits an invalid-output message before exposing it to the host', async () => {
+    const oversized = 'x'.repeat(AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH * 4);
+    const { fetchImpl } = fakeFetch(() =>
+      jsonResponse({ version: 1, invalidOutput: { message: oversized } }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
+      message: 'x'.repeat(AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH),
+      code: 'invalid-output',
+      retryable: true,
+    });
+  });
+
+  it('cleans up the reader before surfacing a versioned invalid-output response', async () => {
+    const encoded = new TextEncoder().encode(
+      JSON.stringify({ version: 1, invalidOutput: { message: 'Invalid generated JSON.' } }),
+    );
+    let reads = 0;
+    let cancelCalls = 0;
+    let releaseCalls = 0;
+    const reader = {
+      read() {
+        reads += 1;
+        return Promise.resolve(
+          reads === 1
+            ? { done: false as const, value: encoded }
+            : { done: true as const, value: undefined },
+        );
+      },
+      cancel() {
+        cancelCalls += 1;
+        return Promise.resolve();
+      },
+      releaseLock() {
+        releaseCalls += 1;
+      },
+    } as unknown as ReadableStreamDefaultReader<Uint8Array>;
+    const response = {
+      ok: true,
+      redirected: false,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: { getReader: () => reader },
+    } as unknown as Response;
+    const { fetchImpl } = fakeFetch(() => response);
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
+      message: 'Invalid generated JSON.',
+      code: 'invalid-output',
+    });
+    expect(cancelCalls).toBe(1);
+    expect(releaseCalls).toBe(1);
+  });
+
+  it('keeps versioned and unversioned plan/refusal responses compatible', async () => {
+    const planResponses = [plan, { ...plan, version: 1 }];
+    for (const response of planResponses) {
+      const { fetchImpl } = fakeFetch(() => jsonResponse(response));
+      const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+      await expect(provider.propose('add a hero', context())).resolves.toEqual(plan);
+    }
+
+    const refusalResponses = [
+      { refusal: 'Not an edit request.' },
+      { version: 1, refusal: 'Not an edit request.' },
+    ];
+    for (const response of refusalResponses) {
+      const { fetchImpl } = fakeFetch(() => jsonResponse(response));
+      const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+      await expect(provider.propose('hello', context())).rejects.toMatchObject({
+        message: 'Not an edit request.',
+        code: 'refusal',
+      });
+    }
+  });
+
   it('rejects a non-JSON response body with a provider error', async () => {
     const { fetchImpl } = fakeFetch(() => new Response('<html>gateway</html>', { status: 200 }));
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
@@ -128,20 +280,19 @@ describe('createRemoteAiPlanProvider', () => {
     await expect(provider.propose('add a hero', context())).rejects.toThrow(/not valid JSON/);
   });
 
-  it('rejects an oversized response from Content-Length before touching its body', async () => {
-    let bodyAccesses = 0;
-    const oversized = {
-      ok: true,
-      status: 200,
-      headers: new Headers({
+  it('rejects an oversized Content-Length before reading and cancels its body', async () => {
+    let cancelCalls = 0;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelCalls += 1;
+      },
+    });
+    const oversized = new Response(body, {
+      headers: {
         'content-length': '65',
         'content-type': 'application/json',
-      }),
-      get body() {
-        bodyAccesses += 1;
-        throw new Error('The response body must not be touched.');
       },
-    } as unknown as Response;
+    });
     const { fetchImpl } = fakeFetch(() => oversized);
     const provider = createRemoteAiPlanProvider({
       endpoint: ENDPOINT,
@@ -152,7 +303,7 @@ describe('createRemoteAiPlanProvider', () => {
     await expect(provider.propose('add a hero', context())).rejects.toThrow(
       /maximum response size of 64 bytes/,
     );
-    expect(bodyAccesses).toBe(0);
+    expect(cancelCalls).toBe(1);
   });
 
   it('counts streamed JSON bytes and rejects a body that exceeds the configured maximum', async () => {
@@ -166,6 +317,32 @@ describe('createRemoteAiPlanProvider', () => {
     await expect(provider.propose('add a hero', context())).rejects.toThrow(
       /maximum response size of 64 bytes/,
     );
+  });
+
+  it('cancels the JSON reader when bounded decoding fails', async () => {
+    let cancelCalls = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(65));
+      },
+      cancel() {
+        cancelCalls += 1;
+      },
+    });
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { headers: { 'content-type': 'application/json' } }),
+    );
+    const provider = createRemoteAiPlanProvider({
+      endpoint: ENDPOINT,
+      fetch: fetchImpl,
+      maxResponseBytes: 64,
+    });
+
+    await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
+      code: 'response-limit',
+      retryable: false,
+    });
+    expect(cancelCalls).toBe(1);
   });
 
   it('bounds SSE frames and total streamed bytes by the configured response maximum', async () => {
@@ -190,9 +367,12 @@ describe('createRemoteAiPlanProvider', () => {
       fetch: () => Promise.reject(new TypeError('socket hangup')),
     });
 
-    await expect(provider.propose('add a hero', context())).rejects.toThrow(
-      /could not be reached: socket hangup/,
-    );
+    const pending = provider.propose('add a hero', context());
+    await expect(pending).rejects.toThrow(/could not be reached: socket hangup/);
+    await expect(pending).rejects.toMatchObject({
+      code: 'network',
+      retryable: true,
+    });
   });
 
   it('aborts a request that outlives timeoutMs', async () => {
@@ -207,7 +387,12 @@ describe('createRemoteAiPlanProvider', () => {
         }),
     });
 
-    await expect(provider.propose('add a hero', context())).rejects.toThrow(/timed out after 5ms/);
+    const pending = provider.propose('add a hero', context());
+    await expect(pending).rejects.toThrow(/timed out after 5ms/);
+    await expect(pending).rejects.toMatchObject({
+      code: 'timeout',
+      retryable: true,
+    });
   });
 
   it('advertises SSE alongside JSON so a streaming server can pick it', async () => {
@@ -239,6 +424,54 @@ describe('createRemoteAiPlanProvider', () => {
 
     expect(proposed).toEqual(plan);
     expect(progress).toEqual(['Reading the catalog…', 'Drafted 2 commands…']);
+  });
+
+  it('isolates a throwing progress observer from the transport result', async () => {
+    const stream = [
+      'event: status\ndata: {"text":"Working"}\n\n',
+      `event: result\ndata: ${JSON.stringify(plan)}\n\n`,
+    ].join('');
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(
+      provider.propose('add a hero', context(), {
+        onProgress: () => {
+          throw new Error('host observer failed');
+        },
+      }),
+    ).resolves.toEqual(plan);
+  });
+
+  it('cancels the SSE reader when frame handling fails', async () => {
+    let cancelCalls = 0;
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            [
+              `event: result\ndata: ${JSON.stringify(plan)}\n\n`,
+              `event: result\ndata: ${JSON.stringify(plan)}\n\n`,
+            ].join(''),
+          ),
+        );
+      },
+      cancel() {
+        cancelCalls += 1;
+      },
+    });
+    const { fetchImpl } = fakeFetch(
+      () => new Response(stream, { headers: { 'content-type': 'text/event-stream' } }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('add a hero', context())).rejects.toThrow(
+      /more than one result/i,
+    );
+    expect(cancelCalls).toBe(1);
   });
 
   it('accepts standard CRLF-delimited SSE frames', async () => {
@@ -282,9 +515,12 @@ describe('createRemoteAiPlanProvider', () => {
     );
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
 
-    await expect(provider.propose('hello', context())).rejects.toThrow(
-      new RemoteAiProviderError('Not an edit request.'),
-    );
+    await expect(provider.propose('hello', context())).rejects.toMatchObject({
+      name: 'RemoteAiProviderError',
+      message: 'Not an edit request.',
+      code: 'refusal',
+      retryable: false,
+    });
   });
 
   it('rejects a stream that ends without a result event', async () => {
@@ -332,6 +568,7 @@ describe('createRemoteAiPlanProvider', () => {
   it('does not return a response when fetch ignores a mid-flight caller abort', async () => {
     let release: ((response: Response) => void) | undefined;
     let fetchCalls = 0;
+    let cancelCalls = 0;
     const controller = new AbortController();
     const provider = createRemoteAiPlanProvider({
       endpoint: ENDPOINT,
@@ -346,9 +583,50 @@ describe('createRemoteAiPlanProvider', () => {
     const pending = provider.propose('add a hero', context(), { signal: controller.signal });
     expect(fetchCalls).toBe(1);
     controller.abort();
-    release?.(jsonResponse(plan));
+    release?.(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(streamController) {
+            streamController.enqueue(new TextEncoder().encode(JSON.stringify(plan)));
+          },
+          cancel() {
+            cancelCalls += 1;
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    );
 
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(cancelCalls).toBe(1);
+  });
+
+  it('cancels a late response when fetch ignores the provider deadline', async () => {
+    let release: ((response: Response) => void) | undefined;
+    let cancelCalls = 0;
+    const provider = createRemoteAiPlanProvider({
+      endpoint: ENDPOINT,
+      timeoutMs: 1,
+      fetch: () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    });
+    const pending = provider.propose('add a hero', context());
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    release?.(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          cancel() {
+            cancelCalls += 1;
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    );
+
+    await expect(pending).rejects.toMatchObject({ code: 'timeout', retryable: true });
+    expect(cancelCalls).toBe(1);
   });
 
   it('repairs by resending the failed plan and its issues under attempt', async () => {

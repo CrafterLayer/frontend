@@ -3,6 +3,11 @@ import type { Transaction } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiValidationPorts } from '../types';
 import type { AiEffectiveCommandPolicy } from '../skills';
+import {
+  assertAuthenticatedAiValidatedProposal,
+  resolveAiProposalAuthority,
+  type AiValidatedProposal,
+} from './validated-proposal';
 import { assertValidAiPlan } from './validate-plan';
 
 export interface AppliedAiPlan {
@@ -14,17 +19,31 @@ export interface AppliedAiPlan {
    */
   mode: 'group';
   transactions: readonly Transaction[];
+  /** Present when the authenticated proposal path owned this application. */
+  proposal?: AiValidatedProposal;
 }
 
-export interface ApplyAiPlanOptions {
+interface ApplyAiPlanOptionsBase {
   kernel: BuilderKernel;
-  plan: AiPlan;
   validationPorts: AiValidationPorts;
-  /** Rechecked immediately before the live grouped door. */
-  policy?: AiEffectiveCommandPolicy;
   /** Human history label. The core door validates explicitly supplied values. */
   label?: string;
 }
+
+export interface ApplyAiValidatedProposalOptions extends ApplyAiPlanOptionsBase {
+  proposal: AiValidatedProposal;
+  plan?: never;
+  policy?: never;
+}
+
+export interface ApplyAiPlanCompatibilityOptions extends ApplyAiPlanOptionsBase {
+  proposal?: never;
+  plan: AiPlan;
+  /** Required at type and runtime; compatibility never infers generation authority. */
+  policy: AiEffectiveCommandPolicy;
+}
+
+export type ApplyAiPlanOptions = ApplyAiValidatedProposalOptions | ApplyAiPlanCompatibilityOptions;
 
 function defaultLabel(plan: AiPlan): string {
   const detail = plan.rationale.replace(/\s+/g, ' ').trim();
@@ -32,15 +51,24 @@ function defaultLabel(plan: AiPlan): string {
 }
 
 export function applyAiPlan(options: ApplyAiPlanOptions): AppliedAiPlan {
+  const authority = resolveAiProposalAuthority(options);
   const plan = assertValidAiPlan(
-    options.plan,
+    authority.plan,
     options.kernel,
     options.validationPorts,
-    options.policy,
+    authority.policy,
   );
+  // Keep the authentication check adjacent to the only live mutation door.
+  if (authority.proposal !== undefined) {
+    assertAuthenticatedAiValidatedProposal(authority.proposal);
+  }
   const tx = options.kernel.dispatchGroup(
     plan.commands.map((step) => ({ command: step.command, args: step.args })),
     { author: 'ai', label: options.label ?? defaultLabel(plan) },
   );
-  return { mode: 'group', transactions: [tx] };
+  return {
+    mode: 'group',
+    transactions: [tx],
+    ...(authority.proposal === undefined ? {} : { proposal: authority.proposal }),
+  };
 }

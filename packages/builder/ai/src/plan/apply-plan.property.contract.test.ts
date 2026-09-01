@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder } from '@craftkit/builder-core';
-import { fixedClock, fixtureBlocks, landingFixture, seededIds } from '@craftkit/builder-core/testing';
+import {
+  fixedClock,
+  fixtureBlocks,
+  landingFixture,
+  seededIds,
+} from '@craftkit/builder-core/testing';
 import {
   defineBlockSchema,
   type BlockRenderComponent,
@@ -12,6 +17,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import type { AiPlan } from '../types';
+import { resolveAiCommandPolicy } from '../skills';
 import { applyAiPlan } from './apply-plan';
 import { AiPlanRejectedError } from './validate-plan';
 
@@ -104,6 +110,10 @@ function validationPorts(seed: string) {
   return { clock: fixedClock(100), ids: seededIds(`${seed}-validation`) };
 }
 
+function policyFor(kernel: ReturnType<typeof applicationKernel>) {
+  return resolveAiCommandPolicy({ registeredCommands: kernel.context.registry.commandNames() });
+}
+
 function planFor(types: readonly ('application-hero' | 'application-text')[]): AiPlan {
   return {
     rationale: 'Apply only commands through the kernel door.',
@@ -138,6 +148,7 @@ describe('AI plan application properties', () => {
               kernel,
               plan,
               validationPorts: validationPorts(seed),
+              policy: policyFor(kernel),
             });
 
             // The grouped door: however many commands, ONE ai-authored transaction.
@@ -190,7 +201,12 @@ describe('AI plan application properties', () => {
 
     let thrown: unknown;
     try {
-      applyAiPlan({ kernel, plan: invalidPlan, validationPorts: validationPorts('rejection') });
+      applyAiPlan({
+        kernel,
+        plan: invalidPlan,
+        validationPorts: validationPorts('rejection'),
+        policy: policyFor(kernel),
+      });
     } catch (error) {
       thrown = error;
     }
@@ -212,8 +228,14 @@ describe('AI plan application properties', () => {
       rationale: 'Two inserts and a retitle, as one change.',
       commands: [
         { command: 'setProp', args: { id: 'hero1', key: 'heading', value: 'One change' } },
-        { command: 'insertNode', args: { type: 'text', props: { content: 'A' }, parentId: 'sec1' } },
-        { command: 'insertNode', args: { type: 'text', props: { content: 'B' }, parentId: 'sec1' } },
+        {
+          command: 'insertNode',
+          args: { type: 'text', props: { content: 'A' }, parentId: 'sec1' },
+        },
+        {
+          command: 'insertNode',
+          args: { type: 'text', props: { content: 'B' }, parentId: 'sec1' },
+        },
       ],
     };
 
@@ -221,6 +243,7 @@ describe('AI plan application properties', () => {
       kernel,
       plan,
       validationPorts: { clock: fixedClock(20), ids: seededIds('grouped-preflight') },
+      policy: policyFor(kernel),
     });
 
     expect(applied.mode).toBe('group');

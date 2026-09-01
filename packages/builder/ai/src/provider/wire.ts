@@ -3,24 +3,24 @@
 // schemas, the scratch-kernel dry run — stays on this side of the wire, so a
 // wrong server can only ever produce a rejected proposal, never a document.
 import type { AiChatTurn, AiPlan, AiPlanValidationIssue, AssembledAiContext } from '../types';
+import { estimateCanonicalJsonTokens } from '../internal/canonical-json';
 
 export const AI_PLAN_WIRE_VERSION = 1;
+/** Maximum number of Unicode code points exposed from an invalid-output server message. */
+export const AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH = 512;
 
-const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
-
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(value, (_key, candidate: unknown) => {
-    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
-      return candidate;
-    }
-    return Object.fromEntries(
-      Object.entries(candidate).sort(([left], [right]) => compareText(left, right)),
-    );
-  });
+/** Normalize and cap untrusted invalid-output prose before it crosses a host boundary. */
+export function boundAiPlanWireInvalidOutputMessage(message: string): string {
+  const normalized = message.replace(/\s+/gu, ' ').trim();
+  if (normalized === '') {
+    return 'The assistant server reported invalid output.';
+  }
+  const characters: string[] = [];
+  for (const character of normalized) {
+    if (characters.length === AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH) break;
+    characters.push(character);
+  }
+  return characters.join('');
 }
 
 /** A prior proposal that failed validation, echoed back so the server can repair it. */
@@ -53,11 +53,24 @@ export function estimateAiPlanWireRequestTokens(request: AiPlanWireRequest): num
     ...(request.history === undefined ? {} : { history: request.history }),
     ...(request.attempt === undefined ? {} : { attempt: request.attempt }),
   };
-  return Math.max(1, Math.ceil(stableStringify(canonical).length / CHARACTERS_PER_TOKEN_ESTIMATE));
+  return estimateCanonicalJsonTokens(canonical);
 }
 
-/** A server answers with a plan, or with an explicit refusal it can word itself. */
-export type AiPlanWireResponse = AiPlan | { refusal: string };
+/** A server explicitly reports model output that could not be represented as a plan. */
+export interface AiPlanWireInvalidOutputResponse {
+  version: typeof AI_PLAN_WIRE_VERSION;
+  invalidOutput: Readonly<{ message: string }>;
+}
+
+/**
+ * A server answers with a plan, refusal, or versioned invalid-output outcome.
+ * Direct unversioned plan/refusal shapes remain accepted for backwards compatibility.
+ */
+export type AiPlanWireResponse =
+  | AiPlan
+  | (AiPlan & { version: typeof AI_PLAN_WIRE_VERSION })
+  | { refusal: string; version?: typeof AI_PLAN_WIRE_VERSION }
+  | AiPlanWireInvalidOutputResponse;
 
 /**
  * OPTIONAL streaming shape. The client advertises

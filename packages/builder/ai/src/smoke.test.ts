@@ -12,6 +12,7 @@ import {
   applyAiPlan,
   createLocalAiPlanProvider,
   generateAiPlan,
+  resolveAiCommandPolicy,
 } from './index';
 
 /*
@@ -73,6 +74,9 @@ describe('generating blocks from a request', () => {
       ports: { clock: fixedClock(0), ids: seededIds('ai') },
     });
 
+  const policyFor = (kernel: ReturnType<typeof build>) =>
+    resolveAiCommandPolicy({ registeredCommands: kernel.context.registry.commandNames() });
+
   it('turns a request into blocks the kernel accepts, stamped as the assistant', async () => {
     const kernel = build();
     const before = kernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
@@ -89,6 +93,7 @@ describe('generating blocks from a request', () => {
       kernel,
       plan,
       validationPorts: { clock: fixedClock(0), ids: seededIds('apply-validate') },
+      policy: policyFor(kernel),
     });
 
     const after = kernel.getDocument().nodes['root']?.slots?.['default']?.length ?? 0;
@@ -112,6 +117,7 @@ describe('generating blocks from a request', () => {
       kernel,
       plan,
       validationPorts: { clock: fixedClock(0), ids: seededIds('apply-validate') },
+      policy: policyFor(kernel),
     });
     expect(kernel.getDocument()).not.toEqual(original);
 

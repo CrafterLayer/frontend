@@ -15,7 +15,7 @@ import type {
   AiPlanValidationResult,
   AiValidationPorts,
 } from '../types';
-import type { AiEffectiveCommandPolicy } from '../skills';
+import { DEFAULT_AI_MAX_OPERATIONS, type AiEffectiveCommandPolicy } from '../skills';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -133,6 +133,8 @@ function policyIssues(
   if (plan.commands.length > policy.maxCommands) {
     return [commandLimitIssue(plan.commands.length, policy.maxCommands)];
   }
+  const operationIssue = operationLimitIssue(plan, policy);
+  if (operationIssue !== undefined) return [operationIssue];
 
   const allowed = new Set(policy.allowedCommands);
   return plan.commands.flatMap((step, index) =>
@@ -146,6 +148,36 @@ function policyIssues(
           },
         ],
   );
+}
+
+function operationCount(plan: Pick<AiPlan, 'commands'>): number {
+  let count = 0;
+  for (const step of plan.commands) {
+    if (
+      step.command === 'applyPatches' &&
+      isRecord(step.args) &&
+      Array.isArray(step.args['patches'])
+    ) {
+      count += step.args['patches'].length;
+    } else {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function operationLimitIssue(
+  plan: Pick<AiPlan, 'commands'>,
+  policy: AiEffectiveCommandPolicy,
+): AiPlanValidationIssue | undefined {
+  const maxOperations = policy.maxOperations ?? DEFAULT_AI_MAX_OPERATIONS;
+  const operations = operationCount(plan);
+  return operations > maxOperations
+    ? {
+        code: 'policy-rejected',
+        message: `The active AI policy allows at most ${String(maxOperations)} nested operations; the plan requests ${String(operations)}.`,
+      }
+    : undefined;
 }
 
 function commandLimitIssue(commandCount: number, maxCommands: number): AiPlanValidationIssue {
@@ -164,6 +196,195 @@ function rawCommandLimitIssue(
   return Array.isArray(rawCommands) && rawCommands.length > policy.maxCommands
     ? commandLimitIssue(rawCommands.length, policy.maxCommands)
     : undefined;
+}
+
+function rawOperationLimitIssue(
+  candidate: unknown,
+  policy: AiEffectiveCommandPolicy | undefined,
+): AiPlanValidationIssue | undefined {
+  if (policy === undefined || !isRecord(candidate)) return undefined;
+  const rawCommands = candidate['commands'];
+  if (!Array.isArray(rawCommands)) return undefined;
+  const maxOperations = policy.maxOperations ?? DEFAULT_AI_MAX_OPERATIONS;
+  let operations = 0;
+  for (const rawStep of rawCommands) {
+    if (
+      isRecord(rawStep) &&
+      rawStep['command'] === 'applyPatches' &&
+      isRecord(rawStep['args']) &&
+      Array.isArray(rawStep['args']['patches'])
+    ) {
+      operations += rawStep['args']['patches'].length;
+    } else {
+      operations += 1;
+    }
+    if (operations > maxOperations) {
+      return {
+        code: 'policy-rejected',
+        message: `The active AI policy allows at most ${String(maxOperations)} nested operations; the plan requests more than that bound.`,
+      };
+    }
+  }
+  return undefined;
+}
+
+function utilityPropertyNamesForType(kernel: BuilderKernel, type: string): ReadonlySet<string> {
+  const groups = kernel.context.registry.block(type)?.schema.propertyGroups;
+  return new Set(
+    Object.entries(groups ?? {}).flatMap(([name, group]) =>
+      group?.kind === 'utility-classes' ? [name] : [],
+    ),
+  );
+}
+
+function firstUtilityPropertyInRecord(
+  kernel: BuilderKernel,
+  type: unknown,
+  value: unknown,
+): string | undefined {
+  if (typeof type !== 'string' || !isRecord(value)) return undefined;
+  const utilityProperties = utilityPropertyNamesForType(kernel, type);
+  return Object.keys(value).find((name) => utilityProperties.has(name));
+}
+
+function firstUtilityPropertyForNode(
+  kernel: BuilderKernel,
+  nodeTypes: ReadonlyMap<string, string>,
+  id: unknown,
+  key: unknown,
+): string | undefined {
+  if (typeof id !== 'string' || typeof key !== 'string') return undefined;
+  const type = nodeTypes.get(id);
+  return type !== undefined && utilityPropertyNamesForType(kernel, type).has(key) ? key : undefined;
+}
+
+function allUtilityPropertyNames(kernel: BuilderKernel): ReadonlySet<string> {
+  return new Set(
+    kernel.context.registry
+      .blocks()
+      .flatMap(({ schema }) => [...utilityPropertyNamesForType(kernel, schema.type)]),
+  );
+}
+
+function firstNestedProperty(
+  value: unknown,
+  propertyNames: ReadonlySet<string>,
+): string | undefined {
+  const pending: unknown[] = [value];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (Array.isArray(current)) {
+      for (const child of current) pending.push(child);
+      continue;
+    }
+    if (!isRecord(current)) continue;
+    for (const [name, child] of Object.entries(current)) {
+      if (propertyNames.has(name)) return name;
+      pending.push(child);
+    }
+  }
+  return undefined;
+}
+
+function utilityPropertyFromPatches(kernel: BuilderKernel, args: unknown): string | undefined {
+  if (!isRecord(args) || !Array.isArray(args['patches'])) return undefined;
+  const propertyNames = allUtilityPropertyNames(kernel);
+  for (const patch of args['patches']) {
+    if (!isRecord(patch)) continue;
+    const path = patch['path'];
+    if (Array.isArray(path)) {
+      const pathMatch = path.find(
+        (segment): segment is string => typeof segment === 'string' && propertyNames.has(segment),
+      );
+      if (pathMatch !== undefined) return pathMatch;
+    }
+    const value = patch['value'];
+    const valueMatch = firstNestedProperty(value, propertyNames);
+    if (valueMatch !== undefined) return valueMatch;
+  }
+  return undefined;
+}
+
+function replaceShadowNodeTypes(nodeTypes: Map<string, string>, value: unknown): void {
+  nodeTypes.clear();
+  if (!isRecord(value)) return;
+  for (const [id, node] of Object.entries(value)) {
+    if (isRecord(node) && typeof node['type'] === 'string') {
+      nodeTypes.set(id, node['type']);
+    }
+  }
+}
+
+function updateShadowNodeTypes(nodeTypes: Map<string, string>, args: unknown): void {
+  if (!isRecord(args) || !Array.isArray(args['patches'])) return;
+  for (const patch of args['patches']) {
+    if (!isRecord(patch) || !Array.isArray(patch['path'])) continue;
+    const path = patch['path'];
+    if (path[0] !== 'nodes') continue;
+    const operation = patch['op'];
+
+    if (path.length === 1) {
+      if (operation === 'remove') nodeTypes.clear();
+      else replaceShadowNodeTypes(nodeTypes, patch['value']);
+      continue;
+    }
+
+    const rawId: unknown = path[1];
+    if (typeof rawId !== 'string' && typeof rawId !== 'number') continue;
+    const id = String(rawId);
+    if (path.length === 2) {
+      if (operation === 'remove') {
+        nodeTypes.delete(id);
+      } else {
+        const node = patch['value'];
+        if (isRecord(node) && typeof node['type'] === 'string') {
+          nodeTypes.set(id, node['type']);
+        } else {
+          nodeTypes.delete(id);
+        }
+      }
+      continue;
+    }
+
+    if (path.length === 3 && path[2] === 'type') {
+      const type = patch['value'];
+      if (operation === 'remove' || typeof type !== 'string') nodeTypes.delete(id);
+      else nodeTypes.set(id, type);
+    }
+  }
+}
+
+function utilityClassIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanValidationIssue[] {
+  const nodeTypes = new Map(
+    Object.values(kernel.getDocument().nodes).map((node) => [node.id, node.type]),
+  );
+  const issues: AiPlanValidationIssue[] = [];
+  plan.commands.forEach((step, index) => {
+    const args = isRecord(step.args) ? step.args : {};
+    const property =
+      step.command === 'insertNode'
+        ? firstUtilityPropertyInRecord(kernel, args['type'], args['props'])
+        : step.command === 'wrapNode'
+          ? firstUtilityPropertyInRecord(kernel, args['wrapperType'], args['wrapperProps'])
+          : step.command === 'groupNodes'
+            ? firstUtilityPropertyInRecord(kernel, args['groupType'], args['groupProps'])
+            : step.command === 'setProp' ||
+                step.command === 'setResponsive' ||
+                step.command === 'setBinding'
+              ? firstUtilityPropertyForNode(kernel, nodeTypes, args['id'], args['key'])
+              : step.command === 'applyPatches'
+                ? utilityPropertyFromPatches(kernel, args)
+                : undefined;
+    if (property !== undefined) {
+      issues.push({
+        code: 'policy-rejected',
+        message: `Step ${String(index)} authors utility-classes property "${property}", which is human-only and unavailable to AI plans.`,
+        step: index,
+      });
+    }
+    if (step.command === 'applyPatches') updateShadowNodeTypes(nodeTypes, args);
+  });
+  return issues;
 }
 
 /** @internal Shared with previewAiPlan: the scratch world a plan is rehearsed in. */
@@ -274,12 +495,16 @@ export function validateAiPlan(
 ): AiPlanValidationResult {
   const overLimit = rawCommandLimitIssue(candidate, policy);
   if (overLimit !== undefined) return { ok: false, issues: [overLimit] };
+  const overOperationLimit = rawOperationLimitIssue(candidate, policy);
+  if (overOperationLimit !== undefined) return { ok: false, issues: [overOperationLimit] };
   const parsed = parsePlan(candidate);
   if (!parsed.ok) {
     return parsed;
   }
   const issues = commandIssues(parsed.plan, kernel);
   if (issues.length > 0) return { ok: false, issues };
+  const utilityIssues = utilityClassIssues(parsed.plan, kernel);
+  if (utilityIssues.length > 0) return { ok: false, issues: utilityIssues };
   const rejectedByPolicy = policyIssues(parsed.plan, policy);
   return rejectedByPolicy.length > 0
     ? { ok: false, issues: rejectedByPolicy }

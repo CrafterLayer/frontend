@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   AiCommandPolicyError,
   createAiSkillRegistry,
+  DEFAULT_AI_MAX_OPERATIONS,
   resolveAiCommandPolicy,
   type AiSkillDefinitionV1,
 } from './index';
 
 const REGISTERED = ['insertNode', 'removeNode', 'setProp', 'setDocMeta'] as const;
+const REGISTERED_WITH_BULK = [...REGISTERED, 'applyPatches'] as const;
 
 function restrictedSkill(id: string, restrictToCommands?: readonly string[]): AiSkillDefinitionV1 {
   const base: AiSkillDefinitionV1 = {
@@ -29,6 +31,7 @@ describe('AI command policy', () => {
     expect(policy).toEqual({
       allowedCommands: ['insertNode', 'removeNode', 'setDocMeta', 'setProp'],
       maxCommands: 64,
+      maxOperations: DEFAULT_AI_MAX_OPERATIONS,
     });
   });
 
@@ -52,7 +55,11 @@ describe('AI command policy', () => {
       },
     });
 
-    expect(policy).toEqual({ allowedCommands: ['setProp'], maxCommands: 12 });
+    expect(policy).toEqual({
+      allowedCommands: ['setProp'],
+      maxCommands: 12,
+      maxOperations: DEFAULT_AI_MAX_OPERATIONS,
+    });
   });
 
   it('never lets a skill grant a command missing from the live registry', () => {
@@ -63,6 +70,7 @@ describe('AI command policy', () => {
     expect(resolveAiCommandPolicy({ registeredCommands: REGISTERED, skills })).toEqual({
       allowedCommands: [],
       maxCommands: 64,
+      maxOperations: DEFAULT_AI_MAX_OPERATIONS,
     });
   });
 
@@ -88,6 +96,7 @@ describe('AI command policy', () => {
     ).toEqual({
       allowedCommands: [],
       maxCommands: 64,
+      maxOperations: DEFAULT_AI_MAX_OPERATIONS,
     });
 
     expect(denyAll.get('skill.deny-all')?.contentFingerprint).not.toBe(
@@ -95,10 +104,28 @@ describe('AI command policy', () => {
     );
   });
 
+  it('denies applyPatches by default and allows it only through an explicit host allowlist', () => {
+    expect(resolveAiCommandPolicy({ registeredCommands: REGISTERED_WITH_BULK })).toMatchObject({
+      allowedCommands: ['insertNode', 'removeNode', 'setDocMeta', 'setProp'],
+    });
+
+    expect(
+      resolveAiCommandPolicy({
+        registeredCommands: REGISTERED_WITH_BULK,
+        session: { allowedCommands: ['applyPatches'], maxOperations: 17 },
+      }),
+    ).toEqual({
+      allowedCommands: ['applyPatches'],
+      maxCommands: 64,
+      maxOperations: 17,
+    });
+  });
+
   it.each([
     ['zero limit', { maxCommands: 0 }],
     ['empty allowed command', { allowedCommands: [''] }],
     ['duplicate denied command', { deniedCommands: ['removeNode', 'removeNode'] }],
+    ['zero operation limit', { maxOperations: 0 }],
   ])('rejects %s', (_name, session) => {
     expect(() => resolveAiCommandPolicy({ registeredCommands: REGISTERED, session })).toThrow(
       AiCommandPolicyError,

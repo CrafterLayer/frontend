@@ -25,7 +25,7 @@ function contextKernel() {
 }
 
 describe('AI context assembly', () => {
-  it('collects titled, honestly budgeted fragments for blocks, selection, and document shape', () => {
+  it('keeps built-in catalogs and document facts in their sole structured representation', () => {
     const kernel = contextKernel();
     kernel.setSelection(['hero1']);
 
@@ -38,19 +38,8 @@ describe('AI context assembly', () => {
       'craftkit.document-shape',
     ]);
     expect(builderAiContextExtension.contributes?.aiContext).toEqual(BUILDER_AI_CONTEXT_PROVIDERS);
-    expect(context.fragments.map((fragment) => fragment.title)).toEqual([
-      'Registered block vocabulary',
-      'Registered page templates',
-      'Current selection',
-      'Document shape',
-    ]);
-    for (const fragment of context.fragments) {
-      expect(fragment.tokens).toBe(estimateContextTokens(fragment.title, fragment.body));
-      expect(fragment.tokens).toBeGreaterThan(0);
-    }
-    expect(context.totalTokens).toBe(
-      context.fragments.reduce((total, fragment) => total + (fragment.tokens ?? 0), 0),
-    );
+    expect(context.fragments).toEqual([]);
+    expect(context.totalTokens).toBe(0);
     expect(context.templates).toEqual([]);
 
     const hero = context.blocks.find((block) => block.type === 'hero');
@@ -66,25 +55,18 @@ describe('AI context assembly', () => {
         tone: expect.objectContaining({ enum: ['light', 'dark'] }) as unknown,
       },
     });
-    expect(context.selection).toEqual({
-      ids: ['hero1'],
-      nodes: [
-        {
-          id: 'hero1',
-          type: 'hero',
-          props: { tone: 'dark', heading: 'Build faster' },
-          slots: { actions: ['cta1', 'cta2'] },
-        },
-      ],
-    });
+    expect(context.selection).toEqual({ ids: ['hero1'] });
     expect(context.document.nodes.find((node) => node.id === 'hero1')).toEqual({
       id: 'hero1',
       type: 'hero',
       props: { heading: 'Build faster', tone: 'dark' },
+      responsive: { mobile: { tone: 'light' } },
       slots: { actions: ['cta1', 'cta2'] },
     });
-    expect(context.fragments[0]?.body).toContain('"propsSchema"');
-    expect(context.fragments[0]?.body).toContain('"slots"');
+    expect(context.blocks.filter(({ type }) => type === 'hero')).toHaveLength(1);
+    expect(context.document.nodes.filter(({ id }) => id === 'hero1')).toHaveLength(1);
+    expect(JSON.stringify(context.selection)).not.toContain('Build faster');
+    expect(context.omissions).toEqual([]);
   });
 
   it('lets a provider locate page text WITHOUT a selection: every document node carries its props', () => {
@@ -99,9 +81,8 @@ describe('AI context assembly', () => {
       props: { content: 'Welcome aboard.' },
       slots: {},
     });
-    const shape = context.fragments.find((fragment) => fragment.title === 'Document shape');
-    expect(shape?.body).toContain('Welcome aboard.');
-    expect(shape?.body).toContain('Build faster');
+    expect(JSON.stringify(context.document)).toContain('Welcome aboard.');
+    expect(JSON.stringify(context.document)).toContain('Build faster');
   });
 
   it('is stable, filters missing selected nodes from details, and estimates custom fragments', () => {
@@ -122,9 +103,12 @@ describe('AI context assembly', () => {
 
     expect(first).toEqual(second);
     expect(first.selection.ids).toEqual(['ghost', 'p1']);
-    expect(first.selection.nodes.map((node) => node.id)).toEqual(['p1']);
+    expect(first.selection).toEqual({ ids: ['ghost', 'p1'] });
     expect(first.fragments).toEqual([
       {
+        source: 'custom',
+        kind: 'data',
+        trust: 'reviewed',
         title: 'Custom',
         body: 'ghost,p1',
         tokens: estimateContextTokens('Custom', 'ghost,p1'),
@@ -157,6 +141,55 @@ describe('AI context assembly', () => {
     expect(context.fragments.find(({ title }) => title === 'Brand memory')?.body).toContain(
       'cobalt',
     );
+    expect(context.fragments[0]).toMatchObject({
+      source: 'acme.brand-memory',
+      kind: 'data',
+      trust: 'reviewed',
+    });
+    expect(Object.isFrozen(context.fragments[0])).toBe(true);
+  });
+
+  it('composes registry and request-local providers additively without replacing either', () => {
+    const registered: AiContextProvider = {
+      id: 'acme.registered',
+      collect: () => ({ title: 'Registered', body: 'Registry context.' }),
+    };
+    const additional: AiContextProvider = {
+      id: 'acme.request',
+      collect: () => ({
+        source: 'acme.request',
+        kind: 'instruction',
+        trust: 'reviewed',
+        title: 'Request context',
+        body: 'Request-local guidance.',
+      }),
+    };
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [
+        fixtureBlocks,
+        {
+          tier: 1,
+          name: 'acme-registered-context',
+          version: '1.0.0',
+          contributes: { aiContext: [registered] },
+        },
+      ],
+      ports: { clock: fixedClock(100), ids: seededIds('additive-context') },
+    });
+
+    const context = assembleAiContext(kernel.context, {
+      additionalContextProviders: [additional],
+    });
+
+    expect(context.fragments.map(({ source }) => source)).toEqual([
+      'acme.registered',
+      'acme.request',
+    ]);
+    expect(context.fragments[1]).toMatchObject({
+      kind: 'instruction',
+      trust: 'reviewed',
+    });
   });
 
   it('never hands a context provider the write-capable live kernel API', () => {
@@ -281,7 +314,13 @@ describe('AI context assembly', () => {
     expect(received).not.toHaveProperty('dispatch');
     expect(received).not.toHaveProperty('events');
     expect(received).not.toHaveProperty('store.subscribe');
-    expect(received).not.toHaveProperty('registry.command');
+    expect(received).toHaveProperty('registry.command');
+    const commandSummary = (
+      received as { registry: { command: (name: string) => unknown } }
+    ).registry.command('setProp');
+    expect(commandSummary).toMatchObject({ name: 'setProp', argsSchema: { type: 'object' } });
+    expect(commandSummary).not.toHaveProperty('apply');
+    expect(commandSummary).not.toHaveProperty('argsSchema._zod');
     expect(receivedState).not.toBe(kernel.context.store.getState());
     expect(Object.isFrozen(receivedState)).toBe(true);
     expect(Object.isFrozen(observedSelection)).toBe(true);
@@ -325,23 +364,29 @@ describe('AI context assembly', () => {
       estimateContextTokens('Infinite', 'body'),
       0,
     ]);
+    expect(context.fragments.map(({ source, kind, trust }) => ({ source, kind, trust }))).toEqual([
+      { source: 'negative', kind: 'data', trust: 'reviewed' },
+      { source: 'fractional', kind: 'data', trust: 'reviewed' },
+      { source: 'not-a-number', kind: 'data', trust: 'reviewed' },
+      { source: 'infinite', kind: 'data', trust: 'reviewed' },
+      { source: 'zero', kind: 'data', trust: 'reviewed' },
+    ]);
     expect(context.totalTokens).toBe(
       context.fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
     );
   });
 
-  it('trims very long string props in the document FRAGMENT only, marked, leaving data intact', () => {
+  it('does not create a second truncated document view beside the canonical structured data', () => {
     const kernel = contextKernel();
     const essay = 'x'.repeat(2000);
     kernel.dispatch('setProp', { id: 'p1', key: 'content', value: essay });
 
     const context = assembleAiContext(kernel.context, { selection: [] });
 
-    // The prompt-facing fragment carries a marked excerpt…
-    const shape = context.fragments.find((fragment) => fragment.title === 'Document shape');
-    expect(shape?.body).not.toContain(essay);
-    expect(shape?.body).toContain('… [truncated]');
-    // …while the structured context keeps the exact value for consumers that need it.
+    expect(
+      context.fragments.find((fragment) => fragment.source === 'craftkit.document-shape'),
+    ).toBe(undefined);
     expect(context.document.nodes.find((node) => node.id === 'p1')?.props['content']).toBe(essay);
+    expect(context.omissions).toEqual([]);
   });
 });

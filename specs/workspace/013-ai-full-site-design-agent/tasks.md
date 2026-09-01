@@ -733,5 +733,143 @@ one phase whose completion is not in an implementing agent's gift.
 **Agent-core prerequisite added 2026-09-01**: US8 (T159–T178) precedes the competitive P1 milestone
 and may land independently of the site model because it only widens the existing command planner.
 
-**Total**: 178 tasks. Setup 3 · Foundational 44 · US8 20 · US1 38 · US2 18 · US3 11 · US4 7 · US5 7
-· US6 15 · US7 5 · Polish 10.
+**Total before the production-readiness audit**: 178 tasks. Setup 3 · Foundational 44 · US8 20 · US1
+38 · US2 18 · US3 11 · US4 7 · US5 7 · US6 15 · US7 5 · Polish 10.
+
+---
+
+## Phase 11: User Story 9 — Production Agent Readiness (P0, executes before Phase 3)
+
+**Goal**: Make the already-built Skills/runner core the only Assistant execution path, fit the real
+Playground request inside its complete-wire budget, and close the authority/resource/trust gaps
+found by the 2026-09-01 audit before the full-site pipeline builds on them.
+
+**Scope lease**: `packages/builder/ai/**`, the narrow ContextFragment/JSON-schema additions in
+`packages/builder/schema/**`, `apps/playground/src/features/preview/components/AssistantPanel/**`,
+the Playground readiness test, `scripts/ai-plan-bridge.mjs`, and this feature's artifacts. Custom
+CSS is explicitly deferred. `.mcp.json`, `CLAUDE.md`, unrelated blocks, and unrelated UI are
+excluded.
+
+### 11a — Reproduce and remove the real-context outage
+
+- [x] T179 [US9] Record the reproduced readiness baseline (54 blocks, 4 templates, 27 landing nodes,
+      121,291/114,321 estimated wire tokens, 64,000 budget, provider call count zero) and the exact
+      read-only probe command in
+      `specs/workspace/013-ai-full-site-design-agent/verification-agent-readiness.md`
+- [x] T180 [US9] Write the real-Playground red gate in
+      `apps/playground/src/features/preview/assistant-agent-readiness.test.ts` for landing and empty
+      fixtures: the complete request stays below 64,000, calls the provider exactly once, and no
+      built-in catalog/document datum is serialized twice (FR-077, FR-078, SC-020)
+- [x] T181 [US9] Write context-contract red tests in
+      `packages/builder/ai/src/context/assemble-context.test.ts` and
+      `assemble-context.contract.test.ts` for one canonical built-in representation, additive
+      extension providers, explicit omission metadata, command-policy filtering, property intent,
+      and versioned output-contract presence
+- [x] T182 [US9] Extract one canonical JSON serializer/token estimator under
+      `packages/builder/ai/src/internal/canonical-json.ts` and replace the copies in context, wire,
+      and caching code; add equality/cache/budget tests (FR-088)
+- [x] T183 [US9] Extend `ContextFragment` and the least-authority context catalog in
+      `packages/builder/schema/src/extensions/contribution-points.ts` with validated/frozen
+      `source`, `kind`, and `trust` data plus command/property-intent summaries; expose only JSON
+      data, never registered implementations (FR-080, FR-085)
+- [x] T184 [US9] Refactor `packages/builder/ai/src/context/assemble-context.ts` so structured
+      block/template/document/selection fields are the sole built-in wire representation,
+      `fragments` contains only additive provider/Skill/memory data, and an
+      `additionalContextProviders` option composes without silently replacing registry defaults
+- [x] T185 [US9] Add a deterministic command catalog and plan-output contract to
+      `AssembledAiContext`, generated from live registered command schemas and filtered by the
+      effective policy before serialization; remove every hand-maintained command vocabulary from
+      `scripts/ai-plan-bridge.mjs` (FR-079)
+- [x] T186 [US9] Preserve block `propertyGroups`/intent in AI context while rejecting any AI plan
+      that authors a property declared `utility-classes`; remove the bridge instruction that asks
+      the model to write `className` (FR-058, FR-080)
+- [x] T187 [US9] Run the canonical-context gate: focused schema/AI context/wire/cache tests plus the
+      real Playground readiness test, and record exact before/after wire sizes in
+      `verification-agent-readiness.md`
+
+### 11b — Pin authority and bound nested work
+
+- [x] T188 [US9] Write red tests in `packages/builder/ai/src/skills/command-policy.test.ts` and
+      `plan/validate-plan.test.ts` proving `applyPatches` is denied by default, explicit permission
+      still charges every nested patch, and 5,000 patches fail before scratch/live work (FR-082,
+      SC-021)
+- [x] T189 [US9] Add an exported `maxOperations` run bound and pre-materialization command-cost
+      accounting in `packages/builder/ai/src/skills/command-policy.ts`; keep intentional
+      `restrictToCommands: []` as deny-all and add a specific Skill-resolution diagnostic
+- [x] T190 [US9] Write red tests across `plan/{generate-plan,preview-plan,apply-plan}.test.ts`
+      proving preview/manual apply/auto apply cannot omit or broaden the policy under which a
+      proposal was validated (FR-081, SC-022)
+- [x] T191 [US9] Introduce a detached, deeply frozen validated-proposal value that pins plan,
+      effective policy, active Skill fingerprints, and context identity; make preview/apply consume
+      it, retaining only an explicit-policy compatibility path that fails closed at runtime
+- [x] T192 [US9] Return the pinned proposal from `runAiAgent`, recheck it immediately before grouped
+      apply, and update all package consumers/tests so no policy-less public application remains
+- [x] T193 [US9] Run named mutation checks that remove apply-time policy, re-enable default
+      `applyPatches`, and undercount nested patches; observe the readiness tests fail before
+      restoring each source (SC-026)
+
+### 11c — Provider, memory, and diagnostic hardening
+
+- [x] T194 [US9] Write local-provider red tests for own-property number-word lookup and exported
+      collection limits, including `constructor`, `2025`, and a maximum-safe-integer request
+- [x] T195 [US9] Clamp every request-derived local-provider collection before allocation in
+      `packages/builder/ai/src/provider/local-provider.ts`, use `Object.hasOwn`, and report a
+      bounded refusal/omission rather than allocating past the cap (FR-083)
+- [x] T196 [US9] Write remote-provider red tests for endpoint scheme policy, redirect refusal,
+      `credentials: 'omit'`, `referrerPolicy: 'no-referrer'`, response-version mismatch, reader
+      cancellation on handler failure, and throwing-progress isolation
+- [x] T197 [US9] Implement the remote fetch/stream hardening in
+      `packages/builder/ai/src/provider/remote-provider.ts`, allowing insecure HTTP only through an
+      explicit development option while preserving injected-fetch testability (FR-084)
+- [x] T198 [US9] Define stable provider/run error codes, refusal and retryability semantics, and a
+      versioned invalid-output response that can enter the one existing repair round without
+      loosening command validation (FR-087)
+- [x] T199 [US9] Reuse that taxonomy through JSON/SSE/cache/runner/UI paths, cancel readers in
+      `finally`, and isolate provider progress/event observers so observer failures cannot become
+      transport failures (SC-024)
+- [x] T200 [US9] Write provenance/memory red tests proving prompt-looking extension/Skill bodies
+      remain typed data and model-authored rationale is never replayed as durable instruction
+      context (FR-085, FR-086, SC-023)
+- [x] T201 [US9] Replace raw Markdown rationale memory in
+      `packages/builder/ai/src/context/memory-provider.ts` and Assistant integration with bounded,
+      host-authored structured outcome records carrying source/kind/trust
+- [x] T202 [US9] Run provider/local/memory/runner focused gates and named mutations for allocation
+      caps, stream cleanup, typed errors, and memory-role separation
+
+### 11d — Make the Playground use the agent that was built
+
+- [x] T203 [US9] Write Assistant integration red tests proving Ask and Auto enter `runAiAgent`, pin
+      Built-in/host Custom Skills, expose activation/event data, preserve cancellation/supersession,
+      and never call the direct generate/apply pair (FR-089, SC-025)
+- [x] T204 [US9] Refactor
+      `apps/playground/src/features/preview/components/AssistantPanel/AssistantPanel.tsx` to use
+      `runAiAgent` for both modes, accept an optional host `AiSkillRegistry` and selected Skill ids,
+      show activated versions/fingerprints, and apply only the runner's pinned proposal
+- [x] T205 [US9] Update the existing AssistantPanel story, MDX, and behavioural tests for Skill
+      activation, typed refusal/retry, context-budget failure, stop/supersession, and Ask/Auto
+      outcomes without redesigning the visual surface in this phase
+- [x] T206 [US9] Update `packages/builder/ai/README.md` and the Playground integration docs with the
+      canonical context, pinned proposal, Custom Skill, error taxonomy, and unsafe-command rules;
+      document why `p-limit` is deferred until a measured multi-page fan-out exists
+
+### 11e — Release gate and evidence
+
+- [x] T207 [US9] Run `@craftkit/builder-schema`, `@craftkit/builder-ai`, and `@craftkit/playground`
+      lint/typecheck/test/coverage plus `pnpm check:workspace`, `pnpm check:boundaries`, and
+      `git diff --check`
+- [x] T208 [US9] Run two fresh independent reviews with different lenses: command/context
+      correctness and security/resource/trust boundaries; fix every accepted Critical/High/Medium
+      finding and rerun its narrow gate
+- [x] T209 [US9] Run the real landing/empty readiness proof and all SC-020–SC-026 mutation evidence
+      again after integration; append exact results to `verification-agent-readiness.md`
+- [x] T210 [US9] Run the affected cross-cutting verification gate, distinguishing unavailable
+      Chromium evidence from passing package/jsdom evidence; do not claim browser proof from jsdom
+- [x] T211 [US9] Refresh `.specify/agents/HANDOFF.md` and `.specify/agents/context.json` with exact
+      changed files, commands, outcomes, residual risks, and the next uncompleted 013 task; propose
+      no commit unless separately authorized
+
+**Checkpoint**: The real Assistant reaches its provider, carries Custom Skills through the bounded
+runner, and has one canonical, policy-pinned, resource-bounded path from request to grouped command
+application. Phase 3 may build the full-site pipeline on this foundation.
+
+**Total after the production-readiness audit**: 211 tasks.

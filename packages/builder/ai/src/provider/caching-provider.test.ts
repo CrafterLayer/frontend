@@ -8,8 +8,12 @@ function context(rootId = 'root'): AssembledAiContext {
     fragments: [],
     totalTokens: 0,
     blocks: [],
+    templates: [],
     document: { schemaVersion: 1, surface: 'landing', dir: 'ltr', rootId, nodes: [] },
-    selection: { ids: [], nodes: [] },
+    selection: { ids: [] },
+    commands: [],
+    outputContract: { version: 1, schema: { type: 'object' } },
+    omissions: [],
   };
 }
 
@@ -67,7 +71,19 @@ describe('createCachingAiPlanProvider', () => {
     const cached = createCachingAiPlanProvider(inner.provider);
     const base = context();
     const variants: AssembledAiContext[] = [
-      { ...base, fragments: [{ title: 'Memory', body: 'Remember blue.', tokens: 4 }] },
+      {
+        ...base,
+        fragments: [
+          {
+            source: 'craftkit.session-memory',
+            kind: 'data',
+            trust: 'reviewed',
+            title: 'Memory',
+            body: 'Remember blue.',
+            tokens: 4,
+          },
+        ],
+      },
       { ...base, totalTokens: 7 },
       {
         ...base,
@@ -76,6 +92,10 @@ describe('createCachingAiPlanProvider', () => {
             type: 'hero',
             description: 'Hero',
             propsSchema: {},
+            propertyIntents: {
+              tabs: { design: ['tone'] },
+              kinds: { 'color-role': ['tone'] },
+            },
             examples: [],
             slots: [],
           },
@@ -96,9 +116,23 @@ describe('createCachingAiPlanProvider', () => {
       {
         ...base,
         selection: {
-          ids: [],
-          nodes: [{ id: 'hero1', type: 'hero', props: { heading: 'Selected' }, slots: {} }],
+          ids: ['hero1'],
         },
+      },
+      {
+        ...base,
+        commands: [{ name: 'setProp', argsSchema: { type: 'object' } }],
+      },
+      {
+        ...base,
+        outputContract: {
+          version: 1,
+          schema: { type: 'object', required: ['rationale', 'commands'] },
+        },
+      },
+      {
+        ...base,
+        omissions: [{ source: 'commands', reason: 'policy-filtered', omittedCount: 1 }],
       },
       {
         ...base,
@@ -165,6 +199,26 @@ describe('createCachingAiPlanProvider', () => {
     release?.(plan);
 
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('uses canonical JSON identity instead of caller object insertion order', async () => {
+    const inner = countingProvider();
+    const cached = createCachingAiPlanProvider(inner.provider);
+    const first = context();
+    const second = context();
+    first.document = {
+      ...first.document,
+      nodes: [{ id: 'hero', type: 'hero', props: { tone: 'bold', heading: 'Hello' }, slots: {} }],
+    };
+    second.document = {
+      ...second.document,
+      nodes: [{ id: 'hero', type: 'hero', props: { heading: 'Hello', tone: 'bold' }, slots: {} }],
+    };
+
+    await cached.propose('same ask', first);
+    await cached.propose('same ask', second);
+
+    expect(inner.calls()).toBe(1);
   });
 
   it('never caches repair — a rejected plan must reach the model again', async () => {

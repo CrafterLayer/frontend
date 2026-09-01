@@ -9,6 +9,7 @@ export {
 } from './define-skill';
 export {
   DEFAULT_AI_MAX_COMMANDS,
+  DEFAULT_AI_MAX_OPERATIONS,
   resolveAiCommandPolicy,
   type AiCommandPolicy,
   type AiEffectiveCommandPolicy,

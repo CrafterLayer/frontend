@@ -2,13 +2,16 @@ import type { BuilderKernel } from '@craftkit/builder-core';
 import type { AiContextProvider, NodeId } from '@craftkit/builder-schema';
 
 import { assembleAiContext, type AssembleAiContextOptions } from '../context';
+import { isAiProviderError } from '../provider/errors';
 import {
   AI_PLAN_WIRE_VERSION,
+  boundAiPlanWireInvalidOutputMessage,
   estimateAiPlanWireRequestTokens,
   type AiPlanWireAttempt,
   type AiPlanWireRequest,
 } from '../provider/wire';
 import {
+  AiCommandPolicyError,
   resolveAiCommandPolicy,
   type AiCommandPolicy,
   type AiEffectiveCommandPolicy,
@@ -30,7 +33,9 @@ export interface GenerateAiPlanOptions {
   request: string;
   validationPorts: AiValidationPorts;
   selection?: readonly NodeId[];
+  /** Backward-compatible additive alias for additionalContextProviders. */
   contextProviders?: readonly AiContextProvider[];
+  additionalContextProviders?: readonly AiContextProvider[];
   /** Cancels the provider's work for real; surfaces as the platform AbortError. */
   signal?: AbortSignal;
   /** Receives the provider's own live narration while it works. */
@@ -81,13 +86,17 @@ function liveOptions(options: GenerateAiPlanOptions): AiProposeOptions {
 function contextOptions(
   options: GenerateAiPlanOptions,
   skillContext: AiPreparedSkillContext | undefined,
+  policy: AiEffectiveCommandPolicy,
 ): AssembleAiContextOptions {
-  const context: AssembleAiContextOptions = {};
+  const context: AssembleAiContextOptions = { allowedCommands: policy.allowedCommands };
   if (options.selection !== undefined) {
     context.selection = options.selection;
   }
   if (options.contextProviders !== undefined) {
     context.providers = options.contextProviders;
+  }
+  if (options.additionalContextProviders !== undefined) {
+    context.additionalContextProviders = options.additionalContextProviders;
   }
   if (skillContext !== undefined) {
     context.skillContext = skillContext;
@@ -137,11 +146,26 @@ export function resolveAiPolicyForGeneration(
   options: GenerateAiPlanOptions,
   skills: AiPreparedSkillContext | undefined,
 ): AiEffectiveCommandPolicy {
-  return resolveAiCommandPolicy({
+  const policy = resolveAiCommandPolicy({
     registeredCommands: options.kernel.context.registry.commandNames(),
     ...(options.policy === undefined ? {} : { session: options.policy }),
     ...(skills === undefined ? {} : { skills }),
   });
+  if (policy.allowedCommands.length === 0) {
+    const activeSkills = skills?.activations.map(({ id }) => id).join(', ');
+    const sources = [
+      activeSkills === undefined || activeSkills.length === 0
+        ? undefined
+        : `active Skills (${activeSkills})`,
+      options.policy?.allowedCommands === undefined ? undefined : 'session.allowedCommands',
+      options.policy?.deniedCommands === undefined ? undefined : 'session.deniedCommands',
+    ].filter((source): source is string => source !== undefined);
+    throw new AiCommandPolicyError(
+      'empty-effective-policy',
+      `${sources.length === 0 ? 'The live command registry' : sources.join(' and ')} leave this AI run with no permitted commands.`,
+    );
+  }
+  return policy;
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -169,6 +193,36 @@ function assertWireRequestBudget(request: AiPlanWireRequest, maxTokens: number):
   }
 }
 
+function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
+  return {
+    plan: { rationale: '', commands: [] },
+    issues: [
+      {
+        code: 'invalid-plan',
+        message: boundAiPlanWireInvalidOutputMessage(message),
+      },
+    ],
+  };
+}
+
+async function repairAiPlanOnce(
+  options: GenerateAiPlanOptions,
+  context: AiPlanWireRequest['context'],
+  live: AiProposeOptions,
+  policy: AiEffectiveCommandPolicy,
+  repair: NonNullable<AiPlanProvider['repair']>,
+  attempt: AiPlanWireAttempt,
+  maxContextTokens: number,
+): Promise<AiPlan> {
+  throwIfAborted(options.signal);
+  assertWireRequestBudget(wireRequest(options, context, attempt), maxContextTokens);
+  const candidate = await repair(options.request, context, attempt.plan, attempt.issues, live);
+  throwIfAborted(options.signal);
+  const repaired = validateAiPlan(candidate, options.kernel, options.validationPorts, policy);
+  if (!repaired.ok) throw new AiPlanRejectedError(repaired.issues);
+  return repaired.plan;
+}
+
 /**
  * No provider result escapes without surviving the live registry's real kernel
  * door. A provider with a `repair` method gets exactly one correction when its
@@ -178,7 +232,8 @@ function assertWireRequestBudget(request: AiPlanWireRequest, maxTokens: number):
 export async function generateAiPlan(options: GenerateAiPlanOptions): Promise<AiPlan> {
   throwIfAborted(options.signal);
   const skills = prepareAiSkillsForGeneration(options);
-  return generateAiPlanWithPreparedSkills(options, skills);
+  const policy = resolveAiPolicyForGeneration(options, skills);
+  return generateAiPlanWithPreparedSkills(options, skills, policy);
 }
 
 /**
@@ -188,19 +243,44 @@ export async function generateAiPlan(options: GenerateAiPlanOptions): Promise<Ai
 export async function generateAiPlanWithPreparedSkills(
   options: GenerateAiPlanOptions,
   skills: AiPreparedSkillContext | undefined,
+  policy: AiEffectiveCommandPolicy,
 ): Promise<AiPlan> {
   throwIfAborted(options.signal);
-  const policy = resolveAiPolicyForGeneration(options, skills);
-  const context = assembleAiContext(options.kernel.context, contextOptions(options, skills));
+  const context = assembleAiContext(
+    options.kernel.context,
+    contextOptions(options, skills, policy),
+  );
   const maxContextTokens = options.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
   if (!Number.isSafeInteger(maxContextTokens) || maxContextTokens <= 0) {
     throw new RangeError('maxContextTokens must be a positive safe integer.');
   }
   assertWireRequestBudget(wireRequest(options, context), maxContextTokens);
   const live = liveOptions(options);
-  let candidate: unknown = await options.provider.propose(options.request, context, live);
-  throwIfAborted(options.signal);
   const repair = options.provider.repair?.bind(options.provider);
+  let candidate: unknown;
+  try {
+    candidate = await options.provider.propose(options.request, context, live);
+  } catch (cause) {
+    throwIfAborted(options.signal);
+    if (
+      !isAiProviderError(cause) ||
+      cause.code !== 'invalid-output' ||
+      !cause.retryable ||
+      repair === undefined
+    ) {
+      throw cause;
+    }
+    return repairAiPlanOnce(
+      options,
+      context,
+      live,
+      policy,
+      repair,
+      invalidOutputRepairAttempt(cause.message),
+      maxContextTokens,
+    );
+  }
+  throwIfAborted(options.signal);
   const first = validateAiPlan(candidate, options.kernel, options.validationPorts, policy);
   if (first.ok) return first.plan;
   if (repair === undefined) throw new AiPlanRejectedError(first.issues);
@@ -209,15 +289,15 @@ export async function generateAiPlanWithPreparedSkills(
   // The parse may have failed before a structured plan existed; hand the
   // server whatever shape it sent so it can see its own mistake.
   const attempted = isPlanShaped(candidate) ? candidate : { rationale: '', commands: [] };
-  assertWireRequestBudget(
-    wireRequest(options, context, { plan: attempted, issues: first.issues }),
+  return repairAiPlanOnce(
+    options,
+    context,
+    live,
+    policy,
+    repair,
+    { plan: attempted, issues: first.issues },
     maxContextTokens,
   );
-  candidate = await repair(options.request, context, attempted, first.issues, live);
-  throwIfAborted(options.signal);
-  const repaired = validateAiPlan(candidate, options.kernel, options.validationPorts, policy);
-  if (!repaired.ok) throw new AiPlanRejectedError(repaired.issues);
-  return repaired.plan;
 }
 
 function isPlanShaped(candidate: unknown): candidate is AiPlan {

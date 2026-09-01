@@ -10,4 +10,14 @@ export {
   type AssembleAiContextOptions,
 } from './assemble-context';
 export { builderAiContextExtension } from './manifest';
-export { createMemoryContextProvider, type MemoryContextProviderOptions } from './memory-provider';
+export {
+  AI_MEMORY_MAX_COMMAND_NAME_LENGTH,
+  AI_MEMORY_MAX_COMMAND_NAMES,
+  AI_MEMORY_MAX_RECORDS,
+  AI_MEMORY_MAX_SUMMARY_LENGTH,
+  AiMemoryContextError,
+  createMemoryContextProvider,
+  type AiMemoryRecordKind,
+  type AiMemoryRecordV1,
+  type MemoryContextProviderOptions,
+} from './memory-provider';

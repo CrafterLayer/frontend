@@ -10,19 +10,26 @@ import {
 
 import {
   applyAiPlan,
-  BUILDER_AI_CONTEXT_PROVIDERS,
+  classifyAiRunFailure,
   ChromeButton,
+  createCraftkitAiSkillRegistry,
   createLocalAiPlanProvider,
   createMemoryContextProvider,
-  generateAiPlan,
   previewAiPlan,
+  runAiAgent,
   StaticDocument,
   systemClock,
   systemIds,
+  type AiAgentEvent,
+  type AiAgentPolicy,
   type AiChatTurn,
+  type AiMemoryRecordV1,
   type AiPlan,
   type AiPlanProvider,
-  type AiPlanStep,
+  type AiRunFailure,
+  type AiSkillActivationPin,
+  type AiSkillRegistry,
+  type AiValidatedProposal,
   type BuilderDocument,
   type BuilderKernel,
 } from '@craftkit/builder';
@@ -41,6 +48,7 @@ import {
   IconStop,
   IconUndo,
 } from './AssistantPanel.icons';
+import { describeStep, shortSkillFingerprint } from './AssistantPanel.utils';
 
 export interface AssistantPanelProps {
   kernel: BuilderKernel;
@@ -48,6 +56,14 @@ export interface AssistantPanelProps {
   onReviewAsCode?: (() => void) | undefined;
   /** Optional proposal source for an embedded or deterministic host. */
   planProvider?: AiPlanProvider | undefined;
+  /** Host-owned, data-only expertise available to this assistant surface. */
+  skillRegistry?: AiSkillRegistry | undefined;
+  /** Explicit Skills to activate for every request on this surface. */
+  selectedSkillIds?: readonly string[] | undefined;
+  /** Optional host narrowing for commands, Skills, and context budgets. */
+  agentPolicy?: Partial<AiAgentPolicy> | undefined;
+  /** Ordered telemetry only; observer failures never acquire run authority. */
+  onAgentEvent?: ((event: AiAgentEvent) => void) | undefined;
   /**
    * localStorage key for reviving conversations across reloads. Absent ⇒ the
    * panel stays fully in-memory (the portable default: the engine never
@@ -81,6 +97,9 @@ type Turn =
       readonly from: 'assistant';
       readonly kind: 'refused';
       readonly text: string;
+      readonly failure?: AiRunFailure;
+      /** Kept only so a retryable failure can start a fresh, bounded run. */
+      readonly request?: string;
     }
   | {
       readonly id: string;
@@ -92,6 +111,9 @@ type Turn =
       readonly from: 'assistant';
       readonly kind: 'plan';
       readonly plan: AiPlan;
+      /** Runtime-authenticated authority. It deliberately cannot survive JSON revival. */
+      readonly proposal?: AiValidatedProposal;
+      readonly skills?: readonly AiSkillActivationPin[];
       readonly applied: boolean;
       /** The mode this plan was proposed under; absent (revived old data) reads as 'ask'. */
       readonly mode?: AssistantMode;
@@ -120,6 +142,15 @@ interface Session {
   readonly turns: readonly Turn[];
 }
 
+interface ActiveRunLease {
+  readonly runId: string;
+  readonly controller: AbortController;
+}
+
+function ownsRun(activeRun: ActiveRunLease | null, runId: string): boolean {
+  return activeRun !== null && activeRun.runId === runId;
+}
+
 /** Four openers, each a request that works exactly as written. */
 const STARTERS = [
   'add a pricing section',
@@ -129,6 +160,7 @@ const STARTERS = [
 ] as const;
 
 const EMPTY_TURNS: readonly Turn[] = [];
+const DEFAULT_AI_SKILL_REGISTRY = createCraftkitAiSkillRegistry();
 
 /**
  * Fresh ports for every preflight.
@@ -139,54 +171,6 @@ const EMPTY_TURNS: readonly Turn[] = [];
  */
 function preflightPorts() {
   return { clock: systemClock, ids: systemIds };
-}
-
-function kernelReason(cause: unknown): string {
-  return cause instanceof Error ? cause.message : 'I could not turn that into a change.';
-}
-
-function argText(args: unknown, key: string): string | undefined {
-  if (typeof args !== 'object' || args === null) {
-    return undefined;
-  }
-  const value = (args as Record<string, unknown>)[key];
-  return typeof value === 'string' ? value : undefined;
-}
-
-/**
- * The words a person reads for one step. The provider's own title wins — it
- * speaks the requester's language — and every builtin command still has a
- * plain-English fallback, so a step is never announced as its function name.
- */
-function describeStep(step: AiPlanStep): string {
-  if (step.title !== undefined) {
-    return step.title;
-  }
-  const type = argText(step.args, 'type');
-  const id = argText(step.args, 'id');
-  const key = argText(step.args, 'key');
-  switch (step.command) {
-    case 'insertNode':
-      return `Add ${type ?? 'a block'}`;
-    case 'setProp':
-      return `Change ${key ?? 'a property'} of ${id ?? 'a block'}`;
-    case 'removeNode':
-      return `Remove ${id ?? 'a block'}`;
-    case 'moveNode':
-      return `Move ${id ?? 'a block'}`;
-    case 'duplicateNode':
-      return `Duplicate ${id ?? 'a block'}`;
-    case 'wrapNode':
-      return `Wrap ${id ?? 'a block'} in ${argText(step.args, 'wrapperType') ?? 'a container'}`;
-    case 'groupNodes':
-      return `Group blocks into ${argText(step.args, 'groupType') ?? 'a group'}`;
-    case 'setBinding':
-      return `Bind ${key ?? 'a property'} of ${id ?? 'a block'}`;
-    case 'setResponsive':
-      return `Adjust ${key ?? 'a property'} per breakpoint on ${id ?? 'a block'}`;
-    default:
-      return step.command;
-  }
 }
 
 interface PersistedPanelState {
@@ -217,11 +201,25 @@ function reviveSessions(persistKey: string | undefined): PersistedPanelState | n
     }
     const sessions = parsed.sessions.map((session) => ({
       ...session,
-      turns: session.turns.map((turn) =>
-        turn.from === 'assistant' && turn.kind === 'thinking'
-          ? ({ id: turn.id, from: 'assistant', kind: 'stopped' } as const)
-          : turn,
-      ),
+      turns: session.turns.map((turn) => {
+        if (turn.from === 'assistant' && turn.kind === 'thinking') {
+          return { id: turn.id, from: 'assistant', kind: 'stopped' } as const;
+        }
+        if (turn.from === 'assistant' && turn.kind === 'plan') {
+          // A JSON clone does not carry the module-private authentication held
+          // by a live proposal. Keep the conversation, never revive authority.
+          return {
+            id: turn.id,
+            from: turn.from,
+            kind: turn.kind,
+            plan: turn.plan,
+            applied: turn.applied,
+            ...(turn.skills === undefined ? {} : { skills: turn.skills }),
+            ...(turn.mode === undefined ? {} : { mode: turn.mode }),
+          };
+        }
+        return turn;
+      }),
     }));
     return { sessions, activeId: parsed.activeId };
   } catch {
@@ -242,7 +240,16 @@ function reviveSessions(persistKey: string | undefined): PersistedPanelState | n
  * the instant you press Enter is a magic trick; one that says what it intends
  * and can be refused is a tool.
  */
-export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKey }: AssistantPanelProps) {
+export function AssistantPanel({
+  kernel,
+  onReviewAsCode,
+  planProvider,
+  skillRegistry,
+  selectedSkillIds,
+  agentPolicy,
+  onAgentEvent,
+  persistKey,
+}: AssistantPanelProps) {
   const counter = useRef(1);
   const nextId = useCallback((prefix: string) => {
     counter.current += 1;
@@ -250,7 +257,8 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
   }, []);
 
   const [sessions, setSessions] = useState<readonly Session[]>(
-    () => reviveSessions(persistKey)?.sessions ?? [{ id: 'session-1', title: 'New chat', turns: [] }],
+    () =>
+      reviveSessions(persistKey)?.sessions ?? [{ id: 'session-1', title: 'New chat', turns: [] }],
   );
   const [activeId, setActiveId] = useState(
     () => reviveSessions(persistKey)?.activeId ?? 'session-1',
@@ -274,25 +282,33 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
   /** The @-mention in progress: the text typed after the trailing @, or null. */
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
-  /** The running request's controller; present exactly while `busy`. */
-  const abortRef = useRef<AbortController | null>(null);
+  /** A lease and controller for the one run allowed to own this panel. */
+  const activeRunRef = useRef<ActiveRunLease | null>(null);
   /**
-   * WHAT WAS ACTUALLY BUILT: the rationale of every applied plan, in order.
-   * Fed back to the planner as a "Session memory" context fragment, so the
-   * assistant knows the page's story — not only its current shape.
+   * WHAT WAS ACTUALLY BUILT: bounded, host-authored outcome data only. Model
+   * rationale is conversation text, never durable trusted memory.
    */
   const [memory] = useState(() => {
     // A plain mutable list, owned by the closure — deliberately NOT state:
     // notes feed the next request's context, they never drive a render.
-    const notes: string[] = [];
+    const records: AiMemoryRecordV1[] = [];
     return {
-      note: (text: string) => {
-        notes.push(text);
-        if (notes.length > 20) {
-          notes.shift();
+      note: (proposal: AiValidatedProposal) => {
+        const commandNames = [...new Set(proposal.plan.commands.map(({ command }) => command))];
+        records.push({
+          schemaVersion: 1,
+          source: 'host',
+          kind: 'applied-change',
+          trust: 'reviewed',
+          summary: `Applied ${String(proposal.plan.commands.length)} validated Builder command${proposal.plan.commands.length === 1 ? '' : 's'}.`,
+          commandNames,
+        });
+        if (records.length > 20) {
+          records.shift();
         }
       },
-      provider: createMemoryContextProvider({ load: () => [...notes] }),
+      hasRecords: () => records.length > 0,
+      provider: createMemoryContextProvider({ load: () => [...records] }),
     };
   });
   const memoryProvider = memory.provider;
@@ -303,7 +319,7 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
    */
   const [preview, setPreview] = useState<{
     id: string;
-    plan: AiPlan;
+    proposal: AiValidatedProposal;
     document: BuilderDocument;
   } | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
@@ -395,11 +411,22 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
   const sees = selectedType === undefined ? 'the whole page' : `${selectedType} · selected`;
 
   const startNewChat = useCallback(() => {
+    activeRunRef.current?.controller.abort();
+    activeRunRef.current = null;
+    setBusy(false);
     const id = nextId('session');
     setSessions((previous) => [...previous, { id, title: 'New chat', turns: [] }]);
     setActiveId(id);
     setDraft('');
   }, [nextId]);
+
+  useEffect(
+    () => () => {
+      activeRunRef.current?.controller.abort();
+      activeRunRef.current = null;
+    },
+    [],
+  );
 
   const ask = useCallback(
     async (request: string) => {
@@ -456,8 +483,9 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
         })
         .slice(-12);
 
+      const runId = nextId('run');
       const controller = new AbortController();
-      abortRef.current = controller;
+      activeRunRef.current = { runId, controller };
       /*
         @mentions ARE the selection: naming a block in the request is the most
         direct way a person points at it, so named blocks (that really exist)
@@ -467,39 +495,51 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
         .map((match) => match[1] ?? '')
         .filter((id) => kernel.getDocument().nodes[id] !== undefined);
       try {
-        const plan = await generateAiPlan({
+        const result = await runAiAgent({
+          runId,
+          clock: systemClock,
           kernel,
           provider: planProvider ?? createLocalAiPlanProvider(),
           request: trimmed,
           validationPorts: preflightPorts(),
           selection: mentioned.length > 0 ? mentioned : kernel.context.store.getState().selection,
           history,
-          contextProviders: [...BUILDER_AI_CONTEXT_PROVIDERS, memoryProvider],
+          ...(memory.hasRecords() ? { additionalContextProviders: [memoryProvider] } : {}),
+          skillRegistry: skillRegistry ?? DEFAULT_AI_SKILL_REGISTRY,
+          ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
+          ...(agentPolicy === undefined ? {} : { policy: agentPolicy }),
+          apply: mode === 'auto' ? 'auto' : 'never',
           signal: controller.signal,
-          // The provider's narration lands ON the thinking turn, so the wait
-          // reads as work in progress rather than as a frozen spinner.
-          onProgress: (progress) => {
-            patchTurns((previous) =>
-              previous.map((turn) =>
-                turn.id === thinkingId && turn.from === 'assistant' && turn.kind === 'thinking'
-                  ? { ...turn, progress }
-                  : turn,
-              ),
-            );
+          isCurrentRun: (candidateRunId) => activeRunRef.current?.runId === candidateRunId,
+          onEvent: (event) => {
+            if (event.type === 'plan.progress') {
+              patchTurns((previous) =>
+                previous.map((turn) =>
+                  turn.id === thinkingId && turn.from === 'assistant' && turn.kind === 'thinking'
+                    ? { ...turn, progress: event.text }
+                    : turn,
+                ),
+              );
+            }
+            onAgentEvent?.(event);
           },
         });
-        // Auto mode: the validated plan goes straight through the grouped
-        // door — one atomic transaction, one undo — and the card lands already
-        // applied. Any apply failure falls to the same catch as a rejection.
-        if (mode === 'auto') {
-          applyAiPlan({ kernel, plan, validationPorts: preflightPorts() });
-          memory.note(plan.rationale);
+        if (result.status === 'applied') {
+          memory.note(result.proposal);
         }
-        const applied = mode === 'auto';
         patchTurns((previous) =>
           previous.map((turn) =>
             turn.id === thinkingId
-              ? { id: turn.id, from: 'assistant', kind: 'plan', plan, applied, mode }
+              ? {
+                  id: turn.id,
+                  from: 'assistant',
+                  kind: 'plan',
+                  plan: result.proposal.plan,
+                  proposal: result.proposal,
+                  skills: result.proposal.skillActivations,
+                  applied: result.status === 'applied',
+                  mode,
+                }
               : turn,
           ),
         );
@@ -512,27 +552,50 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
             ),
           );
         } else {
-          // The refusal prints the RULE, not a soft apology: when the kernel
-          // refuses the assistant, a person is owed the name of what refused it.
-          const text = kernelReason(cause);
+          const failure = classifyAiRunFailure(cause);
           patchTurns((previous) =>
             previous.map((turn) =>
               turn.id === thinkingId
-                ? { id: turn.id, from: 'assistant', kind: 'refused', text }
+                ? {
+                    id: turn.id,
+                    from: 'assistant',
+                    kind: 'refused',
+                    text: failure.message,
+                    failure,
+                    request: trimmed,
+                  }
                 : turn,
             ),
           );
         }
       } finally {
-        abortRef.current = null;
-        setBusy(false);
+        if (ownsRun(activeRunRef.current, runId)) {
+          activeRunRef.current = null;
+          setBusy(false);
+        }
       }
     },
-    [active, activeId, busy, kernel, memory, memoryProvider, mode, nextId, patchTurns, planProvider, selectedType],
+    [
+      active,
+      activeId,
+      agentPolicy,
+      busy,
+      kernel,
+      memory,
+      memoryProvider,
+      mode,
+      nextId,
+      onAgentEvent,
+      patchTurns,
+      planProvider,
+      selectedSkillIds,
+      selectedType,
+      skillRegistry,
+    ],
   );
 
   const stop = useCallback(() => {
-    abortRef.current?.abort();
+    activeRunRef.current?.controller.abort();
   }, []);
 
   /** Every block a trailing @ can point at, filtered as the person types. */
@@ -570,10 +633,10 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
   );
 
   const accept = useCallback(
-    (id: string, plan: AiPlan) => {
+    (id: string, proposal: AiValidatedProposal) => {
       try {
-        applyAiPlan({ kernel, plan, validationPorts: preflightPorts() });
-        memory.note(plan.rationale);
+        applyAiPlan({ kernel, proposal, validationPorts: preflightPorts() });
+        memory.note(proposal);
         patchTurns((previous) =>
           previous.map((turn) =>
             turn.id === id && turn.from === 'assistant' && turn.kind === 'plan'
@@ -582,11 +645,17 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
           ),
         );
       } catch (cause: unknown) {
-        const text = kernelReason(cause);
+        const failure = classifyAiRunFailure(cause);
         patchTurns((previous) =>
           previous.map((turn) =>
             turn.id === id && turn.from === 'assistant' && turn.kind === 'plan'
-              ? { id: turn.id, from: 'assistant', kind: 'refused', text }
+              ? {
+                  id: turn.id,
+                  from: 'assistant',
+                  kind: 'refused',
+                  text: failure.message,
+                  failure,
+                }
               : turn,
           ),
         );
@@ -629,16 +698,22 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
 
   /** Rehearse the plan on a scratch kernel and show the result. Looking ≠ applying. */
   const openPreview = useCallback(
-    (id: string, plan: AiPlan) => {
+    (id: string, proposal: AiValidatedProposal) => {
       try {
-        const document = previewAiPlan({ kernel, plan, validationPorts: preflightPorts() });
-        setPreview({ id, plan, document });
+        const document = previewAiPlan({ kernel, proposal, validationPorts: preflightPorts() });
+        setPreview({ id, proposal, document });
       } catch (cause: unknown) {
-        const text = kernelReason(cause);
+        const failure = classifyAiRunFailure(cause);
         patchTurns((previous) =>
           previous.map((turn) =>
             turn.id === id && turn.from === 'assistant' && turn.kind === 'plan'
-              ? { id: turn.id, from: 'assistant', kind: 'refused', text }
+              ? {
+                  id: turn.id,
+                  from: 'assistant',
+                  kind: 'refused',
+                  text: failure.message,
+                  failure,
+                }
               : turn,
           ),
         );
@@ -805,7 +880,29 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
                 {turn.kind === 'refused' ? (
                   <div className="pg-chat__card pg-chat__card--refused">
                     <IconAlert />
-                    <p className="pg-chat__refused">{turn.text}</p>
+                    <div>
+                      <p className="pg-chat__refused">{turn.text}</p>
+                      {turn.failure === undefined ? null : (
+                        <p className="pg-chat__step-title">
+                          <code className="pg-chat__step-cmd">{turn.failure.code}</code>
+                          {turn.failure.status === undefined
+                            ? ` · ${turn.failure.source}`
+                            : ` · ${turn.failure.source} · HTTP ${String(turn.failure.status)}`}
+                        </p>
+                      )}
+                      {turn.failure?.retryable === true && turn.request !== undefined ? (
+                        <ChromeButton
+                          variant="quiet"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => {
+                            void ask(turn.request ?? '');
+                          }}
+                        >
+                          Retry
+                        </ChromeButton>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
                 {turn.kind === 'discarded' ? (
@@ -820,6 +917,19 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
                     }`}
                   >
                     <p className="pg-chat__rationale">{turn.plan.rationale}</p>
+                    {turn.skills === undefined || turn.skills.length === 0 ? null : (
+                      <ul aria-label="Activated Skills" className="pg-chat__steps">
+                        {turn.skills.map((skill) => (
+                          <li key={`${turn.id}-${skill.id}`}>
+                            <span className="pg-chat__step-title">
+                              {skill.id} · v{skill.version} ·{' '}
+                              {shortSkillFingerprint(skill.contentFingerprint)}
+                            </span>
+                            <code className="pg-chat__step-cmd">{skill.reason}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {/* Each step in a person's words; the exact command rides
                         along in mono as the technical truth, never the headline. */}
                     <ol className="pg-chat__steps">
@@ -849,27 +959,33 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
                       <div className="pg-chat__decide">
                         {/* A plan proposed in Plan mode never offers Apply:
                             exploring must not be one misclick from writing. */}
-                        {(turn.mode ?? 'ask') === 'plan' ? null : (
+                        {(turn.mode ?? 'ask') === 'plan' || turn.proposal === undefined ? null : (
                           <ChromeButton
                             variant="primary"
                             onClick={() => {
-                              accept(turn.id, turn.plan);
+                              if (turn.proposal !== undefined) {
+                                accept(turn.id, turn.proposal);
+                              }
                             }}
                           >
                             <IconCheck />
                             Apply
                           </ChromeButton>
                         )}
-                        <ChromeButton
-                          variant="quiet"
-                          size="sm"
-                          onClick={() => {
-                            openPreview(turn.id, turn.plan);
-                          }}
-                        >
-                          <IconEye />
-                          Preview
-                        </ChromeButton>
+                        {turn.proposal === undefined ? null : (
+                          <ChromeButton
+                            variant="quiet"
+                            size="sm"
+                            onClick={() => {
+                              if (turn.proposal !== undefined) {
+                                openPreview(turn.id, turn.proposal);
+                              }
+                            }}
+                          >
+                            <IconEye />
+                            Preview
+                          </ChromeButton>
+                        )}
                         {onReviewAsCode === undefined ? null : (
                           <ChromeButton variant="quiet" size="sm" onClick={onReviewAsCode}>
                             <IconCode />
@@ -886,6 +1002,11 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
                           <IconClose />
                           Discard
                         </ChromeButton>
+                        {turn.proposal === undefined ? (
+                          <p className="pg-chat__refused">
+                            This saved proposal expired after reload. Ask again to revalidate it.
+                          </p>
+                        ) : null}
                       </div>
                     )}
                     {/* The plan's own "and next…" — staged work as one tap,
@@ -1070,7 +1191,7 @@ export function AssistantPanel({ kernel, onReviewAsCode, planProvider, persistKe
               <ChromeButton
                 variant="primary"
                 onClick={() => {
-                  accept(preview.id, preview.plan);
+                  accept(preview.id, preview.proposal);
                   setPreview(null);
                 }}
               >

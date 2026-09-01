@@ -6,15 +6,18 @@ import * as AssistantPanelStories from './AssistantPanel.stories';
 
 # AssistantPanel
 
-`AssistantPanel` is the playground-owned conversation surface for proposing builder changes. It
-never writes while a proposal is being discussed: each request creates its own turn, runs the
-commands against a scratch kernel, then waits for an explicit **Apply**.
+`AssistantPanel` is the playground-owned conversation surface over the headless `runAiAgent`
+contract. Each request receives a fresh run id, resolves Built-in or host-provided Skills, assembles
+the bounded canonical context, validates commands on a scratch kernel, and retains the authenticated
+proposal with its message. Ask waits for **Apply**; Auto applies only that pinned proposal through
+the runner; Plan remains preview-only.
 
 ## Use it for
 
-Use this component in an editor rail when an author needs an inspectable, undoable proposed change.
-Use the optional code-review action when the host can show the proposal through the separate code
-view workflow.
+Use this component in an editor rail when an author needs inspectable, undoable agent changes with
+observable progress, explicit Skill activation, cancellation, and typed failure recovery. Use the
+optional code-review action when the host can show a proposal through the separate code-view
+workflow.
 
 Do not use it as a general chat surface or as a way to bypass the builder kernel. All accepted
 commands still cross the same validated document door as a direct edit.
@@ -22,10 +25,73 @@ commands still cross the same validated document door as a direct edit.
 ## API
 
 - `kernel` — required live `BuilderKernel`. The panel reads its document and selection, dry-runs
-  proposals on a scratch kernel, and applies accepted commands with `author: 'ai'`.
+  proposals on a scratch kernel, and applies accepted authenticated proposals with `author: 'ai'`.
 - `onReviewAsCode` — optional callback. When absent, the **Review as code** action is not rendered.
 - `planProvider` — optional proposal source for a deterministic or embedded host. The default is the
-  local provider; every provider result still receives the same kernel preflight.
+  local provider; every provider result still crosses the same policy, validation, and preflight.
+- `skillRegistry` — optional host `AiSkillRegistry`. The default registry contains CraftKit's
+  reviewed Built-in Skills. Supplying a registry makes the host the source of available Skills.
+- `selectedSkillIds` — optional explicit activations applied to every request on this panel.
+  Unknown, conflicting, untrusted, or over-budget activations fail through the typed agent boundary.
+- `agentPolicy` — optional `Partial<AiAgentPolicy>` that can narrow commands, deny commands,
+  constrain active Skills, and lower Skill/context/command/operation budgets. It cannot grant
+  commands absent from the live kernel.
+- `onAgentEvent` — optional ordered observer for `AiAgentEvent`. Observer failures are isolated and
+  cannot affect validation or application authority.
+- `persistKey` — optional local-storage key for conversation revival. Persisted plans lose their
+  module-private authentication after reload and therefore cannot be applied until revalidated.
+
+## Modes and authority
+
+| Mode | Runner setting   | Outcome                                                           |
+| ---- | ---------------- | ----------------------------------------------------------------- |
+| Ask  | `apply: 'never'` | Shows the pinned proposal and offers Apply, Preview, and Discard. |
+| Auto | `apply: 'auto'`  | Applies inside the runner as one AI-authored transaction.         |
+| Plan | `apply: 'never'` | Shows reasoning and Preview, but never offers Apply.              |
+
+The panel never calls a separate generate/apply shortcut. Manual Apply and Preview consume the
+authenticated `AiValidatedProposal`; a substituted plan, broader policy, copied proposal, or expired
+persisted proposal fails closed.
+
+## Host Skills and activation pins
+
+Skills are bounded data: instructions, logical text references, metadata, and optional command
+restrictions. They do not execute scripts, fetch URLs, access the filesystem, register tools, or
+write Builder state. Active bodies enter context once; inactive Skills remain metadata-only.
+
+Every proposed plan lists its activation pins under **Activated Skills** in this format:
+`id · vVERSION · FINGERPRINT`, followed by the activation reason. The UI intentionally shows only
+the first eight fingerprint characters for scanning; the immutable proposal retains the full value.
+
+The `HostSkillActivation` story demonstrates an explicit reviewed host Skill and verifies the
+corresponding `skills.resolved` event.
+
+## Observable progress, cancellation, and supersession
+
+`onAgentEvent` receives monotonically sequenced run events for Skill resolution, context readiness,
+proposal progress, validation/repair, proposal/application, and one terminal outcome. The panel uses
+`plan.progress` for live narration and forwards the same event unchanged to the host.
+
+While work is active, Send becomes **Stop**. Stop aborts the provider and produces a non-error
+**Stopped.** turn. Each retry or new request receives a fresh run id and controller. The synchronous
+runner lease rejects late cache/provider results from superseded runs before validation or apply,
+even when an adapter ignores abort.
+
+`StopCancelsTheRun` covers cooperative cancellation. `NewChatSupersedesLateRun` deliberately uses a
+provider that ignores abort and proves its late result cannot enter the replacement conversation.
+
+## Typed failure and retry behavior
+
+A failed run renders the human message plus its stable `code`, source, and optional HTTP status.
+**Retry** appears only when `AiRunFailure.retryable === true` and replays the same request through a
+fresh bounded run. The panel never guesses from message text or status codes.
+
+- Provider transport/output failures may be retryable according to their typed error.
+- Explicit refusal, context-budget, Skill/policy, unsafe-command, proposal-integrity, and kernel
+  failures are non-retryable until the request or host policy changes.
+- `ContextBudgetFailure` proves the complete canonical request is rejected before provider work.
+- `RetryableProviderFailure` proves a typed HTTP failure can recover; `NonRetryableRefusal` proves
+  the Retry action remains absent.
 
 ## Conversation and safety
 
@@ -35,16 +101,17 @@ records the commands as the assistant and exposes an in-thread **Undo**; the nor
 restores the exact prior document.
 
 The context line is deliberately explicit: it says either `the whole page` or `<type> · selected`,
-and updates when the live kernel selection changes. If the preflight refuses a command, the panel
-shows the kernel's actual reason rather than replacing it with a generic apology.
+and updates when the live kernel selection changes. `@block-id` mentions become the request-local
+selection. If policy or preflight refuses a command, the panel shows the typed reason rather than
+replacing it with a generic apology.
 
 ## Reading the thread at a glance
 
 Every assistant outcome lands in one card whose **leading edge carries the state**: accent while a
-plan is pending, success once applied, danger when the kernel door refused it, and a muted edge once
-discarded. Scanning the stripe down the thread tells you what happened without reading a word — the
-text is there for when you stop scanning. Colour is never the only signal: each state also carries
-its own icon and wording, so the stripe is a shortcut rather than the message.
+plan is pending, success once applied, danger on typed failure, and a muted edge once stopped or
+discarded. Scanning the stripe down the thread tells you what happened without reading a word.
+Colour is never the only signal: each state also carries an icon, wording, and—when applicable—a
+stable failure code.
 
 Motion is spent in exactly two places, both of them status rather than atmosphere: the three-dot
 pulse while a proposal is being generated, and the composer's glow while the assistant is working.
@@ -52,8 +119,9 @@ Both resolve to a still state under `prefers-reduced-motion`.
 
 ## Accessibility
 
-The panel is a named region, the thread is a named log, the composer has a programmatic label, and
-all decisions use native buttons. Enter sends a request; Shift+Enter adds a line.
+The panel is a named region, the thread is a named log, activated Skills are a named list, the
+composer has a programmatic label, and all decisions use native buttons. Enter sends a request;
+Shift+Enter adds a line. Stop and Retry retain explicit accessible names.
 
 The conversation history appears only when more than one chat exists. It is a labelled button that
 opens a `menu` of `menuitemradio` entries — the past is a list of things you have already said, not
@@ -75,18 +143,38 @@ requests concise enough for a conversation title; the first request names a new 
 ## Composition
 
 ```tsx
+const skillRegistry = createCraftkitAiSkillRegistry([
+  {
+    schemaVersion: 1,
+    id: 'acme.brand-voice',
+    name: 'Acme brand voice',
+    description: 'Apply the reviewed Acme writing rules.',
+    version: '1.0.0',
+    instructions: 'Use direct, concrete language and preserve product names.',
+    activation: { mode: 'explicit' },
+    restrictToCommands: ['setProp'],
+  },
+]);
+
 <AssistantPanel
   kernel={kernel}
+  skillRegistry={skillRegistry}
+  selectedSkillIds={['acme.brand-voice']}
+  agentPolicy={{ maxContextTokens: 48_000, deniedCommands: ['removeNode'] }}
+  onAgentEvent={(event) => {
+    recordAssistantTelemetry(event);
+  }}
   onReviewAsCode={() => {
     openCodeView();
   }}
-/>
+/>;
 ```
 
 ## Known limits
 
-This is a local deterministic proposal experience, not a remote model integration. A host that needs
-a different proposal source supplies `planProvider`, but it must still produce declarative kernel
-commands that pass the scratch-kernel preflight. If the live document changes before **Apply**, the
-same kernel door can still refuse the plan; the thread shows that real reason and leaves the plan
-unapplied.
+The panel does not own model credentials, Skill persistence, or server transport. A host that needs
+a remote model supplies a hardened `planProvider`; it must still produce declarative commands inside
+the effective policy and scratch-kernel contract. The host supplies Skills through props; there is
+no Skill-management UI in this phase. If the live document changes before **Apply**, the same
+pinned-policy and kernel doors may refuse the proposal; the thread shows that real reason and leaves
+the document untouched.

@@ -69,6 +69,14 @@ describe('runAiAgent', () => {
     });
 
     expect(result).toMatchObject({ runId: 'run-review', status: 'proposed', plan: validPlan });
+    expect(result.proposal.plan).toBe(result.plan);
+    expect(result.proposal.policy).toBe(result.policy);
+    expect(result.proposal.skillActivations).toEqual([
+      expect.objectContaining({ id: 'craftkit.hero-copy', reason: 'auto' }),
+    ]);
+    expect(result.proposal.contextFingerprint).toMatch(/^ai-context-v1-sha256-[a-f0-9]{64}$/);
+    expect(result.proposal.proposalFingerprint).toMatch(/^ai-proposal-v1-sha256-[a-f0-9]{64}$/);
+    expect(Object.isFrozen(result.proposal)).toBe(true);
     expect(live.transactions()).toEqual([]);
     expect(events.map(({ type }) => type)).toEqual([
       'run.started',
@@ -108,6 +116,7 @@ describe('runAiAgent', () => {
     });
 
     expect(result.status).toBe('applied');
+    expect(result.applied?.proposal).toBe(result.proposal);
     expect(result.applied?.transactions).toHaveLength(1);
     expect(live.transactions()).toHaveLength(1);
     expect(live.transactions()[0]).toMatchObject({
@@ -182,6 +191,9 @@ describe('runAiAgent', () => {
         attemptMutation(() => {
           (event.plan.commands[0]?.args as { value: string }).value = 'Observer changed it';
         });
+        attemptMutation(() => {
+          (event.proposal.policy.allowedCommands as string[]).push('removeNode');
+        });
       },
     });
 
@@ -191,6 +203,74 @@ describe('runAiAgent', () => {
     expect(Object.isFrozen(result.plan)).toBe(true);
     expect(Object.isFrozen(result.plan.commands)).toBe(true);
     expect(Object.isFrozen(result.plan.commands[0]?.args)).toBe(true);
+    expect(Object.isFrozen(result.proposal.policy.allowedCommands)).toBe(true);
+    expect(
+      result.proposal.policy.allowedCommands.filter((command) => command === 'removeNode'),
+    ).toHaveLength(1);
+  });
+
+  it('pins generation authority before provider work so caller mutation cannot broaden auto apply', async () => {
+    const live = kernel();
+    const before = live.getDocument();
+    const allowedCommands = ['setProp'];
+    const removePlan: AiPlan = {
+      rationale: 'Try newly added authority.',
+      commands: [{ command: 'removeNode', args: { id: 'hero1' } }],
+    };
+
+    await expect(
+      runAiAgent({
+        runId: 'run-policy-mutation',
+        clock: fixedClock(280),
+        kernel: live,
+        provider: {
+          propose: () => {
+            allowedCommands.push('removeNode');
+            return Promise.resolve(removePlan);
+          },
+        },
+        request: 'Do not gain authority from caller mutation',
+        validationPorts: validationPorts('policy-mutation'),
+        policy: { allowedCommands, maxCommands: 2, maxOperations: 2 },
+        apply: 'auto',
+      }),
+    ).rejects.toThrow(/not allowed/i);
+
+    expect(live.getDocument()).toBe(before);
+    expect(live.transactions()).toEqual([]);
+  });
+
+  it('resolves effective policy once so context, validation, and proposal pin the same authority', async () => {
+    let reads = 0;
+    const unstablePolicy = Object.defineProperty({}, 'allowedCommands', {
+      enumerable: true,
+      get(): readonly string[] {
+        reads += 1;
+        return reads <= 2 ? ['setDocMeta'] : ['setProp'];
+      },
+    });
+    const result = await runAiAgent({
+      runId: 'run-single-policy-resolution',
+      clock: fixedClock(285),
+      kernel: kernel(),
+      provider: {
+        propose: (_request, context) => {
+          expect(context.commands?.map(({ name }) => name)).toEqual(['setDocMeta']);
+          return Promise.resolve({
+            rationale: 'Change direction with the exact advertised authority.',
+            commands: [{ command: 'setDocMeta', args: { dir: 'rtl' } }],
+          });
+        },
+      },
+      request: 'Change direction',
+      validationPorts: validationPorts('single-policy-resolution'),
+      policy: unstablePolicy,
+      apply: 'never',
+    });
+
+    expect(reads).toBe(2);
+    expect(result.proposal.policy.allowedCommands).toEqual(['setDocMeta']);
+    expect(result.plan.commands).toEqual([{ command: 'setDocMeta', args: { dir: 'rtl' } }]);
   });
 
   it('surfaces validation and performs at most one repair', async () => {
@@ -259,6 +339,52 @@ describe('runAiAgent', () => {
 
     expect(proposed).toBe(false);
     expect(events.map(({ type }) => type)).toEqual(['run.started', 'run.cancelled']);
+    expect(events.at(-1)).toMatchObject({
+      type: 'run.cancelled',
+      error: {
+        source: 'run',
+        code: 'cancelled',
+        retryable: false,
+      },
+    });
+    const cancelled = events.at(-1);
+    if (cancelled?.type !== 'run.cancelled') {
+      throw new Error('Expected run.cancelled to be the terminal event.');
+    }
+    expect(Object.isFrozen(cancelled.error)).toBe(true);
+  });
+
+  it('normalizes a custom AbortSignal reason to AbortError and keeps typed cancellation', async () => {
+    const controller = new AbortController();
+    const customReason = new Error('Stopped by custom host reason.');
+    controller.abort(customReason);
+    const events: AiAgentEvent[] = [];
+
+    await expect(
+      runAiAgent({
+        runId: 'run-custom-cancel-reason',
+        clock: fixedClock(450),
+        kernel: kernel(),
+        provider: { propose: () => Promise.resolve(validPlan) },
+        request: 'cancelled with a custom reason',
+        validationPorts: validationPorts('custom-cancel-reason'),
+        signal: controller.signal,
+        onEvent: (event) => events.push(event),
+      }),
+    ).rejects.toMatchObject({
+      name: 'AbortError',
+      message: customReason.message,
+    });
+
+    expect(events.at(-1)).toMatchObject({
+      type: 'run.cancelled',
+      error: {
+        source: 'run',
+        code: 'cancelled',
+        message: customReason.message,
+        retryable: false,
+      },
+    });
   });
 
   it('cancels between proposal and apply without mutating the document', async () => {
@@ -389,7 +515,15 @@ describe('runAiAgent', () => {
       }),
     ).rejects.toBe(failure);
 
-    expect(events.at(-1)).toMatchObject({ type: 'run.failed', error: 'provider unavailable' });
+    expect(events.at(-1)).toMatchObject({
+      type: 'run.failed',
+      error: {
+        source: 'unknown',
+        code: 'unknown',
+        message: 'provider unavailable',
+        retryable: false,
+      },
+    });
     expect(events.filter(({ type }) => type === 'run.failed')).toHaveLength(1);
   });
 
@@ -404,7 +538,6 @@ describe('runAiAgent', () => {
       provider: {
         propose: (_request, context, options) => {
           expect(context.fragments.map(({ title }) => title)).toEqual([
-            'Available AI skills',
             'Active AI skill: craftkit.hero-copy',
           ]);
           expect(options?.history).toEqual([{ role: 'user', text: 'Earlier request' }]);

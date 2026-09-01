@@ -1,6 +1,9 @@
 import {
   blockPropsJsonSchema,
+  commandArgsJsonSchema,
+  defineContextFragment,
   type AiContextBlockCatalogEntry,
+  type AiContextCommandCatalogEntry,
   type AiContextCompositionCatalogEntry,
   type AiContextProvider,
   type AiContextReadApi,
@@ -8,6 +11,8 @@ import {
   type BuilderDocument,
   type CompositionDef,
   type ContextFragment,
+  type ContextFragmentKind,
+  type ContextFragmentTrust,
   type DeclarativeWidgetTypeDef,
   type JsonValue,
   type KernelApi,
@@ -20,14 +25,18 @@ import {
 
 import type {
   AiBlockContext,
+  AiBlockPropertyIntentContext,
+  AiCommandContext,
+  AiContextOmission,
   AiDocumentContext,
   AiDocumentNodeContext,
-  AiSelectedNodeContext,
   AiSelectionContext,
   AiTemplateContext,
+  AiPlanOutputContract,
   AssembledAiContext,
 } from '../types';
 import type { AiPreparedSkillContext } from '../skills';
+import { canonicalJsonStringify, estimateCanonicalJsonTokens } from '../internal/canonical-json';
 
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
 
@@ -79,6 +88,19 @@ function blockCatalogEntry({ schema }: RegisteredBlock): AiContextBlockCatalogEn
         }),
       ),
   );
+  const propertyGroups =
+    schema.propertyGroups === undefined
+      ? undefined
+      : Object.freeze(
+          Object.fromEntries(
+            Object.entries(schema.propertyGroups)
+              .filter((entry): entry is [string, NonNullable<(typeof entry)[1]>] =>
+                Boolean(entry[1]),
+              )
+              .sort(([left], [right]) => compareText(left, right))
+              .map(([name, group]) => [name, Object.freeze({ ...group })]),
+          ),
+        );
   return Object.freeze({
     type: schema.type,
     description: schema.description,
@@ -87,8 +109,19 @@ function blockCatalogEntry({ schema }: RegisteredBlock): AiContextBlockCatalogEn
       ? {}
       : { surfaces: frozenStrings([...schema.surfaces].sort(compareText)) }),
     ...(schema.inlineEditable === undefined ? {} : { inlineEditable: schema.inlineEditable }),
+    ...(propertyGroups === undefined ? {} : { propertyGroups }),
     examples,
     slots,
+  });
+}
+
+function commandCatalogEntry(
+  name: string,
+  command: NonNullable<ReturnType<KernelApi['registry']['command']>>,
+): AiContextCommandCatalogEntry {
+  return Object.freeze({
+    name,
+    argsSchema: deepFreezeJson(cloneJson(commandArgsJsonSchema(command))),
   });
 }
 
@@ -149,7 +182,17 @@ function createAiContextReadApi(ctx: AiContextAssemblySource): AiContextReadApi 
       .sort((left, right) => compareText(left.type, right.type)),
   );
   const widgetTypesByType = new Map(widgetTypes.map((entry) => [entry.type, entry]));
-  const commandNames = frozenStrings(ctx.registry.commandNames());
+  const commands = Object.freeze(
+    ctx.registry
+      .commandNames()
+      .flatMap((name) => {
+        const command = ctx.registry.command(name);
+        return command === undefined ? [] : [commandCatalogEntry(name, command)];
+      })
+      .sort((left, right) => compareText(left.name, right.name)),
+  );
+  const commandsByName = new Map(commands.map((entry) => [entry.name, entry]));
+  const commandNames = frozenStrings(commands.map(({ name }) => name));
   const store: AiContextReadApi['store'] = Object.freeze({
     getState: () => snapshot,
   });
@@ -160,6 +203,8 @@ function createAiContextReadApi(ctx: AiContextAssemblySource): AiContextReadApi 
         ? blocks
         : Object.freeze(blocks.filter((entry) => visibleOnSurface(entry, surface))),
     commandNames: () => commandNames,
+    command: (name: string) => commandsByName.get(name),
+    commands: () => commands,
     composition: (id: string) => compositionsById.get(id),
     compositions: (surface?: Surface) =>
       surface === undefined
@@ -182,17 +227,6 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function stableStringify(value: unknown): string {
-  return JSON.stringify(value, (_key, candidate: unknown) => {
-    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
-      return candidate;
-    }
-    return Object.fromEntries(
-      Object.entries(candidate).sort(([left], [right]) => compareText(left, right)),
-    );
-  });
-}
-
 function cloneJson(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map(cloneJson);
@@ -210,39 +244,52 @@ export function estimateContextTokens(title: string, body: string): number {
 
 /** Conservative estimate for the complete provider/wire payload, not only fragments. */
 export function estimateAssembledAiContextTokens(context: AssembledAiContext): number {
-  return Math.max(1, Math.ceil(stableStringify(context).length / CHARACTERS_PER_TOKEN_ESTIMATE));
+  return estimateCanonicalJsonTokens(context);
 }
 
-function fragment(title: string, value: unknown): ContextFragment & { tokens: number } {
-  const body = stableStringify(value);
-  return { title, body, tokens: estimateContextTokens(title, body) };
+interface FragmentMetadata {
+  source: string;
+  kind: ContextFragmentKind;
+  trust: ContextFragmentTrust;
+  title: string;
 }
 
-/**
- * Prompt-side excerpting for the document-shape FRAGMENT only. A page can hold
- * essays; a planner needs to locate text, not re-read it, and one giant prop
- * would crowd the catalog out of the window. The marker is explicit so a model
- * knows the value continues — and the structured `context.document` keeps every
- * exact byte for consumers that need the real thing.
- */
-const PROMPT_STRING_LIMIT = 400;
-
-function excerptForPrompt(value: JsonValue): JsonValue {
-  if (typeof value === 'string') {
-    return value.length > PROMPT_STRING_LIMIT
-      ? `${value.slice(0, PROMPT_STRING_LIMIT)}… [truncated]`
-      : value;
-  }
-  if (Array.isArray(value)) {
-    return value.map(excerptForPrompt);
-  }
-  if (typeof value !== 'object' || value === null) {
-    return value;
-  }
-  return Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [key, excerptForPrompt(child)]),
-  );
+function fragment(metadata: FragmentMetadata, value: unknown): Readonly<ContextFragment> {
+  const body = canonicalJsonStringify(value);
+  return defineContextFragment({
+    ...metadata,
+    body,
+    tokens: estimateContextTokens(metadata.title, body),
+  });
 }
+
+const AI_PLAN_OUTPUT_CONTRACT: AiPlanOutputContract = Object.freeze({
+  version: 1,
+  schema: deepFreezeJson({
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    type: 'object',
+    additionalProperties: false,
+    required: ['rationale', 'commands'],
+    properties: {
+      rationale: { type: 'string', minLength: 1, pattern: '\\S' },
+      commands: {
+        type: 'array',
+        minItems: 1,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['command', 'args'],
+          properties: {
+            command: { type: 'string', minLength: 1, pattern: '\\S' },
+            args: {},
+            title: { type: 'string' },
+          },
+        },
+      },
+      followUp: { type: 'string' },
+    },
+  }),
+});
 
 function sortedSlots(node: Node): Readonly<Record<string, readonly NodeId[]>> {
   return Object.fromEntries(
@@ -253,6 +300,27 @@ function sortedSlots(node: Node): Readonly<Record<string, readonly NodeId[]>> {
 }
 
 function documentNode(node: Node): AiDocumentNodeContext {
+  const bindings =
+    node.bindings === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(node.bindings).sort(([left], [right]) => compareText(left, right)),
+        );
+  const responsive =
+    node.responsive === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(node.responsive)
+            .sort(([left], [right]) => compareText(left, right))
+            .map(([breakpoint, props]) => [
+              breakpoint,
+              Object.fromEntries(
+                Object.entries(props)
+                  .sort(([left], [right]) => compareText(left, right))
+                  .map(([key, value]) => [key, cloneJson(value)]),
+              ),
+            ]),
+        );
   return {
     id: node.id,
     type: node.type,
@@ -263,32 +331,65 @@ function documentNode(node: Node): AiDocumentNodeContext {
         .sort(([left], [right]) => compareText(left, right))
         .map(([key, value]) => [key, cloneJson(value)]),
     ),
+    ...(bindings === undefined ? {} : { bindings }),
+    ...(node.variantOf === undefined ? {} : { variantOf: node.variantOf }),
+    ...(responsive === undefined ? {} : { responsive }),
     slots: sortedSlots(node),
   };
-}
-
-function selectedNode(node: Node): AiSelectedNodeContext {
-  return documentNode(node);
 }
 
 function collectBlocks(ctx: AiContextReadApi): readonly AiBlockContext[] {
   return ctx.registry
     .blocks(ctx.surface)
-    .map((entry) => ({
-      type: entry.type,
-      description: entry.description,
-      propsSchema: cloneJson(entry.propsSchema),
-      examples: entry.examples.map((example) => ({
-        prompt: example.prompt,
-        node: cloneJson(example.node),
-      })),
-      slots: entry.slots.map((slot) => ({
-        name: slot.name,
-        allow: [...slot.allow],
-        ...(slot.max === undefined ? {} : { max: slot.max }),
-      })),
-    }))
+    .map((entry) => {
+      const propertyIntents = propertyIntentSummary(entry.propertyGroups);
+      return {
+        type: entry.type,
+        description: entry.description,
+        propsSchema: cloneJson(entry.propsSchema),
+        ...(propertyIntents === undefined ? {} : { propertyIntents }),
+        examples: entry.examples.map((example) => ({
+          prompt: example.prompt,
+          node: cloneJson(example.node),
+        })),
+        slots: entry.slots.map((slot) => ({
+          name: slot.name,
+          allow: [...slot.allow],
+          ...(slot.max === undefined ? {} : { max: slot.max }),
+        })),
+      };
+    })
     .sort((left, right) => compareText(left.type, right.type));
+}
+
+function propertyIntentSummary(
+  groups: AiContextBlockCatalogEntry['propertyGroups'],
+): AiBlockPropertyIntentContext | undefined {
+  if (groups === undefined) return undefined;
+  const tabs: Record<string, string[]> = {};
+  const kinds: Record<string, string[]> = {};
+  for (const [property, intent] of Object.entries(groups).sort(([left], [right]) =>
+    compareText(left, right),
+  )) {
+    (tabs[intent.tab] ??= []).push(property);
+    if (intent.kind !== undefined) (kinds[intent.kind] ??= []).push(property);
+  }
+  return {
+    tabs: Object.freeze(
+      Object.fromEntries(
+        Object.entries(tabs)
+          .sort(([left], [right]) => compareText(left, right))
+          .map(([tab, properties]) => [tab, frozenStrings(properties)]),
+      ),
+    ),
+    kinds: Object.freeze(
+      Object.fromEntries(
+        Object.entries(kinds)
+          .sort(([left], [right]) => compareText(left, right))
+          .map(([kind, properties]) => [kind, frozenStrings(properties)]),
+      ),
+    ),
+  };
 }
 
 function collectTemplates(ctx: AiContextReadApi): readonly AiTemplateContext[] {
@@ -314,35 +415,57 @@ function collectDocument(ctx: AiContextReadApi): AiDocumentContext {
   };
 }
 
-function collectSelection(ctx: AiContextReadApi, selection: readonly NodeId[]): AiSelectionContext {
-  const { doc } = ctx.store.getState();
+function collectSelection(
+  _ctx: AiContextReadApi,
+  selection: readonly NodeId[],
+): AiSelectionContext {
   return {
     ids: [...selection],
-    nodes: selection.flatMap((id) => {
-      const node = doc.nodes[id];
-      return node === undefined ? [] : [selectedNode(node)];
-    }),
   };
 }
 
 export const blockCatalogContextProvider: AiContextProvider = {
   id: 'craftkit.block-catalog',
   collect(ctx) {
-    return fragment('Registered block vocabulary', collectBlocks(ctx));
+    return fragment(
+      {
+        source: 'craftkit.block-catalog',
+        kind: 'data',
+        trust: 'builtin',
+        title: 'Registered block vocabulary',
+      },
+      collectBlocks(ctx),
+    );
   },
 };
 
 export const templateCatalogContextProvider: AiContextProvider = {
   id: 'craftkit.template-catalog',
   collect(ctx) {
-    return fragment('Registered page templates', collectTemplates(ctx));
+    return fragment(
+      {
+        source: 'craftkit.template-catalog',
+        kind: 'data',
+        trust: 'builtin',
+        title: 'Registered page templates',
+      },
+      collectTemplates(ctx),
+    );
   },
 };
 
 export const selectionContextProvider: AiContextProvider = {
   id: 'craftkit.selection',
   collect(ctx, selection) {
-    return fragment('Current selection', collectSelection(ctx, selection));
+    return fragment(
+      {
+        source: 'craftkit.selection',
+        kind: 'data',
+        trust: 'builtin',
+        title: 'Current selection',
+      },
+      collectSelection(ctx, selection),
+    );
   },
 };
 
@@ -350,8 +473,13 @@ export const documentShapeContextProvider: AiContextProvider = {
   id: 'craftkit.document-shape',
   collect(ctx) {
     return fragment(
-      'Document shape',
-      excerptForPrompt(collectDocument(ctx) as unknown as JsonValue),
+      {
+        source: 'craftkit.document-shape',
+        kind: 'data',
+        trust: 'builtin',
+        title: 'Document shape',
+      },
+      collectDocument(ctx),
     );
   },
 };
@@ -365,25 +493,43 @@ export const BUILDER_AI_CONTEXT_PROVIDERS: readonly AiContextProvider[] = Object
 
 export interface AssembleAiContextOptions {
   selection?: readonly NodeId[];
+  /** Legacy alias retained for compatibility; this input is additive too. */
   providers?: readonly AiContextProvider[];
+  /** Request-local providers composed after registry contributions. */
+  additionalContextProviders?: readonly AiContextProvider[];
+  /** Effective command names already intersected by the caller's run/Skill policy. */
+  allowedCommands?: readonly string[];
   /** Prepared per-request skill data; no ambient global activation state. */
   skillContext?: AiPreparedSkillContext;
 }
 
-function defaultContextProviders(ctx: AiContextAssemblySource): readonly AiContextProvider[] {
-  const providers = new Map(
-    BUILDER_AI_CONTEXT_PROVIDERS.map((provider) => [provider.id, provider]),
-  );
-  for (const provider of ctx.registry.aiContextProviders()) {
+const BUILTIN_CONTEXT_PROVIDERS = new Map(
+  BUILDER_AI_CONTEXT_PROVIDERS.map((provider) => [provider.id, provider]),
+);
+
+function additiveContextProviders(
+  ctx: AiContextAssemblySource,
+  additions: readonly AiContextProvider[],
+): readonly AiContextProvider[] {
+  const providers = new Map<string, AiContextProvider>();
+  const add = (provider: AiContextProvider): void => {
+    const builtin = BUILTIN_CONTEXT_PROVIDERS.get(provider.id);
+    if (builtin !== undefined) {
+      if (builtin !== provider) {
+        throw new Error(`AI context provider id "${provider.id}" conflicts with a built-in.`);
+      }
+      // Built-ins have one structured representation and never become fragments.
+      return;
+    }
     const existing = providers.get(provider.id);
     if (existing !== undefined && existing !== provider) {
-      throw new Error(
-        `AI context provider id "${provider.id}" conflicts with a built-in provider.`,
-      );
+      throw new Error(`AI context provider id "${provider.id}" is registered more than once.`);
     }
     providers.set(provider.id, provider);
-  }
-  return [...providers.values()];
+  };
+  for (const provider of ctx.registry.aiContextProviders()) add(provider);
+  for (const provider of additions) add(provider);
+  return Object.freeze([...providers.values()]);
 }
 
 function usableTokenCount(tokens: number | undefined): tokens is number {
@@ -396,32 +542,81 @@ export function assembleAiContext(
 ): AssembledAiContext {
   const readCtx = createAiContextReadApi(ctx);
   const selection = Object.freeze([...(options.selection ?? readCtx.store.getState().selection)]);
-  const providers = Object.freeze([...(options.providers ?? defaultContextProviders(ctx))]);
+  const additions = Object.freeze([
+    ...(options.providers ?? []),
+    ...(options.additionalContextProviders ?? []),
+  ]);
+  const providers = additiveContextProviders(ctx, additions);
   const providerFragments = providers.map((provider) => {
     const collected = provider.collect(readCtx, selection);
     const tokens = usableTokenCount(collected.tokens)
       ? collected.tokens
       : estimateContextTokens(collected.title, collected.body);
-    return { ...collected, tokens };
+    const source = collected.source ?? provider.id;
+    if (source !== provider.id) {
+      throw new Error(
+        `AI context provider "${provider.id}" cannot claim fragment source "${source}".`,
+      );
+    }
+    return defineContextFragment({
+      source,
+      kind: collected.kind ?? 'data',
+      trust: collected.trust ?? 'reviewed',
+      title: collected.title,
+      body: collected.body,
+      tokens,
+    });
   });
   const skillFragments =
     options.skillContext === undefined
       ? []
+      : options.skillContext.active.map((skill) => {
+          const manifest = options.skillContext?.catalog.find(({ id }) => id === skill.id);
+          return fragment(
+            {
+              source: skill.id,
+              kind: 'instruction',
+              trust: manifest?.trust ?? 'untrusted',
+              title: `Active AI skill: ${skill.id}`,
+            },
+            {
+              instructions: skill.instructions,
+              references: skill.references,
+            },
+          );
+        });
+  const fragments = Object.freeze([...providerFragments, ...skillFragments]);
+  const allowedCommands =
+    options.allowedCommands === undefined ? undefined : new Set([...options.allowedCommands]);
+  const allCommands = readCtx.registry.commands();
+  const commands: readonly AiCommandContext[] = Object.freeze(
+    allCommands
+      .filter(({ name }) => allowedCommands === undefined || allowedCommands.has(name))
+      .map((command) => Object.freeze({ name: command.name, argsSchema: command.argsSchema })),
+  );
+  const omittedCommandCount = allCommands.length - commands.length;
+  const omissions: readonly AiContextOmission[] = Object.freeze(
+    omittedCommandCount === 0
+      ? []
       : [
-          fragment('Available AI skills', options.skillContext.catalog),
-          ...options.skillContext.active.map((skill) =>
-            fragment(`Active AI skill: ${skill.id}`, skill),
-          ),
-        ];
-  const fragments = [...providerFragments, ...skillFragments];
+          Object.freeze({
+            source: 'commands' as const,
+            reason: 'policy-filtered' as const,
+            omittedCount: omittedCommandCount,
+          }),
+        ],
+  );
 
   const base = {
     fragments,
-    totalTokens: fragments.reduce((total, current) => total + current.tokens, 0),
+    totalTokens: fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
     blocks: collectBlocks(readCtx),
     templates: collectTemplates(readCtx),
     document: collectDocument(readCtx),
     selection: collectSelection(readCtx, selection),
+    commands,
+    outputContract: AI_PLAN_OUTPUT_CONTRACT,
+    omissions,
   };
   if (options.skillContext === undefined) return base;
   return {

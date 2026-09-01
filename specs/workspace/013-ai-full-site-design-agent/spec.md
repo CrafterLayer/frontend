@@ -295,6 +295,51 @@ the effective command policy reaches neither the scratch nor live document.
 
 ---
 
+### User Story 9 - The assistant is production-ready on the real Builder (Priority: P0)
+
+The assistant must reach its reasoning provider with the real 54-block Playground registry, use the
+same bounded runner and Skill policy that the headless package exposes, and remain fail-closed at
+preview and apply time. Context is compact, canonical, attributable data rather than several copies
+of the same catalog disguised as prompt fragments. A malformed, oversized, stale, or
+under-authorized result produces a specific recoverable outcome and never consumes unbounded browser
+memory or reaches the live document.
+
+This story was added after the 2026-09-01 production-readiness audit. It precedes the full-site
+pipeline because a multi-stage product cannot be professional while the current single-stage request
+is rejected before its provider is called.
+
+**Why this priority**: The real Playground request currently exceeds the default wire budget before
+provider work, while its UI bypasses the bounded runner. Those are release blockers, not polish.
+
+**Independent Test**: Run the assistant against both the real landing fixture and the empty fixture
+with the complete registered catalog. Confirm the provider is called, the canonical request remains
+inside the default budget, only policy-authorized command schemas are disclosed, selected Skills are
+pinned in the visible run result, and preview/apply cannot omit or replace the policy under which
+the plan was validated.
+
+**Acceptance Scenarios**:
+
+1. **Given** the real Playground registry, **When** a request is assembled for either the landing
+   page or an empty page, **Then** each catalog/document/selection fact appears once on the wire,
+   the request remains within the default budget, and the provider is called.
+2. **Given** a host or Skill command restriction, **When** context is assembled, **Then** the model
+   sees only the effective command vocabulary and argument schemas it may actually propose.
+3. **Given** a validated proposal, **When** it is previewed or applied, **Then** the exact pinned
+   effective policy is rechecked and cannot be omitted or silently replaced.
+4. **Given** a bulk command or a request-derived array size, **When** its nested work exceeds the
+   run bound, **Then** it is rejected before scratch allocation or live dispatch.
+5. **Given** memory, Skill, extension, or host context, **When** it enters a request, **Then** its
+   source, content kind, and trust are explicit; model-authored prose is never promoted into durable
+   instruction context.
+6. **Given** a refusal, malformed response, timeout, cancellation, HTTP failure, or stream failure,
+   **When** it reaches the host, **Then** it retains a typed code and retryability/refusal
+   semantics; a throwing observer cannot convert it into a transport failure.
+7. **Given** the Playground Assistant, **When** a person submits in Ask or Auto mode, **Then** the
+   UI runs through `runAiAgent`, exposes the activated Skill pins and sequenced status, and never
+   calls the lower-level generate/apply pair as a parallel authority path.
+
+---
+
 ### Edge Cases
 
 - **A brief with no business in it.** Empty input, a single word, or text that describes no business
@@ -550,6 +595,46 @@ the effective command policy reaches neither the scratch nor live document.
 - **FR-076**: Existing callers that provide no skill registry MUST retain the current command-plan
   behavior; skills are additive and do not create a second mutation path.
 
+**Production agent readiness**
+
+- **FR-077**: The canonical provider request MUST carry each logical block, template, document,
+  selection, Skill, and extension-context datum exactly once. Convenience views MUST NOT be
+  serialized as duplicate prompt fragments, and any omission or truncation MUST be explicit data.
+- **FR-078**: Context assembly against the real Playground landing and empty fixtures MUST fit the
+  default complete-wire budget and MUST reach the provider. A package-only fixture is not sufficient
+  evidence for this requirement.
+- **FR-079**: The provider MUST receive a deterministic command catalog derived from the live
+  registry, filtered by the effective run/Skill policy, with each permitted command's argument
+  contract and the versioned plan-output contract. Hand-maintained command lists are forbidden.
+- **FR-080**: Block context MUST retain declared property intent metadata needed for safe design
+  reasoning. Properties declared as raw utility classes MUST remain unavailable to AI-authored
+  plans, preserving FR-058 even when a host exposes them to a human Inspector.
+- **FR-081**: Preview and application MUST recheck the immutable effective policy pinned to the
+  validated proposal. A public call that omits policy or substitutes a broader policy MUST fail
+  closed before scratch or live dispatch.
+- **FR-082**: Run bounds MUST count nested command work, not only top-level plan steps.
+  `applyPatches` MUST be denied to AI by default and, when a host explicitly authorizes it, its
+  patch count MUST consume the nested operation budget before materialization or dispatch.
+- **FR-083**: Request-derived collection sizes MUST be clamped to exported safe limits before
+  allocation. Word/number lookup MUST use own properties only, so prototype names cannot influence
+  generation.
+- **FR-084**: Remote providers MUST validate endpoint policy before fetch, refuse redirects by
+  default, omit ambient credentials and referrers, bound every response path, cancel readers on all
+  exits, and preserve caller cancellation as cancellation rather than a transport error.
+- **FR-085**: Every context fragment MUST declare source/provenance, content kind (`instruction` or
+  `data`), and trust. Serialization MUST preserve those boundaries instead of flattening all bodies
+  into an undifferentiated prompt role.
+- **FR-086**: Durable assistant memory MUST be host-authored structured event data. Model-authored
+  rationale or instruction-looking text MUST NOT be persisted and replayed as trusted instructions.
+- **FR-087**: Provider and run failures MUST expose a stable typed taxonomy that distinguishes
+  refusal, invalid output, HTTP status, timeout, network, response limit, cancellation, and observer
+  failure, including retryability where meaningful.
+- **FR-088**: Canonical JSON serialization used by context sizing, wire sizing, and cache identity
+  MUST have one implementation and cross-surface equality tests.
+- **FR-089**: The Playground Assistant MUST use `runAiAgent` for Ask and Auto modes, supply the host
+  Skill registry and selected ids, display activation pins and typed progress, and remove its direct
+  generate/apply bypass.
+
 **Evidence and evaluation**
 
 - **FR-052**: A recorded evaluation protocol MUST exist that generates a fixed brief set through
@@ -642,6 +727,24 @@ the effective command policy reaches neither the scratch nor live document.
   one completed/failed/cancelled event, and emits no event or write after that terminal event.
 - **SC-019**: Changing only memory, a context fragment, block/template catalog data, or one selected
   skill byte produces a plan-cache miss; a pre-aborted lookup always produces `AbortError`.
+- **SC-020**: With all 54 current Playground blocks, all current templates, and the real landing
+  fixture, the complete canonical request is below 64,000 estimated tokens and invokes the provider
+  exactly once; the same holds for the empty fixture.
+- **SC-021**: A one-step plan containing 5,000 nested patches and any request that implies an
+  allocation above the exported local-provider cap are both rejected before scratch/live work; the
+  measured maximum allocated collection never exceeds the cap.
+- **SC-022**: Across generation, repair, preview, manual apply, and auto apply, 100% of commands
+  outside the pinned effective policy are rejected and zero policy-omission writes occur.
+- **SC-023**: Every serialized non-platform context unit carries a tested source, kind, and trust;
+  the count of model-authored rationale strings replayed as durable instruction context is zero.
+- **SC-024**: Every remote-provider terminal path releases or cancels its reader, preserves an
+  `AbortError` for caller cancellation, and emits one typed host outcome; a throwing progress/event
+  observer changes neither transport classification nor transaction outcome.
+- **SC-025**: Assistant integration tests prove Ask and Auto each enter `runAiAgent`, expose the
+  active Skill pins, and produce no direct `generateAiPlan`/policy-less `applyAiPlan` call.
+- **SC-026**: A deliberate mutation that restores duplicate built-in context, removes the nested
+  operation cap, omits apply-time policy, or replays model rationale as instructions fails a named
+  readiness test before the source is restored.
 
 ## Resolved Decisions
 

@@ -5,12 +5,12 @@
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "ai-full-site-agent-in-progress-us8-agent-core-verified",
+    "phase": "ai-full-site-agent-us9-production-readiness-verified",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "builder-core",
-    "gitCommitCount": 15
+    "gitCommitCount": 17
   },
   "technologyBaseline": {
     "react": {
@@ -47,10 +47,7 @@
     },
     "builderKernel": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-schema",
-        "@craftkit/builder-core"
-      ],
+      "packages": ["@craftkit/builder-schema", "@craftkit/builder-core"],
       "dependencies": "zod-4.4.3, immer-11.1.18, zustand-5.0.15 (vanilla), nanoid-6.0.1, fast-check-4.9.0",
       "mode": "internal-packages (src exports, no build step)",
       "boundaryEnforcement": "workspace-tools validate-builder-boundaries (ADR 0003)",
@@ -72,62 +69,52 @@
     },
     "builderShell": {
       "status": "implemented-inspector-devices-preview",
-      "packages": [
-        "@craftkit/builder-shell"
-      ],
+      "packages": ["@craftkit/builder-shell"],
       "scope": "B2a read-only canvas + B2b drag editing + B3a editing surface: schema-generated Inspector (zero panel code per block; guarded one-dispatch commits; structural group labeling; per-def lazy field-type cache with containment and R8 focus lock), default field library (draft discipline: external writes always win), DeviceBar + bucketForWidth (768/1024 half-open, drafts commit on blur/Enter only), EditorCanvas frameWidth+breakpoint (frame shell shares origin with overlay), PreviewMode (publish-safe path, zero-tx round trip, modal-surface Escape, view-state dir override).",
       "performanceLaw": "merge gates count (0 content re-renders, observer-attributed updates); wall-clock budgets belong to uncontended evidence runs only",
       "chromeTheming": "shell-owned --bldr-* custom properties with inline fallbacks, independent of the document --t-* theme"
     },
     "builderRichText": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-richtext"
-      ],
+      "packages": ["@craftkit/builder-richtext"],
       "dependencies": "@tiptap/{react,starter-kit,core,pm} 3.30.3 (exact catalog pins)",
       "containment": "BUILDER_CONTAINED_DEPENDENCY validator rule (all sections + npm aliases + the workspace ROOT manifest) plus a discovery-derived import-specifier graph test",
       "readPath": "zero-dependency RichText renderer — canvas, preview, and static output never load the engine"
     },
     "builderTransforms": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-transforms"
-      ],
+      "packages": ["@craftkit/builder-transforms"],
       "dependencies": "none at runtime; fast-check (catalog) as a devDependency for the round-trip proof",
       "law": "parse(project(d)) reproduces d for arbitrary registry-generated documents; second-print idempotence; a NON-VACUOUS gate kills a parser that returns [] forever. 1,000 cases per law, fixed seeds, merge-blocking.",
       "domainAlignment": "MAX_JSON_DEPTH = 128 and the reserved-key refusal (__proto__/constructor/prototype, doc/reserved-node-id) exist so everything a document may HOLD can also be WRITTEN through the patch door — otherwise the round-trip law is quietly false. The strict scanner keeps 256 as an unreachable parser margin."
     },
     "builderCodeView": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-code-view"
-      ],
+      "packages": ["@craftkit/builder-code-view"],
       "dependencies": "none — native <textarea>, no CodeMirror/Monaco; a handwritten typed postMessage protocol, not Comlink (ProjectionDef holds FUNCTIONS, which cannot be structured-cloned)",
       "offThread": "SC-005 proven twice: STATICALLY the main-thread modules cannot import the codec at all, and DYNAMICALLY a typing burst invokes it zero times in the render realm. Counted, never timed.",
       "payPerUse": "two entrypoints: the production entry reaches ./worker dynamically or as types only; ./testing carries the loopback and raw client so unopened sessions load no worker plumbing."
+    },
+    "builderAi": {
+      "status": "us8-skills-and-us9-production-readiness-verified",
+      "package": "@craftkit/builder-ai",
+      "executionLaw": "AI proposes registered kernel commands; it never writes a document. Ask and Auto both enter runAiAgent, and application uses one validated, policy-pinned grouped kernel transaction with author=ai.",
+      "skills": "versioned declarative Custom Skills with metadata-only discovery, request-local deterministic activation, immutable fingerprints, bounded structured bodies, and restrictive command-policy intersection; no scripts, URL imports, filesystem, or tool grants",
+      "context": "one canonical structured block/template/document/selection representation; additive fragments retain source/kind/trust; real 54-block landing/empty wires measure 62511/59237 estimated tokens below the 64000 default and reach the provider once",
+      "providerBoundary": "HTTPS by default; explicit dev-only loopback HTTP; redirects, ambient credentials, and referrers refused; JSON/SSE response caps and cleanup; stable typed errors; one repair maximum",
+      "developmentBridge": "authenticated 127.0.0.1-only Claude CLI adapter with origin/body/output/concurrency caps, 429 without a pending queue, tools/customization/session disabled, one model call, socket cleanup, and POSIX process-tree termination",
+      "directDependencies": "p-limit intentionally not added; reconsider only for a trusted bounded fan-out that owns both active and pending limits",
+      "evidence": "specs/workspace/013-ai-full-site-design-agent/verification-agent-readiness.md"
     }
   },
   "specKit": {
     "version": "1.0.1",
     "root": ".specify",
     "defaultIntegration": "codex",
-    "installedIntegrations": [
-      "claude",
-      "codex",
-      "cursor-agent"
-    ],
-    "extensions": [
-      "agent-context@1.0.0",
-      "workspace@1.4.1",
-      "routing-performance@1.0.0"
-    ],
-    "presets": [
-      "react-monorepo-quality@1.0.3"
-    ],
-    "workflows": [
-      "speckit@1.0.0",
-      "professional-sdd@1.5.0"
-    ],
+    "installedIntegrations": ["claude", "codex", "cursor-agent"],
+    "extensions": ["agent-context@1.0.0", "workspace@1.4.1", "routing-performance@1.0.0"],
+    "presets": ["react-monorepo-quality@1.0.3"],
+    "workflows": ["speckit@1.0.0", "professional-sdd@1.5.0"],
     "professionalWorkflowSteps": 24,
     "reviewerProfile": {
       "integration": "codex",
@@ -140,11 +127,7 @@
       "coordinator": "initiating integration; Codex by project default",
       "worker": "native Codex workers for Codex runs; official codex@openai-codex plugin jobs backed by the Codex app server when Claude coordinates",
       "operation": "speckit.workspace.delegate",
-      "modes": [
-        "auto",
-        "required",
-        "off"
-      ],
+      "modes": ["auto", "required", "off"],
       "routingPolicy": {
         "codexInitiated": "stay in Codex; never invoke Claude unless the current user explicitly requests Claude",
         "claudeInitiated": "Claude may call Codex through the official plugin for bounded approved work",
@@ -216,10 +199,12 @@
     ]
   },
   "currentWork": {
-    "status": "paused-us8-complete-feature-013-still-active",
+    "status": "idle-us9-complete-feature-013-backlog-remains",
     "scope": "workspace-cross-cutting-agent-core",
     "activeSpec": "specs/workspace/013-ai-full-site-design-agent/spec.md",
-    "nextAction": "US8 T159-T178 is implemented and verified. Before selecting the next unchecked 013 task, reconcile tasks.md against the current dirty worktree and the user's separate active UI/blocks session; preserve those changes and declare a non-overlapping path lease. Verification evidence is in verification-agent-skills.md. No commit, push, or deploy is authorized."
+    "completedTasks": "T159-T211",
+    "nextUncompletedTask": "T001",
+    "nextAction": "No agent-core task is active. If the user resumes feature 013, start by reconciling T001 and the remaining T001-T158 checklist against current source, then declare a non-overlapping lease before implementation. Custom CSS and the broader visual redesign remain explicitly outside this completed US9 slice. No commit, push, or deploy is authorized."
   },
   "qualityGates": {
     "governanceConfigured": true,

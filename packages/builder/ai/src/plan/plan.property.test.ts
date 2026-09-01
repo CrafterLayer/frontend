@@ -10,6 +10,7 @@ import {
 } from '@craftkit/builder-core/testing';
 
 import { createLocalAiPlanProvider } from '../provider';
+import { resolveAiCommandPolicy } from '../skills';
 import { applyAiPlan } from './apply-plan';
 import { generateAiPlan } from './generate-plan';
 import { validateAiPlan } from './validate-plan';
@@ -38,6 +39,10 @@ function propertyKernel(seed: string) {
 
 function validationPorts(seed: string) {
   return { clock: fixedClock(100), ids: seededIds(seed) };
+}
+
+function policyFor(kernel: ReturnType<typeof propertyKernel>) {
+  return resolveAiCommandPolicy({ registeredCommands: kernel.context.registry.commandNames() });
 }
 
 describe('AI command-plan properties', () => {
@@ -84,6 +89,7 @@ describe('AI command-plan properties', () => {
             kernel,
             plan,
             validationPorts: validationPorts('undo-apply'),
+            policy: policyFor(kernel),
           });
 
           expect(applied.transactions).toHaveLength(1);
@@ -116,6 +122,7 @@ describe('AI command-plan properties', () => {
             kernel,
             plan,
             validationPorts: validationPorts('door-apply'),
+            policy: policyFor(kernel),
           });
           expect(applied.transactions.every((transaction) => transaction.author === 'ai')).toBe(
             true,

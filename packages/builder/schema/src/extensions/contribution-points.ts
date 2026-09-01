@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
-import type { z } from 'zod';
+import { z } from 'zod';
 
-import type { BlockSchema } from '../blocks/define-block-schema';
+import type { BlockPropertyGroup, BlockSchema } from '../blocks/define-block-schema';
 import type { CompositionDef, DeclarativeWidgetTypeDef } from '../widgets/contract';
 import type {
   Author,
@@ -335,10 +335,56 @@ export interface DataSourceDef {
   create(): DataSource;
 }
 
+export type ContextFragmentKind = 'instruction' | 'data';
+export type ContextFragmentTrust = 'builtin' | 'reviewed' | 'untrusted';
+
+/**
+ * One attributable, role-preserving unit of additive model context.
+ *
+ * Built-in catalogs and document state do not travel through this channel;
+ * they have one structured representation in the provider envelope. A
+ * fragment is therefore always host, extension, memory, or Skill context and
+ * must say where it came from and how it may be interpreted.
+ */
 export interface ContextFragment {
-  title: string;
-  body: string;
-  tokens?: number;
+  readonly source: string;
+  readonly kind: ContextFragmentKind;
+  readonly trust: ContextFragmentTrust;
+  readonly title: string;
+  readonly body: string;
+  readonly tokens?: number;
+}
+
+/**
+ * Backward-compatible collector result. Assembly fills absent metadata with
+ * the registered provider id, `data`, and `reviewed`, then validates the full
+ * `ContextFragment`. New providers should declare all three fields.
+ */
+export type ContextFragmentInput = Omit<ContextFragment, 'source' | 'kind' | 'trust'> &
+  Partial<Pick<ContextFragment, 'source' | 'kind' | 'trust'>>;
+
+const contextFragmentSchema = z
+  .object({
+    source: z.string().min(1).max(256),
+    kind: z.enum(['instruction', 'data']),
+    trust: z.enum(['builtin', 'reviewed', 'untrusted']),
+    title: z.string().max(512),
+    body: z.string(),
+    tokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+  })
+  .strict();
+
+/** Runtime validation and immutable detachment for wire-visible provenance. */
+export function defineContextFragment(value: ContextFragment): Readonly<ContextFragment> {
+  const parsed = contextFragmentSchema.parse(value);
+  return Object.freeze({
+    source: parsed.source,
+    kind: parsed.kind,
+    trust: parsed.trust,
+    title: parsed.title,
+    body: parsed.body,
+    ...(parsed.tokens === undefined ? {} : { tokens: parsed.tokens }),
+  });
 }
 
 /**
@@ -357,6 +403,8 @@ export interface AiContextBlockCatalogEntry {
   readonly propsSchema: JsonValue;
   readonly surfaces?: readonly Surface[];
   readonly inlineEditable?: string;
+  /** Block-declared Inspector/design intent; values are detached JSON-like data. */
+  readonly propertyGroups?: Readonly<Record<string, Readonly<BlockPropertyGroup>>>;
   readonly examples: readonly {
     readonly prompt: string;
     readonly node: JsonValue;
@@ -366,6 +414,12 @@ export interface AiContextBlockCatalogEntry {
     readonly allow: readonly string[];
     readonly max?: number;
   }[];
+}
+
+/** Data-only command summary. The registered implementation never crosses this boundary. */
+export interface AiContextCommandCatalogEntry {
+  readonly name: string;
+  readonly argsSchema: JsonValue;
 }
 
 /** Bounded composition summary; stored nodes never cross the collector boundary. */
@@ -397,6 +451,8 @@ export interface AiContextRegistryRead {
   block: (type: string) => AiContextBlockCatalogEntry | undefined;
   blocks: (surface?: Surface) => readonly AiContextBlockCatalogEntry[];
   commandNames: () => readonly string[];
+  command: (name: string) => AiContextCommandCatalogEntry | undefined;
+  commands: () => readonly AiContextCommandCatalogEntry[];
   composition: (id: string) => AiContextCompositionCatalogEntry | undefined;
   compositions: (surface?: Surface) => readonly AiContextCompositionCatalogEntry[];
   widgetType: (type: string) => AiContextWidgetCatalogEntry | undefined;
@@ -412,7 +468,7 @@ export interface AiContextReadApi {
 
 export interface AiContextProvider {
   id: string;
-  collect(ctx: AiContextReadApi, selection: readonly NodeId[]): ContextFragment;
+  collect(ctx: AiContextReadApi, selection: readonly NodeId[]): ContextFragmentInput;
 }
 
 /** Data only; the shell binds the actual key handler. */

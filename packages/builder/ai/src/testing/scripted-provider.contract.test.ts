@@ -13,6 +13,7 @@ import {
 import { createLocalAiPlanProvider } from '../provider';
 import { applyAiPlan, generateAiPlan } from '../plan';
 import { AiPlanRejectedError } from '../plan/validate-plan';
+import { resolveAiCommandPolicy } from '../skills';
 import type { AiPlan, AiPlanProvider } from '../types';
 import { createScriptedAiPlanProvider } from './scripted-provider';
 
@@ -58,6 +59,10 @@ function documentFixture(): BuilderDocument {
     rootId: 'root',
     nodes: { root: { id: 'root', type: 'scripted-page', props: {} } },
   };
+}
+
+function policyFor(kernel: ReturnType<typeof providerKernel>) {
+  return resolveAiCommandPolicy({ registeredCommands: kernel.context.registry.commandNames() });
 }
 
 function providerKernel(seed: string) {
@@ -127,6 +132,7 @@ describe('scripted provider contract parity', () => {
         kernel,
         plan,
         validationPorts: validationPorts(`${candidate.name}-apply`),
+        policy: policyFor(kernel),
       });
       expect(applied.transactions).not.toHaveLength(0);
       expect(applied.transactions.every((transaction) => transaction.author === 'ai')).toBe(true);

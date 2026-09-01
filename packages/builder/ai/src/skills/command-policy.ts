@@ -3,16 +3,27 @@ import { compareSkillText } from './compare';
 import type { AiPreparedSkillContext } from './types';
 
 export const DEFAULT_AI_MAX_COMMANDS = 64;
+export const DEFAULT_AI_MAX_OPERATIONS = 256;
+
+/**
+ * Bulk patching is a kernel interoperability escape hatch, not an ordinary AI
+ * editing primitive. A host must name it in `allowedCommands` for this run;
+ * merely registering it never grants it to the model.
+ */
+const EXPLICIT_HOST_ALLOW_COMMANDS: ReadonlySet<string> = new Set(['applyPatches']);
 
 export interface AiCommandPolicy {
   allowedCommands?: readonly string[];
   deniedCommands?: readonly string[];
   maxCommands: number;
+  maxOperations: number;
 }
 
 export interface AiEffectiveCommandPolicy {
   allowedCommands: readonly string[];
   maxCommands: number;
+  /** Optional only for source compatibility; omission resolves to the safe default. */
+  maxOperations?: number;
 }
 
 export interface ResolveAiCommandPolicyOptions {
@@ -70,10 +81,15 @@ export function resolveAiCommandPolicy(
   if (!Number.isSafeInteger(maxCommands) || maxCommands <= 0 || maxCommands > 10_000) {
     return fail('invalid-max-commands', 'session.maxCommands must be between 1 and 10000.');
   }
+  const maxOperations = options.session?.maxOperations ?? DEFAULT_AI_MAX_OPERATIONS;
+  if (!Number.isSafeInteger(maxOperations) || maxOperations <= 0 || maxOperations > 100_000) {
+    return fail('invalid-max-operations', 'session.maxOperations must be between 1 and 100000.');
+  }
 
   const allowedCommands = registered.filter(
     (command) =>
       (sessionAllowed === undefined || sessionAllowed.includes(command)) &&
+      (!EXPLICIT_HOST_ALLOW_COMMANDS.has(command) || sessionAllowed?.includes(command) === true) &&
       (skillAllowed === undefined || skillAllowed.includes(command)) &&
       !denied.includes(command),
   );
@@ -81,5 +97,6 @@ export function resolveAiCommandPolicy(
   return Object.freeze({
     allowedCommands: Object.freeze(allowedCommands),
     maxCommands,
+    maxOperations,
   });
 }

@@ -5,16 +5,21 @@ import { describe, expect, it } from 'vitest';
 import { createScriptedAiPlanProvider } from '@craftkit/builder/testing';
 import { fixedClock, seededIds } from '@craftkit/builder/testing';
 import {
+  AiProviderError,
   createBuilder,
+  createAiSkillRegistry,
   defineBlockSchema,
+  type AiAgentEvent,
   type AiPlan,
   type AiPlanProvider,
+  type AiPlanStep,
   type BuilderKernel,
   type TrustedExtensionManifest,
 } from '@craftkit/builder';
 import { z } from 'zod';
 
 import { AssistantPanel, type AssistantPanelProps } from './AssistantPanel';
+import { describeStep, shortSkillFingerprint } from './AssistantPanel.utils';
 
 const page = defineBlockSchema({
   type: 'page',
@@ -97,6 +102,26 @@ async function requestPlan(
 }
 
 describe('AssistantPanel', () => {
+  it('keeps every command fallback readable even when optional labels are absent', () => {
+    expect(shortSkillFingerprint('skill-v1-sha256-abcdef0123456789')).toBe('abcdef01');
+    expect(shortSkillFingerprint('custom-fingerprint')).toBe('custom-f');
+    const cases: readonly (readonly [AiPlanStep, string])[] = [
+      [{ command: 'insertNode', args: {} }, 'Add a block'],
+      [{ command: 'setProp', args: {} }, 'Change a property of a block'],
+      [{ command: 'removeNode', args: {} }, 'Remove a block'],
+      [{ command: 'moveNode', args: {} }, 'Move a block'],
+      [{ command: 'duplicateNode', args: {} }, 'Duplicate a block'],
+      [{ command: 'wrapNode', args: {} }, 'Wrap a block in a container'],
+      [{ command: 'groupNodes', args: {} }, 'Group blocks into a group'],
+      [{ command: 'setBinding', args: {} }, 'Bind a property of a block'],
+      [{ command: 'setResponsive', args: {} }, 'Adjust a property per breakpoint on a block'],
+      [{ command: 'hostCommand', args: {} }, 'hostCommand'],
+    ];
+    for (const [step, expected] of cases) {
+      expect(describeStep(step)).toBe(expected);
+    }
+  });
+
   it('exposes the assistant, thread, composer, and starter actions with native accessible names', () => {
     renderPanel();
 
@@ -105,6 +130,171 @@ describe('AssistantPanel', () => {
     expect(screen.getByRole('textbox', { name: 'Ask the assistant' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'add a hero' })).toBeInTheDocument();
+  });
+
+  it('runs through the observable agent, activates host Skills, and exposes their immutable pins', async () => {
+    const events: AiAgentEvent[] = [];
+    const skillRegistry = createAiSkillRegistry([
+      {
+        schemaVersion: 1,
+        id: 'host.hero-copy',
+        name: 'Host hero copy',
+        description: 'Retitle the selected hero precisely.',
+        version: '2.1.0',
+        instructions: 'Use one concise heading.',
+        activation: { mode: 'explicit' },
+        restrictToCommands: ['setProp'],
+      },
+    ]);
+    const provider: AiPlanProvider = {
+      propose: (_request, context) => {
+        expect(context.fragments.map(({ source }) => source)).toEqual(['host.hero-copy']);
+        return Promise.resolve({
+          rationale: 'Retitle the selected hero.',
+          commands: [
+            { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Sharper' } },
+          ],
+        });
+      },
+    };
+    const { user } = renderPanel({
+      planProvider: provider,
+      skillRegistry,
+      selectedSkillIds: ['host.hero-copy'],
+      onAgentEvent: (event) => events.push(event),
+    });
+
+    await requestPlan(user, 'retitle the hero');
+
+    expect(events.map(({ type }) => type)).toEqual([
+      'run.started',
+      'skills.resolving',
+      'skills.resolved',
+      'context.gathering',
+      'context.ready',
+      'plan.proposing',
+      'plan.validating',
+      'plan.proposed',
+      'run.completed',
+    ]);
+    expect(events.find(({ type }) => type === 'skills.resolved')).toMatchObject({
+      activations: [expect.objectContaining({ id: 'host.hero-copy', version: '2.1.0' })],
+    });
+    expect(screen.getByText(/host\.hero-copy · v2\.1\.0 · [a-f0-9]{8}/)).toBeInTheDocument();
+  });
+
+  it('renders typed retryable failures and retries the same request through a fresh agent run', async () => {
+    let calls = 0;
+    const provider: AiPlanProvider = {
+      propose: () => {
+        calls += 1;
+        return calls === 1
+          ? Promise.reject(
+              new AiProviderError('The assistant is temporarily busy.', {
+                code: 'http-status',
+                retryable: true,
+                status: 503,
+              }),
+            )
+          : Promise.resolve({
+              rationale: 'Retitle the existing hero.',
+              commands: [
+                {
+                  command: 'setProp',
+                  args: { id: 'selected-hero', key: 'heading', value: 'Recovered' },
+                },
+              ],
+            });
+      },
+    };
+    const { user } = renderPanel({ planProvider: provider });
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+    await user.type(composer, 'retitle the hero');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('http-status')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+    });
+    expect(calls).toBe(2);
+  });
+
+  it('shows a typed context-budget failure without offering an unsafe retry loop', async () => {
+    let providerCalls = 0;
+    const { user } = renderPanel({
+      agentPolicy: { maxContextTokens: 1 },
+      planProvider: {
+        propose: () => {
+          providerCalls += 1;
+          return Promise.resolve({ rationale: 'Should not run.', commands: [] });
+        },
+      },
+    });
+
+    await user.type(
+      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Ask the assistant' }),
+      'retitle the hero',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('context-budget')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(providerCalls).toBe(0);
+  });
+
+  it('supersedes an old chat run and prevents its late result from owning the new chat', async () => {
+    let finishFirst: ((plan: AiPlan) => void) | undefined;
+    let calls = 0;
+    const provider: AiPlanProvider = {
+      propose: () => {
+        calls += 1;
+        if (calls === 1) {
+          return new Promise((resolve) => {
+            finishFirst = resolve;
+          });
+        }
+        return Promise.resolve({
+          rationale: 'The current chat proposal.',
+          commands: [
+            { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Current' } },
+          ],
+        });
+      },
+    };
+    const { user } = renderPanel({ planProvider: provider });
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+    await user.type(composer, 'old request');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByRole('button', { name: 'Stop' });
+
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    const currentComposer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+    await user.type(currentComposer, 'current request');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText('The current chat proposal.')).toBeInTheDocument();
+
+    act(() => {
+      finishFirst?.({
+        rationale: 'A stale proposal that must never appear here.',
+        commands: [
+          { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Stale' } },
+        ],
+      });
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByText('A stale proposal that must never appear here.'),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getAllByRole('button', { name: 'Apply' })).toHaveLength(1);
   });
 
   it('retains every request and its own proposed plan in the conversation thread', async () => {
@@ -185,6 +375,29 @@ describe('AssistantPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Sees: the whole page')).toBeInTheDocument();
     });
+  });
+
+  it('names the selected block in live run progress and cancels it cleanly', async () => {
+    const kernel = createAssistantKernel();
+    kernel.setSelection(['selected-hero']);
+    const provider: AiPlanProvider = {
+      propose: (_request, _context, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        }),
+    };
+    const { user } = renderPanel({ kernel, planProvider: provider });
+    await user.type(
+      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Ask the assistant' }),
+      'retitle it',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('Reading the hero block…')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(await screen.findByText('Stopped.')).toBeInTheDocument();
   });
 
   it('surfaces the kernel door reason when preflight refuses a proposed command', async () => {
@@ -409,6 +622,19 @@ describe('AssistantPanel', () => {
     expect(screen.getByText('setProp')).toBeInTheDocument();
   });
 
+  it('offers Review as code only when the host supplies that capability', async () => {
+    let reviews = 0;
+    const { user } = renderPanel({
+      onReviewAsCode: () => {
+        reviews += 1;
+      },
+    });
+
+    await requestPlan(user, 'add a hero');
+    await user.click(screen.getByRole('button', { name: 'Review as code' }));
+    expect(reviews).toBe(1);
+  });
+
   it('previews the WOULD-BE page in a dialog without touching the document, then applies from it', async () => {
     const { kernel, user } = renderPanel();
     const before = structuredClone(kernel.getDocument());
@@ -479,15 +705,68 @@ describe('AssistantPanel', () => {
     await user.click(screen.getAllByRole('button', { name: 'Apply' })[0]!);
     await requestPlan(user, 'retitle the hero');
 
-    // First ask: empty past, empty memory.
+    // First ask: empty past, so no empty memory fragment consumes context.
     expect(captured[0]?.history).toEqual([]);
-    expect(captured[0]?.memory).toContain('Nothing recorded yet');
-    // Second ask: the full first exchange, and what was actually applied.
+    expect(captured[0]?.memory).toBeUndefined();
+    // Second ask: the full first exchange, plus host-authored outcome data.
     expect(captured[1]?.history).toEqual([
       { role: 'user', text: 'add a pricing section' },
       { role: 'assistant', text: 'Add a pricing block to root.default.' },
     ]);
-    expect(captured[1]?.memory).toContain('Add a pricing block to root.default.');
+    expect(JSON.parse(captured[1]?.memory ?? '')).toEqual({
+      schemaVersion: 1,
+      records: [
+        {
+          schemaVersion: 1,
+          source: 'host',
+          kind: 'applied-change',
+          trust: 'reviewed',
+          summary: 'Applied 1 validated Builder command.',
+          commandNames: ['insertNode'],
+        },
+      ],
+      omittedRecords: 0,
+    });
+    expect(captured[1]?.memory).not.toContain('Add a pricing block to root.default.');
+  });
+
+  it('summarizes multi-command memory as a deduplicated host outcome', async () => {
+    let calls = 0;
+    let remembered: string | undefined;
+    const provider: AiPlanProvider = {
+      propose: (_request, context) => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve({
+            rationale: 'Refine the selected hero twice.',
+            commands: [
+              { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'First' } },
+              { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Final' } },
+            ],
+          });
+        }
+        remembered = context.fragments.find(({ source }) => source === 'host:session-memory')?.body;
+        return Promise.resolve({
+          rationale: 'Keep the final heading.',
+          commands: [
+            { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Final' } },
+          ],
+        });
+      },
+    };
+    const { user } = renderPanel({ planProvider: provider });
+
+    await requestPlan(user, 'refine the hero');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    await requestPlan(user, 'keep it');
+
+    const memory = JSON.parse(remembered ?? '') as { records: unknown[] };
+    expect(memory.records).toEqual([
+      expect.objectContaining({
+        summary: 'Applied 2 validated Builder commands.',
+        commandNames: ['setProp'],
+      }),
+    ]);
   });
 
   it('offers the plan own follow-up as a one-tap continuation', async () => {
@@ -521,13 +800,61 @@ describe('AssistantPanel', () => {
 
     const second = renderPanel({ persistKey: 'assistant-e2e-test' });
     expect(screen.getByText('add a pricing section')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText('This saved proposal expired after reload. Ask again to revalidate it.'),
+    ).toBeInTheDocument();
     second.unmount();
     window.localStorage.removeItem('assistant-e2e-test');
   });
 
+  it('revives legacy plans and failures as readable history without reviving authority', () => {
+    window.localStorage.setItem(
+      'assistant-legacy-test',
+      JSON.stringify({
+        activeId: 'legacy-session',
+        sessions: [
+          {
+            id: 'legacy-session',
+            title: 'Legacy chat',
+            turns: [
+              {
+                id: 'legacy-plan',
+                from: 'assistant',
+                kind: 'plan',
+                plan: {
+                  rationale: 'A saved legacy proposal.',
+                  commands: [{ command: 'setProp', args: {} }],
+                },
+                applied: false,
+              },
+              {
+                id: 'legacy-failure',
+                from: 'assistant',
+                kind: 'refused',
+                text: 'Legacy refusal.',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const { unmount } = renderPanel({ persistKey: 'assistant-legacy-test' });
+    expect(screen.getByText('A saved legacy proposal.')).toBeInTheDocument();
+    expect(screen.getByText('Legacy refusal.')).toBeInTheDocument();
+    expect(
+      screen.getByText('This saved proposal expired after reload. Ask again to revalidate it.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    unmount();
+    window.localStorage.removeItem('assistant-legacy-test');
+  });
+
   it('Auto mode applies a validated plan immediately — still one undoable change', async () => {
-    const { kernel, user } = renderPanel();
+    const events: AiAgentEvent[] = [];
+    const { kernel, user } = renderPanel({ onAgentEvent: (event) => events.push(event) });
     const before = structuredClone(kernel.getDocument());
 
     await user.click(screen.getByRole('radio', { name: 'Auto' }));
@@ -546,6 +873,8 @@ describe('AssistantPanel', () => {
     );
     expect(kernel.undo()).toBe(true);
     expect(kernel.getDocument()).toEqual(before);
+    expect(events[0]).toMatchObject({ type: 'run.started', apply: 'auto' });
+    expect(events.map(({ type }) => type)).toContain('plan.applying');
   });
 
   it('Plan mode proposes without offering Apply — exploring is never applying', async () => {
@@ -596,5 +925,19 @@ describe('AssistantPanel', () => {
       expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
     });
     expect(seenSelection).toEqual(['selected-hero']);
+  });
+
+  it('shows an empty mention result and Escape closes it without changing the draft', async () => {
+    const { user } = renderPanel();
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+
+    await user.type(composer, 'retitle @ghost');
+    expect(await screen.findByText('No matching block.')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('listbox', { name: 'Mention a block' })).not.toBeInTheDocument();
+    expect(composer).toHaveValue('retitle @ghost');
   });
 });

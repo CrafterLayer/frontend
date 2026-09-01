@@ -4,6 +4,22 @@ import {
   type AiPlanProvider,
 } from '@craftkit/builder';
 
+function isLoopbackDevelopmentEndpoint(
+  endpoint: string,
+  env: Readonly<Record<string, unknown>>,
+): boolean {
+  if (env['DEV'] !== true) return false;
+  try {
+    const url = new URL(endpoint);
+    return (
+      url.protocol === 'http:' &&
+      (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]')
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The one wiring point between the playground and a real assistant server.
  *
@@ -21,8 +37,17 @@ export function planProviderFromEnv(
   if (endpoint === '') {
     return undefined;
   }
+  const rawToken = env['VITE_AI_PLAN_TOKEN'];
+  const token = typeof rawToken === 'string' ? rawToken.trim() : '';
   // Generous deadline: a dev bridge fronting a CLI-spawned model can take a
   // minute; a production server should answer far inside this. The cache makes
   // a repeated ask on an unchanged page instant and free.
-  return createCachingAiPlanProvider(createRemoteAiPlanProvider({ endpoint, timeoutMs: 120_000 }));
+  return createCachingAiPlanProvider(
+    createRemoteAiPlanProvider({
+      endpoint,
+      timeoutMs: 120_000,
+      ...(token === '' ? {} : { headers: { authorization: `Bearer ${token}` } }),
+      allowInsecureHttp: isLoopbackDevelopmentEndpoint(endpoint, env),
+    }),
+  );
 }

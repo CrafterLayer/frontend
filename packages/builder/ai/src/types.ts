@@ -1,5 +1,8 @@
 import type {
   ClockPort,
+  BlockPropertyKind,
+  BlockPropertyTab,
+  Breakpoint,
   ContextFragment,
   IdPort,
   JsonValue,
@@ -20,10 +23,20 @@ export interface AiBlockExampleContext {
   node: JsonValue;
 }
 
+/** Compact, lossless-for-AI summary of block-declared Inspector intent. */
+export interface AiBlockPropertyIntentContext {
+  /** Properties grouped by their content/design/advanced decision surface. */
+  tabs: Readonly<Partial<Record<BlockPropertyTab, readonly string[]>>>;
+  /** Only explicitly declared semantic control kinds; undeclared kinds are never inferred. */
+  kinds: Readonly<Partial<Record<BlockPropertyKind, readonly string[]>>>;
+}
+
 export interface AiBlockContext {
   type: string;
   description: string;
   propsSchema: JsonValue;
+  /** Declared design/Inspector intent grouped to avoid repeating section chrome on the wire. */
+  propertyIntents?: AiBlockPropertyIntentContext;
   examples: readonly AiBlockExampleContext[];
   slots: readonly AiBlockSlotContext[];
 }
@@ -37,6 +50,12 @@ export interface AiDocumentNodeContext {
    * word if the document context actually contains the page's text.
    */
   props: Readonly<Record<string, JsonValue>>;
+  /** Current data bindings, when the node has any. */
+  bindings?: Readonly<Record<string, string>>;
+  /** Current instance-level widget skin override. */
+  variantOf?: string;
+  /** Current non-desktop property overrides, detached from the live document. */
+  responsive?: Readonly<Partial<Record<Breakpoint, Readonly<Record<string, JsonValue>>>>>;
   slots: Readonly<Record<SlotName, readonly NodeId[]>>;
 }
 
@@ -48,12 +67,11 @@ export interface AiDocumentContext {
   nodes: readonly AiDocumentNodeContext[];
 }
 
-/** Kept as its own name: selection marks FOCUS, even though every document node now carries props. */
+/** Kept for source compatibility; selected details resolve through the canonical document nodes. */
 export type AiSelectedNodeContext = AiDocumentNodeContext;
 
 export interface AiSelectionContext {
   ids: readonly NodeId[];
-  nodes: readonly AiSelectedNodeContext[];
 }
 
 /** A registered page/template composition that AI may insert atomically. */
@@ -65,6 +83,23 @@ export interface AiTemplateContext {
   blockTypes: readonly string[];
 }
 
+/** One command the model may propose in this exact run. */
+export interface AiCommandContext {
+  name: string;
+  argsSchema: JsonValue;
+}
+
+export interface AiPlanOutputContract {
+  version: 1;
+  schema: JsonValue;
+}
+
+export interface AiContextOmission {
+  source: 'commands';
+  reason: 'policy-filtered';
+  omittedCount: number;
+}
+
 export interface AssembledAiContext {
   fragments: readonly ContextFragment[];
   totalTokens: number;
@@ -73,6 +108,10 @@ export interface AssembledAiContext {
   templates?: readonly AiTemplateContext[];
   document: AiDocumentContext;
   selection: AiSelectionContext;
+  /** Additive for compatibility; the assembler always supplies all three readiness fields. */
+  commands?: readonly AiCommandContext[];
+  outputContract?: AiPlanOutputContract;
+  omissions?: readonly AiContextOmission[];
   /** Progressive-disclosure metadata; never contains instruction/reference bodies. */
   skillCatalog?: readonly AiSkillManifestV1[];
   /** Version/fingerprint pins only. Full bodies live exactly once in `fragments`. */

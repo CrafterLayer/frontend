@@ -88,8 +88,9 @@ or generated site object may be assigned (FR-030). No executable-code generation
 codec stays off the render thread (SC-005 of feature 011 must keep holding). The agent must remain
 fully exercisable offline (FR-028). Generation must be seed-deterministic (FR-024, SC-013).
 
-**Scale/Scope**: 54 functional requirements, 14 success criteria, 7 user stories across 8 packages
-and 1 application. Eight delivery phases; P1 stories 1/2/3 ship together at the end of Phase F.
+**Scale/Scope**: 89 functional requirements, 26 success criteria, and 9 user stories across the
+declared Builder packages and Playground application. The production-readiness phase added after the
+2026-09-01 audit executes immediately after the Skills core and before any site-pipeline/UI claim.
 
 ## Constitution Check
 
@@ -392,6 +393,46 @@ MCP, subagents, skill scripts, URL imports, or direct filesystem/process tool. T
 need independent authorization and sandbox contracts; adding them here would weaken the product
 before it improves it.
 
+### D11 — Production readiness uses one canonical wire and one pinned authority path
+
+The post-US8 audit reproduced a release-blocking mismatch between the strong headless contracts and
+the Playground integration. With the real 54-block registry, context assembly serialized block,
+template, document, and selection data both as structured fields and again as built-in fragments.
+The landing request measured 121,291 estimated tokens and the empty request 114,321 against the
+64,000 default; both failed before the provider was called. Removing only the duplicated block and
+document fragments reduced the landing request to 56,268. This is an architecture defect, not a
+reason to raise the budget.
+
+The correction is one canonical provider envelope:
+
+1. Structured block/template/document/selection fields remain the single authoritative
+   representation used by local and remote providers. `fragments` is reserved for additive host,
+   extension, memory, and active-Skill context and never mirrors those built-ins.
+2. Every fragment carries `source`, `kind: 'instruction' | 'data'`, and `trust`; the remote adapter
+   preserves those distinctions when assigning model roles. Model-authored rationale is not durable
+   memory. Memory records host-authored structured outcomes only.
+3. The live registry produces a data-only command catalog with JSON argument contracts. It is
+   filtered by the effective policy before serialization and accompanied by a versioned output
+   contract. No bridge or prompt owns a hand-maintained command list.
+4. A validated proposal carries its immutable effective policy. Preview and apply accept that pinned
+   proposal rather than an unbound `AiPlan`; the lower-level compatibility function also requires an
+   explicit policy and fails closed when absent at runtime.
+5. Command cost is recursive. Top-level count remains bounded, `applyPatches` is absent from default
+   AI authority, and explicit authorization still charges every nested patch against a hard
+   operation budget before scratch work.
+6. Provider boundaries use typed failure codes, cleanup on every stream exit, observer isolation,
+   endpoint/redirect/credential/referrer policy, and bounded tolerant invalid-output handoff to the
+   existing single repair round.
+7. `AssistantPanel` calls `runAiAgent` for both proposal and automatic application, supplies the
+   host Skill registry/selection, and renders its sequenced events and activation pins. It no longer
+   recreates a weaker React-owned execution path.
+
+`p-limit` was evaluated for this phase and intentionally not added. The agent path is sequential.
+The dev bridge is an untrusted inbound boundary, so it rejects work over its active-request cap with
+`429` instead of creating the unbounded pending queue that `p-limit` permits by default. Reconsider
+the dependency only if a trusted multi-page pipeline deliberately parallelizes per-page work and
+also owns an explicit pending-work bound.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -516,22 +557,27 @@ the bottom of `DesignSystemPanel.tsx`.
 Ordered by dependency, not by visibility. Each phase ends green on its own gate and is independently
 revertable.
 
-| Phase | Scope                 | Delivers                                                                                                                             | Gate                                             |
-| ----- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| **A** | schema, core          | Site type, validator, site version + migration, site commands. No UI.                                                                | Package tests + `check:workspace`                |
-| **B** | schema, renderer      | Token vocabulary moved to layer 0; theme resolved from site data; contrast gate.                                                     | Package tests + Chromium contrast story          |
-| **C** | transforms, code-view | Site manifest codec, composed round-trip law, worker `site`/`page` scopes, off-thread re-proof.                                      | Property laws (1,000 cases) + off-thread counter |
-| **D** | blocks-marketing      | Vocabulary breadth + responsive completeness on every section.                                                                       | Component contracts + Chromium overflow story    |
-| **E** | ai                    | Five-stage pipeline, wire contracts, offline + remote + scripted providers, cancel, seed, bounds.                                    | Package tests, offline determinism property      |
-| **F** | ai, shell, playground | Refinement path; the four shell surfaces; `SiteBriefForm`; playground composition. **P1 stories 1, 2, 3 become true together here.** | `check:components` 56, full component contracts  |
-| **G** | schema, ai            | Asset library contract, local port, selection, structural rejection of invented references. **US6.**                                 | Property: zero unresolvable references           |
-| **H** | specs, apps/storybook | Evaluation harness: blind comparison protocol, distinctiveness measurement, durable evidence. **US7.**                               | Recorded evidence artifacts                      |
-| **I** | ai, core              | Versioned Skills runtime, cache/policy correctness, bounded agent runner, typed events, human-labelled grouped apply. **US8.**       | AI/core focused tests + mutation/property proofs |
+| Phase | Scope                  | Delivers                                                                                                                                                                           | Gate                                                |
+| ----- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **A** | schema, core           | Site type, validator, site version + migration, site commands. No UI.                                                                                                              | Package tests + `check:workspace`                   |
+| **B** | schema, renderer       | Token vocabulary moved to layer 0; theme resolved from site data; contrast gate.                                                                                                   | Package tests + Chromium contrast story             |
+| **C** | transforms, code-view  | Site manifest codec, composed round-trip law, worker `site`/`page` scopes, off-thread re-proof.                                                                                    | Property laws (1,000 cases) + off-thread counter    |
+| **D** | blocks-marketing       | Vocabulary breadth + responsive completeness on every section.                                                                                                                     | Component contracts + Chromium overflow story       |
+| **E** | ai                     | Five-stage pipeline, wire contracts, offline + remote + scripted providers, cancel, seed, bounds.                                                                                  | Package tests, offline determinism property         |
+| **F** | ai, shell, playground  | Refinement path; the four shell surfaces; `SiteBriefForm`; playground composition. **P1 stories 1, 2, 3 become true together here.**                                               | `check:components` 56, full component contracts     |
+| **G** | schema, ai             | Asset library contract, local port, selection, structural rejection of invented references. **US6.**                                                                               | Property: zero unresolvable references              |
+| **H** | specs, apps/storybook  | Evaluation harness: blind comparison protocol, distinctiveness measurement, durable evidence. **US7.**                                                                             | Recorded evidence artifacts                         |
+| **I** | ai, core               | Versioned Skills runtime, cache/policy correctness, bounded agent runner, typed events, human-labelled grouped apply. **US8.**                                                     | AI/core focused tests + mutation/property proofs    |
+| **J** | schema, ai, playground | Canonical real-kernel context, policy-pinned preview/apply, nested work bounds, provider/memory hardening, and Assistant→runner/Skills integration. **US9 / release-blocking P0.** | Real Playground readiness + security mutation gates |
 
 Phases A–C are pure substrate and touch no UI. Phase F is the milestone: it is the first point at
 which a person can type a brief and get a site, and it is deliberately gated behind A, B, C, and E
 because every one of those is load-bearing for it. G and H follow the P2/P3 priority the spec
 assigns and do not block F.
+
+Phase J is numbered after the original plan for traceability but executes immediately after Phase I
+and before E/F. It repairs the currently shipped single-page path on which the later full-site
+pipeline depends. A green package fixture cannot substitute for its real-Playground readiness gate.
 
 ## Verification
 

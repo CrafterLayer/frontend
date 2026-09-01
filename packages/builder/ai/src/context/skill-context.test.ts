@@ -55,11 +55,17 @@ describe('AI skill context assembly', () => {
       'craftkit.page-design',
     ]);
     expect(context.skills?.map(({ id }) => id)).toEqual(['craftkit.page-design']);
-    expect(context.fragments.at(-2)?.title).toBe('Available AI skills');
-    expect(context.fragments.at(-1)?.title).toBe('Active AI skill: craftkit.page-design');
+    expect(context.fragments).toHaveLength(1);
+    expect(context.fragments[0]?.title).toBe('Active AI skill: craftkit.page-design');
+    expect(context.fragments[0]).toMatchObject({
+      source: 'craftkit.page-design',
+      kind: 'instruction',
+      trust: 'reviewed',
+    });
     expect(serializedFragments.match(/UNIQUE_ACTIVE_INSTRUCTION/g)).toHaveLength(1);
     expect(serializedFragments.match(/UNIQUE_ACTIVE_REFERENCE/g)).toHaveLength(1);
     expect(serializedFragments).not.toContain('SECRET_INACTIVE_BODY');
+    expect(serializedFragments).not.toContain('Design complete page hierarchy.');
     expect(JSON.stringify(context.skillCatalog)).not.toContain('instructions');
   });
 

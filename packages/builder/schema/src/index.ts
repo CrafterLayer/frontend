@@ -50,7 +50,7 @@ export {
   findRawStyleLiterals,
 } from './blocks/style-values';
 
-export { blockPropsJsonSchema } from './json-schema';
+export { blockPropsJsonSchema, commandArgsJsonSchema } from './json-schema';
 
 export {
   type BuilderErrorCode,
@@ -75,6 +75,7 @@ export { type CommandInput, type CommandRuntime, type RegisteredCommand } from '
 
 export {
   type AiContextBlockCatalogEntry,
+  type AiContextCommandCatalogEntry,
   type AiContextCompositionCatalogEntry,
   type AiContextProvider,
   type AiContextReadApi,
@@ -85,6 +86,9 @@ export {
   type BlockRenderProps,
   type BlockSlotChildMetadata,
   type ContextFragment,
+  type ContextFragmentInput,
+  type ContextFragmentKind,
+  type ContextFragmentTrust,
   type DataSourceDef,
   type EventBus,
   type FieldProps,
@@ -110,6 +114,7 @@ export {
   type RegisteredBlock,
   type RegistryRead,
   type StateFacade,
+  defineContextFragment,
 } from './extensions/contribution-points';
 
 export {

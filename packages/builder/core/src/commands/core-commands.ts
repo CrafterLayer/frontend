@@ -64,15 +64,9 @@ export type CoreCommandName = keyof CoreCommands;
 
 const id = z.string().min(1);
 const slotName = z.string().min(1);
-const RESERVED_PATCH_PATH_SEGMENTS: ReadonlySet<string> = new Set([
-  '__proto__',
-  'constructor',
-  'prototype',
-]);
+const SAFE_PATCH_PATH_SEGMENT = /^(?!(?:__proto__|constructor|prototype)$).*$/;
 const patchPathSegment = z.union([
-  z.string().refine((segment) => !RESERVED_PATCH_PATH_SEGMENTS.has(segment), {
-    message: 'Patch paths may not contain a reserved object key.',
-  }),
+  z.string().regex(SAFE_PATCH_PATH_SEGMENT, 'Patch paths may not contain a reserved object key.'),
   z.number().int().min(0),
 ]);
 
@@ -270,14 +264,16 @@ export const coreCommands: Record<CoreCommandName, RegisteredCommand> = {
   }),
 
   setDocMeta: defineCommand({
-    args: z
-      .strictObject({
-        dir: z.enum(['ltr', 'rtl']).optional(),
+    args: z.union([
+      z.strictObject({
+        dir: z.enum(['ltr', 'rtl']),
         surface: z.string().min(1).optional(),
-      })
-      .refine((value) => value.dir !== undefined || value.surface !== undefined, {
-        message: 'setDocMeta requires dir and/or surface.',
       }),
+      z.strictObject({
+        dir: z.enum(['ltr', 'rtl']).optional(),
+        surface: z.string().min(1),
+      }),
+    ]),
     run: (args) => (draft) => {
       if (args.dir !== undefined) {
         draft.dir = args.dir;
@@ -424,15 +420,18 @@ export const coreCommands: Record<CoreCommandName, RegisteredCommand> = {
     args: z.strictObject({
       patches: z
         .array(
-          z
-            .strictObject({
-              op: z.enum(['add', 'remove', 'replace']),
+          z.discriminatedUnion('op', [
+            z.strictObject({
+              op: z.literal('remove'),
               path: z.array(patchPathSegment).min(1),
               value: jsonValueZod.optional(),
-            })
-            .refine((patch) => patch.op === 'remove' || patch.value !== undefined, {
-              message: 'add/replace patches must carry a value',
             }),
+            z.strictObject({
+              op: z.enum(['add', 'replace']),
+              path: z.array(patchPathSegment).min(1),
+              value: jsonValueZod,
+            }),
+          ]),
         )
         .min(1),
     }),

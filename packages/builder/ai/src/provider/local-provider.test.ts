@@ -13,7 +13,13 @@ import {
 import { assembleAiContext } from '../context';
 import { applyAiPlan } from '../plan/apply-plan';
 import { generateAiPlan } from '../plan/generate-plan';
-import { createLocalAiPlanProvider, LocalAiProviderError } from './local-provider';
+import { resolveAiCommandPolicy } from '../skills';
+import type { AssembledAiContext } from '../types';
+import {
+  LOCAL_AI_MAX_COLLECTION_ITEMS,
+  createLocalAiPlanProvider,
+  LocalAiProviderError,
+} from './local-provider';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -147,6 +153,52 @@ function validationPorts(seed: string) {
   return { clock: fixedClock(2_000), ids: seededIds(seed) };
 }
 
+function boundedCollectionContext(): AssembledAiContext {
+  return {
+    fragments: [],
+    totalTokens: 0,
+    blocks: [
+      {
+        type: 'page',
+        description: 'A page.',
+        propsSchema: { type: 'object' },
+        examples: [],
+        slots: [{ name: 'default', allow: ['features'] }],
+      },
+      {
+        type: 'features',
+        description: 'A grid of feature items.',
+        propsSchema: {
+          type: 'object',
+          properties: {
+            items: { type: 'array', items: { type: 'object' } },
+            columns: { type: 'string', enum: ['1', '2', '3', '4'] },
+          },
+        },
+        examples: [
+          {
+            prompt: 'one feature item',
+            node: {
+              type: 'features',
+              props: { items: [{ title: 'Fast', body: 'Ships quickly.' }], columns: '1' },
+            },
+          },
+        ],
+        slots: [],
+      },
+    ],
+    templates: [],
+    document: {
+      schemaVersion: 1,
+      surface: 'site',
+      dir: 'ltr',
+      rootId: 'root',
+      nodes: [{ id: 'root', type: 'page', props: {}, slots: { default: [] } }],
+    },
+    selection: { ids: [] },
+  };
+}
+
 describe('local deterministic AI provider', () => {
   it('selects and inserts a registered landing-page template as one undoable command', async () => {
     const kernel = pricingKernel();
@@ -180,6 +232,9 @@ describe('local deterministic AI provider', () => {
       kernel,
       plan,
       validationPorts: validationPorts('template-apply'),
+      policy: resolveAiCommandPolicy({
+        registeredCommands: kernel.context.registry.commandNames(),
+      }),
     });
     expect(applied.transactions).toHaveLength(1);
     expect(Object.values(kernel.getDocument().nodes).some((node) => node.type === 'features')).toBe(
@@ -210,7 +265,7 @@ describe('local deterministic AI provider', () => {
     kernel.setSelection(nodeId === undefined ? [] : [nodeId]);
 
     const context = assembleAiContext(kernel.context);
-    const selectedPlans = context.selection.nodes[0]?.props['plans'];
+    const selectedPlans = context.document.nodes.find(({ id }) => id === nodeId)?.props['plans'];
     const selectedFirst = Array.isArray(selectedPlans) ? selectedPlans[0] : undefined;
     if (
       typeof selectedFirst === 'object' &&
@@ -275,6 +330,9 @@ describe('local deterministic AI provider', () => {
       kernel,
       plan,
       validationPorts: validationPorts('apply-pricing'),
+      policy: resolveAiCommandPolicy({
+        registeredCommands: kernel.context.registry.commandNames(),
+      }),
     });
     expect(applied).toMatchObject({ mode: 'group' });
     expect(applied.transactions).toHaveLength(1);
@@ -336,6 +394,35 @@ describe('local deterministic AI provider', () => {
     expect(singularProps['plans']).toHaveLength(3);
   });
 
+  it('uses only own number-word entries so prototype names cannot alter collection counts', async () => {
+    const provider = createLocalAiPlanProvider();
+
+    const plan = await provider.propose(
+      'add constructor feature items',
+      boundedCollectionContext(),
+    );
+    const args = plan.commands[0]?.args as Record<string, unknown>;
+    const props = args['props'] as Record<string, unknown>;
+
+    expect(props['items']).toHaveLength(1);
+  });
+
+  it.each(['add 2025 feature items', `add ${String(Number.MAX_SAFE_INTEGER)} feature items`])(
+    'bounds the request-derived collection before allocation for %s',
+    async (request) => {
+      const provider = createLocalAiPlanProvider();
+
+      const plan = await provider.propose(request, boundedCollectionContext());
+      const args = plan.commands[0]?.args as Record<string, unknown>;
+      const props = args['props'] as Record<string, unknown>;
+
+      expect(props['items']).toHaveLength(LOCAL_AI_MAX_COLLECTION_ITEMS);
+      expect(plan.rationale).toMatch(
+        new RegExp(`limited.*${String(LOCAL_AI_MAX_COLLECTION_ITEMS)}`, 'i'),
+      );
+    },
+  );
+
   it('refuses empty, unmatched, and structurally unplaceable requests', async () => {
     const provider = createLocalAiPlanProvider();
     const kernel = pricingKernel();
@@ -352,7 +439,7 @@ describe('local deterministic AI provider', () => {
 
     const missingSelection = {
       ...context,
-      selection: { ids: ['ghost'], nodes: [] },
+      selection: { ids: ['ghost'] },
     };
     await expect(provider.propose('add pricing', missingSelection)).resolves.toMatchObject({
       commands: [{ args: { parentId: 'root' } }],

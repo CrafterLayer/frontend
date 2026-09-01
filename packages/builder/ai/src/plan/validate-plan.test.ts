@@ -55,6 +55,75 @@ function unknownChildKernel() {
   });
 }
 
+const utilityClassHost: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'utility-class-host',
+  version: '0.0.0',
+  contributes: {
+    blocks: [
+      {
+        schema: defineBlockSchema({
+          type: 'page',
+          description: 'Root for utility-class policy tests.',
+          props: z.object({}),
+          slots: { default: { allow: ['plain', 'styled'] } },
+          examples: [],
+        }),
+        render: () => null,
+      },
+      {
+        schema: defineBlockSchema({
+          type: 'plain',
+          description: 'A block without a raw utility field.',
+          props: z.object({
+            heading: z.string().default('Heading'),
+          }),
+          examples: [],
+        }),
+        render: () => null,
+      },
+      {
+        schema: defineBlockSchema({
+          type: 'styled',
+          description: 'A block whose raw utility field is human-only.',
+          props: z.object({
+            heading: z.string().default('Heading'),
+            className: z.string().optional(),
+          }),
+          propertyGroups: {
+            className: { tab: 'advanced', kind: 'utility-classes' },
+          },
+          examples: [],
+        }),
+        render: () => null,
+      },
+    ],
+  },
+};
+
+function utilityClassKernel() {
+  return createBuilder({
+    document: {
+      schemaVersion: 1,
+      surface: 'site',
+      dir: 'ltr',
+      rootId: 'root',
+      nodes: {
+        root: {
+          id: 'root',
+          type: 'page',
+          props: {},
+          slots: { default: ['styled-1', 'plain-1'] },
+        },
+        'styled-1': { id: 'styled-1', type: 'styled', props: { heading: 'Existing' } },
+        'plain-1': { id: 'plain-1', type: 'plain', props: { heading: 'Existing' } },
+      },
+    },
+    extensions: [utilityClassHost],
+    ports: { clock: fixedClock(10), ids: seededIds('utility-class-live') },
+  });
+}
+
 const validPlan: AiPlan = {
   rationale: 'Add supporting copy to the existing section.',
   commands: [
@@ -142,6 +211,107 @@ describe('AI plan validation', () => {
       ok: false,
       issues: [{ code: 'invalid-args', step: 0 }],
     });
+  });
+
+  it.each([
+    ['setProp', { id: 'styled-1', key: 'className', value: 'p-8' }],
+    ['setResponsive', { id: 'styled-1', breakpoint: 'mobile', key: 'className', value: 'p-4' }],
+    [
+      'insertNode',
+      { type: 'styled', parentId: 'root', props: { heading: 'New', className: 'p-8' } },
+    ],
+    [
+      'applyPatches',
+      {
+        patches: [
+          {
+            op: 'add',
+            path: ['nodes', 'styled-1', 'props', 'className'],
+            value: 'p-8',
+          },
+        ],
+      },
+    ],
+    [
+      'applyPatches',
+      {
+        patches: [
+          {
+            op: 'replace',
+            path: ['nodes'],
+            value: {
+              'styled-1': {
+                id: 'styled-1',
+                type: 'styled',
+                props: { heading: 'New', className: 'p-8' },
+              },
+            },
+          },
+        ],
+      },
+    ],
+  ])(
+    'rejects AI-authored utility-class properties through %s before scratch work',
+    (command, args) => {
+      const kernel = utilityClassKernel();
+      const result = validateAiPlan(
+        { rationale: 'Try to author a human-only utility field.', commands: [{ command, args }] },
+        kernel,
+        validationPorts(`utility-${command}`),
+      );
+
+      expect(result).toMatchObject({
+        ok: false,
+        issues: [{ code: 'policy-rejected', step: 0 }],
+      });
+      if (!result.ok) {
+        expect(result.issues[0]?.message).toMatch(/utility-classes.*human-only/i);
+      }
+      expect(kernel.transactions()).toEqual([]);
+    },
+  );
+
+  it('tracks ordered applyPatches type changes before checking later utility-class writes', () => {
+    const kernel = utilityClassKernel();
+    const result = validateAiPlan(
+      {
+        rationale: 'Try to hide a human-only utility write behind an earlier type change.',
+        commands: [
+          {
+            command: 'applyPatches',
+            args: {
+              patches: [
+                {
+                  op: 'replace',
+                  path: ['nodes', 'plain-1', 'type'],
+                  value: 'styled',
+                },
+              ],
+            },
+          },
+          {
+            command: 'setProp',
+            args: { id: 'plain-1', key: 'className', value: 'p-8' },
+          },
+        ],
+      },
+      kernel,
+      validationPorts('utility-ordered-type-change'),
+      {
+        allowedCommands: ['applyPatches', 'setProp'],
+        maxCommands: 8,
+        maxOperations: 8,
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'policy-rejected', step: 1 }],
+    });
+    if (!result.ok) {
+      expect(result.issues[0]?.message).toMatch(/utility-classes.*human-only/i);
+    }
+    expect(kernel.transactions()).toEqual([]);
   });
 
   it.each([
@@ -290,9 +460,7 @@ describe('AI plan validation', () => {
     // …while a plan that CREATES a new violation is still rejected.
     const breaking: AiPlan = {
       rationale: 'Push the section count past its cap.',
-      commands: [
-        { command: 'setProp', args: { id: 'p1', key: 'content', value: 42 } },
-      ],
+      commands: [{ command: 'setProp', args: { id: 'p1', key: 'content', value: 42 } }],
     };
     const result = validateAiPlan(breaking, kernel, validationPorts('stale-broken'));
     expect(result.ok).toBe(false);

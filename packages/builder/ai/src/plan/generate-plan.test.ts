@@ -8,6 +8,8 @@ import {
   seededIds,
 } from '@craftkit/builder-core/testing';
 
+import { AiProviderError } from '../provider/errors';
+import { AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH } from '../provider/wire';
 import { createAiSkillRegistry } from '../skills';
 import type { AiPlan, AiPlanProvider, AiPlanValidationIssue } from '../types';
 import { generateAiPlan } from './generate-plan';
@@ -58,6 +60,113 @@ describe('generateAiPlan repair loop', () => {
     expect(repairCalls).toHaveLength(1);
     expect(repairCalls[0]?.plan).toEqual(badPlan);
     expect(repairCalls[0]?.issues[0]?.code).toBe('unknown-command');
+  });
+
+  it('uses exactly one bounded repair round for a retryable invalid-output failure', async () => {
+    const calls: string[] = [];
+    const invalidOutput = new AiProviderError(
+      'x'.repeat(AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH * 4),
+      { code: 'invalid-output', retryable: true },
+    );
+    const provider: AiPlanProvider = {
+      propose: () => {
+        calls.push('propose');
+        return Promise.reject(invalidOutput);
+      },
+      repair: (_request, _context, attempted, issues) => {
+        calls.push('repair');
+        expect(attempted).toEqual({ rationale: '', commands: [] });
+        expect(issues).toEqual([
+          {
+            code: 'invalid-plan',
+            message: 'x'.repeat(AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH),
+          },
+        ]);
+        return Promise.resolve(goodPlan);
+      },
+    };
+
+    await expect(
+      generateAiPlan({
+        kernel: planKernel(),
+        provider,
+        request: 'add copy',
+        validationPorts: { clock: fixedClock(20), ids: seededIds('invalid-output-repair') },
+      }),
+    ).resolves.toEqual(goodPlan);
+    expect(calls).toEqual(['propose', 'repair']);
+  });
+
+  it('surfaces the final invalid-output classification without a third provider call', async () => {
+    const first = new AiProviderError('First malformed answer.', {
+      code: 'invalid-output',
+      retryable: true,
+    });
+    const final = new AiProviderError('Repair was malformed too.', {
+      code: 'invalid-output',
+      retryable: true,
+    });
+    let proposeCalls = 0;
+    let repairCalls = 0;
+    const provider: AiPlanProvider = {
+      propose: () => {
+        proposeCalls += 1;
+        return Promise.reject(first);
+      },
+      repair: () => {
+        repairCalls += 1;
+        return Promise.reject(final);
+      },
+    };
+
+    const generation = generateAiPlan({
+      kernel: planKernel(),
+      provider,
+      request: 'add copy',
+      validationPorts: { clock: fixedClock(20), ids: seededIds('invalid-output-final') },
+    });
+
+    await expect(generation).rejects.toBe(final);
+    await expect(generation).rejects.toMatchObject({
+      code: 'invalid-output',
+      retryable: true,
+      message: 'Repair was malformed too.',
+    });
+    expect(proposeCalls).toBe(1);
+    expect(repairCalls).toBe(1);
+  });
+
+  it('does not repair non-retryable invalid output or a different provider failure', async () => {
+    const failures = [
+      new AiProviderError('Final invalid output.', {
+        code: 'invalid-output',
+        retryable: false,
+      }),
+      new AiProviderError('Network unavailable.', { code: 'network', retryable: true }),
+    ];
+
+    for (const [index, failure] of failures.entries()) {
+      let repairCalls = 0;
+      const provider: AiPlanProvider = {
+        propose: () => Promise.reject(failure),
+        repair: () => {
+          repairCalls += 1;
+          return Promise.resolve(goodPlan);
+        },
+      };
+      const generation = generateAiPlan({
+        kernel: planKernel(),
+        provider,
+        request: 'add copy',
+        validationPorts: {
+          clock: fixedClock(20),
+          ids: seededIds(`invalid-output-no-repair-${String(index)}`),
+        },
+      });
+
+      await expect(generation).rejects.toBe(failure);
+      expect(repairCalls).toBe(0);
+    }
   });
 
   it('rejects with the repaired attempt issues when the repair also fails', async () => {
@@ -260,6 +369,69 @@ describe('generateAiPlan repair loop', () => {
     expect(generated.commands[0]?.command).toBe('setProp');
     expect(issues).toHaveLength(1);
     expect(issues[0]?.[0]?.code).toBe('policy-rejected');
+  });
+
+  it('fails before provider work when the session and active Skill leave no command authority', async () => {
+    let proposed = false;
+    const registry = createAiSkillRegistry([
+      {
+        schemaVersion: 1,
+        id: 'craftkit.copy-only',
+        name: 'Copy only',
+        description: 'Limit this run to property edits.',
+        version: '1.0.0',
+        instructions: 'Only edit an existing property.',
+        activation: { mode: 'explicit' },
+        restrictToCommands: ['setProp'],
+      },
+    ]);
+
+    const generation = generateAiPlan({
+      kernel: planKernel(),
+      provider: {
+        propose: () => {
+          proposed = true;
+          return Promise.resolve(goodPlan);
+        },
+      },
+      request: 'add copy',
+      skillRegistry: registry,
+      selectedSkillIds: ['craftkit.copy-only'],
+      policy: { allowedCommands: ['insertNode'] },
+      validationPorts: { clock: fixedClock(20), ids: seededIds('empty-authority') },
+    });
+
+    await expect(generation).rejects.toMatchObject({
+      name: 'AiCommandPolicyError',
+      code: 'empty-effective-policy',
+    });
+    await expect(generation).rejects.toThrow(/craftkit\.copy-only.*session\.allowedCommands/i);
+    expect(proposed).toBe(false);
+  });
+
+  it('serializes only commands permitted by the exact effective generation policy', async () => {
+    const provider: AiPlanProvider = {
+      propose: (_request, context) => {
+        expect(context.commands?.map(({ name }) => name)).toEqual(['setProp']);
+        expect(context.omissions).toEqual([
+          expect.objectContaining({ source: 'commands', reason: 'policy-filtered' }),
+        ]);
+        return Promise.resolve({
+          rationale: 'Use the only command permitted for this run.',
+          commands: [
+            { command: 'setProp', args: { id: 'hero1', key: 'heading', value: 'Policy-pinned' } },
+          ],
+        });
+      },
+    };
+
+    await generateAiPlan({
+      kernel: planKernel(),
+      provider,
+      request: 'retitle the hero',
+      policy: { allowedCommands: ['setProp'] },
+      validationPorts: { clock: fixedClock(20), ids: seededIds('policy-context') },
+    });
   });
 
   it('fails before provider work when the complete serialized context exceeds its hard budget', async () => {

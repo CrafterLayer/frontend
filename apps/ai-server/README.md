@@ -10,8 +10,8 @@ nowhere.
 ## Run it
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...      # or run `ant auth login` — see below
-pnpm --filter @craftkit/ai-server dev    # = vite build && node dist/main.js
+export ANTHROPIC_API_KEY=sk-ant-...      # or put it in apps/ai-server/.env (git-ignored; see .env.example)
+pnpm --filter @craftkit/ai-server dev    # = vite build && node --env-file-if-exists=.env dist/main.js
 ```
 
 It is **built, then run** — never run from source. Node can strip types but does
@@ -28,7 +28,11 @@ the workspace bundled in and only the SDK external.
 prompt. If it is running, the playground talks to it and none of this server's
 behaviour (catalog modes, free colours, icons, skills in the cached segment)
 reaches the model — silently. `lsof -nP -iTCP:8787 -sTCP:LISTEN` names the
-process; stop it before starting this one.
+process; stop it before starting this one. Both CAN listen at once: the bridge
+binds IPv4 `127.0.0.1:8787` and this server binds `*:8787` including IPv6, so
+neither fails with "address in use" — the browser then reaches this server on
+`::1` while `curl 127.0.0.1` reaches the bridge, and the two disagree. Exactly
+one line in that `lsof` output is the only acceptable state.
 
 Then point the playground at it and restart Vite:
 
@@ -47,6 +51,7 @@ nothing breaks by not running this.
 | `PORT` | `8787` | |
 | `CRAFTKIT_AI_MODEL` | `claude-opus-5` | Override deliberately, with a measurement. |
 | `CRAFTKIT_AI_TOKEN` | — | When set, every request must carry `Authorization: Bearer <token>`. Set it for anything but localhost. |
+| `CRAFTKIT_AI_ALLOWED_ORIGINS` | loopback, any port | Comma-separated browser origins (`https://app.example.com`). An explicit list replaces the loopback default. A browser request from any other origin is refused with 403 before the model is called; requests with no `Origin` (curl, servers) are unaffected. |
 
 ## What it does with a request
 

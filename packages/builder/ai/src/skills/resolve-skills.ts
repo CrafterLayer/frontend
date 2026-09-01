@@ -9,6 +9,7 @@ import type {
   AiSkillManifestV1,
   AiSkillOmission,
   AiSkillPrepareOptions,
+  AiSkillScript,
 } from './types';
 
 export const DEFAULT_AI_SKILL_MAX_ACTIVE = 16;
@@ -48,7 +49,26 @@ function matchesAuto(
     activation.keywords?.some((keyword) => normalizedRequest.includes(keyword)) ?? false;
   const blockMatch =
     activation.selectedBlockTypes?.some((type) => selectedBlockTypes.has(type)) ?? false;
-  return keywordMatch || blockMatch;
+  const scriptMatch = activation.scripts?.some((script) => requestUsesScript(request, script)) ?? false;
+  return keywordMatch || blockMatch || scriptMatch;
+}
+
+/**
+ * Whether the request carries any character of the given writing system.
+ *
+ * ANY character, deliberately: a mostly-English request with one Arabic word
+ * is a request whose page may carry Arabic, and the RTL expertise costs
+ * ~400 tokens against a page laid out backwards. The Arabic block covers the
+ * base range plus the supplement, extended ranges and presentation forms, so
+ * Persian/Urdu letters and the shaped forms some editors paste all count.
+ */
+const SCRIPT_PATTERNS: Readonly<Record<AiSkillScript, RegExp>> = {
+  arabic: /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/u,
+  latin: /[A-Za-zÀ-ɏ]/u,
+};
+
+function requestUsesScript(request: string, script: AiSkillScript): boolean {
+  return SCRIPT_PATTERNS[script].test(request);
 }
 
 function skillsConflict(left: AiDefinedSkillV1, right: AiDefinedSkillV1): boolean {

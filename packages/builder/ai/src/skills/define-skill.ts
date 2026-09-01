@@ -5,6 +5,7 @@ import type {
   AiDefinedSkillV1,
   AiSkillActivation,
   AiSkillManifestV1,
+  AiSkillScript,
   AiSkillSource,
   AiSkillTrust,
 } from './types';
@@ -168,7 +169,11 @@ function canonicalActivation(value: unknown): AiSkillActivation {
   if (mode !== 'auto') {
     return fail('invalid-activation', 'activation.mode must be explicit, always, or auto.');
   }
-  rejectUnknownKeys(value, new Set(['mode', 'keywords', 'selectedBlockTypes']), 'activation');
+  rejectUnknownKeys(
+    value,
+    new Set(['mode', 'keywords', 'selectedBlockTypes', 'scripts']),
+    'activation',
+  );
 
   const keywords = uniqueSortedStrings(value['keywords'], 'activation.keywords', (entry) =>
     entry.trim().toLowerCase(),
@@ -178,10 +183,20 @@ function canonicalActivation(value: unknown): AiSkillActivation {
     'activation.selectedBlockTypes',
     (entry) => entry.trim().toLowerCase(),
   );
-  if (keywords.length === 0 && selectedBlockTypes.length === 0) {
+  const scripts = uniqueSortedStrings(value['scripts'], 'activation.scripts', (entry) =>
+    entry.trim().toLowerCase(),
+  );
+  const unknownScript = scripts.find((script) => !isSkillScript(script));
+  if (unknownScript !== undefined) {
+    return fail(
+      'invalid-activation',
+      `activation.scripts may name only ${SKILL_SCRIPTS.join(', ')}; got "${unknownScript}".`,
+    );
+  }
+  if (keywords.length === 0 && selectedBlockTypes.length === 0 && scripts.length === 0) {
     return fail(
       'missing-auto-trigger',
-      'An auto activation requires keywords or selectedBlockTypes.',
+      'An auto activation requires keywords, selectedBlockTypes, or scripts.',
     );
   }
 
@@ -189,10 +204,19 @@ function canonicalActivation(value: unknown): AiSkillActivation {
     mode: 'auto';
     keywords?: readonly string[];
     selectedBlockTypes?: readonly string[];
+    scripts?: readonly AiSkillScript[];
   } = { mode: 'auto' };
   if (keywords.length > 0) result.keywords = keywords;
   if (selectedBlockTypes.length > 0) result.selectedBlockTypes = selectedBlockTypes;
+  if (scripts.length > 0) result.scripts = scripts.filter(isSkillScript);
   return Object.freeze(result);
+}
+
+/** The writing systems an auto activation may name; matched by `resolve-skills`. */
+const SKILL_SCRIPTS: readonly AiSkillScript[] = ['arabic', 'latin'];
+
+function isSkillScript(value: string): value is AiSkillScript {
+  return (SKILL_SCRIPTS as readonly string[]).includes(value);
 }
 
 function referencePath(value: string): string {

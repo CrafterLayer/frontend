@@ -2,6 +2,17 @@ export type AiSkillSource = 'builtin' | 'host';
 
 export type AiSkillTrust = 'builtin' | 'reviewed' | 'untrusted';
 
+/**
+ * A writing system a request can be recognised by.
+ *
+ * Keywords match PHRASES; a script matches the LANGUAGE. The Arabic/RTL skill
+ * used to fire only when the request happened to contain one of its listed
+ * imperatives ("صمم لي") and stayed silent on every other Arabic request — the
+ * same page type got different expertise depending on the verb used. A script
+ * is what "the request is in Arabic" actually means.
+ */
+export type AiSkillScript = 'arabic' | 'latin';
+
 export type AiSkillActivation =
   | Readonly<{ mode: 'explicit' }>
   | Readonly<{ mode: 'always' }>
@@ -9,6 +20,8 @@ export type AiSkillActivation =
       mode: 'auto';
       keywords?: readonly string[];
       selectedBlockTypes?: readonly string[];
+      /** Activate when the request is written in any of these scripts. */
+      scripts?: readonly AiSkillScript[];
     }>;
 
 /**

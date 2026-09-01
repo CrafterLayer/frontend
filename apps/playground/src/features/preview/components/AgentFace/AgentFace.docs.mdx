@@ -1,0 +1,175 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AgentFaceStories from './AgentFace.stories';
+
+<Meta of={AgentFaceStories} />
+
+# AgentFace
+
+أبو غضب — Abu Ghadab, "father of anger": the person inside the Assistant. The tool is still called
+Assistant everywhere the accessibility tree can see; the face and the one visible status line are
+how that tool reads as a character who is grumpy, competent, and never in doubt about what he is
+doing right now.
+
+<Canvas of={AgentFaceStories.Thinking} />
+
+## Purpose
+
+An assistant that runs for several seconds needs to show what it is doing, and a spinner says only
+"busy". The face carries the run's phase — reading, drafting, checking, repairing, applying — and
+its outcome — proposed, applied, planned, discarded, failed, stopped — as geometry: brow angle, eye
+shape, mouth path, ring dash pattern. The voice line says the same thing in words. Together they
+replace the sparkle mark in the panel's header, reply avatars and empty state without moving a pixel
+of layout: the three sizes are the three boxes the sparkle already occupied.
+
+The brows do the acting. The resting grump is a shallow V; concentration deepens it; the earned
+smile relaxes it but never flattens it. Flat brows appear in exactly one mood — stopped — because
+surprise is the joke.
+
+## When to use / not
+
+Use `AgentFace` wherever the assistant is personified: the header (live), reply bubbles (frozen at
+the mood the turn earned), the empty state. Use `AgentVoice` exactly once per panel, outside every
+`aria-hidden` wrapper, so what is announced is exactly what people read.
+
+Do not use the face as a status indicator for anything that is not the assistant, do not put a voice
+beside every bubble (the card text already carries the state in words), and do not pass `live` to a
+bubble face — a thread of a dozen animating avatars is noise, and the stylesheet forbids it for the
+`sm` size regardless.
+
+## Props
+
+### AgentFace
+
+| prop        | type                                                                                                | default | notes                                                      |
+| ----------- | --------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
+| `mood`      | `'idle' \| 'listening' \| 'thinking' \| 'planning' \| 'working' \| 'done' \| 'failed' \| 'stopped'` | —       | required                                                   |
+| `variant`   | `'checking' \| 'repairing'`                                                                         | —       | `planning` only; ignored elsewhere                         |
+| `outcome`   | `'proposed' \| 'applied' \| 'planned' \| 'discarded'`                                               | —       | `done` only; ignored elsewhere                             |
+| `typing`    | `boolean`                                                                                           | `false` | the listening nudge; drives `data-typing` and nothing else |
+| `size`      | `'sm' \| 'md' \| 'lg'`                                                                              | `'md'`  | 24 / 32 / 48 px — the sparkle's three boxes                |
+| `live`      | `boolean`                                                                                           | `false` | enables loops and one-shots; only the header passes it     |
+| `className` | `string`                                                                                            | —       | appended to `pg-face`                                      |
+
+The face is purely visual and stateless. It renders no text, never takes or moves focus, and its
+`<svg>` is `aria-hidden` and `focusable="false"`.
+
+### AgentVoice
+
+| prop        | type                | default | notes                          |
+| ----------- | ------------------- | ------- | ------------------------------ |
+| `snapshot`  | `AgentMoodSnapshot` | —       | from `useAgentMood`            |
+| `locale`    | `'ar' \| 'en'`      | `'ar'`  | the tier the line is read from |
+| `className` | `string`            | —       | appended to `pg-face-voice`    |
+
+Renders `<p role="status" aria-live="polite" aria-atomic="true" lang={locale} dir="auto">` with
+`agentMoodText(snapshot, locale)`.
+
+## The eight moods
+
+Every pose at every size, captioned `mood — status line`. This grid is the copy deck: the English
+tier is shown; the Arabic tier lives beside it in `AGENT_MOOD_COPY`.
+
+<Canvas of={AgentFaceStories.AllMoods} />
+
+| mood        | when                                                       | ring                                                 | motion (live only)                              |
+| ----------- | ---------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| `idle`      | nothing in flight, composer empty and unfocused            | hairline, `panel-border-strong`                      | a blink every 5.5 s                             |
+| `listening` | composer focused or holding a draft (300 ms blur grace)    | solid 2, `accent-ring` — the composer's focus colour | none; typing nudges the mouth and features      |
+| `thinking`  | `run.started` → `context.ready`                            | twelve static dots, `accent`                         | the slit eyes scan                              |
+| `planning`  | `plan.proposing` / `progress` / `validating` / `repairing` | eight dashes, `accent`; `warning` while repairing    | the dashes drift; checking holds still          |
+| `working`   | `plan.applying` (Auto mode only)                           | a 270° arc, `accent-strong`                          | spins at 900 ms — GenerationProgress's tempo    |
+| `done`      | `run.completed`, or Apply / Discard pressed on a card      | solid `accent` / solid `success` / dashed / 25 dots  | the ring draws in (solid outcomes), a small pop |
+| `failed`    | `run.failed`; pinned until a keystroke                     | broken in two places, `danger`                       | none — stillness is the signal                  |
+| `stopped`   | `run.cancelled`; 1.8 s hold                                | the ⏻ shape: one gap with a tick, `panel-muted`      | one shake, then still                           |
+
+## Done outcomes
+
+`done` carries an `outcome` that the ring makes greyscale-safe: a proposal is a solid ring and a
+smirk; an applied change is a solid `success` ring and the one symmetric smile; a plan that stays a
+sketch keeps its dashes; a discarded plan is a dotted hairline ring and an eye-roll.
+
+<Canvas of={AgentFaceStories.DoneApplied} />
+
+## State machine
+
+`reduceAgentMood` is the only place a mood is decided. It is a pure function of the run log with an
+explicit `now`; the hook is a thin adapter that owns exactly one timer keyed on `wakeAt`.
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> listening: composer focus / draft
+  listening --> idle: blur grace + typing elapsed
+  idle --> thinking: run.begin
+  listening --> thinking: run.begin
+  thinking --> thinking: skills.*, context.*
+  thinking --> planning: plan.proposing (after 400 ms dwell)
+  planning --> planning: progress (250 ms throttle), validating, repairing (600 ms dwell)
+  planning --> working: plan.applying (Auto)
+  planning --> done: run.completed (after dwell)
+  working --> done: run.completed
+  thinking --> failed: run.failed (preempts)
+  planning --> failed: run.failed (preempts)
+  thinking --> stopped: run.cancelled (preempts)
+  planning --> stopped: run.cancelled (preempts)
+  done --> idle: 2500 ms hold
+  stopped --> idle: 1800 ms hold
+  failed --> listening: a keystroke (pinned until then)
+  idle --> done: Apply / Discard on a card
+```
+
+Precedence when inputs conflict: an in-flight run owns the mood; then a pinned failure; then a
+done/stopped hold; then the composer. Events are accepted only for the current run id with a higher
+sequence number than the last, so a late `run.cancelled` after New chat is dropped and the reducer
+returns a reference-equal state. `plan.proposed` changes nothing: the card announces the proposal,
+and the face holds its last planning beat until `run.completed` so it never dips to idle in between.
+
+<Canvas of={AgentFaceStories.Walkthrough} />
+
+## Accessibility
+
+- The `<svg>` is `aria-hidden` and `focusable="false"`, and the face always sits inside an
+  `aria-hidden` wrapper. It has no accessible name and needs none: the panel's region is still named
+  "Assistant".
+- `AgentVoice` is the panel's single `role="status"` / `aria-live="polite"` / `aria-atomic` line. It
+  carries `lang` for the tier it reads and `dir="auto"` so the content's own first strong character
+  sets its direction. Idle and listening share one line so focus and keystrokes never announce;
+  typing is `data-typing` only.
+- **Focus is never moved**, on mount or when the mood changes. A test asserts this through every
+  pose.
+- **Colour never carries a state alone**: every mood has its own brow angle, eye shape, mouth path
+  and ring dash pattern, and the voice says the same thing in words.
+- `prefers-reduced-motion: reduce` removes every loop and one-shot and every transition. Nothing is
+  lost — the geometry already says it.
+
+## Styling
+
+Every declaration reads a `--bldr-*` chrome token; none reads `--t-*`. The disc is `accent-soft`,
+the ink is `panel-text`, the rings read `accent`, `accent-strong`, `accent-ring`, `success`,
+`warning`, `danger`, `panel-muted` and `panel-border-strong`. Stroke widths are viewBox units, so
+one drawing renders at three scales.
+
+`--pg-face-glow` is an optional inherited variable: `.pg-chat` defines it in App.css alongside the
+chat's other literals, and outside the chat it is transparent.
+
+<Canvas of={AgentFaceStories.InsideChat} />
+
+<Canvas of={AgentFaceStories.DarkTheme} />
+
+## RTL
+
+The stylesheet uses no physical properties. The only horizontal moves — the scan and the shake — are
+symmetric. The asymmetric brows (listening, checking, discarded) are a face, not text, and are
+deliberately not mirrored. The component never sets `dir`; only the voice line follows the content
+direction, from its own text.
+
+<Canvas of={AgentFaceStories.RightToLeft} />
+
+## Limitations
+
+- No lip-sync to streamed text. `plan.progress` is shown verbatim, throttled to one publish per 250
+  ms, and the mouth does not move with it.
+- One voice per panel. Bubble faces are frozen and silent; the card text beside them already says
+  what happened.
+- The `sm` size never animates, even if a caller passes `live`.

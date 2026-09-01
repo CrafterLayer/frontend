@@ -218,6 +218,46 @@ describe('failure translation', () => {
 
     expect(body.error).toContain('API key');
   });
+
+  /*
+    The case the panel actually hit: a server started with NO credentials at
+    all. The SDK then throws a plain Error at request time — not an
+    AuthenticationError, not even an AnthropicError — and the translator fell
+    through to "failed unexpectedly", which told the owner nothing.
+  */
+  const NO_CREDENTIALS = new Error(
+    'Could not resolve authentication method. Expected one of apiKey, authToken, credentials, config, or profile to be set. Or for one of the "X-Api-Key" or "Authorization" headers to be explicitly omitted',
+  );
+
+  it('names a server with no credentials at all, and where the key goes', async () => {
+    const handle = createHandler({ client: throwing(NO_CREDENTIALS) });
+
+    const response = await handle(post(wireBody()));
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe(
+      'The assistant server has no credentials: set ANTHROPIC_API_KEY (apps/ai-server/.env) and restart it.',
+    );
+  });
+
+  it('names missing credentials on the streaming path too, where the panel reads it', async () => {
+    const handle = createHandler({ client: throwing(NO_CREDENTIALS) });
+
+    const response = await handle(
+      new Request('http://localhost/plan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify(wireBody()),
+      }),
+    );
+
+    expect(response.headers.get('content-type')).toBe('text/event-stream');
+    const text = await response.text();
+    expect(text).toContain('event: result');
+    expect(text).toContain('"invalidOutput":{"message":"The assistant server has no credentials');
+    expect(text).not.toContain('failed unexpectedly');
+  });
 });
 
 describe('streaming', () => {

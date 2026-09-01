@@ -1113,4 +1113,46 @@ The one gate that never existed — "does the process start" — now does.
       16k → 32k: a six-region landing page as a JSON tree runs to 15–25k output tokens, and a
       cut-off plan is no plan. The verification record's "first live run" section corrected
 
-**Total after the server phase**: 258 tasks.
+- [x] T259 [US10] **Skills activate by script, not by verb.** The activation verifier showed the
+      Arabic/RTL Skill firing only on four listed imperatives ("صمم لي" …) and staying silent on
+      "اعمل معرض أعمال" and "بانر وداع سامر ووسيم" — the same page, laid out differently by the
+      verb. `activation.scripts: ['arabic' | 'latin']` is a third auto trigger (any character of
+      the writing system, presentation forms and Persian/Urdu letters included), validated in
+      `define-skill` like the other two and matched in `resolve-skills`. New
+      `craftkit.occasion-page` archetype (invitation, wedding, farewell, greeting, condolence;
+      priority 85, conflicts with the landing and CV archetypes, depends on copywriting) with
+      Arabic and English keywords; design-direction gains darker/lighter/background asks and
+      accessibility gains readability asks in both languages. Matrix now ten requests (5 ar / 5
+      en), every Arabic row carries the RTL Skill, all rows within three auto Skills and the
+      2,400-token row ceiling. `script-activation.test.ts` pins the trigger, its canonical form,
+      the refusal of unknown scripts, and the duplicate rule. README documents the three triggers
+      and the floor-plus-three budget. Gates: builder-ai 372/372, playground 102/102, typecheck
+      and lint clean.
+
+- [x] T260 [US10] **"Failed to fetch" was CORS, and the port was split.** The browser resolves
+      `localhost` to `::1` first, which reached this server (bound `*:8787`) while the
+      deprecated bridge held `127.0.0.1:8787` — both listening, neither failing. The server
+      answered the preflight OPTIONS with 405 and no `Access-Control-Allow-Origin`; a browser
+      reports that as a network error before any body is sent, and every gate was green because
+      none of them was a browser. `cors.ts`: preflight (204, origin echoed, requested headers
+      granted, max-age 600, `Vary: Origin`), origin stamped on every real response including
+      the SSE stream, browser requests from a non-allowed origin refused 403 BEFORE the model
+      is called, requests without `Origin` untouched. Policy `CRAFTKIT_AI_ALLOWED_ORIGINS`
+      (loopback on any port by default; an explicit list replaces it; malformed entries refuse
+      startup). Scripts load a git-ignored `apps/ai-server/.env` via `node
+      --env-file-if-exists`; `.env.example` added. README records the IPv4/IPv6 split-port
+      trap. 27 CORS tests incl. one through a real socket; ai-server 78/78, typecheck, lint
+      clean; verified live: preflight on `[::1]:8787` → 204 with the origin echoed.
+
+- [x] T261 [US10] **"invalid-output · provider" was a server with no key.** Reproduced by driving
+      the real panel in Chromium after T260: the request now reaches the server (200, SSE) and
+      the result frame said "The assistant server failed unexpectedly." A server started with no
+      credentials makes the SDK throw a plain `Error("Could not resolve authentication
+      method…")` at request time — not an `AuthenticationError`, which is the API's 401 for a
+      WRONG key — so `describeFailure` fell through to its generic sentence. Matched by message
+      now: "The assistant server has no credentials: set ANTHROPIC_API_KEY (apps/ai-server/.env)
+      and restart it." on both the unary (500) and streaming paths; `main.ts` warns at boot when
+      the client has neither `apiKey` nor `authToken`. Two handler tests pin both paths;
+      ai-server 80/80, typecheck, lint clean.
+
+**Total after the server phase**: 261 tasks.

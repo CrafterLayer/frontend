@@ -212,6 +212,19 @@ function streamed(
   });
 }
 
+/**
+ * A server started with no credentials at all. The SDK reports this as a
+ * plain Error at request time — not an AuthenticationError (that is a 401
+ * from the API for a WRONG key) — so it is matched by its message. Without
+ * this the panel showed "failed unexpectedly", which told the owner nothing.
+ */
+export const NO_CREDENTIALS_MESSAGE =
+  'The assistant server has no credentials: set ANTHROPIC_API_KEY (apps/ai-server/.env) and restart it.';
+
+function isMissingCredentials(cause: unknown): boolean {
+  return cause instanceof Error && cause.message.startsWith('Could not resolve authentication method');
+}
+
 /** One plain sentence per failure kind — never a stack, never a raw SDK message. */
 function describeFailure(cause: unknown): string {
   if (cause instanceof Anthropic.RateLimitError) {
@@ -219,6 +232,9 @@ function describeFailure(cause: unknown): string {
   }
   if (cause instanceof Anthropic.AuthenticationError) {
     return 'The assistant server is not configured with a valid API key.';
+  }
+  if (isMissingCredentials(cause)) {
+    return NO_CREDENTIALS_MESSAGE;
   }
   if (cause instanceof Anthropic.BadRequestError) {
     return 'The assistant rejected this request as malformed.';
@@ -243,7 +259,9 @@ function errorResponse(cause: unknown): Response {
   }
   const message = describeFailure(cause);
   if (cause instanceof Anthropic.RateLimitError) return json({ error: message }, 429);
-  if (cause instanceof Anthropic.AuthenticationError) return json({ error: message }, 500);
+  if (cause instanceof Anthropic.AuthenticationError || isMissingCredentials(cause)) {
+    return json({ error: message }, 500);
+  }
   if (cause instanceof Anthropic.BadRequestError) return json({ error: message }, 400);
   return json({ error: message }, 502);
 }

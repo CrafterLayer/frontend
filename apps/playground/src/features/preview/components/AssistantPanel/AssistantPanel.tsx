@@ -34,6 +34,7 @@ import {
   type BuilderKernel,
 } from '@craftkit/builder';
 
+import { AgentFace, AgentVoice, moodForTurn, useAgentMood, type AgentLocale } from '../AgentFace';
 import {
   IconAlert,
   IconCheck,
@@ -80,6 +81,14 @@ export interface AssistantPanelProps {
    * assumes a browser store; the HOST opts in).
    */
   persistKey?: string | undefined;
+  /**
+   * The language of the character's one visible line (the panel's live
+   * region). Default `'ar'`: the tool is called Assistant; the person inside
+   * it is أبو غضب. Not an i18n layer — the chrome stays English because
+   * everything it names is Latin. `'en'` exists so tests, Storybook a11y and
+   * an English-speaking reviewer see the same persona deterministically.
+   */
+  locale?: AgentLocale | undefined;
 }
 
 /**
@@ -260,6 +269,7 @@ export function AssistantPanel({
   agentPolicy,
   onAgentEvent,
   persistKey,
+  locale = 'ar',
 }: AssistantPanelProps) {
   const counter = useRef(1);
   const nextId = useCallback((prefix: string) => {
@@ -290,6 +300,22 @@ export function AssistantPanel({
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<AssistantMode>('ask');
+  /** Whether the composer holds focus — the face listens when it does. */
+  const [composerFocused, setComposerFocused] = useState(false);
+  /*
+    The character's mood: a pure function of the run log plus the composer.
+    The hook owns one timer for its dwells and holds; the panel only tells it
+    when a run begins, what the agent said, how the turn settled, and what
+    the person did to a card.
+  */
+  const {
+    snapshot: face,
+    beginRun: beginFaceRun,
+    onEvent: onFaceEvent,
+    settleTurn: settleFaceTurn,
+    noteTurn: noteFaceTurn,
+    reset: resetFace,
+  } = useAgentMood({ mode, composerFocused, draftLength: draft.length });
   /** The @-mention in progress: the text typed after the trailing @, or null. */
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -424,12 +450,15 @@ export function AssistantPanel({
   const startNewChat = useCallback(() => {
     activeRunRef.current?.controller.abort();
     activeRunRef.current = null;
+    // The face forgets the run with the lease: the late run.cancelled the
+    // abort produces carries the old run id and the reducer drops it.
+    resetFace();
     setBusy(false);
     const id = nextId('session');
     setSessions((previous) => [...previous, { id, title: 'New chat', turns: [] }]);
     setActiveId(id);
     setDraft('');
-  }, [nextId]);
+  }, [nextId, resetFace]);
 
   useEffect(
     () => () => {
@@ -497,6 +526,8 @@ export function AssistantPanel({
       const runId = nextId('run');
       const controller = new AbortController();
       activeRunRef.current = { runId, controller };
+      // Entered synchronously, so Send is answered before the run's first event.
+      beginFaceRun(runId, subject);
       /*
         @mentions ARE the selection: naming a block in the request is the most
         direct way a person points at it, so named blocks (that really exist)
@@ -532,6 +563,7 @@ export function AssistantPanel({
           signal: controller.signal,
           isCurrentRun: (candidateRunId) => activeRunRef.current?.runId === candidateRunId,
           onEvent: (event) => {
+            onFaceEvent(event);
             if (event.type === 'plan.progress') {
               patchTurns((previous) =>
                 previous.map((turn) =>
@@ -563,6 +595,7 @@ export function AssistantPanel({
               : turn,
           ),
         );
+        settleFaceTurn({ runId, outcome: 'plan', applied: result.status === 'applied' });
       } catch (cause: unknown) {
         if (controller.signal.aborted) {
           // The person pressed Stop. That is an outcome, not an error.
@@ -571,6 +604,7 @@ export function AssistantPanel({
               turn.id === thinkingId ? { id: turn.id, from: 'assistant', kind: 'stopped' } : turn,
             ),
           );
+          settleFaceTurn({ runId, outcome: 'stopped' });
         } else {
           const failure = classifyAiRunFailure(cause);
           patchTurns((previous) =>
@@ -587,6 +621,7 @@ export function AssistantPanel({
                 : turn,
             ),
           );
+          settleFaceTurn({ runId, outcome: 'refused', retryable: failure.retryable });
         }
       } finally {
         if (ownsRun(activeRunRef.current, runId)) {
@@ -599,6 +634,7 @@ export function AssistantPanel({
       active,
       activeId,
       agentPolicy,
+      beginFaceRun,
       busy,
       kernel,
       memory,
@@ -606,11 +642,13 @@ export function AssistantPanel({
       mode,
       nextId,
       onAgentEvent,
+      onFaceEvent,
       patchTurns,
       planProvider,
       providerKind,
       selectedSkillIds,
       selectedType,
+      settleFaceTurn,
       skillRegistry,
     ],
   );
@@ -665,6 +703,7 @@ export function AssistantPanel({
               : turn,
           ),
         );
+        noteFaceTurn('applied');
       } catch (cause: unknown) {
         const failure = classifyAiRunFailure(cause);
         patchTurns((previous) =>
@@ -682,7 +721,7 @@ export function AssistantPanel({
         );
       }
     },
-    [kernel, memory, patchTurns],
+    [kernel, memory, noteFaceTurn, patchTurns],
   );
 
   /**
@@ -768,8 +807,9 @@ export function AssistantPanel({
             : turn,
         ),
       );
+      noteFaceTurn('discarded');
     },
-    [patchTurns],
+    [noteFaceTurn, patchTurns],
   );
 
   return (
@@ -777,16 +817,32 @@ export function AssistantPanel({
       <header className="pg-chat__head">
         <div className="pg-chat__title">
           <div className="pg-chat__brand">
+            {/* The tool is called Assistant (the region's accessible name);
+                the person inside it is أبو غضب. The face is decoration — his
+                voice, below, is what a screen reader hears. */}
             <span className="pg-chat__brand-mark" aria-hidden="true">
-              <IconSparkle />
+              <AgentFace
+                size="md"
+                live
+                mood={face.mood}
+                variant={face.variant}
+                outcome={face.outcome}
+                typing={face.typing}
+              />
             </span>
-            <h2>Assistant</h2>
+            <h2>
+              <span className="pg-chat__name" lang="ar" dir="rtl">
+                أبو غضب
+              </span>
+              <span className="pg-chat__name-latin">Abu Ghadab</span>
+            </h2>
           </div>
           <ChromeButton variant="quiet" size="sm" onClick={startNewChat}>
             <IconPlus />
             New chat
           </ChromeButton>
         </div>
+        <AgentVoice className="pg-chat__voice" snapshot={face} locale={locale} />
         <p className="pg-chat__sees">Sees: {sees}</p>
         {sessions.length > 1 ? (
           <div className="pg-chat__sessions" ref={sessionsRef}>
@@ -848,7 +904,7 @@ export function AssistantPanel({
         {turns.length === 0 ? (
           <div className="pg-chat__empty">
             <span className="pg-chat__empty-mark" aria-hidden="true">
-              <IconSparkle />
+              <AgentFace mood="idle" size="lg" />
             </span>
             <p>Ask for a section and I will propose the exact changes.</p>
             <ul className="pg-chat__starters">
@@ -879,8 +935,16 @@ export function AssistantPanel({
             </p>
           ) : (
             <div key={turn.id} className="pg-chat__reply">
+              {/* One avatar for every reply: the live thinking bubble mirrors
+                  the header's phase (still static — sm never animates), every
+                  other bubble is frozen at the mood it earned. */}
               <span className="pg-chat__avatar" aria-hidden="true">
-                <IconSparkle />
+                <AgentFace
+                  size="sm"
+                  {...(turn.kind === 'thinking'
+                    ? { mood: face.mood, variant: face.variant }
+                    : moodForTurn(turn))}
+                />
               </span>
               <div className="pg-chat__reply-body">
                 {turn.kind === 'thinking' ? (
@@ -1081,6 +1145,12 @@ export function AssistantPanel({
             /* The field and its send button are ONE control, so the ring is
                drawn around the card by :focus-within. See the stylesheet. */
             data-bldr-focus-ring="delegated"
+            onFocus={() => {
+              setComposerFocused(true);
+            }}
+            onBlur={() => {
+              setComposerFocused(false);
+            }}
             onChange={(event) => {
               const value = event.currentTarget.value;
               setDraft(value);

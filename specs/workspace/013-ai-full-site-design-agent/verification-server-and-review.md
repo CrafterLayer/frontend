@@ -117,3 +117,58 @@ defects and remain open.**
 - **Colours no longer re-theme** in composed regions when the palette or hex is used — by decision.
 - `strict` CSS policy throws by design; the tree Inspector is a JSON surface; the LIBRARY default
   catalog stays `full` while the playground runs `none`.
+
+## Skills layer, after the activation verifier (T259)
+
+The Skills workflow's adversarial verifier refuted keyword-only activation with four findings;
+all four are fixed at the root rather than by adding keywords:
+
+- **Language is a script, not a phrase.** `activation.scripts: ['arabic']` fires on any Arabic
+  character (base block, supplement, extended ranges, presentation forms). Before: "صمم لي معرض
+  أعمال" got RTL expertise and "اعمل معرض أعمال" did not. After: every Arabic row in the matrix
+  carries `craftkit.arabic-rtl`; no English row does.
+- **Occasions have an archetype.** `craftkit.occasion-page` (invitation, wedding, farewell,
+  greeting, condolence) — the request behind the owner's transcript ("بانر وداع سامر ووسيم مع
+  خلفية سفر") now activates copywriting + occasion-page + arabic-rtl instead of nothing.
+- **Tone and readability asks route.** darker / lighter / background colour / أغمق / أفتح →
+  design-direction; easier to read / readable / أوضح / مقروء → accessibility review.
+- **The budget rule is written down.** Floor plus at most three auto Skills per request (an
+  archetype, its copywriting dependency, the language); the ten-row matrix pins every row under
+  the 2,400-token row ceiling.
+
+| Gate | Result |
+|---|---|
+| `@craftkit/builder-ai` test | 39 files, 372/372 |
+| `@craftkit/builder-ai` typecheck + lint | clean |
+| `@craftkit/playground` test | 19 files, 102/102 |
+| `@craftkit/ai-server` build + test + typecheck + lint | dist rebuilt, 51/51, clean |
+
+## "The assistant server could not be reached: Failed to fetch" (T260)
+
+Reproduced with Node `fetch` against both loopback families while both processes listened:
+
+| Target | Preflight `OPTIONS` | `POST` |
+|---|---|---|
+| `[::1]:8787` (this server, old build) | 405, no CORS headers | 400, no CORS headers |
+| `127.0.0.1:8787` (deprecated bridge) | 204 with `Access-Control-Allow-Origin` | 401 with CORS headers |
+
+The browser prefers `::1`, so the panel reached the new server and the missing
+`Access-Control-Allow-Origin` became "Failed to fetch". Fix: `apps/ai-server/src/cors.ts`
+(see T260). The bridge was stopped; the server was rebuilt and restarted; the same probe now
+returns 204 with the origin echoed on `[::1]:8787`. The running server still has no
+`ANTHROPIC_API_KEY` in its environment — the next error the panel shows will be the provider's
+credential error, which is the honest one; `apps/ai-server/.env` is where the key goes.
+
+## Driven from a real browser (T261)
+
+Playwright against the running playground at `http://localhost:5173`, Assistant tab, request
+"كبّر عنوان الهيرو":
+
+| Step | Observed |
+|---|---|
+| Page-context `fetch` to `localhost` / `127.0.0.1` / `[::1]` :8787 | all answered (400 for an empty body) — no CORS failure |
+| Panel request | `POST /plan` → 200, `text/event-stream` |
+| Result frame | `invalidOutput.message = "The assistant server failed unexpectedly."` |
+
+The server had no credentials; the SDK's request-time error is a plain `Error`, unrecognised
+by the translator. Fixed (T261): the frame now names the cause and where the key goes.

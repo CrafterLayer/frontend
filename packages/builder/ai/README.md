@@ -165,6 +165,24 @@ manifest metadata, instructions, reference count, per-reference bytes, total ref
 registry size all have exported hard limits. The per-run Skill-token budget charges the exact active
 Skill payload—including identity, rationale, restrictions, instructions, and references.
 
+The built-in registry ships twelve reviewed Skills for the free-composition agent: one
+always-on **craft manual** (region shell, links, direction, type, the classes the door refuses),
+and auto-activated playbooks — page composition, CV/portfolio, occasion pages (invitation,
+farewell, greeting, condolence), conversion recipes, structure recipes, design direction, motion,
+copywriting, Arabic/RTL, accessibility review — plus the explicit **precise-edit** restriction.
+Because the craft manual is mandatory, a host's `maxSkillTokens` must leave room for it
+(≈400 tokens); a budget below that fails the run rather than silently dropping the floor.
+
+An `auto` activation has three triggers, any of which is enough: `keywords` (lower-cased
+substrings of the request), `selectedBlockTypes` (the selection carries a node of that type), and
+`scripts` (`'arabic'` or `'latin'`: the request contains any character of that writing system).
+The Arabic/RTL Skill uses `scripts: ['arabic']`, so every Arabic request gets the direction
+expertise whatever verb it opens with; keyword-only activation had made the same page type come
+out differently depending on whether the writer said "صمم لي" or "اعمل". The built-ins are
+budgeted so that a request activates the floor plus at most three auto Skills — a page archetype,
+its copywriting dependency, and the language — within the default `maxSkillTokens`; the page
+archetypes (landing, CV, occasion) conflict with each other and the highest priority wins.
+
 Command authority is always restrictive:
 
 ```text

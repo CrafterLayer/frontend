@@ -91,8 +91,12 @@ when skipping the route tool. Floor is `medium` — never `low` beyond a single-
 propose or debugging; up to 5400000 (90m) for sol+ultra multi-package work. A timeout or output
 kill now salvages a partial result, but plan budgets so it does not happen.
 
-**2. The task body carries the context** (budget ~90k chars; the schema rejects oversize, never
-truncates). Analyze template: GOAL · ACCEPTANCE CRITERIA · REPO ORIENTATION (pnpm monorepo;
+**2. The task body carries the context — and the server enforces it.**
+`CCW_REQUIRE_TASK_SECTIONS` makes `GOAL:`, `ACCEPTANCE CRITERIA:`, `FILES TO READ FIRST:`, and
+`OUTPUT CONTRACT:` mandatory: a brief missing any of them is refused before a job exists, with the
+missing headings named. This is a floor, not a ceiling — a brief that satisfies it can still be
+thin, so fill each section with substance. (Budget ~90k chars; the schema rejects oversize, never
+truncates.) Analyze template: GOAL · ACCEPTANCE CRITERIA · REPO ORIENTATION (pnpm monorepo;
 relevant paths under `packages/builder/*` and `apps/*`; wire v1, block-owned className, tokens-only
 colours) · FILES TO READ FIRST (5–15 paths) · KEY EXCERPTS (verbatim load-bearing snippets,
 regenerated at send time) · YOU MAY RUN (`rg`, `pnpm typecheck`, targeted

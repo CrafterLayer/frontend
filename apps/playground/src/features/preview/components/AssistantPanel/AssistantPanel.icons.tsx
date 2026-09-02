@@ -8,11 +8,14 @@
 
 interface IconProps {
   readonly paths: string;
+  /** For the two directional glyphs the stylesheet mirrors under RTL. */
+  readonly className?: string | undefined;
 }
 
-function Icon({ paths }: IconProps) {
+function Icon({ paths, className }: IconProps) {
   return (
     <svg
+      className={className}
       width="16"
       height="16"
       viewBox="0 0 16 16"
@@ -56,10 +59,10 @@ export const IconPlus = () => <Icon paths={PLUS} />;
 export const IconSend = () => <Icon paths={SEND} />;
 export const IconCheck = () => <Icon paths={CHECK} />;
 export const IconClose = () => <Icon paths={CLOSE} />;
-export const IconUndo = () => <Icon paths={UNDO} />;
+export const IconUndo = () => <Icon paths={UNDO} className="pg-chat__icon--mirror" />;
 export const IconStop = () => <Icon paths={STOP} />;
 export const IconEye = () => <Icon paths={EYE} />;
-export const IconCode = () => <Icon paths={CODE} />;
+export const IconCode = () => <Icon paths={CODE} className="pg-chat__icon--mirror" />;
 export const IconAlert = () => <Icon paths={ALERT} />;
 export const IconShield = () => <Icon paths={SHIELD} />;
 export const IconChevron = () => <Icon paths={CHEVRON} />;

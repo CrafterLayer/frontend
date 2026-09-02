@@ -67,7 +67,8 @@ function detachedStateSnapshot(ctx: AiContextAssemblySource): Readonly<KernelSta
   ) as unknown as BuilderDocument;
   const selection = [...live.selection];
   Object.freeze(selection);
-  return Object.freeze({ doc, selection, seq: live.seq });
+  // `elementFocus` is ephemeral UI state a peer added to KernelState; it rides along untouched.
+  return Object.freeze({ doc, selection, seq: live.seq, elementFocus: live.elementFocus });
 }
 
 function frozenStrings(values: readonly string[]): readonly string[] {
@@ -377,6 +378,25 @@ function blockDetailEntry(entry: RegistryBlockEntry): AiBlockContext {
   };
 }
 
+/** Identity plus the prop NAMES: enough to edit a block, not to author one. */
+function blockPresenceEntry(entry: RegistryBlockEntry): AiBlockContext {
+  const schema = entry.propsSchema;
+  const properties =
+    typeof schema === 'object' && schema !== null && !Array.isArray(schema)
+      ? schema['properties']
+      : undefined;
+  const propKeys =
+    typeof properties === 'object' && properties !== null && !Array.isArray(properties)
+      ? Object.keys(properties).sort(compareText)
+      : [];
+  return { ...blockIndexEntry(entry), propKeys };
+}
+
+/** The block types the document holds right now. */
+function presentBlockTypes(ctx: AiContextReadApi): ReadonlySet<string> {
+  return new Set(Object.values(ctx.store.getState().doc.nodes).map((node) => node.type));
+}
+
 /**
  * The catalog, at the cost the run asked for.
  *
@@ -390,13 +410,20 @@ function collectBlocks(
   ctx: AiContextReadApi,
   policy: ResolvedAiCompositionPolicy,
 ): readonly AiBlockContext[] {
+  const present = policy.catalogMode === 'none' ? presentBlockTypes(ctx) : undefined;
   return ctx.registry
     .blocks(ctx.surface)
     .flatMap((entry) => {
       if (blockIsInCatalogScope(policy, entry.type)) return [blockDetailEntry(entry)];
-      // `none` states nothing about a block the run did not ask for — not
-      // even its name. The model composes; it does not choose from a list.
-      return policy.catalogMode === 'none' ? [] : [blockIndexEntry(entry)];
+      if (present !== undefined) {
+        // `none` states nothing about a block the run did not ask for — not
+        // even its name. The model composes; it does not choose from a list.
+        // The one exception is a block ALREADY ON THE PAGE: the person will
+        // ask to change it, and a model that cannot name its props invents
+        // one. Its name and prop keys ride along; its schema does not.
+        return present.has(entry.type) ? [blockPresenceEntry(entry)] : [];
+      }
+      return [blockIndexEntry(entry)];
     })
     .sort((left, right) => compareText(left.type, right.type));
 }

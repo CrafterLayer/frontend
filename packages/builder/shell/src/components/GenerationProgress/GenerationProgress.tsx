@@ -1,6 +1,6 @@
 import type { SVGProps } from 'react';
 
-import type { GENERATION_STAGE_IDS } from './constants';
+import { GENERATION_STAGE_LABELS, type GENERATION_STAGE_IDS } from './constants';
 
 import '../../styles/visually-hidden.css';
 import './GenerationProgress.css';
@@ -9,10 +9,12 @@ import './GenerationProgress.css';
  * The five-stage site pipeline, made observable.
  *
  * The stage IDS are the pipeline's own vocabulary (`@craftkit/builder-ai`); the
- * LABELS are what a person reading the panel understands. They differ on
- * purpose: `sitemap` and `assembly` name what the stage computes, "Plan" and
- * "Apply" name what the person is waiting for. Keeping both means renaming a
- * stage in the UI never renames a wire field.
+ * LABELS (`GENERATION_STAGE_LABELS`, beside the ids in `constants.ts`) are what
+ * a person reading the panel understands. They differ on purpose: `sitemap`
+ * and `assembly` name what the stage computes, "Plan" and "Apply" name what the
+ * person is waiting for. Keeping both means renaming a stage in the UI never
+ * renames a wire field. The labels are exported so a host can name a stage in
+ * its own copy and be certain it matches the row.
  *
  * This component is presentational and has no timer of its own. Whoever runs
  * the pipeline owns elapsed time and passes it as `detail`, so a replayed run
@@ -36,6 +38,11 @@ export interface GenerationProgressProps {
   onCancel?: (() => void) | undefined;
   /** The card's heading, and the region's accessible name. */
   heading?: string | undefined;
+  /**
+   * Render the visually-hidden polite live region. Pass `false` when the host
+   * already narrates (one `role="status"` per surface). Default `true`.
+   */
+  announce?: boolean | undefined;
 }
 
 const ICON_PROPS = {
@@ -52,7 +59,7 @@ const ICON_PROPS = {
 
 const STAGES = {
   sitemap: {
-    label: 'Plan',
+    label: GENERATION_STAGE_LABELS.sitemap,
     icon: (
       <svg {...ICON_PROPS}>
         <path d="M2.5 4h11M2.5 8h11M2.5 12h7" />
@@ -60,7 +67,7 @@ const STAGES = {
     ),
   },
   structure: {
-    label: 'Structure',
+    label: GENERATION_STAGE_LABELS.structure,
     icon: (
       <svg {...ICON_PROPS}>
         <path d="M8 1.75 14 5v6l-6 3.25L2 11V5z" />
@@ -69,7 +76,7 @@ const STAGES = {
     ),
   },
   content: {
-    label: 'Content',
+    label: GENERATION_STAGE_LABELS.content,
     icon: (
       <svg {...ICON_PROPS}>
         <path d="M3.5 1.75h6l3 3v9.5h-9z" />
@@ -78,7 +85,7 @@ const STAGES = {
     ),
   },
   design: {
-    label: 'Design',
+    label: GENERATION_STAGE_LABELS.design,
     icon: (
       <svg {...ICON_PROPS}>
         <path d="M8 1.75a6.25 6.25 0 1 0 0 12.5c.9 0 1.25-.6 1.25-1.15 0-.85-.7-1.2-.7-1.9 0-.5.4-.95.95-.95h1.1a3.65 3.65 0 0 0 3.65-3.65C14.25 3.7 11.4 1.75 8 1.75Z" />
@@ -88,7 +95,7 @@ const STAGES = {
     ),
   },
   assembly: {
-    label: 'Apply',
+    label: GENERATION_STAGE_LABELS.assembly,
     icon: (
       <svg {...ICON_PROPS}>
         <path d="M6 10.5 3 13l1.25-3.75" />
@@ -167,6 +174,7 @@ export function GenerationProgress({
   stages,
   onCancel,
   heading = 'Building your page',
+  announce = true,
 }: GenerationProgressProps) {
   const running = stages.some((stage) => stage.status === 'active');
   const settled = stages.filter((stage) => stage.status === 'done').length;
@@ -180,10 +188,14 @@ export function GenerationProgress({
         </span>
       </header>
 
-      {/* The announcement, and the only thing that speaks. Focus never moves. */}
-      <p role="status" aria-live="polite" className="bldr-visually-hidden">
-        {announcement(stages)}
-      </p>
+      {/* The announcement, and the only thing that speaks. Focus never moves.
+          A host that already narrates the run silences this one: two polite
+          regions on one surface would read the same event twice. */}
+      {announce ? (
+        <p role="status" aria-live="polite" className="bldr-visually-hidden">
+          {announcement(stages)}
+        </p>
+      ) : null}
 
       <ol className="bldr-genprogress__list">
         {stages.map((stage) => (

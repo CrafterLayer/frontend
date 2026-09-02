@@ -90,6 +90,7 @@ export {
   type ContextFragmentKind,
   type ContextFragmentTrust,
   type DataSourceDef,
+  type ElementFocus,
   type EventBus,
   type FieldProps,
   type FieldTypeDef,
@@ -190,10 +191,13 @@ export {
   type CustomCodeTag,
 } from './custom-code/custom-code-tree';
 export {
-  LUCIDE_VERSION,
-  isLucideIconName,
-  lucideIconNames,
-} from './custom-code/lucide-icon-names';
+  customCodeNodeAtPath,
+  formatCustomCodePath,
+  parseCustomCodePath,
+  replaceCustomCodeNodeAtPath,
+  type CustomCodePath,
+} from './custom-code/custom-code-path';
+export { LUCIDE_VERSION, isLucideIconName, lucideIconNames } from './custom-code/lucide-icon-names';
 export {
   CUSTOM_CLASS_PREFIX,
   UTILITY_VOCABULARY,

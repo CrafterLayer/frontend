@@ -1,0 +1,325 @@
+/*
+  One property row and the field skins it dresses its control in. Imported by
+  InspectorRowBody and by RepeaterField (whose cards render ordinary rows), so
+  the rejection strip and every `.bldr-field__*` skin are loaded wherever a row
+  can appear. Tokens only; logical properties only; stroke lives on the SVG
+  element, never here.
+*/
+
+/* Label above, control below, full row width — a row never shares its
+   width with a label column. Rhythm between rows comes from the section grid. */
+.bldr-inspector__row {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: minmax(var(--bldr-space-0), 1fr);
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-inspector__row-head {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  justify-content: space-between;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-inspector__label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-snug);
+  overflow-wrap: anywhere;
+}
+
+/* The device-capability mark: a small-control box (the story measures it)
+   holding a 16-unit glyph whose stroke comes from its own attributes. */
+.bldr-inspector__breakpoint-glyph {
+  align-items: center;
+  block-size: var(--bldr-control-sm);
+  color: var(--bldr-panel-muted);
+  display: inline-flex;
+  flex: none;
+  inline-size: var(--bldr-control-sm);
+  justify-content: center;
+}
+
+.bldr-inspector__breakpoint-glyph svg {
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-inspector__value {
+  inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-inspector__override-row {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-xs);
+  justify-content: space-between;
+  margin-block-end: var(--bldr-space-xs);
+}
+
+/* "{bucket} override": the same pill as the header's bucket badge, so an
+   owned value and the bucket it belongs to read as one vocabulary. */
+.bldr-inspector__override {
+  background-color: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-tight);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-md);
+}
+
+/* Takes one value back, so it is small, quiet, and turns to the danger tone
+   only under the pointer. */
+.bldr-inspector__override-clear {
+  align-items: center;
+  appearance: none;
+  background-color: transparent;
+  block-size: var(--bldr-control-sm);
+  border: var(--bldr-space-0);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  display: inline-flex;
+  inline-size: var(--bldr-control-sm);
+  justify-content: center;
+  padding: var(--bldr-space-0);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector__override-clear:hover {
+  background-color: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+.bldr-inspector__override-clear svg,
+.bldr-inspector__segment svg {
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-inspector__control-slot {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+}
+
+/* The field skins — still the only skin for fields/controls/*. */
+.bldr-inspector .bldr-field__input {
+  background-color: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-control);
+  inline-size: 100%;
+  line-height: var(--bldr-line-height-snug);
+  min-block-size: var(--bldr-control-height);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-lg);
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector .bldr-field__input:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+/* The product-wide ring still draws; the border joins it in the accent. */
+.bldr-inspector .bldr-field__input:focus-visible {
+  border-color: var(--bldr-accent);
+}
+
+.bldr-inspector .bldr-field__input::placeholder {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-inspector .bldr-field__input--readonly {
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.bldr-inspector .bldr-field__input:disabled {
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+/* The switch: a hairline track the height of the smallest measured control
+   (the repeater story pins every control at 24–36), and a knob that sits one
+   hairline inside it so it is centred exactly: 24 − 2 borders = 22 = 1 + 20 + 1. */
+.bldr-inspector .bldr-field__switch {
+  appearance: none;
+  background-color: var(--bldr-panel-border-strong);
+  block-size: var(--bldr-space-5xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-full);
+  box-sizing: border-box;
+  cursor: pointer;
+  inline-size: calc(var(--bldr-space-6xl) + var(--bldr-space-xs));
+  margin-block: var(--bldr-space-xs);
+  margin-inline: var(--bldr-space-0);
+  position: relative;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector .bldr-field__switch::before {
+  background-color: var(--bldr-panel);
+  block-size: var(--bldr-space-4xl);
+  border-radius: var(--bldr-radius-full);
+  content: '';
+  inline-size: var(--bldr-space-4xl);
+  inset-block-start: var(--bldr-border-hairline);
+  inset-inline-start: var(--bldr-border-hairline);
+  position: absolute;
+  transition: inset-inline-start var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector .bldr-field__switch:checked {
+  background-color: var(--bldr-accent);
+  border-color: var(--bldr-accent);
+}
+
+.bldr-inspector .bldr-field__switch:checked::before {
+  inset-inline-start: calc(100% - var(--bldr-space-4xl) - var(--bldr-border-hairline));
+}
+
+.bldr-inspector .bldr-field__switch:disabled {
+  background-color: var(--bldr-panel-border);
+  border-color: var(--bldr-panel-border);
+  cursor: not-allowed;
+}
+
+/* A number and its unit: one control, the unit as a sunken end cap. */
+.bldr-inspector__numeric-control {
+  display: grid;
+  grid-template-columns: minmax(var(--bldr-space-0), 1fr) auto;
+}
+
+.bldr-inspector__numeric-control .bldr-field__input {
+  border-end-end-radius: var(--bldr-radius-none);
+  border-start-end-radius: var(--bldr-radius-none);
+  font-family: var(--bldr-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.bldr-inspector__unit {
+  align-items: center;
+  background-color: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-end-end-radius: var(--bldr-radius-md);
+  border-inline-start: var(--bldr-space-0);
+  border-start-end-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted);
+  display: flex;
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  justify-content: center;
+  min-inline-size: var(--bldr-space-6xl);
+  padding-inline: var(--bldr-space-xs);
+}
+
+/* Icon segments: token-sized targets that never grow with the row. The
+   container does NOT clip, so a segment's focus ring draws whole; the pressed
+   and hover fills carry the end radii themselves. */
+.bldr-inspector__alignment-control {
+  inline-size: max-content;
+  max-inline-size: 100%;
+}
+
+.bldr-inspector__segments {
+  background-color: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  display: inline-flex;
+  inline-size: max-content;
+  max-inline-size: 100%;
+}
+
+.bldr-inspector__segment {
+  align-items: center;
+  appearance: none;
+  background-color: transparent;
+  block-size: var(--bldr-control-sm);
+  border: var(--bldr-space-0);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 var(--bldr-control-sm);
+  inline-size: var(--bldr-control-sm);
+  justify-content: center;
+  padding: var(--bldr-space-0);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector__segment:first-child {
+  border-end-start-radius: var(--bldr-radius-md);
+  border-start-start-radius: var(--bldr-radius-md);
+}
+
+.bldr-inspector__segment:last-child {
+  border-end-end-radius: var(--bldr-radius-md);
+  border-start-end-radius: var(--bldr-radius-md);
+}
+
+.bldr-inspector__segment + .bldr-inspector__segment {
+  border-inline-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.bldr-inspector__segment:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-accent);
+}
+
+.bldr-inspector__segment[aria-pressed='true'] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent);
+}
+
+.bldr-inspector__segment:disabled {
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: default;
+}
+
+/* A refusal stays on the row that caused it: danger on danger-soft, with a
+   thick leading edge so it reads at a glance as a strip, not a caption. */
+.bldr-inspector__rejection {
+  background-color: var(--bldr-danger-soft);
+  border-inline-start: var(--bldr-border-thick) solid var(--bldr-danger-border);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-danger);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
+  margin-block: var(--bldr-space-xs) var(--bldr-space-0);
+  margin-inline: var(--bldr-space-0);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-inspector__override-clear,
+  .bldr-inspector .bldr-field__input,
+  .bldr-inspector .bldr-field__switch,
+  .bldr-inspector .bldr-field__switch::before,
+  .bldr-inspector__segment {
+    transition: none;
+  }
+}

@@ -1,6 +1,23 @@
-import type { NodeId, SlotName } from '@craftkit/builder-schema';
+import {
+  formatCustomCodePath,
+  parseCustomCodePath,
+  type CustomCodePath,
+  type NodeId,
+  type SlotName,
+} from '@craftkit/builder-schema';
 
 import { systemGeometryPorts, type GeometryPorts } from './geometry-ports';
+
+/**
+ * What the pointer is over: always a document node, and — inside a composed
+ * region — the authored element under it, by the path the renderer stamped.
+ * `elementPath` is absent for every ordinary block, so a consumer that only
+ * knows nodes reads exactly what `nodeAt` would have told it.
+ */
+export interface CanvasHit {
+  readonly nodeId: NodeId;
+  readonly elementPath?: CustomCodePath;
+}
 
 export interface NodeRect {
   nodeId: NodeId;
@@ -41,6 +58,20 @@ export interface RectIndex {
   slotRect?(ownerNodeId: NodeId, slotName: SlotName): SlotRect | undefined;
   /** Identity from point hit-testing — zero measurement on the pointer path. */
   nodeAt(clientX: number, clientY: number): NodeId | undefined;
+  /**
+   * `nodeAt`, plus the authored element under the point when the node is a
+   * composed region whose renderer stamped element paths. Zero measurement.
+   * Optional for the same reason as `slotRect`: injected node-only doubles
+   * keep working, and a consumer without it falls back to `nodeAt`.
+   */
+  hitAt?(clientX: number, clientY: number): CanvasHit | undefined;
+  /**
+   * Geometry of one authored element inside an attached node, by path. Lazy
+   * and version-cached like `rect`; `undefined` when the node is not attached
+   * or the path is not stamped in its subtree (it was edited away, or never
+   * rendered on this canvas). Optional, as `hitAt`.
+   */
+  elementRect?(id: NodeId, path: CustomCodePath): NodeRect | undefined;
   has(id: NodeId): boolean;
   /**
    * The attached element, for chrome that must mark a node's STATE on the node
@@ -84,6 +115,9 @@ export function createRectIndex(options: {
   const rects = new Map<NodeId, NodeRect>();
   const slotElements = new Map<NodeId, Map<SlotName, HTMLElement>>();
   const slotRects = new Map<NodeId, Map<SlotName, SlotRect>>();
+  // Authored-element geometry, keyed `${nodeId}\n${path}`: a third namespace,
+  // so an element can never collide with a node or a slot of the same name.
+  const elementRects = new Map<string, NodeRect>();
   let version = 0;
   let measures = 0;
   let invalidations = 0;
@@ -227,6 +261,11 @@ export function createRectIndex(options: {
       forgetOwnedSlotElements(id);
       elements.delete(id);
       rects.delete(id);
+      for (const key of elementRects.keys()) {
+        if (key.startsWith(`${id}\n`)) {
+          elementRects.delete(key);
+        }
+      }
       invalidate();
     },
     rect: rectOf,
@@ -281,6 +320,47 @@ export function createRectIndex(options: {
       const wrapper = hit?.closest('[data-bldr-node]');
       return wrapper?.getAttribute('data-bldr-node') ?? undefined;
     },
+    hitAt(clientX, clientY) {
+      const hit = ports.hitTest(frameDocument, clientX, clientY);
+      const wrapper = hit?.closest('[data-bldr-node]');
+      const nodeId = wrapper?.getAttribute('data-bldr-node');
+      if (wrapper === null || wrapper === undefined || nodeId === null || nodeId === undefined) {
+        return undefined;
+      }
+      // The nearest stamped ancestor, but only INSIDE this node: a path found
+      // above the wrapper belongs to some other region and must not be read
+      // as an address within this one.
+      const addressed = hit?.closest('[data-ck-path]');
+      if (addressed === null || addressed === undefined || !wrapper.contains(addressed)) {
+        return { nodeId };
+      }
+      const elementPath = parseCustomCodePath(addressed.getAttribute('data-ck-path') ?? '');
+      return elementPath === undefined ? { nodeId } : { nodeId, elementPath };
+    },
+    elementRect(id, path) {
+      const owner = elements.get(id);
+      if (owner === undefined || path.length === 0) {
+        return undefined;
+      }
+      const stamped = formatCustomCodePath(path);
+      const key = `${id}\n${stamped}`;
+      const cached = elementRects.get(key);
+      if (cached?.version === version) {
+        return cached;
+      }
+      // Attribute selectors take the value verbatim; a path is digits and dots,
+      // so no escaping is needed — and `parseCustomCodePath` already refused
+      // anything else at the hit-test door.
+      const element = owner.querySelector<HTMLElement>(`[data-ck-path="${stamped}"]`);
+      if (element === null) {
+        elementRects.delete(key);
+        return undefined;
+      }
+      measures += 1;
+      const record: NodeRect = { nodeId: id, ...ports.measure(element), version };
+      elementRects.set(key, record);
+      return record;
+    },
     has: (id) => elements.has(id),
     element: (id) => elements.get(id),
     version: () => version,
@@ -303,6 +383,7 @@ export function createRectIndex(options: {
       rects.clear();
       slotElements.clear();
       slotRects.clear();
+      elementRects.clear();
       observedEmptySlots.clear();
     },
   };

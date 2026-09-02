@@ -48,6 +48,15 @@ export interface AiBlockPropertyIntentContext {
 export interface AiBlockContext {
   type: string;
   description: string;
+  /**
+   * The prop names a block ALREADY ON THE PAGE accepts — present in `none`
+   * mode for exactly those types, and nothing more. "Make the hero title
+   * bigger" is the most common ask there is; without the names the model
+   * invented a `size` prop the door then rejected. Names cost ~30 tokens a
+   * block; the schema would cost ~1,000. Values are inferred from the props
+   * the document already shows.
+   */
+  propKeys?: readonly string[];
   /** Present in `full` mode, and in `scoped` mode for the scoped types. */
   propsSchema?: JsonValue;
   /** Declared design/Inspector intent grouped to avoid repeating section chrome on the wire. */

@@ -172,3 +172,40 @@ Playwright against the running playground at `http://localhost:5173`, Assistant 
 
 The server had no credentials; the SDK's request-time error is a plain `Error`, unrecognised
 by the translator. Fixed (T261): the frame now names the cause and where the key goes.
+
+## The panel experience, driven live (T263)
+
+Playwright against `http://localhost:5173`, Assistant tab, after the panel landed:
+
+| Check | Observed |
+|---|---|
+| Header | `h2` text «أبو غضب» only, `lang="ar" dir="rtl"`, no transliteration span, one `role=status` |
+| Hover on the face (idle) | brow--end `rotate: -6deg`, `translate: 0px -1px`; eye `scale: 1.12`; disc `scale: 1.05`; halo blur 12 px; voice line unchanged |
+| Pointer look | seat carries `--pg-face-look-x/-y` (0px at the seat's centre) |
+| Send | solid accent `rgb(91 91 214)`; footnote "Propose, then wait for Apply" beside the guarantee |
+| A run with no server key | refusal card: message, `invalid-output` pill, "· provider · at Structure", Retry |
+
+A pre-existing defect surfaced by the run: ten "two children with the same key" errors — the turn
+counter restarted at 1 on every load and repeated saved ids. Fixed and pinned (ids continue from
+the revived conversation).
+
+## The first real plan through the CLI-backed server (T265)
+
+A peer session put `CRAFTKIT_AI_BACKEND=cli` on 8787 (the local `claude` CLI answering in place of
+the Messages API, dev only). Driven from the panel: "كبّر عنوان الهيرو".
+
+| Step | Observed |
+|---|---|
+| In flight | `Working on the page 1/2`: Plan Done 00:00.000 → Structure Active "Repairing 1", spinner, "Reading the page…", red Stop, voice «لقيت غلطة. عم أصلّحها.» |
+| Outcome | refusal: "Step 0 was rejected by the kernel door: Type "hero" declares no prop "__unknown_hero_heading_size_prop__"" · `plan-rejected` · plan · **at Structure** |
+
+Diagnosis: `none` mode sent nothing about the hero on the page — not even its prop names — so the
+model invented one. Fix: presence entries (name + prop keys) for every block type in the document;
+`none` on the landing page goes ~4,500 → ~9,000 tokens, still < `full`/5, cached across a
+conversation. Two panel defects seen in the same run and fixed: a refusal quoting a long token
+overflowed the card (now wraps), and the progress row's name and detail overlapped at 288 px (the
+detail now drops under the name).
+
+Re-run after the fix, same request: **Proposal** card — rationale «سأكبّر حجم خط عنوان قسم الهيرو
+باستخدام قيمة مسموحة ضمن مخطط الخاصية», one step, receipt `Plan 00:00.000 · Structure 00:11.399`,
+Apply / Preview / Discard, voice back to idle. The first real plan through the panel, end to end.

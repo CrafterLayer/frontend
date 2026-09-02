@@ -41,7 +41,7 @@
 .bldr-genprogress__list {
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-x);
+  gap: var(--bldr-space-2xs);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -57,8 +57,8 @@
   display: grid;
   gap: var(--bldr-space-sm);
   grid-template-columns: auto 1fr auto auto auto;
-  padding-block: var(--bldr-space-x);
-  padding-inline: var(--bldr-space-x);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
 }
 
 .bldr-genprogress__icon {
@@ -68,8 +68,8 @@
 }
 
 .bldr-genprogress__glyph {
-  block-size: 16px;
-  inline-size: 16px;
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
 }
 
 .bldr-genprogress__name {
@@ -96,22 +96,22 @@
 
 .bldr-genprogress__mark {
   align-items: center;
-  block-size: 16px;
+  block-size: var(--bldr-space-3xl);
   display: flex;
-  inline-size: 16px;
+  inline-size: var(--bldr-space-3xl);
   justify-content: center;
 }
 
 .bldr-genprogress__mark-glyph {
-  block-size: 16px;
-  inline-size: 16px;
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
 }
 
 .bldr-genprogress__ring {
-  block-size: 12px;
+  block-size: var(--bldr-space-xl);
   border: var(--bldr-border-thick) solid currentcolor;
   border-radius: var(--bldr-radius-full);
-  inline-size: 12px;
+  inline-size: var(--bldr-space-xl);
   opacity: 0.35;
 }
 

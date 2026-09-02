@@ -60,6 +60,55 @@ function renderTree(children: CustomCodeNode[], withLookup = true) {
 }
 
 describe('CustomCode', () => {
+  it('on the canvas, stamps every authored element and icon with its tree path so the shell can address it', () => {
+    const { container } = render(
+      <CustomCodeRegistryContext.Provider value={lookup}>
+        <CustomCode
+          tree={tree([
+            {
+              kind: 'element',
+              tag: 'section',
+              children: [
+                { kind: 'element', tag: 'img', attributes: { src: '/a.jpg', alt: 'A' } },
+                {
+                  kind: 'element',
+                  tag: 'div',
+                  children: [
+                    { kind: 'element', tag: 'h1', text: 'Title' },
+                    { kind: 'icon', name: 'mail' },
+                    { kind: 'element', tag: 'button', text: 'Go' },
+                  ],
+                },
+              ],
+            },
+          ])}
+          hostId="host1"
+          isCanvas
+        />
+      </CustomCodeRegistryContext.Provider>,
+    );
+
+    expect(container.querySelector('section')?.getAttribute('data-ck-path')).toBe('0');
+    expect(container.querySelector('img')?.getAttribute('data-ck-path')).toBe('0.0');
+    expect(container.querySelector('h1')?.getAttribute('data-ck-path')).toBe('0.1.0');
+    expect(container.querySelector('svg')?.getAttribute('data-ck-path')).toBe('0.1.1');
+    expect(container.querySelector('button')?.getAttribute('data-ck-path')).toBe('0.1.2');
+  });
+
+  it('never stamps paths off the canvas: a published page carries no editing addresses', () => {
+    const { container } = renderTree([
+      {
+        kind: 'element',
+        tag: 'section',
+        children: [
+          { kind: 'element', tag: 'img', attributes: { src: '/a.jpg', alt: 'A' } },
+          { kind: 'icon', name: 'mail' },
+        ],
+      },
+    ]);
+    expect(container.querySelector('[data-ck-path]')).toBeNull();
+  });
+
   it('renders authored markup with its classes and text', () => {
     const { container } = renderTree([
       {

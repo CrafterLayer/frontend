@@ -54,6 +54,41 @@ describe('planProviderFromEnv', () => {
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer development-secret');
   });
 
+  /*
+    A plan is 15-25k output tokens; through the dev CLI backend that is three
+    to five minutes, and through the API it is minutes too. A two-minute panel
+    deadline aborted every real run in flight and reported it as a provider
+    failure — the request has to outlive the server's own cap so the server's
+    specific message is the one the user reads.
+  */
+  it('waits longer than a plan takes instead of aborting a live run', async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+        signal = init?.signal ?? undefined;
+        return new Promise<Response>(() => undefined);
+      }),
+    );
+    const provider = planProviderFromEnv({
+      VITE_AI_PLAN_ENDPOINT: 'https://assistant.example.test/plan',
+    });
+    const context: AssembledAiContext = {
+      fragments: [],
+      totalTokens: 0,
+      blocks: [],
+      document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'root', nodes: [] },
+      selection: { ids: [] },
+    };
+
+    void provider?.propose('Add a hero.', context).catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(300_000);
+
+    expect(signal?.aborted).toBe(false);
+    vi.useRealTimers();
+  });
+
   it('allows explicit development HTTP only for a loopback bridge', () => {
     expect(
       planProviderFromEnv({

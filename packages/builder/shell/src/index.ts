@@ -15,6 +15,7 @@ export {
 } from './components/ChromeButton';
 export {
   GENERATION_STAGE_IDS,
+  GENERATION_STAGE_LABELS,
   GenerationProgress,
   type GenerationProgressProps,
   type GenerationStage,

@@ -107,11 +107,16 @@ defaulted rows is omitted instead of opening an empty panel.
 
 ## Information hierarchy
 
-Only tabs containing real rows render. The active tab exposes one `tabpanel`; inactive populated
-panels stay mounted but hidden so drafts, field errors, lazy contributions, and focus locks survive
-a tab round trip. Sections retain schema property order, use first occurrence for section order,
-start expanded, and collapse independently through buttons with `aria-expanded` and `aria-controls`.
-Declared pairs retain that property order inside their two-cell grid.
+Only tabs containing real rows render. Every populated tab always has its `tabpanel` shell (so
+`aria-controls` resolves), but a tab's BODY — its sections and rows — mounts on the tab's first
+activation and then stays mounted, hidden, for as long as the same block and bucket are selected.
+Selecting a block therefore pays for the Content rows only; the first visit to Design or Advanced
+pays for that tab's rows once. After that first visit a round trip costs nothing, and rejection
+reasons, unsent nested drafts, lazily loaded contributions, and focus locks all survive it. A new
+selection or bucket resets the strip to Content and remounts the rows under new keys. Sections
+retain schema property order, use first occurrence for section order, start expanded, and collapse
+independently through buttons with `aria-expanded` and `aria-controls`. Declared pairs retain that
+property order inside their two-cell grid.
 
 The professional story declares these sections:
 
@@ -124,6 +129,63 @@ The professional story declares these sections:
 
 ## Field layout and presentation
 
+### Visual hierarchy
+
+The panel is sized by its container. `.bldr-inspector` fills the column it is placed in
+(`inline-size: 100%; min-block-size: 100%`), draws no seam of its own and reads no width token: the
+shell's aside decides the column and paints the one hairline between canvas and inspector (the
+Palette and LayersTree precedent). Stories supply that frame through the `withInspectorFrame`
+decorator; the two canvas stories opt out and wrap their own `<Inspector>` in the token-sized box.
+
+The head is sticky against the scrolling aside, so the strip stays reachable while a long block's
+rows scroll beneath it. Inside it, **Inspector** is the eyebrow — a muted, uppercase caption, the
+LayersTree title idiom — and the block's display name is the visible title: the same string as the
+canvas chip and the layers tree (`blockDisplayName`), one line, elided, in
+`<p aria-label="Selected block">`. The bucket badge sits beside the name as a small accent pill;
+under an override bucket a soft accent note reads `Editing tablet overrides` below. With nothing
+selected the name reads `No block selected` in the muted weight, and the body shows a dashed,
+centred invitation with the pointer mark in a soft accent disc. An unregistered type is not "nothing
+to edit": it says what happened in the warning tone with a thick leading edge, the same strip a
+rejection wears in the danger tone.
+
+The tab strip is a segmented control on the panel's control ground (the Palette idiom): the selected
+tab lifts onto the panel colour with the raised shadow, the rest sit muted until hovered. Sections
+are separated by one hairline between neighbours — never under the last, never per row — and rows
+breathe through the section grid's gap instead. A section heading is a small uppercase toggle with
+one chevron glyph that points down when expanded and is rotated 180° when collapsed
+(`[data-collapsed='true']`), which reads the same under RTL. A declared pair is one legend and two
+cells whose captions are quieter than a full row's label, because the legend already named the pair.
+
+### Scale tokens
+
+Three tokens size every control, and no Inspector rule names a size of its own:
+
+- `--bldr-control-height-sm` (density-aware) — tabs, section toggles, the block name's line,
+  repeater disclosures;
+- `--bldr-control-height` (density-aware) — text and number inputs, the repeater's Add button;
+- `--bldr-control-sm` — the story-measured squares: icon segments, the device-override glyph box,
+  the override-clear button, repeater actions, and the Clear-selection ChromeButton (`size="sm"`).
+
+Under `data-bldr-density="compact"` the first two shrink with the rest of the chrome; the
+`CompactDensity` story measures it.
+
+### Edges, glyphs, motion, dark
+
+Every hairline is `var(--bldr-border-hairline)` and every thick edge (rejection, warning) is
+`var(--bldr-border-thick)`; no sheet spends a spacing token on a border. Every glyph carries the
+shared recipe on the element — `viewBox="0 0 16 16"`, `fill="none"`, `stroke="currentColor"`,
+`stroke-width="1.5"`, round caps and joins — and CSS only sizes its box, never its stroke. Each
+sheet that declares a transition carries its own `@media (prefers-reduced-motion: reduce)` block on
+top of the product-wide zeroing. Dark chrome is the same rules under different token values: no
+Inspector sheet branches on `data-bldr-theme`, and the `DarkChrome` story proves the selected tab
+and the panel ground resolve to the dark `--bldr-panel`. Logical properties only, so RTL mirrors by
+construction. The focus ring is never clipped: the segments container and the repeater card do not
+hide overflow; pressed and hover fills carry their own logical end radii, and repeater chrome stays
+transparent over the card's rounded border. `Inspector.design.test.tsx` reads the three sheets and
+pins every rule above.
+
+### Controls
+
 Every property label sits above its control. Native and contributed controls receive the complete
 row width in the resolved Inspector column instead of sharing it with a fixed label column. The
 visible label is humanized while the established property key remains the control's accessible name.
@@ -131,7 +193,7 @@ visible label is humanized while the established property key remains the contro
 - Text, select, switch, number, and read-only fallbacks retain their established behavior.
 - Numbers show a unit suffix; dimension-like values use `px`, durations use `ms`, angles use `deg`,
   and other numbers show an explicit unitless dash. Numeric values use the builder mono face and
-  tabular numerals.
+  tabular numerals; the unit is a sunken end cap on the same control.
 - A property declared as `kind: 'color-role'` renders the role radiogroup. An undeclared string
   remains the ordinary text control regardless of its name.
 - Enums with three or more supported alignment or direction members render as icon segments. Each
@@ -142,6 +204,8 @@ visible label is humanized while the established property key remains the contro
 - A declared pair renders one `fieldset`/`legend` heading and two labelled cells. The visible
   `Top`/`Bottom` captions come from the declaration; each control keeps its original property key as
   its accessible name.
+- An owned override wears the `{bucket} override` pill — the same pill as the header's bucket badge
+  — beside a small, quiet clear button that turns to the danger tone only under the pointer.
 
 All component styling reads the `--bldr-*` theme contract. The Inspector declares no fallback
 colors, sizes, spacing, radii, or motion values.
@@ -154,15 +218,47 @@ string, then `Item N`. This yields `title` for Features, `name` for Pricing, and
 Testimonials. Primitive strings, including `Pricing.plans[].features`, label themselves.
 
 The card body is not a separate form implementation. It sends every object property or primitive
-element back through `InspectorRow`, and a nested array recurses into another repeater through the
-same path. Add builds a valid starting element from schema defaults and required scalar/object/array
-shapes. Empty arrays state `No items yet.` and keep Add visible.
+element back through `InspectorRowBody`, and a nested array recurses into another repeater through
+the same path. Add builds a valid starting element from schema defaults and required
+scalar/object/array shapes. Empty arrays state `No items yet.` and keep Add visible.
 
 Add, Remove, Move Up, and Move Down each rebuild the root array immutably and call the existing
 property commit door once. Text and number descendants keep a local draft while typing and commit
 the rebuilt array once on blur or Enter. Array minimum and maximum bounds disable the corresponding
 controls with a visible reason. Door refusals stay on the nested row or repeater action that caused
 them, while the document remains unchanged.
+
+## Editing inside a composed region
+
+A block whose schema declares a composition tree (`customCodeTree()` — the assistant's `customCode`
+block is the one that ships) stores everything the assistant authored in ONE prop of ONE node: the
+portrait, the headline, the buttons. That is the right storage shape and, on its own, the wrong
+editing shape — selecting the region offered `label`, a JSON textarea, and `css`, and a person who
+clicked the photo could not touch the photo.
+
+The kernel now carries an ephemeral **element focus** beside the selection (`state.elementFocus`,
+set by `kernel.focusElement(id, path)` when the canvas hit-tests an authored element, cleared by
+`clearElementFocus()`, `setSelection()`, `clearSelection()`, or the host node vanishing). While a
+focus names an element of the selected node, the Inspector replaces the block's tabs with that
+element's rows:
+
+- the header names the element as a person would (`Image`, `Heading`, `Link`, `Button`,
+  `Icon (mail)`), says which region it is in, and offers **Back to region**;
+- an `img` edits `src` and `alt`; any text-bearing tag edits `text`; a link adds `href` and
+  `target`; a `time` adds `datetime`; every element edits `className` under Design and `id`,
+  `title`, `role`, `aria-label`, `aria-hidden` under Advanced; an icon edits its `name`, `label`,
+  `size`, `strokeWidth`, and classes;
+- every commit rebuilds the tree prop at the focused path and dispatches ONE `setProp` — one
+  transaction, one undo, structural sharing everywhere else. Clearing an attribute deletes the key
+  (never stores `''` or `undefined`), so the document stays JSON and a cleared `title` does not
+  render;
+- values render from document truth: the panel subscribes to the tree prop, so an undo or an AI
+  rewrite shows through, and an element that no longer exists says so and offers the way back.
+
+The prop is found by its declaration, never by name (`customCodeTreeKey`), and the row vocabulary
+mirrors the tree's own (`custom-code/element-fields.ts`), so the panel never offers a value the
+validated door refuses. Component references inside a tree (`{kind:'component'}`) are not
+addressable yet: they render through the referenced block's own root.
 
 ## Defaults and document truth
 
@@ -198,6 +294,67 @@ components load lazily through the per-definition cache. A contribution that fai
 falls back to the default control for that one property. A focused row keeps its resolved renderer
 until focus leaves, so runtime registration cannot steal a caret mid-edit.
 
+## Render model
+
+The panel is built so that one property edit renders one row. The shell subscribes to the kernel
+through four primitive selectors — the selected id, its block type, its `label` prop, and the
+document direction — plus the registry epoch and the (immer-stable) element focus. A store write
+that changes none of those (every value edit, undo, redo, or an edit to another block) never renders
+the Inspector, its header, its tabs, or its live region.
+
+Each row is an `InspectorPropertyRow`, the panel's single `memo` boundary. It subscribes to its own
+property through `store.subscribeNode` with three primitive reads (the stored value, the bucket's
+override, and whether an override exists) and renders `InspectorRowBody`, a plain function. A write
+to another key of the same node runs those reads and bails; a write to this key renders this body
+once. Sections are controlled `memo` components: a toggle renders the panel and the toggled section,
+and every other section and row bails on unchanged props.
+
+Everything a row needs besides its own value travels in one memoised `scope` object — kernel, node
+id, bucket, catalog version, palette, `onRetheme`, `announce`, direction, declarations. A new scope
+identity is exactly the set of events that must touch every mounted row once: a selection or bucket
+change (rows remount under `${nodeId}:${bucket}:${propKey}` keys), a registry epoch (rows re-resolve
+their field type), a theme or direction change. `onRetheme` is wrapped so a host that re-creates it
+on every render does not pay for that, and it stays `undefined` when the host passes `undefined` so
+the colour control keeps hiding its picker.
+
+Schema facts are cached per schema identity in module `WeakMap`s: the default value (one
+`safeParse(undefined)` per schema, ever — every consumer treats that value as immutable) and the
+enum members with their segmented-control classification. Announcements go through a per-panel
+external store whose only subscriber is the live region, so a commit's message renders that element
+alone. A nested deferred draft is keyed by the value it was typed over and simply stops applying
+when that value moves, so the edited row body runs exactly once per edit.
+
+`Inspector.render-count.test.tsx` pins this contract with real render counters: nine Content rows on
+mount, one body per external edit, zero header/section/live-region renders on an edit, zero renders
+on a tab round trip, one section on a collapse, header-only on a host rerender with identical props,
+and zero commits for unrelated-node, same-id-selection, and no-op writes.
+
+## Parts
+
+| File                                                                     | Responsibility                                                                                                                             |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Inspector.tsx`                                                          | Composer: four selectors, registry epoch, scope, header, tabs, panels                                                                      |
+| `InspectorHeader.tsx`                                                    | Eyebrow, block name, bucket badge and note, Clear selection, tab slot; the element's region and Back to region while an element is focused |
+| `InspectorElementPanel.tsx` / `InspectorElementSection.tsx`              | A focused element's rows, committed by rebuilding the tree prop at its path; the plain always-open section                                 |
+| `../../custom-code/element-at.ts` / `element-fields.ts`                  | Tree prop by declaration and focus → element resolution; the per-kind row vocabulary and its writes                                        |
+| `InspectorTabs.tsx` / `InspectorTabPanel.tsx`                            | Roving-tabindex tablist; always-present panel shell with a lazy-once body                                                                  |
+| `InspectorSection.tsx`                                                   | Memoised collapsible section (controlled `expanded`, stable `onToggle`)                                                                    |
+| `InspectorPropertyPair.tsx`                                              | A declared two-cell pair: one `fieldset`/`legend`, two rows                                                                                |
+| `InspectorPropertyRow.tsx`                                               | The memo boundary: per-property subscription, document truth into the body                                                                 |
+| `InspectorRowBody.tsx`                                                   | The row: label, glyph, marker, control, rejection; nested repeater rows                                                                    |
+| `SegmentedControl.tsx` / `OverrideMarker.tsx`                            | Icon segments; the "{bucket} override" pill and its one-transaction clear                                                                  |
+| `LabeledSlot.tsx` / `FieldErrorBoundary.tsx`                             | The named control group; containment for a throwing contributed renderer                                                                   |
+| `InspectorLiveRegion.tsx` / `InspectorEmptyState`                        | The polite region; invitation, unknown-type and no-properties copy                                                                         |
+| `Inspector.icons.tsx`                                                    | The panel's glyphs on the shared 16-unit, 1.5-stroke, `currentColor` recipe                                                                |
+| `use-property-value.ts`                                                  | `subscribeNode` + three primitive `useSyncExternalStore` reads                                                                             |
+| `use-field-rendering.ts` / `use-row-commit.ts`                           | Field resolution, lazy load and the R8 lock; the guarded one-dispatch door                                                                 |
+| `use-inspector-tabs.ts` / `use-collapsed-sections.ts`                    | Tab scope, visited set, keyboard model (RTL-mirrored); the collapsed set                                                                   |
+| `use-inspector-announcer.ts` / `use-stable-callback.ts`                  | The announcement store; the stable `onRetheme` wrapper                                                                                     |
+| `partition-properties.ts` / `schema-facts.ts`                            | Tabs → sections → entries from declarations; cached defaults and enum facts                                                                |
+| `property-label.ts` / `segment-icons.ts` / `selectors.ts`                | Labels and units; segment paths and RTL mirroring; the selectors (four primitives + element focus)                                         |
+| `field-module-cache.ts` / `constants.ts` / `types.ts`                    | The per-def module cache and default controls; copy; shared types                                                                          |
+| `Inspector.css` / `InspectorRow.css` / `RepeaterField/RepeaterField.css` | Shell, head, tabs, sections, pairs, states · rows and field skins · repeater                                                               |
+
 ## Usage
 
 ```tsx
@@ -208,19 +365,28 @@ import { Inspector, lightTheme } from '@craftkit/builder';
 
 ## API
 
-| Prop     | Type            | Notes                                                               |
-| -------- | --------------- | ------------------------------------------------------------------- |
-| `kernel` | `BuilderKernel` | required; by prop (the shell never reads React context)             |
-| `bucket` | `EditingBucket` | optional; `'base'` (default) edits props, others overrides          |
-| `theme`  | `Theme`         | active page theme for role swatches; starter light theme by default |
+| Prop        | Type                    | Notes                                                                                        |
+| ----------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| `kernel`    | `BuilderKernel`         | required; by prop (the shell never reads React context)                                      |
+| `bucket`    | `EditingBucket`         | optional; `'base'` (default) edits props, others overrides                                   |
+| `theme`     | `Theme`                 | active page theme for role swatches; starter light theme by default                          |
+| `onRetheme` | `(role, value) => void` | optional; re-points one role in the live theme — absent, the colour control hides its picker |
 
 ## Accessibility and keyboard behavior
 
+While a block is selected, the title row carries a quiet, small `Clear selection` button beside the
+panel title (the cross glyph is decorative; the text is its one accessible name). It calls
+`kernel.clearSelection()` — the same ephemeral door the canvas uses, never a transaction, so Undo
+keeps meaning "put my edit back" — returns the panel to its invitation, and announces
+`Selection cleared` through the panel's polite region. With nothing selected there is nothing to
+clear, so no control is offered.
+
 The strip uses `role="tablist"`, `role="tab"`, and `role="tabpanel"`. Exactly one rendered tab has
 `aria-selected="true"` and `tabIndex={0}`. Left/Right arrows move and activate with wraparound; Home
-and End move to the first and last populated tab. Every panel is labelled by its controlling tab
-through `aria-labelledby`. The component never emits `aria-current="page"` because these are
-property views, not page navigation.
+and End move to the first and last populated tab. Under a right-to-left document the arrows are
+mirrored, so ArrowLeft always moves towards the next tab as drawn and ArrowRight towards the
+previous one. Every panel is labelled by its controlling tab through `aria-labelledby`. The
+component never emits `aria-current="page"` because these are property views, not page navigation.
 
 Every control slot is a structural named group. Native controls connect to the visible property
 label with `htmlFor`; composite segments use the label ID through `aria-labelledby`. Rejections and
@@ -245,6 +411,8 @@ structural action describes only its causing control and card.
 ## Story states
 
 - `EmptyState` keeps the selected-block area visible with an invitation.
+- `ClearSelection` presses the title-row control and proves the panel returns to that invitation
+  with the kernel's selection empty and no transaction recorded.
 - `DeclaredPropertyTabs` proves the declaration-backed semantics and labelled panel.
 - `AllSectionsExpanded` visits all three populated tabs and their declared sections.
 - `LabelAboveFullWidthControl` measures label/control geometry and the Spacing two-by-two grid in
@@ -257,8 +425,22 @@ structural action describes only its causing control and card.
   column and every interactive control resolves within the accepted compact-control height range.
 - `ColorRolePaletteReflectsToCanvas` proves each swatch resolves, the group fits the Inspector token
   width, one role transaction lands, and the rendered block's resolved background changes.
-- `CollapsedSection`, `InvalidValueRefusal`, `TabletOverrides`, `ContributedField`, and
-  `RightToLeft` retain the behavioral and state variants.
+- `RightToLeft` also proves the keyboard model under `dir="rtl"`: ArrowLeft on the Content tab
+  selects and focuses Design, then the play returns to Content so reruns stay idempotent.
+- `CollapsedSection`, `InvalidValueRefusal`, `TabletOverrides`, and `ContributedField` retain the
+  behavioral and state variants.
+- `UnknownBlockType` selects a block whose type no registered schema describes: the head still names
+  it and the body says what happened in the warning tone, with no strip.
+- `DarkChrome` renders the panel under `data-bldr-theme="dark"` and proves the selected tab and the
+  panel ground resolve to the dark `--bldr-panel` — the same sheet, different tokens.
+- `CompactDensity` renders under `data-bldr-density="compact"` and measures every tab against the
+  resolved `--bldr-control-height-sm` and the text input against `--bldr-control-height`.
+- `TabletOverrideMarker` proves the override vocabulary in Chromium: the `tablet override` pill on
+  the owned `title`, the `Clear title override` button at `--bldr-control-sm` in both axes, one
+  transaction to clear, then the override written back so reruns stay idempotent.
+- `ElementFocus` renders a composed region beside the real canvas with its portrait focused: the
+  header reads `Image` in the region, the image's `src`/`alt` rows are the panel, and **Back to
+  region** returns the region's own rows with the selection kept.
 
 ## When not to use
 
@@ -275,3 +457,6 @@ type.
 - Unit presentation is limited to the property meanings already carried by property keys; unknown
   numeric meanings use the explicit unitless dash.
 - Rich-text leaf properties retain their separately owned editor contract.
+- Inside a composed region, only authored elements and icons are addressable; a referenced block
+  (`{kind:'component'}`) still edits as part of the region. Element rows always edit the base value:
+  a composition tree has no per-device overrides.

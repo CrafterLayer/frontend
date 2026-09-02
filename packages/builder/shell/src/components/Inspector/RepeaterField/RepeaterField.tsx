@@ -8,6 +8,8 @@ import {
 } from '../../../fields/repeater-schema';
 import type { FieldCommitResult } from '../../../fields/field-commit';
 import type { RepeaterFieldProps } from './types';
+import '../InspectorRow.css';
+import './RepeaterField.css';
 
 function replaceAt(values: readonly unknown[], index: number, value: unknown): unknown[] {
   return values.map((current, currentIndex) => (currentIndex === index ? value : current));
@@ -214,7 +216,16 @@ export function RepeaterField({
                       });
                     }}
                   >
-                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
                       <path d={expanded ? 'm4 10 4-4 4 4' : 'm4 6 4 4 4-4'} />
                     </svg>
                     <span className="bldr-repeater__item-label">
@@ -251,7 +262,16 @@ export function RepeaterField({
                         }
                       }}
                     >
-                      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
                         <path d="m4 10 4-4 4 4" />
                       </svg>
                     </button>
@@ -284,7 +304,16 @@ export function RepeaterField({
                         }
                       }}
                     >
-                      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
                         <path d="m4 6 4 4 4-4" />
                       </svg>
                     </button>
@@ -321,7 +350,16 @@ export function RepeaterField({
                         );
                       }}
                     >
-                      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
                         <path d="m4 4 8 8M12 4l-8 8" />
                       </svg>
                     </button>
@@ -403,7 +441,16 @@ export function RepeaterField({
           );
         }}
       >
-        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
           <path d="M8 3v10M3 8h10" />
         </svg>
         <span>Add item</span>

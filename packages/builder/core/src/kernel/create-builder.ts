@@ -79,8 +79,32 @@ export interface BuilderKernel {
   getDocument(): Readonly<BuilderDocument>;
   /** Structural + registry-aware validation of the live document. */
   validate(): BuilderError[];
-  /** Ephemeral UI selection — kernel state, not document data, never a transaction. */
+  /**
+   * Ephemeral UI selection — kernel state, not document data, never a
+   * transaction. Selecting whole nodes also drops any element focus: a focus
+   * names an element INSIDE `selection[0]`, so it cannot outlive that choice.
+   */
   setSelection(ids: NodeId[]): void;
+  /**
+   * Empty the selection through the SAME ephemeral door: never a transaction,
+   * and one store write per call exactly like `setSelection([])` — so every
+   * subscriber that re-announces on a selection write ("Selection cleared")
+   * hears both doors identically.
+   */
+  clearSelection(): void;
+  /**
+   * Select `id` AND focus one element inside its stored composition (a
+   * custom-code tree), addressed by child indices from the tree root. ONE
+   * write: the selection and the focus are one decision — a person clicked
+   * that image — and must never be observable as two events.
+   */
+  focusElement(id: NodeId, path: readonly number[]): void;
+  /**
+   * Step back from an element to its host node: the selection is kept, only
+   * the focus is dropped. One write per call, even when already clear — the
+   * same law as `clearSelection`, for the same subscribers.
+   */
+  clearElementFocus(): void;
   /** The session's transaction log (replay source). */
   transactions(): readonly Transaction[];
   /** Persist all unflushed transactions; resolves to the new store position. */
@@ -118,6 +142,7 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
   const store = createKernelStore({
     doc: document,
     selection: [],
+    elementFocus: null,
     seq: options.initialSeq ?? 0,
   });
   const events = createEventBus();
@@ -220,7 +245,22 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
     validate: () => validateDocument(store.getState().doc, lookup),
     setSelection(idsToSelect) {
       const state = store.getState();
-      store.write({ ...state, selection: [...idsToSelect] }, []);
+      store.write({ ...state, selection: [...idsToSelect], elementFocus: null }, []);
+    },
+    clearSelection() {
+      // A fresh array on every call, exactly as setSelection writes one: the
+      // write itself is the signal selection subscribers key off, and an
+      // "already empty" short-circuit here would make the two doors diverge.
+      const state = store.getState();
+      store.write({ ...state, selection: [], elementFocus: null }, []);
+    },
+    focusElement(id, path) {
+      const state = store.getState();
+      store.write({ ...state, selection: [id], elementFocus: { id, path: [...path] } }, []);
+    },
+    clearElementFocus() {
+      const state = store.getState();
+      store.write({ ...state, elementFocus: null }, []);
     },
     transactions: () => dispatcher.log.all(),
     flush,

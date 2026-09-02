@@ -100,7 +100,13 @@ function KernelStage({
   initialSelected: NodeId;
   dir?: 'ltr' | 'rtl' | undefined;
 }) {
-  const [kernel] = useState(makeKernel);
+  const [kernel] = useState(() => {
+    // The kernel's selection starts where the stage's does, so the Deselect
+    // play asserts a real transition (something → none), not an empty → empty.
+    const fresh = makeKernel();
+    fresh.setSelection([initialSelected]);
+    return fresh;
+  });
   const [selected, setSelected] = useState(initialSelected);
   const [announcement, setAnnouncement] = useState('');
   const [editing, setEditing] = useState(false);
@@ -123,6 +129,9 @@ function KernelStage({
             setAnnouncement(`Editing ${selected}`);
             return;
           }
+          // Deselect returns `selection: null` — the kernel's selection is
+          // empty; the stage keeps ITS `selected` so the bar stays on screen
+          // for a rerun. The kernel line below is the truth the play reads.
           const result = performBlockAction(kernel, selected, id);
           if (result.selection !== null) {
             setSelected(result.selection);
@@ -135,6 +144,11 @@ function KernelStage({
         transactions: <span data-testid="tx-count">{kernel.transactions().length}</span>
         <br />
         selected: <span data-testid="selected">{selected}</span>
+        <br />
+        kernel selection:{' '}
+        <span data-testid="kernel-selection">
+          {snapshot.selection.length === 0 ? 'none' : snapshot.selection.join(' ')}
+        </span>
         <br />
         sA children: <span data-testid="children">{children.join(' ')}</span>
         <br />
@@ -287,6 +301,29 @@ export const EditTextWithoutDispatch: Story = {
     await expect(canvas.getByTestId('tx-count')).toHaveTextContent(txBefore);
     await expect(canvas.getByTestId('editing')).toHaveTextContent('t2');
     await expect(canvas.getByTestId('announcement')).toHaveTextContent('Editing t2');
+  },
+};
+
+export const DeselectClearsWithoutDispatch: Story = {
+  args: BASE_ARGS,
+  render: () => <KernelStage initialSelected="t2" />,
+  play: async ({ canvasElement }) => {
+    // The way OUT of a selection: zero transactions, the kernel's selection
+    // empties, the announcement says so. Last in the bar, never disabled, and
+    // the one action whose tooltip carries a shortcut — Escape does the same.
+    // Rerun-safe: a second run starts from "none" and lands on "none".
+    const canvas = within(canvasElement);
+    const txBefore = readText(canvas.getByTestId('tx-count'));
+    const deselect = canvas.getByRole('button', { name: 'Deselect' });
+    await expect(deselect).toHaveAttribute('title', 'Deselect (Esc)');
+    const buttons = canvas.getAllByRole('button');
+    await expect(buttons.at(-1)).toBe(deselect);
+
+    await userEvent.click(deselect);
+
+    await expect(canvas.getByTestId('tx-count')).toHaveTextContent(txBefore);
+    await expect(canvas.getByTestId('kernel-selection')).toHaveTextContent('none');
+    await expect(canvas.getByTestId('announcement')).toHaveTextContent('Selection cleared');
   },
 };
 

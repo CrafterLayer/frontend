@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { RepeaterFieldProps } from './types';
 import { RepeaterField } from './RepeaterField';
 import '../Inspector.css';
+import '../InspectorRow.css';
 
 const itemSchema = z.array(z.object({ title: z.string().min(1), body: z.string().min(1) }));
 const boundedSchema = itemSchema.min(1).max(2);
@@ -21,8 +22,13 @@ const meta = {
   title: 'Builder/Shell/Inspector/RepeaterField',
   component: RepeaterField,
   decorators: [
+    // The container decides the panel's width (R12); the story is that container.
     (Story) => (
-      <section className="bldr-inspector" aria-label="Repeater story frame">
+      <section
+        className="bldr-inspector"
+        aria-label="Repeater story frame"
+        style={{ inlineSize: 'var(--bldr-inspector-width)', padding: 'var(--bldr-panel-padding)' }}
+      >
         <Story />
       </section>
     ),

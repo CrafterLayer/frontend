@@ -26,6 +26,7 @@ const meta = {
     selectedSkillIds: { control: false },
     agentPolicy: { control: false },
     onAgentEvent: { control: false },
+    locale: { control: 'inline-radio', options: ['ar', 'en'] },
   },
 } satisfies Meta<typeof AssistantPanel>;
 
@@ -241,6 +242,137 @@ export const AutoAppliesValidatedProposal: Story = {
     await expect(args.onAgentEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'run.completed', status: 'applied' }),
     );
+  },
+};
+
+/**
+ * The character in the header follows the run — reading while the provider
+ * works, then the proposal — and the panel's one status line says the same
+ * thing in words. English so the assertion reads the same as the card.
+ */
+export const LiveFace: Story = {
+  args: { kernel: createPlaygroundKernel({ fixture: 'empty' }), locale: 'en' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The face is decoration inside an aria-hidden seat: reached by class, not role.
+    const face = canvasElement.querySelector<HTMLElement>('.pg-chat__brand-mark .pg-face');
+    if (face === null) {
+      throw new Error('The header must seat the character face.');
+    }
+    const voice = canvas.getByRole('status');
+    await expect(voice).toHaveTextContent('Say what you want. Skip the preamble.');
+    await expect(face).toHaveAttribute('data-mood', 'idle');
+
+    await submitRequest(canvasElement, 'add a hero');
+
+    await waitFor(
+      async () => {
+        await expect(voice).toHaveTextContent(/That's the plan|Applied as one change/);
+      },
+      { timeout: 3000 },
+    );
+    await expect(face).toHaveAttribute('data-mood', 'done');
+    await expect(canvas.getByRole('button', { name: 'Apply' })).toBeVisible();
+    await expect(canvas.getAllByRole('status')).toHaveLength(1);
+    // One name, in the locale's language.
+    const heading = canvas.getByRole('heading', { level: 2 });
+    await expect(heading).toHaveTextContent('Abu Ghadab');
+    await expect(heading).not.toHaveTextContent('أبو غضب');
+  },
+};
+
+/** The English persona: one Latin name, one status line in English. */
+export const EnglishName: Story = {
+  args: { kernel: createPlaygroundKernel({ fixture: 'empty' }), locale: 'en' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.getByRole('heading', { level: 2 });
+    await expect(heading).toHaveTextContent('Abu Ghadab');
+    await expect(heading).not.toHaveTextContent('أبو غضب');
+    await expect(heading.querySelector('[lang="ar"]')).toBeNull();
+    await expect(canvas.getAllByRole('status')).toHaveLength(1);
+  },
+};
+
+/** A provider that never answers: the rows stay in flight for the camera. */
+const neverAnsweringProvider: AiPlanProvider = {
+  propose: () =>
+    new Promise(() => {
+      /* never settles */
+    }),
+};
+
+export const InFlightProgress: Story = {
+  args: {
+    kernel: createPlaygroundKernel({ fixture: 'empty' }),
+    planProvider: neverAnsweringProvider,
+    locale: 'en',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await submitRequest(canvasElement, 'add a hero');
+    const card = await canvas.findByRole('region', { name: 'Working on the page' });
+    await expect(within(card).getByText('Plan')).toBeVisible();
+    await expect(within(card).getByText('Structure')).toBeVisible();
+    await expect(within(card).queryByText('Apply')).toBeNull();
+    await expect(canvas.queryByRole('button', { name: 'Cancel generation' })).toBeNull();
+    // The card is silent; the panel's voice is the one live region.
+    await expect(canvas.getAllByRole('status')).toHaveLength(1);
+    await expect(canvas.getByRole('button', { name: 'Stop' })).toBeVisible();
+  },
+};
+
+/** The dark chrome: a refusal, then the retried proposal, on raised surfaces. */
+export const DarkChrome: Story = {
+  args: {
+    kernel: createPlaygroundKernel({ fixture: 'empty' }),
+    planProvider: createRetryThenSucceedProvider(),
+    locale: 'en',
+  },
+  decorators: [
+    (Story) => (
+      <div data-bldr-theme="dark" className="pg-app" style={{ minBlockSize: '100vh' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await submitRequest(canvasElement, 'add a hero');
+    const retry = await canvas.findByRole('button', { name: 'Retry' }, { timeout: 3000 });
+    await expect(
+      canvasElement.querySelector('.pg-chat__card[data-state="refused"]'),
+    ).not.toBeNull();
+    await userEvent.click(retry);
+    await canvas.findByRole('button', { name: 'Apply' }, { timeout: 3000 });
+    await expect(
+      canvasElement.querySelector('.pg-chat__card[data-state="pending"]'),
+    ).not.toBeNull();
+  },
+};
+
+/** Right-to-left: the bubble sits at the inline end and nothing overflows. */
+export const RightToLeft: Story = {
+  args: { kernel: createPlaygroundKernel({ fixture: 'empty' }) },
+  decorators: [
+    (Story) => (
+      <div dir="rtl" style={{ inlineSize: '288px', minBlockSize: '100vh' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await submitRequest(canvasElement, 'أضف قسم البطل');
+    await canvas.findByRole('button', { name: 'Apply' }, { timeout: 3000 });
+    const panel = canvasElement.querySelector<HTMLElement>('.pg-chat');
+    const bubble = canvasElement.querySelector<HTMLElement>('.pg-chat__you');
+    if (panel === null || bubble === null) throw new Error('The thread must render.');
+    await expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth);
+    // In RTL the inline end is the LEFT edge.
+    const panelBox = panel.getBoundingClientRect();
+    const bubbleBox = bubble.getBoundingClientRect();
+    await expect(bubbleBox.left - panelBox.left).toBeLessThan(panelBox.right - bubbleBox.right);
   },
 };
 

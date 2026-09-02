@@ -69,6 +69,16 @@ const SELECT_PARENT =
   '<path d="M8 6.5V2.5"/>' +
   '<path d="M5.5 5 8 2.5 10.5 5"/>';
 
+/*
+  Deselect: a plain cross.
+
+  Not a window's close box — nothing closes but the bar itself — and not a
+  slashed cursor, which would read as "disabled". A cross is the mark for
+  "none", which is what the selection becomes; it is the last action in the
+  bar and the only one that ends with the bar gone.
+*/
+const DESELECT = '<path d="M4.4 4.4 11.6 11.6"/><path d="M11.6 4.4 4.4 11.6"/>';
+
 export const BLOCK_ACTION_ICONS: Readonly<Record<BlockActionId, ReactElement>> = {
   selectParent: glyph(SELECT_PARENT),
   duplicate: glyph(DUPLICATE),
@@ -76,4 +86,5 @@ export const BLOCK_ACTION_ICONS: Readonly<Record<BlockActionId, ReactElement>> =
   moveEarlier: glyph(MOVE_EARLIER),
   moveLater: glyph(MOVE_LATER),
   editText: glyph(EDIT_TEXT),
+  deselect: glyph(DESELECT),
 };

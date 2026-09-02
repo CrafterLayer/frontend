@@ -29,7 +29,10 @@ import type {
   NodeId,
 } from '@craftkit/builder-schema';
 
+import { customCodeElementAt } from '../../custom-code/element-at';
 import { performMoveAction, resolveMoveAction } from '../../keyboard/move-actions';
+import { blockDisplayName } from '../../naming/block-display-name';
+import { customCodeElementName } from '../../naming/custom-code-element-name';
 import { resolveTraversalAction, traverse, type SlotOrderLookup } from '../../keyboard/traversal';
 import { createAnchorChannel, type AnchorChannel } from '../../overlay/anchor-channel';
 import { performBlockAction, resolveBlockActions } from '../../overlay/block-actions';
@@ -276,6 +279,20 @@ function measureTextSelection(
  * writes batched to the frame rhythm — zero document-content re-renders by
  * construction (FR-006).
  */
+/**
+ * Elements that own their own Escape. A form control dismisses a picker or a
+ * draft with it; a contenteditable region (or anything inside one) is an
+ * editor's territory. The canvas must never throw the selection away
+ * underneath them. Attribute-based, so it holds where `isContentEditable` is
+ * not implemented (jsdom) and where the region is nested.
+ */
+const EDITABLE_TARGET_SELECTOR =
+  'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(EDITABLE_TARGET_SELECTOR) !== null;
+}
+
 export function EditorCanvas({
   kernel,
   theme,
@@ -291,6 +308,7 @@ export function EditorCanvas({
   breakpoint,
 }: EditorCanvasProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const frameShellRef = useRef<HTMLDivElement | null>(null);
   const layerRef = useRef<HTMLDivElement | null>(null);
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   const machineryRef = useRef<Machinery | null>(null);
@@ -612,14 +630,25 @@ export function EditorCanvas({
         session.press({ kind: 'move', id }, event.clientX, event.clientY);
       }
     };
+    // What is under the pointer: the node, and — inside a composed region —
+    // the authored element (the portrait, the headline, the button). The
+    // element is chrome and Inspector truth; canvas TOOLS keep working at
+    // node granularity, which is the contract they were written against.
+    const hitAt = (clientX: number, clientY: number) => {
+      if (index.hitAt !== undefined) {
+        return index.hitAt(clientX, clientY);
+      }
+      const nodeId = index.nodeAt(clientX, clientY);
+      return nodeId === undefined ? undefined : { nodeId };
+    };
     const onPointerMove = (event: MouseEvent) => {
       if (session !== null && session.phase() !== 'idle') {
         session.move(event.clientX, event.clientY);
         return; // hover chrome is suppressed for the session's duration
       }
-      const id = index.nodeAt(event.clientX, event.clientY) ?? null;
-      controller.setHover(id);
-      tools.notifyHover(id);
+      const hit = hitAt(event.clientX, event.clientY);
+      controller.setHover(hit?.nodeId ?? null, hit?.elementPath);
+      tools.notifyHover(hit?.nodeId ?? null);
     };
     const onPointerUp = () => {
       if (session !== null && session.phase() === 'active') {
@@ -645,8 +674,16 @@ export function EditorCanvas({
         suppressClickRef.current = false;
         return; // a completed drop already set the selection
       }
-      const id = index.nodeAt(event.clientX, event.clientY);
-      kernel.setSelection(id === undefined ? [] : [id]);
+      const hit = hitAt(event.clientX, event.clientY);
+      if (hit === undefined) {
+        kernel.setSelection([]);
+      } else if (hit.elementPath === undefined) {
+        kernel.setSelection([hit.nodeId]);
+      } else {
+        // Straight to the element: a person who clicks the portrait in a
+        // generated header means the portrait. Escape steps back out.
+        kernel.focusElement(hit.nodeId, hit.elementPath);
+      }
       // Clicking inside the frame moves focus to the iframe's browsing context,
       // which would silently strand keyboard traversal on the host region
       // ("click to select, then arrow keys" is the documented flow). Pull focus
@@ -870,6 +907,13 @@ export function EditorCanvas({
         session.cancel();
         return true;
       }
+      // Escape steps OUT of an element before it clears anything: the region
+      // that hosts it becomes the selection, and a second Escape is the
+      // kernel's ordinary way out.
+      if (key === 'Escape' && kernel.context.store.getState().elementFocus !== null) {
+        kernel.clearElementFocus();
+        return true;
+      }
       // B2b Alt-moves run AHEAD of traversal and only on editable canvases.
       if (editable) {
         const moveAction = resolveMoveAction(key, altKey, dir);
@@ -892,7 +936,11 @@ export function EditorCanvas({
         kernel.context.store.getState().selection[0],
         action,
       );
-      kernel.setSelection(next === undefined ? [] : [next]);
+      if (next === undefined) {
+        kernel.clearSelection(); // Escape: the kernel's own way out
+      } else {
+        kernel.setSelection([next]);
+      }
       return true;
     },
     [kernel, dir, slotOrder, editable],
@@ -1024,6 +1072,29 @@ export function EditorCanvas({
         is broken for keyboard users, and the cause was never the button.
       */
       if (event.target !== event.currentTarget) {
+        /*
+          ONE exception: Escape. The floating chrome lives inside this host, so
+          "Escape while the action bar has focus" arrives here with a child
+          target — and a person pressing it means "let go of this block", the
+          same as from the host itself. Two things still outrank the canvas: an
+          editable element (an input, a textarea, a contenteditable region)
+          owns its own Escape, and a nearer handler that already claimed the
+          key — the text bubble does, to return focus to its editor — has said
+          so through `defaultPrevented`. Every other key keeps the guard above.
+        */
+        if (event.key !== 'Escape' || event.defaultPrevented || isEditableTarget(event.target)) {
+          return;
+        }
+        event.preventDefault();
+        if (surfaceEscapeHandledRef.current) {
+          return;
+        }
+        // Focus moves FIRST: the chrome holding it unmounts with the selection,
+        // and a keyboard user must land on the canvas, not the document body.
+        hostRef.current?.focus({ preventScroll: true });
+        if (!handleInlineKey('Escape')) {
+          handleTraversalKey('Escape');
+        }
         return;
       }
       if (event.key === 'Escape' && surfaceEscapeHandledRef.current) {
@@ -1039,6 +1110,27 @@ export function EditorCanvas({
       }
     },
     [handleTraversalKey, handleInlineKey],
+  );
+
+  const onHostClick = useCallback(
+    (event: React.MouseEvent) => {
+      /*
+        The gutter is the pointer's way out. Clicking the page background
+        INSIDE the frame selects the root on purpose — page-level props live in
+        the inspector — so the empty space AROUND the frame is the one place a
+        click can mean "nothing". Only the host's own surface and the frame
+        shell count: a click that merely bubbles through from the overlay or
+        the floating chrome is not a gutter click (the chrome stops its own
+        propagation, and the strict target test holds even where it does not).
+        Clicks inside the iframe never reach this document at all — they take
+        the frame listener's path, which selects what was hit.
+      */
+      if (event.target !== event.currentTarget && event.target !== frameShellRef.current) {
+        return;
+      }
+      kernel.clearSelection(); // the Selection live region announces the clear
+    },
+    [kernel],
   );
 
   /**
@@ -1150,13 +1242,30 @@ export function EditorCanvas({
     ),
   );
 
+  const elementFocus = useKernelSelector(
+    kernel,
+    useCallback(
+      (state: ReturnType<BuilderKernel['context']['store']['getState']>) => state.elementFocus,
+      [],
+    ),
+  );
+
   const selectedName = useMemo(() => {
     const node = selectedId === null ? undefined : doc.nodes[selectedId];
     if (node === undefined) {
       return null;
     }
+    // A focused element is announced as the thing it is, inside the region
+    // it belongs to — "Image in CV header" — never as the region alone.
+    const located =
+      elementFocus?.id === node.id
+        ? customCodeElementAt(kernel, node.id, elementFocus.path)
+        : undefined;
+    if (located !== undefined) {
+      return `${customCodeElementName(located.element)} in ${blockDisplayName(kernel, node.id)}`;
+    }
     return kernel.context.registry.block(node.type)?.schema.description ?? node.type;
-  }, [kernel, doc, selectedId]);
+  }, [kernel, doc, selectedId, elementFocus]);
 
   const announcement = useMemo(
     // A selection id that no longer resolves to a live node is "no selection"
@@ -1186,6 +1295,15 @@ export function EditorCanvas({
         );
         return;
       }
+      if (id === 'deselect') {
+        // Focus moves FIRST: the bar — and whichever button holds focus —
+        // unmounts with the selection. The Selection live region announces
+        // the clear itself, so the gesture region stays quiet: one message,
+        // not the same one twice.
+        hostRef.current?.focus({ preventScroll: true });
+        performBlockAction(kernel, selected, id);
+        return;
+      }
       // ONE dispatch, and the resulting selection is the action's own decision
       // (US3/AC2). Refusals are announced, never thrown at the door.
       announceGestureRef.current(performBlockAction(kernel, selected, id).announcement);
@@ -1201,8 +1319,10 @@ export function EditorCanvas({
       aria-label={title}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onClick={onHostClick}
     >
       <div
+        ref={frameShellRef}
         className="bldr-canvas-frame-shell"
         style={
           // Guarded: 0/negative/NaN would collapse or corrupt the frame —

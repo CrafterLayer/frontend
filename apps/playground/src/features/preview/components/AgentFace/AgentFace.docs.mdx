@@ -157,12 +157,72 @@ chat's other literals, and outside the chat it is transparent.
 
 <Canvas of={AgentFaceStories.DarkTheme} />
 
+## Hover — he notices you
+
+The owner's rule: hovering the face has to express something and feel interactive. It does, and it
+does it in CSS alone. The face stays stateless — no prop, no reducer input, no React state — the
+voice line says exactly what it said before, and the pose is the browser's own `:hover`, so it costs
+nothing while the run is busy.
+
+<Canvas of={AgentFaceStories.Hover} />
+
+- **A settled face lifts a brow.** In idle, listening, done and failed the outer brow arches 6°
+  further and rises one unit — "what do you want?" — while the inner one presses half a unit, so the
+  V is never lost. The arch composes with each mood's own angle: listening goes −4° → −10°, done −5°
+  → −11°, failed −30° → −36°, a glare.
+- **Busy moods answer with the halo and the lean only.** Thinking, planning and working do not look
+  up; the voice already says "Working. Don't interrupt."
+- **Stopped never lifts a brow.** Flat brows are that mood's joke, and hover does not spoil it.
+- **Every mood notices.** The eyes widen 12 %, the disc leans in 5 %, and the halo widens from 8 to
+  12 px (`--bldr-space-md` → `--bldr-space-xl`), colour paired with geometry.
+- **Arrival.** The live face perks once — a 240 ms nod — when the pointer lands. It is scoped away
+  from the moods whose features already animate (repairing's tilt, stopped's shake).
+- **Press boops the disc** to 96 %, from `:active` or from a seat holding `data-press`. No action,
+  no focus, no text; it releases over `--bldr-duration-move`.
+- **The mouth, the ring and the tick never change on hover.** Mouths are earned by outcomes; the
+  ring is run state. A test forbids any hover rule from naming them.
+
+Geometry eases over `--bldr-duration-move` (180 ms) both ways and the halo over
+`--bldr-duration-state` (120 ms); the transitions name their properties (`transform`, `translate`,
+`rotate`, `scale`) and never `all`. The pose lives inside `@media (hover: hover)`: on touch there is
+no hover, and a pose would stick.
+
+### The seat contract
+
+The face reads; whoever holds it writes. A seat — the header's brand mark, the empty-state mark —
+sets two custom properties and one attribute on its own element, and nothing else crosses that line:
+
+| written on the seat | value                         | read by                                        |
+| ------------------- | ----------------------------- | ---------------------------------------------- |
+| `--pg-face-look-x`  | a px length, −1.4px … 1.4px   | the eyes' `translate` (×1), the features' (×¼) |
+| `--pg-face-look-y`  | a px length, −1px … 1px       | the same, plus the mood's own resting gaze     |
+| `data-press`        | present while a press is held | the disc's boop                                |
+
+Absent properties mean straight ahead. The eyes lead and the face turns a quarter as far, and the
+`translate` transition turns per-frame writes into a smooth pursuit. The look is off in thinking
+(the scan owns the eyes), stopped (one eye is shut) and failed (stillness is the signal). The
+panel's hook writes the properties on the seat, never on the face, so a reply avatar can never
+inherit them.
+
+<Canvas of={AgentFaceStories.LooksAtThePointer} />
+
+Life without a pointer: listening eyes rest 0.8 units lower, toward the focused composer
+(`--pg-face-gaze-y`), and a live idle face throws a sideways glance every 9 s beside its blink.
+
+- The `sm` size never reacts: every hover, look and press rule excludes it, and bubble faces neither
+  pose nor follow.
+- Under `prefers-reduced-motion: reduce` the perk and the glance are off with every other loop,
+  hover and press poses snap without a transition (a state, not a motion), and `--pg-face-look-gain`
+  goes to 0 so the eyes never follow — at any specificity, with no rule to out-rank.
+
 ## RTL
 
-The stylesheet uses no physical properties. The only horizontal moves — the scan and the shake — are
-symmetric. The asymmetric brows (listening, checking, discarded) are a face, not text, and are
-deliberately not mirrored. The component never sets `dir`; only the voice line follows the content
-direction, from its own text.
+The stylesheet uses no physical properties. The only horizontal moves — the scan, the shake and the
+glance — are symmetric. The asymmetric brows (listening, checking, discarded) and the hover arch are
+a face, not text, and are deliberately not mirrored. The look is screen-space: the seat converts
+pointer coordinates and the eyes translate in the drawing's own x, so he looks toward the pointer in
+either direction. The component never sets `dir`; only the voice line follows the content direction,
+from its own text.
 
 <Canvas of={AgentFaceStories.RightToLeft} />
 
@@ -172,4 +232,8 @@ direction, from its own text.
   ms, and the mouth does not move with it.
 - One voice per panel. Bubble faces are frozen and silent; the card text beside them already says
   what happened.
-- The `sm` size never animates, even if a caller passes `live`.
+- The `sm` size never animates, poses, follows or boops, even if a caller passes `live`.
+- Hover needs a real pointer. Touch gets the press boop and nothing else, and the look is only as
+  fluid as the seat's writes — the panel coalesces them to one per animation frame.
+- The face cannot say why it is looking. The pose is decoration; anything a person must know is in
+  the voice line or the card.

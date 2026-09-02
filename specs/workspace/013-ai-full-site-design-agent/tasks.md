@@ -1155,4 +1155,102 @@ The one gate that never existed — "does the process start" — now does.
       the client has neither `apiKey` nor `authToken`. Two handler tests pin both paths;
       ai-server 80/80, typecheck, lint clean.
 
-**Total after the server phase**: 261 tasks.
+- [x] T262 [US10] **Clearing a selection has a door.** The owner: "when I select blocks there is no
+      option to clear the selection." Investigation: no `clearSelection()` existed; Escape cleared
+      only when the canvas host itself had focus; the gutter around the frame did nothing; no
+      control in the Inspector, the block action bar, or the Layers panel. Now: `kernel.clearSelection()`
+      (same ephemeral law as `setSelection`, never a transaction); Escape clears from any non-editable
+      element inside the canvas and returns focus to the host (inputs, textareas, selects,
+      contenteditable and consumed events are left alone); a click on the gutter or the host clears;
+      the block action bar ends with **Deselect (Esc)**, never disabled, root included; the Inspector
+      title row shows a quiet **Clear selection** button while a block is selected. Every path announces
+      "Selection cleared". 17 files; core 126/126, shell 738/738, playground 149/149, Storybook 486/486;
+      theme gate red only for foreign literals (GenerationProgress.css — being fixed by the panel
+      workflow — and a pre-existing 1px/3px in PreviewMode.css, follow-up).
+
+- [x] T263 [US10] **أبو غضب's panel: one name, a face that notices you, the run as rows.** The
+      design-lead spec (three angles, two judges) was implemented across three disjoint tracks.
+      Face: hover arches the outer brow 6° and lifts it, widens the eyes 12 %, leans the disc 5 %,
+      widens the halo; busy moods answer with halo and lean only; stopped never lifts a brow; a press
+      boops the disc; the eyes follow the pointer across the header through two custom properties the
+      seat writes once per frame (`useFaceLook`, no React state, no re-render, reduced motion zeroes
+      it). Progress: `GenerationProgress` gains `announce` and exported stage labels, its CSS obeys the
+      token law (theme 26/26), and the thinking turn shows the run as honest rows — Plan, Structure
+      and (Auto only) Apply — driven by the run's events (`AssistantPanel.progress.ts`, pure, same
+      reference on no-ops); the refusal card says where it broke ("· at Structure"); settled cards
+      keep a timing receipt. Panel: exactly one name by locale in the header; article turn wrappers;
+      card head row and state stripes; steps well with logical padding and dividers; Discard at the
+      inline end; failure meta with a code pill; composer with body-size text, visible mode hint,
+      solid accent Send with an aurora halo on hover/focus, red Stop while busy, tokenised aura;
+      accent-family dots and beacon; RTL mirroring for Undo/Code; `unicode-bidi: plaintext` on
+      provider-authored runs. Fixed on the way: turn ids restarted at 1 after a reload and collided
+      with saved turns (React duplicate keys) — ids now continue from the revived conversation.
+      Verified live in Chromium: single name, hover pose values, the credentials failure "at
+      Structure". Gates: panel suite 45/45 plus progress 24 and face-look 12; playground typecheck
+      and lint clean for the panel; theme 26/26; Storybook (Chromium) 114 files, 495/495 including
+      EnglishName, InFlightProgress, DarkChrome, RightToLeft, Hover, Busy, LooksAtThePointer,
+      Pressed and SilentInsideAChat.
+
+- [x] T264 [US10] **The Inspector is split, and one edit renders one row.** The owner asked for the
+      593-line component to be divided "for performance". Structure lane of the design-lead spec:
+      pure partition module (`partition-properties.ts`), schema facts cached per schema in WeakMaps,
+      an announcer store with one live-region subscriber, four primitive kernel selectors at the
+      shell, `InspectorPropertyRow` as the single memo boundary subscribing per property,
+      controlled sections, lazy-once tab panels keeping the tablist/tabpanel pattern, a source-keyed
+      pending draft, `dir` subscribed once — 14 sub-components and 12 hooks/modules, each with its
+      own test; `InspectorRow.tsx` gone, its CSS split into `InspectorRow.css` and
+      `RepeaterField.css`; `index.ts`/`InspectorProps` unchanged; Clear-selection preserved. Measured
+      by `Inspector.render-count.test.tsx` (baseline recorded in its header): mount 20 rows → 9
+      bodies; one external prop edit 21 renders → 1; tab round trip 41 → 0; collapse a section 20 → 1;
+      undo 21 → 1. Shell tests 859/859 (Inspector folder 140/140), shell typecheck, theme 26/26,
+      playground 183/183, Inspector stories 24/24 in Chromium. Deviations recorded in the docs:
+      `controlFor` stays inline (react-hooks/static-components), the focus lock is a closure holder
+      (react-hooks/refs). NOT done yet: the design lane (CSS polish, header hierarchy, stories/docs
+      pass) — deferred because a peer session is layering element-focus work on the same folder.
+
+- [x] T265 [US10] **The first real plan failed on a prop that does not exist.** Driven live through
+      the CLI-backed server: "كبّر عنوان الهيرو" came back as a refusal — "Type hero declares no prop
+      __unknown_hero_heading_size_prop__" — because `none` mode told the model nothing about the
+      hero already on the page, not even its prop names, and it invented one. Now every block type
+      PRESENT in the document rides along in `none` mode as a presence entry (`type`,
+      `description`, `propKeys`; no schema, no examples, no slots); blocks not on the page stay
+      absent. Measured: ~19 tokens per block on the fixture, ~150 on the real registry (hero has 34
+      keys); the landing page's 22 types add ~4,500 tokens, `none` ≈ 9,000 vs `full` ≈ 64,000, and
+      the list is stable so the cached prefix pays for it once. Invariants rewritten: `none` <
+      2×`index` and < `full`/4 in the library test, < 12,000 and < `full`/5 on the wire.
+
+- [x] T266 [US10] **The Inspector's design lane.** On top of the split (T264) and a peer session's
+      element-focus work (preserved verbatim: "Back to region", "in <region>", the ElementFocus
+      story, its tests): the panel no longer draws its own seam or width (the aside frames it; the
+      story decorator `withInspectorFrame` stands in); "INSPECTOR" becomes a muted eyebrow and the
+      block's display name the sticky title with the bucket pill beside it; tabs are a segmented
+      control whose selected tab lifts onto the panel colour; one hairline between sections, rows
+      breathe through grid gap, one chevron glyph rotates; empty state as a dashed card with an
+      accent pointer, unknown type as a warning strip; override pill matches the header badge and
+      its clear button goes danger-on-danger-soft; inputs at `--bldr-control-height`, tabs/toggles
+      at `--bldr-control-height-sm`; hairline/thick edge tokens everywhere; reduced-motion block per
+      sheet; logical properties only; no theme-keyed rule. `Inspector.design.test.tsx` pins 42
+      text-level laws on the three sheets. New stories UnknownBlockType, DarkChrome, CompactDensity,
+      TabletOverrideMarker. Gates: shell 901/901 (Inspector folder 182), lint/typecheck clean, theme
+      26/26, playground 184/184, Inspector stories 29/29 in Chromium.
+
+- [x] T267 [US10] **Two published Skills, adapted rather than copied.** The owner asked for
+      agenticskills.io's `frontend-design` (Anthropic, Apache-2.0) and `tailwind-design-system`
+      (wshobson, MIT). Both were read from source and rewritten for this agent, because a verbatim
+      copy instructs work it cannot do (`@theme`, `tailwind.config.ts`, `@apply`, writing app.css,
+      taking screenshots). `craftkit.visual-direction` carries the transferable part: subject-first
+      grounding, the three AI-default looks to avoid, hero-as-thesis, deliberate type pairing with
+      the REAL font mechanism, structure-encodes-information, one signature element, complexity
+      matched to the vision, remove-one-accessory, and the quality floor. It is a dependency of
+      page-composition, cv-page and occasion-page, and conflicts with precise-edit.
+      `craftkit.design-tokens` carries the token hierarchy (role → palette → `ck-` class) and the
+      component ladder (base → variant → size → state), and names the v4 features that do not
+      exist here as refusals. Fixed on the way: design-direction claimed "@import is refused" —
+      the sanitizer has allowed Google Fonts and bunny.net since T255, so the agent had been told
+      it could not load a web font when it can; and the vocabulary guard caught an invented role
+      class (`text-inverse` → `text-text-inverse`). Budget pins raised deliberately: at most four
+      auto skills per request (one of each kind — words, look, structure, language) and 3,200
+      tokens per row, measured widest at 3,052 against a 16,000 budget. builder-ai 376/376,
+      typecheck and lint clean.
+
+**Total after the server phase**: 267 tasks.

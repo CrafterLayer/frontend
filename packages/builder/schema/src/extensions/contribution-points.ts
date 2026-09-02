@@ -54,9 +54,24 @@ export interface RegisteredBlock {
   render?: BlockRenderComponent;
 }
 
+/**
+ * Ephemeral focus on ONE element INSIDE a selected node's stored composition
+ * (a custom-code tree). The selected node stays `selection[0]`; this names
+ * which of its authored elements the person is editing, by position. Never
+ * document data, never a transaction — the same law as `selection`.
+ */
+export interface ElementFocus {
+  /** The document node hosting the tree; always the selected node. */
+  readonly id: NodeId;
+  /** Child indices from the tree root to the focused element. */
+  readonly path: readonly number[];
+}
+
 export interface KernelState {
   doc: BuilderDocument;
   selection: NodeId[];
+  /** Absent whenever the selection is a whole node (the common case). */
+  elementFocus: ElementFocus | null;
   /** Persistence position. */
   seq: number;
 }

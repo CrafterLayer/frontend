@@ -225,8 +225,22 @@ function isMissingCredentials(cause: unknown): boolean {
   return cause instanceof Error && cause.message.startsWith('Could not resolve authentication method');
 }
 
+/**
+ * The dev CLI backend writes its own owner-facing sentences — a timeout with
+ * its length, a missing `claude`, an exit code with the CLI's own stderr. They
+ * are authored text, not SDK prose and not stacks, so they pass through as
+ * they are. Matched by `name` rather than by import: the contract layer must
+ * not depend on a dev-only backend.
+ */
+function isDevCliBackendFailure(cause: unknown): cause is Error {
+  return cause instanceof Error && cause.name === 'CliBackendError';
+}
+
 /** One plain sentence per failure kind — never a stack, never a raw SDK message. */
 function describeFailure(cause: unknown): string {
+  if (isDevCliBackendFailure(cause)) {
+    return cause.message;
+  }
   if (cause instanceof Anthropic.RateLimitError) {
     return 'The assistant is rate limited right now. Try again in a moment.';
   }

@@ -33,6 +33,21 @@ differ on purpose — renaming a stage in the UI must never rename a wire field.
 Each stage carries one `status`: `pending`, `active`, `done`, `failed`, or `cancelled`. `detail` is
 free text shown at the row's end — elapsed time on a settled stage, the reason on a failed one.
 
+The labels are exported as `GENERATION_STAGE_LABELS` (`Record<GenerationStageId, string>`), the same
+map the rows read, so a host can name a stage in its own copy — "failed at Structure" — and be
+certain the word matches the card. The ids remain a closed union: a host may render a **subset** of
+rows (a run that has no design phase omits `design` rather than inventing one), but it cannot add an
+id the pipeline does not have.
+
+## API
+
+| prop       | type                         | default                | notes                                                                                         |
+| ---------- | ---------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| `stages`   | `readonly GenerationStage[]` | required               | One entry per stage, in pipeline order. May be a subset of the five ids.                      |
+| `onCancel` | `() => void`                 | omitted                | Omit to withdraw cancellation; the button also hides once nothing is `active`.                |
+| `heading`  | `string`                     | `'Building your page'` | The card's heading and the region's accessible name.                                          |
+| `announce` | `boolean`                    | `true`                 | `false` renders no live region; the host must then narrate (one `role="status"` per surface). |
+
 <Canvas of={GenerationProgressStories.Failed} />
 
 ## Cancel contract
@@ -52,6 +67,8 @@ owns the abort.
 - Stages are an **ordered list** — the sequence is part of the meaning.
 - One `role="status"` / `aria-live="polite"` line announces the running stage as `Stage N of M`,
   completion, failure, and cancellation. It is the only thing that speaks.
+- One live region per surface: a host that already has a `role="status"` passes `announce={false}`,
+  and the card keeps its rows and status words while the host does the talking.
 - **Focus is never moved**, on mount or when a stage advances. A card that grabbed focus would
   interrupt whatever the person was typing in the composer. A test asserts this for both cases.
 - Status is carried by a **word** (`Done`, `Active`, `Failed`) in every row, not by colour or icon
@@ -59,6 +76,8 @@ owns the abort.
 - The spinning ring is the one moving part, and `prefers-reduced-motion: reduce` holds it still.
   Nothing is lost: the word already says `Active`.
 - Cancel meets the chrome hit-target minimum and shows a visible focus ring.
+
+<Canvas of={GenerationProgressStories.SilentInsideAChat} />
 
 ## Styling
 

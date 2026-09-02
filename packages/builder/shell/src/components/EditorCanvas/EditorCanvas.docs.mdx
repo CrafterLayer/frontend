@@ -52,13 +52,37 @@ inspector edits.
 ## Accessibility
 
 The canvas host is a focusable named region. Arrow keys traverse siblings (Down/Up) and step
-into/out of slots (Right/Left, mirrored under RTL content); Escape clears. During a rich inline
-selection, ordinary forward Tab crosses the iframe boundary to the first enabled formatting action
-in the host bubble. Shift+Tab from that first action or Escape from anywhere in the bubble returns
-to the editor with its selection intact; Escape in the editor then exits to the canvas host. If the
-bubble has no enabled action, Tab is not cancelled, so chrome never becomes a focus trap. A polite
-live region announces `<name> selected` / `Selection cleared` — the dependable channel across the
-frame boundary — while outlines carry the visible name label.
+into/out of slots (Right/Left, mirrored under RTL content); Escape clears — from the host itself or
+from any non-editable chrome inside it (the block action bar), but never from an editable element
+(input, textarea, select, contenteditable) and never for an Escape a nearer handler already claimed.
+While an authored element inside a composed region is focused (see below), the first Escape steps
+out to the region and the second clears. Focus returns to the host first, so the chrome that held it
+can unmount with the selection. Three more ways out exist because clicking the page background
+INSIDE the frame selects the document root on purpose (page-level props live in the Inspector): a
+click on the gutter around the frame or on the host's own surface, the bar's last action, Deselect
+(`Esc` on its tooltip), and the Inspector's `Clear selection` — all through
+`kernel.clearSelection()`, never a transaction. During a rich inline selection, ordinary forward Tab
+crosses the iframe boundary to the first enabled formatting action in the host bubble. Shift+Tab
+from that first action or Escape from anywhere in the bubble returns to the editor with its
+selection intact; Escape in the editor then exits to the canvas host. If the bubble has no enabled
+action, Tab is not cancelled, so chrome never becomes a focus trap. A polite live region announces
+`<name> selected` / `Selection cleared` — the dependable channel across the frame boundary — while
+outlines carry the visible name label.
+
+## Composed regions: addressing what the assistant wrote
+
+A block whose renderer draws a custom-code tree on the canvas stamps every authored element and icon
+with `data-ck-path` (its child-index path from the tree root; a published page never carries it).
+The index's `hitAt` reads it alongside `data-bldr-node`, so the pointer resolves to the node AND,
+inside such a region, to the element under it. A click there calls `kernel.focusElement(id, path)` —
+one ephemeral write that selects the region and focuses the element — and the selection outline
+wraps that element with its own name (`Image`, `Heading`, `Button`, `Icon (mail)`), measured lazily
+through `elementRect` on the same observation channel. Hover follows the element under the pointer
+the same way. The live region announces `<element> in <region> selected`. A focus the canvas cannot
+resolve (edited away, never stamped here) degrades to the region rather than vanishing. Canvas
+tools, drag sessions, keyboard traversal and the block action bar keep working at node granularity:
+clicking the portrait and pressing Delete deletes the region, as the bar's own label says. Component
+references inside a tree are not addressable yet.
 
 ## Drag editing (`editable`)
 

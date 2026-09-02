@@ -53,9 +53,7 @@ export function catalogPolicyFor(
   selection: readonly NodeId[],
   hostPolicy?: RunAiAgentOptions['policy'],
 ): Pick<RunAiAgentOptions, 'composition' | 'policy'> {
-  const withHostPolicy = (
-    own: RunAiAgentOptions['policy'],
-  ): Pick<RunAiAgentOptions, 'policy'> => {
+  const withHostPolicy = (own: RunAiAgentOptions['policy']): Pick<RunAiAgentOptions, 'policy'> => {
     const merged = { ...own, ...hostPolicy };
     return Object.keys(merged).length === 0 ? {} : { policy: merged };
   };

@@ -143,6 +143,20 @@ interface RenderContext {
 }
 
 /**
+ * The editing address of one authored element: its child-index path from the
+ * tree root, the same position-derived identity the synthetic ids use. On the
+ * canvas every element and icon carries it, so the shell's hit-test can name
+ * the thing under the pointer (the portrait, the headline, the button) rather
+ * than only the region — and the Inspector can read and write it by path. A
+ * published page never carries it: it is chrome, not content.
+ */
+const PATH_ATTRIBUTE = 'data-ck-path';
+
+function pathAttribute(context: RenderContext, path: string): Record<string, string> {
+  return context.isCanvas ? { [PATH_ATTRIBUTE]: path } : {};
+}
+
+/**
  * The synthetic node handed to a referenced block.
  *
  * A tree element is not in `doc.nodes`, so there is no real `Node` to pass. A
@@ -236,10 +250,11 @@ function renderComponent(
  * elements, so an icon node can carry exactly what a name can carry — a
  * name — and nothing an authored `<svg>` could smuggle.
  */
-function renderIcon(node: Record<string, unknown>, key: string): ReactNode {
+function renderIcon(node: Record<string, unknown>, key: string, context: RenderContext): ReactNode {
   const name = node['name'];
   if (typeof name !== 'string') return null;
   const data = lucideIconNode(name);
+  const address = pathAttribute(context, key);
   if (data === undefined) {
     // Visible, like UnknownBlock: a missing icon that renders as nothing is a
     // layout that looks finished and is not.
@@ -250,6 +265,7 @@ function renderIcon(node: Record<string, unknown>, key: string): ReactNode {
         role="img"
         aria-label={`Unknown icon: ${name}`}
         style={{ display: 'inline-block', minWidth: '1em', textAlign: 'center' }}
+        {...address}
       >
         ?
       </span>
@@ -259,7 +275,8 @@ function renderIcon(node: Record<string, unknown>, key: string): ReactNode {
   const strokeWidth = typeof node['strokeWidth'] === 'number' ? node['strokeWidth'] : 2;
   const className = typeof node['className'] === 'string' ? node['className'] : undefined;
   const rawLabel = node['label'];
-  const label = typeof rawLabel === 'string' && rawLabel.trim() !== '' ? rawLabel.trim() : undefined;
+  const label =
+    typeof rawLabel === 'string' && rawLabel.trim() !== '' ? rawLabel.trim() : undefined;
   return (
     <svg
       key={key}
@@ -274,6 +291,7 @@ function renderIcon(node: Record<string, unknown>, key: string): ReactNode {
       strokeLinejoin="round"
       className={className}
       data-icon={name}
+      {...address}
       {...(label === undefined ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
     >
       {data.map(([tag, attrs], at) => createElement(tag, { key: at, ...attrs }))}
@@ -296,7 +314,7 @@ function renderElement(
   const className = typeof node['className'] === 'string' ? node['className'] : undefined;
   const text = typeof node['text'] === 'string' ? node['text'] : undefined;
   const attributes = elementAttributes(tag, node, context.isCanvas);
-  const props: Record<string, unknown> = { key, ...attributes };
+  const props: Record<string, unknown> = { key, ...attributes, ...pathAttribute(context, path) };
   if (className !== undefined) props['className'] = className;
 
   if (VOID_TAGS.has(tag)) {
@@ -322,7 +340,7 @@ function renderNode(
     const text = plainText(node);
     return text === '' ? null : <span key={path}>{text}</span>;
   }
-  if (node['kind'] === 'icon') return renderIcon(node, path);
+  if (node['kind'] === 'icon') return renderIcon(node, path, context);
   return node['kind'] === 'component'
     ? renderComponent(node, path, path, depth, context)
     : renderElement(node, path, path, depth, context);

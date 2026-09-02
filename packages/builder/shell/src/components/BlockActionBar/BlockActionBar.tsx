@@ -116,10 +116,11 @@ export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBar
           onClick={() => {
             onAction(action.id);
           }}
-          /* A hover hint for the pointer. It is NOT the accessible name — the
-             visually-hidden text below is, and it stays the name whether or not
-             a platform surfaces `title` at all. */
-          title={action.label}
+          /* A hover hint for the pointer, with the keyboard shortcut when the
+             action declares one ("Deselect (Esc)"). It is NOT the accessible
+             name — the visually-hidden text below is, and it stays the name
+             whether or not a platform surfaces `title` at all. */
+          title={action.hint === undefined ? action.label : `${action.label} (${action.hint})`}
         >
           {BLOCK_ACTION_ICONS[action.id]}
           {/* The name lives in the DOM, just not on screen: an icon-only bar

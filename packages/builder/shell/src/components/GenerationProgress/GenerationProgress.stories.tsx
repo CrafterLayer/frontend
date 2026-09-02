@@ -95,6 +95,27 @@ export const Cancelled: Story = {
   },
 };
 
+/* Inside the assistant thread the panel already owns the one `role="status"`,
+   so the card hands announcing to the host and keeps only its rows and words.
+   Same stages as `Structuring`; no Cancel, because in a chat the composer's
+   Stop is the one abort. */
+export const SilentInsideAChat: Story = {
+  args: { stages: through(1), announce: false, heading: 'Working on the page' },
+  decorators: [
+    (Story) => (
+      <div style={{ inlineSize: '18rem' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.queryByRole('status')).toBeNull();
+    await expect(canvas.getByRole('region', { name: 'Working on the page' })).toBeInTheDocument();
+  },
+};
+
 export const RightToLeft: Story = {
   args: { stages: through(3), onCancel: fn() },
   decorators: [

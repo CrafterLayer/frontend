@@ -241,6 +241,90 @@ describe('createRectIndex (005 contract §1)', () => {
     withHitTest.dispose();
   });
 
+  it('hitAt names an authored element INSIDE a node by its stamped path, still without measuring', () => {
+    const wrapper = nodeElement(frame, 'region');
+    const frameDocument = frame.contentDocument;
+    if (frameDocument === null) throw new Error('unreachable');
+    const section = frameDocument.createElement('section');
+    section.setAttribute('data-ck-path', '0');
+    const img = frameDocument.createElement('img');
+    img.setAttribute('data-ck-path', '0.1');
+    const caption = frameDocument.createElement('span'); // authored TEXT inside the img's sibling
+    section.append(img, caption);
+    wrapper.appendChild(section);
+
+    let target: Element | null = img;
+    const withHitTest = createRectIndex({
+      frame,
+      ports: {
+        measure: measurePort as unknown as GeometryPorts['measure'],
+        hitTest: () => target,
+      },
+    });
+    expect(withHitTest.hitAt?.(1, 1)).toEqual({ nodeId: 'region', elementPath: [0, 1] });
+    // A plain descendant without its own address resolves to the nearest addressed ancestor.
+    target = caption;
+    expect(withHitTest.hitAt?.(1, 1)).toEqual({ nodeId: 'region', elementPath: [0] });
+    // The node wrapper itself, or any ordinary block, has no element path.
+    target = wrapper;
+    expect(withHitTest.hitAt?.(1, 1)).toEqual({ nodeId: 'region' });
+    target = nodeElement(frame, 'plain').querySelector('span');
+    expect(withHitTest.hitAt?.(1, 1)).toEqual({ nodeId: 'plain' });
+    // Empty canvas: nothing.
+    target = null;
+    expect(withHitTest.hitAt?.(1, 1)).toBeUndefined();
+    // nodeAt keeps answering the node, path or not.
+    target = img;
+    expect(withHitTest.nodeAt(1, 1)).toBe('region');
+    expect(withHitTest.stats().measures).toBe(0);
+    withHitTest.dispose();
+  });
+
+  it('hitAt ignores a path stamped OUTSIDE the hit node (a stale attribute in an unrelated ancestor)', () => {
+    const frameDocument = frame.contentDocument;
+    if (frameDocument === null) throw new Error('unreachable');
+    const outer = frameDocument.createElement('div');
+    outer.setAttribute('data-ck-path', '3');
+    const wrapper = nodeElement(frame, 'inner');
+    outer.appendChild(wrapper);
+    frameDocument.body.appendChild(outer);
+    const withHitTest = createRectIndex({
+      frame,
+      ports: {
+        measure: measurePort as unknown as GeometryPorts['measure'],
+        hitTest: () => wrapper.querySelector('span'),
+      },
+    });
+    expect(withHitTest.hitAt?.(1, 1)).toEqual({ nodeId: 'inner' });
+    withHitTest.dispose();
+  });
+
+  it('elementRect measures the addressed element lazily and caches per index version', () => {
+    const wrapper = nodeElement(frame, 'region');
+    const img = wrapper.ownerDocument.createElement('img');
+    img.setAttribute('data-ck-path', '0.1');
+    wrapper.appendChild(img);
+    index.attach('region', wrapper);
+    measurePort.mockImplementation((element: Element) =>
+      element === img
+        ? { x: 30, y: 40, width: 50, height: 60 }
+        : { x: 0, y: 0, width: 400, height: 300 },
+    );
+    const before = index.stats().measures;
+    const rect = index.elementRect?.('region', [0, 1]);
+    expect(rect).toMatchObject({ nodeId: 'region', x: 30, y: 40, width: 50, height: 60 });
+    expect(index.elementRect?.('region', [0, 1])).toBe(rect); // cached: same version, same object
+    expect(index.stats().measures).toBe(before + 1);
+    // Unknown path, or a node the index does not hold: undefined, no measurement.
+    expect(index.elementRect?.('region', [9])).toBeUndefined();
+    expect(index.elementRect?.('ghost', [0])).toBeUndefined();
+    expect(index.stats().measures).toBe(before + 1);
+    // An invalidation re-measures on the next read.
+    frame.contentDocument?.dispatchEvent(new Event('scroll'));
+    expect(index.elementRect?.('region', [0, 1])).not.toBe(rect);
+    expect(index.stats().measures).toBe(before + 2);
+  });
+
   it('onInvalidate notifies per observation event (no polling anywhere)', () => {
     index.attach('a', nodeElement(frame, 'a'));
     let notified = 0;

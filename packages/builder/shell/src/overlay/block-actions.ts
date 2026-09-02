@@ -15,15 +15,21 @@ import { inlineTargetOf } from './inline-session';
  * resulting selection defined (a2, US3/AC2): the duplicate, the surviving
  * sibling (or the parent when none remains), or the moved node. Edit text is
  * explicitly refused here because the canvas opens that view state directly.
+ * Select parent and Deselect are selection-only: zero dispatches, never undo.
  */
 
 type StructuralBlockActionId = 'duplicate' | 'delete' | 'moveEarlier' | 'moveLater';
-export type BlockActionId = StructuralBlockActionId | 'editText' | 'selectParent';
+export type BlockActionId = StructuralBlockActionId | 'editText' | 'selectParent' | 'deselect';
 
 export interface BlockAction {
   id: BlockActionId;
   label: string;
   enabled: boolean;
+  /**
+   * A keyboard shortcut the POINTER may be shown beside the label ("Esc").
+   * Never part of the accessible name — one label, two surfaces.
+   */
+  hint?: string;
 }
 
 export interface BlockActionResult {
@@ -50,6 +56,22 @@ const ACTION_LABELS: Record<StructuralBlockActionId, string> = {
 
 const isStructuralBlockActionId = (value: string): value is StructuralBlockActionId =>
   value === 'duplicate' || value === 'delete' || value === 'moveEarlier' || value === 'moveLater';
+
+/*
+  Deselect comes LAST and is never disabled.
+
+  The owner's words: "when I select blocks there is no option to clear the
+  selection". Clicking the page background selects the ROOT on purpose (its
+  props live in the inspector), so even the root — which can be none of the
+  structural things — must offer a way out. Escape does the same from the
+  keyboard, which is the one hint the bar shows.
+*/
+const DESELECT_ACTION: BlockAction = {
+  id: 'deselect',
+  label: 'Deselect',
+  enabled: true,
+  hint: 'Esc',
+};
 
 /** Closed gates carry the reason — it doubles as the refusal announcement. */
 type Gate = { enabled: true } | { enabled: false; reason: string };
@@ -107,11 +129,12 @@ function planFor(kernel: BuilderKernel, nodeId: NodeId): ActionPlan {
 }
 
 /**
- * The ordered action list for THAT node: the four structural actions followed
- * by Edit text when the block declares an inline target. Structural actions
- * keep stable seats and become disabled when unavailable (a3); Edit text is
- * absent when undeclared because there is no session the canvas could open.
- * A node that no longer exists resolves to no actions at all.
+ * The ordered action list for THAT node: Select parent, the four structural
+ * actions, Edit text when the block declares an inline target, and Deselect
+ * last. Structural actions keep stable seats and become disabled when
+ * unavailable (a3); Edit text is absent when undeclared because there is no
+ * session the canvas could open. A node that no longer exists resolves to no
+ * actions at all.
  */
 export function resolveBlockActions(kernel: BuilderKernel, nodeId: NodeId): BlockAction[] {
   if (kernel.getDocument().nodes[nodeId] === undefined) {
@@ -138,9 +161,11 @@ export function resolveBlockActions(kernel: BuilderKernel, nodeId: NodeId): Bloc
     enabled: gates[id].enabled,
   }));
   const actions = [...parentAction, ...structural];
-  return inlineTargetOf(kernel, nodeId) === null
-    ? actions
-    : [...actions, { id: 'editText', label: 'Edit text', enabled: true }];
+  const withEditText: BlockAction[] =
+    inlineTargetOf(kernel, nodeId) === null
+      ? actions
+      : [...actions, { id: 'editText', label: 'Edit text', enabled: true }];
+  return [...withEditText, DESELECT_ACTION];
 }
 
 /**
@@ -156,6 +181,16 @@ export function performBlockAction(
   nodeId: NodeId,
   actionId: string,
 ): BlockActionResult {
+  if (actionId === 'deselect') {
+    /*
+      Selection-only, like select parent: no dispatch, nothing to undo. Not
+      gated on the node still existing either — a stale bar pressing Deselect
+      after its block vanished wants exactly this outcome. The kernel's own
+      door, so the canvas live region and the inspector hear the same write.
+    */
+    kernel.clearSelection();
+    return { ok: true, announcement: 'Selection cleared', selection: null };
+  }
   if (actionId === 'selectParent') {
     /*
       Selection-only: no dispatch, no transaction, nothing to undo. Stepping to

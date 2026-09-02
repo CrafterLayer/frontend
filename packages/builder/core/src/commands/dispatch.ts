@@ -7,6 +7,7 @@ import {
   type ClockPort,
   type CommandRuntime,
   type EventBus,
+  type KernelState,
   type NodeId,
   type Patch,
   type RegistryRead,
@@ -157,7 +158,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     log.append(tx);
     history.record(tx);
     deps.store.write(
-      { ...state, doc: nextDoc, selection: pruneSelection(state.selection, nextDoc) },
+      { ...state, doc: nextDoc, ...pruneSelection(state, nextDoc) },
       changedNodeIds(tx.patches),
     );
     deps.events.emit('tx.applied', { tx });
@@ -178,7 +179,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     // semantics; undo/redo never creates a new transaction (Law S).
     const nextDoc = applyPatchSet(state.doc, patchesOf(tx));
     deps.store.write(
-      { ...state, doc: nextDoc, selection: pruneSelection(state.selection, nextDoc) },
+      { ...state, doc: nextDoc, ...pruneSelection(state, nextDoc) },
       changedNodeIds(patchesOf(tx)),
     );
     deps.events.emit(event, { tx });
@@ -282,13 +283,22 @@ function assertJsonPatches(
  * no extra notification and the Law-S 1:1 change↔transaction pairing is
  * untouched. The original array is returned BY REFERENCE when nothing was
  * dropped, so selection subscribers never churn on unrelated commands.
+ *
+ * Element focus rides on the same rule: it names an element inside a LIVE
+ * selected node, so it survives exactly as long as that node stays selected
+ * — and is returned by reference, for the same subscribers.
  */
-function pruneSelection(selection: NodeId[], doc: BuilderDocument): NodeId[] {
-  if (selection.length === 0) {
-    return selection;
-  }
-  const live = selection.filter((id) => doc.nodes[id] !== undefined);
-  return live.length === selection.length ? selection : live;
+function pruneSelection(
+  state: Pick<KernelState, 'selection' | 'elementFocus'>,
+  doc: BuilderDocument,
+): Pick<KernelState, 'selection' | 'elementFocus'> {
+  const { selection, elementFocus } = state;
+  const live =
+    selection.length === 0 ? selection : selection.filter((id) => doc.nodes[id] !== undefined);
+  const nextSelection = live.length === selection.length ? selection : live;
+  const nextFocus =
+    elementFocus !== null && nextSelection[0] === elementFocus.id ? elementFocus : null;
+  return { selection: nextSelection, elementFocus: nextFocus };
 }
 
 /** Node-scoped notification targets: every patch under nodes/<id> names its node. */

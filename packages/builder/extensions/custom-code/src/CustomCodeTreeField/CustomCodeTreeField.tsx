@@ -27,10 +27,14 @@ import './CustomCodeTreeField.css';
  *   3. it summarises what the tree contains, so the panel is informative even
  *      to someone who will not read the JSON.
  *
- * The genuinely better answer — promoting a tree element into a real document
- * node so the existing canvas edits it — is a later milestone. This control is
- * built so that arriving does not require unbuilding anything: it edits the
- * stored value, and nothing else depends on how it looks.
+ * The better answer for the common case has since arrived one layer up and
+ * without unbuilding this: clicking an authored element on the canvas focuses
+ * it (`kernel.focusElement`), and the shell's Inspector replaces the block's
+ * rows — this JSON included — with that element's own (`src`/`alt`, text,
+ * `href`, classes). This control remains the whole-tree door: structure,
+ * reordering, component references, and anything the element rows do not
+ * cover. Promoting an element into a real document node stays a later
+ * milestone.
  */
 export default function CustomCodeTreeField({ value, onChange, disabled }: FieldProps) {
   const errorId = useId();
@@ -53,7 +57,8 @@ export default function CustomCodeTreeField({ value, onChange, disabled }: Field
     const result = customCodeTreeSchema.safeParse(parsed);
     if (!result.success) {
       const first = result.error.issues[0];
-      const at = first === undefined || first.path.length === 0 ? '' : ` at ${first.path.join('.')}`;
+      const at =
+        first === undefined || first.path.length === 0 ? '' : ` at ${first.path.join('.')}`;
       setError(`${first?.message ?? 'The tree is not valid.'}${at}`);
       return;
     }

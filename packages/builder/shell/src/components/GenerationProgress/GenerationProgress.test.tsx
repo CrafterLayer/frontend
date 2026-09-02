@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GenerationProgress, type GenerationStage } from './GenerationProgress';
+import { GENERATION_STAGE_LABELS } from './constants';
 
 const CSS_SOURCE = readFileSync(
   join(process.cwd(), 'src', 'components', 'GenerationProgress', 'GenerationProgress.css'),
@@ -74,6 +75,37 @@ describe('GenerationProgress', () => {
     render(<GenerationProgress stages={COMPLETE} />);
 
     expect(screen.getByRole('status')).toHaveTextContent('All 5 stages complete.');
+  });
+
+  it('announces by default', () => {
+    render(<GenerationProgress stages={RUNNING} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Stage 5 of 5: Apply.');
+  });
+
+  /* A host that already narrates the run (the assistant panel's one
+     `role="status"`) opts out here; the rows and their words stay. */
+  it('stays silent when the host narrates', () => {
+    render(<GenerationProgress stages={RUNNING} announce={false} />);
+
+    expect(screen.queryByRole('status')).toBeNull();
+
+    const region = screen.getByRole('region', { name: 'Building your page' });
+    const items = within(region).getAllByRole('listitem');
+    expect(items).toHaveLength(5);
+    expect(within(items[0]!).getByText('Done')).toBeInTheDocument();
+    expect(within(items[4]!).getByText('Active')).toBeInTheDocument();
+  });
+
+  /* The exported labels ARE the row labels — one source, so a host naming a
+     stage in its own copy ("failed at Structure") can never drift from the card. */
+  it('exports the labels the rows use', () => {
+    expect(GENERATION_STAGE_LABELS.sitemap).toBe('Plan');
+
+    render(<GenerationProgress stages={RUNNING} />);
+
+    const names = screen.getAllByTestId('stage-name').map((name) => name.textContent);
+    expect(names).toEqual(RUNNING.map((stage) => GENERATION_STAGE_LABELS[stage.id]));
   });
 
   it('offers a keyboard-reachable cancel while a stage is running', async () => {

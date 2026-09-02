@@ -40,6 +40,10 @@ commands still cross the same validated document door as a direct edit.
   cannot affect validation or application authority.
 - `persistKey` — optional local-storage key for conversation revival. Persisted plans lose their
   module-private authentication after reload and therefore cannot be applied until revalidated.
+- `locale` — `'ar' | 'en'`, default `'ar'`. The language of the character's one visible line (the
+  panel's live region) and nothing else. Not an i18n layer: the chrome stays English because
+  everything it names is Latin. `'en'` exists so tests, Storybook a11y and an English-speaking
+  reviewer see the same persona deterministically.
 
 ## Modes and authority
 
@@ -105,6 +109,53 @@ and updates when the live kernel selection changes. `@block-id` mentions become 
 selection. If policy or preflight refuses a command, the panel shows the typed reason rather than
 replacing it with a generic apology.
 
+## Abu Ghadab — the person inside the tool
+
+The tool is called Assistant; the person inside it is أبو غضب, Abu Ghadab ("father of anger" — a
+kunya, how you name someone you know). Grumpy but competent is a behaviour the status line proves,
+not a slogan, so there is no tagline. The heading shows ONE name, chosen by `locale`: «أبو غضب»
+(`lang="ar"`, `dir="rtl"`) by default, "Abu Ghadab" (`lang="en"`) for `en` — never both, because a
+bilingual header reads as two people; the transliteration lives only here. The region's accessible
+name, the composer's label, the rail tab and the persist key all stay `Assistant` — the accessible
+surface is the product role, the visible name is the character.
+
+### When you hover him
+
+The face is stateless; the element that holds it (its seat) writes what he reads: `--pg-face-look-x`
+/ `--pg-face-look-y` move his eyes toward the pointer as it crosses the header (or the empty state —
+never the composer), and `data-press` boops the disc on a press. `useFaceLook()` writes those
+straight onto the DOM once per animation frame, so a pointer never re-renders the panel; his voice
+line does not change on hover, the face stays `aria-hidden`, and a press never moves the composer's
+caret. Reply avatars (24 px) never pose or follow. Under `prefers-reduced-motion` the look is zeroed
+and no listener is attached.
+
+### While he works
+
+The thinking turn is a `GenerationProgress` card with the run's honest rows — Plan (skills and
+context), Structure (propose, check, repair) and, in Auto only, Apply — driven by the run's own
+events: Plan settles on `context.ready` with its elapsed time, Structure reads "Checking" /
+"Checking again" / "Repairing n" and settles on `plan.proposed`, Apply settles on `run.completed`; a
+failure marks the active row and the refusal card says where it broke ("· at Structure"). The card
+renders with `announce={false}` — the panel's voice is the one live region — and offers no Cancel:
+the composer's Stop is the one abort. A settled plan card keeps the receipt ("Plan 00:01.123 ·
+Structure 00:00.310").
+
+The character appears in three seats, all of them the boxes the old sparkle occupied so nothing
+moves: the header (32 px, live — the only face that animates), each reply avatar (24 px, frozen at
+the mood that turn earned: thinking, stopped, failed, discarded, or done as proposed / applied /
+planned) and the empty state (48 px, at rest). The face is a pure function of the run log: every
+`AiAgentEvent` of the current run, the turn's outcome, Apply and Discard on a card, and the
+composer's focus and draft drive one reducer with one timer. Composer focus makes him listen; typing
+is a nudge and never a word. See [AgentFace](?path=/docs/playground-agentface--docs) for the eight
+moods, the state machine and the copy deck.
+
+His voice is one `role="status"` line under the name — the panel's single live region — that says
+what the face shows: reading, working, checking, the proposal, the applied change, the refusal, the
+stop. Where a card already prints a string the English mirrors it exactly (`Applied as one change.`,
+`Stopped.`) so ear and eye agree; the Arabic tier is Levantine colloquial. Idle and listening share
+one line on purpose, so focusing the composer or typing never triggers an announcement. The
+`LiveFace` story proves the header follows a run to `done` and that exactly one status line exists.
+
 ## Reading the thread at a glance
 
 Every assistant outcome lands in one card whose **leading edge carries the state**: accent while a
@@ -113,15 +164,24 @@ discarded. Scanning the stripe down the thread tells you what happened without r
 Colour is never the only signal: each state also carries an icon, wording, and—when applicable—a
 stable failure code.
 
-Motion is spent in exactly two places, both of them status rather than atmosphere: the three-dot
-pulse while a proposal is being generated, and the composer's glow while the assistant is working.
-Both resolve to a still state under `prefers-reduced-motion`.
+Motion is spent on status, never atmosphere: the three-dot pulse while a proposal is being
+generated, the composer's glow while the assistant is working, and the header face's phase loops
+(reading eyes, drafting ring, applying spin) with one-shot entries for a proposal, an applied change
+or a stop. Reply avatars never animate. Everything resolves to a still state under
+`prefers-reduced-motion`; every mood is carried by geometry, so nothing is lost.
 
 ## Accessibility
 
 The panel is a named region, the thread is a named log, activated Skills are a named list, the
 composer has a programmatic label, and all decisions use native buttons. Enter sends a request;
 Shift+Enter adds a line. Stop and Retry retain explicit accessible names.
+
+The character's voice is the panel's one `role="status"` (`aria-live="polite"`,
+`aria-atomic="true"`, `lang` set to the locale, `dir="auto"` so the text declares its own
+direction). It sits outside every `aria-hidden` wrapper, so what is announced is exactly what is
+read. The thread stays `role="log"`; the faces are decoration inside `aria-hidden` seats, never
+focusable, and a mood change never moves focus — the header can go from reading to done while the
+person keeps typing.
 
 The conversation history appears only when more than one chat exists. It is a labelled button that
 opens a `menu` of `menuitemradio` entries — the past is a list of things you have already said, not

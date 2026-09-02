@@ -73,12 +73,27 @@ function face(container: HTMLElement): HTMLElement {
   return element;
 }
 
-/** Innermost `selector { body }` blocks, so a keyframe name inside `@keyframes` is not a rule. */
+/**
+ * Innermost `selector { body }` blocks, so a keyframe name inside `@keyframes` is not a rule.
+ * Selectors are read back the way a parser would: prettier wraps a long `:not()` across lines.
+ */
 function rules(css: string): { selector: string; body: string }[] {
   return Array.from(css.matchAll(/([^{}]+)\{([^{}]*)\}/g), (match) => ({
-    selector: (match[1] ?? '').trim(),
+    selector: (match[1] ?? '')
+      .replace(/\s+/g, ' ')
+      .replace(/\( /g, '(')
+      .replace(/ \)/g, ')')
+      .trim(),
     body: match[2] ?? '',
   }));
+}
+
+/** The body of the first `@media (query) { … }` block; inner rules stay indented, so it ends at the first `\n}`. */
+function mediaBlock(query: string): string {
+  const pattern = new RegExp(`@media \\(${query}\\)\\s*\\{([\\s\\S]*?)\\n\\}`);
+  const match = pattern.exec(DECLARATIONS);
+  if (match?.[1] === undefined) throw new Error(`no @media (${query}) block`);
+  return match[1];
 }
 
 afterEach(cleanup);
@@ -191,6 +206,154 @@ describe('AgentFace', () => {
     for (const { selector } of drawn) {
       expect(selector).toMatch(/\[data-outcome='(proposed|applied)'\]/);
     }
+  });
+});
+
+/* The seat contract (C1): whoever holds the face writes `--pg-face-look-x`/`-y`
+   and stamps `data-press`; the face answers in CSS, from `:hover`, `:active`
+   and those three inputs, and nothing reaches the reducer or the voice. */
+const BIG = ":not([data-size='sm'])";
+const SETTLED =
+  ":not([data-mood='thinking']):not([data-mood='planning']):not([data-mood='working']):not([data-mood='stopped'])";
+const LOOKS = ":not([data-mood='thinking']):not([data-mood='stopped']):not([data-mood='failed'])";
+
+describe('AgentFace answers a pointer without a word', () => {
+  const all = rules(DECLARATIONS);
+  const hovered = all.filter(({ selector }) => selector.includes(':hover'));
+  const bodyOf = (selector: string): string => {
+    const rule = all.find((candidate) => candidate.selector === selector);
+    if (rule === undefined) throw new Error(`no rule ${selector}`);
+    return rule.body;
+  };
+
+  it('poses only for a real pointer, and never a bubble face', () => {
+    expect(hovered.length).toBeGreaterThan(0);
+    const real = new Set(rules(mediaBlock('hover: hover')).map(({ selector }) => selector));
+    for (const { selector } of hovered) {
+      expect(real.has(selector), selector).toBe(true);
+      expect(selector).toContain(BIG);
+      expect(selector.replaceAll(BIG, '')).not.toContain("[data-size='sm']");
+    }
+  });
+
+  it('arches a brow only when settled; every mood leans in and lights up', () => {
+    expect(bodyOf(`.pg-face${BIG}${SETTLED}:hover .pg-face__brow--end`)).toMatch(
+      /rotate:\s*-6deg;\s*translate:\s*0 -1px;/,
+    );
+    expect(bodyOf(`.pg-face${BIG}${SETTLED}:hover .pg-face__brow--start`)).toMatch(
+      /translate:\s*0 0\.5px;/,
+    );
+    expect(bodyOf(`.pg-face${BIG}:hover .pg-face__eye`)).toMatch(/scale:\s*1\.12;/);
+    expect(bodyOf(`.pg-face${BIG}:hover .pg-face__disc`)).toMatch(/scale:\s*1\.05;/);
+    expect(bodyOf(`.pg-face${BIG}:hover`)).toMatch(
+      /box-shadow:\s*0 0 var\(--bldr-space-xl\) var\(--pg-face-glow, transparent\);/,
+    );
+    // Only the brows (and the arrival perk) are held back while busy or stopped.
+    for (const { selector } of hovered) {
+      if (/pg-face__(brow|features)/.test(selector)) expect(selector).toContain(SETTLED);
+      else expect(selector, selector).not.toContain('[data-mood=');
+    }
+  });
+
+  it('leaves the mouth, the ring and the tick to the moods and the run', () => {
+    for (const { selector, body } of hovered) {
+      expect(selector).not.toMatch(/pg-face__(mouth|ring|tick)/);
+      if (selector.includes('.pg-face__eye')) {
+        expect(body, selector).not.toMatch(/\b(stroke|transform|animation):/);
+      }
+    }
+  });
+
+  it('follows the seat everywhere but thinking, stopped and failed, eyes leading', () => {
+    const look = all.filter(({ body }) => body.includes('--pg-face-look-x'));
+    expect(look.map(({ selector }) => selector)).toEqual([
+      `.pg-face${BIG}${LOOKS} .pg-face__eye`,
+      `.pg-face${BIG}${LOOKS} .pg-face__features`,
+    ]);
+    for (const { body } of look) {
+      expect(body).toMatch(/^\s*translate:/);
+      expect(body).toContain('var(--pg-face-look-gain, 1)');
+    }
+    expect(look[0]?.body).toContain('var(--pg-face-gaze-y, 0px)');
+    expect(look[1]?.body).toMatch(/\/ 4\)/);
+    // The face reads the look; only a seat ever writes it.
+    expect(DECLARATIONS).not.toMatch(/--pg-face-look-[xy]:/);
+    expect(bodyOf(".pg-face[data-mood='listening'] .pg-face__eye")).toMatch(
+      /--pg-face-gaze-y:\s*0\.8px;/,
+    );
+  });
+
+  it('boops the disc from the pointer or the seat, after the hover lean', () => {
+    const press = `:is(.pg-face:active, [data-press] .pg-face)${BIG} .pg-face__disc`;
+    expect(all.filter(({ selector }) => selector.includes('[data-press]'))).toEqual([
+      { selector: press, body: expect.stringMatching(/scale:\s*0\.96;/) as string },
+    ]);
+    const order = all.map(({ selector }) => selector);
+    expect(order.indexOf(press)).toBeGreaterThan(
+      order.indexOf(`.pg-face${BIG}:hover .pg-face__disc`),
+    );
+  });
+
+  it('keeps the perk and the glance opt-in through data-live', () => {
+    for (const name of ['pg-face-perk', 'pg-face-glance']) {
+      expect(DECLARATIONS).toContain(`@keyframes ${name}`);
+      const users = all.filter(({ body }) => body.includes(`animation: ${name}`));
+      expect(users.length, name).toBeGreaterThan(0);
+      for (const { selector } of users) expect(selector, name).toContain('[data-live]');
+    }
+    expect(all.find(({ body }) => body.includes('animation: pg-face-perk'))?.selector).toBe(
+      `.pg-face[data-live]${BIG}${SETTLED}:hover .pg-face__features`,
+    );
+    expect(all.find(({ body }) => body.includes('animation: pg-face-glance'))?.selector).toBe(
+      ".pg-face[data-live][data-mood='idle'] .pg-face__features",
+    );
+  });
+
+  it('eases each pose over named transitions, never all', () => {
+    expect(bodyOf('.pg-face')).toMatch(
+      /transition:\s*box-shadow var\(--bldr-duration-state\) var\(--bldr-easing\);/,
+    );
+    expect(bodyOf('.pg-face__disc')).toMatch(
+      /transition:\s*scale var\(--bldr-duration-move\) var\(--bldr-easing\);/,
+    );
+    for (const part of ['.pg-face__brow', '.pg-face__eye']) {
+      const body = bodyOf(part).replace(/\s+/g, ' ');
+      for (const property of ['transform', 'translate', 'rotate', 'scale']) {
+        expect(body, part).toContain(`${property} var(--bldr-duration-move) var(--bldr-easing)`);
+      }
+    }
+    expect(bodyOf('.pg-face__features').replace(/\s+/g, ' ')).toContain(
+      'translate var(--bldr-duration-move) var(--bldr-easing)',
+    );
+    expect(DECLARATIONS).not.toMatch(/transition:\s*all/);
+  });
+
+  it('snaps every pose and zeroes the look under reduced motion', () => {
+    expect(DECLARATIONS.match(/@media \(prefers-reduced-motion: reduce\)/g)).toHaveLength(1);
+    const reduced = mediaBlock('prefers-reduced-motion: reduce');
+    const stilled = rules(reduced).find(({ body }) => /animation:\s*none/.test(body));
+    for (const part of ['brow', 'mouth', 'tick', 'eye', 'features', 'disc', 'ring']) {
+      expect(stilled?.selector, part).toContain(`.pg-face__${part}`);
+    }
+    expect(rules(reduced)).toContainEqual({
+      selector: '.pg-face',
+      body: expect.stringMatching(/--pg-face-look-gain:\s*0;/) as string,
+    });
+    expect(reduced).toMatch(/\.pg-face \*,\s*\.pg-face-voice \{\s*transition: none;/);
+  });
+
+  it('stays decorative inside a pressed seat', () => {
+    const { container } = render(
+      <span data-press="">
+        <AgentFace mood="idle" live />
+      </span>,
+    );
+    expect(container.textContent).toBe('');
+    expect(document.body).toHaveFocus();
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(face(container)).not.toHaveAttribute('tabindex');
+    expect(face(container)).not.toHaveAttribute('data-press');
+    expect(face(container)).not.toHaveAttribute('style');
   });
 });
 

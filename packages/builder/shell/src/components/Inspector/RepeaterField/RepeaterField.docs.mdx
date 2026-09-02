@@ -48,3 +48,9 @@ of its siblings.
 
 The component uses the Inspector control scale. It does not use the larger canvas-chrome touch
 target.
+
+## Styles
+
+`RepeaterField` owns `RepeaterField.css` (every `.bldr-repeater*` rule) and imports the Inspector's
+`InspectorRow.css` alongside it, because its cards render ordinary rows: the field skins and the
+rejection style live there, and they must be loaded wherever a repeater renders.

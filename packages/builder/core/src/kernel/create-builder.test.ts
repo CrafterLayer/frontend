@@ -148,6 +148,99 @@ describe('US1 — build and edit through commands with reliable undo', () => {
     expect(kernel.context.store.getState().selection).toEqual(['hero1']);
     expect(kernel.transactions()).toHaveLength(0);
   });
+
+  it('clearSelection empties the selection through the same ephemeral door: no transaction, nothing to undo', () => {
+    const kernel = testKernel(landingFixture());
+    kernel.setSelection(['hero1']);
+    kernel.clearSelection();
+    expect(kernel.context.store.getState().selection).toEqual([]);
+    expect(kernel.transactions()).toHaveLength(0);
+    expect(kernel.canUndo()).toBe(false);
+    expect(kernel.getDocument()).toEqual(landingFixture()); // the document is untouched
+  });
+
+  it('focusElement selects the host node and names one element inside it, in ONE ephemeral write', () => {
+    const kernel = testKernel(landingFixture());
+    let stateChanges = 0;
+    kernel.context.store.subscribe(() => {
+      stateChanges += 1;
+    });
+    kernel.focusElement('sec1', [0, 2]);
+    expect(kernel.context.store.getState().selection).toEqual(['sec1']);
+    expect(kernel.context.store.getState().elementFocus).toEqual({ id: 'sec1', path: [0, 2] });
+    expect(stateChanges).toBe(1); // selection and focus land together, never as two events
+    expect(kernel.transactions()).toHaveLength(0);
+    expect(kernel.canUndo()).toBe(false);
+  });
+
+  it('a fresh kernel has no element focus, and every whole-node selection door clears it', () => {
+    const kernel = testKernel(landingFixture());
+    expect(kernel.context.store.getState().elementFocus).toBeNull();
+
+    kernel.focusElement('sec1', [0]);
+    kernel.setSelection(['hero1']);
+    expect(kernel.context.store.getState().elementFocus).toBeNull();
+
+    kernel.focusElement('sec1', [0]);
+    kernel.clearSelection();
+    expect(kernel.context.store.getState().selection).toEqual([]);
+    expect(kernel.context.store.getState().elementFocus).toBeNull();
+  });
+
+  it('clearElementFocus steps back to the whole node: selection kept, one write per call', () => {
+    const kernel = testKernel(landingFixture());
+    kernel.focusElement('sec1', [1]);
+    let stateChanges = 0;
+    kernel.context.store.subscribe(() => {
+      stateChanges += 1;
+    });
+    kernel.clearElementFocus();
+    expect(kernel.context.store.getState().selection).toEqual(['sec1']);
+    expect(kernel.context.store.getState().elementFocus).toBeNull();
+    kernel.clearElementFocus(); // already clear: still one write, the selection law
+    expect(stateChanges).toBe(2);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('element focus is pruned with its host: removing the node (and undoing that) never strands a focus', () => {
+    const kernel = testKernel(landingFixture());
+    kernel.focusElement('cta2', [0]);
+    kernel.dispatch('removeNode', { id: 'cta2' });
+    expect(kernel.context.store.getState().selection).toEqual([]);
+    expect(kernel.context.store.getState().elementFocus).toBeNull();
+    // Undo brings the node back but not the focus — focus is UI state, not history.
+    kernel.undo();
+    expect(kernel.getDocument().nodes['cta2']).toBeDefined();
+    expect(kernel.context.store.getState().elementFocus).toBeNull();
+  });
+
+  it('a document write that keeps the host alive keeps the focus, by reference', () => {
+    const kernel = testKernel(landingFixture());
+    kernel.focusElement('sec1', [0, 1]);
+    const before = kernel.context.store.getState().elementFocus;
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'Changed.' });
+    expect(kernel.context.store.getState().elementFocus).toBe(before);
+  });
+
+  it('clearSelection notifies exactly as setSelection([]) does — one write per call, even when already empty', () => {
+    // Pinned on purpose: selection subscribers (the canvas live region, the
+    // inspector) key their re-announcement off the write, so the two doors
+    // must be observably identical or "Selection cleared" would be spoken
+    // after one of them and not the other.
+    const kernel = testKernel(landingFixture());
+    let stateChanges = 0;
+    kernel.context.store.subscribe(() => {
+      stateChanges += 1;
+    });
+    kernel.setSelection([]); // already empty: still one write
+    expect(stateChanges).toBe(1);
+    kernel.clearSelection(); // already empty: still one write, the same law
+    expect(stateChanges).toBe(2);
+    kernel.setSelection(['hero1']);
+    kernel.clearSelection();
+    expect(stateChanges).toBe(4);
+    expect(kernel.context.store.getState().selection).toEqual([]);
+  });
 });
 
 describe('runtime extension registration (fixture-level; full lifecycle in US2)', () => {

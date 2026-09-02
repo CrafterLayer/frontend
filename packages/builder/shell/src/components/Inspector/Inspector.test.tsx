@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
@@ -24,11 +21,6 @@ import {
 } from '@craftkit/builder-schema';
 
 import { Inspector } from './Inspector';
-
-const CSS_SOURCE = readFileSync(
-  join(process.cwd(), 'src', 'components', 'Inspector', 'Inspector.css'),
-  'utf8',
-);
 
 const CardRender = ((props: BlockRenderProps<{ title: string }>) => (
   <article data-testid={`card-${props.node.id}`}>{props.props.title}</article>
@@ -579,6 +571,35 @@ describe('US1 — generated inspector (007 contract §4)', () => {
         'Select a block to edit its properties.',
       ),
     ).toBeInTheDocument();
+    // Nothing to clear, so nothing offers to: the control exists only while
+    // a block is selected.
+    expect(screen.queryByRole('button', { name: 'Clear selection' })).not.toBeInTheDocument();
+  });
+
+  it('a selected block offers Clear selection in the title row: it empties the selection with no transaction and says so', async () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    const user = userEvent.setup();
+    render(<Inspector kernel={kernel} />);
+    const before = txCount(kernel);
+
+    const clear = screen.getByRole('button', { name: 'Clear selection' });
+    expect(clear.closest('.bldr-inspector__title-row')).not.toBeNull();
+    // Quiet, small chrome: the panel's own button recipe, not a bespoke one.
+    expect(clear).toHaveAttribute('data-bldr-chrome-button', '');
+    expect(clear).toHaveAttribute('data-size', 'sm');
+    expect(clear).toHaveAttribute('data-variant', 'quiet');
+    expect(clear.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+
+    await user.click(clear);
+
+    expect(kernel.context.store.getState().selection).toEqual([]);
+    expect(txCount(kernel)).toBe(before); // selection is never a transaction
+    expect(screen.getByText('Select a block to edit its properties.')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Inspector messages' })).toHaveTextContent(
+      'Selection cleared',
+    );
+    expect(screen.queryByRole('button', { name: 'Clear selection' })).not.toBeInTheDocument();
   });
 
   it('AC5: document truth — undo restores the control value; pruning empties the panel', async () => {
@@ -1073,10 +1094,25 @@ describe('Inspector information design', () => {
     expect(within(alignmentRow).queryByText('tablet override')).not.toBeInTheDocument();
   });
 
-  it('declares the mono face and tabular digits on numeric values', () => {
-    expect(CSS_SOURCE).toMatch(
-      /\.bldr-inspector__numeric-control \.bldr-field__input\s*\{[^}]*font-family:\s*var\(--bldr-font-mono\);[^}]*font-variant-numeric:\s*tabular-nums;[^}]*\}/su,
-    );
+  it('mounts a tab body on first activation and keeps it mounted', async () => {
+    // Lazy-once: a tab's rows exist only after its first visit, then survive a
+    // round trip; every populated tab always has its panel shell.
+    const kernel = makeKernel();
+    kernel.setSelection(['partitioned1']);
+    const user = userEvent.setup();
+    render(<Inspector kernel={kernel} />);
+
+    expect(screen.getAllByRole('tabpanel', { hidden: true })).toHaveLength(3);
+    expect(screen.queryByRole('textbox', { name: 'title', hidden: true })).toBeNull();
+
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
+    expect(screen.getByRole('textbox', { name: 'title', hidden: true })).toBeInTheDocument();
+    expect(screen.getAllByRole('tabpanel', { hidden: true })).toHaveLength(3);
+
+    await user.click(screen.getByRole('tab', { name: 'Content' }));
+    expect(screen.getByRole('textbox', { name: 'title', hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'title' })).toBeNull();
+    expect(screen.getAllByRole('tabpanel', { hidden: true })).toHaveLength(3);
   });
 
   it('keeps the invitation and block-name area reachable with no selection', () => {

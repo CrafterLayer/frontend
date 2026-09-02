@@ -39,13 +39,19 @@ export function planProviderFromEnv(
   }
   const rawToken = env['VITE_AI_PLAN_TOKEN'];
   const token = typeof rawToken === 'string' ? rawToken.trim() : '';
-  // Generous deadline: a dev bridge fronting a CLI-spawned model can take a
-  // minute; a production server should answer far inside this. The cache makes
-  // a repeated ask on an unchanged page instant and free.
+  /*
+    Eleven minutes, and it has to be this long. A plan is 15-25k output tokens
+    — three to five minutes through the dev CLI backend and minutes through the
+    API — so the previous two-minute deadline aborted every real run in flight
+    and reported the server's healthy work as a provider failure. It sits just
+    above the server's own ten-minute cap so a real timeout is reported by the
+    side that knows why. The cache makes a repeated ask on an unchanged page
+    instant and free.
+  */
   return createCachingAiPlanProvider(
     createRemoteAiPlanProvider({
       endpoint,
-      timeoutMs: 120_000,
+      timeoutMs: 660_000,
       ...(token === '' ? {} : { headers: { authorization: `Bearer ${token}` } }),
       allowInsecureHttp: isLoopbackDevelopmentEndpoint(endpoint, env),
     }),

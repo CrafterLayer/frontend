@@ -9,7 +9,7 @@
 .bldr-preview__frame {
   background: var(--bldr-surface, #ffffff);
   block-size: 100%;
-  box-shadow: var(--bldr-shadow-raised, 0 1px 3px rgb(15 23 42 / 12%));
+  box-shadow: var(--bldr-shadow-raised);
   inline-size: 100%;
   margin-inline: auto;
 }

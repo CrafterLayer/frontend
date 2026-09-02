@@ -15,6 +15,8 @@ import {
   createCraftkitAiSkillRegistry,
   createLocalAiPlanProvider,
   createMemoryContextProvider,
+  GENERATION_STAGE_LABELS,
+  GenerationProgress,
   previewAiPlan,
   runAiAgent,
   StaticDocument,
@@ -32,6 +34,7 @@ import {
   type AiValidatedProposal,
   type BuilderDocument,
   type BuilderKernel,
+  type GenerationStageId,
 } from '@craftkit/builder';
 
 import { AgentFace, AgentVoice, moodForTurn, useAgentMood, type AgentLocale } from '../AgentFace';
@@ -49,8 +52,10 @@ import {
   IconStop,
   IconUndo,
 } from './AssistantPanel.icons';
+import { initialRunProgress, reduceRunProgress, type RunProgress } from './AssistantPanel.progress';
 import { describeStep, shortSkillFingerprint } from './AssistantPanel.utils';
 import { catalogPolicyFor, type ProviderKind } from './catalogPolicyFor';
+import { useFaceLook } from './use-face-look';
 
 export interface AssistantPanelProps {
   kernel: BuilderKernel;
@@ -105,6 +110,8 @@ type Turn =
       readonly subject: string;
       /** The provider's own last words about what it is doing, when it streams them. */
       readonly progress?: string;
+      /** The run as rows — Plan, Structure and (Auto only) Apply. */
+      readonly run: RunProgress;
     }
   | {
       readonly id: string;
@@ -119,6 +126,8 @@ type Turn =
       readonly failure?: AiRunFailure;
       /** Kept only so a retryable failure can start a fresh, bounded run. */
       readonly request?: string;
+      /** The row that was active when it broke, so the card can say where. */
+      readonly failedAt?: GenerationStageId;
     }
   | {
       readonly id: string;
@@ -136,6 +145,8 @@ type Turn =
       readonly applied: boolean;
       /** The mode this plan was proposed under; absent (revived old data) reads as 'ask'. */
       readonly mode?: AssistantMode;
+      /** The settled run, for the timing receipt. */
+      readonly run?: RunProgress;
     };
 
 /**
@@ -171,6 +182,44 @@ function ownsRun(activeRun: ActiveRunLease | null, runId: string): boolean {
 }
 
 /** Four openers, each a request that works exactly as written. */
+/** The largest `-N` suffix among saved session and turn ids, so new ids never repeat one. */
+function highestIdSuffix(sessions: readonly Session[]): number {
+  let highest = 1;
+  const consider = (id: string): void => {
+    const match = /-(\d+)$/u.exec(id);
+    if (match?.[1] !== undefined) highest = Math.max(highest, Number(match[1]));
+  };
+  for (const session of sessions) {
+    consider(session.id);
+    for (const turn of session.turns) consider(turn.id);
+  }
+  return highest;
+}
+
+/**
+ * The receipt on a settled card: every row that finished, with how long it
+ * took — "Plan 00:01.123 · Structure 00:00.310". Nothing when the run left no
+ * done row (a revived card, or a failure before the first row settled).
+ */
+function timingReceipt(run: RunProgress | undefined) {
+  const done =
+    run?.stages.filter((stage) => stage.status === 'done' && stage.detail !== undefined) ?? [];
+  if (done.length === 0) return null;
+  return (
+    <p className="pg-chat__timing">
+      {done
+        .map((stage) => `${GENERATION_STAGE_LABELS[stage.id]} ${stage.detail ?? ''}`)
+        .join(' · ')}
+    </p>
+  );
+}
+
+/** One name, chosen by locale. Never both: a bilingual header reads as two people. */
+const AGENT_NAME = { ar: 'أبو غضب', en: 'Abu Ghadab' } as const satisfies Record<
+  AgentLocale,
+  string
+>;
+
 const STARTERS = [
   'add a pricing section',
   'add a hero',
@@ -195,6 +244,29 @@ function preflightPorts() {
 interface PersistedPanelState {
   readonly sessions: readonly Session[];
   readonly activeId: string;
+}
+
+/**
+ * Saved conversations from before ids continued across reloads can hold two
+ * turns with one id. React keys must be unique, so the later twin is re-keyed
+ * once, on revival; nothing else refers to a turn by id after it is settled.
+ */
+function withUniqueTurnIds(sessions: readonly Session[]): readonly Session[] {
+  const seen = new Set<string>();
+  let repaired = highestIdSuffix(sessions);
+  return sessions.map((session) => ({
+    ...session,
+    turns: session.turns.map((turn) => {
+      if (!seen.has(turn.id)) {
+        seen.add(turn.id);
+        return turn;
+      }
+      repaired += 1;
+      const id = `turn-${String(repaired)}`;
+      seen.add(id);
+      return { ...turn, id };
+    }),
+  }));
 }
 
 /**
@@ -240,7 +312,7 @@ function reviveSessions(persistKey: string | undefined): PersistedPanelState | n
         return turn;
       }),
     }));
-    return { sessions, activeId: parsed.activeId };
+    return { sessions: withUniqueTurnIds(sessions), activeId: parsed.activeId };
   } catch {
     return null;
   }
@@ -271,16 +343,22 @@ export function AssistantPanel({
   persistKey,
   locale = 'ar',
 }: AssistantPanelProps) {
-  const counter = useRef(1);
-  const nextId = useCallback((prefix: string) => {
-    counter.current += 1;
-    return `${prefix}-${String(counter.current)}`;
-  }, []);
-
   const [sessions, setSessions] = useState<readonly Session[]>(
     () =>
       reviveSessions(persistKey)?.sessions ?? [{ id: 'session-1', title: 'New chat', turns: [] }],
   );
+  /*
+    Ids continue from where the revived conversation stopped. A counter that
+    restarted at 1 on every load handed a new turn the id of a saved one, and
+    React then saw two children with the same key — a duplicated or dropped
+    bubble, depending on the day.
+  */
+  const [idSeed] = useState(() => highestIdSuffix(sessions));
+  const counter = useRef(idSeed);
+  const nextId = useCallback((prefix: string) => {
+    counter.current += 1;
+    return `${prefix}-${String(counter.current)}`;
+  }, []);
   const [activeId, setActiveId] = useState(
     () => reviveSessions(persistKey)?.activeId ?? 'session-1',
   );
@@ -316,6 +394,9 @@ export function AssistantPanel({
     noteTurn: noteFaceTurn,
     reset: resetFace,
   } = useAgentMood({ mode, composerFocused, draftLength: draft.length });
+  // He watches you cross the header (or the empty state) — never while you type.
+  const { watchZone: watchHeadZone, holdSeat: holdHeadSeat } = useFaceLook();
+  const { watchZone: watchEmptyZone, holdSeat: holdEmptySeat } = useFaceLook();
   /** The @-mention in progress: the text typed after the trailing @, or null. */
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -496,7 +577,13 @@ export function AssistantPanel({
                 turns: [
                   ...session.turns,
                   { id: youId, from: 'you', text: trimmed },
-                  { id: thinkingId, from: 'assistant', kind: 'thinking', subject },
+                  {
+                    id: thinkingId,
+                    from: 'assistant',
+                    kind: 'thinking',
+                    subject,
+                    run: initialRunProgress(mode === 'auto' ? 'auto' : 'never', systemClock.now()),
+                  },
                 ],
               }
             : session,
@@ -564,15 +651,24 @@ export function AssistantPanel({
           isCurrentRun: (candidateRunId) => activeRunRef.current?.runId === candidateRunId,
           onEvent: (event) => {
             onFaceEvent(event);
-            if (event.type === 'plan.progress') {
-              patchTurns((previous) =>
-                previous.map((turn) =>
-                  turn.id === thinkingId && turn.from === 'assistant' && turn.kind === 'thinking'
-                    ? { ...turn, progress: event.text }
-                    : turn,
-                ),
-              );
-            }
+            patchTurns((previous) =>
+              previous.map((turn) => {
+                if (
+                  turn.id !== thinkingId ||
+                  turn.from !== 'assistant' ||
+                  turn.kind !== 'thinking'
+                ) {
+                  return turn;
+                }
+                const run = reduceRunProgress(turn.run, event);
+                if (run === turn.run && event.type !== 'plan.progress') return turn;
+                return {
+                  ...turn,
+                  run,
+                  ...(event.type === 'plan.progress' ? { progress: event.text } : {}),
+                };
+              }),
+            );
             onAgentEvent?.(event);
           },
         });
@@ -591,6 +687,9 @@ export function AssistantPanel({
                   skills: result.proposal.skillActivations,
                   applied: result.status === 'applied',
                   mode,
+                  ...(turn.from === 'assistant' && turn.kind === 'thinking'
+                    ? { run: turn.run }
+                    : {}),
                 }
               : turn,
           ),
@@ -617,6 +716,11 @@ export function AssistantPanel({
                     text: failure.message,
                     failure,
                     request: trimmed,
+                    ...(turn.from === 'assistant' &&
+                    turn.kind === 'thinking' &&
+                    turn.run.failedAt !== null
+                      ? { failedAt: turn.run.failedAt }
+                      : {}),
                   }
                 : turn,
             ),
@@ -813,14 +917,15 @@ export function AssistantPanel({
   );
 
   return (
-    <section className="pg-chat" aria-label="Assistant">
-      <header className="pg-chat__head">
+    <section className="pg-chat" aria-label="Assistant" data-mood={face.mood}>
+      <header className="pg-chat__head" ref={watchHeadZone}>
         <div className="pg-chat__title">
           <div className="pg-chat__brand">
             {/* The tool is called Assistant (the region's accessible name);
                 the person inside it is أبو غضب. The face is decoration — his
-                voice, below, is what a screen reader hears. */}
-            <span className="pg-chat__brand-mark" aria-hidden="true">
+                voice, below, is what a screen reader hears. The seat writes
+                the look and the press; the face only reads them. */}
+            <span className="pg-chat__brand-mark" aria-hidden="true" ref={holdHeadSeat}>
               <AgentFace
                 size="md"
                 live
@@ -830,11 +935,10 @@ export function AssistantPanel({
                 typing={face.typing}
               />
             </span>
-            <h2>
-              <span className="pg-chat__name" lang="ar" dir="rtl">
-                أبو غضب
+            <h2 className="pg-chat__heading">
+              <span className="pg-chat__name" lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+                {AGENT_NAME[locale]}
               </span>
-              <span className="pg-chat__name-latin">Abu Ghadab</span>
             </h2>
           </div>
           <ChromeButton variant="quiet" size="sm" onClick={startNewChat}>
@@ -902,8 +1006,8 @@ export function AssistantPanel({
 
       <div className="pg-chat__thread" ref={threadRef} role="log" aria-label="Conversation">
         {turns.length === 0 ? (
-          <div className="pg-chat__empty">
-            <span className="pg-chat__empty-mark" aria-hidden="true">
+          <div className="pg-chat__empty" ref={watchEmptyZone}>
+            <span className="pg-chat__empty-mark" aria-hidden="true" ref={holdEmptySeat}>
               <AgentFace mood="idle" size="lg" />
             </span>
             <p>Ask for a section and I will propose the exact changes.</p>
@@ -928,194 +1032,241 @@ export function AssistantPanel({
           </div>
         ) : null}
 
-        {turns.map((turn) =>
-          turn.from === 'you' ? (
-            <p key={turn.id} className="pg-chat__you">
-              {turn.text}
-            </p>
-          ) : (
-            <div key={turn.id} className="pg-chat__reply">
-              {/* One avatar for every reply: the live thinking bubble mirrors
+        {turns.map((turn) => (
+          <article
+            key={turn.id}
+            className="pg-chat__turn"
+            data-from={turn.from}
+            data-kind={turn.from === 'assistant' ? turn.kind : 'text'}
+          >
+            {turn.from === 'you' ? (
+              <p className="pg-chat__you" dir="auto">
+                {turn.text}
+              </p>
+            ) : (
+              <div className="pg-chat__reply">
+                {/* One avatar for every reply: the live thinking bubble mirrors
                   the header's phase (still static — sm never animates), every
                   other bubble is frozen at the mood it earned. */}
-              <span className="pg-chat__avatar" aria-hidden="true">
-                <AgentFace
-                  size="sm"
-                  {...(turn.kind === 'thinking'
-                    ? { mood: face.mood, variant: face.variant }
-                    : moodForTurn(turn))}
-                />
-              </span>
-              <div className="pg-chat__reply-body">
-                {turn.kind === 'thinking' ? (
-                  <div className="pg-chat__thinking">
-                    <span className="pg-chat__thinking-dots" aria-hidden="true">
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                    <p>{turn.progress ?? `Reading ${turn.subject}…`}</p>
-                  </div>
-                ) : null}
-                {turn.kind === 'stopped' ? (
-                  <div className="pg-chat__card pg-chat__card--discarded">
-                    <p className="pg-chat__refused">Stopped.</p>
-                  </div>
-                ) : null}
-                {turn.kind === 'refused' ? (
-                  <div className="pg-chat__card pg-chat__card--refused">
-                    <IconAlert />
-                    <div>
-                      <p className="pg-chat__refused">{turn.text}</p>
-                      {turn.failure === undefined ? null : (
-                        <p className="pg-chat__step-title">
-                          <code className="pg-chat__step-cmd">{turn.failure.code}</code>
-                          {turn.failure.status === undefined
-                            ? ` · ${turn.failure.source}`
-                            : ` · ${turn.failure.source} · HTTP ${String(turn.failure.status)}`}
-                        </p>
-                      )}
-                      {turn.failure?.retryable === true && turn.request !== undefined ? (
-                        <ChromeButton
-                          variant="quiet"
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => {
-                            void ask(turn.request ?? '');
-                          }}
-                        >
-                          Retry
-                        </ChromeButton>
-                      ) : null}
+                <span className="pg-chat__avatar" aria-hidden="true">
+                  <AgentFace
+                    size="sm"
+                    {...(turn.kind === 'thinking'
+                      ? { mood: face.mood, variant: face.variant }
+                      : moodForTurn(turn))}
+                  />
+                </span>
+                <div className="pg-chat__reply-body">
+                  {turn.kind === 'thinking' ? (
+                    <div className="pg-chat__inflight" data-state="inflight">
+                      {/* The rows narrate; the panel's own voice is the ONE live
+                        region, so the card stays silent. No Cancel here: the
+                        composer's Stop is the one abort. */}
+                      <GenerationProgress
+                        heading={`Working on ${turn.subject}`}
+                        stages={turn.run.stages}
+                        announce={false}
+                      />
+                      <div className="pg-chat__thinking">
+                        <span className="pg-chat__thinking-dots" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                        <p dir="auto">{turn.progress ?? `Reading ${turn.subject}…`}</p>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-                {turn.kind === 'discarded' ? (
-                  <div className="pg-chat__card pg-chat__card--discarded">
-                    <p className="pg-chat__refused">Discarded.</p>
-                  </div>
-                ) : null}
-                {turn.kind === 'plan' ? (
-                  <div
-                    className={`pg-chat__card ${
-                      turn.applied ? 'pg-chat__card--applied' : 'pg-chat__card--pending'
-                    }`}
-                  >
-                    <p className="pg-chat__rationale">{turn.plan.rationale}</p>
-                    {turn.skills === undefined || turn.skills.length === 0 ? null : (
-                      <ul aria-label="Activated Skills" className="pg-chat__steps">
-                        {turn.skills.map((skill) => (
-                          <li key={`${turn.id}-${skill.id}`}>
-                            <span className="pg-chat__step-title">
-                              {skill.id} · v{skill.version} ·{' '}
-                              {shortSkillFingerprint(skill.contentFingerprint)}
-                            </span>
-                            <code className="pg-chat__step-cmd">{skill.reason}</code>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {/* Each step in a person's words; the exact command rides
-                        along in mono as the technical truth, never the headline. */}
-                    <ol className="pg-chat__steps">
-                      {turn.plan.commands.map((step, index) => (
-                        <li key={`${turn.id}-${String(index)}`}>
-                          <span className="pg-chat__step-title">{describeStep(step)}</span>
-                          <code className="pg-chat__step-cmd">{step.command}</code>
-                        </li>
-                      ))}
-                    </ol>
-                    {turn.applied ? (
-                      <p className="pg-chat__applied">
-                        <IconCheck />
-                        Applied as one change.{' '}
-                        <ChromeButton
-                          variant="quiet"
-                          size="sm"
-                          onClick={() => {
-                            kernel.undo();
-                          }}
-                        >
-                          <IconUndo />
-                          Undo
-                        </ChromeButton>
-                      </p>
-                    ) : (
-                      <div className="pg-chat__decide">
-                        {/* A plan proposed in Plan mode never offers Apply:
-                            exploring must not be one misclick from writing. */}
-                        {(turn.mode ?? 'ask') === 'plan' || turn.proposal === undefined ? null : (
+                  ) : null}
+                  {turn.kind === 'stopped' ? (
+                    <div className="pg-chat__card pg-chat__card--discarded" data-state="stopped">
+                      <p className="pg-chat__refused">Stopped.</p>
+                    </div>
+                  ) : null}
+                  {turn.kind === 'refused' ? (
+                    <div className="pg-chat__card pg-chat__card--refused" data-state="refused">
+                      <IconAlert />
+                      <div>
+                        <p className="pg-chat__refused" dir="auto">
+                          {turn.text}
+                        </p>
+                        {turn.failure === undefined ? null : (
+                          <p className="pg-chat__failure-meta">
+                            <code className="pg-chat__code">{turn.failure.code}</code>
+                            {` · ${turn.failure.source}`}
+                            {turn.failure.status === undefined
+                              ? ''
+                              : ` · HTTP ${String(turn.failure.status)}`}
+                            {turn.failedAt === undefined
+                              ? ''
+                              : ` · at ${GENERATION_STAGE_LABELS[turn.failedAt]}`}
+                          </p>
+                        )}
+                        {turn.failure?.retryable === true && turn.request !== undefined ? (
                           <ChromeButton
-                            variant="primary"
+                            variant="quiet"
+                            size="sm"
+                            disabled={busy}
                             onClick={() => {
-                              if (turn.proposal !== undefined) {
-                                accept(turn.id, turn.proposal);
-                              }
+                              void ask(turn.request ?? '');
                             }}
                           >
-                            <IconCheck />
-                            Apply
+                            Retry
                           </ChromeButton>
-                        )}
-                        {turn.proposal === undefined ? null : (
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  {turn.kind === 'discarded' ? (
+                    <div className="pg-chat__card pg-chat__card--discarded" data-state="discarded">
+                      <p className="pg-chat__refused">Discarded.</p>
+                    </div>
+                  ) : null}
+                  {turn.kind === 'plan' ? (
+                    <div
+                      className={`pg-chat__card ${
+                        turn.applied ? 'pg-chat__card--applied' : 'pg-chat__card--pending'
+                      }`}
+                      data-state={turn.applied ? 'applied' : 'pending'}
+                    >
+                      <div className="pg-chat__card-head">
+                        <span
+                          className="pg-chat__card-kind"
+                          data-kind={turn.applied ? 'applied' : (turn.mode ?? 'ask')}
+                        >
+                          {turn.applied ? <IconCheck /> : <IconSparkle />}
+                          {turn.applied
+                            ? 'Applied'
+                            : (turn.mode ?? 'ask') === 'plan'
+                              ? 'Plan'
+                              : 'Proposal'}
+                        </span>
+                        <span className="pg-chat__card-count">
+                          {String(turn.plan.commands.length)}{' '}
+                          {turn.plan.commands.length === 1 ? 'step' : 'steps'}
+                        </span>
+                      </div>
+                      <p className="pg-chat__rationale" dir="auto">
+                        {turn.plan.rationale}
+                      </p>
+                      {turn.skills === undefined || turn.skills.length === 0 ? null : (
+                        <ul aria-label="Activated Skills" className="pg-chat__steps">
+                          {turn.skills.map((skill) => (
+                            <li key={`${turn.id}-${skill.id}`}>
+                              <span className="pg-chat__step-title">
+                                {skill.id} · v{skill.version} ·{' '}
+                                {shortSkillFingerprint(skill.contentFingerprint)}
+                              </span>
+                              <code className="pg-chat__step-cmd">{skill.reason}</code>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {/* Each step in a person's words; the exact command rides
+                        along in mono as the technical truth, never the headline. */}
+                      <ol className="pg-chat__steps">
+                        {turn.plan.commands.map((step, index) => (
+                          <li key={`${turn.id}-${String(index)}`}>
+                            <span className="pg-chat__step-title">{describeStep(step)}</span>
+                            <code className="pg-chat__step-cmd">{step.command}</code>
+                          </li>
+                        ))}
+                      </ol>
+                      {timingReceipt(turn.run)}
+                      {turn.applied ? (
+                        <p className="pg-chat__applied">
+                          <IconCheck />
+                          Applied as one change.{' '}
                           <ChromeButton
                             variant="quiet"
                             size="sm"
                             onClick={() => {
-                              if (turn.proposal !== undefined) {
-                                openPreview(turn.id, turn.proposal);
-                              }
+                              kernel.undo();
                             }}
                           >
-                            <IconEye />
-                            Preview
+                            <IconUndo />
+                            Undo
                           </ChromeButton>
-                        )}
-                        {onReviewAsCode === undefined ? null : (
-                          <ChromeButton variant="quiet" size="sm" onClick={onReviewAsCode}>
-                            <IconCode />
-                            Review as code
+                        </p>
+                      ) : (
+                        <div className="pg-chat__decide">
+                          {/* A plan proposed in Plan mode never offers Apply:
+                            exploring must not be one misclick from writing. */}
+                          {(turn.mode ?? 'ask') === 'plan' || turn.proposal === undefined ? null : (
+                            <ChromeButton
+                              variant="primary"
+                              onClick={() => {
+                                if (turn.proposal !== undefined) {
+                                  accept(turn.id, turn.proposal);
+                                }
+                              }}
+                            >
+                              <IconCheck />
+                              Apply
+                            </ChromeButton>
+                          )}
+                          {turn.proposal === undefined ? null : (
+                            <ChromeButton
+                              variant="quiet"
+                              size="sm"
+                              onClick={() => {
+                                if (turn.proposal !== undefined) {
+                                  openPreview(turn.id, turn.proposal);
+                                }
+                              }}
+                            >
+                              <IconEye />
+                              Preview
+                            </ChromeButton>
+                          )}
+                          {onReviewAsCode === undefined ? null : (
+                            <ChromeButton variant="quiet" size="sm" onClick={onReviewAsCode}>
+                              <IconCode />
+                              Review as code
+                            </ChromeButton>
+                          )}
+                          <ChromeButton
+                            variant="quiet"
+                            size="sm"
+                            className="pg-chat__decide-discard"
+                            onClick={() => {
+                              discard(turn.id);
+                            }}
+                          >
+                            <IconClose />
+                            Discard
                           </ChromeButton>
-                        )}
+                          {turn.proposal === undefined ? (
+                            <p className="pg-chat__refused">
+                              This saved proposal expired after reload. Ask again to revalidate it.
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+                      {/* The plan's own "and next…" — staged work as one tap,
+                        never applied automatically. */}
+                      {turn.plan.followUp === undefined ? null : (
                         <ChromeButton
                           variant="quiet"
                           size="sm"
+                          className="pg-chat__continue"
+                          disabled={busy}
                           onClick={() => {
-                            discard(turn.id);
+                            void ask(turn.plan.followUp ?? '');
                           }}
                         >
-                          <IconClose />
-                          Discard
+                          <IconSparkle />
+                          <span className="pg-chat__continue-text" dir="auto">
+                            {turn.plan.followUp}
+                          </span>
                         </ChromeButton>
-                        {turn.proposal === undefined ? (
-                          <p className="pg-chat__refused">
-                            This saved proposal expired after reload. Ask again to revalidate it.
-                          </p>
-                        ) : null}
-                      </div>
-                    )}
-                    {/* The plan's own "and next…" — staged work as one tap,
-                        never applied automatically. */}
-                    {turn.plan.followUp === undefined ? null : (
-                      <ChromeButton
-                        variant="quiet"
-                        size="sm"
-                        className="pg-chat__continue"
-                        disabled={busy}
-                        onClick={() => {
-                          void ask(turn.plan.followUp ?? '');
-                        }}
-                      >
-                        <IconSparkle />
-                        <span className="pg-chat__continue-text">{turn.plan.followUp}</span>
-                      </ChromeButton>
-                    )}
-                  </div>
-                ) : null}
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ),
-        )}
+            )}
+          </article>
+        ))}
       </div>
 
       <form
@@ -1141,6 +1292,7 @@ export function AssistantPanel({
             rows={2}
             value={draft}
             placeholder="Ask for a change…"
+            enterKeyHint="send"
             disabled={busy}
             /* The field and its send button are ONE control, so the ring is
                drawn around the card by :focus-within. See the stylesheet. */
@@ -1188,7 +1340,9 @@ export function AssistantPanel({
                   <span className="pg-chat__mention-id">@{candidate.id}</span>
                   <span className="pg-chat__mention-type">{candidate.type}</span>
                   {candidate.excerpt === undefined ? null : (
-                    <span className="pg-chat__mention-excerpt">{candidate.excerpt}</span>
+                    <span className="pg-chat__mention-excerpt" dir="auto">
+                      {candidate.excerpt}
+                    </span>
                   )}
                 </button>
               ))}
@@ -1207,7 +1361,6 @@ export function AssistantPanel({
                   type="button"
                   role="radio"
                   aria-checked={mode === candidate.id}
-                  title={candidate.hint}
                   className="pg-chat__mode"
                   onClick={() => {
                     setMode(candidate.id);
@@ -1221,6 +1374,7 @@ export function AssistantPanel({
               variant="icon"
               tone="primary"
               size="sm"
+              className="pg-chat__send"
               /* One slot, two verbs: while the assistant works, the send slot
                  IS the stop control — the same place the hand just was, and a
                  promise that a running request is never out of reach. */
@@ -1238,10 +1392,16 @@ export function AssistantPanel({
             </ChromeButton>
           </div>
         </div>
-        {/* The whole guarantee, in one line, where the decision is made. */}
-        <p className="pg-chat__guarantee">
-          <IconShield />
-          Whatever you apply is one entry in history, one undo.
+        {/* What the chosen mode will do, said out loud, beside the whole
+            guarantee — in one line, where the decision is made. */}
+        <p className="pg-chat__footnote">
+          <span className="pg-chat__mode-hint">
+            {MODES.find((candidate) => candidate.id === mode)?.hint}
+          </span>
+          <span className="pg-chat__guarantee">
+            <IconShield />
+            Whatever you apply is one entry in history, one undo.
+          </span>
         </p>
       </form>
 

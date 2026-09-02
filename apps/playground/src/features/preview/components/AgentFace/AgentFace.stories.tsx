@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { useRef, useState } from 'react';
+import { type CSSProperties, useRef, useState } from 'react';
 
 import type { AiAgentEvent } from '@craftkit/builder';
 
@@ -274,6 +274,137 @@ export const InsideChat: Story = {
       </div>
     ),
   ],
+};
+
+/* ── Presence: the seat writes, the face reads ─────────────────────────── */
+
+/* `:hover` is the browser's own state and no synthetic event can set it, so
+   the hover stories move a REAL pointer: under Vitest's browser mode (the
+   storybook test task) that is Playwright's mouse. In the Storybook UI there
+   is none, so the play settles for the synthetic hover and leaves the pose to
+   your own pointer. */
+interface RealPointer {
+  hover(element: Element): Promise<void>;
+  unhover(element: Element): Promise<void>;
+}
+
+async function realPointer(): Promise<RealPointer | null> {
+  if (!('__vitest_browser__' in globalThis)) return null;
+  const { userEvent: browserUserEvent } = await import('vitest/browser');
+  return browserUserEvent;
+}
+
+function part(root: ParentNode, selector: string): Element {
+  const element = root.querySelector(selector);
+  if (element === null) throw new Error(`no ${selector}`);
+  return element;
+}
+
+/* A settled face answers a pointer with a brow: the outer one arches six
+   degrees further and lifts, the inner one presses, the eyes widen, the disc
+   leans in, the halo widens. Nothing reaches the reducer; the voice would say
+   exactly what it said before. */
+export const Hover: Story = {
+  args: { mood: 'idle', size: 'md', live: true },
+  render: (args) => (
+    <span aria-hidden="true">
+      <AgentFace {...args} />
+    </span>
+  ),
+  play: async ({ canvasElement }) => {
+    const face = part(canvasElement, '.pg-face');
+    const browEnd = part(canvasElement, '.pg-face__brow--end');
+    const disc = part(canvasElement, '.pg-face__disc');
+    const pointer = await realPointer();
+    if (pointer === null) {
+      await userEvent.hover(face);
+      return;
+    }
+    await pointer.hover(face);
+    await waitFor(async () => {
+      await expect(getComputedStyle(browEnd).rotate).toBe('-6deg');
+      await expect(getComputedStyle(disc).scale).toBe('1.05');
+    });
+    await pointer.unhover(face);
+    await waitFor(async () => {
+      await expect(getComputedStyle(browEnd).rotate).toBe('none');
+      await expect(getComputedStyle(disc).scale).toBe('none');
+    });
+  },
+};
+
+/* A busy face still notices — halo and lean — but does not look up: the brows
+   stay where the mood put them. (Stopped keeps its flat brows the same way.) */
+export const Busy: Story = {
+  args: { mood: 'planning', size: 'md', live: true },
+  render: (args) => (
+    <span aria-hidden="true">
+      <AgentFace {...args} />
+    </span>
+  ),
+  play: async ({ canvasElement }) => {
+    const face = part(canvasElement, '.pg-face');
+    const browEnd = part(canvasElement, '.pg-face__brow--end');
+    const disc = part(canvasElement, '.pg-face__disc');
+    const pointer = await realPointer();
+    if (pointer === null) {
+      await userEvent.hover(face);
+      return;
+    }
+    await pointer.hover(face);
+    await waitFor(async () => {
+      await expect(getComputedStyle(disc).scale).toBe('1.05');
+    });
+    await expect(getComputedStyle(browEnd).rotate).toBe('none');
+    await pointer.unhover(face);
+  },
+};
+
+/* The seat contract, held still: a seat writes `--pg-face-look-x` / `-y` in
+   px (the panel's hook clamps them to ±1.4 / ±1) and the eyes translate by
+   exactly that while the features follow a quarter as far. Thinking is
+   excluded — the scan owns those eyes — as are stopped and failed. */
+const LOOK_SEAT = { '--pg-face-look-x': '1.4px', '--pg-face-look-y': '1px' } as CSSProperties;
+
+export const LooksAtThePointer: Story = {
+  args: { mood: 'idle', size: 'md', live: true },
+  render: (args) => (
+    <span aria-hidden="true" style={{ display: 'flex', gap: 'var(--bldr-space-3xl)' }}>
+      <span data-press-harness="idle" style={LOOK_SEAT}>
+        <AgentFace {...args} />
+      </span>
+      <span data-press-harness="thinking" style={LOOK_SEAT}>
+        <AgentFace {...args} mood="thinking" />
+      </span>
+    </span>
+  ),
+  play: async ({ canvasElement }) => {
+    const idle = part(canvasElement, "[data-press-harness='idle']");
+    const thinking = part(canvasElement, "[data-press-harness='thinking']");
+    await waitFor(async () => {
+      await expect(getComputedStyle(part(idle, '.pg-face__eye')).translate).toBe('1.4px 1px');
+      await expect(getComputedStyle(part(idle, '.pg-face__features')).translate).toBe(
+        '0.35px 0.25px',
+      );
+    });
+    await expect(getComputedStyle(part(thinking, '.pg-face__eye')).translate).toBe('none');
+  },
+};
+
+/* The boop: a seat stamps `data-press` while a press is held and the disc
+   shrinks to 96 %. No action, no focus, no text. */
+export const Pressed: Story = {
+  args: { mood: 'idle', size: 'md', live: true },
+  render: (args) => (
+    <span aria-hidden="true" data-press="" data-press-harness="pressed">
+      <AgentFace {...args} />
+    </span>
+  ),
+  play: async ({ canvasElement }) => {
+    await waitFor(async () => {
+      await expect(getComputedStyle(part(canvasElement, '.pg-face__disc')).scale).toBe('0.96');
+    });
+  },
 };
 
 /* ── Walkthrough: the reducer driven step by step through a real run ──────── */

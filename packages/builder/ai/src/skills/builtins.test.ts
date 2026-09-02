@@ -17,8 +17,16 @@ const ALWAYS_SKILL_ID = 'craftkit.craft-manual';
 const ALWAYS_INSTRUCTION_BYTE_LIMIT = 1_200;
 /** Floor + any single auto skill (with its dependency closure) must stay well under 16k. */
 const SINGLE_SKILL_TOKEN_CEILING = 2_500;
-/** A single-archetype request must not stack more than this many auto skills. */
-const MAX_AUTO_SKILLS_PER_REQUEST = 3;
+/**
+ * A single-archetype request must not stack more than this many auto skills.
+ *
+ * Raised 3 → 4 when the taste skill (`craftkit.visual-direction`) became a
+ * dependency of all three page archetypes: an Arabic page design is now
+ * copywriting + taste + archetype + language. Four is the ceiling because that
+ * is one of each KIND — words, look, structure, language — and a fifth would
+ * mean two skills claiming the same job.
+ */
+const MAX_AUTO_SKILLS_PER_REQUEST = 4;
 
 function utf8ByteLength(text: string): number {
   let bytes = 0;
@@ -68,11 +76,13 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.craft-manual',
       'craftkit.cv-page',
       'craftkit.design-direction',
+      'craftkit.design-tokens',
       'craftkit.motion',
       'craftkit.occasion-page',
       'craftkit.page-composition',
       'craftkit.precise-edit',
       'craftkit.structure-recipes',
+      'craftkit.visual-direction',
     ]);
 
     const priorities = CRAFTKIT_AI_SKILL_DEFINITIONS.map(({ priority }) => priority ?? 0);
@@ -117,18 +127,23 @@ describe('Craftkit built-in AI skills', () => {
       {
         request: 'صمم لي صفحة سيرة ذاتية',
         language: 'ar',
-        auto: ['craftkit.copywriting', 'craftkit.cv-page', 'craftkit.arabic-rtl'],
+        auto: [
+          'craftkit.copywriting',
+          'craftkit.visual-direction',
+          'craftkit.cv-page',
+          'craftkit.arabic-rtl',
+        ],
       },
       {
         request: 'Build a landing page for my bakery',
         language: 'en',
-        auto: ['craftkit.copywriting', 'craftkit.page-composition'],
+        auto: ['craftkit.copywriting', 'craftkit.visual-direction', 'craftkit.page-composition'],
       },
       { request: 'كبّر حجم العنوان', language: 'ar', auto: ['craftkit.arabic-rtl'] },
       {
         request: 'Add a farewell banner for a retiring colleague',
         language: 'en',
-        auto: ['craftkit.copywriting', 'craftkit.occasion-page'],
+        auto: ['craftkit.copywriting', 'craftkit.visual-direction', 'craftkit.occasion-page'],
       },
       {
         request: 'أضف قسم الأسعار',
@@ -148,15 +163,24 @@ describe('Craftkit built-in AI skills', () => {
       {
         request: 'Design a portfolio page for my photography',
         language: 'en',
-        auto: ['craftkit.copywriting', 'craftkit.cv-page'],
+        auto: ['craftkit.copywriting', 'craftkit.visual-direction', 'craftkit.cv-page'],
       },
       {
         // The request that exposed the gap: no imperative keyword, an occasion.
         request: 'بانر وداع سامر ووسيم مع خلفية سفر',
         language: 'ar',
-        auto: ['craftkit.copywriting', 'craftkit.occasion-page', 'craftkit.arabic-rtl'],
+        auto: [
+          'craftkit.copywriting',
+          'craftkit.visual-direction',
+          'craftkit.occasion-page',
+          'craftkit.arabic-rtl',
+        ],
       },
-      { request: 'Make the background darker', language: 'en', auto: ['craftkit.design-direction'] },
+      {
+        request: 'Make the background darker',
+        language: 'en',
+        auto: ['craftkit.design-direction'],
+      },
     ];
 
     it('covers both languages evenly', () => {
@@ -173,7 +197,13 @@ describe('Craftkit built-in AI skills', () => {
       expect(rest.length).toBeLessThanOrEqual(MAX_AUTO_SKILLS_PER_REQUEST);
       expect(rest.map(({ id }) => id)).not.toContain('craftkit.precise-edit');
       expect(prepared.omitted).toEqual([]);
-      expect(prepared.totalTokens).toBeLessThanOrEqual(2_400);
+      /*
+        Raised 2,400 → 3,200 with the taste skill: the widest row is now floor +
+        copywriting + visual-direction + archetype + language = 3,052 tokens,
+        against a 16,000 default budget. It is a ceiling on ONE request's
+        expertise, not on the budget.
+      */
+      expect(prepared.totalTokens).toBeLessThanOrEqual(3_200);
       expect(prepared.effectiveCommandRestriction).toBeUndefined();
     });
   });
@@ -186,6 +216,7 @@ describe('Craftkit built-in AI skills', () => {
     expect(prepared.active.map(({ id }) => id)).toEqual([
       ALWAYS_SKILL_ID,
       'craftkit.copywriting',
+      'craftkit.visual-direction',
       'craftkit.cv-page',
     ]);
     expect(prepared.omitted).toEqual([
@@ -267,6 +298,11 @@ describe('Craftkit built-in AI skills', () => {
       'py-24',
       'text-left',
       'text-right',
+      // Arbitrary-value syntax: Tailwind writes it, this vocabulary has no such
+      // class, and the tokens skill names three so the model stops reaching.
+      'bg-[#0f172a]',
+      'p-[13px]',
+      'w-[42rem]',
     ]);
     const ICON_STOPWORDS = new Set([
       'size',

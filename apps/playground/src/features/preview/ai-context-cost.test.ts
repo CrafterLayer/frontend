@@ -56,16 +56,21 @@ describe('AI context cost', () => {
     expect(measure('index', TYPICAL_REQUEST)).toBeLessThan(12_000);
   });
 
-  it('none mode — what the playground actually sends — is the document plus the escape hatch', () => {
+  it("none mode — what the playground actually sends — is the document, the escape hatch, and the page's own blocks by name", () => {
     /*
-      ~4,500: ~3,300 document + ~1,000 escape hatch + the request. No block
-      names at all; a block reaches the model only when the person selects or
-      mentions it. This is the mode the remote provider runs under.
+      ~9,000 on the landing fixture: ~3,300 document + ~1,000 escape hatch +
+      ~4,500 for the 22 block types already on the page (name, description and
+      prop KEYS — no schema, no examples). Measured before that addition the
+      mode cost ~4,500 and the first live request ("make the hero title
+      bigger") failed: the model invented a `size` prop the door rejected. A
+      block that is NOT on the page still reaches the model only when the
+      person selects or mentions it. The list is stable across a conversation,
+      so the server's cached prefix pays for it once.
     */
     const none = measure('none', TYPICAL_REQUEST);
 
-    expect(none).toBeLessThan(measure('index', TYPICAL_REQUEST));
-    expect(none).toBeLessThan(7_000);
+    expect(none).toBeLessThan(12_000);
+    expect(none).toBeLessThan(measure('full', TYPICAL_REQUEST) / 5);
   });
 
   it('scoped mode stays cheap with a block expanded', () => {

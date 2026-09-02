@@ -51,6 +51,8 @@ nothing breaks by not running this.
 | `PORT` | `8787` | |
 | `CRAFTKIT_AI_MODEL` | `claude-opus-5` | Override deliberately, with a measurement. |
 | `CRAFTKIT_AI_TOKEN` | — | When set, every request must carry `Authorization: Bearer <token>`. Set it for anything but localhost. |
+| `CRAFTKIT_AI_CLI_EFFORT` | CLI default | CLI backend only. `low`/`medium`/`high`/`xhigh`/`max`. Passed as `--effort`; unset means the flag is omitted entirely, so an inherited `CLAUDE_EFFORT` cannot decide it. The reasoning **text** is redacted on this path, so effort buys plan quality, not narration. |
+| `CRAFTKIT_AI_CLI_TIMEOUT_MS` | `600000` | CLI backend only (`CRAFTKIT_AI_BACKEND=cli`). Whole-run cap. A full-page plan is 15–25k output tokens and the CLI writes ~80 a second, so three to five minutes is normal; a cap near two minutes kills every real plan mid-generation. |
 | `CRAFTKIT_AI_ALLOWED_ORIGINS` | loopback, any port | Comma-separated browser origins (`https://app.example.com`). An explicit list replaces the loopback default. A browser request from any other origin is refused with 403 before the model is called; requests with no `Origin` (curl, servers) are unaffected. |
 
 ## What it does with a request

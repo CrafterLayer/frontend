@@ -1,57 +1,104 @@
+/*
+  The Inspector's shell: panel, head, tabs, sections, pairs, empty states.
+  Rows and field skins live in InspectorRow.css; the repeater in
+  RepeaterField/RepeaterField.css.
+
+  Tokens only (`0` is the one literal, and it is spelt as a token). Logical
+  properties only, so a right-to-left document mirrors by construction. Dark
+  chrome is the same rules under different token values — no branch here.
+*/
+
 .bldr-inspector {
   background-color: var(--bldr-panel);
-  border-inline-start: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
+  /* NO separator of its own and NO width of its own (Palette/LayersTree
+     precedent): the `.bldr-shell__aside` that places this panel draws the seam
+     and decides the column. A panel that sizes itself is right in exactly one
+     place; one that draws its own border paints two hairlines where the aside
+     already draws one. Stories supply the frame. */
   box-sizing: border-box;
   color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
   font-family: var(--bldr-font);
-  inline-size: var(--bldr-inspector-width);
-  padding-block: var(--bldr-panel-padding);
-  padding-inline: var(--bldr-panel-padding);
+  inline-size: 100%;
+  min-block-size: 100%;
+  min-inline-size: var(--bldr-space-0);
 }
 
+/* The head sticks against the aside (overflow hidden auto) while rows scroll;
+   paint only — it owns its own ground so rows never show through. */
 .bldr-inspector__head {
+  background-color: var(--bldr-panel);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   display: grid;
-  gap: var(--bldr-space-md);
-  margin-block-end: var(--bldr-space-xl);
+  inset-block-start: var(--bldr-space-0);
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-panel-padding);
+  position: sticky;
+  row-gap: var(--bldr-space-sm);
+  z-index: 1;
 }
 
 .bldr-inspector__title-row {
   align-items: center;
   display: flex;
   gap: var(--bldr-space-md);
-  justify-content: space-between;
+  min-block-size: var(--bldr-control-sm);
 }
 
+/* "Inspector" is the EYEBROW (LayersTree's h2 idiom): what this panel is,
+   said quietly, so the block's name below can be the title. */
 .bldr-inspector__title {
-  color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-display);
-  font-weight: var(--bldr-font-weight-semibold);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-bold);
+  letter-spacing: normal;
   line-height: var(--bldr-line-height-tight);
-  margin-block: var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
+  margin: var(--bldr-space-0);
+  text-transform: uppercase;
 }
 
+/* The ONLY rule that touches the Clear-selection ChromeButton: its seat at
+   the row's end. Its quiet/sm skin is its own and renders untouched. */
+.bldr-inspector__clear-selection {
+  margin-inline-start: auto;
+}
+
+.bldr-inspector__identity {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-inline-size: var(--bldr-space-0);
+}
+
+/* The block's display name — the same string as the canvas chip and the
+   layers tree — is the visible title. One line, elided, never wrapped. */
 .bldr-inspector__block-name {
   align-items: center;
-  background-color: var(--bldr-panel-control);
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-md);
-  color: var(--bldr-panel-text-soft);
+  color: var(--bldr-panel-text);
   display: flex;
-  font-size: var(--bldr-font-size-control);
-  font-weight: var(--bldr-font-weight-medium);
-  line-height: var(--bldr-line-height-snug);
-  margin-block: var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
-  min-block-size: var(--bldr-control-md);
-  padding-block: var(--bldr-space-xs);
-  padding-inline: var(--bldr-space-xl);
+  flex: 1 1 auto;
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+  min-block-size: var(--bldr-control-height-sm);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-inspector__block-name[data-empty='true'] {
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-regular);
 }
 
 .bldr-inspector__bucket {
   background-color: var(--bldr-accent-soft);
   border-radius: var(--bldr-radius-full);
   color: var(--bldr-accent);
+  flex: none;
   font-size: var(--bldr-font-size-micro);
   font-weight: var(--bldr-font-weight-semibold);
   line-height: var(--bldr-line-height-tight);
@@ -61,66 +108,63 @@
 }
 
 .bldr-inspector__bucket-note {
+  background-color: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-md);
   color: var(--bldr-accent);
   font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
   line-height: var(--bldr-line-height-snug);
-  margin-block: var(--bldr-space-0) var(--bldr-space-xl);
-  margin-inline: var(--bldr-space-0);
+  margin: var(--bldr-space-0);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-lg);
 }
 
-.bldr-inspector__invitation {
+/* Inside a composed region: the way back out sits before the element's name,
+   and the region it belongs to reads as a quiet second line. */
+.bldr-inspector__back {
+  flex: none;
+}
+
+.bldr-inspector__within {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
+  margin: var(--bldr-space-0);
+}
+
+/* The strip: a segmented control on the panel's control ground (Palette.css
+   idiom). The selected tab lifts onto the panel colour with the raised shadow;
+   the rest sit muted until hovered. */
+.bldr-inspector__tabs {
   background-color: var(--bldr-panel-control);
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   border-radius: var(--bldr-radius-lg);
   display: grid;
-  gap: var(--bldr-space-md);
-  padding-block: var(--bldr-space-5xl);
-  padding-inline: var(--bldr-space-xl);
-}
-
-.bldr-inspector__invitation-icon {
-  block-size: var(--bldr-space-3xl);
-  color: var(--bldr-accent);
-  fill: var(--bldr-accent-soft);
-  inline-size: var(--bldr-space-3xl);
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: var(--bldr-space-2xs);
-}
-
-.bldr-inspector__empty {
-  color: var(--bldr-panel-text-soft);
-  font-size: var(--bldr-font-size-body);
-  line-height: var(--bldr-line-height-normal);
-  margin-block: var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
-}
-
-.bldr-inspector__tabs {
-  border-block-end: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-  display: grid;
+  gap: var(--bldr-space-xs);
   grid-auto-columns: minmax(var(--bldr-space-0), 1fr);
   grid-auto-flow: column;
-  margin-block-end: var(--bldr-space-md);
+  margin-block-start: var(--bldr-space-xs);
+  padding: var(--bldr-space-xs);
 }
 
 .bldr-inspector__tab {
-  background-color: var(--bldr-panel);
+  appearance: none;
+  background-color: transparent;
   border: var(--bldr-space-0);
+  border-radius: var(--bldr-radius-md);
   color: var(--bldr-panel-muted);
   cursor: pointer;
-  font-family: inherit;
-  font-size: var(--bldr-font-size-control);
-  font-weight: var(--bldr-font-weight-medium);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
   line-height: var(--bldr-line-height-snug);
-  /* Inspector tabs use the compact control scale, never the canvas touch target. */
-  min-block-size: var(--bldr-control-lg);
-  padding-block: var(--bldr-space-sm);
+  /* Density-aware: the compact scale shrinks every tab with every other control. */
+  min-block-size: var(--bldr-control-height-sm);
+  padding-block: var(--bldr-space-0);
   padding-inline: var(--bldr-space-md);
   transition:
-    color var(--bldr-duration-state) var(--bldr-easing),
-    box-shadow var(--bldr-duration-state) var(--bldr-easing);
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
 }
 
 .bldr-inspector__tab:hover {
@@ -128,9 +172,18 @@
 }
 
 .bldr-inspector__tab[aria-selected='true'] {
-  box-shadow: inset var(--bldr-space-0) calc(var(--bldr-space-2xs) * -1) var(--bldr-accent);
-  color: var(--bldr-accent);
-  font-weight: var(--bldr-font-weight-semibold);
+  background-color: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+/* The body owns the padding below the head; it grows to fill the column so
+   the panel ground covers the aside end to end. */
+.bldr-inspector__body {
+  flex: 1 1 auto;
+  min-block-size: var(--bldr-space-0);
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-panel-padding);
 }
 
 .bldr-inspector__tabpanel[hidden] {
@@ -141,30 +194,32 @@
   display: grid;
 }
 
-.bldr-inspector__section {
-  border-block-end: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
+/* Sections are separated by ONE hairline between neighbours — never under the
+   last, never per row. Rows breathe through the grid gap below instead. */
+.bldr-inspector__section + .bldr-inspector__section {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
 }
 
 .bldr-inspector__section-heading {
-  margin-block: var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
+  margin: var(--bldr-space-0);
 }
 
 .bldr-inspector__section-toggle {
   align-items: center;
-  background-color: var(--bldr-panel);
+  appearance: none;
+  background-color: transparent;
   border: var(--bldr-space-0);
-  color: var(--bldr-panel-text-soft);
+  color: var(--bldr-panel-muted);
   cursor: pointer;
   display: flex;
-  font-family: inherit;
+  font-family: var(--bldr-font);
   font-size: var(--bldr-font-size-micro);
   font-weight: var(--bldr-font-weight-semibold);
-  gap: var(--bldr-space-sm);
+  gap: var(--bldr-space-xs);
   inline-size: 100%;
   line-height: var(--bldr-line-height-tight);
-  min-block-size: var(--bldr-control-lg);
-  padding-block: var(--bldr-space-md);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-block: var(--bldr-space-sm);
   padding-inline: var(--bldr-space-0);
   text-align: start;
   text-transform: uppercase;
@@ -175,47 +230,73 @@
   color: var(--bldr-accent);
 }
 
+.bldr-inspector__section-toggle[aria-expanded='true'] {
+  color: var(--bldr-panel-text-soft);
+}
+
+/* An element's sections never fold: a static heading in the toggle's clothes. */
+.bldr-inspector__section-title {
+  align-items: center;
+  color: var(--bldr-panel-text-soft);
+  display: flex;
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-block: var(--bldr-space-sm);
+  text-transform: uppercase;
+}
+
+/* ONE chevron glyph, pointing down when expanded; collapsed turns it round.
+   A rotation is direction-agnostic, so it reads the same under rtl. */
 .bldr-inspector__chevron {
-  block-size: var(--bldr-space-3xl);
-  fill: none;
+  block-size: var(--bldr-space-xl);
+  display: inline-grid;
   flex: none;
-  inline-size: var(--bldr-space-3xl);
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: var(--bldr-space-2xs);
+  inline-size: var(--bldr-space-xl);
+  place-items: center;
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector__chevron svg {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.bldr-inspector__chevron[data-collapsed='true'] {
+  transform: rotate(180deg);
 }
 
 .bldr-inspector__section-region {
-  padding-block-end: var(--bldr-space-xl);
+  padding-block: var(--bldr-space-0) var(--bldr-space-xl);
+}
+
+.bldr-inspector__section-region[hidden] {
+  display: none;
 }
 
 .bldr-inspector__rows {
   display: grid;
+  row-gap: var(--bldr-space-lg);
 }
 
-.bldr-inspector__rows > * + * {
-  border-block-start: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-}
-
+/* A declared pair: one heading, two cells side by side, each cell's caption
+   quieter than a full row's label because the legend already named the pair. */
 .bldr-inspector__property-pair {
   border: var(--bldr-space-0);
   display: grid;
-  gap: var(--bldr-space-sm);
-  margin-block: var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
+  gap: var(--bldr-space-xs);
+  margin: var(--bldr-space-0);
   min-inline-size: var(--bldr-space-0);
-  padding-block: var(--bldr-space-md);
-  padding-inline: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
 }
 
 .bldr-inspector__property-pair-label {
-  color: var(--bldr-panel-muted);
+  color: var(--bldr-panel-text-soft);
   font-size: var(--bldr-font-size-caption);
   font-weight: var(--bldr-font-weight-medium);
   line-height: var(--bldr-line-height-snug);
-  padding-block: var(--bldr-space-0);
-  padding-inline: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
 }
 
 .bldr-inspector__property-pair-values {
@@ -225,427 +306,65 @@
   row-gap: var(--bldr-space-sm);
 }
 
-.bldr-inspector__row {
-  align-items: start;
-  display: grid;
-  gap: var(--bldr-space-sm);
-  grid-template-columns: minmax(var(--bldr-space-0), 1fr);
-  min-inline-size: var(--bldr-space-0);
-  padding-block: var(--bldr-space-md);
-}
-
-.bldr-inspector__property-pair .bldr-inspector__row {
-  padding-block: var(--bldr-space-0);
-}
-
-.bldr-inspector__row-head {
-  align-items: center;
-  display: flex;
-  gap: var(--bldr-space-sm);
-  justify-content: space-between;
-  min-block-size: var(--bldr-space-0);
-  min-inline-size: var(--bldr-space-0);
-}
-
-.bldr-inspector__label {
+.bldr-inspector__property-pair .bldr-inspector__label {
   color: var(--bldr-panel-muted);
-  font-size: var(--bldr-font-size-caption);
-  font-weight: var(--bldr-font-weight-medium);
-  line-height: var(--bldr-line-height-snug);
-  overflow-wrap: anywhere;
-}
-
-.bldr-inspector__breakpoint-glyph {
-  block-size: var(--bldr-control-sm);
-  color: var(--bldr-panel-muted);
-  flex: none;
-  inline-size: var(--bldr-control-sm);
-}
-
-.bldr-inspector__breakpoint-glyph svg {
-  block-size: 100%;
-  inline-size: 100%;
-}
-
-.bldr-inspector__value {
-  inline-size: 100%;
-  min-inline-size: var(--bldr-space-0);
-}
-
-.bldr-inspector__override-row {
-  align-items: center;
-  display: flex;
-  gap: var(--bldr-space-xs);
-  justify-content: space-between;
-  margin-block-end: var(--bldr-space-xs);
-}
-
-.bldr-inspector__override {
-  background-color: var(--bldr-accent-soft);
-  border-radius: var(--bldr-radius-xs);
-  color: var(--bldr-accent);
   font-size: var(--bldr-font-size-micro);
-  font-weight: var(--bldr-font-weight-medium);
-  line-height: var(--bldr-line-height-tight);
-  padding-block: var(--bldr-space-2xs);
-  padding-inline: var(--bldr-space-xs);
+  font-weight: var(--bldr-font-weight-regular);
 }
 
-.bldr-inspector__clear {
-  align-items: center;
-  background-color: var(--bldr-panel);
-  border: var(--bldr-space-0);
-  color: var(--bldr-panel-muted);
-  cursor: pointer;
-  display: inline-flex;
-  justify-content: center;
-  min-block-size: var(--bldr-control-sm);
-  min-inline-size: var(--bldr-control-sm);
-  padding-block: var(--bldr-space-0);
-  padding-inline: var(--bldr-space-0);
-  transition: color var(--bldr-duration-state) var(--bldr-easing);
-}
-
-.bldr-inspector__clear:hover {
-  color: var(--bldr-danger);
-}
-
-.bldr-inspector__clear svg,
-.bldr-inspector__segment svg {
-  block-size: var(--bldr-space-3xl);
-  fill: none;
-  inline-size: var(--bldr-space-3xl);
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: var(--bldr-space-2xs);
-}
-
-.bldr-inspector__control-slot {
-  display: block;
-  inline-size: 100%;
-  min-block-size: var(--bldr-control-md);
-  min-inline-size: var(--bldr-space-0);
-}
-
-.bldr-inspector .bldr-field__input {
-  background-color: var(--bldr-input-bg);
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-md);
-  box-sizing: border-box;
-  color: var(--bldr-panel-text);
-  font-family: inherit;
-  font-size: var(--bldr-font-size-control);
-  inline-size: 100%;
-  line-height: var(--bldr-line-height-snug);
-  min-block-size: var(--bldr-control-md);
-  padding-block: var(--bldr-space-xs);
+/* Nothing selected: an invitation, not an error — dashed, centred, with the
+   pointer mark in a soft accent disc. */
+.bldr-inspector__invitation {
+  border: var(--bldr-border-hairline) dashed var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  display: grid;
+  gap: var(--bldr-space-md);
+  justify-items: center;
+  padding-block: var(--bldr-space-6xl);
   padding-inline: var(--bldr-space-xl);
-  transition:
-    background-color var(--bldr-duration-state) var(--bldr-easing),
-    border-color var(--bldr-duration-state) var(--bldr-easing),
-    color var(--bldr-duration-state) var(--bldr-easing);
+  text-align: center;
 }
 
-.bldr-inspector .bldr-field__input:hover {
-  border-color: var(--bldr-panel-border-strong);
-}
-
-.bldr-inspector .bldr-field__input--readonly {
-  background-color: var(--bldr-panel-control);
-  color: var(--bldr-panel-muted);
-}
-
-.bldr-inspector .bldr-field__switch {
-  appearance: none;
-  background-color: var(--bldr-panel-border-strong);
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-full);
-  block-size: var(--bldr-space-5xl);
-  box-sizing: border-box;
-  cursor: pointer;
-  inline-size: calc(var(--bldr-space-6xl) + var(--bldr-space-md));
-  margin-block: var(--bldr-space-xs);
-  margin-inline: var(--bldr-space-0);
-  position: relative;
-  transition:
-    background-color var(--bldr-duration-state) var(--bldr-easing),
-    border-color var(--bldr-duration-state) var(--bldr-easing);
-}
-
-.bldr-inspector .bldr-field__switch::before {
-  background-color: var(--bldr-panel-control);
-  block-size: var(--bldr-space-3xl);
-  border-radius: var(--bldr-radius-full);
-  content: '';
-  inline-size: var(--bldr-space-3xl);
-  inset-block-start: var(--bldr-space-xs);
-  inset-inline-start: var(--bldr-space-xs);
-  position: absolute;
-  transition: inset-inline-start var(--bldr-duration-state) var(--bldr-easing);
-}
-
-.bldr-inspector .bldr-field__switch:checked {
-  background-color: var(--bldr-accent);
-  border-color: var(--bldr-accent);
-}
-
-.bldr-inspector .bldr-field__switch:checked::before {
-  inset-inline-start: calc(100% - var(--bldr-space-3xl) - var(--bldr-space-xs));
-}
-
-.bldr-inspector .bldr-field__switch:disabled {
-  background-color: var(--bldr-panel-border);
-  border-color: var(--bldr-panel-border);
-  cursor: default;
-}
-
-.bldr-inspector__numeric-control {
-  display: grid;
-  grid-template-columns: minmax(var(--bldr-space-0), 1fr) auto;
-}
-
-.bldr-inspector__numeric-control .bldr-field__input {
-  border-end-end-radius: var(--bldr-radius-none);
-  border-start-end-radius: var(--bldr-radius-none);
-  font-family: var(--bldr-font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.bldr-inspector__unit {
+.bldr-inspector__invitation-icon {
   align-items: center;
-  background-color: var(--bldr-panel-control);
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-  border-end-end-radius: var(--bldr-radius-md);
-  border-inline-start: var(--bldr-space-0);
-  border-start-end-radius: var(--bldr-radius-md);
-  color: var(--bldr-panel-muted);
-  display: flex;
-  font-family: var(--bldr-font-mono);
-  font-size: var(--bldr-font-size-caption);
-  font-variant-numeric: tabular-nums;
-  justify-content: center;
-  min-inline-size: var(--bldr-space-6xl);
-  padding-inline: var(--bldr-space-xs);
-}
-
-.bldr-inspector__segments {
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-md);
-  display: inline-flex;
-  inline-size: max-content;
-  max-inline-size: 100%;
-  overflow: hidden;
-}
-
-.bldr-inspector__alignment-control {
-  inline-size: max-content;
-  max-inline-size: 100%;
-}
-
-/* Compact, token-sized targets; no segment grows with the property row. */
-.bldr-inspector__segment {
-  align-items: center;
-  background-color: var(--bldr-panel-control);
-  block-size: var(--bldr-control-sm);
-  border: var(--bldr-space-0);
-  box-sizing: border-box;
-  color: var(--bldr-panel-text-soft);
-  cursor: pointer;
-  display: flex;
-  flex: 0 0 var(--bldr-control-sm);
-  inline-size: var(--bldr-control-sm);
-  justify-content: center;
-  min-block-size: var(--bldr-control-sm);
-  min-inline-size: var(--bldr-control-sm);
-  padding-block: var(--bldr-space-0);
-  padding-inline: var(--bldr-space-0);
-  transition:
-    background-color var(--bldr-duration-state) var(--bldr-easing),
-    color var(--bldr-duration-state) var(--bldr-easing);
-}
-
-.bldr-inspector__segment + .bldr-inspector__segment {
-  border-inline-start: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-}
-
-.bldr-inspector__segment:hover {
-  color: var(--bldr-accent);
-}
-
-.bldr-inspector__segment[aria-pressed='true'] {
   background-color: var(--bldr-accent-soft);
+  block-size: var(--bldr-space-6xl);
+  border-radius: var(--bldr-radius-full);
   color: var(--bldr-accent);
+  display: inline-flex;
+  inline-size: var(--bldr-space-6xl);
+  justify-content: center;
 }
 
-.bldr-inspector__segment:disabled {
-  background-color: var(--bldr-panel);
-  color: var(--bldr-panel-muted);
-  cursor: default;
-}
-
-.bldr-repeater {
-  display: grid;
-  gap: var(--bldr-space-md);
-  inline-size: 100%;
-  min-inline-size: var(--bldr-space-0);
-}
-
-.bldr-repeater__list {
-  display: grid;
-  gap: var(--bldr-space-md);
-  list-style: none;
-  margin-block: var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
-  min-inline-size: var(--bldr-space-0);
-  padding-block: var(--bldr-space-0);
-  padding-inline: var(--bldr-space-0);
-}
-
-.bldr-repeater__item {
-  background-color: var(--bldr-panel-control);
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-md);
-  min-inline-size: var(--bldr-space-0);
-  overflow: hidden;
-}
-
-.bldr-repeater__item-header {
-  align-items: center;
-  display: grid;
-  grid-template-columns: minmax(var(--bldr-space-0), 1fr) auto;
-  min-inline-size: var(--bldr-space-0);
-}
-
-.bldr-repeater__disclosure {
-  align-items: center;
-  background-color: var(--bldr-panel-control);
-  border: var(--bldr-space-0);
-  color: var(--bldr-panel-text);
-  cursor: pointer;
-  display: flex;
-  font-family: inherit;
-  font-size: var(--bldr-font-size-control);
-  font-weight: var(--bldr-font-weight-medium);
-  gap: var(--bldr-space-xs);
-  inline-size: 100%;
-  line-height: var(--bldr-line-height-snug);
-  min-block-size: var(--bldr-control-lg);
-  min-inline-size: var(--bldr-space-0);
-  padding-block: var(--bldr-space-xs);
-  padding-inline: var(--bldr-space-md);
-  text-align: start;
-}
-
-.bldr-repeater__disclosure svg,
-.bldr-repeater__action svg,
-.bldr-repeater__add svg {
+.bldr-inspector__invitation-icon svg {
   block-size: var(--bldr-space-3xl);
-  fill: none;
-  flex: none;
+  fill: var(--bldr-accent-soft);
   inline-size: var(--bldr-space-3xl);
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: var(--bldr-space-2xs);
 }
 
-.bldr-repeater__item-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bldr-repeater__actions {
-  display: flex;
-}
-
-.bldr-repeater__action {
-  align-items: center;
-  background-color: var(--bldr-panel-control);
-  block-size: var(--bldr-control-sm);
-  border: var(--bldr-space-0);
-  color: var(--bldr-panel-muted);
-  cursor: pointer;
-  display: flex;
-  flex: 0 0 var(--bldr-control-sm);
-  inline-size: var(--bldr-control-sm);
-  justify-content: center;
-  min-block-size: var(--bldr-control-sm);
-  min-inline-size: var(--bldr-control-sm);
-  padding-block: var(--bldr-space-0);
-  padding-inline: var(--bldr-space-0);
-}
-
-.bldr-repeater__action:hover:not(:disabled),
-.bldr-repeater__disclosure:hover,
-.bldr-repeater__add:hover:not(:disabled) {
-  color: var(--bldr-accent);
-}
-
-.bldr-repeater__action--remove:hover:not(:disabled) {
-  color: var(--bldr-danger);
-}
-
-.bldr-repeater__action:disabled,
-.bldr-repeater__add:disabled {
-  color: var(--bldr-panel-muted);
-  cursor: default;
-}
-
-.bldr-repeater__fields {
-  border-block-start: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border);
-  display: grid;
-  padding-block: var(--bldr-space-sm);
-  padding-inline: var(--bldr-space-md);
-}
-
-.bldr-repeater__fields[hidden] {
-  display: none;
-}
-
-.bldr-repeater__fields > .bldr-inspector__row {
-  padding-block: var(--bldr-space-sm);
-}
-
-.bldr-repeater__add {
-  align-items: center;
-  background-color: var(--bldr-panel-control);
-  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-md);
+.bldr-inspector__empty {
   color: var(--bldr-panel-text-soft);
-  cursor: pointer;
-  display: flex;
-  font-family: inherit;
-  font-size: var(--bldr-font-size-control);
-  font-weight: var(--bldr-font-weight-medium);
-  gap: var(--bldr-space-xs);
-  inline-size: 100%;
-  justify-content: center;
-  line-height: var(--bldr-line-height-snug);
-  min-block-size: var(--bldr-control-md);
-  padding-block: var(--bldr-space-xs);
-  padding-inline: var(--bldr-space-md);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
 }
 
-.bldr-repeater__empty,
-.bldr-repeater__reason {
-  color: var(--bldr-panel-muted);
-  font-size: var(--bldr-font-size-caption);
-  line-height: var(--bldr-line-height-snug);
-  margin-block: var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
-}
-
-.bldr-inspector__rejection {
-  background-color: var(--bldr-danger-soft);
-  border-inline-start: var(--bldr-space-2xs) solid var(--bldr-danger-border);
+/* An unregistered type is NOT "nothing to edit": it says what happened, in
+   the warning tone, with the same thick leading edge a rejection carries. */
+.bldr-inspector__empty[data-tone='warning'] {
+  background-color: var(--bldr-warning-soft);
+  border-inline-start: var(--bldr-border-thick) solid var(--bldr-warning-border);
   border-radius: var(--bldr-radius-xs);
-  color: var(--bldr-danger);
+  color: var(--bldr-warning);
   font-size: var(--bldr-font-size-caption);
-  line-height: var(--bldr-line-height-snug);
-  margin-block: var(--bldr-space-xs) var(--bldr-space-0);
-  margin-inline: var(--bldr-space-0);
-  padding-block: var(--bldr-space-xs);
+  padding-block: var(--bldr-space-sm);
   padding-inline: var(--bldr-space-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-inspector__tab,
+  .bldr-inspector__section-toggle,
+  .bldr-inspector__chevron {
+    transition: none;
+  }
 }

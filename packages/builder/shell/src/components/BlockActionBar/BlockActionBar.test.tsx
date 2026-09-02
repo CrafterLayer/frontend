@@ -13,6 +13,7 @@ const ACTIONS: BlockAction[] = [
   { id: 'moveEarlier', label: 'Move earlier', enabled: false },
   { id: 'moveLater', label: 'Move later', enabled: true },
   { id: 'editText', label: 'Edit text', enabled: true },
+  { id: 'deselect', label: 'Deselect', enabled: true, hint: 'Esc' },
 ];
 
 describe('BlockActionBar (009 contract §6, US3)', () => {
@@ -21,7 +22,14 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     const toolbar = screen.getByRole('toolbar', { name: 'Actions for Text' });
     const buttons = Array.from(toolbar.querySelectorAll('button'));
     const labels = buttons.map((button) => button.textContent);
-    expect(labels).toEqual(['Duplicate', 'Delete', 'Move earlier', 'Move later', 'Edit text']);
+    expect(labels).toEqual([
+      'Duplicate',
+      'Delete',
+      'Move earlier',
+      'Move later',
+      'Edit text',
+      'Deselect',
+    ]);
     for (const button of buttons) {
       expect(button).toHaveAttribute('data-bldr-chrome-button', '');
       expect(button).toHaveAttribute('data-size', 'lg');
@@ -101,6 +109,7 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     const del = screen.getByRole('button', { name: 'Delete' });
     const later = screen.getByRole('button', { name: 'Move later' });
     const edit = screen.getByRole('button', { name: 'Edit text' });
+    const deselect = screen.getByRole('button', { name: 'Deselect' });
 
     await user.tab();
     expect(duplicate).toHaveFocus();
@@ -113,16 +122,18 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     expect(later).toHaveFocus();
     await user.keyboard('{ArrowRight}');
     expect(edit).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(deselect).toHaveFocus();
     await user.keyboard('{ArrowRight}'); // wraps
     expect(duplicate).toHaveFocus();
-    await user.keyboard('{ArrowLeft}'); // wraps backwards to the fifth action
-    expect(edit).toHaveFocus();
+    await user.keyboard('{ArrowLeft}'); // wraps backwards to the last action
+    expect(deselect).toHaveFocus();
     await user.keyboard('{ArrowLeft}');
-    expect(later).toHaveFocus();
+    expect(edit).toHaveFocus();
     await user.keyboard('{Home}');
     expect(duplicate).toHaveFocus();
     await user.keyboard('{End}');
-    expect(edit).toHaveFocus();
+    expect(deselect).toHaveFocus();
 
     // A single stop: Tab leaves the toolbar entirely.
     await user.tab();
@@ -172,8 +183,8 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     );
     const toolbar = screen.getByRole('toolbar', { name: 'Actions for Root' });
     const disabledActions = toolbar.querySelectorAll('button');
-    expect(screen.getAllByRole('button')).toHaveLength(6); // 5 rendered + "after"
-    expect(disabledActions).toHaveLength(5);
+    expect(screen.getAllByRole('button')).toHaveLength(7); // 6 rendered + "after"
+    expect(disabledActions).toHaveLength(6);
     for (const action of disabledActions) {
       expect(action).toBeDisabled();
       expect(action).toHaveAttribute('tabindex', '-1');
@@ -217,5 +228,17 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     // could not satisfy the loop above.
     const marks = [...toolbar.querySelectorAll('svg')].map((svg) => svg.innerHTML);
     expect(new Set(marks).size).toBe(ACTIONS.length);
+  });
+
+  it('a keyboard hint rides the hover tooltip, never the accessible name', () => {
+    render(<BlockActionBar label="Actions for Text" actions={ACTIONS} onAction={vi.fn()} />);
+    // "Deselect (Esc)" is what a pointer sees; "Deselect" is what a screen
+    // reader hears. Two surfaces, one label — the hint is decoration on the
+    // tooltip, not a second name free to drift from the first.
+    const deselect = screen.getByRole('button', { name: 'Deselect' });
+    expect(deselect).toHaveAttribute('title', 'Deselect (Esc)');
+    expect(deselect.querySelector('.bldr-visually-hidden')?.textContent).toBe('Deselect');
+    // Actions without a hint keep the bare label as their tooltip.
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toHaveAttribute('title', 'Duplicate');
   });
 });

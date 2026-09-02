@@ -1,18 +1,27 @@
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { z } from 'zod';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Decorator, Meta, StoryObj } from '@storybook/react-vite';
 
 import { createBuilder } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import {
+  customCodeTree,
   defineBlockSchema,
+  emptyCustomCodeTree,
   type BlockRenderComponent,
+  type BlockRenderProps,
   type BuilderDocument,
   type FieldProps,
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
-import { COLOR_ROLES, isColorRole, lightTheme, paletteOf } from '@craftkit/builder-renderer';
+import {
+  COLOR_ROLES,
+  CustomCode,
+  isColorRole,
+  lightTheme,
+  paletteOf,
+} from '@craftkit/builder-renderer';
 
 import { EditorCanvas } from '../EditorCanvas';
 import { Inspector } from './Inspector';
@@ -277,10 +286,130 @@ const makeRepeaterKernel = () => {
   return kernel;
 };
 
+/** The real composition renderer, so the canvas carries the real element addresses. */
+const RegionRender = ((props: BlockRenderProps<{ tree: unknown }>) => (
+  <CustomCode tree={props.props.tree} hostId={props.node.id} isCanvas={props.isCanvas} />
+)) as unknown as BlockRenderComponent;
+
+const REGION_VOCAB: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'inspector-region-story-vocab',
+  version: '1.0.0',
+  contributes: {
+    blocks: [
+      {
+        schema: defineBlockSchema({
+          type: 'region-page',
+          description: 'Page',
+          props: z.object({}),
+          slots: { default: { allow: ['region'] } },
+          examples: [],
+        }),
+        render: SlotRender,
+      },
+      {
+        schema: defineBlockSchema({
+          type: 'region',
+          description: 'A freely composed region',
+          props: z.object({
+            label: z.string().max(80).default('Custom section'),
+            tree: customCodeTree().default(emptyCustomCodeTree()),
+          }),
+          propertyGroups: {
+            label: { tab: 'content', section: 'Identity' },
+            tree: { tab: 'content', section: 'Composition' },
+          },
+          examples: [],
+        }),
+        render: RegionRender,
+      },
+    ],
+  },
+};
+
+const makeRegionKernel = () => {
+  const kernel = createBuilder({
+    document: {
+      schemaVersion: 1,
+      surface: 'site',
+      dir: 'ltr',
+      rootId: 'region-root',
+      nodes: {
+        'region-root': {
+          id: 'region-root',
+          type: 'region-page',
+          props: {},
+          slots: { default: ['cv-header'] },
+        },
+        'cv-header': {
+          id: 'cv-header',
+          type: 'region',
+          props: {
+            label: 'CV header',
+            tree: {
+              kind: 'root',
+              children: [
+                {
+                  kind: 'element',
+                  tag: 'section',
+                  className: 'grid gap-8 p-16 md:grid-cols-3',
+                  children: [
+                    {
+                      kind: 'element',
+                      tag: 'img',
+                      className: 'h-40 w-40 rounded-full object-cover',
+                      attributes: {
+                        src: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80',
+                        alt: 'Portrait of Reem Haddad',
+                      },
+                    },
+                    {
+                      kind: 'element',
+                      tag: 'div',
+                      className: 'md:col-span-2',
+                      children: [
+                        { kind: 'element', tag: 'h1', className: 'text-4xl', text: 'Reem Haddad' },
+                        { kind: 'element', tag: 'p', text: 'Product designer, Amman.' },
+                        { kind: 'element', tag: 'button', className: 'mt-4', text: 'Hire me' },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+    extensions: [REGION_VOCAB],
+    ports: { clock: fixedClock(), ids: seededIds('region-story') },
+  });
+  kernel.focusElement('cv-header', [0, 0]);
+  return kernel;
+};
+
+/**
+ * The panel is sized by its CONTAINER (R12): in the product the shell's aside
+ * decides the column and draws the seam, and the Inspector fills it. A story
+ * has no aside, so this decorator is the frame — the same token-sized box the
+ * aside would be. A story that lays the Inspector beside a canvas opts out
+ * with `parameters: { inspectorFrame: false }` and wraps its own `<Inspector>`
+ * in that box itself.
+ */
+const withInspectorFrame: Decorator = (Story, context) =>
+  context.parameters['inspectorFrame'] === false ? (
+    <Story />
+  ) : (
+    <div style={{ inlineSize: 'var(--bldr-inspector-width)', minBlockSize: '100%' }}>
+      <Story />
+    </div>
+  );
+
 const meta = {
   title: 'Builder/Shell/Inspector',
   component: Inspector,
   args: { theme: lightTheme },
+  decorators: [withInspectorFrame],
 } satisfies Meta<typeof Inspector>;
 export default meta;
 
@@ -296,6 +425,28 @@ export const EmptyState: Story = {
 
 export const Selected: Story = {
   args: { kernel: makeKernel() },
+};
+
+export const ClearSelection: Story = {
+  args: { kernel: makeKernel() },
+  play: async ({ canvasElement, args }) => {
+    // The way OUT of a selection lives in the title row while a block is
+    // selected, and nowhere when none is. Rerun-safe: a previous run left
+    // nothing selected, so the block is put back first.
+    const canvas = within(canvasElement);
+    if (canvas.queryByRole('button', { name: 'Clear selection' }) === null) {
+      args.kernel.setSelection(['c1']);
+    }
+    const clear = await canvas.findByRole('button', { name: 'Clear selection' });
+    const txBefore = args.kernel.transactions().length;
+
+    await userEvent.click(clear);
+
+    await expect(canvas.getByText('Select a block to edit its properties.')).toBeVisible();
+    await expect(canvas.queryByRole('button', { name: 'Clear selection' })).toBeNull();
+    await expect(args.kernel.context.store.getState().selection).toEqual([]);
+    await expect(args.kernel.transactions().length).toBe(txBefore); // never a transaction
+  },
 };
 
 export const AllSectionsExpanded: Story = {
@@ -569,6 +720,17 @@ export const DeviceOverrideCapability: Story = {
 export const RightToLeft: Story = {
   args: { kernel: makeKernel('rtl') },
   globals: { direction: 'rtl' },
+  play: async ({ canvasElement }) => {
+    // Under rtl the arrows follow the strip as drawn: ArrowLeft reaches the
+    // NEXT tab. Rerun-idempotent: it ends back on Content.
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('tab', { name: 'Content' }));
+    await userEvent.keyboard('{ArrowLeft}');
+    const design = canvas.getByRole('tab', { name: 'Design' });
+    await expect(design).toHaveAttribute('aria-selected', 'true');
+    await expect(design).toHaveFocus();
+    await userEvent.click(canvas.getByRole('tab', { name: 'Content' }));
+  },
 };
 
 const rejectionKernel = makeKernel();
@@ -670,12 +832,155 @@ export const NoEditableProperties: Story = {
   },
 };
 
+const unknownTypeKernel = createBuilder({
+  document: {
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'ltr',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'page', props: {}, slots: { default: ['ghost'] } },
+      // A block from a vocabulary this kernel never registered — an older
+      // document, or an extension that failed to load.
+      ghost: { id: 'ghost', type: 'legacy-hero', props: {} },
+    },
+  },
+  extensions: [VOCAB],
+  ports: { clock: fixedClock(), ids: seededIds('unknown') },
+});
+unknownTypeKernel.setSelection(['ghost']);
+export const UnknownBlockType: Story = {
+  args: { kernel: unknownTypeKernel },
+  play: async ({ canvasElement }) => {
+    // An unregistered type is NOT "nothing to edit": the head still names
+    // the block — by its verbatim type key, since humanising it would imply
+    // registry knowledge — and the body says what happened in the warning tone.
+    const canvas = within(canvasElement);
+    const inspector = canvas.getByRole('region', { name: 'Inspector' });
+    await expect(within(inspector).getByLabelText('Selected block')).toHaveTextContent(
+      'legacy-hero',
+    );
+    await expect(
+      within(inspector).getByText('Unknown block type — no schema is registered for it.'),
+    ).toBeVisible();
+    await expect(within(inspector).queryByRole('tablist')).toBeNull();
+    await expect(within(inspector).getByRole('button', { name: 'Clear selection' })).toBeVisible();
+  },
+};
+
+export const DarkChrome: Story = {
+  args: { kernel: makeKernel() },
+  render: (args) => (
+    <div className="bldr-root" data-bldr-theme="dark">
+      <Inspector kernel={args.kernel} theme={args.theme} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    // Dark chrome is the SAME sheet under different token values — no branch
+    // in the Inspector's CSS. The proof: the selected tab lifts onto whatever
+    // the panel colour resolves to, and the panel ground is that colour too.
+    const canvas = within(canvasElement);
+    const inspector = canvas.getByRole('region', { name: 'Inspector' });
+    await expect(within(inspector).getByLabelText('Selected block')).toBeVisible();
+    await expect(within(inspector).getByLabelText('Selected block')).toHaveTextContent('Card');
+    const expected = document.createElement('span');
+    expected.style.backgroundColor = getComputedStyle(inspector)
+      .getPropertyValue('--bldr-panel')
+      .trim();
+    await expect(expected.style.backgroundColor).not.toBe('');
+    const selected = within(inspector).getByRole('tab', { selected: true });
+    await expect(getComputedStyle(selected).backgroundColor).toBe(expected.style.backgroundColor);
+    await expect(getComputedStyle(inspector).backgroundColor).toBe(expected.style.backgroundColor);
+  },
+};
+
+export const CompactDensity: Story = {
+  args: { kernel: makeKernel() },
+  render: (args) => (
+    <div data-bldr-density="compact">
+      <Inspector kernel={args.kernel} theme={args.theme} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    // The scale-token rule (R13): tabs and section toggles size to the
+    // density-aware small control height, text inputs to the control height.
+    // Under the compact density both shrink — no Inspector rule names a size.
+    const canvas = within(canvasElement);
+    const inspector = canvas.getByRole('region', { name: 'Inspector' });
+    const small = Number.parseFloat(
+      getComputedStyle(inspector).getPropertyValue('--bldr-control-height-sm'),
+    );
+    const regular = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--bldr-control-height-sm'),
+    );
+    await expect(small).toBeGreaterThan(0);
+    await expect(small).toBeLessThan(regular);
+    for (const tab of within(inspector).getAllByRole('tab')) {
+      await expect(Math.abs(tab.getBoundingClientRect().height - small)).toBeLessThanOrEqual(0.5);
+    }
+    const toggle = within(inspector.querySelector('[role="tabpanel"]:not([hidden])') ?? inspector)
+      .getAllByRole('button', { expanded: true })
+      .at(0);
+    await expect(toggle).toBeDefined();
+    await expect(toggle?.getBoundingClientRect().height ?? 0).toBeGreaterThanOrEqual(small);
+    const input = within(inspector).getByRole('textbox', { name: 'title' });
+    const control = Number.parseFloat(
+      getComputedStyle(inspector).getPropertyValue('--bldr-control-height'),
+    );
+    await expect(Math.abs(input.getBoundingClientRect().height - control)).toBeLessThanOrEqual(0.5);
+  },
+};
+
+const overrideMarkerKernel = makeKernel();
+export const TabletOverrideMarker: Story = {
+  args: { kernel: overrideMarkerKernel, bucket: 'tablet' },
+  play: async ({ canvasElement }) => {
+    // The override vocabulary: an owned value wears the "{bucket} override"
+    // pill, and the small-control button beside it takes the value back in
+    // ONE transaction. Rerun-idempotent: the override is written back at the end.
+    const canvas = within(canvasElement);
+    const inspector = canvas.getByRole('region', { name: 'Inspector' });
+    const title = within(inspector).getByRole('textbox', { name: 'title' });
+    const row = title.closest<HTMLElement>('.bldr-inspector__row');
+    if (row === null) {
+      throw new Error('The title row did not render.');
+    }
+    await expect(within(row).getByText('tablet override')).toBeVisible();
+    const clear = within(row).getByRole('button', { name: 'Clear title override' });
+    const small = Number.parseFloat(
+      getComputedStyle(inspector).getPropertyValue('--bldr-control-sm'),
+    );
+    await expect(small).toBeGreaterThan(0);
+    const rect = clear.getBoundingClientRect();
+    await expect(Math.abs(rect.width - small)).toBeLessThanOrEqual(0.5);
+    await expect(Math.abs(rect.height - small)).toBeLessThanOrEqual(0.5);
+
+    const before = overrideMarkerKernel.transactions().length;
+    await userEvent.click(clear);
+    await expect(overrideMarkerKernel.transactions().length).toBe(before + 1);
+    await expect(within(row).queryByText('tablet override')).toBeNull();
+    await expect(title).toHaveAttribute('placeholder', 'Launch hero');
+
+    overrideMarkerKernel.dispatch(
+      'setResponsive',
+      { id: 'c1', breakpoint: 'tablet', key: 'title', value: 'Tablet title' },
+      'user',
+    );
+    await waitFor(async () => {
+      await expect(within(row).getByText('tablet override')).toBeVisible();
+    });
+  },
+};
+
 const canvasKernel = makeKernel();
 export const EditWithCanvas: Story = {
   args: { kernel: canvasKernel },
+  parameters: { inspectorFrame: false },
   render: (args) => (
     <div style={{ blockSize: 'var(--bldr-dock-min-height)', display: 'flex' }}>
-      <Inspector kernel={args.kernel} theme={args.theme} />
+      <div style={{ inlineSize: 'var(--bldr-inspector-width)', flex: 'none' }}>
+        <Inspector kernel={args.kernel} theme={args.theme} />
+      </div>
       <div style={{ flex: 1, minInlineSize: 'var(--bldr-space-0)' }}>
         <EditorCanvas kernel={args.kernel} theme={lightTheme} />
       </div>
@@ -696,12 +1001,66 @@ export const EditWithCanvas: Story = {
   },
 };
 
+const regionKernel = makeRegionKernel();
+export const ElementFocus: Story = {
+  args: { kernel: regionKernel },
+  parameters: { inspectorFrame: false },
+  render: (args) => (
+    <div style={{ blockSize: 'var(--bldr-dock-min-height)', display: 'flex' }}>
+      <div style={{ inlineSize: 'var(--bldr-inspector-width)', flex: 'none' }}>
+        <Inspector kernel={args.kernel} theme={args.theme} />
+      </div>
+      <div style={{ flex: 1, minInlineSize: 'var(--bldr-space-0)' }}>
+        <EditorCanvas kernel={args.kernel} theme={args.theme ?? lightTheme} />
+      </div>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    // The portrait the assistant wrote is the thing being edited: the header
+    // names it, the region reads as its context, and the image's own rows are
+    // the panel. Back to region returns the region's rows with the selection
+    // kept; the play re-focuses the image so reruns stay idempotent.
+    const canvas = within(canvasElement);
+    const inspector = canvas.getByRole('region', { name: 'Inspector' });
+    await expect(within(inspector).getByLabelText('Selected block')).toHaveTextContent('Image');
+    await expect(within(inspector).getByText('in CV header')).toBeInTheDocument();
+    await expect(within(inspector).getByRole('textbox', { name: 'alt' })).toHaveValue(
+      'Portrait of Reem Haddad',
+    );
+    await expect(within(inspector).queryByRole('tablist')).toBeNull();
+    const frame = canvasElement.querySelector<HTMLIFrameElement>('iframe');
+    await waitFor(async () => {
+      await expect(
+        frame?.contentDocument?.querySelector('img[data-ck-path="0.0"]') ?? null,
+      ).not.toBeNull();
+    });
+
+    await userEvent.click(within(inspector).getByRole('button', { name: 'Back to region' }));
+    await expect(within(inspector).getByLabelText('Selected block')).toHaveTextContent('CV header');
+    await expect(within(inspector).getByRole('textbox', { name: 'label' })).toHaveValue(
+      'CV header',
+    );
+    await expect(regionKernel.context.store.getState().selection).toEqual(['cv-header']);
+    await expect(regionKernel.transactions()).toHaveLength(0);
+
+    regionKernel.focusElement('cv-header', [0, 0]);
+    // A kernel write outside React's own event path: the panel follows on the
+    // store's notification, so the row is awaited rather than read at once.
+    await waitFor(async () => {
+      await expect(within(inspector).getByRole('textbox', { name: 'src' })).toBeInTheDocument();
+    });
+  },
+};
+
 const colorRoleCanvasKernel = makeKernel();
 export const ColorRolePaletteReflectsToCanvas: Story = {
   args: { kernel: colorRoleCanvasKernel },
+  parameters: { inspectorFrame: false },
   render: (args) => (
     <div style={{ blockSize: 'var(--bldr-dock-min-height)', display: 'flex' }}>
-      <Inspector kernel={args.kernel} theme={args.theme} />
+      <div style={{ inlineSize: 'var(--bldr-inspector-width)', flex: 'none' }}>
+        <Inspector kernel={args.kernel} theme={args.theme} />
+      </div>
       <div style={{ flex: 1, minInlineSize: 'var(--bldr-space-0)' }}>
         <EditorCanvas kernel={args.kernel} theme={args.theme ?? lightTheme} />
       </div>

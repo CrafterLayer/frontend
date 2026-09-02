@@ -1,13 +1,19 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
-import type { NodeId } from '@craftkit/builder-schema';
+import { formatCustomCodePath, type CustomCodePath, type NodeId } from '@craftkit/builder-schema';
 
+import { customCodeElementAt } from '../custom-code/element-at';
 import { blockDisplayName } from '../naming/block-display-name';
+import { customCodeElementName } from '../naming/custom-code-element-name';
 import type { GeometryPorts, RectIndex } from '../rects';
 import { createOutline, type OutlineHandle } from './outline-elements';
 
 export interface OverlayController {
-  /** Pointer path input (overlay-local; hover NEVER enters the kernel). */
-  setHover(id: NodeId | null): void;
+  /**
+   * Pointer path input (overlay-local; hover NEVER enters the kernel). With an
+   * element path, the hover chrome wraps the authored element under the
+   * pointer inside a composed region rather than the whole region.
+   */
+  setHover(id: NodeId | null, elementPath?: CustomCodePath): void;
   hoveredId(): NodeId | null;
   dispose(): void;
 }
@@ -31,10 +37,32 @@ export function createOverlayController(options: {
   const selection: OutlineHandle = createOutline(layer, 'selection');
 
   let hoverId: NodeId | null = null;
+  let hoverPath: CustomCodePath | null = null;
   let cancelFlush: (() => void) | null = null;
   let disposed = false;
 
-  const applyOutline = (outline: OutlineHandle, id: NodeId | null) => {
+  /**
+   * An outline over an authored ELEMENT inside a region: its own rect and its
+   * own name. Stale by design — a focus or hover path can outlive the element
+   * it named (undo, an AI rewrite) — so a path that no longer resolves, or one
+   * this canvas never stamped, returns false and the caller draws the region.
+   */
+  const applyElementOutline = (outline: OutlineHandle, id: NodeId, path: CustomCodePath) => {
+    const located = customCodeElementAt(kernel, id, path);
+    const rect = located === undefined ? undefined : index.elementRect?.(id, path);
+    if (located === undefined || rect === undefined) {
+      return false;
+    }
+    outline.element.style.setProperty('--bldr-outline-canvas-x', `${String(rect.x)}px`);
+    outline.element.setAttribute('data-element', '');
+    outline.show(rect, customCodeElementName(located.element));
+    return true;
+  };
+
+  const applyOutline = (outline: OutlineHandle, id: NodeId | null, path: CustomCodePath | null) => {
+    if (id !== null && path !== null && applyElementOutline(outline, id, path)) {
+      return;
+    }
     const rect = id === null ? undefined : index.rect(id);
     if (id === null || rect === undefined) {
       outline.hide();
@@ -44,6 +72,7 @@ export function createOverlayController(options: {
     // query-container width, so the label can use its small allowance without
     // crossing the canvas edge. No additional geometry read is introduced.
     outline.element.style.setProperty('--bldr-outline-canvas-x', `${String(rect.x)}px`);
+    outline.element.removeAttribute('data-element');
     outline.show(rect, blockDisplayName(kernel, id));
   };
 
@@ -84,9 +113,15 @@ export function createOverlayController(options: {
     }
     // Batched reads (rect lookups) happen inside show(); both outlines write in
     // the same frame callback — one read phase, one write phase, per rhythm.
-    const selectedId = kernel.context.store.getState().selection[0] ?? null;
-    applyOutline(hover, hoverId);
-    applyOutline(selection, selectedId);
+    const state = kernel.context.store.getState();
+    const selectedId = state.selection[0] ?? null;
+    const focus = state.elementFocus;
+    applyOutline(hover, hoverId, hoverPath);
+    applyOutline(
+      selection,
+      selectedId,
+      focus !== null && focus.id === selectedId ? focus.path : null,
+    );
     stamp('data-bldr-selected', selectedId);
     stamp('data-bldr-hovered', hoverId);
   };
@@ -103,12 +138,18 @@ export function createOverlayController(options: {
   const offStore = kernel.context.store.subscribe(markDirty);
   const offInvalidate = index.onInvalidate(markDirty);
 
+  const samePath = (left: CustomCodePath | null, right: CustomCodePath | null) =>
+    left === right ||
+    (left !== null && right !== null && formatCustomCodePath(left) === formatCustomCodePath(right));
+
   return {
-    setHover(id) {
-      if (id === hoverId) {
+    setHover(id, elementPath) {
+      const path = id === null || elementPath === undefined ? null : elementPath;
+      if (id === hoverId && samePath(path, hoverPath)) {
         return;
       }
       hoverId = id;
+      hoverPath = path;
       markDirty();
     },
     hoveredId: () => hoverId,

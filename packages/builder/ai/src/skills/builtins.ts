@@ -35,6 +35,7 @@ const PRECISE_EDIT: AiSkillDefinitionV1 = builtin({
     'craftkit.cv-page',
     'craftkit.page-composition',
     'craftkit.structure-recipes',
+    'craftkit.visual-direction',
   ],
   restrictToCommands: ['setBinding', 'setProp', 'setResponsive'],
   instructions: `The smallest change that fully satisfies the request; nothing else moves.
@@ -91,7 +92,7 @@ const CV_PAGE: AiSkillDefinitionV1 = builtin({
     ],
   },
   tags: ['composition', 'cv', 'portfolio'],
-  dependencies: ['craftkit.copywriting'],
+  dependencies: ['craftkit.copywriting', 'craftkit.visual-direction'],
   conflicts: ['craftkit.page-composition'],
   instructions: `Scanned in 30 seconds by a recruiter, then read by a screen reader or printed: one accent, two weights, white space, borders not shadows, no marketing bands. setProp page contentWidth "standard"; regions wrap in div mx-auto max-w-4xl px-4 md:px-8. One region per block, in this order, skipping what the request lacks:
 1 HEADER: grid md:grid-cols-3 gap-8 items-center. img h-40 w-40 rounded-full object-cover (alt = the name) only when a photo URL is given. div md:col-span-2: h1 text-4xl md:text-5xl font-bold, p text-xl text-accent font-medium (role), p text-text-muted max-w-prose (pitch), ul flex flex-wrap gap-x-6 gap-y-2 text-sm of li flex items-center gap-2 holding icon mail / phone / map-pin / globe / link size 16 text-accent and <a href="mailto:…"> / <a href="tel:…"> / <a href="https://…"> whose text is the visible value in span whitespace-nowrap. Link text "LinkedIn", "GitHub" beside a link icon — no brand logos exist.
@@ -167,7 +168,7 @@ const OCCASION_PAGE: AiSkillDefinitionV1 = builtin({
     ],
   },
   tags: ['composition', 'occasion', 'invitation'],
-  dependencies: ['craftkit.copywriting'],
+  dependencies: ['craftkit.copywriting', 'craftkit.visual-direction'],
   conflicts: ['craftkit.page-composition', 'craftkit.cv-page'],
   instructions: `One page, one feeling, read in ten seconds on a phone: the occasion, who, when, where, and one way to reply. setProp page contentWidth "narrow" for a card, "standard" when there is a gallery. Three to five regions, one block each, in this order:
 1 CARD: section relative overflow-hidden rounded-3xl px-4 py-12 text-center md:px-8 md:py-16. Background: a photo only when the request gives or names one — img absolute inset-0 h-full w-full object-cover (alt describes the scene: "airport departures board" for a travel farewell) under div absolute inset-0 bg-black opacity-60 (never bg-black/60), text in text-white; otherwise bg-gradient-to-br from-rose-50 via-amber-50 to-white with text-text. Content: div relative mx-auto max-w-2xl space-y-4 holding icon heart / plane / gift / sparkles / party-popper / cake size 48 mx-auto (the one that fits), p text-sm font-semibold uppercase tracking-wide (the occasion: "You are invited" / "وداعاً" — Arabic drops uppercase and tracking), h1 text-4xl font-bold leading-tight md:text-6xl (the names, exactly as given), p text-lg md:text-xl (date · place on one line).
@@ -218,7 +219,7 @@ const PAGE_COMPOSITION: AiSkillDefinitionV1 = builtin({
     ],
   },
   tags: ['composition', 'design', 'page'],
-  dependencies: ['craftkit.copywriting'],
+  dependencies: ['craftkit.copywriting', 'craftkit.visual-direction'],
   instructions: `Plan from the primary visitor outcome: name it in the rationale, then build these sections in order, one region each, dropping any the request gives no material for.
 1 HERO: h1 text-4xl md:text-6xl font-bold leading-tight (Arabic: leading-snug), p text-lg md:text-xl text-text-muted max-w-2xl, div flex flex-wrap gap-4 with one primary action and one secondary <a>, ul flex flex-wrap gap-x-6 gap-y-2 text-sm text-text-muted of 3 proof facts, each li flex items-center gap-2 led by icon circle-check size 16 text-success. With an image: grid md:grid-cols-2 items-center gap-8, img aspect-video w-full rounded-2xl object-cover shadow-xl AFTER the text; without: mx-auto max-w-3xl text-center.
 2 PROOF: grid grid-cols-2 md:grid-cols-4 gap-6 text-center; p text-4xl font-extrabold tabular-nums text-accent + p text-sm text-text-muted.
@@ -411,6 +412,66 @@ TIMELINE: ol space-y-8; each li relative ps-8 ck-tl with span absolute start-0 t
  * on restyle intent only; adjectives ("elegant", "simple", "ألوان") were
  * deliberately not adopted because they appear in unrelated requests.
  */
+/**
+ * Design leadership, not template filling.
+ *
+ * Adapted for this agent from Anthropic's `frontend-design` skill
+ * (github.com/anthropics/skills, Apache-2.0): the anti-template calibration,
+ * the subject-first grounding, hero-as-thesis, one signature element, and the
+ * remove-one-accessory discipline. Everything it says about writing files,
+ * taking screenshots or planning in two passes is dropped — this agent emits
+ * one plan — and every mechanism is restated in what the door actually
+ * accepts: the site vocabulary, `ck-` classes and the two allowed font hosts.
+ *
+ * A DEPENDENCY of all three page archetypes, because a page composed without a
+ * point of view is the exact failure the skill exists to prevent; its own
+ * keywords cover "make it distinctive" asks on an existing page.
+ */
+const VISUAL_DIRECTION: AiSkillDefinitionV1 = builtin({
+  schemaVersion: 1,
+  id: 'craftkit.visual-direction',
+  name: 'Distinctive visual direction',
+  description:
+    'Design leadership: ground the page in its subject, avoid the three AI-default looks, pair type deliberately, spend the boldness on one signature element.',
+  version: '1.0.0',
+  source: 'builtin',
+  trust: 'builtin',
+  priority: 52,
+  activation: {
+    mode: 'auto',
+    keywords: [
+      'distinctive',
+      'not generic',
+      'stand out',
+      'memorable design',
+      'unique design',
+      'art direction',
+      'تصميم مميز',
+      'شكل مميز',
+      'فريد',
+      'إبداعي',
+      'ابداعي',
+      'يلفت النظر',
+      'مش عادي',
+      'مو عادي',
+    ],
+  },
+  tags: ['design', 'identity', 'typography', 'visual'],
+  instructions: `You are the design lead. This page must not be mistakable for any other page you have made.
+SUBJECT FIRST: before choosing anything, name in the rationale (≤12 words) the subject, its audience and the page's ONE job. Palette, words and imagery come from that subject's own world — its materials, tools, artefacts, vocabulary. A bakery and a security audit must not share a palette.
+THE THREE DEFAULTS, avoid unless the request names one: (1) cream ground (bg-stone-50) + high-contrast serif display + amber/orange accent; (2) bg-slate-950 + one acid lime-400 or rose-500 accent; (3) hairline broadsheet rules, rounded-none, dense columns. Each is legitimate, but each arrives by habit; if you land on one, change one axis and say which in the rationale.
+HERO IS A THESIS: open with the most characteristic thing in the subject's world — the real headline, the real artefact, one real number in its context. Big stat + gradient + two buttons is the template answer; use it only when it is truly the best one.
+TYPE CARRIES THE PERSONALITY: pair a display face with a body face on purpose. Load them in pageCss — @import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@600&display=swap"); or https://fonts.bunny.net/css?family=… (those two hosts only; the import is hoisted for you, every other host is refused) — then .ck-display{font-family:'Fraunces',var(--t-font-family-serif)}. Arabic display faces: Cairo, Tajawal, IBM Plex Sans Arabic, Almarai; never a Latin face on Arabic text.
+STRUCTURE IS INFORMATION: eyebrows, dividers, numbers must encode something true. 01/02/03 only when the content really is a sequence. Cut any device that only decorates.
+ONE SIGNATURE: exactly one element carries the boldness — an oversized type lockup, a full-bleed band, an overlapping card, a diagonal split, one ambient glow — and everything around it stays quiet. A second signature cancels the first.
+COMPLEXITY MATCHES THE VISION: a maximal direction needs elaborate execution, a minimal one exact spacing and type. Elegance is executing the chosen vision, not adding to it.
+BEFORE YOU FINISH: remove one accessory — the decoration that survives only because you made it. Floor, always: responsive at sm/md/lg, alt on every image, visible focus, motion-reduce on anything that moves.`,
+  references: {
+    'checks/direction.md':
+      "Subject, audience and the page's one job named in the rationale; palette and type derived from the subject rather than from the three defaults; hero opens with the characteristic thing; display and body faces paired and loaded from an allowed host; numbering only for real sequences; exactly one signature element; one decoration removed; responsive, alt text, visible focus, motion-reduce.",
+  },
+});
+
 const DESIGN_DIRECTION: AiSkillDefinitionV1 = builtin({
   schemaVersion: 1,
   id: 'craftkit.design-direction',
@@ -463,11 +524,67 @@ E WARM: bg-stone-50 text-stone-900; muted text-stone-600; accent orange-600; rou
 CONTRAST: on white or *-50, body text is *-600 or darker and headings *-900; on *-900/*-950, body is *-300 or lighter and headings white; never *-400/*-500 for body text; text over a photo needs a darkening layer via ck- css background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)), url(https://…) center/cover (bg-black/50 does not exist).
 TYPE, exactly: display text-4xl md:text-6xl font-bold leading-tight; h2 text-3xl md:text-4xl font-semibold; h3 text-xl font-semibold; body text-base md:text-lg leading-relaxed; caption text-sm text-text-muted. tracking-tight only on Latin display text.
 SPACING: section py-12 md:py-16, gutter px-4 md:px-8, columns gap-8, card p-6 md:p-8, inside a card gap-4. SURFACES: one radius for cards, one for actions; one shadow at rest; hover is one shade step (hover:bg-indigo-700 on bg-indigo-600), hover:opacity-90, or hover:scale-105 transition-transform duration-200 — hover:shadow-* does not exist.
-MODE: no dark: variant; a page is one mode — a requested dark mode is D, or pageCss @media (prefers-color-scheme: dark) rules on ck- classes. Fonts: font-sans/serif/mono do not exist; set font-family in css from var(--t-font-family-sans|serif|mono); @font-face with url(https://…) in pageCss; @import is refused.
+MODE: no dark: variant; a page is one mode — a requested dark mode is D, or pageCss @media (prefers-color-scheme: dark) rules on ck- classes. Fonts: font-sans/serif/mono do not exist; set font-family in css from var(--t-font-family-sans|serif|mono); @font-face with url(https://…) in pageCss; @import only from fonts.googleapis.com or fonts.bunny.net (every other host is refused).
 RESTYLE: one setProp of tree per region keeping text, ids and node order, changing only className values; page-wide rules once in pageCss as .ck- classes.`,
   references: {
     'checks/consistency.md':
       'Direction named once, never mixed; same treatment for the same role everywhere; four type sizes only; spacing on the one scale; one radius, one rest shadow; one accent fill per section; contrast pairs from the table; no absent utilities (hover:shadow, py-24, /opacity, bare border-t, dark:).',
+  },
+});
+
+/**
+ * The repeated thing, built once.
+ *
+ * Adapted for this agent from wshobson's `tailwind-design-system` skill
+ * (github.com/wshobson/agents, MIT): the token hierarchy (brand → semantic →
+ * component) and the component ladder (base → variants → sizes → states). Its
+ * Tailwind v4 mechanism is NOT reproduced, because none of it exists on this
+ * wire: there is no `@theme`, no config file, no build step the agent can
+ * reach. The layers are restated as this product's own — `--t-*` roles, the
+ * fixed utility vocabulary, `ck-` classes — and the v4 features are listed as
+ * refusals so the model stops reaching for them.
+ */
+const DESIGN_TOKENS: AiSkillDefinitionV1 = builtin({
+  schemaVersion: 1,
+  id: 'craftkit.design-tokens',
+  name: 'Tokens, components and variants',
+  description:
+    'Build the repeated thing once: role tokens before palette before ck- classes, one base class with variants, and the Tailwind config features that do not exist here.',
+  version: '1.0.0',
+  source: 'builtin',
+  trust: 'builtin',
+  priority: 48,
+  activation: {
+    mode: 'auto',
+    keywords: [
+      'component library',
+      'reusable component',
+      'reusable components',
+      'design tokens',
+      'style guide',
+      'consistent components',
+      'same style everywhere',
+      'variants',
+      'مكتبة مكونات',
+      'مكونات متكررة',
+      'دليل الأنماط',
+      'توكنز',
+      'متغيرات التصميم',
+      'نمط موحد',
+      'تنسيق موحد',
+    ],
+  },
+  tags: ['components', 'design', 'system', 'tokens'],
+  instructions: `Build the repeated thing once, then reuse it verbatim — a system, not twenty hand-styled boxes.
+THREE LAYERS, in this order. 1 ROLE, the site's own: bg-surface, bg-surface-inverse, text-text, text-text-muted, text-text-inverse, bg-accent, text-accent, text-accent-text, border-2 border-slate-200 — these resolve through var(--t-*) and re-theme with the site, so anything structural uses them. 2 PALETTE, fixed hues (slate-900, indigo-600, emerald-500…): use when the request names a hue; they never re-theme. 3 COMPONENT, this page only: a ck- class in the region's css, or in pageCss when two regions share it.
+NOT AVAILABLE HERE — never emit: @theme, @apply, tailwind.config, @custom-variant, the dark: variant, arbitrary values (bg-[#0f172a], p-[13px], w-[42rem]), or any class outside the site vocabulary. A class that is neither in the vocabulary nor prefixed ck- is refused by the door.
+COMPONENT LADDER, one class per rung. BASE .ck-card{border-radius:var(--t-radius-lg);background:var(--t-color-surface)} holds everything shared. VARIANT .ck-card--quiet / .ck-card--loud declares only what differs. SIZE is utilities on the element (p-4, p-6 md:p-8), never a second base class. STATE comes last: :hover, :focus-visible, [aria-current], [data-state]. A variant that redefines the base is a second component — rename it.
+REUSE: the same role gets the same treatment everywhere — one radius for cards, one for actions, one rest shadow, one hover step. Repeat the className string byte-for-byte rather than inventing a near-miss; a card that differs by one shade reads as a bug, not as variety.
+STATES ARE NOT OPTIONAL: every interactive element declares rest, hover, focus-visible and disabled. Focus may be recoloured, never removed: .ck-btn:focus-visible{outline:2px solid var(--t-color-accent);outline-offset:2px}.
+RESPONSIVE: one base, then sm:/md:/lg: only where the layout actually changes — grid-cols-1 md:grid-cols-3 beats three copies of a section. xl: does not exist.`,
+  references: {
+    'checks/system.md':
+      'Roles before palette before ck- classes; no @theme, @apply, tailwind.config, dark: or arbitrary values; one base class per component with variants that only declare differences; sizes as utilities; rest, hover, focus-visible and disabled all declared; the same role styled identically in every region; responsive prefixes only where the layout changes.',
   },
 });
 
@@ -662,7 +779,9 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   ARABIC_RTL,
   CONVERSION_RECIPES,
   STRUCTURE_RECIPES,
+  VISUAL_DIRECTION,
   DESIGN_DIRECTION,
+  DESIGN_TOKENS,
   COPYWRITING,
   MOTION,
   ACCESSIBILITY,

@@ -1,6 +1,6 @@
 import { isValidElement } from 'react';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
@@ -316,6 +316,121 @@ describe('EditorCanvas (005 US1)', () => {
     expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent(
       'Selection cleared',
     );
+  });
+
+  it('a click on the gutter around the frame, or on the host itself, clears the selection', () => {
+    /*
+      The owner's words: "when I select blocks there is no option to clear the
+      selection". Clicking the page background inside the frame selects the
+      ROOT on purpose (its props live in the inspector), so the empty space
+      AROUND the frame is the pointer's way out — the one place a click can
+      mean "nothing".
+    */
+    const h = harness();
+    const host = screen.getByRole('region', { name: 'Editor canvas' });
+    const shell = h.view.container.querySelector<HTMLElement>('.bldr-canvas-frame-shell');
+    expect(shell).not.toBeNull();
+    if (shell === null) {
+      throw new Error('the frame shell did not render');
+    }
+    act(() => {
+      h.kernel.setSelection(['b']);
+    });
+    h.tick();
+    expect(h.outline('selection')?.style.visibility).toBe('visible');
+
+    fireEvent.click(shell); // the gutter beside a narrowed frame
+    h.tick();
+    expect(h.kernel.context.store.getState().selection).toEqual([]);
+    expect(h.outline('selection')?.style.visibility).toBe('hidden');
+    expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent(
+      'Selection cleared',
+    );
+
+    act(() => {
+      h.kernel.setSelection(['c']);
+    });
+    fireEvent.click(host); // the host's own surface
+    expect(h.kernel.context.store.getState().selection).toEqual([]);
+
+    // A click that merely BUBBLES through the host from other chrome is not a
+    // gutter click: the overlay layer is a child, not the host or the shell.
+    act(() => {
+      h.kernel.setSelection(['a']);
+    });
+    fireEvent.click(screen.getByTestId('bldr-overlay'));
+    expect(h.kernel.context.store.getState().selection).toEqual(['a']);
+  });
+
+  it('Escape clears from anywhere NON-EDITABLE inside the host, not only from the host itself', () => {
+    const h = harness();
+    const host = screen.getByRole('region', { name: 'Editor canvas' });
+    act(() => {
+      h.kernel.setSelection(['b']);
+    });
+    // Focus on a child of the host (the floating chrome renders inside it):
+    // the key bubbles to the host with a target that is not the host.
+    fireEvent.keyDown(screen.getByTestId('bldr-overlay'), { key: 'Escape' });
+    expect(h.kernel.context.store.getState().selection).toEqual([]);
+    expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent(
+      'Selection cleared',
+    );
+    // ...and focus lands on the host, so traversal keeps working afterwards.
+    expect(host).toHaveFocus();
+
+    // Every OTHER key from a child stays on the old guard: ArrowDown from
+    // chrome must not traverse the canvas.
+    fireEvent.keyDown(screen.getByTestId('bldr-overlay'), { key: 'ArrowDown' });
+    expect(h.kernel.context.store.getState().selection).toEqual([]);
+  });
+
+  it('Escape inside an editable element, or one an inner editor already claimed, leaves the selection alone', () => {
+    const h = harness();
+    const host = screen.getByRole('region', { name: 'Editor canvas' });
+    act(() => {
+      h.kernel.setSelection(['b']);
+    });
+
+    // The ATTRIBUTE, as a browser reflects it: jsdom implements neither the
+    // `contentEditable` property nor `isContentEditable`, which is exactly why
+    // the canvas reads the attribute and not the property.
+    const contentEditable = () => {
+      const region = document.createElement('div');
+      region.setAttribute('contenteditable', 'true');
+      return region;
+    };
+    // An input, a textarea, a select, and a contenteditable region each own
+    // their Escape (dismiss a picker, cancel a draft); the canvas never
+    // second-guesses them by throwing the selection away underneath.
+    for (const editable of [
+      document.createElement('input'),
+      document.createElement('textarea'),
+      document.createElement('select'),
+      contentEditable(),
+    ]) {
+      host.appendChild(editable);
+      fireEvent.keyDown(editable, { key: 'Escape' });
+      expect(h.kernel.context.store.getState().selection).toEqual(['b']);
+      editable.remove();
+    }
+    // A nested target INSIDE an editable region counts as editable too.
+    const region = contentEditable();
+    const inner = document.createElement('span');
+    region.appendChild(inner);
+    host.appendChild(region);
+    fireEvent.keyDown(inner, { key: 'Escape' });
+    expect(h.kernel.context.store.getState().selection).toEqual(['b']);
+    region.remove();
+
+    // An Escape a nearer handler has already consumed (the text bubble does
+    // this to return focus to its editor) is not the canvas's to act on.
+    const claimed = document.createElement('div');
+    claimed.addEventListener('keydown', (event) => {
+      event.preventDefault();
+    });
+    host.appendChild(claimed);
+    fireEvent.keyDown(claimed, { key: 'Escape' });
+    expect(h.kernel.context.store.getState().selection).toEqual(['b']);
   });
 
   it('an undo that removes the selected node hides its chrome (FR-007/SC-003)', () => {
@@ -2235,15 +2350,84 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
       ['Move earlier', true],
       ['Move later', false],
       ['Edit text', false],
+      ['Deselect', false],
     ]);
 
     act(() => {
       h.kernel.setSelection(['root']); // the root can be none of these things
     });
     h.tick();
-    expect(
-      [...(h.bar()?.querySelectorAll('button') ?? [])].every((button) => button.disabled),
-    ).toBe(true);
+    const rootLabels = [...(h.bar()?.querySelectorAll('button') ?? [])].map((button) => [
+      button.textContent,
+      button.disabled,
+    ]);
+    // ...except left: the page background selects the root on purpose, so the
+    // root, of all nodes, must offer a way out.
+    expect(rootLabels).toEqual([
+      ['Select parent', true],
+      ['Duplicate', true],
+      ['Delete', true],
+      ['Move earlier', true],
+      ['Move later', true],
+      ['Deselect', false],
+    ]);
+  });
+
+  it('Deselect in the bar clears the selection with ZERO dispatches and hands focus to the host', () => {
+    const h = floatingHarness();
+    const host = screen.getByRole('region', { name: 'Editor canvas' });
+    act(() => {
+      h.kernel.setSelection(['h1']);
+    });
+    h.tick();
+    const before = h.kernel.transactions().length;
+    const deselect = [...(h.bar()?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Deselect',
+    );
+    expect(deselect).toBeDefined();
+    if (deselect === undefined) {
+      throw new Error('the block action bar rendered no Deselect button');
+    }
+    // The pointer sees the shortcut; the accessible name stays the bare label.
+    expect(deselect.title).toBe('Deselect (Esc)');
+
+    deselect.focus();
+    act(() => {
+      deselect.click();
+    });
+
+    expect(h.kernel.context.store.getState().selection).toEqual([]);
+    expect(h.kernel.transactions()).toHaveLength(before);
+    expect(h.bar()).toBeNull(); // the bar belongs to a selection; none, no bar
+    // The button unmounted under the focus it held — focus moved to the host
+    // FIRST, so a keyboard user is not dropped on the document body.
+    expect(host).toHaveFocus();
+    expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent(
+      'Selection cleared',
+    );
+  });
+
+  it('Escape while a bar button has focus clears the selection — the bar is inside the host', async () => {
+    const h = floatingHarness();
+    const host = screen.getByRole('region', { name: 'Editor canvas' });
+    act(() => {
+      h.kernel.setSelection(['h1']);
+    });
+    h.tick();
+    const duplicate = [...(h.bar()?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Duplicate',
+    );
+    if (duplicate === undefined) {
+      throw new Error('the block action bar rendered no Duplicate button');
+    }
+    duplicate.focus();
+    expect(duplicate).toHaveFocus();
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(h.kernel.context.store.getState().selection).toEqual([]);
+    expect(h.bar()).toBeNull();
+    expect(host).toHaveFocus();
   });
 
   it('US3/a1: Edit text opens the inline session with ZERO dispatches', () => {

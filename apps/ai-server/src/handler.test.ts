@@ -258,6 +258,47 @@ describe('failure translation', () => {
     expect(text).toContain('"invalidOutput":{"message":"The assistant server has no credentials');
     expect(text).not.toContain('failed unexpectedly');
   });
+
+  /*
+    The dev CLI backend authors its own owner-facing sentences (a timeout, a
+    missing `claude`, an exit code with stderr). They are not SDK text and not
+    stacks, so collapsing them into "failed unexpectedly" throws away the only
+    description of the failure anyone has — the exact blindness that made a
+    110s CLI cap look like a mystery server crash.
+  */
+  function cliBackendError(message: string): Error {
+    const error = new Error(message);
+    error.name = 'CliBackendError';
+    return error;
+  }
+
+  it('passes a dev CLI backend failure through by name, not as a mystery', async () => {
+    const handle = createHandler({
+      client: throwing(cliBackendError('The dev `claude` CLI backend gave up after 110s.')),
+    });
+
+    const body = (await (await handle(post(wireBody()))).json()) as { error: string };
+
+    expect(body.error).toBe('The dev `claude` CLI backend gave up after 110s.');
+  });
+
+  it('shows the dev CLI backend failure on the streaming path the panel reads', async () => {
+    const handle = createHandler({
+      client: throwing(cliBackendError('The dev `claude` CLI backend gave up after 110s.')),
+    });
+
+    const response = await handle(
+      new Request('http://localhost/plan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify(wireBody()),
+      }),
+    );
+
+    const text = await response.text();
+    expect(text).toContain('gave up after 110s');
+    expect(text).not.toContain('failed unexpectedly');
+  });
 });
 
 describe('streaming', () => {

@@ -6,26 +6,38 @@ import * as BlockActionBarStories from './BlockActionBar.stories';
 
 # BlockActionBar
 
-The quick-action bar attached to the selected block (milestone B3c, US3): duplicate, delete, move
-earlier, move later, and Edit text when the block declares `inlineEditable`. The canvas resolves
-what is valid for the selected node through `resolveBlockActions`; its four structural actions use
-`performBlockAction`, while the canvas opens Edit text directly. The bar itself is pure content.
+The quick-action bar attached to the selected block (milestone B3c, US3): select parent, duplicate,
+delete, move earlier, move later, Edit text when the block declares `inlineEditable`, and Deselect
+last. The canvas resolves what is valid for the selected node through `resolveBlockActions`; its
+four structural actions use `performBlockAction`, while the canvas opens Edit text directly. The bar
+itself is pure content.
 
 ## Defined dispatch and resulting selection
 
 Every structural action is EXACTLY one dispatch through the kernel door, announced, and leaves a
-defined selection (contract §6 a2). Edit text is the deliberate zero-dispatch exception:
+defined selection (contract §6 a2). Edit text, Select parent, and Deselect are the deliberate
+zero-dispatch exceptions:
 
 | Action                  | Dispatch        | Selected afterwards                                                         |
 | ----------------------- | --------------- | --------------------------------------------------------------------------- |
+| Select parent           | none            | the parent block                                                            |
 | Duplicate               | `duplicateNode` | the duplicate (seated immediately after its origin)                         |
 | Delete                  | `removeNode`    | the sibling that takes the seat, else the new last sibling, else the parent |
 | Move earlier/Move later | `moveNode`      | the moved node                                                              |
 | Edit text               | none            | the same block; opens canvas view state                                     |
+| Deselect                | none            | nothing — `kernel.clearSelection()`, announced `Selection cleared`          |
 
 Edit text is deliberately outside `performBlockAction`: entering an inline session is view state and
 dispatches nothing (contract §3). It appears only when `inlineTargetOf` resolves the selected
 block's declaration; the canvas handles it by opening that session.
+
+Deselect is the way OUT. Clicking the page background inside the frame selects the document root on
+purpose (page-level props live in the Inspector), so even the root — which can be none of the
+structural things — offers it; it is never disabled. It goes through the kernel's own
+`clearSelection()` door, so the canvas's Selection live region and the Inspector hear the same
+write. Escape does the same from the keyboard, which is why this action alone declares a
+`hint: 'Esc'` — shown on the hover tooltip as `Deselect (Esc)`, never in the accessible name. The
+canvas moves focus to its host before performing it, since the bar unmounts with the selection.
 
 An action that cannot apply — deleting the document root, moving the first child earlier, the last
 child later, duplicating into a full slot — is reported DISABLED by `resolveBlockActions` and
@@ -76,6 +88,9 @@ createPortal(
 | `onAction` | `(id: string) => void` | required; one call per activation                     |
 | `dir`      | `'ltr' \| 'rtl'`       | mirrors the arrow-key pair; default `ltr`             |
 
+A `BlockAction` is `{ id, label, enabled, hint? }`. The optional `hint` is a keyboard shortcut for
+the pointer's tooltip (`"Deselect (Esc)"`); the accessible name is always the bare `label`.
+
 ## Accessibility & RTL
 
 A labeled `role="toolbar"` that EARNS the role: one tab stop with roving tabindex, ArrowRight /
@@ -99,6 +114,8 @@ host, not grow one here.
 ## Known limitations
 
 - Disabled actions keep their seat in the layout but leave the roving order (native `disabled`
-  cannot take focus); a bar whose actions are ALL disabled — the document root — has no tab stop.
+  cannot take focus); a bar whose actions are ALL disabled has no tab stop. In the product that no
+  longer occurs — Deselect is never disabled, so even the document root's bar keeps one.
 - Edit text is omitted, rather than disabled, when the selected block has no `inlineEditable`
-  declaration. The four structural actions retain their stable seats and disabled edge states.
+  declaration. The four structural actions retain their stable seats and disabled edge states;
+  Deselect keeps the last seat either way.

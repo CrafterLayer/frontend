@@ -5,4 +5,4 @@ export {
   type GenerationStageId,
   type GenerationStageStatus,
 } from './GenerationProgress';
-export { GENERATION_STAGE_IDS } from './constants';
+export { GENERATION_STAGE_IDS, GENERATION_STAGE_LABELS } from './constants';

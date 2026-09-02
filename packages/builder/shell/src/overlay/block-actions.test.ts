@@ -79,7 +79,7 @@ const enabledOf = (kernel: ReturnType<typeof makeKernel>, id: string) =>
   Object.fromEntries(resolveBlockActions(kernel, id).map((action) => [action.id, action.enabled]));
 
 describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
-  it('adds Edit text as the last action only for an inline-editable block', () => {
+  it('adds Edit text only for an inline-editable block; Deselect is always the last action', () => {
     const kernel = makeKernel();
     expect(resolveBlockActions(kernel, 't2')).toEqual([
       // Select parent leads: once blocks nest, stepping OUT is the commonest
@@ -90,6 +90,9 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       { id: 'moveEarlier', label: 'Move earlier', enabled: true },
       { id: 'moveLater', label: 'Move later', enabled: true },
       { id: 'editText', label: 'Edit text', enabled: true },
+      // Deselect closes the bar: the one action every selected block offers,
+      // and the only one that carries a keyboard hint (Escape does the same).
+      { id: 'deselect', label: 'Deselect', enabled: true, hint: 'Esc' },
     ]);
     expect(resolveBlockActions(kernel, 'sA').map((action) => action.id)).toEqual([
       'selectParent',
@@ -97,6 +100,7 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       'delete',
       'moveEarlier',
       'moveLater',
+      'deselect',
     ]);
   });
 
@@ -109,6 +113,7 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       moveEarlier: false,
       moveLater: true,
       editText: true,
+      deselect: true,
     });
     expect(enabledOf(kernel, 'sInner')).toEqual({
       selectParent: true,
@@ -116,10 +121,11 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       delete: true,
       moveEarlier: true,
       moveLater: false,
+      deselect: true,
     });
   });
 
-  it('disables everything for the document root (US3/AC3 — never a door failure)', () => {
+  it('disables every structural action for the document root (US3/AC3 — never a door failure)', () => {
     const kernel = makeKernel();
     expect(enabledOf(kernel, 'root')).toEqual({
       // The root has no parent to step to, so this is closed here too.
@@ -128,6 +134,9 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       delete: false,
       moveEarlier: false,
       moveLater: false,
+      // Clicking the page background selects the root on purpose (its props
+      // live in the inspector) — so the root, of all nodes, must be leavable.
+      deselect: true,
     });
   });
 
@@ -140,6 +149,7 @@ describe('resolveBlockActions (009 contract §6 a1/a3)', () => {
       moveEarlier: false, // only child: both edges at once
       moveLater: false,
       editText: true,
+      deselect: true,
     });
   });
 
@@ -168,6 +178,27 @@ describe('performBlockAction — one dispatch, defined resulting selection (a2)'
     expect(kernel.context.store.getState().selection).toEqual(['sA']);
     expect(kernel.transactions()).toHaveLength(before);
     expect(kernel.getDocument()).toBe(document); // reference-identical: nothing moved
+  });
+
+  it('deselect: empties the selection through the kernel door, records NO transaction, announces', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['t2']);
+    const before = kernel.transactions().length;
+
+    const result = performBlockAction(kernel, 't2', 'deselect');
+
+    expect(result).toEqual({ ok: true, announcement: 'Selection cleared', selection: null });
+    expect(kernel.context.store.getState().selection).toEqual([]);
+    expect(kernel.transactions()).toHaveLength(before);
+    expect(kernel.canUndo()).toBe(false);
+  });
+
+  it('deselect: works on the root too — the page background selects it, so it must be leavable', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['root']);
+    expect(performBlockAction(kernel, 'root', 'deselect').ok).toBe(true);
+    expect(kernel.context.store.getState().selection).toEqual([]);
+    expect(kernel.transactions()).toHaveLength(0);
   });
 
   it('select parent: refused at the document root, which has nothing to step to', () => {

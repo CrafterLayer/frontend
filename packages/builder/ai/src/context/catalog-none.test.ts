@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder } from '@craftkit/builder-core';
-import { fixedClock, fixtureBlocks, landingFixture, seededIds } from '@craftkit/builder-core/testing';
+import {
+  fixedClock,
+  fixtureBlocks,
+  landingFixture,
+  seededIds,
+} from '@craftkit/builder-core/testing';
 import {
   customCodeTree,
   defineBlockSchema,
@@ -50,23 +55,50 @@ function kernel() {
  * build it — not an inventory. A registered block exists to the model only
  * once the person puts it in the request.
  */
+/** The block types the landing fixture actually holds. */
+function typesOnThePage(): readonly string[] {
+  return [...new Set(Object.values(landingFixture().nodes).map((node) => node.type))].sort();
+}
+
 describe('catalog mode: none', () => {
-  it('sends the escape hatch and nothing else', () => {
+  it('sends the escape hatch in full, and the blocks on the page by name and prop keys only', () => {
     const context = assembleAiContext(kernel().context, {
       composition: { catalogMode: 'none' },
     });
 
-    expect(context.blocks.map((block) => block.type)).toEqual(['customCode']);
-    expect(context.blocks[0]?.propsSchema).toBeDefined();
+    const escapeHatch = context.blocks.find((block) => block.type === 'customCode');
+    expect(escapeHatch?.propsSchema).toBeDefined();
+
+    const present = context.blocks.filter((block) => block.type !== 'customCode');
+    expect(present.map((block) => block.type)).toEqual(
+      typesOnThePage().filter((type) => type !== 'customCode'),
+    );
+    for (const block of present) {
+      // "Make the hero title bigger": the model must know the hero HAS a title
+      // and has no size — names, never the schema.
+      expect(block.propKeys).toBeDefined();
+      expect(block.propKeys?.length).toBeGreaterThan(0);
+      expect(block.propsSchema).toBeUndefined();
+      expect(block.examples).toBeUndefined();
+      expect(block.slots).toBeUndefined();
+    }
   });
 
-  it('states not even the NAME of a block the person did not add', () => {
+  it('states not even the NAME of a block that is neither asked for nor on the page', () => {
     const context = assembleAiContext(kernel().context, {
       composition: { catalogMode: 'none' },
     });
 
+    const onThePage = new Set(typesOnThePage());
+    const registered = kernel()
+      .context.registry.blocks('page')
+      .map((entry) => entry.schema.type);
+    const absent = registered.filter((type) => !onThePage.has(type) && type !== 'customCode');
+    expect(absent.length).toBeGreaterThan(0);
     // The difference from `index`: absent, rather than present-but-thin.
-    expect(context.blocks.some((block) => block.type === 'hero')).toBe(false);
+    for (const type of absent) {
+      expect(context.blocks.some((block) => block.type === type)).toBe(false);
+    }
   });
 
   it('brings a block the person added, in full, and still nothing else', () => {
@@ -74,9 +106,13 @@ describe('catalog mode: none', () => {
       composition: { catalogMode: 'none', scopedBlockTypes: ['hero'] },
     });
 
-    expect(context.blocks.map((block) => block.type)).toEqual(['customCode', 'hero']);
-    expect(context.blocks.find((block) => block.type === 'hero')?.propsSchema).toBeDefined();
+    const detailed = context.blocks.filter((block) => block.propsSchema !== undefined);
+    expect(detailed.map((block) => block.type)).toEqual(['customCode', 'hero']);
     expect(context.blocks.find((block) => block.type === 'hero')?.examples).toBeDefined();
+    // Every other block on the page stays a name with prop keys — no schema.
+    for (const block of context.blocks.filter((entry) => entry.propsSchema === undefined)) {
+      expect(block.propKeys).toBeDefined();
+    }
   });
 
   it('derives the added blocks from the SELECTION in generate-plan', async () => {
@@ -99,16 +135,28 @@ describe('catalog mode: none', () => {
       composition: { catalogMode: 'none' },
     }).catch(() => undefined);
 
-    expect(seen?.blocks.map((block) => block.type)).toEqual(['customCode', 'hero']);
+    expect(
+      seen?.blocks.filter((block) => block.propsSchema !== undefined).map((block) => block.type),
+    ).toEqual(['customCode', 'hero']);
   });
 
-  it('is the cheapest mode by construction', () => {
+  it('costs a small multiple of index and a small fraction of full', () => {
     const size = (mode: 'none' | 'index' | 'full') =>
       JSON.stringify(
         assembleAiContext(kernel().context, { composition: { catalogMode: mode } }).blocks,
       ).length;
 
-    expect(size('none')).toBeLessThan(size('index'));
+    /*
+      `none` is no longer cheaper than `index` on a page full of blocks: every
+      block ON THE PAGE brings its prop keys (~75 characters each here, ~600 on
+      the real registry), because a model that cannot name a block's props
+      invents one. It stays a fraction of `full`, which ships schemas, examples
+      and slots for every block whether the page holds it or not.
+    */
+    // On this six-block fixture the escape hatch's schema is most of `none`;
+    // the real ratio (none < full / 5) is pinned on the wire in the playground.
+    expect(size('none')).toBeLessThan(size('index') * 2);
+    expect(size('none')).toBeLessThan(size('full'));
     expect(size('index')).toBeLessThan(size('full'));
   });
 

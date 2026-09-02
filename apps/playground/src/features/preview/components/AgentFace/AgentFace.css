@@ -1,12 +1,18 @@
 /* أبو غضب — the assistant's face, and his one visible line.
 
    Every value here reads a `--bldr-*` chrome token; the only literals are
-   viewBox geometry (brow angles, dash patterns on a pathLength of 100), which
-   is drawing, not styling. The disc, the ink and the glow are owned HERE, so
-   the header, the reply row and the empty state all stop painting their own
-   marks. `--pg-face-glow` is an optional inherited variable: `.pg-chat`
-   defines it (the aurora rhyme lives with the rest of the chat's literals in
-   App.css) and outside the chat the glow is transparent.
+   viewBox geometry (brow angles, dash patterns on a pathLength of 100, the
+   sub-pixel nudges of a pose), which is drawing, not styling. The disc, the
+   ink and the glow are owned HERE, so the header, the reply row and the empty
+   state all stop painting their own marks.
+
+   The face reads three things from whoever holds it and writes nothing back:
+   `--pg-face-glow`, an optional inherited halo colour (`.pg-chat` defines it
+   beside the rest of the chat's literals in App.css; outside the chat the glow
+   is transparent); `--pg-face-look-x` / `--pg-face-look-y`, two px lengths a
+   seat writes so the eyes can follow a pointer (absent means straight ahead);
+   and `data-press` on an ancestor seat, which boops the disc while a press is
+   held. Hover is the browser's own `:hover`. No prop, no state, no text.
 
    A mood never swaps elements. Every feature is always in the DOM and each
    mood selects with opacity and transform only, so a change is a transition
@@ -23,6 +29,7 @@
   inline-size: var(--pg-face-size);
   place-items: center;
   position: relative;
+  transition: box-shadow var(--bldr-duration-state) var(--bldr-easing);
 }
 
 /* The three boxes the sparkle already occupied — reply avatar, header, empty
@@ -71,12 +78,15 @@
   fill: var(--bldr-accent-soft);
   transform-box: view-box;
   transform-origin: center;
+  transition: scale var(--bldr-duration-move) var(--bldr-easing);
 }
 
 .pg-face__features {
   transform-box: view-box;
   transform-origin: center;
-  transition: transform var(--bldr-duration-move) var(--bldr-easing);
+  transition:
+    transform var(--bldr-duration-move) var(--bldr-easing),
+    translate var(--bldr-duration-move) var(--bldr-easing);
 }
 
 /* The resting grump: inner brow ends lower, a shallow V. This tilt is the
@@ -86,7 +96,11 @@
   stroke-width: 2.2;
   transform-box: fill-box;
   transform-origin: center;
-  transition: transform var(--bldr-duration-move) var(--bldr-easing);
+  transition:
+    transform var(--bldr-duration-move) var(--bldr-easing),
+    translate var(--bldr-duration-move) var(--bldr-easing),
+    rotate var(--bldr-duration-move) var(--bldr-easing),
+    scale var(--bldr-duration-move) var(--bldr-easing);
 }
 
 .pg-face__brow--start {
@@ -101,7 +115,11 @@
   fill: var(--bldr-panel-text);
   transform-box: fill-box;
   transform-origin: center;
-  transition: transform var(--bldr-duration-move) var(--bldr-easing);
+  transition:
+    transform var(--bldr-duration-move) var(--bldr-easing),
+    translate var(--bldr-duration-move) var(--bldr-easing),
+    rotate var(--bldr-duration-move) var(--bldr-easing),
+    scale var(--bldr-duration-move) var(--bldr-easing);
 }
 
 .pg-face__mouth {
@@ -112,6 +130,97 @@
   transition:
     opacity var(--bldr-duration-state) var(--bldr-easing),
     transform var(--bldr-duration-move) var(--bldr-easing);
+}
+
+/* ── Presence: the seat writes, the face reads ──────────────────────────────
+      Hover, press and the look are answered here, in CSS, from the browser's
+      own `:hover` / `:active`, the seat's `data-press` and two custom
+      properties the seat writes. Nothing reaches the reducer, the voice never
+      changes, and the `sm` bubbles are excluded from every rule so a thread of
+      avatars stays still. The individual transform properties (`translate`,
+      `rotate`, `scale`) compose with each mood's `transform`, so a pose never
+      has to know which mood it is layered on. Units are viewBox drawing units
+      written as px, like the scan's. ───────────────────────────────────────── */
+
+/* The look: the eyes lead and the face turns a quarter as far. Thinking keeps
+   the scan, stopped keeps one eye shut, failed keeps its stillness. The gain
+   lets reduced motion zero the look at any specificity; the gaze is a mood's
+   own resting offset, added after the gain so it survives. */
+.pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='stopped']):not(
+    [data-mood='failed']
+  )
+  .pg-face__eye {
+  translate: calc(var(--pg-face-look-x, 0px) * var(--pg-face-look-gain, 1))
+    calc(var(--pg-face-look-y, 0px) * var(--pg-face-look-gain, 1) + var(--pg-face-gaze-y, 0px));
+}
+
+.pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='stopped']):not(
+    [data-mood='failed']
+  )
+  .pg-face__features {
+  translate: calc(var(--pg-face-look-x, 0px) * var(--pg-face-look-gain, 1) / 4)
+    calc(var(--pg-face-look-y, 0px) * var(--pg-face-look-gain, 1) / 4);
+}
+
+/* Life without a pointer: listening eyes rest a touch lower, toward the
+   focused composer; an idle face throws a rare sideways glance. */
+.pg-face[data-mood='listening'] .pg-face__eye {
+  --pg-face-gaze-y: 0.8px;
+}
+
+.pg-face[data-live][data-mood='idle'] .pg-face__features {
+  animation: pg-face-glance 9s var(--bldr-easing) infinite;
+}
+
+/* A real pointer only: on touch there is no hover, and a pose would stick. */
+@media (hover: hover) {
+  /* Every mood notices: the halo widens, the eyes widen, the disc leans in. */
+  .pg-face:not([data-size='sm']):hover {
+    box-shadow: 0 0 var(--bldr-space-xl) var(--pg-face-glow, transparent);
+  }
+
+  .pg-face:not([data-size='sm']):hover .pg-face__eye {
+    scale: 1.12;
+  }
+
+  .pg-face:not([data-size='sm']):hover .pg-face__disc {
+    scale: 1.05;
+  }
+
+  /* Only a settled face lifts a brow — "what do you want?". The busy moods do
+     not look up (the voice says so), and stopped keeps its flat brows, which
+     is the joke. The outer brow arches six degrees further and lifts; the
+     inner one presses, so the V is never lost. Asymmetric on purpose and not
+     mirrored under RTL: this is a face, not text. */
+  .pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='planning']):not(
+      [data-mood='working']
+    ):not([data-mood='stopped']):hover
+    .pg-face__brow--end {
+    rotate: -6deg;
+    translate: 0 -1px;
+  }
+
+  .pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='planning']):not(
+      [data-mood='working']
+    ):not([data-mood='stopped']):hover
+    .pg-face__brow--start {
+    translate: 0 0.5px;
+  }
+
+  /* Arrival: one perk, once, on the live face. Scoped away from the moods
+     whose features already animate (repairing's tilt, stopped's shake). */
+  .pg-face[data-live]:not([data-size='sm']):not([data-mood='thinking']):not(
+      [data-mood='planning']
+    ):not([data-mood='working']):not([data-mood='stopped']):hover
+    .pg-face__features {
+    animation: pg-face-perk 240ms var(--bldr-easing) 1;
+  }
+}
+
+/* The boop: from the pointer itself, or from a seat holding `data-press`.
+   Declared after the hover lean so the press wins while both apply. */
+:is(.pg-face:active, [data-press] .pg-face):not([data-size='sm']) .pg-face__disc {
+  scale: 0.96;
 }
 
 /* ── idle: the resting face, a hairline ring, a blink ────────────────────── */
@@ -522,6 +631,29 @@
   }
 }
 
+@keyframes pg-face-perk {
+  40% {
+    rotate: -3deg;
+  }
+
+  to {
+    rotate: 0deg;
+  }
+}
+
+@keyframes pg-face-glance {
+  0%,
+  86%,
+  100% {
+    transform: none;
+  }
+
+  90%,
+  95% {
+    transform: translateX(0.8px);
+  }
+}
+
 /* Belt and braces: a thread of a dozen bubble faces is provably static even if
    a caller passes `live`. `!important` because the live selectors above are
    more specific by design, and this rule must beat every one of them. */
@@ -543,17 +675,26 @@
 }
 
 /* Every mood is already carried by geometry — brow angle, eye shape, mouth
-   path, ring dash pattern — so holding the face still loses nothing. */
+   path, ring dash pattern — so holding the face still loses nothing. Hover
+   and press poses snap instead of easing (a state, not a motion), and the
+   look's gain goes to zero so the eyes never follow a pointer. */
 @media (prefers-reduced-motion: reduce) {
   .pg-face__ring,
   .pg-face__eye,
   .pg-face__features,
-  .pg-face__disc {
+  .pg-face__disc,
+  .pg-face__brow,
+  .pg-face__mouth,
+  .pg-face__tick {
     animation: none;
   }
 
   .pg-face *,
   .pg-face-voice {
     transition: none;
+  }
+
+  .pg-face {
+    --pg-face-look-gain: 0;
   }
 }

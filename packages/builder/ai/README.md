@@ -165,11 +165,21 @@ manifest metadata, instructions, reference count, per-reference bytes, total ref
 registry size all have exported hard limits. The per-run Skill-token budget charges the exact active
 Skill payload—including identity, rationale, restrictions, instructions, and references.
 
-The built-in registry ships twelve reviewed Skills for the free-composition agent: one
+The built-in registry ships fourteen reviewed Skills for the free-composition agent: one
 always-on **craft manual** (region shell, links, direction, type, the classes the door refuses),
 and auto-activated playbooks — page composition, CV/portfolio, occasion pages (invitation,
-farewell, greeting, condolence), conversion recipes, structure recipes, design direction, motion,
-copywriting, Arabic/RTL, accessibility review — plus the explicit **precise-edit** restriction.
+farewell, greeting, condolence), conversion recipes, structure recipes, visual direction, design
+direction, design tokens, motion, copywriting, Arabic/RTL, accessibility review — plus the
+explicit **precise-edit** restriction.
+
+Two of them are adaptations of published, permissively licensed Skills, credited in the source:
+**visual direction** from Anthropic's `frontend-design` (Apache-2.0) and **design tokens** from
+wshobson's `tailwind-design-system` (MIT). Neither is copied: both were rewritten against what
+this agent can actually emit — the site's utility vocabulary, `--t-*` roles and `ck-` classes —
+and the mechanisms that do not exist here (`@theme`, `tailwind.config`, `@apply`, `dark:`,
+arbitrary values) are named as refusals so the model stops reaching for them. Visual direction is
+a DEPENDENCY of all three page archetypes: a page composed without a point of view is the failure
+that Skill exists to prevent.
 Because the craft manual is mandatory, a host's `maxSkillTokens` must leave room for it
 (≈400 tokens); a budget below that fails the run rather than silently dropping the floor.
 
@@ -376,7 +386,7 @@ await generateAiPlan({
 | `'full'` (default) | every block, in full | 63,782 tokens |
 | `'scoped'` | names for all, detail for the types in scope | 9,484 |
 | `'index'` | `type` + `description` only | 8,330 |
-| `'none'` | the escape hatch, plus the types in scope, in full — **no other block, not even by name** | **~4,500** |
+| `'none'` | the escape hatch, plus the types in scope, in full; every block **already on the page** by name and prop keys only — **no other block, not even by name** | **~4,500 on an empty page, ~9,000 on the landing page** |
 
 `'none'` is "the model builds the page": from elements, the utility vocabulary, and scoped CSS. A
 registered block reaches it only when the person adds one to the request by selecting or

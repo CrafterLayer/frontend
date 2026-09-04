@@ -67,11 +67,19 @@ export {
   type DataSource,
   type IdPort,
   type PersistedSession,
+  type PersistedSiteSession,
   type PersistenceAdapter,
+  type SitePersistenceAdapter,
   type ResolveCtx,
 } from './ports';
 
-export { type CommandInput, type CommandRuntime, type RegisteredCommand } from './commands';
+export {
+  type CommandInput,
+  type CommandRuntime,
+  type RegisteredCommand,
+  type RegisteredSiteCommand,
+  type SiteCommandInput,
+} from './commands';
 
 export {
   type AiContextBlockCatalogEntry,
@@ -320,7 +328,6 @@ export {
   sharedRegionIdSchema,
   sharedRegionKindSchema,
   sharedRegionSchema,
-  siteDesignSystemSchema,
   siteFromDocument,
   sitePageSchema,
   validateSite,
@@ -329,7 +336,7 @@ export {
   type SharedRegion,
   type SharedRegionId,
   type SharedRegionKind,
-  type SiteDesignSystem,
+  siteNestedDocumentSchema,
   type SitePage,
   type SiteValidationIssue,
   type SiteValidationResult,
@@ -366,6 +373,13 @@ export {
   extra name — one vocabulary, enforced, rather than a type union and a
   hand-copied array that drift the first time a token is added.
 */
+/*
+  The smallest valid document, moved down from the kernel so the SITE commands
+  can mint a page without importing `create-builder.ts` — which imports the
+  command directory they live in. See the file for the cycle it breaks.
+*/
+export { emptyDocument } from './document/empty-document';
+
 export {
   COLOR_TOKENS,
   MEASUREMENT_TOKENS,
@@ -373,6 +387,16 @@ export {
   isColorToken,
   isTokenName,
   validateDesignSystem,
+  designSystemSchema,
+  /*
+    The starter VALUES, now at layer 0 beside the types that moved here first.
+    A site stores its own design system and `siteFromDocument` has to give a
+    lifted page a real one — which it cannot do from a layer above. The renderer
+    re-exports these rather than declaring a second set.
+  */
+  darkTheme,
+  defaultDesignSystem,
+  lightTheme,
   type DesignPairing,
   type DesignSystem,
   type DesignSystemIssue,

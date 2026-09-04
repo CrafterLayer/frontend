@@ -270,6 +270,28 @@ function fragment(metadata: FragmentMetadata, value: unknown): Readonly<ContextF
   });
 }
 
+/**
+ * The OUTLINE contract: the same shape with `commands` optional and empty.
+ *
+ * Kept as a separate frozen constant rather than built by mutating the one
+ * below, so both are readable in full and neither can drift into the other.
+ */
+const AI_OUTLINE_OUTPUT_CONTRACT: AiPlanOutputContract = Object.freeze({
+  version: 1,
+  schema: deepFreezeJson({
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    type: 'object',
+    additionalProperties: false,
+    required: ['rationale', 'commands'],
+    properties: {
+      rationale: { type: 'string', minLength: 1, pattern: '\\S' },
+      // Required by the shape, and REQUIRED TO BE EMPTY by this run.
+      commands: { type: 'array', maxItems: 0, items: {} },
+      followUp: { type: 'string' },
+    },
+  }),
+});
+
 const AI_PLAN_OUTPUT_CONTRACT: AiPlanOutputContract = Object.freeze({
   version: 1,
   schema: deepFreezeJson({
@@ -672,6 +694,16 @@ export interface AssembleAiContextOptions {
    * catalog, exactly as before this option existed.
    */
   composition?: AiCompositionPolicy;
+  /**
+   * This run wants a PLAN in prose, not a plan of commands.
+   *
+   * The output contract normally requires `commands` with `minItems: 1` — the
+   * whole point of a build run is that it produces at least one. An outline
+   * produces none, deliberately, and shipping a schema that demands one would
+   * be telling the model the opposite of the instruction it was just given, in
+   * the one part of the request it is most likely to obey.
+   */
+  outline?: boolean;
 }
 
 const BUILTIN_CONTEXT_PROVIDERS = new Map(
@@ -787,7 +819,7 @@ export function assembleAiContext(
     document: collectDocument(readCtx, composition, selection),
     selection: collectSelection(readCtx, selection),
     commands,
-    outputContract: AI_PLAN_OUTPUT_CONTRACT,
+    outputContract: options.outline === true ? AI_OUTLINE_OUTPUT_CONTRACT : AI_PLAN_OUTPUT_CONTRACT,
     omissions,
   };
   if (options.skillContext === undefined) return base;

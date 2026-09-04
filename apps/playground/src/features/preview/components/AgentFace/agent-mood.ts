@@ -395,6 +395,14 @@ function targetForEvent(
       return planning({ key: event.attempt === 1 ? 'checking.1' : 'checking.2' }, 'checking');
     case 'plan.repairing':
       return planning({ key: 'repairing', n: event.issues.length }, 'repairing');
+    case 'plan.salvaged':
+      /*
+        Both attempts were refused and the run kept the part of the answer the
+        door accepts. The face stays in its planning beat rather than reacting:
+        the plan card names the dropped steps, and a mood change here would read
+        as an outcome when the run has not finished yet.
+      */
+      return null;
     case 'plan.proposed':
       // The card announces the proposal; the face keeps its last planning beat
       // until run.completed so it never dips to idle between the two.
@@ -531,7 +539,14 @@ export type AgentMoodTurnSummary =
   | { kind: 'stopped' }
   | { kind: 'refused'; failure?: { retryable: boolean } | undefined }
   | { kind: 'discarded' }
-  | { kind: 'plan'; applied: boolean; mode?: AgentMoodMode | undefined };
+  | { kind: 'plan'; applied: boolean; mode?: AgentMoodMode | undefined }
+  /*
+    A plan in prose, with nothing to apply. It ends the same way a discussed
+    plan does — the work was thinking, and it finished — so it wears the
+    'planned' outcome rather than borrowing 'applied', which would say something
+    happened to the page.
+  */
+  | { kind: 'outline' };
 
 /** The frozen mood a bubble earned. No loops, no one-shots, no dwell. */
 export function moodForTurn(turn: AgentMoodTurnSummary): Pick<AgentFaceProps, 'mood' | 'outcome'> {
@@ -546,6 +561,8 @@ export function moodForTurn(turn: AgentMoodTurnSummary): Pick<AgentFaceProps, 'm
       return { mood: 'done', outcome: 'discarded' };
     case 'plan':
       return { mood: 'done', outcome: doneOutcome(turn.applied, turn.mode ?? 'ask') };
+    case 'outline':
+      return { mood: 'done', outcome: doneOutcome(false, 'plan') };
   }
 }
 

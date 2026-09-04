@@ -11,7 +11,23 @@ import { useVaultKernel, type VaultKernelState } from './use-vault';
   save has to write one the way the adapter would, and the adapter offers no
   door for that — so the shape is restated here, deliberately and once.
 */
+/*
+  The keys, restated here on purpose so a change to either shape shows up as a
+  failing test rather than as a silent agreement.
+
+  `siteSessionKey` is what the playground boots from now: the app opens a SITE
+  and hands each surface the current page as an ordinary kernel. `sessionKey`
+  is still meaningful — it is the pre-site document a first boot LIFTS its home
+  page from, and the one "start over" must also drop or the lift would bring the
+  discarded work straight back.
+*/
 const sessionKey = (docId: string): string => `vault/session/${docId}`;
+const siteSessionKey = (siteId: string): string => `vault/site/${siteId}`;
+
+/** The home page of a stored site, where a stored document's `doc` used to be. */
+interface StoredSiteShape {
+  site: { pages: { document: { nodes: Record<string, { props: { label: string } }> } }[] };
+}
 
 /** Counts reads of one key, so "opened exactly once" is an observation. */
 function countingStore(inner: VaultStore = createMemoryVaultStore()): {
@@ -129,14 +145,18 @@ describe('useVaultKernel', () => {
       expect(first.result.current.status).toBe('ready');
     });
 
-    const kernel = ready(first.result.current).kernel;
+    /*
+      Through the SITE, not the page. Direction belongs to the site: a page that
+      turned on its own would store a site the next boot refuses to open, and the
+      site kernel refuses it at the door for exactly that reason.
+    */
     act(() => {
-      kernel.dispatch('setDocMeta', { dir: 'rtl' });
+      ready(first.result.current).siteKernel.dispatch('setSiteDirection', { dir: 'rtl' });
     });
     // The session flushes on its own; waiting for the STORE to hold the change
     // is what proves the autosave exists rather than the test doing its job.
     await waitFor(async () => {
-      expect(await store.get(sessionKey('playground/landing'))).toBeDefined();
+      expect(await store.get(siteSessionKey('playground/landing'))).toBeDefined();
     });
     first.unmount();
 
@@ -156,10 +176,10 @@ describe('useVaultKernel', () => {
       expect(landing.result.current.status).toBe('ready');
     });
     act(() => {
-      ready(landing.result.current).kernel.dispatch('setDocMeta', { dir: 'rtl' });
+      ready(landing.result.current).siteKernel.dispatch('setSiteDirection', { dir: 'rtl' });
     });
     await waitFor(async () => {
-      expect(await store.get(sessionKey('playground/landing'))).toBeDefined();
+      expect(await store.get(siteSessionKey('playground/landing'))).toBeDefined();
     });
     landing.unmount();
 
@@ -177,10 +197,28 @@ describe('useVaultKernel', () => {
 
   it('lands on failed with a readable reason when the save is corrupt, and startOver recovers', async () => {
     const store = createMemoryVaultStore();
-    await store.set(sessionKey('playground/landing'), {
-      // rootId names a node that is not there: `openDocument` validates before
-      // a kernel exists, so this throws on the load path.
-      doc: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'gone', nodes: {} },
+    await store.set(siteSessionKey('playground/landing'), {
+      // A site whose home page names a root that is not there: `openSite`
+      // migrates and validates before a kernel exists, so this throws on the
+      // load path rather than producing a half-open editor.
+      site: {
+        siteVersion: 1,
+        dir: 'ltr',
+        pages: [
+          {
+            id: 'home',
+            address: '/',
+            title: 'Home',
+            purpose: '',
+            audience: '',
+            document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'gone', nodes: {} },
+            regions: [],
+          },
+        ],
+        sharedRegions: {},
+        designSystem: { name: 'Broken', tokens: {}, typography: {}, pairings: [], seed: 'x' },
+        assets: {},
+      },
       seq: 0,
       tail: [],
     });
@@ -219,7 +257,7 @@ describe('useVaultKernel', () => {
     // React's development double-invoke runs the boot effect, tears it down and
     // runs it again. Without the per-boot cache that is two `openDocument`
     // calls racing to install two kernels over the same stored document.
-    expect(reads(sessionKey('playground/empty'))).toBe(1);
+    expect(reads(siteSessionKey('playground/empty'))).toBe(1);
     expect(ready(result.current).kernel).toBe(first);
   });
 
@@ -302,10 +340,8 @@ describe('useVaultKernel — a save that fails is a save a person is told about'
     await waitFor(() => {
       expect(ready(result.current).save.status).toBe('saved');
     });
-    const stored = await inner.get<{
-      doc: { nodes: Record<string, { props: { label: string } }> };
-    }>(sessionKey('playground/landing'));
-    expect(stored?.doc.nodes['cta-start']?.props.label).toBe('Two');
+    const stored = await inner.get<StoredSiteShape>(siteSessionKey('playground/landing'));
+    expect(stored?.site.pages[0]?.document.nodes['cta-start']?.props.label).toBe('Two');
   });
 });
 
@@ -327,10 +363,8 @@ describe('useVaultKernel — two sessions over one store', () => {
       });
     });
     const read = async (): Promise<string | undefined> => {
-      const stored = await store.get<{
-        doc: { nodes: Record<string, { props: { label: string } }> };
-      }>(sessionKey('playground/landing'));
-      return stored?.doc.nodes['cta-start']?.props.label;
+      const stored = await store.get<StoredSiteShape>(siteSessionKey('playground/landing'));
+      return stored?.site.pages[0]?.document.nodes['cta-start']?.props.label;
     };
     await waitFor(async () => {
       expect(await read()).toBe('A-WORK');
@@ -356,6 +390,13 @@ describe('useVaultKernel — two sessions over one store', () => {
 describe('useVaultKernel — a boot that failed is not a page to delete', () => {
   it('offers a retry that reopens the SAME stored page after a transient read error', async () => {
     const inner = createMemoryVaultStore();
+    /*
+      Stored under the DOCUMENT key, deliberately: this is a person who was
+      building a page before sites existed. The retry has to find their work,
+      which now means LIFTING it into the home page rather than opening it
+      directly — `restored` and the direction below are the same assertions
+      either way, which is the point of the lift being byte for byte.
+    */
     await inner.set(sessionKey('playground/landing'), preciousSession);
     const store = oneBadReadStore(inner);
 
@@ -378,7 +419,9 @@ describe('useVaultKernel — a boot that failed is not a page to delete', () => 
 
   it('starting over deletes THIS document only, never one whose id merely begins the same way', async () => {
     const store = createMemoryVaultStore();
-    const neighbour = sessionKey('playground/landing-v2');
+    // A SITE key this time: `vault/site/playground/landing-v2` begins with
+    // `vault/site/playground/landing`, so a prefix sweep would take it.
+    const neighbour = siteSessionKey('playground/landing-v2');
     await store.set(neighbour, preciousSession);
 
     const { result } = renderHook(() => useVaultKernel('landing', { store }));
@@ -393,14 +436,14 @@ describe('useVaultKernel — a boot that failed is not a page to delete', () => 
       });
     });
     await waitFor(async () => {
-      expect(await store.get(sessionKey('playground/landing'))).toBeDefined();
+      expect(await store.get(siteSessionKey('playground/landing'))).toBeDefined();
     });
 
     act(() => {
       ready(result.current).startOver();
     });
     await waitFor(async () => {
-      expect(await store.get(sessionKey('playground/landing'))).toBeUndefined();
+      expect(await store.get(siteSessionKey('playground/landing'))).toBeUndefined();
     });
     expect(await store.get(neighbour)).toBeDefined();
   });

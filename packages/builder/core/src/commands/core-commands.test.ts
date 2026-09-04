@@ -427,3 +427,39 @@ describe('applyPatches — the code view door (011 contract §4 p1)', () => {
     expect(kernel.transactions()).toHaveLength(1);
   });
 });
+
+describe('insertedNodeId reads the SHAPE of a path, not its root', () => {
+  /*
+    Five call sites depend on this one function — the palette, the drag session,
+    block actions, the playground's extension demo — and every one of them
+    silently stopped selecting what it had just inserted the moment the
+    playground booted on a site. Matching `path[0] === 'nodes'` was a statement
+    about the ROOT, and the root is exactly what a site changes.
+  */
+  it('names the node a PAGE kernel created', () => {
+    expect(insertedNodeId([{ op: 'add', path: ['nodes', 'n1'] }])).toBe('n1');
+  });
+
+  it('names the node a SITE kernel created, through a page lens', () => {
+    expect(
+      insertedNodeId([{ op: 'add', path: ['pages', 2, 'document', 'nodes', 'n1'] }]),
+    ).toBe('n1');
+  });
+
+  it('is not fooled by a path that merely passes through nodes', () => {
+    // A prop write, and a whole-map replacement: neither creates a node.
+    expect(insertedNodeId([{ op: 'add', path: ['nodes', 'n1', 'props', 'label'] }])).toBeUndefined();
+    expect(insertedNodeId([{ op: 'add', path: ['nodes'] }])).toBeUndefined();
+    expect(insertedNodeId([{ op: 'replace', path: ['nodes', 'n1'] }])).toBeUndefined();
+  });
+
+  it('returns the FIRST insertion when a group made several', () => {
+    expect(
+      insertedNodeId([
+        { op: 'replace', path: ['pages', 0, 'document', 'nodes', 'root', 'slots'] },
+        { op: 'add', path: ['pages', 0, 'document', 'nodes', 'first'] },
+        { op: 'add', path: ['pages', 0, 'document', 'nodes', 'second'] },
+      ]),
+    ).toBe('first');
+  });
+});

@@ -1,3 +1,4 @@
+import type { DroppedAiPlanStep } from '../plan/salvage-plan';
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { AiContextProvider, ClockPort, NodeId } from '@craftkit/builder-schema';
 
@@ -101,6 +102,17 @@ export type AiAgentEvent =
   | (AiAgentEventBase & { type: 'plan.progress'; text: string })
   | (AiAgentEventBase & { type: 'plan.validating'; attempt: 1 | 2 })
   | (AiAgentEventBase & { type: 'plan.repairing'; issues: readonly string[] })
+  /*
+    Both attempts failed and the run kept the part of the answer the door WILL
+    accept. Emitted before `plan.proposed`, because what follows is a smaller
+    plan than the model wrote and a person is owed that fact before they are
+    shown the result.
+  */
+  | (AiAgentEventBase & {
+      type: 'plan.salvaged';
+      kept: number;
+      dropped: readonly DroppedAiPlanStep[];
+    })
   | (AiAgentEventBase & {
       type: 'plan.proposed';
       plan: AiPlan;

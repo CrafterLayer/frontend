@@ -173,6 +173,31 @@ test('strict model output becomes the versioned plan, refusal, or invalidOutput 
       commands: [{ command: 'x', args: {} }],
     },
   );
+  /*
+    An OUTLINE conforms with an empty command list, and this gate used to reject
+    it: a model that obeyed the schema it was handed was told its output was
+    invalid, so Plan mode could only "succeed" by violating its own contract.
+    The permission comes from the forwarded contract, so the bridge enforces
+    what it sent rather than learning what Plan mode is.
+  */
+  assert.deepEqual(
+    toWireResponse('{"rationale":"GOAL: a clinic page.","commands":[],"followUp":"ابدأ"}', {
+      allowEmptyCommands: true,
+    }),
+    {
+      version: 1,
+      rationale: 'GOAL: a clinic page.',
+      commands: [],
+      followUp: 'ابدأ',
+    },
+  );
+
+  // And it is still a non-answer for an ordinary request.
+  assert.deepEqual(toWireResponse('{"rationale":"Add it.","commands":[]}'), {
+    version: 1,
+    invalidOutput: { message: 'The model returned an invalid plan response.' },
+  });
+
   assert.deepEqual(toWireResponse('```json\n{}\n```'), {
     version: 1,
     invalidOutput: { message: 'The model returned an invalid plan response.' },

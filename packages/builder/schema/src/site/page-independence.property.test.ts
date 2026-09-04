@@ -1,3 +1,4 @@
+import { defaultDesignSystem } from '../theme/default-theme';
 import fc, { type Arbitrary } from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
@@ -62,7 +63,13 @@ const siteArbitrary: Arbitrary<BuilderSite> = fc
       };
     }),
     sharedRegions: {},
-    designSystem: { name: 'Generated', tokens: {} },
+    /*
+      The real starter system. The generator used to hand every site an empty
+      token map, which typechecked against the old bridge and made the property
+      weaker than it read: a site that could never render was being asserted to
+      have independently valid pages.
+    */
+    designSystem: defaultDesignSystem(),
     assets: {},
   }));
 

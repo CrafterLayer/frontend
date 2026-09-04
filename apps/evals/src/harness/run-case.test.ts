@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { findEvalCase, loadCorpus } from '../corpus/load';
 import { gradeCommandPolicy, gradeNodeReferences, gradePlanValidates } from '../graders';
 
+import type { AiPlanProvider } from './builder';
 import { createEvalKernel, STARTER_FEATURES_ID, STARTER_HERO_ID } from './kernel';
 import { createEvalProvider } from './provider';
 import { runEvalCase } from './run-case';
@@ -31,6 +32,79 @@ describe('createEvalKernel', () => {
     expect(Object.keys(createEvalKernel('starter').getDocument().nodes)).toEqual(
       Object.keys(createEvalKernel('starter').getDocument().nodes),
     );
+  });
+});
+
+describe('runEvalCase records how hard the run worked', () => {
+  /*
+    These three metrics are what the plan's two headline gates are computed
+    from — "success without repair" and "success after repair" — and before
+    them the harness recorded only the outcome, so a run that got it right
+    first time and a run that needed a correction were the same number.
+
+    A scripted provider is the only way to put a run in each state on purpose:
+    the offline provider always succeeds on the first attempt, which is exactly
+    why an offline-only test would prove nothing.
+  */
+  const kernelCase = findEvalCase('06-named-block-faq', corpus);
+
+  it('reports one attempt and no repair when the answer passes first time', async () => {
+    const output = await runEvalCase(kernelCase, offline);
+
+    expect(output.metrics.attempts).toBe(1);
+    expect(output.metrics.repaired).toBe(false);
+    expect(output.metrics.salvaged).toBeNull();
+  });
+
+  it('reports two attempts and a repair when the first answer was refused', async () => {
+    let asked = 0;
+    const provider: AiPlanProvider = {
+      propose: () => {
+        asked += 1;
+        // A plan naming a node the document does not have: rejected by the door.
+        return Promise.resolve({
+          rationale: 'Edit something that is not there.',
+          commands: [{ command: 'setProp', args: { id: 'no-such-node', key: 'heading', value: 'x' } }],
+        });
+      },
+      repair: () =>
+        Promise.resolve({
+          rationale: 'Corrected.',
+          commands: [{ command: 'setProp', args: { id: STARTER_HERO_ID, key: 'heading', value: 'Fixed' } }],
+        }),
+    };
+
+    const output = await runEvalCase(kernelCase, { provider, mode: 'offline' });
+
+    expect(asked).toBe(1);
+    expect(output.outcome).toBe('plan');
+    expect(output.metrics.attempts).toBe(2);
+    expect(output.metrics.repaired).toBe(true);
+  });
+
+  it('reports what a salvage kept and dropped, apart from the outcome', async () => {
+    /*
+      The same mistake twice. The run keeps the steps the door accepts and
+      names the ones it dropped — and that is NOT a clean success, which is
+      why it is reported beside the outcome rather than folded into it.
+    */
+    const stubborn = {
+      rationale: 'Two good edits around one impossible one.',
+      commands: [
+        { command: 'setProp', args: { id: STARTER_HERO_ID, key: 'heading', value: 'One' } },
+        { command: 'setProp', args: { id: 'no-such-node', key: 'heading', value: 'Doomed' } },
+        { command: 'setProp', args: { id: STARTER_FEATURES_ID, key: 'heading', value: 'Two' } },
+      ],
+    };
+    const provider: AiPlanProvider = {
+      propose: () => Promise.resolve(stubborn),
+      repair: () => Promise.resolve(stubborn),
+    };
+
+    const output = await runEvalCase(kernelCase, { provider, mode: 'offline' });
+
+    expect(output.metrics.salvaged).toEqual({ kept: 2, dropped: 1 });
+    expect(output.metrics.attempts).toBe(2);
   });
 });
 

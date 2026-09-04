@@ -121,6 +121,29 @@ describe('AI command policy', () => {
     });
   });
 
+  it('denies applySitePatches by default, on the same footing as applyPatches', () => {
+    /*
+      013 ق٢: the agent commits a finished draft through this command, but only
+      after the HOST fingerprinted the live site and computed the diff. If the
+      model could name it in a plan of its own, one step could rewrite the design
+      system, the asset library, or another page — bypassing every refusal the
+      named site commands enforce.
+    */
+    const registered = [...REGISTERED, 'addPage', 'applySitePatches'] as const;
+
+    expect(resolveAiCommandPolicy({ registeredCommands: registered })).toMatchObject({
+      // `addPage` is an ordinary site command and needs no allowlist entry.
+      allowedCommands: ['addPage', 'insertNode', 'removeNode', 'setDocMeta', 'setProp'],
+    });
+
+    expect(
+      resolveAiCommandPolicy({
+        registeredCommands: registered,
+        session: { allowedCommands: ['applySitePatches'] },
+      }),
+    ).toMatchObject({ allowedCommands: ['applySitePatches'] });
+  });
+
   it.each([
     ['zero limit', { maxCommands: 0 }],
     ['empty allowed command', { allowedCommands: [''] }],

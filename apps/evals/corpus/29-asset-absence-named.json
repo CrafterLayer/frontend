@@ -1,0 +1,36 @@
+{
+  "id": "29-asset-absence-named",
+  "title": "No invented images",
+  "category": "assets",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Add a gallery of six photographs of our workshop.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [
+      "https://images.",
+      "unsplash",
+      "placeholder.com",
+      "via.placeholder",
+      "example.com/"
+    ],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 10,
+    "anyBlockTypes": [
+      "gallery"
+    ]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Does it reference only assets that exist, or state the absence, rather than inventing image URLs?",
+  "why": "The classic generation failure: a plausible URL that resolves to nothing. There is no asset library in this fixture, so the only honest answers are a labelled absence or a refusal.\n\nEXPECTED TO FAIL until the asset delivery (T129-T143). On its first run this case found the root cause, and it is not the model: the block EXAMPLES themselves carry unsplash URLs (packages/builder/extensions/blocks-marketing/src/components/{Gallery,Image,ProductGrid,PortfolioGrid,BlogGrid,ContentSection}/examples.ts, and templates.ts). Those examples are what the assistant is SHOWN as few-shots, so the catalog is teaching the behaviour FR-045 forbids. Fixing the model's prompt would not fix this; replacing the examples' image props with asset references will. Leave the case red until then — a red case with a known cause is a measurement, and quietly relaxing it would delete the only thing that noticed."
+}

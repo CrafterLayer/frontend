@@ -612,54 +612,141 @@ body,
   max-inline-size: 30ch;
 }
 
+/*
+  The suggestion rail: ONE scrollable row directly above the composer.
+
+  It was a column of four full-width cards, because it began life as the empty
+  state's welcome — four big targets on an otherwise blank panel. The moment it
+  became permanent, that shape was wrong: on a 360px panel it ate half the
+  height and squeezed the conversation into a sliver, so the thing meant to help
+  you continue a conversation was hiding it.
+
+  A rail solves the height problem the only way that keeps the suggestions
+  useful: they stay one tap away, they cost a fixed 1 row whatever their number
+  or length, and the overflow scrolls sideways instead of pushing anything.
+*/
 .pg-chat__starters {
   align-self: stretch;
   display: flex;
-  flex-direction: column;
-  gap: var(--bldr-space-sm);
   list-style: none;
   margin: var(--bldr-space-0);
-  padding: var(--bldr-space-0);
   text-align: start;
+}
+
+/* EMPTY panel: a column of full-width targets. Nothing to crowd, and a person
+   who has said nothing yet is choosing, not continuing. */
+.pg-chat__starters[data-layout='stack'] {
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+}
+
+/* IN CONVERSATION: one row, fixed height, scrolled sideways. */
+.pg-chat__starters[data-layout='rail'] {
+  gap: var(--bldr-space-xs);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  /*
+    Room for the whole focus ring. `overflow-x: auto` makes the BLOCK axis clip
+    too, and the ring reaches `focus-ring-width + focus-ring-offset` outside the
+    button — 2px of padding left its outer pixel shaved off top and bottom.
+  */
+  padding-block: calc(var(--bldr-focus-ring-width) + var(--bldr-focus-ring-offset));
+  padding-inline: var(--bldr-space-md);
+  scroll-behavior: smooth;
+  /*
+    Focus must not land on a chip that is off-screen. Browsers scroll a focused
+    element into view inside a scroller on their own; the padding is what stops
+    it arriving flush against the edge with its focus ring half-clipped.
+  */
+  scroll-padding-inline: var(--bldr-space-md);
+  scrollbar-width: none;
+  /*
+    Touch is left ALONE. `touch-action: pan-x` was here and it took vertical
+    panning away: a finger that started its drag on the rail could no longer
+    scroll the conversation behind it, which on a phone-width panel is most of
+    the screen. The browser already resolves the axis for a horizontal
+    scroller — telling it otherwise only removes a gesture.
+  */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__starters[data-layout='rail'] {
+    scroll-behavior: auto;
+  }
+}
+
+.pg-chat__starters::-webkit-scrollbar {
+  display: none;
+}
+
+.pg-chat__starters[data-layout='rail'] > li {
+  flex: none;
 }
 
 .pg-chat__starter {
   align-items: center;
   background: var(--bldr-panel-control);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-lg);
+  /* A pill, not a card: it reads as an option to pick, not a thing to read. */
+  border-radius: var(--bldr-radius-full);
   box-sizing: border-box;
-  color: var(--bldr-panel-text);
+  color: var(--bldr-panel-text-soft);
   cursor: pointer;
   display: flex;
-  gap: var(--bldr-space-md);
-  inline-size: 100%;
-  padding: var(--bldr-space-sm);
+  gap: var(--bldr-space-2xs);
+  /*
+    A real touch target. The chip is caption-sized text with tight padding, which
+    measured about 42px — under the 44px this project sets as its minimum, on a
+    control sitting directly above the composer where a thumb reaches most
+    often. The min-height costs nothing visually and is the difference between a
+    tap and a near-miss.
+  */
+  min-block-size: var(--bldr-hit-target-min);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-sm);
   transition:
     background-color var(--bldr-duration-state) var(--bldr-easing),
     border-color var(--bldr-duration-state) var(--bldr-easing),
-    box-shadow var(--bldr-duration-state) var(--bldr-easing),
-    color var(--bldr-duration-state) var(--bldr-easing),
-    translate var(--bldr-duration-state) var(--bldr-easing);
+    color var(--bldr-duration-state) var(--bldr-easing);
 }
 
-/* Hover trades the hairline for a sliver of the aurora: the control's fill is
-   painted over the gradient (padding-box over border-box), so only the border
-   ring shows colour and the text keeps its own contrast. */
+/*
+  Stacked, a suggestion is a card: full width, roomier, and free to wrap —
+  there is no row to keep one line tall.
+*/
+.pg-chat__starters[data-layout='stack'] .pg-chat__starter {
+  border-radius: var(--bldr-radius-lg);
+  gap: var(--bldr-space-md);
+  inline-size: 100%;
+  padding: var(--bldr-space-sm);
+}
+
+.pg-chat__starters[data-layout='stack'] .pg-chat__starter-icon {
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-control-sm);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent);
+  inline-size: var(--bldr-control-sm);
+}
+
+.pg-chat__starters[data-layout='stack'] .pg-chat__starter-text {
+  white-space: normal;
+}
+
+/*
+  Railed, a suggestion is a pill. Capped rather than wrapped: a chip that wraps
+  to three lines is the column layout again in one chip, and the whole sentence
+  is still in the accessible name and the tooltip.
+*/
+.pg-chat__starters[data-layout='rail'] .pg-chat__starter {
+  max-inline-size: 18rem;
+}
+
 .pg-chat__starter:hover {
-  background:
-    linear-gradient(var(--bldr-panel-control), var(--bldr-panel-control)) padding-box,
-    var(--pg-magic-linear) border-box;
+  background: var(--bldr-accent-soft);
   border-color: transparent;
-  box-shadow: var(--bldr-shadow-floating);
   color: var(--bldr-panel-text);
-  translate: 0 calc(var(--bldr-space-2xs) * -0.5);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pg-chat__starter:hover {
-    translate: none;
-  }
 }
 
 .pg-chat__starter:focus-visible {
@@ -667,29 +754,38 @@ body,
   outline-offset: var(--bldr-focus-ring-offset);
 }
 
-.pg-chat__starter-icon {
-  align-items: center;
+/*
+  The follow-up is the model's own "and next…", about the conversation that is
+  actually happening — so it leads the rail and is the one chip that looks like
+  an answer rather than a menu item.
+*/
+.pg-chat__starter[data-kind='followUp'] {
   background: var(--bldr-accent-soft);
-  block-size: var(--bldr-control-sm);
-  border-radius: var(--bldr-radius-md);
+  border-color: transparent;
   color: var(--bldr-accent);
-  display: flex;
-  flex: none;
-  inline-size: var(--bldr-control-sm);
-  justify-content: center;
-  transition:
-    background-color var(--bldr-duration-state) var(--bldr-easing),
-    color var(--bldr-duration-state) var(--bldr-easing);
 }
 
-.pg-chat__starter:hover .pg-chat__starter-icon {
-  background: var(--bldr-accent);
-  color: var(--bldr-accent-text);
+.pg-chat__starter-icon {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex: none;
+  /* Half its old box: at chip scale the icon is a hint, not a button. */
+  block-size: var(--bldr-space-lg);
+  inline-size: var(--bldr-space-lg);
+  justify-content: center;
+}
+
+.pg-chat__starter[data-kind='followUp'] .pg-chat__starter-icon {
+  color: inherit;
 }
 
 .pg-chat__starter-text {
   font-size: var(--bldr-font-size-caption);
   font-weight: var(--bldr-font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Every turn is an article: the thread reads as a list of things said, and
@@ -1616,9 +1712,17 @@ body,
     color var(--bldr-duration-state) var(--bldr-easing);
 }
 
-.pg-chat__mode:hover {
+/* `:not(:disabled)` on both interactive states: a locked control that still
+   lights up on hover and shows a pointer is telling the hand it can be pressed,
+   which is the one thing it cannot do. */
+.pg-chat__mode:hover:not(:disabled) {
   background: var(--bldr-surface-hover);
   color: var(--bldr-panel-text);
+}
+
+.pg-chat__mode:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .pg-chat__mode[aria-checked='true'] {
@@ -1891,4 +1995,49 @@ body,
   margin: var(--bldr-space-0);
   /* One line where there is room for one; it wraps only when there is not. */
   min-inline-size: 0;
+}
+
+/*
+  Pages above layers, in the one structure panel. A grid rather than a flex
+  column so the page list takes exactly what it needs and the tree takes the
+  rest: the list grows with the site and the tree grows with the page, and
+  letting both compete for the same free space made one of them jump every time
+  the other changed.
+*/
+.pg-structure {
+  block-size: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+/*
+  A plan, read as a plan. Pre-wrap because the four labelled parts arrive as
+  lines and re-flowing them into a paragraph would destroy the only structure
+  the answer has.
+*/
+.pg-chat__outline {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.pg-chat__outline-note {
+  margin: var(--bldr-space-sm, 0.5rem) 0 0;
+  opacity: 0.75;
+}
+
+.pg-chat__preview-note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+/* The lock's reason, beside the modes rather than only in a tooltip. */
+.pg-chat__mode-locked {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  margin: var(--bldr-space-0);
+  align-self: center;
+  padding-inline-start: var(--bldr-space-sm);
 }

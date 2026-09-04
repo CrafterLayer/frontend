@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -14,6 +15,7 @@ import {
   ChromeButton,
   createCraftkitAiSkillRegistry,
   createLocalAiPlanProvider,
+  outlineAiPlan,
   createMemoryContextProvider,
   GENERATION_STAGE_LABELS,
   GenerationProgress,
@@ -41,6 +43,7 @@ import {
 } from '@craftkit/builder';
 
 import { AgentFace, AgentVoice, moodForTurn, useAgentMood, type AgentLocale } from '../AgentFace';
+import { localeOf, panelSuggestions } from './AssistantPanel.suggestions';
 import {
   IconAlert,
   IconCheck,
@@ -227,6 +230,27 @@ type Turn =
   | {
       readonly id: string;
       readonly from: 'assistant';
+      /**
+       * A PLAN, in prose, with no commands behind it.
+       *
+       * A kind of its own rather than a `plan` turn with an empty command list,
+       * because the card that renders a plan offers Preview — and Preview
+       * offers Apply. A turn that has nothing to apply should not be able to
+       * reach a button that applies: the strongest way to say that is to give
+       * it a shape with no proposal in it at all.
+       */
+      readonly kind: 'outline';
+      readonly text: string;
+      readonly followUp?: string;
+      readonly skills?: readonly AiSkillActivationPin[];
+      /** Commands the model proposed anyway, and this run refused to keep. */
+      readonly dropped: number;
+      /** The settled run, for the timing receipt. */
+      readonly run?: RunProgress;
+    }
+  | {
+      readonly id: string;
+      readonly from: 'assistant';
       readonly kind: 'plan';
       readonly plan: AiPlan;
       /** Runtime-authenticated authority. It deliberately cannot survive JSON revival. */
@@ -374,6 +398,16 @@ function historyOf(turns: readonly Turn[]): AiChatTurn[] {
       if (turn.kind === 'plan') {
         return [{ role: 'assistant', text: turn.plan.rationale }];
       }
+      if (turn.kind === 'outline') {
+        /*
+          The plan the assistant just wrote IS the answer, so it belongs in the
+          history like any other. Dropping it meant a person could say "do
+          option two" and the next request would arrive without the answer that
+          had the options in it — the model being asked to remember something it
+          was never told.
+        */
+        return [{ role: 'assistant', text: turn.text }];
+      }
       if (turn.kind === 'refused') {
         return [{ role: 'assistant', text: turn.text }];
       }
@@ -472,14 +506,76 @@ const AGENT_NAME = { ar: 'أبو غضب', en: 'Abu Ghadab' } as const satisfies 
   string
 >;
 
-const STARTERS = [
-  'add a pricing section',
-  'add a hero',
-  'add a testimonials section',
-  'add a call to action',
-] as const;
+/*
+  The four hardcoded English sentences that used to live here are gone.
+
+  They were wrong three ways at once: English only, in a product whose default
+  locale is Arabic; unrelated to the blocks this build actually registered; and
+  shown ONLY before the first message, so a person who wrote one thing and
+  paused was left with an empty box and a blinking cursor. Suggestions are now
+  derived — see `AssistantPanel.suggestions.ts` — and they never run out.
+*/
 
 const EMPTY_TURNS: readonly Turn[] = [];
+
+/** The built-in skill that makes a plan a plan, and makes it unable to write. */
+const PLAN_MODE_SKILL_ID = 'craftkit.plan-mode';
+
+/**
+ * The skills a run carries, with Plan's own added when the person chose Plan.
+ *
+ * This is what made Plan indistinguishable from Ask: the two sent a request
+ * that differed only by an `apply` flag, so the model was never told it was
+ * planning and answered with whatever it would have answered anyway.
+ *
+ * Adding the id here does two things at once, and the second is the one that
+ * matters. It gives the model the four-part shape to answer in — and, because
+ * `craftkit.plan-mode` declares `restrictToCommands: []` and skill restrictions
+ * INTERSECT, it leaves the run with no command it is allowed to emit at all.
+ * "Plan never applies" stops being a flag a caller must remember.
+ *
+ * The host's own selection is preserved: a host that pinned skills still gets
+ * them, with Plan's added, and never twice.
+ */
+function skillsForMode(
+  mode: AssistantMode,
+  selected: readonly string[] | undefined,
+): readonly string[] | undefined {
+  if (mode !== 'plan') return selected;
+  const base = selected ?? [];
+  return base.includes(PLAN_MODE_SKILL_ID) ? base : [...base, PLAN_MODE_SKILL_ID];
+}
+
+/**
+ * The `followUp` of the NEWEST answer — and only if that answer had one.
+ *
+ * Stops at the first assistant turn found reading backwards, whatever kind it
+ * is, rather than skipping past newer answers hunting for a plan. The first
+ * version did skip, and the effect was a suggestion that outlived its
+ * conversation: a plan proposed "now add pricing", the person then asked
+ * something else and got a refusal or a report, and the strip still offered
+ * "now add pricing" as though nothing had happened since.
+ *
+ * `thinking` turns are passed over on purpose — they are the spinner, not an
+ * answer, and the strip must not go blank while the assistant is mid-sentence.
+ */
+function lastFollowUp(turns: readonly Turn[]): string | undefined {
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const turn = turns[index];
+    if (turn?.from !== 'assistant') continue;
+    if (turn.kind === 'thinking') continue;
+    if (turn.kind === 'plan') return turn.plan.followUp;
+    /*
+      An outline carries one too, and it is the one the plan skill is REQUIRED
+      to produce — "what to say next" is half of what Plan mode was asked to
+      fix. Reading only `plan` turns meant Plan's own follow-up was stored and
+      then never shown, which is the same as not having it.
+    */
+    if (turn.kind === 'outline') return turn.followUp;
+    return undefined;
+  }
+  return undefined;
+}
 const DEFAULT_AI_SKILL_REGISTRY = createCraftkitAiSkillRegistry();
 
 /**
@@ -496,6 +592,16 @@ function preflightPorts() {
 interface PersistedPanelState {
   readonly sessions: readonly Session[];
   readonly activeId: string;
+  /**
+   * The mode the person last chose.
+   *
+   * It was not saved, so every reload returned to Ask — and Ask can write. A
+   * person who deliberately put the assistant in Plan came back to a panel that
+   * would apply, having changed nothing and been told nothing. Revived
+   * defensively: anything that is not one of the three reads as Ask, which is
+   * also what data written before this field says.
+   */
+  readonly mode?: AssistantMode;
 }
 
 /**
@@ -621,7 +727,13 @@ function reviveSessions(persistKey: string | undefined): PersistedPanelState | n
         return turn;
       }),
     }));
-    return { sessions: withUniqueTurnIds(sessions), activeId: parsed.activeId };
+    return {
+      sessions: withUniqueTurnIds(sessions),
+      activeId: parsed.activeId,
+      // Passed through as READ. The caller decides what an unrecognised value
+      // means, so one place owns the "unknown reads as Ask" rule.
+      ...(parsed.mode === undefined ? {} : { mode: parsed.mode }),
+    };
   } catch {
     return null;
   }
@@ -673,6 +785,11 @@ export function AssistantPanel({
   const [activeId, setActiveId] = useState(
     () => reviveSessions(persistKey)?.activeId ?? 'session-1',
   );
+  const [mode, setMode] = useState<AssistantMode>(() => {
+    const saved = reviveSessions(persistKey)?.mode;
+    // Anything unrecognised — older data, a hand-edited store — reads as Ask.
+    return saved === 'auto' || saved === 'plan' ? saved : 'ask';
+  });
 
   // Every settled change is written back; a blocked store fails silently — the
   // conversation still works, it just forgets on reload.
@@ -681,14 +798,13 @@ export function AssistantPanel({
       return;
     }
     try {
-      window.localStorage.setItem(persistKey, JSON.stringify({ sessions, activeId }));
+      window.localStorage.setItem(persistKey, JSON.stringify({ sessions, activeId, mode }));
     } catch {
       // Storage full or blocked: in-memory behaviour continues unchanged.
     }
-  }, [activeId, persistKey, sessions]);
+  }, [activeId, mode, persistKey, sessions]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<AssistantMode>('ask');
   /** Whether the composer holds focus — the face listens when it does. */
   const [composerFocused, setComposerFocused] = useState(false);
   /*
@@ -761,6 +877,7 @@ export function AssistantPanel({
   const sessionsRef = useRef<HTMLDivElement | null>(null);
   const sessionsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const inputId = useId();
+  const modeLockId = useId();
   const sessionsListId = useId();
   const subscribeToKernel = useCallback(
     (onStoreChange: () => void) => kernel.context.store.subscribe(onStoreChange),
@@ -881,6 +998,29 @@ export function AssistantPanel({
 
   /** The one registry this surface asks — for a run, and for the routing decision. */
   const registry = skillRegistry ?? DEFAULT_AI_SKILL_REGISTRY;
+
+  /**
+   * What to offer next, derived and never empty.
+   *
+   * Recomputed from the catalog, the selection and the last answer's own
+   * `followUp`. All three are cheap reads and the strip is small, so it is
+   * memoised on what it actually depends on rather than cached across turns:
+   * a stale suggestion that no longer matches the selection is worse than no
+   * suggestion at all.
+   */
+  const suggestions = useMemo(
+    () =>
+      panelSuggestions({
+        blocks: kernel.context.registry.blocks(kernel.context.surface),
+        selected:
+          selectedType === undefined
+            ? undefined
+            : kernel.context.registry.block(selectedType)?.schema,
+        followUp: lastFollowUp(turns),
+        locale,
+      }),
+    [kernel, selectedType, turns, locale],
+  );
 
   /**
    * Answer the ONE question a build asks. Idempotent: the composer's Stop and
@@ -1252,6 +1392,106 @@ export function AssistantPanel({
       const mentioned = [...trimmed.matchAll(MENTION_IDS)]
         .map((match) => match[1] ?? '')
         .filter((id) => kernel.getDocument().nodes[id] !== undefined);
+      /*
+        PLAN takes its own route, and it is a different function, not a flag.
+
+        `runAiAgent` promises a plan of COMMANDS: it refuses an empty command
+        policy before the provider is called, its validator rejects a plan with
+        zero commands, and its output contract demands at least one. Threading
+        "but not this time" through all three would have been three exceptions
+        pretending to be one rule. `outlineAiPlan` asks the same provider, with
+        the same skills and the same context, and simply never goes near the
+        door — there is nothing to validate, because there is nothing to apply.
+      */
+      if (mode === 'plan') {
+        try {
+          const outline = await outlineAiPlan({
+            kernel,
+            provider: planProvider ?? createLocalAiPlanProvider(),
+            request: trimmed,
+            selection: mentioned.length > 0 ? mentioned : kernel.context.store.getState().selection,
+            history,
+            skillRegistry: registry,
+            ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
+            signal: controller.signal,
+          });
+          if (!ownsRun(activeRunRef.current, runId)) return;
+          settleFaceTurn({ runId, outcome: 'plan', applied: false });
+          patchTurns((previous) =>
+            previous.map((turn) =>
+              turn.id === thinkingId
+                ? {
+                    id: thinkingId,
+                    from: 'assistant',
+                    kind: 'outline',
+                    text: outline.rationale,
+                    ...(outline.followUp === undefined ? {} : { followUp: outline.followUp }),
+                    ...(outline.skillActivations === undefined
+                      ? {}
+                      : { skills: outline.skillActivations }),
+                    dropped: outline.droppedCommands,
+                  }
+                : turn,
+            ),
+          );
+        } catch (error) {
+          /*
+            `ownsRun`, not a direct `.runId` read. New chat and unmount set the
+            lease to null, so reading through it threw — a person who started a
+            plan and then opened a new chat crashed the panel.
+          */
+          if (!ownsRun(activeRunRef.current, runId)) return;
+          const endedAt = systemClock.now();
+          if (controller.signal.aborted) {
+            /*
+              The person pressed Stop. That is an OUTCOME, not an error — the
+              same rule the ordinary run follows. Rendering the abort exception
+              as a retryable refusal put the platform's own AbortError on screen
+              and left the face showing failure for something nobody got wrong.
+            */
+            settleFaceTurn({ runId, outcome: 'stopped' });
+            patchTurns((previous) =>
+              previous.map((turn): Turn => {
+                if (turn.id !== thinkingId) return turn;
+                const receipt =
+                  turn.from === 'assistant' && turn.kind === 'thinking'
+                    ? receiptOf(turn.run, endedAt, turn.progress)
+                    : null;
+                return {
+                  id: turn.id,
+                  from: 'assistant',
+                  kind: 'stopped',
+                  ...(receipt === null ? {} : { receipt }),
+                };
+              }),
+            );
+          } else {
+            settleFaceTurn({ runId, outcome: 'refused', retryable: true });
+            patchTurns((previous) =>
+              previous.map((turn) =>
+                turn.id === thinkingId
+                  ? {
+                      id: thinkingId,
+                      from: 'assistant',
+                      kind: 'refused',
+                      text:
+                        error instanceof Error ? error.message : 'The plan could not be written.',
+                      request: trimmed,
+                    }
+                  : turn,
+              ),
+            );
+          }
+        } finally {
+          if (ownsRun(activeRunRef.current, runId)) {
+            activeRunRef.current = null;
+            setBusy(false);
+          }
+        }
+        return;
+      }
+
+      const planSkills = skillsForMode(mode, selectedSkillIds);
       try {
         const result = await runAiAgent({
           runId,
@@ -1264,7 +1504,13 @@ export function AssistantPanel({
           history,
           ...(memory.hasRecords() ? { additionalContextProviders: [memoryProvider] } : {}),
           skillRegistry: registry,
-          ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
+          /*
+            PLAN carries its own skill (see `skillsForMode`), which is what makes
+            its request different from Ask's — and, through an empty
+            `restrictToCommands` that intersects everything else down to nothing,
+            what makes it structurally unable to write.
+          */
+          ...(planSkills === undefined ? {} : { selectedSkillIds: planSkills }),
           /*
             The host's policy wins over the catalog helper's, always: the helper
             supplies a budget the offline path needs, not a decision a host may
@@ -1446,6 +1692,23 @@ export function AssistantPanel({
 
   const accept = useCallback(
     (id: string, proposal: AiValidatedProposal) => {
+      /*
+        FAILS CLOSED against the CURRENT mode, not the turn's.
+
+        Every gate here used to read the mode the turn was proposed under, and
+        Plan was therefore a label on old cards rather than a state of the
+        panel. An Ask proposal made a minute ago still showed Apply after the
+        person switched to Plan, and its Preview dialog applied unconditionally
+        — so "Only plan — never apply" was one or two clicks from an apply, on
+        work the panel was currently promising not to touch.
+
+        The check belongs HERE, at the single function every route reaches: the
+        card's button, the preview's button, and anything added later. A gate on
+        a button is a gate somebody can forget to copy.
+      */
+      if (mode === 'plan') {
+        return;
+      }
       try {
         applyAiPlan({ kernel, proposal, validationPorts: preflightPorts() });
         memory.note(proposal);
@@ -1474,7 +1737,7 @@ export function AssistantPanel({
         );
       }
     },
-    [kernel, memory, noteFaceTurn, patchTurns],
+    [kernel, memory, mode, noteFaceTurn, patchTurns],
   );
 
   /**
@@ -1660,24 +1923,6 @@ export function AssistantPanel({
               <AgentFace mood="idle" size="lg" />
             </span>
             <p>Ask for a section and I will propose the exact changes.</p>
-            <ul className="pg-chat__starters">
-              {STARTERS.map((starter) => (
-                <li key={starter}>
-                  <button
-                    type="button"
-                    className="pg-chat__starter"
-                    onClick={() => {
-                      void ask(starter);
-                    }}
-                  >
-                    <span className="pg-chat__starter-icon" aria-hidden="true">
-                      <IconPlus />
-                    </span>
-                    <span className="pg-chat__starter-text">{starter}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
         ) : null}
 
@@ -1989,6 +2234,27 @@ export function AssistantPanel({
                       <p className="pg-chat__refused">Discarded.</p>
                     </div>
                   ) : null}
+                  {turn.kind === 'outline' ? (
+                    /*
+                      A plan, read as a plan. No Apply and no Preview, and not
+                      because a condition hides them: this turn has no proposal
+                      in it, so there is nothing for either button to act on.
+                      The follow-up is offered in the suggestion strip above the
+                      composer, like every other one.
+                    */
+                    <div className="pg-chat__card pg-chat__card--outline" data-state="outline">
+                      <p className="pg-chat__outline" dir="auto" lang={localeOf(turn.text)}>
+                        {turn.text}
+                      </p>
+                      {turn.dropped === 0 ? null : (
+                        <p className="pg-chat__outline-note">
+                          {`Planning only — ${String(turn.dropped)} proposed change${
+                            turn.dropped === 1 ? '' : 's'
+                          } ${turn.dropped === 1 ? 'was' : 'were'} not kept. Switch to Ask or Auto to build.`}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                   {turn.kind === 'plan' ? (
                     <div
                       className={`pg-chat__card ${
@@ -2057,9 +2323,17 @@ export function AssistantPanel({
                         </p>
                       ) : (
                         <div className="pg-chat__decide">
-                          {/* A plan proposed in Plan mode never offers Apply:
-                            exploring must not be one misclick from writing. */}
-                          {(turn.mode ?? 'ask') === 'plan' || turn.proposal === undefined ? null : (
+                          {/*
+                            Hidden when the plan was PROPOSED in Plan mode, and
+                            when the panel is in Plan mode NOW. The second is
+                            the one that was missing: a proposal made in Ask
+                            kept its Apply after the person switched to Plan.
+                            `accept` refuses either way — this only stops the
+                            panel from offering what it would refuse.
+                          */}
+                          {(turn.mode ?? 'ask') === 'plan' ||
+                          mode === 'plan' ||
+                          turn.proposal === undefined ? null : (
                             <ChromeButton
                               variant="primary"
                               onClick={() => {
@@ -2110,24 +2384,16 @@ export function AssistantPanel({
                           ) : null}
                         </div>
                       )}
-                      {/* The plan's own "and next…" — staged work as one tap,
-                        never applied automatically. */}
-                      {turn.plan.followUp === undefined ? null : (
-                        <ChromeButton
-                          variant="quiet"
-                          size="sm"
-                          className="pg-chat__continue"
-                          disabled={busy}
-                          onClick={() => {
-                            void ask(turn.plan.followUp ?? '');
-                          }}
-                        >
-                          <IconSparkle />
-                          <span className="pg-chat__continue-text" dir="auto">
-                            {turn.plan.followUp}
-                          </span>
-                        </ChromeButton>
-                      )}
+                      {/*
+                        The plan's own "and next…" is NOT drawn here any more.
+
+                        It moved to the suggestion strip above the composer,
+                        which is the one place a person is deciding what to say
+                        next — and, unlike a card inside the log, it does not
+                        scroll away the moment the next message arrives. Drawing
+                        it in both places put two identical buttons for one
+                        action on screen at once.
+                      */}
                     </div>
                   ) : null}
                 </div>
@@ -2136,6 +2402,83 @@ export function AssistantPanel({
           </article>
         ))}
       </div>
+
+      {/*
+        The suggestion strip, ABOVE the composer and outside the thread.
+
+        Outside, because it is not part of the conversation: putting it in the
+        log made it scroll away with the messages, which is how the old starters
+        disappeared after the first turn and never came back. Above the composer
+        is where the next thing a person says is being decided.
+      */}
+      {suggestions.length === 0 || busy ? null : (
+        <ul
+          className="pg-chat__starters"
+          aria-label="Suggestions"
+          /*
+            TWO layouts, one list.
+
+            On an empty panel there is nothing to crowd, and a person who has
+            said nothing yet is reading rather than continuing: the suggestions
+            stack, full width, as generous targets. The moment a conversation
+            exists they become a one-row rail — the same suggestions, one tap
+            away, at a fixed height — because at that point the thread is what
+            the panel is for, and a column of cards was eating half of it.
+          */
+          data-layout={turns.length === 0 ? 'stack' : 'rail'}
+          onWheel={(event) => {
+            /*
+              A trackpad and a touchscreen scroll this rail natively; a MOUSE
+              wheel only scrolls vertically, so on a strip with no vertical
+              overflow it does nothing at all and the chips past the edge are
+              unreachable without dragging. Translating the dominant axis is
+              what makes the same gesture work for every pointer.
+            */
+            const rail = event.currentTarget;
+            if (rail.dataset['layout'] !== 'rail') return;
+            if (rail.scrollWidth <= rail.clientWidth) return;
+            const delta =
+              Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+            if (delta === 0) return;
+            /*
+              RTL reverses which way "forward" is, and `scrollLeft` follows the
+              writing direction: in an Arabic panel it starts at 0 on the RIGHT
+              and runs NEGATIVE leftward. Adding a positive delta there scrolls
+              back toward the start you are already at — the rail simply refuses
+              to move, in the language this product defaults to. `scrollBy` with
+              a signed `left` is the same arithmetic, written once.
+            */
+            const rtl = getComputedStyle(rail).direction === 'rtl';
+            rail.scrollBy({ left: rtl ? -delta : delta });
+          }}
+        >
+          {suggestions.map((entry) => (
+            <li key={entry.id}>
+              <button
+                type="button"
+                className="pg-chat__starter"
+                data-kind={entry.kind}
+                lang={localeOf(entry.text)}
+                dir="auto"
+                /*
+                  The chip truncates; the whole sentence stays reachable. The
+                  accessible name is the full text (the span is the only content),
+                  and `title` gives a sighted person the rest on hover.
+                */
+                title={entry.text}
+                onClick={() => {
+                  void ask(entry.text);
+                }}
+              >
+                <span className="pg-chat__starter-icon" aria-hidden="true">
+                  <IconPlus />
+                </span>
+                <span className="pg-chat__starter-text">{entry.text}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <form
         className="pg-chat__composer"
@@ -2220,9 +2563,39 @@ export function AssistantPanel({
             </div>
           )}
           <div className="pg-chat__composer-actions">
-            {/* The mode row, where Claude keeps its own: part of the composer,
-                read before every send. */}
-            <div className="pg-chat__modes" role="radiogroup" aria-label="Assistant mode">
+            {/*
+              The mode row, where Claude keeps its own: part of the composer,
+              read before every send.
+
+              LOCKED WHILE A RUN IS IN FLIGHT, and that is not a nicety.
+
+              A run captures its mode when it starts, and the closure keeps it:
+              a request begun in Auto carries `apply: 'auto'` all the way to
+              `applyAiPlan`, and a build's scaffold, its fallback, its fills and
+              their retries all apply unconditionally. Leaving this enabled
+              meant a person could press Auto, see it thinking, change their
+              mind to Plan — and watch the page be written anyway, by a run they
+              had just told to stop writing. The same holds for the approval
+              card: it resolves the promise the ORIGINAL run installed.
+
+              Locking the control is the honest answer, because it is true:
+              this run's authority was decided when it started, and the way to
+              change it is Stop. Changing the label while the closure keeps the
+              old authority would be the lie.
+            */}
+            <div
+              className="pg-chat__modes"
+              role="radiogroup"
+              aria-label="Assistant mode"
+              aria-disabled={busy ? true : undefined}
+              /*
+                The reason, where a keyboard or screen-reader user can reach it.
+                It lived only in `title` on the disabled buttons, which neither
+                can get to: a control that cannot be used and cannot say why is
+                just broken as far as they can tell.
+              */
+              {...(busy ? { 'aria-describedby': modeLockId } : {})}
+            >
               {MODES.map((candidate) => (
                 <button
                   key={candidate.id}
@@ -2230,6 +2603,7 @@ export function AssistantPanel({
                   role="radio"
                   aria-checked={mode === candidate.id}
                   className="pg-chat__mode"
+                  disabled={busy}
                   onClick={() => {
                     setMode(candidate.id);
                   }}
@@ -2237,6 +2611,11 @@ export function AssistantPanel({
                   {candidate.label}
                 </button>
               ))}
+              {busy ? (
+                <p id={modeLockId} className="pg-chat__mode-locked">
+                  Stop the request to change mode.
+                </p>
+              ) : null}
             </div>
             <ChromeButton
               variant="icon"
@@ -2307,16 +2686,30 @@ export function AssistantPanel({
               <StaticDocument document={preview.document} blocks={kernel.context.registry.block} />
             </div>
             <footer className="pg-chat__preview-actions">
-              <ChromeButton
-                variant="primary"
-                onClick={() => {
-                  accept(preview.id, preview.proposal);
-                  setPreview(null);
-                }}
-              >
-                <IconCheck />
-                Apply
-              </ChromeButton>
+              {/*
+                No Apply while the panel is planning. The dialog used to draw it
+                unconditionally, so a proposal made in Ask could be applied from
+                here after the person switched to Plan — the same page the panel
+                was promising not to write. `accept` refuses anyway; not drawing
+                the button is what stops it from being a broken promise on
+                screen.
+              */}
+              {mode === 'plan' ? (
+                <p className="pg-chat__preview-note">
+                  Planning only — switch to Ask or Auto to apply this.
+                </p>
+              ) : (
+                <ChromeButton
+                  variant="primary"
+                  onClick={() => {
+                    accept(preview.id, preview.proposal);
+                    setPreview(null);
+                  }}
+                >
+                  <IconCheck />
+                  Apply
+                </ChromeButton>
+              )}
               <ChromeButton
                 variant="quiet"
                 onClick={() => {

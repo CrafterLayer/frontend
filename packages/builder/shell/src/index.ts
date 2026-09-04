@@ -42,6 +42,7 @@ export { Inspector, type InspectorProps } from './components/Inspector';
 export { LayersTree, type LayersTreeProps } from './components/LayersTree';
 export { Palette, type PaletteProps } from './components/Palette';
 export { PreviewMode, type PreviewModeProps } from './components/PreviewMode';
+export { SitePages, type SitePagesProps } from './components/SitePages';
 export type { DragPayload, DropTarget } from './overlay/drop-resolver';
 export {
   createRectIndex,

@@ -37,7 +37,15 @@ export function runOutput(overrides: Partial<EvalRunOutput> = {}): EvalRunOutput
       maxCommands: 64,
       maxOperations: 256,
     },
-    metrics: { commandCount: 1, contextFragments: 4, contextTokens: 3000, elapsedMs: 40 },
+    metrics: {
+      commandCount: 1,
+      contextFragments: 4,
+      contextTokens: 3000,
+      elapsedMs: 40,
+      attempts: 1,
+      repaired: false,
+      salvaged: null,
+    },
     document: {
       rootId: 'root',
       rootType: 'page',

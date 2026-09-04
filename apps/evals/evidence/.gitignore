@@ -1,0 +1,8 @@
+# Screenshots are the driver's working material, not its record.
+#
+# The JSON beside them IS committed: it carries the milestones, the transaction
+# counts and the outcome, which is what a later delivery diffs against. The
+# images are large, binary, and regenerated on every run — keeping them would
+# add megabytes per delivery to answer a question the JSON already answers.
+# A run that needs a picture cites the path; the file is there locally.
+*.png

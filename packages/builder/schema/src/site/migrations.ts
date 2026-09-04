@@ -1,5 +1,6 @@
 import type { BuilderDocument } from '../document/types';
-import { LATEST_SITE_VERSION, type BuilderSite, type SiteDesignSystem } from './types';
+import { defaultDesignSystem } from '../theme/default-theme';
+import { LATEST_SITE_VERSION, type BuilderSite } from './types';
 import { validateSite } from './validate';
 
 type SiteMigration = (site: unknown) => unknown;
@@ -63,15 +64,19 @@ export function siteFromDocument(doc: BuilderDocument): BuilderSite {
       },
     ],
     sharedRegions: {},
-    designSystem: defaultSiteDesignSystem(),
+    /*
+      The REAL starter system, not an empty token map. A lifted page used to
+      arrive carrying `{ name: 'Default', tokens: {} }`, which resolves to no
+      colour anywhere and — now that `validateSite` actually measures contrast —
+      would make every migrated site invalid on arrival. data-model §1 asks for
+      the current light theme's values, and this is them.
+    */
+    designSystem: defaultDesignSystem(),
     assets: {},
   };
 }
 
-function defaultSiteDesignSystem(): SiteDesignSystem {
-  /* Wave 3 replaces this bridge with the schema-owned validated default. */
-  return { name: 'Default', tokens: {} };
-}
+
 
 function readSiteVersion(value: unknown): number {
   if (

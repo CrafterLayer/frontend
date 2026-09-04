@@ -9,6 +9,9 @@ export type EvalMode = 'offline' | 'live';
 /** Where the live mode POSTs its plan requests when nothing else is configured. */
 export const DEFAULT_LIVE_ENDPOINT = 'http://127.0.0.1:8787/ai/plan';
 
+/** See the reasoning at the call site; exported so a test can pin it. */
+export const LIVE_TIMEOUT_MS = 660_000;
+
 export interface EvalProviderOptions {
   mode?: EvalMode;
   endpoint?: string;
@@ -50,6 +53,16 @@ export function createEvalProvider(options: EvalProviderOptions = {}): AiPlanPro
   return createRemoteAiPlanProvider({
     endpoint,
     allowInsecureHttp: endpoint.startsWith('http://'),
-    timeoutMs: options.timeoutMs ?? 300_000,
+    /*
+      Eleven minutes, matching the playground's own deadline and for the same
+      measured reason: a plan is 15-25k output tokens, which is minutes through
+      the API and three to five through the dev CLI backend. At the five minutes
+      this used to allow, a live eval aborted healthy runs and recorded them as
+      provider failures — the harness would have reported the assistant failing
+      at exactly the cases that take longest, which is the opposite of what it
+      is for. It sits just above the server's own ten-minute cap so a real
+      timeout is reported by the side that knows why.
+    */
+    timeoutMs: options.timeoutMs ?? LIVE_TIMEOUT_MS,
   });
 }

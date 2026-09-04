@@ -22,6 +22,7 @@ export {
   COLOR_TOKENS,
   MEASUREMENT_TOKENS,
   TOKEN_NAMES,
+  designSystemSchema,
   isColorToken,
   isTokenName,
   type DesignPairing,
@@ -36,3 +37,5 @@ export {
   type DesignSystemIssueCode,
   type DesignSystemValidationResult,
 } from './validate';
+
+export { darkTheme, defaultDesignSystem, lightTheme } from './default-theme';

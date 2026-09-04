@@ -646,6 +646,54 @@ the plan was validated.
 - **FR-054**: Evaluation results MUST be stored as durable evidence — briefs, outputs, raters,
   scores, and thresholds — not summarized in prose.
 
+### Draft, commit, and never a half-built page
+
+- **FR-090**: A generation run MUST write into a DRAFT that is separate from the live document, and
+  the live document MUST change exactly once, at a commit the person can refuse. A run that fails,
+  is stopped, or is interrupted MUST leave the live document byte-identical to what it was.
+- **FR-091**: The commit MUST be one transaction attributed to the agent and carrying a human label,
+  so one undo reverses the whole generation and the history says who made the change.
+- **FR-092**: The run MUST record the live document's fingerprint when it starts and MUST refuse to
+  commit against a document that has since changed, with a readable reason and zero writes. It MUST
+  offer to rebase or discard rather than applying blind.
+- **FR-093**: A draft MUST survive a page reload. Its run journal — the request, the tasks, their
+  outcomes, the budgets consumed, and the pre-run snapshot — MUST be persisted at every checkpoint,
+  and a recovered draft MUST open read-only offering Resume, Restart, Discard and Keep.
+- **FR-094**: When part of a run fails, "keep what succeeded" MUST name every unit it did not apply
+  and why. A partial result MUST NOT be committed without an explicit acknowledgement, and a page
+  whose assembly failed MUST be removed rather than committed as an empty shell.
+- **FR-095**: A snapshot MUST be taken before any writing run so that "undo the whole generation"
+  restores a known state in one transaction, and undo of a single section MUST affect only that
+  section rather than replaying the history stack.
+
+### Planning, suggestion, and what the person is told
+
+- **FR-096**: Plan mode MUST send a request the assistant can distinguish from an ordinary one, and
+  MUST reach the same multi-section orchestration an unplanned request reaches. It MUST NOT be
+  possible to apply anything from Plan mode except through the plan card's single Apply.
+- **FR-097**: The plan card MUST show each step in the requester's language, what that step would
+  change (derived locally, without a further model call), and a cost estimate.
+- **FR-098**: The assistant MUST offer suggestions in four forms — ready examples before the first
+  message, follow-ups after every reply, suggestions for the current selection, and the plan itself
+  — derived from the registered catalog and the document wherever a model is not required, and
+  hidden rather than shown dead when a model IS required and unavailable.
+- **FR-099**: Token usage MUST reach the person. Every finished card MUST carry the run's input,
+  output and cached token counts; until the server reports them, an estimate MUST be shown and
+  labelled as one.
+
+### Measurement before promise
+
+- **FR-100**: Model tier selection MUST be a server-side decision the client cannot influence, and a
+  tier MUST NOT become the default for a stage until a recorded comparison shows it holds validator
+  pass rate, first-attempt rate, refusal and injection safety, copy relevance and the deterministic
+  visual gates, at a measured latency improvement.
+- **FR-101**: Any model-judged quality threshold MUST be derived from human agreement — inter-rater
+  agreement first, then correlation against the judge — and MUST remain advisory until that
+  correlation is established. Deterministic gates MUST be the blocking ones.
+- **FR-102**: Quality gates MUST exist in two places with one implementation: at runtime, where a
+  hard failure blocks the commit and names the page, the check and the element; and in CI, over
+  deterministically generated fixtures. A timing gate MUST NOT be asserted before it is measured.
+
 ### Key Entities
 
 - **Site**: The unit of work. Owns an ordered page set, its shared regions, its design system, its
@@ -678,6 +726,19 @@ the plan was validated.
   command restriction for one skill in one run.
 - **Agent Run**: A bounded state machine over skill resolution, context assembly, proposal,
   validation, optional grouped application, and one terminal result, identified by a run id.
+- **Draft**: A separate copy of the site a run writes into, seeded from the live one and identified
+  by its run. Previewed, committed once, or discarded. Never the published site.
+- **Run Journal**: The durable record of one run — its request, seed, limits, per-unit outcomes,
+  budgets consumed, and the snapshot taken before it began — written at every checkpoint so a reload
+  can resume rather than restart.
+- **Commit**: The single attributed transaction that moves a draft into the live site, refused when
+  the live fingerprint has changed since the run began.
+- **Suggestion**: An offered next step — a starter, a follow-up, a selection-scoped action, or a
+  plan step — derived from the catalog and the document where possible, and carrying either a
+  request to send or a plan to run through the ordinary validation door.
+- **Evidence File**: The durable record a live run writes: milestones with timestamps, the kernel's
+  own counters, the outcome, and whether the observation itself succeeded. A delivery is not
+  complete without one.
 
 ## Success Criteria _(mandatory)_
 

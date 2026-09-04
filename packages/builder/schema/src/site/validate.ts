@@ -1,6 +1,7 @@
 import { validateAssetReferences } from '../assets';
 import { LATEST_SCHEMA_VERSION, type BuilderDocument } from '../document/types';
 import { validateDocument } from '../document/validate';
+import { validateDesignSystem } from '../theme/validate';
 import {
   builderSiteSchema,
   LATEST_SITE_VERSION,
@@ -126,10 +127,37 @@ export function validateSite(value: unknown): SiteValidationResult {
   }
 
   /*
-    Wave 3 adds the validated DesignSystem and its contrast validator. The
-    issue code is public now, but this check intentionally remains a no-op
-    until that validator exists; do not duplicate contrast logic here.
+    Rule 9 (FR-014): the design system's declared pairings must be legible.
+
+    Delegated in full to `validateDesignSystem`, which owns the thresholds and
+    the fail-closed behaviour on a colour it cannot parse. Nothing about
+    contrast is computed here — a second implementation would be a second
+    answer to one question, and the two would drift.
+
+    This check was a written no-op until now. The issue code was public, the
+    contract listed the rule, and a site whose body text was unreadable against
+    its own background validated cleanly — which is the most expensive kind of
+    gap, because everything downstream is entitled to believe the validator.
   */
+  const designSystem = validateDesignSystem(site.designSystem);
+  if (!designSystem.ok) {
+    for (const issue of designSystem.issues) {
+      /*
+        Every design-system failure is reported under the contrast code, which
+        is narrower than what it carries: the validator also rejects an unknown
+        token, a missing one, a pairing naming a role that is not a colour, and
+        a system with no seed. The site contract publishes exactly one code for
+        this rule, so the CODE stays the contract's and the MESSAGE carries the
+        real reason — a reader is told what is wrong even when the label is
+        broader than the fault. Widening the union is a contract change and
+        belongs in a spec revision, not in a validator.
+      */
+      issues.push({
+        code: 'design-system-contrast-failure',
+        message: `Design system "${site.designSystem.name}": ${issue.message}`,
+      });
+    }
+  }
 
   return issues.length === 0 ? { ok: true, site } : { ok: false, issues };
 }

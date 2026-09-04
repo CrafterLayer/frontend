@@ -1,0 +1,30 @@
+{
+  "id": "27-empty-section-refused",
+  "title": "A section with nothing in it is not a section",
+  "category": "content",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Add a features section.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 8,
+    "anyBlockTypes": [
+      "features"
+    ]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Does the features section carry real feature text, or is it an empty container that satisfies the letter of the request?",
+  "why": "The laziest passing answer to a vague request is an empty shell: the block type is right, the page validates, and the person got nothing. This case exists so the coverage grader and the filler detector have a request that invites exactly that."
+}

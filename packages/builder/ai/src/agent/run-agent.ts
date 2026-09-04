@@ -8,6 +8,7 @@ import {
   resolveAiPolicyForGeneration,
   type GenerateAiPlanOptions,
 } from '../plan/generate-plan';
+import type { SalvagedAiPlan } from '../plan/salvage-plan';
 import type { AiPreparedSkillContext } from '../skills';
 import type { AiAgentEvent, AiAgentRunResult, RunAiAgentOptions } from './types';
 import { classifyAiRunFailure } from './errors';
@@ -99,9 +100,19 @@ function generationOptions(
   options: RunAiAgentOptions,
   provider: AiPlanProvider,
   onProgress?: (text: string) => void,
+  onSalvage?: (salvaged: SalvagedAiPlan) => void,
 ): GenerateAiPlanOptions {
   return {
     kernel: options.kernel,
+    /*
+      A run that reports to a person may keep the part of a rejected answer the
+      door accepts, because losing ten minutes of work over one bad step is a
+      worse answer than nine sections and a sentence saying which one was
+      dropped. The primitive leaves this off; the event below is what makes it
+      honest.
+    */
+    salvage: true,
+    ...(onSalvage === undefined ? {} : { onSalvage }),
     provider,
     request: options.request,
     validationPorts: options.validationPorts,
@@ -220,11 +231,18 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
     const provider = instrumentProvider(options.provider, options, emit, (context) => {
       assembledContext = context;
     });
-    const preparedOptions = generationOptions(options, provider, (text) => {
-      if (mayEmitLiveProgress(options) && text.trim().length > 0) {
-        emit({ type: 'plan.progress', text });
-      }
-    });
+    const preparedOptions = generationOptions(
+      options,
+      provider,
+      (text) => {
+        if (mayEmitLiveProgress(options) && text.trim().length > 0) {
+          emit({ type: 'plan.progress', text });
+        }
+      },
+      ({ kept, dropped }) => {
+        emit({ type: 'plan.salvaged', kept, dropped });
+      },
+    );
     const policy = resolveAiPolicyForGeneration(preparedOptions, skills);
     const plan = await generateAiPlanWithPreparedSkills(preparedOptions, skills, policy);
     assertRunActive(options);

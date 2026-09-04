@@ -9,8 +9,18 @@ export const DEFAULT_AI_MAX_OPERATIONS = 256;
  * Bulk patching is a kernel interoperability escape hatch, not an ordinary AI
  * editing primitive. A host must name it in `allowedCommands` for this run;
  * merely registering it never grants it to the model.
+ *
+ * `applySitePatches` joins it for the same reason and one more (013, ق٢): it is
+ * the door the host commits a finished DRAFT through, after fingerprinting the
+ * live site and diffing it. The agent's changes reach the site through that
+ * diff — never by the model choosing patch paths of its own, which would let a
+ * single step rewrite `designSystem`, `assets`, or another page entirely,
+ * bypassing every refusal the named site commands enforce.
  */
-const EXPLICIT_HOST_ALLOW_COMMANDS: ReadonlySet<string> = new Set(['applyPatches']);
+const EXPLICIT_HOST_ALLOW_COMMANDS: ReadonlySet<string> = new Set([
+  'applyPatches',
+  'applySitePatches',
+]);
 
 export interface AiCommandPolicy {
   allowedCommands?: readonly string[];

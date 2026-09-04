@@ -1,6 +1,6 @@
 import {
   canonicalizeJsonValue,
-  LATEST_SCHEMA_VERSION,
+  emptyDocument,
   validateDocument,
   type Author,
   type BlockSchemaLookup,
@@ -111,18 +111,14 @@ export interface BuilderKernel {
   flush(): Promise<number>;
 }
 
-export function emptyDocument(
-  surface: Surface = 'site',
-  dir: ContentDirection = 'ltr',
-): BuilderDocument {
-  return {
-    schemaVersion: LATEST_SCHEMA_VERSION,
-    surface,
-    dir,
-    rootId: 'root',
-    nodes: { root: { id: 'root', type: 'page', props: {} } },
-  };
-}
+/*
+  Re-exported, not declared. The definition moved to
+  `@craftkit/builder-schema` so `site-commands.ts` can mint a page's document
+  without importing this module — this module imports that directory, and the
+  pair would form a cycle. Every existing import of `emptyDocument` from the
+  kernel keeps working.
+*/
+export { emptyDocument } from '@craftkit/builder-schema';
 
 /**
  * Assemble the kernel: sealed store (Law S), validated single door (Law V),

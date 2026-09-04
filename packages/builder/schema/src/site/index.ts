@@ -5,14 +5,13 @@ export {
   sharedRegionIdSchema,
   sharedRegionKindSchema,
   sharedRegionSchema,
-  siteDesignSystemSchema,
+  siteNestedDocumentSchema,
   sitePageSchema,
   type BuilderSite,
   type PageId,
   type SharedRegion,
   type SharedRegionId,
   type SharedRegionKind,
-  type SiteDesignSystem,
   type SitePage,
 } from './types';
 

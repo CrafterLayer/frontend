@@ -83,11 +83,11 @@ C.
 
 ### 2b — Design tokens move to layer 0 (plan phase B, research R1)
 
-- [ ] T010 Move `ColorToken`, `MeasurementToken`, `TokenName`, and `Theme` from
+- [x] T010 Move `ColorToken`, `MeasurementToken`, `TokenName`, and `Theme` from
       `packages/builder/renderer/src/resolve/theme.ts` into
       `packages/builder/schema/src/theme/tokens.ts`, preserving the vocabulary and its explanatory
       comments exactly
-- [ ] T011 Re-export all four moved types from `packages/builder/renderer/src/resolve/theme.ts` so
+- [x] T011 Re-export all four moved types from `packages/builder/renderer/src/resolve/theme.ts` so
       no existing consumer import breaks (contracts/site-model.md §1)
 - [x] T012 Define `DesignSystem` (name, tokens, typography, pairings, seed) in
       `packages/builder/schema/src/theme/design-system.ts` per [data-model.md](./data-model.md) §2
@@ -101,7 +101,7 @@ C.
       that fails on exactly one pairing
 - [ ] T016 Resolve `--t-*` from site design-system data instead of the module constant in
       `packages/builder/renderer/src/resolve/theme.ts` and
-      `packages/builder/renderer/src/components/DocumentView.tsx`
+      `packages/builder/renderer/src/components/DocumentView/DocumentView.tsx`
 - [ ] T017 Write the renderer resolution tests in
       `packages/builder/renderer/src/resolve/theme.test.ts` proving a site token change reaches
       every page with no page regeneration (FR-012)
@@ -119,33 +119,33 @@ C.
 
 ### 2d — Schema public API
 
-- [ ] T021 Export the site, theme, and asset surfaces from `packages/builder/schema/src/index.ts`
+- [x] T021 Export the site, theme, and asset surfaces from `packages/builder/schema/src/index.ts`
       (contracts/site-model.md §1)
-- [ ] T022 Run the schema gate: `pnpm --filter @craftkit/builder-schema lint typecheck test` and
+- [x] T022 Run the schema gate: `pnpm --filter @craftkit/builder-schema lint typecheck test` and
       `pnpm check:workspace`
 
 ### 2e — Site commands and grouped dispatch, `@craftkit/builder-core` (layer 1)
 
-- [ ] T023 Implement `addPage`, `removePage`, `renamePage`, `reorderPage` with their zod arg schemas
+- [x] T023 Implement `addPage`, `removePage`, `renamePage`, `reorderPage` with their zod arg schemas
       in `packages/builder/core/src/commands/site-commands.ts`
-- [ ] T024 Implement `setSharedRegion`, `setPageRegions`, `setDesignToken`, `setDesignSystem`,
+- [x] T024 Implement `setSharedRegion`, `setPageRegions`, `setDesignToken`, `setDesignSystem`,
       `registerAsset` in `packages/builder/core/src/commands/site-commands.ts`
-- [ ] T025 Register the site commands and widen `CoreCommandName` in
+- [x] T025 Register the site commands and widen `CoreCommandName` in
       `packages/builder/core/src/commands/core-commands.ts`
-- [ ] T026 Write the refusal tests in `packages/builder/core/src/commands/site-commands.test.ts` for
+- [x] T026 Write the refusal tests in `packages/builder/core/src/commands/site-commands.test.ts` for
       all six refusals in [contracts/site-model.md](./contracts/site-model.md) §2 — each must be a
       validation failure with NO partial write
-- [x] T027 Implement `dispatchGroup()` in `packages/builder/core/src/commands/dispatch-group.ts` —
+- [x] T027 Implement `dispatchGroup()` in `packages/builder/core/src/commands/dispatch.ts` —
       all-or-nothing, one history entry, one `author`, a human label. This closes the
       `mode: 'sequence'` gap that FR-034 and FR-037 require (research R5)
 - [x] T028 Write `dispatchGroup` tests in
-      `packages/builder/core/src/commands/dispatch-group.test.ts` proving one undo step reverses the
+      `packages/builder/core/src/commands/group-dispatch.test.ts` proving one undo step reverses the
       whole group, and that a mid-group failure applies nothing
 - [x] T029 Verify the log/history-before-`store.write` ordering still holds for grouped dispatch in
-      `packages/builder/core/src/commands/dispatch-group.test.ts` (003 contract §15 — uSES snapshots
+      `packages/builder/core/src/commands/group-dispatch.test.ts` (003 contract §15 — uSES snapshots
       are read synchronously inside the notification)
-- [ ] T030 Export `dispatchGroup` and the site commands from `packages/builder/core/src/index.ts`
-- [ ] T031 Run the core gate: `pnpm --filter @craftkit/builder-core lint typecheck test`
+- [x] T030 Export `dispatchGroup` and the site commands from `packages/builder/core/src/index.ts`
+- [x] T031 Run the core gate: `pnpm --filter @craftkit/builder-core lint typecheck test`
 
 ### 2f — Site codec and the composed round-trip law, `@craftkit/builder-transforms` (layer 2)
 
@@ -191,7 +191,7 @@ C.
 
 ### 2h — Preset surface and foundational gate
 
-- [ ] T046 Re-export the site, design-system, asset, and `dispatchGroup` surfaces from
+- [x] T046 Re-export the site, design-system, asset, and `dispatchGroup` surfaces from
       `packages/builder/editor/src/index.ts` so apps keep importing only `@craftkit/builder`
 - [ ] T047 Run the foundational gate: `pnpm check:workspace`, `pnpm check:boundaries`, `pnpm lint`,
       `pnpm typecheck`, `pnpm test` — record pnpm's own exit code
@@ -365,18 +365,18 @@ stage.
 
 ### `SitePages` component — `@craftkit/builder-shell` (layer 3)
 
-- [ ] T072 [US1] Implement `SitePages` in
+- [x] T072 [US1] Implement `SitePages` in
       `packages/builder/shell/src/components/SitePages/SitePages.tsx` — listbox semantics, roving
       focus, Home/End, RTL mirror, a NAMED focus destination after delete
-- [ ] T073 [US1] Add the local export in `packages/builder/shell/src/components/SitePages/index.ts`
-- [ ] T074 [US1] Write typed CSF stories in
+- [x] T073 [US1] Add the local export in `packages/builder/shell/src/components/SitePages/index.ts`
+- [x] T074 [US1] Write typed CSF stories in
       `packages/builder/shell/src/components/SitePages/SitePages.stories.tsx` — default, single
       page, many pages, reordering, empty, RTL, with a `play` interaction for keyboard reorder
-- [ ] T075 [US1] Write `packages/builder/shell/src/components/SitePages/SitePages.docs.mdx`
-- [ ] T076 [US1] Write behavioural tests in
+- [x] T075 [US1] Write `packages/builder/shell/src/components/SitePages/SitePages.docs.mdx`
+- [x] T076 [US1] Write behavioural tests in
       `packages/builder/shell/src/components/SitePages/SitePages.test.tsx` — add, remove, rename,
       reorder, and the focus destination after delete asserted by NAME, not by `not.toHaveFocus()`
-- [ ] T077 [US1] Export both components from `packages/builder/shell/src/index.ts` and re-export
+- [x] T077 [US1] Export both components from `packages/builder/shell/src/index.ts` and re-export
       from `packages/builder/editor/src/index.ts`
 
 ### `SiteBriefForm` component — `apps/playground`
@@ -530,7 +530,7 @@ changed only its target and undoes in one step.
 navigation entry appear without editing any other page.
 
 - [ ] T115 [US4] Implement shared-region composition in
-      `packages/builder/renderer/src/components/DocumentView.tsx` so a page renders its referenced
+      `packages/builder/renderer/src/components/DocumentView/DocumentView.tsx` so a page renders its referenced
       regions
 - [ ] T116 [US4] Implement navigation derivation from the page set in
       `packages/builder/extensions/blocks-marketing/src/components/NavLinks/NavLinks.tsx`
@@ -1514,4 +1514,718 @@ one gate that never existed — "does the process start" — now does.
       committed. Gates: evals 137, playground 286, mcp-server 13, blocks-marketing 310, headless
       door 6; lint and typecheck clean on all five; workspace contract 33 members.
 
-**Total after the tooling phase**: 281 tasks.
+---
+
+## Phase Zero — four falsifiable spikes before any delivery (plan v3)
+
+The approved plan asks one question of itself: what turns a 9/10 plan into a 3/10 delivery? In this
+repository the answer is documented — an earlier plan promised seven things and delivered three, and
+`flush()` would have passed every unit test while never storing a draft. So four architecture
+questions were answered by throwaway code with pass/fail criteria written BEFORE the code, and the
+plan changes on a failure rather than the implementation being forced to fit.
+
+- [x] T282 [US10] **S1 — a page lens over ONE site kernel.** Question: can a lens satisfy the whole
+      `BuilderKernel` surface over a single site kernel, so a group touching several pages is one
+      immer produce, one transaction and one undo, while node subscriptions stay page-scoped? The
+      rejected alternative is N page kernels with a coordinator: N histories make an undo of an older
+      group wrong once any page is hand-edited after it, and N append logs turn a conflict on page 3
+      into a torn write `persist/seq-conflict` cannot express. **Answer: yes**, in
+      `packages/builder/core/src/site/site-kernel.spike.{ts,test.ts}`, 13 tests.
+      Three findings the plan did not have. (a) `applyPatchSet` (`patches/apply.ts`) is typed to
+      `BuilderDocument`, so a site cannot use it — it is a thin wrapper over immer's generic
+      `applyPatches`, so D2 adds a sibling, not a mechanism. (b) The first NINE tests all passed
+      against a deliberately wrong implementation (one produce per step): atomicity survives because
+      the write happens once, but the inverses are then recorded against intermediate states and
+      undo breaks on ARRAYS. A tenth test — two inserts into one slot, then undo — is what catches
+      it, and every future atomicity claim needs an array case rather than a `setProp` case.
+      (c) An adversarial review found `changedPageNodes` returned an EMPTY key set for any
+      structural change to `pages`: immer coalesces an insert or reorder into whole-element patches
+      and the node path disappears, so every subscriber stayed silent while the document under it
+      moved. Structural changes are now declared as such and wake everyone. Also fixed: `write` threw
+      AFTER the commit and before `tx.applied` when a group renamed a page id, tearing a transaction
+      that had succeeded.
+
+- [x] T283 [US10] **S2 — how a draft is seeded and resumed.** Question: does
+      `takeOver(draft:<runId>, live.getDocument(), 0)` then `openDocument` produce a draft a SECOND
+      reader sees byte-identically before any transaction, and resume after a reboot? **Answer:
+      yes**, `apps/playground/src/features/vault/drafts.spike.test.ts`, 7 tests.
+      The value is in the two tests that reproduce the route it replaces. `createBuilder({document,
+      persistence})` + `flush()` never stores the SEED, because `flush()` returns early with no
+      pending transactions (`create-builder.ts:215`) — and the consequence is worse than "nothing is
+      stored": after the first dispatch the transaction IS stored on top of the adapter's own
+      fixture, and the replay then throws `path doesn't resolve`, so the draft cannot be opened at
+      all. Whether one gets a hard failure or a plausible-looking wrong document depends only on
+      whether the fixture happens to contain the nodes the run touched. A third test finally pins
+      what `takeOver` is FOR — truncating a stale tail — which nothing in this repo asserted.
+
+- [x] T284 [US10] **S3 — the commit door.** Question: can a draft land as ONE transaction attributed
+      to the AI, with a label, reversed by ONE undo, refused with zero writes when the live document
+      moved? **Answer: yes**, `apps/playground/src/features/vault/commit-draft.spike.test.ts`,
+      7 tests. `restoreDocument` hardcodes `author: 'codeview'` (`restore.ts:68`) while the spec
+      requires agent attribution; the same projection route carries `'ai'` and a label without
+      changing shipped code. Proved additionally: a REMOVAL commits (the deletion half of the diff),
+      and the node ids the DRAFT minted survive the crossing — which is the reason the plan commits
+      patches rather than replaying the run's steps, since a replay would re-mint every id through
+      the live port. An empty `catch` that swallowed its own assertion failure was removed.
+
+- [x] T285 [US10] **S4 — the evidence driver.** Earlier verification notes in this repo cite "live
+      Playwright proof", but there is no Playwright project: those runs were a person driving an MCP
+      browser by hand — unrepeatable, ungateable, nothing to diff. `apps/evals/src/live/
+      drive-playground.ts` is a written Node driver (Playwright + Node builtins only, no workspace
+      imports) that drives the real playground and writes `evidence/live/<stamp>-<name>.json`.
+      It witnesses; it never judges, so it cannot be gamed into passing.
+      Four field findings. `fill` does not send in this panel — the text appears, the control takes
+      focus, nothing is sent — so it types and presses Enter and waits for the thread ECHO, not a
+      click. The transaction counter is a LOG length that undo does not decrease, so undo is
+      witnessed through the editor's Undo/Redo controls. TWO buttons are named "Undo" once a plan is
+      applied, which is a real accessibility ambiguity for D8. And from the review: the settle signal
+      hung forever on an approval-gated build (`busy` stays true while waiting for a human), and the
+      exit code was inverted — the driver's own blindness exited 0 while a product refusal exited 1.
+      Both fixed; `observed` is now the single fact the exit code reads.
+      Live proof: `evidence/live/2026-09-04T14-12-36-phase-zero.json` — `outcome: undone`,
+      `observed: true`, zero console errors.
+
+- [x] T286 [US10] **Phase Zero's exit gate: two independent reviews, not the author's own.** An
+      adversarial pass over S1–S4 (four lenses, each judged by a second agent that had to reproduce
+      every objection) returned **34 confirmed findings**, and three of them contradicted what the
+      author had reported. (1) "The compiler proves the eighteen members" was FALSE: an
+      `as unknown as` cast on `extensions` dropped `has` and `version`, both called by shipped code
+      in the renderer, `use-registry-version` and the shell's Palette — the count was disabled
+      exactly where it mattered. (2) "The gates are green" was incomplete: `test:coverage` is part of
+      root `verify`, was never run, and was RED with the spike as the sole cause (measured: 94.3 /
+      85.3 / 97.9 without it). (3) The S2 trap description was wrong in the direction of kindness.
+      Every high and medium finding is fixed; the low ones are fixed or recorded.
+      Gates after: builder-core 146 with coverage 94.3/85.3/97.9, playground 301, evals 141,
+      workspace 33 members, repository typecheck 30/30, lint clean in every touched package.
+      **Recorded, not fixed**: `pnpm check:components` is RED with 11 missing artifacts in
+      `custom-code` and `renderer/CustomCode` — committed code, untouched by this work and not under
+      edit. It blocks `verify` and needs its own delivery.
+
+- [x] T287 [US10] **An audit of T001–T047 against the code, by clause and not by name.** The rule was
+      that a similarly-named symbol is not evidence. Result: **16 done, 5 partial, 26 absent**, and
+      four corrections to the plan's own guesses. The asset contract (T018–T020) is real and complete
+      — deep-scanning including `responsive` overrides, cycle-guarded, wired into `validateSite` —
+      so the assets delivery shrinks. T012–T015 are genuinely done, with the token vocabulary
+      compiler-locked by `satisfies` and the validator failing CLOSED on an unparseable colour.
+      T027–T029 are done despite the task naming a file that does not exist: the implementation is
+      `dispatch.ts:99` and the tests are `group-dispatch.test.ts`; amend the path, do not move
+      working code.
+      The four partials, by their unmet clause, which is what D2 starts from:
+      **T004** `BuilderSite.designSystem` is `SiteDesignSystem` (`site/types.ts:19`), a
+      `Record<string,string>` bridge, not the `DesignSystem` that already exists at
+      `theme/design-system.ts:137`. **T005** rule 9 (`design-system-contrast-failure`, FR-014) is
+      unimplemented — `site/validate.ts:124-128` is a comment declaring the check a deliberate
+      no-op. **T006** the contrast test asserts only that the string constant exists and that a
+      VALID site does not emit it; no failing pairing is ever constructed. **T007**
+      `siteFromDocument` returns `{ name: 'Default', tokens: {} }` where data-model §1 requires the
+      current `lightTheme` values.
+      Two further path corrections for this file: T016 names
+      `renderer/src/components/DocumentView.tsx` where the real file is
+      `components/DocumentView/DocumentView.tsx`, and T002's target
+      `packages/builder/schema/src/testing/` does not exist.
+
+- [x] T288 [US10] **The eval harness can now compute the two headline gates.** "Success without
+      repair ≥ 90%" and "success after repair ≥ 97%" were uncomputable: the harness recorded the
+      outcome and nothing else, so a run that got it right first time and a run that needed a
+      correction were the same number. `EvalRunOutput.metrics` gains `attempts`, `repaired` and
+      `salvaged` (kept/dropped), read off events the runner already emits. A salvage is reported
+      BESIDE the outcome, never folded into it: counting a partial result as a pass would let the
+      success rate rise while the product delivered less. Three mutations checked — removing any one
+      of the three recordings fails a test. Also raised: the live eval timeout was 300s against the
+      playground's 660s, so a live run would have aborted healthy work and recorded it as a provider
+      failure — precisely at the cases that take longest. Pinned by a test. And the endpoint-path
+      question the plan carried is answered more strongly than a `curl` could: `apps/ai-server`
+      does not route by path AT ALL (no `request.url`, no `pathname`), so `/ai/plan` and `/plan`
+      reach the same handler.
+
+---
+
+## The 146 unfinished tasks, each with the delivery that owns it
+
+No task is deleted. Deliveries are from the approved plan v3 (`~/.claude/plans/`); the audit in T287
+is what decides which are already done rather than which look done.
+
+| Tasks | Count | Delivery | Note |
+|---|---|---|---|
+| T001–T003 | 3 | D-1 | T001 re-recorded with today's numbers |
+| T004–T009 | 6 | D-1 verify → D2 finish | 3 done, 3 partial with their exact unmet clause (T287) |
+| T010–T011, T021–T026, T030–T031 | 10 | D2 | site substrate in the kernel |
+| T016–T017 | 2 | D9 | tokens resolved from site data |
+| T018–T020 | 3 | — | **already done** (T287); the assets delivery shrinks accordingly |
+| T032–T047 | 16 | D6 | site codec, transform scopes, preset surface, foundational gate |
+| T048–T055, T057–T066 | 18 | D6 | the five-stage pipeline; absent by construction, no `pipeline/` dir |
+| T056 | 1 | D7 | the remote stage provider, which needs the server handoff |
+| T072–T077 | 6 | D3 | `SitePages` |
+| T078–T085 | 8 | D8 | `SiteBriefForm`, composition, US1 gate |
+| T086–T103 | 18 | D9 | design system, its panel, the swatch grid |
+| T104–T114 | 11 | D10 | refinement |
+| T115–T121 | 7 | D11 | shared regions |
+| T122–T128 | 7 | D12 | responsiveness |
+| T129–T143 | 15 | D13 | asset selection, rendering, picker |
+| T144–T148 | 5 | D14 | evaluation; blocked on three independent raters (SC-006) |
+| T149–T158 | 10 | D15 | ADR, docs, review, full gate, converge, handoff |
+
+## The promise ledger
+
+The rule this table exists to enforce: **a promise is closed by an evidence file, never by a green
+test alone.** It is what stopped "four of seven promises missing" from being discovered months late.
+
+| The promise, as the owner sees it | Delivery | Closed by |
+|---|---|---|
+| Plan mode plans, writes nothing, and shows the plan with ONE Apply | D1 | a negative test ("no Apply anywhere in the tree") + a live evidence file |
+| Ready examples before the first message, in both languages, from the real catalog, returning after a conversation | D1 | derivation test against `registry.blocks()` + screenshot |
+| Follow-ups after every reply, working with no server | D1 | `followUp` emitted by the local provider, under test |
+| Suggestions for whatever is selected | D1 | derivation test from the selected block's schema |
+| A half-built page never reaches the live document | D4 | the door spy counting writes + `evidence/live/*.json` |
+| One undo reverses a whole generation | D4 | S3's proof, re-run live |
+| Nothing is written after Stop | D4 | spy count after `run.cancelled` |
+| A refresh mid-run loses nothing, and Resume continues | D4 | S2's proof + a reload scenario in the driver |
+| "Keep what succeeded" names what it did not apply | D4 | `keep-succeeded` test + screenshot |
+| A real token counter on every card | D7 | `plan.usage` in a live evidence file; until the server ships it, labelled "estimate" |
+| Undo of one task touches only that section | D4 | a test that asserts the neighbours are untouched |
+| Jump to section, and a summary of what changed | D4 | test + screenshot |
+| A cost estimate before approving | D4 | screenshot of the approval card |
+| One brief becomes a four-page site | D6 | `evidence/live/*.json` for a site run |
+| Faster, by a measured tier decision | D7 | `evaluation/tier-comparison-<date>.md` |
+| Zero overflow, overlap, contrast or critical accessibility failures | D5, D12 | Chromium stories + runtime gate results in the evidence |
+| Header and footer across pages; a palette that moves the whole site; real images or a named absence; an edit that stays local | D11, D9, D13, D10 | the user-story gates |
+| "10/10" | D14 | the human evaluation report, three independent raters |
+
+---
+
+## Phase Zero+ — the deliveries that implement FR-090 … FR-102
+
+`/speckit-analyze` found the gap this section closes: thirteen requirements were encoded with ZERO
+tasks behind them. Requirements without tasks are how a plan quietly becomes a wish, which is the
+failure this whole phase exists to prevent — so each one below names its requirement, its delivery,
+and the evidence that closes it.
+
+### D1 — Plan mode and suggestions
+
+- [ ] T289 [P] [US10] Add the `craftkit.plan-mode` skill (GOAL · OUTLINE · ALTERNATIVES · RISK; a
+      `title` per step; a `followUp` naming the next stage) and register it through the existing
+      `createCraftkitAiSkillRegistry(additional)` door — no wire change, and the mode shows as a
+      pinned activation on the card. **FR-096.**
+- [ ] T290 [US10] Remove the `mode !== 'plan'` gate in `AssistantPanel.tsx` so a page-sized request
+      in Plan mode reaches the multi-section orchestrator instead of becoming one oversized call,
+      and pass `onPlanned` in Plan as well as Ask. **FR-096.**
+- [ ] T291 [US10] Close the write path: `PreviewDialog` takes `canApply`, `accept()` refuses a
+      Plan-mode application that did not originate on the card, and a NEGATIVE test asserts no Apply
+      control exists anywhere in the tree in Plan mode. **FR-096.**
+- [ ] T292 [US10] The plan card shows each step in the requester's language, what it would change
+      (from `previewAiPlan` plus a node diff — no second model call), a cost estimate from
+      `estimateAiPlanWireRequestTokens`, and ONE Apply. **FR-097, FR-099.**
+- [ ] T293 [P] [US10] Suggestions in four forms from one `Suggestion` type and one `SuggestionChips`
+      component: starters derived from `registry.blocks()` and the locale and returning after a
+      conversation; follow-ups from the applied plan, from `followUp`, and from `plan.salvaged`'s
+      dropped steps; selection-scoped suggestions from the selected block's schema; and the plan
+      itself. Direct plans run through `createDirectPlanProvider` so they pass the ordinary
+      validation door. Model-only suggestions are hidden, not shown dead, when no server is
+      configured. **FR-098.**
+- [ ] T294 [P] [US10] Persist the assistant mode in `PersistedPanelState`, and replace the vacuous
+      `followUp` assertion at `assemble-context.contract.test.ts:337` (it asserts a property that
+      lives one level deeper, and contradicts the `toMatchObject` three lines above it). **FR-098.**
+
+### D4 — Draft, journal, commit
+
+- [ ] T295 [US10] `vault/drafts.ts`: seed a draft through `takeOver` then `openDocument` (never
+      `createBuilder` + `flush()`, which stores no seed), list drafts, sweep by age, and capture the
+      live fingerprint at run start. **FR-090, FR-092.**
+- [ ] T296 [US10] `vault/run-journal.ts`: the durable record — request, seed, limits, per-unit
+      outcomes with reasons, budgets consumed, and the pre-run snapshot id — written at every
+      checkpoint, swept by TTL, with an orphaned `running` record recovered as `stopped`. **FR-093.**
+- [ ] T297 [US10] `commitDraft`: refuse a changed fingerprint with a readable reason and zero
+      writes; otherwise land the diff as ONE `dispatchGroup` attributed `ai` with a human label.
+      Untouched pages produce no patches. **FR-091, FR-092.**
+- [ ] T298 [US10] `keepSucceeded` → `KeepPlan`: a page is kept only if its unit completed AND its
+      document validates; a failed page is REMOVED rather than committed as an empty shell; shared
+      regions are recompiled locally so navigation never targets a dropped page; every unit not
+      applied is named with its reason; and a commit carrying any partial requires an explicit
+      acknowledgement. **FR-094.**
+- [ ] T299 [US10] A pre-run snapshot of kind `auto` with its own cap, so "undo the whole generation"
+      restores it in one transaction; and per-task undo that removes or restores only that section
+      rather than looping the history stack. **FR-095.**
+- [ ] T300 [US10] The `interrupted` turn with Resume, Restart, Discard and Keep, reading the run
+      journal so Resume continues from the first unit still waiting. **FR-093.**
+- [ ] T301 [P] [US10] Jump to section, a change summary computed from the commit's patches, a cost
+      estimate on the approval card, a token budget in `stopReason()`, and the promised stories
+      `StoppedWithReceipt`, `SlowRun`, `Interrupted`. **FR-097, FR-099.**
+
+### D5 — Quality gates, in both places
+
+- [ ] T302 [US10] One implementation of the deterministic checks — contrast, overflow, overlap,
+      heading order, internal links, duplicate ids, empty sections, placeholder text, direction —
+      split between a DOM-free module in `builder-ai/src/quality/` and a layout module in the
+      playground. **FR-102.**
+- [ ] T303 [US10] Runtime: run them against the draft in a hidden iframe at 360/768/1024/1440; a
+      hard failure disables the commit for that page and names the page, the check and the element.
+      **FR-102.**
+- [ ] T304 [US10] CI: `generated-sites.stories.tsx` built from the offline provider with fixed
+      seeds, inheriting the existing `a11y: { test: 'error' }` gate; plus a screenshot producer that
+      finally feeds the visual comparator, which has no caller today. **FR-102.**
+
+### D7 — Usage and tiers
+
+- [ ] T305 [US10] `WireUsage` on the response and `tier`/`stage`/`intent` on the request, all
+      optional and backward-compatible; `onUsage` → `plan.usage`/`stage.usage` → a usage ledger that
+      totals a run by stage, by tier and by cached share. **FR-099, FR-100.**
+- [ ] T306 [US10] The tier comparison: both tiers over the corpus, comparing validator pass rate,
+      first-attempt rate, refusal and injection safety at parity, copy relevance, the deterministic
+      visual gates and latency; the default flips only when every one of them holds, and the
+      decision is written to `evaluation/tier-comparison-<date>.md`. **FR-100.**
+- [ ] T307 [US10] The server handoff, written as a contract test the other session can run
+      unchanged: read `stage`/`tier`/`intent`, map stage to model server-side, refuse a client-sent
+      model, and put `usage` on the result frame. **FR-100.**
+
+### D14 — Thresholds derived, not declared
+
+- [ ] T308 [US10] Keep the model critic advisory at weight zero until the blind comparison
+      (≥ 3 independent raters, ≥ 5 briefs — SC-006) yields inter-rater agreement, then correlate the
+      critic against the human medians and derive each threshold from that curve. Deterministic
+      gates remain the blocking ones throughout. **FR-101.**
+
+---
+
+## D2 begins — the four partials the audit named, closed
+
+- [x] T309 [US10] **The site's design system is the validated one (T004).** `BuilderSite.designSystem`
+      was `SiteDesignSystem`, a `Record<string, string>` self-labelled a "Wave 2 bridge", while the
+      real `DesignSystem` had existed at `theme/design-system.ts:137` since T012. The bridge accepted
+      a token name the renderer has no custom property for — a value that resolves to nothing at
+      paint time and reports no error anywhere. Replaced, with a new `designSystemSchema` closing the
+      key set against `TOKEN_NAMES`. The bridge was DELETED rather than deprecated: it had no
+      consumer left, no site was ever stored against it (v1 is the only version and nothing shipped),
+      and the lint rule against re-exporting a deprecated symbol turned "keep it for one release"
+      into eight errors across the package's public surface.
+
+- [x] T310 [US10] **Rule 9 stopped being a comment (T005, T006, FR-014).** `site/validate.ts` carried
+      a written no-op saying the contrast check "intentionally remains a no-op" — so a site whose
+      body text was invisible against its own background validated cleanly, and everything downstream
+      is entitled to believe the validator. Now delegated in full to `validateDesignSystem`; no
+      contrast logic is computed here, because a second implementation is a second answer.
+      The old test asserted only that the issue code existed as a string and that a VALID site did
+      not emit it — true of a no-op. The new tests construct a failing pairing and an invented token.
+      Mutation-checked: restoring the no-op fails them.
+      One honesty note recorded in the code: the site contract publishes ONE code for this rule while
+      the validator raises five kinds of fault, so the CODE stays the contract's and the MESSAGE
+      carries the real reason. Widening the union is a spec revision, not a validator change.
+
+- [x] T311 [US10] **A lifted page arrives renderable (T007) — and the starter theme moved to layer 0
+      (T010/T011's precedent, extended to the values).** `siteFromDocument` returned
+      `{ name: 'Default', tokens: {} }`: a design system that resolves to no colour at all, and one
+      that would have made every migrated site INVALID the moment T310 landed. The two fixes would
+      have silently fought.
+      `lightTheme`/`darkTheme` and the shared measurements moved from `renderer/src/themes.ts` into
+      `schema/src/theme/default-theme.ts`; the renderer re-exports them, exactly as `resolve/theme.ts`
+      already does for the token TYPES, so every existing import keeps working and one set of starter
+      values exists in the repository.
+      `defaultDesignSystem()`'s pairings were MEASURED, not assumed. Six clear 4.5:1 — `text` on
+      `surface` 17.74, `textInverse` on `surfaceInverse` 16.98, `accentText` on `accent` 6.29,
+      `accent` on `surface` 6.29, `successText` on `success` 5.48, `textMuted` on `surface` 4.83.
+      Three are deliberately NOT declared, and not because they fail: `text` on `surfaceInverse`
+      measures exactly 1.00 because they are the same hex — the dark panel IS the dark ink, and
+      declaring the pair would be declaring a mistake in order to forbid it.
+      The validator also caught a claim in the first draft: it required a non-empty seed, and the
+      default had `seed: ''` with a comment arguing that a system nobody generated has no history.
+      Wrong — a seed makes a system reproducible, and a fixed starter is the most reproducible kind
+      there is. It is `'starter-light'`.
+      Gates: schema 290 tests, renderer 155, core 146, transforms 106; repository typecheck 30/30;
+      lint clean in every touched package.
+
+- [x] T312 [US10] **Eight corpus cases for what nothing could see.** The harness measured which
+      blocks a plan inserted and never whether the page's own references resolve, whether three of
+      one section are three or one repeated, whether a whole Arabic page stays Arabic, whether an
+      edit stays where it was asked, whether a count is honoured, or whether an over-sized request is
+      REPORTED rather than quietly truncated (FR-025). Corpus 24 → 32, still offline in 2 seconds:
+      26 pass, 6 fail, 0 errors.
+      Seven of the eight passed immediately. The eighth found a root cause, and it is not the model:
+      the block EXAMPLES carry unsplash URLs — `Gallery`, `Image`, `ProductGrid`, `PortfolioGrid`,
+      `BlogGrid`, `ContentSection` and `templates.ts` — and those examples are what the assistant is
+      SHOWN as few-shots. The catalog is teaching the behaviour FR-045 forbids, so no prompt change
+      could fix it; replacing the examples' image props with asset references will, in the asset
+      delivery. The case stays red with its cause written into it, because a red case with a known
+      cause is a measurement and relaxing it would delete the only thing that noticed.
+
+- [x] T313 [US10] **The default design system, corrected against an independent analysis.** A read-only
+      Codex analyze pass (`gpt-5.6-sol`, high) was pointed at the live T311 draft and found four real
+      defects in it. All four are fixed, each with a test that fails when the fix is removed:
+      (1) `tokens: lightTheme` handed every caller the SAME object, so one site's colour edit would
+      have repainted every other site built from the default — invisible to any test that builds one
+      site; now `{ ...lightTheme }`.
+      (2) The typography stacks were hand-retyped and had silently dropped `Noto Sans Arabic`, the
+      fallback that decides whether Arabic body text renders in the intended face in a bilingual
+      product; they now read `tokens.fontFamilySans`.
+      (3) `accentText` on `surfaceInverse` measures 17.74 and IS rendered — `Hero.test.tsx:104` and
+      `PageHeader` — so omitting it from `pairings` under-declared a real, safe combination. Seven
+      pairings now, not six.
+      (4) The starter was renamed to "Starter Light"; T007 asks for real tokens, not a new name. It
+      is `'Default'` again — the name the migration has always produced.
+      Also recorded, from the same analysis: changing `designSystem`'s persisted shape without
+      bumping `LATEST_SITE_VERSION` is safe ONLY because nothing has ever persisted a site
+      (`siteVersion` appears in `schema/src/site/` and one spike test, nowhere else). That reasoning
+      is now a comment on the constant, so the next reader sees the condition rather than the
+      conclusion.
+      Gates: schema 294 tests (4 new), renderer 155, core 146.
+
+- [x] T314 [US10] **`emptyDocument` moved to layer 0.** `addPage` has to mint a page's document, it
+      lives in `core/src/commands/`, and `create-builder.ts` imports that directory — so calling the
+      kernel's `emptyDocument` from a site command would have closed an import cycle, and declaring a
+      second one beside the site commands would have been two answers to what a new page starts as.
+      Moved to `schema/src/document/empty-document.ts`; `create-builder.ts` re-exports it, so every
+      existing import kept working. Same pattern as T010/T011.
+
+- [x] T315 [US10] **`applyOnePatch` extracted (`core/src/patches/apply-one-patch.ts`).**
+      `applySitePatches` needs the identical walk over a `BuilderSite` that `applyPatches` performs
+      over a document, including the own-property guard that stops `["nodes", "__proto__"]` from
+      reaching the prototype. Duplicating it would have meant the guard gets fixed in one copy and
+      not the other. The root is `unknown` and the caller passes its own error code, so a thrown
+      error still names the document or the site. Behaviour-preserving: core stayed at 146 tests
+      through the extraction.
+
+- [x] T316 [US10] **The eleven site commands are the site's single door (T023–T026, T030, T031).**
+      `core/src/commands/site-commands.ts`, authored through a new `defineSiteCommand` whose
+      `apply` parses args before any handler runs — Law V, stated separately from `defineCommand`
+      because a site command's producer takes a `BuilderSite` and a page command's takes a
+      `BuilderDocument`, and a shared generic would let one be registered in the other's map with the
+      mistake surfacing only inside a producer.
+      **T025's literal instruction is unbuildable and was superseded, not skipped.** It asked for the
+      site commands to be registered in `coreCommands` with `CoreCommandName` widened; that map's
+      value type is `RegisteredCommand`, whose producer signature takes a document. The plan's ق١
+      (informed by S1) already replaced it with a site kernel over which page lenses are views. What
+      the dispatcher actually needs from T025 — one namespace, so `dispatchGroup([{addPage},
+      {setProp}])` routes each step to the draft it belongs to inside ONE production — is
+      `isSiteCommandName`, exported alongside the map.
+      **The refusals are the contract.** All six from `contracts/site-model.md` §2 are enforced and
+      tested, each asserting the throw AND that the draft is byte-identical afterwards: a duplicate
+      address; the home page (which is also the last remaining page in any valid site); an unheld
+      shared region; a token outside `TOKEN_NAMES`; a design system whose pairings fail contrast; and
+      an asset reference the site does not hold. Two more the contract implies: `setSharedRegion`
+      refuses a region document whose direction disagrees with the site or that `validateDocument`
+      rejects, and it refuses to DELETE a region a page still points at.
+      Three refusals go beyond validation into honesty: `renamePage` with neither field, and
+      `setSiteDirection` to the direction the site already has, both refuse rather than open a
+      transaction that changes nothing and costs the user an undo step; `registerAsset` refuses a
+      duplicate id rather than overwriting, because an id is a content identity documents already
+      reference by name.
+      `setSiteDirection` turns the site, every page, and every shared region in ONE production —
+      otherwise the site is invalid by `page-direction-mismatch` on every page, and an undo could
+      land on the broken half.
+      `applySitePatches` mirrors `applyPatches`: it refuses a `siteVersion` change (Law M) and
+      validates the WHOLE site, because its input comes from a diff rather than from a handler that
+      preserves invariants by construction. It is host-owned — added to
+      `EXPLICIT_HOST_ALLOW_COMMANDS` in `ai/src/skills/command-policy.ts`, so the agent commits a
+      fingerprinted draft through it but can never name it in a plan of its own.
+      Mutation-checked, five separate runs: removing the FR-014 contrast guard, the page-direction
+      sweep, the site-direction birth of a new page, the asset-reference guard, or the host gate each
+      fails exactly one named test and nothing else.
+      One defect the tests found in their own scaffolding, worth recording: `registry.block(type)`
+      returns the REGISTERED block (schema plus renderer), not the schema. Passing it straight into
+      `CommandRuntime.blocks` typechecks and then crashes inside `validatePropsAgainstSchema`; the
+      kernel builds it as `registry.read.block(type)?.schema` (`create-builder.ts:148`).
+      Gates: core 191 tests (146 → 191), typecheck and lint clean; `@craftkit/builder-ai` 446;
+      `@craftkit/builder` typecheck and lint clean with the site door published.
+
+- [x] T317 [US10] **The site kernel: S1 promoted to shipped code.** `core/src/site/` gains
+      `site-store.ts`, `site-dispatcher.ts`, `page-view.ts` and `create-site-builder.ts`, plus the
+      site-typed `applySitePatchSet` the spike said the delivery would need. `createSiteBuilder`
+      exports through `@craftkit/builder-core` and `@craftkit/builder`; the store and its write path
+      stay unexported, exactly as the page kernel's do (Law S).
+      **What the spike had and the delivery keeps**: one store, one log, one history; a group across
+      two pages as one production, one transaction, one undo; page-scoped `subscribeNode` so an edit
+      to page A's `p1` never wakes page B's `p1`; the `structural` branch that wakes everyone when
+      immer coalesces a page insert and the node path disappears.
+      **What the spike deliberately lacked and this adds**: site commands mixed with page commands in
+      one group (`isSiteCommandName` routes each step to the draft it writes, resolved BEFORE the
+      production so an unknown command refuses without touching anything); a real
+      `createExtensionManager` whose `context` is a getter onto the CURRENT page, so switching pages
+      moves every extension rather than stranding it; whole-site validation at construction (Law M) —
+      a kernel refuses to open on an invalid site rather than pushing the failure to whichever caller
+      reads the bad field; and view-state pruning.
+      **Two defects the mutation checks found, both in my own work.** First, the test "drops the
+      selection when the selected PAGE is removed" was VACUOUS: it read the selection through the
+      `home` lens, which reports `[]` for any non-current page whatever the store holds, so it passed
+      with the pruning removed. Rewriting it to read through the lens of the page the kernel is NOW
+      on exposed a real bug the vacuous test had hidden — `pageId` kept naming the removed page, so
+      `currentPage()` returned a dead id, every lens reported an empty selection because none of them
+      was "current", and the site's own `context.dir` would throw. `pruneViewState` now moves the
+      kernel to whichever page took the removed one's index — the neighbour, as an editor does when
+      you close a tab — and clears the selection with it.
+      Second, the log/history-before-`store.write` ordering (003 §15, the rule T029 pins for the page
+      door) was UNTESTED for the site door: a mutation moving both after the write passed all 215
+      tests. `useSyncExternalStore` reads snapshots synchronously inside the notification, so a
+      subscriber deriving from `transactions().length` must already see the transaction or the view
+      lags one event behind forever. There is now a test that observes exactly that, and it fails
+      when the ordering is reversed.
+      Mutation-checked, eight runs in total: page-scoped keys, construction validation, lens routing,
+      empty-patch suppression, current-page move, selection clearing on that move, log ordering, and
+      the neighbour choice each fail exactly the tests that name them.
+      Gates: core 216 tests (191 → 216), typecheck and lint clean; repository typecheck 30/30;
+      `check:boundaries` 1327 files in 33 packages, no issues; `check:workspace` 33 members.
+
+- [x] T318 [US10] **The site's load path and its one log (`site/open-site.ts`, T046).**
+      `SitePersistenceAdapter` and `PersistedSiteSession` join the ports — a SEPARATE interface from
+      `PersistenceAdapter`, not a generic one: the two roots are stored under different keys,
+      migrated by different runners and validated by different validators, and a shared generic would
+      let a document be appended to a site's log with the failure surfacing later as a patch path
+      that does not resolve.
+      `openSite` is Law M for a site: load(snapshot + tail) → migrate → replay → validate → open,
+      with every failure thrown BEFORE a kernel exists. The order is not interchangeable — migrating
+      before the replay is what makes a stored tail of old-format transactions replayable, and
+      validating after it is what catches a tail written by a version whose invariants no longer
+      hold. Both halves are tested, the second with a hand-written transaction that moves the home
+      page's address: no live command can produce it, because `renamePage` refuses, which is exactly
+      what a tail from an older build looks like.
+      **One append per group, not one per page.** A group editing three pages appends once. That is
+      the whole reason there is one log: with a log per page, a conflict on the third append — after
+      the first two succeeded — is a torn write `persist/seq-conflict` has no way to express.
+      The page kernel's two flush hazards are carried over verbatim and tested: a rejected link must
+      not poison the chain (`then(work, work)`, so one refused write does not silence every later
+      save for the life of the kernel), and the persisted mark is claimed before the await.
+      **A defect the tests found:** the post-door auto-flush hook was wired only onto the site
+      kernel's own `dispatch`/`dispatchGroup`. Surfaces only ever hold a LENS, so every edit anyone
+      actually made would never have counted toward a save. The lens now routes through the same
+      hook.
+      `liftDocumentSession` (FR-007) lifts an existing document session into a one-page site byte for
+      byte — asserted as `JSON.stringify` equality, not "equivalent" — replaying the document's tail
+      first so the lift is what the person last saw. The stated cost, written in the code: the
+      document's transactions are not site-rooted, so history before the lift is not undoable after
+      it. The alternative is a history that silently fails to apply.
+      That same trap caught my own test: its first version seeded the tail from a SITE kernel and
+      immer refused with "path doesn't resolve: pages/0/document/nodes/p1/props/content". The
+      demonstration is kept in the test's comment.
+      Exported through `@craftkit/builder-core`, `@craftkit/builder`, and `headless.ts` (T046).
+      Mutation-checked, five runs: skipping the tail replay, ignoring the stored seq, dropping the
+      lens hook, using `then(work)` alone, and skipping the lift's own replay each fail exactly the
+      tests that name them.
+      Gates: core 228 tests (216 → 228), typecheck and lint clean; repository typecheck 30/30.
+
+- [x] T319 [US10] **A regression my own concurrency work caused, caught by a story.**
+      `AssistantPanel.stories.tsx` → `Build In Flight` asserted that the fifth section reads
+      `waiting` while the third runs. That was an accurate description of the SEQUENTIAL fill loop
+      and became false when `runAiBuild` gained a writer pool: with a window of
+      `DEFAULT_AI_BUILD_FILL_CONCURRENCY` the writers work ahead of the ordered lander, so a section
+      can be finished and still not be on the page. It surfaced only in the full repository run, and
+      it reproduced in isolation — it was not the load flakiness the first two runs suggested.
+      The story now asserts the truth (rows 0–1 applied, 2–4 running) with the reason written into
+      it, rather than being relaxed. And because five sections with two landed makes "3 running"
+      indistinguishable from "everything left", a second story — `Build Window Bounded` — holds the
+      FIRST section so nothing lands: exactly three run and two genuinely wait. Mutation-checked in
+      both directions: setting the constant to 1 or to 5 fails both stories; 3 passes.
+      Without that second story the limit is a constant nobody can observe.
+
+- [x] T320 [US10] **The site kernel's laws as properties (`site-kernel.property.test.ts`).**
+      Six properties at 200 runs each, fixed seed: SC-014 (a group only ever changes the pages it
+      names, asserted byte-identical on the untouched ones), one group is one transaction whatever it
+      touched, one undo restores the site byte for byte, a refused step inserted at an ARBITRARY
+      position leaves the site exactly as it was, SC-013 (the same seed builds the same site, minted
+      ids included), and every accepted group leaves a site the validator still accepts.
+      An example test says "this group behaved"; these say "no group of these commands, in any order,
+      over any of these pages, can behave otherwise" — which is the claim the plan actually makes.
+      One measured accommodation, written into the file: the properties first used `landingFixture()`
+      across four pages and three of them blew the 5s timeout, because every run constructs a fresh
+      kernel and construction canonicalises AND validates the whole site. A two-node page runs all
+      six in 5.5s at full 200 runs. Nothing these properties claim depends on how much is in a page.
+      Mutation-checked: routing every page step to the current page fails SC-014 alone; giving each
+      step its own production fails the three atomicity properties and nothing else.
+      Gates: core 234 tests (228 → 234), typecheck and lint clean.
+
+- [x] T321 [US1] **`SitePages` (T072–T077).** The site's pages as a listbox in
+      `shell/src/components/SitePages/`, with all five artifacts. It takes a `BuilderSiteKernel`, not
+      a `BuilderKernel`: the order, the titles and which page is current are site state, and no lens
+      lets one page see its siblings. Every mutation goes through the site's own commands, so each is
+      one transaction and one undo.
+      **Focus destinations are named, and one of them was proved redundant before it was proved
+      real.** Removing `focusDestinationAfterDelete` entirely left every test green — because the
+      tests only ever deleted the CURRENT page, where the site kernel's own neighbour rule
+      (`pruneViewState`, T317) already moves everything and focus follows for free. The case that
+      tells the two rules apart is deleting a page you arrowed to WITHOUT opening: the kernel has no
+      reason to move, and "wherever the current page happens to be" throws the keyboard to the other
+      end of the list. That test now exists and fails when the rule is removed.
+      The reorder destination is named for the same reason: without it a second `Alt+ArrowDown` does
+      nothing, and the interaction is unusable past the first press.
+      **Refusals are reported, not thrown.** `removePage` refuses the home page; an exception
+      escaping a React event handler unmounts the tree in development and tells the person nothing,
+      so the component shows the door's own message in a `role="status"` line and leaves the list
+      intact. It re-implements no rule.
+      **Three defects found while building it, all mine:** the derived-state correction re-read
+      `currentPage` unconditionally and looped forever on a site with no pages (React: "Too many
+      re-renders"); the focus effect stole focus from the rename field the instant it mounted, which
+      fired the field's own blur, committed the rename and unmounted it before anyone could type; and
+      the test's empty-site stand-in built a fresh site object per `getSite()` call, which is exactly
+      the `useSyncExternalStore` contract violation that makes React re-render forever — the real
+      kernel keeps that reference stable, and `pages()` now caches its array for the same reason.
+      Mutation-checked: dropping the delete destination, always falling back to the first page, and
+      removing the RTL mirror each fail exactly the tests that name them.
+      Gates: shell 918 tests (17 new), 6 Chromium stories, typecheck and lint clean;
+      `check:components` counts 109 components with no new missing artifacts.
+
+- [x] T322 [US1] **The playground boots on a SITE.** `useVaultKernel` now opens a site through
+      `openSite` and hands every surface `siteKernel.page(currentPage)` — an ordinary
+      `BuilderKernel` — so the canvas, the tree, the inspector, the code view and the assistant did
+      not have to learn that sites exist. The current page is read with `useSyncExternalStore` from
+      the site store rather than kept in React state, because `setCurrentPage` is a site write: a
+      page switch made anywhere, including by an undo that took a page away, has to re-render the app
+      with the lens for the page the site is actually on.
+      **First boot LIFTS what the person already has** (FR-007). Before falling back to the fixture,
+      `seedSiteFrom` looks for a document session in the same store and lifts it into the home page,
+      tail replayed, byte for byte — and reports it as `restored`, because their work was found, just
+      under the old shape. Finding a starter fixture where your page used to be is the worst possible
+      first impression of a new version. "Start over" therefore deletes BOTH keys: leaving the
+      document behind would make the next boot re-lift the very work that was just discarded, so the
+      button would visibly do nothing.
+      **`autosave` was extracted, not copied** (`vault/autosave.ts`), generic over the root. It is a
+      hundred lines of answers to specific failures — a poisoned promise chain, a stale position that
+      silently ends saving for good, a bare `catch` that turned a full disk into a green screen — and
+      a second copy is a second place for each of them to come back. Behaviour-preserving: the vault
+      suite stayed green through the extraction.
+      `createVaultSitePersistence` mirrors the document adapter exactly (serialised writes,
+      `persist/seq-conflict` on a stale position with nothing written, compaction only AT the current
+      position, `takeOverSite` as the unconditional answer to a session frozen out by a second tab),
+      under `vault/site/` — a different namespace, because a site and a document are different roots
+      with different validators and sharing a key space would let one be loaded as the other.
+
+- [x] T323 [US1] **Two defects the playground's own tests found in the site kernel.**
+      **Direction is a property of the SITE.** `setDocMeta` is a legal page command and through a
+      lens it writes `pages[i].document.dir`, leaving the site and every other page pointing the
+      other way. `validateSite` reports that as `page-direction-mismatch` on RELOAD — so the editor
+      looked fine for a whole session and refused to open the next time, which is the worst shape a
+      defect can take. The site door now refuses a page-scoped direction change at the moment it
+      happens and names `setSiteDirection`, which turns the site, every page and every shared region
+      in one production. `DirectionFlip` dispatches that when a site is present.
+      **`insertedNodeId` was reading the ROOT, not the shape.** It matched `path[0] === 'nodes'`, and
+      a site's transactions carry `['pages', i, 'document', 'nodes', id]`. Five call sites depend on
+      it — the palette, the drag session, block actions, the playground's extension demo — and every
+      one of them silently stopped selecting what it had just inserted. It now matches the path's
+      tail, which answers for both kinds of transaction, with the precision cases pinned: a prop
+      write and a whole-map replacement are not insertions.
+
+- [x] T324 [US1] **`SitePages` in the app, and the page switch proved end-to-end.** The pages sit
+      above the layer tree in the same panel — reading them the other way round tells you the shape
+      of something you have not been told the name of. `App.test.tsx` gains a test that adds a page
+      through the list and opens it, and asserts the TREE changed with it: the canvas, the tree and
+      the inspector all follow the site's current page. That is D3's live evidence, in the app's own
+      end-to-end suite rather than a claim.
+      Gates: playground 313 → 314 tests, core 241, typecheck and lint clean everywhere touched.
+
+---
+
+## D1 begins — Plan mode plans, and the suggestions are derived
+
+- [x] T325 [US10] **`craftkit.plan-mode`, and why it is a skill and not a flag.** A new built-in in
+      `ai/src/skills/builtins.ts`. It gives the model the four-part shape to answer in — GOAL,
+      OUTLINE, ALTERNATIVES, RISK, plus a required `followUp` — and it declares
+      `restrictToCommands: []`. Skill restrictions INTERSECT, so an empty list leaves a run with no
+      command it is allowed to emit whatever else is loaded: "Plan never applies" stops being a flag
+      a caller must remember and becomes a property of the run.
+      Mutation-checked: dropping the empty restriction, or making activation automatic, each fails
+      exactly the test that names it.
+
+- [x] T326 [US10] **A BoundedRelay audit corrected my diagnosis and found a whole class I missed.**
+      I had recorded that Plan "sends a request differing only by `apply`". That was wrong: Ask and
+      Plan send byte-identical requests — both `apply: 'never'`, only Auto differs — and `apply` is
+      not on the provider wire at all. The mode produced ZERO provider-visible difference, which is
+      why the answer was never a plan.
+      The class I had not seen is **stale runs**: a run captures its mode in a closure, and the mode
+      control stayed enabled while it worked. Press Auto, change your mind to Plan, and the page is
+      written anyway — by a run you had just told to stop writing. The same held for a build's
+      scaffold, its fallback, its fills and their retries, and for the approval card, which resolves
+      the promise the ORIGINAL run installed. The control is now locked while a run is in flight,
+      with the reason written where the next reader will look: this run's authority was decided when
+      it started, and the way to change it is Stop.
+
+- [x] T327 [US10] **`outlineAiPlan` — a plan the door never sees.** `generateAiPlan` promises a plan
+      of COMMANDS, and it enforces that three times over: it refuses an empty command policy before
+      the provider is called, `validateAiPlan` rejects a plan with zero commands, and the emitted
+      output contract demands `minItems: 1`. I first tried threading a `readOnly` flag through all
+      three and reverted it: that would have been three exceptions pretending to be one rule.
+      `outlineAiPlan` takes the same context assembly, the same skills and the same provider, shows
+      the model an EMPTY command vocabulary — the strongest way to say "do not propose edits",
+      because there is nothing left to name — and never goes near the door. Commands a provider
+      returns anyway are dropped and COUNTED, and the count is shown: a model that ignores the
+      instruction costs the person a paragraph, never their page.
+      The panel gains a `kind: 'outline'` turn with no proposal in it, so Apply and Preview do not
+      exist rather than being hidden. That closes the route the audit confirmed — a Plan card's
+      Preview dialog has no mode check, so "no Apply" was two clicks from an apply.
+      Two tests were rewritten rather than relaxed: both asserted the old card-with-Preview shape.
+      Mutation-checked across the AI package and the panel: eight separate runs.
+
+- [x] T328 [US10] **Suggestions are derived, bilingual, and never run out.** The panel showed four
+      hardcoded English sentences that had nothing to do with the registered blocks and vanished
+      after the first message — in a product whose default locale is Arabic.
+      `AssistantPanel.suggestions.ts` derives them instead, from three sources in priority order:
+      the model's own `followUp`, the SELECTED block's schema (what is inline-editable, what its
+      slots accept, an example its author wrote), and the catalog's own `examples[].prompt` — which
+      are already sentences a person would say, in both languages, written by whoever knew the block.
+      A new block therefore arrives with its suggestions already written.
+      Falls back to the other language rather than showing nothing, because a host catalog with only
+      English examples would otherwise leave an Arabic panel with an empty strip — the exact failure
+      the module exists to end. `localeOf` reads the SCRIPT, so Persian and Urdu answer `ar`; Hebrew
+      answers `en`, and that limit is asserted so it is a known boundary rather than a surprise.
+      **A defect of mine, found by the owner from a screenshot**: the strip inherited the empty
+      state's styling — four full-width stacked cards — and, now that it is permanent, it ate half a
+      360px panel and hid the very thread it was meant to help continue. It has two layouts now:
+      stacked on an empty panel, where nothing is being crowded, and a one-row scrollable rail once
+      a conversation exists. **A second defect I found while fixing it**: the rail scrolled with
+      `scrollLeft += delta`, and in RTL — this product's default — `scrollLeft` starts at 0 on the
+      right and runs negative, so the rail simply refused to move. And `touch-action: pan-x` had
+      taken vertical panning away, so a finger starting its drag on the rail could no longer scroll
+      the conversation behind it.
+      The per-card follow-up chip was removed: with the strip it was two identical buttons for one
+      action, and the strip is the one that does not scroll away.
+
+- [x] T329 [US10] **A second BoundedRelay review, and eight defects it found in what I had just
+      built.** Every one is fixed with a test that fails when the fix is removed.
+      **The write route I had left open.** Plan was a label on new cards, not a state of the panel:
+      every gate read the mode a turn was PROPOSED under, so an Ask proposal made a minute earlier
+      kept its Apply after the person switched to Plan, and its Preview dialog applied
+      unconditionally. `accept()` now fails closed against the CURRENT mode, at the single function
+      every route reaches — a gate on a button is a gate somebody can forget to copy — and the card
+      and the dialog stop offering what the door would refuse.
+      **Plan's own follow-up was stored and never shown.** `lastFollowUp` read only `kind: 'plan'`
+      turns; the outline branch saved `outline.followUp` into a turn it would never look at. Half of
+      what Plan mode was asked to fix was silently absent.
+      **The outline was dropped from the conversation.** `historyOf` did not carry it, so a person
+      could say "do option two" and the next request arrived without the answer that had the options
+      in it — the model asked to remember something it was never told.
+      **Stop was rendered as a failure**, showing the platform's AbortError on a card, and the branch
+      read `activeRunRef.current.runId` directly — which New chat and unmount set to null, so
+      starting a plan and then opening a new chat crashed the panel. Both now follow the ordinary
+      run's rules: `ownsRun`, and a stop is an outcome.
+      **The mode was not persisted**, so every reload returned to Ask — and Ask can write. A person
+      who deliberately chose Plan came back to a panel that would apply, having changed nothing and
+      been told nothing.
+      **The dev bridge rejected a conformant outline.** `scripts/ai-plan-bridge.mjs` refused any
+      answer with zero commands, so against a live model Plan could only "succeed" by VIOLATING the
+      contract it had just been handed. The permission is read from the forwarded contract's
+      `commands.maxItems === 0`, so the bridge enforces what it sent rather than learning what Plan
+      mode is.
+      **Three smaller ones**: suggestion chips measured ~42px against this project's own 44px
+      minimum, on a control directly under the thumb; the rail's 2px block padding shaved the outer
+      pixel off a focus ring that reaches 3px; and the locked mode buttons kept `cursor: pointer` and
+      their hover, with the reason only in a `title` no keyboard or screen-reader user can reach.
+      **Two the review raised that I did NOT take**, and why. The comparator equality case and the
+      normalised dedup key I did fix. `offset` remains unused in production — the rotation is real
+      and tested, and the caller that varies it belongs with the "show me others" affordance that
+      does not exist yet; removing it now would only have to be written again. And the review's
+      reading that Plan should enter the split-build path (T290–T292) is the plan's own ق٥ and is
+      NOT done: what exists is the outline. That is recorded below as a partial, not as a claim.
+
+**PARTIAL, stated as one**: D1's plan (ق٥) asks for Plan to enter the build path and stop at the
+structure with a plan card carrying steps, "what will change" from `planImpact()`, and a labelled
+cost estimate. What is built is the outline route — Plan answers with a four-part plan, writes
+nothing, and offers a follow-up. The richer card, `planImpact()`, the cost estimate and
+`createDirectPlanProvider` are not built. T290–T292 stay open.
+
+**Two suite failures investigated, with different answers.** `@craftkit/builder-ai`'s
+`custom-code-vocabulary` first test and `@craftkit/builder-code-view`'s `CodeViewPanel` are 5s
+timeouts that appear only in the full parallel run and pass in isolation (ai 446/446; code-view
+86/86, seven consecutive runs) — load, not regression. The AssistantPanel story was the opposite: it
+reproduced in isolation, and it was mine (T319). Reproducing in isolation is the check that
+separates them, and it is the one worth running before calling anything flaky.
+
+**Pre-existing and NOT mine, recorded again**: `pnpm check:components` is RED with the same 11
+missing artifacts in `custom-code` (`CustomCodeBlock`, `CustomCodeCssField`, `CustomCodeTreeField`)
+and `renderer/CustomCode` — now across 108 components rather than 102. It blocks `pnpm verify` and
+belongs to whoever owns those components.
+
+**Total after the first D2 tasks**: 329 tasks.

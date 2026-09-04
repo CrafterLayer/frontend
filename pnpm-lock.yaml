@@ -546,6 +546,9 @@ importers:
       pixelmatch:
         specifier: 'catalog:'
         version: 7.2.0
+      playwright:
+        specifier: 'catalog:'
+        version: 1.62.1
       pngjs:
         specifier: 'catalog:'
         version: 7.0.0

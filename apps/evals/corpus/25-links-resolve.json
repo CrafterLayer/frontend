@@ -1,0 +1,31 @@
+{
+  "id": "25-links-resolve",
+  "title": "Every internal link points somewhere real",
+  "category": "links",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Add a hero with a button that jumps to the pricing section further down the page, and add that pricing section.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 2,
+    "maxCommands": 12,
+    "allBlockTypes": [
+      "hero",
+      "pricing"
+    ]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Does the button's target exist on the page, and is it the pricing section rather than an invented anchor?",
+  "why": "A generated page that links to nothing is the most common broken thing a person notices first, and no grader could see it: the corpus checked which blocks were inserted, never whether the page's own references resolve. The plan makes broken links a hard gate, so the corpus has to be able to produce one."
+}

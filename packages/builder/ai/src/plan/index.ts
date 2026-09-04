@@ -12,6 +12,23 @@ export {
   type GenerateAiPlanOptions,
 } from './generate-plan';
 export { AiPlanRejectedError, assertValidAiPlan, validateAiPlan } from './validate-plan';
+/*
+  The PLAN-ONLY route. Separate from `generateAiPlan` because that pipeline
+  promises a plan of COMMANDS: it refuses an empty command policy, its validator
+  rejects a plan with zero commands, and its output contract demands at least
+  one. All three are right for building and wrong for planning.
+*/
+export {
+  AI_PLAN_MODE_SKILL_ID,
+  outlineAiPlan,
+  type AiOutline,
+  type OutlineAiPlanOptions,
+} from './outline-plan';
+export {
+  salvageAiPlan,
+  type DroppedAiPlanStep,
+  type SalvagedAiPlan,
+} from './salvage-plan';
 export {
   previewAiPlan,
   type PreviewAiPlanCompatibilityOptions,

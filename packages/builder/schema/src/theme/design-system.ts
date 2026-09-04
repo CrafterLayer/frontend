@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { ColorToken, MeasurementToken, Theme, TokenName } from './tokens';
 
 /**
@@ -146,3 +148,37 @@ export interface DesignSystem {
   /** The seed that produced it, so the system can be reproduced. */
   readonly seed: string;
 }
+
+/**
+ * The zod mirror of `DesignSystem`, for anything that has to accept one from
+ * outside the program — a stored site, a wire payload, a migration.
+ *
+ * Keys are CLOSED against `TOKEN_NAMES` rather than left as a string record:
+ * a token the renderer has no custom property for is a silent nothing at paint
+ * time, which is the failure mode a `Record<string, string>` invites and this
+ * schema exists to refuse. Shape only — whether the COLOURS are legible is
+ * `validateDesignSystem`'s question, and duplicating it here would give two
+ * answers to one thing.
+ */
+export const designSystemSchema: z.ZodType<DesignSystem> = z.strictObject({
+  name: z.string().min(1),
+  tokens: z.strictObject(
+    Object.fromEntries(TOKEN_NAMES.map((token) => [token, z.string().min(1)])) as Record<
+      TokenName,
+      z.ZodString
+    >,
+  ),
+  typography: z.strictObject({
+    headingFamily: z.string().min(1),
+    bodyFamily: z.string().min(1),
+    scaleRatio: z.number().positive(),
+  }),
+  pairings: z.array(
+    z.strictObject({
+      text: z.enum(COLOR_TOKENS),
+      background: z.enum(COLOR_TOKENS),
+      size: z.enum(['normal', 'large']),
+    }),
+  ),
+  seed: z.string(),
+});

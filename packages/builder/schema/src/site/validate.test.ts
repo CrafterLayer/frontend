@@ -1,3 +1,5 @@
+import { validateDesignSystem } from '../theme/validate';
+import { defaultDesignSystem } from '../theme/default-theme';
 import { describe, expect, it } from 'vitest';
 
 import type { BuilderDocument, ContentDirection } from '../document/types';
@@ -36,7 +38,7 @@ function validSite(): BuilderSite {
     dir: 'ltr',
     pages: [page('home', '/')],
     sharedRegions: {},
-    designSystem: { name: 'Default', tokens: {} },
+    designSystem: defaultDesignSystem(),
     assets: {},
   };
 }
@@ -172,9 +174,65 @@ describe('validateSite', () => {
     ]);
   });
 
-  it('reserves design-system-contrast-failure while the Wave 3 check is a no-op', () => {
+  it('clears the default design system — the starter is legible by measurement', () => {
+    /*
+      This test used to be named "reserves design-system-contrast-failure while
+      the Wave 3 check is a no-op" and asserted only that a string equalled
+      itself. The rule is real now (see the rule 9 block below), so what is
+      worth asserting here is the opposite direction: the system every new site
+      starts from passes the check it is now subject to. If a token edit ever
+      pushes one of the seven declared pairings under 4.5:1, this goes red.
+    */
     const reservedCode: SiteValidationIssue['code'] = 'design-system-contrast-failure';
-    expect(reservedCode).toBe('design-system-contrast-failure');
     expect(issuesOf(validSite()).map((issue) => issue.code)).not.toContain(reservedCode);
+  });
+});
+
+describe('validateSite — rule 9, the design system must be legible (FR-014)', () => {
+  /*
+    This rule was a WRITTEN NO-OP until now: the issue code was public, the
+    contract listed the rule, and a site whose body text was invisible against
+    its own background validated cleanly. These tests are what make the rule
+    real, so they have to construct a failing system rather than assert that a
+    passing one does not fail — which is all the previous test did.
+  */
+  it('rejects a pairing below the contrast threshold, and says which', () => {
+    const site = validSite();
+    const unreadable = {
+      ...defaultDesignSystem(),
+      tokens: { ...defaultDesignSystem().tokens, textMuted: '#f2f2f2' },
+    };
+
+    const result = validateSite({ ...site, designSystem: unreadable });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const issue = result.issues.find((candidate) => candidate.code === 'design-system-contrast-failure');
+    expect(issue).toBeDefined();
+    // The message names the real fault; the code is the contract's single one.
+    expect(issue?.message).toContain('textMuted');
+  });
+
+  it('rejects a design system that names a token the vocabulary does not have', () => {
+    const site = validSite();
+    const invented = {
+      ...defaultDesignSystem(),
+      tokens: { ...defaultDesignSystem().tokens, brandPurple: '#6d28d9' },
+    };
+
+    const result = validateSite({ ...site, designSystem: invented });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts the starter system, whose pairings were measured rather than assumed', () => {
+    /*
+      The guard on the other direction. `defaultDesignSystem()` is what every
+      lifted page arrives with, so if it did not pass this rule, every migrated
+      site would be invalid the moment the rule started running — the two fixes
+      would have silently fought each other.
+    */
+    expect(validateSite(validSite()).ok).toBe(true);
+    expect(validateDesignSystem(defaultDesignSystem()).ok).toBe(true);
   });
 });

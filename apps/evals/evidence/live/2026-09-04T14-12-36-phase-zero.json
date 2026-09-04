@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "name": "phase-zero",
+  "url": "http://127.0.0.1:5200",
+  "request": "Add a pricing section",
+  "startedAt": "2026-09-04T14:12:36.124Z",
+  "milestones": [
+    {
+      "at": 1788531159669,
+      "sinceStartMs": 3545,
+      "what": "page loaded"
+    },
+    {
+      "at": 1788531160228,
+      "sinceStartMs": 4104,
+      "what": "assistant open"
+    },
+    {
+      "at": 1788531160237,
+      "sinceStartMs": 4113,
+      "what": "transactions before",
+      "detail": "0; undo unavailable"
+    },
+    {
+      "at": 1788531160964,
+      "sinceStartMs": 4840,
+      "what": "request sent",
+      "detail": "Add a pricing section"
+    },
+    {
+      "at": 1788531160971,
+      "sinceStartMs": 4847,
+      "what": "run settled",
+      "detail": "idle"
+    },
+    {
+      "at": 1788531161314,
+      "sinceStartMs": 5190,
+      "what": "applied",
+      "detail": "transactions 0 → 1"
+    },
+    {
+      "at": 1788531161609,
+      "sinceStartMs": 5485,
+      "what": "undone once",
+      "detail": "redo now available; log stayed at 1"
+    }
+  ],
+  "transactions": {
+    "before": 0,
+    "afterApply": 1,
+    "afterUndo": 1
+  },
+  "undo": {
+    "canUndoBeforeApply": false,
+    "canUndoAfterApply": true,
+    "canRedoAfterUndo": true
+  },
+  "outcome": "undone",
+  "observed": true,
+  "consoleErrors": [],
+  "screenshots": [
+    "2026-09-04T14-12-36-phase-zero-settled.png",
+    "2026-09-04T14-12-36-phase-zero-applied.png",
+    "2026-09-04T14-12-36-phase-zero-undone.png"
+  ]
+}

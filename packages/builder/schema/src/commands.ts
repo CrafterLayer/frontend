@@ -2,6 +2,7 @@ import type { z } from 'zod';
 
 import type { BlockSchemaLookup } from './document/validate';
 import type { BuilderDocument } from './document/types';
+import type { BuilderSite } from './site/types';
 import type { IdPort } from './ports';
 import type { CompositionDef } from './widgets/contract';
 
@@ -34,4 +35,28 @@ export interface RegisteredCommand {
   /** Exposed for documentation and AI context assembly. */
   argsSchema: z.ZodType;
   apply(args: unknown): (draft: BuilderDocument, rt: CommandRuntime) => void;
+}
+
+/**
+ * The SITE half of the same contract. A site command's draft is the whole
+ * `BuilderSite` — pages, shared regions, design system, assets — because that
+ * is the only draft over which a page addition and a design-token change can be
+ * ONE immer production, and therefore one transaction and one undo.
+ *
+ * Deliberately a separate pair rather than a generic `CommandInput<S, Draft>`:
+ * the two drafts are not interchangeable, and a shared generic would let a
+ * document command be registered in the site map (and vice versa) with the
+ * mistake surfacing only at runtime, inside a producer, as a read of a field
+ * that does not exist.
+ */
+export interface SiteCommandInput<S extends z.ZodType> {
+  args: S;
+  run: (args: z.output<S>) => (draft: BuilderSite, rt: CommandRuntime) => void;
+}
+
+/** Registered/stored shape for a site command; `apply` parses before running. */
+export interface RegisteredSiteCommand {
+  /** Exposed for documentation and AI context assembly. */
+  argsSchema: z.ZodType;
+  apply(args: unknown): (draft: BuilderSite, rt: CommandRuntime) => void;
 }

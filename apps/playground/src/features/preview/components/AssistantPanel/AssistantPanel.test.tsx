@@ -150,7 +150,16 @@ describe('AssistantPanel', () => {
     expect(screen.getByRole('log', { name: 'Conversation' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Ask the assistant' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'add a hero' })).toBeInTheDocument();
+    /*
+      The suggestion strip, not a hardcoded sentence. It used to assert
+      `add a hero` — one of four English strings that had nothing to do with the
+      blocks this build registered and vanished after the first message. The
+      strip is DERIVED from the catalog's own example prompts, so what it says
+      depends on the kernel; what is asserted is that it exists, is named, and
+      offers something.
+    */
+    const suggestions = screen.getByRole('list', { name: 'Suggestions' });
+    expect(within(suggestions).getAllByRole('button').length).toBeGreaterThan(0);
   });
 
   it('runs through the observable agent, activates host Skills, and exposes their immutable pins', async () => {
@@ -327,8 +336,15 @@ describe('AssistantPanel', () => {
     });
     await requestPlan(user, 'add a pricing section');
 
-    expect(screen.getByText('add a hero')).toBeInTheDocument();
-    expect(screen.getByText('add a pricing section')).toBeInTheDocument();
+    /*
+      Scoped to the LOG. A request a person typed and a suggestion offered above
+      the composer can legitimately read the same — the suggestions are derived
+      from the catalog's example prompts, and "add a hero" is one of them — so an
+      unscoped query now matches two elements that mean different things.
+    */
+    const log = within(screen.getByRole('log', { name: 'Conversation' }));
+    expect(log.getByText('add a hero')).toBeInTheDocument();
+    expect(log.getByText('add a pricing section')).toBeInTheDocument();
     expect(screen.getByText(/Add a hero block to root\.default/)).toBeInTheDocument();
     expect(screen.getByText(/Add a pricing block to root\.default/)).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Apply' })).toHaveLength(2);
@@ -807,7 +823,14 @@ describe('AssistantPanel', () => {
     // Deliberately ONE section: a page-sized ask routes to the split build,
     // and this test is about the follow-up on an ordinary plan card.
     await requestPlan(user, 'ابني قسم الأسعار');
-    const continueButton = screen.getByRole('button', { name: /كمل التنسيق والألوان/ });
+    /*
+      In the SUGGESTION STRIP, not inside the plan card. The follow-up used to
+      be drawn in both places once the strip existed — two identical buttons for
+      one action — and the strip is the one that stays put: a card inside the log
+      scrolls away the moment the next message arrives.
+    */
+    const strip = screen.getByRole('list', { name: 'Suggestions' });
+    const continueButton = within(strip).getByRole('button', { name: /كمل التنسيق والألوان/ });
     await user.click(continueButton);
 
     await waitFor(() => {
@@ -818,11 +841,15 @@ describe('AssistantPanel', () => {
   it('persists the conversation under persistKey and revives it on the next mount', async () => {
     const first = renderPanel({ persistKey: 'assistant-e2e-test' });
     await requestPlan(first.user, 'add a pricing section');
-    expect(screen.getByText('add a pricing section')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('log', { name: 'Conversation' })).getByText('add a pricing section'),
+    ).toBeInTheDocument();
     first.unmount();
 
     const second = renderPanel({ persistKey: 'assistant-e2e-test' });
-    expect(screen.getByText('add a pricing section')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('log', { name: 'Conversation' })).getByText('add a pricing section'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument();
     expect(
@@ -830,6 +857,42 @@ describe('AssistantPanel', () => {
     ).toBeInTheDocument();
     second.unmount();
     window.localStorage.removeItem('assistant-e2e-test');
+  });
+
+  it('revives an outline whole — there was never any authority in it to lose', async () => {
+    /*
+      A plan CARD comes back stripped: its `proposal` is runtime authority that
+      deliberately cannot survive JSON, so the revived card says the proposal
+      expired. An outline has none — it is text, a follow-up and a count — so it
+      revives complete and still offers nothing to apply, which is the same
+      thing it offered before the reload.
+    */
+    const first = renderPanel({ persistKey: 'assistant-outline-test' });
+    await first.user.click(screen.getByRole('radio', { name: 'Plan' }));
+    /*
+      A request the LOCAL provider can actually answer. It refuses anything it
+      cannot place in a real slot ("No registered block matches the request"),
+      and a refusal is a different turn — correct behaviour, but not the one
+      under test here.
+    */
+    await send(first.user, 'add a pricing section');
+    const log = () => screen.getByRole('log', { name: 'Conversation' });
+    await waitFor(() => {
+      expect(log().querySelector('.pg-chat__outline')?.textContent ?? '').not.toBe('');
+    });
+    const written = log().querySelector('.pg-chat__outline')?.textContent ?? '';
+    first.unmount();
+
+    const second = renderPanel({ persistKey: 'assistant-outline-test' });
+
+    expect(log().querySelector('.pg-chat__outline')?.textContent).toBe(written);
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('This saved proposal expired after reload. Ask again to revalidate it.'),
+    ).not.toBeInTheDocument();
+    second.unmount();
+    window.localStorage.removeItem('assistant-outline-test');
   });
 
   it('revives legacy plans and failures as readable history without reviving authority', () => {
@@ -900,7 +963,18 @@ describe('AssistantPanel', () => {
     expect(events.map(({ type }) => type)).toContain('plan.applying');
   });
 
-  it('Plan mode proposes without offering Apply — exploring is never applying', async () => {
+  it('Plan mode answers with a PLAN, and with nothing to apply', async () => {
+    /*
+      Stronger than what this used to assert. It once expected a proposal card
+      with Preview but no Apply — and Preview's own dialog has no mode check, so
+      "no Apply" was two clicks from an apply. A plan run now carries no
+      proposal at all: there is nothing for either button to act on, which is
+      the difference between hiding a door and not building one.
+
+      The provider still returns commands (the local one always does). They are
+      DROPPED, counted, and reported — a model that ignores the instruction
+      costs the person a paragraph, never their page.
+    */
     const { kernel, user } = renderPanel();
     const before = structuredClone(kernel.getDocument());
 
@@ -911,12 +985,170 @@ describe('AssistantPanel', () => {
     await user.type(composer, 'add a pricing section');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
+    const log = screen.getByRole('log', { name: 'Conversation' });
     await waitFor(() => {
-      expect(screen.getByText(/Add a pricing block to root\.default/)).toBeInTheDocument();
+      expect(log.querySelector('.pg-chat__outline')?.textContent ?? '').not.toBe('');
     });
     expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument();
     expect(kernel.getDocument()).toEqual(before);
+    expect(kernel.transactions()).toEqual([]);
+  });
+
+  it('refuses to apply an OLD Ask proposal once Plan is selected', async () => {
+    /*
+      The route a BoundedRelay audit found and I had not: Plan was a label on
+      new cards rather than a state of the panel. Every gate read the mode the
+      turn was PROPOSED under, so an Ask proposal made a minute ago kept its
+      Apply after the person switched to Plan — and its Preview dialog applied
+      unconditionally. "Only plan — never apply" was one or two clicks from an
+      apply, on work the panel was currently promising not to touch.
+
+      `accept()` now fails closed against the CURRENT mode, at the single
+      function every route reaches. A gate on a button is a gate somebody can
+      forget to copy.
+    */
+    const { kernel, user } = renderPanel();
+    await requestPlan(user, 'add a pricing section');
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+    const before = structuredClone(kernel.getDocument());
+
+    await user.click(screen.getByRole('radio', { name: 'Plan' }));
+
+    // The button is gone, because the panel will not do what it would offer…
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    // …and the preview cannot get around it either.
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Planning only/)).toBeInTheDocument();
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
+  it('offers the outline’s own follow-up, which is half of what Plan was asked to fix', async () => {
+    /*
+      The Plan skill is REQUIRED to answer with a next step, the panel stored it
+      — and `lastFollowUp` read only `kind: 'plan'` turns, so an outline's
+      follow-up was saved and then never shown. Stored and invisible is the same
+      as absent.
+    */
+    const provider: AiPlanProvider = {
+      propose: () =>
+        Promise.resolve({
+          rationale: 'GOAL: a clinic page.',
+          commands: [],
+          followUp: 'ابدأ ببناء القسم الافتتاحي',
+        }),
+    };
+    const { user } = renderPanel({ planProvider: provider });
+
+    await user.click(screen.getByRole('radio', { name: 'Plan' }));
+    await send(user, 'صفحة عيادة');
+
+    await waitFor(() => {
+      const strip = screen.getByRole('list', { name: 'Suggestions' });
+      expect(
+        within(strip).getByRole('button', { name: /ابدأ ببناء القسم الافتتاحي/ }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('remembers the mode across a reload, because Ask can write and Plan cannot', async () => {
+    /*
+      The mode was not persisted, so every reload returned to Ask. A person who
+      deliberately put the assistant in Plan came back to a panel that would
+      apply — having changed nothing, and been told nothing.
+    */
+    const first = renderPanel({ persistKey: 'assistant-mode-test' });
+    await first.user.click(screen.getByRole('radio', { name: 'Plan' }));
+    first.unmount();
+
+    const second = renderPanel({ persistKey: 'assistant-mode-test' });
+
+    expect(screen.getByRole('radio', { name: 'Plan' })).toHaveAttribute('aria-checked', 'true');
+    second.unmount();
+    window.localStorage.removeItem('assistant-mode-test');
+  });
+
+  it('stacks the suggestions on an empty panel and rails them once a conversation exists', async () => {
+    /*
+      One list, two layouts. On an empty panel there is nothing to crowd and a
+      person who has said nothing yet is choosing, so the suggestions stack as
+      full-width targets. The moment a conversation exists they become a
+      one-row rail at a fixed height — a column of cards was eating half the
+      panel and hiding the very thread it was meant to help continue.
+    */
+    const { user } = renderPanel();
+
+    expect(screen.getByRole('list', { name: 'Suggestions' })).toHaveAttribute(
+      'data-layout',
+      'stack',
+    );
+
+    await send(user, 'add a hero');
+
+    await waitFor(() => {
+      expect(screen.getByRole('list', { name: 'Suggestions' })).toHaveAttribute(
+        'data-layout',
+        'rail',
+      );
+    });
+  });
+
+  it('carries the whole suggestion in the accessible name, even when the chip truncates', () => {
+    /*
+      A rail chip is capped at one line and ellipsised. The sentence it sends is
+      the whole one, so the name a screen reader announces has to be the whole
+      one too — otherwise the two disagree about what pressing it does.
+    */
+    renderPanel();
+    const strip = screen.getByRole('list', { name: 'Suggestions' });
+    const chips = within(strip).getAllByRole('button');
+
+    for (const chip of chips) {
+      expect(chip.getAttribute('title')).toBe(chip.textContent);
+    }
+  });
+
+  it('locks the mode while a run is in flight, because the run already has its authority', async () => {
+    /*
+      A run captures its mode when it starts and the closure keeps it: a request
+      begun in Auto carries `apply: 'auto'` all the way to the door. Leaving the
+      control enabled meant a person could press Auto, change their mind to
+      Plan, and watch the page be written by a run they had just told to stop
+      writing. Locking it is honest — this run's authority was decided when it
+      started, and the way to change it is Stop.
+    */
+    let release: (() => void) | undefined;
+    const provider: AiPlanProvider = {
+      propose: () =>
+        new Promise((resolve) => {
+          release = () => {
+            resolve({ rationale: 'A plan.', commands: [] });
+          };
+        }),
+    };
+    const { user } = renderPanel({ planProvider: provider });
+
+    await user.click(screen.getByRole('radio', { name: 'Plan' }));
+    const composer = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Ask the assistant',
+    });
+    await user.type(composer, 'a clinic page');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Auto' })).toBeDisabled();
+    });
+    expect(screen.getByRole('radio', { name: 'Ask' })).toBeDisabled();
+    // Stop is still there: locked is not stranded.
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
+
+    act(() => {
+      release?.();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Auto' })).toBeEnabled();
+    });
   });
 
   it('typing @ opens the page mention picker and the pick becomes the request context', async () => {
@@ -1682,13 +1914,17 @@ describe('AssistantPanel — split build', () => {
 
     await waitFor(
       () => {
-        expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+        expect(container.querySelector('.pg-chat__outline')?.textContent ?? '').not.toBe('');
       },
       { timeout: 15_000 },
     );
-    // One ordinary Plan card, and no Apply: exploring never writes.
-    expect(container.querySelector('.pg-chat__card-kind[data-kind="plan"]')).not.toBeNull();
+    /*
+      One outline, and nothing to apply anywhere. This used to look for a Plan
+      CARD with a Preview button; a plan run now produces no proposal at all, so
+      neither button exists rather than being hidden.
+    */
     expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument();
     expect(buildEventTypes(events)).toEqual([]);
     expect(script.calls()).toBe(1);
     expect(regionsOf(kernel)).toEqual({});

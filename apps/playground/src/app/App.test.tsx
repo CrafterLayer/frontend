@@ -453,6 +453,40 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(screen.getByRole('navigation', { name: 'Block palette' })).toBeInTheDocument();
   });
 
+  it('names the page whose structure the tree is showing, and switches between pages', async () => {
+    /*
+      The app boots on a SITE now: the canvas, the tree and the inspector all
+      look at ONE page, and until this list existed nothing on screen said which.
+      The pages sit above the tree in the same panel because reading them the
+      other way round tells you the shape of something you have not been told the
+      name of.
+    */
+    render(<App />);
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Editor canvas' });
+    await openLayers(user);
+
+    const pages = screen.getByRole('listbox', { name: 'Site pages' });
+    expect(within(pages).getAllByRole('option')).toHaveLength(1);
+    expect(within(pages).getAllByRole('option', { selected: true })).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: 'Add page' }));
+    expect(within(pages).getAllByRole('option')).toHaveLength(2);
+
+    // Opening the second page moves the whole editor to it: the tree that was
+    // showing the landing page's blocks now shows an empty one.
+    const before = within(screen.getByRole('tree', { name: 'Document structure' })).getAllByRole(
+      'treeitem',
+    ).length;
+    await user.click(within(pages).getAllByRole('option')[1]!);
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('tree', { name: 'Document structure' })).getAllByRole('treeitem'),
+      ).toHaveLength(1);
+    });
+    expect(before).toBeGreaterThan(1);
+  });
+
   it('the rail actually moves the panel — it used to draw a selection and ignore the click', async () => {
     render(<App />);
     const user = userEvent.setup();

@@ -26,6 +26,7 @@
     "@types/pngjs": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "pixelmatch": "catalog:",
+    "playwright": "catalog:",
     "pngjs": "catalog:",
     "promptfoo": "catalog:",
     "typescript": "catalog:",

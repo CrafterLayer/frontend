@@ -56,6 +56,15 @@ export async function runEvalCase(
   */
   let contextFragments = 0;
   let contextTokens = 0;
+  /*
+    The run's own account of how hard it had to work, read off the events it
+    already emits. Before this the harness recorded only the outcome, so
+    "succeeded first time" and "succeeded after a repair" were the same number —
+    and the plan's two headline gates could not be computed at all.
+  */
+  let attempts: 1 | 2 = 1;
+  let repaired = false;
+  let salvaged: { kept: number; dropped: number } | null = null;
 
   const base = {
     caseId: evalCase.id,
@@ -85,6 +94,11 @@ export async function runEvalCase(
           contextFragments = event.fragmentCount;
           contextTokens = event.totalTokens;
         }
+        if (event.type === 'plan.validating') attempts = event.attempt;
+        if (event.type === 'plan.repairing') repaired = true;
+        if (event.type === 'plan.salvaged') {
+          salvaged = { kept: event.kept, dropped: event.dropped.length };
+        }
       },
     });
     return {
@@ -101,6 +115,9 @@ export async function runEvalCase(
         commandCount: result.plan.commands.length,
         contextFragments,
         contextTokens,
+        attempts,
+        repaired,
+        salvaged,
         elapsedMs: (options.now ?? Date.now)() - startedAt,
       },
     };
@@ -128,6 +145,9 @@ export async function runEvalCase(
         commandCount: 0,
         contextFragments,
         contextTokens,
+        attempts,
+        repaired,
+        salvaged,
         elapsedMs: (options.now ?? Date.now)() - startedAt,
       },
     };

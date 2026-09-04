@@ -448,7 +448,20 @@ function invalidOutput() {
   return { version: 1, invalidOutput: { message: INVALID_OUTPUT_MESSAGE } };
 }
 
-export function toWireResponse(modelText) {
+/**
+ * Does this request want a PLAN in prose rather than a plan of commands?
+ *
+ * The outline contract sets `commands.maxItems: 0` — the property must be
+ * there and the only value it may hold is an empty array. Reading that from
+ * the request the model was actually given is how this stays true without the
+ * bridge learning what "Plan mode" is: it enforces the contract it forwarded.
+ */
+function wantsEmptyCommands(body) {
+  const schema = body?.context?.outputContract?.schema;
+  return schema?.properties?.commands?.maxItems === 0;
+}
+
+export function toWireResponse(modelText, options = {}) {
   let parsed;
   try {
     parsed = JSON.parse(modelText.trim());
@@ -459,11 +472,19 @@ export function toWireResponse(modelText) {
   if (typeof parsed.refusal === 'string' && parsed.refusal.trim() !== '') {
     return { version: 1, refusal: parsed.refusal };
   }
+  /*
+    An empty command list is normally a non-answer — the request asked for
+    edits and got none. For an OUTLINE it is the only correct answer, and this
+    gate used to reject it: a model that obeyed its schema was told its output
+    was invalid, so Plan mode could only "succeed" by violating the contract it
+    had just been handed. `allowEmptyCommands` comes from that same contract.
+  */
+  const emptyAllowed = options.allowEmptyCommands === true;
   if (
     typeof parsed.rationale !== 'string' ||
     parsed.rationale.trim() === '' ||
     !Array.isArray(parsed.commands) ||
-    parsed.commands.length === 0
+    (parsed.commands.length === 0 && !emptyAllowed)
   ) {
     return invalidOutput();
   }
@@ -646,7 +667,9 @@ export function createAiPlanBridgeServer(options) {
         logger.log(`AI bridge ${label} started.`);
         const call = invokeModel(buildPrompt(body), writeStatus);
         live.cancel = call.cancel;
-        const wire = toWireResponse(await call.done);
+        const wire = toWireResponse(await call.done, {
+          allowEmptyCommands: wantsEmptyCommands(body),
+        });
         logger.log(`AI bridge ${label} finished in ${String(Date.now() - startedAt)}ms.`);
         if (wantsStream) {
           if (!streamStarted) {

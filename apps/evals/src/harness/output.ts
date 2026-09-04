@@ -60,6 +60,26 @@ export interface EvalRunOutput {
     contextFragments: number;
     contextTokens: number;
     elapsedMs: number;
+    /**
+     * How many times the model was asked before an answer passed the door.
+     *
+     * 1 means the assistant got it right without help. 2 means the plan was
+     * rejected and repaired. This is the numerator of the plan's two headline
+     * gates — "success without repair" and "success after repair" — and neither
+     * could be computed before, because the run reported only its outcome.
+     */
+    attempts: 1 | 2;
+    /** Whether a rejected plan was sent back for correction. */
+    repaired: boolean;
+    /**
+     * Steps kept and dropped when BOTH attempts failed and the run salvaged the
+     * part the door accepts. Null when nothing was salvaged.
+     *
+     * Reported apart from success on purpose: a salvaged plan is a partial
+     * result, and counting it as a pass would let the success rate rise while
+     * the product delivered less.
+     */
+    salvaged: { kept: number; dropped: number } | null;
   };
   /** The starting document, so reference checks need no second run. */
   document: {

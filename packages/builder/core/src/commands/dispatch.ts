@@ -199,7 +199,14 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
   };
 }
 
-function normalizeGroupedDispatchOptions(
+/*
+  Shared with the SITE dispatcher (013, ق١), which enforces the same author
+  vocabulary, the same label rules, and the same Law-J purity check over
+  site-rooted patches. Exported inside the package rather than duplicated: three
+  copies of "what is a legal author" drift the first time a fourth author is
+  added, and the site door would be the copy nobody remembered.
+*/
+export function normalizeGroupedDispatchOptions(
   authorOrOptions: unknown,
   defaultLabel: string,
 ): { author: Author; label: string } {
@@ -241,7 +248,7 @@ function normalizeGroupedDispatchOptions(
   return { author, label };
 }
 
-function assertAuthor(value: unknown): asserts value is Author {
+export function assertAuthor(value: unknown): asserts value is Author {
   if (value !== 'user' && value !== 'ai' && value !== 'codeview') {
     throw builderError(
       'cmd/invalid-args',
@@ -250,7 +257,7 @@ function assertAuthor(value: unknown): asserts value is Author {
   }
 }
 
-function assertJsonPatches(
+export function assertJsonPatches(
   patches: readonly { op: string; path: (string | number)[]; value?: unknown }[],
 ): void {
   for (const patch of patches) {

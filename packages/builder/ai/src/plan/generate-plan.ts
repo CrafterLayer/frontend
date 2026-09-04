@@ -28,8 +28,10 @@ import type {
   AiPlan,
   AiPlanProvider,
   AiProposeOptions,
+  AiPlanValidationIssue,
   AiValidationPorts,
 } from '../types';
+import { salvageAiPlan, type SalvagedAiPlan } from './salvage-plan';
 import { AiPlanRejectedError, validateAiPlan } from './validate-plan';
 
 export interface GenerateAiPlanOptions {
@@ -47,6 +49,15 @@ export interface GenerateAiPlanOptions {
   onProgress?: (text: string) => void;
   /** The conversation so far, oldest first; lets follow-ups resolve their referent. */
   history?: readonly AiChatTurn[];
+  /**
+   * Keep the part of a rejected answer the door WILL accept, instead of losing
+   * the whole run. Off by default: this primitive promises a plan or an error,
+   * and a caller that is handed a quietly smaller plan cannot tell. Callers that
+   * report to a person turn it on and pair it with `onSalvage`.
+   */
+  salvage?: boolean;
+  /** What the salvage kept and what it had to drop, for a run that must say so. */
+  onSalvage?: (salvaged: SalvagedAiPlan) => void;
   /** Immutable catalog used to resolve expertise for this request only. */
   skillRegistry?: AiSkillRegistry;
   selectedSkillIds?: readonly string[];
@@ -78,6 +89,28 @@ export class AiContextBudgetError extends Error {
       `AI context budget exceeded: estimated ${String(estimatedTokens)} tokens, maximum ${String(maxTokens)}.`,
     );
   }
+}
+
+/**
+ * @internal Shared with `outlineAiPlan`, which needs the same live channel —
+ * the same abort signal, the same narration, the same history — over a provider
+ * call that never reaches the door.
+ */
+export function liveOptionsForOutline(options: GenerateAiPlanOptions): AiProposeOptions {
+  return liveOptions(options);
+}
+
+/**
+ * @internal Shared with `outlineAiPlan`. The command policy is EMPTY by
+ * construction there: an outline shows the model no command vocabulary at all,
+ * which says "do not propose edits" more strongly than any instruction can,
+ * because there is nothing left to name.
+ */
+export function contextOptionsForOutline(
+  options: GenerateAiPlanOptions,
+  skills: AiPreparedSkillContext | undefined,
+): AssembleAiContextOptions {
+  return { ...contextOptions(options, skills, { allowedCommands: [], maxCommands: 0 }), outline: true };
 }
 
 function liveOptions(options: GenerateAiPlanOptions): AiProposeOptions {
@@ -244,6 +277,15 @@ function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
   };
 }
 
+/**
+ * What the repair rung returns. A failed repair keeps its CANDIDATE rather than
+ * throwing it away, because the salvage rung below works on the best answer the
+ * model actually produced, and that is usually the corrected one.
+ */
+type RepairOutcome =
+  | { readonly ok: true; readonly plan: AiPlan }
+  | { readonly ok: false; readonly candidate: unknown; readonly issues: readonly AiPlanValidationIssue[] };
+
 async function repairAiPlanOnce(
   options: GenerateAiPlanOptions,
   context: AiPlanWireRequest['context'],
@@ -252,7 +294,7 @@ async function repairAiPlanOnce(
   repair: NonNullable<AiPlanProvider['repair']>,
   attempt: AiPlanWireAttempt,
   maxContextTokens: number,
-): Promise<AiPlan> {
+): Promise<RepairOutcome> {
   throwIfAborted(options.signal);
   assertWireRequestBudget(wireRequest(options, context, attempt), maxContextTokens);
   const candidate = await repair(options.request, context, attempt.plan, attempt.issues, live);
@@ -264,8 +306,8 @@ async function repairAiPlanOnce(
     policy,
     resolveAiCompositionPolicy(options.composition),
   );
-  if (!repaired.ok) throw new AiPlanRejectedError(repaired.issues);
-  return repaired.plan;
+  if (!repaired.ok) return { ok: false, candidate, issues: repaired.issues };
+  return { ok: true, plan: repaired.plan };
 }
 
 /**
@@ -315,7 +357,7 @@ export async function generateAiPlanWithPreparedSkills(
     ) {
       throw cause;
     }
-    return repairAiPlanOnce(
+    const recovered = await repairAiPlanOnce(
       options,
       context,
       live,
@@ -324,6 +366,12 @@ export async function generateAiPlanWithPreparedSkills(
       invalidOutputRepairAttempt(cause.message),
       maxContextTokens,
     );
+    if (recovered.ok) return recovered.plan;
+    /*
+      The first answer was never a plan — it failed to parse — so there is only
+      one candidate to salvage from, and it is the correction.
+    */
+    return salvageOrReject(options, policy, [recovered.candidate], recovered.issues);
   }
   throwIfAborted(options.signal);
   const first = validateAiPlan(
@@ -341,13 +389,13 @@ export async function generateAiPlanWithPreparedSkills(
     milliseconds, without the model ever being asked.
   */
   options.provider.forget?.(options.request, context, live);
-  if (repair === undefined) throw new AiPlanRejectedError(first.issues);
+  if (repair === undefined) return salvageOrReject(options, policy, [candidate], first.issues);
 
   throwIfAborted(options.signal);
   // The parse may have failed before a structured plan existed; hand the
   // server whatever shape it sent so it can see its own mistake.
   const attempted = isPlanShaped(candidate) ? candidate : { rationale: '', commands: [] };
-  return repairAiPlanOnce(
+  const repaired = await repairAiPlanOnce(
     options,
     context,
     live,
@@ -356,6 +404,44 @@ export async function generateAiPlanWithPreparedSkills(
     { plan: attempted, issues: first.issues },
     maxContextTokens,
   );
+  if (repaired.ok) return repaired.plan;
+  /*
+    Both attempts failed. The corrected answer is tried first because it is the
+    model's considered second thought and usually the closer one; the original
+    follows, because a repair can also make things worse.
+  */
+  return salvageOrReject(options, policy, [repaired.candidate, candidate], repaired.issues);
+}
+
+/**
+ * The third rung: keep whatever part of the answer the door will accept.
+ *
+ * Opt-in, and deliberately so. `generateAiPlan` is the primitive that promises
+ * a plan or an error, and a caller that asked for a plan and silently received
+ * a smaller one would have no way to know. `runAiAgent` turns it on and reports
+ * what was dropped, which is where a person can actually be told.
+ */
+function salvageOrReject(
+  options: GenerateAiPlanOptions,
+  policy: AiEffectiveCommandPolicy,
+  candidates: readonly unknown[],
+  issues: readonly AiPlanValidationIssue[],
+): AiPlan {
+  if (options.salvage !== true) throw new AiPlanRejectedError(issues);
+  for (const candidate of candidates) {
+    if (!isPlanShaped(candidate)) continue;
+    const salvaged = salvageAiPlan(
+      candidate,
+      options.kernel,
+      options.validationPorts,
+      policy,
+      resolveAiCompositionPolicy(options.composition),
+    );
+    if (salvaged === undefined) continue;
+    options.onSalvage?.(salvaged);
+    return salvaged.plan;
+  }
+  throw new AiPlanRejectedError(issues);
 }
 
 function isPlanShaped(candidate: unknown): candidate is AiPlan {

@@ -11,7 +11,15 @@ describe('gradeCost', () => {
   it('passes and scores 1 when everything is inside budget', () => {
     const result = gradeCost(
       runOutput({
-        metrics: { commandCount: 2, contextFragments: 3, contextTokens: 900, elapsedMs: 50 },
+        metrics: {
+          commandCount: 2,
+          contextFragments: 3,
+          contextTokens: 900,
+          elapsedMs: 50,
+          attempts: 1,
+          repaired: false,
+          salvaged: null,
+        },
       }),
       budgeted,
     );
@@ -23,7 +31,15 @@ describe('gradeCost', () => {
   it('fails a plan with more commands than the case allows', () => {
     const result = gradeCost(
       runOutput({
-        metrics: { commandCount: 9, contextFragments: 3, contextTokens: 900, elapsedMs: 50 },
+        metrics: {
+          commandCount: 9,
+          contextFragments: 3,
+          contextTokens: 900,
+          elapsedMs: 50,
+          attempts: 1,
+          repaired: false,
+          salvaged: null,
+        },
       }),
       budgeted,
     );
@@ -34,7 +50,15 @@ describe('gradeCost', () => {
   it('fails a run that spent more context than the case allows', () => {
     const result = gradeCost(
       runOutput({
-        metrics: { commandCount: 1, contextFragments: 40, contextTokens: 99_000, elapsedMs: 50 },
+        metrics: {
+          commandCount: 1,
+          contextFragments: 40,
+          contextTokens: 99_000,
+          elapsedMs: 50,
+          attempts: 1,
+          repaired: false,
+          salvaged: null,
+        },
       }),
       budgeted,
     );
@@ -50,7 +74,15 @@ describe('gradeCost', () => {
     */
     const result = gradeCost(
       runOutput({
-        metrics: { commandCount: 1, contextFragments: 3, contextTokens: 900, elapsedMs: 60_000 },
+        metrics: {
+          commandCount: 1,
+          contextFragments: 3,
+          contextTokens: 900,
+          elapsedMs: 60_000,
+          attempts: 1,
+          repaired: false,
+          salvaged: null,
+        },
       }),
       budgeted,
     );
@@ -65,7 +97,15 @@ describe('gradeCost', () => {
         outcome: 'refusal',
         plan: null,
         policy: null,
-        metrics: { commandCount: 0, contextFragments: 3, contextTokens: 900, elapsedMs: 10 },
+        metrics: {
+          commandCount: 0,
+          contextFragments: 3,
+          contextTokens: 900,
+          elapsedMs: 10,
+          attempts: 1,
+          repaired: false,
+          salvaged: null,
+        },
       }),
       evalCase({ budget: { maxCommands: 0, maxContextTokens: 10_000, maxElapsedMs: 5_000 } }),
     );

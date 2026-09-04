@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_LIVE_ENDPOINT, resolveEvalMode, resolveLiveEndpoint } from './provider';
+import {
+  DEFAULT_LIVE_ENDPOINT,
+  LIVE_TIMEOUT_MS,
+  resolveEvalMode,
+  resolveLiveEndpoint,
+} from './provider';
 
 describe('mode resolution', () => {
   it('defaults to offline, so nothing in CI ever reaches the network by accident', () => {
@@ -28,5 +33,21 @@ describe('endpoint resolution', () => {
 
   it('falls back to the local ai-server', () => {
     expect(resolveLiveEndpoint({})).toBe(DEFAULT_LIVE_ENDPOINT);
+  });
+});
+
+describe('the live deadline', () => {
+  it('allows a real plan the time a real plan takes', () => {
+    /*
+      Pinned, not incidental. At five minutes — what this was — a live eval
+      aborted healthy runs and recorded them as provider failures, so the
+      harness would have reported the assistant failing at precisely the cases
+      that take longest. Eleven minutes matches the playground's own deadline
+      and sits just above the server's ten-minute cap, so a genuine timeout is
+      reported by the side that knows why. Lowering this number is a decision
+      about what the harness is allowed to measure, and it should have to edit
+      this line to make it.
+    */
+    expect(LIVE_TIMEOUT_MS).toBe(660_000);
   });
 });

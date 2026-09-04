@@ -273,6 +273,7 @@ export {
   LayersTree,
   Palette,
   PreviewMode,
+  SitePages,
   TextBubble,
   bucketForWidth,
   defineCanvasTool,
@@ -314,6 +315,7 @@ export {
   type TopBarDevice,
   type TopBarProps,
   type PreviewModeProps,
+  type SitePagesProps,
   type RectIndex,
   type TextBubbleAction,
   type TextBubbleProps,
@@ -322,15 +324,34 @@ export {
 // Kernel access (creation + command authoring + helpers)
 export {
   createBuilder,
+  // The SITE kernel (013): a whole site behind one door, with each page
+  // reachable as an ordinary `BuilderKernel`.
+  createSiteBuilder,
   defineCommand,
+  // The SITE door (013). An app that builds a whole site — pages, shared
+  // regions, one design system — reaches these commands the same way it reaches
+  // the page ones: through this module, never by importing `builder-core`.
+  defineSiteCommand,
   emptyDocument,
   insertedNodeId,
+  isSiteCommandName,
+  // The site's load path, and the lift that turns a document a person already
+  // has into a one-page site byte for byte (FR-007).
+  liftDocumentSession,
   openDocument,
+  openSite,
+  siteCommands,
   type BuilderKernel,
+  type BuilderSiteKernel,
   type CoreCommandName,
   type CoreCommands,
   type CreateBuilderOptions,
+  type CreateSiteBuilderOptions,
   type OpenDocumentOptions,
+  type OpenSiteOptions,
+  type SiteCommandName,
+  type SiteCommands,
+  type SiteGroupStep,
   // The deterministic PORTS an application supplies when it needs its own
   // clock or id source — the assistant's preflight runs on a scratch kernel and
   // must never borrow the live one's, because a shared id source hands out ids
@@ -378,10 +399,48 @@ export {
   type NodeId,
   // The persistence PORT itself. `openDocument` is already exported and takes an
   // adapter as its first argument, so an application could name the door but not
-  // the thing it had to build to walk through it.
+  // the thing it had to build to walk through it. The SITE pair is here for the
+  // same reason: `openSite` is exported above.
   type PersistedSession,
+  type PersistedSiteSession,
   type PersistenceAdapter,
+  type SitePersistenceAdapter,
   type RichTextDoc,
+  /*
+    The SITE contract (013). An application that boots on a site has to be able
+    to name the shape it stores, seed one from a document it already has, and
+    validate what it read — all three without reaching past this door (ADR 0003).
+  */
+  /*
+    The document format version. Already on the headless door; an application
+    that constructs a document of its own — a fixture, a template, a page inside
+    a site it is seeding — has to stamp the same number, and guessing `1` is how
+    a fixture silently stops migrating.
+  */
+  LATEST_SCHEMA_VERSION,
+  LATEST_SITE_VERSION,
+  migrateSite,
+  siteFromDocument,
+  validateSite,
+  /*
+    And the design system a site carries. `defaultDesignSystem()` is what
+    `siteFromDocument` installs, so an application constructing a site of its own
+    — a fixture, a test, a template — needs the same starter rather than a second
+    set of values that drift from it.
+  */
+  contrastRatio,
+  defaultDesignSystem,
+  validateDesignSystem,
+  type DesignPairing,
+  type DesignSystem,
+  type BuilderSite,
+  type PageId,
+  type SharedRegion,
+  type SharedRegionId,
+  type SharedRegionKind,
+  type SitePage,
+  type SiteValidationIssue,
+  type SiteValidationResult,
   type SlotDecl,
   type SlotName,
   type Surface,

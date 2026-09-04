@@ -17,6 +17,7 @@ import {
   EditorCanvas,
   Inspector,
   LayersTree,
+  SitePages,
   Palette,
   PreviewMode,
   darkTheme,
@@ -557,7 +558,17 @@ export function App() {
                   />
                 </div>
                 {railSection === 'layers' ? (
-                  <LayersTree kernel={session.kernel} />
+                  /*
+                    The pages ABOVE the layers, in the same panel. The layer tree
+                    shows one page's structure; the list above says which page
+                    that is and lets a person move between them — reading the two
+                    in the other order tells you the shape of something you have
+                    not been told the name of.
+                  */
+                  <div className="pg-structure">
+                    <SitePages siteKernel={session.siteKernel} />
+                    <LayersTree kernel={session.kernel} />
+                  </div>
                 ) : railSection === 'settings' ? (
                   /*
                       The scenario harness, in a panel of its own. It used to ride in
@@ -572,7 +583,7 @@ export function App() {
                     <FixturePicker value={fixture} onChange={setFixture} />
                     <ChromePicker value={chromeChoice} onChange={setChromeChoice} />
                     <ThemePicker value={themeName} onChange={setThemeName} />
-                    <DirectionFlip kernel={session.kernel} />
+                    <DirectionFlip kernel={session.kernel} siteKernel={session.siteKernel} />
                     <RegisterDemoExtension key={fixture} kernel={session.kernel} />
                     {codeOpen ? null : (
                       <label className="pg-width">

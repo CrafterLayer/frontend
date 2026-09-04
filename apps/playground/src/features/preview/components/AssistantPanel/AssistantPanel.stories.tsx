@@ -607,12 +607,67 @@ export const BuildInFlight: Story = {
     );
     const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
     await expect(rows).toHaveLength(5);
+    /*
+      ORDERED LANDING. `Benefits` (row 2) never settles, so nothing after it can
+      land — the two rows before it are applied and the count says 2/5, while
+      the run keeps working.
+
+      Rows 3 and 4 read `running`, not `waiting`, and that is the point of the
+      story after the fill loop became concurrent: with a window of
+      DEFAULT_AI_BUILD_FILL_CONCURRENCY the writers work ahead of the lander, so
+      a section can be finished and still not be on the page. This assertion
+      previously read `waiting` for row 4 and was an accurate description of the
+      SEQUENTIAL loop; it is what caught the behaviour change.
+    */
     await expect(rows[0]).toHaveAttribute('data-status', 'applied');
+    await expect(rows[1]).toHaveAttribute('data-status', 'applied');
     await expect(rows[2]).toHaveAttribute('data-status', 'running');
-    await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
+    await expect(rows[3]).toHaveAttribute('data-status', 'running');
+    await expect(rows[4]).toHaveAttribute('data-status', 'running');
     // The open row carries the very rows a single call would have shown.
     await expect(canvas.getByRole('region', { name: 'Working on Benefits' })).toBeVisible();
     await expect(canvas.getByRole('button', { name: 'Stop' })).toBeVisible();
+  },
+};
+
+/**
+ * The window has a BOUND, and this is where you can see it.
+ *
+ * `Hero` never settles, so nothing lands at all. Three writers are in flight —
+ * the concurrency limit — and the remaining two sections are genuinely
+ * `waiting`: the fourth cannot start until the first has landed. Without this
+ * story the limit is a constant nobody can observe, and raising it to "all of
+ * them" would look identical in `BuildInFlight`.
+ */
+export const BuildWindowBounded: Story = {
+  args: (() => {
+    const kernel = createPlaygroundKernel({ fixture: 'empty' });
+    return {
+      kernel,
+      planProvider: createBuildStoryProvider(kernel, { hold: ['Hero'] }),
+      locale: 'en',
+    };
+  })(),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('radio', { name: 'Auto' }));
+    await submitRequest(canvasElement, BUILD_STORY_REQUEST);
+
+    const list = await canvas.findByRole('list', { name: 'Sections' }, { timeout: 20_000 });
+    await waitFor(
+      async () => {
+        const running = list.querySelectorAll(':scope > li.pg-chat__task[data-status="running"]');
+        await expect(running).toHaveLength(3);
+      },
+      { timeout: 20_000 },
+    );
+
+    const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
+    await expect(rows).toHaveLength(5);
+    await expect(rows[3]).toHaveAttribute('data-status', 'waiting');
+    await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
+    // Nothing landed, because the FIRST section is the one that is stuck.
+    await expect(canvasElement.querySelector('.pg-chat__tasks-count')).toHaveTextContent('0/5');
   },
 };
 

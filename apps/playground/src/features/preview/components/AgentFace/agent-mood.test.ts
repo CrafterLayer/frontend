@@ -60,6 +60,16 @@ const E = {
   validating: (attempt: 1 | 2) => ev({ type: 'plan.validating', attempt }),
   repairing: (issues: readonly string[]) => ev({ type: 'plan.repairing', issues }),
   proposed: () => ev({ type: 'plan.proposed', plan: {} as never, proposal: {} as never }),
+  salvaged: (kept: number, dropped: number) =>
+    ev({
+      type: 'plan.salvaged',
+      kept,
+      dropped: Array.from({ length: dropped }, (_unused, index) => ({
+        step: index + 1,
+        command: 'setProp',
+        reason: 'The door refused this step.',
+      })),
+    }),
   applying: () => ev({ type: 'plan.applying' }),
   completed: (status: 'proposed' | 'applied') => ev({ type: 'run.completed', status }),
   failed: (retryable: boolean) => ev({ type: 'run.failed', error: failure(retryable) }),
@@ -339,6 +349,26 @@ describe('reduceAgentMood', () => {
     expect(states[5]?.snapshot.mood).toBe('planning');
     // The mood did not restart: `since` still marks planning's entry.
     expect(states[5]?.snapshot.since).toBe(500);
+  });
+
+  it('ignores plan.salvaged entirely (reference-equal)', () => {
+    /*
+      A salvage means both attempts were refused and the run kept the part the
+      door accepts. The face must not react: the plan card names the dropped
+      steps, and a mood change here would read as an OUTCOME while the run is
+      still going. Reference equality is the assertion because "no change" and
+      "changed to the same values" are different facts to a memoised view.
+
+      This branch arrived with the event itself and had no test — the same gap
+      that let `plan.salvaged` break this file's exhaustive switch and the
+      playground typecheck with it.
+    */
+    const states = drive([
+      [0, begin()],
+      [500, event(E.proposing())],
+      [600, event(E.salvaged(2, 1))],
+    ]);
+    expect(states[2]).toBe(states[1]);
   });
 
   it('ignores plan.proposed entirely (reference-equal)', () => {

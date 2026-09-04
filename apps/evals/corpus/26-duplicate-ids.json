@@ -1,0 +1,30 @@
+{
+  "id": "26-duplicate-ids",
+  "title": "One page, no repeated identity",
+  "category": "identity",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Add three testimonial sections, one for each of our three markets: clinics, gyms, and studios.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 3,
+    "maxCommands": 12,
+    "allBlockTypes": [
+      "testimonials"
+    ]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Are there three distinct sections rather than one repeated, and does each carry its own content?",
+  "why": "Asking for three of the same block is the shortest path to a plan that reuses one id or emits three nodes that collide when rendered together. Nothing in the corpus asked for repetition before, so the failure had no way to appear."
+}

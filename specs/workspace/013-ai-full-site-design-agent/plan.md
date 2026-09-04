@@ -433,6 +433,45 @@ The dev bridge is an untrusted inbound boundary, so it rejects work over its act
 the dependency only if a trusted multi-page pipeline deliberately parallelizes per-page work and
 also owns an explicit pending-work bound.
 
+## Deviations recorded against the approved delivery plan (v3)
+
+Four decisions in the delivery plan depart from what this document assumed, each because something
+was measured rather than argued. They are recorded here so the plan and the spec do not disagree.
+
+### V1 — Assembly is a local compiler, not a fifth model call
+
+D2 describes five stages behind one provider port. The delivery keeps five OBSERVABLE stages but
+implements assembly as pure, seeded, local code. Reasons: seed determinism (SC-013) and the timing
+budget (SC-001) become properties of code rather than of a model; a compiler cannot invent a block
+type or an image URL it never saw, which is where FR-045's structural rejection has to live; and it
+removes one 30k-token call per site. `SiteStageProvider` therefore declares four methods.
+
+### V2 — The site is ONE kernel; pages are lenses
+
+The site substrate is a single kernel with one store, one transaction log, one history and one
+persistence session. `siteKernel.page(id)` returns a view satisfying the existing `BuilderKernel`
+interface and forwarding every call with a `pageId`. Patches are site-rooted, so a group spanning
+pages is one immer produce, one transaction, one undo. Rejected: N page kernels with a coordinator.
+N histories make an undo of an older group wrong the moment any page is hand-edited after it, and N
+append logs turn a conflict on page 3 — after pages 1 and 2 have appended — into a torn write
+`persist/seq-conflict` cannot express. Proved workable before adoption (T282), including the two
+defects that proof surfaced.
+
+### V3 — The commit is attributed to the agent
+
+`restoreDocument` lands a whole document as one transaction but hardcodes `author: 'codeview'`. The
+spec requires the agent's changes to be attributed to the agent, so the commit door takes the author
+and a human label. Proved on the existing projection route without changing shipped code (T284),
+including that a removal commits and that ids the draft minted survive the crossing — which is why
+the commit sends PATCHES rather than replaying the run's steps.
+
+### V4 — `TokenSwatchGrid` is a sibling, not a nested component
+
+The Component Artifact Matrix places `TokenSwatchGrid` inside `DesignSystemPanel/`. The contract
+checker governs only the DIRECT children of a `components/` directory
+(`workspace-tools/src/components/validate-components.mjs`), so a nested component is invisible to
+the gate it is supposed to satisfy. It gets its own sibling folder and its own five artifacts.
+
 ## Project Structure
 
 ### Documentation (this feature)

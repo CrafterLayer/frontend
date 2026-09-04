@@ -942,10 +942,66 @@ REFUSED: bare border-t/border-b (use -2), bare grow/shrink (use -1), group, hove
 });
 
 /**
+ * PLAN MODE: think out loud, and write nothing.
+ *
+ * The product has had a Plan mode for a while and it did not plan. It sent a
+ * request byte-identical to Ask's, was excluded from the build path, and — worst
+ * — could still write from the tail of a preview conversation. So a person who
+ * chose "Plan" got an answer that was sometimes prose, sometimes an edit, and
+ * never a plan.
+ *
+ * Two things make this one different, and only one of them is prose.
+ *
+ * `restrictToCommands: []` is the structural half. Skill restrictions INTERSECT
+ * (see `effectiveRestriction`), so an empty list intersects every other active
+ * skill down to nothing: a run carrying this skill has NO command it is allowed
+ * to emit, whatever else is loaded and whatever the model proposes. "Plan must
+ * never apply" stops being a flag the host remembers to pass.
+ *
+ * The instructions are the other half: a shape a person can act on — what they
+ * asked for in their own words, the steps in order, what else was possible and
+ * why it was not chosen, and what could go wrong. `followUp` is required
+ * because the complaint that started this was as much "gives no suggestions" as
+ * "does not plan": a plan whose last line is silence leaves the person to work
+ * out what to type next.
+ */
+const PLAN_MODE: AiSkillDefinitionV1 = builtin({
+  schemaVersion: 1,
+  id: 'craftkit.plan-mode',
+  name: 'Plan without building',
+  description:
+    'Answer with a plan a person can act on — goal, ordered steps, alternatives considered, risks — and emit no commands at all.',
+  version: '1.0.0',
+  source: 'builtin',
+  trust: 'builtin',
+  priority: 120,
+  activation: { mode: 'explicit' },
+  tags: ['planning', 'read-only'],
+  /*
+    Nothing. Not "only safe commands" — none. Intersecting to the empty set is
+    what makes a plan unable to write even when a build playbook is also active.
+  */
+  restrictToCommands: [],
+  instructions: `You are PLANNING, not building. Emit no commands: this run cannot apply anything, and proposing an edit only wastes the person's turn.
+Answer in exactly four labelled parts, in the request's own language, and never longer than the plan needs.
+GOAL: what they asked for, restated in their words, plus the one thing you had to assume to proceed. If the request could reasonably mean two different pages, say which one you planned and what the other would change.
+OUTLINE: the steps, in the order they would happen, one line each, each naming the SECTION or BLOCK it touches and what it would say or do. A step a person cannot picture is not a step. Count them: a page is usually four to seven.
+ALTERNATIVES: one or two other shapes this page could take, each with the reason it was NOT chosen. "None" is an acceptable answer only when the request already fixes the structure.
+RISK: what could come out wrong — copy you had to invent, an image nobody has, a section whose content depends on facts you were not given, a length that will overflow on a phone. Name what you would need from them to remove each one.
+NEVER: apologising for not building, restating the catalog, describing what a hero is, or promising something the outline does not contain.
+followUp: ONE sentence they could say next, phrased as they would say it, and it should be the one that starts the build. One, not a list: the field is a single string and a UI shows it as a single chip, so three options crammed into it arrive as one unreadable line.`,
+  references: {
+    'checks/plan.md':
+      'Four labelled parts present; every outline step names a section and its content; alternatives carry reasons; risks name what is missing; zero commands emitted; followUp is ONE sentence that starts the build.',
+  },
+});
+
+/**
  * Reviewed, data-only defaults, ordered by priority descending. Hosts opt in
  * by constructing this registry; the registry itself re-sorts by id.
  */
 export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Object.freeze([
+  PLAN_MODE,
   PRECISE_EDIT,
   BUILD_SCAFFOLD,
   BUILD_FILL,

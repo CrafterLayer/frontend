@@ -1,0 +1,63 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SitePagesStories from './SitePages.stories';
+
+<Meta of={SitePagesStories} />
+
+# SitePages
+
+The site's pages as a listbox (feature 013, US1). It reads the SITE rather than a page: the order,
+the titles and which page is current are all site state, and there is no lens through which one page
+can see its siblings. That is why this component takes a `BuilderSiteKernel` and not a
+`BuilderKernel`.
+
+<Canvas of={SitePagesStories.Default} />
+
+## Every change is the door's
+
+Adding, renaming, reordering and removing all go through the site's own commands — `addPage`,
+`renamePage`, `reorderPage`, `removePage`. Each is one transaction and one undo, and every refusal
+belongs to the command, not to this component. Deleting the home page is refused by `removePage`
+because a site must hold exactly one page at `/`; the component does not re-implement that rule, it
+reports it in a `role="status"` line and leaves the list untouched.
+
+That reporting is the point. An exception escaping a React event handler unmounts the tree in
+development and tells the person nothing, and "you cannot delete the home page" is ordinary use, not
+a crash.
+
+<Canvas of={SitePagesStories.SinglePage} />
+
+## Keyboard
+
+Roving tabindex: exactly one page is in the tab order, and the arrows move it. `Home` and `End` jump
+to the ends. `Enter` and `Space` open the focused page — arrowing is navigation, not selection, so
+walking the list never switches the canvas underneath you. `F2` renames in place, `Enter` commits,
+`Escape` abandons. `Delete` removes. `Alt` with an arrow reorders.
+
+<Canvas of={SitePagesStories.KeyboardReorder} />
+
+## Where focus goes, named
+
+Two moments move focus, and both name their destination rather than leaving it to the browser:
+
+- **After a delete**, focus goes to the NEXT page, or to the previous one when the last was removed.
+  The row that was focused has just unmounted, so the browser would otherwise drop focus to
+  `<body>` — and a test written as `expect(deletedRow).not.toHaveFocus()` passes in exactly that
+  case, which is the failure it was meant to catch. `focusDestinationAfterDelete` computes the
+  destination so the component and its test can name the same one.
+- **After a reorder**, the moved page keeps the keyboard. Without that, a second `Alt+ArrowDown`
+  would do nothing and the interaction would be unusable past the first press.
+
+## Direction
+
+In an RTL site the list runs right-to-left, so `ArrowLeft` moves FORWARD and `Alt+ArrowLeft` moves a
+page one place later. Only the horizontal keys mirror; up and down never do.
+
+<Canvas of={SitePagesStories.RightToLeft} />
+
+## What it does not do
+
+It does not draw a separator or choose its own width — the shell region that places a panel owns
+both, and a panel that decides for itself is only ever right in one position. It does not hold a
+second copy of the page order; the list is derived from the site on every change through
+`useSyncExternalStore`, which is also why `getSite()` must return a stable reference between writes.

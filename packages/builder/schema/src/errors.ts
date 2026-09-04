@@ -26,6 +26,15 @@ export type BuilderErrorCode =
   | 'cmd/unknown'
   | 'cmd/invalid-args'
   | 'cmd/structural-violation'
+  /*
+    The SITE analogues of `cmd/structural-violation` and `doc/invalid-patch`.
+    Two codes, not more: a site command either refuses because the change would
+    break the site's structure (an unknown page, a duplicate address, a design
+    system nobody could read) or because a raw patch batch produced a site the
+    validator rejects. Anything finer would be a taxonomy nobody switches on.
+  */
+  | 'site/structural-violation'
+  | 'site/invalid-patch'
   | 'ext/cycle'
   | 'ext/duplicate'
   | 'ext/missing-dependency'

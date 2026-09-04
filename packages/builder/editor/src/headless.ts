@@ -58,6 +58,20 @@ export {
   openDocument,
   applyPatchSet,
   GROUPED_DISPATCH_LABEL_MAX_LENGTH,
+  /*
+    The SITE surface (013, T046). A headless host is the caller that most needs
+    it: the AI pipeline builds a whole site on a scratch kernel with its own
+    ports, and `applySitePatchSet` is what replays a stored tail. `siteCommands`
+    and `isSiteCommandName` ship too, because a service that reports its own
+    command vocabulary has to be able to name the site half of it.
+  */
+  applySitePatchSet,
+  createSiteBuilder,
+  defineSiteCommand,
+  isSiteCommandName,
+  liftDocumentSession,
+  openSite,
+  siteCommands,
   // The deterministic PORTS a headless host supplies when it needs its own
   // clock or id source. A service that runs several documents at once MUST be
   // able to name them: the AI preflight rehearses on a scratch kernel, and a
@@ -71,7 +85,13 @@ export {
   type CreateBuilderOptions,
   type GroupStep,
   type GroupedDispatchOptions,
+  type BuilderSiteKernel,
+  type CreateSiteBuilderOptions,
   type OpenDocumentOptions,
+  type OpenSiteOptions,
+  type SiteCommandName,
+  type SiteCommands,
+  type SiteGroupStep,
 } from '@craftkit/builder-core';
 
 // ── Document contracts, projection and parsing ──────────────────────────────

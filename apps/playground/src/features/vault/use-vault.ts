@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
-import { isBuilderError, openDocument, type BuilderKernel } from '@craftkit/builder';
+import {
+  openSite,
+  type BuilderKernel,
+  type BuilderSite,
+  type BuilderSiteKernel,
+} from '@craftkit/builder';
 
 import {
   hydratePlaygroundTemplates,
@@ -9,35 +14,24 @@ import {
   playgroundPorts,
   type PlaygroundFixture,
 } from '../preview/create-playground-kernel';
-import { createVaultPersistence, sessionKey, type VaultPersistenceAdapter } from './persistence';
+import {
+  autosave,
+  reasonOf,
+  VAULT_SAVED,
+  type AutosaveTarget,
+  type VaultSaveState,
+} from './autosave';
+
+export { VAULT_SAVED, type VaultSaveState };
+import { sessionKey } from './persistence';
+import { seedSiteFrom, siteFromFixture } from './site-boot';
+import {
+  createVaultSitePersistence,
+  siteSessionKey,
+  type VaultSitePersistenceAdapter,
+} from './site-persistence';
 import { createSnapshotShelf, type SnapshotShelf } from './snapshots';
 import { createIndexedDbVaultStore, type VaultStore } from './store';
-
-/**
- * Whether the page on the screen is the page in storage — the one fact a person
- * cannot check for themselves and cannot afford to be wrong about.
- *
- * There is no such thing as a save that quietly does not happen. A full disk, a
- * private window, a second tab that took the document: each of them leaves work
- * only in memory, and a session that keeps saying nothing while that is true is
- * a session that loses everything on the next reload with a green screen up to
- * the last second.
- */
-export interface VaultSaveState {
-  /** `saved` when storage holds what is on screen; `error` when it does not. */
-  readonly status: 'saving' | 'saved' | 'error';
-  /** Only on `error`: what storage said, in the words it said it. */
-  readonly reason: string | undefined;
-  /**
-   * Sticky once true. Another session — a second tab on the same document — has
-   * written this page since this one opened it, so the two are now taking it
-   * from each other and the last save wins. Nothing is spliced: what is stored
-   * is always one whole page from one of them.
-   */
-  readonly shared: boolean;
-}
-
-const SAVED: VaultSaveState = { status: 'saved', reason: undefined, shared: false };
 
 export type VaultKernelState =
   | { readonly status: 'loading' }
@@ -50,7 +44,17 @@ export type VaultKernelState =
        * holding a conversation about the old one has no way to notice.
        */
       readonly bootId: string;
+      /**
+       * The CURRENT page, as an ordinary kernel.
+       *
+       * Every surface in the app takes a `BuilderKernel` and does not need to
+       * learn that a site exists. This is a lens over the site below, so the two
+       * share one store, one transaction log and one history — switching pages
+       * hands out a different lens, never a different session.
+       */
       readonly kernel: BuilderKernel;
+      /** The whole site, for the surfaces that need one — the page list. */
+      readonly siteKernel: BuilderSiteKernel;
       readonly restored: boolean;
       readonly shelf: SnapshotShelf;
       readonly save: VaultSaveState;
@@ -83,13 +87,13 @@ export function vaultDocId(fixture: PlaygroundFixture): string {
 }
 
 interface OpenedSession {
-  readonly kernel: BuilderKernel;
-  /** False when the adapter had to fall back to the fixture: nothing was stored. */
+  readonly siteKernel: BuilderSiteKernel;
+  /** False when nothing was stored at all and the fixture became the home page. */
   readonly restored: boolean;
 }
 
 interface BootSession {
-  readonly adapter: VaultPersistenceAdapter;
+  readonly adapter: VaultSitePersistenceAdapter;
   readonly opening: Promise<OpenedSession>;
 }
 
@@ -97,138 +101,26 @@ type Boot =
   | { readonly key: string; readonly ok: true; readonly session: OpenedSession }
   | { readonly key: string; readonly ok: false; readonly reason: string };
 
-/** The kernel's one conflict outcome, told apart from every other failure. */
-function isSeqConflict(error: unknown): boolean {
-  return isBuilderError(error) && error.code === 'persist/seq-conflict';
-}
-
-/**
- * Storage is BEST EFFORT and the session is not — but best effort is not the
- * same as SILENT, and that is what this function got wrong.
- *
- * Two facts from the kernel force the compaction. `flush()` sends the pending
- * transaction tail, and undo/redo record no transaction at all (Law S), so an
- * undone edit still sits in the stored tail and a replay resurrects it.
- * `snapshot(docId, doc, seq)` replaces the stored document AT the flushed
- * position and truncates the tail, so what is stored is what is on screen
- * rather than a history that has to be replayed correctly.
- *
- * Three things force the rest of it:
- *
- * — A failure has to REACH somebody. A bare `catch {}` around the whole loop
- *   turned a full disk into a green screen over an empty store, and it also
- *   skipped the compaction that is the vault's whole defence. Every outcome is
- *   published now, and the compaction lives with the flush that earned it.
- *
- * — A seq conflict is not a failure to report and forget. A kernel whose
- *   position is stale conflicts on EVERY later append: without a re-base it
- *   never saves again for the rest of its life. `takeOver` re-bases the stored
- *   session onto this kernel, once per pass, and the pass then retries.
- *
- * — And the person is told the page is being edited in two places, because
- *   after a take-over the last save wins and that is not something to discover.
- */
-function autosave(
-  kernel: BuilderKernel,
-  adapter: VaultPersistenceAdapter,
-  docId: string,
-  report: (state: VaultSaveState) => void,
-): () => void {
-  let saved = kernel.getDocument();
-  let running = false;
-  let queued = false;
-  const queuedAgain = (): boolean => queued;
-  /*
-    Read through a CALL, not a variable. The flag is written by the stopper this
-    returns and read by the save loop. Both flags here are written in one
-    closure and read in another, and a boolean read directly narrows to its
-    initialiser — which makes the checker call the very guards that keep a save
-    from running after unmount, or from missing an edit that landed mid-flight,
-    dead code.
-  */
-  let stopRequested = false;
-  const stopped = (): boolean => stopRequested;
-  /** Sticky for the life of the session: see `VaultSaveState.shared`. */
-  let shared = false;
-
-  const publish = (status: VaultSaveState['status'], reason?: string): void => {
-    // Nothing is announced about a session that is over: the boot that replaces
-    // it owns the state from here.
-    if (stopped()) {
-      return;
-    }
-    report({ status, reason, shared });
-  };
-
-  const saveOnce = async (): Promise<void> => {
+/** The site session, as the root-generic save loop sees it. */
+function siteTarget(
+  siteKernel: BuilderSiteKernel,
+  adapter: VaultSitePersistenceAdapter,
+  siteId: string,
+): AutosaveTarget<BuilderSite> {
+  return {
+    getRoot: () => siteKernel.getSite(),
     /*
-      Claimed BEFORE the awaits. `flush()` writes `{...state, seq}` back to the
-      store, which notifies every subscriber — including this one — with the
-      same document object; advancing the mark first is what stops a save from
-      triggering the next save forever.
+      Read from the CURRENT page's lens, which is the one seat that publishes
+      `seq`. Every lens reports the same number — there is one store — so which
+      page happens to be current cannot change the position a re-base uses.
     */
-    saved = kernel.getDocument();
-    const seq = await kernel.flush();
-    /*
-      The LIVE document, read again after the flush rather than the one captured
-      before it. `seq` is where the adapter now is; storing what is on screen at
-      that position is what makes storage agree with the screen, and compaction
-      is a no-op at any other position anyway.
-    */
-    const current = kernel.getDocument();
-    saved = current;
-    await adapter.snapshot?.(docId, current, seq);
-  };
-
-  const run = async (): Promise<void> => {
-    running = true;
-    // ONE take-over per pass. A store another session is writing continuously
-    // must not turn this loop into a tug of war that never lets go of the CPU.
-    let rebased = false;
-    do {
-      queued = false;
-      publish('saving');
-      try {
-        await saveOnce();
-        publish('saved');
-      } catch (error) {
-        if (isSeqConflict(error) && !rebased) {
-          rebased = true;
-          shared = true;
-          try {
-            await adapter.takeOver(
-              docId,
-              kernel.getDocument(),
-              kernel.context.store.getState().seq,
-            );
-            // The stored position matches this kernel again, so the pending
-            // transactions the conflict refused go out on the next pass.
-            queued = true;
-          } catch (refused) {
-            publish('error', reasonOf(refused));
-          }
-        } else {
-          publish('error', reasonOf(error));
-        }
-      }
-    } while (queuedAgain() && !stopped());
-    running = false;
-  };
-
-  const unsubscribe = kernel.context.store.subscribe(() => {
-    if (stopped() || kernel.getDocument() === saved) {
-      return;
-    }
-    if (running) {
-      queued = true;
-      return;
-    }
-    void run();
-  });
-
-  return () => {
-    stopRequested = true;
-    unsubscribe();
+    getSeq: () => siteKernel.page(siteKernel.currentPage()).context.store.getState().seq,
+    flush: () => siteKernel.flush(),
+    subscribe: (listener) => siteKernel.subscribe(listener),
+    snapshot: async (site, seq) => {
+      await adapter.snapshot?.(siteId, site, seq);
+    },
+    takeOver: (site, seq) => adapter.takeOverSite(siteId, site, seq),
   };
 }
 
@@ -238,40 +130,52 @@ function startSession(store: VaultStore, fixture: PlaygroundFixture, docId: stri
     way to know whether anything was stored: the adapter calls it exactly when
     `load` found nothing. Asking the store directly would mean restating its key
     shape a second time.
+
+    For a SITE the answer has one more step, and it is the one that matters most
+    to a person upgrading: before falling back to the fixture, look for a
+    document session they already have and LIFT it into the home page (FR-007).
+    Finding a starter fixture where your page used to be is the worst possible
+    first impression of a new version.
   */
   let seeded = false;
-  const adapter = createVaultPersistence({
+  const adapter = createVaultSitePersistence({
     store,
-    seed: () => {
+    seed: async () => {
       seeded = true;
-      return playgroundDocument(fixture);
+      const result = await seedSiteFrom(store, docId, () =>
+        siteFromFixture(playgroundDocument(fixture)),
+      );
+      // A lift is a RESTORE: their work was found, just under the old shape.
+      if (result.origin === 'lifted') {
+        seeded = false;
+      }
+      return result.site;
     },
   });
 
-  let kernel: BuilderKernel | undefined;
-  const opening = openDocument(adapter, docId, {
+  let siteKernel: BuilderSiteKernel | undefined;
+  const opening = openSite(adapter, docId, {
     extensions: playgroundExtensions(fixture),
-    ports: playgroundPorts(() => kernel?.getDocument()),
+    ports: playgroundPorts(() =>
+      siteKernel === undefined
+        ? undefined
+        : siteKernel.page(siteKernel.currentPage()).getDocument(),
+    ),
   }).then((opened) => {
-    kernel = opened;
-    // AFTER the open: `openDocument` validates internally, and templates are
-    // tier-2 compositions rather than block types, so validation never saw them.
-    hydratePlaygroundTemplates(opened);
-    return { kernel: opened, restored: !seeded };
+    siteKernel = opened;
+    /*
+      AFTER the open: `openSite` validates internally, and templates are tier-2
+      compositions rather than block types, so validation never saw them. The
+      registry is shared by every lens, so hydrating through one page hydrates
+      the site.
+    */
+    hydratePlaygroundTemplates(opened.page(opened.currentPage()));
+    return { siteKernel: opened, restored: !seeded };
   });
 
   return { adapter, opening };
 }
 
-function reasonOf(error: unknown): string {
-  if (isBuilderError(error)) {
-    return `${error.code} — ${error.message}`;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'The stored page could not be opened.';
-}
 
 /**
  * The playground's boot.
@@ -293,7 +197,7 @@ export function useVaultKernel(
     Not derived from the boot: a save happens long after the document opened,
     and it can fail at any point in a session that opened perfectly.
   */
-  const [save, setSave] = useState<VaultSaveState>(SAVED);
+  const [save, setSave] = useState<VaultSaveState>(VAULT_SAVED);
   /*
     One entry per boot, so StrictMode's mount → unmount → mount cannot open the
     same document twice. Two opens over one stored document is not a wasted
@@ -328,9 +232,9 @@ export function useVaultKernel(
         if (!live) {
           return;
         }
-        stopAutosave = autosave(opened.kernel, session.adapter, docId, setSave);
+        stopAutosave = autosave(siteTarget(opened.siteKernel, session.adapter, docId), setSave);
         // A fresh boot starts even with storage, whatever the last one ended on.
-        setSave(SAVED);
+        setSave(VAULT_SAVED);
         setBoot({ key, ok: true, session: opened });
       },
       (error: unknown) => {
@@ -369,6 +273,13 @@ export function useVaultKernel(
           starting over on `playground/landing` would take `landing-v2` with it.
           The adapter owns the key shape and exports it for exactly this.
         */
+        await store.remove(siteSessionKey(docId));
+        /*
+          And the DOCUMENT session, if one is still there. It is what a site's
+          first boot lifts its home page from, so leaving it behind would make
+          "start over" re-lift the very work the person just asked to discard —
+          a button that visibly does nothing.
+        */
         await store.remove(sessionKey(docId));
       } catch {
         // Storage that will not let go of a document is still a session that
@@ -382,18 +293,38 @@ export function useVaultKernel(
   // "start over") IS the loading state for this one, and setting it inside the
   // effect would cascade a render the app can see.
   const current = boot?.key === key ? boot : undefined;
+  const siteKernel = current?.ok === true ? current.session.siteKernel : undefined;
+
+  /*
+    The current page, read from the site store rather than kept in React state.
+    It has to be a SUBSCRIPTION: `setCurrentPage` is a site write, not a React
+    one, so a page switch made anywhere — the page list, a command, an undo that
+    took a page away — has to re-render the app with the lens for the page the
+    site is actually on. Hooks run unconditionally; a boot that has no kernel yet
+    subscribes to nothing and reports the empty page id.
+  */
+  const currentPage = useSyncExternalStore(
+    useCallback(
+      (listener: () => void) => siteKernel?.subscribe(listener) ?? (() => undefined),
+      [siteKernel],
+    ),
+    () => siteKernel?.currentPage() ?? '',
+    () => siteKernel?.currentPage() ?? '',
+  );
+
   if (current === undefined) {
     return { status: 'loading' };
   }
-  return current.ok
+  return current.ok && siteKernel !== undefined
     ? {
         status: 'ready',
         bootId: current.key,
-        kernel: current.session.kernel,
+        kernel: siteKernel.page(currentPage),
+        siteKernel,
         restored: current.session.restored,
         shelf,
         save,
         startOver,
       }
-    : { status: 'failed', reason: current.reason, retry, startOver };
+    : { status: 'failed', reason: current.ok ? 'The site could not be opened.' : current.reason, retry, startOver };
 }

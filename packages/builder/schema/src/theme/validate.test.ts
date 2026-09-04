@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkContrast } from './contrast';
+import { checkContrast, contrastRatio } from './contrast';
+import { defaultDesignSystem } from './default-theme';
 import { COLOR_TOKENS, MEASUREMENT_TOKENS, TOKEN_NAMES } from './design-system';
 import type { ColorToken, Theme, TokenName } from './tokens';
 import { validateDesignSystem } from './validate';
@@ -294,5 +295,66 @@ describe('validateDesignSystem', () => {
     expect(result.system.tokens[name]).toBeDefined();
     expect(result.system.tokens[role]).toBe('#4338CA');
     expect(result.system.seed).toBe('clinic-2026-09');
+  });
+});
+
+describe('defaultDesignSystem — the starter every new site inherits', () => {
+  it('passes the validator it is subject to', () => {
+    /*
+      The whole point of T007. `migrateSite` installs this object into every
+      site it touches, and `validateSite` rule 9 now measures it. If those two
+      ever disagree, every new site is born invalid — so this asserts they
+      agree, directly, without a site in between.
+    */
+    expect(validateDesignSystem(defaultDesignSystem())).toEqual({
+      ok: true,
+      system: defaultDesignSystem(),
+    });
+  });
+
+  it('measures every declared pairing above the threshold it declares', () => {
+    /*
+      Not a restatement of the line above: this recomputes the ratios instead
+      of trusting the validator, so a bug that made `validateDesignSystem`
+      permissive could not make both tests green.
+    */
+    const system = defaultDesignSystem();
+    expect(system.pairings.length).toBeGreaterThanOrEqual(7);
+    for (const pairing of system.pairings) {
+      const ratio = contrastRatio(
+        system.tokens[pairing.text],
+        system.tokens[pairing.background],
+      );
+      expect
+        .soft(ratio, `${pairing.text} on ${pairing.background}`)
+        .toBeGreaterThanOrEqual(pairing.size === 'large' ? 3 : 4.5);
+    }
+  });
+
+  it('hands every caller its own token map', () => {
+    /*
+      The design deliverable mutates `system.tokens` per site. An earlier draft
+      returned the shared module-level `lightTheme`, which meant one site's
+      colour change would silently repaint every other site built from the
+      default — invisible to any test that only ever built one site.
+    */
+    const first = defaultDesignSystem();
+    const second = defaultDesignSystem();
+
+    expect(first.tokens).not.toBe(second.tokens);
+    (first.tokens as Record<string, string>)['accent'] = '#000000';
+    expect(second.tokens.accent).not.toBe('#000000');
+  });
+
+  it('reads its font stacks from the tokens, Arabic fallback included', () => {
+    /*
+      A hand-retyped stack is how the `Noto Sans Arabic` fallback got dropped
+      once already. In a bilingual product that is the fallback that decides
+      whether Arabic body text renders in the intended face.
+    */
+    const system = defaultDesignSystem();
+    expect(system.typography.headingFamily).toBe(system.tokens.fontFamilySans);
+    expect(system.typography.bodyFamily).toBe(system.tokens.fontFamilySans);
+    expect(system.typography.bodyFamily).toContain('Noto Sans Arabic');
   });
 });

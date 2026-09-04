@@ -92,6 +92,9 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.motion',
       'craftkit.occasion-page',
       'craftkit.page-composition',
+      // Plan mode: explicit-only, and the only built-in whose command
+      // restriction is the EMPTY set.
+      'craftkit.plan-mode',
       'craftkit.precise-edit',
       'craftkit.scroll-cinematic',
       'craftkit.structure-recipes',
@@ -383,5 +386,72 @@ describe('Craftkit built-in AI skills', () => {
         expect([...candidates].filter((name) => !isLucideIconName(name))).toEqual([]);
       },
     );
+  });
+});
+
+describe('craftkit.plan-mode — a plan that structurally cannot write', () => {
+  const registry = createCraftkitAiSkillRegistry();
+
+  it('is explicit-only: no phrasing can land a person in Plan by accident', () => {
+    /*
+      The opposite failure of the one being fixed. A person who typed a request
+      in Ask must not silently get a plan instead of a page.
+    */
+    const prepared = registry.prepare({
+      request: 'اعمل لي خطة لصفحة هبوط، plan the page first',
+      auto: true,
+    });
+
+    expect(prepared.active.map(({ id }) => id)).not.toContain('craftkit.plan-mode');
+  });
+
+  it('restricts the run to NO commands at all when the host selects it', () => {
+    const prepared = registry.prepare({
+      request: 'a landing page for a dental clinic',
+      selectedSkillIds: ['craftkit.plan-mode'],
+    });
+
+    expect(prepared.active.map(({ id }) => id)).toContain('craftkit.plan-mode');
+    // Not "only safe commands" — none. This is what makes "Plan never applies"
+    // a property of the run rather than a flag the host remembers to pass.
+    expect(prepared.effectiveCommandRestriction).toEqual([]);
+  });
+
+  it('intersects a build playbook down to nothing, rather than inheriting its commands', () => {
+    /*
+      The case the flag alone would miss. Skill restrictions INTERSECT, so a run
+      that carries Plan alongside a playbook that CAN insert still ends with an
+      empty allow-list — the plan cannot borrow the builder's permissions.
+    */
+    const withBuild = registry.prepare({
+      request: 'a landing page for a dental clinic',
+      selectedSkillIds: ['craftkit.plan-mode', 'craftkit.precise-edit'],
+    });
+
+    const ids = withBuild.active.map(({ id }) => id);
+    expect(ids).toContain('craftkit.plan-mode');
+    expect(ids).toContain('craftkit.precise-edit');
+    // `craftkit.precise-edit` alone allows three commands; with Plan, zero.
+    expect(withBuild.effectiveCommandRestriction).toEqual([]);
+    expect(
+      registry.prepare({
+        request: 'a landing page for a dental clinic',
+        selectedSkillIds: ['craftkit.precise-edit'],
+      }).effectiveCommandRestriction,
+    ).toEqual(['setBinding', 'setProp', 'setResponsive']);
+  });
+
+  it('tells the model the four parts, and to answer with follow-ups', () => {
+    /*
+      The complaint that started this was as much "gives no suggestions" as
+      "does not plan", so the instruction that produces them is part of the
+      contract rather than a nicety.
+    */
+    const instructions = registry.readSkill('craftkit.plan-mode');
+
+    for (const part of ['GOAL:', 'OUTLINE:', 'ALTERNATIVES:', 'RISK:', 'followUp:']) {
+      expect(instructions).toContain(part);
+    }
+    expect(instructions).toMatch(/Emit no commands/);
   });
 });

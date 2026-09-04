@@ -98,7 +98,16 @@ export const pageSchema = defineBlockSchema({
         'formSection',
         'newsletter',
         'cta',
+        /*
+          The playground's two demo types. `announcement` has always been here;
+          `story` was the same omission `richText` was, and it stayed invisible
+          for the same reason — the inline fixture put a "story" on a page and
+          nothing ever re-validated that document as a whole. Opening it through
+          `openDocument` does (it runs `kernel.validate()` before handing over a
+          kernel), and the fixture refused to open at all: `doc/slot-not-allowed`.
+        */
         'announcement',
+        'story',
         'richText',
         'navLinks',
         // The two layout primitives, and pictures. A page holds them directly,

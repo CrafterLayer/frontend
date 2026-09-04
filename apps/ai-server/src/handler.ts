@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-import { AI_PLAN_WIRE_VERSION, type AiPlanWireRequest } from '@craftkit/builder-ai';
+import { AI_PLAN_WIRE_VERSION, type AiPlanWireRequest } from '@craftkit/builder/wire';
 
 import { proposePlan, type UsageReport } from './claude';
 

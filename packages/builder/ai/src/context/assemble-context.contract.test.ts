@@ -183,8 +183,14 @@ describe('AI context-provider contracts', () => {
       {
         type: 'context-page',
         description: page.description,
+        // The document's root IS a context-page, and a page cannot be inserted
+        // into itself: the context says so rather than spending a run to learn
+        // it from the door. Its AUTHORING examples are dropped for the same
+        // reason — a worked example of the one command the door refuses is a
+        // lesson, and a rule is only a request. The schema stays: the root is
+        // edited constantly.
+        insertable: false,
         propsSchema: blockPropsJsonSchema(page),
-        examples: page.examples,
         slots: [
           { name: 'main', allow: ['context-article', 'context-hero'], max: 4 },
           { name: 'sidebar', allow: ['context-cta'], max: 1 },

@@ -1,0 +1,149 @@
+/* The History destination: a panel in the shell's left column, so it takes the
+   panel surface and the panel's own padding token rather than inventing a
+   second idea of what a panel looks like.
+
+   Every colour, radius and step here is a chrome token. A restore point list
+   that hard-coded a grey would be readable in the light theme and invisible in
+   the dark one, which is exactly the failure the token contract exists to make
+   impossible. */
+
+.pg-history {
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-normal)
+    var(--bldr-font);
+  gap: var(--bldr-space-lg);
+  padding: var(--bldr-panel-padding);
+}
+
+.pg-history__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+}
+
+.pg-history__head h2 {
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-history__head p {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.pg-history__save {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+}
+
+.pg-history__name {
+  color: var(--bldr-label-text);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-2xs);
+}
+
+.pg-history__name input {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-control) / 1 var(--bldr-font);
+  /* The one control this panel owns outright, sized from the same token every
+     other control in the editor is sized from (WCAG 2.2 SC 2.5.8). */
+  min-block-size: var(--bldr-hit-target-min);
+  padding-inline: var(--bldr-space-md);
+}
+
+.pg-history__name input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* The live region — ALWAYS rendered, and holding its one row whether or not it
+   has anything to say.
+
+   It used to be `:empty { display: none }`, which meant the region was not in
+   the tree at the instant its first sentence was inserted. Several screen
+   readers do not announce an update to a live region that appears in the same
+   commit as its text, so the one announcement this panel owes a non-sighted
+   person — "Restored …", "could not be saved" — was the one most likely to be
+   dropped. Reserving the row costs a caption's height and removes both the
+   hazard and the layout jump the old rule was guarding against. */
+.pg-history__status {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: 1.4em;
+}
+
+.pg-history__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.pg-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+/* Two rows of text and one action. `grid` rather than `flex` so a long name
+   wraps under itself and never pushes Restore out of the panel — the failure a
+   fixed row of flex children has whenever the content is user-written. */
+.pg-history__row {
+  align-items: center;
+  background: var(--bldr-panel-item);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  column-gap: var(--bldr-space-md);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  transition: background var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-history__row:hover {
+  background: var(--bldr-hover);
+}
+
+.pg-history__label {
+  font-weight: var(--bldr-font-weight-medium);
+  /* Logical, so an Arabic restore point truncates from the correct end. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-history__facts {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.pg-history__row > .bldr-chrome-button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.pg-history__clear {
+  align-self: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-history__row {
+    transition: none;
+  }
+}

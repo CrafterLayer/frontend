@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AiPlanWireRequest } from '@craftkit/builder-ai';
-import type { ContextFragment } from '@craftkit/builder-schema';
+import type { AiPlanWireRequest, ContextFragment } from '@craftkit/builder/wire';
 
 import { buildPrompt } from './prompt';
 
@@ -370,5 +369,33 @@ describe('prompt content', () => {
     const rules = buildPrompt(wireRequest()).system[0]?.text ?? '';
 
     expect(rules).toContain('do not invent its props');
+  });
+
+  /*
+    A real run died on "Slot default of root accepts [...], not page": the
+    document root is itself a `page` node, and the rules said an entry with no
+    schema could still be "referenced by type" — so the model inserted one.
+    `packages/builder/ai` now marks such entries `insertable: false`; the flag
+    is worthless if the rules never tell the model what it means.
+  */
+  it('forbids inserting a catalog entry marked insertable false', () => {
+    const rules = buildPrompt(wireRequest()).system[0]?.text ?? '';
+
+    expect(rules).toContain('insertable: false');
+    expect(rules).toContain('Never insert a type marked');
+  });
+
+  /*
+    The second failure: keying the rule on schema PRESENCE ("insert only a type
+    whose propsSchema you were given") reads as permission the moment selection
+    scopes the root, because the root keeps its schema by design — it is edited
+    constantly through `setProp`. The rule must key on the flag, and must say
+    that a schema on such an entry is for editing rather than authoring.
+  */
+  it('does not treat a propsSchema as permission to insert', () => {
+    const rules = buildPrompt(wireRequest()).system[0]?.text ?? '';
+
+    expect(rules).toContain('for EDITING it');
+    expect(rules).not.toContain('Insert ONLY a type whose');
   });
 });

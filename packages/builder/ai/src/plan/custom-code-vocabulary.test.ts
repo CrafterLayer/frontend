@@ -69,7 +69,9 @@ describe('custom-code utility vocabulary enforcement', () => {
     );
 
     if (!result.ok) {
-      expect(result.issues.every((issue) => !issue.message.includes('no generated CSS'))).toBe(true);
+      expect(result.issues.every((issue) => !issue.message.includes('no generated CSS'))).toBe(
+        true,
+      );
     }
   });
 
@@ -133,7 +135,9 @@ describe('custom-code utility vocabulary enforcement', () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.issues.some((issue) => issue.message.includes('text-buried-nonsense'))).toBe(true);
+    expect(result.issues.some((issue) => issue.message.includes('text-buried-nonsense'))).toBe(
+      true,
+    );
   });
 
   it('can be switched off for a host that generates its own CSS', () => {
@@ -142,7 +146,9 @@ describe('custom-code utility vocabulary enforcement', () => {
     });
 
     if (!result.ok) {
-      expect(result.issues.every((issue) => !issue.message.includes('no generated CSS'))).toBe(true);
+      expect(result.issues.every((issue) => !issue.message.includes('no generated CSS'))).toBe(
+        true,
+      );
     }
   });
 
@@ -164,7 +170,8 @@ describe('custom-code utility vocabulary enforcement', () => {
       expect(
         result.issues.every(
           (issue) =>
-            !issue.message.includes('no generated CSS') && !issue.message.includes('unusable class'),
+            !issue.message.includes('no generated CSS') &&
+            !issue.message.includes('unusable class'),
         ),
       ).toBe(true);
     }
@@ -201,7 +208,9 @@ describe('custom-code utility vocabulary enforcement', () => {
     if (!result.ok) {
       expect(
         result.issues.every(
-          (issue) => !issue.message.includes('no generated CSS') && !issue.message.includes('unusable class'),
+          (issue) =>
+            !issue.message.includes('no generated CSS') &&
+            !issue.message.includes('unusable class'),
         ),
       ).toBe(true);
     }

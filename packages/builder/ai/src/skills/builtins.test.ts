@@ -13,10 +13,20 @@ const ALWAYS_SKILL_ID = 'craftkit.craft-manual';
  * The always skill is mandatory on every request: a mandatory skill that does
  * not fit the token budget throws instead of being omitted, so its body is
  * capped here. The cap also keeps the unconditional per-request cost visible.
+ *
+ * Raised 1,200 → 1,450 for the id rule. A model that names a node it is
+ * inserting in the same plan cannot be repaired into a correct guess — the
+ * kernel mints that id after the plan is written — so the rule has to arrive
+ * before the plan does, on every request, not as a hint after a rejection.
  */
-const ALWAYS_INSTRUCTION_BYTE_LIMIT = 1_200;
-/** Floor + any single auto skill (with its dependency closure) must stay well under 16k. */
-const SINGLE_SKILL_TOKEN_CEILING = 2_500;
+const ALWAYS_INSTRUCTION_BYTE_LIMIT = 1_450;
+/**
+ * Floor + any single auto skill (with its dependency closure) must stay well
+ * under 16k. Raised 2,500 → 2,650 when the floor gained the id rule: the floor
+ * is charged to every skill's total here, so a rule that had to be
+ * unconditional lifts every row by the same ~60 tokens.
+ */
+const SINGLE_SKILL_TOKEN_CEILING = 2_650;
 /**
  * A single-archetype request must not stack more than this many auto skills.
  *
@@ -71,6 +81,8 @@ describe('Craftkit built-in AI skills', () => {
     ).toEqual([
       'craftkit.accessibility-review',
       'craftkit.arabic-rtl',
+      'craftkit.build-fill',
+      'craftkit.build-scaffold',
       'craftkit.conversion-recipes',
       'craftkit.copywriting',
       'craftkit.craft-manual',
@@ -81,7 +93,9 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.occasion-page',
       'craftkit.page-composition',
       'craftkit.precise-edit',
+      'craftkit.scroll-cinematic',
       'craftkit.structure-recipes',
+      'craftkit.ui-ux-pro',
       'craftkit.visual-direction',
     ]);
 

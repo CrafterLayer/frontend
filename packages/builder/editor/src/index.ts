@@ -345,8 +345,14 @@ export {
 // The Inline* types (B3c, 009 §11) let a block declare `inlineEditable` and let
 // an extension contribute an inline editor via `inlineEditors`.
 export {
+  // The typed error constructor and its guard. An application that implements a
+  // PORT — a persistence adapter of its own, say — must be able to reject in the
+  // builder's OWN dialect: callers branch on `code`, and an adapter that invents
+  // a second error shape for `persist/seq-conflict` breaks every one of them.
+  builderError,
   defineBlockSchema,
   emptyRichText,
+  isBuilderError,
   isRichTextSchema,
   richText,
   type Author,
@@ -370,6 +376,11 @@ export {
   type JsonValue,
   type Node,
   type NodeId,
+  // The persistence PORT itself. `openDocument` is already exported and takes an
+  // adapter as its first argument, so an application could name the door but not
+  // the thing it had to build to walk through it.
+  type PersistedSession,
+  type PersistenceAdapter,
   type RichTextDoc,
   type SlotDecl,
   type SlotName,

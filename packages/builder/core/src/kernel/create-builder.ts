@@ -185,24 +185,48 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
   const manager = createExtensionManager(registry, events, () => context);
   manager.registerAll(options.extensions ?? []);
 
+  /**
+   * Send everything the log holds past `persistedCount`, one flush at a time.
+   *
+   * Two hazards live in this one function, and both end the same way: work on
+   * the screen that is not in storage, with nothing anywhere saying so.
+   *
+   * A REJECTED LINK MUST NOT POISON THE CHAIN. `then(work)` alone skips its
+   * callback when the predecessor rejected and re-raises the old error, so a
+   * single refused write — a full disk, a private window, a conflict from a
+   * second tab — silences every later save for the life of the kernel and the
+   * adapter is never asked again. The chain kept below is therefore always a
+   * settled-either-way promise, and the caller still sees its own outcome
+   * because that is the promise `flush()` returns.
+   *
+   * AND THE MARK IS CLAIMED BEFORE THE AWAIT. `log.all()` is the live array;
+   * reading its length after the append counts transactions dispatched WHILE
+   * that append was in flight as persisted, and they are never sent.
+   */
   function flush(): Promise<number> {
     if (persistence === undefined) {
       return Promise.resolve(store.getState().seq);
     }
     const { adapter, docId } = persistence;
-    flushChain = flushChain.then(async () => {
+    const work = async (): Promise<number> => {
       const all = dispatcher.log.all();
       const pending = all.slice(persistedCount);
       const state = store.getState();
       if (pending.length === 0) {
         return state.seq;
       }
+      const sent = persistedCount + pending.length;
       const { seq } = await adapter.append(docId, [...pending], state.seq);
-      persistedCount = all.length;
+      persistedCount = sent;
       store.write({ ...store.getState(), seq }, []);
       return seq;
-    });
-    return flushChain;
+    };
+    // `then(work, work)` runs the next flush whatever the last one did.
+    const result = flushChain.then(work, work);
+    // What the NEXT flush waits on never rejects — so it cannot carry a stale
+    // failure forward, and a refused write is not also an unhandled rejection.
+    flushChain = result.catch(() => store.getState().seq);
+    return result;
   }
 
   function dispatch(command: string, args: unknown, author?: Author): Transaction {
@@ -223,8 +247,9 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
       dispatcher.log.length - persistedCount >= coalesceEvery
     ) {
       // Typing never awaits the network: coalesced flushes ride the chain and
-      // surface failures on the next explicit flush().
-      flushChain = flush().catch(() => store.getState().seq);
+      // surface failures on the next explicit flush(). `flush()` already left
+      // the chain settled either way, so this only has to not float.
+      void flush().catch(() => store.getState().seq);
     }
     return tx;
   }

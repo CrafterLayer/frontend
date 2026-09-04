@@ -31,7 +31,7 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
  * Plan caching as a decorator (the test-time memory pattern: a repeated ask on
  * an unchanged document is answered instantly and for free). Wraps ANY
  * `AiPlanProvider` — local, remote, scripted — so hosts opt in with one line.
- * Only successful proposals are stored; `repair` always reaches the model,
+ * A rejected proposal is dropped through `forget`; `repair` always reaches the model,
  * because a repair exists precisely because the cached shape of an answer was
  * wrong.
  */
@@ -75,6 +75,15 @@ export function createCachingAiPlanProvider(
         }
       }
       return plan;
+    },
+    /*
+      The door rejected that answer, so it must not be served again. Without
+      this the cache turns one bad proposal into a permanent one: the person
+      retries, the same rejected plan comes back in milliseconds, and the model
+      is never asked a second time.
+    */
+    forget(request: string, context: AssembledAiContext, live?: AiProposeOptions): void {
+      cache.delete(cacheKey(request, context, live));
     },
   };
   // Mirror the inner surface exactly: a repair-less provider must stay

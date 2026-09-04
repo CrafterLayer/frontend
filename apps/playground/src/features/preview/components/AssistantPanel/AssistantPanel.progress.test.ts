@@ -4,9 +4,13 @@ import type { AiAgentEvent, AiPlan, AiRunFailure, AiValidatedProposal } from '@c
 
 import {
   activeStageId,
+  formatClock,
   formatElapsed,
   initialRunProgress,
+  liveStageElapsed,
+  receiptOf,
   reduceRunProgress,
+  stagesWithLiveClock,
   type RunProgress,
 } from './AssistantPanel.progress';
 
@@ -67,6 +71,7 @@ describe('initialRunProgress', () => {
       ['sitemap', 'active', undefined],
       ['structure', 'pending', undefined],
     ]);
+    expect(progress.startedAt).toBe(5_000);
     expect(progress.stageSince).toBe(5_000);
     expect(progress.failedAt).toBeNull();
     expect(activeStageId(progress)).toBe('sitemap');
@@ -110,6 +115,8 @@ describe('reduceRunProgress', () => {
       ['structure', 'active', undefined],
     ]);
     expect(ready.stageSince).toBe(t0 + 1123);
+    // The row's clock restarts; the RUN's origin never moves.
+    expect(ready.startedAt).toBe(t0);
     expect(activeStageId(ready)).toBe('structure');
 
     const proposing = reduceRunProgress(ready, event({ type: 'plan.proposing' }, t0 + 1130));
@@ -222,6 +229,7 @@ describe('reduceRunProgress', () => {
       ['structure', 'failed', 'The assistant is temporarily busy.'],
     ]);
     expect(failed.failedAt).toBe('structure');
+    expect(failed.startedAt).toBe(0);
     expect(activeStageId(failed)).toBeNull();
   });
 
@@ -270,6 +278,7 @@ describe('reduceRunProgress', () => {
       ['assembly', 'pending', undefined],
     ]);
     expect(cancelled.failedAt).toBeNull();
+    expect(cancelled.startedAt).toBe(0);
   });
 
   it('leaves a settled run alone: no row can be re-opened or re-settled', () => {
@@ -311,5 +320,135 @@ describe('reduceRunProgress', () => {
       at: 1,
     } as unknown as AiAgentEvent;
     expect(reduceRunProgress(progress, foreign)).toBe(progress);
+  });
+});
+
+describe('formatClock', () => {
+  it('prints the running clock to the second, never finer', () => {
+    expect(formatClock(0)).toBe('00:00');
+    expect(formatClock(999)).toBe('00:00');
+    expect(formatClock(1_000)).toBe('00:01');
+    expect(formatClock(90_000)).toBe('01:30');
+    expect(formatClock(3_723_000)).toBe('62:03');
+  });
+
+  it('never prints a negative clock', () => {
+    expect(formatClock(-5_000)).toBe('00:00');
+  });
+});
+
+describe('receiptOf', () => {
+  it('measures the whole run and names the row that was cancelled', () => {
+    const event = script();
+    let progress = initialRunProgress('auto', 1_000);
+    progress = reduceRunProgress(
+      progress,
+      event({ type: 'context.ready', fragmentCount: 1, totalTokens: 1 }, 1_100),
+    );
+    const cancelled = reduceRunProgress(
+      progress,
+      event(
+        {
+          type: 'run.cancelled',
+          error: { source: 'run', code: 'cancelled', message: 'Aborted', retryable: false },
+        },
+        3_500,
+      ),
+    );
+
+    expect(receiptOf(cancelled, 3_500)).toEqual({
+      elapsed: '00:02.500',
+      stage: 'structure',
+      stageLabel: 'Structure',
+    });
+  });
+
+  it('names the row that failed, and carries the provider last words when there were any', () => {
+    const event = script();
+    let progress = initialRunProgress('never', 0);
+    progress = reduceRunProgress(
+      progress,
+      event({ type: 'context.ready', fragmentCount: 1, totalTokens: 1 }, 100),
+    );
+    const failed = reduceRunProgress(progress, event({ type: 'run.failed', error: FAILURE }, 400));
+
+    expect(receiptOf(failed, 400, 'Drafting the plan…')).toEqual({
+      elapsed: '00:00.400',
+      stage: 'structure',
+      stageLabel: 'Structure',
+      lastLine: 'Drafting the plan…',
+    });
+  });
+
+  it('reads a run that is still open — a reload settles nothing, it just ends it', () => {
+    const progress = initialRunProgress('never', 2_000);
+
+    expect(receiptOf(progress, 2_000)).toEqual({
+      elapsed: '00:00.000',
+      stage: 'sitemap',
+      stageLabel: 'Plan',
+    });
+  });
+
+  it('says nothing about a run with no clock — revived data from before the receipt', () => {
+    const legacy = {
+      stages: [{ id: 'sitemap', status: 'active' }],
+      stageSince: null,
+      failedAt: null,
+    } as unknown as RunProgress;
+
+    expect(receiptOf(legacy, 500)).toBeNull();
+    expect(receiptOf(initialRunProgress('never', 0), Number.NaN)).toBeNull();
+  });
+
+  it('never invents a last line out of blank provider text', () => {
+    expect(receiptOf(initialRunProgress('never', 0), 10, '   ')?.lastLine).toBeUndefined();
+    expect(receiptOf(initialRunProgress('never', 0), 10)?.lastLine).toBeUndefined();
+  });
+});
+
+describe('the live clock on the active row', () => {
+  it('puts the running clock on the active row and leaves every settled row alone', () => {
+    const event = script();
+    let progress = initialRunProgress('auto', 0);
+    progress = reduceRunProgress(
+      progress,
+      event({ type: 'context.ready', fragmentCount: 1, totalTokens: 1 }, 100),
+    );
+
+    expect(stagesWithLiveClock(progress, 12_100).map((stage) => stage.detail)).toEqual([
+      '00:00.100',
+      '00:12',
+      undefined,
+    ]);
+    expect(liveStageElapsed(progress, 12_100)).toBe(12_000);
+  });
+
+  it('keeps what the reducer wrote on the active row beside the clock', () => {
+    const event = script();
+    let progress = initialRunProgress('never', 0);
+    progress = reduceRunProgress(
+      progress,
+      event({ type: 'context.ready', fragmentCount: 1, totalTokens: 1 }, 100),
+    );
+    progress = reduceRunProgress(progress, event({ type: 'plan.validating', attempt: 2 }, 200));
+
+    expect(stagesWithLiveClock(progress, 5_100)[1]?.detail).toBe('Checking again · 00:05');
+  });
+
+  it('stops dead once the run settles: no active row, no clock', () => {
+    const event = script();
+    let progress = initialRunProgress('never', 0);
+    progress = reduceRunProgress(
+      progress,
+      event({ type: 'context.ready', fragmentCount: 1, totalTokens: 1 }, 100),
+    );
+    const settled = reduceRunProgress(
+      progress,
+      event({ type: 'plan.proposed', plan: PLAN, proposal: PROPOSAL }, 200),
+    );
+
+    expect(stagesWithLiveClock(settled, 60_000)).toBe(settled.stages);
+    expect(liveStageElapsed(settled, 60_000)).toBeNull();
   });
 });

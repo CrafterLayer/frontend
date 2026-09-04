@@ -1,0 +1,30 @@
+{
+  "id": "06-named-block-faq",
+  "title": "Request that names a specific block",
+  "category": "named-block",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Add an FAQ section with five questions about shipping and returns.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 6,
+    "allBlockTypes": [
+      "faq"
+    ]
+  },
+  "budget": {
+    "maxCommands": 6,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Are there five real shipping-and-returns questions with answers a shop would publish?",
+  "why": "When the person names the block, using a different one is a straight miss. This is the cheapest possible signal that catalog grounding still works."
+}

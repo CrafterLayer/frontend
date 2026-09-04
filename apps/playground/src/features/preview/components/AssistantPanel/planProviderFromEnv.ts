@@ -4,6 +4,8 @@ import {
   type AiPlanProvider,
 } from '@craftkit/builder';
 
+import { createRetryingAiPlanProvider } from './retrying-provider';
+
 function isLoopbackDevelopmentEndpoint(
   endpoint: string,
   env: Readonly<Record<string, unknown>>,
@@ -48,12 +50,27 @@ export function planProviderFromEnv(
     side that knows why. The cache makes a repeated ask on an unchanged page
     instant and free.
   */
+  /*
+    The order is cache OUTSIDE retry, and it is the only correct one. Inverted,
+    the retry loop would wrap the cache: a repeated ask that hits would be
+    "retried" even though nothing failed, and — worse — every attempt of a
+    failing call would re-enter the cache, whose job is to remember answers, not
+    attempts. This way a hit never reaches the network at all, the retries all
+    happen on the far side of the memory where the flakiness lives, and only the
+    one answer that finally arrived is remembered. Nothing caches a failure
+    either way, because a failure never gets that far.
+
+    A ten-section build is eleven round trips; without the retry a single
+    dropped connection or one 529 killed a section outright.
+  */
   return createCachingAiPlanProvider(
-    createRemoteAiPlanProvider({
-      endpoint,
-      timeoutMs: 660_000,
-      ...(token === '' ? {} : { headers: { authorization: `Bearer ${token}` } }),
-      allowInsecureHttp: isLoopbackDevelopmentEndpoint(endpoint, env),
-    }),
+    createRetryingAiPlanProvider(
+      createRemoteAiPlanProvider({
+        endpoint,
+        timeoutMs: 660_000,
+        ...(token === '' ? {} : { headers: { authorization: `Bearer ${token}` } }),
+        allowInsecureHttp: isLoopbackDevelopmentEndpoint(endpoint, env),
+      }),
+    ),
   );
 }

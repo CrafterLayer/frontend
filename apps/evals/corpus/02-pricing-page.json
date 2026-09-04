@@ -1,0 +1,34 @@
+{
+  "id": "02-pricing-page",
+  "title": "Pricing page with three tiers",
+  "category": "pricing",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Create a pricing page with three plans — Starter, Team and Enterprise — a short FAQ underneath about billing, and a final call to action.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 3,
+    "maxCommands": 24,
+    "anyBlockTypes": [
+      "pricing"
+    ],
+    "allBlockTypes": [
+      "pricing",
+      "faq"
+    ]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Are there three distinguishable plans with prices, and does the FAQ answer billing questions a buyer would actually ask?",
+  "why": "Pricing is the shape that most often needs child nodes (pricingPlan) inside a parent, so it catches a planner that can only insert flat top-level sections."
+}

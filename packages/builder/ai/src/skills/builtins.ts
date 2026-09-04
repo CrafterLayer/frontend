@@ -34,6 +34,7 @@ const PRECISE_EDIT: AiSkillDefinitionV1 = builtin({
     'craftkit.conversion-recipes',
     'craftkit.cv-page',
     'craftkit.page-composition',
+    'craftkit.scroll-cinematic',
     'craftkit.structure-recipes',
     'craftkit.visual-direction',
   ],
@@ -47,6 +48,71 @@ NOT HERE: adding, moving, deleting or reordering nodes, restyling neighbours, fi
   references: {
     'checks/precision.md':
       'Target confirmed from selection or text match; whole tree copied when editing a region; only the named property changed; no cosmetic cleanup; ambiguity stated in rationale.',
+  },
+});
+
+/**
+ * The FIRST half of a split build: put the whole page's skeleton down in one
+ * transaction, and decide the direction once for every section that follows.
+ *
+ * Explicit-only, because the orchestrator selects it — no phrasing of a
+ * request should ever land a person in a scaffold run by accident. The
+ * command policy for the run is set by the caller (`policy.allowedCommands`),
+ * not by `restrictToCommands` here: skill restrictions INTERSECT, so a second
+ * active skill with a different list would collapse the run to nothing.
+ */
+const BUILD_SCAFFOLD: AiSkillDefinitionV1 = builtin({
+  schemaVersion: 1,
+  id: 'craftkit.build-scaffold',
+  name: 'Build: the page skeleton',
+  description:
+    'One transaction that inserts every section as an empty labelled region, in order, and fixes the direction the whole page will follow.',
+  version: '1.0.0',
+  source: 'builtin',
+  trust: 'builtin',
+  priority: 95,
+  activation: { mode: 'explicit' },
+  tags: ['build', 'composition', 'scaffold'],
+  instructions: `You are laying a SKELETON, not writing the page. Every section is inserted empty; another run fills each one.
+COUNT AND ORDER: read the request and name every section it asks for, in reading order. A section the request did not ask for is not invented, and a section it did ask for is never merged into another. Three to twelve.
+ONE insertNode PER SECTION, all into the page root, in order: {"command":"insertNode","args":{"type":"customCode","parentId":"<the document's rootId>","props":{"label":"<Title Case, unique, 2-3 words>","tree":{"kind":"root","children":[{"kind":"element","tag":"section","className":"py-12 md:py-16","children":[{"kind":"element","tag":"div","className":"mx-auto max-w-6xl px-4 md:px-8","children":[{"kind":"element","tag":"h2","className":"text-3xl md:text-4xl font-semibold","text":"<the section's title>","children":[]}]}]}]}}}}
+The label is how the next runs find this region: it must be UNIQUE and must not change afterwards.
+ONE setProp FOR THE PAGE: {"command":"setProp","args":{"id":"<rootId>","key":"pageCss","value":"…"}} carrying only what the WHOLE page shares — a web font @import from fonts.googleapis.com or fonts.bunny.net, @keyframes, and ck- classes used by more than one section. Never a section's own styling.
+THE DIRECTION, in the rationale, in this exact order and nothing else: the subject and its audience; the palette as 3-5 named classes or hex values; the display and body faces; the one signature element; the section list as "1 Hero · 2 Proof · …". Every fill run is handed this text verbatim and must obey it, so it is the only place the look is decided. Keep it under 60 words.
+NOT HERE: body copy, images, buttons, links, per-section CSS, setDocMeta beyond direction, and any command other than the inserts and the one page setProp.`,
+  references: {
+    'checks/scaffold.md':
+      'One insertNode per requested section, in reading order, all into the page root; every label unique and Title Case; every placeholder tree identical but for its h2 text; one setProp for pageCss carrying only shared rules; the rationale names subject, palette, faces, signature and the numbered section list; no body copy anywhere.',
+  },
+});
+
+/**
+ * The SECOND half: one section, filled in place, under a direction it did not
+ * choose. Explicit-only for the same reason as the scaffold, and deliberately
+ * narrow — the orchestrator restricts the run to `setProp`, so the only thing
+ * this skill has to get right is WHAT to write into the one tree it may touch.
+ */
+const BUILD_FILL: AiSkillDefinitionV1 = builtin({
+  schemaVersion: 1,
+  id: 'craftkit.build-fill',
+  name: 'Build: fill one section',
+  description:
+    'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
+  version: '1.0.0',
+  source: 'builtin',
+  trust: 'builtin',
+  priority: 94,
+  activation: { mode: 'explicit' },
+  tags: ['build', 'composition', 'fill'],
+  instructions: `Exactly ONE command: {"command":"setProp","args":{"id":"<the region id you were given>","key":"tree","value":<the finished tree>}}. No second command, no other node, no page-level change.
+THE DIRECTION WAS ALREADY DECIDED and is in the request. Obey it exactly: the palette, the faces, the signature element, the rhythm. Do not re-decide, do not "improve" it, and do not introduce a colour or a face it does not name — a page whose sections each chose their own look is the failure this split exists to prevent.
+KEEP THE HEADING: the region's h2 text is its identity in the plan and in the person's list. Keep that text; you may restyle it.
+THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finished section in full — the shell (section py-12 md:py-16 > div mx-auto max-w-6xl px-4 md:px-8), the heading, and the content. Other regions arrive described rather than quoted ("filled · 34 nodes · …"); that is deliberate. Do not try to edit them and do not repeat their content.
+SIZE: one section, not a page. Aim for 15-60 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.
+PLACEHOLDERS: no invented facts. A price, an address, a phone number or a person's name that the request never gave is written as "[السعر]" / "[price]" and named in followUp.`,
+  references: {
+    'checks/fill.md':
+      "Exactly one setProp on the named region's tree; the h2 text preserved; every colour and face from the given direction; no other node touched; no other region's content repeated; unknown facts as bracketed placeholders listed in followUp.",
   },
 });
 
@@ -741,6 +807,113 @@ LANGUAGE: page prop lang set ('ar', 'en'); dir matches it; no text-justify; lead
 });
 
 /**
+ * Scroll-driven narrative pages, adapted from oso95's published `scroll-world`
+ * Skill (github.com/oso95/scroll-world) — credited, not copied.
+ *
+ * The original builds a scroll-scrubbed film: Higgsfield-generated camera
+ * flights, ffmpeg encoding, and a JavaScript engine mapping scroll position to
+ * video currentTime. None of that exists here — this agent emits a JSON tree
+ * and CSS, it generates no media and runs no script — so what transfers is the
+ * part that survives the mechanism: the journey structure, the shared style
+ * preamble that makes scenes read as one world, and per-scene pacing. The
+ * impossible half is named as a refusal for the same reason the tokens skill
+ * names `@theme`: a model told only what to do reaches for the rest.
+ */
+const SCROLL_CINEMATIC: AiSkillDefinitionV1 = builtin({
+  schemaVersion: 1,
+  id: 'craftkit.scroll-cinematic',
+  name: 'Scroll journey pages',
+  description:
+    'One continuous scroll narrative: ordered scenes, pinned stages, scroll-linked reveals, shared look, and the film-only parts named as out of scope.',
+  version: '1.0.0',
+  source: 'builtin',
+  trust: 'builtin',
+  priority: 44,
+  activation: {
+    mode: 'auto',
+    keywords: [
+      'scroll',
+      'scrollytelling',
+      'cinematic',
+      'storytelling',
+      'immersive',
+      'سكرول',
+      'تمرير',
+      'سينمائي',
+      'قصة بصرية',
+      'رحلة',
+    ],
+  },
+  tags: ['composition', 'narrative', 'scroll'],
+  instructions: `A scroll page is ONE journey, not a stack of bands: 5-7 scenes in the subject's own order — source, making, place, delivery, people, the product — and the last scene carries the action.
+SCENE SHELL: one customCode region per scene. section relative isolate overflow-hidden py-12 md:py-16 > div mx-auto max-w-6xl px-4 md:px-8. A photographic scene sets background-image: url(https://…) with background-size:cover on a ck- class, then lays a readable wash over it: div absolute inset-0 bg-surface opacity-80, with the copy in a relative z-10 sibling.
+PINNED STAGE, which is what makes it feel like scrolling through a world: grid md:grid-cols-2 gap-8, the media column div sticky top-0 h-screen flex items-center, and the scene copy flowing past it in the other column. Phones get no pinning: picture, then words.
+SCENE COPY: an eyebrow (text-sm font-semibold text-accent), one h2 line, two or three lines of text-text-muted leading-relaxed, at most three tags. The same three parts in every scene — that repetition IS the film.
+CONTINUITY: one palette, one type scale and one image treatment across every scene; vary only a per-scene accent on the eyebrow. A scene that looks like a different site ends the journey.
+REVEAL: @keyframes ck-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}} in pageCss, applied from the region css as @supports (animation-timeline: view()){.ck-rise{animation-timeline:view();animation-range:entry 0% entry 40%}}, guarded by @media (prefers-reduced-motion:reduce){.ck-rise{animation:none}}. Where view() is unsupported it simply plays on load; never leave a scene stuck invisible.
+PACING: the opening and closing scenes hold longest (more copy, py-16); transit scenes stay brief.
+NOT POSSIBLE HERE: generated film, a scroll-scrubbed video timeline, and JavaScript of any kind. This agent emits a tree and CSS. Build the journey from pinned stages, scroll-linked reveals and imagery the person already has, and say plainly that a rendered video version is out of scope rather than promising it.`,
+  references: {
+    'checks/scroll-journey.md':
+      'Scenes ordered as one journey with the action last; one shared look with only the accent varying; pinned stage on desktop and stacked on phones; reveals guarded for reduced motion and never leaving content invisible; no promise of generated video or script.',
+  },
+});
+
+/**
+ * Delivery-quality rules, adapted from nextlevelbuilder's `ui-ux-pro-max`
+ * Skill (github.com/nextlevelbuilder/ui-ux-pro-max-skill) — credited, not
+ * copied.
+ *
+ * The original is a searchable corpus (CSV catalogues of styles, palettes and
+ * font pairings) driven by Python scripts, across thirteen stacks. A Skill here
+ * is reviewed data with no tools and no filesystem, so the catalogues and their
+ * search cannot come: what transfers is its prioritised rule set and
+ * pre-delivery checklist, rewritten against this vocabulary — the `--t-*`
+ * roles, the utilities the door admits, and the one Lucide set. It stays out of
+ * the page archetypes' way by activating on review vocabulary rather than on
+ * "design".
+ */
+const UI_UX_PRO: AiSkillDefinitionV1 = builtin({
+  schemaVersion: 1,
+  id: 'craftkit.ui-ux-pro',
+  name: 'Delivery-quality UI review',
+  description:
+    'The polish checklist: pointer and touch affordances, reading type, contrast both ways, focus and feedback, container discipline, restrained motion.',
+  version: '1.0.0',
+  source: 'builtin',
+  trust: 'builtin',
+  priority: 38,
+  activation: {
+    mode: 'auto',
+    keywords: [
+      'ui ux',
+      'ux review',
+      'design review',
+      'design system',
+      'usability',
+      'polish',
+      'تجربة المستخدم',
+      'قابلية الاستخدام',
+      'نظام تصميم',
+      'مراجعة التصميم',
+    ],
+  },
+  tags: ['quality', 'review', 'ux'],
+  instructions: `Polish is a checklist, not a feeling — run it before calling a page finished.
+POINTER AND TOUCH: every clickable card or row carries cursor-pointer, and an interactive thing with no hover change reads as dead. Hover moves colour, border or shadow (transition-colors duration-200 ease-out), never a size that shoves its neighbours. Keep a tap target near h-12 w-12 even when the mark drawn inside it is smaller.
+TYPE FOR READING: paragraphs at text-base or larger on phones — text-sm belongs to eyebrows and captions, never body — with leading-relaxed and a measure of roughly 65-75 characters (max-w-prose on a prose column). One h1 per page; a bigger heading is text-4xl md:text-6xl, never a smaller tag dressed up.
+CONTRAST BOTH WAYS: secondary copy stops at text-text-muted and goes no lighter, and body text holds 4.5:1 against whatever sits behind it. A translucent panel needs real fill (bg-surface opacity-80, not opacity-10) and a border that survives a light background (border-2, not a hairline).
+STATE AND FEEDBACK: never remove the focus outline, because keyboard users navigate by it; an action drawn as a mark with no words needs a label so it is announced; an error message belongs beside its own field, not stacked at the top of the page.
+LAYOUT DISCIPLINE: one container width for the whole page (max-w-6xl), not a new one per section. Content under a fixed bar needs padding past that bar's height, and a floating bar sits inset from the edges (top-4 start-4 end-4) rather than glued to them. Read the page at 375, 768, 1024 and 1440 wide: nothing scrolls sideways, nothing hides under a bar.
+MARKS AND IMAGES: never an emoji standing in for a drawn mark; take marks from the one Lucide set at one size beside text, and give every meaningful img an alt.
+MOTION RESTRAINT: 150-300ms on state changes, transform and opacity only, and every animated rule guarded by @media (prefers-reduced-motion:reduce).`,
+  references: {
+    'checks/delivery.md':
+      'cursor-pointer on every clickable; hover feedback that does not move layout; body at text-base with a 65-75 character measure; secondary copy no lighter than the muted role; visible focus; labelled mark-only actions; one container width; nothing under a fixed bar; no sideways scroll at 375/768/1024/1440; no emoji marks; reduced-motion guard present.',
+  },
+});
+
+/**
  * The always-on floor: region shell, links, direction, type, structure and the
  * refused-class traps every plan trips over without it. It is the single
  * "always" skill, so it is mandatory on every request and its size is capped
@@ -763,6 +936,7 @@ LINKS: <a href> takes https, mailto:, tel:, #id or /path (javascript: is dropped
 DIRECTION: Arabic copy on an ltr document needs setDocMeta {dir:'rtl'} + setProp page lang 'ar'. Only ps-/pe-/ms-/me-, start-/end-, text-start/text-end; never pl-/pr-/ml-/mr-/text-left/text-right. Forward icon: arrow-right in ltr, arrow-left in rtl.
 TYPE: one h1 per page, h2 opens a section, h3 a card; size with text-*, not a bigger tag. Arabic: leading-relaxed; no italic, uppercase, tracking-*, text-justify.
 STRUCTURE: img has alt; an icon beside text has no label; ul/ol show no bullets: lead each li with an icon.
+IDS: name only a node the document already lists. A node this plan INSERTS gets its id from the kernel after the plan is written, so no later step can name it — put its props inside its own insertNode.
 REFUSED: bare border-t/border-b (use -2), bare grow/shrink (use -1), group, hover:text-white, hover:shadow-*, py-20/24, gap-16, h-5, font-sans, list-disc, xl:, dark:, bg-black/50, -mt-4, md:text-center.`,
   references: {},
 });
@@ -773,6 +947,8 @@ REFUSED: bare border-t/border-b (use -2), bare grow/shrink (use -1), group, hove
  */
 export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Object.freeze([
   PRECISE_EDIT,
+  BUILD_SCAFFOLD,
+  BUILD_FILL,
   CV_PAGE,
   OCCASION_PAGE,
   PAGE_COMPOSITION,
@@ -784,7 +960,9 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   DESIGN_TOKENS,
   COPYWRITING,
   MOTION,
+  SCROLL_CINEMATIC,
   ACCESSIBILITY,
+  UI_UX_PRO,
   CRAFT_MANUAL,
 ]);
 

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder } from '@craftkit/builder-core';
-import { fixedClock, fixtureBlocks, landingFixture, seededIds } from '@craftkit/builder-core/testing';
+import {
+  fixedClock,
+  fixtureBlocks,
+  landingFixture,
+  seededIds,
+} from '@craftkit/builder-core/testing';
 import {
   customCodeTree,
   defineBlockSchema,
@@ -28,9 +33,7 @@ const customCode: TrustedExtensionManifest = {
           type: 'customCode',
           description: 'A freely composed region.',
           props: z.object({ tree: customCodeTree().default(emptyCustomCodeTree()) }),
-          examples: [
-            { prompt: 'a hero', node: { type: 'customCode', props: {} } },
-          ],
+          examples: [{ prompt: 'a hero', node: { type: 'customCode', props: {} } }],
         }),
         render: NullRender,
       },

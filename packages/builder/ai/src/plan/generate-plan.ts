@@ -135,7 +135,8 @@ function compositionPolicy(options: GenerateAiPlanOptions): AiCompositionPolicy 
   if (requested === undefined) return undefined;
   // `scoped` and `none` both mean "the blocks the person put in front of me";
   // the selection is where those blocks are.
-  const derivesFromSelection = requested.catalogMode === 'scoped' || requested.catalogMode === 'none';
+  const derivesFromSelection =
+    requested.catalogMode === 'scoped' || requested.catalogMode === 'none';
   if (!derivesFromSelection || requested.scopedBlockTypes !== undefined) {
     return requested;
   }
@@ -333,6 +334,13 @@ export async function generateAiPlanWithPreparedSkills(
     resolveAiCompositionPolicy(options.composition),
   );
   if (first.ok) return first.plan;
+  /*
+    The answer failed the door, so the provider must not serve it again. A
+    caching provider otherwise turns one rejected plan into a permanent one:
+    the person retries the same request and the same dead plan returns in
+    milliseconds, without the model ever being asked.
+  */
+  options.provider.forget?.(options.request, context, live);
   if (repair === undefined) throw new AiPlanRejectedError(first.issues);
 
   throwIfAborted(options.signal);

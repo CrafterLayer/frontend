@@ -2,17 +2,31 @@
 // it never constructs or replaces a BuilderDocument.
 
 export {
+  DEFAULT_AI_BUILD_BUDGET_MS,
+  DEFAULT_AI_BUILD_MAX_TASKS,
+  DEFAULT_AI_BUILD_TASK_TIMEOUT_MS,
   runAiAgent,
+  runAiBuild,
   type AiAgentEvent,
   type AiAgentEventBase,
   type AiAgentPolicy,
   type AiAgentRunResult,
   type AiAgentRunState,
+  type AiBuildEvent,
+  type AiBuildEventBase,
+  type AiBuildOutcome,
+  type AiBuildOwnEvent,
+  type AiBuildRunResult,
+  type AiBuildStopReason,
+  type AiBuildTask,
+  type AiBuildTaskReport,
+  type AiBuildTaskStatus,
   classifyAiRunFailure,
   type AiRunFailure,
   type AiRunFailureCode,
   type AiRunFailureSource,
   type RunAiAgentOptions,
+  type RunAiBuildOptions,
 } from './agent';
 
 export {

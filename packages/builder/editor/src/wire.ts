@@ -1,0 +1,38 @@
+/**
+ * The headless door: everything a NODE service needs from the builder family,
+ * and nothing that needs a browser.
+ *
+ * The main entry (`@craftkit/builder`) re-exports the editor surface, so it
+ * reaches React and `packages/builder/shell` — and a server that imports it
+ * fails to compile with `Property 'querySelector' does not exist`, because a
+ * Node service's tsconfig has no `lib: dom` and must not acquire one to
+ * satisfy a package boundary. That is why `apps/ai-server` had grown direct
+ * dependencies on `builder-ai` and `builder-schema`: the alternative was a lie
+ * about its runtime.
+ *
+ * The contract stays one door per member; this is a second door on the SAME
+ * package, narrow by construction. It re-exports only the plan wire and the
+ * class vocabulary a prompt has to state — every symbol here is data or a
+ * type, so the module graph reaches zod and nothing else. `wire.node.test.ts`
+ * fails the moment that stops being true.
+ */
+export {
+  AI_PLAN_WIRE_VERSION,
+  AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH,
+  boundAiPlanWireInvalidOutputMessage,
+  estimateAiPlanWireRequestTokens,
+  type AiPlanWireAttempt,
+  type AiPlanWireInvalidOutputResponse,
+  type AiPlanWireRequest,
+  type AiPlanWireResponse,
+} from '@craftkit/builder-ai';
+
+export {
+  UTILITY_VOCABULARY,
+  utilityVocabulary,
+  type ContextFragment,
+  type ContextFragmentKind,
+  type ContextFragmentTrust,
+} from '@craftkit/builder-schema';
+
+export type { AssembledAiContext, AiPlan } from '@craftkit/builder-ai';

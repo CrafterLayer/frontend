@@ -1,0 +1,30 @@
+{
+  "id": "18-faq-arabic-named-block",
+  "title": "Arabic request naming a specific block",
+  "category": "rtl",
+  "fixture": "empty",
+  "dir": "rtl",
+  "request": "أضف قسم أسئلة شائعة فيه أربعة أسئلة عن الشحن والدفع.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "allBlockTypes": [
+      "faq"
+    ]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Are there four Arabic questions about shipping and payment, with Arabic answers?",
+  "why": "Block selection must work from Arabic words, not only from English keywords. This is the case that fails first when catalog matching is English-only."
+}

@@ -1,11 +1,25 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
+
+/*
+  These are END-TO-END app scenarios: every one of the eighteen mounts the whole
+  playground, builds a real same-origin iframe and renders a seventeen-section
+  marketing page inside it — measured, this file is forty seconds of work — and
+  the app now OPENS its document asynchronously from the vault before any of
+  that can begin. Testing Library's `asyncUtilTimeout` defaults to ONE second,
+  which is a unit-test budget; the first test in the file absorbs jsdom, zod and
+  stylesheet warmup on a CPU shared with every other package under `pnpm verify`
+  and crosses it. State the real budget rather than letting correct tests fail on
+  contention — exactly the argument the shared vitest config already makes for
+  `testTimeout`. A genuine hang still fails, just later.
+*/
+configure({ asyncUtilTimeout: 5000 });
 
 /** Opens the rail's Settings destination, where the scenario harness lives. */
 async function openHarness(user: ReturnType<typeof userEvent.setup>): Promise<void> {
@@ -91,6 +105,37 @@ describe('the app frame must not reach into the page being edited', () => {
   // thing to aim at. jsdom cannot measure a box, so this gate holds the
   // narrower line it CAN hold: the harness sizes its controls from the token
   // and never from a literal that would drift away from it.
+  /*
+    Measured in Chromium against the dev server: wrapping AssistantPanel in
+    `.pg-rail-panel` (to keep it mounted across rail destinations) put an
+    auto-height box between the shell's grid item and `.pg-chat`, whose
+    `block-size: 100%` then resolved against content. The conversation stopped
+    scrolling inside itself and the composer ended up ~2.7k px below the fold —
+    {chat: 3484px tall, threadScrolls: false, composerBelowViewport: true}.
+    Adding `block-size: 100%` restored it exactly. jsdom performs no layout, so
+    this gate holds the line it CAN hold: a wrapper the panel column mounts must
+    have a rule, and that rule must give it a definite height.
+  */
+  it('gives every panel-column wrapper a definite height, or the panel inside collapses', () => {
+    const appTsx = readFileSync(join(process.cwd(), 'src', 'app', 'App.tsx'), 'utf8');
+    const wrappers = [...appTsx.matchAll(/className="(pg-[a-z-]*panel)"/g)].map(
+      (match) => match[1] ?? '',
+    );
+
+    // Non-vacuous: both wrappers exist today, and a rename that lost one would
+    // otherwise turn this gate into a no-op.
+    expect(wrappers).toContain('pg-rail-panel');
+    expect(wrappers).toContain('pg-boot-panel');
+    for (const wrapper of wrappers) {
+      const rules = globalBlocks(new RegExp(`\\.${wrapper}\\s*(,|$)`));
+      expect(rules, `.${wrapper} has no rule in App.css`).not.toHaveLength(0);
+      expect(
+        rules.some((body) => /block-size:\s*100%/.test(body)),
+        `.${wrapper} never sets block-size: 100%`,
+      ).toBe(true);
+    }
+  });
+
   it('sizes every harness control from the hit-target token', () => {
     const harness = globalBlocks(/\.pg-settings/);
     const sizing = harness.flatMap((body) => [...body.matchAll(/min-block-size:\s*([^;]+);/g)]);
@@ -191,9 +236,12 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(undo).toBeDisabled();
     expect(redo).toBeDisabled();
 
-    // Blocks is where the app opens, so the palette is already there — this
-    // gate needs a real edit in the history, not a harness control.
-    const palette = screen.getByRole('navigation', { name: 'Block palette' });
+    // Blocks is where the app opens, so the palette arrives with the document —
+    // this gate needs a real edit in the history, not a harness control. AWAITED
+    // because the app opens its document from the vault now: the top bar is
+    // drawn immediately (which is why the two assertions above still read it
+    // synchronously), and the panel follows when `openDocument` resolves.
+    const palette = await screen.findByRole('navigation', { name: 'Block palette' });
     const hero = within(palette)
       .getAllByRole('listitem')
       .map((item) => within(item).getByRole('button'))
@@ -425,6 +473,29 @@ describe('US4 — the playground proves it end-to-end', () => {
 
     await user.click(blocks);
     expect(screen.getByRole('navigation', { name: 'Block palette' })).toBeInTheDocument();
+  });
+
+  it('gives the vault a destination of its own, with the shelf of the open document', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Editor canvas' });
+
+    // The rail is where every other destination lives, and restore points are a
+    // destination rather than a harness control: the session's own saving is
+    // continuous and invisible, this is the shelf a person puts something on.
+    await user.click(screen.getByRole('button', { name: 'History' }));
+    const history = await screen.findByRole('region', { name: 'History' });
+
+    expect(within(history).getByRole('button', { name: 'Save restore point' })).toBeInTheDocument();
+    // Empty until someone keeps something — and it says what would fill it.
+    expect(within(history).queryByRole('listitem')).not.toBeInTheDocument();
+    expect(within(history).getByRole('button', { name: 'Clear history' })).toBeDisabled();
+    // The canvas keeps the document while the panel changes; History is a panel
+    // destination like Layers, not a mode.
+    expect(screen.getByRole('region', { name: 'Editor canvas' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Blocks' }));
+    expect(screen.queryByRole('region', { name: 'History' })).not.toBeInTheDocument();
   });
 
   it('scenario 7 (B3a): device → override edit → preview round trip, every view-state law intact', async () => {

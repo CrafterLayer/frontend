@@ -878,25 +878,25 @@ application. Phase 3 may build the full-site pipeline on this foundation.
 
 ## Phase 12 — Catalog economy and free composition (US10)
 
-**Why this phase exists.** The assembled context was measured at 61,578 tokens against a hard
-budget of 64,000 (`DEFAULT_AI_CONTEXT_TOKEN_BUDGET`) — 96% consumed before the user's first
-character, and 94% of it the block catalog, shipped whole on every request whether or not the
-request touched a block. The same measurement exposed the ceiling on design: a request the 54-block
-catalog had no shape for had no answer but "the nearest section that already exists".
+**Why this phase exists.** The assembled context was measured at 61,578 tokens against a hard budget
+of 64,000 (`DEFAULT_AI_CONTEXT_TOKEN_BUDGET`) — 96% consumed before the user's first character, and
+94% of it the block catalog, shipped whole on every request whether or not the request touched a
+block. The same measurement exposed the ceiling on design: a request the 54-block catalog had no
+shape for had no answer but "the nearest section that already exists".
 
 Both are one problem. The catalog is expensive BECAUSE every shape must be pre-registered; make the
 assistant able to compose, and the catalog no longer has to be exhaustive on the wire.
 
 ### 12a — Catalog modes
 
-- [x] T212 [US10] Split `collectBlocks` in
-      `packages/builder/ai/src/context/assemble-context.ts` into index/detail entry builders behind
-      an `AiCatalogMode` (`index` | `scoped` | `full`); keep the type sort outside the mode branch so
-      an unchanged registry still serializes to identical bytes (the precondition for prompt caching)
-- [x] T213 [US10] Add `AiCompositionPolicy` (`packages/builder/ai/src/context/composition-policy.ts`)
-      as the single per-run dial, every key optional and every `undefined` resolving to the freest
-      behaviour that works; resolve once at the assembly boundary so no downstream code re-derives a
-      default
+- [x] T212 [US10] Split `collectBlocks` in `packages/builder/ai/src/context/assemble-context.ts`
+      into index/detail entry builders behind an `AiCatalogMode` (`index` | `scoped` | `full`); keep
+      the type sort outside the mode branch so an unchanged registry still serializes to identical
+      bytes (the precondition for prompt caching)
+- [x] T213 [US10] Add `AiCompositionPolicy`
+      (`packages/builder/ai/src/context/composition-policy.ts`) as the single per-run dial, every
+      key optional and every `undefined` resolving to the freest behaviour that works; resolve once
+      at the assembly boundary so no downstream code re-derives a default
 - [x] T214 [US10] Make `AiBlockContext.propsSchema`/`examples`/`slots` optional and guard the one
       consumer (`local-provider.ts`), degrading to "not a candidate" rather than proposing an
       insertion the door would reject
@@ -910,9 +910,9 @@ assistant able to compose, and the catalog no longer has to be exhaustive on the
 ### 12b — The composition block
 
 - [x] T217 [US10] Add the custom-code tree contract
-      (`packages/builder/schema/src/custom-code/custom-code-tree.ts`): 33-tag vocabulary, 8-attribute
-      allowlist, depth AND node ceilings enforced by an ITERATIVE pre-check piped ahead of shape
-      validation (a recursive guard overflows before zod runs)
+      (`packages/builder/schema/src/custom-code/custom-code-tree.ts`): 33-tag vocabulary,
+      8-attribute allowlist, depth AND node ceilings enforced by an ITERATIVE pre-check piped ahead
+      of shape validation (a recursive guard overflows before zod runs)
 - [x] T218 [US10] Add `CustomCode` to the renderer, following the `RichText` precedent exactly —
       tolerant read, allowlisted tags, `safeHref`-style `src` policy, and no
       `dangerouslySetInnerHTML` on any path
@@ -921,8 +921,8 @@ assistant able to compose, and the catalog no longer has to be exhaustive on the
       `StaticDocument`, so publishing resolves references with no kernel present
 - [x] T220 [US10] Validate a reference's props against the referenced block's OWN schema before
       rendering; fail to `UnknownBlock` rather than render a half-configured component
-- [x] T221 [US10] Ship `@craftkit/builder-custom-code` (block, scoped-CSS door, Inspector fields) and
-      register `customCode` in the page root vocabulary
+- [x] T221 [US10] Ship `@craftkit/builder-custom-code` (block, scoped-CSS door, Inspector fields)
+      and register `customCode` in the page root vocabulary
 - [x] T222 [US10] Exempt the escape hatch from the economy that makes it necessary
       (`alwaysDetailedBlockTypes`): in `index` mode every other block loses its schema, and a
       `customCode` without one would tell the model an escape hatch exists and give it no way to
@@ -951,11 +951,12 @@ assistant able to compose, and the catalog no longer has to be exhaustive on the
 ### 12d — Editing and identity
 
 - [x] T229 [US10] Contribute lazy Inspector controls for the tree and the stylesheet; both parse
-      before committing, refuse rather than strip, and dispatch once per edit session rather than per
-      keystroke (one undo entry per character makes undo useless for exactly the edit it matters on)
-- [x] T230 [US10] Read a node's own `label` in `blockDisplayName` — the single place a node is named,
-      so the layers tree and screen-reader announcements improve together, and any block declaring a
-      `label` prop gets the behaviour without a second declaration
+      before committing, refuse rather than strip, and dispatch once per edit session rather than
+      per keystroke (one undo entry per character makes undo useless for exactly the edit it matters
+      on)
+- [x] T230 [US10] Read a node's own `label` in `blockDisplayName` — the single place a node is
+      named, so the layers tree and screen-reader announcements improve together, and any block
+      declaring a `label` prop gets the behaviour without a second declaration
 
 ### 12e — Evidence
 
@@ -1006,23 +1007,23 @@ then reviews the whole of Phases 12–13 for anything green-but-broken — and f
       (`context.outputContract.schema`) — the shape the model is constrained to and the shape the
       door accepts have one source
 - [x] T238 [US10] Failure translation with the client's taxonomy intact: refusal is `200`,
-      rate-limit `429`, bad upstream `400`, missing key `500` + plain sentence, disconnect `499`;
-      no SDK message or stack ever crosses
+      rate-limit `429`, bad upstream `400`, missing key `500` + plain sentence, disconnect `499`; no
+      SDK message or stack ever crosses
 - [x] T239 [US10] SSE: `status` frames from Claude's own thinking summary, exactly one `result`;
       client disconnect aborts the SDK call
-- [x] T240 [US10] SDK pinned to the newest release inside the repo's `minimumReleaseAge`
-      (0.122.0); 0.72 lacked adaptive thinking and `stop_details`
-- [x] T241 [US10] `catalogPolicyFor`: catalog mode is a property of the PROVIDER — offline scores
-      on schemas and needs `full`; a model needs names and gets `index`/`scoped`. `runAiAgent`
-      gained `composition` so the canonical path can carry it at all
+- [x] T240 [US10] SDK pinned to the newest release inside the repo's `minimumReleaseAge` (0.122.0);
+      0.72 lacked adaptive thinking and `stop_details`
+- [x] T241 [US10] `catalogPolicyFor`: catalog mode is a property of the PROVIDER — offline scores on
+      schemas and needs `full`; a model needs names and gets `index`/`scoped`. `runAiAgent` gained
+      `composition` so the canonical path can carry it at all
 
 ### 13b — What the review found
 
-- [x] T242 [US10] **The server did not start.** Lint, typecheck, 29 tests: green. `node
-      --experimental-strip-types src/main.ts`: `ERR_MODULE_NOT_FOUND` on the first extensionless
-      import inside `@craftkit/builder-ai`. Fixed by building (Vite SSR, `noExternal: @craftkit/*`,
-      ~20 kB `dist/main.js`) and by splitting the untested Node adapter into `server.ts` with
-      socket-level tests (port 0, real fetch, abort-on-disconnect)
+- [x] T242 [US10] **The server did not start.** Lint, typecheck, 29 tests: green.
+      `node     --experimental-strip-types src/main.ts`: `ERR_MODULE_NOT_FOUND` on the first
+      extensionless import inside `@craftkit/builder-ai`. Fixed by building (Vite SSR,
+      `noExternal: @craftkit/*`, ~20 kB `dist/main.js`) and by splitting the untested Node adapter
+      into `server.ts` with socket-level tests (port 0, real fetch, abort-on-disconnect)
 - [x] T243 [US10] The cost gate measured the CONTEXT while the budget charges the WIRE request;
       re-pointed at `estimateAiPlanWireRequestTokens`. Measured: `full` fits a bare request with
       ~200 tokens of headroom and overflows on the **twelfth** short follow-up
@@ -1035,16 +1036,16 @@ then reviews the whole of Phases 12–13 for anything green-but-broken — and f
 - [x] T246 [US10] Regenerated Tailwind vocabulary verified a strict superset of the previous one
       (1,293 → 2,697, 0 lost) — the check the regeneration should have shipped with
 - [x] T247 [US10] `apps/playground/.env.example` documenting the two endpoint variables
-- [x] T248 [US10] **Found by the first Chromium run that ever got past indexing**: `catalogPolicyFor`
-      inferred `remote` from `planProvider !== undefined`, so every story double that wraps
-      `createLocalAiPlanProvider()` (fail-then-succeed, answer-late) was handed an `index` catalog and
-      proposed nothing — two stories failed with "no Apply button". Replaced inference with a
-      declared `providerKind` prop on `AssistantPanel`; `App.tsx`, the one place that knows it wired
-      a remote provider, says `'remote'`; every other caller defaults to `'offline'`. Six unit tests
-      pin the decision table
+- [x] T248 [US10] **Found by the first Chromium run that ever got past indexing**:
+      `catalogPolicyFor` inferred `remote` from `planProvider !== undefined`, so every story double
+      that wraps `createLocalAiPlanProvider()` (fail-then-succeed, answer-late) was handed an
+      `index` catalog and proposed nothing — two stories failed with "no Apply button". Replaced
+      inference with a declared `providerKind` prop on `AssistantPanel`; `App.tsx`, the one place
+      that knows it wired a remote provider, says `'remote'`; every other caller defaults to
+      `'offline'`. Six unit tests pin the decision table
 
-**Checkpoint**: A request from the playground reaches Claude and comes back as a validated plan.
-The one gate that never existed — "does the process start" — now does.
+**Checkpoint**: A request from the playground reaches Claude and comes back as a validated plan. The
+one gate that never existed — "does the process start" — now does.
 
 - [x] T249 [US10] Catalog mode `'none'`: the escape hatch plus the selected/mentioned blocks in
       full, and no other block at all — not even by name. The playground's remote path runs under
@@ -1082,137 +1083,137 @@ The one gate that never existed — "does the process start" — now does.
 
 - [x] T254 [US10] **From the owner's screenshot**: a refused stylesheet was dropped whole and the
       canvas said nothing — an unstyled panel with no reason. `CustomCodeBlock` and the page root
-      now render a `role="note"` naming the refused construct on the canvas only; the published
-      page never carries it. Four tests, including the https background image that used to vanish
+      now render a `role="note"` naming the refused construct on the canvas only; the published page
+      never carries it. Four tests, including the https background image that used to vanish
 
 - [x] T255 [US10] CSS sanitizer hardening: the refusal list is matched against a normalised copy
       (comments stripped, hex and character escapes decoded) so `@\69mport`, `u\72l(`, and
-      `@/**/import` are refused as the browser would read them; rendered text is untouched.
-      Web-font `@import` from `fonts.googleapis.com` / `fonts.bunny.net` (https only, exact host)
-      is allowed and lifted in front of the scoped rules; look-alike hosts and a second import
-      behind a font import are still refused. 12 new tests
-- [x] T256 [US10] `a` and `button` join the tag vocabulary (35): `href` through `safeHref`
-      (which now also admits `tel:` — a contact section links a phone number, and the scheme has
-      no script surface), `rel="noopener noreferrer"` on external links, only `target="_blank"`,
-      clicks swallowed on the canvas; `button` is always `type="button"` with no handler. 9 new
-      tests. A CV page without a link was the argument
+      `@/**/import` are refused as the browser would read them; rendered text is untouched. Web-font
+      `@import` from `fonts.googleapis.com` / `fonts.bunny.net` (https only, exact host) is allowed
+      and lifted in front of the scoped rules; look-alike hosts and a second import behind a font
+      import are still refused. 12 new tests
+- [x] T256 [US10] `a` and `button` join the tag vocabulary (35): `href` through `safeHref` (which
+      now also admits `tel:` — a contact section links a phone number, and the scheme has no script
+      surface), `rel="noopener noreferrer"` on external links, only `target="_blank"`, clicks
+      swallowed on the canvas; `button` is always `type="button"` with no handler. 9 new tests. A CV
+      page without a link was the argument
 
 - [x] T257 [US10] The last two Chromium failures, diagnosed by running them (a temporary
-      `console.log` of computed styles, then removed): both were STALE STORIES, not product
-      defects. `Hero > Unthemed Publish Contract` read `rowGap` off the outer column, which holds
-      one child and never had a gap — the rhythm lives on the copy stack (`gap-6`); it now measures
-      there. `VideoSection > Split` quoted example copy that had been rewritten; it now asserts
-      against the rendered example's own heading and video label. Filtered Chromium run: 7 passed
-      (the two included). Storybook is expected at 463/463 on the next full run
+      `console.log` of computed styles, then removed): both were STALE STORIES, not product defects.
+      `Hero > Unthemed Publish Contract` read `rowGap` off the outer column, which holds one child
+      and never had a gap — the rhythm lives on the copy stack (`gap-6`); it now measures there.
+      `VideoSection > Split` quoted example copy that had been rewritten; it now asserts against the
+      rendered example's own heading and video label. Filtered Chromium run: 7 passed (the two
+      included). Storybook is expected at 463/463 on the next full run
 
 - [x] T258 [US10] **Port 8787 was not this server.** `scripts/ai-plan-bridge.mjs` — an older
       CLI-spawning dev bridge with its own prompt — had held the playground's endpoint for hours;
       every "live run" went there, and its wording is the "invalid plan response" in the owner's
-      screenshot. The bridge is now marked DEPRECATED in its header and warns at startup; the
-      server README and `.env.example` say how to check the port. `DEFAULT_MAX_TOKENS` raised
-      16k → 32k: a six-region landing page as a JSON tree runs to 15–25k output tokens, and a
-      cut-off plan is no plan. The verification record's "first live run" section corrected
+      screenshot. The bridge is now marked DEPRECATED in its header and warns at startup; the server
+      README and `.env.example` say how to check the port. `DEFAULT_MAX_TOKENS` raised 16k → 32k: a
+      six-region landing page as a JSON tree runs to 15–25k output tokens, and a cut-off plan is no
+      plan. The verification record's "first live run" section corrected
 
 - [x] T259 [US10] **Skills activate by script, not by verb.** The activation verifier showed the
       Arabic/RTL Skill firing only on four listed imperatives ("صمم لي" …) and staying silent on
       "اعمل معرض أعمال" and "بانر وداع سامر ووسيم" — the same page, laid out differently by the
-      verb. `activation.scripts: ['arabic' | 'latin']` is a third auto trigger (any character of
-      the writing system, presentation forms and Persian/Urdu letters included), validated in
+      verb. `activation.scripts: ['arabic' | 'latin']` is a third auto trigger (any character of the
+      writing system, presentation forms and Persian/Urdu letters included), validated in
       `define-skill` like the other two and matched in `resolve-skills`. New
       `craftkit.occasion-page` archetype (invitation, wedding, farewell, greeting, condolence;
-      priority 85, conflicts with the landing and CV archetypes, depends on copywriting) with
-      Arabic and English keywords; design-direction gains darker/lighter/background asks and
-      accessibility gains readability asks in both languages. Matrix now ten requests (5 ar / 5
-      en), every Arabic row carries the RTL Skill, all rows within three auto Skills and the
-      2,400-token row ceiling. `script-activation.test.ts` pins the trigger, its canonical form,
-      the refusal of unknown scripts, and the duplicate rule. README documents the three triggers
-      and the floor-plus-three budget. Gates: builder-ai 372/372, playground 102/102, typecheck
-      and lint clean.
+      priority 85, conflicts with the landing and CV archetypes, depends on copywriting) with Arabic
+      and English keywords; design-direction gains darker/lighter/background asks and accessibility
+      gains readability asks in both languages. Matrix now ten requests (5 ar / 5 en), every Arabic
+      row carries the RTL Skill, all rows within three auto Skills and the 2,400-token row ceiling.
+      `script-activation.test.ts` pins the trigger, its canonical form, the refusal of unknown
+      scripts, and the duplicate rule. README documents the three triggers and the floor-plus-three
+      budget. Gates: builder-ai 372/372, playground 102/102, typecheck and lint clean.
 
 - [x] T260 [US10] **"Failed to fetch" was CORS, and the port was split.** The browser resolves
-      `localhost` to `::1` first, which reached this server (bound `*:8787`) while the
-      deprecated bridge held `127.0.0.1:8787` — both listening, neither failing. The server
-      answered the preflight OPTIONS with 405 and no `Access-Control-Allow-Origin`; a browser
-      reports that as a network error before any body is sent, and every gate was green because
-      none of them was a browser. `cors.ts`: preflight (204, origin echoed, requested headers
-      granted, max-age 600, `Vary: Origin`), origin stamped on every real response including
-      the SSE stream, browser requests from a non-allowed origin refused 403 BEFORE the model
-      is called, requests without `Origin` untouched. Policy `CRAFTKIT_AI_ALLOWED_ORIGINS`
-      (loopback on any port by default; an explicit list replaces it; malformed entries refuse
-      startup). Scripts load a git-ignored `apps/ai-server/.env` via `node
-      --env-file-if-exists`; `.env.example` added. README records the IPv4/IPv6 split-port
-      trap. 27 CORS tests incl. one through a real socket; ai-server 78/78, typecheck, lint
-      clean; verified live: preflight on `[::1]:8787` → 204 with the origin echoed.
+      `localhost` to `::1` first, which reached this server (bound `*:8787`) while the deprecated
+      bridge held `127.0.0.1:8787` — both listening, neither failing. The server answered the
+      preflight OPTIONS with 405 and no `Access-Control-Allow-Origin`; a browser reports that as a
+      network error before any body is sent, and every gate was green because none of them was a
+      browser. `cors.ts`: preflight (204, origin echoed, requested headers granted, max-age 600,
+      `Vary: Origin`), origin stamped on every real response including the SSE stream, browser
+      requests from a non-allowed origin refused 403 BEFORE the model is called, requests without
+      `Origin` untouched. Policy `CRAFTKIT_AI_ALLOWED_ORIGINS` (loopback on any port by default; an
+      explicit list replaces it; malformed entries refuse startup). Scripts load a git-ignored
+      `apps/ai-server/.env` via `node     --env-file-if-exists`; `.env.example` added. README
+      records the IPv4/IPv6 split-port trap. 27 CORS tests incl. one through a real socket;
+      ai-server 78/78, typecheck, lint clean; verified live: preflight on `[::1]:8787` → 204 with
+      the origin echoed.
 
 - [x] T261 [US10] **"invalid-output · provider" was a server with no key.** Reproduced by driving
-      the real panel in Chromium after T260: the request now reaches the server (200, SSE) and
-      the result frame said "The assistant server failed unexpectedly." A server started with no
-      credentials makes the SDK throw a plain `Error("Could not resolve authentication
-      method…")` at request time — not an `AuthenticationError`, which is the API's 401 for a
-      WRONG key — so `describeFailure` fell through to its generic sentence. Matched by message
-      now: "The assistant server has no credentials: set ANTHROPIC_API_KEY (apps/ai-server/.env)
-      and restart it." on both the unary (500) and streaming paths; `main.ts` warns at boot when
-      the client has neither `apiKey` nor `authToken`. Two handler tests pin both paths;
-      ai-server 80/80, typecheck, lint clean.
+      the real panel in Chromium after T260: the request now reaches the server (200, SSE) and the
+      result frame said "The assistant server failed unexpectedly." A server started with no
+      credentials makes the SDK throw a plain
+      `Error("Could not resolve authentication     method…")` at request time — not an
+      `AuthenticationError`, which is the API's 401 for a WRONG key — so `describeFailure` fell
+      through to its generic sentence. Matched by message now: "The assistant server has no
+      credentials: set ANTHROPIC_API_KEY (apps/ai-server/.env) and restart it." on both the unary
+      (500) and streaming paths; `main.ts` warns at boot when the client has neither `apiKey` nor
+      `authToken`. Two handler tests pin both paths; ai-server 80/80, typecheck, lint clean.
 
 - [x] T262 [US10] **Clearing a selection has a door.** The owner: "when I select blocks there is no
       option to clear the selection." Investigation: no `clearSelection()` existed; Escape cleared
       only when the canvas host itself had focus; the gutter around the frame did nothing; no
-      control in the Inspector, the block action bar, or the Layers panel. Now: `kernel.clearSelection()`
-      (same ephemeral law as `setSelection`, never a transaction); Escape clears from any non-editable
-      element inside the canvas and returns focus to the host (inputs, textareas, selects,
-      contenteditable and consumed events are left alone); a click on the gutter or the host clears;
-      the block action bar ends with **Deselect (Esc)**, never disabled, root included; the Inspector
-      title row shows a quiet **Clear selection** button while a block is selected. Every path announces
-      "Selection cleared". 17 files; core 126/126, shell 738/738, playground 149/149, Storybook 486/486;
-      theme gate red only for foreign literals (GenerationProgress.css — being fixed by the panel
-      workflow — and a pre-existing 1px/3px in PreviewMode.css, follow-up).
+      control in the Inspector, the block action bar, or the Layers panel. Now:
+      `kernel.clearSelection()` (same ephemeral law as `setSelection`, never a transaction); Escape
+      clears from any non-editable element inside the canvas and returns focus to the host (inputs,
+      textareas, selects, contenteditable and consumed events are left alone); a click on the gutter
+      or the host clears; the block action bar ends with **Deselect (Esc)**, never disabled, root
+      included; the Inspector title row shows a quiet **Clear selection** button while a block is
+      selected. Every path announces "Selection cleared". 17 files; core 126/126, shell 738/738,
+      playground 149/149, Storybook 486/486; theme gate red only for foreign literals
+      (GenerationProgress.css — being fixed by the panel workflow — and a pre-existing 1px/3px in
+      PreviewMode.css, follow-up).
 
 - [x] T263 [US10] **أبو غضب's panel: one name, a face that notices you, the run as rows.** The
       design-lead spec (three angles, two judges) was implemented across three disjoint tracks.
       Face: hover arches the outer brow 6° and lifts it, widens the eyes 12 %, leans the disc 5 %,
-      widens the halo; busy moods answer with halo and lean only; stopped never lifts a brow; a press
-      boops the disc; the eyes follow the pointer across the header through two custom properties the
-      seat writes once per frame (`useFaceLook`, no React state, no re-render, reduced motion zeroes
-      it). Progress: `GenerationProgress` gains `announce` and exported stage labels, its CSS obeys the
-      token law (theme 26/26), and the thinking turn shows the run as honest rows — Plan, Structure
-      and (Auto only) Apply — driven by the run's events (`AssistantPanel.progress.ts`, pure, same
-      reference on no-ops); the refusal card says where it broke ("· at Structure"); settled cards
-      keep a timing receipt. Panel: exactly one name by locale in the header; article turn wrappers;
-      card head row and state stripes; steps well with logical padding and dividers; Discard at the
-      inline end; failure meta with a code pill; composer with body-size text, visible mode hint,
-      solid accent Send with an aurora halo on hover/focus, red Stop while busy, tokenised aura;
-      accent-family dots and beacon; RTL mirroring for Undo/Code; `unicode-bidi: plaintext` on
-      provider-authored runs. Fixed on the way: turn ids restarted at 1 after a reload and collided
-      with saved turns (React duplicate keys) — ids now continue from the revived conversation.
-      Verified live in Chromium: single name, hover pose values, the credentials failure "at
-      Structure". Gates: panel suite 45/45 plus progress 24 and face-look 12; playground typecheck
-      and lint clean for the panel; theme 26/26; Storybook (Chromium) 114 files, 495/495 including
-      EnglishName, InFlightProgress, DarkChrome, RightToLeft, Hover, Busy, LooksAtThePointer,
-      Pressed and SilentInsideAChat.
+      widens the halo; busy moods answer with halo and lean only; stopped never lifts a brow; a
+      press boops the disc; the eyes follow the pointer across the header through two custom
+      properties the seat writes once per frame (`useFaceLook`, no React state, no re-render,
+      reduced motion zeroes it). Progress: `GenerationProgress` gains `announce` and exported stage
+      labels, its CSS obeys the token law (theme 26/26), and the thinking turn shows the run as
+      honest rows — Plan, Structure and (Auto only) Apply — driven by the run's events
+      (`AssistantPanel.progress.ts`, pure, same reference on no-ops); the refusal card says where it
+      broke ("· at Structure"); settled cards keep a timing receipt. Panel: exactly one name by
+      locale in the header; article turn wrappers; card head row and state stripes; steps well with
+      logical padding and dividers; Discard at the inline end; failure meta with a code pill;
+      composer with body-size text, visible mode hint, solid accent Send with an aurora halo on
+      hover/focus, red Stop while busy, tokenised aura; accent-family dots and beacon; RTL mirroring
+      for Undo/Code; `unicode-bidi: plaintext` on provider-authored runs. Fixed on the way: turn ids
+      restarted at 1 after a reload and collided with saved turns (React duplicate keys) — ids now
+      continue from the revived conversation. Verified live in Chromium: single name, hover pose
+      values, the credentials failure "at Structure". Gates: panel suite 45/45 plus progress 24 and
+      face-look 12; playground typecheck and lint clean for the panel; theme 26/26; Storybook
+      (Chromium) 114 files, 495/495 including EnglishName, InFlightProgress, DarkChrome,
+      RightToLeft, Hover, Busy, LooksAtThePointer, Pressed and SilentInsideAChat.
 
 - [x] T264 [US10] **The Inspector is split, and one edit renders one row.** The owner asked for the
       593-line component to be divided "for performance". Structure lane of the design-lead spec:
       pure partition module (`partition-properties.ts`), schema facts cached per schema in WeakMaps,
       an announcer store with one live-region subscriber, four primitive kernel selectors at the
-      shell, `InspectorPropertyRow` as the single memo boundary subscribing per property,
-      controlled sections, lazy-once tab panels keeping the tablist/tabpanel pattern, a source-keyed
-      pending draft, `dir` subscribed once — 14 sub-components and 12 hooks/modules, each with its
-      own test; `InspectorRow.tsx` gone, its CSS split into `InspectorRow.css` and
-      `RepeaterField.css`; `index.ts`/`InspectorProps` unchanged; Clear-selection preserved. Measured
-      by `Inspector.render-count.test.tsx` (baseline recorded in its header): mount 20 rows → 9
-      bodies; one external prop edit 21 renders → 1; tab round trip 41 → 0; collapse a section 20 → 1;
-      undo 21 → 1. Shell tests 859/859 (Inspector folder 140/140), shell typecheck, theme 26/26,
+      shell, `InspectorPropertyRow` as the single memo boundary subscribing per property, controlled
+      sections, lazy-once tab panels keeping the tablist/tabpanel pattern, a source-keyed pending
+      draft, `dir` subscribed once — 14 sub-components and 12 hooks/modules, each with its own test;
+      `InspectorRow.tsx` gone, its CSS split into `InspectorRow.css` and `RepeaterField.css`;
+      `index.ts`/`InspectorProps` unchanged; Clear-selection preserved. Measured by
+      `Inspector.render-count.test.tsx` (baseline recorded in its header): mount 20 rows → 9 bodies;
+      one external prop edit 21 renders → 1; tab round trip 41 → 0; collapse a section 20 → 1; undo
+      21 → 1. Shell tests 859/859 (Inspector folder 140/140), shell typecheck, theme 26/26,
       playground 183/183, Inspector stories 24/24 in Chromium. Deviations recorded in the docs:
       `controlFor` stays inline (react-hooks/static-components), the focus lock is a closure holder
       (react-hooks/refs). NOT done yet: the design lane (CSS polish, header hierarchy, stories/docs
       pass) — deferred because a peer session is layering element-focus work on the same folder.
 
 - [x] T265 [US10] **The first real plan failed on a prop that does not exist.** Driven live through
-      the CLI-backed server: "كبّر عنوان الهيرو" came back as a refusal — "Type hero declares no prop
-      __unknown_hero_heading_size_prop__" — because `none` mode told the model nothing about the
-      hero already on the page, not even its prop names, and it invented one. Now every block type
-      PRESENT in the document rides along in `none` mode as a presence entry (`type`,
+      the CLI-backed server: "كبّر عنوان الهيرو" came back as a refusal — "Type hero declares no
+      prop **unknown_hero_heading_size_prop**" — because `none` mode told the model nothing about
+      the hero already on the page, not even its prop names, and it invented one. Now every block
+      type PRESENT in the document rides along in `none` mode as a presence entry (`type`,
       `description`, `propKeys`; no schema, no examples, no slots); blocks not on the page stay
       absent. Measured: ~19 tokens per block on the fixture, ~150 on the real registry (hero has 34
       keys); the landing page's 22 types add ~4,500 tokens, `none` ≈ 9,000 vs `full` ≈ 64,000, and
@@ -1244,13 +1245,205 @@ The one gate that never existed — "does the process start" — now does.
       matched to the vision, remove-one-accessory, and the quality floor. It is a dependency of
       page-composition, cv-page and occasion-page, and conflicts with precise-edit.
       `craftkit.design-tokens` carries the token hierarchy (role → palette → `ck-` class) and the
-      component ladder (base → variant → size → state), and names the v4 features that do not
-      exist here as refusals. Fixed on the way: design-direction claimed "@import is refused" —
-      the sanitizer has allowed Google Fonts and bunny.net since T255, so the agent had been told
-      it could not load a web font when it can; and the vocabulary guard caught an invented role
-      class (`text-inverse` → `text-text-inverse`). Budget pins raised deliberately: at most four
-      auto skills per request (one of each kind — words, look, structure, language) and 3,200
-      tokens per row, measured widest at 3,052 against a 16,000 budget. builder-ai 376/376,
-      typecheck and lint clean.
+      component ladder (base → variant → size → state), and names the v4 features that do not exist
+      here as refusals. Fixed on the way: design-direction claimed "@import is refused" — the
+      sanitizer has allowed Google Fonts and bunny.net since T255, so the agent had been told it
+      could not load a web font when it can; and the vocabulary guard caught an invented role class
+      (`text-inverse` → `text-text-inverse`). Budget pins raised deliberately: at most four auto
+      skills per request (one of each kind — words, look, structure, language) and 3,200 tokens per
+      row, measured widest at 3,052 against a 16,000 budget. builder-ai 376/376, typecheck and lint
+      clean.
 
-**Total after the server phase**: 267 tasks.
+- [x] T268 [US10] **A run died on a block it was never allowed to insert — a regression from T265.**
+      The owner's build came back "Slot default of root accepts [hero, …, customCode], not page"
+      after minutes of work. Cause: T265 advertises every block type PRESENT in the document under
+      `none` mode, and the document's root is itself a `page` node — so `page` appeared in the block
+      list with prop keys and the model wrote `insertNode {type:'page'}`. Two rules now travel in
+      the data instead of being learned from the door: the document's root type carries
+      `insertable: false` in EVERY catalog mode (a page cannot be inserted into a page), and a
+      presence entry — prop names without a schema — carries `insertable: false` too, because
+      authoring one would mean inventing its props. Editing them is untouched: the document fragment
+      still ships every node's full props, and `setProp` on the root (pageCss, contentWidth) is
+      exactly as before. Pinned in `catalog-none.test.ts` and in the serialized-catalog contract
+      test. builder-ai 381/381, lint and typecheck clean.
+
+- [x] T269 [US10] **Phase 1 of the build plan: no ending without a receipt, no silent run, no dead
+      stylesheet.** (a) `receiptOf(run, endedAt, lastLine)` — pure, no clock import — and a new
+      `startedAt` on `RunProgress`, because rows measure themselves from `stageSince` and no row
+      remembers when the RUN began. Every ending carries it: a stop, a failure, a timeout, and a
+      turn revived after a reload (read through the storage shape, so sessions saved before receipts
+      existed yield none rather than an invented one). Rendered as one quiet mono line: "Stopped
+      after 00:41.637 at Structure — Thinking — about 200 tokens so far (00:39)". (b)
+      `LiveStageClock` ticks the ACTIVE row once a second and nothing else: GenerationProgress stays
+      presentational and the reducer stays pure, so the timer lives in the smallest component that
+      shows the number, clears on settle and unmount, and a settled row keeps the reducer's exact
+      detail. A row open for 90s adds a muted "taking longer than usual" line, never a warning
+      colour. (c) The validation door now refuses a stylesheet the renderer would throw away. The
+      old behaviour was the worst kind: a refused at-rule passed validation, was applied, and then
+      the renderer dropped the WHOLE sheet with no message anywhere. Detection is by the owning
+      block's schema (`isCustomCssSchema`), not by the prop NAME — `css` is a stylesheet on a region
+      and a caption on a block that declared a plain string — and the helper moved to
+      `packages/builder/schema/src/custom-code/custom-css.ts` with its old home re-exporting it, so
+      the extension and the editor import paths are unchanged. Refusals come back as repairable
+      issues that name the sheet and what to do instead. Verified live in Chromium: the clock ticked
+      to 00:31 on Structure, the narration reached the panel, and Stop produced the receipt above.
+      Gates: builder-ai 398/398, builder-schema 287/287, custom-code 67/67, builder 115/115,
+      playground 195/195, theme 26/26, lint and typecheck clean everywhere.
+
+- [x] T270 [US10] **A per-region run stops re-shipping every other region.** Groundwork for the
+      split build, and a real cost bug on its own: the document context carries every node's full
+      props, so a page of ten composed regions sent ten whole trees on EVERY step — filling the last
+      section cost several times what filling the first did, for body copy the run was explicitly
+      told not to touch. `AiCompositionPolicy` gains `documentTreeMode: 'full' | 'scoped'` (default
+      `'full'` = today's behaviour, so no caller changes) and `treeScopeNodeIds`. Under `'scoped'` a
+      tree that is neither selected nor named is replaced by a shape summary — its node count and
+      its first heading, never its body — and everything else about the node survives: id, type,
+      slots, ordinary props. Trees are recognised by SHAPE (`{kind:'root', children}`), the same way
+      the validation door finds them, so a prop that merely happens to be called `tree` is never
+      touched and a tree stored under another name still is. Pinned by five tests including the one
+      that matters: whichever region is in hand, the request is the same size. builder-ai 403/403,
+      playground 195/195, lint and typecheck clean.
+
+- [x] T271 [US10] **The split build: skeleton first, then one section at a time.** `runAiBuild` is a
+      thin orchestrator OVER `runAiAgent` — planning, validation and application all still happen
+      inside the existing runner, once per step, through the same grouped kernel door. One scaffold
+      run inserts every section as an empty labelled region and fixes the direction for the whole
+      page in its rationale; the region ids are discovered from the applied transaction's `add`
+      patches and correlated by LABEL, never by patch order (pinned by a scaffold whose patches
+      arrive out of document order); then one small run per section fills exactly its own tree,
+      scoped by `selection` and `documentTreeMode: 'scoped'` (T270) so the last fill costs what the
+      first did. Each step is its own transaction with its own name: "Assistant: page skeleton",
+      "Assistant: 1/3 — Hero", … so a person can undo one section. **Never interrupts**: a failed
+      fill is retried once with a SHORTER brief, then skipped with the reason recorded, and the
+      build continues — no modal, no waiting. **Never worse than the single call it replaces**: a
+      scaffold that yields fewer than two regions falls back to one ordinary run, and — added after
+      review — a scaffold that THROWS does too, since the skeleton is an extra request this path
+      invented and its failure must cost the person nothing (only an abort is re-thrown, because
+      that is the person stopping). Budget, per-task timeout and outer-signal stop all end with a
+      report rather than an exception. Two build skills back it, both explicit-only and both relying
+      on the caller's `policy.allowedCommands` rather than `restrictToCommands`, because skill
+      restrictions INTERSECT and a second active skill would collapse the run to nothing. builder-ai
+      421/421, lint and typecheck clean, mutation-checked (dropping the scoped tree mode and using
+      patch order failed 7 of 13 tests).
+
+- [x] T272 [US10] **"Node \"missing-subject\" does not exist" — a mistake no retry could fix.** A
+      run died after 2m48s and its one repair attempt died with it. The door was right and the model
+      was not guessing at random: it wrote `setProp` against a node it was INSERTING in the same
+      plan. That id cannot be known — the kernel mints ids from its own port AFTER the plan is
+      written — so the repair was sent looking for a better guess at something that has no right
+      answer. Two changes, prevention and cure. PREVENTION: the always-on craft manual states the
+      rule on every request — name only a node the document already lists; a node this plan inserts
+      gets its id from the kernel, so no later step can name it, and its props belong inside its own
+      insertNode. The floor's byte cap was raised 1,200 → 1,450 and the single-skill ceiling 2,500 →
+      2,650, both with the reason recorded: a rule that must arrive BEFORE the plan cannot live in a
+      conditionally activated skill. CURE: a door rejection whose message says "does not exist" now
+      carries the ids that DO exist (id and type, capped at 40) and the sentence explaining why the
+      guess could never have worked — so the repair attempt has somewhere to go instead of guessing
+      again. A rejection about anything else is left exactly as it was. Three tests built from the
+      real failure. builder-ai 424/424, lint and typecheck clean.
+
+- [x] T273 [US10] **Why the same request kept failing the same way — four causes, all removed.** A
+      peer session's investigation (verified here before acting) found three, and a fourth came from
+      the owner's own report. (a) **The catalog taught the failure.** Selecting the page root puts
+      its type in `scopedBlockTypes`, which promotes it to a FULL entry — and the page block's
+      few-shots literally map "ابدأ صفحة فارغة" to `insertNode {type:'page'}`. A worked example of
+      the one command the door refuses, shipped to a model just asked in Arabic for a page.
+      `insertable: false` was added on top and stripped nothing. Now the root's AUTHORING examples
+      are removed; its schema stays, because the root is edited constantly (pageCss, contentWidth).
+      (b) **Persuasion replaced by enforcement.** The door refuses `insertNode` of the document's
+      root type before the dry run, with the edit that was meant: "…the page already exists…use
+      setProp on \"root\"". It no longer depends on any prompt's wording. (c) **A rejected plan was
+      cached and replayed.** `createCachingAiPlanProvider` stored every answer, so retrying a
+      failing request returned the same dead plan in milliseconds with no model call — which is why
+      a second attempt was far faster than the first. `AiPlanProvider` gained an optional
+      `forget()`, the cache implements it, and `generateAiPlan` calls it the moment validation
+      rejects. (d) **Switching rail tabs aborted the run.** The assistant was one arm of the section
+      ternary, so opening Blocks unmounted it and its unmount cleanup aborted the run in flight — a
+      person who glanced at their layers lost the page being built. It now stays mounted and is
+      hidden instead; every other section still mounts on demand. Nine new tests across the three AI
+      causes. builder-ai 430/430, playground 232/232, lint and typecheck clean.
+
+- [x] T274 [US10] **The split build reaches the product.** The orchestrator had been finished and
+      tested for hours while the app called it zero times, so a ten-section request was still one
+      giant call. Now `ask()` routes to `runAiBuild` when the request activates one of the three page
+      archetypes and the mode is Ask or Auto; **Plan never builds** (the skeleton applies, and Plan's
+      whole promise is that nothing does), and a small request keeps the single call byte for byte.
+      Added to the orchestrator first: `onPlanned`, the ONE approval point — asked after the skeleton
+      is down and before any section is filled, because the approval a person wants is on the LIST,
+      not on each of eight sections; refusing keeps the skeleton, which is an ordinary undoable
+      transaction. The panel gained a pure `AssistantPanel.build.ts` reducer (18 tests), a `building`
+      turn rendering the task list with the existing live clock nested in the open row and an ETA
+      from that build's own measured durations, the approval card, and the report with per-task Undo
+      (undo-through by transaction label, since the kernel exposes only a linear stack) and Retry
+      skipped. A revived `building` turn becomes stopped-with-receipt like `thinking` already did.
+      One existing test legitimately changed: it asked "ابني صفحة كاملة", which now correctly routes
+      to a build. Gates: playground 268/268, typecheck and lint clean, theme 26/26, Storybook 17/17
+      in Chromium including BuildAwaitingApproval, BuildInFlight and BuildReportWithSkips. Verified
+      live as far as time allowed: the request routed to the build path ("Working on the page
+      skeleton") and Stop produced "Stopped after 03:51.983 at Structure". CORRECTION: that stop was
+      first recorded here as a credentials failure. It was not. The log tailed was this session's own
+      scratchpad log, last written at 18:02, while the live server had started at 23:55 — a stale file
+      read as current. The server was credentialed and the run was simply slow (the CLI backend
+      writes ~80 output tokens/second, and one of its runs that day took 6m40s for an 8,805-character
+      plan). The cancellation cut off a working run.
+
+- [x] T275 [US10] **The vault: nothing is lost.** The playground never persisted anything — the
+      kernel was rebuilt from the fixture on every load, so a refresh erased whatever had been
+      built; the only saved thing was the chat. Instead of inventing storage, this implements the
+      kernel's OWN `PersistenceAdapter` port (`load`/`append`/`snapshot`), which was present and
+      unused, and boots through `openDocument` — so schema migration, validate-before-open,
+      transaction-log replay, seq-conflict detection and coalesced flushing all come for free. Four
+      modules in `apps/playground/src/features/vault/`: an IndexedDB key/value store that NEVER
+      throws (an unavailable or blocked database degrades to memory with one warning, because losing
+      persistence must not take the app down); the adapter, whose writes are serialised per document
+      so two rapid transactions cannot interleave a read-modify-write, and whose conflict rejection
+      does not poison later writes; a snapshot shelf (index stored apart from bodies so `list()` is
+      one read, eviction by count then bytes, deterministic ids, and a snapshot bigger than the whole
+      cap is still stored); and the revert, which is the only legal one — project → parse →
+      `kernel.dispatch('applyPatches')`, ONE transaction that one undo reverses. The inverse-patch
+      approach the plan originally proposed was rejected during investigation: array indices in
+      stored inverses are position-dependent and were recorded against intermediate states.
+      **Verified live, which is the only proof that counts here**: the hero heading was changed to
+      "VAULT PROOF 12345", the page was reloaded, and it came back identical with a "Picked up where
+      you left off" notice and a Start over button. Two notice defects found and fixed in the same
+      pass: `\u2014`/`\u00d7` written as JSX text render literally (six characters, not a dash), and
+      a 208px max width turned one sentence into a nine-line column covering the Inspector. Gates:
+      playground 268/268, typecheck and lint clean, theme 26/26. NOTE: the workflow's two adversarial
+      verifiers stalled and never ran; the durability claim rests on the live reload above and on the
+      31 vault tests, not on their review.
+
+- [x] T276 [US10] **A headless door on the umbrella, so a Node service stops reaching past it.**
+      `pnpm check:workspace` failed with two violations: `apps/ai-server` depends on
+      `@craftkit/builder-ai` and `@craftkit/builder-schema` directly, while the contract says a
+      non-builder member reaches the family only through the preset. The prescribed fix does not
+      work and was tried: `@craftkit/builder` re-exports the editor surface, so importing it drags
+      in `packages/builder/shell`, whose code calls `querySelector` on an `HTMLElement` — and a Node
+      service's tsconfig has no `lib: dom`, nor should it acquire one to satisfy a package boundary.
+      So the answer is a second, narrow door on the SAME package rather than an exemption for a
+      whole class of members: `@craftkit/builder/wire` re-exports the plan wire contract and the
+      class vocabulary a prompt must state, and nothing else. `wire.node.test.ts` guards the
+      contract rather than hand-walking an import graph (the first attempt did, and flagged a
+      type-only React import that is erased at compile time and already tolerated): the door may
+      re-export from `builder-ai` and `builder-schema` only, and neither manifest may carry a
+      browser runtime dependency. Umbrella 118/118, lint and typecheck clean. The two violations
+      stand until the server switches its two imports — that file is another session's.
+
+- [x] T277 [US10] **Sections are written at once and land in order.** A ten-section build made ten
+      round trips end to end, and a round trip is dominated by waiting on the model, not by the
+      kernel: the wall clock was almost entirely idle. Writing them concurrently is only safe if
+      LANDING stays ordered, so the two were separated. `runFill` now generates with
+      `apply: 'never'` and hands the proposal back; a pool of writers (`fillConcurrency`, default 3)
+      claims sections off a shared cursor while the lander awaits each section's slot in page order
+      and calls `applyAiPlan` itself. Ordering is preserved because apply re-validates against the
+      LIVE kernel at the moment it lands, so a proposal written against an older document is refused
+      rather than applied blind — the same door that already protected the sequential build.
+      A stop settles every unclaimed slot as `not-started` so nothing waits on a section that will
+      never be written, and work already in flight still lands: `build.stopped` therefore precedes
+      the completion of the section it interrupted, which is honest — it means "no further section
+      will be STARTED". The proof is a latch no single section can open: three fills must be inside
+      the provider simultaneously or the test times out, and they are released last-first to prove
+      the transactions still read 1/3, 2/3, 3/3. Mutation-checked — forcing the default to 1 hangs
+      that test. `fillConcurrency: 1` restores the old behaviour exactly. builder-ai 435/435, lint
+      and typecheck clean.
+
+**Total after the concurrency phase**: 277 tasks.

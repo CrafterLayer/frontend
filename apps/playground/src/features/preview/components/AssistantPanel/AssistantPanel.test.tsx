@@ -12,6 +12,7 @@ import {
   type AiAgentEvent,
   type AiPlan,
   type AiPlanProvider,
+  type AiBuildOwnEvent,
   type AiPlanStep,
   type BuilderKernel,
   type TrustedExtensionManifest,
@@ -803,12 +804,14 @@ describe('AssistantPanel', () => {
     };
     const { user } = renderPanel({ planProvider: provider });
 
-    await requestPlan(user, 'ابني صفحة كاملة');
+    // Deliberately ONE section: a page-sized ask routes to the split build,
+    // and this test is about the follow-up on an ordinary plan card.
+    await requestPlan(user, 'ابني قسم الأسعار');
     const continueButton = screen.getByRole('button', { name: /كمل التنسيق والألوان/ });
     await user.click(continueButton);
 
     await waitFor(() => {
-      expect(asks).toEqual(['ابني صفحة كاملة', 'كمل التنسيق والألوان']);
+      expect(asks).toEqual(['ابني قسم الأسعار', 'كمل التنسيق والألوان']);
     });
   });
 
@@ -1390,6 +1393,475 @@ describe('AssistantPanel', () => {
       expect(
         screen.queryByText('A stale proposal that must never appear here.'),
       ).not.toBeInTheDocument();
+    });
+  });
+});
+
+/**
+ * THE SPLIT BUILD.
+ *
+ * A page-sized request stops being one six-minute model call and becomes a
+ * skeleton plus one run per section. These tests own the panel's half of that:
+ * when it routes to the orchestrator at all, what the person sees while it
+ * runs, what they are asked, and what is left behind when it ends.
+ */
+const buildRegion = defineBlockSchema({
+  type: 'region',
+  description: 'A freely composed page section.',
+  props: z.object({
+    label: z.string().default('Section'),
+    body: z.string().default(''),
+  }),
+  examples: [],
+});
+const buildRoot = defineBlockSchema({
+  type: 'buildPage',
+  description: 'The page root a build scaffolds into.',
+  props: z.object({}),
+  slots: { default: { allow: ['region'] } },
+  examples: [],
+});
+const buildVocabulary: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'assistant-panel.build-vocabulary',
+  version: '0.0.0',
+  contributes: {
+    blocks: [
+      { schema: buildRoot, render: Null },
+      { schema: buildRegion, render: Null },
+    ],
+  },
+};
+
+const BUILD_REQUEST = 'build me a landing page for my ceramics studio';
+const BUILD_DIRECTION =
+  'A calm studio page for ceramicists. Palette bg-white text-slate-900. Faces Inter and Inter.';
+
+function createBuildKernel(): BuilderKernel {
+  return createBuilder({
+    document: {
+      schemaVersion: 1,
+      surface: 'site',
+      dir: 'ltr',
+      rootId: 'root',
+      nodes: { root: { id: 'root', type: 'buildPage', props: {}, slots: { default: [] } } },
+    },
+    extensions: [buildVocabulary],
+    ports: { clock: fixedClock(0), ids: seededIds('assistant-build') },
+  });
+}
+
+/** A block prop read back as text; anything else on that key is not a title. */
+function propText(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+interface Deferred<T> {
+  readonly promise: Promise<T>;
+  resolve(value: T): void;
+  reject(cause: unknown): void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (cause: unknown) => void;
+  const promise = new Promise<T>((settle, fail) => {
+    resolve = settle;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+interface BuildScript {
+  readonly provider: AiPlanProvider;
+  /** How many times the provider was asked for a plan — 1 scaffold + n fills. */
+  calls(): number;
+  /** The fills held open, by section title. */
+  readonly gates: Map<string, Deferred<AiPlan>>;
+}
+
+/**
+ * A scripted build: one scaffold plan naming every section, then one fill per
+ * region, found by the selection the orchestrator scoped that run to. Never a
+ * network, and never a guess about which region a fill was handed.
+ */
+function scriptBuild(
+  kernel: BuilderKernel,
+  titles: readonly string[],
+  options: { readonly hold?: readonly string[]; readonly refuse?: readonly string[] } = {},
+): BuildScript {
+  const gates = new Map<string, Deferred<AiPlan>>();
+  let calls = 0;
+  const provider: AiPlanProvider = {
+    propose(_request, context) {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve<AiPlan>({
+          rationale: BUILD_DIRECTION,
+          commands: titles.map((title) => ({
+            command: 'insertNode',
+            args: { type: 'region', parentId: 'root', props: { label: title, body: '' } },
+          })),
+        });
+      }
+      const id = context.selection.ids[0];
+      if (id === undefined) {
+        throw new Error('A fill run reached the provider with no region selected.');
+      }
+      const title = propText(kernel.getDocument().nodes[id]?.props['label']);
+      if (options.refuse?.includes(title) === true) {
+        return Promise.reject(
+          new AiProviderError(`The model would not write "${title}".`, {
+            code: 'refusal',
+            retryable: false,
+          }),
+        );
+      }
+      const plan: AiPlan = {
+        rationale: `Fill ${title}.`,
+        commands: [{ command: 'setProp', args: { id, key: 'body', value: `Body for ${title}.` } }],
+      };
+      if (options.hold?.includes(title) === true) {
+        const gate = gates.get(title) ?? deferred<AiPlan>();
+        gates.set(title, gate);
+        return gate.promise;
+      }
+      return Promise.resolve(plan);
+    },
+  };
+  return { provider, calls: () => calls, gates };
+}
+
+/** Every region on the page, in reading order, as `label → body`. */
+function regionsOf(kernel: BuilderKernel): Record<string, string> {
+  const document = kernel.getDocument();
+  const entries = (document.nodes[document.rootId]?.slots?.['default'] ?? []).map((id) => {
+    const node = document.nodes[id];
+    return [propText(node?.props['label']), propText(node?.props['body'])] as const;
+  });
+  return Object.fromEntries(entries);
+}
+
+async function send(user: ReturnType<typeof userEvent.setup>, request: string): Promise<void> {
+  const composer = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Ask the assistant' });
+  await user.clear(composer);
+  await user.type(composer, request);
+  await user.click(screen.getByRole('button', { name: 'Send' }));
+}
+
+function buildEventTypes(events: readonly AiBuildOwnEvent[]): string[] {
+  return events.map(({ type }) => type);
+}
+
+const TEN = [
+  'Hero',
+  'Proof',
+  'Benefits',
+  'How It Works',
+  'Gallery',
+  'Testimonials',
+  'Pricing',
+  'FAQ',
+  'Final Call',
+  'Footer',
+] as const;
+
+const THREE = ['Hero', 'Proof', 'Pricing'] as const;
+
+describe('AssistantPanel — split build', () => {
+  it('splits a ten-section page into a skeleton and one run per section, advancing the list', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, TEN, { hold: ['Benefits'] });
+    const events: AiBuildOwnEvent[] = [];
+    const { container, user } = renderPanel({
+      kernel,
+      planProvider: script.provider,
+      onBuildEvent: (event) => events.push(event),
+    });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+
+    // The skeleton lands FIRST, as one transaction, before a word is written.
+    await waitFor(
+      () => {
+        expect(Object.keys(regionsOf(kernel))).toHaveLength(10);
+      },
+      { timeout: 15_000 },
+    );
+
+    const list = await screen.findByRole('list', { name: 'Sections' }, { timeout: 15_000 });
+    // The section rows are the list's OWN children: the open one nests the
+    // whole GenerationProgress card, list items and all.
+    const sectionRows = () => [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
+    expect(sectionRows()).toHaveLength(10);
+    expect(sectionRows().map((row) => row.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Hero')]),
+    );
+
+    // Two sections written, the third open, the rest waiting their turn.
+    await waitFor(
+      () => {
+        expect(container.querySelector('.pg-chat__tasks-count')).toHaveTextContent('2/10');
+      },
+      { timeout: 15_000 },
+    );
+    const rows = sectionRows();
+    expect(rows[0]).toHaveAttribute('data-status', 'applied');
+    expect(rows[1]).toHaveAttribute('data-status', 'applied');
+    expect(rows[2]).toHaveAttribute('data-status', 'running');
+    expect(rows[9]).toHaveAttribute('data-status', 'waiting');
+    expect(regionsOf(kernel)['Benefits']).toBe('');
+
+    act(() => {
+      script.gates.get('Benefits')?.resolve({
+        rationale: 'Fill Benefits.',
+        commands: [
+          {
+            command: 'setProp',
+            args: {
+              id: Object.keys(kernel.getDocument().nodes).find(
+                (id) => kernel.getDocument().nodes[id]?.props['label'] === 'Benefits',
+              ),
+              key: 'body',
+              value: 'Body for Benefits.',
+            },
+          },
+        ],
+      });
+    });
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/10\/10 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(Object.values(regionsOf(kernel)).every((body) => body !== '')).toBe(true);
+    expect(kernel.transactions().map(({ command }) => command)).toEqual([
+      'Assistant: page skeleton',
+      ...TEN.map((title, index) => `Assistant: ${String(index + 1)}/10 — ${title}`),
+    ]);
+    expect(buildEventTypes(events).slice(0, 3)).toEqual([
+      'build.scaffolding',
+      'build.planned',
+      'task.started',
+    ]);
+  }, 60_000);
+
+  it('leaves a single-section request on the ordinary path, byte for byte', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const events: AiBuildOwnEvent[] = [];
+    const { user } = renderPanel({
+      kernel,
+      planProvider: script.provider,
+      onBuildEvent: (event) => events.push(event),
+    });
+
+    await send(user, 'add one testimonial to the page');
+
+    await screen.findByRole('button', { name: 'Apply' }, { timeout: 15_000 });
+    expect(buildEventTypes(events)).toEqual([]);
+    expect(script.calls()).toBe(1);
+    expect(screen.queryByRole('list', { name: 'Sections' })).not.toBeInTheDocument();
+  }, 30_000);
+
+  it('never builds in Plan mode — the scaffold would be an apply', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const events: AiBuildOwnEvent[] = [];
+    const { container, user } = renderPanel({
+      kernel,
+      planProvider: script.provider,
+      onBuildEvent: (event) => events.push(event),
+    });
+
+    await user.click(screen.getByRole('radio', { name: 'Plan' }));
+    await send(user, BUILD_REQUEST);
+
+    await waitFor(
+      () => {
+        expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+      },
+      { timeout: 15_000 },
+    );
+    // One ordinary Plan card, and no Apply: exploring never writes.
+    expect(container.querySelector('.pg-chat__card-kind[data-kind="plan"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(buildEventTypes(events)).toEqual([]);
+    expect(script.calls()).toBe(1);
+    expect(regionsOf(kernel)).toEqual({});
+  }, 30_000);
+
+  it('asks once, on the list, and fills nothing until Build is pressed', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await send(user, BUILD_REQUEST);
+
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    expect(within(approval).getByText(BUILD_DIRECTION)).toBeInTheDocument();
+    expect(
+      within(approval)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toEqual([...THREE]);
+    expect(within(approval).getByText(/The skeleton is already on the page/)).toBeInTheDocument();
+
+    // The skeleton is down; not one section has been written.
+    expect(regionsOf(kernel)).toEqual({ Hero: '', Proof: '', Pricing: '' });
+    expect(script.calls()).toBe(1);
+
+    await user.click(within(approval).getByRole('button', { name: 'Build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(regionsOf(kernel)).toEqual({
+      Hero: 'Body for Hero.',
+      Proof: 'Body for Proof.',
+      Pricing: 'Body for Pricing.',
+    });
+  }, 40_000);
+
+  it('leaves only the skeleton when the build is stopped before it is approved', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await send(user, BUILD_REQUEST);
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    await user.click(within(approval).getByRole('button', { name: 'Stop build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/0\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(regionsOf(kernel)).toEqual({ Hero: '', Proof: '', Pricing: '' });
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
+  }, 40_000);
+
+  it('records a skipped section with its reason and still runs the next one', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE, { refuse: ['Proof'] });
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/2\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(screen.getByText(/The model would not write "Proof"\./)).toBeInTheDocument();
+    expect(regionsOf(kernel)).toEqual({
+      Hero: 'Body for Hero.',
+      Proof: '',
+      Pricing: 'Body for Pricing.',
+    });
+    expect(screen.getByRole('button', { name: 'Retry skipped' })).toBeInTheDocument();
+  }, 40_000);
+
+  it('undoes one section from the report, leaving the rest of the page alone', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Undo Pricing' }));
+
+    expect(regionsOf(kernel)).toEqual({
+      Hero: 'Body for Hero.',
+      Proof: 'Body for Proof.',
+      Pricing: '',
+    });
+    expect(screen.getByRole('button', { name: 'Undo Pricing' })).toBeDisabled();
+  }, 40_000);
+
+  it('revives a build interrupted by a reload as a stopped build with its receipt', async () => {
+    const persistKey = 'assistant-build-revive';
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
+    const first = renderPanel({ kernel, planProvider: script.provider, persistKey });
+
+    await first.user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(first.user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        // The build's own counter, not the running step's stage count.
+        expect(first.container.querySelector('.pg-chat__tasks-count')).toHaveTextContent('1/3');
+      },
+      { timeout: 20_000 },
+    );
+    first.unmount();
+
+    const second = renderPanel({ kernel: createBuildKernel(), persistKey });
+    expect(screen.getByText(/1\/3 built in/)).toBeInTheDocument();
+    expect(screen.getByText('Stopped')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Undo Hero' })).not.toBeInTheDocument();
+    second.unmount();
+    window.localStorage.removeItem(persistKey);
+  }, 40_000);
+  it('follows the newest turn when the panel comes BACK into view, not only when one arrives', async () => {
+    const kernel = createAssistantKernel();
+    const planProvider = createScriptedAiPlanProvider({
+      rationale: 'Add a hero.',
+      commands: [{ command: 'insertNode', args: { type: 'hero', parentId: 'root' } }],
+    });
+    const user = userEvent.setup();
+    // `visible={false}` is the App's Layers/Blocks tab: the panel stays MOUNTED
+    // (its run must survive the visit) inside a `hidden` wrapper.
+    const { rerender } = render(
+      <AssistantPanel kernel={kernel} planProvider={planProvider} visible={false} />,
+    );
+    await requestPlan(user, 'add a hero');
+
+    /*
+      A hidden element measures zero, so the scroll-to-newest effect wrote
+      `scrollTop = 0` and — with `turns` unchanged on the way back — never ran
+      again. Measured in Chromium: returning to the assistant after five replies
+      landed the reader ~360px above the newest one. jsdom lays nothing out, so
+      the two properties are stated here and the WRITES are the assertion.
+    */
+    const thread = screen.getByRole('log', { name: 'Conversation' });
+    const writes: number[] = [];
+    Object.defineProperty(thread, 'scrollHeight', { configurable: true, get: () => 1200 });
+    Object.defineProperty(thread, 'scrollTop', {
+      configurable: true,
+      get: () => writes.at(-1) ?? 0,
+      set: (value: number) => {
+        writes.push(value);
+      },
+    });
+
+    rerender(<AssistantPanel kernel={kernel} planProvider={planProvider} visible />);
+    await waitFor(() => {
+      expect(writes.at(-1)).toBe(1200);
     });
   });
 });

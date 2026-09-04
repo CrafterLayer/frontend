@@ -14,7 +14,9 @@ import {
   type BuilderDocument,
   type BuilderKernel,
   type ContentDirection,
+  type CreateBuilderOptions,
   type Node,
+  type TrustedExtensionManifest,
 } from '@craftkit/builder';
 import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
@@ -733,53 +735,123 @@ export function codeViewEditing(dir: ContentDirection = 'ltr'): BuilderDocument 
   return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
 }
 
+/**
+ * The DOCUMENT a fixture names.
+ *
+ * Split out of `createPlaygroundKernel` because the vault opens its documents
+ * through `openDocument`, which builds the kernel itself: the fixture is what a
+ * vault seeds a never-before-stored document with, and the two paths must not
+ * disagree about what "the landing page" is.
+ */
+export function playgroundDocument(
+  fixture: PlaygroundFixture,
+  dir: ContentDirection = 'ltr',
+): BuilderDocument {
+  return fixture === 'landing'
+    ? marketingLanding(dir)
+    : fixture === 'code-view'
+      ? codeViewEditing(dir)
+      : fixture === 'inline'
+        ? inlineEditing(dir)
+        : emptyDocument('site', dir);
+}
+
+/**
+ * Every extension a playground session registers, in registration order.
+ *
+ * `openDocument` runs `kernel.validate()` INTERNALLY, before the caller can
+ * touch the kernel it returns — so a document opened with a narrower extension
+ * list than the one that wrote it refuses to open at all (`doc/unknown-type`).
+ * That is precisely why this list is one function rather than two copies: the
+ * fixture path and the vault path must register the same vocabulary or a stored
+ * page becomes unopenable.
+ */
+export function playgroundExtensions(fixture: PlaygroundFixture): TrustedExtensionManifest[] {
+  const shared = [
+    defaultBlocks,
+    blocksMarketing,
+    builderPrimitives,
+    builderAceternity,
+    builderMagicUi,
+    builderCustomCode,
+    builderShadcn,
+    richTextExtension,
+    codeViewExtension,
+  ];
+  // The inline fixture's document HOLDS the demo blocks, so their schemas must
+  // be live at creation; landing and empty keep the FR-013 story — registration
+  // happens at runtime through <RegisterDemoExtension/>.
+  return fixture === 'inline' ? [...shared, demoExtension] : shared;
+}
+
+/**
+ * The deterministic ports every playground session runs on — and the answer to
+ * the one hazard a REOPENED session has that a fresh one does not.
+ *
+ * `seededIds('pg')` restarts at `pg-0001` every time a kernel is created. A
+ * fixture never claims those names, so nothing collides on a fresh boot; a
+ * document read back out of the vault DOES claim them, and the next insert
+ * would otherwise hand out an id the document already uses. Consulting the LIVE
+ * document (rather than a snapshot taken at open) also covers ids that arrive
+ * mid-session — a restore from the snapshot shelf carries an older session's
+ * ids straight back into the document.
+ */
+export function playgroundPorts(
+  live: () => Readonly<BuilderDocument> | undefined,
+): NonNullable<CreateBuilderOptions['ports']> {
+  const ids = seededIds('pg');
+  return {
+    clock: fixedClock(),
+    ids: {
+      newId() {
+        let id = ids.newId();
+        while (Object.hasOwn(live()?.nodes ?? {}, id)) {
+          id = ids.newId();
+        }
+        return id;
+      },
+    },
+  };
+}
+
+/**
+ * Tier-2 compositions, hydrated AFTER the kernel exists. Templates are not
+ * block types, so validation never needs them — which is what lets the vault
+ * call this on the kernel `openDocument` hands back, having already validated.
+ */
+export function hydratePlaygroundTemplates(kernel: BuilderKernel): void {
+  kernel.extensions.hydrateDeclarative(marketingTemplates);
+}
+
 export function createPlaygroundKernel(
   options: { fixture?: PlaygroundFixture; dir?: ContentDirection } = {},
 ): BuilderKernel {
   const dir = options.dir ?? 'ltr';
   const fixture = options.fixture ?? 'landing';
-  const document =
-    fixture === 'landing'
-      ? marketingLanding(dir)
-      : fixture === 'code-view'
-        ? codeViewEditing(dir)
-        : fixture === 'inline'
-          ? inlineEditing(dir)
-          : emptyDocument('site', dir);
 
-  // Deterministic by construction; zero backend, zero network (FR-014).
+  /*
+    Deterministic by construction; zero backend, zero network (FR-014). The id
+    port reads the kernel it is being built for, which is legal only because
+    ids are issued by a dispatch and nothing dispatches before this call
+    returns — a licence, not a guarantee.
+
+    So the read goes through `kernel?.` exactly as the vault's does
+    (use-vault.ts): a `const` read inside its own initialiser is a TDZ
+    ReferenceError, not an undefined, and a future extension or manifest setup
+    hook that asked for one id during `createBuilder` would take the whole boot
+    down instead of degrading. The two call sites of `playgroundPorts` must
+    agree about whether the kernel can be absent, and this is the answer that
+    survives being wrong.
+  */
+  // A box rather than a `let`: the port reads it from inside the very call that
+  // produces it, and a `let` assigned exactly once is a `const` to the linter.
+  const opened: { current?: BuilderKernel } = {};
   const kernel = createBuilder({
-    document,
-    // The inline fixture's document HOLDS the demo blocks, so their schemas
-    // must be live at creation; landing and empty keep the FR-013 story —
-    // registration happens at runtime through <RegisterDemoExtension/>.
-    extensions:
-      fixture === 'inline'
-        ? [
-            defaultBlocks,
-            blocksMarketing,
-            builderPrimitives,
-            builderAceternity,
-            builderMagicUi,
-            builderCustomCode,
-            builderShadcn,
-            richTextExtension,
-            codeViewExtension,
-            demoExtension,
-          ]
-        : [
-            defaultBlocks,
-            blocksMarketing,
-            builderPrimitives,
-            builderAceternity,
-            builderMagicUi,
-            builderCustomCode,
-            builderShadcn,
-            richTextExtension,
-            codeViewExtension,
-          ],
-    ports: { clock: fixedClock(), ids: seededIds('pg') },
+    document: playgroundDocument(fixture, dir),
+    extensions: playgroundExtensions(fixture),
+    ports: playgroundPorts(() => opened.current?.getDocument()),
   });
-  kernel.extensions.hydrateDeclarative(marketingTemplates);
+  opened.current = kernel;
+  hydratePlaygroundTemplates(kernel);
   return kernel;
 }

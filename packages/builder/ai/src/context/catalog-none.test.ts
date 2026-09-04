@@ -84,6 +84,32 @@ describe('catalog mode: none', () => {
     }
   });
 
+  it('marks what may NOT be inserted: the page root, and every schema-less entry', () => {
+    const context = assembleAiContext(kernel().context, {
+      composition: { catalogMode: 'none' },
+    });
+
+    /*
+      A real run died on this: the root's own type appeared in the block list
+      with prop keys, the model wrote insertNode {type:'page'}, and the door
+      answered "Slot default of root accepts [...], not page" after six
+      minutes of work. The context now says it before the plan is written.
+    */
+    const root = context.blocks.find((block) => block.type === 'page');
+    expect(root?.insertable).toBe(false);
+
+    for (const block of context.blocks) {
+      if (block.propsSchema === undefined) {
+        // No schema travels with it, so it can only be edited, never authored.
+        expect(block.insertable, block.type).toBe(false);
+      }
+    }
+    // The escape hatch keeps its schema and stays insertable.
+    const escapeHatch = context.blocks.find((block) => block.type === 'customCode');
+    expect(escapeHatch?.propsSchema).toBeDefined();
+    expect(escapeHatch?.insertable).toBeUndefined();
+  });
+
   it('states not even the NAME of a block that is neither asked for nor on the page', () => {
     const context = assembleAiContext(kernel().context, {
       composition: { catalogMode: 'none' },

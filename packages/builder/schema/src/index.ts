@@ -190,6 +190,20 @@ export {
   type CustomCodeRoot,
   type CustomCodeTag,
 } from './custom-code/custom-code-tree';
+/*
+  The custom-CSS refusal list sits beside the `customCss()` declaration it
+  polices rather than in the custom-code extension, because the AI plan door
+  must refuse a stylesheet BEFORE it is applied and a headless plan package
+  cannot depend on a React extension. See ./custom-code/custom-css.
+*/
+export {
+  CUSTOM_CSS_FONT_HOSTS,
+  CUSTOM_CSS_FONT_IMPORT,
+  customCssPropertyNames,
+  findCssRejection,
+  normalizeCssForInspection,
+  type CssRejection,
+} from './custom-code/custom-css';
 export {
   customCodeNodeAtPath,
   formatCustomCodePath,

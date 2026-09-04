@@ -115,6 +115,30 @@ export interface AiCompositionPolicy {
    * registered block's `className` prop — roles only, no palette, no hex.
    */
   readonly colourPolicy?: 'free' | 'tokens';
+  /**
+   * How much of an ALREADY-COMPOSED region's tree the document context carries.
+   * Defaults to `'full'`.
+   *
+   * `'full'`: every node's full props, as before — the page's own words are
+   * readable, which is what makes "change the word X" answerable at all.
+   *
+   * `'scoped'`: the regions named in `treeScopeNodeIds` keep their whole tree;
+   * every other custom-code tree is replaced by a shape summary (its node
+   * count and its heading, never its body). Meant for a run that edits ONE
+   * region of a long page: the ten-section build re-shipped every section's
+   * tree on every step, so filling the last section cost several times what
+   * filling the first did, for text the model was told not to touch.
+   *
+   * It trims TREES only. Every node keeps its id, type, slots and ordinary
+   * props, so the page's shape is never hidden — only the interior of regions
+   * the run was told to leave alone.
+   */
+  readonly documentTreeMode?: 'full' | 'scoped';
+  /**
+   * Node ids whose trees survive under `documentTreeMode: 'scoped'`; ignored
+   * in `'full'`. Absent means the run's own selection is used.
+   */
+  readonly treeScopeNodeIds?: readonly string[];
 }
 
 /** The resolved policy: every optional decided exactly once, at the edge. */
@@ -124,6 +148,8 @@ export interface ResolvedAiCompositionPolicy {
   readonly alwaysDetailedBlockTypes: ReadonlySet<string>;
   readonly enforceUtilityVocabulary: boolean;
   readonly colourPolicy: 'free' | 'tokens';
+  readonly documentTreeMode: 'full' | 'scoped';
+  readonly treeScopeNodeIds: ReadonlySet<string>;
 }
 
 /**
@@ -133,11 +159,10 @@ export interface ResolvedAiCompositionPolicy {
  * absence is answered WITH: when the catalog states only names, `customCode`
  * is how the model builds anything at all.
  */
-export const DEFAULT_ALWAYS_DETAILED_BLOCK_TYPES: readonly string[] = Object.freeze([
-  'customCode',
-]);
+export const DEFAULT_ALWAYS_DETAILED_BLOCK_TYPES: readonly string[] = Object.freeze(['customCode']);
 
 const NO_SCOPED_TYPES: ReadonlySet<string> = Object.freeze(new Set<string>());
+const NO_SCOPED_NODE_IDS: ReadonlySet<string> = Object.freeze(new Set<string>());
 
 /**
  * Resolve once, at the assembly boundary, so no downstream code re-derives a
@@ -151,8 +176,7 @@ export function resolveAiCompositionPolicy(
   return {
     catalogMode,
     scopedBlockTypes:
-      (catalogMode === 'scoped' || catalogMode === 'none') &&
-      policy?.scopedBlockTypes !== undefined
+      (catalogMode === 'scoped' || catalogMode === 'none') && policy?.scopedBlockTypes !== undefined
         ? Object.freeze(new Set(policy.scopedBlockTypes))
         : NO_SCOPED_TYPES,
     alwaysDetailedBlockTypes: Object.freeze(
@@ -160,14 +184,16 @@ export function resolveAiCompositionPolicy(
     ),
     enforceUtilityVocabulary: policy?.enforceUtilityVocabulary ?? true,
     colourPolicy: policy?.colourPolicy ?? 'free',
+    documentTreeMode: policy?.documentTreeMode ?? 'full',
+    treeScopeNodeIds:
+      policy?.treeScopeNodeIds === undefined
+        ? NO_SCOPED_NODE_IDS
+        : Object.freeze(new Set(policy.treeScopeNodeIds)),
   };
 }
 
 /** Whether this block's detail fields belong in the assembled context. */
-export function blockIsInCatalogScope(
-  policy: ResolvedAiCompositionPolicy,
-  type: string,
-): boolean {
+export function blockIsInCatalogScope(policy: ResolvedAiCompositionPolicy, type: string): boolean {
   if (policy.alwaysDetailedBlockTypes.has(type)) return true;
   switch (policy.catalogMode) {
     case 'full':

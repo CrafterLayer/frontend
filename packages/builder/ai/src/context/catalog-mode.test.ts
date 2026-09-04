@@ -33,8 +33,15 @@ describe('block catalog modes', () => {
     expect(implicit.blocks).toEqual(explicit.blocks);
     for (const block of implicit.blocks) {
       expect(block.propsSchema).toBeDefined();
-      expect(block.examples).toBeDefined();
       expect(block.slots).toBeDefined();
+      // The document's ROOT type keeps its schema (it is edited constantly) but
+      // loses its authoring examples: a worked example of inserting the one
+      // type the door refuses is what taught a real run to try it.
+      if (block.insertable === false) {
+        expect(block.examples).toBeUndefined();
+      } else {
+        expect(block.examples).toBeDefined();
+      }
     }
   });
 

@@ -1,0 +1,30 @@
+{
+  "id": "11-very-short-request",
+  "title": "Very short request",
+  "category": "short",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "pricing",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 6,
+    "allBlockTypes": [
+      "pricing"
+    ]
+  },
+  "budget": {
+    "maxCommands": 6,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Did one word produce a sensible pricing section instead of a clarifying question?",
+  "why": "One word is a real thing people type. It must not crash, must not ask twenty questions, and must not invent a whole site."
+}

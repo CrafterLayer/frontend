@@ -816,6 +816,15 @@ body,
   gap: var(--bldr-space-sm);
 }
 
+/* A run can be slow without being wrong: muted words under the card, never a
+   warning colour — colour is reserved for what actually failed. */
+.pg-chat__slow {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
 .pg-chat__inflight .bldr-genprogress {
   border-inline-start: var(--bldr-border-focus) solid var(--bldr-accent);
   box-shadow: var(--bldr-shadow-raised);
@@ -909,6 +918,25 @@ body,
   font-family: var(--bldr-font-mono);
   font-size: var(--bldr-font-size-micro);
   margin: var(--bldr-space-0);
+}
+
+/* EVERY ending's one quiet line: how long the run took, how far it got, and
+   the provider's own last words. Mono, because two of the three are data. */
+.pg-chat__receipt {
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  /* A provider's last words can be one long unspaced token. */
+  overflow-wrap: anywhere;
+}
+
+/* The refusal card's body is not a flex column, so the receipt has to hold
+   itself off the meta line above it. */
+.pg-chat__card--refused .pg-chat__receipt {
+  margin-block-start: var(--bldr-space-xs);
 }
 
 /* Where it broke: the code as a pill, then source, status and the row. */
@@ -1034,6 +1062,148 @@ body,
   gap: var(--bldr-space-sm);
   line-height: var(--bldr-line-height-normal);
   margin: var(--bldr-space-0);
+}
+
+/* ── THE SPLIT BUILD ──────────────────────────────────────────────────────
+   A page as a LIST, not a spinner. One row per section, the open one carrying
+   the same GenerationProgress rows a single call would have shown. Everything
+   here borrows the panel's existing vocabulary — the sunken well the command
+   list sits in, the accent for what is happening, the muted grey for what has
+   not started — because a build is not a different product, it is the same
+   assistant doing more at once. */
+.pg-chat__tasks-head {
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__tasks-count {
+  color: var(--bldr-panel-text);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-chat__tasks {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-md);
+}
+
+.pg-chat__task {
+  border-inline-start: var(--bldr-border-focus) solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+  padding-inline-start: var(--bldr-space-sm);
+}
+
+.pg-chat__task + .pg-chat__task {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  padding-block-start: var(--bldr-space-xs);
+}
+
+/* The row's own line: the title takes the room, its state sits at the end. */
+.pg-chat__task-line {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.pg-chat__task-title {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+  white-space: nowrap;
+}
+
+.pg-chat__task-state {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+/* Only the OPEN row is coloured. A list where every finished row shouted in
+   green would leave nothing for the one thing actually happening. */
+.pg-chat__task[data-status='running'] {
+  border-inline-start-color: var(--bldr-accent);
+}
+
+.pg-chat__task[data-status='running'] .pg-chat__task-title,
+.pg-chat__task[data-status='running'] .pg-chat__task-state {
+  color: var(--bldr-accent);
+}
+
+.pg-chat__task[data-status='applied'] .pg-chat__task-title {
+  color: var(--bldr-panel-text);
+}
+
+.pg-chat__task[data-status='applied'] .pg-chat__task-state {
+  color: var(--bldr-success);
+}
+
+.pg-chat__task[data-status='skipped'] {
+  border-inline-start-color: var(--bldr-warning-border);
+}
+
+.pg-chat__task[data-status='skipped'] .pg-chat__task-state {
+  color: var(--bldr-warning);
+}
+
+/* A section the build gave up on says why, in the door's own words. */
+.pg-chat__task-reason {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  /* A refusal quotes prop names with no spaces in them. */
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+}
+
+/* The open section's rows sit INSIDE its row, so they are inset and lose the
+   stripe the parent already carries. */
+.pg-chat__task-run {
+  display: block;
+  margin-block-start: var(--bldr-space-xs);
+}
+
+.pg-chat__task-run .bldr-genprogress {
+  border-inline-start: none;
+  box-shadow: none;
+}
+
+.pg-chat__task-undo {
+  margin-inline-start: auto;
+}
+
+/* What the approval is really promising: the skeleton is already down, and
+   every step after it is its own undo. */
+.pg-chat__tasks-note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+/* A build's rows never animate: the clock inside the open one is information,
+   and the rest is a list. This block exists so a future hover or slide cannot
+   be added here without meeting the same rule. */
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__task,
+  .pg-chat__task-run .bldr-genprogress {
+    transition: none;
+  }
 }
 
 .pg-chat__composer {
@@ -1549,4 +1719,176 @@ body,
   line-height: var(--bldr-line-height-snug);
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+/* THE BOOT.
+
+   The app opens its document from the vault now, and `openDocument` is
+   asynchronous — it reads storage, migrates, replays the tail and validates
+   twice before a kernel exists. So there is a real moment with no kernel, and
+   these three rules are what that moment looks like: quiet, in place, and
+   costing the layout nothing. The shell, the rail and the top bar are already
+   drawn by then; only the editing area waits. */
+
+.pg-boot {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-md);
+  justify-content: center;
+  margin: var(--bldr-space-0);
+  min-block-size: 100%;
+  padding: var(--bldr-space-4xl);
+  text-align: center;
+}
+
+/* A save that will not open is not a loading state wearing a different colour:
+   it is a decision a person has to make, so it reads as one. */
+.pg-boot--failed {
+  color: var(--bldr-panel-text);
+  max-inline-size: var(--bldr-measure-page);
+  margin-inline: auto;
+}
+
+.pg-boot--failed h2 {
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-boot--failed p {
+  margin: var(--bldr-space-0);
+}
+
+.pg-boot__reason {
+  background: var(--bldr-danger-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-danger-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-danger);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+  /* An error message is the one string on the page nobody wrote for this box. */
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+/* Two actions, and the recoverable one leads. Side by side because they are a
+   choice between two answers to the same question, not a step and an escape. */
+.pg-boot__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-sm);
+  justify-content: center;
+}
+
+/* "Your work is not being saved."
+
+   Positioned at the OTHER end of the editor from `.pg-restored`, so the two can
+   be on screen together without either covering the other, and absolutely — the
+   editor beneath it is laid out identically whether storage is healthy or not.
+   It is the only thing on this page that appears BECAUSE something is wrong, so
+   it is allowed to be the loudest. */
+.pg-save {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  inline-size: fit-content;
+  inset-block-end: calc(var(--bldr-space-4xl) + var(--bldr-space-md));
+  inset-inline: 0;
+  margin-inline: auto;
+  max-inline-size: calc(var(--bldr-measure-dock) * 2);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  position: absolute;
+  z-index: 3;
+}
+
+.pg-save p {
+  margin: var(--bldr-space-0);
+  min-inline-size: 0;
+}
+
+/* A refused save is the failure this whole feature exists to prevent, and it
+   reads in the same colour every other refusal in the editor reads in. */
+.pg-save--error {
+  background: var(--bldr-danger-soft);
+  border-color: var(--bldr-danger-border);
+  color: var(--bldr-danger);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+/* Storage's own sentence, set apart the way `.pg-boot__reason` sets one apart:
+   it is the one string on this page nobody here wrote. */
+.pg-save__reason {
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  overflow-wrap: anywhere;
+}
+
+/* The panel track holds its width while the document opens. Collapsing it and
+   bringing it back would move every other region twice for no reason. */
+.pg-boot-panel {
+  block-size: 100%;
+}
+
+/* The assistant's always-mounted wrapper.
+
+   It exists so a rail visit does not unmount a run in flight, and it must be
+   invisible to layout: the shell's panel slot is a grid item with a definite
+   height, and `.pg-chat` sizes itself at `block-size: 100%` against its parent.
+   Measured in Chromium without this rule, that 100% resolved against an
+   auto-height box and the chat grew to its content (3484px): the conversation
+   stopped scrolling inside itself and the composer sat ~2.7k px below the fold.
+   Passing the height straight through is the whole job. */
+.pg-rail-panel {
+  block-size: 100%;
+}
+
+/* "This came back from your last session."
+
+   Absolutely positioned inside `.pg-app`, which is already the containing
+   block, so the editor beneath is laid out identically whether the page was
+   restored or not — the same reason the harness opens over the canvas rather
+   than inside the bar. */
+.pg-restored {
+  align-items: center;
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  display: flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-sm);
+  /* Logical insets: in an RTL chrome this belongs to the other edge, and it
+     gets there without a second rule. */
+  inset-block-start: calc(var(--bldr-topbar-height) + var(--bldr-space-md));
+  /* Centred over the editor, never pinned to a panel's edge. Pinned to the end
+     it covered the Inspector — the properties of whatever is selected, which is
+     the thing a person opened the editor to read — and at
+     `--bldr-measure-picker` (208px) one sentence became a nine-line column.
+     `inset-inline: 0` plus `margin-inline: auto` centres it in either
+     direction, so RTL needs no second rule. */
+  inset-inline: 0;
+  margin-inline: auto;
+  max-inline-size: calc(var(--bldr-measure-dock) * 2);
+  inline-size: fit-content;
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  position: absolute;
+  z-index: 3;
+}
+
+.pg-restored p {
+  margin: var(--bldr-space-0);
+  /* One line where there is room for one; it wraps only when there is not. */
+  min-inline-size: 0;
 }

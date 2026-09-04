@@ -4,6 +4,14 @@ packages:
   - 'packages/builder/*'
   - 'packages/builder/extensions/*'
 
+# promptfoo ships a MongoDB result store and nunjucks templating we never
+# load; each pins an older peer than this workspace resolves. Scoped to those
+# two edges so a real peer conflict in our own code still fails the install.
+peerDependencyRules:
+  allowedVersions:
+    'mongodb>gcp-metadata': '9'
+    'nunjucks>chokidar': '5'
+
 catalog:
   '@radix-ui/react-accordion': 1.2.20
   '@radix-ui/react-avatar': 1.1.12
@@ -62,6 +70,13 @@ catalog:
   vitest: 4.1.11
   zod: 4.4.3
   zustand: 5.0.15
+  '@modelcontextprotocol/sdk': 1.30.0
+  '@types/pngjs': 6.0.5
+  jsonrepair: 3.15.0
+  p-retry: 8.0.1
+  pixelmatch: 7.2.0
+  pngjs: 7.0.0
+  promptfoo: 0.122.2
 
 sharedWorkspaceLockfile: true
 saveWorkspaceProtocol: rolling
@@ -82,5 +97,15 @@ trustPolicyExclude:
   - semver@6.3.1
 blockExoticSubdeps: true
 
+# Install scripts this workspace declines to run. promptfoo (apps/evals)
+# pulls optional native packages for local embeddings and image work no eval
+# here calls, plus a protobuf codegen step. Chromium is declined because the
+# browser Storybook's tests drive is installed separately, which is how this
+# repo already worked before pnpm asked the question.
 allowBuilds:
+  '@playwright/browser-chromium': false
+  '@swc/core': false
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
   esbuild: true

@@ -458,3 +458,188 @@ export const CompactColumn: Story = {
     );
   },
 };
+
+/* ── The split build ──────────────────────────────────────────────────────
+   A page-sized request stops being one long call and becomes a skeleton plus
+   one run per section. These three stories are the states a person actually
+   sees: the one question, the list advancing, and the report. */
+
+const BUILD_STORY_REQUEST = 'build me a landing page for my ceramics studio';
+const BUILD_STORY_DIRECTION =
+  'A calm studio page for ceramicists. Palette bg-white text-slate-900 border-slate-200. Faces Inter and Inter. Signature a hairline rule.';
+const BUILD_STORY_SECTIONS = ['Hero', 'Proof', 'Benefits', 'Pricing', 'Contact'] as const;
+
+/**
+ * A scripted build against the playground's own customCode vocabulary: one
+ * scaffold plan naming every section, then one fill per region, found by the
+ * selection the orchestrator scoped that run to. Never a network.
+ */
+function createBuildStoryProvider(
+  kernel: ReturnType<typeof createPlaygroundKernel>,
+  options: { readonly hold?: readonly string[]; readonly refuse?: readonly string[] } = {},
+): AiPlanProvider {
+  let calls = 0;
+  return {
+    propose(_request, context) {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve({
+          rationale: BUILD_STORY_DIRECTION,
+          commands: BUILD_STORY_SECTIONS.map((label) => ({
+            command: 'insertNode',
+            args: {
+              type: 'customCode',
+              parentId: kernel.getDocument().rootId,
+              props: {
+                label,
+                tree: {
+                  kind: 'root',
+                  children: [
+                    {
+                      kind: 'element',
+                      tag: 'section',
+                      className: 'py-12',
+                      children: [{ kind: 'element', tag: 'h2', text: label, children: [] }],
+                    },
+                  ],
+                },
+              },
+            },
+          })),
+        });
+      }
+      const id = context.selection.ids[0] ?? '';
+      const labelValue = kernel.getDocument().nodes[id]?.props['label'];
+      const label = typeof labelValue === 'string' ? labelValue : '';
+      if (options.refuse?.includes(label) === true) {
+        return Promise.reject(
+          new AiProviderError(`The model would not write "${label}".`, {
+            code: 'refusal',
+            retryable: false,
+          }),
+        );
+      }
+      if (options.hold?.includes(label) === true) {
+        return new Promise<never>(() => {
+          /* never settles: the row stays open for the camera */
+        });
+      }
+      return Promise.resolve({
+        rationale: `Fill ${label}.`,
+        commands: [
+          {
+            command: 'setProp',
+            args: {
+              id,
+              key: 'tree',
+              value: {
+                kind: 'root',
+                children: [
+                  {
+                    kind: 'element',
+                    tag: 'section',
+                    className: 'py-12',
+                    children: [
+                      { kind: 'element', tag: 'h2', text: label, children: [] },
+                      {
+                        kind: 'element',
+                        tag: 'p',
+                        text: `Body copy for ${label}.`,
+                        children: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      });
+    },
+  };
+}
+
+/** The ONE question a build asks: the direction, the list, and go. */
+export const BuildAwaitingApproval: Story = {
+  args: (() => {
+    const kernel = createPlaygroundKernel({ fixture: 'empty' });
+    return { kernel, planProvider: createBuildStoryProvider(kernel), locale: 'en' };
+  })(),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await submitRequest(canvasElement, BUILD_STORY_REQUEST);
+
+    const approval = await canvas.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 20_000 },
+    );
+    await expect(within(approval).getByText(BUILD_STORY_DIRECTION)).toBeVisible();
+    await expect(within(approval).getByText('5 sections')).toBeVisible();
+    await expect(within(approval).getByRole('button', { name: 'Build' })).toBeVisible();
+    await expect(within(approval).getByRole('button', { name: 'Stop build' })).toBeVisible();
+    // The promise the card makes, said out loud.
+    await expect(within(approval).getByText(/The skeleton is already on the page/)).toBeVisible();
+  },
+};
+
+/** Mid-build: two sections written, the third open with its own clock. */
+export const BuildInFlight: Story = {
+  args: (() => {
+    const kernel = createPlaygroundKernel({ fixture: 'empty' });
+    return {
+      kernel,
+      planProvider: createBuildStoryProvider(kernel, { hold: ['Benefits'] }),
+      locale: 'en',
+    };
+  })(),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('radio', { name: 'Auto' }));
+    await submitRequest(canvasElement, BUILD_STORY_REQUEST);
+
+    const list = await canvas.findByRole('list', { name: 'Sections' }, { timeout: 20_000 });
+    await waitFor(
+      async () => {
+        await expect(canvasElement.querySelector('.pg-chat__tasks-count')).toHaveTextContent('2/5');
+      },
+      { timeout: 20_000 },
+    );
+    const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
+    await expect(rows).toHaveLength(5);
+    await expect(rows[0]).toHaveAttribute('data-status', 'applied');
+    await expect(rows[2]).toHaveAttribute('data-status', 'running');
+    await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
+    // The open row carries the very rows a single call would have shown.
+    await expect(canvas.getByRole('region', { name: 'Working on Benefits' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Stop' })).toBeVisible();
+  },
+};
+
+/** The report: what landed, what did not, and the reason each gave. */
+export const BuildReportWithSkips: Story = {
+  args: (() => {
+    const kernel = createPlaygroundKernel({ fixture: 'empty' });
+    return {
+      kernel,
+      planProvider: createBuildStoryProvider(kernel, { refuse: ['Proof'] }),
+      locale: 'en',
+    };
+  })(),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('radio', { name: 'Auto' }));
+    await submitRequest(canvasElement, BUILD_STORY_REQUEST);
+
+    await waitFor(
+      async () => {
+        await expect(canvas.getByText(/4\/5 built in/)).toBeVisible();
+      },
+      { timeout: 30_000 },
+    );
+    await expect(canvas.getByText(/The model would not write "Proof"\./)).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Retry skipped' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Undo Pricing' })).toBeVisible();
+    await expect(canvasElement.querySelector('.pg-chat__card[data-state="built"]')).not.toBeNull();
+  },
+};

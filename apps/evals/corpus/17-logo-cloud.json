@@ -1,0 +1,30 @@
+{
+  "id": "17-logo-cloud",
+  "title": "A logo strip with named customers",
+  "category": "section",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Add a customer logo strip with Northstar, Arcform, Meridian and Canopy.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": [
+      "applyPatches"
+    ],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "allBlockTypes": [
+      "logoCloud"
+    ]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Are all four named companies present, spelled as the person wrote them?",
+  "why": "Named entities must survive the round trip. A planner that substitutes its own placeholder names is quietly useless for real customers."
+}

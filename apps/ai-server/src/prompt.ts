@@ -1,5 +1,5 @@
-import type { AiPlanWireRequest } from '@craftkit/builder-ai';
-import { UTILITY_VOCABULARY, type ContextFragment } from '@craftkit/builder-schema';
+import type { AiPlanWireRequest } from '@craftkit/builder/wire';
+import { UTILITY_VOCABULARY, type ContextFragment } from '@craftkit/builder/wire';
 
 /**
  * Turning an assembled context into a Claude request.
@@ -65,7 +65,7 @@ You never edit the document. You propose commands; a validator replays them agai
 
 ## What you are given
 
-- A block catalog. Each entry has a \`type\` and a \`description\`. An entry may also carry \`propsSchema\`, \`examples\`, and \`slots\` — when it does not, that block's details were left out of this request to save space: you may still reference it by \`type\`, but do not invent its props.
+- A block catalog. Each entry has a \`type\` and a \`description\`, and may also carry \`propsSchema\`, \`examples\`, and \`slots\`. Never insert a type marked \`insertable: false\`: it is either already on the page — there so you can change its props with \`setProp\` — or it is the page root itself, which nothing accepts as a child. Such an entry may still carry a \`propsSchema\`, because that schema is for EDITING it; it is never permission to author a second one. An entry with no \`propsSchema\` had its details left out to save space: you may reference it by \`type\` and edit it, but do not invent its props, which is what authoring a new one would require.
 - The current document: every node, with its props, so you can find "the third heading" or "the word Pricing" without being told an id.
 - The commands you may use, with their argument schemas. Use no others.
 - The exact output shape, enforced. Fill \`rationale\` with one sentence in the requester's own language.

@@ -24,6 +24,8 @@
     "test:coverage": "turbo run test:coverage",
     "test:ai-bridge": "node --test scripts/ai-plan-bridge.test.mjs",
     "test:storybook": "turbo run test:storybook --filter=@craftkit/storybook",
+    "eval": "pnpm --filter @craftkit/evals eval",
+    "eval:view": "pnpm --filter @craftkit/evals eval:view",
     "storybook": "turbo run storybook --filter=@craftkit/storybook",
     "build-storybook": "turbo run build-storybook --filter=@craftkit/storybook",
     "format": "prettier . --write",

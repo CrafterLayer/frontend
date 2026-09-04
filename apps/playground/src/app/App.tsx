@@ -10,6 +10,7 @@ import {
   bucketForWidth,
   BuilderShell,
   BuilderTheme,
+  ChromeButton,
   IconRail,
   StatusBar,
   TopBar,
@@ -19,17 +20,22 @@ import {
   Palette,
   PreviewMode,
   darkTheme,
+  type BuilderKernel,
   type ColorRole,
   lightTheme,
   type CanvasDragHandle,
   type DeviceState,
+  type RailItem,
   type TopBarDevice,
 } from '@craftkit/builder';
 
+import type { PlaygroundFixture } from '../features/preview/create-playground-kernel';
+import { HistoryPanel } from '../features/preview/components/HistoryPanel';
 import {
-  createPlaygroundKernel,
-  type PlaygroundFixture,
-} from '../features/preview/create-playground-kernel';
+  useVaultKernel,
+  type VaultKernelState,
+  type VaultSaveState,
+} from '../features/vault/use-vault';
 import { DirectionFlip } from '../features/preview/components/DirectionFlip';
 import { FixturePicker } from '../features/preview/components/FixturePicker';
 import { CodeViewShowcase } from '../features/preview/components/CodeViewShowcase';
@@ -67,6 +73,150 @@ function deviceForBucket(name: TopBarDevice): DeviceState {
  * built-in deterministic provider.
  */
 const envPlanProvider = planProviderFromEnv(import.meta.env);
+
+/*
+  The rail's newest destination. It is composed HERE rather than added to
+  `rail-sections.tsx` for the same reason the rail takes its items as data: what
+  the sections ARE belongs to the host, and History only exists because this app
+  opens its documents from a vault.
+*/
+const HISTORY_SECTION: RailItem = {
+  id: 'history',
+  label: 'History',
+  icon: (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M8 4.6V8l2.3 1.4" />
+      <path d="M2.7 8a5.3 5.3 0 1 0 1.7-3.9" />
+      <path d="M2.4 2.7v2.2h2.2" />
+    </svg>
+  ),
+};
+
+const RAIL_DESTINATIONS: readonly RailItem[] = [...RAIL_SECTIONS, HISTORY_SECTION];
+
+/**
+ * The sealed-store counter, split out for one reason: `useTransactionCount`
+ * needs a kernel, and the app now has a state that has none. A hook cannot be
+ * called conditionally, so the conditional is a component instead.
+ */
+function TransactionCount({ kernel }: { kernel: BuilderKernel }) {
+  return <>{useTransactionCount(kernel)}</>;
+}
+
+/** Same reason: the provenance strip reads the transaction log through a hook. */
+function ProvenanceStatusBar({
+  kernel,
+  deviceLabel,
+}: {
+  kernel: BuilderKernel;
+  deviceLabel: string;
+}) {
+  return <StatusBar changes={useRecentChanges(kernel)} deviceLabel={deviceLabel} />;
+}
+
+/**
+ * What the editing area shows while there is no kernel.
+ *
+ * A stored page that will not open must land somewhere a person can act on. It
+ * is the one failure with an obvious cause and an obvious cure — a save written
+ * by a vocabulary this build no longer has, or half-written by a browser that
+ * was closed — and "the editor is blank" is not an acceptable rendering of it.
+ */
+function BootState({ state }: { state: VaultKernelState }) {
+  if (state.status === 'failed') {
+    return (
+      <section className="pg-boot pg-boot--failed" aria-label="Saved page">
+        <h2>This saved page could not be opened</h2>
+        <p className="pg-boot__reason">{state.reason}</p>
+        {/*
+          TRY AGAIN LEADS, and it is the primary action.
+
+          Not every failed boot is a broken document. A read that blipped, a
+          database another tab held for a moment: the save is intact and only
+          the attempt failed. This screen used to offer "start over" as its ONLY
+          action, so the single button on it deleted a page that was never
+          damaged — the person performing the deletion, on the app's advice.
+        */}
+        <p>
+          Trying again re-opens the stored page and deletes nothing. Starting over discards the
+          stored copy and opens the fixture again; restore points are kept either way.
+        </p>
+        <div className="pg-boot__actions">
+          <ChromeButton
+            variant="primary"
+            onClick={() => {
+              state.retry();
+            }}
+          >
+            Try again
+          </ChromeButton>
+          <ChromeButton
+            onClick={() => {
+              state.startOver();
+            }}
+          >
+            Start over
+          </ChromeButton>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <p className="pg-boot" role="status">
+      Opening your page…
+    </p>
+  );
+}
+
+/**
+ * The one thing a person cannot check for themselves: whether their work is
+ * actually being kept.
+ *
+ * It says nothing at all while saving is working, which is almost always. It
+ * speaks for the two states that used to be invisible — storage refusing every
+ * write, and a second tab holding the same page — because a session that keeps
+ * quiet through either loses everything on the next reload with a green screen
+ * up to the last second.
+ */
+function SaveNotice({ save }: { save: VaultSaveState }) {
+  if (save.status === 'error') {
+    return (
+      <div className="pg-save pg-save--error" role="alert">
+        <p>
+          <strong>Your changes are not being saved.</strong> They are still on screen and the next
+          edit tries again — keep this tab open. Restore points use the same storage, so if you need
+          this page somewhere safe, copy it out of Code.
+        </p>
+        {/* Storage's own words, never rewritten: "quota exceeded" and "this
+            browser exposes no indexedDB" are different problems with different
+            cures, and a single house sentence hides which one you have. */}
+        {save.reason === undefined ? null : <p className="pg-save__reason">{save.reason}</p>}
+      </div>
+    );
+  }
+  if (save.shared) {
+    return (
+      <div className="pg-save" role="status">
+        <p>
+          This page is open in another tab. Both are still editing it, and whichever saves last is
+          the copy that comes back.
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
 
 export function App() {
   const [themeName, setThemeName] = useState<ThemeName>('light');
@@ -110,34 +260,49 @@ export function App() {
   // message is set post-mount via rAF, the established entry pattern).
   const [modeMessage, setModeMessage] = useState({ text: '', nonce: 0 });
 
-  // One kernel per fixture selection; recreating on change is the point —
-  // documents are data, kernels are sessions.
-  const kernel = useMemo(() => createPlaygroundKernel({ fixture }), [fixture]);
-  // The provenance strip reads a field the kernel has always recorded.
-  const recentChanges = useRecentChanges(kernel);
+  /*
+    One SESSION per fixture, opened from the vault.
+
+    This used to be `useMemo(() => createPlaygroundKernel({ fixture }))` — a
+    kernel conjured synchronously in the render body, which is exactly why the
+    playground could never keep anything: a document that exists only for as
+    long as the tab does has nowhere to be stored. `openDocument` reads storage,
+    migrates, replays the tail and validates twice before a kernel exists, so
+    for the first time this app has a state with no kernel in it. It says so
+    rather than pretending, and a save it cannot open is a thing a person can
+    act on rather than a blank editor.
+  */
+  const vault = useVaultKernel(fixture);
+  const session = vault.status === 'ready' ? vault : undefined;
+  const kernel = session?.kernel;
+  // Dismissal is per fixture: choosing another document is a new answer to
+  // "was this restored?", and a dismissal must not carry across it.
+  const [noticeDismissedFor, setNoticeDismissedFor] = useState<PlaygroundFixture | undefined>(
+    undefined,
+  );
 
   // Every observable change pairs 1:1 with a transaction (Law S), so a live
   // counter is both a user-facing session gauge and the SC-004 arithmetic probe.
   const txSubscribe = useCallback(
-    (onStoreChange: () => void) => kernel.context.store.subscribe(onStoreChange),
+    (onStoreChange: () => void) =>
+      kernel === undefined ? () => undefined : kernel.context.store.subscribe(onStoreChange),
     [kernel],
   );
-  const txCount = useTransactionCount(kernel);
   // Subscribed read (never a bare render-body getState): the preview flip
   // derives from the LIVE document direction.
   const docDir = useSyncExternalStore(
     txSubscribe,
-    useCallback(() => kernel.getDocument().dir, [kernel]),
+    useCallback(() => kernel?.getDocument().dir ?? 'ltr', [kernel]),
   );
   // History is external kernel state too. Primitive snapshots keep the top
   // bar truthful on first render and after every undo/redo cursor movement.
   const canUndo = useSyncExternalStore(
     txSubscribe,
-    useCallback(() => kernel.canUndo(), [kernel]),
+    useCallback(() => kernel?.canUndo() ?? false, [kernel]),
   );
   const canRedo = useSyncExternalStore(
     txSubscribe,
-    useCallback(() => kernel.canRedo(), [kernel]),
+    useCallback(() => kernel?.canRedo() ?? false, [kernel]),
   );
 
   /*
@@ -156,6 +321,10 @@ export function App() {
     setRoleOverrides((current) => ({ ...current, [role]: value }));
   }, []);
   const breakpoint = device.bucket === 'base' ? 'desktop' : device.bucket;
+  // Named once: the status bar is rendered by two branches now (with a live
+  // provenance strip, and without one while the document is opening), and the
+  // device is the same fact in both.
+  const deviceLabel = `${device.bucket === 'base' ? 'Desktop' : device.bucket === 'tablet' ? 'Tablet' : 'Mobile'} · ${String(device.width)} px`;
   /*
     The code view is ONE destination, reached one way: the rail. It used to be
     reachable only by choosing a document fixture named "Code view", which made
@@ -169,7 +338,7 @@ export function App() {
   const codeOpen = railSection === 'code';
   const showcaseOwnsLawSControls = codeOpen;
 
-  if (preview) {
+  if (preview && kernel !== undefined) {
     // US4: EVERY piece of editing chrome disappears — the preview surface plus
     // two floating controls (exit lives inside PreviewMode). The direction
     // flip here is VIEW state: the document-mutating flip stays in the header.
@@ -226,13 +395,16 @@ export function App() {
         canUndo={!showcaseOwnsLawSControls && canUndo}
         canRedo={!showcaseOwnsLawSControls && canRedo}
         onUndo={() => {
-          kernel.undo();
+          kernel?.undo();
         }}
         onRedo={() => {
-          kernel.redo();
+          kernel?.redo();
         }}
         onPreview={() => {
-          setPreview(true);
+          // There is nothing to preview until the document is open.
+          if (kernel !== undefined) {
+            setPreview(true);
+          }
         }}
         extra={
           /*
@@ -244,7 +416,7 @@ export function App() {
           showcaseOwnsLawSControls ? undefined : (
             <span className="bldr-visually-hidden">
               <output aria-label="Transactions" data-testid="pg-tx-count">
-                {txCount}
+                {kernel === undefined ? 0 : <TransactionCount kernel={kernel} />}
               </output>
             </span>
           )
@@ -254,6 +426,36 @@ export function App() {
         {modeMessage.text}
         {modeMessage.nonce % 2 === 1 ? '\u200b' : ''}
       </output>
+      {/*
+        The one line the vault owes a person, and it costs the layout nothing:
+        absolutely positioned inside `.pg-app`, so the editor beneath it is the
+        same editor whether the page came from storage or from the fixture. A
+        restore that happens silently is a restore a person cannot disagree with.
+      */}
+      {session === undefined ? null : <SaveNotice save={session.save} />}
+      {session !== undefined && session.restored && noticeDismissedFor !== fixture ? (
+        <div className="pg-restored" role="status">
+          <p>Picked up where you left off — this page came back from your last session.</p>
+          <ChromeButton
+            size="sm"
+            onClick={() => {
+              session.startOver();
+            }}
+          >
+            Start over
+          </ChromeButton>
+          <ChromeButton
+            variant="icon"
+            size="sm"
+            aria-label="Dismiss restored notice"
+            onClick={() => {
+              setNoticeDismissedFor(fixture);
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </ChromeButton>
+        </div>
+      ) : null}
       <div style={{ flex: 1, minBlockSize: 0 }}>
         {/*
           The editor's layout is BuilderShell's job, not this file's. Before it
@@ -266,7 +468,7 @@ export function App() {
           label="Playground editor"
           rail={
             <IconRail
-              items={RAIL_SECTIONS}
+              items={RAIL_DESTINATIONS}
               secondary={RAIL_UTILITIES}
               activeId={railSection}
               onSelect={(id) => {
@@ -292,78 +494,129 @@ export function App() {
           panelPriority={railSection === 'layers' ? 'essential' : 'optional'}
           panel={
             /*
-                The rail's two content destinations are real panels; the rest say
+                The rail's content destinations are real panels; the rest say
                 what they are. Blocks and Layers share the left column the way
                 every builder of this kind does, which is also what frees the
                 right column entirely for the inspector — the layer tree used to
                 sit on top of it and take a third of its height.
+
+                Every one of them needs the kernel, so while there is none the
+                whole column is one quiet placeholder rather than five separate
+                absences.
               */
-            railSection === 'assistant' ? (
-              <AssistantPanel
-                kernel={kernel}
-                planProvider={envPlanProvider}
-                /*
-                  The one place that knows what the provider is: it came from
-                  VITE_AI_PLAN_ENDPOINT, so it is a model over the network and
-                  gets the cheap catalog. Absent, the offline provider answers
-                  and needs the full one.
-                */
-                providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
-                persistKey="pg-assistant-sessions-v1"
-                onReviewAsCode={() => {
-                  setRailSection('code');
-                }}
-              />
-            ) : railSection === 'layers' ? (
-              <LayersTree kernel={kernel} />
-            ) : railSection === 'settings' ? (
-              /*
-                  The scenario harness, in a panel of its own. It used to ride in
-                  the product's action band and then in a sheet floating over the
-                  canvas — neither is where a developer harness belongs. Here it
-                  has room, it costs the page nothing when closed, and the action
-                  band is left to the product.
-                */
-              <section className="pg-settings" aria-label="Scenario harness">
-                <h2>Harness</h2>
-                <p>Scenario controls. None of this is part of the product.</p>
-                <FixturePicker value={fixture} onChange={setFixture} />
-                <ChromePicker value={chromeChoice} onChange={setChromeChoice} />
-                <ThemePicker value={themeName} onChange={setThemeName} />
-                <DirectionFlip kernel={kernel} />
-                <RegisterDemoExtension key={fixture} kernel={kernel} />
-                {codeOpen ? null : (
-                  <label className="pg-width">
-                    <span>Canvas width</span>
-                    <input
-                      type="number"
-                      min={320}
-                      max={2560}
-                      step={10}
-                      value={device.width}
-                      onChange={(event) => {
-                        const width = Number(event.currentTarget.value);
-                        setDevice({ width, bucket: bucketForWidth(width) });
-                      }}
-                    />
-                  </label>
-                )}
-              </section>
-            ) : railSection === 'assets' || railSection === 'help' ? (
-              <RailSectionNotice section={railSection} />
+            session === undefined ? (
+              <div className="pg-boot-panel" />
             ) : (
-              // Blocks, and Code: the palette stays beside the projection,
-              // because reading the document as text is not a reason to lose
-              // the ability to add to it.
-              <Palette kernel={kernel} dragHandle={dragHandle} />
+              /*
+                THE ASSISTANT STAYS MOUNTED. It used to be one arm of the same
+                ternary as every other section, so opening Blocks unmounted it —
+                and its unmount cleanup aborts the run in flight. A person who
+                looked at their layers lost the page being built for them. It is
+                hidden with `hidden`, not unmounted: the run, the conversation,
+                the draft and the face all survive a tab that was never about
+                them. Every other section still mounts on demand, because none
+                of them owns work that outlives a glance.
+              */
+              <>
+                <div
+                  className="pg-rail-panel"
+                  hidden={railSection !== 'assistant'}
+                  data-section="assistant"
+                >
+                  <AssistantPanel
+                    /*
+                      KEYED ON THE BOOT. Staying mounted across rail
+                      destinations is the point; staying mounted across a
+                      DOCUMENT is not. "Start over" installs a brand new kernel
+                      for the same fixture, and an unkeyed panel would carry its
+                      conversation, its draft, its preview and any run whose
+                      closures captured the discarded kernel into a page they
+                      were never about. Same reason `RegisterDemoExtension` is
+                      keyed on the fixture below.
+                    */
+                    key={session.bootId}
+                    /*
+                      Mounted, and told whether anyone is looking: a hidden
+                      element measures zero, so the thread cannot follow the
+                      newest turn while the person is on Layers.
+                    */
+                    visible={railSection === 'assistant'}
+                    kernel={session.kernel}
+                    planProvider={envPlanProvider}
+                    /*
+                      The one place that knows what the provider is: it came
+                      from VITE_AI_PLAN_ENDPOINT, so it is a model over the
+                      network and gets the cheap catalog. Absent, the offline
+                      provider answers and needs the full one.
+                    */
+                    providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
+                    persistKey="pg-assistant-sessions-v1"
+                    onReviewAsCode={() => {
+                      setRailSection('code');
+                    }}
+                  />
+                </div>
+                {railSection === 'layers' ? (
+                  <LayersTree kernel={session.kernel} />
+                ) : railSection === 'settings' ? (
+                  /*
+                      The scenario harness, in a panel of its own. It used to ride in
+                      the product's action band and then in a sheet floating over the
+                      canvas — neither is where a developer harness belongs. Here it
+                      has room, it costs the page nothing when closed, and the action
+                      band is left to the product.
+                    */
+                  <section className="pg-settings" aria-label="Scenario harness">
+                    <h2>Harness</h2>
+                    <p>Scenario controls. None of this is part of the product.</p>
+                    <FixturePicker value={fixture} onChange={setFixture} />
+                    <ChromePicker value={chromeChoice} onChange={setChromeChoice} />
+                    <ThemePicker value={themeName} onChange={setThemeName} />
+                    <DirectionFlip kernel={session.kernel} />
+                    <RegisterDemoExtension key={fixture} kernel={session.kernel} />
+                    {codeOpen ? null : (
+                      <label className="pg-width">
+                        <span>Canvas width</span>
+                        <input
+                          type="number"
+                          min={320}
+                          max={2560}
+                          step={10}
+                          value={device.width}
+                          onChange={(event) => {
+                            const width = Number(event.currentTarget.value);
+                            setDevice({ width, bucket: bucketForWidth(width) });
+                          }}
+                        />
+                      </label>
+                    )}
+                  </section>
+                ) : railSection === 'history' ? (
+                  /*
+                      Restore points: the one part of the vault a person addresses
+                      directly. The session's own saving is continuous and invisible;
+                      this is the shelf they put something on deliberately.
+                    */
+                  <HistoryPanel kernel={session.kernel} shelf={session.shelf} />
+                ) : railSection === 'assets' || railSection === 'help' ? (
+                  <RailSectionNotice section={railSection} />
+                ) : railSection === 'assistant' ? null : (
+                  // Blocks, and Code: the palette stays beside the projection,
+                  // because reading the document as text is not a reason to
+                  // lose the ability to add to it.
+                  <Palette kernel={session.kernel} dragHandle={dragHandle} />
+                )}
+              </>
             )
           }
           canvas={
-            codeOpen ? (
-              <CodeViewShowcase key={fixture} kernel={kernel} />
+            session === undefined ? (
+              <BootState state={vault} />
+            ) : codeOpen ? (
+              <CodeViewShowcase key={fixture} kernel={session.kernel} />
             ) : (
               <EditorCanvas
-                kernel={kernel}
+                kernel={session.kernel}
                 theme={theme}
                 editable
                 onDragHandle={setDragHandle}
@@ -373,10 +626,11 @@ export function App() {
             )
           }
           status={
-            <StatusBar
-              changes={recentChanges}
-              deviceLabel={`${device.bucket === 'base' ? 'Desktop' : device.bucket === 'tablet' ? 'Tablet' : 'Mobile'} · ${String(device.width)} px`}
-            />
+            session === undefined ? (
+              <StatusBar changes={[]} deviceLabel={deviceLabel} />
+            ) : (
+              <ProvenanceStatusBar kernel={session.kernel} deviceLabel={deviceLabel} />
+            )
           }
           /*
               The PAGE theme, not the editor's: a colour swatch has to show the
@@ -384,7 +638,14 @@ export function App() {
               swatch must read dark even while the editor chrome is light.
             */
           aside={
-            <Inspector kernel={kernel} bucket={device.bucket} theme={theme} onRetheme={retheme} />
+            session === undefined ? undefined : (
+              <Inspector
+                kernel={session.kernel}
+                bucket={device.bucket}
+                theme={theme}
+                onRetheme={retheme}
+              />
+            )
           }
         />
       </div>

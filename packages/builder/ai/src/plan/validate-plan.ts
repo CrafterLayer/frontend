@@ -7,8 +7,11 @@ import type {
   TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 import {
+  CUSTOM_CSS_FONT_HOSTS,
   customCodeClassNames,
   customCodeIconNames,
+  customCssPropertyNames,
+  findCssRejection,
   findRejectedUtilities,
   isJsonValue,
   isLucideIconName,
@@ -489,15 +492,196 @@ function customCodeVocabularyIssues(
       }
 
       // Then the GENERATION law: a class with no CSS fails silently otherwise.
-      const unknown = [
-        ...new Set(classNames.flatMap((value) => unknownUtilityClasses(value))),
-      ];
+      const unknown = [...new Set(classNames.flatMap((value) => unknownUtilityClasses(value)))];
       if (unknown.length === 0) continue;
       issues.push({
         code: 'policy-rejected',
         message: `Step ${String(index)} uses utility classes with no generated CSS: ${unknown
           .slice(0, 8)
-          .join(', ')}${unknown.length > 8 ? `, and ${String(unknown.length - 8)} more` : ''}. Use a class from the site vocabulary, or name it "ck-…" and style it in the block's own css prop.`,
+          .join(
+            ', ',
+          )}${unknown.length > 8 ? `, and ${String(unknown.length - 8)} more` : ''}. Use a class from the site vocabulary, or name it "ck-…" and style it in the block's own css prop.`,
+        step: index,
+      });
+    }
+  });
+  return issues;
+}
+
+/**
+ * Every stylesheet a plan writes, wherever in the args it appears.
+ *
+ * Shape-driven like `customCodeTreesInArgs`, with the one difference the data
+ * forces: a stylesheet is a bare string, and nothing in the SHAPE of a string
+ * separates a stylesheet from a title or a slug. So the NAMES come from the
+ * registry — whichever props the blocks declared with `customCss()` — and the
+ * walk then finds a value under one of those names wherever it sits: inside
+ * `insertNode` props, as the `value` beside a `setProp` key, or as a JSON
+ * patch value whose path ends in one. A list of command names would have gone
+ * stale the first time a new command carried a sheet.
+ */
+interface PlanStylesheet {
+  readonly property: string;
+  readonly css: string;
+  /** The node the sheet belongs to, when the args say which. */
+  readonly owner: string | undefined;
+}
+
+function customCssPropertyNamesForType(kernel: BuilderKernel, type: string): ReadonlySet<string> {
+  const schema = kernel.context.registry.block(type)?.schema;
+  return schema === undefined ? new Set() : customCssPropertyNames(schema.props);
+}
+
+function allCustomCssPropertyNames(kernel: BuilderKernel): ReadonlySet<string> {
+  return new Set(
+    kernel.context.registry
+      .blocks()
+      .flatMap(({ schema }) => [...customCssPropertyNamesForType(kernel, schema.type)]),
+  );
+}
+
+function customCssSheetsInArgs(
+  args: unknown,
+  propertyNames: ReadonlySet<string>,
+): readonly PlanStylesheet[] {
+  const found: PlanStylesheet[] = [];
+  if (propertyNames.size === 0) return found;
+  const stack: unknown[] = [args];
+  let visited = 0;
+  while (stack.length > 0 && visited < 10_000) {
+    const value = stack.pop();
+    visited += 1;
+    if (Array.isArray(value)) {
+      for (const item of value) stack.push(item);
+      continue;
+    }
+    if (typeof value !== 'object' || value === null) continue;
+    const record = value as Record<string, unknown>;
+    const written = record['value'];
+
+    // `{ key, value }` — setProp and setResponsive name the property beside it.
+    const key = record['key'];
+    if (typeof key === 'string' && propertyNames.has(key) && typeof written === 'string') {
+      found.push({ property: key, css: written, owner: nodeIdIn(record['id']) });
+    }
+
+    // `{ path, value }` — a JSON patch names the property inside its path,
+    // and names the node it belongs to one segment after `nodes`.
+    const path = record['path'];
+    if (Array.isArray(path) && typeof written === 'string') {
+      const named = path.find(
+        (segment): segment is string => typeof segment === 'string' && propertyNames.has(segment),
+      );
+      if (named !== undefined) {
+        found.push({
+          property: named,
+          css: written,
+          owner: path[0] === 'nodes' ? nodeIdIn(path[1]) : undefined,
+        });
+      }
+    }
+
+    for (const [name, child] of Object.entries(record)) {
+      if (propertyNames.has(name) && typeof child === 'string') {
+        found.push({ property: name, css: child, owner: undefined });
+        continue;
+      }
+      stack.push(child);
+    }
+  }
+  return found;
+}
+
+function nodeIdIn(value: unknown): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+/**
+ * The block type whose schema decides whether this string is a stylesheet.
+ *
+ * The NAMES alone are not enough: `css` is a stylesheet on a region and a
+ * caption on a block that declared a plain string. Resolve the owner — the
+ * node the args name, or the type an insert is creating — and let that block's
+ * own schema answer. Unknown owner means the global name set stands, which is
+ * the safe direction: a real sheet is never missed.
+ */
+function stylesheetBlockType(
+  kernel: BuilderKernel,
+  args: Record<string, unknown>,
+  owner: string | undefined,
+): string | undefined {
+  if (owner !== undefined) {
+    const type = kernel.getDocument().nodes[owner]?.type;
+    if (type !== undefined) return type;
+  }
+  const declared = args['type'];
+  return typeof declared === 'string' && declared !== '' ? declared : undefined;
+}
+
+/** The node or block type a step's args are about, for naming the dead sheet. */
+function stylesheetOwnerInArgs(args: Record<string, unknown>): string | undefined {
+  for (const name of ['id', 'type', 'wrapperType', 'groupType']) {
+    const owner = nodeIdIn(args[name]);
+    if (owner !== undefined) return owner;
+  }
+  return undefined;
+}
+
+/*
+  What to do instead, per refused construct. The two entries are the ones an
+  honest design actually reaches for — a web font and a background image — and
+  they get a specific instruction because "refused" alone would send the model
+  looking for a different way to say the same thing. Everything else shares the
+  general rule, which is worth stating because the list is a REFUSAL list: the
+  freedom is the default, and a model told only what failed tends to retreat
+  from colours and gradients it was always allowed to use.
+*/
+const CSS_REFUSAL_ADVICE = new Map<string, string>([
+  [
+    '@import',
+    `@import is allowed only from ${CUSTOM_CSS_FONT_HOSTS.join(' or ')} — write every other rule inline.`,
+  ],
+  ['insecure (http or //) url()', 'url() must be https://, a data: URI, or a site-relative path.'],
+]);
+
+const CSS_REFUSAL_RULE =
+  'Only fetching and scripting constructs are refused; hex colours, gradients, filters, @keyframes, @font-face and https url() are all allowed.';
+
+/**
+ * Refuse a stylesheet the renderer will throw away.
+ *
+ * Not a style rule, and not a vocabulary preference — which is why it is not
+ * behind `enforceUtilityVocabulary`. A refused construct makes the renderer
+ * drop the sheet WHOLE: the page loses every rule in it, on the canvas and in
+ * the published build, and nothing anywhere says why. The kernel cannot catch
+ * it either — zod sees a valid short string — so the dry run downstream would
+ * wave it through. This is the last place the reason can still be reported.
+ */
+function customCssIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanValidationIssue[] {
+  const propertyNames = allCustomCssPropertyNames(kernel);
+  if (propertyNames.size === 0) return [];
+  const issues: AiPlanValidationIssue[] = [];
+  plan.commands.forEach((step, index) => {
+    const args = isRecord(step.args) ? step.args : {};
+    for (const sheet of customCssSheetsInArgs(args, propertyNames)) {
+      const blockType = stylesheetBlockType(kernel, args, sheet.owner);
+      if (
+        blockType !== undefined &&
+        !customCssPropertyNamesForType(kernel, blockType).has(sheet.property)
+      ) {
+        // Same name, different block: a caption, not a stylesheet.
+        continue;
+      }
+      const rejection = findCssRejection(sheet.css);
+      if (rejection === undefined) continue;
+      const owner = sheet.owner ?? stylesheetOwnerInArgs(args);
+      issues.push({
+        code: 'policy-rejected',
+        message: `Step ${String(index)} writes a stylesheet that will never render: "${sheet.property}"${
+          owner === undefined ? '' : ` on "${owner}"`
+        } uses ${rejection.reason}. A refused sheet is dropped WHOLE — the page loses every rule in it, on the canvas and in the published build, with no message anywhere. ${
+          CSS_REFUSAL_ADVICE.get(rejection.reason) ?? CSS_REFUSAL_RULE
+        }`,
         step: index,
       });
     }
@@ -558,6 +742,60 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
+/**
+ * Refuse an insert of the document's own root type, with the edit that was
+ * meant instead.
+ *
+ * The kernel door already refuses it, but only at the end of a run that has
+ * already been paid for, and with a slot-list message that reads as a
+ * vocabulary problem rather than a category error. Caught here it becomes a
+ * repairable issue naming the one thing the model actually wanted: the root
+ * already exists, so change IT.
+ */
+function rootInsertIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanValidationIssue[] {
+  const { rootId, nodes } = kernel.getDocument();
+  const rootType = nodes[rootId]?.type;
+  if (rootType === undefined) return [];
+  const issues: AiPlanValidationIssue[] = [];
+  plan.commands.forEach((step, index) => {
+    if (step.command !== 'insertNode') return;
+    const args = isRecord(step.args) ? step.args : {};
+    if (args['type'] !== rootType) return;
+    issues.push({
+      code: 'policy-rejected',
+      step: index,
+      message: `Step ${String(index)} inserts a "${rootType}", which is the document's ROOT type: the page already exists and cannot contain another one. To change the page itself, use setProp on "${rootId}" (its props are in the document); to add a section, insert a section type into "${rootId}".`,
+    });
+  });
+  return issues;
+}
+
+/** How many node ids a rejection may quote back before the hint costs more than it saves. */
+const DOOR_HINT_MAX_NODES = 40;
+
+/**
+ * Turn "that id is wrong" into "here are the right ones, and here is why yours
+ * could not have worked".
+ *
+ * A model that names a node the document does not have is almost never
+ * guessing at random: it is referring to a node it is INSERTING in the same
+ * plan. It cannot know that id — the kernel mints ids from its own port, after
+ * the plan is written — so no amount of retrying finds it. The bare rejection
+ * sent the repair attempt looking for a better guess; it now sends it the two
+ * facts that actually resolve the mistake.
+ */
+function missingNodeHint(cause: unknown, kernel: BuilderKernel): string {
+  const message = errorMessage(cause);
+  if (!/does not exist/iu.test(message)) return '';
+  const { nodes } = kernel.getDocument();
+  const listed = Object.values(nodes)
+    .slice(0, DOOR_HINT_MAX_NODES)
+    .map((node) => `${node.id} (${node.type})`)
+    .join(', ');
+  const more = Object.keys(nodes).length - DOOR_HINT_MAX_NODES;
+  return ` The document's nodes are: ${listed}${more > 0 ? `, and ${String(more)} more` : ''}. A node this plan INSERTS is given its id by the kernel after the plan is written, so it can never be named by a later step of the same plan — put that node's props inside its own insertNode instead.`;
+}
+
 function dryRun(
   plan: AiPlan,
   kernel: BuilderKernel,
@@ -583,7 +821,7 @@ function dryRun(
       issues: [
         {
           code: 'door-rejected',
-          message: `${step === undefined ? 'The grouped plan' : `Step ${String(step)}`} was rejected by the kernel door: ${errorMessage(cause)}`,
+          message: `${step === undefined ? 'The grouped plan' : `Step ${String(step)}`} was rejected by the kernel door: ${errorMessage(cause)}${missingNodeHint(cause, kernel)}`,
           ...(step === undefined ? {} : { step }),
         },
       ],
@@ -610,7 +848,9 @@ export function validateAiPlan(
   kernel: BuilderKernel,
   ports: AiValidationPorts,
   policy?: AiEffectiveCommandPolicy,
-  composition?: Partial<Pick<ResolvedAiCompositionPolicy, 'enforceUtilityVocabulary' | 'colourPolicy'>>,
+  composition?: Partial<
+    Pick<ResolvedAiCompositionPolicy, 'enforceUtilityVocabulary' | 'colourPolicy'>
+  >,
 ): AiPlanValidationResult {
   const overLimit = rawCommandLimitIssue(candidate, policy);
   if (overLimit !== undefined) return { ok: false, issues: [overLimit] };
@@ -636,6 +876,23 @@ export function validateAiPlan(
     );
     if (vocabularyIssues.length > 0) return { ok: false, issues: vocabularyIssues };
   }
+  /*
+    Outside the vocabulary opt-out on purpose: a refused stylesheet is not "a
+    class this host would rather you did not use", it is "this CSS will not
+    render at all". And it must run BEFORE the dry run, because the scratch
+    kernel accepts a refused sheet happily — a gate placed after it would
+    never fire.
+  */
+  const cssIssues = customCssIssues(parsed.plan, kernel);
+  if (cssIssues.length > 0) return { ok: false, issues: cssIssues };
+  /*
+    Before the dry run too, and for the same reason as the sheet: the door's own
+    refusal is a slot list, which reads as "wrong vocabulary" when the truth is
+    "that thing already exists". Said here, the repair attempt is handed the
+    edit that was meant.
+  */
+  const rootInserts = rootInsertIssues(parsed.plan, kernel);
+  if (rootInserts.length > 0) return { ok: false, issues: rootInserts };
   const rejectedByPolicy = policyIssues(parsed.plan, policy);
   return rejectedByPolicy.length > 0
     ? { ok: false, issues: rejectedByPolicy }

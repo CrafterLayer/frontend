@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 
-import type { AiPlanWireRequest } from '@craftkit/builder-ai';
+import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
 import { buildPrompt } from './prompt';
 

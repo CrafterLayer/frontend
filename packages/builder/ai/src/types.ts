@@ -49,6 +49,17 @@ export interface AiBlockContext {
   type: string;
   description: string;
   /**
+   * Whether this run may INSERT a node of this type. Absent means yes.
+   *
+   * Two cases say no. The document's ROOT type (a `page`) can never be
+   * inserted into itself, in any mode. And a presence entry in `none` mode
+   * carries prop NAMES without a schema: it is there so an existing block can
+   * be edited, not authored — inserting one would mean inventing its props.
+   * Both were learned the same way: a run spent six minutes and came back
+   * "Slot default of root accepts [...], not page".
+   */
+  insertable?: boolean;
+  /**
    * The prop names a block ALREADY ON THE PAGE accepts — present in `none`
    * mode for exactly those types, and nothing more. "Make the hero title
    * bigger" is the most common ask there is; without the names the model
@@ -207,6 +218,18 @@ export interface AiPlanProvider {
     issues: readonly AiPlanValidationIssue[],
     options?: AiProposeOptions,
   ): Promise<AiPlan>;
+  /**
+   * Optional: this proposal did NOT pass the door, so do not answer with it
+   * again. Called by `generateAiPlan` the moment validation rejects a plan.
+   *
+   * It exists because a provider cannot know whether its own answer was any
+   * good — validation happens on the far side of this boundary. A caching
+   * provider that stores every answer will replay a rejected one for free on
+   * an identical ask, so the person who retries a failing request watches it
+   * fail faster, forever, with no model involved. Synchronous and
+   * best-effort: a provider without a memory implements nothing.
+   */
+  forget?(request: string, context: AssembledAiContext, options?: AiProposeOptions): void;
 }
 
 /** Dedicated deterministic capabilities for preflight; never borrow the live kernel's instances. */

@@ -306,7 +306,54 @@ function sortedSlots(node: Node): Readonly<Record<string, readonly NodeId[]>> {
   );
 }
 
-function documentNode(node: Node): AiDocumentNodeContext {
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * A composed tree, recognised by its SHAPE — the same way the validation door
+ * finds trees in a plan's args. A prop that merely happens to be named `tree`
+ * is not one, and a tree stored under any other name still is.
+ */
+function isCustomCodeTreeValue(value: unknown): boolean {
+  return isJsonRecord(value) && value['kind'] === 'root' && Array.isArray(value['children']);
+}
+
+/**
+ * A composed tree, described instead of quoted.
+ *
+ * Counts the nodes and keeps the region's FIRST heading — enough for the model
+ * to know what already stands there and not rebuild it — while dropping the
+ * body copy it was told not to touch. Depth-first, iterative, and bounded, so
+ * a hostile tree cannot spend the request budget here.
+ */
+function summariseCustomCodeTree(tree: unknown): string {
+  let nodes = 0;
+  let heading: string | undefined;
+  const stack: unknown[] = [tree];
+  while (stack.length > 0 && nodes < CUSTOM_CODE_SUMMARY_SCAN_LIMIT) {
+    const current = stack.pop();
+    if (!isJsonRecord(current)) continue;
+    nodes += 1;
+    if (
+      heading === undefined &&
+      typeof current['tag'] === 'string' &&
+      HEADING_TAGS.has(current['tag'])
+    ) {
+      const text = current['text'];
+      if (typeof text === 'string' && text.trim() !== '') heading = text.trim().slice(0, 80);
+    }
+    const children = current['children'];
+    if (Array.isArray(children)) for (const child of children) stack.push(child);
+  }
+  const shape = `filled · ${String(Math.max(0, nodes - 1))} nodes`;
+  return heading === undefined ? shape : `${shape} · “${heading}”`;
+}
+
+const HEADING_TAGS: ReadonlySet<string> = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+const CUSTOM_CODE_SUMMARY_SCAN_LIMIT = 5_000;
+
+function documentNode(node: Node, summariseTrees = false): AiDocumentNodeContext {
   const bindings =
     node.bindings === undefined
       ? undefined
@@ -336,7 +383,12 @@ function documentNode(node: Node): AiDocumentNodeContext {
     props: Object.fromEntries(
       Object.entries(node.props)
         .sort(([left], [right]) => compareText(left, right))
-        .map(([key, value]) => [key, cloneJson(value)]),
+        .map(([key, value]) => [
+          key,
+          summariseTrees && isCustomCodeTreeValue(value)
+            ? summariseCustomCodeTree(value)
+            : cloneJson(value),
+        ]),
     ),
     ...(bindings === undefined ? {} : { bindings }),
     ...(node.variantOf === undefined ? {} : { variantOf: node.variantOf }),
@@ -389,12 +441,19 @@ function blockPresenceEntry(entry: RegistryBlockEntry): AiBlockContext {
     typeof properties === 'object' && properties !== null && !Array.isArray(properties)
       ? Object.keys(properties).sort(compareText)
       : [];
-  return { ...blockIndexEntry(entry), propKeys };
+  // No schema travels with it, so authoring one would mean inventing props.
+  return { ...blockIndexEntry(entry), insertable: false, propKeys };
 }
 
 /** The block types the document holds right now. */
 function presentBlockTypes(ctx: AiContextReadApi): ReadonlySet<string> {
   return new Set(Object.values(ctx.store.getState().doc.nodes).map((node) => node.type));
+}
+
+/** The root's own type — a `page` cannot be inserted into a `page`, in any mode. */
+function rootBlockType(ctx: AiContextReadApi): string | undefined {
+  const { doc } = ctx.store.getState();
+  return doc.nodes[doc.rootId]?.type;
 }
 
 /**
@@ -411,10 +470,26 @@ function collectBlocks(
   policy: ResolvedAiCompositionPolicy,
 ): readonly AiBlockContext[] {
   const present = policy.catalogMode === 'none' ? presentBlockTypes(ctx) : undefined;
+  const rootType = rootBlockType(ctx);
+  const withRootRule = (block: AiBlockContext): AiBlockContext => {
+    if (block.type !== rootType) return block;
+    /*
+      The root's type must not be AUTHORED, and saying so is not enough while
+      its worked examples are still in the request: the page block ships
+      few-shots that map "ابدأ صفحة فارغة" to insertNode {type:'page'} — a
+      demonstration of the exact command the door will refuse, handed to a model
+      that was just asked in Arabic for a page. Examples teach; a rule only
+      asks. So the examples go and the schema stays: the root is still EDITED
+      constantly (pageCss, contentWidth, title) and that needs its props.
+    */
+    const editable = { ...block, insertable: false };
+    delete editable.examples;
+    return editable;
+  };
   return ctx.registry
     .blocks(ctx.surface)
     .flatMap((entry) => {
-      if (blockIsInCatalogScope(policy, entry.type)) return [blockDetailEntry(entry)];
+      if (blockIsInCatalogScope(policy, entry.type)) return [withRootRule(blockDetailEntry(entry))];
       if (present !== undefined) {
         // `none` states nothing about a block the run did not ask for — not
         // even its name. The model composes; it does not choose from a list.
@@ -423,7 +498,7 @@ function collectBlocks(
         // one. Its name and prop keys ride along; its schema does not.
         return present.has(entry.type) ? [blockPresenceEntry(entry)] : [];
       }
-      return [blockIndexEntry(entry)];
+      return [withRootRule(blockIndexEntry(entry))];
     })
     .sort((left, right) => compareText(left.type, right.type));
 }
@@ -468,15 +543,31 @@ function collectTemplates(ctx: AiContextReadApi): readonly AiTemplateContext[] {
   }));
 }
 
-function collectDocument(ctx: AiContextReadApi): AiDocumentContext {
+function collectDocument(
+  ctx: AiContextReadApi,
+  policy: ResolvedAiCompositionPolicy,
+  selection: readonly NodeId[],
+): AiDocumentContext {
   const { doc } = ctx.store.getState();
+  /*
+    Under `scoped`, a region the run was told to leave alone is described
+    rather than quoted. The ids that keep their trees are the policy's own
+    list when it named one, and otherwise the run's selection — so "edit this
+    region" needs no extra wiring to keep the region it is editing.
+  */
+  const keepWhole =
+    policy.documentTreeMode === 'full'
+      ? undefined
+      : policy.treeScopeNodeIds.size > 0
+        ? policy.treeScopeNodeIds
+        : new Set(selection);
   return {
     schemaVersion: doc.schemaVersion,
     surface: doc.surface,
     dir: doc.dir,
     rootId: doc.rootId,
     nodes: Object.values(doc.nodes)
-      .map(documentNode)
+      .map((node) => documentNode(node, keepWhole !== undefined && !keepWhole.has(node.id)))
       .sort((left, right) => compareText(left.id, right.id)),
   };
 }
@@ -553,7 +644,8 @@ export const documentShapeContextProvider: AiContextProvider = {
         trust: 'builtin',
         title: 'Document shape',
       },
-      collectDocument(ctx),
+      // A bare provider has no run policy: it keeps the full document, as before.
+      collectDocument(ctx, resolveAiCompositionPolicy(undefined), []),
     );
   },
 };
@@ -692,7 +784,7 @@ export function assembleAiContext(
     totalTokens: fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
     blocks: collectBlocks(readCtx, composition),
     templates: collectTemplates(readCtx),
-    document: collectDocument(readCtx),
+    document: collectDocument(readCtx, composition, selection),
     selection: collectSelection(readCtx, selection),
     commands,
     outputContract: AI_PLAN_OUTPUT_CONTRACT,

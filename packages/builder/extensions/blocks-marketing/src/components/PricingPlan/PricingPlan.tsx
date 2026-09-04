@@ -2,7 +2,7 @@ import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { cx } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
-import { sectionMotionAttributes } from '../section-motion';
+import { sectionMotionAttributes } from '../section-motion-attributes';
 
 import type { PricingPlanProps } from './schema';
 

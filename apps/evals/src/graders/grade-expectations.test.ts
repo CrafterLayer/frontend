@@ -50,7 +50,12 @@ describe('gradeMustExpectations', () => {
         outcome: 'refusal',
         plan: null,
         policy: null,
-        failure: { source: 'provider', code: 'refusal', message: 'Nothing matched.', retryable: false },
+        failure: {
+          source: 'provider',
+          code: 'refusal',
+          message: 'Nothing matched.',
+          retryable: false,
+        },
       }),
       evalCase(),
     );

@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { craftkitHeadlessBlocks, createBuilder, headlessBlockManifest, pageSchema } from './headless';
+import {
+  craftkitHeadlessBlocks,
+  createBuilder,
+  headlessBlockManifest,
+  pageSchema,
+} from './headless';
 
 /**
  * `@craftkit/builder/headless` exists so a Node service can own a LIVE document
@@ -95,14 +100,34 @@ describe('the headless runtime door', () => {
     ];
     const external = imported.filter((specifier) => !specifier.startsWith('.'));
 
+    /*
+      One specifier is judged by a different rule, and deliberately so.
+
+      This test asks a package's MANIFEST whether it drags in a browser, which
+      is the right question for a package with one entry point and the wrong
+      one for a package with two. `@craftkit/builder-blocks-marketing` depends
+      on the renderer honestly — its main entry pairs every schema with the
+      component that draws it — while its `/schemas` entry carries the schemas
+      alone. The manifest cannot express that difference, so the subpath proves
+      itself where it lives: `blocks-marketing/src/schemas.node.test.ts` walks
+      the barrel's real import graph and pins its entire external surface to
+      `@craftkit/builder-schema` and `zod`.
+
+      The exception is therefore a POINTER to a stronger proof, not a hole. It
+      is written as an exact specifier so that importing the pack's main entry
+      here — `@craftkit/builder-blocks-marketing` with no subpath — still fails.
+    */
+    const GRAPH_PROVEN_SUBPATHS = ['@craftkit/builder-blocks-marketing/schemas'];
+    const byManifest = external.filter((specifier) => !GRAPH_PROVEN_SUBPATHS.includes(specifier));
+
     // Exhaustive by construction: the loop below only has to know these three.
-    expect(external.sort()).toEqual([
+    expect(byManifest.sort()).toEqual([
       '@craftkit/builder-ai',
       '@craftkit/builder-core',
       '@craftkit/builder-schema',
     ]);
 
-    for (const name of external) {
+    for (const name of byManifest) {
       expect(
         dependencyNames(name).filter((dependency) => BROWSER_RUNTIME.includes(dependency)),
         name,
@@ -120,7 +145,10 @@ describe('the headless runtime door', () => {
       // too, and the cheapest proof of that is the file itself: a `.tsx` is a
       // component by definition, and a module that pulls one in inherits it.
       expect(specifier.endsWith('.tsx'), specifier).toBe(false);
-      const local = readFileSync(join(REPO, 'packages/builder/editor/src', `${specifier}.ts`), 'utf8');
+      const local = readFileSync(
+        join(REPO, 'packages/builder/editor/src', `${specifier}.ts`),
+        'utf8',
+      );
       expect(local, specifier).not.toMatch(/from\s+'react/u);
       expect(local, specifier).not.toMatch(/from\s+'\.\/[A-Z]/u);
     }

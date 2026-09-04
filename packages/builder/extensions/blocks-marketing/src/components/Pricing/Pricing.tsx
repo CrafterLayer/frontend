@@ -2,7 +2,7 @@ import type { BlockRenderProps } from '@craftkit/builder-schema';
 
 import { GAP_CLASSES, cx, sectionContentClasses, sectionShellClasses } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
-import { sectionMotionAttributes } from '../section-motion';
+import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 

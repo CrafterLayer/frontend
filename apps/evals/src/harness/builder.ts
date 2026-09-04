@@ -17,11 +17,14 @@
  * harness must break in one file with one fix, not in nine files with nine.
  */
 export {
+  classifyAiRunFailure,
   craftkitHeadlessBlocks,
   createBuilder,
   createLocalAiPlanProvider,
+  createRemoteAiPlanProvider,
   emptyDocument,
   headlessBlockManifest,
+  marketingBlockSchemas,
   isAiProviderError,
   isBuilderError,
   runAiAgent,
@@ -33,6 +36,9 @@ export {
 export type {
   AiEffectiveCommandPolicy,
   AiPlan,
+  AiRunFailure,
+  AiRunFailureCode,
+  AiRunFailureSource,
   AiPlanProvider,
   AiPlanStep,
   AiPlanValidationIssue,
@@ -41,6 +47,7 @@ export type {
   AssembledAiContext,
   BlockSchema,
   BuilderDocument,
+  RemoteAiPlanProviderOptions,
   BuilderKernel,
   ContentDirection,
   Node,

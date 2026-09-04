@@ -216,7 +216,11 @@ export function createRetryingAiPlanProvider(
   const innerForget = inner.forget?.bind(inner);
 
   const provider: AiPlanProvider = {
-    propose(request: string, context: AssembledAiContext, live?: AiProposeOptions): Promise<AiPlan> {
+    propose(
+      request: string,
+      context: AssembledAiContext,
+      live?: AiProposeOptions,
+    ): Promise<AiPlan> {
       return withRetries(live, () => inner.propose(request, context, live));
     },
   };
@@ -231,7 +235,8 @@ export function createRetryingAiPlanProvider(
       plan: AiPlan,
       issues: readonly AiPlanValidationIssue[],
       live?: AiProposeOptions,
-    ): Promise<AiPlan> => withRetries(live, () => innerRepair(request, context, plan, issues, live));
+    ): Promise<AiPlan> =>
+      withRetries(live, () => innerRepair(request, context, plan, issues, live));
   }
   if (innerForget !== undefined) {
     provider.forget = (

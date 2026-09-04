@@ -10,7 +10,9 @@ const budgeted = evalCase({
 describe('gradeCost', () => {
   it('passes and scores 1 when everything is inside budget', () => {
     const result = gradeCost(
-      runOutput({ metrics: { commandCount: 2, contextFragments: 3, contextTokens: 900, elapsedMs: 50 } }),
+      runOutput({
+        metrics: { commandCount: 2, contextFragments: 3, contextTokens: 900, elapsedMs: 50 },
+      }),
       budgeted,
     );
     expect(result.pass).toBe(true);
@@ -20,7 +22,9 @@ describe('gradeCost', () => {
 
   it('fails a plan with more commands than the case allows', () => {
     const result = gradeCost(
-      runOutput({ metrics: { commandCount: 9, contextFragments: 3, contextTokens: 900, elapsedMs: 50 } }),
+      runOutput({
+        metrics: { commandCount: 9, contextFragments: 3, contextTokens: 900, elapsedMs: 50 },
+      }),
       budgeted,
     );
     expect(result.pass).toBe(false);

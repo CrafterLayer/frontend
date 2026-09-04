@@ -66,7 +66,12 @@ describe('gradePlanValidates', () => {
         outcome: 'refusal',
         plan: null,
         policy: null,
-        failure: { source: 'provider', code: 'refusal', message: 'Cannot do that.', retryable: false },
+        failure: {
+          source: 'provider',
+          code: 'refusal',
+          message: 'Cannot do that.',
+          retryable: false,
+        },
       }),
     );
     expect(result.pass).toBe(true);
@@ -78,7 +83,12 @@ describe('gradePlanValidates', () => {
         outcome: 'error',
         plan: null,
         policy: null,
-        failure: { source: 'provider', code: 'network', message: 'socket hang up', retryable: true },
+        failure: {
+          source: 'provider',
+          code: 'network',
+          message: 'socket hang up',
+          retryable: true,
+        },
       }),
     );
     expect(result.pass).toBe(false);

@@ -195,7 +195,9 @@ export function loadCorpus(directory: string = corpusDirectory()): readonly Eval
     return parsed;
   });
   if (cases.length === 0) {
-    throw new Error(`No eval cases found in ${directory}. The corpus must never be silently empty.`);
+    throw new Error(
+      `No eval cases found in ${directory}. The corpus must never be silently empty.`,
+    );
   }
   return cases;
 }

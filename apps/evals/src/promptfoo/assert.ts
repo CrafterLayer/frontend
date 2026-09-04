@@ -36,7 +36,9 @@ export function parseRunOutput(text: string): EvalRunOutput {
   const record = parsed as Record<string, unknown>;
   for (const key of ['caseId', 'outcome', 'metrics', 'document'] as const) {
     if (record[key] === undefined) {
-      throw new Error(`The provider's output is missing "${key}". This is a harness bug, not a model failure.`);
+      throw new Error(
+        `The provider's output is missing "${key}". This is a harness bug, not a model failure.`,
+      );
     }
   }
   return parsed as EvalRunOutput;

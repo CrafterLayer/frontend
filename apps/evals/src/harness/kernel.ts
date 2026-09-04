@@ -14,11 +14,35 @@ import {
 } from './catalog';
 import { seededIdPort, steppedClockPort } from './ports';
 
+/**
+ * The node ids the `starter` fixture actually produces, COMPUTED rather than
+ * asserted.
+ *
+ * They were written down as `ev-0001` and `ev-0002` while the harness ran on
+ * the kernel's six test fixtures, and the day it switched to the production
+ * catalog the second one became `ev-0003` — the real `hero` schema mints an id
+ * of its own on the way in. A literal would have been wrong again on the next
+ * schema change, and wrong SILENTLY: a corpus case whose
+ * `requiredTargetNodeIds` names a node that does not exist is not a failing
+ * assistant, it is an eval measuring nothing.
+ *
+ * So the ids come from building the fixture once and reading the page. The
+ * seeded id port makes that deterministic, which is what a diff between two
+ * model versions depends on; it is the LITERAL that was never guaranteed.
+ */
+function starterSectionIds(): readonly string[] {
+  const kernel = createEvalKernel('starter');
+  const root = kernel.getDocument().nodes['root'];
+  return root?.slots?.['default'] ?? [];
+}
+
+const STARTER_SECTION_IDS = starterSectionIds();
+
 /** Node id of the first section in the `starter` fixture. Corpus cases name it. */
-export const STARTER_HERO_ID = 'ev-0001';
+export const STARTER_HERO_ID = STARTER_SECTION_IDS[0] ?? 'ev-0001';
 
 /** Node id of the second section in the `starter` fixture. */
-export const STARTER_FEATURES_ID = 'ev-0002';
+export const STARTER_FEATURES_ID = STARTER_SECTION_IDS[1] ?? 'ev-0002';
 
 export interface CreateEvalKernelOptions {
   catalog?: EvalCatalogName;
@@ -75,6 +99,22 @@ export function createEvalKernel(
     kernel.dispatch('insertNode', { type, props: {}, parentId: 'root', slot: 'default' });
   }
   return kernel;
+}
+
+/**
+ * The extension manifests a run registers, resolved the same way
+ * {@link createEvalKernel} resolves them.
+ *
+ * Exposed because a report that says "the assistant scored 6/10" is unreadable
+ * without the vocabulary it was scored against, and because a caller building
+ * its own kernel — the promptfoo provider does — must register exactly this
+ * list or its plans are validated against a different catalog than the graders
+ * assume.
+ */
+export function evalExtensions(
+  options: CreateEvalKernelOptions = {},
+): readonly TrustedExtensionManifest[] {
+  return [...catalogFor(options.catalog ?? resolveEvalCatalog()), ...(options.extraBlocks ?? [])];
 }
 
 /** The catalog a kernel ended up with, for a report that has to be honest about it. */

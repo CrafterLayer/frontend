@@ -88,7 +88,10 @@ describe('parseEvalCase', () => {
     ['an unknown direction', { ...valid, dir: 'sideways' }],
     ['an unknown outcome', { ...valid, must: { ...valid.must, outcome: 'maybe' } }],
     ['a missing budget', { ...valid, budget: undefined }],
-    ['a non-string forbidden command', { ...valid, must: { ...valid.must, forbiddenCommands: [7] } }],
+    [
+      'a non-string forbidden command',
+      { ...valid, must: { ...valid.must, forbiddenCommands: [7] } },
+    ],
     ['a non-object payload', 'not a case'],
   ])('rejects %s', (_label, candidate) => {
     expect(() => parseEvalCase(candidate, 'x.json')).toThrow(/Eval case x\.json/u);

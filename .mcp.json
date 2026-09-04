@@ -23,6 +23,11 @@
         "CCW_MAX_TIMEOUT_MS": "7200000",
         "CCW_PROPOSAL_BOOTSTRAP": "[\"pnpm\",\"install\",\"--offline\",\"--frozen-lockfile\",\"--ignore-scripts\"]"
       }
+    },
+    "craftkit": {
+      "type": "stdio",
+      "command": "/Users/abode/.nvm/versions/node/v24.19.0/bin/node",
+      "args": ["/Users/abode/Documents/craftkit-builder/frontend/apps/mcp-server/dist/main.js"]
     }
   }
 }

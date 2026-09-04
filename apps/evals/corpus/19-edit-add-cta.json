@@ -7,20 +7,14 @@
   "request": "Put a sign-up call to action at the very bottom of the page.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "anyBlockTypes": [
-      "cta",
-      "promoBanner",
-      "newsletter"
-    ]
+    "anyBlockTypes": ["cta", "promoBanner", "newsletter"]
   },
   "budget": {
     "maxCommands": 4,

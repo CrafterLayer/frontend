@@ -70,7 +70,17 @@ describe('runEvalCase, offline', () => {
       })(),
     });
     expect(output.metrics.contextTokens).toBeGreaterThan(0);
-    expect(output.metrics.contextFragments).toBeGreaterThan(0);
+    /*
+      Fragments are DATA contributions — what an `aiContext` provider adds to a
+      prompt — and the production catalog registers schemas only, so a run
+      against it legitimately assembles none. Asserting "greater than zero" here
+      was true of the six-block test fixture and became a false alarm the moment
+      the harness started measuring the real vocabulary. What matters is that
+      the metric is reported at all, and that the token count above proves
+      context assembly actually ran.
+    */
+    expect(Number.isInteger(output.metrics.contextFragments)).toBe(true);
+    expect(output.metrics.contextFragments).toBeGreaterThanOrEqual(0);
     expect(output.metrics.elapsedMs).toBe(25);
   });
 
@@ -93,9 +103,10 @@ describe('runEvalCase, offline', () => {
     */
     for (const evalCase of corpus) {
       const output = await runEvalCase(evalCase, offline);
-      expect(['plan', 'refusal'], `${evalCase.id} crashed: ${output.failure?.message ?? ''}`).toContain(
-        output.outcome,
-      );
+      expect(
+        ['plan', 'refusal'],
+        `${evalCase.id} crashed: ${output.failure?.message ?? ''}`,
+      ).toContain(output.outcome);
       if (output.outcome !== 'plan') continue;
       expect(gradePlanValidates(output), `${evalCase.id} produced an invalid plan`).toMatchObject({
         pass: true,

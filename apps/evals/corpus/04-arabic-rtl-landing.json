@@ -7,23 +7,15 @@
   "request": "أنشئ صفحة هبوط لمنصة حجز مواعيد للعيادات: قسم رئيسي يشرح الفكرة، ثلاث مزايا، آراء عملاء، ودعوة للتسجيل.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 3,
     "maxCommands": 24,
-    "anyBlockTypes": [
-      "hero"
-    ],
-    "allBlockTypes": [
-      "hero",
-      "features",
-      "testimonials"
-    ]
+    "anyBlockTypes": ["hero"],
+    "allBlockTypes": ["hero", "features", "testimonials"]
   },
   "budget": {
     "maxCommands": 24,

@@ -7,18 +7,14 @@
   "request": "Show the product capabilities as a bento grid, with one large tile and three small ones.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "allBlockTypes": [
-      "bento-grid"
-    ]
+    "allBlockTypes": ["bento-grid"]
   },
   "budget": {
     "maxCommands": 4,

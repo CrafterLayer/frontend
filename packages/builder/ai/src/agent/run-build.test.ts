@@ -264,8 +264,9 @@ describe('runAiBuild', () => {
       'build.completed',
     ]);
     expect(
-      buildEvents(events)
-        .flatMap((event) => (event.type === 'task.completed' ? [event.position] : [])),
+      buildEvents(events).flatMap((event) =>
+        event.type === 'task.completed' ? [event.position] : [],
+      ),
     ).toEqual([1, 2, 3]);
     expect(events.every((event) => Object.isFrozen(event))).toBe(true);
   });
@@ -421,8 +422,9 @@ describe('runAiBuild', () => {
       'build.completed',
     ]);
     expect(
-      buildEvents(events)
-        .flatMap((event) => (event.type === 'task.completed' ? [event.position] : [])),
+      buildEvents(events).flatMap((event) =>
+        event.type === 'task.completed' ? [event.position] : [],
+      ),
     ).toEqual([1, 2, 3]);
   });
 

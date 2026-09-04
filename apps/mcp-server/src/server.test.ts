@@ -130,6 +130,43 @@ afterEach(async () => {
   await Promise.all(openHarnesses.splice(0).map((client) => client.close()));
 });
 
+describe('the catalog a host gets with no configuration', () => {
+  /*
+    Every other test in this file overrides `extensions` with a single toy
+    block, which is right for exercising the tools and blind to the question
+    that decides whether this server is worth connecting at all: what vocabulary
+    does a client get out of the box? It used to be the page root alone — a
+    builder that can frame a page and put nothing in it. This test is the guard
+    on that not regressing.
+  */
+  it('ships the real marketing vocabulary, not just the page root', async () => {
+    const server = createCraftkitMcpServer({ store: createMemoryDocumentStore() });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'default-catalog', version: '0.0.0' });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    openHarnesses.push(client);
+
+    const result = (await client.callTool({
+      name: 'craftkit_catalog',
+      arguments: {},
+    })) as ToolCallResult;
+    const first = result.content?.[0];
+    if (first?.type !== 'text' || first.text === undefined) {
+      throw new Error(`Expected a text result, got ${JSON.stringify(result)}`);
+    }
+    const body = JSON.parse(first.text) as { blocks: { type: string }[] };
+    const types = new Set(body.blocks.map(({ type }) => type));
+
+    expect(types.has('page')).toBe(true);
+    // The four a real request is answered with, and the ones a page-root-only
+    // catalog could never offer.
+    for (const type of ['hero', 'pricing', 'faq', 'testimonials']) {
+      expect(types.has(type), type).toBe(true);
+    }
+    expect(types.size).toBeGreaterThan(30);
+  });
+});
+
 describe('the CraftKit MCP server', () => {
   it('advertises every tool with an input schema a client can read', async () => {
     const harness = await connect();
@@ -162,7 +199,10 @@ describe('the CraftKit MCP server', () => {
     // The registry is the source of truth, so a host-registered block appears
     // beside the built-in root with no code change in the catalog tool.
     expect(hero).toBeDefined();
-    expect(page?.slots).toMatchObject({ default: { allow: expect.arrayContaining(['hero']) } });
+    // `expect.arrayContaining` is typed `any`; parking it in an `unknown` keeps
+    // the matcher's meaning while satisfying no-unsafe-assignment.
+    const allowsHero: unknown = expect.arrayContaining(['hero']);
+    expect(page?.slots).toMatchObject({ default: { allow: allowsHero } });
     // The props arrive as JSON Schema, not as an opaque zod object.
     expect(page?.props).toMatchObject({ type: 'object' });
     expect(hero?.props).toMatchObject({ properties: { headline: { type: 'string' } } });

@@ -1365,27 +1365,27 @@ one gate that never existed — "does the process start" — now does.
 
 - [x] T274 [US10] **The split build reaches the product.** The orchestrator had been finished and
       tested for hours while the app called it zero times, so a ten-section request was still one
-      giant call. Now `ask()` routes to `runAiBuild` when the request activates one of the three page
-      archetypes and the mode is Ask or Auto; **Plan never builds** (the skeleton applies, and Plan's
-      whole promise is that nothing does), and a small request keeps the single call byte for byte.
-      Added to the orchestrator first: `onPlanned`, the ONE approval point — asked after the skeleton
-      is down and before any section is filled, because the approval a person wants is on the LIST,
-      not on each of eight sections; refusing keeps the skeleton, which is an ordinary undoable
-      transaction. The panel gained a pure `AssistantPanel.build.ts` reducer (18 tests), a `building`
-      turn rendering the task list with the existing live clock nested in the open row and an ETA
-      from that build's own measured durations, the approval card, and the report with per-task Undo
-      (undo-through by transaction label, since the kernel exposes only a linear stack) and Retry
-      skipped. A revived `building` turn becomes stopped-with-receipt like `thinking` already did.
-      One existing test legitimately changed: it asked "ابني صفحة كاملة", which now correctly routes
-      to a build. Gates: playground 268/268, typecheck and lint clean, theme 26/26, Storybook 17/17
-      in Chromium including BuildAwaitingApproval, BuildInFlight and BuildReportWithSkips. Verified
-      live as far as time allowed: the request routed to the build path ("Working on the page
-      skeleton") and Stop produced "Stopped after 03:51.983 at Structure". CORRECTION: that stop was
-      first recorded here as a credentials failure. It was not. The log tailed was this session's own
-      scratchpad log, last written at 18:02, while the live server had started at 23:55 — a stale file
-      read as current. The server was credentialed and the run was simply slow (the CLI backend
-      writes ~80 output tokens/second, and one of its runs that day took 6m40s for an 8,805-character
-      plan). The cancellation cut off a working run.
+      giant call. Now `ask()` routes to `runAiBuild` when the request activates one of the three
+      page archetypes and the mode is Ask or Auto; **Plan never builds** (the skeleton applies, and
+      Plan's whole promise is that nothing does), and a small request keeps the single call byte for
+      byte. Added to the orchestrator first: `onPlanned`, the ONE approval point — asked after the
+      skeleton is down and before any section is filled, because the approval a person wants is on
+      the LIST, not on each of eight sections; refusing keeps the skeleton, which is an ordinary
+      undoable transaction. The panel gained a pure `AssistantPanel.build.ts` reducer (18 tests), a
+      `building` turn rendering the task list with the existing live clock nested in the open row
+      and an ETA from that build's own measured durations, the approval card, and the report with
+      per-task Undo (undo-through by transaction label, since the kernel exposes only a linear
+      stack) and Retry skipped. A revived `building` turn becomes stopped-with-receipt like
+      `thinking` already did. One existing test legitimately changed: it asked "ابني صفحة كاملة",
+      which now correctly routes to a build. Gates: playground 268/268, typecheck and lint clean,
+      theme 26/26, Storybook 17/17 in Chromium including BuildAwaitingApproval, BuildInFlight and
+      BuildReportWithSkips. Verified live as far as time allowed: the request routed to the build
+      path ("Working on the page skeleton") and Stop produced "Stopped after 03:51.983 at
+      Structure". CORRECTION: that stop was first recorded here as a credentials failure. It was
+      not. The log tailed was this session's own scratchpad log, last written at 18:02, while the
+      live server had started at 23:55 — a stale file read as current. The server was credentialed
+      and the run was simply slow (the CLI backend writes ~80 output tokens/second, and one of its
+      runs that day took 6m40s for an 8,805-character plan). The cancellation cut off a working run.
 
 - [x] T275 [US10] **The vault: nothing is lost.** The playground never persisted anything — the
       kernel was rebuilt from the fixture on every load, so a refresh erased whatever had been
@@ -1398,8 +1398,8 @@ one gate that never existed — "does the process start" — now does.
       persistence must not take the app down); the adapter, whose writes are serialised per document
       so two rapid transactions cannot interleave a read-modify-write, and whose conflict rejection
       does not poison later writes; a snapshot shelf (index stored apart from bodies so `list()` is
-      one read, eviction by count then bytes, deterministic ids, and a snapshot bigger than the whole
-      cap is still stored); and the revert, which is the only legal one — project → parse →
+      one read, eviction by count then bytes, deterministic ids, and a snapshot bigger than the
+      whole cap is still stored); and the revert, which is the only legal one — project → parse →
       `kernel.dispatch('applyPatches')`, ONE transaction that one undo reverses. The inverse-patch
       approach the plan originally proposed was rejected during investigation: array indices in
       stored inverses are position-dependent and were recorded against intermediate states.
@@ -1408,9 +1408,9 @@ one gate that never existed — "does the process start" — now does.
       you left off" notice and a Start over button. Two notice defects found and fixed in the same
       pass: `\u2014`/`\u00d7` written as JSX text render literally (six characters, not a dash), and
       a 208px max width turned one sentence into a nine-line column covering the Inspector. Gates:
-      playground 268/268, typecheck and lint clean, theme 26/26. NOTE: the workflow's two adversarial
-      verifiers stalled and never ran; the durability claim rests on the live reload above and on the
-      31 vault tests, not on their review.
+      playground 268/268, typecheck and lint clean, theme 26/26. NOTE: the workflow's two
+      adversarial verifiers stalled and never ran; the durability claim rests on the live reload
+      above and on the 31 vault tests, not on their review.
 
 - [x] T276 [US10] **A headless door on the umbrella, so a Node service stops reaching past it.**
       `pnpm check:workspace` failed with two violations: `apps/ai-server` depends on
@@ -1436,14 +1436,82 @@ one gate that never existed — "does the process start" — now does.
       claims sections off a shared cursor while the lander awaits each section's slot in page order
       and calls `applyAiPlan` itself. Ordering is preserved because apply re-validates against the
       LIVE kernel at the moment it lands, so a proposal written against an older document is refused
-      rather than applied blind — the same door that already protected the sequential build.
-      A stop settles every unclaimed slot as `not-started` so nothing waits on a section that will
-      never be written, and work already in flight still lands: `build.stopped` therefore precedes
-      the completion of the section it interrupted, which is honest — it means "no further section
-      will be STARTED". The proof is a latch no single section can open: three fills must be inside
-      the provider simultaneously or the test times out, and they are released last-first to prove
-      the transactions still read 1/3, 2/3, 3/3. Mutation-checked — forcing the default to 1 hangs
-      that test. `fillConcurrency: 1` restores the old behaviour exactly. builder-ai 435/435, lint
-      and typecheck clean.
+      rather than applied blind — the same door that already protected the sequential build. A stop
+      settles every unclaimed slot as `not-started` so nothing waits on a section that will never be
+      written, and work already in flight still lands: `build.stopped` therefore precedes the
+      completion of the section it interrupted, which is honest — it means "no further section will
+      be STARTED". The proof is a latch no single section can open: three fills must be inside the
+      provider simultaneously or the test times out, and they are released last-first to prove the
+      transactions still read 1/3, 2/3, 3/3. Mutation-checked — forcing the default to 1 hangs that
+      test. `fillConcurrency: 1` restores the old behaviour exactly. builder-ai 435/435, lint and
+      typecheck clean.
 
-**Total after the concurrency phase**: 277 tasks.
+- [x] T278 [US10] **Five libraries, chosen against the gaps rather than the hype.** The owner asked
+      which external tooling would strengthen the agent. Four were adopted and wired, one is blocked
+      on another session: `promptfoo` (plan quality was measured by nothing — 435 unit tests, none
+      of which ever called a model), `p-retry` (a ten-section build is eleven calls and one dropped
+      connection killed a section outright), `pixelmatch` (the product GENERATES pages and nothing
+      looked at them), `@modelcontextprotocol/sdk` (the builder was reachable only from its own UI),
+      and `jsonrepair` for `apps/ai-server`, whose files belong to another session and were dirty —
+      the patch was written and sent instead of applied. Rejected with reasons: the AutoGen family
+      (Python/.NET, and in maintenance since Microsoft folded it into Agent Framework), `p-queue`,
+      `idb`, and Yjs until multiplayer is real. Seven catalog entries, two scoped
+      `peerDependencyRules` for promptfoo's mongodb/nunjucks transitives, and five explicit
+      `allowBuilds: false` decisions pnpm 11 demanded once promptfoo pulled in onnxruntime-node,
+      sharp, protobufjs and @swc/core — declining keeps the status quo, and the four untouched
+      builder packages were re-run to prove it: 1010 tests still green.
+
+- [x] T279 [US10] **A schema-only door on the block pack, which is what made the rest worth
+      having.** Both new Node members could reach the kernel but not the vocabulary: every pack
+      pairs each schema with the component that draws it, so its entry reaches
+      `@craftkit/builder-renderer` and DOM globals. The MCP server therefore offered clients a page
+      root with nothing to put inside it, and the eval harness scored the assistant against the
+      kernel's six test fixtures while documenting that the number "is a statement about this
+      catalog, not about the assistant". The schemas were already separate files importing zod and
+      `@craftkit/builder-schema` and nothing else, so `blocks-marketing/src/schemas.ts` exports all
+      32 in the manifest's own order behind a new `./schemas` entry. One real edge blocked it —
+      `section-motion.ts` mixed the motion vocabulary with a render helper that called into the
+      renderer — so the helper moved to `section-motion-attributes.ts` and 32 components had their
+      import rewritten; the pack's 310 tests confirm nothing moved but the import.
+      `schemas.node.test.ts` walks the barrel's REAL import graph (stripping type-only statements,
+      which is the false positive that pushed the other doors to read manifests instead) and pins
+      the whole external surface to two packages; it also asserts the barrel matches
+      `contributes.blocks` exactly, because two hand-maintained lists of the same thing drift.
+      `headless.node.test.ts` learned the one rule it could not express before: a subpath carrying
+      its own graph proof is judged by that proof, and importing the pack's main entry still fails.
+
+- [x] T280 [US10] **The agent can now be measured, and it is measured against the real catalog.**
+      `apps/evals` runs 24 corpus cases through the actual pipeline — context assembly, the real
+      provider, the real validator, a real kernel — and scores them with deterministic TypeScript
+      graders plus one rubric. `pnpm eval` runs offline with no key: 24 cases in 2 seconds, 19 pass,
+      5 fail, 0 errors. The five are honest signal, not noise: the deterministic local provider
+      cannot edit an existing page (cases 05, 20, 24) and does not refuse the two impossible
+      requests (07, 08). Four defects were found and fixed on the way. The coverage grader gave
+      REFUSAL free credit — half its clauses are negative ("at most six commands", "does not insert
+      another hero") and inaction satisfies them vacuously, so a refusal scored 0.2 for covering
+      nothing, which would quietly train the prompt toward refusing. The starter fixture's node ids
+      were literals that silently became wrong under the real catalog, where `hero` mints an id of
+      its own; they are computed from the built fixture now, because a case whose
+      `requiredTargetNodeIds` names a node that does not exist is an eval measuring nothing. A
+      `contextFragments > 0` assertion was true of the fixture catalog and false of a schema-only
+      one. And the build shipped broken while every test passed: Rollup reads immer's
+      `sideEffects: false` as licence to delete `enablePatches()`, so the harness died on its first
+      document with "[Immer] The plugin for 'Patches' has not been loaded" — `treeshake: false`, the
+      same fix and the same comment the MCP server already carried.
+
+- [x] T281 [US10] **The builder is now something other agents can build in.** `apps/mcp-server`
+      exposes six tools over stdio — catalog, open, read, apply_plan, history, undo — and
+      `apply_plan` is the one that matters: it runs a proposal through the same validator and lands
+      it as ONE transaction, so a client gets the kernel's refusal reasons verbatim instead of a
+      corrupted document. Registered in `.mcp.json`; smoke-tested as a built artifact over real
+      stdio, not just through the in-memory transport. Its default vocabulary is the page root plus
+      the 32 marketing schemas, guarded by a test that fails when the default reverts to the root
+      alone — mutation-checked both ways. Also wired: `p-retry` in the playground, retrying only
+      what a retry can fix (network, timeout, 408/429/5xx) and never a refusal or invalid output,
+      with full jitter and an abort that stops mid-backoff rather than sleeping it out;
+      `pixelmatch`/`pngjs` behind a comparator that distinguishes "the edit did nothing" from "the
+      edit moved something it should not have", with PNG fixtures generated in the tests rather than
+      committed. Gates: evals 137, playground 286, mcp-server 13, blocks-marketing 310, headless
+      door 6; lint and typecheck clean on all five; workspace contract 33 members.
+
+**Total after the tooling phase**: 281 tasks.

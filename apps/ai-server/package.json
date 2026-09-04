@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "vite build",
-    "dev": "vite build && node --env-file-if-exists=.env dist/main.js",
+    "dev": "sh scripts/dev.sh",
     "start": "node --env-file-if-exists=.env dist/main.js",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --config vitest.config.ts",

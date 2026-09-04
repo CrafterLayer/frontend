@@ -7,24 +7,15 @@
   "request": "Build a landing page for Northstar, a tool that turns customer interviews into product decisions. It needs a strong hero, a few reasons to believe, social proof, and one clear sign-up call to action at the end.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 4,
     "maxCommands": 24,
-    "anyBlockTypes": [
-      "hero"
-    ],
-    "allBlockTypes": [
-      "hero",
-      "features",
-      "testimonials",
-      "cta"
-    ]
+    "anyBlockTypes": ["hero"],
+    "allBlockTypes": ["hero", "features", "testimonials", "cta"]
   },
   "budget": {
     "maxCommands": 24,

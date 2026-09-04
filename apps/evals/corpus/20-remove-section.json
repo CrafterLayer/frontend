@@ -7,20 +7,14 @@
   "request": "Delete the features section, we are cutting that from the page.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
-    "requiredTargetNodeIds": [
-      "ev-0002"
-    ]
+    "requiredTargetNodeIds": ["ev-0002"]
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 3,
-    "anyCommands": [
-      "removeNode"
-    ]
+    "anyCommands": ["removeNode"]
   },
   "budget": {
     "maxCommands": 3,

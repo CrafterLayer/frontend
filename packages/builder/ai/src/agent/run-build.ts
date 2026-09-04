@@ -527,9 +527,10 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
   for (const [index, task] of tasks.entries()) {
     const position = index + 1;
     const slot = slots[index];
-    const written: Written = slot === undefined
-      ? { kind: 'not-started', reason: notStartedReason('max-tasks') }
-      : await slot.written;
+    const written: Written =
+      slot === undefined
+        ? { kind: 'not-started', reason: notStartedReason('max-tasks') }
+        : await slot.written;
 
     /*
       Whatever this section's fate — landed, skipped, never started — the
@@ -549,8 +550,20 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
           the page keeps its shape and the next section still gets its turn.
         */
         skipped += 1;
-        reports.push({ ...task, status: 'skipped', attempts: written.attempts, reason: written.reason });
-        emit({ type: 'task.skipped', position, total, task, attempts: written.attempts, reason: written.reason });
+        reports.push({
+          ...task,
+          status: 'skipped',
+          attempts: written.attempts,
+          reason: written.reason,
+        });
+        emit({
+          type: 'task.skipped',
+          position,
+          total,
+          task,
+          attempts: written.attempts,
+          reason: written.reason,
+        });
         continue;
       }
 

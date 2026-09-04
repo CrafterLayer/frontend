@@ -71,6 +71,30 @@ export function gradeCoverage(output: EvalRunOutput, evalCase: EvalCase): GradeR
     return { pass: true, score: 1, reason: 'This case declares no coverage clauses.' };
   }
 
+  /*
+    No plan means no coverage — zero, not partial.
+
+    Half of these clauses are NEGATIVE: "at most six commands", "does not insert
+    another hero". An answer that produced nothing satisfies every one of them
+    vacuously, so a refusal to an answerable request was collecting free credit
+    and scoring 0.2 while having covered exactly nothing. Free credit for
+    inaction is the single thing a coverage metric must never give, because it
+    makes refusing safer than trying — and a corpus that rewards refusal will
+    quietly train the prompt toward it.
+
+    `pass` stays true because this grader measures how MUCH of the brief was
+    answered, not whether answering was required. Whether a refusal was
+    legitimate is the outcome grader's question, and it is asked there against
+    the case's own `must.outcome`.
+  */
+  if (plan === null) {
+    return {
+      pass: true,
+      score: 0,
+      reason: `Coverage 0% — no plan was produced, so none of the ${String(clauses.length)} clause(s) were covered.`,
+    };
+  }
+
   const met = clauses.filter((clause) => clause.met);
   const missed = clauses.filter((clause) => !clause.met);
   const score = met.length / clauses.length;

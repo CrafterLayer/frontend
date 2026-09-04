@@ -7,19 +7,14 @@
   "request": "Add a contact form at the bottom with fields for name, work email, company size and a message, and a button that says Talk to us.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "anyBlockTypes": [
-      "formSection",
-      "contact"
-    ]
+    "anyBlockTypes": ["formSection", "contact"]
   },
   "budget": {
     "maxCommands": 4,

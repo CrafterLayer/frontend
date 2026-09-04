@@ -40,7 +40,11 @@
  * truth for what a document may contain — so a service that reports its own
  * catalog from `kernel.context.registry` is telling the truth in both cases.
  */
-import type { BlockRenderComponent, BlockSchema, TrustedExtensionManifest } from '@craftkit/builder-schema';
+import type {
+  BlockRenderComponent,
+  BlockSchema,
+  TrustedExtensionManifest,
+} from '@craftkit/builder-schema';
 
 import { pageExamples } from './components/Page/examples';
 import { pageSchema } from './components/Page/schema';
@@ -119,7 +123,24 @@ export {
   applyAiPlan,
   assembleAiContext,
   assertValidAiPlan,
+  /*
+    A run that THREW is not automatically a run that failed: a provider
+    refusing an impossible request and a provider that could not be reached are
+    the same exception type to JavaScript and opposite events to anyone
+    measuring the agent. `classifyAiRunFailure` is the only place that
+    distinction survives, so a headless harness that reports outcomes needs it
+    as much as the editor does.
+  */
+  classifyAiRunFailure,
   createLocalAiPlanProvider,
+  /*
+    The REMOTE provider belongs on this door too. It reaches a model over
+    `fetch`, which Node has had as a global since 18 — nothing here touches a
+    document or a DOM — and without it a headless service can only talk to the
+    deterministic local provider, which is to say it can never be measured
+    against a real model.
+  */
+  createRemoteAiPlanProvider,
   generateAiPlan,
   previewAiPlan,
   resolveAiCommandPolicy,
@@ -142,6 +163,10 @@ export {
   type AppliedAiPlan,
   type ApplyAiPlanOptions,
   type AssembledAiContext,
+  type AiRunFailure,
+  type AiRunFailureCode,
+  type AiRunFailureSource,
+  type RemoteAiPlanProviderOptions,
   type RunAiAgentOptions,
   type RunAiBuildOptions,
 } from '@craftkit/builder-ai';
@@ -204,3 +229,23 @@ export const craftkitHeadlessBlocks: TrustedExtensionManifest = headlessBlockMan
   '0.1.0',
   [{ ...pageSchema, examples: pageExamples }],
 );
+
+/*
+  The REAL block vocabulary, and the one thing this door could not offer until
+  now.
+
+  Every block pack pairs its schemas with the components that draw them, so its
+  main entry reaches `@craftkit/builder-renderer` and its DOM globals — which is
+  why no pack appears in the runtime block above, and why a headless host was
+  left registering the kernel's six test fixtures and calling it a catalog. An
+  eval scored against that measures the fixture, not the product; an MCP server
+  built on it can offer a client a page root and nothing to put inside it.
+
+  `@craftkit/builder-blocks-marketing/schemas` is a second entry on that pack
+  carrying the thirty-two schemas alone. Its own `schemas.node.test.ts` walks
+  the barrel's real import graph and pins the full external set to
+  `@craftkit/builder-schema` and `zod`, so the guarantee is proved where the
+  code lives rather than assumed here. `headlessBlockManifest` turns these into
+  something `createBuilder` accepts.
+*/
+export { marketingBlockSchemas } from '@craftkit/builder-blocks-marketing/schemas';

@@ -7,22 +7,15 @@
   "request": "Create a pricing page with three plans — Starter, Team and Enterprise — a short FAQ underneath about billing, and a final call to action.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 3,
     "maxCommands": 24,
-    "anyBlockTypes": [
-      "pricing"
-    ],
-    "allBlockTypes": [
-      "pricing",
-      "faq"
-    ]
+    "anyBlockTypes": ["pricing"],
+    "allBlockTypes": ["pricing", "faq"]
   },
   "budget": {
     "maxCommands": 24,

@@ -7,21 +7,14 @@
   "request": "Make the hero section dark with light text so it stands out from the rest of the page.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
-    "requiredTargetNodeIds": [
-      "ev-0001"
-    ]
+    "requiredTargetNodeIds": ["ev-0001"]
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "anyCommands": [
-      "setProp",
-      "setProps"
-    ]
+    "anyCommands": ["setProp", "setProps"]
   },
   "budget": {
     "maxCommands": 4,

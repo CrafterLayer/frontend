@@ -7,24 +7,15 @@
   "request": "Change the hero headline to \"Ship the page, not the ticket\" and make the subtext shorter.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
-    "requiredTargetNodeIds": [
-      "ev-0001"
-    ]
+    "requiredTargetNodeIds": ["ev-0001"]
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 6,
-    "anyCommands": [
-      "setProp",
-      "setProps"
-    ],
-    "forbiddenBlockTypes": [
-      "hero"
-    ]
+    "anyCommands": ["setProp", "setProps"],
+    "forbiddenBlockTypes": ["hero"]
   },
   "budget": {
     "maxCommands": 6,

@@ -52,6 +52,23 @@ export default defineConfig({
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
       },
+      /*
+        Not a precaution — without it this harness builds cleanly and then dies
+        on the first case with "[Immer] The plugin for 'Patches' has not been
+        loaded", which is exactly what happened the first time `pnpm eval` was
+        run end to end.
+
+        `packages/builder/core/src/patches/immer.ts` is a side-effect module: it
+        calls `enablePatches()` once at import, because immer's patch plugin is
+        opt-in and process-wide. immer's manifest declares `sideEffects: false`,
+        which Rollup reads as a promise that calling its exports does nothing
+        observable, so it deletes the call and keeps every line that depends on
+        it. Vitest never notices because it loads modules instead of bundling
+        them: the 137 tests in this package pass against a build that cannot
+        create a single document. `apps/mcp-server` carries the same comment for
+        the same reason.
+      */
+      treeshake: false,
     },
   },
   ssr: {

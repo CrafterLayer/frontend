@@ -49,9 +49,10 @@ export default class CraftkitPlanProvider {
 
   constructor(options: PromptfooProviderOptions = {}) {
     const configuredMode = options.config?.['mode'];
-    this.mode = configuredMode === 'live' || configuredMode === 'offline'
-      ? configuredMode
-      : resolveEvalMode();
+    this.mode =
+      configuredMode === 'live' || configuredMode === 'offline'
+        ? configuredMode
+        : resolveEvalMode();
     this.providerId = options.id ?? `craftkit:plan:${this.mode}`;
   }
 

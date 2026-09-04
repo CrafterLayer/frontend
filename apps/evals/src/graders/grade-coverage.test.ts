@@ -49,10 +49,7 @@ describe('gradeCoverage', () => {
       runOutput({ plan: planWith([insert('hero'), insert('features'), insert('cta')]) }),
       threeSections,
     );
-    const nothing = gradeCoverage(
-      runOutput({ plan: planWith([insert('cta')]) }),
-      threeSections,
-    );
+    const nothing = gradeCoverage(runOutput({ plan: planWith([insert('cta')]) }), threeSections);
     expect(nearly.score).toBeGreaterThan(nothing.score);
     expect(nothing.score).toBeGreaterThanOrEqual(0);
   });
@@ -70,10 +67,7 @@ describe('gradeCoverage', () => {
     const noSecondHero = evalCase({
       should: { anyCommands: ['setProp'], forbiddenBlockTypes: ['hero'] },
     });
-    const duplicated = gradeCoverage(
-      runOutput({ plan: planWith([insert('hero')]) }),
-      noSecondHero,
-    );
+    const duplicated = gradeCoverage(runOutput({ plan: planWith([insert('hero')]) }), noSecondHero);
     const edited = gradeCoverage(
       runOutput({
         plan: planWith([

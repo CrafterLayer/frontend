@@ -7,6 +7,8 @@ import {
   blockPropsJsonSchema,
   commandArgsJsonSchema,
   craftkitHeadlessBlocks,
+  headlessBlockManifest,
+  marketingBlockSchemas,
   createBuilder,
   resolveAiCommandPolicy,
   systemClock,
@@ -23,7 +25,11 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder/headless';
 
-import { createMemoryDocumentStore, type DocumentSession, type DocumentStore } from './document-store';
+import {
+  createMemoryDocumentStore,
+  type DocumentSession,
+  type DocumentStore,
+} from './document-store';
 
 export interface CraftkitMcpServerOptions {
   /** Where open documents live. Defaults to an in-process map. */
@@ -47,23 +53,24 @@ export interface CraftkitMcpServerOptions {
    */
   preflightPorts?: () => AiValidationPorts;
   /**
-   * Block vocabulary beyond the structural root.
+   * Block vocabulary REPLACING the default, for a host that wants its own.
    *
-   * A Node process cannot import a CraftKit block pack — every pack reaches
-   * `react-dom` and DOM globals through the renderer — so the headless door
-   * ships the page root and nothing else. A host with more schemas registers
-   * them here (see `headlessBlockManifest`), and `craftkit_catalog` reports
-   * whatever ends up in the registry rather than a hard-coded list, so the
-   * answer stays true either way.
+   * The default is the page root plus the thirty-two marketing schemas — the
+   * vocabulary the product actually ships — reached through
+   * `@craftkit/builder-blocks-marketing/schemas`, a schema-only entry on that
+   * pack whose own guard test pins its entire import graph to
+   * `@craftkit/builder-schema` and `zod`. Before that entry existed this server
+   * could offer a client a page root and nothing to put inside it, which is a
+   * builder that cannot build.
+   *
+   * `craftkit_catalog` reports whatever ends up in the registry rather than a
+   * hard-coded list, so the answer stays true under any override.
    */
   extensions?: readonly TrustedExtensionManifest[];
 }
 
 /** The document-shaped half of every tool's input, described once. */
-const documentIdArg = z
-  .string()
-  .min(1)
-  .describe('The id returned by craftkit_open_document.');
+const documentIdArg = z.string().min(1).describe('The id returned by craftkit_open_document.');
 
 const planArg = z
   .object({
@@ -86,7 +93,9 @@ const planArg = z
     followUp: z
       .string()
       .optional()
-      .describe('Optional wording for the next request when this plan is one stage of a larger job.'),
+      .describe(
+        'Optional wording for the next request when this plan is one stage of a larger job.',
+      ),
   })
   .describe('An AI plan: exactly the shape @craftkit/builder-ai providers emit.');
 
@@ -158,9 +167,16 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
   const ids = options.ports?.ids ?? systemIds;
   const clock = options.ports?.clock ?? systemClock;
   const preflightPorts = options.preflightPorts ?? (() => ({ clock: systemClock, ids: systemIds }));
+  /*
+    Two manifests, not one merged list: the root contributes `page` and the
+    pack contributes only sections, and two manifests declaring the same block
+    type is a registry conflict rather than a merge.
+  */
   const extensions: TrustedExtensionManifest[] = [
     craftkitHeadlessBlocks,
-    ...(options.extensions ?? []),
+    ...(options.extensions ?? [
+      headlessBlockManifest('blocks-marketing-schemas', '0.1.0', marketingBlockSchemas),
+    ]),
   ];
 
   function newKernel(document?: BuilderDocument): BuilderKernel {
@@ -310,7 +326,8 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
         if (errors.length > 0) {
           return refusal({
             error: 'invalid-document',
-            message: 'The supplied document is not valid against this registry; nothing was opened.',
+            message:
+              'The supplied document is not valid against this registry; nothing was opened.',
             errors: errors.map(serializeError),
           });
         }
@@ -350,7 +367,7 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
         'Run a plan through the REAL CraftKit validator and, if it passes, apply every command ' +
         'as ONE transaction — one history entry, one undo, all-or-nothing. A plan that names an ' +
         'unknown command, sends malformed arguments, or would leave the document invalid is ' +
-        'REFUSED, and the validator\'s own reasons come back unchanged so they can be repaired ' +
+        "REFUSED, and the validator's own reasons come back unchanged so they can be repaired " +
         'and resubmitted. Nothing is half-applied.',
       inputSchema: {
         documentId: documentIdArg,

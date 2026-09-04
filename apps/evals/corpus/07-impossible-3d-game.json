@@ -7,9 +7,7 @@
   "request": "Turn this page into a playable multiplayer 3D racing game with physics, matchmaking servers and voice chat.",
   "must": {
     "outcome": "refusal",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },

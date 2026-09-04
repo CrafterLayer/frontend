@@ -7,18 +7,14 @@
   "request": "Add three customer testimonials with names and job titles.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "allBlockTypes": [
-      "testimonials"
-    ]
+    "allBlockTypes": ["testimonials"]
   },
   "budget": {
     "maxCommands": 4,

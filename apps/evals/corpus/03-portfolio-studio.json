@@ -7,24 +7,15 @@
   "request": "I run a two-person design studio. Make me a portfolio page: who we are, six selected projects with images, the services we sell, and a contact form.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 4,
     "maxCommands": 24,
-    "anyBlockTypes": [
-      "portfolioGrid",
-      "gallery",
-      "grid"
-    ],
-    "allBlockTypes": [
-      "portfolioGrid",
-      "contact"
-    ]
+    "anyBlockTypes": ["portfolioGrid", "gallery", "grid"],
+    "allBlockTypes": ["portfolioGrid", "contact"]
   },
   "budget": {
     "maxCommands": 24,

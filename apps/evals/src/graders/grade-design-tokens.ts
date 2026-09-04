@@ -28,7 +28,9 @@ export function gradeDesignTokens(output: EvalRunOutput): GradeResult {
     return failed(
       `The plan hard-codes ${String(findings.length)} colour(s) the theme cannot reach: ${findings
         .map((finding) => `${finding.value} on ${finding.where} (${finding.reason})`)
-        .join(', ')}. Use a colour role such as bg-accent, text-text-muted, or a block's own tone prop.`,
+        .join(
+          ', ',
+        )}. Use a colour role such as bg-accent, text-text-muted, or a block's own tone prop.`,
     );
   }
   return passed('Every colour in the plan is expressed through the design system.');

@@ -7,19 +7,14 @@
   "request": "Add a slideshow of three product shots with captions, near the top of the page.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "anyBlockTypes": [
-      "carousel",
-      "gallery"
-    ]
+    "anyBlockTypes": ["carousel", "gallery"]
   },
   "budget": {
     "maxCommands": 4,

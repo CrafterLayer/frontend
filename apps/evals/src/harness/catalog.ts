@@ -1,6 +1,8 @@
 import {
   craftkitHeadlessBlocks,
   fixtureBlocks,
+  headlessBlockManifest,
+  marketingBlockSchemas,
   type TrustedExtensionManifest,
 } from './builder';
 
@@ -44,16 +46,21 @@ import {
  * miss and the coverage metric reads near its floor. That number is a statement
  * about this catalog, not about the assistant, and the README says so.
  */
-export type EvalCatalogName = 'kernel-fixtures' | 'page-root-only';
+export type EvalCatalogName = 'production' | 'kernel-fixtures' | 'page-root-only';
 
-export const DEFAULT_EVAL_CATALOG: EvalCatalogName = 'kernel-fixtures';
+export const DEFAULT_EVAL_CATALOG: EvalCatalogName = 'production';
 
 export function resolveEvalCatalog(
   env: Record<string, string | undefined> = process.env,
 ): EvalCatalogName {
-  return env['CRAFTKIT_EVAL_CATALOG'] === 'page-root-only'
-    ? 'page-root-only'
-    : DEFAULT_EVAL_CATALOG;
+  const requested = env['CRAFTKIT_EVAL_CATALOG'];
+  if (
+    requested === 'page-root-only' ||
+    requested === 'kernel-fixtures' ||
+    requested === 'production'
+  )
+    return requested;
+  return DEFAULT_EVAL_CATALOG;
 }
 
 /**
@@ -72,6 +79,19 @@ export function catalogFor(name: EvalCatalogName): TrustedExtensionManifest[] {
     it is what a headless host gets today, and running the corpus against it
     shows exactly what the missing schema door costs.
   */
+  if (name === 'production') {
+    /*
+      The page root plus the thirty-two marketing schemas: the vocabulary a real
+      request is actually answered with. The two manifests compose because the
+      root contributes `page` and the pack contributes only sections — the very
+      conflict this function's doc warns about is the reason they are separate
+      manifests rather than one merged list.
+    */
+    return [
+      craftkitHeadlessBlocks,
+      headlessBlockManifest('blocks-marketing-schemas', '0.1.0', marketingBlockSchemas),
+    ];
+  }
   return name === 'page-root-only' ? [craftkitHeadlessBlocks] : [fixtureBlocks];
 }
 

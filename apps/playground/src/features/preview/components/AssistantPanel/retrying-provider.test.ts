@@ -184,12 +184,7 @@ describe('createRetryingAiPlanProvider', () => {
 
   it('grows each backoff window and clamps it at the cap', async () => {
     const attempts: AiPlanRetryAttempt[] = [];
-    const inner = providerFailing([
-      networkError(),
-      networkError(),
-      networkError(),
-      networkError(),
-    ]);
+    const inner = providerFailing([networkError(), networkError(), networkError(), networkError()]);
     const provider = createRetryingAiPlanProvider(inner, {
       // A jitter source pinned to its ceiling makes the schedule the widest
       // window the policy allows, which is the thing worth asserting.
@@ -242,9 +237,7 @@ describe('createRetryingAiPlanProvider', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     await expect(proposal).resolves.toEqual(plan);
 
-    expect(attempts).toEqual([
-      { attempt: 1, maxAttempts: 3, delayMs: 1_000, error: failure },
-    ]);
+    expect(attempts).toEqual([{ attempt: 1, maxAttempts: 3, delayMs: 1_000, error: failure }]);
   });
 
   it('retries a repair over the same flaky wire, and mirrors an absent repair', async () => {

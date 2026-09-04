@@ -7,18 +7,14 @@
   "request": "Add a band of four numbers showing uptime, customers, countries and support response time.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "allBlockTypes": [
-      "stats"
-    ]
+    "allBlockTypes": ["stats"]
   },
   "budget": {
     "maxCommands": 4,

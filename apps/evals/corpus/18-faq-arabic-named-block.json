@@ -7,18 +7,14 @@
   "request": "أضف قسم أسئلة شائعة فيه أربعة أسئلة عن الشحن والدفع.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 4,
-    "allBlockTypes": [
-      "faq"
-    ]
+    "allBlockTypes": ["faq"]
   },
   "budget": {
     "maxCommands": 4,

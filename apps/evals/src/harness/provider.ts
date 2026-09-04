@@ -27,9 +27,7 @@ export function resolveEvalMode(env: Record<string, string | undefined> = proces
   return env['CRAFTKIT_EVAL_MODE'] === 'live' ? 'live' : 'offline';
 }
 
-export function resolveLiveEndpoint(
-  env: Record<string, string | undefined> = process.env,
-): string {
+export function resolveLiveEndpoint(env: Record<string, string | undefined> = process.env): string {
   return env['VITE_AI_PLAN_ENDPOINT'] ?? env['CRAFTKIT_AI_PLAN_ENDPOINT'] ?? DEFAULT_LIVE_ENDPOINT;
 }
 

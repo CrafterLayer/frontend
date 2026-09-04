@@ -142,9 +142,28 @@ export function blockPropStrings(plan: EvalPlanShape): readonly { key: string; v
   colour was hard-coded, which a pass/fail from the validator cannot.
 */
 const DEFAULT_PALETTE_FAMILIES = [
-  'slate', 'gray', 'zinc', 'neutral', 'stone', 'red', 'orange', 'amber', 'yellow', 'lime',
-  'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia',
-  'pink', 'rose',
+  'slate',
+  'gray',
+  'zinc',
+  'neutral',
+  'stone',
+  'red',
+  'orange',
+  'amber',
+  'yellow',
+  'lime',
+  'green',
+  'emerald',
+  'teal',
+  'cyan',
+  'sky',
+  'blue',
+  'indigo',
+  'violet',
+  'purple',
+  'fuchsia',
+  'pink',
+  'rose',
 ] as const;
 
 const DEFAULT_PALETTE = new RegExp(

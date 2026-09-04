@@ -7,18 +7,14 @@
   "request": "Use one of the ready-made marketing page templates to start this site off.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 6,
-    "anyCommands": [
-      "insertComposition"
-    ]
+    "anyCommands": ["insertComposition"]
   },
   "budget": {
     "maxCommands": 6,

@@ -48,6 +48,10 @@ of commands bypasses the invariant this package exists to preserve.
 - `runAiAgent()`, a UI-independent bounded coordinator with sequenced typed events, classified
   failures, injected time/run id, real cancellation plus host-owned supersession leases, one repair
   at most, review-only or automatic apply, and exactly one terminal event.
+- `runAiBuild()`, the split-page coordinator: one scaffold followed by section fills that are
+  written concurrently and landed in document order. Its automatic pool starts at three writers,
+  grows by one for each further group of three sections, and stops at six; callers may still pass
+  `fillConcurrency` for an exact fixed pool.
 
 ## Usage
 
@@ -87,6 +91,14 @@ stateful port instances: a preflight insertion consumes IDs in the scratch sessi
 must inject equivalent deterministic capabilities rather than reaching for ambient time or entropy.
 Low-level compatibility calls may pass `plan + policy` together; omitting policy or combining a
 validated proposal with substituted plan/policy data fails closed.
+
+### Split-build concurrency
+
+Omit `fillConcurrency` for the adaptive default. Three sections use three writers; four through six
+use four; seven through nine use five; and ten through twelve use six. The task count changes only
+how much provider latency overlaps—it does not add sections or model calls. Proposals still land in
+page order and are revalidated against the live kernel at that moment. Pass a number to hold an
+exact limit, including `1` for a fully sequential build.
 
 ## Skills and bounded agent runs
 
@@ -541,12 +553,12 @@ exemption from the theming law.
 
 ## Why `p-limit` is not a dependency
 
-The agent request path is deliberately sequential: resolve Skills, assemble context, propose,
-validate/repair once, then optionally apply. The development bridge also must not queue untrusted
-inbound work: it admits a bounded number of active requests and immediately returns `429` for the
-rest. `p-limit` would add a Promise queue but would not bound pending requests, so it is the wrong
-primitive for that security boundary. Reconsider it only when a trusted multi-page pipeline
-deliberately runs per-page provider calls in parallel and also owns an explicit pending-work cap.
+One agent request remains sequential: resolve Skills, assemble context, propose, validate/repair
+once, then optionally apply. `runAiBuild` owns its small bounded writer pool directly because the
+scaffold already gives it a finite task list and ordered landing slots. The development bridge must
+not queue untrusted inbound work: it admits bounded active requests and returns `429` for the rest.
+`p-limit` would add a Promise queue but would not bound pending requests, so it remains the wrong
+primitive for that security boundary.
 
 ## Taking this engine to another project
 

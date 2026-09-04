@@ -10,6 +10,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { createCraftkitAiSkillRegistry } from '../skills/builtins';
+import { createAiSkillRegistry } from '../skills/registry';
 import type { AiPlan, AiPlanProvider, AssembledAiContext } from '../types';
 import { AI_PLAN_MODE_SKILL_ID, outlineAiPlan } from './outline-plan';
 
@@ -212,6 +213,86 @@ describe('outlineAiPlan', () => {
       }),
     ).rejects.toThrow();
     expect(propose).not.toHaveBeenCalled();
+  });
+
+  it('refuses a blank plan rather than rendering an empty card', async () => {
+    /*
+      `AiOutline.rationale` promises "Never empty", and the check that enforces
+      it on the ordinary route lives in `validateAiPlan` — a door the outline
+      deliberately never reaches. Without this, a malformed server produced a
+      blank card, which reads as "the assistant answered and said nothing"
+      rather than as the failure it is.
+    */
+    await expect(
+      outlineAiPlan({
+        kernel: kernelOf(),
+        provider: providerReturning({ rationale: '   ', commands: [] }),
+        request: 'a clinic page',
+        skillRegistry: registry,
+      }),
+    ).rejects.toThrow(/empty plan/i);
+  });
+
+  it('still guards the abort AFTER the provider answers, not only before', async () => {
+    /*
+      A run cancelled while the model was mid-sentence must not settle a turn.
+      The post-provider check is the one that catches it, and it survived a
+      mutation until this test existed.
+    */
+    const controller = new AbortController();
+    const provider: AiPlanProvider = {
+      propose: () => {
+        controller.abort();
+        return Promise.resolve({ rationale: 'A plan.', commands: [] });
+      },
+    };
+
+    await expect(
+      outlineAiPlan({
+        kernel: kernelOf(),
+        provider,
+        request: 'a clinic page',
+        skillRegistry: registry,
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('does not name Plan’s skill to a registry that does not have it', async () => {
+    /*
+      `createAiSkillRegistry` defaults to an EMPTY catalog — the built-ins are
+      opt-in — and the panel publishes `skillRegistry` as a prop. Naming the
+      skill anyway made resolution throw `unknown-explicit-skill`, so a host
+      with its own registry got a refusal card carrying a resolution error
+      instead of a plan, every single time.
+
+      The outline still works for that host: its guarantees come from an empty
+      command vocabulary and from never reaching the door, not from the
+      instructions.
+    */
+    const hostOnly = createAiSkillRegistry([
+      {
+        schemaVersion: 1,
+        id: 'host.only',
+        name: 'Host skill',
+        description: 'The host’s own.',
+        version: '1.0.0',
+        instructions: 'Be brief.',
+        activation: { mode: 'explicit' },
+      },
+    ]);
+
+    const outline = await outlineAiPlan({
+      kernel: kernelOf(),
+      provider: providerReturning({ rationale: 'a plan', commands: [] }),
+      request: 'a clinic page',
+      skillRegistry: hostOnly,
+    });
+
+    expect(outline.rationale).toBe('a plan');
+    expect(outline.skillActivations?.map(({ id }) => id) ?? []).not.toContain(
+      AI_PLAN_MODE_SKILL_ID,
+    );
   });
 
   it('works without a skill registry at all — a host may have its own', async () => {

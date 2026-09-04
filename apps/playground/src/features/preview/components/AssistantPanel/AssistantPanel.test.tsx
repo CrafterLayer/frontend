@@ -995,6 +995,98 @@ describe('AssistantPanel', () => {
     expect(kernel.transactions()).toEqual([]);
   });
 
+  it('says what the plan would change, before the decision', async () => {
+    /*
+      Computed from `previewAiPlan` — the plan rehearsed on a scratch kernel
+      through the real door — and diffed against the live document. Not a
+      re-reading of the step list: the two differ exactly where it matters, and
+      a person deciding whether to Apply needs the size of the change, not a
+      restatement of what was asked for.
+    */
+    // The panel's default locale is Arabic, and so is the sentence.
+    const arabic = renderPanel();
+    await requestPlan(arabic.user, 'add a pricing section');
+    expect(
+      screen.getByRole('log', { name: 'Conversation' }).querySelector('.pg-chat__impact')
+        ?.textContent,
+    ).toMatch(/إضافة/);
+    arabic.unmount();
+
+    const english = renderPanel({ locale: 'en' });
+    await requestPlan(english.user, 'add a pricing section');
+    expect(
+      screen.getByRole('log', { name: 'Conversation' }).querySelector('.pg-chat__impact')
+        ?.textContent,
+    ).toMatch(/block added/);
+  });
+
+  it('shows a labelled cost estimate on the card, before the decision', async () => {
+    /*
+      The engine's OWN estimator, over the context this run actually carried —
+      the same number `generateAiPlan` checks its budget against, not a second
+      calculation wearing the same name. Labelled an estimate because it is one:
+      tokens counted from canonical JSON, no model asked, and it measures the
+      REQUEST rather than the answer.
+    */
+    const { user } = renderPanel();
+    await requestPlan(user, 'add a pricing section');
+
+    const cost = screen
+      .getByRole('log', { name: 'Conversation' })
+      .querySelector('.pg-chat__cost');
+    expect(cost?.textContent).toMatch(/^تقدير: ~[\d.]+k? توكن$/);
+  });
+
+  it('says a plan changes NOTHING rather than letting a person spend an undo finding out', async () => {
+    /*
+      A `setProp` to the value already there is a valid command that produces an
+      identical document: the step list reads like work and the page does not
+      move. The step list cannot tell you that; the diff can.
+    */
+    const provider: AiPlanProvider = {
+      propose: () =>
+        Promise.resolve({
+          rationale: 'Set the heading it already has.',
+          commands: [
+            {
+              command: 'setProp',
+              args: { id: 'selected-hero', key: 'heading', value: 'Existing section' },
+            },
+          ],
+        }),
+    };
+    const { user } = renderPanel({ planProvider: provider });
+    await send(user, 'retitle the hero');
+
+    await waitFor(() => {
+      /*
+        The impact line carries the estimate beside it, so the assertion names
+        the impact sentence specifically rather than the whole line.
+      */
+      const impact = screen
+        .getByRole('log', { name: 'Conversation' })
+        .querySelector('.pg-chat__impact');
+      expect(impact?.textContent).toContain('لا يغيّر شيئًا على الصفحة.');
+    });
+  });
+
+  it('offers NO Apply control anywhere in the tree while Plan is selected', async () => {
+    /*
+      T291's negative, stated over the whole tree rather than one card: an Apply
+      that exists anywhere — an older card, a preview dialog, something added
+      later — is an Apply somebody can reach while the panel is promising not to
+      write.
+    */
+    const { user, container } = renderPanel();
+    await requestPlan(user, 'add a pricing section');
+    await user.click(screen.getByRole('radio', { name: 'Plan' }));
+
+    expect(container.querySelectorAll('button')).not.toHaveLength(0);
+    for (const button of container.querySelectorAll('button')) {
+      expect(button.textContent).not.toMatch(/^Apply$/);
+    }
+  });
+
   it('refuses to apply an OLD Ask proposal once Plan is selected', async () => {
     /*
       The route a BoundedRelay audit found and I had not: Plan was a label on
@@ -1109,6 +1201,34 @@ describe('AssistantPanel', () => {
     }
   });
 
+  it('answers the arrows, and costs ONE tab stop — what role="radio" promises', async () => {
+    /*
+      Buttons with `role="radio"` do not get arrow keys for free, and three
+      separate tab stops made the composer's action row cost three presses to
+      cross. A person told "radio group" reaches for the arrows; if nothing
+      answers, the group is a radio group only in the accessibility tree.
+    */
+    const user = userEvent.setup();
+    renderPanel();
+
+    const stops = screen
+      .getAllByRole('radio')
+      .filter((radio) => radio.getAttribute('tabindex') === '0');
+    expect(stops).toHaveLength(1);
+    expect(stops[0]).toHaveAttribute('aria-checked', 'true');
+
+    screen.getByRole('radio', { name: 'Ask' }).focus();
+    // The panel is Arabic by default, so ArrowLeft is FORWARD.
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true');
+    // Selection moves focus with it, or the single tab stop is stranded.
+    expect(screen.getByRole('radio', { name: 'Auto' })).toHaveFocus();
+
+    // And it wraps: the ends of a radio group are not walls.
+    await user.keyboard('{ArrowRight}{ArrowRight}');
+    expect(screen.getByRole('radio', { name: 'Plan' })).toHaveAttribute('aria-checked', 'true');
+  });
+
   it('locks the mode while a run is in flight, because the run already has its authority', async () => {
     /*
       A run captures its mode when it starts and the closure keeps it: a request
@@ -1142,6 +1262,16 @@ describe('AssistantPanel', () => {
     expect(screen.getByRole('radio', { name: 'Ask' })).toBeDisabled();
     // Stop is still there: locked is not stranded.
     expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
+    /*
+      And the reason is on the hint line UNDER the row, not wedged among the
+      buttons. The first version put a paragraph inside the radiogroup, where it
+      wrapped over three lines and broke the composer's action row — the owner
+      caught it from a screenshot.
+    */
+    expect(screen.getByText('Stop the request to change mode.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('radiogroup', { name: 'Assistant mode' }).textContent,
+    ).not.toContain('Stop the request');
 
     act(() => {
       release?.();

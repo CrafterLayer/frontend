@@ -693,6 +693,11 @@ the plan was validated.
 - **FR-102**: Quality gates MUST exist in two places with one implementation: at runtime, where a
   hard failure blocks the commit and names the page, the check and the element; and in CI, over
   deterministically generated fixtures. A timing gate MUST NOT be asserted before it is measured.
+- **FR-103**: Multi-section page builds MUST choose bounded provider concurrency from the scaffolded
+  section count: three writers by default, one additional writer for each further group of three
+  sections, and an automatic ceiling of six. Four sections therefore begin four fills together.
+  An explicit caller override MUST remain exact, including one writer for sequential execution;
+  generated proposals MUST still land and validate in document order.
 
 ### Key Entities
 
@@ -806,6 +811,8 @@ the plan was validated.
 - **SC-026**: A deliberate mutation that restores duplicate built-in context, removes the nested
   operation cap, omits apply-time policy, or replays model rationale as instructions fails a named
   readiness test before the source is restored.
+- **SC-027**: A four-section scripted build measures four simultaneous provider fills, a twelve-
+  section build never exceeds six, and both transaction logs land every section in document order.
 
 ## Resolved Decisions
 

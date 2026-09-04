@@ -43,6 +43,13 @@ import {
 } from '@craftkit/builder';
 
 import { AgentFace, AgentVoice, moodForTurn, useAgentMood, type AgentLocale } from '../AgentFace';
+import {
+  describeCost,
+  describeImpact,
+  estimateRequestTokens,
+  planImpact,
+  type PlanImpact,
+} from './AssistantPanel.impact';
 import { localeOf, panelSuggestions } from './AssistantPanel.suggestions';
 import {
   IconAlert,
@@ -253,6 +260,26 @@ type Turn =
       readonly from: 'assistant';
       readonly kind: 'plan';
       readonly plan: AiPlan;
+      /**
+       * What this plan would change, computed ONCE when it arrived.
+       *
+       * On the turn rather than in a render memo, because the honest source is
+       * `previewAiPlan` — it builds a scratch kernel and dispatches the whole
+       * plan through the real door. That is the right price to pay once per
+       * proposal and the wrong one to pay per render, and `turns` changes on
+       * every streamed progress tick. It is plain data, so it survives
+       * persistence as readable history, unlike the proposal beside it.
+       */
+      readonly impact?: PlanImpact;
+      /**
+       * What the request cost to send, estimated with the engine's own
+       * estimator over the context this run actually carried.
+       *
+       * Stored beside the impact for the same reason: the inputs (the assembled
+       * context, the history) belong to the run and are gone by the next
+       * render, so the number is computed once, when the answer arrives.
+       */
+      readonly costTokens?: number;
       /** Runtime-authenticated authority. It deliberately cannot survive JSON revival. */
       readonly proposal?: AiValidatedProposal;
       readonly skills?: readonly AiSkillActivationPin[];
@@ -1231,6 +1258,16 @@ export function AssistantPanel({
                     skills: fallback.proposal.skillActivations,
                     applied: fallback.status === 'applied',
                     mode,
+                    /*
+                      Rehearsed against the document as it is NOW. For an
+                      already-applied plan that is the document the plan
+                      produced, so the diff is empty and the card says nothing —
+                      correct: "what would change" is a question about a
+                      decision that has not been made yet.
+                    */
+                    ...(fallback.status === 'applied'
+                      ? {}
+                      : withImpact(impactOfProposal(kernel, fallback.proposal))),
                   }
                 : turn,
             ),
@@ -1562,6 +1599,10 @@ export function AssistantPanel({
                   skills: result.proposal.skillActivations,
                   applied: result.status === 'applied',
                   mode,
+                  ...(result.status === 'applied'
+                    ? {}
+                    : withImpact(impactOfProposal(kernel, result.proposal))),
+                  costTokens: estimateRequestTokens(trimmed, result.context, history),
                   ...(turn.from === 'assistant' && turn.kind === 'thinking'
                     ? { run: turn.run }
                     : {}),
@@ -1772,7 +1813,51 @@ export function AssistantPanel({
     items[next]?.focus();
   }, []);
 
-  /** Rehearse the plan on a scratch kernel and show the result. Looking ≠ applying. */
+  /**
+ * What the plan would change, or nothing when it cannot be rehearsed.
+ *
+ * A failure here is NOT a failure of the run: a plan whose preview throws is
+ * still a plan a person may read and decide about, and the panel simply says
+ * less rather than turning a working proposal into an error.
+ */
+function impactOfProposal(
+  kernel: BuilderKernel,
+  proposal: AiValidatedProposal,
+): PlanImpact | undefined {
+  try {
+    const previewed = previewAiPlan({ kernel, proposal, validationPorts: preflightPorts() });
+    return planImpact(kernel.getDocument(), previewed);
+  } catch {
+    return undefined;
+  }
+}
+
+/*
+  `exactOptionalPropertyTypes` distinguishes "absent" from "present and
+  undefined", and the turn means the first. Spreading an empty object is how a
+  missing impact stays missing.
+*/
+function withImpact(impact: PlanImpact | undefined): { impact?: PlanImpact } {
+  return impact === undefined ? {} : { impact };
+}
+
+/** Rehearse the plan on a scratch kernel and show the result. Looking ≠ applying. */
+  /**
+   * In Plan mode, NOTHING in this panel changes the document.
+   *
+   * Apply was gated first, and that turned out to be half a rule: the applied
+   * card's Undo and the build report's per-section Undo both called
+   * `kernel.undo()` with no gate at all, so a panel that had hidden every Apply
+   * and promised "only plan" still rewrote the page on one click. A person who
+   * chose Plan is entitled to read every control in it as safe.
+   *
+   * Undo is not withheld to protect them from themselves — it is withheld
+   * because the mode is a promise about this panel, and a promise with an
+   * exception is not one. The way to undo is to leave Plan, which is one click
+   * and says what it does.
+   */
+  const mutatesLiveDocument = mode !== 'plan';
+
   const openPreview = useCallback(
     (id: string, proposal: AiValidatedProposal) => {
       try {
@@ -2125,7 +2210,14 @@ export function AssistantPanel({
                               <span className="pg-chat__task-title" dir="auto">
                                 {task.title}
                               </span>
-                              {task.status === 'applied' && turn.undoable === true ? (
+                              {/*
+                                Withheld in Plan mode for the same reason the
+                                card's Undo is: this one loops `kernel.undo()`,
+                                so it writes more than the others, not less.
+                              */}
+                              {task.status === 'applied' &&
+                              turn.undoable === true &&
+                              mutatesLiveDocument ? (
                                 <ChromeButton
                                   variant="quiet"
                                   size="sm"
@@ -2295,6 +2387,40 @@ export function AssistantPanel({
                           ))}
                         </ul>
                       )}
+                      {/*
+                        WHAT WOULD CHANGE, before deciding.
+
+                        Not a re-reading of the step list and not a second model
+                        call: `previewAiPlan` already runs the plan on a scratch
+                        kernel through the real door, so diffing that document
+                        against the live one is the only honest answer. The two
+                        differ exactly where it matters — a `setProp` to the
+                        value already there reads like work in the step list and
+                        moves nothing on the page, and a person about to press
+                        Apply should be told that before spending an undo step
+                        to find out.
+                      */}
+                      {turn.impact === undefined && turn.costTokens === undefined ? null : (
+                        <p className="pg-chat__impact" dir="auto">
+                          {turn.impact === undefined ? null : describeImpact(turn.impact, locale)}
+                          {turn.costTokens === undefined ? null : (
+                            <>
+                              {turn.impact === undefined ? null : ' '}
+                              {/*
+                                Labelled an ESTIMATE, and it is one: tokens
+                                counted from canonical JSON with no model asked.
+                                It is also the REQUEST, not the answer — the
+                                same number `generateAiPlan` checks its context
+                                budget against, so a person reading it is
+                                reading the figure the engine used.
+                              */}
+                              <span className="pg-chat__cost">
+                                {describeCost(turn.costTokens, locale)}
+                              </span>
+                            </>
+                          )}
+                        </p>
+                      )}
                       {/* Each step in a person's words; the exact command rides
                         along in mono as the technical truth, never the headline. */}
                       <ol className="pg-chat__steps">
@@ -2310,16 +2436,31 @@ export function AssistantPanel({
                         <p className="pg-chat__applied">
                           <IconCheck />
                           Applied as one change.{' '}
-                          <ChromeButton
-                            variant="quiet"
-                            size="sm"
-                            onClick={() => {
-                              kernel.undo();
-                            }}
-                          >
-                            <IconUndo />
-                            Undo
-                          </ChromeButton>
+                          {/*
+                            A revived card cannot offer this. Its transaction
+                            belongs to the session that made it, and this
+                            session's history has entirely different entries at
+                            the same position — so the button would undo
+                            somebody else's work while claiming to undo this
+                            plan. `proposal` is the marker: persistence
+                            deliberately drops it, so its absence means revived.
+                          */}
+                          {turn.proposal === undefined ? null : mutatesLiveDocument ? (
+                            <ChromeButton
+                              variant="quiet"
+                              size="sm"
+                              onClick={() => {
+                                kernel.undo();
+                              }}
+                            >
+                              <IconUndo />
+                              Undo
+                            </ChromeButton>
+                          ) : (
+                            <span className="pg-chat__plan-only">
+                              Planning only — switch mode to undo.
+                            </span>
+                          )}
                         </p>
                       ) : (
                         <div className="pg-chat__decide">
@@ -2411,7 +2552,21 @@ export function AssistantPanel({
         disappeared after the first turn and never came back. Above the composer
         is where the next thing a person says is being decided.
       */}
-      {suggestions.length === 0 || busy ? null : (
+      {/*
+        STAYS MOUNTED while the assistant works — disabled, not removed.
+
+        Unmounting it did two things at once, and both are the kind a person
+        feels rather than reads. The chip they had just pressed vanished from
+        under their finger, so keyboard focus fell to `<body>` and the next Tab
+        started over from the top of the panel. And the composer jumped: the
+        strip is ~215px in its stacked layout, so pressing Send yanked the
+        input up, and the answer dropped it back down — two lurches around the
+        one control a person is looking at.
+
+        Disabled chips keep the height, keep the focus, and say the true thing:
+        these are still your options, in a moment.
+      */}
+      {suggestions.length === 0 ? null : (
         <ul
           className="pg-chat__starters"
           aria-label="Suggestions"
@@ -2457,6 +2612,7 @@ export function AssistantPanel({
               <button
                 type="button"
                 className="pg-chat__starter"
+                disabled={busy}
                 data-kind={entry.kind}
                 lang={localeOf(entry.text)}
                 dir="auto"
@@ -2604,6 +2760,46 @@ export function AssistantPanel({
                   aria-checked={mode === candidate.id}
                   className="pg-chat__mode"
                   disabled={busy}
+                  /*
+                    ONE tab stop for the group, on the chosen mode — what
+                    `role="radio"` promises. Three separate tab stops made the
+                    composer's action row cost three presses to cross, and the
+                    arrows below are the other half of the same promise: a
+                    person told "radio group" reaches for them, and buttons do
+                    not answer arrows on their own.
+                  */
+                  tabIndex={mode === candidate.id ? 0 : -1}
+                  onKeyDown={(event) => {
+                    const mirrored =
+                      locale === 'ar' &&
+                      (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+                        ? event.key === 'ArrowLeft'
+                          ? 'ArrowRight'
+                          : 'ArrowLeft'
+                        : event.key;
+                    const step =
+                      mirrored === 'ArrowRight' || mirrored === 'ArrowDown'
+                        ? 1
+                        : mirrored === 'ArrowLeft' || mirrored === 'ArrowUp'
+                          ? -1
+                          : 0;
+                    if (step === 0) return;
+                    event.preventDefault();
+                    const at = MODES.findIndex((entry) => entry.id === mode);
+                    // Wraps, as a radio group does: the ends are not walls.
+                    const next = MODES[(at + step + MODES.length) % MODES.length];
+                    if (next === undefined) return;
+                    setMode(next.id);
+                    /*
+                      Selection MOVES focus in a radio group — the newly chosen
+                      option is the one tab stop, so leaving focus behind would
+                      strand it on an element the browser will skip next time.
+                    */
+                    event.currentTarget.parentElement
+                      ?.querySelector<HTMLButtonElement>(`[data-mode="${next.id}"]`)
+                      ?.focus();
+                  }}
+                  data-mode={candidate.id}
                   onClick={() => {
                     setMode(candidate.id);
                   }}
@@ -2611,11 +2807,6 @@ export function AssistantPanel({
                   {candidate.label}
                 </button>
               ))}
-              {busy ? (
-                <p id={modeLockId} className="pg-chat__mode-locked">
-                  Stop the request to change mode.
-                </p>
-              ) : null}
             </div>
             <ChromeButton
               variant="icon"
@@ -2642,8 +2833,21 @@ export function AssistantPanel({
         {/* What the chosen mode will do, said out loud, beside the whole
             guarantee — in one line, where the decision is made. */}
         <p className="pg-chat__footnote">
-          <span className="pg-chat__mode-hint">
-            {MODES.find((candidate) => candidate.id === mode)?.hint}
+          {/*
+            While a run is in flight this line says WHY the modes are locked,
+            instead of what the chosen mode does — which the person cannot act
+            on until the run ends anyway.
+
+            It lives here, and not among the buttons, because the first version
+            put it inside the radiogroup: a three-line paragraph wedged between
+            the modes and the Send button, wrapping over the action row and
+            making the composer look broken. A one-line explanation belongs in
+            the one-line place a person already reads for mode information.
+          */}
+          <span id={modeLockId} className="pg-chat__mode-hint">
+            {busy
+              ? 'Stop the request to change mode.'
+              : MODES.find((candidate) => candidate.id === mode)?.hint}
           </span>
           <span className="pg-chat__guarantee">
             <IconShield />

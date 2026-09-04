@@ -20,19 +20,29 @@ export const DEFAULT_AI_BUILD_MAX_TASKS = 12;
 export const DEFAULT_AI_BUILD_TASK_TIMEOUT_MS = 240_000;
 /** Ceiling for the whole build. The running section still finishes. */
 export const DEFAULT_AI_BUILD_BUDGET_MS = 900_000;
+/** Baseline writers for an automatic build; fewer sections use fewer writers. */
+export const DEFAULT_AI_BUILD_FILL_CONCURRENCY = 3;
+/** Automatic builds may grow to this many writers, never to the task count without a ceiling. */
+export const MAX_AI_BUILD_AUTO_FILL_CONCURRENCY = 6;
+/** Each complete group beyond the baseline earns one additional writer. */
+const AI_BUILD_TASKS_PER_ADDITIONAL_WRITER = 3;
+
 /**
  * Sections written at once.
  *
- * Three, not one and not all of them. Sequential was measured on a real
- * backend at three to seven minutes PER section, which puts a seven-section
- * page past half an hour — longer than anyone will sit through, so
- * concurrency here is not a nicety. All-at-once is the other mistake: a local
- * CLI backend spawns a process per call, and a burst of ten would thrash the
- * machine the person is working on. Three keeps every wave short while leaving
- * the box usable, and the option exists because the right number belongs to
- * the backend, not to this file.
+ * Three is the baseline, not a fixed bottleneck. A four-section page can use
+ * four writers; larger pages add one writer per further group of three until
+ * six are active. This shortens the long builds without turning a twelve-part
+ * page into twelve local CLI processes at once. A caller-provided number stays
+ * exact, including `1` for strictly sequential work.
  */
-export const DEFAULT_AI_BUILD_FILL_CONCURRENCY = 3;
+function fillConcurrencyFor(taskCount: number, requested: number | undefined): number {
+  if (requested !== undefined) return Math.min(taskCount, Math.max(1, requested));
+  const automatic =
+    DEFAULT_AI_BUILD_FILL_CONCURRENCY +
+    Math.floor(Math.max(0, taskCount - 1) / AI_BUILD_TASKS_PER_ADDITIONAL_WRITER);
+  return Math.min(taskCount, automatic, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY);
+}
 
 const MAX_RUN_ID_LENGTH = 160;
 /** The kernel refuses a longer grouped-dispatch label outright. */
@@ -308,7 +318,6 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
   const maxTasks = options.maxTasks ?? DEFAULT_AI_BUILD_MAX_TASKS;
   const taskTimeoutMs = options.taskTimeoutMs ?? DEFAULT_AI_BUILD_TASK_TIMEOUT_MS;
   const buildBudgetMs = options.buildBudgetMs ?? DEFAULT_AI_BUILD_BUDGET_MS;
-  const fillConcurrency = Math.max(1, options.fillConcurrency ?? DEFAULT_AI_BUILD_FILL_CONCURRENCY);
   const emit = createBuildEmitter(options);
   const shared = sharedStepOptions(options);
   const startedAt = options.clock.now();
@@ -380,6 +389,7 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
 
   const reports: AiBuildTaskReport[] = [];
   const total = tasks.length;
+  const fillConcurrency = fillConcurrencyFor(total, options.fillConcurrency);
   let applied = 0;
   let skipped = 0;
   let stopped: AiBuildStopReason | undefined;

@@ -201,6 +201,18 @@ const THREE = [
   { title: 'Proof', index: 1 },
 ] as const;
 
+const FOUR = [
+  { title: 'Hero', index: 0 },
+  { title: 'Proof', index: 1 },
+  { title: 'Pricing', index: 2 },
+  { title: 'Contact', index: 3 },
+] as const;
+
+const TWELVE = Array.from({ length: 12 }, (_, index) => ({
+  title: `Section ${String(index + 1)}`,
+  index,
+}));
+
 const DOCUMENT_ORDER = ['Hero', 'Proof', 'Pricing'] as const;
 
 describe('runAiBuild', () => {
@@ -631,6 +643,88 @@ describe('runAiBuild', () => {
       'Assistant: 1/3 — Hero',
       'Assistant: 2/3 — Proof',
       'Assistant: 3/3 — Pricing',
+    ]);
+  });
+
+  it('automatically raises the writer pool to four for a four-section build', async () => {
+    const live = kernel();
+    let inFlight = 0;
+    let peak = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { provider } = recordingProvider(async (call, index) => {
+      if (index === 0) return scaffoldPlan(FOUR);
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await gate;
+      inFlight -= 1;
+      return fillPlan(scopedRegionId(call), 'Section');
+    });
+
+    const building = runAiBuild({
+      runId: 'build-auto-concurrency',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'A four-section studio page',
+      validationPorts: ports('auto-concurrency'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    // Let every writer in the first wave reach the provider before opening the gate.
+    for (let tick = 0; tick < 200 && peak < FOUR.length; tick += 1) await Promise.resolve();
+    const firstWavePeak = peak;
+    release();
+    const result = await building;
+
+    expect(firstWavePeak).toBe(4);
+    expect(result.applied).toBe(4);
+    expect(live.transactions().map(({ command }) => command)).toEqual([
+      'Assistant: page skeleton',
+      ...FOUR.map(
+        ({ title }, index) => `Assistant: ${String(index + 1)}/4 — ${title}`,
+      ),
+    ]);
+  });
+
+  it('caps the automatic writer pool at six for a large build', async () => {
+    const live = kernel();
+    let inFlight = 0;
+    let peak = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { provider } = recordingProvider(async (call, index) => {
+      if (index === 0) return scaffoldPlan(TWELVE);
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await gate;
+      inFlight -= 1;
+      return fillPlan(scopedRegionId(call), 'Section');
+    });
+
+    const building = runAiBuild({
+      runId: 'build-auto-concurrency-cap',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'A large studio page',
+      validationPorts: ports('auto-concurrency-cap'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    for (let tick = 0; tick < 300 && peak < 6; tick += 1) await Promise.resolve();
+    const firstWavePeak = peak;
+    release();
+    const result = await building;
+
+    expect(firstWavePeak).toBe(6);
+    expect(peak).toBe(6);
+    expect(result.applied).toBe(12);
+    expect(live.transactions().map(({ command }) => command)).toEqual([
+      'Assistant: page skeleton',
+      ...TWELVE.map(
+        ({ title }, index) => `Assistant: ${String(index + 1)}/12 — ${title}`,
+      ),
     ]);
   });
 

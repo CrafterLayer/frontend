@@ -472,6 +472,15 @@ checker governs only the DIRECT children of a `components/` directory
 (`workspace-tools/src/components/validate-components.mjs`), so a nested component is invisible to
 the gate it is supposed to satisfy. It gets its own sibling folder and its own five artifacts.
 
+### V5 — Split-build concurrency scales from the scaffold, within a hard ceiling
+
+The section list is the only trustworthy demand signal available before fill work starts. Automatic
+builds therefore begin from a three-writer baseline, add one writer per further group of three
+sections, and cap at six even when the page contains twelve regions. This makes a four-section page
+use four provider calls at once without allowing a large scaffold to spawn one local CLI process per
+section. Generation may overlap; landing remains ordered and revalidates every proposal against the
+live kernel. An explicit `fillConcurrency` remains an exact host override.
+
 ## Project Structure
 
 ### Documentation (this feature)

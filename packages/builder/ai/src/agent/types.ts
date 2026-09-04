@@ -236,8 +236,9 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
   /** Whole-build ceiling. The running section still finishes. Default 900_000. */
   buildBudgetMs?: number;
   /**
-   * How many sections are WRITTEN at once. Default 3; `1` restores strictly
-   * sequential work.
+   * How many sections are WRITTEN at once. When omitted, automatic mode starts
+   * at 3, grows by one writer for each further group of three sections, and is
+   * capped at 6. Pass `1` to restore strictly sequential work.
    *
    * Only the writing overlaps. Sections still LAND one after another in page
    * order, so the transaction log reads top to bottom and undoing one section

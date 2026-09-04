@@ -1,5 +1,6 @@
 import { assembleAiContext } from '../context/assemble-context';
-import type { AiPreparedSkillContext } from '../skills/types';
+import type { AiPreparedSkillContext, AiSkillRegistry } from '../skills/types';
+import { AiProviderError } from '../provider/errors';
 import type { AiPlan, AiProposeOptions } from '../types';
 import {
   contextOptionsForOutline,
@@ -54,7 +55,7 @@ export type OutlineAiPlanOptions = Omit<GenerateAiPlanOptions, 'validationPorts'
 export async function outlineAiPlan(options: OutlineAiPlanOptions): Promise<AiOutline> {
   options.signal?.throwIfAborted();
 
-  const planSkills = withPlanMode(options.selectedSkillIds, options.skillRegistry !== undefined);
+  const planSkills = withPlanMode(options.selectedSkillIds, options.skillRegistry);
   const withPlanSkill: GenerateAiPlanOptions = {
     ...options,
     validationPorts: options.validationPorts ?? UNUSED_PORTS,
@@ -74,6 +75,22 @@ export async function outlineAiPlan(options: OutlineAiPlanOptions): Promise<AiOu
   options.signal?.throwIfAborted();
 
   const rationale = answer.rationale.trim();
+  /*
+    "Never empty" was a promise this function did not keep.
+
+    The check that enforces it on the ordinary route lives in `validateAiPlan`
+    ("An AI plan needs a non-empty rationale"), and an outline deliberately
+    never reaches that door — so it dropped a guard that had nothing to do with
+    commands. A conforming TypeScript surface over a malformed server therefore
+    rendered a blank card, which reads as "the assistant answered and said
+    nothing" rather than as the failure it is.
+  */
+  if (rationale === '') {
+    throw new AiProviderError('The assistant returned an empty plan.', {
+      code: 'invalid-output',
+      retryable: true,
+    });
+  }
   return {
     rationale,
     followUp: answer.followUp?.trim() === '' ? undefined : answer.followUp,
@@ -101,11 +118,25 @@ const UNUSED_PORTS = {
   },
 };
 
+/**
+ * Add Plan's own skill — but only to a registry that HAS it.
+ *
+ * `createAiSkillRegistry` defaults to an empty catalog: the built-ins are
+ * opt-in, and `AssistantPanel` publishes `skillRegistry` as a prop. A host that
+ * supplies its own therefore has a registry with no `craftkit.plan-mode` in it,
+ * and naming it anyway made resolution THROW `unknown-explicit-skill` — so
+ * every plan that host ever asked for came back as a refusal card carrying a
+ * resolution error instead of a plan.
+ *
+ * Asking the registry is the whole fix. A host without the skill still gets an
+ * outline: the route's guarantees do not come from the instructions, they come
+ * from an empty command vocabulary and from never reaching the door.
+ */
 function withPlanMode(
   selected: readonly string[] | undefined,
-  hasRegistry: boolean,
+  registry: AiSkillRegistry | undefined,
 ): readonly string[] | undefined {
-  if (!hasRegistry) return selected;
+  if (registry?.get(AI_PLAN_MODE_SKILL_ID) === undefined) return selected;
   const base = selected ?? [];
   return base.includes(AI_PLAN_MODE_SKILL_ID) ? base : [...base, AI_PLAN_MODE_SKILL_ID];
 }

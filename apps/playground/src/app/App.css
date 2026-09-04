@@ -740,13 +740,25 @@ body,
   is still in the accessible name and the tooltip.
 */
 .pg-chat__starters[data-layout='rail'] .pg-chat__starter {
-  max-inline-size: 18rem;
+  /*
+    A chip may take at most half the rail. 18rem let ONE suggestion fill 84% of
+    a 360px panel, so the strip read as a single option with the other three
+    invisible past the edge — a rail that shows one item is a rail for nothing.
+  */
+  max-inline-size: min(18rem, 50%);
 }
 
-.pg-chat__starter:hover {
+.pg-chat__starter:hover:not(:disabled) {
   background: var(--bldr-accent-soft);
   border-color: transparent;
   color: var(--bldr-panel-text);
+}
+
+/* Present, and plainly not pressable: the strip holds its height while the
+   assistant works so nothing under the hand moves. */
+.pg-chat__starter:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .pg-chat__starter:focus-visible {
@@ -765,14 +777,19 @@ body,
   color: var(--bldr-accent);
 }
 
+/*
+  At chip scale the icon is a hint, not a button — but `--bldr-space-lg` is
+  10px, which is smaller than the glyph it holds: the plus was being squeezed
+  into a box two thirds its size. `--bldr-control-height-sm`'s icon-sized
+  sibling is the right measure for something that sits beside caption text.
+*/
 .pg-chat__starter-icon {
   align-items: center;
+  block-size: var(--bldr-space-xl);
   color: var(--bldr-panel-muted);
   display: flex;
   flex: none;
-  /* Half its old box: at chip scale the icon is a hint, not a button. */
-  block-size: var(--bldr-space-lg);
-  inline-size: var(--bldr-space-lg);
+  inline-size: var(--bldr-space-xl);
   justify-content: center;
 }
 
@@ -2014,12 +2031,29 @@ body,
 
 /*
   A plan, read as a plan. Pre-wrap because the four labelled parts arrive as
-  lines and re-flowing them into a paragraph would destroy the only structure
+  LINES and re-flowing them into a paragraph would destroy the only structure
   the answer has.
+
+  `overflow-wrap: anywhere` is the price of pre-wrap: it preserves the model's
+  newlines and would also preserve a single unbroken 400-character line, which
+  on a 360px panel pushes the whole card sideways. And the type is set
+  explicitly — this paragraph had NO font-size, line-height or colour of its
+  own, and nothing in its ancestor chain set them either, so it rendered at the
+  browser's 16px default beside caption-sized siblings.
 */
 .pg-chat__outline {
-  margin: 0;
+  color: var(--bldr-panel-text);
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) /
+    var(--bldr-line-height-relaxed) var(--bldr-font);
+  margin: var(--bldr-space-0);
+  min-inline-size: var(--bldr-space-0);
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.pg-chat__outline-note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
 }
 
 .pg-chat__outline-note {
@@ -2033,11 +2067,25 @@ body,
   margin: var(--bldr-space-0);
 }
 
-/* The lock's reason, beside the modes rather than only in a tooltip. */
-.pg-chat__mode-locked {
+
+/* What the plan would change, above its steps: the size of the decision comes
+   before its details. */
+.pg-chat__impact {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  margin: var(--bldr-space-0) var(--bldr-space-0) var(--bldr-space-sm);
+}
+
+/* The estimate rides beside the impact, quieter: it informs the decision, it is
+   not the decision. */
+.pg-chat__cost {
   color: var(--bldr-panel-muted);
-  font-size: var(--bldr-font-size-micro);
-  margin: var(--bldr-space-0);
-  align-self: center;
-  padding-inline-start: var(--bldr-space-sm);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+/* Where a control used to be, in Plan mode: the reason, not a dead button. */
+.pg-chat__plan-only {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
 }

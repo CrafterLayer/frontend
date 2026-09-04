@@ -1709,10 +1709,10 @@ and the evidence that closes it.
 - [ ] T290 [US10] Remove the `mode !== 'plan'` gate in `AssistantPanel.tsx` so a page-sized request
       in Plan mode reaches the multi-section orchestrator instead of becoming one oversized call,
       and pass `onPlanned` in Plan as well as Ask. **FR-096.**
-- [ ] T291 [US10] Close the write path: `PreviewDialog` takes `canApply`, `accept()` refuses a
+- [x] T291 [US10] Close the write path: `PreviewDialog` takes `canApply`, `accept()` refuses a
       Plan-mode application that did not originate on the card, and a NEGATIVE test asserts no Apply
       control exists anywhere in the tree in Plan mode. **FR-096.**
-- [ ] T292 [US10] The plan card shows each step in the requester's language, what it would change
+- [x] T292 [US10] The plan card shows each step in the requester's language, what it would change
       (from `previewAiPlan` plus a node diff — no second model call), a cost estimate from
       `estimateAiPlanWireRequestTokens`, and ONE Apply. **FR-097, FR-099.**
 - [ ] T293 [P] [US10] Suggestions in four forms from one `Suggestion` type and one `SuggestionChips`
@@ -2210,6 +2210,59 @@ and the evidence that closes it.
       reading that Plan should enter the split-build path (T290–T292) is the plan's own ق٥ and is
       NOT done: what exists is the outline. That is recorded below as a partial, not as a claim.
 
+- [x] T330 [US10] **What the plan would change, before the decision (T292's half, and T291's
+      negative).** `AssistantPanel.impact.ts`: `planImpact(before, after)` diffs the document
+      `previewAiPlan` produced — the plan rehearsed on a scratch kernel through the REAL door —
+      against the live one. Not a re-reading of the step list, and no second model call: the two
+      differ exactly where it matters, and a `setProp` to the value already there reads like work in
+      a step list while moving nothing on the page. The card now says so before a person spends an
+      undo finding out.
+      **A rule the tests forced me to decide.** Adding a block changes its parent's slot list, so a
+      naive diff reported "2 blocks added, 1 changed" for what a person calls "2 blocks added" —
+      and once every add inflates the changed count, that count means nothing. A slots-only
+      difference counts ONLY when the set of children is unchanged, which is a reorder: the same
+      children in a different order, something nothing else in the summary would say.
+      Computed ONCE, when the plan arrives, and stored on the turn: the honest source builds a
+      scratch kernel and dispatches the whole plan, which is the right price per proposal and the
+      wrong one per render — `turns` changes on every streamed progress tick. It is plain data, so
+      it survives persistence as readable history, unlike the proposal beside it.
+      T291's negative is stated over the WHOLE tree, not one card: while Plan is selected, no button
+      anywhere reads "Apply".
+      Mutation-checked: counting slots as an ordinary change, dropping the reorder case, dropping
+      orphans, and removing the card's impact each fail exactly the tests that name them.
+
+- [x] T332 [US10] **A labelled cost estimate (T292's last third).** `estimateRequestTokens` uses the
+      ENGINE's own `estimateAiPlanWireRequestTokens` over `result.context` — the assembled context
+      this run actually carried — so the number a person reads is the same one `generateAiPlan`
+      checks its budget against, not a second calculation wearing the same name. No engine change was
+      needed: `AiAgentRunResult.context` already carries everything the request held.
+      Rounded to two significant figures and labelled `تقدير` / `Estimate`, because both facts are
+      true and both belong on screen: no model was asked, and it measures the REQUEST rather than
+      the answer. "~4.2k" says estimate in a way "4,237" does not.
+
+- [x] T333 [US10] **A gap in `planImpact` that a review agent's probe found before its report
+      landed.** My rule was "a parent's slot change is already explained by an added or removed
+      child". That is true for an add and a remove and FALSE for a MOVE: a node relocated between
+      two boxes leaves both parents' membership different with nothing added and nothing removed to
+      account for it, and the node itself byte-identical — so the card said the plan changes NOTHING
+      while the page visibly rearranged.
+      The rule is now precise instead of approximate: a parent's slots are compared with the added
+      and removed ids SUBTRACTED from both sides. What survives that subtraction is exactly the two
+      structural changes nothing else in the summary would say — a reorder and a move.
+      Worth recording how it was found: five reviewers were reading in parallel, and one wrote a
+      throwaway probe test to see what the function actually returns rather than reasoning about it.
+      That is the technique, not the agent: I had reasoned about the same function and reasoned
+      wrong.
+
+- [x] T331 [US10] **A design break the owner caught from a screenshot, twice in one session.** The
+      mode-lock explanation was a paragraph INSIDE the radiogroup: it wrapped over three lines
+      between the mode buttons and Send, and the composer's action row looked broken. It moved to
+      the hint line under the row — the one-line place a person already reads for mode information —
+      and a test now asserts it is there and NOT among the buttons.
+      Recorded because it is the second time the same mistake shape appeared: a thing that reads
+      correctly in isolation, put in a place that has no room for it. Both were caught by a person
+      looking at the screen, not by a green suite.
+
 **PARTIAL, stated as one**: D1's plan (ق٥) asks for Plan to enter the build path and stop at the
 structure with a plan card carrying steps, "what will change" from `planImpact()`, and a labelled
 cost estimate. What is built is the outline route — Plan answers with a four-part plan, writes
@@ -2228,4 +2281,11 @@ missing artifacts in `custom-code` (`CustomCodeBlock`, `CustomCodeCssField`, `Cu
 and `renderer/CustomCode` — now across 108 components rather than 102. It blocks `pnpm verify` and
 belongs to whoever owns those components.
 
-**Total after the first D2 tasks**: 329 tasks.
+- [x] T334 [US10] **Adaptive split-build concurrency.** `runAiBuild` now derives its default writer
+      pool from the scaffolded section count: 3 for the baseline, 4 for 4–6 sections, 5 for 7–9,
+      and a hard ceiling of 6 for 10–12. A caller-supplied `fillConcurrency` remains exact. The
+      integration proof holds four provider fills behind one gate and observes all four in flight;
+      a large-build proof observes six and no more. Ordered landing and per-section validation are
+      unchanged. **FR-103, SC-027.**
+
+**Total after the first D2 tasks**: 334 tasks.

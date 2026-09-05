@@ -25,13 +25,22 @@ function focusDestinationAfterDelete(ids: readonly PageId[], removedAt: number):
 }
 
 function defaultNextAddress(existing: readonly string[]): string {
-  let n = existing.length;
+  // Counted the way a person counts: the home page is page 1, so the first
+  // page added to it is "/page-2", never "/page-1".
+  let n = existing.length + 1;
   let candidate = `/page-${String(n)}`;
   while (existing.includes(candidate)) {
     n += 1;
     candidate = `/page-${String(n)}`;
   }
   return candidate;
+}
+
+/** "Page 2" for "/page-2"; for an address the host chose, the address itself, bare. */
+function titleFor(address: string): string {
+  const numbered = /^\/page-(\d+)$/.exec(address);
+  if (numbered !== null) return `Page ${numbered[1] ?? ''}`.trim();
+  return address.replace(/^\//, '') || 'Page';
 }
 
 /**
@@ -78,7 +87,9 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
   if (seenPages !== pages) {
     setSeenPages(pages);
     if (!pages.some((page) => page.id === activeId)) {
-      setActiveId(pages.some((page) => page.id === currentPage) ? currentPage : (pages[0]?.id ?? ''));
+      setActiveId(
+        pages.some((page) => page.id === currentPage) ? currentPage : (pages[0]?.id ?? ''),
+      );
     }
   }
 
@@ -126,7 +137,8 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
     const target = rowRefs.current.get(activeId);
     if (list === null || target === undefined) return;
     const active = list.ownerDocument.activeElement;
-    const lostToBody = focusInsideRef.current && (active === null || active === list.ownerDocument.body);
+    const lostToBody =
+      focusInsideRef.current && (active === null || active === list.ownerDocument.body);
     const claimed = pendingFocusRef.current === activeId;
     if ((claimed || list.contains(active) || lostToBody) && active !== target) {
       target.focus();
@@ -256,10 +268,23 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
 
   const addPage = useCallback(() => {
     const address = nextAddress(pages.map((page) => page.address));
-    guarded(() => {
-      siteKernel.dispatch('addPage', { address, title: address.replace(/^\//, '') || 'Page' });
+    const known = new Set(pages.map((page) => page.id));
+    const added = guarded(() => {
+      siteKernel.dispatch('addPage', { address, title: titleFor(address) });
     });
-  }, [guarded, nextAddress, pages, siteKernel]);
+    if (!added) return;
+    /*
+      OPEN the page just made, and hand it the keyboard. A row appearing at the
+      bottom of a list while the canvas keeps showing the old page reads as
+      "nothing happened" — which is exactly how the first live use of this
+      button was reported. The id is the door's to give, so it is read back
+      from the site rather than guessed from the address.
+    */
+    const created = siteKernel.getSite().pages.find((page) => !known.has(page.id));
+    if (created === undefined) return;
+    pendingFocusRef.current = created.id;
+    open(created.id);
+  }, [guarded, nextAddress, open, pages, siteKernel]);
 
   return (
     <nav

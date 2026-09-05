@@ -1,0 +1,54 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SuggestionRailStories from './SuggestionRail.stories';
+
+<Meta of={SuggestionRailStories} />
+
+# SuggestionRail
+
+What to say next, one tap away. It renders a list somebody else derived — see
+`AssistantPanel.suggestions.ts` — and owns only how that list is shown and scrolled.
+
+<Canvas of={SuggestionRailStories.Rail} />
+
+## Two layouts, one list
+
+On an empty panel there is nothing to crowd and a person who has said nothing yet is choosing, so
+the suggestions stack as full-width targets. The moment a conversation exists they become a one-row
+rail at a fixed height.
+
+That split exists because the first version did not have it: the strip inherited the empty state's
+styling, four full-width cards became permanent, and on a 360px panel they ate half the height and
+hid the very thread they were meant to help continue. The owner caught it from a screenshot.
+
+<Canvas of={SuggestionRailStories.Stack} />
+
+## While the assistant works
+
+The rail stays mounted and disables its chips. Unmounting it did two things a person feels rather
+than reads: the chip they had just pressed vanished from under their finger, so keyboard focus fell
+to `<body>` and the next Tab started over; and the composer lurched by the strip's whole height,
+then lurched back when the answer arrived.
+
+<Canvas of={SuggestionRailStories.Busy} />
+
+## Scrolling, and the RTL trap
+
+Touch and trackpads scroll the rail natively. A mouse wheel only scrolls vertically, so the handler
+translates the dominant axis — otherwise every chip past the edge is unreachable without dragging.
+
+The sign matters more than it looks. `scrollLeft` follows the writing direction: in an Arabic panel
+it starts at 0 on the RIGHT and runs negative leftward, so adding a positive delta scrolls back
+toward the start you are already at. The rail simply refused to move, in the language this product
+defaults to.
+
+<Canvas of={SuggestionRailStories.RightToLeft} />
+
+## Language, per chip
+
+A rail can hold an Arabic example beside an English follow-up, so `lang` is set from each chip's own
+text rather than from the panel's locale. Announcing one in the other's voice is exactly what that
+attribute exists to prevent.
+
+The chip truncates to one line; the whole sentence stays the accessible name, and `title` gives a
+sighted reader the rest on hover. What is sent when it is pressed is the full sentence, unchanged.

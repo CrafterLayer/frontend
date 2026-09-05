@@ -1,0 +1,66 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CustomCodeStories from './CustomCode.stories';
+
+<Meta of={CustomCodeStories} />
+
+# CustomCode
+
+A tolerant **read** over a tree the door validated strictly on write. It renders an authored region
+— markup a person or the assistant composed — on the canvas and in the static export, from the same
+walk.
+
+<Canvas of={CustomCodeStories.Default} />
+
+## Why the read is tolerant when the write was strict
+
+The asymmetry is deliberate, and it is the same one `RichText` documents. A document is validated
+when it is **written**. It is then read again after a schema upgrade, after an extension is
+disposed, and after a hand edit through the code view — none of which the original validation saw.
+
+So this walk never assumes its input is well formed. An unknown tag is skipped, a missing child list
+is empty, an over-deep branch degrades to its text, and nothing here can throw into a canvas that
+has no error boundary.
+
+<Canvas of={CustomCodeStories.Malformed} />
+
+The `script` tag above is not in `isCustomCodeTag`, so it never becomes an element; the paragraph
+beside it still renders. That is the contract: a bad node costs its own subtree and nothing more.
+
+## There is no raw HTML here, and no path to it
+
+There is no `dangerouslySetInnerHTML` in this component, and no code path that could introduce one.
+`createElement` is called with a tag `isCustomCodeTag` has already admitted, children are React
+nodes built by this same walk, and text is passed as a **child** — which React escapes.
+
+`src` is the one attribute that can reach the network, so it is the one attribute with a policy: a
+relative path, an `https` URL, or an inline `data:` image. Anything else is dropped, which is how
+`javascript:` never renders and how a scheme this list has not considered never renders either.
+
+## Structure and classes
+
+<Canvas of={CustomCodeStories.Nested} />
+
+Elements nest, and carry `className` — that is how an authored region is styled, together with the
+block-scoped stylesheet `CustomCodeBlock` writes. Text is literal content, never parsed.
+
+<Canvas of={CustomCodeStories.WithIcon} />
+
+An icon is a **leaf**: a Lucide name, no children and no text.
+
+## References to real blocks
+
+<Canvas of={CustomCodeStories.ComponentReference} />
+
+A tree may name a registered block, and that block renders itself, with its own schema validating
+the props first. The lookup arrives through `CustomCodeRegistryContext` — a function, not a kernel,
+which is what lets the static export resolve references with no kernel present and keeps this
+package from importing one.
+
+<Canvas of={CustomCodeStories.UnknownComponent} />
+
+A name nothing answers to degrades to `UnknownBlock` — visibly, in the same voice the rest of the
+canvas uses. Outside a provider entirely, every reference degrades the same way: the markup still
+renders, and only the references are lost.
+
+<Canvas of={CustomCodeStories.Empty} />

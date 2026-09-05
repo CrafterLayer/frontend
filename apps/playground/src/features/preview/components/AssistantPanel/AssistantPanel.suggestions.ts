@@ -16,7 +16,9 @@ export type SuggestionKind =
   /** From the SELECTED block's schema: what can be done to the thing in hand. */
   | 'selection'
   /** From the model's own `followUp` on the last answer. */
-  | 'followUp';
+  | 'followUp'
+  /** From what the recovery ladder DROPPED: the part of the ask still undone. */
+  | 'salvage';
 
 export interface Suggestion {
   /** Stable across renders for the same text, so React keys do not churn. */
@@ -137,7 +139,7 @@ export function catalogSuggestions(
   const matching = inLocale.length > 0 ? inLocale : prompts;
   if (matching.length === 0) return [];
 
-  const start = ((options.offset ?? 0) % matching.length + matching.length) % matching.length;
+  const start = (((options.offset ?? 0) % matching.length) + matching.length) % matching.length;
   const rotated = [...matching.slice(start), ...matching.slice(0, start)];
   return take(
     rotated.map((prompt) => suggestion('example', prompt)),
@@ -231,10 +233,47 @@ export function followUpSuggestions(
   );
 }
 
+/**
+ * Ask again for the steps the salvage left behind — and ONLY those.
+ *
+ * The commands are named because they are the only durable handle on what went
+ * missing: the model's own wording is gone by the time the card exists, and the
+ * validator's reason describes the refusal rather than the intent. Naming them
+ * keeps the retry SMALLER than the original request, which is the whole point —
+ * a suggestion that simply repeated the request would ask for the steps that
+ * already applied to be applied a second time.
+ *
+ * Deliberately without a page noun, for the same reason the build's retry is:
+ * a request that says "landing page" again scaffolds a second page over the one
+ * on the canvas.
+ */
+export function salvageSuggestions(
+  dropped: readonly { readonly command: string }[] | undefined,
+  locale: AgentLocale,
+  limit = 1,
+): readonly Suggestion[] {
+  if (dropped === undefined || dropped.length === 0 || limit <= 0) return [];
+  /* Each command once, in the order it was refused. A plan that lost four
+     `setProp` steps lost one KIND of thing, and naming it four times reads as
+     four separate failures. */
+  const commands = [...new Set(dropped.map((step) => step.command))];
+  const named = commands.join('، ');
+  return [
+    suggestion(
+      'salvage',
+      locale === 'ar'
+        ? `أعد محاولة ما لم يُطبَّق فقط: ${named}`
+        : `retry only what did not apply: ${commands.join(', ')}`,
+    ),
+  ];
+}
+
 export interface PanelSuggestionInput {
   readonly blocks: readonly { schema: BlockSchema }[];
   readonly selected: BlockSchema | undefined;
   readonly followUp: readonly string[] | string | undefined;
+  /** The steps the newest answer's salvage left behind, if it salvaged. */
+  readonly dropped?: readonly { readonly command: string }[] | undefined;
   readonly locale: AgentLocale;
   readonly limit?: number;
   readonly offset?: number;
@@ -243,15 +282,22 @@ export interface PanelSuggestionInput {
 /**
  * What the panel shows, in the order it shows it.
  *
- * The model's follow-ups come first when it gave any — they are about the
+ * The salvage comes first when there was one, and it outranks even the model's
+ * own follow-up: a follow-up proposes the NEXT thing, and a dropped step is a
+ * piece of the thing just asked for that never happened. Offering "now add
+ * pricing" above "retry what did not apply" would move a person past a gap they
+ * have not been told about.
+ *
+ * Then the model's follow-ups when it gave any — they are about the
  * conversation that is actually happening. Then the selection, because a person
  * with something selected is usually asking about it. The catalog fills what is
  * left, so the strip is never empty: that is the whole point, and it is why the
- * first two are allowed to be empty and the last one is not.
+ * first three are allowed to be empty and the last one is not.
  */
 export function panelSuggestions(input: PanelSuggestionInput): readonly Suggestion[] {
   const limit = input.limit ?? 4;
   const ordered = [
+    ...salvageSuggestions(input.dropped, input.locale),
     ...followUpSuggestions(input.followUp, limit),
     ...selectionSuggestions(input.selected, input.locale, limit),
     ...catalogSuggestions(input.blocks, {

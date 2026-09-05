@@ -1160,6 +1160,57 @@ body,
   font-weight: var(--bldr-font-weight-semibold);
 }
 
+/* WHAT THE SALVAGE LEFT BEHIND.
+
+   Collapsed by default, and that is the whole design: the count is the fact a
+   person must not miss, and the per-step reasons are what they read only if
+   they decide to act on it. An open list of validator messages above the plan
+   would bury the plan under its own errata.
+
+   No error colour. A salvaged plan SUCCEEDED at what it kept — painting this
+   red would tell a person the card is a failure when it is a smaller success,
+   and they would stop reading before the steps that worked. */
+/* THE PLANNED PAGE, top to bottom.
+
+   An ordered list because the ORDER is the plan: a person reading it is
+   checking that the page reads the way they meant, and a bulleted set would
+   drop the one fact the list is carrying. */
+.pg-chat__outline-sections {
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-xs);
+  margin: var(--bldr-space-0);
+  padding-inline-start: var(--bldr-space-xl);
+}
+
+.pg-chat__outline-sections li::marker {
+  color: var(--bldr-accent);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-chat__salvage {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+}
+
+.pg-chat__salvage > summary {
+  cursor: pointer;
+  /* The marker stays: it is the only affordance saying there is more inside. */
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.pg-chat__salvage > .pg-chat__steps {
+  background: transparent;
+  margin-block-start: var(--bldr-space-sm);
+  padding-block-end: var(--bldr-space-0);
+  padding-inline-start: var(--bldr-space-md);
+}
+
 .pg-chat__decide {
   display: flex;
   flex-wrap: wrap;
@@ -2043,8 +2094,8 @@ body,
 */
 .pg-chat__outline {
   color: var(--bldr-panel-text);
-  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) /
-    var(--bldr-line-height-relaxed) var(--bldr-font);
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-relaxed)
+    var(--bldr-font);
   margin: var(--bldr-space-0);
   min-inline-size: var(--bldr-space-0);
   overflow-wrap: anywhere;
@@ -2066,7 +2117,6 @@ body,
   font-size: var(--bldr-font-size-caption);
   margin: var(--bldr-space-0);
 }
-
 
 /* What the plan would change, above its steps: the size of the decision comes
    before its details. */

@@ -1,0 +1,52 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as OutcomeCardStories from './OutcomeCard.stories';
+
+<Meta of={OutcomeCardStories} />
+
+# OutcomeCard
+
+How a run ended, when it ended with nothing to decide. The three endings share a card because they
+share a shape — a sentence, a receipt, and at most one way forward — and keeping them together is
+what stops them drifting into three different ways of saying "it is over".
+
+They are not three variants of one state. A stop is the person's own decision, a refusal is the
+run's, and a discard is the person dismissing a proposal that never ran at all.
+
+## Stopped
+
+<Canvas of={OutcomeCardStories.Stopped} />
+
+A stop is an outcome, not a void. Without the receipt the card said "Stopped." and left a person
+guessing whether it had run for a second or for six minutes — which is exactly the fact they need in
+order to decide whether asking again is worth it. Nothing to press: the decision was already theirs.
+
+## Discarded
+
+<Canvas of={OutcomeCardStories.Discarded} />
+
+No receipt, and nothing is missing. A discarded proposal was never a run; a duration here would be
+answering a question nobody asked.
+
+## Refused
+
+<Canvas of={OutcomeCardStories.RetryableFailure} />
+
+The refusal text is the provider's, so it declares its own direction. Beneath it the machine-facing
+facts — code, source, HTTP status — in one quiet line, and then the receipt.
+
+The failed row is named **once**. The receipt already says "at Content", so the metadata line only
+adds it for a card that has no receipt to do the naming.
+
+<Canvas of={OutcomeCardStories.PermanentFailure} />
+
+Retry appears only when the failure said it was retryable **and** the request survived on the turn.
+A retry on a permanent failure asks a person to wait for the same answer twice, and a retry with no
+request would re-send an empty one.
+
+<Canvas of={OutcomeCardStories.RetryWhileBusy} />
+
+While another run owns the panel, Retry is disabled rather than removed — the button is where the
+person left it, and its state says why it cannot be used yet.
+
+<Canvas of={OutcomeCardStories.PlainRefusal} />

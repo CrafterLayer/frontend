@@ -1,0 +1,42 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EndingLineStories from './EndingLine.stories';
+
+<Meta of={EndingLineStories} />
+
+# EndingLine
+
+One quiet line for an ending: how long the run took, how far it got, and — when the provider
+streamed any — its own last words.
+
+<Canvas of={EndingLineStories.Stopped} />
+
+A card that only says "Stopped." leaves a person guessing whether it ran for a second or for six
+minutes. A receipt is as much an outcome as a plan.
+
+## The verb belongs to the card
+
+<Canvas of={EndingLineStories.Failed} />
+
+Only the card knows whether this run was stopped by the person or fell over on its own, so the verb
+is a prop. What does not change is the weight: no colour here, because a stop is not a failure, and
+a failure already carries its own on the card around it.
+
+## The provider's own words
+
+<Canvas of={EndingLineStories.WithLastWords} />
+
+The last streamed line is rendered with `dir="auto"`. Provider text declares its own direction; the
+chrome does not decide it. And the em dash only appears when there is a line to follow it — a
+trailing "—" pointing at nothing reads as a truncation.
+
+## Endings with nothing to point at
+
+<Canvas of={EndingLineStories.NoStage} />
+
+A run that ended before any row opened has no stage, and the "at …" clause is dropped whole rather
+than printed with an empty name.
+
+<Canvas of={EndingLineStories.Revived} />
+
+A card revived from storage has no receipt and renders `null`.

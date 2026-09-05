@@ -233,7 +233,14 @@ function readJsonBody(req, maxBodyBytes, timeoutMs) {
   });
 }
 
-function buildPrompt(body) {
+/*
+  Exported for its own test. Two lines in this prompt now depend on the
+  request's output contract — the refusal rule and the plan rule — and an
+  instruction that contradicts the schema it ships beside is the kind of defect
+  that only shows up against a live model, hours later, as "Plan mode refuses
+  everything".
+*/
+export function buildPrompt(body) {
   const repair =
     body.attempt === undefined
       ? ''
@@ -262,7 +269,7 @@ Rules:
 - Properties in propertyIntents.kinds["utility-classes"] are human-only. Never author them through any command or nested patch.
 - Type, parentId, slot, and node ids must come from the context. Compose registered blocks; never invent types.
 - Answer with one strict JSON object and nothing else, conforming to context.outputContract.
-- If the request cannot become commands, answer {"refusal":"<one short sentence why>"}.
+- If the request cannot become commands, answer {"refusal":"<one short sentence why>"} — UNLESS context.outputContract forbids commands (commands.maxItems is 0), which is a PLAN request: then the empty command list is the correct answer, and the whole answer belongs in rationale.
 - For work larger than one bounded plan, propose the most valuable coherent stage and put the next request in followUp. Never bypass bounds through bulk or nested work.
 - Every command may carry a short human title in the user's language. Write rationale and followUp in that language too.
 
@@ -456,7 +463,7 @@ function invalidOutput() {
  * the request the model was actually given is how this stays true without the
  * bridge learning what "Plan mode" is: it enforces the contract it forwarded.
  */
-function wantsEmptyCommands(body) {
+export function wantsEmptyCommands(body) {
   const schema = body?.context?.outputContract?.schema;
   return schema?.properties?.commands?.maxItems === 0;
 }

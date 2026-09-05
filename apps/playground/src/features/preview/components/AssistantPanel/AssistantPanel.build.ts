@@ -54,6 +54,25 @@ export interface BuildTask {
 export type BuildPhase =
   'scaffolding' | 'planned' | 'building' | 'stopped' | 'completed' | 'fallback';
 
+/**
+ * One section's state, in a person's words rather than the reducer's.
+ *
+ * Beside the reducer that produces the statuses, not in the panel that renders
+ * them: two places now show a section list, and a label map living in one of
+ * them would have been copied into the other.
+ */
+export const TASK_STATUS_LABEL: Readonly<Record<BuildTaskStatus, string>> = {
+  waiting: 'Waiting',
+  running: 'Working',
+  applied: 'Done',
+  skipped: 'Skipped',
+};
+
+/** Is any section still being written? The wave's clock lives exactly this long. */
+function stillWorking(tasks: readonly BuildTask[]): boolean {
+  return tasks.some((task) => task.status === 'running');
+}
+
 export interface BuildProgress {
   readonly runId: string;
   readonly phase: BuildPhase;
@@ -65,9 +84,17 @@ export interface BuildProgress {
   readonly applied: number;
   readonly skipped: number;
   /**
-   * The rows of whatever step is running right now — the skeleton first, then
-   * each section in turn. Null between steps and once the build settles, which
-   * is what stops a finished card from ticking.
+   * The rows of the work in flight — the skeleton first, then the sections.
+   *
+   * ONE clock for however many sections are being written at once. The fill
+   * loop runs a pool, so "the step running right now" stopped being a single
+   * thing; this is the wave's clock, started when the first section of the wave
+   * did and cleared only when nothing is running at all.
+   *
+   * It used to be cleared on every `task.completed`, which was correct while
+   * sections ran one at a time and wrong the moment they did not: the first
+   * section to finish blanked the live clock under the two still working, and
+   * the card sat silent while the build carried on.
    */
   readonly run: RunProgress | null;
   /** The whole build's measured duration, from `build.completed`. */
@@ -190,22 +217,38 @@ export function reduceBuildProgress(progress: BuildProgress, event: AiBuildEvent
           // The retry belongs to the same section: its clock never restarts.
           startedAt: task.startedAt ?? event.at,
         })),
-        run: initialRunProgress('auto', event.at),
+        /*
+          The WAVE's clock: started by the first section to start, kept by the
+          ones that join it. Restarting it on every start would make the clock
+          jump backwards each time another writer picked up work.
+        */
+        run: progress.run ?? initialRunProgress('auto', event.at),
       };
-    case 'task.completed':
+    case 'task.completed': {
+      const tasks = settle(progress, event.position, event.at, event.attempts, 'applied');
       return {
         ...progress,
-        tasks: settle(progress, event.position, event.at, event.attempts, 'applied'),
+        tasks,
         applied: progress.applied + 1,
-        run: null,
+        run: stillWorking(tasks) ? progress.run : null,
       };
-    case 'task.skipped':
+    }
+    case 'task.skipped': {
+      const tasks = settle(
+        progress,
+        event.position,
+        event.at,
+        event.attempts,
+        'skipped',
+        event.reason,
+      );
       return {
         ...progress,
-        tasks: settle(progress, event.position, event.at, event.attempts, 'skipped', event.reason),
+        tasks,
         skipped: progress.skipped + 1,
-        run: null,
+        run: stillWorking(tasks) ? progress.run : null,
       };
+    }
     case 'build.stopped':
       return { ...progress, phase: 'stopped', stopReason: event.reason, run: null };
     case 'build.completed': {

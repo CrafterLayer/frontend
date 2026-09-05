@@ -153,8 +153,18 @@
 - ⬜ الخطوات الساقطة بعد `plan.salvaged` كاقتراح
 - ⬜ `createDirectPlanProvider` فتمرّ الخطط المباشرة بالباب نفسه
 - ✅ **T329**: حفظ الوضع في `PersistedPanelState` — كان كل تحميل يعود إلى Ask، و**Ask يكتب**
+- ✅ **T335**: ورشة مراجعة بخمس عدسات (٥٥ وكيلًا، كل نتيجة سُلّمت لوكيل آخر ليكذّبها): ثُلثاها
+  كُذّب، و**١٧ صمدت** في كود أخضر سبق أن فحصته بالطفرات. أخطرها: بطاقة مُحيَاة كان Undo فيها يتراجع
+  عن عمل جلسة أخرى؛ و`planImpact` كان **أعمى عن أكبر تغيير تصنعه اللوحة** (`setDocMeta {dir:'rtl'}`
+  يُبلَّغ «لا يغيّر شيئًا»)؛ و`outlineAiPlan` كان يكسر **كل مضيف بسجلّ مهارات خاصّ**
 - ⬜ تصحيح التوكيد الصوري في `assemble-context.contract.test.ts:337`
-- ⬜ دليل حيّ من السائق
+- ✅ **T337**: دليل حيّ من السائق — وكشف أن **البناء المقسّم لم يعمل في المنتج قطّ**: في تشغيلين
+  حيّين (الصفحة الفارغة وصفحة الهبوط) طبّق الهيكل أربع مناطق موسومة، ثم عدّها `titlesByCreatedId`
+  صفراً وسقط البناء إلى خطة واحدة متسلسلة (5:20)، لأن عدسة الصفحة تُبلّغ الرقع بمسار الموقع
+  `pages/0/document/nodes/<id>` لا `nodes/<id>`. الإصلاح يقرأ ذيل المسار (كقاعدة `insertedNodeId`
+  في النواة)، ومثبَّت في `run-build.site-kernel.test.ts` على نواة موقع حقيقية. بعده:
+  `evidence/live/2026-09-05T12-27-14-auto-scale-four-empty-fixed.json` و`…T12-33-17-…-landing-fixed.json`
+  — `built` ٤/٤، **٤ كتّاب معاً** (٤ عمليات `claude` ٨٢ ثانية)، هبوط بترتيب الصفحة، ٤:٥١ و٥:٣٠
 
 ---
 
@@ -275,10 +285,15 @@
 
 ## D8 — واجهة الموقع ⬜ (٦ أيام)
 
-- ⬜ تفكيك `AssistantPanel.tsx` (٢٣٣٤ سطراً) إلى **أشقّاء** تحت `components/` بالترتيب: الأنواع
-  والنسخ → `LiveStageClock` → `PreviewDialog` → `OutcomeCard` → `PlanCard` → `BuildReportCard` →
-  `BuildApprovalCard` → `BuildProgressCard` → `ConversationMenu` → `AssistantComposer` →
-  `SuggestionChips` → `AssistantThread` → `use-assistant-runs.ts`
+- 🔄 **T336**: تفكيك `AssistantPanel.tsx` — **ستّة مكوّنات خرجت** بمصنوعاتها الخمسة:
+  `LiveStageClock` (كان **مكوّناً ثانياً معلَناً داخل ملفّ اللوحة**، وهو ما تمنعه القاعدة صراحةً) ·
+  `SuggestionRail` · `OutlineCard` · `PlanImpactLine` · `BuildApprovalCard` · `BuildSectionList`.
+  و`TASK_STATUS_LABEL` نزل إلى `AssistantPanel.build.ts` بجانب المُختزِل الذي ينتج الحالات، لأن
+  سطحين صارا يعرضان قائمة الأقسام. ٢٩٧٩ → ٢٧١٢ سطراً، والخصائص ضيّقة: لا مكوّن يأخذ دَوراً أو نواة
+  أو حالة اللوحة. بوّابة بعد كلّ خطوة: الملعب ٤٠٠، الأنواع ٣٠/٣٠، `check:components` ١١٥ مكوّناً
+  بالثغرات الإحدى عشرة السابقة نفسها
+- ⬜ ما بقي من التفكيك: `PreviewDialog` · `OutcomeCard` · `PlanCard` · `BuildReportCard` ·
+  `ConversationMenu` · `AssistantComposer` · `AssistantThread` · `use-assistant-runs.ts`
 - ⬜ `SiteBriefForm` (T078–T085)، `SiteRunCard`، `DraftCanvasBanner`
 - ⬜ قائمة المراحل، تبويبات الصفحات، هياكل الأقسام، ETA من التشغيل نفسه، Stop دائم، تبديل الصفحات
 - ⬜ عربية وRTL وإعلانات قارئ الشاشة

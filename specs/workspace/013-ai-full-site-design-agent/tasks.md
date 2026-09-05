@@ -1702,26 +1702,77 @@ and the evidence that closes it.
 
 ### D1 — Plan mode and suggestions
 
-- [ ] T289 [P] [US10] Add the `craftkit.plan-mode` skill (GOAL · OUTLINE · ALTERNATIVES · RISK; a
+- [x] T289 [P] [US10] Add the `craftkit.plan-mode` skill (GOAL · OUTLINE · ALTERNATIVES · RISK; a
       `title` per step; a `followUp` naming the next stage) and register it through the existing
       `createCraftkitAiSkillRegistry(additional)` door — no wire change, and the mode shows as a
       pinned activation on the card. **FR-096.**
-- [ ] T290 [US10] Remove the `mode !== 'plan'` gate in `AssistantPanel.tsx` so a page-sized request
+      Evidence: `packages/builder/ai/src/skills/builtins.ts:970`; `AI_PLAN_MODE_SKILL_ID` in
+      `plan/outline-plan.ts`; `skillsForMode` in `AssistantPanel.runs.ts` adds it in Plan and never
+      twice (`AssistantPanel.runs.test.ts`, 4 cases).
+- [x] T290 [US10] Remove the `mode !== 'plan'` gate in `AssistantPanel.tsx` so a page-sized request
       in Plan mode reaches the multi-section orchestrator instead of becoming one oversized call,
       and pass `onPlanned` in Plan as well as Ask. **FR-096.**
+      Done, with ONE deliberate deviation, recorded here rather than silently:
+      **`onPlanned` is NOT passed in Plan mode.** That hook asks "the skeleton is on the page — fill
+      it?", and in Plan nothing is on the page and nothing will be filled; asking would be a
+      question about a decision that is not being made. What replaced it is the honest equivalent:
+      the planned page carries a **Build this** action, and pressing it starts a NEW run in Ask,
+      where `onPlanned` does its ordinary job.
+      How: `runAiBuild` gained `apply?: 'auto' | 'never'` (default unchanged). `'never'` proposes
+      the scaffold instead of applying it, reads the section list from the plan it proposed
+      (`plannedTitles`), fills nothing, and returns `outcome: 'planned'` with `plannedTasks`. It
+      emits no `build.planned` event: that event carries `AiBuildTask`s whose `id` is a real node,
+      and here no node exists — synthetic ids would put a lie where the panel addresses sections.
+      It also never falls back to an ordinary run: falling back means doing the work another way,
+      and a build told not to work has nothing to fall back to.
+      Cost: exactly one model call. Rehearsing every section on a scratch kernel would cost what
+      building the page costs, to produce a result that must then be applied against a document that
+      may have moved.
+      The run's mode is decided in `ask` (`origin === 'build' ? 'ask' : panelMode`), not read from
+      state: `setMode` is asynchronous and the closure holds the old value, so a build started from
+      a planned page would otherwise plan again — the control would move and nothing would happen.
+      Evidence: `run-build.plan-only.test.ts` (8 cases; mutation-checked — forcing `apply: 'auto'`
+      fails "writes NOTHING", and `writes = true` fails 5); `AssistantPanel.test.tsx` "a page-sized
+      request in Plan mode" (6 cases) and the rewritten "enters the build path in Plan mode and
+      stops at the skeleton"; `OutlineCard.test.tsx` (8 planned-page cases).
+      Gates: builder-ai 499/499, playground 582/582, lint + typecheck clean, boundaries 1430 files.
 - [x] T291 [US10] Close the write path: `PreviewDialog` takes `canApply`, `accept()` refuses a
       Plan-mode application that did not originate on the card, and a NEGATIVE test asserts no Apply
       control exists anywhere in the tree in Plan mode. **FR-096.**
 - [x] T292 [US10] The plan card shows each step in the requester's language, what it would change
       (from `previewAiPlan` plus a node diff — no second model call), a cost estimate from
       `estimateAiPlanWireRequestTokens`, and ONE Apply. **FR-097, FR-099.**
-- [ ] T293 [P] [US10] Suggestions in four forms from one `Suggestion` type and one `SuggestionChips`
+- [x] T293 [P] [US10] Suggestions in four forms from one `Suggestion` type and one `SuggestionChips`
       component: starters derived from `registry.blocks()` and the locale and returning after a
       conversation; follow-ups from the applied plan, from `followUp`, and from `plan.salvaged`'s
       dropped steps; selection-scoped suggestions from the selected block's schema; and the plan
       itself. Direct plans run through `createDirectPlanProvider` so they pass the ordinary
       validation door. Model-only suggestions are hidden, not shown dead, when no server is
       configured. **FR-098.**
+      The component is `SuggestionRail`, not `SuggestionChips` (two layouts: stacked when the
+      thread is empty, a horizontally scrolling rail once it is not; wheel and touch, RTL sign
+      handled).
+      `plan.salvaged` was reaching the panel and being DROPPED — the event existed and its own
+      comment says a person is owed the fact. The plan turn now carries `salvaged`, `PlanCard`
+      shows the count above the step list with the reasons folded away and no error colour (a
+      salvaged plan succeeded at what it kept), and the rail offers "retry only what did not apply"
+      naming exactly the dropped commands, ranked ABOVE the model's own follow-up: a follow-up
+      proposes the next thing, a dropped step is part of the thing just asked for that never
+      happened.
+      `createDirectPlanProvider` answers a chip carrying a catalog prompt verbatim from the block's
+      own `examples[]` — no model call — and the plan still travels `validateAiPlan` →
+      `createAiValidatedProposal` → `dispatchGroup`. TYPED text never reaches it, even the same
+      words: pressing the chip is picking a named example, typing is asking for something for this
+      page. Two corrections found by testing, not by reasoning: the catalog is passed in by the host
+      rather than read off `AssembledAiContext` (which carries examples in `full` mode alone, so a
+      chip worked on one run and silently stopped on the next), and the context's `insertable: false`
+      is NOT honoured (it also goes false for a block present without a schema, which meant a chip
+      stopped working the moment its block appeared on the page) — only the page's own root type is
+      vetoed.
+      Evidence: `direct-provider.test.ts` (16 cases, mutation-checked in three directions);
+      `AssistantPanel.suggestions.test.ts` (+9 salvage cases); `AssistantPanel.runs.test.ts`
+      `lastDropped` (6 cases); `AssistantPanel.test.tsx` "a suggestion carrying a catalog prompt"
+      (3 cases, mutation-checked both ways).
 - [ ] T294 [P] [US10] Persist the assistant mode in `PersistedPanelState`, and replace the vacuous
       `followUp` assertion at `assemble-context.contract.test.ts:337` (it asserts a property that
       lives one level deeper, and contradicts the `toMatchObject` three lines above it). **FR-098.**
@@ -2263,11 +2314,171 @@ and the evidence that closes it.
       correctly in isolation, put in a place that has no room for it. Both were caught by a person
       looking at the screen, not by a green suite.
 
-**PARTIAL, stated as one**: D1's plan (ق٥) asks for Plan to enter the build path and stop at the
-structure with a plan card carrying steps, "what will change" from `planImpact()`, and a labelled
-cost estimate. What is built is the outline route — Plan answers with a four-part plan, writes
-nothing, and offers a follow-up. The richer card, `planImpact()`, the cost estimate and
-`createDirectPlanProvider` are not built. T290–T292 stay open.
+- [x] T335 [US10] **A five-lens adversarial workflow on the D1 work: 55 agents, 17 findings that
+      survived refutation, all fixed.** Each dimension read independently (correctness, can-Plan-
+      still-write, design, accessibility/RTL, are-the-tests-real), and every finding was handed to a
+      separate agent instructed to REFUTE it. Two thirds were refuted; what follows is what held.
+      **The blocking one, and it is the same shape as the one before it.** Gating Apply turned out to
+      be half a rule: the applied card's Undo and the build report's per-section Undo both called
+      `kernel.undo()` with no gate at all. A panel that had hidden every Apply and promised "only
+      plan" still rewrote the page on one click. The rule is now stated once — `mutatesLiveDocument`
+      — and the promise is exact: in Plan mode NOTHING in this panel changes the document. Undo is
+      withheld not to protect anyone from themselves but because a promise with an exception is not
+      one; leaving Plan is one click and says what it does.
+      **And the test that was supposed to catch it did not**, because it looked for the literal word
+      "Apply". It now spies on `dispatchGroup` and `undo`, presses every enabled button in the panel,
+      and asserts the document never moved — a rule about writing tested by watching writes rather
+      than by reading labels.
+      **A revived card's Undo was undoing somebody else's work.** Persistence deliberately drops the
+      proposal but kept `applied: true`, so a reloaded card still drew Undo — and this session's
+      history has entirely different entries at that position. The card now offers it only while the
+      proposal that earned it is still in memory.
+      **`planImpact` was blind to the largest change the panel can make.** It diffed only
+      `document.nodes`, so a plan whose command is `setDocMeta {dir:'rtl'}` — the single most
+      Arabic-first plan this product can produce, and one the craft manual instructs the model to
+      emit verbatim — reported "changes nothing". It now names a direction or surface change as its
+      own clause. Two smaller diff defects with it: `JSON.stringify` is key-order sensitive, so props
+      built in a different order read as a change to a node nothing touched; and a node still listed
+      in a slot but gone from `nodes` was counted both as removed and as changed.
+      **`outlineAiPlan` broke every host with its own skill registry.** It named `craftkit.plan-mode`
+      whenever any registry was present, and `createAiSkillRegistry` defaults to an EMPTY catalog —
+      so a host that supplies its own got `unknown-explicit-skill` thrown for every plan it ever
+      asked for. It asks the registry now. It also returned a blank rationale despite documenting
+      "Never empty" (the check that enforces it lives on the door an outline deliberately skips), and
+      returned the follow-up UNTRIMMED after trimming it to test emptiness — a string that becomes a
+      button's label, its accessible name, and the text sent when pressed.
+      **The suggestion strip unmounted while the assistant worked**, which did two things a person
+      feels rather than reads: the chip under their finger vanished so focus fell to `<body>`, and
+      the composer lurched ~215px up and back. It stays mounted and disabled. A chip could also fill
+      84% of a 360px rail, so the strip read as one option with the rest invisible past the edge.
+      **The mode radiogroup promised a keyboard contract it did not implement** — `role="radio"`
+      buttons answer no arrows, and all three were separate Tab stops. Arrows now move and select,
+      mirrored for Arabic, wrapping at the ends, with one tab stop that follows the selection.
+      **Panel-written Arabic had no `lang`**, so an English voice read it and the wrong typeface was
+      chosen; `.pg-chat__outline` had no font-size, line-height or colour of its own and rendered at
+      the browser's 16px default beside 11.5px siblings; and `pre-wrap` without `overflow-wrap` let
+      one long token push a horizontal scrollbar across the whole conversation.
+      **The dev bridge's prompt still told the model to REFUSE whenever the request could not become
+      commands** — which is the definition of a plan request. Both that line and
+      `wantsEmptyCommands` (unexported, and the only thing that turns the permission on in
+      production) are now tested. That bridge is deprecated in favour of `apps/ai-server`; the fix
+      keeps an old `.env.local` working and the real path belongs to the server's owner.
+
+- [x] T336 [US10] **`AssistantPanel.tsx` decomposed — six components out, and one of them was a
+      rule violation hiding in plain sight.** The owner called this out directly: everything lived in
+      one file and that is expensive to maintain. `.specify/agents/rules/react-ui.md` says it in
+      three lines — one substantive component per `.tsx`, never a sibling component below the main
+      export, and JSX-returning helpers become named components with explicit props.
+      Extracted, each as a full five-artifact component directory (tsx / stories / docs.mdx / test /
+      index), each wired back and gated before the next:
+      `SuggestionRail` (7 tests) · `OutlineCard` (6) · `PlanImpactLine` (6) · `BuildApprovalCard` (6)
+      · `LiveStageClock` (5) · `BuildSectionList` (5).
+      **`LiveStageClock` was already a second component declared inside the panel file** — exactly
+      what the rule forbids — and moving it forced `TASK_STATUS_LABEL` down to
+      `AssistantPanel.build.ts`, beside the reducer that produces those statuses. Two surfaces now
+      render a section list; a label map living in one of them would have been copied into the other.
+      Props are narrow by rule: no component takes a turn, a kernel or the panel's state. The rail
+      takes a list and a callback; the impact line takes two values and a locale; the section list
+      takes progress and a key prefix. Each one's own tests state a claim the panel's tests could
+      not — that the rail keeps focus while busy, that the outline card has no Apply because there is
+      nothing in it to apply, that a settled clock schedules no timer at all.
+      2979 → 2712 lines, with ~1400 lines of markup moved into files that own it. Gates after every
+      step: playground 390 → 400 tests, repository typecheck 30/30, `check:components` 115 components
+      with the same 11 pre-existing gaps and none of mine, 18/18 Chromium stories.
+
+- [x] T337 [US10] **The split build had never run in the product — live evidence, root cause, fix,
+      and the first real proof of the parallel writers (T334).** A Codex thread (2026-09-04) shipped
+      the adaptive pool and died on a usage limit before its checks ran; this task finished them on
+      the host — builder-ai typecheck, lint, 471 tests green — and then drove the product.
+      **Two live runs, landing and empty fixture, Auto mode, Haiku at medium: neither ever showed a
+      Sections list.** The server log had one `claude` process at a time, the thread ended on the
+      ORDINARY plan card ("APPLIED 43 steps" / "APPLIED 4 steps"), and the transaction log carried
+      "Assistant: page skeleton" — so the scaffold applied its four labelled regions and the build
+      still announced `build.skipped` "produced 0 sections" and fell back to one sequential run. The
+      empty-page request took 5:20 that way. Kept as the "before":
+      `evidence/live/2026-09-05T11-49-49-auto-scale-four.json` (landing) and
+      `…T12-08-54-auto-scale-four-empty.json` (empty, with per-call milestones and the conversation).
+      **Root cause, reproduced without a model.** The panel's kernel is `site.page(id)` — a page
+      lens — and a lens reports a created node at `['pages', 0, 'document', 'nodes', id]`;
+      `titlesByCreatedId` in `run-build.ts` accepted only `['nodes', id]`. The same scaffold plan on
+      `createPlaygroundKernel` derives four tasks and completes; on the lens, zero. It is the SIXTH
+      instance of the shape frontend-44 fixed in `insertedNodeId` earlier today, and every test that
+      exercised the build was green because every one ran on a document kernel. Fixed by reading the
+      path's tail (`path[length-2] === 'nodes'`, the same rule as core); pinned in a new file,
+      `run-build.site-kernel.test.ts`, which builds a real `createSiteBuilder(...).page(...)`,
+      asserts the skeleton's patches are site-rooted, and requires four ordered landings. Red before,
+      green after; builder-ai 472/472. A sweep for the shape (`path[0] === 'nodes'`) leaves only
+      `changedNodeIds` in core `dispatch.ts`, which is correct: it is the page dispatcher's own and
+      never sees a site patch.
+      **Evidence after the fix**, `apps/evals/evidence/live/2026-09-05T12-27-14-auto-scale-four-empty-fixed.json`
+      and `…T12-33-17-auto-scale-four-landing-fixed.json` (each with `-wave-4.png` and
+      `-settled.png`): `outcome: built`, 4/4 applied, zero console errors, `peakRunning: 4`. Server
+      log: four `cli run started` lines within one second of the skeleton ending; process sampler:
+      four `claude` processes for 82 s (empty) and 35 s (landing). Sections landed in page order
+      while finishing out of order ("applied 1,2 · running 3,4" after section 3's first attempt
+      ended first). Whole page: **4:51** empty, **5:30** landing, against 5:20 for the sequential
+      fallback the same request produced before. The same run is the first live verification of two
+      things T335/T336 could only prove in stories and unit tests: the wave clock
+      (`AssistantPanel.build.ts`, `run` kept while `stillWorking(tasks)`) ticking under four rows at
+      once, and `BuildSectionList`'s per-row "Working on <title>" regions — see the `-wave-4.png`
+      screenshots. Skeleton 1:01–1:04 with a 31.7k-character prompt
+      on the empty page, 2:24 with 56.4k on the landing page; one landing-page skeleton wrote 25.5k
+      characters where the skill asks for ~3k — the next speed target.
+      **The driver grew to witness this**: `--mode=` selects Ask/Auto/Plan, `--fixture=` opens a
+      document through the Settings harness, `--capture=` keeps each request body, and every run
+      now records per-call start/end milestones, a `sections` milestone on every status change with
+      the peak running count, a screenshot at each new wave peak, the full conversation text, and
+      a `built` outcome. Runs must target a static `vite preview` on 5199 built with
+      `NODE_ENV=development` (`--mode development` alone leaves `import.meta.env.DEV` false, and the
+      remote provider refuses plain http without it): the first attempt on the shared 5173 dev
+      server was remounted mid-build by a peer's save.
+      **Left open, stated plainly**: on the landing fixture the four sections are appended BELOW the
+      27 existing demo nodes, because a scaffold may only insert; the ordinary run it used to fall
+      back to had rewritten the page instead. And `apps/ai-server/README.md` now states the
+      concurrency contract (no server cap; one process per in-flight section; the deprecated bridge
+      caps at 1 and answers 429). **FR-103, SC-027.**
+      **Addendum, same session — Apply refused on the live product.** The owner's first Arabic
+      request rehearsed fine and then failed on Apply with `site/structural-violation`: the plan
+      carried `setDocMeta {dir:'rtl'}` (as the craft manual instructs), the rehearsal is a document
+      kernel and accepts it, and the page lens refuses a page turning on its own, naming
+      `setSiteDirection` — a command the model cannot say. `applyAiPlan` now answers that one
+      refusal itself: the site door refuses before it commits, so the same group is re-said with
+      every direction-carrying `setDocMeta` as `setSiteDirection` (the rest of the step stays a page
+      write; a direction the site already has is dropped), still one transaction and one undo.
+      Pinned in `apply-plan.site-kernel.test.ts` on a real `createSiteBuilder(...).page(...)`,
+      with a negative case proving a direct page-scoped turn is still refused by the site; the
+      recovery is deliberately NOT in the lens (a lens that rewrote a page command into a site
+      command would lie about its own scope). builder-ai 474/474.
+      **Second addendum — "Add page" opened nothing.** The owner asked for a way to create a blank
+      page to compare pages under site persistence; `SitePages` already had the button, but it left
+      the canvas on the old page, so the first live use read as "nothing happened". It now opens
+      the page it made, hands it the keyboard, and names it "Page N" with the home page counted as
+      page 1 (`/page-2` first, never `/page-1`). Test extended to assert current page, focus, blank
+      document and undo; docs updated. shell 918/918, typecheck and lint 0. The playground's
+      page-switch scenario in `App.test.tsx` encoded the old behaviour (add, then read the landing
+      tree, then switch) and was rewritten to the new one (add lands on the blank page, switching
+      back restores the landing tree); 21/21 in isolation.
+
+**PARTIAL, stated as one** *(superseded — kept for the record)*: D1's plan (ق٥) asks for Plan to
+enter the build path and stop at the structure with a plan card carrying steps, "what will change"
+from `planImpact()`, and a labelled cost estimate. What is built is the outline route — Plan answers
+with a four-part plan, writes nothing, and offers a follow-up. The richer card, `planImpact()`, the
+cost estimate and `createDirectPlanProvider` are not built. T290–T292 stay open.
+
+**CLOSED, later session**: all four are built and gated — see T289–T293 above. `planImpact()` and
+the cost estimate ship on the plan card (T292); Plan enters the build path and stops at the skeleton
+via `runAiBuild({ apply: 'never' })`, with one recorded deviation on `onPlanned` (T290);
+`createDirectPlanProvider` answers a catalog chip without a model call (T293). D1's remaining
+opening is the LIVE driver evidence for these three, which needs a key and the peer-owned server —
+every claim above rests on unit and component tests, not on a live run.
+
+**Full-gate state at the end of this session**: 62 of 64 turbo tasks green. The five test failures
+across those two tasks were each re-run ALONE and each passed — richtext + EditorCanvas stories
+21/21, AssistantPanel stories 18/18, the playground suite 400/400 — so they are the browser suites'
+known load flakiness, made likelier by a peer session running a preview server and a live build on
+the same machine. Isolation is the check that separates load from a real break, and it is what
+caught the one that was NOT flaky earlier today: `Build In Flight` reproduced alone, and it was a
+defect my own concurrency change had introduced.
 
 **Two suite failures investigated, with different answers.** `@craftkit/builder-ai`'s
 `custom-code-vocabulary` first test and `@craftkit/builder-code-view`'s `CodeViewPanel` are 5s
@@ -2288,4 +2499,4 @@ belongs to whoever owns those components.
       a large-build proof observes six and no more. Ordered landing and per-section validation are
       unchanged. **FR-103, SC-027.**
 
-**Total after the first D2 tasks**: 334 tasks.
+**Total after the first D2 tasks**: 337 tasks.

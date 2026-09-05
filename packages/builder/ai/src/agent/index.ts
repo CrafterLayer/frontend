@@ -23,6 +23,7 @@ export type {
   AiBuildOwnEvent,
   AiBuildRunResult,
   AiBuildStopReason,
+  AiBuildPlannedTask,
   AiBuildTask,
   AiBuildTaskReport,
   AiBuildTaskStatus,

@@ -31,7 +31,10 @@ function renderBlock(css: string, isCanvas: boolean) {
  */
 describe('refused custom CSS is explained on the canvas', () => {
   it('names the refused construct next to the region', () => {
-    const { container } = renderBlock('@import url("https://evil.test/x.css"); .ck-a{color:red}', true);
+    const { container } = renderBlock(
+      '@import url("https://evil.test/x.css"); .ck-a{color:red}',
+      true,
+    );
 
     const note = container.querySelector('[role="note"]');
     expect(note?.textContent).toContain('Custom CSS not applied');

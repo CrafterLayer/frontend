@@ -9,7 +9,9 @@ import {
   buildClaudeArgs,
   callModelProcess,
   createAiPlanBridgeServer,
+  buildPrompt,
   toWireResponse,
+  wantsEmptyCommands,
 } from './ai-plan-bridge.mjs';
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
@@ -487,4 +489,36 @@ test('a slow authenticated body times out without occupying the model concurrenc
 
 test('bridge refuses to start without a strong session token', () => {
   assert.throws(() => createAiPlanBridgeServer({ token: 'short' }), /at least 16/);
+});
+
+test('an outline request is recognised from its own contract, and the prompt stops contradicting it', () => {
+  /*
+    `wantsEmptyCommands` is the only thing that turns the permission on in
+    production, and it was unexported and untested — the one test that covered
+    the feature passed the flag by hand, which proves the branch and not the
+    wiring.
+
+    The prompt matters as much: it told the model to REFUSE whenever the request
+    could not become commands, which is the definition of a plan request. An
+    instruction that contradicts the schema shipped beside it fails only against
+    a live model, hours later, as "Plan mode refuses everything".
+  */
+  const outline = {
+    context: { outputContract: { schema: { properties: { commands: { maxItems: 0 } } } } },
+    request: 'a clinic page',
+  };
+  const build = {
+    context: { outputContract: { schema: { properties: { commands: { minItems: 1 } } } } },
+    request: 'add a hero',
+  };
+
+  assert.equal(wantsEmptyCommands(outline), true);
+  assert.equal(wantsEmptyCommands(build), false);
+  // Malformed or absent contracts must not be read as permission.
+  assert.equal(wantsEmptyCommands({}), false);
+  assert.equal(wantsEmptyCommands({ context: {} }), false);
+
+  const text = buildPrompt(outline);
+  assert.match(text, /commands\.maxItems is 0/);
+  assert.match(text, /the empty command list is the correct answer/);
 });

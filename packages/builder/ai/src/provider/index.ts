@@ -26,3 +26,8 @@ export {
   type AiPlanWireResponse,
   type AiPlanWireStatus,
 } from './wire';
+export {
+  createDirectPlanProvider,
+  type DirectAiPlanCatalogEntry,
+  type DirectAiPlanProviderOptions,
+} from './direct-provider';

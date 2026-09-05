@@ -159,7 +159,19 @@ export interface AiBuildTaskReport extends AiBuildTask {
 export type AiBuildStopReason = 'signal' | 'budget' | 'max-tasks';
 
 /** How the whole build ended. */
-export type AiBuildOutcome = 'completed' | 'fallback' | AiBuildStopReason;
+export type AiBuildOutcome = 'completed' | 'fallback' | 'planned' | AiBuildStopReason;
+
+/**
+ * A section the skeleton WOULD create, from a build that wrote nothing.
+ *
+ * No id, and that is the point: under `apply: 'never'` no node exists yet, so
+ * there is nothing to name. Giving it a synthetic one would be a lie in the
+ * type — and the first caller to treat it as a real `AiBuildTask` would ask the
+ * document for a node that was never created.
+ */
+export interface AiBuildPlannedTask {
+  readonly title: string;
+}
 
 export interface AiBuildEventBase {
   /** The BUILD's run id. Each step's own events carry `<runId>/<step>` instead. */
@@ -229,6 +241,24 @@ export type AiBuildEvent = AiAgentEvent | AiBuildOwnEvent;
  * above. Everything else is forwarded to each step verbatim.
  */
 export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'label' | 'onEvent'> {
+  /**
+   * Whether this build may WRITE.
+   *
+   * `'auto'` (the default) is the build as it has always been: the skeleton
+   * lands, then every section is filled and applied in page order.
+   *
+   * `'never'` stops after the skeleton, and never applies it. The scaffold is
+   * proposed rather than dispatched, the section list is read from the plan it
+   * proposed, and the run returns `outcome: 'planned'` with nothing written and
+   * no section filled. It is what a planning mode asks for: the shape of the
+   * page and what it would cost, before spending a model call per section.
+   *
+   * It deliberately does NOT rehearse the whole page. Filling every section on
+   * a scratch kernel would cost exactly what building it costs, to produce a
+   * result that must then be applied against a document that may have moved —
+   * and a person who only wanted to see the plan would have paid for the page.
+   */
+  apply?: 'auto' | 'never';
   /** Most sections to fill. Later ones are reported `not-started`. Default 12. */
   maxTasks?: number;
   /** Per-section ceiling; only that section's run is aborted. Default 240_000. */
@@ -281,4 +311,11 @@ export interface AiBuildRunResult {
   outcome: AiBuildOutcome;
   /** The one ordinary run that replaced the build under `outcome: 'fallback'`. */
   fallback?: AiAgentRunResult;
+  /**
+   * The sections the skeleton would create, under `outcome: 'planned'`.
+   *
+   * Present only for an `apply: 'never'` build, where `tasks` is empty because
+   * nothing was filled and nothing exists to report on.
+   */
+  plannedTasks?: readonly AiBuildPlannedTask[];
 }

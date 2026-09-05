@@ -49,9 +49,7 @@ describe('the shipped example', () => {
 
   it('uses only utility classes the runtime vocabulary generates', () => {
     const unknown = [
-      ...new Set(
-        customCodeClassNames(props.tree).flatMap((value) => unknownUtilityClasses(value)),
-      ),
+      ...new Set(customCodeClassNames(props.tree).flatMap((value) => unknownUtilityClasses(value))),
     ];
 
     // Anything here would be a class with no CSS, shown to the model as correct.

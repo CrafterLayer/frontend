@@ -1,0 +1,86 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PlanCardStories from './PlanCard.stories';
+
+<Meta of={PlanCardStories} />
+
+# PlanCard
+
+A proposed change, and the decision it asks for. Everything a person needs before answering is on
+the card: why, what would change, what it cost to ask, which Skills the request activated, and each
+step in words with the exact command beside it.
+
+<Canvas of={PlanCardStories.Proposal} />
+
+## Words first, command second
+
+Each step is described in a person's language; the command rides along in mono as the technical
+truth, never the headline. A card that leads with `setProp` asks the reader to be a programmer
+before they can be a decision-maker.
+
+<Canvas of={PlanCardStories.WithSkills} />
+
+Activated Skills are pinned by id, version and content fingerprint. Two runs that name the same
+Skill at the same version but different fingerprints did not read the same instructions, and the
+card is the only place that difference is visible.
+
+## What would change
+
+<Canvas of={PlanCardStories.ChangesNothing} />
+
+Diffed from the plan's own rehearsal, not re-read from the step list and not asked of a second
+model. A `setProp` to the value a block already holds is a valid command that produces an identical
+document: it reads like work and moves nothing. A person about to spend an undo step should be told
+that first.
+
+## A salvaged plan says what it lost
+
+<Canvas of={PlanCardStories.Salvaged} />
+
+A salvaged plan is a **smaller** plan than the model wrote. The recovery ladder kept the steps the
+door accepted and dropped the ones it refused — so without this line the card reads as a complete
+answer to a request it only partly answered, and the person's next move (asking again for the
+missing part) depends entirely on knowing there is a missing part.
+
+The count sits above the step list, because it changes how that list should be read. The per-step
+reasons are folded away: the count is the fact nobody may miss, and the validator's messages are
+what a person reads only once they decide to act. An open list of them would bury the plan under its
+own errata.
+
+No error colour anywhere on it. A salvaged plan _succeeded_ at what it kept; painting it red would
+tell a person the card is a failure when it is a smaller success, and they would stop reading before
+the steps that worked.
+
+The strip above the composer offers the matching next move — "retry only what did not apply", naming
+exactly the commands that were dropped, and ranked above even the model's own follow-up.
+
+## Apply is withdrawn, not disabled, when it would be refused
+
+<Canvas of={PlanCardStories.PlannedOnly} />
+
+A plan proposed in Plan mode never offers Apply.
+
+<Canvas of={PlanCardStories.AskProposalInPlanMode} />
+
+Neither does an Ask proposal once the panel is in Plan mode — and that is the case that was missing.
+A proposal made a minute ago kept its Apply after the person switched, so the label said "Plan"
+while the button wrote. `accept` refuses either way; the card's job is not to offer what would be
+refused.
+
+## Applied
+
+<Canvas of={PlanCardStories.Applied} />
+
+Undo is a write, so it is gated by exactly the same rule as Apply.
+
+<Canvas of={PlanCardStories.AppliedPlanOnly} />
+
+## Revived cards are readable and inert
+
+<Canvas of={PlanCardStories.Revived} />
+
+`proposal` is runtime-authenticated authority and persistence deliberately drops it, so its absence
+is the marker for "revived". Such a card offers neither Apply nor Preview, and no Undo once applied:
+its transaction belongs to the session that made it, and this session's history has entirely
+different entries at the same position — an Undo here would undo somebody else's work while claiming
+to undo this plan. Discard stays, because dismissing a card is not acting on the document.

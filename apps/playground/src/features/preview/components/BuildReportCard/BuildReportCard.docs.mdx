@@ -1,0 +1,47 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BuildReportCardStories from './BuildReportCard.stories';
+
+<Meta of={BuildReportCardStories} />
+
+# BuildReportCard
+
+What a build actually did: every section, its outcome, and the reason for each one that did not land.
+
+<Canvas of={BuildReportCardStories.AllApplied} />
+
+## Why the report exists at all
+
+A build is many transactions. This is the only place a person can see them as ONE thing — and the
+only place the promise made at the approval card is kept: each section landed on its own, so each
+can be undone on its own. "Undo Pricing" removes exactly Pricing.
+
+## Skipped is a state, not a failure
+
+A section the model would not write is marked, the build carried on, and the door's own reason is
+shown next to it. The retry asks again for ONLY those sections, worded without any page noun — a
+retry that said "landing page" again would scaffold a second skeleton over the one on the canvas.
+
+<Canvas of={BuildReportCardStories.WithSkipped} />
+
+It offers no retry it could not send. A revived report is readable history — persistence
+deliberately drops the request that produced it — so the button is absent rather than inert.
+
+<Canvas of={BuildReportCardStories.RevivedWithoutRequest} />
+
+## Undo and the panel's promise
+
+`canUndo` is the panel's own state, not this card's. In Plan mode every Undo is withheld, for the
+same reason Apply is: the mode is a promise about the panel, and this button loops `kernel.undo()`
+— it writes MORE than the others, not less.
+
+<Canvas of={BuildReportCardStories.PlanningOnly} />
+
+## Stopped is not built
+
+A build that was cut short says so. It completed its bookkeeping; it did not complete its work, and
+the sections that never started say "waiting" rather than pretending to be anything else.
+
+<Canvas of={BuildReportCardStories.Stopped} />
+
+<Canvas of={BuildReportCardStories.Arabic} />

@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "name": "auto-scale-four-landing-fixed",
+  "url": "http://127.0.0.1:5199",
+  "request": "Build a complete landing page for a small design studio with exactly four sections: hero, services, pricing, contact.",
+  "startedAt": "2026-09-05T12:33:17.078Z",
+  "milestones": [
+    {
+      "at": 1788611599094,
+      "sinceStartMs": 2016,
+      "what": "page loaded"
+    },
+    {
+      "at": 1788611601419,
+      "sinceStartMs": 4341,
+      "what": "fixture selected",
+      "detail": "landing"
+    },
+    {
+      "at": 1788611601897,
+      "sinceStartMs": 4819,
+      "what": "assistant open"
+    },
+    {
+      "at": 1788611602064,
+      "sinceStartMs": 4986,
+      "what": "mode selected",
+      "detail": "Auto"
+    },
+    {
+      "at": 1788611602088,
+      "sinceStartMs": 5010,
+      "what": "transactions before",
+      "detail": "0; undo unavailable"
+    },
+    {
+      "at": 1788611623878,
+      "sinceStartMs": 26800,
+      "what": "request sent",
+      "detail": "Build a complete landing page for a small design studio with exactly four sections: hero, services, pricing, contact."
+    },
+    {
+      "at": 1788611626576,
+      "sinceStartMs": 29498,
+      "what": "ai call started",
+      "detail": "01"
+    },
+    {
+      "at": 1788611770918,
+      "sinceStartMs": 173840,
+      "what": "ai call ended",
+      "detail": "01 · 6087 characters"
+    },
+    {
+      "at": 1788611771863,
+      "sinceStartMs": 174785,
+      "what": "sections",
+      "detail": "4 sections · running 1,2,3,4"
+    },
+    {
+      "at": 1788611772600,
+      "sinceStartMs": 175522,
+      "what": "ai call started",
+      "detail": "02"
+    },
+    {
+      "at": 1788611772736,
+      "sinceStartMs": 175658,
+      "what": "ai call started",
+      "detail": "03"
+    },
+    {
+      "at": 1788611774454,
+      "sinceStartMs": 177376,
+      "what": "ai call started",
+      "detail": "04"
+    },
+    {
+      "at": 1788611774459,
+      "sinceStartMs": 177381,
+      "what": "ai call started",
+      "detail": "05"
+    },
+    {
+      "at": 1788611870953,
+      "sinceStartMs": 273875,
+      "what": "ai call ended",
+      "detail": "03 · 5751 characters"
+    },
+    {
+      "at": 1788611892640,
+      "sinceStartMs": 295562,
+      "what": "ai call ended",
+      "detail": "05 · 6501 characters"
+    },
+    {
+      "at": 1788611936650,
+      "sinceStartMs": 339572,
+      "what": "ai call ended",
+      "detail": "02 · body unavailable"
+    },
+    {
+      "at": 1788611936776,
+      "sinceStartMs": 339698,
+      "what": "sections",
+      "detail": "4 sections · applied 1,2 · running 3,4"
+    },
+    {
+      "at": 1788611953723,
+      "sinceStartMs": 356645,
+      "what": "ai call ended",
+      "detail": "04 · 5346 characters"
+    },
+    {
+      "at": 1788611953884,
+      "sinceStartMs": 356806,
+      "what": "sections",
+      "detail": "4 sections · applied 1,2,3,4"
+    },
+    {
+      "at": 1788611953885,
+      "sinceStartMs": 356807,
+      "what": "run settled",
+      "detail": "idle"
+    },
+    {
+      "at": 1788611955250,
+      "sinceStartMs": 358172,
+      "what": "build settled",
+      "detail": "4 sections · applied 1,2,3,4 · peak running 4"
+    }
+  ],
+  "transactions": {
+    "before": 0,
+    "afterApply": null,
+    "afterUndo": null
+  },
+  "undo": null,
+  "build": {
+    "sections": 4,
+    "titles": [
+      "Hero",
+      "Services",
+      "Pricing",
+      "Contact"
+    ],
+    "peakRunning": 4,
+    "final": [
+      "applied",
+      "applied",
+      "applied",
+      "applied"
+    ],
+    "count": null
+  },
+  "outcome": "built",
+  "observed": true,
+  "consoleErrors": [],
+  "conversation": "Build a complete landing page for a small design studio with exactly four sections: hero, services, pricing, contact. BUILT 4/4 4/4 built in 05:30 Hero Undo Services Undo Pricing Undo Contact Undo",
+  "screenshots": [
+    "2026-09-05T12-33-17-auto-scale-four-landing-fixed-wave-4.png",
+    "2026-09-05T12-33-17-auto-scale-four-landing-fixed-settled.png"
+  ]
+}

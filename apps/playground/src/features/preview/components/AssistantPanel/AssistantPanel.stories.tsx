@@ -653,18 +653,46 @@ export const BuildWindowBounded: Story = {
     await userEvent.click(canvas.getByRole('radio', { name: 'Auto' }));
     await submitRequest(canvasElement, BUILD_STORY_REQUEST);
 
-    const list = await canvas.findByRole('list', { name: 'Sections' }, { timeout: 20_000 });
+    const list = await canvas.findByRole('list', { name: 'Sections' }, { timeout: 8_000 });
+    /*
+      Waits on the SETTLED shape, not on a transient count.
+
+      An earlier version polled for "exactly three rows are running", which is
+      the same fact stated as a moment — and a moment is exactly what a pool of
+      writers does not hold still. The shape below is stable for as long as
+      `Hero` is held, which is forever: the two rows AFTER the window cannot
+      start, and they say so.
+    */
     await waitFor(
       async () => {
-        const running = list.querySelectorAll(':scope > li.pg-chat__task[data-status="running"]');
-        await expect(running).toHaveLength(3);
+        const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
+        await expect(rows).toHaveLength(5);
+        await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
       },
-      { timeout: 20_000 },
+      /*
+        UNDER the project's own 15s test timeout, deliberately. An inner wait
+        that outlives its test can never report what it saw — the run dies with
+        a bare "timed out" and the assertion that would have named the real
+        state never runs.
+      */
+      { timeout: 5_000 },
     );
 
     const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
-    await expect(rows).toHaveLength(5);
-    await expect(rows[3]).toHaveAttribute('data-status', 'waiting');
+    /*
+      The window is pinned from BOTH sides, which is what makes it observable
+      rather than assumed. Rows 1 and 2 started even though row 0 has not landed
+      — that is what a window wider than one MEANS, and it fails at concurrency
+      1. Row 4 could not start — that is where the window ends, and it fails at
+      unbounded concurrency.
+
+      Deliberately not "exactly three". The pool auto-scales with the page's
+      size (`fillConcurrencyFor`), so for five sections it is four, and writing
+      a constant here would pin the wrong number in the wrong place. The formula
+      is pinned where a formula belongs — a unit test beside it.
+    */
+    await expect(rows[1]).toHaveAttribute('data-status', 'running');
+    await expect(rows[2]).toHaveAttribute('data-status', 'running');
     await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
     // Nothing landed, because the FIRST section is the one that is stuck.
     await expect(canvasElement.querySelector('.pg-chat__tasks-count')).toHaveTextContent('0/5');

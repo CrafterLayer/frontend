@@ -17,7 +17,9 @@ can see its siblings. That is why this component takes a `BuilderSiteKernel` and
 
 Adding, renaming, reordering and removing all go through the site's own commands — `addPage`,
 `renamePage`, `reorderPage`, `removePage`. Each is one transaction and one undo, and every refusal
-belongs to the command, not to this component. Deleting the home page is refused by `removePage`
+belongs to the command, not to this component. **Add page** also opens the page it made and hands it
+the keyboard: a blank page named "Page N" (the home page counts as page 1), because a new row under
+an unchanged canvas reads as "nothing happened". Deleting the home page is refused by `removePage`
 because a site must hold exactly one page at `/`; the component does not re-implement that rule, it
 reports it in a `role="status"` line and leaves the list untouched.
 
@@ -41,10 +43,10 @@ walking the list never switches the canvas underneath you. `F2` renames in place
 Two moments move focus, and both name their destination rather than leaving it to the browser:
 
 - **After a delete**, focus goes to the NEXT page, or to the previous one when the last was removed.
-  The row that was focused has just unmounted, so the browser would otherwise drop focus to
-  `<body>` — and a test written as `expect(deletedRow).not.toHaveFocus()` passes in exactly that
-  case, which is the failure it was meant to catch. `focusDestinationAfterDelete` computes the
-  destination so the component and its test can name the same one.
+  The row that was focused has just unmounted, so the browser would otherwise drop focus to `<body>`
+  — and a test written as `expect(deletedRow).not.toHaveFocus()` passes in exactly that case, which
+  is the failure it was meant to catch. `focusDestinationAfterDelete` computes the destination so
+  the component and its test can name the same one.
 - **After a reorder**, the moved page keeps the keyboard. Without that, a second `Alt+ArrowDown`
   would do nothing and the interaction would be unusable past the first press.
 

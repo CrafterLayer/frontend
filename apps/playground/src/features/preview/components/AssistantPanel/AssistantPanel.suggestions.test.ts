@@ -9,6 +9,7 @@ import {
   localeOf,
   panelSuggestions,
   selectionSuggestions,
+  salvageSuggestions,
 } from './AssistantPanel.suggestions';
 
 function block(
@@ -274,5 +275,79 @@ describe('panelSuggestions — what the strip actually shows', () => {
     expect(panelSuggestions(input).map(({ id }) => id)).toEqual(
       panelSuggestions(input).map(({ id }) => id),
     );
+  });
+});
+
+describe('salvageSuggestions', () => {
+  it('offers nothing when nothing was dropped', () => {
+    expect(salvageSuggestions(undefined, 'ar')).toEqual([]);
+    expect(salvageSuggestions([], 'ar')).toEqual([]);
+  });
+
+  it('names the commands that did not apply', () => {
+    const [only] = salvageSuggestions([{ command: 'insertNode' }], 'en');
+    expect(only?.kind).toBe('salvage');
+    expect(only?.text).toBe('retry only what did not apply: insertNode');
+  });
+
+  it('names each command once — four lost setProps are one kind of loss', () => {
+    const [only] = salvageSuggestions(
+      [{ command: 'setProp' }, { command: 'setProp' }, { command: 'setProp' }],
+      'en',
+    );
+    expect(only?.text).toBe('retry only what did not apply: setProp');
+  });
+
+  it('keeps the order the door refused them in', () => {
+    const [only] = salvageSuggestions([{ command: 'moveNode' }, { command: 'insertNode' }], 'en');
+    expect(only?.text).toBe('retry only what did not apply: moveNode, insertNode');
+  });
+
+  it('says it in the reader’s own language', () => {
+    const [only] = salvageSuggestions([{ command: 'insertNode' }], 'ar');
+    expect(only?.text).toBe('أعد محاولة ما لم يُطبَّق فقط: insertNode');
+  });
+
+  it('never names a page, so a retry cannot scaffold a second one', () => {
+    for (const locale of ['ar', 'en'] as const) {
+      const [only] = salvageSuggestions([{ command: 'insertNode' }], locale);
+      expect(only?.text).not.toMatch(/page|صفحة/i);
+    }
+  });
+});
+
+describe('panelSuggestions with a salvage', () => {
+  const blocks = [block('hero', ['a hero for a coffee shop'])];
+
+  it('puts the salvage FIRST, above even the model’s own follow-up', () => {
+    const [first] = panelSuggestions({
+      blocks,
+      selected: undefined,
+      followUp: 'now add pricing',
+      dropped: [{ command: 'insertNode' }],
+      locale: 'en',
+    });
+    expect(first?.kind).toBe('salvage');
+  });
+
+  it('still shows the follow-up beneath it', () => {
+    const kinds = panelSuggestions({
+      blocks,
+      selected: undefined,
+      followUp: 'now add pricing',
+      dropped: [{ command: 'insertNode' }],
+      locale: 'en',
+    }).map((entry) => entry.kind);
+    expect(kinds).toContain('followUp');
+  });
+
+  it('changes nothing when there was no salvage', () => {
+    const [first] = panelSuggestions({
+      blocks,
+      selected: undefined,
+      followUp: 'now add pricing',
+      locale: 'en',
+    });
+    expect(first?.kind).toBe('followUp');
   });
 });

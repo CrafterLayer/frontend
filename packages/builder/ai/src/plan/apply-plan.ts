@@ -1,5 +1,9 @@
-import { GROUPED_DISPATCH_LABEL_MAX_LENGTH, type BuilderKernel } from '@craftkit/builder-core';
-import type { Transaction } from '@craftkit/builder-schema';
+import {
+  GROUPED_DISPATCH_LABEL_MAX_LENGTH,
+  type BuilderKernel,
+  type GroupStep,
+} from '@craftkit/builder-core';
+import { BuilderError, type ContentDirection, type Transaction } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiValidationPorts } from '../types';
 import type { AiEffectiveCommandPolicy } from '../skills';
@@ -50,6 +54,53 @@ function defaultLabel(plan: AiPlan): string {
   return `AI: ${detail}`.slice(0, GROUPED_DISPATCH_LABEL_MAX_LENGTH);
 }
 
+/**
+ * The site door's refusal of a page turning on its own — the one refusal this
+ * door answers on the plan's behalf rather than surfacing.
+ *
+ * A plan says `setDocMeta {dir}` because the craft manual tells the model to,
+ * and the rehearsal accepts it because the rehearsal is a document kernel. The
+ * kernel the PRODUCT applies through is a page lens over a site, and a site
+ * keeps one direction: the lens refuses the page-scoped turn and names
+ * `setSiteDirection`, a command the model has no way to say. Seen live on
+ * 2026-09-05 as "site/structural-violation" on Apply.
+ */
+function refusesAPageTurningAlone(error: unknown): boolean {
+  return (
+    error instanceof BuilderError &&
+    error.code === 'site/structural-violation' &&
+    error.message.includes('setSiteDirection')
+  );
+}
+
+/**
+ * The same plan, said the site's way: every `setDocMeta` that carries a
+ * direction becomes `setSiteDirection` (the rest of that step stays a page
+ * write), and a direction the site already has is dropped, because the site
+ * command refuses a no-op where the page command did not.
+ */
+function turningTheWholeSite(steps: readonly GroupStep[], current: ContentDirection): GroupStep[] {
+  const said: GroupStep[] = [];
+  for (const step of steps) {
+    const args = step.args;
+    if (
+      step.command !== 'setDocMeta' ||
+      typeof args !== 'object' ||
+      args === null ||
+      !('dir' in args)
+    ) {
+      said.push(step);
+      continue;
+    }
+    const { dir, ...rest } = args as { dir?: unknown } & Record<string, unknown>;
+    if (Object.keys(rest).length > 0) said.push({ command: 'setDocMeta', args: rest });
+    if ((dir === 'ltr' || dir === 'rtl') && dir !== current) {
+      said.push({ command: 'setSiteDirection', args: { dir } });
+    }
+  }
+  return said;
+}
+
 export function applyAiPlan(options: ApplyAiPlanOptions): AppliedAiPlan {
   const authority = resolveAiProposalAuthority(options);
   const plan = assertValidAiPlan(
@@ -62,10 +113,26 @@ export function applyAiPlan(options: ApplyAiPlanOptions): AppliedAiPlan {
   if (authority.proposal !== undefined) {
     assertAuthenticatedAiValidatedProposal(authority.proposal);
   }
-  const tx = options.kernel.dispatchGroup(
-    plan.commands.map((step) => ({ command: step.command, args: step.args })),
-    { author: 'ai', label: options.label ?? defaultLabel(plan) },
-  );
+  const steps: GroupStep[] = plan.commands.map((step) => ({
+    command: step.command,
+    args: step.args,
+  }));
+  const group = { author: 'ai' as const, label: options.label ?? defaultLabel(plan) };
+  let tx: Transaction;
+  try {
+    tx = options.kernel.dispatchGroup(steps, group);
+  } catch (cause) {
+    /*
+      Nothing was written: the site door refuses BEFORE it commits, and a
+      document kernel never raises this code at all. Re-said as one group, so
+      the promise underneath — one entry in history, one undo — still holds.
+    */
+    if (!refusesAPageTurningAlone(cause)) throw cause;
+    tx = options.kernel.dispatchGroup(
+      turningTheWholeSite(steps, options.kernel.getDocument().dir),
+      group,
+    );
+  }
   return {
     mode: 'group',
     transactions: [tx],

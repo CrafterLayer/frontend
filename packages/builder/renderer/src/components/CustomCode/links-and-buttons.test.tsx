@@ -111,7 +111,14 @@ describe('links', () => {
     link?.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(false);
-    expect(renderToStaticMarkup(<CustomCode tree={tree([{ kind: 'element', tag: 'a', text: 'x', attributes: { href: '/away' } }])} hostId="h" />)).not.toContain('onClick');
+    expect(
+      renderToStaticMarkup(
+        <CustomCode
+          tree={tree([{ kind: 'element', tag: 'a', text: 'x', attributes: { href: '/away' } }])}
+          hostId="h"
+        />,
+      ),
+    ).not.toContain('onClick');
   });
 
   it('does not honour href on any other tag', () => {

@@ -173,7 +173,7 @@ describe('SitePages — roving focus', () => {
 });
 
 describe('SitePages — add, rename, reorder, remove', () => {
-  it('adds a page through the site door — one transaction', async () => {
+  it('adds a page through the site door — one transaction — and OPENS it, blank', async () => {
     const user = userEvent.setup();
     const siteKernel = mount();
 
@@ -181,6 +181,21 @@ describe('SitePages — add, rename, reorder, remove', () => {
 
     expect(screen.getAllByRole('option')).toHaveLength(5);
     expect(siteKernel.transactions()).toHaveLength(1);
+
+    /*
+      The new page is the CURRENT page, not a fifth row under an unchanged
+      canvas: it is selected, it holds the keyboard, it is counted the way a
+      person counts, and it is empty.
+    */
+    const created = siteKernel.getSite().pages[4];
+    expect(created?.address).toBe('/page-5');
+    expect(created?.title).toBe('Page 5');
+    expect(siteKernel.currentPage()).toBe(created?.id);
+    const row = screen.getByRole('option', { name: /Page 5/ });
+    expect(row).toHaveAttribute('aria-selected', 'true');
+    expect(row).toHaveFocus();
+    expect(Object.keys(created?.document.nodes ?? {})).toEqual(['root']);
+
     act(() => {
       expect(siteKernel.undo()).toBe(true);
     });

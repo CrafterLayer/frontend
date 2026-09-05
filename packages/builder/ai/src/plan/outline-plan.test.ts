@@ -198,6 +198,26 @@ describe('outlineAiPlan', () => {
     expect(outline.followUp).toBeUndefined();
   });
 
+  it('returns the follow-up TRIMMED, because that string becomes a button', () => {
+    /*
+      The first version tested `.trim()` for emptiness and returned the padded
+      original. That string is a chip's label, its accessible name, and the text
+      sent when it is pressed — three places where the whitespace shows.
+    */
+    return expect(
+      outlineAiPlan({
+        kernel: kernelOf(),
+        provider: providerReturning({
+          rationale: 'a plan',
+          commands: [],
+          followUp: '  ابدأ البناء  ',
+        }),
+        request: 'a clinic page',
+        skillRegistry: registry,
+      }).then(({ followUp }) => followUp),
+    ).resolves.toBe('ابدأ البناء');
+  });
+
   it('aborts before asking, when the caller already cancelled', async () => {
     const controller = new AbortController();
     controller.abort();

@@ -4,7 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { createBuilder } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import { DocumentView, renderStaticMarkup } from '@craftkit/builder-renderer';
-import type { BuilderDocument, CustomCodeRoot, TrustedExtensionManifest } from '@craftkit/builder-schema';
+import type {
+  BuilderDocument,
+  CustomCodeRoot,
+  TrustedExtensionManifest,
+} from '@craftkit/builder-schema';
 
 import { builderCustomCode } from '../index';
 import { customCodeSchema } from './schema';

@@ -20,11 +20,20 @@ describe('custom-code CSS refusal', () => {
   });
 
   it.each([
-    ['an https background from the internet', '.a { background-image: url("https://images.example.com/travel.jpg") }'],
-    ['an exact colour — hex is a design value, not a threat', '.a { color: #1e3a8a; background: rgb(30 58 138 / 0.4) }'],
+    [
+      'an https background from the internet',
+      '.a { background-image: url("https://images.example.com/travel.jpg") }',
+    ],
+    [
+      'an exact colour — hex is a design value, not a threat',
+      '.a { color: #1e3a8a; background: rgb(30 58 138 / 0.4) }',
+    ],
     ['inline data image', '.a { background: url(data:image/png;base64,iVBORw0KGgo=) }'],
     ['relative asset', '.a { background: url(/assets/hero.png) }'],
-    ['keyframes and gradients', '@keyframes f { to { opacity: 1 } } .a { background: linear-gradient(#000, #fff) }'],
+    [
+      'keyframes and gradients',
+      '@keyframes f { to { opacity: 1 } } .a { background: linear-gradient(#000, #fff) }',
+    ],
     ['backdrop filter', '.a { backdrop-filter: blur(20px) }'],
   ])('allows %s — the freedom this feature exists for', (_label, css) => {
     expect(findCssRejection(css)).toBeUndefined();
@@ -65,7 +74,8 @@ describe('custom-code CSS refusal — disguised spellings', () => {
 
 describe('custom-code CSS — web fonts', () => {
   it('allows an @import from Google Fonts and keeps it in front of every rule', () => {
-    const css = '.ck-a { font-family: Inter } @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");';
+    const css =
+      '.ck-a { font-family: Inter } @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");';
 
     const scoped = scope(css);
 
@@ -75,18 +85,28 @@ describe('custom-code CSS — web fonts', () => {
   });
 
   it('allows the bare-string form and bunny.net too', () => {
-    expect(findCssRejection('@import "https://fonts.bunny.net/css?family=cairo:400";')).toBeUndefined();
+    expect(
+      findCssRejection('@import "https://fonts.bunny.net/css?family=cairo:400";'),
+    ).toBeUndefined();
   });
 
   it('still refuses @import from any other host, including a look-alike', () => {
-    expect(findCssRejection('@import url("https://fonts.googleapis.com.evil.test/x.css");')).toBeDefined();
-    expect(findCssRejection('@import url("https://evil.test/fonts.googleapis.com/x.css");')).toBeDefined();
-    expect(findCssRejection('@import url("http://fonts.googleapis.com/css2?family=Inter");')).toBeDefined();
+    expect(
+      findCssRejection('@import url("https://fonts.googleapis.com.evil.test/x.css");'),
+    ).toBeDefined();
+    expect(
+      findCssRejection('@import url("https://evil.test/fonts.googleapis.com/x.css");'),
+    ).toBeDefined();
+    expect(
+      findCssRejection('@import url("http://fonts.googleapis.com/css2?family=Inter");'),
+    ).toBeDefined();
   });
 
   it('does not let a font import smuggle a second import behind it', () => {
     expect(
-      findCssRejection('@import url("https://fonts.googleapis.com/css2?family=Inter"); @import url("https://evil.test/x.css");'),
+      findCssRejection(
+        '@import url("https://fonts.googleapis.com/css2?family=Inter"); @import url("https://evil.test/x.css");',
+      ),
     ).toBeDefined();
   });
 });
@@ -97,7 +117,9 @@ describe('custom-code CSS scoping', () => {
   });
 
   it('prefixes each selector in a list separately', () => {
-    expect(scope('.a, .b { color: red }')).toBe('[data-ck="n1"] .a,[data-ck="n1"] .b{ color: red }');
+    expect(scope('.a, .b { color: red }')).toBe(
+      '[data-ck="n1"] .a,[data-ck="n1"] .b{ color: red }',
+    );
   });
 
   it('does not split a comma inside :is() — that is one selector, not two', () => {

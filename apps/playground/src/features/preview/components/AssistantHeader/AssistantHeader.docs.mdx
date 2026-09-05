@@ -1,0 +1,44 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssistantHeaderStories from './AssistantHeader.stories';
+
+<Meta of={AssistantHeaderStories} />
+
+# AssistantHeader
+
+Who you are talking to, what he can see, and which conversation you are in.
+
+<Canvas of={AssistantHeaderStories.Default} />
+
+The tool is called Assistant — that is the accessible name of the region, set by the panel around
+this header — and the person inside it is أبو غضب.
+
+## One name, chosen by locale
+
+<Canvas of={AssistantHeaderStories.English} />
+
+Never both at once: a bilingual header reads as two people. The name carries its own `lang` and
+`dir`, so it is pronounced and laid out correctly whatever the surrounding page is doing.
+
+## The face is decoration; the voice is the content
+
+<Canvas of={AssistantHeaderStories.Working} />
+
+`AgentFace` is `aria-hidden`. Everything a screen reader needs comes from `AgentVoice` beneath it,
+which resolves the snapshot's `line` into a sentence in the reader's own language. A face that
+announced itself would narrate a mood twice and a state never.
+
+## "Sees" is stated, not guessed at
+
+<Canvas of={AssistantHeaderStories.WithSelection} />
+
+Before asking for a change, a person needs to know what the request will be scoped to. Saying "the
+whole page" or naming the selected block is cheaper than any amount of guessing afterwards.
+
+## The conversation picker earns its place
+
+<Canvas of={AssistantHeaderStories.WithConversations} />
+
+It appears only once a second conversation exists. A menu with one option is a label wearing a
+chevron. See [ConversationMenu](?path=/docs/playground-conversationmenu--docs) for how it behaves
+once it is there.

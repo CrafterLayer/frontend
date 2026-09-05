@@ -1,0 +1,47 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CustomCodeCssFieldStories from './CustomCodeCssField.stories';
+
+<Meta of={CustomCodeCssFieldStories} />
+
+# CustomCodeCssField
+
+The Inspector control for region- and page-scoped CSS.
+
+<Canvas of={CustomCodeCssFieldStories.Empty} />
+
+## Why not a plain text input
+
+The whole value of this control over a `<textarea>` is that it applies the **same refusal list the
+renderer does**, at the moment of typing.
+
+Without it: a person writes `@import url(…)`, the field stores it happily, the block drops the
+stylesheet whole, and the page renders unstyled — a value sitting in the document that does nothing,
+with no explanation anywhere. Refusing here turns that into a sentence next to the box.
+
+<Canvas of={CustomCodeCssFieldStories.RefusesAnImport} />
+
+## It refuses; it does not strip
+
+Silently removing a line a person wrote is a worse betrayal than declining to store it, because they
+will not notice until the page is wrong. So the text stays in the box exactly as typed, the field is
+marked `aria-invalid`, and an `alert` names the refused rule and what to do about it. The message
+clears the moment they start fixing it.
+
+The list is not a second opinion: `findCssRejection` lives in `@craftkit/builder-schema`, beside the
+`customCss()` declaration it polices, and the block, this field and the AI plan validator all read
+the same one. An `https` background image and a font `@import` from an allowed host are accepted
+here for exactly the reason they render there.
+
+## One undo entry per edit, not per keystroke
+
+<Canvas of={CustomCodeCssFieldStories.Written} />
+
+The commit is on **blur**. Every accepted edit is a dispatched command and therefore a history
+entry, and one entry per character typed makes undo useless for exactly the edit where it matters.
+Leaving the field with text that never changed commits nothing at all.
+
+The hint under the box says the two things a person needs before writing a rule: the sheet is scoped
+to this block, and colours should go through `var(--t-accent)` so the page still re-themes.
+
+<Canvas of={CustomCodeCssFieldStories.Disabled} />

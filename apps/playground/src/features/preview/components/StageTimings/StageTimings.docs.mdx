@@ -1,0 +1,30 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as StageTimingsStories from './StageTimings.stories';
+
+<Meta of={StageTimingsStories} />
+
+# StageTimings
+
+The receipt on a settled card: every row that finished, and how long it took.
+
+<Canvas of={StageTimingsStories.Default} />
+
+## Only rows that finished
+
+A row that failed, was cancelled, or never started has no duration to report — `detail` on a failed
+row carries the reason, not a time, and printing it here would put "refused" in a list of
+milliseconds.
+
+<Canvas of={StageTimingsStories.PartlyFinished} />
+
+<Canvas of={StageTimingsStories.OneStage} />
+
+## Nothing, rather than an empty line
+
+<Canvas of={StageTimingsStories.Revived} />
+
+A card revived from storage has no run: timings are not persisted, because a duration is only true
+of the run that produced it. A failure that fell over before the first row settled has none either.
+In both cases the component renders `null` — an empty receipt line would claim the run took no time
+at all, which is a worse answer than saying nothing.

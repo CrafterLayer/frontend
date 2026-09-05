@@ -2,10 +2,12 @@ import type { BuilderDocument, NodeId } from '@craftkit/builder-schema';
 
 import { applyAiPlan, type AppliedAiPlan } from '../plan/apply-plan';
 import { runAiAgent } from './run-agent';
+import type { AiPlan } from '../types';
 import type {
   AiAgentRunResult,
   AiBuildOutcome,
   AiBuildOwnEvent,
+  AiBuildPlannedTask,
   AiBuildRunResult,
   AiBuildStopReason,
   AiBuildTask,
@@ -36,7 +38,7 @@ const AI_BUILD_TASKS_PER_ADDITIONAL_WRITER = 3;
  * page into twelve local CLI processes at once. A caller-provided number stays
  * exact, including `1` for strictly sequential work.
  */
-function fillConcurrencyFor(taskCount: number, requested: number | undefined): number {
+export function fillConcurrencyFor(taskCount: number, requested: number | undefined): number {
   if (requested !== undefined) return Math.min(taskCount, Math.max(1, requested));
   const automatic =
     DEFAULT_AI_BUILD_FILL_CONCURRENCY +
@@ -156,19 +158,50 @@ function nodeTitle(value: unknown): string | undefined {
  * Correlate created regions with their titles from the SAME patch, never by
  * position: a plan's command order and its patch order are not a contract, and
  * a build that mixed up two ids would write the pricing table into the hero.
+ *
+ * Read by the SHAPE of the path, not its root. A document kernel reports a
+ * created node at `['nodes', id]`; the page lens the product actually hands
+ * the assistant reports the same insertion at
+ * `['pages', i, 'document', 'nodes', id]`. Matching on the root alone made
+ * every live scaffold count as zero sections, so the build silently fell back
+ * to one ordinary run and the parallel writers never ran in the product
+ * (found live 2026-09-05, pinned in `run-build.site-kernel.test.ts`). The
+ * tail is what keeps it precise: `['nodes', id, 'props', key]` ends at a prop
+ * and `['nodes']` names nothing — the same rule `insertedNodeId` in
+ * builder-core settled on.
  */
 function titlesByCreatedId(applied: AppliedAiPlan | undefined): Map<NodeId, string> {
   const titles = new Map<NodeId, string>();
   for (const patch of applied?.transactions[0]?.patches ?? []) {
-    if (patch.op !== 'add') continue;
-    if (patch.path.length !== 2 || patch.path[0] !== 'nodes') continue;
-    const id = patch.path[1];
+    if (patch.op !== 'add' || patch.path.length < 2) continue;
+    if (patch.path[patch.path.length - 2] !== 'nodes') continue;
+    const id = patch.path[patch.path.length - 1];
     if (typeof id !== 'string') continue;
     const title = nodeTitle(patch.value);
     if (title === undefined) continue;
     titles.set(id, title);
   }
   return titles;
+}
+
+/**
+ * The sections a scaffold PLAN would create, in the order it wrote them.
+ *
+ * Read from the plan's own commands rather than from applied patches, because
+ * under `apply: 'never'` nothing was applied and there are no patches to read.
+ * Command order is the only order available here — and unlike the applied path
+ * it is also the only one that could be wrong, which is exactly why the applied
+ * path does not use it: there, document order is knowable and truer.
+ */
+function plannedTitles(plan: AiPlan): readonly AiBuildPlannedTask[] {
+  const planned: AiBuildPlannedTask[] = [];
+  for (const step of plan.commands) {
+    if (step.command !== 'insertNode') continue;
+    const title = nodeTitle(step.args);
+    if (title === undefined) continue;
+    planned.push({ title });
+  }
+  return Object.freeze(planned);
 }
 
 /**
@@ -321,6 +354,8 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
   const emit = createBuildEmitter(options);
   const shared = sharedStepOptions(options);
   const startedAt = options.clock.now();
+  /** Whether this build may touch the document at all. */
+  const writes = (options.apply ?? 'auto') === 'auto';
 
   emit({ type: 'build.scaffolding' });
   /*
@@ -338,7 +373,7 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
       request: options.request,
       selectedSkillIds: ['craftkit.build-scaffold'],
       policy: { ...options.policy, allowedCommands: SCAFFOLD_COMMANDS },
-      apply: 'auto',
+      apply: writes ? 'auto' : 'never',
       label: SCAFFOLD_LABEL,
     });
   } catch (cause) {
@@ -347,6 +382,40 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
   }
 
   const direction = scaffold?.plan.rationale ?? '';
+
+  if (!writes) {
+    /*
+      A PLANNED build ends here, having written nothing.
+
+      The section list is read from the scaffold's plan, not from patches: there
+      are none. And there is no fallback run — falling back means "do the work a
+      different way", and a build that was told not to work has nothing to fall
+      back to. A skeleton that failed, or produced fewer than two sections, is
+      reported as a plan with that many sections and the caller decides; that is
+      strictly more information than silently spending another model call.
+    */
+    const plannedTasks = scaffold === undefined ? [] : plannedTitles(scaffold.plan);
+    /*
+      No `build.planned` event. That event carries `AiBuildTask`s, whose `id` is
+      a real node — and here no node exists. Emitting synthetic ids so the shape
+      fits would put a lie in the one place the panel trusts to address sections
+      by, and the first consumer to look one up would ask the document for a
+      node that was never created. The list travels in the RESULT instead, in a
+      type that says what it is.
+    */
+    return Object.freeze({
+      runId: options.runId,
+      tasks: Object.freeze([]),
+      applied: 0,
+      skipped: 0,
+      elapsedMs: options.clock.now() - startedAt,
+      ...(scaffold === undefined ? {} : { scaffold }),
+      direction,
+      outcome: 'planned' as const,
+      plannedTasks,
+    });
+  }
+
   const tasks =
     scaffold === undefined
       ? []

@@ -473,18 +473,25 @@ describe('US4 — the playground proves it end-to-end', () => {
     await user.click(screen.getByRole('button', { name: 'Add page' }));
     expect(within(pages).getAllByRole('option')).toHaveLength(2);
 
-    // Opening the second page moves the whole editor to it: the tree that was
-    // showing the landing page's blocks now shows an empty one.
-    const before = within(screen.getByRole('tree', { name: 'Document structure' })).getAllByRole(
-      'treeitem',
-    ).length;
-    await user.click(within(pages).getAllByRole('option')[1]!);
+    /*
+      Adding OPENS the page it made: the whole editor moves to it, so the tree
+      that was showing the landing page's blocks now shows one empty root, and
+      the new row is the selected one. Opening the first page again moves the
+      editor back — that round trip is what "switches between pages" means.
+    */
     await waitFor(() => {
       expect(
         within(screen.getByRole('tree', { name: 'Document structure' })).getAllByRole('treeitem'),
       ).toHaveLength(1);
     });
-    expect(before).toBeGreaterThan(1);
+    expect(within(pages).getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true');
+    await user.click(within(pages).getAllByRole('option')[0]!);
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('tree', { name: 'Document structure' })).getAllByRole('treeitem')
+          .length,
+      ).toBeGreaterThan(1);
+    });
   });
 
   it('the rail actually moves the panel — it used to draw a selection and ignore the click', async () => {

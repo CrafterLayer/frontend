@@ -1,0 +1,43 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PlanPreviewDialogStories from './PlanPreviewDialog.stories';
+
+<Meta of={PlanPreviewDialogStories} />
+
+# PlanPreviewDialog
+
+The would-be page, before deciding.
+
+<Canvas of={PlanPreviewDialogStories.Default} />
+
+## Looking is not applying
+
+The rehearsal already happened, on a scratch kernel, through the real door — this dialog only draws
+its result. Same static renderer as the published path, same registry, zero writes.
+
+The header says so out loud, because a person reading a rendered page has to be told which page it
+is: the one they have, or the one they would get.
+
+## Apply is the PANEL's promise, not the proposal's
+
+`canApply` is not "is this proposal valid" — the door answers that. It is whether this panel may
+write at all right now. In Plan mode it is false and no Apply is drawn.
+
+That distinction was earned: a proposal made in Ask could be applied from this dialog after the
+person switched to Plan, on the page the panel was currently promising not to touch. Hiding a button
+the panel would refuse to honour is the difference between a promise and a broken one on screen.
+
+<Canvas of={PlanPreviewDialogStories.PlanningOnly} />
+
+## Dismissal
+
+The backdrop closes on its OWN click and not on one that bubbled out of the dialog. A preview that
+vanished because somebody pressed a button inside it would take away the thing they were reading.
+
+<Canvas of={PlanPreviewDialogStories.ClickInsideKeepsItOpen} />
+
+## Callbacks take no arguments
+
+`onApply` and `onClose` are `() => void` and are called that way — wrapped rather than passed
+straight to `onClick`, which would hand the caller React's MouseEvent while the type says there is
+nothing there.

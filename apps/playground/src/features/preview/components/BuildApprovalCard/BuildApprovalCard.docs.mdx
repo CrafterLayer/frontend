@@ -1,0 +1,43 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BuildApprovalCardStories from './BuildApprovalCard.stories';
+
+<Meta of={BuildApprovalCardStories} />
+
+# BuildApprovalCard
+
+The one question a split build asks.
+
+<Canvas of={BuildApprovalCardStories.Default} />
+
+## Why there is exactly one
+
+A page-sized request is minutes of work and many model calls. The build stops here once — with the
+direction it decided, the sections it would write, and two buttons — and then answers its own
+failures to the end. A long build that kept interrupting would be worse than a slow one.
+
+The card is a named `group`, so the question is findable rather than being loose text in a log.
+
+## The note is the reason, not reassurance
+
+"Each section is applied as its own change, so any step can be undone on its own" is the fact that
+makes Build safe to press. Each section lands as its own transaction, so a person who dislikes one
+of six removes that one — they are not choosing between the whole page and nothing.
+
+The skeleton is already on the page by this point, which is why the sentence says so: what is being
+approved is the FILLING, not the structure.
+
+## Language
+
+The direction is the scaffold's own words, in the language the request was made in — not the
+panel's. `dir="auto"` is what keeps an Arabic direction reading right inside an otherwise English
+card.
+
+<Canvas of={BuildApprovalCardStories.Arabic} />
+
+## The count is the page's
+
+Five sections, or two. Nothing here assumes a page size; the list and the count both come from what
+the scaffold actually laid down.
+
+<Canvas of={BuildApprovalCardStories.TwoSections} />

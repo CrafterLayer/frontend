@@ -350,6 +350,56 @@ describe('AssistantPanel', () => {
     expect(screen.getAllByRole('button', { name: 'Apply' })).toHaveLength(2);
   });
 
+  describe('a suggestion carrying a catalog prompt', () => {
+    /** A provider that would answer, so reaching it is visible as a call. */
+    function spyProvider() {
+      const propose = vi.fn<AiPlanProvider['propose']>().mockResolvedValue({
+        rationale: 'from the model',
+        commands: [
+          { command: 'insertNode', args: { type: 'pricing', parentId: 'root', slot: 'default' } },
+        ],
+      });
+      return { propose, provider: { propose } satisfies AiPlanProvider };
+    }
+
+    it('is answered from the catalog, without asking anyone', async () => {
+      const { propose, provider } = spyProvider();
+      const { user } = renderPanel({ planProvider: provider, providerKind: 'remote' });
+      await user.click(await screen.findByRole('button', { name: 'add a hero' }));
+      await waitFor(() => {
+        expect(screen.getAllByRole('button', { name: 'Apply' })).toHaveLength(1);
+      });
+      expect(propose).not.toHaveBeenCalled();
+    });
+
+    it('proposes the block’s OWN example, not a guess at one', async () => {
+      const { provider } = spyProvider();
+      const { user, kernel } = renderPanel({ planProvider: provider, providerKind: 'remote' });
+      await user.click(await screen.findByRole('button', { name: 'add a hero' }));
+      await user.click(await screen.findByRole('button', { name: 'Apply' }));
+      await waitFor(() => {
+        expect(Object.values(kernel.getDocument().nodes)).toHaveLength(3);
+      });
+      const added = Object.values(kernel.getDocument().nodes).find(
+        (node) => node.type === 'hero' && node.id !== 'selected-hero',
+      );
+      expect(added?.props).toEqual({ heading: 'Hello' });
+    });
+
+    it('still asks the model for the SAME words typed by hand', async () => {
+      const { propose, provider } = spyProvider();
+      const { user } = renderPanel({ planProvider: provider, providerKind: 'remote' });
+      await requestPlan(user, 'add a hero');
+      /*
+        The distinction is the whole feature. Pressing the chip is picking a
+        named example; writing the same words is asking for a hero for THIS
+        page, and answering that from the catalog's demo copy would be a fast
+        wrong answer.
+      */
+      expect(propose).toHaveBeenCalledOnce();
+    });
+  });
+
   it('keeps the document and transaction log untouched while a plan is only proposed', async () => {
     const { kernel, user } = renderPanel();
     const beforeDocument = structuredClone(kernel.getDocument());
@@ -1031,9 +1081,7 @@ describe('AssistantPanel', () => {
     const { user } = renderPanel();
     await requestPlan(user, 'add a pricing section');
 
-    const cost = screen
-      .getByRole('log', { name: 'Conversation' })
-      .querySelector('.pg-chat__cost');
+    const cost = screen.getByRole('log', { name: 'Conversation' }).querySelector('.pg-chat__cost');
     expect(cost?.textContent).toMatch(/^تقدير: ~[\d.]+k? توكن$/);
   });
 
@@ -1070,21 +1118,48 @@ describe('AssistantPanel', () => {
     });
   });
 
-  it('offers NO Apply control anywhere in the tree while Plan is selected', async () => {
+  it('NOTHING in the panel writes while Plan is selected', async () => {
     /*
-      T291's negative, stated over the whole tree rather than one card: an Apply
-      that exists anywhere — an older card, a preview dialog, something added
-      later — is an Apply somebody can reach while the panel is promising not to
-      write.
+      T291's negative, stated the way it should have been from the start.
+
+      The first version looked for the literal word "Apply" — and passed while
+      the applied card's Undo and the build report's per-section Undo both
+      called `kernel.undo()` with no gate at all. A test that names one button
+      cannot guard a rule about all of them.
+
+      This one watches the two doors instead of reading labels: every write from
+      this panel is a `dispatchGroup` (Apply) or an `undo` (the two Undos), so
+      spying on both and pressing what remains asks the real question — does
+      this panel write in Plan mode — rather than a question about wording.
     */
-    const { user, container } = renderPanel();
+    const { user, container, kernel } = renderPanel();
     await requestPlan(user, 'add a pricing section');
+    // Applied first, so the card that carries Undo actually exists to be found.
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
     await user.click(screen.getByRole('radio', { name: 'Plan' }));
 
-    expect(container.querySelectorAll('button')).not.toHaveLength(0);
-    for (const button of container.querySelectorAll('button')) {
-      expect(button.textContent).not.toMatch(/^Apply$/);
+    const dispatchGroup = vi.spyOn(kernel, 'dispatchGroup');
+    const undo = vi.spyOn(kernel, 'undo');
+    const before = structuredClone(kernel.getDocument());
+
+    const pressable = [...container.querySelectorAll('button')].filter(
+      (button) =>
+        !button.disabled &&
+        // Not the mode radios: leaving Plan is exactly how a person is meant to
+        // regain the ability to write, and pressing one would end the test's
+        // premise rather than test it.
+        button.getAttribute('role') !== 'radio' &&
+        // Not "New chat" — it ends the conversation being inspected.
+        button.textContent !== 'New chat',
+    );
+    expect(pressable.length).toBeGreaterThan(0);
+    for (const button of pressable) {
+      await user.click(button);
     }
+
+    expect(dispatchGroup).not.toHaveBeenCalled();
+    expect(undo).not.toHaveBeenCalled();
+    expect(kernel.getDocument()).toEqual(before);
   });
 
   it('refuses to apply an OLD Ask proposal once Plan is selected', async () => {
@@ -1269,9 +1344,9 @@ describe('AssistantPanel', () => {
       caught it from a screenshot.
     */
     expect(screen.getByText('Stop the request to change mode.')).toBeInTheDocument();
-    expect(
-      screen.getByRole('radiogroup', { name: 'Assistant mode' }).textContent,
-    ).not.toContain('Stop the request');
+    expect(screen.getByRole('radiogroup', { name: 'Assistant mode' }).textContent).not.toContain(
+      'Stop the request',
+    );
 
     act(() => {
       release?.();
@@ -1857,7 +1932,13 @@ function scriptBuild(
   const provider: AiPlanProvider = {
     propose(_request, context) {
       calls += 1;
-      if (calls === 1) {
+      /*
+        A SCAFFOLD is the run with nothing selected; a fill is scoped to one
+        region. Keyed on the selection rather than on `calls === 1`, because a
+        planned page that is then built for real scaffolds twice — and the
+        second scaffold used to arrive here as a fill with no region and throw.
+      */
+      if (context.selection.ids.length === 0) {
         return Promise.resolve<AiPlan>({
           rationale: BUILD_DIRECTION,
           commands: titles.map((title) => ({
@@ -2029,7 +2110,7 @@ describe('AssistantPanel — split build', () => {
     expect(screen.queryByRole('list', { name: 'Sections' })).not.toBeInTheDocument();
   }, 30_000);
 
-  it('never builds in Plan mode — the scaffold would be an apply', async () => {
+  it('enters the build path in Plan mode and stops at the skeleton', async () => {
     const kernel = createBuildKernel();
     const script = scriptBuild(kernel, THREE);
     const events: AiBuildOwnEvent[] = [];
@@ -2055,9 +2136,17 @@ describe('AssistantPanel — split build', () => {
     */
     expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument();
-    expect(buildEventTypes(events)).toEqual([]);
+    /*
+      The build path IS entered now, and stops after the skeleton. It used to be
+      excluded outright, which left the one request the build exists for as the
+      one Plan could say least about. `build.scaffolding` and nothing after it
+      is the whole contract: the skeleton was proposed, never applied, and no
+      section was ever started.
+    */
+    expect(buildEventTypes(events)).toEqual(['build.scaffolding']);
     expect(script.calls()).toBe(1);
     expect(regionsOf(kernel)).toEqual({});
+    expect(kernel.transactions()).toHaveLength(0);
   }, 30_000);
 
   it('asks once, on the list, and fills nothing until Build is pressed', async () => {
@@ -2230,4 +2319,84 @@ describe('AssistantPanel — split build', () => {
       expect(writes.at(-1)).toBe(1200);
     });
   });
+});
+
+/**
+ * PLAN MODE MEETS THE SPLIT BUILD.
+ *
+ * A page-sized request used to be excluded from the build path in Plan mode
+ * entirely, so the one request the build exists for was the one Plan could say
+ * least about. Now it enters the path and stops at the skeleton: the page's
+ * shape, and nothing written.
+ */
+describe('a page-sized request in Plan mode', () => {
+  const TITLES = ['Hero', 'Work', 'Contact'];
+
+  async function planAPage() {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, TITLES);
+    const before = structuredClone(kernel.getDocument());
+    const { user } = renderPanel({ kernel, planProvider: script.provider, providerKind: 'remote' });
+    await user.click(screen.getByRole('radio', { name: 'Plan' }));
+    await send(user, BUILD_REQUEST);
+    await waitFor(() => {
+      expect(screen.getByText(BUILD_DIRECTION)).toBeInTheDocument();
+    });
+    return { kernel, script, user, before };
+  }
+
+  it('writes NOTHING — not the skeleton, not a section', async () => {
+    const { kernel, before } = await planAPage();
+    expect(kernel.getDocument()).toEqual(before);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('shows the page it would lay out, in order', async () => {
+    await planAPage();
+    const log = within(screen.getByRole('log', { name: 'Conversation' }));
+    expect(log.getAllByRole('listitem').map((item) => item.textContent)).toEqual(TITLES);
+  });
+
+  it('asks the model once — the sections are named, not written', async () => {
+    const { script } = await planAPage();
+    expect(script.calls()).toBe(1);
+  });
+
+  it('offers no Apply and no Undo: there is nothing to apply or take back', async () => {
+    await planAPage();
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+
+  it('never asks the build approval question — nothing was going to be written', async () => {
+    await planAPage();
+    expect(screen.queryByRole('group', { name: 'Build this page' })).toBeNull();
+  });
+
+  it('builds it for real on request, moving the mode control with it', async () => {
+    const { kernel, user } = await planAPage();
+    await user.click(screen.getByRole('button', { name: 'Build this' }));
+    /*
+      The control moves FIRST, and visibly. A run's authority is fixed when it
+      starts, so the panel must never sit in Plan while the run it just started
+      writes — that is the exact lie the mode lock was introduced to end.
+    */
+    expect(screen.getByRole('radio', { name: 'Ask' })).toBeChecked();
+    /*
+      And it lands in ASK, not Auto: the person asked to plan, so the section
+      list still gets its one approval before anything is filled.
+    */
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 20_000 },
+    );
+    await user.click(within(approval).getByRole('button', { name: 'Build' }));
+    await waitFor(
+      () => {
+        expect(Object.keys(regionsOf(kernel))).toEqual(TITLES);
+      },
+      { timeout: 20_000 },
+    );
+  }, 40_000);
 });

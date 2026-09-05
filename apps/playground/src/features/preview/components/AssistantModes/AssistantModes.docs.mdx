@@ -1,0 +1,44 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssistantModesStories from './AssistantModes.stories';
+
+<Meta of={AssistantModesStories} />
+
+# AssistantModes
+
+How eagerly the assistant acts, chosen before every send.
+
+<Canvas of={AssistantModesStories.Ask} />
+
+## A real radio group
+
+Buttons with `role="radio"` do not answer arrow keys on their own, and each would be its own tab
+stop. Both halves of that promise are kept here: one tab stop on the chosen option, and arrows that
+move and select — wrapping at the ends, because the ends of a radio group are not walls.
+
+Selection moves focus with it. The chosen option is the single tab stop, so leaving focus behind
+would strand it on an element the browser will skip next time.
+
+<Canvas of={AssistantModesStories.Plan} />
+
+## Arabic mirrors the arrows
+
+The row reads right to left, so `ArrowLeft` is FORWARD. Only the horizontal keys mirror; up and down
+never do.
+
+<Canvas of={AssistantModesStories.ArabicArrows} />
+
+## Locked while a run is in flight
+
+Not a nicety. A run captures its mode when it starts and the closure keeps it: a request begun in
+Auto carries `apply: 'auto'` all the way to the door, and a build's scaffold, fallback, fills and
+retries all apply unconditionally. Leaving this enabled meant a person could press Auto, change
+their mind to Plan, and watch the page be written anyway — by a run they had just told to stop
+writing.
+
+Locking is the honest answer because it is TRUE: this run's authority was decided when it started,
+and the way to change it is Stop. The reason is pointed at with `aria-describedby` and rendered as
+visible text beside the row, because a disabled control cannot be focused and a `title` nobody can
+reach explains nothing.
+
+<Canvas of={AssistantModesStories.LockedWhileBusy} />

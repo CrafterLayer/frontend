@@ -30,8 +30,8 @@ export function CustomCodeBlock({ node, props, isCanvas }: BlockRenderProps<Cust
       {css === undefined ? null : <style>{css}</style>}
       {rejection === undefined ? null : (
         <p className="bldr-unknown-block" role="note" data-css-rejected={rejection.reason}>
-          Custom CSS not applied: <code>{rejection.reason}</code> is not allowed here. Remove it
-          and the rest of the stylesheet will apply.
+          Custom CSS not applied: <code>{rejection.reason}</code> is not allowed here. Remove it and
+          the rest of the stylesheet will apply.
         </p>
       )}
       <CustomCode tree={props.tree} hostId={node.id} isCanvas={isCanvas} />

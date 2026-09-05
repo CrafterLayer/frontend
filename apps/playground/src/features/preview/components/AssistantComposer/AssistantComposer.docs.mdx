@@ -1,0 +1,54 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssistantComposerStories from './AssistantComposer.stories';
+
+<Meta of={AssistantComposerStories} />
+
+# AssistantComposer
+
+The bottom of the assistant panel: the field, the mode row, the send slot, and the two lines that
+say what the next press will do.
+
+<Canvas of={AssistantComposerStories.Empty} />
+
+## One control, not three
+
+The focus ring is drawn around the whole card by `:focus-within`, and the textarea delegates its own
+with `data-bldr-focus-ring="delegated"`. Tabbing from the field to Send therefore does not slide a
+ring off the thing the person is looking at — the card stays lit for as long as any part of it holds
+focus.
+
+`Enter` sends and `Shift+Enter` writes a line: the convention every chat uses, and the one a
+person's hands already know.
+
+<Canvas of={AssistantComposerStories.Written} />
+
+## `@` reads what is BEFORE the caret
+
+<Canvas of={AssistantComposerStories.MentionOpen} />
+
+The mention in progress is matched against `value.slice(0, caret)`, not the whole field. Someone
+editing the middle of a sentence that happens to end in `@hero` is not writing that mention, and
+opening a picker there would put a list under a caret that is somewhere else entirely. `Escape`
+closes the picker without clearing the text.
+
+## Busy: the modes lock, and the line says why
+
+<Canvas of={AssistantComposerStories.Busy} />
+
+A run captures its mode when it starts and the closure keeps it. A request begun in Auto carries
+`apply: 'auto'` all the way to `applyAiPlan`. Leaving the mode control enabled meant a person could
+press Auto, see it thinking, switch to Plan — and watch the page be written anyway, by a run they
+had just told to stop writing. Locking is the honest answer, because it is true: this run's
+authority was decided when it started, and the way to change it is Stop.
+
+The explanation lives on the footnote line, not among the buttons. The first version put it inside
+the radiogroup, where a three-line paragraph wedged between the modes and Send wrapped over the
+action row and made the composer look broken. A one-line explanation belongs in the one-line place a
+person already reads for mode information.
+
+## One slot, two verbs
+
+While the assistant works, the send slot IS the stop control — the same place the hand just was, and
+a promise that a running request is never out of reach. Its accessible name changes with it, from
+`Send` to `Stop`.

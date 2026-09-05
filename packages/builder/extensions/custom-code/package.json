@@ -30,7 +30,10 @@
     "@craftkit/eslint-config": "workspace:*",
     "@craftkit/test-config": "workspace:*",
     "@craftkit/typescript-config": "workspace:*",
+    "@storybook/addon-docs": "catalog:",
+    "@storybook/react-vite": "catalog:",
     "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
@@ -39,6 +42,7 @@
     "jsdom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "storybook": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

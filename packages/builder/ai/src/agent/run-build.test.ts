@@ -17,6 +17,7 @@ import {
 import { createCraftkitAiSkillRegistry } from '../skills';
 import type { AiPlan, AiPlanProvider, AssembledAiContext } from '../types';
 import { runAiBuild, type AiBuildEvent, type AiBuildOwnEvent } from './index';
+import { fillConcurrencyFor, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY } from './run-build';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -1072,5 +1073,47 @@ describe('the one approval', () => {
     });
 
     expect(result.applied).toBe(THREE.length);
+  });
+});
+
+describe('fillConcurrencyFor — how many sections are written at once', () => {
+  /*
+    Pinned HERE and not in a story. A Chromium story can observe that the window
+    is wider than one and narrower than the page; it cannot pin a formula
+    without hard-coding a number that is only right for one page size — which is
+    exactly how a story ended up asserting "exactly three" for a five-section
+    build the code runs four writers on.
+  */
+  it('starts at the default and grows with the page', () => {
+    expect(fillConcurrencyFor(1, undefined)).toBe(1);
+    expect(fillConcurrencyFor(3, undefined)).toBe(3);
+    /*
+      Every size where the formula turns over, because "how many writers does a
+      four-section page get" is a question people answer from memory and get
+      wrong — I told a peer 3 for exactly this case, and it is 4.
+      3 + floor((n-1)/3), capped at n and at the maximum.
+    */
+    expect(fillConcurrencyFor(4, undefined)).toBe(4);
+    expect(fillConcurrencyFor(5, undefined)).toBe(4);
+    expect(fillConcurrencyFor(6, undefined)).toBe(4);
+    expect(fillConcurrencyFor(7, undefined)).toBe(5);
+    expect(fillConcurrencyFor(10, undefined)).toBe(6);
+  });
+
+  it('never exceeds the page, so a two-section build does not start three writers', () => {
+    expect(fillConcurrencyFor(2, undefined)).toBe(2);
+    expect(fillConcurrencyFor(2, 9)).toBe(2);
+  });
+
+  it('is capped, so a twelve-section page does not become twelve model calls at once', () => {
+    expect(fillConcurrencyFor(40, undefined)).toBe(MAX_AI_BUILD_AUTO_FILL_CONCURRENCY);
+  });
+
+  it('honours a caller EXACTLY, including 1 for strictly sequential work', () => {
+    expect(fillConcurrencyFor(10, 1)).toBe(1);
+    expect(fillConcurrencyFor(10, 2)).toBe(2);
+    // A nonsense request is clamped rather than trusted.
+    expect(fillConcurrencyFor(10, 0)).toBe(1);
+    expect(fillConcurrencyFor(10, -5)).toBe(1);
   });
 });

@@ -134,6 +134,43 @@ describe('planImpact', () => {
     expect(impact.changed).toEqual(['boxA', 'boxB']);
   });
 
+  it('does not report a node as changed just because its props were built in another order', () => {
+    /*
+      `JSON.stringify` walks keys in insertion order, and a plan's commands
+      routinely produce the same props in a different sequence. Comparing the
+      raw string made that read as a change to a node nothing touched.
+    */
+    const before = doc({
+      ...page(['a']),
+      a: { id: 'a', type: 'text', props: { content: 'x', tone: 'quiet' } },
+    });
+    const after = doc({
+      ...page(['a']),
+      a: { id: 'a', type: 'text', props: { tone: 'quiet', content: 'x' } },
+    });
+
+    expect(planImpact(before, after).empty).toBe(true);
+  });
+
+  it('counts a deleted block ONCE, even when a slot still lists it', () => {
+    /*
+      A dangling reference — the id still in a parent's slot, the node gone from
+      `nodes` — was reported both as removed and as changed, so deleting one
+      block read as two facts about it.
+    */
+    const before = doc({
+      ...page(['a']),
+      a: { id: 'a', type: 'text', props: {} },
+    });
+    // The slot still names `a`, but the node is gone.
+    const after = doc({ ...page(['a']) });
+
+    const impact = planImpact(before, after);
+
+    expect(impact.removed).toEqual(['a']);
+    expect(impact.changed).not.toContain('a');
+  });
+
   it('reports a DIRECTION flip, which no node diff would ever mention', () => {
     /*
       `setDocMeta` is an ordinary command and `dir` is not a node, so a node

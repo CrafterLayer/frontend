@@ -43,12 +43,31 @@ export interface PlanImpact {
   readonly empty: boolean;
 }
 
-/** Everything about a node EXCEPT which children sit in its slots. */
+/**
+ * Everything about a node EXCEPT which children sit in its slots, as a string
+ * that does not depend on key ORDER.
+ *
+ * `JSON.stringify` walks keys in insertion order, so two nodes with identical
+ * props built in different orders — which a plan's commands routinely produce —
+ * stringify differently and would be reported as changed when nothing about
+ * them differs. Sorting every level is what makes the comparison about content.
+ */
 function contentOf(node: Node | undefined): string {
   if (node === undefined) return '';
   const rest: Record<string, unknown> = { ...node };
   delete rest['slots'];
-  return JSON.stringify(rest);
+  return stableJson(rest);
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, entry: unknown) => {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+    return Object.fromEntries(
+      Object.entries(entry as Record<string, unknown>).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    );
+  });
 }
 
 /** The children of each slot, as a stable string. */
@@ -149,6 +168,12 @@ export function planImpact(before: BuilderDocument, after: BuilderDocument): Pla
   const addedTypes: string[] = [];
 
   const afterIds = orderedIds(after);
+  /*
+    A node the plan deleted. `orderedIds` includes ids that are still LISTED in
+    a slot but absent from `nodes` — a dangling reference — and such an id must
+    be reported once, as removed, not counted again among the ids walked in
+    `after`. The guard below in the change pass is what keeps it to one.
+  */
   const removed = orderedIds(before).filter((id) => after.nodes[id] === undefined);
   /*
     Computed BEFORE the change pass, because deciding whether a parent's slot
@@ -164,9 +189,15 @@ export function planImpact(before: BuilderDocument, after: BuilderDocument): Pla
   for (const id of afterIds) {
     const previous = before.nodes[id];
     const next = after.nodes[id];
+    /*
+      Listed in a slot but gone from `nodes`: already reported as removed above.
+      Without this it was ALSO reported as changed, so deleting one block read
+      as "1 removed, 1 changed" — two facts about one block.
+    */
+    if (next === undefined) continue;
     if (previous === undefined) {
       added.push(id);
-      if (next !== undefined) addedTypes.push(next.type);
+      addedTypes.push(next.type);
       continue;
     }
     if (meaningfullyChanged(previous, next, addedOrRemoved)) {
@@ -181,8 +212,7 @@ export function planImpact(before: BuilderDocument, after: BuilderDocument): Pla
     removed,
     addedTypes,
     meta,
-    empty:
-      added.length === 0 && changed.length === 0 && removed.length === 0 && meta.length === 0,
+    empty: added.length === 0 && changed.length === 0 && removed.length === 0 && meta.length === 0,
   };
 }
 
@@ -204,8 +234,16 @@ export function describeImpact(impact: PlanImpact, locale: 'ar' | 'en'): string 
     parts.push(locale === 'ar' ? `${ar} ${String(count)}` : `${String(count)} ${en}`);
   };
   add(impact.added.length, 'إضافة', impact.added.length === 1 ? 'block added' : 'blocks added');
-  add(impact.changed.length, 'تعديل', impact.changed.length === 1 ? 'block changed' : 'blocks changed');
-  add(impact.removed.length, 'حذف', impact.removed.length === 1 ? 'block removed' : 'blocks removed');
+  add(
+    impact.changed.length,
+    'تعديل',
+    impact.changed.length === 1 ? 'block changed' : 'blocks changed',
+  );
+  add(
+    impact.removed.length,
+    'حذف',
+    impact.removed.length === 1 ? 'block removed' : 'blocks removed',
+  );
   /*
     Named, not counted. "1 changed" would be true and useless — a person needs
     to know it is the page's DIRECTION that turns, which is a different kind of

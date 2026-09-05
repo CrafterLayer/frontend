@@ -93,7 +93,13 @@ export async function outlineAiPlan(options: OutlineAiPlanOptions): Promise<AiOu
   }
   return {
     rationale,
-    followUp: answer.followUp?.trim() === '' ? undefined : answer.followUp,
+    /*
+      TRIMMED, not merely tested. The first version computed `.trim()` to decide
+      emptiness and then returned the untrimmed value, so a padded follow-up
+      survived with its whitespace — and that string becomes a chip's label, its
+      accessible name, and the exact text sent when it is pressed.
+    */
+    followUp: emptyToUndefined(answer.followUp),
     skillActivations: skills?.activations,
     droppedCommands: answer.commands.length,
   };
@@ -132,6 +138,12 @@ const UNUSED_PORTS = {
  * outline: the route's guarantees do not come from the instructions, they come
  * from an empty command vocabulary and from never reaching the door.
  */
+/** A blank or absent string is "no follow-up"; anything else arrives trimmed. */
+function emptyToUndefined(value: string | undefined): string | undefined {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? undefined : trimmed;
+}
+
 function withPlanMode(
   selected: readonly string[] | undefined,
   registry: AiSkillRegistry | undefined,

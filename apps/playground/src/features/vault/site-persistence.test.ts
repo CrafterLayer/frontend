@@ -81,11 +81,7 @@ describe('createVaultSitePersistence', () => {
     // kernel that saved into its own memory and called it persistence.
     const reopened = await openSite(adapterOver(store), SITE_ID, opened);
 
-    expect(reopened.getSite().pages.map((p) => p.address)).toEqual([
-      '/',
-      '/about',
-      '/pricing',
-    ]);
+    expect(reopened.getSite().pages.map((p) => p.address)).toEqual(['/', '/about', '/pricing']);
   });
 
   it('rejects a stale position with persist/seq-conflict and writes nothing', async () => {

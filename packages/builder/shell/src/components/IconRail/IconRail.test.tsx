@@ -41,7 +41,7 @@ const SECONDARY = [
 afterEach(cleanup);
 
 describe('IconRail', () => {
-  it('renders a named navigation list with every label visible and every icon hidden from AT', () => {
+  it('renders a named navigation list with every button named and every icon hidden from AT', () => {
     render(<IconRail items={ITEMS} />);
 
     const navigation = screen.getByRole('navigation', { name: 'Builder sections' });
@@ -51,7 +51,8 @@ describe('IconRail', () => {
       const button = within(navigation).getByRole('button', { name: item.label });
       expect(button).toBeVisible();
       expect(button.closest('li')).toBeInTheDocument();
-      expect(within(navigation).getByText(item.label)).toBeVisible();
+      expect(button).toHaveAttribute('aria-label', item.label);
+      expect(within(navigation).getByText(item.label)).toHaveAttribute('popover', 'manual');
       expect(screen.getByTestId(`${item.id}-icon`).closest('[aria-hidden="true"]')).toBeVisible();
     }
   });

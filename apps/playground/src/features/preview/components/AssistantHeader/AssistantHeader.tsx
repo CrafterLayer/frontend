@@ -59,18 +59,25 @@ export function AssistantHeader({
               typing={face.typing}
             />
           </span>
-          <h2 className="pg-chat__heading">
-            <span className="pg-chat__name" lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-              {AGENT_NAME[locale]}
-            </span>
-          </h2>
+          <div className="pg-chat__identity">
+            <h2 className="pg-chat__heading">
+              <span className="pg-chat__name" lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+                {AGENT_NAME[locale]}
+              </span>
+            </h2>
+            <AgentVoice className="pg-chat__voice" snapshot={face} locale={locale} />
+          </div>
         </div>
-        <ChromeButton variant="quiet" size="sm" onClick={onNewChat}>
+        <ChromeButton
+          variant="icon"
+          size="sm"
+          aria-label="New chat"
+          title="New chat"
+          onClick={onNewChat}
+        >
           <IconPlus />
-          New chat
         </ChromeButton>
       </div>
-      <AgentVoice className="pg-chat__voice" snapshot={face} locale={locale} />
       <p className="pg-chat__sees">Sees: {sees}</p>
       {/*
         The picker appears only once a second conversation exists. A menu with

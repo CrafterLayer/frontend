@@ -1,4 +1,9 @@
-import { createBuilder, emptyDocument, openDocument, type BuilderDocument } from '@craftkit/builder';
+import {
+  createBuilder,
+  emptyDocument,
+  openDocument,
+  type BuilderDocument,
+} from '@craftkit/builder';
 import { fixedClock, fixtureBlocks, landingFixture, seededIds } from '@craftkit/builder/testing';
 import { describe, expect, it } from 'vitest';
 

@@ -1779,20 +1779,121 @@ and the evidence that closes it.
 
 ### D4 — Draft, journal, commit
 
-- [ ] T295 [US10] `vault/drafts.ts`: seed a draft through `takeOver` then `openDocument` (never
+- [x] T295 [US10] `vault/drafts.ts`: seed a draft through `takeOver` then `openDocument` (never
       `createBuilder` + `flush()`, which stores no seed), list drafts, sweep by age, and capture the
       live fingerprint at run start. **FR-090, FR-092.**
-- [ ] T296 [US10] `vault/run-journal.ts`: the durable record — request, seed, limits, per-unit
+      Built as `createDrafts({ store, adapter, now })` — `create`, `resume`, `list`, `touch`,
+      `discard`, `sweep`. The fingerprint is taken from the document HANDED IN, before anything is
+      stored: reading it back off the draft would fingerprint the copy, which is trivially equal to
+      itself and proves nothing about the live page a commit later lands on.
+      Two decisions worth the record. `discard` calls `sessionKey()` rather than spelling
+      `vault/session/...` again — the persistence file owns that shape and a second spelling would
+      leave orphaned sessions the day it moved. And the sweep runs age and count in ONE pass over an
+      already-sorted list, so a draft that is both too old and beyond the limit is reported once.
+      `canonicalJsonStringify` and `sha256Hex` are now exported from `@craftkit/builder-ai`: the
+      vault and the proposal layer must fingerprint identically, and a second implementation of
+      "canonical JSON" is a second answer to the same question.
+      Evidence: `drafts.test.ts`, 20 cases, mutation-checked in three directions — dropping the
+      count rule, dropping the session removal, and flipping the TTL boundary each fail their own
+      named test.
+- [x] T296 [US10] `vault/run-journal.ts`: the durable record — request, seed, limits, per-unit
       outcomes with reasons, budgets consumed, and the pre-run snapshot id — written at every
       checkpoint, swept by TTL, with an orphaned `running` record recovered as `stopped`. **FR-093.**
-- [ ] T297 [US10] `commitDraft`: refuse a changed fingerprint with a readable reason and zero
+      `createRunJournal({ store, now })` — store only, deliberately: `createVaultPersistence` has no
+      production caller, so a journal needing an adapter would inherit a dependency the app cannot
+      satisfy. Written from EVENTS, closed from the RESULT, because three run shapes never emit a
+      terminal build event (plan-only stops after `build.scaffolding`; the fallback emits
+      `build.skipped` and runs an ordinary agent; an aborted scaffold rethrows).
+      Deviations from the task text, each deliberate: **`seed` is not recorded** — that word already
+      means the boot fixture in this exact folder, and no determinism seed has a producer; the
+      recordable facts are `mode` and `providerKind`. **`fillConcurrency` is not recorded** — it is
+      not exported from `agent/index.ts`, not on `AiBuildRunResult`, and not on the options the
+      panel passes, so any value would be a re-derived guess. **Token spend is not recorded** — no
+      token counter reaches `AiBuildEvent` at all; `spent` carries wall clock and started units,
+      and tokens arrive with T305's `usage`. **No `stage: 'scaffolded'`** — the engine emits nothing
+      between `build.scaffolding` and `build.planned`, so the state could never be honestly written;
+      `stage === 'scaffolding'` on a settled record IS the "a skeleton may be on the page" signal.
+      **Nine defects were found by review, not by me, and every one is fixed and pinned.** The two
+      that mattered most: `resumePoint` matched only `waiting`, but `build.completed` rewrites the
+      unit table with the engine's vocabulary, where an untouched section is `not-started` — so the
+      journal could resume a CRASH and not a clean stop at `max-tasks`, which is the common case.
+      And `recover`/`sweep` both decided from a listing read outside the write chain and then wrote
+      unconditionally, so a run that settled in that window was stamped as an abandoned orphan or
+      had its record deleted seconds after it was refreshed; both now re-check inside the chain.
+      Also fixed: `build.skipped` marked the record terminal minutes before the fallback finished
+      writing the page, and wrote a failure sentence onto a success path; `build.completed`
+      clobbered every section's landing time with the build's last moment; the orphan verdict lived
+      in `failure` and could never be withdrawn (now `recovered`, cleared by `settle`); `recover`
+      reported ids whose write never landed; `discard`'s `store.remove` was the one unwrapped store
+      call and took `sweep` down mid-loop. A `decline(runId)` was added because declining a plan and
+      stopping a build are the same `outcome: 'signal'` with the same all-`not-started` report —
+      only the caller holding the prompt can tell them apart.
+      Evidence: `run-journal.test.ts`, 49 cases. Nine mutations, each failing its own named test.
+      TWO of those tests were vacuous on the first attempt and are recorded as such: the race tests
+      fired their concurrent write during the LISTING, where the candidate filter already excluded
+      the record, so both passed with the guard deleted. They now inject on the re-read inside the
+      chain — the actual window — and both fail without their guard.
+      Gates: playground 661/661, lint + typecheck clean.
+- [x] T297 [US10] `commitDraft`: refuse a changed fingerprint with a readable reason and zero
       writes; otherwise land the diff as ONE `dispatchGroup` attributed `ai` with a human label.
       Untouched pages produce no patches. **FR-091, FR-092.**
-- [ ] T298 [US10] `keepSucceeded` → `KeepPlan`: a page is kept only if its unit completed AND its
+      Its own function, not a flag on `restoreDocument`: that one hardcodes `author: 'codeview'`,
+      and an agent's work filed under the code view is a lie in the one record meant to say who did
+      what. The route is the same canonical-json projection — project the draft, parse it back
+      against the LIVE document, dispatch the patches that parse produced.
+      Four refusals, each named: `stale`, `unchanged`, `invalid`, `unavailable`. The staleness check
+      runs FIRST, before the projection is even looked up — "zero writes" is easy to state and easy
+      to lose, and the way to keep it is to leave before there is anything to lose (pinned by a spy
+      asserting `registry.projection` is never called). An empty patch set is refused rather than
+      dispatched: a group with no steps still writes a transaction, an undo step and a history line
+      for a run that changed nothing.
+      Evidence: `commit-draft.test.ts`, 10 cases, mutation-checked three ways — removing the
+      staleness gate fails 2, changing the author fails 1, allowing an empty commit fails 1.
+- [x] T298 [US10] `keepSucceeded` → `KeepPlan`: a page is kept only if its unit completed AND its
       document validates; a failed page is REMOVED rather than committed as an empty shell; shared
       regions are recompiled locally so navigation never targets a dropped page; every unit not
       applied is named with its reason; and a commit carrying any partial requires an explicit
       acknowledgement. **FR-094.**
+      Built as `keepSucceeded(record) → KeepPlan` plus `commitKept({live, draft, plan, label,
+      acknowledge})` in `vault/keep-plan.ts`. `commitDraft` is NOT modified — its four refusals and
+      its zero-writes promise survive untouched; this is a layer above it.
+      **THE UNIT IS A SECTION, NOT A PAGE — recorded as a deviation, not slipped in.** T298 and
+      FR-094 are written page-wise, but the only orchestrator that exists produces sections of one
+      page: `runAiBuild` takes one kernel, `drafts.create` takes one document, and nothing in
+      `builder-ai` ever dispatches `addPage`. Pages arrive with D6; the widening is mechanical
+      (`shell: NodeId` becomes a page/section union).
+      The empty shell is real and already on the page today: the scaffold inserts every section as a
+      `<section><div><h2>` with no body, and `runAiBuild` says twice that a failed fill is "left as
+      the placeholder the scaffold laid down". This task reverses that sentence. The discriminator
+      needs no heuristic — a fill is exactly one `setProp` on its own region, so `status !==
+      'applied'` means the node still holds precisely what the scaffold wrote.
+      Removal goes through the DRAFT's own `removeNode` as ONE `dispatchGroup`, then the pruned
+      document goes to `commitDraft`; a refusal is followed by `draft.undo()`. That undo is
+      load-bearing, not defensive: `invalid` and `unchanged` are only knowable after the prune.
+      The acknowledgement is an echoed TOKEN — a hash of the losses alone (position, cause, reason)
+      — not a boolean. A boolean proves the caller typed `true`; this proves they saw the losses
+      they are agreeing to, and a different failure set mints a different token. Checked FIRST, so
+      an unacknowledged partial spends nothing.
+      `'nothing-kept'` is its own refusal because `commitDraft` would NOT have caught it: the
+      scaffold also writes `pageCss` on the root, so a fully pruned draft still differs from the
+      pre-run page and would have landed a stylesheet for a page with nothing on it.
+      **DEVIATION — "shared regions are recompiled locally" is NOT delivered.** The clause has no
+      subject: `setSharedRegion`/`setPageRegions` have zero non-test callers, `siteFromDocument`
+      hardcodes `sharedRegions: {}`, the renderer never references them, and nav hrefs are free
+      strings with no page reference. Deferred to T115/T116 (D11) — and T116 makes it moot rather
+      than merely deferred, since navigation derived from the live page set structurally cannot
+      target a dropped page. No field was added for it: a value no record can hold is a branch no
+      consumer can reach.
+      **KNOWN RESIDUAL**: dropping a section that HAD landed with an `id` could dangle an intra-page
+      anchor. Only that case — the scaffold placeholder carries no `id`, so removing a never-filled
+      section takes away a node nothing could have targeted. The deterministic internal-links check
+      is T302's.
+      Evidence: `keep-plan.test.ts`, 15 cases; seven mutations, each failing its own named test.
+      One of those tests was weak and is recorded: the early staleness check was unobservable
+      because the undo hid it, so the test now spies on `draft.dispatchGroup` and asserts the
+      draft's transaction count is unchanged — the draft is persisted, and pruning then undoing
+      grows its log by two on an attempt that was refused before it began.
+      Gates: playground 676/676, lint + typecheck clean.
 - [ ] T299 [US10] A pre-run snapshot of kind `auto` with its own cap, so "undo the whole generation"
       restores it in one transaction; and per-task undo that removes or restores only that section
       rather than looping the history stack. **FR-095.**

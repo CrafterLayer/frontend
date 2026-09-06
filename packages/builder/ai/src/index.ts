@@ -173,3 +173,17 @@ export {
   type AiValidationPorts,
   type AssembledAiContext,
 } from './types';
+
+/*
+  The two primitives a FINGERPRINT is made of, exported because more than this
+  package needs to take one.
+
+  The vault fingerprints a site at the start of a run so a stale commit can be
+  refused before it writes; this package fingerprints a context and a proposal
+  for the same reason at a different scale. Those must agree byte for byte —
+  a second implementation of "canonical JSON" or "sha-256" is a second answer
+  to the same question, and the day the two drifted a stale draft would land
+  because two hashers disagreed about key order.
+*/
+export { canonicalJsonStringify } from './internal/canonical-json';
+export { sha256Hex } from './skills/sha256';

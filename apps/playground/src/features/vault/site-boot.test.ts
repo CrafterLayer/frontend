@@ -14,7 +14,10 @@ import { createMemoryVaultStore } from './store';
 
 const DOC_ID = 'playground/landing';
 
-function documentSession(doc: BuilderDocument, tail: PersistedSession['tail'] = []): PersistedSession {
+function documentSession(
+  doc: BuilderDocument,
+  tail: PersistedSession['tail'] = [],
+): PersistedSession {
   return { doc, seq: tail.length, tail };
 }
 

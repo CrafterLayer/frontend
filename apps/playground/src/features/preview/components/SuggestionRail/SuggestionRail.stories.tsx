@@ -1,4 +1,4 @@
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import '../../../../app/App.css';
@@ -7,9 +7,21 @@ import { SuggestionRail } from './SuggestionRail';
 
 const MIXED: readonly Suggestion[] = [
   { id: 'followUp:كمل التنسيق والألوان', kind: 'followUp', text: 'كمل التنسيق والألوان' },
-  { id: 'selection:rewrite the hero text to be clearer', kind: 'selection', text: 'rewrite the hero text to be clearer' },
-  { id: 'example:قسم افتتاحي عربي لعيادة أسنان', kind: 'example', text: 'قسم افتتاحي عربي لعيادة أسنان' },
-  { id: 'example:a premium hero for a SaaS company', kind: 'example', text: 'a premium hero for a SaaS company' },
+  {
+    id: 'selection:rewrite the hero text to be clearer',
+    kind: 'selection',
+    text: 'rewrite the hero text to be clearer',
+  },
+  {
+    id: 'example:قسم افتتاحي عربي لعيادة أسنان',
+    kind: 'example',
+    text: 'قسم افتتاحي عربي لعيادة أسنان',
+  },
+  {
+    id: 'example:a premium hero for a SaaS company',
+    kind: 'example',
+    text: 'a premium hero for a SaaS company',
+  },
 ];
 
 const meta = {
@@ -31,7 +43,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** In conversation: one row, scrolled sideways, at a fixed height. */
-export const Rail: Story = {};
+export const Rail: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const list = canvas.getByRole('list', { name: 'Suggestions' });
+    await userEvent.click(canvas.getByRole('button', { name: 'Next suggestions' }));
+    await waitFor(() => expect(list.scrollLeft).toBeGreaterThan(0));
+    await userEvent.click(canvas.getByRole('button', { name: 'Previous suggestions' }));
+    await waitFor(() => expect(Math.abs(list.scrollLeft)).toBeLessThan(2));
+  },
+};
 
 /** An empty panel: nothing to crowd, so the suggestions are full-width targets. */
 export const Stack: Story = { args: { layout: 'stack' } };

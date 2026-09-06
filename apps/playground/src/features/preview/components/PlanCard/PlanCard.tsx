@@ -78,18 +78,6 @@ export function PlanCard({
       <p className="pg-chat__rationale" dir="auto">
         {turn.plan.rationale}
       </p>
-      {turn.skills === undefined || turn.skills.length === 0 ? null : (
-        <ul aria-label="Activated Skills" className="pg-chat__steps">
-          {turn.skills.map((skill) => (
-            <li key={`${turn.id}-${skill.id}`}>
-              <span className="pg-chat__step-title">
-                {skill.id} · v{skill.version} · {shortSkillFingerprint(skill.contentFingerprint)}
-              </span>
-              <code className="pg-chat__step-cmd">{skill.reason}</code>
-            </li>
-          ))}
-        </ul>
-      )}
       {/*
         WHAT WOULD CHANGE, before deciding.
 
@@ -136,17 +124,32 @@ export function PlanCard({
           </ul>
         </details>
       )}
-      {/* Each step in a person's words; the exact command rides along in mono as
+      <details className="pg-chat__details">
+        <summary>{locale === 'ar' ? 'تفاصيل التغييرات' : 'Change details'}</summary>
+        {turn.skills === undefined || turn.skills.length === 0 ? null : (
+          <ul aria-label="Activated Skills" className="pg-chat__steps">
+            {turn.skills.map((skill) => (
+              <li key={`${turn.id}-${skill.id}`}>
+                <span className="pg-chat__step-title">
+                  {skill.id} · v{skill.version} · {shortSkillFingerprint(skill.contentFingerprint)}
+                </span>
+                <code className="pg-chat__step-cmd">{skill.reason}</code>
+              </li>
+            ))}
+          </ul>
+        )}
+        {/* Each step in a person's words; the exact command rides along in mono as
         the technical truth, never the headline. */}
-      <ol className="pg-chat__steps">
-        {turn.plan.commands.map((step, index) => (
-          <li key={`${turn.id}-${String(index)}`}>
-            <span className="pg-chat__step-title">{describeStep(step)}</span>
-            <code className="pg-chat__step-cmd">{step.command}</code>
-          </li>
-        ))}
-      </ol>
-      <StageTimings run={turn.run} />
+        <ol className="pg-chat__steps">
+          {turn.plan.commands.map((step, index) => (
+            <li key={`${turn.id}-${String(index)}`}>
+              <span className="pg-chat__step-title">{describeStep(step)}</span>
+              <code className="pg-chat__step-cmd">{step.command}</code>
+            </li>
+          ))}
+        </ol>
+        <StageTimings run={turn.run} />
+      </details>
       {turn.applied ? (
         <p className="pg-chat__applied">
           <IconCheck />

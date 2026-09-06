@@ -138,14 +138,7 @@ function paintedToken(root: HTMLElement, token: string): string {
   return painted;
 }
 
-/**
- * The product publishes ONE focus ring and permits a component to re-colour it.
- * The rail must, because the ring's own token is the same violet as the accent
- * the selected tab is filled with.
- *
- * `activeId` is the FIRST item on purpose: one Tab then lands on the selected
- * tab, which is the element whose ring this story is about.
- */
+/** Keyboard focus stays distinct from the soft selected surface. */
 export const FocusRingContrastsWithTheSelectedFill: Story = {
   name: 'Focus ring contrasts with the selected fill',
   args: {
@@ -169,19 +162,10 @@ export const FocusRingContrastsWithTheSelectedFill: Story = {
       throw new Error('The rail has no rendering window');
     }
 
-    /*
-      Non-vacuous, and the reason this story exists: `--bldr-focus-ring` IS
-      `--bldr-accent`. Drawn unchanged on the selected tab, the ring was the
-      fill's own colour separated from it by a 1px gap of dark rail — a doubled
-      border rather than a focus indicator. If these two ever stop being equal
-      this assertion fails and the override can simply be deleted.
-    */
-    await expect(paintedToken(root, '--bldr-focus-ring')).toBe(paintedToken(root, '--bldr-accent'));
-
     const selected = canvas.getByRole('button', { name: 'Pages' });
-    // The selected tab carries the accent fill the ring has to survive.
+    // The selected surface stays soft; focus uses the stronger theme ring.
     await expect(view.getComputedStyle(selected).backgroundColor).toBe(
-      paintedToken(root, '--bldr-accent'),
+      paintedToken(root, '--bldr-accent-soft'),
     );
 
     canvasElement.ownerDocument.body.focus();
@@ -194,6 +178,6 @@ export const FocusRingContrastsWithTheSelectedFill: Story = {
     await expect(Number.parseFloat(painted.outlineWidth)).toBeGreaterThan(0);
     // And it is no longer the colour of the thing it is meant to outline.
     await expect(painted.outlineColor).not.toBe(painted.backgroundColor);
-    await expect(painted.outlineColor).toBe(paintedToken(root, '--bldr-rail-text-strong'));
+    await expect(painted.outlineColor).toBe(paintedToken(root, '--bldr-focus-ring'));
   },
 };

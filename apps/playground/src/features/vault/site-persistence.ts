@@ -126,7 +126,11 @@ export function createVaultSitePersistence(
         if (session.seq !== seq) {
           return;
         }
-        await store.set(siteSessionKey(siteId), { site, seq, tail: [] } satisfies StoredSiteSession);
+        await store.set(siteSessionKey(siteId), {
+          site,
+          seq,
+          tail: [],
+        } satisfies StoredSiteSession);
       }),
 
     takeOverSite: (siteId: string, site: BuilderSite, seq: number) =>

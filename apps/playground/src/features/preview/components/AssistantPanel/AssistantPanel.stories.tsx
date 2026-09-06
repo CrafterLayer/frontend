@@ -124,6 +124,7 @@ export const HostSkillActivation: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await submitRequest(canvasElement, 'add a hero');
+    await userEvent.click(await canvas.findByText(/تفاصيل التغييرات|Change details/));
 
     await waitFor(async () => {
       await expect(canvas.getByText(/host\.launch-copy · v2\.1\.0 · [a-f0-9]{8}/)).toBeVisible();

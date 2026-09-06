@@ -190,10 +190,10 @@ export function AssistantComposer({
             ? 'Stop the request to change mode.'
             : MODES.find((candidate) => candidate.id === mode)?.hint}
         </span>
-        <span className="pg-chat__guarantee">
+        {/* <span className="pg-chat__guarantee">
           <IconShield />
-          Whatever you apply is one entry in history, one undo.
-        </span>
+          One change. One undo.
+        </span> */}
       </p>
     </form>
   );

@@ -30,7 +30,7 @@ import { IconRail } from '@craftkit/builder-shell';
 ```
 
 The caller owns selection state and supplies 16- or 18-pixel inline SVG icons. Labels are always
-visible below their icons; they are not tooltip replacements.
+shown in top-layer tooltips on hover or keyboard focus. Escape dismisses a tooltip.
 
 ## API
 
@@ -51,7 +51,8 @@ The default rail contains only the primary group.
 
 <Canvas of={IconRailStories.Default} />
 
-The active section uses the accent surface and carries `aria-current="page"`.
+The active section uses a soft accent surface with an inline-start indicator and carries
+`aria-current="page"`.
 
 <Canvas of={IconRailStories.WithActiveItem} />
 
@@ -62,12 +63,12 @@ Secondary actions stay at the block-end, with the account tile below them.
 ## Accessibility
 
 The navigation landmark contains real lists of native `button` elements. Each icon wrapper is hidden
-from assistive technology so the visible label is also the button's accessible name. Native Tab,
+from assistive technology and each button carries its label as its accessible name. Native Tab,
 Enter, and Space behavior is preserved; the component adds no roving focus or custom keyboard
 handler. Focus appearance comes from the builder theme's shared `.bldr-root :focus-visible` rule.
 The active destination alone exposes `aria-current="page"`. Every navigation item is a quiet
-`ChromeButton` at the default `lg` (`--bldr-control-lg`) height; this desktop editor rail is not a
-finger-specific surface, so it does not opt into the reserved `touch` size.
+`ChromeButton` with a stable tile height of `--bldr-hit-target-min`. The primary list scrolls when
+the available height is short. Focus uses the theme focus-ring color on the panel-colored rail.
 
 ## RTL and theming
 
@@ -79,3 +80,6 @@ RTL without a second stylesheet.
 Every colour, radius, type size, spacing, rail width, hit target, and transition comes from the
 `@craftkit/builder-theme` contract. Hover, active, and pressed states change colour only; no item
 changes size or scales.
+
+The compact rail uses icon-only buttons; its width is the hit target plus inline padding. Tooltips
+use the browser popover top layer to avoid clipping in a scrollable navigation list.

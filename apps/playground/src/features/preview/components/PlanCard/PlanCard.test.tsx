@@ -91,8 +91,11 @@ describe('PlanCard', () => {
     expect(screen.getByText('1 step')).toBeInTheDocument();
   });
 
-  it('lists each step in words with the command beside it', () => {
+  it('reveals steps on demand while keeping the proposal readable', async () => {
     renderCard();
+    expect(screen.getByText('insertNode')).not.toBeVisible();
+    await userEvent.click(screen.getByText('تفاصيل التغييرات'));
+    expect(screen.getByText('insertNode')).toBeVisible();
     const steps = screen.getAllByRole('listitem');
     expect(steps.at(0)).toHaveTextContent('insertNode');
     expect(steps.at(1)).toHaveTextContent('setProp');
@@ -103,7 +106,7 @@ describe('PlanCard', () => {
     expect(screen.getByText('أضيف قسم أسعار بثلاث خطط.')).toHaveAttribute('dir', 'auto');
   });
 
-  it('names the Skills the request activated, when it activated any', () => {
+  it('names the Skills the request activated, when it activated any', async () => {
     renderCard({
       turn: planTurn({
         skills: [
@@ -116,6 +119,7 @@ describe('PlanCard', () => {
         ],
       }),
     });
+    await userEvent.click(screen.getByText('تفاصيل التغييرات'));
     expect(screen.getByRole('list', { name: 'Activated Skills' })).toHaveTextContent(
       'craftkit.landing-page',
     );

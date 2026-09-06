@@ -148,8 +148,6 @@ describe('AssistantComposer', () => {
 
   it('states the guarantee beside the mode hint', () => {
     renderComposer();
-    expect(
-      screen.getByText('Whatever you apply is one entry in history, one undo.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('One change. One undo.')).toBeInTheDocument();
   });
 });

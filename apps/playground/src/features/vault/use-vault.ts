@@ -176,7 +176,6 @@ function startSession(store: VaultStore, fixture: PlaygroundFixture, docId: stri
   return { adapter, opening };
 }
 
-
 /**
  * The playground's boot.
  *
@@ -326,5 +325,10 @@ export function useVaultKernel(
         save,
         startOver,
       }
-    : { status: 'failed', reason: current.ok ? 'The site could not be opened.' : current.reason, retry, startOver };
+    : {
+        status: 'failed',
+        reason: current.ok ? 'The site could not be opened.' : current.reason,
+        retry,
+        startOver,
+      };
 }

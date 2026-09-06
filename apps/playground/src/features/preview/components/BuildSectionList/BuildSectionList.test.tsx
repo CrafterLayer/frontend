@@ -1,15 +1,18 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 
 import { initialRunProgress } from '../AssistantPanel/AssistantPanel.progress';
 import type { BuildProgress, BuildTask } from '../AssistantPanel/AssistantPanel.build';
 import { BuildSectionList } from './BuildSectionList';
 
-const task = (
-  position: number,
-  title: string,
-  status: BuildTask['status'],
-): BuildTask => ({ id: `t${String(position)}`, position, title, status, attempts: 0 });
+const task = (position: number, title: string, status: BuildTask['status']): BuildTask => ({
+  id: `t${String(position)}`,
+  position,
+  title,
+  status,
+  attempts: 0,
+});
 
 function progress(tasks: readonly BuildTask[], running = true): BuildProgress {
   return {
@@ -90,10 +93,7 @@ describe('BuildSectionList', () => {
 
   it('shows no clock at all once the wave has settled', () => {
     render(
-      <BuildSectionList
-        progress={progress([task(1, 'Hero', 'applied')], false)}
-        turnId="turn"
-      />,
+      <BuildSectionList progress={progress([task(1, 'Hero', 'applied')], false)} turnId="turn" />,
     );
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
   });
@@ -103,5 +103,56 @@ describe('BuildSectionList', () => {
       <BuildSectionList progress={progress([task(1, 'الافتتاحية', 'waiting')])} turnId="turn" />,
     );
     expect(screen.getByText('الافتتاحية')).toHaveAttribute('dir', 'auto');
+  });
+
+  describe('jump to section', () => {
+    it('makes a written section reachable on the canvas', async () => {
+      const onJump = vi.fn();
+      render(
+        <BuildSectionList
+          progress={progress([
+            { ...task(1, 'Hero', 'applied'), id: 'n1' },
+            { ...task(2, 'Pricing', 'waiting'), id: 'n2' },
+          ])}
+          turnId="t"
+          onJump={onJump}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Hero' }));
+      expect(onJump).toHaveBeenCalledExactlyOnceWith('n1');
+    });
+
+    it('leaves a section still WAITING as plain text — it has no node yet', () => {
+      render(
+        <BuildSectionList
+          progress={progress([{ ...task(1, 'Hero', 'waiting'), id: 'n1' }])}
+          turnId="t"
+          onJump={() => undefined}
+        />,
+      );
+      expect(screen.queryByRole('button', { name: 'Hero' })).toBeNull();
+      expect(screen.getByText('Hero')).toBeInTheDocument();
+    });
+
+    it('leaves a section with no node id as plain text', () => {
+      render(
+        <BuildSectionList
+          progress={progress([{ ...task(1, 'Hero', 'applied'), id: '' }])}
+          turnId="t"
+          onJump={() => undefined}
+        />,
+      );
+      expect(screen.queryByRole('button', { name: 'Hero' })).toBeNull();
+    });
+
+    it('offers no jump at all when the host has nowhere to go', () => {
+      render(
+        <BuildSectionList
+          progress={progress([{ ...task(1, 'Hero', 'applied'), id: 'n1' }])}
+          turnId="t"
+        />,
+      );
+      expect(screen.queryByRole('button', { name: 'Hero' })).toBeNull();
+    });
   });
 });

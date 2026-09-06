@@ -50,6 +50,7 @@
     "@craftkit/builder-shadcn": "workspace:*",
     "@craftkit/builder-shell": "workspace:*",
     "@craftkit/builder-theme": "workspace:*",
+    "@craftkit/builder-transforms": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

@@ -1,0 +1,71 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as GeneratedSitesStories from './GeneratedSites.stories';
+
+<Meta of={GeneratedSitesStories} />
+
+# GeneratedSites
+
+A generated page rendered at one width, so the quality gate can measure it — in a real browser, in
+CI, on every run.
+
+<Canvas of={GeneratedSitesStories.RunsTheGate} />
+
+## The page alone, in the published renderer
+
+No editor, no canvas chrome, no selection outlines. Measuring the real canvas would measure the
+editor's own furniture along with the page, and every overlap between a toolbar and a heading would
+be reported as a page defect. What CI measures here is what a visitor would see — the only version
+of the page the gate has any business having an opinion about.
+
+The width is applied as a real `inline-size`, never a scaled preview. The gate reads
+`getBoundingClientRect`, and a transform would report the scaled numbers instead of the ones a
+person's browser produces.
+
+## One implementation, two callers
+
+The deterministic checks — heading order, internal links, duplicate ids, empty sections, placeholder
+copy, direction, contrast — come from `@craftkit/builder`'s DOM-free quality module. That is the
+**same code** the playground runs against a draft before allowing a commit. Two copies would drift,
+and the day they drifted the runtime gate would pass something CI had already refused, with no way
+to tell which was right.
+
+The layout half — overflow and overlap — is measured here, because only a browser can answer it. The
+same tree is fine at one width and broken at another.
+
+<Canvas of={GeneratedSitesStories.Narrow} />
+
+## An open question, written down rather than tuned away
+
+The layout half is asserted to **run** on this fixture, not to come back empty — because it does not
+come back empty, and nobody has yet established why. The region measures exactly 1024px wide at x=0,
+Tailwind is loaded and constraining (a paragraph measures 299px, centred), and excluding
+horizontally scrolling ancestors changed nothing.
+
+Asserting zero would be asserting something unproven, and lowering a threshold until it passed would
+be worse: a gate tuned until it goes green is a gate that has stopped working. So the story checks
+that every issue is actionable — a named check, the width it was seen at, words a person can search
+for — and the question stays open in the open.
+
+## A gate that catches nothing proves nothing
+
+<Canvas of={GeneratedSitesStories.CatchesABrokenPage} />
+
+A suite of pages that all pass says nothing about whether the checks are switched on. So one story
+renders a page built to fail — a heading level skipped, a link to nothing, placeholder copy left in
+— and asserts the gate finds each of them. If someone disables a check, this is the story that goes
+red.
+
+## Every width
+
+<Canvas of={GeneratedSitesStories.EveryWidth} />
+
+360, 768, 1024 and 1440: a phone, a tablet, a laptop, a desktop. The same issue at four widths is
+four issues, deliberately — "overflows at 360" is a phone problem and "overflows everywhere" is a
+broken component, and collapsing them throws away the fact that tells you which you have.
+
+## Fixed seeds
+
+The page comes from the offline provider through `createPlaygroundKernel`, which is deterministic by
+construction: no network, no clock, seeded ids. The same story renders the same bytes on every run,
+which is what makes a gate over it a gate rather than a coin toss.

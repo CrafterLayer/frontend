@@ -682,9 +682,7 @@ describe('runAiBuild', () => {
     expect(result.applied).toBe(4);
     expect(live.transactions().map(({ command }) => command)).toEqual([
       'Assistant: page skeleton',
-      ...FOUR.map(
-        ({ title }, index) => `Assistant: ${String(index + 1)}/4 — ${title}`,
-      ),
+      ...FOUR.map(({ title }, index) => `Assistant: ${String(index + 1)}/4 — ${title}`),
     ]);
   });
 
@@ -723,9 +721,7 @@ describe('runAiBuild', () => {
     expect(result.applied).toBe(12);
     expect(live.transactions().map(({ command }) => command)).toEqual([
       'Assistant: page skeleton',
-      ...TWELVE.map(
-        ({ title }, index) => `Assistant: ${String(index + 1)}/12 — ${title}`,
-      ),
+      ...TWELVE.map(({ title }, index) => `Assistant: ${String(index + 1)}/12 — ${title}`),
     ]);
   });
 

@@ -41,6 +41,10 @@ export interface AssistantThreadProps {
   readonly onRetry: (request: string) => void;
   /** Turn a planned page into a real build: a new run, at a writing authority. */
   readonly onBuild: (request: string) => void;
+  /** Take the person to a section on the canvas. Absent when there is nowhere to go. */
+  readonly onJump?: ((id: string) => void) | undefined;
+  /** What the rest of a build would cost to send. Absent when it cannot be estimated. */
+  readonly buildCostTokens?: number | undefined;
   readonly onApplyPlan: (turnId: string, proposal: AiValidatedProposal) => void;
   readonly onPreviewPlan: (turnId: string, proposal: AiValidatedProposal) => void;
   readonly onDiscardPlan: (turnId: string) => void;
@@ -77,6 +81,8 @@ export function AssistantThread({
   onRetrySkipped,
   onRetry,
   onBuild,
+  onJump,
+  buildCostTokens,
   onApplyPlan,
   onPreviewPlan,
   onDiscardPlan,
@@ -145,6 +151,8 @@ export function AssistantThread({
                         tasks={turn.progress.tasks}
                         turnId={turn.id}
                         onAnswer={onApproval}
+                        costTokens={buildCostTokens}
+                        locale={locale}
                       />
                     ) : turn.progress.tasks.length === 0 ? (
                       /* Before the list exists there is one thing to watch:
@@ -167,7 +175,7 @@ export function AssistantThread({
                         </div>
                       </>
                     ) : (
-                      <BuildSectionList progress={turn.progress} turnId={turn.id} />
+                      <BuildSectionList progress={turn.progress} turnId={turn.id} onJump={onJump} />
                     )}
                   </div>
                 ) : null}

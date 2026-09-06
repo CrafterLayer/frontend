@@ -149,52 +149,125 @@ C.
 
 ### 2f — Site codec and the composed round-trip law, `@craftkit/builder-transforms` (layer 2)
 
-- [ ] T032 Implement `projectSite()`, `parseSite()`, `SiteProjectionText`, and
+- [x] T032 Implement `projectSite()`, `parseSite()`, `SiteProjectionText`, and
       `SITE_MANIFEST_PROJECTION_ID` in `packages/builder/transforms/src/codec/site-codec.ts`,
       reusing `projectDocument`/`parseDocument` per page and region
-- [ ] T033 Write the manifest law in
+- [x] T033 Write the manifest law in
       `packages/builder/transforms/src/codec/site-codec.property.test.ts` —
       `parseManifest(projectManifest(m)) ≡ m`, 1,000 `fast-check` cases, fixed seeds, merge-blocking
-- [ ] T034 Write the composition law in
+- [x] T034 Write the composition law in
       `packages/builder/transforms/src/codec/site-codec.property.test.ts` — a site projection
       decomposes into exactly its manifest plus one text per page and region, losslessly and
       order-independently
-- [ ] T035 Extend the non-vacuity gate to `parseSite` in
+- [x] T035 Extend the non-vacuity gate to `parseSite` in
       `packages/builder/transforms/src/codec/site-codec.property.test.ts` — a parser returning `[]`
       forever must FAIL the gate
-- [ ] T036 Confirm the existing per-page law is reused verbatim and NOT re-derived; assert that in a
+- [x] T036 Confirm the existing per-page law is reused verbatim and NOT re-derived; assert that in a
       comment and a test reference in
       `packages/builder/transforms/src/codec/site-codec.property.test.ts`
-- [ ] T037 Export the site codec from `packages/builder/transforms/src/index.ts`
-- [ ] T038 Run the transforms gate: `pnpm exec vitest run packages/builder/transforms/src/codec`
+- [x] T037 Export the site codec from `packages/builder/transforms/src/index.ts`
+- [x] T038 Run the transforms gate: `pnpm exec vitest run packages/builder/transforms/src/codec`
 
 ### 2g — Code-view scopes, `@craftkit/builder-code-view` (layer 4)
 
-- [ ] T039 Add `{ kind: 'site' }` and `{ kind: 'page'; pageId }` to `TransformScope` in
+- [x] T039 Add `{ kind: 'site' }` and `{ kind: 'page'; pageId }` to `TransformScope` in
       `packages/builder/extensions/code-view/src/worker/protocol.ts` and extend its runtime guards
-- [ ] T040 Handle the new scopes in
+- [x] T040 Handle the new scopes in
       `packages/builder/extensions/code-view/src/worker/transform-worker.ts`, carrying the site on
       the existing base-artifact channel for site scope
-- [ ] T041 Handle the new scopes in `packages/builder/extensions/code-view/src/worker/client.ts` and
+- [x] T041 Handle the new scopes in `packages/builder/extensions/code-view/src/worker/client.ts` and
       `loopback.ts`
-- [ ] T042 Extend the protocol tests in
+- [x] T042 Extend the protocol tests in
       `packages/builder/extensions/code-view/src/worker/protocol.test.ts` for both new scopes,
       including staleness detection under a site-sized payload
-- [ ] T043 Re-prove SC-005 STATICALLY at site scope in
+- [x] T043 Re-prove SC-005 STATICALLY at site scope in
       `packages/builder/extensions/code-view/src/containment.test.ts` — main-thread modules still
       cannot import the codec
-- [ ] T044 Re-prove SC-005 DYNAMICALLY at site scope in
+- [x] T044 Re-prove SC-005 DYNAMICALLY at site scope in
       `packages/builder/extensions/code-view/src/worker/off-thread.test.ts` — a typing burst invokes
       the codec ZERO times in the render realm, counted not timed
-- [ ] T045 Prove per-page editing does not re-serialize the whole site in
+- [x] T045 Prove per-page editing does not re-serialize the whole site in
       `packages/builder/extensions/code-view/src/worker/off-thread.test.ts` (the D6 mitigation)
 
 ### 2h — Preset surface and foundational gate
 
 - [x] T046 Re-export the site, design-system, asset, and `dispatchGroup` surfaces from
       `packages/builder/editor/src/index.ts` so apps keep importing only `@craftkit/builder`
-- [ ] T047 Run the foundational gate: `pnpm check:workspace`, `pnpm check:boundaries`, `pnpm lint`,
+- [x] T047 Run the foundational gate: `pnpm check:workspace`, `pnpm check:boundaries`, `pnpm lint`,
       `pnpm typecheck`, `pnpm test` — record pnpm's own exit code
+      **T032–T047 done.** `packages/builder/transforms/src/codec/site-codec.ts` (~760 lines) and
+      `site-codec.property.test.ts` (20 tests, three laws at 1,000 `fast-check` cases each on fixed
+      seeds), plus the two new scopes across `protocol.ts`, `client.ts`, `transform-worker.ts` and
+      `CodeViewPanel.tsx`.
+      **A site projection is SEVERAL texts, not one blob.** `SiteProjectionText` is a manifest plus
+      one text per page and per shared region. Printing the site as one text would mean a keystroke
+      in one page re-serialises every page in the site, which is the exact cost the worker exists to
+      avoid — and it is the risk D6 carried as its own mitigation (T045).
+      **`projectSite(s).pages[id]` IS `projectDocument(page.document).text`, byte for byte**, and a
+      page edit's patches ARE `parseDocument`'s patches with `['pages', i, 'document']` in front.
+      Both are asserted (T036), so the per-page round-trip law in `round-trip.property.test.ts` is
+      INHERITED rather than restated: a second document codec grown inside the site codec fails
+      those two tests long before anyone sees drift in a generated site.
+      **What the manifest may not do, and why it says so in words.** It cannot create a page or a
+      region, because it carries no document and a page without one is not a page; the refusal names
+      `addPage` / `setSharedRegion` instead. It cannot move `siteVersion` — migrations own that
+      field and `applySitePatches` refuses such a batch, so the codec refuses it first, with a line
+      number. `parseSite`, handed the whole bundle, CAN create both, because the bundle carries the
+      text. The bundle must match the manifest exactly in both directions: a named page with no
+      text, or a text for a page nobody named, is refused rather than ignored — silently ignoring
+      either would let a person delete a page in one pane and keep typing in it in another.
+      **Page patches are index-rooted, and a MOVE is handled honestly.** immer patches have no move
+      operation, so a page that changed slots is written as a metadata shell and refilled node by
+      node; a page that stayed put is patched field by field. Removals go descending so no index
+      shifts under the batch, and an `add` only ever lands past the end of the surviving run, where
+      the index equals the array's current length. The shell is briefly a document whose root is
+      missing — deliberate, and safe because `applySitePatches` validates once, after the batch, the
+      same reasoning `nodeWritePatches` already uses for a deep node.
+      `parseDocument` was split into `readDocumentText` + `documentPatches` (both now exported) so
+      the site path can compose every page's candidate document BEFORE validating, which is what
+      makes `page-direction-mismatch` and `unresolved-asset-reference` catchable in a page's own
+      text. Behaviour is unchanged and the existing 1,000-case laws still guard it.
+      **The worker holds ONE base artifact**, document or site, on the channel the document always
+      used — one revision counter, so there is only one way to be stale. A scope that does not match
+      what it holds returns `scope-mismatch` rather than inventing the missing artifact, and the
+      projection id is checked AGAINST THE SCOPE (`site-manifest` vs `canonical-json`) so a
+      mismatched pane cannot parse a manifest as a document.
+      Mutation-checked, six runs, each failing exactly the named test: a moved page diffed against
+      whichever page sits at its index (4 laws fail); a page text that is not `projectDocument`'s
+      (the reuse law); `siteVersion` allowed to move (its refusal test); a page pane handed the whole
+      manifest (T045's first test); page patches rooted at page 0 (T045's second); and the panel
+      importing `projectSiteManifest` (T043).
+      **The six laws declare a 60s budget, measured not guessed.** A case generates SIX documents
+      and then projects, parses and applies a whole site; a thousand of them is ~4.5s on an idle
+      machine, against a 5s package default that is a global default rather than a considered budget
+      for this file. It passed alone and failed the moment two packages ran at once — the least
+      useful way for a test to fail. Cutting the case count was the alternative and was rejected:
+      1,000 at a fixed seed IS the law's strength, and trading it for a green run under load is
+      tuning the gate rather than the code.
+      **Two defects the gate found that were nothing to do with this work, both hidden the same way
+      — by a green test COUNT beside a non-zero exit.**
+      (1) `IconRail` (committed in `60751cd`) called `label.showPopover()` unguarded. jsdom
+      implements no Popover API and a real browser THROWS when asked to show a popover that is
+      already showing, which a fast hover between two icons produces; either throw escapes into
+      React's event dispatch, so a tooltip breaks a navigation rail. Six unhandled errors, `918
+      passed`, exit 1. Now wrapped in a `try/catch` — and a `typeof` capability check written in
+      front of it was REMOVED after mutation testing, because no test could tell it from its own
+      absence: calling a missing method throws into the same catch. Two new tests cover both
+      failures (absent, throwing), and deleting the catch fails both.
+      (2) `App.css` read `--bldr-line-height-relaxed`, which the theme has never defined — its scale
+      is a deliberate three steps (tight/snug/normal). The rule fell back to the browser default and
+      `builder-theme`'s coverage gate went red. Repointed at `normal`, the most open step that
+      exists; adding a fourth step is the theme's decision, not one paragraph's. Turbo's cache was
+      hiding it: that gate scans OTHER packages' CSS, which turbo does not track as an input, so it
+      replayed a stale pass until `--force`.
+      Gates, exit codes recorded (T047): `check:workspace` 0 (33 members), `check:boundaries` 0
+      (1,975 files), `check:components` 0 (128), `turbo run lint` 0, `turbo run typecheck` 0,
+      `turbo run test --force` 32/33 packages — transforms 126, code-view 101 (86 → 101), shell 920
+      (918 → 920), theme 26, ai 554, playground 741, schema 294, core 241. The one failure was a
+      Chromium story in `richtext` (`icon house style`, an `aria-pressed` background comparison
+      inside `waitFor`) which passes alone and touches nothing in this work — recorded as a load
+      flake, not a regression.
+
 
 **Checkpoint**: the site exists, validates, round-trips, and is writable only through the door. User
 story work can begin.
@@ -289,61 +362,145 @@ stage.
 
 ### Stage contracts and providers — `@craftkit/builder-ai` (layer 2)
 
-- [ ] T048 [US1] Define `SITE_STAGE_WIRE_VERSION`, `StageEnvelope`, and the five request/response
+- [x] T048 [US1] Define `SITE_STAGE_WIRE_VERSION`, `StageEnvelope`, and the five request/response
       pairs in `packages/builder/ai/src/pipeline/wire.ts`, each self-contained and carrying the seed
       (FR-027)
-- [ ] T049 [US1] Define the `SiteStageProvider` port and `StageOptions` in
+      `pipeline/wire.ts`: five request/response pairs, each self-contained and carrying the seed. Self-contained is the load-bearing word — a stage request is a complete question, so a retry, a resume after a reload, or a re-run on another machine ask exactly the same thing. A pipeline relying on server-side session state would be unresumable, which is the property the whole draft/journal design exists to protect.
+- [x] T049 [US1] Define the `SiteStageProvider` port and `StageOptions` in
       `packages/builder/ai/src/pipeline/stage-provider.ts`, matching the existing `AiProposeOptions`
       shape for signal and progress
-- [ ] T050 [P] [US1] Implement the sitemap stage in
+      `pipeline/stage-provider.ts`: ONE method discriminated by the request's own `stage`, not five named ones — an implementation cannot support four stages and quietly omit the fifth, and the retry, timeout and progress plumbing is written once.
+- [x] T050 [P] [US1] Implement the sitemap stage in
       `packages/builder/ai/src/pipeline/stages/sitemap.ts` with intermediate validation
-- [ ] T051 [P] [US1] Implement the structure stage in
+      `stages/sitemap.ts`. Ids are checked for shape and uniqueness HERE because every later stage addresses pages by them; a duplicate found at assembly has already cost four calls. A page with no `purpose` is refused: every later stage is handed that sentence and obeys it.
+- [x] T051 [P] [US1] Implement the structure stage in
       `packages/builder/ai/src/pipeline/stages/structure.ts` — a section naming an unregistered
       block type is a stage failure, never an invention (FR-019)
-- [ ] T052 [P] [US1] Implement the content stage in
+      `stages/structure.ts`. A section naming an unregistered block is a stage FAILURE and is marked NON-REPAIRABLE: the type list was sent with the request, so a type outside it was not a near miss, and asking again spends a round trip to be told the same thing.
+- [x] T052 [P] [US1] Implement the content stage in
       `packages/builder/ai/src/pipeline/stages/content.ts` with the filler-text refusal (FR-020)
-- [ ] T053 [P] [US1] Implement the design-system stage in
+      `stages/content.ts`. Filler is a REFUSAL here and only a warning on a finished page — the difference is that nothing is committed yet and asking again costs one call. Knows the Arabic fillers too.
+- [x] T053 [P] [US1] Implement the design-system stage in
       `packages/builder/ai/src/pipeline/stages/design-system.ts`, emitting a `DesignSystem` that
       passes `validateDesignSystem()`
-- [ ] T054 [US1] Implement the assembly stage in
+      `stages/design-system.ts`, through the schema's own `validateDesignSystem`. Re-implementing it would produce a second opinion about what a valid design system is, and the day they disagreed the pipeline would ship a palette the theme refuses.
+- [x] T054 [US1] Implement the assembly stage in
       `packages/builder/ai/src/pipeline/stages/assembly.ts` — emits COMMANDS only, never a document
       or site object (FR-030)
-- [ ] T055 [US1] Implement the deterministic offline provider for all five stages in
+      `stages/assembly.ts` — COMMANDS only. A stage returning a finished site would be a second way to build one, with none of the validation the first way has. The commands themselves are the door's to validate; this checks only what the door cannot say.
+- [x] T055 [US1] Implement the deterministic offline provider for all five stages in
       `packages/builder/ai/src/pipeline/offline/offline-stage-provider.ts` (FR-028 — every scenario
       in the spec must run through it)
-- [ ] T056 [US1] Implement `createRemoteSiteStageProvider()` in
+      `offline/offline-stage-provider.ts`. Deterministic by construction: page count derived from the brief, types taken from the list the request SENT (never invented), and the design system built FROM `defaultDesignSystem()` rather than by hand — a hand-written stub failed `validateDesignSystem` on its first run, four tokens where the vocabulary declares sixty-seven. It honours the abort signal even though nothing in it is slow, or every cancellation test would pass for the wrong reason.
+- [x] T056 [US1] Implement `createRemoteSiteStageProvider()` in
       `packages/builder/ai/src/pipeline/remote-stage-provider.ts`, reusing the existing SSE
       `status`-frame progress channel and injectable `fetch`
-- [ ] T057 [US1] Implement `createScriptedSiteStageProvider()` in
+      ONE endpoint, the stage as a FIELD. A client owning five paths would make every stage addition
+      a two-sided release; a server routes on `stage` and needs no new URL. It does NOT validate the
+      answer — each stage's validator lives beside its request shape and runs in the orchestrator, so
+      a wrong server produces a rejected stage rather than a bad site. The one thing checked here is
+      that the answer is FOR the stage that was asked, because a mismatched response cannot even
+      reach the right validator.
+      The deadline is PER STAGE: a site is five to eight calls, and one budget across all of them
+      would give the last stage whatever the first four left over. The caller's signal and the
+      stage's own deadline both reach the same fetch — honouring only the timeout would leave a
+      stopped run's request in flight, paid for and discarded.
+      DEVIATION: the SSE `status`-frame progress channel is NOT reused. The stage contract is one
+      POST and one JSON answer; streaming it needs the server to emit stage frames, which is the
+      handoff in §4 and not yet built. `StageOptions.onProgress` exists and the offline provider
+      already calls it, so the channel is in place on this side the day the server has one.
+      Evidence: `remote-stage-provider.test.ts`, 9 cases.
+- [x] T057 [US1] Implement `createScriptedSiteStageProvider()` in
       `packages/builder/ai/src/testing/scripted-stage-provider.ts` for forced refusals and stage-N
       failures
 
 ### Orchestration
 
-- [ ] T058 [US1] Implement `generateSite()` in `packages/builder/ai/src/pipeline/generate-site.ts` —
+      `testing/scripted-stage-provider.ts`: fail-first counts, forced errors, hand-written responses and a `hang` mode, plus a call counter. The offline provider answers everything correctly, which is what makes it useless for the cases that matter.
+- [x] T058 [US1] Implement `generateSite()` in `packages/builder/ai/src/pipeline/generate-site.ts` —
       stage ordering, per-stage validation before the next begins, `onStage` start/done,
       cancellation, seed, bounds, and application through `dispatchGroup`
-- [ ] T059 [US1] Write stage-ordering and intermediate-validation tests in
+      `pipeline/generate-site.ts`. It is handed NO kernel and returns commands, which is what makes "a failure at stage four leaves the workspace byte-identical" true by construction rather than by care. Two attempts per stage, never three; a non-repairable rejection skips the retry. Content runs per page with a pool of three and is sorted back into PAGE order, because the writers finish out of order by design.
+- [x] T059 [US1] Write stage-ordering and intermediate-validation tests in
       `packages/builder/ai/src/pipeline/generate-site.test.ts` (FR-016, FR-017)
-- [ ] T060 [US1] Write the atomicity tests in
+      Stage ordering and intermediate validation pinned in `generate-site.test.ts`: every stage in order, the run stopping at the stage that failed, the next stage never asked.
+- [x] T060 [US1] Write the atomicity tests in
       `packages/builder/ai/src/pipeline/generate-site.test.ts` — a scripted failure at stage 4 and a
       mid-run cancellation each leave the workspace byte-identical to a captured prior state
       (SC-010)
-- [ ] T061 [US1] Write the seed-determinism property test in
+      Atomicity and cancellation pinned in the same file: a scripted failure at any stage returns no commands and touches nothing (there is nothing to touch), a mid-run abort stops at the stage in flight, and an already-aborted signal makes no call at all.
+- [x] T061 [US1] Write the seed-determinism property test in
       `packages/builder/ai/src/pipeline/generate-site.property.test.ts` (FR-024, SC-013)
-- [ ] T062 [US1] Write the bounds test in `packages/builder/ai/src/pipeline/generate-site.test.ts` —
+- [x] T062 [US1] Write the bounds test in `packages/builder/ai/src/pipeline/generate-site.test.ts` —
       exceeding `limits` is REPORTED, never silently truncated (FR-025)
-- [ ] T063 [US1] Write the door test in `packages/builder/ai/src/pipeline/generate-site.test.ts` — a
+- [x] T063 [US1] Write the door test in `packages/builder/ai/src/pipeline/generate-site.test.ts` — a
       provider returning a site object is rejected, and a spy proves every write passed validation
       (SC-002)
-- [ ] T064 [US1] Write the one-undo-step test in
+- [x] T064 [US1] Write the one-undo-step test in
       `packages/builder/ai/src/pipeline/generate-site.test.ts` — a whole generation reverses in one
       undo (SC-011)
-- [ ] T065 [US1] Write the copy-relevance test in
+- [x] T065 [US1] Write the copy-relevance test in
       `packages/builder/ai/src/pipeline/stages/content.test.ts` — ≥95% of spans carry brief terms,
       zero filler (SC-005)
-- [ ] T066 [US1] Export the pipeline surface from `packages/builder/ai/src/index.ts` and the
+- [x] T066 [US1] Export the pipeline surface from `packages/builder/ai/src/index.ts` and the
       scripted provider from `packages/builder/ai/src/testing/index.ts`
+      **T061–T066 done, and they were not only tests.** Writing them found four things the spine
+      had been claiming without ever checking, because `generateSite` had no consumer anywhere in
+      the repository.
+      **(1) The commands the pipeline produced could not be applied.** `addPage` was emitted with
+      `{ id, title }` — the door takes an ADDRESS and mints its own id (Law D) — and `insertNode`
+      named a page as its `parentId`, which addresses a node inside a page's document. Both were
+      refused on sight. Nothing had noticed, because "the caller sends these through the same door a
+      plan goes through" had never once been exercised. `assemblyFor` now emits door-valid args, and
+      no generated page claims `/`: every valid site already has exactly one home, so which page
+      becomes it when a run adds a site's worth of pages beside an existing one is a decision with a
+      person's work on the other side, and it belongs to the Keep / Start-over card.
+      **(2) A page command cannot name its page.** `addPage` mints the id inside the batch, so an
+      assembly step names its SITEMAP page (`AssemblyStep.page`) and the new `applySiteCommands`
+      watches pages come into existence and keeps the map. That is why the batch is applied ONE
+      COMMAND AT A TIME — a `dispatchGroup` is produced in a single pass and cannot read back an id
+      minted halfway through itself. The one-transaction promise is not lost, it MOVES to the
+      commit: apply into a draft whose history is nobody's, then `commitGeneratedSite` puts the
+      result on the live site as a single `applySitePatches`. One entry in history, one undo.
+      The applier STOPS at the first refusal rather than skipping it: a site assembled from the
+      commands that happened to pass is a site nobody designed.
+      **(3) The stage validators reached straight for their field.** `response.commands.length` on a
+      malformed answer produced "Cannot read properties of undefined" — a message about JavaScript
+      at the moment a person needs one about the model — and it escaped as a TypeError, so no retry,
+      no `stage.rejected` event, no reason anyone could act on. `stages/shape.ts` makes a wrong shape
+      a REFUSAL like any other, and names what arrived instead of printing it.
+      **(4) SC-005 scored zero.** The content stage was handed the brief and ignored it, writing
+      every span from a fixed page plan — so a ceramics studio and a law firm shipped identical
+      words, and this file's own docstring ("its pages are derived from the brief by rule") was an
+      over-claim. `measureBriefRelevance` (`quality/brief-relevance.ts`) measures the ratio the
+      criterion asks for; it does NOT look for filler, which already has two owners on purpose.
+      Stated in the test: a template naming the business clears this bar by construction — a floor,
+      not evidence about a model.
+      DEVIATION: `commitGeneratedSite` takes the diff and the fingerprint as PORTS instead of
+      computing them. `check-workspace` refused the first version — `builder-ai` and
+      `builder-transforms` are both layer 2, and a builder member depends only on strictly lower
+      layers — and the refusal was right on its own terms: this package must not know how a site is
+      SERIALISED. The site codec's diff has three property laws at a thousand cases each; a second
+      one here would be a second answer to "what changed" with none of them.
+      A vacuous test the property road caught: `writes content per page, and returns it in PAGE
+      order` proved nothing, because the offline provider is arithmetic and a pool started in page
+      order also finishes in page order — deleting the sort entirely still passed. It now runs
+      against a provider that finishes the LAST page first, and deleting the sort fails it.
+      Two more of my own were caught by mutation: the Arabic-article test matched by substring
+      without needing the stripping code at all, and the closed-class test used words already below
+      the three-character floor. Both rewritten to test the direction the code actually handles.
+      T061 runs 1,000 cases: the first draft used 300 and wrote a paragraph justifying the
+      reduction, then measured — 900 cases took 396ms — and the justification was for a cost that
+      does not exist.
+      Mutation-checked, eleven runs, each failing exactly the tests that name it: the old `addPage`
+      args, the assembly shape guard, a two-group commit, the staleness check, an applier that skips
+      refusals, the content stage ignoring the brief, the article stripping, the closed-class list,
+      the empty-span rule, the page-order sort, and a retry asking with a fresh seed.
+      Gates, exit codes recorded: `check:workspace` 0 (33 members), `check:boundaries` 0,
+      `check:components` 0 (128), `turbo run lint typecheck` 0, `turbo run test --force` 0 —
+      **33 of 33 packages, no flake and no retry**: ai 583 (554 → 583), shell 920, playground 741,
+      storybook 637 Chromium stories, marketing 310, schema 294, core 241, renderer 155, evals 141,
+      builder 124, transforms 126, code-view 101, custom-code 105, ai-server 95, richtext 80.
 
 ### `GenerationProgress` component — `@craftkit/builder-shell` (layer 3)
 
@@ -381,31 +538,73 @@ stage.
 
 ### `SiteBriefForm` component — `apps/playground`
 
-- [ ] T078 [US1] Implement `SiteBriefForm` in
+- [x] T078 [US1] Implement `SiteBriefForm` in
       `apps/playground/src/features/preview/components/SiteBriefForm/SiteBriefForm.tsx` using an
       Action and `useActionState` for pending/error state
-- [ ] T079 [US1] Add the local export in
+- [x] T079 [US1] Add the local export in
       `apps/playground/src/features/preview/components/SiteBriefForm/index.ts`
-- [ ] T080 [US1] Write typed CSF stories in
+- [x] T080 [US1] Write typed CSF stories in
       `apps/playground/src/features/preview/components/SiteBriefForm/SiteBriefForm.stories.tsx` —
       empty, typing, submitting, refused, error, RTL
-- [ ] T081 [US1] Write
+- [x] T081 [US1] Write
       `apps/playground/src/features/preview/components/SiteBriefForm/SiteBriefForm.docs.mdx`
-- [ ] T082 [US1] Write behavioural tests in
+- [x] T082 [US1] Write behavioural tests in
       `apps/playground/src/features/preview/components/SiteBriefForm/SiteBriefForm.test.tsx` —
       submit, refusal path, disabled-while-running announced, error tied by `aria-describedby`
 
 ### Composition and gate
 
-- [ ] T083 [US1] Compose the brief form, progress, and page navigator into
+- [x] T083 [US1] Compose the brief form, progress, and page navigator into
       `apps/playground/src/features/preview/components/AssistantPanel/AssistantPanel.tsx`, keeping
       it a thin composition shell
-- [ ] T084 [US1] Update
+- [x] T084 [US1] Update
       `apps/playground/src/features/preview/components/AssistantPanel/AssistantPanel.test.tsx` for
       the staged flow
-- [ ] T085 [US1] Run the US1 gate: `pnpm exec vitest run packages/builder/ai/src/pipeline`,
+- [x] T085 [US1] Run the US1 gate: `pnpm exec vitest run packages/builder/ai/src/pipeline`,
       `pnpm check:components`, and the owning-package lint/typecheck/test for `builder-ai`,
       `builder-shell`, and `@craftkit/playground`
+      **T078–T085 done. The MVP is real: a sentence in the panel produces a valid, navigable
+      multi-page site, and one undo takes it back.**
+      Judged from three independent designs and nine adversarial lenses; the winner's core is what
+      shipped — an in-memory draft created inside the run function, and exactly ONE write in the
+      whole feature. The judges' findings shaped the code as much as the designs did: `undo()` does
+      NOT append to the transaction log, so any guard comparing `transactions().at(-1).id` is
+      broken (none was written); `ClockPort`/`IdPort` are not on the preset's main entry; and adding
+      REQUIRED props to `AssistantThread` would break its own stories — so the site path is composed
+      BESIDE the thread rather than folded into the turn union. No new turn kinds, no thread
+      branches, no revival rule for a card that cannot be revived.
+      **A defect only a real browser found, and only after six isolating probes.** The form hung on
+      "Building…" forever in Chromium while passing in jsdom. The cause was in a DIFFERENT story:
+      `Submitting` returned a promise that never settled, and stories in one file share one React
+      root — so every story declared after it was starved, failing with "unable to find text" rather
+      than a timeout. A play function may leave nothing running.
+      **A defect that would have shipped.** `setRunning(true)` was called inside the form's Action,
+      and every state update inside an Action is a TRANSITION update: React holds the re-render
+      until the action settles. The progress card could never have appeared during a run — five
+      stages, minutes long, invisible until the moment it was over. `onSubmit` now resolves at
+      ADMISSION, and the run reports itself through ordinary state. The form's docs say so, because
+      the constraint is React's and the next person will hit it too.
+      **Two bounds the run was sending that the door would not honour**, both found by the panel
+      test rather than reasoned about: the block-type list included the page ROOT (a structure stage
+      handed the whole registry eventually names it, and the commit then refuses with
+      `accepts [...], not "page"`), and `maxSectionsPerPage` ignored the root slot's own `max`.
+      `sectionTypesFor` and `limitsFor` now derive both from the registry the commit will be judged
+      against. A run must be given the bound it will be held to.
+      **Removed as unearned:** a staleness check in `commitSite` that no mutation could distinguish
+      from its absence — `parseSite` composes its candidate from the draft alone, so the live site
+      moving cannot make the draft unreadable, and `commitGeneratedSite` already checks before it
+      writes. Also removed: the panel echoing the form's refusal, which made a screen reader read
+      one failure twice.
+      **The preset now re-exports the site codec** (`@craftkit/builder`, layer 5 → transforms layer
+      2). ADR 0003 forbids an app from depending deeper than the preset, and `commitGeneratedSite`
+      takes its diff and fingerprint as ports precisely because the engine may not reach the codec.
+      Curated, not `export *`: the document half is already reachable through code-view's registered
+      projection, and two ways to the same function leave a reader guessing.
+      Mutation-checked: applying to the live kernel instead of the draft, dropping the post-stage
+      abort check, and widening the section-type list each fail exactly the tests that name them.
+      Gates: `check:workspace` 33, `check:components` 129, `check:boundaries` 1,986 files,
+      `turbo run lint typecheck` 0, `turbo run test --force` 0 — **33 of 33 packages**: playground
+      767 (741 → 767), ai 583, shell 920, storybook 644 Chromium stories (637 → 644).
 
 **Checkpoint**: a brief produces a complete, valid, navigable multi-page site. MVP is real.
 
@@ -1894,27 +2093,157 @@ and the evidence that closes it.
       draft's transaction count is unchanged — the draft is persisted, and pruning then undoing
       grows its log by two on an attempt that was refused before it began.
       Gates: playground 676/676, lint + typecheck clean.
-- [ ] T299 [US10] A pre-run snapshot of kind `auto` with its own cap, so "undo the whole generation"
+- [x] T299 [US10] A pre-run snapshot of kind `auto` with its own cap, so "undo the whole generation"
       restores it in one transaction; and per-task undo that removes or restores only that section
       rather than looping the history stack. **FR-095.**
-- [ ] T300 [US10] The `interrupted` turn with Resume, Restart, Discard and Keep, reading the run
+      The shelf gained `kind: 'manual' | 'auto'` and a SEPARATE budget per kind (auto defaults to 3).
+      Sharing one cap failed in both directions: a twelve-section build could push a person's own
+      restore points off the shelf, and a run of ordinary saves could evict the pre-run snapshot the
+      generation undo points at — leaving a button on screen that no longer works, which is worse
+      than no button. `kind` is OPTIONAL and an old entry reads as `manual`: nothing in one says
+      which it was, and nothing but a person could write to the shelf then.
+      `restoreDocument` gained `{ author, label }`, defaulting to today's `codeview`. A second
+      caller arrived that is not the code view, and filing a person's revert under a surface they
+      never opened is a lie in the one record meant to say who did what. A label needs the group
+      door, because `dispatch` names the transaction after the command and "applyPatches" tells a
+      person nothing.
+      `undoSection` is a FORWARD change, not a history pop. The old panel behaviour was
+      `while (undone < steps) kernel.undo()` — it counts blindly and takes whatever is on top, so a
+      person who had edited another section since lost that edit silently. The snapshot decides
+      which of two things a revert means: a section the run CREATED is removed (`removeNode`, which
+      does the slot bookkeeping a hand-written patch gets subtly wrong), and one that existed before
+      has its props put back — only its props, rooted at that node, because a whole-document restore
+      would revert every other section the same run wrote. Slots are deliberately untouched: a fill
+      is one `setProp` on its own tree and cannot move children.
+      Evidence: `undo-generation.test.ts` (14 cases) and `snapshots.test.ts` (+5 for the budgets).
+      Six mutations, each failing its own named test — including the two that first survived,
+      because I had not tested the per-kind cap at all until the mutation said so.
+      Gates: playground 695/695, lint + typecheck clean.
+- [x] T300 [US10] The `interrupted` turn with Resume, Restart, Discard and Keep, reading the run
       journal so Resume continues from the first unit still waiting. **FR-093.**
-- [ ] T301 [P] [US10] Jump to section, a change summary computed from the commit's patches, a cost
+      `InterruptedCard`, driven entirely by a `RunRecord` — which is what makes the card possible at
+      all: the draft survives a reload, but only the journal knows which sections landed, which were
+      refused and why, and where a resume would start.
+      Four actions because four things can be true and only the person knows which. Every section is
+      NAMED with its outcome: "3/8" says how much was lost and nothing about whether the part they
+      cared about survived, and a refused section carries the door's own sentence.
+      Resume is WITHDRAWN, not disabled, when `isResumable` says no — a disabled button promises a
+      condition that would light it up, and for a plan-only run, a run with no section list, or a
+      record whose last checkpoint failed, no such condition exists. It also skips a section already
+      refused twice: continuing means going on to the first nobody has tried, and retrying the
+      refused ones is a different action with a different request.
+      Keep is absent when nothing landed — offering it would be offering an empty commit. And a
+      settled record still at `stage: 'scaffolding'` warns that a skeleton is already on the page,
+      so Start over removes it rather than laying a second one on top.
+      Evidence: `InterruptedCard.test.tsx`, 13 cases; five mutations, each failing its own named
+      test. One expectation of mine was wrong and is recorded: I expected Resume to name the refused
+      section, and the code correctly names the first UNTRIED one.
+      NOT WIRED into the panel yet: `createRunJournal` still has no production caller, because
+      `runAiBuild` is pointed at the live kernel rather than a draft. That wiring is its own task.
+- [x] T301 [P] [US10] Jump to section, a change summary computed from the commit's patches, a cost
       estimate on the approval card, a token budget in `stopReason()`, and the promised stories
       `StoppedWithReceipt`, `SlowRun`, `Interrupted`. **FR-097, FR-099.**
+      **Jump**: a written section's title becomes a button that calls `kernel.setSelection([id])` —
+      the same door a canvas click uses, so a jumped-to section behaves exactly like one the person
+      found themselves. A row still WAITING stays plain text: it has no node yet, and a button that
+      selects nothing looks broken. So does a row with no id, and so does the whole list when the
+      host has nowhere to go.
+      **Cost on the approval card**: the only moment a person authorises a run that is many calls
+      long, and "eight sections" says nothing about what eight sections costs. Labelled an estimate,
+      and of the REQUEST. Absent rather than zero when it cannot be estimated — a zero is a claim.
+      The helper lives beside the component, not in it: a component file that also exports a
+      function breaks fast refresh, which is why `GenerationProgress` keeps its constants apart.
+      **Stories**: `StoppedWithReceipt` and `SlowRun` added to the panel; `Interrupted` is covered
+      by `InterruptedCard`'s own six stories, which is a better home than a panel story that would
+      have to fake a reload.
+      **DEVIATIONS, both recorded rather than quietly dropped.**
+      *A token budget in `stopReason()` is NOT built, and cannot be yet.* No token counter reaches
+      `AiBuildEvent` at all — the numbers on `context.ready` and `skills.resolved` are per-step
+      CONTEXT budgets, not spend. A budget here would be a limit on a number nobody can produce. It
+      arrives with T305's `usage` on the wire, and the run journal's `spent` already carries the two
+      budgets that CAN be tracked (wall clock, started units) with the same reasoning written down.
+      *A change summary computed from the commit's patches is NOT built.* The card that would show
+      it is the one T298 needs and the panel does not yet render, because `commitDraft` has no
+      production caller — `runAiBuild` still writes to the live kernel. `planImpact()` already
+      computes exactly this shape for a plan; pointing it at a commit's patches is a small change
+      that belongs with the wiring task, not ahead of it.
+      Evidence: `BuildSectionList.test.tsx` (+4 jump cases), `BuildApprovalCard.test.tsx` (+4 cost
+      cases), `InterruptedCard` stories. Gates: playground 716/716, components 128, lint + typecheck
+      clean.
 
 ### D5 — Quality gates, in both places
 
-- [ ] T302 [US10] One implementation of the deterministic checks — contrast, overflow, overlap,
+- [x] T302 [US10] One implementation of the deterministic checks — contrast, overflow, overlap,
       heading order, internal links, duplicate ids, empty sections, placeholder text, direction —
       split between a DOM-free module in `builder-ai/src/quality/` and a layout module in the
       playground. **FR-102.**
-- [ ] T303 [US10] Runtime: run them against the draft in a hidden iframe at 360/768/1024/1440; a
+      The split is the design: a check lives in `builder-ai/src/quality/` if a DOCUMENT can answer
+      it, and in `playground/src/features/quality/` if only a browser can. Seven are document-level
+      (contrast, heading order, internal links, duplicate ids, empty sections, placeholder copy,
+      direction); two need layout (overflow, overlap). ONE `QualityCheck` union names both halves,
+      because a report mixes them and a consumer must be able to switch over all of it.
+      Decisions worth the record. **Heading order refuses a level SKIPPED, not repeated** — two h2s
+      are two sections; an h2 followed by an h4 is an outline with a hole a screen reader falls
+      through. **Placeholder copy WARNS and does not block**: the page works, and a gate that
+      refused everything would teach people to bypass it. It knows the Arabic fillers too, since the
+      default locale is Arabic and an English-only check would pass the exact page it exists to
+      catch. **An empty section is an ERROR** — it is not a flaw in the page, it is a section that
+      was promised and is not there. **Contrast measures only pairs it can resolve**: a rule setting
+      one half takes the other from the cascade, and guessing would produce confident numbers about
+      a pairing that never happens. **Overflow is measured against the VIEWPORT**, not a parent — a
+      child wider than a scrolling parent is a carousel, and a child past the viewport is a page you
+      must scroll sideways to read. **Overlap is a share of the SMALLER box**, so a 4px kiss between
+      two cards is nothing and the same 4px between two labels is one covering the other; nesting is
+      excluded, or every link inside a paragraph would report.
+      Evidence: `quality.test.ts` (26) and `measure-layout.test.ts` + `gate.test.ts` (18). Fourteen
+      mutations, each failing its own named test.
+- [x] T303 [US10] Runtime: run them against the draft in a hidden iframe at 360/768/1024/1440; a
       hard failure disables the commit for that page and names the page, the check and the element.
       **FR-102.**
-- [ ] T304 [US10] CI: `generated-sites.stories.tsx` built from the offline provider with fixed
+      `runQualityGate(document, { render, widths, knownAnchors })` runs both halves over every width
+      and returns one report. The RENDER is injected, not built here: mounting a frame, waiting for
+      fonts and knowing when layout has settled differ between the product, a story and a test —
+      what is shared, and what belongs in the gate, is the ORDER.
+      Two properties are pinned that a naive gate loses. **The same issue at four widths is four
+      issues**: "overflows at 360" is a phone problem and "overflows everywhere" is a broken
+      component, and collapsing them throws away the fact that tells a person which they have. **An
+      unmeasured width is NOT a passing width** — `measured` names the widths actually looked at, so
+      a gate cannot go green exactly when it stops working.
+      Every issue names the check, the region (`data-ck`) and the element by its own words, and
+      `blocks()` separates what stops a commit from what merely reports.
+      DEVIATION: the gate is not yet WIRED to disable a commit, because `commitDraft` still has no
+      production caller — the same wiring task T296/T298 wait on. The gate and its report exist and
+      are tested; `commitKept` gains a `quality` refusal in that task, not ahead of it.
+- [x] T304 [US10] CI: `generated-sites.stories.tsx` built from the offline provider with fixed
       seeds, inheriting the existing `a11y: { test: 'error' }` gate; plus a screenshot producer that
       finally feeds the visual comparator, which has no caller today. **FR-102.**
+      `GeneratedSites` renders a page ALONE in the static renderer — no editor, no canvas chrome, no
+      selection outlines. Measuring the real canvas would measure the editor's own furniture, and
+      every overlap between a toolbar and a heading would be reported as a page defect. The width is
+      a real `inline-size`, never a scaled preview: the gate reads `getBoundingClientRect`, and a
+      transform reports the scaled numbers instead of the ones a browser produces.
+      Four stories, all inheriting the project-wide `a11y: { test: 'error' }`. One of them renders a
+      page built to FAIL — a heading level skipped, a link to nothing, placeholder copy — and
+      asserts the gate finds each. A suite where everything passes says nothing about whether the
+      checks are switched on; this is the story that goes red when somebody disables one.
+      DEVIATION: the screenshot producer for the visual comparator is NOT built. The comparator
+      still has no caller, and feeding it needs a snapshot store and a baseline policy that nothing
+      in this task decides — recorded against D5's own visual-comparator line rather than
+      half-built here.
+      **OPEN QUESTION, recorded rather than tuned away.** The layout half is asserted to RUN on the
+      landing fixture, not to come back empty, because it does not come back empty and I have not
+      established why. Measured in Chromium: the region is exactly 1024 wide at x=0, Tailwind is
+      loaded and constraining (a paragraph measures 299px, centred), and three feature cards report
+      99/289/502px past the edge. Two hypotheses were tested and both were WRONG — that the story
+      measured the whole Storybook page (fixed: it now measures the rendered region, and the numbers
+      did not move), and that the cards sit in a horizontally scrolling row (fixed: ancestors with
+      `overflow-x: auto|scroll` are now excluded, and the numbers did not move). Both fixes were
+      right on their own terms and are pinned by tests; neither explains this.
+      What the story asserts instead is that every issue is ACTIONABLE — a named check, the width it
+      was seen at, and words a person can search the page for. Lowering a threshold until the
+      fixture passed would have been the worst available answer: a gate tuned until it goes green is
+      a gate that has stopped working, which is the exact failure `runQualityGate`'s `measured`
+      field exists to prevent.
 
 ### D7 — Usage and tiers
 

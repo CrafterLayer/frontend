@@ -110,7 +110,10 @@ export function contextOptionsForOutline(
   options: GenerateAiPlanOptions,
   skills: AiPreparedSkillContext | undefined,
 ): AssembleAiContextOptions {
-  return { ...contextOptions(options, skills, { allowedCommands: [], maxCommands: 0 }), outline: true };
+  return {
+    ...contextOptions(options, skills, { allowedCommands: [], maxCommands: 0 }),
+    outline: true,
+  };
 }
 
 function liveOptions(options: GenerateAiPlanOptions): AiProposeOptions {
@@ -284,7 +287,11 @@ function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
  */
 type RepairOutcome =
   | { readonly ok: true; readonly plan: AiPlan }
-  | { readonly ok: false; readonly candidate: unknown; readonly issues: readonly AiPlanValidationIssue[] };
+  | {
+      readonly ok: false;
+      readonly candidate: unknown;
+      readonly issues: readonly AiPlanValidationIssue[];
+    };
 
 async function repairAiPlanOnce(
   options: GenerateAiPlanOptions,

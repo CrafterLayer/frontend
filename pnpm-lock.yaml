@@ -887,6 +887,9 @@ importers:
       '@craftkit/builder-theme':
         specifier: workspace:*
         version: link:../theme
+      '@craftkit/builder-transforms':
+        specifier: workspace:*
+        version: link:../transforms
       zod:
         specifier: 'catalog:'
         version: 4.4.3

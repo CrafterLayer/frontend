@@ -49,7 +49,8 @@ function matchesAuto(
     activation.keywords?.some((keyword) => normalizedRequest.includes(keyword)) ?? false;
   const blockMatch =
     activation.selectedBlockTypes?.some((type) => selectedBlockTypes.has(type)) ?? false;
-  const scriptMatch = activation.scripts?.some((script) => requestUsesScript(request, script)) ?? false;
+  const scriptMatch =
+    activation.scripts?.some((script) => requestUsesScript(request, script)) ?? false;
   return keywordMatch || blockMatch || scriptMatch;
 }
 

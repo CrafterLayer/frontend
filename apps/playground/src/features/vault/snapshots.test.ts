@@ -1,7 +1,7 @@
 import { emptyDocument, type BuilderDocument } from '@craftkit/builder';
 import { describe, expect, it } from 'vitest';
 
-import { createSnapshotShelf } from './snapshots';
+import { createSnapshotShelf, kindOf } from './snapshots';
 import { createMemoryVaultStore } from './store';
 
 const docWith = (title: string): BuilderDocument => ({
@@ -112,5 +112,71 @@ describe('createSnapshotShelf', () => {
 
     await one.save(entry('mine', 10, 1));
     expect(await two.list()).toEqual([]);
+  });
+
+  describe('kinds pay for themselves', () => {
+    it('calls an unlabelled save manual, and an old entry manual too', async () => {
+      const store = createMemoryVaultStore();
+      const shelf = createSnapshotShelf({ store, docId: 'doc-1' });
+      const meta = await shelf.save(entry('mine', 10, 1));
+      expect(meta.kind).toBe('manual');
+      // Written before kinds existed: nothing in it says which it was, and
+      // nothing but a person could write to the shelf then.
+      expect(kindOf({ id: 'x', label: 'old', ts: 0, seq: 0, bytes: 1 })).toBe('manual');
+    });
+
+    it('keeps an auto snapshot on its own small budget', async () => {
+      const store = createMemoryVaultStore();
+      const shelf = createSnapshotShelf({ store, docId: 'doc-1', maxAutoCount: 2 });
+
+      for (const index of [1, 2, 3]) {
+        await shelf.save({ ...entry(`run-${String(index)}`, index * 10, index), kind: 'auto' });
+      }
+
+      const listed = await shelf.list();
+      expect(listed.map(({ label }) => label)).toEqual(['run-3', 'run-2']);
+    });
+
+    it('never lets a build push a person’s own restore points off the shelf', async () => {
+      const store = createMemoryVaultStore();
+      const shelf = createSnapshotShelf({ store, docId: 'doc-1', maxCount: 2, maxAutoCount: 2 });
+
+      await shelf.save(entry('mine A', 10, 1));
+      await shelf.save(entry('mine B', 20, 2));
+      for (const index of [1, 2, 3, 4]) {
+        await shelf.save({ ...entry(`run-${String(index)}`, 100 + index, index), kind: 'auto' });
+      }
+
+      const listed = await shelf.list();
+      expect(listed.filter((meta) => kindOf(meta) === 'manual').map(({ label }) => label)).toEqual([
+        'mine B',
+        'mine A',
+      ]);
+    });
+
+    it('never lets ordinary saves evict the pre-run snapshot an undo points at', async () => {
+      const store = createMemoryVaultStore();
+      const shelf = createSnapshotShelf({ store, docId: 'doc-1', maxCount: 2, maxAutoCount: 2 });
+
+      const auto = await shelf.save({ ...entry('before the run', 10, 1), kind: 'auto' });
+      for (const index of [1, 2, 3, 4]) {
+        await shelf.save(entry(`mine ${String(index)}`, 100 + index, index));
+      }
+
+      /*
+        A button that is still on screen and no longer works is worse than no
+        button — so the generation undo's snapshot must survive a person saving.
+      */
+      expect(await shelf.read(auto.id)).toBeDefined();
+      expect((await shelf.list()).some((meta) => meta.id === auto.id)).toBe(true);
+    });
+
+    it('takes the evicted body with it, whichever kind was dropped', async () => {
+      const store = createMemoryVaultStore();
+      const shelf = createSnapshotShelf({ store, docId: 'doc-1', maxAutoCount: 1 });
+      const first = await shelf.save({ ...entry('run-1', 10, 1), kind: 'auto' });
+      await shelf.save({ ...entry('run-2', 20, 2), kind: 'auto' });
+      expect(await shelf.read(first.id)).toBeUndefined();
+    });
   });
 });

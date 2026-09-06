@@ -18,6 +18,38 @@ export interface IconRailProps {
   label?: string | undefined;
 }
 
+/**
+ * Show or hide the label popover, and survive a runtime that cannot.
+ *
+ * Three things make the bare call unsafe: the Popover API is simply ABSENT in
+ * some runtimes (jsdom has neither method, and so do browsers old enough); a
+ * runtime that HAS it throws when asked to show a popover that is already
+ * showing, which a fast hover between two icons produces easily; and a detached
+ * element throws too.
+ *
+ * One response covers all three, and the catch is the entire guard — a
+ * `typeof` capability check in front of it was tried and removed, because no
+ * test could tell it from its own absence: calling a missing method throws the
+ * same way, into the same catch. A check nothing can distinguish is not a
+ * check.
+ *
+ * What is NOT swallowed is the consequence. Any of these escaping into React's
+ * event dispatch breaks the rail's buttons, which is a loss out of all
+ * proportion to a tooltip that did not appear.
+ */
+function callPopover(element: HTMLElement | null, method: 'showPopover' | 'hidePopover'): void {
+  if (element === null) return;
+  try {
+    if (method === 'showPopover') {
+      element.showPopover();
+    } else {
+      element.hidePopover();
+    }
+  } catch {
+    // A label that did not move is the whole cost.
+  }
+}
+
 /** Primary builder navigation with footer-pinned utilities and account content. */
 export function IconRail({
   items,
@@ -32,12 +64,13 @@ export function IconRail({
     if (!label) return;
     const bounds = button.getBoundingClientRect();
     const rtl = getComputedStyle(button).direction === 'rtl';
-    label.style.insetInlineStart = `${rtl ? window.innerWidth - bounds.left : bounds.right}px`;
-    label.style.insetBlockStart = `${bounds.top + bounds.height / 2}px`;
-    label.showPopover?.();
+    const inlineStart = rtl ? window.innerWidth - bounds.left : bounds.right;
+    label.style.insetInlineStart = `${String(inlineStart)}px`;
+    label.style.insetBlockStart = `${String(bounds.top + bounds.height / 2)}px`;
+    callPopover(label, 'showPopover');
   };
   const hideLabel = (button: HTMLButtonElement) => {
-    button.querySelector<HTMLElement>('.bldr-icon-rail__label')?.hidePopover?.();
+    callPopover(button.querySelector<HTMLElement>('.bldr-icon-rail__label'), 'hidePopover');
   };
   const hasFooter = secondary.length > 0 || account !== undefined;
 
@@ -51,10 +84,18 @@ export function IconRail({
               size="lg"
               variant="quiet"
               aria-label={item.label}
-              onMouseEnter={(event) => showLabel(event.currentTarget)}
-              onMouseLeave={(event) => hideLabel(event.currentTarget)}
-              onFocus={(event) => showLabel(event.currentTarget)}
-              onBlur={(event) => hideLabel(event.currentTarget)}
+              onMouseEnter={(event) => {
+                showLabel(event.currentTarget);
+              }}
+              onMouseLeave={(event) => {
+                hideLabel(event.currentTarget);
+              }}
+              onFocus={(event) => {
+                showLabel(event.currentTarget);
+              }}
+              onBlur={(event) => {
+                hideLabel(event.currentTarget);
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') hideLabel(event.currentTarget);
               }}
@@ -85,10 +126,18 @@ export function IconRail({
                     size="lg"
                     variant="quiet"
                     aria-label={item.label}
-                    onMouseEnter={(event) => showLabel(event.currentTarget)}
-                    onMouseLeave={(event) => hideLabel(event.currentTarget)}
-                    onFocus={(event) => showLabel(event.currentTarget)}
-                    onBlur={(event) => hideLabel(event.currentTarget)}
+                    onMouseEnter={(event) => {
+                      showLabel(event.currentTarget);
+                    }}
+                    onMouseLeave={(event) => {
+                      hideLabel(event.currentTarget);
+                    }}
+                    onFocus={(event) => {
+                      showLabel(event.currentTarget);
+                    }}
+                    onBlur={(event) => {
+                      hideLabel(event.currentTarget);
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === 'Escape') hideLabel(event.currentTarget);
                     }}

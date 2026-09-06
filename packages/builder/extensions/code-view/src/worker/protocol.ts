@@ -1,7 +1,20 @@
 import { isJsonValue, type JsonValue } from '@craftkit/builder-schema';
 
+/**
+ * What one request is ABOUT.
+ *
+ * Two artifacts and two grains each. A `document`/`node` pair addresses a page
+ * standing alone, the way the builder has always worked; a `site`/`page` pair
+ * addresses a site and one page inside it. The grain is the point: a person
+ * typing in one page must never make the worker re-serialise the site around
+ * it, and a scope that could only say "the whole thing" would force exactly
+ * that on every keystroke.
+ */
 export type TransformScope =
-  { readonly kind: 'document' } | { readonly kind: 'node'; readonly nodeId: string };
+  | { readonly kind: 'document' }
+  | { readonly kind: 'node'; readonly nodeId: string }
+  | { readonly kind: 'site' }
+  | { readonly kind: 'page'; readonly pageId: string };
 
 export interface TransformRequest {
   readonly operation: 'project' | 'parse';
@@ -142,13 +155,16 @@ export function isTransformScope(value: unknown): value is TransformScope {
   if (!isSerializableValue(value) || !isRecord(value)) {
     return false;
   }
-  if (value['kind'] === 'document') {
+  if (value['kind'] === 'document' || value['kind'] === 'site') {
     return hasExactKeys(value, ['kind']);
   }
+  if (value['kind'] === 'node') {
+    return typeof value['nodeId'] === 'string' && hasExactKeys(value, ['kind', 'nodeId']);
+  }
   return (
-    value['kind'] === 'node' &&
-    typeof value['nodeId'] === 'string' &&
-    hasExactKeys(value, ['kind', 'nodeId'])
+    value['kind'] === 'page' &&
+    typeof value['pageId'] === 'string' &&
+    hasExactKeys(value, ['kind', 'pageId'])
   );
 }
 

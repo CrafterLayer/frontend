@@ -123,6 +123,68 @@ describe('IconRail', () => {
     expect(pagesButton).toBeVisible();
   });
 
+  /*
+    The rail's whole suite was passing while `vitest` exited 1: six unhandled
+    `label.showPopover is not a function` errors, thrown inside React's event
+    dispatch, where an assertion cannot see them. That is the shape of defect a
+    green test count hides best — the component "works" in every assertion made
+    about it and breaks the runtime around it.
+
+    Both ways the Popover API lets a caller down are exercised here, because the
+    guard has two branches: a runtime that does not implement it at all (jsdom,
+    and any browser old enough), and one that implements it and THROWS — which
+    a real browser does when asked to show a popover that is already showing, as
+    a fast hover between two icons produces.
+  */
+  it.each([
+    ['absent', undefined],
+    [
+      'throwing',
+      () => {
+        throw new Error('InvalidStateError');
+      },
+    ],
+  ] as const)('keeps working when the Popover API is %s', async (_case, stub) => {
+    const errors: ErrorEvent[] = [];
+    const collect = (event: ErrorEvent): void => {
+      errors.push(event);
+    };
+    window.addEventListener('error', collect);
+
+    const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+    const saved = new Map<string, PropertyDescriptor | undefined>();
+    for (const method of ['showPopover', 'hidePopover']) {
+      saved.set(method, Object.getOwnPropertyDescriptor(proto, method));
+      if (stub === undefined) {
+        Reflect.deleteProperty(proto, method);
+      } else {
+        proto[method] = stub;
+      }
+    }
+
+    try {
+      const user = userEvent.setup();
+      const onSelect = vi.fn();
+      render(<IconRail items={ITEMS} onSelect={onSelect} />);
+
+      const pages = screen.getByRole('button', { name: 'Pages' });
+      await user.hover(pages);
+      await user.click(pages);
+      await user.unhover(pages);
+
+      // The rail still navigates — the tooltip is the only thing that was lost.
+      expect(onSelect).toHaveBeenCalledWith('pages');
+      // …and nothing escaped into the page, which is what turned the suite red.
+      expect(errors).toEqual([]);
+    } finally {
+      for (const [method, descriptor] of saved) {
+        Reflect.deleteProperty(proto, method);
+        if (descriptor !== undefined) Object.defineProperty(proto, method, descriptor);
+      }
+      window.removeEventListener('error', collect);
+    }
+  });
+
   it('routes every navigation item through the lg ChromeButton scale', () => {
     render(<IconRail items={ITEMS} secondary={SECONDARY} />);
 

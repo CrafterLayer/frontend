@@ -164,3 +164,48 @@ describe('code-view lazy containment (011 p7 / SC-006 / trap 14)', () => {
     expect(workerTerminations).toBe(1);
   });
 });
+
+/**
+ * SC-005 at SITE scope (013 T043).
+ *
+ * Adding two scopes to the protocol is exactly the kind of change that quietly
+ * drags a codec back onto the rendering path: the panel needs to know what a
+ * site scope IS, and knowing is one import away from calling. So the static gate
+ * is restated for the new surface, and it is stated as a NAME check rather than
+ * a package check, because the main-thread modules legitimately import one
+ * string constant from the transforms package. A constant is not a codec; a
+ * call to `projectSiteManifest` on the render thread is.
+ */
+describe('the site codec stays off the rendering path (013 SC-005 at site scope)', () => {
+  const MAIN_THREAD_MODULES = [
+    'worker/client.ts',
+    'worker/protocol.ts',
+    'CodeViewPanel/CodeViewPanel.tsx',
+    'index.ts',
+  ] as const;
+
+  const SITE_CODEC_SYMBOLS = [
+    'projectSite',
+    'parseSite',
+    'SITE_MANIFEST_PROJECTION_ID',
+  ] as const;
+
+  const read = (relative: string): string =>
+    readFileSync(join(process.cwd(), 'src', relative), 'utf8');
+
+  it.each(MAIN_THREAD_MODULES)('%s names no site codec symbol', (module) => {
+    const source = read(module);
+    for (const symbol of SITE_CODEC_SYMBOLS) {
+      expect(source, `${module} must not reach ${symbol}`).not.toContain(symbol);
+    }
+  });
+
+  it('the worker entry is the ONE module that names them, and it names all of them', () => {
+    // The other half of the gate. Without it, deleting the site scope entirely
+    // would make every assertion above pass.
+    const worker = read('worker/transform-worker.ts');
+    for (const symbol of SITE_CODEC_SYMBOLS) {
+      expect(worker).toContain(symbol);
+    }
+  });
+});

@@ -21,9 +21,7 @@ describe('SuggestionRail', () => {
 
   it('sends the suggestion VERBATIM — the chip is the request', () => {
     const onPick = vi.fn();
-    render(
-      <SuggestionRail suggestions={SUGGESTIONS} layout="rail" busy={false} onPick={onPick} />,
-    );
+    render(<SuggestionRail suggestions={SUGGESTIONS} layout="rail" busy={false} onPick={onPick} />);
 
     return userEvent
       .setup()

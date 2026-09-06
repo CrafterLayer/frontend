@@ -222,9 +222,9 @@ function contentFromText(text: string, scope: TransformScope): JsonValue | undef
 function responseFor(request: TransformRequest, document: BuilderDocument): TransformResponse {
   if (request.operation === 'project') {
     const text =
-      request.scope.kind === 'document'
-        ? projectDocument(document).text
-        : projectScope(document, request.scope.nodeId).text;
+      request.scope.kind === 'node'
+        ? projectScope(document, request.scope.nodeId).text
+        : projectDocument(document).text;
     return {
       requestId: request.requestId,
       generation: request.generation,
@@ -238,11 +238,11 @@ function responseFor(request: TransformRequest, document: BuilderDocument): Tran
   }
 
   const parsed =
-    request.scope.kind === 'document'
-      ? parseDocument(request.payload ?? '', document, { blockExists: () => true })
-      : parseScope(request.payload ?? '', document, request.scope.nodeId, {
+    request.scope.kind === 'node'
+      ? parseScope(request.payload ?? '', document, request.scope.nodeId, {
           blockExists: () => true,
-        });
+        })
+      : parseDocument(request.payload ?? '', document, { blockExists: () => true });
   if (!parsed.ok) {
     return {
       requestId: request.requestId,

@@ -32,6 +32,19 @@ export interface CodecPorts {
 
 export type ParseResult = { ok: true; patches: Patch[] } | { ok: false; errors: ParseError[] };
 
+/**
+ * Text in, a validated candidate document out — no base, and therefore no diff.
+ *
+ * `parseDocument` is this read followed by `documentPatches`. The two halves are
+ * separated because a SITE needs the document itself before it can diff: a page
+ * is only valid in the context of the site around it (its direction must match,
+ * its asset references must resolve), and those checks need every page's
+ * candidate document at once, not one page's patches.
+ */
+export type DocumentReadResult =
+  | { ok: true; document: BuilderDocument }
+  | { ok: false; errors: ParseError[] };
+
 type Path = readonly (string | number)[];
 
 interface ShapeContext {
@@ -98,7 +111,7 @@ export function projectScope(doc: BuilderDocument, nodeId: NodeId): ProjectionTe
   return { text: canonicalJson(scopedProjection(doc, nodeId)) };
 }
 
-export function parseDocument(text: string, base: BuilderDocument, ports: CodecPorts): ParseResult {
+export function readDocumentText(text: string, ports: CodecPorts): DocumentReadResult {
   try {
     const strict = strictParse(text);
     if (!strict.ok) {
@@ -115,10 +128,17 @@ export function parseDocument(text: string, base: BuilderDocument, ports: CodecP
     if (context.errors.length > 0) {
       return { ok: false, errors: context.errors };
     }
-    return { ok: true, patches: documentPatches(base, candidate) };
+    return { ok: true, document: candidate };
   } catch {
     return { ok: false, errors: [{ line: 1, message: 'The document text could not be read.' }] };
   }
+}
+
+export function parseDocument(text: string, base: BuilderDocument, ports: CodecPorts): ParseResult {
+  const read = readDocumentText(text, ports);
+  return read.ok
+    ? { ok: true, patches: documentPatches(base, read.document) }
+    : { ok: false, errors: read.errors };
 }
 
 export function parseScope(
@@ -570,7 +590,7 @@ function validateScopeCollisions(
   }
 }
 
-function documentPatches(base: BuilderDocument, candidate: BuilderDocument): Patch[] {
+export function documentPatches(base: BuilderDocument, candidate: BuilderDocument): Patch[] {
   // NODE-GRANULAR, never a root replace. A whole-document replace patch would
   // satisfy the non-vacuous property gate (applying it does yield `edited`) —
   // which is exactly why the browser road caught what the property road could

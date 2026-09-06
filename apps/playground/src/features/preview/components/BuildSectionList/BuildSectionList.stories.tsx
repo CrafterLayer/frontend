@@ -106,7 +106,10 @@ export const Arabic: Story = {
   },
   decorators: [
     (Story) => (
-      <div dir="rtl" style={{ inlineSize: '22.5rem', background: 'var(--bldr-panel)', padding: '1rem' }}>
+      <div
+        dir="rtl"
+        style={{ inlineSize: '22.5rem', background: 'var(--bldr-panel)', padding: '1rem' }}
+      >
         <Story />
       </div>
     ),

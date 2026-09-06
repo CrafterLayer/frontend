@@ -458,3 +458,32 @@ export {
   first, and it drifts the moment the engine gains an export.
 */
 export * from '@craftkit/builder-ai';
+
+/*
+  The SITE codec, re-exported for the same reason the engine is.
+
+  ADR 0003 lets an application depend on `@craftkit/builder` and nothing deeper,
+  so a host that has to commit a generated site — diff a draft against the live
+  one, fingerprint what it started from — can only reach the codec through here.
+  The engine itself cannot: `@craftkit/builder-ai` and `@craftkit/builder-transforms`
+  are both layer 2, which is why `commitGeneratedSite` takes the diff and the
+  fingerprint as ports rather than computing them.
+
+  Curated rather than `export *`: the DOCUMENT half of this codec is already
+  reachable through the code-view extension's registered projection, and adding a
+  second way to reach the same functions would leave a reader guessing which one
+  a call site meant.
+*/
+export {
+  SITE_MANIFEST_PROJECTION_ID,
+  SITE_MANIFEST_VERSION,
+  parseSite,
+  parseSiteManifest,
+  parseSitePage,
+  parseSiteRegion,
+  projectSite,
+  projectSiteManifest,
+  projectSitePage,
+  projectSiteRegion,
+  type SiteProjectionText,
+} from '@craftkit/builder-transforms';

@@ -1,11 +1,6 @@
 import { ChromeButton } from '@craftkit/builder';
 
-import {
-  IconCheck,
-  IconSparkle,
-  IconStop,
-  IconUndo,
-} from '../AssistantPanel/AssistantPanel.icons';
+import { IconCheck, IconSparkle, IconStop, IconUndo } from '../AssistantPanel/AssistantPanel.icons';
 import { buildCount, TASK_STATUS_LABEL } from '../AssistantPanel/AssistantPanel.build';
 import type { BuiltTurn } from '../AssistantPanel/AssistantPanel.turns';
 
@@ -49,9 +44,7 @@ export function BuildReportCard({
   return (
     <div
       className={`pg-chat__card ${
-        report.stopped === true
-          ? 'pg-chat__card--discarded'
-          : 'pg-chat__card--applied'
+        report.stopped === true ? 'pg-chat__card--discarded' : 'pg-chat__card--applied'
       }`}
       data-state={report.stopped === true ? 'build-stopped' : 'built'}
     >
@@ -86,20 +79,16 @@ export function BuildReportCard({
                 card's Undo is: this one loops `kernel.undo()`,
                 so it writes more than the others, not less.
               */}
-              {task.status === 'applied' &&
-              report.undoable === true &&
-              canUndo ? (
+              {task.status === 'applied' && report.undoable === true && canUndo ? (
                 <ChromeButton
                   variant="quiet"
                   size="sm"
                   className="pg-chat__task-undo"
                   aria-label={`Undo ${task.title}`}
-                  disabled={
-                    report.undoneFrom !== undefined &&
-                    task.position >= report.undoneFrom
-                  }
+                  disabled={report.undoneFrom !== undefined && task.position >= report.undoneFrom}
                   onClick={() => {
-                    onUndoTask(task.position,
+                    onUndoTask(
+                      task.position,
                       report.progress.tasks.length,
                       task.title,
                       report.undoneSteps ?? 0,
@@ -110,9 +99,7 @@ export function BuildReportCard({
                   Undo
                 </ChromeButton>
               ) : (
-                <span className="pg-chat__task-state">
-                  {TASK_STATUS_LABEL[task.status]}
-                </span>
+                <span className="pg-chat__task-state">{TASK_STATUS_LABEL[task.status]}</span>
               )}
             </span>
             {/* A section that would not be written twice says

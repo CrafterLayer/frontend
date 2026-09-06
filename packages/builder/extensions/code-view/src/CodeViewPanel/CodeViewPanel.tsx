@@ -108,10 +108,16 @@ function scopeOf(selection: readonly NodeId[]): TransformScope {
 }
 
 function sameScope(left: TransformScope, right: TransformScope): boolean {
-  return (
-    left.kind === right.kind &&
-    (left.kind === 'document' || (right.kind === 'node' && left.nodeId === right.nodeId))
-  );
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.kind === 'node') {
+    return right.kind === 'node' && left.nodeId === right.nodeId;
+  }
+  if (left.kind === 'page') {
+    return right.kind === 'page' && left.pageId === right.pageId;
+  }
+  return true;
 }
 
 function sameBlockTypes(left: readonly string[], right: readonly string[]): boolean {
@@ -205,9 +211,16 @@ function descriptionFor(
   if (status === 'typing') {
     return 'Waiting for typing to settle before checking this draft.';
   }
-  return scope.kind === 'document'
-    ? 'Code matches the current document.'
-    : `Code matches the selected node ${scope.nodeId}.`;
+  switch (scope.kind) {
+    case 'node':
+      return `Code matches the selected node ${scope.nodeId}.`;
+    case 'page':
+      return `Code matches page ${scope.pageId}.`;
+    case 'site':
+      return 'Code matches the current site.';
+    default:
+      return 'Code matches the current document.';
+  }
 }
 
 /**

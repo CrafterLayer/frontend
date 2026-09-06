@@ -1,11 +1,16 @@
 /// <reference lib="webworker" />
-import type { BuilderDocument, Patch } from '@craftkit/builder-schema';
+import type { BuilderDocument, BuilderSite, Patch } from '@craftkit/builder-schema';
 import {
   CANONICAL_JSON_PROJECTION_ID,
+  SITE_MANIFEST_PROJECTION_ID,
   parseDocument,
   parseScope,
+  parseSiteManifest,
+  parseSitePage,
   projectDocument,
   projectScope,
+  projectSiteManifest,
+  projectSitePage,
   type CodecPorts,
   type ParseResult,
 } from '@craftkit/builder-transforms';
@@ -37,13 +42,19 @@ import {
  * (§3 w4, research trap 6).
  */
 
-/** Everything the worker keeps between messages: one document, by revision. */
-interface WorkerDocumentState {
-  readonly baseRevision: number;
-  readonly document: BuilderDocument;
-}
+/**
+ * Everything the worker keeps between messages: ONE base artifact, by revision.
+ *
+ * A document or a site, never both. The site arrives on the same channel the
+ * document always used — a base artifact is a base artifact — because giving
+ * the site its own channel would mean two revision counters and therefore two
+ * ways for the worker to be stale, one of which nothing would be checking.
+ */
+type HeldBase =
+  | { readonly kind: 'document'; readonly baseRevision: number; readonly document: BuilderDocument }
+  | { readonly kind: 'site'; readonly baseRevision: number; readonly site: BuilderSite };
 
-let held: WorkerDocumentState | null = null;
+let held: HeldBase | null = null;
 
 /**
  * The registered block vocabulary the codec needs for `blockExists`. The worker
@@ -57,9 +68,10 @@ const portsFor = (): CodecPorts => ({
   blockExists: (type: string) => vocabulary.has(type),
 });
 
-/** A snapshot payload: the document plus the type names the codec may accept. */
-interface DocumentPayload {
-  readonly document: BuilderDocument;
+/** A snapshot payload: one base artifact plus the type names the codec may accept. */
+interface BasePayload {
+  readonly document?: BuilderDocument;
+  readonly site?: BuilderSite;
   readonly blockTypes: readonly string[];
 }
 
@@ -133,6 +145,25 @@ const scopedNodeId = (scope: TransformScope): string | null =>
   scope.kind === 'node' ? scope.nodeId : null;
 
 /**
+ * The projection a scope is entitled to ask for.
+ *
+ * A site's manifest and a document's canonical JSON are different projections
+ * with different parsers, so the id is checked AGAINST THE SCOPE rather than
+ * against a single constant. Accepting either id for either scope would let a
+ * mismatched pane parse a manifest as a document and report a page's worth of
+ * nonsense errors.
+ */
+const projectionFor = (scope: TransformScope): string =>
+  scope.kind === 'site' ? SITE_MANIFEST_PROJECTION_ID : CANONICAL_JSON_PROJECTION_ID;
+
+const projected = (request: TransformRequest, text: string): TransformResult => ({
+  kind: 'projected',
+  baseRevision: request.baseRevision,
+  scope: request.scope,
+  text,
+});
+
+/**
  * Run one request against the held document. Exported for the unit suite: the
  * message plumbing is trivial, but THIS is where a stale revision, an unknown
  * projection, or a missing document must each become an honest error rather
@@ -145,12 +176,12 @@ export function handleRequest(request: TransformRequest): TransformResponse {
     result,
   });
 
-  if (request.projectionId !== CANONICAL_JSON_PROJECTION_ID) {
+  if (request.projectionId !== projectionFor(request.scope)) {
     return respond(
       protocolError(
         request,
         'unknown-projection',
-        `No projection "${request.projectionId}" is available in this worker.`,
+        `No projection "${request.projectionId}" is available for a ${request.scope.kind} scope in this worker.`,
       ),
     );
   }
@@ -171,22 +202,54 @@ export function handleRequest(request: TransformRequest): TransformResponse {
     );
   }
 
-  const document = held.document;
-  const nodeId = scopedNodeId(request.scope);
+  const scope = request.scope;
+  const text = request.payload ?? '';
+  const wantsSite = scope.kind === 'site' || scope.kind === 'page';
+  if (wantsSite !== (held.kind === 'site')) {
+    /*
+      The worker answers about the artifact it HOLDS. A site scope against a
+      document snapshot is not a recoverable near-miss — there is no site to
+      read — and inventing one from the document would answer a question nobody
+      asked with patches rooted in the wrong place.
+    */
+    return respond(
+      protocolError(
+        request,
+        'scope-mismatch',
+        `This worker holds a ${held.kind}; a ${scope.kind} scope needs a ${wantsSite ? 'site' : 'document'} snapshot.`,
+      ),
+    );
+  }
 
   try {
-    if (request.operation === 'project') {
-      const projected =
-        nodeId === null ? projectDocument(document) : projectScope(document, nodeId);
-      return respond({
-        kind: 'projected',
-        baseRevision: request.baseRevision,
-        scope: request.scope,
-        text: projected.text,
-      });
+    if (held.kind === 'site') {
+      const site = held.site;
+      if (scope.kind === 'site') {
+        return respond(
+          request.operation === 'project'
+            ? projected(request, projectSiteManifest(site).text)
+            : toResult(request, parseSiteManifest(text, site)),
+        );
+      }
+      const pageId = scope.kind === 'page' ? scope.pageId : '';
+      if (request.operation === 'project') {
+        const projection = projectSitePage(site, pageId);
+        return respond(
+          projection === undefined
+            ? protocolError(request, 'unknown-page', `This site has no page "${pageId}".`)
+            : projected(request, projection.text),
+        );
+      }
+      return respond(toResult(request, parseSitePage(text, site, pageId, portsFor())));
     }
 
-    const text = request.payload ?? '';
+    const document = held.document;
+    const nodeId = scopedNodeId(scope);
+    if (request.operation === 'project') {
+      const projection =
+        nodeId === null ? projectDocument(document) : projectScope(document, nodeId);
+      return respond(projected(request, projection.text));
+    }
     const parsed =
       nodeId === null
         ? parseDocument(text, document, portsFor())
@@ -205,10 +268,22 @@ export function handleRequest(request: TransformRequest): TransformResponse {
   }
 }
 
-/** Install a document snapshot. Exported so the unit suite needs no real Worker. */
+/** Install a base-artifact snapshot. Exported so the unit suite needs no real Worker. */
 export function acceptDocument(baseRevision: number, payload: string): void {
-  const snapshot = JSON.parse(payload) as DocumentPayload;
-  held = { baseRevision, document: snapshot.document };
+  const snapshot = JSON.parse(payload) as BasePayload;
+  if (snapshot.site !== undefined) {
+    held = { kind: 'site', baseRevision, site: snapshot.site };
+  } else if (snapshot.document !== undefined) {
+    held = { kind: 'document', baseRevision, document: snapshot.document };
+  } else {
+    /*
+      A payload carrying neither leaves the worker holding NOTHING, so the next
+      request answers `no-document`. Keeping the previous snapshot would be
+      worse: it would answer confidently about an artifact the host has already
+      replaced.
+    */
+    held = null;
+  }
   vocabulary = new Set(snapshot.blockTypes);
 }
 

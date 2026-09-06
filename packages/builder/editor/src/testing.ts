@@ -11,4 +11,10 @@ export {
 
 // The AI engine's deterministic provider, for the same reason as the above:
 // applications reach every builder fixture through the preset.
-export { createScriptedAiPlanProvider } from '@craftkit/builder-ai/testing';
+export {
+  createScriptedAiPlanProvider,
+  createScriptedSiteStageProvider,
+  type ScriptedStage,
+  type ScriptedStageProvider,
+  type ScriptedStageProviderOptions,
+} from '@craftkit/builder-ai/testing';

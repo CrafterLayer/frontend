@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AssistantMode } from '../AssistantPanel/AssistantPanel.modes';
 import { AssistantModes } from './AssistantModes';
 
-function renderModes(mode: AssistantMode = 'ask', props: Partial<Parameters<typeof AssistantModes>[0]> = {}) {
+function renderModes(
+  mode: AssistantMode = 'ask',
+  props: Partial<Parameters<typeof AssistantModes>[0]> = {},
+) {
   const onChange = vi.fn();
   render(
     <AssistantModes

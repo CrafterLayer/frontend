@@ -13,13 +13,17 @@ const TASKS: readonly BuildTask[] = [
 
 const DIRECTION = 'A calm clinic page: one promise, six services, a booking line.';
 
-function renderCard(onAnswer = vi.fn()) {
+function renderCard(
+  extra: { readonly costTokens?: number; readonly locale?: 'ar' | 'en' } = {},
+  onAnswer = vi.fn(),
+) {
   render(
     <BuildApprovalCard
       direction={DIRECTION}
       tasks={TASKS}
       turnId="turn-1"
       onAnswer={onAnswer}
+      {...extra}
     />,
   );
   return { onAnswer, user: userEvent.setup() };
@@ -46,9 +50,7 @@ describe('BuildApprovalCard', () => {
       person deciding to spend minutes of model time is entitled to it.
     */
     renderCard();
-    expect(
-      screen.getByText(/Each section is applied as its own change/),
-    ).toBeVisible();
+    expect(screen.getByText(/Each section is applied as its own change/)).toBeVisible();
   });
 
   it('answers build, once, when Build is pressed', async () => {
@@ -81,5 +83,31 @@ describe('BuildApprovalCard', () => {
       />,
     );
     expect(screen.getByText('صفحة عيادة هادئة')).toHaveAttribute('dir', 'auto');
+  });
+
+  describe('the cost estimate', () => {
+    it('says what the rest of this build would cost to send', () => {
+      renderCard({ costTokens: 4237 });
+      expect(screen.getByText('Estimate: ~4.2k tokens')).toBeInTheDocument();
+    });
+
+    it('says it in Arabic when the panel does', () => {
+      renderCard({ costTokens: 4237, locale: 'ar' });
+      expect(screen.getByText('تقدير: ~4.2k توكن')).toBeInTheDocument();
+    });
+
+    it('shows NOTHING rather than a zero when it cannot be estimated', () => {
+      renderCard();
+      /*
+        A zero is a claim — "this is free" — and an absence is not. The card
+        appears in stories and over revived runs where the context is long gone.
+      */
+      expect(screen.queryByText(/Estimate/u)).toBeNull();
+    });
+
+    it('is honest that it is an ESTIMATE, and of the request', () => {
+      renderCard({ costTokens: 900 });
+      expect(screen.getByText('Estimate: ~900 tokens')).toBeInTheDocument();
+    });
   });
 });

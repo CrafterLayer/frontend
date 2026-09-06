@@ -44,7 +44,9 @@ export function SuggestionRail({ suggestions, layout, busy, onPick }: Suggestion
           className="pg-chat__suggestion-arrow"
           aria-label="Previous suggestions"
           disabled={busy}
-          onClick={() => scroll(-1)}
+          onClick={() => {
+            scroll(-1);
+          }}
         >
           <span aria-hidden="true">‹</span>
         </button>
@@ -96,7 +98,9 @@ export function SuggestionRail({ suggestions, layout, busy, onPick }: Suggestion
           className="pg-chat__suggestion-arrow"
           aria-label="Next suggestions"
           disabled={busy}
-          onClick={() => scroll(1)}
+          onClick={() => {
+            scroll(1);
+          }}
         >
           <span aria-hidden="true">›</span>
         </button>

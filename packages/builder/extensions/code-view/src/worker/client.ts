@@ -93,14 +93,29 @@ interface CurrentContext {
 }
 
 function cloneScope(scope: TransformScope): TransformScope {
-  return scope.kind === 'document' ? { kind: 'document' } : { kind: 'node', nodeId: scope.nodeId };
+  switch (scope.kind) {
+    case 'node':
+      return { kind: 'node', nodeId: scope.nodeId };
+    case 'page':
+      return { kind: 'page', pageId: scope.pageId };
+    case 'site':
+      return { kind: 'site' };
+    default:
+      return { kind: 'document' };
+  }
 }
 
 function sameScope(left: TransformScope, right: TransformScope): boolean {
-  return (
-    left.kind === right.kind &&
-    (left.kind === 'document' || (right.kind === 'node' && left.nodeId === right.nodeId))
-  );
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.kind === 'node') {
+    return right.kind === 'node' && left.nodeId === right.nodeId;
+  }
+  if (left.kind === 'page') {
+    return right.kind === 'page' && left.pageId === right.pageId;
+  }
+  return true;
 }
 
 function makePending(request: TransformRequest): PendingRequest {

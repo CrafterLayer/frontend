@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import {
+  GenerationProgress,
   applyAiPlan,
   classifyAiRunFailure,
   createCraftkitAiSkillRegistry,
@@ -76,6 +77,9 @@ import {
 */
 export { MODES, type AssistantMode } from './AssistantPanel.modes';
 import type { AssistantMode } from './AssistantPanel.modes';
+import type { SiteRunHost } from './AssistantPanel.siteRun';
+import { useSiteRun, type SiteRunSeam } from './use-site-run';
+import { SiteBriefForm } from '../SiteBriefForm';
 import { PlanPreviewDialog } from '../PlanPreviewDialog';
 import { SuggestionRail } from '../SuggestionRail';
 import {} from './AssistantPanel.icons';
@@ -145,6 +149,18 @@ export interface AssistantPanelProps {
    * back. Defaults to `true`: a panel nobody told is a panel on screen.
    */
   visible?: boolean | undefined;
+  /**
+   * The SITE this panel may build into, when the host has one.
+   *
+   * A separate prop rather than a widening of `kernel`, because `kernel` is a
+   * PAGE LENS and a site commit needs the site kernel underneath it — plus a
+   * draft factory and a stage provider the panel has no way to construct. The
+   * app that built the live kernel is the one place that knows all three.
+   *
+   * Absent ⇒ no brief form and no site path at all, the same withdrawal
+   * `onReviewAsCode` uses: an action nobody wired is not offered.
+   */
+  site?: SiteRunHost | undefined;
 }
 
 /**
@@ -243,6 +259,7 @@ export function AssistantPanel({
   persistKey,
   locale = 'ar',
   visible = true,
+  site,
 }: AssistantPanelProps) {
   const [sessions, setSessions] = useState<readonly Session[]>(
     () =>
@@ -1214,6 +1231,33 @@ export function AssistantPanel({
     activeRunRef.current?.controller.abort();
   }, []);
 
+  /**
+   * The panel's ONE lease, handed to the site run rather than duplicated.
+   *
+   * Load-bearing: a site run and a page run take the same lease, so two runs
+   * can never both believe they own `busy`, and `stop` aborts whichever is
+   * going without knowing which kind it is.
+   */
+  const siteSeam = useMemo<SiteRunSeam>(
+    () => ({
+      busy,
+      claim: (runId, controller) => {
+        if (activeRunRef.current !== null) return false;
+        activeRunRef.current = { runId, controller };
+        setBusy(true);
+        return true;
+      },
+      release: (runId) => {
+        if (ownsRun(activeRunRef.current, runId)) {
+          activeRunRef.current = null;
+          setBusy(false);
+        }
+      },
+    }),
+    [busy],
+  );
+  const siteRun = useSiteRun(site, siteSeam);
+
   /** Every block a trailing @ can point at, filtered as the person types. */
   const mentionCandidates = mentionCandidatesFor(kernel.getDocument(), mentionQuery);
 
@@ -1365,6 +1409,62 @@ export function AssistantPanel({
         holdSeat={holdHeadSeat}
       />
 
+      {/*
+        THE SITE PATH (T083). One sentence in, a whole site out — and it is
+        deliberately NOT a turn in the thread. A thread turn is a message in a
+        conversation; a site run is a five-stage job with its own progress and
+        its own Stop, and folding it into the turn union would have meant new
+        turn kinds, new thread branches, and a revival rule for a card that
+        cannot be revived. Composition, not another state machine.
+
+        The page NAVIGATOR is not here either: `SitePages` is already on the
+        rail beside the canvas, bound to the same live kernel, so it lists the
+        new pages the moment the commit lands. A second navigator inside the
+        panel would be a second answer to "which page am I on".
+      */}
+      {site === undefined ? null : (
+        <div className="pg-chat__site">
+          {/*
+            BOTH, always — the progress card appears above the form rather than
+            in place of it.
+
+            Swapping them unmounted the form, and with it the `useActionState`
+            state that holds the run's own refusal: a stage failed, the card
+            went away, a fresh form came back, and the reason a person needed
+            had been destroyed by the remount that was supposed to reveal it.
+            The form closes itself while a run owns the panel; it does not have
+            to disappear to do that.
+          */}
+          {siteRun.running ? (
+            <GenerationProgress
+              stages={siteRun.stages}
+              onCancel={stop}
+              heading={locale === 'ar' ? 'يبني الموقع' : 'Building the site'}
+            />
+          ) : null}
+          <SiteBriefForm onSubmit={siteRun.start} busy={busy} locale={locale} />
+          {/*
+            The RUN's own ending, and the only place it is said.
+
+            The form's Action resolves at admission, so a stage that fails
+            three minutes later cannot reach the form's message line — and
+            should not: by then the sentence in the field is not what went
+            wrong. `role="status"` so the ending is announced whether or not a
+            person was looking.
+          */}
+          {siteRun.outcome === undefined ? null : (
+            <p
+              className="pg-chat__site-outcome"
+              data-ok={siteRun.outcome.ok}
+              role="status"
+              dir="auto"
+            >
+              {siteRun.outcome.message}
+            </p>
+          )}
+        </div>
+      )}
+
       <AssistantThread
         turns={turns}
         face={face}
@@ -1382,6 +1482,15 @@ export function AssistantPanel({
         }}
         onRetry={(request) => {
           void ask(request);
+        }}
+        onJump={(id) => {
+          /*
+            Selecting is the jump. The canvas scrolls to the selection and the
+            Inspector follows, so one door does the whole thing — and it is the
+            same door a click on the canvas uses, which is why a jumped-to
+            section behaves exactly like one the person found themselves.
+          */
+          kernel.setSelection([id]);
         }}
         onBuild={(request) => {
           /*

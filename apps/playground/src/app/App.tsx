@@ -7,6 +7,8 @@ import { useRecentChanges } from './use-recent-changes';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 
 import {
+  createOfflineSiteStageProvider,
+  createSiteBuilder,
   bucketForWidth,
   BuilderShell,
   BuilderTheme,
@@ -28,9 +30,13 @@ import {
   type DeviceState,
   type RailItem,
   type TopBarDevice,
+  type BuilderSite,
 } from '@craftkit/builder';
 
-import type { PlaygroundFixture } from '../features/preview/create-playground-kernel';
+import {
+  playgroundExtensions,
+  type PlaygroundFixture,
+} from '../features/preview/create-playground-kernel';
 import { HistoryPanel } from '../features/preview/components/HistoryPanel';
 import {
   useVaultKernel,
@@ -276,6 +282,35 @@ export function App() {
   const vault = useVaultKernel(fixture);
   const session = vault.status === 'ready' ? vault : undefined;
   const kernel = session?.kernel;
+  const siteKernel = session?.siteKernel;
+  /**
+   * What the assistant needs to build a whole site, in one object.
+   *
+   * The DRAFT factory is the load-bearing part. A run writes command by command
+   * into a throwaway and lands the result as one transaction, and that
+   * throwaway has to share the live site's vocabulary — otherwise every stage
+   * validates against one registry and the commit is judged by another. Only
+   * this file knows the fixture that decides it.
+   *
+   * The provider is offline until a stage server exists: an offline site is a
+   * template, and the day a person is shown one it must be because the host
+   * chose it here, not because a fallback quietly took over.
+   */
+  const siteHost = useMemo(
+    () =>
+      siteKernel === undefined
+        ? undefined
+        : {
+            kernel: siteKernel,
+            createDraft: (site: BuilderSite) =>
+              createSiteBuilder({
+                site,
+                extensions: playgroundExtensions(fixture),
+              }),
+            provider: createOfflineSiteStageProvider(),
+          },
+    [siteKernel, fixture],
+  );
   // Dismissal is per fixture: choosing another document is a new answer to
   // "was this restored?", and a dismissal must not carry across it.
   const [noticeDismissedFor, setNoticeDismissedFor] = useState<PlaygroundFixture | undefined>(
@@ -552,6 +587,15 @@ export function App() {
                     */
                     providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
                     persistKey="pg-assistant-sessions-v1"
+                    /*
+                      THE SITE PATH. Assembled here because this is the only
+                      place that knows all three of its parts: the live site
+                      kernel from the vault, the fixture's own extensions, and
+                      the stage provider. The panel is handed the result and
+                      knows none of them — which is what lets a build with no
+                      site simply not offer one.
+                    */
+                    site={siteHost}
                     onReviewAsCode={() => {
                       setRailSection('code');
                     }}

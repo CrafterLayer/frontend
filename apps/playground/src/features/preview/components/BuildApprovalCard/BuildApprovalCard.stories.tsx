@@ -26,7 +26,8 @@ const meta = {
   component: BuildApprovalCard,
   parameters: { layout: 'centered' },
   args: {
-    direction: 'A calm clinic page: one clear promise, six services, and a booking line that works on a phone.',
+    direction:
+      'A calm clinic page: one clear promise, six services, and a booking line that works on a phone.',
     tasks: FIVE,
     turnId: 'story',
     onAnswer: fn(),
@@ -50,13 +51,15 @@ export const Default: Story = {};
 /** Arabic: the direction reads in the language the scaffold answered in. */
 export const Arabic: Story = {
   args: {
-    direction:
-      'صفحة عيادة أسنان هادئة: وعد واحد واضح، ستّ خدمات، وسطر حجز يعمل على الهاتف.',
+    direction: 'صفحة عيادة أسنان هادئة: وعد واحد واضح، ستّ خدمات، وسطر حجز يعمل على الهاتف.',
     tasks: [task(1, 'الافتتاحية'), task(2, 'الخدمات'), task(3, 'تواصل')],
   },
   decorators: [
     (Story) => (
-      <div dir="rtl" style={{ inlineSize: '22.5rem', background: 'var(--bldr-panel)', padding: '1rem' }}>
+      <div
+        dir="rtl"
+        style={{ inlineSize: '22.5rem', background: 'var(--bldr-panel)', padding: '1rem' }}
+      >
         <Story />
       </div>
     ),

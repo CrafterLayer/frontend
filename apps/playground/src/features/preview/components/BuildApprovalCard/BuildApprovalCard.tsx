@@ -2,6 +2,7 @@ import { ChromeButton } from '@craftkit/builder';
 
 import { IconCheck, IconSparkle, IconStop } from '../AssistantPanel/AssistantPanel.icons';
 import type { BuildTask } from '../AssistantPanel/AssistantPanel.build';
+import { describeBuildCost } from './cost';
 
 export interface BuildApprovalCardProps {
   /** The scaffold's rationale, verbatim — every section will obey this text. */
@@ -11,6 +12,20 @@ export interface BuildApprovalCardProps {
   /** Stable prefix for the list's React keys, so two cards cannot collide. */
   readonly turnId: string;
   readonly onAnswer: (answer: 'build' | 'stop') => void;
+  /**
+   * Roughly what the rest of this build will cost to SEND, in tokens.
+   *
+   * An estimate of the requests, not of the answers, and it is labelled as one.
+   * It belongs on this card and nowhere else: this is the only moment a person
+   * is asked to authorise a run that is many calls long, and "eight sections"
+   * says nothing about what eight sections costs.
+   *
+   * Absent when the host cannot estimate — a story, or a run whose context is
+   * already gone. Nothing is shown rather than a zero, because a zero is a
+   * claim and an absence is not.
+   */
+  readonly costTokens?: number | undefined;
+  readonly locale?: 'ar' | 'en';
 }
 
 /**
@@ -30,6 +45,8 @@ export function BuildApprovalCard({
   tasks,
   turnId,
   onAnswer,
+  costTokens,
+  locale = 'en',
 }: BuildApprovalCardProps) {
   return (
     <div
@@ -43,6 +60,9 @@ export function BuildApprovalCard({
           <IconSparkle />
           Build
         </span>
+        {costTokens === undefined ? null : (
+          <span className="pg-chat__card-count">{describeBuildCost(costTokens, locale)}</span>
+        )}
         <span className="pg-chat__card-count">{String(tasks.length)} sections</span>
       </div>
       <p className="pg-chat__rationale" dir="auto">

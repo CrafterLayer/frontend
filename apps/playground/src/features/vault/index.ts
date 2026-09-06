@@ -7,9 +7,14 @@
                 never half built, and the fingerprints a commit checks
   commit-draft— the one door a draft lands through: one transaction, attributed
                 to the agent, refused with zero writes when the page moved
+  commit-site — the same door for a whole generated SITE, and the place the
+                engine's diff and fingerprint ports are supplied: the agent
+                package may not reach the site codec, and should not want to
   run-journal — what a run DID, durable enough to survive the tab doing it
   keep-plan   — keep what succeeded: the shells of unwritten sections are taken
                 back rather than committed as empty headings
+  undo-generation — taking a run back: the whole of it from the pre-run
+                snapshot, or ONE section without touching the history stack
   snapshots   — the user-facing shelf of labelled restore points
   restore     — the one legal revert, through the kernel's applyPatches door
   use-vault   — the React boot: loading → ready | failed, and the autosave
@@ -59,6 +64,12 @@ export {
   type CommitRefusal,
 } from './commit-draft';
 export {
+  commitSite,
+  type CommitSiteOptions,
+  type CommitSiteOutcome,
+  type CommitSiteRefusal,
+} from './commit-site';
+export {
   DRAFT_LIMIT,
   DRAFT_TTL_MS,
   createDrafts,
@@ -74,10 +85,13 @@ export {
   createSnapshotShelf,
   type SnapshotShelf,
   type SnapshotShelfOptions,
+  kindOf,
   type VaultSnapshot,
+  type VaultSnapshotKind,
   type VaultSnapshotMeta,
 } from './snapshots';
-export { restoreDocument, type RestoreOutcome } from './restore';
+export { restoreDocument, type RestoreOptions, type RestoreOutcome } from './restore';
+export { undoGeneration, undoSection, type SectionUndoOutcome } from './undo-generation';
 export {
   useVaultKernel,
   vaultDocId,

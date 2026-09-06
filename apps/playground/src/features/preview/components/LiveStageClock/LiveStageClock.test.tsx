@@ -1,10 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  initialRunProgress,
-  type RunProgress,
-} from '../AssistantPanel/AssistantPanel.progress';
+import { initialRunProgress, type RunProgress } from '../AssistantPanel/AssistantPanel.progress';
 import { LiveStageClock } from './LiveStageClock';
 
 /*
@@ -15,7 +12,11 @@ import { LiveStageClock } from './LiveStageClock';
 function runAt(stageSince: number | null): RunProgress {
   const run = initialRunProgress('never', 0);
   return stageSince === null
-    ? { ...run, stageSince: null, stages: run.stages.map((stage) => ({ ...stage, status: 'done' })) }
+    ? {
+        ...run,
+        stageSince: null,
+        stages: run.stages.map((stage) => ({ ...stage, status: 'done' })),
+      }
     : { ...run, stageSince };
 }
 

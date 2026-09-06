@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBuilder } from '@craftkit/builder-core';
-import { fixedClock, fixtureBlocks, landingFixture, seededIds } from '@craftkit/builder-core/testing';
+import {
+  fixedClock,
+  fixtureBlocks,
+  landingFixture,
+  seededIds,
+} from '@craftkit/builder-core/testing';
 
 import { AiPlanRejectedError } from '../plan';
 import type { AiPlan, AiPlanProvider } from '../types';

@@ -2,7 +2,7 @@ import { ChromeButton } from '@craftkit/builder';
 
 import type { AgentLocale } from '../AgentFace';
 import { AssistantModes } from '../AssistantModes';
-import { IconSend, IconShield, IconStop } from '../AssistantPanel/AssistantPanel.icons';
+import { IconSend, IconStop } from '../AssistantPanel/AssistantPanel.icons';
 import { MENTION_PATTERN, type MentionCandidate } from '../AssistantPanel/AssistantPanel.mentions';
 import { MODES, type AssistantMode } from '../AssistantPanel/AssistantPanel.modes';
 import { MentionPicker } from '../MentionPicker';

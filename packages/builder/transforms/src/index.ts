@@ -6,7 +6,25 @@ export {
   parseScope,
   projectDocument,
   projectScope,
+  readDocumentText,
   type CodecPorts,
+  type DocumentReadResult,
   type ParseResult,
   type ProjectionText,
 } from './codec/document-codec';
+
+export { type ParseError } from './codec/strict-parse';
+
+export {
+  SITE_MANIFEST_PROJECTION_ID,
+  SITE_MANIFEST_VERSION,
+  parseSite,
+  parseSiteManifest,
+  parseSitePage,
+  parseSiteRegion,
+  projectSite,
+  projectSiteManifest,
+  projectSitePage,
+  projectSiteRegion,
+  type SiteProjectionText,
+} from './codec/site-codec';

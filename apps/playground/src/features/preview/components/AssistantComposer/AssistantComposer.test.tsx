@@ -146,8 +146,18 @@ describe('AssistantComposer', () => {
     expect(document.getElementById('mode-lock')?.textContent).not.toBe('');
   });
 
-  it('states the guarantee beside the mode hint', () => {
+  it('does not restate the undo guarantee in the composer', () => {
+    /*
+      The owner took this line out (it is still in the source, commented, at
+      AssistantComposer.tsx). The claim was true and still is — every apply is
+      one entry in history — but it was being said in the one place a person is
+      composing rather than deciding, on every keystroke. The plan card carries
+      it at the moment it matters.
+
+      Asserting its ABSENCE rather than deleting the test: if it comes back, this
+      fails and says so, instead of the change landing unnoticed.
+    */
     renderComposer();
-    expect(screen.getByText('One change. One undo.')).toBeInTheDocument();
+    expect(screen.queryByText('One change. One undo.')).toBeNull();
   });
 });

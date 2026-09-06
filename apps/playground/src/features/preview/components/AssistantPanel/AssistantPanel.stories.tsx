@@ -202,6 +202,58 @@ export const StopCancelsTheRun: Story = {
   },
 };
 
+/**
+ * A STOPPED run keeps its receipt: how long it ran, and how far it got.
+ *
+ * Promised and unbuilt until now. "Stopped." alone leaves a person guessing
+ * whether it ran for a second or six minutes — which is the fact they need in
+ * order to decide whether asking again is worth it.
+ */
+export const StoppedWithReceipt: Story = {
+  args: {
+    kernel: createPlaygroundKernel({ fixture: 'empty' }),
+    planProvider: cancellableProvider,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await submitRequest(canvasElement, 'add a hero');
+    await userEvent.click(await canvas.findByRole('button', { name: 'Stop' }));
+
+    await expect(await canvas.findByText('Stopped.')).toBeVisible();
+    // mm:ss.SSS, and the row it was on when it stopped.
+    await expect(await canvas.findByText(/Stopped after \d\d:\d\d\.\d\d\d/u)).toBeVisible();
+  },
+};
+
+/**
+ * A SLOW run, still going: the rows narrate, the clock counts, and Stop is
+ * where the hand already is.
+ *
+ * Promised and unbuilt until now. It is the state a person is in for most of a
+ * real request, and the one nothing else in this file showed.
+ */
+export const SlowRun: Story = {
+  args: {
+    kernel: createPlaygroundKernel({ fixture: 'empty' }),
+    planProvider: cancellableProvider,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await submitRequest(canvasElement, 'add a hero');
+
+    // The composer is closed, the send slot is Stop, and the rows are narrating.
+    await expect(await canvas.findByRole('button', { name: 'Stop' })).toBeVisible();
+    await expect(canvas.getByRole('textbox', { name: 'Ask the assistant' })).toBeDisabled();
+    /*
+      The EXACT line, not a pattern. "Working on" appears on the stage clock's
+      heading as well as here, so a regex matching both makes `findByText` throw
+      about multiple matches rather than assert anything.
+    */
+    await expect(await canvas.findByText('Reading the page…')).toBeVisible();
+    await expect(canvas.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+  },
+};
+
 export const NewChatSupersedesLateRun: Story = {
   args: {
     kernel: createPlaygroundKernel({ fixture: 'empty' }),

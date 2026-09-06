@@ -2,6 +2,21 @@ import type { BuilderDocument } from '@craftkit/builder';
 
 import type { VaultStore } from './store';
 
+/**
+ * Who asked for this restore point.
+ *
+ * `manual` is a person pressing save. `auto` is one the product took on their
+ * behalf — today, the snapshot before a writing run, so "undo the whole
+ * generation" has a known state to go back to.
+ *
+ * The distinction earns its place by giving each kind its OWN cap. Sharing one
+ * meant a build of twelve sections could push a person's own restore points off
+ * the end of the shelf, and — worse in the other direction — a run of ordinary
+ * saves could evict the pre-run snapshot the generation undo depends on, so the
+ * button stayed on screen pointing at nothing.
+ */
+export type VaultSnapshotKind = 'manual' | 'auto';
+
 export interface VaultSnapshotMeta {
   readonly id: string;
   readonly label: string;
@@ -9,6 +24,14 @@ export interface VaultSnapshotMeta {
   readonly seq: number;
   /** Serialised size of `document`, in UTF-8 bytes. */
   readonly bytes: number;
+  /**
+   * Absent on a shelf written before kinds existed, and read as `manual`.
+   *
+   * Optional rather than back-filled: nothing in an old entry says which it
+   * was, and every one of them WAS a person pressing save, because nothing else
+   * could write to the shelf then.
+   */
+  readonly kind?: VaultSnapshotKind;
 }
 
 export interface VaultSnapshot extends VaultSnapshotMeta {
@@ -21,8 +44,10 @@ export interface SnapshotShelf {
     readonly ts: number;
     readonly seq: number;
     readonly document: BuilderDocument;
+    /** Defaults to `manual`: the shelf's original and still commonest writer. */
+    readonly kind?: VaultSnapshotKind;
   }): Promise<VaultSnapshotMeta>;
-  /** Newest first. */
+  /** Newest first, both kinds together. */
   list(): Promise<readonly VaultSnapshotMeta[]>;
   read(id: string): Promise<VaultSnapshot | undefined>;
   clear(): Promise<void>;
@@ -33,10 +58,19 @@ export interface SnapshotShelfOptions {
   readonly docId: string;
   readonly maxCount?: number;
   readonly maxBytes?: number;
+  /** How many `auto` snapshots are kept, on their own budget. */
+  readonly maxAutoCount?: number;
 }
 
 const DEFAULT_MAX_COUNT = 20;
 const DEFAULT_MAX_BYTES = 4_000_000;
+
+/**
+ * Few, deliberately. An automatic snapshot is only ever useful for the run it
+ * preceded, and the run before that; keeping twenty would spend a person's
+ * storage on states nobody will ask for.
+ */
+const DEFAULT_MAX_AUTO_COUNT = 3;
 
 /**
  * The USER-facing shelf: labelled restore points a person made on purpose,
@@ -51,6 +85,7 @@ export function createSnapshotShelf(options: SnapshotShelfOptions): SnapshotShel
   const { store, docId } = options;
   const maxCount = options.maxCount ?? DEFAULT_MAX_COUNT;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxAutoCount = options.maxAutoCount ?? DEFAULT_MAX_AUTO_COUNT;
 
   const prefix = `vault/shelf/${docId}/`;
   const indexKey = `${prefix}index`;
@@ -78,12 +113,14 @@ export function createSnapshotShelf(options: SnapshotShelfOptions): SnapshotShel
       serialise(async () => {
         const index = await readIndex();
         const bytes = measure(entry.document);
+        const kind: VaultSnapshotKind = entry.kind ?? 'manual';
         const meta: VaultSnapshotMeta = {
           id: nextId(entry.ts, new Set(index.map(({ id }) => id))),
           label: entry.label,
           ts: entry.ts,
           seq: entry.seq,
           bytes,
+          kind,
         };
         const body: VaultSnapshot = { ...meta, document: entry.document };
         await store.set(bodyKey(meta.id), body);
@@ -98,8 +135,28 @@ export function createSnapshotShelf(options: SnapshotShelfOptions): SnapshotShel
             evicted.push(gone);
           }
         };
-        while (kept.length > maxCount) {
-          evictOldest();
+        /*
+          The AUTO budget first, and only over auto entries.
+
+          Each kind pays for itself. A twelve-section build must not push a
+          person's own restore points off the shelf, and a run of ordinary saves
+          must not evict the pre-run snapshot that "undo the whole generation"
+          points at — a button that is still on screen and no longer works is
+          worse than no button.
+        */
+        const evictOldestOfKind = (target: VaultSnapshotKind): void => {
+          for (let index = kept.length - 1; index >= 0; index -= 1) {
+            if (kindOf(kept[index]) !== target) continue;
+            const [gone] = kept.splice(index, 1);
+            if (gone !== undefined) evicted.push(gone);
+            return;
+          }
+        };
+        while (kept.filter((entry) => kindOf(entry) === 'auto').length > maxAutoCount) {
+          evictOldestOfKind('auto');
+        }
+        while (kept.filter((entry) => kindOf(entry) === 'manual').length > maxCount) {
+          evictOldestOfKind('manual');
         }
         // `kept.length > 1` is the deliberate floor: a single snapshot bigger
         // than the whole byte cap is still stored, because refusing to save is
@@ -129,6 +186,11 @@ export function createSnapshotShelf(options: SnapshotShelfOptions): SnapshotShel
         }
       }),
   };
+}
+
+/** A shelf written before kinds existed held nothing but manual saves. */
+export function kindOf(meta: VaultSnapshotMeta | undefined): VaultSnapshotKind {
+  return meta?.kind ?? 'manual';
 }
 
 /**

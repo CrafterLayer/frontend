@@ -10,6 +10,14 @@ export interface BuildSectionListProps {
   readonly progress: BuildProgress;
   /** Stable prefix for the rows' React keys, so two builds cannot collide. */
   readonly turnId: string;
+  /**
+   * Take the person to this section on the canvas.
+   *
+   * Absent when the host has nowhere to take them — a story, a report revived
+   * from storage. The row is then plain text rather than a button, because a
+   * button that goes nowhere is worse than a label.
+   */
+  readonly onJump?: ((id: string) => void) | undefined;
 }
 
 /**
@@ -26,7 +34,7 @@ export interface BuildSectionListProps {
  * about the wave, and a per-row clock would restart visibly every time another
  * writer picked up work.
  */
-export function BuildSectionList({ progress, turnId }: BuildSectionListProps) {
+export function BuildSectionList({ progress, turnId, onJump }: BuildSectionListProps) {
   const eta = buildEta(progress);
   return (
     <>
@@ -42,10 +50,34 @@ export function BuildSectionList({ progress, turnId }: BuildSectionListProps) {
             data-status={task.status}
           >
             <span className="pg-chat__task-line">
-              {/* The title is the model's, in the request's language. */}
-              <span className="pg-chat__task-title" dir="auto">
-                {task.title}
-              </span>
+              {/*
+                JUMP TO SECTION. A build writes eight regions down a page a
+                person cannot see all of; naming one and not being able to reach
+                it is the gap this closes.
+
+                Only a section that EXISTS is reachable. A row still waiting has
+                no node yet, and one that was never written has none either — a
+                button for those would select nothing and look broken. The title
+                stays exactly where it was either way, so the list does not
+                reflow as sections land.
+              */}
+              {onJump === undefined || task.id === '' || task.status === 'waiting' ? (
+                // The title is the model's, in the request's language.
+                <span className="pg-chat__task-title" dir="auto">
+                  {task.title}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="pg-chat__task-title pg-chat__task-jump"
+                  dir="auto"
+                  onClick={() => {
+                    onJump(task.id);
+                  }}
+                >
+                  {task.title}
+                </button>
+              )}
               <span className="pg-chat__task-state">{TASK_STATUS_LABEL[task.status]}</span>
             </span>
             {task.status === 'running' && progress.run !== null ? (

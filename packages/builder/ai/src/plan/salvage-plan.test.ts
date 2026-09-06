@@ -62,9 +62,7 @@ describe('salvageAiPlan', () => {
     // `expect.stringContaining` is typed `any`; parking it in an `unknown`
     // keeps the matcher while satisfying no-unsafe-assignment.
     const mentionsTheGhost: unknown = expect.stringContaining('no-such-node');
-    expect(salvaged?.dropped).toEqual([
-      { step: 2, command: 'setProp', reason: mentionsTheGhost },
-    ]);
+    expect(salvaged?.dropped).toEqual([{ step: 2, command: 'setProp', reason: mentionsTheGhost }]);
   });
 
   it('returns a plan the real validator accepts, not one that merely looks right', () => {

@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import '../../../../app/App.css';
-import {
-  initialRunProgress,
-  type RunProgress,
-} from '../AssistantPanel/AssistantPanel.progress';
+import { initialRunProgress, type RunProgress } from '../AssistantPanel/AssistantPanel.progress';
 import { LiveStageClock } from './LiveStageClock';
 
 const NOW = Date.now();

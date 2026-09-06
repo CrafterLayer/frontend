@@ -187,3 +187,87 @@ export {
 */
 export { canonicalJsonStringify } from './internal/canonical-json';
 export { sha256Hex } from './skills/sha256';
+
+/*
+  The quality gate's DOM-FREE half: one implementation, two callers.
+
+  The playground runs these against a draft before a commit is allowed, and CI
+  runs them over generated documents with fixed seeds. Overflow and overlap are
+  NOT here — they need layout, so they live in the playground behind a hidden
+  iframe at four widths.
+*/
+export {
+  blocks,
+  briefTerms,
+  checkDocumentContrast,
+  checkDocumentQuality,
+  checkQuality,
+  measureBriefRelevance,
+  type BriefRelevance,
+  type CheckDocumentOptions,
+  type QualityCheck,
+  type QualityIssue,
+  type QualityReport,
+  type QualitySeverity,
+} from './quality';
+
+/*
+  The SITE pipeline: five stages, validated between each, producing COMMANDS.
+
+  It writes nothing and is handed no kernel, which is what makes "a failure at
+  stage four leaves the workspace byte-identical" true by construction. The
+  caller sends its commands through the same door a plan goes through.
+*/
+export {
+  SITE_STAGES,
+  SITE_STAGE_WIRE_VERSION,
+  RemoteStageError,
+  StageRejectedError,
+  applySiteCommands,
+  commitGeneratedSite,
+  createOfflineSiteStageProvider,
+  createRemoteSiteStageProvider,
+  generateSite,
+  isStageRejected,
+  stageId,
+  validateAssembly,
+  validateContent,
+  validateSitemap,
+  validateStageDesignSystem,
+  validateStructure,
+  type AppliedSiteCommand,
+  type ApplySiteCommandsOptions,
+  type ApplySiteCommandsResult,
+  type AssemblyRequest,
+  type AssemblyResponse,
+  type AssemblyStep,
+  type CommitGeneratedSiteOptions,
+  type CommitGeneratedSiteResult,
+  type SiteCommandRefusal,
+  type ContentRequest,
+  type ContentResponse,
+  type ContentSection,
+  type DesignSystemRequest,
+  type DesignSystemResponse,
+  type GenerateSiteOptions,
+  type GeneratedSite,
+  type OfflineStageProviderOptions,
+  type RemoteStageProviderOptions,
+  type RequestFor,
+  type ResponseFor,
+  type SiteStage,
+  type SiteStageProvider,
+  type SitemapPage,
+  type SitemapRequest,
+  type SitemapResponse,
+  type StageEnvelope,
+  type StageEvent,
+  type StageLimits,
+  type StageOptions,
+  type StageRequest,
+  type StageResponse,
+  type StructurePage,
+  type StructureRequest,
+  type StructureResponse,
+  type StructureSection,
+} from './pipeline';

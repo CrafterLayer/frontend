@@ -31,9 +31,17 @@ describe('script-based activation', () => {
   it('activates on any Arabic request, whatever the verb', () => {
     const registry = createAiSkillRegistry([skill({})]);
 
-    for (const request of ['اعمل معرض أعمال', 'صفحة هبوط لمتجر عطور', 'كبّر العنوان', 'Make the عنوان bigger']) {
+    for (const request of [
+      'اعمل معرض أعمال',
+      'صفحة هبوط لمتجر عطور',
+      'كبّر العنوان',
+      'Make the عنوان bigger',
+    ]) {
       const prepared = registry.prepare({ request, auto: true });
-      expect(prepared.active.map((active) => active.id), request).toEqual(['host.arabic']);
+      expect(
+        prepared.active.map((active) => active.id),
+        request,
+      ).toEqual(['host.arabic']);
       expect(prepared.activations[0]?.reason).toBe('auto');
     }
   });

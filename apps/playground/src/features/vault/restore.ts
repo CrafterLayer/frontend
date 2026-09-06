@@ -27,7 +27,26 @@ export type RestoreOutcome =
  * registry, so restoring a document whose vocabulary is no longer registered is
  * refused with a readable reason instead of corrupting the session.
  */
-export function restoreDocument(kernel: BuilderKernel, document: BuilderDocument): RestoreOutcome {
+export interface RestoreOptions {
+  /**
+   * Who is doing the restoring. Defaults to `codeview`, this function's first
+   * and longest-standing caller.
+   *
+   * It became an option when a second caller arrived that is NOT the code view:
+   * "undo the whole generation" restores the state before a run, and filing
+   * that under the code view would put a person's revert in the history under a
+   * surface they never opened.
+   */
+  readonly author?: 'user' | 'ai' | 'codeview';
+  /** One sentence for the history panel. The command name when absent. */
+  readonly label?: string;
+}
+
+export function restoreDocument(
+  kernel: BuilderKernel,
+  document: BuilderDocument,
+  options: RestoreOptions = {},
+): RestoreOutcome {
   const projection = kernel.context.registry.projection(CANONICAL_JSON_PROJECTION);
   if (projection === undefined) {
     return {
@@ -65,7 +84,20 @@ export function restoreDocument(kernel: BuilderKernel, document: BuilderDocument
       ...(patch.value === undefined ? {} : { value: patch.value as JsonValue }),
     }));
 
-    kernel.dispatch('applyPatches', { patches }, 'codeview');
+    const author = options.author ?? 'codeview';
+    if (options.label === undefined) {
+      kernel.dispatch('applyPatches', { patches }, author);
+    } else {
+      /*
+        A LABEL needs the group door: `dispatch` names the transaction after the
+        command, and "applyPatches" tells a person nothing about what was
+        restored. One step is still one transaction and one undo.
+      */
+      kernel.dispatchGroup([{ command: 'applyPatches', args: { patches } }], {
+        author,
+        label: options.label,
+      });
+    }
     return { ok: true, changed: true };
   } catch (error) {
     // `applyPatches` revalidates the WHOLE document registry-aware and throws

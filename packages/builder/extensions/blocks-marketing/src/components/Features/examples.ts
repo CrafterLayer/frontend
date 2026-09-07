@@ -16,7 +16,12 @@ export const featuresExamples: { prompt: string; node: JsonValue }[] = [
         width: 'standard',
         variant: 'cards',
         items: [
-          { icon: '↗', kicker: 'أداء', title: 'سرعة فائقة', body: 'لوحات تتحدث لحظياً بدون انتظار.' },
+          {
+            icon: '↗',
+            kicker: 'أداء',
+            title: 'سرعة فائقة',
+            body: 'لوحات تتحدث لحظياً بدون انتظار.',
+          },
           { icon: '✓', kicker: 'أمان', title: 'خصوصية أولاً', body: 'بياناتك تبقى عندك دائماً.' },
           { icon: '+', kicker: 'تكامل', title: 'تكامل سهل', body: 'اربط أدواتك بدقائق.' },
         ],

@@ -282,6 +282,61 @@ use ordinary `try/catch` while telemetry consumes the typed event.
 - Preview and apply re-check the authenticated proposal's pinned authority. A copied proposal,
   substituted plan, broader policy, or missing compatibility policy fails closed.
 
+## The site pipeline
+
+A whole site — pages, sections, copy, palette — is five stages with validation between each, in
+`src/pipeline/`. It follows the same rule as everything else here: `generateSite()` is handed **no
+kernel**, and the `commands: AssemblyStep[]` on the `GeneratedSite` it returns are the only part
+anything writes from.
+
+```text
+sitemap → structure → content (per page, pool of 3) → design system → assembly
+```
+
+Each stage is validated the moment it lands, not at the end, because the cost of finding out late is
+the whole site: a structure naming an unregistered block is discoverable immediately; discovered at
+assembly it has already been paid for with a content call per page. A rejection the validator marks
+REPAIRABLE is asked once more with the reasons; anything else fails the run immediately. Either way,
+nothing has been written.
+
+**Applying.** `applySiteCommands({ kernel, commands, assets })` sends the steps into a DRAFT site
+kernel one at a time. One at a time, not as a group, because a group is produced in a single pass
+and cannot read back an id minted halfway through it — and Law D says only the kernel's port may
+mint one. An assembly step names its SITEMAP page; the applier watches pages come into existence and
+keeps the map from one to the other. Colliding addresses are made unique and **reported** as
+`renamed`, because a person who asked for `/home` and silently got `/home-2` will look for a page
+that is not there.
+
+The one-transaction promise is not lost, it is moved to the commit: `commitGeneratedSite` puts a
+whole generation onto the live site as a single `applySitePatches` — one transaction, one undo. It
+takes the site diff and the fingerprint as **ports** rather than importing the codec, because
+`@craftkit/builder-ai` and `@craftkit/builder-transforms` are both layer 2 and the dependency law
+refuses sideways edges.
+
+**Refinement.** `refineSite()` resolves a follow-up to its target before asking a model anything, so
+a request naming a page the site does not have is refused for free. A page refinement routes through
+`runAiAgent` pointed at that page's lens — the identical machinery a generation uses — and a colour
+refinement goes through `setDesignToken`, the door that already owns legibility.
+
+## Pictures
+
+`selectAssets()` fills image positions from an `AssetLibraryPort`, directed by the brief and by each
+picture's own mood and palette as the library recorded them — the design system contributes the
+colours a match is scored against, and nothing else. `selectFrom()` is the same scoring without the
+listing, for a caller that already holds the pictures. It returns `ImageProp`, which is
+`AssetRef | { absent, reason }`, and there is **no path through it that produces a string**. A
+generated `src` — a plausible-looking URL a model wrote — renders as a broken image on someone's
+site, cannot be validated, and is indistinguishable from a real one until a visitor sees it.
+
+Everything else follows from that:
+
+- An empty, unavailable, or unsuitable library is a normal outcome, not a failure. Each affected
+  position gets a sentence saying what was wanted and why there is nothing there.
+- The assembly stage is given the catalogue and refuses any id outside it, and the applier registers
+  every chosen picture in the site's own asset table **before** the command that uses it.
+- The site's table holds COPIES, which is why a picture later deleted from the library degrades one
+  image rather than invalidating a site.
+
 ## Undo semantics
 
 The kernel grouped door accepts both the legacy `kernel.dispatchGroup(steps, author)` form and
@@ -294,8 +349,12 @@ delivery to later observers.
 
 ## Testing subpath
 
-`@craftkit/builder-ai/testing` exports `createScriptedAiPlanProvider()` for consumer tests that need
-to exercise provider rejection or application without a model or network.
+`@craftkit/builder-ai/testing` exports `createScriptedAiPlanProvider()` and
+`createScriptedSiteStageProvider()` for consumer tests that need to exercise provider rejection, a
+stage that fails once and succeeds on the retry, or a stage that never returns so a cancellation has
+something to cancel — without a model or a network. `createFixedAssetLibrary()` is the picture
+equivalent: fixed entries so selection is reproducible, and an `unavailable`/`hang` switch so a
+degradation can be caused on purpose rather than assumed.
 
 ## Connecting a server
 

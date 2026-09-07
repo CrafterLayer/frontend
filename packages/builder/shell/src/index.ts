@@ -3,6 +3,7 @@
 // traversal, canvas-tool contributions. The overlay hot path is React-free.
 // B2b adds drag editing; B3a adds the inspector, devices, and preview mode.
 
+export { AssetPicker, type AssetPickerProps } from './components/AssetPicker';
 export { BUCKET_THRESHOLDS, bucketForWidth, type EditingBucket } from './devices/buckets';
 export { BuilderShell, type BuilderShellProps } from './components/BuilderShell';
 export {
@@ -105,3 +106,12 @@ export {
   inspector resolve it.
 */
 export { MotionField } from './fields/MotionField';
+
+/*
+  The design-system surface: the panel that edits a site's tokens, and the grid
+  it navigates them with. Siblings, not nested — the component contract
+  discovers only direct children of `components/`, so a grid inside the panel's
+  folder would never have had its five artifacts checked.
+*/
+export { DesignSystemPanel, type DesignSystemPanelProps } from './components/DesignSystemPanel';
+export { TokenSwatchGrid, type TokenSwatchGridProps } from './components/TokenSwatchGrid';

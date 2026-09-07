@@ -453,28 +453,32 @@ describe('US2 — extension lifecycle', () => {
     inside still hold the property, this only stops the clock lying about it.
   */
   const LOAD_TOLERANT_TIMEOUT_MS = 30_000;
-  it('scenario 4 (SC-005): lookup cost stays flat from 10 to 1,000 contributions', () => {
-    const kernel = testKernel();
-    for (let index = 0; index < 10; index += 1) {
-      kernel.extensions.register(blockManifest(`small-${String(index)}`, `s-${String(index)}`));
-    }
-    const timeLookups = (): number => {
-      const startedAt = Date.now();
-      for (let round = 0; round < 200_000; round += 1) {
-        kernel.context.registry.block(`s-${String(round % 10)}`);
+  it(
+    'scenario 4 (SC-005): lookup cost stays flat from 10 to 1,000 contributions',
+    () => {
+      const kernel = testKernel();
+      for (let index = 0; index < 10; index += 1) {
+        kernel.extensions.register(blockManifest(`small-${String(index)}`, `s-${String(index)}`));
       }
-      return Date.now() - startedAt;
-    };
-    timeLookups(); // warmup
-    const smallCatalog = Math.max(timeLookups(), 1);
+      const timeLookups = (): number => {
+        const startedAt = Date.now();
+        for (let round = 0; round < 200_000; round += 1) {
+          kernel.context.registry.block(`s-${String(round % 10)}`);
+        }
+        return Date.now() - startedAt;
+      };
+      timeLookups(); // warmup
+      const smallCatalog = Math.max(timeLookups(), 1);
 
-    for (let index = 0; index < 990; index += 1) {
-      kernel.extensions.register(blockManifest(`big-${String(index)}`, `b-${String(index)}`));
-    }
-    const bigCatalog = Math.max(timeLookups(), 1);
+      for (let index = 0; index < 990; index += 1) {
+        kernel.extensions.register(blockManifest(`big-${String(index)}`, `b-${String(index)}`));
+      }
+      const bigCatalog = Math.max(timeLookups(), 1);
 
-    // Map-backed lookups: generous ceiling, catches accidental O(n) scans.
-    expect(bigCatalog / smallCatalog).toBeLessThan(5);
-    expect(kernel.context.registry.block('b-500')).toBeDefined();
-  }, LOAD_TOLERANT_TIMEOUT_MS);
+      // Map-backed lookups: generous ceiling, catches accidental O(n) scans.
+      expect(bigCatalog / smallCatalog).toBeLessThan(5);
+      expect(kernel.context.registry.block('b-500')).toBeDefined();
+    },
+    LOAD_TOLERANT_TIMEOUT_MS,
+  );
 });

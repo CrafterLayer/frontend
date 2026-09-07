@@ -68,11 +68,7 @@ describe('commitSite', () => {
       the result should not press undo three times to find out where it started.
     */
     expect(live.transactions()).toHaveLength(1);
-    expect(live.getSite().pages.map((page) => page.address)).toEqual([
-      '/',
-      '/work',
-      '/contact',
-    ]);
+    expect(live.getSite().pages.map((page) => page.address)).toEqual(['/', '/work', '/contact']);
   });
 
   it('files the transaction under the agent, with the label it was given', () => {

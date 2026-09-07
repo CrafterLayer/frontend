@@ -23,7 +23,10 @@ import {
 } from '@craftkit/builder-schema';
 
 import { createBuilder } from '../kernel/create-builder';
-import { seededIds } from '../testing/fixed-ports';
+import { fivePageSite, onePageSite } from '@craftkit/builder-schema/testing';
+
+import { createSiteBuilder } from '../site/create-site-builder';
+import { fixedClock, seededIds } from '../testing/fixed-ports';
 import { fixtureBlocks, landingFixture } from '../testing/fixtures';
 import {
   isSiteCommandName,
@@ -170,7 +173,10 @@ function expectRefusal<N extends SiteCommandName>(
   name: N,
   args: SiteCommands[N],
   pattern: RegExp,
-  code: 'site/structural-violation' | 'site/invalid-patch' | 'cmd/invalid-args' = 'site/structural-violation',
+  code:
+    | 'site/structural-violation'
+    | 'site/invalid-patch'
+    | 'cmd/invalid-args' = 'site/structural-violation',
 ): void {
   const before = JSON.stringify(base);
   let caught: unknown;
@@ -196,7 +202,10 @@ describe('addPage', () => {
   });
 
   it('is born in the site direction, not the default one', () => {
-    const rtl = site({ dir: 'rtl', pages: [{ ...page('home', '/'), document: { ...landingFixture(), dir: 'rtl' } }] });
+    const rtl = site({
+      dir: 'rtl',
+      pages: [{ ...page('home', '/'), document: { ...landingFixture(), dir: 'rtl' } }],
+    });
 
     const next = run(rtl, 'addPage', { address: '/عنا', title: 'عنا' });
 
@@ -262,7 +271,11 @@ describe('removePage', () => {
 
 describe('renamePage', () => {
   it('changes title and address together, in one production', () => {
-    const next = run(site(), 'renamePage', { pageId: 'about', title: 'Our story', address: '/story' });
+    const next = run(site(), 'renamePage', {
+      pageId: 'about',
+      title: 'Our story',
+      address: '/story',
+    });
     expect(next.pages[1]).toMatchObject({ title: 'Our story', address: '/story' });
   });
 
@@ -279,7 +292,11 @@ describe('renamePage', () => {
   });
 
   it('lets a page keep its own address while its title changes', () => {
-    const next = run(site(), 'renamePage', { pageId: 'about', title: 'About us', address: '/about' });
+    const next = run(site(), 'renamePage', {
+      pageId: 'about',
+      title: 'About us',
+      address: '/about',
+    });
     expect(next.pages[1]?.title).toBe('About us');
   });
 });
@@ -581,5 +598,125 @@ describe('the door itself', () => {
         'setSiteDirection',
       ].sort(),
     );
+  });
+});
+
+describe('a group whose steps read back what an earlier step wrote', () => {
+  it('sets two design tokens in ONE group', () => {
+    const kernel = createSiteBuilder({
+      site: onePageSite(),
+      ports: { clock: fixedClock(), ids: seededIds('group') },
+    });
+
+    /*
+      This threw "[Immer] 'current' expects a draft" until `snapshot` learned to
+      tolerate a plain value. The first step assigns a freshly built design
+      system, which leaves an ordinary object where a proxy was; the second step
+      then reads it back. Either step alone worked, so no single-command test
+      could have found it — it took a group.
+    */
+    kernel.dispatchGroup(
+      [
+        { command: 'setDesignToken', args: { token: 'accent', value: '#0b5cff' } },
+        { command: 'setDesignToken', args: { token: 'success', value: '#0f7a3d' } },
+      ],
+      { author: 'user', label: 'Recolour' },
+    );
+
+    const tokens = kernel.getSite().designSystem.tokens;
+    expect(tokens.accent).toBe('#0b5cff');
+    expect(tokens.success).toBe('#0f7a3d');
+    /* Both edits, one entry in history — the point of a group. */
+    expect(kernel.transactions()).toHaveLength(1);
+  });
+});
+
+/**
+ * FR-005: navigation is DERIVED from the page set, so it can never disagree
+ * with it.
+ *
+ * There is no navigation model to keep in step — the entries a site has are the
+ * pages it has, read at render time. That is what this describes: every command
+ * that changes the page set changes exactly one entry, and no command can
+ * produce an entry with no page or a page with no entry.
+ */
+describe('navigation follows the page set (FR-005)', () => {
+  const navigation = (kernel: ReturnType<typeof createSiteBuilder>) =>
+    kernel.getSite().pages.map((page) => ({ address: page.address, title: page.title }));
+
+  const siteKernel = () =>
+    createSiteBuilder({
+      site: fivePageSite(),
+      ports: { clock: fixedClock(), ids: seededIds('nav') },
+    });
+
+  it('adds exactly one entry, in the place the page was added', () => {
+    const kernel = siteKernel();
+    const before = navigation(kernel);
+
+    kernel.dispatch('addPage', { address: '/journal', title: 'Journal', index: 1 }, 'user');
+
+    const after = navigation(kernel);
+    expect(after).toHaveLength(before.length + 1);
+    expect(after[1]).toEqual({ address: '/journal', title: 'Journal' });
+    /* Everything else, in order, untouched. */
+    expect([after[0], ...after.slice(2)]).toEqual(before);
+  });
+
+  it('removes exactly one entry', () => {
+    const kernel = siteKernel();
+    const before = navigation(kernel);
+    const victim = kernel.getSite().pages.find((page) => page.address === '/work');
+    if (victim === undefined) throw new Error('the fixture must have a work page');
+
+    kernel.dispatch('removePage', { pageId: victim.id }, 'user');
+
+    const after = navigation(kernel);
+    expect(after).toEqual(before.filter((entry) => entry.address !== '/work'));
+  });
+
+  it('renames exactly one entry, and moves none', () => {
+    const kernel = siteKernel();
+    const before = navigation(kernel);
+    const page = kernel.getSite().pages.find((entry) => entry.address === '/about');
+    if (page === undefined) throw new Error('the fixture must have an about page');
+
+    kernel.dispatch('renamePage', { pageId: page.id, title: 'Our story' }, 'user');
+
+    const after = navigation(kernel);
+    expect(after.map((entry) => entry.address)).toEqual(before.map((entry) => entry.address));
+    expect(after.filter((entry, at) => entry.title !== before[at]?.title)).toEqual([
+      { address: '/about', title: 'Our story' },
+    ]);
+  });
+
+  it('reorders without adding, removing or renaming anything', () => {
+    const kernel = siteKernel();
+    const before = navigation(kernel);
+    const page = kernel.getSite().pages[0];
+    if (page === undefined) throw new Error('the fixture must have pages');
+
+    kernel.dispatch('reorderPage', { pageId: page.id, toIndex: 3 }, 'user');
+
+    const after = navigation(kernel);
+    /* Same SET, different order — which is what a reorder is and nothing more. */
+    expect([...after].sort((a, b) => a.address.localeCompare(b.address))).toEqual(
+      [...before].sort((a, b) => a.address.localeCompare(b.address)),
+    );
+    expect(after).not.toEqual(before);
+  });
+
+  it('cannot produce an entry with no page, because there is no entry to produce', () => {
+    const kernel = siteKernel();
+    /*
+      The strong form of FR-005: navigation is not stored, so there is nothing
+      that could drift. Every entry IS a page, by construction, and the only way
+      to break that would be to add a navigation model — which is exactly what
+      this test exists to keep anyone from doing quietly.
+    */
+    for (const entry of navigation(kernel)) {
+      expect(kernel.getSite().pages.some((page) => page.address === entry.address)).toBe(true);
+    }
+    expect(navigation(kernel)).toHaveLength(kernel.getSite().pages.length);
   });
 });

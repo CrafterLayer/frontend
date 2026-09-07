@@ -64,26 +64,31 @@ export function Testimonials({ node, props }: BlockRenderProps<TestimonialsProps
         )}
         data-testimonials-content=""
       >
-        <header className={cx('flex max-w-content-narrow flex-col gap-3', ALIGN_CLASSES[props.align])}>
+        <header
+          className={cx('flex max-w-content-narrow flex-col gap-3', ALIGN_CLASSES[props.align])}
+        >
           {props.eyebrow === undefined ? null : (
             <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">
               {props.eyebrow}
             </p>
           )}
-          <h2 id={headingId} className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl">
+          <h2
+            id={headingId}
+            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+          >
             {props.heading}
           </h2>
-        {props.body === undefined ? null : (
-          <p
-            className={cx(
-              'm-0 max-w-content-narrow',
-              props.tone === 'dark' ? 'text-inherit opacity-85' : 'text-text-muted',
-            )}
-            data-testimonials-intro=""
-          >
-            {props.body}
-          </p>
-        )}
+          {props.body === undefined ? null : (
+            <p
+              className={cx(
+                'm-0 max-w-content-narrow',
+                props.tone === 'dark' ? 'text-inherit opacity-85' : 'text-text-muted',
+              )}
+              data-testimonials-intro=""
+            >
+              {props.body}
+            </p>
+          )}
         </header>
         <ul
           className={cx(
@@ -100,15 +105,24 @@ export function Testimonials({ node, props }: BlockRenderProps<TestimonialsProps
                 data-testimonials-card=""
               >
                 {item.rating === undefined ? null : (
-                  <p className="m-0 tracking-wide text-accent" aria-label={`${String(item.rating)} out of 5 stars`}>
-                    <span aria-hidden="true">{'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}</span>
+                  <p
+                    className="m-0 tracking-wide text-accent"
+                    aria-label={`${String(item.rating)} out of 5 stars`}
+                  >
+                    <span aria-hidden="true">
+                      {'★'.repeat(item.rating)}
+                      {'☆'.repeat(5 - item.rating)}
+                    </span>
                   </p>
                 )}
                 <blockquote className="m-0 flex-1 text-lg leading-relaxed text-pretty">
                   “{item.quote}”
                 </blockquote>
                 <figcaption className="flex items-center gap-3 font-semibold">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-sm text-accent" aria-hidden="true">
+                  <span
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-sm text-accent"
+                    aria-hidden="true"
+                  >
                     {item.author.slice(0, 1).toLocaleUpperCase()}
                   </span>
                   <span className="flex flex-col">

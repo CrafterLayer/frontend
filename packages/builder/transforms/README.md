@@ -21,9 +21,17 @@ extension's WORKER is its one consumer above layer 2, and functions never cross 
   patches or all errors; every error carries a ONE-based line pointing at the offending token;
   duplicate keys are an error, not last-value-wins; node-map key and `node.id` must agree (ids are
   never invented); a scoped parse may only patch inside the named subtree.
-- `CANONICAL_JSON_PROJECTION_ID` — the id this codec registers under. It lives here so the worker
-  (which resolves projections locally) and the manifest (which registers with the kernel) cannot
-  drift apart.
+- `projectSite(site)` → `SiteProjectionText` — the SITE codec: a manifest, plus one text per page
+  and per shared region. `projectSite(s).pages[id]` is byte-for-byte what `projectDocument` produces
+  for that page's document, so the two codecs cannot drift. `parseSite` reads a whole bundle back;
+  `parseSiteManifest` reads the manifest ALONE and takes no ports, because it reads no document and
+  therefore cannot create a page or a region — only the bundle can. A `siteVersion` a text tries to
+  move is refused with a line number: the migrations own it.
+- `CANONICAL_JSON_PROJECTION_ID` / `SITE_MANIFEST_PROJECTION_ID` — the ids these codecs register
+  under. It lives here so the worker (which resolves projections locally) and the manifest (which
+  registers with the kernel) cannot drift apart. The worker holds ONE base artifact at a time — a
+  document or a site — and a scope that does not match the artifact it holds is answered
+  `scope-mismatch` rather than guessed at.
 - `CodecPorts` — `blockExists(type)`: the registry stays on the other side of a function the CALLER
   provides; the codec never imports it. The contributed `ProjectionDef.parse` receives the same
   question as `ProjectionPorts`, because inferring the vocabulary from the base document refuses a

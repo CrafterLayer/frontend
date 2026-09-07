@@ -92,7 +92,11 @@ describe('createSiteBuilder — one production, one transaction, one undo (S1)',
 
     const tx = site.dispatchGroup(
       [
-        { command: 'setProp', args: { id: 'p1', key: 'content', value: 'On home' }, pageId: 'home' },
+        {
+          command: 'setProp',
+          args: { id: 'p1', key: 'content', value: 'On home' },
+          pageId: 'home',
+        },
         {
           command: 'setProp',
           args: { id: 'p1', key: 'content', value: 'On about' },
@@ -156,7 +160,11 @@ describe('createSiteBuilder — one production, one transaction, one undo (S1)',
 
     expect(() =>
       site.dispatchGroup([
-        { command: 'setProp', args: { id: 'p1', key: 'content', value: 'landed?' }, pageId: 'home' },
+        {
+          command: 'setProp',
+          args: { id: 'p1', key: 'content', value: 'landed?' },
+          pageId: 'home',
+        },
         // Refused: `/about` is taken.
         { command: 'addPage', args: { address: '/about', title: 'Clash' } },
       ]),

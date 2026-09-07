@@ -47,3 +47,12 @@ once it is there.
 
 The identity and live status share one compact group. New chat is an icon button with an accessible
 name. Document context stays below the identity without a separate filled card.
+
+## The model picker follows the same rule
+
+<Canvas of={AssistantHeaderStories.WithModels} />
+
+It sits on its own line under the context, never in the title row, where it would squeeze the name.
+It appears only when the host offers more than one model (`VITE_AI_PLAN_MODELS`). The slug is the
+value; the label drops the vendor and spells `:free` out. The choice travels to the server as
+`x-craftkit-ai-model`, and the server, not the browser, decides whether it is allowed.

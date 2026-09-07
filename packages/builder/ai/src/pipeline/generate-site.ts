@@ -13,6 +13,7 @@ import {
   stageId,
   type ContentResponse,
   type SiteStage,
+  type AssetCatalogueEntry,
   type SitemapPage,
   type StageLimits,
   type StructurePage,
@@ -63,6 +64,11 @@ export interface GenerateSiteOptions {
   readonly blockTypes: readonly string[];
   /** Commands the assembly stage may emit. */
   readonly allowedCommands: readonly string[];
+  /**
+   * Every picture the run may reference. Empty means a text-only site, which
+   * is a site — not a failure (FR-051).
+   */
+  readonly assets?: readonly AssetCatalogueEntry[] | undefined;
   readonly signal?: AbortSignal | undefined;
   /** Told when each stage starts and finishes, in order. */
   readonly onStage?: ((event: StageEvent) => void) | undefined;
@@ -109,6 +115,7 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
     limits,
     blockTypes,
     allowedCommands,
+    assets = [],
     signal,
     onStage,
     onProgress,
@@ -235,6 +242,7 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
       await provider.run(
         {
           ...envelope('assembly', attempt),
+          brief,
           pages,
           structure,
           content,
@@ -246,10 +254,12 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
             One cast, here, where the two facts meet.
           */
           designSystem: designSystem as unknown as JsonValue,
+          assets,
         },
         stageOptions,
       ),
       allowedCommands,
+      assets.map((entry) => entry.id),
     ),
   );
 

@@ -275,7 +275,10 @@ export function createSiteBuilder(options: CreateSiteBuilderOptions): BuilderSit
 
   return {
     getSite: () => store.getState().site,
-    subscribe: (listener) => store.subscribe(() => { listener(); }),
+    subscribe: (listener) =>
+      store.subscribe(() => {
+        listener();
+      }),
     pages: () => {
       const current = store.getState().site;
       if (pagesFor !== current) {
@@ -290,10 +293,7 @@ export function createSiteBuilder(options: CreateSiteBuilderOptions): BuilderSit
       pageIndex(store.getState().site, pageId);
       const state = store.getState();
       if (state.pageId === pageId) return;
-      store.write(
-        { ...state, pageId, selection: [], elementFocus: null },
-        SITE_NOTHING_CHANGED,
-      );
+      store.write({ ...state, pageId, selection: [], elementFocus: null }, SITE_NOTHING_CHANGED);
     },
     page: (pageId) => {
       pageIndex(store.getState().site, pageId);

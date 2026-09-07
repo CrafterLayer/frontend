@@ -118,10 +118,9 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
     pageId?: PageId,
   ): Transaction {
     assertAuthor(author);
-    return dispatchGroup(
-      [pageId === undefined ? { command, args } : { command, args, pageId }],
-      { author },
-    );
+    return dispatchGroup([pageId === undefined ? { command, args } : { command, args, pageId }], {
+      author,
+    });
   }
 
   function dispatchGroup(
@@ -252,8 +251,7 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
  */
 function assertDirectionStaysWhole(patches: readonly Patch[]): void {
   const turnsAPage = patches.some(
-    (patch) =>
-      patch.path[0] === 'pages' && patch.path[2] === 'document' && patch.path[3] === 'dir',
+    (patch) => patch.path[0] === 'pages' && patch.path[2] === 'document' && patch.path[3] === 'dir',
   );
   if (!turnsAPage) return;
   const turnsTheSite = patches.some((patch) => patch.path[0] === 'dir');

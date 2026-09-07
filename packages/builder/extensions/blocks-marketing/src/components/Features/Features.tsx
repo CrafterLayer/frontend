@@ -64,26 +64,31 @@ export function Features({ node, props }: BlockRenderProps<FeaturesProps>) {
         )}
         data-features-content=""
       >
-        <header className={cx('flex max-w-content-narrow flex-col gap-3', ALIGN_CLASSES[props.align])}>
+        <header
+          className={cx('flex max-w-content-narrow flex-col gap-3', ALIGN_CLASSES[props.align])}
+        >
           {props.eyebrow === undefined ? null : (
             <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">
               {props.eyebrow}
             </p>
           )}
-          <h2 id={headingId} className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl">
+          <h2
+            id={headingId}
+            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+          >
             {props.heading}
           </h2>
-        {props.body === undefined ? null : (
-          <p
-            className={cx(
-              'm-0 max-w-content-narrow',
-              props.tone === 'dark' ? 'text-inherit opacity-85' : 'text-text-muted',
-            )}
-            data-features-intro=""
-          >
-            {props.body}
-          </p>
-        )}
+          {props.body === undefined ? null : (
+            <p
+              className={cx(
+                'm-0 max-w-content-narrow',
+                props.tone === 'dark' ? 'text-inherit opacity-85' : 'text-text-muted',
+              )}
+              data-features-intro=""
+            >
+              {props.body}
+            </p>
+          )}
         </header>
         <ul
           className={cx(

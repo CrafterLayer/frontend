@@ -1,0 +1,63 @@
+.bldr-swatches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-swatches__row {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-swatches__cell {
+  min-inline-size: 0;
+}
+
+.bldr-swatches__swatch {
+  align-items: flex-start;
+  background: var(--bldr-panel);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: var(--bldr-space-2xs);
+  inline-size: 100%;
+  padding: var(--bldr-space-sm);
+  text-align: start;
+}
+
+.bldr-swatches__swatch:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.bldr-swatches__swatch:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-swatches__swatch[aria-pressed='true'] {
+  border-color: var(--bldr-accent);
+}
+
+/* Decoration beside the words, never instead of them. */
+.bldr-swatches__chip {
+  block-size: var(--bldr-space-lg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  display: block;
+  inline-size: 100%;
+}
+
+.bldr-swatches__name {
+  font-size: var(--bldr-font-size-caption);
+  overflow-wrap: anywhere;
+}
+
+.bldr-swatches__value {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  overflow-wrap: anywhere;
+}

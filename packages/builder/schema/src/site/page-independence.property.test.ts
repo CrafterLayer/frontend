@@ -82,30 +82,34 @@ describe('site page independence (SC-014)', () => {
     fixed, so the work is constant; only the machine's spare capacity varies.
   */
   const PROPERTY_TIMEOUT_MS = 30_000;
-  it(`every page lifted out of a generated site validates alone (${String(RUNS)} cases, seed ${String(SEED)})`, () => {
-    let generatedSites = 0;
-    let liftedPages = 0;
+  it(
+    `every page lifted out of a generated site validates alone (${String(RUNS)} cases, seed ${String(SEED)})`,
+    () => {
+      let generatedSites = 0;
+      let liftedPages = 0;
 
-    fc.assert(
-      fc.property(siteArbitrary, (site) => {
-        generatedSites += 1;
-        expect(validateSite(site).ok).toBe(true);
-        for (const page of site.pages) {
-          liftedPages += 1;
-          expect(page.document.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
-          expect(validateDocument(page.document)).toEqual([]);
-        }
-      }),
-      { numRuns: RUNS, seed: SEED },
-    );
+      fc.assert(
+        fc.property(siteArbitrary, (site) => {
+          generatedSites += 1;
+          expect(validateSite(site).ok).toBe(true);
+          for (const page of site.pages) {
+            liftedPages += 1;
+            expect(page.document.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
+            expect(validateDocument(page.document)).toEqual([]);
+          }
+        }),
+        { numRuns: RUNS, seed: SEED },
+      );
 
-    /*
+      /*
       A property that generated nothing passes vacuously. Counting the sites and
       the pages lifted out of them is what makes the green tick mean something:
       200 sites were built and every page in every one of them was checked
       alone.
     */
-    expect(generatedSites).toBe(RUNS);
-    expect(liftedPages).toBeGreaterThanOrEqual(RUNS);
-  }, PROPERTY_TIMEOUT_MS);
+      expect(generatedSites).toBe(RUNS);
+      expect(liftedPages).toBeGreaterThanOrEqual(RUNS);
+    },
+    PROPERTY_TIMEOUT_MS,
+  );
 });

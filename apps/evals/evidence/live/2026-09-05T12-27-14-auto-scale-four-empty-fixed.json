@@ -156,19 +156,9 @@
   "undo": null,
   "build": {
     "sections": 4,
-    "titles": [
-      "Hero",
-      "Services",
-      "Pricing",
-      "Contact"
-    ],
+    "titles": ["Hero", "Services", "Pricing", "Contact"],
     "peakRunning": 4,
-    "final": [
-      "applied",
-      "applied",
-      "applied",
-      "applied"
-    ],
+    "final": ["applied", "applied", "applied", "applied"],
     "count": null
   },
   "outcome": "built",

@@ -12,6 +12,7 @@ export {
   SITE_STAGE_WIRE_VERSION,
   stageId,
   type AssemblyRequest,
+  type AssetCatalogueEntry,
   type AssemblyResponse,
   type ContentRequest,
   type ContentResponse,

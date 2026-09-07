@@ -55,9 +55,7 @@ describe('custom-code tree', () => {
   it('rejects an event-handler attribute rather than dropping it silently', () => {
     const result = customCodeTreeSchema.safeParse({
       kind: 'root',
-      children: [
-        { kind: 'element', tag: 'div', attributes: { onclick: 'steal()' } as never },
-      ],
+      children: [{ kind: 'element', tag: 'div', attributes: { onclick: 'steal()' } as never }],
     });
 
     expect(result.success).toBe(false);
@@ -97,7 +95,9 @@ describe('custom-code tree', () => {
 
   it('survives the depth guard without recursing on a hostile tree', () => {
     // The guard must be iterative: a recursive one would overflow before zod ran.
-    expect(() => customCodeTreeSchema.safeParse({ kind: 'root', children: [nest(50_000)] })).not.toThrow();
+    expect(() =>
+      customCodeTreeSchema.safeParse({ kind: 'root', children: [nest(50_000)] }),
+    ).not.toThrow();
   });
 
   it('is JSON-Schema representable, which is what lets a block declare it', () => {
@@ -147,8 +147,13 @@ describe('custom-code tree', () => {
 
     it('accepts a Lucide name with optional size, stroke, class, and label', () => {
       expect(
-        withIcon({ name: 'arrow-right', size: 20, strokeWidth: 1.5, className: 'text-accent', label: 'Next' })
-          .success,
+        withIcon({
+          name: 'arrow-right',
+          size: 20,
+          strokeWidth: 1.5,
+          className: 'text-accent',
+          label: 'Next',
+        }).success,
       ).toBe(true);
       expect(withIcon({ name: 'mail' }).success).toBe(true);
       expect(withIcon({ name: 'arrow-down-0-1' }).success).toBe(true);

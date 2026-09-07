@@ -1,5 +1,12 @@
 import type { BuilderSiteKernel } from '@craftkit/builder-core';
-import type { Author, BuilderSite, Patch, PageId, Transaction } from '@craftkit/builder-schema';
+import type {
+  AssetEntry,
+  Author,
+  BuilderSite,
+  Patch,
+  PageId,
+  Transaction,
+} from '@craftkit/builder-schema';
 
 import type { AssemblyStep } from './wire';
 
@@ -36,6 +43,19 @@ export interface ApplySiteCommandsOptions {
   readonly kernel: BuilderSiteKernel;
   readonly commands: readonly AssemblyStep[];
   readonly author?: Author;
+  /**
+   * The library the run was allowed to choose from, by id.
+   *
+   * Every picture a command references is registered into the site's asset
+   * table BEFORE the command that uses it, because the site's own invariant is
+   * that every `AssetRef` resolves there (FR-045) — a reference applied without
+   * its entry would build a site that `validateSite` then refuses, and the
+   * refusal would arrive after the whole run had been paid for.
+   *
+   * The table takes a COPY. That is what makes a picture later deleted from the
+   * library degrade one image instead of invalidating the site.
+   */
+  readonly assets?: Readonly<Record<string, AssetEntry>> | undefined;
 }
 
 export interface AppliedSiteCommand {
@@ -50,8 +70,18 @@ export interface SiteCommandRefusal {
   readonly reason: string;
 }
 
+export interface AddressRename {
+  readonly asked: string;
+  readonly used: string;
+}
+
 export type ApplySiteCommandsResult =
-  | { readonly ok: true; readonly applied: readonly AppliedSiteCommand[] }
+  | {
+      readonly ok: true;
+      readonly applied: readonly AppliedSiteCommand[];
+      /** Addresses that were already taken, and what was used instead. */
+      readonly renamed: readonly AddressRename[];
+    }
   | {
       readonly ok: false;
       readonly refusal: SiteCommandRefusal;
@@ -68,12 +98,58 @@ export type ApplySiteCommandsResult =
  * has no way to know what is missing. The refusal names the command and its
  * position, and the caller — holding a draft — throws the draft away.
  */
+/**
+ * Every asset id anywhere inside a command's arguments.
+ *
+ * The same walk the assembly stage does, and for the same reason: the registry
+ * owns where an image prop sits, so finding the SHAPE `{ assetId }` finds every
+ * reference no matter which block invented a new place to put one.
+ */
+const assetRefsIn = (value: unknown, found: string[] = []): readonly string[] => {
+  if (Array.isArray(value)) {
+    for (const item of value) assetRefsIn(item, found);
+    return found;
+  }
+  if (typeof value !== 'object' || value === null) return found;
+  const record = value as Record<string, unknown>;
+  if (typeof record['assetId'] === 'string') found.push(record['assetId']);
+  for (const item of Object.values(record)) assetRefsIn(item, found);
+  return found;
+};
+
 export function applySiteCommands(options: ApplySiteCommandsOptions): ApplySiteCommandsResult {
-  const { kernel, commands, author = 'ai' } = options;
+  const { kernel, commands, author = 'ai', assets = {} } = options;
   const minted = new Map<string, PageId>();
   const applied: AppliedSiteCommand[] = [];
+  const renamed: AddressRename[] = [];
+  const registered = new Set(Object.keys(kernel.getSite().assets));
 
   for (const [index, step] of commands.entries()) {
+    /*
+      The pictures this command needs, put into the site's table first. The
+      assembly stage has already refused any id that was not in the catalogue,
+      so an id arriving here that the catalogue does not hold means the two were
+      given different lists — worth refusing loudly rather than building a site
+      whose reference resolves to nothing.
+    */
+    for (const assetId of assetRefsIn(step.args)) {
+      if (registered.has(assetId)) continue;
+      const entry = assets[assetId];
+      if (entry === undefined) {
+        return {
+          ok: false,
+          applied,
+          refusal: {
+            step,
+            index,
+            reason: `Command ${String(index + 1)} ("${step.command}") references the picture "${assetId}", which is not in the library this run was given.`,
+          },
+        };
+      }
+      kernel.dispatch('registerAsset', { entry }, author);
+      registered.add(assetId);
+    }
+
     const known = new Set(kernel.getSite().pages.map((page) => page.id));
     const pageId = step.page === undefined ? undefined : minted.get(step.page);
 
@@ -89,8 +165,21 @@ export function applySiteCommands(options: ApplySiteCommandsOptions): ApplySiteC
       };
     }
 
+    /*
+      An address a run cannot know is taken.
+
+      The assembly derives `/${sitemapId}` because that is the only name it has,
+      and a person who builds a second time into the same site would otherwise
+      hit `Another page already lives at "/home"` and lose the whole run — for a
+      collision nobody could have avoided. So the applier, which is the only
+      thing that can SEE the live site, makes it unique and REPORTS it. Silent
+      renaming would be the other failure: a person who asked for /home and got
+      /home-2 has to be told, or they will look for a page that is not there.
+    */
+    const args = step.command === 'addPage' ? freeAddress(kernel, step.args, renamed) : step.args;
+
     try {
-      kernel.dispatch(step.command, step.args, author, pageId);
+      kernel.dispatch(step.command, args, author, pageId);
     } catch (error: unknown) {
       return {
         ok: false,
@@ -124,7 +213,27 @@ export function applySiteCommands(options: ApplySiteCommandsOptions): ApplySiteC
     applied.push(pageId === undefined ? { step } : { step, pageId });
   }
 
-  return { ok: true, applied };
+  return { ok: true, applied, renamed };
+}
+
+/** The asked-for address, or the first free variant of it. */
+function freeAddress(kernel: BuilderSiteKernel, args: unknown, renamed: AddressRename[]): unknown {
+  if (typeof args !== 'object' || args === null || !('address' in args)) return args;
+  const asked: unknown = (args as Record<string, unknown>)['address'];
+  if (typeof asked !== 'string') return args;
+
+  const taken = new Set(kernel.getSite().pages.map((page) => page.address));
+  if (!taken.has(asked)) return args;
+
+  for (let suffix = 2; suffix < 100; suffix += 1) {
+    const candidate = `${asked}-${String(suffix)}`;
+    if (taken.has(candidate)) continue;
+    renamed.push({ asked, used: candidate });
+    return { ...args, address: candidate };
+  }
+  /* Ninety-nine of the same page is not a collision, it is a different problem;
+     let the door refuse and say so in its own words. */
+  return args;
 }
 
 /* ── The commit ───────────────────────────────────────────────────────────── */

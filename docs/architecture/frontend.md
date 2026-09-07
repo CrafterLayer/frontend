@@ -110,6 +110,33 @@ React Server Components may be introduced only through a framework that supports
 the approved plan records the boundary. Server code must not use browser APIs, client state, or
 Effects. Place `'use client'` at the narrowest interactive edge.
 
+## Builder Site Model
+
+`packages/builder/*` is a kernel-plus-extensions family under the layer law of
+[ADR 0003](decisions/0003-builder-dependency-law.md). Since
+[ADR 0006](decisions/0006-builder-site-model-and-design-tokens.md) it knows two shapes:
+
+- **A document** — `BuilderDocument`, one page of nodes, driven by `BuilderKernel` (17 members).
+- **A site** — `BuilderSite`, holding pages, shared regions, a design system and an asset table,
+  driven by `BuilderSiteKernel`.
+
+A site is **one** kernel. One store, one dispatcher, one transaction log, one history, one save
+session; `siteKernel.page(pageId)` returns a lens satisfying the document interface, so every
+component built for a document works over a site unchanged. Patches are rooted in the site, which is
+what makes a batch touching several pages one transaction and therefore one undo.
+
+Three consequences that a feature slice must not work around:
+
+- **The door is the only writer.** `generateSite` is handed no kernel; the `commands` on what it
+  returns are the only part anything writes from. They go into a DRAFT kernel one at a time — a
+  group cannot read back an id minted halfway through it — and the whole result lands on the live
+  site as a single `applySitePatches`.
+- **`DesignSystem` is layer 0.** The schema owns the type, `defaultDesignSystem()` and
+  `validateDesignSystem`; the renderer owns only the translation to CSS variables. `validateSite`
+  delegates legibility rather than computing contrast a second time.
+- **An image prop is `AssetRef | { absent, reason }`.** Never a string. A site's `assets` table
+  holds copies of the library's entries, so a picture deleted from the library degrades nothing.
+
 ## Verification Contract
 
 For a UI change, verification expands in this order:
@@ -128,4 +155,5 @@ their emitted route chunks and runtime navigation evidence once an app exists.
 ## Staleness Condition
 
 Update this document when the framework, query lifecycle, routing helper contract, icon placeholder
-status, rendering boundary, design-system ownership, or component completion contract changes.
+status, rendering boundary, design-system ownership, builder document/site model, or component
+completion contract changes.

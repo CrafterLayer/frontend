@@ -33,6 +33,8 @@ function isLoopbackDevelopmentEndpoint(
  */
 export function planProviderFromEnv(
   env: Readonly<Record<string, unknown>>,
+  /** A model the person picked; named to the server, which decides whether it is allowed. */
+  model?: string,
 ): AiPlanProvider | undefined {
   const raw = env['VITE_AI_PLAN_ENDPOINT'];
   const endpoint = typeof raw === 'string' ? raw.trim() : '';
@@ -41,6 +43,11 @@ export function planProviderFromEnv(
   }
   const rawToken = env['VITE_AI_PLAN_TOKEN'];
   const token = typeof rawToken === 'string' ? rawToken.trim() : '';
+  const chosen = model?.trim() ?? '';
+  const headers = {
+    ...(token === '' ? {} : { authorization: `Bearer ${token}` }),
+    ...(chosen === '' ? {} : { 'x-craftkit-ai-model': chosen }),
+  };
   /*
     Eleven minutes, and it has to be this long. A plan is 15-25k output tokens
     — three to five minutes through the dev CLI backend and minutes through the
@@ -68,9 +75,27 @@ export function planProviderFromEnv(
       createRemoteAiPlanProvider({
         endpoint,
         timeoutMs: 660_000,
-        ...(token === '' ? {} : { headers: { authorization: `Bearer ${token}` } }),
+        ...(Object.keys(headers).length === 0 ? {} : { headers }),
         allowInsecureHttp: isLoopbackDevelopmentEndpoint(endpoint, env),
       }),
     ),
   );
+}
+
+/**
+ * The models the panel may OFFER, from `VITE_AI_PLAN_MODELS` (comma-separated
+ * OpenRouter slugs). Offering is not allowing: the server keeps its own list
+ * in `CRAFTKIT_AI_MODELS` and refuses anything outside it.
+ */
+export function planModelsFromEnv(env: Readonly<Record<string, unknown>>): readonly string[] {
+  const raw = env['VITE_AI_PLAN_MODELS'];
+  if (typeof raw !== 'string') return [];
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry !== ''),
+    ),
+  ];
 }

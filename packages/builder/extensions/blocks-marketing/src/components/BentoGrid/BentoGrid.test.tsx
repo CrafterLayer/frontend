@@ -89,9 +89,9 @@ describe('BentoGrid', () => {
   });
 
   it('rejects malformed or excessive cards', () => {
-    expect(
-      bentoGridSchema.props.safeParse({ items: [{ title: '', body: 'Body' }] }).success,
-    ).toBe(false);
+    expect(bentoGridSchema.props.safeParse({ items: [{ title: '', body: 'Body' }] }).success).toBe(
+      false,
+    );
     expect(
       bentoGridSchema.props.safeParse({
         items: Array.from({ length: 13 }, (_, index) => ({

@@ -1,12 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 
-import type {
-  BuilderSite,
-  ElementFocus,
-  Node,
-  NodeId,
-  PageId,
-} from '@craftkit/builder-schema';
+import type { BuilderSite, ElementFocus, Node, NodeId, PageId } from '@craftkit/builder-schema';
 
 /**
  * The site kernel's single state (013, ق١).
@@ -51,11 +45,7 @@ export const SITE_NOTHING_CHANGED: SiteNotifyTargets = {
 export interface SiteStoreHandle {
   getState(): Readonly<KernelSiteState>;
   subscribe(listener: (state: KernelSiteState) => void): () => void;
-  subscribeNode(
-    pageId: PageId,
-    id: NodeId,
-    listener: (node: Node | undefined) => void,
-  ): () => void;
+  subscribeNode(pageId: PageId, id: NodeId, listener: (node: Node | undefined) => void): () => void;
   write(next: KernelSiteState, changed: SiteNotifyTargets): void;
 }
 

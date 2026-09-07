@@ -771,7 +771,9 @@ export function startAiPlanBridgeFromEnv(env = process.env) {
     bodyTimeoutMs,
     killGraceMs,
   });
-  console.warn('[ai-plan-bridge] DEPRECATED: use `pnpm --filter @craftkit/ai-server dev` — this bridge builds its own prompt and the server\'s catalog modes, escape hatch, icons, and skills never reach the model through it.');
+  console.warn(
+    "[ai-plan-bridge] DEPRECATED: use `pnpm --filter @craftkit/ai-server dev` — this bridge builds its own prompt and the server's catalog modes, escape hatch, icons, and skills never reach the model through it.",
+  );
   server.listen(port, LOOPBACK_HOST, () => {
     console.log(`AI plan bridge listening on http://${LOOPBACK_HOST}:${String(port)}/plan.`);
     console.log('Requests require AI_BRIDGE_TOKEN; no Claude tools or project configuration load.');

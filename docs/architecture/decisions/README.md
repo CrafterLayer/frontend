@@ -19,6 +19,10 @@ features, applications, packages, delivery workflows, or long-term maintenance.
 - [`0005-adaptive-spec-router-local-demo.md`](0005-adaptive-spec-router-local-demo.md) — Adaptive
   Spec Router is a private Vite React local product trial with deterministic in-memory data and no
   provider, credential, repository, or deployment integration.
+- [`0006-builder-site-model-and-design-tokens.md`](0006-builder-site-model-and-design-tokens.md) — a
+  site is ONE kernel with pages as lenses (so a whole generation is one undo and a failure writes
+  nothing), `DesignSystem` moves to layer 0, and an image prop holds an asset id or a labelled
+  absence but never an address.
 
 ## Naming
 

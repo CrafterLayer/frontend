@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { defineBlockSchema } from '@craftkit/builder-schema';
+import { defineBlockSchema, imagePropSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
@@ -15,6 +15,19 @@ export const imageSchema = defineBlockSchema({
     'A responsive image with explicit alternative-text semantics, object-fit controls, and canvas-only setup guidance.',
   surfaces: ['site', 'store', 'docs'],
   props: z.object({
+    /**
+     * A picture CHOSEN from the site's library, or a labelled absence.
+     *
+     * This is what a generated site carries, and it is the only kind of image
+     * an agent may produce: an id the site's asset table resolves, or a
+     * sentence saying why there is nothing here. There is no third state, and
+     * in particular no generated address (FR-045).
+     *
+     * `src` stays for a person typing a URL they own. When both are set the
+     * asset wins, because it is the one the site can still resolve after the
+     * URL rots.
+     */
+    asset: imagePropSchema.optional(),
     src: z.string().max(2000).optional(),
     alt: z.string().max(160).default(''),
     decorative: z.boolean().default(false),
@@ -29,6 +42,7 @@ export const imageSchema = defineBlockSchema({
     ...sectionSpacingProps,
   }),
   propertyGroups: {
+    asset: { tab: 'content', section: 'Image' },
     src: { tab: 'content', section: 'Image' },
     alt: { tab: 'content', section: 'Accessibility' },
     decorative: { tab: 'advanced', section: 'Accessibility' },

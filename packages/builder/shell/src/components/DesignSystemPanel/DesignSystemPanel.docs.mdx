@@ -1,0 +1,47 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as DesignSystemPanelStories from './DesignSystemPanel.stories';
+
+<Meta of={DesignSystemPanelStories} />
+
+# DesignSystemPanel
+
+A site's design system, edited one token at a time.
+
+<Canvas of={DesignSystemPanelStories.Default} />
+
+## One edit is one dispatch
+
+The field holds a **draft** while a person types. A controlled input that dispatched on every
+keystroke would put an entry in history per character, and "undo the colour" would become seven
+presses instead of one.
+
+<Canvas of={DesignSystemPanelStories.Editing} />
+
+The commit happens on blur and on Enter. A value equal to the one already committed dispatches
+nothing at all — "it did nothing" and "it did nothing but I recorded it anyway" are different lies
+to tell a person reading their own history.
+
+## An external write always wins
+
+<Canvas of={DesignSystemPanelStories.ExternalWriteWins} />
+
+If the system changes underneath — a generation lands, another tab commits, an undo runs — the draft
+is **discarded** and the field shows what the site actually holds.
+
+That direction is the uncomfortable one and it is deliberate. Keeping the draft would let a
+half-typed colour outrank a value the kernel has already committed, and the next commit would
+silently overwrite a change the person never saw. Losing three keystrokes is the smaller harm than
+showing a site a colour it does not have.
+
+## Refusals are announced, not drawn
+
+<Canvas of={DesignSystemPanelStories.ContrastWarning} />
+
+The **door** owns legibility: `setDesignToken` refuses a value that would push a pairing the site
+declared as legible under its threshold, and the panel never re-computes that. A second opinion
+about contrast would be a second answer to one question, and the day the two disagreed a site would
+ship text nobody could read.
+
+The refusal goes into a live region as well as beside the field, because a person who has just typed
+a colour is looking at the field. A banner they are not looking at is a banner they will not read.

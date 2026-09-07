@@ -321,10 +321,7 @@ describe('defaultDesignSystem — the starter every new site inherits', () => {
     const system = defaultDesignSystem();
     expect(system.pairings.length).toBeGreaterThanOrEqual(7);
     for (const pairing of system.pairings) {
-      const ratio = contrastRatio(
-        system.tokens[pairing.text],
-        system.tokens[pairing.background],
-      );
+      const ratio = contrastRatio(system.tokens[pairing.text], system.tokens[pairing.background]);
       expect
         .soft(ratio, `${pairing.text} on ${pairing.background}`)
         .toBeGreaterThanOrEqual(pairing.size === 'large' ? 3 : 4.5);

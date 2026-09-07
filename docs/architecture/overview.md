@@ -36,6 +36,14 @@ flowchart TD
 - `apps/storybook` owns the one workspace UI catalog and is not a product deployable.
 - `apps/adaptive-spec-router` owns a private local product trial for explainable task routing, dual
   plan-review freshness, and evidence visibility. It has no backend or deployment target.
+- `packages/builder/*` owns the visual builder as a kernel-plus-extensions family under the layer
+  law of [ADR 0003](decisions/0003-builder-dependency-law.md). It models both a single document and
+  a whole SITE — pages, shared regions, a design system and an asset table — as one kernel with
+  pages as lenses, recorded in [ADR 0006](decisions/0006-builder-site-model-and-design-tokens.md).
+  Applications reach the family through the `@craftkit/builder` preset and nothing deeper.
+- `apps/playground` owns the builder's local harness: the canvas, the inspector, and the AI
+  assistant that generates a whole site from one description. It is a development surface, not a
+  deployable.
 - `.specify/` owns governance, agent workflows, and feature-delivery artifacts.
 - `docs/` explains architecture and repeatable engineering or operational practice.
 
@@ -76,4 +84,5 @@ this document with:
 ## Staleness Condition
 
 Revisit this overview when the first application is scaffolded, a new deployable is added, a package
-changes ownership, or runtime/deployment boundaries change.
+changes ownership, the builder's document/site model changes, or runtime/deployment boundaries
+change.

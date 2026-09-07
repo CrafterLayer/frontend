@@ -122,7 +122,10 @@ export function createPageView(pageId: PageId, deps: PageViewDeps): BuilderKerne
   return {
     context,
     dispatch,
-    dispatchGroup: (steps: readonly GroupStep[], authorOrOptions?: Author | GroupedDispatchOptions) =>
+    dispatchGroup: (
+      steps: readonly GroupStep[],
+      authorOrOptions?: Author | GroupedDispatchOptions,
+    ) =>
       /*
         Every step of a group dispatched THROUGH a page lens edits that page.
         A caller who wants a group spanning pages, or one mixing site commands

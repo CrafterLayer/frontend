@@ -6,7 +6,8 @@ import { SiteBriefForm } from './SiteBriefForm';
 
 afterEach(cleanup);
 
-const started = () => vi.fn<(brief: string) => Promise<string | undefined>>().mockResolvedValue(undefined);
+const started = () =>
+  vi.fn<(brief: string) => Promise<string | undefined>>().mockResolvedValue(undefined);
 
 describe('SiteBriefForm', () => {
   it('hands the brief to the run, trimmed', async () => {

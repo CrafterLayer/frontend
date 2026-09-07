@@ -76,8 +76,6 @@ export function siteFromDocument(doc: BuilderDocument): BuilderSite {
   };
 }
 
-
-
 function readSiteVersion(value: unknown): number {
   if (
     value === null ||

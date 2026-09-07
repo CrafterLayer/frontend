@@ -1,0 +1,43 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TokenSwatchGridStories from './TokenSwatchGrid.stories';
+
+<Meta of={TokenSwatchGridStories} />
+
+# TokenSwatchGrid
+
+A design system's tokens, as a grid a person can walk.
+
+<Canvas of={TokenSwatchGridStories.ColourRoles} />
+
+## Why a swatch is never a colour alone
+
+A grid of coloured squares is unusable to anyone who cannot tell the squares apart — roughly one man
+in twelve, every screen reader, and anybody on a bad monitor. So every cell carries the token's
+**name** and its **value** as text, and the colour sits beside them as decoration.
+
+That decision is also what lets measurements share the grid. `--t-gap` has no colour to show, and a
+component built around swatches would have needed a second component for them.
+
+<Canvas of={TokenSwatchGridStories.Measurements} />
+
+## Why it is its own component
+
+The panel that edits a design system is a form: a field, a commit, a refusal. This is a **navigation
+surface**: a grid with its own keyboard model and its own focus. Folding the two together would have
+produced one component with two reasons to change and two keyboard contracts, and the repository's
+rule of one substantive component per file exists precisely to prevent that. It is a sibling of
+`DesignSystemPanel` rather than a folder inside it, because the component contract discovers only
+direct children of `components/` — a nested folder would never have had its five artifacts checked.
+
+## The keyboard model
+
+<Canvas of={TokenSwatchGridStories.Keyboard} />
+
+Arrow keys move by row and column. `Home` and `End` go to the ends of the **row**, not of the grid.
+Movement clamps at the edges rather than wrapping, because wrapping reads as the grid jumping.
+
+Exactly one cell is tabbable at a time — a roving `tabindex` — so a person tabbing past sixty tokens
+presses Tab once, not sixty times.
+
+<Canvas of={TokenSwatchGridStories.Overflow} />

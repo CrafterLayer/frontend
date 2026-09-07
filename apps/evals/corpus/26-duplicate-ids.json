@@ -7,18 +7,14 @@
   "request": "Add three testimonial sections, one for each of our three markets: clinics, gyms, and studios.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 3,
     "maxCommands": 12,
-    "allBlockTypes": [
-      "testimonials"
-    ]
+    "allBlockTypes": ["testimonials"]
   },
   "budget": {
     "maxCommands": 24,

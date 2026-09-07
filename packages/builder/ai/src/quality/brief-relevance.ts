@@ -50,11 +50,64 @@ export interface BriefRelevance {
   Arabic and a measure that only knew English would score an Arabic site zero.
 */
 const CLOSED_CLASS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for', 'from', 'has', 'have',
-  'in', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the', 'their', 'them', 'they',
-  'this', 'to', 'was', 'were', 'will', 'with', 'you', 'your',
-  'من', 'إلى', 'الى', 'على', 'عن', 'في', 'مع', 'هذا', 'هذه', 'ذلك', 'التي', 'الذي',
-  'أن', 'ان', 'إن', 'كان', 'كانت', 'هو', 'هي', 'هم', 'ما', 'لا', 'قد', 'كل', 'بعض',
+  'a',
+  'an',
+  'and',
+  'are',
+  'as',
+  'at',
+  'be',
+  'but',
+  'by',
+  'for',
+  'from',
+  'has',
+  'have',
+  'in',
+  'is',
+  'it',
+  'its',
+  'of',
+  'on',
+  'or',
+  'that',
+  'the',
+  'their',
+  'them',
+  'they',
+  'this',
+  'to',
+  'was',
+  'were',
+  'will',
+  'with',
+  'you',
+  'your',
+  'من',
+  'إلى',
+  'الى',
+  'على',
+  'عن',
+  'في',
+  'مع',
+  'هذا',
+  'هذه',
+  'ذلك',
+  'التي',
+  'الذي',
+  'أن',
+  'ان',
+  'إن',
+  'كان',
+  'كانت',
+  'هو',
+  'هي',
+  'هم',
+  'ما',
+  'لا',
+  'قد',
+  'كل',
+  'بعض',
 ]);
 
 const MIN_TERM_LENGTH = 3;
@@ -87,10 +140,7 @@ export function briefTerms(brief: string): readonly string[] {
   return [...terms];
 }
 
-export function measureBriefRelevance(
-  brief: string,
-  spans: readonly string[],
-): BriefRelevance {
+export function measureBriefRelevance(brief: string, spans: readonly string[]): BriefRelevance {
   const terms = briefTerms(brief);
   /*
     A span with no words in it is not measurable and is not counted either way.

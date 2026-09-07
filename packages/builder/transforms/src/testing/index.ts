@@ -15,3 +15,5 @@ export {
   type RegistryVocabulary,
   type SlotVocabulary,
 } from './arbitraries';
+
+export { assetFixture, builderSiteArbitrary, type SiteArbitraryOptions } from './site-arbitraries';

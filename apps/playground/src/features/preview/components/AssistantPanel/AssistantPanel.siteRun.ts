@@ -1,4 +1,5 @@
 import { applySiteCommands, generateSite } from '@craftkit/builder';
+import type { AssetEntry, AssetLibraryPort } from '@craftkit/builder';
 import type {
   BuilderKernel,
   BuilderSite,
@@ -58,6 +59,11 @@ export interface SiteRunHost {
   readonly createDraft: (site: BuilderSite) => BuilderSiteKernel;
   /** The five-stage provider. Offline in the playground until a server is wired. */
   readonly provider: SiteStageProvider;
+  /**
+   * Where the run's pictures come from. Absent means a text-only site, which is
+   * a site — an unwired library is not a failure (FR-051).
+   */
+  readonly library?: AssetLibraryPort | undefined;
   /** Commands the assembly stage may emit. */
   readonly allowedCommands?: readonly string[] | undefined;
   readonly limits?: StageLimits | undefined;
@@ -142,6 +148,27 @@ export function limitsFor(page: BuilderKernel, asked: StageLimits): StageLimits 
     : { ...asked, maxSectionsPerPage: max };
 }
 
+/**
+ * The library's answer, or an empty one.
+ *
+ * Swallowing the rejection is the requirement, not laziness: a site with no
+ * pictures is a site, and a run that failed because a picture store was down
+ * would be refusing to build a perfectly good text site (FR-051). What must
+ * never happen — inventing an address to fill the gap — is impossible further
+ * down, where an image position can only hold a real id or a labelled absence.
+ */
+async function listAssets(
+  library: AssetLibraryPort | undefined,
+  signal: AbortSignal | undefined,
+): Promise<readonly AssetEntry[]> {
+  if (library === undefined) return [];
+  try {
+    return await library.list(signal === undefined ? {} : { signal });
+  } catch {
+    return [];
+  }
+}
+
 export async function runSiteGeneration(
   options: RunSiteGenerationOptions,
 ): Promise<SiteRunOutcome> {
@@ -153,6 +180,19 @@ export async function runSiteGeneration(
   const limits = limitsFor(page, host.limits ?? DEFAULT_SITE_LIMITS);
 
   const draft = host.createDraft(live);
+
+  /*
+    The catalogue is read ONCE, before the stages, and the same list is given to
+    two places: the assembly stage, so it can only choose from pictures that
+    exist, and the applier, so every chosen picture is registered in the site's
+    own asset table before the command that uses it. Reading it twice would let
+    the two disagree — the stage choosing a picture the applier no longer has.
+
+    A library that cannot answer is not a failure. The run continues with an
+    empty catalogue and the positions come back as labelled absences.
+  */
+  const entries = await listAssets(host.library, signal);
+  const assets = Object.fromEntries(entries.map((entry) => [entry.id, entry]));
 
   let generated;
   try {
@@ -166,6 +206,7 @@ export async function runSiteGeneration(
       limits,
       blockTypes,
       allowedCommands: host.allowedCommands ?? [...DEFAULT_SITE_COMMANDS],
+      assets: entries.map(({ url: _url, width: _width, height: _height, ...rest }) => rest),
       ...(signal === undefined ? {} : { signal }),
       ...(onStage === undefined ? {} : { onStage }),
     });
@@ -182,7 +223,7 @@ export async function runSiteGeneration(
     };
   }
 
-  const applied = applySiteCommands({ kernel: draft, commands: generated.commands });
+  const applied = applySiteCommands({ kernel: draft, commands: generated.commands, assets });
   if (!applied.ok) {
     return { ok: false, reason: applied.refusal.reason };
   }
@@ -193,7 +234,11 @@ export async function runSiteGeneration(
     landing work they had already told us to abandon.
   */
   if (signal?.aborted === true) {
-    return { ok: false, reason: 'The run was stopped before anything was applied.', cancelled: true };
+    return {
+      ok: false,
+      reason: 'The run was stopped before anything was applied.',
+      cancelled: true,
+    };
   }
 
   const outcome = commitSite({

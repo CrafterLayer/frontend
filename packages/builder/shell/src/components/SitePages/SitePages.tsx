@@ -69,6 +69,7 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
   );
 
   const pages = site.pages;
+  const regionIds = Object.keys(site.sharedRegions).sort();
   const [activeId, setActiveId] = useState<PageId>(currentPage);
   const [renaming, setRenaming] = useState<PageId | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
@@ -112,6 +113,7 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
     }
   }, []);
 
+  const activePage = pages.find((page) => page.id === activeId);
   const listRef = useRef<HTMLUListElement | null>(null);
   const rowRefs = useRef(new Map<PageId, HTMLLIElement>());
   const focusInsideRef = useRef(false);
@@ -387,6 +389,53 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
             );
           })}
         </ul>
+      )}
+
+      {/*
+        SHARED REGIONS, for the active page only (FR-004).
+
+        Below the list rather than inside a row, and the reason is semantic: the
+        list is a `listbox` whose children are `option`s, and an option
+        containing checkboxes is a control containing controls — a shape no
+        screen reader has a sensible reading for. The active page is already the
+        subject of this panel, so the regions it carries belong beside it.
+
+        Each toggle is ONE `setPageRegions`: opting out is a page's decision
+        about itself, and it must not become a write to the region or to any
+        other page.
+      */}
+      {regionIds.length === 0 || activePage === undefined ? null : (
+        <fieldset className="bldr-site-pages__regions">
+          <legend className="bldr-site-pages__regions-legend">
+            Shared regions on {activePage.title}
+          </legend>
+          {regionIds.map((regionId) => {
+            const region = site.sharedRegions[regionId];
+            const on = activePage.regions.includes(regionId);
+            return (
+              <label className="bldr-site-pages__region" key={regionId}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => {
+                    guarded(() => {
+                      siteKernel.dispatch('setPageRegions', {
+                        pageId: activePage.id,
+                        regions: on
+                          ? activePage.regions.filter((entry) => entry !== regionId)
+                          : [...activePage.regions, regionId],
+                      });
+                    });
+                  }}
+                />
+                <span>
+                  {regionId}
+                  {region === undefined ? '' : ` (${region.kind})`}
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
       )}
     </nav>
   );

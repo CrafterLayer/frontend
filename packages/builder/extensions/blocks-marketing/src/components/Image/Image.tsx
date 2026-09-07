@@ -1,4 +1,5 @@
 import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { resolveImage, useAssetTable } from '@craftkit/builder-renderer';
 
 import { WIDTH_CLASSES, cx } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
@@ -35,6 +36,12 @@ const RADIUS_CLASSES: Record<ImageProps['radius'], string> = {
 
 /** A publish-safe image whose empty and accessibility guidance exists only on the canvas. */
 export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
+  /*
+    Resolved against the site's own asset table, never against anything the
+    props carry: a block that could render an address written into its props
+    would be the one hole through which a generated URL reaches a visitor.
+  */
+  const resolved = resolveImage(props.asset, useAssetTable());
   /* Motion arrives as attributes; `class` is pulled out because React spells it `className`. */
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const className = cx(
@@ -57,8 +64,21 @@ export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
       ? undefined
       : { ...colorStyle, ...spacingStyle };
 
-  if (props.src === undefined) {
+  const source = resolved?.kind === 'asset' ? resolved.entry.url : props.src;
+
+  if (source === undefined) {
     if (!isCanvas) return null;
+
+    /*
+      An absence SAYS why. "Nothing in the library matched a kiln" and "the
+      picture you chose was deleted" send a person to different places, and a
+      dashed rectangle saying neither sends them nowhere. The reason is written
+      once, by whoever produced the absence, and carried here unchanged.
+    */
+    const message =
+      resolved?.kind === 'absent'
+        ? resolved.reason
+        : 'Add an image URL, or choose one from the library.';
 
     return (
       <div className={className} style={style} {...motionData}>
@@ -69,20 +89,28 @@ export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
             props.ratio === 'auto' ? 'min-h-48' : 'min-h-0',
           )}
         >
-          Add an image URL.
+          {message}
         </div>
       </div>
     );
   }
 
-  const needsAltText = !props.decorative && props.alt.trim().length === 0;
+  /*
+    The library's own alt text is the better answer when the block has none: it
+    was written by whoever put the picture in the library, describing THAT
+    picture, and an empty alt on a meaningful image is a WCAG failure a person
+    cannot see.
+  */
+  const altText =
+    props.alt.trim().length > 0 || resolved?.kind !== 'asset' ? props.alt : resolved.entry.alt;
+  const needsAltText = !props.decorative && altText.trim().length === 0;
 
   return (
     <div className={className} style={style} {...motionData}>
       <img
         className={cx(mediaClassName, 'block h-auto')}
-        src={props.src}
-        alt={props.decorative ? '' : props.alt}
+        src={source}
+        alt={props.decorative ? '' : altText}
         loading="lazy"
         decoding="async"
       />

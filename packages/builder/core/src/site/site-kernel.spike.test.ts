@@ -238,7 +238,11 @@ describe('S1 — a page lens over one site kernel', () => {
 
     // An ordinary node edit stays precise: one key, no site-wide wake.
     const precise = changedPageNodes(site, [
-      { op: 'replace', path: ['pages', 1, 'document', 'nodes', 'p1', 'props', 'content'], value: 'x' },
+      {
+        op: 'replace',
+        path: ['pages', 1, 'document', 'nodes', 'p1', 'props', 'content'],
+        value: 'x',
+      },
     ]);
     expect(precise.structural).toBe(false);
     expect([...precise.keys]).toEqual(['about::p1']);

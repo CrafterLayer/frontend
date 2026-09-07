@@ -20,19 +20,23 @@ export const faqExamples: { prompt: string; node: JsonValue }[] = [
         items: [
           {
             question: 'How long does setup take?',
-            answer: 'Most teams connect their core tools and publish a first workflow in less than one working day.',
+            answer:
+              'Most teams connect their core tools and publish a first workflow in less than one working day.',
           },
           {
             question: 'Can we start with one team?',
-            answer: 'Yes. Start with a focused workspace, prove the operating model, and expand without rebuilding it.',
+            answer:
+              'Yes. Start with a focused workspace, prove the operating model, and expand without rebuilding it.',
           },
           {
             question: 'How is sensitive data protected?',
-            answer: 'Role-based access, auditable activity, and configurable retention keep governance close to the work.',
+            answer:
+              'Role-based access, auditable activity, and configurable retention keep governance close to the work.',
           },
           {
             question: 'What support is included?',
-            answer: 'Every plan includes guided onboarding, a shared help center, and support from product specialists.',
+            answer:
+              'Every plan includes guided onboarding, a shared help center, and support from product specialists.',
           },
         ],
       },

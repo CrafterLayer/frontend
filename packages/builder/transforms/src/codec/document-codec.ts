@@ -42,8 +42,7 @@ export type ParseResult = { ok: true; patches: Patch[] } | { ok: false; errors: 
  * candidate document at once, not one page's patches.
  */
 export type DocumentReadResult =
-  | { ok: true; document: BuilderDocument }
-  | { ok: false; errors: ParseError[] };
+  { ok: true; document: BuilderDocument } | { ok: false; errors: ParseError[] };
 
 type Path = readonly (string | number)[];
 

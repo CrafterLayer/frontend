@@ -7,22 +7,15 @@
   "request": "Change the hero heading to \"Built in Amman, shipped everywhere\" and leave everything else exactly as it is.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 3,
-    "anyCommands": [
-      "setProp"
-    ],
-    "forbiddenBlockTypes": [
-      "hero",
-      "features"
-    ]
+    "anyCommands": ["setProp"],
+    "forbiddenBlockTypes": ["hero", "features"]
   },
   "budget": {
     "maxCommands": 24,

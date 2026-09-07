@@ -1,6 +1,8 @@
 # `@craftkit/ai-server`
 
-The Claude server behind `createRemoteAiPlanProvider`. One route, one POST, three possible answers.
+The model server behind `createRemoteAiPlanProvider`: Claude through the Anthropic SDK by default,
+or any model OpenRouter fronts through one OpenRouter key. One route, one POST, three possible
+answers.
 
 Until this existed the assistant's entire remote path was a contract with nothing on the other end:
 the wire was specified and tested, and every request went nowhere.
@@ -10,6 +12,14 @@ the wire was specified and tested, and every request went nowhere.
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...      # or put it in apps/ai-server/.env (git-ignored; see .env.example)
 pnpm --filter @craftkit/ai-server dev    # = vite build && node --env-file-if-exists=.env dist/main.js
+```
+
+Or any model OpenRouter fronts, with one key — in `apps/ai-server/.env`:
+
+```bash
+CRAFTKIT_AI_BACKEND=openrouter
+OPENROUTER_API_KEY=sk-or-...
+CRAFTKIT_AI_MODEL=anthropic/claude-sonnet-4.5   # an OpenRouter slug, vendor/model — required on this backend
 ```
 
 It is **built, then run** — never run from source. Node can strip types but does not resolve
@@ -44,7 +54,15 @@ unset the deterministic offline provider keeps answering, so nothing breaks by n
 | ----------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ANTHROPIC_API_KEY`           | —                  | Standard SDK resolution. **Unset does not mean no credentials**: the SDK also reads `ANTHROPIC_AUTH_TOKEN` and an `ant auth login` profile, so a bare client works after `ant auth login`.                                                                            |
 | `PORT`                        | `8787`             |                                                                                                                                                                                                                                                                       |
-| `CRAFTKIT_AI_MODEL`           | `claude-opus-5`    | Override deliberately, with a measurement.                                                                                                                                                                                                                            |
+| `CRAFTKIT_AI_MODEL`           | `claude-opus-5`    | Override deliberately, with a measurement. On the `openrouter` backend it is required and must be a `vendor/model` slug.                                                                                                                                                                                                                            |
+| `CRAFTKIT_AI_MODELS`          | —                  | Comma-separated models a request may name in its `x-craftkit-ai-model` header (the playground picker), beyond the default. Unset ⇒ only the default is accepted; any other choice is refused with 400. The server owns this list, never the browser.        |
+| `CRAFTKIT_AI_FALLBACK`        | —                  | OpenRouter backend only. A `cli:` entry that answers instead when an OpenRouter model is rate limited, overloaded, or unreachable (429/502); the panel's progress line says it switched. Unset ⇒ those failures reach the panel with Retry.                       |
+| `CRAFTKIT_AI_BACKEND`         | `sdk`              | `sdk` (the Anthropic Messages API), `openrouter` (any model behind one OpenRouter key), or `cli` (dev only). Anything else refuses to start.                                                                                                                          |
+| `OPENROUTER_API_KEY`          | —                  | OpenRouter backend only, and required there. From openrouter.ai/keys.                                                                                                                                                                                                 |
+| `CRAFTKIT_AI_OPENROUTER_EFFORT` | model default    | OpenRouter only. `none`/`minimal`/`low`/`medium`/`high`/`xhigh`, sent as `reasoning.effort`. Unset sends no reasoning field at all. When the model reasons, its reasoning narrates the progress line.                                                                 |
+| `CRAFTKIT_AI_OPENROUTER_STRICT` | per model        | OpenRouter only. Unset ⇒ constrained decoding only for Anthropic/OpenAI models that declare `structured_outputs`; every other model gets the schema as text only (a provider's guided decoding once turned every command name into a single letter). `true`/`false` forces it for all. |
+| `CRAFTKIT_AI_MAX_TOKENS`      | `32000`            | Output ceiling per answer. Raise it for models that can write more; the OpenRouter backend clamps each request to the chosen model's own limit, so a high value is safe.                                                                                           |
+| `CRAFTKIT_AI_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter only. A proxy goes here.                                                                                                                                                                                                                 |
 | `CRAFTKIT_AI_TOKEN`           | —                  | When set, every request must carry `Authorization: Bearer <token>`. Set it for anything but localhost.                                                                                                                                                                |
 | `CRAFTKIT_AI_CLI_EFFORT`      | CLI default        | CLI backend only. `low`/`medium`/`high`/`xhigh`/`max`. Passed as `--effort`; unset means the flag is omitted entirely, so an inherited `CLAUDE_EFFORT` cannot decide it. The reasoning **text** is redacted on this path, so effort buys plan quality, not narration. |
 | `CRAFTKIT_AI_CLI_TIMEOUT_MS`  | `600000`           | CLI backend only (`CRAFTKIT_AI_BACKEND=cli`). Whole-run cap. A full-page plan is 15–25k output tokens and the CLI writes ~80 a second, so three to five minutes is normal; a cap near two minutes kills every real plan mid-generation.                               |
@@ -111,6 +129,50 @@ wait that long reads as a hang.
 
 A client disconnect aborts the Claude request. Nothing keeps generating a plan nobody will read.
 
+## The OpenRouter backend
+
+`CRAFTKIT_AI_BACKEND=openrouter` routes the same request through OpenRouter's chat-completions API
+(`src/openrouter-client.ts`), so one key reaches every model OpenRouter fronts. It plugs in at the
+seam the tests fake — `client.messages.stream` — so `prompt.ts`, `claude.ts` and `handler.ts` run
+unmodified. What is translated:
+
+- **Model.** `CRAFTKIT_AI_MODEL` must be an OpenRouter slug (`vendor/model`); the server refuses to
+  start otherwise. The SDK default `claude-opus-5` is not one, and a wrong slug would fail every
+  request with a sentence that blames the model.
+- **Facts.** At startup the server asks OpenRouter what each configured slug IS: listed at all,
+  able to decode straight into the plan schema, how much it may write, and what it costs. A slug
+  OpenRouter no longer lists is named in the terminal then, not by the first request that fails on
+  it; strict decoding is on for exactly the models that support it; and no request asks a model for
+  more output than it can write.
+- **Choice.** A request may name a model in `x-craftkit-ai-model` (the playground header's picker,
+  fed by `VITE_AI_PLAN_MODELS`). It is honoured only if it is the default or in `CRAFTKIT_AI_MODELS`;
+  anything else is a terminal `400` that names the slug. A public endpoint must not let a browser
+  pick the most expensive model on someone else's key.
+- **Hybrid.** A `cli:haiku` / `cli:sonnet` / bare `cli:` entry in `CRAFTKIT_AI_MODELS` is the local
+  `claude` CLI — the owner's own subscription, no API billing — behind the same picker
+  (`src/routing-client.ts`). With `CRAFTKIT_AI_FALLBACK=cli:haiku`, a free OpenRouter model that is
+  overloaded or unreachable hands the request to the CLI, and the progress line says so: a picker
+  that silently changed who answered would be a lie.
+- **Schema.** The request's output contract goes out as `response_format.json_schema` (enforced by
+  the models that support it) AND as a text block after the cache breakpoint, for the ones that
+  silently drop the format. A model that ignores it and fences the JSON, or talks around it, is
+  unwrapped before parsing. `claude.ts` still parses and the client still validates, so a model
+  that ignores everything produces a rejected proposal, never a damaged document.
+- **Cache.** `cache_control` on the catalog segment passes through; OpenRouter forwards it to the
+  models that honour it. OpenRouter's `prompt_tokens` includes cached tokens where the SDK's
+  `input_tokens` excludes them, so usage is re-based before it reaches the `cachedShare` log line.
+- **Narration.** A model that reasons (`CRAFTKIT_AI_OPENROUTER_EFFORT` set, and the model supports
+  it) narrates the progress line with its own reasoning, as on the SDK path. One that does not gets
+  the clock: "Waiting for the model to start", then "Writing the plan — 4,200 characters so far".
+- **Failures.** Each becomes a plain sentence ending in OpenRouter's own message, with the status
+  the client should act on: a rejected key or an empty balance is `500` (a deployment mistake), a
+  rate limit is `429` (retry), an unknown slug or a blocked request is `400` (terminal), a provider
+  outage or a stream that ends mid-plan is `502` (retry).
+
+Not faithful: a non-Anthropic model has no `stop_reason: 'refusal'`. A provider content filter and
+an OpenAI-style `refusal` delta are both mapped to the wire's refusal shape; anything else a model
+does instead of a plan arrives as invalid output.
+
 ## Failure mapping
 
 The client's error taxonomy is only as good as this table, so each row is deliberate:
@@ -118,6 +180,7 @@ The client's error taxonomy is only as good as this table, so each row is delibe
 | Situation                      | Answer                    | Why                                                                      |
 | ------------------------------ | ------------------------- | ------------------------------------------------------------------------ |
 | Safety decline                 | `200` + `{refusal}`       | It is an ANSWER. A 4xx would read as an outage and lose the explanation. |
+| Single command `impossible`    | `200` + `{refusal}`       | The prompt's own "cannot express this" convention; the rationale is the sentence. No command by that name exists, so untranslated it surfaced as a validator error. |
 | Output cut off at `max_tokens` | `200` + `{invalidOutput}` | With advice to ask for a smaller change.                                 |
 | Unparseable output             | `200` + `{invalidOutput}` | Clearer here than as a schema violation two layers later.                |
 | Rate limited                   | `429`                     | The client treats it as retryable.                                       |
@@ -129,11 +192,15 @@ No raw SDK message and no stack ever reaches the client.
 
 ## Tests
 
-39 tests, none of which call the API. Two layers, deliberately:
+None of the tests call an API or spawn a CLI. Three layers, deliberately:
 
 - **`handler.test.ts`** verifies the TRANSLATION — every way Claude can answer or fail becoming one
   of the three shapes the client knows how to read — through platform `Request`/`Response`, with a
   faked SDK client.
+- **`openrouter-client.test.ts`** and **`cli-client.test.ts`** verify the two non-SDK backends
+  against a faked `fetch` and a faked child process: the request they send, the stream they parse,
+  every failure becoming a sentence with a status, and the narration that keeps the panel's line
+  moving through silence.
 - **`server.test.ts`** drives the Node adapter over a real loopback socket: header flattening, body
   assembly, streaming write order, abort on client disconnect, and the 500 fallback. This layer is
   where the first version failed to start while every other gate was green; it is not allowed to be

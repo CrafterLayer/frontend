@@ -145,6 +145,15 @@ export interface ShellMetrics {
   readonly 'panel-padding': string;
   readonly 'control-height': string;
   readonly 'control-height-sm': string;
+  /**
+   * The narrowest a picture may be in a grid of them.
+   *
+   * A thumbnail has two jobs at once: be big enough that two photographs are
+   * tellable apart, and small enough that a panel fits more than one across.
+   * Half a panel band, so the second job holds at BOTH densities rather than
+   * only the one it was measured at.
+   */
+  readonly 'thumb-width': string;
   /** The accessibility floor for a pointer target, regardless of the glyph inside it. */
   readonly 'hit-target-min': string;
 }
@@ -168,6 +177,7 @@ export const comfortable: ShellMetrics = {
   'panel-padding': space['2xl'],
   'control-height': '32px',
   'control-height-sm': '28px',
+  'thumb-width': '144px',
   'hit-target-min': '44px',
 };
 
@@ -183,6 +193,7 @@ export const compact: ShellMetrics = {
   'panel-padding': space.lg,
   'control-height': '28px',
   'control-height-sm': '24px',
+  'thumb-width': '124px',
   'hit-target-min': '44px',
 };
 

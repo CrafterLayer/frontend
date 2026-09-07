@@ -300,14 +300,16 @@ describe('generateSite', () => {
           structure: {
             response: (request) => ({
               stage: 'structure',
-              pages: (request as unknown as { pages: readonly { id: string }[] }).pages.map((page) => ({
-                pageId: page.id,
-                sections: Array.from({ length: 9 }, (_unused, index) => ({
-                  id: `section-${String(index)}`,
-                  type: 'text',
-                  intent: 'Say something.',
-                })),
-              })),
+              pages: (request as unknown as { pages: readonly { id: string }[] }).pages.map(
+                (page) => ({
+                  pageId: page.id,
+                  sections: Array.from({ length: 9 }, (_unused, index) => ({
+                    id: `section-${String(index)}`,
+                    type: 'text',
+                    intent: 'Say something.',
+                  })),
+                }),
+              ),
             }),
           },
         },
@@ -367,28 +369,40 @@ describe('generateSite', () => {
     });
   });
 
+  /**
+   * A site with the one page every valid site has, in whichever direction the
+   * caller asks for. Shared by the door tests and the direction tests, because
+   * both need a real site to write into and neither should invent its own idea
+   * of what one looks like.
+   */
+  const seedSite = (dir: BuilderSite['dir'] = 'ltr'): BuilderSite => ({
+    siteVersion: 1,
+    dir,
+    pages: [
+      {
+        id: 'p-home',
+        address: '/',
+        title: 'Home',
+        purpose: 'The page that was already here.',
+        audience: 'anyone',
+        document: emptyDocument('site', dir),
+        regions: [],
+      },
+    ],
+    sharedRegions: {},
+    designSystem: defaultDesignSystem(),
+    assets: {},
+  });
+
+  const kernelFor = (site: BuilderSite) => {
+    const kernel = createSiteBuilder({ site });
+    kernel.extensions.register(fixtureBlocks);
+    return kernel;
+  };
+
   /* ── The door (T063, SC-002) and one undo (T064, SC-011) ─────────────────── */
 
   describe('the door is the only writer', () => {
-    const seedSite = (): BuilderSite => ({
-      siteVersion: 1,
-      dir: 'ltr',
-      pages: [
-        {
-          id: 'p-home',
-          address: '/',
-          title: 'Home',
-          purpose: 'The page that was already here.',
-          audience: 'anyone',
-          document: emptyDocument('site', 'ltr'),
-          regions: [],
-        },
-      ],
-      sharedRegions: {},
-      designSystem: defaultDesignSystem(),
-      assets: {},
-    });
-
     /*
       The two codec-shaped things the commit takes as PORTS, supplied here in
       their simplest correct form. Neither is under test: the product passes the
@@ -409,12 +423,6 @@ describe('generateSite', () => {
           value: page,
         })),
     ];
-
-    const kernelFor = (site: BuilderSite) => {
-      const kernel = createSiteBuilder({ site });
-      kernel.extensions.register(fixtureBlocks);
-      return kernel;
-    };
 
     it('refuses a provider that answers with a SITE where commands were asked for', async () => {
       const provider = createScriptedSiteStageProvider({
@@ -473,12 +481,44 @@ describe('generateSite', () => {
       expect(kernel.getSite().pages.length).toBe(site.pages.length + 1);
     });
 
+    it('builds a SECOND time into the same site, and says what it renamed', async () => {
+      const site = await run({ blockTypes: ['section', 'text'] });
+      const kernel = kernelFor(seedSite());
+
+      const first = applySiteCommands({ kernel, commands: site.commands });
+      expect(first.ok).toBe(true);
+      const second = applySiteCommands({ kernel, commands: site.commands });
+
+      /*
+        The addresses a run derives are the only names it has, so a second build
+        into the same site collides on every one of them. Losing the whole run
+        to a collision nobody could have avoided is the wrong answer; so is
+        renaming silently, because a person who asked for /home and got /home-2
+        will look for a page that is not there.
+      */
+      if (!second.ok) throw new Error(`the second build was refused: ${second.refusal.reason}`);
+      expect(second.renamed.length).toBeGreaterThan(0);
+      for (const rename of second.renamed) {
+        expect(rename.used).not.toBe(rename.asked);
+        expect(rename.used.startsWith(rename.asked)).toBe(true);
+      }
+      expect(kernel.validate().ok).toBe(true);
+      /* Every address distinct, which is what `validateSite` would refuse. */
+      const addresses = kernel.getSite().pages.map((page) => page.address);
+      expect(new Set(addresses).size).toBe(addresses.length);
+    });
+
     it('STOPS at the first command the door refuses rather than assembling what fits', async () => {
       const site = await run({ blockTypes: ['section', 'text'] });
       const kernel = kernelFor(seedSite());
       const poisoned = [
         ...site.commands.slice(0, 1),
-        { command: 'addPage', args: { address: '/', title: 'Second home' } },
+        /*
+          An empty title, not a duplicate address: the applier now makes
+          addresses unique on purpose, so a duplicate is no longer a refusal and
+          would have made this test pass for the wrong reason.
+        */
+        { command: 'addPage', args: { address: '/second', title: '' } },
         ...site.commands.slice(1),
       ];
 
@@ -549,6 +589,76 @@ describe('generateSite', () => {
       expect(commit).toMatchObject({ ok: false, refusal: 'stale' });
       expect(live.transactions()).toHaveLength(transactions);
       expect(JSON.stringify(live.getSite())).toBe(captured);
+    });
+  });
+
+  /* ── Direction follows the brief's language (T127, FR-043) ──────────────── */
+
+  describe('reading direction', () => {
+    /*
+      The direction is decided ONCE, by the caller, and carried on every stage
+      envelope. It is not re-detected per stage: a five-stage run that sniffed
+      the language independently five times could disagree with itself, and a
+      site whose sitemap is right-to-left and whose content is not is a site
+      nobody can read.
+    */
+    it('carries the site direction to every stage, unchanged', async () => {
+      const provider = createScriptedSiteStageProvider({
+        fallback: createOfflineSiteStageProvider(),
+      });
+      const spy = vi.spyOn(provider, 'run');
+
+      await run({ provider, dir: 'rtl', brief: 'مشغل خزف في عمّان' });
+
+      expect(spy.mock.calls.length).toBeGreaterThan(4);
+      for (const call of spy.mock.calls) {
+        expect((call[0] as { dir: string }).dir).toBe('rtl');
+      }
+    });
+
+    it('builds every page of an Arabic site right-to-left', async () => {
+      /*
+        The vocabulary the fixture registry actually admits under a page root.
+        In the product this list is DERIVED (`sectionTypesFor`) precisely so a
+        run is never given a type its own door would refuse; a test that
+        hardcodes one has to hardcode the right one.
+      */
+      const site = await run({
+        dir: 'rtl',
+        brief: 'مشغل خزف في عمّان',
+        blockTypes: ['section', 'text'],
+      });
+      const kernel = kernelFor(seedSite('rtl'));
+
+      const applied = applySiteCommands({ kernel, commands: site.commands });
+      if (!applied.ok) throw new Error(`the door refused: ${applied.refusal.reason}`);
+
+      expect(kernel.getSite().pages.length).toBeGreaterThan(1);
+      for (const page of kernel.getSite().pages) {
+        /*
+          `page-direction-mismatch` is a site validation code precisely because
+          a page that disagrees with its site is the failure this prevents. A
+          new page is born in the site's direction; this asserts nothing undid
+          that.
+        */
+        expect(page.document.dir).toBe('rtl');
+      }
+      expect(kernel.validate().ok).toBe(true);
+    });
+
+    it('keeps an Arabic brief and its Latin twin structurally identical', async () => {
+      const arabic = await run({ dir: 'rtl', brief: 'مشغل خزف في عمّان' });
+      const latin = await run({ dir: 'ltr', brief: 'مشغل خزف في عمّان' });
+
+      /*
+        Direction is a LAYOUT decision, not a content one. The same brief must
+        produce the same pages and the same sections either way — anything else
+        would mean the pipeline quietly designs differently for Arabic, which is
+        the opposite of respecting it.
+      */
+      expect(arabic.pages).toEqual(latin.pages);
+      expect(arabic.structure).toEqual(latin.structure);
+      expect(arabic.content).toEqual(latin.content);
     });
   });
 });

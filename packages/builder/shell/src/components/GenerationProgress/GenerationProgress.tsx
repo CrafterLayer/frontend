@@ -8,7 +8,10 @@ import './GenerationProgress.css';
 /**
  * The five-stage site pipeline, made observable.
  *
- * The stage IDS are the pipeline's own vocabulary (`@craftkit/builder-ai`); the
+ * The stage IDS are the pipeline's vocabulary SHORTENED for the panel — the one
+ * difference is `design`, where the wire says `design-system`; the host maps
+ * between them (`use-site-run.ts`), so a wire rename never reaches this file.
+ * The
  * LABELS (`GENERATION_STAGE_LABELS`, beside the ids in `constants.ts`) are what
  * a person reading the panel understands. They differ on purpose: `sitemap`
  * and `assembly` name what the stage computes, "Plan" and "Apply" name what the

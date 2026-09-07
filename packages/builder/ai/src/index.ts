@@ -239,6 +239,7 @@ export {
   type ApplySiteCommandsOptions,
   type ApplySiteCommandsResult,
   type AssemblyRequest,
+  type AssetCatalogueEntry,
   type AssemblyResponse,
   type AssemblyStep,
   type CommitGeneratedSiteOptions,
@@ -271,3 +272,41 @@ export {
   type StructureResponse,
   type StructureSection,
 } from './pipeline';
+
+/*
+  REFINEMENT: a follow-up that changes its target and nothing else.
+
+  There is no second write path in it. A page refinement is `runAiAgent`
+  pointed at that page's lens — the identical machinery a generation uses — and
+  a colour refinement goes through `setDesignToken`, the door that already owns
+  legibility. Resolution is separate and pure, so a request naming a page the
+  site does not have is refused before a model is asked anything at all.
+*/
+export {
+  refineSite,
+  type RefineAdjustment,
+  type RefineSiteOptions,
+  type RefineSiteResult,
+} from './refine/refine-site';
+export {
+  resolveRefineTarget,
+  type RefineTarget,
+  type ResolveTargetResult,
+} from './refine/resolve-target';
+
+/*
+  ASSET SELECTION: which picture goes where, chosen from a library.
+
+  Exported from the engine rather than the host because the rule it enforces is
+  the engine's: an image position holds a real library asset or a labelled
+  absence, and there is no path through it that produces an address a model
+  wrote (FR-045).
+*/
+export {
+  scoreAsset,
+  selectAssets,
+  type AssetChoice,
+  type AssetPosition,
+  type SelectAssetsRequest,
+  type SelectAssetsResult,
+} from './assets/select-assets';

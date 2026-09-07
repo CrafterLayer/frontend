@@ -109,6 +109,7 @@
   --bldr-panel-padding: 14px;
   --bldr-control-height: 32px;
   --bldr-control-height-sm: 28px;
+  --bldr-thumb-width: 144px;
   --bldr-hit-target-min: 44px;
 }
 
@@ -293,6 +294,7 @@
   --bldr-panel-padding: 10px;
   --bldr-control-height: 28px;
   --bldr-control-height-sm: 24px;
+  --bldr-thumb-width: 124px;
   --bldr-hit-target-min: 44px;
 }
 

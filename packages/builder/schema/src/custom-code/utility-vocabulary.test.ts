@@ -66,6 +66,59 @@ describe('the vocabulary', () => {
     expect(unknownUtilityClasses(needed.join(' '))).toEqual([]);
   });
 
+  /*
+    Measured on real plans: a strong model writing a landing page reached for
+    every one of these and was refused — icon sizes, section rhythm, the
+    centring idiom, overlays, hover lifts. A vocabulary that refuses everyday
+    Tailwind makes the free-composition feature a trap rather than a tool.
+  */
+  it('admits the everyday Tailwind a page builder writes without thinking', () => {
+    const everyday = [
+      'h-5',
+      'w-5',
+      'size-6',
+      'h-14',
+      'w-72',
+      'py-20',
+      'py-24',
+      'md:py-24',
+      'px-20',
+      '-mt-8',
+      'gap-16',
+      'space-y-10',
+      'bg-black/50',
+      'bg-white/10',
+      'hover:bg-white/10',
+      'hover:text-white',
+      'top-1/2',
+      'left-1/2',
+      '-translate-y-1/2',
+      'hover:-translate-y-1',
+      'hover:rotate-0',
+      'hover:shadow-xl',
+      'group',
+      'group-hover:opacity-100',
+      'focus-visible:ring-2',
+      'ring-blue-500',
+      'border-t',
+      'font-mono',
+      'font-sans',
+      'text-balance',
+      'leading-7',
+      'list-disc',
+      'xl:grid-cols-4',
+      'xl:text-6xl',
+      'min-h-dvh',
+      'container',
+      'columns-2',
+      'aspect-16/9',
+      'drop-shadow-lg',
+      'disabled:opacity-50',
+    ];
+
+    expect(unknownUtilityClasses(everyday.join(' '))).toEqual([]);
+  });
+
   it('admits the region-local namespace, which region CSS is written against', () => {
     // Without this the `css` prop would exist and be unusable: its selectors
     // could never match a class the door lets through.
@@ -84,9 +137,9 @@ describe('the vocabulary', () => {
   });
 
   it('admits Tailwind palette colours — free by product decision', () => {
-    expect(unknownUtilityClasses('bg-slate-900 text-blue-500 from-indigo-500 hover:bg-rose-600')).toEqual(
-      [],
-    );
+    expect(
+      unknownUtilityClasses('bg-slate-900 text-blue-500 from-indigo-500 hover:bg-rose-600'),
+    ).toEqual([]);
   });
 
   it('disagrees with the theming law ONLY about the palette, never about arbitrary values', () => {
@@ -126,11 +179,14 @@ describe('the vocabulary', () => {
     expect(utilityVocabulary()).toBe(utilityVocabulary());
   });
 
-  it('emits one @source directive per pattern, which is what generates the CSS', () => {
+  it('emits one @source directive per whitespace-separated pattern, which is what generates the CSS', () => {
     const directives = utilitySourceDirectives().split('\n');
+    // One per TOKEN, not per line: Tailwind brace-expands an inline source as a
+    // whole, so several groups on one line would cost it their product.
+    const tokens = UTILITY_VOCABULARY.flatMap((pattern) => pattern.split(/\s+/u).filter((token) => token !== ''));
 
-    expect(directives).toHaveLength(UTILITY_VOCABULARY.length);
-    expect(directives[0]).toMatch(/^@source inline\(".*"\);$/u);
+    expect(directives).toHaveLength(tokens.length);
+    expect(directives.every((line) => /^@source inline\("[^\s"]+"\);$/u.test(line))).toBe(true);
   });
 
   it('states every pattern in a form the generator can read back', () => {

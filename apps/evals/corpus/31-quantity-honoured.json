@@ -7,18 +7,14 @@
   "request": "Add a frequently asked questions section with exactly eight questions about shipping, returns, and warranty.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 1,
     "maxCommands": 6,
-    "anyBlockTypes": [
-      "faq"
-    ]
+    "anyBlockTypes": ["faq"]
   },
   "budget": {
     "maxCommands": 24,

@@ -37,9 +37,7 @@ function generatedBlock(): string {
   const end = css.indexOf(END);
   expect(start, 'the generated vocabulary block is missing its START marker').toBeGreaterThan(-1);
   expect(end, 'the generated vocabulary block is missing its END marker').toBeGreaterThan(start);
-  return css
-    .slice(css.indexOf('\n', start) + 1, end)
-    .trim();
+  return css.slice(css.indexOf('\n', start) + 1, end).trim();
 }
 
 describe('AI styling vocabulary', () => {

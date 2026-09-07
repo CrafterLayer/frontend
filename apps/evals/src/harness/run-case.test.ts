@@ -64,13 +64,17 @@ describe('runEvalCase records how hard the run worked', () => {
         // A plan naming a node the document does not have: rejected by the door.
         return Promise.resolve({
           rationale: 'Edit something that is not there.',
-          commands: [{ command: 'setProp', args: { id: 'no-such-node', key: 'heading', value: 'x' } }],
+          commands: [
+            { command: 'setProp', args: { id: 'no-such-node', key: 'heading', value: 'x' } },
+          ],
         });
       },
       repair: () =>
         Promise.resolve({
           rationale: 'Corrected.',
-          commands: [{ command: 'setProp', args: { id: STARTER_HERO_ID, key: 'heading', value: 'Fixed' } }],
+          commands: [
+            { command: 'setProp', args: { id: STARTER_HERO_ID, key: 'heading', value: 'Fixed' } },
+          ],
         }),
     };
 

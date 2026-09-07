@@ -207,7 +207,9 @@ describe('validateSite — rule 9, the design system must be legible (FR-014)', 
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    const issue = result.issues.find((candidate) => candidate.code === 'design-system-contrast-failure');
+    const issue = result.issues.find(
+      (candidate) => candidate.code === 'design-system-contrast-failure',
+    );
     expect(issue).toBeDefined();
     // The message names the real fault; the code is the contract's single one.
     expect(issue?.message).toContain('textMuted');
@@ -223,6 +225,99 @@ describe('validateSite — rule 9, the design system must be legible (FR-014)', 
     const result = validateSite({ ...site, designSystem: invented });
 
     expect(result.ok).toBe(false);
+  });
+
+  it('stays VALID when a picture vanishes from the LIBRARY, because the site copied it', () => {
+    /*
+      The edge case the asset contract calls out, and the reason `site.assets`
+      holds copies rather than resolving against the library live.
+
+      Someone tidies the library in another tab. If a site resolved live, one
+      deleted photograph would lock a person out of a fifty-page site — the
+      document would fail validation on open, with no way back in except to
+      restore a file they meant to delete. Because the entry was COPIED at the
+      moment it was placed, the library losing it changes nothing: the site
+      still resolves, still renders, still opens.
+
+      The invariant that IS enforced is about the site's own table, one test
+      below: a reference into `site.assets` that does not resolve is refused.
+    */
+    const site = validSite();
+    const withPicture: BuilderSite = {
+      ...site,
+      assets: {
+        kiln: {
+          id: 'kiln',
+          url: 'https://assets.example.test/kiln.jpg',
+          description: 'A ceramics kiln glowing in a workshop',
+          mood: ['warm'],
+          palette: ['#c2410c'],
+          alt: 'A kiln glowing orange in a dim ceramics workshop',
+          width: 1600,
+          height: 1067,
+        },
+      },
+      pages: [
+        {
+          ...page('home', '/'),
+          document: {
+            schemaVersion: 1,
+            surface: 'site',
+            dir: 'ltr',
+            rootId: 'root',
+            nodes: {
+              root: { id: 'root', type: 'page', props: {}, slots: { main: ['hero', 'shot'] } },
+              hero: { id: 'hero', type: 'hero', props: { title: 'Fired in Amman' } },
+              shot: { id: 'shot', type: 'image', props: { asset: { assetId: 'kiln' } } },
+            },
+          },
+        },
+      ],
+    };
+
+    /*
+      There is no library in this call at all — `validateSite` never sees one.
+      That IS the proof: validity does not depend on a library being reachable,
+      so a library that lost the picture, went offline, or was never wired
+      cannot make a stored site invalid.
+    */
+    expect(issuesOf(withPicture)).toEqual([]);
+  });
+
+  it('a DELIBERATE absence is a valid image, and the site stays valid with one (FR-051)', () => {
+    /*
+      The other half of the union. A position the library could not fill holds a
+      sentence, and a site full of sentences is a valid site — otherwise an
+      empty library would make generation unable to produce anything storable,
+      which is precisely the failure FR-051 forbids.
+    */
+    const site = validSite();
+    const withAbsence: BuilderSite = {
+      ...site,
+      pages: [
+        {
+          ...page('home', '/'),
+          document: {
+            schemaVersion: 1,
+            surface: 'site',
+            dir: 'ltr',
+            rootId: 'root',
+            nodes: {
+              root: { id: 'root', type: 'page', props: {}, slots: { main: ['shot'] } },
+              shot: {
+                id: 'shot',
+                type: 'image',
+                props: {
+                  asset: { absent: true, reason: 'Nothing in the library matches "a kiln".' },
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(issuesOf(withAbsence)).toEqual([]);
   });
 
   it('accepts the starter system, whose pairings were measured rather than assumed', () => {

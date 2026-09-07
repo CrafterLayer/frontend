@@ -4,8 +4,13 @@ import {
   defaultDesignSystem,
   emptyDocument,
   type BuilderSite,
+  defineBlockSchema,
+  imagePropSchema,
+  type AssetEntry,
+  type AssetLibraryPort,
   type BuilderSiteKernel,
   type StageRequest,
+  type TrustedExtensionManifest,
 } from '@craftkit/builder';
 import {
   createScriptedSiteStageProvider,
@@ -13,7 +18,11 @@ import {
   fixtureBlocks,
   seededIds,
 } from '@craftkit/builder/testing';
+import { createFixedAssetLibrary } from '@craftkit/builder/testing';
+
+import { createLocalAssetLibrary } from '../../local-asset-library';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 import { runSiteGeneration, siteRunLabel, type SiteRunHost } from './AssistantPanel.siteRun';
 
@@ -207,5 +216,299 @@ describe('runSiteGeneration', () => {
     /* A brief long enough to fill the history panel is cut, and says it was. */
     expect(siteRunLabel('x'.repeat(200), 4)).toContain('…');
     expect(siteRunLabel('x'.repeat(200), 4).length).toBeLessThan(80);
+  });
+});
+
+/*
+  The pictures. Kept apart because they need a registry with a block that
+  actually holds an image prop — the shared fixtures have none — and a scripted
+  assembly that places one, which the offline provider never does.
+*/
+describe('runSiteGeneration — pictures (FR-045, FR-051)', () => {
+  const KILN: AssetEntry = {
+    id: 'kiln',
+    url: 'https://assets.example.test/kiln.jpg',
+    description: 'A ceramics kiln glowing in a workshop',
+    mood: ['warm'],
+    palette: ['#c2410c'],
+    alt: 'A kiln glowing orange in a dim ceramics workshop',
+    width: 1600,
+    height: 1067,
+  };
+
+  const pictureBlocks: TrustedExtensionManifest = {
+    tier: 1,
+    name: 'picture-blocks',
+    version: '0.0.1',
+    contributes: {
+      blocks: [
+        {
+          schema: defineBlockSchema({
+            type: 'page',
+            description: 'Test page root.',
+            props: z.object({ title: z.string().default('') }),
+            slots: { default: { allow: ['shot'] } },
+            examples: [],
+          }),
+          render: () => null,
+        },
+        {
+          schema: defineBlockSchema({
+            type: 'shot',
+            description: 'Test block carrying an image prop.',
+            props: z.object({ asset: imagePropSchema.optional() }),
+            examples: [],
+          }),
+          render: () => null,
+        },
+      ],
+    },
+  };
+
+  const pictureHost = (
+    library: AssetLibraryPort | undefined,
+    assetId: string,
+  ): { host: SiteRunHost; kernel: BuilderSiteKernel } => {
+    const make = (site: BuilderSite, seed: string): BuilderSiteKernel =>
+      createSiteBuilder({
+        site,
+        extensions: [pictureBlocks],
+        ports: { clock: fixedClock(), ids: seededIds(seed) },
+      });
+    const kernel = make(oneHomePage(), 'live');
+    let drafts = 0;
+
+    return {
+      kernel,
+      host: {
+        kernel,
+        createDraft: (site) => {
+          drafts += 1;
+          return make(site, `draft-${String(drafts)}`);
+        },
+        ...(library === undefined ? {} : { library }),
+        allowedCommands: ['addPage', 'insertNode'],
+        provider: createScriptedSiteStageProvider({
+          stages: {
+            assembly: {
+              response: () => ({
+                stage: 'assembly',
+                commands: [
+                  {
+                    command: 'insertNode',
+                    args: {
+                      parentId: 'root',
+                      slot: 'default',
+                      type: 'shot',
+                      props: { asset: { assetId } },
+                    },
+                  },
+                ],
+              }),
+            },
+          },
+          fallback: createOfflineSiteStageProvider(),
+        }),
+      },
+    };
+  };
+
+  it('lands a chosen picture in the SITE asset table, and the site stays valid', async () => {
+    const { host, kernel } = pictureHost(createFixedAssetLibrary({ entries: [KILN] }), 'kiln');
+
+    const outcome = await run(host);
+
+    if (!outcome.ok) throw new Error(`the run was refused: ${outcome.reason}`);
+    /*
+      The whole chain in one assertion: the catalogue reached the stage, the
+      stage's reference survived validation, and the applier copied the entry in
+      before the command that used it.
+    */
+    expect(kernel.getSite().assets['kiln']).toEqual(KILN);
+    expect(kernel.validate().ok).toBe(true);
+    /* Still ONE transaction — the registration rode in with the rest. */
+    expect(kernel.transactions()).toHaveLength(1);
+  });
+
+  it('REFUSES a reference to a picture that was never in the library', async () => {
+    const { host, kernel } = pictureHost(createFixedAssetLibrary({ entries: [KILN] }), 'ghost');
+
+    const outcome = await run(host);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) throw new Error('expected a refusal');
+    expect(outcome.reason).toContain('ghost');
+    /* And nothing of the person's site moved. */
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('completes with NO library wired, because a text site is a site (FR-051)', async () => {
+    /*
+      The scripted assembly still asks for a picture, so this run must be
+      refused — but refused by the stage, cleanly, with nothing written. What
+      must never happen is a crash or an invented address.
+    */
+    const { host, kernel } = pictureHost(undefined, 'kiln');
+
+    const outcome = await run(host);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) throw new Error('expected a refusal');
+    expect(outcome.reason).toContain('no asset library');
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('survives a library that will not answer', async () => {
+    const { host, kernel } = pictureHost(
+      createFixedAssetLibrary({ unavailable: 'the store is down' }),
+      'kiln',
+    );
+
+    const outcome = await run(host);
+
+    /*
+      Degraded, not crashed: the catalogue is empty, so the stage's picture is
+      refused for the same reason an unwired library gives. The run ends with a
+      sentence and an untouched site.
+    */
+    expect(outcome.ok).toBe(false);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+});
+
+/*
+  The offline path, end to end, with the playground's own library. Kept separate
+  from the scripted tests above because nothing here is scripted: the provider
+  chooses the pictures itself, through the same `selectFrom` a host would use.
+*/
+describe('runSiteGeneration — the offline provider places real pictures', () => {
+  const pictureBlocks: TrustedExtensionManifest = {
+    tier: 1,
+    name: 'image-blocks',
+    version: '0.0.1',
+    contributes: {
+      blocks: [
+        {
+          schema: defineBlockSchema({
+            type: 'page',
+            description: 'Test page root.',
+            props: z.object({ title: z.string().default('') }),
+            slots: { default: { allow: ['image'] } },
+            examples: [],
+          }),
+          render: () => null,
+        },
+        {
+          schema: defineBlockSchema({
+            type: 'image',
+            description: 'Test image block.',
+            props: z.object({ asset: imagePropSchema.optional() }),
+            examples: [],
+          }),
+          render: () => null,
+        },
+      ],
+    },
+  };
+
+  const imageHost = (
+    library: AssetLibraryPort | undefined,
+  ): { host: SiteRunHost; kernel: BuilderSiteKernel } => {
+    const make = (site: BuilderSite, seed: string): BuilderSiteKernel =>
+      createSiteBuilder({
+        site,
+        extensions: [pictureBlocks],
+        ports: { clock: fixedClock(), ids: seededIds(seed) },
+      });
+    const kernel = make(oneHomePage(), 'live');
+    let drafts = 0;
+
+    return {
+      kernel,
+      host: {
+        kernel,
+        createDraft: (site) => {
+          drafts += 1;
+          return make(site, `draft-${String(drafts)}`);
+        },
+        ...(library === undefined ? {} : { library }),
+        allowedCommands: ['addPage', 'insertNode', 'setDesignSystem'],
+        provider: createOfflineSiteStageProvider(),
+      },
+    };
+  };
+
+  const assetRefs = (kernel: BuilderSiteKernel): readonly string[] =>
+    kernel
+      .getSite()
+      .pages.flatMap((page) => Object.values(page.document.nodes))
+      .map((node) => node.props['asset'])
+      .filter(
+        (value): value is { assetId: string } =>
+          typeof value === 'object' && value !== null && 'assetId' in value,
+      )
+      .map((ref) => ref.assetId);
+
+  it('fills image sections from the library, and registers every one it used', async () => {
+    const { host, kernel } = imageHost(createLocalAssetLibrary());
+
+    const outcome = await run(host);
+
+    if (!outcome.ok) throw new Error(`the run was refused: ${outcome.reason}`);
+    const refs = assetRefs(kernel);
+    expect(refs.length).toBeGreaterThan(0);
+    /* Every reference resolves in the site's own table — that IS the invariant. */
+    for (const assetId of refs) {
+      expect(kernel.getSite().assets[assetId]).toBeDefined();
+    }
+    expect(kernel.validate().ok).toBe(true);
+  });
+
+  it('never uses the same photograph twice across the whole site', async () => {
+    /*
+      Chosen in one pass over every page, because the no-repeat rule is a
+      property of the SITE: the same picture on the home page and the about page
+      reads as a mistake, and choosing per page could not see it.
+    */
+    const { host, kernel } = imageHost(createLocalAssetLibrary());
+
+    await run(host);
+
+    const refs = assetRefs(kernel);
+    expect(new Set(refs).size).toBe(refs.length);
+  });
+
+  it('builds the SAME site twice from the same seed (SC-013)', async () => {
+    const first = imageHost(createLocalAssetLibrary());
+    const second = imageHost(createLocalAssetLibrary());
+
+    await run(first.host);
+    await run(second.host);
+
+    expect(assetRefs(first.kernel)).toEqual(assetRefs(second.kernel));
+  });
+
+  it('completes with LABELLED absences when the library is empty (FR-051)', async () => {
+    const { host, kernel } = imageHost(createLocalAssetLibrary({ entries: [] }));
+
+    const outcome = await run(host);
+
+    if (!outcome.ok) throw new Error(`the run was refused: ${outcome.reason}`);
+    /*
+      A site with no pictures is a site. Every position that wanted one carries
+      a sentence instead — never a blank box, never an invented address.
+    */
+    expect(assetRefs(kernel)).toEqual([]);
+    const reasons = kernel
+      .getSite()
+      .pages.flatMap((page) => Object.values(page.document.nodes))
+      .map((node) => node.props['asset'])
+      .filter(
+        (value): value is { absent: true; reason: string } =>
+          typeof value === 'object' && value !== null && 'absent' in value,
+      );
+    expect(reasons.length).toBeGreaterThan(0);
+    for (const value of reasons) expect(value.reason).toContain('empty');
+    expect(kernel.validate().ok).toBe(true);
   });
 });

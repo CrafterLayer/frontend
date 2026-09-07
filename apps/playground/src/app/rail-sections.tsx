@@ -42,6 +42,11 @@ const SETTINGS =
 const ASSISTANT =
   '<path d="M8 2.4 9.3 6l3.6 1.3-3.6 1.3L8 12.2 6.7 8.6 3.1 7.3 6.7 6z"/>' +
   '<path d="M12.6 11.4 13 12.7l1.3.4-1.3.4-.4 1.3-.4-1.3-1.3-.4 1.3-.4z"/>';
+/* A page stack with a spark: a whole site, built. */
+const SITE =
+  '<rect x="2.2" y="2.6" width="8.4" height="6.2" rx="1.3"/>' +
+  '<path d="M4.6 11.2h6.2M4.6 13.4h4"/>' +
+  '<path d="M12.6 2.2 13.2 4l1.8.6-1.8.6-.6 1.8-.6-1.8L10.2 4.6 12 4z"/>';
 const HELP =
   '<circle cx="8" cy="8" r="5.8"/>' +
   '<path d="M6.4 6.3a1.7 1.7 0 0 1 3.3.5c0 1.1-1.7 1.4-1.7 2.5"/><path d="M8 11.6h.01"/>';
@@ -52,6 +57,17 @@ export const RAIL_SECTIONS: readonly RailItem[] = [
   { id: 'assets', label: 'Assets', icon: glyph(ASSETS) },
   { id: 'code', label: 'Code', icon: glyph(CODE) },
   { id: 'assistant', label: 'Assistant', icon: glyph(ASSISTANT) },
+  /*
+    ITS OWN DESTINATION, not a card in the assistant.
+
+    It lived above the conversation for one afternoon and the first person to
+    use it said the thread and their own typing had become hard to tell apart —
+    which was true: a three-line form, a hint, a status line and an outcome sat
+    permanently between the header and the messages, and the messages got
+    whatever was left. A site build is not a message in a conversation; it is a
+    job with its own progress and its own Stop, and jobs get their own place.
+  */
+  { id: 'site', label: 'Site', icon: glyph(SITE) },
 ];
 
 export const RAIL_UTILITIES: readonly RailItem[] = [

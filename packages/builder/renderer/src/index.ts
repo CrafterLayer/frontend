@@ -8,6 +8,7 @@ export {
   type InlineEditSeam,
 } from './components/DocumentView';
 export { StaticDocument, type StaticDocumentProps } from './components/StaticDocument';
+export type { SharedRegionView } from './components/DocumentView/DocumentView';
 export { UnknownBlock, type UnknownBlockProps } from './components/UnknownBlock';
 export {
   CustomCode,
@@ -19,6 +20,13 @@ export {
 export { renderStaticMarkup, type RenderStaticOptions } from './render-static-markup';
 
 export { resolveResponsiveProps, type RenderBreakpoint } from './resolve/responsive';
+export {
+  resolveImage,
+  useAssetTable,
+  type AssetTable,
+  type ResolvedImage,
+} from './assets/asset-table';
+export { AssetTableProvider, type AssetTableProviderProps } from './assets/AssetTableProvider';
 /*
   The palette a colour CONTROL can offer. Exported because the shell's picker
   needs to know which theme keys are colours, what to call each one to a person,
@@ -32,7 +40,14 @@ export {
   type ColorRole,
   type PaletteEntry,
 } from './resolve/palette';
-export { themeToCssVars, tokenCssName, type Theme, type TokenName } from './resolve/theme';
+export {
+  designSystemToCssVars,
+  themeFromDesignSystem,
+  themeToCssVars,
+  tokenCssName,
+  type Theme,
+  type TokenName,
+} from './resolve/theme';
 export { darkTheme, lightTheme } from './themes';
 export { useKernelNode, useKernelSelector, useRegistryEpoch } from './subscribe';
 export { RichText, safeHref, type RichTextProps } from './components/RichText';

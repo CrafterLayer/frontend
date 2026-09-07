@@ -7,9 +7,7 @@
   "request": "Add a gallery of six photographs of our workshop.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [
       "https://images.",
       "unsplash",
@@ -22,9 +20,7 @@
   "should": {
     "minCommands": 1,
     "maxCommands": 10,
-    "anyBlockTypes": [
-      "gallery"
-    ]
+    "anyBlockTypes": ["gallery"]
   },
   "budget": {
     "maxCommands": 24,

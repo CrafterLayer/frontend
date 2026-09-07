@@ -441,14 +441,16 @@ describe('insertedNodeId reads the SHAPE of a path, not its root', () => {
   });
 
   it('names the node a SITE kernel created, through a page lens', () => {
-    expect(
-      insertedNodeId([{ op: 'add', path: ['pages', 2, 'document', 'nodes', 'n1'] }]),
-    ).toBe('n1');
+    expect(insertedNodeId([{ op: 'add', path: ['pages', 2, 'document', 'nodes', 'n1'] }])).toBe(
+      'n1',
+    );
   });
 
   it('is not fooled by a path that merely passes through nodes', () => {
     // A prop write, and a whole-map replacement: neither creates a node.
-    expect(insertedNodeId([{ op: 'add', path: ['nodes', 'n1', 'props', 'label'] }])).toBeUndefined();
+    expect(
+      insertedNodeId([{ op: 'add', path: ['nodes', 'n1', 'props', 'label'] }]),
+    ).toBeUndefined();
     expect(insertedNodeId([{ op: 'add', path: ['nodes'] }])).toBeUndefined();
     expect(insertedNodeId([{ op: 'replace', path: ['nodes', 'n1'] }])).toBeUndefined();
   });

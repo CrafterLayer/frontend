@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 import { stressDocument } from '@craftkit/builder-core/testing';
-import { defaultDesignSystem, type BuilderDocument, type BuilderSite } from '@craftkit/builder-schema';
+import {
+  defaultDesignSystem,
+  type BuilderDocument,
+  type BuilderSite,
+} from '@craftkit/builder-schema';
 import {
   CANONICAL_JSON_PROJECTION_ID,
   SITE_MANIFEST_PROJECTION_ID,
@@ -315,7 +319,10 @@ describe('editing one page does not re-serialise the site', () => {
   it("hands a page pane exactly that page's text, and no other page's", () => {
     install();
     const response = handleRequest(
-      siteRequest({ scope: { kind: 'page', pageId: 'about' }, projectionId: CANONICAL_JSON_PROJECTION_ID }),
+      siteRequest({
+        scope: { kind: 'page', pageId: 'about' },
+        projectionId: CANONICAL_JSON_PROJECTION_ID,
+      }),
     );
     expect(response.result.kind).toBe('projected');
     if (response.result.kind !== 'projected') return;
@@ -363,15 +370,16 @@ describe('editing one page does not re-serialise the site', () => {
       expect(patch.path.slice(0, 3)).toEqual(['pages', 1, 'document']);
     }
     /* Nothing at the site's own grain moved: no page list, no design system. */
-    expect(
-      response.result.patches.some((patch) => patch.path.length <= 2),
-    ).toBe(false);
+    expect(response.result.patches.some((patch) => patch.path.length <= 2)).toBe(false);
   });
 
   it('refuses a page the site does not have, instead of answering about another', () => {
     install();
     const response = handleRequest(
-      siteRequest({ scope: { kind: 'page', pageId: 'ghost' }, projectionId: CANONICAL_JSON_PROJECTION_ID }),
+      siteRequest({
+        scope: { kind: 'page', pageId: 'ghost' },
+        projectionId: CANONICAL_JSON_PROJECTION_ID,
+      }),
     );
     expect(response.result.kind).toBe('protocol-error');
     if (response.result.kind === 'protocol-error') {

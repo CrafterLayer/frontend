@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 
-import type { BlockRenderProps, Node } from '@craftkit/builder-schema';
+import type { AssetEntry, BlockRenderProps, Node } from '@craftkit/builder-schema';
+import { AssetTableProvider } from '@craftkit/builder-renderer';
 
 import { Image } from './Image';
 import { imageSchema, type ImageProps } from './schema';
@@ -62,6 +63,72 @@ export const CanvasPlaceholder: Story = {
   args: {
     ...args({}, true),
     props: imageSchema.props.parse({ ratio: 'wide', radius: 'md' }),
+  },
+};
+
+const KILN: AssetEntry = {
+  id: 'kiln',
+  url: SOURCE,
+  description: 'A ceramics kiln glowing in a workshop',
+  mood: ['warm'],
+  palette: ['#4f46e5'],
+  alt: 'A kiln glowing orange in a dim ceramics workshop',
+  width: 320,
+  height: 180,
+};
+
+const withLibrary =
+  (assets: Readonly<Record<string, AssetEntry>>) =>
+  (Story: () => React.JSX.Element): React.JSX.Element => (
+    <AssetTableProvider assets={assets}>
+      <Story />
+    </AssetTableProvider>
+  );
+
+/** A picture chosen from the library, resolved through the site's asset table. */
+export const FromTheLibrary: Story = {
+  decorators: [withLibrary({ kiln: KILN })],
+  args: {
+    ...args({}, true),
+    props: imageSchema.props.parse({ asset: { assetId: 'kiln' }, ratio: 'wide', radius: 'md' }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('img', { name: KILN.alt })).toHaveAttribute('src', KILN.url);
+  },
+};
+
+/** Nothing matched, and the position says so in the words it was given. */
+export const LabelledAbsence: Story = {
+  decorators: [withLibrary({ kiln: KILN })],
+  args: {
+    ...args({}, true),
+    props: imageSchema.props.parse({
+      asset: { absent: true, reason: 'Nothing in the library matches "a kiln at work".' },
+      ratio: 'wide',
+      radius: 'md',
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText('Nothing in the library matches "a kiln at work".'),
+    ).toBeVisible();
+  },
+};
+
+/** Rendered outside its site, so the table cannot resolve it. It is named, not hidden. */
+export const UnresolvableReference: Story = {
+  decorators: [withLibrary({})],
+  args: {
+    ...args({}, true),
+    props: imageSchema.props.parse({ asset: { assetId: 'kiln' }, ratio: 'wide', radius: 'md' }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/not in the asset table this page was rendered with/u),
+    ).toBeVisible();
   },
 };
 

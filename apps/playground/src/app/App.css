@@ -2203,6 +2203,14 @@ body,
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+/*
+  The site region is a fifth child between the header and the thread. The
+  explicit rows above count four, so without these the region took the 1fr
+  track and the thread fell into an implicit auto row and painted over it —
+  the conversation and the "describe your site" form on top of each other.
+  The thread must stay the one flexible, scrolling row whatever is mounted.
+*/
+
 .pg-chat__identity {
   display: grid;
   gap: var(--bldr-space-xs);
@@ -2442,16 +2450,23 @@ body,
   opacity: 0.6;
 }
 
-/* The site path's own region in the panel: the brief, or the five stages. */
-.pg-chat__site {
-  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+/* The site builder's own destination on the rail. */
+.pg-site-builder {
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-sm);
-  padding: var(--bldr-space-md) var(--bldr-space-lg);
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-lg);
 }
 
-.pg-chat__site-outcome {
+.pg-site-builder__title {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-body);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-site-builder__empty,
+.pg-site-builder__outcome {
   color: var(--bldr-panel-muted);
   font-size: var(--bldr-font-size-caption);
   line-height: var(--bldr-line-height-snug);
@@ -2459,8 +2474,41 @@ body,
 }
 
 /* A refusal reads as one; a landed run does not shout about it. */
-.pg-chat__site-outcome[data-ok='false'] {
+.pg-site-builder__outcome[data-ok='false'] {
   border-inline-start: var(--bldr-border-thick) solid var(--bldr-danger);
   color: var(--bldr-panel-text);
   padding-inline-start: var(--bldr-space-md);
+}
+
+/*
+  The model picker: its own line under the context, styled like "Sees:". In the
+  title row it competed with the identity for width and wrapped the name one
+  letter per line on a narrow panel.
+*/
+.pg-chat__model {
+  align-items: center;
+  color: var(--bldr-panel-text-soft);
+  display: flex;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-sm);
+  margin: 0;
+  padding: var(--bldr-space-xs) 0 0;
+}
+
+.pg-chat__model-select {
+  background: var(--bldr-panel-muted);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  flex: 1 1 auto;
+  font: inherit;
+  max-inline-size: 16rem;
+  min-inline-size: 0;
+  padding: var(--bldr-space-xs) var(--bldr-space-sm);
+}
+
+.pg-chat__model-select:focus-visible {
+  outline: var(--bldr-border-hairline) solid var(--bldr-accent);
+  outline-offset: 1px;
 }

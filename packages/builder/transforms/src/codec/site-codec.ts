@@ -312,10 +312,17 @@ export function parseSitePage(
   if (page === undefined) {
     return { ok: false, errors: [{ line: 1, message: `This site has no page "${pageId}".` }] };
   }
-  return parseNestedDocument(text, base, page.document, ports, (document) => ({
-    ...base,
-    pages: base.pages.map((entry, at) => (at === index ? { ...entry, document } : entry)),
-  }), ['pages', index, 'document']);
+  return parseNestedDocument(
+    text,
+    base,
+    page.document,
+    ports,
+    (document) => ({
+      ...base,
+      pages: base.pages.map((entry, at) => (at === index ? { ...entry, document } : entry)),
+    }),
+    ['pages', index, 'document'],
+  );
 }
 
 /** The shared-region mirror of `parseSitePage`. */
@@ -332,15 +339,22 @@ export function parseSiteRegion(
       errors: [{ line: 1, message: `This site has no shared region "${regionId}".` }],
     };
   }
-  return parseNestedDocument(text, base, region.document, ports, (document) => {
-    const sharedRegions = emptyRecord<SharedRegion>();
-    for (const id of Object.keys(base.sharedRegions)) {
-      const entry = base.sharedRegions[id];
-      if (entry === undefined) continue;
-      defineOwn(sharedRegions, id, id === regionId ? { ...entry, document } : entry);
-    }
-    return { ...base, sharedRegions };
-  }, ['sharedRegions', regionId, 'document']);
+  return parseNestedDocument(
+    text,
+    base,
+    region.document,
+    ports,
+    (document) => {
+      const sharedRegions = emptyRecord<SharedRegion>();
+      for (const id of Object.keys(base.sharedRegions)) {
+        const entry = base.sharedRegions[id];
+        if (entry === undefined) continue;
+        defineOwn(sharedRegions, id, id === regionId ? { ...entry, document } : entry);
+      }
+      return { ...base, sharedRegions };
+    },
+    ['sharedRegions', regionId, 'document'],
+  );
 }
 
 function parseNestedDocument(
@@ -668,7 +682,11 @@ function readManifestRegions(
     return undefined;
   }
   if (!isRecord(value)) {
-    addError(context, ['sharedRegions'], 'Field "sharedRegions" must be a JSON object keyed by id.');
+    addError(
+      context,
+      ['sharedRegions'],
+      'Field "sharedRegions" must be a JSON object keyed by id.',
+    );
     return undefined;
   }
 
@@ -685,7 +703,11 @@ function readManifestRegions(
     const id = readString(entry, 'id', path, context);
     const kind = entry['kind'];
     if (kind !== 'header' && kind !== 'footer') {
-      addError(context, [...path, 'kind'], 'A shared region\'s "kind" must be "header" or "footer".');
+      addError(
+        context,
+        [...path, 'kind'],
+        'A shared region\'s "kind" must be "header" or "footer".',
+      );
       continue;
     }
     if (id === undefined) {
@@ -904,7 +926,11 @@ function regionPatches(base: BuilderSite, candidate: BuilderSite): Patch[] {
       patches.push({ op: 'replace', path: ['sharedRegions', id, 'kind'], value: next.kind });
     }
     patches.push(
-      ...reroot(documentPatches(current.document, next.document), ['sharedRegions', id, 'document']),
+      ...reroot(documentPatches(current.document, next.document), [
+        'sharedRegions',
+        id,
+        'document',
+      ]),
     );
   }
 
@@ -948,14 +974,14 @@ function pagePatches(base: BuilderSite, candidate: BuilderSite): Patch[] {
         }
       }
       if (canonicalJson(current.regions) !== canonicalJson(want.regions)) {
-        patches.push({ op: 'replace', path: ['pages', index, 'regions'], value: [...want.regions] });
+        patches.push({
+          op: 'replace',
+          path: ['pages', index, 'regions'],
+          value: [...want.regions],
+        });
       }
       patches.push(
-        ...reroot(documentPatches(current.document, want.document), [
-          'pages',
-          index,
-          'document',
-        ]),
+        ...reroot(documentPatches(current.document, want.document), ['pages', index, 'document']),
       );
       return;
     }

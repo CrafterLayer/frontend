@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
 
+import { NAV_LINK_LIMIT, navLinksFromPages } from './derive';
 import { sectionCustomGroups } from '../section-custom';
 import { sectionColorGroups } from '../section-color';
 import { sectionMotionGroups } from '../section-motion';
@@ -303,5 +304,82 @@ describe('NavLinks', () => {
         links: [{ label: 'Unsafe', href: 'javascript:alert(1)' }],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('navigation derived from the page set (FR-005)', () => {
+  it('turns a site page order into links, in that order', () => {
+    expect(
+      navLinksFromPages([
+        { address: '/work', title: 'Work' },
+        { address: '/', title: 'Home' },
+        { address: '/contact', title: 'Contact' },
+      ]),
+    ).toEqual([
+      { label: 'Work', href: '/work' },
+      { label: 'Home', href: '/' },
+      { label: 'Contact', href: '/contact' },
+    ]);
+  });
+
+  it('does NOT re-sort, because the page order is a decision someone made', () => {
+    const pages = [
+      { address: '/zebra', title: 'Zebra' },
+      { address: '/', title: 'Home' },
+    ];
+    expect(navLinksFromPages(pages).map((link) => link.href)).toEqual(['/zebra', '/']);
+  });
+
+  it('skips a page with no title rather than inventing one', () => {
+    /*
+      "Untitled" in a header is worse than a missing entry: it reads as a page
+      someone meant to name and shipped anyway, and it is indistinguishable from
+      a page that really is called that.
+    */
+    expect(
+      navLinksFromPages([
+        { address: '/', title: 'Home' },
+        { address: '/draft', title: '   ' },
+      ]),
+    ).toEqual([{ label: 'Home', href: '/' }]);
+  });
+
+  it('cuts a long title on a word, and keeps it inside the block schema bound', () => {
+    const [link] = navLinksFromPages([
+      { address: '/x', title: 'Everything we make and why we make it here' },
+    ]);
+    expect(link?.label.length).toBeLessThanOrEqual(24);
+    expect(link?.label.endsWith(' ')).toBe(false);
+    /* Cut on a word, so the label reads as words rather than as a fragment. */
+    expect(link?.label).toBe('Everything we make and');
+  });
+
+  it('stops at the block schema limit rather than producing links it would refuse', () => {
+    const many = Array.from({ length: 14 }, (_unused, index) => ({
+      address: `/p${String(index)}`,
+      title: `Page ${String(index)}`,
+    }));
+    expect(navLinksFromPages(many)).toHaveLength(NAV_LINK_LIMIT);
+  });
+
+  it('keeps one link per address', () => {
+    expect(
+      navLinksFromPages([
+        { address: '/', title: 'Home' },
+        { address: '/', title: 'Home again' },
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it('produces links the block schema accepts', () => {
+    const links = navLinksFromPages([
+      { address: '/', title: 'Home' },
+      { address: '/work', title: 'Work' },
+    ]);
+    /*
+      The derivation and the block are two halves of one contract, so the output
+      is checked against the schema rather than against a hand-written shape.
+    */
+    expect(navLinksSchema.props.safeParse({ links }).success).toBe(true);
   });
 });

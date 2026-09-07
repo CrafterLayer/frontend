@@ -1,4 +1,4 @@
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { createSiteBuilder } from '@craftkit/builder-core';
@@ -154,5 +154,68 @@ export const RenameInPlace: Story = {
     await userEvent.type(field, 'Our story{Enter}');
 
     await expect(args.siteKernel.getSite().pages[1]?.title).toBe('Our story');
+  },
+};
+
+/**
+ * Shared regions: a page opts in and out on its own.
+ *
+ * The home page carries the masthead; the others do not. That unevenness is the
+ * point — a fixture where every page carried every region could not tell
+ * "the region reached every page" from "the region reached the pages that asked
+ * for it", and the second is the contract.
+ */
+export const SharedRegions: Story = {
+  args: {
+    siteKernel: kernelOf(
+      (() => {
+        const base = siteOf(FOUR);
+        const regionDocument = (words: string) => ({
+          schemaVersion: 1,
+          surface: 'site' as const,
+          dir: 'ltr' as const,
+          rootId: 'root',
+          nodes: {
+            root: { id: 'root', type: 'page', props: {}, slots: { default: ['line'] } },
+            line: { id: 'line', type: 'text', props: { content: words } },
+          },
+        });
+        return {
+          ...base,
+          pages: base.pages.map((entry, at) =>
+            at === 0 ? { ...entry, regions: ['masthead'] } : entry,
+          ),
+          sharedRegions: {
+            masthead: {
+              id: 'masthead',
+              kind: 'header' as const,
+              document: regionDocument('the masthead'),
+            },
+            colophon: {
+              id: 'colophon',
+              kind: 'footer' as const,
+              document: regionDocument('the colophon'),
+            },
+          },
+        };
+      })(),
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('group', { name: 'Shared regions on Home' })).toBeVisible();
+
+    /* Opting in is one press, and it changes this page only. */
+    await userEvent.click(canvas.getByRole('checkbox', { name: /colophon/u }));
+    await waitFor(async () => {
+      await expect(canvas.getByRole('checkbox', { name: /colophon/u })).toBeChecked();
+    });
+
+    /* The toggles follow the selected page rather than staying on the first. */
+    await userEvent.click(canvas.getByRole('option', { name: /Our work/u }));
+    await waitFor(async () => {
+      await expect(canvas.getByRole('group', { name: 'Shared regions on Our work' })).toBeVisible();
+    });
+    await expect(canvas.getByRole('checkbox', { name: /masthead/u })).not.toBeChecked();
   },
 };

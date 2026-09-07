@@ -109,10 +109,18 @@ describe('Carousel', () => {
     expect(screen.getByText('A concise introduction.')).toBeVisible();
     expect(screen.getByText('Chapter one')).toBeVisible();
     expect(screen.getByText('Copy remains legible over the image.')).toBeVisible();
+    /*
+      `w-full` and a narrow minimum height: the overlay figure used to carry
+      `min-h-96` alone, and CSS resolved its aspect ratio the wrong way round —
+      384px of minimum height became 683px of width, overflowing a 360px phone
+      by 348px. Measured by the Chromium responsive gate.
+    */
     expect(screen.getByRole('img', { name: 'Sunlit landscape' }).closest('figure')).toHaveClass(
       'col-start-1',
       'row-start-1',
-      'min-h-96',
+      'w-full',
+      'min-h-64',
+      '@md:min-h-96',
     );
     expect(screen.getByText('A visual opening').closest('[data-carousel-copy]')).toHaveClass(
       'col-start-1',

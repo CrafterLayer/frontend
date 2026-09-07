@@ -28,11 +28,7 @@ describe('Testimonials', () => {
       '@container',
     );
     expect(screen.getByRole('list')).toHaveClass('grid', '@lg:grid-cols-3', 'gap-gap');
-    expect(screen.getByRole('figure')).toHaveClass(
-      'rounded-xl',
-      'border',
-      'bg-surface',
-    );
+    expect(screen.getByRole('figure')).toHaveClass('rounded-xl', 'border', 'bg-surface');
     expect(screen.getByRole('figure')).toHaveTextContent('Boring tests, happy team.');
     expect(screen.getByText(/Rana/)).toBeInTheDocument();
     expect(screen.getByText(/Staff Engineer/)).toBeInTheDocument();

@@ -222,33 +222,35 @@ describe('FR-019 — scoped notification on the 1,000-node stress document', () 
     inside still hold the property, this only stops the clock lying about it.
   */
   const LOAD_TOLERANT_TIMEOUT_MS = 30_000;
-  it('structural validation scales linearly on the stress document (SC-006 guard)', () => {
-    // SC-006's absolute "<150 ms" is recorded by the uncontended evidence run;
-    // wall-clock assertions are Lane-B and would flake here, where turbo runs
-    // several coverage-instrumented vitest processes in parallel. The merge
-    // gate instead proves the property that GUARANTEES the budget: near-linear
-    // cost. Ten 100-node validations do the same node work as one 1,000-node
-    // validation, and interleaved rounds share whatever machine load exists,
-    // so the ratio is load-invariant. A superlinear validator (O(n^2) would
-    // put the ratio near 10) fails deterministically.
-    const small = testKernel(stressDocument(100));
-    const big = testKernel(stressDocument(1000));
-    expect(big.validate()).toEqual([]);
+  it(
+    'structural validation scales linearly on the stress document (SC-006 guard)',
+    () => {
+      // SC-006's absolute "<150 ms" is recorded by the uncontended evidence run;
+      // wall-clock assertions are Lane-B and would flake here, where turbo runs
+      // several coverage-instrumented vitest processes in parallel. The merge
+      // gate instead proves the property that GUARANTEES the budget: near-linear
+      // cost. Ten 100-node validations do the same node work as one 1,000-node
+      // validation, and interleaved rounds share whatever machine load exists,
+      // so the ratio is load-invariant. A superlinear validator (O(n^2) would
+      // put the ratio near 10) fails deterministically.
+      const small = testKernel(stressDocument(100));
+      const big = testKernel(stressDocument(1000));
+      expect(big.validate()).toEqual([]);
 
-    let smallBest = Number.POSITIVE_INFINITY;
-    let bigBest = Number.POSITIVE_INFINITY;
-    for (let round = 0; round < 5; round += 1) {
-      let startedAt = Date.now();
-      for (let run = 0; run < 10; run += 1) {
-        small.validate();
+      let smallBest = Number.POSITIVE_INFINITY;
+      let bigBest = Number.POSITIVE_INFINITY;
+      for (let round = 0; round < 5; round += 1) {
+        let startedAt = Date.now();
+        for (let run = 0; run < 10; run += 1) {
+          small.validate();
+        }
+        smallBest = Math.min(smallBest, Date.now() - startedAt);
+        startedAt = Date.now();
+        big.validate();
+        bigBest = Math.min(bigBest, Date.now() - startedAt);
       }
-      smallBest = Math.min(smallBest, Date.now() - startedAt);
-      startedAt = Date.now();
-      big.validate();
-      bigBest = Math.min(bigBest, Date.now() - startedAt);
-    }
-    expect(bigBest).toBeLessThan(Math.max(3 * smallBest, 20));
-    /*
+      expect(bigBest).toBeLessThan(Math.max(3 * smallBest, 20));
+      /*
       Catastrophic-regression backstop. This is the ONE wall-clock assertion
       the comment above warns against, and it kept the warning's promise: at
       2000ms it flaked under `pnpm test`, where turbo runs every package's
@@ -260,8 +262,10 @@ describe('FR-019 — scoped notification on the 1,000-node stress document', () 
       ratio cannot see) without tripping on a busy CI box. 20s does both: a
       600× uniform regression still fails, contention does not.
     */
-    expect(bigBest).toBeLessThan(20_000);
-  }, LOAD_TOLERANT_TIMEOUT_MS);
+      expect(bigBest).toBeLessThan(20_000);
+    },
+    LOAD_TOLERANT_TIMEOUT_MS,
+  );
 });
 
 describe('patch-shape assertion — commands touch only their paths', () => {

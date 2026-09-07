@@ -139,6 +139,32 @@ describe('Accordion', () => {
   });
 
   /*
+    `single` and `multiple` are separate elements — Radix types `defaultValue`
+    as a string for one and an array for the other — so `defaultOpen` has TWO
+    implementations and each needs proving. Only the `single` one was covered,
+    which means the multiple-mode branch could have shipped opening nothing (or
+    throwing on an empty accordion) with the suite still green.
+  */
+  it('opens the first item in MULTIPLE mode too', () => {
+    renderAccordion({ mode: 'multiple', defaultOpen: 'first' });
+
+    expect(screen.getByRole('button', { name: 'Question 1' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Question 2' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('survives an EMPTY accordion in multiple mode asked to open its first item', () => {
+    const { container } = renderAccordion({ mode: 'multiple', defaultOpen: 'first' }, []);
+
+    expect(container.querySelectorAll('button')).toHaveLength(0);
+  });
+
+  /*
     The keyboard model is the reason this primitive is vendored rather than
     written. It comes from Radix; this test is what proves the wrapper did not
     quietly break it.

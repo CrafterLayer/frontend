@@ -13,16 +13,28 @@ read-only facade; Law S).
 
 ## Public API (`@craftkit/builder-core`)
 
-- `createBuilder(options)` → `BuilderKernel`: `dispatch` (typed for the ten core commands,
-  string-typed for extension commands), `undo`/`redo`, `validate`, `extensions` (register /
-  registerAll / hydrateDeclarative / dispose), `flush` (count-coalesced persistence),
-  `setSelection`, `transactions`.
+- `createBuilder(options)` → `BuilderKernel` (17 members): `dispatch` (typed for the twelve core
+  commands, string-typed for extension commands), `dispatchGroup` (every step over ONE immer produce
+  — one transaction, one history entry, one undo, and atomic failure), `undo`/`redo`, `validate`,
+  `extensions` (register / registerAll / hydrateDeclarative / dispose), `flush` (count-coalesced
+  persistence), `setSelection`, `focusElement`, `transactions`.
 - `openDocument(adapter, docId, options)` — Law M load path: load(snapshot + tail) → migrate →
   validate → open; never half-opens.
+- `createSiteBuilder(options)` → `BuilderSiteKernel`: a whole SITE — pages, shared regions, design
+  system, asset table — behind **one** store, one dispatcher, one transaction log, one history and
+  one save session. `kernel.page(pageId)` returns a lens satisfying the 17-member `BuilderKernel`
+  interface, so every component built for a document works over a site unchanged. Patches are rooted
+  in the site, which is what makes a batch touching several pages one transaction and therefore one
+  undo
+  ([ADR 0006](../../../docs/architecture/decisions/0006-builder-site-model-and-design-tokens.md)).
+- `siteCommands` / `SiteCommands` — addPage, removePage, renamePage, reorderPage, setSharedRegion,
+  setPageRegions, setDesignToken, setDesignSystem, registerAsset, setSiteDirection, and the
+  host-only `applySitePatches`, which refuses to move `siteVersion` because the migrations own it.
 - `defineCommand` — authoring with full zod inference, registered variance-safe with parsing INSIDE
   the door (Law V).
-- `coreCommands` / `CoreCommands` — insertNode, removeNode, moveNode, setProp, setBinding,
-  setResponsive, setDocMeta, duplicateNode, wrapNode, groupNodes.
+- `coreCommands` / `CoreCommands` — insertNode, insertComposition, removeNode, moveNode, setProp,
+  setBinding, setResponsive, setDocMeta, duplicateNode, wrapNode, groupNodes, and the host-only
+  applyPatches.
 - `applyPatchSet` (replay), `systemClock`/`systemIds` (the only ambient-capability call sites; Law
   D), `insertedNodeId`, `emptyDocument`.
 

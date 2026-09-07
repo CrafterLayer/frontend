@@ -21,10 +21,10 @@ owning every path that must clear it, and one missed path leaves a form that nev
 
 `onSubmit` resolves the moment the run is accepted or refused — never when it finishes. This is not
 a shortcut, it is forced: every state update made inside an Action is a **transition** update, and
-React holds the re-render until the action settles. A host that awaited a five-stage site build
-here would have held its own progress card for the whole build — five stages, minutes long, and not
-one frame of it visible until the moment it was already over. That was written first, and the
-progress card provably never appeared.
+React holds the re-render until the action settles. A host that awaited a five-stage site build here
+would have held its own progress card for the whole build — five stages, minutes long, and not one
+frame of it visible until the moment it was already over. That was written first, and the progress
+card provably never appeared.
 
 So a reason shown here is a reason the run could not START. A stage that fails three minutes later
 belongs to whatever is showing the run: by then the sentence in this field is not what went wrong.
@@ -40,8 +40,8 @@ thing a person waiting on five stages must not have to guess.
 <Canvas of={SiteBriefFormStories.Refused} />
 
 A blank brief is the form declining to start a run: no spinner, no entry in history, nothing to
-undo. The field is marked `aria-invalid` and the reason is tied to it with `aria-describedby`, so
-a screen reader hears why the moment focus returns.
+undo. The field is marked `aria-invalid` and the reason is tied to it with `aria-describedby`, so a
+screen reader hears why the moment focus returns.
 
 <Canvas of={SiteBriefFormStories.Errored} />
 
@@ -58,5 +58,5 @@ five stages go past all belong to the panel that composes it — this stays one 
 
 <Canvas of={SiteBriefFormStories.Arabic} />
 
-Arabic is the default locale, and the field is `dir="auto"` in both: a person writing Arabic into
-an English-chrome panel should see their own text run the right way without changing a setting.
+Arabic is the default locale, and the field is `dir="auto"` in both: a person writing Arabic into an
+English-chrome panel should see their own text run the right way without changing a setting.

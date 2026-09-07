@@ -1,6 +1,15 @@
 import './App.css';
 import { AssistantPanel } from '../features/preview/components/AssistantPanel';
-import { planProviderFromEnv } from '../features/preview/components/AssistantPanel/planProviderFromEnv';
+import { SiteBuilderPanel } from '../features/preview/components/SiteBuilderPanel';
+import { createLocalAssetLibrary } from '../features/preview/local-asset-library';
+import {
+  IDLE_SITE_RUN_SEAM,
+  type SiteRunSeam,
+} from '../features/preview/components/AssistantPanel/use-site-run';
+import {
+  planModelsFromEnv,
+  planProviderFromEnv,
+} from '../features/preview/components/AssistantPanel/planProviderFromEnv';
 import { RailSectionNotice } from './rail-section-notice';
 import { RAIL_SECTIONS, RAIL_UTILITIES } from './rail-sections';
 import { useRecentChanges } from './use-recent-changes';
@@ -9,7 +18,9 @@ import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   createOfflineSiteStageProvider,
   createSiteBuilder,
+  themeFromDesignSystem,
   bucketForWidth,
+  AssetTableProvider,
   BuilderShell,
   BuilderTheme,
   ChromeButton,
@@ -75,11 +86,22 @@ function deviceForBucket(name: TopBarDevice): DeviceState {
 }
 
 /**
- * Resolved once at module load: a remote assistant server when
- * VITE_AI_PLAN_ENDPOINT is set, otherwise undefined and the panel keeps its
- * built-in deterministic provider.
+ * The models the assistant header may offer, from VITE_AI_PLAN_MODELS. The
+ * provider itself is built inside `App`, per chosen model: the choice travels
+ * as a request header, and a provider carries its headers from construction.
  */
-const envPlanProvider = planProviderFromEnv(import.meta.env);
+const envPlanModels = planModelsFromEnv(import.meta.env);
+const PLAN_MODEL_KEY = 'pg-ai-model-v1';
+
+/** The remembered choice, honoured only while it is still on offer. */
+function storedPlanModel(): string | undefined {
+  try {
+    const stored = localStorage.getItem(PLAN_MODEL_KEY);
+    return stored !== null && envPlanModels.includes(stored) ? stored : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /*
   The rail's newest destination. It is composed HERE rather than added to
@@ -240,6 +262,26 @@ export function App() {
     that looks live and is not is worse than no control.
   */
   const [railSection, setRailSection] = useState('blocks');
+  const [planModel, setPlanModel] = useState<string | undefined>(storedPlanModel);
+  const selectPlanModel = useCallback((model: string) => {
+    setPlanModel(model);
+    try {
+      localStorage.setItem(PLAN_MODEL_KEY, model);
+    } catch {
+      // A private window forgets the choice; the picker still works for the session.
+    }
+  }, []);
+  /*
+    A remote assistant server when VITE_AI_PLAN_ENDPOINT is set, otherwise
+    undefined and the panel keeps its built-in deterministic provider. Rebuilt
+    when the model changes: the header is fixed at construction, and a fresh
+    provider also starts a fresh cache, which is right — a different model is
+    a different answer to the same page.
+  */
+  const envPlanProvider = useMemo(
+    () => planProviderFromEnv(import.meta.env, planModel),
+    [planModel],
+  );
   /*
     The scenario harness is a disclosure, not a strip. Eight controls plus the
     product's own do not fit a 56px bar: measured at 1600px they came to 722px
@@ -296,6 +338,13 @@ export function App() {
    * template, and the day a person is shown one it must be because the host
    * chose it here, not because a fallback quietly took over.
    */
+  /*
+    The assistant panel owns the ONE run lease and lends it here. Held in state
+    rather than derived, because the panel hands it up after it mounts and the
+    site destination may be the first thing a person opens.
+  */
+  const [siteSeam, setSiteSeam] = useState<SiteRunSeam>(IDLE_SITE_RUN_SEAM);
+  const assetLibrary = useMemo(() => createLocalAssetLibrary(), []);
   const siteHost = useMemo(
     () =>
       siteKernel === undefined
@@ -308,8 +357,14 @@ export function App() {
                 extensions: playgroundExtensions(fixture),
               }),
             provider: createOfflineSiteStageProvider(),
+            /*
+              Built once with the host, not per render: `AssetPicker` lists per
+              `library` identity, and a fresh port object every render would
+              list on every render.
+            */
+            library: assetLibrary,
           },
-    [siteKernel, fixture],
+    [siteKernel, fixture, assetLibrary],
   );
   // Dismissal is per fixture: choosing another document is a new answer to
   // "was this restored?", and a dismissal must not carry across it.
@@ -349,10 +404,62 @@ export function App() {
     made are not silently carried onto a palette they were never chosen for.
   */
   const [roleOverrides, setRoleOverrides] = useState<Partial<Record<ColorRole, string>>>({});
-  const theme = useMemo(
-    () => ({ ...(themeName === 'light' ? lightTheme : darkTheme), ...roleOverrides }),
-    [themeName, roleOverrides],
+  /*
+    The SITE's own palette, subscribed (FR-012).
+
+    Read through the site kernel rather than from `lightTheme`, because a
+    site's design system IS its palette: generated for that business and
+    checked for contrast. Painting the canvas from a named module theme instead
+    would mean the system a person sees in the panel and the colours actually on
+    the page came from two different places, and only one of them was ever
+    validated.
+
+    It is one rule above every page, so a token change reaches all of them and
+    rewrites no document — which is what keeps a palette edit one undo instead
+    of one per page.
+  */
+  const siteTokens = useSyncExternalStore(
+    useCallback(
+      (onStoreChange: () => void) =>
+        siteKernel === undefined ? () => undefined : siteKernel.subscribe(onStoreChange),
+      [siteKernel],
+    ),
+    useCallback(() => siteKernel?.getSite().designSystem, [siteKernel]),
   );
+  /*
+    Subscribed, not read at render time. A generation registers pictures in the
+    same transaction that places them, and an unsubscribed read would leave the
+    canvas holding the table from BEFORE the run — every new picture a labelled
+    absence until something else happened to re-render the app.
+  */
+  const siteAssets = useSyncExternalStore(
+    useCallback(
+      (onStoreChange: () => void) =>
+        siteKernel === undefined ? () => undefined : siteKernel.subscribe(onStoreChange),
+      [siteKernel],
+    ),
+    useCallback(() => siteKernel?.getSite().assets, [siteKernel]),
+  );
+  /*
+    The site's palette is the DEFAULT; the harness picker is a layer over it.
+
+    Both things have to stay true. FR-012 says a site's own design system paints
+    its pages — so "light" is not a named module theme any more, it is whatever
+    the site was generated with. And the harness's picker still has to recolour
+    the frame in place, because that is a control a person uses to inspect a
+    page in the dark, not a claim about the site's design.
+
+    Layered rather than swapped, which is the whole reason
+    `themeFromDesignSystem` takes overrides beside a system instead of merging
+    them into it: a stored site never acquires colours nobody generated for it,
+    however long someone leaves the picker on dark.
+  */
+  const theme = useMemo(() => {
+    const overrides = themeName === 'dark' ? { ...darkTheme, ...roleOverrides } : roleOverrides;
+    return siteTokens === undefined
+      ? { ...(themeName === 'light' ? lightTheme : darkTheme), ...roleOverrides }
+      : themeFromDesignSystem(siteTokens, overrides);
+  }, [siteTokens, themeName, roleOverrides]);
   const retheme = useCallback((role: ColorRole, value: string) => {
     setRoleOverrides((current) => ({ ...current, [role]: value }));
   }, []);
@@ -579,6 +686,9 @@ export function App() {
                     visible={railSection === 'assistant'}
                     kernel={session.kernel}
                     planProvider={envPlanProvider}
+                    models={envPlanModels}
+                    model={planModel ?? envPlanModels[0]}
+                    onSelectModel={selectPlanModel}
                     /*
                       The one place that knows what the provider is: it came
                       from VITE_AI_PLAN_ENDPOINT, so it is a model over the
@@ -588,14 +698,11 @@ export function App() {
                     providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
                     persistKey="pg-assistant-sessions-v1"
                     /*
-                      THE SITE PATH. Assembled here because this is the only
-                      place that knows all three of its parts: the live site
-                      kernel from the vault, the fixture's own extensions, and
-                      the stage provider. The panel is handed the result and
-                      knows none of them — which is what lets a build with no
-                      site simply not offer one.
+                      The panel keeps the ONE run lease and hands it up; the
+                      site builder on its own rail destination borrows it, so
+                      two destinations can never both start a run.
                     */
-                    site={siteHost}
+                    onSiteSeam={setSiteSeam}
                     onReviewAsCode={() => {
                       setRailSection('code');
                     }}
@@ -655,6 +762,16 @@ export function App() {
                   <HistoryPanel kernel={session.kernel} shelf={session.shelf} />
                 ) : railSection === 'assets' || railSection === 'help' ? (
                   <RailSectionNotice section={railSection} />
+                ) : railSection === 'site' ? (
+                  <div className="pg-panel-scroll">
+                    <SiteBuilderPanel
+                      site={siteHost}
+                      seam={siteSeam}
+                      onStop={() => {
+                        siteSeam.stop();
+                      }}
+                    />
+                  </div>
                 ) : railSection === 'assistant' ? null : (
                   // Blocks, and Code: the palette stays beside the projection,
                   // because reading the document as text is not a reason to
@@ -670,14 +787,22 @@ export function App() {
             ) : codeOpen ? (
               <CodeViewShowcase key={fixture} kernel={session.kernel} />
             ) : (
-              <EditorCanvas
-                kernel={session.kernel}
-                theme={theme}
-                editable
-                onDragHandle={setDragHandle}
-                frameWidth={device.width}
-                breakpoint={breakpoint}
-              />
+              /*
+                The site's asset table, made reachable from inside a block. An
+                image prop holds an id, not an address, so a canvas rendered
+                without this shows every picture as a labelled absence — which
+                is the correct degradation, and the wrong thing to ship.
+              */
+              <AssetTableProvider assets={siteAssets ?? {}}>
+                <EditorCanvas
+                  kernel={session.kernel}
+                  theme={theme}
+                  editable
+                  onDragHandle={setDragHandle}
+                  frameWidth={device.width}
+                  breakpoint={breakpoint}
+                />
+              </AssetTableProvider>
             )
           }
           status={

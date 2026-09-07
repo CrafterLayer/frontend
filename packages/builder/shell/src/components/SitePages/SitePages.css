@@ -39,8 +39,16 @@
   border-radius: var(--bldr-radius-sm);
   color: var(--bldr-panel-text);
   cursor: pointer;
-  font: var(--bldr-font-weight-medium) var(--bldr-font-size-caption) /
-    var(--bldr-line-height-tight) var(--bldr-font);
+  font: var(--bldr-font-weight-medium) var(--bldr-font-size-caption) / var(--bldr-line-height-tight)
+    var(--bldr-font);
+  /*
+    A cursor target, not just a label. Caption text with 2xs padding measured
+    67×20 in Chromium — under the 24px WCAG 2.2 target-size minimum for pointer
+    input, which is the floor even on a dense desktop chrome. `--bldr-control-sm`
+    is the size every other small control in this shell already is, so this is
+    the surface joining them rather than a number invented for it.
+  */
+  min-block-size: var(--bldr-control-sm);
   padding-block: var(--bldr-space-2xs);
   padding-inline: var(--bldr-space-sm);
 }
@@ -139,8 +147,8 @@
 
 .bldr-site-pages__refusal {
   color: var(--bldr-danger);
-  font: var(--bldr-font-weight-regular) var(--bldr-font-size-caption) /
-    var(--bldr-line-height-snug) var(--bldr-font);
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-caption) / var(--bldr-line-height-snug)
+    var(--bldr-font);
   margin: var(--bldr-space-0);
   padding-inline-start: var(--bldr-space-md);
 }
@@ -151,4 +159,28 @@
     var(--bldr-font);
   margin: var(--bldr-space-0);
   padding-inline-start: var(--bldr-space-md);
+}
+
+.bldr-site-pages__regions {
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  margin: var(--bldr-space-sm);
+  padding: var(--bldr-space-sm);
+}
+
+.bldr-site-pages__regions-legend {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  padding-inline: var(--bldr-space-2xs);
+}
+
+.bldr-site-pages__region {
+  align-items: center;
+  color: var(--bldr-panel-text);
+  display: flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-xs);
 }

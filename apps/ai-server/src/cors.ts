@@ -25,7 +25,7 @@ export type OriginPolicy = (origin: string) => boolean;
 
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 const ALLOW_METHODS = 'POST, OPTIONS';
-const DEFAULT_ALLOW_HEADERS = 'authorization, content-type, accept';
+const DEFAULT_ALLOW_HEADERS = 'authorization, content-type, accept, x-craftkit-ai-model';
 const PREFLIGHT_MAX_AGE_SECONDS = 600;
 
 function parseOrigin(value: string): URL | undefined {

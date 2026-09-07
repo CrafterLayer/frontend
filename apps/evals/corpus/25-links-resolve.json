@@ -7,19 +7,14 @@
   "request": "Add a hero with a button that jumps to the pricing section further down the page, and add that pricing section.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 2,
     "maxCommands": 12,
-    "allBlockTypes": [
-      "hero",
-      "pricing"
-    ]
+    "allBlockTypes": ["hero", "pricing"]
   },
   "budget": {
     "maxCommands": 24,

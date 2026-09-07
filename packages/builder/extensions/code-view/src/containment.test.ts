@@ -184,11 +184,7 @@ describe('the site codec stays off the rendering path (013 SC-005 at site scope)
     'index.ts',
   ] as const;
 
-  const SITE_CODEC_SYMBOLS = [
-    'projectSite',
-    'parseSite',
-    'SITE_MANIFEST_PROJECTION_ID',
-  ] as const;
+  const SITE_CODEC_SYMBOLS = ['projectSite', 'parseSite', 'SITE_MANIFEST_PROJECTION_ID'] as const;
 
   const read = (relative: string): string =>
     readFileSync(join(process.cwd(), 'src', relative), 'utf8');

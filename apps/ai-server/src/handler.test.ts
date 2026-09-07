@@ -121,7 +121,145 @@ describe('transport', () => {
   });
 });
 
+/*
+  The panel may name a model per request (`x-craftkit-ai-model`). The server,
+  not the browser, decides which models are allowed: a public endpoint must
+  not let a client pick the most expensive model on someone else's key.
+*/
+describe('model choice', () => {
+  function capturingClient(): { client: Anthropic; sent: () => Record<string, unknown> | undefined } {
+    let seen: Record<string, unknown> | undefined;
+    const client = {
+      messages: {
+        stream: (params: Record<string, unknown>) => {
+          seen = params;
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [{ type: 'text', text: JSON.stringify(PLAN) }],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    return { client, sent: () => seen };
+  }
+
+  it('passes an allowed model choice to the backend', async () => {
+    const { client, sent } = capturingClient();
+    const handle = createHandler({
+      client,
+      model: 'minimax/minimax-m3:free',
+      models: ['nvidia/nemotron-3-ultra-550b-a55b:free'],
+    });
+
+    const response = await handle(
+      post(wireBody(), { 'x-craftkit-ai-model': 'nvidia/nemotron-3-ultra-550b-a55b:free' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(sent()?.['model']).toBe('nvidia/nemotron-3-ultra-550b-a55b:free');
+  });
+
+  it('uses the configured model when the request names none', async () => {
+    const { client, sent } = capturingClient();
+    const handle = createHandler({ client, model: 'minimax/minimax-m3:free', models: ['other/model'] });
+
+    await handle(post(wireBody()));
+
+    expect(sent()?.['model']).toBe('minimax/minimax-m3:free');
+  });
+
+  it('refuses a model the server does not allow, as a terminal 400 that names it', async () => {
+    const { client, sent } = capturingClient();
+    const handle = createHandler({ client, model: 'minimax/minimax-m3:free', models: ['other/model'] });
+
+    const response = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'openai/gpt-5' }));
+
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: string }).error).toContain('openai/gpt-5');
+    expect(sent()).toBeUndefined();
+  });
+
+  it('always accepts the configured model by name, even with no allowlist', async () => {
+    const { client } = capturingClient();
+    const handle = createHandler({ client, model: 'minimax/minimax-m3:free' });
+
+    const response = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'minimax/minimax-m3:free' }));
+
+    expect(response.status).toBe(200);
+  });
+
+  it('refuses every other choice when no allowlist is configured', async () => {
+    const { client } = capturingClient();
+    const handle = createHandler({ client, model: 'minimax/minimax-m3:free' });
+
+    const response = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'other/model' }));
+
+    expect(response.status).toBe(400);
+  });
+});
+
 describe('answer translation', () => {
+  /*
+    prompt.ts tells the model to answer "a plan whose single command is
+    impossible" when a request cannot be expressed. No command by that name
+    exists, so without this translation the panel showed the validator's
+    `names unknown command "impossible"` instead of the model's own reason.
+  */
+  it('turns the prompt’s "impossible" convention into a refusal that carries the reason', async () => {
+    const handle = createHandler({
+      client: fakeClient({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              rationale: 'This page has no pricing block to edit.',
+              commands: [{ command: 'impossible', args: {} }],
+            }),
+          },
+        ],
+      }),
+    });
+
+    const response = await handle(post(wireBody()));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      version: 1,
+      refusal: 'This page has no pricing block to edit.',
+    });
+  });
+
+  it('shows the "impossible" refusal on the streaming path the panel reads', async () => {
+    const handle = createHandler({
+      client: fakeClient({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ rationale: 'Not about this page.', commands: [{ command: 'impossible', args: {} }] }),
+          },
+        ],
+      }),
+    });
+
+    const response = await handle(
+      new Request('http://localhost/plan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify(wireBody()),
+      }),
+    );
+
+    const text = await response.text();
+    expect(text).toContain('"refusal":"Not about this page."');
+    expect(text).not.toContain('impossible');
+  });
+
   it('returns a safety decline as a 200 refusal, not an error status', async () => {
     /*
       It is an ANSWER, and the wire has a shape for it. A 4xx would make the
@@ -299,6 +437,64 @@ describe('failure translation', () => {
     expect(text).toContain('gave up after 110s');
     expect(text).not.toContain('failed unexpectedly');
   });
+
+  /*
+    The OpenRouter backend knows which of its failures are retryable and
+    which are deployment mistakes, and says so on the error. The handler
+    carries the sentence AND the status, or `remote-provider` would retry a
+    bad key and give up on a rate limit.
+  */
+  function openRouterBackendError(message: string, httpStatus: number): Error {
+    const error = new Error(message) as Error & { httpStatus: number };
+    error.name = 'OpenRouterBackendError';
+    error.httpStatus = httpStatus;
+    return error;
+  }
+
+  it('passes an OpenRouter failure through by name, with the status the backend chose', async () => {
+    const handle = createHandler({
+      client: throwing(openRouterBackendError('OpenRouter is rate limiting this key right now.', 429)),
+    });
+
+    const response = await handle(post(wireBody()));
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(429);
+    expect(body.error).toBe('OpenRouter is rate limiting this key right now.');
+  });
+
+  it('treats an OpenRouter key problem as the deployment mistake it is', async () => {
+    const handle = createHandler({
+      client: throwing(
+        openRouterBackendError('OpenRouter rejected the API key: check OPENROUTER_API_KEY.', 500),
+      ),
+    });
+
+    const response = await handle(post(wireBody()));
+
+    expect(response.status).toBe(500);
+    expect(((await response.json()) as { error: string }).error).toMatch(/OPENROUTER_API_KEY/u);
+  });
+
+  it('shows the OpenRouter failure on the streaming path the panel reads', async () => {
+    const handle = createHandler({
+      client: throwing(
+        openRouterBackendError('OpenRouter rejected the request for model openai/gpt-5.', 400),
+      ),
+    });
+
+    const response = await handle(
+      new Request('http://localhost/plan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify(wireBody()),
+      }),
+    );
+
+    const text = await response.text();
+    expect(text).toContain('openai/gpt-5');
+    expect(text).not.toContain('failed unexpectedly');
+  });
 });
 
 describe('streaming', () => {
@@ -356,6 +552,27 @@ describe('streaming', () => {
     const response = await handle(post(wireBody(), { accept: 'application/json' }));
 
     expect(response.headers.get('content-type')).toBe('application/json');
+  });
+});
+
+/*
+  "Step 0 names unknown command "e"" is all the panel can say about a plan the
+  validator refused; the owner's terminal has to show what the model actually
+  answered, or a bad model and a bad prompt look the same.
+*/
+describe('answer reporting', () => {
+  it('hands the raw answer text to the host before it is parsed, for every kind of answer', async () => {
+    const seen: string[] = [];
+    const handle = createHandler({
+      client: fakeClient({ content: [{ type: 'text', text: 'not json at all' }] }),
+      onAnswer: (text) => {
+        seen.push(text);
+      },
+    });
+
+    await handle(post(wireBody()));
+
+    expect(seen).toEqual(['not json at all']);
   });
 });
 

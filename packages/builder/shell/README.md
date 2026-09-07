@@ -75,6 +75,27 @@ which measures its own content and writes `transform` straight to the DOM from `
 flip/shift/arrow/hide/inline placement as a pure function, with no positioning library and no
 auto-update loop.
 
+## Site panels
+
+Five components serve the SITE rather than one document, and each is a sibling under `components/`
+rather than a nested part of a bigger panel — the component contract walks direct children only, and
+a nested one would be invisible to it.
+
+- `SitePages` — the site's pages as a list: switch, add, rename, reorder. One transaction each.
+- `DesignSystemPanel` + `TokenSwatchGrid` — the site's palette, editable in place. A swatch is never
+  a colour alone: every cell carries the token's NAME and VALUE as text, because a grid of coloured
+  squares is unusable to roughly one man in twelve, every screen reader, and anybody on a bad
+  monitor. Draft state is adjusted DURING render when an external write arrives — React's documented
+  pattern — never in an Effect.
+- `AssetPicker` — the site's pictures. Every state is a SENTENCE: loading, unavailable (carrying the
+  library's own words), empty, and filtered-to-nothing each say what happened where the pictures
+  would have been, because each of those drawn as blank space is indistinguishable from the
+  component being broken. It hands back the whole `AssetEntry`, not an id, so the caller can copy it
+  into the site's asset table.
+- `GenerationProgress` — the named stages of a site run, each with a status and an optional
+  caller-supplied `detail` line. It owns no clock: whatever should appear beside a stage — an
+  elapsed time, a page count — the host passes in.
+
 ## Performance laws (merge-gated by counting, not wall-clock)
 
 Hover/select/sweep ⇒ 0 content re-renders (proven on the 1,000-node stress document), and so does

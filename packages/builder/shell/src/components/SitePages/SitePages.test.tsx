@@ -360,3 +360,95 @@ describe('SitePages — direction', () => {
     expect(siteKernel.pages()).toEqual(['home', 'work', 'about']);
   });
 });
+
+/**
+ * FR-004's editing half: a page opts into a shared region, and out of it, on
+ * its own — without touching the region or any other page.
+ */
+describe('shared regions', () => {
+  const withRegions = (): BuilderSite => {
+    const base = siteOf(FOUR);
+    const regionDocument = (words: string) => ({
+      schemaVersion: 1,
+      surface: 'site' as const,
+      dir: 'ltr' as const,
+      rootId: 'root',
+      nodes: {
+        root: { id: 'root', type: 'page', props: {}, slots: { default: ['line'] } },
+        line: { id: 'line', type: 'text', props: { content: words } },
+      },
+    });
+    return {
+      ...base,
+      pages: base.pages.map((entry, at) =>
+        at === 0 ? { ...entry, regions: ['masthead'] } : entry,
+      ),
+      sharedRegions: {
+        masthead: { id: 'masthead', kind: 'header', document: regionDocument('the masthead') },
+        colophon: { id: 'colophon', kind: 'footer', document: regionDocument('the colophon') },
+      },
+    };
+  };
+
+  it('offers nothing at all when the site has no shared regions', () => {
+    mount();
+    expect(screen.queryByRole('group', { name: /Shared regions/u })).toBeNull();
+  });
+
+  it('shows the ACTIVE page regions, named with their kind', () => {
+    mount(withRegions());
+    const fieldset = screen.getByRole('group', { name: 'Shared regions on Home' });
+    expect(fieldset).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: /masthead \(header\)/u })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /colophon \(footer\)/u })).not.toBeChecked();
+  });
+
+  it('opts a page IN with one transaction, touching no other page', async () => {
+    const user = userEvent.setup();
+    const kernel = mount(withRegions());
+    const others = JSON.stringify(kernel.getSite().pages.slice(1));
+
+    await user.click(screen.getByRole('checkbox', { name: /colophon/u }));
+
+    expect(kernel.getSite().pages[0]?.regions).toEqual(['masthead', 'colophon']);
+    expect(kernel.transactions()).toHaveLength(1);
+    /*
+      Opting in is a page's decision about itself. A design that wrote to the
+      REGION would make one page's choice change every page carrying it.
+    */
+    expect(JSON.stringify(kernel.getSite().pages.slice(1))).toBe(others);
+    expect(kernel.getSite().sharedRegions['colophon']?.document.nodes['line']).toBeDefined();
+  });
+
+  it('opts a page OUT, and only that page', async () => {
+    const user = userEvent.setup();
+    const kernel = mount(withRegions());
+
+    await user.click(screen.getByRole('checkbox', { name: /masthead/u }));
+
+    expect(kernel.getSite().pages[0]?.regions).toEqual([]);
+    expect(Object.keys(kernel.getSite().sharedRegions).sort()).toEqual(['colophon', 'masthead']);
+  });
+
+  it('follows the selected page, so the toggles are always about the row in focus', async () => {
+    const user = userEvent.setup();
+    mount(withRegions());
+
+    await user.click(screen.getByRole('option', { name: /Our work/u }));
+
+    expect(screen.getByRole('group', { name: 'Shared regions on Our work' })).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: /masthead/u })).not.toBeChecked();
+  });
+
+  it('keeps the list a listbox, with the toggles outside it', () => {
+    mount(withRegions());
+    /*
+      An `option` containing checkboxes is a control inside a control, which no
+      screen reader has a sensible reading for — so the toggles live below the
+      list, where the active page is already the subject.
+    */
+    const list = screen.getByRole('listbox', { name: 'Site pages' });
+    expect(list.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+  });
+});

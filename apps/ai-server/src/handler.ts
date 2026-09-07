@@ -14,7 +14,10 @@ import { proposePlan, type UsageReport } from './claude';
 
 export interface HandlerOptions {
   readonly client: Anthropic;
+  /** The default model, and the one a request may always name. */
   readonly model?: string;
+  /** The OTHER models a request may name through `x-craftkit-ai-model`. Unset ⇒ only the default. */
+  readonly models?: readonly string[];
   readonly maxTokens?: number;
   /** Bearer token required on every request. Omitted ⇒ no auth (local only). */
   readonly authToken?: string;
@@ -22,6 +25,8 @@ export interface HandlerOptions {
   readonly maxRequestBytes?: number;
   /** Receives one line per completed request. */
   readonly onUsage?: (report: UsageReport & { readonly cachedShare: number }) => void;
+  /** Receives every answer's raw text before it is parsed; for the owner's log. */
+  readonly onAnswer?: (text: string) => void;
 }
 
 const DEFAULT_MAX_REQUEST_BYTES = 4 * 1024 * 1024;
@@ -82,6 +87,25 @@ function frame(event: 'status' | 'result', data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+/** The header a request names its model in. Also granted by `cors.ts` for preflights. */
+export const MODEL_HEADER = 'x-craftkit-ai-model';
+
+/**
+ * The model this request runs on. The panel may name one; the SERVER decides
+ * whether it is allowed, because a public endpoint must not let a browser
+ * pick the most expensive model on someone else's key. The configured default
+ * is always allowed by name; anything else has to be in `models`.
+ */
+function resolveModel(
+  request: Request,
+  options: HandlerOptions,
+): { readonly model: string | undefined } | { readonly refused: string } {
+  const named = (request.headers.get(MODEL_HEADER) ?? '').trim();
+  if (named === '') return { model: options.model };
+  if (named === options.model || (options.models ?? []).includes(named)) return { model: named };
+  return { refused: `Model "${named}" is not one this server allows.` };
+}
+
 export function createHandler(options: HandlerOptions) {
   const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
 
@@ -108,10 +132,17 @@ export function createHandler(options: HandlerOptions) {
       return json({ error: `Expected an AiPlanWireRequest of version ${String(AI_PLAN_WIRE_VERSION)}.` }, 400);
     }
 
+    const chosen = resolveModel(request, options);
+    if ('refused' in chosen) {
+      return json({ error: chosen.refused }, 400);
+    }
+    const run: HandlerOptions = {
+      ...options,
+      ...(chosen.model === undefined ? {} : { model: chosen.model }),
+    };
+
     const wantsStream = (request.headers.get('accept') ?? '').includes('text/event-stream');
-    return wantsStream
-      ? streamed(body, options, request.signal)
-      : unary(body, options, request.signal);
+    return wantsStream ? streamed(body, run, request.signal) : unary(body, run, request.signal);
   };
 }
 
@@ -137,6 +168,7 @@ async function unary(
       signal,
       ...(options.model === undefined ? {} : { model: options.model }),
       ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
+      ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
     });
     if (outcome.kind === 'refusal') return refusal(outcome.message);
     if (outcome.kind === 'invalid-output') return invalidOutput(outcome.message);
@@ -172,6 +204,7 @@ function streamed(
           signal,
           ...(options.model === undefined ? {} : { model: options.model }),
           ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
+          ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
           onProgress: (text) => {
             send('status', { text });
           },
@@ -226,19 +259,33 @@ function isMissingCredentials(cause: unknown): boolean {
 }
 
 /**
- * The dev CLI backend writes its own owner-facing sentences — a timeout with
- * its length, a missing `claude`, an exit code with the CLI's own stderr. They
- * are authored text, not SDK prose and not stacks, so they pass through as
- * they are. Matched by `name` rather than by import: the contract layer must
- * not depend on a dev-only backend.
+ * The non-SDK backends write their own owner-facing sentences — the dev CLI's
+ * timeout with its length or a missing `claude`; OpenRouter's rejected key,
+ * empty balance, or unknown model slug. They are authored text, not SDK prose
+ * and not stacks, so they pass through as they are. Matched by `name` rather
+ * than by import: the contract layer must not depend on either backend module.
  */
-function isDevCliBackendFailure(cause: unknown): cause is Error {
-  return cause instanceof Error && cause.name === 'CliBackendError';
+const BACKEND_ERROR_NAMES: ReadonlySet<string> = new Set(['CliBackendError', 'OpenRouterBackendError']);
+
+function isBackendFailure(cause: unknown): cause is Error {
+  return cause instanceof Error && BACKEND_ERROR_NAMES.has(cause.name);
+}
+
+/**
+ * A backend that knows whether its failure is retryable says so with an
+ * `httpStatus`; one that does not gets the retryable default, since a dev CLI
+ * dying mid-plan is worth one more try.
+ */
+function backendStatusOf(cause: Error): number {
+  const status: unknown = (cause as Error & { httpStatus?: unknown }).httpStatus;
+  return typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599
+    ? status
+    : 502;
 }
 
 /** One plain sentence per failure kind — never a stack, never a raw SDK message. */
 function describeFailure(cause: unknown): string {
-  if (isDevCliBackendFailure(cause)) {
+  if (isBackendFailure(cause)) {
     return cause.message;
   }
   if (cause instanceof Anthropic.RateLimitError) {
@@ -272,6 +319,7 @@ function errorResponse(cause: unknown): Response {
     return new Response(null, { status: 499 });
   }
   const message = describeFailure(cause);
+  if (isBackendFailure(cause)) return json({ error: message }, backendStatusOf(cause));
   if (cause instanceof Anthropic.RateLimitError) return json({ error: message }, 429);
   if (cause instanceof Anthropic.AuthenticationError || isMissingCredentials(cause)) {
     return json({ error: message }, 500);

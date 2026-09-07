@@ -2,11 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { systemIds, type GenerationStage, type StageEvent } from '@craftkit/builder';
 
-import {
-  runSiteGeneration,
-  type SiteRunHost,
-  type SiteRunOutcome,
-} from './AssistantPanel.siteRun';
+import { runSiteGeneration, type SiteRunHost, type SiteRunOutcome } from './AssistantPanel.siteRun';
 
 /**
  * The React seam around `runSiteGeneration`, so the panel stays a composition
@@ -41,7 +37,23 @@ export interface SiteRunSeam {
   readonly claim: (runId: string, controller: AbortController) => boolean;
   /** Give it back, if this run still holds it. */
   readonly release: (runId: string) => void;
+  /** Abort whichever run holds it, whoever started it. */
+  readonly stop: () => void;
 }
+
+/**
+ * A seam that owns nothing, for before the panel that holds the lease exists.
+ *
+ * The site builder can be the first destination a person opens, and a panel
+ * that has not mounted has no lease to lend. Refusing to claim is the honest
+ * answer — the alternative is a run with no way to be stopped.
+ */
+export const IDLE_SITE_RUN_SEAM: SiteRunSeam = {
+  busy: false,
+  claim: () => false,
+  release: () => undefined,
+  stop: () => undefined,
+};
 
 export interface SiteRunState {
   readonly stages: readonly GenerationStage[];
@@ -159,8 +171,5 @@ export function useSiteRun(host: SiteRunHost | undefined, seam: SiteRunSeam): Si
     [host, seam],
   );
 
-  return useMemo(
-    () => ({ stages, running, outcome, start }),
-    [stages, running, outcome, start],
-  );
+  return useMemo(() => ({ stages, running, outcome, start }), [stages, running, outcome, start]);
 }

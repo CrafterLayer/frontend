@@ -2,7 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AssembledAiContext } from '@craftkit/builder';
 
-import { planProviderFromEnv } from './planProviderFromEnv';
+import { planModelsFromEnv, planProviderFromEnv } from './planProviderFromEnv';
+
+describe('planModelsFromEnv', () => {
+  it('reads a comma-separated list, trimmed and without repeats or blanks', () => {
+    expect(planModelsFromEnv({})).toEqual([]);
+    expect(
+      planModelsFromEnv({
+        VITE_AI_PLAN_MODELS: ' minimax/minimax-m3:free, nvidia/x:free,,minimax/minimax-m3:free ',
+      }),
+    ).toEqual(['minimax/minimax-m3:free', 'nvidia/x:free']);
+  });
+});
 
 describe('planProviderFromEnv', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -52,6 +63,43 @@ describe('planProviderFromEnv', () => {
 
     const init = fetch.mock.calls[0]?.[1];
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer development-secret');
+  });
+
+  /* The person picks a model in the panel; the server decides whether it is allowed. */
+  it('names the chosen model in a header, and sends no header when none is chosen', async () => {
+    const fetch = vi.fn((_input: string | URL | Request, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            version: 1,
+            rationale: 'Use the registered command.',
+            commands: [{ command: 'setDocMeta', args: { dir: 'rtl' } }],
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const context: AssembledAiContext = {
+      fragments: [],
+      totalTokens: 0,
+      blocks: [],
+      document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'root', nodes: [] },
+      selection: { ids: [] },
+    };
+    const env = { VITE_AI_PLAN_ENDPOINT: 'https://assistant.example.test/plan' };
+
+    await planProviderFromEnv(env, 'minimax/minimax-m3:free')?.propose(
+      'Change direction.',
+      context,
+    );
+    await planProviderFromEnv(env)?.propose('Change direction again.', context);
+
+    const [chosen, unchosen] = fetch.mock.calls;
+    expect(new Headers(chosen?.[1]?.headers).get('x-craftkit-ai-model')).toBe(
+      'minimax/minimax-m3:free',
+    );
+    expect(new Headers(unchosen?.[1]?.headers).get('x-craftkit-ai-model')).toBeNull();
   });
 
   /*

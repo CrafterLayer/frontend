@@ -22,6 +22,20 @@ this package may depend on nothing in the workspace.
 - **Extension contracts** — `TrustedExtensionManifest` / `DeclarativeExtensionManifest`
   discriminated union (ADR 0004), contribution-point shapes, `validateTier2Manifest` (structural
   function rejection, all-or-nothing), `KernelApi` (the read-only contract extensions receive).
+- **Site model** — `BuilderSite`, `SitePage`, `SharedRegion`, `PageId`, `SharedRegionId`,
+  `LATEST_SITE_VERSION`; `validateSite` (the single door for site validity) and `migrateSite`, which
+  alone owns `siteVersion`; `siteFromDocument` for lifting a lone document into a site. Fixtures
+  live behind the `./testing` subpath.
+- **Design tokens** — `DesignSystem`, `defaultDesignSystem()`, and `validateDesignSystem`, which
+  measures the declared pairings' contrast and fails closed on a colour it cannot parse. They sit
+  here, at layer 0, because a site STORES its tokens and `validateSite` has to judge them; turning
+  tokens into CSS variables is a rendering concern and stays in `@craftkit/builder-renderer`
+  ([ADR 0006](../../../docs/architecture/decisions/0006-builder-site-model-and-design-tokens.md)).
+- **Assets** — `AssetId`, `AssetEntry`, `AssetRef`, `AssetLibraryPort`, and
+  `ImageProp = AssetRef | { absent: true; reason: string }`. An image position holds a real library
+  id or a labelled absence; there is no third state and, in particular, no address.
+  `imagePropSchema` is what a block's image prop is declared with, and `validateAssetReferences` is
+  the law that every reference resolves in the site's own table.
 - **Kernel data contracts** — `Transaction`/`Patch`, command shapes
   (`CommandInput`/`RegisteredCommand`/`CommandRuntime`), ports (`ClockPort`, `IdPort`,
   `PersistenceAdapter`, `DataSource`), migrations (`createMigrationRunner`), and the typed

@@ -1,4 +1,9 @@
-import { LATEST_SCHEMA_VERSION, type BuilderDocument, type ContentDirection, type Surface } from './types';
+import {
+  LATEST_SCHEMA_VERSION,
+  type BuilderDocument,
+  type ContentDirection,
+  type Surface,
+} from './types';
 
 /**
  * The smallest valid document: one `page` root and nothing else.

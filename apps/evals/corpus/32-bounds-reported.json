@@ -7,9 +7,7 @@
   "request": "Build me a forty-section page covering every service we offer, one section each.",
   "must": {
     "outcome": "any",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },

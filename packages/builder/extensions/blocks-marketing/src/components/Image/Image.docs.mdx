@@ -31,6 +31,37 @@ Informative images preserve the authored `alt` exactly. If an informative image 
 the canvas shows a visible warning; preview and published pages never render that editor guidance.
 The block never manufactures alternative text from the URL or filename.
 
+## Pictures from the site's library
+
+`asset` holds either a reference into the site's asset table or a **labelled absence** — an object
+carrying the sentence explaining why there is nothing here. There is no third state, and in
+particular no generated address: an agent that could write a `src` could write a plausible-looking
+URL that satisfies every schema, stores, validates, renders, and is a broken image on a stranger's
+site. `src` remains for a person typing a URL they own.
+
+When both are set and the asset RESOLVES, the asset wins — the site's table outlives someone else's
+URL. When the asset does NOT resolve, or is a labelled absence, `src` is what renders: a fallback is
+better than a hole, and it is the same path a block rendered outside its site takes.
+
+The reference is resolved through `AssetTableProvider` from `@craftkit/builder-renderer`. Three
+outcomes:
+
+| State                                    | Canvas                                                                   | Published   |
+| ---------------------------------------- | ------------------------------------------------------------------------ | ----------- |
+| The table resolves the id                | The picture, with the library's alt text if the block has none           | The picture |
+| `{ absent, reason }`, no `src`           | The reason, in the words whoever produced the absence wrote              | Nothing     |
+| An id the table cannot resolve, no `src` | `The picture "…" is not in the asset table this page was rendered with.` | Nothing     |
+| Either of those **with** a `src`         | The `src`                                                                | The `src`   |
+
+The third row should never fire on a stored site: `validateSite` refuses a site whose reference does
+not resolve in its **own** table, and that table holds _copies_ of the library's entries. So a
+picture deleted from the library does **not** break a site that already used it — which is exactly
+why the site copies rather than resolving live. What the row does cover is a document rendered
+outside its site: a page in isolation, an export assembled without the table.
+
+With no provider mounted at all — a story, a static export — the block falls back to `src` rather
+than throwing.
+
 ## Empty and loading behavior
 
 With no `src`, the canvas renders a placeholder so an author can select and configure the block.
@@ -47,5 +78,7 @@ literals.
 ## Known limitations
 
 - The block accepts a URL string but does not upload, crop, or transform media.
+- It resolves an asset reference; it does not choose one. Selection is `selectAssets` in
+  `@craftkit/builder-ai`, and browsing is `AssetPicker`.
 - It does not infer dimensions or alternative text.
 - Broken remote URLs use the browser's native broken-image behavior.

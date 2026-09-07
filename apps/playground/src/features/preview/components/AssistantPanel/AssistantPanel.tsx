@@ -9,7 +9,6 @@ import {
 } from 'react';
 
 import {
-  GenerationProgress,
   applyAiPlan,
   classifyAiRunFailure,
   createCraftkitAiSkillRegistry,
@@ -77,9 +76,7 @@ import {
 */
 export { MODES, type AssistantMode } from './AssistantPanel.modes';
 import type { AssistantMode } from './AssistantPanel.modes';
-import type { SiteRunHost } from './AssistantPanel.siteRun';
-import { useSiteRun, type SiteRunSeam } from './use-site-run';
-import { SiteBriefForm } from '../SiteBriefForm';
+import type { SiteRunSeam } from './use-site-run';
 import { PlanPreviewDialog } from '../PlanPreviewDialog';
 import { SuggestionRail } from '../SuggestionRail';
 import {} from './AssistantPanel.icons';
@@ -108,6 +105,10 @@ export interface AssistantPanelProps {
    * those doubles and was reverted.
    */
   providerKind?: ProviderKind | undefined;
+  /** Models the header may offer, the current one, and the host's setter. Fewer than two ⇒ no picker. */
+  models?: readonly string[] | undefined;
+  model?: string | undefined;
+  onSelectModel?: ((model: string) => void) | undefined;
   /** Host-owned, data-only expertise available to this assistant surface. */
   skillRegistry?: AiSkillRegistry | undefined;
   /** Explicit Skills to activate for every request on this surface. */
@@ -150,17 +151,15 @@ export interface AssistantPanelProps {
    */
   visible?: boolean | undefined;
   /**
-   * The SITE this panel may build into, when the host has one.
+   * Hands the host this panel's ONE run lease.
    *
-   * A separate prop rather than a widening of `kernel`, because `kernel` is a
-   * PAGE LENS and a site commit needs the site kernel underneath it — plus a
-   * draft factory and a stage provider the panel has no way to construct. The
-   * app that built the live kernel is the one place that knows all three.
-   *
-   * Absent ⇒ no brief form and no site path at all, the same withdrawal
-   * `onReviewAsCode` uses: an action nobody wired is not offered.
+   * The site builder is its own rail destination — a build is a job, not a
+   * message — but it must not be able to start a run while this panel owns one.
+   * Sharing the lease rather than duplicating it is what makes that structural:
+   * there is one `activeRunRef`, one `busy`, and one `stop`, whichever
+   * destination a person is looking at.
    */
-  site?: SiteRunHost | undefined;
+  onSiteSeam?: ((seam: SiteRunSeam) => void) | undefined;
 }
 
 /**
@@ -259,7 +258,10 @@ export function AssistantPanel({
   persistKey,
   locale = 'ar',
   visible = true,
-  site,
+  onSiteSeam,
+  models: offeredModels,
+  model: chosenModel,
+  onSelectModel,
 }: AssistantPanelProps) {
   const [sessions, setSessions] = useState<readonly Session[]>(
     () =>
@@ -1253,10 +1255,20 @@ export function AssistantPanel({
           setBusy(false);
         }
       },
+      stop: () => {
+        activeRunRef.current?.controller.abort();
+      },
     }),
     [busy],
   );
-  const siteRun = useSiteRun(site, siteSeam);
+  /*
+    Handed UP, not consumed here. The site builder lives on its own rail
+    destination now, and the two share this one lease so a site build and a page
+    request can never both believe they own the editor.
+  */
+  useEffect(() => {
+    onSiteSeam?.(siteSeam);
+  }, [onSiteSeam, siteSeam]);
 
   /** Every block a trailing @ can point at, filtered as the person types. */
   const mentionCandidates = mentionCandidatesFor(kernel.getDocument(), mentionQuery);
@@ -1407,63 +1419,10 @@ export function AssistantPanel({
         onNewChat={startNewChat}
         watchZone={watchHeadZone}
         holdSeat={holdHeadSeat}
+        models={offeredModels}
+        model={chosenModel}
+        onSelectModel={onSelectModel}
       />
-
-      {/*
-        THE SITE PATH (T083). One sentence in, a whole site out — and it is
-        deliberately NOT a turn in the thread. A thread turn is a message in a
-        conversation; a site run is a five-stage job with its own progress and
-        its own Stop, and folding it into the turn union would have meant new
-        turn kinds, new thread branches, and a revival rule for a card that
-        cannot be revived. Composition, not another state machine.
-
-        The page NAVIGATOR is not here either: `SitePages` is already on the
-        rail beside the canvas, bound to the same live kernel, so it lists the
-        new pages the moment the commit lands. A second navigator inside the
-        panel would be a second answer to "which page am I on".
-      */}
-      {site === undefined ? null : (
-        <div className="pg-chat__site">
-          {/*
-            BOTH, always — the progress card appears above the form rather than
-            in place of it.
-
-            Swapping them unmounted the form, and with it the `useActionState`
-            state that holds the run's own refusal: a stage failed, the card
-            went away, a fresh form came back, and the reason a person needed
-            had been destroyed by the remount that was supposed to reveal it.
-            The form closes itself while a run owns the panel; it does not have
-            to disappear to do that.
-          */}
-          {siteRun.running ? (
-            <GenerationProgress
-              stages={siteRun.stages}
-              onCancel={stop}
-              heading={locale === 'ar' ? 'يبني الموقع' : 'Building the site'}
-            />
-          ) : null}
-          <SiteBriefForm onSubmit={siteRun.start} busy={busy} locale={locale} />
-          {/*
-            The RUN's own ending, and the only place it is said.
-
-            The form's Action resolves at admission, so a stage that fails
-            three minutes later cannot reach the form's message line — and
-            should not: by then the sentence in the field is not what went
-            wrong. `role="status"` so the ending is announced whether or not a
-            person was looking.
-          */}
-          {siteRun.outcome === undefined ? null : (
-            <p
-              className="pg-chat__site-outcome"
-              data-ok={siteRun.outcome.ok}
-              role="status"
-              dir="auto"
-            >
-              {siteRun.outcome.message}
-            </p>
-          )}
-        </div>
-      )}
 
       <AssistantThread
         turns={turns}

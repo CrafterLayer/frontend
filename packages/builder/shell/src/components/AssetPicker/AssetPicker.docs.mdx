@@ -1,0 +1,53 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Builder/Shell/AssetPicker/Docs" />
+
+# AssetPicker
+
+The site's pictures, as something a person can look through and choose from.
+
+## The port is the whole boundary
+
+`library` is an `AssetLibraryPort` — one method,
+`list(options?: { signal?: AbortSignal }): Promise<readonly AssetEntry[]>`. That is deliberate and
+it is the requirement (FR-050): this feature populates the library locally, and a later
+host-supplied backend — including people uploading their own images — must be able to answer the
+same call with no change here and no change to how generation selects from it.
+
+The component holds no cache and no fetch policy. It lists once per `library` identity, so a caller
+that builds a new port object on every render will list on every render; memoise it.
+
+## Every state is a sentence
+
+A picker's failure states are where it is actually used, and each of them drawn as blank space is
+indistinguishable from the component being broken:
+
+| State                      | What is shown                                                            |
+| -------------------------- | ------------------------------------------------------------------------ |
+| Loading                    | `Loading pictures…`                                                      |
+| The library rejected       | `The picture library is unavailable: <its own message>`                  |
+| The library is empty       | `There are no pictures in this library yet.`, and the filter is disabled |
+| The filter matches nothing | `No picture matches “<the word>”.`                                       |
+
+Each message is a `role="status"` region, so a person who types a filter and gets nothing hears it
+rather than discovering it by tabbing into an empty grid.
+
+## Alt text is not optional
+
+Every entry carries alt text written by whoever put it in the library. It becomes the image's `alt`,
+and the entry's description is shown as visible text under the picture — which is not redundancy: it
+lets someone choosing between two similar pictures see what a screen reader will say about the one
+they pick, before they pick it.
+
+## What it hands back
+
+`onSelect` receives the whole `AssetEntry`, not its id. The caller has to write the picture into the
+site's own asset table, and an id alone would send it straight back to the library for metadata it
+just had. That table is a **copy**, which is why a picture later deleted from the library does not
+invalidate a site that used it.
+
+## Known limitations
+
+- It does not upload, crop, or transform. Uploads join the library through the port, not here.
+- It has no pagination. A library of thousands would need one.
+- Filtering is substring matching over description, alt text and mood — not a search engine.

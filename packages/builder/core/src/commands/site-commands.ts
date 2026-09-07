@@ -189,10 +189,9 @@ export const siteCommands: Record<SiteCommandName, RegisteredSiteCommand> = {
         requireAddressShape(args.address);
         requireFreeAddress(draft, args.address, args.pageId);
         if (page.address === HOME_ADDRESS && args.address !== HOME_ADDRESS) {
-          throw siteError(
-            'The home page must stay at "/"; move another page there first.',
-            ['address'],
-          );
+          throw siteError('The home page must stay at "/"; move another page there first.', [
+            'address',
+          ]);
         }
       }
       mutablePages(draft)[index] = {
@@ -508,9 +507,10 @@ function requireResolvableAssets(
 ): void {
   const issues = validateAssetReferences(document.nodes, draft.assets);
   if (issues.length > 0) {
-    throw siteError(`${what} references an asset the site does not hold: ${issues[0]?.message ?? 'unknown'}`, [
-      'document',
-    ]);
+    throw siteError(
+      `${what} references an asset the site does not hold: ${issues[0]?.message ?? 'unknown'}`,
+      ['document'],
+    );
   }
 }
 

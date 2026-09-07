@@ -13,7 +13,10 @@ const meta = {
   title: 'Playground/SiteBriefForm',
   component: SiteBriefForm,
   parameters: { layout: 'centered' },
-  args: { locale: 'en', onSubmit: fn<(brief: string) => Promise<string | undefined>>(() => Promise.resolve(undefined)) },
+  args: {
+    locale: 'en',
+    onSubmit: fn<(brief: string) => Promise<string | undefined>>(() => Promise.resolve(undefined)),
+  },
   argTypes: { onSubmit: { control: false } },
   decorators: [
     (Story) => (
@@ -88,9 +91,7 @@ export const Refused: Story = {
       first paint after a click still shows the pending form — a synchronous
       read here caught the field mid-flight and reported the message missing.
     */
-    await expect(
-      await canvas.findByText(/Write a sentence about the site first/u),
-    ).toBeVisible();
+    await expect(await canvas.findByText(/Write a sentence about the site first/u)).toBeVisible();
     await expect(args.onSubmit).not.toHaveBeenCalled();
     await waitFor(async () => {
       await expect(canvas.getByLabelText('Describe the site you want')).toHaveAttribute(

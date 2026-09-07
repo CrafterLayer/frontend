@@ -117,143 +117,167 @@ const stepArbitrary: Arbitrary<Step> = fc.record({
 });
 
 describe('site kernel properties', () => {
-  it('SC-014: a group only ever changes the pages it names', () => {
-    fc.assert(
-      fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
-        const kernel = kernelOf(4);
-        const before = kernel.getSite().pages.map((p) => JSON.stringify(p.document));
-        const touched = new Set(steps.map((step) => step.pageIndex));
+  it(
+    'SC-014: a group only ever changes the pages it names',
+    () => {
+      fc.assert(
+        fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
+          const kernel = kernelOf(4);
+          const before = kernel.getSite().pages.map((p) => JSON.stringify(p.document));
+          const touched = new Set(steps.map((step) => step.pageIndex));
 
-        kernel.dispatchGroup(
-          steps.map((step) => ({
-            command: 'setProp',
-            args: { id: 'p1', key: 'content', value: step.value },
-            pageId: pageAt(kernel, step.pageIndex),
-          })),
-        );
+          kernel.dispatchGroup(
+            steps.map((step) => ({
+              command: 'setProp',
+              args: { id: 'p1', key: 'content', value: step.value },
+              pageId: pageAt(kernel, step.pageIndex),
+            })),
+          );
 
-        const after = kernel.getSite().pages.map((p) => JSON.stringify(p.document));
-        for (const [index, doc] of after.entries()) {
-          if (touched.has(index)) continue;
-          // Byte-identical, not merely valid: an untouched page must not move.
-          expect(doc).toBe(before[index]);
-        }
-      }),
-      { numRuns: RUNS, seed: SEED },
-    );
-  }, PROPERTY_TIMEOUT_MS);
+          const after = kernel.getSite().pages.map((p) => JSON.stringify(p.document));
+          for (const [index, doc] of after.entries()) {
+            if (touched.has(index)) continue;
+            // Byte-identical, not merely valid: an untouched page must not move.
+            expect(doc).toBe(before[index]);
+          }
+        }),
+        { numRuns: RUNS, seed: SEED },
+      );
+    },
+    PROPERTY_TIMEOUT_MS,
+  );
 
-  it('one group is ONE transaction, whatever it touched', () => {
-    fc.assert(
-      fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
-        const kernel = kernelOf(4);
+  it(
+    'one group is ONE transaction, whatever it touched',
+    () => {
+      fc.assert(
+        fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
+          const kernel = kernelOf(4);
 
-        kernel.dispatchGroup(
-          steps.map((step) => ({
-            command: 'setProp',
-            args: { id: 'p1', key: 'content', value: step.value },
-            pageId: pageAt(kernel, step.pageIndex),
-          })),
-        );
+          kernel.dispatchGroup(
+            steps.map((step) => ({
+              command: 'setProp',
+              args: { id: 'p1', key: 'content', value: step.value },
+              pageId: pageAt(kernel, step.pageIndex),
+            })),
+          );
 
-        // Zero when every step was a no-op; never more than one.
-        expect(kernel.transactions().length).toBeLessThanOrEqual(1);
-      }),
-      { numRuns: RUNS, seed: SEED },
-    );
-  }, PROPERTY_TIMEOUT_MS);
+          // Zero when every step was a no-op; never more than one.
+          expect(kernel.transactions().length).toBeLessThanOrEqual(1);
+        }),
+        { numRuns: RUNS, seed: SEED },
+      );
+    },
+    PROPERTY_TIMEOUT_MS,
+  );
 
-  it('one undo restores the site byte for byte', () => {
-    fc.assert(
-      fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
-        const kernel = kernelOf(4);
-        const before = JSON.stringify(kernel.getSite());
-
-        kernel.dispatchGroup(
-          steps.map((step) => ({
-            command: 'setProp',
-            args: { id: 'p1', key: 'content', value: step.value },
-            pageId: pageAt(kernel, step.pageIndex),
-          })),
-        );
-        if (kernel.canUndo()) {
-          expect(kernel.undo()).toBe(true);
-        }
-
-        expect(JSON.stringify(kernel.getSite())).toBe(before);
-      }),
-      { numRuns: RUNS, seed: SEED },
-    );
-  }, PROPERTY_TIMEOUT_MS);
-
-  it('a refused step leaves the site exactly as it was', () => {
-    fc.assert(
-      fc.property(
-        fc.array(stepArbitrary, { minLength: 1, maxLength: 4 }),
-        fc.integer({ min: 0, max: 4 }),
-        (steps, at) => {
+  it(
+    'one undo restores the site byte for byte',
+    () => {
+      fc.assert(
+        fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
           const kernel = kernelOf(4);
           const before = JSON.stringify(kernel.getSite());
-          const written: SiteGroupStep[] = steps.map((step) => ({
-            command: 'setProp',
-            args: { id: 'p1', key: 'content', value: step.value },
-            pageId: pageAt(kernel, step.pageIndex),
-          }));
-          // A refusal inserted at an arbitrary position: `/` is always taken.
-          // No `pageId`: `addPage` is a SITE command and names no page.
-          const position = Math.min(at, written.length);
-          written.splice(position, 0, {
-            command: 'addPage',
-            args: { address: '/', title: 'Clash' },
-          });
 
-          expect(() => kernel.dispatchGroup(written)).toThrow();
+          kernel.dispatchGroup(
+            steps.map((step) => ({
+              command: 'setProp',
+              args: { id: 'p1', key: 'content', value: step.value },
+              pageId: pageAt(kernel, step.pageIndex),
+            })),
+          );
+          if (kernel.canUndo()) {
+            expect(kernel.undo()).toBe(true);
+          }
+
           expect(JSON.stringify(kernel.getSite())).toBe(before);
-          expect(kernel.transactions()).toHaveLength(0);
-        },
-      ),
-      { numRuns: RUNS, seed: SEED },
-    );
-  }, PROPERTY_TIMEOUT_MS);
+        }),
+        { numRuns: RUNS, seed: SEED },
+      );
+    },
+    PROPERTY_TIMEOUT_MS,
+  );
 
-  it('SC-013: the same seed builds the same site, ids included', () => {
-    fc.assert(
-      fc.property(
-        fc.array(fc.string({ minLength: 1, maxLength: 12 }), { minLength: 1, maxLength: 5 }),
-        (titles) => {
-          const build = (): string => {
-            const kernel = kernelOf(1, 'deterministic');
-            titles.forEach((title, index) => {
-              kernel.dispatch('addPage', { address: `/a${String(index)}`, title });
+  it(
+    'a refused step leaves the site exactly as it was',
+    () => {
+      fc.assert(
+        fc.property(
+          fc.array(stepArbitrary, { minLength: 1, maxLength: 4 }),
+          fc.integer({ min: 0, max: 4 }),
+          (steps, at) => {
+            const kernel = kernelOf(4);
+            const before = JSON.stringify(kernel.getSite());
+            const written: SiteGroupStep[] = steps.map((step) => ({
+              command: 'setProp',
+              args: { id: 'p1', key: 'content', value: step.value },
+              pageId: pageAt(kernel, step.pageIndex),
+            }));
+            // A refusal inserted at an arbitrary position: `/` is always taken.
+            // No `pageId`: `addPage` is a SITE command and names no page.
+            const position = Math.min(at, written.length);
+            written.splice(position, 0, {
+              command: 'addPage',
+              args: { address: '/', title: 'Clash' },
             });
-            return JSON.stringify(kernel.getSite());
-          };
 
-          // Same seed, same ports, same commands — byte-identical, including the
-          // ids `addPage` minted through the injected id port (Law D).
-          expect(build()).toBe(build());
-        },
-      ),
-      { numRuns: 60, seed: SEED },
-    );
-  }, PROPERTY_TIMEOUT_MS);
+            expect(() => kernel.dispatchGroup(written)).toThrow();
+            expect(JSON.stringify(kernel.getSite())).toBe(before);
+            expect(kernel.transactions()).toHaveLength(0);
+          },
+        ),
+        { numRuns: RUNS, seed: SEED },
+      );
+    },
+    PROPERTY_TIMEOUT_MS,
+  );
 
-  it('every accepted group leaves a site the validator still accepts', () => {
-    fc.assert(
-      fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
-        const kernel = kernelOf(4);
+  it(
+    'SC-013: the same seed builds the same site, ids included',
+    () => {
+      fc.assert(
+        fc.property(
+          fc.array(fc.string({ minLength: 1, maxLength: 12 }), { minLength: 1, maxLength: 5 }),
+          (titles) => {
+            const build = (): string => {
+              const kernel = kernelOf(1, 'deterministic');
+              titles.forEach((title, index) => {
+                kernel.dispatch('addPage', { address: `/a${String(index)}`, title });
+              });
+              return JSON.stringify(kernel.getSite());
+            };
 
-        kernel.dispatchGroup(
-          steps.map((step) => ({
-            command: 'setProp',
-            args: { id: 'p1', key: 'content', value: step.value },
-            pageId: pageAt(kernel, step.pageIndex),
-          })),
-        );
+            // Same seed, same ports, same commands — byte-identical, including the
+            // ids `addPage` minted through the injected id port (Law D).
+            expect(build()).toBe(build());
+          },
+        ),
+        { numRuns: 60, seed: SEED },
+      );
+    },
+    PROPERTY_TIMEOUT_MS,
+  );
 
-        expect(kernel.validate().ok).toBe(true);
-      }),
-      { numRuns: RUNS, seed: SEED },
-    );
-  }, PROPERTY_TIMEOUT_MS);
+  it(
+    'every accepted group leaves a site the validator still accepts',
+    () => {
+      fc.assert(
+        fc.property(fc.array(stepArbitrary, { minLength: 1, maxLength: 6 }), (steps) => {
+          const kernel = kernelOf(4);
+
+          kernel.dispatchGroup(
+            steps.map((step) => ({
+              command: 'setProp',
+              args: { id: 'p1', key: 'content', value: step.value },
+              pageId: pageAt(kernel, step.pageIndex),
+            })),
+          );
+
+          expect(kernel.validate().ok).toBe(true);
+        }),
+        { numRuns: RUNS, seed: SEED },
+      );
+    },
+    PROPERTY_TIMEOUT_MS,
+  );
 });

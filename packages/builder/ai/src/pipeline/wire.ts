@@ -203,10 +203,48 @@ export interface DesignSystemResponse {
 
 export interface AssemblyRequest extends StageEnvelope {
   readonly stage: 'assembly';
+  /**
+   * The person's own words, carried to the last stage too.
+   *
+   * Assembly is where pictures are chosen, and FR-046 says selection is
+   * DIRECTED BY the business description — a stage holding only section intents
+   * would be choosing on "the opening claim" with no idea what the business is.
+   */
+  readonly brief: string;
   readonly pages: readonly SitemapPage[];
   readonly structure: readonly StructurePage[];
   readonly content: readonly ContentResponse[];
   readonly designSystem: JsonValue;
+  /**
+   * Every picture the run may reference, and nothing else exists (FR-045).
+   *
+   * The catalogue is sent so the stage can CHOOSE, and the same list is what
+   * the answer is checked against — a stage cannot be blamed for inventing an
+   * id it was never shown, and it cannot use one it was not shown either.
+   *
+   * The URL is deliberately absent. The stage's job is to say WHICH picture,
+   * and a stage that never sees an address cannot write a plausible-looking
+   * one; resolution belongs to the renderer, which reads the site's own asset
+   * table.
+   */
+  readonly assets: readonly AssetCatalogueEntry[];
+}
+
+/**
+ * One picture as the assembly stage sees it: enough to choose, not enough to
+ * invent.
+ *
+ * Everything an `AssetEntry` has EXCEPT `url`, `width` and `height`. The
+ * metadata is what a choice is made on — description, alt text, mood and
+ * palette — and the address is the one field withheld, because a stage that
+ * never sees an address cannot write a plausible-looking one.
+ */
+export interface AssetCatalogueEntry {
+  readonly id: string;
+  readonly description: string;
+  readonly alt: string;
+  readonly mood: readonly string[];
+  readonly palette: readonly string[];
 }
 
 /**

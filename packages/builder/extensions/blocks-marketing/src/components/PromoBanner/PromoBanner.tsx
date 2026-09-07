@@ -112,8 +112,16 @@ export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBan
           {hasMedia ? (
             <figure
               className={cx(
-                'm-0 min-w-0 overflow-hidden bg-text-muted/10',
-                isMediaOverlay ? 'col-start-1 row-start-1 min-h-96' : undefined,
+                /*
+                  `w-full` so the TRACK decides the width and the aspect ratio
+                  decides the height. Without it the overlay's `min-h-96`
+                  (384px) ran through the aspect ratio the other way and forced
+                  a 683px figure — which on a 360px phone is nearly twice the
+                  screen. The Chromium overflow gate measured it; no amount of
+                  reading the class list would have.
+                */
+                'm-0 w-full min-w-0 overflow-hidden bg-text-muted/10',
+                isMediaOverlay ? 'col-start-1 row-start-1 min-h-64 @md:min-h-96' : undefined,
                 MEDIA_ASPECT_CLASSES[props.mediaAspect],
                 !isMediaOverlay ? MEDIA_POSITION_CLASSES[props.mediaPosition] : undefined,
               )}

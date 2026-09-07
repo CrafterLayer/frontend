@@ -234,6 +234,8 @@ export {
   lightTheme,
   renderStaticMarkup,
   resolveResponsiveProps,
+  designSystemToCssVars,
+  themeFromDesignSystem,
   themeToCssVars,
   useKernelSelector,
   type CanvasFrameProps,
@@ -248,6 +250,12 @@ export {
   type PaletteEntry,
   type Theme,
   type TokenName,
+  AssetTableProvider,
+  resolveImage,
+  useAssetTable,
+  type AssetTable,
+  type AssetTableProviderProps,
+  type ResolvedImage,
 } from '@craftkit/builder-renderer';
 
 // Shell (canvas + panels — B2a/B2b/B3a; inline editing — B3c). B3c adds the
@@ -256,6 +264,8 @@ export {
 // canvas drives internally stays off the surface, the same policy that keeps
 // createRectIndex and systemGeometryPorts internal.
 export {
+  AssetPicker,
+  type AssetPickerProps,
   BuilderShell,
   ChromeButton,
   IconRail,
@@ -273,7 +283,9 @@ export {
   LayersTree,
   Palette,
   PreviewMode,
+  DesignSystemPanel,
   SitePages,
+  TokenSwatchGrid,
   TextBubble,
   bucketForWidth,
   defineCanvasTool,
@@ -315,7 +327,9 @@ export {
   type TopBarDevice,
   type TopBarProps,
   type PreviewModeProps,
+  type DesignSystemPanelProps,
   type SitePagesProps,
+  type TokenSwatchGridProps,
   type RectIndex,
   type TextBubbleAction,
   type TextBubbleProps,
@@ -436,6 +450,12 @@ export {
   type BuilderSite,
   type PageId,
   type SharedRegion,
+  type AssetEntry,
+  type AssetId,
+  type AssetLibraryPort,
+  type AssetRef,
+  type ImageProp,
+  imagePropSchema,
   type SharedRegionId,
   type SharedRegionKind,
   type SitePage,

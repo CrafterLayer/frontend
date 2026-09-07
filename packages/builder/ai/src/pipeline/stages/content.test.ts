@@ -53,9 +53,9 @@ describe('what the content stage must produce', () => {
   });
 
   it('refuses a section it wrote nothing for', () => {
-    expect(refusal(answer([{ sectionId: 'intro', props: { heading: 'One' } }])).join(' ')).toContain(
-      'wrote nothing for the section "detail"',
-    );
+    expect(
+      refusal(answer([{ sectionId: 'intro', props: { heading: 'One' } }])).join(' '),
+    ).toContain('wrote nothing for the section "detail"');
   });
 
   it('refuses a section with no words in it', () => {

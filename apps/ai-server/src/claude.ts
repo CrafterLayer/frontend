@@ -42,6 +42,8 @@ export interface ClaudeOptions {
   readonly signal?: AbortSignal;
   /** Receives Claude's own narration; becomes SSE `status` frames. */
   readonly onProgress?: (text: string) => void;
+  /** Receives the raw answer text before it is parsed — what the model actually said. */
+  readonly onAnswer?: (text: string) => void;
 }
 
 export type ClaudeOutcome =
@@ -159,6 +161,12 @@ export async function proposePlan(
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')
     .map((block) => block.text)
     .join('');
+  /*
+    Before parsing, so the host can show what came back even when the answer
+    is refused two layers later: "names unknown command "e"" is all the panel
+    can say, and a bad model and a bad prompt look the same without this.
+  */
+  options.onAnswer?.(text);
 
   if (text.trim() === '') {
     return { kind: 'invalid-output', message: 'The assistant returned no plan.' };
@@ -176,5 +184,30 @@ export async function proposePlan(
     return { kind: 'invalid-output', message: 'The assistant answer was not valid JSON.' };
   }
 
+  /*
+    prompt.ts asks for "a plan whose single command is impossible" when a
+    request cannot be expressed. No command by that name exists — the wire's
+    refusal shape is what it means — so it is translated here, where the
+    rationale becomes the sentence the panel shows instead of a validator's
+    `names unknown command "impossible"`.
+  */
+  const declined = impossibleRationale(parsed);
+  if (declined !== undefined) return { kind: 'refusal', message: declined };
+
   return { kind: 'plan', plan: parsed, usage: usageOf(message) };
+}
+
+/** The rationale of an `impossible` plan, or undefined when the plan is a real one. */
+function impossibleRationale(plan: unknown): string | undefined {
+  if (typeof plan !== 'object' || plan === null || Array.isArray(plan)) return undefined;
+  const record = plan as Record<string, unknown>;
+  const commands = record['commands'];
+  if (!Array.isArray(commands) || commands.length !== 1) return undefined;
+  const only: unknown = commands[0];
+  if (typeof only !== 'object' || only === null) return undefined;
+  if ((only as Record<string, unknown>)['command'] !== 'impossible') return undefined;
+  const rationale = record['rationale'];
+  return typeof rationale === 'string' && rationale.trim() !== ''
+    ? rationale.trim()
+    : 'The assistant could not express this request as a change to the page.';
 }

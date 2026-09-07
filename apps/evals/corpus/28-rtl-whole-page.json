@@ -7,21 +7,14 @@
   "request": "ابنِ صفحة هبوط لمشغل نجارة في عمّان: واجهة قوية، ثلاثة أسباب للثقة، معرض أعمال، ودعوة للتواصل.",
   "must": {
     "outcome": "plan",
-    "forbiddenCommands": [
-      "applyPatches"
-    ],
+    "forbiddenCommands": ["applyPatches"],
     "forbiddenText": [],
     "requiredTargetNodeIds": []
   },
   "should": {
     "minCommands": 4,
     "maxCommands": 24,
-    "allBlockTypes": [
-      "hero",
-      "features",
-      "gallery",
-      "cta"
-    ]
+    "allBlockTypes": ["hero", "features", "gallery", "cta"]
   },
   "budget": {
     "maxCommands": 24,

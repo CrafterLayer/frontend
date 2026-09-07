@@ -53,3 +53,16 @@ export const WithConversations: Story = {
     ],
   },
 };
+
+/** More than one model on offer, so the picker appears on its own line under the context. */
+export const WithModels: Story = {
+  args: {
+    models: [
+      'minimax/minimax-m3:free',
+      'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'poolside/laguna-s-2.1:free',
+    ],
+    model: 'minimax/minimax-m3:free',
+    onSelectModel: () => undefined,
+  },
+};

@@ -1,0 +1,42 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SiteBuilderPanelStories from './SiteBuilderPanel.stories';
+
+<Meta of={SiteBuilderPanelStories} />
+
+# SiteBuilderPanel
+
+One sentence in, a whole site out — on its own destination on the rail.
+
+<Canvas of={SiteBuilderPanelStories.Named} />
+
+## Why it is not a card in the assistant
+
+It was, for one afternoon. The first person to use it said the conversation and their own typing had
+become hard to tell apart, and they were right: a three-line form, a hint, a status line and an
+outcome sat permanently between the header and the messages, and the messages got whatever was left
+of the panel.
+
+The deeper reason is that **a site build is not a message**. A conversation is a sequence of turns
+someone reads back; a build is a job with five stages, its own progress and its own Stop, and it
+stays interesting for minutes after the sentence that started it. Putting a job in a message list
+makes the job hard to watch and the list hard to read.
+
+## One lease, two destinations
+
+The assistant panel owns the run lease and hands it here. That sharing is deliberate and it is the
+only thing the two destinations have in common: there is one `activeRunRef`, one `busy` and one
+`stop`, so a site build and a page request can never both believe they own the editor — whichever
+destination a person happens to be looking at.
+
+<Canvas of={SiteBuilderPanelStories.AnotherRunOwnsTheEditor} />
+
+When another run holds the lease the form is **closed, not hidden**. A control that vanishes leaves
+a person wondering what they did; a closed one says the door is locked and will open.
+
+## When there is no site
+
+<Canvas of={SiteBuilderPanelStories.NoSite} />
+
+A blank panel and a panel with nothing to do look identical, and only one of them is a bug. This
+says which it is, in words.

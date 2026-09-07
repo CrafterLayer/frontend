@@ -84,11 +84,17 @@ export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) 
       >
         <header className="flex min-w-0 max-w-content-narrow flex-col gap-3">
           <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">Plans</p>
-          <h2 id={headingId} className="m-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl">
+          <h2
+            id={headingId}
+            className="m-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl"
+          >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
-            <p data-mkt-part="intro" className="m-0 max-w-content-narrow text-lg leading-relaxed text-text-muted">
+            <p
+              data-mkt-part="intro"
+              className="m-0 max-w-content-narrow text-lg leading-relaxed text-text-muted"
+            >
               {props.body}
             </p>
           )}

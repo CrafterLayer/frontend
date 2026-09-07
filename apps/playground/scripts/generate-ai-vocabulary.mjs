@@ -12,16 +12,22 @@ const { utilitySourceDirectives, utilityVocabulary } = await import(
   resolve('../../packages/builder/schema/src/custom-code/utility-vocabulary.ts')
 );
 
-const START = '/* AI-VOCABULARY:START — generated from utility-vocabulary.ts; do not edit by hand. */';
+const START =
+  '/* AI-VOCABULARY:START — generated from utility-vocabulary.ts; do not edit by hand. */';
 const END = '/* AI-VOCABULARY:END */';
 const path = resolve('src/tailwind.css');
 const css = readFileSync(path, 'utf8');
 const start = css.indexOf(START);
 const end = css.indexOf(END);
-if (start === -1 || end === -1) throw new Error('AI-VOCABULARY markers not found in src/tailwind.css');
+if (start === -1 || end === -1)
+  throw new Error('AI-VOCABULARY markers not found in src/tailwind.css');
 
 const next = `${css.slice(0, start)}${START}\n${utilitySourceDirectives()}\n${css.slice(end)}`;
 writeFileSync(path, next);
 const count = utilityVocabulary().size;
-console.log(`vocabulary: ${count} utilities in ${utilitySourceDirectives().split('\n').length} directives`);
-console.log(`estimated CSS: ~${Math.round((count * 55) / 1024)} KB raw, ~${Math.round((count * 55) / 1024 / 6.5)} KB gzip`);
+console.log(
+  `vocabulary: ${count} utilities in ${utilitySourceDirectives().split('\n').length} directives`,
+);
+console.log(
+  `estimated CSS: ~${Math.round((count * 55) / 1024)} KB raw, ~${Math.round((count * 55) / 1024 / 6.5)} KB gzip`,
+);

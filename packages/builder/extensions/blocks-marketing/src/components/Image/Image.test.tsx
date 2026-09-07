@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { Node } from '@craftkit/builder-schema';
+import type { AssetEntry, Node } from '@craftkit/builder-schema';
+import { AssetTableProvider } from '@craftkit/builder-renderer';
 
 import { sectionCustomGroups } from '../section-custom';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
@@ -18,6 +19,120 @@ const node: Node = { id: 'image-test', type: 'image', props: {} };
 function renderImage(props: ImageProps, isCanvas: boolean) {
   return render(<Image node={node} props={props} slots={{}} data={{}} isCanvas={isCanvas} />);
 }
+
+const KILN: AssetEntry = {
+  id: 'kiln',
+  url: 'https://assets.example.test/kiln.jpg',
+  description: 'A ceramics kiln glowing in a workshop',
+  mood: ['warm'],
+  palette: ['#c2410c'],
+  alt: 'A kiln glowing orange in a dim ceramics workshop',
+  width: 1600,
+  height: 1067,
+};
+
+function renderWithLibrary(props: ImageProps, assets: Readonly<Record<string, AssetEntry>>) {
+  return render(
+    <AssetTableProvider assets={assets}>
+      <Image node={node} props={props} slots={{}} data={{}} isCanvas />
+    </AssetTableProvider>,
+  );
+}
+
+describe('Image — pictures from the library (FR-045)', () => {
+  it('resolves an asset reference through the site asset table', () => {
+    renderWithLibrary(imageSchema.props.parse({ asset: { assetId: 'kiln' } }), { kiln: KILN });
+
+    expect(screen.getByRole('img', { name: KILN.alt })).toHaveAttribute('src', KILN.url);
+  });
+
+  it('borrows the library alt text only when the block has none of its own', () => {
+    /*
+      The library's alt was written by whoever chose the picture, describing
+      THAT picture. An empty alt on a meaningful image is a failure a sighted
+      person never sees — and an author's own alt is still the better answer,
+      because they know what the picture is doing HERE.
+    */
+    renderWithLibrary(imageSchema.props.parse({ asset: { assetId: 'kiln' }, alt: 'Our kiln' }), {
+      kiln: KILN,
+    });
+
+    expect(screen.getByRole('img', { name: 'Our kiln' })).toBeVisible();
+  });
+
+  it('draws a LABELLED absence, carrying the reason it was given', () => {
+    renderWithLibrary(
+      imageSchema.props.parse({
+        asset: { absent: true, reason: 'Nothing in the library matches "a kiln at work".' },
+      }),
+      { kiln: KILN },
+    );
+
+    expect(screen.getByText('Nothing in the library matches "a kiln at work".')).toBeVisible();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('names an unresolvable picture rather than showing an empty box', () => {
+    /*
+      `validateSite` refuses a stored site whose reference does not resolve in
+      its own table, so this fires only for a document rendered OUTSIDE its
+      site — a page in isolation, an export assembled without the table. It
+      degrades to a sentence naming the picture, because "pass the table" and
+      "choose another" both need the name.
+    */
+    renderWithLibrary(imageSchema.props.parse({ asset: { assetId: 'kiln' } }), {});
+
+    expect(
+      screen.getByText('The picture "kiln" is not in the asset table this page was rendered with.'),
+    ).toBeVisible();
+  });
+
+  it('renders NOTHING for an unresolvable picture once published', () => {
+    /*
+      The explanation is editing scaffolding. A visitor gets no box and no
+      apology — they get a page that reads as if the picture was never planned.
+    */
+    const { container } = render(
+      <AssetTableProvider assets={{}}>
+        <Image
+          node={node}
+          props={imageSchema.props.parse({ asset: { assetId: 'kiln' } })}
+          slots={{}}
+          data={{}}
+          isCanvas={false}
+        />
+      </AssetTableProvider>,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('prefers the ASSET over a typed URL, because the table outlives the URL', () => {
+    renderWithLibrary(imageSchema.props.parse({ asset: { assetId: 'kiln' }, src: SOURCE }), {
+      kiln: KILN,
+    });
+
+    expect(screen.getByRole('img', { name: KILN.alt })).toHaveAttribute('src', KILN.url);
+  });
+
+  it('degrades to the typed URL when no library is mounted at all', () => {
+    /*
+      No provider anywhere — a story, a static export, a test. A block that
+      threw here would take a whole page down over a missing context.
+    */
+    render(
+      <Image
+        node={node}
+        props={imageSchema.props.parse({ src: SOURCE, alt: 'Product image' })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: 'Product image' })).toHaveAttribute('src', SOURCE);
+  });
+});
 
 describe('Image', () => {
   it('decorative images force an empty alt and stay out of the accessible image tree', () => {
@@ -63,7 +178,7 @@ describe('Image', () => {
     const props = imageSchema.props.parse({});
     const { container, rerender } = renderImage(props, true);
 
-    expect(screen.getByText('Add an image URL.')).toBeVisible();
+    expect(screen.getByText('Add an image URL, or choose one from the library.')).toBeVisible();
     expect(container.firstElementChild).not.toHaveAttribute('style');
 
     rerender(<Image node={node} props={props} slots={{}} data={{}} isCanvas={false} />);
@@ -158,6 +273,7 @@ describe('Image', () => {
     const spacingKeys = Object.keys(sectionSpacingProps);
     const noDefaultKeys = [
       ...motionKeys,
+      'asset',
       'src',
       ...colorKeys,
       ...spacingKeys,
@@ -227,6 +343,7 @@ describe('Image', () => {
 
   it('places every property in its required inspector tab', () => {
     expect(imageSchema.propertyGroups).toEqual({
+      asset: { tab: 'content', section: 'Image' },
       src: { tab: 'content', section: 'Image' },
       alt: { tab: 'content', section: 'Accessibility' },
       decorative: { tab: 'advanced', section: 'Accessibility' },

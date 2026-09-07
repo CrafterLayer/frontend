@@ -1,16 +1,12 @@
-import fc, { type Arbitrary } from 'fast-check';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import {
-  defaultDesignSystem,
-  validateSite,
-  type AssetEntry,
-  type BuilderDocument,
-  type BuilderSite,
-  type Patch,
-  type SharedRegion,
-  type SharedRegionKind,
-  type SitePage,
+import type {
+  AssetEntry,
+  BuilderDocument,
+  BuilderSite,
+  Patch,
+  SharedRegion,
 } from '@craftkit/builder-schema';
 
 import { canonicalJson } from './canonical-json';
@@ -24,7 +20,10 @@ import {
   projectSiteRegion,
   type SiteProjectionText,
 } from './site-codec';
+import { fivePageSite } from '@craftkit/builder-schema/testing';
+
 import { builderDocumentArbitrary, type RegistryVocabulary } from '../testing/arbitraries';
+import { assetFixture, builderSiteArbitrary } from '../testing/site-arbitraries';
 
 /**
  * The site codec's laws.
@@ -101,10 +100,6 @@ const vocabulary: RegistryVocabulary = {
 
 const documents = builderDocumentArbitrary(vocabulary);
 
-const PAGE_IDS = ['home', 'about', 'work', 'contact'] as const;
-const REGION_IDS = ['masthead', 'colophon'] as const;
-const ASSET_IDS = ['hero', 'portrait'] as const;
-
 const emptyRecord = <T>(): Record<string, T> => {
   const record: Record<string, T> = {};
   Object.setPrototypeOf(record, null);
@@ -120,122 +115,18 @@ const defineOwn = <T>(record: Record<string, T>, key: string, value: T): void =>
   });
 };
 
-const asset = (id: string): AssetEntry => ({
-  id,
-  url: `https://example.test/${id}.png`,
-  description: id,
-  mood: [],
-  palette: [],
-  alt: id,
-  width: 800,
-  height: 600,
-});
+const same = (left: unknown, right: unknown): boolean =>
+  canonicalJson(left) === canonicalJson(right);
 
-const withDir = (document: BuilderDocument, dir: BuilderSite['dir']): BuilderDocument => ({
-  ...document,
-  dir,
-});
+/*
+  The generator lives in `../testing/site-arbitraries`, not here.
 
-const same = (left: unknown, right: unknown): boolean => canonicalJson(left) === canonicalJson(right);
-
-interface SiteSeed {
-  dir: BuilderSite['dir'];
-  pageIds: readonly string[];
-  homeIndex: number;
-  regionIds: readonly string[];
-  regionKinds: readonly SharedRegionKind[];
-  pageDocuments: readonly BuilderDocument[];
-  regionDocuments: readonly BuilderDocument[];
-  wiring: readonly number[];
-  metadata: readonly { title: string; purpose: string; audience: string }[];
-  assetCount: number;
-}
-
-/**
- * A site that `validateSite` accepts, by construction.
- *
- * The invariants it has to satisfy are not decorative — exactly one home page,
- * unique ids and addresses, every wired region present, every page document in
- * the site's own direction — so they are BUILT rather than filtered. Filtering
- * would silently shrink the generated domain until a law held over almost
- * nothing; the assertion at the end is what proves the construction is honest.
- */
-function buildSite(seed: SiteSeed): BuilderSite {
-  const sharedRegions = emptyRecord<SharedRegion>();
-  seed.regionIds.forEach((id, index) => {
-    const document = seed.regionDocuments[index % seed.regionDocuments.length];
-    if (document === undefined) return;
-    defineOwn(sharedRegions, id, {
-      id,
-      kind: seed.regionKinds[index] ?? 'header',
-      document: withDir(document, seed.dir),
-    });
-  });
-
-  const home = seed.homeIndex % seed.pageIds.length;
-  const pages: SitePage[] = [];
-  seed.pageIds.forEach((id, index) => {
-    const document = seed.pageDocuments[index % seed.pageDocuments.length];
-    const meta = seed.metadata[index % seed.metadata.length];
-    if (document === undefined || meta === undefined) return;
-    const mask = seed.wiring[index] ?? 0;
-    pages.push({
-      id,
-      address: index === home ? '/' : `/${id}`,
-      title: meta.title,
-      purpose: meta.purpose,
-      audience: meta.audience,
-      document: withDir(document, seed.dir),
-      regions: seed.regionIds.filter((_, slot) => ((mask >> slot) & 1) === 1),
-    });
-  });
-
-  const assets = emptyRecord<AssetEntry>();
-  for (const id of ASSET_IDS.slice(0, seed.assetCount)) {
-    defineOwn(assets, id, asset(id));
-  }
-
-  const site: BuilderSite = {
-    siteVersion: 1,
-    dir: seed.dir,
-    pages,
-    sharedRegions,
-    designSystem: defaultDesignSystem(),
-    assets,
-  };
-
-  const validation = validateSite(site);
-  if (!validation.ok) {
-    throw new Error(
-      `the site generator produced an invalid site: ${validation.issues[0]?.message ?? 'unknown'}`,
-    );
-  }
-  return site;
-}
-
-const metadataArbitrary = fc.record({
-  title: fc.string({ maxLength: 10 }),
-  purpose: fc.string({ maxLength: 10 }),
-  audience: fc.string({ maxLength: 10 }),
-});
-
-const sites: Arbitrary<BuilderSite> = fc
-  .record({
-    dir: fc.constantFrom('ltr' as const, 'rtl' as const),
-    pageIds: fc.uniqueArray(fc.constantFrom(...PAGE_IDS), { minLength: 1, maxLength: 4 }),
-    homeIndex: fc.nat({ max: 3 }),
-    regionIds: fc.uniqueArray(fc.constantFrom(...REGION_IDS), { minLength: 0, maxLength: 2 }),
-    regionKinds: fc.array(fc.constantFrom('header' as const, 'footer' as const), {
-      minLength: 2,
-      maxLength: 2,
-    }),
-    pageDocuments: fc.array(documents, { minLength: 4, maxLength: 4 }),
-    regionDocuments: fc.array(documents, { minLength: 2, maxLength: 2 }),
-    wiring: fc.array(fc.nat({ max: 3 }), { minLength: 4, maxLength: 4 }),
-    metadata: fc.array(metadataArbitrary, { minLength: 4, maxLength: 4 }),
-    assetCount: fc.nat({ max: 2 }),
-  })
-  .map(buildSite);
+  It was written inline first, and moving it out is the whole of T003: a site
+  arbitrary that only one test file can reach is one every other file has to
+  re-invent, and six re-inventions are six subtly different ideas of a valid
+  site. This file now proves the shared one works by depending on it.
+*/
+const sites = builderSiteArbitrary({ documents, maxPages: 4, maxRegions: 2, maxAssets: 2 });
 
 /* ── The patch harness ────────────────────────────────────────────────────── */
 
@@ -368,7 +259,7 @@ const addAsset: SiteMutation = (site) => {
     const entry = site.assets[id];
     if (entry !== undefined) defineOwn(assets, id, entry);
   }
-  defineOwn(assets, 'stranger', asset('stranger'));
+  defineOwn(assets, 'stranger', assetFixture('stranger'));
   return { ...site, assets };
 };
 
@@ -388,9 +279,7 @@ const MANIFEST_MUTATIONS: readonly SiteMutation[] = [
 /** Removes a non-home page, so parsing the full bundle has to CREATE one back. */
 const dropPage: SiteMutation = (site) => {
   const victim = site.pages.findIndex((page) => page.address !== '/');
-  return victim < 0
-    ? site
-    : { ...site, pages: site.pages.filter((_, index) => index !== victim) };
+  return victim < 0 ? site : { ...site, pages: site.pages.filter((_, index) => index !== victim) };
 };
 
 /** Edits the words on every page, so the bundle's document texts have to land. */
@@ -488,70 +377,91 @@ const bundleParse: ParseUnderTest = (target, base) => {
 /* ── The laws ─────────────────────────────────────────────────────────────── */
 
 describe('the site manifest law', () => {
-  it(`parse(project(m)) reproduces the manifest exactly against any base it can reach (${String(RUNS)} cases, seed ${String(SEEDS.manifest)})`, () => {
-    fc.assert(
-      fc.property(sites, manifestMutations, (target, mutate) => {
-        const base = mutate(target);
-        runGate(manifestParse, target, base);
-      }),
-      { numRuns: RUNS, seed: SEEDS.manifest },
-    );
-  }, LAW_TIMEOUT);
+  it(
+    `parse(project(m)) reproduces the manifest exactly against any base it can reach (${String(RUNS)} cases, seed ${String(SEEDS.manifest)})`,
+    () => {
+      fc.assert(
+        fc.property(sites, manifestMutations, (target, mutate) => {
+          const base = mutate(target);
+          runGate(manifestParse, target, base);
+        }),
+        { numRuns: RUNS, seed: SEEDS.manifest },
+      );
+    },
+    LAW_TIMEOUT,
+  );
 
-  it('re-parsing a site against ITSELF asks for nothing', () => {
-    fc.assert(
-      fc.property(sites, (site) => {
-        const result = parseSiteManifest(projectSiteManifest(site).text, site);
-        expect(result.ok).toBe(true);
-        if (result.ok) expect(result.patches).toEqual([]);
-      }),
-      { numRuns: RUNS, seed: SEEDS.manifest },
-    );
-  }, LAW_TIMEOUT);
+  it(
+    're-parsing a site against ITSELF asks for nothing',
+    () => {
+      fc.assert(
+        fc.property(sites, (site) => {
+          const result = parseSiteManifest(projectSiteManifest(site).text, site);
+          expect(result.ok).toBe(true);
+          if (result.ok) expect(result.patches).toEqual([]);
+        }),
+        { numRuns: RUNS, seed: SEEDS.manifest },
+      );
+    },
+    LAW_TIMEOUT,
+  );
 });
 
 describe('the site composition law', () => {
-  it(`a projection is EXACTLY its manifest plus one text per page and region (${String(RUNS)} cases, seed ${String(SEEDS.composition)})`, () => {
-    fc.assert(
-      fc.property(sites, (site) => {
-        const projection = projectSite(site);
-        expect(Object.keys(projection.pages).sort()).toEqual(
-          site.pages.map((page) => page.id).sort(),
-        );
-        expect(Object.keys(projection.regions).sort()).toEqual(
-          Object.keys(site.sharedRegions).sort(),
-        );
-        expect(projection.manifest).toBe(projectSiteManifest(site).text);
-        /* One text per part and not one more: the count is the law's "exactly". */
-        expect(1 + Object.keys(projection.pages).length + Object.keys(projection.regions).length)
-          .toBe(1 + site.pages.length + Object.keys(site.sharedRegions).length);
-      }),
-      { numRuns: RUNS, seed: SEEDS.composition },
-    );
-  }, LAW_TIMEOUT);
+  it(
+    `a projection is EXACTLY its manifest plus one text per page and region (${String(RUNS)} cases, seed ${String(SEEDS.composition)})`,
+    () => {
+      fc.assert(
+        fc.property(sites, (site) => {
+          const projection = projectSite(site);
+          expect(Object.keys(projection.pages).sort()).toEqual(
+            site.pages.map((page) => page.id).sort(),
+          );
+          expect(Object.keys(projection.regions).sort()).toEqual(
+            Object.keys(site.sharedRegions).sort(),
+          );
+          expect(projection.manifest).toBe(projectSiteManifest(site).text);
+          /* One text per part and not one more: the count is the law's "exactly". */
+          expect(
+            1 + Object.keys(projection.pages).length + Object.keys(projection.regions).length,
+          ).toBe(1 + site.pages.length + Object.keys(site.sharedRegions).length);
+        }),
+        { numRuns: RUNS, seed: SEEDS.composition },
+      );
+    },
+    LAW_TIMEOUT,
+  );
 
-  it(`the decomposition is LOSSLESS: parsing a whole projection reproduces the site (${String(RUNS)} cases, seed ${String(SEEDS.composition)})`, () => {
-    fc.assert(
-      fc.property(sites, bundleMutations, (target, mutate) => {
-        runGate(bundleParse, target, mutate(target));
-      }),
-      { numRuns: RUNS, seed: SEEDS.composition },
-    );
-  }, LAW_TIMEOUT);
+  it(
+    `the decomposition is LOSSLESS: parsing a whole projection reproduces the site (${String(RUNS)} cases, seed ${String(SEEDS.composition)})`,
+    () => {
+      fc.assert(
+        fc.property(sites, bundleMutations, (target, mutate) => {
+          runGate(bundleParse, target, mutate(target));
+        }),
+        { numRuns: RUNS, seed: SEEDS.composition },
+      );
+    },
+    LAW_TIMEOUT,
+  );
 
-  it(`the decomposition is ORDER-INDEPENDENT: reversing the parts changes nothing (${String(RUNS)} cases, seed ${String(SEEDS.order)})`, () => {
-    fc.assert(
-      fc.property(sites, bundleMutations, (target, mutate) => {
-        const base = mutate(target);
-        const projection = projectSite(target);
-        const straight = parseSite(projection, base, ports);
-        const reversed = parseSite(reverseParts(projection), base, ports);
-        expect(reversed.ok).toBe(straight.ok);
-        expect(canonicalJson(reversed)).toBe(canonicalJson(straight));
-      }),
-      { numRuns: RUNS, seed: SEEDS.order },
-    );
-  }, LAW_TIMEOUT);
+  it(
+    `the decomposition is ORDER-INDEPENDENT: reversing the parts changes nothing (${String(RUNS)} cases, seed ${String(SEEDS.order)})`,
+    () => {
+      fc.assert(
+        fc.property(sites, bundleMutations, (target, mutate) => {
+          const base = mutate(target);
+          const projection = projectSite(target);
+          const straight = parseSite(projection, base, ports);
+          const reversed = parseSite(reverseParts(projection), base, ports);
+          expect(reversed.ok).toBe(straight.ok);
+          expect(canonicalJson(reversed)).toBe(canonicalJson(straight));
+        }),
+        { numRuns: RUNS, seed: SEEDS.order },
+      );
+    },
+    LAW_TIMEOUT,
+  );
 });
 
 function reverseParts(projection: SiteProjectionText): SiteProjectionText {
@@ -571,33 +481,26 @@ function reverseParts(projection: SiteProjectionText): SiteProjectionText {
 }
 
 describe('the non-vacuity gate', () => {
-  it(`a differing site always produces patches that reconstruct it (${String(RUNS)} cases, seed ${String(SEEDS.nonVacuous)})`, () => {
-    fc.assert(
-      fc.property(sites, bundleMutations, (target, mutate) => {
-        const base = mutate(target);
-        const patches = bundleParse(target, base);
-        if (!same(target, base)) {
-          expect(patches.length).toBeGreaterThan(0);
-        }
-        expect(canonicalJson(applySitePatches(base, patches))).toBe(canonicalJson(target));
-      }),
-      { numRuns: RUNS, seed: SEEDS.nonVacuous },
-    );
-  }, LAW_TIMEOUT);
+  it(
+    `a differing site always produces patches that reconstruct it (${String(RUNS)} cases, seed ${String(SEEDS.nonVacuous)})`,
+    () => {
+      fc.assert(
+        fc.property(sites, bundleMutations, (target, mutate) => {
+          const base = mutate(target);
+          const patches = bundleParse(target, base);
+          if (!same(target, base)) {
+            expect(patches.length).toBeGreaterThan(0);
+          }
+          expect(canonicalJson(applySitePatches(base, patches))).toBe(canonicalJson(target));
+        }),
+        { numRuns: RUNS, seed: SEEDS.nonVacuous },
+      );
+    },
+    LAW_TIMEOUT,
+  );
 
   it('a parser that never emits a patch FAILS this gate', () => {
-    const site = buildSite({
-      dir: 'ltr',
-      pageIds: ['home', 'about'],
-      homeIndex: 0,
-      regionIds: [],
-      regionKinds: ['header', 'footer'],
-      pageDocuments: [simpleDocument('one'), simpleDocument('two')],
-      regionDocuments: [simpleDocument('r1'), simpleDocument('r2')],
-      wiring: [0, 0, 0, 0],
-      metadata: Array.from({ length: 4 }, () => ({ title: 't', purpose: 'p', audience: 'a' })),
-      assetCount: 0,
-    });
+    const site = fivePageSite();
     const base = retitlePages(site);
 
     expect(() => {
@@ -629,68 +532,65 @@ describe('the per-page law is REUSED, not re-derived', () => {
     codec were ever grown inside `site-codec.ts`, this test fails long before
     anyone notices the drift in a generated site.
   */
-  it(`every page and region text IS projectDocument's, byte for byte (${String(RUNS)} cases, seed ${String(SEEDS.reuse)})`, () => {
-    fc.assert(
-      fc.property(sites, (site) => {
-        const projection = projectSite(site);
-        for (const page of site.pages) {
-          expect(projection.pages[page.id]).toBe(projectDocument(page.document).text);
-          expect(projectSitePage(site, page.id)?.text).toBe(projectDocument(page.document).text);
-        }
-        for (const id of Object.keys(site.sharedRegions)) {
-          const region = site.sharedRegions[id];
-          if (region === undefined) continue;
-          expect(projection.regions[id]).toBe(projectDocument(region.document).text);
-          expect(projectSiteRegion(site, id)?.text).toBe(projectDocument(region.document).text);
-        }
-      }),
-      { numRuns: RUNS, seed: SEEDS.reuse },
-    );
-  }, LAW_TIMEOUT);
-
-  it("a page edit's patches are parseDocument's patches, re-rooted", () => {
-    fc.assert(
-      fc.property(sites, (site) => {
-        const target = editDocuments(site);
-        const result = parseSite(projectSite(target), site, ports);
-        expect(result.ok).toBe(true);
-        if (!result.ok) return;
-
-        const expected: Patch[] = [];
-        target.pages.forEach((page, index) => {
-          const before = site.pages[index];
-          if (before === undefined) return;
-          const inner = parseDocument(
-            projectDocument(page.document).text,
-            before.document,
-            ports,
-          );
-          expect(inner.ok).toBe(true);
-          if (!inner.ok) return;
-          for (const patch of inner.patches) {
-            expected.push({ ...patch, path: ['pages', index, 'document', ...patch.path] });
+  it(
+    `every page and region text IS projectDocument's, byte for byte (${String(RUNS)} cases, seed ${String(SEEDS.reuse)})`,
+    () => {
+      fc.assert(
+        fc.property(sites, (site) => {
+          const projection = projectSite(site);
+          for (const page of site.pages) {
+            expect(projection.pages[page.id]).toBe(projectDocument(page.document).text);
+            expect(projectSitePage(site, page.id)?.text).toBe(projectDocument(page.document).text);
           }
-        });
-        expect(canonicalJson(result.patches)).toBe(canonicalJson(expected));
-      }),
-      { numRuns: RUNS, seed: SEEDS.reuse },
-    );
-  }, LAW_TIMEOUT);
+          for (const id of Object.keys(site.sharedRegions)) {
+            const region = site.sharedRegions[id];
+            if (region === undefined) continue;
+            expect(projection.regions[id]).toBe(projectDocument(region.document).text);
+            expect(projectSiteRegion(site, id)?.text).toBe(projectDocument(region.document).text);
+          }
+        }),
+        { numRuns: RUNS, seed: SEEDS.reuse },
+      );
+    },
+    LAW_TIMEOUT,
+  );
+
+  it(
+    "a page edit's patches are parseDocument's patches, re-rooted",
+    () => {
+      fc.assert(
+        fc.property(sites, (site) => {
+          const target = editDocuments(site);
+          const result = parseSite(projectSite(target), site, ports);
+          expect(result.ok).toBe(true);
+          if (!result.ok) return;
+
+          const expected: Patch[] = [];
+          target.pages.forEach((page, index) => {
+            const before = site.pages[index];
+            if (before === undefined) return;
+            const inner = parseDocument(
+              projectDocument(page.document).text,
+              before.document,
+              ports,
+            );
+            expect(inner.ok).toBe(true);
+            if (!inner.ok) return;
+            for (const patch of inner.patches) {
+              expected.push({ ...patch, path: ['pages', index, 'document', ...patch.path] });
+            }
+          });
+          expect(canonicalJson(result.patches)).toBe(canonicalJson(expected));
+        }),
+        { numRuns: RUNS, seed: SEEDS.reuse },
+      );
+    },
+    LAW_TIMEOUT,
+  );
 });
 
 describe('what the manifest refuses', () => {
-  const base = buildSite({
-    dir: 'ltr',
-    pageIds: ['home', 'about'],
-    homeIndex: 0,
-    regionIds: ['masthead'],
-    regionKinds: ['header', 'footer'],
-    pageDocuments: [simpleDocument('one'), simpleDocument('two')],
-    regionDocuments: [simpleDocument('r1'), simpleDocument('r2')],
-    wiring: [1, 1, 0, 0],
-    metadata: Array.from({ length: 4 }, () => ({ title: 't', purpose: 'p', audience: 'a' })),
-    assetCount: 1,
-  });
+  const base = fivePageSite();
 
   const editManifest = (change: (value: Record<string, unknown>) => void): string => {
     const value = JSON.parse(projectSiteManifest(base).text) as Record<string, unknown>;
@@ -706,11 +606,13 @@ describe('what the manifest refuses', () => {
   };
 
   it('refuses a site version move, because migrations own that field', () => {
-    expect(refusal(editManifest((value) => {
+    expect(
+      refusal(
+        editManifest((value) => {
           value['siteVersion'] = 2;
-        }))).toContain(
-      'owned by migrations',
-    );
+        }),
+      ),
+    ).toContain('owned by migrations');
   });
 
   it('refuses to create a page it has no document for, and says where to get one', () => {
@@ -719,8 +621,8 @@ describe('what the manifest refuses', () => {
         editManifest((value) => {
           const pages = value['pages'] as Record<string, unknown>[];
           pages.push({
-            id: 'work',
-            address: '/work',
+            id: 'stranger',
+            address: '/stranger',
             title: 't',
             purpose: 'p',
             audience: 'a',
@@ -743,23 +645,23 @@ describe('what the manifest refuses', () => {
   });
 
   it('refuses an unknown manifest field rather than dropping it', () => {
-    expect(refusal(
+    expect(
+      refusal(
         editManifest((value) => {
           value['notes'] = 'hello';
         }),
-      )).toContain(
-      'no textual site representation',
-    );
+      ),
+    ).toContain('no textual site representation');
   });
 
   it('refuses a manifest whose envelope version it does not know', () => {
-    expect(refusal(
+    expect(
+      refusal(
         editManifest((value) => {
           value['manifest'] = 99;
         }),
-      )).toContain(
-      'Unsupported site manifest version',
-    );
+      ),
+    ).toContain('Unsupported site manifest version');
   });
 
   it('refuses a site that would lose its home page', () => {
@@ -767,8 +669,14 @@ describe('what the manifest refuses', () => {
       refusal(
         editManifest((value) => {
           const pages = value['pages'] as Record<string, unknown>[];
-          const first = pages[0];
-          if (first !== undefined) first['address'] = '/elsewhere';
+          /*
+            Found by ADDRESS, never by index. `fivePageSite` deliberately does
+            not put the home first, and this test asserted `pages[0]` until it
+            met that fixture — which is exactly the reorder bug the fixture
+            exists to expose, caught on its first consumer.
+          */
+          const home = pages.find((page) => page['address'] === '/');
+          if (home !== undefined) home['address'] = '/elsewhere';
         }),
       ),
     ).toContain('home page');

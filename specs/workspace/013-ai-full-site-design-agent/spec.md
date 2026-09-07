@@ -695,8 +695,8 @@ the plan was validated.
   deterministically generated fixtures. A timing gate MUST NOT be asserted before it is measured.
 - **FR-103**: Multi-section page builds MUST choose bounded provider concurrency from the scaffolded
   section count: three writers by default, one additional writer for each further group of three
-  sections, and an automatic ceiling of six. Four sections therefore begin four fills together.
-  An explicit caller override MUST remain exact, including one writer for sequential execution;
+  sections, and an automatic ceiling of six. Four sections therefore begin four fills together. An
+  explicit caller override MUST remain exact, including one writer for sequential execution;
   generated proposals MUST still land and validate in document order.
 
 ### Key Entities

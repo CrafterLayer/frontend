@@ -24,6 +24,36 @@ export interface AssistantHeaderProps {
   /** The zone his eyes follow, and the seat they return to. Both from `useFaceLook`. */
   readonly watchZone: Ref<HTMLElement>;
   readonly holdSeat: Ref<HTMLSpanElement>;
+  /** The models the host offers (OpenRouter slugs). Fewer than two ⇒ no picker. */
+  readonly models?: readonly string[] | undefined;
+  readonly model?: string | undefined;
+  readonly onSelectModel?: ((model: string) => void) | undefined;
+}
+
+/**
+ * `vendor/model:free` reads as `model · free`: the vendor is in the slug, not
+ * in the way. `cli:haiku` is the person's own Claude subscription through the
+ * local CLI, and says so.
+ */
+function modelLabel(slug: string): string {
+  if (slug.startsWith('cli:')) {
+    const cliModel = slug.slice('cli:'.length);
+    return cliModel === '' ? 'Claude CLI' : `${cliModel} · Claude CLI`;
+  }
+  const name = slug.slice(slug.lastIndexOf('/') + 1);
+  return name.endsWith(':free') ? `${name.slice(0, -':free'.length)} · free` : name;
+}
+
+/** Two groups, so WHICH backend answers is visible in the list itself, not only in a label. */
+function groupedModels(
+  models: readonly string[],
+): readonly { label: string; slugs: readonly string[] }[] {
+  const cli = models.filter((slug) => slug.startsWith('cli:'));
+  const openRouter = models.filter((slug) => !slug.startsWith('cli:'));
+  return [
+    ...(cli.length === 0 ? [] : [{ label: 'Claude CLI', slugs: cli }]),
+    ...(openRouter.length === 0 ? [] : [{ label: 'OpenRouter', slugs: openRouter }]),
+  ];
 }
 
 /**
@@ -43,6 +73,9 @@ export function AssistantHeader({
   onNewChat,
   watchZone,
   holdSeat,
+  models = [],
+  model,
+  onSelectModel,
 }: AssistantHeaderProps) {
   return (
     <header className="pg-chat__head" ref={watchZone}>
@@ -79,6 +112,33 @@ export function AssistantHeader({
         </ChromeButton>
       </div>
       <p className="pg-chat__sees">Sees: {sees}</p>
+      {/*
+        Its own line, below the context: in the title row it competed with the
+        identity for width and wrapped the name one letter per line. Same rule
+        as the conversation picker: one model is a fact, not a choice.
+      */}
+      {models.length > 1 ? (
+        <p className="pg-chat__model">
+          <span aria-hidden="true">Model:</span>
+          <select
+            className="pg-chat__model-select"
+            aria-label="Model"
+            title={model ?? models[0]}
+            value={model ?? models[0]}
+            onChange={(event) => onSelectModel?.(event.currentTarget.value)}
+          >
+            {groupedModels(models).map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.slugs.map((slug) => (
+                  <option key={slug} value={slug}>
+                    {modelLabel(slug)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </p>
+      ) : null}
       {/*
         The picker appears only once a second conversation exists. A menu with
         one option is a label wearing a chevron.

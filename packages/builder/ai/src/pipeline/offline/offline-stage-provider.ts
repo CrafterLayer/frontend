@@ -1,5 +1,7 @@
 import { defaultDesignSystem, type JsonValue } from '@craftkit/builder-schema';
 
+import { selectFrom } from '../../assets/select-assets';
+
 import type { SiteStageProvider, StageOptions } from '../stage-provider';
 import type {
   AssemblyRequest,
@@ -14,6 +16,15 @@ import type {
   StageRequest,
   StructurePage,
 } from '../wire';
+
+/**
+ * The one block type whose whole job is a picture.
+ *
+ * Named here because the provider has no registry to ask. That is the same
+ * bargain the file already makes with `'text'` as the fallback type and `root`
+ * as a new page's root id: an offline provider knows the shapes it emits.
+ */
+const IMAGE_BLOCK = 'image';
 
 /**
  * Five stages with no model, no network, and no clock.
@@ -261,6 +272,28 @@ export function createOfflineSiteStageProvider(
 function assemblyFor(request: AssemblyRequest, allowed: readonly string[]): AssemblyStep[] {
   const commands: AssemblyStep[] = [];
 
+  /*
+    Pictures, chosen by the SAME scoring a host uses — not by this provider's
+    own idea of a good match. `selectFrom` is the pure half of `selectAssets`,
+    so the offline path and a library-backed one cannot disagree about which
+    picture answers a brief.
+
+    Every image position across the whole site is chosen in ONE pass, because
+    the no-repeat rule is a property of the site: the same photograph appearing
+    on the home page and the about page reads as a mistake, and choosing per
+    page could not see it.
+  */
+  const positions = request.pages.flatMap((page) =>
+    (request.structure.find((entry) => entry.pageId === page.id)?.sections ?? [])
+      .filter((section) => section.type === IMAGE_BLOCK)
+      .map((section) => ({ id: `${page.id}:${section.id}`, intent: section.intent })),
+  );
+  const pictures = new Map(
+    selectFrom({ brief: request.brief, positions, entries: request.assets }).choices.map(
+      (choice) => [choice.id, choice.image],
+    ),
+  );
+
   if (allowed.includes('setDesignSystem')) {
     commands.push({ command: 'setDesignSystem', args: { system: request.designSystem } });
   }
@@ -279,6 +312,7 @@ function assemblyFor(request: AssemblyRequest, allowed: readonly string[]): Asse
     const content = request.content.find((entry) => entry.pageId === page.id);
     for (const section of structure?.sections ?? []) {
       const props = content?.sections.find((entry) => entry.sectionId === section.id)?.props ?? {};
+      const picture = pictures.get(`${page.id}:${section.id}`);
       commands.push({
         /*
           `root` is the id `emptyDocument` gives every new page's root, so a
@@ -286,7 +320,11 @@ function assemblyFor(request: AssemblyRequest, allowed: readonly string[]): Asse
           by its sitemap id and resolved by the applier.
         */
         command: 'insertNode',
-        args: { type: section.type, parentId: 'root', props },
+        args: {
+          type: section.type,
+          parentId: 'root',
+          props: picture === undefined ? props : { ...props, asset: picture },
+        },
         page: page.id,
       });
     }

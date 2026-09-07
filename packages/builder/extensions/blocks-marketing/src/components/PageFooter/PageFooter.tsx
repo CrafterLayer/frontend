@@ -40,7 +40,7 @@ export function PageFooter({ props, slots }: BlockRenderProps<PageFooterProps>) 
       >
         <div
           className={cx(
-          'grid w-full grid-cols-1 gap-10',
+            'grid w-full grid-cols-1 gap-10',
             props.layout === 'centered' ? 'justify-items-center text-center' : undefined,
           )}
           data-page-footer-region="body"

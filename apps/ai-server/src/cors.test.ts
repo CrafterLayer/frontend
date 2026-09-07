@@ -100,7 +100,7 @@ describe('withCors', () => {
     )(request('OPTIONS', { origin: 'http://localhost:5173' }));
 
     expect(response.headers.get('access-control-allow-headers')).toBe(
-      'authorization, content-type, accept',
+      'authorization, content-type, accept, x-craftkit-ai-model',
     );
   });
 

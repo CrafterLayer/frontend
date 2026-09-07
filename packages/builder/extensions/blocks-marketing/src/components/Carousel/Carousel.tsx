@@ -267,8 +267,15 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
             {activeItem.imageSrc === undefined ? null : (
               <figure
                 className={cx(
-                  'm-0 min-w-0 overflow-hidden bg-text-muted/10',
-                  hasMediaOverlay ? 'col-start-1 row-start-1 min-h-96' : undefined,
+                  /*
+                    `w-full` so the TRACK decides the width and the aspect ratio
+                    decides the height — the same trap `PromoBanner` had, found
+                    by the same Chromium gate. `min-h-96` (384px) run through an
+                    aspect ratio the other way forces a 683px figure, which on a
+                    360px phone is nearly twice the screen.
+                  */
+                  'm-0 w-full min-w-0 overflow-hidden bg-text-muted/10',
+                  hasMediaOverlay ? 'col-start-1 row-start-1 min-h-64 @md:min-h-96' : undefined,
                   ASPECT_CLASSES[props.mediaAspect],
                   !hasMediaOverlay ? MEDIA_POSITION_CLASSES[props.mediaPosition] : undefined,
                 )}

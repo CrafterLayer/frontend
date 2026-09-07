@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import type { BlockRenderProps, BuilderDocument } from '@craftkit/builder-schema';
 
 import { createBuilder } from '@craftkit/builder-core';
 import {
@@ -13,7 +13,7 @@ import {
 } from '@craftkit/builder-core/testing';
 
 import { withPassThroughRenderers } from '../../test-utils';
-import { DocumentView, type InlineEditSeam } from './DocumentView';
+import { DocumentView, type InlineEditSeam, type SharedRegionView } from './DocumentView';
 
 function makeKernel(document = landingFixture()) {
   return createBuilder({
@@ -279,5 +279,103 @@ describe('isCanvas is a fact, not a literal', () => {
     // a literal `true` deeper in the tree is exactly the bug being pinned.
     expect(seen.length).toBeGreaterThan(1);
     expect([...new Set(seen)]).toEqual([false]);
+  });
+});
+
+/**
+ * FR-004: a shared region reaches every page that asked for it, and one edit to
+ * it modifies no page at all.
+ */
+describe('shared regions (US4)', () => {
+  const regionDocument = (id: string, words: string): BuilderDocument => ({
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'ltr',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'page', props: {}, slots: { default: ['line'] } },
+      line: { id: 'line', type: 'text', props: { content: words } },
+    },
+  });
+
+  const header = (words = 'the masthead'): SharedRegionView => ({
+    id: 'masthead',
+    kind: 'header',
+    document: regionDocument('masthead', words),
+  });
+
+  const footer = (words = 'the colophon'): SharedRegionView => ({
+    id: 'colophon',
+    kind: 'footer',
+    document: regionDocument('colophon', words),
+  });
+
+  it('renders a header before the page and a footer after it', () => {
+    const kernel = makeKernel();
+    const { container } = render(<DocumentView kernel={kernel} regions={[footer(), header()]} />);
+
+    /*
+      Read from the MARKUP, not from `textContent`: the pass-through renderer
+      these tests use puts a block's props in a `data-props` attribute rather
+      than in a text node, which is what makes a null-rendering fixture block
+      observable at all.
+    */
+    const text = container.innerHTML;
+    /*
+      Order is by KIND, not by the order the caller happened to list them: a
+      footer passed first still renders last, because "header" and "footer" name
+      positions rather than sequence.
+    */
+    expect(text.indexOf('the masthead')).toBeLessThan(text.indexOf('the colophon'));
+  });
+
+  it('reaches EVERY page that references it, from one document', () => {
+    const one = makeKernel();
+    const two = makeKernel();
+    const shared = footer('one footer, two pages');
+
+    const first = render(<DocumentView kernel={one} regions={[shared]} />);
+    const second = render(<DocumentView kernel={two} regions={[shared]} />);
+
+    expect(first.container.innerHTML).toContain('one footer, two pages');
+    expect(second.container.innerHTML).toContain('one footer, two pages');
+  });
+
+  it('modifies NO page document when the region changes (FR-004)', () => {
+    const kernel = makeKernel();
+    const before = JSON.stringify(kernel.getDocument());
+
+    const { rerender, container } = render(
+      <DocumentView kernel={kernel} regions={[footer('first wording')]} />,
+    );
+    expect(container.innerHTML).toContain('first wording');
+
+    rerender(<DocumentView kernel={kernel} regions={[footer('second wording')]} />);
+
+    expect(container.innerHTML).toContain('second wording');
+    /*
+      The point of the whole arrangement: the page was never rewritten. A design
+      that copied a region into each page would have made one footer edit N
+      document writes and N undo steps.
+    */
+    expect(JSON.stringify(kernel.getDocument())).toBe(before);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('loses the region on the page that opted OUT, and only there', () => {
+    const wired = makeKernel();
+    const optedOut = makeKernel();
+
+    const withRegion = render(<DocumentView kernel={wired} regions={[footer()]} />);
+    const without = render(<DocumentView kernel={optedOut} regions={[]} />);
+
+    expect(withRegion.container.innerHTML).toContain('the colophon');
+    expect(without.container.innerHTML).not.toContain('the colophon');
+  });
+
+  it('renders no regions at all when the page references none', () => {
+    const kernel = makeKernel();
+    const { container } = render(<DocumentView kernel={kernel} />);
+    expect(container.innerHTML).not.toContain('the colophon');
   });
 });

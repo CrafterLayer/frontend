@@ -71,7 +71,12 @@ export function StaticDocument({
   */
   const tree = (
     <CustomCodeRegistryContext.Provider value={blocks}>
-      <StaticNode document={document} id={document.rootId} blocks={blocks} breakpoint={breakpoint} />
+      <StaticNode
+        document={document}
+        id={document.rootId}
+        blocks={blocks}
+        breakpoint={breakpoint}
+      />
     </CustomCodeRegistryContext.Provider>
   );
 

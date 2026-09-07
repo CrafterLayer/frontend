@@ -119,7 +119,9 @@ function stripCodeFence(text: string): string {
 function renderPrompt(params: CliStreamParams): string {
   const system = (params.system ?? []).map((block) => block.text).join('\n\n');
   const turns = (params.messages ?? [])
-    .map((turn) => `${turn.role === 'assistant' ? 'Assistant' : 'User'}: ${messageText(turn.content)}`)
+    .map(
+      (turn) => `${turn.role === 'assistant' ? 'Assistant' : 'User'}: ${messageText(turn.content)}`,
+    )
     .join('\n\n');
   const schema = params.output_config?.format?.schema;
   const schemaBlock =

@@ -162,7 +162,9 @@ describe('openrouter request', () => {
   it('falls back to the configured model when the request names none', async () => {
     const fetch = fetchAnswering(() => streamResponse(planStream()));
     const client = createOpenRouterClient({ apiKey: 'k', model: 'minimax/minimax-m3:free', fetch });
-    const withoutModel = Object.fromEntries(Object.entries(REQUEST).filter(([key]) => key !== 'model'));
+    const withoutModel = Object.fromEntries(
+      Object.entries(REQUEST).filter(([key]) => key !== 'model'),
+    );
 
     await client.messages.stream(withoutModel as never).finalMessage();
 
@@ -180,7 +182,11 @@ describe('openrouter request', () => {
       content: string | { type: string; text: string; cache_control?: unknown }[];
     }[];
     expect(messages[0]?.role).toBe('system');
-    const system = messages[0]?.content as { type: string; text: string; cache_control?: unknown }[];
+    const system = messages[0]?.content as {
+      type: string;
+      text: string;
+      cache_control?: unknown;
+    }[];
     expect(system.slice(0, 2)).toEqual([
       { type: 'text', text: 'rules' },
       { type: 'text', text: 'catalog', cache_control: { type: 'ephemeral' } },
@@ -220,7 +226,13 @@ describe('openrouter request', () => {
     expect(sentBody(plain)).not.toHaveProperty('reasoning');
 
     const tuned = fetchAnswering(() => streamResponse(planStream()));
-    await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch: tuned, strict: true, effort: 'medium' })
+    await createOpenRouterClient({
+      apiKey: 'k',
+      model: 'm',
+      fetch: tuned,
+      strict: true,
+      effort: 'medium',
+    })
       .messages.stream(REQUEST as never)
       .finalMessage();
     const body = sentBody(tuned);
@@ -259,7 +271,9 @@ describe('openrouter model facts', () => {
   };
 
   it('reports whether each slug is listed, decodes into a schema, and how much it may write', async () => {
-    const fetch = vi.fn<OpenRouterFetch>(() => Promise.resolve(new Response(JSON.stringify(LISTING))));
+    const fetch = vi.fn<OpenRouterFetch>(() =>
+      Promise.resolve(new Response(JSON.stringify(LISTING))),
+    );
 
     const facts = await probeOpenRouterModels(
       ['anthropic/claude-sonnet-5', 'some/small-model:free', 'gone/model:free'],
@@ -274,7 +288,11 @@ describe('openrouter model facts', () => {
       promptPerMillion: 2,
       completionPerMillion: 10,
     });
-    expect(facts.get('some/small-model:free')).toMatchObject({ listed: true, structuredOutputs: false, maxOutputTokens: 8_192 });
+    expect(facts.get('some/small-model:free')).toMatchObject({
+      listed: true,
+      structuredOutputs: false,
+      maxOutputTokens: 8_192,
+    });
     expect(facts.get('gone/model:free')).toMatchObject({ listed: false, structuredOutputs: false });
   });
 
@@ -286,22 +304,40 @@ describe('openrouter model facts', () => {
     expect(facts.size).toBe(0);
   });
 
-  function factsFor(slug: string, facts: Partial<OpenRouterModelFacts>): ReadonlyMap<string, OpenRouterModelFacts> {
-    return new Map([[slug, { listed: true, structuredOutputs: false, maxOutputTokens: undefined, ...facts }]]);
+  function factsFor(
+    slug: string,
+    facts: Partial<OpenRouterModelFacts>,
+  ): ReadonlyMap<string, OpenRouterModelFacts> {
+    return new Map([
+      [slug, { listed: true, structuredOutputs: false, maxOutputTokens: undefined, ...facts }],
+    ]);
   }
 
   it('constrains decoding only for an Anthropic or OpenAI model that supports it, unless told otherwise', async () => {
     const anthropic = 'anthropic/claude-sonnet-5';
     const auto = fetchAnswering(() => streamResponse(planStream()));
-    await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch: auto, models: factsFor(anthropic, { structuredOutputs: true }) })
+    await createOpenRouterClient({
+      apiKey: 'k',
+      model: 'm',
+      fetch: auto,
+      models: factsFor(anthropic, { structuredOutputs: true }),
+    })
       .messages.stream({ ...REQUEST, model: anthropic } as never)
       .finalMessage();
-    expect((sentBody(auto)['response_format'] as { json_schema: { strict: boolean } }).json_schema.strict).toBe(true);
+    expect(
+      (sentBody(auto)['response_format'] as { json_schema: { strict: boolean } }).json_schema
+        .strict,
+    ).toBe(true);
 
     /* NVIDIA's guided decoding is where the single-letter plans came from, so its flag is not trusted. */
     const nvidia = 'nvidia/nemotron-3-ultra-550b-a55b:free';
     const untrusted = fetchAnswering(() => streamResponse(planStream()));
-    await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch: untrusted, models: factsFor(nvidia, { structuredOutputs: true }) })
+    await createOpenRouterClient({
+      apiKey: 'k',
+      model: 'm',
+      fetch: untrusted,
+      models: factsFor(nvidia, { structuredOutputs: true }),
+    })
       .messages.stream({ ...REQUEST, model: nvidia } as never)
       .finalMessage();
     expect(sentBody(untrusted)).not.toHaveProperty('response_format');
@@ -322,7 +358,12 @@ describe('openrouter model facts', () => {
   it('never asks a model for more output than OpenRouter says it can write', async () => {
     const slug = 'nvidia/nemotron-3-ultra-550b-a55b:free';
     const fetch = fetchAnswering(() => streamResponse(planStream()));
-    await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch, models: factsFor(slug, { maxOutputTokens: 8_192 }) })
+    await createOpenRouterClient({
+      apiKey: 'k',
+      model: 'm',
+      fetch,
+      models: factsFor(slug, { maxOutputTokens: 8_192 }),
+    })
       .messages.stream(REQUEST as never)
       .finalMessage();
 
@@ -335,7 +376,11 @@ describe('openrouter answer', () => {
   it('salvages a plan whose only fault is trailing commas', async () => {
     const fetch = fetchAnswering(() =>
       streamResponse(
-        chunk({ content: '{"rationale":"ok","commands":[{"command":"x","args":{"a":[1,2,],},},],}' }, {}, 'stop') + DONE,
+        chunk(
+          { content: '{"rationale":"ok","commands":[{"command":"x","args":{"a":[1,2,],},},],}' },
+          {},
+          'stop',
+        ) + DONE,
       ),
     );
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
@@ -343,7 +388,10 @@ describe('openrouter answer', () => {
     const message = await client.messages.stream(REQUEST as never).finalMessage();
 
     const text = (message.content[0] as { text: string }).text;
-    expect(JSON.parse(text)).toEqual({ rationale: 'ok', commands: [{ command: 'x', args: { a: [1, 2] } }] });
+    expect(JSON.parse(text)).toEqual({
+      rationale: 'ok',
+      commands: [{ command: 'x', args: { a: [1, 2] } }],
+    });
   });
 
   it('assembles the plan from content deltas split across reads, ignoring heartbeats', async () => {
@@ -384,7 +432,9 @@ describe('openrouter answer', () => {
   it('unwraps a plan the model fenced as ```json', async () => {
     const fetch = fetchAnswering(() =>
       streamResponse(
-        chunk({ content: '```json\n{"rationale":' }) + chunk({ content: '"ok","commands":[]}\n```' }, {}, 'stop') + DONE,
+        chunk({ content: '```json\n{"rationale":' }) +
+          chunk({ content: '"ok","commands":[]}\n```' }, {}, 'stop') +
+          DONE,
       ),
     );
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
@@ -397,8 +447,14 @@ describe('openrouter answer', () => {
   it('keeps only the JSON object when the model talks around it', async () => {
     const fetch = fetchAnswering(() =>
       streamResponse(
-        chunk({ content: 'Here is the plan you asked for:\n\n{"rationale":"ok","commands":[{"command":"x","args":{"t":"}"}}]}\n\nLet me know!' }, {}, 'stop') +
-          DONE,
+        chunk(
+          {
+            content:
+              'Here is the plan you asked for:\n\n{"rationale":"ok","commands":[{"command":"x","args":{"t":"}"}}]}\n\nLet me know!',
+          },
+          {},
+          'stop',
+        ) + DONE,
       ),
     );
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
@@ -414,8 +470,11 @@ describe('openrouter answer', () => {
   it('drops a <think> block a provider left inside the content before finding the plan', async () => {
     const fetch = fetchAnswering(() =>
       streamResponse(
-        chunk({ content: '<think>\nMaybe {"draft": 1}?\n</think>\n\n{"rationale":"ok","commands":[]}' }, {}, 'stop') +
-          DONE,
+        chunk(
+          { content: '<think>\nMaybe {"draft": 1}?\n</think>\n\n{"rationale":"ok","commands":[]}' },
+          {},
+          'stop',
+        ) + DONE,
       ),
     );
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
@@ -434,8 +493,14 @@ describe('openrouter answer', () => {
     const lines: string[] = [];
     const fetch = fetchAnswering(() =>
       streamResponse(
-        chunk({ content: 'Sure! Here is the plan: {"rationale":"ok","commands":[{"command":"insertNode"' }, {}, 'stop') +
-          DONE,
+        chunk(
+          {
+            content:
+              'Sure! Here is the plan: {"rationale":"ok","commands":[{"command":"insertNode"',
+          },
+          {},
+          'stop',
+        ) + DONE,
       ),
     );
     const client = createOpenRouterClient({
@@ -458,7 +523,9 @@ describe('openrouter answer', () => {
 
   /* `finish_reason` is the real end; some proxies close the socket without the `[DONE]` cue. */
   it('accepts a stream that finished but never sent [DONE]', async () => {
-    const fetch = fetchAnswering(() => streamResponse(chunk({ content: '{"rationale":"ok"}' }, {}, 'stop')));
+    const fetch = fetchAnswering(() =>
+      streamResponse(chunk({ content: '{"rationale":"ok"}' }, {}, 'stop')),
+    );
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
 
     const message = await client.messages.stream(REQUEST as never).finalMessage();
@@ -479,7 +546,9 @@ describe('openrouter answer', () => {
   });
 
   it("reports a provider's content filter as a refusal, which the wire has a shape for", async () => {
-    const fetch = fetchAnswering(() => streamResponse(chunk({ content: '' }, {}, 'content_filter') + DONE));
+    const fetch = fetchAnswering(() =>
+      streamResponse(chunk({ content: '' }, {}, 'content_filter') + DONE),
+    );
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
 
     const message = await client.messages.stream(REQUEST as never).finalMessage();
@@ -490,7 +559,9 @@ describe('openrouter answer', () => {
 
   it("carries a model's own refusal text as the explanation", async () => {
     const fetch = fetchAnswering(() =>
-      streamResponse(chunk({ refusal: 'I cannot ' }) + chunk({ refusal: 'help with that.' }, {}, 'stop') + DONE),
+      streamResponse(
+        chunk({ refusal: 'I cannot ' }) + chunk({ refusal: 'help with that.' }, {}, 'stop') + DONE,
+      ),
     );
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
 
@@ -505,7 +576,9 @@ describe('openrouter reasoning', () => {
   function thinkingOf(text: string): Promise<string[]> {
     const seen: string[] = [];
     const fetch = fetchAnswering(() => streamResponse(text));
-    const stream = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch }).messages.stream(REQUEST as never);
+    const stream = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch }).messages.stream(
+      REQUEST as never,
+    );
     stream.on('thinking', (delta: string) => {
       seen.push(delta);
     });
@@ -526,7 +599,10 @@ describe('openrouter reasoning', () => {
   /* Providers that reason but redact it send `reasoning: ""` on every delta; that is not narration. */
   it('ignores empty reasoning deltas rather than forwarding blank lines', async () => {
     const seen = await thinkingOf(
-      chunk({ reasoning: '' }) + chunk({ reasoning: '' }) + chunk({ content: '{"rationale":"ok"}' }, {}, 'stop') + DONE,
+      chunk({ reasoning: '' }) +
+        chunk({ reasoning: '' }) +
+        chunk({ content: '{"rationale":"ok"}' }, {}, 'stop') +
+        DONE,
     );
 
     expect(seen).toEqual([]);
@@ -552,7 +628,9 @@ describe('openrouter failures', () => {
     });
   }
 
-  async function failureOf(answer: () => Response | Promise<Response>): Promise<Error & { httpStatus?: number }> {
+  async function failureOf(
+    answer: () => Response | Promise<Response>,
+  ): Promise<Error & { httpStatus?: number }> {
     const fetch = fetchAnswering(answer);
     const client = createOpenRouterClient({ apiKey: 'k', model: 'minimax/minimax-m3:free', fetch });
     try {
@@ -579,7 +657,9 @@ describe('openrouter failures', () => {
   });
 
   it('keeps rate limiting retryable, with OpenRouter’s own words', async () => {
-    const error = await failureOf(() => errorResponse(429, 'Rate limit exceeded: free-models-per-day'));
+    const error = await failureOf(() =>
+      errorResponse(429, 'Rate limit exceeded: free-models-per-day'),
+    );
 
     expect(error.httpStatus).toBe(429);
     expect(error.message).toMatch(/free-models-per-day/u);
@@ -676,7 +756,9 @@ describe('openrouter narration', () => {
 
   function narrationOf(fetch: OpenRouterFetch) {
     const seen: string[] = [];
-    const stream = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch }).messages.stream(REQUEST as never);
+    const stream = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch }).messages.stream(
+      REQUEST as never,
+    );
     stream.on('thinking', (delta: string) => {
       for (const text of delta.split('\n')) if (text.trim() !== '') seen.push(text.trim());
     });

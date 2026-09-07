@@ -115,9 +115,7 @@ describe('transport', () => {
 
     expect((await handle(post(wireBody()))).status).toBe(401);
     expect((await handle(post(wireBody(), { authorization: 'Bearer wrong' }))).status).toBe(401);
-    expect(
-      (await handle(post(wireBody(), { authorization: 'Bearer secret' }))).status,
-    ).toBe(200);
+    expect((await handle(post(wireBody(), { authorization: 'Bearer secret' }))).status).toBe(200);
   });
 });
 
@@ -127,7 +125,10 @@ describe('transport', () => {
   not let a client pick the most expensive model on someone else's key.
 */
 describe('model choice', () => {
-  function capturingClient(): { client: Anthropic; sent: () => Record<string, unknown> | undefined } {
+  function capturingClient(): {
+    client: Anthropic;
+    sent: () => Record<string, unknown> | undefined;
+  } {
     let seen: Record<string, unknown> | undefined;
     const client = {
       messages: {
@@ -167,7 +168,11 @@ describe('model choice', () => {
 
   it('uses the configured model when the request names none', async () => {
     const { client, sent } = capturingClient();
-    const handle = createHandler({ client, model: 'minimax/minimax-m3:free', models: ['other/model'] });
+    const handle = createHandler({
+      client,
+      model: 'minimax/minimax-m3:free',
+      models: ['other/model'],
+    });
 
     await handle(post(wireBody()));
 
@@ -176,7 +181,11 @@ describe('model choice', () => {
 
   it('refuses a model the server does not allow, as a terminal 400 that names it', async () => {
     const { client, sent } = capturingClient();
-    const handle = createHandler({ client, model: 'minimax/minimax-m3:free', models: ['other/model'] });
+    const handle = createHandler({
+      client,
+      model: 'minimax/minimax-m3:free',
+      models: ['other/model'],
+    });
 
     const response = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'openai/gpt-5' }));
 
@@ -189,7 +198,9 @@ describe('model choice', () => {
     const { client } = capturingClient();
     const handle = createHandler({ client, model: 'minimax/minimax-m3:free' });
 
-    const response = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'minimax/minimax-m3:free' }));
+    const response = await handle(
+      post(wireBody(), { 'x-craftkit-ai-model': 'minimax/minimax-m3:free' }),
+    );
 
     expect(response.status).toBe(200);
   });
@@ -241,7 +252,10 @@ describe('answer translation', () => {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({ rationale: 'Not about this page.', commands: [{ command: 'impossible', args: {} }] }),
+            text: JSON.stringify({
+              rationale: 'Not about this page.',
+              commands: [{ command: 'impossible', args: {} }],
+            }),
           },
         ],
       }),
@@ -283,6 +297,46 @@ describe('answer translation', () => {
     }>;
 
     expect((await body).invalidOutput.message).toContain('smaller change');
+  });
+
+  /*
+    Every backend, not only OpenRouter, can hand back a plan wrapped in a code
+    fence or a sentence, or with a trailing comma — the CLI's Sonnet did, and
+    the panel said "not valid JSON" about a plan that was one wrapper away
+    from valid. The salvage belongs where every answer is parsed.
+  */
+  it('unwraps a fenced or narrated plan from any backend before parsing it', async () => {
+    const handle = createHandler({
+      client: fakeClient({
+        content: [
+          {
+            type: 'text',
+            text: `Here is the plan:\n\n\`\`\`json\n${JSON.stringify(PLAN)}\n\`\`\`\n`,
+          },
+        ],
+      }),
+    });
+
+    const response = await handle(post(wireBody()));
+
+    expect(await response.json()).toEqual(PLAN);
+  });
+
+  it('forgives trailing commas, the commonest way a model breaks otherwise-sound JSON', async () => {
+    const handle = createHandler({
+      client: fakeClient({
+        content: [
+          {
+            type: 'text',
+            text: '{"rationale":"add a hero","commands":[{"command":"insertNode","args":{},},],}',
+          },
+        ],
+      }),
+    });
+
+    const response = await handle(post(wireBody()));
+
+    expect(await response.json()).toEqual(PLAN);
   });
 
   it('reports unparseable output rather than forwarding it to the validator', async () => {
@@ -453,7 +507,9 @@ describe('failure translation', () => {
 
   it('passes an OpenRouter failure through by name, with the status the backend chose', async () => {
     const handle = createHandler({
-      client: throwing(openRouterBackendError('OpenRouter is rate limiting this key right now.', 429)),
+      client: throwing(
+        openRouterBackendError('OpenRouter is rate limiting this key right now.', 429),
+      ),
     });
 
     const response = await handle(post(wireBody()));
@@ -538,9 +594,7 @@ describe('streaming', () => {
       }),
     });
 
-    const body = await readStream(
-      await handle(post(wireBody(), { accept: 'text/event-stream' })),
-    );
+    const body = await readStream(await handle(post(wireBody(), { accept: 'text/event-stream' })));
 
     expect(body).toContain('event: result');
     expect(body).toContain('rate limited');

@@ -367,7 +367,9 @@ export function utilitySourceDirectives(): string {
     expander splits first: Tailwind brace-expands an inline source as a whole,
     so a line of several groups would cost it their product, not their sum.
   */
-  return UTILITY_VOCABULARY.flatMap((pattern) => pattern.split(/\s+/u).filter((token) => token !== ''))
+  return UTILITY_VOCABULARY.flatMap((pattern) =>
+    pattern.split(/\s+/u).filter((token) => token !== ''),
+  )
     .map((token) => `@source inline("${token}");`)
     .join('\n');
 }

@@ -17,11 +17,20 @@ interface FakeStream {
 }
 
 function answer(text: string) {
-  return { stop_reason: 'end_turn', stop_details: null, content: [{ type: 'text', text }], usage: {} };
+  return {
+    stop_reason: 'end_turn',
+    stop_details: null,
+    content: [{ type: 'text', text }],
+    usage: {},
+  };
 }
 
 /** A backend that records what it was asked and answers (or fails) as told. */
-function backend(outcome: { readonly text?: string; readonly error?: Error; readonly narrate?: readonly string[] }) {
+function backend(outcome: {
+  readonly text?: string;
+  readonly error?: Error;
+  readonly narrate?: readonly string[];
+}) {
   const calls: { params: Record<string, unknown>; options: unknown }[] = [];
   const client = {
     messages: {
@@ -32,7 +41,9 @@ function backend(outcome: { readonly text?: string; readonly error?: Error; read
             if (event === 'thinking') for (const line of outcome.narrate ?? []) listener(line);
           },
           finalMessage: () =>
-            outcome.error === undefined ? Promise.resolve(answer(outcome.text ?? '{}')) : Promise.reject(outcome.error),
+            outcome.error === undefined
+              ? Promise.resolve(answer(outcome.text ?? '{}'))
+              : Promise.reject(outcome.error),
         };
       }),
     },
@@ -40,7 +51,10 @@ function backend(outcome: { readonly text?: string; readonly error?: Error; read
   return { client, calls };
 }
 
-function openRouterFailure(httpStatus: number, message = 'OpenRouter is rate limiting this key right now.'): Error {
+function openRouterFailure(
+  httpStatus: number,
+  message = 'OpenRouter is rate limiting this key right now.',
+): Error {
   const error = new Error(message) as Error & { httpStatus: number };
   error.name = 'OpenRouterBackendError';
   error.httpStatus = httpStatus;
@@ -61,7 +75,9 @@ describe('cli slugs', () => {
 describe('routing', () => {
   it('sends a cli: model to the CLI with the prefix stripped, and nothing to OpenRouter', async () => {
     const openrouter = backend({ text: '{"from":"openrouter"}' });
-    const cliFactory = vi.fn((_model: string | undefined) => backend({ text: '{"from":"cli"}' }).client);
+    const cliFactory = vi.fn(
+      (_model: string | undefined) => backend({ text: '{"from":"cli"}' }).client,
+    );
     const client = createRoutingClient({ openrouter: openrouter.client, cli: cliFactory });
 
     const message = (await client.messages
@@ -97,7 +113,10 @@ describe('routing', () => {
 
   it("forwards the answering backend's narration to the caller", async () => {
     const openrouter = backend({ text: '{}', narrate: ['Placing a hero first.\n'] });
-    const client = createRoutingClient({ openrouter: openrouter.client, cli: () => backend({}).client });
+    const client = createRoutingClient({
+      openrouter: openrouter.client,
+      cli: () => backend({}).client,
+    });
     const seen: string[] = [];
 
     const stream = client.messages.stream(PARAMS as never);
@@ -143,7 +162,8 @@ describe('fallback', () => {
   it('also falls back when OpenRouter could not be reached or the stream broke (502)', async () => {
     const cliFactory = vi.fn((_model: string | undefined) => backend({ text: '{}' }).client);
     const client = createRoutingClient({
-      openrouter: backend({ error: openRouterFailure(502, 'OpenRouter could not be reached.') }).client,
+      openrouter: backend({ error: openRouterFailure(502, 'OpenRouter could not be reached.') })
+        .client,
       cli: cliFactory,
       fallback: 'cli:',
     });
@@ -156,20 +176,29 @@ describe('fallback', () => {
   it('does not fall back on a terminal failure: a bad slug or a bad key is for the owner to fix', async () => {
     const cliFactory = vi.fn((_model: string | undefined) => backend({ text: '{}' }).client);
     const client = createRoutingClient({
-      openrouter: backend({ error: openRouterFailure(400, 'OpenRouter rejected the request for model x.') }).client,
+      openrouter: backend({
+        error: openRouterFailure(400, 'OpenRouter rejected the request for model x.'),
+      }).client,
       cli: cliFactory,
       fallback: 'cli:haiku',
     });
 
-    await expect(client.messages.stream(PARAMS as never).finalMessage()).rejects.toThrow(/rejected the request/u);
+    await expect(client.messages.stream(PARAMS as never).finalMessage()).rejects.toThrow(
+      /rejected the request/u,
+    );
     expect(cliFactory).not.toHaveBeenCalled();
   });
 
   it('does not fall back without a fallback configured', async () => {
     const cliFactory = vi.fn((_model: string | undefined) => backend({ text: '{}' }).client);
-    const client = createRoutingClient({ openrouter: backend({ error: openRouterFailure(429) }).client, cli: cliFactory });
+    const client = createRoutingClient({
+      openrouter: backend({ error: openRouterFailure(429) }).client,
+      cli: cliFactory,
+    });
 
-    await expect(client.messages.stream(PARAMS as never).finalMessage()).rejects.toThrow(/rate limiting/u);
+    await expect(client.messages.stream(PARAMS as never).finalMessage()).rejects.toThrow(
+      /rate limiting/u,
+    );
     expect(cliFactory).not.toHaveBeenCalled();
   });
 

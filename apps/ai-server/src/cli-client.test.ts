@@ -174,7 +174,7 @@ describe('cli backend effort', () => {
       REQUEST as never,
     );
 
-    const args = (spawnCli.mock.calls[0]?.[1] ?? []);
+    const args = spawnCli.mock.calls[0]?.[1] ?? [];
     expect(args).toContain('--model');
     expect(args[args.indexOf('--model') + 1]).toBe('claude-sonnet-5');
     expect(args).toContain('--effort');
@@ -189,7 +189,7 @@ describe('cli backend effort', () => {
     );
     createCliClient({ spawnCli }).messages.stream(REQUEST as never);
 
-    expect((spawnCli.mock.calls[0]?.[1] ?? [])).not.toContain('--effort');
+    expect(spawnCli.mock.calls[0]?.[1] ?? []).not.toContain('--effort');
   });
 });
 

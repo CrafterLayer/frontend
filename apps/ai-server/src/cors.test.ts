@@ -10,7 +10,10 @@ import { createNodeServer } from './server';
  * network error before any body is sent. Every gate was green — none of them
  * was a browser.
  */
-const OK = new Response('{"ok":true}', { status: 200, headers: { 'content-type': 'application/json' } });
+const OK = new Response('{"ok":true}', {
+  status: 200,
+  headers: { 'content-type': 'application/json' },
+});
 
 function request(method: string, headers: Record<string, string> = {}): Request {
   return new Request('http://localhost:8787/plan', {
@@ -76,7 +79,10 @@ describe('withCors', () => {
 
   it('answers an allowed preflight itself: 204, the origin echoed, the asked-for headers granted', async () => {
     const handle = vi.fn(() => Promise.resolve(OK.clone()));
-    const response = await withCors(handle, allowed)(
+    const response = await withCors(
+      handle,
+      allowed,
+    )(
       request('OPTIONS', {
         origin: 'http://localhost:5173',
         'access-control-request-method': 'POST',
@@ -106,9 +112,10 @@ describe('withCors', () => {
 
   it('refuses a preflight from another origin without reaching the handler', async () => {
     const handle = vi.fn(() => Promise.resolve(OK.clone()));
-    const response = await withCors(handle, allowed)(
-      request('OPTIONS', { origin: 'https://evil.example' }),
-    );
+    const response = await withCors(
+      handle,
+      allowed,
+    )(request('OPTIONS', { origin: 'https://evil.example' }));
 
     expect(response.status).toBe(403);
     expect(response.headers.get('access-control-allow-origin')).toBeNull();
@@ -143,7 +150,8 @@ describe('withCors', () => {
       },
     });
     const response = await withCors(
-      () => Promise.resolve(new Response(stream, { headers: { 'content-type': 'text/event-stream' } })),
+      () =>
+        Promise.resolve(new Response(stream, { headers: { 'content-type': 'text/event-stream' } })),
       allowed,
     )(request('POST', { origin: 'http://localhost:5173', accept: 'text/event-stream' }));
 
@@ -154,9 +162,10 @@ describe('withCors', () => {
 
   it('refuses a browser request from another origin BEFORE the model is called — no plan is paid for that the browser would discard', async () => {
     const handle = vi.fn(() => Promise.resolve(OK.clone()));
-    const response = await withCors(handle, allowed)(
-      request('POST', { origin: 'https://evil.example' }),
-    );
+    const response = await withCors(
+      handle,
+      allowed,
+    )(request('POST', { origin: 'https://evil.example' }));
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: 'Origin not allowed.' });
@@ -176,12 +185,7 @@ describe('withCors', () => {
 
 describe('through the Node adapter', () => {
   it('a browser-shaped preflight over a real socket gets 204 and the CORS headers', async () => {
-    const server = createNodeServer(
-      withCors(
-        () => Promise.resolve(OK.clone()),
-        isLoopbackOrigin,
-      ),
-    );
+    const server = createNodeServer(withCors(() => Promise.resolve(OK.clone()), isLoopbackOrigin));
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
     if (address === null || typeof address === 'string') throw new Error('no port');

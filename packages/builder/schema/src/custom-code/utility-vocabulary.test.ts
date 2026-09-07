@@ -183,7 +183,9 @@ describe('the vocabulary', () => {
     const directives = utilitySourceDirectives().split('\n');
     // One per TOKEN, not per line: Tailwind brace-expands an inline source as a
     // whole, so several groups on one line would cost it their product.
-    const tokens = UTILITY_VOCABULARY.flatMap((pattern) => pattern.split(/\s+/u).filter((token) => token !== ''));
+    const tokens = UTILITY_VOCABULARY.flatMap((pattern) =>
+      pattern.split(/\s+/u).filter((token) => token !== ''),
+    );
 
     expect(directives).toHaveLength(tokens.length);
     expect(directives.every((line) => /^@source inline\("[^\s"]+"\);$/u.test(line))).toBe(true);

@@ -50,23 +50,23 @@ VITE_AI_PLAN_ENDPOINT=http://localhost:8787
 That is the whole wiring. `planProviderFromEnv` already reads those variables; with the endpoint
 unset the deterministic offline provider keeps answering, so nothing breaks by not running this.
 
-| Variable                      | Default            | Meaning                                                                                                                                                                                                                                                               |
-| ----------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`           | —                  | Standard SDK resolution. **Unset does not mean no credentials**: the SDK also reads `ANTHROPIC_AUTH_TOKEN` and an `ant auth login` profile, so a bare client works after `ant auth login`.                                                                            |
-| `PORT`                        | `8787`             |                                                                                                                                                                                                                                                                       |
-| `CRAFTKIT_AI_MODEL`           | `claude-opus-5`    | Override deliberately, with a measurement. On the `openrouter` backend it is required and must be a `vendor/model` slug.                                                                                                                                                                                                                            |
-| `CRAFTKIT_AI_MODELS`          | —                  | Comma-separated models a request may name in its `x-craftkit-ai-model` header (the playground picker), beyond the default. Unset ⇒ only the default is accepted; any other choice is refused with 400. The server owns this list, never the browser.        |
-| `CRAFTKIT_AI_FALLBACK`        | —                  | OpenRouter backend only. A `cli:` entry that answers instead when an OpenRouter model is rate limited, overloaded, or unreachable (429/502); the panel's progress line says it switched. Unset ⇒ those failures reach the panel with Retry.                       |
-| `CRAFTKIT_AI_BACKEND`         | `sdk`              | `sdk` (the Anthropic Messages API), `openrouter` (any model behind one OpenRouter key), or `cli` (dev only). Anything else refuses to start.                                                                                                                          |
-| `OPENROUTER_API_KEY`          | —                  | OpenRouter backend only, and required there. From openrouter.ai/keys.                                                                                                                                                                                                 |
-| `CRAFTKIT_AI_OPENROUTER_EFFORT` | model default    | OpenRouter only. `none`/`minimal`/`low`/`medium`/`high`/`xhigh`, sent as `reasoning.effort`. Unset sends no reasoning field at all. When the model reasons, its reasoning narrates the progress line.                                                                 |
-| `CRAFTKIT_AI_OPENROUTER_STRICT` | per model        | OpenRouter only. Unset ⇒ constrained decoding only for Anthropic/OpenAI models that declare `structured_outputs`; every other model gets the schema as text only (a provider's guided decoding once turned every command name into a single letter). `true`/`false` forces it for all. |
-| `CRAFTKIT_AI_MAX_TOKENS`      | `32000`            | Output ceiling per answer. Raise it for models that can write more; the OpenRouter backend clamps each request to the chosen model's own limit, so a high value is safe.                                                                                           |
-| `CRAFTKIT_AI_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter only. A proxy goes here.                                                                                                                                                                                                                 |
-| `CRAFTKIT_AI_TOKEN`           | —                  | When set, every request must carry `Authorization: Bearer <token>`. Set it for anything but localhost.                                                                                                                                                                |
-| `CRAFTKIT_AI_CLI_EFFORT`      | CLI default        | CLI backend only. `low`/`medium`/`high`/`xhigh`/`max`. Passed as `--effort`; unset means the flag is omitted entirely, so an inherited `CLAUDE_EFFORT` cannot decide it. The reasoning **text** is redacted on this path, so effort buys plan quality, not narration. |
-| `CRAFTKIT_AI_CLI_TIMEOUT_MS`  | `600000`           | CLI backend only (`CRAFTKIT_AI_BACKEND=cli`). Whole-run cap. A full-page plan is 15–25k output tokens and the CLI writes ~80 a second, so three to five minutes is normal; a cap near two minutes kills every real plan mid-generation.                               |
-| `CRAFTKIT_AI_ALLOWED_ORIGINS` | loopback, any port | Comma-separated browser origins (`https://app.example.com`). An explicit list replaces the loopback default. A browser request from any other origin is refused with 403 before the model is called; requests with no `Origin` (curl, servers) are unaffected.        |
+| Variable                          | Default                        | Meaning                                                                                                                                                                                                                                                                                |
+| --------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`               | —                              | Standard SDK resolution. **Unset does not mean no credentials**: the SDK also reads `ANTHROPIC_AUTH_TOKEN` and an `ant auth login` profile, so a bare client works after `ant auth login`.                                                                                             |
+| `PORT`                            | `8787`                         |                                                                                                                                                                                                                                                                                        |
+| `CRAFTKIT_AI_MODEL`               | `claude-opus-5`                | Override deliberately, with a measurement. On the `openrouter` backend it is required and must be a `vendor/model` slug.                                                                                                                                                               |
+| `CRAFTKIT_AI_MODELS`              | —                              | Comma-separated models a request may name in its `x-craftkit-ai-model` header (the playground picker), beyond the default. Unset ⇒ only the default is accepted; any other choice is refused with 400. The server owns this list, never the browser.                                   |
+| `CRAFTKIT_AI_FALLBACK`            | —                              | OpenRouter backend only. A `cli:` entry that answers instead when an OpenRouter model is rate limited, overloaded, or unreachable (429/502); the panel's progress line says it switched. Unset ⇒ those failures reach the panel with Retry.                                            |
+| `CRAFTKIT_AI_BACKEND`             | `sdk`                          | `sdk` (the Anthropic Messages API), `openrouter` (any model behind one OpenRouter key), or `cli` (dev only). Anything else refuses to start.                                                                                                                                           |
+| `OPENROUTER_API_KEY`              | —                              | OpenRouter backend only, and required there. From openrouter.ai/keys.                                                                                                                                                                                                                  |
+| `CRAFTKIT_AI_OPENROUTER_EFFORT`   | model default                  | OpenRouter only. `none`/`minimal`/`low`/`medium`/`high`/`xhigh`, sent as `reasoning.effort`. Unset sends no reasoning field at all. When the model reasons, its reasoning narrates the progress line.                                                                                  |
+| `CRAFTKIT_AI_OPENROUTER_STRICT`   | per model                      | OpenRouter only. Unset ⇒ constrained decoding only for Anthropic/OpenAI models that declare `structured_outputs`; every other model gets the schema as text only (a provider's guided decoding once turned every command name into a single letter). `true`/`false` forces it for all. |
+| `CRAFTKIT_AI_MAX_TOKENS`          | `32000`                        | Output ceiling per answer. Raise it for models that can write more; the OpenRouter backend clamps each request to the chosen model's own limit, so a high value is safe.                                                                                                               |
+| `CRAFTKIT_AI_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter only. A proxy goes here.                                                                                                                                                                                                                                                    |
+| `CRAFTKIT_AI_TOKEN`               | —                              | When set, every request must carry `Authorization: Bearer <token>`. Set it for anything but localhost.                                                                                                                                                                                 |
+| `CRAFTKIT_AI_CLI_EFFORT`          | CLI default                    | CLI backend only. `low`/`medium`/`high`/`xhigh`/`max`. Passed as `--effort`; unset means the flag is omitted entirely, so an inherited `CLAUDE_EFFORT` cannot decide it. The reasoning **text** is redacted on this path, so effort buys plan quality, not narration.                  |
+| `CRAFTKIT_AI_CLI_TIMEOUT_MS`      | `600000`                       | CLI backend only (`CRAFTKIT_AI_BACKEND=cli`). Whole-run cap. A full-page plan is 15–25k output tokens and the CLI writes ~80 a second, so three to five minutes is normal; a cap near two minutes kills every real plan mid-generation.                                                |
+| `CRAFTKIT_AI_ALLOWED_ORIGINS`     | loopback, any port             | Comma-separated browser origins (`https://app.example.com`). An explicit list replaces the loopback default. A browser request from any other origin is refused with 403 before the model is called; requests with no `Origin` (curl, servers) are unaffected.                         |
 
 ## Concurrency
 
@@ -139,15 +139,15 @@ unmodified. What is translated:
 - **Model.** `CRAFTKIT_AI_MODEL` must be an OpenRouter slug (`vendor/model`); the server refuses to
   start otherwise. The SDK default `claude-opus-5` is not one, and a wrong slug would fail every
   request with a sentence that blames the model.
-- **Facts.** At startup the server asks OpenRouter what each configured slug IS: listed at all,
-  able to decode straight into the plan schema, how much it may write, and what it costs. A slug
+- **Facts.** At startup the server asks OpenRouter what each configured slug IS: listed at all, able
+  to decode straight into the plan schema, how much it may write, and what it costs. A slug
   OpenRouter no longer lists is named in the terminal then, not by the first request that fails on
   it; strict decoding is on for exactly the models that support it; and no request asks a model for
   more output than it can write.
 - **Choice.** A request may name a model in `x-craftkit-ai-model` (the playground header's picker,
-  fed by `VITE_AI_PLAN_MODELS`). It is honoured only if it is the default or in `CRAFTKIT_AI_MODELS`;
-  anything else is a terminal `400` that names the slug. A public endpoint must not let a browser
-  pick the most expensive model on someone else's key.
+  fed by `VITE_AI_PLAN_MODELS`). It is honoured only if it is the default or in
+  `CRAFTKIT_AI_MODELS`; anything else is a terminal `400` that names the slug. A public endpoint
+  must not let a browser pick the most expensive model on someone else's key.
 - **Hybrid.** A `cli:haiku` / `cli:sonnet` / bare `cli:` entry in `CRAFTKIT_AI_MODELS` is the local
   `claude` CLI — the owner's own subscription, no API billing — behind the same picker
   (`src/routing-client.ts`). With `CRAFTKIT_AI_FALLBACK=cli:haiku`, a free OpenRouter model that is
@@ -156,8 +156,8 @@ unmodified. What is translated:
 - **Schema.** The request's output contract goes out as `response_format.json_schema` (enforced by
   the models that support it) AND as a text block after the cache breakpoint, for the ones that
   silently drop the format. A model that ignores it and fences the JSON, or talks around it, is
-  unwrapped before parsing. `claude.ts` still parses and the client still validates, so a model
-  that ignores everything produces a rejected proposal, never a damaged document.
+  unwrapped before parsing. `claude.ts` still parses and the client still validates, so a model that
+  ignores everything produces a rejected proposal, never a damaged document.
 - **Cache.** `cache_control` on the catalog segment passes through; OpenRouter forwards it to the
   models that honour it. OpenRouter's `prompt_tokens` includes cached tokens where the SDK's
   `input_tokens` excludes them, so usage is re-based before it reaches the `cachedShare` log line.
@@ -177,16 +177,16 @@ does instead of a plan arrives as invalid output.
 
 The client's error taxonomy is only as good as this table, so each row is deliberate:
 
-| Situation                      | Answer                    | Why                                                                      |
-| ------------------------------ | ------------------------- | ------------------------------------------------------------------------ |
-| Safety decline                 | `200` + `{refusal}`       | It is an ANSWER. A 4xx would read as an outage and lose the explanation. |
+| Situation                      | Answer                    | Why                                                                                                                                                                 |
+| ------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Safety decline                 | `200` + `{refusal}`       | It is an ANSWER. A 4xx would read as an outage and lose the explanation.                                                                                            |
 | Single command `impossible`    | `200` + `{refusal}`       | The prompt's own "cannot express this" convention; the rationale is the sentence. No command by that name exists, so untranslated it surfaced as a validator error. |
-| Output cut off at `max_tokens` | `200` + `{invalidOutput}` | With advice to ask for a smaller change.                                 |
-| Unparseable output             | `200` + `{invalidOutput}` | Clearer here than as a schema violation two layers later.                |
-| Rate limited                   | `429`                     | The client treats it as retryable.                                       |
-| Bad upstream request           | `400`                     | Terminal; retrying will not help.                                        |
-| Missing/invalid API key        | `500` + plain sentence    | A deployment mistake, said plainly.                                      |
-| Client hung up                 | `499`, no body            | Not a failure to log.                                                    |
+| Output cut off at `max_tokens` | `200` + `{invalidOutput}` | With advice to ask for a smaller change.                                                                                                                            |
+| Unparseable output             | `200` + `{invalidOutput}` | Clearer here than as a schema violation two layers later.                                                                                                           |
+| Rate limited                   | `429`                     | The client treats it as retryable.                                                                                                                                  |
+| Bad upstream request           | `400`                     | Terminal; retrying will not help.                                                                                                                                   |
+| Missing/invalid API key        | `500` + plain sentence    | A deployment mistake, said plainly.                                                                                                                                 |
+| Client hung up                 | `499`, no body            | Not a failure to log.                                                                                                                                               |
 
 No raw SDK message and no stack ever reaches the client.
 

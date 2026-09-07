@@ -1156,88 +1156,105 @@ asset or a labelled deliberate absence — and that zero references fail to reso
       eleven was a confident sentence about code I had just written. Prose is not checked by any
       gate in this repository, so it decays into fiction unless something reads it against the
       source on purpose.
-- [ ] T155 Run the full cross-cutting gate: `PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm verify` —
-      read pnpm's OWN exit code, not a wrapper's, and confirm `check:components` reports 64
-- [ ] T156 Run `/speckit-converge` and append any remaining artifact gaps to this file
-- [ ] T157 Refresh `.specify/agents/HANDOFF.md` and `.specify/agents/context.json` for the delivered
-      state
-- [ ] T158 Generate a Conventional Commit message proposal from the verified diff, TEXT ONLY — no
-      `git add`, no `git commit`. Commit authorization remains withheld
-
----
-
-## Dependencies
-
-**Story completion order**: US1 → US2 → US3 (all P1, must ship together) → US4, US5, US6 (P2,
-mutually independent) → US7 (P3, depends on US1 and US2 existing).
-
-**Blocking chain**:
-
-- Phase 1 (Setup) → Phase 2 (Foundational) → every story phase
-- Within Phase 2: 2a → 2b → 2d → 2e → 2f → 2g → 2h. Sub-phase 2c is parallel with 2b
-- T010 (token move) blocks T012, T016, T053, T090
-- T027 (`dispatchGroup`) blocks T058, T064, T104, T108
-- T032 (site codec) blocks T039–T045
-- T048–T049 (stage contracts) block T050–T058
-- T058 (`generateSite`) blocks T104 (refinement reuses its machinery)
-- T144 (brief set) blocks T145 and T148
-- T160 → T161; T162 → T163; T165 → T166; T167 → T168; T169 → T170; T173–T174 → T175; T160–T175 block
-  T176–T178
-- US8's Skills runtime is independent of the site schema substrate, but T170/T172 serialize on the
-  already-dirty AI/core integration files and MUST NOT run beside another writer on those paths
-
-**Deliberately deferred**: per [plan.md](./plan.md)'s open item, Phase 7's block-vocabulary breadth
-is scoped from the structure stage's real needs — T122 runs AFTER T051 exists, so the block list is
-derived rather than guessed.
-
-## Parallel Opportunities
-
-- **Phase 1**: T002, T003
-- **Phase 2**: sub-phase 2c (T018–T020) runs alongside 2b (T010–T017) — disjoint paths
-- **Phase 3**: T050, T051, T052, T053 are four separate stage files
-- **Phase 2i**: T160/T162/T167/T169/T174 are test-first tasks over disjoint new or test files until
-  their paired implementations begin; all shared barrels and plan/core integration remain serial
-- **Phase 3 UI**: `GenerationProgress` (T067–T071), `SitePages` (T072–T076), and `SiteBriefForm`
-  (T078–T082) are three disjoint component folders in two packages
-- **Phase 10**: T149, T150, T151
-
-**Never parallel**: any two tasks touching `packages/builder/schema/src/index.ts`,
-`packages/builder/shell/src/index.ts`, or `packages/builder/editor/src/index.ts`. Those are shared
-barrels and every export task serializes on them.
-
-## Implementation Strategy
-
-**MVP** is Phase 1 + Phase 2 + Phase 3 (US1) — a brief becomes a complete, valid, navigable site.
-
-**Delivery milestone** is the end of Phase 5: US1, US2, and US3 true together, which is the point at
-which the product is competitive rather than merely functional.
-
-**Incremental after that**: US4, US5, and US6 are independent and may be delivered in any order or
-in parallel by path-disjoint agents. US7 measures the rest and cannot be self-certified — it is the
-one phase whose completion is not in an implementing agent's gift.
-
-**Agent-core prerequisite added 2026-09-01**: US8 (T159–T178) precedes the competitive P1 milestone
-and may land independently of the site model because it only widens the existing command planner.
-
-**Total before the production-readiness audit**: 178 tasks. Setup 3 · Foundational 44 · US8 20 · US1
-38 · US2 18 · US3 11 · US4 7 · US5 7 · US6 15 · US7 5 · Polish 10.
-
----
-
-## Phase 11: User Story 9 — Production Agent Readiness (P0, executes before Phase 3)
-
-**Goal**: Make the already-built Skills/runner core the only Assistant execution path, fit the real
-Playground request inside its complete-wire budget, and close the authority/resource/trust gaps
-found by the 2026-09-01 audit before the full-site pipeline builds on them.
-
-**Scope lease**: `packages/builder/ai/**`, the narrow ContextFragment/JSON-schema additions in
-`packages/builder/schema/**`, `apps/playground/src/features/preview/components/AssistantPanel/**`,
-the Playground readiness test, `scripts/ai-plan-bridge.mjs`, and this feature's artifacts. Custom
-CSS is explicitly deferred. `.mcp.json`, `CLAUDE.md`, unrelated blocks, and unrelated UI are
-excluded.
-
-### 11a — Reproduce and remove the real-context outage
-
+- [x] T155 Run the full cross-cutting gate: `PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm verify` —
+      read pnpm's OWN exit code, not a wrapper's, and confirm `check:components` reports 64 **GATE
+      (T155). Run step by step, reading pnpm's OWN exit code each time, because `pnpm verify` chains
+      with `&&` and its first step stops on files that are not mine.** Green: `test:workspace` 0 ·
+      `check:workspace` 0 (33 members) · `check:components` 0 — **133**, not the 64 this task
+      predicts; that number predates every component added since and `AssetPicker` is the 133rd ·
+      `check:boundaries` 0 (2039 files, 33 packages) · `lint` 0 and `typecheck` 0 (61/61) · `build`
+      0 (10/10) · `check:bundles` 0 (4/4) · `test:storybook` 0 (**682** Chromium tests) ·
+      `build-storybook` 0 · `pnpm eval` 26 passed / 6 failed — byte-identical to the set failing at
+      HEAD (`05-edit-hero-heading`, `07-impossible-3d-game`, `08-impossible-backend`,
+      `20-remove-section`, `24-colour-request`, `29-asset-absence-named`), so no regression; the "F
+      ≤ 5" line in the definition of done is stale against a recorded baseline of 6. NOT green, and
+      neither is mine to fix: `format:check` fails on 13 files under `apps/ai-server/**` (the peer
+      session is formatting those itself, with a live build in flight) and on `CLAUDE.md` (a peer
+      saying "go ahead" is not authority to edit project instructions — the user's word is needed);
+      `test:coverage` fails on `@craftkit/builder-aceternity` at 65.15% lines and 76.31% functions
+      against a 90% threshold, entirely in `CloudShader/gl.ts`, in a package this feature never
+      touched and the peer session disclaims — tracked as T343 for the user to decide. One coverage
+      failure WAS mine to fix and is fixed: `@craftkit/builder-primitives` sat at 80% branches
+      because `defaultOpen: 'first'` was only ever covered in `single` mode. Radix types
+      `defaultValue` as a string for `single` and an array for `multiple`, so `defaultOpen` has two
+      separate implementations and one was unproven — the multiple-mode branch could have shipped
+      opening nothing, or throwing on an empty accordion, with the suite green. Two tests; branches
+      now 100%. Two full-gate test failures were seen and BOTH were 15-second timeouts under
+      concurrency that pass in isolation — one playground scenario, one `AssistantPanel` story —
+      re-run alone before calling either a regression.
+- [x] T156 Run `/speckit-converge` and append any remaining artifact gaps to this file **CONVERGE
+      (T156).** Ran, and it was NOT clean — six tasks appended as Phase 14, T338–T343. Every one of
+      the first five is code that exists, is tested, and has **zero non-test callers**:
+      `createDrafts`, `createRunJournal`, `keepSucceeded`, `undoGeneration`,
+      `createRemoteSiteStageProvider`, `measureBriefRelevance`. That is the exact failure this
+      feature's plan was written to prevent — the plan opens by noting that a previous plan promised
+      seven things and delivered three — and it is why the promise ledger exists. A module with no
+      caller passes its tests, appears in the ledger, and the person who was promised the behaviour
+      never sees it. Counting them honestly is better than a converge run that reports clean because
+      everything has a test. T343 is different in kind: `@craftkit/builder-aceternity` fails the 90%
+      coverage threshold at 65.15% lines, entirely in `CloudShader/gl.ts`, in a package this feature
+      never touched and the peer session disclaims. It is tracked, not decided: the choice between a
+      WebGL mock and a coverage exclusion is the user's.
+- [x] T157 Refresh `.specify/agents/HANDOFF.md` and `.specify/agents/context.json` for the delivered
+      state **HANDOFF (T157).** `.specify/agents/HANDOFF.md` rewritten for the delivered state and
+      `.specify/agents/context.json` updated (`updatedAt` 2026-09-07, `currentWork.status`
+      `feature-013-delivered-except-three-blocked-items`, `nextUncompletedTask` T153, and a
+      `blocked` map naming WHY each of T144–T148, T305–T307 and T112 cannot be finished here). The
+      handoff carries the three traps that cost the most time this cycle — turbo replaying a stale
+      PASS for a gate whose inputs it does not track, a vitest run printing `N passed` beside exit
+      1, and a Storybook story that leaves a promise pending starving every story after it — because
+      the next reader will otherwise pay for them again.
+- [x] T158 Generate a Conventional Commit message proposal from the verified diff, TEXT ONLY — no
+      `git add`, no `git commit`. Commit authorization remains withheld --- ## Dependencies **Story
+      completion order**: US1 → US2 → US3 (all P1, must ship together) → US4, US5, US6 (P2, mutually
+      independent) → US7 (P3, depends on US1 and US2 existing). **Blocking chain**: - Phase 1
+      (Setup) → Phase 2 (Foundational) → every story phase - Within Phase 2: 2a → 2b → 2d → 2e → 2f
+      → 2g → 2h. Sub-phase 2c is parallel with 2b - T010 (token move) blocks T012, T016, T053,
+      T090 - T027 (`dispatchGroup`) blocks T058, T064, T104, T108 - T032 (site codec) blocks
+      T039–T045 - T048–T049 (stage contracts) block T050–T058 - T058 (`generateSite`) blocks T104
+      (refinement reuses its machinery) - T144 (brief set) blocks T145 and T148 - T160 → T161; T162
+      → T163; T165 → T166; T167 → T168; T169 → T170; T173–T174 → T175; T160–T175 block T176–T178 -
+      US8's Skills runtime is independent of the site schema substrate, but T170/T172 serialize on
+      the already-dirty AI/core integration files and MUST NOT run beside another writer on those
+      paths **Deliberately deferred**: per [plan.md](./plan.md)'s open item, Phase 7's
+      block-vocabulary breadth is scoped from the structure stage's real needs — T122 runs AFTER
+      T051 exists, so the block list is derived rather than guessed. ## Parallel Opportunities -
+      **Phase 1**: T002, T003 - **Phase 2**: sub-phase 2c (T018–T020) runs alongside 2b (T010–T017)
+      — disjoint paths - **Phase 3**: T050, T051, T052, T053 are four separate stage files - **Phase
+      2i**: T160/T162/T167/T169/T174 are test-first tasks over disjoint new or test files until
+      their paired implementations begin; all shared barrels and plan/core integration remain
+      serial - **Phase 3 UI**: `GenerationProgress` (T067–T071), `SitePages` (T072–T076), and
+      `SiteBriefForm` (T078–T082) are three disjoint component folders in two packages - **Phase
+      10**: T149, T150, T151 **Never parallel**: any two tasks touching
+      `packages/builder/schema/src/index.ts`, `packages/builder/shell/src/index.ts`, or
+      `packages/builder/editor/src/index.ts`. Those are shared barrels and every export task
+      serializes on them. ## Implementation Strategy **MVP** is Phase 1 + Phase 2 + Phase 3 (US1) —
+      a brief becomes a complete, valid, navigable site. **Delivery milestone** is the end of Phase
+      5: US1, US2, and US3 true together, which is the point at which the product is competitive
+      rather than merely functional. **Incremental after that**: US4, US5, and US6 are independent
+      and may be delivered in any order or in parallel by path-disjoint agents. US7 measures the
+      rest and cannot be self-certified — it is the one phase whose completion is not in an
+      implementing agent's gift. **Agent-core prerequisite added 2026-09-01**: US8 (T159–T178)
+      precedes the competitive P1 milestone and may land independently of the site model because it
+      only widens the existing command planner. **Total before the production-readiness audit**: 178
+      tasks. Setup 3 · Foundational 44 · US8 20 · US1 38 · US2 18 · US3 11 · US4 7 · US5 7 · US6 15
+      · US7 5 · Polish 10. --- ## Phase 11: User Story 9 — Production Agent Readiness (P0, executes
+      before Phase 3) **Goal**: Make the already-built Skills/runner core the only Assistant
+      execution path, fit the real Playground request inside its complete-wire budget, and close the
+      authority/resource/trust gaps found by the 2026-09-01 audit before the full-site pipeline
+      builds on them. **Scope lease**: `packages/builder/ai/**`, the narrow
+      ContextFragment/JSON-schema additions in `packages/builder/schema/**`,
+      `apps/playground/src/features/preview/components/AssistantPanel/**`, the Playground readiness
+      test, `scripts/ai-plan-bridge.mjs`, and this feature's artifacts. Custom CSS is explicitly
+      deferred. `.mcp.json`, `CLAUDE.md`, unrelated blocks, and unrelated UI are excluded. ### 11a —
+      Reproduce and remove the real-context outage **COMMIT MESSAGE (T158).** Written to
+      `specs/workspace/013-ai-full-site-design-agent/commit-message-proposal.md`. **TEXT ONLY:
+      nothing staged, nothing committed, nothing pushed; commit authorization remains withheld.**
+      The proposal names what it does NOT cover as prominently as what it does — the working tree
+      also holds another session's changes (`apps/ai-server/**`, parts of `AssistantHeader/*`,
+      `AssistantPanel.tsx`, `App.css`, `utility-vocabulary.ts`, `tailwind.css`), and committing
+      those under this message without that session's agreement would be attributing their work to
+      this feature.
 - [x] T179 [US9] Record the reproduced readiness baseline (54 blocks, 4 templates, 27 landing nodes,
       121,291/114,321 estimated wire tokens, 64,000 budget, provider call count zero) and the exact
       read-only probe command in
@@ -3164,3 +3181,45 @@ belongs to whoever owns those components.
       unchanged. **FR-103, SC-027.**
 
 **Total after the first D2 tasks**: 337 tasks.
+
+---
+
+## Phase 14: Convergence
+
+Appended by `/speckit-converge` on 2026-09-07. Every item below is code that EXISTS and is tested
+but has **no product caller** — which is the specific failure this feature's own plan was written to
+prevent, and which the plan's promise ledger (§9) exists to catch. A module with no caller is a
+promise nobody can check: it passes its tests, it appears in the ledger, and the person who was
+promised the behaviour never sees it.
+
+- [ ] T338 Wire `createDrafts` and `createRunJournal` into `runSiteGeneration` so a page reloaded
+      mid-build resumes instead of losing the run, per plan §9 "تحديث الصفحة وسط البناء لا يضيّع
+      شيئاً، وResume يكمل" (partial). Both have **zero** non-test callers today: the run seeds a
+      draft kernel through `host.createDraft` and never journals it, so a reload leaves the work
+      unreachable. Evidence to close it: a test that runs half a generation, discards the panel,
+      re-reads the journal, and finishes from the first `waiting` unit.
+- [ ] T339 Give `keepSucceeded` a product surface on the interrupted card, per plan §9 "«احتفظ بما
+      نجح» يسمّي ما لم يُطبَّق" (partial). Zero non-test callers. The function already returns
+      `KeepPlan { kept, notApplied[{ unit, reason }], patches, label }` — the naming of what was NOT
+      applied is the whole promise, and nothing renders it.
+- [ ] T340 Reach `undoGeneration` from the run receipt so one section can be reversed without
+      touching its neighbours, per plan §9 "تراجع لكل مهمة يرجع قسمها فقط" (partial). Zero non-test
+      callers. Evidence to close it: a test asserting the other sections are byte-identical after a
+      single-task undo.
+- [ ] T341 Select `createRemoteSiteStageProvider` from the environment the way the plan provider
+      already is, per plan ق٣ and T056 (partial). Zero non-test callers, so every playground build
+      is offline and the remote stage path has never run end to end. Note the ordering constraint:
+      the server work (T305–T307) belongs to another session, so this task lands the CLIENT half and
+      falls back to offline until the server answers.
+- [ ] T342 Run `measureBriefRelevance` on generated copy and report the score, per FR-020 and SC-005
+      (partial). Zero non-test callers. SC-005 asks that at least 95% of spans carry terms from the
+      brief; the measure exists and nothing measures with it, so the number is unknown rather than
+      met.
+- [ ] T343 Decide how `@craftkit/builder-aceternity` meets the coverage threshold, since it blocks
+      `pnpm verify` (unrequested — outside this feature's scope). Coverage is 65.15% lines and
+      76.31% functions against a 90% global threshold, and the entire gap is
+      `src/components/CloudShader/gl.ts` at 0% across lines 33–148; `CloudShader.tsx` itself is at
+      89%. Two honest options and **the choice is the user's**: a WebGL context mock, which risks
+      only proving the mock, or a coverage exclusion for a file whose raw GL calls have nothing to
+      exercise in jsdom. This task exists so the blockage is tracked, not so an agent decides it.
+      The package is untouched by this feature; the peer session confirmed it is not theirs either.

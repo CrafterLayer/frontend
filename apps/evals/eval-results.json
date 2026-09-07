@@ -7803,9 +7803,7 @@
   "config": {
     "tags": {},
     "description": "CraftKit AI plan quality — golden corpus of real page requests",
-    "prompts": [
-      "{{request}}"
-    ],
+    "prompts": ["{{request}}"],
     "providers": [
       {
         "id": "file://./dist/promptfoo-provider.js",
@@ -9063,9 +9061,7 @@
       }
     ],
     "env": {},
-    "outputPath": [
-      "./eval-results.json"
-    ],
+    "outputPath": ["./eval-results.json"],
     "extensions": [],
     "metadata": {},
     "evaluateOptions": {}
@@ -9079,11 +9075,7 @@
     "exportedAt": "2026-09-07T19:13:29.224Z",
     "evaluationCreatedAt": "2026-09-07T19:13:26.357Z"
   },
-  "vars": [
-    "caseId",
-    "request",
-    "category"
-  ],
+  "vars": ["caseId", "request", "category"],
   "runtimeOptions": {
     "eventSource": "cli",
     "showProgressBar": true,

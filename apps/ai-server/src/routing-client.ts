@@ -91,10 +91,12 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
     };
     const runCli = (slug: string): Promise<Anthropic.Message> => {
       const model = cliModelOf(slug);
-      const inner = options.cli(model).messages.stream(
-        { ...params, ...(model === undefined ? {} : { model }) } as never,
-        requestOptions,
-      ) as unknown as StreamLike;
+      const inner = options
+        .cli(model)
+        .messages.stream(
+          { ...params, ...(model === undefined ? {} : { model }) } as never,
+          requestOptions,
+        ) as unknown as StreamLike;
       return follow(inner);
     };
 
@@ -110,9 +112,12 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
         return await follow(primary);
       } catch (cause) {
         const fallback = options.fallback;
-        if (fallback === undefined || isAbort(cause) || requestOptions.signal?.aborted === true) throw cause;
+        if (fallback === undefined || isAbort(cause) || requestOptions.signal?.aborted === true)
+          throw cause;
         if (!isRetryableOpenRouterFailure(cause)) throw cause;
-        onLog(`falling back to ${fallback} after ${model ?? 'the OpenRouter model'} failed: ${cause.message}`);
+        onLog(
+          `falling back to ${fallback} after ${model ?? 'the OpenRouter model'} failed: ${cause.message}`,
+        );
         report(`${model ?? 'The free model'} is unavailable right now; switching to ${fallback}\n`);
         return runCli(fallback);
       }

@@ -129,7 +129,10 @@ export function createHandler(options: HandlerOptions) {
       return json({ error: 'Body is not JSON.' }, 400);
     }
     if (!isWireRequest(body)) {
-      return json({ error: `Expected an AiPlanWireRequest of version ${String(AI_PLAN_WIRE_VERSION)}.` }, 400);
+      return json(
+        { error: `Expected an AiPlanWireRequest of version ${String(AI_PLAN_WIRE_VERSION)}.` },
+        400,
+      );
     }
 
     const chosen = resolveModel(request, options);
@@ -187,11 +190,7 @@ async function unary(
  * own reasoning summary, so the narration is what the model is actually
  * considering rather than a spinner's worth of invented reassurance.
  */
-function streamed(
-  wire: AiPlanWireRequest,
-  options: HandlerOptions,
-  signal: AbortSignal,
-): Response {
+function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: AbortSignal): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -255,7 +254,9 @@ export const NO_CREDENTIALS_MESSAGE =
   'The assistant server has no credentials: set ANTHROPIC_API_KEY (apps/ai-server/.env) and restart it.';
 
 function isMissingCredentials(cause: unknown): boolean {
-  return cause instanceof Error && cause.message.startsWith('Could not resolve authentication method');
+  return (
+    cause instanceof Error && cause.message.startsWith('Could not resolve authentication method')
+  );
 }
 
 /**
@@ -265,7 +266,10 @@ function isMissingCredentials(cause: unknown): boolean {
  * and not stacks, so they pass through as they are. Matched by `name` rather
  * than by import: the contract layer must not depend on either backend module.
  */
-const BACKEND_ERROR_NAMES: ReadonlySet<string> = new Set(['CliBackendError', 'OpenRouterBackendError']);
+const BACKEND_ERROR_NAMES: ReadonlySet<string> = new Set([
+  'CliBackendError',
+  'OpenRouterBackendError',
+]);
 
 function isBackendFailure(cause: unknown): cause is Error {
   return cause instanceof Error && BACKEND_ERROR_NAMES.has(cause.name);

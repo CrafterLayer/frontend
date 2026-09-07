@@ -2,6 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
+import { salvageJson } from './json-salvage';
 import { buildPrompt } from './prompt';
 
 /**
@@ -89,7 +90,12 @@ export async function proposePlan(
     the deployment mistake would be read as a model failure.
   */
   const schema = contract?.schema;
-  if (schema === undefined || typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+  if (
+    schema === undefined ||
+    typeof schema !== 'object' ||
+    schema === null ||
+    Array.isArray(schema)
+  ) {
     return {
       kind: 'invalid-output',
       message: 'The request carried no usable output contract, so no plan shape could be enforced.',
@@ -143,9 +149,7 @@ export async function proposePlan(
   if (message.stop_reason === 'refusal') {
     return {
       kind: 'refusal',
-      message:
-        message.stop_details?.explanation ??
-        'The assistant declined this request.',
+      message: message.stop_details?.explanation ?? 'The assistant declined this request.',
     };
   }
 
@@ -157,7 +161,7 @@ export async function proposePlan(
     };
   }
 
-  const text = message.content
+  const raw = message.content
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')
     .map((block) => block.text)
     .join('');
@@ -166,9 +170,9 @@ export async function proposePlan(
     is refused two layers later: "names unknown command "e"" is all the panel
     can say, and a bad model and a bad prompt look the same without this.
   */
-  options.onAnswer?.(text);
+  options.onAnswer?.(raw);
 
-  if (text.trim() === '') {
+  if (raw.trim() === '') {
     return { kind: 'invalid-output', message: 'The assistant returned no plan.' };
   }
 
@@ -176,7 +180,10 @@ export async function proposePlan(
     Structured outputs constrain generation, but this server does not get to
     ASSUME they held: the answer crosses a network into a validator, and a
     parse failure here is a clearer report than a schema violation there.
+    First the wrappers every backend sometimes adds — a fence, a sentence, a
+    trailing comma — are undone; the plan's content is still judged as it is.
   */
+  const text = salvageJson(raw);
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

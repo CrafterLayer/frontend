@@ -9,6 +9,7 @@ import {
   probeOpenRouterModels,
 } from './openrouter-client';
 import { createRoutingClient, isCliModel } from './routing-client';
+import { jsonParseError, salvageJson } from './json-salvage';
 import { createNodeServer } from './server';
 
 /**
@@ -84,7 +85,8 @@ const backend =
   silently becoming 0.
 */
 const rawCliTimeout = Number(setting('CRAFTKIT_AI_CLI_TIMEOUT_MS'));
-const cliTimeoutMs = Number.isFinite(rawCliTimeout) && rawCliTimeout > 0 ? rawCliTimeout : undefined;
+const cliTimeoutMs =
+  Number.isFinite(rawCliTimeout) && rawCliTimeout > 0 ? rawCliTimeout : undefined;
 
 /*
   Validated here rather than passed through: the CLI answers an unknown level
@@ -171,7 +173,10 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
     );
   }
   const rawStrict = setting('CRAFTKIT_AI_OPENROUTER_STRICT');
-  const strict = rawStrict === undefined ? undefined : ['1', 'true', 'yes', 'on'].includes(rawStrict.toLowerCase());
+  const strict =
+    rawStrict === undefined
+      ? undefined
+      : ['1', 'true', 'yes', 'on'].includes(rawStrict.toLowerCase());
   const baseUrl = setting('CRAFTKIT_AI_OPENROUTER_BASE_URL');
 
   /*
@@ -180,8 +185,12 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
     A withdrawn slug is named now, in the terminal, not by the first request
     that fails on it.
   */
-  const slugs = [...new Set([openRouterDefault, ...openRouterSlugs])].filter((slug) => !isCliModel(slug));
-  const facts = await probeOpenRouterModels(slugs, { ...(baseUrl === undefined ? {} : { baseUrl }) });
+  const slugs = [...new Set([openRouterDefault, ...openRouterSlugs])].filter(
+    (slug) => !isCliModel(slug),
+  );
+  const facts = await probeOpenRouterModels(slugs, {
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+  });
   if (facts.size === 0) {
     console.warn(
       "WARNING: could not read OpenRouter's model list; strict decoding and output ceilings are unknown for this run.",
@@ -227,10 +236,14 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   if (cliSlugs.length === 0 && fallback === undefined) return openrouter;
 
   for (const slug of cliSlugs) {
-    console.log(`[ai-server] ${slug}: the local \`claude\` CLI (your own subscription, no API billing)`);
+    console.log(
+      `[ai-server] ${slug}: the local \`claude\` CLI (your own subscription, no API billing)`,
+    );
   }
   if (fallback !== undefined) {
-    console.log(`[ai-server] fallback: ${fallback} answers when an OpenRouter model is overloaded or unreachable`);
+    console.log(
+      `[ai-server] fallback: ${fallback} answers when an OpenRouter model is overloaded or unreachable`,
+    );
   }
   return createRoutingClient({
     openrouter,
@@ -297,8 +310,22 @@ const handle = createHandler({
   */
   onAnswer: (text) => {
     const flat = text.replace(/\s+/gu, ' ').trim();
-    console.log(
-      `[ai-server] answer: ${flat.length.toLocaleString('en-US')} characters, starts «${flat.slice(0, 240)}${flat.length > 240 ? '…' : ''}»`,
+    const head = `${flat.slice(0, 240)}${flat.length > 240 ? '…' : ''}`;
+    /*
+      A plan that will not parse even after salvage gets its tail and the
+      parser's own complaint too: truncation and a stray quote both live at
+      the end, where a head alone shows nothing wrong.
+    */
+    const complaint = flat === '' ? undefined : jsonParseError(salvageJson(text));
+    if (complaint === undefined) {
+      console.log(
+        `[ai-server] answer: ${flat.length.toLocaleString('en-US')} characters, starts «${head}»`,
+      );
+      return;
+    }
+    console.warn(
+      `[ai-server] answer NOT JSON (${complaint}): ${flat.length.toLocaleString('en-US')} characters, ` +
+        `starts «${head}» ends «…${flat.slice(-300)}»`,
     );
   },
   onUsage: (usage) => {

@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 
+import { parsesAsJson, salvageJson } from './json-salvage';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
 
 /**
@@ -32,7 +33,14 @@ export type OpenRouterFetch = (input: string, init: RequestInit) => Promise<Resp
 export const OPENROUTER_DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 
 /** The reasoning budgets OpenRouter accepts as `reasoning.effort`. */
-export const OPENROUTER_EFFORT_LEVELS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+export const OPENROUTER_EFFORT_LEVELS = [
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+] as const;
 export type OpenRouterEffort = (typeof OPENROUTER_EFFORT_LEVELS)[number];
 
 /** What OpenRouter says about one slug, asked once at startup. */
@@ -152,7 +160,10 @@ function chatMessages(params: StreamParams, schema: unknown): unknown[] {
   return [...(system.length === 0 ? [] : [{ role: 'system', content: system }]), ...turns];
 }
 
-function chatPayload(params: StreamParams, options: OpenRouterClientOptions): Record<string, unknown> {
+function chatPayload(
+  params: StreamParams,
+  options: OpenRouterClientOptions,
+): Record<string, unknown> {
   const schema = params.output_config?.format?.schema;
   const model = params.model ?? options.model;
   const facts = options.models?.get(model);
@@ -230,7 +241,10 @@ function failureOf(status: number, detail: string, model: string): OpenRouterBac
       400,
     );
   }
-  return new OpenRouterBackendError(`OpenRouter could not get an answer from ${model}.${said}`, 502);
+  return new OpenRouterBackendError(
+    `OpenRouter could not get an answer from ${model}.${said}`,
+    502,
+  );
 }
 
 /** `error.message` out of an OpenRouter error body, or the body itself, bounded. */
@@ -243,7 +257,11 @@ async function errorDetail(response: Response): Promise<string> {
   }
   try {
     const parsed: unknown = JSON.parse(text);
-    if (isRecord(parsed) && isRecord(parsed['error']) && typeof parsed['error']['message'] === 'string') {
+    if (
+      isRecord(parsed) &&
+      isRecord(parsed['error']) &&
+      typeof parsed['error']['message'] === 'string'
+    ) {
       return boundedText(parsed['error']['message']);
     }
   } catch {
@@ -258,7 +276,10 @@ async function errorDetail(response: Response): Promise<string> {
  * a multi-line `data:` is joined the way the SSE spec says. A throw from the
  * consumer cancels the body, so a failed run stops the upstream generation.
  */
-async function readEvents(body: ReadableStream<Uint8Array>, onData: (data: string) => void): Promise<void> {
+async function readEvents(
+  body: ReadableStream<Uint8Array>,
+  onData: (data: string) => void,
+): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -315,45 +336,9 @@ function count(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-/**
- * Bare JSON out of an answer a model dressed up. Some models ignore
- * `response_format` and fence the object or talk around it; the object is
- * what `claude.ts` parses, and its content still decides whether the plan is
- * valid. An answer with no object in it is returned as it was.
- */
+/** The shared salvage (fences, prose, <think>, trailing commas), so this shim and `claude.ts` agree. */
 function unwrapJson(text: string): string {
-  return salvageCommas(objectIn(text));
-}
-
-function objectIn(text: string): string {
-  // Some providers leave the reasoning model's own <think> block in the content.
-  const trimmed = text.replace(/<think>[\s\S]*?<\/think>/giu, '').trim();
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed;
-  const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/u.exec(trimmed);
-  if (fenced?.[1] !== undefined) return objectIn(fenced[1]);
-  const start = trimmed.indexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  return start >= 0 && end > start ? trimmed.slice(start, end + 1) : text;
-}
-
-function parses(text: string): boolean {
-  try {
-    JSON.parse(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * A trailing comma is the commonest way a model breaks otherwise-sound JSON.
- * Eased only when the text does not parse as it is and does afterwards, so a
- * valid answer is never touched and an invalid one is never made worse.
- */
-function salvageCommas(text: string): string {
-  if (parses(text)) return text;
-  const eased = text.replace(/,\s*([}\]])/gu, '$1');
-  return parses(eased) ? eased : text;
+  return salvageJson(text);
 }
 
 /**
@@ -459,10 +444,8 @@ class Answer {
   diagnostic(): string | undefined {
     const text = unwrapJson(this.text);
     if (text.trim() === '') return undefined;
-    try {
-      JSON.parse(text);
-      return undefined;
-    } catch {
+    if (parsesAsJson(text)) return undefined;
+    {
       const flat = text.replace(/\s+/gu, ' ').trim();
       const head = flat.length > 400 ? `${flat.slice(0, 400)}…` : flat;
       const tail = flat.length > 800 ? `…${flat.slice(-400)}` : '';
@@ -479,7 +462,10 @@ class Answer {
     return {
       stop_reason: refused ? 'refusal' : this.finish === 'length' ? 'max_tokens' : 'end_turn',
       stop_details: refused
-        ? { explanation: this.refusal !== '' ? this.refusal : "The model's provider declined this request." }
+        ? {
+            explanation:
+              this.refusal !== '' ? this.refusal : "The model's provider declined this request.",
+          }
         : null,
       content: [{ type: 'text', text: unwrapJson(this.text) }],
       usage: usageOf(this.usage),
@@ -619,7 +605,9 @@ export async function probeOpenRouterModels(
       facts.set(slug, { listed: false, structuredOutputs: false, maxOutputTokens: undefined });
       continue;
     }
-    const parameters: unknown[] = Array.isArray(entry['supported_parameters']) ? entry['supported_parameters'] : [];
+    const parameters: unknown[] = Array.isArray(entry['supported_parameters'])
+      ? entry['supported_parameters']
+      : [];
     const top = isRecord(entry['top_provider']) ? entry['top_provider'] : {};
     const pricing = isRecord(entry['pricing']) ? entry['pricing'] : {};
     const maxOut = top['max_completion_tokens'];

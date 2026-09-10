@@ -2,17 +2,54 @@ import {
   builderError,
   type BuilderSite,
   type PersistedSiteSession,
+  type PersistenceAck,
   type SitePersistenceAdapter,
   type Transaction,
 } from '@craftkit/builder';
 
-import type { VaultStore } from './store';
+import { vaultWriteAcknowledgement, type VaultStore } from './store';
 
 /** Exactly the kernel's `PersistedSiteSession`, as one storable record. */
 interface StoredSiteSession {
   site: BuilderSite;
   seq: number;
   tail: Transaction[];
+  /** Rebuildable last-good identities only; source remains inside `site.codeProjects`. */
+  artifacts?: Record<string, SiteArtifactMetadata>;
+}
+
+export interface SiteArtifactMetadata {
+  readonly artifactId: string;
+  readonly projectId: string;
+  readonly pageId: string;
+  readonly sourceRevision: string;
+  readonly sourceFingerprint: string;
+  readonly dependencyFingerprint: string;
+  readonly compilerFingerprint: string;
+  readonly runtimeFingerprint: string;
+  readonly catalogFingerprint: string;
+  readonly routeEntries: Readonly<Record<string, string>>;
+  readonly createdAt: number;
+}
+
+export interface SiteSourceDownload {
+  readonly fileName: string;
+  readonly mediaType: 'application/json';
+  readonly contents: string;
+}
+
+/** A dependency-free recovery payload that preserves every source byte, valid or invalid. */
+export function createSiteSourceDownload(siteId: string, site: BuilderSite): SiteSourceDownload {
+  const stem =
+    siteId
+      .trim()
+      .replace(/[^a-z0-9._-]+/giu, '-')
+      .replace(/^-+|-+$/g, '') || 'craftkit-project';
+  return {
+    fileName: `${stem}.craftkit.json`,
+    mediaType: 'application/json',
+    contents: JSON.stringify(site, null, 2),
+  };
 }
 
 /**
@@ -26,6 +63,13 @@ interface StoredSiteSession {
 export const siteSessionKey = (siteId: string): string => `vault/site/${siteId}`;
 
 export interface VaultSitePersistenceAdapter extends SitePersistenceAdapter {
+  append(
+    siteId: string,
+    txs: Transaction[],
+    expectedSeq: number,
+  ): Promise<{ seq: number; persistence: PersistenceAck }>;
+  acknowledgement(siteId: string): PersistenceAck;
+  snapshotAcknowledged(siteId: string, site: BuilderSite, seq: number): Promise<PersistenceAck>;
   /**
    * Re-base the stored session onto THIS kernel's position: store `site` at
    * `seq` with an empty tail, whatever the store currently holds.
@@ -36,7 +80,11 @@ export interface VaultSitePersistenceAdapter extends SitePersistenceAdapter {
    * deliberately not part of `SitePersistenceAdapter` — only the boot that owns
    * the session may re-base it, and it is expected to SAY so.
    */
-  takeOverSite(siteId: string, site: BuilderSite, seq: number): Promise<void>;
+  takeOverSite(siteId: string, site: BuilderSite, seq: number): Promise<PersistenceAck>;
+  /** Latest successful artifact identity per page. The artifact body remains rebuildable. */
+  loadArtifactMetadata(siteId: string): Promise<Readonly<Record<string, SiteArtifactMetadata>>>;
+  saveArtifactMetadata(siteId: string, metadata: SiteArtifactMetadata): Promise<void>;
+  removeArtifactMetadata(siteId: string, pageId: string): Promise<void>;
 }
 
 export interface VaultSitePersistenceOptions {
@@ -63,6 +111,7 @@ export function createVaultSitePersistence(
 ): VaultSitePersistenceAdapter {
   const { store, seed } = options;
   const chains = new Map<string, Promise<void>>();
+  const acknowledgements = new Map<string, PersistenceAck>();
 
   /*
     One chain per site, built with `then(work, work)` and kept settled-either-way
@@ -85,11 +134,48 @@ export function createVaultSitePersistence(
   /** First boot is an empty history over the seed — never an error. */
   async function readSession(siteId: string): Promise<StoredSiteSession> {
     const stored = await store.get<StoredSiteSession>(siteSessionKey(siteId));
-    if (stored !== undefined) return stored;
-    return { site: await seed(siteId), seq: 0, tail: [] };
+    const session = stored ?? { site: await seed(siteId), seq: 0, tail: [] };
+    if (!acknowledgements.has(siteId)) {
+      acknowledgements.set(
+        siteId,
+        store.persistence?.(session.seq) ?? { kind: 'durable', sequence: session.seq },
+      );
+    }
+    return session;
   }
 
-  return {
+  async function writeSession(siteId: string, session: StoredSiteSession): Promise<PersistenceAck> {
+    let acknowledgement: PersistenceAck;
+    try {
+      acknowledgement = vaultWriteAcknowledgement(
+        store,
+        await store.set(siteSessionKey(siteId), session, session.seq),
+        session.seq,
+      );
+    } catch (error) {
+      acknowledgement = {
+        kind: 'failed',
+        sequence: acknowledgements.get(siteId)?.sequence ?? Math.max(0, session.seq - 1),
+        reason: error instanceof Error ? error.message : String(error),
+        recoverable: true,
+      };
+    }
+    acknowledgements.set(siteId, acknowledgement);
+    return acknowledgement;
+  }
+
+  function requireWrite(acknowledgement: PersistenceAck): PersistenceAck {
+    if (acknowledgement.kind === 'failed') throw new Error(acknowledgement.reason);
+    return acknowledgement;
+  }
+
+  const adapter: VaultSitePersistenceAdapter = {
+    acknowledgement(siteId) {
+      return (
+        acknowledgements.get(siteId) ?? store.persistence?.(0) ?? { kind: 'durable', sequence: 0 }
+      );
+    },
+
     load: (siteId: string) =>
       serialise(siteId, async (): Promise<PersistedSiteSession> => {
         const session = await readSession(siteId);
@@ -113,11 +199,12 @@ export function createVaultSitePersistence(
           site: session.site,
           seq: session.seq + txs.length,
           tail: [...session.tail, ...txs],
+          ...(session.artifacts === undefined ? {} : { artifacts: session.artifacts }),
         };
         // Nothing was written before the conflict check, so a rejection leaves
         // the stored history byte-identical.
-        await store.set(siteSessionKey(siteId), next);
-        return { seq: next.seq };
+        const persistence = requireWrite(await writeSession(siteId, next));
+        return { seq: next.seq, persistence };
       }),
 
     snapshot: (siteId: string, site: BuilderSite, seq: number) =>
@@ -126,20 +213,99 @@ export function createVaultSitePersistence(
         if (session.seq !== seq) {
           return;
         }
-        await store.set(siteSessionKey(siteId), {
+        requireWrite(
+          await writeSession(siteId, {
+            site,
+            seq,
+            tail: [],
+            ...(session.artifacts === undefined ? {} : { artifacts: session.artifacts }),
+          } satisfies StoredSiteSession),
+        );
+      }),
+
+    snapshotAcknowledged: (siteId: string, site: BuilderSite, seq: number) =>
+      serialise(siteId, async () => {
+        const session = await readSession(siteId);
+        if (session.seq !== seq) return adapter.acknowledgement(siteId);
+        return writeSession(siteId, {
           site,
           seq,
           tail: [],
-        } satisfies StoredSiteSession);
+          ...(session.artifacts === undefined ? {} : { artifacts: session.artifacts }),
+        });
       }),
 
     takeOverSite: (siteId: string, site: BuilderSite, seq: number) =>
       serialise(siteId, async () => {
-        await store.set(siteSessionKey(siteId), {
-          site,
-          seq,
-          tail: [],
-        } satisfies StoredSiteSession);
+        const session = await readSession(siteId);
+        return requireWrite(
+          await writeSession(siteId, {
+            site,
+            seq,
+            tail: [],
+            ...(session.artifacts === undefined ? {} : { artifacts: session.artifacts }),
+          } satisfies StoredSiteSession),
+        );
+      }),
+
+    loadArtifactMetadata: (siteId: string) =>
+      serialise(siteId, async () => {
+        const session = await readSession(siteId);
+        return Object.fromEntries(
+          Object.entries(session.artifacts ?? {}).map(([pageId, metadata]) => [
+            pageId,
+            structuredClone(metadata),
+          ]),
+        );
+      }),
+
+    saveArtifactMetadata: (siteId: string, metadata: SiteArtifactMetadata) =>
+      serialise(siteId, async () => {
+        validateArtifactMetadata(metadata);
+        const session = await readSession(siteId);
+        requireWrite(
+          await writeSession(siteId, {
+            ...session,
+            artifacts: {
+              ...session.artifacts,
+              [metadata.pageId]: structuredClone(metadata),
+            },
+          } satisfies StoredSiteSession),
+        );
+      }),
+
+    removeArtifactMetadata: (siteId: string, pageId: string) =>
+      serialise(siteId, async () => {
+        const session = await readSession(siteId);
+        if (session.artifacts?.[pageId] === undefined) return;
+        const artifacts = Object.fromEntries(
+          Object.entries(session.artifacts).filter(([candidate]) => candidate !== pageId),
+        );
+        const next: StoredSiteSession = { ...session, artifacts };
+        if (Object.keys(artifacts).length === 0) delete next.artifacts;
+        requireWrite(await writeSession(siteId, next));
       }),
   };
+  return adapter;
+}
+
+function validateArtifactMetadata(metadata: SiteArtifactMetadata): void {
+  const required = [
+    metadata.artifactId,
+    metadata.projectId,
+    metadata.pageId,
+    metadata.sourceRevision,
+    metadata.sourceFingerprint,
+    metadata.dependencyFingerprint,
+    metadata.compilerFingerprint,
+    metadata.runtimeFingerprint,
+    metadata.catalogFingerprint,
+  ];
+  if (
+    required.some((value) => value.length === 0) ||
+    !Number.isFinite(metadata.createdAt) ||
+    metadata.createdAt < 0
+  ) {
+    throw new TypeError('Artifact metadata must contain complete finite revision identity.');
+  }
 }

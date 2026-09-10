@@ -27,12 +27,15 @@ import {
   type AiValidatedProposal,
   type BuilderDocument,
   type BuilderKernel,
+  type NodeId,
 } from '@craftkit/builder';
 
 import { useAgentMood, type AgentLocale } from '../AgentFace';
+import { AgentContextBar } from '../AgentContextBar';
+import { AgentDockHeader } from '../AgentDockHeader';
 import { AssistantComposer } from '../AssistantComposer';
-import { AssistantHeader } from '../AssistantHeader';
 import { AssistantThread } from '../AssistantThread';
+import { QueuedRequestCard, type QueuedRequestState } from '../QueuedRequestCard';
 import { estimateRequestTokens } from './AssistantPanel.impact';
 import { useAppliedChangeMemory } from './AssistantPanel.memory';
 import { insertMention, mentionCandidatesFor, mentionedIds } from './AssistantPanel.mentions';
@@ -245,6 +248,14 @@ const DEFAULT_AI_SKILL_REGISTRY = createCraftkitAiSkillRegistry();
  */
 type AskOrigin = 'typed' | 'suggestion' | 'build';
 
+interface QueuedAssistantRequest {
+  readonly request: string;
+  readonly context: string;
+  readonly selection: readonly NodeId[];
+  readonly targetTypes: readonly (string | undefined)[];
+  readonly state: QueuedRequestState;
+}
+
 export function AssistantPanel({
   kernel,
   onReviewAsCode,
@@ -305,6 +316,8 @@ export function AssistantPanel({
   }, [activeId, panelMode, persistKey, sessions]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [queuedRequest, setQueuedRequest] = useState<QueuedAssistantRequest | null>(null);
+  const [queuePaused, setQueuePaused] = useState(false);
   /** Whether the composer holds focus — the face listens when it does. */
   const [composerFocused, setComposerFocused] = useState(false);
   /*
@@ -591,6 +604,8 @@ export function AssistantPanel({
     // abort produces carries the old run id and the reducer drops it.
     resetFace();
     setBusy(false);
+    setQueuedRequest(null);
+    setQueuePaused(false);
     const id = nextId('session');
     setSessions((previous) => [...previous, { id, title: 'New chat', turns: [] }]);
     setActiveId(id);
@@ -902,7 +917,11 @@ export function AssistantPanel({
   );
 
   const ask = useCallback(
-    async (request: string, origin: AskOrigin = 'typed') => {
+    async (
+      request: string,
+      origin: AskOrigin = 'typed',
+      capturedSelection?: readonly NodeId[],
+    ) => {
       const trimmed = request.trim();
       /*
         The mode this RUN carries, which is not always the one in state.
@@ -913,9 +932,24 @@ export function AssistantPanel({
         the property the mode lock exists to protect.
       */
       const mode: AssistantMode = origin === 'build' ? 'ask' : panelMode;
-      if (trimmed.length === 0 || busy) {
+      if (trimmed.length === 0) {
         return;
       }
+      if (busy) {
+        if (queuedRequest !== null) return;
+        const selection = kernel.context.store.getState().selection;
+        setQueuedRequest({
+          request: trimmed,
+          context: sees,
+          selection,
+          targetTypes: selection.map((id) => kernel.getDocument().nodes[id]?.type),
+          state: 'editable',
+        });
+        setQueuePaused(false);
+        setDraft('');
+        return;
+      }
+      setQueuePaused(false);
       /*
         A PAGE is a build; a section is one call. Plan mode never builds: the
         skeleton would apply, and Plan must never apply. Everything else takes
@@ -971,7 +1005,10 @@ export function AssistantPanel({
             kernel,
             provider: resolvedProvider,
             request: trimmed,
-            selection: mentioned.length > 0 ? mentioned : kernel.context.store.getState().selection,
+            selection:
+              mentioned.length > 0
+                ? mentioned
+                : (capturedSelection ?? kernel.context.store.getState().selection),
             history,
             skillRegistry: registry,
             ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
@@ -1062,7 +1099,10 @@ export function AssistantPanel({
           provider: origin === 'suggestion' ? catalogFirstProvider : resolvedProvider,
           request: trimmed,
           validationPorts: preflightPorts(),
-          selection: mentioned.length > 0 ? mentioned : kernel.context.store.getState().selection,
+          selection:
+            mentioned.length > 0
+              ? mentioned
+              : (capturedSelection ?? kernel.context.store.getState().selection),
           history,
           ...(memory.hasRecords() ? { additionalContextProviders: [memoryProvider] } : {}),
           skillRegistry: registry,
@@ -1214,6 +1254,7 @@ export function AssistantPanel({
       memory,
       memoryProvider,
       panelMode,
+      queuedRequest,
       nextId,
       onAgentEvent,
       onFaceEvent,
@@ -1225,13 +1266,34 @@ export function AssistantPanel({
       runBuild,
       selectedSkillIds,
       selectedType,
+      sees,
       settleFaceTurn,
     ],
   );
 
+  useEffect(() => {
+    if (busy || queuePaused || queuedRequest === null || queuedRequest.state === 'missing-target') {
+      return;
+    }
+    const nodes = kernel.getDocument().nodes;
+    const missingTarget = queuedRequest.selection.some(
+      (id, index) => nodes[id]?.type !== queuedRequest.targetTypes[index],
+    );
+    if (missingTarget) {
+      setQueuedRequest((current) =>
+        current === null ? null : { ...current, state: 'missing-target' },
+      );
+      return;
+    }
+    const next = queuedRequest;
+    setQueuedRequest(null);
+    void ask(next.request, 'typed', next.selection);
+  }, [ask, busy, kernel, queuePaused, queuedRequest]);
+
   const stop = useCallback(() => {
+    if (queuedRequest !== null) setQueuePaused(true);
     activeRunRef.current?.controller.abort();
-  }, []);
+  }, [queuedRequest]);
 
   /**
    * The panel's ONE lease, handed to the site run rather than duplicated.
@@ -1405,10 +1467,9 @@ export function AssistantPanel({
 
   return (
     <section className="pg-chat" aria-label="Assistant" data-mood={face.mood}>
-      <AssistantHeader
+      <AgentDockHeader
         locale={locale}
         face={face}
-        sees={sees}
         conversations={sessions.map((session) => ({
           id: session.id,
           title: session.title,
@@ -1419,9 +1480,12 @@ export function AssistantPanel({
         onNewChat={startNewChat}
         watchZone={watchHeadZone}
         holdSeat={holdHeadSeat}
-        models={offeredModels}
-        model={chosenModel}
-        onSelectModel={onSelectModel}
+      />
+
+      <AgentContextBar
+        scope={selectedType === undefined ? 'page' : 'instance'}
+        label={`Sees: ${sees}`}
+        detail={selectedId}
       />
 
       <AssistantThread
@@ -1435,6 +1499,7 @@ export function AssistantPanel({
         watchEmptyZone={watchEmptyZone}
         holdEmptySeat={holdEmptySeat}
         onApproval={answerApproval}
+        onStop={stop}
         onUndoTask={undoTask}
         onRetrySkipped={(titles) => {
           void ask(retrySkippedRequest(titles));
@@ -1484,20 +1549,54 @@ export function AssistantPanel({
         its RTL sign live with it — this panel decides only WHAT to offer and
         what happens when one is picked.
       */}
-      <SuggestionRail
-        suggestions={suggestions}
-        layout={turns.length === 0 ? 'stack' : 'rail'}
-        busy={busy}
-        onPick={(text) => {
-          void ask(text, 'suggestion');
-        }}
-      />
+      {turns.length === 0 && !busy ? (
+        <SuggestionRail
+          suggestions={suggestions}
+          layout="stack"
+          busy={false}
+          onPick={(text) => {
+            void ask(text, 'suggestion');
+          }}
+        />
+      ) : null}
+
+      {queuedRequest === null ? null : (
+        <QueuedRequestCard
+          request={queuedRequest.request}
+          context={queuedRequest.context}
+          state={queuedRequest.state}
+          paused={queuePaused}
+          onChange={(request) => {
+            setQueuedRequest((current) => current === null ? null : { ...current, request });
+          }}
+          onRemove={() => {
+            setQueuedRequest(null);
+            setQueuePaused(false);
+          }}
+          onRun={() => {
+            const selection = kernel.context.store.getState().selection;
+            setQueuedRequest((current) =>
+              current === null
+                ? null
+                : {
+                    ...current,
+                    context: sees,
+                    selection,
+                    targetTypes: selection.map((id) => kernel.getDocument().nodes[id]?.type),
+                    state: 'editable',
+                  },
+            );
+            setQueuePaused(false);
+          }}
+        />
+      )}
 
       <AssistantComposer
         draft={draft}
         onDraftChange={setDraft}
         inputId={inputId}
         busy={busy}
+        queued={queuedRequest !== null}
         onSend={() => {
           void ask(draft);
         }}
@@ -1511,6 +1610,9 @@ export function AssistantPanel({
         onModeChange={setMode}
         modeLockId={modeLockId}
         locale={locale}
+        models={offeredModels}
+        model={chosenModel}
+        onSelectModel={onSelectModel}
       />
 
       {/*

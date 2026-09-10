@@ -123,6 +123,9 @@ function KernelStage({
       <BlockActionBar
         label={`Actions for ${selected}`}
         actions={actions}
+        onMovePointerDown={() => {
+          setAnnouncement(`Ready to move ${selected}`);
+        }}
         onAction={(id) => {
           if (id === 'editText') {
             setEditing(true);

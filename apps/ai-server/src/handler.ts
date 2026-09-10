@@ -1,8 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import { AI_PLAN_WIRE_VERSION, type AiPlanWireRequest } from '@craftkit/builder/wire';
+import type { ExportPage, RuntimeSnapshot } from '@craftkit/builder/code-runtime';
 
 import { proposePlan, type UsageReport } from './claude';
+import type { CodeRuntimeService } from './code-runtime-service';
+import {
+  isAuthoredRunRequest,
+  type AuthoredRunCoordinator,
+  type AuthoredRunRequest,
+} from './authored-run';
 
 /**
  * The HTTP surface: one POST, three possible answers.
@@ -27,6 +34,9 @@ export interface HandlerOptions {
   readonly onUsage?: (report: UsageReport & { readonly cachedShare: number }) => void;
   /** Receives every answer's raw text before it is parsed; for the owner's log. */
   readonly onAnswer?: (text: string) => void;
+  /** Isolated compiler/prerender boundary. Omitted deployments keep the legacy plan endpoint only. */
+  readonly codeRuntime?: CodeRuntimeService;
+  readonly authoredRuns?: AuthoredRunCoordinator;
 }
 
 const DEFAULT_MAX_REQUEST_BYTES = 4 * 1024 * 1024;
@@ -83,7 +93,7 @@ function authorized(request: Request, expected: string | undefined): boolean {
 }
 
 /** SSE frame. `status` narrates; exactly one `result` ends the stream. */
-function frame(event: 'status' | 'result', data: unknown): string {
+function frame(event: 'status' | 'unit' | 'result', data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
@@ -110,6 +120,10 @@ export function createHandler(options: HandlerOptions) {
   const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
 
   return async function handle(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method === 'GET' && url.pathname.startsWith('/artifacts/')) {
+      return options.codeRuntime?.serveArtifact(url) ?? json({ error: 'Artifact not found.' }, 404);
+    }
     if (request.method !== 'POST') {
       return json({ error: 'Use POST.' }, 405);
     }
@@ -124,9 +138,25 @@ export function createHandler(options: HandlerOptions) {
 
     let body: unknown;
     try {
-      body = await request.json();
+      const text = await request.text();
+      if (new TextEncoder().encode(text).byteLength > maxRequestBytes) {
+        return json({ error: 'Request too large.' }, 413);
+      }
+      body = JSON.parse(text) as unknown;
     } catch {
       return json({ error: 'Body is not JSON.' }, 400);
+    }
+    if (url.pathname === '/v1/code/compile') {
+      return compileResponse(body, options, request.signal);
+    }
+    if (url.pathname === '/v1/code/export') {
+      return exportResponse(body, options, request.signal);
+    }
+    if (url.pathname === '/v1/agent/run') {
+      return authoredRunResponse(body, options, request);
+    }
+    if (url.pathname !== '/plan' && url.pathname !== '/') {
+      return json({ error: 'Endpoint not found.' }, 404);
     }
     if (!isWireRequest(body)) {
       return json(
@@ -147,6 +177,174 @@ export function createHandler(options: HandlerOptions) {
     const wantsStream = (request.headers.get('accept') ?? '').includes('text/event-stream');
     return wantsStream ? streamed(body, run, request.signal) : unary(body, run, request.signal);
   };
+}
+
+async function authoredRunResponse(
+  body: unknown,
+  options: HandlerOptions,
+  request: Request,
+): Promise<Response> {
+  if (!isAuthoredRunRequest(body)) {
+    return json({ error: 'Expected an authored run request of version 1.' }, 400);
+  }
+  if (options.authoredRuns === undefined) {
+    return json({ error: 'Authored Agent runs are not enabled on this server.' }, 503);
+  }
+  const wantsStream = (request.headers.get('accept') ?? '').includes('text/event-stream');
+  if (!wantsStream) {
+    try {
+      return json(await options.authoredRuns.run(body, { signal: request.signal }));
+    } catch (cause) {
+      return authoredRunFailure(cause);
+    }
+  }
+  return streamAuthoredRun(body, options.authoredRuns, request.signal);
+}
+
+function streamAuthoredRun(
+  body: AuthoredRunRequest,
+  coordinator: AuthoredRunCoordinator,
+  signal: AbortSignal,
+): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: 'unit' | 'result', data: unknown): void => {
+        controller.enqueue(encoder.encode(frame(event, data)));
+      };
+      try {
+        const result = await coordinator.run(body, {
+          signal,
+          onUnit: (unit) => {
+            send('unit', unit);
+          },
+        });
+        send('result', result);
+      } catch (cause) {
+        send('result', {
+          version: 1,
+          runId: body.runId,
+          error:
+            cause instanceof Error && cause.name === 'AbortError'
+              ? 'Run stopped.'
+              : 'The authored Agent run failed.',
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-store',
+      connection: 'keep-alive',
+    },
+  });
+}
+
+function authoredRunFailure(cause: unknown): Response {
+  if (cause instanceof Error && cause.name === 'AbortError') {
+    return new Response(null, { status: 499 });
+  }
+  if (
+    cause instanceof Error &&
+    /active mutating run|two writers|Concurrency/u.test(cause.message)
+  ) {
+    return json({ error: cause.message.slice(0, 1_000) }, 409);
+  }
+  return json({ error: 'The authored Agent run failed.' }, 502);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isRuntimeSnapshot(value: unknown): value is RuntimeSnapshot {
+  if (!isRecord(value) || !isRecord(value['project']) || !isRecord(value['inputs'])) return false;
+  const project = value['project'];
+  return (
+    typeof value['projectId'] === 'string' &&
+    typeof value['pageId'] === 'string' &&
+    typeof value['address'] === 'string' &&
+    typeof value['entry'] === 'string' &&
+    project['formatVersion'] === 1 &&
+    project['runtimeProfile'] === 'craftkit-react-v1' &&
+    typeof project['revision'] === 'string' &&
+    isRecord(project['files']) &&
+    isRecord(project['dependencyLock'])
+  );
+}
+
+function isExportPage(value: unknown): value is ExportPage {
+  if (!isRuntimeSnapshot(value)) return false;
+  const page = value as unknown as Record<string, unknown>;
+  return (
+    typeof page['title'] === 'string' &&
+    typeof page['description'] === 'string' &&
+    (page['canonicalUrl'] === undefined || typeof page['canonicalUrl'] === 'string') &&
+    (page['language'] === undefined || typeof page['language'] === 'string') &&
+    (page['direction'] === undefined || page['direction'] === 'ltr' || page['direction'] === 'rtl')
+  );
+}
+
+async function compileResponse(
+  body: unknown,
+  options: HandlerOptions,
+  signal: AbortSignal,
+): Promise<Response> {
+  if (!isRecord(body) || !isRuntimeSnapshot(body['snapshot'])) {
+    return json({ error: 'Expected a versioned code runtime snapshot.' }, 400);
+  }
+  if (options.codeRuntime === undefined) {
+    return json({ error: 'The code runtime is not enabled on this server.' }, 503);
+  }
+  try {
+    return json(await options.codeRuntime.compile(body['snapshot'], signal));
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === 'AbortError')
+      return new Response(null, { status: 499 });
+    return json(
+      {
+        ok: false,
+        diagnostics: [
+          {
+            code: 'compile-failed',
+            severity: 'error',
+            message: cause instanceof Error ? cause.message.slice(0, 4_000) : 'Compilation failed.',
+          },
+        ],
+      },
+      422,
+    );
+  }
+}
+
+async function exportResponse(
+  body: unknown,
+  options: HandlerOptions,
+  signal: AbortSignal,
+): Promise<Response> {
+  if (
+    !isRecord(body) ||
+    !Array.isArray(body['pages']) ||
+    !body['pages'].every(isExportPage) ||
+    !Array.isArray(body['artifactIds']) ||
+    !body['artifactIds'].every((artifactId) => typeof artifactId === 'string')
+  ) {
+    return json({ error: 'Expected versioned export pages and artifact ids.' }, 400);
+  }
+  if (options.codeRuntime === undefined) {
+    return json({ error: 'The code runtime is not enabled on this server.' }, 503);
+  }
+  try {
+    const result = await options.codeRuntime.export(body['pages'], body['artifactIds'], signal);
+    return json(result, result.ok ? 200 : 409);
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === 'AbortError')
+      return new Response(null, { status: 499 });
+    return json({ error: 'The isolated export worker failed.' }, 502);
+  }
 }
 
 function reportUsage(options: HandlerOptions, usage: UsageReport): void {

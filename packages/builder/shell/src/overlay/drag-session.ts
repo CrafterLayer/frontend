@@ -6,10 +6,11 @@ import { createDragChrome, type DragChrome } from './drag-chrome';
 import { resolveDropTarget, seatOf, type DragPayload, type DropTarget } from './drop-resolver';
 
 export type DragPhase = 'idle' | 'pending' | 'active';
+export type DragPressOrigin = 'handle' | 'surface';
 
 export interface DragSession {
   /** Pointer inputs in frame-local coordinates (the palette bridge translates). */
-  press: (payload: DragPayload, x: number, y: number) => void;
+  press: (payload: DragPayload, x: number, y: number, origin: DragPressOrigin) => void;
   move: (x: number, y: number) => void;
   release: () => void;
   cancel: () => void;
@@ -22,7 +23,7 @@ export interface DragSession {
   dispose: () => void;
 }
 
-const ACTIVATION_THRESHOLD_PX = 4;
+export const DRAG_ACTIVATION_THRESHOLD_PX = 8;
 
 /**
  * The gesture state machine (006 contract §1): idle → pending → active →
@@ -202,8 +203,11 @@ export function createDragSession(options: {
   };
 
   return {
-    press(nextPayload, x, y) {
+    press(nextPayload, x, y, pressOrigin) {
       if (disposed || phase !== 'idle') {
+        return;
+      }
+      if (nextPayload.kind === 'move' && pressOrigin !== 'handle') {
         return;
       }
       phase = 'pending';
@@ -220,7 +224,7 @@ export function createDragSession(options: {
       pointer = { x, y };
       if (phase === 'pending') {
         const distance = Math.hypot(x - origin.x, y - origin.y);
-        if (distance < ACTIVATION_THRESHOLD_PX) {
+        if (distance < DRAG_ACTIVATION_THRESHOLD_PX) {
           return; // still a potential click — no chrome yet (s1)
         }
         activate();
@@ -252,8 +256,8 @@ export function createDragSession(options: {
       if (disposed || phase === 'idle') {
         return;
       }
-      announce('Drag cancelled');
       reset();
+      announce('Drag cancelled');
     },
     phase: () => phase,
     target: () => currentTarget,

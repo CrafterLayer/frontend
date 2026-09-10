@@ -27,6 +27,31 @@
   padding: var(--bldr-space-xs);
 }
 
+/* Structural pointer movement starts here and nowhere else. The grip is
+   pointer-only because the adjacent earlier/later actions and Alt+Arrow keep
+   the same operation fully keyboard accessible. */
+.bldr-block-actions__drag-handle {
+  align-items: center;
+  align-self: stretch;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted, #64748b);
+  cursor: grab;
+  display: inline-flex;
+  inline-size: var(--bldr-control-lg);
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.bldr-block-actions__drag-handle:hover {
+  background: var(--bldr-surface-hover, rgb(15 23 42 / 6%));
+  color: var(--bldr-panel-text, #334155);
+}
+
+.bldr-block-actions__drag-handle:active {
+  cursor: grabbing;
+}
+
 /* ICON-ONLY, and square because of it.
    Five worded actions made this bar as wide as the block it floats over, which
    is the opposite of ambient furniture — it covered the page it was meant to

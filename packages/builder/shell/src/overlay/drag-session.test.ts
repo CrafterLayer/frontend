@@ -132,8 +132,8 @@ function setup() {
 describe('createDragSession (006 contract §1)', () => {
   it('s1: a press without crossing the threshold is a plain click — no chrome ever', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 't1' }, 50, 50);
-    h.session.move(52, 51); // under 4px
+    h.session.press({ kind: 'move', id: 't1' }, 50, 50, 'handle');
+    h.session.move(57, 50); // under 8px
     expect(h.session.phase()).toBe('pending');
     expect(h.layer.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility).not.toBe(
       'visible',
@@ -144,10 +144,23 @@ describe('createDragSession (006 contract §1)', () => {
     expect(h.suppressions).toEqual([]); // hover never suppressed
   });
 
+  it('starts structural movement only from its handle and after a full 8px', () => {
+    const h = setup();
+    h.session.press({ kind: 'move', id: 't1' }, 50, 50, 'surface');
+    h.session.move(100, 100);
+    expect(h.session.phase()).toBe('idle');
+
+    h.session.press({ kind: 'move', id: 't1' }, 50, 50, 'handle');
+    h.session.move(57.9, 50);
+    expect(h.session.phase()).toBe('pending');
+    h.session.move(58, 50);
+    expect(h.session.phase()).toBe('active');
+  });
+
   it('s2+s3: active drag is chrome-only; drop dispatches EXACTLY ONE moveNode', () => {
     const h = setup();
     const before = h.kernel.getDocument();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(90, 90); // activates
     expect(h.session.phase()).toBe('active');
     expect(h.suppressions).toEqual([true]);
@@ -171,7 +184,7 @@ describe('createDragSession (006 contract §1)', () => {
 
   it('s3: a same-position drop dispatches NOTHING', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(90, 90);
     h.setHovered('t1');
     h.session.move(100, 30); // t1 top quarter → before itself = same position
@@ -185,7 +198,7 @@ describe('createDragSession (006 contract §1)', () => {
     const h = setup();
     expect(TEXT_DESCRIPTION).toContain('.');
 
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(90, 90);
     const ghostLabel = h.layer.querySelector('.bldr-drag-ghost')?.textContent;
 
@@ -204,7 +217,7 @@ describe('createDragSession (006 contract §1)', () => {
   it('s4: cancel is zero-trace — document reference-identical, chrome gone', () => {
     const h = setup();
     const before = h.kernel.getDocument();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(120, 120);
     h.setHovered('t2');
     h.session.move(100, 150);
@@ -218,7 +231,7 @@ describe('createDragSession (006 contract §1)', () => {
 
   it('s4: release with no valid target cancels with zero trace', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 's1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 's1' }, 60, 60, 'handle');
     h.session.move(120, 120);
     h.setHovered('t1'); // a SECTION over a text: t1's gap rejects sections…
     // …and every ancestor (s1 = self, root) is excluded or full — force null by
@@ -235,7 +248,7 @@ describe('createDragSession (006 contract §1)', () => {
     // payload is s1 (a section) → root accepts ⇒ valid. Re-press with a text:
     h.session.cancel();
     const before = h.kernel.getDocument();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(120, 120);
     h.setHovered(undefined);
     h.session.move(200, 590); // root.default rejects text ⇒ no target anywhere
@@ -249,7 +262,7 @@ describe('createDragSession (006 contract §1)', () => {
 
   it('s4b: a PENDING gesture self-cancels silently — nothing started, so nothing was cancelled', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     expect(h.session.phase()).toBe('pending'); // pressed, never moved
     const announcementsBefore = h.announcements.length;
 
@@ -266,7 +279,7 @@ describe('createDragSession (006 contract §1)', () => {
 
   it('s4: a move payload whose node disappears mid-drag self-cancels', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(120, 120);
     expect(h.session.phase()).toBe('active');
     h.kernel.dispatch('removeNode', { id: 't1' }); // another surface removes it
@@ -276,7 +289,7 @@ describe('createDragSession (006 contract §1)', () => {
 
   it('insert payloads dispatch ONE insertNode and select the new node', () => {
     const h = setup();
-    h.session.press({ kind: 'insert', type: 'section' }, 30, 30);
+    h.session.press({ kind: 'insert', type: 'section' }, 30, 30, 'handle');
     h.session.move(80, 80);
     h.setHovered(undefined);
     h.session.move(200, 590); // empty canvas → into root, index 2
@@ -294,7 +307,7 @@ describe('createDragSession (006 contract §1)', () => {
 
   it('release resolves against the LATEST pointer position, not a stale flush', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(90, 90);
     h.setHovered('t2');
     h.session.move(100, 225); // after t2 — but NO tick: flush never ran
@@ -308,7 +321,7 @@ describe('createDragSession (006 contract §1)', () => {
     // would otherwise commit a phantom root append on release.
     const h = setup();
     const before = h.kernel.getDocument();
-    h.session.press({ kind: 'insert', type: 'section' }, -60, 30);
+    h.session.press({ kind: 'insert', type: 'section' }, -60, 30, 'handle');
     h.session.move(-40, 60); // crosses the threshold, still over the palette
     h.setHovered(undefined);
     h.session.move(-20, 300); // negative x: outside [0, width)
@@ -333,7 +346,7 @@ describe('createDragSession (006 contract §1)', () => {
     // it must be offered hero1's sibling gap instead (the resolver climbs);
     // b1 reordering within its own full slot keeps its seat.
     const h = setup();
-    h.session.press({ kind: 'insert', type: 'button' }, 60, 60);
+    h.session.press({ kind: 'insert', type: 'button' }, 60, 60, 'handle');
     h.session.move(90, 90);
     h.setHovered('hero1');
     h.session.move(100, 320); // hero1's middle band — its only slot is FULL (max 2)
@@ -342,7 +355,7 @@ describe('createDragSession (006 contract §1)', () => {
     h.session.cancel();
 
     // Own-slot exemption end-to-end: b1 dragged within actions IS offered.
-    h.session.press({ kind: 'move', id: 'b1' }, 25, 285);
+    h.session.press({ kind: 'move', id: 'b1' }, 25, 285, 'handle');
     h.session.move(60, 300);
     h.setHovered('b2');
     h.session.move(150, 285); // b2's top quarter → before b2 (same full slot)
@@ -355,7 +368,7 @@ describe('createDragSession (006 contract §1)', () => {
     const h = setup();
     h.session.dispose();
     expect(h.layer.children).toHaveLength(0);
-    h.session.press({ kind: 'move', id: 't1' }, 10, 10);
+    h.session.press({ kind: 'move', id: 't1' }, 10, 10, 'handle');
     expect(h.session.phase()).toBe('idle');
   });
 });
@@ -363,7 +376,7 @@ describe('createDragSession (006 contract §1)', () => {
 describe('convergence regressions (006 audit)', () => {
   it('FR-001: a move payload removed while PENDING self-cancels — no ghost ever', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 't1' }, 50, 50);
+    h.session.press({ kind: 'move', id: 't1' }, 50, 50, 'handle');
     expect(h.session.phase()).toBe('pending');
     h.kernel.dispatch('removeNode', { id: 't1' }); // vanishes before activation
     expect(h.session.phase()).toBe('idle'); // self-cancelled, not lingering
@@ -371,7 +384,7 @@ describe('convergence regressions (006 audit)', () => {
 
     // And the activation guard itself: pending survives an UNRELATED change,
     // then a threshold-crossing move for a since-removed node cancels cleanly.
-    h.session.press({ kind: 'move', id: 't2' }, 50, 50);
+    h.session.press({ kind: 'move', id: 't2' }, 50, 50, 'handle');
     h.kernel.dispatch('removeNode', { id: 't2' });
     h.session.move(120, 120); // would activate — must cancel instead
     expect(h.session.phase()).toBe('idle');
@@ -382,7 +395,7 @@ describe('convergence regressions (006 audit)', () => {
 
   it('a geometry invalidation mid-drag re-resolves the indicator with ZERO pointer movement', () => {
     const h = setup();
-    h.session.press({ kind: 'move', id: 't1' }, 60, 60);
+    h.session.press({ kind: 'move', id: 't1' }, 60, 60, 'handle');
     h.session.move(90, 90);
     h.setHovered('t2');
     h.session.move(100, 225);

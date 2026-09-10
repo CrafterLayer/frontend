@@ -1,4 +1,5 @@
 import type { Author } from './document/types';
+import type { CodeTransactionResult } from './code/types';
 
 export type PatchOp = 'add' | 'remove' | 'replace';
 
@@ -22,4 +23,6 @@ export interface Transaction {
   /** Inverse change set — undo for free. */
   inverse: Patch[];
   ts: number;
+  /** Persisted source provenance for audit, review outcomes and run recovery. */
+  codeChanges?: readonly CodeTransactionResult[];
 }

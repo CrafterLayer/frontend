@@ -6,11 +6,11 @@ import * as BlockActionBarStories from './BlockActionBar.stories';
 
 # BlockActionBar
 
-The quick-action bar attached to the selected block (milestone B3c, US3): select parent, duplicate,
-delete, move earlier, move later, Edit text when the block declares `inlineEditable`, and Deselect
-last. The canvas resolves what is valid for the selected node through `resolveBlockActions`; its
-four structural actions use `performBlockAction`, while the canvas opens Edit text directly. The bar
-itself is pure content.
+The quick-action bar attached to the selected block (milestone B3c, US3): a dedicated pointer drag
+handle, select parent, duplicate, delete, move earlier, move later, Edit text when the block
+declares `inlineEditable`, and Deselect last. The canvas resolves what is valid for the selected
+node through `resolveBlockActions`; its four structural actions use `performBlockAction`, while the
+canvas opens Edit text directly. The bar itself is pure content.
 
 ## Defined dispatch and resulting selection
 
@@ -65,6 +65,7 @@ createPortal(
   <BlockActionBar
     label={`Actions for ${blockDescription}`}
     actions={actions}
+    onMovePointerDown={(clientX, clientY) => beginMoveFromHandle(selectedId, clientX, clientY)}
     onAction={(id) => {
       if (id === 'editText') {
         inlineSession.begin(selectedId); // zero document dispatches
@@ -81,12 +82,13 @@ createPortal(
 
 ## API
 
-| Prop       | Type                   | Notes                                                 |
-| ---------- | ---------------------- | ----------------------------------------------------- |
-| `label`    | `string`               | required; accessible name — name the selected block   |
-| `actions`  | `BlockAction[]`        | required; from `resolveBlockActions`, order preserved |
-| `onAction` | `(id: string) => void` | required; one call per activation                     |
-| `dir`      | `'ltr' \| 'rtl'`       | mirrors the arrow-key pair; default `ltr`             |
+| Prop                | Type                                         | Notes                                                  |
+| ------------------- | -------------------------------------------- | ------------------------------------------------------ |
+| `label`             | `string`                                     | required; accessible name — name the selected block    |
+| `actions`           | `BlockAction[]`                              | required; from `resolveBlockActions`, order preserved  |
+| `onAction`          | `(id: string) => void`                       | required; one call per activation                      |
+| `onMovePointerDown` | `(clientX: number, clientY: number) => void` | optional; starts movement from the dedicated grip only |
+| `dir`               | `'ltr' \| 'rtl'`                             | mirrors the arrow-key pair; default `ltr`              |
 
 A `BlockAction` is `{ id, label, enabled, hint? }`. The optional `hint` is a keyboard shortcut for
 the pointer's tooltip (`"Deselect (Esc)"`); the accessible name is always the bare `label`.
@@ -100,6 +102,10 @@ are real buttons with native `disabled` semantics and `:focus-visible` rings. Ac
 cancels pointerdown and mousedown and stops click propagation, so it never steals focus and never
 re-enters the canvas selection path. Announcements are the caller's job: `performBlockAction`
 returns the message for the canvas's polite region.
+
+The drag grip is pointer-only and hidden from the accessibility tree. Keyboard users move the same
+selection through Move earlier/Move later or the canvas Alt+Arrow shortcuts. Pointerdown on any
+other action remains contained and cannot start structural movement.
 
 Every action is a quiet `ChromeButton` at the default `lg` (`--bldr-control-lg`) height. The bar is
 pointer-adjacent desktop chrome, not a dedicated coarse-pointer surface, so the previous touch-size

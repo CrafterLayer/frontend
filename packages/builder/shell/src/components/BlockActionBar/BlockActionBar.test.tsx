@@ -97,6 +97,30 @@ describe('BlockActionBar (009 contract §6, US3)', () => {
     expect(fireEvent.mouseDown(toolbar)).toBe(false);
   });
 
+  it('exposes one dedicated pointer drag handle without turning action presses into drag starts', () => {
+    const onMovePointerDown = vi.fn();
+    render(
+      <BlockActionBar
+        label="Actions for Text"
+        actions={ACTIONS}
+        onAction={vi.fn()}
+        onMovePointerDown={onMovePointerDown}
+      />,
+    );
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Actions for Text' });
+    const handle = toolbar.querySelector<HTMLElement>('[data-bldr-drag-handle]');
+    expect(handle).not.toBeNull();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Duplicate' }), {
+      clientX: 70,
+      clientY: 80,
+    });
+    expect(onMovePointerDown).not.toHaveBeenCalled();
+    fireEvent.pointerDown(handle!, { clientX: 70, clientY: 80 });
+    expect(onMovePointerDown).toHaveBeenCalledOnce();
+    expect(onMovePointerDown).toHaveBeenCalledWith(70, 80);
+  });
+
   it('is ONE tab stop with roving tabindex; arrows skip disabled actions and wrap', async () => {
     const user = userEvent.setup();
     render(

@@ -47,6 +47,24 @@ export type { SiteGroupStep } from './site/site-dispatcher';
 export type { KernelSiteState } from './site/site-store';
 
 export { defineSiteCommand } from './commands/define-site-command';
+export type { CodeTransactionResult } from '@craftkit/builder-schema';
+export {
+  codeProjectCommands,
+  applyCodeChangesArgsSchema,
+  codeFileChangeSchema,
+  prepareCodeChangesRebase,
+  projectAfterChanges,
+  type CodeProjectCommands,
+  type ApplyCodeChangesArgs,
+  type CodeFileChange,
+} from './commands/code-project-commands';
+export {
+  pageCommands,
+  pageLinkResolutionSchema,
+  resolvePageLink,
+  type PageCommands,
+  type PageLinkResolution,
+} from './commands/page-commands';
 export {
   isSiteCommandName,
   siteCommands,

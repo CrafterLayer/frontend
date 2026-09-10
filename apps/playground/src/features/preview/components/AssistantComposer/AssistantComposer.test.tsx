@@ -116,13 +116,20 @@ describe('AssistantComposer', () => {
   });
 
   describe('while a run is in flight', () => {
-    it('closes the field and turns the send slot into Stop', async () => {
+    it('keeps the field writable for one next request and turns the send slot into Stop', async () => {
       const props = renderComposer({ busy: true, draft: 'أضف قسم' });
-      expect(screen.getByRole('textbox')).toBeDisabled();
+      expect(screen.getByRole('textbox')).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Queue next' })).toBeEnabled();
       expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
       await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
       expect(props.onStop).toHaveBeenCalledOnce();
       expect(props.onSend).not.toHaveBeenCalled();
+    });
+
+    it('accepts only one queued request while leaving its draft readable', () => {
+      renderComposer({ busy: true, queued: true, draft: 'Already queued' });
+      expect(screen.getByRole('textbox')).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Queue next' })).toBeDisabled();
     });
 
     it('says why the modes are locked, on the line that carries mode information', () => {
@@ -138,6 +145,17 @@ describe('AssistantComposer', () => {
       renderComposer({ busy: true });
       expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
     });
+  });
+
+  it('keeps model choice beside the mode controls', async () => {
+    const onSelectModel = vi.fn();
+    renderComposer({
+      models: ['openai/gpt-5.6-luna', 'openai/gpt-5.6-sol'],
+      model: 'openai/gpt-5.6-luna',
+      onSelectModel,
+    });
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Model' }), 'openai/gpt-5.6-sol');
+    expect(onSelectModel).toHaveBeenCalledWith('openai/gpt-5.6-sol');
   });
 
   it('describes the chosen mode when idle', () => {

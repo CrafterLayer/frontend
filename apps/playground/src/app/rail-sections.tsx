@@ -53,6 +53,7 @@ const HELP =
 
 export const RAIL_SECTIONS: readonly RailItem[] = [
   { id: 'blocks', label: 'Blocks', icon: glyph(BLOCKS) },
+  { id: 'pages', label: 'Pages', icon: glyph(SITE) },
   { id: 'layers', label: 'Layers', icon: glyph(LAYERS) },
   { id: 'assets', label: 'Assets', icon: glyph(ASSETS) },
   { id: 'code', label: 'Code', icon: glyph(CODE) },

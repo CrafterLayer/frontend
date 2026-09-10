@@ -1,0 +1,63 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CodePreviewFrameStories from './CodePreviewFrame.stories';
+
+<Meta of={CodePreviewFrameStories} />
+
+# CodePreviewFrame
+
+The Builder shell for one whole code-backed page. It asks `builder-code-runtime` to create a
+cross-origin frame, then presents the session's lifecycle without letting authored code enter the
+editor document. The parent bridge accepts only revision-pinned geometry, focus, diagnostics,
+navigation, and heartbeat events.
+
+## Usage
+
+```tsx
+<CodePreviewFrame
+  artifact={lastGoodArtifact}
+  sourceRevision={selectedProject.revision}
+  previewUrl={previewOrigin}
+  expectedOrigin={new URL(previewOrigin).origin}
+  publicData={publicPageInputs}
+  status={compileResult.ok ? 'ready' : 'error'}
+  message={compileResult.ok ? undefined : compileResult.diagnostics[0]?.message}
+  onMessage={handleTrustedPreviewEvent}
+  onRejected={reportRejectedPreviewEvent}
+  onRetry={compileAgain}
+/>
+```
+
+## States
+
+| State         | Visible result                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| `loading`     | A live announcement and neutral empty surface until the first valid artifact exists.                   |
+| Matching      | The artifact revision equals `sourceRevision`; the status confirms that the visible page matches.      |
+| Older         | The last-good artifact remains visible and is explicitly labelled older while current source rebuilds. |
+| `error`       | Diagnostics are shown; an optional last-good artifact remains mounted behind the status.               |
+| `unavailable` | No frame is created, the reason is visible, and `onRetry` exposes a real button.                       |
+
+`previewMount` is an advanced runtime port. Product hosts normally omit it and use the default
+isolated runtime. Storybook and alternate controlled hosts can provide the same `mountPreview`
+contract without weakening the component's public-data boundary.
+
+## Security boundary
+
+`expectedOrigin` must be the dedicated preview origin. Pass public JSON only through `publicData`;
+never pass editor credentials, cookies, source text, filesystem handles, or the Site Kernel. Runtime
+validation checks origin, frame identity, protocol version, channel, project, page, artifact, source
+revision, target identity, payload shape, payload size, and message rate before `onMessage` runs.
+
+## Accessibility
+
+The component is a named section with a polite status region. Loading sets `aria-busy`; the mounted
+iframe is titled and points to the status description. Retry is a native button with a visible focus
+outline. Messages remain short so status changes are useful rather than noisy.
+
+## RTL, responsive layout, and themes
+
+Chrome uses logical properties and inherits the editor's `dir`, while page direction belongs to the
+isolated artifact. Below 640px the detail moves to its own line so the page keeps the available
+width. Colors, type, spacing, borders, and radius read Builder theme tokens and remain separate from
+the authored site. The loading pulse is disabled when reduced motion is requested.

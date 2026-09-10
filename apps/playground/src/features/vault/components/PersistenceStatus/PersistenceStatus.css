@@ -1,0 +1,90 @@
+.pg-persistence-status {
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--bldr-surface-raised, #17181b) 94%, transparent);
+  border: 1px solid var(--bldr-border, rgb(255 255 255 / 12%));
+  border-radius: 12px;
+  color: var(--bldr-text, #f6f7f9);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  inline-size: min(100%, 720px);
+  padding: 12px;
+}
+
+.pg-persistence-status__indicator {
+  background: var(--bldr-accent, #7c8cff);
+  border-radius: 999px;
+  block-size: 9px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 14%, transparent);
+  inline-size: 9px;
+  margin-block-start: 5px;
+}
+
+.pg-persistence-status[data-kind='saving'] .pg-persistence-status__indicator {
+  animation: pg-persistence-pulse 1.2s ease-in-out infinite;
+}
+
+.pg-persistence-status[data-kind='session-only'] .pg-persistence-status__indicator {
+  background: var(--bldr-warning, #e6a23c);
+}
+
+.pg-persistence-status[data-kind='failed'] {
+  border-color: color-mix(in srgb, var(--bldr-danger, #ef6464) 55%, transparent);
+}
+
+.pg-persistence-status[data-kind='failed'] .pg-persistence-status__indicator {
+  background: var(--bldr-danger, #ef6464);
+}
+
+.pg-persistence-status__copy {
+  min-inline-size: 0;
+}
+
+.pg-persistence-status__copy strong {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.pg-persistence-status__copy p {
+  color: var(--bldr-text-muted, #a9adb7);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.pg-persistence-status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@keyframes pg-persistence-pulse {
+  50% {
+    opacity: 0.4;
+    transform: scale(0.82);
+  }
+}
+
+@media (max-width: 560px) {
+  .pg-persistence-status {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pg-persistence-status__actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .pg-persistence-status__actions > * {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-persistence-status[data-kind='saving'] .pg-persistence-status__indicator {
+    animation: none;
+  }
+}

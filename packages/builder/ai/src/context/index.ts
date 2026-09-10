@@ -28,3 +28,18 @@ export {
   type AiMemoryRecordV1,
   type MemoryContextProviderOptions,
 } from './memory-provider';
+export {
+  CONTEXT_INDEX_VERSION,
+  ContextIndexError,
+  buildProjectIndex,
+  createContextIndex,
+  type ContextIndex,
+  type ContextIndexErrorCode,
+  type CreateContextIndexInput,
+  type IndexedSelectionContext,
+  type ProjectIndex,
+  type ProjectIndexFile,
+  type ProjectIndexPage,
+  type SelectionNodeContext,
+  type SelectionSourceContext,
+} from './context-index';

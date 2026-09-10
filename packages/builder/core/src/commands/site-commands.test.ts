@@ -582,10 +582,16 @@ describe('the door itself', () => {
     expect(isSiteCommandName('constructor')).toBe(false);
   });
 
-  it('registers exactly the eleven commands the contract names', () => {
+  it('registers the legacy and v2 site commands through one door', () => {
     expect(Object.keys(siteCommands).sort()).toEqual(
       [
         'addPage',
+        'applyCodeChanges',
+        'clearPage',
+        'createCodeProject',
+        'duplicatePage',
+        'setCodePage',
+        'setHomePage',
         'applySitePatches',
         'registerAsset',
         'removePage',

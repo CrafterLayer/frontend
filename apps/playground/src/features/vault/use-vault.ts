@@ -14,20 +14,25 @@ import {
   playgroundPorts,
   type PlaygroundFixture,
 } from '../preview/create-playground-kernel';
+import { createReferenceCodePageSite } from '../preview/code-page-fixture';
 import {
   autosave,
   reasonOf,
-  VAULT_SAVED,
+  VAULT_DURABLE,
   type AutosaveTarget,
   type VaultSaveState,
 } from './autosave';
 
-export { VAULT_SAVED, type VaultSaveState };
+export { VAULT_DURABLE, type VaultSaveState };
 import { sessionKey } from './persistence';
+import { createRunJournal, type RunJournal } from './run-journal';
+import { createSourceRunJournal, type SourceRunJournal } from './source-run-journal';
 import { seedSiteFrom, siteFromFixture } from './site-boot';
 import {
   createVaultSitePersistence,
+  createSiteSourceDownload,
   siteSessionKey,
+  type SiteSourceDownload,
   type VaultSitePersistenceAdapter,
 } from './site-persistence';
 import { createSnapshotShelf, type SnapshotShelf } from './snapshots';
@@ -58,6 +63,7 @@ export type VaultKernelState =
       readonly restored: boolean;
       readonly shelf: SnapshotShelf;
       readonly save: VaultSaveState;
+      readonly vault: VaultSession;
       readonly startOver: () => void;
     }
   | {
@@ -67,6 +73,15 @@ export type VaultKernelState =
       readonly retry: () => void;
       readonly startOver: () => void;
     };
+
+export interface VaultSession {
+  readonly store: VaultStore;
+  readonly sitePersistence: VaultSitePersistenceAdapter;
+  readonly runJournal: RunJournal;
+  readonly sourceRunJournal: SourceRunJournal;
+  readonly downloadSource: () => SiteSourceDownload;
+  readonly retryPersistence: () => Promise<VaultSaveState>;
+}
 
 export interface UseVaultKernelOptions {
   /**
@@ -88,6 +103,7 @@ export function vaultDocId(fixture: PlaygroundFixture): string {
 
 interface OpenedSession {
   readonly siteKernel: BuilderSiteKernel;
+  readonly adapter: VaultSitePersistenceAdapter;
   /** False when nothing was stored at all and the fixture became the home page. */
   readonly restored: boolean;
 }
@@ -118,9 +134,10 @@ function siteTarget(
     flush: () => siteKernel.flush(),
     subscribe: (listener) => siteKernel.subscribe(listener),
     snapshot: async (site, seq) => {
-      await adapter.snapshot?.(siteId, site, seq);
+      return adapter.snapshotAcknowledged(siteId, site, seq);
     },
     takeOver: (site, seq) => adapter.takeOverSite(siteId, site, seq),
+    acknowledgement: () => adapter.acknowledgement(siteId),
   };
 }
 
@@ -143,7 +160,9 @@ function startSession(store: VaultStore, fixture: PlaygroundFixture, docId: stri
     seed: async () => {
       seeded = true;
       const result = await seedSiteFrom(store, docId, () =>
-        siteFromFixture(playgroundDocument(fixture)),
+        fixture === 'code-page'
+          ? createReferenceCodePageSite()
+          : siteFromFixture(playgroundDocument(fixture)),
       );
       // A lift is a RESTORE: their work was found, just under the old shape.
       if (result.origin === 'lifted') {
@@ -170,7 +189,7 @@ function startSession(store: VaultStore, fixture: PlaygroundFixture, docId: stri
       the site.
     */
     hydratePlaygroundTemplates(opened.page(opened.currentPage()));
-    return { siteKernel: opened, restored: !seeded };
+    return { siteKernel: opened, adapter, restored: !seeded };
   });
 
   return { adapter, opening };
@@ -196,7 +215,7 @@ export function useVaultKernel(
     Not derived from the boot: a save happens long after the document opened,
     and it can fail at any point in a session that opened perfectly.
   */
-  const [save, setSave] = useState<VaultSaveState>(VAULT_SAVED);
+  const [save, setSave] = useState<VaultSaveState>(VAULT_DURABLE);
   /*
     One entry per boot, so StrictMode's mount → unmount → mount cannot open the
     same document twice. Two opens over one stored document is not a wasted
@@ -213,6 +232,8 @@ export function useVaultKernel(
     because a fresh handle every render would restart every effect watching it.
   */
   const shelf = useMemo(() => createSnapshotShelf({ store, docId }), [store, docId]);
+  const runJournal = useMemo(() => createRunJournal({ store, now: Date.now }), [store]);
+  const sourceRunJournal = useMemo(() => createSourceRunJournal({ store }), [store]);
 
   useEffect(() => {
     const cache = sessions.current;
@@ -233,7 +254,8 @@ export function useVaultKernel(
         }
         stopAutosave = autosave(siteTarget(opened.siteKernel, session.adapter, docId), setSave);
         // A fresh boot starts even with storage, whatever the last one ended on.
-        setSave(VAULT_SAVED);
+        const acknowledgement = session.adapter.acknowledgement(docId);
+        setSave({ ...acknowledgement, shared: false });
         setBoot({ key, ok: true, session: opened });
       },
       (error: unknown) => {
@@ -323,6 +345,31 @@ export function useVaultKernel(
         restored: current.session.restored,
         shelf,
         save,
+        vault: {
+          store,
+          sitePersistence: current.session.adapter,
+          runJournal,
+          sourceRunJournal,
+          downloadSource: () => createSiteSourceDownload(docId, siteKernel.getSite()),
+          retryPersistence: async () => {
+            store.retryPersistence?.();
+            try {
+              const acknowledgement = await current.session.adapter.takeOverSite(
+                docId,
+                siteKernel.getSite(),
+                siteKernel.page(siteKernel.currentPage()).context.store.getState().seq,
+              );
+              const next = { ...acknowledgement, shared: save.shared } satisfies VaultSaveState;
+              setSave(next);
+              return next;
+            } catch {
+              const acknowledgement = current.session.adapter.acknowledgement(docId);
+              const next = { ...acknowledgement, shared: save.shared } satisfies VaultSaveState;
+              setSave(next);
+              return next;
+            }
+          },
+        },
         startOver,
       }
     : {

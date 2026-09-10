@@ -349,6 +349,23 @@ export const DeviceWidth: Story = {
   },
 };
 
+export const ZoomedDeviceWidth: Story = {
+  args: {
+    kernel: makeKernel(),
+    theme: lightTheme,
+    frameWidth: 1280,
+    breakpoint: 'desktop',
+    zoom: 0.5,
+  },
+  play: async ({ canvasElement }) => {
+    const shell = canvasElement.querySelector<HTMLElement>('.bldr-canvas-frame-shell');
+    const viewport = canvasElement.querySelector<HTMLElement>('.bldr-canvas-viewport');
+    await expect(shell?.style.inlineSize).toBe('1280px');
+    await expect(viewport?.style.inlineSize).toBe('640px');
+    await expect(shell?.style.transform).toBe('scale(0.5)');
+  },
+};
+
 // ── B3c: inline editing and the floating toolbars ───────────────────────────
 // Browser truth is the point of these three. jsdom has no layout, so it cannot
 // answer the questions that decide whether this milestone FEELS right: does the

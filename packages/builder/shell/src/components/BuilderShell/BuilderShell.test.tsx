@@ -1,9 +1,13 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BuilderShell } from './BuilderShell';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const regions = {
   rail: <nav aria-label="Sections">rail</nav>,
@@ -96,5 +100,70 @@ describe('BuilderShell — the layout, and nothing else', () => {
       expect(element.getAttribute('style')).toBeNull();
       expect(element.getAttribute('dir')).toBeNull();
     }
+  });
+
+  it('folds the inactive pane without destroying its input and lets the host reopen it', () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() { return undefined; }
+        disconnect() { return undefined; }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 1024,
+    } as DOMRect);
+    const view = render(
+      <BuilderShell
+        {...regions}
+        adaptive
+        panel={<input aria-label="Unsent request" defaultValue="Keep this draft" />}
+        activeSide="panel"
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Unsent request' });
+    expect(input).toBeVisible();
+    expect(screen.getByTestId('aside')).not.toBeVisible();
+    view.rerender(
+      <BuilderShell
+        {...regions}
+        adaptive
+        panel={<input aria-label="Unsent request" defaultValue="Keep this draft" />}
+        activeSide="aside"
+      />,
+    );
+    expect(input).not.toBeVisible();
+    expect(screen.getByTestId('aside')).toBeVisible();
+    view.rerender(
+      <BuilderShell
+        {...regions}
+        adaptive
+        panel={<input aria-label="Unsent request" defaultValue="Keep this draft" />}
+        activeSide="panel"
+      />,
+    );
+    expect(screen.getByRole('textbox')).toBe(input);
+    expect(input).toHaveValue('Keep this draft');
+  });
+
+  it('overlays an active pane on small hosts and bounds keyboard resizing', () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() { return undefined; }
+        disconnect() { return undefined; }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 390,
+    } as DOMRect);
+    const resize = vi.fn();
+    render(<BuilderShell {...regions} adaptive panelWidth={480} onPanelWidthChange={resize} />);
+    expect(shell()).toHaveAttribute('data-panel-overlay');
+    const separator = screen.getByRole('separator', { name: 'Resize workspace panel' });
+    fireEvent.keyDown(separator, { key: 'ArrowRight' });
+    expect(resize).toHaveBeenLastCalledWith(480);
+    fireEvent.keyDown(separator, { key: 'Home' });
+    expect(resize).toHaveBeenLastCalledWith(288);
   });
 });

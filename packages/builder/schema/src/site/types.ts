@@ -1,20 +1,13 @@
 import { z } from 'zod';
 
 import { assetEntrySchema, type AssetEntry, type AssetId } from '../assets/types';
+import { codeProjectSchema, type CodeProject } from '../code/types';
 import type { BuilderDocument, ContentDirection, Node } from '../document/types';
 import { jsonRecordZod } from '../json/json-value-schema';
 import { designSystemSchema, type DesignSystem } from '../theme/design-system';
 
-/*
-  Still 1 after T007 replaced the placeholder `SiteDesignSystem` (name + a bare
-  token bag) with the real `DesignSystem`. That is a BREAKING shape change to a
-  persisted field, and it is safe to make in place only because nothing has ever
-  persisted a site: `siteVersion` appears in this directory and in one spike
-  test, and no adapter, storage key, or app constructs a `BuilderSite`. The
-  moment one does, this constant goes to 2 and `migrations.ts` gains a real
-  v1 -> v2 step that lifts the old two-field shape into a validated system.
-*/
-export const LATEST_SITE_VERSION = 1;
+/** v2 adds authored code projects without changing existing page documents. */
+export const LATEST_SITE_VERSION = 2;
 
 export type PageId = string;
 export type SharedRegionId = string;
@@ -44,6 +37,7 @@ export interface BuilderSite {
   sharedRegions: Readonly<Record<SharedRegionId, SharedRegion>>;
   designSystem: DesignSystem;
   assets: Readonly<Record<AssetId, AssetEntry>>;
+  codeProjects?: Readonly<Record<string, CodeProject>>;
 }
 
 export const pageIdSchema: z.ZodType<PageId> = z.string();
@@ -121,11 +115,28 @@ export const sharedRegionSchema: z.ZodType<SharedRegion> = z.strictObject({
   document: siteNestedDocumentSchema,
 });
 
-export const builderSiteSchema: z.ZodType<BuilderSite> = z.strictObject({
-  siteVersion: z.number().int().nonnegative(),
-  dir: z.enum(['ltr', 'rtl']),
-  pages: z.array(sitePageSchema),
-  sharedRegions: z.record(sharedRegionIdSchema, sharedRegionSchema),
-  designSystem: designSystemSchema,
-  assets: z.record(z.string(), assetEntrySchema),
-});
+export const builderSiteSchema: z.ZodType<BuilderSite> = z
+  .strictObject({
+    siteVersion: z.number().int().nonnegative(),
+    dir: z.enum(['ltr', 'rtl']),
+    pages: z.array(sitePageSchema),
+    sharedRegions: z.record(sharedRegionIdSchema, sharedRegionSchema),
+    designSystem: designSystemSchema,
+    assets: z.record(z.string(), assetEntrySchema),
+    codeProjects: z
+      .record(
+        z
+          .string()
+          .min(1)
+          .refine(
+            (key) => !['__proto__', 'prototype', 'constructor'].includes(key),
+            'Reserved project identity.',
+          ),
+        codeProjectSchema,
+      )
+      .optional(),
+  })
+  .transform(({ codeProjects, ...site }): BuilderSite => ({
+    ...site,
+    ...(codeProjects === undefined ? {} : { codeProjects }),
+  }));

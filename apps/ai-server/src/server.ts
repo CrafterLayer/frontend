@@ -15,6 +15,14 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 
 export type Handle = (request: Request) => Promise<Response>;
 
+export interface NodeServerOptions {
+  readonly maxRequestBytes?: number;
+}
+
+const DEFAULT_MAX_REQUEST_BYTES = 4 * 1024 * 1024;
+
+class RequestBodyTooLargeError extends Error {}
+
 /**
  * Node's header bag allows `string[]` (repeated headers) and `undefined`; the
  * platform `Headers` takes neither. Flattened rather than cast, so a repeated
@@ -27,12 +35,24 @@ export function flattenHeaders(headers: IncomingMessage['headers']): [string, st
   );
 }
 
-function readBody(incoming: IncomingMessage): Promise<Buffer> {
+function readBody(incoming: IncomingMessage, maxBytes: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
+    let bytes = 0;
+    let refused = false;
+    incoming.on('data', (chunk: Buffer) => {
+      if (refused) return;
+      bytes += chunk.byteLength;
+      if (bytes > maxBytes) {
+        refused = true;
+        chunks.splice(0);
+        reject(new RequestBodyTooLargeError('Request body too large.'));
+        return;
+      }
+      chunks.push(chunk);
+    });
     incoming.on('end', () => {
-      resolve(Buffer.concat(chunks));
+      if (!refused) resolve(Buffer.concat(chunks));
     });
     incoming.on('error', reject);
   });
@@ -55,7 +75,11 @@ async function pipe(response: Response, outgoing: ServerResponse): Promise<void>
 }
 
 /** An `http.Server` that has NOT been told to listen; the caller decides where. */
-export function createNodeServer(handle: Handle): Server {
+export function createNodeServer(handle: Handle, options: NodeServerOptions = {}): Server {
+  const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
+  if (!Number.isSafeInteger(maxRequestBytes) || maxRequestBytes < 1) {
+    throw new Error('maxRequestBytes must be positive.');
+  }
   return createServer((incoming, outgoing) => {
     const controller = new AbortController();
     /*
@@ -67,7 +91,15 @@ export function createNodeServer(handle: Handle): Server {
       if (!outgoing.writableEnded) controller.abort();
     });
 
-    void readBody(incoming)
+    const declared = Number(incoming.headers['content-length'] ?? '0');
+    if (Number.isFinite(declared) && declared > maxRequestBytes) {
+      incoming.resume();
+      outgoing.writeHead(413, { 'content-type': 'application/json' });
+      outgoing.end(JSON.stringify({ error: 'Request too large.' }));
+      return;
+    }
+
+    void readBody(incoming, maxRequestBytes)
       .then((body) => {
         const url = `http://${incoming.headers.host ?? 'localhost'}${incoming.url ?? '/'}`;
         const method = incoming.method ?? 'GET';
@@ -81,7 +113,14 @@ export function createNodeServer(handle: Handle): Server {
         );
       })
       .then((response) => pipe(response, outgoing))
-      .catch(() => {
+      .catch((cause: unknown) => {
+        if (cause instanceof RequestBodyTooLargeError) {
+          if (!outgoing.headersSent) {
+            outgoing.writeHead(413, { 'content-type': 'application/json' });
+          }
+          outgoing.end(JSON.stringify({ error: 'Request too large.' }));
+          return;
+        }
         if (!outgoing.headersSent) {
           outgoing.writeHead(500, { 'content-type': 'application/json' });
         }

@@ -159,6 +159,17 @@ describe('positionFloating — arrow (p6)', () => {
 });
 
 describe('positionFloating — robustness (p3)', () => {
+  it('keeps placement in authored pixels when the frame is visually scaled', () => {
+    const placed = at({
+      anchor: { x: 780, y: 200, width: 20, height: 20 },
+      frame: { x: 100, y: 100, width: 400, height: 300 },
+      visible: { width: 800, height: 600 },
+      scale: 0.5,
+    });
+    expect(placed.x).toBe(800 - 200 - 4);
+    expect(placed.y).toBe(200 - 32 - 8);
+  });
+
   it('degenerate sizes never produce NaN or negative placements', () => {
     for (const size of [
       { width: 0, height: 0 },

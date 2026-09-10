@@ -12,7 +12,11 @@ import {
 } from '@craftkit/builder';
 import { fixedClock, fixtureBlocks, seededIds } from '@craftkit/builder/testing';
 
-import { createVaultSitePersistence, siteSessionKey } from './site-persistence';
+import {
+  createVaultSitePersistence,
+  siteSessionKey,
+  type SiteArtifactMetadata,
+} from './site-persistence';
 import { createMemoryVaultStore, type VaultStore } from './store';
 
 const SITE_ID = 'playground/site';
@@ -48,6 +52,38 @@ function fixtureSite(): BuilderSite {
     assets: {},
   };
 }
+
+function codeSite(
+  source = 'export default function Page() { return <main>Saved</main>; }',
+): BuilderSite {
+  const site = fixtureSite();
+  return {
+    ...site,
+    codeProjects: {
+      project: {
+        formatVersion: 1,
+        runtimeProfile: 'craftkit-react-v1',
+        dependencyLock: { catalogVersion: 'catalog-r1', packages: {} },
+        revision: 'source-r1',
+        files: { 'pages/home/index.tsx': { language: 'tsx', source } },
+      },
+    },
+  };
+}
+
+const artifactMetadata: SiteArtifactMetadata = {
+  artifactId: 'artifact-home-r1',
+  projectId: 'project',
+  pageId: 'home',
+  sourceRevision: 'source-r1',
+  sourceFingerprint: 'source-fingerprint-r1',
+  dependencyFingerprint: 'dependency-fingerprint-r1',
+  compilerFingerprint: 'compiler-fingerprint-r1',
+  runtimeFingerprint: 'runtime-fingerprint-r1',
+  catalogFingerprint: 'catalog-fingerprint-r1',
+  routeEntries: { '/': 'pages/home/index.tsx' },
+  createdAt: 1_000,
+};
 
 function adapterOver(store: VaultStore) {
   return createVaultSitePersistence({ store, seed: () => fixtureSite() });
@@ -127,7 +163,7 @@ describe('createVaultSitePersistence', () => {
     await expect(adapter.append(SITE_ID, [tx('b')], 0)).rejects.toThrow(/position 0/);
 
     // The next correctly-positioned append still works.
-    await expect(adapter.append(SITE_ID, [tx('c')], 1)).resolves.toEqual({ seq: 2 });
+    await expect(adapter.append(SITE_ID, [tx('c')], 1)).resolves.toMatchObject({ seq: 2 });
   });
 
   it('compacts only AT the current position', async () => {
@@ -194,5 +230,82 @@ describe('createVaultSitePersistence', () => {
 
     expect(siteSessionKey(SITE_ID)).toBe(`vault/site/${SITE_ID}`);
     expect(await store.get(`vault/session/${SITE_ID}`)).toBeUndefined();
+  });
+
+  it('round-trips code project source verbatim, including a temporarily invalid TSX draft', async () => {
+    const invalidSource = 'export default function Page() { return <main>unfinished';
+    const store = createMemoryVaultStore();
+    const adapter = createVaultSitePersistence({ store, seed: () => codeSite() });
+
+    await adapter.takeOverSite(SITE_ID, codeSite(invalidSource), 0);
+    const reopened = await createVaultSitePersistence({ store, seed: fixtureSite }).load(SITE_ID);
+
+    expect(reopened.site.codeProjects?.['project']?.files['pages/home/index.tsx']?.source).toBe(
+      invalidSource,
+    );
+    expect(reopened.site.codeProjects?.['project']?.revision).toBe('source-r1');
+  });
+
+  it('stores last-good artifact metadata without persisting its rebuildable body', async () => {
+    const store = createMemoryVaultStore();
+    const adapter = createVaultSitePersistence({ store, seed: () => codeSite() });
+
+    await adapter.saveArtifactMetadata(SITE_ID, artifactMetadata);
+    const loaded = await adapter.loadArtifactMetadata(SITE_ID);
+    const stored = await store.get<Record<string, unknown>>(siteSessionKey(SITE_ID));
+
+    expect(loaded).toEqual({ home: artifactMetadata });
+    expect(stored).not.toHaveProperty('artifacts.home.js');
+    expect(stored).not.toHaveProperty('artifacts.home.css');
+  });
+
+  it('preserves artifact identity across site appends, snapshots, and takeover', async () => {
+    const store = createMemoryVaultStore();
+    const adapter = createVaultSitePersistence({ store, seed: () => codeSite() });
+    await adapter.saveArtifactMetadata(SITE_ID, artifactMetadata);
+    const tx: Transaction = {
+      id: 't1',
+      command: 'x',
+      author: 'user',
+      patches: [],
+      inverse: [],
+      ts: 0,
+    };
+
+    await adapter.append(SITE_ID, [tx], 0);
+    await adapter.snapshot?.(SITE_ID, codeSite(), 1);
+    await adapter.takeOverSite(SITE_ID, codeSite(), 1);
+
+    expect(await adapter.loadArtifactMetadata(SITE_ID)).toEqual({ home: artifactMetadata });
+  });
+
+  it('keeps an older last-good artifact labelled by its own source revision', async () => {
+    const store = createMemoryVaultStore();
+    const adapter = createVaultSitePersistence({ store, seed: () => codeSite('invalid <tsx') });
+    await adapter.saveArtifactMetadata(SITE_ID, {
+      ...artifactMetadata,
+      sourceRevision: 'last-good-source-r0',
+    });
+
+    expect((await adapter.loadArtifactMetadata(SITE_ID))['home']?.sourceRevision).toBe(
+      'last-good-source-r0',
+    );
+  });
+
+  it('rejects incomplete metadata and removes a page checkpoint without touching source', async () => {
+    const store = createMemoryVaultStore();
+    const adapter = createVaultSitePersistence({ store, seed: () => codeSite() });
+
+    await expect(
+      adapter.saveArtifactMetadata(SITE_ID, { ...artifactMetadata, artifactId: '' }),
+    ).rejects.toThrow(/complete finite revision identity/u);
+    await adapter.saveArtifactMetadata(SITE_ID, artifactMetadata);
+    await adapter.removeArtifactMetadata(SITE_ID, 'home');
+
+    expect(await adapter.loadArtifactMetadata(SITE_ID)).toEqual({});
+    expect(
+      (await adapter.load(SITE_ID)).site.codeProjects?.['project']?.files['pages/home/index.tsx']
+        ?.source,
+    ).toContain('Saved');
   });
 });

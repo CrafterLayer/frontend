@@ -26,6 +26,8 @@ export interface AnchorSnapshot {
   frame: FloatingBox;
   viewport: { width: number; height: number };
   visible: { width: number; height: number };
+  /** Host pixels per one authored frame pixel. */
+  scale: number;
 }
 
 export interface AnchorChannelOptions {
@@ -69,6 +71,7 @@ export function createAnchorChannel(options: AnchorChannelOptions): AnchorChanne
       frame: bridge.frameBox(),
       viewport: bridge.hostViewport(),
       visible: bridge.visibleArea(),
+      scale: bridge.scale(),
     };
   };
 

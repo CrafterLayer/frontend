@@ -1,16 +1,27 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import { CLI_EFFORT_LEVELS, createCliClient } from './cli-client';
+import { createCodeRuntimeService } from './code-runtime-service';
+import { createAuthoredRunCoordinator } from './authored-run';
 import { parseAllowedOrigins, withCors } from './cors';
 import { createHandler } from './handler';
 import {
   OPENROUTER_EFFORT_LEVELS,
   createOpenRouterClient,
   probeOpenRouterModels,
+  type OpenRouterModelFacts,
 } from './openrouter-client';
 import { createRoutingClient, isCliModel } from './routing-client';
 import { jsonParseError, salvageJson } from './json-salvage';
 import { createNodeServer } from './server';
+import { createProcessRuntimeSupervisor } from './runtime-workers';
+import { buildManagedCatalog } from '@craftkit/builder/code-runtime/compiler';
+import {
+  createModelRouter,
+  defaultModelCandidates,
+  type ModelCapability,
+  type ModelCapabilityProbe,
+} from './model-policy';
 
 /**
  * The runnable entry: configuration from the environment, then listen.
@@ -41,6 +52,18 @@ function refuseToStart(message: string): never {
 const port = Number(setting('PORT') ?? 8787);
 const authToken = setting('CRAFTKIT_AI_TOKEN');
 const model = setting('CRAFTKIT_AI_MODEL');
+const lunaModel = setting('CRAFTKIT_AI_LUNA_MODEL');
+const terraModel = setting('CRAFTKIT_AI_TERRA_MODEL');
+const solModel = setting('CRAFTKIT_AI_SOL_MODEL');
+const astraModel = setting('CRAFTKIT_AI_ASTRA_MODEL');
+const roleModelNames = {
+  ...(lunaModel === undefined ? {} : { luna: lunaModel }),
+  ...(terraModel === undefined ? {} : { terra: terraModel }),
+  ...(solModel === undefined ? {} : { sol: solModel }),
+  ...(astraModel === undefined ? {} : { astra: astraModel }),
+};
+const configuredRoleModels = Object.values(roleModelNames);
+let openRouterModelFacts: ReadonlyMap<string, OpenRouterModelFacts> = new Map();
 /*
   The models a request may name in `x-craftkit-ai-model`, beyond the default.
   The server owns this list, not the browser: the panel's picker only offers
@@ -58,6 +81,11 @@ const models = (setting('CRAFTKIT_AI_MODELS') ?? '')
 */
 const rawMaxTokens = Number(setting('CRAFTKIT_AI_MAX_TOKENS'));
 const maxTokens = Number.isInteger(rawMaxTokens) && rawMaxTokens > 0 ? rawMaxTokens : undefined;
+const runtimeWorkers = createProcessRuntimeSupervisor();
+const codeRuntime = createCodeRuntimeService({
+  workers: runtimeWorkers,
+  catalog: buildManagedCatalog,
+});
 const allowedOriginsSetting = setting('CRAFTKIT_AI_ALLOWED_ORIGINS');
 // Refuses a malformed list here, at startup, rather than at the first browser.
 const allowedOrigins = parseAllowedOrigins(allowedOriginsSetting);
@@ -185,12 +213,13 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
     A withdrawn slug is named now, in the terminal, not by the first request
     that fails on it.
   */
-  const slugs = [...new Set([openRouterDefault, ...openRouterSlugs])].filter(
-    (slug) => !isCliModel(slug),
-  );
+  const slugs = [
+    ...new Set([openRouterDefault, ...openRouterSlugs, ...configuredRoleModels]),
+  ].filter((slug) => !isCliModel(slug));
   const facts = await probeOpenRouterModels(slugs, {
     ...(baseUrl === undefined ? {} : { baseUrl }),
   });
+  openRouterModelFacts = facts;
   if (facts.size === 0) {
     console.warn(
       "WARNING: could not read OpenRouter's model list; strict decoding and output ceilings are unknown for this run.",
@@ -268,6 +297,46 @@ async function createClient(): Promise<Anthropic> {
 }
 
 const client = await createClient();
+const authoredRuns =
+  backend === 'openrouter' && configuredRoleModels.length > 0
+    ? await createModelRouter({
+        candidates: defaultModelCandidates(roleModelNames, 'openrouter').filter((candidate) =>
+          configuredRoleModels.includes(candidate.model),
+        ),
+        probe: {
+          probe: (candidate): Promise<ModelCapabilityProbe> => {
+            const fact = openRouterModelFacts.get(candidate.model);
+            const capabilities: ModelCapability[] = ['code'];
+            if (fact?.structuredOutputs === true) capabilities.push('structured-output');
+            if (fact?.supportedParameters.includes('tools') === true)
+              capabilities.push('tool-calling');
+            if (fact?.supportedParameters.includes('reasoning') === true)
+              capabilities.push('reasoning');
+            if (fact?.inputModalities.includes('image') === true) capabilities.push('vision');
+            return Promise.resolve({
+              available: fact?.listed === true,
+              capabilities: fact?.listed === true ? capabilities : [],
+              efforts: candidate.efforts,
+              checkedAt: Date.now(),
+              ...(fact === undefined
+                ? { reason: 'No provider capability result.' }
+                : !fact.listed
+                  ? { reason: 'Provider does not list the model.' }
+                  : !fact.structuredOutputs
+                    ? { reason: 'Model has no structured-output capability.' }
+                    : {}),
+            });
+          },
+        },
+      })
+        .then((router) => createAuthoredRunCoordinator({ client, modelRouter: router }))
+        .catch((cause: unknown) => {
+          console.warn(
+            `[ai-server] authored runs disabled: ${cause instanceof Error ? cause.message : 'model capability probe failed'}`,
+          );
+          return undefined;
+        })
+    : undefined;
 if (backend === 'cli') {
   console.warn(
     '[ai-server] CRAFTKIT_AI_BACKEND=cli: plans are being generated by the local `claude` CLI, ' +
@@ -299,6 +368,8 @@ if (backend === 'cli') {
 
 const handle = createHandler({
   client,
+  codeRuntime,
+  ...(authoredRuns === undefined ? {} : { authoredRuns }),
   ...(authToken === undefined ? {} : { authToken }),
   ...(model === undefined ? {} : { model }),
   ...(models.length === 0 ? {} : { models }),

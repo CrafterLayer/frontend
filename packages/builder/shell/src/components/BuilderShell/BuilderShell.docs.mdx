@@ -47,9 +47,12 @@ import { BuilderShell } from '@craftkit/builder';
 
 ## Three decisions, each with an obvious wrong answer
 
-**Sizes are tokens, not props.** A `panelWidth` prop would put the number in every call site.
-`--bldr-panel-width` puts it in the theme, so density is one decision and a host can re-point it at
-runtime exactly like a colour.
+**Sizes use theme tokens.** With `adaptive`, the host may persist the user's `panelWidth`
+(288–480px, default 320), `panelOpen`, `asideOpen`, and `activeSide`. The measured layout folds the
+inactive pane when both would leave less than 640px for the canvas; very narrow hosts show the
+active pane as an overlay. Hidden pane contents remain mounted, preserving drafts.
+`onPanelWidthChange` enables a keyboard and pointer resize handle; arrows move 8px, Home/End select
+the bounds. Keyboard movement follows document direction.
 
 **An absent region costs nothing.** The component renders no element for a region it was not given,
 and the stylesheet collapses that track with `:has()`. Computing a `grid-template` in JavaScript

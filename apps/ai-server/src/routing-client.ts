@@ -41,6 +41,7 @@ interface StreamParams {
 
 interface StreamRequestOptions {
   readonly signal?: AbortSignal;
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 interface StreamLike {

@@ -121,6 +121,28 @@ function ready(state: VaultKernelState): Extract<VaultKernelState, { status: 're
 }
 
 describe('useVaultKernel', () => {
+  it('exposes one vault session whose source and run ports share the boot store', async () => {
+    const store = createMemoryVaultStore();
+    const { result } = renderHook(() => useVaultKernel('landing', { store }));
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+
+    const state = ready(result.current);
+    expect(state.vault.store).toBe(store);
+    expect(state.vault.sitePersistence.acknowledgement('playground/landing').kind).toBe(
+      'session-only',
+    );
+    expect(state.vault.runJournal.acknowledgement('not-started').kind).toBe('session-only');
+    expect(state.vault.sourceRunJournal.acknowledgement().kind).toBe('session-only');
+    const download = JSON.parse(state.vault.downloadSource().contents) as {
+      pages: { id: string }[];
+    };
+    expect(download).toMatchObject({
+      pages: [{ id: 'home' }],
+    });
+  });
+
   it('shows a real loading state, then hands over a kernel on the fixture', async () => {
     const store = createMemoryVaultStore();
     const { result } = renderHook(() => useVaultKernel('landing', { store }));
@@ -298,12 +320,13 @@ describe('useVaultKernel — a save that fails is a save a person is told about'
     // fact that it is not being kept. A green screen over an empty store is the
     // failure, not the storage error.
     await waitFor(() => {
-      expect(ready(result.current).save.status).toBe('error');
+      expect(ready(result.current).save.kind).toBe('failed');
     });
-    expect(ready(result.current).save.reason).toBeTruthy();
+    const failed = ready(result.current).save;
+    expect(failed.kind === 'failed' ? failed.reason : undefined).toBeTruthy();
   });
 
-  it('recovers when storage comes back: the state returns to saved and the page is stored', async () => {
+  it('retries the same persistence path without requiring another edit', async () => {
     const inner = createMemoryVaultStore();
     let refuse = true;
     const store: VaultStore = {
@@ -326,22 +349,18 @@ describe('useVaultKernel — a save that fails is a save a person is told about'
       });
     });
     await waitFor(() => {
-      expect(ready(result.current).save.status).toBe('error');
+      expect(ready(result.current).save.kind).toBe('failed');
     });
 
     refuse = false;
-    act(() => {
-      ready(result.current).kernel.dispatch('setProp', {
-        id: 'cta-start',
-        key: 'label',
-        value: 'Two',
-      });
+    await act(async () => {
+      await ready(result.current).vault.retryPersistence();
     });
     await waitFor(() => {
-      expect(ready(result.current).save.status).toBe('saved');
+      expect(ready(result.current).save.kind).toBe('session-only');
     });
     const stored = await inner.get<StoredSiteShape>(siteSessionKey('playground/landing'));
-    expect(stored?.site.pages[0]?.document.nodes['cta-start']?.props.label).toBe('Two');
+    expect(stored?.site.pages[0]?.document.nodes['cta-start']?.props.label).toBe('One');
   });
 });
 
@@ -383,7 +402,7 @@ describe('useVaultKernel — two sessions over one store', () => {
       expect(await read()).toBe('B-WORK');
     });
     expect(ready(tabB.result.current).save.shared).toBe(true);
-    expect(ready(tabB.result.current).save.status).toBe('saved');
+    expect(ready(tabB.result.current).save.kind).toBe('session-only');
   });
 });
 

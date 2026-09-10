@@ -1,0 +1,25 @@
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+import * as Stories from './PersistenceStatus.stories';
+
+<Meta of={Stories} />
+
+# PersistenceStatus
+
+`PersistenceStatus` reports what storage actually acknowledged. **Saved to this device** appears
+only after the IndexedDB transaction completes. A successful request whose transaction later aborts
+is reported as session-only or failed, never durable.
+
+<Canvas of={Stories.Saving} />
+<Canvas of={Stories.Durable} />
+<Canvas of={Stories.SessionOnly} />
+<Canvas of={Stories.Error} />
+
+Session-only and failed states explain the browser reason and expose recovery actions supplied by
+the host. **Download project** should use `createSiteSourceDownload`, which serializes the authored
+site and preserves source text even when TSX is temporarily invalid. **Retry storage** starts a new
+save attempt; it does not discard or rewrite the open source.
+
+The container is a polite live region while saving, durable, or session-only. Failures use an alert.
+Actions are native buttons in reading order with visible focus from `ChromeButton`. The layout uses
+logical properties, inherits LTR or RTL from its host, wraps below 560px, and consumes builder theme
+tokens with dark fallbacks. Its pulse stops when reduced motion is requested.

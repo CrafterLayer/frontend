@@ -45,16 +45,56 @@ Then point the playground at it and restart Vite:
 ```bash
 # apps/playground/.env.local
 VITE_AI_PLAN_ENDPOINT=http://localhost:8787
+VITE_CODE_RUNTIME_ENDPOINT=http://127.0.0.1:8787
+VITE_CODE_RUNTIME_TOKEN=replace-with-a-local-development-token
+VITE_CODE_PREVIEW_URL_TEMPLATE=http://{project}.localhost:5175/
 ```
 
-That is the whole wiring. `planProviderFromEnv` already reads those variables; with the endpoint
-unset the deterministic offline provider keeps answering, so nothing breaks by not running this.
+Start the isolated preview origin in a second terminal. It reverse-proxies immutable artifact
+capabilities from the runtime, so scripts and styles stay on the project-specific preview origin:
+
+```bash
+VITE_CODE_RUNTIME_ENDPOINT=http://127.0.0.1:8787 pnpm --filter @craftkit/code-preview dev
+```
+
+Production needs the equivalent `/artifacts/*` reverse proxy on a preview domain template such as
+`https://{project}.preview.example.com/`, with a separate site origin per project. A shared preview
+origin does not isolate one project's CPU or storage from another project.
+
+`planProviderFromEnv` already reads the plan variables; with the endpoint unset the deterministic
+offline provider keeps answering. The code runtime has no fake production fallback: a missing or
+failed compiler returns an explicit error and the editor retains the last successful artifact.
+
+## Code and authored-Agent endpoints
+
+- `POST /v1/code/compile` accepts `{ "snapshot": RuntimeSnapshot }`. It compiles virtual authored
+  files in a disposable process without executing them, stores the result in a bounded memory
+  artifact store, and returns capability URLs plus source handles.
+- `GET /artifacts/:artifactId/:file?access=...` serves an immutable compiled file. The unguessable
+  capability is required; missing and wrong capabilities both return `404`.
+- `POST /v1/code/export` accepts `{ "pages": ExportPage[], "artifactIds": string[] }`. Every page,
+  project, and source revision must match its artifact. Authored JavaScript is prerendered only in a
+  disposable Playwright browser context with network and service workers blocked. A canonical URL is
+  optional because no published domain is assumed.
+- `POST /v1/agent/run` accepts version `1`, `mode: "ask" | "plan" | "auto"`, run/project/revision
+  identities, a design contract, a project index, and bounded independent units. Ask and Plan must
+  own no files and always return `changes: []`. Auto returns complete-file proposals for its exact
+  owned paths; the client still compiles and commits them with revision checks. Send
+  `Accept: text/event-stream` to receive each completed `unit` before the final `result`.
+
+All POST routes require `Authorization: Bearer <CRAFTKIT_AI_TOKEN>` when the token is configured.
+Artifact GETs use their own scoped capability so a module script can load without exposing the API
+token to authored code.
 
 | Variable                          | Default                        | Meaning                                                                                                                                                                                                                                                                                |
 | --------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ANTHROPIC_API_KEY`               | —                              | Standard SDK resolution. **Unset does not mean no credentials**: the SDK also reads `ANTHROPIC_AUTH_TOKEN` and an `ant auth login` profile, so a bare client works after `ant auth login`.                                                                                             |
 | `PORT`                            | `8787`                         |                                                                                                                                                                                                                                                                                        |
 | `CRAFTKIT_AI_MODEL`               | `claude-opus-5`                | Override deliberately, with a measurement. On the `openrouter` backend it is required and must be a `vendor/model` slug.                                                                                                                                                               |
+| `CRAFTKIT_AI_LUNA_MODEL`          | —                              | OpenRouter slug for cheap context/copy work. Authored Agent runs stay disabled unless at least one role model is configured and all selected routes pass the live capability probe.                                                                                                    |
+| `CRAFTKIT_AI_TERRA_MODEL`         | —                              | OpenRouter slug for ordinary authored-code work.                                                                                                                                                                                                                                       |
+| `CRAFTKIT_AI_SOL_MODEL`           | —                              | OpenRouter slug for design and visual-review work.                                                                                                                                                                                                                                     |
+| `CRAFTKIT_AI_ASTRA_MODEL`         | —                              | OpenRouter slug reserved for the single bounded escalation.                                                                                                                                                                                                                            |
 | `CRAFTKIT_AI_MODELS`              | —                              | Comma-separated models a request may name in its `x-craftkit-ai-model` header (the playground picker), beyond the default. Unset ⇒ only the default is accepted; any other choice is refused with 400. The server owns this list, never the browser.                                   |
 | `CRAFTKIT_AI_FALLBACK`            | —                              | OpenRouter backend only. A `cli:` entry that answers instead when an OpenRouter model is rate limited, overloaded, or unreachable (429/502); the panel's progress line says it switched. Unset ⇒ those failures reach the panel with Retry.                                            |
 | `CRAFTKIT_AI_BACKEND`             | `sdk`                          | `sdk` (the Anthropic Messages API), `openrouter` (any model behind one OpenRouter key), or `cli` (dev only). Anything else refuses to start.                                                                                                                                           |

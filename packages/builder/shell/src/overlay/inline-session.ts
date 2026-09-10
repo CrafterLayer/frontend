@@ -27,10 +27,20 @@ export interface InlineSessionHandle {
   begin: (nodeId: NodeId) => boolean;
   /** Close the session; idempotent, and never dispatches. */
   end: () => void;
+  /** Consume one Escape layer in popup → text edit → parent → clear order. */
+  escape: (layers: InlineEscapeLayers) => InlineEscapeStep;
   /** Notified on every change, with the new session (or null). */
   subscribe: (listener: (session: InlineSession | null) => void) => () => void;
   /** Detach the store subscription. */
   dispose: () => void;
+}
+
+export type InlineEscapeStep = 'popup' | 'text-edit' | 'parent' | 'clear' | 'none';
+
+export interface InlineEscapeLayers {
+  closePopup: () => boolean;
+  selectParent: () => boolean;
+  clearSelection: () => boolean;
 }
 
 /** What a block declares as inline-editable, resolved to a kind. */
@@ -135,6 +145,15 @@ export function createInlineSession(kernel: BuilderKernel): InlineSessionHandle 
       return true;
     },
     end,
+    escape: ({ closePopup, selectParent, clearSelection }) => {
+      if (closePopup()) return 'popup';
+      if (session !== null) {
+        end();
+        return 'text-edit';
+      }
+      if (selectParent()) return 'parent';
+      return clearSelection() ? 'clear' : 'none';
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {

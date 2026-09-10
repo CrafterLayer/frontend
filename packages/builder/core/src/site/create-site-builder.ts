@@ -1,6 +1,7 @@
 import {
   builderError,
   canonicalizeJsonValue,
+  migrateSite,
   validateSite,
   type Author,
   type BlockSchemaLookup,
@@ -101,7 +102,15 @@ export function createSiteBuilder(options: CreateSiteBuilderOptions): BuilderSit
     JSON cannot print, and a value that survives here would make patches and
     the next state disagree.
   */
-  const seeded = canonicalizeJsonValue(options.site);
+  let seeded: unknown = canonicalizeJsonValue(options.site);
+  try {
+    seeded = migrateSite(seeded);
+  } catch (error) {
+    throw builderError(
+      'site/structural-violation',
+      error instanceof Error ? error.message : 'This site cannot be migrated.',
+    );
+  }
   const validated = validateSite(seeded);
   if (!validated.ok) {
     const first = validated.issues[0];

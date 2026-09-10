@@ -67,6 +67,20 @@ export type {
   CodeViewPanelProps,
   CodeViewStatus,
 } from './CodeViewPanel';
+export {
+  CodeEditor,
+  type CodeEditorCompletion,
+  type CodeEditorController,
+  type CodeEditorDiff,
+  type CodeEditorLanguage,
+  type CodeEditorModuleLoader,
+  type CodeEditorProps,
+} from './components/CodeEditor';
+export {
+  SourceImpactBar,
+  type SourceImpact,
+  type SourceImpactBarProps,
+} from './components/SourceImpactBar';
 export type {
   TransformWorkerClient,
   TransformWorkerClientSnapshot,

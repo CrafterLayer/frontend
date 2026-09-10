@@ -1,4 +1,13 @@
-import type { ReactNode } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+
+import { clampPanelWidth, resolvePanelLayout } from './panel-layout';
 
 import './BuilderShell.css';
 
@@ -34,6 +43,16 @@ export interface BuilderShellProps {
   /** Names the editor for assistive technology. */
   label?: string | undefined;
   className?: string | undefined;
+  /** Measured editor layout retaining pane state while preserving canvas space. */
+  adaptive?: boolean | undefined;
+  panelOpen?: boolean | undefined;
+  asideOpen?: boolean | undefined;
+  activeSide?: 'panel' | 'aside' | undefined;
+  panelWidth?: number | undefined;
+  onPanelWidthChange?: ((width: number) => void) | undefined;
+  onCanvasWidthChange?: ((width: number) => void) | undefined;
+  onLayoutChange?:
+    ((layout: { panel: boolean; aside: boolean; overlay: boolean }) => void) | undefined;
 }
 
 /**
@@ -47,9 +66,8 @@ export interface BuilderShellProps {
  *
  * Three decisions worth stating, because each has an obvious wrong answer:
  *
- *  - **Sizes are tokens, not props.** A `panelWidth` prop would put the number
- *    in every call site; `--bldr-panel-width` puts it in the theme, so density
- *    is one decision and a host can re-point it at runtime like any colour.
+ *  - **Sizes use theme tokens.** An adaptive host may additionally persist the
+ *    user's panel width and open-pane preferences without recreating slots.
  *
  *  - **An absent region costs nothing.** The CSS collapses its track with
  *    `:has()` rather than the component computing a grid template, which would
@@ -74,22 +92,144 @@ export function BuilderShell({
   status,
   label = 'Builder',
   className,
+  adaptive = false,
+  panelOpen = true,
+  asideOpen = true,
+  activeSide = 'panel',
+  panelWidth = 320,
+  onPanelWidthChange,
+  onCanvasWidthChange,
+  onLayoutChange,
 }: BuilderShellProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const pointerRef = useRef<{ x: number; width: number; direction: number } | null>(null);
+  const [width, setWidth] = useState(1440);
+  const reportCanvasWidth = useEffectEvent((width: number) => onCanvasWidthChange?.(width));
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!adaptive || root === null) return;
+    const measure = () => {
+      setWidth(root.getBoundingClientRect().width);
+      if (canvasRef.current !== null)
+        reportCanvasWidth(canvasRef.current.getBoundingClientRect().width);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    if (canvasRef.current !== null) observer.observe(canvasRef.current);
+    return () => { observer.disconnect(); };
+  }, [adaptive]);
+  const controlledWidth = clampPanelWidth(panelWidth);
+  const layout = resolvePanelLayout({
+    width,
+    railWidth: rail === undefined ? 0 : 48,
+    panelWidth: controlledWidth,
+    asideWidth: 288,
+    minCanvasWidth: 640,
+    activeSide,
+    panelOpen: panelOpen && panel !== undefined,
+    asideOpen: asideOpen && aside !== undefined,
+  });
+  const reportLayout = useEffectEvent(() => onLayoutChange?.(layout));
+  useEffect(() => {
+    if (adaptive) reportLayout();
+  }, [adaptive, layout.panel, layout.aside, layout.overlay]);
   return (
     <div
+      ref={rootRef}
       className={className === undefined ? 'bldr-shell' : `bldr-shell ${className}`}
       role="application"
       aria-label={label}
       data-bldr-panel-priority={panelPriority}
+      data-adaptive={adaptive ? '' : undefined}
+      data-panel-open={adaptive ? String(layout.panel) : undefined}
+      data-aside-open={adaptive ? String(layout.aside) : undefined}
+      data-panel-overlay={adaptive && layout.overlay ? '' : undefined}
+      style={
+        adaptive
+          ? ({
+              '--bldr-panel-width': `${String(controlledWidth)}px`,
+              '--bldr-inspector-width': '288px',
+              '--bldr-shell-rail-size': rail === undefined ? '0px' : '48px',
+            } as CSSProperties)
+          : undefined
+      }
     >
       {top === undefined ? null : <div className="bldr-shell__top">{top}</div>}
       {rail === undefined ? null : <div className="bldr-shell__rail">{rail}</div>}
-      {panel === undefined ? null : <div className="bldr-shell__panel">{panel}</div>}
+      {panel === undefined ? null : (
+        <div className="bldr-shell__panel" hidden={adaptive && !layout.panel}>
+          {panel}
+          {!adaptive || onPanelWidthChange === undefined ? null : (
+            <div
+              className="bldr-shell__resize"
+              role="separator"
+              tabIndex={0}
+              aria-label="Resize workspace panel"
+              aria-orientation="vertical"
+              aria-valuemin={288}
+              aria-valuemax={480}
+              aria-valuenow={controlledWidth}
+              onKeyDown={(event) => {
+                const direction =
+                  getComputedStyle(event.currentTarget).direction === 'rtl' ? -1 : 1;
+                const delta =
+                  event.key === 'ArrowRight'
+                    ? 8 * direction
+                    : event.key === 'ArrowLeft'
+                      ? -8 * direction
+                      : 0;
+                if (delta === 0 && event.key !== 'Home' && event.key !== 'End') return;
+                event.preventDefault();
+                onPanelWidthChange(
+                  clampPanelWidth(
+                    event.key === 'Home'
+                      ? 288
+                      : event.key === 'End'
+                        ? 480
+                        : controlledWidth + delta,
+                  ),
+                );
+              }}
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                pointerRef.current = {
+                  x: event.clientX,
+                  width: controlledWidth,
+                  direction: getComputedStyle(event.currentTarget).direction === 'rtl' ? -1 : 1,
+                };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                const start = pointerRef.current;
+                if (start !== null)
+                  onPanelWidthChange(
+                    clampPanelWidth(start.width + (event.clientX - start.x) * start.direction),
+                  );
+              }}
+              onPointerUp={() => {
+                pointerRef.current = null;
+              }}
+              onLostPointerCapture={() => {
+                pointerRef.current = null;
+              }}
+            />
+          )}
+        </div>
+      )}
       <div className="bldr-shell__main">
-        <div className="bldr-shell__canvas">{canvas}</div>
+        <div ref={canvasRef} className="bldr-shell__canvas">
+          {canvas}
+        </div>
         {dock === undefined ? null : <div className="bldr-shell__dock">{dock}</div>}
       </div>
-      {aside === undefined ? null : <div className="bldr-shell__aside">{aside}</div>}
+      {aside === undefined ? null : (
+        <div className="bldr-shell__aside" hidden={adaptive && !layout.aside}>
+          {aside}
+        </div>
+      )}
       {status === undefined ? null : <div className="bldr-shell__status">{status}</div>}
     </div>
   );

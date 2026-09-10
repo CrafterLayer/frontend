@@ -20,6 +20,15 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "codemirror": "catalog:",
+    "@codemirror/state": "catalog:",
+    "@codemirror/view": "catalog:",
+    "@codemirror/lang-javascript": "catalog:",
+    "@codemirror/lang-css": "catalog:",
+    "@codemirror/lang-json": "catalog:",
+    "@codemirror/autocomplete": "catalog:",
+    "@codemirror/lint": "catalog:",
+    "@codemirror/merge": "catalog:",
     "@craftkit/builder-schema": "workspace:*",
     "@craftkit/builder-transforms": "workspace:*"
   },

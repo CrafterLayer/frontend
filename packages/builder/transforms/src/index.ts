@@ -28,3 +28,19 @@ export {
   projectSiteRegion,
   type SiteProjectionText,
 } from './codec/site-codec';
+
+export {
+  projectPageRoutes,
+  resolveDocumentPageLinks,
+  resolvePageHref,
+  resolvePageLinks,
+  type ResolvedPageRoute,
+} from './site/resolve-page-links';
+export {
+  projectSitemap,
+  type ProjectSitemapOptions,
+  type SitemapPageProjection,
+  type SitemapProjection,
+  type SitemapSharedReference,
+  type SitemapThumbnail,
+} from './site/project-sitemap';

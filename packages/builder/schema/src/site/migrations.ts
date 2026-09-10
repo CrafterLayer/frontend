@@ -6,7 +6,17 @@ import { validateSite } from './validate';
 type SiteMigration = (site: unknown) => unknown;
 
 /** Pure steps from site version N-1 to N, keyed by the target version. */
-const migrations: Readonly<Record<number, SiteMigration>> = {};
+const migrations: Readonly<Record<number, SiteMigration>> = {
+  2: (site) => {
+    if (site === null || typeof site !== 'object' || Array.isArray(site)) {
+      throw new Error('Stored v1 site must be an object.');
+    }
+    if ('codeProjects' in site) {
+      throw new Error('A v1 site cannot contain v2 code projects.');
+    }
+    return { ...site, siteVersion: 2, codeProjects: {} };
+  },
+};
 
 /** Migrate a raw stored site step by step to LATEST_SITE_VERSION. */
 export function migrateSite(value: unknown): BuilderSite {
@@ -73,6 +83,7 @@ export function siteFromDocument(doc: BuilderDocument): BuilderSite {
     */
     designSystem: defaultDesignSystem(),
     assets: {},
+    codeProjects: {},
   };
 }
 

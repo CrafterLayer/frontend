@@ -1,0 +1,32 @@
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+import * as Stories from './page-workspace.stories';
+
+<Meta of={Stories} />
+
+# PageWorkspace
+
+The page workspace composes the page list, sitemap, actions, and settings over one
+`BuilderSiteKernel`. List and map switch presentation while page identity, order, current selection,
+and undo history remain shared.
+
+The shell may control that presentation with `view` and `onViewChange`, or set the local starting
+surface with `initialView`. Both modes keep the supplied kernel as the only page state.
+
+<Canvas of={Stories.PageList} />
+<Canvas of={Stories.Sitemap} />
+<Canvas of={Stories.CodePageSettings} />
+
+Page actions dispatch deterministic site commands. Saving settings groups title, route, purpose,
+audience, code-page SEO, share image, and site direction into one transaction and therefore one
+Undo. The home route is changed through Make home rather than direct editing. Delete requires an
+explicit unlink plan when references exist and replaces a deleted home in the same action.
+
+General `SitePage` storage does not yet contain separate Open Graph fields. The interface says so
+and keeps those controls disabled. Code pages persist title, description, image, and no-index in
+their existing `CodePageReference.seo`; the same image is used for sharing. Standard pages keep
+purpose and audience without displaying a false Saved state for unsupported metadata.
+
+All page and reorder controls use native buttons with visible focus. Current pages use
+`aria-current`, status messages use a polite live region, and destructive scope is confirmed in an
+alert dialog. Layout uses logical properties for RTL and collapses settings to the available width
+on small screens.

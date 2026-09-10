@@ -47,7 +47,36 @@ describe('site migrations', () => {
     const site = siteFromDocument(document);
 
     expect(() => migrateSite({ ...site, siteVersion: 0 })).toThrow(/No site migration/);
-    expect(() => migrateSite({ ...site, siteVersion: 2 })).toThrow(/newer than the supported/);
+    expect(() => migrateSite({ ...site, siteVersion: 3 })).toThrow(/newer than the supported/);
     expect(() => migrateSite({ ...site, pages: [] })).toThrow(/missing-home-page/);
+  });
+
+  it('migrates v1 deterministically without rewriting pages, documents, assets or shared regions', () => {
+    const current = siteFromDocument(document);
+    delete current.codeProjects;
+    const legacy = { ...current, siteVersion: 1 };
+    const before = JSON.stringify(legacy);
+    const migrated = migrateSite(legacy);
+    expect(migrated.siteVersion).toBe(2);
+    expect(migrated.codeProjects).toEqual({});
+    expect(migrated.pages).toBe(legacy.pages);
+    expect(migrated.pages[0]?.document).toBe(document);
+    expect(migrated.sharedRegions).toBe(legacy.sharedRegions);
+    expect(migrated.assets).toBe(legacy.assets);
+    expect(JSON.stringify(legacy)).toBe(before);
+    expect(migrateSite(JSON.parse(before))).toEqual(migrated);
+  });
+
+  it('keeps legacy route spelling instead of silently changing persisted links', () => {
+    const current = siteFromDocument(document);
+    delete current.codeProjects;
+    const home = current.pages[0];
+    if (!home) throw new Error('fixture home absent');
+    const legacy = {
+      ...current,
+      siteVersion: 1,
+      pages: [home, { ...home, id: 'about', address: '/about/' }],
+    };
+    expect(migrateSite(legacy).pages[1]?.address).toBe('/about/');
   });
 });

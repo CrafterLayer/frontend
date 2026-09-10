@@ -1,6 +1,6 @@
-import type { AiBuildOwnEvent, AiBuildRunResult } from '@craftkit/builder';
+import type { AiBuildOwnEvent, AiBuildRunResult, PersistenceAck } from '@craftkit/builder';
 
-import type { VaultStore } from './store';
+import { vaultWriteAcknowledgement, type VaultStore } from './store';
 
 /**
  * What a run DID, durable enough to survive the tab that was doing it.
@@ -195,6 +195,8 @@ export interface RunRecord {
    * as unfinished work.
    */
   readonly declined?: boolean;
+  /** Successor that claimed this stopped record; prevents applying completed units twice. */
+  readonly resumedByRunId?: string;
   /**
    * Set when a checkpoint could not be written.
    *
@@ -248,6 +250,8 @@ export interface StartRunOptions {
 }
 
 export interface RunJournal {
+  /** Storage result for the latest checkpoint of this run. */
+  acknowledgement(runId: string): PersistenceAck;
   /** Open a record. Returns what was written, so a caller can hold the shape. */
   start(options: StartRunOptions): Promise<RunRecord>;
   /**
@@ -268,6 +272,8 @@ export interface RunJournal {
    * offered back to them as unfinished work.
    */
   decline(runId: string): Promise<void>;
+  /** Atomically reserve a resumable predecessor for one new run identity. */
+  claimResume(runId: string, successorRunId: string): Promise<RunRecord | undefined>;
   read(runId: string): Promise<RunRecord | undefined>;
   /** Every record, newest first. Filtered to one document when asked. */
   list(docId?: string): Promise<readonly RunRecord[]>;
@@ -331,6 +337,7 @@ export function resumePoint(record: RunRecord): RunUnitRecord | undefined {
 export function isResumable(record: RunRecord): boolean {
   if (record.status === 'running' || record.status === 'completed') return false;
   if (record.declined === true) return false;
+  if (record.resumedByRunId !== undefined) return false;
   if (record.writeFailure !== undefined) return false;
   if (record.stage !== 'planned' && record.stage !== 'settled') return false;
   return resumePoint(record) !== undefined;
@@ -523,16 +530,27 @@ export function createRunJournal(options: RunJournalOptions): RunJournal {
     take anything at all — which is precisely when someone might act on it.
   */
   const writeFailures = new Map<string, string>();
+  const writeAcknowledgements = new Map<string, PersistenceAck>();
 
   const readRecord = async (runId: string): Promise<RunRecord | undefined> =>
     store.get<RunRecord>(runKey(runId));
 
   const writeRecord = async (record: RunRecord): Promise<void> => {
     const remembered = writeFailures.get(record.runId);
-    await store.set(runKey(record.runId), {
-      ...record,
-      ...(remembered === undefined ? {} : { writeFailure: remembered }),
-    });
+    const acknowledgement: PersistenceAck = vaultWriteAcknowledgement(
+      store,
+      await store.set(
+        runKey(record.runId),
+        {
+          ...record,
+          ...(remembered === undefined ? {} : { writeFailure: remembered }),
+        },
+        record.updatedAt,
+      ),
+      record.updatedAt,
+    );
+    writeAcknowledgements.set(record.runId, acknowledgement);
+    if (acknowledgement.kind === 'failed') throw new Error(acknowledgement.reason);
   };
 
   /**
@@ -587,6 +605,13 @@ export function createRunJournal(options: RunJournalOptions): RunJournal {
   };
 
   const journal: RunJournal = {
+    acknowledgement(runId) {
+      return (
+        writeAcknowledgements.get(runId) ??
+        store.persistence?.(0) ?? { kind: 'durable', sequence: 0 }
+      );
+    },
+
     async start(startOptions) {
       const at = now();
       const record: RunRecord = {
@@ -663,6 +688,22 @@ export function createRunJournal(options: RunJournalOptions): RunJournal {
 
     async decline(runId) {
       await serialise(() => update(runId, (current) => ({ ...current, declined: true })));
+    },
+
+    async claimResume(runId, successorRunId) {
+      if (successorRunId.length === 0 || successorRunId === runId) return undefined;
+      let claimed: RunRecord | undefined;
+      const landed = await serialise(() =>
+        update(
+          runId,
+          (current) => {
+            claimed = { ...current, resumedByRunId: successorRunId };
+            return claimed;
+          },
+          isResumable,
+        ),
+      );
+      return landed ? claimed : undefined;
     },
 
     async read(runId) {

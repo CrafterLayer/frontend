@@ -13,6 +13,8 @@ export interface BlockActionBarProps {
   actions: readonly BlockAction[];
   /** One call per activation with the activated action's id. */
   onAction: (id: string) => void;
+  /** Pointer-only grip; keyboard movement remains available through the move actions. */
+  onMovePointerDown?: ((clientX: number, clientY: number) => void) | undefined;
   /** Content direction — the arrow keys mirror under RTL. Default `ltr`. */
   dir?: 'ltr' | 'rtl' | undefined;
 }
@@ -30,7 +32,13 @@ export interface BlockActionBarProps {
  * and stops click propagation, so pressing a button never moves focus off the
  * canvas and never re-enters the canvas selection path.
  */
-export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBarProps) {
+export function BlockActionBar({
+  label,
+  actions,
+  onAction,
+  onMovePointerDown,
+  dir,
+}: BlockActionBarProps) {
   const [active, setActive] = useState(0);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -97,6 +105,33 @@ export function BlockActionBar({ label, actions, onAction, dir }: BlockActionBar
         event.stopPropagation();
       }}
     >
+      {onMovePointerDown === undefined ? null : (
+        <span
+          className="bldr-block-actions__drag-handle"
+          data-bldr-drag-handle=""
+          aria-hidden="true"
+          title="Drag to move"
+          onPointerDown={(event) => {
+            onMovePointerDown(event.clientX, event.clientY);
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle cx="5" cy="4" r="1" />
+            <circle cx="11" cy="4" r="1" />
+            <circle cx="5" cy="8" r="1" />
+            <circle cx="11" cy="8" r="1" />
+            <circle cx="5" cy="12" r="1" />
+            <circle cx="11" cy="12" r="1" />
+          </svg>
+        </span>
+      )}
       {actions.map((action, index) => (
         <ChromeButton
           key={action.id}

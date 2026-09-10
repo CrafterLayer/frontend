@@ -11,6 +11,28 @@ export {
   type AiRunFailureCode,
   type AiRunFailureSource,
 } from './errors';
+export {
+  RUN_COORDINATOR_VERSION,
+  RunCoordinatorError,
+  createMemoryRunJournal,
+  createRunCoordinator,
+  type BeginRunUnitInput,
+  type CompleteRunUnitInput,
+  type CompletedUnitJournalInput,
+  type CreateMemoryRunJournalOptions,
+  type CreateRunCoordinatorOptions,
+  type QueueRunRequestInput,
+  type QueuedRunRequest,
+  type RunCancellationScope,
+  type RunCoordinator,
+  type RunCoordinatorErrorCode,
+  type RunJournalPort,
+  type RunRevalidationInput,
+  type RunRevalidationPort,
+  type RunRevalidationResult,
+  type RunUnitLease,
+  type StartRunInput,
+} from './run-coordinator';
 export type {
   AiAgentEvent,
   AiAgentEventBase,

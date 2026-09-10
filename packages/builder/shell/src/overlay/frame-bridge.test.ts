@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createFrameBridge } from './frame-bridge';
+import { createFrameBridge, selectionTargetFromFrameElement } from './frame-bridge';
 
 function frameAt(box: { x: number; y: number; width: number; height: number }) {
   const view = { innerWidth: 1440, innerHeight: 900 };
@@ -46,5 +46,69 @@ describe('createFrameBridge (009 contract §7 c1)', () => {
     const bridge = createFrameBridge(frameAt({ x: 0, y: 0, width: 834, height: 520 }));
     expect(bridge.hostViewport()).toEqual({ width: 1440, height: 900 });
     expect(bridge.visibleArea()).toEqual({ width: 834, height: 520 });
+  });
+
+  it('converts scaled host pixels to exact authored frame coordinates', () => {
+    const bridge = createFrameBridge(frameAt({ x: 100, y: 100, width: 400, height: 300 }), {
+      scale: () => 0.5,
+    });
+
+    expect(bridge.scale()).toBe(0.5);
+    expect(bridge.toFrame(300, 150)).toEqual({ x: 400, y: 100 });
+    expect(bridge.toHost(400, 100)).toEqual({ x: 300, y: 150 });
+    expect(bridge.visibleArea()).toEqual({ width: 800, height: 600 });
+    expect(bridge.frameBox()).toEqual({ x: 100, y: 100, width: 400, height: 300 });
+  });
+
+  it('exchanges current source identity, instance and capabilities as one target', () => {
+    const sourceElement = document.createElement('h1');
+    sourceElement.dataset['ckSource'] = 'hero-title';
+    sourceElement.dataset['ckInstance'] = 'hero:1';
+    sourceElement.dataset['ckCapabilities'] = 'inspect, editText, delete, forged';
+
+    expect(
+      selectionTargetFromFrameElement(sourceElement, {
+        pageId: 'home',
+        revision: 'site-4',
+        sourceHandleFor: (astNodeId, instanceKey) => ({
+          projectId: 'project',
+          modulePath: 'pages/home/Page.tsx',
+          sourceRevision: 'source-7',
+          astNodeId,
+          ...(instanceKey === undefined ? {} : { instanceKey }),
+        }),
+      }),
+    ).toEqual({
+      pageId: 'home',
+      revision: 'site-4',
+      sourceOrNodeId: {
+        projectId: 'project',
+        modulePath: 'pages/home/Page.tsx',
+        sourceRevision: 'source-7',
+        astNodeId: 'hero-title',
+        instanceKey: 'hero:1',
+      },
+      capabilities: ['inspect', 'editText', 'delete'],
+    });
+  });
+
+  it('reads native document node metadata through the same target contract', () => {
+    const child = document.createElement('span');
+    const wrapper = document.createElement('div');
+    wrapper.dataset['bldrNode'] = 'hero';
+    wrapper.append(child);
+
+    expect(
+      selectionTargetFromFrameElement(child, {
+        pageId: 'home',
+        revision: 'site-2',
+        nodeCapabilities: () => ['inspect', 'editProps'],
+      }),
+    ).toEqual({
+      pageId: 'home',
+      revision: 'site-2',
+      sourceOrNodeId: 'hero',
+      capabilities: ['inspect', 'editProps'],
+    });
   });
 });

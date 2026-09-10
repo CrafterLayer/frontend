@@ -1,0 +1,270 @@
+# Tasks: Professional Builder and Agent
+
+**Input**: Design documents from `specs/workspace/014-professional-builder-agent/`
+
+**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`
+
+**Tests**: Tests are mandatory for this workspace. Each new UI component has implementation/export,
+Storybook, MDX, behavior/accessibility test, and owner/consumer verification tasks.
+
+## Phase 1: Setup
+
+- [ ] T001 Register `@craftkit/builder-code-runtime` as a layer-2 member in `packages/workspace-tools/src/workspace/validate-builder-boundaries.mjs`
+- [ ] T002 Add workspace-boundary fixtures for the runtime browser/compiler split in `packages/workspace-tools/test/builder-boundaries.test.mjs`
+- [ ] T003 Add approved compiler/editor dependency versions and create the runtime package manifest and export map in `pnpm-workspace.yaml` and `packages/builder/code-runtime/package.json`
+- [ ] T004 [P] Create runtime TypeScript, Vitest, and lint configuration in `packages/builder/code-runtime/tsconfig.json`, `packages/builder/code-runtime/vitest.config.ts`, and `packages/builder/code-runtime/eslint.config.mjs`
+- [ ] T005 Create the isolated preview application manifest, HTML entry, and scripts in `apps/code-preview/package.json` and `apps/code-preview/index.html`
+- [ ] T006 [P] Create preview application TypeScript and Vite configuration in `apps/code-preview/tsconfig.json` and `apps/code-preview/vite.config.ts`
+
+---
+
+## Phase 2: Foundational contracts and transactions
+
+**Goal**: Establish the versioned project, source identity, preview bridge, transaction, and persistence
+contracts that every story uses.
+
+- [ ] T007 Add v2 code project, code page, runtime profile, dependency lock, and file schemas in `packages/builder/schema/src/code/types.ts`
+- [ ] T008 [P] Add source handle, selection target, insertion anchor, and capability schemas in `packages/builder/schema/src/editing/types.ts`
+- [ ] T009 [P] Add managed catalog, build artifact, export manifest, and compile diagnostic schemas in `packages/builder/schema/src/runtime/types.ts`
+- [ ] T010 [P] Add run record, usage, model policy, cancellation, and persistence acknowledgement schemas in `packages/builder/schema/src/agent/types.ts`
+- [ ] T011 Add v1-to-v2 site migration with empty `codeProjects` and future-version rejection in `packages/builder/schema/src/site/migrations.ts`
+- [ ] T012 Add structural validators for code projects, page references, unique addresses, one home page, file paths, and managed dependencies in `packages/builder/schema/src/site/validate.ts`
+- [ ] T013 Export the new contracts through `packages/builder/schema/src/code/index.ts`, `packages/builder/schema/src/editing/index.ts`, `packages/builder/schema/src/runtime/index.ts`, `packages/builder/schema/src/agent/index.ts`, and `packages/builder/schema/src/index.ts`
+- [ ] T014 [P] Add migration, validation, and serialization tests in `packages/builder/schema/src/site/migrations.test.ts` and `packages/builder/schema/src/site/validate.test.ts`
+- [ ] T015 Add CAS-protected code-file and multi-file transaction commands in `packages/builder/core/src/commands/code-project-commands.ts`
+- [ ] T016 Add atomic page create, rename, address, duplicate, reorder, make-home, clear, delete, and stable-link commands in `packages/builder/core/src/commands/page-commands.ts`
+- [ ] T017 Route new writes through the single site dispatcher and one undo boundary in `packages/builder/core/src/site/site-dispatcher.ts`
+- [ ] T018 Export new commands and transaction results in `packages/builder/core/src/index.ts`
+- [ ] T019 [P] Add conflict, expected-absence, disjoint-merge, page invariant, and undo tests in `packages/builder/core/src/commands/code-project-commands.test.ts` and `packages/builder/core/src/commands/page-commands.test.ts`
+- [X] T020 Add feature flags for v2 authoring, source-aware editing, remote generation, and export in `apps/playground/src/features/preview/feature-flags.ts`
+
+**Checkpoint**: Schema, migration, and kernel writes are stable enough for independent story work.
+
+---
+
+## Phase 3: User Story 1 — Free-form page vertical slice (P1)
+
+**Goal**: Generate or create one TSX page, preview it, select and edit one nested element, undo, save,
+reload, and export a revision-matching standalone page.
+
+**Independent Test**: Follow the M0 flow in `quickstart.md`; source, selected target, preview, restored
+project, and export must remain revision-aligned.
+
+- [ ] T021 [P] [US1] Define runtime snapshot, compiler, browser, export, catalog, cache, and cancellation ports in `packages/builder/code-runtime/src/contracts.ts`
+- [ ] T022 [P] [US1] Implement canonical project and artifact fingerprints in `packages/builder/code-runtime/src/fingerprint.ts`
+- [ ] T023 [US1] Implement managed virtual-module resolution with path and dependency rejection in `packages/builder/code-runtime/src/compiler/resolve-project.ts`
+- [ ] T024 [US1] Implement source instrumentation and stable AST element metadata in `packages/builder/code-runtime/src/compiler/instrument-source.ts`
+- [ ] T025 [US1] Implement cancellable project compilation and diagnostic/source-map output in `packages/builder/code-runtime/src/compiler/compile-project.ts`
+- [ ] T026 [P] [US1] Implement content-addressed build cache behavior in `packages/builder/code-runtime/src/cache/build-cache.ts`
+- [ ] T027 [US1] Implement revision-pinned single-page export with indexable HTML, CSS, assets, and hydration entry in `packages/builder/code-runtime/src/export/export-site.ts`
+- [ ] T028 [US1] Implement validated preview protocol and session lifecycle in `packages/builder/code-runtime/src/browser/mount-preview.ts`
+- [ ] T029 [US1] Publish root, compiler, browser, and export public entrypoints in `packages/builder/code-runtime/src/index.ts`, `packages/builder/code-runtime/src/compiler.ts`, `packages/builder/code-runtime/src/browser.ts`, and `packages/builder/code-runtime/src/export.ts`
+- [ ] T030 [P] [US1] Add runtime resolver, cancellation, fingerprint, stale-artifact, bridge-forgery, and export contract tests in `packages/builder/code-runtime/src/runtime.test.ts`
+- [ ] T031 [US1] Build the dedicated preview bootstrap and strict message validator in `apps/code-preview/src/main.tsx` and `apps/code-preview/src/bridge.ts`
+- [ ] T032 [P] [US1] Add preview CSP, loading, invalid-artifact, and cleanup tests in `apps/code-preview/src/bridge.test.ts`
+- [ ] T033 [US1] Expose managed catalog composition and runtime subpaths through `packages/builder/editor/src/code-runtime.ts` and `packages/builder/editor/package.json`
+- [ ] T034 [US1] Add a reference TSX project fixture and create-page flow in `apps/playground/src/features/preview/code-page-fixture.ts`
+- [ ] T035 [US1] Connect code project save, restore, revision, and artifact metadata to the vault in `apps/playground/src/features/vault/site-persistence.ts`
+- [ ] T036 [US1] Implement `CodePreviewFrame` and its local export in `packages/builder/shell/src/components/CodePreviewFrame/CodePreviewFrame.tsx` and `packages/builder/shell/src/components/CodePreviewFrame/index.ts`
+- [ ] T037 [P] [US1] Document `CodePreviewFrame` purpose, API, states, accessibility, RTL, responsive, and theme behavior in `packages/builder/shell/src/components/CodePreviewFrame/CodePreviewFrame.docs.mdx`
+- [ ] T038 [P] [US1] Add typed matching, older, loading, error, and unavailable stories for `CodePreviewFrame` in `packages/builder/shell/src/components/CodePreviewFrame/CodePreviewFrame.stories.tsx`
+- [ ] T039 [P] [US1] Add behavior and accessibility coverage for `CodePreviewFrame` in `packages/builder/shell/src/components/CodePreviewFrame/CodePreviewFrame.test.tsx`
+- [ ] T040 [US1] Verify `CodePreviewFrame` in its shell owner and playground consumer via `packages/builder/shell/package.json` and `apps/playground/package.json`
+- [ ] T041 [US1] Add the complete TSX create-to-export integration test in `apps/playground/src/features/preview/code-page-vertical-slice.test.tsx`
+- [ ] T042 [US1] Wire the reference authored page, preview frame, selection edit, undo, save/reload, and export controls in `apps/playground/src/app/App.tsx`
+
+**Checkpoint**: M0 is demonstrable and independently shippable behind the v2 authoring flag.
+
+---
+
+## Phase 4: User Story 2 — Compact target-aware Agent (P1)
+
+**Goal**: Keep a compact persistent conversation with Ask/Plan/Auto, captured scope, one editable queued
+request, cancellable work, recoverable drafts, and one-change/one-undo results.
+
+**Independent Test**: Run, queue, switch panels/pages, stop, reload, resume, and prove that each change
+uses its captured and revalidated target.
+
+- [ ] T043 [P] [US2] Implement versioned run coordinator, queued-request state, cancellation tree, and completed-unit journal in `packages/builder/ai/src/agent/run-coordinator.ts`
+- [ ] T044 [P] [US2] Implement project index and selection-context retrieval without whole-project prompting in `packages/builder/ai/src/context/context-index.ts`
+- [ ] T045 [US2] Define and register `get_project_index`, `get_selection_context`, `resolve_component`, `edit_element`, `apply_module_patch`, `insert_section`, `page_operations`, `compile_preview`, `inspect_preview`, and `commit_draft` in `packages/builder/ai/src/tools/site-tools.ts`
+- [ ] T046 [P] [US2] Add target revalidation, stop, late-result rejection, resume-without-repeat, and one-queued-request tests in `packages/builder/ai/src/agent/run-coordinator.test.ts`
+- [ ] T047 [US2] Implement `AgentDockHeader` and local export in `apps/playground/src/features/preview/components/AgentDockHeader/AgentDockHeader.tsx` and `apps/playground/src/features/preview/components/AgentDockHeader/index.ts`
+- [ ] T048 [P] [US2] Add typed compact/default/RTL stories with interaction coverage for `AgentDockHeader` in `apps/playground/src/features/preview/components/AgentDockHeader/AgentDockHeader.stories.tsx`
+- [ ] T049 [P] [US2] Document `AgentDockHeader` usage, API, accessibility, RTL, responsive, and theme constraints in `apps/playground/src/features/preview/components/AgentDockHeader/AgentDockHeader.docs.mdx`
+- [ ] T050 [P] [US2] Add behavior and accessibility tests for `AgentDockHeader` in `apps/playground/src/features/preview/components/AgentDockHeader/AgentDockHeader.test.tsx`
+- [ ] T051 [US2] Verify `AgentDockHeader` through the playground package and Assistant panel consumer in `apps/playground/package.json`
+- [ ] T052 [US2] Implement `AgentContextBar` and local export in `apps/playground/src/features/preview/components/AgentContextBar/AgentContextBar.tsx` and `apps/playground/src/features/preview/components/AgentContextBar/index.ts`
+- [ ] T053 [P] [US2] Add typed site/page/instance/shared/stale stories for `AgentContextBar` in `apps/playground/src/features/preview/components/AgentContextBar/AgentContextBar.stories.tsx`
+- [ ] T054 [P] [US2] Document `AgentContextBar` scope language and accessibility in `apps/playground/src/features/preview/components/AgentContextBar/AgentContextBar.docs.mdx`
+- [ ] T055 [P] [US2] Add scope and stale-target behavior tests for `AgentContextBar` in `apps/playground/src/features/preview/components/AgentContextBar/AgentContextBar.test.tsx`
+- [ ] T056 [US2] Verify `AgentContextBar` in the playground panel consumer through `apps/playground/package.json`
+- [ ] T057 [US2] Implement `AgentRunCard` and local export in `apps/playground/src/features/preview/components/AgentRunCard/AgentRunCard.tsx` and `apps/playground/src/features/preview/components/AgentRunCard/index.ts`
+- [ ] T058 [P] [US2] Add queued/running/stopped/failed/done stories for `AgentRunCard` in `apps/playground/src/features/preview/components/AgentRunCard/AgentRunCard.stories.tsx`
+- [ ] T059 [P] [US2] Document `AgentRunCard` summary, collapsed detail, diff, and undo behavior in `apps/playground/src/features/preview/components/AgentRunCard/AgentRunCard.docs.mdx`
+- [ ] T060 [P] [US2] Add progress, disclosure, stop, diff, and undo tests for `AgentRunCard` in `apps/playground/src/features/preview/components/AgentRunCard/AgentRunCard.test.tsx`
+- [ ] T061 [US2] Verify `AgentRunCard` in the playground run-journal consumer through `apps/playground/package.json`
+- [ ] T062 [US2] Implement `QueuedRequestCard` and local export in `apps/playground/src/features/preview/components/QueuedRequestCard/QueuedRequestCard.tsx` and `apps/playground/src/features/preview/components/QueuedRequestCard/index.ts`
+- [ ] T063 [P] [US2] Add editable/stale/missing-target stories for `QueuedRequestCard` in `apps/playground/src/features/preview/components/QueuedRequestCard/QueuedRequestCard.stories.tsx`
+- [ ] T064 [P] [US2] Document `QueuedRequestCard` capture, edit, remove, and revalidation semantics in `apps/playground/src/features/preview/components/QueuedRequestCard/QueuedRequestCard.docs.mdx`
+- [ ] T065 [P] [US2] Add queue edit, remove, and missing-target behavior tests in `apps/playground/src/features/preview/components/QueuedRequestCard/QueuedRequestCard.test.tsx`
+- [ ] T066 [US2] Verify `QueuedRequestCard` in the playground coordinator consumer through `apps/playground/package.json`
+- [ ] T067 [US2] Refactor the Assistant panel into 44px header, context row, persistent thread, 2–6-line composer, mode/model strip, empty-only suggestions, and single queue in `apps/playground/src/features/preview/components/AssistantPanel/AssistantPanel.tsx`
+- [ ] T068 [US2] Add compact-layout, panel-switch persistence, 720px conversation-share, Ask/Plan/Auto, queue, stop, reload, and RTL tests in `apps/playground/src/features/preview/components/AssistantPanel/AssistantPanel.test.tsx`
+
+---
+
+## Phase 5: User Story 3 — Exact selection and insertion (P1)
+
+**Goal**: Unify selection across all surfaces, separate text/popup/drag behavior, show exact scope and
+capabilities, and insert only at a still-valid source or document anchor.
+
+**Independent Test**: Exercise nested text selection, Escape ordering, 8px handle drag, multi-select,
+stale source identity, shared impact, and reordered insertion neighbors.
+
+- [ ] T069 [P] [US3] Implement source-aware selection reconciliation and capability intersection in `packages/builder/shell/src/selection/selection-controller.ts`
+- [ ] T070 [P] [US3] Implement source/document insertion anchor creation and revalidation in `packages/builder/shell/src/insertion/insertion-anchor.ts`
+- [ ] T071 [US3] Update frame hit testing and source metadata exchange in `packages/builder/shell/src/overlay/frame-bridge.ts`
+- [ ] T072 [US3] Enforce popup, text edit, parent, clear Escape order and handle-only 8px drag threshold in `packages/builder/shell/src/overlay/inline-session.ts` and `packages/builder/shell/src/overlay/drag-session.ts`
+- [ ] T073 [P] [US3] Add selection, multi-selection, stale identity, Escape, text popup, drag, and insertion race tests in `packages/builder/shell/src/selection/selection-controller.test.ts` and `packages/builder/shell/src/insertion/insertion-anchor.test.ts`
+- [ ] T074 [US3] Implement `SelectionToolbar` and local export in `packages/builder/shell/src/components/SelectionToolbar/SelectionToolbar.tsx` and `packages/builder/shell/src/components/SelectionToolbar/index.ts`
+- [ ] T075 [P] [US3] Add native/source/instance/multi/limited stories for `SelectionToolbar` in `packages/builder/shell/src/components/SelectionToolbar/SelectionToolbar.stories.tsx`
+- [ ] T076 [P] [US3] Document `SelectionToolbar` capabilities, keyboard behavior, RTL, and shared scope in `packages/builder/shell/src/components/SelectionToolbar/SelectionToolbar.docs.mdx`
+- [ ] T077 [P] [US3] Add target-command and accessibility tests for `SelectionToolbar` in `packages/builder/shell/src/components/SelectionToolbar/SelectionToolbar.test.tsx`
+- [ ] T078 [US3] Verify `SelectionToolbar` in shell and playground consumers through `packages/builder/shell/package.json` and `apps/playground/package.json`
+- [ ] T079 [US3] Implement `InsertionPicker` and local export in `packages/builder/shell/src/components/InsertionPicker/InsertionPicker.tsx` and `packages/builder/shell/src/components/InsertionPicker/index.ts`
+- [ ] T080 [P] [US3] Add before/after/inside/stale/generating stories for `InsertionPicker` in `packages/builder/shell/src/components/InsertionPicker/InsertionPicker.stories.tsx`
+- [ ] T081 [P] [US3] Document `InsertionPicker` modes, preview, focus, accessibility, and stale-anchor recovery in `packages/builder/shell/src/components/InsertionPicker/InsertionPicker.docs.mdx`
+- [ ] T082 [P] [US3] Add placement, stale-anchor, focus, and accessibility tests in `packages/builder/shell/src/components/InsertionPicker/InsertionPicker.test.tsx`
+- [ ] T083 [US3] Verify `InsertionPicker` in shell and playground consumers through `packages/builder/shell/package.json` and `apps/playground/package.json`
+- [ ] T084 [US3] Connect canvas, layers, inspector, breadcrumbs, toolbar, Agent, and post-insert reveal to one selection store in `apps/playground/src/features/preview/selection-store.ts`
+
+---
+
+## Phase 6: User Story 4 — Coherent multi-page site (P2)
+
+**Goal**: Give list and sitemap one page state and command set with stable internal links, atomic home,
+safe deletion, independent duplication, shared-reference impact, SEO, share data, and direction.
+
+**Independent Test**: Create three linked pages, rename, duplicate, reorder, make home, remove, clear,
+and undo while list, map, preview, and export remain coherent.
+
+- [ ] T085 [P] [US4] Implement page-id link resolution for preview and export in `packages/builder/transforms/src/site/resolve-page-links.ts`
+- [ ] T086 [P] [US4] Implement page thumbnail and shared-reference projection in `packages/builder/transforms/src/site/project-sitemap.ts`
+- [ ] T087 [P] [US4] Add link rename, duplicate independence, shared reference, home invariant, delete/clear, and undo tests in `packages/builder/core/src/commands/page-commands.test.ts`
+- [ ] T088 [US4] Implement `PageActionsMenu` and local export in `apps/playground/src/features/preview/components/PageActionsMenu/PageActionsMenu.tsx` and `apps/playground/src/features/preview/components/PageActionsMenu/index.ts`
+- [ ] T089 [P] [US4] Add normal/home/last/linked stories for `PageActionsMenu` in `apps/playground/src/features/preview/components/PageActionsMenu/PageActionsMenu.stories.tsx`
+- [ ] T090 [P] [US4] Document `PageActionsMenu` command scopes, destructive impact, keyboard, RTL, and accessibility in `apps/playground/src/features/preview/components/PageActionsMenu/PageActionsMenu.docs.mdx`
+- [ ] T091 [P] [US4] Add page-command, last-page, linked-delete, and accessibility tests in `apps/playground/src/features/preview/components/PageActionsMenu/PageActionsMenu.test.tsx`
+- [ ] T092 [US4] Verify `PageActionsMenu` in playground list/map consumers through `apps/playground/package.json`
+- [ ] T093 [US4] Implement `SiteMap` and local export in `apps/playground/src/features/preview/components/SiteMap/SiteMap.tsx` and `apps/playground/src/features/preview/components/SiteMap/index.ts`
+- [ ] T094 [P] [US4] Add empty/selected/shared-impact/RTL stories with interactions for `SiteMap` in `apps/playground/src/features/preview/components/SiteMap/SiteMap.stories.tsx`
+- [ ] T095 [P] [US4] Document `SiteMap` information hierarchy, keyboard ordering, thumbnail fallback, RTL, and responsive behavior in `apps/playground/src/features/preview/components/SiteMap/SiteMap.docs.mdx`
+- [ ] T096 [P] [US4] Add selection, reorder, shared-impact, keyboard, and accessibility tests in `apps/playground/src/features/preview/components/SiteMap/SiteMap.test.tsx`
+- [ ] T097 [US4] Verify `SiteMap` in the playground page store consumer through `apps/playground/package.json`
+- [ ] T098 [US4] Connect page list, sitemap, route settings, SEO/share fields, direction, and atomic page commands in `apps/playground/src/features/preview/page-workspace.tsx`
+
+---
+
+## Phase 7: User Story 5 — Trustworthy recovery, source editing, and revisions (P2)
+
+**Goal**: Preserve valid and invalid source, identify durable/session-only state, keep last-good preview,
+reject stale publication, and offer a capable lazily loaded code editor.
+
+**Independent Test**: Disable IndexedDB, save invalid TSX, reload, overlap builds, undo, and attempt stale
+export; no acknowledged work is lost and only matching artifacts publish.
+
+- [ ] T099 [P] [US5] Return durable/session-only/error acknowledgements from `apps/playground/src/features/vault/store.ts` and `apps/playground/src/features/vault/persistence.ts`
+- [ ] T100 [P] [US5] Persist invalid source, completed run units, last-good artifact identity, and source-download fallback in `apps/playground/src/features/vault/run-journal.ts` and `apps/playground/src/features/vault/site-persistence.ts`
+- [ ] T101 [P] [US5] Add reload, quota, session-only, invalid-source, stale-build, cancel, resume-once, and undo-artifact tests in `apps/playground/src/features/vault/recovery-v2.test.ts`
+- [ ] T102 [US5] Implement `PersistenceStatus` and local export in `apps/playground/src/features/vault/components/PersistenceStatus/PersistenceStatus.tsx` and `apps/playground/src/features/vault/components/PersistenceStatus/index.ts`
+- [ ] T103 [P] [US5] Add saving/durable/session-only/error stories for `PersistenceStatus` in `apps/playground/src/features/vault/components/PersistenceStatus/PersistenceStatus.stories.tsx`
+- [ ] T104 [P] [US5] Document `PersistenceStatus` messages, recovery action, accessibility, RTL, responsive, and theme behavior in `apps/playground/src/features/vault/components/PersistenceStatus/PersistenceStatus.docs.mdx`
+- [ ] T105 [P] [US5] Add acknowledgement, download action, live-region, and accessibility tests in `apps/playground/src/features/vault/components/PersistenceStatus/PersistenceStatus.test.tsx`
+- [ ] T106 [US5] Verify `PersistenceStatus` in vault and playground shell consumers through `apps/playground/package.json`
+- [ ] T107 [US5] Add approved CodeMirror dependencies and replace the pay-per-use textarea with a lazily loaded CodeMirror 6 editor supporting TSX, JS, CSS, JSON, search, diagnostics, completion, and diffs in `pnpm-workspace.yaml`, `packages/builder/extensions/code-view/package.json`, and `packages/builder/extensions/code-view/src/components/CodeEditor/CodeEditor.tsx`
+- [ ] T108 [US5] Export `CodeEditor` locally and through the code-view extension in `packages/builder/extensions/code-view/src/components/CodeEditor/index.ts` and `packages/builder/extensions/code-view/src/index.ts`
+- [ ] T109 [P] [US5] Add loading/valid/invalid/read-only stories and interactions for `CodeEditor` in `packages/builder/extensions/code-view/src/components/CodeEditor/CodeEditor.stories.tsx`
+- [ ] T110 [P] [US5] Document `CodeEditor` languages, diagnostics, completion, diffs, accessibility, RTL, responsive, and theme behavior in `packages/builder/extensions/code-view/src/components/CodeEditor/CodeEditor.docs.mdx`
+- [ ] T111 [P] [US5] Add edit, invalid-save, diagnostic-navigation, completion, diff, and accessibility tests in `packages/builder/extensions/code-view/src/components/CodeEditor/CodeEditor.test.tsx`
+- [ ] T112 [US5] Verify `CodeEditor` in code-view and playground consumers through `packages/builder/extensions/code-view/package.json` and `apps/playground/package.json`
+- [ ] T113 [US5] Implement `SourceImpactBar` and local export in `packages/builder/extensions/code-view/src/components/SourceImpactBar/SourceImpactBar.tsx` and `packages/builder/extensions/code-view/src/components/SourceImpactBar/index.ts`
+- [ ] T114 [P] [US5] Add local/shared/stale stories for `SourceImpactBar` in `packages/builder/extensions/code-view/src/components/SourceImpactBar/SourceImpactBar.stories.tsx`
+- [ ] T115 [P] [US5] Document `SourceImpactBar` scope, changed-impact invalidation, accessibility, RTL, responsive, and theme behavior in `packages/builder/extensions/code-view/src/components/SourceImpactBar/SourceImpactBar.docs.mdx`
+- [ ] T116 [P] [US5] Add instance/shared/stale-impact behavior tests in `packages/builder/extensions/code-view/src/components/SourceImpactBar/SourceImpactBar.test.tsx`
+- [ ] T117 [US5] Verify `SourceImpactBar` in code-view and playground consumers through `packages/builder/extensions/code-view/package.json` and `apps/playground/package.json`
+- [ ] T118 [US5] Connect selected source, diagnostics, completion catalog, diff approval, impact bar, and source navigation in `apps/playground/src/features/preview/code-workspace.tsx`
+
+---
+
+## Phase 8: User Story 6 — Fast, distinctive, measured Agent output (P2)
+
+**Goal**: Use bounded orchestration, managed React libraries, measured model routing, four cache layers,
+and a reproducible visual/function/cost evaluation before promoting defaults.
+
+**Independent Test**: Run the six-case policy screen and then the full fixed corpus for finalists;
+record every attempt and compare blind visual quality, follow-up success, latency, and accepted cost.
+
+- [ ] T119 [P] [US6] Generate pinned managed catalog manifests and React adapters from extension packages in `packages/builder/editor/src/catalog/managed-catalog.ts`
+- [ ] T120 [P] [US6] Add catalog version, CSS, license, prop, and unavailable-component contract tests in `packages/builder/editor/src/catalog/managed-catalog.test.ts`
+- [ ] T121 [US6] Implement capability probing and versioned Luna/Terra/Sol/Astra role routing with lowest-qualified selection in `apps/ai-server/src/model-policy.ts`
+- [ ] T122 [US6] Implement one coordinator, default-three/max-six scheduler, one writer per file, two technical repairs, one visual repair, and one escalation in `apps/ai-server/src/run-scheduler.ts`
+- [ ] T123 [P] [US6] Implement explicit stable-prefix prompt cache metrics and context/component caches in `apps/ai-server/src/context-cache.ts`
+- [ ] T124 [US6] Implement killable compile/prerender worker supervision, cancellation propagation, timeouts, cleanup, and late-result rejection in `apps/ai-server/src/runtime-workers.ts`
+- [ ] T125 [P] [US6] Implement usage and accepted-output-cost accounting including failures, repairs, review, escalation, cache writes/reads, and unknown values in `apps/ai-server/src/usage.ts`
+- [ ] T126 [P] [US6] Add capability, scheduler, file ownership, retry, escalation, cancellation, cache, and usage tests in `apps/ai-server/src/model-policy.test.ts`, `apps/ai-server/src/run-scheduler.test.ts`, `apps/ai-server/src/runtime-workers.test.ts`, and `apps/ai-server/src/usage.test.ts`
+- [ ] T127 [US6] Wire the real provider and progressive authored-file units through the new coordinator in `apps/ai-server/src/handler.ts`
+- [ ] T128 [P] [US6] Define the fixed 20-brief, follow-up edit, language, viewport, asset, and reproducibility corpus in `apps/evals/corpus/professional-builder/manifest.json`
+- [ ] T129 [US6] Add policy, first-authored-preview, accepted-output-cost, cache, and follow-up success recording in `apps/evals/src/harness/professional-builder.ts`
+- [ ] T130 [P] [US6] Add functional rejection and blinded three-rater visual-score aggregation in `apps/evals/src/graders/professional-builder.ts`
+- [ ] T131 [P] [US6] Add deterministic tests for denominators, repeated runs, rejection gates, and model anonymity in `apps/evals/src/graders/professional-builder.test.ts`
+- [ ] T132 [US6] Add staged six-case then finalist/full-corpus scripts and evidence schema in `apps/evals/package.json` and `apps/evals/evidence/professional-builder/README.md`
+
+---
+
+## Phase 9: Polish, verification, rollout, and handoff
+
+- [ ] T133 [P] Add cross-origin, forged/stale message, cross-project, unmanaged import, path, infinite-loop, CSP, and cleanup coverage in `apps/evals/src/security/code-runtime.test.ts`
+- [ ] T134 [P] Add Chromium, Firefox, and WebKit flows at 390/768/1024/1280/1440 with keyboard, LTR/RTL, light/dark, reduced motion, and panel geometry in `apps/evals/src/browser/professional-builder.spec.ts`
+- [ ] T135 [P] Add direct-route, refresh, indexable HTML, assets, hydration, interactions, forms-without-destination, and SEO export coverage in `apps/evals/src/export/professional-builder.test.ts`
+- [ ] T136 Add preview-origin, CSP, runtime worker, catalog release, cache invalidation, and rollback operations documentation in `docs/operations/professional-builder-runtime.md`
+- [ ] T137 Add the next architecture decision for trusted authored code and the cross-origin runtime in `docs/architecture/decisions/0007-authored-code-runtime.md`
+- [ ] T138 Update the human documentation index and feature flags in `docs/README.md` and `apps/playground/.env.example`
+- [ ] T139 Run owning-package tests and build checks for schema, core, runtime, shell, code-view, AI, playground, code-preview, ai-server, evals, and workspace-tools and record results in `specs/workspace/014-professional-builder-agent/verification.md`
+- [ ] T140 Run `pnpm check:workspace`, `pnpm check:components`, `pnpm check:boundaries`, `pnpm check:graph`, and `pnpm verify`, then rerun Turbo-backed critical tests with `--force` and record exact evidence in `specs/workspace/014-professional-builder-agent/verification.md`
+- [ ] T141 Perform an independent real-diff review against `spec.md`, `plan.md`, and `tasks.md`, recording accepted findings in `specs/workspace/014-professional-builder-agent/review.md`
+- [ ] T142 Fix all accepted review findings in their owning files and record each resolution in `specs/workspace/014-professional-builder-agent/review.md`
+- [ ] T143 Rerun affected checks after review repairs and append exact results to `specs/workspace/014-professional-builder-agent/verification.md`
+- [ ] T144 Run `speckit.converge` and append every remaining unbuilt requirement as a new checked-format task in `specs/workspace/014-professional-builder-agent/tasks.md`
+- [ ] T145 Complete any tasks appended by converge and repeat independent review plus affected verification in `specs/workspace/014-professional-builder-agent/review.md`
+- [ ] T146 Refresh shared continuation state and exact validation evidence in `.specify/agents/HANDOFF.md`
+- [ ] T147 Review the final real diff and propose a Conventional Commit message without committing in `specs/workspace/014-professional-builder-agent/verification.md`
+
+---
+
+## Dependencies and execution order
+
+- Phase 1 blocks Phase 2. Phase 2 blocks all user stories.
+- US1 is the MVP and blocks the final integration of US2, US3, US5, and US6.
+- US2 and US3 may proceed in parallel after the foundational contracts, with path-disjoint ownership.
+- US4 depends on foundational page commands but can proceed independently of Agent UI.
+- US5 depends on US1 artifact revisions; CodeMirror component artifacts can proceed in parallel.
+- US6 depends on runtime/compiler contracts and Agent tools; corpus authoring can proceed in parallel.
+- Phase 9 starts after all owning user-story checkpoints pass.
+
+## Parallel execution examples
+
+- **US1**: runtime fingerprints/cache, preview app bridge, and `CodePreviewFrame` artifacts own disjoint paths.
+- **US2**: Agent coordinator/context/tools can proceed alongside the four playground component folders.
+- **US3**: selection controller, insertion anchor, and toolbar/picker artifact folders are path-disjoint.
+- **US4**: transforms, page command tests, and `PageActionsMenu`/`SiteMap` folders are path-disjoint.
+- **US5**: vault recovery, `PersistenceStatus`, `CodeEditor`, and `SourceImpactBar` own separate paths.
+- **US6**: catalog, server orchestration, corpus, and grader work can proceed independently until wiring.
+
+## Implementation strategy
+
+1. Deliver and prove US1 as the smallest complete vertical slice behind a feature flag.
+2. Add US2 and US3 control/safety surfaces before enabling remote source mutations.
+3. Add US4 and US5 to establish multi-page correctness and trustworthy persistence.
+4. Add US6 routing and evaluation only after deterministic local tooling is stable.
+5. Promote flags only after Phase 9 evidence meets the release gates; keep v2 readers enabled during rollback.

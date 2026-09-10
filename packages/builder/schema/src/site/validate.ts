@@ -1,4 +1,5 @@
 import { validateAssetReferences } from '../assets';
+import { codePageReferenceSchema, pageLinkSchema } from '../code/types';
 import { LATEST_SCHEMA_VERSION, type BuilderDocument } from '../document/types';
 import { validateDocument } from '../document/validate';
 import { validateDesignSystem } from '../theme/validate';
@@ -42,13 +43,16 @@ export interface SiteValidationIssue {
     | 'missing-home-page'
     | 'duplicate-page-address'
     | 'duplicate-page-id'
+    | 'invalid-code-project'
+    | 'invalid-code-page'
+    | 'unresolved-page-link'
     | 'unknown-shared-region'
     | 'invalid-page-document'
     | 'page-direction-mismatch'
     | 'unresolved-asset-reference'
     | 'design-system-contrast-failure';
   message: string;
-  at?: { pageId?: PageId; regionId?: SharedRegionId };
+  at?: { pageId?: PageId; regionId?: SharedRegionId; projectId?: string; modulePath?: string };
 }
 
 /** Whole-site validation. Page validity remains owned by validateDocument(). */
@@ -78,8 +82,11 @@ export function validateSite(value: unknown): SiteValidationResult {
 
   collectDuplicatePageIssues(site.pages, 'address', 'duplicate-page-address', issues);
   collectDuplicatePageIssues(site.pages, 'id', 'duplicate-page-id', issues);
+  collectCodeProjectIssues(site, issues);
 
   for (const page of site.pages) {
+    collectCodePageIssues(site, page, issues);
+    collectPageLinkIssues(page.document, site, { pageId: page.id }, issues);
     for (const regionId of page.regions) {
       if (!Object.hasOwn(site.sharedRegions, regionId)) {
         issues.push({
@@ -110,6 +117,14 @@ export function validateSite(value: unknown): SiteValidationResult {
   }
 
   for (const region of Object.values(site.sharedRegions)) {
+    if (Object.values(region.document.nodes).some((node) => node.type === 'codePage')) {
+      issues.push({
+        code: 'invalid-code-page',
+        message: 'A shared region cannot own a code page.',
+        at: { regionId: region.id },
+      });
+    }
+    collectPageLinkIssues(region.document, site, { regionId: region.id }, issues);
     collectDocumentIssues(
       region.document,
       `Shared region "${region.id}"`,
@@ -160,6 +175,91 @@ export function validateSite(value: unknown): SiteValidationResult {
   }
 
   return issues.length === 0 ? { ok: true, site } : { ok: false, issues };
+}
+
+function collectCodeProjectIssues(site: BuilderSite, issues: SiteValidationIssue[]): void {
+  const pageIds = new Set(site.pages.map((page) => page.id));
+  for (const [projectId, project] of Object.entries(site.codeProjects ?? {})) {
+    for (const modulePath of Object.keys(project.files)) {
+      const segments = modulePath.split('/');
+      if (
+        (segments[0] === 'shared' && segments.length >= 2) ||
+        (segments[0] === 'pages' && segments.length >= 3 && pageIds.has(segments[1] ?? ''))
+      )
+        continue;
+      issues.push({
+        code: 'invalid-code-project',
+        message: 'A module must belong to shared/ or pages/<existing page id>/.',
+        at: { projectId, modulePath },
+      });
+    }
+  }
+}
+
+function collectCodePageIssues(
+  site: BuilderSite,
+  page: SitePage,
+  issues: SiteValidationIssue[],
+): void {
+  const codeNodes = Object.values(page.document.nodes).filter((node) => node.type === 'codePage');
+  if (codeNodes.length === 0) return;
+  const root = page.document.nodes[page.document.rootId];
+  const reference = codePageReferenceSchema.safeParse(root?.props);
+  const validRoot =
+    root?.type === 'codePage' &&
+    Object.keys(page.document.nodes).length === 1 &&
+    Object.keys(root.slots ?? {}).length === 0 &&
+    page.regions.length === 0;
+  if (!validRoot || !reference.success) {
+    issues.push({
+      code: 'invalid-code-page',
+      message:
+        'A code page requires one codePage root, valid reference props, no slots, and no shared regions.',
+      at: { pageId: page.id },
+    });
+    return;
+  }
+  const { projectId, entry } = reference.data;
+  const project = site.codeProjects?.[projectId];
+  if (!project || !Object.hasOwn(project.files, entry) || !entry.startsWith(`pages/${page.id}/`)) {
+    issues.push({
+      code: 'invalid-code-page',
+      message: 'A code page must reference an existing project and its own private entry module.',
+      at: { pageId: page.id, projectId, modulePath: entry },
+    });
+  }
+}
+
+function collectPageLinkIssues(
+  document: BuilderDocument,
+  site: BuilderSite,
+  at: NonNullable<SiteValidationIssue['at']>,
+  issues: SiteValidationIssue[],
+): void {
+  const ids = new Set(site.pages.map((page) => page.id));
+  function visit(value: unknown): void {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!isRecord(value)) return;
+    if (value['kind'] === 'page' && Object.hasOwn(value, 'pageId')) {
+      const link = pageLinkSchema.safeParse(value);
+      if (!link.success || !ids.has(link.data.pageId)) {
+        issues.push({
+          code: 'unresolved-page-link',
+          message: 'An internal page link must reference an existing page.',
+          at,
+        });
+      }
+      return;
+    }
+    Object.values(value).forEach(visit);
+  }
+  for (const node of Object.values(document.nodes)) {
+    visit(node.props);
+    visit(node.responsive);
+  }
 }
 
 function collectDocumentIssues(
@@ -228,7 +328,12 @@ function shapeIssues(
       (path[0] === 'sharedRegions' && path[2] === 'document');
 
     return {
-      code: isNestedDocument ? 'invalid-page-document' : 'malformed-site',
+      code:
+        path[0] === 'codeProjects'
+          ? 'invalid-code-project'
+          : isNestedDocument
+            ? 'invalid-page-document'
+            : 'malformed-site',
       message: `Site shape is invalid${path.length === 0 ? '' : ` at ${path.join('.')}`}: ${issue.message}`,
       ...(at === undefined ? {} : { at }),
     };

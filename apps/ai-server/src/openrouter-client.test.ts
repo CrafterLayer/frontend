@@ -107,6 +107,7 @@ function planStream(): string {
         usage: {
           prompt_tokens: 1_200,
           completion_tokens: 40,
+          cost: 0.004,
           prompt_tokens_details: { cached_tokens: 1_000, cache_write_tokens: 100 },
         },
       },
@@ -175,7 +176,9 @@ describe('openrouter request', () => {
     const fetch = fetchAnswering(() => streamResponse(planStream()));
     const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
 
-    await client.messages.stream(REQUEST as never).finalMessage();
+    await client.messages
+      .stream({ ...REQUEST, model: 'anthropic/claude-sonnet-5' } as never)
+      .finalMessage();
 
     const messages = sentBody(fetch)['messages'] as {
       role: string;
@@ -218,7 +221,7 @@ describe('openrouter request', () => {
     expect(system.at(-1)?.text).toContain(JSON.stringify(SCHEMA));
   });
 
-  it('sends reasoning effort only when configured, and strict response_format for any model when forced', async () => {
+  it('sends configured or per-role reasoning effort and strict response_format when forced', async () => {
     const plain = fetchAnswering(() => streamResponse(planStream()));
     await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch: plain })
       .messages.stream(REQUEST as never)
@@ -241,6 +244,25 @@ describe('openrouter request', () => {
       type: 'json_schema',
       json_schema: { name: 'craftkit_plan', strict: true, schema: SCHEMA },
     });
+
+    const routed = fetchAnswering(() => streamResponse(planStream()));
+    await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch: routed, effort: 'high' })
+      .messages.stream(REQUEST as never, {
+        headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
+      })
+      .finalMessage();
+    expect(sentBody(routed)['reasoning']).toEqual({ effort: 'low' });
+  });
+
+  it('keeps GPT prefixes stable without sending an Anthropic-only cache TTL', async () => {
+    const fetch = fetchAnswering(() => streamResponse(planStream()));
+    await createOpenRouterClient({ apiKey: 'k', model: 'openai/gpt-model', fetch })
+      .messages.stream(REQUEST as never)
+      .finalMessage();
+
+    const system = (sentBody(fetch)['messages'] as { content: Record<string, unknown>[] }[])[0]
+      ?.content;
+    expect(system?.some((block) => 'cache_control' in block)).toBe(false);
   });
 });
 
@@ -257,7 +279,8 @@ describe('openrouter model facts', () => {
     data: [
       {
         id: 'anthropic/claude-sonnet-5',
-        supported_parameters: ['response_format', 'structured_outputs', 'reasoning'],
+        supported_parameters: ['response_format', 'structured_outputs', 'reasoning', 'tools'],
+        architecture: { input_modalities: ['text', 'image'] },
         top_provider: { max_completion_tokens: 128_000 },
         pricing: { prompt: '0.000002', completion: '0.00001' },
       },
@@ -284,6 +307,8 @@ describe('openrouter model facts', () => {
     expect(facts.get('anthropic/claude-sonnet-5')).toEqual({
       listed: true,
       structuredOutputs: true,
+      supportedParameters: ['response_format', 'structured_outputs', 'reasoning', 'tools'],
+      inputModalities: ['text', 'image'],
       maxOutputTokens: 128_000,
       promptPerMillion: 2,
       completionPerMillion: 10,
@@ -291,6 +316,8 @@ describe('openrouter model facts', () => {
     expect(facts.get('some/small-model:free')).toMatchObject({
       listed: true,
       structuredOutputs: false,
+      supportedParameters: ['reasoning'],
+      inputModalities: [],
       maxOutputTokens: 8_192,
     });
     expect(facts.get('gone/model:free')).toMatchObject({ listed: false, structuredOutputs: false });
@@ -309,7 +336,17 @@ describe('openrouter model facts', () => {
     facts: Partial<OpenRouterModelFacts>,
   ): ReadonlyMap<string, OpenRouterModelFacts> {
     return new Map([
-      [slug, { listed: true, structuredOutputs: false, maxOutputTokens: undefined, ...facts }],
+      [
+        slug,
+        {
+          listed: true,
+          structuredOutputs: false,
+          supportedParameters: [],
+          inputModalities: [],
+          maxOutputTokens: undefined,
+          ...facts,
+        },
+      ],
     ]);
   }
 
@@ -421,6 +458,7 @@ describe('openrouter answer', () => {
       output_tokens: 40,
       cache_read_input_tokens: 1_000,
       cache_creation_input_tokens: 100,
+      cost_usd: 0.004,
     });
   });
 

@@ -4,6 +4,7 @@
 export {
   type JsonValue,
   type JsonObject,
+  type JsonRecord,
   type JsonViolation,
   type JsonViolationKind,
   MAX_JSON_DEPTH,
@@ -420,3 +421,7 @@ export {
   type UtilityRejection,
   type UtilityRejectionCode,
 } from './blocks/utility-classes';
+export * from './code';
+export * from './editing';
+export * from './runtime';
+export * from './agent';

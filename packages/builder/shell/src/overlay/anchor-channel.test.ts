@@ -25,6 +25,7 @@ function harness() {
     frameBox: () => ({ ...frame }),
     hostViewport: () => ({ width: 1440, height: 900 }),
     visibleArea: () => ({ width: frame.width, height: frame.height }),
+    scale: () => 1,
   } as unknown as FrameBridge;
 
   const queue: (() => void)[] = [];
@@ -70,6 +71,7 @@ describe('createAnchorChannel (009 §2/§7)', () => {
       frame: { x: 200, y: 100, width: 800, height: 600 },
       viewport: { width: 1440, height: 900 },
       visible: { width: 800, height: 600 },
+      scale: 1,
     });
   });
 

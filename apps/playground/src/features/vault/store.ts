@@ -7,15 +7,59 @@
   fake-indexeddb in this repo, and none is wanted).
 */
 
+import type { PersistenceAck } from '@craftkit/builder';
+
 export interface VaultStore {
   get<T>(key: string): Promise<T | undefined>;
-  set(key: string, value: unknown): Promise<void>;
-  remove(key: string): Promise<void>;
+  set(
+    key: string,
+    value: unknown,
+    sequence?: number,
+    options?: VaultWriteOptions,
+  ): Promise<PersistenceAck | undefined>;
+  remove(key: string, sequence?: number): Promise<PersistenceAck | undefined>;
   keys(prefix: string): Promise<readonly string[]>;
+  /** Current storage tier, after any connection or write fallback has been observed. */
+  persistence?(sequence?: number): PersistenceAck;
+  /** Forget a failed connection so the next write can attempt durable storage again. */
+  retryPersistence?(): void;
+}
+
+export interface VaultWriteOptions {
+  /** Completed run checkpoints disable fallback so a memory copy cannot claim durable completion. */
+  readonly allowSessionFallback?: boolean | undefined;
 }
 
 const DEFAULT_DATABASE_NAME = 'craftkit-vault';
 const OBJECT_STORE = 'entries';
+const MEMORY_ONLY_REASON =
+  'Persistent storage is unavailable. This session keeps its work in memory only.';
+
+function sessionOnly(sequence: number, reason = MEMORY_ONLY_REASON): PersistenceAck {
+  return { kind: 'session-only', sequence, reason };
+}
+
+function failed(sequence: number, error: unknown, recoverable: boolean): PersistenceAck {
+  return {
+    kind: 'failed',
+    sequence,
+    reason: reasonOf(error),
+    recoverable,
+  };
+}
+
+/** Normalize legacy/test ports that predate explicit storage acknowledgements. */
+export function vaultWriteAcknowledgement(
+  store: VaultStore,
+  acknowledgement: PersistenceAck | undefined,
+  sequence: number,
+): PersistenceAck {
+  return (
+    acknowledgement ??
+    store.persistence?.(sequence) ??
+    sessionOnly(sequence, 'This storage port did not provide durable acknowledgement.')
+  );
+}
 
 /**
  * The in-memory reference: the same contract over a `Map`, used by every test
@@ -34,13 +78,18 @@ export function createMemoryVaultStore(): VaultStore {
       }
       return Promise.resolve(structuredClone(entries.get(key)) as T);
     },
-    set(key, value) {
-      entries.set(key, structuredClone(value));
-      return Promise.resolve();
+    set(key, value, sequence = 0, options = {}) {
+      if (options.allowSessionFallback === false) return Promise.resolve(sessionOnly(sequence));
+      try {
+        entries.set(key, structuredClone(value));
+        return Promise.resolve(sessionOnly(sequence));
+      } catch (error) {
+        return Promise.resolve(failed(sequence, error, false));
+      }
     },
-    remove(key) {
+    remove(key, sequence = 0) {
       entries.delete(key);
-      return Promise.resolve();
+      return Promise.resolve(sessionOnly(sequence));
     },
     keys(prefix) {
       return Promise.resolve(
@@ -48,6 +97,9 @@ export function createMemoryVaultStore(): VaultStore {
           .filter((key) => key.startsWith(prefix))
           .sort((a, b) => a.localeCompare(b)),
       );
+    },
+    persistence(sequence = 0) {
+      return sessionOnly(sequence);
     },
   };
   return store;
@@ -65,8 +117,10 @@ export function createIndexedDbVaultStore(
 ): VaultStore {
   const fallback = createMemoryVaultStore();
   let warned = false;
+  let fallbackReason: string | undefined;
 
   const warnOnce = (reason: string): void => {
+    fallbackReason ??= reason;
     if (warned) {
       return;
     }
@@ -93,43 +147,70 @@ export function createIndexedDbVaultStore(
 
   const store: VaultStore = {
     async get<T>(key: string): Promise<T | undefined> {
+      if (fallbackReason !== undefined) return fallback.get<T>(key);
       const db = await connect();
       if (db === undefined) {
         return fallback.get<T>(key);
       }
       try {
         const value = await request<unknown>(db, 'readonly', (objects) => objects.get(key));
+        if (value !== undefined) await fallback.set(key, value);
         return value as T | undefined;
       } catch (error) {
         warnOnce(reasonOf(error));
         return fallback.get<T>(key);
       }
     },
-    async set(key, value) {
+    async set(key, value, sequence = 0, options = {}) {
       const db = await connect();
       if (db === undefined) {
-        return fallback.set(key, value);
+        if (options.allowSessionFallback === false) {
+          return sessionOnly(sequence, fallbackReason);
+        }
+        const acknowledgement = await fallback.set(key, value, sequence);
+        return acknowledgement?.kind === 'failed'
+          ? acknowledgement
+          : sessionOnly(sequence, fallbackReason);
       }
       try {
         await request<IDBValidKey>(db, 'readwrite', (objects) => objects.put(value, key));
+        await fallback.set(key, value, sequence);
+        fallbackReason = undefined;
+        return { kind: 'durable', sequence };
       } catch (error) {
         warnOnce(reasonOf(error));
-        await fallback.set(key, value);
+        if (options.allowSessionFallback === false) {
+          return sessionOnly(sequence, reasonOf(error));
+        }
+        const acknowledgement = await fallback.set(key, value, sequence);
+        return acknowledgement?.kind === 'failed'
+          ? acknowledgement
+          : sessionOnly(sequence, reasonOf(error));
       }
     },
-    async remove(key) {
+    async remove(key, sequence = 0) {
       const db = await connect();
       if (db === undefined) {
-        return fallback.remove(key);
+        const acknowledgement = await fallback.remove(key, sequence);
+        return acknowledgement?.kind === 'failed'
+          ? acknowledgement
+          : sessionOnly(sequence, fallbackReason);
       }
       try {
         await request<undefined>(db, 'readwrite', (objects) => objects.delete(key));
+        await fallback.remove(key, sequence);
+        fallbackReason = undefined;
+        return { kind: 'durable', sequence };
       } catch (error) {
         warnOnce(reasonOf(error));
-        await fallback.remove(key);
+        const acknowledgement = await fallback.remove(key, sequence);
+        return acknowledgement?.kind === 'failed'
+          ? acknowledgement
+          : sessionOnly(sequence, reasonOf(error));
       }
     },
     async keys(prefix) {
+      if (fallbackReason !== undefined) return fallback.keys(prefix);
       const db = await connect();
       if (db === undefined) {
         return fallback.keys(prefix);
@@ -144,6 +225,15 @@ export function createIndexedDbVaultStore(
         warnOnce(reasonOf(error));
         return fallback.keys(prefix);
       }
+    },
+    persistence(sequence = 0) {
+      return fallbackReason === undefined
+        ? { kind: 'durable', sequence }
+        : sessionOnly(sequence, fallbackReason);
+    },
+    retryPersistence() {
+      connecting = undefined;
+      fallbackReason = undefined;
     },
   };
   return store;
@@ -189,11 +279,24 @@ function request<T>(
   return new Promise<T>((resolve, reject) => {
     const transaction = db.transaction(OBJECT_STORE, mode);
     const pending = run(transaction.objectStore(OBJECT_STORE));
+    let requestSucceeded = false;
+    let result: T;
     pending.onsuccess = () => {
-      resolve(pending.result);
+      result = pending.result;
+      requestSucceeded = true;
     };
     pending.onerror = () => {
       reject(pending.error ?? new Error('the storage request failed'));
+    };
+    transaction.oncomplete = () => {
+      if (!requestSucceeded) {
+        reject(new Error('the storage transaction completed before its request succeeded'));
+        return;
+      }
+      resolve(result);
+    };
+    transaction.onerror = () => {
+      reject(transaction.error ?? new Error('the storage transaction failed'));
     };
     transaction.onabort = () => {
       reject(transaction.error ?? new Error('the storage transaction was aborted'));

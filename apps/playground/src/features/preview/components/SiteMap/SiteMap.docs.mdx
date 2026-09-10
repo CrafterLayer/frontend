@@ -1,0 +1,32 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as Stories from './SiteMap.stories';
+
+<Meta of={Stories} />
+
+# SiteMap
+
+`SiteMap` turns the ordered page projection into scannable cards with thumbnails, titles, routes,
+home identity, and shared-source relationships. It receives state and commands from the page
+workspace, so switching between the list and map cannot create a second page model.
+
+<Canvas of={Stories.Selected} />
+<Canvas of={Stories.SharedImpact} />
+<Controls />
+
+## Information hierarchy
+
+The thumbnail and page identity lead. Route and Home status sit with the title. Shared regions and
+shared code modules appear below, including their count, before reorder and action controls. When no
+captured thumbnail or page asset exists, the card shows deterministic initials and exposes a useful
+alternative label instead of a broken image.
+
+## Keyboard, RTL, and responsive behavior
+
+Each page has one named Open button and explicit Move before/after buttons. Native tab order follows
+the current site order; disabled controls mark the first and last boundaries. `aria-current="page"`
+identifies selection without relying on color. Logical properties mirror the layout in RTL while
+route strings retain their own readable content. The grid collapses to one column below 480px and
+long names and routes truncate without widening the panel.
+
+The component uses editor theme tokens in light and dark modes. It adds no essential motion, and its
+focus rings remain visible when reduced motion is requested.

@@ -6,6 +6,7 @@ import type { BuilderDocument, ContentDirection } from '../document/types';
 import type { JsonValue } from '../json/json-value';
 import { LATEST_SITE_VERSION, type BuilderSite, type SitePage } from './types';
 import { type SiteValidationIssue, validateSite } from './validate';
+import { codeProjectSchema, modulePathSchema, type CodeProject } from '../code/types';
 
 function document(
   dir: ContentDirection = 'ltr',
@@ -47,6 +48,113 @@ function issuesOf(value: unknown): readonly SiteValidationIssue[] {
   const result = validateSite(value);
   return result.ok ? [] : result.issues;
 }
+
+function authoredSite(): BuilderSite {
+  const project: CodeProject = {
+    formatVersion: 1,
+    runtimeProfile: 'craftkit-react-v1',
+    revision: 'revision-1',
+    dependencyLock: { catalogVersion: 'catalog-1', packages: { react: '19.2.4' } },
+    files: {
+      'pages/home/index.tsx': {
+        language: 'tsx',
+        source: 'invalid source is still recoverable text {',
+      },
+    },
+  };
+  const home = page('home', '/');
+  home.document.nodes['root'] = {
+    id: 'root',
+    type: 'codePage',
+    props: {
+      projectId: 'project',
+      entry: 'pages/home/index.tsx',
+      exportName: 'default',
+      inputs: { label: 'مرحبا' },
+    },
+  };
+  return { ...validSite(), pages: [home], codeProjects: { project } };
+}
+
+describe('authored site format v2', () => {
+  it('round-trips invalid source text without claiming compilability', () => {
+    const site = authoredSite();
+    expect(validateSite(site).ok).toBe(true);
+    const restored: unknown = JSON.parse(JSON.stringify(site));
+    const validation = validateSite(restored);
+    expect(validation).toEqual({ ok: true, site });
+  });
+
+  it.each([
+    '/pages/home/a.tsx',
+    'pages//home/a.tsx',
+    'pages/home/../a.tsx',
+    'pages\\home\\a.tsx',
+    './shared/a.tsx',
+    'shared/__proto__/a.tsx',
+  ])('refuses unsafe or ambiguous module path %s', (path) => {
+    expect(modulePathSchema.safeParse(path).success).toBe(false);
+  });
+
+  it('refuses unmanaged dependency ranges and future code formats', () => {
+    const project = authoredSite().codeProjects?.['project'];
+    expect(
+      codeProjectSchema.safeParse({
+        ...project,
+        dependencyLock: { catalogVersion: 'c', packages: { react: '^19.2.4' } },
+      }).success,
+    ).toBe(false);
+    expect(codeProjectSchema.safeParse({ ...project, formatVersion: 2 }).success).toBe(false);
+  });
+
+  it('refuses missing projects, missing/private entries and orphan module ownership', () => {
+    const site = authoredSite();
+    expect(issuesOf({ ...site, codeProjects: {} }).map((issue) => issue.code)).toContain(
+      'invalid-code-page',
+    );
+    const project = site.codeProjects?.['project'];
+    expect(
+      issuesOf({ ...site, codeProjects: { project: { ...project, files: {} } } }).map(
+        (issue) => issue.code,
+      ),
+    ).toContain('invalid-code-page');
+    expect(
+      issuesOf({
+        ...site,
+        codeProjects: {
+          project: {
+            ...project,
+            files: {
+              ...project?.files,
+              'pages/deleted/index.tsx': { language: 'tsx', source: '' },
+            },
+          },
+        },
+      }).map((issue) => issue.code),
+    ).toContain('invalid-code-project');
+  });
+
+  it('refuses mixed codePage documents and duplicate shared layout rendering', () => {
+    const site = authoredSite();
+    const home = site.pages[0];
+    if (!home) throw new Error('fixture page absent');
+    home.document.nodes['other'] = { id: 'other', type: 'page', props: {} };
+    expect(issuesOf(site).map((issue) => issue.code)).toContain('invalid-code-page');
+    const regionSite = authoredSite();
+    const first = regionSite.pages[0];
+    if (!first) throw new Error('fixture page absent');
+    first.regions = ['header'];
+    expect(issuesOf(regionSite).map((issue) => issue.code)).toContain('invalid-code-page');
+  });
+
+  it('requires resolvable stable page links', () => {
+    const site = validSite();
+    const home = site.pages[0];
+    if (!home) throw new Error('fixture page absent');
+    home.document.nodes['root']!.props['link'] = { kind: 'page', pageId: 'missing' };
+    expect(issuesOf(site).map((issue) => issue.code)).toContain('unresolved-page-link');
+  });
+});
 
 describe('validateSite', () => {
   it('accepts a valid site with zero issues', () => {

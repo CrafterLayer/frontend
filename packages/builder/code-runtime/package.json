@@ -1,0 +1,37 @@
+{
+  "name": "@craftkit/builder-code-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./compiler": "./src/compiler.ts",
+    "./browser": "./src/browser.ts",
+    "./export": "./src/export.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage"
+  },
+  "dependencies": {
+    "@craftkit/builder-schema": "workspace:*",
+    "esbuild": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  },
+  "devDependencies": {
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/test-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "jsdom": "catalog:",
+    "vitest": "catalog:"
+  },
+  "files": [
+    "src"
+  ]
+}

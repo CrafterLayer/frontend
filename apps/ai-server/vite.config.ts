@@ -15,14 +15,18 @@ import { defineConfig } from 'vite';
  */
 export default defineConfig({
   build: {
-    ssr: 'src/main.ts',
+    ssr: true,
     target: 'node24',
     outDir: 'dist',
     emptyOutDir: true,
     minify: false,
     sourcemap: true,
     rollupOptions: {
-      output: { entryFileNames: 'main.js' },
+      input: {
+        main: 'src/main.ts',
+        'runtime-worker-entry': 'src/runtime-worker-entry.ts',
+      },
+      output: { entryFileNames: '[name].js' },
     },
   },
   ssr: {
@@ -33,6 +37,6 @@ export default defineConfig({
       Node's builtins external where they belong.
     */
     noExternal: [/^@craftkit\//],
-    external: ['@anthropic-ai/sdk'],
+    external: ['@anthropic-ai/sdk', 'esbuild', 'playwright'],
   },
 });

@@ -35,6 +35,9 @@ export type BuilderErrorCode =
   */
   | 'site/structural-violation'
   | 'site/invalid-patch'
+  | 'code/revision-conflict'
+  | 'code/file-conflict'
+  | 'code/merge-invalid'
   | 'ext/cycle'
   | 'ext/duplicate'
   | 'ext/missing-dependency'

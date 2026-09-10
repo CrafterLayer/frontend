@@ -17,7 +17,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
-    "@craftkit/builder": "workspace:*"
+    "@craftkit/builder": "workspace:*",
+    "esbuild": "catalog:",
+    "playwright": "catalog:"
   },
   "devDependencies": {
     "@craftkit/eslint-config": "workspace:*",

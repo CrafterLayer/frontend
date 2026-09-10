@@ -13,6 +13,10 @@
     ".": "./src/index.ts",
     "./wire": "./src/wire.ts",
     "./headless": "./src/headless.ts",
+    "./code-runtime": "./src/code-runtime.ts",
+    "./code-runtime/browser": "./src/code-runtime.browser.ts",
+    "./code-runtime/compiler": "./src/code-runtime.compiler.ts",
+    "./code-runtime/export": "./src/code-runtime.export.ts",
     "./testing": "./src/testing.ts",
     "./css": {
       "types": "./src/chrome.css.d.ts",
@@ -38,6 +42,7 @@
     "@craftkit/builder-ai": "workspace:*",
     "@craftkit/builder-blocks-marketing": "workspace:*",
     "@craftkit/builder-code-view": "workspace:*",
+    "@craftkit/builder-code-runtime": "workspace:*",
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-custom-code": "workspace:*",
     "@craftkit/builder-magicui": "workspace:*",
@@ -51,7 +56,10 @@
     "@craftkit/builder-shell": "workspace:*",
     "@craftkit/builder-theme": "workspace:*",
     "@craftkit/builder-transforms": "workspace:*",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "esbuild": "catalog:",
+    "tailwindcss": "catalog:",
+    "lucide-react": "catalog:"
   },
   "peerDependencies": {
     "react": "catalog:",

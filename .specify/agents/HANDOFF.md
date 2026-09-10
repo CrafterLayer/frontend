@@ -1,5 +1,33 @@
 # Active Work Handoff
 
+## Current implementation — 2026-09-10
+
+Active feature: `specs/workspace/014-professional-builder-agent/`. The user's full professional
+Builder/Agent plan is approved for implementation. Dashboard and generated-site backend remain
+deferred. Scope includes schema/core, runtime, shell/editor, AI, ai-server, code-preview and Vault.
+
+Implementation is in progress. Schema/core v2 CAS commands, isolated runtime contracts/compiler,
+preview frame, Agent chat components, page workspace and selection/insertion contracts have focused
+test evidence. Root is integrating actual ordinary React bundles, preview, AST text edits and ZIP
+export in Playground. The old vertical-slice fixture uses stub React/prerender ports: it is a
+contract test, not proof of actual browser hydration or independent export. M0 is not accepted yet.
+
+Check live worker ownership before editing. Current bounded areas: ai_server_runtime owns
+`apps/ai-server/**` and code-preview Vite artifact proxy; page_sitemap finished page UI and is
+working on `apps/playground/src/features/vault/**`; selection_insertion owns selection/insertion,
+EditorCanvas handle dragging and zoom. Root owns App, facade/catalog, CodePreviewFrame and shell layout.
+
+Next: complete runtime endpoints and actual isolated prerender; integrate persistence acknowledgement;
+finish lazy CodeMirror/source workspace and source-aware Agent; run actual browser create/edit/undo/
+reload/export, then workspace checks/review/converge. Feature 014 task ledger must be reconciled with
+evidence, not feature 013 task counts. Current React bundle is pinned to installed 19.2.8. Dependency
+installation completed with pnpm 11; use package-local test binaries to avoid automatic relinking.
+
+Local unit tests are not CI, live-provider evaluation or production evidence. Shared local preview
+origin is not project-specific production isolation. No commits, pushes or deployment authorized.
+
+## Historical handoff — feature 013 (superseded for active work)
+
 **Status:** Feature 013 — the AI full-site design agent — is delivered except for three blocks that
 this session cannot finish itself (see **What is NOT done**). 316 of 337 tasks are closed. No
 commit, push, deploy, dependency installation, or external mutation was performed or authorized.

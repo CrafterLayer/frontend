@@ -1,0 +1,6 @@
+{
+  "extends": "@craftkit/typescript-config/react-library.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["dist", "coverage"]
+}

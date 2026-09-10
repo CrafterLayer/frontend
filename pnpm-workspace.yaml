@@ -43,7 +43,17 @@ catalog:
   '@vitest/browser-playwright': 4.1.11
   '@vitest/coverage-v8': 4.1.11
   clsx: 2.1.1
+  codemirror: 6.0.2
+  '@codemirror/state': 6.7.1
+  '@codemirror/view': 6.43.11
+  '@codemirror/lang-javascript': 6.2.5
+  '@codemirror/lang-css': 6.3.1
+  '@codemirror/lang-json': 6.0.2
+  '@codemirror/autocomplete': 6.20.3
+  '@codemirror/lint': 6.9.7
+  '@codemirror/merge': 6.12.2
   eslint: 10.9.0
+  esbuild: 0.28.2
   eslint-config-prettier: 10.1.8
   eslint-plugin-react-hooks: 7.1.1
   eslint-plugin-react-refresh: 0.5.4
@@ -53,6 +63,7 @@ catalog:
   immer: 11.1.18
   jsdom: 30.0.1
   lucide: 1.38.0
+  lucide-react: 1.43.0
   motion: 13.1.1
   nanoid: 6.0.1
   playwright: 1.62.1

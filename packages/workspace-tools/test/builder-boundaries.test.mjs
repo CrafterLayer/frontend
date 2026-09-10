@@ -11,6 +11,70 @@ function builderCodes(result) {
     .sort();
 }
 
+test('accepts code runtime at layer 2 and rejects sideways engine dependencies', async (t) => {
+  const fixture = await createRepositoryFixture(t);
+  await fixture.writeJson(
+    'packages/builder/schema/package.json',
+    packageManifest('@craftkit/builder-schema'),
+  );
+  await fixture.writeJson(
+    'packages/builder/code-runtime/package.json',
+    packageManifest('@craftkit/builder-code-runtime', {
+      dependencies: { '@craftkit/builder-schema': 'workspace:*' },
+    }),
+  );
+  assert.deepEqual(builderCodes(await validateWorkspace(fixture.repositoryRoot)), []);
+  await fixture.writeJson(
+    'packages/builder/renderer/package.json',
+    packageManifest('@craftkit/builder-renderer'),
+  );
+  await fixture.writeJson(
+    'packages/builder/code-runtime/package.json',
+    packageManifest('@craftkit/builder-code-runtime', {
+      dependencies: { '@craftkit/builder-renderer': 'workspace:*' },
+    }),
+  );
+  assert.deepEqual(builderCodes(await validateWorkspace(fixture.repositoryRoot)), [
+    'BUILDER_LAYER_VIOLATION',
+  ]);
+});
+
+test('rejects transitive compiler imports from the browser runtime entrypoint', async (t) => {
+  const fixture = await createRepositoryFixture(t);
+  await fixture.writeJson(
+    'packages/builder/code-runtime/package.json',
+    packageManifest('@craftkit/builder-code-runtime'),
+  );
+  await fixture.writeText(
+    'packages/builder/code-runtime/src/browser.ts',
+    "export { compile } from './browser/bridge';\n",
+  );
+  await fixture.writeText(
+    'packages/builder/code-runtime/src/browser/bridge.ts',
+    "import { build } from 'esbuild'; export const compile = build;\n",
+  );
+  assert.deepEqual(builderCodes(await validateWorkspace(fixture.repositoryRoot)), [
+    'BUILDER_RUNTIME_ENTRYPOINT',
+  ]);
+});
+
+test('accepts physically separate browser and compiler graphs', async (t) => {
+  const fixture = await createRepositoryFixture(t);
+  await fixture.writeJson(
+    'packages/builder/code-runtime/package.json',
+    packageManifest('@craftkit/builder-code-runtime'),
+  );
+  await fixture.writeText(
+    'packages/builder/code-runtime/src/browser.ts',
+    'export const protocolVersion = 1;\n',
+  );
+  await fixture.writeText(
+    'packages/builder/code-runtime/src/compiler.ts',
+    "export { build } from 'esbuild';\n",
+  );
+  assert.deepEqual(builderCodes(await validateWorkspace(fixture.repositoryRoot)), []);
+});
+
 test('accepts downward builder dependencies and tooling devDependencies', async (t) => {
   const fixture = await createRepositoryFixture(t);
   await fixture.writeJson(

@@ -23,13 +23,28 @@
   the store port, which is why the whole vault is testable without a browser.
 */
 
-export { createIndexedDbVaultStore, createMemoryVaultStore, type VaultStore } from './store';
+export {
+  createIndexedDbVaultStore,
+  createMemoryVaultStore,
+  vaultWriteAcknowledgement,
+  type VaultStore,
+  type VaultWriteOptions,
+} from './store';
 export {
   createVaultPersistence,
   sessionKey,
   type VaultPersistenceAdapter,
   type VaultPersistenceOptions,
 } from './persistence';
+export {
+  createVaultSitePersistence,
+  createSiteSourceDownload,
+  siteSessionKey,
+  type SiteArtifactMetadata,
+  type SiteSourceDownload,
+  type VaultSitePersistenceAdapter,
+  type VaultSitePersistenceOptions,
+} from './site-persistence';
 export {
   commitKept,
   keepSucceeded,
@@ -57,6 +72,11 @@ export {
   type RunUnitStatus,
   type StartRunOptions,
 } from './run-journal';
+export {
+  createSourceRunJournal,
+  type SourceRunJournal,
+  type SourceRunJournalOptions,
+} from './source-run-journal';
 export {
   commitDraft,
   type CommitDraftOptions,
@@ -93,9 +113,16 @@ export {
 export { restoreDocument, type RestoreOptions, type RestoreOutcome } from './restore';
 export { undoGeneration, undoSection, type SectionUndoOutcome } from './undo-generation';
 export {
+  VAULT_DURABLE,
   useVaultKernel,
   vaultDocId,
   type UseVaultKernelOptions,
   type VaultKernelState,
   type VaultSaveState,
+  type VaultSession,
 } from './use-vault';
+export {
+  PersistenceStatus,
+  type PersistenceStatusProps,
+  type PersistenceStatusValue,
+} from './components/PersistenceStatus';

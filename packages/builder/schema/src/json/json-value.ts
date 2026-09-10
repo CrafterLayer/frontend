@@ -7,6 +7,8 @@ export type JsonValue =
   string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type JsonObject = Record<string, JsonValue>;
+/** Record spelling used by authored-code and runtime contracts. */
+export type JsonRecord = JsonObject;
 
 /** Law J's maximum depth for each stored JSON value. */
 export const MAX_JSON_DEPTH = 128;

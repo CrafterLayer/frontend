@@ -80,6 +80,8 @@ export interface FloatingInput {
    */
   visible?: { width: number; height: number };
   dir: 'ltr' | 'rtl';
+  /** Host pixels per one layer-local pixel. Defaults to 1. */
+  scale?: number;
   /**
    * Preferred side. `above` suits a selection bubble (never cover what is
    * being formatted); `below` suits the block action bar — the selection
@@ -119,6 +121,8 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
   const padding = input.padding ?? 4;
   const arrowSize = input.arrowSize ?? 0;
   const { size, frame, viewport, dir } = input;
+  const scale =
+    input.scale !== undefined && Number.isFinite(input.scale) && input.scale > 0 ? input.scale : 1;
   const anchor = asAnchor(input.anchor);
   const union = anchor.box;
   const rects = usableRects(anchor);
@@ -136,8 +140,8 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
   // offset plus the anchor's layer-local top.
   const first = rects[0] ?? union;
   const last = rects[rects.length - 1] ?? union;
-  const needed = size.height + gap;
-  const roomAbove = frame.y + first.y - needed;
+  const needed = (size.height + gap) * scale;
+  const roomAbove = frame.y + first.y * scale - needed;
   /*
     Room below is measured against the CLIP BOX, not the window. `viewport` is
     `window.innerHeight`, which counts the status bar and everything else
@@ -148,8 +152,8 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
     every click aimed at the centre. `visible` IS the clip box, which is why it
     was already passed in; it was only ever consulted for the off-screen test.
   */
-  const clipBottom = Math.min(viewport.height, frame.y + visible.height);
-  const roomBelow = clipBottom - (frame.y + last.y + last.height + needed);
+  const clipBottom = Math.min(viewport.height, frame.y + visible.height * scale);
+  const roomBelow = clipBottom - (frame.y + (last.y + last.height) * scale + needed);
   const placeAbove =
     (input.prefer ?? 'above') === 'above'
       ? roomAbove >= 0
@@ -175,7 +179,7 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
         ? line.x + line.width - size.width
         : line.x;
   const low = padding;
-  const high = frame.width - size.width - padding;
+  const high = visible.width - size.width - padding;
   const x = clamp(preferred, low, high);
 
   // arrow — keep pointing at the line's centre after the shift, but never past

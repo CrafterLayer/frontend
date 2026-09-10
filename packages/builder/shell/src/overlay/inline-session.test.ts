@@ -203,4 +203,39 @@ describe('createInlineSession (009 contract §3)', () => {
     kernel.setSelection(['a1']); // the store listener is gone — no throw, no work
     expect(session.current()).toBeNull();
   });
+
+  it('consumes exactly one popup, text edit, parent and clear layer per Escape', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['h1']);
+    const session = createInlineSession(kernel);
+    expect(session.begin('h1')).toBe(true);
+    let popupOpen = true;
+    let hasParent = true;
+    let selected = true;
+    const layers = {
+      closePopup: () => {
+        if (!popupOpen) return false;
+        popupOpen = false;
+        return true;
+      },
+      selectParent: () => {
+        if (!hasParent) return false;
+        hasParent = false;
+        return true;
+      },
+      clearSelection: () => {
+        if (!selected) return false;
+        selected = false;
+        return true;
+      },
+    };
+
+    expect(session.escape(layers)).toBe('popup');
+    expect(session.current()).not.toBeNull();
+    expect(session.escape(layers)).toBe('text-edit');
+    expect(session.escape(layers)).toBe('parent');
+    expect(session.escape(layers)).toBe('clear');
+    expect(session.escape(layers)).toBe('none');
+    session.dispose();
+  });
 });

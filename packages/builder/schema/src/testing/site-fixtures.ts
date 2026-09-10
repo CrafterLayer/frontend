@@ -1,6 +1,6 @@
 import { defaultDesignSystem } from '../theme/default-theme';
 import type { BuilderDocument, ContentDirection } from '../document/types';
-import type { BuilderSite, SharedRegion, SitePage } from '../site/types';
+import { LATEST_SITE_VERSION, type BuilderSite, type SharedRegion, type SitePage } from '../site/types';
 
 /**
  * Sites every layer can build a test on, without any of them inventing one.
@@ -59,7 +59,7 @@ function page(
 /** The smallest site that exists: one page, at "/". */
 export function onePageSite(dir: ContentDirection = 'ltr'): BuilderSite {
   return {
-    siteVersion: 1,
+    siteVersion: LATEST_SITE_VERSION,
     dir,
     pages: [page('home', '/', 'Home', dir)],
     sharedRegions: {},
@@ -77,7 +77,7 @@ export function onePageSite(dir: ContentDirection = 'ltr'): BuilderSite {
  */
 export function fivePageSite(dir: ContentDirection = 'ltr'): BuilderSite {
   return {
-    siteVersion: 1,
+    siteVersion: LATEST_SITE_VERSION,
     dir,
     pages: [
       page('work', '/work', 'Work', dir),
@@ -120,7 +120,7 @@ export function siteWithSharedRegions(dir: ContentDirection = 'ltr'): BuilderSit
   const masthead = region('masthead', 'header', dir);
   const colophon = region('colophon', 'footer', dir);
   return {
-    siteVersion: 1,
+    siteVersion: LATEST_SITE_VERSION,
     dir,
     pages: [
       page('home', '/', 'Home', dir, ['masthead', 'colophon']),

@@ -6,6 +6,7 @@
    second stylesheet and no JavaScript. */
 
 .bldr-shell {
+  position: relative;
   background: var(--bldr-ground, #eef0f5);
   block-size: 100%;
   color: var(--bldr-panel-text, #171b24);
@@ -123,21 +124,73 @@
    vanished between 900 and 1180 while the rail still marked it as the open
    destination. */
 @media (width < 1180px) {
-  .bldr-shell:not([data-bldr-panel-priority='essential']) {
+  .bldr-shell:not([data-adaptive]):not([data-bldr-panel-priority='essential']) {
     --bldr-shell-panel-track: 0px;
   }
 
-  .bldr-shell:not([data-bldr-panel-priority='essential']) .bldr-shell__panel {
+  .bldr-shell:not([data-adaptive]):not([data-bldr-panel-priority='essential']) .bldr-shell__panel {
     display: none;
   }
 }
 
 @media (width < 900px) {
-  .bldr-shell {
+  .bldr-shell:not([data-adaptive]) {
     --bldr-shell-aside-track: 0px;
   }
 
-  .bldr-shell__aside {
+  .bldr-shell:not([data-adaptive]) .bldr-shell__aside {
     display: none;
   }
+}
+
+.bldr-shell[data-panel-open='false'],
+.bldr-shell[data-panel-overlay] {
+  --bldr-shell-panel-track: 0px;
+}
+
+.bldr-shell[data-aside-open='false'],
+.bldr-shell[data-panel-overlay] {
+  --bldr-shell-aside-track: 0px;
+}
+
+.bldr-shell[data-adaptive] > [hidden] {
+  display: none;
+}
+
+.bldr-shell[data-panel-overlay] > .bldr-shell__panel,
+.bldr-shell[data-panel-overlay] > .bldr-shell__aside {
+  position: absolute;
+  grid-area: auto;
+  grid-column: 1 / -1;
+  grid-row: 2 / 3;
+  inset-block: 0;
+  z-index: 20;
+  background: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-overlay);
+  max-inline-size: calc(100% - var(--bldr-shell-rail-size, 48px));
+}
+
+.bldr-shell[data-panel-overlay] > .bldr-shell__panel {
+  inset-inline-start: var(--bldr-shell-rail-size, 48px);
+  inline-size: var(--bldr-panel-width);
+}
+
+.bldr-shell[data-panel-overlay] > .bldr-shell__aside {
+  inset-inline-end: 0;
+  inline-size: var(--bldr-inspector-width);
+}
+
+.bldr-shell__resize {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: var(--bldr-space-sm);
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.bldr-shell__resize:hover,
+.bldr-shell__resize:focus-visible {
+  background: var(--bldr-accent-ring);
 }

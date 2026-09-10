@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-07",
+  "updatedAt": "2026-09-10",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "ai-full-site-agent-us9-production-readiness-verified",
+    "phase": "professional-builder-agent-014-implementation-in-progress",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
@@ -189,7 +189,7 @@
       "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade",
       "extensionSkillSync": "workspace@1.4.1 source and installed copy use the official plugin route; generated Codex, Claude, and Cursor skill regeneration remains deferred because forced recomposition could overwrite unrelated modified skills"
     },
-    "activeFeature": "specs/workspace/013-ai-full-site-design-agent",
+    "activeFeature": "specs/workspace/014-professional-builder-agent",
     "scopeModel": "root governance plus scoped feature directories; member projects only for independent governance or release needs"
   },
   "sourcesOfTruth": {
@@ -227,17 +227,15 @@
     ]
   },
   "currentWork": {
-    "status": "feature-013-delivered-except-three-blocked-items",
+    "status": "feature-014-implementation-and-integration-in-progress",
     "scope": "workspace-cross-cutting-builder-site-and-agent",
-    "activeSpec": "specs/workspace/013-ai-full-site-design-agent/spec.md",
-    "completedTasks": "316 of 337; T001-T111, T113-T143, T149-T152, T159-T304 and the D4/D5 blocks",
-    "nextUncompletedTask": "T153",
+    "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
+    "completedTasks": "See feature 014 tasks and implementation evidence; feature 013 completion counts do not apply.",
+    "nextUncompletedTask": "T042",
     "blocked": {
-      "T144-T148": "Evaluation and the critic need THREE INDEPENDENT HUMAN RATERS and a live API key. An agent scoring its own output is not a measurement, so this was left open rather than faked.",
-      "T305-T307": "Token usage and model tiers need apps/ai-server, which belongs to peer session frontend-6d. Ports 8787 and 5173 are theirs.",
-      "T112": "The refinement conversation in AssistantPanel, left open deliberately with the reason recorded at that entry in tasks.md."
+      "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence."
     },
-    "nextAction": "Finish the T153-T158 tail: independent review of the real diff, fix accepted findings, run the full `PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm verify` reading pnpm's OWN exit code, run speckit-converge, then produce a Conventional Commit message as TEXT ONLY. Commit authorization remains withheld: no git add, no git commit, no push. `pnpm format:check` is clean except apps/ai-server/** and CLAUDE.md, both left untouched on purpose because the server belongs to another session."
+    "nextAction": "Integrate real runtime/compiler/catalog/export in Playground, complete durable Vault, lazy CodeMirror, source-aware Agent, then browser verification and remaining feature 014 gates. Current root owns App/facade/runtime integration; check live agent ownership before edits. No git add, commit, push, or deployment authorized."
   },
   "qualityGates": {
     "governanceConfigured": true,

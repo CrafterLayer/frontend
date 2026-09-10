@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@craftkit/builder-code-runtime": "workspace:*",
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-renderer": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",

@@ -33,6 +33,24 @@ export {
 } from './components/StatusBar';
 export { TopBar, type TopBarDevice, type TopBarProps } from './components/TopBar';
 export { DeviceBar, type DeviceBarProps, type DeviceState } from './components/DeviceBar';
+export {
+  InsertionPicker,
+  type InsertionChoice,
+  type InsertionPickerMode,
+  type InsertionPickerOption,
+  type InsertionPickerProps,
+} from './components/InsertionPicker';
+export {
+  SelectionToolbar,
+  type SelectionToolbarAction,
+  type SelectionToolbarProps,
+} from './components/SelectionToolbar';
+export {
+  CodePreviewFrame,
+  type CodePreviewFrameProps,
+  type CodePreviewFrameStatus,
+  type PreviewMount,
+} from './components/CodePreviewFrame';
 export { EditorCanvas } from './components/EditorCanvas';
 export type {
   CanvasDragHandle,
@@ -60,13 +78,41 @@ export {
   type FloatingInput,
   type FloatingPlacement,
 } from './overlay/floating-position';
-export { createFrameBridge, type FrameBridge } from './overlay/frame-bridge';
+export {
+  createFrameBridge,
+  selectionTargetFromFrameElement,
+  type FrameBridge,
+  type FrameBridgeOptions,
+  type FrameSelectionContext,
+  type FrameSelectionHit,
+} from './overlay/frame-bridge';
 export {
   createInlineSession,
   inlineTargetOf,
+  type InlineEscapeLayers,
+  type InlineEscapeStep,
   type InlineSession,
   type InlineSessionHandle,
 } from './overlay/inline-session';
+export {
+  createSelectionController,
+  intersectSelectionCapabilities,
+  reconcileSelection,
+  type ResolvedSelectionIdentity,
+  type SelectionController,
+  type SelectionIdentityResolver,
+  type SelectionInvalidReason,
+  type SelectionReconciliation,
+  type SelectionSnapshot,
+} from './selection/selection-controller';
+export {
+  createInsertionAnchor,
+  revalidateInsertionAnchor,
+  type InsertionAnchorFailureReason,
+  type InsertionAnchorResolver,
+  type InsertionAnchorResult,
+  type ResolvedInsertionOwner,
+} from './insertion/insertion-anchor';
 export { InlineTextSurface, type InlineTextSurfaceProps } from './components/InlineTextSurface';
 export { InlineRichSurface } from './components/InlineRichSurface';
 export {

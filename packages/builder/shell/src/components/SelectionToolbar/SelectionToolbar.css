@@ -1,0 +1,55 @@
+.bldr-selection-toolbar {
+  align-items: center;
+  background: var(--bldr-surface, #fff);
+  border: var(--bldr-border-hairline, 1px) solid var(--bldr-surface-border, rgb(15 23 42 / 12%));
+  border-radius: var(--bldr-radius-lg, 10px);
+  box-shadow: var(--bldr-shadow-floating, 0 10px 30px rgb(15 23 42 / 16%));
+  color: var(--bldr-panel-text, #1e293b);
+  display: flex;
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  gap: var(--bldr-space-sm, 6px);
+  max-inline-size: min(100%, 720px);
+  overflow-x: auto;
+  padding: var(--bldr-space-xs, 4px);
+}
+
+.bldr-selection-toolbar__kind {
+  color: var(--bldr-panel-muted, #64748b);
+  flex: 0 0 auto;
+  font-size: var(--bldr-font-size-caption, 12px);
+  max-inline-size: 240px;
+  overflow: hidden;
+  padding-inline: var(--bldr-space-sm, 6px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-selection-toolbar__actions {
+  display: flex;
+  gap: var(--bldr-space-2xs, 2px);
+}
+
+.bldr-selection-toolbar__action {
+  flex: 0 0 auto;
+  font-size: var(--bldr-font-size-caption, 12px);
+  padding-inline: var(--bldr-space-md, 8px);
+  white-space: nowrap;
+}
+
+.bldr-selection-toolbar__action[data-action='move'] {
+  cursor: grab;
+}
+
+.bldr-selection-toolbar__action[data-action='move']:active {
+  cursor: grabbing;
+}
+
+.bldr-selection-toolbar__action[data-destructive]:enabled:hover {
+  background: var(--bldr-danger-soft, #fee2e2);
+  color: var(--bldr-danger, #b91c1c);
+}
+
+.bldr-selection-toolbar__action:focus-visible {
+  outline: var(--bldr-border-thick, 2px) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline, 1px);
+}

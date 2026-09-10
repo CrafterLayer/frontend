@@ -51,6 +51,8 @@ export interface FloatingTarget {
   viewport: { width: number; height: number };
   visible?: { width: number; height: number };
   dir: 'ltr' | 'rtl';
+  /** Host pixels per one layer-local pixel. */
+  scale?: number;
 }
 
 export interface FloatingHost {
@@ -126,6 +128,7 @@ export function createFloatingHost(options: FloatingHostOptions): FloatingHost {
       viewport: target.viewport,
       ...(target.visible === undefined ? {} : { visible: target.visible }),
       dir: target.dir,
+      ...(target.scale === undefined ? {} : { scale: target.scale }),
       ...(options.align === undefined ? {} : { align: options.align }),
       ...(options.prefer === undefined ? {} : { prefer: options.prefer }),
       ...(options.gap === undefined ? {} : { gap: options.gap }),

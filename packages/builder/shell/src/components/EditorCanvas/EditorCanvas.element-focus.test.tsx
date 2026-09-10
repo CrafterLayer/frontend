@@ -187,7 +187,7 @@ describe('EditorCanvas — element focus inside a composed region', () => {
     expect(h.outline('hover')?.textContent).toBe('Section');
   });
 
-  it('Escape steps out to the region first, then clears the selection', () => {
+  it('Escape steps out to the region, then its parent, then clears the selection', () => {
     const h = harness();
     h.tick();
     h.click(h.inFrame('img'));
@@ -198,6 +198,8 @@ describe('EditorCanvas — element focus inside a composed region', () => {
     expect(h.state().selection).toEqual(['r1']);
     expect(h.state().elementFocus).toBeNull();
     expect(h.outline('selection')?.textContent).toBe('CV header');
+    fireEvent.keyDown(host, { key: 'Escape' });
+    expect(h.state().selection).toEqual(['root']);
     fireEvent.keyDown(host, { key: 'Escape' });
     expect(h.state().selection).toEqual([]);
   });

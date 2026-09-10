@@ -42,12 +42,13 @@ not replace the seam prop across all 1,000 stress nodes.
 | `editable`      | `boolean`                 | B2b drag editing; absent ⇒ B2a byte-compatible                                                                                                                               |
 | `onDragHandle`  | `(handle) => void`        | receives the external-insert entry point                                                                                                                                     |
 | `frameWidth`    | `number`                  | B3a device emulation: narrows + centers the frame shell (the overlay layer shares its origin, so chrome stays aligned with zero coordinate translation); absent ⇒ full width |
+| `zoom`          | `number`                  | visual scale (default `1`); does not change `frameWidth` or the selected responsive breakpoint                                                                               |
 
-Known limitation: `frameWidth` caps at 100% of the host (`maxInlineSize`), so on a viewport narrower
-than the chosen width the visual frame is narrower than the editing bucket's width — the bucket
-follows the CHOSEN width (intent), not the measured one. Invalid widths (0, negative, NaN) fall back
-to full width. Pass `breakpoint` alongside `frameWidth` so the content renders the same bucket the
-inspector edits.
+`frameWidth` remains the exact authored device width even when the editor column is narrower; the
+canvas scrolls instead of changing the page breakpoint. `zoom` changes only the visual footprint,
+and the frame bridge converts pointer coordinates back into authored pixels. Invalid widths or zoom
+values fall back safely. Pass `breakpoint` alongside `frameWidth` so the content renders the same
+bucket the inspector edits.
 
 ## Accessibility
 
@@ -86,15 +87,16 @@ references inside a tree are not addressable yet.
 
 ## Drag editing (`editable`)
 
-With `editable`, pressing a block and crossing a 4px threshold starts a drag session — ghost
-outline, valid-target highlight, and an insertion indicator that flips before/after with the pointer
-half (an empty container is targetable through the middle band). The session is pure chrome until
-the drop: exactly ONE `moveNode`/`insertNode` transaction on commit, byte-identical zero-trace on
-cancel (Escape, no-target release, or the node vanishing mid-drag). Slot rules (allow lists, `max`
-with the own-slot exemption, never-into-own-subtree) gate targets at resolution time and provably
-agree with the command door. `Alt+Arrows` performs the same moves without a pointer; the palette
-hands insert payloads into the same session through `onDragHandle`. Without `editable`, none of this
-machinery exists — B2a behavior is byte-compatible.
+With `editable`, pressing the selected block's dedicated grip and moving at least 8px starts a drag
+session — ghost outline, valid-target highlight, and an insertion indicator that flips before/after
+with the pointer half (an empty container is targetable through the middle band). Pressing page text
+or another context action never arms structural movement. The session is pure chrome until the drop:
+exactly ONE `moveNode`/`insertNode` transaction on commit, byte-identical zero-trace on cancel
+(Escape, no-target release, or the node vanishing mid-drag). Slot rules (allow lists, `max` with the
+own-slot exemption, never-into-own-subtree) gate targets at resolution time and provably agree with
+the command door. `Alt+Arrows` performs the same moves without a pointer; the palette hands insert
+payloads into the same session through `onDragHandle`. Without `editable`, none of this machinery
+exists — B2a behavior is byte-compatible.
 
 ## Inline editing (`editable`)
 

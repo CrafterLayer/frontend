@@ -1,0 +1,25 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as SourceImpactBarStories from './SourceImpactBar.stories';
+
+<Meta of={SourceImpactBarStories} />
+
+# SourceImpactBar
+
+`SourceImpactBar` sits above source review and names the exact write scope. Instance mode promises a
+local change. Shared mode displays the component name plus the affected instance and page counts
+from the current `SharedImpactApproval` fingerprint.
+
+## Changed impact
+
+Set `stale` whenever the project revision or affected identity set changes after review. Apply then
+becomes disabled and Refresh impact is the only forward action. The host must recompute the preview
+and create a new fingerprint; this component never silently accepts a larger impact set and never
+emits patches itself.
+
+## Accessibility, RTL, responsive, and theme
+
+The bar is a labelled complementary region with native actions and one polite status announcement.
+Its visible stale explanation does not depend on colour. Logical alignment follows LTR or RTL host
+chrome. Actions wrap below the summary on narrow panels. Colours use Builder theme variables with
+light and dark fallbacks, and each keyboard action has a visible focus ring.

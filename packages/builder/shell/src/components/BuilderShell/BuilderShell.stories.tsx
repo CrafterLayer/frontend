@@ -88,6 +88,24 @@ export const WithDock: Story = {
   },
 };
 
+export const AdaptiveWorkspace: Story = {
+  args: { ...everything, adaptive: true, panelWidth: 320, activeSide: 'panel' },
+  decorators: [
+    (Story) => (
+      <div style={{ inlineSize: '1024px', maxInlineSize: '100%', blockSize: '620px' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('region-blocks')).toBeVisible();
+    await expect(canvas.getByTestId('region-inspector')).not.toBeVisible();
+    const width = canvas.getByTestId('region-canvas').getBoundingClientRect().width;
+    await expect(width).toBeGreaterThanOrEqual(640);
+  },
+};
+
 /** Opening the assistant folds the palette away rather than squeezing the page. */
 export const AssistantOpen: Story = {
   args: {

@@ -25,6 +25,12 @@ body,
    Clipping belongs to `.pg-app`, which exists only in this document. */
 
 .pg-app {
+  /* Product chrome geometry. The page width stays independent from these
+     editor tracks; zoom/device simulation is owned by the canvas. */
+  --bldr-topbar-height: 48px;
+  --bldr-panel-width: 320px;
+  --bldr-inspector-width: 288px;
+  --bldr-rail-width: 48px;
   /* The harness panel is positioned against this, so the app root has to be a
      containing block — `overflow` alone never was one. */
   position: relative;
@@ -34,6 +40,42 @@ body,
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.pg-app .bldr-icon-rail {
+  inline-size: var(--bldr-rail-width);
+  padding-inline: var(--bldr-space-2xs);
+}
+
+.pg-app .bldr-topbar {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.pg-workspace-view {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  white-space: nowrap;
+}
+
+@media (width < 700px) {
+  .pg-app .bldr-topbar {
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    gap: var(--bldr-space-md);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pg-app .bldr-topbar__product-name {
+    display: none;
+  }
+
+  .pg-app .bldr-topbar__end,
+  .pg-app .bldr-topbar__extra {
+    max-inline-size: none;
+    flex-shrink: 0;
+  }
 }
 
 /* The reusable TopBar has a publish surface for hosts that own a real publish
@@ -260,13 +302,8 @@ body,
   background: var(--bldr-panel);
   container-type: size;
   block-size: 100%;
-  display: grid;
-  /* The one column is clamped to the rail like the rows are: an `auto` track
-     would grow to the header's min-content (the nowrap name beside New chat)
-     and push the whole panel past a compact column. Clamped, the title row
-     shrinks and the name ellipsizes instead. */
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
   min-block-size: 0;
 }
 
@@ -566,6 +603,7 @@ body,
 
 .pg-chat__thread {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--bldr-space-3xl);
   scroll-padding-block: var(--bldr-space-3xl);
@@ -1531,7 +1569,7 @@ body,
 
 /* Working: the aurora quickens. The card's own border holds still — the spin
    and the halo's brightness are the only things that move, so nothing in the
-   layout is animated. The field is DISABLED while the assistant thinks, so
+   layout is animated. The field stays writable while the assistant thinks, so
    busy and focus can never stack into a doubled treatment. */
 .pg-chat__composer-card[data-busy] {
   border-color: transparent;
@@ -1611,6 +1649,29 @@ body,
   position: relative;
 }
 
+.pg-chat__composer-model {
+  min-inline-size: 0;
+}
+
+.pg-chat__composer-model select {
+  background: transparent;
+  border: 0;
+  color: var(--bldr-panel-text-soft);
+  font: inherit;
+  max-inline-size: 7rem;
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: 0;
+}
+
+.pg-chat__composer-model select:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-chat__queue-next {
+  margin-inline-start: auto;
+}
+
 /* THE SEND: solid accent when it can actually send, with the aurora as a
    halo that only appears when the hand or the focus is on it — never as the
    button's fill, where it would sit under the glyph. While the assistant
@@ -1684,6 +1745,103 @@ body,
   gap: var(--bldr-space-xs) var(--bldr-space-lg);
   line-height: var(--bldr-line-height-snug);
   margin: var(--bldr-space-0);
+}
+
+.pg-code-runtime {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  background: var(--bldr-ground);
+}
+
+.pg-code-runtime__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+  min-block-size: 44px;
+  padding: var(--bldr-space-md) var(--bldr-space-xl);
+  border-block-end: 1px solid var(--bldr-panel-border);
+  background: var(--bldr-panel);
+}
+
+.pg-code-runtime__revision {
+  margin-inline-start: auto;
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-code-runtime__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--bldr-space-xl);
+  min-block-size: 0;
+  flex: 1;
+  padding: var(--bldr-space-xl);
+}
+
+.pg-code-runtime__selection {
+  overflow: auto;
+  padding: var(--bldr-space-3xl);
+  border: 1px solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  background: var(--bldr-panel);
+  color: var(--bldr-panel-text);
+}
+
+.pg-code-runtime__selection h2 {
+  margin: 0 0 var(--bldr-space-xl);
+  font-size: var(--bldr-font-size-body);
+}
+
+.pg-code-runtime__selection p,
+.pg-code-runtime__selection label {
+  display: grid;
+  gap: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-code-runtime__selection textarea {
+  inline-size: 100%;
+  resize: vertical;
+  border: 1px solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  padding: var(--bldr-space-xl);
+  background: var(--bldr-input-bg);
+  color: var(--bldr-panel-text);
+  font: inherit;
+}
+
+.pg-canvas-status {
+  display: flex;
+  align-items: center;
+  block-size: 100%;
+}
+
+.pg-canvas-status > :first-child {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.pg-canvas-zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-xl);
+  font-size: var(--bldr-font-size-caption);
+  white-space: nowrap;
+}
+
+.pg-canvas-zoom select {
+  color: var(--bldr-panel-text);
+  background: var(--bldr-panel);
+  border: 1px solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  min-block-size: 24px;
 }
 
 .pg-chat__mode-hint {
@@ -2198,18 +2356,6 @@ body,
     padding-block: var(--bldr-space-md);
   }
 }
-
-.pg-chat:not(:has(> .pg-chat__suggestions)) {
-  grid-template-rows: auto minmax(0, 1fr) auto;
-}
-
-/*
-  The site region is a fifth child between the header and the thread. The
-  explicit rows above count four, so without these the region took the 1fr
-  track and the thread fell into an implicit auto row and painted over it —
-  the conversation and the "describe your site" form on top of each other.
-  The thread must stay the one flexible, scrolling row whatever is mounted.
-*/
 
 .pg-chat__identity {
   display: grid;

@@ -25,6 +25,7 @@ function renderThread(turns: readonly Turn[], overrides: Partial<AssistantThread
     watchEmptyZone: null,
     holdEmptySeat: null,
     onApproval: vi.fn(),
+    onStop: vi.fn(),
     onUndoTask: vi.fn(),
     onRetrySkipped: vi.fn(),
     onRetry: vi.fn(),

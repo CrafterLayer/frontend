@@ -1,4 +1,4 @@
-import { isBuilderError } from '@craftkit/builder';
+import { isBuilderError, type PersistenceAck } from '@craftkit/builder';
 
 /**
  * Whether the page on the screen is the page in storage — the one fact a person
@@ -10,11 +10,9 @@ import { isBuilderError } from '@craftkit/builder';
  * a session that loses everything on the next reload with a green screen up to
  * the last second.
  */
-export interface VaultSaveState {
-  /** `saved` when storage holds what is on screen; `error` when it does not. */
-  readonly status: 'saving' | 'saved' | 'error';
-  /** Only on `error`: what storage said, in the words it said it. */
-  readonly reason: string | undefined;
+export type VaultSaveState = (
+  { readonly kind: 'saving'; readonly sequence: number } | PersistenceAck
+) & {
   /**
    * Sticky once true. Another session — a second tab on the same document — has
    * written this page since this one opened it, so the two are now taking it
@@ -22,9 +20,13 @@ export interface VaultSaveState {
    * is always one whole page from one of them.
    */
   readonly shared: boolean;
-}
+};
 
-export const VAULT_SAVED: VaultSaveState = { status: 'saved', reason: undefined, shared: false };
+export const VAULT_DURABLE: VaultSaveState = {
+  kind: 'durable',
+  sequence: 0,
+  shared: false,
+};
 
 /**
  * What the save loop needs from a session, and nothing more.
@@ -45,9 +47,10 @@ export interface AutosaveTarget<Root> {
   flush(): Promise<number>;
   subscribe(listener: () => void): () => void;
   /** The KERNEL's compaction hook, not the user-facing snapshot shelf. */
-  snapshot(root: Root, seq: number): Promise<void>;
+  snapshot(root: Root, seq: number): Promise<PersistenceAck | undefined>;
   /** Re-base the stored session onto this one, unconditionally. */
-  takeOver(root: Root, seq: number): Promise<void>;
+  takeOver(root: Root, seq: number): Promise<PersistenceAck | undefined>;
+  acknowledgement?(): PersistenceAck;
 }
 
 /** The kernel's one conflict outcome, told apart from every other failure. */
@@ -111,17 +114,35 @@ export function autosave<Root>(
   const stopped = (): boolean => stopRequested;
   /** Sticky for the life of the session: see `VaultSaveState.shared`. */
   let shared = false;
+  let acknowledgement = target.acknowledgement?.() ?? VAULT_DURABLE;
 
-  const publish = (status: VaultSaveState['status'], reason?: string): void => {
+  const publish = (
+    next: { readonly kind: 'saving'; readonly sequence: number } | PersistenceAck,
+  ): void => {
     // Nothing is announced about a session that is over: the boot that replaces
     // it owns the state from here.
     if (stopped()) {
       return;
     }
-    report({ status, reason, shared });
+    if (next.kind !== 'saving') acknowledgement = next;
+    report({ ...next, shared });
   };
 
-  const saveOnce = async (): Promise<void> => {
+  const publishFailure = (error: unknown): void => {
+    const observed = target.acknowledgement?.();
+    publish(
+      observed?.kind === 'failed'
+        ? observed
+        : {
+            kind: 'failed',
+            sequence: acknowledgement.sequence,
+            reason: reasonOf(error),
+            recoverable: true,
+          },
+    );
+  };
+
+  const saveOnce = async (): Promise<PersistenceAck> => {
     /*
       Claimed BEFORE the awaits. `flush()` writes `{...state, seq}` back to the
       store, which notifies every subscriber — including this one — with the
@@ -138,7 +159,10 @@ export function autosave<Root>(
     */
     const current = target.getRoot();
     saved = current;
-    await target.snapshot(current, seq);
+    return (
+      (await target.snapshot(current, seq)) ??
+      target.acknowledgement?.() ?? { kind: 'durable', sequence: seq }
+    );
   };
 
   const run = async (): Promise<void> => {
@@ -148,24 +172,28 @@ export function autosave<Root>(
     let rebased = false;
     do {
       queued = false;
-      publish('saving');
+      publish({ kind: 'saving', sequence: acknowledgement.sequence });
       try {
-        await saveOnce();
-        publish('saved');
+        const persisted = await saveOnce();
+        publish(persisted);
       } catch (error) {
         if (isSeqConflict(error) && !rebased) {
           rebased = true;
           shared = true;
           try {
-            await target.takeOver(target.getRoot(), target.getSeq());
+            const persisted = await target.takeOver(target.getRoot(), target.getSeq());
+            if (persisted?.kind === 'failed') {
+              publish(persisted);
+              continue;
+            }
             // The stored position matches this kernel again, so the pending
             // transactions the conflict refused go out on the next pass.
             queued = true;
           } catch (refused) {
-            publish('error', reasonOf(refused));
+            publishFailure(refused);
           }
         } else {
-          publish('error', reasonOf(error));
+          publishFailure(error);
         }
       }
     } while (queuedAgain() && !stopped());

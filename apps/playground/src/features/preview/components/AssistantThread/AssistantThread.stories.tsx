@@ -51,6 +51,7 @@ const meta = {
     watchEmptyZone: null,
     holdEmptySeat: null,
     onApproval: () => undefined,
+    onStop: () => undefined,
     onUndoTask: () => undefined,
     onRetrySkipped: () => undefined,
     onRetry: () => undefined,

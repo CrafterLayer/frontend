@@ -1,10 +1,12 @@
 import {
   builderError,
   canonicalizeJsonValue,
+  validateSite,
   type Author,
   type BuilderDocument,
   type BuilderSite,
   type ClockPort,
+  type CodeTransactionResult,
   type CommandRuntime,
   type EventBus,
   type PageId,
@@ -22,6 +24,10 @@ import {
 } from '../commands/dispatch';
 import { GROUPED_DISPATCH_LABEL_MAX_LENGTH } from '../commands/dispatch';
 import { isSiteCommandName, siteCommands } from '../commands/site-commands';
+import {
+  applyCodeChangesArgsSchema,
+  type ApplyCodeChangesArgs,
+} from '../commands/code-project-commands';
 import { createHistory, type History } from '../history/history';
 import { applySitePatchSet } from '../patches/apply';
 import { produceWithPatches } from '../patches/immer';
@@ -86,11 +92,15 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
    * exists to make impossible at the authoring end.
    */
   type Prepared =
-    | { kind: 'site'; mutate: (draft: BuilderSite, rt: CommandRuntime) => void }
+    | {
+        kind: 'site';
+        mutate: (draft: BuilderSite, rt: CommandRuntime) => void;
+        codeChange?: ApplyCodeChangesArgs;
+      }
     | {
         kind: 'page';
-        /** Index into `site.pages`, resolved against the PRE-group site. */
-        index: number;
+        /** Identity survives earlier page reordering inside the group. */
+        pageId: PageId;
         mutate: (draft: BuilderDocument, rt: CommandRuntime) => void;
       };
 
@@ -98,7 +108,13 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
     const args = canonicalizeJsonValue(step.args);
     if (isSiteCommandName(step.command)) {
       // Law V runs inside `apply`: args parse here, before any production.
-      return { kind: 'site', mutate: siteCommands[step.command].apply(args) };
+      return {
+        kind: 'site',
+        mutate: siteCommands[step.command].apply(args),
+        ...(step.command === 'applyCodeChanges'
+          ? { codeChange: applyCodeChangesArgsSchema.parse(args) }
+          : {}),
+      };
     }
     const registered = deps.registry.command(step.command);
     if (registered === undefined) {
@@ -106,7 +122,7 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
     }
     return {
       kind: 'page',
-      index: pageIndex(state.site, step.pageId ?? state.pageId),
+      pageId: step.pageId ?? state.pageId,
       mutate: registered.apply(args),
     };
   }
@@ -137,6 +153,18 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
 
     const state = deps.store.getState();
     const prepared = steps.map((step) => prepare(state, step));
+    for (const step of prepared) {
+      if (
+        step.kind === 'site' &&
+        step.codeChange &&
+        step.codeChange.attribution.author !== author
+      ) {
+        throw builderError(
+          'cmd/invalid-args',
+          'Source attribution must match the transaction author.',
+        );
+      }
+    }
 
     const [nextSite, patches, inverse] = produceWithPatches(state.site, (draft) => {
       for (const step of prepared) {
@@ -144,14 +172,7 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
           step.mutate(draft, deps.runtime);
           continue;
         }
-        /*
-          Re-read the page INSIDE the production, by index resolved before it.
-          A group whose earlier step removed or reordered pages would otherwise
-          write through a stale reference — and the index was resolved against
-          the pre-group site, so a group that both restructures and edits must
-          say so by ordering its steps, not by hoping.
-        */
-        const page = draft.pages[step.index];
+        const page = draft.pages.find((candidate) => candidate.id === step.pageId);
         if (page === undefined) {
           throw builderError(
             'site/structural-violation',
@@ -162,7 +183,14 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
       }
     });
 
-    return commit(label, author, state, nextSite, patches, inverse);
+    const codeChanges: CodeTransactionResult[] = prepared.flatMap((step) => {
+      if (step.kind !== 'site' || !step.codeChange) return [];
+      const { projectId, expectedProjectRevision, attribution } = step.codeChange;
+      const afterRevision = nextSite.codeProjects?.[projectId]?.revision;
+      if (afterRevision === undefined || afterRevision === expectedProjectRevision) return [];
+      return [{ projectId, beforeRevision: expectedProjectRevision, afterRevision, attribution }];
+    });
+    return commit(label, author, state, nextSite, patches, inverse, codeChanges);
   }
 
   function commit(
@@ -172,9 +200,17 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
     nextSite: BuilderSite,
     patches: Patch[],
     inverse: Patch[],
+    codeChanges: readonly CodeTransactionResult[],
   ): Transaction {
     assertJsonPatches(patches);
     assertDirectionStaysWhole(patches);
+    const validation = validateSite(nextSite);
+    if (!validation.ok) {
+      throw builderError(
+        'site/structural-violation',
+        validation.issues[0]?.message ?? 'The transaction produces an invalid site.',
+      );
+    }
 
     const tx: Transaction = {
       id: deps.runtime.ids.newId(),
@@ -183,6 +219,7 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
       patches,
       inverse,
       ts: deps.clock.now(),
+      ...(codeChanges.length === 0 ? {} : { codeChanges }),
     };
 
     if (patches.length === 0) {

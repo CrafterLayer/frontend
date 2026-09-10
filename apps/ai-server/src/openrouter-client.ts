@@ -42,12 +42,17 @@ export const OPENROUTER_EFFORT_LEVELS = [
   'xhigh',
 ] as const;
 export type OpenRouterEffort = (typeof OPENROUTER_EFFORT_LEVELS)[number];
+export const CRAFTKIT_REASONING_EFFORT_HEADER = 'x-craftkit-internal-reasoning-effort';
 
 /** What OpenRouter says about one slug, asked once at startup. */
 export interface OpenRouterModelFacts {
   readonly listed: boolean;
   /** Decodes straight into a JSON schema (`structured_outputs`), so a plan cannot be malformed. */
   readonly structuredOutputs: boolean;
+  /** Provider-declared request features, retained for versioned role capability routing. */
+  readonly supportedParameters: readonly string[];
+  /** Provider-declared input modalities; `image` is required before routing visual review. */
+  readonly inputModalities: readonly string[];
   /** The most the model may write in one answer; requests are clamped to it. */
   readonly maxOutputTokens: number | undefined;
   readonly promptPerMillion?: number;
@@ -92,6 +97,7 @@ interface StreamParams {
 
 interface StreamRequestOptions {
   readonly signal?: AbortSignal;
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -146,11 +152,17 @@ function schemaAsText(schema: unknown): string {
   );
 }
 
-function chatMessages(params: StreamParams, schema: unknown): unknown[] {
+function chatMessages(
+  params: StreamParams,
+  schema: unknown,
+  explicitPromptCache: boolean,
+): unknown[] {
   const system = (params.system ?? []).map((block) => ({
     type: 'text',
     text: block.text,
-    ...(block.cache_control === undefined ? {} : { cache_control: block.cache_control }),
+    ...(block.cache_control === undefined || !explicitPromptCache
+      ? {}
+      : { cache_control: block.cache_control }),
   }));
   if (schema !== undefined) system.push({ type: 'text', text: schemaAsText(schema) });
   const turns = (params.messages ?? []).map((turn) => ({
@@ -163,6 +175,7 @@ function chatMessages(params: StreamParams, schema: unknown): unknown[] {
 function chatPayload(
   params: StreamParams,
   options: OpenRouterClientOptions,
+  effort: OpenRouterEffort | undefined,
 ): Record<string, unknown> {
   const schema = params.output_config?.format?.schema;
   const model = params.model ?? options.model;
@@ -190,7 +203,9 @@ function chatPayload(
         : Math.min(params.max_tokens, ceiling);
   return {
     model,
-    messages: chatMessages(params, schema),
+    // GPT caching is automatic. Anthropic is the only configured path where
+    // this server sends the provider-specific cache-control TTL.
+    messages: chatMessages(params, schema, model.startsWith('anthropic/')),
     ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
     stream: true,
     usage: { include: true },
@@ -202,7 +217,7 @@ function chatPayload(
             json_schema: { name: 'craftkit_plan', strict: true, schema },
           },
         }),
-    ...(options.effort === undefined ? {} : { reasoning: { effort: options.effort } }),
+    ...(effort === undefined ? {} : { reasoning: { effort } }),
   };
 }
 
@@ -352,11 +367,13 @@ function usageOf(usage: Record<string, unknown> | undefined): Anthropic.Message[
   const prompt = count(usage?.['prompt_tokens']);
   const cached = count(details['cached_tokens']);
   const written = count(details['cache_write_tokens']);
+  const cost = usage?.['cost'];
   return {
     input_tokens: Math.max(0, prompt - cached - written),
     output_tokens: count(usage?.['completion_tokens']),
     cache_read_input_tokens: cached,
     cache_creation_input_tokens: written,
+    ...(typeof cost === 'number' && Number.isFinite(cost) && cost >= 0 ? { cost_usd: cost } : {}),
   } as Anthropic.Message['usage'];
 }
 
@@ -484,6 +501,8 @@ async function runChat(
   const baseUrl = (options.baseUrl ?? OPENROUTER_DEFAULT_BASE_URL).replace(/\/+$/u, '');
   // The model this run is actually on — a per-request choice or the default — so logs and failures name the right slug.
   const model = typeof payload['model'] === 'string' ? payload['model'] : options.model;
+  const reasoning = isRecord(payload['reasoning']) ? payload['reasoning'] : {};
+  const effort = typeof reasoning['effort'] === 'string' ? reasoning['effort'] : '(model default)';
   const body = JSON.stringify(payload);
 
   const startedAt = Date.now();
@@ -499,7 +518,7 @@ async function runChat(
     narrator.emit();
   }, NARRATION_INTERVAL_MS);
   onLog(
-    `openrouter run started — model ${model}, effort ${options.effort ?? '(model default)'}, ` +
+    `openrouter run started — model ${model}, effort ${effort}, ` +
       `request ${formatCount(body.length)} characters`,
   );
 
@@ -602,7 +621,13 @@ export async function probeOpenRouterModels(
   for (const slug of slugs) {
     const entry = byId.get(slug);
     if (entry === undefined) {
-      facts.set(slug, { listed: false, structuredOutputs: false, maxOutputTokens: undefined });
+      facts.set(slug, {
+        listed: false,
+        structuredOutputs: false,
+        supportedParameters: [],
+        inputModalities: [],
+        maxOutputTokens: undefined,
+      });
       continue;
     }
     const parameters: unknown[] = Array.isArray(entry['supported_parameters'])
@@ -610,10 +635,20 @@ export async function probeOpenRouterModels(
       : [];
     const top = isRecord(entry['top_provider']) ? entry['top_provider'] : {};
     const pricing = isRecord(entry['pricing']) ? entry['pricing'] : {};
+    const architecture = isRecord(entry['architecture']) ? entry['architecture'] : {};
+    const inputModalities: unknown[] = Array.isArray(architecture['input_modalities'])
+      ? architecture['input_modalities']
+      : [];
     const maxOut = top['max_completion_tokens'];
     facts.set(slug, {
       listed: true,
       structuredOutputs: parameters.includes('structured_outputs'),
+      supportedParameters: parameters.filter(
+        (parameter): parameter is string => typeof parameter === 'string',
+      ),
+      inputModalities: inputModalities.filter(
+        (modality): modality is string => typeof modality === 'string',
+      ),
       maxOutputTokens: typeof maxOut === 'number' && maxOut > 0 ? maxOut : undefined,
       ...perMillion('promptPerMillion', pricing['prompt']),
       ...perMillion('completionPerMillion', pricing['completion']),
@@ -629,7 +664,15 @@ export function createOpenRouterClient(options: OpenRouterClientOptions): Anthro
     const report = (text: string): void => {
       listeners.get('thinking')?.(text);
     };
-    const done = runChat(chatPayload(params, options), options, requestOptions.signal, report);
+    const requestedEffort = OPENROUTER_EFFORT_LEVELS.find(
+      (effort) => requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER] === effort,
+    );
+    const done = runChat(
+      chatPayload(params, options, requestedEffort ?? options.effort),
+      options,
+      requestOptions.signal,
+      report,
+    );
     return {
       on: (event: string, listener: (delta: string) => void) => {
         listeners.set(event, listener);

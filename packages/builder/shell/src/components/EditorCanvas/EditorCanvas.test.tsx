@@ -90,6 +90,7 @@ function harness(
     rects?: Record<string, { x: number; y: number; width: number; height: number }>;
     onDragHandle?: (handle: CanvasDragHandle) => void;
     frameWidth?: number;
+    zoom?: number;
   } = {},
 ) {
   const kernel = createBuilder({
@@ -137,6 +138,7 @@ function harness(
       editable={options.editable ?? false}
       onDragHandle={options.onDragHandle}
       frameWidth={options.frameWidth}
+      zoom={options.zoom}
     />,
   );
   const frame = screen.getByTitle<HTMLIFrameElement>('Editor canvas');
@@ -170,6 +172,20 @@ function harness(
     hitTarget = target;
     act(() => {
       frameDocument.dispatchEvent(new MouseEvent('pointerdown', { clientX: x, clientY: y }));
+    });
+  };
+  const dragHandleDown = (id: string, x: number, y: number) => {
+    if (kernel.context.store.getState().selection[0] !== id) {
+      click(wrapperOf(id));
+    }
+    const handle = view.container.querySelector<HTMLElement>('[data-bldr-drag-handle]');
+    if (handle === null) {
+      throw new Error(`selected block ${id} must expose a drag handle`);
+    }
+    act(() => {
+      handle.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }),
+      );
     });
   };
   const pointerMoveAt = (target: Element | null, x: number, y: number) => {
@@ -209,6 +225,7 @@ function harness(
     pointerMove,
     click,
     pointerDown,
+    dragHandleDown,
     pointerMoveAt,
     pointerUp,
     outline,
@@ -296,7 +313,7 @@ describe('EditorCanvas (005 US1)', () => {
     expect(mutations.length).toBeGreaterThan(afterFirst);
   });
 
-  it('keyboard traversal walks siblings, steps in and out, and Escape clears (US3/SC-004)', async () => {
+  it('keyboard traversal walks siblings, steps in and out, then Escape climbs and clears', async () => {
     const h = harness();
     const host = screen.getByRole('region', { name: 'Editor canvas' });
     const { default: userEvent } = await import('@testing-library/user-event');
@@ -311,6 +328,8 @@ describe('EditorCanvas (005 US1)', () => {
     expect(h.kernel.context.store.getState().selection).toEqual(['b1']);
     await user.keyboard('{ArrowLeft}'); // back out
     expect(h.kernel.context.store.getState().selection).toEqual(['b']);
+    await user.keyboard('{Escape}');
+    expect(h.kernel.context.store.getState().selection).toEqual(['root']);
     await user.keyboard('{Escape}');
     expect(h.kernel.context.store.getState().selection).toEqual([]);
     expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent(
@@ -362,7 +381,7 @@ describe('EditorCanvas (005 US1)', () => {
     expect(h.kernel.context.store.getState().selection).toEqual(['a']);
   });
 
-  it('Escape clears from anywhere NON-EDITABLE inside the host, not only from the host itself', () => {
+  it('Escape climbs from anywhere NON-EDITABLE inside the host before clearing', () => {
     const h = harness();
     const host = screen.getByRole('region', { name: 'Editor canvas' });
     act(() => {
@@ -370,6 +389,8 @@ describe('EditorCanvas (005 US1)', () => {
     });
     // Focus on a child of the host (the floating chrome renders inside it):
     // the key bubbles to the host with a target that is not the host.
+    fireEvent.keyDown(screen.getByTestId('bldr-overlay'), { key: 'Escape' });
+    expect(h.kernel.context.store.getState().selection).toEqual(['root']);
     fireEvent.keyDown(screen.getByTestId('bldr-overlay'), { key: 'Escape' });
     expect(h.kernel.context.store.getState().selection).toEqual([]);
     expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent(
@@ -574,12 +595,60 @@ describe('EditorCanvas (005 US1)', () => {
 describe('EditorCanvas drag editing (006 US1)', () => {
   const dragHarness = () => harness(TEST_DOC, { editable: true, rects: DRAG_RECTS });
 
+  it('FR-010: text surfaces and context actions stay inert; only the handle starts movement', () => {
+    const h = dragHarness();
+    h.tick();
+
+    // A long press/move across ordinary page content remains available to the
+    // browser for text selection. No structural session is armed by the frame.
+    h.pointerDown(h.wrapperOf('b1'), 200, 150);
+    h.pointerMoveAt(h.wrapperOf('c'), 220, 280);
+    h.tick();
+    expect(
+      h.view.container.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility,
+    ).not.toBe('visible');
+    h.pointerUp();
+    expect(h.kernel.transactions()).toHaveLength(0);
+
+    // The floating context toolbar contains the grip, but its ordinary actions
+    // cannot accidentally lend their pointerdown to the drag session.
+    h.click(h.wrapperOf('c'));
+    const duplicate = h.view.container.querySelector<HTMLElement>('[data-action="duplicate"]');
+    expect(duplicate).not.toBeNull();
+    fireEvent.pointerDown(duplicate!, {
+      clientX: 200,
+      clientY: 280,
+    });
+    h.pointerMoveAt(h.wrapperOf('b'), 220, 125);
+    h.tick();
+    expect(
+      h.view.container.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility,
+    ).not.toBe('visible');
+    h.pointerUp();
+    expect(h.kernel.transactions()).toHaveLength(0);
+
+    h.dragHandleDown('c', 200, 280);
+    h.pointerMoveAt(h.wrapperOf('c'), 207, 280);
+    h.tick();
+    expect(
+      h.view.container.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility,
+    ).not.toBe('visible');
+    h.pointerMoveAt(h.wrapperOf('c'), 208, 280);
+    h.tick();
+    expect(h.view.container.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility).toBe(
+      'visible',
+    );
+    act(() => {
+      h.frameDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+  });
+
   it('AC1+AC6: a gap drop reorders in ONE transaction with ZERO pre-drop re-renders', () => {
     const h = dragHarness();
     h.tick();
     h.renders.length = 0;
 
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('c'), 205, 270); // crosses the threshold
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125); // b's top quarter → BEFORE b
     h.tick();
@@ -601,7 +670,7 @@ describe('EditorCanvas drag editing (006 US1)', () => {
   it('AC2: the indicator flips before/after with the pointer half', () => {
     const h = dragHarness();
     h.tick();
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125); // top quarter → before
     h.tick();
     const indicator = h.view.container.querySelector<HTMLElement>('.bldr-drop-indicator');
@@ -617,7 +686,7 @@ describe('EditorCanvas drag editing (006 US1)', () => {
     h.tick();
     const before = h.kernel.getDocument();
     // b1 is a TEXT: root rejects text, so empty-canvas hover offers nothing.
-    h.pointerDown(h.wrapperOf('b1'), 200, 150);
+    h.dragHandleDown('b1', 200, 150);
     h.pointerMoveAt(h.wrapperOf('b1'), 208, 158);
     h.pointerMoveAt(null, 200, 590);
     h.tick();
@@ -634,10 +703,10 @@ describe('EditorCanvas drag editing (006 US1)', () => {
     const h = dragHarness();
     h.tick();
     act(() => {
-      h.kernel.setSelection(['a']);
+      h.kernel.setSelection(['c']);
     });
     const before = h.kernel.getDocument();
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
     h.tick();
     act(() => {
@@ -645,7 +714,7 @@ describe('EditorCanvas drag editing (006 US1)', () => {
     });
     expect(h.kernel.getDocument()).toBe(before);
     expect(h.kernel.transactions()).toHaveLength(0);
-    expect(h.kernel.context.store.getState().selection).toEqual(['a']); // Escape ate by the session
+    expect(h.kernel.context.store.getState().selection).toEqual(['c']); // Escape ate by the session
     expect(h.view.container.querySelector<HTMLElement>('.bldr-drag-ghost')?.style.visibility).toBe(
       'hidden',
     );
@@ -654,7 +723,7 @@ describe('EditorCanvas drag editing (006 US1)', () => {
   it('a sub-threshold press stays a plain click (selection, no drag chrome)', () => {
     const h = dragHarness();
     h.tick();
-    h.pointerDown(h.wrapperOf('b'), 200, 150);
+    h.dragHandleDown('b', 200, 150);
     h.pointerMoveAt(h.wrapperOf('b'), 201, 151);
     h.pointerUp();
     h.click(h.wrapperOf('b'));
@@ -662,9 +731,10 @@ describe('EditorCanvas drag editing (006 US1)', () => {
     expect(h.kernel.transactions()).toHaveLength(0);
   });
 
-  it('FR-014: the Law-S audit holds across a full drag interaction', () => {
+  it('FR-014: the Law-S audit holds across a full drag interaction', async () => {
     const h = dragHarness();
     h.tick();
+    h.click(h.wrapperOf('c'));
     let stateChanges = 0;
     let txApplied = 0;
     h.kernel.context.store.subscribe(() => {
@@ -675,16 +745,20 @@ describe('EditorCanvas drag editing (006 US1)', () => {
     });
 
     // A cancelled drag contributes ZERO…
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
     h.tick();
     act(() => {
       h.frameDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });
+    h.tick();
     expect(stateChanges).toBe(0);
+    await vi.waitFor(() => {
+      expect(h.view.container.querySelector('[data-bldr-drag-handle]')).not.toBeNull();
+    });
 
     // …a committed one contributes exactly one transaction + one selection write.
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
     h.tick();
     h.pointerUp();
@@ -708,7 +782,7 @@ describe('EditorCanvas drag editing (006 US1)', () => {
     const h = harness(stressDocument(1000), { editable: true });
     h.tick();
     h.renders.length = 0;
-    h.pointerDown(h.wrapperOf('txt-5-5'), 10, 10);
+    h.dragHandleDown('txt-5-5', 10, 10);
     h.pointerMoveAt(h.wrapperOf('txt-7-3'), 18, 18);
     h.pointerMoveAt(h.wrapperOf('txt-9-1'), 30, 7); // top quarter of the constant box
     h.tick();
@@ -843,7 +917,7 @@ describe('cross-document gesture safety (006 review Criticals)', () => {
   it('a canvas drag released on the HOST still commits — and the next click is NOT swallowed', () => {
     const h = harness(TEST_DOC, { editable: true, rects: DRAG_RECTS });
     h.tick();
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125); // before b
     h.tick();
 
@@ -864,7 +938,7 @@ describe('cross-document gesture safety (006 review Criticals)', () => {
     const h = harness(TEST_DOC, { editable: true, rects: DRAG_RECTS });
     h.tick();
     const before = h.kernel.getDocument();
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
     h.tick();
 
@@ -890,7 +964,7 @@ describe('cross-document gesture safety (006 review Criticals)', () => {
     const h = harness(TEST_DOC, { editable: true, rects: DRAG_RECTS });
     h.tick();
     const before = h.kernel.getDocument();
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
     /*
       The window genuinely losing focus is what this cancel is for, and
@@ -927,7 +1001,7 @@ describe('cross-document gesture safety (006 review Criticals)', () => {
     */
     const h = harness(TEST_DOC, { editable: true, rects: DRAG_RECTS });
     h.tick();
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125);
 
     const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(true);
@@ -974,7 +1048,7 @@ describe('convergence: post-drop render scope + hand-built flow (006 audit)', ()
   it('SC-001 second clause: the drop itself re-renders ONLY the affected parents', () => {
     const h = harness(TEST_DOC, { editable: true, rects: DRAG_RECTS });
     h.tick();
-    h.pointerDown(h.wrapperOf('c'), 200, 280);
+    h.dragHandleDown('c', 200, 280);
     h.pointerMoveAt(h.wrapperOf('b'), 200, 125); // before b (same parent: root)
     h.tick();
     h.renders.length = 0;
@@ -987,7 +1061,7 @@ describe('convergence: post-drop render scope + hand-built flow (006 audit)', ()
   it('SC-001 second clause at stress scale: a cross-parent drop re-renders exactly both parents', () => {
     const h = harness(stressDocument(1000), { editable: true });
     h.tick();
-    h.pointerDown(h.wrapperOf('txt-5-5'), 10, 10);
+    h.dragHandleDown('txt-5-5', 10, 10);
     h.pointerMoveAt(h.wrapperOf('txt-7-3'), 30, 7); // top quarter → before, in sec-7
     h.tick();
     h.renders.length = 0;
@@ -1041,7 +1115,7 @@ describe('convergence: post-drop render scope + hand-built flow (006 audit)', ()
     // Arrange BY DRAG: move the bottom section above the top one.
     const order = h.kernel.getDocument().nodes['root']?.slots?.['default'] ?? [];
     const bottom = order[1] ?? '';
-    h.pointerDown(h.wrapperOf(bottom), 10, 15);
+    h.dragHandleDown(bottom, 10, 15);
     h.pointerMoveAt(h.wrapperOf(bottom), 18, 22);
     h.pointerMoveAt(h.wrapperOf(top), 10, 7); // top's upper quarter → before
     h.tick();
@@ -1090,7 +1164,7 @@ describe('convergence: post-drop render scope + hand-built flow (006 audit)', ()
   it('a dir flip during an ACTIVE drag re-tracks the indicator without pointer movement', async () => {
     const h = harness(TEST_DOC, { editable: true, dirAwareMeasure: true });
     h.tick();
-    h.pointerDown(h.wrapperOf('c'), 30, 15);
+    h.dragHandleDown('c', 30, 15);
     h.pointerMoveAt(h.wrapperOf('b'), 30, 7); // before b (constant box: top quarter)
     h.tick();
     const indicator = h.view.container.querySelector<HTMLElement>('.bldr-drop-indicator');
@@ -1112,7 +1186,7 @@ describe('EditorCanvas device width (007 §6)', () => {
     const shell = h.view.container.querySelector<HTMLElement>('.bldr-canvas-frame-shell');
     expect(shell).not.toBeNull();
     expect(shell?.style.inlineSize).toBe('834px');
-    expect(shell?.style.maxInlineSize).toBe('100%');
+    expect(shell?.style.maxInlineSize).toBe('');
     // The overlay layer lives INSIDE the shell: a centered frame keeps chrome
     // aligned by construction — no coordinate translation anywhere.
     const overlay = screen.getByTestId('bldr-overlay');
@@ -1125,6 +1199,23 @@ describe('EditorCanvas device width (007 §6)', () => {
     const h = harness();
     const shell = h.view.container.querySelector<HTMLElement>('.bldr-canvas-frame-shell');
     expect(shell?.getAttribute('style')).toBeNull();
+  });
+
+  it('keeps the authored target width exact while zoom changes only its visual footprint', () => {
+    const h = harness(TEST_DOC, { frameWidth: 1280, zoom: 0.5 });
+    const shell = h.view.container.querySelector<HTMLElement>('.bldr-canvas-frame-shell');
+    const viewport = screen.getByTestId('bldr-canvas-viewport');
+
+    expect(shell?.style.inlineSize).toBe('1280px');
+    expect(shell?.style.transform).toBe('scale(0.5)');
+    expect(viewport.style.inlineSize).toBe('640px');
+
+    h.view.rerender(
+      <EditorCanvas kernel={h.kernel} theme={lightTheme} frameWidth={1280} zoom={0.75} />,
+    );
+    expect(shell?.style.inlineSize).toBe('1280px');
+    expect(shell?.style.transform).toBe('scale(0.75)');
+    expect(viewport.style.inlineSize).toBe('960px');
   });
 });
 
@@ -1199,7 +1290,7 @@ describe('convergence fixes (007 §11)', () => {
   it('T021: unmount mid-PENDING drag leaves zero trace and inert listeners', () => {
     const h = harness(TEST_DOC, { editable: true });
     h.tick();
-    h.pointerDown(h.wrapperOf('c'), 30, 15); // pressed, below the 4px threshold
+    h.dragHandleDown('c', 30, 15); // pressed, below the 8px threshold
     const tx = h.kernel.transactions().length;
 
     expect(() => {
@@ -1219,7 +1310,7 @@ describe('convergence fixes (007 §11)', () => {
   it('T021: unmount mid-ACTIVE drag removes ALL chrome and commits nothing', () => {
     const h = harness(TEST_DOC, { editable: true });
     h.tick();
-    h.pointerDown(h.wrapperOf('c'), 30, 15);
+    h.dragHandleDown('c', 30, 15);
     h.pointerMoveAt(h.wrapperOf('b'), 30, 7); // crossed the threshold — ACTIVE
     h.tick();
     expect(h.view.container.querySelector('.bldr-drop-indicator')).not.toBeNull();
@@ -1698,8 +1789,16 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
       });
     };
     const pressOn = (id: string, x: number, y: number) => {
-      hitTarget = wrapperOf(id);
-      frameDocument.dispatchEvent(new MouseEvent('pointerdown', { clientX: x, clientY: y }));
+      if (kernel.context.store.getState().selection[0] !== id) {
+        throw new Error(`drag handle belongs to the selected block, received ${id}`);
+      }
+      const handle = view.container.querySelector<HTMLElement>('[data-bldr-drag-handle]');
+      if (handle === null) {
+        throw new Error(`selected block ${id} must expose a drag handle`);
+      }
+      handle.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }),
+      );
     };
     const dragTo = (x: number, y: number) => {
       frameDocument.dispatchEvent(new MouseEvent('pointermove', { clientX: x, clientY: y }));
@@ -2407,7 +2506,7 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     );
   });
 
-  it('Escape while a bar button has focus clears the selection — the bar is inside the host', async () => {
+  it('Escape while a bar button has focus climbs to the parent — the bar is inside the host', async () => {
     const h = floatingHarness();
     const host = screen.getByRole('region', { name: 'Editor canvas' });
     act(() => {
@@ -2425,8 +2524,8 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
 
     await userEvent.keyboard('{Escape}');
 
-    expect(h.kernel.context.store.getState().selection).toEqual([]);
-    expect(h.bar()).toBeNull();
+    expect(h.kernel.context.store.getState().selection).toEqual(['root']);
+    expect(h.bar()).not.toBeNull();
     expect(host).toHaveFocus();
   });
 

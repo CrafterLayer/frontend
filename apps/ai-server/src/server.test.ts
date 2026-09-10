@@ -198,4 +198,54 @@ describe('createNodeServer', () => {
     expect(body.error).not.toContain('internal detail');
     expect(body.error).not.toContain('.ts:');
   });
+
+  it('refuses a chunked body at the adapter limit before calling the handler', async () => {
+    let calls = 0;
+    const server = createNodeServer(
+      () => {
+        calls += 1;
+        return Promise.resolve(new Response('unexpected'));
+      },
+      { maxRequestBytes: 5 },
+    );
+    servers.push(server);
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
+    });
+    const address = server.address();
+    if (address === null || typeof address === 'string') throw new Error('no port');
+
+    const response = await new Promise<{ status: number | undefined; body: string }>(
+      (resolve, reject) => {
+        const client = httpRequest(
+          {
+            host: '127.0.0.1',
+            port: address.port,
+            path: '/',
+            method: 'POST',
+            headers: { 'transfer-encoding': 'chunked' },
+          },
+          (incoming) => {
+            let body = '';
+            incoming.setEncoding('utf8');
+            incoming.on('data', (chunk: string) => {
+              body += chunk;
+            });
+            incoming.on('end', () => {
+              resolve({ status: incoming.statusCode, body });
+            });
+          },
+        );
+        client.on('error', reject);
+        client.write('123');
+        client.end('456');
+      },
+    );
+
+    expect(response.status).toBe(413);
+    expect(JSON.parse(response.body)).toEqual({ error: 'Request too large.' });
+    expect(calls).toBe(0);
+  });
 });

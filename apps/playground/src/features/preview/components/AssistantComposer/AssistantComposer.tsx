@@ -13,8 +13,9 @@ export interface AssistantComposerProps {
   readonly onDraftChange: (draft: string) => void;
   /** The label's `for`, so the hidden label reaches the field it names. */
   readonly inputId: string;
-  /** A run owns the panel: the field is closed and the send slot becomes Stop. */
+  /** A run owns the panel, while the field remains available for one queued request. */
   readonly busy: boolean;
+  readonly queued?: boolean | undefined;
   readonly onSend: () => void;
   readonly onStop: () => void;
   /** Focus, which the agent's face watches. Not focus-within: this is the field. */
@@ -29,6 +30,18 @@ export interface AssistantComposerProps {
   /** The id of the line explaining why the modes are locked, for `aria-describedby`. */
   readonly modeLockId: string;
   readonly locale: AgentLocale;
+  readonly models?: readonly string[] | undefined;
+  readonly model?: string | undefined;
+  readonly onSelectModel?: ((model: string) => void) | undefined;
+}
+
+function modelLabel(slug: string): string {
+  if (slug.startsWith('cli:')) {
+    const name = slug.slice('cli:'.length);
+    return name === '' ? 'Claude CLI' : `${name} · Claude CLI`;
+  }
+  const name = slug.slice(slug.lastIndexOf('/') + 1);
+  return name.endsWith(':free') ? `${name.slice(0, -5)} · free` : name;
 }
 
 /**
@@ -44,6 +57,7 @@ export function AssistantComposer({
   onDraftChange,
   inputId,
   busy,
+  queued = false,
   onSend,
   onStop,
   onFocusChange,
@@ -55,6 +69,9 @@ export function AssistantComposer({
   onModeChange,
   modeLockId,
   locale,
+  models = [],
+  model,
+  onSelectModel,
 }: AssistantComposerProps) {
   return (
     <form
@@ -79,9 +96,8 @@ export function AssistantComposer({
           id={inputId}
           rows={2}
           value={draft}
-          placeholder="Ask for a change…"
+          placeholder={busy ? (queued ? 'One next request is queued…' : 'Type the next request…') : 'Ask for a change…'}
           enterKeyHint="send"
-          disabled={busy}
           /* The field and its send button are ONE control, so the ring is drawn
              around the card by :focus-within. See the stylesheet. */
           data-bldr-focus-ring="delegated"
@@ -114,7 +130,7 @@ export function AssistantComposer({
             // chat uses, and the one a person's hands already know.
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
-              onSend();
+              if (!queued) onSend();
             }
           }}
         />
@@ -149,6 +165,30 @@ export function AssistantComposer({
             lockReasonId={modeLockId}
             locale={locale}
           />
+          {models.length > 1 ? (
+            <label className="pg-chat__composer-model">
+              <span className="bldr-visually-hidden">Model</span>
+              <select
+                aria-label="Model"
+                title={model ?? models[0]}
+                value={model ?? models[0]}
+                disabled={busy}
+                onChange={(event) => onSelectModel?.(event.currentTarget.value)}
+              >
+                {models.map((slug) => <option key={slug} value={slug}>{modelLabel(slug)}</option>)}
+              </select>
+            </label>
+          ) : null}
+          {busy ? (
+            <ChromeButton
+              size="sm"
+              className="pg-chat__queue-next"
+              disabled={queued || draft.trim().length === 0}
+              onClick={onSend}
+            >
+              Queue next
+            </ChromeButton>
+          ) : null}
           <ChromeButton
             variant="icon"
             tone="primary"

@@ -21,8 +21,9 @@ import {
 import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
 import { demoExtension } from './demo-extension';
+import { createReferenceCodePageFixture } from './code-page-fixture';
 
-export type PlaygroundFixture = 'code-view' | 'empty' | 'landing' | 'inline';
+export type PlaygroundFixture = 'code-page' | 'code-view' | 'empty' | 'landing' | 'inline';
 
 /** The playground's own marketing landing document (real vocabulary, ar+en). */
 export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument {
@@ -749,6 +750,8 @@ export function playgroundDocument(
 ): BuilderDocument {
   return fixture === 'landing'
     ? marketingLanding(dir)
+    : fixture === 'code-page'
+      ? createReferenceCodePageFixture().page.document
     : fixture === 'code-view'
       ? codeViewEditing(dir)
       : fixture === 'inline'

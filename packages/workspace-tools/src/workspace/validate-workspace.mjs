@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createDiagnostic, compareDiagnostics } from '../shared/diagnostics.mjs';
 import { isPathInside } from '../shared/paths.mjs';
 import { discoverWorkspace } from './discover-workspace.mjs';
+import { validateRuntimeEntrypoints } from './validate-runtime-entrypoints.mjs';
 import {
   validateBuilderBoundaries,
   validateRootContainedDependencies,
@@ -37,6 +38,7 @@ export async function validateWorkspace(repositoryRoot) {
   // The root manifest is not a member, but anything declared there hoists into
   // every package's resolution path (008 §10 review fix).
   await validateRootManifest(discovery.repositoryRoot, diagnostics);
+  await validateRuntimeEntrypoints(discovery.repositoryRoot, diagnostics);
 
   diagnostics.sort(compareDiagnostics);
 

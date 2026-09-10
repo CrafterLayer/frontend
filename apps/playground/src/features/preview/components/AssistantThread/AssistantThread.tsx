@@ -2,6 +2,7 @@ import type { AiValidatedProposal } from '@craftkit/builder';
 import type { Ref } from 'react';
 
 import { AgentFace, moodForTurn, type AgentLocale, type AgentMoodSnapshot } from '../AgentFace';
+import { AgentRunCard } from '../AgentRunCard';
 import type { AssistantMode } from '../AssistantPanel/AssistantPanel.modes';
 import type { Turn } from '../AssistantPanel/AssistantPanel.turns';
 import { BuildApprovalCard } from '../BuildApprovalCard';
@@ -30,6 +31,7 @@ export interface AssistantThreadProps {
   readonly holdEmptySeat: Ref<HTMLSpanElement>;
   /** The build's ONE question, answered: continue with the list, or stop here. */
   readonly onApproval: (answer: 'build' | 'stop') => void;
+  readonly onStop: () => void;
   readonly onUndoTask: (
     turnId: string,
     position: number,
@@ -77,6 +79,7 @@ export function AssistantThread({
   watchEmptyZone,
   holdEmptySeat,
   onApproval,
+  onStop,
   onUndoTask,
   onRetrySkipped,
   onRetry,
@@ -128,20 +131,14 @@ export function AssistantThread({
               </span>
               <div className="pg-chat__reply-body">
                 {turn.kind === 'thinking' ? (
-                  <div className="pg-chat__inflight" data-state="inflight">
-                    {/* The rows narrate; the panel's own voice is the ONE live
-                    region, so the card stays silent. No Cancel here: the
-                    composer's Stop is the one abort. */}
-                    <LiveStageClock heading={`Working on ${turn.subject}`} run={turn.run} />
-                    <div className="pg-chat__thinking">
-                      <span className="pg-chat__thinking-dots" aria-hidden="true">
-                        <span />
-                        <span />
-                        <span />
-                      </span>
-                      <p dir="auto">{turn.progress ?? `Reading ${turn.subject}…`}</p>
-                    </div>
-                  </div>
+                  <AgentRunCard
+                    status="running"
+                    title={`Working on ${turn.subject}`}
+                    currentTask={turn.progress ?? `Reading ${turn.subject}…`}
+                    completed={turn.run.stages.filter((stage) => stage.status === 'done').length}
+                    total={turn.run.stages.length}
+                    onStop={onStop}
+                  />
                 ) : null}
                 {turn.kind === 'building' ? (
                   <div className="pg-chat__inflight" data-state="building">

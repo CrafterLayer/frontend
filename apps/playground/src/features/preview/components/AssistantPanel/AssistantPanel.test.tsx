@@ -856,36 +856,20 @@ describe('AssistantPanel', () => {
     ]);
   });
 
-  it('offers the plan own follow-up as a one-tap continuation', async () => {
-    const asks: string[] = [];
+  it('keeps follow-up suggestions out of a conversation that already has turns', async () => {
     const provider: AiPlanProvider = {
-      propose: (request) => {
-        asks.push(request);
-        return Promise.resolve({
+      propose: () =>
+        Promise.resolve({
           rationale: 'Stage one: the pricing section.',
           commands: [{ command: 'insertNode', args: { type: 'pricing', parentId: 'root' } }],
           followUp: 'كمل التنسيق والألوان',
-        });
-      },
+        }),
     };
     const { user } = renderPanel({ planProvider: provider });
 
-    // Deliberately ONE section: a page-sized ask routes to the split build,
-    // and this test is about the follow-up on an ordinary plan card.
     await requestPlan(user, 'ابني قسم الأسعار');
-    /*
-      In the SUGGESTION STRIP, not inside the plan card. The follow-up used to
-      be drawn in both places once the strip existed — two identical buttons for
-      one action — and the strip is the one that stays put: a card inside the log
-      scrolls away the moment the next message arrives.
-    */
-    const strip = screen.getByRole('list', { name: 'Suggestions' });
-    const continueButton = within(strip).getByRole('button', { name: /كمل التنسيق والألوان/ });
-    await user.click(continueButton);
 
-    await waitFor(() => {
-      expect(asks).toEqual(['ابني قسم الأسعار', 'كمل التنسيق والألوان']);
-    });
+    expect(screen.queryByRole('list', { name: 'Suggestions' })).not.toBeInTheDocument();
   });
 
   it('persists the conversation under persistKey and revives it on the next mount', async () => {
@@ -1191,13 +1175,7 @@ describe('AssistantPanel', () => {
     expect(kernel.getDocument()).toEqual(before);
   });
 
-  it('offers the outline’s own follow-up, which is half of what Plan was asked to fix', async () => {
-    /*
-      The Plan skill is REQUIRED to answer with a next step, the panel stored it
-      — and `lastFollowUp` read only `kind: 'plan'` turns, so an outline's
-      follow-up was saved and then never shown. Stored and invisible is the same
-      as absent.
-    */
+  it('keeps outline follow-ups out of the starter area after the first turn', async () => {
     const provider: AiPlanProvider = {
       propose: () =>
         Promise.resolve({
@@ -1211,12 +1189,7 @@ describe('AssistantPanel', () => {
     await user.click(screen.getByRole('radio', { name: 'Plan' }));
     await send(user, 'صفحة عيادة');
 
-    await waitFor(() => {
-      const strip = screen.getByRole('list', { name: 'Suggestions' });
-      expect(
-        within(strip).getByRole('button', { name: /ابدأ ببناء القسم الافتتاحي/ }),
-      ).toBeInTheDocument();
-    });
+    expect(screen.queryByRole('list', { name: 'Suggestions' })).not.toBeInTheDocument();
   });
 
   it('remembers the mode across a reload, because Ask can write and Plan cannot', async () => {
@@ -1236,7 +1209,7 @@ describe('AssistantPanel', () => {
     window.localStorage.removeItem('assistant-mode-test');
   });
 
-  it('stacks the suggestions on an empty panel and rails them once a conversation exists', async () => {
+  it('shows suggestions only on an empty conversation', async () => {
     /*
       One list, two layouts. On an empty panel there is nothing to crowd and a
       person who has said nothing yet is choosing, so the suggestions stack as
@@ -1253,12 +1226,7 @@ describe('AssistantPanel', () => {
 
     await send(user, 'add a hero');
 
-    await waitFor(() => {
-      expect(screen.getByRole('list', { name: 'Suggestions' })).toHaveAttribute(
-        'data-layout',
-        'rail',
-      );
-    });
+    expect(screen.queryByRole('list', { name: 'Suggestions' })).not.toBeInTheDocument();
   });
 
   it('carries the whole suggestion in the accessible name, even when the chip truncates', () => {

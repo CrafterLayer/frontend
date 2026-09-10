@@ -24,6 +24,7 @@ import {
   BuilderShell,
   BuilderTheme,
   ChromeButton,
+  CodePreviewFrame,
   IconRail,
   StatusBar,
   TopBar,
@@ -42,6 +43,7 @@ import {
   type RailItem,
   type TopBarDevice,
   type BuilderSite,
+  type ArtifactFile,
 } from '@craftkit/builder';
 
 import {
@@ -49,11 +51,7 @@ import {
   type PlaygroundFixture,
 } from '../features/preview/create-playground-kernel';
 import { HistoryPanel } from '../features/preview/components/HistoryPanel';
-import {
-  useVaultKernel,
-  type VaultKernelState,
-  type VaultSaveState,
-} from '../features/vault/use-vault';
+import { useVaultKernel, type VaultKernelState } from '../features/vault/use-vault';
 import { DirectionFlip } from '../features/preview/components/DirectionFlip';
 import { FixturePicker } from '../features/preview/components/FixturePicker';
 import { CodeViewShowcase } from '../features/preview/components/CodeViewShowcase';
@@ -65,10 +63,22 @@ import {
 } from '../features/preview/components/ChromePicker';
 import { ThemePicker, type ThemeName } from '../features/preview/components/ThemePicker';
 import { useTransactionCount } from '../features/preview/use-transaction-count';
+import { createCodeRuntimeClient } from '../features/preview/code-runtime-client';
+import { useCodePageSession } from '../features/preview/use-code-page-session';
+import { useCodeWorkspace } from '../features/preview/use-code-workspace';
+import { CodeWorkspace } from '../features/preview/code-workspace';
+import { PersistenceStatus } from '../features/vault/components/PersistenceStatus';
+import { PROFESSIONAL_BUILDER_FLAGS } from '../features/preview/feature-flags';
+import { createArtifactArchive } from '../features/preview/artifact-archive';
+import {
+  readCurrentWorkspace,
+  rememberCurrentWorkspace,
+} from '../features/preview/workspace-preferences';
+import { PageWorkspace } from '../features/preview/page-workspace';
 
 /**
- * Thin composition shell: fixtures + deterministic ports + the preset entrypoint.
- * Zero backend, zero network (FR-014) — everything below runs in memory.
+ * Product composition. Kernel source, runtime sessions, and Vault persistence
+ * each have a single owner outside this React layout.
  */
 /**
  * The top bar speaks in device NAMES; the canvas measures in pixels. One place
@@ -92,6 +102,12 @@ function deviceForBucket(name: TopBarDevice): DeviceState {
  */
 const envPlanModels = planModelsFromEnv(import.meta.env);
 const PLAN_MODEL_KEY = 'pg-ai-model-v1';
+const CODE_RUNTIME_ENDPOINT = import.meta.env['VITE_CODE_RUNTIME_ENDPOINT'] as string | undefined;
+const CODE_RUNTIME_TOKEN = import.meta.env['VITE_CODE_RUNTIME_TOKEN'] as string | undefined;
+const EXPORT_SITE_ORIGIN = import.meta.env['VITE_EXPORT_SITE_ORIGIN'] as string | undefined;
+const CODE_PREVIEW_URL_TEMPLATE =
+  (import.meta.env['VITE_CODE_PREVIEW_URL_TEMPLATE'] as string | undefined) ??
+  'http://{project}.localhost:5175/';
 
 /** The remembered choice, honoured only while it is still on offer. */
 function storedPlanModel(): string | undefined {
@@ -208,43 +224,17 @@ function BootState({ state }: { state: VaultKernelState }) {
   );
 }
 
-/**
- * The one thing a person cannot check for themselves: whether their work is
- * actually being kept.
- *
- * It says nothing at all while saving is working, which is almost always. It
- * speaks for the two states that used to be invisible — storage refusing every
- * write, and a second tab holding the same page — because a session that keeps
- * quiet through either loses everything on the next reload with a green screen
- * up to the last second.
- */
-function SaveNotice({ save }: { save: VaultSaveState }) {
-  if (save.status === 'error') {
-    return (
-      <div className="pg-save pg-save--error" role="alert">
-        <p>
-          <strong>Your changes are not being saved.</strong> They are still on screen and the next
-          edit tries again — keep this tab open. Restore points use the same storage, so if you need
-          this page somewhere safe, copy it out of Code.
-        </p>
-        {/* Storage's own words, never rewritten: "quota exceeded" and "this
-            browser exposes no indexedDB" are different problems with different
-            cures, and a single house sentence hides which one you have. */}
-        {save.reason === undefined ? null : <p className="pg-save__reason">{save.reason}</p>}
-      </div>
-    );
-  }
-  if (save.shared) {
-    return (
-      <div className="pg-save" role="status">
-        <p>
-          This page is open in another tab. Both are still editing it, and whichever saves last is
-          the copy that comes back.
-        </p>
-      </div>
-    );
-  }
-  return null;
+function downloadArtifactFiles(files: readonly ArtifactFile[]): void {
+  const url = URL.createObjectURL(
+    new Blob([createArtifactArchive(files)], { type: 'application/zip' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'craftkit-site.zip';
+  link.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 export function App() {
@@ -262,6 +252,14 @@ export function App() {
     that looks live and is not is worse than no control.
   */
   const [railSection, setRailSection] = useState('blocks');
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [asideOpen, setAsideOpen] = useState(true);
+  const [visiblePanes, setVisiblePanes] = useState({ panel: true, aside: true, overlay: false });
+  const [activeSide, setActiveSide] = useState<'panel' | 'aside'>('panel');
+  const [panelWidth, setPanelWidth] = useState(320);
+  const [canvasWidth, setCanvasWidth] = useState(1280);
+  const [zoomChoice, setZoomChoice] = useState('fit');
+  const [workspaceView, setWorkspaceView] = useState<'canvas' | 'sitemap'>('canvas');
   const [planModel, setPlanModel] = useState<string | undefined>(storedPlanModel);
   const selectPlanModel = useCallback((model: string) => {
     setPlanModel(model);
@@ -289,7 +287,7 @@ export function App() {
     focusable, no longer clickable. Opening OVER the canvas costs no layout
     pixels at all, which is the whole point.
   */
-  const [fixture, setFixture] = useState<PlaygroundFixture>('landing');
+  const [fixture, setFixture] = useState<PlaygroundFixture>(readCurrentWorkspace);
   /*
     There is no "edit mode". A builder IS an editor — you do not switch it on —
     and `Preview` is the one control that shows the page without the chrome. The
@@ -325,6 +323,41 @@ export function App() {
   const session = vault.status === 'ready' ? vault : undefined;
   const kernel = session?.kernel;
   const siteKernel = session?.siteKernel;
+  const codeRuntimeClient = useMemo(
+    () =>
+      CODE_RUNTIME_ENDPOINT === undefined
+        ? undefined
+        : createCodeRuntimeClient({
+            endpoint: CODE_RUNTIME_ENDPOINT,
+            previewUrlTemplate: CODE_PREVIEW_URL_TEMPLATE,
+            ...(CODE_RUNTIME_TOKEN === undefined ? {} : { token: CODE_RUNTIME_TOKEN }),
+          }),
+    [],
+  );
+  const codePage = useCodePageSession(
+    siteKernel,
+    codeRuntimeClient,
+    PROFESSIONAL_BUILDER_FLAGS.sourceAwareEditing,
+    PROFESSIONAL_BUILDER_FLAGS.codeExport,
+    EXPORT_SITE_ORIGIN,
+  );
+  const {
+    source: codeSnapshot,
+    compiled: visibleCompiledCodePage,
+    selection: selectedSource,
+    text: selectedText,
+  } = codePage;
+  const sourceWorkspace = useCodeWorkspace(
+    siteKernel,
+    codePage.controller,
+    session?.vault.store,
+    fixture,
+  );
+  const compileCodePage = () => codePage.controller?.rebuild();
+  const exportCodePage = async () => {
+    const exported = await codePage.controller?.exportPage();
+    if (exported !== undefined) downloadArtifactFiles(exported.files);
+  };
   /**
    * What the assistant needs to build a whole site, in one object.
    *
@@ -468,6 +501,10 @@ export function App() {
   // provenance strip, and without one while the document is opening), and the
   // device is the same fact in both.
   const deviceLabel = `${device.bucket === 'base' ? 'Desktop' : device.bucket === 'tablet' ? 'Tablet' : 'Mobile'} · ${String(device.width)} px`;
+  const canvasZoom =
+    zoomChoice === 'fit'
+      ? Math.max(0.1, Math.min(1, (canvasWidth - 32) / device.width))
+      : Number(zoomChoice);
   /*
     The code view is ONE destination, reached one way: the rail. It used to be
     reachable only by choosing a document fixture named "Code view", which made
@@ -481,7 +518,7 @@ export function App() {
   const codeOpen = railSection === 'code';
   const showcaseOwnsLawSControls = codeOpen;
 
-  if (preview && kernel !== undefined) {
+  if (preview && kernel !== undefined && codeSnapshot === undefined) {
     // US4: EVERY piece of editing chrome disappears — the preview surface plus
     // two floating controls (exit lives inside PreviewMode). The direction
     // flip here is VIEW state: the document-mutating flip stays in the header.
@@ -545,7 +582,9 @@ export function App() {
         }}
         onPreview={() => {
           // There is nothing to preview until the document is open.
-          if (kernel !== undefined) {
+          if (codeSnapshot !== undefined) {
+            void compileCodePage();
+          } else if (kernel !== undefined) {
             setPreview(true);
           }
         }}
@@ -556,13 +595,61 @@ export function App() {
             left here is the sealed-store counter, which must stay in the DOM in
             every view for the law's assertions and has no business being seen.
           */
-          showcaseOwnsLawSControls ? undefined : (
-            <span className="bldr-visually-hidden">
-              <output aria-label="Transactions" data-testid="pg-tx-count">
-                {kernel === undefined ? 0 : <TransactionCount kernel={kernel} />}
-              </output>
-            </span>
-          )
+          <>
+            <div className="pg-workspace-view" role="group" aria-label="Workspace view">
+              <ChromeButton
+                size="sm"
+                variant="toggle"
+                aria-pressed={workspaceView === 'canvas'}
+                onClick={() => {
+                  setWorkspaceView('canvas');
+                }}
+              >
+                Canvas
+              </ChromeButton>
+              <ChromeButton
+                size="sm"
+                variant="toggle"
+                aria-pressed={workspaceView === 'sitemap'}
+                onClick={() => {
+                  setWorkspaceView('sitemap');
+                }}
+              >
+                Sitemap
+              </ChromeButton>
+            </div>
+            <ChromeButton
+              size="sm"
+              variant="toggle"
+              aria-label="Toggle workspace panel"
+              aria-pressed={visiblePanes.panel}
+              onClick={() => {
+                setPanelOpen(!visiblePanes.panel);
+                setActiveSide('panel');
+              }}
+            >
+              Panel
+            </ChromeButton>
+            <ChromeButton
+              size="sm"
+              variant="toggle"
+              aria-label="Toggle inspector"
+              aria-pressed={visiblePanes.aside}
+              onClick={() => {
+                setAsideOpen(!visiblePanes.aside);
+                setActiveSide('aside');
+              }}
+            >
+              Inspector
+            </ChromeButton>
+            {showcaseOwnsLawSControls ? null : (
+              <span className="bldr-visually-hidden">
+                <output aria-label="Transactions" data-testid="pg-tx-count">
+                  {kernel === undefined ? 0 : <TransactionCount kernel={kernel} />}
+                </output>
+              </span>
+            )}
+          </>
         }
       />
       <output aria-live="polite" aria-label="Mode" className="bldr-visually-hidden">
@@ -575,7 +662,28 @@ export function App() {
         same editor whether the page came from storage or from the fixture. A
         restore that happens silently is a restore a person cannot disagree with.
       */}
-      {session === undefined ? null : <SaveNotice save={session.save} />}
+      {session === undefined ? null : (
+        <PersistenceStatus
+          value={session.save}
+          shared={session.save.shared}
+          onRetry={() => {
+            void session.siteKernel.flush();
+          }}
+          onDownload={() => {
+            const source = session.vault.downloadSource();
+            const url = URL.createObjectURL(
+              new Blob([source.contents], { type: source.mediaType }),
+            );
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = source.fileName;
+            link.click();
+            setTimeout(() => {
+              URL.revokeObjectURL(url);
+            }, 1000);
+          }}
+        />
+      )}
       {session !== undefined && session.restored && noticeDismissedFor !== fixture ? (
         <div className="pg-restored" role="status">
           <p>Picked up where you left off — this page came back from your last session.</p>
@@ -609,6 +717,14 @@ export function App() {
         */}
         <BuilderShell
           label="Playground editor"
+          adaptive
+          panelOpen={panelOpen}
+          asideOpen={asideOpen && workspaceView === 'canvas'}
+          activeSide={activeSide}
+          panelWidth={panelWidth}
+          onPanelWidthChange={setPanelWidth}
+          onCanvasWidthChange={setCanvasWidth}
+          onLayoutChange={setVisiblePanes}
           rail={
             <IconRail
               items={RAIL_DESTINATIONS}
@@ -624,6 +740,8 @@ export function App() {
                     current destination keeps its `aria-current`.
                   */
                 setRailSection(id);
+                setPanelOpen(true);
+                setActiveSide('panel');
               }}
               account={<div className="pg-avatar">CK</div>}
             />
@@ -708,7 +826,9 @@ export function App() {
                     }}
                   />
                 </div>
-                {railSection === 'layers' ? (
+                {railSection === 'pages' ? (
+                  <PageWorkspace siteKernel={session.siteKernel} />
+                ) : railSection === 'layers' ? (
                   /*
                     The pages ABOVE the layers, in the same panel. The layer tree
                     shows one page's structure; the list above says which page
@@ -731,7 +851,16 @@ export function App() {
                   <section className="pg-settings" aria-label="Scenario harness">
                     <h2>Harness</h2>
                     <p>Scenario controls. None of this is part of the product.</p>
-                    <FixturePicker value={fixture} onChange={setFixture} />
+                    <FixturePicker
+                      value={fixture}
+                      onChange={(next) => {
+                        rememberCurrentWorkspace(next);
+                        setFixture(next);
+                      }}
+                      showCodePage={
+                        PROFESSIONAL_BUILDER_FLAGS.v2Authoring || fixture === 'code-page'
+                      }
+                    />
                     <ChromePicker value={chromeChoice} onChange={setChromeChoice} />
                     <ThemePicker value={themeName} onChange={setThemeName} />
                     <DirectionFlip kernel={session.kernel} siteKernel={session.siteKernel} />
@@ -784,6 +913,86 @@ export function App() {
           canvas={
             session === undefined ? (
               <BootState state={vault} />
+            ) : workspaceView === 'sitemap' ? (
+              <PageWorkspace siteKernel={session.siteKernel} view="map" />
+            ) : codeSnapshot !== undefined ? (
+              <section className="pg-code-runtime" aria-label="Authored code page">
+                <div
+                  className="pg-code-runtime__toolbar"
+                  role="toolbar"
+                  aria-label="Code page actions"
+                >
+                  <ChromeButton size="sm" onClick={() => void compileCodePage()}>
+                    Build preview
+                  </ChromeButton>
+                  <ChromeButton
+                    size="sm"
+                    disabled={!siteKernel?.canUndo()}
+                    onClick={() => {
+                      siteKernel?.undo();
+                    }}
+                  >
+                    Undo source
+                  </ChromeButton>
+                  <ChromeButton
+                    size="sm"
+                    onClick={() => {
+                      void siteKernel?.flush().then(
+                        () => undefined,
+                        (error: unknown) => {
+                          codePage.controller?.report(
+                            error instanceof Error
+                              ? error.message
+                              : 'Storage did not acknowledge the source.',
+                          );
+                        },
+                      );
+                    }}
+                  >
+                    Save now
+                  </ChromeButton>
+                  <ChromeButton
+                    size="sm"
+                    disabled={
+                      !PROFESSIONAL_BUILDER_FLAGS.codeExport ||
+                      codePage.exporting ||
+                      visibleCompiledCodePage?.artifact.sourceRevision !==
+                        codeSnapshot.project.revision
+                    }
+                    onClick={() => void exportCodePage()}
+                  >
+                    Export files
+                  </ChromeButton>
+                  <span className="pg-code-runtime__revision">
+                    Revision {codeSnapshot.project.revision}
+                  </span>
+                </div>
+                <div className="pg-code-runtime__stage">
+                  {codeOpen && sourceWorkspace !== undefined ? (
+                    <CodeWorkspace port={sourceWorkspace} />
+                  ) : (
+                    <CodePreviewFrame
+                      artifact={visibleCompiledCodePage?.artifact}
+                      sourceRevision={codeSnapshot.project.revision}
+                      previewUrl={
+                        visibleCompiledCodePage?.previewUrl ?? 'http://unbuilt.localhost:5175/'
+                      }
+                      expectedOrigin={
+                        new URL(
+                          visibleCompiledCodePage?.previewUrl ?? 'http://unbuilt.localhost:5175/',
+                        ).origin
+                      }
+                      publicData={codeSnapshot.inputs}
+                      frameWidth={device.width}
+                      zoom={canvasZoom}
+                      status={codePage.status}
+                      message={codePage.message}
+                      onMessage={codePage.controller?.select}
+                      onRetry={() => void compileCodePage()}
+                    />
+                  )}
+                </div>
+              </section>
             ) : codeOpen ? (
               <CodeViewShowcase key={fixture} kernel={session.kernel} />
             ) : (
@@ -800,17 +1009,36 @@ export function App() {
                   editable
                   onDragHandle={setDragHandle}
                   frameWidth={device.width}
+                  zoom={canvasZoom}
                   breakpoint={breakpoint}
                 />
               </AssetTableProvider>
             )
           }
           status={
-            session === undefined ? (
-              <StatusBar changes={[]} deviceLabel={deviceLabel} />
-            ) : (
-              <ProvenanceStatusBar kernel={session.kernel} deviceLabel={deviceLabel} />
-            )
+            <div className="pg-canvas-status">
+              {session === undefined ? (
+                <StatusBar changes={[]} deviceLabel={deviceLabel} />
+              ) : (
+                <ProvenanceStatusBar kernel={session.kernel} deviceLabel={deviceLabel} />
+              )}
+              <label className="pg-canvas-zoom">
+                Zoom
+                <select
+                  aria-label="Canvas zoom"
+                  value={zoomChoice}
+                  onChange={(event) => {
+                    setZoomChoice(event.currentTarget.value);
+                  }}
+                >
+                  <option value="fit">Fit · {Math.round(canvasZoom * 100)}%</option>
+                  <option value="0.5">50%</option>
+                  <option value="0.75">75%</option>
+                  <option value="1">100%</option>
+                  <option value="1.25">125%</option>
+                </select>
+              </label>
+            </div>
           }
           /*
               The PAGE theme, not the editor's: a colour swatch has to show the
@@ -818,7 +1046,60 @@ export function App() {
               swatch must read dark even while the editor chrome is light.
             */
           aside={
-            session === undefined ? undefined : (
+            session === undefined ? undefined : codeSnapshot !== undefined ? (
+              <aside className="pg-code-runtime__selection" aria-label="Selected source element">
+                <h2>Selected element</h2>
+                {selectedSource === undefined ? (
+                  <p>Click an element in the isolated preview to edit its static text.</p>
+                ) : (
+                  <>
+                    <p>
+                      <strong>{selectedSource.tag}</strong>
+                      <span>{selectedSource.handle.modulePath}</span>
+                    </p>
+                    <ChromeButton
+                      size="sm"
+                      onClick={() => {
+                        sourceWorkspace?.navigateToSource(selectedSource.handle);
+                        setRailSection('code');
+                        setPanelOpen(true);
+                      }}
+                    >
+                      Open source
+                    </ChromeButton>
+                    <label>
+                      Text
+                      <textarea
+                        rows={4}
+                        disabled={
+                          !PROFESSIONAL_BUILDER_FLAGS.sourceAwareEditing ||
+                          selectedSource.staticText === undefined ||
+                          selectedSource.dynamic
+                        }
+                        value={selectedText}
+                        onChange={(event) => {
+                          codePage.controller?.setText(event.currentTarget.value);
+                        }}
+                      />
+                    </label>
+                    <ChromeButton
+                      size="sm"
+                      variant="primary"
+                      disabled={
+                        !PROFESSIONAL_BUILDER_FLAGS.sourceAwareEditing ||
+                        selectedSource.staticText === undefined ||
+                        selectedSource.dynamic
+                      }
+                      onClick={() => {
+                        codePage.controller?.applyText();
+                      }}
+                    >
+                      Apply as one change
+                    </ChromeButton>
+                  </>
+                )}
+              </aside>
+            ) : (
               <Inspector
                 kernel={session.kernel}
                 bucket={device.bucket}

@@ -1,15 +1,29 @@
 .bldr-canvas-host {
   block-size: 100%;
   inline-size: 100%;
+  overflow: auto;
   position: relative;
 }
 
-/* Device emulation shell (007 §6): the frame and its overlay layer share this
-   origin, so a narrowed, centered frame keeps chrome aligned by construction. */
-.bldr-canvas-frame-shell {
+/* The viewport reserves the transformed visual footprint. The child keeps the
+   authored device width; zoom scales its presentation without changing media
+   queries or silently shrinking it to the editor column. */
+.bldr-canvas-viewport {
   block-size: 100%;
+  inline-size: 100%;
   margin-inline: auto;
   position: relative;
+}
+
+/* Device emulation shell (007 §6): the frame and its overlay layer share one
+   authored coordinate space and are transformed together. */
+.bldr-canvas-frame-shell {
+  block-size: 100%;
+  inline-size: 100%;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  position: absolute;
+  transform-origin: top left;
 }
 
 .bldr-canvas-host:focus-visible {

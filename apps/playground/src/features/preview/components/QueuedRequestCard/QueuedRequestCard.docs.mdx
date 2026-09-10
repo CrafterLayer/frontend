@@ -1,0 +1,16 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as Stories from './QueuedRequestCard.stories';
+
+<Meta of={Stories} />
+
+# QueuedRequestCard
+
+The Agent accepts one editable next request while another run is active. This card keeps the captured
+page and target visible, lets the request change, and removes it without disturbing the active run.
+
+<Canvas of={Stories.Editable} />
+<Controls />
+
+A stale target is revalidated before execution. A missing target produces an announced error and the
+request cannot execute until the user selects a replacement. Text uses automatic direction while the
+control layout follows logical RTL properties and editor theme tokens.

@@ -33,7 +33,12 @@ import { customCodeElementAt } from '../../custom-code/element-at';
 import { performMoveAction, resolveMoveAction } from '../../keyboard/move-actions';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { customCodeElementName } from '../../naming/custom-code-element-name';
-import { resolveTraversalAction, traverse, type SlotOrderLookup } from '../../keyboard/traversal';
+import {
+  parentOf,
+  resolveTraversalAction,
+  traverse,
+  type SlotOrderLookup,
+} from '../../keyboard/traversal';
 import { createAnchorChannel, type AnchorChannel } from '../../overlay/anchor-channel';
 import { performBlockAction, resolveBlockActions } from '../../overlay/block-actions';
 import { createDragSession, type DragSession } from '../../overlay/drag-session';
@@ -89,6 +94,8 @@ export interface EditorCanvasProps {
    * and the overlay layer shares its origin, so no hot path changes.
    */
   frameWidth?: number | undefined;
+  /** Visual canvas scale. It never changes the authored frame width or breakpoint. */
+  zoom?: number | undefined;
   /**
    * B3a (007 review C1): the breakpoint the CONTENT renders at — the device
    * width must drive one authority end-to-end, so the composition derives this
@@ -125,6 +132,7 @@ interface Machinery {
   controller: OverlayController;
   tools: ToolHost;
   session: DragSession | null;
+  beginMoveFromHandle: (nodeId: NodeId, hostX: number, hostY: number) => void;
   anchors: AnchorChannel;
   detachListeners: () => void;
 }
@@ -305,6 +313,7 @@ export function EditorCanvas({
   onDragHandle,
   onInlineEditHandle,
   frameWidth,
+  zoom = 1,
   breakpoint,
 }: EditorCanvasProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -312,6 +321,8 @@ export function EditorCanvas({
   const layerRef = useRef<HTMLDivElement | null>(null);
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   const machineryRef = useRef<Machinery | null>(null);
+  const normalizedZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const zoomRef = useRef(normalizedZoom);
   // Wrappers can mount before the frame-ready effect builds the index; the
   // buffer preserves them and the effect replays it (first-frame safety).
   const elementsRef = useRef(new Map<NodeId, HTMLElement>());
@@ -356,7 +367,8 @@ export function EditorCanvas({
   // move and never per scroll frame, which is what keeps the toolbars off
   // React's hot path while still letting React own their content.
   const [floating, setFloating] = useState<FloatingMounts | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [dragState, setDragState] = useState({ active: false, revision: 0 });
+  const dragging = dragState.active;
   const [textActions, setTextActions] = useState<InlineFormatAction[]>([]);
   const textMeasureRef = useRef<Parameters<AnchorChannel['setText']>[0]>(null);
   // The contributed editor, KEYED by the kind it serves. Loaded on demand — a
@@ -549,7 +561,7 @@ export function EditorCanvas({
     // Floating chrome (009 §10). The bridge is the ONE place frame and host
     // space meet; the channel rides the rect index's existing invalidation, so
     // toolbars follow the content without anything polling.
-    const bridge = createFrameBridge(frame);
+    const bridge = createFrameBridge(frame, { scale: () => zoomRef.current });
     const textHost = createFloatingHost({
       layer,
       className: 'bldr-floating--bubble',
@@ -576,6 +588,7 @@ export function EditorCanvas({
           frame: snapshot.frame,
           viewport: snapshot.viewport,
           visible: snapshot.visible,
+          scale: snapshot.scale,
           dir: dirRef.current,
         };
         blockHost.place({ anchor: snapshot.block, ...common });
@@ -605,7 +618,7 @@ export function EditorCanvas({
             // A gesture BOUNDARY, never a pointer move: the action bar is not
             // mounted while a drag is in flight (US3/AC4), and comes back on
             // release without a second gesture.
-            setDragging(active);
+            setDragState((current) => ({ active, revision: current.revision + 1 }));
           },
         })
       : null;
@@ -624,12 +637,6 @@ export function EditorCanvas({
     });
     anchors.setBlock(kernel.context.store.getState().selection[0] ?? null);
 
-    const onPointerDown = (event: MouseEvent) => {
-      const id = index.nodeAt(event.clientX, event.clientY);
-      if (session !== null && id !== undefined && id !== kernel.getDocument().rootId) {
-        session.press({ kind: 'move', id }, event.clientX, event.clientY);
-      }
-    };
     // What is under the pointer: the node, and — inside a composed region —
     // the authored element (the portrait, the headline, the button). The
     // element is chrome and Inspector truth; canvas TOOLS keep working at
@@ -690,7 +697,6 @@ export function EditorCanvas({
       // back deliberately — nothing inside the canvas wants it.
       hostRef.current?.focus({ preventScroll: true });
     };
-    frameDocument.addEventListener('pointerdown', onPointerDown);
     frameDocument.addEventListener('pointermove', onPointerMove, { passive: true });
     frameDocument.addEventListener('pointerup', onPointerUp);
     frameDocument.addEventListener('pointerleave', onPointerLeave);
@@ -757,7 +763,7 @@ export function EditorCanvas({
       onDragHandleRef.current?.({
         beginInsert(type, hostX, hostY) {
           const start = toFrame(hostX, hostY);
-          session.press({ kind: 'insert', type }, start.x, start.y);
+          session.press({ kind: 'insert', type }, start.x, start.y, 'handle');
           return { didActivate: () => session.lastGestureActivated() };
         },
       });
@@ -768,9 +774,19 @@ export function EditorCanvas({
       controller,
       tools,
       session,
+      beginMoveFromHandle: (nodeId, hostX, hostY) => {
+        if (
+          session === null ||
+          nodeId === kernel.getDocument().rootId ||
+          kernel.context.store.getState().selection[0] !== nodeId
+        ) {
+          return;
+        }
+        const start = toFrame(hostX, hostY);
+        session.press({ kind: 'move', id: nodeId }, start.x, start.y, 'handle');
+      },
       anchors,
       detachListeners: () => {
-        frameDocument.removeEventListener('pointerdown', onPointerDown);
         frameDocument.removeEventListener('pointermove', onPointerMove);
         frameDocument.removeEventListener('pointerup', onPointerUp);
         frameDocument.removeEventListener('pointerleave', onPointerLeave);
@@ -794,7 +810,7 @@ export function EditorCanvas({
       offSelection();
       machineryRef.current = null;
       setFloating(null);
-      setDragging(false);
+      setDragState((current) => ({ active: false, revision: current.revision + 1 }));
     };
     // geometryPorts/onToolError are test/instrumentation inputs, stable per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -807,6 +823,11 @@ export function EditorCanvas({
     dirRef.current = dir;
     machineryRef.current?.anchors.refresh();
   }, [dir]);
+
+  useLayoutEffect(() => {
+    zoomRef.current = normalizedZoom;
+    machineryRef.current?.anchors.refresh();
+  }, [normalizedZoom]);
 
   // While a block's text is open IN PLACE, the editing surface's own focus ring
   // is the chrome. Stacking the selection outline and its name label on top
@@ -914,6 +935,19 @@ export function EditorCanvas({
         kernel.clearElementFocus();
         return true;
       }
+      // After foreground chrome and inline editing have had their own first
+      // chance, Escape climbs exactly one document level before it clears.
+      if (key === 'Escape') {
+        const selected = kernel.context.store.getState().selection[0];
+        if (selected === undefined) return false;
+        const parent = parentOf(kernel.getDocument(), selected);
+        if (parent === undefined) {
+          kernel.clearSelection();
+        } else {
+          kernel.setSelection([parent]);
+        }
+        return true;
+      }
       // B2b Alt-moves run AHEAD of traversal and only on editable canvases.
       if (editable) {
         const moveAction = resolveMoveAction(key, altKey, dir);
@@ -1004,6 +1038,12 @@ export function EditorCanvas({
       return;
     }
     const onFrameKeyDown = (event: KeyboardEvent) => {
+      const dragSession = machineryRef.current?.session ?? null;
+      if (event.key === 'Escape' && dragSession !== null && dragSession.phase() !== 'idle') {
+        handleTraversalKey('Escape');
+        event.preventDefault();
+        return;
+      }
       if (event.key === 'Escape' && surfaceEscapeHandledRef.current) {
         event.preventDefault();
         return;
@@ -1311,6 +1351,41 @@ export function EditorCanvas({
     [kernel, beginInlineEdit, selectedName],
   );
 
+  const beginMoveFromHandle = useCallback(
+    (hostX: number, hostY: number) => {
+      const selected = kernel.context.store.getState().selection[0];
+      if (selected !== undefined) {
+        machineryRef.current?.beginMoveFromHandle(selected, hostX, hostY);
+      }
+    },
+    [kernel],
+  );
+
+  const validFrameWidth =
+    frameWidth !== undefined && Number.isFinite(frameWidth) && frameWidth >= 1
+      ? frameWidth
+      : undefined;
+  const viewportStyle =
+    validFrameWidth !== undefined
+      ? { inlineSize: `${String(validFrameWidth * normalizedZoom)}px` }
+      : normalizedZoom === 1
+        ? undefined
+        : { inlineSize: `${String(normalizedZoom * 100)}%` };
+  const frameShellStyle = {
+    ...(validFrameWidth === undefined
+      ? normalizedZoom === 1
+        ? {}
+        : { inlineSize: `${String(100 / normalizedZoom)}%` }
+      : { inlineSize: `${String(validFrameWidth)}px` }),
+    ...(normalizedZoom === 1
+      ? {}
+      : {
+          blockSize: `${String(100 / normalizedZoom)}%`,
+          transform: `scale(${String(normalizedZoom)})`,
+        }),
+  };
+  const hasFrameShellStyle = Object.keys(frameShellStyle).length > 0;
+
   return (
     <div
       ref={hostRef}
@@ -1322,59 +1397,60 @@ export function EditorCanvas({
       onClick={onHostClick}
     >
       <div
-        ref={frameShellRef}
-        className="bldr-canvas-frame-shell"
-        style={
-          // Guarded: 0/negative/NaN would collapse or corrupt the frame —
-          // an invalid width falls back to full width, never a broken shell.
-          frameWidth !== undefined && Number.isFinite(frameWidth) && frameWidth >= 1
-            ? { inlineSize: `${String(frameWidth)}px`, maxInlineSize: '100%' }
-            : undefined
-        }
+        className="bldr-canvas-viewport"
+        data-testid="bldr-canvas-viewport"
+        style={viewportStyle}
       >
-        <CanvasFrame theme={theme} dir={dir} title={title} onFrame={setFrame}>
-          <DocumentView
-            kernel={kernel}
-            breakpoint={breakpoint ?? 'desktop'}
-            attachNodeElement={attachNodeElement}
-            onBlockRender={onBlockRender}
-            inlineEdit={inlineEditSeam}
-          />
-        </CanvasFrame>
-        <div ref={layerRef} className="bldr-overlay" data-testid="bldr-overlay" />
-        {/* Floating chrome: React owns the CONTENT, the hosts own the geometry.
+        <div
+          ref={frameShellRef}
+          className="bldr-canvas-frame-shell"
+          style={hasFrameShellStyle ? frameShellStyle : undefined}
+        >
+          <CanvasFrame theme={theme} dir={dir} title={title} onFrame={setFrame}>
+            <DocumentView
+              kernel={kernel}
+              breakpoint={breakpoint ?? 'desktop'}
+              attachNodeElement={attachNodeElement}
+              onBlockRender={onBlockRender}
+              inlineEdit={inlineEditSeam}
+            />
+          </CanvasFrame>
+          <div ref={layerRef} className="bldr-overlay" data-testid="bldr-overlay" />
+          {/* Floating chrome: React owns the CONTENT, the hosts own the geometry.
             The bubble exists only while an editor reports actions for a live
             selection, so a plain-text surface never shows one (US2/AC5). */}
-        {floating !== null && visibleTextActions.length > 0
-          ? createPortal(
-              <TextBubble
-                dir={dir}
-                actions={visibleTextActions}
-                onReturnFocus={returnFocusToEditor}
-              />,
-              floating.text,
-            )
-          : null}
-        {/* The action bar belongs to a SELECTED block that is not busy being
+          {floating !== null && visibleTextActions.length > 0
+            ? createPortal(
+                <TextBubble
+                  dir={dir}
+                  actions={visibleTextActions}
+                  onReturnFocus={returnFocusToEditor}
+                />,
+                floating.text,
+              )
+            : null}
+          {/* The action bar belongs to a SELECTED block that is not busy being
             something else: not while a drag is in flight (US3/AC4), and not
             while its own text is open for editing — the bubble owns that
             moment, and two toolbars over one block is noise, not power. */}
-        {floating !== null &&
-        editable &&
-        !dragging &&
-        inlineSession === null &&
-        selectedName !== null &&
-        blockActions.length > 0
-          ? createPortal(
-              <BlockActionBar
-                label={`Actions for ${selectedName}`}
-                actions={blockActions}
-                onAction={runBlockAction}
-                dir={dir}
-              />,
-              floating.block,
-            )
-          : null}
+          {floating !== null &&
+          editable &&
+          !dragging &&
+          inlineSession === null &&
+          selectedName !== null &&
+          blockActions.length > 0
+            ? createPortal(
+                <BlockActionBar
+                  label={`Actions for ${selectedName}`}
+                  actions={blockActions}
+                  onMovePointerDown={beginMoveFromHandle}
+                  onAction={runBlockAction}
+                  dir={dir}
+                />,
+                floating.block,
+              )
+            : null}
+        </div>
       </div>
       <output className="bldr-visually-hidden" aria-live="polite" aria-label="Selection">
         {announcement}

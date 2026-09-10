@@ -27,6 +27,21 @@ const titleTx = (id: string, value: string, previous: string): Transaction => ({
 const ports = (id: string) => ({ clock: fixedClock(), ids: seededIds(id) });
 
 describe('createVaultPersistence', () => {
+  it('returns a session-only acknowledgement when the write lands in memory', async () => {
+    const adapter = createVaultPersistence({ store: createMemoryVaultStore(), seed });
+
+    await expect(adapter.append('ack-doc', [titleTx('t1', 'Hello', '')], 0)).resolves.toMatchObject(
+      {
+        seq: 1,
+        persistence: { kind: 'session-only', sequence: 1 },
+      },
+    );
+    expect(adapter.acknowledgement('ack-doc')).toMatchObject({
+      kind: 'session-only',
+      sequence: 1,
+    });
+  });
+
   it('first boot loads the SEED as an empty history; a second boot returns what was appended', async () => {
     const store = createMemoryVaultStore();
     const adapter = createVaultPersistence({ store, seed });

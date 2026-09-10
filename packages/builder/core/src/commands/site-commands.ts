@@ -4,7 +4,6 @@ import {
   assetEntrySchema,
   builderError,
   designSystemSchema,
-  emptyDocument,
   isTokenName,
   jsonValueZod,
   siteNestedDocumentSchema,
@@ -22,13 +21,14 @@ import {
   type RegisteredSiteCommand,
   type SharedRegionId,
   type SharedRegionKind,
-  type SitePage,
   type TokenName,
 } from '@craftkit/builder-schema';
 
 import { snapshot } from '../patches/immer';
 import { applyOnePatch, type RootPatch } from '../patches/apply-one-patch';
 import { defineSiteCommand } from './define-site-command';
+import { codeProjectCommands, type CodeProjectCommands } from './code-project-commands';
+import { pageCommands, type PageCommands } from './page-commands';
 
 /**
  * The SITE command set (013, ق١).
@@ -47,7 +47,7 @@ import { defineSiteCommand } from './define-site-command';
  * command that could only be caught by the backstop would report its fault as
  * "the site is invalid" instead of "that address is already taken".
  */
-export interface SiteCommands {
+export interface SiteCommands extends CodeProjectCommands, PageCommands {
   addPage: {
     address: string;
     title: string;
@@ -56,7 +56,6 @@ export interface SiteCommands {
     regions?: SharedRegionId[];
     index?: number;
   };
-  removePage: { pageId: PageId };
   renamePage: { pageId: PageId; title?: string; address?: string };
   reorderPage: { pageId: PageId; toIndex: number };
   setSharedRegion: {
@@ -74,9 +73,6 @@ export interface SiteCommands {
 
 export type SiteCommandName = keyof SiteCommands;
 
-const HOME_ADDRESS = '/';
-
-const address = z.string().min(1);
 const regionId = z.string().min(1);
 const pageId = z.string().min(1);
 const SAFE_PATCH_PATH_SEGMENT = /^(?!(?:__proto__|constructor|prototype)$).*$/;
@@ -101,123 +97,6 @@ export function isSiteCommandName(name: string): name is SiteCommandName {
 }
 
 export const siteCommands: Record<SiteCommandName, RegisteredSiteCommand> = {
-  addPage: defineSiteCommand({
-    args: z.strictObject({
-      address,
-      title: z.string().min(1),
-      purpose: z.string().optional(),
-      audience: z.string().optional(),
-      regions: z.array(regionId).optional(),
-      index: z.number().int().min(0).optional(),
-    }),
-    run: (args) => (draft, rt) => {
-      requireAddressShape(args.address);
-      requireFreeAddress(draft, args.address, undefined);
-      const regions = args.regions ?? [];
-      requireKnownRegions(draft, regions);
-      requireDistinct(regions, 'regions');
-      /*
-        A new page may be inserted anywhere in the order, but not past the end:
-        `pages.length` positions plus the append slot. An out-of-range index is
-        a caller bug, and clamping it silently would put the page somewhere the
-        caller did not ask for and never learn about.
-      */
-      const at = args.index ?? draft.pages.length;
-      if (at > draft.pages.length) {
-        throw siteError(
-          `Cannot insert a page at index ${String(at)}; the site has ${String(draft.pages.length)} pages.`,
-          ['index'],
-        );
-      }
-
-      const page: SitePage = {
-        id: rt.ids.newId(),
-        address: args.address,
-        title: args.title,
-        purpose: args.purpose ?? '',
-        audience: args.audience ?? '',
-        // Born in the site's own direction — otherwise it is invalid the moment
-        // it exists, and `page-direction-mismatch` reports it a step too late.
-        document: emptyDocument('site', draft.dir),
-        regions,
-      };
-      mutablePages(draft).splice(at, 0, page);
-    },
-  }),
-
-  removePage: defineSiteCommand({
-    args: z.strictObject({ pageId }),
-    run: (args) => (draft) => {
-      const index = pageIndex(draft, args.pageId);
-      const page = draft.pages[index];
-      /*
-        The home page is the one page a site cannot be without: `validateSite`
-        requires exactly one at "/". Refusing here rather than letting the
-        backstop catch it is the difference between "you cannot remove the home
-        page" and "the site is invalid", told at the moment of the attempt.
-      */
-      if (page?.address === HOME_ADDRESS) {
-        throw siteError('The home page cannot be removed; rename it or add another first.', [
-          'pageId',
-        ]);
-      }
-      mutablePages(draft).splice(index, 1);
-    },
-  }),
-
-  renamePage: defineSiteCommand({
-    args: z
-      .strictObject({
-        pageId,
-        title: z.string().min(1).optional(),
-        address: address.optional(),
-      })
-      /*
-        A command that changes nothing must not open a transaction: it would put
-        an entry in the history and an undo step in the user's way for an action
-        that did not happen.
-      */
-      .refine(
-        (value) => value.title !== undefined || value.address !== undefined,
-        'renamePage needs a title, an address, or both.',
-      ),
-    run: (args) => (draft) => {
-      const index = pageIndex(draft, args.pageId);
-      const page = draft.pages[index];
-      if (page === undefined) return;
-      if (args.address !== undefined) {
-        requireAddressShape(args.address);
-        requireFreeAddress(draft, args.address, args.pageId);
-        if (page.address === HOME_ADDRESS && args.address !== HOME_ADDRESS) {
-          throw siteError('The home page must stay at "/"; move another page there first.', [
-            'address',
-          ]);
-        }
-      }
-      mutablePages(draft)[index] = {
-        ...page,
-        ...(args.title === undefined ? {} : { title: args.title }),
-        ...(args.address === undefined ? {} : { address: args.address }),
-      };
-    },
-  }),
-
-  reorderPage: defineSiteCommand({
-    args: z.strictObject({ pageId, toIndex: z.number().int().min(0) }),
-    run: (args) => (draft) => {
-      const from = pageIndex(draft, args.pageId);
-      if (args.toIndex >= draft.pages.length) {
-        throw siteError(
-          `Cannot move a page to index ${String(args.toIndex)}; the site has ${String(draft.pages.length)} pages.`,
-          ['toIndex'],
-        );
-      }
-      const pages = mutablePages(draft);
-      const [page] = pages.splice(from, 1);
-      if (page !== undefined) pages.splice(args.toIndex, 0, page);
-    },
-  }),
-
   setSharedRegion: defineSiteCommand({
     args: z.strictObject({
       regionId,
@@ -405,6 +284,8 @@ export const siteCommands: Record<SiteCommandName, RegisteredSiteCommand> = {
       }
     },
   }),
+  ...pageCommands,
+  ...codeProjectCommands,
 };
 
 // ── Refusal helpers ──────────────────────────────────────────────────────────
@@ -422,8 +303,8 @@ function siteError(message: string, path?: (string | number)[]) {
   modifiers when checking assignability, so the two record fields widen on their
   own, while `readonly T[]` genuinely is a different type from `T[]`.
 */
-function mutablePages(draft: BuilderSite): SitePage[] {
-  return draft.pages as SitePage[];
+function mutablePages(draft: BuilderSite): BuilderSite['pages'][number][] {
+  return draft.pages as BuilderSite['pages'][number][];
 }
 
 function mutableRegions(
@@ -442,19 +323,6 @@ function pageIndex(draft: BuilderSite, id: PageId): number {
     throw siteError(`Page "${id}" does not exist.`, ['pageId']);
   }
   return index;
-}
-
-function requireAddressShape(value: string): void {
-  if (!value.startsWith('/')) {
-    throw siteError(`A page address must start with "/"; got "${value}".`, ['address']);
-  }
-}
-
-function requireFreeAddress(draft: BuilderSite, value: string, exceptPageId: PageId | undefined) {
-  const taken = draft.pages.some((page) => page.address === value && page.id !== exceptPageId);
-  if (taken) {
-    throw siteError(`Another page already lives at "${value}".`, ['address']);
-  }
 }
 
 function requireKnownRegions(draft: BuilderSite, regions: readonly SharedRegionId[]): void {

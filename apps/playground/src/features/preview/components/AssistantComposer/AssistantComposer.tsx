@@ -166,7 +166,12 @@ export function AssistantComposer({
             lockReasonId={modeLockId}
             locale={locale}
           />
-          {models.length > 1 ? (
+          {/*
+            Hidden while a run is busy rather than disabled: it cannot change a
+            run in flight, and beside "Queue next" it was squeezed to a bare
+            chevron that read as a broken control.
+          */}
+          {models.length > 1 && !busy ? (
             <label className="pg-chat__composer-model">
               <span className="bldr-visually-hidden">Model</span>
               <select

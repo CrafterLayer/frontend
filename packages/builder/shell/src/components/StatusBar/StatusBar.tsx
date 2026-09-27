@@ -73,6 +73,21 @@ const DOORS = {
   Record<ChangeDoor, { readonly label: string; readonly icon: ReactNode }>
 >;
 
+/**
+ * Whether a change label already says which door it came through. A build
+ * labels its sections "Assistant: 3/4 — Menu" and an applied plan "AI: …",
+ * and prefixing either again read "Assistant: Assistant: …" / "Assistant: AI: …".
+ */
+const DOOR_ALIASES: Readonly<Record<ChangeDoor, readonly string[]>> = {
+  canvas: ['Canvas'],
+  code: ['Code'],
+  assistant: ['Assistant', 'AI'],
+};
+
+function namesItsDoor(change: RecentChange): boolean {
+  return DOOR_ALIASES[change.door].some((alias) => change.label.startsWith(`${alias}:`));
+}
+
 const SAVE_LABELS = {
   saved: 'Saved',
   saving: 'Saving',
@@ -138,7 +153,7 @@ export function StatusBar({
                 how the build labels its transactions) is not prefixed again —
                 the bar read "Assistant: Assistant: 3/4" on every build.
               */
-              const accessibleLabel = change.label.startsWith(`${door.label}:`)
+              const accessibleLabel = namesItsDoor(change)
                 ? change.label
                 : `${door.label}: ${change.label}`;
               const content = (

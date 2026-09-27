@@ -158,6 +158,11 @@ describe('AssistantComposer', () => {
     expect(onSelectModel).toHaveBeenCalledWith('openai/gpt-5.6-sol');
   });
 
+  it('steps the model choice aside while a run is busy, instead of squeezing it', () => {
+    renderComposer({ busy: true, models: ['cli:sonnet', 'cli:haiku'], model: 'cli:sonnet' });
+    expect(screen.queryByRole('combobox', { name: 'Model' })).not.toBeInTheDocument();
+  });
+
   it('describes the chosen mode when idle', () => {
     renderComposer();
     expect(screen.queryByText('Stop the request to change mode.')).toBeNull();

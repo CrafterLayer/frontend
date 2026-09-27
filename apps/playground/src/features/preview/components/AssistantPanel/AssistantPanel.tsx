@@ -314,8 +314,9 @@ export function AssistantPanel({
     const saved = revived?.mode;
     /*
       Only a mode the person chose outlives the host default. Anything else —
-      a default saved like a choice, older data, a hand-edited store — reads
-      as the host default.
+      a default saved like a choice, an older saved Ask, a hand-edited store —
+      reads as the host default. (An older Plan or Auto was a choice; the
+      revival marks it so.)
     */
     if (revived?.modeChosen !== true) return defaultMode;
     return saved === 'auto' || saved === 'plan' || saved === 'ask' ? saved : defaultMode;

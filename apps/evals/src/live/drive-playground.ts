@@ -75,6 +75,12 @@ export interface DriveOptions {
    * when the bodies are not.
    */
   readonly captureDir: string | undefined;
+  /**
+   * A second request sent in the same session once the first has settled —
+   * the follow-up edit ("make the hero darker") whose speed a person feels
+   * most. Its own milestones time it; undefined sends nothing more.
+   */
+  readonly followUp: string | undefined;
 }
 
 interface Milestone {
@@ -166,6 +172,7 @@ function readOptions(argv: readonly string[]): DriveOptions {
     mode: parseMode(flag('mode', '')),
     fixture: flag('fixture', '') === '' ? undefined : flag('fixture', ''),
     captureDir: flag('capture', '') === '' ? undefined : resolve(flag('capture', '')),
+    followUp: flag('then', '') === '' ? undefined : flag('then', ''),
   };
 }
 
@@ -531,6 +538,28 @@ export async function drivePlayground(options: DriveOptions): Promise<DriveEvide
     }
 
     screenshots.push(await capture(page, options, runStamp, 'settled'));
+
+    if (options.followUp !== undefined && !awaitingApproval && !proposed) {
+      /*
+        The same composer, the same send key, the same settle signal as the
+        first request — a follow-up is only a second request in a session that
+        already has a page, which is exactly what makes it the edit path.
+      */
+      await composer.click({ timeout: STEP_TIMEOUT_MS });
+      await composer.pressSequentially(options.followUp, { delay: 8, timeout: STEP_TIMEOUT_MS });
+      await composer.press('Enter');
+      await thread
+        .getByText(options.followUp, { exact: false })
+        .first()
+        .waitFor({ state: 'visible', timeout: STEP_TIMEOUT_MS });
+      mark('follow-up sent', options.followUp);
+      await panel.getByRole('button', { name: 'Send' }).waitFor({
+        state: 'visible',
+        timeout: SETTLE_TIMEOUT_MS,
+      });
+      mark('follow-up settled', `transactions ${String(await transactionCount(page))}`);
+      screenshots.push(await capture(page, options, runStamp, 'follow-up'));
+    }
 
     if (proposed && !awaitingApproval && options.applyAndUndo) {
       await applyButton.click({ timeout: STEP_TIMEOUT_MS });

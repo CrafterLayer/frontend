@@ -1237,6 +1237,36 @@ describe('AssistantPanel', () => {
     window.localStorage.removeItem('assistant-default-test');
   });
 
+  it.each([
+    { saved: 'plan', radio: 'Plan', host: 'auto' },
+    { saved: 'auto', radio: 'Auto', host: 'ask' },
+  ] as const)(
+    'keeps a $saved mode saved before choices were marked, because only a person could store it',
+    ({ saved, radio, host }) => {
+      /*
+        Data from before `modeChosen` has no marker. Then the default was Ask
+        and only the radios could store Plan or Auto, so those two are choices.
+        Reading them as the host default put a person who chose Plan — the
+        mode that never writes — into Auto, and the next save made it final.
+      */
+      const persistKey = `assistant-legacy-mode-${saved}`;
+      window.localStorage.setItem(
+        persistKey,
+        JSON.stringify({ sessions: [], activeId: 'session-1', mode: saved }),
+      );
+      const view = renderPanel({ persistKey, defaultMode: host });
+
+      expect(screen.getByRole('radio', { name: radio })).toHaveAttribute('aria-checked', 'true');
+      // The save on mount writes the choice back as one, so it holds from now on.
+      expect(JSON.parse(window.localStorage.getItem(persistKey) ?? '{}')).toMatchObject({
+        mode: saved,
+        modeChosen: true,
+      });
+      view.unmount();
+      window.localStorage.removeItem(persistKey);
+    },
+  );
+
   it('shows suggestions only on an empty conversation', async () => {
     /*
       One list, two layouts. On an empty panel there is nothing to crowd and a

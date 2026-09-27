@@ -61,6 +61,17 @@ describe('StatusBar', () => {
     expect(screen.queryByText(/Assistant: Assistant:/u)).not.toBeInTheDocument();
   });
 
+  it("does not prefix an applied plan's own \"AI:\" label with the assistant door", () => {
+    render(
+      <StatusBar
+        changes={[{ id: 'plan-1', door: 'assistant', label: 'AI: Darken the hero' }]}
+        onChangeSelect={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'AI: Darken the hero' })).toBeInTheDocument();
+  });
+
   it('marks only the newest change as current for assistive technology', () => {
     render(<StatusBar changes={CHANGES} onChangeSelect={() => undefined} />);
 

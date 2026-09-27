@@ -98,14 +98,14 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '3.0.0',
+  version: '3.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
   activation: { mode: 'explicit' },
   tags: ['build', 'composition', 'fill'],
   instructions: `ONE setProp for the tree, written as markup: {"command":"setProp","args":{"id":"<the region id you were given>","key":"tree","value":"<section class='…'>…</section>"}} — and, only when the markup uses ck- classes, a SECOND setProp on the same id with key "css" and the region stylesheet as its value. Never a css key inside the first; no other node, no page-level change.
-THE DIRECTION WAS ALREADY DECIDED and is in the request. Obey it exactly: the palette, the faces, the signature element, the rhythm. Do not re-decide, do not "improve" it, and do not introduce a colour or a face it does not name — a page whose sections each chose their own look is the failure this split exists to prevent.
+THE DIRECTION WAS ALREADY DECIDED and is in the request. Obey it exactly: the palette, the faces, the signature element, the rhythm. Do not re-decide, do not "improve" it, and do not introduce a colour or a face it does not name — a page whose sections each chose their own look is the failure this split exists to prevent. Every accent, glow, ring and gradient is drawn from the direction's palette as its named classes or hex, never from bg-accent, text-accent or var(--t-accent): those carry the site theme's colour, not this page's.
 THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finished section in full. Other regions arrive described rather than quoted ("filled · 34 nodes · …"); that is deliberate. Do not try to edit them and do not repeat their content.
 SHELL BY ROLE: SECTION 1 is the hero — the first screen, not a band: section relative overflow-hidden py-24 md:py-32 lg:py-40, the page's one h1 in place of the placeholder h2 (text-4xl md:text-6xl lg:text-7xl font-bold leading-tight; Arabic leading-snug), a lead p text-lg md:text-xl max-w-2xl, then the primary action and a secondary one. Every other section: section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8, keeping its h2 text (restyle it freely), then content with real depth — cards, lists, figures, icons — never a heading over a single paragraph.
 FINISHED, NOT DRAFTED: a published page never shows "[price]" or "[اسم العميل]". When the request does not give a fact the section needs — menu items and prices, a customer's quote and name, opening hours, an address — write a realistic, specific sample that fits the business, its city and its language: prices in the local currency, names usual in that locale, quotes that sound like real customers. List every sample fact in followUp so the owner can replace it. Phone and email follow the same rule in an obviously generic form (info@ the brand's name, a local-format number of zeros).

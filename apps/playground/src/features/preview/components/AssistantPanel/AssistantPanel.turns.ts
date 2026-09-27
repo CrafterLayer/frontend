@@ -248,15 +248,16 @@ export interface PersistedPanelState {
    * It was not saved, so every reload returned to Ask — and Ask can write. A
    * person who deliberately put the assistant in Plan came back to a panel that
    * would apply, having changed nothing and been told nothing. Revived
-   * defensively: anything that is not one of the three reads as Ask, which is
-   * also what data written before this field says.
+   * defensively: anything that is not one of the three reads as the host's
+   * default mode, as does data written before this field.
    */
   readonly mode?: AssistantMode;
   /**
    * Whether the person CHOSE `mode`, rather than it being the default the
    * panel happened to save. Only a chosen mode outlives a change of default:
    * without this every browser that ever opened the panel kept the old
-   * default forever, because the default was saved like a choice.
+   * default forever, because the default was saved like a choice. Absent in
+   * older data, where a saved Plan or Auto still counts as chosen.
    */
   readonly modeChosen?: boolean;
 }
@@ -384,13 +385,22 @@ export function reviveSessions(persistKey: string | undefined): PersistedPanelSt
         return turn;
       }),
     }));
+    /*
+      Data from before the marker has none. Then the default was Ask and only
+      the radios wrote Plan or Auto, so those two were chosen; a saved Ask may
+      have been the default, and stays unchosen.
+    */
+    const modeChosen =
+      parsed.modeChosen === undefined
+        ? parsed.mode === 'plan' || parsed.mode === 'auto'
+        : parsed.modeChosen === true;
     return {
       sessions: withUniqueTurnIds(sessions),
       activeId: parsed.activeId,
       // Passed through as READ. The caller decides what an unrecognised value
-      // means, so one place owns the "unknown reads as Ask" rule.
+      // means, so one place owns the "unknown reads as the default" rule.
       ...(parsed.mode === undefined ? {} : { mode: parsed.mode }),
-      ...(parsed.modeChosen === true ? { modeChosen: true } : {}),
+      ...(modeChosen ? { modeChosen: true } : {}),
     };
   } catch {
     return null;

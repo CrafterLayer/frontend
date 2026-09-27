@@ -240,3 +240,115 @@ describe('cli backend failures', () => {
     expect(message.content[0]?.text).toBe('{"rationale":"ok"}');
   });
 });
+
+describe('cli backend system prompt', () => {
+  function capture() {
+    const child = new FakeChild();
+    const written: string[] = [];
+    const removed: string[] = [];
+    const spawnCli = vi.fn(
+      (_command: string, _args: readonly string[]): CliChildProcess =>
+        child as unknown as CliChildProcess,
+    );
+    const client = createCliClient({
+      spawnCli,
+      writeSystemPrompt: (text) => {
+        written.push(text);
+        const path = `/tmp/fake-${String(written.length)}.md`;
+        return { path, remove: () => removed.push(path) };
+      },
+    });
+    let stdin = '';
+    child.stdin.on('data', (chunk: Buffer) => {
+      stdin += chunk.toString('utf8');
+    });
+    return { child, client, spawnCli, written, removed, stdin: () => stdin };
+  }
+
+  /*
+    Measured 2026-09-27: every call also carried Claude Code's own ~3.2k-token
+    coding-agent prompt, and the builder's rules arrived as user text the CLI
+    could not cache between the four section writers of one build.
+  */
+  it('hands the rules and the output format to the CLI as its system prompt', async () => {
+    const { client, spawnCli, written, stdin, child } = capture();
+
+    const finished = client.messages.stream(REQUEST as never).finalMessage();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const args = spawnCli.mock.calls[0]?.[1] ?? [];
+    expect(args[args.indexOf('--system-prompt-file') + 1]).toBe('/tmp/fake-1.md');
+    expect(written[0]).toContain('system');
+    expect(written[0]).toContain('# Required output format');
+    expect(stdin()).toContain('make a hero');
+    expect(stdin()).not.toContain('# Required output format');
+    child.emit('close', 0, null);
+    await expect(finished).rejects.toThrow(/without a plan/u);
+  });
+
+  it('removes the system prompt file once the run ends, however it ends', async () => {
+    const { client, removed, child } = capture();
+
+    const finished = client.messages.stream(REQUEST as never).finalMessage();
+    child.emit('error', new Error('spawn claude ENOENT'));
+    await expect(finished).rejects.toThrow();
+
+    expect(removed).toEqual(['/tmp/fake-1.md']);
+  });
+});
+
+describe('cli backend usage', () => {
+  it("reports the run's real token usage instead of zeros", async () => {
+    const child = new FakeChild();
+    const { client } = clientWith(child);
+
+    const finished = client.messages.stream(REQUEST as never).finalMessage();
+    child.stdout.write(
+      line({
+        type: 'result',
+        is_error: false,
+        result: '{"rationale":"ok"}',
+        duration_api_ms: 21_000,
+        usage: {
+          input_tokens: 812,
+          output_tokens: 1_404,
+          cache_read_input_tokens: 7_900,
+          cache_creation_input_tokens: 0,
+        },
+      }),
+    );
+    await Promise.resolve();
+    child.emit('close', 0, null);
+
+    const message = (await finished) as unknown as { usage: Record<string, number> };
+    expect(message.usage).toEqual({
+      input_tokens: 812,
+      output_tokens: 1_404,
+      cache_read_input_tokens: 7_900,
+      cache_creation_input_tokens: 0,
+    });
+  });
+});
+
+describe('cli backend per-call effort', () => {
+  it('lets a call override the configured effort through the internal header', () => {
+    const child = new FakeChild();
+    const spawnCli = vi.fn(
+      (_command: string, _args: readonly string[]): CliChildProcess =>
+        child as unknown as CliChildProcess,
+    );
+    createCliClient({
+      spawnCli,
+      effort: 'medium',
+      writeSystemPrompt: () => ({ path: '/tmp/x.md', remove: () => undefined }),
+    }).messages.stream(
+      REQUEST as never,
+      {
+        headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
+      },
+    );
+
+    const args = spawnCli.mock.calls[0]?.[1] ?? [];
+    expect(args[args.indexOf('--effort') + 1]).toBe('low');
+  });
+});

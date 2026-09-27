@@ -24,7 +24,7 @@ const PRECISE_EDIT: AiSkillDefinitionV1 = builtin({
   name: 'Surgical existing-content edit',
   description:
     'Constrain a run to setProp, setBinding and setResponsive on one resolved target; whole-tree copies for regions.',
-  version: '1.1.0',
+  version: '2.0.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 100,
@@ -42,12 +42,12 @@ const PRECISE_EDIT: AiSkillDefinitionV1 = builtin({
   instructions: `The smallest change that fully satisfies the request; nothing else moves.
 TARGET: resolve it from the selection first, then by matching the quoted or described text in the document; if two nodes match, edit the selected one or the first in reading order and name the ambiguity in the rationale.
 REGISTERED BLOCKS: change only the named prop with setProp, or the named breakpoint with setResponsive.
-CUSTOMCODE REGIONS: setProp {key:'tree'} replaces the WHOLE tree — copy the existing tree verbatim from the document and change only the target node's text, className, href or attribute; keep every other node, class and icon byte-identical, keep the label and css unless asked. A text edit keeps the tag, classes and the language's punctuation («،؟» in Arabic); a colour edit swaps one class for one class; an alignment edit uses text-start/text-end.
+CUSTOMCODE REGIONS: change a region with editTree — quote the exact markup to change from the document and give its replacement ({"command":"editTree","args":{"id":"<region id>","edits":[{"find":"…","replace":"…"}]}}); each find unique in that region. Never re-emit the whole tree for a small change; keep the label and css unless asked. A text edit keeps the tag, classes and the language's punctuation («،؟» in Arabic); a colour edit swaps one class for one class; an alignment edit uses text-start/text-end.
 RESPONSIVE: an "on mobile" request is setResponsive on a declared prop of a registered block, or a sm:/md:/lg: class inside the tree — never a second copy of the content.
 NOT HERE: adding, moving, deleting or reordering nodes, restyling neighbours, fixing things not asked about, changing dir or lang. If the request needs those, say so in followUp instead of approximating.`,
   references: {
     'checks/precision.md':
-      'Target confirmed from selection or text match; whole tree copied when editing a region; only the named property changed; no cosmetic cleanup; ambiguity stated in rationale.',
+      'Target confirmed from selection or text match; a region edited with editTree quotes, never re-emitted whole; only the named property changed; no cosmetic cleanup; ambiguity stated in rationale.',
   },
 });
 
@@ -67,7 +67,7 @@ const BUILD_SCAFFOLD: AiSkillDefinitionV1 = builtin({
   name: 'Build: the page skeleton',
   description:
     'One transaction that inserts every section as an empty labelled region, in order, and fixes the direction the whole page will follow.',
-  version: '1.0.0',
+  version: '2.0.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 95,
@@ -75,7 +75,7 @@ const BUILD_SCAFFOLD: AiSkillDefinitionV1 = builtin({
   tags: ['build', 'composition', 'scaffold'],
   instructions: `You are laying a SKELETON, not writing the page. Every section is inserted empty; another run fills each one.
 COUNT AND ORDER: read the request and name every section it asks for, in reading order. A section the request did not ask for is not invented, and a section it did ask for is never merged into another. Three to twelve.
-ONE insertNode PER SECTION, all into the page root, in order: {"command":"insertNode","args":{"type":"customCode","parentId":"<the document's rootId>","props":{"label":"<Title Case, unique, 2-3 words>","tree":{"kind":"root","children":[{"kind":"element","tag":"section","className":"py-12 md:py-16","children":[{"kind":"element","tag":"div","className":"mx-auto max-w-6xl px-4 md:px-8","children":[{"kind":"element","tag":"h2","className":"text-3xl md:text-4xl font-semibold","text":"<the section's title>","children":[]}]}]}]}}}}
+ONE insertNode PER SECTION, all into the page root, in order, its tree written as markup: {"command":"insertNode","args":{"type":"customCode","parentId":"<the document's rootId>","props":{"label":"<Title Case, unique, 2-3 words>","tree":"<section class='py-16 md:py-24'><div class='mx-auto max-w-6xl px-4 md:px-8'><h2 class='text-3xl md:text-4xl font-semibold'>THE SECTION TITLE</h2></div></section>"}}}
 The label is how the next runs find this region: it must be UNIQUE and must not change afterwards.
 ONE setProp FOR THE PAGE: {"command":"setProp","args":{"id":"<rootId>","key":"pageCss","value":"…"}} carrying only what the WHOLE page shares — a web font @import from fonts.googleapis.com or fonts.bunny.net, @keyframes, and ck- classes used by more than one section. Never a section's own styling.
 THE DIRECTION, in the rationale, in this exact order and nothing else: the subject and its audience; the palette as 3-5 named classes or hex values; the display and body faces; the one signature element; the section list as "1 Hero · 2 Proof · …". Every fill run is handed this text verbatim and must obey it, so it is the only place the look is decided. Keep it under 60 words.
@@ -98,21 +98,21 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '1.0.0',
+  version: '3.0.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
   activation: { mode: 'explicit' },
   tags: ['build', 'composition', 'fill'],
-  instructions: `Exactly ONE command: {"command":"setProp","args":{"id":"<the region id you were given>","key":"tree","value":<the finished tree>}}. No second command, no other node, no page-level change.
+  instructions: `ONE setProp for the tree, written as markup: {"command":"setProp","args":{"id":"<the region id you were given>","key":"tree","value":"<section class='…'>…</section>"}} — and, only when the markup uses ck- classes, a SECOND setProp on the same id with key "css" and the region stylesheet as its value. Never a css key inside the first; no other node, no page-level change.
 THE DIRECTION WAS ALREADY DECIDED and is in the request. Obey it exactly: the palette, the faces, the signature element, the rhythm. Do not re-decide, do not "improve" it, and do not introduce a colour or a face it does not name — a page whose sections each chose their own look is the failure this split exists to prevent.
-KEEP THE HEADING: the region's h2 text is its identity in the plan and in the person's list. Keep that text; you may restyle it.
-THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finished section in full — the shell (section py-12 md:py-16 > div mx-auto max-w-6xl px-4 md:px-8), the heading, and the content. Other regions arrive described rather than quoted ("filled · 34 nodes · …"); that is deliberate. Do not try to edit them and do not repeat their content.
-SIZE: one section, not a page. Aim for 15-60 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.
-PLACEHOLDERS: no invented facts. A price, an address, a phone number or a person's name that the request never gave is written as "[السعر]" / "[price]" and named in followUp.`,
+THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finished section in full. Other regions arrive described rather than quoted ("filled · 34 nodes · …"); that is deliberate. Do not try to edit them and do not repeat their content.
+SHELL BY ROLE: SECTION 1 is the hero — the first screen, not a band: section relative overflow-hidden py-24 md:py-32 lg:py-40, the page's one h1 in place of the placeholder h2 (text-4xl md:text-6xl lg:text-7xl font-bold leading-tight; Arabic leading-snug), a lead p text-lg md:text-xl max-w-2xl, then the primary action and a secondary one. Every other section: section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8, keeping its h2 text (restyle it freely), then content with real depth — cards, lists, figures, icons — never a heading over a single paragraph.
+FINISHED, NOT DRAFTED: a published page never shows "[price]" or "[اسم العميل]". When the request does not give a fact the section needs — menu items and prices, a customer's quote and name, opening hours, an address — write a realistic, specific sample that fits the business, its city and its language: prices in the local currency, names usual in that locale, quotes that sound like real customers. List every sample fact in followUp so the owner can replace it. Phone and email follow the same rule in an obviously generic form (info@ the brand's name, a local-format number of zeros).
+SIZE: one section, not a page. Aim for 20-70 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.`,
   references: {
     'checks/fill.md':
-      "Exactly one setProp on the named region's tree; the h2 text preserved; every colour and face from the given direction; no other node touched; no other region's content repeated; unknown facts as bracketed placeholders listed in followUp.",
+      "One setProp on the named region's tree, plus one for its css only when the tree uses ck- classes; the hero holds the page's one h1, every other region keeps its h2 text; every colour and face from the given direction; no other node touched; no other region's content repeated; no bracketed placeholder anywhere — sample facts are realistic and listed in followUp.",
   },
 });
 
@@ -261,7 +261,7 @@ const PAGE_COMPOSITION: AiSkillDefinitionV1 = builtin({
   name: 'Professional page composition',
   description:
     'Section order, anatomy and rhythm for a complete landing or home page, built from the primary visitor outcome outward.',
-  version: '2.0.0',
+  version: '2.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 80,
@@ -291,7 +291,7 @@ const PAGE_COMPOSITION: AiSkillDefinitionV1 = builtin({
 2 PROOF: grid grid-cols-2 md:grid-cols-4 gap-6 text-center; p text-4xl font-extrabold tabular-nums text-accent + p text-sm text-text-muted.
 3 BENEFITS: h2 + p mx-auto max-w-2xl text-center text-text-muted, then 3 or 6 cards grid gap-6 md:grid-cols-3; card = div rounded-2xl border-2 border-slate-200 bg-surface p-6 md:p-8 with icon size 28 text-accent, h3 text-xl font-semibold, p text-text-muted leading-relaxed. A benefit names what changes for the visitor, with a number, example or mechanism.
 4 HOW IT WORKS: ol grid gap-8 md:grid-cols-3; li opens with div h-10 w-10 rounded-full bg-accent text-accent-text flex items-center justify-center font-bold holding the number, then h3 + p.
-5 TESTIMONIALS or PRICING only when the request gives quotes or prices (recipes in the conversion skill).
+5 TESTIMONIALS, MENU or PRICING whenever the request asks for them or the business lives on them (a café's menu, a studio's packages) — realistic sample quotes and prices when none are given, listed in followUp (recipes in the conversion skill).
 6 FAQ: div mx-auto max-w-3xl divide-y; 4–6 pairs, each div py-6 with h3 font-semibold + p mt-2 text-text-muted, answering unanswered objections.
 7 FINAL ACTION: section bg-surface-inverse text-text-inverse py-16 text-center: h2 restating the promise, one p, the SAME primary action label as the hero.
 8 FOOTER: footer border-t-2 border-slate-200 bg-slate-50 py-12 > grid gap-8 md:grid-cols-4: brand column plus three ul space-y-2 text-sm of <a href="#section-id"> (give each section its id), then small for the copyright.
@@ -313,7 +313,7 @@ const ARABIC_RTL: AiSkillDefinitionV1 = builtin({
   name: 'Arabic and right-to-left composition',
   description:
     'Direction switch, logical layout, mirrored icons, Arabic typography and mixed-run isolation for Arabic or bilingual pages.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 65,
@@ -346,7 +346,7 @@ const ARABIC_RTL: AiSkillDefinitionV1 = builtin({
   tags: ['arabic', 'i18n', 'rtl', 'typography'],
   instructions: `Arabic and right-to-left depth, on top of the manual's floor (dir/lang switch, logical utilities, mirrored arrows).
 ONE DIRECTION: no per-element dir exists; a page has one direction, the primary language's. A bilingual page puts each language in its own region, never both in one paragraph.
-LAYOUT: flex and grid already flow from the right in rtl: keep DOM order = reading order (icon before text, arrow after action text); never fake mirroring with flex-row-reverse or order-*. Side accents: border-s-* and rounded-s-* do not exist — ck- class with border-inline-start / border-start-start-radius in css. A shape anchored with start-0 mirrors correctly.
+LAYOUT: flex and grid already flow from the right in rtl: keep DOM order = reading order (icon before text, arrow after action text); never fake mirroring with flex-row-reverse or order-*. Side accents: rounded-s-* mirrors by itself; a side border is a ck- class with border-inline-start in css. A shape anchored with start-0 mirrors correctly.
 ICONS: mirror meaning only: arrow-left, chevron-left, arrow-up-left for "next/forward"; back is arrow-right; mail, phone, map-pin, check, star stay. The button block's "arrow" icon is a literal → that does not mirror: use icon "none" on Arabic pages.
 TYPE: font-family: var(--t-font-family-sans) unless the request names a font URL (then @font-face with src:url(https://…) in pageCss; @import is refused). Body text-lg leading-relaxed; headings leading-snug; never italic, uppercase, capitalize, tracking-* (letter-spacing breaks the connected script) or text-justify. Reading column max-w-prose. Arabic headings ≤7 words.
 MIXED RUNS: Western digits with tabular-nums; phones, emails, URLs, prices with currency codes and Latin product names each in their own span whitespace-nowrap so the bidi algorithm cannot flip them.
@@ -544,7 +544,7 @@ const DESIGN_DIRECTION: AiSkillDefinitionV1 = builtin({
   name: 'Coherent design direction',
   description:
     'One named visual direction applied everywhere: five palette recipes, contrast pairs, four type sizes, one spacing scale, restyle rules.',
-  version: '2.0.0',
+  version: '2.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 50,
@@ -587,10 +587,10 @@ B EDITORIAL: bg-white text-slate-900; muted text-slate-600; accent indigo-600; r
 C SOFT PRODUCT: bg-slate-50; cards bg-white rounded-2xl shadow-sm; accent violet-600 or emerald-600; one gradient only, on the hero or final action: bg-gradient-to-br from-violet-600 to-indigo-700 text-white.
 D DARK TECH: bg-slate-950 text-slate-100; muted text-slate-400; cards bg-slate-900 border-2 border-slate-800; text-sky-400 for accent text and icons, bg-sky-500 text-white for the action; one glow: div absolute h-64 w-64 rounded-full bg-sky-500 opacity-20 blur-3xl inside relative isolate overflow-hidden, content relative z-10.
 E WARM: bg-stone-50 text-stone-900; muted text-stone-600; accent orange-600; rounded-3xl; cards bg-white border-2 border-stone-200.
-CONTRAST: on white or *-50, body text is *-600 or darker and headings *-900; on *-900/*-950, body is *-300 or lighter and headings white; never *-400/*-500 for body text; text over a photo needs a darkening layer via ck- css background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)), url(https://…) center/cover (bg-black/50 does not exist).
+CONTRAST: on white or *-50, body text is *-600 or darker and headings *-900; on *-900/*-950, body is *-300 or lighter and headings white; never *-400/*-500 for body text; text over a photo needs a darkening layer via ck- css background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)), url(https://…) center/cover, or an absolute inset-0 bg-black/50 layer over the image.
 TYPE, exactly: display text-4xl md:text-6xl font-bold leading-tight; h2 text-3xl md:text-4xl font-semibold; h3 text-xl font-semibold; body text-base md:text-lg leading-relaxed; caption text-sm text-text-muted. tracking-tight only on Latin display text.
-SPACING: section py-12 md:py-16, gutter px-4 md:px-8, columns gap-8, card p-6 md:p-8, inside a card gap-4. SURFACES: one radius for cards, one for actions; one shadow at rest; hover is one shade step (hover:bg-indigo-700 on bg-indigo-600), hover:opacity-90, or hover:scale-105 transition-transform duration-200 — hover:shadow-* does not exist.
-MODE: no dark: variant; a page is one mode — a requested dark mode is D, or pageCss @media (prefers-color-scheme: dark) rules on ck- classes. Fonts: font-sans/serif/mono do not exist; set font-family in css from var(--t-font-family-sans|serif|mono); @font-face with url(https://…) in pageCss; @import only from fonts.googleapis.com or fonts.bunny.net (every other host is refused).
+SPACING: section py-16 md:py-24 (the hero py-24 md:py-32), gutter px-4 md:px-8, columns gap-8, card p-6 md:p-8, inside a card gap-4. SURFACES: one radius for cards, one for actions; one shadow at rest; hover is one shade step (hover:bg-indigo-700 on bg-indigo-600), hover:opacity-90, hover:shadow-xl, or hover:-translate-y-1 transition duration-200.
+MODE: no dark: variant; a page is one mode — a requested dark mode is D, or pageCss @media (prefers-color-scheme: dark) rules on ck- classes. Fonts: font-sans follows the site face; a display face is font-family in css from var(--t-font-family-sans|serif|mono) or a loaded family; @font-face with url(https://…) in pageCss; @import only from fonts.googleapis.com or fonts.bunny.net (every other host is refused).
 RESTYLE: one setProp of tree per region keeping text, ids and node order, changing only className values; page-wide rules once in pageCss as .ck- classes.`,
   references: {
     'checks/consistency.md':
@@ -616,7 +616,7 @@ const DESIGN_TOKENS: AiSkillDefinitionV1 = builtin({
   name: 'Tokens, components and variants',
   description:
     'Build the repeated thing once: role tokens before palette before ck- classes, one base class with variants, and the Tailwind config features that do not exist here.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 48,
@@ -643,11 +643,11 @@ const DESIGN_TOKENS: AiSkillDefinitionV1 = builtin({
   tags: ['components', 'design', 'system', 'tokens'],
   instructions: `Build the repeated thing once, then reuse it verbatim — a system, not twenty hand-styled boxes.
 THREE LAYERS, in this order. 1 ROLE, the site's own: bg-surface, bg-surface-inverse, text-text, text-text-muted, text-text-inverse, bg-accent, text-accent, text-accent-text, border-2 border-slate-200 — these resolve through var(--t-*) and re-theme with the site, so anything structural uses them. 2 PALETTE, fixed hues (slate-900, indigo-600, emerald-500…): use when the request names a hue; they never re-theme. 3 COMPONENT, this page only: a ck- class in the region's css, or in pageCss when two regions share it.
-NOT AVAILABLE HERE — never emit: @theme, @apply, tailwind.config, @custom-variant, the dark: variant, arbitrary values (bg-[#0f172a], p-[13px], w-[42rem]), or any class outside the site vocabulary. A class that is neither in the vocabulary nor prefixed ck- is refused by the door.
+NOT AVAILABLE HERE — never emit: @theme, @apply, tailwind.config, @custom-variant, or the dark: variant. Which utility classes this page can generate is stated in the context; a class it cannot generate is removed before the page is written.
 COMPONENT LADDER, one class per rung. BASE .ck-card{border-radius:var(--t-radius-lg);background:var(--t-color-surface)} holds everything shared. VARIANT .ck-card--quiet / .ck-card--loud declares only what differs. SIZE is utilities on the element (p-4, p-6 md:p-8), never a second base class. STATE comes last: :hover, :focus-visible, [aria-current], [data-state]. A variant that redefines the base is a second component — rename it.
 REUSE: the same role gets the same treatment everywhere — one radius for cards, one for actions, one rest shadow, one hover step. Repeat the className string byte-for-byte rather than inventing a near-miss; a card that differs by one shade reads as a bug, not as variety.
 STATES ARE NOT OPTIONAL: every interactive element declares rest, hover, focus-visible and disabled. Focus may be recoloured, never removed: .ck-btn:focus-visible{outline:2px solid var(--t-color-accent);outline-offset:2px}.
-RESPONSIVE: one base, then sm:/md:/lg: only where the layout actually changes — grid-cols-1 md:grid-cols-3 beats three copies of a section. xl: does not exist.`,
+RESPONSIVE: one base, then sm:/md:/lg: only where the layout actually changes — grid-cols-1 md:grid-cols-3 beats three copies of a section.`,
   references: {
     'checks/system.md':
       'Roles before palette before ck- classes; no @theme, @apply, tailwind.config, dark: or arbitrary values; one base class per component with variants that only declare differences; sizes as utilities; rest, hover, focus-visible and disabled all declared; the same role styled identically in every region; responsive prefixes only where the layout changes.',
@@ -664,8 +664,8 @@ const COPYWRITING: AiSkillDefinitionV1 = builtin({
   id: 'craftkit.copywriting',
   name: 'Headlines, actions and body copy',
   description:
-    'Headline, call-to-action and body copy rules in Arabic and English; placeholders, never invented facts.',
-  version: '1.0.0',
+    'Headline, call-to-action and body copy rules in Arabic and English; finished copy with realistic sample facts, listed for the owner.',
+  version: '2.0.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 45,
@@ -694,11 +694,11 @@ const COPYWRITING: AiSkillDefinitionV1 = builtin({
 HEADLINE: the visitor's outcome in ≤8 English / ≤7 Arabic words, a concrete verb or noun; no "Welcome to" / "مرحباً بكم"; no exclamation mark; no uppercase class. Subhead: one sentence ≤20 words — who it is for and what changes.
 ACTION: verb first, 2–4 words naming the result ("Start free trial", "Book a call", "ابدأ التجربة المجانية", "احجز استشارتك"); never "Learn more", "Submit", "اضغط هنا", "المزيد" alone. One primary action per section, the identical label wherever it repeats; a secondary action is an <a> with an arrow icon in reading direction.
 BODY: paragraphs ≤3 sentences; sentence case in English; one idea per card; "you get X", not "we offer X"; numbers as digits; a claim with a number needs a source line or is dropped.
-FACTS: never invent names, prices, phones, emails, addresses or reviews — write "[Customer name]" / "[اسم العميل]" placeholders and list them in followUp.
+FACTS: a page is written finished, never with "[Customer name]" / "[اسم العميل]" brackets. What the request did not give — prices, menu items, reviews and the names on them, hours, an address — is a realistic sample that fits the business, its city and its language, and every sample fact is listed in followUp for the owner to replace. Phone and email stay obviously generic (info@ the brand's name, a local-format number of zeros).
 ARABIC: Modern Standard Arabic; one address form (أنتَ or أنتم); «،» and «؟»; correct hamza and taa marbuta (ة not ه); Arabic headings go one text-* step up rather than bolder; Latin product names in their own span.`,
   references: {
     'checks/copy.md':
-      'Headline ≤8/7 words, outcome-led; one primary action label repeated verbatim; no "click here" / "اضغط هنا"; no invented facts (placeholders listed in followUp); Arabic punctuation «،؟», no «!»; no italic/uppercase/tracking on Arabic.',
+      'Headline ≤8/7 words, outcome-led; one primary action label repeated verbatim; no "click here" / "اضغط هنا"; no bracketed placeholders — sample facts are realistic and listed in followUp; Arabic punctuation «،؟», no «!»; no italic/uppercase/tracking on Arabic.',
   },
 });
 
@@ -713,7 +713,7 @@ const MOTION: AiSkillDefinitionV1 = builtin({
   name: 'Motion and interaction',
   description:
     'Restrained motion the renderer can run: transition and hover utilities, keyframes in pageCss, reduced-motion guards, CSS-only lift, reveal, marquee and glow.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 45,
@@ -739,13 +739,13 @@ const MOTION: AiSkillDefinitionV1 = builtin({
   tags: ['animation', 'interaction', 'motion'],
   instructions: `Motion budget: at most two moving things per screen, and nothing moves that the visitor did not cause except one ambient element.
 TIMING: micro interactions transition-colors duration-200 ease-out; card lift duration-300; entrance reveal 0.6s ease-out; ambient loops 8s to 20s linear infinite.
-HOVER on cards: transition-transform duration-300 hover:scale-105 motion-reduce:transform-none. Lift with shadow cannot be a utility (hover:shadow-* does not exist): class ck-lift transition-all duration-300 with css .ck-lift:hover{transform:translateY(-4px);box-shadow:var(--t-shadow-elevated)}.
+HOVER on cards: transition duration-300 hover:-translate-y-1 hover:shadow-xl motion-reduce:transform-none; hover:scale-105 for media. A lift tied to the site shadow token: class ck-lift with css .ck-lift:hover{transform:translateY(-4px);box-shadow:var(--t-shadow-elevated)}.
 KEYFRAMES live in pageCss on the page root (they pass scoping unchanged and are declared once): @keyframes ck-fade-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}. Apply from the region css: .ck-fade-up{animation:ck-fade-up .6s ease-out both}; stagger with .ck-d1{animation-delay:.1s} .ck-d2{animation-delay:.2s} .ck-d3{animation-delay:.3s}.
 GUARD every animated rule in the same sheet: @media (prefers-reduced-motion:reduce){.ck-fade-up,.ck-marquee-track{animation:none}}.
 SCROLL REVEAL without JavaScript: @supports (animation-timeline: view()){.ck-fade-up{animation-timeline:view();animation-range:entry 0% entry 40%}}; elsewhere it plays on load.
 MARQUEE: prefer the marquee block when present; otherwise div overflow-hidden > div ck-marquee-track flex gap-12 whitespace-nowrap with the items duplicated once, css .ck-marquee-track{animation:ck-marquee 20s linear infinite} and keyframes translateX(0) to translateX(-50%) in pageCss.
 GLOW: div absolute h-64 w-64 rounded-full bg-accent opacity-20 blur-3xl animate-pulse inside a relative isolate overflow-hidden parent; the content sibling gets relative z-10.
-HOVER REVEALS need no group class (it does not exist): .ck-card .ck-meta{opacity:0;transition:opacity .2s} .ck-card:hover .ck-meta{opacity:1}.
+HOVER REVEALS: group on the card and group-hover:translate-x-1 on its arrow; for a reveal, .ck-card .ck-meta{opacity:0;transition:opacity .2s} .ck-card:hover .ck-meta{opacity:1}.
 PARALLAX: in css, background-attachment:fixed on a background-image region only inside @media (min-width:768px); phones get a static image.
 Never animate layout (width, height, margin); animate transform and opacity only.`,
   references: {
@@ -926,18 +926,17 @@ const CRAFT_MANUAL: AiSkillDefinitionV1 = builtin({
   name: 'Craft manual',
   description:
     'Always-on floor: region shell, links and actions, direction, type, structure, refused-class traps.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   activation: { mode: 'always' },
   tags: ['composition', 'craft', 'rtl', 'traps'],
-  instructions: `REGIONS: one customCode per section, inserted into the page root; section py-12 md:py-16 > div mx-auto max-w-6xl px-4 md:px-8. Columns: grid gap-6/gap-8 + md:grid-cols-N (md:flex-row does not exist). No <main> tag.
+  instructions: `REGIONS: one customCode per section, inserted into the page root; section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8. Columns: grid gap-6/gap-8 + md:grid-cols-N. No <main> tag.
 LINKS: <a href> takes https, mailto:, tel:, #id or /path (javascript: is dropped). Action: the button block when in the catalog, else <a class="inline-block rounded-full bg-accent px-8 py-3 font-semibold text-accent-text">. <button> has no behaviour.
 DIRECTION: Arabic copy on an ltr document needs setDocMeta {dir:'rtl'} + setProp page lang 'ar'. Only ps-/pe-/ms-/me-, start-/end-, text-start/text-end; never pl-/pr-/ml-/mr-/text-left/text-right. Forward icon: arrow-right in ltr, arrow-left in rtl.
 TYPE: one h1 per page, h2 opens a section, h3 a card; size with text-*, not a bigger tag. Arabic: leading-relaxed; no italic, uppercase, tracking-*, text-justify.
 STRUCTURE: img has alt; an icon beside text has no label; ul/ol show no bullets: lead each li with an icon.
-IDS: name only a node the document already lists. A node this plan INSERTS gets its id from the kernel after the plan is written, so no later step can name it — put its props inside its own insertNode.
-REFUSED: bare border-t/border-b (use -2), bare grow/shrink (use -1), group, hover:text-white, hover:shadow-*, py-20/24, gap-16, h-5, font-sans, list-disc, xl:, dark:, bg-black/50, -mt-4, md:text-center.`,
+IDS: name only a node the document already lists. A node this plan INSERTS gets its id from the kernel after the plan is written, so no later step can name it — put its props inside its own insertNode.`,
   references: {},
 });
 

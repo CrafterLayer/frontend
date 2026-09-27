@@ -5,6 +5,8 @@ import {
   CUSTOM_CLASS_PREFIX,
   UTILITY_VOCABULARY,
   expandUtilityPattern,
+  hasUtilityClassOracle,
+  setUtilityClassOracle,
   unknownUtilityClasses,
   utilitySourceDirectives,
   utilityVocabulary,
@@ -199,5 +201,28 @@ describe('the vocabulary', () => {
       expect({ pattern, opens, closes }).toEqual({ pattern, opens: closes, closes });
       expect(pattern).not.toContain('"');
     }
+  });
+});
+
+describe('the runtime class oracle', () => {
+  const liveOnly = 'md:flex-row';
+
+  it('reports a class the static vocabulary lacks while no host generates at runtime', () => {
+    setUtilityClassOracle(undefined);
+    expect(hasUtilityClassOracle()).toBe(false);
+    expect(unknownUtilityClasses(`flex ${liveOnly}`)).toEqual([liveOnly]);
+  });
+
+  it('admits what the host compiler generates, and only that', () => {
+    setUtilityClassOracle((name) => name === liveOnly);
+    try {
+      expect(hasUtilityClassOracle()).toBe(true);
+      expect(unknownUtilityClasses(`flex ${liveOnly} totally-made-up ck-glow`)).toEqual([
+        'totally-made-up',
+      ]);
+    } finally {
+      setUtilityClassOracle(undefined);
+    }
+    expect(unknownUtilityClasses(liveOnly)).toEqual([liveOnly]);
   });
 });

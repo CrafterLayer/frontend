@@ -13,3 +13,8 @@ export {
   type TailwindBinding,
   type TailwindNamespace,
 } from './token-bridge';
+export {
+  createLiveUtilities,
+  type LiveUtilities,
+  type LiveUtilitiesOptions,
+} from './live-utilities';

@@ -25,6 +25,15 @@ function progress(tasks: readonly BuildTask[], running = true): BuildProgress {
     applied: tasks.filter((entry) => entry.status === 'applied').length,
     skipped: tasks.filter((entry) => entry.status === 'skipped').length,
     run: running ? initialRunProgress('auto', NOW) : null,
+    ...(running
+      ? {
+          liveLog: [
+            'Reading the page brief and the selected visual direction.',
+            'Building the section outline before writing the next region.',
+            'Checking spacing and responsive behavior as the page fills.',
+          ],
+        }
+      : {}),
   };
 }
 

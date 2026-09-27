@@ -34,6 +34,14 @@ export interface HandlerOptions {
   readonly onUsage?: (report: UsageReport & { readonly cachedShare: number }) => void;
   /** Receives every answer's raw text before it is parsed; for the owner's log. */
   readonly onAnswer?: (text: string) => void;
+  /**
+   * The reasoning budget for a build's SECTION writers. They compose one
+   * section under a direction the skeleton already decided, so thinking is
+   * the part of their time worth cutting (measured 2026-09-27: 2,050-3,885
+   * output tokens for 2,000-4,500 characters of section — most of it
+   * thinking). Unset ⇒ every call uses the backend default.
+   */
+  readonly sectionEffort?: string;
   /** Isolated compiler/prerender boundary. Omitted deployments keep the legacy plan endpoint only. */
   readonly codeRuntime?: CodeRuntimeService;
   readonly authoredRuns?: AuthoredRunCoordinator;
@@ -358,6 +366,16 @@ function reportUsage(options: HandlerOptions, usage: UsageReport): void {
   });
 }
 
+/** The skill a build pins on every section writer (run-build.ts). */
+const SECTION_WRITER_SKILL = 'craftkit.build-fill';
+
+/** This call's own reasoning budget: the section budget for a section writer, else none. */
+function callEffort(wire: AiPlanWireRequest, options: HandlerOptions): { effort?: string } {
+  if (options.sectionEffort === undefined) return {};
+  const writesASection = (wire.context.skills ?? []).some((pin) => pin.id === SECTION_WRITER_SKILL);
+  return writesASection ? { effort: options.sectionEffort } : {};
+}
+
 async function unary(
   wire: AiPlanWireRequest,
   options: HandlerOptions,
@@ -370,6 +388,7 @@ async function unary(
       ...(options.model === undefined ? {} : { model: options.model }),
       ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
       ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
+      ...callEffort(wire, options),
     });
     if (outcome.kind === 'refusal') return refusal(outcome.message);
     if (outcome.kind === 'invalid-output') return invalidOutput(outcome.message);
@@ -402,6 +421,7 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
           ...(options.model === undefined ? {} : { model: options.model }),
           ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
           ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
+          ...callEffort(wire, options),
           onProgress: (text) => {
             send('status', { text });
           },

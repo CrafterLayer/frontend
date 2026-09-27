@@ -241,7 +241,9 @@ export function createCodeWorkspaceSession(
           publish();
         });
     },
-    refreshImpact: () => { publish(); },
+    refreshImpact: () => {
+      publish();
+    },
     navigateToSource: (handle) => {
       const source = runtime.getSnapshot().source;
       if (

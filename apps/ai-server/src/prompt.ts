@@ -76,7 +76,7 @@ You never edit the document. You propose commands; a validator replays them agai
 2. Reference nodes by the ids in the document. Never invent an id. To place something new, name an existing \`parentId\` and a slot that block's schema actually declares.
 3. Props must satisfy the block's \`propsSchema\`. Prefer values you can see in that block's \`examples\`.
 4. Colours are FREE. Use Tailwind's palette (\`bg-slate-900\`, \`text-blue-500\`, \`from-indigo-500\`) or exact values in a region's \`css\` (\`#1e3a8a\`, \`rgb()\`, gradients). Prefer the site's roles — \`bg-accent\`, \`text-text-muted\`, \`var(--t-accent)\` — when a page should follow the site theme; they are a preference, not a rule.
-5. Spacing and size are scale steps — \`p-8\`, \`gap-4\`. Bracketed arbitrary classes (\`p-[17px]\`, \`bg-[#1e3a8a]\`) have NO generated CSS and are refused; put an exact value in \`css\` under a \`ck-\` class instead.
+5. Utility classes: write exactly what the "# Utility classes" section of your context says this page can generate — it is the fact about THIS page, and it differs between hosts.
 6. Images: \`{"kind":"element","tag":"img","attributes":{"src":"https://…","alt":"…"}}\` or \`background-image: url(https://…)\` in \`css\`. https only.
 7. Write \`title\` on each step: one short human sentence, in the requester's language, saying what that step does.
 8. If the request is too large for one safe plan, do the most valuable part and put the next request in \`followUp\`, worded in the requester's language.
@@ -87,13 +87,15 @@ You compose. The \`customCode\` block is always in your catalog and it is your p
 
 **A \`component\` reference is valid only for a type present in the catalog you were given.** When the catalog holds nothing but \`customCode\`, that is deliberate: the person wants the page built, not assembled from an inventory. Build it — sections, grids, headings, cards, timelines — from elements and utilities. Never invent a component type; the validator rejects it and the round trip is wasted.
 
+There is exactly one legal way to author a new visual type in this mode: insert a \`customCode\` node and put the complete markup in its \`props.tree\` (and scoped rules in \`props.css\`). Do not put a made-up name such as \`portfolioShell\`, \`nonexistent\`, or \`myHero\` in \`insertNode.args.type\`, even when the design is entirely new. A name is not code and has no renderer; the tree is the free-form page.
+
 When a registered block IS in your catalog, the person put it there on purpose. Prefer it for the thing it does: it carries editing affordances, responsive behaviour, and accessibility work that your markup does not.
 
-Style with \`className\` from the utility vocabulary listed in your context — exactly those patterns, nothing outside them, because a class the build never generated has no CSS at all. For anything utilities cannot express — a keyframe, a gradient headline, a clip path, a hover reveal, an exact colour, a background photo — give the element a \`ck-\` prefixed class and write its rule in the block's \`css\` prop (or \`pageCss\` on the page root for keyframes and fonts shared across regions). Any CSS value is fine there; \`var(--t-accent)\`, \`var(--t-surface)\`, \`var(--t-text)\` are available when the region should re-theme with the site.
+Style with \`className\` utilities as the "# Utility classes" section of your context allows. For anything utilities cannot express — a keyframe, a gradient headline, a clip path, a hover reveal, an exact colour, a background photo — give the element a \`ck-\` prefixed class and write its rule in the block's \`css\` prop (or \`pageCss\` on the page root for keyframes and fonts shared across regions). Any CSS value is fine there; \`var(--t-accent)\`, \`var(--t-surface)\`, \`var(--t-text)\` are available when the region should re-theme with the site.
 
 Icons: \`{"kind":"icon","name":"mail"}\` draws an icon from the Lucide set (lucide.dev/icons) by its kebab-case name — \`mail\`, \`phone\`, \`map-pin\`, \`globe\`, \`link\`, \`external-link\`, \`arrow-right\`, \`check\`, \`star\`, \`briefcase\`, \`graduation-cap\`, \`calendar\`, \`download\`. Optional \`size\` (px), \`strokeWidth\`, \`className\` (\`text-accent\`, \`h-6 w-6\`). Give it a \`label\` only when it carries meaning on its own; leave it out when text beside it already says the same thing. **Lucide has no brand logos** — there is no \`github\`, \`linkedin\`, \`twitter\`, \`instagram\`: for a social or profile link use \`link\`, \`globe\`, or \`external-link\` beside the text. A name that is not in the set is refused by name, so use names you are sure exist.
 
-Design to a professional standard: generous spacing on a consistent scale, one clear typographic hierarchy, a real responsive layout (\`md:\`/\`lg:\` variants), and colour through roles only.
+Design to a professional standard: generous spacing on a consistent scale, one clear typographic hierarchy, a real responsive layout (\`md:\`/\`lg:\` variants), and a deliberate palette applied the same way in every section.
 
 ## Refusing
 
@@ -209,6 +211,55 @@ function renderInstructionFragment(fragment: ContextFragment): string {
 }
 
 /**
+ * What the page can style with, as a fact about the host.
+ *
+ * A host that compiles Tailwind at runtime generates any real utility, so the
+ * model is told exactly that — held to the static list, it avoided
+ * `md:flex-row`, `backdrop-blur` and every arbitrary value, and the pages
+ * looked it. A host without the compiler gets the exact patterns its build
+ * generates, because there a class outside them has no CSS at all. Either
+ * text is stable per host, so the segment still caches.
+ */
+function utilityClassesSection(live: boolean): readonly string[] {
+  if (live) {
+    return [
+      '# Utility classes',
+      'This page compiles Tailwind CSS v4 at runtime for exactly the classes you write, so ANY real Tailwind utility renders: every breakpoint (sm: md: lg: xl: 2xl:) and state variant (hover: focus-visible: active: group-hover: peer-checked:), opacity modifiers (bg-emerald-900/20, text-white/80), gradients (bg-linear-to-br from-amber-500 via-orange-500 to-rose-600), arbitrary values (min-h-[85vh], bg-[#1e3a8a], tracking-[0.18em], grid-cols-[2fr_1fr]), shadows, blurs, rings, transforms, transitions, animate-*, and container queries (@container, @md:). Use the theme scale first and an arbitrary value when the design needs an exact size or colour. A class that is not real Tailwind is removed before the page is written, so write real Tailwind.',
+    ];
+  }
+  return [
+    /*
+      The exact utilities the build generates, as the same patterns the CSS is
+      generated from. A model that writes markup for whole pages needs the
+      real list, not a description of one: every class outside it is inert and
+      removed at the door. ~750 tokens, and it changes only when the vocabulary
+      does — so it caches.
+    */
+    '# Utility classes you may use ({a,b} = alternates, {0..N} = inclusive range; each line is independent)',
+    ...UTILITY_VOCABULARY,
+    'Only these patterns have CSS on this page. A bracketed arbitrary class (p-[17px], bg-[#1e3a8a]) has none: put an exact value in `css` under a `ck-` class instead.',
+  ];
+}
+
+/**
+ * How to write a tree, for a client that reads markup.
+ *
+ * Measured 2026-09-27: every answer that failed to parse failed inside the run
+ * of closers ending a nested tree, and the same sections as markup were 33%
+ * shorter — a third less to generate on a stage whose time is almost all
+ * generation. The client reads the markup into the identical tree before its
+ * door, so nothing about what a tree may contain changes; only the spelling.
+ */
+const TREE_MARKUP_SECTION: readonly string[] = [
+  '# Writing a customCode tree',
+  'Write every customCode tree as MARKUP — one JSON string of HTML — never as nested {"kind":…} objects: {"command":"setProp","args":{"id":"<region id>","key":"tree","value":"<section class=\'py-16 md:py-24\'><div class=\'mx-auto max-w-6xl px-4 md:px-8\'><h2 class=\'text-4xl font-bold\'>…</h2></div></section>"}}, and the same kind of string for `props.tree` in insertNode.',
+  'The page stores it as the tree, so the tree vocabulary still binds: only the tags in the customCode schema (section, header, footer, nav, article, aside, div, h1–h6, p, span, strong, em, small, a, button, ul, ol, li, img, figure, figcaption, blockquote, time, code, pre, hr, br) — no form, input, textarea, select, script, iframe or svg; `class` for utilities; attributes only alt, aria-hidden, aria-label, datetime, href, id, role, src, target, title.',
+  "Icons: <icon name='coffee' class='size-5 text-amber-600'/> with a Lucide kebab-case name, optional size='20' and label='…'.",
+  'Put every attribute value in SINGLE quotes and write the markup on one line, so the JSON string needs no escaping.',
+  'To change PART of a region that already exists, do not rewrite it — quote it: {"command":"editTree","args":{"id":"<region id>","edits":[{"find":"<exact markup copied from the page as shown>","replace":"<the new markup>"}]},"title":"…"}. Each find must appear exactly once in that region as the page shows it now, so quote enough around the change to be unique. Several changes to one region go in the edits of one editTree. Rewrite a region whole with setProp only when most of it changes.',
+];
+
+/**
  * The stable half: what the model may build WITH.
  *
  * The catalog and the command list both change only when the registry does,
@@ -228,15 +279,8 @@ function stableContext(request: AiPlanWireRequest): string {
     '# Page templates available',
     JSON.stringify(context.templates ?? []),
     '',
-    /*
-      The exact utilities the build generates, as the same patterns the CSS is
-      generated from. A model that writes markup for whole pages needs the
-      real list, not a description of one: every class outside it is inert and
-      refused at the door, and each refusal is a wasted round trip. ~750
-      tokens, and it changes only when the vocabulary does — so it caches.
-    */
-    '# Utility classes you may use ({a,b} = alternates, {0..N} = inclusive range; each line is independent)',
-    ...UTILITY_VOCABULARY,
+    ...utilityClassesSection(context.utilities === 'tailwind'),
+    ...(context.treeMarkup === true ? ['', ...TREE_MARKUP_SECTION] : []),
     /*
       Active skills, last so the segment stays byte-identical to the no-skill
       layout when none is active. The set is whatever the host pinned for the

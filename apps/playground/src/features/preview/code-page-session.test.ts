@@ -61,13 +61,14 @@ function setup() {
     pending: ReturnType<typeof deferred<CompiledCodePage>>;
   }[] = [];
   const exported = deferred<ExportedCodePage>();
+  const exportPage = vi.fn(() => exported.promise);
   const client: CodeRuntimeClient = {
-    compile: vi.fn((source, signal) => {
+    compile: vi.fn((source: RuntimeSnapshot, signal: AbortSignal | undefined) => {
       const pending = deferred<CompiledCodePage>();
       builds.push({ source, signal, pending });
       return pending.promise;
     }),
-    exportPage: vi.fn(() => exported.promise),
+    exportPage,
   };
   const session = createCodePageSession({ kernel, client, editing: true, exporting: true });
   const stop = session.start();
@@ -110,7 +111,7 @@ function setup() {
       payload: { astNodeId: 'headline' },
     };
   };
-  return { kernel, session, builds, client, stop, edit, complete, focus, exported };
+  return { kernel, session, builds, client, exportPage, stop, edit, complete, focus, exported };
 }
 
 describe('source page session', () => {
@@ -169,7 +170,7 @@ describe('source page session', () => {
     t.session.select(focus);
     expect(t.session.getSnapshot().selection).toBeUndefined();
     await t.session.exportPage();
-    expect(t.client.exportPage).not.toHaveBeenCalled();
+    expect(t.exportPage).not.toHaveBeenCalled();
     t.stop();
   });
 

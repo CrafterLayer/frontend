@@ -34,8 +34,14 @@ export function PersistenceStatus({
       <span className="pg-persistence-status__indicator" aria-hidden="true" />
       <div className="pg-persistence-status__copy">
         <strong>{titleFor(value)}</strong>
-        <p>{messageFor(value)}</p>
-        {shared ? <p>This project is open elsewhere. The latest saved copy wins.</p> : null}
+        {needsRecovery ? <p>{messageFor(value)}</p> : null}
+        {shared ? (
+          needsRecovery ? (
+            <p>This project is also open elsewhere.</p>
+          ) : (
+            <span className="pg-persistence-status__shared">· Open elsewhere</span>
+          )
+        ) : null}
       </div>
       {needsRecovery ? (
         <div className="pg-persistence-status__actions">

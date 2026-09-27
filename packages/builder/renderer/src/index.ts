@@ -18,6 +18,11 @@ export {
   type CustomCodeProps,
 } from './components/CustomCode';
 export { renderStaticMarkup, type RenderStaticOptions } from './render-static-markup';
+export {
+  createLiveUtilities,
+  type LiveUtilities,
+  type LiveUtilitiesOptions,
+} from './tailwind/live-utilities';
 
 export { resolveResponsiveProps, type RenderBreakpoint } from './resolve/responsive';
 export {

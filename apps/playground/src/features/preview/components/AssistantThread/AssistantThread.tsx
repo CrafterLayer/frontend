@@ -135,6 +135,7 @@ export function AssistantThread({
                     status="running"
                     title={`Working on ${turn.subject}`}
                     currentTask={turn.progress ?? `Reading ${turn.subject}…`}
+                    liveUpdates={turn.progressLog}
                     completed={turn.run.stages.filter((stage) => stage.status === 'done').length}
                     total={turn.run.stages.length}
                     onStop={onStop}
@@ -170,6 +171,19 @@ export function AssistantThread({
                           </span>
                           <p>Laying out the page…</p>
                         </div>
+                        {turn.progress.liveLog === undefined || turn.progress.liveLog.length === 0 ? null : (
+                          <section className="pg-chat__live-stream" aria-label="Live agent stream" aria-live="polite">
+                            <header>Live agent stream</header>
+                            {turn.progress.liveLine === undefined ? null : (
+                              <p className="pg-chat__live-current" dir="auto">{turn.progress.liveLine}</p>
+                            )}
+                            <ol>
+                              {turn.progress.liveLog.map((line, index) => (
+                                <li key={`${String(index)}-${line}`} dir="auto">{line}</li>
+                              ))}
+                            </ol>
+                          </section>
+                        )}
                       </>
                     ) : (
                       <BuildSectionList progress={turn.progress} turnId={turn.id} onJump={onJump} />

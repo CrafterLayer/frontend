@@ -14,6 +14,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Running: Story = {};
+export const RunningWithLiveStream: Story = {
+  args: {
+    liveUpdates: [
+      'I found the selected page and its shared theme tokens.',
+      'I am placing the hero before wiring the feature sections.',
+      'The next pass will validate the generated structure.',
+    ],
+  },
+};
 export const Queued: Story = { args: { status: 'queued', currentTask: 'Waiting for current change', completed: 0 } };
 export const Stopped: Story = { args: { status: 'stopped', currentTask: undefined, summary: 'Two completed files were saved as a draft.', completed: 2 } };
 export const Failed: Story = { args: { status: 'failed', currentTask: undefined, summary: 'The selected target changed.', completed: 1 } };

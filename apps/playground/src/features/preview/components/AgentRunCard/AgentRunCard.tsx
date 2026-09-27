@@ -12,6 +12,8 @@ export interface AgentRunCardProps {
   readonly total: number;
   readonly summary?: string | undefined;
   readonly details?: readonly string[] | undefined;
+  /** Provider narration received live over SSE, newest last. */
+  readonly liveUpdates?: readonly string[] | undefined;
   readonly diffSummary?: string | undefined;
   readonly onStop?: (() => void) | undefined;
   readonly onUndo?: (() => void) | undefined;
@@ -35,6 +37,7 @@ export function AgentRunCard({
   total,
   summary,
   details = [],
+  liveUpdates = [],
   diffSummary,
   onStop,
   onUndo,
@@ -68,6 +71,16 @@ export function AgentRunCard({
       {currentTask === undefined ? null : <p className="pg-agent-run__current" dir="auto">{currentTask}</p>}
       {summary === undefined ? null : <p className="pg-agent-run__summary" dir="auto">{summary}</p>}
       {diffSummary === undefined ? null : <p className="pg-agent-run__diff">{diffSummary}</p>}
+      {liveUpdates.length === 0 ? null : (
+        <section className="pg-agent-run__live" aria-label="Live agent stream" aria-live="polite">
+          <header>Live agent stream</header>
+          <ol>
+            {liveUpdates.map((update, index) => (
+              <li key={`${String(index)}-${update}`} dir="auto">{update}</li>
+            ))}
+          </ol>
+        </section>
+      )}
       <div className="pg-agent-run__actions">
         {status === 'running' && onStop !== undefined ? (
           <ChromeButton size="sm" onClick={onStop}>Stop and revise</ChromeButton>

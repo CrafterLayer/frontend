@@ -49,6 +49,7 @@ const EMPTY_SUGGESTIONS = [
 export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps) {
   const uid = useId();
   const modeHintId = `${uid}-mode-hint`;
+  const headingId = `${uid}-heading`;
   const subscribe = useCallback((listener: () => void) => port.subscribe(listener), [port]);
   const getSnapshot = useCallback(() => port.getSnapshot(), [port]);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -58,8 +59,9 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
   return (
     <section
       className="pg-source-agent"
-      aria-label="Source agent"
-      hidden={!visible}
+      aria-labelledby={headingId}
+      style={visible ? undefined : { display: 'none' }}
+      data-visible={visible ? 'true' : 'false'}
       data-busy={snapshot.busy ? 'true' : 'false'}
     >
       <header className="pg-source-agent__header">
@@ -67,9 +69,9 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
           <span className="pg-source-agent__mark" aria-hidden="true">
             AI
           </span>
-          <h2>Agent</h2>
+          <h2 id={headingId}>Agent</h2>
         </div>
-        <ChromeButton size="sm" onClick={() => port.newConversation()}>
+        <ChromeButton size="sm" onClick={() => { port.newConversation(); }}>
           New conversation
         </ChromeButton>
       </header>
@@ -89,7 +91,7 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
                 <button
                   key={suggestion}
                   type="button"
-                  onClick={() => port.setDraft(suggestion)}
+                  onClick={() => { port.setDraft(suggestion); }}
                 >
                   {suggestion}
                 </button>
@@ -110,13 +112,22 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
                 completed={turn.completed}
                 total={turn.total}
                 summary={turn.summary === '' ? undefined : turn.summary}
-                details={[...turn.files, ...turn.details]}
+                details={[
+                  ...turn.files.map((file) => `File · ${file}`),
+                  ...turn.details,
+                ]}
                 diffSummary={
                   turn.files.length === 0
                     ? undefined
                     : `${String(turn.files.length)} ${turn.files.length === 1 ? 'file' : 'files'} changed`
                 }
-                onStop={turn.status === 'running' ? () => void port.stop() : undefined}
+                onStop={
+                  turn.status === 'running'
+                    ? () => {
+                        void port.stop();
+                      }
+                    : undefined
+                }
                 onReviewDiff={
                   turn.status === 'done'
                     ? () => {
@@ -136,7 +147,9 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
                 <ChromeButton
                   size="sm"
                   className="pg-source-agent__resume"
-                  onClick={() => void port.resume(turn.id)}
+                  onClick={() => {
+                    void port.resume(turn.id);
+                  }}
                 >
                   Resume incomplete work
                 </ChromeButton>
@@ -149,8 +162,12 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
             request={snapshot.queued.prompt}
             context={snapshot.queued.context}
             paused={!snapshot.busy}
-            onChange={(prompt) => void port.editQueued(prompt)}
-            onRemove={() => void port.removeQueued()}
+            onChange={(prompt) => {
+              void port.editQueued(prompt);
+            }}
+            onRemove={() => {
+              void port.removeQueued();
+            }}
           />
         )}
         {snapshot.message === undefined ? null : (
@@ -176,7 +193,9 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
           value={snapshot.draft}
           placeholder={snapshot.busy ? 'Type one next request…' : 'Ask for a source change…'}
           disabled={!snapshot.enabled}
-          onChange={(event) => port.setDraft(event.currentTarget.value)}
+          onChange={(event) => {
+            port.setDraft(event.currentTarget.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
@@ -201,7 +220,9 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
                 tabIndex={snapshot.mode === mode ? 0 : -1}
                 disabled={snapshot.busy || !snapshot.enabled}
                 data-mode={mode}
-                onClick={() => port.setMode(mode)}
+                onClick={() => {
+                  port.setMode(mode);
+                }}
                 onKeyDown={(event) => {
                   const step =
                     event.key === 'ArrowRight' || event.key === 'ArrowDown'
@@ -226,11 +247,23 @@ export function SourceAgentPanel({ port, visible = true }: SourceAgentPanelProps
           </div>
           <div className="pg-source-agent__submit-actions">
             {snapshot.busy ? (
-              <ChromeButton size="sm" onClick={() => void port.stop()}>
+              <ChromeButton
+                size="sm"
+                onClick={() => {
+                  void port.stop();
+                }}
+              >
                 Stop and revise
               </ChromeButton>
             ) : null}
-            <ChromeButton type="submit" tone="primary" size="sm" disabled={!canSubmit}>
+            <ChromeButton
+              variant="primary"
+              size="sm"
+              disabled={!canSubmit}
+              onClick={() => {
+                if (canSubmit) void port.submit();
+              }}
+            >
               {snapshot.busy ? 'Queue next' : modeCopy.action}
             </ChromeButton>
           </div>

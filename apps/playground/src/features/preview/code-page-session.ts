@@ -231,10 +231,14 @@ export function createCodePageSession(options: CodePageSessionOptions) {
     },
     rebuild,
     select,
-    setText: (text: string) => { publish({ text }); },
+    setText: (text: string) => {
+      publish({ text });
+    },
     applyText,
     exportPage,
-    report: (message: string) => { publish({ message }); },
+    report: (message: string) => {
+      publish({ message });
+    },
   };
 }
 
@@ -256,11 +260,7 @@ function sourceKey(source: RuntimeSnapshot | undefined) {
 }
 
 function samePage(left: RuntimeSnapshot | undefined, right: RuntimeSnapshot | undefined) {
-  return (
-    left !== undefined &&
-    left.projectId === right?.projectId &&
-    left.pageId === right.pageId
-  );
+  return left !== undefined && left.projectId === right?.projectId && left.pageId === right.pageId;
 }
 
 function matchesSource(compiled: CompiledCodePage, source: RuntimeSnapshot) {

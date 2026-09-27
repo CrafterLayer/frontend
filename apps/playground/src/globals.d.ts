@@ -6,3 +6,9 @@ declare module '*.css';
 interface ImportMeta {
   readonly env: Readonly<Record<string, unknown>>;
 }
+
+// Vite's raw imports: the file's text as a string (Tailwind's theme.css for live utilities).
+declare module '*?raw' {
+  const content: string;
+  export default content;
+}

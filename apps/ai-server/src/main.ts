@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import Anthropic from '@anthropic-ai/sdk';
 
 import { CLI_EFFORT_LEVELS, createCliClient } from './cli-client';
@@ -79,6 +82,23 @@ const models = (setting('CRAFTKIT_AI_MODELS') ?? '')
   backend clamps to what each model actually allows). A blank or unparseable
   value keeps the default rather than silently becoming 0.
 */
+/*
+  The reasoning budget for a build's section writers — the part of a build
+  whose time is mostly thinking under a direction already decided. `low`
+  unless set; `default` hands them the backend's own budget. A value the
+  backends do not know is refused here, not silently ignored per call.
+*/
+const rawSectionEffort = setting('CRAFTKIT_AI_SECTION_EFFORT') ?? 'low';
+const sectionEffort =
+  rawSectionEffort === 'default'
+    ? undefined
+    : (CLI_EFFORT_LEVELS.find((level) => level === rawSectionEffort) ??
+      refuseToStart(
+        `CRAFTKIT_AI_SECTION_EFFORT="${rawSectionEffort}" is not one of ${CLI_EFFORT_LEVELS.join(', ')} or default.`,
+      ));
+
+/** Where to keep every raw answer, for diagnosis. Unset ⇒ nothing is written. */
+const answerDumpDir = setting('CRAFTKIT_AI_DUMP_DIR');
 const rawMaxTokens = Number(setting('CRAFTKIT_AI_MAX_TOKENS'));
 const maxTokens = Number.isInteger(rawMaxTokens) && rawMaxTokens > 0 ? rawMaxTokens : undefined;
 const runtimeWorkers = createProcessRuntimeSupervisor();
@@ -374,12 +394,29 @@ const handle = createHandler({
   ...(model === undefined ? {} : { model }),
   ...(models.length === 0 ? {} : { models }),
   ...(maxTokens === undefined ? {} : { maxTokens }),
+  ...(sectionEffort === undefined ? {} : { sectionEffort }),
   /*
     The start of every answer, so a plan the validator refuses two layers
     later ("names unknown command "e"") can be read here in the model's own
     words. Bounded: the log is a place to look, not a place to store plans.
   */
   onAnswer: (text) => {
+    /*
+      The whole answer, one file each, when a directory is named. The log keeps
+      a head and a tail; a bracket miscounted in the middle of a 4k-character
+      tree needs the whole text to find, and to replay against a repair.
+    */
+    if (answerDumpDir !== undefined) {
+      const file = join(
+        answerDumpDir,
+        `${new Date().toISOString().replace(/[:.]/gu, '-')}-answer.txt`,
+      );
+      void mkdir(answerDumpDir, { recursive: true })
+        .then(() => writeFile(file, text, 'utf8'))
+        .catch((cause: unknown) => {
+          console.warn(`[ai-server] could not dump the answer: ${String(cause)}`);
+        });
+    }
     const flat = text.replace(/\s+/gu, ' ').trim();
     const head = `${flat.slice(0, 240)}${flat.length > 240 ? '…' : ''}`;
     /*

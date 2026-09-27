@@ -109,9 +109,7 @@ describe('code runtime service', () => {
       );
     }
     expect(run).toHaveBeenCalledWith(expect.objectContaining({ kind: 'prerender' }), undefined);
-    expect(
-      run.mock.calls.filter(([payload]) => payload.kind === 'compile'),
-    ).toHaveLength(1);
+    expect(run.mock.calls.filter(([payload]) => payload.kind === 'compile')).toHaveLength(1);
   });
 
   it('rejects stale or cross-project artifact ids before launching prerender', async () => {

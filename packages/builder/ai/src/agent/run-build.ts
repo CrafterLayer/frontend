@@ -52,6 +52,7 @@ const MAX_LABEL_LENGTH = 160;
 const SCAFFOLD_COMMANDS: readonly string[] = Object.freeze(['insertNode', 'setProp', 'setDocMeta']);
 const FILL_COMMANDS: readonly string[] = Object.freeze(['setProp']);
 const SCAFFOLD_LABEL = 'Assistant: page skeleton';
+const RTL_LABEL = 'Assistant: right-to-left page';
 const DIRECTION_HEADING = 'THE DIRECTION (decided for the whole page — obey it exactly):';
 const SENTENCE_END = /[.!?؟。\n]/u;
 const MAX_SHORT_DIRECTION = 240;
@@ -332,6 +333,59 @@ function runFill(
   });
 }
 
+const ARABIC_LETTER = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/gu;
+const LATIN_LETTER = /[A-Za-z]/gu;
+
+/** Every piece of text a plan writes into its trees, joined. */
+function writtenText(plan: AiPlan): string {
+  const texts: string[] = [];
+  const stack: unknown[] = plan.commands.map((step) => step.args);
+  while (stack.length > 0) {
+    const value = stack.pop();
+    if (Array.isArray(value)) {
+      stack.push(...(value as unknown[]));
+      continue;
+    }
+    if (typeof value !== 'object' || value === null) continue;
+    const record = value as Record<string, unknown>;
+    if (typeof record['text'] === 'string') texts.push(record['text']);
+    stack.push(...Object.values(record));
+  }
+  return texts.join(' ');
+}
+
+/**
+ * An Arabic page reads right to left, whether or not the skeleton said so.
+ *
+ * Measured 2026-09-27: the same Arabic request produced a skeleton with
+ * `setDocMeta {dir:'rtl'}` in one run and without it in the next — one of them
+ * even named "set the page RTL" as a follow-up — so an Arabic page came out
+ * laid backwards about half the time. Direction is a fact about the words the
+ * skeleton wrote, so it is decided here from them: its own step, its own undo,
+ * and never a reason for the build to fail.
+ */
+function turnArabicPageRightToLeft(options: RunAiBuildOptions, plan: AiPlan): void {
+  if (options.kernel.getDocument().dir === 'rtl') return;
+  const text = writtenText(plan);
+  const arabic = text.match(ARABIC_LETTER)?.length ?? 0;
+  const latin = text.match(LATIN_LETTER)?.length ?? 0;
+  if (arabic === 0 || arabic <= latin) return;
+  try {
+    applyAiPlan({
+      kernel: options.kernel,
+      validationPorts: options.validationPorts,
+      plan: {
+        rationale: 'The page is written in Arabic, so it reads right to left.',
+        commands: [{ command: 'setDocMeta', args: { dir: 'rtl' } }],
+      },
+      policy: { allowedCommands: ['setDocMeta'], maxCommands: 1 },
+      label: RTL_LABEL,
+    });
+  } catch {
+    // A page that cannot turn stays as it was; the sections still get written.
+  }
+}
+
 /**
  * Build a whole page as a scaffold plus one run per section, instead of one
  * plan that has to hold the entire page in its head.
@@ -455,6 +509,7 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
   }
 
   emit({ type: 'build.planned', direction, tasks });
+  if (scaffold !== undefined) turnArabicPageRightToLeft(options, scaffold.plan);
 
   const reports: AiBuildTaskReport[] = [];
   const total = tasks.length;

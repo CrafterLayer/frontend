@@ -656,3 +656,60 @@ describe('usage reporting', () => {
     expect(onUsage).not.toHaveBeenCalled();
   });
 });
+
+describe('per-call reasoning budget', () => {
+  function recordingClient(): { client: Anthropic; seen: unknown[] } {
+    const seen: unknown[] = [];
+    const client = {
+      messages: {
+        stream: (_params: unknown, requestOptions: unknown) => {
+          seen.push(requestOptions);
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [{ type: 'text', text: JSON.stringify(PLAN) }],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    return { client, seen };
+  }
+
+  const sectionWriter = (): unknown =>
+    wireBody({
+      context: {
+        ...(wireBody() as { context: Record<string, unknown> }).context,
+        skills: [
+          {
+            id: 'craftkit.build-fill',
+            version: '3.0.0',
+            contentFingerprint: 'x',
+            reason: 'explicit',
+          },
+        ],
+      },
+    });
+
+  it('gives a section writer the section budget', async () => {
+    const { client, seen } = recordingClient();
+    const handle = createHandler({ client, sectionEffort: 'low' });
+
+    await handle(post(sectionWriter()));
+
+    expect(seen[0]).toMatchObject({ headers: { 'x-craftkit-internal-reasoning-effort': 'low' } });
+  });
+
+  it('leaves every other call on the backend default', async () => {
+    const { client, seen } = recordingClient();
+    const handle = createHandler({ client, sectionEffort: 'low' });
+
+    await handle(post(wireBody()));
+
+    expect((seen[0] as { headers?: unknown }).headers).toBeUndefined();
+  });
+});

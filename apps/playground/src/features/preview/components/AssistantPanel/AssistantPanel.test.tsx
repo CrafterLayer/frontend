@@ -663,15 +663,21 @@ describe('AssistantPanel', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
-    await screen.findByText(/Reading the page/);
+    await screen.findAllByText(/Reading the page/);
+    /*
+      The line appears in the run card's current line, its live log and the
+      header's voice at once; the card's current line is the one asserted.
+    */
+    const currentLine = (text: string) =>
+      screen.findByText(text, { selector: '.pg-agent-run__current' });
     act(() => {
       report?.('Drafting the plan\u2026');
     });
-    await screen.findByText('Drafting the plan\u2026');
+    await currentLine('Drafting the plan\u2026');
     act(() => {
       report?.('Wrote 1 command\u2026');
     });
-    await screen.findByText('Wrote 1 command\u2026');
+    await currentLine('Wrote 1 command\u2026');
 
     act(() => {
       finish?.({
@@ -1207,6 +1213,28 @@ describe('AssistantPanel', () => {
     expect(screen.getByRole('radio', { name: 'Plan' })).toHaveAttribute('aria-checked', 'true');
     second.unmount();
     window.localStorage.removeItem('assistant-mode-test');
+  });
+
+  it('starts in the host default until the person chooses, even over a saved default', async () => {
+    /*
+      Every panel used to save its mode on every change, so the old default
+      (Ask) sat in storage looking exactly like a choice — and a host that
+      moved the default to Auto never reached anyone who had opened it once.
+    */
+    window.localStorage.setItem(
+      'assistant-default-test',
+      JSON.stringify({ sessions: [], activeId: 'session-1', mode: 'ask' }),
+    );
+    const first = renderPanel({ persistKey: 'assistant-default-test', defaultMode: 'auto' });
+    expect(screen.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true');
+
+    await first.user.click(screen.getByRole('radio', { name: 'Ask' }));
+    first.unmount();
+    const second = renderPanel({ persistKey: 'assistant-default-test', defaultMode: 'auto' });
+
+    expect(screen.getByRole('radio', { name: 'Ask' })).toHaveAttribute('aria-checked', 'true');
+    second.unmount();
+    window.localStorage.removeItem('assistant-default-test');
   });
 
   it('shows suggestions only on an empty conversation', async () => {

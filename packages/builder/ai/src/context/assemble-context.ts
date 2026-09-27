@@ -2,6 +2,7 @@ import {
   blockPropsJsonSchema,
   commandArgsJsonSchema,
   defineContextFragment,
+  hasUtilityClassOracle,
   type AiContextBlockCatalogEntry,
   type AiContextCommandCatalogEntry,
   type AiContextCompositionCatalogEntry,
@@ -23,6 +24,7 @@ import {
   type Surface,
 } from '@craftkit/builder-schema';
 
+import { serializeTreeMarkup } from '../plan/tree-markup';
 import type {
   AiBlockContext,
   AiBlockPropertyIntentContext,
@@ -407,9 +409,17 @@ function documentNode(node: Node, summariseTrees = false): AiDocumentNodeContext
         .sort(([left], [right]) => compareText(left, right))
         .map(([key, value]) => [
           key,
-          summariseTrees && isCustomCodeTreeValue(value)
-            ? summariseCustomCodeTree(value)
-            : cloneJson(value),
+          !isCustomCodeTreeValue(value)
+            ? cloneJson(value)
+            : summariseTrees
+              ? summariseCustomCodeTree(value)
+              : /*
+                  A region's tree as the markup the model writes back: a third
+                  shorter than the nested tree, and quotable exactly — which is
+                  what an `editTree` find has to be. A tree markup cannot spell
+                  (a component reference) is shown as the tree itself.
+                */
+                (serializeTreeMarkup(value) ?? cloneJson(value)),
         ]),
     ),
     ...(bindings === undefined ? {} : { bindings }),
@@ -821,6 +831,10 @@ export function assembleAiContext(
     commands,
     outputContract: options.outline === true ? AI_OUTLINE_OUTPUT_CONTRACT : AI_PLAN_OUTPUT_CONTRACT,
     omissions,
+    // The host compiles Tailwind at runtime: the prompt stops holding the model to the static list.
+    ...(hasUtilityClassOracle() ? { utilities: 'tailwind' as const } : {}),
+    // This client reads trees written as markup (plan/tree-markup.ts).
+    treeMarkup: true as const,
   };
   if (options.skillContext === undefined) return base;
   return {

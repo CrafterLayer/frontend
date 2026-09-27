@@ -42,6 +42,19 @@ export function BuildSectionList({ progress, turnId, onJump }: BuildSectionListP
         <span className="pg-chat__tasks-count">{buildCount(progress)}</span>
         {eta === null ? null : <span className="pg-chat__tasks-eta">{` · ${eta}`}</span>}
       </p>
+      {progress.liveLog === undefined || progress.liveLog.length === 0 ? null : (
+        <section className="pg-chat__live-stream" aria-label="Live agent stream" aria-live="polite">
+          <header>Live agent stream</header>
+          {progress.liveLine === undefined ? null : (
+            <p className="pg-chat__live-current" dir="auto">{progress.liveLine}</p>
+          )}
+          <ol>
+            {progress.liveLog.map((line, index) => (
+              <li key={`${String(index)}-${line}`} dir="auto">{line}</li>
+            ))}
+          </ol>
+        </section>
+      )}
       <ol className="pg-chat__tasks" aria-label="Sections">
         {progress.tasks.map((task) => (
           <li

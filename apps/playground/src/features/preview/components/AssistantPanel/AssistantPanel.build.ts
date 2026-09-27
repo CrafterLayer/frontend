@@ -1,6 +1,7 @@
 import type { AiBuildEvent, AiBuildStopReason } from '@craftkit/builder';
 
 import {
+  appendLiveProgress,
   formatClock,
   initialRunProgress,
   reduceRunProgress,
@@ -102,6 +103,10 @@ export interface BuildProgress {
   readonly stopReason?: AiBuildStopReason;
   /** Why the split was abandoned for one ordinary run. */
   readonly fallbackReason?: string;
+  /** The provider's latest streamed narration while a section is being written. */
+  readonly liveLine?: string;
+  /** A bounded history of the provider narration, newest last. */
+  readonly liveLog?: readonly string[];
 }
 
 export interface BuildReceipt {
@@ -273,6 +278,11 @@ export function reduceBuildProgress(progress: BuildProgress, event: AiBuildEvent
         elapsedMs: event.elapsedMs,
         run: null,
       };
+    }
+    case 'plan.progress': {
+      const liveLog = appendLiveProgress(progress.liveLog, event.text);
+      if (progress.liveLine === event.text && liveLog === progress.liveLog) return progress;
+      return { ...progress, liveLine: event.text, liveLog };
     }
     default: {
       /*

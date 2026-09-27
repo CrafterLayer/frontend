@@ -67,6 +67,10 @@ import { createCodeRuntimeClient } from '../features/preview/code-runtime-client
 import { useCodePageSession } from '../features/preview/use-code-page-session';
 import { useCodeWorkspace } from '../features/preview/use-code-workspace';
 import { CodeWorkspace } from '../features/preview/code-workspace';
+import { createSourceAgentClient } from '../features/preview/source-agent-client';
+import { useSourceAgent } from '../features/preview/use-source-agent';
+import { useLiveUtilities } from '../features/preview/use-live-utilities';
+import { SourceAgentPanel } from '../features/preview/components/SourceAgentPanel';
 import { PersistenceStatus } from '../features/vault/components/PersistenceStatus';
 import { PROFESSIONAL_BUILDER_FLAGS } from '../features/preview/feature-flags';
 import { createArtifactArchive } from '../features/preview/artifact-archive';
@@ -323,6 +327,8 @@ export function App() {
   const session = vault.status === 'ready' ? vault : undefined;
   const kernel = session?.kernel;
   const siteKernel = session?.siteKernel;
+  // Any Tailwind class the assistant writes renders, and the door judges classes by the same compiler.
+  useLiveUtilities(siteKernel);
   const codeRuntimeClient = useMemo(
     () =>
       CODE_RUNTIME_ENDPOINT === undefined
@@ -353,6 +359,12 @@ export function App() {
     session?.vault.store,
     fixture,
   );
+  const sourceAgentClient = useMemo(() => CODE_RUNTIME_ENDPOINT === undefined ? undefined : createSourceAgentClient(CODE_RUNTIME_ENDPOINT, CODE_RUNTIME_TOKEN), []);
+  const reviewSource = useCallback((files: readonly string[]) => {
+    if (files[0] !== undefined) sourceWorkspace?.selectFile(files[0]);
+    setRailSection('code');
+  }, [sourceWorkspace]);
+  const sourceAgent = useSourceAgent(siteKernel, codePage.controller, codeRuntimeClient, sourceAgentClient, session?.vault, fixture, PROFESSIONAL_BUILDER_FLAGS.remoteCodeGeneration, reviewSource);
   const compileCodePage = () => codePage.controller?.rebuild();
   const exportCodePage = async () => {
     const exported = await codePage.controller?.exportPage();
@@ -784,6 +796,7 @@ export function App() {
                   hidden={railSection !== 'assistant'}
                   data-section="assistant"
                 >
+                  <div className="pg-legacy-agent-host" hidden={codeSnapshot !== undefined}>
                   <AssistantPanel
                     /*
                       KEYED ON THE BOOT. Staying mounted across rail
@@ -816,6 +829,12 @@ export function App() {
                     providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
                     persistKey="pg-assistant-sessions-v1"
                     /*
+                      A person who asks for a page gets the page: every section
+                      lands as its own undoable entry, so an extra Apply bought
+                      no safety. Ask and Plan stay one click away.
+                    */
+                    defaultMode="auto"
+                    /*
                       The panel keeps the ONE run lease and hands it up; the
                       site builder on its own rail destination borrows it, so
                       two destinations can never both start a run.
@@ -825,6 +844,10 @@ export function App() {
                       setRailSection('code');
                     }}
                   />
+                  </div>
+                  {sourceAgent === undefined ? null : <div className="pg-source-agent-host" hidden={codeSnapshot === undefined}>
+                    <SourceAgentPanel port={sourceAgent} visible={railSection === 'assistant' && codeSnapshot !== undefined} />
+                  </div>}
                 </div>
                 {railSection === 'pages' ? (
                   <PageWorkspace siteKernel={session.siteKernel} />

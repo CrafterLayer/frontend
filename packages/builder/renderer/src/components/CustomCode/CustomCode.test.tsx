@@ -109,6 +109,26 @@ describe('CustomCode', () => {
     expect(container.querySelector('[data-ck-path]')).toBeNull();
   });
 
+  it('turns an image that fails to load into a quiet surface instead of a broken mark', () => {
+    // A model can name a photo that does not exist; the page must not look broken for it.
+    const { container } = renderTree([
+      {
+        kind: 'element',
+        tag: 'img',
+        className: 'aspect-video w-full rounded-2xl object-cover',
+        attributes: { src: 'https://images.example.com/does-not-exist.jpg', alt: 'A café counter' },
+      },
+    ]);
+    const image = container.querySelector('img');
+    expect(image?.hasAttribute('data-ck-broken')).toBe(false);
+
+    image?.dispatchEvent(new Event('error'));
+
+    expect(image?.hasAttribute('data-ck-broken')).toBe(true);
+    expect(image?.style.color).toBe('transparent');
+    expect(image?.className).toBe('aspect-video w-full rounded-2xl object-cover');
+  });
+
   it('renders authored markup with its classes and text', () => {
     const { container } = renderTree([
       {

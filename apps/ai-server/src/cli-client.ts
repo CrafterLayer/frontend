@@ -1,9 +1,12 @@
 import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import type Anthropic from '@anthropic-ai/sdk';
 
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
+import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
 
 /**
  * DEV-ONLY fallback, gated by `CRAFTKIT_AI_BACKEND=cli`.
@@ -30,6 +33,11 @@ import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from '
  * to end before `ANTHROPIC_API_KEY` is set — not to be a second production
  * path. Delete it once the SDK backend is the only one anyone runs.
  */
+
+/** The request options this shim reads: the per-call reasoning budget header. */
+interface CliRequestOptions {
+  readonly headers?: Readonly<Record<string, string>>;
+}
 
 interface CliStreamParams {
   readonly system?: readonly { readonly text: string }[];
@@ -73,6 +81,8 @@ export interface CliClientOptions {
   readonly timeoutMs?: number;
   /** Injected for tests; defaults to spawning the real `claude` CLI. */
   readonly spawnCli?: SpawnCli;
+  /** Injected for tests; defaults to a private temporary file removed after the run. */
+  readonly writeSystemPrompt?: (text: string) => SystemPromptFile;
   /** One line per run milestone, for the server's own terminal. */
   readonly onLog?: (line: string) => void;
 }
@@ -115,23 +125,70 @@ function stripCodeFence(text: string): string {
   return match?.[1] ?? text;
 }
 
-/** Flattens `system` + `messages` into one CLI prompt, schema spelled out as text. */
-function renderPrompt(params: CliStreamParams): string {
-  const system = (params.system ?? []).map((block) => block.text).join('\n\n');
+interface RenderedPrompt {
+  /** The rules, the catalog, the skills and the output format — the CLI's SYSTEM prompt. */
+  readonly system: string;
+  /** The conversation and the page as it is now — the one user turn. */
+  readonly user: string;
+}
+
+/**
+ * Splits the request the way the Messages API would see it.
+ *
+ * The rules and the stable context go to the CLI as its system prompt
+ * (`--system-prompt-file`), not in front of the user's text. Two measured
+ * reasons (2026-09-27): without it every call also carried Claude Code's own
+ * ~3.2k-token coding-agent prompt, which is the wrong role for a page
+ * builder; and a system prompt is the part the CLI caches between calls, so
+ * the four section writers of one build stop re-reading the same catalog
+ * and skills from cold. The output format sits at the end of the system text
+ * (it is the same for every call of a kind) with a one-line reminder last in
+ * the user turn, where it is most salient.
+ */
+function renderPrompt(params: CliStreamParams): RenderedPrompt {
+  const rules = (params.system ?? []).map((block) => block.text).join('\n\n');
   const turns = (params.messages ?? [])
     .map(
       (turn) => `${turn.role === 'assistant' ? 'Assistant' : 'User'}: ${messageText(turn.content)}`,
     )
     .join('\n\n');
   const schema = params.output_config?.format?.schema;
-  const schemaBlock =
-    schema === undefined
-      ? ''
-      : `\n\n# Required output format\nThis is the dev CLI backend: nothing enforces this shape at the decoding layer, so you must get it right yourself. Reply with RAW JSON ONLY — the first character of your reply must be "{" and the last must be "}". No markdown code fences, no \`\`\`json, no explanation before or after. Conform exactly to this JSON Schema:\n${JSON.stringify(schema)}`;
-  return `${system}\n\n${turns}${schemaBlock}`;
+  if (schema === undefined) return { system: rules, user: turns };
+  return {
+    system: `${rules}\n\n# Required output format\nNothing enforces this shape at the decoding layer, so you must get it right yourself. Reply with RAW JSON ONLY — the first character of your reply must be "{" and the last must be "}". No markdown code fences, no \`\`\`json, no explanation before or after. Conform exactly to this JSON Schema:\n${JSON.stringify(schema)}`,
+    user: `${turns}\n\nReply with the JSON object only.`,
+  };
 }
 
-function buildArgs(model: string | undefined, effort: CliEffort | undefined): string[] {
+/**
+ * The system prompt as a file the CLI reads, removed once the run ends.
+ *
+ * A file rather than `--system-prompt <text>`: the rules, catalog and skills
+ * run to tens of thousands of characters, past what an argument list should
+ * carry, and a file keeps them out of every process listing.
+ */
+export interface SystemPromptFile {
+  readonly path: string;
+  readonly remove: () => void;
+}
+
+function writeSystemPromptFile(text: string): SystemPromptFile {
+  const directory = mkdtempSync(join(tmpdir(), 'craftkit-cli-'));
+  const path = join(directory, 'system-prompt.md');
+  writeFileSync(path, text, 'utf8');
+  return {
+    path,
+    remove: () => {
+      rmSync(directory, { recursive: true, force: true });
+    },
+  };
+}
+
+function buildArgs(
+  model: string | undefined,
+  effort: CliEffort | undefined,
+  systemPromptPath: string | undefined,
+): string[] {
   const args = [
     '-p',
     '--output-format',
@@ -147,6 +204,7 @@ function buildArgs(model: string | undefined, effort: CliEffort | undefined): st
     '--tools',
     '',
   ];
+  if (systemPromptPath !== undefined) args.push('--system-prompt-file', systemPromptPath);
   if (model !== undefined && model !== '') args.push('--model', model);
   /*
     Left out entirely when unset: the CLI would otherwise fall back to whatever
@@ -155,6 +213,46 @@ function buildArgs(model: string | undefined, effort: CliEffort | undefined): st
   */
   if (effort !== undefined) args.push('--effort', effort);
   return args;
+}
+
+/** What a CLI run actually cost, from its `result` event. */
+interface CliUsage {
+  readonly input: number;
+  readonly output: number;
+  readonly cacheRead: number;
+  readonly cacheWrite: number;
+  /** Time spent inside the model API, as the CLI measured it — the rest is process overhead. */
+  readonly apiMs: number | undefined;
+}
+
+function count(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * The `result` event's usage. Read rather than reported as zeros, because
+ * whether the system prompt actually caches between calls is the question
+ * every speed change here has to answer, and only these numbers answer it.
+ */
+function usageOf(event: Readonly<Record<string, unknown>>): CliUsage | undefined {
+  const usage = event['usage'];
+  if (!isRecord(usage)) return undefined;
+  const apiMs = event['duration_api_ms'];
+  return {
+    input: count(usage['input_tokens']),
+    output: count(usage['output_tokens']),
+    cacheRead: count(usage['cache_read_input_tokens']),
+    cacheWrite: count(usage['cache_creation_input_tokens']),
+    apiMs: typeof apiMs === 'number' ? apiMs : undefined,
+  };
+}
+
+function usageLine(usage: CliUsage): string {
+  return (
+    `cli usage — in ${formatCount(usage.input)}, cache read ${formatCount(usage.cacheRead)}, ` +
+    `cache write ${formatCount(usage.cacheWrite)}, out ${formatCount(usage.output)}` +
+    (usage.apiMs === undefined ? '' : `, model ${formatElapsed(usage.apiMs)}`)
+  );
 }
 
 /** Kills the CLI's whole process group so a cancelled request doesn't keep running. */
@@ -194,6 +292,7 @@ function runClaude(
     let settled = false;
     let buffer = '';
     let finalText: string | undefined;
+    let usage: CliUsage | undefined;
     let stderr = '';
 
     const startedAt = Date.now();
@@ -281,6 +380,8 @@ function runClaude(
             return;
           }
           finalText = typeof event['result'] === 'string' ? event['result'] : '';
+          usage = usageOf(event);
+          if (usage !== undefined) onLog(usageLine(usage));
         }
       }
     });
@@ -316,10 +417,10 @@ function runClaude(
             stop_details: null,
             content: [{ type: 'text', text: stripCodeFence(finalText) }],
             usage: {
-              input_tokens: 0,
-              output_tokens: 0,
-              cache_read_input_tokens: 0,
-              cache_creation_input_tokens: 0,
+              input_tokens: usage?.input ?? 0,
+              output_tokens: usage?.output ?? 0,
+              cache_read_input_tokens: usage?.cacheRead ?? 0,
+              cache_creation_input_tokens: usage?.cacheWrite ?? 0,
             },
           } as unknown as Anthropic.Message);
         }
@@ -353,18 +454,26 @@ export const CLI_DEFAULT_TIMEOUT_MS = 600_000;
 export function createCliClient(options: CliClientOptions = {}): Anthropic {
   const timeoutMs = options.timeoutMs ?? CLI_DEFAULT_TIMEOUT_MS;
   const spawnCli = options.spawnCli ?? spawnRealCli;
+  const writeSystemPrompt = options.writeSystemPrompt ?? writeSystemPromptFile;
   const onLog = options.onLog ?? ((): void => undefined);
 
-  const stream = (params: CliStreamParams) => {
+  const stream = (params: CliStreamParams, requestOptions: CliRequestOptions = {}) => {
     const listeners = new Map<string, (delta: string) => void>();
-    const args = buildArgs(options.model, options.effort);
     const prompt = renderPrompt(params);
+    const systemFile = prompt.system === '' ? undefined : writeSystemPrompt(prompt.system);
+    // A per-call budget (a section writer's) wins over the backend default.
+    const effort =
+      CLI_EFFORT_LEVELS.find(
+        (level) => requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER] === level,
+      ) ?? options.effort;
+    const args = buildArgs(options.model, effort, systemFile?.path);
     onLog(
       `cli run started — model ${options.model ?? '(CLI default)'}, ` +
-        `effort ${options.effort ?? '(CLI default)'}, prompt ${formatCount(prompt.length)} characters`,
+        `effort ${effort ?? '(CLI default)'}, system ${formatCount(prompt.system.length)} + ` +
+        `request ${formatCount(prompt.user.length)} characters`,
     );
     const done = runClaude(
-      prompt,
+      prompt.user,
       args,
       timeoutMs,
       spawnCli,
@@ -372,7 +481,9 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
         listeners.get('thinking')?.(delta);
       },
       onLog,
-    );
+    ).finally(() => {
+      systemFile?.remove();
+    });
     return {
       on: (event: string, listener: (delta: string) => void) => {
         listeners.set(event, listener);

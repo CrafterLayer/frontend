@@ -35,10 +35,11 @@ export interface AssistantComposerProps {
   readonly onSelectModel?: ((model: string) => void) | undefined;
 }
 
+/** Short enough for the composer row: "Sonnet · CLI", not "sonnet · Claude CLI" cut to "sonnet · Cl…". */
 function modelLabel(slug: string): string {
   if (slug.startsWith('cli:')) {
     const name = slug.slice('cli:'.length);
-    return name === '' ? 'Claude CLI' : `${name} · Claude CLI`;
+    return name === '' ? 'Claude CLI' : `${name.charAt(0).toUpperCase()}${name.slice(1)} · CLI`;
   }
   const name = slug.slice(slug.lastIndexOf('/') + 1);
   return name.endsWith(':free') ? `${name.slice(0, -5)} · free` : name;

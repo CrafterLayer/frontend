@@ -339,8 +339,39 @@ export function isCustomHookClass(name: string): boolean {
 }
 
 /**
- * The class names in `className` that neither the vocabulary generates nor the
- * region-local namespace claims.
+ * Answers whether the host generates CSS for one class name at runtime.
+ *
+ * The vocabulary above is what a STATIC build generates. A host that runs
+ * Tailwind's own compiler in the page (see the renderer's live utilities)
+ * generates any valid utility on demand — arbitrary values, opacity
+ * modifiers, every variant — and registers that compiler's answer here, so
+ * the door, the plan normalizer and the prompt all judge a class by the same
+ * engine that will style it. It must be synchronous and side-effect free.
+ */
+export type UtilityClassOracle = (name: string) => boolean;
+
+let utilityClassOracle: UtilityClassOracle | undefined;
+
+/**
+ * Register (or, with `undefined`, remove) the host's runtime class oracle.
+ *
+ * Process-wide on purpose: what CSS exists is a fact about the page the
+ * document renders into, not about any one kernel, and a second source of
+ * truth per caller is how the door and the canvas came to disagree before.
+ */
+export function setUtilityClassOracle(oracle: UtilityClassOracle | undefined): void {
+  utilityClassOracle = oracle;
+}
+
+/** Whether a host generates utilities at runtime, so any valid Tailwind class renders. */
+export function hasUtilityClassOracle(): boolean {
+  return utilityClassOracle !== undefined;
+}
+
+/**
+ * The class names in `className` that neither the vocabulary generates, nor
+ * the host's runtime compiler generates, nor the region-local namespace
+ * claims.
  *
  * Returns them rather than a boolean so a rejection can NAME what was wrong —
  * "unknown utility class" with no class named is a message that costs its
@@ -351,7 +382,10 @@ export function unknownUtilityClasses(className: string): readonly string[] {
   return className
     .split(/\s+/u)
     .filter((name) => name !== '')
-    .filter((name) => !vocabulary.has(name) && !isCustomHookClass(name));
+    .filter(
+      (name) =>
+        !vocabulary.has(name) && !isCustomHookClass(name) && utilityClassOracle?.(name) !== true,
+    );
 }
 
 /**

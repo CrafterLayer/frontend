@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@craftkit/builder-core": "workspace:*",
-    "@craftkit/builder-schema": "workspace:*"
+    "@craftkit/builder-schema": "workspace:*",
+    "htmlparser2": "catalog:"
   },
   "devDependencies": {
     "@craftkit/eslint-config": "workspace:*",

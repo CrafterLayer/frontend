@@ -9,6 +9,11 @@ import * as Stories from './PersistenceStatus.stories';
 only after the IndexedDB transaction completes. A successful request whose transaction later aborts
 is reported as session-only or failed, never durable.
 
+Saving and durable acknowledgements stay on one compact toolbar line. Session-only and failed
+acknowledgements expand because the recovery reason and actions need room. The component uses the
+builder chrome's panel background, text, border, warning, and danger tokens in both light and dark
+themes.
+
 <Canvas of={Stories.Saving} />
 <Canvas of={Stories.Durable} />
 <Canvas of={Stories.SessionOnly} />
@@ -22,4 +27,4 @@ save attempt; it does not discard or rewrite the open source.
 The container is a polite live region while saving, durable, or session-only. Failures use an alert.
 Actions are native buttons in reading order with visible focus from `ChromeButton`. The layout uses
 logical properties, inherits LTR or RTL from its host, wraps below 560px, and consumes builder theme
-tokens with dark fallbacks. Its pulse stops when reduced motion is requested.
+tokens. Its pulse stops when reduced motion is requested.

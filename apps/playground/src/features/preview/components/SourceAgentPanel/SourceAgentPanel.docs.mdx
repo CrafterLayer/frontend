@@ -1,0 +1,44 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as SourceAgentPanelStories from './SourceAgentPanel.stories';
+
+<Meta of={SourceAgentPanelStories} />
+
+# SourceAgentPanel
+
+`SourceAgentPanel` is the compact conversation surface for authored React projects. It replaces
+page-specific orchestration inside the old general assistant with a subscribed `SourceAgentPort`.
+The port owns provider calls, cancellation, compilation, caches, drafts, commits, and recovery. The
+panel owns no async lifecycle and remains mounted when another rail destination is visible.
+
+## Layout
+
+The header is 44px and contains one identity plus New conversation. One context line follows it.
+The conversation takes the flexible middle row; in the 720px reference story it retains more than
+60% of usable panel height. The fixed composer starts at two lines and expands through six without
+covering the latest turn. Narrow panels stack its action row while retaining the same controls.
+
+## Modes
+
+- Ask explains without changing source.
+- Plan proposes the source scope and changes without applying them.
+- Auto writes a persisted draft, verifies it, and commits once after success.
+
+The mode group locks during a run because run authority was captured at submit time. The composer
+remains writable. One request may be queued, edited, or removed; a second queue action stays disabled.
+Stop and revise remains visible both in the running card and composer.
+
+## Turns and details
+
+Each user request keeps its captured page label. One run card exposes the current task, progress,
+outcome summary, changed-file count, Review changes, and one Undo when available. Tool steps and real
+file paths are collapsed by default. A stopped run can expose Resume incomplete work; the port starts
+a new run and ensures completed units are not applied twice.
+
+## Accessibility, direction, motion, and themes
+
+The panel, conversation, context, queue, and composer have explicit accessible names. Modes use a
+single-tab-stop radio group with arrow-key navigation. Enter submits and Shift+Enter adds a line.
+Native details retain keyboard disclosure, status messages use live regions, and unavailable-provider
+messages are alerts. Logical properties mirror the layout in RTL, author text uses `dir="auto"`, focus
+rings use Builder tokens, and reduced-motion mode removes scroll animation.

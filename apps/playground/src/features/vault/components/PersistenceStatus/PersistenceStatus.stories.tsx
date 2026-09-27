@@ -8,7 +8,13 @@ const meta = {
   component: PersistenceStatus,
   decorators: [
     (Story) => (
-      <div style={{ background: '#101114', maxWidth: 760, padding: 24 }}>
+      <div
+        style={{
+          background: 'var(--bldr-surface-sunken, #f6f7fa)',
+          maxWidth: 760,
+          padding: 24,
+        }}
+      >
         <Story />
       </div>
     ),

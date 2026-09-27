@@ -226,10 +226,13 @@ export {
   UTILITY_VOCABULARY,
   expandUtilityPattern,
   isCustomHookClass,
+  hasUtilityClassOracle,
+  setUtilityClassOracle,
   unknownUtilityClasses,
   utilitySourceDirectives,
   utilityVocabulary,
   type UtilityPattern,
+  type UtilityClassOracle,
 } from './custom-code/utility-vocabulary';
 
 /*

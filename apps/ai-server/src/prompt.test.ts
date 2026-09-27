@@ -327,13 +327,28 @@ describe('prompt content', () => {
     expect(rules).toContain('var(--t-accent)');
   });
 
-  it('states the colour and spacing laws the validator will enforce', () => {
+  it('states the colour law, and the arbitrary-value law only where it binds', () => {
     // A model told the rule produces fewer rejected plans than one corrected
     // by a repair round after the fact.
-    const rules = buildPrompt(wireRequest()).system[0]?.text ?? '';
+    const { system } = buildPrompt(wireRequest());
 
-    expect(rules).toContain('bg-accent');
-    expect(rules).toContain('p-[17px]');
+    expect(system[0]?.text).toContain('bg-accent');
+    expect(system[1]?.text).toContain('p-[17px]');
+    expect(system[1]?.text).toContain('has none');
+  });
+
+  it('frees a host that compiles Tailwind at runtime from the static list', () => {
+    /*
+      Held to the static patterns, the model avoided md:flex-row, backdrop-blur
+      and every arbitrary value on a page that could render all of them.
+    */
+    const live = wireRequest({ context: { ...wireRequest().context, utilities: 'tailwind' } });
+    const catalog = buildPrompt(live).system[1]?.text ?? '';
+
+    expect(catalog).toContain('ANY real Tailwind utility renders');
+    expect(catalog).toContain('min-h-[85vh]');
+    expect(catalog).not.toContain('# Utility classes you may use');
+    expect(catalog).not.toContain('{sm:,md:,lg:,}grid-cols-{1..12}');
   });
 
   it('ships the real utility vocabulary in the cached segment', () => {
@@ -397,5 +412,20 @@ describe('prompt content', () => {
 
     expect(rules).toContain('for EDITING it');
     expect(rules).not.toContain('Insert ONLY a type whose');
+  });
+});
+
+describe('tree markup', () => {
+  it('asks a client that reads markup for markup, with the vocabulary that still binds', () => {
+    const request = wireRequest({ context: { ...wireRequest().context, treeMarkup: true } });
+    const catalog = buildPrompt(request).system[1]?.text ?? '';
+
+    expect(catalog).toContain('# Writing a customCode tree');
+    expect(catalog).toContain("<icon name='coffee'");
+    expect(catalog).toContain('SINGLE quotes');
+  });
+
+  it('never asks an older client for markup it cannot read', () => {
+    expect(buildPrompt(wireRequest()).system[1]?.text).not.toContain('# Writing a customCode tree');
   });
 });

@@ -153,6 +153,19 @@ export interface AssembledAiContext {
   skillCatalog?: readonly AiSkillManifestV1[];
   /** Version/fingerprint pins only. Full bodies live exactly once in `fragments`. */
   skills?: readonly AiSkillActivationPin[];
+  /**
+   * How the page this plan lands on gets CSS for a class: `tailwind` when the
+   * host compiles any Tailwind utility at runtime (see `setUtilityClassOracle`),
+   * absent when only the static utility vocabulary is generated. The prompt
+   * tells the model which, so it is never held to a list that no longer binds.
+   */
+  utilities?: 'tailwind';
+  /**
+   * The client reads a custom-code tree written as markup (see tree-markup.ts)
+   * — so the prompt may ask for markup, which is a third shorter than the
+   * nested tree and has no closers to miscount. Absent on older clients.
+   */
+  treeMarkup?: true;
 }
 
 export interface AiPlanStep {

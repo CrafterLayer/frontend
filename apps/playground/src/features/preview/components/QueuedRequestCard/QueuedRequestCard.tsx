@@ -51,7 +51,7 @@ export function QueuedRequestCard({
           value={request}
           aria-invalid={blocked}
           aria-describedby={blocked ? 'pg-agent-queue-target-error' : undefined}
-          onChange={(event) => onChange(event.currentTarget.value)}
+          onChange={(event) => { onChange(event.currentTarget.value); }}
         />
       </label>
       {blocked ? <p id="pg-agent-queue-target-error" role="alert">Choose a new target before this request can run.</p> : null}

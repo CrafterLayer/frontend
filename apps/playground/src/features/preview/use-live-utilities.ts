@@ -1,0 +1,58 @@
+import { useEffect } from 'react';
+
+import {
+  createLiveUtilities,
+  setUtilityClassOracle,
+  type BuilderSiteKernel,
+} from '@craftkit/builder';
+
+import { liveUtilityClasses } from './live-utility-classes';
+
+/**
+ * Run Tailwind's compiler in the page for the site's custom-code trees.
+ *
+ * Once it is ready, any class Tailwind can generate renders on the canvas and
+ * in preview — and the same compiler becomes the door's oracle, so the plan
+ * validator, the plan normalizer and the prompt all judge a class by the
+ * engine that styles it. Until it is ready, or if it cannot start, nothing
+ * changes: the static vocabulary keeps answering, exactly as before.
+ */
+export function useLiveUtilities(siteKernel: BuilderSiteKernel | undefined): void {
+  useEffect(() => {
+    if (siteKernel === undefined) return;
+    let disposed = false;
+    let stop: (() => void) | undefined;
+    // Tailwind's scale and palette as text, loaded with the compiler and only then.
+    import('tailwindcss/theme.css?raw')
+      .then((theme) => createLiveUtilities({ document, tailwindThemeCss: theme.default }))
+      .then((live) => {
+        if (disposed) {
+          live.dispose();
+          return;
+        }
+        setUtilityClassOracle(live.isUtilityClass);
+        let seen: unknown;
+        const sync = (): void => {
+          const site = siteKernel.getSite();
+          if (site === seen) return;
+          seen = site;
+          live.ensure(liveUtilityClasses(site));
+        };
+        sync();
+        const unsubscribe = siteKernel.subscribe(sync);
+        stop = () => {
+          unsubscribe();
+          setUtilityClassOracle(undefined);
+          live.dispose();
+        };
+      })
+      .catch((cause: unknown) => {
+        // The static vocabulary still answers; say why the live one does not.
+        console.warn('[playground] live Tailwind utilities are unavailable:', cause);
+      });
+    return () => {
+      disposed = true;
+      stop?.();
+    };
+  }, [siteKernel]);
+}

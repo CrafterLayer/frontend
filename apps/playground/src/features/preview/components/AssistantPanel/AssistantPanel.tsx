@@ -89,7 +89,12 @@ import {
   reduceBuildProgress,
   taskTransactionLabel,
 } from './AssistantPanel.build';
-import { initialRunProgress, receiptOf, reduceRunProgress } from './AssistantPanel.progress';
+import {
+  appendLiveProgress,
+  initialRunProgress,
+  receiptOf,
+  reduceRunProgress,
+} from './AssistantPanel.progress';
 import { catalogPolicyFor, type ProviderKind } from './catalogPolicyFor';
 import { useFaceLook } from './use-face-look';
 
@@ -134,6 +139,13 @@ export interface AssistantPanelProps {
    * assumes a browser store; the HOST opts in).
    */
   persistKey?: string | undefined;
+  /**
+   * The mode a person starts in until they choose one; a chosen mode is
+   * remembered and wins. Default 'ask'. The product passes 'auto': every
+   * change lands as undoable history, so a person who asked for a page gets
+   * the page without an extra Apply.
+   */
+  defaultMode?: AssistantMode | undefined;
   /**
    * The language of the character's one visible line (the panel's live
    * region). Default `'ar'`: the tool is called Assistant; the person inside
@@ -267,6 +279,7 @@ export function AssistantPanel({
   onAgentEvent,
   onBuildEvent,
   persistKey,
+  defaultMode = 'ask',
   locale = 'ar',
   visible = true,
   onSiteSeam,
@@ -293,11 +306,24 @@ export function AssistantPanel({
   const [activeId, setActiveId] = useState(
     () => reviveSessions(persistKey)?.activeId ?? 'session-1',
   );
+  const [modeChosen, setModeChosen] = useState(
+    () => reviveSessions(persistKey)?.modeChosen === true,
+  );
   const [panelMode, setMode] = useState<AssistantMode>(() => {
-    const saved = reviveSessions(persistKey)?.mode;
-    // Anything unrecognised — older data, a hand-edited store — reads as Ask.
-    return saved === 'auto' || saved === 'plan' ? saved : 'ask';
+    const revived = reviveSessions(persistKey);
+    const saved = revived?.mode;
+    /*
+      Only a mode the person chose outlives the host default. Anything else —
+      a default saved like a choice, older data, a hand-edited store — reads
+      as the host default.
+    */
+    if (revived?.modeChosen !== true) return defaultMode;
+    return saved === 'auto' || saved === 'plan' || saved === 'ask' ? saved : defaultMode;
   });
+  const chooseMode = useCallback((mode: AssistantMode) => {
+    setModeChosen(true);
+    setMode(mode);
+  }, []);
 
   // Every settled change is written back; a blocked store fails silently — the
   // conversation still works, it just forgets on reload.
@@ -308,12 +334,12 @@ export function AssistantPanel({
     try {
       window.localStorage.setItem(
         persistKey,
-        JSON.stringify({ sessions, activeId, mode: panelMode }),
+        JSON.stringify({ sessions, activeId, mode: panelMode, modeChosen }),
       );
     } catch {
       // Storage full or blocked: in-memory behaviour continues unchanged.
     }
-  }, [activeId, panelMode, persistKey, sessions]);
+  }, [activeId, modeChosen, panelMode, persistKey, sessions]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [queuedRequest, setQueuedRequest] = useState<QueuedAssistantRequest | null>(null);
@@ -1148,10 +1174,27 @@ export function AssistantPanel({
                 }
                 const run = reduceRunProgress(turn.run, event);
                 if (run === turn.run && event.type !== 'plan.progress') return turn;
+                const progressLog =
+                  event.type === 'plan.progress'
+                    ? appendLiveProgress(turn.progressLog, event.text)
+                    : turn.progressLog;
+                if (
+                  event.type === 'plan.progress' &&
+                  run === turn.run &&
+                  turn.progress === event.text &&
+                  progressLog === turn.progressLog
+                ) {
+                  return turn;
+                }
                 return {
                   ...turn,
                   run,
-                  ...(event.type === 'plan.progress' ? { progress: event.text } : {}),
+                  ...(event.type === 'plan.progress'
+                    ? {
+                        progress: event.text,
+                        progressLog,
+                      }
+                    : {}),
                 };
               }),
             );
@@ -1607,7 +1650,7 @@ export function AssistantPanel({
         mentionCandidates={mentionCandidates}
         onPickMention={pickMention}
         mode={panelMode}
-        onModeChange={setMode}
+        onModeChange={chooseMode}
         modeLockId={modeLockId}
         locale={locale}
         models={offeredModels}

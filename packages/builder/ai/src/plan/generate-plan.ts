@@ -29,8 +29,11 @@ import type {
   AiPlanProvider,
   AiProposeOptions,
   AiPlanValidationIssue,
+  AiPlanValidationResult,
   AiValidationPorts,
 } from '../types';
+import { normalizeAiPlanTrees } from './normalize-plan';
+import { expandTreeEdits } from './tree-edits';
 import { salvageAiPlan, type SalvagedAiPlan } from './salvage-plan';
 import { AiPlanRejectedError, validateAiPlan } from './validate-plan';
 
@@ -281,6 +284,45 @@ function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
 }
 
 /**
+ * A provider's answer with what could never render removed, when the host
+ * enforces the utility vocabulary — the same condition under which the door
+ * would otherwise refuse the whole plan for it. See `normalizeAiPlanTrees`.
+ */
+function normalizedCandidate(candidate: unknown, options: GenerateAiPlanOptions): unknown {
+  const composition = resolveAiCompositionPolicy(options.composition);
+  if (!composition.enforceUtilityVocabulary) return candidate;
+  return normalizeAiPlanTrees(candidate, composition.colourPolicy).plan;
+}
+
+/**
+ * A provider's answer made ready for the door, and the door's verdict on it:
+ * `editTree` steps expanded against the live page (tree-edits.ts), the trees
+ * normalized, then validated. An edit that could not be expanded is its own
+ * verdict — its reason is exactly what the repair round needs.
+ */
+function judgedCandidate(
+  raw: unknown,
+  options: GenerateAiPlanOptions,
+  policy: AiEffectiveCommandPolicy,
+): { readonly candidate: unknown; readonly result: AiPlanValidationResult } {
+  const expanded = expandTreeEdits(raw, options.kernel);
+  const candidate = normalizedCandidate(expanded.plan, options);
+  if (expanded.issues.length > 0) {
+    return { candidate, result: { ok: false, issues: expanded.issues } };
+  }
+  return {
+    candidate,
+    result: validateAiPlan(
+      candidate,
+      options.kernel,
+      options.validationPorts,
+      policy,
+      resolveAiCompositionPolicy(options.composition),
+    ),
+  };
+}
+
+/**
  * What the repair rung returns. A failed repair keeps its CANDIDATE rather than
  * throwing it away, because the salvage rung below works on the best answer the
  * model actually produced, and that is usually the corrected one.
@@ -304,15 +346,9 @@ async function repairAiPlanOnce(
 ): Promise<RepairOutcome> {
   throwIfAborted(options.signal);
   assertWireRequestBudget(wireRequest(options, context, attempt), maxContextTokens);
-  const candidate = await repair(options.request, context, attempt.plan, attempt.issues, live);
+  const raw = await repair(options.request, context, attempt.plan, attempt.issues, live);
   throwIfAborted(options.signal);
-  const repaired = validateAiPlan(
-    candidate,
-    options.kernel,
-    options.validationPorts,
-    policy,
-    resolveAiCompositionPolicy(options.composition),
-  );
+  const { candidate, result: repaired } = judgedCandidate(raw, options, policy);
   if (!repaired.ok) return { ok: false, candidate, issues: repaired.issues };
   return { ok: true, plan: repaired.plan };
 }
@@ -351,9 +387,9 @@ export async function generateAiPlanWithPreparedSkills(
   assertWireRequestBudget(wireRequest(options, context), maxContextTokens);
   const live = liveOptions(options);
   const repair = options.provider.repair?.bind(options.provider);
-  let candidate: unknown;
+  let raw: unknown;
   try {
-    candidate = await options.provider.propose(options.request, context, live);
+    raw = await options.provider.propose(options.request, context, live);
   } catch (cause) {
     throwIfAborted(options.signal);
     if (
@@ -381,13 +417,7 @@ export async function generateAiPlanWithPreparedSkills(
     return salvageOrReject(options, policy, [recovered.candidate], recovered.issues);
   }
   throwIfAborted(options.signal);
-  const first = validateAiPlan(
-    candidate,
-    options.kernel,
-    options.validationPorts,
-    policy,
-    resolveAiCompositionPolicy(options.composition),
-  );
+  const { candidate, result: first } = judgedCandidate(raw, options, policy);
   if (first.ok) return first.plan;
   /*
     The answer failed the door, so the provider must not serve it again. A

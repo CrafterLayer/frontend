@@ -1424,6 +1424,59 @@ body,
   margin-inline-start: auto;
 }
 
+/* The model's own SSE narration stays visible beside the section work. It is
+   bounded and scrollable so a long run informs without pushing the composer
+   out of reach. */
+.pg-chat__live-stream {
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  display: grid;
+  gap: var(--bldr-space-xs);
+  max-block-size: 9rem;
+  overflow: auto;
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+}
+
+.pg-chat__live-current {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pg-chat__live-stream header {
+  color: var(--bldr-accent);
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pg-chat__live-stream ol {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pg-chat__live-stream li {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pg-chat__live-stream li::before {
+  color: var(--bldr-accent);
+  content: '›';
+  margin-inline-end: var(--bldr-space-xs);
+}
+
 /* What the approval is really promising: the skeleton is already down, and
    every step after it is its own undo. */
 .pg-chat__tasks-note {
@@ -1650,22 +1703,58 @@ body,
 }
 
 .pg-chat__composer-model {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 1 8.5rem;
   min-inline-size: 0;
+  position: relative;
 }
 
 .pg-chat__composer-model select {
-  background: transparent;
-  border: 0;
-  color: var(--bldr-panel-text-soft);
+  appearance: none;
+  /* A control surface. It was --bldr-panel-muted, a TEXT colour, which drew a
+     dark grey box with grey text that read as a disabled control. */
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
   font: inherit;
-  max-inline-size: 7rem;
-  min-block-size: var(--bldr-control-sm);
+  font-size: var(--bldr-font-size-caption);
+  line-height: 1.15;
+  max-inline-size: 8.5rem;
+  min-block-size: 2rem;
   min-inline-size: 0;
+  overflow: hidden;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-xl);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.pg-chat__composer-model::after {
+  color: var(--bldr-panel-muted);
+  content: '⌄';
+  font-size: 0.8rem;
+  inset-inline-end: var(--bldr-space-sm);
+  pointer-events: none;
+  position: absolute;
+}
+
+.pg-chat__composer-model select:hover:not(:disabled) {
+  border-color: var(--bldr-accent-ring);
+}
+
+.pg-chat__composer-model select:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .pg-chat__composer-model select:focus-visible {
+  border-color: var(--bldr-focus-ring);
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
-  outline-offset: var(--bldr-focus-ring-offset);
+  outline-offset: 1px;
 }
 
 .pg-chat__queue-next {
@@ -2215,6 +2304,12 @@ body,
    Passing the height straight through is the whole job. */
 .pg-rail-panel {
   block-size: 100%;
+}
+
+.pg-source-agent-host,
+.pg-legacy-agent-host {
+  block-size: 100%;
+  min-block-size: 0;
 }
 
 /* "This came back from your last session."

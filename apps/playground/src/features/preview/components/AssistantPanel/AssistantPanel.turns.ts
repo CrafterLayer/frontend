@@ -59,6 +59,8 @@ export interface ThinkingTurn {
   readonly subject: string;
   /** The provider's own last words about what it is doing, when it streams them. */
   readonly progress?: string;
+  /** The bounded stream of provider updates shown in the live run card. */
+  readonly progressLog?: readonly string[];
   /** The run as rows — Plan, Structure and (Auto only) Apply. */
   readonly run: RunProgress;
 }
@@ -250,6 +252,13 @@ export interface PersistedPanelState {
    * also what data written before this field says.
    */
   readonly mode?: AssistantMode;
+  /**
+   * Whether the person CHOSE `mode`, rather than it being the default the
+   * panel happened to save. Only a chosen mode outlives a change of default:
+   * without this every browser that ever opened the panel kept the old
+   * default forever, because the default was saved like a choice.
+   */
+  readonly modeChosen?: boolean;
 }
 
 /**
@@ -381,6 +390,7 @@ export function reviveSessions(persistKey: string | undefined): PersistedPanelSt
       // Passed through as READ. The caller decides what an unrecognised value
       // means, so one place owns the "unknown reads as Ask" rule.
       ...(parsed.mode === undefined ? {} : { mode: parsed.mode }),
+      ...(parsed.modeChosen === true ? { modeChosen: true } : {}),
     };
   } catch {
     return null;

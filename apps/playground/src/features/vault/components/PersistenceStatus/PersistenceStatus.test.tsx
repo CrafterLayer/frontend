@@ -15,7 +15,8 @@ describe('PersistenceStatus', () => {
     const status = screen.getByRole('status', { name: 'Project save status' });
     expect(status).toHaveAttribute('aria-live', 'polite');
     expect(status).toHaveTextContent('Saved to this device');
-    expect(status).toHaveTextContent('revision 4');
+    expect(status).not.toHaveTextContent('revision 4');
+    expect(status.querySelector('p')).toBeNull();
   });
 
   it('offers keyboard-accessible recovery and download in session-only mode', async () => {
@@ -69,5 +70,6 @@ describe('PersistenceStatus', () => {
       />,
     );
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveClass('pg-persistence-status');
   });
 });

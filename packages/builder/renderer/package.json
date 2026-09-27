@@ -30,7 +30,8 @@
   "dependencies": {
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",
-    "lucide": "catalog:"
+    "lucide": "catalog:",
+    "tailwindcss": "catalog:"
   },
   "peerDependencies": {
     "react": "catalog:",

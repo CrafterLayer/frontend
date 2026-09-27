@@ -386,6 +386,30 @@ describe('Craftkit built-in AI skills', () => {
         expect([...candidates].filter((name) => !isLucideIconName(name))).toEqual([]);
       },
     );
+
+    /*
+      Measured 2026-09-27: five skills told the model that `xl:`, `group`,
+      `hover:shadow-*`, `py-24` and `font-sans` "do not exist" or are
+      "refused" long after the vocabulary had grown to generate them — so the
+      model steered around working classes and the pages looked it. A claim of
+      absence is a fact about the vocabulary, and it is checked against it.
+    */
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      '%s never calls a generated class missing',
+      (_id, definition) => {
+        const vocabulary = utilityVocabulary();
+        const stale: string[] = [];
+        for (const match of skillText(definition).matchAll(
+          /([a-z0-9:/_*.-]+)\s*(?:\)\s*)?(?:does not exist|do not exist|is refused|are refused)/gu,
+        )) {
+          const named = (match[1] ?? '').replace(/[*.]+$/u, '');
+          if (vocabulary.has(named) || [...vocabulary].some((name) => name.startsWith(named))) {
+            stale.push(named);
+          }
+        }
+        expect(stale).toEqual([]);
+      },
+    );
   });
 });
 

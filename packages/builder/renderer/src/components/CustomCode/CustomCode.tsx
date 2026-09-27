@@ -1,4 +1,4 @@
-import { createElement, type ComponentType, type ReactNode } from 'react';
+import { createElement, type ComponentType, type ReactNode, type SyntheticEvent } from 'react';
 
 import {
   CUSTOM_CODE_ATTRIBUTES,
@@ -299,6 +299,20 @@ function renderIcon(node: Record<string, unknown>, key: string, context: RenderC
   );
 }
 
+/**
+ * An image whose address does not load keeps its box and becomes a quiet
+ * surface, instead of the browser's broken-image mark and a stray alt line.
+ * A model can name a photo that does not exist; a published page should not
+ * look broken because of it. The marker lets a host find and replace them.
+ */
+function markBrokenImage(event: SyntheticEvent<HTMLImageElement>): void {
+  const image = event.currentTarget;
+  image.setAttribute('data-ck-broken', '');
+  image.style.color = 'transparent';
+  image.style.objectPosition = '-99999px 0';
+  image.style.background = 'linear-gradient(135deg, rgb(231 229 228), rgb(214 211 209))';
+}
+
 function renderElement(
   node: Record<string, unknown>,
   key: string,
@@ -317,6 +331,7 @@ function renderElement(
   const props: Record<string, unknown> = { key, ...attributes, ...pathAttribute(context, path) };
   if (className !== undefined) props['className'] = className;
 
+  if (tag === 'img') props['onError'] = markBrokenImage;
   if (VOID_TAGS.has(tag)) {
     return createElement(tag, props);
   }

@@ -110,11 +110,16 @@ export function BuilderShell({
     const root = rootRef.current;
     if (!adaptive || root === null) return;
     const measure = () => {
-      setWidth(root.getBoundingClientRect().width);
+      // Zero means "not laid out" (hidden, or a DOM without layout), not "no room":
+      // the last known width stands rather than collapsing every panel.
+      const measured = root.getBoundingClientRect().width;
+      if (measured > 0) setWidth(measured);
       if (canvasRef.current !== null)
         reportCanvasWidth(canvasRef.current.getBoundingClientRect().width);
     };
     measure();
+    // A host without ResizeObserver (jsdom, an old embed) keeps the first measure.
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(root);
     if (canvasRef.current !== null) observer.observe(canvasRef.current);

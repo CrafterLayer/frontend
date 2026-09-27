@@ -348,14 +348,19 @@ describe('runAiBuild', () => {
     expect(second?.context.selection.ids).toEqual(['build-0003']);
     expect(third?.context.selection.ids).toEqual(['build-0001']);
 
-    // `documentTreeMode: 'scoped'`: the region in hand is quoted whole, the
-    // rest arrive as a shape summary rather than their body copy.
+    // `documentTreeMode: 'scoped'`: the region in hand is quoted whole (as the
+    // markup the model writes back), the rest arrive as a shape summary.
     const nodes = third?.context.document.nodes ?? [];
     const inHand = nodes.find((node) => node.id === 'build-0001');
     const others = nodes.filter((node) => node.type === 'customCode' && node.id !== 'build-0001');
-    expect(typeof inHand?.props['tree']).toBe('object');
+    expect(String(inHand?.props['tree'])).toMatch(/^<section/u);
     expect(others).toHaveLength(2);
-    expect(others.every((node) => typeof node.props['tree'] === 'string')).toBe(true);
+    expect(
+      others.every((node) => {
+        const tree = node.props['tree'];
+        return typeof tree === 'string' && !tree.startsWith('<');
+      }),
+    ).toBe(true);
     expect(JSON.stringify(others)).not.toContain('Body copy');
 
     // Every fill run asked for the fill skill only, and every request carried
@@ -1111,5 +1116,58 @@ describe('fillConcurrencyFor — how many sections are written at once', () => {
     // A nonsense request is clamped rather than trusted.
     expect(fillConcurrencyFor(10, 0)).toBe(1);
     expect(fillConcurrencyFor(10, -5)).toBe(1);
+  });
+});
+
+describe('runAiBuild — an Arabic page reads right to left', () => {
+  const ARABIC = [
+    { title: 'الرئيسية', index: 0 },
+    { title: 'قائمة المشروبات', index: 1 },
+  ] as const;
+
+  it('turns the page right to left when the skeleton wrote Arabic, as its own undoable step', async () => {
+    const live = kernel();
+    const { provider } = recordingProvider((call, index) => {
+      if (index === 0) return Promise.resolve(scaffoldPlan(ARABIC, 'مقهى في عمّان.'));
+      return Promise.resolve(fillPlan(scopedRegionId(call), 'قسم'));
+    });
+
+    await runAiBuild({
+      runId: 'build-rtl',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'صفحة هبوط لمقهى',
+      validationPorts: ports('rtl'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    expect(live.getDocument().dir).toBe('rtl');
+    expect(live.transactions().map(({ command }) => command)).toContain(
+      'Assistant: right-to-left page',
+    );
+  });
+
+  it('leaves a page in English left to right', async () => {
+    const live = kernel();
+    const { provider } = recordingProvider((call, index) => {
+      if (index === 0) return Promise.resolve(scaffoldPlan(THREE));
+      return Promise.resolve(fillPlan(scopedRegionId(call), 'Section'));
+    });
+
+    await runAiBuild({
+      runId: 'build-ltr',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'A studio page',
+      validationPorts: ports('ltr'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    expect(live.getDocument().dir).toBe('ltr');
+    expect(live.transactions().map(({ command }) => command)).not.toContain(
+      'Assistant: right-to-left page',
+    );
   });
 });

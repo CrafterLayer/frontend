@@ -48,6 +48,19 @@ describe('StatusBar', () => {
     );
   });
 
+  it('does not name the door twice when the label already starts with it', () => {
+    // A build labels each section "Assistant: 3/4 — Menu"; the bar read "Assistant: Assistant: …".
+    render(
+      <StatusBar
+        changes={[{ id: 'fill-3', door: 'assistant', label: 'Assistant: 3/4 — Menu' }]}
+        onChangeSelect={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Assistant: 3/4 — Menu' })).toBeInTheDocument();
+    expect(screen.queryByText(/Assistant: Assistant:/u)).not.toBeInTheDocument();
+  });
+
   it('marks only the newest change as current for assistive technology', () => {
     render(<StatusBar changes={CHANGES} onChangeSelect={() => undefined} />);
 

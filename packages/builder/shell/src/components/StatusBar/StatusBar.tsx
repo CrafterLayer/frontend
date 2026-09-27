@@ -133,7 +133,14 @@ export function StatusBar({
             {changes.map((change, index) => {
               const door = DOORS[change.door];
               const isCurrent = index === 0;
-              const accessibleLabel = `${door.label}: ${change.label}`;
+              /*
+                A label that already names its door ("Assistant: 3/4 — Menu",
+                how the build labels its transactions) is not prefixed again —
+                the bar read "Assistant: Assistant: 3/4" on every build.
+              */
+              const accessibleLabel = change.label.startsWith(`${door.label}:`)
+                ? change.label
+                : `${door.label}: ${change.label}`;
               const content = (
                 <>
                   <span

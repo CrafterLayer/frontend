@@ -14,6 +14,7 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
+import { serializeTreeMarkup } from '../plan/tree-markup';
 import { assembleAiContext } from './assemble-context';
 
 const NullRender: BlockRenderComponent = () => null;
@@ -119,8 +120,8 @@ describe('documentTreeMode', () => {
   it('quotes every tree by default, so "change the word X" stays answerable', () => {
     const context = assembleAiContext(kernel().context);
 
-    expect(nodeOf(context, 'a')?.props['tree']).toEqual(filledTree('Hero', 12));
-    expect(nodeOf(context, 'b')?.props['tree']).toEqual(filledTree('Pricing', 12));
+    expect(nodeOf(context, 'a')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Hero', 12)));
+    expect(nodeOf(context, 'b')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Pricing', 12)));
   });
 
   it('keeps the region in hand whole and describes the rest', () => {
@@ -130,7 +131,7 @@ describe('documentTreeMode', () => {
     });
 
     // The one being edited arrives in full.
-    expect(nodeOf(context, 'b')?.props['tree']).toEqual(filledTree('Pricing', 12));
+    expect(nodeOf(context, 'b')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Pricing', 12)));
     // The others are described: what stands there, never its body copy.
     const summary = nodeOf(context, 'a')?.props['tree'];
     expect(summary).toBe('filled · 14 nodes · “Hero”');
@@ -147,8 +148,8 @@ describe('documentTreeMode', () => {
       },
     });
 
-    expect(nodeOf(context, 'a')?.props['tree']).toEqual(filledTree('Hero', 12));
-    expect(typeof nodeOf(context, 'b')?.props['tree']).toBe('string');
+    expect(nodeOf(context, 'a')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Hero', 12)));
+    expect(String(nodeOf(context, 'b')?.props['tree'])).not.toMatch(/^</u);
   });
 
   it('hides no structure: ids, types, slots and ordinary props all survive', () => {

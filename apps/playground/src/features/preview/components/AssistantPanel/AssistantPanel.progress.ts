@@ -52,6 +52,25 @@ export interface RunReceipt {
 
 const MS_PER_SECOND = 1_000;
 const MS_PER_MINUTE = 60 * MS_PER_SECOND;
+/** Keep the visible narration useful without letting a long stream grow the panel forever. */
+export const MAX_LIVE_PROGRESS_LINES = 32;
+const MAX_LIVE_PROGRESS_LINE_LENGTH = 1_000;
+
+/** Append one provider line, preserving order and dropping immediate duplicates. */
+export function appendLiveProgress(
+  previous: readonly string[] | undefined,
+  text: string,
+): readonly string[] {
+  const trimmed = text.trim();
+  const line =
+    trimmed.length > MAX_LIVE_PROGRESS_LINE_LENGTH
+      ? `${trimmed.slice(0, MAX_LIVE_PROGRESS_LINE_LENGTH - 1)}…`
+      : trimmed;
+  if (line === '') return previous ?? [];
+  const current = previous ?? [];
+  if (current.at(-1) === line) return current;
+  return [...current, line].slice(-MAX_LIVE_PROGRESS_LINES);
+}
 
 /** `mm:ss.SSS` — a receipt, always padded, never negative. */
 export function formatElapsed(ms: number): string {

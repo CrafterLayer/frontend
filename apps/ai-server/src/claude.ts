@@ -3,6 +3,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
 import { salvageJson } from './json-salvage';
+import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
+import { planShapeCheck } from './plan-shape';
 import { buildPrompt } from './prompt';
 
 /**
@@ -41,6 +43,12 @@ export interface ClaudeOptions {
   readonly maxTokens?: number;
   /** Forwarded to the SDK so a client disconnect actually stops the work. */
   readonly signal?: AbortSignal;
+  /**
+   * The reasoning budget for THIS call, when it differs from the backend's
+   * default — a section writer works under a direction already decided and
+   * needs far less of it than the skeleton that decided it.
+   */
+  readonly effort?: string;
   /** Receives Claude's own narration; becomes SSE `status` frames. */
   readonly onProgress?: (text: string) => void;
   /** Receives the raw answer text before it is parsed — what the model actually said. */
@@ -115,7 +123,12 @@ export async function proposePlan(
       messages: messages as Anthropic.MessageParam[],
       output_config: { format: { type: 'json_schema', schema } },
     },
-    { ...(options.signal === undefined ? {} : { signal: options.signal }) },
+    {
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(options.effort === undefined
+        ? {}
+        : { headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: options.effort } }),
+    },
   );
 
   /*
@@ -183,7 +196,7 @@ export async function proposePlan(
     First the wrappers every backend sometimes adds — a fence, a sentence, a
     trailing comma — are undone; the plan's content is still judged as it is.
   */
-  const text = salvageJson(raw);
+  const text = salvageJson(raw, planShapeCheck(request));
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

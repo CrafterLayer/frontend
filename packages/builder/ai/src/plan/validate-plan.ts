@@ -10,6 +10,7 @@ import {
   CUSTOM_CSS_FONT_HOSTS,
   customCodeClassNames,
   customCodeIconNames,
+  customCodeTreeSchema,
   customCssPropertyNames,
   findCssRejection,
   findRejectedUtilities,
@@ -109,6 +110,44 @@ function parsePlan(candidate: unknown): AiPlanValidationResult {
       ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
     }),
   };
+}
+
+/**
+ * Free composition still has one renderable storage type: `customCode`.
+ *
+ * A remote model can put an invented component name on an otherwise valid
+ * authored tree (for example `{ type: "portfolioShell", props: { tree: ... } }`).
+ * Treating that name as a real block cannot work: the document kernel has no
+ * schema for it and the renderer can only show `UnknownBlock`. When the
+ * payload already contains a valid custom-code tree, normalise the accidental
+ * name to the dynamic block that can render it. Unknown nodes without an
+ * authored tree remain rejected and are sent to the provider's repair attempt
+ * with the real reason.
+ */
+function normalizeFreeCompositionTypes(plan: AiPlan, kernel: BuilderKernel): AiPlan {
+  if (kernel.context.registry.block('customCode') === undefined) return plan;
+
+  const commands = plan.commands.map((step) => {
+    if (step.command !== 'insertNode' || !isRecord(step.args)) return step;
+    const type = step.args['type'];
+    if (
+      typeof type !== 'string' ||
+      type.trim() === '' ||
+      kernel.context.registry.block(type) !== undefined
+    ) {
+      return step;
+    }
+    const props = step.args['props'];
+    if (!isRecord(props) || !customCodeTreeSchema.safeParse(props['tree']).success) return step;
+
+    return Object.freeze({
+      ...step,
+      args: Object.freeze({ ...step.args, type: 'customCode' }),
+    });
+  });
+
+  const changed = commands.some((step, index) => step !== plan.commands[index]);
+  return changed ? Object.freeze({ ...plan, commands: Object.freeze(commands) }) : plan;
 }
 
 function commandIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanValidationIssue[] {
@@ -860,9 +899,10 @@ export function validateAiPlan(
   if (!parsed.ok) {
     return parsed;
   }
-  const issues = commandIssues(parsed.plan, kernel);
+  const plan = normalizeFreeCompositionTypes(parsed.plan, kernel);
+  const issues = commandIssues(plan, kernel);
   if (issues.length > 0) return { ok: false, issues };
-  const utilityIssues = utilityClassIssues(parsed.plan, kernel);
+  const utilityIssues = utilityClassIssues(plan, kernel);
   if (utilityIssues.length > 0) return { ok: false, issues: utilityIssues };
   /*
     Enforced unless a host opts out, which is the opposite of every other knob
@@ -871,7 +911,7 @@ export function validateAiPlan(
   */
   if (composition?.enforceUtilityVocabulary !== false) {
     const vocabularyIssues = customCodeVocabularyIssues(
-      parsed.plan,
+      plan,
       composition?.colourPolicy ?? 'free',
     );
     if (vocabularyIssues.length > 0) return { ok: false, issues: vocabularyIssues };
@@ -883,7 +923,7 @@ export function validateAiPlan(
     kernel accepts a refused sheet happily — a gate placed after it would
     never fire.
   */
-  const cssIssues = customCssIssues(parsed.plan, kernel);
+  const cssIssues = customCssIssues(plan, kernel);
   if (cssIssues.length > 0) return { ok: false, issues: cssIssues };
   /*
     Before the dry run too, and for the same reason as the sheet: the door's own
@@ -891,12 +931,12 @@ export function validateAiPlan(
     "that thing already exists". Said here, the repair attempt is handed the
     edit that was meant.
   */
-  const rootInserts = rootInsertIssues(parsed.plan, kernel);
+  const rootInserts = rootInsertIssues(plan, kernel);
   if (rootInserts.length > 0) return { ok: false, issues: rootInserts };
-  const rejectedByPolicy = policyIssues(parsed.plan, policy);
+  const rejectedByPolicy = policyIssues(plan, policy);
   return rejectedByPolicy.length > 0
     ? { ok: false, issues: rejectedByPolicy }
-    : dryRun(parsed.plan, kernel, ports);
+    : dryRun(plan, kernel, ports);
 }
 
 export function assertValidAiPlan(

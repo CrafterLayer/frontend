@@ -7,6 +7,9 @@ import * as BuildSectionListStories from './BuildSectionList.stories';
 # BuildSectionList
 
 The sections of a build in flight: what is done, what is running, what waits.
+The provider's status frames are kept in a bounded live stream above the rows, with the newest
+message called out separately so the current work remains visible while older narration stays
+available for context.
 
 <Canvas of={BuildSectionListStories.Default} />
 

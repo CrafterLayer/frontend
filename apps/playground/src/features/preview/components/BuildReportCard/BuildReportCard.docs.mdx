@@ -15,7 +15,46 @@ land.
 
 A build is many transactions. This is the only place a person can see them as ONE thing — and the
 only place the promise made at the approval card is kept: each section landed on its own, so each
-can be undone on its own. "Undo Pricing" removes exactly Pricing.
+can be undone on its own. "Undo Pricing" puts back exactly Pricing.
+
+It puts it back FORWARD: one new transaction ("Assistant: revert 3/3 — Pricing") on that section's
+region, found by the transaction id the build recorded. Until 2026-09-28 it matched the history by
+label and looped `kernel.undo()` over everything after it — the person's own later edits went with
+it, and two builds with the same labels let an older card unwind the newer page (agent-audit P1-9).
+So putting one section back no longer disables the others.
+
+## A refusal says why
+
+Nothing is written when a section cannot be put back, and the row says why in the panel's language:
+the person changed it since (their change is kept; undo it and the section can be put back), it is
+no longer on the page, it never landed, or it was written with the page's layout and has no earlier
+version. The last three disable the button — pressing again could only refuse again.
+
+<Canvas of={BuildReportCardStories.RevertRefused} />
+
+## A section the skeleton wrote in full
+
+A page-plan build writes some regions whole with its skeleton — a footer from the plan's facts, a
+header from its nav — and reports them landed with 0 attempts and nothing recorded from before. Such
+a row reads "Done" and offers no Undo: there is no earlier version to put back. Until 2026-09-28 it
+offered one, the engine refused it, and the card then said the footer "never landed" while it sat on
+the page (wave-2 verifier, `pageplan-revert.mjs`).
+
+<Canvas of={BuildReportCardStories.WrittenWithLayout} />
+
+## The empty sections a stopped build leaves
+
+A stopped build keeps the page's shape: the sections it never filled stay as empty placeholders. The
+card offers to remove them as ONE transaction — one Undo brings them all back — and says what it
+did, including any it kept because they were written into since. The panel lends the removal through
+`BuildCardSeamContext`; without it, or in Plan mode, or on a revived report, it is not offered.
+
+<Canvas of={BuildReportCardStories.StoppedWithEmptySections} />
+
+The door may refuse the removal. It is one transaction, so nothing was removed; the card says so and
+keeps the offer, because the page is unchanged and asking again is still an honest question.
+
+<Canvas of={BuildReportCardStories.RemovalRefused} />
 
 ## Skipped is a state, not a failure
 
@@ -33,8 +72,7 @@ deliberately drops the request that produced it — so the button is absent rath
 ## Undo and the panel's promise
 
 `canUndo` is the panel's own state, not this card's. In Plan mode every Undo is withheld, for the
-same reason Apply is: the mode is a promise about the panel, and this button loops `kernel.undo()` —
-it writes MORE than the others, not less.
+same reason Apply is: the mode is a promise about the panel, and putting a section back is a write.
 
 <Canvas of={BuildReportCardStories.PlanningOnly} />
 

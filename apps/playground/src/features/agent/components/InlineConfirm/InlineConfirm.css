@@ -1,0 +1,104 @@
+/*
+  InlineConfirm (SPEC §4.15). It takes the footer row it appears in: the consequence on
+  its own line in Read, Graphite, then the two answers. No box: a confirm is a moment in a
+  record, not a decision surface waiting in the thread.
+
+  The confirm is a secondary outline (Rule border on the Sheet); the destructive tone is
+  an Alarm outline, never an Indigo fill, because Indigo is the primary action and a
+  deletion is not one (SPEC §4.15 RestoreDialog, the same rule). Cancel is a ghost.
+
+  Buttons are drawn over ChromeButton; every rule starts from four simple selectors,
+  (0,4,0), so each state out-ranks ChromeButton's matching state (its quiet hover is
+  (0,4,0) and paints Indigo, which a panel hover never does).
+*/
+
+/* The opener's slot: no box of its own, so the footer lays the opener out directly. */
+.ck-agent-confirm-opener {
+  display: contents;
+}
+
+.ck-agent-confirm {
+  display: grid;
+  flex: 1 1 100%;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  font-family: var(--bldr-font);
+  animation: ck-agent-confirm-in var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-confirm__message {
+  margin: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  text-wrap: pretty;
+}
+
+.ck-agent-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-md);
+}
+
+.ck-agent-confirm__button[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-xl);
+  border-radius: var(--bldr-radius-sm);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-agent-confirm__confirm[data-bldr-chrome-button][data-variant][data-size] {
+  border-color: var(--bldr-panel-border-strong);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-confirm[data-tone='danger']
+  .ck-agent-confirm__confirm[data-bldr-chrome-button][data-variant] {
+  border-color: var(--bldr-danger);
+  color: var(--bldr-danger);
+}
+
+.ck-agent-confirm__cancel[data-bldr-chrome-button][data-variant][data-size] {
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-confirm__confirm[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-confirm__cancel[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-confirm[data-tone='danger']
+  .ck-agent-confirm__confirm[data-bldr-chrome-button][data-variant]:enabled:hover {
+  color: var(--bldr-danger);
+}
+
+.ck-agent-confirm__button[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  transition-duration: var(--bldr-duration-press);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-confirm__button[data-bldr-chrome-button][data-variant][data-size] {
+    block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@keyframes ck-agent-confirm-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-confirm {
+    animation: none;
+  }
+}

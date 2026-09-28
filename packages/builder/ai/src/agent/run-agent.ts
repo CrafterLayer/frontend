@@ -9,7 +9,7 @@ import {
   type GenerateAiPlanOptions,
 } from '../plan/generate-plan';
 import type { SalvagedAiPlan } from '../plan/salvage-plan';
-import type { AiPreparedSkillContext } from '../skills';
+import type { AiPreparedSkillContext, AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
 import type { AiAgentEvent, AiAgentRunResult, RunAiAgentOptions } from './types';
 import { classifyAiRunFailure } from './errors';
 
@@ -96,9 +96,37 @@ function createEventEmitter(options: RunAiAgentOptions): (payload: EventPayload)
   };
 }
 
+/**
+ * The registry as a run with `autoSkills: false` sees it: every read passes
+ * through, and every `prepare` is asked with `auto: false`, so only explicit,
+ * always-on and dependency skills can activate.
+ *
+ * A view rather than a new option on generation, because the resolver already
+ * has the switch (`AiSkillPrepareOptions.auto`) and the one call site that
+ * prepares skills for a run reads the registry it is handed. Methods are
+ * delegated by name, not spread: a host registry may keep them on a prototype.
+ */
+function explicitSkillsOnly(registry: AiSkillRegistry): AiSkillRegistry {
+  return Object.freeze({
+    list: () => registry.list(),
+    get: (id: string) => registry.get(id),
+    readSkill: (id: string) => registry.readSkill(id),
+    listReferences: (id: string) => registry.listReferences(id),
+    readReference: (id: string, path: string) => registry.readReference(id, path),
+    prepare: (prepare: AiSkillPrepareOptions) => registry.prepare({ ...prepare, auto: false }),
+  });
+}
+
+function skillRegistryFor(options: RunAiAgentOptions): AiSkillRegistry | undefined {
+  const registry = options.skillRegistry;
+  if (registry === undefined || options.autoSkills !== false) return registry;
+  return explicitSkillsOnly(registry);
+}
+
 function generationOptions(
   options: RunAiAgentOptions,
   provider: AiPlanProvider,
+  skillRegistry: AiSkillRegistry | undefined,
   onProgress?: (text: string) => void,
   onSalvage?: (salvaged: SalvagedAiPlan) => void,
 ): GenerateAiPlanOptions {
@@ -124,7 +152,7 @@ function generationOptions(
       ? {}
       : { additionalContextProviders: options.additionalContextProviders }),
     ...(options.history === undefined ? {} : { history: options.history }),
-    ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
+    ...(skillRegistry === undefined ? {} : { skillRegistry }),
     ...(options.selectedSkillIds === undefined
       ? {}
       : { selectedSkillIds: options.selectedSkillIds }),
@@ -207,6 +235,7 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
   }
   const apply = normalizeApplyMode(options.apply);
   const emit = createEventEmitter(options);
+  const skillRegistry = skillRegistryFor(options);
 
   try {
     emit({ type: 'run.started', apply });
@@ -214,7 +243,7 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
 
     emit({ type: 'skills.resolving' });
     assertRunActive(options);
-    const initialGenerationOptions = generationOptions(options, options.provider);
+    const initialGenerationOptions = generationOptions(options, options.provider, skillRegistry);
     const skills: AiPreparedSkillContext | undefined =
       prepareAiSkillsForGeneration(initialGenerationOptions);
     emit({
@@ -234,6 +263,7 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
     const preparedOptions = generationOptions(
       options,
       provider,
+      skillRegistry,
       (text) => {
         if (mayEmitLiveProgress(options) && text.trim().length > 0) {
           emit({ type: 'plan.progress', text });

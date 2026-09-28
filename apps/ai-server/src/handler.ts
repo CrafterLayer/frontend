@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { AI_PLAN_WIRE_VERSION, type AiPlanWireRequest } from '@craftkit/builder/wire';
 import type { ExportPage, RuntimeSnapshot } from '@craftkit/builder/code-runtime';
 
-import { proposePlan, type UsageReport } from './claude';
+import { proposePagePlan, proposePlan, type ClaudeOptions, type UsageReport } from './claude';
 import type { CodeRuntimeService } from './code-runtime-service';
 import {
   isAuthoredRunRequest,
@@ -64,12 +64,12 @@ function json(body: unknown, status = 200): Response {
  * Returning 4xx would make `remote-provider` report a transport failure and
  * lose the explanation the user needs.
  */
-function refusal(message: string): Response {
-  return json({ version: AI_PLAN_WIRE_VERSION, refusal: message });
+function refusalBody(message: string): unknown {
+  return { version: AI_PLAN_WIRE_VERSION, refusal: message };
 }
 
-function invalidOutput(message: string): Response {
-  return json({ version: AI_PLAN_WIRE_VERSION, invalidOutput: { message } });
+function invalidOutputBody(message: string): unknown {
+  return { version: AI_PLAN_WIRE_VERSION, invalidOutput: { message } };
 }
 
 function isWireRequest(value: unknown): value is AiPlanWireRequest {
@@ -104,6 +104,13 @@ function authorized(request: Request, expected: string | undefined): boolean {
 function frame(event: 'status' | 'unit' | 'result', data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
+
+/**
+ * The tasks the plan endpoint answers (`AiPlanWireRequest.task`): absent or
+ * `'plan'` is an `AiPlan`, exactly as before 2026-09-28; `'page-plan'` is a
+ * page plan (`AiPagePlanWireResponse` in builder-ai's provider/wire.ts).
+ */
+const KNOWN_TASKS: ReadonlySet<unknown> = new Set(['plan', 'page-plan']);
 
 /** The header a request names its model in. Also granted by `cors.ts` for preflights. */
 export const MODEL_HEADER = 'x-craftkit-ai-model';
@@ -171,6 +178,19 @@ export function createHandler(options: HandlerOptions) {
         { error: `Expected an AiPlanWireRequest of version ${String(AI_PLAN_WIRE_VERSION)}.` },
         400,
       );
+    }
+
+    /*
+      An unknown task is refused, not answered as a plan: a newer client asking
+      for something this server has never heard of would read a plan as
+      garbage — or, worse, as the thing it asked for. 400 is terminal, so
+      nothing retries it.
+    */
+    const task: unknown = body.task;
+    if (task !== undefined && !KNOWN_TASKS.has(task)) {
+      const named =
+        typeof task === 'string' ? task.slice(0, 60) : JSON.stringify(task).slice(0, 60);
+      return json({ error: `Unknown task "${named}".` }, 400);
     }
 
     const chosen = resolveModel(request, options);
@@ -369,11 +389,64 @@ function reportUsage(options: HandlerOptions, usage: UsageReport): void {
 /** The skill a build pins on every section writer (run-build.ts). */
 const SECTION_WRITER_SKILL = 'craftkit.build-fill';
 
-/** This call's own reasoning budget: the section budget for a section writer, else none. */
+/**
+ * This call's own reasoning budget: the section budget for a section writer,
+ * else none. A page plan is a PLANNING call — the design every section writer
+ * then builds from — so it keeps the backend default even if a host pinned the
+ * writer's skill on it. Measured live 2026-09-28 (cli:haiku at the
+ * deployment's `medium`): 6,341–12,435 output tokens for a 2.0k–3.3k-character
+ * plan, most of it thinking — so effort IS this call's speed lever, and
+ * lowering it is a deliberate deployment choice, never a side effect of a pin.
+ */
 function callEffort(wire: AiPlanWireRequest, options: HandlerOptions): { effort?: string } {
-  if (options.sectionEffort === undefined) return {};
+  if (options.sectionEffort === undefined || wire.task === 'page-plan') return {};
   const writesASection = (wire.context.skills ?? []).some((pin) => pin.id === SECTION_WRITER_SKILL);
   return writesASection ? { effort: options.sectionEffort } : {};
+}
+
+/** What one request answers on the wire, and what it cost when the model produced it. */
+interface Answered {
+  readonly body: unknown;
+  readonly usage?: UsageReport;
+}
+
+/**
+ * The one answer both transports send: an `AiPlan` (or a page plan for
+ * `task: 'page-plan'`), a refusal, or the versioned invalid-output report —
+ * the shapes `remote-provider` reads, and nothing else.
+ */
+async function answer(
+  wire: AiPlanWireRequest,
+  options: HandlerOptions,
+  signal: AbortSignal,
+  onProgress?: (text: string) => void,
+): Promise<Answered> {
+  const call: ClaudeOptions = {
+    client: options.client,
+    signal,
+    ...(options.model === undefined ? {} : { model: options.model }),
+    ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
+    ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
+    ...callEffort(wire, options),
+    ...(onProgress === undefined ? {} : { onProgress }),
+  };
+  if (wire.task === 'page-plan') {
+    const outcome = await proposePagePlan(wire, call);
+    if (outcome.kind === 'refusal') return { body: refusalBody(outcome.message) };
+    if (outcome.kind === 'invalid-output') return { body: invalidOutputBody(outcome.message) };
+    return {
+      body: {
+        version: AI_PLAN_WIRE_VERSION,
+        ...(outcome.rationale === undefined ? {} : { rationale: outcome.rationale }),
+        pagePlan: outcome.pagePlan,
+      },
+      usage: outcome.usage,
+    };
+  }
+  const outcome = await proposePlan(wire, call);
+  if (outcome.kind === 'refusal') return { body: refusalBody(outcome.message) };
+  if (outcome.kind === 'invalid-output') return { body: invalidOutputBody(outcome.message) };
+  return { body: outcome.plan, usage: outcome.usage };
 }
 
 async function unary(
@@ -382,18 +455,9 @@ async function unary(
   signal: AbortSignal,
 ): Promise<Response> {
   try {
-    const outcome = await proposePlan(wire, {
-      client: options.client,
-      signal,
-      ...(options.model === undefined ? {} : { model: options.model }),
-      ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
-      ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
-      ...callEffort(wire, options),
-    });
-    if (outcome.kind === 'refusal') return refusal(outcome.message);
-    if (outcome.kind === 'invalid-output') return invalidOutput(outcome.message);
-    reportUsage(options, outcome.usage);
-    return json(outcome.plan);
+    const answered = await answer(wire, options, signal);
+    if (answered.usage !== undefined) reportUsage(options, answered.usage);
+    return json(answered.body);
   } catch (cause) {
     return errorResponse(cause);
   }
@@ -415,38 +479,18 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
         controller.enqueue(encoder.encode(frame(event, data)));
       };
       try {
-        const outcome = await proposePlan(wire, {
-          client: options.client,
-          signal,
-          ...(options.model === undefined ? {} : { model: options.model }),
-          ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
-          ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
-          ...callEffort(wire, options),
-          onProgress: (text) => {
-            send('status', { text });
-          },
+        const answered = await answer(wire, options, signal, (text) => {
+          send('status', { text });
         });
-        if (outcome.kind === 'refusal') {
-          send('result', { version: AI_PLAN_WIRE_VERSION, refusal: outcome.message });
-        } else if (outcome.kind === 'invalid-output') {
-          send('result', {
-            version: AI_PLAN_WIRE_VERSION,
-            invalidOutput: { message: outcome.message },
-          });
-        } else {
-          reportUsage(options, outcome.usage);
-          send('result', outcome.plan);
-        }
+        if (answered.usage !== undefined) reportUsage(options, answered.usage);
+        send('result', answered.body);
       } catch (cause) {
         /*
           The stream has already begun, so there is no status code left to
           send. The client's taxonomy still needs an answer, and an
           invalid-output result is the one shape that reaches it here.
         */
-        send('result', {
-          version: AI_PLAN_WIRE_VERSION,
-          invalidOutput: { message: describeFailure(cause) },
-        });
+        send('result', invalidOutputBody(describeFailure(cause)));
       } finally {
         controller.close();
       }

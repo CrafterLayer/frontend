@@ -1,0 +1,1149 @@
+import { contrastRatio } from '@craftkit/builder-schema';
+
+import { isCatalogPhotoUrl } from '../../context/providers/photo-catalog';
+import { normalizeIntentText } from '../../intent/normalize-arabic';
+import { isTreeMarkup, parseTreeMarkup } from '../../plan/tree-markup';
+import { PAGE_PLAN_PALETTE_HEX } from './palette';
+import { pageKitGrounds, type PageKitColours, type PageKitGrounds } from './skeleton-from-plan';
+import type {
+  LandedSection,
+  PagePlan,
+  SectionCheckCode,
+  SectionCheckIssue,
+  SectionContract,
+} from './types';
+
+export interface CheckSectionOptions {
+  /**
+   * The person's request, verbatim. An image address it names is theirs to
+   * use (photo-direction: the catalog, the request, or the region being
+   * edited); every other address is one a model wrote from memory.
+   */
+  readonly request?: string;
+}
+
+// ── Reading a landed tree ─────────────────────────────────────────────────────
+
+/** A node of a landed tree as the walk sees it: never trusted, always a record. */
+export interface LandedNode {
+  readonly node: Readonly<Record<string, unknown>>;
+  /** Readable path from the region prop: `tree.children[0].children[2]`. */
+  readonly path: string;
+  readonly depth: number;
+  readonly parent: LandedNode | undefined;
+}
+
+/*
+  Bounds for a hostile tree: the door caps a stored tree at 2,000 nodes and
+  depth 30 (CUSTOM_CODE_MAX_*), and a proposal checked before landing has
+  passed no door at all — so the walk is iterative, visits each object once,
+  and stops at a ceiling well above anything the door admits.
+*/
+const MAX_NODES = 4_000;
+const MAX_DEPTH = 64;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** The tree as a root record: markup a writer proposed is read the way the door reads it. */
+export function readLandedTree(tree: unknown): Readonly<Record<string, unknown>> | undefined {
+  let value = tree;
+  if (isTreeMarkup(value)) {
+    try {
+      value = parseTreeMarkup(value);
+    } catch {
+      return undefined;
+    }
+  }
+  return isRecord(value) ? value : undefined;
+}
+
+/** Every node of a landed tree in document order, bounded. Never throws. */
+export function walkLandedTree(tree: unknown): readonly LandedNode[] {
+  const root = readLandedTree(tree);
+  if (root === undefined) return [];
+  const seen = new Set<object>([root]);
+  const visited: LandedNode[] = [];
+  const stack: { value: unknown; path: string; depth: number; parent: LandedNode | undefined }[] =
+    [];
+  const pushChildren = (children: unknown, path: string, depth: number, parent?: LandedNode) => {
+    if (!Array.isArray(children) || depth > MAX_DEPTH) return;
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      stack.push({
+        value: children[index] as unknown,
+        path: `${path}.children[${String(index)}]`,
+        depth,
+        parent,
+      });
+    }
+  };
+  pushChildren(root['children'], 'tree', 1);
+  while (stack.length > 0 && visited.length < MAX_NODES) {
+    const entry = stack.pop();
+    if (entry === undefined || !isRecord(entry.value) || seen.has(entry.value)) continue;
+    seen.add(entry.value);
+    const visit: LandedNode = {
+      node: entry.value,
+      path: entry.path,
+      depth: entry.depth,
+      parent: entry.parent,
+    };
+    visited.push(visit);
+    pushChildren(entry.value['children'], entry.path, entry.depth + 1, visit);
+  }
+  return visited;
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+function attribute(node: Readonly<Record<string, unknown>>, name: string): string | undefined {
+  const attributes = node['attributes'];
+  return isRecord(attributes) ? text(attributes[name]) : undefined;
+}
+
+function classesOf(node: Readonly<Record<string, unknown>>): readonly string[] {
+  const className = node['className'];
+  return typeof className === 'string' ? className.split(/\s+/u).filter((name) => name !== '') : [];
+}
+
+/** The bidi controls the skeleton wraps a phone number in (LRI … PDI) and the marks LRM, RLM. */
+const ISOLATES = /[\u2066-\u2069\u200E\u200F]/gu;
+
+function collapse(value: string): string {
+  return value.replace(ISOLATES, '').replace(/\s+/gu, ' ').trim();
+}
+
+/**
+ * The text each of `targets` and everything under it shows, in reading order,
+ * in ONE pass: each text is handed up its ancestor chain (depth ≤ MAX_DEPTH),
+ * so the cost is nodes × depth, not targets × nodes × depth. Measured
+ * 2026-09-28: reading every element's label with `landedText` took 874 ms on a
+ * door-legal tree of 2,000 nodes at depth 30; this takes a few milliseconds.
+ */
+export function landedTexts(
+  nodes: readonly LandedNode[],
+  targets: Iterable<LandedNode>,
+): ReadonlyMap<LandedNode, string> {
+  const parts = new Map<LandedNode, string[]>();
+  for (const target of targets) parts.set(target, []);
+  if (parts.size > 0) {
+    for (const entry of nodes) {
+      const own = text(entry.node['text']);
+      if (own === undefined) continue;
+      for (
+        let cursor: LandedNode | undefined = entry;
+        cursor !== undefined;
+        cursor = cursor.parent
+      ) {
+        parts.get(cursor)?.push(own);
+      }
+    }
+  }
+  return new Map([...parts].map(([target, texts]) => [target, collapse(texts.join(' '))]));
+}
+
+/** The text a node and everything under it shows, in reading order. */
+export function landedText(nodes: readonly LandedNode[], under: LandedNode): string {
+  const parts: string[] = [];
+  for (const entry of nodes) {
+    let cursor: LandedNode | undefined = entry;
+    while (cursor !== undefined && cursor !== under) cursor = cursor.parent;
+    if (cursor === undefined) continue;
+    const own = text(entry.node['text']);
+    if (own !== undefined) parts.push(own);
+  }
+  return collapse(parts.join(' '));
+}
+
+/** Every string a component reference carries in its props, a level or two deep. */
+function componentStrings(node: Readonly<Record<string, unknown>>): readonly [string, string][] {
+  const found: [string, string][] = [];
+  const stack: { value: unknown; key: string; depth: number }[] = [
+    { value: node['props'], key: 'props', depth: 0 },
+  ];
+  while (stack.length > 0 && found.length < 200) {
+    const entry = stack.pop();
+    if (entry === undefined || entry.depth > 4) continue;
+    if (typeof entry.value === 'string') found.push([entry.key, entry.value]);
+    else if (Array.isArray(entry.value)) {
+      entry.value.forEach((item, index) =>
+        stack.push({
+          value: item as unknown,
+          key: `${entry.key}[${String(index)}]`,
+          depth: entry.depth + 1,
+        }),
+      );
+    } else if (isRecord(entry.value)) {
+      for (const [name, child] of Object.entries(entry.value)) {
+        stack.push({ value: child, key: `${entry.key}.${name}`, depth: entry.depth + 1 });
+      }
+    }
+  }
+  return found;
+}
+
+// ── Colour classes ────────────────────────────────────────────────────────────
+
+const PALETTE_FAMILIES =
+  'slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose';
+const PALETTE_VALUE = new RegExp(
+  `^((?:${PALETTE_FAMILIES})-(?:50|[1-9]00|950))(?:/(\\d{1,3}))?$`,
+  'u',
+);
+/** The site theme's roles (utility-vocabulary.ts): they follow the SITE, not this plan. */
+const ROLE_VALUE =
+  /^(?:accent|accent-text|success|success-text|surface|surface-inverse|text|text-inverse|text-muted)(?:\/\d{1,3})?$/u;
+const NEUTRAL_VALUE = /^(white|black)(?:\/(\d{1,3}))?$/u;
+const COLOUR_UTILITY =
+  /^(bg|text|border(?:-[trblxyse])?|ring(?:-offset)?|outline|decoration|divide|from|via|to|fill|stroke|shadow|accent|caret|placeholder)-(.+)$/u;
+const HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/iu;
+const CK_VAR = /^var\(--ck-([a-z-]+)\)$/u;
+
+type ColourRead =
+  | { readonly kind: 'ok'; readonly hex?: string; readonly token?: keyof PageKitColours }
+  | { readonly kind: 'raw' };
+
+/** The utility after its variants (`md:hover:`) and any `!` / `-` prefix. */
+function baseUtility(name: string): { readonly base: string; readonly variants: boolean } {
+  let depth = 0;
+  let cut = -1;
+  for (let index = 0; index < name.length; index += 1) {
+    const character = name[index];
+    if (character === '[') depth += 1;
+    else if (character === ']') depth -= 1;
+    else if (character === ':' && depth === 0) cut = index;
+  }
+  const base = name
+    .slice(cut + 1)
+    .replace(/^!/u, '')
+    .replace(/^-/u, '');
+  return { base, variants: cut !== -1 };
+}
+
+function normalHex(value: string): string {
+  const body = value.replace(/^#/u, '').toLowerCase();
+  const six =
+    body.length <= 4
+      ? body
+          .slice(0, 3)
+          .split('')
+          .map((digit) => `${digit}${digit}`)
+          .join('')
+      : body.slice(0, 6);
+  return `#${six}`;
+}
+
+const TOKEN_NAMES: Readonly<Record<string, keyof PageKitColours>> = {
+  bg: 'bg',
+  surface: 'surface',
+  ink: 'ink',
+  muted: 'muted',
+  accent: 'accent',
+  'on-accent': 'onAccent',
+  'accent-ink': 'accentInk',
+  border: 'border',
+};
+
+interface ClassColour {
+  readonly property: string;
+  readonly read: ColourRead;
+  /** The value carries an opacity modifier: a tint whose contrast needs the layer beneath. */
+  readonly translucent: boolean;
+}
+
+/** What a class says about colour, if anything, against this plan's colours. */
+function readColourClass(name: string, planHexes: ReadonlySet<string>): ClassColour | undefined {
+  const { base } = baseUtility(name);
+  const match = COLOUR_UTILITY.exec(base);
+  if (match === null) return undefined;
+  const property = match[1] ?? '';
+  const value = match[2] ?? '';
+  if (/^(?:transparent|current|inherit)$/u.test(value)) {
+    return { property, read: { kind: 'ok' }, translucent: value === 'transparent' };
+  }
+  const neutral = NEUTRAL_VALUE.exec(value);
+  if (neutral !== null) {
+    return {
+      property,
+      read: { kind: 'ok', hex: neutral[1] === 'white' ? '#ffffff' : '#000000' },
+      translucent: neutral[2] !== undefined,
+    };
+  }
+  const palette = PALETTE_VALUE.exec(value);
+  if (palette !== null) {
+    const hex = PAGE_PLAN_PALETTE_HEX[palette[1] ?? ''];
+    return {
+      property,
+      read: hex !== undefined && planHexes.has(hex) ? { kind: 'ok', hex } : { kind: 'raw' },
+      translucent: palette[2] !== undefined,
+    };
+  }
+  if (ROLE_VALUE.test(value)) return { property, read: { kind: 'raw' }, translucent: false };
+  if (value.startsWith('[') && value.endsWith(']')) {
+    const inner = value.slice(1, -1).replace(/^color:/u, '');
+    if (HEX.test(inner)) {
+      const hex = normalHex(inner);
+      return {
+        property,
+        read: planHexes.has(hex) ? { kind: 'ok', hex } : { kind: 'raw' },
+        translucent: false,
+      };
+    }
+    const token = CK_VAR.exec(inner)?.[1];
+    if (token !== undefined) {
+      const role = TOKEN_NAMES[token];
+      return {
+        property,
+        read: role === undefined ? { kind: 'ok' } : { kind: 'ok', token: role },
+        translucent: false,
+      };
+    }
+    if (
+      /^(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\(/iu.test(inner) &&
+      !inner.includes('var(')
+    ) {
+      return { property, read: { kind: 'raw' }, translucent: false };
+    }
+  }
+  return undefined;
+}
+
+// ── Grounds and ink, as the cascade resolves them ─────────────────────────────
+
+type KitName = keyof PageKitGrounds;
+
+interface ColourContext {
+  readonly kit: KitName;
+  readonly ground: string | undefined;
+  readonly ink: string | undefined;
+}
+
+/*
+  Kit classes live in the page's component layer and utilities in Tailwind's
+  later utilities layer, so on one element a utility's colour beats a kit
+  class's; among kit classes the later rule in the page CSS wins. Listed here
+  in reverse rule order: the first one an element carries is its colour.
+*/
+const KIT_INK: readonly [string, (colours: PageKitColours) => string][] = [
+  ['ck-btn--ghost', (colours) => colours.ink],
+  ['ck-btn', (colours) => colours.onAccent],
+  ['ck-eyebrow', (colours) => colours.accentInk],
+  ['ck-accent-ink', (colours) => colours.accentInk],
+  ['ck-muted', (colours) => colours.muted],
+  ['ck-ink', (colours) => colours.ink],
+  ['ck-accent-fill', (colours) => colours.ink],
+  ['ck-inverse', (colours) => colours.ink],
+  ['ck-card', (colours) => colours.ink],
+  ['ck-surface', (colours) => colours.ink],
+  ['ck-ground', (colours) => colours.ink],
+];
+const KIT_GROUND: readonly [string, (colours: PageKitColours) => string | undefined][] = [
+  ['ck-btn--ghost', () => undefined],
+  ['ck-btn', (colours) => colours.accent],
+  ['ck-accent-fill', (colours) => colours.bg],
+  ['ck-inverse', (colours) => colours.bg],
+  ['ck-card', (colours) => colours.surface],
+  ['ck-surface', (colours) => colours.surface],
+  ['ck-ground', (colours) => colours.bg],
+];
+
+interface ElementColour {
+  readonly context: ColourContext;
+  /** The element's own text-colour utility, when it sets one without a variant. */
+  readonly textClass?: { readonly name: string; readonly hex: string | undefined };
+}
+
+function resolveColours(
+  node: Readonly<Record<string, unknown>>,
+  parent: ColourContext,
+  grounds: PageKitGrounds,
+  planHexes: ReadonlySet<string>,
+  overlaid: boolean,
+): ElementColour {
+  const classes = classesOf(node);
+  const plain = new Set(classes.filter((name) => !name.includes(':')));
+  const kit: KitName = plain.has('ck-accent-fill')
+    ? 'accent'
+    : plain.has('ck-inverse')
+      ? 'inverse'
+      : parent.kit;
+  const colours = grounds[kit];
+  const fromToken = (read: ColourRead): string | undefined =>
+    read.kind !== 'ok'
+      ? undefined
+      : (read.hex ?? (read.token === undefined ? undefined : colours[read.token]));
+
+  let ground = parent.ground;
+  let ink = parent.ink;
+  let groundSet = false;
+  let inkSet = false;
+  let textClass: ElementColour['textClass'];
+
+  // Utilities first: they win on their own element.
+  for (const name of classes) {
+    if (name.includes(':')) continue;
+    const colour = readColourClass(name, planHexes);
+    if (colour === undefined) continue;
+    const gradient = name.startsWith('bg-gradient');
+    if (colour.property === 'bg' && !groundSet && !gradient) {
+      const hex = fromToken(colour.read);
+      if (colour.read.kind === 'ok' && hex === undefined && !colour.translucent) {
+        // transparent/current/inherit: the ground shows through.
+      } else {
+        ground = colour.translucent ? undefined : hex;
+        groundSet = true;
+      }
+    } else if (colour.property === 'text' && !inkSet) {
+      const hex = colour.translucent ? undefined : fromToken(colour.read);
+      if (
+        colour.read.kind === 'ok' &&
+        colour.read.hex === undefined &&
+        colour.read.token === undefined
+      ) {
+        // text-current / text-inherit: the ink is inherited.
+      } else {
+        ink = hex;
+        inkSet = true;
+        textClass = { name, hex };
+      }
+    }
+  }
+  if (classes.some((name) => /^(?:bg-gradient|from-|via-|to-)/u.test(name))) {
+    ground = undefined;
+    groundSet = true;
+  }
+  if (!groundSet) {
+    const kitGround = KIT_GROUND.find(([name]) => plain.has(name));
+    if (kitGround !== undefined) {
+      const value = kitGround[1](colours);
+      if (value !== undefined) ground = value;
+    }
+  }
+  if (!inkSet) {
+    const kitInk = KIT_INK.find(([name]) => plain.has(name));
+    if (kitInk !== undefined) ink = kitInk[1](colours);
+  }
+  // A photo or a decoration layered under this element's content: its ground is unknowable here.
+  if (overlaid) ground = undefined;
+  return { context: { kit, ground, ink }, ...(textClass === undefined ? {} : { textClass }) };
+}
+
+// ── The checks ────────────────────────────────────────────────────────────────
+
+const AA = 4.5;
+const AA_LARGE = 3;
+const MAX_ISSUES = 12;
+const MAX_PLACEHOLDERS = 3;
+const MAX_LISTED = 8;
+/** The plan's own CTA label is at most 40 characters (validatePagePlan). */
+const BUTTON_LABEL_MAX = 40;
+/** Children that make a link a card, not a button. */
+const BLOCK_CONTENT = new Set([
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'p',
+  'div',
+  'ul',
+  'ol',
+  'li',
+  'img',
+  'picture',
+  'figure',
+  'section',
+  'article',
+  'blockquote',
+  'table',
+]);
+
+/** Elements that hold one line of copy, inline tags and all: where a repeated claim is sought. */
+const LINE_ELEMENTS = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'blockquote',
+  'figcaption',
+  'caption',
+  'dt',
+  'dd',
+  'td',
+  'th',
+  'label',
+  'button',
+  'q',
+]);
+
+const BRACKETED = /\[[^[\]\n]*\p{L}[^[\]\n]*\]/u;
+const MUSTACHE = /\{\{[^}]*\}\}/u;
+const LOREM = /\blorem\b(?:\s+ipsum)?|\bipsum\s+dolor\b/iu;
+/** The Arabic "lorem ipsum" (هذا النص هو مثال لنص…), folded; and its transliteration. */
+const ARABIC_FILLER = ['هذا النص هو مثال', 'لوريم ايبسوم'];
+const SCAFFOLD_LEFTOVERS = ['THE SECTION TITLE'];
+
+const GENERIC_FAMILIES = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-sans-serif',
+  'ui-serif',
+  'ui-monospace',
+  'ui-rounded',
+  'emoji',
+  'math',
+  'fangsong',
+  'inherit',
+  'initial',
+  'unset',
+  'revert',
+]);
+const SITE_FACE_CLASSES = new Set(['font-sans', 'font-serif']);
+
+const EN_STOP = new Set(
+  'the a an and or of in on for to with at by from our your we you is are be it its this that all as into than'.split(
+    ' ',
+  ),
+);
+/** Folded forms (normalizeIntentText): إلى → الي, حتى → حتي, أن → ان. */
+const AR_STOP = new Set(
+  'في من علي الي عن مع او هذا هذه ذلك تلك التي الذي كل نحن انت لكم لك لنا عند بين حتي قد ما لا ان كان و'.split(
+    ' ',
+  ),
+);
+
+/**
+ * Words that only say "at least" around a number: "أكثر من ١٢٠٠" and the stat
+ * "+١٢٠٠" are one claim once the number itself is there. Folded forms.
+ */
+const QUANTIFIERS = new Set(
+  'اكثر ازيد يزيد فوق نحو حوالي قرابه تقريبا more over plus nearly almost around about approximately'.split(
+    ' ',
+  ),
+);
+
+/*
+  A digit-group separator is only a separator between a digit and exactly
+  three more: 1,200 · ١٬٢٠٠ · 1 200 (thin or no-break space) · 1'200. A "."
+  is never one here — Jordanian prices are written 1.500 د.أ, three decimals.
+  Run BEFORE normalizeIntentText, whose NFKC turns thin spaces into plain ones.
+*/
+const DIGIT_GROUP = /(?<=\p{Nd})[,\u066C'\u2019\u2009\u202F\u00A0](?=\p{Nd}{3}(?!\p{Nd}))/gu;
+/** A decimal point between digits, in any of the three spellings: 1.5 · 1٫5 · 1,5. */
+const DECIMAL = /(?<=[0-9])[.,٫](?=[0-9])/gu;
+
+/** Folded for matching only: Arabic variants, digits, case, punctuation as spaces. */
+function foldForMatch(value: string): string {
+  return (
+    normalizeIntentText(value.replace(ISOLATES, '').replace(DIGIT_GROUP, '').replace(/٪/gu, '%'))
+      .replace(DECIMAL, '.')
+      .replace(/[^\p{L}\p{N}\s%+.]/gu, ' ')
+      // A "." survives only as a decimal point; 1.500 and 1.5 are one price.
+      .replace(/(?<![0-9])\.|\.(?![0-9])/gu, ' ')
+      .replace(/[0-9]+\.[0-9]+/gu, (number) => number.replace(/\.?0+$/u, ''))
+      .replace(/\s+/gu, ' ')
+      // "20 %" and "20%" are one figure.
+      .replace(/(?<=[0-9]) (?=%)/gu, '')
+      .trim()
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+/**
+ * The folded phrase inside the folded text, with a number whole at either
+ * edge: "open 7 days" is not in "open 17 days", nor "20%" in "2020".
+ */
+function containsPhrase(corpus: string, phrase: string): boolean {
+  if (!/[0-9]/u.test(phrase)) return corpus.includes(phrase);
+  const pattern = escapeRegExp(phrase);
+  const before = /^[0-9]/u.test(phrase) ? '(?<![0-9.])' : '';
+  const after = /[0-9]$/u.test(phrase) ? '(?![0-9.])' : '';
+  return new RegExp(`${before}${pattern}${after}`, 'u').test(corpus);
+}
+
+interface ClaimTokens {
+  readonly words: readonly string[];
+  /** Each number as written, its "+" dropped either side: "+1200" and "1200+" say 1200. */
+  readonly numbers: readonly string[];
+}
+
+function claimTokens(folded: string): ClaimTokens {
+  const words: string[] = [];
+  const numbers: string[] = [];
+  for (const token of folded.split(' ')) {
+    if (/[0-9]/u.test(token)) {
+      numbers.push(token.replace(/^\++|\++$/gu, ''));
+      continue;
+    }
+    if (token.length < 2) continue;
+    if (EN_STOP.has(token) || AR_STOP.has(token)) continue;
+    words.push(token);
+  }
+  return { words, numbers };
+}
+
+/** A word is present as written, or with ة (folded ه) turned ت before a suffix: محمصه → محمصتنا. */
+function wordPresent(word: string, corpus: string): boolean {
+  if (corpus.includes(word)) return true;
+  return word.endsWith('ه') && word.length > 2 && corpus.includes(`${word.slice(0, -1)}ت`);
+}
+
+/** The claim is said: verbatim once folded, or every number and ¾ of its words. */
+function claimSaid(claim: string, corpus: string): boolean {
+  const folded = foldForMatch(claim);
+  if (folded === '' || containsPhrase(corpus, folded)) return true;
+  const { words, numbers } = claimTokens(folded);
+  if (words.length === 0 && numbers.length === 0) return false;
+  if (!numbers.every((number) => containsPhrase(corpus, number))) return false;
+  // Every number is there: "more than" is the stat's "+", not a word to find.
+  const content = numbers.length > 0 ? words.filter((word) => !QUANTIFIERS.has(word)) : words;
+  const needed = Math.ceil(content.length * 0.75);
+  return content.filter((word) => wordPresent(word, corpus)).length >= needed;
+}
+
+/**
+ * The claim is repeated: verbatim once folded, or every token of a claim of
+ * three or more inside ONE line of copy — a sentence that makes it again.
+ * Across the whole section, three common words (توصيل · مجاني · عمّان) turn
+ * up in unrelated lines and read as a repeat that is not one (verifier,
+ * 2026-09-28).
+ */
+function claimRepeated(claim: string, corpus: string, lines: readonly string[]): boolean {
+  const folded = foldForMatch(claim);
+  if (folded === '') return false;
+  if (containsPhrase(corpus, folded)) return true;
+  const { words, numbers } = claimTokens(folded);
+  if (words.length + numbers.length < 3) return false;
+  return lines.some(
+    (one) =>
+      words.every((word) => wordPresent(word, one)) &&
+      numbers.every((number) => containsPhrase(one, number)),
+  );
+}
+
+function quoteList(values: readonly string[]): string {
+  const shown = values.slice(0, MAX_LISTED).join(', ');
+  return values.length > MAX_LISTED
+    ? `${shown} and ${String(values.length - MAX_LISTED)} more`
+    : shown;
+}
+
+function ratioText(ratio: number): string {
+  return (Math.floor(ratio * 100) / 100).toFixed(2);
+}
+
+/** Declarations inside the css's innermost blocks: property, value. */
+function cssDeclarations(css: string): readonly [string, string][] {
+  const found: [string, string][] = [];
+  for (const block of css.matchAll(/\{([^{}]*)\}/gu)) {
+    for (const declaration of (block[1] ?? '').split(';')) {
+      const colon = declaration.indexOf(':');
+      if (colon === -1) continue;
+      found.push([
+        declaration.slice(0, colon).trim().toLowerCase(),
+        declaration.slice(colon + 1).trim(),
+      ]);
+    }
+  }
+  return found;
+}
+
+function cssImports(css: string): readonly string[] {
+  return [...css.matchAll(/@import\s+(?:url\(\s*)?["']?([^"')\s;]+)/giu)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+/** Families a css2 URL asks for: `family=Noto+Kufi+Arabic:wght@…` → Noto Kufi Arabic. */
+function importedFamilies(url: string): readonly string[] {
+  return [...url.matchAll(/family=([^:&]+)/gu)].map((match) =>
+    decodeURIComponent((match[1] ?? '').replaceAll('+', ' ')),
+  );
+}
+
+function cssUrls(css: string): readonly string[] {
+  const withoutImports = css.replace(/@import[^;]*;/giu, '');
+  return [...withoutImports.matchAll(/url\(\s*(["']?)([^"')]+)\1\s*\)/giu)].map((match) =>
+    (match[2] ?? '').trim(),
+  );
+}
+
+const RAW_CSS_FUNCTION =
+  /\b(rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\(([^()]*(?:\([^()]*\)[^()]*)*)\)/giu;
+
+function isBlackOrWhiteRgb(args: string): boolean {
+  const channels = args
+    .split(/[\s,/]+/u)
+    .filter((part) => part !== '')
+    .slice(0, 3)
+    .map(Number);
+  return (
+    channels.length === 3 &&
+    (channels.every((channel) => channel === 0) || channels.every((channel) => channel === 255))
+  );
+}
+
+/**
+ * Step E of the page build: the deterministic lint every section passes as it
+ * lands (agent-audit §3.1, evaluator-optimizer). No model call.
+ *
+ * Holds one landed section to its contract and the page's tokens, returning
+ * one `SectionCheckIssue` per defect (see `SectionCheckCode` for the list):
+ * the anchor id on the outer element and every `#link` naming a section that
+ * exists; one h1 on the page and only in the hero; a link styled as a button
+ * to `primaryCta.href` labelled exactly `primaryCta.label`, and the hero and a
+ * `cta` section carrying that action; no `[placeholder]`, lorem or scaffold
+ * text; image addresses from the photo catalog, the request, or `data:` only;
+ * colour by token (the kit's `ck-` classes, `var(--ck-*)`, or a palette class
+ * that IS one of the plan's colours), accent-coloured text through `accentInk`
+ * when the accent does not read as text, and every text pair it can resolve at
+ * ≥ 4.5:1 (3:1 for display sizes); every `mustSay` said and no
+ * `mustNotRepeat` repeated, matched on folded Arabic and English; only the
+ * plan's two font families.
+ *
+ * `missing-anchor` also carries a link to a section that does not exist and an
+ * id that belongs to another section — the same broken jump, seen from the
+ * other end.
+ *
+ * Each message is the repair instruction the writer's one repair round
+ * receives (`attempt.issues`); a defect repeated across the tree is reported
+ * once, and the whole list is capped, so the round stays one short brief. An
+ * empty array means the section passes.
+ *
+ * Pure and synchronous; never throws on any tree, however malformed — a
+ * markup string is read as the door reads one.
+ */
+export function checkSection(
+  plan: PagePlan,
+  contract: SectionContract,
+  landed: LandedSection,
+  options: CheckSectionOptions = {},
+): readonly SectionCheckIssue[] {
+  const issues: SectionCheckIssue[] = [];
+  const add = (code: SectionCheckCode, message: string, path?: string): void => {
+    issues.push(path === undefined ? { code, message } : { code, message, path });
+  };
+  const { tokens } = plan;
+  const grounds = pageKitGrounds(tokens);
+  const planHexes = new Set<string>([
+    tokens.bg,
+    tokens.surface,
+    tokens.ink,
+    tokens.muted,
+    tokens.accent,
+    tokens.onAccent,
+    tokens.accentInk,
+    tokens.border,
+  ]);
+  const anchors = new Map(plan.sections.map((section) => [section.anchorId, section] as const));
+  const css = typeof landed.css === 'string' ? landed.css : '';
+  const nodes = walkLandedTree(landed.tree);
+  const elements = nodes.filter(({ node }) => node['kind'] === 'element');
+  const tagOf = (entry: LandedNode): string =>
+    typeof entry.node['tag'] === 'string' ? entry.node['tag'] : '';
+
+  // ── anchors ──
+  const outer = elements.filter(({ depth }) => depth === 1);
+  if (!outer.some(({ node }) => attribute(node, 'id') === contract.anchorId)) {
+    add(
+      'missing-anchor',
+      `Put id="${contract.anchorId}" on this section's outer element — the nav and the page's links jump to it.`,
+      `${outer[0]?.path ?? 'tree.children[0]'}.attributes.id`,
+    );
+  }
+  for (const entry of elements) {
+    const id = attribute(entry.node, 'id');
+    const owner = id === undefined ? undefined : anchors.get(id);
+    if (owner !== undefined && owner.key !== contract.key) {
+      add(
+        'missing-anchor',
+        `Remove id="${id ?? ''}": it is the anchor of the section "${owner.title}", and a second one breaks its links.`,
+        `${entry.path}.attributes.id`,
+      );
+    }
+  }
+  const brokenLinks = new Map<string, string>();
+  for (const entry of elements) {
+    const href = attribute(entry.node, 'href');
+    if (!href?.startsWith('#')) continue;
+    const target = href.slice(1);
+    if (target === '' || !anchors.has(target)) {
+      if (!brokenLinks.has(href)) brokenLinks.set(href, `${entry.path}.attributes.href`);
+    }
+  }
+  for (const [href, path] of brokenLinks) {
+    add(
+      'missing-anchor',
+      `The link "${href}" points at no section: link to one of ${quoteList(
+        plan.sections.map(({ anchorId }) => `#${anchorId}`),
+      )}, or remove it.`,
+      path,
+    );
+  }
+
+  // ── headings ──
+  const headingsOne = elements.filter((entry) => tagOf(entry) === 'h1');
+  if (contract.role === 'hero') {
+    if (headingsOne.length === 0) {
+      add(
+        'heading-level',
+        `This is the hero: write the page's one h1 here (its headline, "${contract.title}" or better).`,
+      );
+    } else if (headingsOne.length > 1) {
+      add(
+        'heading-level',
+        `Keep one h1 in the hero; make the other ${String(headingsOne.length - 1)} an h2.`,
+        headingsOne[1]?.path,
+      );
+    }
+  } else if (headingsOne.length > 0) {
+    add(
+      'heading-level',
+      "Make this h1 an h2: the page's one h1 is in the hero, and this section is not the hero.",
+      headingsOne[0]?.path,
+    );
+  }
+
+  // ── the page's action ──
+  const cta = plan.primaryCta;
+  const ctaLabel = collapse(cta.label);
+  const actions = elements.filter((entry) => tagOf(entry) === 'a' || tagOf(entry) === 'button');
+  const labels = landedTexts(nodes, actions);
+  /*
+    A link that LOOKS like a button: the kit's button, or a filled link with
+    no block content of its own and a button-length label. A filled card that
+    links to the order section (`<a class='block bg-white p-6'><h3>…<p>…</a>`)
+    is a card; asking it to relabel itself "اطلب الآن" broke the menu
+    (verifier, 2026-09-28).
+  */
+  const holdsBlocks = new Set<LandedNode>();
+  for (const entry of elements) {
+    if (entry.parent !== undefined && BLOCK_CONTENT.has(tagOf(entry).toLowerCase())) {
+      holdsBlocks.add(entry.parent);
+    }
+  }
+  const buttonLike = (entry: LandedNode, label: string): boolean => {
+    const classes = classesOf(entry.node).filter((name) => !name.includes(':'));
+    if (classes.includes('ck-btn')) return !classes.includes('ck-btn--ghost');
+    const filled = classes.some((name) => {
+      const colour = readColourClass(name, planHexes);
+      return colour?.property === 'bg' && !name.endsWith('-transparent');
+    });
+    if (!filled || label.length > Math.max(BUTTON_LABEL_MAX, ctaLabel.length * 2)) return false;
+    return !holdsBlocks.has(entry);
+  };
+  let carriesAction = false;
+  let deadButton: LandedNode | undefined;
+  const wrongLabels = new Map<string, string>();
+  for (const entry of actions) {
+    const label = labels.get(entry) ?? '';
+    const href = attribute(entry.node, 'href')?.trim();
+    /*
+      The renderer keeps `href` on an `a` only (CustomCode.tsx
+      elementAttributes), so a button — whatever it is written with — goes
+      nowhere: one that carries the action's words or its address is dead.
+    */
+    if (tagOf(entry) === 'button') {
+      if (label === ctaLabel || href === cta.href) deadButton ??= entry;
+      continue;
+    }
+    if (href !== cta.href) continue;
+    if (label === ctaLabel) carriesAction = true;
+    else if (buttonLike(entry, label) && !wrongLabels.has(label)) {
+      wrongLabels.set(label, entry.path);
+    }
+  }
+  for (const [label, path] of wrongLabels) {
+    add(
+      'cta-label',
+      `This button leads to ${cta.href}, the page's action: label it exactly "${cta.label}" (it says "${label}"), the same words on every button that asks for it.`,
+      path,
+    );
+  }
+  if (deadButton !== undefined) {
+    add(
+      'cta-label',
+      `Make the page's action a link — a button cannot go anywhere: <a href='${cta.href}' class='ck-btn'>${cta.label}</a>.`,
+      deadButton.path,
+    );
+  } else if (!carriesAction && (contract.role === 'hero' || contract.role === 'cta')) {
+    add(
+      'cta-label',
+      `Add the page's action to this section: <a href='${cta.href}' class='ck-btn'>${cta.label}</a>.`,
+    );
+  }
+
+  // ── placeholders ──
+  const shown: { value: string; path: string }[] = [];
+  for (const entry of nodes) {
+    const own = text(entry.node['text']);
+    if (own !== undefined) shown.push({ value: own, path: entry.path });
+    for (const name of ['alt', 'title', 'aria-label']) {
+      const value = attribute(entry.node, name);
+      if (value !== undefined) shown.push({ value, path: `${entry.path}.attributes.${name}` });
+    }
+    const label = text(entry.node['label']);
+    if (label !== undefined) shown.push({ value: label, path: `${entry.path}.label` });
+    if (entry.node['kind'] === 'component') {
+      for (const [key, value] of componentStrings(entry.node)) {
+        if (!/^(?:https?:|data:|\/)/u.test(value))
+          shown.push({ value, path: `${entry.path}.${key}` });
+      }
+    }
+  }
+  const placeholders = new Map<string, string>();
+  for (const { value, path } of shown) {
+    const folded = foldForMatch(value);
+    const found =
+      BRACKETED.exec(value)?.[0] ??
+      MUSTACHE.exec(value)?.[0] ??
+      LOREM.exec(value)?.[0] ??
+      ARABIC_FILLER.find((phrase) => folded.includes(foldForMatch(phrase))) ??
+      SCAFFOLD_LEFTOVERS.find((phrase) => value.includes(phrase));
+    if (found !== undefined && !placeholders.has(found)) placeholders.set(found, path);
+  }
+  for (const [found, path] of [...placeholders].slice(0, MAX_PLACEHOLDERS)) {
+    add(
+      'placeholder-left',
+      `Replace "${found}" with finished copy: a realistic, specific sample in the page's language (listed as a fact for the owner), never a placeholder or filler text.`,
+      path,
+    );
+  }
+
+  // ── images ──
+  const request = options.request ?? '';
+  const imageAllowed = (url: string): boolean => {
+    const address = url.replaceAll('&amp;', '&').trim();
+    return (
+      address.startsWith('data:') ||
+      isCatalogPhotoUrl(address) ||
+      (request !== '' && request.includes(address))
+    );
+  };
+  const subjects = (contract.images ?? []).map(({ subject }) => subject);
+  const photoAdvice =
+    subjects.length === 0
+      ? 'use a photo from PHOTOS YOU MAY USE, or build the moment from type and colour'
+      : `use a ${quoteList([...new Set(subjects)])} photo from PHOTOS YOU MAY USE`;
+  const foreign = new Map<string, string>();
+  for (const entry of nodes) {
+    const src = attribute(entry.node, 'src');
+    if (src !== undefined && !imageAllowed(src)) foreign.set(src, `${entry.path}.attributes.src`);
+    if (entry.node['kind'] === 'component') {
+      for (const [key, value] of componentStrings(entry.node)) {
+        if (
+          /^(?:https?:)?\/\//u.test(value) &&
+          /(?:src|image|photo|avatar|logo|background|url)/iu.test(key) &&
+          !imageAllowed(value)
+        ) {
+          foreign.set(value, `${entry.path}.${key}`);
+        }
+      }
+    }
+  }
+  for (const url of cssUrls(css)) {
+    if (!imageAllowed(url) && !foreign.has(url)) foreign.set(url, 'css');
+  }
+  for (const [url, path] of foreign) {
+    add(
+      'foreign-image',
+      `Replace the image ${url}: ${photoAdvice}, or the request's own — an address written from memory is often a broken picture.`,
+      path,
+    );
+  }
+
+  // ── colour: classes ──
+  const rawClasses = new Map<string, string>();
+  for (const entry of nodes) {
+    for (const name of classesOf(entry.node)) {
+      if (readColourClass(name, planHexes)?.read.kind === 'raw' && !rawClasses.has(name)) {
+        rawClasses.set(name, `${entry.path}.className`);
+      }
+    }
+  }
+  // ── colour: the region css ──
+  const rawLiterals: string[] = [];
+  let accentInCss = false;
+  const fontsInCss: string[] = [];
+  for (const [property, value] of cssDeclarations(css)) {
+    for (const hex of value.match(/#[0-9a-f]{3,8}\b/giu) ?? []) {
+      const normal = normalHex(hex);
+      if (!planHexes.has(normal) && normal !== '#000000' && normal !== '#ffffff')
+        rawLiterals.push(hex);
+      else if (property === 'color' && normal === tokens.accent) accentInCss = true;
+    }
+    for (const match of value.matchAll(RAW_CSS_FUNCTION)) {
+      const name = (match[1] ?? '').toLowerCase();
+      const args = match[2] ?? '';
+      if (args.includes('var(')) continue;
+      if (name.startsWith('rgb') && isBlackOrWhiteRgb(args)) continue;
+      rawLiterals.push(match[0]);
+    }
+    if (property === 'color' && value.includes('var(--ck-accent)')) accentInCss = true;
+    if (property === 'font-family') {
+      for (const part of value.split(',')) {
+        const family = part.trim().replace(/^["']|["']$/gu, '');
+        if (family === '' || family.startsWith('var(')) continue;
+        const known = [tokens.fontDisplay.family, tokens.fontBody.family].some(
+          (face) => face.toLowerCase() === family.toLowerCase(),
+        );
+        if (!known && !GENERIC_FAMILIES.has(family.toLowerCase())) fontsInCss.push(family);
+      }
+    }
+  }
+  const raw = [...rawClasses.keys(), ...new Set(rawLiterals)];
+  if (raw.length > 0) {
+    add(
+      'raw-colour',
+      `Colour with the page's tokens, not ${quoteList(raw)}: grounds ck-ground, ck-surface, ck-card, ck-inverse or ck-accent-fill; text ck-ink, ck-muted or ck-accent-ink; hairlines ck-border; buttons ck-btn; in the region css var(--ck-bg), var(--ck-ink), var(--ck-accent) and the rest. Black and white tints (bg-black/50) are fine.`,
+      rawClasses.values().next().value ?? 'css',
+    );
+  }
+
+  // ── contrast ──
+  const accentIsText = tokens.accent === tokens.accentInk;
+  const accentRatio = Math.min(
+    contrastRatio(tokens.accent, tokens.bg) ?? 0,
+    contrastRatio(tokens.accent, tokens.surface) ?? 0,
+  );
+  const accentAdvice = (what: string) =>
+    `Colour accent text with ck-accent-ink (${tokens.accentInk}), not ${what}: the accent ${tokens.accent} is ${ratioText(accentRatio)}:1 on this page's ground — it is a fill, not a text colour.`;
+  const contexts = new Map<LandedNode | undefined, ColourContext>([
+    [undefined, { kit: 'page', ground: undefined, ink: grounds.page.ink }],
+  ]);
+  const pairs = new Set<string>();
+  const accentTexts = new Map<string, string>();
+  for (const entry of nodes) {
+    const parentContext = contexts.get(entry.parent) ?? {
+      kit: 'page' as const,
+      ground: undefined,
+      ink: grounds.page.ink,
+    };
+    const children = entry.node['children'];
+    const overlaid =
+      Array.isArray(children) &&
+      children.some((child) => isRecord(child) && classesOf(child).includes('absolute'));
+    const { context, textClass } = resolveColours(
+      entry.node,
+      parentContext,
+      grounds,
+      planHexes,
+      overlaid,
+    );
+    contexts.set(entry, context);
+    if (
+      !accentIsText &&
+      context.kit === 'page' &&
+      textClass !== undefined &&
+      (textClass.hex === tokens.accent || textClass.name.endsWith('[var(--ck-accent)]'))
+    ) {
+      if (!accentTexts.has(textClass.name)) accentTexts.set(textClass.name, entry.path);
+      continue;
+    }
+    if (text(entry.node['text']) === undefined) continue;
+    const { ground, ink } = context;
+    if (ground === undefined || ink === undefined) continue;
+    const ratio = contrastRatio(ink, ground);
+    if (ratio === undefined) continue;
+    const tag = typeof entry.node['tag'] === 'string' ? entry.node['tag'] : '';
+    const large =
+      tag === 'h1' ||
+      tag === 'h2' ||
+      classesOf(entry.node).some((name) => /text-[2-9]xl$/u.test(name));
+    const required = large ? AA_LARGE : AA;
+    const pair = `${ink}/${ground}`;
+    if (ratio >= required || pairs.has(pair)) continue;
+    pairs.add(pair);
+    add(
+      'contrast',
+      `Text ${ink} on ${ground} is ${ratioText(ratio)}:1 — below the ${String(required)}:1 it needs. Use the ground's own text colour (ck-ink or ck-muted inside ck-ground, ck-surface, ck-inverse or ck-accent-fill).`,
+      entry.path,
+    );
+  }
+  for (const [name, path] of accentTexts) add('contrast', accentAdvice(name), path);
+  if (!accentIsText && accentInCss) {
+    add('contrast', accentAdvice('the accent as a css color (use var(--ck-accent-ink))'), 'css');
+  }
+
+  // ── faces ──
+  const siteFaces = new Map<string, string>();
+  for (const entry of nodes) {
+    for (const name of classesOf(entry.node)) {
+      if (SITE_FACE_CLASSES.has(baseUtility(name).base) && !siteFaces.has(name)) {
+        siteFaces.set(name, `${entry.path}.className`);
+      }
+    }
+  }
+  // By family, not by URL: the same face imported again is only a duplicate request.
+  const planFamilies = new Set(
+    [tokens.fontDisplay.family, tokens.fontBody.family].map((family) => family.toLowerCase()),
+  );
+  const importedFaces = cssImports(css)
+    .flatMap((url) => {
+      const families = importedFamilies(url);
+      return families.length === 0 ? [url] : families;
+    })
+    .filter((family) => !planFamilies.has(family.toLowerCase()));
+  const foreignFaces = [...new Set([...fontsInCss, ...importedFaces])];
+  if (foreignFaces.length > 0) {
+    add(
+      'foreign-font',
+      `Use the page's two faces — font-family: var(--ck-font-display) or var(--ck-font-body), already loaded by the page — not ${quoteList(foreignFaces)}; and no @import in a section.`,
+      'css',
+    );
+  }
+  if (siteFaces.size > 0) {
+    add(
+      'foreign-font',
+      `Remove ${quoteList([...siteFaces.keys()])}: they switch to the site's face. The page's faces are inherited; add ck-display for a display line.`,
+      siteFaces.values().next().value,
+    );
+  }
+
+  // ── what it says ──
+  const texts = shown.map(({ value }) => foldForMatch(value));
+  const corpus = texts.join(' ');
+  /*
+    A repeat is held to one LINE of copy: each text on its own, and each line
+    element with the inline tags inside it — markup splits "على الطلب الأول:
+    <strong>خصم ٢٠٪</strong>" into two text nodes (parseTreeMarkup). A div,
+    li or link that holds a whole card is not one line.
+  */
+  const lines = elements.filter((entry) => LINE_ELEMENTS.has(tagOf(entry).toLowerCase()));
+  const lineTexts = [
+    ...texts,
+    ...[...landedTexts(nodes, lines).values()].map((line) => foldForMatch(line)),
+  ];
+  for (const claim of contract.mustSay) {
+    if (!claimSaid(claim, corpus)) {
+      add(
+        'must-say',
+        `Say "${claim}" in this section, in these words or close to them — the plan gives it to "${contract.title}".`,
+      );
+    }
+  }
+  for (const claim of contract.mustNotRepeat) {
+    if (claimRepeated(claim, corpus, lineTexts)) {
+      add(
+        'repeats',
+        `Remove "${claim}": another section already says it. Say what only "${contract.title}" can.`,
+      );
+    }
+  }
+
+  return Object.freeze(issues.slice(0, MAX_ISSUES));
+}

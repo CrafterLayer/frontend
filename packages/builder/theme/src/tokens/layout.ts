@@ -116,14 +116,112 @@ export const lineHeight = {
 } as const;
 
 /**
- * Motion. One duration for state, one for movement, and a single easing — a
- * product with five easings reads as five products.
+ * THE READING SCALE — the agent panel's type, one size and one line box per
+ * role (design SPEC §2.2).
+ *
+ * Separate from `fontSize` on purpose. The chrome's micro…display steps are
+ * what the rail, inspector and top bar were laid out against, and Arabic
+ * needs a larger, looser setting than Latin. Bumping the chrome scale for
+ * Arabic would have moved every label in the editor; a scale of its own lets
+ * `:lang(ar)` re-point these and nothing else.
+ *
+ * Line boxes are in px, not unitless ratios, so every role sits on a 2px grid
+ * and a row's height is a sum a reviewer can check. A record uses exactly
+ * three roles (read, meta, figure): hierarchy comes from weight and ink, never
+ * from a fourth size.
  */
-export const motion = {
-  'duration-state': '120ms',
-  'duration-move': '180ms',
-  easing: 'cubic-bezier(0.2, 0, 0.13, 1)',
-} as const;
+export const READING_ROLES = ['figure', 'meta', 'read', 'name', 'input', 'lead'] as const;
+
+export type ReadingRole = (typeof READING_ROLES)[number];
+
+export interface ReadingStep {
+  readonly size: string;
+  readonly line: string;
+}
+
+export type ReadingScale = Readonly<Record<ReadingRole, ReadingStep>>;
+
+/** Latin, and the root default. */
+export const readingScale: ReadingScale = {
+  // Counts, clocks, position numbers, `kbd` — set in tabular figures.
+  figure: { size: '11px', line: '16px' },
+  // Captions, state words, times, the RunBar's status.
+  meta: { size: '12px', line: '16px' },
+  // Rows, bubbles, change lines, menu items, prose; record titles at 600.
+  read: { size: '13px', line: '20px' },
+  // The panel's name in its header.
+  name: { size: '14px', line: '20px' },
+  // The composer and inline rename.
+  input: { size: '14px', line: '20px' },
+  // The empty-state greeting.
+  lead: { size: '16px', line: '24px' },
+};
+
+/**
+ * Arabic: one step larger and much looser. Its x-height reads smaller at the
+ * same size, and its marks need room above and below the letters, so the line
+ * boxes open by 2 to 6px where the sizes grow by 1 or 2.
+ */
+export const arabicReadingScale: ReadingScale = {
+  figure: { size: '12px', line: '18px' },
+  meta: { size: '13px', line: '20px' },
+  read: { size: '14px', line: '22px' },
+  name: { size: '15px', line: '22px' },
+  input: { size: '15px', line: '24px' },
+  lead: { size: '18px', line: '30px' },
+};
+
+/**
+ * THE AGENT PANEL'S BANDS — the same at both densities (design SPEC §2.7).
+ *
+ * Not part of `ShellMetrics`, because the density block restates every shell
+ * metric on the element `BuilderTheme` stamps, and that element sits BELOW the
+ * root. A band declared there would out-inherit the coarse-pointer values the
+ * stylesheet sets on the root, and a phone in compact density would get 32px
+ * rows under a thumb. These vary by POINTER, not by density, so they live
+ * outside the density block entirely.
+ */
+export interface AgentPanelMetrics {
+  /** The narrowest the panel may be dragged (the separator's `aria-valuemin`); also the compact default. */
+  readonly 'assistant-width-min': string;
+  /** The widest the panel may be dragged (the separator's `aria-valuemax`). */
+  readonly 'assistant-width-max': string;
+  /** One line: face, name, two actions. The status line lives in the RunBar. */
+  readonly 'agent-header-height': string;
+  /** The live status, clock and Stop, above the composer while a run is going. */
+  readonly 'agent-runbar-height': string;
+  /** Spine rows, plan rows, suggestions and menu items. */
+  readonly 'agent-row-height': string;
+}
+
+export const agentPanelMetrics: AgentPanelMetrics = {
+  'assistant-width-min': '288px',
+  'assistant-width-max': '480px',
+  'agent-header-height': '44px',
+  'agent-runbar-height': '40px',
+  'agent-row-height': '32px',
+};
+
+/**
+ * What a COARSE pointer changes, and nothing else.
+ *
+ *  - Rows and the RunBar grow to hold a 44px target (WCAG 2.5.5); the header
+ *    is 44 already.
+ *  - The input grows to 16px, the size below which iOS Safari zooms the whole
+ *    page when a field takes focus. Arabic stays at 16 as well (its fine-pointer
+ *    15 would zoom), with a looser 26px line for its marks.
+ */
+export interface CoarsePointerOverrides {
+  readonly metrics: Readonly<Partial<AgentPanelMetrics>>;
+  readonly reading: Readonly<Partial<Record<ReadingRole, ReadingStep>>>;
+  readonly arabicReading: Readonly<Partial<Record<ReadingRole, ReadingStep>>>;
+}
+
+export const coarsePointer: CoarsePointerOverrides = {
+  metrics: { 'agent-runbar-height': '52px', 'agent-row-height': '44px' },
+  reading: { input: { size: '16px', line: '24px' } },
+  arabicReading: { input: { size: '16px', line: '26px' } },
+};
 
 /**
  * THE SHELL BANDS — the actual pixels the editor spends its screen on.
@@ -169,7 +267,13 @@ export const comfortable: ShellMetrics = {
   'rail-width': '68px',
   'panel-width': '288px',
   'inspector-width': '312px',
-  'assistant-width': '376px',
+  /*
+    The agent panel (design SPEC §2.7): 40 columns of 8px, and the container
+    width at which its thread gutter opens from 12 to 16 (SPEC §3.0). It is
+    only where the panel OPENS: a person drags it between
+    `assistant-width-min` and `-max`, and rows gain their state words at 400.
+  */
+  'assistant-width': '320px',
   'topbar-height': '56px',
   'statusbar-height': '36px',
   'dock-min-height': '240px',
@@ -185,7 +289,8 @@ export const compact: ShellMetrics = {
   'rail-width': '56px',
   'panel-width': '248px',
   'inspector-width': '272px',
-  'assistant-width': '332px',
+  // The resize floor: compact opens the panel as narrow as it may go.
+  'assistant-width': '288px',
   'topbar-height': '48px',
   'statusbar-height': '30px',
   'dock-min-height': '200px',

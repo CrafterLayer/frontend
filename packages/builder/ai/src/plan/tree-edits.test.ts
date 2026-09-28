@@ -54,26 +54,35 @@ const blocks: TrustedExtensionManifest = {
 const HERO =
   "<section class='bg-stone-900 py-24 text-stone-50'><h1 class='text-6xl font-bold'>بُن</h1><p class='text-lg'>قهوة مختصة</p><a class='rounded-full bg-amber-600 px-6 py-3' href='#menu'>اطلب الآن</a></section>";
 
-function kernel(): BuilderKernel {
+function documentWith(tree: unknown): BuilderDocument {
+  return {
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'rtl',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'page', props: { title: 'Home' }, slots: { default: ['hero'] } },
+      hero: { id: 'hero', type: 'customCode', props: { label: 'Hero', tree }, slots: {} },
+    },
+  } as unknown as BuilderDocument;
+}
+
+function kernelWith(markup: string): BuilderKernel {
   return createBuilder({
-    document: {
-      schemaVersion: 1,
-      surface: 'site',
-      dir: 'rtl',
-      rootId: 'root',
-      nodes: {
-        root: { id: 'root', type: 'page', props: { title: 'Home' }, slots: { default: ['hero'] } },
-        hero: {
-          id: 'hero',
-          type: 'customCode',
-          props: { label: 'Hero', tree: parseTreeMarkup(HERO) },
-          slots: {},
-        },
-      },
-    } as unknown as BuilderDocument,
+    document: documentWith(parseTreeMarkup(markup)),
     extensions: [blocks],
     ports: { clock: fixedClock(1), ids: seededIds('tree-edit') },
   });
+}
+
+function kernel(): BuilderKernel {
+  return kernelWith(HERO);
+}
+
+/** The tree the expanded step at `index` writes. */
+function treeOf(plan: unknown, index: number): unknown {
+  const commands = (plan as { commands: { args: { value: unknown } }[] }).commands;
+  return commands[index]?.args.value;
 }
 
 function editPlan(args: Record<string, unknown>) {
@@ -154,6 +163,76 @@ describe('expandTreeEdits', () => {
     ).toMatch(/no tree that can be edited/u);
   });
 
+  it('refuses a find that occurs twice even when the two occurrences overlap', () => {
+    const nested = kernelWith(
+      "<section class='py-16'><div class='container'><div class='grid'><div class='card'><p>Hi</p></div></div></div></section>",
+    );
+    const result = expandTreeEdits(
+      editPlan({ id: 'hero', find: '</div></div>', replace: "</div></div><a class='cta'>CTA</a>" }),
+      nested,
+    );
+
+    expect(result.issues[0]?.message).toMatch(/more than once/u);
+  });
+
+  it('refuses an id that names an Object.prototype key instead of throwing', () => {
+    for (const id of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      const result = expandTreeEdits(editPlan({ id, find: 'a', replace: 'b' }), kernel());
+      expect(result.issues[0]?.message).toMatch(new RegExp(`no node "${id}"`, 'u'));
+    }
+  });
+
+  it('leaves every untouched word space in the region as it was', () => {
+    const region =
+      "<section><h2 class='text-3xl'>T</h2><p>Pay <strong>once</strong> and keep it. Read the <a href='/terms'>terms</a> <em>first</em>.</p><p>A<span> · </span>B</p><pre><code>npm i\nnpm run dev</code></pre><p>10&nbsp;%</p></section>";
+    const result = expandTreeEdits(
+      editPlan({ id: 'hero', find: 'text-3xl', replace: 'text-4xl' }),
+      kernelWith(region),
+    );
+
+    expect(result.issues).toEqual([]);
+    expect(treeOf(result.plan, 0)).toEqual(parseTreeMarkup(region.replace('text-3xl', 'text-4xl')));
+  });
+
+  it('edits a region that holds a component reference', () => {
+    const withComponent = createBuilder({
+      document: documentWith({
+        kind: 'root',
+        children: [
+          {
+            kind: 'element',
+            tag: 'section',
+            children: [
+              { kind: 'element', tag: 'h2', text: 'Contact' },
+              { kind: 'component', component: 'contact', props: { email: 'a@b.co' } },
+            ],
+          },
+        ],
+      }),
+      extensions: [blocks],
+      ports: { clock: fixedClock(1), ids: seededIds('tree-edit') },
+    });
+    const result = expandTreeEdits(
+      editPlan({ id: 'hero', find: '>Contact<', replace: '>Write to us<' }),
+      withComponent,
+    );
+
+    expect(result.issues).toEqual([]);
+    expect(treeOf(result.plan, 0)).toEqual({
+      kind: 'root',
+      children: [
+        {
+          kind: 'element',
+          tag: 'section',
+          children: [
+            { kind: 'element', tag: 'h2', text: 'Write to us' },
+            { kind: 'component', component: 'contact', props: { email: 'a@b.co' } },
+          ],
+        },
+      ],
+    });
+  });
+
   it('leaves a plan with no editTree as the very same value', () => {
     const plan = {
       rationale: 'r',
@@ -163,7 +242,110 @@ describe('expandTreeEdits', () => {
   });
 });
 
+describe('expandTreeEdits across steps', () => {
+  it('builds a second editTree on the region as the first one left it', () => {
+    const result = expandTreeEdits(
+      {
+        rationale: 'Two changes, two steps.',
+        commands: [
+          {
+            command: 'editTree',
+            args: { id: 'hero', find: 'text-6xl', replace: 'text-7xl' },
+            title: 'Bigger',
+          },
+          {
+            command: 'editTree',
+            args: { id: 'hero', find: '>اطلب الآن<', replace: '>احجز<' },
+            title: 'Copy',
+          },
+        ],
+      },
+      kernel(),
+    );
+
+    expect(result.issues).toEqual([]);
+    const last = JSON.stringify(treeOf(result.plan, 1));
+    expect(last).toContain('text-7xl');
+    expect(last).toContain('احجز');
+    expect(last).not.toContain('text-6xl');
+  });
+
+  it('builds an editTree on a tree an earlier setProp wrote, as markup or as a tree', () => {
+    const rewritten = "<section class='py-16'><h2 class='text-3xl'>New</h2></section>";
+    for (const value of [rewritten, parseTreeMarkup(rewritten)]) {
+      const result = expandTreeEdits(
+        {
+          rationale: 'Rewrite, then adjust.',
+          commands: [
+            { command: 'setProp', args: { id: 'hero', key: 'tree', value } },
+            { command: 'editTree', args: { id: 'hero', find: 'text-3xl', replace: 'text-5xl' } },
+          ],
+        },
+        kernel(),
+      );
+
+      expect(result.issues).toEqual([]);
+      expect(treeOf(result.plan, 1)).toEqual(
+        parseTreeMarkup(rewritten.replace('text-3xl', 'text-5xl')),
+      );
+    }
+  });
+
+  it('quotes against the earlier step, so a find that step removed is refused', () => {
+    const result = expandTreeEdits(
+      {
+        rationale: 'r',
+        commands: [
+          { command: 'editTree', args: { id: 'hero', find: 'bg-stone-900', replace: 'bg-black' } },
+          {
+            command: 'editTree',
+            args: { id: 'hero', find: 'bg-stone-900', replace: 'bg-zinc-900' },
+          },
+        ],
+      },
+      kernel(),
+    );
+
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0]?.step).toBe(1);
+    expect(result.issues[0]?.message).toMatch(/not in the region's markup/u);
+  });
+});
+
 describe('generateAiPlan with editTree', () => {
+  it('keeps both of two editTree steps on one region through the real door', async () => {
+    const provider: AiPlanProvider = {
+      propose: () =>
+        Promise.resolve({
+          rationale: 'Two changes.',
+          commands: [
+            {
+              command: 'editTree',
+              args: { id: 'hero', find: 'text-6xl', replace: 'text-7xl' },
+              title: 'Bigger title',
+            },
+            {
+              command: 'editTree',
+              args: { id: 'hero', find: 'bg-stone-900', replace: 'bg-black' },
+              title: 'Darker',
+            },
+          ],
+        }),
+      repair: () => Promise.reject(new Error('a repair round should not be needed')),
+    };
+
+    const plan = await generateAiPlan({
+      kernel: kernel(),
+      provider,
+      request: 'bigger title and darker',
+      validationPorts: { clock: fixedClock(2), ids: seededIds('tree-edit-twice') },
+    });
+
+    const final = JSON.stringify(plan.commands[plan.commands.length - 1]);
+    expect(final).toContain('text-7xl');
+    expect(final).toContain('bg-black');
+  });
+
   it('lands a quoted edit through the real door without a repair round', async () => {
     const calls: string[] = [];
     const provider: AiPlanProvider = {

@@ -1,0 +1,161 @@
+/*
+  ChangeLines (SPEC §4.9). Read type: the label in Slate, the values in Graphite, so the
+  eye goes to what changed, not to what it is called. Below 400px the label and its values
+  share a line and wrap together; from 400px up the label takes a 96px column and every
+  value starts on one edge, like a property sheet.
+
+  The `agent` container is the panel root (SPEC §3.0); outside it, the narrow layout holds.
+*/
+
+.ck-agent-changes {
+  display: grid;
+  justify-items: start;
+  row-gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-changes__list {
+  display: grid;
+  justify-self: stretch;
+  row-gap: var(--bldr-space-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-change {
+  min-inline-size: 0;
+  border-radius: var(--bldr-radius-xs);
+}
+
+/* The first revealed line takes focus; the ring hugs the line. */
+.ck-agent-change:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-change__visual {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--bldr-space-md);
+}
+
+.ck-agent-change__label {
+  flex: none;
+  color: var(--bldr-panel-muted);
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-change__values {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+  color: var(--bldr-panel-text-soft);
+  overflow-wrap: anywhere;
+}
+
+/* `+` and `−` share one width, so the quoted values after them start on one edge. */
+.ck-agent-change__sign {
+  display: inline-block;
+  min-inline-size: 1ch;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  text-align: center;
+}
+
+/* The arrow is a separator, not a value: Slate, like the label. */
+.ck-agent-change__arrow {
+  color: var(--bldr-panel-muted);
+}
+
+/*
+  What happened to a restyled or moved block ("New look", "Moved") is the line's verb, not
+  a value the page holds: Slate, like the arrow it stands in for, so the eye still goes to
+  the quoted title first.
+*/
+.ck-agent-change__word {
+  color: var(--bldr-panel-muted);
+}
+
+@container agent (min-width: 400px) {
+  .ck-agent-change__visual {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    column-gap: var(--bldr-space-md);
+  }
+
+  .ck-agent-change__values {
+    justify-content: start;
+  }
+}
+
+/* ── "Show all changes (n)": a quiet text disclosure, like "Show sections" ──── */
+
+.ck-agent-changes__more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  /*
+    Hung into the gutter so the chevron's stroke, not the button's box, sits on the lines'
+    edge: 4px of padding and the glyph's own 5.5px of side bearing (its stroke starts at
+    5.5 of 16) come to 9.5px, and the hover fill reaches back that far.
+  */
+  margin-inline-start: calc(-1 * var(--bldr-space-lg));
+  padding-block: 0;
+  padding-inline: var(--bldr-space-xs) var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-changes__more:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-changes__more:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-changes__more {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+/* ── Revealed lines arrive in order (SPEC §5 moment 6) ──────────────────────── */
+
+.ck-agent-change[data-revealed] {
+  animation: ck-agent-change-in var(--bldr-duration-enter) var(--bldr-easing-enter) both;
+}
+
+@keyframes ck-agent-change-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-xs);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-change[data-revealed] {
+    animation: none;
+  }
+}

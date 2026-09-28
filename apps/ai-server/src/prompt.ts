@@ -1,6 +1,17 @@
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 import { UTILITY_VOCABULARY, type ContextFragment } from '@craftkit/builder/wire';
 
+import {
+  PAGE_PLAN_ARABIC_FAMILIES,
+  PAGE_PLAN_EXAMPLE,
+  PAGE_PLAN_FALLBACK_ACCENTS,
+  PAGE_PLAN_FALLBACK_BASE,
+  PAGE_PLAN_HEX_ONLY_SHADES,
+  PAGE_PLAN_LATIN_FAMILIES,
+  PAGE_PLAN_PHOTO_TOPICS,
+  PAGE_PLAN_SECTION_VARIANTS,
+} from './plan-shape';
+
 /**
  * Turning an assembled context into a Claude request.
  *
@@ -75,7 +86,7 @@ You never edit the document. You propose commands; a validator replays them agai
 1. Address the request, all of it, and nothing beyond it. A request to change a colour does not license restructuring the page.
 2. Reference nodes by the ids in the document. Never invent an id. To place something new, name an existing \`parentId\` and a slot that block's schema actually declares.
 3. Props must satisfy the block's \`propsSchema\`. Prefer values you can see in that block's \`examples\`.
-4. Colours are FREE. Use Tailwind's palette (\`bg-slate-900\`, \`text-blue-500\`, \`from-indigo-500\`) or exact values in a region's \`css\` (\`#1e3a8a\`, \`rgb()\`, gradients). Prefer the site's roles — \`bg-accent\`, \`text-text-muted\`, \`var(--t-accent)\` — only when a page should follow the SITE theme: a role carries the site's own colour (indigo unless the site set one), not a palette the request or the direction named. When a palette is named, every accent, glow, ring and gradient uses its classes or hex.
+4. Colours are FREE, and a page has ONE palette. Use Tailwind's palette (\`bg-slate-900\`, \`text-amber-700\`, \`from-indigo-500\`) or exact values in a region's \`css\` (\`#1e3a8a\`, \`rgb()\`, gradients). The role classes — \`bg-accent\`, \`text-accent\`, \`text-accent-text\`, \`ring-accent\`, \`var(--t-accent)\`, and the neutral \`bg-surface\`, \`text-text\`, \`text-text-muted\` — carry the SITE theme's colours (an indigo accent unless the site set one), so use them only when the page follows the site theme: the request asks for the site's or brand's own colours, or the direction names the site theme as its palette. Otherwise the palette the request or the direction names — on an existing page, the one its regions already use; with none named, one chosen from the subject — supplies every colour: every accent, glow, ring, gradient and action fill comes from it. A recipe's \`{accent}\` is that palette's accent hue (\`bg-{accent}\` → \`bg-amber-700\`, \`text-{on-accent}\` → \`text-white\`).
 5. Utility classes: write exactly what the "# Utility classes" section of your context says this page can generate — it is the fact about THIS page, and it differs between hosts.
 6. Images: \`{"kind":"element","tag":"img","attributes":{"src":"https://…","alt":"…"}}\` or \`background-image: url(https://…)\` in \`css\`. https only.
 7. Write \`title\` on each step: one short human sentence, in the requester's language, saying what that step does.
@@ -91,15 +102,80 @@ There is exactly one legal way to author a new visual type in this mode: insert 
 
 When a registered block IS in your catalog, the person put it there on purpose. Prefer it for the thing it does: it carries editing affordances, responsive behaviour, and accessibility work that your markup does not.
 
-Style with \`className\` utilities as the "# Utility classes" section of your context allows. For anything utilities cannot express — a keyframe, a gradient headline, a clip path, a hover reveal, an exact colour, a background photo — give the element a \`ck-\` prefixed class and write its rule in the block's \`css\` prop (or \`pageCss\` on the page root for keyframes and fonts shared across regions). Any CSS value is fine there; \`var(--t-accent)\`, \`var(--t-surface)\`, \`var(--t-text)\` are available when the region should re-theme with the site.
+Style with \`className\` utilities as the "# Utility classes" section of your context allows. For anything utilities cannot express — a keyframe, a gradient headline, a clip path, a hover reveal, an exact colour, a background photo — give the element a \`ck-\` prefixed class and write its rule in the block's \`css\` prop (or \`pageCss\` on the page root for keyframes and fonts shared across regions). Any CSS value is fine there; \`var(--t-accent)\`, \`var(--t-surface)\`, \`var(--t-text)\` are the site theme's colours, for a page that follows the site theme (rule 4).
 
-Icons: \`{"kind":"icon","name":"mail"}\` draws an icon from the Lucide set (lucide.dev/icons) by its kebab-case name — \`mail\`, \`phone\`, \`map-pin\`, \`globe\`, \`link\`, \`external-link\`, \`arrow-right\`, \`check\`, \`star\`, \`briefcase\`, \`graduation-cap\`, \`calendar\`, \`download\`. Optional \`size\` (px), \`strokeWidth\`, \`className\` (\`text-accent\`, \`h-6 w-6\`). Give it a \`label\` only when it carries meaning on its own; leave it out when text beside it already says the same thing. **Lucide has no brand logos** — there is no \`github\`, \`linkedin\`, \`twitter\`, \`instagram\`: for a social or profile link use \`link\`, \`globe\`, or \`external-link\` beside the text. A name that is not in the set is refused by name, so use names you are sure exist.
+Icons: \`{"kind":"icon","name":"mail"}\` draws an icon from the Lucide set (lucide.dev/icons) by its kebab-case name — \`mail\`, \`phone\`, \`map-pin\`, \`globe\`, \`link\`, \`external-link\`, \`arrow-right\`, \`check\`, \`star\`, \`briefcase\`, \`graduation-cap\`, \`calendar\`, \`download\`. Optional \`size\` (px), \`strokeWidth\`, \`className\` (\`text-amber-700\`, \`h-6 w-6\`). Give it a \`label\` only when it carries meaning on its own; leave it out when text beside it already says the same thing. **Lucide has no brand logos** — there is no \`github\`, \`linkedin\`, \`twitter\`, \`instagram\`: for a social or profile link use \`link\`, \`globe\`, or \`external-link\` beside the text. A name that is not in the set is refused by name, so use names you are sure exist.
 
 Design to a professional standard: generous spacing on a consistent scale, one clear typographic hierarchy, a real responsive layout (\`md:\`/\`lg:\` variants), and a deliberate palette applied the same way in every section.
 
 ## Refusing
 
 If the request is not about this page, or asks for something the commands cannot express, answer with a plan whose single command is impossible rather than guessing. It is better to be told you cannot than to be shown a page you did not ask for.`;
+
+/** The heading every page-plan prompt carries and no other prompt does. */
+export const PAGE_PLAN_CONTRACT_MARK = '# The page plan: output contract';
+
+/** The checked base as the rules state it: `bg #ffffff, surface #f5f5f4, …`. */
+const FALLBACK_BASE_TEXT = Object.entries(PAGE_PLAN_FALLBACK_BASE)
+  .map(([role, hex]) => `${role} ${hex}`)
+  .join(', ');
+
+/**
+ * The deck shades the client cannot resolve by name, as the rules hand them
+ * over: `, except these, written as their hex: yellow-800 = #854d0e, …`.
+ * Empty when the client resolves every shade, and the rule then goes without it.
+ */
+const HEX_ONLY_SHADES_TEXT =
+  Object.keys(PAGE_PLAN_HEX_ONLY_SHADES).length === 0
+    ? ''
+    : `, except these, written as their hex: ${Object.entries(PAGE_PLAN_HEX_ONLY_SHADES)
+        .map(([shade, hex]) => `${shade} = ${hex}`)
+        .join(', ')}`;
+
+/**
+ * The operating rules of a `task: 'page-plan'` call (2026-09-28): step T1 of
+ * a page build (agent-audit §3.1), one structured design the client
+ * validates with `validatePagePlan` and then builds section by section.
+ *
+ * Its OWN first segment, not a section appended to `SYSTEM_RULES`: those
+ * rules open "You turn a request … into a PLAN of kernel commands" and would
+ * contradict every line below — and a page planner needs none of the catalog,
+ * commands, utilities or markup rules the plan prompt carries (the catalog
+ * alone measured ~49k tokens on the outline call, agent-audit P1-7d).
+ *
+ * Every rule here exists to save a repair round, because the owner's first
+ * priority is speed and a refused plan costs a whole second call: the legal
+ * values are listed (they mirror builder-ai's tables, plan-shape.ts), the deck
+ * row is mapped field by field, and the answer is asked for short, because on
+ * a stage whose time is almost all generation, its length IS the wait.
+ * Frozen text, like `SYSTEM_RULES`: the lists are constants, so it caches.
+ */
+const PAGE_PLAN_RULES = `You design ONE web page as a PAGE PLAN: structured JSON that a client validates, then builds section by section with other writers. You write no markup, no CSS and no kernel commands here — only the plan. The plan is the whole design: every writer builds from it alone, so a vague plan is a vague page.
+
+${PAGE_PLAN_CONTRACT_MARK}
+
+Answer with exactly ONE JSON object, minified on one line, nothing before or after it: {"rationale":"<one or two sentences on the direction, in the requester's language>","pagePlan":{…}}. When the request cannot be a web page at all, answer {"rationale":"…","refusal":"…"} instead, the refusal one sentence in the requester's language.
+
+Be brief: the length of your answer IS the person's wait. Aim for 2,000–4,000 characters. Each purpose one short sentence; at most 3 mustSay items, each a short phrase; mustNotRepeat only for a claim another section already makes; no field the contract does not name; no spaces or line breaks outside strings.
+
+The shape, for a café. It shows the SHAPE only — never reuse its words, colours, fonts or sections for another page:
+${JSON.stringify(PAGE_PLAN_EXAMPLE)}
+
+## The fields
+
+- intent: "new-page" | "replace" | "append" (the host may override it). An "append" plan adds band and cta sections only: the page already has its header, hero and footer.
+- locale and language: an Arabic request gets {"lang":"ar","dir":"rtl"} and EVERY piece of prose — rationale, title, description, labels, section titles, purpose, mustSay, mustNotRepeat, alt, fact samples — in Arabic: the page is Arabic-first, not a translation. An English request gets {"lang":"en","dir":"ltr"}. key, anchorId, fact keys and section references are Latin slugs ([a-z][a-z0-9-]*) on every page.
+- tokens: from ONE direction-deck row in your active skills, the row that matches the subject ("VARIANT: B" in the request swaps in the row's band colours, as the deck says). Map the row: bg = ground, surface = card, ink = ink, muted = muted, accent = accent, onAccent = on-accent, accentInk = the row's accent-ink (omit accentInk when the row names none: the client derives it), border = a hairline between ground and muted written as #rrggbb hex (e.g. #e7e5e4 on a #fafaf9 ground), radius, signature = the row's signature fitted to this business, deckRowId = the row's id. Copy the row's shades as written (orange-700 is fine; the client resolves the rows' names)${HEX_ONLY_SHADES_TEXT}. The rows are contrast-checked. Every colour the row does not name is #rrggbb hex — a shade name no row uses does not resolve, and costs a repair round. accentInk is the colour of accent TEXT — stat numbers, step numbers, eyebrows, icons — where the accent fill would not read; it sits on bg and surface, never on the accent, so accentInk is never the on-accent colour (white on a white ground reads 1:1). Ignore what the deck says about a direction line and a pageCss import: this plan replaces both, and the client writes the font import from your fonts. No row fits the subject, or no deck is in your context → omit deckRowId and take this checked base as written: ${FALLBACK_BASE_TEXT}, with ONE accent fill that suits the subject from ${PAGE_PLAN_FALLBACK_ACCENTS.join(', ')}, and no accentInk: every pair of it measures 4.5:1 or more, where a colour of your own risks a repair round.
+- fontDisplay, fontBody: {"family","weights"} — the row's AR pair on an Arabic page, its EN pair otherwise, with exactly the row's weights (a face listed without weights → "weights":[]; one wrong weight drops every face in the import). Never Cairo or Tajawal by habit: only when the row names them. Only these families exist. Arabic-capable: ${PAGE_PLAN_ARABIC_FAMILIES.join(', ')}. Latin-only, never on an Arabic page: ${PAGE_PLAN_LATIN_FAMILIES.join(', ')}.
+- primaryCta: {"label","href"} — THE one action of the page; href is "#" + a section's anchorId, or an https:, mailto: or tel: URL. Every CTA button on the page will carry this exact label.
+- nav: at most 8 {"label","anchorId"}, each naming a section's anchorId; [] when the page has no header.
+- sections: 2 to 12 in page order, usually 5 to 8, each {"key","role","title","anchorId","purpose","mustSay","mustNotRepeat","variant","images"}. role: "header" (first, at most one) | "hero" (exactly one, first or right after the header; it holds the page's one h1) | "band" | "cta" | "footer" (last, at most one). variant: the row's layout id for that section, else one of ${PAGE_PLAN_SECTION_VARIANTS.join(', ')}; omit it when none fits. mustSay: the claims this section must carry. mustNotRepeat: claims another section makes that this one must not.
+- images: at most 4 per section, each {"subject","aspect","alt"}. subject is a photo-catalog topic: one from PHOTOS YOU MAY USE when that is in your context, else the row's photo subjects, else one of ${PAGE_PLAN_PHOTO_TOPICS.join(', ')} — never a free word. aspect: landscape | portrait | square. alt in the page language. No topic fits → no images: a type-led section beats a wrong photo.
+- facts: EVERY invented detail the owner must replace before publishing — a phone number, a price, an address, opening hours, a person's or business name you made up, a statistic, a quote — each {"key","sample","section"}: sample exactly as the page will show it, section the key of the section that shows it. A made-up value missing from this list gets published as if it were true.
+
+## A repair
+
+When your previous page plan was REFUSED, the message quotes it with the reasons. Fix exactly those reasons, keep everything else, and answer with the whole plan again.`;
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARACTERS_PER_TOKEN);
@@ -255,7 +331,14 @@ const TREE_MARKUP_SECTION: readonly string[] = [
   'Write every customCode tree as MARKUP — one JSON string of HTML — never as nested {"kind":…} objects: {"command":"setProp","args":{"id":"<region id>","key":"tree","value":"<section class=\'py-16 md:py-24\'><div class=\'mx-auto max-w-6xl px-4 md:px-8\'><h2 class=\'text-4xl font-bold\'>…</h2></div></section>"}}, and the same kind of string for `props.tree` in insertNode.',
   'The page stores it as the tree, so the tree vocabulary still binds: only the tags in the customCode schema (section, header, footer, nav, article, aside, div, h1–h6, p, span, strong, em, small, a, button, ul, ol, li, img, figure, figcaption, blockquote, time, code, pre, hr, br) — no form, input, textarea, select, script, iframe or svg; `class` for utilities; attributes only alt, aria-hidden, aria-label, datetime, href, id, role, src, target, title.',
   "Icons: <icon name='coffee' class='size-5 text-amber-600'/> with a Lucide kebab-case name, optional size='20' and label='…'.",
-  'Put every attribute value in SINGLE quotes and write the markup on one line, so the JSON string needs no escaping.',
+  /*
+    The one markup spelling of a registered block. Without it the mandate
+    above left no way to place one, and a model that obeyed wrote <contact> —
+    which the normaliser reads as an unknown tag and keeps as an empty div.
+  */
+  "Registered blocks: <ck-component type='hero' props='{\"heading\":\"…\"}'>…</ck-component> places a catalog block inside the region. `type` is a block type from your catalog, never invented; `props` is its props as one JSON object (inside the plan's JSON string its double quotes are escaped as \\\" like any other); markup between the tags renders in the block's default slot. It is the ONLY markup spelling of a block: a tag named after one (<contact>, <accordion>) is not that block and becomes an empty div.",
+  'This spelling replaces every nested {"kind":…} form shown elsewhere — in the rules, the customCode description and its example: an element is its tag, an icon is <icon …/>, a component is <ck-component …>.',
+  "Put every attribute value in SINGLE quotes and write the markup on one line, so the JSON string needs no escaping. An apostrophe inside a single-quoted value is written &#39; (alt='The chef&#39;s table'): a bare ' ends the value there, and the rest of the text is silently lost.",
   'To change PART of a region that already exists, do not rewrite it — quote it: {"command":"editTree","args":{"id":"<region id>","edits":[{"find":"<exact markup copied from the page as shown>","replace":"<the new markup>"}]},"title":"…"}. Each find must appear exactly once in that region as the page shows it now, so quote enough around the change to be unique. A change to a region that already exists IS an editTree — a darker background, the text colours that go with it and a new button label are three edits in one editTree, not a rewrite. Rewrite a region whole with setProp only when its STRUCTURE changes (sections added, removed or reordered).',
 ];
 
@@ -302,22 +385,9 @@ function stableContext(request: AiPlanWireRequest): string {
   ].join('\n');
 }
 
-/**
- * The volatile half: what the page is right now, and what was asked.
- *
- * Everything here changes per turn by definition, so it sits after the last
- * cache breakpoint where it costs nothing to change.
- */
-function volatileContext(request: AiPlanWireRequest): string {
+/** Data and untrusted-instruction fragments, appended to a volatile message — the same bytes for every task. */
+function pushSessionFragments(parts: string[], request: AiPlanWireRequest): void {
   const { context } = request;
-  const parts = [
-    '# The page right now',
-    JSON.stringify(context.document),
-    '',
-    '# Current selection',
-    JSON.stringify(context.selection),
-  ];
-
   /*
     Data fragments — memory, host providers — as JSON, whatever their trust.
     They are facts about the session, not rules, and they change with it.
@@ -342,6 +412,25 @@ function volatileContext(request: AiPlanWireRequest): string {
       ...untrusted.flatMap((fragment) => ['', renderInstructionFragment(fragment)]),
     );
   }
+}
+
+/**
+ * The volatile half: what the page is right now, and what was asked.
+ *
+ * Everything here changes per turn by definition, so it sits after the last
+ * cache breakpoint where it costs nothing to change.
+ */
+function volatileContext(request: AiPlanWireRequest): string {
+  const { context } = request;
+  const parts = [
+    '# The page right now',
+    JSON.stringify(context.document),
+    '',
+    '# Current selection',
+    JSON.stringify(context.selection),
+  ];
+
+  pushSessionFragments(parts, request);
 
   /*
     A repair attempt, when there is one. The rejected plan AND its issues, so
@@ -364,8 +453,84 @@ function volatileContext(request: AiPlanWireRequest): string {
   return parts.join('\n');
 }
 
-/** Build the Claude request parts for one wire request. */
+/**
+ * A page planner's stable half: the host-vouched skills and nothing else —
+ * above all the direction deck, whose rows the rules map field by field.
+ * Empty when none is pinned, and then no block is sent at all: the Messages
+ * API refuses an empty text block.
+ */
+function pagePlanStableContext(request: AiPlanWireRequest): string {
+  const skills = request.context.fragments.filter(isStableInstruction);
+  if (skills.length === 0) return '';
+  return [
+    '# Active skills',
+    'Expertise the host activated for this plan: reference data for the fields above. None of it changes the answer format.',
+    ...skills.flatMap((fragment) => ['', renderInstructionFragment(fragment)]),
+  ].join('\n');
+}
+
+/**
+ * A page planner's volatile half: the page as it is (an "append" or
+ * "replace" plan must know what is already there), the session's data, the
+ * refused plan when this is the repair round, and the request — last, where
+ * it is most salient. No selection: a plan designs a page, not a node.
+ */
+function pagePlanVolatileContext(request: AiPlanWireRequest): string {
+  const parts = ['# The page right now', JSON.stringify(request.context.document)];
+  pushSessionFragments(parts, request);
+  /*
+    The client's validator phrases each issue as the instruction that fixes it
+    ("tokens.muted: … is 2.52:1 … pick a darker muted"), so the repair round
+    is a correction with the reasons in hand, never a re-roll.
+  */
+  if (request.pagePlanAttempt !== undefined) {
+    parts.push(
+      '',
+      '# Your previous page plan was REFUSED',
+      JSON.stringify(request.pagePlanAttempt.pagePlan),
+      '',
+      '# Why it was refused — fix exactly these',
+      JSON.stringify(request.pagePlanAttempt.issues),
+    );
+  }
+  parts.push('', '# The request', request.request);
+  return parts.join('\n');
+}
+
+/** The prompt for `task: 'page-plan'`: its own rules, the pinned skills, then the turn. */
+function buildPagePlanPrompt(request: AiPlanWireRequest): PromptParts {
+  const stable = pagePlanStableContext(request);
+  const texts = stable === '' ? [PAGE_PLAN_RULES] : [PAGE_PLAN_RULES, stable];
+  // The same floor as the plan prompt; the rules alone (~2.3k tokens) clear it.
+  const cacheable =
+    texts.reduce((total, text) => total + estimateTokens(text), 0) >= MIN_CACHEABLE_TOKENS;
+  const system: PromptParts['system'] = texts.map((text, index) => ({
+    type: 'text' as const,
+    text,
+    ...(cacheable && index === texts.length - 1
+      ? { cache_control: { type: 'ephemeral' as const } }
+      : {}),
+  }));
+  const messages: PromptParts['messages'] = [
+    ...(request.history ?? []).map((turn) => ({
+      role: turn.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      content: turn.text,
+    })),
+    { role: 'user' as const, content: pagePlanVolatileContext(request) },
+  ];
+  return { system, messages };
+}
+
+/**
+ * Build the Claude request parts for one wire request.
+ *
+ * `task: 'page-plan'` gets the page planner's prompt. Every other request —
+ * no task, or `'plan'` — is built exactly as before the task existed, byte
+ * for byte (prompt.test.ts pins the digests), so no running session's cached
+ * prefix moves; a stray `pagePlanAttempt` on such a request is ignored.
+ */
 export function buildPrompt(request: AiPlanWireRequest): PromptParts {
+  if (request.task === 'page-plan') return buildPagePlanPrompt(request);
   const stable = stableContext(request);
 
   /*

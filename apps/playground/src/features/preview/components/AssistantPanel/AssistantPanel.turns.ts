@@ -1,4 +1,5 @@
 import type {
+  AiBuildRevertErrorCode,
   AiChatTurn,
   AiPlan,
   AiSkillActivationPin,
@@ -12,12 +13,27 @@ import {
   buildReceipt,
   initialBuildProgress,
   lastEvidenceAt,
+  type BuildNotice,
   type BuildProgress,
   type BuildReceipt,
 } from './AssistantPanel.build';
 import type { PlanImpact } from './AssistantPanel.impact';
 import { receiptOf, type RunProgress, type RunReceipt } from './AssistantPanel.progress';
 import type { AssistantMode } from './AssistantPanel.modes';
+
+/**
+ * Why putting a section back was refused. The engine's three
+ * (`AiBuildRevertError`), plus two of the panel's:
+ *
+ * - `refused`: the door turned the revert's own write down.
+ * - `no-earlier-version`: the engine's `not-landed` on a section that DID land
+ *   — a region a PagePlan skeleton wrote in full has nothing recorded from
+ *   before it (wave-2 verifier, pageplan-revert.mjs, 2026-09-28), and "it
+ *   never landed" said of a section on the page is false.
+ *
+ * Nothing was written in any of the five.
+ */
+export type BuildRevertRefusal = AiBuildRevertErrorCode | 'refused' | 'no-earlier-version';
 
 export interface BuildingTurn {
   readonly id: string;
@@ -26,8 +42,13 @@ export interface BuildingTurn {
   /** The original request, kept so a skipped section can be re-asked. */
   readonly request: string;
   readonly progress: BuildProgress;
-  /** Ask mode only: the one approval, still unanswered. */
+  /**
+   * Ask mode only: the one approval, still unanswered. Nothing has been written
+   * while it is true — the skeleton lands only on Build (2026-09-28, P0-4).
+   */
   readonly awaiting?: boolean;
+  /** Where this build lands differently from what the words asked for. */
+  readonly notices?: readonly BuildNotice[];
 }
 
 /** A finished build: the report, and what can still be undone from it. */
@@ -41,15 +62,43 @@ export interface BuiltTurn {
   readonly stopped?: boolean;
   readonly request?: string;
   /**
-   * Runtime-only, exactly like a plan's `proposal`: the kernel history this
-   * report can undo through belongs to THIS session. A revived report is
-   * readable and inert.
+   * Runtime-only, exactly like a plan's `proposal`: putting a section back
+   * needs the build's own record of what it wrote (each section's landing),
+   * which belongs to THIS session. A revived report is readable and inert.
    */
   readonly undoable?: boolean;
-  /** The lowest section position already undone; every later one went with it. */
-  readonly undoneFrom?: number;
-  /** How many kernel undos this card has already spent. */
-  readonly undoneSteps?: number;
+  /** Where this build landed differently from what the words asked for. */
+  readonly notices?: readonly BuildNotice[];
+  /**
+   * Sections put back FORWARD (`revertBuildSection`), by position. Each one is
+   * its own transaction and touches its own region only, so undoing one never
+   * takes another with it — the old `undoneFrom`/`undoneSteps` cascade, which
+   * looped `kernel.undo()` through the person's own later edits, is gone.
+   */
+  readonly reverted?: readonly number[];
+  /**
+   * The last time putting a section back was REFUSED, and why — nothing was
+   * written. Runtime-only: an answer to a click in this session.
+   */
+  readonly revertRefused?: readonly {
+    readonly position: number;
+    readonly code: BuildRevertRefusal;
+  }[];
+  /**
+   * How many regions the build left holding their empty placeholder (stopped,
+   * skipped, never reached). Runtime-only, like `undoable`: removing them needs
+   * the build's record of each placeholder.
+   */
+  readonly unfilled?: number;
+  /** What "remove the empty sections" did: removed in one transaction, and kept. */
+  readonly unfilledRemoval?: { readonly removed: number; readonly kept: number };
+  /**
+   * The last "remove the empty sections" was REFUSED by the door — one
+   * transaction, so nothing was removed. Runtime-only, like `revertRefused`:
+   * an answer to a click in this session. It used to be swallowed, and the
+   * button then did nothing anyone could see (wave-2 verifier, 2026-09-28).
+   */
+  readonly unfilledRemovalRefused?: boolean;
 }
 
 export interface ThinkingTurn {
@@ -332,6 +381,23 @@ export function reviveSessions(persistKey: string | undefined): PersistedPanelSt
             ...(receipt === null ? {} : { receipt }),
           };
         }
+        if (turn.from === 'assistant' && turn.kind === 'building' && turn.awaiting === true) {
+          /*
+            Still waiting on its ONE question, which is asked before anything is
+            written (2026-09-28, P0-4): the reload killed a build that wrote
+            nothing. It comes back as a stop — never as a "Stopped 0/3" report
+            whose rows name sections that were never on the page.
+          */
+          const { progress } = turn as { readonly progress?: BuildProgress };
+          const run = progress?.run ?? null;
+          const receipt = run === null ? null : receiptOf(run, run.stageSince ?? run.startedAt);
+          return {
+            id: turn.id,
+            from: 'assistant',
+            kind: 'stopped',
+            ...(receipt === null ? {} : { receipt }),
+          };
+        }
         if (turn.from === 'assistant' && turn.kind === 'building') {
           /*
             The same rule the thinking turn follows, for the same reason: the
@@ -351,14 +417,17 @@ export function reviveSessions(persistKey: string | undefined): PersistedPanelSt
             progress: progress ?? initialBuildProgress(turn.id, Number.NaN),
             stopped: true,
             ...(receipt === null ? {} : { receipt }),
+            ...(turn.notices === undefined ? {} : { notices: turn.notices }),
           };
         }
         if (turn.from === 'assistant' && turn.kind === 'built') {
           /*
-            A report is readable across a reload; its Undo is not. The kernel
-            history it could walk belongs to the session that made it, and this
-            one has none — so `undoable` is dropped exactly as a plan's
-            `proposal` is.
+            A report is readable across a reload; its Undo is not. What a
+            section is put back TO is the build's record of it, held by the
+            session that ran the build, and this one has none — so `undoable`
+            (and the empty-section count its removal needs) is dropped exactly
+            as a plan's `proposal` is. What already HAPPENED stays: the notices,
+            the sections put back, the removal.
           */
           return {
             id: turn.id,
@@ -367,6 +436,11 @@ export function reviveSessions(persistKey: string | undefined): PersistedPanelSt
             progress: turn.progress,
             ...(turn.receipt === undefined ? {} : { receipt: turn.receipt }),
             ...(turn.stopped === undefined ? {} : { stopped: turn.stopped }),
+            ...(turn.notices === undefined ? {} : { notices: turn.notices }),
+            ...(turn.reverted === undefined ? {} : { reverted: turn.reverted }),
+            ...(turn.unfilledRemoval === undefined
+              ? {}
+              : { unfilledRemoval: turn.unfilledRemoval }),
           };
         }
         if (turn.from === 'assistant' && turn.kind === 'plan') {
@@ -388,12 +462,12 @@ export function reviveSessions(persistKey: string | undefined): PersistedPanelSt
     /*
       Data from before the marker has none. Then the default was Ask and only
       the radios wrote Plan or Auto, so those two were chosen; a saved Ask may
-      have been the default, and stays unchosen.
+      have been the default, and stays unchosen. Read as unknown: a hand-edited
+      store can hold anything, and only a literal `true` marks a choice.
     */
+    const marked: unknown = parsed.modeChosen;
     const modeChosen =
-      parsed.modeChosen === undefined
-        ? parsed.mode === 'plan' || parsed.mode === 'auto'
-        : parsed.modeChosen === true;
+      marked === undefined ? parsed.mode === 'plan' || parsed.mode === 'auto' : marked === true;
     return {
       sessions: withUniqueTurnIds(sessions),
       activeId: parsed.activeId,

@@ -1,5 +1,14 @@
+import type { IntentToken } from '../intent/intent-tokens';
+import { routeIntent, type IntentDocumentSummary, type IntentKind } from '../intent/route-intent';
+import { isIntentKind } from './define-skill';
 import { AiSkillResolutionError } from './errors';
 import { compareSkillText } from './compare';
+import {
+  compileKeyword,
+  readRequestWords,
+  requestHasKeyword,
+  type CompiledKeyword,
+} from './keyword-match';
 import type {
   AiActiveSkillContext,
   AiDefinedSkillV1,
@@ -37,21 +46,77 @@ function compareAuto(left: AiDefinedSkillV1, right: AiDefinedSkillV1): number {
   );
 }
 
+/**
+ * The request as the auto matcher reads it, each part computed once and only
+ * when a skill asks: most requests match two or three skills, and only the
+ * page-scoped ones need a route.
+ */
+interface AutoRequest {
+  readonly text: string;
+  words(): readonly IntentToken[];
+  intent(): IntentKind;
+}
+
+/*
+  The page a request with no host route is read against. BLANK, not unknown:
+  unknown reads as a page with content, where a bare subject ("حلويات شرقية
+  وكنافة") is an edit — and the build's own skeleton run, which passes the
+  person's brief as its request, would lose the trade's page type. On a blank
+  page a brief is a brief, while words that change, add a section to, or ask
+  about what exists still route away from a build.
+*/
+const BLANK_PAGE: IntentDocumentSummary = Object.freeze({
+  nodeCount: 0,
+  placeholderOnly: false,
+  sectionLabels: Object.freeze([]),
+});
+
+function autoRequest(request: string, hint: IntentKind | undefined): AutoRequest {
+  let words: readonly IntentToken[] | undefined;
+  let intent: IntentKind | undefined = hint;
+  return {
+    text: request,
+    words: () => (words ??= readRequestWords(request)),
+    intent: () => (intent ??= routeIntent({ request, document: BLANK_PAGE }).kind),
+  };
+}
+
+/*
+  Keywords compiled once per activation — frozen with its manifest, so the
+  cache lives exactly as long as the skill does.
+*/
+const COMPILED_KEYWORDS = new WeakMap<object, readonly CompiledKeyword[]>();
+
+function compiledKeywords(activation: {
+  readonly keywords?: readonly string[];
+}): readonly CompiledKeyword[] {
+  const cached = COMPILED_KEYWORDS.get(activation);
+  if (cached !== undefined) return cached;
+  const compiled = Object.freeze((activation.keywords ?? []).map(compileKeyword));
+  COMPILED_KEYWORDS.set(activation, compiled);
+  return compiled;
+}
+
 function matchesAuto(
   skill: AiDefinedSkillV1,
-  request: string,
+  request: AutoRequest,
   selectedBlockTypes: ReadonlySet<string>,
 ): boolean {
   const activation = skill.manifest.activation;
   if (activation.mode !== 'auto') return false;
-  const normalizedRequest = request.toLowerCase();
   const keywordMatch =
-    activation.keywords?.some((keyword) => normalizedRequest.includes(keyword)) ?? false;
+    activation.keywords !== undefined &&
+    compiledKeywords(activation).some((keyword) => requestHasKeyword(request.words(), keyword));
   const blockMatch =
     activation.selectedBlockTypes?.some((type) => selectedBlockTypes.has(type)) ?? false;
   const scriptMatch =
-    activation.scripts?.some((script) => requestUsesScript(request, script)) ?? false;
-  return keywordMatch || blockMatch || scriptMatch;
+    activation.scripts?.some((script) => requestUsesScript(request.text, script)) ?? false;
+  if (!(keywordMatch || blockMatch || scriptMatch)) return false;
+  /*
+    The gate, after the triggers so the route is only computed for a skill
+    that would otherwise activate.
+  */
+  return activation.intents === undefined || activation.intents.includes(request.intent());
 }
 
 /**
@@ -181,6 +246,9 @@ export function resolveAiSkills(
   if (typeof options.request !== 'string') {
     return resolutionError('invalid-request', 'request must be a string.');
   }
+  if (options.intent !== undefined && !isIntentKind(options.intent)) {
+    return resolutionError('invalid-intent', `intent must be one of the router's intent kinds.`);
+  }
   const maxActiveSkills = positiveInteger(
     options.maxActiveSkills,
     DEFAULT_AI_SKILL_MAX_ACTIVE,
@@ -262,11 +330,11 @@ export function resolveAiSkills(
     const selectedBlockTypes = new Set(
       (options.selectedBlockTypes ?? []).map((type) => type.trim().toLowerCase()),
     );
+    const request = autoRequest(options.request, options.intent);
     const autoMatches = [...entries.values()]
       .filter(
         (skill) =>
-          !candidates.has(skill.manifest.id) &&
-          matchesAuto(skill, options.request, selectedBlockTypes),
+          !candidates.has(skill.manifest.id) && matchesAuto(skill, request, selectedBlockTypes),
       )
       .sort(compareAuto);
 

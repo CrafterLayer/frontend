@@ -1,4 +1,9 @@
-import type { AiBuildEvent, AiBuildStopReason } from '@craftkit/builder';
+import type {
+  AiBuildEvent,
+  AiBuildPlannedTask,
+  AiBuildStopReason,
+  PagePlan,
+} from '@craftkit/builder';
 
 import {
   appendLiveProgress,
@@ -43,6 +48,12 @@ export interface BuildTask {
   readonly startedAt?: number;
   /** How long the section took, once it settled. */
   readonly elapsedMs?: number;
+  /**
+   * What the section is FOR, from its PagePlan contract — shown on the approval
+   * list, where a title alone ("Proof") says little about what will be written.
+   * Absent on a scaffold build, which has no contracts.
+   */
+  readonly purpose?: string;
 }
 
 /**
@@ -68,6 +79,73 @@ export const TASK_STATUS_LABEL: Readonly<Record<BuildTaskStatus, string>> = {
   applied: 'Done',
   skipped: 'Skipped',
 };
+
+/**
+ * Why a build lands somewhere other than where the words asked for it.
+ *
+ * - `new-page-appended`: the person asked for a NEW page, and this panel cannot
+ *   open one — the host hands it one page lens and no site — so the page is
+ *   built below what is already there.
+ * - `site-as-one-page`: several pages were asked for, and the chat builds one
+ *   page per request; no site pipeline is wired to it.
+ * - `starts-over`: the request starts a page that holds content over. It is
+ *   asked about first, in every writing mode — see `requestPath`.
+ * - `appended-not-replaced`: the request asked to start over, and this build
+ *   cannot — only a PagePlan build removes what is there; the scaffold build
+ *   lays its skeleton after it whatever the target (wave-2 verifier,
+ *   scaffold-replace.mjs, 2026-09-28). The sections go below, nothing is
+ *   removed, and there is nothing to ask about first.
+ *
+ * Data, not prose: it is saved with the turn, and the words are chosen when the
+ * card renders, in the panel's language.
+ */
+export type BuildNotice =
+  'new-page-appended' | 'site-as-one-page' | 'starts-over' | 'appended-not-replaced';
+
+const BUILD_NOTICE_TEXT: Readonly<Record<BuildNotice, Readonly<Record<'ar' | 'en', string>>>> = {
+  'new-page-appended': {
+    en: 'A new page cannot be opened from the chat yet, so this page is built below what is already here.',
+    ar: 'لا يمكن فتح صفحة جديدة من المحادثة بعد، لذلك تُبنى هذه الصفحة أسفل المحتوى الموجود.',
+  },
+  'site-as-one-page': {
+    en: 'Several pages were asked for, but the chat builds one page at a time — this is one page that holds them all.',
+    ar: 'طُلبت عدة صفحات، لكن المحادثة تبني صفحة واحدة في كل مرة — هذه صفحة واحدة تجمعها كلها.',
+  },
+  /*
+    It said "anything replaced comes back with one Undo" until 2026-09-28. The
+    removal rides the skeleton's transaction and every section lands after it
+    as its own, so one Undo takes back the LAST section, not the page — what
+    was there comes back when the build is undone, not before.
+  */
+  'starts-over': {
+    en: 'The page already has content, and this asks to start it over — what is here now is removed when the new layout lands, and comes back if you undo the build.',
+    ar: 'الصفحة فيها محتوى، وهذا الطلب يبدأها من جديد — يُحذف الموجود حين يُوضع التخطيط الجديد، ويعود إن تراجعت عن البناء.',
+  },
+  // Present tense on purpose: the approval card says it before the build, the Built card after.
+  'appended-not-replaced': {
+    en: 'This asks to start the page over, but this build can only add to it — the new sections go below what is already here, and nothing is replaced.',
+    ar: 'هذا الطلب يبدأ الصفحة من جديد، لكن هذا البناء يضيف فقط — تُبنى الأقسام الجديدة أسفل المحتوى الموجود، ولا يُستبدل شيء.',
+  },
+};
+
+/**
+ * The notices, with a start-over the build will not (or did not) do said as
+ * what happens instead.
+ *
+ * Read twice by the panel: when the build's one question arrives with no page
+ * plan — the engine fell back to the scaffold, which appends — and when a
+ * build ends without one. The same list comes back when there was no
+ * start-over to take back, so a caller can compare by identity.
+ */
+export function withoutStartOver(notices: readonly BuildNotice[]): readonly BuildNotice[] {
+  if (!notices.includes('starts-over')) return notices;
+  return notices.map((notice) => (notice === 'starts-over' ? 'appended-not-replaced' : notice));
+}
+
+/** A notice in the words a person reads, in the panel's language. */
+export function buildNoticeText(notice: BuildNotice, locale: 'ar' | 'en'): string {
+  return BUILD_NOTICE_TEXT[notice][locale];
+}
 
 /** Is any section still being written? The wave's clock lives exactly this long. */
 function stillWorking(tasks: readonly BuildTask[]): boolean {
@@ -124,20 +202,18 @@ export interface BuildReceipt {
   readonly notStarted: number;
 }
 
-/** The kernel refuses a longer grouped-dispatch label, so the orchestrator clips it. */
-const MAX_LABEL_LENGTH = 160;
 const MS_PER_MINUTE = 60_000;
 /** Under this, "left" is worth saying in seconds; over it, minutes read better. */
 const SECONDS_ETA_CEILING_MS = 90_000;
 
-/**
- * The transaction label the orchestrator gave this section's fill. It is the
- * only handle a card has on one step of a build: the kernel's history is keyed
- * by label, so this string is what an Undo has to match.
- */
-export function taskTransactionLabel(position: number, total: number, title: string): string {
-  return `Assistant: ${String(position)}/${String(total)} — ${title}`.slice(0, MAX_LABEL_LENGTH);
-}
+/*
+  `taskTransactionLabel` lived here until 2026-09-28: per-section Undo matched
+  the kernel history by label and undid everything after it. Two builds share
+  labels ("Assistant: 1/8 — Hero"), so an older card unwound the newer page,
+  and the person's own later edits went with it (agent-audit P1-9). A section
+  is now put back FORWARD by `revertBuildSection`, keyed by the transaction id
+  the build recorded — no label is matched anywhere.
+*/
 
 export function initialBuildProgress(runId: string, now: number): BuildProgress {
   return {
@@ -151,6 +227,48 @@ export function initialBuildProgress(runId: string, now: number): BuildProgress 
     // The skeleton is an ordinary applying run, and it is the first thing a
     // person waits on — so it gets the same three rows every run gets.
     run: initialRunProgress('auto', now),
+  };
+}
+
+/**
+ * The ONE question's list, before anything is written.
+ *
+ * The engine asks `onPlanned(planned, direction, plan?)` before the skeleton
+ * lands, and `build.planned` — the event the rows used to come from — follows
+ * only once it has (2026-09-28, P0-4). So the approval card's rows and its
+ * direction are taken from the question itself.
+ *
+ * The rows name no node, because none exists: the id is empty, which the
+ * section list already reads as "nowhere to jump", and `build.planned` replaces
+ * every row with the real ones once the person says Build. The phase stays
+ * `scaffolding`: nothing is planned ON THE PAGE yet.
+ *
+ * A PagePlan build hands over its contracts too; a row takes its contract's
+ * purpose only when the contract in its place carries the same title — a
+ * mismatched purpose would describe a different section than the row names.
+ */
+export function planForApproval(
+  progress: BuildProgress,
+  planned: readonly AiBuildPlannedTask[],
+  direction: string,
+  plan?: PagePlan,
+): BuildProgress {
+  return {
+    ...progress,
+    direction,
+    tasks: planned.map((task, index): BuildTask => {
+      const contract = plan?.sections[index];
+      return {
+        id: '',
+        title: task.title,
+        position: index + 1,
+        status: 'waiting',
+        attempts: 0,
+        ...(contract?.title === task.title && contract.purpose !== ''
+          ? { purpose: contract.purpose }
+          : {}),
+      };
+    }),
   };
 }
 

@@ -21,8 +21,15 @@ import { fillConcurrencyFor, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY } from './run-bu
 
 const NullRender: BlockRenderComponent = () => null;
 
+/** The fixture page declares a title only; the product page also declares `lang`. */
+const TITLE_ONLY_PAGE = z.object({ title: z.string().default('') });
+const PAGE_WITH_LANG = z.object({
+  title: z.string().default(''),
+  lang: z.string().max(12).default(''),
+});
+
 /** Page root plus the one freely composed region type a build ever inserts. */
-const buildBlocks: TrustedExtensionManifest = {
+const buildBlocks = (pageProps: z.ZodObject = TITLE_ONLY_PAGE): TrustedExtensionManifest => ({
   tier: 1,
   name: 'build-fixture',
   version: '0.0.0',
@@ -32,7 +39,7 @@ const buildBlocks: TrustedExtensionManifest = {
         schema: defineBlockSchema({
           type: 'page',
           description: 'The page root.',
-          props: z.object({ title: z.string().default('') }),
+          props: pageProps,
           slots: { default: { allow: ['customCode'] } },
           examples: [],
         }),
@@ -52,24 +59,34 @@ const buildBlocks: TrustedExtensionManifest = {
       },
     ],
   },
-};
+});
 
-function emptyPage(): BuilderDocument {
+function emptyPage(
+  meta: { readonly dir?: 'ltr' | 'rtl'; readonly props?: Record<string, string> } = {},
+): BuilderDocument {
   return {
     schemaVersion: 1,
     surface: 'site',
-    dir: 'ltr',
+    dir: meta.dir ?? 'ltr',
     rootId: 'root',
     nodes: {
-      root: { id: 'root', type: 'page', props: { title: 'Home' }, slots: { default: [] } },
+      root: {
+        id: 'root',
+        type: 'page',
+        props: { title: 'Home', ...meta.props },
+        slots: { default: [] },
+      },
     },
-  } as unknown as BuilderDocument;
+  };
 }
 
-function kernel(): BuilderKernel {
+function kernel(
+  manifest: TrustedExtensionManifest = buildBlocks(),
+  document: BuilderDocument = emptyPage(),
+): BuilderKernel {
   return createBuilder({
-    document: emptyPage(),
-    extensions: [buildBlocks],
+    document,
+    extensions: [manifest],
     ports: { clock: fixedClock(1), ids: seededIds('build') },
   });
 }
@@ -78,15 +95,19 @@ function ports(seed: string) {
   return { clock: fixedClock(1), ids: seededIds(seed) };
 }
 
-/** A placeholder region: what the scaffold inserts, before any fill. */
-function placeholder(title: string): CustomCodeRoot {
+/**
+ * A placeholder region: what the scaffold inserts, before any fill. The
+ * scaffold marks roles in it — the opening region's heading is the page's h1,
+ * site chrome is a header or footer — and the build reads them back.
+ */
+function placeholder(title: string, shape: PlaceholderShape = {}): CustomCodeRoot {
   return {
     kind: 'root',
     children: [
       {
         kind: 'element',
-        tag: 'section',
-        children: [{ kind: 'element', tag: 'h2', text: title, children: [] }],
+        tag: shape.outer ?? 'section',
+        children: [{ kind: 'element', tag: shape.heading ?? 'h2', text: title, children: [] }],
       },
     ],
   };
@@ -112,9 +133,12 @@ function filled(title: string): CustomCodeRoot {
 const DIRECTION =
   'A calm studio page for solo founders. Palette bg-white text-slate-900 border-slate-200. Faces Inter and Inter. Signature a hairline rule. 1 Hero · 2 Proof · 3 Pricing.';
 
-const DIRECTION_FIRST_SENTENCE = 'A calm studio page for solo founders.';
+interface PlaceholderShape {
+  readonly outer?: 'section' | 'header' | 'footer';
+  readonly heading?: 'h1' | 'h2';
+}
 
-interface Section {
+interface Section extends PlaceholderShape {
   title: string;
   /** Insertion index, so patch order and document order can be made to differ. */
   index: number;
@@ -129,7 +153,7 @@ function scaffoldPlan(sections: readonly Section[], rationale = DIRECTION): AiPl
         type: 'customCode',
         parentId: 'root',
         index: section.index,
-        props: { label: section.title, tree: placeholder(section.title) },
+        props: { label: section.title, tree: placeholder(section.title, section) },
       },
     })),
   };
@@ -353,7 +377,8 @@ describe('runAiBuild', () => {
     const nodes = third?.context.document.nodes ?? [];
     const inHand = nodes.find((node) => node.id === 'build-0001');
     const others = nodes.filter((node) => node.type === 'customCode' && node.id !== 'build-0001');
-    expect(String(inHand?.props['tree'])).toMatch(/^<section/u);
+    const inHandTree = inHand?.props['tree'];
+    expect(typeof inHandTree === 'string' ? inHandTree : '').toMatch(/^<section/u);
     expect(others).toHaveLength(2);
     expect(
       others.every((node) => {
@@ -412,17 +437,21 @@ describe('runAiBuild', () => {
     ]);
 
     /*
-      The second attempt is a SHORTER brief: one sentence of direction, the
-      title. Selected by REGION, not by position — sections are written
-      concurrently, so Hero's retry is not the call after Hero's first try.
+      The second attempt is a SHORTER brief, but never a blinder one: the whole
+      direction (the palette and faces live there — the first sentence alone
+      lost them), the section's position and ROLE, and no original request.
+      Selected by REGION, not by position — sections are written concurrently,
+      so Hero's retry is not the call after Hero's first try.
     */
     const [firstTry, secondTry] = calls.filter(
       (call) => call.context.selection.ids[0] === 'build-0002',
     );
     expect(firstTry?.request).toContain(DIRECTION);
-    expect(secondTry?.request).toContain(DIRECTION_FIRST_SENTENCE);
-    expect(secondTry?.request).not.toContain(DIRECTION);
-    expect(secondTry?.request).toContain('Hero');
+    expect(secondTry?.request).toContain(DIRECTION);
+    expect(secondTry?.request).toContain('SECTION 1 OF 3: Hero');
+    // No placeholder holds an h1 here, so the first region that is not chrome opens the page.
+    expect(secondTry?.request).toMatch(/^ROLE: HERO\b/mu);
+    expect(secondTry?.request).not.toContain('THE ORIGINAL REQUEST');
     expect((secondTry?.request.length ?? 0) < (firstTry?.request.length ?? 0)).toBe(true);
 
     // Four starts for three sections: Hero is started twice. Completions still
@@ -544,7 +573,17 @@ describe('runAiBuild', () => {
     ]);
   });
 
-  it('stops after the running section when the caller aborts, leaving applied work applied', async () => {
+  /*
+    REWRITTEN 2026-09-28 (agent-audit.md P0-3). This test used to be "stops
+    after the running section when the caller aborts, leaving applied work
+    applied": it pinned Hero landing AFTER `build.stopped`, under the comment
+    "work in flight is never thrown away". That was the defect the owner
+    reported — sections kept landing after Stop (measured: all five in flight,
+    up to 1.7 s later). The contract now: the caller's signal aborts the
+    section in flight, nothing lands after Stop, and the section is reported
+    as never landed with the one attempt it was cut off in.
+  */
+  it('lands nothing after the caller aborts, not even the section being written', async () => {
     const live = kernel();
     const events: AiBuildEvent[] = [];
     const controller = new AbortController();
@@ -571,33 +610,25 @@ describe('runAiBuild', () => {
     });
 
     expect(result.outcome).toBe('signal');
-    expect(result.applied).toBe(1);
-    expect(result.tasks.map(({ status }) => status)).toEqual([
-      'applied',
-      'not-started',
-      'not-started',
+    expect(result.applied).toBe(0);
+    expect(result.tasks.map(({ status, attempts }) => `${status}:${String(attempts)}`)).toEqual([
+      'not-started:1',
+      'not-started:0',
+      'not-started:0',
     ]);
-    expect(live.transactions().map(({ command }) => command)).toEqual([
-      'Assistant: page skeleton',
-      'Assistant: 1/3 — Hero',
-    ]);
-    expect(JSON.stringify(live.getDocument().nodes['build-0002']?.props['tree'])).toContain(
+    expect(result.tasks[0]?.reason).toMatch(/stopped while this section was being written/u);
+    expect(live.transactions().map(({ command }) => command)).toEqual(['Assistant: page skeleton']);
+    expect(JSON.stringify(live.getDocument().nodes['build-0002']?.props['tree'])).not.toContain(
       'Body copy',
     );
+    // Every section still holds its placeholder, and the result says which.
+    expect(result.unfilled?.map(({ title }) => title)).toEqual([...DOCUMENT_ORDER]);
     const own = buildEvents(events);
-    /*
-      `build.stopped` lands BEFORE the section it interrupted, and that is the
-      honest order: it means "no further section will be STARTED", which the
-      writers learn the instant the signal trips — while the one already in
-      flight is still being written. Work in flight is never thrown away, so
-      its completion follows the stop.
-    */
     expect(own.map(({ type }) => type)).toEqual([
       'build.scaffolding',
       'build.planned',
       'task.started',
       'build.stopped',
-      'task.completed',
       'build.completed',
     ]);
     expect(own.find((event) => event.type === 'build.stopped')).toMatchObject({ reason: 'signal' });
@@ -1000,7 +1031,7 @@ describe('a scaffold that fails costs nothing', () => {
 });
 
 describe('the one approval', () => {
-  it('asks once, after the skeleton and before any section, and builds when told to', async () => {
+  it('asks once, before the skeleton lands and before any section, and builds when told to', async () => {
     const live = kernel();
     const asked: { tasks: number; direction: string }[] = [];
     const { provider, calls } = recordingProvider((call, index) =>
@@ -1017,11 +1048,12 @@ describe('the one approval', () => {
       request: 'A studio page',
       validationPorts: ports('build-approved'),
       skillRegistry: createCraftkitAiSkillRegistry(),
-      onPlanned: (tasks, direction) => {
-        // Asked after the skeleton is already down: the person approves a list
-        // they can see, not a promise.
-        asked.push({ tasks: tasks.length, direction });
+      onPlanned: (planned, direction) => {
+        // Asked once the skeleton is PROPOSED and before it is written: the
+        // person approves the list of sections, and nothing is on the page yet.
+        asked.push({ tasks: planned.length, direction });
         expect(calls).toHaveLength(1);
+        expect(live.transactions()).toHaveLength(0);
         return 'build';
       },
     });
@@ -1030,10 +1062,20 @@ describe('the one approval', () => {
     expect(asked[0]?.tasks).toBe(THREE.length);
     expect(asked[0]?.direction).toBe(DIRECTION);
     expect(result.applied).toBe(THREE.length);
+    expect(live.transactions()[0]?.command).toBe('Assistant: page skeleton');
   });
 
-  it('stops on refusal with the skeleton kept and every section not-started', async () => {
+  /*
+    REWRITTEN 2026-09-28 (agent-audit.md P0-4). This test used to be "stops on
+    refusal with the skeleton kept and every section not-started": the skeleton
+    was applied BEFORE the question, so refusing left 3-12 empty bands on the
+    page — Ask mode had written without asking. A refusal now writes nothing at
+    all, and the refused list comes back as `plannedTasks` (no ids: no node
+    was ever created).
+  */
+  it('writes nothing on refusal — not even the skeleton', async () => {
     const live = kernel();
+    const before = structuredClone(live.getDocument());
     const { provider, calls } = recordingProvider(() => Promise.resolve(scaffoldPlan(THREE)));
 
     const result = await runAiBuild({
@@ -1047,12 +1089,14 @@ describe('the one approval', () => {
       onPlanned: () => 'stop',
     });
 
-    // The skeleton ran; no section did.
+    // The skeleton was proposed; nothing was written and no section ran.
     expect(calls).toHaveLength(1);
+    expect(result.outcome).toBe('signal');
     expect(result.applied).toBe(0);
-    expect(result.tasks.every(({ status }) => status === 'not-started')).toBe(true);
-    // And the skeleton stays — it is an ordinary transaction a person can undo.
-    expect(live.transactions()).toHaveLength(1);
+    expect(result.tasks).toEqual([]);
+    expect(result.plannedTasks?.map(({ title }) => title)).toEqual(THREE.map(({ title }) => title));
+    expect(live.transactions()).toHaveLength(0);
+    expect(live.getDocument()).toEqual(before);
   });
 
   it('runs straight through when nothing is asked', async () => {
@@ -1146,6 +1190,92 @@ describe('runAiBuild — an Arabic page reads right to left', () => {
     expect(live.transactions().map(({ command }) => command)).toContain(
       'Assistant: right-to-left page',
     );
+    // This fixture's page declares no `lang`: the turn still happens, the build still completes.
+    expect(live.getDocument().nodes['root']?.props['lang']).toBeUndefined();
+  });
+
+  /*
+    dir alone left every built Arabic page with lang '' — the page renders no
+    lang attribute, screen readers read the Arabic in the host's voice, and
+    :lang(ar) rules never match. The manual asks for both, the skeleton is told
+    the build sets both, so the build does: one step, one undo.
+  */
+  it('sets the page language too, in the same step, when the page block has a lang prop', async () => {
+    const live = kernel(buildBlocks(PAGE_WITH_LANG));
+    const { provider } = recordingProvider((call, index) => {
+      if (index === 0) return Promise.resolve(scaffoldPlan(ARABIC, 'مقهى في عمّان.'));
+      return Promise.resolve(fillPlan(scopedRegionId(call), 'قسم'));
+    });
+
+    const result = await runAiBuild({
+      runId: 'build-rtl-lang',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'صفحة هبوط لمقهى',
+      validationPorts: ports('rtl-lang'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    expect(result.applied).toBe(ARABIC.length);
+    expect(live.getDocument().dir).toBe('rtl');
+    expect(live.getDocument().nodes['root']?.props['lang']).toBe('ar');
+    expect(
+      live.transactions().filter(({ command }) => command === 'Assistant: right-to-left page'),
+    ).toHaveLength(1);
+  });
+
+  it('never trades the direction for the language: a refused lang still turns the page', async () => {
+    // A root whose `lang` refuses 'ar' makes the paired step fail as a whole.
+    const live = kernel(
+      buildBlocks(
+        z.object({ title: z.string().default(''), lang: z.enum(['', 'en']).default('') }),
+      ),
+    );
+    const { provider } = recordingProvider((call, index) => {
+      if (index === 0) return Promise.resolve(scaffoldPlan(ARABIC, 'مقهى في عمّان.'));
+      return Promise.resolve(fillPlan(scopedRegionId(call), 'قسم'));
+    });
+
+    const result = await runAiBuild({
+      runId: 'build-rtl-lang-refused',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'صفحة هبوط لمقهى',
+      validationPorts: ports('rtl-lang-refused'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    expect(result.applied).toBe(ARABIC.length);
+    expect(live.getDocument().dir).toBe('rtl');
+    expect(live.getDocument().nodes['root']?.props['lang']).toBeUndefined();
+  });
+
+  it('keeps a direction and a language the page already has', async () => {
+    const live = kernel(
+      buildBlocks(PAGE_WITH_LANG),
+      emptyPage({ dir: 'rtl', props: { lang: 'ar-JO' } }),
+    );
+    const { provider } = recordingProvider((call, index) => {
+      if (index === 0) return Promise.resolve(scaffoldPlan(ARABIC, 'مقهى في عمّان.'));
+      return Promise.resolve(fillPlan(scopedRegionId(call), 'قسم'));
+    });
+
+    await runAiBuild({
+      runId: 'build-rtl-kept',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'صفحة هبوط لمقهى',
+      validationPorts: ports('rtl-kept'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    expect(live.getDocument().nodes['root']?.props['lang']).toBe('ar-JO');
+    expect(live.transactions().map(({ command }) => command)).not.toContain(
+      'Assistant: right-to-left page',
+    );
   });
 
   it('leaves a page in English left to right', async () => {
@@ -1169,5 +1299,101 @@ describe('runAiBuild — an Arabic page reads right to left', () => {
     expect(live.transactions().map(({ command }) => command)).not.toContain(
       'Assistant: right-to-left page',
     );
+  });
+});
+
+describe('runAiBuild — every fill is told its position and its ROLE', () => {
+  /*
+    The hero shell used to key on the literal "SECTION 1": the retry request
+    never carried it, so a hero that failed once came back with an h2 and no
+    page h1 — and a nav-first page put the navbar at section 1. The role is now
+    read from the skeleton itself (the opening region's h1, a chrome region's
+    header or footer tag), and the first try and the retry both carry it.
+  */
+  const NAV_FIRST = [
+    { title: 'Navigation Bar', index: 0, outer: 'header' },
+    { title: 'Hero', index: 1, heading: 'h1' },
+    { title: 'Pricing', index: 2 },
+    { title: 'Site Footer', index: 3, outer: 'footer' },
+  ] as const;
+
+  function requestsFor(calls: readonly ProviderCall[], id: string): string[] {
+    return calls
+      .filter((call) => call.context.selection.ids[0] === id)
+      .map(({ request }) => request);
+  }
+
+  it('gives the hero role to the region holding the h1, on the first try and on the retry', async () => {
+    const live = kernel();
+    let heroAttempts = 0;
+    const { provider, calls } = recordingProvider((call, index) => {
+      if (index === 0) return Promise.resolve(scaffoldPlan(NAV_FIRST));
+      const region = scopedRegionId(call);
+      if (region === 'build-0002') {
+        heroAttempts += 1;
+        if (heroAttempts === 1) return Promise.reject(new Error('The hero ran long.'));
+      }
+      return Promise.resolve(fillPlan(region, 'Section'));
+    });
+
+    const result = await runAiBuild({
+      runId: 'build-roles',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'A landing page with a navbar, hero, pricing and footer',
+      validationPorts: ports('roles'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    expect(result.applied).toBe(NAV_FIRST.length);
+    const [nav] = requestsFor(calls, 'build-0001');
+    const heroTries = requestsFor(calls, 'build-0002');
+    const [pricing] = requestsFor(calls, 'build-0003');
+    const [footer] = requestsFor(calls, 'build-0004');
+
+    expect(nav).toContain('SECTION 1 OF 4: Navigation Bar');
+    expect(nav).toMatch(/^ROLE: CHROME\b/mu);
+    expect(heroTries).toHaveLength(2);
+    for (const hero of heroTries) {
+      expect(hero).toContain('SECTION 2 OF 4: Hero');
+      expect(hero).toMatch(/^ROLE: HERO\b/mu);
+    }
+    expect(pricing).toMatch(/^ROLE: BAND\b/mu);
+    expect(footer).toMatch(/^ROLE: CHROME\b/mu);
+    // One region opens the page: only the hero's two tries were told so.
+    expect(calls.filter(({ request }) => /^ROLE: HERO\b/mu.test(request))).toHaveLength(2);
+  });
+
+  it('keeps the whole direction on a retry, cutting only an overlong one at a sentence end', async () => {
+    const live = kernel();
+    const palette = 'Palette bg-stone-50 text-stone-900 amber-700.';
+    const long = `Warm café page. ${palette} ${'A sentence that only pads the brief. '.repeat(20)}TAIL MARKER.`;
+    let heroAttempts = 0;
+    const { provider, calls } = recordingProvider((call, index) => {
+      if (index === 0) return Promise.resolve(scaffoldPlan(THREE, long));
+      const region = scopedRegionId(call);
+      if (region === 'build-0002') {
+        heroAttempts += 1;
+        if (heroAttempts === 1) return Promise.reject(new Error('The hero ran long.'));
+      }
+      return Promise.resolve(fillPlan(region, 'Section'));
+    });
+
+    await runAiBuild({
+      runId: 'build-long-direction',
+      clock: fixedClock(1000),
+      kernel: live,
+      provider,
+      request: 'A café page',
+      validationPorts: ports('long-direction'),
+      skillRegistry: createCraftkitAiSkillRegistry(),
+    });
+
+    const [first, retry] = requestsFor(calls, 'build-0002');
+    expect(first).toContain('TAIL MARKER');
+    expect(retry).toContain(palette);
+    expect(retry).not.toContain('TAIL MARKER');
+    expect(retry).toMatch(/pads the brief\.\n/u);
   });
 });

@@ -18,15 +18,22 @@ const ALWAYS_SKILL_ID = 'craftkit.craft-manual';
  * inserting in the same plan cannot be repaired into a correct guess — the
  * kernel mints that id after the plan is written — so the rule has to arrive
  * before the plan does, on every request, not as a hint after a rejection.
+ *
+ * Raised 1,450 → 1,560 for the colour legend, for the same reason: every
+ * recipe now writes its accent as the {accent} slot, and a slot defined only
+ * in the skills that happen to be active is a class the model guesses.
  */
-const ALWAYS_INSTRUCTION_BYTE_LIMIT = 1_450;
+const ALWAYS_INSTRUCTION_BYTE_LIMIT = 1_560;
 /**
  * Floor + any single auto skill (with its dependency closure) must stay well
  * under 16k. Raised 2,500 → 2,650 when the floor gained the id rule: the floor
  * is charged to every skill's total here, so a rule that had to be
  * unconditional lifts every row by the same ~60 tokens.
+ *
+ * Raised 2,650 → 2,800 for the one colour rule (+~90 in the floor) and the
+ * personal-facts exception in copywriting, which every archetype depends on.
  */
-const SINGLE_SKILL_TOKEN_CEILING = 2_650;
+const SINGLE_SKILL_TOKEN_CEILING = 2_800;
 /**
  * A single-archetype request must not stack more than this many auto skills.
  *
@@ -48,6 +55,15 @@ function utf8ByteLength(text: string): number {
     else bytes += 4;
   }
   return bytes;
+}
+
+function skillText(definition: (typeof CRAFTKIT_AI_SKILL_DEFINITIONS)[number]): string {
+  return [definition.instructions, ...Object.values(definition.references ?? {})].join('\n');
+}
+
+/** Lines, then sentences: the unit a qualifier ("site theme", a host) must share with its claim. */
+function sentences(text: string): readonly string[] {
+  return text.split(/\n|(?<=\.)\s+/u).filter((sentence) => sentence.trim() !== '');
 }
 
 describe('Craftkit built-in AI skills', () => {
@@ -83,20 +99,31 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.arabic-rtl',
       'craftkit.build-fill',
       'craftkit.build-scaffold',
+      // Industry page types (2026-09-28): each replaces page-composition for its trade.
+      'craftkit.clinic-page',
       'craftkit.conversion-recipes',
       'craftkit.copywriting',
       'craftkit.craft-manual',
       'craftkit.cv-page',
       'craftkit.design-direction',
       'craftkit.design-tokens',
+      // Explicit, for the skeleton pass only: the look decided from a checked menu.
+      'craftkit.direction-deck',
+      'craftkit.menu-page',
       'craftkit.motion',
       'craftkit.occasion-page',
       'craftkit.page-composition',
+      // Explicit, beside the photo-catalog context provider.
+      'craftkit.photo-direction',
       // Plan mode: explicit-only, and the only built-in whose command
       // restriction is the EMPTY set.
       'craftkit.plan-mode',
       'craftkit.precise-edit',
+      'craftkit.property-page',
       'craftkit.scroll-cinematic',
+      // Explicit, for every section writer: the named layouts the direction cites.
+      'craftkit.section-variants',
+      'craftkit.shop-page',
       'craftkit.structure-recipes',
       'craftkit.ui-ux-pro',
       'craftkit.visual-direction',
@@ -152,7 +179,13 @@ describe('Craftkit built-in AI skills', () => {
         ],
       },
       {
-        request: 'Build a landing page for my bakery',
+        /*
+          Was "…for my bakery" until 2026-09-28, when a bakery became the menu
+          page's trade (page-power.test.ts pins that row, page-composition
+          omitted as a conflict). This row keeps testing what it always did:
+          an English whole-page request with no trade gets the generic page.
+        */
+        request: 'Build a landing page for my consulting firm',
         language: 'en',
         auto: ['craftkit.copywriting', 'craftkit.visual-direction', 'craftkit.page-composition'],
       },
@@ -219,10 +252,45 @@ describe('Craftkit built-in AI skills', () => {
         copywriting + visual-direction + archetype + language = 3,052 tokens,
         against a 16,000 default budget. It is a ceiling on ONE request's
         expertise, not on the budget.
+
+        Raised 3,200 → 3,400 when the floor gained the colour legend and
+        copywriting the personal-facts exception: the Arabic CV row is 3,319.
       */
-      expect(prepared.totalTokens).toBeLessThanOrEqual(3_200);
+      expect(prepared.totalTokens).toBeLessThanOrEqual(3_400);
       expect(prepared.effectiveCommandRestriction).toBeUndefined();
     });
+  });
+
+  /*
+    Keywords are trimmed when a skill is defined, so occasion-page's 'eid ' and
+    'عيد ' — written with a trailing space to mean a whole word — matched as
+    "eid" and "عيد": inside "سعيد" (a name on every other Arabic shop sign)
+    and "بعيد". Measured 2026-09-28: a contractor's page named for its owner
+    loaded the invitation archetype.
+  */
+  it('never reads an occasion into a business named for its owner', () => {
+    for (const request of [
+      'صفحة لشركة سعيد للمقاولات',
+      'موقع لمكتب أبو سعيد',
+      'a page for Reid & Sons',
+    ]) {
+      const ids = createCraftkitAiSkillRegistry()
+        .prepare({ request, auto: true })
+        .active.map(({ id }) => id);
+      expect({ request, occasion: ids.includes('craftkit.occasion-page') }).toEqual({
+        request,
+        occasion: false,
+      });
+    }
+    for (const request of ['بطاقة عيد الفطر', 'Eid Mubarak greeting page', 'صفحة عيد الأضحى']) {
+      const ids = createCraftkitAiSkillRegistry()
+        .prepare({ request, auto: true })
+        .active.map(({ id }) => id);
+      expect({ request, occasion: ids.includes('craftkit.occasion-page') }).toEqual({
+        request,
+        occasion: true,
+      });
+    }
   });
 
   it('prefers the CV archetype when a request names both page archetypes', () => {
@@ -248,8 +316,13 @@ describe('Craftkit built-in AI skills', () => {
     });
 
     expect(prepared.active.map(({ id }) => id)).toEqual(['craftkit.precise-edit', ALWAYS_SKILL_ID]);
+    /*
+      page-composition used to be listed here as omitted for a conflict. Since
+      2026-09-28 it serves only page and site asks (activation.intents), and
+      "Change the pricing section title…" routes to an edit, so it never
+      matches at all; the section recipe still matches and is still refused.
+    */
     expect(prepared.omitted.map(({ id, code }) => `${id}:${code}`)).toEqual([
-      'craftkit.page-composition:conflict',
       'craftkit.conversion-recipes:conflict',
     ]);
     expect(prepared.effectiveCommandRestriction).toEqual([
@@ -341,10 +414,6 @@ describe('Craftkit built-in AI skills', () => {
       'byte-identical',
     ]);
 
-    function skillText(definition: (typeof CRAFTKIT_AI_SKILL_DEFINITIONS)[number]): string {
-      return [definition.instructions, ...Object.values(definition.references ?? {})].join('\n');
-    }
-
     it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
       '%s names only utilities the door admits',
       (_id, definition) => {
@@ -407,9 +476,274 @@ describe('Craftkit built-in AI skills', () => {
             stale.push(named);
           }
         }
+        // The list form of the same claim: "no absent utilities (hover:shadow, py-24, …)".
+        for (const match of skillText(definition).matchAll(/\babsent\b[^(\n]*\(([^)]*)\)/gu)) {
+          for (const item of (match[1] ?? '').split(/,\s*/u)) {
+            const named = item
+              .replace(/^bare\s+/u, '')
+              .replace(/[*.]+$/u, '')
+              .trim();
+            if (named !== '' && [...vocabulary].some((name) => name.startsWith(named))) {
+              stale.push(named);
+            }
+          }
+        }
         expect(stale).toEqual([]);
       },
     );
+
+    /*
+      The same staleness in the other phrasing. Measured 2026-09-28: the checks
+      references rode through every rewrite untouched, so motion told the model
+      "no group class, no hover:shadow-*" beside instructions that prescribe
+      both. A skill that forbids a class it also prescribes contradicts itself
+      whatever the wording. Only class-shaped names count — an exact vocabulary
+      entry, or a `-*` family — so "never animate layout" stays prose.
+    */
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      '%s never forbids a class it also prescribes',
+      (_id, definition) => {
+        const vocabulary = utilityVocabulary();
+        const text = skillText(definition);
+        const forbidden: { readonly name: string; readonly family: boolean }[] = [];
+        for (const match of text.matchAll(/\b(?:no|never)\s+([a-z][a-z0-9:/_*.-]*)/gu)) {
+          // "no uppercase/tracking" is prose over two words; "bg-black/60" is one class.
+          const raw = (match[1] ?? '').replace(/[.,:;]+$/u, '');
+          const family = raw.endsWith('-*');
+          const name = raw.replace(/[*-]+$/u, '');
+          if (
+            family ? [...vocabulary].some((entry) => entry.startsWith(name)) : vocabulary.has(name)
+          ) {
+            forbidden.push({ name, family });
+          }
+        }
+        const contradictions = new Set<string>();
+        for (const token of text.matchAll(/[^\s"'`<>(),;{}]+/gu)) {
+          const written = token[0].replace(/[.:,;]+$/u, '');
+          if (!vocabulary.has(written)) continue;
+          const before = text.slice(Math.max(0, token.index - 7), token.index);
+          if (/\b(?:no|never)\s+$/u.test(before)) continue;
+          for (const { name, family } of forbidden) {
+            if (family ? written.startsWith(name) : written === name) contradictions.add(name);
+          }
+        }
+        expect([...contradictions]).toEqual([]);
+      },
+    );
+
+    /*
+      A font rule is a claim about the door too. arabic-rtl said "@import is
+      refused" for months after the door began admitting the two font hosts,
+      so an Arabic page named Cairo in its direction and never loaded it.
+    */
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      '%s never calls the allowed font import refused',
+      (_id, definition) => {
+        const stale = sentences(skillText(definition)).filter(
+          (sentence) =>
+            /@import[^.]*\brefused\b/u.test(sentence) && !sentence.includes('fonts.googleapis.com'),
+        );
+        expect(stale).toEqual([]);
+      },
+    );
+  });
+
+  describe('one voice across skills that share a prompt', () => {
+    /*
+      Measured 2026-09-28: build-fill banned bg-accent while the craft manual,
+      page-composition and the conversion recipes — all in the same fill prompt
+      — spelled it as the exact recipe, and a coffee page shipped an indigo
+      pricing ring. A role class carries the SITE theme, so a skill names one
+      only in the sentence that says so; every recipe writes the `{accent}`
+      slot the page's own palette fills.
+    */
+    const ACCENT_ROLE =
+      /(?<![\w{-])(?:[a-z]+:)?(?:bg|text|border|ring|from|via|to|outline|shadow)-accent(?:-text)?(?![\w-])|var\(--t-accent\)/u;
+
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      '%s names an accent role only where it says the site theme',
+      (_id, definition) => {
+        const unqualified = sentences(skillText(definition)).filter(
+          (sentence) => ACCENT_ROLE.test(sentence) && !/site theme/iu.test(sentence),
+        );
+        expect(unqualified).toEqual([]);
+      },
+    );
+
+    /*
+      copywriting said "never brackets" while cv-page and occasion-page, which
+      depend on it, said "[your email]" — for the same facts, in the same
+      prompt. The rule is one sentence now: a business's facts are realistic
+      samples, a PERSON's own facts are never invented. Every skill that shows
+      a bracket states that exception in those words.
+    */
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      "%s ties every bracketed placeholder to a person's own facts",
+      (_id, definition) => {
+        const text = skillText(definition);
+        if (!/"\[[^\]]+\]"/u.test(text)) return;
+        expect(text).toMatch(/person['’]s own facts/iu);
+      },
+    );
+
+    /*
+      The markup is written with single-quoted attributes (the JSON string then
+      needs no escaping), so an example in double quotes teaches the spelling
+      the model is told not to use.
+    */
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      '%s shows markup attributes in single quotes',
+      (_id, definition) => {
+        const doubleQuoted = [
+          ...skillText(definition).matchAll(
+            /\b(?:alt|aria-hidden|aria-label|class|datetime|href|id|role|src|target|title)="/gu,
+          ),
+        ].map((match) => match[0]);
+        expect(doubleQuoted).toEqual([]);
+      },
+    );
+
+    const registry = createCraftkitAiSkillRegistry();
+
+    /*
+      The measured monoculture, 2026-09-28: 5 of 9 recorded skeletons put a
+      glow or circle behind the headline, and the skills themselves prescribed
+      it — design-direction D "one glow", motion GLOW, visual-direction "one
+      ambient glow" — beside a violet-to-indigo gradient every published
+      design guide (frontend-design, v0, taste-skill) names as the AI default.
+    */
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      '%s prescribes none of the AI-default decorations',
+      (_id, definition) => {
+        const text = skillText(definition);
+        expect(text).not.toMatch(/from-violet-\d+ to-indigo/u);
+        expect(text).not.toMatch(/blur-3xl/u);
+        expect(text).not.toMatch(/ambient glow|one glow|GLOW:/u);
+        expect(text).not.toMatch(/(?:grids? hold|cards?\.?\s*Grid[^.]*;) 3 or 6/u);
+      },
+    );
+
+    /*
+      border-2 was a workaround from before the vocabulary admitted `border`;
+      every card, row and chip in Tailark and HyperUI is a hairline. Measured
+      2026-09-28: fourteen skill recipes still drew a 2px slate outline.
+    */
+    it.each(CRAFTKIT_AI_SKILL_DEFINITIONS.map((definition) => [definition.id, definition]))(
+      '%s draws surfaces with hairlines, not 2px outlines',
+      (_id, definition) => {
+        expect(skillText(definition)).not.toMatch(
+          /border-2 border-(?:slate|stone)-\d+|border-[tb]-2\b/u,
+        );
+      },
+    );
+
+    it('names five AI defaults, the SaaS kit and the template chrome among them', () => {
+      const taste = registry.readSkill('craftkit.visual-direction');
+      expect(taste).toContain('FIVE DEFAULTS');
+      expect(taste).toMatch(/\(4\)[^(]*identical cards/u);
+      expect(taste).toMatch(/\(5\)[^(]*eyebrow/u);
+      expect(taste).toMatch(/never a glow, blob or gradient circle/iu);
+    });
+
+    /*
+      The always-on floor's slot example was "bg-{accent} → bg-amber-700": the
+      one hue every request saw, and the one 9 of 9 recorded skeletons chose
+      (page-power verifier, 2026-09-28). An example is still a suggestion.
+    */
+    it('gives the floor a slot example outside the measured amber monoculture', () => {
+      const floor = registry.readSkill(ALWAYS_SKILL_ID);
+      expect(floor).toMatch(/bg-\{accent\} → bg-[a-z]+-\d{3}/u);
+      expect(floor).not.toMatch(/bg-\{accent\} → bg-(?:amber|orange|yellow)-/u);
+    });
+
+    it('balances headings and pretties lead paragraphs in the page recipes', () => {
+      for (const id of ['craftkit.page-composition', 'craftkit.section-variants']) {
+        const text = registry.readSkill(id);
+        expect(text).toContain('text-balance');
+        expect(text).toContain('text-pretty');
+      }
+      expect(registry.readSkill('craftkit.page-composition')).toMatch(/lead item/u);
+    });
+
+    it('gives a sample testimonial an initials monogram, never a stock face', () => {
+      const recipes = registry.readSkill('craftkit.conversion-recipes');
+      expect(recipes).toMatch(/TESTIMONIAL:[^\n]*monogram/u);
+      expect(recipes).not.toMatch(/TESTIMONIAL:[^\n]*\bimg\b/u);
+      expect(registry.readSkill('craftkit.structure-recipes')).toMatch(/TEAM:[^\n]*initials/u);
+    });
+
+    /*
+      Local conversion is a conversation: wa.me, tel:, a maps search, hours.
+      And the Arabic filler the model reaches for when it has nothing to say
+      («حلول متكاملة», «تجربة فريدة من نوعها») is named, as taste-skill names
+      "elevate / seamless / unleash" for English.
+    */
+    it('writes local actions and refuses the filler phrases in both languages', () => {
+      const copy = registry.readSkill('craftkit.copywriting');
+      for (const phrase of [
+        'wa.me',
+        'tel:',
+        'maps',
+        '«حلول متكاملة»',
+        '«تجربة فريدة من نوعها»',
+        'seamless',
+      ]) {
+        expect(copy).toContain(phrase);
+      }
+      expect(copy).toMatch(/"Get started"/u);
+    });
+
+    it('ends the font monoculture: the direction names the Arabic pair, with its two rendering rules', () => {
+      const rtl = registry.readSkill('craftkit.arabic-rtl');
+      expect(rtl).toMatch(/pair the direction names/u);
+      for (const face of ['Changa', 'Lemonada', 'Reem Kufi', 'Markazi Text', 'Beiruti', 'Amiri']) {
+        expect(rtl).toContain(face);
+      }
+      expect(registry.readSkill('craftkit.visual-direction')).toMatch(/pair the direction names/u);
+    });
+
+    it('lets the motion checks allow what the motion recipes use', () => {
+      const motion = CRAFTKIT_AI_SKILL_DEFINITIONS.find(({ id }) => id === 'craftkit.motion');
+      const checks = Object.values(motion?.references ?? {}).join('\n');
+      expect(checks).toContain('group-hover');
+      expect(checks).not.toMatch(/no group\b|no hover:shadow/u);
+    });
+
+    it('carries the section variant from the skeleton to the section writer', () => {
+      expect(registry.readSkill('craftkit.build-scaffold')).toMatch(/Hero\[split\]/u);
+      expect(registry.readSkill('craftkit.build-fill')).toMatch(/Menu\[menu\]/u);
+    });
+
+    it('keys the hero shell to the ROLE a build states, never to a section number', () => {
+      /*
+        The retry request carries no "SECTION 1", and a nav-first page puts the
+        navbar there — so a shell keyed to the number gave the hero an h2 on a
+        retry and the navbar the page's h1.
+      */
+      const fill = registry.readSkill('craftkit.build-fill');
+      const scaffold = registry.readSkill('craftkit.build-scaffold');
+
+      expect(fill).not.toMatch(/SECTION 1\b/u);
+      expect(fill).toContain('ROLE');
+      // The scaffold marks the roles the build reads back: the opening h1, chrome tags.
+      expect(scaffold).toContain('h1');
+      expect(scaffold).toContain('footer');
+    });
+
+    it('agrees with the manual on direction and language: a build sets both itself', () => {
+      const scaffold = registry.readSkill('craftkit.build-scaffold');
+      const manual = registry.readSkill('craftkit.craft-manual');
+
+      expect(scaffold).not.toContain('setDocMeta beyond direction');
+      expect(scaffold).toContain('the build sets');
+      expect(manual).toContain("lang 'ar'");
+      expect(manual).toContain('build sets both');
+    });
+
+    it('restyles an existing region with editTree, as the markup rules say', () => {
+      expect(registry.readSkill('craftkit.design-direction')).toContain('editTree');
+      expect(registry.readSkill('craftkit.design-direction')).not.toContain('setProp of tree');
+    });
   });
 });
 

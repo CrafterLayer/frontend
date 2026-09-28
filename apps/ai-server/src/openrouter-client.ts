@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 
-import { parsesAsJson, salvageJson } from './json-salvage';
+import { parsesAsJson, unwrapJson } from './json-salvage';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
 
 /**
@@ -43,6 +43,17 @@ export const OPENROUTER_EFFORT_LEVELS = [
 ] as const;
 export type OpenRouterEffort = (typeof OPENROUTER_EFFORT_LEVELS)[number];
 export const CRAFTKIT_REASONING_EFFORT_HEADER = 'x-craftkit-internal-reasoning-effort';
+
+/**
+ * A requested budget in OpenRouter's terms. `max` — the top of the scale
+ * `claude.ts` and the CLI speak — has no OpenRouter name; it asks for the
+ * top OpenRouter has rather than falling back to the backend default, which
+ * would quietly be the opposite of what was asked.
+ */
+function openRouterEffort(requested: unknown): OpenRouterEffort | undefined {
+  if (requested === 'max') return 'xhigh';
+  return OPENROUTER_EFFORT_LEVELS.find((level) => level === requested);
+}
 
 /** What OpenRouter says about one slug, asked once at startup. */
 export interface OpenRouterModelFacts {
@@ -92,7 +103,11 @@ interface StreamParams {
     readonly cache_control?: unknown;
   }[];
   readonly messages?: readonly { readonly role: string; readonly content: unknown }[];
-  readonly output_config?: { readonly format?: { readonly schema?: unknown } };
+  readonly output_config?: {
+    readonly format?: { readonly schema?: unknown };
+    /** The Messages API's per-call budget, as `claude.ts` sets it for a section writer. */
+    readonly effort?: unknown;
+  };
 }
 
 interface StreamRequestOptions {
@@ -351,11 +366,6 @@ function count(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-/** The shared salvage (fences, prose, <think>, trailing commas), so this shim and `claude.ts` agree. */
-function unwrapJson(text: string): string {
-  return salvageJson(text);
-}
-
 /**
  * OpenRouter's `prompt_tokens` includes the cached tokens; Anthropic's
  * `input_tokens` excludes them. The handler's `cachedShare` is computed the
@@ -385,6 +395,7 @@ function usageOf(usage: Record<string, unknown> | undefined): Anthropic.Message[
  */
 class Answer {
   private text = '';
+  private unwrapped: string | undefined;
   private refusal = '';
   private finish: string | undefined;
   private usage: Record<string, unknown> | undefined;
@@ -459,19 +470,30 @@ class Answer {
    * said nothing more, and a free model's habit stayed a mystery.
    */
   diagnostic(): string | undefined {
-    const text = unwrapJson(this.text);
-    if (text.trim() === '') return undefined;
-    if (parsesAsJson(text)) return undefined;
-    {
-      const flat = text.replace(/\s+/gu, ' ').trim();
-      const head = flat.length > 400 ? `${flat.slice(0, 400)}…` : flat;
-      const tail = flat.length > 800 ? `…${flat.slice(-400)}` : '';
-      return (
-        `openrouter answer is not JSON — finish=${this.finish ?? '(none)'}, ` +
-        `${formatCount(this.text.length)} characters, reasoning ${this.reasoningSeen ? 'seen' : 'not seen'}. ` +
-        `starts: «${head}»${tail === '' ? '' : ` ends: «${tail}»`}`
-      );
-    }
+    if (this.text.trim() === '') return undefined;
+    if (parsesAsJson(this.modelJson())) return undefined;
+    // The model's own words, wrappers and all: they are what the owner is diagnosing.
+    const flat = this.text.replace(/\s+/gu, ' ').trim();
+    const head = flat.length > 400 ? `${flat.slice(0, 400)}…` : flat;
+    const tail = flat.length > 800 ? `…${flat.slice(-400)}` : '';
+    return (
+      `openrouter answer is not JSON as written (the plan's salvage may still repair it) — ` +
+      `finish=${this.finish ?? '(none)'}, ` +
+      `${formatCount(this.text.length)} characters, reasoning ${this.reasoningSeen ? 'seen' : 'not seen'}. ` +
+      `starts: «${head}»${tail === '' ? '' : ` ends: «${tail}»`}`
+    );
+  }
+
+  /**
+   * The answer with its wrappers undone — fence, sentence, `<think>`,
+   * trailing commas — and every closer as the model wrote it. Repairing the
+   * closers here, with no idea what shape a plan has, would hand `claude.ts`
+   * text that already parses: its judged salvage would never run, and
+   * `onAnswer` would log and dump a repair instead of what the model said.
+   */
+  private modelJson(): string {
+    this.unwrapped ??= unwrapJson(this.text);
+    return this.unwrapped;
   }
 
   message(): Anthropic.Message {
@@ -484,7 +506,7 @@ class Answer {
               this.refusal !== '' ? this.refusal : "The model's provider declined this request.",
           }
         : null,
-      content: [{ type: 'text', text: unwrapJson(this.text) }],
+      content: [{ type: 'text', text: this.modelJson() }],
       usage: usageOf(this.usage),
     } as unknown as Anthropic.Message;
   }
@@ -664,9 +686,14 @@ export function createOpenRouterClient(options: OpenRouterClientOptions): Anthro
     const report = (text: string): void => {
       listeners.get('thinking')?.(text);
     };
-    const requestedEffort = OPENROUTER_EFFORT_LEVELS.find(
-      (effort) => requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER] === effort,
-    );
+    /*
+      Per call: `claude.ts` puts a section's budget where the Messages API
+      reads it, `output_config.effort`; the authored-file runs still send it
+      as the private header. Either wins over the deployment's own `effort`.
+    */
+    const requestedEffort =
+      openRouterEffort(params.output_config?.effort) ??
+      openRouterEffort(requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER]);
     const done = runChat(
       chatPayload(params, options, requestedEffort ?? options.effort),
       options,

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BuildTask } from '../AssistantPanel/AssistantPanel.build';
+import { BuildCardSeamContext } from '../BuildReportCard';
 import { BuildApprovalCard } from './BuildApprovalCard';
 
 const TASKS: readonly BuildTask[] = [
@@ -50,7 +51,61 @@ describe('BuildApprovalCard', () => {
       person deciding to spend minutes of model time is entitled to it.
     */
     renderCard();
-    expect(screen.getByText(/Each section is applied as its own change/)).toBeVisible();
+    expect(screen.getByText(/writes each one as its own change/)).toBeVisible();
+  });
+
+  it('never claims the skeleton is already on the page — nothing is, until Build', () => {
+    /*
+      It said "The skeleton is already on the page" until 2026-09-28. The engine
+      now asks BEFORE the first write (P0-4), so that sentence became false the
+      moment the fix landed, and it is the sentence a person reads while deciding.
+    */
+    renderCard();
+    expect(screen.queryByText(/already on the page/)).toBeNull();
+    expect(screen.getByText(/Nothing is on the page yet/)).toBeVisible();
+  });
+
+  it('says it in Arabic when the panel does', () => {
+    renderCard({ locale: 'ar' });
+    expect(screen.getByText(/لم يُكتب شيء على الصفحة بعد/)).toBeVisible();
+  });
+
+  it('shows what each section is FOR when the plan says', () => {
+    const withPurpose: readonly BuildTask[] = TASKS.map((task) =>
+      task.position === 1 ? { ...task, purpose: 'One promise, one booking line.' } : task,
+    );
+    render(
+      <BuildApprovalCard
+        direction={DIRECTION}
+        tasks={withPurpose}
+        turnId="turn-3"
+        onAnswer={vi.fn()}
+      />,
+    );
+    const purpose = screen.getByText('One promise, one booking line.');
+    expect(purpose).toBeVisible();
+    expect(purpose.closest('li')).toHaveTextContent(/^Hero/);
+    const rows = within(screen.getByRole('list')).getAllByRole('listitem');
+    expect(rows[1]).toHaveTextContent(/^Pricing$/);
+  });
+
+  it('says where the page will land when it is not where the words asked', () => {
+    render(
+      <BuildCardSeamContext.Provider
+        value={{
+          locale: 'en',
+          noticesOf: (turnId) => (turnId === 'turn-4' ? ['new-page-appended'] : []),
+        }}
+      >
+        <BuildApprovalCard direction={DIRECTION} tasks={TASKS} turnId="turn-4" onAnswer={vi.fn()} />
+      </BuildCardSeamContext.Provider>,
+    );
+    expect(screen.getByText(/built below what is already here/)).toBeVisible();
+  });
+
+  it('says nothing about placement when there is nothing to say', () => {
+    renderCard();
+    expect(screen.queryByRole('note')).toBeNull();
   });
 
   it('answers build, once, when Build is pressed', async () => {

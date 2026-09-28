@@ -40,7 +40,7 @@ export const customCodeSchema = defineBlockSchema({
     registry, and it would go stale the first time a pack was added.
   */
   description:
-    'A freely composed region, for requests no registered block expresses (an unusual layout, a bespoke CV page, a diagonal timeline). Its `tree` holds two kinds of node: `{kind:"element"}` for markup you author (any tag in the schema enum, styled with `className` utilities), and `{kind:"component", component:"<type>"}` to place ANY OTHER BLOCK IN THIS CATALOG inside the region by its `type` — that block validates its own props, and its children render into its default slot. `{kind:"icon", name:"<lucide-name>"}` draws a Lucide icon by its kebab-case name (mail, map-pin, arrow-right; no brand logos exist — use link or globe). `className` accepts the utility classes this page generates (the prompt says which); for styling utilities cannot express, name a class `ck-something` and write its rule in this block `css` prop, which is scoped to this region. Prefer a registered block on its own when one already fits; reach for this when none does.',
+    'A freely composed region, for requests no registered block expresses (an unusual layout, a bespoke CV page, a diagonal timeline). Its `tree` holds two kinds of node: `{kind:"element"}` for markup you author (any tag in the schema enum, styled with `className` utilities), and `{kind:"component", component:"<type>"}` to place ANY OTHER BLOCK IN THIS CATALOG inside the region by its `type` — that block validates its own props, and its children render into its default slot. `{kind:"icon", name:"<lucide-name>"}` draws a Lucide icon by its kebab-case name (mail, map-pin, arrow-right; no brand logos exist — use link or globe). When the tree is written as markup, a component is `<ck-component type=\'<type>\' props=\'{…}\'>…</ck-component>` and nothing else: a tag named after a block is not that block and becomes an empty div. `className` accepts the utility classes this page generates (the prompt says which); for styling utilities cannot express, name a class `ck-something` and write its rule in this block `css` prop, which is scoped to this region. Prefer a registered block on its own when one already fits; reach for this when none does.',
   props: z.object({
     /**
      * A short human label. This is what the layers tree shows, and it is the
@@ -74,6 +74,9 @@ export const customCodeSchema = defineBlockSchema({
     example showing only authored markup would teach the model that the
     component reference does not exist, which is the more expensive of the two
     mistakes it can make here.
+
+    Its colours are the site theme's roles, so it is an example of a region
+    that FOLLOWS the site theme — the one case the colour rule gives roles to.
   */
   examples: [
     {

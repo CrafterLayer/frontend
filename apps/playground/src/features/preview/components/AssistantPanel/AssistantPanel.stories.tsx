@@ -27,6 +27,7 @@ const meta = {
     agentPolicy: { control: false },
     onAgentEvent: { control: false },
     locale: { control: 'inline-radio', options: ['ar', 'en'] },
+    defaultMode: { control: 'inline-radio', options: ['ask', 'auto', 'plan'] },
   },
 } satisfies Meta<typeof AssistantPanel>;
 
@@ -292,6 +293,38 @@ export const AutoAppliesValidatedProposal: Story = {
     await expect(args.onAgentEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'plan.applying' }),
     );
+    await expect(args.onAgentEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'run.completed', status: 'applied' }),
+    );
+  },
+};
+
+/**
+ * The product's setting: the host starts the panel in Auto, so the first
+ * request lands as undoable history with no radio pressed and no Apply. A
+ * person's own choice would win over this, and be remembered.
+ */
+export const StartsInAuto: Story = {
+  args: {
+    kernel: createPlaygroundKernel({ fixture: 'empty' }),
+    defaultMode: 'auto',
+    onAgentEvent: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('radio', { name: 'Auto' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(canvas.getByRole('radio', { name: 'Ask' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+
+    await submitRequest(canvasElement, 'add a hero');
+
+    await expect(await canvas.findByText(/Applied as one change/)).toBeVisible();
+    await expect(canvas.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
     await expect(args.onAgentEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'run.completed', status: 'applied' }),
     );

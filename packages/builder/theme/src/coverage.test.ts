@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { CHROME_TOKENS, RUNTIME_WRITTEN_TOKENS, TOKEN_PREFIX } from './contract';
+import { CHROME_TOKENS, RUNTIME_WRITTEN_TOKENS, STAGE_TOKENS, TOKEN_PREFIX } from './contract';
 import { definedTokenNames } from './css';
 import { darkChromeTheme, lightChromeTheme } from './themes';
 
@@ -141,6 +141,21 @@ describe('every token a component reads is a token the theme defines', () => {
       // A list ROW's surface, distinct from a CONTROL's: offered so a theme can
       // separate them, even while today's components paint rows on the panel.
       'panel-item',
+      /*
+        The agent panel's palette (design SPEC §2.1). Tokens land in wave 1 so
+        every wave-2 component codes against a name that already exists; the
+        panel's components are their first readers, and the stage tokens wait
+        for the canvas marks of phase 2 (SPEC WP-21). Each entry here should be
+        removed the day a stylesheet reads it, and NOTHING enforces that: this
+        test fails only on an unused token missing from the list, never on a
+        used one still in it, so review catches a stale entry. `surface-tint`
+        is already one: TypeSpecimen.css reads it (2026-09-28).
+      */
+      'font-arabic',
+      'surface-tint',
+      'progress-track',
+      'content-outline',
+      ...STAGE_TOKENS,
     ]);
     const strays = CHROME_TOKENS.filter(
       (token) => !used.has(token) && !unusedButOffered.has(token),
@@ -218,6 +233,71 @@ describe('both themes answer the whole contract', () => {
   it('keeps the type stack identical across themes', () => {
     // Colour is a theme decision; the typeface is a product decision.
     expect(darkChromeTheme.font).toBe(lightChromeTheme.font);
+    expect(darkChromeTheme['font-arabic']).toBe(lightChromeTheme['font-arabic']);
     expect(darkChromeTheme['font-mono']).toBe(lightChromeTheme['font-mono']);
+  });
+
+  it('keeps every stage token identical across themes, because the page does not change with the editor', () => {
+    // Canvas marks are drawn on the person's page. A light page stays light
+    // inside a dark editor, so a mark tuned to the editor's theme would be
+    // tuned to the wrong ground (design SPEC §2.1).
+    expect(STAGE_TOKENS.length).toBeGreaterThan(0);
+    for (const token of STAGE_TOKENS) {
+      expect({ token, dark: darkChromeTheme[token] }).toEqual({
+        token,
+        dark: lightChromeTheme[token],
+      });
+    }
+  });
+});
+
+/**
+ * THE FORBIDDEN PAIRS ARE NEVER PAINTED.
+ *
+ * Design SPEC §2.1 measures Slate (`panel-muted`) at 4.04 on Tint and 4.08 on
+ * Mist in the light theme: under the 4.5 floor for text. It is forbidden in
+ * BOTH themes, because a component cannot know which one it is drawn in, and
+ * the rule is "secondary text on Tint or Mist is Graphite" (`panel-text-soft`).
+ *
+ * What this can see is one RULE that sets both the text colour and the fill.
+ * It cannot see inheritance (a Slate caption inside a Tint bubble declared by
+ * two different rules), so it is the floor, not the whole proof; the contrast
+ * story shows why the pair is forbidden, and review covers the inherited case.
+ */
+describe('the forbidden colour pairs of design SPEC §2.1 are never painted', () => {
+  const FORBIDDEN_TEXT = 'panel-muted';
+  const FORBIDDEN_GROUNDS = ['surface-tint', 'accent-soft'];
+
+  const rules = SEARCH_ROOTS.flatMap((root) => sourceFiles(join(REPO, root)))
+    .filter((file) => file.endsWith('.css'))
+    .filter((file) => !SKIP_PATH_PARTS.some((part) => file.slice(REPO.length).includes(part)))
+    .flatMap((file) =>
+      [
+        ...readFileSync(file, 'utf8')
+          .replaceAll(/\/\*[\s\S]*?\*\//g, '')
+          .matchAll(/([^{}]+)\{([^{}]*)\}/g),
+      ].map((match) => ({
+        file: file.slice(REPO.length),
+        selector: (match[1] ?? '').trim(),
+        body: match[2] ?? '',
+      })),
+    );
+  const setsText = new RegExp(`(^|[;{\\s])color\\s*:\\s*var\\(${TOKEN_PREFIX}${FORBIDDEN_TEXT}\\b`);
+  const setsGround = new RegExp(
+    `background(-color)?\\s*:[^;]*var\\(${TOKEN_PREFIX}(${FORBIDDEN_GROUNDS.join('|')})\\b`,
+  );
+
+  it('reads real rules, so an empty pass is impossible', () => {
+    expect(rules.length).toBeGreaterThan(500);
+    // The detector must be able to see both halves of the pair on its own.
+    expect(rules.some((rule) => setsText.test(rule.body))).toBe(true);
+    expect(rules.some((rule) => setsGround.test(rule.body))).toBe(true);
+  });
+
+  it('never sets Slate text on a Tint or Mist fill in one rule', () => {
+    const painted = rules
+      .filter((rule) => setsText.test(rule.body) && setsGround.test(rule.body))
+      .map((rule) => `${rule.file} :: ${rule.selector}`);
+    expect(painted).toEqual([]);
   });
 });

@@ -1,18 +1,28 @@
 import {
+  AiBuildRevertError,
+  isBuildIntent,
   previewAiPlan,
+  routeIntent,
+  summarizeDocumentForIntent,
   systemClock,
   systemIds,
   type AiBuildEvent,
   type AiBuildOwnEvent,
+  type AiBuildTaskReport,
   type AiSkillRegistry,
   type AiValidatedProposal,
   type BuilderKernel,
   type DroppedAiPlanStep,
+  type IntentRoute,
+  type IntentTarget,
+  type NodeId,
 } from '@craftkit/builder';
 
+import type { BuildNotice } from './AssistantPanel.build';
 import { planImpact, type PlanImpact } from './AssistantPanel.impact';
+import { mentionedIds } from './AssistantPanel.mentions';
 import type { AssistantMode } from './AssistantPanel.modes';
-import type { Turn } from './AssistantPanel.turns';
+import type { BuildRevertRefusal, Turn } from './AssistantPanel.turns';
 
 export interface ActiveRunLease {
   readonly runId: string;
@@ -26,22 +36,187 @@ export function ownsRun(activeRun: ActiveRunLease | null, runId: string): boolea
 /** Four openers, each a request that works exactly as written. */
 /** The largest `-N` suffix among saved session and turn ids, so new ids never repeat one. */
 
-export const BUILD_ARCHETYPES: ReadonlySet<string> = new Set([
-  'craftkit.page-composition',
-  'craftkit.cv-page',
-  'craftkit.occasion-page',
-]);
+/**
+ * The page a request is sent against: the kernel it will run on, and what the
+ * person was pointing at when they sent it.
+ */
+export interface RequestScene {
+  readonly kernel: BuilderKernel;
+  /**
+   * The blocks pointed at when the request was sent — the selection a queued
+   * request captured, say. Absent reads the kernel's canvas selection now,
+   * which is the fallback the run itself uses.
+   */
+  readonly selection?: readonly NodeId[];
+}
 
-export function activatesBuildArchetype(registry: AiSkillRegistry, request: string): boolean {
-  try {
-    return registry
-      .prepare({ request, auto: true })
-      .activations.some((activation) => BUILD_ARCHETYPES.has(activation.id));
-  } catch {
-    // A registry that cannot resolve is a registry that cannot promise a
-    // build. The ordinary path still works, so the request takes it.
-    return false;
+/**
+ * What a request is FOR — build a page, build a site, add a section, edit, or
+ * answer — read against the page it would run on.
+ *
+ * This is the engine's `routeIntent` with the page filled in the way the run
+ * fills it: @mentions ARE the selection when there are any (the rule `ask`
+ * already applies to its runs), otherwise the scene's selection, otherwise the
+ * canvas's. The page root is never "a block pointed at" — a selection that is
+ * only the page is the whole page, and reading it as pointing would stop an
+ * empty page from ever being built.
+ *
+ * Without a scene the page is UNKNOWN, which the router reads as a page with
+ * content: the reading that never turns an edit into a build.
+ */
+export function routeRequest(request: string, scene?: RequestScene): IntentRoute {
+  if (scene === undefined) return routeIntent({ request });
+  const document = scene.kernel.getDocument();
+  const mentioned = mentionedIds(request, document);
+  const pointed =
+    mentioned.length > 0
+      ? mentioned
+      : (scene.selection ?? scene.kernel.context.store.getState().selection);
+  return routeIntent({
+    request,
+    document: summarizeDocumentForIntent(document),
+    selection: pointed.filter((id) => id !== document.rootId),
+  });
+}
+
+/**
+ * Whether a request takes the BUILD path — a whole page (or site) written
+ * section by section — rather than one ordinary run.
+ *
+ * The name is kept so the panel's call site is unchanged; what it asks is not.
+ * It used to ask the skill registry whether a page-archetype skill
+ * AUTO-ACTIVATED, and activation is keyword substrings: a keyword says what a
+ * request mentions, not what it asks for. Measured (agent-audit §2 P0-1 / P1-5,
+ * `routing.mjs`, 2026-09-28): "change the wedding date to June 12" scaffolded a
+ * wedding page over the one being edited — 8 of 12 edits did the same — while
+ * "Build a website for my bakery", "صفحه هبوط" spelled with ه, and every
+ * multi-page ask took the single-call path: 14 of 17 page asks missed.
+ *
+ * It now asks the intent router, and the registry is no longer consulted — it
+ * stays in the signature only so the call site compiles unchanged. Pass the
+ * scene and the answer reads the page too: an empty page takes a bare subject
+ * as its brief, and a pointed-at block keeps a noun phrase an edit. The
+ * richer answer — which kind, where the build lands, how sure — is
+ * `routeRequest`.
+ */
+export function activatesBuildArchetype(
+  _registry: AiSkillRegistry,
+  request: string,
+  scene?: RequestScene,
+): boolean {
+  return isBuildIntent(routeRequest(request, scene));
+}
+
+/**
+ * The path a routed request takes in THIS panel.
+ *
+ * - `build`: the split build, landing at `target`, with a notice for every way
+ *   that differs from what the words asked for.
+ * - `answer`: words only — no command vocabulary, no proposal, nothing to apply.
+ * - `run`: the one ordinary run (an edit, or one new section).
+ */
+export type RequestPath =
+  | {
+      readonly path: 'build';
+      readonly target: IntentTarget;
+      readonly notices: readonly BuildNotice[];
+      /** Ask the build's one question even where the mode would not (Auto). */
+      readonly confirm: boolean;
+    }
+  | { readonly path: 'answer' }
+  | { readonly path: 'run' };
+
+/**
+ * Turn the router's answer into a path this panel can actually take.
+ *
+ * Two routes cannot be honoured as asked, and both are said out loud rather
+ * than done quietly differently (2026-09-28) — as is a start-over the build
+ * cannot do (below):
+ *
+ * - `new-page`: the host hands this panel ONE page lens
+ *   (`siteKernel.page(currentPage)` in App.tsx) and no site, so there is no page
+ *   it could open. The build appends below the content — the placement every
+ *   build had before the router existed — and the card says so.
+ * - `build-site`: no site stage provider reaches the chat (the site builder's
+ *   provider is offline and lives on its own rail destination), so a site ask
+ *   is built as one page, and the card says that too.
+ *
+ * A build that would start a page WITH CONTENT over asks first, in every
+ * writing mode. The engine's PagePlan path removes the page's children in the
+ * skeleton's own transaction on `replace` (2026-09-28), and the router says
+ * `replace` over content for "start over"-like words — "start over" alone at
+ * 0.5. Undoing the build would bring the page back, but a misread must not
+ * remove a person's page without a question first, and Auto is the product
+ * default.
+ *
+ * ONLY the PagePlan path removes anything. The scaffold path lays its skeleton
+ * after what is there whatever the target, and the playground's own provider
+ * has no `proposePagePlan`, so its every build is a scaffold build (wave-2
+ * verifier, scaffold-replace.mjs, 2026-09-28: "start over" over one region
+ * left "Existing, Hero, Proof, Pricing" — after the person had confirmed a
+ * start-over and been promised an Undo for what was replaced). Where the build
+ * cannot start over (`canStartOver: false`), it appends, says so, and asks
+ * nothing: nothing will be removed.
+ *
+ * `add-section` stays on the ONE-call path. The router defines it as one new
+ * section, and a build needs two to split: it would run the scaffold, find one
+ * region, and fall back to this same call — a second model call in front of
+ * every "add a pricing section" (the owner's first priority is speed).
+ */
+export function requestPath(
+  route: IntentRoute,
+  page: {
+    readonly holdsContent: boolean;
+    /**
+     * Whether a build here can remove what is on the page before laying its
+     * own: a provider that can plan a page, and a registry holding the region
+     * block a plan is laid as. Otherwise every build is a scaffold build.
+     */
+    readonly canStartOver: boolean;
+  },
+): RequestPath {
+  switch (route.kind) {
+    case 'build-page':
+    case 'build-site': {
+      const opensPage = route.target === 'new-page';
+      const asksToStartOver = route.target === 'replace' && page.holdsContent;
+      const startsOver = asksToStartOver && page.canStartOver;
+      const notices: BuildNotice[] = [];
+      if (route.kind === 'build-site') notices.push('site-as-one-page');
+      if (opensPage) notices.push('new-page-appended');
+      if (startsOver) notices.push('starts-over');
+      if (asksToStartOver && !startsOver) notices.push('appended-not-replaced');
+      return {
+        path: 'build',
+        target:
+          opensPage || route.target === undefined || (asksToStartOver && !startsOver)
+            ? 'append'
+            : route.target,
+        notices,
+        confirm: startsOver,
+      };
+    }
+    case 'question':
+      return { path: 'answer' };
+    case 'add-section':
+    case 'edit':
+      return { path: 'run' };
   }
+}
+
+/**
+ * Why a section was not put back, in the card's terms.
+ *
+ * The engine's `not-landed` covers two facts (build-revert.ts): a section that
+ * never landed, and one that landed with nothing recorded from before it — a
+ * region a PagePlan skeleton wrote in full. The report tells them apart: only
+ * the second is `applied`. Anything that is not a revert refusal is the door
+ * turning the revert's own write down.
+ */
+export function revertRefusalOf(cause: unknown, report: AiBuildTaskReport): BuildRevertRefusal {
+  if (!(cause instanceof AiBuildRevertError)) return 'refused';
+  if (cause.code === 'not-landed' && report.status === 'applied') return 'no-earlier-version';
+  return cause.code;
 }
 
 /** The orchestrator's own events, told apart from every step's ordinary ones. */

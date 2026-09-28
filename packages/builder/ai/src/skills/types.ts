@@ -1,3 +1,5 @@
+import type { IntentKind } from '../intent/route-intent';
+
 export type AiSkillSource = 'builtin' | 'host';
 
 export type AiSkillTrust = 'builtin' | 'reviewed' | 'untrusted';
@@ -18,10 +20,25 @@ export type AiSkillActivation =
   | Readonly<{ mode: 'always' }>
   | Readonly<{
       mode: 'auto';
+      /**
+       * Whole words of the request, matched as the intent router reads it:
+       * folded (case, hamza, taa marbuta, alif maqsura, tashkeel, Latin
+       * accents), Arabic clitics peeled ("لعيادتي" holds "عيادة"), a keyword's
+       * last word taking its usual endings ("animated", "bakeries", "عقارية"),
+       * never matched inside another word ("eid al" is not in "Reid Allen").
+       */
       keywords?: readonly string[];
       selectedBlockTypes?: readonly string[];
       /** Activate when the request is written in any of these scripts. */
       scripts?: readonly AiSkillScript[];
+      /**
+       * A GATE, not a trigger: when present, the triggers above count only for
+       * a request that routes to one of these intents (`routeIntent`). A page
+       * archetype declares `['build-page', 'build-site']` so the trade noun in
+       * "Change the restaurant menu prices" no longer loads a whole-page
+       * playbook into an edit. Absent: every intent, as before.
+       */
+      intents?: readonly IntentKind[];
     }>;
 
 /**
@@ -101,6 +118,15 @@ export interface AiSkillOmission {
 
 export interface AiSkillPrepareOptions {
   request: string;
+  /**
+   * What the request is for, when the host has already routed it —
+   * `routeIntent({ request, document, selection }).kind`, with the page it is
+   * about. Gates only skills that declare `activation.intents`. Absent, the
+   * resolver routes the words as they would land on a blank page: a brief, a
+   * page ask or a site ask keeps page-level expertise, and words that change,
+   * add a section to, or ask about what exists drop it.
+   */
+  intent?: IntentKind;
   selectedSkillIds?: readonly string[];
   selectedBlockTypes?: readonly string[];
   auto?: boolean;

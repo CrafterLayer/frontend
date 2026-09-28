@@ -1,0 +1,122 @@
+/*
+  RunRecord (SPEC §4.6, §2.3 "Glyph column", "Record internals").
+
+  No box: a record is history, so it is drawn on the panel's paper. The geometry is the
+  panel's glyph column: 16px for the node, 8px, then text. Everything a record says lines
+  up on that 24px edge, head title, body lines and footer alike, and a spine drawn down the
+  glyph column's centre (7px in, 2px wide) passes through every node.
+
+  A record uses three sizes and no fourth (SPEC §2.2): Read for the title and lines, Meta
+  for captions, Figure for the head's numbers. Hierarchy is weight and ink.
+*/
+
+.ck-agent-record {
+  display: grid;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-record :where(h3, p, ol, ul) {
+  margin: 0;
+}
+
+/* ── Head: glyph · title · figures, 32px ──────────────────────────────────── */
+
+.ck-agent-record__head {
+  display: grid;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr) auto;
+  column-gap: var(--bldr-space-md);
+  align-items: center;
+  min-block-size: var(--bldr-control-md);
+}
+
+/* One line, ending in an ellipsis at the inline end; the full title lives in the thread. */
+.ck-agent-record__title {
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A focus destination, not a control: the ring hugs the words, clear of the glyph. */
+.ck-agent-record__title:focus-visible {
+  border-radius: var(--bldr-radius-xs);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-record__meta {
+  display: flex;
+  gap: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-figure);
+  white-space: nowrap;
+}
+
+/* ── Body: the text column, 24px in ───────────────────────────────────────── */
+
+/*
+  Two columns, the glyph column and the text column, so every line starts under the title.
+  A child that draws in the glyph column (a SpineList, a spine segment beside a caption)
+  spans both with `grid-column: 1 / -1`.
+*/
+.ck-agent-record__body {
+  display: grid;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr);
+  column-gap: var(--bldr-space-md);
+  row-gap: var(--bldr-space-2xs);
+  margin-block-start: var(--bldr-space-xs);
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-record__body > * {
+  grid-column: 2;
+  min-inline-size: 0;
+}
+
+/* ── Footer: primary, secondary, then [⋯] at the inline end ─────────────── */
+
+/*
+  Two columns: the actions, which wrap within their own column, and [⋯]. [⋯] sits on the
+  actions' last row. One wrapping row would strand it: an InlineConfirm takes a full row
+  (its consequence, then its answers), and in one flex row [⋯] then wrapped to a line of
+  its own, 40px under Undo and Cancel (measured in Chromium, `UndoBuildConfirming`).
+*/
+.ck-agent-record__footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-control-md);
+  margin-block-start: var(--bldr-space-md);
+  padding-inline-start: var(--bldr-space-5xl);
+}
+
+.ck-agent-record__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+/* Column 2 even when there are no actions: a menu-only footer keeps [⋯] at the end. */
+.ck-agent-record__menu {
+  display: flex;
+  grid-column: 2;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-record__footer {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}

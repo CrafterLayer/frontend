@@ -9,6 +9,8 @@ import {
   type RegisteredBlock,
 } from '@craftkit/builder-schema';
 
+import { CUSTOM_CODE_REGION_ATTRIBUTE } from '../../tailwind/live-utilities';
+
 import { CustomCode } from './CustomCode';
 import { CustomCodeRegistryContext, type CustomCodeBlockLookup } from './registry-context';
 
@@ -127,6 +129,44 @@ describe('CustomCode', () => {
     expect(image?.hasAttribute('data-ck-broken')).toBe(true);
     expect(image?.style.color).toBe('transparent');
     expect(image?.className).toBe('aspect-video w-full rounded-2xl object-cover');
+  });
+
+  it('shows an image again once a corrected address loads on the same element', () => {
+    // The img is keyed by its tree path, so a new src reuses the marked node.
+    const withSource = (src: string) =>
+      tree([{ kind: 'element', tag: 'img', attributes: { src, alt: 'A café counter' } }]);
+    const { container, rerender } = render(
+      <CustomCode tree={withSource('https://images.example.com/gone.jpg')} hostId="host1" />,
+    );
+    const image = container.querySelector('img');
+    image?.dispatchEvent(new Event('error'));
+    expect(image?.hasAttribute('data-ck-broken')).toBe(true);
+
+    rerender(
+      <CustomCode tree={withSource('https://images.example.com/found.jpg')} hostId="host1" />,
+    );
+    const same = container.querySelector('img');
+    expect(same).toBe(image);
+    same?.dispatchEvent(new Event('load'));
+
+    expect(same?.getAttribute('src')).toBe('https://images.example.com/found.jpg');
+    expect(same?.hasAttribute('data-ck-broken')).toBe(false);
+    expect(same?.style.color).toBe('');
+    expect(same?.style.objectPosition).toBe('');
+    expect(same?.style.backgroundImage).toBe('');
+    expect(same?.hasAttribute('style')).toBe(false);
+  });
+
+  it('leaves an image that loaded first time untouched', () => {
+    const { container } = renderTree([
+      { kind: 'element', tag: 'img', attributes: { src: '/a.jpg', alt: 'A' } },
+    ]);
+    const image = container.querySelector('img');
+
+    image?.dispatchEvent(new Event('load'));
+
+    expect(image?.hasAttribute('data-ck-broken')).toBe(false);
+    expect(image?.hasAttribute('style')).toBe(false);
   });
 
   it('renders authored markup with its classes and text', () => {
@@ -280,5 +320,31 @@ describe('CustomCode', () => {
     const { container } = renderTree([{ kind: 'element', tag: 'p', text: 'x' }]);
 
     expect(container.querySelector('[data-ck="host1"]')).toBeTruthy();
+  });
+
+  it('marks its root as the region the live Tailwind sheet is scoped to, on the page and canvas', () => {
+    // The live sheet's `@scope` names this attribute; built-in blocks never carry it.
+    for (const isCanvas of [false, true]) {
+      const { container, unmount } = render(
+        <CustomCodeRegistryContext.Provider value={lookup}>
+          <CustomCode
+            tree={tree([
+              { kind: 'element', tag: 'p', className: 'md:p-[17px]', text: 'x' },
+              { kind: 'component', component: 'hero', props: {} },
+            ])}
+            hostId="host1"
+            isCanvas={isCanvas}
+          />
+        </CustomCodeRegistryContext.Provider>,
+      );
+
+      const region = container.querySelector(`[${CUSTOM_CODE_REGION_ATTRIBUTE}]`);
+      expect(region).toBe(container.querySelector('[data-ck="host1"]'));
+      expect(container.querySelectorAll(`[${CUSTOM_CODE_REGION_ATTRIBUTE}]`)).toHaveLength(1);
+      // The authored element and the referenced block both render inside it.
+      expect(region?.querySelector('p.md\\:p-\\[17px\\]')).toBeTruthy();
+      expect(region?.querySelector('[data-testid="hero"]')).toBeTruthy();
+      unmount();
+    }
   });
 });

@@ -14,20 +14,27 @@ import {
   createCraftkitAiSkillRegistry,
   createDirectPlanProvider,
   createLocalAiPlanProvider,
+  customCodeSchema,
   outlineAiPlan,
   previewAiPlan,
+  removeUnfilledSections,
+  revertBuildSection,
   runAiAgent,
   runAiBuild,
+  summarizeDocumentForIntent,
   systemClock,
   type AiAgentEvent,
   type AiAgentPolicy,
   type AiBuildOwnEvent,
+  type AiBuildPlannedTask,
+  type AiBuildRunResult,
   type AiPlanProvider,
   type AiSkillRegistry,
   type AiValidatedProposal,
   type BuilderDocument,
   type BuilderKernel,
   type NodeId,
+  type PagePlan,
 } from '@craftkit/builder';
 
 import { useAgentMood, type AgentLocale } from '../AgentFace';
@@ -45,7 +52,6 @@ import { panelSuggestions } from './AssistantPanel.suggestions';
   skills a mode carries, and how a proposal is rehearsed. None of it renders.
 */
 import {
-  activatesBuildArchetype,
   blocksAtVersion,
   impactOfProposal,
   isBuildOwnEvent,
@@ -53,10 +59,14 @@ import {
   lastFollowUp,
   ownsRun,
   preflightPorts,
+  requestPath,
   retrySkippedRequest,
+  revertRefusalOf,
+  routeRequest,
   skillsForMode,
   withImpact,
   type ActiveRunLease,
+  type RequestPath,
 } from './AssistantPanel.runs';
 /*
   The conversation's DATA layer: what a turn is, what a session is, and how both
@@ -69,6 +79,7 @@ import {
   historyOf,
   reviveSessions,
   type BuildingTurn,
+  type BuiltTurn,
   type PlanTurn,
   type Session,
   type Turn,
@@ -82,12 +93,15 @@ import type { AssistantMode } from './AssistantPanel.modes';
 import type { SiteRunSeam } from './use-site-run';
 import { PlanPreviewDialog } from '../PlanPreviewDialog';
 import { SuggestionRail } from '../SuggestionRail';
+import { BuildCardSeamContext, type BuildCardSeam } from '../BuildReportCard';
 import {} from './AssistantPanel.icons';
 import {
   buildReceipt,
   initialBuildProgress,
+  planForApproval,
   reduceBuildProgress,
-  taskTransactionLabel,
+  withoutStartOver,
+  type BuildNotice,
 } from './AssistantPanel.build';
 import {
   appendLiveProgress,
@@ -220,6 +234,30 @@ export interface AssistantPanelProps {
 */
 
 const EMPTY_TURNS: readonly Turn[] = [];
+const NO_NOTICES: readonly BuildNotice[] = [];
+
+/**
+ * What a finished build left behind, kept for as long as this panel lives: the
+ * kernel it wrote to, and the engine's own result — each section's landing
+ * (what to put it back to, keyed by the transaction id) and every placeholder
+ * no fill reached. Runtime authority, exactly like a plan's `proposal`: it is
+ * never saved, so a revived report cannot act on a page it no longer knows.
+ */
+interface BuildRecord {
+  readonly kernel: BuilderKernel;
+  readonly result: AiBuildRunResult;
+}
+
+/** The placement a build takes, from `requestPath`. */
+type BuildPlacement = Extract<RequestPath, { path: 'build' }>;
+
+/** A build asked for by name (Plan's "Build this"), where no route says where it lands. */
+const BUILD_IN_PLACE: BuildPlacement = {
+  path: 'build',
+  target: 'append',
+  notices: [],
+  confirm: false,
+};
 
 /**
  * The blocks a kernel holds, as of a given registry version.
@@ -374,6 +412,8 @@ export function AssistantPanel({
    * state would re-render the panel to store something no view reads.
    */
   const approvalRef = useRef<((answer: 'build' | 'stop') => void) | null>(null);
+  /** Every finished build this panel ran, by its report turn's id. */
+  const buildsRef = useRef(new Map<string, BuildRecord>());
   const memory = useAppliedChangeMemory();
   const memoryProvider = memory.provider;
   /**
@@ -579,49 +619,129 @@ export function AssistantPanel({
     }
   }, []);
 
-  /**
-   * Undo ONE section of a finished build.
-   *
-   * The orchestrator labelled every fill (`Assistant: 3/10 — Pricing`) and the
-   * kernel keys its history by that label, so the card can find the exact
-   * transaction. History is a line, not a set: undoing that one means undoing
-   * what was recorded after it, so the card then marks every later section
-   * undone too rather than offering a button that would double-count.
-   */
-  const undoTask = useCallback(
-    (turnId: string, position: number, total: number, title: string, spent: number) => {
-      const label = taskTransactionLabel(position, total, title);
-      const transactions = kernel.transactions();
-      let index = -1;
-      for (const [at, transaction] of transactions.entries()) {
-        if (transaction.command === label) index = at;
-      }
-      if (index < 0) {
-        return;
-      }
-      const steps = transactions.length - index - spent;
-      let undone = 0;
-      while (undone < steps && kernel.canUndo()) {
-        kernel.undo();
-        undone += 1;
-      }
-      if (undone === 0) {
-        return;
-      }
+  /** Change one finished build's report turn, and nothing else. */
+  const patchBuilt = useCallback(
+    (turnId: string, change: (turn: BuiltTurn) => BuiltTurn) => {
       patchTurns((previous) =>
         previous.map((turn) =>
           turn.id === turnId && turn.from === 'assistant' && turn.kind === 'built'
-            ? {
-                ...turn,
-                undoneFrom: Math.min(turn.undoneFrom ?? position, position),
-                undoneSteps: (turn.undoneSteps ?? 0) + undone,
-              }
+            ? change(turn)
             : turn,
         ),
       );
+    },
+    [patchTurns],
+  );
+
+  /**
+   * Put ONE section of a finished build back, FORWARD.
+   *
+   * `revertBuildSection` writes the section's recorded "before" into its own
+   * region as one new labelled transaction ("Assistant: revert 3/10 — Pricing")
+   * and never calls `kernel.undo()`. Until 2026-09-28 this found the section's
+   * transaction by LABEL and undid everything recorded after it: the person's
+   * own later edits went with it, and because two builds share labels, an older
+   * card unwound the newer page (agent-audit P1-9). The section is found here
+   * by the card's turn and position; the engine finds its landing by id.
+   *
+   * A refusal writes nothing and is said on the row, in words: the person
+   * changed the section since, it is gone, it never landed, or it was written
+   * with the page's layout and has no earlier version (the card offers no Undo
+   * for those, so that last one is the belt to its braces).
+   */
+  const undoTask = useCallback(
+    (turnId: string, position: number) => {
+      // Fails closed in Plan, like `accept`: the card hides the button there,
+      // and a gate on a button is a gate somebody can forget to copy.
+      if (panelMode === 'plan') return;
+      const build = buildsRef.current.get(turnId);
+      // One report per planned section, in page order — the order positions count in.
+      const report = build?.result.tasks[position - 1];
+      if (build === undefined || report === undefined) return;
+      try {
+        revertBuildSection(build.kernel, report, preflightPorts());
+      } catch (cause: unknown) {
+        /*
+          A revert refusal, or the door refusing the write itself. Nothing was
+          written either way, and the row says so rather than the click being
+          swallowed — in words true of THIS section: the engine's 'not-landed'
+          on a section that is on the page means it has no earlier version.
+        */
+        const code = revertRefusalOf(cause, report);
+        patchBuilt(turnId, (turn) => ({
+          ...turn,
+          revertRefused: [
+            ...(turn.revertRefused ?? []).filter((entry) => entry.position !== position),
+            { position, code },
+          ],
+        }));
+        return;
+      }
+      patchBuilt(turnId, (turn) => ({
+        ...turn,
+        reverted: [...(turn.reverted ?? []), position],
+        // An earlier refusal of this section is answered now; the others still stand.
+        revertRefused: (turn.revertRefused ?? []).filter((entry) => entry.position !== position),
+      }));
       noteFaceTurn('discarded');
     },
-    [kernel, noteFaceTurn, patchTurns],
+    [noteFaceTurn, panelMode, patchBuilt],
+  );
+
+  /**
+   * Remove the empty placeholders a build left — never reached, cut off by
+   * Stop, or given up on — as ONE transaction ("Assistant: remove unfilled
+   * sections"), so one Undo brings them all back.
+   *
+   * The build never does this itself: a stopped page keeps its shape until the
+   * person says otherwise. A region the person has written into since, or one
+   * already gone, is kept and counted.
+   */
+  const removeUnfilled = useCallback(
+    (turnId: string) => {
+      if (panelMode === 'plan') return;
+      const build = buildsRef.current.get(turnId);
+      if (build === undefined) return;
+      let removal: ReturnType<typeof removeUnfilledSections>;
+      try {
+        removal = removeUnfilledSections(build.kernel, build.result, preflightPorts());
+      } catch {
+        /*
+          The door refused the removal whole — one transaction, so nothing was
+          removed. The offer stays: the page is unchanged, so pressing again is
+          still an honest question. And the card SAYS so: until 2026-09-28
+          this only returned, and the button did nothing anyone could see.
+        */
+        patchBuilt(turnId, (turn) => ({ ...turn, unfilledRemovalRefused: true }));
+        return;
+      }
+      patchBuilt(turnId, (turn) => ({
+        ...turn,
+        unfilledRemoval: { removed: removal.removed.length, kept: removal.kept.length },
+        unfilledRemovalRefused: false,
+      }));
+      if (removal.removed.length > 0) noteFaceTurn('discarded');
+    },
+    [noteFaceTurn, panelMode, patchBuilt],
+  );
+
+  /*
+    What the two build cards borrow from the panel beyond the thread's props:
+    the language their sentences are said in, a build's notices by turn (the
+    approval card is handed the list, not the turn), and the removal.
+  */
+  const buildCardSeam = useMemo<BuildCardSeam>(
+    () => ({
+      locale,
+      noticesOf: (turnId) => {
+        const turn = turns.find((candidate) => candidate.id === turnId);
+        return turn?.from === 'assistant' && (turn.kind === 'building' || turn.kind === 'built')
+          ? (turn.notices ?? NO_NOTICES)
+          : NO_NOTICES;
+      },
+      onRemoveUnfilled: removeUnfilled,
+    }),
+    [locale, removeUnfilled, turns],
   );
 
   const startNewChat = useCallback(() => {
@@ -657,7 +777,7 @@ export function AssistantPanel({
    * unchanged.
    */
   const runBuild = useCallback(
-    async (trimmed: string, mode: AssistantMode) => {
+    async (trimmed: string, mode: AssistantMode, placement: BuildPlacement) => {
       setBusy(true);
       setDraft('');
       const youId = nextId('turn');
@@ -672,6 +792,7 @@ export function AssistantPanel({
         kind: 'building',
         request: trimmed,
         progress: initialBuildProgress(runId, startedAt),
+        ...(placement.notices.length === 0 ? {} : { notices: placement.notices }),
       });
       const history = historyOf(active?.turns ?? []);
       // Entered synchronously, so Send is answered before the build's first event.
@@ -689,10 +810,20 @@ export function AssistantPanel({
 
       /*
         The ONE approval, and it is on the LIST — "you understood me, go" —
-        not on each of eight sections in turn. The skeleton is already applied
-        by the time this is asked, which is why the card says so out loud.
+        not on each of eight sections in turn.
+
+        Asked BEFORE anything is written (2026-09-28, agent-audit P0-4): the
+        engine hands over the sections the skeleton WOULD create, the
+        direction, and — on a PagePlan build — the plan itself, and lands the
+        skeleton only on 'build'. So the card's rows come from these arguments:
+        `build.planned`, which they used to be read from, now fires only after
+        the answer, and an approval card drawn from it listed nothing.
       */
-      const askToBuild = (): Promise<'build' | 'stop'> =>
+      const askToBuild = (
+        planned: readonly AiBuildPlannedTask[],
+        direction: string,
+        plan?: PagePlan,
+      ): Promise<'build' | 'stop'> =>
         new Promise<'build' | 'stop'>((resolve) => {
           if (controller.signal.aborted) {
             resolve('stop');
@@ -715,7 +846,21 @@ export function AssistantPanel({
             },
             { once: true },
           );
-          patchBuilding((turn) => ({ ...turn, awaiting: true }));
+          patchBuilding((turn) => ({
+            ...turn,
+            awaiting: true,
+            progress: planForApproval(turn.progress, planned, direction, plan),
+            /*
+              Asked with no page plan in hand, this is a SCAFFOLD build — the
+              provider could not plan the page, or its plan was refused — and
+              a scaffold appends whatever the target. A start-over promised
+              when the request arrived is taken back here, before the person
+              decides, not after.
+            */
+            ...(plan === undefined && turn.notices !== undefined
+              ? { notices: withoutStartOver(turn.notices) }
+              : {}),
+          }));
         });
 
       const selection = kernel.context.store.getState().selection;
@@ -734,6 +879,12 @@ export function AssistantPanel({
           ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
           ...catalogPolicyFor(providerKind, selection, agentPolicy),
           /*
+            Where the page lands, from the router (P1-15). A new page cannot
+            be opened from here, so `requestPath` has already turned that into
+            'append' and put the reason on the card.
+          */
+          target: placement.target,
+          /*
             PLAN never writes, here as everywhere else. The build stops at the
             skeleton, proposes it instead of applying it, and reports the
             sections it would have filled.
@@ -745,7 +896,9 @@ export function AssistantPanel({
             in the middle, so Auto omits the hook entirely. Plan is never asked:
             there is nothing to approve when nothing will be written.
           */
-          ...(mode === 'ask' ? { onPlanned: askToBuild } : {}),
+          ...(mode === 'ask' || (mode === 'auto' && placement.confirm)
+            ? { onPlanned: askToBuild }
+            : {}),
           signal: controller.signal,
           isCurrentRun: (candidateRunId) => activeRunRef.current?.runId === candidateRunId,
           onEvent: (event) => {
@@ -835,18 +988,57 @@ export function AssistantPanel({
           return;
         }
 
-        if (result.scaffold?.status === 'applied') {
-          memory.note(result.scaffold.proposal);
-        }
         // Read once, outside the updater: an ending has ONE moment, and a
         // state updater React may replay must not sample a clock twice.
         const endedAt = systemClock.now();
+
+        if (result.tasks.length === 0) {
+          /*
+            NOTHING WAS WRITTEN. Refused at the question, stopped while the
+            question was open, or stopped before the skeleton landed: the
+            engine returns no section at all, because no region was ever
+            created. It used to be drawn as a stopped, UNDOABLE build report —
+            "0/3" with rows for sections that were never on the page. It is a
+            plain stop, with nothing to undo.
+          */
+          patchTurns((previous) =>
+            previous.map((turn): Turn => {
+              if (turn.id !== buildId) return turn;
+              const run =
+                turn.from === 'assistant' && turn.kind === 'building' ? turn.progress.run : null;
+              const receipt = run === null ? null : receiptOf(run, endedAt);
+              return {
+                id: turn.id,
+                from: 'assistant',
+                kind: 'stopped',
+                ...(receipt === null ? {} : { receipt }),
+              };
+            }),
+          );
+          settleFaceTurn({ runId, outcome: 'stopped' });
+          return;
+        }
+
+        if (result.scaffold?.status === 'applied') {
+          memory.note(result.scaffold.proposal);
+        }
+        buildsRef.current.set(buildId, { kernel, result });
+        const unfilled = result.unfilled?.length ?? 0;
         patchTurns((previous) =>
           previous.map((turn): Turn => {
             if (turn.id !== buildId || turn.from !== 'assistant' || turn.kind !== 'building') {
               return turn;
             }
             const receipt = buildReceipt(turn.progress, endedAt);
+            /*
+              Said as what the build DID: a build with no page plan was a
+              scaffold build, which appended — so a start-over it was asked
+              for did not happen, and the card must not promise its Undo.
+            */
+            const notices =
+              turn.notices === undefined || result.pagePlan !== undefined
+                ? turn.notices
+                : withoutStartOver(turn.notices);
             return {
               id: turn.id,
               from: 'assistant',
@@ -856,6 +1048,8 @@ export function AssistantPanel({
               undoable: true,
               ...(receipt === null ? {} : { receipt }),
               ...(result.outcome === 'completed' ? {} : { stopped: true }),
+              ...(notices === undefined ? {} : { notices }),
+              ...(unfilled === 0 ? {} : { unfilled }),
             };
           }),
         );
@@ -882,11 +1076,17 @@ export function AssistantPanel({
               };
             }
             /*
-              Stopped. A build that never got a section list is an ordinary
-              stop and reads as one — a report saying "0/0" would be a card
-              about nothing.
+              Stopped. A build whose skeleton never landed — still laying it
+              out, or still asking about it (the approval rows name no node) —
+              is an ordinary stop and reads as one: a report saying "0/3"
+              would be a card about sections that were never on the page.
             */
-            if (building === null || building.progress.tasks.length === 0) {
+            if (
+              building === null ||
+              building.progress.phase === 'scaffolding' ||
+              building.progress.phase === 'fallback' ||
+              building.progress.tasks.length === 0
+            ) {
               const run = building?.progress.run ?? null;
               const receipt = run === null ? null : receiptOf(run, endedAt);
               return {
@@ -897,15 +1097,20 @@ export function AssistantPanel({
               };
             }
             const receipt = buildReceipt(building.progress, endedAt);
+            /*
+              Not undoable: the engine threw instead of returning, so there is
+              no record of what each section landed as — and putting a section
+              back without one would be a guess. The global Undo still works.
+            */
             return {
               id: turn.id,
               from: 'assistant',
               kind: 'built',
               progress: building.progress,
               request: trimmed,
-              undoable: true,
               stopped: true,
               ...(receipt === null ? {} : { receipt }),
+              ...(building.notices === undefined ? {} : { notices: building.notices }),
             };
           }),
         );
@@ -944,11 +1149,7 @@ export function AssistantPanel({
   );
 
   const ask = useCallback(
-    async (
-      request: string,
-      origin: AskOrigin = 'typed',
-      capturedSelection?: readonly NodeId[],
-    ) => {
+    async (request: string, origin: AskOrigin = 'typed', capturedSelection?: readonly NodeId[]) => {
       const trimmed = request.trim();
       /*
         The mode this RUN carries, which is not always the one in state.
@@ -978,14 +1179,52 @@ export function AssistantPanel({
       }
       setQueuePaused(false);
       /*
-        A PAGE is a build; a section is one call. Plan mode never builds: the
-        skeleton would apply, and Plan must never apply. Everything else takes
-        the path it took before this branch existed.
+        What the request is FOR, read against the page it will run on
+        (2026-09-28). It used to ask whether a page-archetype skill
+        auto-activated — keyword substrings — which sent 8 of 12 measured edits
+        into a full page build and missed 14 of 17 page asks (agent-audit
+        P0-1 / P1-5). The router reads the words AND the page: an empty page
+        takes a bare subject as its brief, a pointed-at block keeps a
+        page-like phrase an edit, and a page with content gets a new-page
+        target rather than sections appended under it.
+
+        "Build this" on a planned page is a build by definition — the plan it
+        came from was one — whatever the words route to now.
       */
-      if (activatesBuildArchetype(registry, trimmed)) {
-        await runBuild(trimmed, mode);
+      const page = summarizeDocumentForIntent(kernel.getDocument());
+      const routed = requestPath(
+        routeRequest(trimmed, {
+          kernel,
+          ...(capturedSelection === undefined ? {} : { selection: capturedSelection }),
+        }),
+        {
+          holdsContent: page.nodeCount > 0 && !page.placeholderOnly,
+          /*
+            Only a PagePlan build removes what is there, and the engine takes
+            that path only with a provider that can plan a page and a registry
+            holding the region block a plan is laid as (run-build's
+            `planStep`). The playground's own provider cannot plan a page, so
+            its builds append — and must not ask "start over?" first.
+          */
+          canStartOver:
+            resolvedProvider.proposePagePlan !== undefined &&
+            kernel.context.registry.block(customCodeSchema.type) !== undefined,
+        },
+      );
+      const path: RequestPath =
+        origin === 'build' && routed.path !== 'build' ? BUILD_IN_PLACE : routed;
+      if (path.path === 'build') {
+        await runBuild(trimmed, mode, path);
         return;
       }
+      /*
+        A QUESTION is answered in words by the one route that cannot write:
+        no command vocabulary, no proposal, no Apply. `runAiAgent` cannot
+        answer one — its validator refuses a plan with zero commands, so "how
+        do I change the font?" came back as a refusal, or as edits nobody
+        asked for.
+      */
+      const answersOnly = mode === 'plan' || path.path === 'answer';
       setBusy(true);
       setDraft('');
       const thinkingId = nextId('turn');
@@ -997,7 +1236,10 @@ export function AssistantPanel({
         from: 'assistant',
         kind: 'thinking',
         subject,
-        run: initialRunProgress(mode === 'auto' ? 'auto' : 'never', systemClock.now()),
+        run: initialRunProgress(
+          mode === 'auto' && !answersOnly ? 'auto' : 'never',
+          systemClock.now(),
+        ),
       });
 
       const history = historyOf(active?.turns ?? []);
@@ -1026,19 +1268,28 @@ export function AssistantPanel({
         the same skills and the same context, and simply never goes near the
         door — there is nothing to validate, because there is nothing to apply.
       */
-      if (mode === 'plan') {
+      if (answersOnly) {
+        const pointed =
+          mentioned.length > 0
+            ? mentioned
+            : (capturedSelection ?? kernel.context.store.getState().selection);
         try {
           const outline = await outlineAiPlan({
             kernel,
             provider: resolvedProvider,
             request: trimmed,
-            selection:
-              mentioned.length > 0
-                ? mentioned
-                : (capturedSelection ?? kernel.context.store.getState().selection),
+            selection: pointed,
             history,
             skillRegistry: registry,
             ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
+            /*
+              The same catalog policy every other run carries. Without it an
+              outline defaulted to the FULL catalog: measured ~49k tokens for
+              one Plan request against ~5k with `catalogMode: 'none'`
+              (agent-audit P1-7d, 34 headless blocks; the playground registers
+              55) — and a question is the request least in need of it.
+            */
+            ...catalogPolicyFor(providerKind, pointed, agentPolicy),
             signal: controller.signal,
           });
           if (!ownsRun(activeRunRef.current, runId)) return;
@@ -1532,53 +1783,55 @@ export function AssistantPanel({
         detail={selectedId}
       />
 
-      <AssistantThread
-        turns={turns}
-        face={face}
-        locale={locale}
-        mode={panelMode}
-        busy={busy}
-        canWrite={mutatesLiveDocument}
-        threadRef={threadRef}
-        watchEmptyZone={watchEmptyZone}
-        holdEmptySeat={holdEmptySeat}
-        onApproval={answerApproval}
-        onStop={stop}
-        onUndoTask={undoTask}
-        onRetrySkipped={(titles) => {
-          void ask(retrySkippedRequest(titles));
-        }}
-        onRetry={(request) => {
-          void ask(request);
-        }}
-        onJump={(id) => {
-          /*
+      <BuildCardSeamContext.Provider value={buildCardSeam}>
+        <AssistantThread
+          turns={turns}
+          face={face}
+          locale={locale}
+          mode={panelMode}
+          busy={busy}
+          canWrite={mutatesLiveDocument}
+          threadRef={threadRef}
+          watchEmptyZone={watchEmptyZone}
+          holdEmptySeat={holdEmptySeat}
+          onApproval={answerApproval}
+          onStop={stop}
+          onUndoTask={undoTask}
+          onRetrySkipped={(titles) => {
+            void ask(retrySkippedRequest(titles));
+          }}
+          onRetry={(request) => {
+            void ask(request);
+          }}
+          onJump={(id) => {
+            /*
             Selecting is the jump. The canvas scrolls to the selection and the
             Inspector follows, so one door does the whole thing — and it is the
             same door a click on the canvas uses, which is why a jumped-to
             section behaves exactly like one the person found themselves.
           */
-          kernel.setSelection([id]);
-        }}
-        onBuild={(request) => {
-          /*
+            kernel.setSelection([id]);
+          }}
+          onBuild={(request) => {
+            /*
             The mode control MOVES, and it moves first. A run's authority is
             fixed when it starts, so building a planned page means starting a
             run in a writing mode — and the panel must not be in one state while
             the run it just started is in another. Ask, not Auto: the person
             asked to plan, and the section list still gets its one approval.
           */
-          setMode('ask');
-          void ask(request, 'build');
-        }}
-        onApplyPlan={accept}
-        onPreviewPlan={openPreview}
-        onDiscardPlan={discard}
-        onUndoPlan={() => {
-          kernel.undo();
-        }}
-        onReviewAsCode={onReviewAsCode}
-      />
+            setMode('ask');
+            void ask(request, 'build');
+          }}
+          onApplyPlan={accept}
+          onPreviewPlan={openPreview}
+          onDiscardPlan={discard}
+          onUndoPlan={() => {
+            kernel.undo();
+          }}
+          onReviewAsCode={onReviewAsCode}
+        />
+      </BuildCardSeamContext.Provider>
 
       {/*
         The suggestion strip, ABOVE the composer and outside the thread.
@@ -1611,7 +1864,7 @@ export function AssistantPanel({
           state={queuedRequest.state}
           paused={queuePaused}
           onChange={(request) => {
-            setQueuedRequest((current) => current === null ? null : { ...current, request });
+            setQueuedRequest((current) => (current === null ? null : { ...current, request }));
           }}
           onRemove={() => {
             setQueuedRequest(null);

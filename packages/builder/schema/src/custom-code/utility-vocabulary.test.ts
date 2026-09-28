@@ -121,6 +121,70 @@ describe('the vocabulary', () => {
     expect(unknownUtilityClasses(everyday.join(' '))).toEqual([]);
   });
 
+  /*
+    Measured 2026-09-28 (page-power research): the section recipes a page
+    needs — an image-first zigzag that alternates sides on desktop, a heading
+    centred only on phones, an RTL-correct accent border, a card lifted over a
+    photo's edge, a darkening gradient under text on a photo — were each one
+    missing class away, so the skills routed around them with ck- CSS or told
+    the model to do without. Standard Tailwind, logical where it has a side.
+  */
+  it('admits the responsive layout idioms the section recipes are written in', () => {
+    const idioms = [
+      'sm:flex-row',
+      'md:flex-row',
+      'md:flex-row-reverse',
+      'md:flex-col',
+      'lg:flex-row',
+      'md:text-center',
+      'md:text-start',
+      'md:text-end',
+      'md:order-first',
+      'md:order-last',
+      'md:order-1',
+      'md:order-2',
+      'border-s-2',
+      'border-s-4',
+      'border-e-2',
+      'md:col-start-2',
+      'lg:col-start-7',
+      'md:col-start-1',
+      '-mt-24',
+      'md:-mt-16',
+      'lg:-mt-24',
+      'md:w-1/2',
+      'lg:w-2/3',
+      'md:aspect-video',
+      'md:aspect-4/3',
+      'md:aspect-21/9',
+      'md:min-h-dvh',
+      'from-black/70',
+      'from-black/80',
+      'via-black/20',
+      'via-black/40',
+      'to-black/10',
+      'from-white/80',
+      'gap-x-16',
+      'md:gap-x-16',
+      'md:gap-y-20',
+      'mt-auto',
+      'ms-auto',
+      'me-auto',
+      'md:mt-auto',
+    ];
+
+    expect(unknownUtilityClasses(idioms.join(' '))).toEqual([]);
+  });
+
+  it('adds only the logical sides of those idioms: an RTL page mirrors start/end, not left/right', () => {
+    expect(unknownUtilityClasses('md:text-left md:text-right md:border-l-2 md:ml-auto')).toEqual([
+      'md:text-left',
+      'md:text-right',
+      'md:border-l-2',
+      'md:ml-auto',
+    ]);
+  });
+
   it('admits the region-local namespace, which region CSS is written against', () => {
     // Without this the `css` prop would exist and be unusable: its selectors
     // could never match a class the door lets through.
@@ -205,7 +269,11 @@ describe('the vocabulary', () => {
 });
 
 describe('the runtime class oracle', () => {
-  const liveOnly = 'md:flex-row';
+  /*
+    Was 'md:flex-row', until the vocabulary admitted it (2026-09-28). The
+    example only has to be a real Tailwind class the static list lacks.
+  */
+  const liveOnly = 'md:skew-x-3';
 
   it('reports a class the static vocabulary lacks while no host generates at runtime', () => {
     setUtilityClassOracle(undefined);

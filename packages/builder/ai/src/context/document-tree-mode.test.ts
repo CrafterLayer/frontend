@@ -75,7 +75,7 @@ const extension: TrustedExtensionManifest = {
   },
 };
 
-function document(): BuilderDocument {
+function document(faq: CustomCodeRoot = emptyCustomCodeTree()): BuilderDocument {
   return {
     schemaVersion: 1,
     surface: 'site',
@@ -94,14 +94,14 @@ function document(): BuilderDocument {
         type: 'customCode',
         props: { label: 'Pricing', tree: filledTree('Pricing', 12) },
       },
-      c: { id: 'c', type: 'customCode', props: { label: 'FAQ', tree: emptyCustomCodeTree() } },
+      c: { id: 'c', type: 'customCode', props: { label: 'FAQ', tree: faq } },
     },
   } as unknown as BuilderDocument;
 }
 
-function kernel() {
+function kernel(faq?: CustomCodeRoot) {
   return createBuilder({
-    document: document(),
+    document: document(faq),
     extensions: [extension],
     ports: { clock: fixedClock(1), ids: seededIds('tree-mode') },
   });
@@ -120,8 +120,12 @@ describe('documentTreeMode', () => {
   it('quotes every tree by default, so "change the word X" stays answerable', () => {
     const context = assembleAiContext(kernel().context);
 
-    expect(nodeOf(context, 'a')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Hero', 12)));
-    expect(nodeOf(context, 'b')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Pricing', 12)));
+    expect(nodeOf(context, 'a')?.props['tree']).toEqual(
+      serializeTreeMarkup(filledTree('Hero', 12)),
+    );
+    expect(nodeOf(context, 'b')?.props['tree']).toEqual(
+      serializeTreeMarkup(filledTree('Pricing', 12)),
+    );
   });
 
   it('keeps the region in hand whole and describes the rest', () => {
@@ -131,7 +135,9 @@ describe('documentTreeMode', () => {
     });
 
     // The one being edited arrives in full.
-    expect(nodeOf(context, 'b')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Pricing', 12)));
+    expect(nodeOf(context, 'b')?.props['tree']).toEqual(
+      serializeTreeMarkup(filledTree('Pricing', 12)),
+    );
     // The others are described: what stands there, never its body copy.
     const summary = nodeOf(context, 'a')?.props['tree'];
     expect(summary).toBe('filled · 14 nodes · “Hero”');
@@ -148,8 +154,10 @@ describe('documentTreeMode', () => {
       },
     });
 
-    expect(nodeOf(context, 'a')?.props['tree']).toEqual(serializeTreeMarkup(filledTree('Hero', 12)));
-    expect(String(nodeOf(context, 'b')?.props['tree'])).not.toMatch(/^</u);
+    expect(nodeOf(context, 'a')?.props['tree']).toEqual(
+      serializeTreeMarkup(filledTree('Hero', 12)),
+    );
+    expect(nodeOf(context, 'b')?.props['tree']).toBe('filled · 14 nodes · “Pricing”');
   });
 
   it('hides no structure: ids, types, slots and ordinary props all survive', () => {
@@ -162,6 +170,27 @@ describe('documentTreeMode', () => {
     expect(nodeOf(context, 'root')?.slots).toEqual({ default: ['a', 'b', 'c'] });
     // An empty region is described too, and says so rather than pretending.
     expect(nodeOf(context, 'c')?.props['tree']).toBe('filled · 0 nodes');
+  });
+
+  it('quotes a region holding a component reference as markup too, so editTree can reach it', () => {
+    const tree: CustomCodeRoot = {
+      kind: 'root',
+      children: [
+        {
+          kind: 'element',
+          tag: 'section',
+          children: [
+            { kind: 'element', tag: 'h2', text: 'Contact' },
+            { kind: 'component', component: 'contact', props: { email: 'a@b.co' } },
+          ],
+        },
+      ],
+    };
+    const context = assembleAiContext(kernel(tree).context);
+
+    expect(nodeOf(context, 'c')?.props['tree']).toBe(
+      '<section><h2>Contact</h2><ck-component type=\'contact\' props=\'{"email":"a@b.co"}\'/></section>',
+    );
   });
 
   it('makes the last fill cost what the first one did', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeAiPlanTrees } from './normalize-plan';
+import { normalizeAiPlanTrees, readAiPlanTreeMarkup } from './normalize-plan';
 
 function planWith(children: unknown[]) {
   return {
@@ -380,11 +380,140 @@ describe('normalizeAiPlanTrees — trees written as markup', () => {
     );
   });
 
+  it('reads ck-component into a component reference, never a div', () => {
+    const result = normalizeAiPlanTrees({
+      rationale: 'fill',
+      commands: [
+        {
+          command: 'setProp',
+          args: {
+            id: 'pg-6',
+            key: 'tree',
+            value:
+              "<section class='py-16'><h2>Contact</h2><ck-component type='contact' props='{\"email\":\"a@b.co\"}'></ck-component></section>",
+          },
+        },
+      ],
+    });
+
+    expect(treeOf(result.plan)).toEqual({
+      kind: 'root',
+      children: [
+        {
+          kind: 'element',
+          tag: 'section',
+          className: 'py-16',
+          children: [
+            { kind: 'element', tag: 'h2', text: 'Contact' },
+            { kind: 'component', component: 'contact', props: { email: 'a@b.co' } },
+          ],
+        },
+      ],
+    });
+    expect(result.adjustments).not.toContain('ck-component → div');
+  });
+
+  it('leaves a tag that names a registered block for the door to refuse, instead of an empty div', () => {
+    const result = normalizeAiPlanTrees(
+      {
+        rationale: 'fill',
+        commands: [
+          {
+            command: 'setProp',
+            args: {
+              id: 'pg-6',
+              key: 'tree',
+              value: '<section><contact></contact><formSection/><aside>kept</aside></section>',
+            },
+          },
+        ],
+      },
+      'free',
+      ['contact', 'formSection'],
+    );
+
+    expect(JSON.stringify(treeOf(result.plan))).toBe(
+      '{"kind":"root","children":[{"kind":"element","tag":"section","children":[{"kind":"element","tag":"contact"},{"kind":"element","tag":"formsection"},{"kind":"element","tag":"aside","text":"kept"}]}]}',
+    );
+    expect(result.adjustments.join(' ')).not.toMatch(/contact → div|formsection → div/u);
+  });
+
   it('leaves a label or any other string prop alone even when it starts with <', () => {
     const plan = {
       rationale: 'r',
       commands: [{ command: 'setProp', args: { id: 'a', key: 'label', value: '<3 coffee' } }],
     };
     expect(normalizeAiPlanTrees(plan).plan).toBe(plan);
+  });
+});
+
+/*
+  Markup is a spelling, not a vocabulary rule: the context always tells the
+  model to write trees as markup, so a host that turns the vocabulary check
+  off must still have them read — or every tree reaches the door as a string.
+*/
+describe('readAiPlanTreeMarkup', () => {
+  it('reads every tree written as markup and cleans nothing else', () => {
+    const plan = {
+      rationale: 'fill',
+      commands: [
+        {
+          command: 'setProp',
+          args: {
+            id: 'a',
+            key: 'tree',
+            value: "<section class='made-up-class'><form>x</form></section>",
+          },
+        },
+        {
+          command: 'insertNode',
+          args: { type: 'customCode', parentId: 'root', props: { tree: '<p>Hi</p>' } },
+        },
+        { command: 'setProp', args: { id: 'a', key: 'label', value: '<3 coffee' } },
+      ],
+    };
+
+    expect(readAiPlanTreeMarkup(plan)).toEqual({
+      rationale: 'fill',
+      commands: [
+        {
+          command: 'setProp',
+          args: {
+            id: 'a',
+            key: 'tree',
+            value: {
+              kind: 'root',
+              children: [
+                {
+                  kind: 'element',
+                  tag: 'section',
+                  className: 'made-up-class',
+                  children: [{ kind: 'element', tag: 'form', text: 'x' }],
+                },
+              ],
+            },
+          },
+        },
+        {
+          command: 'insertNode',
+          args: {
+            type: 'customCode',
+            parentId: 'root',
+            props: {
+              tree: { kind: 'root', children: [{ kind: 'element', tag: 'p', text: 'Hi' }] },
+            },
+          },
+        },
+        { command: 'setProp', args: { id: 'a', key: 'label', value: '<3 coffee' } },
+      ],
+    });
+  });
+
+  it('returns the very same plan when no tree is written as markup', () => {
+    const plan = {
+      rationale: 'r',
+      commands: [{ command: 'setProp', args: { id: 'a', key: 'k', value: 1 } }],
+    };
+    expect(readAiPlanTreeMarkup(plan)).toBe(plan);
   });
 });

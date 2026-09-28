@@ -1,0 +1,101 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as RunGlyphStories from './RunGlyph.stories';
+
+<Meta of={RunGlyphStories} />
+
+# RunGlyph
+
+The status node (SPEC §4.7): a 16px box around a 12px node, static SVG. It heads every record, marks
+every spine and plan row, and leads the RunBar's status line.
+
+<Canvas of={RunGlyphStories.Light} />
+
+## Purpose
+
+The panel's concept is "ink means landed" (SPEC §1): only a section that is actually on the page
+draws solid Indigo. RunGlyph is where that rule becomes pixels. Each state has a shape of its own,
+so the node is readable with colour taken away, in high contrast, and at a glance down a spine of
+twelve rows.
+
+## When to use / not
+
+Use it wherever a run, a section or a decision has a state. Map a row with `glyphForRow(state)` and
+a build head with `glyphForBuildPhase(phase)` rather than choosing a glyph by hand; both mappings
+are tested against SPEC §4.7 and §4.8, and neither can draw ink for a section that has not landed.
+
+Do not use it as an icon (that is `AgentIcon`), and never let it carry a state alone: the row's
+accessible name or the record's title says the state in words.
+
+## Props
+
+| prop        | type            | default | notes                                               |
+| ----------- | --------------- | ------- | --------------------------------------------------- |
+| `state`     | `RunGlyphState` | none    | one of the nine below                               |
+| `animate`   | `boolean`       | `false` | play the arrival motion; a live build passes `true` |
+| `className` | `string`        | none    | appended to `ck-agent-glyph`                        |
+
+Keep `animate` stable for a row's life: switching it on later replays the arrival. On a Sheet
+surface (a decision card) set `--ck-agent-ground: var(--bldr-surface)` on the card so the node's
+Paper ring matches it.
+
+## States
+
+| state      | drawing                                                          | where                        |
+| ---------- | ---------------------------------------------------------------- | ---------------------------- |
+| `waiting`  | a 1.5px Rule ring                                                | rows, a plan's pencil        |
+| `working`  | a Halo ring with a quarter of Indigo turning clockwise, 900ms    | heads, rows, the RunBar      |
+| `drafted`  | an Indigo ring with a core, ◎: written, waiting its turn         | rows                         |
+| `landed`   | the Indigo disc with an On-accent check                          | heads, rows                  |
+| `absent`   | a Rule ring dashed 2 on 2                                        | not written, stopped, undone |
+| `failed`   | the Alarm disc with a cross                                      | heads, rows                  |
+| `partial`  | the landed disc with a 6px Alarm dot at block-start / inline-end | heads                        |
+| `decision` | a 10px Indigo diamond, outlined                                  | proposal, step-plan heads    |
+| `note`     | three Slate lines, 8, 10 and 6px long                            | an answer's head             |
+
+One story per state (`Waiting` … `Note`), then every state beside its words in `Light`, `Dark`,
+`RightToLeft` and `RightToLeftDark`, the ground re-pointed in `OnSheet`, and a row landing in
+`LiveLanding`.
+
+**Drafted departs from the SPEC table on purpose.** §4.7 draws it as the waiting ring in Indigo,
+which only colour separates from waiting, and §2.1 rule 1 forbids exactly that. The SPEC's own
+frames draw it ◎, so it carries a core dot: a shape of its own, still "an Indigo outline with no
+fill".
+
+## Anatomy
+
+- A ground circle (r 8): the node's 2px Paper ring, so a spine appears to run into the node.
+- The ring (r 5.25, 1.5px): its outer edge is the 12px node. It is one keyed element from waiting to
+  landed, so a landing inks the disc in over a ring that never left.
+- Marks, by state: the arc, the core, the disc (r 6), the check or cross, the partial badge, the
+  diamond, the lines.
+
+Geometry lives in the markup and every colour in `RunGlyph.css`, keyed on `data-state`. The test
+strips colour entirely and still finds nine distinct shapes.
+
+The failed cross uses `--bldr-accent-text`: the SPEC's "On-danger" has its exact values (#FFFFFF
+light, #0E1116 dark), so no second token was added. The partial dot is separated from the disc by
+its Paper ring, not its colour: Alarm on Indigo is 1.21:1.
+
+## Accessibility
+
+Always `aria-hidden`, with no `<title>`. The state word lives in the accessible name of what carries
+the glyph: a row's name ("Section 3 of 8: Services, Writing") or a record's `h3` ("Page built").
+Under `forced-colors: active` every state is restated in system colours, and the working arc drops
+its track so it reads as a spinner, never as a waiting ring.
+
+## RTL
+
+What sits at the reading end follows it: the partial dot moves to the top-left and the note's lines
+are ragged on the left. The check, the cross and the spinner never mirror; the spinner always turns
+clockwise.
+
+## Motion
+
+- Working: the arc turns clockwise, 900ms linear; still under reduced motion.
+- Landing (SPEC §5 moment 1, with `animate`): the disc inks in and the check settles from 0.6, both
+  over `--bldr-duration-land` (360ms) on `--bldr-easing-enter`. Under reduced motion it is a 120ms
+  colour fade with no scale.
+- Drafted (moment 3, with `animate`): the core appears over `--bldr-duration-state` (120ms).
+- Records restored from history pass no `animate`, so a thread of finished builds does not flicker
+  on load.

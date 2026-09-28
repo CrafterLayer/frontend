@@ -1,7 +1,7 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 
 import type { AiPlanValidationIssue } from '../types';
-import { parseTreeMarkup, serializeTreeMarkup } from './tree-markup';
+import { isTreeMarkup, parseTreeMarkup, serializeTreeMarkup } from './tree-markup';
 
 /**
  * `editTree`: change part of a region by quoting it, instead of rewriting it.
@@ -25,6 +25,13 @@ import { parseTreeMarkup, serializeTreeMarkup } from './tree-markup';
  * other setProp — same policy, same vocabulary, same dry run. A `find` that is
  * not in the region exactly once is refused with a reason that says so, which
  * is what the one repair round needs to get it right.
+ *
+ * "The region's current tree" is the tree as the plan's EARLIER steps leave
+ * it, not as the live page holds it: each expansion becomes a whole-tree
+ * setProp, so two steps expanded against the live page would each write the
+ * pre-plan region plus their own change, and the later one would silently
+ * undo the earlier (measured 2026-09-28: "Bigger title" then "Button copy"
+ * landed only the button copy, with both step titles claiming success).
  */
 
 export const EDIT_TREE_COMMAND = 'editTree';
@@ -59,9 +66,10 @@ function editsOf(args: JsonRecord): readonly TreeEdit[] | undefined {
   return edits.length === 0 ? undefined : edits;
 }
 
+/** How often `find` occurs, overlapping matches included — `</div></div>` is in `</div></div></div>` twice. */
 function occurrences(text: string, find: string): number {
   let count = 0;
-  for (let at = text.indexOf(find); at >= 0; at = text.indexOf(find, at + find.length)) {
+  for (let at = text.indexOf(find); at >= 0; at = text.indexOf(find, at + 1)) {
     count += 1;
     if (count > 1) return count;
   }
@@ -72,12 +80,43 @@ function issue(step: number, message: string): AiPlanValidationIssue {
   return { code: 'invalid-args', message: `Step ${String(step)} (editTree): ${message}`, step };
 }
 
+/** Each region's tree as the plan's steps so far leave it, by node id. */
+type WorkingTrees = Map<string, unknown>;
+
+/** The tree a region holds before this step: an earlier step's, else the live page's. */
+function currentTree(
+  id: string,
+  kernel: BuilderKernel,
+  working: WorkingTrees,
+): { readonly tree: unknown } | undefined {
+  if (working.has(id)) return { tree: working.get(id) };
+  const nodes = kernel.getDocument().nodes;
+  // Own keys only: `nodes` is a plain object, and "constructor" is not a node.
+  if (!Object.hasOwn(nodes, id)) return undefined;
+  return { tree: nodes[id]?.props['tree'] };
+}
+
+/** A non-editTree step that writes a region's whole tree, remembered for the steps after it. */
+function recordTreeWrite(step: JsonRecord, working: WorkingTrees): void {
+  if (step['command'] !== 'setProp' || !isRecord(step['args'])) return;
+  const { id, key, value } = step['args'];
+  if (typeof id !== 'string' || key !== 'tree') return;
+  // Markup is read here the same way the normalizer will read it after expansion.
+  working.set(id, isTreeMarkup(value) ? parseTreeMarkup(value) : value);
+}
+
+/** An expanded step with the region and tree it writes, or the reason it could not expand. */
+type StepExpansion =
+  | { readonly step: JsonRecord; readonly id: string; readonly tree: unknown }
+  | { readonly issue: AiPlanValidationIssue };
+
 /** One editTree step as the setProp it stands for, or the reason it cannot be. */
 function expandStep(
   step: JsonRecord,
   index: number,
   kernel: BuilderKernel,
-): { readonly step: JsonRecord } | { readonly issue: AiPlanValidationIssue } {
+  working: WorkingTrees,
+): StepExpansion {
   const args = isRecord(step['args']) ? step['args'] : {};
   const id = args['id'];
   if (typeof id !== 'string') return { issue: issue(index, 'needs the id of the region to edit.') };
@@ -90,9 +129,9 @@ function expandStep(
       ),
     };
   }
-  const node = kernel.getDocument().nodes[id];
-  if (node === undefined) return { issue: issue(index, `no node "${id}" exists on this page.`) };
-  let markup = serializeTreeMarkup(node.props['tree']);
+  const current = currentTree(id, kernel, working);
+  if (current === undefined) return { issue: issue(index, `no node "${id}" exists on this page.`) };
+  let markup = serializeTreeMarkup(current.tree);
   if (markup === undefined) {
     return {
       issue: issue(
@@ -108,26 +147,29 @@ function expandStep(
         issue: issue(
           index,
           found === 0
-            ? `edit ${String(at + 1)}: "find" is not in the region's markup as it stands now. Quote it EXACTLY as the document shows it — attributes sorted, single quotes — or rewrite the region with setProp.`
+            ? `edit ${String(at + 1)}: "find" is not in the region's markup as it stands now${working.has(id) ? " (after this plan's earlier steps)" : ''}. Quote it EXACTLY as the document shows it — attributes sorted, single quotes — or rewrite the region with setProp.`
             : `edit ${String(at + 1)}: "find" occurs more than once in the region; quote a longer, unique stretch around the change.`,
         ),
       };
     }
     markup = markup.replace(edit.find, () => edit.replace);
   }
+  const tree = parseTreeMarkup(markup);
   return {
+    id,
+    tree,
     step: {
       command: 'setProp',
-      args: { id, key: 'tree', value: parseTreeMarkup(markup) },
+      args: { id, key: 'tree', value: tree },
       ...(typeof step['title'] === 'string' ? { title: step['title'] } : {}),
     },
   };
 }
 
 /**
- * Expand every `editTree` step in a candidate plan against the page as it is
- * now. Steps are expanded in order against the LIVE document, so two edits to
- * one region belong in one step's `edits`, not in two steps.
+ * Expand every `editTree` step in a candidate plan, in order, each against its
+ * region as the page and the plan's earlier steps (editTree or a `setProp`
+ * of the tree) leave it — so two steps on one region compose.
  */
 export function expandTreeEdits(candidate: unknown, kernel: BuilderKernel): TreeEditExpansion {
   if (!isRecord(candidate) || !Array.isArray(candidate['commands'])) {
@@ -138,13 +180,19 @@ export function expandTreeEdits(candidate: unknown, kernel: BuilderKernel): Tree
     return { plan: candidate, issues: [] };
   }
   const issues: AiPlanValidationIssue[] = [];
+  const working: WorkingTrees = new Map();
   const expanded = commands.map((step, index) => {
-    if (!isRecord(step) || step['command'] !== EDIT_TREE_COMMAND) return step;
-    const result = expandStep(step, index, kernel);
+    if (!isRecord(step)) return step;
+    if (step['command'] !== EDIT_TREE_COMMAND) {
+      recordTreeWrite(step, working);
+      return step;
+    }
+    const result = expandStep(step, index, kernel, working);
     if ('issue' in result) {
       issues.push(result.issue);
       return step;
     }
+    working.set(result.id, result.tree);
     return result.step;
   });
   return { plan: { ...candidate, commands: expanded }, issues };

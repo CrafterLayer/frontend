@@ -19,15 +19,44 @@
  * decision moves every label at once.
  */
 
+/**
+ * STAGE tokens: the marks the builder draws ON the person's page (a writer's
+ * edge, a landing ring, a veil over an unwritten placeholder).
+ *
+ * They are the one group that must NOT follow the editor's theme. Chrome sits
+ * on the editor's own grounds, but a stage mark sits on the page, and a light
+ * page stays light inside a dark editor — so a mark tuned to the chrome's theme
+ * would be tuned to the wrong ground. Each theme therefore carries the same
+ * value, and every stroke has a white halo on its inner side so it holds on a
+ * dark page as well as a light one.
+ *
+ * They are still ordinary contract tokens, declared in every theme block: a
+ * host that re-brands the stage re-points them like any other name.
+ */
+export const STAGE_TOKENS = [
+  'stage-accent',
+  'stage-on-accent',
+  'stage-halo',
+  'stage-veil',
+  'stage-ink',
+  'stage-danger',
+] as const;
+
+export type StageTokenName = (typeof STAGE_TOKENS)[number];
+
 export const CHROME_TOKENS = [
   // ── Type ───────────────────────────────────────────────────────────────
   'font',
+  // Arabic text's own stack; `:lang(ar)` re-points `font` to it.
+  'font-arabic',
   'font-mono',
 
   // ── Surfaces: the grounds things sit on, lightest to deepest ───────────
   'surface',
   'surface-raised',
   'surface-sunken',
+  // A shape on the panel that is not a card: a message bubble, a chip.
+  'surface-tint',
   'surface-hover',
   'surface-active',
   'surface-border',
@@ -60,10 +89,21 @@ export const CHROME_TOKENS = [
   'accent-soft-hover',
   'accent-ring',
 
+  // ── Progress: the line a plan is drawn in before it is real ────────────
+  'progress-track',
+
   // ── Canvas chrome: selection, hover, drop ──────────────────────────────
   'selection',
   'hover',
   'drop',
+
+  // ── Content shown inside chrome ────────────────────────────────────────
+  // A colour from the person's page (a swatch) is content, not chrome: this
+  // ring keeps a white swatch visible on a white panel without tinting it.
+  'content-outline',
+
+  // ── Stage: marks drawn on the page itself, one value in every theme ────
+  ...STAGE_TOKENS,
 
   // ── Semantic state — kept apart from the brand on purpose ──────────────
   'danger',

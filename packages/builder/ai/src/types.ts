@@ -243,6 +243,64 @@ export interface AiPlanProvider {
    * best-effort: a provider without a memory implements nothing.
    */
   forget?(request: string, context: AssembledAiContext, options?: AiProposeOptions): void;
+  /**
+   * Optional: answer with a PAGE PLAN — the structured, editable design of a
+   * whole page (tokens, fonts, one contract per section) — instead of kernel
+   * commands. It is step T1 of the page build (agent-audit §3.1): Plan mode
+   * stops after it and shows the plan; Build consumes it verbatim.
+   *
+   * Optional so every provider written before it still satisfies the port —
+   * a host that finds it missing falls back to the scaffold build. What comes
+   * back is UNTRUSTED model output: only `validatePagePlan` turns it into a
+   * `PagePlan`, exactly as only the kernel door turns an `AiPlan` into writes.
+   *
+   * A refusal throws the provider's refusal error, as `propose` does. On the
+   * remote wire this is `task: 'page-plan'` on the same endpoint (wire.ts).
+   */
+  proposePagePlan?(
+    request: string,
+    context: AssembledAiContext,
+    options?: AiProposePagePlanOptions,
+  ): Promise<AiPagePlanProposal>;
+}
+
+/**
+ * One reason a page plan was refused, phrased as the instruction that repairs
+ * it ("tokens.muted: #a8a29e on bg #ffffff is 2.52:1; body text needs 4.5:1 —
+ * pick a darker muted"). `path` names the field the way the model wrote it:
+ * `sections[2].anchorId`, `tokens.fontBody.weights[1]`.
+ */
+export interface PagePlanIssue {
+  readonly path: string;
+  readonly message: string;
+}
+
+/**
+ * A page plan as a provider returned it: a JSON object nobody has checked.
+ * Typed as an open record rather than as `PagePlan` because the type would be
+ * a lie until `validatePagePlan` has run.
+ */
+export type PagePlanCandidate = Readonly<Record<string, unknown>>;
+
+/** A provider's page-plan answer. */
+export interface AiPagePlanProposal {
+  readonly pagePlan: PagePlanCandidate;
+  /** One or two sentences on the direction, in the requester's language. */
+  readonly rationale?: string;
+}
+
+/**
+ * The previous candidate and why it was refused, sent back once for repair —
+ * the page-plan twin of `AiPlanProvider.repair`'s `(plan, issues)`.
+ */
+export interface AiPagePlanAttempt {
+  readonly pagePlan: PagePlanCandidate;
+  readonly issues: readonly PagePlanIssue[];
+}
+
+export interface AiProposePagePlanOptions extends AiProposeOptions {
+  /** Present on the one repair call; absent on the first proposal. */
+  attempt?: AiPagePlanAttempt;
 }
 
 /** Dedicated deterministic capabilities for preflight; never borrow the live kernel's instances. */

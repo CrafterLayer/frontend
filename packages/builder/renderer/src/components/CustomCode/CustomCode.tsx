@@ -14,6 +14,7 @@ import {
   type SlotName,
 } from '@craftkit/builder-schema';
 
+import { CUSTOM_CODE_REGION_ATTRIBUTE } from '../../tailwind/live-utilities';
 import { safeHref } from '../RichText/safe-href';
 import { UnknownBlock } from '../UnknownBlock';
 
@@ -299,6 +300,8 @@ function renderIcon(node: Record<string, unknown>, key: string, context: RenderC
   );
 }
 
+const BROKEN_ATTRIBUTE = 'data-ck-broken';
+
 /**
  * An image whose address does not load keeps its box and becomes a quiet
  * surface, instead of the browser's broken-image mark and a stray alt line.
@@ -307,10 +310,26 @@ function renderIcon(node: Record<string, unknown>, key: string, context: RenderC
  */
 function markBrokenImage(event: SyntheticEvent<HTMLImageElement>): void {
   const image = event.currentTarget;
-  image.setAttribute('data-ck-broken', '');
+  image.setAttribute(BROKEN_ATTRIBUTE, '');
   image.style.color = 'transparent';
   image.style.objectPosition = '-99999px 0';
   image.style.background = 'linear-gradient(135deg, rgb(231 229 228), rgb(214 211 209))';
+}
+
+/**
+ * And back again when a later address loads. The marks are written on the DOM
+ * node, not through React, and a new `src` reuses the same node (it is keyed
+ * by its tree path) — so without this, a fixed photo loaded off-box behind the
+ * grey surface until a reload, and a host looking for broken images found it.
+ */
+function clearBrokenImage(event: SyntheticEvent<HTMLImageElement>): void {
+  const image = event.currentTarget;
+  if (!image.hasAttribute(BROKEN_ATTRIBUTE)) return;
+  image.removeAttribute(BROKEN_ATTRIBUTE);
+  image.style.color = '';
+  image.style.objectPosition = '';
+  image.style.background = '';
+  if (image.getAttribute('style') === '') image.removeAttribute('style');
 }
 
 function renderElement(
@@ -331,7 +350,10 @@ function renderElement(
   const props: Record<string, unknown> = { key, ...attributes, ...pathAttribute(context, path) };
   if (className !== undefined) props['className'] = className;
 
-  if (tag === 'img') props['onError'] = markBrokenImage;
+  if (tag === 'img') {
+    props['onError'] = markBrokenImage;
+    props['onLoad'] = clearBrokenImage;
+  }
   if (VOID_TAGS.has(tag)) {
     return createElement(tag, props);
   }
@@ -388,8 +410,10 @@ export function CustomCode({
     isCanvas,
   };
   const children = root === null ? [] : childrenOf(root);
+  // The region marker is where the live Tailwind sheet's `@scope` begins.
+  const region = { [CUSTOM_CODE_REGION_ATTRIBUTE]: '' };
   return (
-    <div className={className} data-ck={hostId}>
+    <div className={className} data-ck={hostId} {...region}>
       {children.map((child, at) => renderNode(child, String(at), 0, context))}
     </div>
   );

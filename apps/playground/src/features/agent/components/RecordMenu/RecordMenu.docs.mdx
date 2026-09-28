@@ -1,0 +1,80 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as RecordMenuStories from './RecordMenu.stories';
+
+<Meta of={RecordMenuStories} />
+
+# RecordMenu
+
+A record's `[⋯]` (SPEC §4.15): a Radix DropdownMenu over an IconButton.
+
+<Canvas of={RecordMenuStories.Open} />
+
+## Purpose
+
+A record's secondary actions, out of the way until asked for: Restore page to before this request,
+Reuse request, the copy actions (summary, answer, error details), View as code on a proposal, and
+Technical details behind the developer flag.
+
+## When to use / not
+
+Use it at the end of a record's footer, with the list the view gives you (`BuildRecordView.menu` and
+its siblings). The producer decides what applies; the menu renders exactly that list, in that order,
+and nothing at all when it is empty.
+
+Do not add items in the component, and do not put a primary action in it: the footer's buttons are
+for what the person most likely wants next.
+
+## Props
+
+| prop               | type                                         | default | notes                                          |
+| ------------------ | -------------------------------------------- | ------- | ---------------------------------------------- |
+| `locale`           | `Locale`                                     | none    | labels come from the catalog (`MENU_ITEM_KEY`) |
+| `items`            | `readonly RecordMenuItem[]`                  | none    | empty draws nothing                            |
+| `onSelect`         | `(item) => void`                             | none    | runs the chosen item                           |
+| `focusAfterSelect` | `(item) => HTMLElement \| null \| undefined` | none    | where focus goes after `item`, when not `[⋯]`  |
+| `triggerRef`       | `Ref<HTMLButtonElement>`                     | none    | the `[⋯]`, for a dialog that must return to it |
+| `className`        | `string`                                     | none    | appended to the trigger's class                |
+
+`focusAfterSelect` names a destination instead of letting `onSelect` call `focus()`. The open menu
+traps focus, so a focus moved during `onSelect` is pulled straight back into it. Reuse request
+returns the composer's textarea; everything else goes back to `[⋯]`.
+
+## States
+
+| story                                    | what it shows                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| `Closed`                                 | the `[⋯]`                                                                      |
+| `Open`                                   | a finished build's menu, opened from the keyboard                              |
+| `KeyboardNavigation`                     | ↓, End, wrap to the first, Esc back to `[⋯]`                                   |
+| `OpenDark`                               | dark                                                                           |
+| `OpenRightToLeft`, `OpenRightToLeftDark` | Arabic: aligned to the trigger's inline end, read RTL, set in Plex Sans Arabic |
+| `AnswerMenu`                             | an answer's single item                                                        |
+
+## Anatomy
+
+The trigger is an `IconButton` (`more`, named "More options" / «خيارات أخرى», tooltip above and
+end-aligned). The menu is e2: the Sheet, a hairline border, the floating shadow, radius 9, 4px of
+padding, at least 200px wide and at most 320. Items are the panel's rows: 32px on a fine pointer and
+44px on a coarse one (`--bldr-agent-row-height`), Read type in Ink, radius 6.
+
+## Accessibility
+
+- Radix gives the menu pattern: `aria-haspopup="menu"` and `aria-expanded` on `[⋯]`, `role="menu"`
+  and `menuitem`, and a focus trap while open.
+- Keys (SPEC §6.7): Enter, Space or ↓ opens on the first item; ↑ and ↓ move and wrap; Home and End
+  jump; a letter finds an item; Esc closes and focus returns to `[⋯]` (SPEC §6.3).
+- The highlighted item takes the Wash, never Indigo. With the keyboard it also keeps the product's
+  focus ring, drawn 2px inside the row so rows never collide; in high contrast it keeps an edge.
+- The trigger's tooltip never opens over its own open menu.
+
+## RTL
+
+The menu follows the locale's direction (`dir` on Root, which Radix stamps on the content) and
+carries `lang`. It mounts inside the panel, so the Arabic type tokens and the panel's theme reach
+it: a menu portalled to the body would set in the Latin face on the light palette.
+
+## Motion
+
+Opacity and a 4px rise away from the trigger, 220ms in and 140ms out (SPEC §5 moment 9). Under
+reduced motion it only fades, over 120ms.

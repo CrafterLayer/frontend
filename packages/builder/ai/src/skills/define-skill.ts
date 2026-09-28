@@ -1,3 +1,4 @@
+import { INTENT_KINDS, type IntentKind } from '../intent/route-intent';
 import { AiSkillRegistryError } from './errors';
 import { compareSkillText } from './compare';
 import { sha256Hex } from './sha256';
@@ -171,7 +172,7 @@ function canonicalActivation(value: unknown): AiSkillActivation {
   }
   rejectUnknownKeys(
     value,
-    new Set(['mode', 'keywords', 'selectedBlockTypes', 'scripts']),
+    new Set(['mode', 'keywords', 'selectedBlockTypes', 'scripts', 'intents']),
     'activation',
   );
 
@@ -199,17 +200,45 @@ function canonicalActivation(value: unknown): AiSkillActivation {
       'An auto activation requires keywords, selectedBlockTypes, or scripts.',
     );
   }
+  const intents = canonicalIntents(value['intents']);
 
   const result: {
     mode: 'auto';
     keywords?: readonly string[];
     selectedBlockTypes?: readonly string[];
     scripts?: readonly AiSkillScript[];
+    intents?: readonly IntentKind[];
   } = { mode: 'auto' };
   if (keywords.length > 0) result.keywords = keywords;
   if (selectedBlockTypes.length > 0) result.selectedBlockTypes = selectedBlockTypes;
   if (scripts.length > 0) result.scripts = scripts.filter(isSkillScript);
+  if (intents !== undefined) result.intents = intents;
   return Object.freeze(result);
+}
+
+/**
+ * The intents an auto activation serves: absent is every intent, and an empty
+ * list — a skill that could never activate — is refused rather than kept as a
+ * silent no-op.
+ */
+function canonicalIntents(value: unknown): readonly IntentKind[] | undefined {
+  if (value === undefined) return undefined;
+  const intents = uniqueSortedStrings(value, 'activation.intents');
+  if (intents.length === 0) {
+    return fail('invalid-activation', 'activation.intents must name at least one intent.');
+  }
+  const unknown = intents.find((intent) => !isIntentKind(intent));
+  if (unknown !== undefined) {
+    return fail(
+      'invalid-activation',
+      `activation.intents may name only ${INTENT_KINDS.join(', ')}; got "${unknown}".`,
+    );
+  }
+  return Object.freeze(intents.filter(isIntentKind));
+}
+
+export function isIntentKind(value: string): value is IntentKind {
+  return (INTENT_KINDS as readonly string[]).includes(value);
 }
 
 /** The writing systems an auto activation may name; matched by `resolve-skills`. */

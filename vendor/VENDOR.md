@@ -126,3 +126,102 @@ the prefix.
 - **Reduced motion.** Upstream guards with `motion-safe:` on the animation only. Ours stops the
   travel and keeps the ring — losing the border entirely would cost the element its identity for no
   accessibility gain.
+
+## use-stick-to-bottom — the agent thread's scroll follow
+
+| | |
+| --- | --- |
+| Upstream | [stackblitz-labs/use-stick-to-bottom](https://github.com/stackblitz-labs/use-stick-to-bottom) |
+| File | `src/useStickToBottom.ts` (v1.1.6) |
+| Commit | `8d6a19a0ca6ab632830588073e6a29312a06a088` (2026-06-04) |
+| License | MIT — `vendor/use-stick-to-bottom/LICENSE` |
+| Verbatim copy | `vendor/use-stick-to-bottom/useStickToBottom.upstream.ts` |
+| Adapted into | `apps/playground/src/features/agent/hooks/stick-to-bottom/use-stick-to-bottom.ts` |
+
+**Why vendored rather than reimplemented**: the v1 panel scrolled the thread to the bottom on every
+progress tick, which yanked a reader who had scrolled up (SPEC §4.4). Telling the reader's scrolls
+from the thread's own is the whole problem, and upstream has already paid for the edge cases:
+
+1. **Its own scrolls are marked** (`ignoreScrollToTop`), so an animation frame is never mistaken for
+   the reader moving.
+2. **A scroll event can arrive before the ResizeObserver's**, so the escape decision waits a tick,
+   and the content's own growth (`resizeDifference`) never counts as the reader scrolling.
+3. **Wheel-up releases at once**, because a browser cancels a wheel scroll that an animation frame
+   overwrites; waiting for the scroll event would fight the reader.
+4. **A spring that accumulates sub-pixel steps** until they move the thread a whole pixel, which is
+   what makes the follow smooth when the browser snaps `scrollTop` to device pixels.
+5. **Selecting text with the button held** is never yanked.
+
+**What we changed in the adaptation** (and why). Reverting either of the first two to upstream's
+code fails the adapted tests: five reduced-motion tests, and two wheel tests.
+
+- **Reduced motion.** Upstream has none. Under `prefers-reduced-motion: reduce` every scroll the
+  hook makes is `instant`: the first follow, each follow on growth, and an explicit
+  `scrollToBottom('smooth')` (the jump pill). The query is read when a scroll starts, so an OS
+  setting changed mid-session applies to the next scroll.
+- **The wheel check.** Upstream releases only when the nearest ancestor whose computed `overflow`
+  is exactly `auto` or `scroll` is the thread. The thread clips inline overflow, and
+  `overflow-x: hidden; overflow-y: auto` computes to the shorthand `hidden auto`, so upstream walks
+  past it and never releases. Ours asks whether an element between the pointer and the thread can
+  still scroll up: if one can, the wheel is its; otherwise the wheel moves the thread and the
+  follow is released. (An inner scroller already at its top chains to the thread, which upstream
+  also missed.)
+- **`scrollToBottom()` clears `escapedFromLock`.** Upstream set `isAtBottom` but left the escape
+  flag set, because the scroll events of its own animation are ignored; the flag then kept saying
+  "scrolled away" while the thread sat at the bottom following.
+- **`isScrolled`**, new: the thread is scrolled away from its top, which is when the header draws
+  its hairline (SPEC §2.5).
+- **Out of React.** Upstream's hook body mutates a `useMemo` object and writes a ref during render,
+  both of which the React Compiler lint rules reject. The logic now lives in a plain controller made
+  once in a lazy `useState`, React holds only the four booleans a component renders, and the ref
+  callbacks and actions keep one identity for the component's life. The `state` object is no longer
+  returned, since reading it in render would be the same violation.
+- **Options are read live.** Upstream's `calculatedTargetScrollTop` closed over the first render's
+  options, so a later `targetScrollTop` was ignored.
+- **Mouse tracking is installed on first use**, not at import: upstream adds `document` listeners as
+  a module side effect while its package declares `"sideEffects": false`.
+- **`scroll-behavior` restore.** Upstream restores the computed value as an inline style, which
+  leaves one behind for good; ours restores whatever inline value was there.
+- **Dropped:** a `Promise` as `duration` (nothing in the panel passes one), and upstream's
+  `StickToBottom.tsx` component and context, because `AgentThread` owns its own markup. Two layout
+  facts from that component are worth keeping in `AgentThread`: it forces `overflow: auto` when the
+  scroller is `visible`, and gives the scroller `scrollbar-gutter: stable both-edges`.
+- **Licence pointer.** The StackBlitz copyright header is kept, but its "See License.txt in the
+  project root" now names `vendor/use-stick-to-bottom/LICENSE`: this repository has no
+  `License.txt` at its root.
+
+## streamdown — text direction by majority of letters
+
+| | |
+| --- | --- |
+| Upstream | [vercel/streamdown](https://github.com/vercel/streamdown) |
+| File | `packages/streamdown/lib/detect-direction.ts` (streamdown 2.6.0) |
+| Commit | `0b6b20d3a85986a39b4bcd454cdcb6aabfc9b3e6` (2026-09-25) |
+| License | Apache-2.0 — `vendor/streamdown-detect-direction/LICENSE` (upstream's notice), full text in `vendor/streamdown-detect-direction/LICENSE-2.0.txt` |
+| Verbatim copy | `vendor/streamdown-detect-direction/detect-direction.upstream.ts`, and its suite `detect-direction.test.upstream.ts` |
+| Adapted into | `apps/playground/src/features/agent/model/resolve-dir.ts` |
+
+**Why vendored rather than reimplemented**: `dir="auto"` looks at the first strong character only,
+so «Hero قسم الخدمات» (four Latin letters, then ten Arabic) lays out left to right. People writing to
+the agent mix scripts constantly, and upstream's answer is the honest one: count the letters, let
+the majority decide, break a tie on the first letter, and strip markdown first so code and link
+URLs do not vote. Upstream has no NOTICE file at this commit (checked in the tree), so the licence
+text and the modification notice at the top of the adapted file are what Apache-2.0 §4 asks for.
+
+**What we changed in the adaptation** (and why):
+
+- **Only letters vote.** Upstream counts every code point in U+0590–U+08FF as a strong RTL
+  character, which includes Arabic-Indic digits (٣), Arabic punctuation (؟ ،) and harakat. A count
+  typed in Arabic digits is a number, not Arabic, and a vocalised word must not outvote the same
+  number of Latin letters.
+- **No letters means the UI direction**, not `ltr`: `resolveDir(text, uiDir)`. A message of «5/8»
+  sits in an Arabic panel, and nothing in it asks to be laid out left to right.
+- **`resolveLang(text, uiLocale)`**, new, for the `lang` attribute (SPEC §4.5): right-to-left
+  letters read as Arabic, everything else as English, the UI locale when there are no letters.
+- Every case in upstream's own suite is kept as a test; the two whose expectation changed (empty
+  text and digits only) are asserted both ways.
+- The RTL character class keeps upstream's three ranges in upstream's `\u` escape spelling. The
+  only addition is the `u` flag, to match the letter test; every range is inside the Basic
+  Multilingual Plane, so it changes no result. A test holds the declaration to that spelling and
+  fails the file on any invisible format character: an earlier draft wrote the ranges as literal
+  code points, which put a BOM and a combining mark inside the class.

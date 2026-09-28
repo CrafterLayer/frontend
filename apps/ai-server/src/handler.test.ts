@@ -2,6 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHandler } from './handler';
+import { createOpenRouterClient, type OpenRouterFetch } from './openrouter-client';
+import { PAGE_PLAN_ANSWER_SCHEMA, PAGE_PLAN_EXAMPLE } from './plan-shape';
+import { PAGE_PLAN_CONTRACT_MARK } from './prompt';
 
 /**
  * The wire contract, tested against a faked Claude.
@@ -711,5 +714,198 @@ describe('per-call reasoning budget', () => {
     await handle(post(wireBody()));
 
     expect((seen[0] as { headers?: unknown }).headers).toBeUndefined();
+  });
+});
+
+/*
+  The page-plan task (2026-09-28): the same /plan endpoint, `task: 'page-plan'`
+  in the body, and the answer the client's `readAiPagePlanWireResponse`
+  classifies — `{version: 1, pagePlan, rationale?}`, a refusal, or the
+  versioned invalid-output report. Nothing about an ordinary request changes.
+*/
+describe('the page-plan task', () => {
+  const RATIONALE = PAGE_PLAN_EXAMPLE.rationale;
+  const PAGE_PLAN = PAGE_PLAN_EXAMPLE.pagePlan;
+
+  function pagePlanBody(overrides: Record<string, unknown> = {}): unknown {
+    return wireBody({ request: 'Build a page for my roastery', task: 'page-plan', ...overrides });
+  }
+
+  function answering(text: string): FakeMessage {
+    return { content: [{ type: 'text', text }], usage: { input_tokens: 900, output_tokens: 700 } };
+  }
+
+  async function readStream(response: Response): Promise<string> {
+    return new Response(response.body).text();
+  }
+
+  /** What the client's reader does first: the one `result` frame's data. */
+  function resultFrame(body: string): unknown {
+    const frame = /event: result\ndata: (.*)\n\n/u.exec(body);
+    return JSON.parse(frame?.[1] ?? 'null') as unknown;
+  }
+
+  it('answers with the page plan on the wire the contract defines', async () => {
+    const handle = createHandler({
+      client: fakeClient(answering(JSON.stringify({ rationale: RATIONALE, pagePlan: PAGE_PLAN }))),
+    });
+
+    const response = await handle(post(pagePlanBody()));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      version: 1,
+      rationale: RATIONALE,
+      pagePlan: PAGE_PLAN,
+    });
+  });
+
+  it('streams status frames, then the page plan as the one result frame', async () => {
+    const handle = createHandler({
+      client: fakeClient(answering(JSON.stringify({ rationale: RATIONALE, pagePlan: PAGE_PLAN })), [
+        'Choosing the cafe row\n',
+      ]),
+    });
+
+    const body = await readStream(
+      await handle(post(pagePlanBody(), { accept: 'text/event-stream, application/json' })),
+    );
+
+    expect(body).toContain('Choosing the cafe row');
+    expect(body.match(/event: result/gu)).toHaveLength(1);
+    expect(resultFrame(body)).toEqual({ version: 1, rationale: RATIONALE, pagePlan: PAGE_PLAN });
+  });
+
+  it('brings its own answer shape, so a context without a plan contract still plans', async () => {
+    const body = pagePlanBody() as { context: Record<string, unknown> };
+    delete body.context['outputContract'];
+    const handle = createHandler({
+      client: fakeClient(answering(JSON.stringify({ rationale: RATIONALE, pagePlan: PAGE_PLAN }))),
+    });
+
+    const response = await handle(post(body));
+
+    expect(await response.json()).toMatchObject({ version: 1, pagePlan: PAGE_PLAN });
+  });
+
+  it('wraps a bare page plan from a model that forgot the wrapper', async () => {
+    const handle = createHandler({ client: fakeClient(answering(JSON.stringify(PAGE_PLAN))) });
+
+    const response = await handle(post(pagePlanBody()));
+
+    expect(await response.json()).toEqual({ version: 1, pagePlan: PAGE_PLAN });
+  });
+
+  it("carries the model's refusal as the wire's refusal", async () => {
+    const handle = createHandler({
+      client: fakeClient(answering('{"rationale":"r","refusal":"هذا ليس طلب صفحة."}')),
+    });
+
+    const response = await handle(post(pagePlanBody()));
+
+    expect(await response.json()).toEqual({ version: 1, refusal: 'هذا ليس طلب صفحة.' });
+  });
+
+  it('reports an ordinary commands plan as invalid output, never as a page plan', async () => {
+    const handle = createHandler({ client: fakeClient(answering(JSON.stringify(PLAN))) });
+
+    const answer = (await (await handle(post(pagePlanBody()))).json()) as {
+      version: number;
+      invalidOutput?: { message: string };
+      pagePlan?: unknown;
+    };
+
+    expect(answer.version).toBe(1);
+    expect(answer.pagePlan).toBeUndefined();
+    expect(answer.invalidOutput?.message).toMatch(/page plan/u);
+  });
+
+  it('reports a cut-off page plan as invalid output, with advice', async () => {
+    const handle = createHandler({
+      client: fakeClient({ stop_reason: 'max_tokens', content: [{ type: 'text', text: '{"ra' }] }),
+    });
+
+    const answer = (await (await handle(post(pagePlanBody()))).json()) as {
+      invalidOutput?: { message: string };
+    };
+
+    expect(answer.invalidOutput?.message).toMatch(/page plan was cut off/u);
+  });
+
+  it('refuses a task it does not know with a terminal 400, rather than answering a plan', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()) });
+
+    const response = await handle(post(wireBody({ task: 'site-plan' })));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Unknown task "site-plan".' });
+  });
+
+  it('plans at the backend default effort, even when a section-writer skill is pinned', async () => {
+    const seen: { params: Record<string, unknown>; options: unknown }[] = [];
+    const client = {
+      messages: {
+        stream: (params: Record<string, unknown>, options: unknown) => {
+          seen.push({ params, options });
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [{ type: 'text', text: JSON.stringify({ pagePlan: PAGE_PLAN }) }],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    const handle = createHandler({ client, sectionEffort: 'low' });
+    const body = pagePlanBody() as { context: Record<string, unknown> };
+    body.context['skills'] = [
+      { id: 'craftkit.build-fill', version: '3.0.0', contentFingerprint: 'x', reason: 'explicit' },
+    ];
+
+    await handle(post(body));
+
+    expect((seen[0]?.options as { headers?: unknown }).headers).toBeUndefined();
+    expect(seen[0]?.params['output_config']).toEqual({
+      format: { type: 'json_schema', schema: PAGE_PLAN_ANSWER_SCHEMA },
+    });
+  });
+
+  it('serves the page plan through the OpenRouter backend, schema and contract as text', async () => {
+    const answer = JSON.stringify({ rationale: RATIONALE, pagePlan: PAGE_PLAN });
+    const sent: Record<string, unknown>[] = [];
+    const fetch = vi.fn<OpenRouterFetch>((_url, init) => {
+      sent.push(
+        JSON.parse(typeof init.body === 'string' ? init.body : '{}') as Record<string, unknown>,
+      );
+      const frame = { choices: [{ index: 0, delta: { content: answer }, finish_reason: 'stop' }] };
+      return Promise.resolve(
+        new Response(`data: ${JSON.stringify(frame)}\n\ndata: [DONE]\n\n`, {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      );
+    });
+    const handle = createHandler({
+      client: createOpenRouterClient({ apiKey: 'k', model: 'minimax/minimax-m3:free', fetch }),
+    });
+
+    const response = await handle(post(pagePlanBody()));
+
+    expect(await response.json()).toEqual({
+      version: 1,
+      rationale: RATIONALE,
+      pagePlan: PAGE_PLAN,
+    });
+    const system = JSON.stringify((sent[0]?.['messages'] as unknown[])[0]);
+    expect(system).toContain(PAGE_PLAN_CONTRACT_MARK);
+    expect(system).toContain('# Required output format');
+    expect(system).toContain('\\"pagePlan\\"');
+    expect(system).not.toContain('# Block catalog');
+    // A free model decodes nothing strictly: the schema travels as text only.
+    expect(sent[0]?.['response_format']).toBeUndefined();
   });
 });

@@ -12,6 +12,24 @@ interface IconProps {
   readonly className?: string | undefined;
 }
 
+/*
+  One `{ __html }` object per glyph, for the life of the module. React compares
+  that object by IDENTITY: a fresh one each render rewrote the glyph's
+  innerHTML, and a re-render between pointerdown and pointerup (the composer
+  re-renders as the field blurs) replaced the path under the pointer — the
+  browser then fired no click, and the first press on Send was lost.
+*/
+const markupByPaths = new Map<string, { readonly __html: string }>();
+
+function markupOf(paths: string): { readonly __html: string } {
+  let markup = markupByPaths.get(paths);
+  if (markup === undefined) {
+    markup = { __html: paths };
+    markupByPaths.set(paths, markup);
+  }
+  return markup;
+}
+
 function Icon({ paths, className }: IconProps) {
   return (
     <svg
@@ -26,7 +44,7 @@ function Icon({ paths, className }: IconProps) {
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
-      dangerouslySetInnerHTML={{ __html: paths }}
+      dangerouslySetInnerHTML={markupOf(paths)}
     />
   );
 }

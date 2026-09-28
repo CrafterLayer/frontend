@@ -254,6 +254,38 @@ describe('openrouter request', () => {
     expect(sentBody(routed)['reasoning']).toEqual({ effort: 'low' });
   });
 
+  /*
+    `claude.ts` asks for a section's budget the Messages API way,
+    `output_config.effort`. `max` is the top of that scale and has no
+    OpenRouter name, so it asks for OpenRouter's top rather than silently
+    falling back to the backend default — the opposite of what was asked.
+  */
+  it('reads the budget claude.ts puts in output_config, and asks for xhigh when it says max', async () => {
+    const sectioned = fetchAnswering(() => streamResponse(planStream()));
+    await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch: sectioned, effort: 'high' })
+      .messages.stream({
+        ...REQUEST,
+        output_config: { ...REQUEST.output_config, effort: 'low' },
+      } as never)
+      .finalMessage();
+    expect(sentBody(sectioned)['reasoning']).toEqual({ effort: 'low' });
+
+    for (const requestOptions of [
+      { headers: { 'x-craftkit-internal-reasoning-effort': 'max' } },
+      undefined,
+    ]) {
+      const highest = fetchAnswering(() => streamResponse(planStream()));
+      const params =
+        requestOptions === undefined
+          ? { ...REQUEST, output_config: { ...REQUEST.output_config, effort: 'max' } }
+          : REQUEST;
+      await createOpenRouterClient({ apiKey: 'k', model: 'm', fetch: highest, effort: 'low' })
+        .messages.stream(params as never, requestOptions)
+        .finalMessage();
+      expect(sentBody(highest)['reasoning']).toEqual({ effort: 'xhigh' });
+    }
+  });
+
   it('keeps GPT prefixes stable without sending an Anthropic-only cache TTL', async () => {
     const fetch = fetchAnswering(() => streamResponse(planStream()));
     await createOpenRouterClient({ apiKey: 'k', model: 'openai/gpt-model', fetch })
@@ -557,6 +589,37 @@ describe('openrouter answer', () => {
     expect(diagnostic).toContain('finish=stop');
     expect(diagnostic).toContain('Sure! Here is the plan');
     expect(diagnostic).toContain('"insertNode"');
+  });
+
+  /*
+    A rewrite of the closers made HERE has no shape judge: it returns the first
+    candidate that parses, `title` inside `args` included, and `claude.ts`'s
+    judged salvage then finds text that already parses and judges nothing. So
+    the shim undoes wrappers only, and the model's own closers reach
+    `claude.ts` — and its `onAnswer` dump — exactly as written.
+  */
+  it("hands claude.ts the model's own closers, leaving the repair to the judged salvage there", async () => {
+    const lines: string[] = [];
+    const written =
+      '{"rationale":"ok","commands":[{"command":"setProp","args":{"id":"a","key":"tree",' +
+      '"value":{"kind":"root","children":[{"kind":"element","tag":"h2"}]}}},"title":"T"}]}';
+    expect(() => JSON.parse(written) as unknown).toThrow();
+    const fetch = fetchAnswering(() =>
+      streamResponse(chunk({ content: `\`\`\`json\n${written}\n\`\`\`` }, {}, 'stop') + DONE),
+    );
+    const client = createOpenRouterClient({
+      apiKey: 'k',
+      model: 'm',
+      fetch,
+      onLog: (line) => {
+        lines.push(line);
+      },
+    });
+
+    const message = await client.messages.stream(REQUEST as never).finalMessage();
+
+    expect(message.content).toEqual([{ type: 'text', text: written }]);
+    expect(lines.find((line) => line.includes('not JSON'))).toContain('```json');
   });
 
   /* `finish_reason` is the real end; some proxies close the socket without the `[DONE]` cue. */

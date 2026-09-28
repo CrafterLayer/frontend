@@ -1,10 +1,11 @@
-import { fn } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import '../../../../app/App.css';
 import type { BuildProgress, BuildTask } from '../AssistantPanel/AssistantPanel.build';
 import type { BuiltTurn } from '../AssistantPanel/AssistantPanel.turns';
 import { BuildReportCard } from './BuildReportCard';
+import { BuildCardSeamContext } from './build-card-seam';
 
 const task = (
   position: number,
@@ -140,4 +141,91 @@ export const Arabic: Story = {
       </div>
     ),
   ],
+};
+
+/** Putting a section back was refused: the person changed it since, and another is gone. */
+export const RevertRefused: Story = {
+  args: {
+    report: report(
+      [task(1, 'Hero', 'applied'), task(2, 'Services', 'applied'), task(3, 'Contact', 'applied')],
+      {
+        revertRefused: [
+          { position: 1, code: 'changed-since' },
+          { position: 3, code: 'region-missing' },
+        ],
+      },
+    ),
+  },
+};
+
+/**
+ * A page-plan build: the skeleton wrote the footer IN FULL (0 attempts), so it
+ * reads "Done" with no Undo — there is no earlier version of it to put back.
+ */
+export const WrittenWithLayout: Story = {
+  args: {
+    report: report([
+      task(1, 'Hero', 'applied'),
+      task(2, 'Menu', 'applied'),
+      { ...task(3, 'Footer', 'applied'), attempts: 0 },
+    ]),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole('button', { name: 'Undo Footer' })).toBeNull();
+    await expect(canvas.getByRole('button', { name: 'Undo Menu' })).toBeEnabled();
+  },
+};
+
+const removeUnfilled = fn();
+
+/** Stopped with two sections never written: one change removes both. */
+export const StoppedWithEmptySections: Story = {
+  args: {
+    report: report(
+      [task(1, 'Hero', 'applied'), task(2, 'Services', 'waiting'), task(3, 'Contact', 'waiting')],
+      { stopped: true, unfilled: 2 },
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <BuildCardSeamContext.Provider
+        value={{ locale: 'en', noticesOf: () => [], onRemoveUnfilled: removeUnfilled }}
+      >
+        <Story />
+      </BuildCardSeamContext.Provider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole('button', { name: 'Remove the 2 empty sections' }),
+    );
+    await expect(removeUnfilled).toHaveBeenCalledWith('story');
+  },
+};
+
+/** The page refused the removal: nothing was removed, it says so, and the offer stands. */
+export const RemovalRefused: Story = {
+  args: {
+    report: report(
+      [task(1, 'Hero', 'applied'), task(2, 'Services', 'waiting'), task(3, 'Contact', 'waiting')],
+      { stopped: true, unfilled: 2, unfilledRemovalRefused: true },
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <BuildCardSeamContext.Provider
+        value={{ locale: 'en', noticesOf: () => [], onRemoveUnfilled: fn() }}
+      >
+        <Story />
+      </BuildCardSeamContext.Provider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('status')).toHaveTextContent(
+      'The page refused the removal; nothing was removed.',
+    );
+    await expect(canvas.getByRole('button', { name: 'Remove the 2 empty sections' })).toBeEnabled();
+  },
 };

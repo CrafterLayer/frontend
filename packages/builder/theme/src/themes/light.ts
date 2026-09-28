@@ -1,5 +1,27 @@
-import type { ChromeTheme } from '../contract';
+import type { ChromeTheme, StageTokenName } from '../contract';
 import { alpha, family, green, ink, red, amber, shadow, slate, violet } from '../tokens/primitives';
+
+/**
+ * The stage palette, owned HERE and spread into both themes, because it must
+ * not differ between them: stage marks are drawn on the person's page, which
+ * keeps its own light or dark ground whatever the editor wears (see
+ * `STAGE_TOKENS`). One object makes a drift between the themes impossible
+ * rather than merely tested.
+ *
+ * The values are tuned for an unknown page. The accent holds 3:1 as a stroke
+ * on white, on #111827 and on black; the danger stroke does not on a dark
+ * page (2.74 on #111827), which is why every stroke carries the white halo on
+ * its inner side (17.74 there). The veil is slate-50 at 94%, so a placeholder
+ * reads as "not yet written" rather than as missing.
+ */
+export const stageTokens: Readonly<Record<StageTokenName, string>> = {
+  'stage-accent': violet[600],
+  'stage-on-accent': slate[0],
+  'stage-halo': slate[0],
+  'stage-veil': alpha.paper94,
+  'stage-ink': slate[600],
+  'stage-danger': red[700],
+};
 
 /**
  * The default chrome theme.
@@ -18,11 +40,13 @@ import { alpha, family, green, ink, red, amber, shadow, slate, violet } from '..
  */
 export const lightChromeTheme: ChromeTheme = {
   font: family.sans,
+  'font-arabic': family.arabic,
   'font-mono': family.mono,
 
   surface: slate[0],
   'surface-raised': slate[0],
   'surface-sunken': slate[50],
+  'surface-tint': slate[125],
   'surface-hover': alpha.ink6,
   'surface-active': alpha.ink10,
   'surface-border': alpha.ink10,
@@ -52,9 +76,15 @@ export const lightChromeTheme: ChromeTheme = {
   'accent-soft-hover': violet[100],
   'accent-ring': violet[200],
 
+  'progress-track': slate[325],
+
   selection: violet[600],
   hover: violet[400],
   drop: green[600],
+
+  'content-outline': alpha.ink18,
+
+  ...stageTokens,
 
   danger: red[700],
   'danger-soft': red[50],

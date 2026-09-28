@@ -8,13 +8,16 @@ import {
   AiProviderError,
   createBuilder,
   createAiSkillRegistry,
+  customCodeSchema,
   defineBlockSchema,
   type AiAgentEvent,
   type AiPlan,
   type AiPlanProvider,
   type AiBuildOwnEvent,
   type AiPlanStep,
+  type BuilderDocument,
   type BuilderKernel,
+  type JsonValue,
   type TrustedExtensionManifest,
 } from '@craftkit/builder';
 import { z } from 'zod';
@@ -1868,12 +1871,19 @@ describe('AssistantPanel', () => {
  * when it routes to the orchestrator at all, what the person sees while it
  * runs, what they are asked, and what is left behind when it ends.
  */
+/*
+  The region's content prop is `tree`, not `body`. Since 2026-09-28 a fill may
+  write only its OWN region's `tree` and `css` (the target guard, agent-audit
+  P0-2: one writer replaced the page CSS, another overwrote the hero, and both
+  were reported applied) — so a fixture writing `body` had every section
+  dropped and skipped, which is the guard working, not the panel failing.
+*/
 const buildRegion = defineBlockSchema({
   type: 'region',
   description: 'A freely composed page section.',
   props: z.object({
     label: z.string().default('Section'),
-    body: z.string().default(''),
+    tree: z.string().default(''),
   }),
   examples: [],
 });
@@ -1969,7 +1979,7 @@ function scriptBuild(
           rationale: BUILD_DIRECTION,
           commands: titles.map((title) => ({
             command: 'insertNode',
-            args: { type: 'region', parentId: 'root', props: { label: title, body: '' } },
+            args: { type: 'region', parentId: 'root', props: { label: title, tree: '' } },
           })),
         });
       }
@@ -1988,7 +1998,7 @@ function scriptBuild(
       }
       const plan: AiPlan = {
         rationale: `Fill ${title}.`,
-        commands: [{ command: 'setProp', args: { id, key: 'body', value: `Body for ${title}.` } }],
+        commands: [{ command: 'setProp', args: { id, key: 'tree', value: `Body for ${title}.` } }],
       };
       if (options.hold?.includes(title) === true) {
         const gate = gates.get(title) ?? deferred<AiPlan>();
@@ -2001,14 +2011,32 @@ function scriptBuild(
   return { provider, calls: () => calls, gates };
 }
 
-/** Every region on the page, in reading order, as `label → body`. */
-function regionsOf(kernel: BuilderKernel): Record<string, string> {
+/** Every region on the page, in reading order, as `[label, tree]` — duplicates kept. */
+function regionList(kernel: BuilderKernel): (readonly [string, string])[] {
   const document = kernel.getDocument();
-  const entries = (document.nodes[document.rootId]?.slots?.['default'] ?? []).map((id) => {
+  return (document.nodes[document.rootId]?.slots?.['default'] ?? []).map((id) => {
     const node = document.nodes[id];
-    return [propText(node?.props['label']), propText(node?.props['body'])] as const;
+    return [propText(node?.props['label']), propText(node?.props['tree'])] as const;
   });
-  return Object.fromEntries(entries);
+}
+
+/** Every region on the page, in reading order, as `label → tree`. */
+function regionsOf(kernel: BuilderKernel): Record<string, string> {
+  return Object.fromEntries(regionList(kernel));
+}
+
+/** The id of the (first) region with this label — a hand edit needs one. */
+function regionId(kernel: BuilderKernel, label: string): string {
+  const document = kernel.getDocument();
+  const id = Object.keys(document.nodes).find(
+    (key) => document.nodes[key]?.props['label'] === label,
+  );
+  if (id === undefined) throw new Error(`No region is labelled "${label}".`);
+  return id;
+}
+
+function historyLabels(kernel: BuilderKernel): string[] {
+  return kernel.transactions().map(({ command }) => command);
 }
 
 async function send(user: ReturnType<typeof userEvent.setup>, request: string): Promise<void> {
@@ -2068,7 +2096,14 @@ describe('AssistantPanel — split build', () => {
       expect.arrayContaining([expect.stringContaining('Hero')]),
     );
 
-    // Two sections written, the third open, the rest waiting their turn.
+    /*
+      Two sections landed, the third held open — and nothing after it LANDS.
+      REWRITTEN 2026-09-28: this pinned the tenth row `waiting`, which was the
+      landing-gated window (agent-audit P1-8): a writer could not start a section
+      more than `fillConcurrency` ahead of the one landing, so a slow hero held
+      idle writers back. Writers are now bounded by concurrency alone; sections
+      after the held one are written but still land in page order, after it.
+    */
     await waitFor(
       () => {
         expect(container.querySelector('.pg-chat__tasks-count')).toHaveTextContent('2/10');
@@ -2079,8 +2114,9 @@ describe('AssistantPanel — split build', () => {
     expect(rows[0]).toHaveAttribute('data-status', 'applied');
     expect(rows[1]).toHaveAttribute('data-status', 'applied');
     expect(rows[2]).toHaveAttribute('data-status', 'running');
-    expect(rows[9]).toHaveAttribute('data-status', 'waiting');
+    expect(rows.slice(3).some((row) => row.getAttribute('data-status') === 'applied')).toBe(false);
     expect(regionsOf(kernel)['Benefits']).toBe('');
+    expect(regionsOf(kernel)['Footer']).toBe('');
 
     act(() => {
       script.gates.get('Benefits')?.resolve({
@@ -2092,7 +2128,7 @@ describe('AssistantPanel — split build', () => {
               id: Object.keys(kernel.getDocument().nodes).find(
                 (id) => kernel.getDocument().nodes[id]?.props['label'] === 'Benefits',
               ),
-              key: 'body',
+              key: 'tree',
               value: 'Body for Benefits.',
             },
           },
@@ -2175,7 +2211,14 @@ describe('AssistantPanel — split build', () => {
     expect(kernel.transactions()).toHaveLength(0);
   }, 30_000);
 
-  it('asks once, on the list, and fills nothing until Build is pressed', async () => {
+  /*
+    REWRITTEN 2026-09-28: this test used to pin the skeleton ON THE PAGE while
+    the question was open ("The skeleton is already on the page"). That was the
+    defect (agent-audit P0-4): Ask mode wrote 3-12 empty bands before asking.
+    The engine now asks before its first write, so the list comes from the
+    question itself and the page is untouched until Build.
+  */
+  it('asks once, on the list, and writes NOTHING until Build is pressed', async () => {
     const kernel = createBuildKernel();
     const script = scriptBuild(kernel, THREE);
     const { user } = renderPanel({ kernel, planProvider: script.provider });
@@ -2193,10 +2236,11 @@ describe('AssistantPanel — split build', () => {
         .getAllByRole('listitem')
         .map((row) => row.textContent),
     ).toEqual([...THREE]);
-    expect(within(approval).getByText(/The skeleton is already on the page/)).toBeInTheDocument();
+    expect(within(approval).queryByText(/already on the page/)).toBeNull();
 
-    // The skeleton is down; not one section has been written.
-    expect(regionsOf(kernel)).toEqual({ Hero: '', Proof: '', Pricing: '' });
+    // Not the skeleton, not a section: the page is exactly as it was.
+    expect(regionsOf(kernel)).toEqual({});
+    expect(kernel.transactions()).toHaveLength(0);
     expect(script.calls()).toBe(1);
 
     await user.click(within(approval).getByRole('button', { name: 'Build' }));
@@ -2212,12 +2256,24 @@ describe('AssistantPanel — split build', () => {
       Proof: 'Body for Proof.',
       Pricing: 'Body for Pricing.',
     });
+    expect(historyLabels(kernel)).toEqual([
+      'Assistant: page skeleton',
+      'Assistant: 1/3 — Hero',
+      'Assistant: 2/3 — Proof',
+      'Assistant: 3/3 — Pricing',
+    ]);
   }, 40_000);
 
-  it('leaves only the skeleton when the build is stopped before it is approved', async () => {
+  /*
+    REWRITTEN 2026-09-28: it was "leaves only the skeleton when the build is
+    stopped before it is approved" and expected three empty bands left behind
+    and an undoable "0/3" build report. Nothing is written before approval now,
+    so a refusal is a plain stop with nothing on the page and nothing to undo.
+  */
+  it('writes nothing, and offers nothing to undo, when the build is refused at the question', async () => {
     const kernel = createBuildKernel();
     const script = scriptBuild(kernel, THREE);
-    const { user } = renderPanel({ kernel, planProvider: script.provider });
+    const { container, user } = renderPanel({ kernel, planProvider: script.provider });
 
     await send(user, BUILD_REQUEST);
     const approval = await screen.findByRole(
@@ -2229,12 +2285,53 @@ describe('AssistantPanel — split build', () => {
 
     await waitFor(
       () => {
-        expect(screen.getByText(/0\/3 built in/)).toBeInTheDocument();
+        expect(screen.getByText('Stopped.')).toBeInTheDocument();
       },
       { timeout: 20_000 },
     );
-    expect(regionsOf(kernel)).toEqual({ Hero: '', Proof: '', Pricing: '' });
+    expect(regionsOf(kernel)).toEqual({});
+    expect(kernel.transactions()).toHaveLength(0);
+    // A plain stop: no build report, so no section row and no Undo to press.
+    expect(container.querySelector('[data-state="build-stopped"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Undo/ })).toBeNull();
+    expect(screen.queryByText(/built in/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
+  }, 40_000);
+
+  it('answers the question with Stop in the composer too, and writes nothing', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await send(user, BUILD_REQUEST);
+    await screen.findByRole('group', { name: 'Build this page' }, { timeout: 15_000 });
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Stopped.')).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(kernel.transactions()).toHaveLength(0);
+    expect(screen.queryByRole('group', { name: 'Build this page' })).toBeNull();
+  }, 40_000);
+
+  it('proposes the one-call fallback in Ask — nothing written, and the card offers Apply', async () => {
+    /*
+      A skeleton of ONE section cannot split, so the build falls back to one
+      ordinary run. In Ask that run is PROPOSED (it used to apply at once and be
+      drawn as an applied plan), and its card's Apply is the question Ask owes.
+    */
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, ['Hero']);
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await send(user, BUILD_REQUEST);
+
+    await screen.findByRole('button', { name: 'Apply' }, { timeout: 20_000 });
+    expect(kernel.transactions()).toHaveLength(0);
+    expect(screen.queryByRole('group', { name: 'Build this page' })).toBeNull();
   }, 40_000);
 
   it('records a skipped section with its reason and still runs the next one', async () => {
@@ -2282,6 +2379,197 @@ describe('AssistantPanel — split build', () => {
       Pricing: '',
     });
     expect(screen.getByRole('button', { name: 'Undo Pricing' })).toBeDisabled();
+    // FORWARD: one new transaction, and the history before it is untouched.
+    expect(historyLabels(kernel).slice(-2)).toEqual([
+      'Assistant: 3/3 — Pricing',
+      'Assistant: revert 3/3 — Pricing',
+    ]);
+    // Every other section can still be put back on its own.
+    expect(screen.getByRole('button', { name: 'Undo Hero' })).toBeEnabled();
+  }, 40_000);
+
+  /*
+    agent-audit P1-9 (a), measured 2026-09-28: Undo found the section's
+    transaction by label and looped kernel.undo() over everything recorded
+    after it — the person's own later edits included.
+  */
+  it('puts a section back without touching the person’s later edit to another one', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    act(() => {
+      kernel.dispatch('setProp', {
+        id: regionId(kernel, 'Hero'),
+        key: 'tree',
+        value: 'Written by hand.',
+      });
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Undo Proof' }));
+
+    expect(regionsOf(kernel)).toEqual({
+      Hero: 'Written by hand.',
+      Proof: '',
+      Pricing: 'Body for Pricing.',
+    });
+  }, 40_000);
+
+  it('refuses to put back a section the person changed, says why, and writes nothing', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    act(() => {
+      kernel.dispatch('setProp', {
+        id: regionId(kernel, 'Proof'),
+        key: 'tree',
+        value: 'My own proof.',
+      });
+    });
+    const before = kernel.transactions().length;
+
+    await user.click(screen.getByRole('button', { name: 'Undo Proof' }));
+
+    expect(screen.getByText(/You changed this section after it was built/)).toBeVisible();
+    expect(regionsOf(kernel)['Proof']).toBe('My own proof.');
+    expect(kernel.transactions()).toHaveLength(before);
+  }, 40_000);
+
+  /*
+    agent-audit P1-9 (b): two builds in one session both write
+    "Assistant: 3/3 — Pricing", and the label match reached the NEWER build
+    from the older card.
+  */
+  it('puts back the OLDER build’s section from the older card, never the newer build’s', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    await send(user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        expect(screen.getAllByText(/3\/3 built in/)).toHaveLength(2);
+      },
+      { timeout: 20_000 },
+    );
+
+    const [olderUndo] = screen.getAllByRole('button', { name: 'Undo Pricing' });
+    if (olderUndo === undefined) throw new Error('The older card must offer Undo Pricing.');
+    await user.click(olderUndo);
+
+    expect(regionList(kernel)).toEqual([
+      ['Hero', 'Body for Hero.'],
+      ['Proof', 'Body for Proof.'],
+      ['Pricing', ''],
+      ['Hero', 'Body for Hero.'],
+      ['Proof', 'Body for Proof.'],
+      ['Pricing', 'Body for Pricing.'],
+    ]);
+  }, 60_000);
+
+  it('offers to remove the empty sections a stopped build left, as ONE change', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
+    const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        expect(regionsOf(kernel)['Hero']).toBe('Body for Hero.');
+      },
+      { timeout: 20_000 },
+    );
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+
+    const remove = await screen.findByRole(
+      'button',
+      { name: 'Remove the 2 empty sections' },
+      { timeout: 20_000 },
+    );
+    const before = kernel.transactions().length;
+    await user.click(remove);
+
+    expect(regionList(kernel)).toEqual([['Hero', 'Body for Hero.']]);
+    expect(kernel.transactions()).toHaveLength(before + 1);
+    expect(historyLabels(kernel).at(-1)).toBe('Assistant: remove unfilled sections');
+    expect(screen.getByText(/Removed 2 empty sections in one change/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /empty section/ })).toBeNull();
+
+    // One Undo is the whole way back.
+    act(() => {
+      kernel.undo();
+    });
+    expect(regionList(kernel).map(([label]) => label)).toEqual([...THREE]);
+  }, 40_000);
+
+  /*
+    Wave-2 verifier, 2026-09-28: a door refusal of the removal was swallowed in
+    a catch that only returned — the button stayed, and pressing it did nothing
+    anyone could see. Undo says its refusals; this says its one too.
+  */
+  it('says so when the page refuses the removal, removes nothing, and lets it be asked again', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
+    const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
+
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+    await send(user, BUILD_REQUEST);
+    await waitFor(
+      () => {
+        expect(regionsOf(kernel)['Hero']).toBe('Body for Hero.');
+      },
+      { timeout: 20_000 },
+    );
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    const remove = await screen.findByRole(
+      'button',
+      { name: 'Remove the 2 empty sections' },
+      { timeout: 20_000 },
+    );
+    const before = kernel.transactions().length;
+    // The door itself refuses — the one write the removal makes, made whole or not at all.
+    const refuse = vi.spyOn(kernel, 'dispatchGroup').mockImplementationOnce(() => {
+      throw new Error('The page is locked.');
+    });
+
+    await user.click(remove);
+
+    expect(screen.getByText('The page refused the removal; nothing was removed.')).toBeVisible();
+    expect(regionList(kernel).map(([label]) => label)).toEqual([...THREE]);
+    expect(kernel.transactions()).toHaveLength(before);
+    refuse.mockRestore();
+
+    // Nothing changed, so the offer is still an honest one — and it works now.
+    await user.click(screen.getByRole('button', { name: 'Remove the 2 empty sections' }));
+    expect(regionList(kernel)).toEqual([['Hero', 'Body for Hero.']]);
+    expect(screen.queryByText(/refused the removal/)).toBeNull();
+    expect(screen.getByText(/Removed 2 empty sections in one change/)).toBeVisible();
   }, 40_000);
 
   it('revives a build interrupted by a reload as a stopped build with its receipt', async () => {
@@ -2345,6 +2633,586 @@ describe('AssistantPanel — split build', () => {
       expect(writes.at(-1)).toBe(1200);
     });
   });
+});
+
+/*
+  A PAGE-PLAN build (agent-audit §3.1): the provider answers the page as a
+  structured plan, code lays the skeleton from it — writing some regions IN
+  FULL (the footer, from the plan's facts) — and one writer fills each of the
+  rest against its contract. It needs the product's region block
+  (`customCode`) and a provider with `proposePagePlan`; the scaffold fixtures
+  above have neither, which is why they always took the scaffold path.
+*/
+const planRoot = defineBlockSchema({
+  type: 'planPage',
+  description: 'The page root a page plan is laid into.',
+  props: z.object({
+    title: z.string().max(120).default(''),
+    description: z.string().max(200).default(''),
+    lang: z.string().max(12).default(''),
+  }),
+  slots: { default: { allow: ['customCode'] } },
+  examples: [],
+});
+const planVocabulary: TrustedExtensionManifest = {
+  tier: 1,
+  name: 'assistant-panel.plan-vocabulary',
+  version: '0.0.0',
+  contributes: {
+    blocks: [
+      { schema: planRoot, render: Null },
+      { schema: customCodeSchema, render: Null },
+    ],
+  },
+};
+
+/** A region a person wrote: a heading AND a paragraph, so it is content, not a placeholder. */
+function writtenTree(heading: string): JsonValue {
+  return {
+    kind: 'root',
+    children: [
+      {
+        kind: 'element',
+        tag: 'section',
+        children: [
+          { kind: 'element', tag: 'h2', text: heading, children: [] },
+          { kind: 'element', tag: 'p', text: 'Written by hand.', children: [] },
+        ],
+      },
+    ],
+  };
+}
+
+function createPlanKernel(existing: readonly string[] = []): BuilderKernel {
+  const nodes: BuilderDocument['nodes'] = {
+    root: {
+      id: 'root',
+      type: 'planPage',
+      props: {},
+      slots: { default: existing.map((_, index) => `mine-${String(index)}`) },
+    },
+  };
+  existing.forEach((label, index) => {
+    const id = `mine-${String(index)}`;
+    nodes[id] = { id, type: 'customCode', props: { label, tree: writtenTree(label) } };
+  });
+  return createBuilder({
+    document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'root', nodes },
+    extensions: [planVocabulary],
+    ports: { clock: fixedClock(0), ids: seededIds('assistant-plan') },
+  });
+}
+
+/** The region labels on the page, in reading order. */
+function planLabels(kernel: BuilderKernel): string[] {
+  return regionList(kernel).map(([label]) => label);
+}
+
+const START_OVER_REQUEST = 'start over and build me a landing page for my ceramics studio';
+const PLAN_REQUEST =
+  'Build a landing page for my specialty coffee roastery in Amman, Northlight Coffee';
+const PLAN_TITLES = ['Roasted this morning', 'Our coffees', 'Order today', 'Footer'];
+
+/** A plan the engine's validator accepts (the wave-2 verifier's pageplan-revert.mjs, verbatim). */
+const COFFEE_PLAN = {
+  intent: 'replace',
+  locale: { lang: 'en' },
+  title: 'Northlight Coffee | Amman roastery',
+  description: 'Specialty coffee roasted in Amman every morning.',
+  tokens: {
+    bg: 'stone-50',
+    surface: 'white',
+    ink: 'stone-900',
+    muted: 'stone-600',
+    accent: 'emerald-800',
+    onAccent: 'white',
+    border: '#e7e5e4',
+    fontDisplay: { family: 'Archivo Black' },
+    fontBody: { family: 'Archivo', weights: [400, 600] },
+    radius: 'md',
+    signature: 'one oversized origin name per section',
+  },
+  primaryCta: { label: 'Order beans', href: '#order' },
+  nav: [{ label: 'Menu', anchorId: 'menu' }],
+  sections: [
+    {
+      key: 'hero',
+      role: 'hero',
+      title: 'Roasted this morning',
+      anchorId: 'hero',
+      purpose: 'Say what the roastery is and invite the first order.',
+      mustSay: ['Roasted in Amman'],
+      variant: 'split',
+    },
+    {
+      key: 'menu',
+      role: 'band',
+      title: 'Our coffees',
+      anchorId: 'menu',
+      purpose: 'The coffees and their prices.',
+      variant: 'menu',
+    },
+    {
+      key: 'order',
+      role: 'cta',
+      title: 'Order today',
+      anchorId: 'order',
+      purpose: 'One clear way to order.',
+    },
+    {
+      key: 'footer',
+      role: 'footer',
+      title: 'Footer',
+      anchorId: 'footer',
+      purpose: 'Address and hours.',
+    },
+  ],
+  facts: [{ key: 'phone', sample: '+962 7 9000 0000', section: 'footer' }],
+};
+
+/**
+ * A fill that keeps its section's contract, read off the brief the way a
+ * writer would: its anchor, its heading level, what it must say, its action.
+ */
+function contractTree(request: string): JsonValue {
+  const anchor = /ANCHOR:[^\n]*id="([^"]+)"/u.exec(request)?.[1] ?? 'section';
+  const title = /SECTION \d+ OF \d+: ([^\n]+)/u.exec(request)?.[1] ?? 'Section';
+  const hero = request.includes('ROLE: HERO');
+  const mustSay = [...(/MUST SAY: ([^\n]+)/u.exec(request)?.[1] ?? '').matchAll(/"([^"]+)"/gu)].map(
+    (match) => match[1] ?? '',
+  );
+  const action = /PRIMARY ACTION: "([^"]+)" → (\S+)/u.exec(request);
+  const cta = hero || request.includes('ROLE: CTA');
+  return {
+    kind: 'root',
+    children: [
+      {
+        kind: 'element',
+        tag: 'section',
+        attributes: { id: anchor },
+        children: [
+          { kind: 'element', tag: hero ? 'h1' : 'h2', text: title, children: [] },
+          ...mustSay.map((line) => ({ kind: 'element', tag: 'p', text: line, children: [] })),
+          ...(cta && action !== null
+            ? [
+                {
+                  kind: 'element',
+                  tag: 'a',
+                  className: 'ck-btn',
+                  attributes: { href: action[2] ?? '#' },
+                  text: action[1] ?? '',
+                  children: [],
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * A provider that plans the page (or, with `planFails`, cannot — and then the
+ * engine lays a scaffold with it instead), and fills each region it is handed.
+ */
+function planningProvider(options: { readonly planFails?: boolean } = {}): AiPlanProvider {
+  return {
+    propose(request, context) {
+      const id = context.selection.ids[0] ?? /REGION ID: (\S+)/u.exec(request)?.[1];
+      if (id === undefined) {
+        // The scaffold, reached only when the plan failed: one region per title.
+        return Promise.resolve<AiPlan>({
+          rationale: 'A warm roastery page.',
+          commands: PLAN_TITLES.map((title) => ({
+            command: 'insertNode',
+            args: {
+              type: 'customCode',
+              parentId: 'root',
+              props: {
+                label: title,
+                tree: {
+                  kind: 'root',
+                  children: [
+                    {
+                      kind: 'element',
+                      tag: 'section',
+                      children: [{ kind: 'element', tag: 'h2', text: title, children: [] }],
+                    },
+                  ],
+                },
+              },
+            },
+          })),
+        });
+      }
+      return Promise.resolve<AiPlan>({
+        rationale: 'Filled.',
+        commands: [{ command: 'setProp', args: { id, key: 'tree', value: contractTree(request) } }],
+      });
+    },
+    proposePagePlan() {
+      return options.planFails === true
+        ? Promise.reject(
+            new AiProviderError('No page plan today.', { code: 'refusal', retryable: false }),
+          )
+        : Promise.resolve({ pagePlan: COFFEE_PLAN, rationale: 'A warm roastery page.' });
+    },
+  };
+}
+
+describe('AssistantPanel — a page-plan build', () => {
+  it('asks with what each section is FOR, and offers no Undo for a section the skeleton wrote in full', async () => {
+    /*
+      Wave-2 verifier, pageplan-revert.mjs (2026-09-28): the skeleton writes
+      the footer from the plan's facts and reports it applied with 0 attempts
+      and nothing recorded from before. The card offered "Undo Footer", the
+      revert refused it, and the card then said it "never landed" — while it
+      sat on the page.
+    */
+    const kernel = createPlanKernel();
+    const { user } = renderPanel({ kernel, planProvider: planningProvider(), locale: 'en' });
+
+    await send(user, PLAN_REQUEST);
+
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    expect(within(approval).getByText('Address and hours.')).toBeVisible();
+    expect(within(approval).getByText('One clear way to order.')).toBeVisible();
+    expect(kernel.transactions()).toHaveLength(0);
+    await user.click(within(approval).getByRole('button', { name: 'Build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/4\/4 built in/)).toBeInTheDocument();
+      },
+      { timeout: 30_000 },
+    );
+    expect(planLabels(kernel)).toEqual(PLAN_TITLES);
+    expect(screen.queryByRole('button', { name: 'Undo Footer' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Undo Our coffees' })).toBeEnabled();
+
+    // A section a writer filled still goes back on its own, forward.
+    await user.click(screen.getByRole('button', { name: 'Undo Our coffees' }));
+    expect(historyLabels(kernel).at(-1)).toBe('Assistant: revert 2/4 — Our coffees');
+    expect(screen.queryByText(/never landed/)).toBeNull();
+  }, 60_000);
+});
+
+/**
+ * ROUTING (2026-09-28). The panel asks the intent router what a request is FOR,
+ * with the page it will run on — not whether a keyword appeared (agent-audit
+ * P0-1 / P1-5) — and takes the path it can honour, saying so when that is not
+ * the one the words asked for.
+ */
+describe('AssistantPanel — routing', () => {
+  it('answers a question in words: nothing to apply, nothing written, no build', async () => {
+    const kernel = createBuildKernel();
+    let calls = 0;
+    const provider: AiPlanProvider = {
+      propose: () => {
+        calls += 1;
+        return Promise.resolve({ rationale: 'Open Theme and pick a display face.', commands: [] });
+      },
+    };
+    const events: AiBuildOwnEvent[] = [];
+    const { user } = renderPanel({
+      kernel,
+      planProvider: provider,
+      onBuildEvent: (event) => events.push(event),
+    });
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+
+    await send(user, 'how do I change the font on this page?');
+
+    expect(
+      await screen.findByText('Open Theme and pick a display face.', {}, { timeout: 15_000 }),
+    ).toBeInTheDocument();
+    expect(calls).toBe(1);
+    expect(events).toEqual([]);
+    expect(kernel.transactions()).toHaveLength(0);
+    // An answer, not a plan: there is nothing behind it to apply or to build.
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Build this' })).toBeNull();
+  }, 30_000);
+
+  /*
+    Wave-2 verifier, route-probe.mjs (2026-09-28): the router reads "how about
+    …", "why not …" and "ليش ما …" as interrogatives at 0.9, and the panel sent
+    them to a words-only answer with no Apply — where, before the router, the
+    one run made the edit. What follows the opener is what is being asked for.
+  */
+  it('makes the edit a SUGGESTION asks for, rather than answering it in words', async () => {
+    const kernel = createAssistantKernel();
+    const { user } = renderPanel({
+      kernel,
+      planProvider: createScriptedAiPlanProvider({
+        rationale: 'A warmer heading.',
+        commands: [
+          {
+            command: 'setProp',
+            args: { id: 'selected-hero', key: 'heading', value: 'Welcome home' },
+          },
+        ],
+      }),
+    });
+
+    // `requestPlan` waits for the plan card's Apply — an outline has none.
+    await requestPlan(user, 'what if the hero said Welcome home?');
+
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(kernel.getDocument().nodes['selected-hero']?.props['heading']).toBe('Welcome home');
+  }, 30_000);
+
+  it('sends a question the small catalog a remote run carries, not the whole one', async () => {
+    /*
+      An answer goes through `outlineAiPlan`, which defaulted to the FULL
+      catalog when handed no policy — measured ~49k tokens for one Plan request
+      against ~5k with `catalogMode: 'none'` (agent-audit P1-7d).
+    */
+    const kernel = createBuildKernel();
+    const seen: string[][] = [];
+    const provider: AiPlanProvider = {
+      propose: (_request, context) => {
+        seen.push(context.blocks.map((block) => block.type));
+        return Promise.resolve({ rationale: 'Use the Theme panel.', commands: [] });
+      },
+    };
+    const { user } = renderPanel({ kernel, planProvider: provider, providerKind: 'remote' });
+
+    await send(user, 'how do I change the font on this page?');
+
+    await screen.findByText('Use the Theme panel.', {}, { timeout: 15_000 });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toContain('region');
+  }, 30_000);
+
+  it('keeps a page-like phrase an EDIT when a block is selected — the page is read, not just the words', async () => {
+    const kernel = createAssistantKernel();
+    kernel.setSelection(['selected-hero']);
+    const events: AiBuildOwnEvent[] = [];
+    const { user } = renderPanel({
+      kernel,
+      planProvider: createScriptedAiPlanProvider({
+        rationale: 'Retitle the selected hero.',
+        commands: [
+          { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Clinic' } },
+        ],
+      }),
+      onBuildEvent: (event) => events.push(event),
+    });
+
+    await requestPlan(user, 'a clinic page');
+
+    expect(events).toEqual([]);
+  }, 30_000);
+
+  it('builds a site ask as ONE page, and says so on the card', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+
+    await send(user, 'build a 3-page website for my bakery: home, menu and contact');
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(screen.getByText(/the chat builds one page at a time/)).toBeVisible();
+  }, 40_000);
+
+  it('asks before starting a page WITH CONTENT over — even in Auto — and a refusal removes nothing', async () => {
+    /*
+      On 'replace' the engine's PagePlan path removes the page's children in the
+      skeleton's own transaction (2026-09-28). Auto never asks — except here: a
+      misread "start over" must not take a person's page without a question.
+      REWRITTEN 2026-09-28 onto a provider that CAN plan a page: only that path
+      removes anything, and a scaffold-only provider no longer asks (below).
+    */
+    const kernel = createPlanKernel(['Existing']);
+    const before = kernel.transactions().length;
+    const { user } = renderPanel({ kernel, planProvider: planningProvider(), locale: 'en' });
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+
+    await send(user, START_OVER_REQUEST);
+
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    expect(within(approval).getByText(/asks to start it over/)).toBeVisible();
+    await user.click(within(approval).getByRole('button', { name: 'Stop build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Stopped.')).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(planLabels(kernel)).toEqual(['Existing']);
+    expect(kernel.transactions()).toHaveLength(before);
+  }, 40_000);
+
+  it('starts the page over when the person says Build — and the card said exactly that', async () => {
+    const kernel = createPlanKernel(['Existing']);
+    const { user } = renderPanel({ kernel, planProvider: planningProvider(), locale: 'en' });
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+
+    await send(user, START_OVER_REQUEST);
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    await user.click(within(approval).getByRole('button', { name: 'Build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/4\/4 built in/)).toBeInTheDocument();
+      },
+      { timeout: 30_000 },
+    );
+    expect(planLabels(kernel)).toEqual(PLAN_TITLES);
+    expect(screen.getByText(/asks to start it over/)).toBeVisible();
+    expect(screen.queryByText(/nothing is replaced/)).toBeNull();
+  }, 60_000);
+
+  /*
+    Wave-2 verifier, scaffold-replace.mjs (2026-09-28): the playground's real
+    provider has no `proposePagePlan`, so its builds take the scaffold path,
+    which APPENDS whatever the target — yet the card asked "start over?" and
+    then promised "anything replaced comes back with one Undo". Nothing was.
+  */
+  it('never promises a start-over a scaffold build cannot do: the card says what the page will get', async () => {
+    const kernel = createBuildKernel();
+    kernel.dispatch('insertNode', {
+      type: 'region',
+      parentId: 'root',
+      props: { label: 'Existing', tree: 'Written by hand.' },
+    });
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
+
+    // Ask still asks — it always does — and the card is where the promise is made.
+    await send(user, START_OVER_REQUEST);
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    expect(within(approval).getByText(/nothing is replaced/)).toBeVisible();
+    expect(within(approval).queryByText(/start it over/)).toBeNull();
+    await user.click(within(approval).getByRole('button', { name: 'Build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    // The notice matches the page: what was there is still there, above the build.
+    expect(regionList(kernel).map(([label]) => label)).toEqual(['Existing', ...THREE]);
+    expect(screen.getByText(/nothing is replaced/)).toBeVisible();
+    expect(screen.queryByText(/comes back/)).toBeNull();
+  }, 40_000);
+
+  it('does not stop Auto to ask about a start-over that will not happen', async () => {
+    const kernel = createBuildKernel();
+    kernel.dispatch('insertNode', {
+      type: 'region',
+      parentId: 'root',
+      props: { label: 'Existing', tree: 'Written by hand.' },
+    });
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+
+    await send(user, START_OVER_REQUEST);
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(regionList(kernel).map(([label]) => label)).toEqual(['Existing', ...THREE]);
+    expect(screen.getByText(/nothing is replaced/)).toBeVisible();
+  }, 40_000);
+
+  it('takes the start-over back when the page plan fails and the build falls back to appending', async () => {
+    /*
+      A provider that CAN plan a page may still fail to: the engine then lays a
+      scaffold, which appends. The question is asked with no plan in hand, and
+      that is when the card learns it — before the person decides.
+    */
+    const kernel = createPlanKernel(['Existing']);
+    const { user } = renderPanel({
+      kernel,
+      planProvider: planningProvider({ planFails: true }),
+      locale: 'en',
+    });
+    await user.click(screen.getByRole('radio', { name: 'Auto' }));
+
+    await send(user, START_OVER_REQUEST);
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    expect(within(approval).getByText(/nothing is replaced/)).toBeVisible();
+    expect(within(approval).queryByText(/start it over/)).toBeNull();
+    await user.click(within(approval).getByRole('button', { name: 'Build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/built in/)).toBeInTheDocument();
+      },
+      { timeout: 30_000 },
+    );
+    expect(planLabels(kernel)[0]).toBe('Existing');
+    expect(screen.getByText(/nothing is replaced/)).toBeVisible();
+  }, 60_000);
+
+  it('builds a NEW-page ask below the content, and says so BEFORE the person decides', async () => {
+    const kernel = createBuildKernel();
+    kernel.dispatch('insertNode', {
+      type: 'region',
+      parentId: 'root',
+      props: { label: 'Existing', tree: 'Written by hand.' },
+    });
+    const script = scriptBuild(kernel, THREE);
+    const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
+
+    await send(user, BUILD_REQUEST);
+
+    const approval = await screen.findByRole(
+      'group',
+      { name: 'Build this page' },
+      { timeout: 15_000 },
+    );
+    expect(within(approval).getByText(/built below what is already here/)).toBeVisible();
+    await user.click(within(approval).getByRole('button', { name: 'Build' }));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/3\/3 built in/)).toBeInTheDocument();
+      },
+      { timeout: 20_000 },
+    );
+    expect(regionList(kernel)).toEqual([
+      ['Existing', 'Written by hand.'],
+      ['Hero', 'Body for Hero.'],
+      ['Proof', 'Body for Proof.'],
+      ['Pricing', 'Body for Pricing.'],
+    ]);
+    expect(screen.getByText(/built below what is already here/)).toBeVisible();
+  }, 40_000);
 });
 
 /**

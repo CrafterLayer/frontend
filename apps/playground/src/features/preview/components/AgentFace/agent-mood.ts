@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useReducer } from 'react';
 
-import type { AiAgentEvent } from '@craftkit/builder';
+import type { AiBuildEvent, AiBuildOwnEvent } from '@craftkit/builder';
 
 import type { AgentFaceProps } from './AgentFace';
 
@@ -98,7 +98,13 @@ export interface AgentMoodState {
 
 export type AgentMoodInput =
   | { type: 'run.begin'; runId: string; subject: string }
-  | { type: 'event'; event: AiAgentEvent }
+  /**
+   * An ordinary run's event, or a BUILD's own (`build.*`, `task.*`). A build's steps
+   * carry `<build>/<step>` run ids and are dropped by the run-id filter on purpose: up
+   * to six writers run at once, and following their stages would flail the face, and
+   * a writer's `run.completed` would settle a build that is still landing sections.
+   */
+  | { type: 'event'; event: AiBuildEvent }
   | {
       type: 'turn.outcome';
       runId: string;
@@ -348,12 +354,64 @@ function failedPose(retryable: boolean): Target {
 }
 
 const STOPPED: Target = own({ mood: 'stopped', line: { key: 'stopped' } });
+const WORKING: Target = own({ mood: 'working', line: { key: 'working' } });
+
+type Resolved = { target: Target; announcedPlanMode?: true; settled?: true } | null;
+
+/**
+ * How a whole build ended, from its own report (P2-18: the face used to sit on
+ * "thinking" for the entire build, because the build's events never reached it).
+ * A stop of any kind is `stopped`; otherwise anything on the page is `done`, and a
+ * build in which every section failed is a retryable failure, as its record says.
+ */
+function buildOutcomeTarget(event: Extract<AiBuildOwnEvent, { type: 'build.completed' }>): Target {
+  if (event.outcome === 'signal' || event.outcome === 'budget' || event.outcome === 'max-tasks') {
+    return STOPPED;
+  }
+  if (event.applied > 0) return donePose('applied');
+  return event.tasks.length > 0 ? failedPose(true) : STOPPED;
+}
+
+/**
+ * Rule 2b: a build's own event. The skeleton is planning; from the section list on the
+ * build is working (a section landing or failing is progress of the same work, never
+ * an outcome); it ends on `build.stopped {signal}` (nothing lands after Stop) or on
+ * `build.completed`. A budget or section-limit stop is not the end yet: sections
+ * already being written still land, and the report that follows says how it ended.
+ * Once settled, a late build event (the report after a Stop) changes nothing.
+ */
+function targetForBuildEvent(
+  state: AgentMoodState & { readonly run: NonNullable<AgentMoodState['run']> },
+  event: AiBuildOwnEvent,
+): Resolved {
+  if (state.run.settled) return null;
+  switch (event.type) {
+    // The skeleton is planning, and so is the one ordinary run that replaces a skipped build.
+    case 'build.scaffolding':
+    case 'build.skipped':
+      return {
+        target: {
+          pose: { mood: 'planning', line: { key: 'planning' } },
+          line: { key: 'planning' },
+        },
+      };
+    case 'build.planned':
+    case 'task.started':
+    case 'task.completed':
+    case 'task.skipped':
+      return { target: WORKING };
+    case 'build.stopped':
+      return event.reason === 'signal' ? { target: STOPPED, settled: true } : null;
+    case 'build.completed':
+      return { target: buildOutcomeTarget(event), settled: true };
+  }
+}
 
 /** Rule 2: an accepted event of the current run, to its target pose. `null` = no change. */
 function targetForEvent(
   state: AgentMoodState & { readonly run: NonNullable<AgentMoodState['run']> },
-  event: AiAgentEvent,
-): { target: Target; announcedPlanMode?: true; settled?: true } | null {
+  event: AiBuildEvent,
+): Resolved {
   const keep = state.snapshot.line;
   const thinking = (line: AgentMoodLine | null) => ({
     target: { pose: { mood: 'thinking' as const, line: line ?? keep }, line },
@@ -408,7 +466,7 @@ function targetForEvent(
       // until run.completed so it never dips to idle between the two.
       return null;
     case 'plan.applying':
-      return { target: own({ mood: 'working', line: { key: 'working' } }) };
+      return { target: WORKING };
     case 'run.completed':
       return {
         target: donePose(doneOutcome(event.status === 'applied', state.mode)),
@@ -418,6 +476,15 @@ function targetForEvent(
       return { target: failedPose(event.error.retryable), settled: true };
     case 'run.cancelled':
       return { target: STOPPED, settled: true };
+    case 'build.scaffolding':
+    case 'build.skipped':
+    case 'build.planned':
+    case 'task.started':
+    case 'task.completed':
+    case 'task.skipped':
+    case 'build.stopped':
+    case 'build.completed':
+      return targetForBuildEvent(state, event);
   }
 }
 
@@ -660,7 +727,7 @@ export interface UseAgentMoodOptions {
 export interface UseAgentMoodResult {
   readonly snapshot: AgentMoodSnapshot;
   readonly beginRun: (runId: string, subject: string) => void;
-  readonly onEvent: (event: AiAgentEvent) => void;
+  readonly onEvent: (event: AiBuildEvent) => void;
   readonly settleTurn: (
     input: Omit<Extract<AgentMoodInput, { type: 'turn.outcome' }>, 'type'>,
   ) => void;
@@ -711,7 +778,7 @@ export function useAgentMood(options: UseAgentMoodOptions): UseAgentMoodResult {
     [send],
   );
   const onEvent = useCallback(
-    (event: AiAgentEvent) => {
+    (event: AiBuildEvent) => {
       send({ type: 'event', event });
     },
     [send],

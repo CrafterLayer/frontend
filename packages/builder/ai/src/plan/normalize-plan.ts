@@ -6,7 +6,7 @@ import {
   unknownUtilityClasses,
 } from '@craftkit/builder-schema';
 
-import { isTreeMarkup, parseTreeMarkup } from './tree-markup';
+import { COMPONENT_MARKUP_TAG, isTreeMarkup, parseTreeMarkup } from './tree-markup';
 
 /**
  * What a normalization changed in the trees a plan writes.
@@ -37,6 +37,8 @@ interface Changes {
   readonly classes: string[];
   readonly icons: string[];
   readonly adjustments: string[];
+  /** Registered block types, lower-cased as markup tags arrive. */
+  readonly blockTags: ReadonlySet<string>;
 }
 
 /*
@@ -48,6 +50,12 @@ interface Changes {
   embeds are dropped with their content, phrasing tags become their
   vocabulary spelling or a span, and any other container becomes a div, so
   its content survives in place.
+
+  One exception: a tag that NAMES a registered block (`<contact>`, and the
+  `ck-component` spelling itself should it ever arrive as an element) is a
+  model reaching for that block, not for a box. As a div it rendered as an
+  empty box with no error anywhere; left as written, the door refuses it by
+  name and the repair round learns to write `<ck-component type='contact'>`.
 */
 const DROPPED_TAGS = new Set([
   'area',
@@ -124,10 +132,15 @@ function usableClasses(
   return kept.length === 0 ? undefined : kept.join(' ');
 }
 
-/** A tag the vocabulary admits, the tag it maps to, or null when the element must go. */
-function vocabularyTag(tag: string): string | null {
+/**
+ * A tag the vocabulary admits, the tag it maps to, or null when the element
+ * must go. A tag naming a registered block is returned as written, for the
+ * door to refuse (see above).
+ */
+function vocabularyTag(tag: string, blockTags: ReadonlySet<string>): string | null {
   const lower = tag.toLowerCase();
   if (isCustomCodeTag(lower)) return lower;
+  if (lower === COMPONENT_MARKUP_TAG || blockTags.has(lower)) return tag;
   if (DROPPED_TAGS.has(lower)) return null;
   return RESPELLED_TAGS[lower] ?? (PHRASING_TAGS.has(lower) ? 'span' : 'div');
 }
@@ -194,7 +207,7 @@ function cleanElement(
 ): unknown {
   const rawTag = node['tag'];
   if (typeof rawTag !== 'string') return node;
-  const tag = vocabularyTag(rawTag);
+  const tag = vocabularyTag(rawTag, changes.blockTags);
   if (tag === null) {
     changes.adjustments.push(`dropped ${rawTag}`);
     return undefined;
@@ -303,6 +316,52 @@ function readSetPropMarkup(step: unknown, changes: Changes): unknown {
   return { ...step, args: { ...args, value: markupTree(args['value'], changes) } };
 }
 
+/** Any value in a command's args, with every `tree` prop written as markup read into a tree. */
+function readArgsMarkup(value: unknown, changes: Changes): unknown {
+  if (Array.isArray(value)) {
+    const items = value as unknown[];
+    const read = items.map((item) => readArgsMarkup(item, changes));
+    return read.some((item, index) => item !== items[index]) ? read : value;
+  }
+  if (!isRecord(value) || value['kind'] === 'root') return value;
+  let changed = false;
+  const next: JsonRecord = {};
+  for (const [key, child] of Object.entries(value)) {
+    const read =
+      key === 'tree' && isTreeMarkup(child)
+        ? markupTree(child, changes)
+        : readArgsMarkup(child, changes);
+    if (read !== child) changed = true;
+    next[key] = read;
+  }
+  return changed ? next : value;
+}
+
+/**
+ * Only the markup reading of `normalizeAiPlanTrees`: every tree a plan writes
+ * as markup, read into the tree, and nothing else cleaned.
+ *
+ * The context tells the model to write trees as markup on every run
+ * (assemble-context sets `treeMarkup`), so reading it cannot depend on the
+ * host's vocabulary policy: a host with `enforceUtilityVocabulary: false`
+ * skipped normalization, and every tree reached the door as a string and was
+ * refused — the repair round asked for markup again, and failed the same way.
+ */
+export function readAiPlanTreeMarkup(candidate: unknown): unknown {
+  if (!isRecord(candidate) || !Array.isArray(candidate['commands'])) return candidate;
+  const changes: Changes = { classes: [], icons: [], adjustments: [], blockTags: new Set() };
+  const commands = candidate['commands'] as unknown[];
+  const read = commands.map((original) => {
+    const step = readSetPropMarkup(original, changes);
+    if (!isRecord(step)) return step;
+    const args = readArgsMarkup(step['args'], changes);
+    return args === step['args'] ? step : { ...step, args };
+  });
+  return read.some((step, index) => step !== commands[index])
+    ? { ...candidate, commands: read }
+    : candidate;
+}
+
 const SET_PROP_ARGS = new Set(['id', 'key', 'value']);
 
 /**
@@ -345,8 +404,15 @@ function splitSetProp(changes: Changes): (step: unknown) => unknown[] {
 export function normalizeAiPlanTrees(
   candidate: unknown,
   colourPolicy: 'free' | 'tokens' = 'free',
+  /** Registered block types: a tag naming one is left for the door, never made a div. */
+  blockTypes: Iterable<string> = [],
 ): AiPlanNormalization {
-  const changes: Changes = { classes: [], icons: [], adjustments: [] };
+  const changes: Changes = {
+    classes: [],
+    icons: [],
+    adjustments: [],
+    blockTags: new Set([...blockTypes].map((type) => type.toLowerCase())),
+  };
   if (!isRecord(candidate) || !Array.isArray(candidate['commands'])) {
     return { plan: candidate, removedClasses: [], removedIcons: [], adjustments: [] };
   }

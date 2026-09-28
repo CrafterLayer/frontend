@@ -1,6 +1,7 @@
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import { customCodeTreeSchema } from '@craftkit/builder-schema';
+import { CUSTOM_CODE_TAGS, customCodeTreeSchema } from '@craftkit/builder-schema';
 
 import { isTreeMarkup, parseTreeMarkup, serializeTreeMarkup } from './tree-markup';
 
@@ -204,9 +205,365 @@ describe('serializeTreeMarkup', () => {
     );
   });
 
-  it('declines a tree with a component reference, which markup cannot spell', () => {
-    expect(
-      serializeTreeMarkup({ kind: 'root', children: [{ kind: 'component', component: 'hero' }] }),
-    ).toBeUndefined();
+  it('spells a component reference as ck-component, so a region holding one is editable', () => {
+    const tree = {
+      kind: 'root',
+      children: [
+        {
+          kind: 'component',
+          component: 'hero',
+          props: { heading: "Rock & roll's <3" },
+          children: [{ kind: 'element', tag: 'p', text: 'Inside the slot' }],
+        },
+        { kind: 'component', component: 'divider' },
+      ],
+    };
+
+    const written = serializeTreeMarkup(tree);
+    expect(written).toBe(
+      "<ck-component type='hero' props='{\"heading\":\"Rock &amp; roll&#39;s &lt;3\"}'><p>Inside the slot</p></ck-component><ck-component type='divider'/>",
+    );
+    expect(parseTreeMarkup(written ?? '')).toEqual(tree);
   });
+});
+
+/** Serialize, then read back: exactly what editTree does to every region it touches. */
+function roundTrip(tree: unknown): unknown {
+  const written = serializeTreeMarkup(tree);
+  expect(written).toBeDefined();
+  return parseTreeMarkup(written ?? '');
+}
+
+describe('whitespace is content where it renders', () => {
+  it('keeps the word spaces of a sentence split by inline elements through a round trip', () => {
+    const tree = parseTreeMarkup(
+      "<p>Pay <strong>once</strong> and keep it. Read the <a href='/terms'>terms</a> <em>first</em>.</p>",
+    );
+
+    expect(tree.children[0]).toEqual({
+      kind: 'element',
+      tag: 'p',
+      text: 'Pay ',
+      children: [
+        { kind: 'element', tag: 'strong', text: 'once' },
+        { kind: 'element', tag: 'span', text: ' and keep it. Read the ' },
+        { kind: 'element', tag: 'a', attributes: { href: '/terms' }, text: 'terms' },
+        { kind: 'element', tag: 'span', text: ' ' },
+        { kind: 'element', tag: 'em', text: 'first' },
+        { kind: 'element', tag: 'span', text: '.' },
+      ],
+    });
+    expect(roundTrip(tree)).toEqual(tree);
+  });
+
+  it('keeps spacing written inside an inline element on the first read', () => {
+    expect(parseTreeMarkup('<p>A<span> · </span>B</p>').children[0]).toEqual({
+      kind: 'element',
+      tag: 'p',
+      text: 'A',
+      children: [
+        { kind: 'element', tag: 'span', text: ' · ' },
+        { kind: 'element', tag: 'span', text: 'B' },
+      ],
+    });
+  });
+
+  it('writes edge spaces of a block as character references, so they survive being read back', () => {
+    const tree = {
+      kind: 'root',
+      children: [
+        { kind: 'element', tag: 'p', text: ' leading and trailing ' },
+        { kind: 'element', tag: 'h2', text: ' ' },
+        { kind: 'element', tag: 'p', text: 'two  spaces\tand a tab' },
+      ],
+    };
+
+    expect(serializeTreeMarkup(tree)).toBe(
+      '<p>&#32;leading and trailing&#32;</p><h2>&#32;</h2><p>two&#32;&#32;spaces&#9;and a tab</p>',
+    );
+    expect(roundTrip(tree)).toEqual(tree);
+  });
+
+  it('keeps newlines in pre and code, and in whitespace-pre text', () => {
+    const tree = parseTreeMarkup(
+      "<pre><code>npm i craftkit\nnpx craftkit dev</code></pre><p class='whitespace-pre-line'>line one\nline two</p>",
+    );
+
+    expect(tree.children).toEqual([
+      {
+        kind: 'element',
+        tag: 'pre',
+        children: [{ kind: 'element', tag: 'code', text: 'npm i craftkit\nnpx craftkit dev' }],
+      },
+      {
+        kind: 'element',
+        tag: 'p',
+        className: 'whitespace-pre-line',
+        text: 'line one\nline two',
+      },
+    ]);
+    expect(roundTrip(tree)).toEqual(tree);
+    // A stored multi-line pre survives an edit anywhere in its region.
+    expect(
+      roundTrip({ kind: 'root', children: [{ kind: 'element', tag: 'pre', text: 'a\nb' }] }),
+    ).toEqual({ kind: 'root', children: [{ kind: 'element', tag: 'pre', text: 'a\nb' }] });
+  });
+
+  it('drops the newline written right after <pre>, as a browser does, and keeps a stored one', () => {
+    expect(parseTreeMarkup('<pre>\nfirst\n  second</pre>').children[0]).toEqual({
+      kind: 'element',
+      tag: 'pre',
+      text: 'first\n  second',
+    });
+    const stored = { kind: 'root', children: [{ kind: 'element', tag: 'pre', text: '\nx' }] };
+    expect(roundTrip(stored)).toEqual(stored);
+  });
+
+  it('keeps a non-breaking space non-breaking, raw or written as an entity', () => {
+    const tree = parseTreeMarkup('<p>10&nbsp;%</p><p>Only 10 %</p>');
+
+    expect(tree.children.map((node) => node['text'])).toEqual(['10 %', 'Only 10 %']);
+    expect(serializeTreeMarkup(tree)).toBe('<p>10&nbsp;%</p><p>Only 10&nbsp;%</p>');
+    expect(roundTrip(tree)).toEqual(tree);
+  });
+});
+
+describe('structure is read as written', () => {
+  it('keeps block children of a paragraph inside it when the markup closes every tag', () => {
+    const tree = {
+      kind: 'root',
+      children: [
+        {
+          kind: 'element',
+          tag: 'section',
+          className: 'py-16',
+          children: [
+            { kind: 'element', tag: 'h2', text: 'Title' },
+            {
+              kind: 'element',
+              tag: 'p',
+              className: 'text-lg text-muted',
+              children: [
+                { kind: 'element', tag: 'div', text: 'Card' },
+                {
+                  kind: 'element',
+                  tag: 'ul',
+                  children: [{ kind: 'element', tag: 'li', text: 'T' }],
+                },
+              ],
+            },
+            {
+              kind: 'element',
+              tag: 'a',
+              attributes: { href: '#x' },
+              children: [{ kind: 'element', tag: 'a', attributes: { href: '#y' }, text: 'inner' }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(roundTrip(tree)).toEqual(tree);
+  });
+
+  it('still repairs markup a model left unbalanced, the way a browser would', () => {
+    const tree = parseTreeMarkup("<ul class='grid'><li>One<li>Two</ul><p>Three<div>Four</div>");
+
+    expect(tree.children).toEqual([
+      {
+        kind: 'element',
+        tag: 'ul',
+        className: 'grid',
+        children: [
+          { kind: 'element', tag: 'li', text: 'One' },
+          { kind: 'element', tag: 'li', text: 'Two' },
+        ],
+      },
+      { kind: 'element', tag: 'p', text: 'Three' },
+      { kind: 'element', tag: 'div', text: 'Four' },
+    ]);
+  });
+});
+
+describe('component references in markup', () => {
+  it('reads ck-component into a component reference with its props and children', () => {
+    const tree = parseTreeMarkup(
+      "<section class='py-16'><ck-component type='hero' props='{\"heading\":\"Fresh coffee\",\"count\":3}'><p>Slot copy</p></ck-component><ck-component type='contact'/></section>",
+    );
+
+    expect(tree.children[0]).toEqual({
+      kind: 'element',
+      tag: 'section',
+      className: 'py-16',
+      children: [
+        {
+          kind: 'component',
+          component: 'hero',
+          props: { heading: 'Fresh coffee', count: 3 },
+          children: [{ kind: 'element', tag: 'p', text: 'Slot copy' }],
+        },
+        { kind: 'component', component: 'contact' },
+      ],
+    });
+    expect(customCodeTreeSchema.safeParse(tree).success).toBe(true);
+  });
+
+  it('leaves props that are not JSON as written, for the door to refuse by name', () => {
+    const tree = parseTreeMarkup(
+      "<ck-component type='hero' props='{heading: Fresh}'></ck-component>",
+    );
+
+    expect(tree.children[0]).toEqual({
+      kind: 'component',
+      component: 'hero',
+      props: '{heading: Fresh}',
+    });
+    expect(customCodeTreeSchema.safeParse(tree).success).toBe(false);
+  });
+
+  it('puts text written inside a component into its slot as spans', () => {
+    expect(
+      parseTreeMarkup("<ck-component type='button'>Order now</ck-component>").children[0],
+    ).toEqual({
+      kind: 'component',
+      component: 'button',
+      children: [{ kind: 'element', tag: 'span', text: 'Order now' }],
+    });
+  });
+});
+
+/*
+  The property editTree rests on: any stored tree, written as markup and read
+  back, is the same tree. Only spellings that render identically are allowed
+  to differ — an empty `text`, `className`, `attributes` or `children` is the
+  same as none — so the comparison is against that canonical form.
+*/
+const VOID_TAGS = new Set(['br', 'hr', 'img']);
+
+function canonical(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(canonical);
+  if (typeof node !== 'object' || node === null) return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'text' && value === '') continue;
+    if (key === 'className' && (node as { kind?: unknown }).kind === 'element' && value === '')
+      continue;
+    if (key === 'attributes' && Object.keys(value as object).length === 0) continue;
+    if (
+      key === 'children' &&
+      (value as unknown[]).length === 0 &&
+      (node as { kind?: unknown }).kind !== 'root'
+    ) {
+      continue;
+    }
+    out[key] = key === 'props' ? value : canonical(value);
+  }
+  return out;
+}
+
+const textArbitrary = fc
+  .array(
+    fc.constantFrom(
+      'a',
+      'Z',
+      'قهوة',
+      '7',
+      ' ',
+      '  ',
+      '\n',
+      '\t',
+      '\r',
+      '\f',
+      ' ',
+      '&',
+      '&amp;',
+      '<',
+      '>',
+      "'",
+      '"',
+      '·',
+      '/',
+      '=',
+    ),
+    { maxLength: 8 },
+  )
+  .map((parts) => parts.join(''));
+
+const classArbitrary = fc.constantFrom(
+  '',
+  'py-16',
+  'flex gap-2',
+  'text-lg font-bold',
+  'whitespace-pre',
+  'md:whitespace-pre-line',
+  'inline-flex',
+);
+
+const attributesArbitrary = fc.dictionary(
+  fc.constantFrom('href', 'title', 'aria-label', 'id'),
+  textArbitrary,
+  { maxKeys: 2 },
+);
+
+const treeArbitrary = fc.letrec((tie) => ({
+  node: fc.oneof(
+    { depthSize: 'small', withCrossShrink: true },
+    tie('element'),
+    tie('icon'),
+    tie('component'),
+  ),
+  element: fc
+    .record(
+      {
+        tag: fc.constantFrom(...CUSTOM_CODE_TAGS),
+        className: classArbitrary,
+        text: textArbitrary,
+        attributes: attributesArbitrary,
+        children: fc.array(tie('node'), { maxLength: 3 }),
+      },
+      { requiredKeys: ['tag'] },
+    )
+    .map((fields) => {
+      const node: Record<string, unknown> = { kind: 'element', ...fields };
+      // A void element has no content to write; the renderer refuses one too.
+      if (VOID_TAGS.has(fields.tag)) {
+        delete node['text'];
+        delete node['children'];
+      }
+      return node;
+    }),
+  icon: fc.record(
+    {
+      kind: fc.constant('icon' as const),
+      name: fc.constantFrom('coffee', 'arrow-right', 'star'),
+      className: classArbitrary,
+      size: fc.integer({ min: 8, max: 256 }),
+      strokeWidth: fc.constantFrom(0.5, 1.5, 2, 4),
+      label: textArbitrary,
+    },
+    { requiredKeys: ['kind', 'name'] },
+  ),
+  component: fc.record(
+    {
+      kind: fc.constant('component' as const),
+      component: fc.constantFrom('hero', 'contact', "odd'name&<"),
+      props: fc.dictionary(fc.string({ maxLength: 6 }), fc.jsonValue({ maxDepth: 2 }), {
+        maxKeys: 3,
+      }),
+      children: fc.array(tie('node'), { maxLength: 2 }),
+    },
+    { requiredKeys: ['kind', 'component'] },
+  ),
+}));
+
+describe('serializeTreeMarkup ∘ parseTreeMarkup', () => {
+  it('reads back every stored tree it writes, exactly', () => {
+    fc.assert(
+      fc.property(fc.array(treeArbitrary.node, { maxLength: 4 }), (children) => {
+        const tree = { kind: 'root', children };
+        expect(canonical(roundTrip(tree))).toEqual(canonical(tree));
+      }),
+      { numRuns: 500, seed: 0x7ee_3a4c },
+    );
+  }, 60_000);
 });

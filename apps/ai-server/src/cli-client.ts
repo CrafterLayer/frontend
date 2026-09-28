@@ -34,9 +34,10 @@ import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
  * path. Delete it once the SDK backend is the only one anyone runs.
  */
 
-/** The request options this shim reads: the per-call reasoning budget header. */
+/** The request options this shim reads: the per-call reasoning budget header, and the cancel. */
 interface CliRequestOptions {
   readonly headers?: Readonly<Record<string, string>>;
+  readonly signal?: AbortSignal;
 }
 
 interface CliStreamParams {
@@ -268,6 +269,17 @@ function killTree(pid: number | undefined, fallback: () => void): void {
   fallback();
 }
 
+/**
+ * The cancellation `handler.ts` answers with 499 and the routing client never
+ * falls back from: the platform's AbortError, by name, as every backend
+ * reports a request the caller hung up on.
+ */
+function cancelled(): Error {
+  const error = new Error('The request was cancelled, so the dev `claude` CLI run was stopped.');
+  error.name = 'AbortError';
+  return error;
+}
+
 /** The real child: its own process group, so a cancelled request can kill the tree. */
 const spawnRealCli: SpawnCli = (command, args) =>
   spawn(command, [...args], {
@@ -285,8 +297,14 @@ function runClaude(
   spawnCli: SpawnCli,
   onThinking: (delta: string) => void,
   onLog: (line: string) => void,
+  signal: AbortSignal | undefined,
 ): Promise<Anthropic.Message> {
   return new Promise((resolve, reject) => {
+    // Cancelled before it began: no process is worth starting for nobody.
+    if (signal?.aborted === true) {
+      reject(cancelled());
+      return;
+    }
     const child = spawnCli('claude', args);
 
     let settled = false;
@@ -315,9 +333,24 @@ function runClaude(
       killTree(child.pid, () => child.kill('SIGTERM'));
     }, timeoutMs);
 
+    /*
+      Stop means stop (measured 2026-09-28: an aborted request's CLI ran its
+      whole 51s on, and a killed server left one orphaned). The request's
+      signal kills the process group exactly as the timeout does.
+    */
+    const onAbort = (): void => {
+      onLog('cli run stopped — the request was cancelled');
+      finish(() => {
+        reject(cancelled());
+      });
+      killTree(child.pid, () => child.kill('SIGTERM'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     function finish(callback: () => void): void {
       if (settled) return;
       settled = true;
+      signal?.removeEventListener('abort', onAbort);
       clearTimeout(timeoutTimer);
       clearInterval(narrationTimer);
       onLog(
@@ -481,6 +514,7 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
         listeners.get('thinking')?.(delta);
       },
       onLog,
+      requestOptions.signal,
     ).finally(() => {
       systemFile?.remove();
     });

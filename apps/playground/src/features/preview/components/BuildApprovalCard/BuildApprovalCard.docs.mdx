@@ -20,12 +20,39 @@ The card is a named `group`, so the question is findable rather than being loose
 
 ## The note is the reason, not reassurance
 
-"Each section is applied as its own change, so any step can be undone on its own" is the fact that
-makes Build safe to press. Each section lands as its own transaction, so a person who dislikes one
-of six removes that one — they are not choosing between the whole page and nothing.
+"Nothing is on the page yet … writes each one as its own change, so any section can be undone on its
+own" is the fact that makes Build safe to press. Nothing is written until Build is pressed; then the
+skeleton lands, and each section lands as its own transaction, so a person who dislikes one of six
+puts back that one — they are not choosing between the whole page and nothing.
 
-The skeleton is already on the page by this point, which is why the sentence says so: what is being
-approved is the FILLING, not the structure.
+Until 2026-09-28 this card said "The skeleton is already on the page", which was true while the
+skeleton landed before the question. The engine now asks BEFORE its first write (agent-audit P0-4),
+so the list is what the skeleton WOULD create, and "Stop build" leaves the page exactly as it was.
+
+## Where the page will land
+
+When the build cannot land where the words asked — a new page (the chat is handed one page and no
+site, so it builds below the content), or a whole site (the chat builds one page) — the card says so
+before the person decides, in the panel's language. The panel lends the notices through
+`BuildCardSeamContext`; without it the card says nothing about placement.
+
+<Canvas of={BuildApprovalCardStories.BelowTheContent} />
+
+A request to start a page WITH CONTENT over is asked about in every writing mode, Auto included —
+but only when the build can do it. Only a page-plan build removes what is there; a scaffold build
+(any provider without `proposePagePlan`, the playground's own included) lays its sections after it.
+Then the card says the sections go below and nothing is replaced, and Auto does not stop to ask.
+Until 2026-09-28 it asked "start over?", appended anyway, and promised an Undo for a replacement
+that never happened (wave-2 verifier, `scaffold-replace.mjs`).
+
+<Canvas of={BuildApprovalCardStories.StartOverAppends} />
+
+## What each section is for
+
+A PagePlan build hands over a contract per section. Its purpose is shown under the title: "Proof"
+alone says little about what will be written.
+
+<Canvas of={BuildApprovalCardStories.WithPurposes} />
 
 ## Language
 

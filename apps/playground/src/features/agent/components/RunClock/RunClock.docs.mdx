@@ -1,0 +1,73 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as RunClockStories from './RunClock.stories';
+
+<Meta of={RunClockStories} />
+
+# RunClock
+
+A run's one clock, `m:ss` (SPEC §4.17, §4.8). The RunBar shows it while the run is live; the record
+head shows the final time after.
+
+<Canvas of={RunClockStories.InStatusLine} />
+
+## Purpose
+
+v1 gave every live clock its own interval, and a thread could show three clocks disagreeing by a
+second. There is one clock per run, and every live clock in the panel reads one shared ticker
+(`hooks/use-ticker.ts`):
+
+- one timer for the whole panel, however many clocks are mounted;
+- it fires on the wall clock's whole second, so the published time only moves by exactly one second
+  and a display never repeats or skips one;
+- it stops while the tab is hidden and catches up at once when shown;
+- it stops for the clocks of a hidden panel (SPEC §4.1: hidden keeps the panel mounted and pauses
+  the ticker). AgentPanel provides `<TickerPausedContext value={!visible}>`; a clock under it stops
+  listening, and one outside it keeps the shared timer running;
+- it stops when the last live clock unmounts; a finished clock never starts it.
+
+## When to use / not
+
+Use it in the RunBar and the sheet's mini bar while a run is live, with `startedAt`, and nowhere
+else live. For a finished run, pass `endedAt` (or format the record's `elapsedMs` with
+`formatClock`). A run revived after a reload is measured to its last evidence, never to now.
+
+Do not add a second live clock to a record head: while a run is live the head shows the count.
+
+## Props
+
+| prop        | type     | default | notes                                           |
+| ----------- | -------- | ------- | ----------------------------------------------- |
+| `startedAt` | `number` | none    | epoch ms                                        |
+| `endedAt`   | `number` | none    | epoch ms; freezes the clock and stops listening |
+| `className` | `string` | none    | appended to `ck-agent-clock`                    |
+
+## States
+
+| story                                                    | what it shows                                             |
+| -------------------------------------------------------- | --------------------------------------------------------- |
+| `Live`                                                   | counting from 1:12                                        |
+| `Final`                                                  | frozen at 2:21                                            |
+| `InStatusLine`, `InStatusLineDark`                       | beside the working glyph and the status, as in the RunBar |
+| `InStatusLineRightToLeft`, `InStatusLineRightToLeftDark` | Arabic: `1:12` intact, at the line's inline end (left)    |
+
+## Anatomy
+
+`<bdi dir="ltr" aria-hidden="true" class="ck-agent-clock">1:12</bdi>`: Figure type (11/16 Latin,
+12/18 Arabic), weight 500, `tabular-nums`, Slate, in a slot at least 4.5ch wide so 0:04 and 12:40
+take the same room and the status beside it never moves.
+
+## Accessibility
+
+`aria-hidden`, not a live region: the clock is never announced and never read in passing (SPEC §4.3,
+§6.1). A run's progress reaches a screen reader through LiveStatus, coalesced.
+
+## RTL
+
+Latin digits in both locales (SPEC §2.2), in an LTR island, so `1:24` never reorders inside an
+Arabic line. The island sits wherever its parent puts it: at the inline end of the RunBar in both
+directions.
+
+## Motion
+
+None. Digits never roll (SPEC §5: "what never animates: counts and clocks").

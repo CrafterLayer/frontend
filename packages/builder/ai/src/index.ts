@@ -22,12 +22,79 @@ export {
   type AiBuildTask,
   type AiBuildTaskReport,
   type AiBuildTaskStatus,
+  type AiBuildOutOfScopeStep,
+  type AiBuildSectionKey,
+  type AiBuildSectionLanding,
+  type AiBuildSectionValues,
+  type AiBuildUnfilledSection,
+  AiBuildRevertError,
+  REMOVE_UNFILLED_SECTIONS_LABEL,
+  removeUnfilledSections,
+  revertBuildSection,
+  type AiBuildRevertErrorCode,
+  type AiBuildUnfilledRemoval,
   classifyAiRunFailure,
   type AiRunFailure,
   type AiRunFailureCode,
   type AiRunFailureSource,
   type RunAiAgentOptions,
   type RunAiBuildOptions,
+  /*
+    The PAGE PLAN contract (agent-audit §3.2, 2026-09-28): one structured,
+    editable design of a page that Plan mode shows, Ask approves and Build
+    consumes verbatim. `validatePagePlan` is the only way to get a `PagePlan`;
+    `skeletonFromPlan`, `checkSection`, `summarizeNeighbours` and `planAiPage`
+    are the orchestration's steps T2, E, the writers' context and T1.
+  */
+  fillConcurrencyFor,
+  type AiBuildPlanAnswer,
+  type AiBuildSectionCheck,
+  type AiBuildSkipReasonCode,
+  type AiBuildTaskFact,
+  type AiPagePlanEvent,
+  type PlanAiPage,
+  type PlanAiPageOptions,
+  type PlanAiPageResult,
+  NEIGHBOUR_SUMMARY_MAX_CHARS,
+  PAGE_PLAN_INTENTS,
+  PAGE_PLAN_MAX_FACTS,
+  PAGE_PLAN_MAX_IMAGES_PER_SECTION,
+  PAGE_PLAN_MAX_NAV_ITEMS,
+  PAGE_PLAN_MAX_SECTION_CLAIMS,
+  PAGE_PLAN_MAX_SECTIONS,
+  PAGE_PLAN_MIN_SECTIONS,
+  PAGE_PLAN_PALETTE_HEX,
+  PAGE_PLAN_RADII,
+  PAGE_SKELETON_LABEL,
+  SECTION_ROLES,
+  checkSection,
+  planAiPage,
+  skeletonFromPlan,
+  summarizeNeighbours,
+  validatePagePlan,
+  type LandedSection,
+  type LandedSections,
+  type PagePlan,
+  type PagePlanCandidate,
+  type PagePlanFact,
+  type PagePlanFont,
+  type PagePlanIntent,
+  type PagePlanIssue,
+  type PagePlanLink,
+  type PagePlanLocale,
+  type PagePlanNavItem,
+  type PagePlanRadius,
+  type PagePlanTokens,
+  type PagePlanValidationResult,
+  type SectionCheckCode,
+  type SectionCheckIssue,
+  type SectionContract,
+  type SectionImage,
+  type SectionRole,
+  type SkeletonFromPlanContext,
+  type SkeletonFromPlanResult,
+  type SkeletonRegion,
+  type ValidatePagePlanOptions,
 } from './agent';
 export {
   RUN_COORDINATOR_VERSION,
@@ -77,6 +144,24 @@ export {
   type AiMemoryRecordKind,
   type AiMemoryRecordV1,
   type MemoryContextProviderOptions,
+  PHOTO_CATALOG,
+  PHOTO_CATALOG_FRAGMENT_TITLE,
+  PHOTO_CATALOG_MAX_PHOTOS,
+  PHOTO_CATALOG_PROVIDER_ID,
+  PHOTO_CATALOG_VERIFIED_AT,
+  PHOTO_TOPIC_KEYWORDS,
+  PhotoCatalogError,
+  createPhotoCatalogContextProvider,
+  isCatalogPhotoUrl,
+  selectCatalogPhotos,
+  type CatalogPhoto,
+  type PhotoCatalogContextProviderOptions,
+  type PhotoCatalogEntry,
+  type PhotoOrientation,
+  type PhotoPeople,
+  type PhotoTone,
+  type PhotoTopic,
+  type SelectCatalogPhotosOptions,
 } from './context';
 export {
   CONTEXT_INDEX_VERSION,
@@ -152,6 +237,15 @@ export {
   type AiPlanWireStatus,
   type RemoteAiPlanProviderOptions,
 } from './provider';
+// The page-plan task on the same /plan endpoint (additive; absent `task` = today's plan).
+export {
+  readAiPagePlanWireResponse,
+  type AiPagePlanWireAttempt,
+  type AiPagePlanWireReading,
+  type AiPagePlanWireResponse,
+  type AiPagePlanWireResult,
+  type AiPlanWireTask,
+} from './provider/wire';
 export {
   DEFAULT_AI_CONTEXT_TOKEN_BUDGET,
   AiContextBudgetError,
@@ -229,9 +323,12 @@ export {
   type AiContextOmission,
   type AiDocumentContext,
   type AiDocumentNodeContext,
+  type AiPagePlanAttempt,
+  type AiPagePlanProposal,
   type AiPlan,
   type AiPlanOutputContract,
   type AiPlanProvider,
+  type AiProposePagePlanOptions,
   type AiPlanStep,
   type AiChatTurn,
   type AiPlanValidationIssue,
@@ -363,6 +460,30 @@ export {
   type RefineTarget,
   type ResolveTargetResult,
 } from './refine/resolve-target';
+
+/*
+  INTENT ROUTING: what a request is FOR — build a page, build a site, add a
+  section, edit, or answer — decided by rules before any model is asked.
+
+  Exported from the engine rather than the host because the decision belongs
+  to the engine: it replaced the panel's keyword-substring routing, which sent
+  8 of 12 measured edits into a full-page build and missed 14 of 17 page asks
+  (agent-audit §2 P0-1 / P1-5, 2026-09-28). The router is pure and reads a
+  page SUMMARY, so a host summarises its document once and routes with it.
+*/
+export {
+  INTENT_KINDS,
+  isBuildIntent,
+  normalizeArabic,
+  normalizeIntentText,
+  routeIntent,
+  summarizeDocumentForIntent,
+  type IntentDocumentSummary,
+  type IntentKind,
+  type IntentRoute,
+  type IntentTarget,
+  type RouteIntentInput,
+} from './intent';
 
 /*
   ASSET SELECTION: which picture goes where, chosen from a library.

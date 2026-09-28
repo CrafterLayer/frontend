@@ -1,9 +1,15 @@
 import { EventEmitter } from 'node:events';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CLI_DEFAULT_TIMEOUT_MS, createCliClient, type CliChildProcess } from './cli-client';
+import { createHandler } from './handler';
+import { PAGE_PLAN_EXAMPLE } from './plan-shape';
+import { PAGE_PLAN_CONTRACT_MARK } from './prompt';
 
 /**
  * The dev CLI backend, tested without a `claude` on the PATH.
@@ -341,14 +347,205 @@ describe('cli backend per-call effort', () => {
       spawnCli,
       effort: 'medium',
       writeSystemPrompt: () => ({ path: '/tmp/x.md', remove: () => undefined }),
-    }).messages.stream(
-      REQUEST as never,
-      {
-        headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
-      },
-    );
+    }).messages.stream(REQUEST as never, {
+      headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
+    });
 
     const args = spawnCli.mock.calls[0]?.[1] ?? [];
     expect(args[args.indexOf('--effort') + 1]).toBe('low');
   });
+});
+
+/*
+  The page-plan task on the CLI backend, end to end through a real process:
+  the handler, claude.ts and this shim run unmodified, the default spawner
+  starts a `claude` found on PATH — here a fake one that records what it was
+  given and answers like the real CLI's stream-json. It proves the task needs
+  nothing CLI-specific: the plan call's own rules and answer schema reach the
+  CLI as its system prompt, and its answer comes back as the wire's page plan.
+*/
+describe('the page-plan task through a real `claude` process', () => {
+  const FAKE_CLAUDE = `#!/usr/bin/env node
+'use strict';
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+const at = args.indexOf('--system-prompt-file');
+const systemPath = at >= 0 ? args[at + 1] : undefined;
+const system = systemPath === undefined ? '' : fs.readFileSync(systemPath, 'utf8');
+let stdin = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => { stdin += chunk; });
+process.stdin.on('end', () => {
+  fs.writeFileSync(process.env.FAKE_CLAUDE_RECORD, JSON.stringify({ args, systemPath, system, stdin }));
+  const answer = process.env.FAKE_CLAUDE_ANSWER;
+  const out = (event) => process.stdout.write(JSON.stringify(event) + '\\n');
+  out({ type: 'stream_event', event: { type: 'content_block_start', content_block: { type: 'text' } } });
+  out({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: answer } } });
+  out({ type: 'result', is_error: false, result: answer, usage: { input_tokens: 12, output_tokens: 34 }, duration_api_ms: 5 });
+});
+`;
+
+  let directory: string | undefined;
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    if (directory !== undefined) rmSync(directory, { recursive: true, force: true });
+    directory = undefined;
+  });
+
+  it('answers the page plan the fake CLI wrote, having handed it the page-plan contract', async () => {
+    directory = mkdtempSync(join(tmpdir(), 'fake-claude-'));
+    const binary = join(directory, 'claude');
+    writeFileSync(binary, FAKE_CLAUDE, { mode: 0o755 });
+    const record = join(directory, 'record.json');
+    const answer = { rationale: PAGE_PLAN_EXAMPLE.rationale, pagePlan: PAGE_PLAN_EXAMPLE.pagePlan };
+    vi.stubEnv('PATH', `${directory}${delimiter}${process.env['PATH'] ?? ''}`);
+    vi.stubEnv('FAKE_CLAUDE_RECORD', record);
+    // Fenced, as the CLI's model sometimes answers despite being told not to.
+    vi.stubEnv('FAKE_CLAUDE_ANSWER', `\`\`\`json\n${JSON.stringify(answer)}\n\`\`\``);
+    const handle = createHandler({ client: createCliClient(), sectionEffort: 'low' });
+
+    const response = await handle(
+      new Request('http://localhost/plan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          version: 1,
+          task: 'page-plan',
+          request: 'اعمل صفحة لمحمصة قهوة',
+          context: {
+            fragments: [],
+            totalTokens: 0,
+            blocks: [],
+            document: { schemaVersion: 1, surface: 'site', dir: 'rtl', rootId: 'root', nodes: [] },
+            selection: { ids: [] },
+            outputContract: { version: 1, schema: { type: 'object' } },
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ version: 1, ...answer });
+    const seen = JSON.parse(readFileSync(record, 'utf8')) as {
+      args: string[];
+      systemPath: string;
+      system: string;
+      stdin: string;
+    };
+    expect(seen.system).toContain(PAGE_PLAN_CONTRACT_MARK);
+    expect(seen.system).toContain('# Required output format');
+    expect(seen.system).toContain('"pagePlan"');
+    expect(seen.system).not.toContain('# Block catalog');
+    expect(seen.stdin).toContain('اعمل صفحة لمحمصة قهوة');
+    // A planning call: the backend default, never the section writers' `low`.
+    expect(seen.args).not.toContain('--effort');
+    expect(existsSync(seen.systemPath)).toBe(false);
+    // A real process: node's own start-up took seconds on the loaded machine this was written on.
+  }, 20_000);
+});
+
+/*
+  Stop on the CLI backend. Measured 2026-09-28 against the built server: a
+  page-plan request aborted 8s in left its `claude -p` child running — still
+  alive 38s later, and it finished its whole 51s run — because this shim read
+  the call's effort header and never its signal; only the 10-minute timeout
+  ever killed a CLI. Every other backend stops when the request does (the
+  OpenRouter run ended 00:07 after an abort at 8s), and a CLI left running
+  holds a subscription slot the next request is waiting for.
+*/
+describe('cli backend cancellation', () => {
+  it('kills the CLI and rejects as an abort the moment the request is cancelled', async () => {
+    const child = new FakeChild();
+    const { client } = clientWith(child);
+    const controller = new AbortController();
+
+    const finished = client.messages
+      .stream(REQUEST as never, { signal: controller.signal })
+      .finalMessage();
+    controller.abort();
+
+    await expect(finished).rejects.toMatchObject({ name: 'AbortError' });
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+  });
+
+  it('never starts a CLI for a request that was cancelled before it began', async () => {
+    const child = new FakeChild();
+    const { client, spawnCli } = clientWith(child);
+    const controller = new AbortController();
+    controller.abort();
+
+    const finished = client.messages
+      .stream(REQUEST as never, { signal: controller.signal })
+      .finalMessage();
+
+    await expect(finished).rejects.toMatchObject({ name: 'AbortError' });
+    expect(spawnCli).not.toHaveBeenCalled();
+  });
+
+  it('stops a real `claude` process group when the page-plan request is cancelled', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fake-claude-'));
+    try {
+      const pidFile = join(directory, 'pid');
+      // A CLI that never answers: it records its pid and waits to be killed.
+      writeFileSync(
+        join(directory, 'claude'),
+        `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nsetInterval(() => undefined, 1000);\n`,
+        { mode: 0o755 },
+      );
+      vi.stubEnv('PATH', `${directory}${delimiter}${process.env['PATH'] ?? ''}`);
+      const controller = new AbortController();
+      const handle = createHandler({ client: createCliClient() });
+
+      const answered = handle(
+        new Request('http://localhost/plan', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            version: 1,
+            task: 'page-plan',
+            request: 'Build a page for a bakery',
+            context: {
+              fragments: [],
+              totalTokens: 0,
+              blocks: [],
+              document: {
+                schemaVersion: 1,
+                surface: 'site',
+                dir: 'ltr',
+                rootId: 'root',
+                nodes: [],
+              },
+              selection: { ids: [] },
+            },
+          }),
+          signal: controller.signal,
+        }),
+      );
+      let pid = 0;
+      for (let waited = 0; pid === 0 && waited < 10_000; waited += 50) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (existsSync(pidFile)) pid = Number(readFileSync(pidFile, 'utf8'));
+      }
+      expect(pid).toBeGreaterThan(0);
+
+      controller.abort();
+      const response = await answered;
+
+      expect(response.status).toBe(499);
+      let alive = true;
+      for (let waited = 0; alive && waited < 5_000; waited += 50) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        try {
+          process.kill(pid, 0);
+        } catch {
+          alive = false;
+        }
+      }
+      expect(alive).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }, 20_000);
 });

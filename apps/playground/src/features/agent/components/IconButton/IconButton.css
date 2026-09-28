@@ -1,0 +1,162 @@
+/*
+  The panel's icon button (SPEC §4.21), drawn over the shell's ChromeButton.
+
+  A ghost at rest: no fill, a Graphite glyph. Hover lays the Wash under an Ink glyph; a
+  press darkens the Wash for 80ms. ChromeButton's own hover paints the glyph Indigo, which
+  the panel never does (SPEC §2.1 rule 3: Indigo means "on the page", the primary action
+  and focus, never hover), so every state is restated here.
+
+  Specificity, not order: ChromeButton's state rules reach (0,5,0)
+  (`.bldr-chrome-button[data-variant='icon'][data-tone='quiet']:enabled:hover`). Every
+  rule below starts from four simple selectors, (0,4,0), so each state out-ranks the
+  matching ChromeButton state by one whichever stylesheet the bundler emits first.
+*/
+
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-control-md);
+  inline-size: var(--bldr-control-md);
+  padding: var(--bldr-space-0);
+  border-color: transparent;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* Hover, and a menu or popover it opened staying open: the Wash under Ink. */
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size][aria-expanded='true'] {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/* A toggle that is on (the proposal's Preview): Mist under Indigo deep, the active option. */
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size][aria-pressed='true'] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size][aria-pressed='true']:enabled:hover {
+  background-color: var(--bldr-accent-soft-hover);
+  color: var(--bldr-accent-strong);
+}
+
+/*
+  Unavailable (`aria-disabled`): still focusable, still explained by its tooltip, but it
+  answers neither hover nor press. Slate on Paper is 4.54:1, above the 3:1 a control needs.
+*/
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'],
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:hover,
+.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:active {
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+/* A finger needs 44px (SPEC §6.4). */
+@media (pointer: coarse) {
+  .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+    block-size: var(--bldr-hit-target-min);
+    inline-size: var(--bldr-hit-target-min);
+  }
+}
+
+/* High contrast drops the Mist fill, so a pressed toggle keeps a visible edge instead. */
+@media (forced-colors: active) {
+  .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size][aria-pressed='true'] {
+    border-color: Highlight;
+  }
+}
+
+/* ── Tooltip (e2: Sheet, hairline, floating shadow) ─────────────────────────── */
+
+.ck-agent-tooltip {
+  z-index: 50;
+  display: grid;
+  max-inline-size: 240px;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-tooltip__hint {
+  color: var(--bldr-panel-text-soft);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+/*
+  SPEC §5 moment 9: opacity and a 4px rise away from the anchor, 220ms in, 140ms out.
+  Only after the hover delay: a tooltip reached by the skip delay (the pointer sliding
+  from one icon to the next) swaps at once, which reads as one tooltip following the
+  pointer rather than a string of arrivals.
+*/
+.ck-agent-tooltip[data-side='bottom'] {
+  --ck-agent-float-from: calc(-1 * var(--bldr-space-xs));
+}
+
+.ck-agent-tooltip[data-side='top'] {
+  --ck-agent-float-from: var(--bldr-space-xs);
+}
+
+.ck-agent-tooltip[data-state='delayed-open'] {
+  animation: ck-agent-tooltip-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-tooltip[data-state='closed'] {
+  animation: ck-agent-tooltip-out var(--bldr-duration-exit) var(--bldr-easing-exit) forwards;
+}
+
+@keyframes ck-agent-tooltip-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-tooltip-out {
+  to {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-tooltip-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ck-agent-tooltip-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: opacity only, 120ms (SPEC §5 moment 9). */
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-tooltip[data-state='delayed-open'] {
+    animation: ck-agent-tooltip-fade-in var(--bldr-duration-state) linear;
+  }
+
+  .ck-agent-tooltip[data-state='closed'] {
+    animation: ck-agent-tooltip-fade-out var(--bldr-duration-state) linear forwards;
+  }
+}

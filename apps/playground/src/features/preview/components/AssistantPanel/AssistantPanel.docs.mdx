@@ -40,6 +40,10 @@ commands still cross the same validated document door as a direct edit.
   cannot affect validation or application authority.
 - `persistKey` — optional local-storage key for conversation revival. Persisted plans lose their
   module-private authentication after reload and therefore cannot be applied until revalidated.
+- `defaultMode` — `'ask' | 'auto' | 'plan'`, default `'ask'`. The mode the panel starts in until the
+  person chooses one. A chosen mode is saved under `persistKey` and wins over this on every later
+  load; a saved mode nobody chose does not. The playground passes `'auto'` (see **Modes and
+  authority**).
 - `locale` — `'ar' | 'en'`, default `'ar'`. The language of the character's one visible line (the
   panel's live region) and nothing else. Not an i18n layer: the chrome stays English because
   everything it names is Latin. `'en'` exists so tests, Storybook a11y and an English-speaking
@@ -52,6 +56,15 @@ commands still cross the same validated document door as a direct edit.
 | Ask  | `apply: 'never'` | Shows the pinned proposal and offers Apply, Preview, and Discard. |
 | Auto | `apply: 'auto'`  | Applies inside the runner as one AI-authored transaction.         |
 | Plan | `apply: 'never'` | Shows reasoning and Preview, but never offers Apply.              |
+
+The panel starts in `defaultMode` — Ask unless the host says otherwise; the playground starts in
+Auto, because every change lands as undoable history. Only the person's own choice outlives that
+default. With `persistKey` set, pressing a mode radio records the mode _and_ that it was chosen, and
+a later load restores it whatever the host default has become. A mode saved without that mark reads
+as the host default, so a default saved on some earlier visit never pins a browser to it. Data saved
+before the mark existed is read by what it could mean: then the default was Ask and only the radios
+could store Plan or Auto, so a saved Plan or Auto is honoured as a choice and a saved Ask yields to
+the host default. `StartsInAuto` shows a panel whose first request applies with no radio pressed.
 
 The panel never calls a separate generate/apply shortcut. Manual Apply and Preview consume the
 authenticated `AiValidatedProposal`; a substituted plan, broader policy, copied proposal, or expired

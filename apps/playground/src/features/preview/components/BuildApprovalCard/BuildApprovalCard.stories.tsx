@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import '../../../../app/App.css';
 import type { BuildTask } from '../AssistantPanel/AssistantPanel.build';
+import { BuildCardSeamContext } from '../BuildReportCard';
 import { BuildApprovalCard } from './BuildApprovalCard';
 
 const task = (position: number, title: string): BuildTask => ({
@@ -82,5 +83,55 @@ export const Refuse: Story = {
   play: async ({ args, canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole('button', { name: 'Stop build' }));
     await expect(args.onAnswer).toHaveBeenCalledWith('stop');
+  },
+};
+
+/** A new page was asked for; the chat cannot open one, so it says where the page will go. */
+export const BelowTheContent: Story = {
+  decorators: [
+    (Story) => (
+      <BuildCardSeamContext.Provider
+        value={{ locale: 'en', noticesOf: () => ['new-page-appended'] }}
+      >
+        <Story />
+      </BuildCardSeamContext.Provider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText(/built below what is already here/),
+    ).toBeInTheDocument();
+  },
+};
+
+/**
+ * "Start over", on a build that can only append (a scaffold build): the card
+ * says the sections go below and nothing is replaced — never "start over".
+ */
+export const StartOverAppends: Story = {
+  decorators: [
+    (Story) => (
+      <BuildCardSeamContext.Provider
+        value={{ locale: 'en', noticesOf: () => ['appended-not-replaced'] }}
+      >
+        <Story />
+      </BuildCardSeamContext.Provider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/nothing is replaced/)).toBeInTheDocument();
+    await expect(canvas.queryByText(/comes back if you undo/)).toBeNull();
+  },
+};
+
+/** A PagePlan build: each row says what its section is for. */
+export const WithPurposes: Story = {
+  args: {
+    tasks: [
+      { ...task(1, 'Hero'), purpose: 'One promise and the booking line.' },
+      { ...task(2, 'Services'), purpose: 'Six treatments, each with its price.' },
+      { ...task(3, 'Contact'), purpose: 'Phone, map and opening hours.' },
+    ],
   },
 };

@@ -2,7 +2,14 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { createElement, StrictMode, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AiAgentEvent, AiRunFailure, AiSkillActivationPin } from '@craftkit/builder';
+import type {
+  AiAgentEvent,
+  AiBuildEvent,
+  AiBuildOwnEvent,
+  AiBuildTaskReport,
+  AiRunFailure,
+  AiSkillActivationPin,
+} from '@craftkit/builder';
 
 import {
   AGENT_MOOD_COPY,
@@ -76,7 +83,63 @@ const E = {
   cancelled: () => ev({ type: 'run.cancelled', error: failure(false) }),
 };
 
-const event = (e: AiAgentEvent): AgentMoodInput => ({ type: 'event', event: e });
+type BuildBody = Distribute<AiBuildOwnEvent>;
+
+/** A build's own event, on the build's run id and the same sequence counter. */
+function bev(body: BuildBody, runId = 'run-1'): AiBuildEvent {
+  const built: AiBuildOwnEvent = { ...body, runId, seq: nextSeq, at: 0 };
+  nextSeq += 1;
+  return built;
+}
+
+const SECTION = { id: 'n1', title: 'Hero' };
+
+function buildReport(
+  statuses: readonly ('applied' | 'skipped' | 'not-started')[],
+): readonly AiBuildTaskReport[] {
+  return statuses.map((status, index) => ({
+    id: `n${String(index + 1)}`,
+    title: `Section ${String(index + 1)}`,
+    status,
+    attempts: status === 'not-started' ? 0 : 1,
+  }));
+}
+
+const B = {
+  scaffolding: () => bev({ type: 'build.scaffolding' }),
+  skipped: () => bev({ type: 'build.skipped', reason: 'The page skeleton produced 1 section.' }),
+  planned: () => bev({ type: 'build.planned', direction: 'd', tasks: [SECTION] }),
+  taskStarted: (position = 1) =>
+    bev({ type: 'task.started', position, total: 3, task: SECTION, attempt: 1 }),
+  taskCompleted: (position = 1) =>
+    bev({ type: 'task.completed', position, total: 3, task: SECTION, attempts: 1 }),
+  taskSkipped: (position = 1) =>
+    bev({
+      type: 'task.skipped',
+      position,
+      total: 3,
+      task: SECTION,
+      attempts: 2,
+      reason: 'Section "Hero" exceeded its 240000ms budget.',
+    }),
+  stopped: (reason: 'signal' | 'budget' | 'max-tasks') => bev({ type: 'build.stopped', reason }),
+  completed: (
+    statuses: readonly ('applied' | 'skipped' | 'not-started')[],
+    outcome: 'completed' | 'signal' | 'budget' | 'max-tasks' = 'completed',
+  ) => {
+    const tasks = buildReport(statuses);
+    return bev({
+      type: 'build.completed',
+      tasks,
+      applied: tasks.filter((task) => task.status === 'applied').length,
+      skipped: tasks.filter((task) => task.status === 'skipped').length,
+      elapsedMs: 1_000,
+      outcome,
+    });
+  },
+};
+
+const event = (e: AiBuildEvent): AgentMoodInput => ({ type: 'event', event: e });
 const begin = (runId = 'run-1', subject = 'the hero block'): AgentMoodInput => ({
   type: 'run.begin',
   runId,
@@ -484,6 +547,176 @@ describe('reduceAgentMood', () => {
         expectedWakeAt(state, now),
       );
     }
+  });
+});
+
+/* ── A whole build (SPEC §7.4, P2-18) ────────────────────────────────────── */
+
+describe('reduceAgentMood over a page build', () => {
+  it('plans the skeleton, works while sections land, and ends done: never "thinking" throughout', () => {
+    const states = drive(
+      [
+        [0, begin('run-1', 'the page')],
+        [5, event(B.scaffolding())],
+        [DWELL_INFLIGHT_MS, tick],
+        // The skeleton's own step events carry `run-1/scaffold`: not the face's.
+        [450, event(ev({ type: 'plan.proposing' }, 'run-1/scaffold'))],
+        [1_000, event(B.planned())],
+        [1_010, event(B.taskStarted(1))],
+        [1_020, event(B.taskStarted(2))],
+        [2_000, event(B.taskCompleted(1))],
+        [3_000, event(B.taskCompleted(2))],
+        [3_500, event(B.completed(['applied', 'applied']))],
+      ],
+      'auto',
+    );
+    const moods = states.map((s) => s.snapshot.mood);
+
+    expect(moods).toEqual([
+      'thinking',
+      'thinking',
+      'planning',
+      'planning',
+      'working',
+      'working',
+      'working',
+      'working',
+      'working',
+      'done',
+    ]);
+    // A step event of the build is a stranger: the same reference comes back.
+    expect(states[3]).toBe(states[2]);
+    expect(states[4]?.snapshot.line).toEqual({ key: 'working' });
+    expect(last(states).snapshot).toMatchObject({ mood: 'done', outcome: 'applied' });
+    expect(last(states).run?.settled).toBe(true);
+    expect(last(states).holdUntil).toBe(3_500 + HOLD_DONE_MS);
+  });
+
+  it('task.completed moves a face still on thinking straight to working', () => {
+    const states = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.taskCompleted(1))],
+    ]);
+
+    expect(last(states).snapshot).toMatchObject({ mood: 'working', line: { key: 'working' } });
+    expect(last(states).run?.settled).toBe(false);
+  });
+
+  it("ignores every writer's own events: a fill's run.completed never settles the build", () => {
+    const states = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.planned())],
+      [500, event(ev({ type: 'run.completed', status: 'proposed' }, 'run-1/fill-1'))],
+      [600, event(ev({ type: 'run.failed', error: failure(false) }, 'run-1/fill-2'))],
+      [700, event(ev({ type: 'run.cancelled', error: failure(false) }, 'run-1/fill-3'))],
+    ]);
+
+    expect(states[2]).toBe(states[1]);
+    expect(states[3]).toBe(states[1]);
+    expect(states[4]).toBe(states[1]);
+    expect(last(states).snapshot.mood).toBe('working');
+  });
+
+  it('task.skipped is one section failing, not the build: the face keeps working', () => {
+    const states = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.planned())],
+      [900, event(B.taskSkipped(1))],
+      [1_000, event(B.taskCompleted(2))],
+    ]);
+
+    expect(states[2]?.snapshot.mood).toBe('working');
+    expect(states[2]?.pinned).toBe(false);
+    expect(states[2]?.run?.settled).toBe(false);
+    expect(last(states).snapshot.mood).toBe('working');
+  });
+
+  it('build.stopped {signal} stops at once; the report after it changes nothing', () => {
+    const states = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.planned())],
+      // Inside working's dwell: a stop still preempts.
+      [450, event(B.stopped('signal'))],
+      [460, event(B.completed(['applied', 'not-started'], 'signal'))],
+    ]);
+
+    expect(states[2]?.snapshot).toMatchObject({ mood: 'stopped', since: 450 });
+    expect(states[2]?.run?.settled).toBe(true);
+    expect(states[2]?.holdUntil).toBe(450 + HOLD_STOPPED_MS);
+    expect(states[3]).toBe(states[2]);
+  });
+
+  it('a budget or section-limit stop lets sections in flight land, then ends stopped', () => {
+    for (const reason of ['budget', 'max-tasks'] as const) {
+      const states = drive([
+        [0, begin()],
+        [DWELL_INFLIGHT_MS, event(B.planned())],
+        [900, event(B.stopped(reason))],
+        [1_000, event(B.taskCompleted(1))],
+        [1_100, event(B.completed(['applied', 'not-started'], reason))],
+      ]);
+
+      expect(states[2], reason).toBe(states[1]);
+      expect(states[3]?.snapshot.mood, reason).toBe('working');
+      expect(last(states).snapshot.mood, reason).toBe('stopped');
+      expect(last(states).run?.settled, reason).toBe(true);
+    }
+  });
+
+  it('build.completed: done when anything landed, failed (retryable) when nothing did', () => {
+    const partial = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.planned())],
+      [900, event(B.completed(['applied', 'skipped']))],
+    ]);
+    expect(last(partial).snapshot).toMatchObject({ mood: 'done', outcome: 'applied' });
+
+    const failed = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.planned())],
+      [900, event(B.completed(['skipped', 'skipped']))],
+    ]);
+    expect(last(failed).snapshot).toMatchObject({
+      mood: 'failed',
+      line: { key: 'failed.retryable' },
+    });
+    expect(last(failed).pinned).toBe(true);
+    expect(last(failed).run?.settled).toBe(true);
+  });
+
+  it('Ask mode refused the list: stopped, whatever the empty report says', () => {
+    const states = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.scaffolding())],
+      [900, event(B.stopped('signal'))],
+      [910, event(B.completed([], 'signal'))],
+    ]);
+
+    expect(last(states).snapshot.mood).toBe('stopped');
+  });
+
+  it('build.skipped hands the face to the ordinary run that replaced the build', () => {
+    const states = drive([
+      [0, begin()],
+      [DWELL_INFLIGHT_MS, event(B.skipped())],
+      [900, { type: 'turn.outcome', runId: 'run-1', outcome: 'plan', applied: true }],
+    ]);
+
+    expect(states[1]?.snapshot).toMatchObject({ mood: 'planning', line: { key: 'planning' } });
+    expect(states[1]?.run?.settled).toBe(false);
+    expect(last(states).snapshot).toMatchObject({ mood: 'done', outcome: 'applied' });
+  });
+
+  it('drops a build event from another run or with a stale sequence number', () => {
+    nextSeq = 0;
+    let state = createInitialAgentMoodState('ask', 0);
+    state = reduceAgentMood(state, begin(), 0);
+    state = reduceAgentMood(state, event(B.planned()), DWELL_INFLIGHT_MS);
+    expect(
+      reduceAgentMood(state, event(bev({ type: 'build.stopped', reason: 'signal' }, 'run-0')), 500),
+    ).toBe(state);
+    const stale = { ...B.completed(['applied']), seq: 0 };
+    expect(reduceAgentMood(state, event(stale), 500)).toBe(state);
   });
 });
 

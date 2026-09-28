@@ -4,11 +4,15 @@
 :root {
   color-scheme: light;
 
-  --bldr-font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bldr-font:
+    'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bldr-font-arabic:
+    'IBM Plex Sans Arabic', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --bldr-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --bldr-surface: #ffffff;
   --bldr-surface-raised: #ffffff;
   --bldr-surface-sunken: #f6f7fa;
+  --bldr-surface-tint: #eceef3;
   --bldr-surface-hover: rgb(15 23 42 / 6%);
   --bldr-surface-active: rgb(15 23 42 / 10%);
   --bldr-surface-border: rgb(15 23 42 / 10%);
@@ -34,9 +38,17 @@
   --bldr-accent-soft: #eeeefc;
   --bldr-accent-soft-hover: #dedefa;
   --bldr-accent-ring: #c7c7f4;
+  --bldr-progress-track: #c9ced9;
   --bldr-selection: #5b5bd6;
   --bldr-hover: #8585e2;
   --bldr-drop: #16a34a;
+  --bldr-content-outline: rgb(15 23 42 / 18%);
+  --bldr-stage-accent: #5b5bd6;
+  --bldr-stage-on-accent: #ffffff;
+  --bldr-stage-halo: #ffffff;
+  --bldr-stage-veil: rgb(246 247 250 / 94%);
+  --bldr-stage-ink: #4c5568;
+  --bldr-stage-danger: #b91c1c;
   --bldr-danger: #b91c1c;
   --bldr-danger-soft: #fef2f2;
   --bldr-danger-border: #fecaca;
@@ -94,14 +106,36 @@
   --bldr-line-height-tight: 1.2;
   --bldr-line-height-snug: 1.4;
   --bldr-line-height-normal: 1.55;
+  --bldr-font-size-figure: 11px;
+  --bldr-line-height-figure: 16px;
+  --bldr-font-size-meta: 12px;
+  --bldr-line-height-meta: 16px;
+  --bldr-font-size-read: 13px;
+  --bldr-line-height-read: 20px;
+  --bldr-font-size-name: 14px;
+  --bldr-line-height-name: 20px;
+  --bldr-font-size-input: 14px;
+  --bldr-line-height-input: 20px;
+  --bldr-font-size-lead: 16px;
+  --bldr-line-height-lead: 24px;
+  --bldr-duration-press: 80ms;
   --bldr-duration-state: 120ms;
+  --bldr-duration-exit: 140ms;
   --bldr-duration-move: 180ms;
+  --bldr-duration-enter: 220ms;
+  --bldr-duration-land: 360ms;
+  --bldr-duration-sweep: 720ms;
+  --bldr-duration-glow: 900ms;
+  --bldr-duration-glint: 1400ms;
+  --bldr-duration-shimmer: 2000ms;
   --bldr-easing: cubic-bezier(0.2, 0, 0.13, 1);
+  --bldr-easing-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --bldr-easing-exit: cubic-bezier(0.4, 0, 1, 1);
 
   --bldr-rail-width: 68px;
   --bldr-panel-width: 288px;
   --bldr-inspector-width: 312px;
-  --bldr-assistant-width: 376px;
+  --bldr-assistant-width: 320px;
   --bldr-topbar-height: 56px;
   --bldr-statusbar-height: 36px;
   --bldr-dock-min-height: 240px;
@@ -111,6 +145,11 @@
   --bldr-control-height-sm: 28px;
   --bldr-thumb-width: 144px;
   --bldr-hit-target-min: 44px;
+  --bldr-assistant-width-min: 288px;
+  --bldr-assistant-width-max: 480px;
+  --bldr-agent-header-height: 44px;
+  --bldr-agent-runbar-height: 40px;
+  --bldr-agent-row-height: 32px;
 }
 
 /* The default "system" setting stamps nothing, so only the media query
@@ -120,11 +159,15 @@
   :root:not([data-bldr-theme='light']) {
     color-scheme: dark;
 
-    --bldr-font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --bldr-font:
+      'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --bldr-font-arabic:
+      'IBM Plex Sans Arabic', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --bldr-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     --bldr-surface: #171b24;
     --bldr-surface-raised: #242a36;
     --bldr-surface-sunken: #0e1116;
+    --bldr-surface-tint: #1f2530;
     --bldr-surface-hover: rgb(255 255 255 / 8%);
     --bldr-surface-active: rgb(255 255 255 / 12%);
     --bldr-surface-border: rgb(255 255 255 / 12%);
@@ -150,9 +193,17 @@
     --bldr-accent-soft: #22224d;
     --bldr-accent-soft-hover: #353580;
     --bldr-accent-ring: #3e3ea0;
+    --bldr-progress-track: #3a4250;
     --bldr-selection: #8585e2;
     --bldr-hover: #6d6dda;
     --bldr-drop: #22c55e;
+    --bldr-content-outline: rgb(255 255 255 / 20%);
+    --bldr-stage-accent: #5b5bd6;
+    --bldr-stage-on-accent: #ffffff;
+    --bldr-stage-halo: #ffffff;
+    --bldr-stage-veil: rgb(246 247 250 / 94%);
+    --bldr-stage-ink: #4c5568;
+    --bldr-stage-danger: #b91c1c;
     --bldr-danger: #ef4444;
     --bldr-danger-soft: #2a1416;
     --bldr-danger-border: #5b2226;
@@ -177,11 +228,15 @@
 [data-bldr-theme='dark'] {
   color-scheme: dark;
 
-  --bldr-font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bldr-font:
+    'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bldr-font-arabic:
+    'IBM Plex Sans Arabic', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --bldr-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --bldr-surface: #171b24;
   --bldr-surface-raised: #242a36;
   --bldr-surface-sunken: #0e1116;
+  --bldr-surface-tint: #1f2530;
   --bldr-surface-hover: rgb(255 255 255 / 8%);
   --bldr-surface-active: rgb(255 255 255 / 12%);
   --bldr-surface-border: rgb(255 255 255 / 12%);
@@ -207,9 +262,17 @@
   --bldr-accent-soft: #22224d;
   --bldr-accent-soft-hover: #353580;
   --bldr-accent-ring: #3e3ea0;
+  --bldr-progress-track: #3a4250;
   --bldr-selection: #8585e2;
   --bldr-hover: #6d6dda;
   --bldr-drop: #22c55e;
+  --bldr-content-outline: rgb(255 255 255 / 20%);
+  --bldr-stage-accent: #5b5bd6;
+  --bldr-stage-on-accent: #ffffff;
+  --bldr-stage-halo: #ffffff;
+  --bldr-stage-veil: rgb(246 247 250 / 94%);
+  --bldr-stage-ink: #4c5568;
+  --bldr-stage-danger: #b91c1c;
   --bldr-danger: #ef4444;
   --bldr-danger-soft: #2a1416;
   --bldr-danger-border: #5b2226;
@@ -230,11 +293,15 @@
 [data-bldr-theme='light'] {
   color-scheme: light;
 
-  --bldr-font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bldr-font:
+    'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bldr-font-arabic:
+    'IBM Plex Sans Arabic', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --bldr-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --bldr-surface: #ffffff;
   --bldr-surface-raised: #ffffff;
   --bldr-surface-sunken: #f6f7fa;
+  --bldr-surface-tint: #eceef3;
   --bldr-surface-hover: rgb(15 23 42 / 6%);
   --bldr-surface-active: rgb(15 23 42 / 10%);
   --bldr-surface-border: rgb(15 23 42 / 10%);
@@ -260,9 +327,17 @@
   --bldr-accent-soft: #eeeefc;
   --bldr-accent-soft-hover: #dedefa;
   --bldr-accent-ring: #c7c7f4;
+  --bldr-progress-track: #c9ced9;
   --bldr-selection: #5b5bd6;
   --bldr-hover: #8585e2;
   --bldr-drop: #16a34a;
+  --bldr-content-outline: rgb(15 23 42 / 18%);
+  --bldr-stage-accent: #5b5bd6;
+  --bldr-stage-on-accent: #ffffff;
+  --bldr-stage-halo: #ffffff;
+  --bldr-stage-veil: rgb(246 247 250 / 94%);
+  --bldr-stage-ink: #4c5568;
+  --bldr-stage-danger: #b91c1c;
   --bldr-danger: #b91c1c;
   --bldr-danger-soft: #fef2f2;
   --bldr-danger-border: #fecaca;
@@ -286,7 +361,7 @@
   --bldr-rail-width: 56px;
   --bldr-panel-width: 248px;
   --bldr-inspector-width: 272px;
-  --bldr-assistant-width: 332px;
+  --bldr-assistant-width: 288px;
   --bldr-topbar-height: 48px;
   --bldr-statusbar-height: 30px;
   --bldr-dock-min-height: 200px;
@@ -296,6 +371,79 @@
   --bldr-control-height-sm: 24px;
   --bldr-thumb-width: 124px;
   --bldr-hit-target-min: 44px;
+}
+
+/* Arabic text reads one step larger and looser, and on its own family's strut.
+   Only the reading scale and the family move: the chrome's micro…display sizes
+   are what the rest of the editor was laid out against, so they stay put.
+
+   AFTER the theme blocks on purpose. `[data-bldr-theme]` restates `--bldr-font`
+   with the Latin stack at the same specificity as `:lang(ar)`, so when one
+   element carries both, source order is the only tiebreak. `:lang()` matches
+   every element inside `lang="ar"`, not only the one carrying the attribute,
+   so a theme stamped on a nested element loses to this block as well. */
+:lang(ar) {
+  --bldr-font: var(--bldr-font-arabic);
+  --bldr-font-size-figure: 12px;
+  --bldr-line-height-figure: 18px;
+  --bldr-font-size-meta: 13px;
+  --bldr-line-height-meta: 20px;
+  --bldr-font-size-read: 14px;
+  --bldr-line-height-read: 22px;
+  --bldr-font-size-name: 15px;
+  --bldr-line-height-name: 22px;
+  --bldr-font-size-input: 15px;
+  --bldr-line-height-input: 24px;
+  --bldr-font-size-lead: 18px;
+  --bldr-line-height-lead: 30px;
+}
+
+/* Latin text inside Arabic: an English message, a model name, a section title
+   carrying its own lang. Custom properties inherit their computed value, so
+   without this it kept the Arabic stack and sizes (measured in Chromium: read
+   14/22 and input 15/24 instead of 13/20 and 14/20), sitting on the Arabic
+   strut. Only the element carrying the attribute matches; its descendants
+   inherit from it. Scoped under :lang(ar) so it can never match the document:
+   an unscoped (0,2,0) rule on <html lang="en"> would out-rank the coarse
+   block's :root input size. */
+:lang(ar) [lang]:not(:lang(ar)) {
+  --bldr-font:
+    'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bldr-font-size-figure: 11px;
+  --bldr-line-height-figure: 16px;
+  --bldr-font-size-meta: 12px;
+  --bldr-line-height-meta: 16px;
+  --bldr-font-size-read: 13px;
+  --bldr-line-height-read: 20px;
+  --bldr-font-size-name: 14px;
+  --bldr-line-height-name: 20px;
+  --bldr-font-size-input: 14px;
+  --bldr-line-height-input: 20px;
+  --bldr-font-size-lead: 16px;
+  --bldr-line-height-lead: 24px;
+}
+
+/* A finger needs a 44px row and a 52px RunBar, and an input under 16px makes
+   iOS Safari zoom the page when it takes focus. After both language blocks,
+   because each restates the input size on the element it matches, so each
+   needs its own coarse values here rather than inheriting the root's. */
+@media (pointer: coarse) {
+  :root {
+    --bldr-font-size-input: 16px;
+    --bldr-line-height-input: 24px;
+    --bldr-agent-runbar-height: 52px;
+    --bldr-agent-row-height: 44px;
+  }
+
+  :lang(ar) {
+    --bldr-font-size-input: 16px;
+    --bldr-line-height-input: 26px;
+  }
+
+  :lang(ar) [lang]:not(:lang(ar)) {
+    --bldr-font-size-input: 16px;
+    --bldr-line-height-input: 24px;
+  }
 }
 
 /* The builder's own surface honours the tokens it publishes. */

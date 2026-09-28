@@ -1,0 +1,18 @@
+/*
+  RunClock (SPEC §4.17): Figure type in Slate, tabular, in a slot 4.5ch wide so 0:04,
+  1:12 and 12:40 all take the same room and the status beside the clock never moves.
+  `tnum` is honoured by both Plex faces (measured in the WP-02 type specimen), and the
+  minimum width holds the slot even where a fallback face lacks it.
+*/
+
+.ck-agent-clock {
+  display: inline-block;
+  min-inline-size: 4.5ch;
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-figure);
+  white-space: nowrap;
+}

@@ -181,6 +181,12 @@ describe('runAiBuild with apply: never', () => {
     planned build reads them from the insertNode ARGS, which have never been
     applied. If those two ever disagreed, a page would plan four sections and
     build zero — the plan a person approved would not be the page they got.
+
+    Since 2026-09-28 the ASK path depends on this directly: `onPlanned` is
+    handed the planned list (read from the args) and, on "build", the skeleton
+    lands and the sections are read back from its patches. The build is
+    answered "build" here — a "stop" now writes nothing, so there would be no
+    applied list to compare against.
   */
   it('reads a title from the same place the applied build does', async () => {
     const { result } = await planOnly();
@@ -188,6 +194,7 @@ describe('runAiBuild with apply: never', () => {
 
     const kernel = kernelWithPage();
     const { provider } = providerOf(scaffoldPlan);
+    let approved: string[] = [];
     const built = await runAiBuild({
       runId: 'run-parity',
       clock: fixedClock(0),
@@ -196,10 +203,14 @@ describe('runAiBuild with apply: never', () => {
       request: 'build me a landing page',
       validationPorts: { clock: fixedClock(0), ids: seededIds('parity') },
       skillRegistry: createCraftkitAiSkillRegistry(),
-      onPlanned: () => 'stop',
+      onPlanned: (list) => {
+        approved = list.map((task) => task.title);
+        return 'build';
+      },
     });
 
-    expect(planned).toEqual(built.tasks.map((task) => task.title));
+    expect(approved).toEqual(planned);
+    expect(built.tasks.map((task) => task.title)).toEqual(planned);
   });
 
   it('plans no section whose title is somewhere other than props.label', async () => {

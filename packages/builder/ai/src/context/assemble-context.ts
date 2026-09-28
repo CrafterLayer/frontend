@@ -416,8 +416,9 @@ function documentNode(node: Node, summariseTrees = false): AiDocumentNodeContext
               : /*
                   A region's tree as the markup the model writes back: a third
                   shorter than the nested tree, and quotable exactly — which is
-                  what an `editTree` find has to be. A tree markup cannot spell
-                  (a component reference) is shown as the tree itself.
+                  what an `editTree` find has to be. A component reference is
+                  spelled `<ck-component>`; only a value that is not a tree at
+                  all is shown as itself.
                 */
                 (serializeTreeMarkup(value) ?? cloneJson(value)),
         ]),

@@ -5,19 +5,25 @@ import {
   type ChromeThemeOverride,
 } from './contract';
 import {
+  agentPanelMetrics,
+  arabicReadingScale,
+  coarsePointer,
   densities,
   fontSize,
   fontWeight,
   lineHeight,
-  motion,
   borderWidth,
   control,
   measure,
   radius,
+  readingScale,
   space,
   type DensityName,
+  type ReadingRole,
+  type ReadingStep,
   type ShellMetrics,
 } from './tokens/layout';
+import { motion } from './tokens/primitives';
 
 /**
  * The stylesheet is DERIVED, never hand-kept. `chrome.css` is a checked-in file
@@ -32,19 +38,64 @@ import {
  * other file, so the generator has to emit what Prettier would: the exact
  * indent for the nesting level, and values short enough not to be wrapped.
  * Otherwise `pnpm format` and the drift gate fight each other forever.
+ *
+ * One value is too long to fit: a font stack that names both Plex families
+ * runs past the 100-column print width. Prettier breaks such a comma list
+ * after the colon and indents the value one step, so the generator does the
+ * same, and the drift gate and `prettier --check` agree on the file.
  */
+const PRINT_WIDTH = 100;
+
 function declarations(
   entries: readonly (readonly [string, string])[],
   prefix: string,
   indent = '  ',
 ): string {
-  return entries.map(([name, value]) => `${indent}${prefix}${name}: ${value};`).join('\n');
+  return entries
+    .map(([name, value]) => {
+      const line = `${indent}${prefix}${name}: ${value};`;
+      return line.length > PRINT_WIDTH && value.includes(',')
+        ? `${indent}${prefix}${name}:\n${indent}  ${value};`
+        : line;
+    })
+    .join('\n');
+}
+
+/**
+ * `[name, value]` for every string-valued key. A metrics object is an
+ * INTERFACE, and `Object.entries` types an interface's values as `any`, so
+ * without this a missing value would reach the sheet as the word "undefined".
+ */
+function definedEntries(record: object): (readonly [string, string])[] {
+  return Object.entries(record).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string',
+  );
 }
 
 /** A theme's declarations, emitted in CONTRACT order so diffs stay readable. */
 export function themeDeclarations(theme: ChromeTheme, indent = '  '): string {
   return declarations(
     CHROME_TOKENS.map((token) => [token, theme[token]] as const),
+    TOKEN_PREFIX,
+    indent,
+  );
+}
+
+/**
+ * A reading scale as `font-size-<role>` / `line-height-<role>` pairs, size
+ * first, so each role's two numbers sit on adjacent lines of the sheet.
+ */
+export function readingDeclarations(
+  scale: Readonly<Partial<Record<ReadingRole, ReadingStep>>>,
+  indent = '  ',
+): string {
+  // `exactOptionalPropertyTypes` rules out a present-but-undefined role, so a
+  // Partial scale's entries are exactly the roles it sets.
+  return declarations(
+    Object.entries(scale).flatMap(([role, step]) => [
+      [`font-size-${role}`, step.size] as const,
+      [`line-height-${role}`, step.line] as const,
+    ]),
     TOKEN_PREFIX,
     indent,
   );
@@ -60,16 +111,17 @@ export function scaleDeclarations(): string {
     ['font-size-', fontSize],
     ['font-weight-', fontWeight],
     ['line-height-', lineHeight],
-    ['', motion],
   ];
-  return groups
-    .map(([group, scale]) =>
+  return [
+    ...groups.map(([group, scale]) =>
       declarations(
         Object.entries(scale).map(([key, value]) => [`${group}${key}`, value] as const),
         TOKEN_PREFIX,
       ),
-    )
-    .join('\n');
+    ),
+    readingDeclarations(readingScale),
+    declarations(Object.entries(motion), TOKEN_PREFIX),
+  ].join('\n');
 }
 
 export function metricsDeclarations(metrics: ShellMetrics): string {
@@ -125,11 +177,25 @@ export function definedTokenNames(): readonly string[] {
     ...Object.keys(fontSize).map((key) => `font-size-${key}`),
     ...Object.keys(fontWeight).map((key) => `font-weight-${key}`),
     ...Object.keys(lineHeight).map((key) => `line-height-${key}`),
+    ...Object.keys(readingScale).flatMap((role) => [`font-size-${role}`, `line-height-${role}`]),
     ...Object.keys(motion),
   ];
-  const metricNames = Object.keys(densities.comfortable);
+  const metricNames = [...Object.keys(densities.comfortable), ...Object.keys(agentPanelMetrics)];
   return [...CHROME_TOKENS, ...scaleNames, ...metricNames];
 }
+
+/**
+ * An element inside an Arabic subtree whose own language is not Arabic.
+ *
+ * It restores the LIGHT theme's Latin family as a literal, because a custom
+ * property cannot reach back for the value `:lang(ar)` just replaced. Both
+ * shipped themes use one family, so the literal is exact for them. The limits
+ * are deliberate and narrow: a host whose dark theme names a different Latin
+ * family gets the light one inside an island, and a runtime `themeStyle({ font })`
+ * on an ancestor does not reach one. Re-branding the family through the
+ * `light` theme handed to `buildStylesheet` does.
+ */
+const LATIN_ISLAND = ':lang(ar) [lang]:not(:lang(ar))';
 
 export interface StylesheetInput {
   readonly light: ChromeTheme;
@@ -176,6 +242,7 @@ ${themeDeclarations(light)}
 ${scaleDeclarations()}
 
 ${metricsDeclarations(metrics)}
+${declarations(definedEntries(agentPanelMetrics), TOKEN_PREFIX)}
 }
 
 /* The default "system" setting stamps nothing, so only the media query
@@ -208,6 +275,52 @@ ${themeDeclarations(light)}
    theme comfortably or the light theme tight. */
 [data-bldr-density='${otherDensity}'] {
 ${metricsDeclarations(densities[otherDensity])}
+}
+
+/* Arabic text reads one step larger and looser, and on its own family's strut.
+   Only the reading scale and the family move: the chrome's micro…display sizes
+   are what the rest of the editor was laid out against, so they stay put.
+
+   AFTER the theme blocks on purpose. \`[data-bldr-theme]\` restates \`--bldr-font\`
+   with the Latin stack at the same specificity as \`:lang(ar)\`, so when one
+   element carries both, source order is the only tiebreak. \`:lang()\` matches
+   every element inside \`lang="ar"\`, not only the one carrying the attribute,
+   so a theme stamped on a nested element loses to this block as well. */
+:lang(ar) {
+  ${TOKEN_PREFIX}font: var(${TOKEN_PREFIX}font-arabic);
+${readingDeclarations(arabicReadingScale)}
+}
+
+/* Latin text inside Arabic: an English message, a model name, a section title
+   carrying its own lang. Custom properties inherit their computed value, so
+   without this it kept the Arabic stack and sizes (measured in Chromium: read
+   14/22 and input 15/24 instead of 13/20 and 14/20), sitting on the Arabic
+   strut. Only the element carrying the attribute matches; its descendants
+   inherit from it. Scoped under :lang(ar) so it can never match the document:
+   an unscoped (0,2,0) rule on <html lang="en"> would out-rank the coarse
+   block's :root input size. */
+${LATIN_ISLAND} {
+${declarations([['font', light.font]], TOKEN_PREFIX)}
+${readingDeclarations(readingScale)}
+}
+
+/* A finger needs a 44px row and a 52px RunBar, and an input under 16px makes
+   iOS Safari zoom the page when it takes focus. After both language blocks,
+   because each restates the input size on the element it matches, so each
+   needs its own coarse values here rather than inheriting the root's. */
+@media (pointer: coarse) {
+  :root {
+${readingDeclarations(coarsePointer.reading, '    ')}
+${declarations(definedEntries(coarsePointer.metrics), TOKEN_PREFIX, '    ')}
+  }
+
+  :lang(ar) {
+${readingDeclarations(coarsePointer.arabicReading, '    ')}
+  }
+
+  ${LATIN_ISLAND} {
+${readingDeclarations(coarsePointer.reading, '    ')}
+  }
 }
 
 /* The builder's own surface honours the tokens it publishes. */

@@ -1,14 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AiBuildEvent, AiBuildTask, AiBuildTaskReport } from '@craftkit/builder';
+import type {
+  AiBuildEvent,
+  AiBuildTask,
+  AiBuildTaskReport,
+  PagePlan,
+  SectionContract,
+} from '@craftkit/builder';
 
 import {
   buildEta,
+  buildNoticeText,
   buildReceipt,
   initialBuildProgress,
   lastEvidenceAt,
+  planForApproval,
   reduceBuildProgress,
-  taskTransactionLabel,
+  withoutStartOver,
+  type BuildNotice,
   type BuildProgress,
 } from './AssistantPanel.build';
 
@@ -330,9 +339,128 @@ describe('buildEta', () => {
   });
 });
 
-describe('taskTransactionLabel', () => {
-  it('reproduces the orchestrator label a person can undo by', () => {
-    expect(taskTransactionLabel(3, 10, 'Pricing')).toBe('Assistant: 3/10 — Pricing');
-    expect(taskTransactionLabel(1, 2, 'x'.repeat(400))).toHaveLength(160);
+/*
+  THE APPROVAL LIST (2026-09-28). The engine now asks `onPlanned(planned,
+  direction, plan?)` BEFORE anything is written, and `build.planned` fires only
+  after the answer. The card's rows and direction therefore come from the
+  question itself — reading them off `build.planned` left Ask mode with an
+  approval card that listed nothing and said nothing.
+*/
+describe('planForApproval', () => {
+  const PLANNED = [{ title: 'Hero' }, { title: 'Proof' }, { title: 'Pricing' }] as const;
+
+  it('lists the sections the skeleton WOULD create, with the direction, before any id exists', () => {
+    const progress = planForApproval(initialBuildProgress('run-1', 0), PLANNED, DIRECTION);
+
+    expect(progress.direction).toBe(DIRECTION);
+    expect(
+      progress.tasks.map(({ title, position, status, attempts }) => ({
+        title,
+        position,
+        status,
+        attempts,
+      })),
+    ).toEqual([
+      { title: 'Hero', position: 1, status: 'waiting', attempts: 0 },
+      { title: 'Proof', position: 2, status: 'waiting', attempts: 0 },
+      { title: 'Pricing', position: 3, status: 'waiting', attempts: 0 },
+    ]);
+    // No node exists yet, so no row may name one: an empty id is what the section
+    // list already reads as "nowhere to jump".
+    expect(progress.tasks.every((task) => task.id === '')).toBe(true);
+  });
+
+  it("is still the skeleton phase — nothing was written, so it is not 'planned'", () => {
+    const progress = planForApproval(initialBuildProgress('run-1', 0), PLANNED, DIRECTION);
+    expect(progress.phase).toBe('scaffolding');
+  });
+
+  it("gives each row its contract's purpose when the plan is a PagePlan", () => {
+    const contract = (key: string, title: string, purpose: string): SectionContract => ({
+      key,
+      role: 'band',
+      title,
+      anchorId: key,
+      purpose,
+      mustSay: [],
+      mustNotRepeat: [],
+    });
+    const plan = {
+      sections: [
+        contract('hero', 'Hero', 'Say what the studio makes, in one line.'),
+        contract('proof', 'Proof', 'Three kilns, forty years.'),
+        contract('pricing', 'Pricing', 'Three class passes.'),
+      ],
+    } as unknown as PagePlan;
+
+    const progress = planForApproval(initialBuildProgress('run-1', 0), PLANNED, DIRECTION, plan);
+
+    expect(progress.tasks.map((task) => task.purpose)).toEqual([
+      'Say what the studio makes, in one line.',
+      'Three kilns, forty years.',
+      'Three class passes.',
+    ]);
+  });
+
+  it('gives a row no purpose when its title does not match the contract in its place', () => {
+    const plan = {
+      sections: [
+        {
+          key: 'other',
+          role: 'band',
+          title: 'Something else',
+          anchorId: 'other',
+          purpose: 'Not this row.',
+          mustSay: [],
+          mustNotRepeat: [],
+        },
+      ],
+    } as unknown as PagePlan;
+
+    const progress = planForApproval(initialBuildProgress('run-1', 0), PLANNED, DIRECTION, plan);
+
+    expect(progress.tasks.map((task) => task.purpose)).toEqual([undefined, undefined, undefined]);
+  });
+
+  it('is replaced wholesale by build.planned once the skeleton really lands', () => {
+    const asked = planForApproval(initialBuildProgress('run-1', 0), PLANNED, DIRECTION);
+    const landed = reduceBuildProgress(asked, planned(2_000));
+
+    expect(landed.phase).toBe('planned');
+    expect(landed.tasks.map((task) => task.id)).toEqual(['r1', 'r2', 'r3']);
+  });
+});
+
+describe('buildNoticeText', () => {
+  it("says each notice in the panel's language", () => {
+    expect(buildNoticeText('new-page-appended', 'en')).toMatch(/below what is already here/);
+    expect(buildNoticeText('site-as-one-page', 'en')).toMatch(/one page at a time/);
+    expect(buildNoticeText('new-page-appended', 'ar')).toMatch(/أسفل المحتوى الموجود/);
+    expect(buildNoticeText('site-as-one-page', 'ar')).toMatch(/صفحة واحدة/);
+    expect(buildNoticeText('starts-over', 'en')).toMatch(/comes back if you undo the build/);
+    expect(buildNoticeText('starts-over', 'ar')).toMatch(/يعود إن تراجعت عن البناء/);
+    expect(buildNoticeText('appended-not-replaced', 'en')).toMatch(/nothing is replaced/);
+    expect(buildNoticeText('appended-not-replaced', 'ar')).toMatch(/لا يُستبدل شيء/);
+  });
+});
+
+/*
+  A build asked to start the page over removes nothing unless it runs from a
+  PagePlan — the scaffold path appends whatever the target (wave-2 verifier,
+  scaffold-replace.mjs, 2026-09-28). When a build turns out to be a scaffold
+  build (no plan at the question, no plan in the result), the start-over
+  notice would promise an Undo for a replacement that never happened.
+*/
+describe('withoutStartOver', () => {
+  it('says the sections were added below, in the start-over notice’s place', () => {
+    expect(withoutStartOver(['site-as-one-page', 'starts-over'])).toEqual([
+      'site-as-one-page',
+      'appended-not-replaced',
+    ]);
+  });
+
+  it('hands back the SAME list when there was no start-over to take back', () => {
+    const notices: readonly BuildNotice[] = ['new-page-appended'];
+    expect(withoutStartOver(notices)).toBe(notices);
   });
 });

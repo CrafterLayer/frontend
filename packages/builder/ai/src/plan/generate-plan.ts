@@ -7,6 +7,11 @@ import {
   type AiCompositionPolicy,
   type AssembleAiContextOptions,
 } from '../context';
+import {
+  createPhotoCatalogContextProvider,
+  PHOTO_CATALOG_FRAGMENT_TITLE,
+  PHOTO_CATALOG_PROVIDER_ID,
+} from '../context/providers/photo-catalog';
 import { isAiProviderError } from '../provider/errors';
 import {
   AI_PLAN_WIRE_VERSION,
@@ -31,8 +36,9 @@ import type {
   AiPlanValidationIssue,
   AiPlanValidationResult,
   AiValidationPorts,
+  AssembledAiContext,
 } from '../types';
-import { normalizeAiPlanTrees } from './normalize-plan';
+import { normalizeAiPlanTrees, readAiPlanTreeMarkup } from './normalize-plan';
 import { expandTreeEdits } from './tree-edits';
 import { salvageAiPlan, type SalvagedAiPlan } from './salvage-plan';
 import { AiPlanRejectedError, validateAiPlan } from './validate-plan';
@@ -114,7 +120,8 @@ export function contextOptionsForOutline(
   skills: AiPreparedSkillContext | undefined,
 ): AssembleAiContextOptions {
   return {
-    ...contextOptions(options, skills, { allowedCommands: [], maxCommands: 0 }),
+    // No photos: an outline is prose, and a list it can never place is ~860 tokens of nothing.
+    ...contextOptions(options, skills, { allowedCommands: [], maxCommands: 0 }, false),
     outline: true,
   };
 }
@@ -133,10 +140,43 @@ function liveOptions(options: GenerateAiPlanOptions): AiProposeOptions {
   return live;
 }
 
+/**
+ * The photo catalog, for a run one of whose skills tells the model to read it.
+ *
+ * Wave 1 (2026-09-28) shipped `craftkit.photo-direction` — "an image address
+ * comes only from PHOTOS YOU MAY USE" — and page archetypes whose hero takes
+ * "a photo from PHOTOS YOU MAY USE", and the verifier found no caller of the
+ * provider that writes that list anywhere in the tree: every such run was told
+ * to use a list that never arrived, so pages lost their photos. The test is
+ * the skill's own text rather than a list of ids, so the next skill that names
+ * the list gets it without anyone remembering to register it here.
+ *
+ * A caller that already brings a photo provider keeps it — a section writer's
+ * brief is narrower than the request — and a second one would be refused by
+ * the assembler as a duplicate id anyway.
+ */
+function photoCatalogFor(
+  options: GenerateAiPlanOptions,
+  skillContext: AiPreparedSkillContext | undefined,
+): AiContextProvider | undefined {
+  const reads = skillContext?.active.some(({ instructions }) =>
+    instructions.includes(PHOTO_CATALOG_FRAGMENT_TITLE),
+  );
+  if (reads !== true) return undefined;
+  const given = [
+    ...(options.contextProviders ?? []),
+    ...(options.additionalContextProviders ?? []),
+    ...options.kernel.context.registry.aiContextProviders(),
+  ];
+  if (given.some(({ id }) => id === PHOTO_CATALOG_PROVIDER_ID)) return undefined;
+  return createPhotoCatalogContextProvider({ brief: options.request });
+}
+
 function contextOptions(
   options: GenerateAiPlanOptions,
   skillContext: AiPreparedSkillContext | undefined,
   policy: AiEffectiveCommandPolicy,
+  photos = true,
 ): AssembleAiContextOptions {
   const context: AssembleAiContextOptions = { allowedCommands: policy.allowedCommands };
   if (options.selection !== undefined) {
@@ -145,8 +185,12 @@ function contextOptions(
   if (options.contextProviders !== undefined) {
     context.providers = options.contextProviders;
   }
-  if (options.additionalContextProviders !== undefined) {
-    context.additionalContextProviders = options.additionalContextProviders;
+  const catalog = photos ? photoCatalogFor(options, skillContext) : undefined;
+  if (options.additionalContextProviders !== undefined || catalog !== undefined) {
+    context.additionalContextProviders = [
+      ...(options.additionalContextProviders ?? []),
+      ...(catalog === undefined ? [] : [catalog]),
+    ];
   }
   if (skillContext !== undefined) {
     context.skillContext = skillContext;
@@ -287,11 +331,14 @@ function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
  * A provider's answer with what could never render removed, when the host
  * enforces the utility vocabulary — the same condition under which the door
  * would otherwise refuse the whole plan for it. See `normalizeAiPlanTrees`.
+ * Trees written as markup are read either way: markup is only a spelling,
+ * and the context asks for it on every run (see `readAiPlanTreeMarkup`).
  */
 function normalizedCandidate(candidate: unknown, options: GenerateAiPlanOptions): unknown {
   const composition = resolveAiCompositionPolicy(options.composition);
-  if (!composition.enforceUtilityVocabulary) return candidate;
-  return normalizeAiPlanTrees(candidate, composition.colourPolicy).plan;
+  if (!composition.enforceUtilityVocabulary) return readAiPlanTreeMarkup(candidate);
+  const blockTypes = options.kernel.context.registry.blocks().map(({ schema }) => schema.type);
+  return normalizeAiPlanTrees(candidate, composition.colourPolicy, blockTypes).plan;
 }
 
 /**
@@ -351,6 +398,46 @@ async function repairAiPlanOnce(
   const { candidate, result: repaired } = judgedCandidate(raw, options, policy);
   if (!repaired.ok) return { ok: false, candidate, issues: repaired.issues };
   return { ok: true, plan: repaired.plan };
+}
+
+/**
+ * ONE repair round for a plan that passed the door but failed a check the door
+ * does not know — a section writer's work held to its contract by
+ * `checkSection` (agent-audit §3.1 "E", the evaluator-optimizer loop,
+ * 2026-09-28). The issues travel on the same repair wire a door refusal uses
+ * (`AiPlanWireAttempt`), and the corrected answer walks through the identical
+ * expansion, normalisation and door as any other: a repair can never widen
+ * what may land.
+ *
+ * Rejects with `AiPlanRejectedError` when the correction fails the door, and
+ * with the provider's own error when there is no `repair` or it fails; the
+ * caller keeps the plan it had.
+ *
+ * @internal Shared with the build's section checker; not part of the package export surface.
+ */
+export async function repairAiPlanForIssues(
+  options: GenerateAiPlanOptions,
+  context: AssembledAiContext,
+  plan: AiPlan,
+  issues: readonly AiPlanValidationIssue[],
+  policy: AiEffectiveCommandPolicy,
+): Promise<AiPlan> {
+  const repair = options.provider.repair?.bind(options.provider);
+  if (repair === undefined) {
+    throw new Error('This provider cannot repair a plan.');
+  }
+  const maxContextTokens = options.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
+  const outcome = await repairAiPlanOnce(
+    options,
+    context,
+    liveOptions(options),
+    policy,
+    repair,
+    { plan, issues },
+    maxContextTokens,
+  );
+  if (outcome.ok) return outcome.plan;
+  throw new AiPlanRejectedError(outcome.issues);
 }
 
 /**

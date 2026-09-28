@@ -29,6 +29,28 @@ export {
   type MemoryContextProviderOptions,
 } from './memory-provider';
 export {
+  PHOTO_CATALOG,
+  PHOTO_CATALOG_FRAGMENT_TITLE,
+  PHOTO_CATALOG_MAX_PHOTOS,
+  PHOTO_CATALOG_PROVIDER_ID,
+  PhotoCatalogError,
+  createPhotoCatalogContextProvider,
+  isCatalogPhotoUrl,
+  selectCatalogPhotos,
+  type CatalogPhoto,
+  type PhotoCatalogContextProviderOptions,
+  type SelectCatalogPhotosOptions,
+} from './providers/photo-catalog';
+export {
+  PHOTO_CATALOG_VERIFIED_AT,
+  PHOTO_TOPIC_KEYWORDS,
+  type PhotoCatalogEntry,
+  type PhotoOrientation,
+  type PhotoPeople,
+  type PhotoTone,
+  type PhotoTopic,
+} from './providers/photo-catalog.data';
+export {
   CONTEXT_INDEX_VERSION,
   ContextIndexError,
   buildProjectIndex,

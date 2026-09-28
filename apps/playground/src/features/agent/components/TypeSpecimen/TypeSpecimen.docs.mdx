@@ -1,0 +1,180 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TypeSpecimenStories from './TypeSpecimen.stories';
+
+<Meta of={TypeSpecimenStories} />
+
+# TypeSpecimen
+
+The agent panel's type, shown as it renders: IBM Plex Sans and IBM Plex Sans Arabic at every role in
+SPEC §2.2, a tabular-figures check, and the six font files the playground loads, with their measured
+sizes. It is WP-02's evidence, and a reference for anyone building a panel component.
+
+<Canvas of={TypeSpecimenStories.Light} />
+
+## Purpose
+
+The panel is an instrument: one family in a few sizes, hierarchy from weight and ink, every number
+in a fixed slot. This page is where that claim can be checked. Every sample reads the real
+`--bldr-*` tokens, and every sample carries its own `lang`, so the theme's two language blocks
+re-point it exactly as they will re-point the panel: `:lang(ar)` for Arabic, and the Latin-island
+block `:lang(ar) [lang]:not(:lang(ar))` for Latin inside Arabic. Change a token and the specimen
+moves with it.
+
+Each story's play function checks, in a real browser, that:
+
+- all six faces are declared, fetched and decoded (`document.fonts.load`), so nothing on the page is
+  the fallback face;
+- every role's Latin and Arabic sample computes to its SPEC §2.2 size, line height, weight and
+  family (the coarse-pointer row is checked only on a coarse pointer). In the Arabic stories the
+  Latin samples sit inside a `lang="ar"` root, so this is also the check on the Latin-island block;
+- every figure in a group has the same width, in a Latin line and in an Arabic line;
+- at 320 and 420px nothing scrolls sideways.
+
+## When to use / not
+
+Use it to review type decisions, to check a token change, and as the reference for which role a new
+component's text takes. It is a design document, not panel UI: do not mount it in the product, and
+do not copy its labels into the agent catalog.
+
+## Props
+
+| prop        | type           | default | notes                                                      |
+| ----------- | -------------- | ------- | ---------------------------------------------------------- |
+| `locale`    | `'en' \| 'ar'` | `'en'`  | the root's `lang`, and its labels' language; `ar` runs RTL |
+| `className` | `string`       | none    | appended to `ck-agent-specimen`                            |
+
+The samples always show both scripts, whatever the locale.
+
+## States
+
+| story                   | what it shows                                                      |
+| ----------------------- | ------------------------------------------------------------------ |
+| `Light`                 | the reference: English labels, light theme                         |
+| `Dark`                  | the same under `data-bldr-theme="dark"`                            |
+| `ArabicRightToLeft`     | Arabic labels, the page right to left                              |
+| `ArabicRightToLeftDark` | the same, dark                                                     |
+| `PanelWidth320`         | the panel's default width: samples stack, the file column hides    |
+| `PanelWidth420Arabic`   | 420px in Arabic, the width at which the panel's wider layout opens |
+
+<Canvas of={TypeSpecimenStories.ArabicRightToLeft} />
+
+## Anatomy
+
+1. **Header**: the two family names and one line on how the scales differ.
+2. **Roles**: an ordered list, one row per SPEC §2.2 role. The head gives the role, where the panel
+   uses it, and the specified Latin and Arabic size/line height and weight; below it, a Latin sample
+   and an Arabic sample, side by side from a 560px container.
+3. **Figures**: two groups of same-length figures (clocks, then counts) in a Latin line and an
+   Arabic line. Each figure is tinted to its own width, so a proportional face would show ragged
+   boxes.
+4. **The six files**: face, weight, file and measured size, with a glyph sample at that weight (both
+   the glyph sample and the file column hide below a 400px container).
+
+## The six files
+
+Measured on 2026-09-28 against fontsource 5.3.0: `stat` on the package files, then a production
+`vite build` of the playground, which emitted the same six woff2 byte for byte. woff2 is already
+Brotli-compressed, so the file size is the transfer size, give or take response headers. The test
+holds every number in this table to the file on disk.
+
+| face                 | weight | stylesheet                                        | woff2 file                                     | bytes  |
+| -------------------- | ------ | ------------------------------------------------- | ---------------------------------------------- | ------ |
+| IBM Plex Sans        | 400    | `@fontsource/ibm-plex-sans/latin-400.css`         | `ibm-plex-sans-latin-400-normal.woff2`         | 22,588 |
+| IBM Plex Sans        | 500    | `@fontsource/ibm-plex-sans/latin-500.css`         | `ibm-plex-sans-latin-500-normal.woff2`         | 24,184 |
+| IBM Plex Sans        | 600    | `@fontsource/ibm-plex-sans/latin-600.css`         | `ibm-plex-sans-latin-600-normal.woff2`         | 24,252 |
+| IBM Plex Sans Arabic | 400    | `@fontsource/ibm-plex-sans-arabic/arabic-400.css` | `ibm-plex-sans-arabic-arabic-400-normal.woff2` | 42,848 |
+| IBM Plex Sans Arabic | 500    | `@fontsource/ibm-plex-sans-arabic/arabic-500.css` | `ibm-plex-sans-arabic-arabic-500-normal.woff2` | 45,296 |
+| IBM Plex Sans Arabic | 600    | `@fontsource/ibm-plex-sans-arabic/arabic-600.css` | `ibm-plex-sans-arabic-arabic-600-normal.woff2` | 45,688 |
+
+Totals: **71,024 B (69.4 KiB)** of Latin, **133,832 B (130.7 KiB)** of Arabic, **204,856 B (200.1
+KiB)** in all.
+
+The build also emits a `.woff` beside each woff2 (22,104, 23,916, 23,876, 44,136, 46,924 and 46,780
+B), because each `@font-face` lists it as a second source. A browser that reads woff2, which is
+every browser the editor supports, never requests them.
+
+### When each file downloads
+
+Every face is `font-display: swap`, and a browser fetches a face the first time it has text to draw
+in it: Latin 400 on the first paint, 500 and 600 when medium or semibold text first appears, and the
+Arabic faces when Arabic first renders. The panel's default locale is Arabic, so on a first visit
+all six usually arrive together.
+
+One caveat, measured rather than assumed. These per-subset stylesheets carry **no `unicode-range`**
+(only fontsource's all-subset files such as `400.css` do). The Arabic face is therefore a candidate
+for every character the Latin face lacks, and the Latin subset lacks `→` (U+2192) and `✓` (U+2713)
+(checked in its `cmap`). An English line that draws one of those in text makes the browser fetch the
+Arabic face of that weight, find no glyph there either, and fall through to the system face. The
+panel's own glyphs, the before→after arrow included, are SVG icons (SPEC §4.21), so this bites only
+when such a character reaches text: a model's answer or a person's message that contains one. The
+fix is a `unicode-range` on the Arabic `@font-face`, which a host stylesheet can declare; the six
+imports here stay as SPEC §2.2 specifies them.
+
+Observed in Chromium (headless Chrome 153, 2026-09-28) on four pages declaring these two faces
+exactly as the subset stylesheets do:
+
+| page text                          | Arabic `@font-face`            | woff2 fetched         |
+| ---------------------------------- | ------------------------------ | --------------------- |
+| `Hello world, the page was built.` | as shipped                     | Latin 400             |
+| `Background light → deep navy ✓`   | as shipped                     | Latin 400, Arabic 400 |
+| `Background light → deep navy ✓`   | with an Arabic `unicode-range` | Latin 400             |
+| `Hero قسم الخدمات`                 | with an Arabic `unicode-range` | Latin 400, Arabic 400 |
+
+## Figures and `tnum`
+
+SPEC §2.2 asks whether both faces honour `tnum` through the fontsource subsets. Measured from the
+fonts' own tables:
+
+- **Plex Sans (Latin subset)** has no `tnum` lookup at all (its GSUB features are `ccmp`, `dnom`,
+  `frac`, `liga`, `numr`), but every digit is 600 units of 1,000 wide at 400, 500 and 600. Its
+  figures are tabular by default, so `tabular-nums` changes nothing and no figure can shift. The
+  `min-inline-size: 4.5ch` fallback SPEC §2.2 names is not needed.
+- **Plex Sans Arabic (Arabic subset)** contains no Latin digits, so the digits in an Arabic line are
+  drawn by Plex Sans: tabular as above. Its Arabic-Indic digits are proportional (263 to 634 units)
+  with no `tnum` either, which is one more reason the panel always formats numbers with Latin digits
+  (`-u-nu-latn`).
+- Keep declaring `font-variant-numeric: tabular-nums` on figure slots anyway. With
+  `font-display: swap` the first paint can be in the system face, and a system face may have
+  proportional default figures that only the feature makes tabular.
+
+The `Figures` section shows the result: each group's tinted boxes are one width in both lines.
+Observed in Chromium at 11px: `1:11`, `0:07` and `8:48` each measure 23.016px, with and without
+`tabular-nums`, in a Latin line and in an Arabic line; the same values in Arabic-Indic digits
+measure 11.906, 14.719 and 20.250px.
+
+## Accessibility
+
+axe-core 4.13 in Chromium (WCAG 2.0 to 2.2 A and AA plus best practice), on the specimen rendered
+light and dark, in English and Arabic, and at 320 and 420px, 2026-09-28: no critical, serious or
+minor violations, 31 rules passed, none left incomplete, so colour contrast was fully evaluated. The
+one moderate finding, `page-has-heading-one`, belonged to the bare test page, which had no `h1`; on
+this docs page the `h1` is the title above.
+
+- Heading structure: the specimen's title is an `h2`, each section an `h3`.
+- Every sample carries `lang` and `dir`, so a screen reader switches voice between the two scripts.
+- Both tables have scoped column headers, and each file row is headed by its face; the glyph sample
+  in that header is `aria-hidden`, because the face name already says which font it is.
+- Colour: the Figure and Meta rows use Slate, as SPEC §2.2 specifies. Slate on Paper is 4.54:1 in
+  light, which passes, but SPEC §2.1 also says Slate is never smaller than 12px Latin; the 11px
+  Figure role contradicts that, and the conflict is reported to the spec owner rather than settled
+  here.
+
+## RTL and bilingual notes
+
+- Logical properties only; the test fails the stylesheet on any physical side.
+- The specimen's root takes the locale's `lang`, as the panel's root does, and the samples, the face
+  names and the file names inside it carry `lang="en"`. Two Latin strings do not yet: the files
+  table's `woff2` column header and the byte counts (`22,588 B (22.1 KiB)`) inherit the root's
+  `lang`, so in the Arabic specimen a screen reader reads them in the Arabic voice. The `:lang(ar)`
+  block sets custom properties, and custom properties inherit, so on its own it would leave a Latin
+  sample inside the Arabic specimen at the Arabic 14/22 instead of its own 13/20. The theme's
+  Latin-island block, `:lang(ar) [lang]:not(:lang(ar))`, re-points the family and the size tokens
+  back to Latin on the element carrying the attribute, and the Arabic stories measure every Latin
+  sample through it. English text inside the Arabic panel gets the same treatment, provided it
+  carries its own `lang` (`resolveLang` in `model/resolve-dir.ts` computes one from the letters).
+- Only an element that declares a size from a token moves with the island. A Latin face name in the
+  Arabic files table inherits the row's computed Arabic 13/20 and takes only the Latin family, which
+  keeps every row in the table on one line height.
+- Figures in the Arabic column are wrapped in `<bdi dir="ltr">`, as every count and clock in the
+  panel is (SPEC §6.6).

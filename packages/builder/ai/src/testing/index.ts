@@ -1,4 +1,7 @@
-export { createScriptedAiPlanProvider } from './scripted-provider';
+export {
+  createScriptedAiPlanProvider,
+  type ScriptedAiPlanProviderOptions,
+} from './scripted-provider';
 export {
   createScriptedSiteStageProvider,
   type ScriptedStage,

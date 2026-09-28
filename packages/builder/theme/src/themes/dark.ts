@@ -1,5 +1,6 @@
 import type { ChromeTheme } from '../contract';
 import { alpha, family, green, red, amber, shadow, slate, violet } from '../tokens/primitives';
+import { stageTokens } from './light';
 
 /**
  * The dark chrome theme — Direction B, "Console".
@@ -23,11 +24,13 @@ import { alpha, family, green, red, amber, shadow, slate, violet } from '../toke
  */
 export const darkChromeTheme: ChromeTheme = {
   font: family.sans,
+  'font-arabic': family.arabic,
   'font-mono': family.mono,
 
   surface: slate[900],
   'surface-raised': slate[800],
   'surface-sunken': slate[950],
+  'surface-tint': slate[850],
   'surface-hover': alpha.light8,
   'surface-active': alpha.light12,
   'surface-border': alpha.light12,
@@ -57,9 +60,16 @@ export const darkChromeTheme: ChromeTheme = {
   'accent-soft-hover': violet[900],
   'accent-ring': violet[800],
 
+  'progress-track': slate[725],
+
   selection: violet[400],
   hover: violet[500],
   drop: green[500],
+
+  'content-outline': alpha.light20,
+
+  // The page does not turn dark with the editor, so neither do its marks.
+  ...stageTokens,
 
   danger: red[500],
   'danger-soft': '#2a1416',

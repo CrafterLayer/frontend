@@ -225,6 +225,18 @@ export const UTILITY_VOCABULARY: readonly UtilityPattern[] = Object.freeze([
   'columns-{1,2,3,4,5,6} break-inside-avoid aspect-{4/3,3/2,3/4,2/3,16/9,9/16,21/9,1/1}',
   'overscroll-{auto,contain,none} scroll-{smooth,auto} snap-{x,y,mandatory,proximity,start,center,end} scroll-{m,p}{,x,y}-{0,4,8,16,24}',
   'flex-{2,3} basis-{1/5,2/5,3/5,4/5,1/6,5/6} grow shrink order-{7,8,9,10,11,12} col-auto row-auto',
+  /*
+    Section layouts (2026-09-28, page-power research): an image-first zigzag
+    that alternates sides on desktop, a heading centred on phones only, the
+    RTL-correct accent border, a card lifted over a photo's edge, a darkening
+    gradient under text on a photo, a card whose action sits at its foot. Each
+    was one missing class away, so the skills routed around it with ck- CSS.
+    Logical sides only (start/end, s/e): a physical side does not mirror.
+  */
+  '{sm:,md:,lg:}flex-{row,row-reverse,col,col-reverse} {sm:,md:,lg:}text-{start,center,end} {sm:,md:,lg:}order-{first,last,none,1,2,3}',
+  'border-{s,e}-{2,4} {sm:,md:,lg:}col-start-{1..12} -mt-{20,24} {md:,lg:}-mt-{4,8,12,16,20,24}',
+  '{sm:,md:,lg:}w-{1/2,1/3,2/3,1/4,3/4,2/5,3/5} {sm:,md:,lg:}aspect-{auto,square,video,4/3,3/2,3/4,16/9,21/9} {sm:,md:,lg:}min-h-{dvh,svh,screen}',
+  '{from,via,to}-{black,white}/{0,10,20,30,40,50,60,70,80,90} {sm:,md:,lg:,}gap-{x,y}-{14,16,20,24} {sm:,md:,lg:,}m{t,b,s,e}-auto',
   // Misc: visibility, appearance, cursors, resize, touch, accents, backgrounds, logical corners.
   'visible invisible collapse appearance-none resize{,-none,-x,-y} touch-{auto,none,manipulation}',
   'accent-{accent,white,black} caret-{accent,text} cursor-{grab,grabbing,zoom-in,zoom-out,help,crosshair,progress}',

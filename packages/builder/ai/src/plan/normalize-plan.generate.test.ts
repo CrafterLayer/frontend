@@ -166,3 +166,52 @@ describe('generateAiPlan with a tree written as markup', () => {
     expect(JSON.stringify(value)).toContain('"tag":"strong","text":"1.75"');
   });
 });
+
+describe('generateAiPlan with the vocabulary check turned off', () => {
+  it('still reads a tree written as markup, because the context always asks for markup', async () => {
+    const calls: string[] = [];
+    const provider: AiPlanProvider = {
+      propose: (_request, context) => {
+        calls.push(`propose treeMarkup=${String(context.treeMarkup)}`);
+        return Promise.resolve({
+          rationale: 'Fill the drinks section.',
+          commands: [
+            {
+              command: 'setProp',
+              args: {
+                id: 'region',
+                key: 'tree',
+                value: "<section class='py-16'><h2 class='text-4xl'>Drinks</h2></section>",
+              },
+            },
+          ],
+        });
+      },
+      repair: () => {
+        calls.push('repair');
+        return Promise.reject(new Error('a repair round should not be needed'));
+      },
+    };
+
+    const plan = await generateAiPlan({
+      kernel: kernel(),
+      provider,
+      request: 'Fill the drinks section',
+      validationPorts: { clock: fixedClock(2), ids: seededIds('markup-no-vocabulary') },
+      composition: { enforceUtilityVocabulary: false },
+    });
+
+    expect(calls).toEqual(['propose treeMarkup=true']);
+    expect((plan.commands[0]?.args as { value: unknown }).value).toEqual({
+      kind: 'root',
+      children: [
+        {
+          kind: 'element',
+          tag: 'section',
+          className: 'py-16',
+          children: [{ kind: 'element', tag: 'h2', className: 'text-4xl', text: 'Drinks' }],
+        },
+      ],
+    });
+  });
+});

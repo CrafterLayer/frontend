@@ -11,11 +11,13 @@
 export {
   CHROME_TOKENS,
   RUNTIME_WRITTEN_TOKENS,
+  STAGE_TOKENS,
   TOKEN_PREFIX,
   cssVarName,
   type ChromeTheme,
   type ChromeThemeOverride,
   type ChromeTokenName,
+  type StageTokenName,
 } from './contract';
 
 export { lightChromeTheme, darkChromeTheme } from './themes';
@@ -24,6 +26,7 @@ export {
   buildStylesheet,
   definedTokenNames,
   metricsDeclarations,
+  readingDeclarations,
   scaleDeclarations,
   themeDeclarations,
   themeStyle,
@@ -31,18 +34,38 @@ export {
   type StylesheetInput,
 } from './css';
 
-export { alpha, amber, family, green, ink, red, shadow, slate, violet } from './tokens/primitives';
+export {
+  alpha,
+  amber,
+  family,
+  green,
+  ink,
+  motion,
+  red,
+  shadow,
+  slate,
+  violet,
+} from './tokens/primitives';
 
 export {
+  READING_ROLES,
+  agentPanelMetrics,
+  arabicReadingScale,
+  coarsePointer,
   comfortable,
   compact,
   densities,
   fontSize,
   fontWeight,
   lineHeight,
-  motion,
   radius,
+  readingScale,
   space,
+  type AgentPanelMetrics,
+  type CoarsePointerOverrides,
   type DensityName,
+  type ReadingRole,
+  type ReadingScale,
+  type ReadingStep,
   type ShellMetrics,
 } from './tokens/layout';

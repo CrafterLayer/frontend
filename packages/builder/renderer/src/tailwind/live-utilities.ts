@@ -31,15 +31,45 @@ import { buildTailwindThemeCss } from './token-bridge';
  *   later edits to their text.
  * - Tailwind is imported lazily, so a host that never registers this pays
  *   nothing for it.
+ *
+ * ## Why the utilities are scoped to custom-code regions
+ *
+ * The host's static sheet already carries most of these classes, in the same
+ * `utilities` layer at the same specificity, and this sheet loads after it. An
+ * unscoped second copy of `grid-cols-1` or `transition` therefore won every
+ * tie against the static sheet's `@sm:grid-cols-2` and
+ * `motion-reduce:transition-none`, on every built-in block of the site
+ * (measured in Chromium: Testimonials stuck at one column, reduced motion
+ * ignored) — because ONE AI section used the base class.
+ *
+ * So the layer's body is emitted inside `@scope ([data-ck-custom-code])`, the
+ * attribute `CustomCode` stamps on each region root. Outside a region these
+ * rules match nothing. Inside one they beat the static copies by scope
+ * proximity, which the cascade weighs after specificity and before order of
+ * appearance — so an AI element's base/variant order is Tailwind's own, from
+ * this one sheet, whichever sheet happens to load last. Building only the
+ * classes the static sheet lacks would NOT do: that reverses the bug inside AI
+ * trees (a live `p-[17px]` would beat a static `md:p-8`).
+ *
+ * `@scope` ships in Chromium 118, Safari 17.4 and Firefox 146. Where it is
+ * missing the whole block would be dropped, so creation refuses instead and
+ * the host keeps its static vocabulary — the same fail-closed rule as a theme
+ * without breakpoints.
  */
 export interface LiveUtilities {
   /** Whether Tailwind generates CSS for this one class — the oracle the door consults. */
   readonly isUtilityClass: (name: string) => boolean;
   /** Generate CSS for these classes, together with every class asked for before. */
   readonly ensure: (classNames: Iterable<string>) => void;
+  /**
+   * Keep generating CSS for every class rendered inside a custom-code region
+   * of `target` — and of any same-origin frame inside it — as it appears.
+   * Returns the function that stops watching.
+   */
+  readonly watch: (target: Document) => () => void;
   /** The stylesheet generated so far. */
   readonly css: () => string;
-  /** Remove the generated stylesheet. */
+  /** Remove the generated stylesheet and stop every watch. */
   readonly dispose: () => void;
 }
 
@@ -61,6 +91,93 @@ const ENTRY = [
 ].join('\n');
 
 const STYLE_ATTRIBUTE = 'data-ck-live-utilities';
+
+/**
+ * The attribute on every custom-code region root: the one subtree the live
+ * rules may reach. `data-ck` alone would not do — the page root carries it
+ * too, and every built-in block sits inside the page root.
+ */
+export const CUSTOM_CODE_REGION_ATTRIBUTE = 'data-ck-custom-code';
+
+const REGION_SELECTOR = `[${CUSTOM_CODE_REGION_ATTRIBUTE}]`;
+
+/**
+ * Index just past the `}` that closes the block opened at `open`, or -1.
+ * Strings, comments and backslash escapes are skipped: an escaped `\{` in a
+ * class name like `content-['{']` is a selector character, not a brace.
+ */
+function blockEnd(css: string, open: number): number {
+  let depth = 0;
+  for (let at = open; at < css.length; at += 1) {
+    const char = css[at];
+    if (char === '\\') {
+      at += 1;
+    } else if (char === '"' || char === "'") {
+      for (at += 1; at < css.length && css[at] !== char; at += 1) {
+        if (css[at] === '\\') at += 1;
+      }
+    } else if (char === '/' && css[at + 1] === '*') {
+      const close = css.indexOf('*/', at + 2);
+      if (close === -1) return -1;
+      at = close + 1;
+    } else if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return at + 1;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Wrap the body of every top-level `@layer utilities` block in the region
+ * scope. Theme variables, `@property` and `@keyframes` stay where they are:
+ * they are global by nature and identical to the static sheet's.
+ */
+function scopeToCustomCodeRegions(css: string): string {
+  const out: string[] = [];
+  let copied = 0;
+  let statement = 0;
+  for (let at = 0; at < css.length; at += 1) {
+    const char = css[at];
+    if (char === '/' && css[at + 1] === '*') {
+      const close = css.indexOf('*/', at + 2);
+      if (close === -1) break;
+      at = close + 1;
+      statement = at + 1;
+    } else if (char === ';') {
+      statement = at + 1;
+    } else if (char === '{') {
+      const end = blockEnd(css, at);
+      if (end === -1) break;
+      if (css.slice(statement, at).trim() === '@layer utilities') {
+        out.push(
+          css.slice(copied, at + 1),
+          `\n@scope (${REGION_SELECTOR}) {`,
+          css.slice(at + 1, end - 1),
+          '}\n}',
+        );
+        copied = end;
+      }
+      at = end - 1;
+      statement = end;
+    }
+  }
+  out.push(css.slice(copied));
+  return out.join('');
+}
+
+/** Whether the page this sheet is written into understands `@scope`. */
+function supportsScope(target: Document): boolean {
+  const view = target.defaultView as (Window & { CSSScopeRule?: unknown }) | null;
+  return typeof view?.CSSScopeRule === 'function';
+}
+
+function addClasses(element: Element, into: Set<string>): void {
+  // `classList`, not `className`: an icon's <svg> answers `className` with an object.
+  for (const name of element.classList) into.add(name);
+}
 
 /**
  * `group` and `peer` generate no CSS of their own — they are the markers that
@@ -86,6 +203,10 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
     throw new Error(
       "Live utilities need Tailwind's theme.css; the one provided has no breakpoints.",
     );
+  }
+  // Unscoped, this sheet would restyle built-in blocks; dropped, it would style nothing.
+  if (options.document !== undefined && !supportsScope(options.document)) {
+    throw new Error('Live utilities need CSS @scope, and this page does not support it.');
   }
   const sources: Readonly<Record<string, string>> = {
     'tailwindcss/theme.css': themeCss,
@@ -131,21 +252,139 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
     sheet = next;
   };
 
+  const ensure = (classNames: Iterable<string>): void => {
+    let grew = false;
+    for (const name of classNames) {
+      if (built.has(name) || MARKER_CLASS.test(name) || !isUtilityClass(name)) continue;
+      built.add(name);
+      grew = true;
+    }
+    if (!grew) return;
+    generated = scopeToCustomCodeRegions(compiler.build([...built]));
+    write();
+  };
+
+  /*
+    The site store is not the only place a tree renders. A proposal previewed
+    before Apply (Plan preview, Ask) renders a scratch document the store never
+    sees, and a tree may reference a built-in block whose own classes no tree
+    carries — and inside a region those classes need their variants in THIS
+    sheet, or a scoped base class outranks the static variant. So the rendered
+    DOM is read too: every class inside a region, as it appears.
+
+    One `ensure` per observer delivery is the debounce. The observer already
+    batches every mutation of a React commit into one callback, and it runs
+    before the next paint — a timer would paint the preview unstyled first.
+  */
+  const watches = new Set<() => void>();
+  const watch = (target: Document): (() => void) => {
+    const Observer = target.defaultView?.MutationObserver;
+    if (Observer === undefined) return () => undefined;
+    const observers = new Map<Document, MutationObserver>();
+    // Each followed frame and the document it was showing when last seen.
+    const frames = new Map<HTMLIFrameElement, Document | null>();
+
+    const collect = (node: Node, into: Set<string>, found: HTMLIFrameElement[]): void => {
+      if (node.nodeType !== 1) return;
+      const element = node as Element;
+      if (element.closest(REGION_SELECTOR) === null) {
+        for (const region of element.querySelectorAll(REGION_SELECTOR)) {
+          for (const inner of region.querySelectorAll('[class]')) addClasses(inner, into);
+        }
+      } else {
+        addClasses(element, into);
+        for (const inner of element.querySelectorAll('[class]')) addClasses(inner, into);
+      }
+      if (element.nodeName === 'IFRAME') found.push(element as HTMLIFrameElement);
+      found.push(...element.querySelectorAll('iframe'));
+    };
+
+    const unobserve = (root: Document | null | undefined): void => {
+      if (root === null || root === undefined) return;
+      observers.get(root)?.disconnect();
+      observers.delete(root);
+    };
+
+    const onFrameLoad = (event: Event): void => {
+      // A frame that navigates shows a new document; follow that one instead.
+      follow(event.currentTarget as HTMLIFrameElement);
+    };
+
+    /*
+      A removed frame's document is dropped with it — held here, a remounted
+      canvas would keep every earlier canvas document alive for the session.
+    */
+    const forgetDetachedFrames = (): void => {
+      for (const [frame, shown] of frames) {
+        if (frame.isConnected) continue;
+        frame.removeEventListener('load', onFrameLoad);
+        frames.delete(frame);
+        unobserve(shown);
+      }
+    };
+
+    const observe = (root: Document | null): void => {
+      if (root === null || observers.has(root)) return;
+      const observer = new Observer((records) => {
+        const found = new Set<string>();
+        const framesFound: HTMLIFrameElement[] = [];
+        let removed = false;
+        for (const record of records) {
+          if (record.type === 'attributes') {
+            const element = record.target as Element;
+            if (element.closest(REGION_SELECTOR) !== null) addClasses(element, found);
+          } else {
+            for (const added of record.addedNodes) collect(added, found, framesFound);
+            removed ||= record.removedNodes.length > 0;
+          }
+        }
+        if (removed && frames.size > 0) forgetDetachedFrames();
+        for (const frame of framesFound) follow(frame);
+        ensure(found);
+      });
+      observer.observe(root, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+      observers.set(root, observer);
+      const found = new Set<string>();
+      const framesFound: HTMLIFrameElement[] = [];
+      collect(root.documentElement, found, framesFound);
+      for (const frame of framesFound) follow(frame);
+      ensure(found);
+    };
+
+    function follow(frame: HTMLIFrameElement): void {
+      if (!frames.has(frame)) frame.addEventListener('load', onFrameLoad);
+      // Null for a cross-origin frame: nothing of ours renders there.
+      const shown = frame.contentDocument;
+      const before = frames.get(frame);
+      if (before !== shown) unobserve(before);
+      frames.set(frame, shown);
+      observe(shown);
+    }
+
+    observe(target);
+    const stop = (): void => {
+      for (const observer of observers.values()) observer.disconnect();
+      for (const frame of frames.keys()) frame.removeEventListener('load', onFrameLoad);
+      observers.clear();
+      frames.clear();
+      watches.delete(stop);
+    };
+    watches.add(stop);
+    return stop;
+  };
+
   return {
     isUtilityClass,
-    ensure: (classNames) => {
-      let grew = false;
-      for (const name of classNames) {
-        if (built.has(name) || MARKER_CLASS.test(name) || !isUtilityClass(name)) continue;
-        built.add(name);
-        grew = true;
-      }
-      if (!grew) return;
-      generated = compiler.build([...built]);
-      write();
-    },
+    ensure,
+    watch,
     css: () => generated,
     dispose: () => {
+      for (const stop of [...watches]) stop();
       sheet?.remove();
       sheet = undefined;
     },

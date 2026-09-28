@@ -2,7 +2,14 @@
 // implements exactly this shape; everything else — registry lookup, args
 // schemas, the scratch-kernel dry run — stays on this side of the wire, so a
 // wrong server can only ever produce a rejected proposal, never a document.
-import type { AiChatTurn, AiPlan, AiPlanValidationIssue, AssembledAiContext } from '../types';
+import type {
+  AiChatTurn,
+  AiPlan,
+  AiPlanValidationIssue,
+  AssembledAiContext,
+  PagePlanCandidate,
+  PagePlanIssue,
+} from '../types';
 import { estimateCanonicalJsonTokens } from '../internal/canonical-json';
 
 export const AI_PLAN_WIRE_VERSION = 1;
@@ -37,6 +44,23 @@ export interface AiPlanWireRequest {
   /** The conversation so far, oldest first, so follow-up requests resolve. */
   history?: readonly AiChatTurn[];
   attempt?: AiPlanWireAttempt;
+  /**
+   * What the POST asks for. Absent (every request before 2026-09-28) or
+   * `'plan'`: an `AiPlan`, exactly as always. `'page-plan'`: a page plan —
+   * see `AiPagePlanWireResponse` below for the answer a server must give.
+   */
+  task?: AiPlanWireTask;
+  /** Only with `task: 'page-plan'`: the refused candidate and why, for the one repair round. */
+  pagePlanAttempt?: AiPagePlanWireAttempt;
+}
+
+/** The kinds of answer the plan endpoint gives. Absent on the wire = `'plan'`. */
+export type AiPlanWireTask = 'plan' | 'page-plan';
+
+/** A page plan the client refused, echoed back so the server can repair it. */
+export interface AiPagePlanWireAttempt {
+  pagePlan: PagePlanCandidate;
+  issues: readonly PagePlanIssue[];
 }
 
 /**
@@ -52,6 +76,8 @@ export function estimateAiPlanWireRequestTokens(request: AiPlanWireRequest): num
     context: request.context,
     ...(request.history === undefined ? {} : { history: request.history }),
     ...(request.attempt === undefined ? {} : { attempt: request.attempt }),
+    ...(request.task === undefined ? {} : { task: request.task }),
+    ...(request.pagePlanAttempt === undefined ? {} : { pagePlanAttempt: request.pagePlanAttempt }),
   };
   return estimateCanonicalJsonTokens(canonical);
 }
@@ -91,4 +117,175 @@ export type AiPlanWireResponse =
  */
 export interface AiPlanWireStatus {
   text: string;
+}
+
+// ── the page-plan task (2026-09-28) ─────────────────────────────────────────
+
+/**
+ * A server's page plan. The server does NOT validate it — `validatePagePlan`
+ * on this side does, and its issues come back as `pagePlanAttempt` — so a
+ * wrong server can only ever cost a repair round, never a page.
+ */
+export interface AiPagePlanWireResult {
+  version: typeof AI_PLAN_WIRE_VERSION;
+  pagePlan: PagePlanCandidate;
+  /** One or two sentences on the direction, in the requester's language. */
+  rationale?: string;
+}
+
+/**
+ * The answer to a `task: 'page-plan'` request: a page plan, a refusal, or the
+ * versioned invalid-output report — as JSON, or as the SSE `result` frame with
+ * the same `status` frames as a plan (see `AiPlanWireStatus`).
+ *
+ * THE SERVER'S OUTPUT CONTRACT — copy this block. Answer with exactly one JSON
+ * object and nothing around it:
+ *
+ *   BEGIN PAGE PLAN WIRE EXAMPLE
+ *   {
+ *     "version": 1,
+ *     "rationale": "A warm, type-led roastery page: burnt orange on pale lime, Fraunces headings.",
+ *     "pagePlan": {
+ *       "intent": "new-page",
+ *       "locale": { "lang": "en", "dir": "ltr" },
+ *       "title": "Cardamom Roasters — specialty coffee in Amman",
+ *       "description": "Small-batch coffee roasted every morning in Amman, delivered fresh.",
+ *       "tokens": {
+ *         "bg": "#f7fee7",
+ *         "surface": "#ffffff",
+ *         "ink": "#022c22",
+ *         "muted": "#065f46",
+ *         "accent": "#c2410c",
+ *         "onAccent": "#ffffff",
+ *         "accentInk": "#c2410c",
+ *         "border": "#d9f99d",
+ *         "fontDisplay": { "family": "Fraunces", "weights": [600, 700] },
+ *         "fontBody": { "family": "Instrument Sans", "weights": [400, 500] },
+ *         "radius": "xl",
+ *         "signature": "The brand name at text-8xl, faint behind the menu.",
+ *         "deckRowId": "cafe"
+ *       },
+ *       "primaryCta": { "label": "Order beans", "href": "#order" },
+ *       "nav": [
+ *         { "label": "Menu", "anchorId": "menu" },
+ *         { "label": "Order", "anchorId": "order" }
+ *       ],
+ *       "sections": [
+ *         { "key": "header", "role": "header", "title": "Header", "anchorId": "top",
+ *           "purpose": "Brand and navigation." },
+ *         { "key": "hero", "role": "hero", "title": "Roasted this morning", "anchorId": "hero",
+ *           "purpose": "Say what the roastery is and invite the first order.",
+ *           "mustSay": ["Roasted daily in Amman"], "mustNotRepeat": [], "variant": "split",
+ *           "images": [{ "subject": "cafe", "aspect": "landscape", "alt": "Freshly roasted coffee beans" }] },
+ *         { "key": "menu", "role": "band", "title": "Menu", "anchorId": "menu",
+ *           "purpose": "The drinks and beans, with prices.",
+ *           "mustSay": [], "mustNotRepeat": ["Roasted daily in Amman"], "variant": "menu" },
+ *         { "key": "order", "role": "cta", "title": "Order", "anchorId": "order",
+ *           "purpose": "One clear way to order.", "variant": "cta-split" },
+ *         { "key": "footer", "role": "footer", "title": "Footer", "anchorId": "footer",
+ *           "purpose": "Address, hours and contact.", "variant": "footer" }
+ *       ],
+ *       "facts": [
+ *         { "key": "phone", "sample": "+962 7 9000 0000", "section": "order" },
+ *         { "key": "price-espresso", "sample": "JOD 1.50", "section": "menu" }
+ *       ]
+ *     }
+ *   }
+ *   END PAGE PLAN WIRE EXAMPLE
+ *
+ * Field rules (the client refuses anything else, with a repair instruction):
+ * - intent: "new-page" | "replace" | "append" (the host may override it).
+ * - locale.lang: BCP 47 ("ar", "en"); dir follows the language.
+ * - tokens colours: "#rrggbb", or a Tailwind shade from the direction deck
+ *   ("orange-700"). ink and muted must read ≥ 4.5:1 on bg AND surface,
+ *   onAccent on accent, accentInk on bg AND surface (omit accentInk to let the
+ *   client use the accent when it reads, else the ink).
+ * - fonts: a VERIFIED_FONT_FAMILIES family, weights it ships; Arabic-capable
+ *   faces only on an Arabic page. "url" may be omitted — the client builds it.
+ * - radius: "none" | "md" | "xl" | "full". deckRowId: a DIRECTION_DECK_ROWS id, or omit.
+ * - sections: 2..12, in page order. key and anchorId: unique slugs
+ *   ([a-z][a-z0-9-]*, Latin even on an Arabic page). role: "header" (first,
+ *   at most one) | "hero" (exactly one, first or right after the header) |
+ *   "band" | "cta" | "footer" (last, at most one); an "append" plan uses band
+ *   and cta only. variant: a SECTION_VARIANTS id, or omit. mustSay /
+ *   mustNotRepeat: ≤ 6 short strings each. images: ≤ 4, subject a photo
+ *   catalog topic, aspect "landscape" | "portrait" | "square".
+ * - nav[].anchorId and a "#…" primaryCta.href name a section's anchorId; an
+ *   external href is https:, mailto: or tel:.
+ * - facts: every invented, owner-replaceable value (phone, price, address,
+ *   hours), each tied to the section key that shows it.
+ * - All prose (titles, purpose, labels, alt, samples) in the page language.
+ */
+export type AiPagePlanWireResponse =
+  | AiPagePlanWireResult
+  | { refusal: string; version?: typeof AI_PLAN_WIRE_VERSION }
+  | AiPlanWireInvalidOutputResponse;
+
+/** What a page-plan answer turned out to be, before validation. */
+export type AiPagePlanWireReading =
+  | {
+      readonly kind: 'page-plan';
+      readonly pagePlan: PagePlanCandidate;
+      readonly rationale?: string;
+    }
+  | { readonly kind: 'refusal'; readonly message: string }
+  | { readonly kind: 'invalid-output'; readonly message: string }
+  /** The server answered an ordinary plan: it predates the page-plan task. */
+  | { readonly kind: 'unsupported'; readonly message: string };
+
+function isWireRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Classify a page-plan answer (a JSON body, or an SSE `result` frame's data).
+ * Shallow by design, like the plan reader: telling "a page plan" from "not
+ * one" is this function's job; whether the plan is any GOOD is
+ * `validatePagePlan`'s. Never throws.
+ */
+export function readAiPagePlanWireResponse(payload: unknown): AiPagePlanWireReading {
+  if (!isWireRecord(payload)) {
+    return {
+      kind: 'invalid-output',
+      message: 'The assistant server did not answer with a JSON object.',
+    };
+  }
+  if (Object.hasOwn(payload, 'version') && payload['version'] !== AI_PLAN_WIRE_VERSION) {
+    return {
+      kind: 'invalid-output',
+      message: `The assistant server answered with unsupported wire version ${String(payload['version'])}.`,
+    };
+  }
+  const invalid = payload['invalidOutput'];
+  if (isWireRecord(invalid) && typeof invalid['message'] === 'string') {
+    return {
+      kind: 'invalid-output',
+      message: boundAiPlanWireInvalidOutputMessage(invalid['message']),
+    };
+  }
+  if (typeof payload['refusal'] === 'string') {
+    return { kind: 'refusal', message: payload['refusal'] };
+  }
+  const pagePlan = payload['pagePlan'];
+  if (isWireRecord(pagePlan)) {
+    const rationale = payload['rationale'];
+    return {
+      kind: 'page-plan',
+      pagePlan,
+      ...(typeof rationale === 'string' && rationale.trim() !== ''
+        ? { rationale: rationale.trim() }
+        : {}),
+    };
+  }
+  if (typeof payload['rationale'] === 'string' && Array.isArray(payload['commands'])) {
+    return {
+      kind: 'unsupported',
+      message:
+        'The assistant server answered with an ordinary plan: it does not support page plans yet.',
+    };
+  }
+  return {
+    kind: 'invalid-output',
+    message: 'The assistant server answered with something that is not a page plan or a refusal.',
+  };
 }

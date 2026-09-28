@@ -1,17 +1,61 @@
-import type { BuilderDocument, NodeId } from '@craftkit/builder-schema';
-
-import { applyAiPlan, type AppliedAiPlan } from '../plan/apply-plan';
-import { runAiAgent } from './run-agent';
-import type { AiPlan } from '../types';
 import type {
+  AiContextProvider,
+  BuilderDocument,
+  JsonValue,
+  NodeId,
+} from '@craftkit/builder-schema';
+
+import { estimateAssembledAiContextTokens } from '../context';
+import {
+  createPhotoCatalogContextProvider,
+  PHOTO_CATALOG_PROVIDER_ID,
+} from '../context/providers/photo-catalog';
+import { applyAiPlan, type AppliedAiPlan } from '../plan/apply-plan';
+import { repairAiPlanForIssues } from '../plan/generate-plan';
+import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/validated-proposal';
+import { AiPlanRejectedError } from '../plan/validate-plan';
+import { readSectionValues } from './build-revert';
+import { classifyAiRunFailure, type AiRunFailure } from './errors';
+import { checkSection } from './page-plan/check-section';
+import { summarizeNeighbours } from './page-plan/neighbours';
+import { skeletonFromPlan, type SkeletonFromPlanContext } from './page-plan/skeleton-from-plan';
+import type {
+  LandedSection,
+  PagePlan,
+  PagePlanIssue,
+  SectionCheckIssue,
+  SectionContract,
+} from './page-plan/types';
+import { validatePagePlan } from './page-plan/validate-page-plan';
+import {
+  fittingSkillIds as fittingSkills,
+  landingTarget,
+  PAGE_PLAN_STEP,
+  proposeValidatedPagePlan,
+  withRequestedLook,
+  type PagePlanStepNote,
+} from './plan-page';
+import { runAiAgent } from './run-agent';
+import type { AiPlan, AiPlanValidationIssue } from '../types';
+import type {
+  AiAgentEvent,
   AiAgentRunResult,
   AiBuildOutcome,
+  AiBuildOutOfScopeStep,
   AiBuildOwnEvent,
+  AiBuildPlanAnswer,
   AiBuildPlannedTask,
   AiBuildRunResult,
+  AiBuildSectionCheck,
+  AiBuildSectionKey,
+  AiBuildSectionLanding,
+  AiBuildSectionValues,
+  AiBuildSkipReasonCode,
   AiBuildStopReason,
   AiBuildTask,
+  AiBuildTaskFact,
   AiBuildTaskReport,
+  AiBuildUnfilledSection,
   RunAiAgentOptions,
   RunAiBuildOptions,
 } from './types';
@@ -51,11 +95,34 @@ const MAX_RUN_ID_LENGTH = 160;
 const MAX_LABEL_LENGTH = 160;
 const SCAFFOLD_COMMANDS: readonly string[] = Object.freeze(['insertNode', 'setProp', 'setDocMeta']);
 const FILL_COMMANDS: readonly string[] = Object.freeze(['setProp']);
+/** The only props a section writer may set, and only on its own region. */
+const FILL_KEYS: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css']);
+const SCAFFOLD_SKILL = 'craftkit.build-scaffold';
+const FILL_SKILL = 'craftkit.build-fill';
+/**
+ * What a section writer is taught, beyond `craftkit.build-fill` and the
+ * always-on manual. Chosen here, never matched from the request's words.
+ */
+const FILL_SKILLS: readonly string[] = Object.freeze(['craftkit.copywriting']);
+const ARABIC_FILL_SKILL = 'craftkit.arabic-rtl';
+/**
+ * Section-level expertise another workstream is adding (2026-09-28). Asked for
+ * only when the registry holds it, so the build works in either order.
+ */
+const PHOTO_DIRECTION_SKILL = 'craftkit.photo-direction';
+const FILL_SKILLS_WHEN_PRESENT: readonly string[] = Object.freeze([
+  'craftkit.section-variants',
+  PHOTO_DIRECTION_SKILL,
+]);
+const SCAFFOLD_SKILLS_WHEN_PRESENT: readonly string[] = Object.freeze(['craftkit.direction-deck']);
+/** The block a section region is. A page plan is laid only where the registry has it. */
+const REGION_TYPE = 'customCode';
 const SCAFFOLD_LABEL = 'Assistant: page skeleton';
 const RTL_LABEL = 'Assistant: right-to-left page';
 const DIRECTION_HEADING = 'THE DIRECTION (decided for the whole page — obey it exactly):';
-const SENTENCE_END = /[.!?؟。\n]/u;
-const MAX_SHORT_DIRECTION = 240;
+const SENTENCE_ENDS = /[.!?؟。\n]/gu;
+/** A direction is under 60 words by contract; this only bounds one that ignored it. */
+const MAX_RETRY_DIRECTION = 600;
 
 type BuildEventPayload<T = AiBuildOwnEvent> = T extends AiBuildOwnEvent
   ? Omit<T, 'runId' | 'seq' | 'at'>
@@ -107,11 +174,18 @@ function createBuildEmitter(options: RunAiBuildOptions): (payload: BuildEventPay
 /**
  * Everything a step inherits from the caller. `apply`, `label`, `runId` and
  * `request` are the orchestrator's to decide; nothing else is reinterpreted.
+ *
+ * `speaking` gates the steps' events. Once the build has reported its end, a
+ * writer that ignored Stop and answered late has nothing left to say: the
+ * person was told the build ended, and a step event after that would be a
+ * section "working" on a page that already stopped.
  */
 function sharedStepOptions(
   options: RunAiBuildOptions,
+  speaking: () => boolean,
 ): Omit<RunAiAgentOptions, 'apply' | 'label' | 'request' | 'runId'> {
   const isCurrentRun = options.isCurrentRun;
+  const onEvent = options.onEvent;
   return {
     clock: options.clock,
     kernel: options.kernel,
@@ -140,8 +214,91 @@ function sharedStepOptions(
     ...(isCurrentRun === undefined
       ? {}
       : { isCurrentRun: (): boolean => isCurrentRun(options.runId) }),
-    ...(options.onEvent === undefined ? {} : { onEvent: options.onEvent }),
+    ...(onEvent === undefined
+      ? {}
+      : {
+          onEvent: (event) => {
+            if (speaking()) onEvent(event);
+          },
+        }),
   };
+}
+
+/** The skills a step asks for by name — see `fittingSkillIds` in plan-page.ts. */
+function fittingSkillIds(
+  options: RunAiBuildOptions,
+  required: readonly string[],
+  optional: readonly string[],
+): readonly string[] {
+  return fittingSkills(options.skillRegistry, options.policy, required, optional);
+}
+
+/**
+ * The scaffold keeps the page-level expertise its request matches (it is the
+ * one step that decides the page) and adds the direction deck when it exists.
+ */
+function scaffoldSkillIds(options: RunAiBuildOptions): readonly string[] {
+  return fittingSkillIds(options, [SCAFFOLD_SKILL], SCAFFOLD_SKILLS_WHEN_PRESENT);
+}
+
+/**
+ * The photo catalog for one step, briefed for THAT step: a section writer's
+ * brief is the request and its own title, so a café's gallery is offered
+ * cups and a menu band is not offered the hero's photo.
+ *
+ * Wave 1 (2026-09-28) put `craftkit.photo-direction` into every section writer
+ * — "an image address comes only from PHOTOS YOU MAY USE" — and nothing sent
+ * the list: the verifier found no caller of the provider in the tree, so split
+ * builds lost their photos. A host's own photo provider on the build is
+ * replaced by the step's (a page-wide brief is the wrong one for a section);
+ * one the host registered on the kernel, or passed through the legacy
+ * `contextProviders` alias, cannot be replaced, so it is left to serve alone —
+ * two providers with one id are refused by the assembler.
+ */
+function withPhotoCatalog(options: RunAiBuildOptions, brief: string): readonly AiContextProvider[] {
+  const additional = options.additionalContextProviders ?? [];
+  const fixed = [
+    ...(options.contextProviders ?? []),
+    ...options.kernel.context.registry.aiContextProviders(),
+  ];
+  if (fixed.some(({ id }) => id === PHOTO_CATALOG_PROVIDER_ID)) return additional;
+  return Object.freeze([
+    ...additional.filter(({ id }) => id !== PHOTO_CATALOG_PROVIDER_ID),
+    createPhotoCatalogContextProvider({ brief }),
+  ]);
+}
+
+/**
+ * A section writer's skills, named rather than matched.
+ *
+ * Measured 2026-09-28 (agent-audit.md P1-12): with the original request in its
+ * brief, keyword matching handed every writer of an Arabic café page
+ * page-composition, visual-direction, conversion-recipes and
+ * structure-recipes on top of its own — ~21.5k characters of skills, much of
+ * it telling a writer to decide a palette the direction had already decided.
+ * The writer now gets the fill skill, the copy rules, the Arabic rules on an
+ * Arabic page, and the section-level skills once they exist.
+ *
+ * `photos: false` leaves out photo-direction: a page-plan section whose
+ * contract names no image is type-led, and the skill would only teach it how
+ * to place photos it must not use (~640 tokens a writer).
+ */
+function fillSkillIds(
+  options: RunAiBuildOptions,
+  arabic: boolean,
+  photos = true,
+): readonly string[] {
+  const registry = options.skillRegistry;
+  const named = [...FILL_SKILLS, ...(arabic ? [ARABIC_FILL_SKILL] : [])].filter(
+    (id) => registry?.get(id) !== undefined,
+  );
+  return fittingSkillIds(
+    options,
+    [FILL_SKILL, ...named],
+    photos
+      ? FILL_SKILLS_WHEN_PRESENT
+      : FILL_SKILLS_WHEN_PRESENT.filter((id) => id !== PHOTO_DIRECTION_SKILL),
+  );
 }
 
 /** The label the scaffold gave a node it created, if it gave one. */
@@ -235,10 +392,83 @@ function inDocumentOrder(
   return Object.freeze(ordered);
 }
 
-function firstSentence(text: string): string {
-  const trimmed = text.trim();
-  const match = SENTENCE_END.exec(trimmed);
-  return match === null ? trimmed.slice(0, MAX_SHORT_DIRECTION) : trimmed.slice(0, match.index + 1);
+/**
+ * What a region is FOR, which decides its shell.
+ *
+ * Read from the skeleton, never from the position. The fill skill used to key
+ * the hero on the literal "SECTION 1": the retry request never carried that
+ * line, so a hero that failed once came back as a band with no page h1, and a
+ * page that opened with a navbar gave the navbar the hero shell. The scaffold
+ * now marks roles in its placeholders — the opening region's heading is the
+ * page's one h1, site chrome is a header or footer — and this reads them back.
+ */
+type SectionRole = 'hero' | 'chrome' | 'band';
+
+const ROLE_LINE: Readonly<Record<SectionRole, string>> = {
+  hero: "ROLE: HERO — the page's opening screen; this region holds the page's one h1.",
+  chrome:
+    'ROLE: CHROME — the site header, navigation or footer its title names; no h1 and no hero shell.',
+  band: 'ROLE: BAND — a content section; keep its h2 text.',
+};
+
+const CHROME_TAGS: ReadonlySet<string> = new Set(['footer', 'header', 'nav']);
+const ROLE_SCAN_LIMIT = 200;
+
+interface PlaceholderShape {
+  readonly outer: string | undefined;
+  readonly holdsH1: boolean;
+}
+
+/** The outer tag of a stored region tree, and whether an h1 sits anywhere in it. */
+function placeholderShape(tree: unknown): PlaceholderShape {
+  const children: unknown =
+    typeof tree === 'object' && tree !== null ? (tree as { children?: unknown }).children : [];
+  const first: unknown = Array.isArray(children) ? children[0] : undefined;
+  const outer: unknown =
+    typeof first === 'object' && first !== null ? (first as { tag?: unknown }).tag : undefined;
+  let holdsH1 = false;
+  // Bounded: a placeholder is a handful of nodes, and a hostile tree costs nothing here.
+  const stack: unknown[] = [tree];
+  for (let seen = 0; stack.length > 0 && seen < ROLE_SCAN_LIMIT && !holdsH1; seen += 1) {
+    const node = stack.pop();
+    if (typeof node !== 'object' || node === null) continue;
+    const record = node as { tag?: unknown; children?: unknown };
+    if (record.tag === 'h1') holdsH1 = true;
+    if (Array.isArray(record.children)) stack.push(...(record.children as unknown[]));
+  }
+  return { outer: typeof outer === 'string' ? outer : undefined, holdsH1 };
+}
+
+/**
+ * One role per task, in task order. The region holding an h1 opens the page;
+ * a skeleton that marked none falls back to the first region that is not
+ * chrome — the old "section 1" answer, minus the navbar it got wrong.
+ */
+function sectionRoles(
+  document: BuilderDocument,
+  tasks: readonly AiBuildTask[],
+): readonly SectionRole[] {
+  const shapes = tasks.map((task) => placeholderShape(document.nodes[task.id]?.props['tree']));
+  const chrome = shapes.map(({ outer }) => outer !== undefined && CHROME_TAGS.has(outer));
+  const marked = shapes.findIndex(({ holdsH1 }) => holdsH1);
+  const hero = marked === -1 ? chrome.indexOf(false) : marked;
+  return tasks.map((_task, index) =>
+    index === hero ? 'hero' : chrome[index] === true ? 'chrome' : 'band',
+  );
+}
+
+/** Where the section sits and what it is for — the same lines on every attempt. */
+function sectionLines(
+  task: AiBuildTask,
+  position: number,
+  total: number,
+  role: SectionRole,
+): readonly string[] {
+  return [
+    `SECTION ${String(position)} OF ${String(total)}: ${task.title}`,
+    ROLE_LINE[role],
+    `REGION ID: ${task.id}`,
+  ];
 }
 
 function fillRequest(
@@ -246,32 +476,50 @@ function fillRequest(
   task: AiBuildTask,
   position: number,
   total: number,
+  role: SectionRole,
   request: string,
 ): string {
   return [
     DIRECTION_HEADING,
     direction,
     '',
-    `SECTION ${String(position)} OF ${String(total)}: ${task.title}`,
-    `REGION ID: ${task.id}`,
+    ...sectionLines(task, position, total, role),
     '',
     'THE ORIGINAL REQUEST (for subject matter only — the direction above wins):',
     request,
   ].join('\n');
 }
 
+/** The direction whole, unless it ran past its contract; then cut at a sentence end. */
+function boundedDirection(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= MAX_RETRY_DIRECTION) return trimmed;
+  const head = trimmed.slice(0, MAX_RETRY_DIRECTION);
+  let end = 0;
+  for (const match of head.matchAll(SENTENCE_ENDS)) end = match.index + 1;
+  return end === 0 ? head : head.slice(0, end).trim();
+}
+
 /**
  * The second attempt is SHORTER, not louder. A fill that failed once usually
- * failed on size or on a contradiction inside a long brief, so the retry keeps
- * only what the section cannot be written without.
+ * failed on size or on a contradiction inside a long brief, so the retry drops
+ * the original request — and with it every page-wide skill its words matched.
+ * It keeps what the section cannot be written without: the direction (its
+ * palette and faces; the first sentence alone lost them), the position and
+ * the role.
  */
-function retryRequest(direction: string, task: AiBuildTask): string {
+function retryRequest(
+  direction: string,
+  task: AiBuildTask,
+  position: number,
+  total: number,
+  role: SectionRole,
+): string {
   return [
     DIRECTION_HEADING,
-    firstSentence(direction),
+    boundedDirection(direction),
     '',
-    `SECTION: ${task.title}`,
-    `REGION ID: ${task.id}`,
+    ...sectionLines(task, position, total, role),
   ].join('\n');
 }
 
@@ -286,54 +534,239 @@ function notStartedReason(reason: AiBuildStopReason): string {
   }
 }
 
-function runFill(
+const STOPPED_WHILE_WRITING =
+  'The build was stopped while this section was being written; nothing of it was applied.';
+const STOPPED_BEFORE_LANDING =
+  'The build was stopped before this section landed; nothing of it was applied.';
+
+/**
+ * A section attempt that failed for a reason the build names itself, as data
+ * (E5): a timeout, or a writer that wrote nothing inside its region.
+ */
+class SectionAttemptError extends Error {
+  override readonly name = 'SectionAttemptError';
+
+  constructor(
+    readonly code: AiBuildSkipReasonCode,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Why a section failed, as data a UI can translate (E5). The prose `reason`
+ * stays English and exact; this is what a host shows in the person's language.
+ */
+function skipReasonCode(cause: unknown): AiBuildSkipReasonCode {
+  if (cause instanceof SectionAttemptError) return cause.code;
+  const failure: AiRunFailure = classifyAiRunFailure(cause);
+  switch (failure.source) {
+    case 'provider':
+      return 'unreachable';
+    case 'plan':
+    case 'policy':
+    case 'kernel':
+      return 'invalid';
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Run `work` under the section's own deadline, WITH the caller's signal
+ * chained in.
+ *
+ * It used to be the deadline alone — "an outer abort ends the build after
+ * this section" — and measured on 2026-09-28 that meant Stop did not stop:
+ * all five sections in flight landed up to 1.7 s after it, their provider
+ * requests ran (and cost) to the end, and a person's Stop took as long as
+ * the slowest writer (up to 240 s, 480 s with a retry). Nothing is torn out
+ * from under the kernel by aborting here: a fill only PROPOSES, and nothing
+ * it proposed lands after a stop.
+ *
+ * A deadline that fired is re-thrown as a `timeout`, so the report can say
+ * the section ran out of time rather than that something went wrong.
+ */
+async function underDeadline<T>(
   options: RunAiBuildOptions,
-  shared: Omit<RunAiAgentOptions, 'apply' | 'label' | 'request' | 'runId'>,
   task: AiBuildTask,
-  position: number,
-  total: number,
-  request: string,
   taskTimeoutMs: number,
-): Promise<AiAgentRunResult> {
-  /*
-    The section's OWN deadline. The caller's signal is deliberately not chained
-    in: an outer abort ends the build after this section, it does not tear a
-    half-written section out from under the kernel.
-  */
+  work: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
   const deadline = new AbortController();
+  // A property, not a local: the flag is set in a timer the checker cannot see.
+  const state = { timedOut: false };
   const timer = setTimeout(() => {
+    state.timedOut = true;
     const timeout = new Error(
       `Section "${task.title}" exceeded its ${String(taskTimeoutMs)}ms budget.`,
     );
     timeout.name = 'AbortError';
     deadline.abort(timeout);
   }, taskTimeoutMs);
-  const run = runAiAgent({
-    ...shared,
+  const outer = options.signal;
+  const forwardStop = (): void => {
+    deadline.abort(outer?.reason);
+  };
+  if (outer?.aborted === true) forwardStop();
+  else outer?.addEventListener('abort', forwardStop, { once: true });
+  try {
+    return await work(deadline.signal);
+  } catch (cause) {
+    if (state.timedOut && outer?.aborted !== true) {
+      throw new SectionAttemptError(
+        'timeout',
+        `Section "${task.title}" exceeded its ${String(taskTimeoutMs)}ms budget.`,
+      );
+    }
+    throw cause;
+  } finally {
+    clearTimeout(timer);
+    outer?.removeEventListener('abort', forwardStop);
+  }
+}
+
+/** What one section's writer is told and given; the rest of a step comes from the build. */
+interface FillBrief {
+  readonly request: string;
+  readonly skillIds: readonly string[];
+  /** The step's `additionalContextProviders` — the photo catalog briefed for this section. */
+  readonly providers: readonly AiContextProvider[];
+  /**
+   * Whether the conversation rides along. A page-plan writer's contract says
+   * everything the conversation decided, and history repeated in every writer
+   * was measured at up to 12 turns per fill (agent-audit P2-20, 2026-09-28).
+   */
+  readonly history: boolean;
+}
+
+/** The composition a section writer works under: its own region whole, every other one summarised. */
+function fillComposition(
+  options: RunAiBuildOptions,
+): NonNullable<RunAiAgentOptions['composition']> {
+  return { ...options.composition, documentTreeMode: 'scoped' };
+}
+
+function runFill(
+  options: RunAiBuildOptions,
+  shared: Omit<RunAiAgentOptions, 'apply' | 'label' | 'request' | 'runId'>,
+  task: AiBuildTask,
+  position: number,
+  total: number,
+  brief: FillBrief,
+  signal: AbortSignal,
+): Promise<AiAgentRunResult> {
+  const { history, additionalContextProviders, ...step } = shared;
+  void additionalContextProviders;
+  return runAiAgent({
+    ...step,
+    ...(brief.history && history !== undefined ? { history } : {}),
+    additionalContextProviders: brief.providers,
     runId: stepRunId(options.runId, `fill-${String(position)}`),
-    request,
+    request: brief.request,
     selection: [task.id],
-    selectedSkillIds: ['craftkit.build-fill'],
+    selectedSkillIds: brief.skillIds,
+    // The request carries the page's words for subject matter; they must not
+    // choose this writer's expertise as well.
+    autoSkills: false,
     policy: { ...options.policy, allowedCommands: FILL_COMMANDS },
-    composition: { ...options.composition, documentTreeMode: 'scoped' },
+    composition: fillComposition(options),
     /*
       GENERATE only. Sections are written concurrently but must LAND in order,
       so the proposal comes back here and `applyAiPlan` runs it when its turn
       arrives. Safe because apply re-validates against the LIVE kernel, not
-      against the document the proposal was made from — and because each fill
-      writes only its own region's tree, so nothing two of them touch overlaps.
-      Ordered landing is what keeps "undo Pricing" meaning exactly one section.
+      against the document the proposal was made from — and because the target
+      guard (`guardFill`) keeps each fill inside its own region, so nothing two
+      of them touch overlaps.
     */
     apply: 'never',
     label: stepLabel(position, total, task.title),
-    signal: deadline.signal,
+    signal,
   });
-  return run.finally(() => {
-    clearTimeout(timer);
+}
+
+interface GuardedFill {
+  /** The steps that stay inside the region, in the order the writer wrote them. */
+  readonly commands: AiPlan['commands'];
+  /** The props those steps write — what the landing records and a revert restores. */
+  readonly keys: readonly AiBuildSectionKey[];
+  readonly outOfScope: readonly AiBuildOutOfScopeStep[];
+}
+
+function stringArg(args: unknown, name: 'id' | 'key'): string | undefined {
+  if (typeof args !== 'object' || args === null) return undefined;
+  const value: unknown = (args as Record<string, unknown>)[name];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function isFillKey(key: string | undefined): key is AiBuildSectionKey {
+  return key !== undefined && (FILL_KEYS as readonly string[]).includes(key);
+}
+
+/**
+ * THE TARGET GUARD: a section writer may set its own region's `tree` and
+ * `css`, and nothing else.
+ *
+ * The command policy only ever checked NAMES. `setProp` was allowed, so a
+ * writer could set any prop on any node, and the comment that promised "each
+ * fill writes only its own region's tree" was a hope. Measured 2026-09-28
+ * (agent-audit.md P0-2): one writer replaced the page CSS — the skeleton's
+ * font import went with it — and another overwrote the hero, and both
+ * reported `applied`. Page-level skills tell writers to do exactly that
+ * ("load fonts in pageCss", "KEYFRAMES live in pageCss"), so it is not rare.
+ *
+ * Everything outside is dropped before landing and handed back to be
+ * REPORTED on the section, never silently counted as applied.
+ */
+function guardFill(plan: AiPlan, task: AiBuildTask): GuardedFill {
+  const commands: AiPlan['commands'][number][] = [];
+  const keys = new Set<AiBuildSectionKey>();
+  const outOfScope: AiBuildOutOfScopeStep[] = [];
+  for (const step of plan.commands) {
+    const id = stringArg(step.args, 'id');
+    const key = stringArg(step.args, 'key');
+    if (step.command === 'setProp' && id === task.id && isFillKey(key)) {
+      commands.push(step);
+      keys.add(key);
+      continue;
+    }
+    outOfScope.push(
+      Object.freeze({
+        command: step.command,
+        ...(id === undefined ? {} : { id }),
+        ...(key === undefined ? {} : { key }),
+        reason: `A section writer may set only its own region's tree and css (region ${task.id}); this ${step.command}${key === undefined ? '' : ` of "${key}"`}${id === undefined ? '' : ` on ${id}`} reached outside it and was dropped.`,
+      }),
+    );
+  }
+  return {
+    commands: Object.freeze(commands),
+    keys: FILL_KEYS.filter((key) => keys.has(key)),
+    outOfScope: Object.freeze(outOfScope),
+  };
+}
+
+/**
+ * The proposal that lands: the writer's own when it stayed inside, otherwise
+ * a new proposal of the kept steps under the SAME pinned policy, skills and
+ * context — authenticated by the one constructor the door trusts, so the guard
+ * narrows what lands without ever widening what may.
+ */
+function landingProposal(run: AiAgentRunResult, guarded: GuardedFill): AiValidatedProposal {
+  if (guarded.outOfScope.length === 0) return run.proposal;
+  return createAiValidatedProposal({
+    plan: { ...run.proposal.plan, commands: guarded.commands },
+    policy: run.proposal.policy,
+    skillActivations: run.proposal.skillActivations,
+    context: run.context,
   });
 }
 
 const ARABIC_LETTER = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/gu;
+/** The same range, unanchored and stateless, for a yes/no question. */
+const ARABIC_SCRIPT = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/u;
+const ARABIC_LANG = /^ar\b/u;
 const LATIN_LETTER = /[A-Za-z]/gu;
 
 /** Every piece of text a plan writes into its trees, joined. */
@@ -355,6 +788,66 @@ function writtenText(plan: AiPlan): string {
 }
 
 /**
+ * Whether the root block declares a prop. The product's page block declares
+ * `lang`; a narrower root may not, and setting a prop its schema lacks would
+ * refuse the whole step — direction included.
+ */
+function rootDeclares(options: RunAiBuildOptions, key: string): boolean {
+  return rootField(options, key) !== undefined;
+}
+
+/** The root block's schema for one prop, when it declares that prop. */
+function rootField(options: RunAiBuildOptions, key: string): unknown {
+  const document = options.kernel.getDocument();
+  const rootType = document.nodes[document.rootId]?.type;
+  if (rootType === undefined) return undefined;
+  const props: unknown = options.kernel.context.registry.block(rootType)?.schema.props;
+  const shape: unknown =
+    typeof props === 'object' && props !== null ? (props as { shape?: unknown }).shape : undefined;
+  if (typeof shape !== 'object' || shape === null || !(key in shape)) return undefined;
+  return (shape as Record<string, unknown>)[key];
+}
+
+/** The value the root block gives a prop nobody set, when it gives one. */
+function rootDefault(options: RunAiBuildOptions, key: string): unknown {
+  const field = rootField(options, key);
+  const safeParse: unknown =
+    typeof field === 'object' && field !== null
+      ? (field as { safeParse?: unknown }).safeParse
+      : undefined;
+  if (typeof safeParse !== 'function') return undefined;
+  const parsed: unknown = (safeParse as (value: unknown) => unknown).call(field, undefined);
+  if (typeof parsed !== 'object' || parsed === null) return undefined;
+  const { success, data } = parsed as { success?: unknown; data?: unknown };
+  return success === true ? data : undefined;
+}
+
+/** Whether the page root held anything before this build laid a skeleton. */
+function pageHoldsContent(options: RunAiBuildOptions): boolean {
+  const document = options.kernel.getDocument();
+  const slots = document.nodes[document.rootId]?.slots ?? {};
+  return Object.values(slots).some((children) => children.length > 0);
+}
+
+/**
+ * Whether the build may name the page's language.
+ *
+ * Only a language nobody chose: an empty one, or — on a page that held nothing
+ * before this build — the block's own default. An explicit language is the
+ * person's, Arabic words or not: a page they set to `en` stays `en`, and one
+ * already in Arabic ('ar-JO') is never "corrected" to 'ar'. The last review
+ * (2026-09-27) found the build overwriting any non-Arabic lang with 'ar'.
+ */
+function mayNameLanguage(options: RunAiBuildOptions, heldContent: boolean): boolean {
+  if (!rootDeclares(options, 'lang')) return false;
+  const document = options.kernel.getDocument();
+  const current: unknown = document.nodes[document.rootId]?.props['lang'];
+  if (current === undefined || current === '') return true;
+  if (typeof current === 'string' && ARABIC_LANG.test(current)) return false;
+  return !heldContent && current === rootDefault(options, 'lang');
+}
+
+/**
  * An Arabic page reads right to left, whether or not the skeleton said so.
  *
  * Measured 2026-09-27: the same Arabic request produced a skeleton with
@@ -363,55 +856,1388 @@ function writtenText(plan: AiPlan): string {
  * laid backwards about half the time. Direction is a fact about the words the
  * skeleton wrote, so it is decided here from them: its own step, its own undo,
  * and never a reason for the build to fail.
+ *
+ * The LANGUAGE travels with it. Direction alone left every built Arabic page
+ * with lang '' — no lang attribute, so screen readers read the Arabic in the
+ * host's voice and :lang(ar) rules never matched. It is set in the same step,
+ * only where the root block declares `lang`, and only over a language nobody
+ * chose (`mayNameLanguage`): 'ar-JO' stays, and so does an explicit 'en'.
+ *
+ * It is a WRITE, so it asks the same question every other write of a build
+ * asks first: has the person stopped? The wave-1 verifier (2026-09-28) aborted
+ * the signal from an observer of `build.planned` and watched this transaction
+ * land anyway — the one write of the build that never checked.
  */
-function turnArabicPageRightToLeft(options: RunAiBuildOptions, plan: AiPlan): void {
-  if (options.kernel.getDocument().dir === 'rtl') return;
+function turnArabicPageRightToLeft(
+  options: RunAiBuildOptions,
+  plan: AiPlan,
+  heldContent: boolean,
+  personStopped: () => boolean,
+): void {
+  if (personStopped()) return;
+  const document = options.kernel.getDocument();
+  const needsDir = document.dir !== 'rtl';
+  const needsLang = mayNameLanguage(options, heldContent);
+  if (!needsDir && !needsLang) return;
   const text = writtenText(plan);
   const arabic = text.match(ARABIC_LETTER)?.length ?? 0;
   const latin = text.match(LATIN_LETTER)?.length ?? 0;
   if (arabic === 0 || arabic <= latin) return;
-  try {
+  const turn = { command: 'setDocMeta', args: { dir: 'rtl' } };
+  const language = { command: 'setProp', args: { id: document.rootId, key: 'lang', value: 'ar' } };
+  const apply = (commands: AiPlan['commands']): void => {
     applyAiPlan({
       kernel: options.kernel,
       validationPorts: options.validationPorts,
-      plan: {
-        rationale: 'The page is written in Arabic, so it reads right to left.',
-        commands: [{ command: 'setDocMeta', args: { dir: 'rtl' } }],
+      plan: { rationale: 'The page is written in Arabic, so it reads right to left.', commands },
+      policy: {
+        allowedCommands: [...new Set(commands.map(({ command }) => command))],
+        maxCommands: commands.length,
       },
-      policy: { allowedCommands: ['setDocMeta'], maxCommands: 1 },
       label: RTL_LABEL,
     });
+  };
+  try {
+    apply([...(needsDir ? [turn] : []), ...(needsLang ? [language] : [])]);
   } catch {
-    // A page that cannot turn stays as it was; the sections still get written.
+    /*
+      A page that cannot turn stays as it was; the sections still get written.
+      The pair is one step, so a refused language would take the direction
+      down with it — and the direction is the half that was measured to matter.
+    */
+    if (!needsDir || !needsLang) return;
+    try {
+      apply([turn]);
+    } catch {
+      // Not even the direction: the page stays as it was.
+    }
+  }
+}
+
+// ── The build's shared state ────────────────────────────────────────────────
+
+type StepOptions = Omit<RunAiAgentOptions, 'apply' | 'label' | 'request' | 'runId'>;
+
+type AgentEventPayload<T = AiAgentEvent> = T extends AiAgentEvent
+  ? Omit<T, 'runId' | 'seq' | 'at'>
+  : never;
+
+/** What every part of one build reads: its options, its clock, its voice and its Stop. */
+interface BuildRun {
+  readonly options: RunAiBuildOptions;
+  readonly emit: (payload: BuildEventPayload) => void;
+  readonly shared: StepOptions;
+  readonly startedAt: number;
+  readonly maxTasks: number;
+  readonly taskTimeoutMs: number;
+  readonly buildBudgetMs: number;
+  /** Whether this build may touch the document at all. */
+  readonly writes: boolean;
+  /** Whether it must ask before its FIRST write — the skeleton included. */
+  readonly asks: boolean;
+  /** Whether the page root held anything before this build laid a skeleton. */
+  readonly heldContent: boolean;
+  /** The person pressed Stop, or a newer run took the surface. */
+  readonly personStopped: () => boolean;
+  /**
+   * Time spent waiting on the person's answer to `onPlanned`. Charged to
+   * neither the budget nor `elapsedMs` (E2): a person who reads the plan card
+   * for ten minutes has not spent ten minutes of a 15-minute build, and the
+   * wait used to be charged, so a careful reader got a build that stopped
+   * starting sections before it began.
+   */
+  waitedMs: number;
+  /** False once the build has reported its end; its steps fall silent then. */
+  speaking: boolean;
+}
+
+function createBuildRun(options: RunAiBuildOptions): BuildRun {
+  const writes = (options.apply ?? 'auto') === 'auto';
+  const personStopped = (): boolean => {
+    if (options.signal?.aborted === true) return true;
+    if (options.isCurrentRun === undefined) return false;
+    try {
+      // Read as unknown: a host port that answers anything but `true` holds no lease.
+      const current: unknown = options.isCurrentRun(options.runId);
+      return current !== true;
+    } catch {
+      // A broken lease port is no lease: nothing lands on its word.
+      return true;
+    }
+  };
+  const build: BuildRun = {
+    options,
+    emit: createBuildEmitter(options),
+    shared: sharedStepOptions(options, () => build.speaking),
+    startedAt: options.clock.now(),
+    maxTasks: options.maxTasks ?? DEFAULT_AI_BUILD_MAX_TASKS,
+    taskTimeoutMs: options.taskTimeoutMs ?? DEFAULT_AI_BUILD_TASK_TIMEOUT_MS,
+    buildBudgetMs: options.buildBudgetMs ?? DEFAULT_AI_BUILD_BUDGET_MS,
+    writes,
+    asks: writes && options.onPlanned !== undefined,
+    // Read before any skeleton lands: whether this was a blank page.
+    heldContent: pageHoldsContent(options),
+    personStopped,
+    waitedMs: 0,
+    speaking: true,
+  };
+  return build;
+}
+
+/** Build time so far, the person's reading time excluded (E2). */
+function workedMs(build: BuildRun): number {
+  return build.options.clock.now() - build.startedAt - build.waitedMs;
+}
+
+/** Ask `onPlanned`, keeping the wait off the build's clock. */
+async function askPerson(
+  build: BuildRun,
+  planned: readonly AiBuildPlannedTask[],
+  direction: string,
+  plan?: PagePlan,
+): Promise<AiBuildPlanAnswer> {
+  const onPlanned = build.options.onPlanned;
+  if (onPlanned === undefined || build.personStopped()) return 'stop';
+  const askedAt = build.options.clock.now();
+  try {
+    // Two arguments on a scaffold build, exactly as every host before page plans was called.
+    return await (plan === undefined
+      ? onPlanned(planned, direction)
+      : onPlanned(planned, direction, plan));
+  } finally {
+    build.waitedMs += Math.max(0, build.options.clock.now() - askedAt);
   }
 }
 
 /**
- * Build a whole page as a scaffold plus one run per section, instead of one
- * plan that has to hold the entire page in its head.
- *
- * It is a thin orchestrator: planning, validation and application all still
- * happen inside `runAiAgent`, once per step, through the same validated
- * grouped kernel door. What it adds is the split itself, the direction that
- * keeps the sections looking like one page, and the promise that a failure
- * inside one section costs that section and nothing else.
- *
- * The rule the whole design answers to: a build must never be worse than the
- * single call it replaces. So a scaffold that produced fewer than two regions
- * is not built on — it is abandoned for one ordinary run.
+ * The answer was "stop", or Stop was pressed while the question was open: the
+ * build ends with the document exactly as it was.
  */
-export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRunResult> {
-  assertBuildRunId(options.runId);
-  const maxTasks = options.maxTasks ?? DEFAULT_AI_BUILD_MAX_TASKS;
-  const taskTimeoutMs = options.taskTimeoutMs ?? DEFAULT_AI_BUILD_TASK_TIMEOUT_MS;
-  const buildBudgetMs = options.buildBudgetMs ?? DEFAULT_AI_BUILD_BUDGET_MS;
-  const emit = createBuildEmitter(options);
-  const shared = sharedStepOptions(options);
-  const startedAt = options.clock.now();
-  /** Whether this build may touch the document at all. */
-  const writes = (options.apply ?? 'auto') === 'auto';
+function refusedBuild(
+  build: BuildRun,
+  planned: readonly AiBuildPlannedTask[],
+  direction: string,
+  extra: Pick<AiBuildRunResult, 'scaffold' | 'pagePlan'>,
+): AiBuildRunResult {
+  const nothing: readonly AiBuildTaskReport[] = Object.freeze([]);
+  const elapsedMs = workedMs(build);
+  build.emit({ type: 'build.stopped', reason: 'signal' });
+  build.emit({
+    type: 'build.completed',
+    tasks: nothing,
+    applied: 0,
+    skipped: 0,
+    elapsedMs,
+    outcome: 'signal',
+  });
+  build.speaking = false;
+  return Object.freeze({
+    runId: build.options.runId,
+    tasks: nothing,
+    applied: 0,
+    skipped: 0,
+    elapsedMs,
+    ...(extra.scaffold === undefined ? {} : { scaffold: extra.scaffold }),
+    direction,
+    outcome: 'signal' as const,
+    plannedTasks: planned,
+    ...(extra.pagePlan === undefined ? {} : { pagePlan: extra.pagePlan }),
+  });
+}
 
-  emit({ type: 'build.scaffolding' });
+// ── Writing and landing the sections ────────────────────────────────────────
+
+/** One section of the page: how to write it, or that it is already written. */
+interface SectionJob {
+  readonly task: AiBuildTask;
+  /** 1-based, on the page. */
+  readonly position: number;
+  readonly total: number;
+  /**
+   * Set when the skeleton wrote this region IN FULL from the plan (a header
+   * from the nav, a footer from the facts): it needs no writer, and its
+   * landing is the skeleton's transaction.
+   */
+  readonly complete?: AiBuildSectionLanding;
+  /** The brief for attempt 1 or 2 — read when the attempt starts, so neighbours are current. */
+  readonly brief?: (attempt: 1 | 2) => FillBrief;
+  /** The section's contract check (step E); absent on a scaffold build. */
+  readonly check?: (landed: LandedSection) => readonly SectionCheckIssue[];
+  readonly sectionKey?: string;
+  readonly facts?: readonly AiBuildTaskFact[];
+  /** Told what landed, so later writers see it as written. */
+  readonly onLanded?: (values: AiBuildSectionValues) => void;
+}
+
+type Written =
+  | {
+      readonly kind: 'ready';
+      readonly proposal: AiValidatedProposal;
+      readonly keys: readonly AiBuildSectionKey[];
+      readonly outOfScope: readonly AiBuildOutOfScopeStep[];
+      readonly attempts: number;
+      readonly check?: AiBuildSectionCheck;
+    }
+  | {
+      readonly kind: 'failed';
+      readonly reason: string;
+      readonly reasonCode: AiBuildSkipReasonCode;
+      readonly outOfScope: readonly AiBuildOutOfScopeStep[];
+      readonly attempts: number;
+    }
+  | {
+      readonly kind: 'not-started';
+      readonly reason: string;
+      readonly reasonCode: AiBuildSkipReasonCode;
+      readonly attempts: number;
+    }
+  | { readonly kind: 'complete'; readonly landing: AiBuildSectionLanding };
+
+interface Slot {
+  readonly written: Promise<Written>;
+  /** First verdict wins: a Stop may settle a slot its writer settles later. */
+  readonly settle: (written: Written) => void;
+  claimed: boolean;
+  settled: boolean;
+  /** Attempts begun so far, for a section a Stop cuts off. */
+  attempts: number;
+}
+
+function stopReasonCode(reason: AiBuildStopReason): AiBuildSkipReasonCode {
+  // A spent task limit is a spent budget of sections: the section was never begun either way.
+  return reason === 'signal' ? 'stopped' : 'budget';
+}
+
+/** A section's writer-owned props as a plan's kept steps would leave them, over the placeholder. */
+function candidateSection(
+  commands: AiPlan['commands'],
+  placeholder: AiBuildSectionValues,
+): LandedSection {
+  let tree: JsonValue = placeholder.tree ?? null;
+  let css: string | undefined = typeof placeholder.css === 'string' ? placeholder.css : undefined;
+  for (const step of commands) {
+    const key = stringArg(step.args, 'key');
+    const value: unknown =
+      typeof step.args === 'object' && step.args !== null
+        ? (step.args as { value?: unknown }).value
+        : undefined;
+    if (key === 'tree') tree = value as JsonValue;
+    if (key === 'css' && typeof value === 'string') css = value;
+  }
+  return css === undefined ? { tree } : { tree, css };
+}
+
+/** The checker never costs a section: one that throws is a check that found nothing. */
+function checkedIssues(job: SectionJob, landed: LandedSection): readonly SectionCheckIssue[] {
+  if (job.check === undefined) return [];
+  try {
+    return job.check(landed);
+  } catch {
+    return [];
+  }
+}
+
+/** The checker's findings on the repair wire: each one the instruction that fixes it. */
+function repairIssues(issues: readonly SectionCheckIssue[]): readonly AiPlanValidationIssue[] {
+  return issues.map(({ code, message, path }) => ({
+    code: 'invalid-plan' as const,
+    message: `${code}: ${message}${path === undefined ? '' : ` (at ${path})`}`,
+  }));
+}
+
+/** Events for a step the build runs itself, under `<build>/<step>`, gated like every step's. */
+function stepEmitter(build: BuildRun, step: string): (payload: AgentEventPayload) => void {
+  let seq = 0;
+  const onEvent = build.options.onEvent;
+  return (payload) => {
+    if (!build.speaking || onEvent === undefined) return;
+    const event = Object.freeze({
+      ...payload,
+      runId: stepRunId(build.options.runId, step),
+      seq,
+      at: build.options.clock.now(),
+    }) as AiAgentEvent;
+    seq += 1;
+    try {
+      onEvent(event);
+    } catch {
+      // Observers are telemetry consumers; they cannot steer the build.
+    }
+  };
+}
+
+/**
+ * Step E, BEFORE landing (agent-audit §3.1, evaluator-optimizer): hold the
+ * written section to its contract, and when it misses, send exactly what it
+ * missed back in ONE repair call. Checked before the section lands, so it
+ * lands once — never a wrong section followed by a second transaction that
+ * fixes it.
+ *
+ * The repaired answer is kept only when it is inside the region and misses no
+ * more than the first; otherwise the first lands, its issues on the report.
+ * No repair runs after Stop, on a spent budget, or for a provider that cannot
+ * repair.
+ */
+async function checkAndRepair(
+  build: BuildRun,
+  job: SectionJob,
+  run: AiAgentRunResult,
+  guarded: GuardedFill,
+  request: string,
+  placeholder: AiBuildSectionValues,
+  budgetSpent: () => boolean,
+): Promise<{
+  readonly guarded: GuardedFill;
+  readonly proposal: AiValidatedProposal;
+  readonly check?: AiBuildSectionCheck;
+}> {
+  const first = { guarded, proposal: landingProposal(run, guarded) };
+  if (job.check === undefined) return first;
+  const issues = checkedIssues(job, candidateSection(guarded.commands, placeholder));
+  if (issues.length === 0) return { ...first, check: Object.freeze({ issues, repaired: false }) };
+  const { options } = build;
+  if (options.provider.repair === undefined || build.personStopped() || budgetSpent()) {
+    return { ...first, check: Object.freeze({ issues, repaired: false }) };
+  }
+
+  const emit = stepEmitter(build, `check-${String(job.position)}`);
+  emit({ type: 'run.started', apply: 'never' });
+  emit({ type: 'plan.repairing', issues: issues.map(({ message }) => message) });
+  const landedPlan: AiPlan = { ...run.proposal.plan, commands: guarded.commands };
+  try {
+    const repaired = await underDeadline(options, job.task, build.taskTimeoutMs, (signal) =>
+      repairAiPlanForIssues(
+        {
+          kernel: options.kernel,
+          provider: options.provider,
+          request,
+          validationPorts: options.validationPorts,
+          signal,
+          composition: fillComposition(options),
+          ...(options.policy?.maxContextTokens === undefined
+            ? {}
+            : { maxContextTokens: options.policy.maxContextTokens }),
+        },
+        run.context,
+        landedPlan,
+        repairIssues(issues),
+        run.policy,
+      ),
+    );
+    emit({ type: 'plan.validating', attempt: 2 });
+    const second = guardFill(repaired, job.task);
+    const remaining =
+      second.commands.length === 0
+        ? undefined
+        : checkedIssues(job, candidateSection(second.commands, placeholder));
+    emit({ type: 'run.completed', status: 'proposed' });
+    if (remaining === undefined || remaining.length > issues.length) {
+      return { ...first, check: Object.freeze({ issues, repaired: true }) };
+    }
+    const proposal = createAiValidatedProposal({
+      plan: { ...repaired, commands: second.commands },
+      policy: run.policy,
+      skillActivations: run.proposal.skillActivations,
+      context: run.context,
+    });
+    return {
+      guarded: {
+        ...second,
+        outOfScope: Object.freeze([...guarded.outOfScope, ...second.outOfScope]),
+      },
+      proposal,
+      check: Object.freeze({ issues: remaining, repaired: true }),
+    };
+  } catch (cause) {
+    // A repair that failed costs the repair, never the section: the first answer lands.
+    emit({ type: 'run.failed', error: classifyAiRunFailure(cause) });
+    return { ...first, check: Object.freeze({ issues, repaired: true }) };
+  }
+}
+
+interface FilledSections {
+  readonly reports: readonly AiBuildTaskReport[];
+  readonly applied: number;
+  readonly skipped: number;
+  readonly stopped: AiBuildStopReason | undefined;
+  readonly unfilled: readonly AiBuildUnfilledSection[];
+}
+
+/**
+ * WRITTEN concurrently, LANDED in order.
+ *
+ * Two jobs. The pool writes up to `fillConcurrency` sections at a time — the
+ * expensive part, minutes each — and nothing else bounds it. The lander walks
+ * the list from the top and applies each section only when every section
+ * above it has settled, so the page fills top to bottom however the model
+ * finishes and the transaction log reads in page order.
+ *
+ * There used to be a WINDOW as well: a writer could run at most
+ * `fillConcurrency` sections ahead of the section currently landing. Its
+ * stated gains were writing against landed neighbours (under the scoped tree
+ * mode a writer sees its neighbours only as "filled · N nodes" either way)
+ * and not paying for work a Stop would throw away (Stop now cancels the
+ * writes themselves). Its measured cost, 2026-09-28 (hol.mjs: 8 sections,
+ * hero 3 s, others 0.5 s): sections 6-8 waited ~3 s on the hero while four
+ * writers sat idle — on every page with more sections than writers, because
+ * the hero is the slowest section to write.
+ */
+async function fillAndLand(
+  build: BuildRun,
+  jobs: readonly SectionJob[],
+  placeholders: ReadonlyMap<NodeId, AiBuildSectionValues>,
+): Promise<FilledSections> {
+  const { options, emit, personStopped } = build;
+  const reports: AiBuildTaskReport[] = [];
+  const fillCount = jobs.filter(({ complete }) => complete === undefined).length;
+  const fillConcurrency = fillConcurrencyFor(fillCount, options.fillConcurrency);
+  let applied = 0;
+  let skipped = 0;
+  let stopped: AiBuildStopReason | undefined;
+
+  const slots = jobs.map((job): Slot => {
+    let resolve!: (written: Written) => void;
+    const written = new Promise<Written>((settle) => {
+      resolve = settle;
+    });
+    const slot: Slot = {
+      written,
+      settle: (verdict) => {
+        if (slot.settled) return;
+        slot.settled = true;
+        resolve(verdict);
+      },
+      claimed: false,
+      settled: false,
+      attempts: 0,
+    };
+    // Written by the skeleton: nothing to write, and nothing a Stop can take back.
+    if (job.complete !== undefined) {
+      slot.claimed = true;
+      slot.settle({ kind: 'complete', landing: job.complete });
+    }
+    return slot;
+  });
+
+  const budgetSpent = (): boolean => workedMs(build) >= build.buildBudgetMs;
+
+  /** The reason to stop, decided once and then true for every later check. */
+  const stopReason = (): AiBuildStopReason | undefined => {
+    if (personStopped()) return 'signal';
+    if (stopped !== undefined) return stopped;
+    if (budgetSpent()) return 'budget';
+    return undefined;
+  };
+
+  let announced = false;
+  const halt = (reason: AiBuildStopReason): void => {
+    if (!announced) {
+      announced = true;
+      stopped = reason;
+      emit({ type: 'build.stopped', reason });
+    }
+    // Nobody may wait on a section that will never be written.
+    for (const slot of slots) {
+      if (!slot.claimed) {
+        slot.claimed = true;
+        slot.settle({
+          kind: 'not-started',
+          reason: notStartedReason(reason),
+          reasonCode: stopReasonCode(reason),
+          attempts: 0,
+        });
+      }
+    }
+    /*
+      A person's Stop also ends the sections IN FLIGHT. Their writers were
+      aborted with the same signal; settling them here means the lander need not
+      wait for a provider that is slow to notice, and nothing they return later
+      is ever read.
+    */
+    if (reason === 'signal') {
+      for (const slot of slots) {
+        slot.settle({
+          kind: 'not-started',
+          reason: STOPPED_WHILE_WRITING,
+          reasonCode: 'stopped',
+          attempts: slot.attempts,
+        });
+      }
+    }
+  };
+  const onStop = (): void => {
+    halt('signal');
+  };
+  options.signal?.addEventListener('abort', onStop, { once: true });
+
+  /** One section, up to two attempts, guarded, checked. Never throws. */
+  const writeSection = async (slot: Slot, job: SectionJob): Promise<Written> => {
+    const { task, position, total } = job;
+    const placeholder = placeholders.get(task.id) ?? Object.freeze<AiBuildSectionValues>({});
+    let failure: unknown;
+    let outOfScope: readonly AiBuildOutOfScopeStep[] = [];
+    for (const attempt of [1, 2] as const) {
+      if (attempt === 2) {
+        // A retry is a new start: never after Stop, and never on a spent budget.
+        if (personStopped()) break;
+        if (budgetSpent()) {
+          failure = new SectionAttemptError(
+            skipReasonCode(failure),
+            `${errorMessage(failure)} No second attempt: the build budget ran out.`,
+          );
+          break;
+        }
+      }
+      slot.attempts = attempt;
+      emit({ type: 'task.started', position, total, task, attempt });
+      const brief = job.brief?.(attempt);
+      if (brief === undefined) break;
+      try {
+        const run = await underDeadline(options, task, build.taskTimeoutMs, (signal) =>
+          runFill(options, build.shared, task, position, total, brief, signal),
+        );
+        const guarded = guardFill(run.proposal.plan, task);
+        outOfScope = guarded.outOfScope;
+        if (guarded.commands.length === 0) {
+          // Everything it wrote was somewhere else: a failed attempt, not a landing.
+          failure = new SectionAttemptError(
+            'out-of-scope',
+            `Section "${task.title}" wrote nothing inside its own region; ${String(outOfScope.length)} step${outOfScope.length === 1 ? '' : 's'} outside it ${outOfScope.length === 1 ? 'was' : 'were'} dropped.`,
+          );
+          continue;
+        }
+        const checked = await checkAndRepair(
+          build,
+          job,
+          run,
+          guarded,
+          brief.request,
+          placeholder,
+          budgetSpent,
+        );
+        return {
+          kind: 'ready',
+          proposal: checked.proposal,
+          keys: checked.guarded.keys,
+          outOfScope: checked.guarded.outOfScope,
+          attempts: attempt,
+          ...(checked.check === undefined ? {} : { check: checked.check }),
+        };
+      } catch (cause) {
+        failure = cause;
+      }
+    }
+    return {
+      kind: 'failed',
+      reason: errorMessage(failure),
+      reasonCode: skipReasonCode(failure),
+      outOfScope,
+      attempts: slot.attempts,
+    };
+  };
+
+  let nextToWrite = 0;
+  let started = 0;
+  const writer = async (): Promise<void> => {
+    for (;;) {
+      const index = nextToWrite;
+      nextToWrite += 1;
+      const slot = slots[index];
+      const job = jobs[index];
+      if (slot === undefined || job === undefined) return;
+      if (slot.claimed) continue;
+      slot.claimed = true;
+
+      const reason = stopReason();
+      if (reason !== undefined) {
+        slot.settle({
+          kind: 'not-started',
+          reason: notStartedReason(reason),
+          reasonCode: stopReasonCode(reason),
+          attempts: 0,
+        });
+        halt(reason);
+        return;
+      }
+      if (started >= build.maxTasks) {
+        slot.settle({
+          kind: 'not-started',
+          reason: notStartedReason('max-tasks'),
+          reasonCode: stopReasonCode('max-tasks'),
+          attempts: 0,
+        });
+        halt('max-tasks');
+        return;
+      }
+      started += 1;
+      slot.settle(await writeSection(slot, job));
+    }
+  };
+
+  const writers = Array.from({ length: Math.min(fillConcurrency, fillCount) }, () => writer());
+
+  for (const [index, job] of jobs.entries()) {
+    const { task, position, total } = job;
+    const slot = slots[index];
+    const written: Written =
+      slot === undefined
+        ? {
+            kind: 'not-started',
+            reason: notStartedReason('max-tasks'),
+            reasonCode: 'budget',
+            attempts: 0,
+          }
+        : await slot.written;
+    const ledger = {
+      ...(job.sectionKey === undefined ? {} : { sectionKey: job.sectionKey }),
+      ...(job.facts === undefined || job.facts.length === 0 ? {} : { facts: job.facts }),
+    };
+
+    if (written.kind === 'complete') {
+      applied += 1;
+      reports.push({
+        ...task,
+        status: 'applied',
+        attempts: 0,
+        landing: written.landing,
+        ...ledger,
+      });
+      emit({ type: 'task.completed', position, total, task, attempts: 0 });
+      continue;
+    }
+    if (written.kind === 'not-started') {
+      reports.push({
+        ...task,
+        status: 'not-started',
+        attempts: written.attempts,
+        reason: written.reason,
+        reasonCode: written.reasonCode,
+        ...ledger,
+      });
+      continue;
+    }
+    const dropped = written.outOfScope.length === 0 ? {} : { outOfScope: written.outOfScope };
+    if (written.kind === 'failed') {
+      /*
+        Self-recovery, never a question. A section that would not be written
+        twice is recorded and left as the placeholder the skeleton laid down;
+        the page keeps its shape and the next section still gets its turn.
+      */
+      skipped += 1;
+      reports.push({
+        ...task,
+        status: 'skipped',
+        attempts: written.attempts,
+        reason: written.reason,
+        reasonCode: written.reasonCode,
+        ...dropped,
+        ...ledger,
+      });
+      emit({
+        type: 'task.skipped',
+        position,
+        total,
+        task,
+        attempts: written.attempts,
+        reason: written.reason,
+        reasonCode: written.reasonCode,
+      });
+      continue;
+    }
+    /*
+      THE LANDER'S OWN CHECK. A section that finished writing before Stop and
+      was waiting for the one above it to land is still work the person
+      stopped: nothing lands after Stop, however it got here.
+    */
+    if (personStopped()) {
+      halt('signal');
+      reports.push({
+        ...task,
+        status: 'not-started',
+        attempts: written.attempts,
+        reason: STOPPED_BEFORE_LANDING,
+        reasonCode: 'stopped',
+        ...dropped,
+        ...ledger,
+      });
+      continue;
+    }
+
+    const label = stepLabel(position, total, task.title);
+    const before = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
+    let landed: AppliedAiPlan;
+    try {
+      landed = applyAiPlan({
+        kernel: options.kernel,
+        validationPorts: options.validationPorts,
+        proposal: written.proposal,
+        label,
+      });
+    } catch (cause) {
+      /*
+        Written fine, refused on landing: the page moved under it while it was
+        being written. Same answer as a failed write — the section is left as
+        the placeholder, and the rest of the page still lands.
+      */
+      const reason = errorMessage(cause);
+      skipped += 1;
+      reports.push({
+        ...task,
+        status: 'skipped',
+        attempts: written.attempts,
+        reason,
+        reasonCode: 'page-changed',
+        ...dropped,
+        ...ledger,
+      });
+      emit({
+        type: 'task.skipped',
+        position,
+        total,
+        task,
+        attempts: written.attempts,
+        reason,
+        reasonCode: 'page-changed',
+      });
+      continue;
+    }
+
+    /*
+      Recorded so the section can be put back FORWARD (`revertBuildSection`):
+      the one transaction it landed in, by id, and the props the fill wrote as
+      they stood just before and just after.
+    */
+    const transaction = landed.transactions[0];
+    const after = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
+    applied += 1;
+    job.onLanded?.(readSectionValues(options.kernel.getDocument(), task.id));
+    reports.push({
+      ...task,
+      status: 'applied',
+      attempts: written.attempts,
+      ...dropped,
+      ...(transaction === undefined
+        ? {}
+        : {
+            landing: Object.freeze({ transactionId: transaction.id, label, before, after }),
+          }),
+      ...ledger,
+      ...(written.check === undefined ? {} : { check: written.check }),
+    });
+    emit({ type: 'task.completed', position, total, task, attempts: written.attempts });
+  }
+
+  options.signal?.removeEventListener('abort', onStop);
+  /*
+    Every slot is settled. Without a Stop every writer has also finished, and
+    this only reaps the pool. After a Stop a writer may still be waiting on a
+    provider that is slow to notice its abort; the build does not wait for it —
+    whatever it returns is never read, and it never throws.
+  */
+  if (personStopped()) void Promise.all(writers);
+  else await Promise.all(writers);
+
+  const unfilled: readonly AiBuildUnfilledSection[] = Object.freeze(
+    reports
+      .filter(({ status }) => status !== 'applied')
+      .map(({ id, title }) =>
+        Object.freeze({
+          id,
+          title,
+          placeholder: placeholders.get(id) ?? Object.freeze<AiBuildSectionValues>({}),
+        }),
+      ),
+  );
+  return { reports: Object.freeze(reports), applied, skipped, stopped, unfilled };
+}
+
+/** The build's last word, and its result. */
+function finishBuild(
+  build: BuildRun,
+  filled: FilledSections,
+  direction: string,
+  extra: Pick<AiBuildRunResult, 'scaffold' | 'pagePlan'>,
+): AiBuildRunResult {
+  const elapsedMs = workedMs(build);
+  const outcome: AiBuildOutcome = filled.stopped ?? 'completed';
+  build.emit({
+    type: 'build.completed',
+    tasks: filled.reports,
+    applied: filled.applied,
+    skipped: filled.skipped,
+    elapsedMs,
+    outcome,
+  });
+  build.speaking = false;
+  return Object.freeze({
+    runId: build.options.runId,
+    tasks: filled.reports,
+    ...(extra.scaffold === undefined ? {} : { scaffold: extra.scaffold }),
+    applied: filled.applied,
+    skipped: filled.skipped,
+    elapsedMs,
+    direction,
+    outcome,
+    unfilled: filled.unfilled,
+    ...(extra.pagePlan === undefined ? {} : { pagePlan: extra.pagePlan }),
+  });
+}
+
+// ── The page-plan build: T1 plan, T2 code skeleton, contracts per writer ────
+
+/** The plan as a one-line direction, for the approval card and the result. */
+function planDirection(plan: PagePlan, rationale: string | undefined): string {
+  const lead = rationale?.trim() ?? '';
+  const sections = plan.sections
+    .map(
+      ({ title, variant }, index) =>
+        `${String(index + 1)} ${title}${variant === undefined ? '' : `[${variant}]`}`,
+    )
+    .join(' · ');
+  return [
+    lead === '' ? plan.tokens.signature : lead,
+    `${plan.tokens.fontDisplay.family} / ${plan.tokens.fontBody.family}`,
+    sections,
+  ].join(' — ');
+}
+
+/** A refused plan as the error the host shows: the door's own error type, so it classifies as `plan-rejected`. */
+function planRejected(issues: readonly PagePlanIssue[]): AiPlanRejectedError {
+  return new AiPlanRejectedError(
+    issues.map(({ path, message }) => ({
+      code: 'invalid-plan' as const,
+      message: `${path === '' ? '' : `${path}: `}${message}`,
+    })),
+  );
+}
+
+/**
+ * A plan handed in (`pagePlan`, or edited at `onPlanned`) passes the validator
+ * again before anything is built from it: "must have passed validatePagePlan"
+ * is a promise the type cannot keep, and a plan card is a form a person typed
+ * into. Nothing is written when it fails.
+ *
+ * `intent` is where the page lands, and it is NOT the plan's to choose: an
+ * edited plan is held to the intent the proposed plan was validated under (the
+ * host's target, or the page's rule), a given plan to its own. Before this,
+ * an edit was held to its own intent, so a plan card answering `intent:
+ * "replace"` on a page the host held to `append` deleted the page (wave-1
+ * verifier, v2 scenario 6: seven regions replaced, 2026-09-28). The validator
+ * forces the intent, so an edit that only flips it lands as planned, and one
+ * that brings a hero or footer to an appended page is refused with nothing
+ * written.
+ */
+function revalidated(plan: PagePlan, intent: PagePlan['intent']): PagePlan {
+  const result = validatePagePlan(plan, { intent });
+  if (!result.ok) throw planRejected(result.issues);
+  return result.plan;
+}
+
+/** The props the root block declares — the only ones the skeleton may write. */
+function rootPropNames(options: RunAiBuildOptions): readonly string[] {
+  const document = options.kernel.getDocument();
+  const rootType = document.nodes[document.rootId]?.type;
+  if (rootType === undefined) return [];
+  const props: unknown = options.kernel.context.registry.block(rootType)?.schema.props;
+  const shape: unknown =
+    typeof props === 'object' && props !== null ? (props as { shape?: unknown }).shape : undefined;
+  return typeof shape === 'object' && shape !== null ? Object.keys(shape) : [];
+}
+
+/** Whether a top-level node is the page's footer: a footer region, or a block named for one. */
+function isFooter(document: BuilderDocument, id: NodeId): boolean {
+  const node = document.nodes[id];
+  if (node === undefined) return false;
+  if (/footer/iu.test(node.type)) return true;
+  return placeholderShape(node.props['tree']).outer === 'footer';
+}
+
+/**
+ * Where T2 lays the regions, from the plan's intent:
+ * - `replace`: the root's current children go in the SAME transaction the
+ *   regions arrive in, so one Undo brings the old page back whole;
+ * - `append`: after the page's content, but before its footer, so appended
+ *   bands never land under the copyright line;
+ * - `new-page`: into the root the build was given, removing nothing — the
+ *   host adds the page and hands the build that page (its kernel or lens);
+ *   the engine cannot make a page appear.
+ */
+function skeletonContext(options: RunAiBuildOptions, plan: PagePlan): SkeletonFromPlanContext {
+  const document = options.kernel.getDocument();
+  const root = document.nodes[document.rootId];
+  const children = root?.slots?.['default'] ?? [];
+  const pageCss: unknown = root?.props['pageCss'];
+  const last = children.at(-1);
+  const appending = plan.intent === 'append';
+  return {
+    parentId: document.rootId,
+    regionType: REGION_TYPE,
+    ...(plan.intent === 'replace' && children.length > 0 ? { replaceIds: [...children] } : {}),
+    ...(appending && last !== undefined && isFooter(document, last)
+      ? { index: children.length - 1 }
+      : {}),
+    // Only the props this root declares: one undeclared prop refuses the whole skeleton.
+    rootProps: rootPropNames(options),
+    // An appended plan keeps the page's own fonts, keyframes and kit.
+    ...(appending && typeof pageCss === 'string' && pageCss !== ''
+      ? { currentPageCss: pageCss }
+      : {}),
+  };
+}
+
+/** Every command a plan uses, once each: the policy a code-written plan is validated under. */
+function policyFor(plan: AiPlan): { allowedCommands: readonly string[]; maxCommands: number } {
+  return {
+    allowedCommands: [...new Set(plan.commands.map(({ command }) => command))],
+    maxCommands: Math.max(1, plan.commands.length),
+  };
+}
+
+/**
+ * The node each region became, from the skeleton transaction's patches.
+ *
+ * The kernel mints ids on apply, and a group's patches arrive in step order,
+ * so the n-th created node is the n-th `insertNode` step — read by the tail of
+ * the path (`…, 'nodes', id]`), as the scaffold build does, so a site kernel's
+ * page lens reads the same. Checked by label; a mismatch falls back to
+ * matching labels in page order, never to a guess.
+ */
+function regionIds(
+  applied: AppliedAiPlan,
+  plan: AiPlan,
+  regions: readonly { readonly step: number; readonly title: string }[],
+  document: BuilderDocument,
+): readonly (NodeId | undefined)[] {
+  const created: NodeId[] = [];
+  const seen = new Set<NodeId>();
+  for (const patch of applied.transactions[0]?.patches ?? []) {
+    if (patch.op !== 'add' || patch.path.length < 2) continue;
+    if (patch.path[patch.path.length - 2] !== 'nodes') continue;
+    const id = patch.path[patch.path.length - 1];
+    if (typeof id !== 'string' || seen.has(id)) continue;
+    seen.add(id);
+    created.push(id);
+  }
+  const insertSteps = plan.commands.flatMap(({ command }, index) =>
+    command === 'insertNode' ? [index] : [],
+  );
+  const byStep = regions.map(({ step }) => created[insertSteps.indexOf(step)]);
+  const labelled = (id: NodeId | undefined, title: string): boolean =>
+    id !== undefined && document.nodes[id]?.props['label'] === title;
+  if (
+    created.length === insertSteps.length &&
+    byStep.every((id, index) => labelled(id, regions[index]?.title ?? ''))
+  ) {
+    return byStep;
+  }
+  const unused = [...created];
+  return regions.map(({ title }) => {
+    const at = unused.findIndex((id) => labelled(id, title));
+    return at === -1 ? undefined : unused.splice(at, 1)[0];
+  });
+}
+
+const CONTRACT_ROLE_LINE: Readonly<Record<SectionContract['role'], string>> = {
+  header: ROLE_LINE.chrome,
+  footer: ROLE_LINE.chrome,
+  hero: ROLE_LINE.hero,
+  band: ROLE_LINE.band,
+  cta: 'ROLE: CTA — the closing call to action: one heading, one short line and the primary action; no h1.',
+};
+
+const PLAN_HEADING = 'THE PAGE PLAN (decided for the whole page — obey it exactly):';
+
+function quoted(values: readonly string[]): string {
+  return values.map((value) => JSON.stringify(value)).join(' · ');
+}
+
+/** An address that names a picture by its file type; a page or a link is not one. */
+const OWN_PHOTO_URL =
+  /https:\/\/[^\s"'<>()[\]{}]+?\.(?:avif|gif|jpe?g|png|svg|webp)(?:\?[^\s"'<>()[\]{}]*)?(?=[\s"'<>()[\]{},;!?،؛]|\.(?:\s|$)|$)/giu;
+/** Past this many a list stops being a person's photos and becomes noise in every brief. */
+const OWN_PHOTOS_MAX = 6;
+
+/**
+ * The photo addresses the person typed, first seen first, each once. A writer
+ * reads its contract and not the request (P1-10), so without this line an
+ * address they gave reached no writer at all — the checker could stop a
+ * repair from swapping it out, but nothing could make the page use it.
+ */
+function ownPhotoAddresses(personWords: string): readonly string[] {
+  const found = new Set<string>();
+  for (const match of personWords.matchAll(OWN_PHOTO_URL)) {
+    found.add(match[0]);
+    if (found.size === OWN_PHOTOS_MAX) break;
+  }
+  return Object.freeze([...found]);
+}
+
+/**
+ * A section writer's whole brief: the page's tokens and its one contract.
+ *
+ * NOT the person's request and NOT the conversation (agent-audit P1-10,
+ * P2-20). Measured 2026-09-28: every writer carried the whole request "for
+ * subject matter", which re-activated ~10.7k characters of page-level skills,
+ * and up to twelve turns of history, and still could not see what its
+ * neighbours said — so the hero's numbers came back in the stats band and the
+ * final CTA invented its own button label. The plan decided all of that once;
+ * the contract hands each writer its part.
+ */
+function contractRequest(
+  plan: PagePlan,
+  index: number,
+  task: AiBuildTask,
+  neighbours: string,
+  ownPhotos: readonly string[],
+): string {
+  const contract = plan.sections[index];
+  if (contract === undefined) return '';
+  const tokens = plan.tokens;
+  const facts = plan.facts.filter(({ section }) => section === contract.key);
+  const chrome = contract.role === 'header' || contract.role === 'footer';
+  return [
+    PLAN_HEADING,
+    `PAGE: ${plan.title} — lang ${plan.locale.lang}, ${plan.locale.dir}`,
+    `TOKENS — the page's colours and faces, already on the page as CSS custom properties. Colour and type ONLY through them (var(--ck-…) in the region css, or arbitrary classes such as bg-[var(--ck-accent)]); never a palette class, never a hex: --ck-bg ${tokens.bg} ground · --ck-surface ${tokens.surface} cards · --ck-ink ${tokens.ink} text · --ck-muted ${tokens.muted} secondary text · --ck-accent ${tokens.accent} brand fill · --ck-on-accent ${tokens.onAccent} text on the fill · --ck-accent-ink ${tokens.accentInk} accent-coloured text · --ck-border ${tokens.border} hairlines · --ck-radius (${tokens.radius}) · --ck-font-display "${tokens.fontDisplay.family}" headings · --ck-font-body "${tokens.fontBody.family}" text`,
+    `SIGNATURE: ${tokens.signature}`,
+    `PRIMARY ACTION: "${plan.primaryCta.label}" → ${plan.primaryCta.href} — every call-to-action button on the page says exactly this`,
+    ...(chrome && plan.nav.length > 0
+      ? [`NAV: ${plan.nav.map(({ label, anchorId }) => `${label} → #${anchorId}`).join(' · ')}`]
+      : []),
+    '',
+    `SECTION ${String(index + 1)} OF ${String(plan.sections.length)}: ${contract.title}`,
+    CONTRACT_ROLE_LINE[contract.role],
+    `REGION ID: ${task.id}`,
+    `ANCHOR: the section's outer element keeps id="${contract.anchorId}"`,
+    ...(contract.variant === undefined
+      ? []
+      : [
+          `VARIANT: ${contract.title}[${contract.variant}] — build exactly this section-variants recipe`,
+        ]),
+    `PURPOSE: ${contract.purpose}`,
+    ...(contract.mustSay.length === 0 ? [] : [`MUST SAY: ${quoted(contract.mustSay)}`]),
+    ...(contract.mustNotRepeat.length === 0
+      ? []
+      : [`MUST NOT REPEAT (another section says it): ${quoted(contract.mustNotRepeat)}`]),
+    ...(contract.images === undefined || contract.images.length === 0
+      ? ['IMAGES: none — this section is type-led; no photo']
+      : [
+          `IMAGES: ${contract.images
+            .map(({ subject, aspect, alt }) => `${subject} (${aspect}) alt ${JSON.stringify(alt)}`)
+            .join(
+              ' · ',
+            )} — each from ${ownPhotos.length === 0 ? '' : 'THEIR OWN PHOTOS where one fits, else from '}PHOTOS YOU MAY USE`,
+          ...(ownPhotos.length === 0
+            ? []
+            : [
+                `THEIR OWN PHOTOS (the person gave these addresses; use them exactly as written): ${ownPhotos.join(' · ')}`,
+              ]),
+        ]),
+    ...(facts.length === 0
+      ? []
+      : [
+          `SAMPLE FACTS (write exactly these values; the owner replaces them before publishing): ${facts
+            .map(({ key, sample }) => `${key}: ${sample}`)
+            .join(' · ')}`,
+        ]),
+    ...(neighbours.trim() === '' ? [] : ['', 'THE SECTIONS AROUND IT:', neighbours.trim()]),
+  ].join('\n');
+}
+
+/** The neighbours' summary never costs a section: a summary that throws is an empty one. */
+function neighbourSummary(
+  plan: PagePlan,
+  index: number,
+  landed: ReadonlyMap<string, LandedSection>,
+): string {
+  try {
+    return summarizeNeighbours(plan, index, landed);
+  } catch {
+    return '';
+  }
+}
+
+/** The step events T1 sends under a build: `<build>/page-plan`, shaped as any step's. */
+function planStepEvents(build: BuildRun): (note: PagePlanStepNote) => void {
+  const emit = stepEmitter(build, PAGE_PLAN_STEP);
+  return (note) => {
+    switch (note.type) {
+      case 'started':
+        emit({ type: 'run.started', apply: 'never' });
+        return;
+      case 'skills':
+        emit({
+          type: 'skills.resolved',
+          activations: note.skills?.activations ?? [],
+          omitted: note.skills?.omitted ?? [],
+          totalTokens: note.skills?.totalTokens ?? 0,
+        });
+        return;
+      case 'context':
+        emit({
+          type: 'context.ready',
+          fragmentCount: note.context.fragments.length,
+          totalTokens: estimateAssembledAiContextTokens(note.context),
+        });
+        return;
+      case 'proposing':
+        if (note.attempt === 1) emit({ type: 'plan.proposing' });
+        return;
+      case 'progress':
+        emit({ type: 'plan.progress', text: note.text });
+        return;
+      case 'repairing':
+        emit({
+          type: 'plan.repairing',
+          issues: note.issues.map(({ path, message }) => `${path}: ${message}`),
+        });
+        return;
+      case 'ready':
+        emit({ type: 'run.completed', status: 'proposed' });
+        return;
+      case 'failed':
+        emit({ type: 'run.failed', error: note.error });
+        return;
+    }
+  };
+}
+
+/**
+ * Step T1 under a build. Undefined means "no plan": the provider cannot plan
+ * a page, or its plan was refused twice, or it failed — and the build falls
+ * back to the scaffold run, which still works everywhere it worked before.
+ * Only an abort escapes: that is the person stopping, not the strategy failing.
+ */
+async function planStep(
+  build: BuildRun,
+): Promise<{ readonly plan: PagePlan; readonly rationale?: string } | undefined> {
+  const { options } = build;
+  if (options.provider.proposePagePlan === undefined) return undefined;
+  // A plan is laid as `customCode` regions; a registry without them keeps the scaffold build.
+  if (options.kernel.context.registry.block(REGION_TYPE) === undefined) return undefined;
+  const isCurrentRun = options.isCurrentRun;
+  const result = await proposeValidatedPagePlan(
+    {
+      runId: stepRunId(options.runId, PAGE_PLAN_STEP),
+      kernel: options.kernel,
+      provider: options.provider,
+      request: options.request,
+      ...(options.history === undefined ? {} : { history: options.history }),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(isCurrentRun === undefined
+        ? {}
+        : {
+            isCurrentRun: (): boolean => {
+              // Read as unknown: a host port that answers anything but `true` holds no lease.
+              const current: unknown = isCurrentRun(options.runId);
+              return current === true;
+            },
+          }),
+      ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
+      ...(options.policy === undefined ? {} : { policy: options.policy }),
+      ...(options.composition === undefined ? {} : { composition: options.composition }),
+      ...(options.contextProviders === undefined
+        ? {}
+        : { contextProviders: options.contextProviders }),
+      ...(options.additionalContextProviders === undefined
+        ? {}
+        : { additionalContextProviders: options.additionalContextProviders }),
+      target: landingTarget(options.kernel, options.target),
+      maxSections: Math.min(build.maxTasks, DEFAULT_AI_BUILD_MAX_TASKS),
+    },
+    planStepEvents(build),
+  );
+  if (!('plan' in result)) return undefined;
+  return result.rationale === undefined
+    ? { plan: result.plan }
+    : { plan: result.plan, rationale: result.rationale };
+}
+
+/**
+ * The page-plan build: approval on the PLAN, the skeleton written by code in
+ * one transaction, and one writer per section that the skeleton did not write
+ * in full — each given its contract, checked before it lands.
+ *
+ * Returns undefined only when the skeleton could not be laid for a plan the
+ * build made itself and nobody was asked about; the caller then falls back to
+ * the scaffold run. A plan the person approved, edited or handed in is never
+ * silently swapped for a different build: its skeleton's refusal is thrown,
+ * with nothing written.
+ */
+async function buildFromPlan(
+  build: BuildRun,
+  proposed: PagePlan,
+  rationale: string | undefined,
+  source: 'given' | 'planned',
+): Promise<AiBuildRunResult | undefined> {
+  const { options, emit } = build;
+  const direction = planDirection(proposed, rationale);
+  const planned: readonly AiBuildPlannedTask[] = Object.freeze(
+    proposed.sections.map(({ title }) => Object.freeze({ title })),
+  );
+
+  if (!build.writes) {
+    // Plan mode through the build: the plan, and nothing written.
+    return Object.freeze({
+      runId: options.runId,
+      tasks: Object.freeze([]),
+      applied: 0,
+      skipped: 0,
+      elapsedMs: workedMs(build),
+      direction,
+      outcome: 'planned' as const,
+      plannedTasks: planned,
+      pagePlan: proposed,
+    });
+  }
+
+  let plan = proposed;
+  if (build.asks) {
+    const answer = await askPerson(build, planned, direction, proposed);
+    if (answer === 'stop' || build.personStopped()) {
+      return refusedBuild(build, planned, direction, { pagePlan: proposed });
+    }
+    if (typeof answer === 'object') plan = revalidated(answer.build, proposed.intent);
+  }
+  if (build.personStopped()) return refusedBuild(build, planned, direction, { pagePlan: plan });
+
+  // T2: the skeleton, by code, as ONE labelled transaction through the door.
+  let skeleton: ReturnType<typeof skeletonFromPlan>;
+  let landed: AppliedAiPlan;
+  try {
+    skeleton = skeletonFromPlan(plan, skeletonContext(options, plan));
+    landed = applyAiPlan({
+      kernel: options.kernel,
+      validationPorts: options.validationPorts,
+      plan: skeleton.plan,
+      policy: policyFor(skeleton.plan),
+      label: skeleton.label,
+    });
+  } catch (cause) {
+    if (source === 'planned' && !build.asks) return undefined;
+    throw cause;
+  }
+
+  const document = options.kernel.getDocument();
+  const ids = regionIds(landed, skeleton.plan, skeleton.regions, document);
+  const skeletonTx = landed.transactions[0];
+  const tasks: AiBuildTask[] = [];
+  const placeholders = new Map<NodeId, AiBuildSectionValues>();
+  const landedSections = new Map<string, LandedSection>();
+  const arabic = ARABIC_LANG.test(plan.locale.lang);
+  /*
+    What the PERSON wrote — this request and their earlier messages, never the
+    assistant's — is what the checker's image rule reads: an address they
+    typed is theirs to use. Handed nothing, the checker flagged the shop's own
+    photo as foreign, and the repair round told the writer to swap it for a
+    catalog one (wave-1 verifier, v5-own-photo: 1 issue, 1 extra model call,
+    the person's photo replaced, 2026-09-28).
+  */
+  const checkOptions = {
+    request: [
+      options.request,
+      ...(options.history ?? []).filter(({ role }) => role === 'user').map(({ text }) => text),
+    ].join('\n'),
+  };
+  const ownPhotos = ownPhotoAddresses(checkOptions.request);
+  const jobs: SectionJob[] = [];
+  const total = plan.sections.length;
+  skeleton.regions.forEach((region, index) => {
+    const id = ids[index];
+    const contract = plan.sections[index];
+    if (id === undefined || contract === undefined) return;
+    const task: AiBuildTask = Object.freeze({ id, title: region.title });
+    tasks.push(task);
+    const values = readSectionValues(document, id);
+    placeholders.set(id, values);
+    const facts = plan.facts
+      .filter(({ section }) => section === contract.key)
+      .map(({ key, sample }) => Object.freeze({ key, sample }));
+    const common = {
+      task,
+      position: index + 1,
+      total,
+      sectionKey: contract.key,
+      facts: Object.freeze(facts),
+    };
+    const complete = region.complete === true;
+    if (complete && skeletonTx !== undefined) {
+      landedSections.set(contract.key, sectionOf(values));
+      jobs.push({
+        ...common,
+        complete: Object.freeze({
+          transactionId: skeletonTx.id,
+          label: skeleton.label,
+          before: Object.freeze({}),
+          after: values,
+        }),
+      });
+      return;
+    }
+    const images = contract.images ?? [];
+    const photos = images.length > 0;
+    const skillIds = fillSkillIds(options, arabic, photos);
+    const providers = photos
+      ? withPhotoCatalog(
+          options,
+          [contract.title, ...images.flatMap(({ subject, alt }) => [subject, alt])].join(' '),
+        )
+      : (options.additionalContextProviders ?? []).filter(
+          ({ id: providerId }) => providerId !== PHOTO_CATALOG_PROVIDER_ID,
+        );
+    jobs.push({
+      ...common,
+      brief: (attempt) => ({
+        // The retry is SHORTER: the neighbours go, the contract stays.
+        request: contractRequest(
+          plan,
+          index,
+          task,
+          attempt === 1 ? neighbourSummary(plan, index, landedSections) : '',
+          ownPhotos,
+        ),
+        skillIds,
+        providers,
+        history: false,
+      }),
+      check: (section) => checkSection(plan, contract, section, checkOptions),
+      onLanded: (after) => {
+        landedSections.set(contract.key, sectionOf(after));
+      },
+    });
+  });
+
+  // An edited plan is described as edited: the card said one thing, the build does this.
+  const built = plan === proposed ? direction : planDirection(plan, rationale);
+  emit({
+    type: 'build.planned',
+    direction: built,
+    tasks: Object.freeze(tasks),
+    writers: fillConcurrencyFor(
+      jobs.filter(({ complete }) => complete === undefined).length,
+      options.fillConcurrency,
+    ),
+  });
+  const filled = await fillAndLand(build, jobs, placeholders);
+  return finishBuild(build, filled, built, { pagePlan: plan });
+}
+
+/** A region's props as the checker and the neighbour summary read them. */
+function sectionOf(values: AiBuildSectionValues): LandedSection {
+  const tree: JsonValue = values.tree ?? null;
+  return typeof values.css === 'string' ? { tree, css: values.css } : { tree };
+}
+
+// ── The scaffold build: the model lays the skeleton ─────────────────────────
+
+/**
+ * The build as it was before page plans, and the path every build takes that
+ * has no plan: a provider without `proposePagePlan`, a plan refused twice, a
+ * registry without `customCode`. A model run lays the skeleton; its rationale
+ * is the direction every section writer obeys.
+ */
+async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
+  const { options, emit, shared, personStopped } = build;
   /*
     A skeleton is an EXTRA request this path invented, so its failure must cost
     nothing: the person asked for a page, not for a scaffold, and the single
@@ -424,20 +2250,28 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
     scaffold = await runAiAgent({
       ...shared,
       runId: stepRunId(options.runId, 'scaffold'),
-      request: options.request,
-      selectedSkillIds: ['craftkit.build-scaffold'],
+      // "Try another look" reaches the deck's B row as the line it reads.
+      request: withRequestedLook(options.request),
+      selectedSkillIds: scaffoldSkillIds(options),
+      additionalContextProviders: withPhotoCatalog(options, options.request),
       policy: { ...options.policy, allowedCommands: SCAFFOLD_COMMANDS },
-      apply: writes ? 'auto' : 'never',
+      /*
+        Landed at once only when nobody has to be asked. A build that asks
+        PROPOSES its skeleton and lands it on approval. Measured 2026-09-28
+        (agent-audit.md P0-4): Ask mode laid 3-12 empty bands on the page
+        before the approval card appeared, and "Stop build" left them there.
+      */
+      apply: build.writes && !build.asks ? 'auto' : 'never',
       label: SCAFFOLD_LABEL,
     });
   } catch (cause) {
     if (options.signal?.aborted === true) throw cause;
-    scaffoldFailure = cause instanceof Error ? cause.message : String(cause);
+    scaffoldFailure = errorMessage(cause);
   }
 
   const direction = scaffold?.plan.rationale ?? '';
 
-  if (!writes) {
+  if (!build.writes) {
     /*
       A PLANNED build ends here, having written nothing.
 
@@ -462,12 +2296,45 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
       tasks: Object.freeze([]),
       applied: 0,
       skipped: 0,
-      elapsedMs: options.clock.now() - startedAt,
+      elapsedMs: workedMs(build),
       ...(scaffold === undefined ? {} : { scaffold }),
       direction,
       outcome: 'planned' as const,
       plannedTasks,
     });
+  }
+
+  // `writes` holds from here on, so a supplied `onPlanned` is exactly `asks`.
+  if (build.asks && scaffold !== undefined) {
+    const planned = plannedTitles(scaffold.plan);
+    /*
+      THE ONE QUESTION, and it is asked before anything is written.
+
+      A list of fewer than two is not asked about: that build falls back to one
+      ordinary run below, PROPOSED, and its own plan card is the question. So a
+      person is never asked to approve a list and then shown a different kind of
+      answer.
+    */
+    if (planned.length >= 2) {
+      const answer = await askPerson(build, planned, direction);
+      // A scaffold build has no plan to edit; `{ build }` from a host is still a yes.
+      if (answer === 'stop' || personStopped()) {
+        return refusedBuild(build, planned, direction, { scaffold });
+      }
+      /*
+        Approved: the skeleton the person saw lands now, exactly as proposed,
+        re-validated by the door against the page as it is NOW. A page that
+        moved so far that it no longer accepts the skeleton refuses it whole,
+        and that refusal is the caller's to show — nothing was written.
+      */
+      const landed = applyAiPlan({
+        kernel: options.kernel,
+        validationPorts: options.validationPorts,
+        proposal: scaffold.proposal,
+        label: SCAFFOLD_LABEL,
+      });
+      scaffold = Object.freeze({ ...scaffold, status: 'applied' as const, applied: landed });
+    }
   }
 
   const tasks =
@@ -493,14 +2360,21 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
       ...shared,
       runId: stepRunId(options.runId, 'fallback'),
       request: options.request,
-      apply: 'auto',
+      /*
+        The build's own authority, never a hard-coded 'auto'. A build that asks
+        before writing PROPOSES its fallback: it comes back unapplied and the
+        host shows it as the ordinary plan card, whose Apply is the question
+        Ask mode owes the person. It used to apply at once, and the card was
+        drawn as an already-applied plan.
+      */
+      apply: build.asks ? 'never' : 'auto',
     });
     return Object.freeze({
       runId: options.runId,
       tasks: Object.freeze([]),
       applied: 0,
       skipped: 0,
-      elapsedMs: options.clock.now() - startedAt,
+      elapsedMs: workedMs(build),
       ...(scaffold === undefined ? {} : { scaffold }),
       direction,
       outcome: 'fallback' as const,
@@ -508,250 +2382,96 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
     });
   }
 
-  emit({ type: 'build.planned', direction, tasks });
-  if (scaffold !== undefined) turnArabicPageRightToLeft(options, scaffold.plan);
-
-  const reports: AiBuildTaskReport[] = [];
-  const total = tasks.length;
-  const fillConcurrency = fillConcurrencyFor(total, options.fillConcurrency);
-  let applied = 0;
-  let skipped = 0;
-  let stopped: AiBuildStopReason | undefined;
-
-  /*
-    The one place a person is asked anything. After it, the build answers its
-    own failures to the end — the whole point of the split is that a long build
-    does not stop to ask.
-  */
-  if (options.onPlanned !== undefined && (await options.onPlanned(tasks, direction)) === 'stop') {
-    stopped = 'signal';
-  }
-
-  /*
-    WRITTEN concurrently, LANDED in order.
-
-    Two jobs that used to be one. The pool writes up to `fillConcurrency`
-    sections at a time — the expensive part, minutes each — while the lander
-    walks the list from the top and applies each section only when every
-    section above it has settled. So the page fills top to bottom however the
-    model finishes, the transaction log reads in page order, and "undo
-    Pricing" still removes exactly Pricing.
-
-    A section that finishes early simply waits; nothing is discarded.
-  */
-  type Written =
-    | { readonly kind: 'ready'; readonly run: AiAgentRunResult; readonly attempts: number }
-    | { readonly kind: 'failed'; readonly reason: string; readonly attempts: number }
-    | { readonly kind: 'not-started'; readonly reason: string };
-
-  const slots = tasks.map(() => {
-    let settle!: (written: Written) => void;
-    const written = new Promise<Written>((resolve) => {
-      settle = resolve;
-    });
-    let land!: () => void;
-    const landed = new Promise<void>((resolve) => {
-      land = resolve;
-    });
-    return { written, settle, landed, land, claimed: false };
-  });
-
-  /** The reason to stop, decided once and then true for every later check. */
-  const stopReason = (): AiBuildStopReason | undefined => {
-    if (stopped !== undefined) return stopped;
-    if (options.signal?.aborted === true) return 'signal';
-    if (options.clock.now() - startedAt >= buildBudgetMs) return 'budget';
-    return undefined;
-  };
-
-  let announced = false;
-  const halt = (reason: AiBuildStopReason): void => {
-    if (!announced) {
-      announced = true;
-      stopped = reason;
-      emit({ type: 'build.stopped', reason });
-    }
-    // Nobody may wait on a section that will never be written.
-    for (const slot of slots) {
-      if (!slot.claimed) {
-        slot.claimed = true;
-        slot.settle({ kind: 'not-started', reason: notStartedReason(reason) });
-      }
-    }
-  };
-
-  // A scaffold that already decided to stop still owes the caller the event and
-  // owes every section its `not-started` verdict; `halt` is the one door for both.
-  if (stopped !== undefined) halt(stopped);
-
-  let nextToWrite = 0;
-  let started = 0;
-  const writer = async (): Promise<void> => {
-    for (;;) {
-      const index = nextToWrite;
-      nextToWrite += 1;
-      const slot = slots[index];
-      if (slot === undefined) return;
-      if (slot.claimed) continue;
-      slot.claimed = true;
-
-      /*
-        The window, not just the pool. A writer may run at most
-        `fillConcurrency` sections AHEAD of the section currently landing:
-        section 4 waits for section 1 to land before it is written. Without
-        this the pool empties the whole list into flight the moment one
-        section is slow — paying for work a stop would throw away, and writing
-        the end of the page before the beginning of it exists.
-      */
-      const behind = slots[index - fillConcurrency];
-      if (behind !== undefined) await behind.landed;
-
-      const reason = stopReason();
-      if (reason !== undefined) {
-        slot.settle({ kind: 'not-started', reason: notStartedReason(reason) });
-        halt(reason);
-        return;
-      }
-      if (started >= maxTasks) {
-        slot.settle({ kind: 'not-started', reason: notStartedReason('max-tasks') });
-        halt('max-tasks');
-        return;
-      }
-      started += 1;
-      const task = tasks[index];
-      if (task === undefined) {
-        slot.settle({ kind: 'not-started', reason: notStartedReason('max-tasks') });
-        return;
-      }
-      const position = index + 1;
-
-      let attempts = 0;
-      let failure: unknown;
-      let run: AiAgentRunResult | undefined;
-      for (const attempt of [1, 2] as const) {
-        attempts = attempt;
-        emit({ type: 'task.started', position, total, task, attempt });
-        try {
-          run = await runFill(
-            options,
-            shared,
-            task,
-            position,
-            total,
-            attempt === 1
-              ? fillRequest(direction, task, position, total, options.request)
-              : retryRequest(direction, task),
-            taskTimeoutMs,
-          );
-          break;
-        } catch (cause) {
-          failure = cause;
-        }
-      }
-      slot.settle(
-        run === undefined
-          ? { kind: 'failed', reason: errorMessage(failure), attempts }
-          : { kind: 'ready', run, attempts },
-      );
-    }
-  };
-
-  const writers = Array.from({ length: Math.min(fillConcurrency, tasks.length) }, () => writer());
-
-  for (const [index, task] of tasks.entries()) {
-    const position = index + 1;
-    const slot = slots[index];
-    const written: Written =
-      slot === undefined
-        ? { kind: 'not-started', reason: notStartedReason('max-tasks') }
-        : await slot.written;
-
-    /*
-      Whatever this section's fate — landed, skipped, never started — the
-      writer waiting `fillConcurrency` places behind it may now begin. The
-      window slides on the LANDING, so a section is always written against a
-      document in which its predecessors already exist.
-    */
-    try {
-      if (written.kind === 'not-started') {
-        reports.push({ ...task, status: 'not-started', attempts: 0, reason: written.reason });
-        continue;
-      }
-      if (written.kind === 'failed') {
-        /*
-          Self-recovery, never a question. A section that would not be written
-          twice is recorded and left as the placeholder the scaffold laid down;
-          the page keeps its shape and the next section still gets its turn.
-        */
-        skipped += 1;
-        reports.push({
-          ...task,
-          status: 'skipped',
-          attempts: written.attempts,
-          reason: written.reason,
-        });
-        emit({
-          type: 'task.skipped',
-          position,
-          total,
-          task,
-          attempts: written.attempts,
-          reason: written.reason,
-        });
-        continue;
-      }
-
-      const proposal = written.run.proposal;
-      try {
-        applyAiPlan({
-          kernel: options.kernel,
-          validationPorts: options.validationPorts,
-          proposal,
-          label: stepLabel(position, total, task.title),
-        });
-      } catch (cause) {
-        /*
-          Written fine, refused on landing: the page moved under it while it was
-          being written. Same answer as a failed write — the section is left as
-          the placeholder, and the rest of the page still lands.
-        */
-        const reason = errorMessage(cause);
-        skipped += 1;
-        reports.push({ ...task, status: 'skipped', attempts: written.attempts, reason });
-        emit({ type: 'task.skipped', position, total, task, attempts: written.attempts, reason });
-        continue;
-      }
-
-      applied += 1;
-      reports.push({ ...task, status: 'applied', attempts: written.attempts });
-      emit({ type: 'task.completed', position, total, task, attempts: written.attempts });
-    } finally {
-      slot?.land();
-    }
-  }
-
-  // Every writer has already settled its slot; this only reaps the pool.
-  await Promise.all(writers);
-
-  const elapsedMs = options.clock.now() - startedAt;
-  const outcome: AiBuildOutcome = stopped ?? 'completed';
-  const frozenReports = Object.freeze(reports);
   emit({
-    type: 'build.completed',
-    tasks: frozenReports,
-    applied,
-    skipped,
-    elapsedMs,
-    outcome,
-  });
-  return Object.freeze({
-    runId: options.runId,
-    tasks: frozenReports,
-    ...(scaffold === undefined ? {} : { scaffold }),
-    applied,
-    skipped,
-    elapsedMs,
+    type: 'build.planned',
     direction,
-    outcome,
+    tasks,
+    writers: fillConcurrencyFor(tasks.length, options.fillConcurrency),
   });
+  if (scaffold !== undefined) {
+    turnArabicPageRightToLeft(options, scaffold.plan, build.heldContent, personStopped);
+  }
+  // Read once, from the placeholders as laid: a fill landing later never changes these.
+  const laid = options.kernel.getDocument();
+  const roles = sectionRoles(laid, tasks);
+  const placeholders = new Map(tasks.map((task) => [task.id, readSectionValues(laid, task.id)]));
+  const rootLang: unknown = laid.nodes[laid.rootId]?.props['lang'];
+  const arabic =
+    ARABIC_SCRIPT.test(options.request) ||
+    ARABIC_SCRIPT.test(direction) ||
+    laid.dir === 'rtl' ||
+    (typeof rootLang === 'string' && ARABIC_LANG.test(rootLang));
+  const skillIds = fillSkillIds(options, arabic);
+  const total = tasks.length;
+  const jobs: SectionJob[] = tasks.map((task, index) => {
+    const position = index + 1;
+    const role = roles[index] ?? 'band';
+    // One provider per section, briefed with its title, read on every attempt.
+    const providers = withPhotoCatalog(options, `${options.request} ${task.title}`);
+    return {
+      task,
+      position,
+      total,
+      brief: (attempt) => ({
+        request:
+          attempt === 1
+            ? fillRequest(direction, task, position, total, role, options.request)
+            : retryRequest(direction, task, position, total, role),
+        skillIds,
+        providers,
+        history: true,
+      }),
+    };
+  });
+  const filled = await fillAndLand(build, jobs, placeholders);
+  return finishBuild(build, filled, direction, { ...(scaffold === undefined ? {} : { scaffold }) });
+}
+
+/**
+ * Build a whole page as one plan plus one run per section, instead of one
+ * model call that has to hold the entire page in its head.
+ *
+ * With a provider that can plan a page (`proposePagePlan`), the steps are
+ * those of agent-audit §3.1 (2026-09-28):
+ * - T1: one call answers with a PAGE PLAN — tokens, fonts, a contract per
+ *   section — validated, and repaired once with the validator's issues
+ *   (`pagePlan` skips it: the plan Plan mode showed is built verbatim);
+ * - the one approval (`onPlanned`) is asked about that plan, which the person
+ *   may edit (`{ build: editedPlan }`, validated again);
+ * - T2: code, not the model, writes the skeleton from the plan — regions,
+ *   tokens as CSS custom properties, font imports, the header and footer in
+ *   full — as ONE labelled transaction ("Assistant: page skeleton"). The
+ *   model-written skeleton was measured at ~25k characters of output and was
+ *   the slowest step of every build;
+ * - writers fill the other regions concurrently, each from its contract, each
+ *   checked BEFORE it lands and repaired once when it misses (step E), each
+ *   landing in page order as its own labelled transaction.
+ *
+ * Any provider without it, or a plan refused twice, takes the scaffold build:
+ * a model run lays the skeleton and its rationale is the direction.
+ *
+ * Either way it is a thin orchestrator: planning and validation still happen
+ * inside `runAiAgent` and `validatePagePlan`, and every write goes through
+ * `applyAiPlan` — the same validated grouped kernel door — as one labelled
+ * transaction per step. The rule the whole design answers to: a build must
+ * never be worse than the single call it replaces, so a scaffold that produced
+ * fewer than two regions is abandoned for one ordinary run.
+ */
+export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRunResult> {
+  assertBuildRunId(options.runId);
+  const build = createBuildRun(options);
+  build.emit({ type: 'build.scaffolding' });
+
+  if (options.pagePlan !== undefined) {
+    const given = revalidated(options.pagePlan, options.pagePlan.intent);
+    const result = await buildFromPlan(build, given, undefined, 'given');
+    if (result !== undefined) return result;
+  } else {
+    const planned = await planStep(build);
+    if (planned !== undefined) {
+      const result = await buildFromPlan(build, planned.plan, planned.rationale, 'planned');
+      if (result !== undefined) return result;
+    }
+  }
+  return buildFromScaffold(build);
 }

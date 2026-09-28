@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { rebalanceClosers, salvageJson } from './json-salvage';
+import { rebalanceClosers, salvageJson, unwrapJson } from './json-salvage';
 
 /*
   The defects below are the ones measured on 2026-09-27: 6 of 8 section plans
@@ -54,6 +54,59 @@ function withTreeEnd(replacement: string): string {
   const at = valid.indexOf(`${TREE_END},"title"`);
   expect(at).toBeGreaterThan(0);
   return `${valid.slice(0, at)}${replacement}${valid.slice(at + TREE_END.length)}`;
+}
+
+/** A two-command plan whose first tree holds `cards` cards — tens of thousands of characters, like a real section. */
+function cardsPlan(cards: number): unknown {
+  const card = (index: number): unknown => ({
+    kind: 'element',
+    tag: 'article',
+    className: 'rounded-xl p-6 shadow',
+    children: [
+      {
+        kind: 'element',
+        tag: 'h3',
+        children: [
+          { kind: 'text', text: `Card ${String(index)}` },
+          { kind: 'element', tag: 'span', text: 'new' },
+        ],
+      },
+      { kind: 'element', tag: 'p', text: 'Lorem ipsum dolor sit amet, consectetur. '.repeat(4) },
+      {
+        kind: 'element',
+        tag: 'ul',
+        children: [{ kind: 'element', tag: 'li', children: [{ kind: 'element', tag: 'a' }] }],
+      },
+    ],
+  });
+  const section = (count: number): unknown => ({
+    kind: 'root',
+    children: [
+      {
+        kind: 'element',
+        tag: 'section',
+        children: [
+          {
+            kind: 'element',
+            tag: 'div',
+            children: Array.from({ length: count }, (_, i) => card(i)),
+          },
+        ],
+      },
+    ],
+  });
+  return {
+    rationale: 'Fill the menu.',
+    commands: [
+      {
+        command: 'setProp',
+        args: { id: 'pg-1', key: 'tree', value: section(cards) },
+        title: 'First',
+      },
+      { command: 'setProp', args: { id: 'pg-2', key: 'tree', value: section(2) }, title: 'Second' },
+    ],
+    followUp: 'Prices are placeholders.',
+  };
 }
 
 /** The shape a plan must have, as claude.ts will judge it. */
@@ -142,6 +195,76 @@ describe('salvageJson', () => {
       rationale: 'x',
       commands: [{ command: 'setProp', args: 'oops' }],
     });
+  });
+
+  /*
+    The last `}` of an answer that lost its final closer is the one that shut
+    the last command, so cutting the text there dropped `followUp` — the list
+    of invented prices and phone numbers the owner must replace — and the
+    plan still passed, because `followUp` is optional.
+  */
+  it('closes an answer that lost only its final closer without dropping its last key', () => {
+    const cut = valid.slice(0, -1);
+    expect(() => JSON.parse(cut) as unknown).toThrow();
+    expect(JSON.parse(salvageJson(cut, isPlanShaped))).toEqual(plan);
+    expect(JSON.parse(salvageJson(`${cut}\n`, isPlanShaped))).toEqual(plan);
+    expect(JSON.parse(salvageJson(`\`\`\`json\n${cut}\n\`\`\``, isPlanShaped))).toEqual(plan);
+  });
+
+  it('keeps the keys after a miscounted run when the answer also lost its final closer', () => {
+    // The last `}` then ends the command, and `],"followUp":…` goes on the way JSON does.
+    const cut = withTreeEnd(`${TREE_END}}`).slice(0, -1);
+    expect(JSON.parse(salvageJson(cut, isPlanShaped))).toEqual(plan);
+  });
+
+  it('still drops the sentence after an object that closed', () => {
+    expect(salvageJson(`${valid}\n\nLet me know if you want changes!`)).toBe(valid);
+  });
+
+  /*
+    A `}` dropped between two sibling nodes leaves no run of closers to
+    rewrite: the brackets go wrong only later, where no rewrite can help. The
+    search used to spend its whole budget proving that — seconds of blocked
+    event loop on a large answer — before the general repair fixed it in
+    milliseconds.
+  */
+  it('repairs a closer dropped between sibling nodes without exhausting the search', () => {
+    const large = cardsPlan(300);
+    const good = JSON.stringify(large);
+    const broken = good.replace(
+      '{"kind":"text","text":"Card 3"}',
+      '{"kind":"text","text":"Card 3"',
+    );
+    expect(() => JSON.parse(broken) as unknown).toThrow();
+    const started = Date.now();
+    const repaired = salvageJson(broken, isPlanShaped);
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(JSON.parse(repaired)).toEqual(large);
+  });
+
+  it('gives up on an answer no rewrite can fix after a bounded amount of work', () => {
+    // One closer too few ends the FIRST command: `title` lands in `args`, and
+    // the brackets only go wrong at the end of the second — past every rewrite.
+    const good = JSON.stringify(cardsPlan(160));
+    const at = good.indexOf(',"title":"First"');
+    const broken = `${good.slice(0, at - 1)}${good.slice(at)}`;
+    expect(() => JSON.parse(broken) as unknown).toThrow();
+    const started = Date.now();
+    salvageJson(broken, isPlanShaped);
+    salvageJson(broken);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+});
+
+describe('unwrapJson', () => {
+  it('undoes the wrappers and leaves every closer as the model wrote it', () => {
+    const broken = withTreeEnd(`${TREE_END}}`);
+    expect(unwrapJson(`Here it is:\n\`\`\`json\n${broken}\n\`\`\``)).toBe(broken);
+    expect(unwrapJson(`<think>{"draft":1}</think>\n${broken}`)).toBe(broken);
+  });
+
+  it('eases trailing commas, the one repair that cannot move a key', () => {
+    expect(unwrapJson('{"a":[1,2,],}')).toBe('{"a":[1,2]}');
   });
 });
 

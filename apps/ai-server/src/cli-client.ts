@@ -41,6 +41,8 @@ interface CliRequestOptions {
 }
 
 interface CliStreamParams {
+  /** The model the handler resolved for this call; honoured only when `allowedModels` lists it. */
+  readonly model?: string;
   readonly system?: readonly { readonly text: string }[];
   readonly messages?: readonly { readonly role: string; readonly content: unknown }[];
   readonly output_config?: { readonly format?: { readonly schema?: unknown } };
@@ -76,6 +78,18 @@ export type CliEffort = (typeof CLI_EFFORT_LEVELS)[number];
 
 export interface CliClientOptions {
   readonly model?: string;
+  /**
+   * Models a CALL may run on instead of `model`, as the server's allowlist
+   * names them (`haiku`, or `cli:haiku` — the prefix is dropped). Found by
+   * reading the code on 2026-09-28, not in a live run: on the `cli` backend
+   * the handler vetted the picker's model against CRAFTKIT_AI_MODELS and
+   * handed it on as `params.model`, and this shim ran `options.model`
+   * regardless, so neither the picker nor a fast model for small edits (or
+   * the enhancer's) ever changed who answered. Anything not listed —
+   * claude.ts's `claude-opus-5` placeholder above all — keeps `model`, so an
+   * unconfigured server still runs the CLI's own default.
+   */
+  readonly allowedModels?: readonly string[];
   /** Reasoning budget. Omitted ⇒ the CLI's own default. */
   readonly effort?: CliEffort;
   /** Whole-run cap. Defaults to `CLI_DEFAULT_TIMEOUT_MS`. */
@@ -483,6 +497,20 @@ function runClaude(
  */
 export const CLI_DEFAULT_TIMEOUT_MS = 600_000;
 
+/** The CLI's own name for a slug the allowlist may spell with the hybrid `cli:` prefix. */
+function cliModelName(slug: string): string | undefined {
+  const name = slug.startsWith('cli:') ? slug.slice('cli:'.length) : slug;
+  return name === '' ? undefined : name;
+}
+
+/** The model this call runs on: the call's own when the server allows it, else the configured one. */
+function callModel(requested: string | undefined, options: CliClientOptions): string | undefined {
+  if (requested !== undefined && (options.allowedModels ?? []).includes(requested)) {
+    return cliModelName(requested);
+  }
+  return options.model;
+}
+
 /** A `client.messages.stream(...)`-shaped shim over the local `claude` CLI. */
 export function createCliClient(options: CliClientOptions = {}): Anthropic {
   const timeoutMs = options.timeoutMs ?? CLI_DEFAULT_TIMEOUT_MS;
@@ -499,9 +527,10 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
       CLI_EFFORT_LEVELS.find(
         (level) => requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER] === level,
       ) ?? options.effort;
-    const args = buildArgs(options.model, effort, systemFile?.path);
+    const model = callModel(params.model, options);
+    const args = buildArgs(model, effort, systemFile?.path);
     onLog(
-      `cli run started — model ${options.model ?? '(CLI default)'}, ` +
+      `cli run started — model ${model ?? '(CLI default)'}, ` +
         `effort ${effort ?? '(CLI default)'}, system ${formatCount(prompt.system.length)} + ` +
         `request ${formatCount(prompt.user.length)} characters`,
     );

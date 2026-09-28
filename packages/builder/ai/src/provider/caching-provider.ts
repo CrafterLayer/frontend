@@ -1,14 +1,21 @@
 import type {
+  AiChatTurn,
+  AiEnhancePromptOptions,
+  AiPagePlanAttempt,
+  AiPagePlanProposal,
   AiPlan,
   AiPlanProvider,
   AiPlanValidationIssue,
+  AiPromptEnhanceInput,
+  AiPromptEnhancement,
   AiProposeOptions,
+  AiProposePagePlanOptions,
   AssembledAiContext,
 } from '../types';
 import { canonicalJsonStringify } from '../internal/canonical-json';
 
 export interface CachingAiPlanProviderOptions {
-  /** Entries kept before the oldest is evicted. */
+  /** Entries kept before the oldest is evicted — per kind of answer (plan, page plan, rewrite). */
   capacity?: number;
 }
 
@@ -23,8 +30,84 @@ function cacheKey(
   return canonicalJsonStringify({ context, history: live?.history ?? [], request });
 }
 
+/**
+ * A page plan's identity: everything a plan key holds, plus the task and the
+ * repair attempt — a repair of a refused candidate is a different question
+ * from the first ask, and must never be answered with the first answer.
+ */
+function pagePlanKey(
+  request: string,
+  context: AssembledAiContext,
+  history: readonly AiChatTurn[] | undefined,
+  attempt: AiPagePlanAttempt | undefined,
+): string {
+  return canonicalJsonStringify({
+    attempt: attempt ?? null,
+    context,
+    history: history ?? [],
+    request,
+    task: 'page-plan',
+  });
+}
+
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted === true) signal.throwIfAborted();
+}
+
+interface LruMemory<T> {
+  readonly get: (key: string) => T | undefined;
+  readonly set: (key: string, value: T) => void;
+  readonly delete: (key: string) => void;
+}
+
+/** A bounded LRU: a hit refreshes recency, an insert past capacity drops the oldest. */
+function lruMemory<T>(capacity: number): LruMemory<T> {
+  const entries = new Map<string, T>();
+  return {
+    get(key) {
+      const hit = entries.get(key);
+      if (hit !== undefined) {
+        // Refresh recency so a hot ask survives longer than a stale one.
+        entries.delete(key);
+        entries.set(key, hit);
+      }
+      return hit;
+    },
+    set(key, value) {
+      entries.set(key, value);
+      if (entries.size > capacity) {
+        const oldest = entries.keys().next().value;
+        if (oldest !== undefined) entries.delete(oldest);
+      }
+    },
+    delete(key) {
+      entries.delete(key);
+    },
+  };
+}
+
+/**
+ * Remember an answer by `key`; ask `inner` only on a miss. Cancellation is
+ * checked before a hit is served and after the inner call resolves — an inner
+ * provider may ignore cancellation, and its stale answer must neither be
+ * cached nor returned after the caller has ended the run.
+ */
+async function remembered<T>(
+  memory: LruMemory<T>,
+  key: string,
+  signal: AbortSignal | undefined,
+  ask: () => Promise<T>,
+): Promise<T> {
+  throwIfAborted(signal);
+  const hit = memory.get(key);
+  if (hit !== undefined) {
+    throwIfAborted(signal);
+    return hit;
+  }
+  const answer = await ask();
+  throwIfAborted(signal);
+  memory.set(key, answer);
+  return answer;
 }
 
 /**
@@ -34,6 +117,14 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
  * A rejected proposal is dropped through `forget`; `repair` always reaches the model,
  * because a repair exists precisely because the cached shape of an answer was
  * wrong.
+ *
+ * The optional capabilities are mirrored exactly: `proposePagePlan` and
+ * `enhancePrompt` exist on the decorator only when the inner provider has
+ * them, because their ABSENCE is a signal — the build falls back to its
+ * scaffold without `proposePagePlan`, and the panel hides Improve without
+ * `enhancePrompt`. A decorator that dropped them made the page-plan path
+ * unreachable from the playground (engine wave-2 verifier, 2026-09-28); one
+ * that stubbed them would break both fallbacks.
  */
 export function createCachingAiPlanProvider(
   inner: AiPlanProvider,
@@ -43,38 +134,21 @@ export function createCachingAiPlanProvider(
   if (!Number.isSafeInteger(capacity) || capacity <= 0) {
     throw new RangeError('AI plan cache capacity must be a positive safe integer.');
   }
-  const cache = new Map<string, AiPlan>();
+  const plans = lruMemory<AiPlan>(capacity);
   const innerRepair = inner.repair?.bind(inner);
+  const innerProposePagePlan = inner.proposePagePlan?.bind(inner);
+  const innerEnhancePrompt = inner.enhancePrompt?.bind(inner);
 
   const provider: AiPlanProvider = {
+    // async, so a key that cannot be computed rejects like every other failure.
     async propose(
       request: string,
       context: AssembledAiContext,
       live?: AiProposeOptions,
     ): Promise<AiPlan> {
-      throwIfAborted(live?.signal);
-      const key = cacheKey(request, context, live);
-      throwIfAborted(live?.signal);
-      const hit = cache.get(key);
-      if (hit !== undefined) {
-        throwIfAborted(live?.signal);
-        // Refresh recency so a hot ask survives longer than a stale one.
-        cache.delete(key);
-        cache.set(key, hit);
-        return hit;
-      }
-      const plan = await inner.propose(request, context, live);
-      // An inner provider may ignore cancellation; never cache or return its
-      // stale answer after the caller has ended the run.
-      throwIfAborted(live?.signal);
-      cache.set(key, plan);
-      if (cache.size > capacity) {
-        const oldest = cache.keys().next().value;
-        if (oldest !== undefined) {
-          cache.delete(oldest);
-        }
-      }
-      return plan;
+      return remembered(plans, cacheKey(request, context, live), live?.signal, () =>
+        inner.propose(request, context, live),
+      );
     },
     /*
       The door rejected that answer, so it must not be served again. Without
@@ -83,7 +157,7 @@ export function createCachingAiPlanProvider(
       is never asked a second time.
     */
     forget(request: string, context: AssembledAiContext, live?: AiProposeOptions): void {
-      cache.delete(cacheKey(request, context, live));
+      plans.delete(cacheKey(request, context, live));
     },
   };
   // Mirror the inner surface exactly: a repair-less provider must stay
@@ -101,6 +175,47 @@ export function createCachingAiPlanProvider(
       throwIfAborted(live?.signal);
       return repaired;
     };
+  }
+  if (innerProposePagePlan !== undefined) {
+    const pagePlans = lruMemory<AiPagePlanProposal>(capacity);
+    /*
+      A page plan is a whole page's design — ~60-85 s of a live model call
+      (cli:haiku, 2026-09-28) — so Plan mode followed by Build, or a retried
+      build on an unchanged page, is exactly the repeat worth remembering.
+    */
+    provider.proposePagePlan = async (
+      request: string,
+      context: AssembledAiContext,
+      live?: AiProposePagePlanOptions,
+    ): Promise<AiPagePlanProposal> => {
+      if (live?.attempt !== undefined) {
+        /*
+          A repair call PROVES the first answer to this ask was refused by
+          validatePagePlan — the page-plan twin of `forget`, which the engine
+          does not call for page plans. Kept, it would come back on the next
+          identical ask, be refused again, and cost a paid repair round every
+          time instead of one fresh first answer.
+        */
+        pagePlans.delete(pagePlanKey(request, context, live.history, undefined));
+      }
+      return remembered(
+        pagePlans,
+        pagePlanKey(request, context, live?.history, live?.attempt),
+        live?.signal,
+        () => innerProposePagePlan(request, context, live),
+      );
+    };
+  }
+  if (innerEnhancePrompt !== undefined) {
+    const rewrites = lruMemory<AiPromptEnhancement>(capacity);
+    // The exact input is the key: the same draft on the same page with the same answers.
+    provider.enhancePrompt = async (
+      input: AiPromptEnhanceInput,
+      live?: AiEnhancePromptOptions,
+    ): Promise<AiPromptEnhancement> =>
+      remembered(rewrites, canonicalJsonStringify(input), live?.signal, () =>
+        innerEnhancePrompt(input, live),
+      );
   }
   return provider;
 }

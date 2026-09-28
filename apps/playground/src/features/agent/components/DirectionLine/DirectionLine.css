@@ -1,0 +1,70 @@
+/*
+  DirectionLine (SPEC §4.8, §2.1 rule 4, §2.4 "Detail" radius). One Meta line in the record's
+  text column: five 12px swatches 2px apart, 8px, the mood in Graphite (ending in an
+  ellipsis), and from 400px the font pair in Slate at the inline end.
+
+  The swatches are the person's page colours: content, not chrome. Each is ringed by the
+  1px content outline on its inner edge, so a white swatch on the paper still has an edge,
+  and nothing in the panel takes their colour.
+*/
+
+.ck-agent-direction {
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-direction__visual {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+.ck-agent-direction__swatches {
+  display: flex;
+  flex: none;
+  gap: var(--bldr-space-2xs);
+}
+
+.ck-agent-direction__swatch {
+  flex: none;
+  inline-size: var(--bldr-space-xl);
+  block-size: var(--bldr-space-xl);
+  border-radius: var(--bldr-radius-xs);
+  box-shadow: inset 0 0 0 var(--bldr-border-hairline) var(--bldr-content-outline);
+}
+
+.ck-agent-direction__mood {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-direction__fonts {
+  display: none;
+  overflow: hidden;
+  flex: 0 1 auto;
+  max-inline-size: 45%;
+  color: var(--bldr-panel-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container agent (min-width: 400px) {
+  .ck-agent-direction__fonts {
+    display: block;
+  }
+}
+
+/* High contrast: the page's colours stay the page's (they are what the swatch shows), ringed. */
+@media (forced-colors: active) {
+  .ck-agent-direction__swatch {
+    forced-color-adjust: none;
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

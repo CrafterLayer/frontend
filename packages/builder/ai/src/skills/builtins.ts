@@ -205,7 +205,7 @@ const OCCASION_PAGE: AiSkillDefinitionV1 = builtin({
   name: 'Invitation, farewell and greeting page',
   description:
     'One-feeling page for a wedding, invitation, farewell, congratulation, condolence or celebration: names, date, place, message, one reply action.',
-  version: '1.2.2',
+  version: '1.2.3',
   source: 'builtin',
   trust: 'builtin',
   priority: 85,
@@ -256,7 +256,12 @@ const OCCASION_PAGE: AiSkillDefinitionV1 = builtin({
       'eid mubarak',
       'eid al',
       'eid greeting',
-      'ramadan',
+      // router-3 additions (2026-09-28): Ramadan through its co-terms — see 'رمضان كريم' below.
+      'ramadan kareem',
+      'ramadan mubarak',
+      'ramadan greeting',
+      'ramadan card',
+      'ramadan page',
       'celebration',
       /*
         Not a bare 'دعوة': it is also the Arabic of "call to action", and "أضف
@@ -302,7 +307,20 @@ const OCCASION_PAGE: AiSkillDefinitionV1 = builtin({
       'عيد مبارك',
       'عيد الأم',
       'عيد الام',
-      'رمضان',
+      /*
+        router-3 additions (2026-09-28). Not a bare 'رمضان' / 'ramadan': it is
+        the season of shop OFFERS as often as a greeting, and "أضف قسم عروض
+        رمضان" (add a Ramadan offers section) loaded this playbook with
+        copywriting and visual-direction, 3,333 tokens against the 1,073
+        floor (wave-2 verifier). A Ramadan greeting is named with its words.
+      */
+      'رمضان كريم',
+      'رمضان مبارك',
+      'تهنئة رمضان',
+      'بطاقة رمضان',
+      'صفحة رمضان',
+      'دعوة إفطار',
+      'دعوة افطار',
       'حفل',
       'دعاء',
     ],
@@ -444,7 +462,7 @@ const CONVERSION_RECIPES: AiSkillDefinitionV1 = builtin({
   name: 'Conversion section recipes',
   description:
     'Exact class recipes for cards, stats, steps, testimonials, pricing and FAQ sections.',
-  version: '1.2.0',
+  version: '1.2.1',
   source: 'builtin',
   trust: 'builtin',
   priority: 60,
@@ -454,6 +472,8 @@ const CONVERSION_RECIPES: AiSkillDefinitionV1 = builtin({
       'pricing',
       'testimonial',
       'faq',
+      // router-3 additions (2026-09-28): a three-letter keyword takes no endings now; plural listed.
+      'faqs',
       'feature cards',
       'feature section',
       'features section',

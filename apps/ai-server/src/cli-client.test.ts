@@ -7,6 +7,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CLI_DEFAULT_TIMEOUT_MS, createCliClient, type CliChildProcess } from './cli-client';
+import { ENHANCE_RULES_TEXT } from './enhance';
 import { createHandler } from './handler';
 import { PAGE_PLAN_EXAMPLE } from './plan-shape';
 import { PAGE_PLAN_CONTRACT_MARK } from './prompt';
@@ -356,16 +357,11 @@ describe('cli backend per-call effort', () => {
   });
 });
 
-/*
-  The page-plan task on the CLI backend, end to end through a real process:
-  the handler, claude.ts and this shim run unmodified, the default spawner
-  starts a `claude` found on PATH — here a fake one that records what it was
-  given and answers like the real CLI's stream-json. It proves the task needs
-  nothing CLI-specific: the plan call's own rules and answer schema reach the
-  CLI as its system prompt, and its answer comes back as the wire's page plan.
-*/
-describe('the page-plan task through a real `claude` process', () => {
-  const FAKE_CLAUDE = `#!/usr/bin/env node
+/**
+ * A `claude` on PATH that records its argv, its system-prompt file and stdin,
+ * then answers FAKE_CLAUDE_ANSWER in the real CLI's stream-json.
+ */
+const FAKE_CLAUDE = `#!/usr/bin/env node
 'use strict';
 const fs = require('node:fs');
 const args = process.argv.slice(2);
@@ -384,6 +380,16 @@ process.stdin.on('end', () => {
   out({ type: 'result', is_error: false, result: answer, usage: { input_tokens: 12, output_tokens: 34 }, duration_api_ms: 5 });
 });
 `;
+
+/*
+  The page-plan task on the CLI backend, end to end through a real process:
+  the handler, claude.ts and this shim run unmodified, the default spawner
+  starts a `claude` found on PATH — here a fake one that records what it was
+  given and answers like the real CLI's stream-json. It proves the task needs
+  nothing CLI-specific: the plan call's own rules and answer schema reach the
+  CLI as its system prompt, and its answer comes back as the wire's page plan.
+*/
+describe('the page-plan task through a real `claude` process', () => {
 
   let directory: string | undefined;
 
@@ -547,5 +553,114 @@ describe('cli backend cancellation', () => {
       vi.unstubAllEnvs();
       rmSync(directory, { recursive: true, force: true });
     }
+  }, 20_000);
+});
+
+/*
+  A call's own model on the `cli` backend (2026-09-28). The handler vets the
+  picker's model — or a small edit's fast one, or the enhancer's — against
+  CRAFTKIT_AI_MODELS and hands it on as `params.model`; this shim used to run
+  its configured model regardless. It now runs a listed one, and anything else
+  (claude.ts's `claude-opus-5` placeholder above all) keeps the configured one.
+*/
+describe('cli backend per-call model', () => {
+  function argsFor(model: string | undefined, allowedModels?: readonly string[]): readonly string[] {
+    const child = new FakeChild();
+    const spawnCli = vi.fn(
+      (_command: string, _args: readonly string[]): CliChildProcess =>
+        child as unknown as CliChildProcess,
+    );
+    createCliClient({
+      spawnCli,
+      model: 'sonnet',
+      ...(allowedModels === undefined ? {} : { allowedModels }),
+      writeSystemPrompt: () => ({ path: '/tmp/x.md', remove: () => undefined }),
+    }).messages.stream({ ...REQUEST, ...(model === undefined ? {} : { model }) } as never);
+    return spawnCli.mock.calls[0]?.[1] ?? [];
+  }
+  const modelOf = (args: readonly string[]): string | undefined =>
+    args.includes('--model') ? args[args.indexOf('--model') + 1] : undefined;
+
+  it('runs a call on the model it names when the server allows it, the cli: prefix dropped', () => {
+    expect(modelOf(argsFor('cli:haiku', ['cli:haiku', 'opus']))).toBe('haiku');
+    expect(modelOf(argsFor('opus', ['cli:haiku', 'opus']))).toBe('opus');
+  });
+
+  it('keeps the configured model for anything unlisted, or when nothing is listed', () => {
+    expect(modelOf(argsFor('claude-opus-5', ['cli:haiku']))).toBe('sonnet');
+    expect(modelOf(argsFor(undefined, ['cli:haiku']))).toBe('sonnet');
+    expect(modelOf(argsFor('cli:haiku'))).toBe('sonnet');
+  });
+});
+
+/*
+  The prompt enhancer on the CLI backend, end to end through a real process:
+  handler → enhance.ts → this shim → a `claude` on PATH. It proves the route
+  needs nothing CLI-specific, and that the CLI really runs it fast: on the
+  fastest allowed model, at --effort low, with the enhancer's own rules and
+  answer schema as its system prompt.
+*/
+describe('the prompt enhancer through a real `claude` process', () => {
+  let directory: string | undefined;
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    if (directory !== undefined) rmSync(directory, { recursive: true, force: true });
+    directory = undefined;
+  });
+
+  it('answers the enhancement the fake CLI wrote, on haiku at low effort, with the enhancer rules', async () => {
+    directory = mkdtempSync(join(tmpdir(), 'fake-claude-'));
+    writeFileSync(join(directory, 'claude'), FAKE_CLAUDE, { mode: 0o755 });
+    const record = join(directory, 'record.json');
+    const answer = {
+      enhanced: 'اعمل صفحة هبوط لمخبز في عمّان: الهيرو، المنتجات، الأسعار، التواصل.',
+      understood: 'تريد صفحة هبوط لمخبز في عمّان.',
+      changes: ['«صفحه» ← «صفحة»'],
+      questions: [{ id: 'q1', text: 'ما الإجراء الرئيسي؟', choices: ['اطلب الآن', 'زرنا'] }],
+      language: 'ar',
+    };
+    vi.stubEnv('PATH', `${directory}${delimiter}${process.env['PATH'] ?? ''}`);
+    vi.stubEnv('FAKE_CLAUDE_RECORD', record);
+    vi.stubEnv('FAKE_CLAUDE_ANSWER', `\`\`\`json\n${JSON.stringify(answer)}\n\`\`\``);
+    const handle = createHandler({
+      client: createCliClient({ model: 'sonnet', allowedModels: ['haiku'] }),
+      model: 'sonnet',
+      models: ['haiku'],
+      authToken: 'secret',
+    });
+
+    const response = await handle(
+      new Request('http://localhost/v1/prompt/enhance', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer secret' },
+        body: JSON.stringify({
+          version: 1,
+          text: 'اعمل صفحه هبوط لمخبز في عمان',
+          locale: 'ar',
+          intent: { kind: 'build-page', confidence: 0.85 },
+          page: { empty: true, sections: [] },
+          selection: null,
+          answers: [],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ version: 1, ...answer });
+    const seen = JSON.parse(readFileSync(record, 'utf8')) as {
+      args: string[];
+      systemPath: string;
+      system: string;
+      stdin: string;
+    };
+    expect(seen.args[seen.args.indexOf('--model') + 1]).toBe('haiku');
+    expect(seen.args[seen.args.indexOf('--effort') + 1]).toBe('low');
+    expect(seen.system).toContain(ENHANCE_RULES_TEXT);
+    expect(seen.system).toContain('# Required output format');
+    expect(seen.system).toContain('"enhanced"');
+    expect(seen.stdin).toContain('اعمل صفحه هبوط لمخبز في عمان');
+    expect(existsSync(seen.systemPath)).toBe(false);
+    // A real process: node's own start-up took seconds on the loaded machine this was written on.
   }, 20_000);
 });

@@ -416,6 +416,83 @@ export const KEYS = [
   'impact.removed',
   'impact.dir',
   'impact.surface',
+
+  // controller additions (WP-16): the two new announcements (`AnnouncementKey`
+  // 'enhance.ready' and 'clarify.ready') and the three new build endings (`EndNoteKey`
+  // 'siteAsOnePage', 'newPageAppended', 'appendedNotReplaced').
+  'announce.enhance.ready',
+  'announce.clarify.ready',
+  'end.siteAsOnePage',
+  'end.newPageAppended',
+  'end.appendedNotReplaced',
+
+  // WP-14-composer additions: the owner's ✨ Improve action (EnhanceButton, EnhanceNote)
+  // and the questions docked above the composer before an unclear request runs
+  // (ClarifyPanel). No SPEC table prints them; each value says why in the catalogs.
+  'enhance.button',
+  'enhance.working',
+  'enhance.empty',
+  'enhance.busy',
+  'enhance.done',
+  'enhance.understood',
+  'enhance.changes.show',
+  'enhance.changes.hide',
+  'enhance.restore',
+  'enhance.failed',
+  'enhance.failed.busy',
+  'enhance.failed.unreachable',
+  'enhance.failed.timeout',
+  'enhance.failed.other',
+  'clarify.title',
+  'clarify.progress',
+  'clarify.progress.aria',
+  'clarify.other',
+  'clarify.other.placeholder',
+  'clarify.other.send',
+  'clarify.edit',
+  'clarify.sendAsWritten',
+  'clarify.cancel',
+  'clarify.rewriting',
+
+  // WP-11-frame additions: JumpToLatest's accessible name while a run is live
+  // (`jump.aria` stays the idle one).
+  'jump.aria.live',
+
+  // WP-12-records additions: what the records need that no SPEC table prints (each value
+  // says why in the catalogs).
+  'message.aria',
+  'direction.aria.colors',
+  'direction.aria.fonts',
+  'edit.title.donePage',
+  'edit.title.noChangePage',
+  'proposal.appliedPage',
+
+  // WP-13-decisions additions: what the decision cards need that no SPEC table prints
+  // (each value says why in the catalogs).
+  'plan.row.reorder',
+  'plan.row.menu',
+  'plan.row.rename.aria',
+  'plan.colors',
+  'plan.fonts.menu',
+  'plan.fonts.specimen',
+  'swatch.pick',
+  'swatch.ok.surface',
+  'swatch.low.surface',
+  'swatch.ok.accent',
+  'swatch.low.accent',
+  'swatch.refused',
+  'swatch.hex.invalid',
+  'proposal.title.page',
+  'steps.label',
+  'steps.target',
+  'restore.close',
+  'restore.working',
+
+  // WP-15-history-phone additions: a conversation row's accessible name, and why a row
+  // cannot be opened or deleted while a run is live (each value says why in the catalogs).
+  'history.row',
+  'history.busy',
+  'history.delete.busy',
 ] as const;
 
 /** A catalog key. */
@@ -533,6 +610,9 @@ export const ANNOUNCEMENT_KEYS = [
   'plan.moved',
   'plan.removed',
   'copied',
+  // controller additions (WP-16)
+  'enhance.ready',
+  'clarify.ready',
 ] as const satisfies readonly AnnouncementKey[];
 
 /** The catalog key of an announcement. */

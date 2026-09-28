@@ -1,0 +1,161 @@
+/*
+  QueueHeader (SPEC §4.17, §3.9, §3.10): 44px, two lines of Meta (16 + 16 in Latin, 20 +
+  20 in Arabic) centred in it, `×` spanning both at the inline end.
+
+  It heads the text below it, so it starts on the same edge: the dot at the composer's
+  content edge, the caption under the dot, then the text (SPEC §3.9 frame). Hierarchy is
+  weight and ink, not size: the label in Meta 600 Ink, the caption in Meta 400 Slate.
+  Nothing here is boxed; the composer around it is the one border.
+*/
+
+.ck-agent-queue {
+  --ck-agent-queue-dot: var(--bldr-accent);
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label remove'
+    'caption remove';
+  align-content: center;
+  align-items: center;
+  column-gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-hit-target-min);
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-queue[data-status='paused'] {
+  --ck-agent-queue-dot: var(--bldr-panel-border-strong);
+
+  grid-template-areas:
+    'label remove'
+    'caption remove'
+    'request request';
+}
+
+.ck-agent-queue[data-status='stale'] {
+  --ck-agent-queue-dot: var(--bldr-warning);
+}
+
+.ck-agent-queue[data-status='missing'] {
+  --ck-agent-queue-dot: var(--bldr-danger);
+}
+
+.ck-agent-queue__label {
+  display: flex;
+  grid-area: label;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-meta);
+}
+
+/* The 8px dot: Indigo while it waits its turn, Amber or Alarm after revalidation, Rule paused. */
+.ck-agent-queue__label::before {
+  flex: none;
+  inline-size: var(--bldr-space-md);
+  block-size: var(--bldr-space-md);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--ck-agent-queue-dot);
+  content: '';
+}
+
+.ck-agent-queue__caption {
+  grid-area: caption;
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+/* Amber on the Sheet 5.02:1, Alarm 6.47:1 (SPEC §2.1). */
+.ck-agent-queue[data-status='stale'] .ck-agent-queue__caption {
+  color: var(--bldr-warning);
+}
+
+.ck-agent-queue[data-status='missing'] .ck-agent-queue__caption {
+  color: var(--bldr-danger);
+}
+
+.ck-agent-queue__remove {
+  grid-area: remove;
+}
+
+/* ── Paused: the request itself, its scope, and Continue ────────────────── */
+
+.ck-agent-queue__request {
+  display: grid;
+  grid-area: request;
+  justify-items: start;
+  row-gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+  padding-block-start: var(--bldr-space-xs);
+}
+
+.ck-agent-queue__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+}
+
+.ck-agent-queue__text {
+  display: -webkit-box;
+  justify-self: stretch;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  unicode-bidi: plaintext;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+/*
+  Continue: a text button (Indigo on the Sheet, 5.37:1), its word on the text's own edge.
+  No fill to bleed into the composer's 7px padding: hover deepens the Indigo and draws the
+  underline, the hit area stays 32px (44 coarse).
+*/
+.ck-agent-queue__continue[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  padding-inline: var(--bldr-space-0);
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--bldr-accent);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-agent-queue__continue[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-queue__continue[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: transparent;
+  color: var(--bldr-accent-strong);
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-queue {
+    --ck-agent-target: var(--bldr-hit-target-min);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-queue__label::before {
+    background-color: CanvasText;
+  }
+
+  .ck-agent-queue__caption,
+  .ck-agent-queue[data-status] .ck-agent-queue__caption {
+    color: CanvasText;
+  }
+}

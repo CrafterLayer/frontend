@@ -238,6 +238,49 @@ function addDependencies(
   for (const root of roots) visit(root, []);
 }
 
+/**
+ * The dependencies of an auto root whose OWN scope excludes the request's
+ * route, with that scope: a dependency serves the routes it serves, whoever
+ * pulls it in. occasion-page serves one section ("Add a farewell banner…" is
+ * add-section) and depends on visual-direction, which serves only page and
+ * site builds; pulled in as a dependency it bypassed its own gate, and "أضف
+ * قسم عروض رمضان" carried the page taste skill: 3,333 tokens against a 1,073
+ * floor (wave-2 verifier, 2026-09-28). A dependency already active — selected,
+ * always-on, or another root's — is never out of scope.
+ */
+function dependenciesOutOfScope(
+  closure: ReadonlyMap<string, Candidate>,
+  candidates: ReadonlyMap<string, Candidate>,
+  request: AutoRequest,
+): ReadonlyMap<string, readonly IntentKind[]> {
+  const out = new Map<string, readonly IntentKind[]>();
+  for (const [dependencyId, candidate] of closure) {
+    if (candidate.reason !== 'dependency' || candidates.has(dependencyId)) continue;
+    const activation = candidate.skill.manifest.activation;
+    if (activation.mode !== 'auto' || activation.intents === undefined) continue;
+    if (!activation.intents.includes(request.intent())) out.set(dependencyId, activation.intents);
+  }
+  return out;
+}
+
+/** The skills `rootId` reaches through its dependencies without passing through `excluded`. */
+function reachableWithout(
+  entries: ReadonlyMap<string, AiDefinedSkillV1>,
+  rootId: string,
+  excluded: ReadonlyMap<string, unknown>,
+): ReadonlySet<string> {
+  const reached = new Set<string>([rootId]);
+  const pending = [rootId];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    for (const dependencyId of entries.get(next)?.manifest.dependencies ?? []) {
+      if (excluded.has(dependencyId) || reached.has(dependencyId)) continue;
+      reached.add(dependencyId);
+      pending.push(dependencyId);
+    }
+  }
+  return reached;
+}
+
 export function resolveAiSkills(
   entries: ReadonlyMap<string, AiDefinedSkillV1>,
   catalog: readonly AiSkillManifestV1[],
@@ -347,11 +390,15 @@ export function resolveAiSkills(
       const root: Candidate = { skill, reason: 'auto', mandatory: false };
       const closure = new Map<string, Candidate>([[id, root]]);
       addDependencies(entries, [root], closure);
+      const outOfScope = dependenciesOutOfScope(closure, candidates, request);
+      const inScope = reachableWithout(entries, id, outOfScope);
       const optionalGroup = [
         ...[...closure.values()]
           .filter(
             (candidate) =>
-              candidate.reason === 'dependency' && !candidates.has(candidate.skill.manifest.id),
+              candidate.reason === 'dependency' &&
+              !candidates.has(candidate.skill.manifest.id) &&
+              inScope.has(candidate.skill.manifest.id),
           )
           .map((candidate) => ({ ...candidate, mandatory: false }))
           .sort((left, right) => compareSkillText(left.skill.manifest.id, right.skill.manifest.id)),
@@ -416,6 +463,14 @@ export function resolveAiSkills(
         candidates.set(candidate.skill.manifest.id, candidate);
       }
       totalTokens += tokens;
+      for (const [dependencyId, intents] of outOfScope) {
+        if (omitted.some((item) => item.id === dependencyId && item.code === 'intent')) continue;
+        omitted.push({
+          id: dependencyId,
+          code: 'intent',
+          message: `Skill ${dependencyId}, a dependency of ${id}, serves only ${intents.join(', ')}; the request routes to ${request.intent()}.`,
+        });
+      }
     }
   }
 

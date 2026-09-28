@@ -241,6 +241,46 @@ describe('checkSection — a landed section held to its contract', () => {
       expect(issue.message).toContain('id="menu"');
       expect(issue.message).toContain('القائمة');
     });
+
+    /*
+      A section's own table of contents jumps inside the section: `#q1` to the
+      answer that carries id q1. Verifier, 2026-09-28: flagged "points at no
+      section", a repair round for a FAQ that worked.
+    */
+    it.each([
+      ['Arabic', CAFE, 'menu', 'كم يستغرق التوصيل؟'],
+      ['English', BUILDER, 'projects', 'How long does a villa take?'],
+    ])('lets a link jump to an id inside its own section (%s)', (_l, plan, key, question) => {
+      const claim = contract(plan, key).mustSay.join(' ');
+      const landed = tree(
+        h(
+          'section',
+          'ck-ground',
+          [
+            h('h2', '', 'x'),
+            h('p', '', claim),
+            h('a', 'ck-link', question, { href: '#q1' }),
+            h('div', '', [h('h3', '', question)], { id: 'q1' }),
+          ],
+          { id: key },
+        ),
+      );
+      expect(checkSection(plan, contract(plan, key), { tree: landed })).toEqual([]);
+      // …while a jump to an id no section and no element carries is still broken.
+      const broken = tree(
+        h(
+          'section',
+          'ck-ground',
+          [h('p', '', claim), h('a', 'ck-link', question, { href: '#q2' })],
+          {
+            id: key,
+          },
+        ),
+      );
+      expect(
+        only(checkSection(plan, contract(plan, key), { tree: broken }), 'missing-anchor').message,
+      ).toContain('#q2');
+    });
   });
 
   describe('heading-level', () => {
@@ -497,6 +537,87 @@ describe('checkSection — a landed section held to its contract', () => {
       );
       expect(issue.message).toContain('"Start now"');
     });
+
+    /*
+      The hero is where a visitor decides: it must carry the page's action as
+      much as the closing CTA does. Verifier's mutant V8 (the rule held to
+      role 'cta' alone) passed the whole suite, 2026-09-28.
+    */
+    it.each([
+      ['Arabic', CAFE, 'قهوة تحمص كل صباح في محمصة في عمّان', 'تحميص يومي'],
+      ['English', BUILDER, 'Built to outlast', 'Licensed since 2004'],
+    ])('asks a hero with no action for the page’s action (%s)', (_l, plan, headline, claim) => {
+      const landed = tree(
+        h('section', 'ck-ground', [h('h1', '', headline), h('p', '', claim)], { id: 'hero' }),
+      );
+      const issue = only(checkSection(plan, contract(plan, 'hero'), { tree: landed }), 'cta-label');
+      expect(issue.message).toContain("Add the page's action");
+      expect(issue.message).toContain(`<a href='${plan.primaryCta.href}' class='ck-btn'>`);
+      expect(issue.message).toContain(plan.primaryCta.label);
+    });
+
+    /*
+      The action's WORDS on a link that goes elsewhere: a visitor who presses
+      it expects the action. Verifier, 2026-09-28: in a band this passed with
+      [], and in a hero the only issue asked for a second button beside it.
+    */
+    it.each([
+      ['Arabic band', CAFE, 'menu', 'ck-btn', '#menu'],
+      ['English band', BUILDER, 'projects', 'ck-btn', 'https://hadid.jo/contact'],
+      ['Arabic ghost button', CAFE, 'menu', 'ck-btn ck-btn--ghost', '#hero'],
+      ['English text link', BUILDER, 'projects', 'ck-link', '#projects'],
+    ])(
+      'points the action’s words back at the action, wherever they sit (%s)',
+      (_l, plan, key, className, elsewhere) => {
+        const claim = contract(plan, key).mustSay.join(' ');
+        const link = h('a', className, plan.primaryCta.label, { href: elsewhere });
+        const landed = tree(
+          h('section', 'ck-ground', [h('h2', '', 'x'), h('p', '', claim), link], { id: key }),
+        );
+        const issue = only(checkSection(plan, contract(plan, key), { tree: landed }), 'cta-label');
+        expect(issue.message).toContain(`leads to ${elsewhere}`);
+        expect(issue.message).toContain(`<a href='${plan.primaryCta.href}'`);
+        expect(issue.path).toBe('tree.children[0].children[2].attributes.href');
+      },
+    );
+
+    it.each([
+      ['Arabic', CAFE, 'قهوة تحمص كل صباح في محمصة في عمّان', 'تحميص يومي'],
+      ['English', BUILDER, 'Built to outlast', 'Licensed since 2004'],
+    ])(
+      'asks a hero to re-point its misdirected action, not to add a second one (%s)',
+      (_l, plan, headline, claim) => {
+        const link = h('a', 'ck-btn', plan.primaryCta.label, { href: '#hero' });
+        const landed = tree(
+          h('section', 'ck-ground', [h('h1', '', headline), h('p', '', claim), link], {
+            id: 'hero',
+          }),
+        );
+        const issue = only(
+          checkSection(plan, contract(plan, 'hero'), { tree: landed }),
+          'cta-label',
+        );
+        expect(issue.message).toContain('leads to #hero');
+        expect(issue.message).not.toContain("Add the page's action");
+      },
+    );
+
+    // The action's words, folded: an arrow after them, or no hamza, is still the label.
+    it.each([
+      ['Arabic, no hamza', CAFE, cafeHero, 'اطلب الان'],
+      ['English, an arrow glyph', BUILDER, builderHero, 'Get a quote →'],
+      ['English, capitals', BUILDER, builderHero, 'GET A QUOTE'],
+    ])('reads the action’s words however they are typed (%s)', (_l, plan, hero, words) => {
+      const landed = withAnchor(hero(), 'hero');
+      // Swap the hero's own action for the variant spelling.
+      const swapped = JSON.parse(
+        JSON.stringify(landed).replace(
+          JSON.stringify(plan.primaryCta.label),
+          JSON.stringify(words),
+        ),
+      ) as JsonValue;
+      expect(checkSection(plan, contract(plan, 'hero'), { tree: swapped })).toEqual([]);
+    });
   });
 
   describe('placeholder-left', () => {
@@ -540,6 +661,77 @@ describe('checkSection — a landed section held to its contract', () => {
       );
       expect(issue.message).toContain(quoted);
     });
+
+    /*
+      Facts written as their stand-ins. Four of five live Dubai plans of
+      2026-09-28 sampled the phone as "+971 4 XXX XXXX", and a writer puts the
+      sample on the page as given; none of the placeholder patterns read a
+      mask, so it shipped.
+    */
+    function factSection(plan: PagePlan, key: string, lines: readonly Node[]): JsonValue {
+      const claim = contract(plan, key).mustSay.join(' ');
+      return tree(h('section', 'ck-ground', [h('p', '', claim), ...lines], { id: key }));
+    }
+
+    it.each([
+      [
+        'a masked phone (English)',
+        BUILDER,
+        'projects',
+        'Call +971 4 XXX XXXX',
+        'Call +971 4 XXX XXXX',
+      ],
+      ['a masked mobile (Arabic)', CAFE, 'menu', 'واتساب: 07XXXXXXXX', 'واتساب: 07XXXXXXXX'],
+      ['masked digits', CAFE, 'menu', 'هاتف: ٠٠٠٠٠٠٠', 'هاتف: ٠٠٠٠٠٠٠'],
+      ['a run of zeros', BUILDER, 'projects', 'Phone: +962 7 9000 0000', 'Phone: +962 7 9000 0000'],
+      ['the field’s name (Arabic)', CAFE, 'menu', 'رقم الهاتف', 'رقم الهاتف'],
+      ['the field’s name after a label', CAFE, 'menu', 'الهاتف: رقم الهاتف', 'الهاتف: رقم الهاتف'],
+      ['the field’s name (English)', BUILDER, 'projects', 'Company name', 'Company name'],
+      ['an example address', BUILDER, 'projects', 'Write to info@example.com', 'info@example.com'],
+    ])('flags a fact left as its stand-in: %s', (_name, plan, key, text, quoted) => {
+      const landed = factSection(plan, key, [h('p', '', text)]);
+      const issue = only(
+        checkSection(plan, contract(plan, key), { tree: landed }),
+        'placeholder-left',
+      );
+      expect(issue.message).toContain(quoted);
+      expect(issue.message).toMatch(/realistic value/u);
+    });
+
+    it('flags a stand-in address a link leads to, but never the plan’s own action', () => {
+      const landed = factSection(BUILDER, 'projects', [
+        h('a', 'ck-link', 'Email us', { href: 'mailto:hello@example.com' }),
+      ]);
+      const issue = only(
+        checkSection(BUILDER, contract(BUILDER, 'projects'), { tree: landed }),
+        'placeholder-left',
+      );
+      expect(issue.path).toBe('tree.children[0].children[1].attributes.href');
+      const own: PagePlan = {
+        ...BUILDER,
+        primaryCta: { label: 'Email us', href: 'mailto:hello@example.com' },
+      };
+      expect(checkSection(own, contract(own, 'projects'), { tree: landed })).toEqual([]);
+    });
+
+    it.each([
+      ['a real phone', BUILDER, 'projects', [h('p', '', 'Call +962 6 461 2750')]],
+      ['a real Arabic phone', CAFE, 'menu', [h('p', '', 'اتصل بنا: ٠٦ ٤٦١ ٢٧٥٠')]],
+      ['a round price', BUILDER, 'projects', [h('p', '', 'Villas from 1,000,000 JD')]],
+      ['clothing sizes', BUILDER, 'projects', [h('p', '', 'Sizes S to XXL')]],
+      ['opening hours', CAFE, 'menu', [h('p', '', 'من ٠٩:٠٠ حتى ٠٠:٠٠')]],
+      // A field's name beside its value is a label, not a stand-in.
+      [
+        'a label beside the number',
+        CAFE,
+        'menu',
+        [h('p', '', 'رقم الهاتف'), h('p', '', '+962 6 461 2750')],
+      ],
+      ['a form label', BUILDER, 'projects', [h('label', '', 'Phone number')]],
+    ])('leaves a real value alone: %s', (_name, plan, key, lines) => {
+      const landed = factSection(plan, key, lines);
+      expect(checkSection(plan, contract(plan, key), { tree: landed })).toEqual([]);
+    });
   });
 
   describe('foreign-image', () => {
@@ -581,6 +773,33 @@ describe('checkSection — a landed section held to its contract', () => {
         'foreign-image',
       );
       expect(issue.path).toBe('css');
+    });
+
+    /*
+      The playground's live Tailwind oracle generates arbitrary values, so the
+      door admits `bg-[url('…')]` — and a photo from memory there passed
+      unread (verifier, 2026-09-28).
+    */
+    it.each([
+      ['Arabic, quoted', CAFE, cafeHero, `bg-[url('${memory}')] bg-cover`],
+      ['English, bare', BUILDER, builderHero, `md:bg-[url(${memory})]`],
+      ['English, arbitrary property', BUILDER, builderHero, `[background-image:url("${memory}")]`],
+    ])('reads a photo written in an arbitrary class (%s)', (_l, plan, hero, className) => {
+      const landed = withAnchor(hero([h('div', className, 'x')]), 'hero');
+      const issue = only(
+        checkSection(plan, contract(plan, 'hero'), { tree: landed }),
+        'foreign-image',
+      );
+      expect(issue.message).toContain(memory);
+      expect(issue.path).toMatch(/\.className$/u);
+    });
+
+    it('admits a catalog photo in an arbitrary class', () => {
+      const landed = withAnchor(
+        builderHero([h('div', `bg-[url('${CATALOG_URL}')] bg-cover`, 'x')]),
+        'hero',
+      );
+      expect(checkSection(BUILDER, contract(BUILDER, 'hero'), { tree: landed })).toEqual([]);
     });
   });
 
@@ -631,6 +850,39 @@ describe('checkSection — a landed section held to its contract', () => {
       expect(issue.message).not.toContain('#facc15');
       expect(issue.path).toBe('css');
     });
+
+    // A colour by NAME is a colour literal too (verifier, 2026-09-28: all of these passed).
+    it.each([
+      ['Arabic', CAFE, cafeHero, 'text-[crimson]'],
+      ['English, with opacity', BUILDER, builderHero, 'bg-[gold]/50'],
+      ['English, arbitrary property', BUILDER, builderHero, '[color:tomato]'],
+    ])('names a named-colour class (%s)', (_l, plan, hero, className) => {
+      const landed = withAnchor(hero([h('p', className, 'x')]), 'hero');
+      const issue = only(
+        checkSection(plan, contract(plan, 'hero'), { tree: landed }),
+        'raw-colour',
+      );
+      expect(issue.message).toContain(className);
+    });
+
+    it.each([
+      ['Arabic', CAFE, cafeHero],
+      ['English', BUILDER, builderHero],
+    ])(
+      'names named colours in the region css, past urls, vars and strings (%s)',
+      (_l, plan, hero) => {
+        const landed = withAnchor(hero(), 'hero');
+        const css =
+          ".ck-x{color:crimson;background:gold url('data:image/svg+xml,red-dot')}.ck-y{border:1px solid var(--tan);box-shadow:0 0 0 1px navy}.ck-z{content:'red';color:var(--ck-ink);background:transparent}";
+        const issue = only(
+          checkSection(plan, contract(plan, 'hero'), { tree: landed, css }),
+          'raw-colour',
+        );
+        expect(issue.message).toContain('crimson, gold, navy');
+        expect(issue.message).not.toMatch(/\bred\b|\btan\b/u);
+        expect(issue.path).toBe('css');
+      },
+    );
   });
 
   describe('contrast', () => {
@@ -677,6 +929,16 @@ describe('checkSection — a landed section held to its contract', () => {
         'hero',
       );
       expect(codes(checkSection(CAFE, contract(CAFE, 'hero'), { tree: landed }))).toEqual(expected);
+    });
+
+    // One pair, one issue: the same failing pair on every card is one repair, not six.
+    it('reports a failing text pair once, however many elements repeat it', () => {
+      const landed = withAnchor(
+        cafeHero([h('p', 'text-white', 'واحد'), h('p', 'text-white', 'اثنان')]),
+        'hero',
+      );
+      const issue = only(checkSection(CAFE, contract(CAFE, 'hero'), { tree: landed }), 'contrast');
+      expect(issue.path).toBe('tree.children[0].children[0].children[6]');
     });
 
     it('does not guess a ground under a photo: white text over an image layer is not measured', () => {
@@ -944,6 +1206,131 @@ describe('checkSection — a landed section held to its contract', () => {
         expect(codes(checkSection(plan, held, { tree: landed }))).toEqual(['repeats']);
       },
     );
+
+    /*
+      Morphology (2026-09-28). A claim word is found in any form a page writes
+      it: Arabic with or without ال, و/ف, ب/ل/ك and a possessive (طلبك, فريقنا),
+      ة written ت before a suffix, sound plurals, tanween's alif, the
+      imperative's alif (احجز); English plurals, possessives, -ed and -ing, any
+      case. Before, 8 of the verifier's 12 light paraphrases were flagged
+      (mustsay-r2.mjs) — each a repair model call for a section that was right.
+      Every row below is a paraphrase a writer produces for the plan's claim.
+    */
+    it.each([
+      // The verifier's rows, each flagged before this change.
+      ['article dropped', 'التوصيل المجاني', 'توصيل مجاني لكل طلب'],
+      ['article dropped, adjective too', 'القهوة المختصة', 'قهوة مختصة من أجود المزارع'],
+      ['possessive for the article', 'خصم ٢٠٪ على الطلب الأول', 'خصم 20% على طلبك الأول'],
+      ['possessive noun, bare plurals', 'فريق من المهندسين المرخصين', 'فريقنا من مهندسين مرخصين'],
+      ['possessive, two words', 'الطلب الأول', 'خصم على طلبك الأول'],
+      ['imperative and ة as ت', 'حجز الطاولات', 'احجز طاولتك الآن'],
+      ['لمدة frames the figure', 'ضمان لمدة سنة', 'ضمان سنة كاملة على كل جهاز'],
+      // More of the same shapes, across trades.
+      ['tanween alif, suffix ة', 'تحميص يومي', 'التحميص يومياً في محمصتنا'],
+      ['hamza and article', 'الأسعار المناسبة', 'أسعار مناسبة للجميع'],
+      ['construct without article', 'خدمة العملاء على مدار الساعة', 'خدمة عملاء على مدار الساعة'],
+      ['ة before a possessive', 'استشارة مجانية', 'استشارتك الأولى مجانية'],
+      ['digits and a possessive plural', 'منتجات طبيعية ١٠٠٪', 'كل منتجاتنا طبيعية 100%'],
+      ['لل and a plural with a suffix', 'تعقيم كامل للأدوات', 'نعقم أدواتنا تعقيماً كاملاً'],
+      ['imperative for the noun', 'الدفع عند الاستلام', 'ادفع عند استلام طلبك'],
+      ['possessives on every noun', 'أطباق مصنوعة في البيت', 'أطباقنا مصنوعة في بيتنا'],
+      ['plural and singular', 'جلسات العلاج الطبيعي', 'جلسة علاج طبيعي مع أخصائي'],
+      ['feminine plural and singular', 'دورات تدريبية معتمدة', 'دورة تدريبية معتمدة دولياً'],
+      ['ون and ين', 'المعلمون المؤهلون', 'معلمين مؤهلين بخبرة طويلة'],
+      ['لل and shadda', 'مكتب محاماة في عمّان', 'مكتبنا للمحاماة في عمان'],
+      ['three of four words', 'صالة رياضية مجهزة بالكامل', 'صالتنا الرياضية مجهزة تماماً'],
+      ['خلال frames the time', 'التوصيل خلال ساعتين', 'توصيل الطلبات في ساعتين'],
+      ['ل with a possessive', 'ورشة صيانة السيارات', 'ورشتنا لصيانة سيارتك'],
+      ['articles added', 'حلويات شرقية طازجة', 'الحلويات الشرقية الطازجة كل يوم'],
+      ['possessive on the object', 'تبييض الأسنان بالليزر', 'تبييض أسنانك بالليزر في جلسة'],
+      ['stat for words, Latin digits', 'أكثر من ١٢٠٠ عميل', '+1,200 عميل سعيد'],
+      ['possessive plural to singular', 'شهادات معتمدة', 'شهادتنا معتمدة'],
+      ['possessive plural', 'مواعيد مرنة', 'مواعيدنا مرنة للعائلات'],
+    ])('mustSay — Arabic paraphrase passes: %s', (_name, claim, text) => {
+      expect(said(CAFE, 'menu', { mustSay: [claim] }, [text])).toEqual([]);
+    });
+
+    it.each([
+      ['plural and hyphen', 'Fixed-price quotes', 'Every job gets a fixed-price quote.'],
+      ['reordered', 'Free delivery', 'Delivery is free inside Amman.'],
+      ['plural, participle', 'Licensed engineers', 'Our engineers are licensed.'],
+      ['case and an apostrophe', 'Licensed since 2004', "We've been licensed since 2004."],
+      ['plural', 'Same-day appointments', 'Book a same-day appointment online.'],
+      [
+        'plural, three words',
+        'Certified personal trainers',
+        'Every trainer is a certified personal trainer.',
+      ],
+      ['plural and punctuation', '24/7 emergency service', 'Emergency services, 24/7.'],
+      ['ies plural', 'Handmade pastries', 'Our pastry is handmade daily.'],
+      ['reordered with its figure', 'Family-owned since 1998', 'Owned by one family since 1998.'],
+      ['possessive plural', "Kids' classes every Saturday", 'A kids class every Saturday morning.'],
+      ['hyphen and plural', 'Board-certified dentists', 'Our dentist is board certified.'],
+      ['plural, reordered', 'Organic ingredients', 'Every ingredient is organic.'],
+      [
+        'grouped figure, plural',
+        'Wedding packages from 1,500 JD',
+        'Wedding package: from 1500 JD.',
+      ],
+      ['three of four words', 'Free shipping on orders over 50 JD', 'Orders over 50 JD ship free.'],
+      ['possessive', 'Client reviews', "Read our clients' reviews"],
+      ['participle, reordered', 'Roasted in small batches', 'Every batch is roasted small.'],
+    ])('mustSay — English paraphrase passes: %s', (_name, claim, text) => {
+      expect(said(BUILDER, 'projects', { mustSay: [claim] }, [text])).toEqual([]);
+    });
+
+    // …and a claim that is NOT there is still asked for, forms and all.
+    it.each([
+      ['a fee, not free delivery', 'التوصيل المجاني', 'التوصيل برسوم رمزية داخل عمّان'],
+      ['another figure', 'خصم ٢٠٪ على الطلب الأول', 'خصم ١٠٪ على الطلب الأول'],
+      [
+        'craftsmen, not licensed engineers',
+        'فريق من المهندسين المرخصين',
+        'فريق من الحرفيين المهرة',
+      ],
+      ['another coffee', 'القهوة المختصة', 'قهوة تركية تقليدية'],
+      ['a month, not a year', 'ضمان لمدة سنة', 'ضمان لمدة شهر'],
+      ['weekly, not daily', 'تحميص يومي', 'تحميص أسبوعي'],
+      ['another price', 'إسبريسو ١٫٥ د.أ', 'إسبريسو ٢٫٥ د.أ'],
+      ['another action', 'حجز الطاولات', 'اطلب قهوتك الآن'],
+      ['paid in advance', 'الدفع عند الاستلام', 'الدفع مسبقاً ببطاقة الائتمان'],
+      ['cleaning, not whitening', 'تبييض الأسنان', 'تنظيف الأسنان'],
+      ['the negation dropped', 'بدون رسوم إضافية', 'رسوم إضافية بسيطة'],
+      ['paid, not free', 'استشارة مجانية', 'استشارة مدفوعة'],
+    ])('mustSay — a missing Arabic claim is flagged: %s', (_name, claim, text) => {
+      expect(said(CAFE, 'menu', { mustSay: [claim] }, [text])).toEqual(['must-say']);
+    });
+
+    it.each([
+      ['hourly, not fixed', 'Fixed-price quotes', 'Hourly rates, billed monthly.'],
+      ['a fee, not free', 'Free delivery', 'Delivery from 3 JD.'],
+      ['friendly, not licensed', 'Licensed engineers', 'Our engineers are friendly.'],
+      ['a week, not the same day', 'Same-day appointments', 'Appointments within a week.'],
+      ['not certified', 'Certified personal trainers', 'Friendly personal trainers.'],
+      ['other hours', '24/7 emergency service', 'Emergency service, 9 to 5.'],
+      ['fresh, not organic', 'Organic ingredients', 'Fresh ingredients.'],
+      ['imported, not handmade', 'Handmade pastries', 'Imported pastries.'],
+      // A word is whole: the substring test found "rent" inside "current".
+      ['a word inside another', 'Rent from 300 JD', 'Current prices from 300 JD.'],
+      ['paid, not for guests', 'Parking for guests', 'Paid parking nearby.'],
+      ['the negation dropped', 'No hidden fees', 'Hidden fees may apply.'],
+    ])('mustSay — a missing English claim is flagged: %s', (_name, claim, text) => {
+      expect(said(BUILDER, 'projects', { mustSay: [claim] }, [text])).toEqual(['must-say']);
+    });
+
+    // The same forms find a repeat: the words in order, clitics and inflections aside.
+    it.each([
+      ['Arabic, article dropped', CAFE, 'menu', 'التوصيل المجاني', 'توصيل مجاني لكل طلب'],
+      [
+        'English, singular',
+        BUILDER,
+        'projects',
+        'Fixed-price quotes',
+        'A fixed-price quote on every job.',
+      ],
+    ])('mustNotRepeat — %s is the repeat', (_name, plan, key, claim, text) => {
+      expect(said(plan, key, { mustNotRepeat: [claim] }, [text])).toEqual(['repeats']);
+    });
   });
 
   describe('foreign-font', () => {
@@ -979,6 +1366,41 @@ describe('checkSection — a landed section held to its contract', () => {
         'foreign-font',
       );
       expect(issue.message).toContain('Cairo');
+    });
+
+    // A face named in an arbitrary class switches to a face the page never loaded.
+    it.each([
+      ['Arabic, bare', CAFE, cafeHero, 'font-[Cairo]', 'Cairo'],
+      ['English, quoted', BUILDER, builderHero, "font-['Inter']", 'Inter'],
+      [
+        'English, spaced',
+        BUILDER,
+        builderHero,
+        "md:font-['Playfair_Display',serif]",
+        'Playfair Display',
+      ],
+      ['Arabic, arbitrary property', CAFE, cafeHero, '[font-family:Tajawal]', 'Tajawal'],
+    ])('names a face written in an arbitrary class (%s)', (_l, plan, hero, className, face) => {
+      const landed = withAnchor(hero([h('p', className, 'x')]), 'hero');
+      const issue = only(
+        checkSection(plan, contract(plan, 'hero'), { tree: landed }),
+        'foreign-font',
+      );
+      expect(issue.message).toContain(face);
+      expect(issue.message).toContain('ck-display');
+      expect(issue.path).toMatch(/\.className$/u);
+    });
+
+    it('admits a weight, the page’s own faces and its variables in an arbitrary class', () => {
+      const landed = withAnchor(
+        cafeHero([
+          h('p', 'font-[700]', 'x'),
+          h('p', "font-['Almarai']", 'y'),
+          h('p', 'font-[var(--ck-font-display)]', 'z'),
+        ]),
+        'hero',
+      );
+      expect(checkSection(CAFE, contract(CAFE, 'hero'), { tree: landed })).toEqual([]);
     });
   });
 
@@ -1031,8 +1453,10 @@ describe('checkSection — a landed section held to its contract', () => {
     The check runs synchronously on the build's thread before each section
     lands. Verifier, 2026-09-28: 874 ms on a door-legal tree of 2,000 nodes at
     depth 30 (5.9 s at 4,000), because every element's label was read by a
-    walk of the whole tree. Best of three, so a loaded machine's one slow run
-    does not fail it.
+    walk of the whole tree. Best of five, so a loaded machine's slow runs do
+    not fail it: warm, this tree checks in 4.5 ms (best of 40, 2026-09-28),
+    but at a load average of ~790 three runs measured 72–510 ms, the first
+    one paying for the JIT. The quadratic walk stays far above the bar.
   */
   it('checks a 2,000-node tree at depth 30 in well under a frame budget', () => {
     const chain = (index: number): Node => {
@@ -1043,7 +1467,7 @@ describe('checkSection — a landed section held to its contract', () => {
     const chains = Array.from({ length: 68 }, (_, index) => chain(index));
     const landed = withAnchor(builderHero(chains), 'hero');
     let best = Number.POSITIVE_INFINITY;
-    for (let run = 0; run < 3; run += 1) {
+    for (let run = 0; run < 5; run += 1) {
       const started = performance.now();
       checkSection(BUILDER, contract(BUILDER, 'hero'), { tree: landed });
       best = Math.min(best, performance.now() - started);

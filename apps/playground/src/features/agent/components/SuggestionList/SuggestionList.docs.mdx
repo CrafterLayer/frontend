@@ -1,0 +1,93 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SuggestionListStories from './SuggestionList.stories';
+
+<Meta of={SuggestionListStories} />
+
+# SuggestionList
+
+What the person might ask next (SPEC §4.16): rows that fill the composer and never send.
+
+<Canvas of={SuggestionListStories.FillsTheComposer} />
+
+## Purpose
+
+A good first request makes a good first page, so the empty page offers four starters, each a trade
+and what its page must do. After a run, the model's follow-ups and what can be done to the selected
+block. Every row is written as the person's own request, in their language.
+
+Choosing a row puts its words in the composer, with focus there and the caret at the end, so the
+person can read it, change a word and send it themselves. It never sends: a request is the person's
+act, and a row that ran on a click would be a button with a surprise behind it.
+
+## When to use / not
+
+AgentThread renders it: after the greeting in the empty state, after the newest settled record
+otherwise, so the dock's height never changes with it. It hides while a run is live, while the
+composer has text and while a decision is waiting; that rule is the thread's. Do not put it in the
+dock, and do not use it for actions that do something on their own.
+
+## Props
+
+| prop          | type                                   | default | notes                                                    |
+| ------------- | -------------------------------------- | ------- | -------------------------------------------------------- |
+| `locale`      | `'ar' \| 'en'`                         | none    |                                                          |
+| `suggestions` | `readonly SuggestionView[]`            | none    | picked and limited by the model (4 empty, 3 after a run) |
+| `onChoose`    | `(suggestion: SuggestionView) => void` | none    | fill the composer and focus it, caret at the end         |
+
+An empty `suggestions` draws nothing.
+
+## States
+
+`Starters`, `StartersArabic` (an empty page); `AfterRun`, `AfterRunArabic` (the model's follow-ups);
+`Selection`, `SelectionArabicDark` (the hero selected); `WrapsAt288` (longer rows on two lines, the
+▫ on the first); `LatinRowInArabic` (a model's English follow-up keeps its own direction);
+`FillsTheComposer`, `FillsTheComposerArabic` (the wiring AgentPanel does, with a stand-in composer
+that counts sends: choosing rows by click and by Enter fills it, and the count stays at zero).
+
+## Anatomy
+
+```text
+[▫ 16] 8 [A dental clinic in Amman with WhatsApp booking ……]      32px row (44 coarse)
+[▫ 16] 8 [A longer request that needs a second line to say ……]    44px two-line row (52 coarse)
+         [what it means, never truncated]
+```
+
+- The row sits on the thread's glyph column: its words start 24px in, on every record title's edge,
+  and its ▫ on the same axis as their status nodes.
+- ▫: a 6px open square, Slate, on the first line.
+- Words: Read type, Graphite; hover lays the Wash from the glyph column to the row's end (radius 6)
+  and inks them. Never Indigo.
+- Rows wrap to a second line rather than truncate: the row's words are the request that will be put
+  in the box.
+- On a coarse pointer: 44px rows, 8px apart.
+
+## Accessibility
+
+- A list named "Suggestions" of `button type="button"` rows: inside any form they submit nothing.
+- Each row's name is its words; its description says what choosing it does ("Puts the text in the
+  box without sending it"), so a request-shaped row is not mistaken for one that runs.
+- The ▫ is decoration.
+- The ring is drawn inside the row (`outline-offset: -2px`), so adjacent rows never share one.
+- A row's text takes its own direction and language from its letters (`resolveDir`, `resolveLang`):
+  a Latin follow-up in the Arabic panel keeps its punctuation at its end.
+- Choosing a row moves focus to the composer (SPEC §6.3). The row does it through its owner:
+  `onChoose` fills the draft, then the composer takes focus with the caret at the end.
+
+## Composition
+
+```tsx
+<SuggestionList
+  locale={state.locale}
+  suggestions={state.suggestions}
+  onChoose={(suggestion) => {
+    flushSync(() => controller.setDraft(suggestion.text));
+    composer.current?.focus();
+    composer.current?.setSelectionRange(suggestion.text.length, suggestion.text.length);
+  }}
+/>
+```
+
+## RTL
+
+Logical properties only: the ▫ at the right in Arabic, the words starting beside it.

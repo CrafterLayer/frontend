@@ -1,0 +1,228 @@
+/*
+  Composer (SPEC §4.17, §2.3 to §2.5): e1, the Sheet, a 1px Rule edge (3.39:1 on the
+  Sheet), radius 12.
+
+  Geometry, from the panel's edge: the dock is 8px in and the border 1px more, so every
+  section pads 7 and everything written in the composer (the text, the chips, the
+  toolbar's first item) starts at the panel's 16: the thread's own gutter (SPEC §2.3).
+  Every control therefore sits 8px from the card's outer edge on every side; Send, in the
+  corner, is as far from the bottom as from the end.
+
+  The writing area stacks at 4px: header, note, chips (28), the text (2 to 6 lines), the
+  toolbar (32). Sections that are about another request (a paused queue, the questions)
+  sit above it, each over a Hairline, and the RunBar tops them all.
+
+  Focus: the textarea delegates its ring to the card (`data-bldr-focus-ring="delegated"`),
+  so writing lights the whole box, Indigo edge and the product's ring, once. A control in
+  the card draws its own ring instead: the card lights only for the words (`:has()`).
+*/
+
+.ck-agent-composer {
+  position: relative;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+/* The `@` list floats 8px above the card, across its width (SPEC §3.2). */
+.ck-agent-composer__popup {
+  position: absolute;
+  z-index: 30;
+  inset-block-end: calc(100% + var(--bldr-space-md));
+  inset-inline: 0;
+}
+
+.ck-agent-composer__card {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-xl);
+  background-color: var(--bldr-surface);
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-composer__card:focus-within {
+  border-color: var(--bldr-accent);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+@supports selector(:has(*)) {
+  .ck-agent-composer__card:focus-within {
+    border-color: var(--bldr-panel-border-strong);
+    outline: none;
+  }
+
+  .ck-agent-composer__card:has(.ck-agent-composer__input:focus) {
+    border-color: var(--bldr-accent);
+    outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+    outline-offset: var(--bldr-focus-ring-offset);
+  }
+}
+
+.ck-agent-composer__section {
+  min-inline-size: 0;
+  padding: calc(var(--bldr-space-md) - var(--bldr-border-hairline));
+}
+
+.ck-agent-composer__section + .ck-agent-composer__section {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-composer__write {
+  display: grid;
+  row-gap: var(--bldr-space-xs);
+}
+
+.ck-agent-composer__context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ck-agent-chip-gap, var(--bldr-space-md));
+  min-inline-size: 0;
+}
+
+/* ── The text ─────────────────────────────────────────────────────────────── */
+
+.ck-agent-composer__field {
+  position: relative;
+  min-inline-size: 0;
+}
+
+/*
+  Input type (14/20 Latin, 15/24 Arabic, 16 on a coarse pointer so iOS never zooms), 2 to
+  6 lines (FR-059), then it scrolls. The scrollbar's gutter is reserved from the start,
+  so the words never reflow when a seventh line brings the scrollbar (overlay scrollbars
+  reserve nothing). Each line orders itself (`plaintext`): an English line inside an
+  Arabic request still reads left to right.
+*/
+.ck-agent-composer__input {
+  display: block;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-block-size: calc(2 * var(--bldr-line-height-input));
+  max-block-size: calc(6 * var(--bldr-line-height-input));
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--bldr-panel-text);
+  caret-color: var(--bldr-accent);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-input);
+  line-height: var(--bldr-line-height-input);
+  resize: none;
+  field-sizing: content;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  unicode-bidi: plaintext;
+}
+
+.ck-agent-composer__input:focus-visible {
+  outline: none;
+}
+
+/* Slate on the Sheet, 4.69:1 (SPEC §2.1). */
+.ck-agent-composer__input::placeholder {
+  color: var(--bldr-panel-muted);
+  opacity: 1;
+}
+
+/* ── ✨ Improve at work: the draft is locked and shimmers ─────────────────── */
+
+/*
+  The locked draft steps back to Slate (4.69:1 on the Sheet): still the person's words,
+  still readable, visibly not theirs to edit for the moment. This is all there is under
+  reduced motion, in high contrast, and where text clipping is missing.
+*/
+.ck-agent-composer__input[data-enhancing] {
+  color: var(--bldr-panel-muted);
+  cursor: progress;
+}
+
+/*
+  The light (SPEC §5 moment 10: a text shimmer in the reading direction, 2s, linear). A
+  copy of the words lies exactly over the box, set exactly as the box sets them (the same
+  box, font, wrapping, reserved gutter and direction), and paints only an Ink band,
+  clipped to the letters, that runs through the Slate ones beneath. The real text is
+  never hidden: if the copy were a pixel off, the worst case is a softer band.
+*/
+.ck-agent-composer__shimmer {
+  position: absolute;
+  inset: 0;
+  display: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-input);
+  line-height: var(--bldr-line-height-input);
+  overflow-wrap: break-word;
+  pointer-events: none;
+  scrollbar-gutter: stable;
+  unicode-bidi: plaintext;
+  white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (background-clip: text) or (-webkit-background-clip: text) {
+    .ck-agent-composer__shimmer {
+      display: block;
+      background-image: linear-gradient(
+        90deg,
+        transparent 0 38%,
+        var(--bldr-panel-text) 50%,
+        transparent 62% 100%
+      );
+      background-size: 250% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: ck-agent-composer-shimmer var(--bldr-duration-shimmer) linear infinite;
+    }
+
+    .ck-agent-composer__shimmer:dir(rtl) {
+      animation-direction: reverse;
+    }
+  }
+}
+
+@keyframes ck-agent-composer-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* ── Coarse pointers, contrast, high contrast ─────────────────────────────── */
+
+@media (pointer: coarse) {
+  .ck-agent-composer {
+    --ck-agent-chip-gap: var(--bldr-space-3xl);
+  }
+}
+
+/* `prefers-contrast: more` swaps the Hairline for the Rule (SPEC §6.4). */
+@media (prefers-contrast: more) {
+  .ck-agent-composer__section + .ck-agent-composer__section {
+    border-block-start-color: var(--bldr-panel-border-strong);
+  }
+}
+
+/* High contrast: no light; the locked words go GrayText, the system's "not now". */
+@media (forced-colors: active) {
+  .ck-agent-composer__shimmer {
+    display: none;
+  }
+
+  .ck-agent-composer__input[data-enhancing] {
+    color: GrayText;
+  }
+}

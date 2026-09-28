@@ -45,6 +45,13 @@ import {
   type AiCompositionPolicy,
   type ResolvedAiCompositionPolicy,
 } from './composition-policy';
+import {
+  childIdsOf,
+  parentsOf,
+  sectionOf,
+  subtreeIds,
+  type AiDocumentFocus,
+} from './document-tree-mode';
 
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
 
@@ -501,9 +508,21 @@ function rootBlockType(ctx: AiContextReadApi): string | undefined {
 function collectBlocks(
   ctx: AiContextReadApi,
   policy: ResolvedAiCompositionPolicy,
+  focus?: AiDocumentFocus,
 ): readonly AiBlockContext[] {
   const present = policy.catalogMode === 'none' ? presentBlockTypes(ctx) : undefined;
   const rootType = rootBlockType(ctx);
+  /*
+    fast-edits (2026-09-28): an EDIT on a remote catalog authors nothing new.
+    The escape hatch is always detailed so the model can WRITE a region
+    (composition-policy `alwaysDetailedBlockTypes`), and on the owner's CV
+    edit that was 1,251 of 11,368 wire tokens — schema 682, example 240 —
+    for a region already on the page, whose own markup is the example. Its
+    name, description and prop names stay; a registered type in scope keeps
+    its schema for editing, less the worked examples. `full` (the offline
+    provider, which plans by scoring examples) is left whole.
+  */
+  const editing = focus?.kind === 'edit' && policy.catalogMode !== 'full';
   const withRootRule = (block: AiBlockContext): AiBlockContext => {
     if (block.type !== rootType) return block;
     /*
@@ -522,7 +541,13 @@ function collectBlocks(
   return ctx.registry
     .blocks(ctx.surface)
     .flatMap((entry) => {
-      if (blockIsInCatalogScope(policy, entry.type)) return [withRootRule(blockDetailEntry(entry))];
+      if (blockIsInCatalogScope(policy, entry.type)) {
+        if (!editing) return [withRootRule(blockDetailEntry(entry))];
+        if (policy.alwaysDetailedBlockTypes.has(entry.type)) return [blockPresenceEntry(entry)];
+        const editable = { ...withRootRule(blockDetailEntry(entry)) };
+        delete editable.examples;
+        return [editable];
+      }
       if (present !== undefined) {
         // `none` states nothing about a block the run did not ask for — not
         // even its name. The model composes; it does not choose from a list.
@@ -603,6 +628,97 @@ function collectDocument(
       .map((node) => documentNode(node, keepWhole !== undefined && !keepWhole.has(node.id)))
       .sort((left, right) => compareText(left.id, right.id)),
   };
+}
+
+function sortedJsonRecord(record: Record<string, JsonValue>): Record<string, JsonValue> {
+  return Object.fromEntries(
+    Object.entries(record).sort(([left], [right]) => compareText(left, right)),
+  );
+}
+
+/**
+ * One section OUTSIDE an edit's focus, as one line: its name and what stands
+ * there, never its contents — a composed region's label and tree summary
+ * (`filled · 14 nodes · “Heading”`), a block's label, heading or title. Its
+ * slots are not listed: the nodes under it are not in the document either.
+ */
+function outlineNode(node: Node): AiDocumentNodeContext {
+  const props: Record<string, JsonValue> = {};
+  for (const key of ['label', 'heading', 'title']) {
+    const value = node.props[key];
+    if (typeof value === 'string') props[key] = value;
+  }
+  for (const [key, value] of Object.entries(node.props)) {
+    if (isCustomCodeTreeValue(value)) props[key] = summariseCustomCodeTree(value);
+  }
+  return { id: node.id, type: node.type, props: sortedJsonRecord(props), slots: {} };
+}
+
+/**
+ * The document an EDIT sees (fast-edits, 2026-09-28): the root as it is (its
+ * page CSS carries the design tokens a restyle keeps to), the focused
+ * sections — and the sections holding the selection — WHOLE, each with every
+ * node under it, and every other top-level section outlined. Nodes outside
+ * the page tree are left out: an edit cannot reach them.
+ */
+function collectFocusedDocument(
+  ctx: AiContextReadApi,
+  focus: AiDocumentFocus,
+  selection: readonly NodeId[],
+): { readonly document: AiDocumentContext; readonly shown: readonly NodeId[] } {
+  const { doc } = ctx.store.getState();
+  const parents = parentsOf(doc);
+  const shown: NodeId[] = [];
+  const whole = new Set<NodeId>();
+  for (const id of [...focus.nodeIds, ...selection]) {
+    if (id === doc.rootId || doc.nodes[id] === undefined) continue;
+    const section = sectionOf(id, doc, parents) ?? id;
+    if (shown.includes(section)) continue;
+    shown.push(section);
+    for (const inside of subtreeIds(section, doc)) whole.add(inside);
+  }
+  const root = doc.nodes[doc.rootId];
+  const nodes: AiDocumentNodeContext[] = root === undefined ? [] : [documentNode(root)];
+  for (const id of childIdsOf(root)) {
+    const node = doc.nodes[id];
+    if (node !== undefined && !whole.has(id)) nodes.push(outlineNode(node));
+  }
+  for (const id of whole) {
+    const node = doc.nodes[id];
+    if (node !== undefined) nodes.push(documentNode(node));
+  }
+  return {
+    document: {
+      schemaVersion: doc.schemaVersion,
+      surface: doc.surface,
+      dir: doc.dir,
+      rootId: doc.rootId,
+      nodes: nodes.sort((left, right) => compareText(left.id, right.id)),
+    },
+    shown,
+  };
+}
+
+/** The fragment source that tells a focused run the page is shown in part. */
+export const DOCUMENT_FOCUS_FRAGMENT_SOURCE = 'craftkit.document-focus';
+
+/**
+ * ~40 tokens that keep a focused run honest: the outline is not the page's
+ * content, so an outlined section is to be left alone rather than "filled in".
+ */
+function focusFragment(shown: readonly NodeId[]): Readonly<ContextFragment> {
+  return fragment(
+    {
+      source: DOCUMENT_FOCUS_FRAGMENT_SOURCE,
+      kind: 'data',
+      trust: 'builtin',
+      title: 'Document focus',
+    },
+    {
+      shown,
+      note: 'The page is shown in part: the sections in `shown` whole, every other section as one outline line (its label and a summary of what stands there). Change what the request names; leave outlined sections as they are.',
+    },
+  );
 }
 
 function collectSelection(
@@ -800,7 +916,15 @@ export function assembleAiContext(
             },
           );
         });
-  const fragments = Object.freeze([...providerFragments, ...skillFragments]);
+  // fast-edits (2026-09-28): an edit that names its section sees that section, not the page.
+  const focus = options.composition?.documentFocus;
+  const focused =
+    focus === undefined ? undefined : collectFocusedDocument(readCtx, focus, selection);
+  const fragments = Object.freeze([
+    ...providerFragments,
+    ...skillFragments,
+    ...(focused === undefined ? [] : [focusFragment(focused.shown)]),
+  ]);
   const allowedCommands =
     options.allowedCommands === undefined ? undefined : new Set([...options.allowedCommands]);
   const allCommands = readCtx.registry.commands();
@@ -825,9 +949,9 @@ export function assembleAiContext(
   const base = {
     fragments,
     totalTokens: fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
-    blocks: collectBlocks(readCtx, composition),
+    blocks: collectBlocks(readCtx, composition, focus),
     templates: collectTemplates(readCtx),
-    document: collectDocument(readCtx, composition, selection),
+    document: focused?.document ?? collectDocument(readCtx, composition, selection),
     selection: collectSelection(readCtx, selection),
     commands,
     outputContract: options.outline === true ? AI_OUTLINE_OUTPUT_CONTRACT : AI_PLAN_OUTPUT_CONTRACT,
@@ -840,7 +964,49 @@ export function assembleAiContext(
   if (options.skillContext === undefined) return base;
   return {
     ...base,
-    skillCatalog: options.skillContext.catalog,
+    /*
+      A focused edit ships no skill catalog: no server renders it (prompt.ts
+      reads the active fragments and the pins, never the catalog), and on the
+      owner's CV edit it was 5,431 of 11,368 wire tokens — the largest single
+      part of "~11.3k" (fast-edits, measured 2026-09-28).
+    */
+    ...(focused === undefined ? { skillCatalog: options.skillContext.catalog } : {}),
     skills: options.skillContext.activations,
+  };
+}
+
+/**
+ * The context a DIRECT edit read (`tryDirectEdit`, fast-edits 2026-09-28):
+ * the nodes it writes, as they stood, and the selection — no catalog, no
+ * commands, no skills, zero tokens, because no model was asked. It exists so
+ * the direct edit's proposal is fingerprinted against what it was made from,
+ * exactly as a model's proposal is against the context the model saw.
+ */
+export function assembleDirectEditContext(
+  ctx: Pick<KernelApi, 'store'>,
+  options: { readonly nodeIds: readonly NodeId[]; readonly selection?: readonly NodeId[] },
+): AssembledAiContext {
+  const { doc, selection: live } = ctx.store.getState();
+  const ids = [...new Set(options.nodeIds)].sort(compareText);
+  return {
+    fragments: Object.freeze([]),
+    totalTokens: 0,
+    blocks: Object.freeze([]),
+    templates: Object.freeze([]),
+    document: {
+      schemaVersion: doc.schemaVersion,
+      surface: doc.surface,
+      dir: doc.dir,
+      rootId: doc.rootId,
+      nodes: ids.flatMap((id) => {
+        const node = doc.nodes[id];
+        return node === undefined ? [] : [documentNode(node)];
+      }),
+    },
+    selection: { ids: [...(options.selection ?? live)] },
+    commands: Object.freeze([]),
+    outputContract: AI_PLAN_OUTPUT_CONTRACT,
+    omissions: Object.freeze([]),
+    treeMarkup: true,
   };
 }

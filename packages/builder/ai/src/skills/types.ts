@@ -108,7 +108,13 @@ export interface AiActiveSkillContext extends AiSkillActivationPin {
   restrictToCommands?: readonly string[];
 }
 
-export type AiSkillOmissionCode = 'active-limit' | 'conflict' | 'token-budget' | 'untrusted';
+/**
+ * Why a skill was left out. `'intent'`: an auto skill's DEPENDENCY whose own
+ * `activation.intents` excludes the request's route — the page taste skill
+ * under a one-section request — left out while the skill that needs it
+ * activates (router-3, 2026-09-28).
+ */
+export type AiSkillOmissionCode = 'active-limit' | 'conflict' | 'intent' | 'token-budget' | 'untrusted';
 
 export interface AiSkillOmission {
   id: string;

@@ -1,0 +1,215 @@
+/*
+  SpineSegment (SPEC §1, §4.8): the page spine, one stretch at a time.
+
+  Geometry. The glyph column is 16px; its centre is 8px in. The spine is 2px wide on that
+  centre (7px to 9px), and every node is a 12px disc inside a 2px Paper ring, so a stretch
+  stops 8px from a node's centre (`--ck-agent-node-reach`) and the ring reads as the spine
+  running into the node. Rows are `--bldr-agent-row-height` tall (32px, 44px on a coarse
+  pointer) with their node centred; a record head is 32px with its node centred, and the
+  record's body starts 4px under it. Every length below is one of those facts, in tokens.
+
+  Pencil to ink. Waiting is a dashed Track stretch; a writer lights it Halo with a light
+  travelling down; a finished draft stays Halo, still; a landed section inks it Indigo, and
+  only then. Parallel writers light several stretches at once, and ink grows from the top.
+*/
+
+.ck-agent-segment {
+  --ck-agent-node-reach: var(--bldr-space-md);
+  --ck-agent-spine-width: var(--bldr-border-thick);
+  --ck-agent-glint: var(--bldr-accent);
+
+  position: absolute;
+  z-index: 1;
+  inset-inline-start: calc(var(--bldr-space-md) - var(--ck-agent-spine-width) / 2);
+  inline-size: 0;
+  border-inline-start: var(--ck-agent-spine-width) dashed var(--bldr-progress-track);
+  pointer-events: none;
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/*
+  The travelling light is Indigo on the Halo stretch in light (3.30:1) and Indigo deep in
+  dark (3.99:1), SPEC §2.1. The theme blocks of chrome.css, restated for this one variable;
+  `:where()` keeps them one class strong, so an explicit light theme wins over a dark system.
+*/
+@media (prefers-color-scheme: dark) {
+  :where(:root:not([data-bldr-theme='light'])) .ck-agent-segment {
+    --ck-agent-glint: var(--bldr-accent-strong);
+  }
+}
+
+:where([data-bldr-theme='dark']) .ck-agent-segment {
+  --ck-agent-glint: var(--bldr-accent-strong);
+}
+
+:where([data-bldr-theme='light']) .ck-agent-segment {
+  --ck-agent-glint: var(--bldr-accent);
+}
+
+/* ── Ends ─────────────────────────────────────────────────────────────────── */
+
+/* Under a record head: its node's centre is half a head above the body, plus the 4px gap. */
+.ck-agent-segment[data-from='head'] {
+  inset-block-start: calc(
+    -1 * (var(--bldr-space-xs) + var(--bldr-control-md) / 2 - var(--ck-agent-node-reach))
+  );
+}
+
+/* Under this row's node. */
+.ck-agent-segment[data-from='node'] {
+  inset-block-start: calc(var(--bldr-agent-row-height) / 2 + var(--ck-agent-node-reach));
+}
+
+.ck-agent-segment[data-to='end'] {
+  inset-block-end: 0;
+}
+
+/*
+  Into the next row, to just above its node. `--ck-agent-segment-gap` is the space between
+  this element and that row: none between rows, the body's 2px between a caption block and
+  the first row.
+*/
+.ck-agent-segment[data-to='node'] {
+  inset-block-end: calc(
+    -1 *
+      (
+        var(--ck-agent-segment-gap, 0px) + var(--bldr-agent-row-height) / 2 -
+          var(--ck-agent-node-reach)
+      )
+  );
+}
+
+/* ── States (SPEC §4.8 segment table) ─────────────────────────────────────── */
+
+.ck-agent-segment[data-state='writing'],
+.ck-agent-segment[data-state='drafted'],
+.ck-agent-segment[data-state='indeterminate'] {
+  border-inline-start-style: solid;
+  border-inline-start-color: var(--bldr-accent-ring);
+}
+
+.ck-agent-segment[data-state='ink'] {
+  border-inline-start-style: solid;
+  border-inline-start-color: var(--bldr-accent);
+}
+
+.ck-agent-segment[data-state='failed'] {
+  border-inline-start-color: var(--bldr-danger);
+}
+
+/* The light, and the ink, are drawn over the border by the pseudo-element. */
+.ck-agent-segment::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(-1 * var(--ck-agent-spine-width));
+  inline-size: var(--ck-agent-spine-width);
+  background-repeat: no-repeat;
+}
+
+/*
+  A writer is on it (SPEC §5 moment 2): a light 40% of the stretch tall travels down it,
+  1.4s, linear, for as long as the writer works. Positions run from fully above to fully
+  below: with a 40% tall image, 0% and 100% place it flush, so -66.667% and 166.667% place
+  it one image height outside either end.
+*/
+.ck-agent-segment[data-state='writing'][data-live]::after {
+  content: '';
+  background-image: linear-gradient(to bottom, transparent, var(--ck-agent-glint), transparent);
+  background-size: 100% 40%;
+  animation: ck-agent-segment-glint var(--bldr-duration-glint) linear infinite;
+}
+
+@keyframes ck-agent-segment-glint {
+  from {
+    background-position-y: -66.667%;
+  }
+
+  to {
+    background-position-y: 166.667%;
+  }
+}
+
+/*
+  A section lands (SPEC §5 moment 1): the ink fills the stretch top-down over 360ms, over the
+  pale Halo it had while written and waiting. Consecutive landings are 80ms apart at least:
+  BuildRecord sets `--ck-agent-land-delay` on the stretch and its row together.
+*/
+.ck-agent-segment[data-state='ink'][data-live] {
+  border-inline-start-color: var(--bldr-accent-ring);
+}
+
+.ck-agent-segment[data-state='ink'][data-live]::after {
+  content: '';
+  background-color: var(--bldr-accent);
+  transform-origin: 50% 0;
+  animation: ck-agent-segment-ink var(--bldr-duration-land) var(--bldr-easing-enter)
+    var(--ck-agent-land-delay, 0ms) backwards;
+}
+
+@keyframes ck-agent-segment-ink {
+  from {
+    scale: 1 0;
+  }
+}
+
+@keyframes ck-agent-segment-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/*
+  Reduced motion (SPEC §5): no light travels; a writing stretch is Halo with its upper half
+  Indigo, still, so it still reads apart from a finished draft. A landing is a 120ms fade.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-segment[data-state='writing'][data-live]::after {
+    background-image: linear-gradient(to bottom, var(--ck-agent-glint) 50%, transparent 50%);
+    background-size: 100% 100%;
+    animation: none;
+  }
+
+  .ck-agent-segment[data-state='ink'][data-live]::after {
+    animation: ck-agent-segment-fade var(--bldr-duration-state) linear
+      var(--ck-agent-land-delay, 0ms) backwards;
+  }
+}
+
+/*
+  High contrast (SPEC §4.8, §6.4). The system palette replaces ours, so the states are told
+  apart by the border's style and width, in system colours: pencil dashed GrayText, writing
+  dotted Highlight (no light), drafted dotted CanvasText, ink 3px solid Highlight, failed
+  dashed Mark.
+*/
+@media (forced-colors: active) {
+  .ck-agent-segment {
+    forced-color-adjust: none;
+    border-inline-start: var(--ck-agent-spine-width) dashed GrayText;
+  }
+
+  .ck-agent-segment[data-state='writing'],
+  .ck-agent-segment[data-state='indeterminate'] {
+    border-inline-start: var(--ck-agent-spine-width) dotted Highlight;
+  }
+
+  .ck-agent-segment[data-state='drafted'] {
+    border-inline-start: var(--ck-agent-spine-width) dotted CanvasText;
+  }
+
+  /* 3px: ink is the one stroke drawn heavier, so it stands apart without colour. */
+  .ck-agent-segment[data-state='ink'],
+  .ck-agent-segment[data-state='ink'][data-live] {
+    --ck-agent-spine-width: calc(var(--bldr-border-thick) + var(--bldr-border-hairline));
+
+    border-inline-start: var(--ck-agent-spine-width) solid Highlight;
+  }
+
+  .ck-agent-segment[data-state='failed'] {
+    border-inline-start: var(--ck-agent-spine-width) dashed Mark;
+  }
+
+  .ck-agent-segment::after,
+  .ck-agent-segment[data-live]::after {
+    display: none;
+  }
+}

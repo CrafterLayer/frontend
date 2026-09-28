@@ -1,0 +1,265 @@
+/*
+  SpineRow (SPEC §4.8, §2.3 "Glyph column", "Row height", "Row hover fill").
+
+  The row takes its columns from the list (SpineList: node 16 · number 20 · title · state
+  word · trailing action, 8px apart) through subgrid, so every number, title and state word
+  in a build lines up down the list whatever each row holds: node to number 8, number to
+  title 8, titles 52px in. A row is `--bldr-agent-row-height` tall, 32px, 44px on a coarse
+  pointer; a failed row adds its reason line below.
+
+  Hierarchy is weight and ink, never size: Read titles (Ink; Slate while waiting or not on
+  the page; weight 500 while written), Figure numbers and Meta state words in Slate.
+*/
+
+.ck-agent-spine-row {
+  /* The node's Paper ring is the stretch's own gap here: clear, so a hover fill reads whole. */
+  --ck-agent-ground: transparent;
+
+  position: relative;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  grid-template-rows: var(--bldr-agent-row-height);
+  grid-auto-rows: auto;
+  align-items: center;
+  min-inline-size: 0;
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* ── The row: node, number, title, state word ─────────────────────────────── */
+
+.ck-agent-spine-row__primary {
+  display: grid;
+  grid-row: 1;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  align-self: stretch;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+/* With a trailing column, the row's button stops where the action starts. */
+.ck-agent-spine[data-trailing] .ck-agent-spine-row__primary {
+  grid-column: node / trail;
+}
+
+button.ck-agent-spine-row__primary {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A focus destination inside the row, clear of the rows above and below (SPEC §6.3). */
+.ck-agent-spine-row__primary:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-border-thick));
+}
+
+/* The node sits above the spine and the completion light, which pass behind it. */
+.ck-agent-spine-row__node {
+  position: relative;
+  z-index: 2;
+  grid-column: node;
+  justify-self: center;
+}
+
+.ck-agent-spine-row__number {
+  grid-column: number;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-figure);
+  text-align: end;
+}
+
+/* One line, ending in an ellipsis at the inline end; the plan named it in full. */
+.ck-agent-spine-row__title {
+  overflow: hidden;
+  grid-column: title;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-spine-row:is(
+    [data-state='planned'],
+    [data-state='waiting'],
+    [data-state='notWritten'],
+    [data-state='undone']
+  )
+  .ck-agent-spine-row__title {
+  color: var(--bldr-panel-muted);
+}
+
+/* Written, and not yet ink: the title stands a weight heavier until it lands. */
+.ck-agent-spine-row:is([data-state='writing'], [data-state='retrying'])
+  .ck-agent-spine-row__title {
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+/*
+  The state word, at the inline end. Below 400px only where the node alone could be
+  mistaken: a second try looks like writing, and not written or undone like waiting
+  (SPEC §4.8). From 400px, every row says its state. It is always in the row's name.
+*/
+.ck-agent-spine-row__state {
+  display: none;
+  grid-column: state;
+  justify-self: end;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+}
+
+.ck-agent-spine-row:is([data-state='retrying'], [data-state='notWritten'], [data-state='undone'])
+  .ck-agent-spine-row__state {
+  display: block;
+}
+
+.ck-agent-spine-row[data-state='failed'] .ck-agent-spine-row__state {
+  color: var(--bldr-danger);
+}
+
+@container agent (min-width: 400px) {
+  .ck-agent-spine-row__state {
+    display: block;
+  }
+}
+
+/* ── Trailing action ──────────────────────────────────────────────────────── */
+
+.ck-agent-spine-row__trailing {
+  display: flex;
+  grid-row: 1;
+  grid-column: trail;
+  justify-self: end;
+}
+
+/* Undo on a fine pointer: there on hover or focus, and its place kept, so nothing moves. */
+.ck-agent-spine-row__trailing[data-reveal='hover'] {
+  opacity: 0;
+  transition: opacity var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-spine-row:hover .ck-agent-spine-row__trailing[data-reveal='hover'],
+.ck-agent-spine-row:focus-within .ck-agent-spine-row__trailing[data-reveal='hover'] {
+  opacity: 1;
+}
+
+/* ── Reason line: why it failed, or why its Undo could not run ────────────── */
+
+.ck-agent-spine-row__reason {
+  grid-row: 2;
+  grid-column: title / -1;
+  min-inline-size: 0;
+  margin-block-start: calc(-1 * var(--bldr-space-xs));
+  padding-block-end: var(--bldr-space-xs);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-spine-row__reason[data-tone='danger'] {
+  color: var(--bldr-danger);
+}
+
+/* ── Hover: the Wash from the glyph column to the row end, radius 6 ───────── */
+
+.ck-agent-spine-row[data-interactive]:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+/* Slate reads under 4.5:1 on the Wash: secondary words step up to Graphite (SPEC §2.1 rule 2). */
+.ck-agent-spine-row[data-interactive]:hover
+  :is(
+    .ck-agent-spine-row__number,
+    .ck-agent-spine-row__state,
+    .ck-agent-spine-row__reason[data-tone='muted']
+  ) {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-spine-row[data-interactive]:is(
+    [data-state='planned'],
+    [data-state='waiting'],
+    [data-state='notWritten'],
+    [data-state='undone']
+  ):hover
+  .ck-agent-spine-row__title {
+  color: var(--bldr-panel-text-soft);
+}
+
+/* ── A live build ─────────────────────────────────────────────────────────── */
+
+/*
+  A section landing (SPEC §5 moment 1): the node inks in and its check settles (RunGlyph),
+  the title settles from 500 to 400, all on the row's stagger delay, which BuildRecord sets
+  with the stretch above the node.
+*/
+.ck-agent-spine-row[data-live] .ck-agent-spine-row__title {
+  transition:
+    color var(--bldr-duration-state) var(--bldr-easing),
+    font-weight var(--bldr-duration-land) var(--bldr-easing-enter)
+      var(--ck-agent-land-delay, 0ms);
+}
+
+.ck-agent-spine-row[data-live]
+  .ck-agent-glyph[data-animate]
+  :is(.ck-agent-glyph__disc, .ck-agent-glyph__mark) {
+  animation-delay: var(--ck-agent-land-delay, 0ms);
+}
+
+/* The list arrives in page order (SPEC §5 moment 6): 4px up and in, 24ms apart. */
+.ck-agent-spine-row[data-arriving] {
+  animation: ck-agent-spine-row-in var(--bldr-duration-enter) var(--bldr-easing-enter)
+    var(--ck-agent-arrive-delay, 0ms) backwards;
+}
+
+@keyframes ck-agent-spine-row-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-xs);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-spine-row[data-arriving] {
+    animation: none;
+  }
+
+  .ck-agent-spine-row[data-live] .ck-agent-spine-row__title {
+    transition: color var(--bldr-duration-state) linear;
+  }
+}
+
+/* ── Coarse pointer: 44px rows (the token), and Undo always in view ───────── */
+
+@media (pointer: coarse) {
+  .ck-agent-spine-row__trailing[data-reveal='hover'] {
+    opacity: 1;
+  }
+}
+
+/* High contrast drops the Wash: a hovered row keeps a visible edge instead. */
+@media (forced-colors: active) {
+  .ck-agent-spine-row[data-interactive]:hover {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+}

@@ -1,0 +1,183 @@
+/*
+  FactsDisclosure (SPEC §4.8, §3.5). A quiet text disclosure in Amber (4.86:1 on Paper),
+  hung into the gutter like ChangeLines' "Show all changes": 4px of padding and the
+  chevron's own 5.5px of side bearing put its stroke on the record's text edge, and the
+  hover fill reaches back that far.
+
+  Open, it grows over `enter` (220ms, decelerating) and closes over `exit` (140ms), but only
+  once the person has used it (SPEC §5 moment 8: motion answers a click). Its rows are the
+  panel's rows: 32px, 44px on a coarse pointer, the Wash on hover, the ring drawn inside.
+*/
+
+.ck-agent-facts {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.ck-agent-facts__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  margin-inline-start: calc(-1 * var(--bldr-space-lg));
+  padding-block: 0;
+  padding-inline: var(--bldr-space-xs) var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-warning);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-facts__toggle:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-facts__toggle:focus-visible,
+.ck-agent-facts__item:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* Open: the chevron turns down (transform), then the RTL mirror (scale) leaves it down. */
+.ck-agent-facts__chevron {
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-facts[data-open] .ck-agent-facts__chevron {
+  transform: rotate(90deg);
+}
+
+/* ── The panel: 0fr closed, 1fr open ──────────────────────────────────────── */
+
+.ck-agent-facts__panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+}
+
+.ck-agent-facts[data-open] .ck-agent-facts__panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+.ck-agent-facts[data-animate] .ck-agent-facts__panel {
+  transition:
+    grid-template-rows var(--bldr-duration-exit) var(--bldr-easing-exit),
+    visibility 0s linear var(--bldr-duration-exit);
+}
+
+.ck-agent-facts[data-animate][data-open] .ck-agent-facts__panel {
+  transition:
+    grid-template-rows var(--bldr-duration-enter) var(--bldr-easing-enter),
+    visibility 0s linear 0s;
+}
+
+.ck-agent-facts__inner {
+  overflow: hidden;
+  min-block-size: 0;
+}
+
+.ck-agent-facts__intro {
+  margin: 0;
+  padding-block: var(--bldr-space-2xs) var(--bldr-space-xs);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-facts__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+  A sample, then its section at the inline end. The row's 8px of padding hangs into the
+  gutter, so the quoted sample starts on the text edge and the hover fill reaches past it.
+*/
+.ck-agent-facts__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--bldr-space-md);
+  inline-size: calc(100% + var(--bldr-space-md));
+  min-block-size: var(--bldr-agent-row-height);
+  margin: 0;
+  margin-inline-start: calc(-1 * var(--bldr-space-md));
+  padding-block: 0;
+  padding-inline: var(--bldr-space-md);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-facts__item:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-facts__item:focus-visible {
+  outline-offset: calc(-1 * var(--bldr-border-thick));
+}
+
+.ck-agent-facts__sample {
+  overflow: hidden;
+  min-inline-size: 0;
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-facts__section {
+  overflow: hidden;
+  max-inline-size: 45cqi;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-facts__item:hover .ck-agent-facts__section {
+  color: var(--bldr-panel-text-soft);
+}
+
+/* A finger needs 44px (SPEC §6.4); the rows follow the row-height token by themselves. */
+@media (pointer: coarse) {
+  .ck-agent-facts__toggle {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-facts__chevron,
+  .ck-agent-facts[data-animate] .ck-agent-facts__panel,
+  .ck-agent-facts[data-animate][data-open] .ck-agent-facts__panel {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-facts__toggle:hover,
+  .ck-agent-facts__item:hover {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+}

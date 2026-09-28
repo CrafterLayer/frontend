@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -9,12 +10,17 @@ import {
   PAGE_PLAN_EXAMPLE,
   PAGE_PLAN_FALLBACK_ACCENTS,
   PAGE_PLAN_FALLBACK_BASE,
-  PAGE_PLAN_HEX_ONLY_SHADES,
   PAGE_PLAN_LATIN_FAMILIES,
   PAGE_PLAN_PHOTO_TOPICS,
   PAGE_PLAN_SECTION_VARIANTS,
 } from './plan-shape';
-import { PAGE_PLAN_CONTRACT_MARK, buildPrompt } from './prompt';
+import {
+  PAGE_PLAN_CONTRACT_MARK,
+  SYSTEM_RULES_TEXT,
+  buildPrompt,
+  markupVocabulary,
+  planPromptVariant,
+} from './prompt';
 
 function wireRequest(overrides: Partial<AiPlanWireRequest> = {}): AiPlanWireRequest {
   return {
@@ -490,6 +496,16 @@ describe('the colour rule', () => {
   on it. The digests below were recorded from this file's tree on 2026-09-28
   BEFORE prompt.ts learned the task; a deliberate change to the plan prompt
   re-records them, and nothing else may move them.
+
+  Re-recorded once, deliberately, the same day (server-2), after the edit
+  prompt diet had been checked against the OLD digests (all three held, and
+  all 60 captured build requests in the session's capture folders built
+  byte-identical prompts, the 2 captured edits the compact ones). Then two
+  build-prompt lines changed on purpose, and only they — a line diff of every
+  fixture and every captured build request showed nothing else: the rules'
+  CSS paragraph (region CSS as a design tool, with the door's refusal policy)
+  and the markup vocabulary line, derived from the request's customCode
+  schema instead of a hand-written list that had drifted.
 */
 describe('ordinary requests after the page-plan task', () => {
   function digest(request: AiPlanWireRequest): string {
@@ -531,9 +547,9 @@ describe('ordinary requests after the page-plan task', () => {
   ];
 
   const RECORDED: Readonly<Record<string, string>> = {
-    'a bare request': 'fd534969828475d6849d2e06b4e961aeaf2248a1ed05fc9698671d79e96b6f4e',
-    'a large catalog': 'da52825ba1794354d702cfb61a17fdb1459bd851c08c513aefde272191b8a771',
-    'every branch at once': '2766b3215fdea52c3bb8eb8f501e8560de30e5798925ddec32e664c882646a8f',
+    'a bare request': '283c79d1abb4edb5819bbba460c21b25fdbf068d805db2b70e72c78151c3b9b0',
+    'a large catalog': '1577b7fcdf689672e9115315e5166245ef3d7a68825fac5fb4fbff77267b22fc',
+    'every branch at once': 'a93846e4a7eec1fc7e187f5eab3f89ecbde97eebfd21efa8369716afee4e8f2d',
   };
 
   it.each(FIXTURES)('builds %s exactly as before the task existed', (name, build) => {
@@ -652,32 +668,22 @@ describe('the page-plan task', () => {
     }
   });
 
-  it("asks for hex wherever the row names no shade, since only the rows' names resolve", () => {
+  it('lets the plan name any Tailwind shade, since this server resolves every one', () => {
     /*
-      Measured live 2026-09-28 (cli:haiku, a Dubai dental page): the one issue
-      the client's validator raised was tokens.border "slate-100" — a shade no
-      deck row uses, so the client's palette (the rows' 73 shades) cannot
-      resolve it, and the plan cost a repair round for a hairline.
+      Measured live 2026-09-28 (cli:haiku): border "slate-100" (a shade no deck
+      row uses), accentInk "yellow-800" and "red-400" (deck shades the client's
+      palette lacked) each cost a refused plan and a repair round. The server
+      now rewrites every Tailwind shade name to its hex (plan-shape.ts), so the
+      rules stop rationing names — and stop claiming a name does not resolve.
     */
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
-    expect(rules).toMatch(/border = a hairline[^.]*#rrggbb hex/u);
-    expect(rules).toContain('a shade name no row uses does not resolve');
-  });
-
-  it("gives the hex of every deck shade the client's palette does not name", () => {
-    /*
-      Measured live 2026-09-28 (cli:haiku, an Arabic wedding hall, 84 s): the
-      plan copied the wedding row's accent-ink yellow-800 exactly as the rules
-      said, and validatePagePlan refused it — the client's palette lacks that
-      shade — so the page cost a whole repair round (~80 s).
-    */
-    const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
-    const copy = /Copy the row's shades as written[^\n]*/u.exec(rules)?.[0] ?? '';
-
-    for (const [shade, hex] of Object.entries(PAGE_PLAN_HEX_ONLY_SHADES)) {
-      expect(copy).toContain(`${shade} = ${hex}`);
-    }
+    expect(rules).toContain(
+      'every colour is a Tailwind shade name or #rrggbb hex, and both resolve — nothing else does',
+    );
+    expect(rules).toContain('border = a hairline between ground and muted (e.g. stone-200');
+    expect(rules).not.toContain('does not resolve');
+    expect(rules).not.toContain('written as their hex');
   });
 
   it('keeps accentInk off the accent fill', () => {
@@ -717,6 +723,21 @@ describe('the page-plan task', () => {
 
     expect(rules).toMatch(/facts: EVERY invented/u);
     for (const kind of ['phone', 'price', 'address', 'name']) expect(rules).toContain(kind);
+  });
+
+  it('asks for a complete, realistic sample in the page’s own format — never XXX', () => {
+    /*
+      Measured live 2026-09-28: 4 of 5 Dubai plans wrote the phone sample as
+      "+971 4 XXX XXXX", and "sample exactly as the page will show it" put
+      the X's on the page.
+    */
+    const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
+    const facts = /- facts: [^\n]*/u.exec(rules)?.[0] ?? '';
+
+    expect(facts).toContain("a complete, realistic value in the page's own format and language");
+    expect(facts).toContain('+971 4 331 2750');
+    expect(facts).toContain('never XXX, masked digits, all zeros or a bracketed stand-in');
+    expect(facts).toContain('the ledger, not the value, marks it as a sample');
   });
 
   it('plans an Arabic request in Arabic, with Latin slugs', () => {
@@ -775,5 +796,445 @@ describe('the page-plan task', () => {
 
     expect(system.every((part) => part.text.trim() !== '')).toBe(true);
     expect(system.at(-1)?.cache_control).toEqual({ type: 'ephemeral' });
+  });
+});
+
+// ── the edit prompt diet and design code (2026-09-28, server-2) ─────────────
+
+/** A customCode catalog entry in the shape the client serialises it (capture10, 2026-09-27). */
+function customCodeEntry(
+  tags: readonly string[],
+  attributes: readonly string[],
+): AiPlanWireRequest['context']['blocks'][number] {
+  return {
+    type: 'customCode',
+    description:
+      'A freely composed region. Its `tree` holds two kinds of node: `{kind:"element"}` for markup you author.',
+    propsSchema: {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      type: 'object',
+      properties: {
+        label: { default: 'Custom section', type: 'string', maxLength: 80 },
+        tree: {
+          default: { kind: 'root', children: [] },
+          craftkit: 'custom-code-tree',
+          type: 'object',
+          properties: {
+            kind: { type: 'string', const: 'root' },
+            children: { type: 'array', items: { $ref: '#/$defs/__schema0' } },
+          },
+          required: ['kind', 'children'],
+          additionalProperties: false,
+        },
+        css: { default: '', craftkit: 'custom-css', type: 'string', maxLength: 8000 },
+      },
+      required: ['label', 'tree', 'css'],
+      additionalProperties: false,
+      $defs: {
+        __schema0: {
+          oneOf: [
+            {
+              type: 'object',
+              properties: {
+                kind: { type: 'string', const: 'element' },
+                tag: { type: 'string', enum: [...tags] },
+                className: { type: 'string', maxLength: 1000 },
+                attributes: {
+                  type: 'object',
+                  properties: Object.fromEntries(
+                    attributes.map((name) => [name, { type: 'string', maxLength: 2000 }]),
+                  ),
+                  additionalProperties: false,
+                },
+                children: { type: 'array', items: { $ref: '#/$defs/__schema0' } },
+              },
+              required: ['kind', 'tag'],
+              additionalProperties: false,
+            },
+            {
+              type: 'object',
+              properties: {
+                kind: { type: 'string', const: 'icon' },
+                name: { type: 'string', minLength: 1, maxLength: 64 },
+              },
+              required: ['kind', 'name'],
+              additionalProperties: false,
+            },
+          ],
+        },
+      },
+    },
+    examples: [
+      {
+        prompt: 'a CV header',
+        node: {
+          type: 'customCode',
+          props: { label: 'CV header', css: '', tree: { kind: 'root', children: [] } },
+        },
+      },
+    ],
+    propertyIntents: { tabs: { advanced: ['css'], content: ['label', 'tree'] }, kinds: {} },
+    slots: [],
+  } as unknown as AiPlanWireRequest['context']['blocks'][number];
+}
+
+const TODAY_TAGS = ['a', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'section', 'span'];
+const TODAY_ATTRIBUTES = ['alt', 'href', 'id', 'src'];
+
+/** The markup section's vocabulary sentence, as one request states it. */
+function vocabularyOf(request: AiPlanWireRequest): string {
+  const stable = buildPrompt(request).system[1]?.text ?? '';
+  return /^The page stores it as the tree[^\n]*$/mu.exec(stable)?.[0] ?? '';
+}
+
+function manifest(id: string, activation: Record<string, unknown>): unknown {
+  return {
+    schemaVersion: 1,
+    id,
+    name: id,
+    description: id,
+    version: '1.0.0',
+    tags: [],
+    source: 'builtin',
+    trust: 'builtin',
+    activation,
+    priority: 50,
+    dependencies: [],
+    conflicts: [],
+    referencePaths: [],
+    contentFingerprint: `skill-v1-sha256-${id}`,
+  };
+}
+
+type Pin = readonly [id: string, reason: string, activation: Record<string, unknown> | undefined];
+
+/** The floor an Arabic colour edit carried on 2026-09-27 (capture10 call 06). */
+const EDIT_FLOOR: readonly Pin[] = [
+  ['craftkit.craft-manual', 'always', { mode: 'always' }],
+  ['craftkit.arabic-rtl', 'auto', { mode: 'auto', scripts: ['arabic'] }],
+  ['craftkit.design-direction', 'auto', { mode: 'auto', keywords: ['أغمق'] }],
+];
+
+const PAGE_WITH_CONTENT = {
+  schemaVersion: 1,
+  surface: 'site',
+  dir: 'rtl',
+  rootId: 'root',
+  nodes: [
+    { id: 'root', type: 'page', props: {}, slots: { default: ['pg-hero'] } },
+    {
+      id: 'pg-hero',
+      type: 'customCode',
+      props: { label: 'Hero', tree: "<section class='bg-stone-950'>…</section>", css: '' },
+      slots: {},
+    },
+  ],
+} as unknown as AiPlanWireRequest['context']['document'];
+
+/** An edit on a page with content, exactly as the panel sends one: markup, live Tailwind, floor skills. */
+function editRequest(
+  pins: readonly Pin[] = EDIT_FLOOR,
+  context: Partial<AiPlanWireRequest['context']> = {},
+): AiPlanWireRequest {
+  const base = wireRequest();
+  return {
+    ...base,
+    request: 'خلّي خلفية الهيرو أغمق',
+    context: {
+      ...base.context,
+      blocks: [
+        customCodeEntry(TODAY_TAGS, TODAY_ATTRIBUTES),
+        { type: 'page', description: 'The page root.', insertable: false },
+      ],
+      templates: [
+        { id: 'commerce-launch', name: 'Commerce launch', rootType: 'stack', nodeCount: 16, blockTypes: [] },
+      ],
+      document: PAGE_WITH_CONTENT,
+      treeMarkup: true,
+      utilities: 'tailwind',
+      skills: pins.map(([id, reason]) => ({
+        id,
+        version: '1.0.0',
+        contentFingerprint: `skill-v1-sha256-${id}`,
+        reason,
+      })) as unknown as AiPlanWireRequest['context']['skills'],
+      skillCatalog: pins.flatMap(([id, , activation]) =>
+        activation === undefined ? [] : [manifest(id, activation)],
+      ) as unknown as AiPlanWireRequest['context']['skillCatalog'],
+      fragments: pins.map(([id]) =>
+        skillFragment({ source: id, title: `Active AI skill: ${id}`, trust: 'builtin' }),
+      ),
+      ...context,
+    },
+  };
+}
+
+describe('which rules a plan request is built with', () => {
+  it('reads a change to a page with content, carrying only edit-safe skills, as an edit', () => {
+    expect(planPromptVariant(editRequest())).toBe('edit');
+    expect(planPromptVariant(editRequest([]))).toBe('edit');
+  });
+
+  it('keeps every step the build pipeline pins on the build rules', () => {
+    for (const id of [
+      'craftkit.build-scaffold',
+      'craftkit.build-fill',
+      'craftkit.direction-deck',
+      'craftkit.section-variants',
+      'craftkit.plan-mode',
+    ]) {
+      const pins: Pin[] = [...EDIT_FLOOR, [id, 'explicit', { mode: 'explicit' }]];
+      expect(planPromptVariant(editRequest(pins)), id).toBe('build');
+    }
+  });
+
+  it('keeps a request that loaded a page playbook on the build rules', () => {
+    const playbook: Pin = [
+      'craftkit.cv-page',
+      'auto',
+      { mode: 'auto', keywords: ['cv'], intents: ['build-page', 'build-site'] },
+    ];
+    expect(planPromptVariant(editRequest([...EDIT_FLOOR, playbook]))).toBe('build');
+
+    const editScoped: Pin = [
+      'craftkit.occasion-page',
+      'dependency',
+      { mode: 'auto', keywords: ['eid'], intents: ['add-section', 'edit'] },
+    ];
+    expect(planPromptVariant(editRequest([...EDIT_FLOOR, editScoped]))).toBe('edit');
+  });
+
+  it('fails safe: an unknown skill, an empty page or a client that reads no markup is a build', () => {
+    const unknown: Pin = ['host.mystery', 'auto', undefined];
+    expect(planPromptVariant(editRequest([...EDIT_FLOOR, unknown]))).toBe('build');
+    expect(planPromptVariant(editRequest(EDIT_FLOOR, { document: wireRequest().context.document }))).toBe(
+      'build',
+    );
+    const noMarkup = Object.fromEntries(
+      Object.entries(editRequest().context).filter(([key]) => key !== 'treeMarkup'),
+    ) as unknown as AiPlanWireRequest['context'];
+    expect(planPromptVariant({ ...editRequest(), context: noMarkup })).toBe('build');
+  });
+
+  it('reads the precise-edit skill as an edit, and the page-plan task as its own', () => {
+    const precise: Pin = ['craftkit.precise-edit', 'explicit', { mode: 'explicit' }];
+    expect(planPromptVariant(editRequest([precise, ...EDIT_FLOOR]))).toBe('edit');
+    expect(planPromptVariant({ ...editRequest(), task: 'page-plan' })).toBe('page-plan');
+  });
+});
+
+describe('the edit prompt', () => {
+  const asBuild = (request: AiPlanWireRequest): AiPlanWireRequest => ({
+    ...request,
+    context: { ...request.context, document: wireRequest().context.document },
+  });
+
+  it('carries the compact edit rules, never the page-building ones', () => {
+    const rules = buildPrompt(editRequest()).system[0]?.text ?? '';
+
+    expect(rules).toContain('a precise edit, not a new page');
+    expect(rules).toContain('editTree');
+    expect(rules).not.toContain('## Building the page');
+    expect(rules).not.toContain('Design to a professional standard');
+    expect(buildPrompt(asBuild(editRequest())).system[0]?.text).toBe(SYSTEM_RULES_TEXT);
+  });
+
+  it('drops the page templates and the JSON-form customCode schema, keeping the markup section', () => {
+    const stable = buildPrompt(editRequest()).system[1]?.text ?? '';
+    const catalog = JSON.parse(/^# Block catalog\n(.*)$/mu.exec(stable)?.[1] ?? '[]') as {
+      type: string;
+      description: string;
+      examples?: unknown;
+      propsSchema?: { properties: Record<string, unknown>; $defs?: unknown };
+    }[];
+    const customCode = catalog.find((entry) => entry.type === 'customCode');
+
+    expect(stable).not.toContain('# Page templates available');
+    expect(customCode?.examples).toBeUndefined();
+    expect(customCode?.propsSchema?.$defs).toBeUndefined();
+    expect(customCode?.propsSchema?.properties['tree']).toMatchObject({ type: 'string' });
+    // The client's own limits on the two other props survive.
+    expect(customCode?.propsSchema?.properties['label']).toMatchObject({ maxLength: 80 });
+    expect(customCode?.propsSchema?.properties['css']).toMatchObject({ maxLength: 8000 });
+    expect(customCode?.description).toContain('ONE markup string');
+    expect(catalog.find((entry) => entry.type === 'page')).toEqual({
+      type: 'page',
+      description: 'The page root.',
+      insertable: false,
+    });
+    expect(stable).toContain('# Writing a customCode tree');
+    expect(stable).toContain('only the tags in the customCode schema (a, div, h1–h6, p, section, span)');
+    expect(stable).toContain('## Active AI skill: craftkit.design-direction');
+  });
+
+  it('is measurably smaller than the same request built, with the same turn', () => {
+    const edit = buildPrompt(editRequest());
+    const build = buildPrompt(asBuild(editRequest()));
+    const size = (parts: typeof edit): number =>
+      parts.system.reduce((total, part) => total + part.text.length, 0);
+
+    expect(size(edit)).toBeLessThan(size(build) * 0.8);
+    expect(edit.messages.at(-1)?.content.endsWith('خلّي خلفية الهيرو أغمق')).toBe(true);
+    expect(edit.system.at(-1)?.cache_control).toEqual({ type: 'ephemeral' });
+  });
+});
+
+describe('design code in the prompts', () => {
+  it("states exactly the markup vocabulary the request's own customCode schema admits", () => {
+    const opened = editRequest(EDIT_FLOOR, {
+      blocks: [
+        customCodeEntry(
+          ['a', 'details', 'summary', 'table', 'td', 'svg', 'path', 'video'],
+          ['href', 'open', 'popover', 'popovertarget', 'viewBox', 'd', 'poster'],
+        ),
+      ],
+    });
+    const line = vocabularyOf(opened);
+
+    expect(line).toContain('(a, details, summary, table, td, svg, path, video)');
+    expect(line).toContain('attributes only href, open, popover, popovertarget, viewBox, d, poster');
+    // What the door admits drops out of the "no" list; the rest stays named.
+    expect(line).toContain('no form, input, textarea, select, script or iframe;');
+    expect(line).not.toMatch(/no [^;]*svg/u);
+    // The hand-written list is gone: nothing the schema does not name is stated.
+    expect(line).not.toContain('figcaption');
+  });
+
+  it('reads the vocabulary however the schema nests it', () => {
+    const nested = customCodeEntry([], []) as { propsSchema: { $defs: Record<string, unknown> } };
+    nested.propsSchema.$defs = {
+      element: {
+        anyOf: [
+          {
+            type: 'object',
+            properties: {
+              tag: { anyOf: [{ enum: ['section', 'p'] }, { const: 'details' }] },
+              attributes: { type: 'object', properties: { id: { type: 'string' } } },
+            },
+          },
+          {
+            type: 'object',
+            properties: {
+              tag: { enum: ['svg', 'circle'] },
+              attributes: { type: 'object', properties: { viewBox: {}, cx: {} } },
+            },
+          },
+        ],
+      },
+    };
+    const vocabulary = markupVocabulary([
+      nested as unknown as AiPlanWireRequest['context']['blocks'][number],
+    ]);
+
+    expect(vocabulary).toEqual({
+      tags: ['section', 'p', 'details', 'svg', 'circle'],
+      attributes: ['id', 'viewBox', 'cx'],
+    });
+  });
+
+  it("falls back to the schema's own word when the catalog carries no customCode schema", () => {
+    expect(markupVocabulary(wireRequest().context.blocks)).toBeUndefined();
+    const line = vocabularyOf(
+      wireRequest({ context: { ...wireRequest().context, treeMarkup: true } }),
+    );
+    expect(line).toContain('only the tags and attributes the customCode schema admits');
+    expect(line).toContain('no form, input, textarea, select, script, iframe, svg or video');
+  });
+
+  /*
+    The mirror of the lists themselves. This app cannot import CUSTOM_CODE_TAGS
+    or CUSTOM_CODE_ATTRIBUTES (the wire door re-exports neither), so the test
+    reads them from the schema package's source — the design-code owner was
+    adding tags the day this was written — builds the catalog entry the client
+    would send from them, and holds the prompt to every one.
+  */
+  it('states every tag and attribute CUSTOM_CODE_TAGS and CUSTOM_CODE_ATTRIBUTES hold', () => {
+    const text = readFileSync(
+      new URL('../../../packages/builder/schema/src/custom-code/custom-code-tree.ts', import.meta.url),
+      'utf8',
+    );
+    const listed = (name: string, seen = new Set<string>()): string[] => {
+      if (seen.has(name)) return [];
+      seen.add(name);
+      const body = new RegExp(`const ${name}\\b[^=]*=\\s*\\[([\\s\\S]*?)\\]`, 'u').exec(text)?.[1] ?? '';
+      return [
+        ...[...body.matchAll(/'([^']+)'/gu)].map((match) => match[1] ?? ''),
+        ...[...body.matchAll(/\.\.\.([A-Z_][A-Z0-9_]*)/gu)].flatMap((match) =>
+          listed(match[1] ?? '', seen),
+        ),
+      ];
+    };
+    const tags = listed('CUSTOM_CODE_TAGS');
+    const attributes = listed('CUSTOM_CODE_ATTRIBUTES');
+    expect(tags.length).toBeGreaterThan(30);
+    expect(attributes.length).toBeGreaterThan(5);
+
+    const line = vocabularyOf(
+      editRequest(EDIT_FLOOR, { blocks: [customCodeEntry(tags, attributes)] }),
+    );
+    const statedTags = new Set(
+      (/customCode schema \(([^)]*)\)/u.exec(line)?.[1] ?? '')
+        .split(', ')
+        .flatMap((tag) => (tag === 'h1–h6' ? ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] : [tag])),
+    );
+    const statedAttributes = new Set((/attributes only ([^.]*)\./u.exec(line)?.[1] ?? '').split(', '));
+
+    expect(tags.filter((tag) => !statedTags.has(tag))).toEqual([]);
+    expect(attributes.filter((attribute) => !statedAttributes.has(attribute))).toEqual([]);
+  });
+
+  it('makes region CSS a first-class design tool, in the build rules and the edit rules alike', () => {
+    for (const rules of [
+      buildPrompt(wireRequest()).system[0]?.text ?? '',
+      buildPrompt(editRequest()).system[0]?.text ?? '',
+    ]) {
+      expect(rules).toContain('Region CSS is a first-class design tool');
+      for (const tool of [
+        '@keyframes',
+        'prefers-reduced-motion: reduce',
+        'layered gradients',
+        'mask-image',
+        '::before/::after',
+        ':focus-visible',
+        '@container',
+        'scroll-snap',
+      ]) {
+        expect(rules, tool).toContain(tool);
+      }
+    }
+  });
+
+  /*
+    The door's refusal list (custom-css.ts `REFUSED`) is what the rules promise
+    the model; a construct refused there and not named here is a plan the door
+    drops without the model ever having been told.
+  */
+  it("states the door's CSS refusal policy exactly as custom-css.ts refuses", () => {
+    const text = readFileSync(
+      new URL('../../../packages/builder/schema/src/custom-code/custom-css.ts', import.meta.url),
+      'utf8',
+    );
+    const refusedList = /const REFUSED[\s\S]*?\];/u.exec(text)?.[0] ?? '';
+    const reasons = [...refusedList.matchAll(/reason: '([^']+)'/gu)].map((match) => match[1] ?? '');
+    const hosts = [...text.matchAll(/'https:\/\/(fonts\.[a-z.]+)\/'/gu)].map((match) => match[1] ?? '');
+    expect(reasons.length).toBeGreaterThan(5);
+    expect(hosts.length).toBeGreaterThan(0);
+
+    const STATED_AS: Readonly<Record<string, string>> = {
+      '@import': '@import',
+      'insecure (http or //) url()': 'an http: or protocol-relative // url()',
+      'expression()': 'expression()',
+      behavior: 'behavior',
+      '-moz-binding': '-moz-binding',
+      'javascript:': 'javascript:',
+      '</style>': '</style>',
+    };
+    const rules = SYSTEM_RULES_TEXT;
+    for (const reason of reasons) {
+      const stated = STATED_AS[reason];
+      expect(stated, `custom-css.ts refuses "${reason}": state it in REGION_CSS`).toBeDefined();
+      expect(rules).toContain(stated);
+    }
+    for (const host of hosts) expect(rules).toContain(host);
   });
 });

@@ -501,3 +501,64 @@ export {
   type SelectAssetsRequest,
   type SelectAssetsResult,
 } from './assets/select-assets';
+
+// orchestration-2 additions
+/*
+  Why a build that tried a page plan fell back to the model-written skeleton
+  (`AiBuildRunResult.planFallback`, and `fallback` on the second
+  `build.scaffolding` event). From the module itself: the agent barrel is
+  another owner's file.
+*/
+export type { AiBuildPlanFallback } from './agent/types';
+// end orchestration-2 additions
+
+// provider-chain additions
+/*
+  The page plan over the remote wire, and the prompt enhancer (2026-09-28).
+  `planAiPage` above now resolves to the real Plan-mode run
+  (agent/page-plan/plan-ai-page.ts re-exports agent/plan-page.ts); the stub it
+  replaced rejected every call. `AiTaskUnsupportedError` is what a remote
+  provider throws when its server predates the page-plan task or the enhance
+  route. `enhanceRequest` rewrites a draft through `AiPlanProvider.enhancePrompt`
+  when the provider has it (`canEnhance`), else tidies it deterministically.
+*/
+export {
+  AiTaskUnsupportedError,
+  isAiTaskUnsupportedError,
+  type AiRemoteTask,
+} from './provider/remote-provider';
+export {
+  AI_PROMPT_ENHANCE_MAX_CHANGES,
+  AI_PROMPT_ENHANCE_MAX_CHOICES,
+  AI_PROMPT_ENHANCE_MAX_QUESTIONS,
+  AI_PROMPT_ENHANCE_MAX_SECTIONS,
+  AI_PROMPT_ENHANCE_PATH,
+  aiPromptEnhanceWireRequest,
+  readAiPromptEnhanceWireResponse,
+  type AiPromptEnhanceWireReading,
+  type AiPromptEnhanceWireRequest,
+  type AiPromptEnhanceWireResponse,
+} from './provider/wire';
+export type {
+  AiEnhancePromptOptions,
+  AiPromptEnhanceAnswer,
+  AiPromptEnhanceInput,
+  AiPromptEnhanceIntent,
+  AiPromptEnhancePage,
+  AiPromptEnhanceQuestion,
+  AiPromptEnhancement,
+  AiPromptLocale,
+} from './types';
+export {
+  canEnhance,
+  detectPromptLanguage,
+  enhanceRequest,
+  tidyRequest,
+  tidyRequestText,
+  type EnhanceRequestOptions,
+  type EnhanceRequestSource,
+  type EnhancedRequest,
+  type TidiedRequest,
+  type TidyFix,
+} from './prompt-enhance';
+// end provider-chain additions

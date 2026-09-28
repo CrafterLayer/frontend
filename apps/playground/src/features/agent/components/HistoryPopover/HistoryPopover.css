@@ -1,0 +1,305 @@
+/*
+  HistoryPopover (SPEC §4.18, §3.13). In the docked panel: e2 on the Sheet (a hairline and
+  the floating shadow), radius 9 like every menu and popover (SPEC §2.4), as wide as the
+  panel less 8px a side and never wider than 360px, never taller than 60% of the panel.
+  On the phone: the sheet's own page, on Paper, under a 56px head with Back.
+
+  One text edge. The list is inset 4px (a menu's inset) and every row's text 8px more, so
+  the title "Conversations", the search field's glyph, the busy line, every row's title
+  and the empty line all start 12px in.
+
+  The head, the search field and the busy line stay; only the list scrolls, and a scroll
+  that reaches its end never carries on into the thread behind it.
+*/
+
+.ck-agent-history {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-history :where(h2, p, ul) {
+  margin: 0;
+}
+
+.ck-agent-history[data-presentation='popover'] {
+  z-index: 40;
+  inline-size: min(360px, calc(100cqi - var(--bldr-space-3xl)));
+  max-block-size: min(
+    calc(0.6 * (100dvh - var(--bldr-topbar-height))),
+    var(--radix-popover-content-available-height, 100dvh)
+  );
+  padding: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+}
+
+/* ── Head ─────────────────────────────────────────────────────────────────── */
+
+.ck-agent-history__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-md);
+}
+
+/* A card's title: Read 600 in Ink (SPEC §2.2 "Heading"). */
+.ck-agent-history__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Search ───────────────────────────────────────────────────────────────── */
+
+.ck-agent-history__search {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-block: var(--bldr-space-2xs) var(--bldr-space-xs);
+}
+
+.ck-agent-history__search-icon {
+  position: absolute;
+  inset-inline-start: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  pointer-events: none;
+}
+
+/*
+  Input type (SPEC §2.2): 14/20, 16px on a finger so iOS never zooms. A hairline field on
+  the Sheet; focus draws the Indigo edge and the product's ring. `plaintext` lets the
+  query run in its own script's direction, whatever the panel's.
+*/
+.ck-agent-history__search-field {
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: var(--bldr-space-0);
+  padding-inline: calc(var(--bldr-space-md) + var(--bldr-space-3xl) + var(--bldr-space-md))
+    var(--bldr-space-md);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  outline: none;
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font-family: inherit;
+  font-size: var(--bldr-font-size-input);
+  line-height: var(--bldr-line-height-input);
+  unicode-bidi: plaintext;
+  appearance: none;
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-history__search-field::placeholder {
+  color: var(--bldr-panel-muted);
+  opacity: 1;
+}
+
+.ck-agent-history__search-field::-webkit-search-decoration,
+.ck-agent-history__search-field::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.ck-agent-history__search-field:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.ck-agent-history__search-field:focus-visible {
+  border-color: var(--bldr-accent);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* ── The lines between ────────────────────────────────────────────────────── */
+
+/* While a run is live: why the other conversations wait. Meta in Slate, on the Sheet. */
+.ck-agent-history__busy {
+  flex: none;
+  padding-block: var(--bldr-space-2xs) var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+/* Nothing to list, or nothing matching: one quiet line where the rows would be. */
+.ck-agent-history__empty {
+  flex: none;
+  padding-block: var(--bldr-space-lg);
+  padding-inline: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  text-wrap: pretty;
+}
+
+.ck-agent-history__empty:focus {
+  outline: none;
+}
+
+.ck-agent-history__empty:focus-visible {
+  border-radius: var(--bldr-radius-sm);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-focus-ring-width));
+}
+
+/* ── The list ─────────────────────────────────────────────────────────────── */
+
+.ck-agent-history__list {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+/* ── Motion (SPEC §5 moment 9): opacity and a 4px rise away from the anchor ──── */
+
+.ck-agent-history[data-presentation='popover'][data-side='bottom'] {
+  --ck-agent-float-from: calc(-1 * var(--bldr-space-xs));
+}
+
+.ck-agent-history[data-presentation='popover'][data-side='top'] {
+  --ck-agent-float-from: var(--bldr-space-xs);
+}
+
+.ck-agent-history[data-presentation='popover'][data-state='open'] {
+  animation: ck-agent-history-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-history[data-presentation='popover'][data-state='closed'] {
+  animation: ck-agent-history-out var(--bldr-duration-exit) var(--bldr-easing-exit) forwards;
+}
+
+@keyframes ck-agent-history-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-history-out {
+  to {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+/* ── The phone sheet's page (SPEC §3.17 "a full-sheet list") ─────────────── */
+
+/*
+  It covers the sheet's full face (its nearest positioned box), header and all: a page of
+  its own, not a popover over the chat. Its head is the sheet header's 56px, with Back
+  where Close stood, so the eye finds the way out where it just was.
+*/
+.ck-agent-history[data-presentation='sheet'] {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  background-color: var(--bldr-panel);
+  animation: ck-agent-history-page-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-history[data-presentation='sheet'] .ck-agent-history__head {
+  block-size: var(--bldr-agent-header-height);
+  min-block-size: calc(var(--bldr-hit-target-min) + var(--bldr-space-xl));
+  padding-inline: var(--bldr-space-md) var(--bldr-space-3xl);
+  gap: var(--bldr-space-xs);
+}
+
+/* The sheet header's Name type: 14/20 Latin, 15/22 Arabic, 600. */
+.ck-agent-history[data-presentation='sheet'] .ck-agent-history__title {
+  font-size: var(--bldr-font-size-name);
+  line-height: var(--bldr-line-height-name);
+}
+
+.ck-agent-history[data-presentation='sheet']
+  .ck-agent-history__back[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-hit-target-min);
+  inline-size: var(--bldr-hit-target-min);
+}
+
+.ck-agent-history[data-presentation='sheet'] .ck-agent-history__search,
+.ck-agent-history[data-presentation='sheet'] .ck-agent-history__busy,
+.ck-agent-history[data-presentation='sheet'] .ck-agent-history__empty {
+  margin-inline: var(--bldr-space-md);
+}
+
+.ck-agent-history[data-presentation='sheet'] .ck-agent-history__search-field {
+  block-size: var(--bldr-hit-target-min);
+  font-size: 16px;
+}
+
+.ck-agent-history[data-presentation='sheet'] .ck-agent-history__list {
+  padding-inline: var(--bldr-space-md);
+  padding-block-end: var(--bldr-space-md);
+}
+
+@keyframes ck-agent-history-page-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-xs);
+  }
+}
+
+/* A finger: a 44px field with 16px text, so iOS never zooms on focus. */
+@media (pointer: coarse) {
+  .ck-agent-history__search-field {
+    block-size: var(--bldr-hit-target-min);
+  }
+}
+
+/* Reduced motion: opacity only, 120ms (SPEC §5 moment 9). */
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-history[data-presentation='popover'][data-state='open'],
+  .ck-agent-history[data-presentation='sheet'] {
+    animation: ck-agent-history-fade-in var(--bldr-duration-state) linear;
+  }
+
+  .ck-agent-history[data-presentation='popover'][data-state='closed'] {
+    animation: ck-agent-history-fade-out var(--bldr-duration-state) linear forwards;
+  }
+}
+
+@keyframes ck-agent-history-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ck-agent-history-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .ck-agent-history__search-field {
+    border-color: var(--bldr-panel-border-strong);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-history[data-presentation='popover'] {
+    border-color: CanvasText;
+  }
+}

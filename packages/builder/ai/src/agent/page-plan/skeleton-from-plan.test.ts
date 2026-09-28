@@ -17,10 +17,15 @@ import {
 } from '@craftkit/builder-schema';
 
 import { applyAiPlan, validateAiPlan } from '../../plan';
+import {
+  DIRECTION_DECK_ROWS,
+  type DeckFace,
+  type DirectionDeckRow,
+} from '../../skills/direction-deck';
 import type { AiPlan } from '../../types';
 import { checkSection } from './check-section';
 import { PAGE_KIT_CLASSES, PAGE_SKELETON_LABEL, skeletonFromPlan } from './skeleton-from-plan';
-import { validatePagePlan, type PagePlan } from './index';
+import { validatePagePlan, type PagePlan, type PagePlanIntent } from './index';
 
 /*
   The skeleton is the one page write no model makes (step T2, agent-audit
@@ -136,7 +141,15 @@ function arabicCafe(intent: 'new-page' | 'replace' | 'append' = 'new-page'): Pag
           { key: 'order', role: 'cta', title: 'اطلب', anchorId: 'order', purpose: 'Order.' },
         ]
       : [
-          { key: 'header', role: 'header', title: 'الترويسة', anchorId: 'top', purpose: 'Nav.' },
+          {
+            key: 'header',
+            role: 'header',
+            title: 'الترويسة',
+            anchorId: 'top',
+            purpose: 'Nav.',
+            // The header writes its own claims: the checker holds it to them.
+            mustSay: ['محمصة مختصة في عمّان'],
+          },
           {
             key: 'hero',
             role: 'hero',
@@ -194,7 +207,12 @@ function arabicCafe(intent: 'new-page' | 'replace' | 'append' = 'new-page'): Pag
       intent === 'append'
         ? []
         : [
-            { key: 'phone', sample: '+962 7 9000 0000', section: 'footer' },
+            /*
+              A complete, realistic sample: "+962 7 9000 0000" is masked
+              digits, and the checker now asks for a real-looking value
+              (check-section's placeholder facts, 2026-09-28).
+            */
+            { key: 'phone', sample: '+962 6 461 2750', section: 'footer' },
             { key: 'email', sample: 'info@alhail.jo', section: 'footer' },
             { key: 'price-espresso', sample: '1.5 د.أ', section: 'menu' },
           ],
@@ -675,9 +693,11 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
     expect(footerText).toContain('يومياً ٨ص – ١١م');
     expect(footerText).toContain('© محمصة الهيل');
     const footerHrefs = tags(footer, 'a').map((link) => link.attributes?.['href']);
-    expect(footerHrefs).toContain('tel:+962790000000');
+    expect(footerHrefs).toContain('tel:+96264612750');
     expect(footerHrefs).toContain('mailto:info@alhail.jo');
     expect(footerHrefs).toContain('#menu');
+    // The header carries its own claims (verifier's mutant V9 dropped them unnoticed).
+    expect(textOf(header)).toContain('محمصة مختصة في عمّان');
 
     for (const index of [0, 4]) {
       const contract = pagePlan.sections[index];
@@ -688,8 +708,8 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
   });
 
   /*
-    Unisolated in a right-to-left line, "+962 7 9000 0000" renders as
-    "7 9000 0000 962+". The tree has no `dir` attribute, so the run is wrapped
+    Unisolated in a right-to-left line, "+962 6 461 2750" renders as
+    "6 461 2750 962+". The tree has no `dir` attribute, so the run is wrapped
     in LRI (U+2066) … PDI (U+2069); an e-mail address is left as written.
   */
   it('isolates an Arabic footer’s phone number as a left-to-right run', () => {
@@ -697,7 +717,7 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
       skeletonFromPlan(arabicCafe(), { parentId: 'root', regionType: 'customCode' }).plan,
     )[4]!;
     const phone = tags(footer, 'a').find((link) => link.attributes?.['href']?.startsWith('tel:'));
-    expect(phone?.text).toBe('\u2066+962 7 9000 0000\u2069');
+    expect(phone?.text).toBe('\u2066+962 6 461 2750\u2069');
     const email = tags(footer, 'a').find((link) =>
       link.attributes?.['href']?.startsWith('mailto:'),
     );
@@ -832,6 +852,200 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
     expect(twice.split('.ck-page-plan{').length - 1).toBe(1);
     expect(twice).toContain(existing);
   });
+
+  /*
+    An appended plan never holds a header (validatePagePlan: append adds bands
+    only), so its block alone dropped the sticky host, the bar layout and the
+    anchors' scroll margin while the header an earlier plan built stayed on
+    the page. Verifier, Chromium at 360px, 2026-09-28: the header scrolled
+    away (top -1404px) and the brand shrank to 40px (r2/append-kit.mjs).
+  */
+  it('keeps the header’s sticky host, bar and anchor clearance when a plan is appended after one', () => {
+    const target = kernel();
+    const first = skeletonFromPlan(arabicCafe(), { parentId: 'root', regionType: 'customCode' });
+    land(target, first.plan);
+    const before = target.getDocument();
+    const children = before.nodes['root']?.slots?.['default'] ?? [];
+    const pageCss = before.nodes['root']?.props['pageCss'] as string;
+    const header = [
+      `${REGION}:has(> header.sticky),:has(> ${REGION} > header.sticky){position:sticky;top:0;z-index:40}`,
+      '.ck-bar{flex-wrap:wrap}',
+      '.ck-brand{flex:1 1 0%}',
+      '@media (min-width:64rem){.ck-bar{flex-wrap:nowrap}.ck-brand{flex:0 1 auto}}',
+      `${REGION} [id]{scroll-margin-top:8rem}`,
+      `@media (min-width:64rem){${REGION} [id]{scroll-margin-top:6rem}}`,
+    ];
+    for (const rule of header) expect(pageCss).toContain(rule);
+
+    const appended = skeletonFromPlan(arabicCafe('append'), {
+      parentId: 'root',
+      regionType: 'customCode',
+      index: children.length - 1,
+      currentPageCss: pageCss,
+    });
+    const verdict = validateAiPlan(appended.plan, target, ports(), policyFor(appended.plan));
+    expect(verdict.ok ? [] : verdict.issues).toEqual([]);
+    land(target, appended.plan);
+    const after = target.getDocument().nodes['root']?.props['pageCss'] as string;
+    // Merged, not stacked: one block, and the header's rules in it.
+    expect(after.split('.ck-page-plan{').length - 1).toBe(1);
+    for (const rule of header) expect(after).toContain(rule);
+
+    // A page whose earlier plan had no header gains none of them from an append.
+    const headless = pageCssOf(
+      skeletonFromPlan(englishStudio(), { parentId: 'root', regionType: 'customCode' }).plan,
+    );
+    const onHeadless = pageCssOf(
+      skeletonFromPlan(arabicCafe('append'), {
+        parentId: 'root',
+        regionType: 'customCode',
+        currentPageCss: headless,
+      }).plan,
+    );
+    expect(onHeadless).not.toContain('position:sticky');
+    expect(onHeadless).not.toContain('.ck-bar');
+    expect(onHeadless).not.toContain('scroll-margin-top');
+  });
+
+  /*
+    The door must take the code-written skeleton of EVERY plan T1 can
+    propose: when it refuses one on an automatic build, the validated plan is
+    dropped for the ~25k-character model scaffold — the build's slowest step
+    (orchestration verifier, r2-silent-fallback2.mjs, 2026-09-28: a skeleton
+    carrying lg:flex-nowrap was refused by the vocabulary). Pinned here for
+    each direction-deck row, in its Arabic and its Latin pair, for each
+    intent, under both colour policies — and landed, one transaction each.
+  */
+  function deckPlan(row: DirectionDeckRow, lang: 'ar' | 'en', intent: PagePlanIntent): PagePlan {
+    const ar = lang === 'ar';
+    const [display, body] = ar ? row.arabic : row.latin;
+    const face = ({ family, weights }: DeckFace) =>
+      weights.length === 0 ? { family } : { family, weights: [...weights] };
+    const bands = row.sections.slice(1).map(([name], at) => ({
+      key: `s${String(at)}`,
+      role: 'band',
+      title: name,
+      anchorId: `s${String(at)}`,
+      purpose: `The ${name} section.`,
+    }));
+    const cta = {
+      key: 'book',
+      role: 'cta',
+      title: ar ? 'احجز' : 'Book',
+      anchorId: 'book',
+      purpose: 'Convert.',
+    };
+    const sections =
+      intent === 'append'
+        ? [...bands.slice(0, 2), cta]
+        : [
+            { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Nav.' },
+            { key: 'hero', role: 'hero', title: row.trades, anchorId: 'hero', purpose: 'Pitch.' },
+            ...bands,
+            cta,
+            {
+              key: 'footer',
+              role: 'footer',
+              title: 'Footer',
+              anchorId: 'footer',
+              purpose: 'Contact.',
+              mustSay: [ar ? 'عمّان — شارع الجاردنز' : '12 King St, Leeds'],
+            },
+          ];
+    const { palette } = row;
+    const candidate = (accentInk: string | undefined) => ({
+      intent,
+      locale: { lang },
+      title: ar ? `${row.id} | عمّان` : `${row.id} | Amman`,
+      description: ar ? 'صفحة تجريبية لكل صف من الدليل.' : 'A page for every deck row.',
+      tokens: {
+        bg: palette.ground,
+        surface: palette.card,
+        ink: palette.ink,
+        muted: palette.muted,
+        accent: palette.accent,
+        onAccent: palette.onAccent,
+        ...(accentInk === undefined ? {} : { accentInk }),
+        border: palette.muted,
+        fontDisplay: face(display),
+        fontBody: face(body),
+        radius: 'md',
+        signature: row.signature,
+        deckRowId: row.id,
+      },
+      primaryCta: { label: ar ? 'احجز الآن' : 'Book now', href: '#book' },
+      nav:
+        intent === 'append'
+          ? []
+          : bands.slice(0, 3).map(({ title, anchorId }) => ({ label: title, anchorId })),
+      sections,
+      facts:
+        intent === 'append'
+          ? []
+          : [
+              { key: 'phone', sample: '+962 6 461 2750', section: 'footer' },
+              { key: 'email', sample: 'hello@hadid.jo', section: 'footer' },
+            ],
+    });
+    /*
+      A row whose accentInk shade the plan palette does not name yet is
+      planned without it (the validator derives it): this pins the SKELETON,
+      and palette coverage is palette.ts's own test.
+    */
+    const stated = validatePagePlan(candidate(palette.accentInk), { intent });
+    if (stated.ok) return stated.plan;
+    return accepted({ ...candidate(undefined), intent });
+  }
+
+  it.each(
+    DIRECTION_DECK_ROWS.flatMap((row) =>
+      (['ar', 'en'] as const).map((lang) => [row.id, lang, row] as const),
+    ),
+  )(
+    'lands the skeleton of deck row %s (%s) through the door for every intent',
+    (_id, lang, row) => {
+      const door = (target: BuilderKernel, plan: AiPlan) => {
+        for (const colourPolicy of ['free', 'tokens'] as const) {
+          const verdict = validateAiPlan(plan, target, ports(), policyFor(plan), { colourPolicy });
+          expect(verdict.ok ? [] : verdict.issues, `${colourPolicy} colour policy`).toEqual([]);
+        }
+        expect(land(target, plan).transactions).toHaveLength(1);
+      };
+
+      const fresh = kernel();
+      door(
+        fresh,
+        skeletonFromPlan(deckPlan(row, lang, 'new-page'), {
+          parentId: 'root',
+          regionType: 'customCode',
+        }).plan,
+      );
+
+      const replaced = kernel(page(['old-a', 'old-b']));
+      door(
+        replaced,
+        skeletonFromPlan(deckPlan(row, lang, 'replace'), {
+          parentId: 'root',
+          regionType: 'customCode',
+          replaceIds: ['old-a', 'old-b'],
+        }).plan,
+      );
+
+      // Appended onto the page the new-page skeleton built: before its footer, keeping its CSS.
+      const built = fresh.getDocument();
+      const children = built.nodes['root']?.slots?.['default'] ?? [];
+      door(
+        fresh,
+        skeletonFromPlan(deckPlan(row, lang, 'append'), {
+          parentId: 'root',
+          regionType: 'customCode',
+          index: children.length - 1,
+          currentPageCss: built.nodes['root']?.props['pageCss'] as string,
+        }).plan,
+      );
+    },
+    30_000,
+  );
 
   it('writes only the root props the root block declares', () => {
     const titleOnly = blocks(z.object({ title: z.string().default('') }));

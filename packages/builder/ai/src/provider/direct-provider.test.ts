@@ -239,3 +239,66 @@ describe('createDirectPlanProvider', () => {
     });
   });
 });
+
+/*
+  A page plan or a rewritten draft is never a catalog example, so the
+  catalog-first provider hands both to its fallback — and has neither when
+  the fallback has neither, because their absence is what switches the build
+  to its scaffold and hides the panel's Improve action (2026-09-28).
+*/
+describe('createDirectPlanProvider — the fallback’s optional capabilities', () => {
+  const plan: AiPlan = { rationale: 'r', commands: [] };
+
+  it('passes page plans, rewrites and forget straight to the fallback', async () => {
+    const proposePagePlan = vi
+      .fn<NonNullable<AiPlanProvider['proposePagePlan']>>()
+      .mockResolvedValue({ pagePlan: { title: 'x' } });
+    const enhancePrompt = vi.fn<NonNullable<AiPlanProvider['enhancePrompt']>>().mockResolvedValue({
+      enhanced: 'Build a café page.',
+      understood: '',
+      changes: [],
+      questions: [],
+      language: 'en',
+    });
+    const forget = vi.fn<NonNullable<AiPlanProvider['forget']>>();
+    const provider = createDirectPlanProvider({
+      catalog,
+      fallback: {
+        propose: vi.fn<AiPlanProvider['propose']>().mockResolvedValue(plan),
+        proposePagePlan,
+        enhancePrompt,
+        forget,
+      },
+    });
+
+    await expect(provider.proposePagePlan?.('Build my page', context)).resolves.toEqual({
+      pagePlan: { title: 'x' },
+    });
+    const draft = {
+      text: 'cafe page',
+      locale: 'en' as const,
+      intent: null,
+      page: { empty: true, sections: [] },
+      selection: null,
+      answers: [],
+    };
+    await provider.enhancePrompt?.(draft);
+    provider.forget?.('build me a shop', context);
+
+    expect(proposePagePlan).toHaveBeenCalledExactlyOnceWith('Build my page', context);
+    expect(enhancePrompt).toHaveBeenCalledExactlyOnceWith(draft);
+    expect(forget).toHaveBeenCalledExactlyOnceWith('build me a shop', context);
+  });
+
+  it('has none of them when the fallback has none, or there is no fallback', () => {
+    const bare = createDirectPlanProvider({
+      catalog,
+      fallback: { propose: vi.fn<AiPlanProvider['propose']>().mockResolvedValue(plan) },
+    });
+    for (const provider of [bare, createDirectPlanProvider({ catalog })]) {
+      expect('proposePagePlan' in provider).toBe(false);
+      expect('enhancePrompt' in provider).toBe(false);
+      expect('forget' in provider).toBe(false);
+    }
+  });
+});

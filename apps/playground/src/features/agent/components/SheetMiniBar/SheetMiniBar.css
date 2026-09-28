@@ -1,0 +1,168 @@
+/*
+  SheetMiniBar (SPEC §4.19, §3.16): 8px, the 4px spine lane, then one 44px row. The sheet
+  below it adds 8px and the safe area (AgentSheet), so the row's targets never sit on the
+  home indicator.
+
+  The row keeps the panel's two edges. Its glyph stands on the thread's 16px gutter, the
+  column every record's glyph stands on; its last button ends 8px from the edge, exactly
+  where `[⤓]` Show the page ends in the full header, so `[⤓]` and `[⤒]` are one control in
+  two places. Every target is 44px and 8px from the next (SPEC §6.4): the row lives only
+  in the phone sheet, so it is sized for a finger whatever the pointer.
+
+  The spine lane is 4px even when there is no spine (an edit, an answer), so the row never
+  moves up or down as the moment changes.
+
+  Buttons are drawn over ChromeButton. Every rule starts from four simple selectors,
+  (0,4,0), so each state out-ranks ChromeButton's own (its quiet hover is (0,4,0) and
+  paints Indigo, which a panel hover never does, SPEC §2.1 rule 3).
+*/
+
+.ck-agent-mini-bar {
+  display: grid;
+  min-inline-size: 0;
+  padding-block-start: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-3xl) var(--bldr-space-md);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-mini-bar__spine {
+  block-size: var(--bldr-space-xs);
+  /* The spine spans the text column's full width: 16px in from both edges. */
+  margin-inline-end: var(--bldr-space-md);
+}
+
+.ck-agent-mini-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-hit-target-min);
+  min-inline-size: 0;
+}
+
+.ck-agent-mini-bar__glyph {
+  flex: none;
+}
+
+/* Meta 500 in Ink, one line: the status never wraps under the buttons (SPEC §4.19). */
+.ck-agent-mini-bar__status {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Actions: 44px, Read 500 ──────────────────────────────────────────────── */
+
+.ck-agent-mini-bar__action[data-bldr-chrome-button][data-variant][data-size] {
+  flex: none;
+  block-size: var(--bldr-hit-target-min);
+  padding-inline: var(--bldr-space-xl);
+  border: var(--bldr-border-hairline) solid transparent;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The one primary action of the moment: Apply, Retry, Try again, Finish the rest. */
+.ck-agent-mini-bar__action[data-emphasis='primary'][data-bldr-chrome-button][data-variant] {
+  border-color: var(--bldr-accent);
+  background-color: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+}
+
+.ck-agent-mini-bar__action[data-emphasis='primary'][data-bldr-chrome-button][data-variant]:enabled:hover,
+.ck-agent-mini-bar__action[data-emphasis='primary'][data-bldr-chrome-button][data-variant]:enabled:active {
+  border-color: var(--bldr-accent-strong);
+  background-color: var(--bldr-accent-strong);
+  color: var(--bldr-accent-text);
+}
+
+/* Secondary: a Rule outline on the Sheet (Undo build, Undo, Redo). */
+.ck-agent-mini-bar__action[data-emphasis='secondary'][data-bldr-chrome-button][data-variant] {
+  border-color: var(--bldr-panel-border-strong);
+  background-color: var(--bldr-surface);
+}
+
+/* Ghost: Discard, in Graphite; it takes the Wash on hover, like every quiet control. */
+.ck-agent-mini-bar__action[data-emphasis='ghost'][data-bldr-chrome-button][data-variant] {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-mini-bar__action[data-emphasis='secondary'][data-bldr-chrome-button][data-variant]:enabled:hover,
+.ck-agent-mini-bar__action[data-emphasis='ghost'][data-bldr-chrome-button][data-variant]:enabled:hover,
+.ck-agent-mini-bar__stop[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-mini-bar__action[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  transition-duration: var(--bldr-duration-press);
+}
+
+.ck-agent-mini-bar__action[data-emphasis='secondary'][data-bldr-chrome-button][data-variant]:enabled:active,
+.ck-agent-mini-bar__action[data-emphasis='ghost'][data-bldr-chrome-button][data-variant]:enabled:active,
+.ck-agent-mini-bar__stop[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+}
+
+/*
+  Stop (SPEC §4.17 StopButton): a Rule outline on the Sheet, an Ink ■ and its label, at
+  every width. 8px before the glyph and 12px after the label: the ■ stands 4.5px inside
+  its 16px box, so the two ends read as the same air.
+*/
+.ck-agent-mini-bar__stop[data-bldr-chrome-button][data-variant][data-size] {
+  gap: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md) var(--bldr-space-xl);
+  border-color: var(--bldr-panel-border-strong);
+  background-color: var(--bldr-surface);
+}
+
+/* Stopping: focusable and named "Stopping…", but a second press does nothing. */
+.ck-agent-mini-bar__stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'],
+.ck-agent-mini-bar__stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:hover {
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  cursor: default;
+}
+
+/* `[⤒]` Back to the chat: 44px here whatever the pointer (IconButton is 32 on a mouse). */
+.ck-agent-mini-bar .ck-agent-mini-bar__back[data-bldr-chrome-button][data-variant][data-size] {
+  flex: none;
+  block-size: var(--bldr-hit-target-min);
+  inline-size: var(--bldr-hit-target-min);
+}
+
+/*
+  Undo build asks first (SPEC §4.15), in the row it opened from. The consequence and its
+  two answers take a line of their own under the status, with `[⤒]` staying on the first
+  line; the sheet grows upward to hold it, over the canvas.
+*/
+.ck-agent-mini-bar .ck-agent-mini-bar__confirm {
+  order: 1;
+  padding-block: var(--bldr-space-xs) var(--bldr-space-md);
+}
+
+.ck-agent-mini-bar
+  .ck-agent-mini-bar__confirm
+  .ck-agent-confirm__button[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-hit-target-min);
+}
+
+@media (forced-colors: active) {
+  .ck-agent-mini-bar__action[data-bldr-chrome-button][data-variant][data-size] {
+    border-color: ButtonText;
+  }
+}

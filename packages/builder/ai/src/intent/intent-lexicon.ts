@@ -286,6 +286,21 @@ export const NOUN_PAIRS_AR: readonly (readonly [string, string, NounCategory])[]
   ['دعوه', 'اتخاذ', 'section'],
 ];
 
+/** The words that call a part a SECTION outright: "a testimonials SECTION", "قسم أسعار". */
+export const SECTION_WORDS: ReadonlySet<string> = new Set([
+  'section',
+  'sections',
+  'band',
+  'block',
+  'blocks',
+  'قسم',
+  'اقسام',
+  'سكشن',
+  'سيكشن',
+  'جزء',
+  'بلوك',
+]);
+
 /** The nouns that count as "a page" when something is ADDED — never a site. */
 export const ADDABLE_PAGE_NOUNS: ReadonlySet<string> = new Set([
   'page',
@@ -854,17 +869,17 @@ export const INTERROGATIVE_PAIRS: readonly (readonly [string, string])[] = [
 ];
 
 /**
- * Openings that SUGGEST rather than ask: "how about…", "why not…", "is it
- * possible to…", "ليش ما تضيف…" ("why don't you add…"), "شو رأيك…" ("what do
- * you think of…"). Each opens with a question word, and read as one they were
- * answered in words at 0.9 where the person was asking for the change (wave-2
- * verifier's route probe, 2026-09-28). The router strips one only when what
- * follows asks for something — "why not?" and "ليش ما اشتغل؟" ("why didn't it
- * work?") stay questions. Longest first.
+ * Openings that SUGGEST rather than ask: "how about…", "why not…", "ليش ما
+ * تضيف…" ("why don't you add…"), "شو رأيك…" ("what do you think of…"). Each
+ * opens with a question word, and read as one they were answered in words at
+ * 0.9 where the person was asking for the change (wave-2 verifier's route
+ * probe, 2026-09-28). The router strips one only when what follows asks for
+ * something — "why not?" and "ليش ما اشتغل؟" ("why didn't it work?") stay
+ * questions — and routes the rest as an idea to weigh, never above 0.7 and
+ * never as a build. "Is it possible to…" is not here: it asks what CAN be done
+ * (see `OPENERS`, `possibility`). Longest first.
  */
 export const SUGGESTION_OPENERS: readonly (readonly string[])[] = [
-  ['would', 'it', 'be', 'possible', 'to'],
-  ['is', 'it', 'possible', 'to'],
   ['why', "don't", 'you'],
   ['why', 'dont', 'you'],
   ['why', 'not', 'just'],
@@ -888,6 +903,383 @@ export const SUGGESTION_OPENERS: readonly (readonly string[])[] = [
 ];
 
 /**
+ * Openings of a CONDITION — "if I delete the hero, will the page break?",
+ * "لو حذفت الفوتر، هل ستتعطل الصفحة؟". Alone they say nothing: "if possible,
+ * make the hero darker" is an instruction under a condition. Followed by a
+ * clause that ASKS ("will…", "هل…", "شو بيصير"), the whole request asks what
+ * would happen, and is answered in words.
+ */
+export const HYPOTHETICAL_OPENERS: readonly (readonly string[])[] = [
+  ['what', 'would', 'happen', 'if'],
+  ['what', 'happens', 'if'],
+  ['in', 'case'],
+  ['supposing'],
+  ['suppose'],
+  ['imagine'],
+  ['if'],
+  ['ماذا', 'لو'],
+  ['شو', 'لو'],
+  ['وش', 'لو'],
+  ['ايش', 'لو'],
+  ['افرض'],
+  ['فرضا'],
+  ['لو'],
+  ['اذا'],
+];
+
+/**
+ * Words that open a clause ASKING about an outcome: "…, WILL the page break?",
+ * "…, WOULD it load slower?", "…، هل ستتعطل الصفحة؟", "…، رح تبطئ؟". The
+ * interrogatives count too. After a suggestion or a condition, such a clause
+ * makes the request a question about the consequence: "what if I remove the
+ * footer, will the page break?" routed edit@0.8 — a write — where wave 1
+ * answered it (wave-2 verifier, 2026-09-28). "Can you" / "could you" after the
+ * idea still asks the assistant to act, and is not one of these.
+ */
+export const CONSEQUENCE_AUXILIARIES: ReadonlySet<string> = new Set([
+  'will',
+  'would',
+  'could',
+  'can',
+  'might',
+  'shall',
+  "won't",
+  "wouldn't",
+  "can't",
+  "couldn't",
+  'رح',
+  'راح',
+  'حي',
+  'سوف',
+  'بيصير',
+  'بتصير',
+  'بيخرب',
+  'بتخرب',
+]);
+
+/**
+ * The person as the subject of the idea: "what if I delete the hero?", "how
+ * about I add a map?", "ما رأيك لو أنا…". They are asking about their OWN
+ * action — what it would do, whether they should — and a question about the
+ * person's action is answered, never performed for them.
+ */
+export const FIRST_PERSON: ReadonlySet<string> = new Set([
+  'i',
+  "i'm",
+  'im',
+  "i'll",
+  "i'd",
+  "i've",
+  'me',
+  'myself',
+  'انا',
+  'اني',
+]);
+
+/** The subject a suggestion proposes for — "what if WE changed…", "how about YOU add…" — set aside. */
+export const SUGGESTION_SUBJECTS: ReadonlySet<string> = new Set([
+  'we',
+  'you',
+  'u',
+  'احنا',
+  'نحن',
+  'انت',
+  'انتي',
+]);
+
+/**
+ * "There is / was …" after a suggestion proposes that the thing EXIST: "what
+ * if there was a contact form?" asks for one to be added. Arabic says it "لو
+ * فيه …" / "لو كان في …", only after the "لو" of the opener — elsewhere "في"
+ * is "in".
+ */
+export const EXISTENTIALS_EN: readonly (readonly string[])[] = [
+  ['there', 'was'],
+  ['there', 'were'],
+  ['there', 'is'],
+  ['there', 'are'],
+  ["there's"],
+];
+export const EXISTENTIALS_AR: readonly (readonly string[])[] = [
+  ['كان', 'فيه'],
+  ['كان', 'في'],
+  ['يكون', 'فيه'],
+  ['يكون', 'في'],
+  ['فيه'],
+  ['في'],
+];
+
+/*
+  English pasts that do not end in -ed. A suggestion proposes in the past or
+  the gerund — "what if we MADE the hero darker", "how about ADDING a map" —
+  and the router reads such a word as its present, but only inside a
+  suggestion: elsewhere "made" and "adding" describe, and are left alone.
+*/
+export const IRREGULAR_PASTS_EN: ReadonlyMap<string, string> = new Map([
+  ['made', 'make'],
+  ['built', 'build'],
+  ['rebuilt', 'rebuild'],
+  ['remade', 'remake'],
+  ['redid', 'redo'],
+  ['wrote', 'write'],
+  ['rewrote', 'rewrite'],
+  ['gave', 'give'],
+  ['got', 'get'],
+  ['hid', 'hide'],
+]);
+
+/**
+ * The endings of the Arabic PAST — "أضفتَ" (you added), "غيّرنا" (we changed),
+ * "حطّيتوا" (you all put) — which a suggestion after "لو" proposes in: "ما
+ * رأيك لو أضفت قسم أسعار؟". Unread, those routed question@0.75 where "ما رأيك
+ * لو تضيف…" routed the section (v1-panel verifier, 2026-09-28). Longest first.
+ */
+export const PAST_SUFFIXES_AR: readonly string[] = ['توا', 'تو', 'تم', 'تي', 'نا', 'ت'];
+
+/**
+ * MSA VERBAL NOUNS of change — "تغيير" (changing), "تعديل" (editing), "حذف"
+ * (deleting)… Standard Arabic asks for a change with one: "تغيير عنوان القسم
+ * إلى مرحبا", "أريد تعديل سعر القهوة", "الرجاء حذف قسم المنيو". Unread, those
+ * had no verb at all, so on an empty page — which is how the skill resolver
+ * routes every request today — they were the brief for a whole page and loaded
+ * its playbooks: 3,138-3,205 tokens (wave-2 verifier, 2026-09-28). They are
+ * nouns as often ("شركة نقل", a moving company; "ترجمة معتمدة", certified
+ * translation), so the router reads one as a verb only where a request's verb
+ * stands — see `route-intent.ts` `verbalNounsOf`.
+ */
+export const CHANGE_VERBAL_NOUNS_AR: ReadonlySet<string> = new Set([
+  'تغيير',
+  'تعديل',
+  'حذف',
+  'ازاله',
+  'استبدال',
+  'تبديل',
+  'تكبير',
+  'تصغير',
+  'نقل',
+  'تحريك',
+  'ترجمه',
+  'تصحيح',
+  'اصلاح',
+  'تحديث',
+  'تحسين',
+  'مسح',
+  'كتابه',
+  'اخفاء',
+  'تلوين',
+  'توسيط',
+  'تنسيق',
+  'تقليل',
+  'زياده',
+  'تفتيح',
+  'تغميق',
+]);
+
+/** Every verbal noun a request is made with — the change ones, and making and adding. */
+export const VERBAL_NOUNS_AR: ReadonlySet<string> = new Set([
+  ...CHANGE_VERBAL_NOUNS_AR,
+  'انشاء',
+  'بناء',
+  'توليد',
+  'تصميم',
+  'عمل',
+  'صنع',
+  'تجهيز',
+  'اضافه',
+  'وضع',
+  'اعاده',
+]);
+
+/**
+ * Words before which a verb (or its verbal noun) still stands: "لازم تبدأ",
+ * "يجب إعادة تصميم…", "ضروري تغيير…" — must, should, necessary.
+ */
+export const VERB_GOVERNORS_AR: ReadonlySet<string> = new Set(['لازم', 'يجب', 'ضروري', 'لابد']);
+
+/**
+ * "This time", "next time", "هالمرة" — WHEN, not a part: "start over, this
+ * time for a bakery" read "time" as the page's time element, aimed the
+ * start-over at it, and routed edit@0.8 (wave-2 verifier, 2026-09-28).
+ */
+export const TIME_ADVERBS: readonly (readonly string[])[] = [
+  ['this', 'time'],
+  ['next', 'time'],
+  ['this', 'round'],
+  ['هذه', 'المره'],
+  ['هذي', 'المره'],
+  ['هاي', 'المره'],
+  ['المره', 'هذه'],
+  ['المره', 'هذي'],
+  ['المره', 'هاي'],
+  ['المره', 'الجايه'],
+  ['هالمره'],
+];
+
+/**
+ * The person saying what the business IS, as the clause after a start-over:
+ * "rebuild the page — WE'RE a dental clinic now", "start over, WE sell
+ * handmade soap", "ابدأ من جديد، احنا صرنا مطعم". Read as nothing, those
+ * dropped from a briefed 0.85 to a bare 0.5 (wave-2 verifier, 2026-09-28).
+ * They say who, not what, so they are no subject by themselves.
+ */
+export const IDENTITY_WORDS: ReadonlySet<string> = new Set([
+  "we're",
+  'we',
+  'are',
+  "i'm",
+  'im',
+  'am',
+  'احنا',
+  'نحن',
+  'صرنا',
+  'اصبحنا',
+  'صرت',
+  'اصبحت',
+]);
+
+/**
+ * Words that JUDGE what exists — "the hero was UGLY", "الألوان كلها غلط". A
+ * clause holding one comments on the page; it does not say what the next page
+ * is for. Only the words that CONDEMN: the kind ones ("nice", "fine",
+ * "حلو") and "like" / "old" name businesses as often ("fine dining", "a site
+ * like Airbnb", "Old Town Coffee", "كافيه حلو"), and a brief read as a comment
+ * costs the person one question, where a comment read as a brief builds a page
+ * nobody described.
+ */
+export const JUDGMENTS: ReadonlySet<string> = new Set([
+  'ugly',
+  'bad',
+  'terrible',
+  'awful',
+  'horrible',
+  'boring',
+  'bland',
+  'cluttered',
+  'messy',
+  'mess',
+  'wrong',
+  'broken',
+  'dated',
+  'outdated',
+  'slow',
+  'weird',
+  'meh',
+  'hate',
+  'hated',
+  'dislike',
+  'unhappy',
+  'sucks',
+  'crap',
+  'trash',
+  'disaster',
+  'confusing',
+  'tired',
+  'bored',
+  'too',
+  'غلط',
+  'خطا',
+  'خاطئ',
+  'سيء',
+  'سيئ',
+  'سيئه',
+  'وحش',
+  'وحشه',
+  'بشع',
+  'بشعه',
+  'قديم',
+  'قديمه',
+  'خربان',
+  'خربانه',
+  'زفت',
+  'ممل',
+  'ممله',
+  'مزعج',
+  'عاجبني',
+  'عجبني',
+  'يعجبني',
+  'كرهت',
+  'مبهدل',
+  'مخربط',
+  'فاشل',
+]);
+
+/**
+ * Words that open a clause about the conversation, not a business: "start
+ * over, YOU messed up", "start over and DO it properly this time", "…and TRY
+ * again", "…، بس …". Before a verbless clause after a start-over, each routed
+ * a briefed 0.85 on the words around it (probed 2026-09-28).
+ */
+export const FUNCTION_WORDS: ReadonlySet<string> = new Set([
+  'you',
+  'u',
+  "you're",
+  'he',
+  'she',
+  'they',
+  "they're",
+  'do',
+  'does',
+  'did',
+  'can',
+  'could',
+  'will',
+  'would',
+  'should',
+  'must',
+  'might',
+  'may',
+  'just',
+  'only',
+  'also',
+  'even',
+  'very',
+  'so',
+  'try',
+  'go',
+  'let',
+  'stay',
+  'stays',
+  'هو',
+  'هي',
+  'انت',
+  'انتي',
+  'انتو',
+  'هم',
+  'يعني',
+  'كمان',
+  'برضو',
+  'لكن',
+  'بس',
+]);
+
+/** Words that deny: a clause holding one comments on the page ("النص مش واضح"). */
+export const NEGATIONS: ReadonlySet<string> = new Set([
+  'not',
+  'no',
+  'never',
+  "don't",
+  'dont',
+  "doesn't",
+  'doesnt',
+  "isn't",
+  'isnt',
+  "aren't",
+  "wasn't",
+  "didn't",
+  "can't",
+  "won't",
+  'مش',
+  'مو',
+  'ما',
+  'لا',
+  'ليس',
+  'ليست',
+  'مب',
+  'لم',
+  'لن',
+]);
+
+/**
  * Courtesy, vocatives and greetings a request may open with. Stripped before
  * the question test, so "can you build me a site?" is a build and "هل يمكنك
  * إضافة قسم؟" is a section — and "يا أبو غضب" is the assistant's own name.
@@ -898,13 +1290,34 @@ export const SUGGESTION_OPENERS: readonly (readonly string[])[] = [
 export interface Opener {
   readonly words: readonly string[];
   readonly polite: boolean;
+  /**
+   * The opener asks whether a thing CAN be done — "is it possible to add
+   * pages?" — which is a question about the product before it is a request.
+   * English asks it with an infinitive, so every such opener does
+   * (`'infinitive'`). Arabic's impersonal "هل يمكن" / "هل ممكن" ("is it
+   * possible") does only before a VERBAL NOUN — "هل يمكن إضافة صفحات؟" — and is
+   * the courtesy "could you" before a verb: "هل ممكن تضيف قسم؟"
+   * (`'verbal-noun'`). Read as courtesy, "is it possible to add pages?" built
+   * a page at 0.75 and "is it possible to make a multi-page site?" a site at
+   * 0.9 (wave-2 verifier, 2026-09-28); both were questions in wave 1.
+   */
+  readonly possibility?: 'infinitive' | 'verbal-noun';
 }
 
 const polite = (...words: string[]): Opener => ({ words, polite: true });
 const vocative = (...words: string[]): Opener => ({ words, polite: false });
+const possible = (...words: string[]): Opener => ({
+  words,
+  polite: true,
+  possibility: /[؀-ۿ]/u.test(words.join('')) ? 'verbal-noun' : 'infinitive',
+});
 
 /** Longest first, so "can you please" is stripped whole rather than as "can you". */
 export const OPENERS: readonly Opener[] = [
+  possible('would', 'it', 'be', 'possible', 'to'),
+  possible('is', 'it', 'possible', 'to'),
+  possible('is', 'there', 'any', 'way', 'to'),
+  possible('is', 'there', 'a', 'way', 'to'),
   polite("i'd", 'like', 'you', 'to'),
   polite('i', 'want', 'you', 'to'),
   polite('i', 'need', 'you', 'to'),
@@ -919,9 +1332,11 @@ export const OPENERS: readonly Opener[] = [
   polite('please'),
   polite('pls'),
   polite('kindly'),
+  possible('هل', 'من', 'الممكن'),
   polite('هل', 'يمكنك'),
-  polite('هل', 'يمكن'),
-  polite('هل', 'ممكن'),
+  possible('هل', 'يمكن'),
+  possible('هل', 'ممكن'),
+  possible('هل', 'بالامكان'),
   polite('هل', 'تستطيع'),
   polite('هل', 'بامكانك'),
   polite('هل', 'تقدر'),
@@ -931,9 +1346,22 @@ export const OPENERS: readonly Opener[] = [
   polite('لو', 'ممكن'),
   polite('يا', 'ريت'),
   polite('ياريت'),
+  /*
+    Bare "ممكن" is the Levantine "could you": "ممكن عمل موقع لمطعمي؟" asks for
+    the site. Only the QUESTION of possibility — "هل يمكن…", like "is it
+    possible…" — is asked of the product.
+  */
   polite('ممكن'),
   polite('رجاء'),
   polite('رجاءا'),
+  /*
+    MSA's "please" before a verbal noun: "أرجو تغيير صور الشقة", "يرجى حذف
+    القسم". Unstripped, the request opened with an unknown word and its verbal
+    noun was never read as the change it asks for (wave-2 verifier, 2026-09-28).
+  */
+  polite('ارجو'),
+  polite('نرجو'),
+  polite('يرجي'),
   polite('بليز'),
   polite('تقدر'),
   polite('بتقدر'),
@@ -1009,9 +1437,16 @@ export const START_OVER_OBJECTS_AR: readonly string[] = [
 /*
   "Redo" in the Levantine the product's first users type is "عيد" ("عيد
   تصميم الصفحة" — redesign the page); MSA says "أعد". Both take the same
-  objects, glued on or not.
+  objects, glued on or not. "تعيد" / "نعيد" are the same verb asked of you or
+  of us ("ممكن تعيد تصميم الصفحة؟"), which read as nothing routed edit@0.6.
+
+  "عيد" is also Eid, the noun: "بطاقة عيد تصميم بسيط" (an Eid card, a simple
+  design) routed as a confident start-over, build-page/replace@0.85 over a
+  page with content (wave-2 verifier, 2026-09-28). So each of these counts
+  only where a verb stands, with its object written bare — see
+  `route-intent.ts` `restartsAt`.
 */
-const RESTART_VERBS_AR = ['اعد', 'اعاده', 'عيد'] as const;
+export const RESTART_VERBS_AR = ['اعد', 'اعاده', 'عيد', 'تعيد', 'نعيد'] as const;
 const RESTART_OBJECTS_AR = ['بناء', 'تصميم', ...START_OVER_OBJECTS_AR] as const;
 
 /*
@@ -1149,6 +1584,18 @@ export const BARE_START_OVER_WORDS: ReadonlySet<string> = new Set([
   'اوكي',
   'تمام',
   'خلينا',
+  /*
+    Words that name no subject: "start over, we need SOMETHING DIFFERENT" says
+    as little about the next page as "start over" does.
+  */
+  'something',
+  'anything',
+  'different',
+  'else',
+  'other',
+  'هالمره',
+  'اشي',
+  'مختلف',
 ]);
 
 /**

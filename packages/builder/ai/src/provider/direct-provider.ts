@@ -205,5 +205,30 @@ export function createDirectPlanProvider(options: DirectAiPlanProviderOptions): 
     ...(fallback?.repair === undefined
       ? {}
       : { repair: fallback.repair.bind(fallback) satisfies AiPlanProvider['repair'] }),
+    /*
+      The fallback's other capabilities pass straight through, and only when
+      it has them. A page plan or a rewritten draft is never a catalog example,
+      so there is nothing to match first; hiding them would switch off the
+      page-plan build and the Improve action for every host that puts the
+      catalog in front of its provider (2026-09-28). A rejected plan is
+      forgotten by whoever remembered it — the fallback, when it wrote it.
+    */
+    ...(fallback?.forget === undefined
+      ? {}
+      : { forget: fallback.forget.bind(fallback) satisfies AiPlanProvider['forget'] }),
+    ...(fallback?.proposePagePlan === undefined
+      ? {}
+      : {
+          proposePagePlan: fallback.proposePagePlan.bind(
+            fallback,
+          ) satisfies AiPlanProvider['proposePagePlan'],
+        }),
+    ...(fallback?.enhancePrompt === undefined
+      ? {}
+      : {
+          enhancePrompt: fallback.enhancePrompt.bind(
+            fallback,
+          ) satisfies AiPlanProvider['enhancePrompt'],
+        }),
   };
 }

@@ -18,7 +18,7 @@ export const MENU_PAGE_SKILL: AiSkillDefinitionV1 = {
   name: 'Café, restaurant and bakery page',
   description:
     'A food or drink business page built around its menu: dishes with dotted leaders to local-currency prices, the story, hours, map and a WhatsApp order.',
-  version: '1.0.1',
+  version: '1.0.2',
   source: 'builtin',
   trust: 'builtin',
   priority: 88,
@@ -44,6 +44,8 @@ export const MENU_PAGE_SKILL: AiSkillDefinitionV1 = {
       'falafel',
       'pizzeria',
       'juice bar',
+      // A three-letter last word takes no endings since 2026-09-28 (keyword-match.ts): plural listed.
+      'juice bars',
       'food menu',
       'restaurant menu',
       'menu page',

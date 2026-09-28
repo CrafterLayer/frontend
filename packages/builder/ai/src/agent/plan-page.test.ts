@@ -22,7 +22,7 @@ import type {
   AssembledAiContext,
   PagePlanCandidate,
 } from '../types';
-import { anotherLookRequested, planAiPage } from './plan-page';
+import { anotherLookRequested, designMarkupFor, planAiPage } from './plan-page';
 import type { AiPagePlanEvent } from './types';
 
 /*
@@ -372,6 +372,21 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
   });
 
   /*
+    The planner decides the signature and every section's variant, so it is
+    told what the writers can build with (2026-09-28): region css as a
+    first-class tool, and the markup the tree vocabulary admits.
+  */
+  it('tells the planner what writers can build: region css, and a signature they can make', async () => {
+    const { provider, calls } = planner(() => cafe());
+    await planAiPage(REQUEST, options(provider).options);
+
+    const line = /\nDESIGN CODE: [^\n]*/u.exec(calls[0]?.request ?? '')?.[0] ?? '';
+    expect(line).toContain('region css');
+    expect(line).toContain('var(--ck-…)');
+    expect(line).toContain('tokens.signature');
+  });
+
+  /*
     Plan mode, then Build: the plan card's plan is built verbatim, intent and
     all. Before this, a planAiPage with no target left the MODEL's intent
     standing — on a page with seven regions it answered 'replace' and
@@ -456,6 +471,29 @@ function untargeted(live: BuilderKernel, provider: AiPlanProvider) {
     skillRegistry: createCraftkitAiSkillRegistry(),
   };
 }
+
+describe('designMarkupFor — the design markup a brief names is only what the door admits', () => {
+  it('names nothing the vocabulary does not have', () => {
+    expect(designMarkupFor(new Set(['section', 'div', 'p']), new Set(['id', 'href']))).toBe('');
+  });
+
+  it('names each admitted group by the tags it has, with what it is for', () => {
+    const line = designMarkupFor(
+      new Set(['details', 'summary', 'table', 'tr', 'td', 'svg', 'path', 'video', 'source']),
+      new Set(['popover', 'popovertarget']),
+    );
+    expect(line).toContain('details/summary (a disclosure');
+    expect(line).toContain('table/tr/td (a table');
+    expect(line).toContain('svg/path (svg shapes');
+    expect(line).toContain('popover/popovertarget (a popover');
+    expect(line).toContain('video/source (a video');
+  });
+
+  it('leaves out a group whose opening tag, or a needed attribute, is refused', () => {
+    // A row without its table, a popover target without the popover: neither can be built.
+    expect(designMarkupFor(new Set(['summary', 'tr', 'td']), new Set(['popovertarget']))).toBe('');
+  });
+});
 
 describe('anotherLookRequested — how "try another look" reaches the deck', () => {
   it.each([

@@ -1,0 +1,93 @@
+/*
+  AgentThread (SPEC §3.0, §4.4, §2.3): the panel's middle row and its only scroller.
+
+  Flat (e0): the thread is the paper the records are drawn on. Padding 12 on the block
+  axis and 16 on the inline axis, the gutter every record, the header's face and the
+  composer's first letter share (12 below a 320px panel). 16px between turns.
+
+  The content is at least as tall as the thread. With turns it reads from the top, as a
+  conversation does (SPEC §3.3); with none, the greeting and its starters are pushed to
+  the bottom, directly above the composer (SPEC §3.1).
+
+  The jump pill floats outside the scroller, so it never scrolls: centred, 12px above the
+  dock. Its row lets the pointer through to the thread; only the pill itself takes it.
+*/
+
+.ck-agent-thread {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.ck-agent-thread__scroller {
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Keyboard focus that scrolls an element into view stops above the pill's band. */
+  scroll-padding-block-end: calc(var(--bldr-space-xl) + var(--bldr-hit-target-min));
+  /* The scrollbar's arrival never reflows a live build's rows. */
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+/*
+  The ring runs inside the thread's edge: outside, the header and the dock would clip it.
+  Specific enough to win over the product's `.bldr-root :focus-visible:not(…)` ring.
+*/
+.ck-agent-thread .ck-agent-thread__scroller:focus-visible:not([data-bldr-focus-ring='delegated']) {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-focus-ring-width));
+}
+
+.ck-agent-thread__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-3xl);
+  box-sizing: border-box;
+  min-block-size: 100%;
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-space-3xl);
+}
+
+.ck-agent-thread__turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-3xl);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-thread__turn {
+  min-inline-size: 0;
+}
+
+.ck-agent-thread__empty {
+  margin-block-start: auto;
+}
+
+.ck-agent-thread__jump {
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  inset-block-end: var(--bldr-space-xl);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.ck-agent-thread__jump > * {
+  pointer-events: auto;
+}
+
+@container agent (inline-size < 320px) {
+  .ck-agent-thread__content {
+    padding-inline: var(--bldr-space-xl);
+  }
+}

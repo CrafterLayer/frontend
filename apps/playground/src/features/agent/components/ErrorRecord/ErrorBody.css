@@ -1,0 +1,14 @@
+/*
+  ErrorBody (SPEC §4.14): the cause and the page's state, each a sentence in Read, Graphite,
+  wrapping as prose does (`text-wrap: pretty`) rather than ending in an ellipsis. The words
+  say what went wrong; the Alarm is the glyph's alone, never the sentence's.
+*/
+
+.ck-agent-error-line {
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  text-wrap: pretty;
+}

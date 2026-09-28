@@ -1,0 +1,256 @@
+/*
+  SwatchPopover (SPEC §4.11): a 20px swatch in a 32px target (44 coarse), and the popover it
+  opens, e2 (SPEC §2.5: Sheet, 1px surface border, floating shadow), radius 9 (§2.4).
+
+  The swatch shows the page's colour, which is content, not chrome (SPEC §2.1 rule 4): a
+  4px radius (the Detail level), a 1px `--bldr-content-outline` ring inside it so a white
+  or near-Paper colour still has an edge, and `forced-color-adjust: none` so high contrast
+  mode keeps the colour a person is choosing.
+*/
+
+/* ── The swatch ───────────────────────────────────────────────────────────── */
+
+.ck-agent-swatch {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  block-size: var(--bldr-control-md);
+  inline-size: var(--bldr-control-md);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-swatch:hover,
+.ck-agent-swatch[aria-expanded='true'] {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-swatch:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-swatch__chip {
+  display: block;
+  block-size: var(--bldr-space-4xl);
+  inline-size: var(--bldr-space-4xl);
+  border-radius: var(--bldr-radius-xs);
+  box-shadow: inset 0 0 0 var(--bldr-border-hairline) var(--bldr-content-outline);
+  forced-color-adjust: none;
+}
+
+/*
+  A held colour that fails its pair: an Amber dot at the chip's block-start / inline-end
+  corner, inside a 2px ring of the card's Sheet, like RunGlyph's partial badge. The dot is a
+  shape, and its words are the swatch's description, so the state is never colour alone.
+*/
+.ck-agent-swatch[data-unreadable]::after {
+  position: absolute;
+  inset-block-start: var(--bldr-space-2xs);
+  inset-inline-end: var(--bldr-space-2xs);
+  content: '';
+  block-size: var(--bldr-space-sm);
+  inline-size: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-warning);
+  box-shadow: 0 0 0 var(--bldr-border-thick) var(--bldr-surface);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-swatch {
+    block-size: var(--bldr-hit-target-min);
+    inline-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-swatch__chip {
+    box-shadow: inset 0 0 0 var(--bldr-border-hairline) CanvasText;
+  }
+
+  .ck-agent-swatch[data-unreadable]::after {
+    forced-color-adjust: none;
+    background-color: Mark;
+    box-shadow: 0 0 0 var(--bldr-border-thick) Canvas;
+  }
+}
+
+/* ── The popover (e2) ─────────────────────────────────────────────────────── */
+
+.ck-agent-swatch-popover {
+  z-index: 40;
+  display: grid;
+  gap: var(--bldr-space-md);
+  inline-size: max-content;
+  min-inline-size: var(--bldr-measure-picker);
+  max-inline-size: min(280px, calc(100vw - var(--bldr-space-3xl)));
+  padding: var(--bldr-space-xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-swatch-popover :where(p) {
+  margin: 0;
+}
+
+.ck-agent-swatch-popover:focus-visible {
+  outline: none;
+}
+
+.ck-agent-swatch-popover__title {
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-swatch-popover__fields {
+  display: grid;
+  grid-template-columns: var(--bldr-control-md) minmax(0, 1fr);
+  gap: var(--bldr-space-md);
+  align-items: center;
+}
+
+/* The native picker, drawn as a swatch: the OS draws the picker it opens. */
+.ck-agent-swatch-popover__picker {
+  block-size: var(--bldr-control-md);
+  inline-size: var(--bldr-control-md);
+  margin: 0;
+  padding: 0;
+  border: var(--bldr-border-hairline) solid var(--bldr-content-outline);
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  cursor: pointer;
+  forced-color-adjust: none;
+}
+
+.ck-agent-swatch-popover__picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.ck-agent-swatch-popover__picker::-webkit-color-swatch {
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+}
+
+.ck-agent-swatch-popover__picker::-moz-color-swatch {
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+}
+
+.ck-agent-swatch-popover__picker:focus-visible,
+.ck-agent-swatch-popover__hex:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* A hex code is a figure: tabular, left to right in both locales (`dir="ltr"` on the field). */
+.ck-agent-swatch-popover__hex {
+  box-sizing: border-box;
+  block-size: var(--bldr-control-md);
+  inline-size: 100%;
+  min-inline-size: 0;
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-md);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-input);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--bldr-line-height-input);
+}
+
+.ck-agent-swatch-popover__hex[aria-invalid='true'] {
+  border-color: var(--bldr-warning);
+}
+
+/* The verdict and its companions: Meta, Graphite; Amber when a pair fails (SPEC §4.11). */
+.ck-agent-swatch-popover__line {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-swatch-popover__line[data-tone='warning'] {
+  color: var(--bldr-warning);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-swatch-popover__fields {
+    grid-template-columns: var(--bldr-hit-target-min) minmax(0, 1fr);
+  }
+
+  .ck-agent-swatch-popover__picker,
+  .ck-agent-swatch-popover__hex {
+    block-size: var(--bldr-hit-target-min);
+  }
+
+  .ck-agent-swatch-popover__picker {
+    inline-size: var(--bldr-hit-target-min);
+  }
+}
+
+/* ── Motion (SPEC §5 moment 9): opacity and a 4px rise from the anchor side ──── */
+
+.ck-agent-swatch-popover[data-side='bottom'] {
+  --ck-agent-float-from: calc(-1 * var(--bldr-space-xs));
+}
+
+.ck-agent-swatch-popover[data-side='top'] {
+  --ck-agent-float-from: var(--bldr-space-xs);
+}
+
+.ck-agent-swatch-popover[data-state='open'] {
+  animation: ck-agent-swatch-popover-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-swatch-popover[data-state='closed'] {
+  animation: ck-agent-swatch-popover-out var(--bldr-duration-exit) var(--bldr-easing-exit)
+    forwards;
+}
+
+@keyframes ck-agent-swatch-popover-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-swatch-popover-out {
+  to {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-swatch-popover-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-swatch-popover[data-state='open'],
+  .ck-agent-swatch-popover[data-state='closed'] {
+    animation: ck-agent-swatch-popover-fade var(--bldr-duration-state) linear;
+  }
+
+  .ck-agent-swatch-popover[data-state='closed'] {
+    animation-direction: reverse;
+    animation-fill-mode: forwards;
+  }
+}

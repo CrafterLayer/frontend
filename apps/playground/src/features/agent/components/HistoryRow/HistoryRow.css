@@ -1,0 +1,250 @@
+/*
+  HistoryRow (SPEC §4.18, §3.13): a 40px row, 44px on a finger. The row button fills the
+  row; Delete sits on the button's inline end as a sibling, above it.
+
+  Hierarchy by ink, not boxes: the title in Read and Ink, the time in Meta and Slate. The
+  current conversation takes the Mist fill of a selected row, a 2px Indigo bar at its
+  inline start and the word "Current"; on Mist, secondary text is Graphite, because Slate
+  on Mist is 4.08:1 and forbidden (SPEC §2.1 rule 2).
+
+  On a mouse, Delete appears where the time was, on hover and with focus anywhere in the
+  row: the time cross-fades out and the trash in, so nothing on the line moves. On a finger
+  there is no hover, so Delete is always there and the time stands before it.
+*/
+
+.ck-agent-history-row {
+  --ck-agent-history-row-height: max(40px, var(--bldr-agent-row-height));
+  --ck-agent-history-delete: var(--bldr-control-md);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-history-row__open {
+  display: flex;
+  grid-row: 1;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  min-block-size: var(--ck-agent-history-row-height);
+  margin: 0;
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-md);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-read);
+  text-align: start;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-history-row__open:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-history-row__open:active {
+  background-color: var(--bldr-surface-active);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/* Rows draw the product's ring inside themselves, so neighbours never collide (SPEC §6.3). */
+.ck-agent-history-row__open:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-focus-ring-width));
+}
+
+/* Opening waits while a run is live: no hover, no press, and the list says why. */
+.ck-agent-history-row__open[aria-disabled='true'],
+.ck-agent-history-row__open[aria-disabled='true']:hover,
+.ck-agent-history-row__open[aria-disabled='true']:active {
+  background-color: transparent;
+  cursor: default;
+}
+
+.ck-agent-history-row__open[aria-disabled='true'] .ck-agent-history-row__title {
+  color: var(--bldr-panel-text-soft);
+}
+
+/* ── The current conversation ─────────────────────────────────────────────── */
+
+.ck-agent-history-row[data-current] .ck-agent-history-row__open {
+  position: relative;
+  background-color: var(--bldr-accent-soft);
+}
+
+.ck-agent-history-row[data-current] .ck-agent-history-row__open:hover {
+  background-color: var(--bldr-accent-soft-hover);
+}
+
+/*
+  The bar: 2px, 16px tall, centred on the row, at the inline start. A marker the eye finds
+  in a column of titles, not a border fighting the row's 6px corners. Drawn as a border so
+  high contrast keeps it.
+*/
+.ck-agent-history-row[data-current] .ck-agent-history-row__open::before {
+  position: absolute;
+  inset-block-start: calc(50% - var(--bldr-space-md));
+  inset-inline-start: var(--bldr-space-0);
+  block-size: var(--bldr-space-3xl);
+  border-inline-start: var(--bldr-border-thick) solid var(--bldr-accent);
+  border-radius: var(--bldr-radius-full);
+  content: '';
+}
+
+/* ── Title and time ───────────────────────────────────────────────────────── */
+
+/*
+  One line; the ellipsis falls at the title's own end, whatever script it is in. The
+  title carries the direction of its own words (`resolveDir`), and `match-parent` keeps a
+  short one on the row's reading start instead of across the row.
+*/
+.ck-agent-history-row__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-align: match-parent;
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+  white-space: nowrap;
+}
+
+.ck-agent-history-row__meta {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+  transition: opacity var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-history-row[data-current] .ck-agent-history-row__meta {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-history-row__current {
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+/* ── Delete ───────────────────────────────────────────────────────────────── */
+
+.ck-agent-history-row__delete[data-bldr-chrome-button][data-variant][data-size] {
+  z-index: 1;
+  grid-row: 1;
+  grid-column: 2;
+  margin-inline-end: var(--bldr-space-xs);
+  opacity: 0;
+  transition:
+    opacity var(--bldr-duration-state) var(--bldr-easing),
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-history-row:hover
+  .ck-agent-history-row__delete[data-bldr-chrome-button][data-variant][data-size],
+.ck-agent-history-row:focus-within
+  .ck-agent-history-row__delete[data-bldr-chrome-button][data-variant][data-size] {
+  opacity: 1;
+}
+
+.ck-agent-history-row:hover .ck-agent-history-row__meta,
+.ck-agent-history-row:focus-within .ck-agent-history-row__meta {
+  opacity: 0;
+}
+
+/*
+  Asking: the consequence and its two answers take a line under the row, at the row's
+  text inset, 8px below it. The time comes back while the question is open: it is the
+  row's only way to tell two similar titles apart.
+*/
+.ck-agent-history-row .ck-agent-history-row__confirm {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  padding-block: var(--bldr-space-xs) var(--bldr-space-md);
+  padding-inline: var(--bldr-space-md);
+}
+
+.ck-agent-history-row[data-confirming] .ck-agent-history-row__meta {
+  opacity: 1;
+}
+
+/* ── A finger: 44px rows, Delete always there, the time beside it ─────────── */
+
+@media (pointer: coarse) {
+  .ck-agent-history-row {
+    --ck-agent-history-delete: var(--bldr-hit-target-min);
+  }
+
+  .ck-agent-history-row__open {
+    padding-inline-end: calc(var(--ck-agent-history-delete) + var(--bldr-space-md));
+  }
+
+  .ck-agent-history-row__delete[data-bldr-chrome-button][data-variant][data-size],
+  .ck-agent-history-row:hover .ck-agent-history-row__meta,
+  .ck-agent-history-row:focus-within .ck-agent-history-row__meta {
+    opacity: 1;
+  }
+}
+
+.ck-agent-history-row[data-touch] {
+  --ck-agent-history-row-height: var(--bldr-hit-target-min);
+  --ck-agent-history-delete: var(--bldr-hit-target-min);
+}
+
+.ck-agent-history-row[data-touch] .ck-agent-history-row__open {
+  padding-inline-end: calc(var(--ck-agent-history-delete) + var(--bldr-space-md));
+}
+
+.ck-agent-history-row[data-touch]
+  .ck-agent-history-row__delete[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-hit-target-min);
+  inline-size: var(--bldr-hit-target-min);
+  margin-inline-end: var(--bldr-space-0);
+  opacity: 1;
+}
+
+.ck-agent-history-row[data-touch]:hover .ck-agent-history-row__meta,
+.ck-agent-history-row[data-touch]:focus-within .ck-agent-history-row__meta {
+  opacity: 1;
+}
+
+.ck-agent-history-row[data-touch]
+  .ck-agent-history-row__confirm
+  .ck-agent-confirm__button[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-hit-target-min);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-history-row__meta,
+  .ck-agent-history-row__delete[data-bldr-chrome-button][data-variant][data-size] {
+    transition: none;
+  }
+}
+
+/* High contrast drops the Mist fill; the current row keeps an edge and its bar. */
+@media (forced-colors: active) {
+  .ck-agent-history-row[data-current] .ck-agent-history-row__open:not(:focus-visible) {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+
+  .ck-agent-history-row[data-current] .ck-agent-history-row__open::before {
+    border-inline-start-color: Highlight;
+  }
+}

@@ -10,8 +10,14 @@ import type { LandedSection, LandedSections, PagePlan, SectionContract } from '.
  */
 export const NEIGHBOUR_SUMMARY_MAX_CHARS = 600;
 
-const QUOTE_MAX = 70;
-const PURPOSE_MAX = 140;
+/** A neighbour's title, quoted in its line's head. */
+const TITLE_MAX = 70;
+/** One claim before any budget: mustSay's own ceiling (validatePagePlan), so a claim is whole whenever it fits. */
+const QUOTE_MAX = 200;
+/** When the claims alone overflow the summary, no quote is cut shorter than this. */
+const QUOTE_MIN = 24;
+/** A purpose cut shorter than this says nothing a writer can use; it is dropped instead. */
+const PURPOSE_MIN = 24;
 const MAX_CLAIMS = 4;
 const MAX_PROMISES = 3;
 /** Short enough to be a claim (a stat, a price, a card title), not a paragraph. */
@@ -22,14 +28,20 @@ function collapse(value: string): string {
   return value.replace(/\s+/gu, ' ').trim();
 }
 
-/** Cut to `max` characters, marking the cut. */
+/**
+ * Cut to `max` UTF-16 units, marking the cut — never between the halves of a
+ * surrogate pair. The cut used to fall wherever the count did: 416 of 768
+ * emoji-titled summaries in the verifier's fuzz carried a lone surrogate, which
+ * a prompt renders as a replacement box (neighbours-fuzz.mjs, 2026-09-28).
+ */
 function clip(value: string, max: number): string {
   const text = collapse(value);
-  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
-}
-
-function quoted(values: readonly string[]): string {
-  return values.map((value) => `"${clip(value, QUOTE_MAX)}"`).join(' · ');
+  if (text.length <= max) return text;
+  if (max < 1) return '';
+  let end = max - 1;
+  const last = text.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return `${text.slice(0, end).trimEnd()}…`;
 }
 
 function tagOf(entry: LandedNode): string {
@@ -63,53 +75,161 @@ function written(landed: LandedSection): { headline?: string; claims: readonly s
   return headline === undefined || headline === '' ? { claims } : { headline, claims };
 }
 
+/** Quotes after a lead: `: headline "…"`, `; says "…" · "…"`, ` Will say "…"`. */
+interface QuoteGroup {
+  readonly lead: string;
+  readonly quotes: readonly string[];
+}
+
+/**
+ * One neighbour's line, in the order its parts give way under the ceiling:
+ * the head (who and where) is kept, the claims (what it says or will say —
+ * what the summary exists to carry) come next, and the purpose, last, is the
+ * first to be cut. The purpose used to come BEFORE the claims and the cut fell
+ * at the end of the line, so on the verifier's 7-section café plan the summary
+ * for section 4 lost "يمن حرازي", "قهوة عربية ١ د.أ", "توصيل مجاني داخل عمّان"
+ * and "تحميص يومي" while keeping 140 characters of every purpose
+ * (neighbours-real.mjs, 2026-09-28).
+ */
+interface Line {
+  readonly head: string;
+  readonly groups: readonly QuoteGroup[];
+  /** Ends the claims when there are any. */
+  readonly close: string;
+  readonly purpose: string;
+}
+
+/** The line at `quoteCap` characters a quote and `purposeRoom` for the purpose (its space included). */
+function render(line: Line, quoteCap: number, purposeRoom: number): string {
+  const groups = line.groups.filter(({ quotes }) => quotes.length > 0);
+  const said = groups
+    .map(
+      ({ lead, quotes }) =>
+        `${lead}${quotes.map((quote) => `"${clip(quote, quoteCap)}"`).join(' · ')}`,
+    )
+    .join('');
+  const purpose =
+    line.purpose === '' || purposeRoom < PURPOSE_MIN
+      ? ''
+      : ` ${clip(line.purpose, purposeRoom - 1)}`;
+  return `${line.head}${said}${groups.length > 0 ? line.close : ''}${purpose}`;
+}
+
 function line(
   label: string,
   plan: PagePlan,
   index: number,
   landed: LandedSections,
-): string | undefined {
+): Line | undefined {
   const contract: SectionContract | undefined = plan.sections[index];
   if (contract === undefined) return undefined;
-  const head = `${label} — ${String(index + 1)}/${String(plan.sections.length)} "${clip(contract.title, QUOTE_MAX)}"`;
+  const head = `${label} — ${String(index + 1)}/${String(plan.sections.length)} "${clip(contract.title, TITLE_MAX)}"`;
   const section = landed.get(contract.key);
   if (contract.role === 'header' || contract.role === 'footer') {
-    return `${head}: the site ${contract.role}${section === undefined ? ', not written yet' : ''}.`;
+    return {
+      head: `${head}: the site ${contract.role}${section === undefined ? ', not written yet' : ''}.`,
+      groups: [],
+      close: '',
+      purpose: '',
+    };
   }
   if (section === undefined) {
-    const promises = contract.mustSay.slice(0, MAX_PROMISES);
-    return `${head} (not written yet): ${clip(contract.purpose, PURPOSE_MAX)}${
-      promises.length === 0 ? '' : ` Will say ${quoted(promises)}.`
-    }`;
+    return {
+      head: `${head} (not written yet):`,
+      groups: [{ lead: ' Will say ', quotes: contract.mustSay.slice(0, MAX_PROMISES) }],
+      close: '.',
+      purpose: collapse(contract.purpose),
+    };
   }
   const { headline, claims } = written(section);
-  return `${head} (written)${headline === undefined ? '' : `: headline ${quoted([headline])}`}${
-    claims.length === 0 ? '' : `; says ${quoted(claims)}`
-  }.`;
+  return {
+    head: `${head} (written)`,
+    groups: [
+      ...(headline === undefined ? [] : [{ lead: ': headline ', quotes: [headline] }]),
+      { lead: headline === undefined ? ': says ' : '; says ', quotes: claims },
+    ],
+    close: '.',
+    purpose: '',
+  };
+}
+
+function total(texts: readonly string[]): number {
+  return texts.reduce((sum, text) => sum + text.length, 0) + Math.max(0, texts.length - 1);
 }
 
 /**
- * Fit the lines under the ceiling: a line shorter than its fair share keeps
- * its length, and the room it leaves goes to the others — so a one-line
- * chrome neighbour never costs a written one its claims.
+ * Share `room` among parts that want `wants[i]` each: a part that wants less
+ * than its fair share keeps what it wants, and what it leaves goes to the rest.
  */
-function fit(lines: readonly string[], max: number): string {
-  const joined = lines.join('\n');
-  if (joined.length <= max) return joined;
-  let room = max - (lines.length - 1);
-  let open = lines.length;
-  const budgets = new Map<number, number>();
-  const order = lines
-    .map((text, at) => ({ text, at }))
-    .sort((a, b) => a.text.length - b.text.length);
-  for (const { text, at } of order) {
-    const share = Math.floor(room / open);
-    const budget = Math.min(text.length, share);
-    budgets.set(at, budget);
-    room -= budget;
+function share(wants: readonly number[], room: number): number[] {
+  const budgets = wants.map(() => 0);
+  let left = room;
+  let open = wants.length;
+  const order = wants.map((want, at) => ({ want, at })).sort((a, b) => a.want - b.want);
+  for (const { want, at } of order) {
+    const budget = Math.max(0, Math.min(want, Math.floor(left / open)));
+    budgets[at] = budget;
+    left -= budget;
     open -= 1;
   }
-  return lines.map((text, at) => clip(text, budgets.get(at) ?? text.length)).join('\n');
+  return budgets;
+}
+
+/**
+ * The lines under the ceiling, giving way in order: purposes first (shared
+ * among the lines that have one), then every quote cut to one shared length no
+ * shorter than QUOTE_MIN, then the last quotes of the fullest lines dropped
+ * whole. Claims are cut only when the claims alone overflow it.
+ */
+function fit(lines: readonly Line[], max: number): string {
+  const whole = lines.map((each) => render(each, QUOTE_MAX, Number.POSITIVE_INFINITY));
+  if (total(whole) <= max) return whole.join('\n');
+
+  const claimsOnly = lines.map((each) => render(each, QUOTE_MAX, 0));
+  const room = max - total(claimsOnly);
+  if (room >= 0) {
+    const wants = lines.map((each) => (each.purpose === '' ? 0 : each.purpose.length + 1));
+    const budgets = share(wants, room);
+    return lines.map((each, at) => render(each, QUOTE_MAX, budgets[at] ?? 0)).join('\n');
+  }
+
+  // The claims alone overflow: the longest quote is cut first, to one shared length.
+  let low = QUOTE_MIN;
+  let high = QUOTE_MAX;
+  const fits = (cap: number) => total(lines.map((each) => render(each, cap, 0))) <= max;
+  if (fits(low)) {
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (fits(middle)) low = middle;
+      else high = middle - 1;
+    }
+    return lines.map((each) => render(each, low, 0)).join('\n');
+  }
+
+  // Even short quotes overflow: the fullest line gives up its last quote, until it fits.
+  let trimmed: Line[] = [...lines];
+  const quoteCount = (each: Line) =>
+    each.groups.reduce((sum, { quotes }) => sum + quotes.length, 0);
+  while (total(trimmed.map((each) => render(each, QUOTE_MIN, 0))) > max) {
+    const fullest = trimmed.reduce(
+      (best, each, at) => (quoteCount(each) >= quoteCount(trimmed[best] ?? each) ? at : best),
+      0,
+    );
+    const target = trimmed[fullest];
+    if (target === undefined || quoteCount(target) === 0) break;
+    const lastGroup = target.groups.findLastIndex(({ quotes }) => quotes.length > 0);
+    trimmed = trimmed.map((each, at) =>
+      at !== fullest
+        ? each
+        : {
+            ...each,
+            groups: each.groups.map((group, groupAt) =>
+              groupAt === lastGroup ? { ...group, quotes: group.quotes.slice(0, -1) } : group,
+            ),
+          },
+    );
+  }
+  return clip(trimmed.map((each) => render(each, QUOTE_MIN, 0)).join('\n'), max);
 }
 
 /**
@@ -121,10 +241,11 @@ function fit(lines: readonly string[], max: number): string {
  * one line each, labelled BEFORE, AFTER and HERO: a landed one
  * (`landed.has(key)`) is summarised from what was WRITTEN — its headline and
  * the claims it already makes — and one not yet landed by its contract
- * (title, purpose, `mustSay`), marked "not written yet". A header or footer is
- * named for what it is and nothing more. Plain text, quoting the page in the
- * plan's language, at most `NEIGHBOUR_SUMMARY_MAX_CHARS` characters. `''` for
- * a one-section plan or an index outside the plan.
+ * (title, the `mustSay` it will say, then its purpose), marked "not written
+ * yet". A header or footer is named for what it is and nothing more. Plain
+ * text, quoting the page in the plan's language, at most
+ * `NEIGHBOUR_SUMMARY_MAX_CHARS` characters: purposes give way before any
+ * claim is cut. `''` for a one-section plan or an index outside the plan.
  *
  * Pure and deterministic.
  *
@@ -141,6 +262,6 @@ export function summarizeNeighbours(plan: PagePlan, index: number, landed: Lande
     line('BEFORE', plan, index - 1, landed),
     line('AFTER', plan, index + 1, landed),
     hero !== -1 && Math.abs(hero - index) > 1 ? line('HERO', plan, hero, landed) : undefined,
-  ].filter((text): text is string => text !== undefined);
+  ].filter((each): each is Line => each !== undefined);
   return fit(lines, NEIGHBOUR_SUMMARY_MAX_CHARS);
 }

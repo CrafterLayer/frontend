@@ -1,0 +1,47 @@
+/*
+  ComposerToolbar (SPEC §4.17, §2.3): items 32px with 4px between them, in a row that
+  sits 4px under the text (36px of the SPEC's budget). On a coarse pointer items are 44
+  with 8 between them, so two targets never sit closer than 8 (SPEC §6.4).
+
+  The choices keep the start and the actions the end; when both cannot fit (a 260px
+  container, or Queued's pill beside a long mode name) the actions wrap under the choices,
+  still at the inline end, instead of clipping.
+*/
+
+.ck-agent-toolbar {
+  --ck-agent-toolbar-gap: var(--bldr-space-xs);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ck-agent-toolbar-gap);
+  min-inline-size: 0;
+  margin-block-start: var(--bldr-space-xs);
+}
+
+.ck-agent-toolbar__choices,
+.ck-agent-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ck-agent-toolbar-gap);
+  min-inline-size: 0;
+}
+
+.ck-agent-toolbar__actions {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* `[@]` follows the toolbar's target size, so a coarse preview can set it in one place. */
+.ck-agent-toolbar .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+  inline-size: var(--ck-agent-target, var(--bldr-control-md));
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+}
+
+@media (pointer: coarse) {
+  .ck-agent-toolbar {
+    --ck-agent-target: var(--bldr-hit-target-min);
+    --ck-agent-toolbar-gap: var(--bldr-space-md);
+  }
+}

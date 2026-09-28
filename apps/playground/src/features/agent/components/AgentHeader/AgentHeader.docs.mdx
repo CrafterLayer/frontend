@@ -1,0 +1,116 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AgentHeaderStories from './AgentHeader.stories';
+
+<Meta of={AgentHeaderStories} />
+
+# AgentHeader
+
+The agent panel's header (SPEC §4.2): one 44px line with أبو غضب's face, his name, and two actions,
+Conversations and New conversation.
+
+<Canvas of={AgentHeaderStories.AtRest} />
+
+## Purpose
+
+The header says whose panel this is and offers the two things you do to the conversation as a whole.
+It says nothing else. The v1 header read "Agent Let m…", with a truncated conversation title and a
+count badge beside it (the owner's screenshot): a status clipped to four letters, an English word
+for an Arabic character, and a title nobody could read. Each of those has a better home now: the
+run's status is the RunBar's line, the conversation's title is its row in Conversations, and
+progress counts sit on the records.
+
+## When to use / not
+
+Use it once, as the first row of AgentPanel, and as the top of the phone sheet (AgentSheet passes
+Close and Show the page). Do not add a status, a subtitle, a badge or a second name to it. Do not
+use it outside the agent panel.
+
+## Props
+
+| prop                    | type                     | default   | notes                                                       |
+| ----------------------- | ------------------------ | --------- | ----------------------------------------------------------- |
+| `locale`                | `'ar' \| 'en'`           | none      | the name and every label follow it                          |
+| `face`                  | `AgentHeaderFace`        | none      | `{ mood, variant?, outcome?, typing? }` from `useAgentMood` |
+| `scrolled`              | `boolean`                | none      | AgentThread's `onScrolledChange`: draws the Hairline        |
+| `running`               | `boolean`                | none      | New conversation becomes `aria-disabled` and says why       |
+| `conversationsOpen`     | `boolean`                | none      | Conversations' `aria-expanded`                              |
+| `onConversations`       | `() => void`             | none      | open or close HistoryPopover                                |
+| `onNewConversation`     | `() => void`             | none      | `controller.newConversation`; not called while running      |
+| `conversationsRef`      | `Ref<HTMLButtonElement>` | none      | for the popover's anchor and its focus return               |
+| `conversationsControls` | `string`                 | none      | the open popover's id, set as `aria-controls` while open    |
+| `headingId`             | `string`                 | generated | the `h2`'s id, so AgentPanel can name its region by it      |
+| `onClose`               | `() => void`             | none      | phone sheet only: adds Close at the inline start            |
+| `onShowPage`            | `() => void`             | none      | phone sheet only: adds Show the page after New conversation |
+
+## States
+
+- **At rest** (`AtRest`, `AtRestArabic`, `Dark`): flat, no line under it.
+- **Scrolled** (`Scrolled`, `ScrolledArabicDark`): the thread is scrolled beneath it, so a 1px
+  Hairline appears at its block end.
+- **Running** (`Running`, `RunningArabic`, `DarkRunning`): the face works; New conversation stays in
+  the tab order but is `aria-disabled`, and its tooltip's second line says "Available when the
+  current work ends". A press does nothing.
+- **Conversations open** (`ConversationsOpen`): `aria-expanded="true"`, the Wash stays under the
+  button, and its tooltip steps aside for the popover.
+- **Widths** (`Narrow288`, `Wide480Arabic`): under a 320px panel the gutter narrows to 12px and the
+  face follows it.
+- **Phone sheet** (`PhoneSheet`, `PhoneSheetArabic`): Close, the face and the name; Conversations,
+  New and Show the page. 56px tall (AgentSheet sets `--bldr-agent-header-height`), 44px targets 8px
+  apart.
+
+## Anatomy
+
+```text
+[16] face 24 [8] name (h2, one line …………)  [◷ 32] 4 [+ 32] [8]     44px, one line
+[8] [× 44] face name ………………………  [◷ 44] 8 [+ 44] 8 [⤓ 44] [8]      phone sheet, 56px
+```
+
+- **Face**: `AgentFace size="sm"` (24px), `live`, its mood following the run. `aria-hidden`.
+- **Name**: the panel's `h2`, Name type (14/20 Latin, 15/22 Arabic), 600, Ink. «أبو غضب» or "Abu
+  Ghadab", in the UI language only. One line, clipped with an ellipsis at the inline end if a panel
+  is ever too narrow for it.
+- **Actions**: two ghost IconButtons (32px, 44px coarse), 4px apart, 8px apart on a coarse pointer.
+- **Hairline**: an inset shadow in the header's last pixel row, so it moves nothing. It fades in
+  over `state` (120ms), a colour change only.
+
+## Accessibility
+
+- The name is the panel's `h2`; AgentPanel names its region by it (`headingId`).
+- The face is decoration; the header's text is the name and nothing else.
+- Conversations is a dialog trigger: `aria-haspopup="dialog"`, `aria-expanded`, and `aria-controls`
+  while open. HistoryPopover anchors to `conversationsRef` (Radix `Popover.Anchor virtualRef`) and
+  returns focus to it when it closes (SPEC §4.18).
+- New conversation is `aria-disabled` while a run is live, never `disabled`: it stays focusable, and
+  its description says why and when.
+- Each button's accessible name is its tooltip's text (IconButton).
+- `prefers-contrast: more` draws the Hairline in Rule; forced colours draw it as a real border.
+
+## RTL
+
+Logical properties only. In Arabic the face and the name stand at the right, the actions at the left
+(`AtRestArabic` measures it), and tooltips carry the panel's language and direction.
+
+## Composition
+
+```tsx
+<AgentHeader
+  locale={state.locale}
+  face={mood}
+  scrolled={threadScrolled}
+  running={state.run !== null}
+  conversationsOpen={historyOpen}
+  onConversations={() => setHistoryOpen((open) => !open)}
+  onNewConversation={controller.newConversation}
+  conversationsRef={historyButton}
+  conversationsControls={historyId}
+  headingId={panelNameId}
+/>
+```
+
+## Limitations
+
+- The face's mood comes from its owner (`useAgentMood` in AgentPanel); the header does not compute
+  it.
+- HistoryPopover is its own component (WP-15). If it would rather wrap its trigger than anchor to
+  it, the integration adapts through `conversationsRef`: the header owns the button.

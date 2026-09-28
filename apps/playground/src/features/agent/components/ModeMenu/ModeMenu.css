@@ -1,0 +1,10 @@
+/*
+  ModeMenu (SPEC §4.17). The trigger and the menu are ChoiceMenu's (ComposerToolbar); the
+  mode's name is never cut: the three names are short in both languages («تلقائي»،
+  «بموافقتك»، «تخطيط» / "Auto", "Ask first", "Plan"), and the mode is the one word that
+  must always be read whole before a send.
+*/
+
+.ck-agent-mode[data-bldr-chrome-button] {
+  flex: none;
+}

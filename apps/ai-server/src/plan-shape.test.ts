@@ -12,12 +12,16 @@ import {
   PAGE_PLAN_EXAMPLE,
   PAGE_PLAN_FALLBACK_ACCENTS,
   PAGE_PLAN_FALLBACK_BASE,
-  PAGE_PLAN_HEX_ONLY_SHADES,
   PAGE_PLAN_LATIN_FAMILIES,
   PAGE_PLAN_PHOTO_TOPICS,
   PAGE_PLAN_SECTION_VARIANTS,
+  PAGE_PLAN_SHADE_HEX,
+  fillPlaceholderSample,
+  isPlaceholderSample,
   pagePlanShapeCheck,
   planShapeCheck,
+  repairPagePlanAnswer,
+  resolvePagePlanColour,
 } from './plan-shape';
 
 const request = {
@@ -251,14 +255,15 @@ describe('page-plan contract mirrors', () => {
   });
 
   /*
-    The rules tell the model to copy a row's shades as written, because the
-    client resolves the rows' names (agent/page-plan/palette.ts). That promise
-    is only as true as the two files agree. Measured live 2026-09-28: the deck
-    re-inked wedding (yellow-800) and auto (red-400) at 07:58, after the
-    palette was written at 07:44. An Arabic wedding-hall plan (cli:haiku,
-    84 s) copied yellow-800 as told, and validatePagePlan refused it. So every
-    shade of every row must resolve there, or be one the rules hand over as
-    hex. Checked either way, the test stays green when the palette catches up.
+    The rules tell the model to copy a row's shades as written, and this
+    server rewrites every shade name to its hex before the answer leaves
+    (`repairPagePlanAnswer`). Measured live 2026-09-28, the names were the
+    commonest refusal: yellow-800 and red-400 (deck shades the client's
+    palette.ts lacked, re-inked at 07:58 after it was written at 07:44) and
+    slate-100 (a shade no row uses). So the server's table must resolve every
+    shade of every row, at the hex the deck's contrast was measured on, and
+    must mean what the client's palette means for every name the palette has
+    — checked either way, so the palette catching up can never turn this red.
   */
   const deckShades = (): ReadonlySet<string> => {
     const calls = [
@@ -273,43 +278,35 @@ describe('page-plan contract mirrors', () => {
       ),
     );
   };
-  const paletteHex = (): ReadonlyMap<string, string> =>
+  /** `'name': '#hex',` entries of a source file's table. */
+  const hexTable = (path: string): ReadonlyMap<string, string> =>
     new Map(
       [
-        ...source('agent/page-plan/palette.ts').matchAll(
-          /^ {2}(?:'([a-z]+-\d+)'|([a-z]+)): '(#[0-9a-f]{6})',$/gmu,
-        ),
+        ...source(path).matchAll(/^ {2}(?:'([a-z]+-\d+)'|([a-z]+)): '(#[0-9a-f]{6})',$/gmu),
       ].map((match) => [match[1] ?? match[2] ?? '', match[3] ?? '']),
     );
 
-  it("resolves every deck row's shade: by name on the client, or by the hex the rules give", () => {
+  it("resolves every deck row's shade, at the hex its contrast was measured on", () => {
     const shades = deckShades();
-    const named = paletteHex();
+    // page-power.test.ts holds the Tailwind v3 table the deck's contrast is computed on.
+    const measured = hexTable('skills/page-power.test.ts');
     expect(shades.size).toBeGreaterThan(40);
-    expect(named.get('white')).toBe('#ffffff');
+    expect(measured.size).toBeGreaterThan(40);
 
     const unresolved = [...shades].filter(
-      (shade) =>
-        !/^#[0-9a-f]{6}$/u.test(shade) &&
-        !named.has(shade) &&
-        !Object.hasOwn(PAGE_PLAN_HEX_ONLY_SHADES, shade),
+      (shade) => !/^#[0-9a-f]{6}$/u.test(shade) && !PAGE_PLAN_SHADE_HEX.has(shade),
     );
-
     expect(unresolved).toEqual([]);
+    for (const [shade, hex] of measured) expect(PAGE_PLAN_SHADE_HEX.get(shade)).toBe(hex);
   });
 
-  it('hands over as hex only a deck shade, at the value its contrast was measured on', () => {
-    // page-power.test.ts holds the Tailwind v3 table the deck's contrast is computed on.
-    const measured = source('skills/page-power.test.ts');
-    const shades = deckShades();
-    const named = paletteHex();
+  it("means what the client's palette means, for every shade the palette names", () => {
+    const named = hexTable('agent/page-plan/palette.ts');
+    expect(named.get('white')).toBe('#ffffff');
+    expect(named.size).toBeGreaterThan(40);
 
-    for (const [shade, hex] of Object.entries(PAGE_PLAN_HEX_ONLY_SHADES)) {
-      expect(shades.has(shade)).toBe(true);
-      expect(measured).toContain(`'${shade}': '${hex}',`);
-      // Once the client resolves it by name as well, both must mean one colour.
-      expect(named.get(shade) ?? hex).toBe(hex);
-    }
+    const disagreeing = [...named].filter(([shade, hex]) => PAGE_PLAN_SHADE_HEX.get(shade) !== hex);
+    expect(disagreeing).toEqual([]);
   });
 
   it('names exactly the verified font families, split by Arabic glyphs', () => {
@@ -422,5 +419,218 @@ describe('the checked fallback base', () => {
       expect(contrast(accent, bg)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(accent, surface)).toBeGreaterThanOrEqual(4.5);
     }
+  });
+});
+
+/*
+  Every Tailwind shade name, resolved on this server (2026-09-28): the names a
+  deck row writes, a shade no row uses, a utility prefix left on, #rgb — each
+  a refused plan and a whole repair round when the client met it first.
+*/
+describe('the shade table', () => {
+  it('holds the whole Tailwind v3 palette: 22 families of 11 steps, plus white and black', () => {
+    expect(PAGE_PLAN_SHADE_HEX.size).toBe(22 * 11 + 2);
+    for (const [name, hex] of PAGE_PLAN_SHADE_HEX) {
+      expect(name).toMatch(/^(?:white|black|[a-z]+-(?:50|[1-9]00|950))$/u);
+      expect(hex).toMatch(/^#[0-9a-f]{6}$/u);
+    }
+    // Spot checks against tailwindcss@3.4.19 lib/public/colors.js.
+    expect(PAGE_PLAN_SHADE_HEX.get('slate-100')).toBe('#f1f5f9');
+    expect(PAGE_PLAN_SHADE_HEX.get('indigo-600')).toBe('#4f46e5');
+    expect(PAGE_PLAN_SHADE_HEX.get('rose-950')).toBe('#4c0519');
+  });
+
+  it('resolves a shade name, a prefixed shade and #rgb to the lower-case #rrggbb they mean', () => {
+    expect(resolvePagePlanColour('red-400')).toBe('#f87171');
+    expect(resolvePagePlanColour('yellow-800')).toBe('#854d0e');
+    expect(resolvePagePlanColour('slate-100')).toBe('#f1f5f9');
+    expect(resolvePagePlanColour(' Stone-900 ')).toBe('#1c1917');
+    expect(resolvePagePlanColour('text-red-400')).toBe('#f87171');
+    expect(resolvePagePlanColour('bg-white')).toBe('#ffffff');
+    expect(resolvePagePlanColour('rose 50')).toBe('#fff1f2');
+    expect(resolvePagePlanColour('#FFF')).toBe('#ffffff');
+    expect(resolvePagePlanColour('#C2410C')).toBe('#c2410c');
+  });
+
+  it('leaves what means nothing certain for the client to name', () => {
+    expect(resolvePagePlanColour('rose-50/80')).toBeUndefined();
+    expect(resolvePagePlanColour('gold')).toBeUndefined();
+    expect(resolvePagePlanColour('rose-450')).toBeUndefined();
+    expect(resolvePagePlanColour('transparent')).toBeUndefined();
+    expect(resolvePagePlanColour('#12345')).toBeUndefined();
+  });
+});
+
+/*
+  The facts ledger's samples (2026-09-28). The phones below are the ones the
+  live Dubai plans wrote, from the answers saved under the verify round's
+  scratchpad (verify-ew2/server): out-auto-en.json, r2-out-auto-ar.json,
+  r2-out-auto-en-3.json and r2-author-auto.json — 4 of 5 Dubai plans. The
+  values that must stay are from the same answers and the Amman ones.
+*/
+describe('placeholder samples', () => {
+  const LIVE_PLACEHOLDERS = ['+971 4 XXX XXXX', '+971 4 XXXX XXXX'];
+  const LIVE_VALUES = [
+    '+962 79 8888 888',
+    '+962 6 5000 1000',
+    '+962 2 7250000',
+    '+971 4 123 4567',
+    'AED 150',
+    'AED 89,000',
+    '5,000+ vehicles',
+    'Sun–Thu 7:00 AM–7:00 PM, Fri–Sat 8:00 AM–6:00 PM',
+    'sales@premiummotors.ae',
+    'info@luxurycars-dubai.ae',
+    'دبي لوكس موتورز',
+    '185,000 درهم',
+    'تمويل من 3.99% سنوياً لمدة 60 شهراً',
+    'BMW 750Li 2023',
+    // The documented example's own phone, and values an X lives inside.
+    '+962 7 9000 0000',
+    'Size XXL',
+    'Louis XIV',
+    'Maxx Fitness',
+    '2x faster',
+    '#1 in Dubai',
+  ];
+
+  it('names every live X placeholder, and masks, as placeholders', () => {
+    for (const sample of [...LIVE_PLACEHOLDERS, 'AED XXX', '$XX.XX', 'info@xxxx.com', '050 ••• ••••']) {
+      expect(isPlaceholderSample(sample), sample).toBe(true);
+    }
+  });
+
+  it('leaves every real value alone', () => {
+    for (const sample of LIVE_VALUES) expect(isPlaceholderSample(sample), sample).toBe(false);
+  });
+
+  it('fills a placeholder in the sample’s own format', () => {
+    expect(fillPlaceholderSample('+971 4 XXX XXXX')).toBe('+971 4 234 5678');
+    expect(fillPlaceholderSample('+971 4 XXXX XXXX')).toBe('+971 4 2345 6789');
+    expect(fillPlaceholderSample('$XX.XX')).toBe('$23.45');
+    expect(fillPlaceholderSample('AED XXX')).toBe('AED 234');
+    expect(fillPlaceholderSample('050 ••• ••••')).toBe('050 234 5678');
+    expect(fillPlaceholderSample('info@xxxx.com')).toBe('info@example.com');
+    expect(fillPlaceholderSample('www.xxxx.ae')).toBe('www.example.ae');
+    expect(fillPlaceholderSample('xxxx@gmail.com')).toBe('info@gmail.com');
+    for (const sample of LIVE_PLACEHOLDERS) {
+      expect(isPlaceholderSample(fillPlaceholderSample(sample))).toBe(false);
+    }
+  });
+});
+
+describe('repairPagePlanAnswer', () => {
+  /** The documented plan, with what the live Dubai car dealer wrote (r2-dump 06-45-38). */
+  const liveDealer = (): Record<string, unknown> => {
+    const pagePlan = structuredClone(PAGE_PLAN_EXAMPLE.pagePlan) as unknown as Record<
+      string,
+      unknown
+    >;
+    pagePlan['tokens'] = {
+      ...(pagePlan['tokens'] as Record<string, unknown>),
+      bg: 'neutral-950',
+      surface: 'neutral-900',
+      ink: 'neutral-50',
+      muted: 'neutral-400',
+      accent: 'red-600',
+      onAccent: 'white',
+      accentInk: 'red-400',
+      border: '#2a2a2a',
+    };
+    pagePlan['facts'] = [
+      { key: 'phone', sample: '+971 4 XXX XXXX', section: 'order' },
+      { key: 'price-espresso', sample: 'JOD 1.50', section: 'menu' },
+    ];
+    return { rationale: 'r', pagePlan };
+  };
+
+  it('rewrites every shade name to its hex and fills the placeholder, saying what it did', () => {
+    const answer = liveDealer();
+    const before = structuredClone(answer);
+
+    const { value, repairs } = repairPagePlanAnswer(answer);
+
+    const plan = (value as { pagePlan: { tokens: Record<string, unknown>; facts: unknown[] } })
+      .pagePlan;
+    expect(plan.tokens).toMatchObject({
+      bg: '#0a0a0a',
+      surface: '#171717',
+      ink: '#fafafa',
+      muted: '#a3a3a3',
+      accent: '#dc2626',
+      onAccent: '#ffffff',
+      accentInk: '#f87171',
+      border: '#2a2a2a',
+    });
+    expect(plan.facts).toEqual([
+      { key: 'phone', sample: '+971 4 234 5678', section: 'order' },
+      { key: 'price-espresso', sample: 'JOD 1.50', section: 'menu' },
+    ]);
+    expect(repairs).toContain('pagePlan.tokens.accentInk "red-400" → "#f87171"');
+    expect(repairs).toContain('pagePlan.facts[0].sample "+971 4 XXX XXXX" → "+971 4 234 5678"');
+    expect(repairs).not.toContain('pagePlan.tokens.border "#2a2a2a" → "#2a2a2a"');
+    // A copy: salvage calls it on every candidate it weighs.
+    expect(answer).toEqual(before);
+  });
+
+  it('turns a live placeholder answer the shape check refuses into one it accepts', () => {
+    expect(pagePlanShapeCheck(liveDealer())).toBe(false);
+    expect(pagePlanShapeCheck(repairPagePlanAnswer(liveDealer()).value)).toBe(true);
+  });
+
+  it('repairs a bare plan in place of the wrapper, and returns an answer with nothing to repair as it was', () => {
+    const bare = (liveDealer() as { pagePlan: Record<string, unknown> }).pagePlan;
+    const repaired = repairPagePlanAnswer(bare);
+    expect((repaired.value as { tokens: { accentInk: string } }).tokens.accentInk).toBe('#f87171');
+    expect(repaired.repairs[0]).toMatch(/^tokens\./u);
+
+    const clean = { rationale: 'r', pagePlan: structuredClone(PAGE_PLAN_EXAMPLE.pagePlan) };
+    const untouched = repairPagePlanAnswer(clean);
+    expect(untouched.value).toBe(clean);
+    expect(untouched.repairs).toEqual([]);
+  });
+
+  it('never touches a refusal, a commands plan or a non-object', () => {
+    for (const value of [
+      { rationale: 'r', refusal: 'Not a page.' },
+      { rationale: 'r', commands: [{ command: 'setProp', args: {} }] },
+      'text',
+      null,
+      [],
+    ]) {
+      expect(repairPagePlanAnswer(value)).toEqual({ value, repairs: [] });
+    }
+  });
+});
+
+describe('the placeholder rule in pagePlanShapeCheck', () => {
+  it('refuses a fact sample that is an X placeholder, wrapped or bare', () => {
+    const answer = {
+      rationale: 'r',
+      pagePlan: {
+        ...structuredClone(PAGE_PLAN_EXAMPLE.pagePlan),
+        facts: [{ key: 'phone', sample: '+971 4 XXXX XXXX', section: 'order' }],
+      },
+    };
+    expect(pagePlanShapeCheck(answer)).toBe(false);
+    expect(pagePlanShapeCheck(answer.pagePlan)).toBe(false);
+  });
+
+  it('still restores a dropped closer in an answer whose phone is a placeholder, judged after the repair', () => {
+    const answer = {
+      rationale: PAGE_PLAN_EXAMPLE.rationale,
+      pagePlan: {
+        ...structuredClone(PAGE_PLAN_EXAMPLE.pagePlan),
+        facts: [{ key: 'phone', sample: '+971 4 XXX XXXX', section: 'order' }],
+      },
+    };
+    const good = JSON.stringify(answer);
+    const cut = good.indexOf('},{"key":"menu"');
+    const written = `${good.slice(0, cut)}${good.slice(cut + 1)}`;
+
+    const judged = (candidate: unknown): boolean =>
+      pagePlanShapeCheck(repairPagePlanAnswer(candidate).value);
+
+    expect(JSON.parse(salvageJson(written, judged))).toEqual(answer);
   });
 });

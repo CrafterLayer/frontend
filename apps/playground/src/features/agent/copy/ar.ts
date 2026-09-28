@@ -487,4 +487,116 @@ export const ar = {
   // Named, not counted: it is the page's direction that turns, not "one element".
   'impact.dir': 'تغيّر اتجاه الصفحة',
   'impact.surface': 'تغيّر سطح الصفحة',
+
+  // controller additions (WP-16)
+  // (added) ✨ Improve rewrote the draft: passive, like every announcement, so no gender.
+  'announce.enhance.ready': 'حُسِّنت صياغة الطلب',
+  // (added) The request was too unclear to run: questions are docked above the composer.
+  'announce.clarify.ready': 'بعض الأسئلة قبل البدء',
+  // (added) A build that could not land where the words asked says so after its record.
+  'end.siteAsOnePage': 'بُنيت صفحة واحدة، إذ تبني المحادثة صفحة واحدة في كل مرة.',
+  'end.newPageAppended': 'بُنيت أسفل هذه الصفحة، إذ لا يمكن فتح صفحة جديدة من هنا.',
+  'end.appendedNotReplaced': 'أُضيفت بعد المحتوى الحالي، ولم يُستبدل شيء.',
+
+  // WP-14-composer additions
+  // (added) ✨ Improve (EnhanceButton). «حسّن طلبي» is the owner's own wording: the
+  // person's request to أبو غضب, in the person's voice, not an instrument label. While it
+  // works the name says so with «جارٍ» and a masdar, like «جارٍ الإيقاف…», without the
+  // ellipsis: the spinner and the shimmer on the draft already say "in progress".
+  'enhance.button': 'حسّن طلبي',
+  'enhance.working': 'جارٍ تحسين الطلب',
+  // (added) Why Improve cannot run now. «متاح» agrees with the implied «التحسين».
+  'enhance.empty': 'متاح بعد كتابة طلب',
+  'enhance.busy': 'متاح حين ينتهي العمل الحالي',
+  // (added) EnhanceNote. The label repeats `announce.enhance.ready`; `{prompt}` is the
+  // model's one-line restatement of the request, isolated in <bdi> by the component.
+  'enhance.done': 'حُسِّنت صياغة الطلب',
+  'enhance.understood': 'المطلوب كما فُهم: {prompt}',
+  'enhance.changes.show': 'عرض التعديلات ({n})',
+  'enhance.changes.hide': 'إخفاء التعديلات',
+  'enhance.restore': 'استعادة نصّي',
+  // (added) A failed Improve changes nothing, and says so: the cause when it is known.
+  'enhance.failed': 'تعذّر تحسين الطلب',
+  'enhance.failed.busy': 'الخدمة مزدحمة الآن، وبقي نصّك كما هو.',
+  'enhance.failed.unreachable': 'لم يردّ النموذج، وبقي نصّك كما هو.',
+  'enhance.failed.timeout': 'استغرق التحسين وقتًا أطول من المسموح، وبقي نصّك كما هو.',
+  'enhance.failed.other': 'بقي نصّك كما هو.',
+  // (added) ClarifyPanel. The title repeats `announce.clarify.ready`; the progress is the
+  // question being asked, drawn «1 من 3» and spoken «السؤال 1 من 3».
+  'clarify.title': 'بعض الأسئلة قبل البدء',
+  'clarify.progress': '{i} من {n}',
+  'clarify.progress.aria': 'السؤال {i} من {n}',
+  'clarify.other': 'غير ذلك',
+  'clarify.other.placeholder': 'إجابة أخرى',
+  'clarify.other.send': 'إرسال الإجابة',
+  'clarify.edit': 'تغيير هذه الإجابة',
+  'clarify.sendAsWritten': 'إرسال الطلب كما هو',
+  'clarify.cancel': 'إلغاء',
+  'clarify.rewriting': 'يعيد صياغة الطلب',
+
+  // WP-11-frame additions
+  // (added) §4.4 JumpToLatest. WCAG 2.5.3: while a run is live the pill reads «يبني الآن»
+  // or «يعدّل الآن», which `jump.aria` does not contain, so the name opens with the pill's
+  // own words, then the masdar of what the button does: «يبني الآن: الانتقال إلى الأحدث».
+  'jump.aria.live': '{label}: الانتقال إلى الأحدث',
+
+  // WP-12-records additions
+  // (added) §4.5: the person's sent request is an article, and it has no head to name it.
+  // The same words as `input.aria`: what was typed there is what was sent.
+  'message.aria': 'طلبك',
+  // (added) §4.8 DirectionLine: `direction.aria` names the mood, the colours and the fonts;
+  // a direction without fonts, or without swatches, says only what it has.
+  'direction.aria.colors': 'الأسلوب: {mood}. الألوان: {colors}.',
+  'direction.aria.fonts': 'الأسلوب: {mood}. الخطوط: {fonts}.',
+  // (added) §4.9: the page-wide twins of `edit.title.done` and `edit.title.noChange`, for an
+  // edit with no target to name. Passive, like «عُدِّل «{target}»».
+  'edit.title.donePage': 'عُدِّلت الصفحة',
+  'edit.title.noChangePage': 'لا تغيير في الصفحة',
+  // (added) §4.13: the page-wide twin of `proposal.applied`.
+  'proposal.appliedPage': 'طُبِّق الاقتراح',
+
+  // WP-13-decisions additions
+  // (added) §4.11 PlanSectionRow: eight rows each carry a handle and a [⋯], so each control
+  // names its section, in a masdar; `plan.row.drag` stays the handle's hint.
+  'plan.row.reorder': 'تغيير ترتيب «{title}»',
+  'plan.row.menu': 'خيارات «{title}»',
+  // (added) §4.11 inline rename: the field's label says which section it renames.
+  'plan.row.rename.aria': 'إعادة تسمية «{title}»',
+  // (added) §4.11 DirectionEditor: the swatch row's group name, and FontPairMenu's list.
+  'plan.colors': 'الألوان',
+  'plan.fonts.menu': 'الخطوط',
+  // (added) §3.14 at 420: the specimen before the font pair, in the page's own script
+  // (decorative, aria-hidden). The English one is "Aa".
+  'plan.fonts.specimen': 'أب',
+  // (added) §4.11 SwatchPopover: the native colour input's label.
+  'swatch.pick': 'اختيار لون',
+  // (added) §4.11 `swatch.ok` / `swatch.low` judge the text on the background. A card's text
+  // sits on the surface, and a button's text on the accent, so those pairs say so.
+  'swatch.ok.surface': 'مقروء على السطح (التباين {r})',
+  'swatch.low.surface': 'غير مقروء على السطح (التباين {r})',
+  'swatch.ok.accent': 'مقروء على اللون المميّز (التباين {r})',
+  'swatch.low.accent': 'غير مقروء على اللون المميّز (التباين {r})',
+  // (added) §4.11: the popover refuses a colour that breaks its pair, and says so.
+  'swatch.refused': 'لا يُطبَّق هذا اللون ما دام النص غير مقروء.',
+  'swatch.hex.invalid': 'يُكتب رمز اللون هكذا: {hex}',
+  // (added) §4.13: the page-wide twin of `proposal.title`, for a proposal with no target.
+  'proposal.title.page': 'اقتراح تعديل على الصفحة',
+  // (added) §4.12 StepPlanCard: the steps list's name, and each step's target, spoken.
+  'steps.label': 'الخطوات',
+  'steps.target': 'في «{target}»',
+  // (added) §4.15 RestoreDialog: the conflict leaves nothing to confirm, only to close; and
+  // the Restore button's description while the restore runs («جارٍ الإيقاف» is its model).
+  'restore.close': 'إغلاق',
+  'restore.working': 'جارٍ إرجاع الصفحة',
+
+  // WP-15-history-phone additions
+  // (added) §4.18 HistoryRow: the row button's name, the title (the first request, a page
+  // word in «») and its time as one phrase. «الحالية» is `aria-current` on the button.
+  'history.row': '«{title}»، {when}',
+  // (added) §4.18: while a run is live the other conversations wait, as «محادثة جديدة» does
+  // (§4.2 `header.new.busy`). Passive, so the sentence names no one.
+  'history.busy': 'تُفتح المحادثات الأخرى حين ينتهي العمل الحالي',
+  // (added) §4.18: the current conversation is not deleted while its run is live. «متاح»
+  // agrees with the implied masdar «الحذف».
+  'history.delete.busy': 'متاح حين ينتهي العمل الحالي',
 } as const satisfies Readonly<Record<Key, ArEntry>>;

@@ -149,6 +149,51 @@ export function selectLowestQualifiedModel(
   };
 }
 
+// ── the fastest allowed model, for small calls (2026-09-28) ────────────────
+/*
+  The prompt enhancer (enhance.ts) answers in under 900 tokens while a person
+  waits, so it runs on the fastest model the server ALLOWS — the default plus
+  CRAFTKIT_AI_MODELS; never one the owner did not list. Nothing reports a
+  model's speed ahead of a call, so the name decides, in three tiers:
+
+  0  the small tiers every vendor names alike — haiku, flash, lite, mini,
+     nano, small, luna, instant, turbo;
+  1  the middle tiers — sonnet, terra, medium;
+  2  everything else — opus, sol, astra, ultra, and names that say nothing.
+
+  Measured 2026-09-28, and why ':free' slugs rank after every other entry of
+  their tier: a free OpenRouter model's time is its queue's, not its size's —
+  nvidia/nemotron-3.5-lightning:free took 7 min 18 s (23,295 output tokens)
+  for one page plan and google/gemma-4-31b-it:free answered "Provider returned
+  error" at once — while cli:haiku planned in 51-118 s. Ties keep the order
+  given, the default first. A tier word counts only as a whole word of the
+  slug: "gemini" is not "mini", "minimax" is not "mini".
+*/
+const SPEED_TIERS: readonly RegExp[] = [
+  /(?<![a-z])(?:haiku|flash|lite|mini|nano|small|luna|instant|turbo)(?![a-z])/iu,
+  /(?<![a-z])(?:sonnet|terra|medium)(?![a-z])/iu,
+];
+
+function speedRank(model: string): number {
+  const tier = SPEED_TIERS.findIndex((pattern) => pattern.test(model));
+  const named = tier === -1 ? SPEED_TIERS.length : tier;
+  return named * 2 + (model.endsWith(':free') ? 1 : 0);
+}
+
+/**
+ * The fastest of the models a request may run on, by `speedRank`; undefined
+ * when none is configured (the backend's own default then answers).
+ */
+export function fastestModel(candidates: readonly (string | undefined)[]): string | undefined {
+  let best: string | undefined;
+  for (const candidate of candidates) {
+    const model = candidate?.trim() ?? '';
+    if (model === '') continue;
+    if (best === undefined || speedRank(model) < speedRank(best)) best = model;
+  }
+  return best;
+}
+
 export async function createModelRouter(options: CreateModelRouterOptions): Promise<ModelRouter> {
   const candidates = options.candidates ?? defaultModelCandidates();
   const identities = new Set<string>();

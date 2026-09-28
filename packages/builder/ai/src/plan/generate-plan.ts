@@ -12,6 +12,13 @@ import {
   PHOTO_CATALOG_FRAGMENT_TITLE,
   PHOTO_CATALOG_PROVIDER_ID,
 } from '../context/providers/photo-catalog';
+import {
+  routeIntent,
+  summarizeDocumentForIntent,
+  type IntentDocumentSummary,
+  type IntentKind,
+  type IntentRoute,
+} from '../intent';
 import { isAiProviderError } from '../provider/errors';
 import {
   AI_PLAN_WIRE_VERSION,
@@ -83,6 +90,26 @@ export interface GenerateAiPlanOptions {
   composition?: AiCompositionPolicy;
   /** Session restrictions are intersected with the registry and active skills. */
   policy?: Partial<AiCommandPolicy>;
+  /**
+   * What the request is for, when the host has already routed it
+   * (`routeIntent`, or the panel's `routeRequest`). Its `kind` gates the
+   * page-level skills (`activation.intents`): a whole-page playbook loads for a
+   * page or a site ask, never for an edit, a new section or a question.
+   *
+   * Absent, the request is routed HERE against the page it is about —
+   * `document`, else `kernel.getDocument()` — with the run's selection. It
+   * used to be routed against a blank page, where an edit with no change verb
+   * reads as a brief: measured 2026-09-28, «رقم هاتف العيادة غلط» loaded
+   * clinic-page (3,205 skill tokens) and the owner watched «تغيير عنوان قسم
+   * التعليم والشهادات إلى مرحبا» load cv-page into an edit of a CV page.
+   */
+  intent?: IntentRoute;
+  /**
+   * The page the request is about, as the router reads it, when the host has
+   * it summarised already (`summarizeDocumentForIntent`). Read only when
+   * `intent` is absent. Absent too, it is summarised from `kernel.getDocument()`.
+   */
+  document?: IntentDocumentSummary;
 }
 
 export const DEFAULT_AI_CONTEXT_TOKEN_BUDGET = 64_000;
@@ -239,6 +266,35 @@ function selectedBlockTypes(options: GenerateAiPlanOptions): readonly string[] {
   ].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
 }
 
+/**
+ * The intent the page-level skills are gated on: the host's route when it
+ * gave one, otherwise the request routed against the page it is about.
+ *
+ * The page, not a blank one. The resolver's own fallback reads every request
+ * as if the page were empty — right for a brief, wrong for the edits people
+ * actually send: with no change verb («رقم هاتف العيادة غلط», "the wedding
+ * date is June 12 not June 10") a blank page makes them a brief, and every
+ * such edit carried a whole-page playbook (2,724–3,205 skill tokens, wave-1
+ * router verifier, 2026-09-28). On the page they are about they read as the
+ * edits they are. A build's own steps name their intent instead (run-build:
+ * T1 and the scaffold `build-page`), so a brief laid on a page with content
+ * keeps its trade's page type.
+ *
+ * @internal Shared with the bounded agent runner; not part of the package export surface.
+ */
+export function skillIntentForGeneration(options: GenerateAiPlanOptions): IntentKind {
+  if (options.intent !== undefined) return options.intent.kind;
+  const document = options.kernel.getDocument();
+  const pointed = (options.selection ?? options.kernel.context.store.getState().selection).filter(
+    (id) => id !== document.rootId,
+  );
+  return routeIntent({
+    request: options.request,
+    document: options.document ?? summarizeDocumentForIntent(document),
+    ...(pointed.length === 0 ? {} : { selection: pointed }),
+  }).kind;
+}
+
 /** @internal Shared with the bounded agent runner; not part of the package export surface. */
 export function prepareAiSkillsForGeneration(
   options: GenerateAiPlanOptions,
@@ -251,6 +307,7 @@ export function prepareAiSkillsForGeneration(
   }
   return options.skillRegistry.prepare({
     request: options.request,
+    intent: skillIntentForGeneration(options),
     selectedBlockTypes: selectedBlockTypes(options),
     ...(options.selectedSkillIds === undefined
       ? {}

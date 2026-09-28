@@ -2,10 +2,15 @@ import pRetry from 'p-retry';
 
 import {
   isAiProviderError,
+  type AiEnhancePromptOptions,
+  type AiPagePlanProposal,
   type AiPlan,
   type AiPlanProvider,
   type AiPlanValidationIssue,
+  type AiPromptEnhanceInput,
+  type AiPromptEnhancement,
   type AiProposeOptions,
+  type AiProposePagePlanOptions,
   type AssembledAiContext,
 } from '@craftkit/builder';
 
@@ -75,10 +80,15 @@ const RETRYABLE_HTTP_STATUSES: ReadonlySet<number> = new Set([408, 429, 500, 502
  * its headers, is consumed and dropped inside the provider — so there is no
  * server-supplied delay to honour here. Honouring one would mean widening the
  * provider's error contract; we do not invent a field that nothing populates.
+ *
+ * `retryTimeouts: false` is the enhancer's budget (see `enhanceBudget`): a
+ * timeout there is the server being slow, and slow again is the likely next
+ * answer.
  */
-function isWorthRetrying(error: unknown): boolean {
+function isWorthRetrying(error: unknown, retryTimeouts = true): boolean {
   if (!isAiProviderError(error)) return false;
-  if (error.code === 'network' || error.code === 'timeout') return true;
+  if (error.code === 'timeout') return retryTimeouts;
+  if (error.code === 'network') return true;
   if (error.code === 'http-status') {
     return error.status !== undefined && RETRYABLE_HTTP_STATUSES.has(error.status);
   }
@@ -121,6 +131,12 @@ async function sleepUnlessAborted(delayMs: number, signal: AbortSignal | undefin
     }, delayMs);
     signal.addEventListener('abort', onAbort, { once: true });
   });
+}
+
+/** How hard one kind of call is retried: its attempt budget, and whether a timeout earns another. */
+interface RetryBudget {
+  readonly attempts: number;
+  readonly retryTimeouts: boolean;
 }
 
 function assertPositiveInteger(name: string, value: number): void {
@@ -174,23 +190,37 @@ export function createRetryingAiPlanProvider(
     return Math.round(random() * ceiling);
   }
 
-  async function withRetries(
-    live: AiProposeOptions | undefined,
-    call: () => Promise<AiPlan>,
-  ): Promise<AiPlan> {
+  const planBudget: RetryBudget = { attempts: maxAttempts, retryTimeouts: true };
+  /*
+    The enhancer is an optional step between the person and their Send
+    button, so it gets at most ONE retry and none after a timeout: its
+    deadline is 45 s (remote-provider.ts), and a second identical wait after
+    a timeout would double the stall for a rewrite the person can skip. A
+    dropped connection or a 529 is still worth one quick second try.
+  */
+  const enhanceBudget: RetryBudget = {
+    attempts: Math.min(maxAttempts, 2),
+    retryTimeouts: false,
+  };
+
+  async function withRetries<T>(
+    live: { readonly signal?: AbortSignal | undefined } | undefined,
+    call: () => Promise<T>,
+    budget: RetryBudget = planBudget,
+  ): Promise<T> {
     const signal = live?.signal;
     if (signal?.aborted === true) throw abortError(signal);
     return pRetry(
       async () => {
-        const plan = await call();
+        const answer = await call();
         // An inner provider may ignore cancellation; a run the person stopped
         // must not come back with an answer, the way the cache decorator also
         // refuses to serve or store one.
         if (signal?.aborted === true) throw abortError(signal);
-        return plan;
+        return answer;
       },
       {
-        retries: maxAttempts - 1,
+        retries: budget.attempts - 1,
         /*
           p-retry's own schedule is switched off (`minTimeout: 0`) and the wait
           is taken here instead. Its `randomize` option multiplies the delay by
@@ -202,9 +232,9 @@ export function createRetryingAiPlanProvider(
         */
         minTimeout: 0,
         shouldRetry: async ({ error, attemptNumber }) => {
-          if (!isWorthRetrying(error)) return false;
+          if (!isWorthRetrying(error, budget.retryTimeouts)) return false;
           const delayMs = fullJitterDelayMs(attemptNumber);
-          onRetry?.({ attempt: attemptNumber, maxAttempts, delayMs, error });
+          onRetry?.({ attempt: attemptNumber, maxAttempts: budget.attempts, delayMs, error });
           await sleepUnlessAborted(delayMs, signal);
           return true;
         },
@@ -214,6 +244,8 @@ export function createRetryingAiPlanProvider(
 
   const innerRepair = inner.repair?.bind(inner);
   const innerForget = inner.forget?.bind(inner);
+  const innerProposePagePlan = inner.proposePagePlan?.bind(inner);
+  const innerEnhancePrompt = inner.enhancePrompt?.bind(inner);
 
   const provider: AiPlanProvider = {
     propose(
@@ -246,6 +278,29 @@ export function createRetryingAiPlanProvider(
     ): void => {
       innerForget(request, context, live);
     };
+  }
+  /*
+    The page plan (step T1) travels the same wire as a proposal, so it gets
+    the same schedule. Mirrored only when the inner provider has it: before
+    2026-09-28 this decorator forwarded propose and repair alone, and the
+    playground's env provider lost `proposePagePlan` here even once the
+    remote provider had it — every build fell back to the scaffold path
+    (engine wave-2 verifier).
+  */
+  if (innerProposePagePlan !== undefined) {
+    provider.proposePagePlan = (
+      request: string,
+      context: AssembledAiContext,
+      live?: AiProposePagePlanOptions,
+    ): Promise<AiPagePlanProposal> =>
+      withRetries(live, () => innerProposePagePlan(request, context, live));
+  }
+  if (innerEnhancePrompt !== undefined) {
+    provider.enhancePrompt = (
+      input: AiPromptEnhanceInput,
+      live?: AiEnhancePromptOptions,
+    ): Promise<AiPromptEnhancement> =>
+      withRetries(live, () => innerEnhancePrompt(input, live), enhanceBudget);
   }
   return provider;
 }

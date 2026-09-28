@@ -1,0 +1,177 @@
+import type { IntentDocumentSummary, IntentKind, IntentRoute } from '@craftkit/builder';
+
+import type { ClarifyQuestionView, ErrorClass, FailureClass, Locale } from './view-types';
+
+/**
+ * "Read my request and fix it" (owner request, 2026-09-28; view-types `EnhancementView`,
+ * `ClarifyView`): the port the controller talks to, and the pure rules around it.
+ *
+ * The engine's `enhanceRequest()` / `canEnhance()` (`packages/builder/ai/src/prompt-enhance`,
+ * `POST /v1/prompt/enhance`) are the real implementation. This module declares only the
+ * shape the panel needs, so the controller codes against a narrow interface and a test or
+ * a story passes a scripted one; `hooks/use-prompt-enhancer.ts` adapts the engine's
+ * functions to it when they are exported.
+ *
+ * What comes back is model output, so it is read defensively (`readEnhanceResult`): a
+ * missing field is empty, a question without choices is dropped, and nothing is trusted
+ * to be short.
+ */
+
+/** Below this router confidence a request is too unclear to act on (`IntentRoute`, "Below ~0.6, confirm"). */
+export const CLARIFY_BELOW_CONFIDENCE = 0.6;
+
+/** At most this many questions are docked at once; each offers at most this many chips. */
+export const MAX_CLARIFY_QUESTIONS = 3;
+export const MAX_CLARIFY_CHOICES = 4;
+
+/** One answered question, as the rewrite call receives it. */
+export interface EnhanceAnswer {
+  readonly id: string;
+  readonly question: string;
+  readonly answer: string;
+}
+
+/** What the enhancer is asked: the request, the page it is about, and any answers so far. */
+export interface EnhanceInput {
+  readonly text: string;
+  readonly locale: Locale;
+  readonly intent?: IntentKind | undefined;
+  readonly page?: IntentDocumentSummary | undefined;
+  /** The blocks the request points at, by human name. */
+  readonly selection?: readonly string[] | undefined;
+  readonly answers?: readonly EnhanceAnswer[] | undefined;
+}
+
+export interface EnhanceQuestion {
+  readonly id: string;
+  readonly text: string;
+  readonly choices: readonly string[];
+}
+
+/**
+ * The enhancer's answer: `enhanced` is the rewritten request in the request's own
+ * language; `understood` restates it in one line; `changes` lists what was fixed;
+ * `questions` is non-empty when the request is too unclear to rewrite without asking.
+ */
+export interface EnhanceResult {
+  readonly enhanced: string;
+  readonly understood: string;
+  readonly changes: readonly string[];
+  readonly questions: readonly EnhanceQuestion[];
+}
+
+/** The port: one call, cancellable. */
+export interface PromptEnhancer {
+  readonly enhance: (input: EnhanceInput, signal?: AbortSignal) => Promise<EnhanceResult>;
+}
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const text = (value: unknown): string =>
+  typeof value === 'string' ? value.replace(/\s+/gu, ' ').trim() : '';
+
+const texts = (value: unknown, limit: number): readonly string[] =>
+  Array.isArray(value)
+    ? [...new Set((value as readonly unknown[]).map(text).filter((line) => line !== ''))].slice(
+        0,
+        limit,
+      )
+    : [];
+
+/**
+ * An enhancer's answer, read defensively. Questions without text or without a single
+ * choice are dropped (a question the person cannot answer by a chip, or answer at all, is
+ * not asked); ids are made unique, so an answer always lands on one question.
+ */
+export function readEnhanceResult(raw: unknown): EnhanceResult {
+  const record = isRecord(raw) ? raw : {};
+  const seen = new Set<string>();
+  const questions: EnhanceQuestion[] = [];
+  const listed: unknown = record['questions'];
+  for (const [index, item] of (Array.isArray(listed) ? (listed as readonly unknown[]) : []).entries()) {
+    if (!isRecord(item)) continue;
+    const question = text(item['text']);
+    const choices = texts(item['choices'], MAX_CLARIFY_CHOICES);
+    if (question === '' || choices.length === 0) continue;
+    let id = text(item['id']);
+    if (id === '' || seen.has(id)) id = `q${String(index + 1)}`;
+    while (seen.has(id)) id = `${id}-${String(index + 1)}`;
+    seen.add(id);
+    questions.push({ id, text: question, choices });
+    if (questions.length === MAX_CLARIFY_QUESTIONS) break;
+  }
+  return {
+    enhanced: typeof record['enhanced'] === 'string' ? record['enhanced'].trim() : '',
+    understood: text(record['understood']),
+    changes: texts(record['changes'], 6),
+    questions,
+  };
+}
+
+/**
+ * Whether a routed request is too unclear to act on, so the enhancer is asked first:
+ * - the router's own confidence is below its confirm line (`IntentRoute`: "Below ~0.6,
+ *   confirm before acting"), and it is not a clear question (a question is answered in
+ *   words and writes nothing, so it is never worth a delay);
+ * - or it would BUILD a whole page and the router is no surer than that line. A build is
+ *   the costliest misreading there is (minutes, and a page of sections nobody asked for),
+ *   and the owner's own example proves the line matters: «هل يمكنك تربط ال صفحه هاي داخل
+ *   عليها» ("can you link this page inside it") routes to a new page at exactly 0.6.
+ * An edit at 0.6 is the router's plain default for a short edit on a page with content,
+ * so it runs as it is: asking about every such edit would cost a round trip each time.
+ */
+export function needsClarifying(route: Pick<IntentRoute, 'kind' | 'confidence'>): boolean {
+  if (route.kind === 'question') return false;
+  if (route.confidence < CLARIFY_BELOW_CONFIDENCE) return true;
+  const builds = route.kind === 'build-page' || route.kind === 'build-site';
+  return builds && route.confidence <= CLARIFY_BELOW_CONFIDENCE;
+}
+
+/** The questions as the ClarifyView docks them, none answered yet. */
+export function clarifyQuestionsOf(result: EnhanceResult): readonly ClarifyQuestionView[] {
+  return result.questions.map((question) => ({
+    id: question.id,
+    text: question.text,
+    choices: question.choices,
+  }));
+}
+
+/** The answers of every answered question, in the order they were asked. */
+export function answersOf(questions: readonly ClarifyQuestionView[]): readonly EnhanceAnswer[] {
+  return questions.flatMap((question) =>
+    question.answer === undefined || question.answer.trim() === ''
+      ? []
+      : [{ id: question.id, question: question.text, answer: question.answer.trim() }],
+  );
+}
+
+/**
+ * The request to run when the rewrite itself failed after every question was answered:
+ * the person's own words, then their own answers, one per line. Their words and their
+ * choices, never a sentence the panel wrote for them.
+ */
+export function requestWithAnswers(request: string, questions: readonly ClarifyQuestionView[]): string {
+  const answers = answersOf(questions).map((entry) => entry.answer);
+  return [request.trim(), ...answers].join('\n');
+}
+
+/** An enhancer failure as the one-line note under the draft (`EnhancementView.failed`). */
+export function enhanceFailureOf(errorClass: ErrorClass): FailureClass {
+  switch (errorClass) {
+    case 'unreachable':
+    case 'offline':
+      return 'unreachable';
+    case 'timeout':
+      return 'timeout';
+    case 'busy':
+      return 'busy';
+    case 'declined':
+      return 'declined';
+    case 'invalid':
+      return 'invalid';
+    case 'tooLarge':
+    case 'unknown':
+      return 'unknown';
+  }
+}

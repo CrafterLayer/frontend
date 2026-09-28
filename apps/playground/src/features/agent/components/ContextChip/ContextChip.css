@@ -1,0 +1,135 @@
+/*
+  ContextChip (SPEC §4.17, §2.4 "Control 6"): 28px, Tint, radius 6, Read type in Graphite
+  (6.45:1 on Tint; Slate would be 4.04 and is forbidden there, SPEC §2.1 rule 2).
+
+  The chip is a label, not a control. Only its × is, and the × keeps a 32px hit area (44 on
+  a coarse pointer) that overhangs the chip: 2px above and below, 4px past its inline end.
+  The chip reserves 24px at its end, so the × glyph's centre sits 12px from the chip's
+  edge and its hover disc (20px) stays inside the Tint.
+*/
+
+.ck-agent-chip {
+  display: inline-grid;
+  justify-items: start;
+  row-gap: var(--bldr-space-2xs);
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  vertical-align: top;
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-chip__body {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-md);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface-tint);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-chip[data-removable] .ck-agent-chip__body {
+  padding-inline-end: var(--bldr-space-5xl);
+}
+
+.ck-agent-chip__glyph {
+  color: var(--bldr-panel-text-soft);
+}
+
+/* SPEC §4.17: an ellipsis at 16 characters; the full name is the title and the ×'s name. */
+.ck-agent-chip__label {
+  min-inline-size: 0;
+  max-inline-size: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The block is gone: struck through, and the line under the chip says why. */
+.ck-agent-chip[data-stale] .ck-agent-chip__label {
+  text-decoration-line: line-through;
+  text-decoration-thickness: var(--bldr-border-hairline);
+}
+
+.ck-agent-chip__caption {
+  padding-inline-start: var(--bldr-space-sm);
+  color: var(--bldr-danger);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+/* ── The ×: an IconButton whose hit area overhangs the chip ────────────────── */
+
+.ck-agent-chip__remove.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: calc(-1 * var(--bldr-space-xs));
+  translate: 0 -50%;
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  inline-size: var(--ck-agent-target, var(--bldr-control-md));
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+}
+
+/* The hover and press land on a 20px disc inside the chip, never on the overhang. */
+.ck-agent-chip__remove.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size]::before {
+  position: absolute;
+  inset: 0;
+  inline-size: var(--bldr-space-4xl);
+  block-size: var(--bldr-space-4xl);
+  margin: auto;
+  border-radius: var(--bldr-radius-full);
+  background-color: transparent;
+  content: '';
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-chip__remove .ck-agent-icon {
+  position: relative;
+}
+
+.ck-agent-chip__remove.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-chip__remove.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size]:enabled:hover::before {
+  background-color: var(--bldr-surface-active);
+}
+
+.ck-agent-chip__remove.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: transparent;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-chip {
+    --ck-agent-target: var(--bldr-hit-target-min);
+  }
+
+  /* 44px centred 16px from the end: the overhang stays 6px, clear of the next chip. */
+  .ck-agent-chip[data-removable] .ck-agent-chip__body {
+    padding-inline-end: var(--bldr-space-6xl);
+  }
+
+  .ck-agent-chip__remove.ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+    inset-inline-end: calc(-1 * var(--bldr-space-sm));
+  }
+}
+
+/* High contrast drops the Tint: the chip keeps an outline so it still reads as one. */
+@media (forced-colors: active) {
+  .ck-agent-chip__body {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+
+  .ck-agent-chip__caption {
+    color: CanvasText;
+  }
+}

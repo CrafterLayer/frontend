@@ -909,3 +909,358 @@ describe('the page-plan task', () => {
     expect(sent[0]?.['response_format']).toBeUndefined();
   });
 });
+
+/*
+  A shade name the client's palette cannot resolve reached the wire as written
+  and cost a repair round (measured live 2026-09-28: "accentInk":"red-400" on
+  an Arabic Dubai car dealer). It now leaves this server as its hex, on both
+  transports, and a token already in hex is left exactly as it was.
+*/
+describe('page-plan colours and samples on the wire', () => {
+  const liveAnswer = (): string => {
+    const pagePlan = structuredClone(PAGE_PLAN_EXAMPLE.pagePlan) as unknown as Record<
+      string,
+      unknown
+    >;
+    pagePlan['tokens'] = {
+      ...(pagePlan['tokens'] as Record<string, unknown>),
+      accentInk: 'red-400',
+      border: '#2a2a2a',
+    };
+    pagePlan['facts'] = [{ key: 'phone', sample: '+971 4 XXX XXXX', section: 'order' }];
+    return JSON.stringify({ rationale: 'r', pagePlan });
+  };
+  const body = (): unknown =>
+    wireBody({ request: 'صفحة لمعرض سيارات في دبي', task: 'page-plan' });
+
+  function expectRepaired(plan: unknown): void {
+    const { tokens, facts } = (plan as { pagePlan: { tokens: unknown; facts: unknown } }).pagePlan;
+    expect(tokens).toMatchObject({ accentInk: '#f87171', border: '#2a2a2a' });
+    expect(facts).toEqual([{ key: 'phone', sample: '+971 4 234 5678', section: 'order' }]);
+  }
+
+  it('answers the unary request with the hex and the filled sample, and logs the repair', async () => {
+    const logged: string[] = [];
+    const handle = createHandler({
+      client: fakeClient({ content: [{ type: 'text', text: liveAnswer() }] }),
+      onLog: (line) => {
+        logged.push(line);
+      },
+    });
+
+    expectRepaired(await (await handle(post(body()))).json());
+    expect(logged.join('\n')).toContain('tokens.accentInk "red-400" → "#f87171"');
+  });
+
+  it('streams the same repaired plan as the one result frame', async () => {
+    const handle = createHandler({
+      client: fakeClient({ content: [{ type: 'text', text: liveAnswer() }] }),
+    });
+
+    const text = await new Response(
+      (await handle(post(body(), { accept: 'text/event-stream' }))).body,
+    ).text();
+    const frame = /event: result\ndata: (.*)\n\n/u.exec(text)?.[1] ?? 'null';
+
+    expectRepaired(JSON.parse(frame));
+  });
+});
+
+/*
+  A small edit may name its own fast model and budget in the body (the
+  fast-edits contract, 2026-09-28: RunAiAgentOptions.editModel/editEffort);
+  the header stays the picker's choice for everything else. Same allowlist.
+*/
+describe('per-call model and effort', () => {
+  function recording(): { client: Anthropic; seen: { params: unknown; options: unknown }[] } {
+    const seen: { params: unknown; options: unknown }[] = [];
+    const client = {
+      messages: {
+        stream: (params: unknown, options: unknown) => {
+          seen.push({ params, options });
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [{ type: 'text', text: JSON.stringify(PLAN) }],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    return { client, seen };
+  }
+  const allowlist = { model: 'cli:sonnet', models: ['cli:haiku', 'vendor/free:free'] };
+
+  it("runs a call on the model its body names, over the picker's header, when it is allowed", async () => {
+    const { client, seen } = recording();
+    const handle = createHandler({ client, ...allowlist });
+
+    const response = await handle(
+      post(wireBody({ model: 'cli:haiku' }), { 'x-craftkit-ai-model': 'vendor/free:free' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((seen[0]?.params as { model: string }).model).toBe('cli:haiku');
+  });
+
+  it('refuses a body model outside the allowlist, as the header one is, before any call', async () => {
+    const { client, seen } = recording();
+    const handle = createHandler({ client, ...allowlist });
+
+    const refused = await handle(post(wireBody({ model: 'anthropic/claude-opus-5' })));
+    const malformed = await handle(post(wireBody({ model: 42 })));
+
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { error: string }).error).toContain('anthropic/claude-opus-5');
+    expect(malformed.status).toBe(400);
+    expect(seen).toHaveLength(0);
+  });
+
+  it('gives a call the low or medium budget its body asks for, and refuses any other', async () => {
+    const { client, seen } = recording();
+    const handle = createHandler({ client, ...allowlist });
+
+    await handle(post(wireBody({ effort: 'low' })));
+    const higher = await handle(post(wireBody({ effort: 'max' })));
+
+    expect(seen[0]?.options).toMatchObject({
+      headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
+    });
+    expect((seen[0]?.params as { output_config: unknown }).output_config).toMatchObject({
+      effort: 'low',
+    });
+    expect(higher.status).toBe(400);
+    expect(seen).toHaveLength(1);
+  });
+
+  it('never lets a body budget change a page plan, which plans at the backend default', async () => {
+    const seen: unknown[] = [];
+    const client = {
+      messages: {
+        stream: (_params: unknown, options: unknown) => {
+          seen.push(options);
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [
+                  { type: 'text', text: JSON.stringify({ pagePlan: PAGE_PLAN_EXAMPLE.pagePlan }) },
+                ],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    const handle = createHandler({ client });
+
+    await handle(post(wireBody({ task: 'page-plan', effort: 'low' })));
+
+    expect((seen[0] as { headers?: unknown }).headers).toBeUndefined();
+  });
+});
+
+/*
+  POST /v1/prompt/enhance (enhance.ts has the contract): the same bearer,
+  body limit and error envelope as /plan, the fastest allowed model — never
+  the picker's — and its own cap.
+*/
+describe('the prompt enhancer route', () => {
+  const ENHANCED = {
+    enhanced: 'اعمل صفحة هبوط لمخبز في عمّان: الهيرو، المنتجات، الأسعار، التواصل.',
+    understood: 'تريد صفحة هبوط لمخبز في عمّان.',
+    changes: ['«صفحه» ← «صفحة»'],
+    questions: [],
+    language: 'ar',
+  };
+  const REQUEST_BODY = {
+    version: 1,
+    text: 'اعمل صفحه هبوط لمخبز في عمان',
+    locale: 'ar',
+    intent: { kind: 'build-page', confidence: 0.85 },
+    page: { empty: true, sections: [] },
+    selection: null,
+    answers: [],
+  };
+
+  function enhancing(text: string): {
+    client: Anthropic;
+    seen: { params: Record<string, unknown>; options: unknown }[];
+  } {
+    const seen: { params: Record<string, unknown>; options: unknown }[] = [];
+    const client = {
+      messages: {
+        stream: (params: Record<string, unknown>, options: unknown) => {
+          seen.push({ params, options });
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [{ type: 'text', text }],
+                usage: { input_tokens: 700, output_tokens: 120 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    return { client, seen };
+  }
+
+  function enhanceRequest(body: unknown, headers: Record<string, string> = {}): Request {
+    return new Request('http://localhost/v1/prompt/enhance', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('answers the contract’s JSON on the fastest allowed model, low effort, no thinking', async () => {
+    const { client, seen } = enhancing(JSON.stringify(ENHANCED));
+    const onUsage = vi.fn();
+    const handle = createHandler({
+      client,
+      model: 'cli:sonnet',
+      models: ['vendor/big:free', 'cli:haiku'],
+      onUsage,
+    });
+
+    const response = await handle(
+      enhanceRequest(REQUEST_BODY, { 'x-craftkit-ai-model': 'cli:sonnet' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ version: 1, ...ENHANCED });
+    expect(seen[0]?.params).toMatchObject({
+      model: 'cli:haiku',
+      max_tokens: 900,
+      thinking: { type: 'disabled' },
+    });
+    expect(seen[0]?.options).toMatchObject({
+      headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
+    });
+    expect(onUsage.mock.calls[0]?.[0]).toMatchObject({ task: 'enhance', outputTokens: 120 });
+  });
+
+  it('takes the enhancer model the server was configured with', async () => {
+    const { client, seen } = enhancing(JSON.stringify(ENHANCED));
+    const handle = createHandler({ client, model: 'cli:sonnet', enhanceModel: 'cli:sonnet' });
+
+    await handle(enhanceRequest(REQUEST_BODY));
+
+    expect((seen[0]?.params as { model: string }).model).toBe('cli:sonnet');
+  });
+
+  it('requires the same bearer token as /plan', async () => {
+    const { client, seen } = enhancing(JSON.stringify(ENHANCED));
+    const handle = createHandler({ client, authToken: 'secret' });
+
+    expect((await handle(enhanceRequest(REQUEST_BODY))).status).toBe(401);
+    expect(
+      (await handle(enhanceRequest(REQUEST_BODY, { authorization: 'Bearer wrong' }))).status,
+    ).toBe(401);
+    expect(
+      (await handle(enhanceRequest(REQUEST_BODY, { authorization: 'Bearer secret' }))).status,
+    ).toBe(200);
+    expect(seen).toHaveLength(1);
+  });
+
+  it('refuses a malformed request with a terminal 400 that says what is wrong', async () => {
+    const { client, seen } = enhancing(JSON.stringify(ENHANCED));
+    const handle = createHandler({ client });
+
+    for (const bad of [
+      { ...REQUEST_BODY, version: 2 },
+      { ...REQUEST_BODY, text: '   ' },
+      { ...REQUEST_BODY, locale: 'fr' },
+      { ...REQUEST_BODY, intent: { kind: 'build-everything', confidence: 1 } },
+      { ...REQUEST_BODY, page: { empty: 'yes' } },
+      { ...REQUEST_BODY, answers: [{ question: 'q' }] },
+    ]) {
+      const response = await handle(enhanceRequest(bad));
+      expect(response.status, JSON.stringify(bad)).toBe(400);
+      expect(((await response.json()) as { error: string }).error.length).toBeGreaterThan(0);
+    }
+    expect(seen).toHaveLength(0);
+  });
+
+  it('reports an answer that is not an enhancement as a 502, and a refusal as a terminal 422', async () => {
+    const garbled = createHandler({ client: enhancing('I would make it nicer.').client });
+    const declined = createHandler({
+      client: fakeClient({ stop_reason: 'refusal', stop_details: { explanation: 'No.' } }),
+    });
+
+    const bad = await garbled(enhanceRequest(REQUEST_BODY));
+    const no = await declined(enhanceRequest(REQUEST_BODY));
+
+    expect(bad.status).toBe(502);
+    expect(((await bad.json()) as { error: string }).error).toMatch(/improved request/u);
+    expect(no.status).toBe(422);
+    expect(await no.json()).toEqual({ error: 'No.' });
+  });
+
+  it('passes a backend failure through with its own sentence and status, as /plan does', async () => {
+    const error = new Error('OpenRouter is rate limiting this key right now.') as Error & {
+      httpStatus: number;
+    };
+    error.name = 'OpenRouterBackendError';
+    error.httpStatus = 429;
+    const handle = createHandler({
+      client: fakeClient(() => {
+        throw error;
+      }),
+    });
+
+    const response = await handle(enhanceRequest(REQUEST_BODY));
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({
+      error: 'OpenRouter is rate limiting this key right now.',
+    });
+  });
+
+  it('stops a call that outruns its cap and says so with a 504', async () => {
+    const client = {
+      messages: {
+        stream: (_params: unknown, options: { signal?: AbortSignal }) => ({
+          on: () => undefined,
+          finalMessage: () =>
+            new Promise((_resolve, reject) => {
+              options.signal?.addEventListener('abort', () => {
+                const aborted = new Error('aborted');
+                aborted.name = 'AbortError';
+                reject(aborted);
+              });
+            }),
+        }),
+      },
+    } as unknown as Anthropic;
+    const handle = createHandler({ client, enhanceTimeoutMs: 30 });
+
+    const response = await handle(enhanceRequest(REQUEST_BODY));
+
+    expect(response.status).toBe(504);
+    expect(((await response.json()) as { error: string }).error).toMatch(/send the request as written/u);
+  });
+
+  it('leaves /plan exactly as it was beside it', async () => {
+    const handle = createHandler({ client: fakeClient(planAnswer()) });
+
+    expect(await (await handle(post(wireBody()))).json()).toEqual(PLAN);
+    const unknownPath = await handle(
+      new Request('http://localhost/v1/prompt/other', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(REQUEST_BODY),
+      }),
+    );
+    expect(unknownPath.status).toBe(404);
+  });
+});

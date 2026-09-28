@@ -6,7 +6,6 @@ import {
   PAGE_PLAN_EXAMPLE,
   PAGE_PLAN_FALLBACK_ACCENTS,
   PAGE_PLAN_FALLBACK_BASE,
-  PAGE_PLAN_HEX_ONLY_SHADES,
   PAGE_PLAN_LATIN_FAMILIES,
   PAGE_PLAN_PHOTO_TOPICS,
   PAGE_PLAN_SECTION_VARIANTS,
@@ -63,6 +62,19 @@ export interface PromptParts {
 }
 
 /**
+ * Region CSS as a design tool, with the door's refusal policy stated exactly
+ * (`REFUSED` in packages/builder/schema/src/custom-code/custom-css.ts; a
+ * mirror test in prompt.test.ts reads that list). The owner, 2026-09-28: the
+ * agent may write design code when the design needs it. The rules before this
+ * framed `css` as the fallback "for anything utilities cannot express" and
+ * named none of the door's limits, so a model could not tell a signature
+ * effect it may write from a construct the door drops. Shared by the build
+ * and edit rules.
+ */
+const REGION_CSS =
+  "Region CSS is a first-class design tool, not a last resort: give an element a `ck-` prefixed class and write its rules in the block's `css` prop (or `pageCss` on the page root for keyframes and fonts several regions share). Use it for what makes a page distinctive — @keyframes (always with a `@media (prefers-reduced-motion: reduce)` rule that stills them), layered gradients, mask-image and clip-path shapes, ::before/::after decoration, :hover and :focus-visible states, @container queries, scroll-snap rails — and for an exact colour or a background photo. Any CSS value is fine there; the door refuses only @import (except a fonts.googleapis.com or fonts.bunny.net font sheet), an http: or protocol-relative // url() (https, data: images and relative paths are fine), expression(), behavior, -moz-binding, javascript: and </style>.";
+
+/**
  * The operating rules.
  *
  * Frozen text, deliberately: it is the first cache segment, so an interpolated
@@ -102,7 +114,7 @@ There is exactly one legal way to author a new visual type in this mode: insert 
 
 When a registered block IS in your catalog, the person put it there on purpose. Prefer it for the thing it does: it carries editing affordances, responsive behaviour, and accessibility work that your markup does not.
 
-Style with \`className\` utilities as the "# Utility classes" section of your context allows. For anything utilities cannot express — a keyframe, a gradient headline, a clip path, a hover reveal, an exact colour, a background photo — give the element a \`ck-\` prefixed class and write its rule in the block's \`css\` prop (or \`pageCss\` on the page root for keyframes and fonts shared across regions). Any CSS value is fine there; \`var(--t-accent)\`, \`var(--t-surface)\`, \`var(--t-text)\` are the site theme's colours, for a page that follows the site theme (rule 4).
+Style with \`className\` utilities as the "# Utility classes" section of your context allows. ${REGION_CSS} \`var(--t-accent)\`, \`var(--t-surface)\`, \`var(--t-text)\` are the site theme's colours, for a page that follows the site theme (rule 4).
 
 Icons: \`{"kind":"icon","name":"mail"}\` draws an icon from the Lucide set (lucide.dev/icons) by its kebab-case name — \`mail\`, \`phone\`, \`map-pin\`, \`globe\`, \`link\`, \`external-link\`, \`arrow-right\`, \`check\`, \`star\`, \`briefcase\`, \`graduation-cap\`, \`calendar\`, \`download\`. Optional \`size\` (px), \`strokeWidth\`, \`className\` (\`text-amber-700\`, \`h-6 w-6\`). Give it a \`label\` only when it carries meaning on its own; leave it out when text beside it already says the same thing. **Lucide has no brand logos** — there is no \`github\`, \`linkedin\`, \`twitter\`, \`instagram\`: for a social or profile link use \`link\`, \`globe\`, or \`external-link\` beside the text. A name that is not in the set is refused by name, so use names you are sure exist.
 
@@ -112,6 +124,51 @@ Design to a professional standard: generous spacing on a consistent scale, one c
 
 If the request is not about this page, or asks for something the commands cannot express, answer with a plan whose single command is impossible rather than guessing. It is better to be told you cannot than to be shown a page you did not ask for.`;
 
+/**
+ * The operating rules of an EDIT (2026-09-28): a page that already exists,
+ * changed in place. Chosen by `planPromptVariant`, never by the words.
+ *
+ * Why a second rules text rather than the build rules minus a section: the
+ * build rules are a page-composition brief — "Building the page", the palette
+ * law for a page choosing its look, templates, the professional-standard
+ * paragraph — and an edit needs none of it. The owner, 2026-09-28: a one-word
+ * title change showed "~11.3k tokens". Measured the same day on the captured
+ * edit «خلّي خلفية الهيرو أغمق وغيّر نص زر الطلب إلى «اطلب قهوتك»» (capture10
+ * call 06): 26,302 characters of system prompt, of which the build rules were
+ * 6,423, the page templates 1,016 and the customCode entry (a JSON-form
+ * description, tree schema and examples) 4,804 — building guidance for a page
+ * that was not being built. Built with these rules the same request carries
+ * 18,094 (−31%): rules 3,383, the customCode entry 629, no templates. Frozen
+ * text, like `SYSTEM_RULES`, so it caches on its own.
+ */
+const EDIT_RULES = `You turn a request to CHANGE a page that already exists into a PLAN of kernel commands: a precise edit, not a new page.
+
+You never edit the document. You propose commands; a validator replays them against a scratch copy of the real document and rejects anything invalid, so a small plan you are sure of beats a large one you are guessing at.
+
+## What you are given
+
+- A block catalog: each entry's \`type\` and \`description\`, and its \`propsSchema\` when it may be written. Never insert a type marked \`insertable: false\` — edit it with \`setProp\` — and never invent props for an entry that shows no \`propsSchema\`.
+- The page as it is now (or the part this request is about): every node with its id and props.
+- The commands you may use, with their argument schemas. Use no others.
+- The exact output shape, enforced. Fill \`rationale\` with one sentence in the requester's own language.
+
+## A precise edit
+
+1. Change exactly what was asked — all of it — and nothing else: every id, class, colour, word, image and section the request does not name stays as it is. A new button label is one edit, not a redesign.
+2. Find the target from the selection first, then from the words or text the request quotes or describes, and reference it by its id in the document; never invent an id.
+3. A region that already exists changes by \`editTree\` (see "# Writing a customCode tree"); a registered block changes by \`setProp\` on the named prop, within its \`propsSchema\`.
+4. Colours: keep the page's own palette unless the request names a colour. A darker or lighter ground stays in its hue family, and the text on it changes with it so it stays readable.
+5. Something the request ADDS is one \`customCode\` region placed with \`insertNode\` (a \`parentId\` and a slot that parent's schema declares), its \`tree\` written as markup that matches its neighbours: the same palette, faces, spacing, radius and responsive rhythm (md:/lg:).
+6. Images are https only: <img src='https://…' alt='…'>, or background-image: url(https://…) in \`css\`. Icons are Lucide names; there are no brand logos, so a social or profile link takes \`link\`, \`globe\` or \`external-link\`.
+7. Write \`title\` on each step: one short sentence, in the requester's language, saying what that step does.
+8. When the request needs more than a precise edit, do the part it clearly asks for and word the rest in \`followUp\`, in the requester's language.
+
+${REGION_CSS}
+
+## Refusing
+
+If the request is not about this page, or the commands cannot express it, answer with a plan whose single command is impossible rather than guessing.`;
+
 /** The heading every page-plan prompt carries and no other prompt does. */
 export const PAGE_PLAN_CONTRACT_MARK = '# The page plan: output contract';
 
@@ -119,18 +176,6 @@ export const PAGE_PLAN_CONTRACT_MARK = '# The page plan: output contract';
 const FALLBACK_BASE_TEXT = Object.entries(PAGE_PLAN_FALLBACK_BASE)
   .map(([role, hex]) => `${role} ${hex}`)
   .join(', ');
-
-/**
- * The deck shades the client cannot resolve by name, as the rules hand them
- * over: `, except these, written as their hex: yellow-800 = #854d0e, …`.
- * Empty when the client resolves every shade, and the rule then goes without it.
- */
-const HEX_ONLY_SHADES_TEXT =
-  Object.keys(PAGE_PLAN_HEX_ONLY_SHADES).length === 0
-    ? ''
-    : `, except these, written as their hex: ${Object.entries(PAGE_PLAN_HEX_ONLY_SHADES)
-        .map(([shade, hex]) => `${shade} = ${hex}`)
-        .join(', ')}`;
 
 /**
  * The operating rules of a `task: 'page-plan'` call (2026-09-28): step T1 of
@@ -165,13 +210,13 @@ ${JSON.stringify(PAGE_PLAN_EXAMPLE)}
 
 - intent: "new-page" | "replace" | "append" (the host may override it). An "append" plan adds band and cta sections only: the page already has its header, hero and footer.
 - locale and language: an Arabic request gets {"lang":"ar","dir":"rtl"} and EVERY piece of prose — rationale, title, description, labels, section titles, purpose, mustSay, mustNotRepeat, alt, fact samples — in Arabic: the page is Arabic-first, not a translation. An English request gets {"lang":"en","dir":"ltr"}. key, anchorId, fact keys and section references are Latin slugs ([a-z][a-z0-9-]*) on every page.
-- tokens: from ONE direction-deck row in your active skills, the row that matches the subject ("VARIANT: B" in the request swaps in the row's band colours, as the deck says). Map the row: bg = ground, surface = card, ink = ink, muted = muted, accent = accent, onAccent = on-accent, accentInk = the row's accent-ink (omit accentInk when the row names none: the client derives it), border = a hairline between ground and muted written as #rrggbb hex (e.g. #e7e5e4 on a #fafaf9 ground), radius, signature = the row's signature fitted to this business, deckRowId = the row's id. Copy the row's shades as written (orange-700 is fine; the client resolves the rows' names)${HEX_ONLY_SHADES_TEXT}. The rows are contrast-checked. Every colour the row does not name is #rrggbb hex — a shade name no row uses does not resolve, and costs a repair round. accentInk is the colour of accent TEXT — stat numbers, step numbers, eyebrows, icons — where the accent fill would not read; it sits on bg and surface, never on the accent, so accentInk is never the on-accent colour (white on a white ground reads 1:1). Ignore what the deck says about a direction line and a pageCss import: this plan replaces both, and the client writes the font import from your fonts. No row fits the subject, or no deck is in your context → omit deckRowId and take this checked base as written: ${FALLBACK_BASE_TEXT}, with ONE accent fill that suits the subject from ${PAGE_PLAN_FALLBACK_ACCENTS.join(', ')}, and no accentInk: every pair of it measures 4.5:1 or more, where a colour of your own risks a repair round.
+- tokens: from ONE direction-deck row in your active skills, the row that matches the subject ("VARIANT: B" in the request swaps in the row's band colours, as the deck says). Map the row: bg = ground, surface = card, ink = ink, muted = muted, accent = accent, onAccent = on-accent, accentInk = the row's accent-ink (omit accentInk when the row names none: the client derives it), border = a hairline between ground and muted (e.g. stone-200 on a stone-50 ground), radius, signature = the row's signature fitted to this business, deckRowId = the row's id. Copy the row's shades as written (orange-700, yellow-800): every colour is a Tailwind shade name or #rrggbb hex, and both resolve — nothing else does. The rows are contrast-checked. accentInk is the colour of accent TEXT — stat numbers, step numbers, eyebrows, icons — where the accent fill would not read; it sits on bg and surface, never on the accent, so accentInk is never the on-accent colour (white on a white ground reads 1:1). Ignore what the deck says about a direction line and a pageCss import: this plan replaces both, and the client writes the font import from your fonts. No row fits the subject, or no deck is in your context → omit deckRowId and take this checked base as written: ${FALLBACK_BASE_TEXT}, with ONE accent fill that suits the subject from ${PAGE_PLAN_FALLBACK_ACCENTS.join(', ')}, and no accentInk: every pair of it measures 4.5:1 or more, where a colour of your own risks a repair round.
 - fontDisplay, fontBody: {"family","weights"} — the row's AR pair on an Arabic page, its EN pair otherwise, with exactly the row's weights (a face listed without weights → "weights":[]; one wrong weight drops every face in the import). Never Cairo or Tajawal by habit: only when the row names them. Only these families exist. Arabic-capable: ${PAGE_PLAN_ARABIC_FAMILIES.join(', ')}. Latin-only, never on an Arabic page: ${PAGE_PLAN_LATIN_FAMILIES.join(', ')}.
 - primaryCta: {"label","href"} — THE one action of the page; href is "#" + a section's anchorId, or an https:, mailto: or tel: URL. Every CTA button on the page will carry this exact label.
 - nav: at most 8 {"label","anchorId"}, each naming a section's anchorId; [] when the page has no header.
 - sections: 2 to 12 in page order, usually 5 to 8, each {"key","role","title","anchorId","purpose","mustSay","mustNotRepeat","variant","images"}. role: "header" (first, at most one) | "hero" (exactly one, first or right after the header; it holds the page's one h1) | "band" | "cta" | "footer" (last, at most one). variant: the row's layout id for that section, else one of ${PAGE_PLAN_SECTION_VARIANTS.join(', ')}; omit it when none fits. mustSay: the claims this section must carry. mustNotRepeat: claims another section makes that this one must not.
 - images: at most 4 per section, each {"subject","aspect","alt"}. subject is a photo-catalog topic: one from PHOTOS YOU MAY USE when that is in your context, else the row's photo subjects, else one of ${PAGE_PLAN_PHOTO_TOPICS.join(', ')} — never a free word. aspect: landscape | portrait | square. alt in the page language. No topic fits → no images: a type-led section beats a wrong photo.
-- facts: EVERY invented detail the owner must replace before publishing — a phone number, a price, an address, opening hours, a person's or business name you made up, a statistic, a quote — each {"key","sample","section"}: sample exactly as the page will show it, section the key of the section that shows it. A made-up value missing from this list gets published as if it were true.
+- facts: EVERY invented detail the owner must replace before publishing — a phone number, a price, an address, opening hours, a person's or business name you made up, a statistic, a quote — each {"key","sample","section"}: sample exactly as the page will show it — a complete, realistic value in the page's own format and language (+962 6 461 2750, +971 4 331 2750, AED 1,850), never XXX, masked digits, all zeros or a bracketed stand-in: the ledger, not the value, marks it as a sample — and section the key of the section that shows it. A made-up value missing from this list gets published as if it were true.
 
 ## A repair
 
@@ -318,6 +363,114 @@ function utilityClassesSection(live: boolean): readonly string[] {
 }
 
 /**
+ * The markup vocabulary the client's door enforces for one request: the tags
+ * and attribute names its customCode schema admits.
+ *
+ * DERIVED, never listed here (2026-09-28). The hand-written list this
+ * replaced had already drifted — it lacked main, sub and sup, which
+ * CUSTOM_CODE_TAGS admitted — and the design-code owner was opening
+ * details/summary, tables, svg shapes, popover and video the same day. The
+ * constants themselves are not reachable from this app (the wire door
+ * re-exports only the plan wire and the class vocabulary), but they cross the
+ * wire anyway: the catalog's customCode entry is `z.enum(CUSTOM_CODE_TAGS)`
+ * and an `attributes` object of CUSTOM_CODE_ATTRIBUTES, serialised by the
+ * package that validates the tree, and the composition policy keeps that
+ * entry in full detail in every catalog mode. So the prompt states exactly
+ * what THIS client's door will take — never a stale list, never a newer
+ * server's list an older client would refuse.
+ */
+export interface MarkupVocabulary {
+  readonly tags: readonly string[];
+  readonly attributes: readonly string[];
+}
+
+/** Nodes a schema walk may visit; the real customCode schema has under 200. */
+const SCHEMA_WALK_LIMIT = 20_000;
+
+/** Breadth-first over one schema subtree, bounded; `visit` sees every object in it. */
+function walkSchema(root: unknown, visit: (node: Readonly<Record<string, unknown>>) => void): void {
+  const queue: unknown[] = [root];
+  for (let at = 0; at < queue.length && at < SCHEMA_WALK_LIMIT; at += 1) {
+    const node = queue[at];
+    if (Array.isArray(node)) {
+      queue.push(...(node as unknown[]));
+      continue;
+    }
+    if (!isRecord(node)) continue;
+    visit(node);
+    queue.push(...Object.values(node));
+  }
+}
+
+/**
+ * Every tag and attribute name the catalog's customCode props schema admits,
+ * in the order the schema states them; undefined when the catalog carries no
+ * such schema. A tag is any string `enum` entry or `const` under a `tag`
+ * property; an attribute is any property name under an `attributes`
+ * property — however the schema nests them (one enum today; per-family
+ * `anyOf` branches or per-tag attribute sets would read the same).
+ */
+export function markupVocabulary(
+  blocks: AiPlanWireRequest['context']['blocks'],
+): MarkupVocabulary | undefined {
+  const schema: unknown = blocks.find((block) => block.type === 'customCode')?.propsSchema;
+  if (schema === undefined) return undefined;
+  const tags = new Set<string>();
+  const attributes = new Set<string>();
+  walkSchema(schema, (node) => {
+    const properties = node['properties'];
+    if (!isRecord(properties)) return;
+    walkSchema(properties['tag'], (tag) => {
+      if (Array.isArray(tag['enum'])) {
+        for (const name of tag['enum'] as unknown[]) if (typeof name === 'string') tags.add(name);
+      }
+      if (typeof tag['const'] === 'string') tags.add(tag['const']);
+    });
+    walkSchema(properties['attributes'], (named) => {
+      if (isRecord(named['properties'])) {
+        for (const name of Object.keys(named['properties'])) attributes.add(name);
+      }
+    });
+  });
+  return tags.size === 0 ? undefined : { tags: [...tags], attributes: [...attributes] };
+}
+
+/**
+ * Tags the rules name as absent whenever the vocabulary does not admit them —
+ * embedding, forms, and the media the door long lacked — so a model does not
+ * reach for one and get an empty div. One the door admits drops out.
+ */
+const UNLESS_ADMITTED = ['form', 'input', 'textarea', 'select', 'script', 'iframe', 'svg', 'video'];
+
+/** "a, b or c". */
+function orList(names: readonly string[]): string {
+  return names.length <= 1
+    ? names.join('')
+    : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1] ?? ''}`;
+}
+
+/** h1…h6 as the one "h1–h6" the old list spelled, wherever all six stand together. */
+function spelledTags(tags: readonly string[]): string {
+  return tags
+    .join(', ')
+    .replace('h1, h2, h3, h4, h5, h6', 'h1–h6');
+}
+
+/** The vocabulary sentence of the markup section, from the request's own customCode schema. */
+function vocabularyLine(vocabulary: MarkupVocabulary | undefined): string {
+  const opening = 'The page stores it as the tree, so the tree vocabulary still binds:';
+  if (vocabulary === undefined) {
+    return `${opening} only the tags and attributes the customCode schema admits — no ${orList(UNLESS_ADMITTED)}; \`class\` for utilities.`;
+  }
+  const absent = UNLESS_ADMITTED.filter((tag) => !vocabulary.tags.includes(tag));
+  const attributes =
+    vocabulary.attributes.length === 0
+      ? 'no attributes'
+      : `attributes only ${vocabulary.attributes.join(', ')}`;
+  return `${opening} only the tags in the customCode schema (${spelledTags(vocabulary.tags)})${absent.length === 0 ? '' : ` — no ${orList(absent)}`}; \`class\` for utilities; ${attributes}.`;
+}
+
+/**
  * How to write a tree, for a client that reads markup.
  *
  * Measured 2026-09-27: every answer that failed to parse failed inside the run
@@ -325,45 +478,160 @@ function utilityClassesSection(live: boolean): readonly string[] {
  * shorter — a third less to generate on a stage whose time is almost all
  * generation. The client reads the markup into the identical tree before its
  * door, so nothing about what a tree may contain changes; only the spelling.
+ * The vocabulary line is the request's own (`markupVocabulary`); the rest is
+ * frozen text, so the section changes only when the registry does.
  */
-const TREE_MARKUP_SECTION: readonly string[] = [
-  '# Writing a customCode tree',
-  'Write every customCode tree as MARKUP — one JSON string of HTML — never as nested {"kind":…} objects: {"command":"setProp","args":{"id":"<region id>","key":"tree","value":"<section class=\'py-16 md:py-24\'><div class=\'mx-auto max-w-6xl px-4 md:px-8\'><h2 class=\'text-4xl font-bold\'>…</h2></div></section>"}}, and the same kind of string for `props.tree` in insertNode.',
-  'The page stores it as the tree, so the tree vocabulary still binds: only the tags in the customCode schema (section, header, footer, nav, article, aside, div, h1–h6, p, span, strong, em, small, a, button, ul, ol, li, img, figure, figcaption, blockquote, time, code, pre, hr, br) — no form, input, textarea, select, script, iframe or svg; `class` for utilities; attributes only alt, aria-hidden, aria-label, datetime, href, id, role, src, target, title.',
-  "Icons: <icon name='coffee' class='size-5 text-amber-600'/> with a Lucide kebab-case name, optional size='20' and label='…'.",
-  /*
-    The one markup spelling of a registered block. Without it the mandate
-    above left no way to place one, and a model that obeyed wrote <contact> —
-    which the normaliser reads as an unknown tag and keeps as an empty div.
-  */
-  "Registered blocks: <ck-component type='hero' props='{\"heading\":\"…\"}'>…</ck-component> places a catalog block inside the region. `type` is a block type from your catalog, never invented; `props` is its props as one JSON object (inside the plan's JSON string its double quotes are escaped as \\\" like any other); markup between the tags renders in the block's default slot. It is the ONLY markup spelling of a block: a tag named after one (<contact>, <accordion>) is not that block and becomes an empty div.",
-  'This spelling replaces every nested {"kind":…} form shown elsewhere — in the rules, the customCode description and its example: an element is its tag, an icon is <icon …/>, a component is <ck-component …>.',
-  "Put every attribute value in SINGLE quotes and write the markup on one line, so the JSON string needs no escaping. An apostrophe inside a single-quoted value is written &#39; (alt='The chef&#39;s table'): a bare ' ends the value there, and the rest of the text is silently lost.",
-  'To change PART of a region that already exists, do not rewrite it — quote it: {"command":"editTree","args":{"id":"<region id>","edits":[{"find":"<exact markup copied from the page as shown>","replace":"<the new markup>"}]},"title":"…"}. Each find must appear exactly once in that region as the page shows it now, so quote enough around the change to be unique. A change to a region that already exists IS an editTree — a darker background, the text colours that go with it and a new button label are three edits in one editTree, not a rewrite. Rewrite a region whole with setProp only when its STRUCTURE changes (sections added, removed or reordered).',
-];
+function treeMarkupSection(blocks: AiPlanWireRequest['context']['blocks']): readonly string[] {
+  return [
+    '# Writing a customCode tree',
+    'Write every customCode tree as MARKUP — one JSON string of HTML — never as nested {"kind":…} objects: {"command":"setProp","args":{"id":"<region id>","key":"tree","value":"<section class=\'py-16 md:py-24\'><div class=\'mx-auto max-w-6xl px-4 md:px-8\'><h2 class=\'text-4xl font-bold\'>…</h2></div></section>"}}, and the same kind of string for `props.tree` in insertNode.',
+    vocabularyLine(markupVocabulary(blocks)),
+    "Icons: <icon name='coffee' class='size-5 text-amber-600'/> with a Lucide kebab-case name, optional size='20' and label='…'.",
+    /*
+      The one markup spelling of a registered block. Without it the mandate
+      above left no way to place one, and a model that obeyed wrote <contact> —
+      which the normaliser reads as an unknown tag and keeps as an empty div.
+    */
+    "Registered blocks: <ck-component type='hero' props='{\"heading\":\"…\"}'>…</ck-component> places a catalog block inside the region. `type` is a block type from your catalog, never invented; `props` is its props as one JSON object (inside the plan's JSON string its double quotes are escaped as \\\" like any other); markup between the tags renders in the block's default slot. It is the ONLY markup spelling of a block: a tag named after one (<contact>, <accordion>) is not that block and becomes an empty div.",
+    'This spelling replaces every nested {"kind":…} form shown elsewhere — in the rules, the customCode description and its example: an element is its tag, an icon is <icon …/>, a component is <ck-component …>.',
+    "Put every attribute value in SINGLE quotes and write the markup on one line, so the JSON string needs no escaping. An apostrophe inside a single-quoted value is written &#39; (alt='The chef&#39;s table'): a bare ' ends the value there, and the rest of the text is silently lost.",
+    'To change PART of a region that already exists, do not rewrite it — quote it: {"command":"editTree","args":{"id":"<region id>","edits":[{"find":"<exact markup copied from the page as shown>","replace":"<the new markup>"}]},"title":"…"}. Each find must appear exactly once in that region as the page shows it now, so quote enough around the change to be unique. A change to a region that already exists IS an editTree — a darker background, the text colours that go with it and a new button label are three edits in one editTree, not a rewrite. Rewrite a region whole with setProp only when its STRUCTURE changes (sections added, removed or reordered).',
+  ];
+}
+
+// ── which prompt a plan request gets (2026-09-28) ──────────────────────────
+
+/**
+ * Which rules a request is built with. `'page-plan'` is the T1 planner;
+ * `'build'` is every plan that composes (the scaffold, a section writer, a
+ * whole-page run) and the fallback for anything unclear; `'edit'` is a change
+ * to a page that already exists, with its compact rules.
+ */
+export type PlanPromptVariant = 'page-plan' | 'build' | 'edit';
+
+/** The explicit skill a host pins for a surgical edit (skills/builtins.ts). */
+const PRECISE_EDIT_SKILL = 'craftkit.precise-edit';
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** A page with at least one node besides its root: there is something to edit. */
+function pageHasContent(request: AiPlanWireRequest): boolean {
+  const nodes: unknown = (request.context.document as { nodes?: unknown }).nodes;
+  return Array.isArray(nodes) && nodes.length > 1;
+}
+
+/**
+ * Whether one pinned skill belongs on an edit. Read from the manifest the
+ * client sends beside the pins (`context.skillCatalog`), so the server keeps
+ * no list of page skills to drift: a skill gated to page intents
+ * (`activation.intents` without `'edit'`, as the router-skills owner gated
+ * every page playbook on 2026-09-28) marks a page ask, and so does every
+ * EXPLICIT pin but precise-edit — the build pipeline pins its steps and its
+ * page guidance (build-scaffold, build-fill, direction-deck, section-variants,
+ * photo-direction, plan-mode) by hand. A pin with no manifest is unknown, and
+ * unknown keeps the full prompt: a wrong 'build' costs tokens, a wrong 'edit'
+ * costs a page its composition rules.
+ */
+function editCompatible(
+  pin: { readonly id: string; readonly reason: string },
+  manifests: ReadonlyMap<string, unknown>,
+): boolean {
+  if (pin.reason === 'explicit') return pin.id === PRECISE_EDIT_SKILL;
+  const manifest = manifests.get(pin.id);
+  if (!isRecord(manifest) || !isRecord(manifest['activation'])) return false;
+  const activation = manifest['activation'];
+  if (activation['mode'] !== 'auto') return activation['mode'] === 'always';
+  const intents = activation['intents'];
+  return intents === undefined || (Array.isArray(intents) && intents.includes('edit'));
+}
+
+/**
+ * The rules a plan request is built with, from what the request itself
+ * carries — no route travels on the wire, and the skills are the route's
+ * footprint: the client's resolver gates every page playbook by the routed
+ * intent, and the build pipeline pins its own steps explicitly.
+ *
+ * An edit is: a markup client (the edit rules speak markup and `editTree`
+ * only), and either the precise-edit skill pinned, or a page with content
+ * whose every pinned skill is edit-compatible (`editCompatible`). Everything
+ * else is a build, byte for byte the prompt it was before this existed.
+ */
+export function planPromptVariant(request: AiPlanWireRequest): PlanPromptVariant {
+  if (request.task === 'page-plan') return 'page-plan';
+  const { context } = request;
+  if (context.treeMarkup !== true) return 'build';
+  const pins = context.skills ?? [];
+  if (pins.some((pin) => pin.id === PRECISE_EDIT_SKILL && pin.reason === 'explicit')) {
+    return 'edit';
+  }
+  if (!pageHasContent(request)) return 'build';
+  const manifests = new Map<string, unknown>(
+    (context.skillCatalog ?? []).map((manifest) => [manifest.id, manifest]),
+  );
+  return pins.every((pin) => editCompatible(pin, manifests)) ? 'edit' : 'build';
+}
+
+/** What an edit is told the customCode entry is, in the markup spelling it writes. */
+const CUSTOM_CODE_EDIT_DESCRIPTION =
+  'A freely composed region. Its `tree` is written as ONE markup string (see "# Writing a customCode tree"); its `css` holds the rules for its ck- classes; its `label` names it. To change part of one, use editTree; to add one, insertNode it with all three props.';
+
+/**
+ * The catalog an edit reads: the customCode entry without its JSON-form tree
+ * schema, examples and description, which the markup section supersedes
+ * anyway ("This spelling replaces every nested {"kind":…} form") — 4,804 → 629
+ * characters on the captured edit. Its `label` and `css` props keep the
+ * client's own limits; `tree` becomes the markup string it is written as, and
+ * the tags and attributes the dropped schema held are stated by the markup
+ * section's vocabulary line, read from the original entry. Every other entry
+ * is passed through untouched.
+ */
+function editCatalog(blocks: AiPlanWireRequest['context']['blocks']): readonly unknown[] {
+  return blocks.map((block) => {
+    if (block.type !== 'customCode' || !isRecord(block.propsSchema)) return block;
+    const schema = block.propsSchema;
+    const properties = isRecord(schema['properties']) ? schema['properties'] : {};
+    const required = schema['required'];
+    return {
+      type: block.type,
+      description: CUSTOM_CODE_EDIT_DESCRIPTION,
+      ...(block.insertable === undefined ? {} : { insertable: block.insertable }),
+      propsSchema: {
+        type: 'object',
+        properties: {
+          ...properties,
+          tree: { type: 'string', description: 'The region as one markup string.' },
+        },
+        ...(Array.isArray(required) ? { required } : {}),
+        additionalProperties: false,
+      },
+    };
+  });
+}
 
 /**
  * The stable half: what the model may build WITH.
  *
  * The catalog and the command list both change only when the registry does,
  * which for a running site is approximately never — so they cache together as
- * one segment.
+ * one segment. An edit's is the same minus the page templates (a template is
+ * a whole page) and with the compact customCode entry (`editCatalog`).
  */
-function stableContext(request: AiPlanWireRequest): string {
+function stableContext(request: AiPlanWireRequest, variant: PlanPromptVariant): string {
   const { context } = request;
   const skills = context.fragments.filter(isStableInstruction);
+  const edit = variant === 'edit';
   return [
     '# Block catalog',
-    JSON.stringify(context.blocks),
+    JSON.stringify(edit ? editCatalog(context.blocks) : context.blocks),
     '',
     '# Commands you may propose',
     JSON.stringify(context.commands ?? []),
     '',
-    '# Page templates available',
-    JSON.stringify(context.templates ?? []),
-    '',
+    ...(edit ? [] : ['# Page templates available', JSON.stringify(context.templates ?? []), '']),
     ...utilityClassesSection(context.utilities === 'tailwind'),
-    ...(context.treeMarkup === true ? ['', ...TREE_MARKUP_SECTION] : []),
+    ...(context.treeMarkup === true ? ['', ...treeMarkupSection(context.blocks)] : []),
     /*
       Active skills, last so the segment stays byte-identical to the no-skill
       layout when none is active. The set is whatever the host pinned for the
@@ -524,14 +792,17 @@ function buildPagePlanPrompt(request: AiPlanWireRequest): PromptParts {
 /**
  * Build the Claude request parts for one wire request.
  *
- * `task: 'page-plan'` gets the page planner's prompt. Every other request —
- * no task, or `'plan'` — is built exactly as before the task existed, byte
- * for byte (prompt.test.ts pins the digests), so no running session's cached
- * prefix moves; a stray `pagePlanAttempt` on such a request is ignored.
+ * `task: 'page-plan'` gets the page planner's prompt, and an edit
+ * (`planPromptVariant`) the compact edit rules. Every other request — no
+ * task, or `'plan'` — is built exactly as before either existed, byte for
+ * byte (prompt.test.ts pins the digests), so no running build's cached prefix
+ * moves; a stray `pagePlanAttempt` on such a request is ignored.
  */
 export function buildPrompt(request: AiPlanWireRequest): PromptParts {
-  if (request.task === 'page-plan') return buildPagePlanPrompt(request);
-  const stable = stableContext(request);
+  const variant = planPromptVariant(request);
+  if (variant === 'page-plan') return buildPagePlanPrompt(request);
+  const rules = variant === 'edit' ? EDIT_RULES : SYSTEM_RULES;
+  const stable = stableContext(request, variant);
 
   /*
     The breakpoint is placed only when the segment can actually cache. Below
@@ -539,10 +810,10 @@ export function buildPrompt(request: AiPlanWireRequest): PromptParts {
     caches is worse than none: it reads as a working optimisation in code
     review while the bill says otherwise.
   */
-  const cacheable = estimateTokens(SYSTEM_RULES) + estimateTokens(stable) >= MIN_CACHEABLE_TOKENS;
+  const cacheable = estimateTokens(rules) + estimateTokens(stable) >= MIN_CACHEABLE_TOKENS;
 
   const system: PromptParts['system'] = [
-    { type: 'text', text: SYSTEM_RULES },
+    { type: 'text', text: rules },
     {
       type: 'text',
       text: stable,

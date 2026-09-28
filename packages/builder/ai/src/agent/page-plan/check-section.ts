@@ -199,8 +199,39 @@ const ROLE_VALUE =
 const NEUTRAL_VALUE = /^(white|black)(?:\/(\d{1,3}))?$/u;
 const COLOUR_UTILITY =
   /^(bg|text|border(?:-[trblxyse])?|ring(?:-offset)?|outline|decoration|divide|from|via|to|fill|stroke|shadow|accent|caret|placeholder)-(.+)$/u;
+/** An arbitrary property naming a colour: `[color:crimson]`, `[background-color:#123456]`. */
+const COLOUR_PROPERTY_CLASS =
+  /^\[(color|background(?:-color)?|border(?:-[a-z]+)*-color|outline-color|text-decoration-color|caret-color|accent-color|fill|stroke):(.+)\]$/u;
 const HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/iu;
 const CK_VAR = /^var\(--ck-([a-z-]+)\)$/u;
+
+/*
+  The CSS named colours (CSS Color 4), less the four that carry no hue of
+  their own: white and black (the page's allowed tints), transparent and
+  currentColor. The playground's live Tailwind oracle generates `text-[crimson]`
+  (apps/playground use-live-utilities.ts), so the door admits it, and region
+  css takes `color:crimson` as readily as a hex — both passed the checker
+  silently (verifier, 2026-09-28).
+*/
+const CSS_NAMED_COLOURS = new Set(
+  'aliceblue antiquewhite aqua aquamarine azure beige bisque blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat whitesmoke yellow yellowgreen'.split(
+    ' ',
+  ),
+);
+
+/** The CSS properties whose value is (or carries) a colour, custom properties among them. */
+const COLOUR_DECLARATION =
+  /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?(?:-color)?|outline(?:-color)?|fill|stroke|box-shadow|text-shadow|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?|stop-color|flood-color|--[\w-]+)$/u;
+
+/** The named colours a declaration's value writes, read past its urls, vars and strings. */
+function namedColoursIn(value: string): readonly string[] {
+  const bare = value
+    .replace(/url\([^)]*\)/giu, ' ')
+    .replace(/var\([^)]*\)/giu, ' ')
+    .replace(/(["'])(?:(?!\1).)*\1/gu, ' ')
+    .toLowerCase();
+  return (bare.match(/[a-z]+/gu) ?? []).filter((word) => CSS_NAMED_COLOURS.has(word));
+}
 
 type ColourRead =
   | { readonly kind: 'ok'; readonly hex?: string; readonly token?: keyof PageKitColours }
@@ -257,10 +288,30 @@ interface ClassColour {
 /** What a class says about colour, if anything, against this plan's colours. */
 function readColourClass(name: string, planHexes: ReadonlySet<string>): ClassColour | undefined {
   const { base } = baseUtility(name);
+  const arbitrary = COLOUR_PROPERTY_CLASS.exec(base);
+  if (arbitrary !== null) {
+    const written = arbitrary[1] ?? '';
+    const property =
+      written === 'color'
+        ? 'text'
+        : written === 'background' || written === 'background-color'
+          ? 'bg'
+          : written;
+    return readColourValue(property, `[${arbitrary[2] ?? ''}]`, planHexes);
+  }
   const match = COLOUR_UTILITY.exec(base);
   if (match === null) return undefined;
-  const property = match[1] ?? '';
-  const value = match[2] ?? '';
+  return readColourValue(match[1] ?? '', match[2] ?? '', planHexes);
+}
+
+function readColourValue(
+  property: string,
+  written: string,
+  planHexes: ReadonlySet<string>,
+): ClassColour | undefined {
+  // `bg-[crimson]/50`: the opacity modifier sits outside the brackets.
+  const value = written.replace(/(?<=\])\/\d{1,3}$/u, '');
+  const tinted = value !== written;
   if (/^(?:transparent|current|inherit)$/u.test(value)) {
     return { property, read: { kind: 'ok' }, translucent: value === 'transparent' };
   }
@@ -289,7 +340,7 @@ function readColourClass(name: string, planHexes: ReadonlySet<string>): ClassCol
       return {
         property,
         read: planHexes.has(hex) ? { kind: 'ok', hex } : { kind: 'raw' },
-        translucent: false,
+        translucent: tinted,
       };
     }
     const token = CK_VAR.exec(inner)?.[1];
@@ -298,14 +349,17 @@ function readColourClass(name: string, planHexes: ReadonlySet<string>): ClassCol
       return {
         property,
         read: role === undefined ? { kind: 'ok' } : { kind: 'ok', token: role },
-        translucent: false,
+        translucent: tinted,
       };
     }
     if (
       /^(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\(/iu.test(inner) &&
       !inner.includes('var(')
     ) {
-      return { property, read: { kind: 'raw' }, translucent: false };
+      return { property, read: { kind: 'raw' }, translucent: tinted };
+    }
+    if (CSS_NAMED_COLOURS.has(inner.toLowerCase())) {
+      return { property, read: { kind: 'raw' }, translucent: tinted };
     }
   }
   return undefined;
@@ -490,6 +544,89 @@ const LOREM = /\blorem\b(?:\s+ipsum)?|\bipsum\s+dolor\b/iu;
 const ARABIC_FILLER = ['هذا النص هو مثال', 'لوريم ايبسوم'];
 const SCAFFOLD_LEFTOVERS = ['THE SECTION TITLE'];
 
+/*
+  Facts written as their stand-ins. Four of five live Dubai plans of
+  2026-09-28 sampled the phone as "+971 4 XXX XXXX", and the writers put the
+  samples on the page as given; none of BRACKETED, MUSTACHE or LOREM reads a
+  mask, so it shipped. Three shapes, each a value that is not one:
+  - a mask: three or more X where letters or digits belong (XXX-XXXX, 07XXXXXXXX);
+  - masked digits: a phone-shaped run (it starts with +, ( or 0) of seven or
+    more digits holding six of one digit in a row — 0000000, +962 7 9000 0000,
+    (555) 555-5555. A price never starts that way, so 1,000,000 is left alone;
+  - an address at a placeholder domain (info@example.com, www.yourdomain.com).
+*/
+const MASK_LETTERS = /(?<!\p{L})[xX]{3,}(?!\p{L})/u;
+const PHONE_RUN = /[+(]?[0-9][0-9 ().-]{5,}[0-9]/gu;
+const PLACEHOLDER_ADDRESS =
+  /[\w.+-]*@(?:example|domain|yourdomain|yourcompany|yoursite|company|email)\.(?:com|net|org)\b|(?:https?:\/\/)?(?:www\.)?(?:example|yourdomain|yourcompany|yoursite|yourwebsite)\.(?:com|net|org)\b/iu;
+
+/**
+ * A field's NAME written where its value belongs — «رقم الهاتف» on the line a
+ * phone number should fill. Folded forms, matched against a whole line of
+ * text (a "Phone:" label before it and a trailing "here"/"هنا" peeled).
+ * `phone` and `email` stand-ins pass when the section also shows a real value
+ * of that kind: then the name is a label beside it, not a stand-in for it.
+ */
+const FIELD_NAMES: ReadonlyMap<string, 'phone' | 'email' | 'name' | 'address'> = new Map([
+  ...[
+    'رقم الهاتف',
+    'رقم هاتفك',
+    'رقم هاتفنا',
+    'رقم الجوال',
+    'رقم جوالك',
+    'رقم الموبايل',
+    'رقم التلفون',
+    'رقم التليفون',
+    'رقم الواتساب',
+    'رقم الواتس',
+    'رقم التواصل',
+    'phone number',
+    'your phone number',
+    'telephone number',
+    'mobile number',
+    'whatsapp number',
+  ].map((name) => [name, 'phone'] as const),
+  ...[
+    'البريد الالكتروني',
+    'بريدك الالكتروني',
+    'عنوان البريد الالكتروني',
+    'الايميل',
+    'ايميلك',
+    'email address',
+    'e mail address',
+    'your email',
+    'your email address',
+  ].map((name) => [name, 'email'] as const),
+  ...[
+    'اسم الشركه',
+    'اسم شركتك',
+    'اسم المطعم',
+    'اسم المحل',
+    'اسم المتجر',
+    'اسم العياده',
+    'اسم العميل',
+    'اسم النشاط',
+    'اسم النشاط التجاري',
+    'اسم المشروع',
+    'اسم العلامه التجاريه',
+    'company name',
+    'your company name',
+    'business name',
+    'your business name',
+    'brand name',
+    'your brand name',
+    'client name',
+    'customer name',
+    'your name',
+  ].map((name) => [name, 'name'] as const),
+  ...['عنوانك', 'اسم الشارع', 'your address', 'street name', 'address line 1'].map(
+    (name) => [name, 'address'] as const,
+  ),
+]);
+/** Tags whose text names a field on purpose: a form's label, a table's header. */
+const LABEL_TAGS = new Set(['label', 'dt', 'th', 'legend', 'option', 'caption']);
+const EMAIL_VALUE = /[^\s@]+@[^\s@]+\.[^\s@]+/u;
+
 const GENERIC_FAMILIES = new Set([
   'serif',
   'sans-serif',
@@ -511,14 +648,24 @@ const GENERIC_FAMILIES = new Set([
 ]);
 const SITE_FACE_CLASSES = new Set(['font-sans', 'font-serif']);
 
+/*
+  Words a paraphrase drops or swaps without changing the claim. Negations are
+  NOT among them (no, not, لا, بدون, غير): "بدون رسوم إضافية" said as "رسوم
+  إضافية" is the opposite claim. لا left this list on 2026-09-28 for that
+  reason. Neither are the prepositions that carry meaning (since, across).
+*/
 const EN_STOP = new Set(
-  'the a an and or of in on for to with at by from our your we you is are be it its this that all as into than'.split(
+  'the a an and or of in on for to with at by from our your we you is are be it its this that all as into than every each per just only also very has have had was were will can within inside us my me they their them'.split(
     ' ',
   ),
 );
-/** Folded forms (normalizeIntentText): إلى → الي, حتى → حتي, أن → ان. */
+/**
+ * Folded forms (normalizeIntentText): إلى → الي, حتى → حتي, أن → ان. Read
+ * under their clitics as well (`isStopWord`): وفي, بها, ولكل, منها, عليه.
+ * «لمدة» and «خلال» only frame a figure — "ضمان لمدة سنة" is "ضمان سنة".
+ */
 const AR_STOP = new Set(
-  'في من علي الي عن مع او هذا هذه ذلك تلك التي الذي كل نحن انت لكم لك لنا عند بين حتي قد ما لا ان كان و'.split(
+  'في من علي الي عن مع او هذا هذه ذلك تلك التي الذي الذين كل نحن انت انتم انا هو هي هم ها هنا هناك لكم لك لنا لدي لدينا عند بين حتي قد ما ان كان يكون تم يتم ثم بل لكن اي كما مثل ايضا فقط جدا خلال لمده مده ضمن حيث و'.split(
     ' ',
   ),
 );
@@ -552,11 +699,188 @@ function foldForMatch(value: string): string {
       // A "." survives only as a decimal point; 1.500 and 1.5 are one price.
       .replace(/(?<![0-9])\.|\.(?![0-9])/gu, ' ')
       .replace(/[0-9]+\.[0-9]+/gu, (number) => number.replace(/\.?0+$/u, ''))
+      // A figure glued to its unit is two words: "24h" · "٥دقائق" · "1.5jd".
+      .replace(/(?<=[0-9])(?=\p{L})|(?<=\p{L})(?=[0-9])/gu, ' ')
       .replace(/\s+/gu, ' ')
       // "20 %" and "20%" are one figure.
       .replace(/(?<=[0-9]) (?=%)/gu, '')
       .trim()
   );
+}
+
+// ── Words, in every form a page writes them ──────────────────────────────────
+
+/*
+  A claim is matched WORD by word, each word read in the forms it takes on a
+  page, and two words match when they share a form. Arabic glues the article,
+  the conjunctions و/ف, the prepositions ب/ل/ك and the possessives to its
+  words, and English inflects them — so the substring test this replaces never
+  found "التوصيل المجاني" on a page that says "توصيل مجاني", nor "خصم على الطلب
+  الأول" said as "على طلبك الأول", nor "Fixed-price quotes" as "a fixed-price
+  quote": 8 of 12 light paraphrases were flagged, each a repair model call for
+  a section that was right (verifier's mustsay-r2.mjs, 2026-09-28). The
+  substring test also found "rent" inside "current". Whole forms fix both.
+
+  The peeling is conservative, as the router's (intent-tokens.ts) is: a clitic
+  comes off only when three letters remain (two after the article: الشاي →
+  شاي), so "من" never becomes "ن". An odd extra form costs nothing — it only
+  ever matches another word's form.
+*/
+const ARABIC_WORD = /[؀-ۿ]/u;
+const MIN_STEM = 3;
+const AR_CONJUNCTIONS = new Set(['و', 'ف']);
+const AR_PREPOSITIONS = new Set(['ب', 'ل', 'ك']);
+/** Possessive and object pronouns, longest first. ه is also ة folded (normalizeArabic). */
+const AR_PRONOUNS = ['هما', 'كما', 'هم', 'هن', 'كم', 'كن', 'ها', 'نا', 'ه', 'ك', 'ي'] as const;
+
+type FormsOf = (word: string) => readonly string[];
+
+/** The stems a folded Arabic word may stand for, itself first. */
+function arabicForms(word: string): readonly string[] {
+  const peel = (stem: string, prefix: string, keep: number): string | undefined =>
+    stem.startsWith(prefix) && stem.length - prefix.length >= keep
+      ? stem.slice(prefix.length)
+      : undefined;
+  const starts = [word];
+  const unjoined = AR_CONJUNCTIONS.has(word.charAt(0))
+    ? peel(word, word.charAt(0), MIN_STEM)
+    : undefined;
+  if (unjoined !== undefined) starts.push(unjoined);
+  const bases: string[] = [];
+  for (const start of starts) {
+    bases.push(start);
+    // لل is ل + ال with the article's alif dropped: للمهندسين → مهندسين.
+    const forThe = peel(start, 'لل', MIN_STEM - 1);
+    if (forThe !== undefined) bases.push(forThe);
+    const unprefixed = AR_PREPOSITIONS.has(start.charAt(0))
+      ? peel(start, start.charAt(0), MIN_STEM)
+      : undefined;
+    if (unprefixed !== undefined) bases.push(unprefixed);
+    for (const candidate of [start, unprefixed]) {
+      const bare = candidate === undefined ? undefined : peel(candidate, 'ال', MIN_STEM - 1);
+      if (bare !== undefined) bases.push(bare);
+    }
+    // The imperative's alif, the form a call to action takes: احجز → حجز, اطلب → طلب.
+    if (!start.startsWith('ال')) {
+      const verb = peel(start, 'ا', MIN_STEM);
+      if (verb !== undefined) bases.push(verb);
+    }
+  }
+  const forms = new Set<string>();
+  const pending = [...bases];
+  for (let stem = pending.pop(); stem !== undefined; stem = pending.pop()) {
+    if (forms.has(stem)) continue;
+    forms.add(stem);
+    const cut = (length: number): string | undefined =>
+      stem.length - length >= MIN_STEM ? stem.slice(0, -length) : undefined;
+    for (const pronoun of AR_PRONOUNS) {
+      const rest = stem.endsWith(pronoun) ? cut(pronoun.length) : undefined;
+      if (rest !== undefined) pending.push(rest);
+    }
+    // ة is written ت before a suffix: طاولتك → طاولت → طاوله; سنتين → سنت → سنه.
+    if (stem.endsWith('ت') && stem.length > MIN_STEM) pending.push(`${stem.slice(0, -1)}ه`);
+    // Sound plurals: طاولات → طاوله, مهندسين · مهندسون → مهندس.
+    const plural =
+      stem.endsWith('ات') || stem.endsWith('ون') || stem.endsWith('ين') ? cut(2) : undefined;
+    if (plural !== undefined) pending.push(plural, ...(stem.endsWith('ات') ? [`${plural}ه`] : []));
+    // Tanween's alif: يومياً → يومي, مجاناً → مجان.
+    const adverb = stem.endsWith('ا') ? cut(1) : undefined;
+    if (adverb !== undefined) pending.push(adverb);
+  }
+  return [...forms];
+}
+
+/** The forms of a folded English word: plurals, possessive plurals, -ed and -ing. */
+function englishForms(word: string): readonly string[] {
+  const forms = new Set([word]);
+  const keep = (stem: string): void => {
+    if (stem.length >= MIN_STEM) forms.add(stem);
+  };
+  if (word.endsWith('ies')) keep(`${word.slice(0, -3)}y`);
+  else if (/(?:ss|x|z|ch|sh)es$/u.test(word)) keep(word.slice(0, -2));
+  // "quotes" → "quote"; never "glass" → "glas", "bus" → "bu".
+  if (/[^su]s$/u.test(word)) keep(word.slice(0, -1));
+  if (word.endsWith('ied')) keep(`${word.slice(0, -3)}y`);
+  else if (word.endsWith('ed')) {
+    keep(word.slice(0, -2));
+    keep(word.slice(0, -1));
+  }
+  if (word.endsWith('ing')) {
+    keep(word.slice(0, -3));
+    keep(`${word.slice(0, -3)}e`);
+  }
+  return [...forms];
+}
+
+/** One section's reader: each distinct word's forms worked out once. */
+function wordFormsReader(): FormsOf {
+  const memo = new Map<string, readonly string[]>();
+  return (word) => {
+    let forms = memo.get(word);
+    if (forms === undefined) {
+      forms = /[0-9]/u.test(word)
+        ? [word]
+        : ARABIC_WORD.test(word)
+          ? arabicForms(word)
+          : englishForms(word);
+      memo.set(word, forms);
+    }
+    return forms;
+  };
+}
+
+/** A stop word, or one under its clitics: وفي · بها · ولكل · منها · عليه. */
+function isStopWord(word: string): boolean {
+  if (EN_STOP.has(word) || AR_STOP.has(word)) return true;
+  if (!ARABIC_WORD.test(word)) return false;
+  let rest = word;
+  for (let peeled = 0; peeled < 2 && rest.length > 1; peeled += 1) {
+    const first = rest.charAt(0);
+    if (!AR_CONJUNCTIONS.has(first) && !AR_PREPOSITIONS.has(first)) break;
+    rest = rest.slice(1);
+    if (AR_STOP.has(rest)) return true;
+  }
+  const pronoun = AR_PRONOUNS.find(
+    (ending) => word.endsWith(ending) && word.length > ending.length,
+  );
+  return pronoun !== undefined && AR_STOP.has(word.slice(0, -pronoun.length));
+}
+
+/** Folded text as words: the text itself, its words in order, and every form they take. */
+interface Words {
+  readonly text: string;
+  readonly tokens: readonly string[];
+  readonly forms: ReadonlySet<string>;
+}
+
+function wordsOf(folded: string, formsOf: FormsOf): Words {
+  const tokens = folded === '' ? [] : folded.split(' ');
+  const forms = new Set<string>();
+  for (const token of tokens) for (const form of formsOf(token)) forms.add(form);
+  return { text: folded, tokens, forms };
+}
+
+function wordSaid(word: string, words: Words, formsOf: FormsOf): boolean {
+  return formsOf(word).some((form) => words.forms.has(form));
+}
+
+/** Two words are one: equal, or (neither a figure) sharing a form. A figure matches only itself. */
+function sameWord(claimed: string, written: string, formsOf: FormsOf): boolean {
+  if (claimed === written) return true;
+  if (/[0-9]/u.test(claimed) || /[0-9]/u.test(written)) return false;
+  const writtenForms = formsOf(written);
+  return formsOf(claimed).some((form) => writtenForms.includes(form));
+}
+
+/** The claim's words, consecutive and in order, somewhere in the text: the claim verbatim, clitics aside. */
+function phraseSaid(claimed: readonly string[], words: Words, formsOf: FormsOf): boolean {
+  const { tokens } = words;
+  for (let start = 0; start + claimed.length <= tokens.length; start += 1) {
+    if (claimed.every((word, offset) => sameWord(word, tokens[start + offset] ?? '', formsOf))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function escapeRegExp(value: string): string {
@@ -590,49 +914,96 @@ function claimTokens(folded: string): ClaimTokens {
       continue;
     }
     if (token.length < 2) continue;
-    if (EN_STOP.has(token) || AR_STOP.has(token)) continue;
+    if (isStopWord(token)) continue;
     words.push(token);
   }
   return { words, numbers };
 }
 
-/** A word is present as written, or with ة (folded ه) turned ت before a suffix: محمصه → محمصتنا. */
-function wordPresent(word: string, corpus: string): boolean {
-  if (corpus.includes(word)) return true;
-  return word.endsWith('ه') && word.length > 2 && corpus.includes(`${word.slice(0, -1)}ت`);
-}
-
-/** The claim is said: verbatim once folded, or every number and ¾ of its words. */
-function claimSaid(claim: string, corpus: string): boolean {
+/**
+ * The claim is said: its words in order (clitics and inflections aside), or
+ * every number and ¾ of its content words anywhere in the section, in any
+ * order and any form — "خصم ٢٠٪ على الطلب الأول" is said by "خصم 20% على طلبك
+ * الأول", "Fixed-price quotes" by "every job gets a fixed-price quote".
+ */
+function claimSaid(claim: string, page: Words, formsOf: FormsOf): boolean {
   const folded = foldForMatch(claim);
-  if (folded === '' || containsPhrase(corpus, folded)) return true;
+  if (folded === '' || phraseSaid(folded.split(' '), page, formsOf)) return true;
   const { words, numbers } = claimTokens(folded);
   if (words.length === 0 && numbers.length === 0) return false;
-  if (!numbers.every((number) => containsPhrase(corpus, number))) return false;
+  if (!numbers.every((number) => containsPhrase(page.text, number))) return false;
   // Every number is there: "more than" is the stat's "+", not a word to find.
   const content = numbers.length > 0 ? words.filter((word) => !QUANTIFIERS.has(word)) : words;
   const needed = Math.ceil(content.length * 0.75);
-  return content.filter((word) => wordPresent(word, corpus)).length >= needed;
+  return content.filter((word) => wordSaid(word, page, formsOf)).length >= needed;
 }
 
 /**
- * The claim is repeated: verbatim once folded, or every token of a claim of
- * three or more inside ONE line of copy — a sentence that makes it again.
- * Across the whole section, three common words (توصيل · مجاني · عمّان) turn
- * up in unrelated lines and read as a repeat that is not one (verifier,
- * 2026-09-28).
+ * The claim is repeated: its words in order (so "توصيل مجاني" repeats
+ * "التوصيل المجاني"), or every token of a claim of three or more inside ONE
+ * line of copy — a sentence that makes it again. Across the whole section,
+ * three common words (توصيل · مجاني · عمّان) turn up in unrelated lines and
+ * read as a repeat that is not one (verifier, 2026-09-28).
  */
-function claimRepeated(claim: string, corpus: string, lines: readonly string[]): boolean {
+function claimRepeated(
+  claim: string,
+  page: Words,
+  lines: readonly Words[],
+  formsOf: FormsOf,
+): boolean {
   const folded = foldForMatch(claim);
   if (folded === '') return false;
-  if (containsPhrase(corpus, folded)) return true;
+  if (phraseSaid(folded.split(' '), page, formsOf)) return true;
   const { words, numbers } = claimTokens(folded);
   if (words.length + numbers.length < 3) return false;
   return lines.some(
-    (one) =>
-      words.every((word) => wordPresent(word, one)) &&
-      numbers.every((number) => containsPhrase(one, number)),
+    (line) =>
+      words.every((word) => wordSaid(word, line, formsOf)) &&
+      numbers.every((number) => containsPhrase(line.text, number)),
   );
+}
+
+/** Arabic-Indic (U+0660) and extended (U+06F0) digits as ASCII, everything else as written. */
+function asciiDigits(value: string): string {
+  return value.replace(/[٠-٩۰-۹]/gu, (digit) => {
+    const code = digit.charCodeAt(0);
+    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+  });
+}
+
+/** The phone-shaped runs in a text: +, ( or 0, then seven digits or more. */
+function phoneRuns(value: string): readonly string[] {
+  const runs: string[] = [];
+  for (const match of asciiDigits(value.replace(ISOLATES, '')).matchAll(PHONE_RUN)) {
+    const run = match[0].trim();
+    if (/^[+(0]/u.test(run) && run.replace(/[^0-9]/gu, '').length >= 7) runs.push(run);
+  }
+  return runs;
+}
+
+function phoneShaped(value: string): boolean {
+  return phoneRuns(value).length > 0;
+}
+
+/** A fact written as its stand-in (see MASK_LETTERS), quoted as the page shows it; else undefined. */
+function maskedValue(value: string): string | undefined {
+  const plain = value.replace(ISOLATES, '').replace(/\s+/gu, ' ').trim();
+  const shown = plain.length <= 60 ? plain : undefined;
+  const mask = MASK_LETTERS.exec(plain)?.[0];
+  if (mask !== undefined) return shown ?? mask;
+  const masked = phoneRuns(plain).find((run) => /([0-9])\1{5,}/u.test(run.replace(/[^0-9]/gu, '')));
+  if (masked !== undefined) return shown ?? masked;
+  const address = PLACEHOLDER_ADDRESS.exec(plain)?.[0];
+  return address === undefined ? undefined : (shown ?? address);
+}
+
+/** The field a line of text only names ("رقم الهاتف", "Company name"), if that is all it says. */
+function fieldNamed(value: string): 'phone' | 'email' | 'name' | 'address' | undefined {
+  const afterLabel = value.includes(':') ? (value.split(':').pop() ?? '') : value;
+  const folded = foldForMatch(afterLabel)
+    .replace(/ (?:هنا|here)$/u, '')
+    .trim();
+  return FIELD_NAMES.get(folded);
 }
 
 function quoteList(values: readonly string[]): string {
@@ -704,20 +1075,30 @@ function isBlackOrWhiteRgb(args: string): boolean {
  * Holds one landed section to its contract and the page's tokens, returning
  * one `SectionCheckIssue` per defect (see `SectionCheckCode` for the list):
  * the anchor id on the outer element and every `#link` naming a section that
- * exists; one h1 on the page and only in the hero; a link styled as a button
- * to `primaryCta.href` labelled exactly `primaryCta.label`, and the hero and a
- * `cta` section carrying that action; no `[placeholder]`, lorem or scaffold
- * text; image addresses from the photo catalog, the request, or `data:` only;
- * colour by token (the kit's `ck-` classes, `var(--ck-*)`, or a palette class
- * that IS one of the plan's colours), accent-coloured text through `accentInk`
- * when the accent does not read as text, and every text pair it can resolve at
- * ≥ 4.5:1 (3:1 for display sizes); every `mustSay` said and no
- * `mustNotRepeat` repeated, matched on folded Arabic and English; only the
- * plan's two font families.
+ * exists or an id inside this section; one h1 on the page and only in the
+ * hero; a link styled as a button to `primaryCta.href` labelled
+ * `primaryCta.label` (folded: case, hamza, an arrow glyph aside), the action's
+ * words on no link that leads elsewhere, and the hero and a `cta` section
+ * carrying that action; no `[placeholder]`, lorem or scaffold text and no fact
+ * left as its stand-in (a mask like "+971 4 XXX XXXX", masked digits like
+ * "0000000", an example.com address, a field's name like «رقم الهاتف» where
+ * its value belongs); image addresses from the photo catalog, the request, or
+ * `data:` only — in `src`, component props, arbitrary classes
+ * (`bg-[url(…)]`) and the region css alike; colour by token (the kit's `ck-`
+ * classes, `var(--ck-*)`, or a palette class that IS one of the plan's
+ * colours — never a hex, a colour function or a named colour, in a class or
+ * the css), accent-coloured text through `accentInk` when the accent does not
+ * read as text, and every text pair it can resolve at ≥ 4.5:1 (3:1 for display
+ * sizes); every `mustSay` said and no `mustNotRepeat` repeated, matched word
+ * by word in every form a word takes (Arabic clitics, possessives and plurals;
+ * English plurals, possessives and -ed/-ing; digits in either script); only
+ * the plan's two font families, in the css and in arbitrary classes
+ * (`font-['Inter']`).
  *
  * `missing-anchor` also carries a link to a section that does not exist and an
  * id that belongs to another section — the same broken jump, seen from the
- * other end.
+ * other end. `placeholder-left` carries the stand-in facts; `cta-label` the
+ * action's words on a link that leads elsewhere.
  *
  * Each message is the repair instruction the writer's one repair round
  * receives (`attempt.issues`); a defect repeated across the tree is reported
@@ -776,12 +1157,22 @@ export function checkSection(
       );
     }
   }
+  /*
+    A jump inside the section is a working link: a FAQ's own table of contents
+    (`#q1` → the id q1 on one of its answers) was told it "points at no
+    section" and cost a repair round (verifier, 2026-09-28).
+  */
+  const ownIds = new Set<string>();
+  for (const entry of elements) {
+    const id = attribute(entry.node, 'id');
+    if (id !== undefined) ownIds.add(id);
+  }
   const brokenLinks = new Map<string, string>();
   for (const entry of elements) {
     const href = attribute(entry.node, 'href');
     if (!href?.startsWith('#')) continue;
     const target = href.slice(1);
-    if (target === '' || !anchors.has(target)) {
+    if (target === '' || (!anchors.has(target) && !ownIds.has(target))) {
       if (!brokenLinks.has(href)) brokenLinks.set(href, `${entry.path}.attributes.href`);
     }
   }
@@ -821,6 +1212,14 @@ export function checkSection(
   // ── the page's action ──
   const cta = plan.primaryCta;
   const ctaLabel = collapse(cta.label);
+  /*
+    The action's words, folded: "Get a quote →" (an arrow glyph after the
+    words) and "اطلب الان" (no hamza) are the action's label; relabelling them
+    cost a repair round for a button that was right.
+  */
+  const ctaWords = foldForMatch(ctaLabel);
+  const saysAction = (label: string): boolean =>
+    label === ctaLabel || (ctaWords !== '' && foldForMatch(label) === ctaWords);
   const actions = elements.filter((entry) => tagOf(entry) === 'a' || tagOf(entry) === 'button');
   const labels = landedTexts(nodes, actions);
   /*
@@ -849,6 +1248,14 @@ export function checkSection(
   let carriesAction = false;
   let deadButton: LandedNode | undefined;
   const wrongLabels = new Map<string, string>();
+  /*
+    The action's words on a link that goes somewhere else: a visitor who
+    presses "اطلب الآن" must reach the order. `<a class='ck-btn'
+    href='#faq'>اطلب الآن</a>` in a band passed, and in the hero the only
+    issue raised asked for a SECOND button beside it (verifier, 2026-09-28).
+    Keyed by where it leads, so each wrong target is named once.
+  */
+  const misdirected = new Map<string, LandedNode>();
   for (const entry of actions) {
     const label = labels.get(entry) ?? '';
     const href = attribute(entry.node, 'href')?.trim();
@@ -858,11 +1265,14 @@ export function checkSection(
       nowhere: one that carries the action's words or its address is dead.
     */
     if (tagOf(entry) === 'button') {
-      if (label === ctaLabel || href === cta.href) deadButton ??= entry;
+      if (saysAction(label) || href === cta.href) deadButton ??= entry;
       continue;
     }
-    if (href !== cta.href) continue;
-    if (label === ctaLabel) carriesAction = true;
+    if (href !== cta.href) {
+      if (saysAction(label) && !misdirected.has(href ?? '')) misdirected.set(href ?? '', entry);
+      continue;
+    }
+    if (saysAction(label)) carriesAction = true;
     else if (buttonLike(entry, label) && !wrongLabels.has(label)) {
       wrongLabels.set(label, entry.path);
     }
@@ -874,13 +1284,24 @@ export function checkSection(
       path,
     );
   }
+  for (const [href, entry] of misdirected) {
+    add(
+      'cta-label',
+      `This link says the page's action "${cta.label}" but leads to ${href === '' ? 'nowhere' : href}: point it at the action — <a href='${cta.href}' class='ck-btn'>${cta.label}</a> — or give it words of its own.`,
+      `${entry.path}.attributes.href`,
+    );
+  }
   if (deadButton !== undefined) {
     add(
       'cta-label',
       `Make the page's action a link — a button cannot go anywhere: <a href='${cta.href}' class='ck-btn'>${cta.label}</a>.`,
       deadButton.path,
     );
-  } else if (!carriesAction && (contract.role === 'hero' || contract.role === 'cta')) {
+  } else if (
+    !carriesAction &&
+    misdirected.size === 0 &&
+    (contract.role === 'hero' || contract.role === 'cta')
+  ) {
     add(
       'cta-label',
       `Add the page's action to this section: <a href='${cta.href}' class='ck-btn'>${cta.label}</a>.`,
@@ -888,10 +1309,10 @@ export function checkSection(
   }
 
   // ── placeholders ──
-  const shown: { value: string; path: string }[] = [];
+  const shown: { value: string; path: string; line?: LandedNode }[] = [];
   for (const entry of nodes) {
     const own = text(entry.node['text']);
-    if (own !== undefined) shown.push({ value: own, path: entry.path });
+    if (own !== undefined) shown.push({ value: own, path: entry.path, line: entry });
     for (const name of ['alt', 'title', 'aria-label']) {
       const value = attribute(entry.node, name);
       if (value !== undefined) shown.push({ value, path: `${entry.path}.attributes.${name}` });
@@ -905,7 +1326,7 @@ export function checkSection(
       }
     }
   }
-  const placeholders = new Map<string, string>();
+  const placeholders = new Map<string, { path: string; fact: boolean }>();
   for (const { value, path } of shown) {
     const folded = foldForMatch(value);
     const found =
@@ -914,12 +1335,49 @@ export function checkSection(
       LOREM.exec(value)?.[0] ??
       ARABIC_FILLER.find((phrase) => folded.includes(foldForMatch(phrase))) ??
       SCAFFOLD_LEFTOVERS.find((phrase) => value.includes(phrase));
-    if (found !== undefined && !placeholders.has(found)) placeholders.set(found, path);
+    if (found !== undefined && !placeholders.has(found)) {
+      placeholders.set(found, { path, fact: false });
+    }
   }
-  for (const [found, path] of [...placeholders].slice(0, MAX_PLACEHOLDERS)) {
+  // Facts written as their stand-ins: a mask, masked digits, an example address, a field's name.
+  const hrefs = elements.flatMap((entry) => {
+    const href = attribute(entry.node, 'href')?.trim();
+    return href === undefined ? [] : [{ href, path: `${entry.path}.attributes.href` }];
+  });
+  const realValue = (value: string): boolean => maskedValue(value) === undefined;
+  const showsPhone =
+    hrefs.some(({ href }) => href.startsWith('tel:') && realValue(href.slice(4))) ||
+    shown.some(({ value }) => phoneShaped(value) && realValue(value));
+  const showsEmail =
+    hrefs.some(({ href }) => href.startsWith('mailto:') && realValue(href)) ||
+    shown.some(({ value }) => EMAIL_VALUE.test(value) && realValue(value));
+  for (const { value, path, line } of shown) {
+    const masked = maskedValue(value);
+    if (masked !== undefined) {
+      if (!placeholders.has(masked)) placeholders.set(masked, { path, fact: true });
+      continue;
+    }
+    if (line === undefined || LABEL_TAGS.has(tagOf(line).toLowerCase())) continue;
+    const field = fieldNamed(value);
+    if (field === undefined || (field === 'phone' && showsPhone)) continue;
+    if (field === 'email' && showsEmail) continue;
+    const quoted = collapse(value);
+    if (!placeholders.has(quoted)) placeholders.set(quoted, { path, fact: true });
+  }
+  for (const { href, path } of hrefs) {
+    // The plan's own action address is the writer's to copy, not to change.
+    if (href === cta.href || !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href)) continue;
+    const masked = maskedValue(href.replace(/^(?:tel:|mailto:)/iu, ''));
+    if (masked !== undefined && !placeholders.has(masked)) {
+      placeholders.set(masked, { path, fact: true });
+    }
+  }
+  for (const [found, { path, fact }] of [...placeholders].slice(0, MAX_PLACEHOLDERS)) {
     add(
       'placeholder-left',
-      `Replace "${found}" with finished copy: a realistic, specific sample in the page's language (listed as a fact for the owner), never a placeholder or filler text.`,
+      fact
+        ? `Replace "${found}" with a complete, realistic value in the page's own format (listed as a fact for the owner, who edits it later): never a mask (XXX, 0000), a field's name or an example address — the page ships as written.`
+        : `Replace "${found}" with finished copy: a realistic, specific sample in the page's language (listed as a fact for the owner), never a placeholder or filler text.`,
       path,
     );
   }
@@ -943,6 +1401,21 @@ export function checkSection(
   for (const entry of nodes) {
     const src = attribute(entry.node, 'src');
     if (src !== undefined && !imageAllowed(src)) foreign.set(src, `${entry.path}.attributes.src`);
+    /*
+      A photo in an arbitrary value — `bg-[url('https://images.unsplash.com/…')]`,
+      `[background-image:url(…)]` — is a photo all the same: the live oracle
+      generates it, so the door admits it, and it passed here unread
+      (verifier, 2026-09-28).
+    */
+    for (const name of classesOf(entry.node)) {
+      if (!name.includes('url(')) continue;
+      for (const match of name.matchAll(/url\(\s*(['"]?)([^'")\s]+)\1\s*\)/giu)) {
+        const url = (match[2] ?? '').trim();
+        if (url !== '' && !imageAllowed(url) && !foreign.has(url)) {
+          foreign.set(url, `${entry.path}.className`);
+        }
+      }
+    }
     if (entry.node['kind'] === 'component') {
       for (const [key, value] of componentStrings(entry.node)) {
         if (
@@ -993,6 +1466,8 @@ export function checkSection(
       if (name.startsWith('rgb') && isBlackOrWhiteRgb(args)) continue;
       rawLiterals.push(match[0]);
     }
+    // `color:crimson;background:gold` is a colour literal too, named instead of numbered.
+    if (COLOUR_DECLARATION.test(property)) rawLiterals.push(...namedColoursIn(value));
     if (property === 'color' && value.includes('var(--ck-accent)')) accentInCss = true;
     if (property === 'font-family') {
       for (const part of value.split(',')) {
@@ -1098,12 +1573,36 @@ export function checkSection(
       return families.length === 0 ? [url] : families;
     })
     .filter((family) => !planFamilies.has(family.toLowerCase()));
-  const foreignFaces = [...new Set([...fontsInCss, ...importedFaces])];
+  /*
+    A face named in an arbitrary value — `font-['Inter']`, `font-[Cairo]`,
+    `[font-family:Tajawal]` — switches the text to a face the page never
+    loaded, and passed unread (verifier, 2026-09-28). `font-[700]` is a
+    weight and `font-[var(--ck-font-display)]` the page's own face.
+  */
+  const classFaces = new Map<string, string>();
+  for (const entry of nodes) {
+    for (const name of classesOf(entry.node)) {
+      const { base } = baseUtility(name);
+      const inner = /^font-\[(.+)\]$/u.exec(base)?.[1] ?? /^\[font-family:(.+)\]$/u.exec(base)?.[1];
+      if (inner === undefined) continue;
+      const value = inner.replace(/^family-name:/u, '').replaceAll('_', ' ');
+      if (/^(?:(?:number|weight):)?\d+$/u.test(value) || value.startsWith('var(')) continue;
+      for (const part of value.split(',')) {
+        const family = part.trim().replace(/^["']|["']$/gu, '');
+        const lower = family.toLowerCase();
+        if (family === '' || GENERIC_FAMILIES.has(lower) || planFamilies.has(lower)) continue;
+        if (!classFaces.has(family)) classFaces.set(family, `${entry.path}.className`);
+      }
+    }
+  }
+  const foreignFaces = [...new Set([...fontsInCss, ...importedFaces, ...classFaces.keys()])];
   if (foreignFaces.length > 0) {
     add(
       'foreign-font',
-      `Use the page's two faces — font-family: var(--ck-font-display) or var(--ck-font-body), already loaded by the page — not ${quoteList(foreignFaces)}; and no @import in a section.`,
-      'css',
+      `Use the page's two faces — ck-display or ck-body on an element, font-family: var(--ck-font-display) or var(--ck-font-body) in the region css, both already loaded by the page — not ${quoteList(foreignFaces)}; and no @import in a section.`,
+      fontsInCss.length > 0 || importedFaces.length > 0
+        ? 'css'
+        : (classFaces.values().next().value ?? 'css'),
     );
   }
   if (siteFaces.size > 0) {
@@ -1115,8 +1614,9 @@ export function checkSection(
   }
 
   // ── what it says ──
+  const formsOf = wordFormsReader();
   const texts = shown.map(({ value }) => foldForMatch(value));
-  const corpus = texts.join(' ');
+  const page = wordsOf(texts.join(' '), formsOf);
   /*
     A repeat is held to one LINE of copy: each text on its own, and each line
     element with the inline tags inside it — markup splits "على الطلب الأول:
@@ -1124,12 +1624,12 @@ export function checkSection(
     li or link that holds a whole card is not one line.
   */
   const lines = elements.filter((entry) => LINE_ELEMENTS.has(tagOf(entry).toLowerCase()));
-  const lineTexts = [
+  const lineWords = [
     ...texts,
     ...[...landedTexts(nodes, lines).values()].map((line) => foldForMatch(line)),
-  ];
+  ].map((line) => wordsOf(line, formsOf));
   for (const claim of contract.mustSay) {
-    if (!claimSaid(claim, corpus)) {
+    if (!claimSaid(claim, page, formsOf)) {
       add(
         'must-say',
         `Say "${claim}" in this section, in these words or close to them — the plan gives it to "${contract.title}".`,
@@ -1137,7 +1637,7 @@ export function checkSection(
     }
   }
   for (const claim of contract.mustNotRepeat) {
-    if (claimRepeated(claim, corpus, lineTexts)) {
+    if (claimRepeated(claim, page, lineWords, formsOf)) {
       add(
         'repeats',
         `Remove "${claim}": another section already says it. Say what only "${contract.title}" can.`,

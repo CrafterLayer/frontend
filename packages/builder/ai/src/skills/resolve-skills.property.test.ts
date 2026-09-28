@@ -59,7 +59,13 @@ describe('AI Skill resolution', () => {
       ),
       { numRuns: RUNS, seed: SEED },
     );
-  });
+    /*
+      1,000 registries built and resolved: CPU-bound, and the default 5 s is
+      not enough on a shared machine. Measured 2026-09-28: 6.3 s run alone at
+      load average 438 (peer workflows), and the same timeout in the wave-2
+      verifier's 10:46 run before any change here — never a wrong result.
+    */
+  }, 30_000);
 
   it('fails closed for unknown explicit ids, dependency cycles, and mandatory conflicts', () => {
     const unknown = createAiSkillRegistry([skill('skill.one')]);

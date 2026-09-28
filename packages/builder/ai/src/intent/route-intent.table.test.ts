@@ -628,6 +628,17 @@ const BARE_START_OVER: readonly string[] = [
   'خلينا نبدأ من جديد',
   // A page TYPE alone says as little as "start over with a portfolio" does.
   'rebuild it as a resume',
+  /*
+    A comment after the start-over (router-3, 2026-09-28). Before (wave-2
+    verifier): edit@0.8 — the object was read past the comma — and "make it
+    BETTER" briefed at 0.85.
+  */
+  'start over, the footer can stay',
+  'ابدأ من جديد، الألوان كلها غلط',
+  'start over. the hero was ugly',
+  'start over, and make it better',
+  'start over, we need something different',
+  'عيد تصميم الصفحة',
 ];
 
 /* The same start-over WITH a brief keeps its confidence. */
@@ -645,6 +656,23 @@ const BRIEFED_START_OVER: readonly string[] = [
   'ما عجبني، ابدأ من الصفر وصمم صفحة لمخبز',
   'start over. make a page for my barber shop',
   'the page is ugly — rebuild it for a yoga studio',
+  /*
+    The brief as the clause after the start-over, with no verb (router-3,
+    2026-09-28). Before (wave-2 verifier): the bare 0.5 — only a clause with
+    a verb or a "for" counted — and "this time" read as the time element.
+  */
+  'start over, this time for a bakery',
+  'start over: bakery in Amman',
+  'ابدأ من الصفر: مطعم مشاوي في عمان',
+  'redesign the page: modern law firm, navy and gold',
+  "rebuild the page — we're a dental clinic now",
+  'start over, we sell handmade soap',
+  'ابدأ من جديد، احنا صرنا مطعم',
+  'أعد تصميم الموقع، صرنا شركة عقارات',
+  // Past the verifier's rows.
+  "start over, I'm a wedding photographer",
+  'start over: my bakery in Irbid',
+  'يلا عيد تصميم الصفحة لمطعم مشاوي',
 ];
 
 /*
@@ -657,6 +685,11 @@ const DEFINITE_CHANGES_ON_EMPTY: readonly string[] = [
   'اجعل لون الخلفية بلون القهوة',
   'the restaurant menu needs new prices',
   'make the hero text say Welcome',
+  // MSA verbal nouns of change (wave-2 verifier's must-fix, 2026-09-28).
+  'هل يمكن تعديل رقم هاتف العيادة؟',
+  'أريد تعديل سعر القهوة في المنيو',
+  'الرجاء حذف قسم المنيو من صفحة المطعم',
+  'أرجو تغيير صور الشقة',
 ];
 
 /*
@@ -712,6 +745,28 @@ const SUGGESTIONS: readonly (readonly [string, IntentKind])[] = [
   ['شو رأيك تضيف قسم أسعار؟', 'add-section'],
   ['ما رأيك لو نغير الخط؟', 'edit'],
   ['would it be possible to make the header smaller?', 'edit'],
+  /*
+    The gerund, the past and "there was" of a suggestion. Before (v1-panel
+    verifier's suggest-probe2, 2026-09-28): question@0.9, and the Arabic past
+    after "لو" question@0.75 — the panel answered in words and changed
+    nothing, while "how about we add…" and "ما رأيك لو تضيف…" routed.
+  */
+  ['how about adding a testimonials section?', 'add-section'],
+  ['what about changing the font?', 'edit'],
+  ['what if we changed the hero to dark?', 'edit'],
+  ['what if there was a contact form?', 'edit'],
+  ['ما رأيك لو أضفت قسم أسعار؟', 'add-section'],
+  ['ما رأيك لو غيرت الخط؟', 'edit'],
+  // Past the probe's rows (router-3).
+  ['what about using a serif font?', 'edit'],
+  ['what if we made the hero darker?', 'edit'],
+  ['how about we add a testimonials section?', 'add-section'],
+  ['what if you added a FAQ section?', 'add-section'],
+  ['how about swapping the hero image?', 'edit'],
+  ['شو رأيك لو حطيت صورة بالهيرو؟', 'edit'],
+  ['ما رأيك لو خليت الخلفية أغمق؟', 'edit'],
+  ['ما رأيك لو غيرنا الخط؟', 'edit'],
+  ['ما رأيك لو فيه قسم أسعار؟', 'add-section'],
 ];
 
 /* …while a question that suggests nothing is still a question. */
@@ -721,13 +776,180 @@ const STILL_QUESTIONS: readonly string[] = [
   'ليش ما اشتغل؟',
   'what if it breaks on mobile?',
   'is it possible?',
+  // A plural noun is not a verb's third person: "updates" asks about updates.
+  'what about updates?',
+  'what about the prices?',
+  'ما رأيك في التصميم؟',
+];
+
+/*
+  THE SAFETY RULE (router-3, 2026-09-28): a request shaped as a question never
+  writes with confidence. Below, the first rows are the wave-2 verifier's —
+  each routed a WRITE (edit@0.8, build-page@0.75/0.9, build-site@0.9) where
+  wave 1 had answered it at 0.9.
+*/
+
+/*
+  What WOULD HAPPEN: the person is the subject of the idea, or a later clause
+  asks about the outcome. Answered in words on every canvas.
+*/
+const HYPOTHETICALS: readonly string[] = [
+  'what if I delete the hero?',
+  'what if I remove the footer, will the page break?',
+  'what if we change the font — would it load slower?',
+  'what if I want to add a page later?',
+  // Past the verifier's rows.
+  'what if I add a video to the hero?',
+  'how about I add a map?',
+  'what if I change the colors, will it still look good?',
+  'what if we removed the pricing section, would anyone notice?',
+  'if I delete the hero, will the page break?',
+  'what happens if I delete the footer?',
+  'ماذا لو حذفت الهيرو؟',
+  'لو حذفت الفوتر، هل ستتعطل الصفحة؟',
+  'إذا شلت الهيرو، شو بيصير؟',
+  'ما رأيك لو أنا غيرت الخط؟',
+  'ما رأيك لو أضفت قسم أسعار، هل سيكون أفضل؟',
+];
+
+/*
+  What CAN be done ("is it possible to…", "هل يمكن + verbal noun"): the
+  request it names, below the confirm line (0.6), so the host asks first.
+*/
+const CAPABILITY_QUESTIONS: readonly (readonly [string, IntentKind])[] = [
+  ['is it possible to change the font to Inter?', 'edit'],
+  ['would it be possible to make the header smaller?', 'edit'],
+  ['is there a way to change the font?', 'edit'],
+  ['is it possible to add a pricing section?', 'add-section'],
+  ['هل يمكن تغيير الخط؟', 'edit'],
+  ['هل يمكن تعديل رقم هاتف العيادة؟', 'edit'],
+  ['هل بالإمكان إضافة قسم للأسعار؟', 'add-section'],
+];
+
+/* A question of any shape that would BUILD a page or a site is answered first. */
+const QUESTIONS_THAT_WOULD_BUILD: readonly string[] = [
+  'is it possible to add pages?',
+  'is it possible to make a multi-page site?',
+  'is there a way to add pages?',
+  'why not start over?',
+  'what about making a site for my clinic?',
+  'هل يمكن إضافة صفحات؟',
+  'هل من الممكن عمل موقع متعدد الصفحات؟',
+];
+
+/* …while courtesy addressed to the assistant, or a condition, still asks with confidence. */
+const POLITE_REQUESTS: readonly (readonly [string, IntentDocumentSummary, IntentKind])[] = [
+  ['can you build me a website for my gym?', EMPTY, 'build-page'],
+  ['هل يمكنك إضافة قسم للأسعار؟', LANDING, 'add-section'],
+  ['ممكن تسويلي موقع لصالون؟', EMPTY, 'build-page'],
+  // Bare "ممكن" is the Levantine "could you", even before a verbal noun.
+  ['ممكن عمل موقع لمطعمي؟', EMPTY, 'build-page'],
+  ['هل ممكن تضيف قسم أسعار؟', LANDING, 'add-section'],
+  ['if possible, make the hero darker', LANDING, 'edit'],
+  ['اذا بتقدر، ضيف قسم أسعار', LANDING, 'add-section'],
+];
+
+/*
+  "عيد" is Eid, the noun, after a noun it completes or before a "ب"-carried
+  design word. Before (wave-2 verifier): build-page/replace@0.85 over a page
+  with content — a confident start-over from an Eid card request.
+*/
+const EID_THE_NOUN: readonly string[] = [
+  'صمم لي بطاقة عيد بتصميم ذهبي',
+  'بطاقة عيد تصميم بسيط',
+  'اعمل بطاقة عيد تصميمها أنيق',
+  'صفحة عيد تصميم عصري لعملائنا',
+  // Past the verifier's rows.
+  'صمم بطاقة عيد تصميمها ذهبي',
+  'تهنئة عيد تصميم أنيق',
+  // MSA's verbal noun after a noun is that noun's complement: redesign SERVICES.
+  'صفحة لشركة تقدم خدمات إعادة تصميم المواقع',
+];
+
+/* …while the verb, where a verb stands, still restarts what it names. */
+const EID_THE_VERB: readonly (readonly [string, IntentKind, IntentTarget | undefined])[] = [
+  ['عيد تصميم الصفحة', 'build-page', 'replace'],
+  ['عيد تصميم الهيرو', 'edit', undefined],
+  ['وعيد تصميم الفوتر', 'edit', undefined],
+  ['يلا عيد تصميم الصفحة لمطعم مشاوي', 'build-page', 'replace'],
+  ['ممكن تعيد تصميم الصفحة؟', 'build-page', 'replace'],
+];
+
+/*
+  A start-over, then a COMMENT: the object of "start over" never sits past a
+  break, and "this time" is when, not the page's time element. Before (wave-2
+  verifier): edit@0.8-0.85 on a page with content, edit@0.5 on an empty one.
+*/
+const START_OVER_THEN_COMMENT: readonly string[] = [
+  'start over, the footer can stay',
+  'start over. the hero was ugly',
+  'ابدأ من جديد، الألوان كلها غلط',
+  'ابدأ من الصفر، النص مش واضح',
+  'start over, the pricing can stay',
+  // Past the verifier's rows.
+  "start over. I don't like it",
+  "start over, it's ugly",
+  'ابدأ من الصفر، مش عاجبني',
+];
+
+/*
+  MSA verbal nouns of change where a request's verb stands: first, after
+  courtesy, or after a want, a make or a must. Before (wave-2 verifier): no
+  verb at all, so on an empty page — the resolver's page today — each was the
+  brief for a whole page.
+*/
+const VERBAL_NOUN_CHANGES: readonly string[] = [
+  'تغيير عنوان قسم التعليم والشهادات إلى مرحبا',
+  'هل يمكن تعديل رقم هاتف العيادة؟',
+  'أريد تعديل سعر القهوة في المنيو',
+  'الرجاء حذف قسم المنيو من صفحة المطعم',
+  'أرجو تغيير صور الشقة',
+  // Past the verifier's rows.
+  'بدي تغيير الخط',
+  'سوي تعديل بسيط على الهيرو',
+  'تصغير الصور في قسم المعرض',
+  'يرجى حذف قسم الأسعار',
+  'لازم تغيير لون الخلفية',
+];
+
+/* A verbal noun that names a TRADE, first and with nothing of the page after it, is a brief. */
+const VERBAL_NOUN_TRADES: readonly string[] = ['نقل عفش في عمان', 'شركة نقل أثاث في عمان'];
+
+/*
+  One new SECTION named with no verb, on a page with nothing to keep. Before
+  (wave-2 router owner's not-done list): build-page/replace@0.6 — the nav was
+  the brief for a whole page.
+*/
+const SECTION_PHRASES: readonly string[] = [
+  'a nav with links to home, blog and contact',
+  'قسم أسعار بثلاث باقات',
+  'a footer with social links',
+  'بانر وداع سامر ووسيم مع خلفية سفر',
+  'another hero with a video background',
+  'شريط تنقل فيه روابط للرئيسية والمدونة',
+];
+
+/*
+  …but a page ask whose first noun is a part stays the brief: an element
+  heads pages ("an Eid card"), a section that is also a page's name may be the
+  page ("a menu for my restaurant"), and several listed parts describe one.
+*/
+const BRIEFS_OPENING_WITH_A_PART: readonly string[] = [
+  'a menu for my restaurant',
+  'a gallery of my wedding photos',
+  'a hero with a big photo, then a menu, then a contact section',
+  'an eid al fitr card for our clients',
+  'a pricing table with three tiers',
+  'هيرو فيه صورة كبيرة وقسم منيو وتواصل',
 ];
 
 describe('the routing table — the wave-1 verifier’s regressions and past them', () => {
   it.each(SUGGESTIONS)('reads the suggestion “%s” as the request it is (%s)', (request, kind) => {
-    for (const document of [LANDING, undefined]) {
+    for (const document of [LANDING, EMPTY, undefined]) {
       const route = routeIntent({ request, ...(document === undefined ? {} : { document }) });
       expect({ request, kind: route.kind }).toEqual({ request, kind });
+      // An idea to weigh, never an instruction's confidence (router-3, 2026-09-28).
+      expect(route.confidence).toBeLessThan(0.8);
     }
   });
 
@@ -834,5 +1056,151 @@ describe('the routing table — the wave-1 verifier’s regressions and past the
         kind: 'build-site',
       });
     }
+  });
+});
+
+/** Every canvas the router distinguishes, with the page left unknown too. */
+const EVERY_CANVAS: readonly (IntentDocumentSummary | undefined)[] = [
+  LANDING,
+  CONTENT_AR,
+  EMPTY,
+  PLACEHOLDERS,
+  undefined,
+];
+
+const routeOn = (request: string, document: IntentDocumentSummary | undefined) =>
+  routeIntent({ request, ...(document === undefined ? {} : { document }) });
+
+describe('the routing table — router-3: questions never write with confidence', () => {
+  it.each(HYPOTHETICALS)('answers “%s” in words, on every canvas and over a selection', (request) => {
+    for (const document of EVERY_CANVAS) {
+      expect({ request, kind: routeOn(request, document).kind }).toEqual({
+        request,
+        kind: 'question',
+      });
+    }
+    const pointed = routeIntent({ request, document: LANDING, selection: ['hero'] });
+    expect({ request, kind: pointed.kind }).toEqual({ request, kind: 'question' });
+  });
+
+  it.each(CAPABILITY_QUESTIONS)(
+    'routes the capability question “%s” as %s, below the confirm line',
+    (request, kind) => {
+      for (const document of EVERY_CANVAS) {
+        const route = routeOn(request, document);
+        expect({ request, kind: route.kind }).toEqual({ request, kind });
+        expect(route.confidence).toBeLessThan(0.6);
+      }
+    },
+  );
+
+  it.each(QUESTIONS_THAT_WOULD_BUILD)('never builds from “%s”', (request) => {
+    for (const document of EVERY_CANVAS) {
+      expect({ request, kind: routeOn(request, document).kind }).toEqual({
+        request,
+        kind: 'question',
+      });
+    }
+  });
+
+  it.each(POLITE_REQUESTS)('still acts on the polite request “%s” with confidence', (request, document, kind) => {
+    const route = routeIntent({ request, document });
+    expect({ request, kind: route.kind }).toEqual({ request, kind });
+    expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it('says which frame it read, for the logs', () => {
+    expect(routeIntent({ request: 'what if I delete the hero?' }).reason).toMatch(
+      /^asks about the person’s own action/u,
+    );
+    expect(routeIntent({ request: 'what if I remove the footer, will the page break?' }).reason).toMatch(
+      /^asks what would happen .*“will”/u,
+    );
+    expect(routeIntent({ request: 'is it possible to change the font to Inter?' }).reason).toMatch(
+      /^asks whether it can be done \(“is it possible to”\)/u,
+    );
+    expect(routeIntent({ request: 'هل يمكن إضافة صفحات؟' }).reason).toMatch(
+      /a page is never built from a question$/u,
+    );
+  });
+});
+
+describe('the routing table — router-3: the Levantine “عيد”', () => {
+  it.each(EID_THE_NOUN)('reads “%s” as Eid, never a start-over', (request) => {
+    for (const document of EVERY_CANVAS) {
+      const route = routeOn(request, document);
+      expect({ request, reason: route.reason }).not.toEqual({
+        request,
+        reason: expect.stringMatching(/^asks to start over/u),
+      });
+    }
+    for (const document of [LANDING, CONTENT_AR]) {
+      expect({ request, target: routeOn(request, document).target }).not.toEqual({
+        request,
+        target: 'replace',
+      });
+    }
+  });
+
+  it.each(EID_THE_VERB)('still reads the verb in “%s” (%s)', (request, kind, target) => {
+    const route = routeIntent({ request, document: LANDING });
+    expect({ request, kind: route.kind }).toEqual({ request, kind });
+    if (target !== undefined) expect(route.target).toBe(target);
+  });
+});
+
+describe('the routing table — router-3: a start-over and what follows it', () => {
+  it.each(START_OVER_THEN_COMMENT)(
+    'restarts the PAGE on “%s”, below the confirm line, whatever the canvas',
+    (request) => {
+      for (const document of [LANDING, CONTENT_AR, EMPTY, undefined]) {
+        const route = routeOn(request, document);
+        expect({ request, kind: route.kind, target: route.target }).toEqual({
+          request,
+          kind: 'build-page',
+          target: 'replace',
+        });
+        expect(route.confidence).toBeLessThan(0.6);
+      }
+    },
+  );
+});
+
+describe('the routing table — router-3: MSA verbal nouns and verbless sections', () => {
+  it.each(VERBAL_NOUN_CHANGES)('reads “%s” as a change on every canvas', (request) => {
+    for (const document of EVERY_CANVAS) {
+      expect({ request, kind: routeOn(request, document).kind }).toEqual({ request, kind: 'edit' });
+    }
+  });
+
+  it.each(VERBAL_NOUN_TRADES)('still takes the trade “%s” as a brief on an empty page', (request) => {
+    expect(routeIntent({ request, document: EMPTY })).toMatchObject({
+      kind: 'build-page',
+      target: 'replace',
+    });
+  });
+
+  it.each(SECTION_PHRASES)('adds the one section “%s” names on an empty page', (request) => {
+    for (const document of [EMPTY, PLACEHOLDERS]) {
+      expect(routeIntent({ request, document })).toMatchObject({
+        kind: 'add-section',
+        target: 'append',
+      });
+    }
+    // A pointed block still owns a verbless phrase.
+    expect(routeIntent({ request, document: LANDING, selection: ['hero'] }).kind).toBe('edit');
+  });
+
+  it.each(BRIEFS_OPENING_WITH_A_PART)('keeps “%s” the brief for a page on an empty page', (request) => {
+    expect(routeIntent({ request, document: EMPTY })).toMatchObject({
+      kind: 'build-page',
+      target: 'replace',
+    });
+  });
+
+  it('lets the page’s own section own a phrase that names it', () => {
+    expect(
+      routeIntent({ request: 'a pricing section with three tiers', document: LANDING }).kind,
+    ).toBe('edit');
   });
 });

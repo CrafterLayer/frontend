@@ -1,0 +1,12 @@
+/*
+  ErrorRecord (SPEC §4.14, §3.11, §3.17). The record's geometry is RunRecord's; its lines are
+  ErrorBody's. What is its own is the phone: in the sheet (a coarse pointer under a 600px
+  viewport) "Try again" takes the footer's full width, so the one way forward is the easiest
+  thing to reach with a thumb.
+*/
+
+@media (pointer: coarse) and (width < 600px) {
+  .ck-agent-error .ck-agent-record__actions > .ck-agent-button[data-ck-tone='primary'] {
+    flex: 1 1 100%;
+  }
+}

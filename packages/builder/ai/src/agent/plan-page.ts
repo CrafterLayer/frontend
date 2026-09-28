@@ -1,5 +1,9 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
-import type { AiContextProvider } from '@craftkit/builder-schema';
+import {
+  CUSTOM_CODE_ATTRIBUTES,
+  CUSTOM_CODE_TAGS,
+  type AiContextProvider,
+} from '@craftkit/builder-schema';
 
 import { assembleAiContext, type AiCompositionPolicy } from '../context';
 import {
@@ -134,10 +138,84 @@ export function landingTarget(
   return summary.nodeCount === 0 || summary.placeholderOnly ? 'replace' : 'append';
 }
 
-/** The request as the planner reads it: the person's words, the B line when asked, where it lands. */
+/*
+  DESIGN CODE: the markup a section writer may reach for beyond sections,
+  cards and lists, each named only while the tree vocabulary admits it. The
+  design-code owner is adding these to CUSTOM_CODE_TAGS and
+  CUSTOM_CODE_ATTRIBUTES (2026-09-28); a brief that names a tag the door
+  refuses buys one repair round per use (25-40 s measured 2026-09-27), so the
+  line is read from the vocabulary, never written ahead of it. A group counts
+  when its first tag, and every attribute it needs, is admitted.
+*/
+const DESIGN_MARKUP: readonly {
+  readonly use: string;
+  readonly tags: readonly string[];
+  readonly attributes?: readonly string[];
+}[] = [
+  { use: 'a disclosure: FAQ answers, "more"', tags: ['details', 'summary'] },
+  {
+    use: 'a table: prices, hours, a comparison',
+    tags: ['table', 'caption', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'],
+  },
+  {
+    use: 'svg shapes: a divider, a blob, a mark',
+    tags: ['svg', 'path', 'circle', 'ellipse', 'rect', 'line', 'polyline', 'polygon', 'g'],
+  },
+  {
+    use: 'a popover: a button with popovertarget opens the element with popover',
+    tags: [],
+    attributes: ['popover', 'popovertarget'],
+  },
+  { use: 'a video: muted, looping, playsinline, with a poster', tags: ['video', 'source'] },
+];
+
+/**
+ * The design markup a vocabulary admits, one `tags (use)` entry per group,
+ * joined with " · "; '' when it admits none of them.
+ *
+ * @internal Exported for its test; `designMarkup` is the one caller.
+ */
+export function designMarkupFor(
+  tags: ReadonlySet<string>,
+  attributes: ReadonlySet<string>,
+): string {
+  return DESIGN_MARKUP.flatMap(({ use, tags: wanted, attributes: needs = [] }) => {
+    const [first] = wanted;
+    if (first !== undefined && !tags.has(first)) return [];
+    if (!needs.every((name) => attributes.has(name))) return [];
+    const admitted = wanted.filter((tag) => tags.has(tag));
+    return [`${(admitted.length === 0 ? needs : admitted).join('/')} (${use})`];
+  }).join(' · ');
+}
+
+/**
+ * The design markup the tree vocabulary admits TODAY (`CUSTOM_CODE_TAGS`,
+ * `CUSTOM_CODE_ATTRIBUTES`).
+ *
+ * @internal Shared with the build's section contract.
+ */
+export function designMarkup(): string {
+  return designMarkupFor(
+    new Set<string>(CUSTOM_CODE_TAGS),
+    new Set<string>(CUSTOM_CODE_ATTRIBUTES),
+  );
+}
+
+/*
+  The planner decides the SIGNATURE and each section's variant, so it is told
+  what the writers can build with: region css and the richer markup. Without
+  it a signature was a sentence the writers could only approximate with
+  utilities, and a FAQ could only ever be a list.
+*/
+function designLine(): string {
+  const markup = designMarkup();
+  return `DESIGN CODE: each section's writer may build effects in its own region css — ck- classes over var(--ck-…): gradients, masks, clip-path, grain, keyframes${markup === '' ? '' : `, and markup such as ${markup}`}. Make tokens.signature an effect a writer can build with them.`;
+}
+
+/** The request as the planner reads it: the person's words, the B line when asked, where it lands, what writers can build. */
 function planningRequest(request: string, target: IntentTarget | undefined): string {
   const asked = withRequestedLook(request);
-  return target === undefined ? asked : `${asked}\n${INTENT_LINE[target]}`;
+  return [asked, ...(target === undefined ? [] : [INTENT_LINE[target]]), designLine()].join('\n');
 }
 
 /** Whether the page being planned is in Arabic: the words, the page's direction, or its lang. */
@@ -336,6 +414,8 @@ export async function proposeValidatedPagePlan(
     const selectedSkillIds = planSkillIds(registry, input.policy, arabic);
     const skills = registry?.prepare({
       request,
+      // A page plan is a page, whatever the words read as on the page it lands on.
+      intent: 'build-page',
       selectedSkillIds,
       auto: false,
       ...(input.policy?.allowUntrustedSkills === undefined

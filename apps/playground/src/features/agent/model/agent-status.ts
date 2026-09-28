@@ -191,6 +191,9 @@ export const ANNOUNCE_POLICY: Readonly<
   'plan.moved': 'immediate',
   'plan.removed': 'immediate',
   copied: 'immediate',
+  // WP-16: replies to the person's own Improve / Send, so at once.
+  'enhance.ready': 'immediate',
+  'clarify.ready': 'immediate',
 };
 
 /** The keys a caller may `say` directly; the two deferred keys have their own inputs. */

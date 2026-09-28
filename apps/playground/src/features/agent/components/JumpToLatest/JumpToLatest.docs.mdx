@@ -1,0 +1,89 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as JumpToLatestStories from './JumpToLatest.stories';
+
+<Meta of={JumpToLatestStories} />
+
+# JumpToLatest
+
+The jump pill (SPEC §4.4, §3.12): shown while the reader is scrolled away from the newest line, it
+says why there is news below and brings them back to it.
+
+<Canvas of={JumpToLatestStories.Building} />
+
+## Purpose
+
+A reader who scrolled up to read an older record should be left alone: the panel never pulls them
+back down. But they should know something is happening below, and what. The pill says it in one
+word: "Latest" when nothing runs, "Building" while a page builds, "Editing" while an edit runs,
+"Working" for any other live run (routing, a plan, a proposal, an answer).
+
+## When to use / not
+
+AgentThread renders and places it; its visibility is the thread's decision (away from the bottom,
+and never over the focused element). Do not render it anywhere else, and do not show it at the
+bottom.
+
+## Props
+
+| prop       | type                     | default | notes                                                         |
+| ---------- | ------------------------ | ------- | ------------------------------------------------------------- |
+| `locale`   | `'ar' \| 'en'`           | none    |                                                               |
+| `activity` | `RunActivity \| null`    | none    | `run.activity`; `null` reads "Latest"                         |
+| `visible`  | `boolean`                | none    | `false` sets `hidden`: out of the tab order and the a11y tree |
+| `onJump`   | `() => void`             | none    | AgentThread scrolls to the bottom and focuses the newest head |
+| `ref`      | `Ref<HTMLButtonElement>` | none    | lets AgentThread notice the pill hiding while it has focus    |
+
+## Copy
+
+| activity                        | pill (العربية / English) | accessible name                                               |
+| ------------------------------- | ------------------------ | ------------------------------------------------------------- |
+| none                            | الأحدث / Latest          | الانتقال إلى الأحدث / Jump to the latest                      |
+| build                           | يبني الآن / Building     | يبني الآن: الانتقال إلى الأحدث / Building: jump to the latest |
+| edit                            | يعدّل الآن / Editing     | يعدّل الآن: الانتقال إلى الأحدث / Editing: jump to the latest |
+| routing, plan, proposal, answer | يعمل الآن / Working      | يعمل الآن: الانتقال إلى الأحدث / Working: jump to the latest  |
+
+The name opens with the pill's own word (WCAG 2.5.3 Label in Name): SPEC §4.4's `jump.aria` alone
+("Jump to the latest") does not contain "Building", so a speech-input user saying "click Building"
+would miss it. `jump.aria.live` is the catalog key that adds the word; idle, `jump.aria` already
+contains "Latest".
+
+## States
+
+`Latest`, `Building`, `Editing`, `Working`; `BuildingArabic`, `EditingArabic`, `LatestArabicDark`,
+`BuildingDark`; `Hidden`. Their plays check the word, that the name opens with it, the 32px height,
+that in Arabic the arrow sits at the right, and that a hidden pill is not in the accessibility tree.
+
+## Anatomy
+
+```text
+╭──────────────╮
+│ ↓  Building  │   32px (44 coarse), radius full, Sheet, 1px surface border, floating shadow
+╰──────────────╯   8px on the arrow's side, 12px on the word's (the arrow has its own air)
+```
+
+- **Arrow**: `AgentIcon` `arrowDown`, 16px, Graphite (Ink on hover), `aria-hidden`, never mirrored.
+- **Word**: Meta type, 500, Ink, one line.
+- **Hover** lays the Wash over the Sheet; a press, the darker wash. Never Indigo.
+
+## Motion
+
+SPEC §5 moment 9. In: opacity and a 4px rise over `move` (180ms), `easing-enter`, from
+`@starting-style`. Out: the same 4px sink over `exit` (140ms), `easing-exit`, with `display`
+transitioned `allow-discrete`, so the `hidden` attribute still takes it out of the tab order at
+once. Under reduced motion: opacity only, 120ms. A browser without `@starting-style` or discrete
+transitions simply shows and hides it.
+
+## Accessibility
+
+- A real `button type="button"`, named as above; the arrow is decoration.
+- Hidden is the `hidden` attribute, not transparency: nobody can tab to, or hear, a pill that is not
+  there.
+- It never covers the focused element (WCAG 2.4.11): AgentThread hides it while focus is in the
+  newest turn or anywhere in the band it floats over.
+- After a jump, focus lands on the newest record's head (SPEC §6.3), not on the pill.
+
+## RTL
+
+Logical properties only: in Arabic the arrow is at the right, the reading start, and the pill stays
+centred.

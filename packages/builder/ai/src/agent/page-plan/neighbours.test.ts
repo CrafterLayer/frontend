@@ -235,4 +235,160 @@ describe('summarizeNeighbours — what a writer knows about the sections around 
     expect(summary).toMatch(/^BEFORE/u);
     expect(summary).toContain('Brands that hold');
   });
+
+  /*
+    The claims are what the summary exists to carry: a writer who cannot see
+    "يمن حرازي" in the section before writes it again. The purpose came first
+    in each line and the cut fell at the line's end, so on this plan — the
+    verifier's 7-section café, 2026-09-28 (neighbours-real.mjs) — section 4's
+    summary dropped four claims while keeping 140 characters of every purpose.
+    Now the purposes give way first.
+  */
+  const CAFE_SEVEN = accepted({
+    intent: 'new-page',
+    locale: { lang: 'ar' },
+    title: 'محمصة الهيل',
+    description: 'قهوة مختصة في عمّان.',
+    tokens: {
+      bg: 'lime-50',
+      surface: 'white',
+      ink: 'emerald-950',
+      muted: 'emerald-800',
+      accent: 'orange-700',
+      onAccent: 'white',
+      border: '#E7E5E4',
+      fontDisplay: { family: 'Lalezar' },
+      fontBody: { family: 'Almarai', weights: [400, 700] },
+      radius: 'xl',
+      signature: 'the brand name, faint behind the menu',
+    },
+    primaryCta: { label: 'اطلب الآن', href: '#order' },
+    nav: [],
+    sections: [
+      { key: 'header', role: 'header', title: 'الترويسة', anchorId: 'top', purpose: 'التنقل.' },
+      {
+        key: 'hero',
+        role: 'hero',
+        title: 'قهوة تُحمّص كل صباح في قلب عمّان',
+        anchorId: 'hero',
+        purpose:
+          'تعريف الزائر بالمحمصة ووعدها: قهوة مختصة طازجة تُحمّص يومياً وتصل إلى بابك خلال ساعتين داخل عمّان.',
+        mustSay: ['محمصة مختصة في جبل عمّان', 'توصيل مجاني داخل عمّان', 'تحميص يومي'],
+      },
+      {
+        key: 'origins',
+        role: 'band',
+        title: 'من أين تأتي حبوبنا',
+        anchorId: 'origins',
+        purpose:
+          'عرض مصادر البن الثلاثة (إثيوبيا، كولومبيا، اليمن) مع ملاحظات التذوق لكل منها بشكل بطاقات بسيطة.',
+        mustSay: ['إثيوبيا يرغاتشيفي', 'كولومبيا هويلا', 'يمن حرازي'],
+        mustNotRepeat: ['تحميص يومي'],
+      },
+      {
+        key: 'stats',
+        role: 'band',
+        title: 'أرقامنا',
+        anchorId: 'stats',
+        purpose:
+          'إثبات اجتماعي بالأرقام: عدد العملاء، سنوات الخبرة، عدد أصناف البن المتوفرة حالياً في المتجر.',
+        mustSay: ['أكثر من ١٢٠٠ عميل', '١٢ سنة خبرة', '١٥ صنفاً'],
+        mustNotRepeat: ['توصيل مجاني داخل عمّان'],
+      },
+      {
+        key: 'menu',
+        role: 'band',
+        title: 'القائمة',
+        anchorId: 'menu',
+        purpose:
+          'المشروبات الأكثر طلباً مع أسعارها بالدينار الأردني، مرتبة من الأخف إلى الأقوى، مع علامة للأكثر مبيعاً.',
+        mustSay: ['إسبريسو ١٫٥ د.أ', 'لاتيه ٢٫٥ د.أ', 'قهوة عربية ١ د.أ'],
+      },
+      {
+        key: 'order',
+        role: 'cta',
+        title: 'اطلب قهوتك',
+        anchorId: 'order',
+        purpose: 'دعوة ختامية للطلب عبر الموقع مع تذكير بسرعة التوصيل.',
+      },
+      { key: 'footer', role: 'footer', title: 'التذييل', anchorId: 'footer', purpose: 'العنوان.' },
+    ],
+    facts: [],
+  });
+
+  /** A lone half of a surrogate pair: what a prompt renders as a replacement box. */
+  const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u;
+
+  it.each([2, 3, 4])(
+    'keeps every neighbour’s claims whole on the verifier’s 7-section plan (section %i)',
+    (index) => {
+      const summary = summarizeNeighbours(CAFE_SEVEN, index, new Map());
+      expect(summary.length).toBeLessThanOrEqual(NEIGHBOUR_SUMMARY_MAX_CHARS);
+      const shown = [index - 1, index + 1, 1].filter((at) => at !== index);
+      for (const at of shown) {
+        for (const claim of CAFE_SEVEN.sections[at]?.mustSay ?? []) {
+          expect(summary, `${String(at)}: ${claim}`).toContain(`"${claim}"`);
+        }
+      }
+      // In each line the claims come first and the purpose after them: the purpose is what gives way.
+      for (const at of shown) {
+        const contract = CAFE_SEVEN.sections[at];
+        if (contract === undefined || contract.mustSay.length === 0) continue;
+        const own = summary.split('\n').find((line) => line.includes(`"${contract.title}"`)) ?? '';
+        const purpose = own.indexOf(contract.purpose.slice(0, 12));
+        expect(own.indexOf('Will say')).toBeGreaterThan(-1);
+        if (purpose !== -1) expect(purpose).toBeGreaterThan(own.indexOf('Will say'));
+      }
+    },
+  );
+
+  it('gives three long unwritten neighbours all their claims, cutting their purposes instead', () => {
+    const long = (label: string) =>
+      `${label} 🍩 — ${'وصف طويل جداً لما يفعله هذا القسم ولماذا يوجد في الصفحة، '.repeat(8)}`.slice(
+        0,
+        400,
+      );
+    const plan = accepted({
+      ...JSON.parse(JSON.stringify(CAFE_SEVEN)),
+      sections: CAFE_SEVEN.sections.map((section, at) =>
+        at >= 1 && at <= 4
+          ? {
+              ...section,
+              title: `${'🍩'.repeat(12)} ${section.title}`.slice(0, 60),
+              purpose: long(section.key),
+              mustSay: [
+                `ادعاء قصير ${String(at)}أ`,
+                `ادعاء قصير ${String(at)}ب`,
+                `ادعاء قصير ${String(at)}ج`,
+              ],
+            }
+          : section,
+      ),
+    });
+    const summary = summarizeNeighbours(plan, 3, new Map());
+    expect(summary.length).toBeLessThanOrEqual(NEIGHBOUR_SUMMARY_MAX_CHARS);
+    expect(summary).not.toMatch(LONE_SURROGATE);
+    for (const at of [1, 2, 4]) {
+      for (const claim of plan.sections[at]?.mustSay ?? []) expect(summary).toContain(`"${claim}"`);
+    }
+    // Each purpose was cut to fit (all three are 400 characters long), and the cut is marked.
+    expect(summary.split('\n').every((line) => line.endsWith('…'))).toBe(true);
+  });
+
+  it('never splits a surrogate pair where it cuts, whatever the emoji', () => {
+    const emoji = section(
+      h('h2', `${'🍩'.repeat(150)} عنوان`),
+      ...Array.from({ length: 6 }, (_, at) => h('h3', `${'☕️🍩'.repeat(40)} ${String(at)}`)),
+    );
+    const landed = new Map<string, LandedSection>([
+      ['hero', emoji],
+      ['work', emoji],
+      ['contact', emoji],
+    ]);
+    for (const index of [0, 1, 2]) {
+      const summary = summarizeNeighbours(STUDIO, index, landed);
+      expect(summary.length).toBeLessThanOrEqual(NEIGHBOUR_SUMMARY_MAX_CHARS);
+      expect(summary).not.toMatch(LONE_SURROGATE);
+    }
+  });
 });

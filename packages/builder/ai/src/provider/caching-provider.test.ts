@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AiPlan, AiPlanProvider, AssembledAiContext } from '../types';
+import type {
+  AiPagePlanProposal,
+  AiPlan,
+  AiPlanProvider,
+  AiPromptEnhanceInput,
+  AiPromptEnhancement,
+  AssembledAiContext,
+} from '../types';
 import { createCachingAiPlanProvider } from './caching-provider';
 
 function context(rootId = 'root'): AssembledAiContext {
@@ -282,5 +289,138 @@ describe('createCachingAiPlanProvider', () => {
     expect(() => createCachingAiPlanProvider(countingProvider().provider, { capacity })).toThrow(
       /capacity/i,
     );
+  });
+});
+
+/*
+  The optional capabilities (2026-09-28). The playground wraps its remote
+  provider in this decorator, and a decorator that forwarded only propose and
+  repair made the page-plan build unreachable there (engine wave-2 verifier).
+*/
+describe('createCachingAiPlanProvider — page plans and rewrites', () => {
+  const pagePlan: AiPagePlanProposal = { pagePlan: { title: 'Roastery' }, rationale: 'Warm.' };
+  const rewrite: AiPromptEnhancement = {
+    enhanced: 'Build a landing page for a specialty café in Amman.',
+    understood: 'A café landing page.',
+    changes: ['Fixed spelling'],
+    questions: [],
+    language: 'en',
+  };
+  const draft: AiPromptEnhanceInput = {
+    text: 'bild page cafe amman',
+    locale: 'en',
+    intent: { kind: 'build-page', confidence: 0.8 },
+    page: { empty: true, sections: [] },
+    selection: null,
+    answers: [],
+  };
+
+  function capable() {
+    const calls = { pagePlan: 0, enhance: 0 };
+    const provider: AiPlanProvider = {
+      propose: () => Promise.resolve(plan),
+      proposePagePlan: () => {
+        calls.pagePlan += 1;
+        return Promise.resolve(pagePlan);
+      },
+      enhancePrompt: () => {
+        calls.enhance += 1;
+        return Promise.resolve(rewrite);
+      },
+    };
+    return { provider, calls };
+  }
+
+  it('offers neither capability when the inner provider has neither — absence is the fallback signal', () => {
+    const cached = createCachingAiPlanProvider({ propose: () => Promise.resolve(plan) });
+
+    expect(Object.hasOwn(cached, 'proposePagePlan')).toBe(false);
+    expect(Object.hasOwn(cached, 'enhancePrompt')).toBe(false);
+  });
+
+  it('answers a repeated page-plan ask from memory, keyed apart from plans and by history', async () => {
+    const inner = capable();
+    const cached = createCachingAiPlanProvider(inner.provider);
+
+    await expect(cached.proposePagePlan?.('Build my page', context())).resolves.toEqual(pagePlan);
+    await cached.proposePagePlan?.('Build my page', context());
+    expect(inner.calls.pagePlan).toBe(1);
+
+    await cached.proposePagePlan?.('Build my page', context(), {
+      history: [{ role: 'user', text: 'I run a roastery' }],
+    });
+    await cached.proposePagePlan?.('Build my other page', context());
+    expect(inner.calls.pagePlan).toBe(3);
+  });
+
+  it('never answers a repair with the first answer, and forgets the refused first answer', async () => {
+    const inner = capable();
+    const cached = createCachingAiPlanProvider(inner.provider);
+    const attempt = {
+      pagePlan: { title: 'Roastery' },
+      issues: [{ path: 'tokens', message: 'Write tokens…' }],
+    };
+
+    await cached.proposePagePlan?.('Build my page', context());
+    await cached.proposePagePlan?.('Build my page', context(), { attempt });
+    expect(inner.calls.pagePlan).toBe(2);
+
+    // The repair proved the first answer was refused: the same ask reaches the model afresh.
+    await cached.proposePagePlan?.('Build my page', context());
+    expect(inner.calls.pagePlan).toBe(3);
+  });
+
+  it('checks cancellation before a page-plan hit and after the inner call resolves', async () => {
+    const inner = capable();
+    const cached = createCachingAiPlanProvider(inner.provider);
+    await cached.proposePagePlan?.('Build my page', context());
+
+    await expect(
+      cached.proposePagePlan?.('Build my page', context(), { signal: AbortSignal.abort() }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    let release: ((value: AiPagePlanProposal) => void) | undefined;
+    const slow = createCachingAiPlanProvider({
+      propose: () => Promise.resolve(plan),
+      proposePagePlan: () =>
+        new Promise<AiPagePlanProposal>((resolve) => {
+          release = resolve;
+        }),
+    });
+    const controller = new AbortController();
+    const pending = slow.proposePagePlan?.('Build my page', context(), {
+      signal: controller.signal,
+    });
+    controller.abort();
+    release?.(pagePlan);
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('answers the exact same draft from memory, and asks again when anything in it differs', async () => {
+    const inner = capable();
+    const cached = createCachingAiPlanProvider(inner.provider);
+
+    await expect(cached.enhancePrompt?.(draft)).resolves.toEqual(rewrite);
+    await cached.enhancePrompt?.({ ...draft });
+    expect(inner.calls.enhance).toBe(1);
+
+    await cached.enhancePrompt?.({ ...draft, answers: [{ question: 'City?', answer: 'Amman' }] });
+    await cached.enhancePrompt?.({ ...draft, locale: 'ar' });
+    expect(inner.calls.enhance).toBe(3);
+  });
+
+  it('does not cache a failed rewrite', async () => {
+    let calls = 0;
+    const cached = createCachingAiPlanProvider({
+      propose: () => Promise.resolve(plan),
+      enhancePrompt: () => {
+        calls += 1;
+        return calls === 1 ? Promise.reject(new Error('busy')) : Promise.resolve(rewrite);
+      },
+    });
+
+    await expect(cached.enhancePrompt?.(draft)).rejects.toThrow('busy');
+    await expect(cached.enhancePrompt?.(draft)).resolves.toEqual(rewrite);
+    expect(calls).toBe(2);
   });
 });

@@ -1,0 +1,118 @@
+/*
+  SuggestionList (SPEC §4.16, §2.3): rows that fill the composer.
+
+  The geometry is the record's (SPEC §2.3 "Glyph column"): a 16px glyph column on the
+  thread's gutter, 8px, then the text, so a suggestion's words start on the same 24px edge
+  as every record title above it, and its ▫ sits on the same axis as their status nodes.
+
+  A row is 32px (44px on a coarse pointer, `--bldr-agent-row-height`). It wraps rather
+  than truncating; a two-line row is 44px (52px coarse): 2px of padding above and below
+  two 20px lines, 6px on a coarse pointer. The grid centres its one line of content in
+  the row, and the glyph stays on the first line when there are two.
+
+  Read type in Graphite; hover lays the Wash from the glyph column to the row's end
+  (radius 6) and inks the words. Never Indigo (SPEC §2.1 rule 3).
+*/
+
+.ck-agent-suggestions {
+  min-inline-size: 0;
+}
+
+.ck-agent-suggestions__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-suggestions__item {
+  min-inline-size: 0;
+}
+
+.ck-agent-suggestion {
+  display: grid;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr);
+  column-gap: var(--bldr-space-md);
+  align-content: center;
+  align-items: start;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-block-size: var(--bldr-agent-row-height);
+  margin: 0;
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-0) var(--bldr-space-md);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-read);
+  text-align: start;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* The ▫: a 6px open square on the first line's axis, in Slate (decoration, not text). */
+.ck-agent-suggestion__glyph {
+  display: grid;
+  place-items: center;
+  block-size: var(--bldr-line-height-read);
+  color: var(--bldr-panel-muted);
+  transition: color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-suggestion__glyph::before {
+  content: '';
+  box-sizing: border-box;
+  inline-size: var(--bldr-space-sm);
+  block-size: var(--bldr-space-sm);
+  border: calc(var(--bldr-border-hairline) * 1.5) solid currentColor;
+  border-radius: calc(var(--bldr-radius-xs) / 2);
+}
+
+.ck-agent-suggestion__text {
+  min-inline-size: 0;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+.ck-agent-suggestion:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-suggestion:hover .ck-agent-suggestion__glyph {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-suggestion:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/*
+  The product's ring, drawn inside the row (SPEC §6.3: rows use `outline-offset: -2px`)
+  so two adjacent rows never share a ring. Specific enough to win over the product's
+  `.bldr-root :focus-visible:not(…)`, whose 1px outside offset would collide.
+*/
+.ck-agent-suggestions .ck-agent-suggestion:focus-visible:not([data-bldr-focus-ring='delegated']) {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-focus-ring-width));
+}
+
+/* A finger: 44px rows with 8px between them (SPEC §2.3 "Adjacent touch targets"). */
+@media (pointer: coarse) {
+  .ck-agent-suggestions__list {
+    row-gap: var(--bldr-space-md);
+  }
+
+  .ck-agent-suggestion {
+    padding-block: var(--bldr-space-sm);
+  }
+}

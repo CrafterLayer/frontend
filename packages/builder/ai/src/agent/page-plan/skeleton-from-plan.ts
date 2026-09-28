@@ -355,6 +355,11 @@ const HEADER_KIT = [
  * block's h2 into Lalezar, its body into Almarai and its text emerald.)
  */
 export function pagePlanCss(plan: PagePlan): string {
+  return planBlock(plan, plan.sections.some(({ role }) => role === 'header'));
+}
+
+/** The plan's fenced block; `hasHeader` adds the sticky host, the bar layout and the anchors' clearance. */
+function planBlock(plan: PagePlan, hasHeader: boolean): string {
   const { tokens } = plan;
   const grounds = pageKitGrounds(tokens);
   const radius = RADIUS[tokens.radius];
@@ -366,7 +371,6 @@ export function pagePlanCss(plan: PagePlan): string {
   const eyebrow = isRightToLeft(plan)
     ? 'color:var(--ck-accent-ink);font-size:0.875rem;font-weight:700'
     : 'color:var(--ck-accent-ink);font-size:0.8125rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase';
-  const hasHeader = plan.sections.some(({ role }) => role === 'header');
 
   /*
     The kit is a Tailwind COMPONENT layer, so a utility on the same element
@@ -409,11 +413,27 @@ export function pagePlanCss(plan: PagePlan): string {
   ].join('\n');
 }
 
-/** The page CSS to write: the plan's block alone, or appended to what the page keeps. */
+/**
+ * The page CSS to write: the plan's block alone, or appended to what the page
+ * keeps.
+ *
+ * An append REPLACES the earlier plan's block (one block per page, never two)
+ * but MERGES what that block did for the header it laid down. An appended
+ * plan never holds a header (validatePagePlan: append adds bands only), so
+ * its block alone dropped the sticky host, the bar layout and the anchors'
+ * scroll margin while the plan-built header stayed on the page: in Chromium
+ * at 360px the header scrolled away (top -1404px) and the brand shrank to
+ * 40px wide (verifier, r2/append-kit.mjs + sticky-append.mjs, 2026-09-28).
+ */
 function pageCssFor(plan: PagePlan, context: SkeletonFromPlanContext): string {
-  const block = pagePlanCss(plan);
-  if (plan.intent !== 'append') return block;
-  const kept = (context.currentPageCss ?? '').replace(PLAN_BLOCK, '').trim();
+  if (plan.intent !== 'append') return pagePlanCss(plan);
+  const current = context.currentPageCss ?? '';
+  const earlier = current.match(PLAN_BLOCK) ?? [];
+  const header =
+    plan.sections.some(({ role }) => role === 'header') ||
+    earlier.some((block) => block.includes(STICKY_HOST) || block.includes('.ck-bar{'));
+  const block = planBlock(plan, header);
+  const kept = current.replace(PLAN_BLOCK, '').trim();
   return kept === '' ? block : `${kept}\n${block}`;
 }
 

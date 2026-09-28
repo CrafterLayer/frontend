@@ -1,0 +1,80 @@
+/*
+  SendButton (SPEC §4.17, §2.4 "Round"): a 32px circle, 44 on a coarse pointer.
+
+  Ready (Send ↑, Queue ↵) is the primary action, so it is the Indigo fill with the
+  On-accent glyph (5.37:1 light, 5.81 dark); a press deepens it. With nothing to send it is
+  `aria-disabled`: the Wash under a Slate glyph, still focusable, still explained by its
+  tooltip. Queued is a pill that says so, in Graphite on the Wash: done for now, waiting.
+
+  Drawn over ChromeButton: every rule starts from four simple selectors, (0,4,0), so each
+  state out-ranks ChromeButton's matching one whatever order the stylesheets land in.
+*/
+
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size] {
+  gap: var(--bldr-space-xs);
+  inline-size: var(--ck-agent-target, var(--bldr-control-md));
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  padding: var(--bldr-space-0);
+  border-color: transparent;
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-accent-strong);
+  color: var(--bldr-accent-text);
+}
+
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  transition-duration: var(--bldr-duration-press);
+}
+
+/* Nothing to send: the Wash and a Slate glyph, answering neither hover nor press. */
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'],
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:hover,
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:active {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+/*
+  Queued: the circle opens into a pill that says it. The ✓'s 16px box has whitespace of
+  its own, so the pill pads 8 before it and 12 after the word, and reads centred.
+*/
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size][data-slot='queued'],
+.ck-agent-send[data-bldr-chrome-button][data-variant][data-size][data-slot='queued']:enabled:hover {
+  inline-size: auto;
+  padding-inline: var(--bldr-space-md) var(--bldr-space-xl);
+  color: var(--bldr-panel-text-soft);
+  cursor: default;
+}
+
+.ck-agent-send__label {
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-send {
+    --ck-agent-target: var(--bldr-hit-target-min);
+  }
+}
+
+/* High contrast drops the fills: the circle keeps an edge, and the unavailable one greys. */
+@media (forced-colors: active) {
+  .ck-agent-send[data-bldr-chrome-button][data-variant][data-size] {
+    border-color: ButtonText;
+  }
+
+  .ck-agent-send[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'] {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}

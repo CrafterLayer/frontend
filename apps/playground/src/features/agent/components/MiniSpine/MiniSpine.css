@@ -1,0 +1,259 @@
+/*
+  MiniSpine (SPEC §4.19): the spine on its side. One 4px segment per section, 2px apart,
+  sharing the row's width so the bar reads as the page in miniature: a page of three
+  sections draws three long strokes, a page of twelve draws twelve short ones.
+
+  The same colours as the spine (SPEC §4.8): pencil is dashed Track, a writer is Halo
+  with the travelling light, a finished draft is Halo and still, a landed section is
+  solid Indigo, a failed one is dashed Alarm. Indigo is spent on ink alone (SPEC §2.1
+  rule 3): nothing is Indigo that is not on the page.
+
+  Segments are painted with backgrounds, which give exact 6/3 dashes and round ends at
+  4px, where a 4px dashed border draws whatever dash the engine picks. High contrast
+  drops backgrounds, so there every kind is restated as a border style in system colours
+  (the spine's own forced-colours table): dashed, dotted and solid stay apart.
+
+  The travelling light is Indigo on Halo in light (3.30:1) and Indigo deep in dark (3.99:1;
+  Indigo itself is 2.69:1 there), as SPEC §2.1 pairs them. The completion sweep is a pale
+  light over ink: Mist in light (4.67:1 on Indigo), the panel's Ink in dark (2.86:1), the
+  lightest token each theme has. `light-dark()` reads the theme's `color-scheme`, so one
+  rule serves both themes, with tokens only.
+*/
+
+.ck-agent-mini-spine {
+  --ck-agent-mini-glint: light-dark(var(--bldr-accent), var(--bldr-accent-strong));
+  --ck-agent-mini-sweep: light-dark(var(--bldr-accent-soft), var(--bldr-panel-text));
+
+  position: relative;
+  display: flex;
+  gap: var(--bldr-space-2xs);
+  block-size: var(--bldr-space-xs);
+  min-inline-size: 0;
+  isolation: isolate;
+}
+
+.ck-agent-mini-spine__segment {
+  position: relative;
+  flex: 1 1 0;
+  min-inline-size: var(--bldr-space-xs);
+  block-size: 100%;
+  overflow: hidden;
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent-ring);
+}
+
+/* Pencil: 6px dashes, 3px gaps, starting at the reading start in both directions. */
+.ck-agent-mini-spine__segment[data-kind='pencil'] {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--bldr-progress-track) 0 6px,
+    transparent 6px 9px
+  );
+}
+
+.ck-agent-mini-spine__segment[data-kind='failed'] {
+  background: repeating-linear-gradient(90deg, var(--bldr-danger) 0 6px, transparent 6px 9px);
+}
+
+.ck-agent-mini-spine__segment[data-kind='pencil']:dir(rtl) {
+  background: repeating-linear-gradient(
+    270deg,
+    var(--bldr-progress-track) 0 6px,
+    transparent 6px 9px
+  );
+}
+
+.ck-agent-mini-spine__segment[data-kind='failed']:dir(rtl) {
+  background: repeating-linear-gradient(270deg, var(--bldr-danger) 0 6px, transparent 6px 9px);
+}
+
+/*
+  A writer, while the build is live: a light travels along the segment in the reading
+  direction, 1400ms a pass, linear (SPEC §5 moment 2). The light is the middle of an image
+  three segments wide; moving the image from its end to its start carries the light from
+  the reading start to the reading end and off again.
+*/
+.ck-agent-mini-spine[data-live] .ck-agent-mini-spine__segment[data-kind='writing'] {
+  background-image: linear-gradient(
+    90deg,
+    transparent 33.33%,
+    var(--ck-agent-mini-glint) 50%,
+    transparent 66.67%
+  );
+  background-repeat: no-repeat;
+  background-size: 300% 100%;
+  animation: ck-agent-mini-glint var(--bldr-duration-glint) linear infinite;
+}
+
+.ck-agent-mini-spine[data-live] .ck-agent-mini-spine__segment[data-kind='writing']:dir(rtl) {
+  animation-direction: reverse;
+}
+
+@keyframes ck-agent-mini-glint {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+/*
+  Ink. The fill is its own layer over the Halo it lands on, so a landing (SPEC §5 moment 1)
+  grows the Indigo from the reading start across a segment that never disappears.
+*/
+.ck-agent-mini-spine__segment[data-kind='ink']::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--bldr-accent);
+  content: '';
+  transform-origin: 0 50%;
+}
+
+.ck-agent-mini-spine__segment[data-kind='ink']:dir(rtl)::before {
+  transform-origin: 100% 50%;
+}
+
+.ck-agent-mini-spine[data-animate] .ck-agent-mini-spine__segment[data-kind='ink']::before {
+  animation: ck-agent-mini-ink var(--bldr-duration-land) var(--bldr-easing-enter) both;
+}
+
+@keyframes ck-agent-mini-ink {
+  from {
+    scale: 0 1;
+  }
+}
+
+/*
+  The page is whole (SPEC §5 moment 5): one pass of light across the closed stroke, once,
+  when the last section lands. It ends past the reading end, so it leaves nothing behind.
+*/
+.ck-agent-mini-spine[data-animate][data-complete]::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--bldr-radius-full);
+  background-image: linear-gradient(
+    90deg,
+    transparent 33.33%,
+    var(--ck-agent-mini-sweep) 50%,
+    transparent 66.67%
+  );
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  background-size: 300% 100%;
+  content: '';
+  pointer-events: none;
+  animation: ck-agent-mini-sweep var(--bldr-duration-sweep) var(--bldr-easing-enter) both;
+}
+
+.ck-agent-mini-spine[data-animate][data-complete]:dir(rtl)::after {
+  animation-name: ck-agent-mini-sweep-rtl;
+}
+
+@keyframes ck-agent-mini-sweep {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes ck-agent-mini-sweep-rtl {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 100% 0;
+  }
+}
+
+/*
+  Reduced motion: no light travels and nothing grows (SPEC §5). A writer keeps a still
+  Indigo first half on its Halo, so "writing" still differs from "drafted"; a landing is
+  the finished stroke, and the unbroken ink is itself the sign the page is whole.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-mini-spine[data-live] .ck-agent-mini-spine__segment[data-kind='writing'],
+  .ck-agent-mini-spine__segment[data-kind='writing'] {
+    background-image: linear-gradient(
+      90deg,
+      var(--bldr-accent) 0 50%,
+      var(--bldr-accent-ring) 50% 100%
+    );
+    background-size: 100% 100%;
+    animation: none;
+  }
+
+  .ck-agent-mini-spine[data-live] .ck-agent-mini-spine__segment[data-kind='writing']:dir(rtl),
+  .ck-agent-mini-spine__segment[data-kind='writing']:dir(rtl) {
+    background-image: linear-gradient(
+      270deg,
+      var(--bldr-accent) 0 50%,
+      var(--bldr-accent-ring) 50% 100%
+    );
+  }
+
+  .ck-agent-mini-spine[data-animate] .ck-agent-mini-spine__segment[data-kind='ink']::before,
+  .ck-agent-mini-spine[data-animate][data-complete]::after {
+    animation: none;
+  }
+
+  .ck-agent-mini-spine[data-animate][data-complete]::after {
+    content: none;
+  }
+}
+
+/*
+  High contrast (the spine's forced-colours table, SPEC §4.8): the system palette replaces
+  ours and backgrounds are dropped, so each kind becomes a 4px border style. Pencil dashed
+  GrayText, a writer dotted Highlight, a draft dotted CanvasText, ink solid Highlight,
+  failed dashed Mark.
+*/
+@media (forced-colors: active) {
+  .ck-agent-mini-spine {
+    forced-color-adjust: none;
+  }
+
+  /* Every kind drops its paint, whatever direction or liveness restated it... */
+  .ck-agent-mini-spine .ck-agent-mini-spine__segment[data-kind],
+  .ck-agent-mini-spine .ck-agent-mini-spine__segment[data-kind]:dir(rtl),
+  .ck-agent-mini-spine[data-live] .ck-agent-mini-spine__segment[data-kind],
+  .ck-agent-mini-spine[data-live] .ck-agent-mini-spine__segment[data-kind]:dir(rtl) {
+    block-size: 0;
+    border-radius: 0;
+    background: none;
+    animation: none;
+  }
+
+  /* ...and draws its border: only these rules touch a segment's border, in any mode. */
+  .ck-agent-mini-spine__segment[data-kind='pencil'] {
+    border-block-start: var(--bldr-space-xs) dashed GrayText;
+  }
+
+  .ck-agent-mini-spine__segment[data-kind='writing'] {
+    border-block-start: var(--bldr-space-xs) dotted Highlight;
+  }
+
+  .ck-agent-mini-spine__segment[data-kind='drafted'] {
+    border-block-start: var(--bldr-space-xs) dotted CanvasText;
+  }
+
+  .ck-agent-mini-spine__segment[data-kind='ink'] {
+    border-block-start: var(--bldr-space-xs) solid Highlight;
+  }
+
+  .ck-agent-mini-spine__segment[data-kind='failed'] {
+    border-block-start: var(--bldr-space-xs) dashed Mark;
+  }
+
+  .ck-agent-mini-spine__segment[data-kind='ink']::before,
+  .ck-agent-mini-spine[data-animate][data-complete]::after {
+    content: none;
+  }
+}

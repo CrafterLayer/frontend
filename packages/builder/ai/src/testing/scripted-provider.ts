@@ -3,6 +3,8 @@ import type {
   AiPagePlanProposal,
   AiPlan,
   AiPlanProvider,
+  AiPromptEnhanceInput,
+  AiPromptEnhancement,
   PagePlanCandidate,
 } from '../types';
 
@@ -18,6 +20,13 @@ export interface ScriptedAiPlanProviderOptions {
     | ((request: string, attempt: AiPagePlanAttempt | undefined) => PagePlanCandidate);
   /** The `rationale` every page-plan answer carries. */
   readonly rationale?: string;
+  /**
+   * Makes the provider answer `enhancePrompt`: a fixed rewrite, or a function
+   * of the draft (so a test can answer questions only until `answers` arrive).
+   * Absent = no `enhancePrompt`, so `canEnhance` is false and `enhanceRequest`
+   * tidies instead — the offline provider's behaviour.
+   */
+  readonly enhance?: AiPromptEnhancement | ((input: AiPromptEnhanceInput) => AiPromptEnhancement);
 }
 
 /** Consumer-test helper for exercising rejection and application paths without a model. */
@@ -25,7 +34,7 @@ export function createScriptedAiPlanProvider(
   plan: AiPlan,
   options: ScriptedAiPlanProviderOptions = {},
 ): AiPlanProvider {
-  const { pagePlan, rationale } = options;
+  const { pagePlan, rationale, enhance } = options;
   return {
     propose() {
       return Promise.resolve(plan);
@@ -40,6 +49,13 @@ export function createScriptedAiPlanProvider(
               pagePlan: candidate,
               ...(rationale === undefined ? {} : { rationale }),
             });
+          },
+        }),
+    ...(enhance === undefined
+      ? {}
+      : {
+          enhancePrompt(input): Promise<AiPromptEnhancement> {
+            return Promise.resolve(typeof enhance === 'function' ? enhance(input) : enhance);
           },
         }),
   };

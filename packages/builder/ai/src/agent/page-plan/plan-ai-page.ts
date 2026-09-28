@@ -1,19 +1,12 @@
-import type { PlanAiPageOptions, PlanAiPageResult } from '../types';
+/*
+  Plan mode's entry point, `planAiPage`, is implemented once, in
+  agent/plan-page.ts, beside the T1 step the build shares with it. This module
+  only keeps the page-plan barrel's name for it pointing there.
 
-/**
- * Plan mode: step T1 alone. One `provider.proposePagePlan` call (plus at most
- * one repair round, fed `validatePagePlan`'s issues), returning the validated
- * plan. Writes NOTHING — no door, no transaction — so a person can read and
- * edit the plan before any section is paid for; `runAiBuild({ pagePlan })`
- * then builds exactly that plan.
- *
- * Never rejects for a provider failure, a refusal, an invalid plan or a
- * missing `proposePagePlan`: each becomes `{ error }` (the last case with code
- * `'unsupported'`). The caller's abort rejects with the platform AbortError,
- * as every run does.
- */
-export function planAiPage(request: string, options: PlanAiPageOptions): Promise<PlanAiPageResult> {
-  void request;
-  void options;
-  return Promise.reject(new Error('not implemented: planAiPage'));
-}
+  It used to hold a stub that rejected 'not implemented: planAiPage', and the
+  package root exported the stub — so Plan mode's public entry point failed
+  for every host while the real one sat one directory up (engine wave-2
+  verifier, repro v6-root.mjs, 2026-09-28). A second body here would be a
+  second answer to the same question; a re-export cannot drift.
+*/
+export { planAiPage } from '../plan-page';

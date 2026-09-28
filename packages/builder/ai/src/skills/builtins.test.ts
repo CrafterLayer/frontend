@@ -164,6 +164,8 @@ describe('Craftkit built-in AI skills', () => {
       readonly language: 'ar' | 'en';
       /** Non-floor activations in resolver order: dependency members before their root. */
       readonly auto: readonly string[];
+      /** Skills left out, as `id:code`; none unless listed. */
+      readonly omitted?: readonly string[];
     }
     // Every Arabic request carries the RTL skill: activation is by script, not
     // by which imperative the writer happened to use. English requests never do.
@@ -191,9 +193,16 @@ describe('Craftkit built-in AI skills', () => {
       },
       { request: 'كبّر حجم العنوان', language: 'ar', auto: ['craftkit.arabic-rtl'] },
       {
+        /*
+          A banner is ONE section (add-section), so the page taste skill stays
+          out: a dependency serves only the routes it serves (router-3,
+          2026-09-28 — was copywriting + visual-direction + occasion, 2,724
+          tokens; now 1,943).
+        */
         request: 'Add a farewell banner for a retiring colleague',
         language: 'en',
-        auto: ['craftkit.copywriting', 'craftkit.visual-direction', 'craftkit.occasion-page'],
+        auto: ['craftkit.copywriting', 'craftkit.occasion-page'],
+        omitted: ['craftkit.visual-direction:intent'],
       },
       {
         request: 'أضف قسم الأسعار',
@@ -216,15 +225,15 @@ describe('Craftkit built-in AI skills', () => {
         auto: ['craftkit.copywriting', 'craftkit.visual-direction', 'craftkit.cv-page'],
       },
       {
-        // The request that exposed the gap: no imperative keyword, an occasion.
+        /*
+          The request that exposed the gap: no imperative keyword, an occasion.
+          A banner named with no verb is one new section (router-3,
+          2026-09-28): the occasion's banner, without the page taste skill.
+        */
         request: 'بانر وداع سامر ووسيم مع خلفية سفر',
         language: 'ar',
-        auto: [
-          'craftkit.copywriting',
-          'craftkit.visual-direction',
-          'craftkit.occasion-page',
-          'craftkit.arabic-rtl',
-        ],
+        auto: ['craftkit.copywriting', 'craftkit.occasion-page', 'craftkit.arabic-rtl'],
+        omitted: ['craftkit.visual-direction:intent'],
       },
       {
         request: 'Make the background darker',
@@ -238,7 +247,7 @@ describe('Craftkit built-in AI skills', () => {
       expect(rows.filter(({ language }) => language === 'en')).toHaveLength(5);
     });
 
-    it.each(rows)('activates $auto for "$request"', ({ request, auto }) => {
+    it.each(rows)('activates $auto for "$request"', ({ request, auto, omitted }) => {
       const prepared = createCraftkitAiSkillRegistry().prepare({ request, auto: true });
       const [floor, ...rest] = prepared.active;
 
@@ -246,7 +255,7 @@ describe('Craftkit built-in AI skills', () => {
       expect(rest.map(({ id }) => id)).toEqual(auto);
       expect(rest.length).toBeLessThanOrEqual(MAX_AUTO_SKILLS_PER_REQUEST);
       expect(rest.map(({ id }) => id)).not.toContain('craftkit.precise-edit');
-      expect(prepared.omitted).toEqual([]);
+      expect(prepared.omitted.map(({ id, code }) => `${id}:${code}`)).toEqual(omitted ?? []);
       /*
         Raised 2,400 → 3,200 with the taste skill: the widest row is now floor +
         copywriting + visual-direction + archetype + language = 3,052 tokens,

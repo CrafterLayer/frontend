@@ -7,6 +7,14 @@ import type { AiCompositionPolicy } from '../context/composition-policy';
 import type { AppliedAiPlan } from '../plan/apply-plan';
 import type { AiValidatedProposal } from '../plan/validated-proposal';
 import type { IntentTarget } from '../intent';
+// orchestration-2 additions
+import type { IntentDocumentSummary, IntentRoute } from '../intent';
+// end orchestration-2 additions
+// fast-edits additions
+import type { AiDocumentFocus } from '../context/document-tree-mode';
+import type { IntentRoute as FastEditRoute } from '../intent';
+import type { DirectEditTarget } from '../plan/direct-edit';
+// end fast-edits additions
 import type { AiRunFailure } from './errors';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
 import type {
@@ -78,6 +86,20 @@ export interface RunAiAgentOptions {
    */
   isCurrentRun?: (runId: string) => boolean;
   onEvent?: (event: AiAgentEvent) => void;
+  // orchestration-2 additions
+  /**
+   * The host's route for this request (`routeIntent` / the panel's
+   * `routeRequest`), for `GenerateAiPlanOptions.intent`: its `kind` gates
+   * the page-level skills, so an edit never loads a whole-page playbook.
+   * Absent, generation routes the request against the page it is about.
+   * `runAiBuild` does not read it: each of its steps names its own intent
+   * (T1, the scaffold and the one ordinary run `build-page`; a section writer
+   * `add-section`).
+   */
+  intent?: IntentRoute;
+  /** `GenerateAiPlanOptions.document`: the page the request is about, when the host has it summarised. */
+  document?: IntentDocumentSummary;
+  // end orchestration-2 additions
 }
 
 export interface AiAgentEventBase {
@@ -338,6 +360,16 @@ export interface AiBuildEventBase {
  */
 export type AiBuildOwnEvent =
   | (AiBuildEventBase & { type: 'build.scaffolding' })
+  // orchestration-2 additions
+  /**
+   * The SECOND `build.scaffolding` of a build whose plan path gave out: the
+   * page is laid by the model-written skeleton from here, and `fallback` says
+   * why (T1 failed, or the door refused the code-written skeleton). Same
+   * `type`, so a host that reads the first one as "laying the skeleton" keeps
+   * reading this one the same way; the reason is the addition.
+   */
+  | (AiBuildEventBase & { type: 'build.scaffolding'; fallback: AiBuildPlanFallback })
+  // end orchestration-2 additions
   /**
    * The build did not happen — the scaffold produced fewer than two regions and
    * one ordinary run replaced it. This is the ONLY build event on that path: a
@@ -573,7 +605,44 @@ export interface AiBuildRunResult {
    * scaffold build.
    */
   pagePlan?: PagePlan;
+  // orchestration-2 additions
+  /**
+   * Present when this build TRIED to build from a page plan and fell back to
+   * the model-written skeleton: T1 failed or its plan was refused twice
+   * (`stage: 'plan'`), or the door refused the code-written skeleton of an
+   * automatic build (`stage: 'skeleton'`). Absent on a build that built its
+   * plan, and on one whose provider cannot plan a page at all (that build is
+   * the scaffold build by design). Each fallback costs the ~25k-character
+   * model skeleton the plan path exists to avoid, so it is counted here.
+   */
+  planFallback?: AiBuildPlanFallback;
+  // end orchestration-2 additions
 }
+
+// orchestration-2 additions
+/**
+ * Why a build that tried to build from a page plan fell back to the
+ * model-written skeleton (`AiBuildRunResult.planFallback`, and `fallback` on
+ * the second `build.scaffolding` event).
+ */
+export interface AiBuildPlanFallback {
+  /**
+   * `'plan'`: step T1 failed — the provider errored, or its plan was refused
+   * twice by `validatePagePlan`. `'skeleton'`: the kernel door refused the
+   * skeleton `skeletonFromPlan` wrote from a validated plan, on a build that
+   * asked nobody (an approved, edited or given plan throws instead).
+   */
+  readonly stage: 'plan' | 'skeleton';
+  /** The failure, classified as every run's is (`plan-rejected` for a refusal). */
+  readonly error: AiRunFailure;
+  /**
+   * The validator's (`'plan'`) or the door's (`'skeleton'`) issues, each in
+   * its own words — the instruction it gave. At least one: a failure that
+   * carries none is its message.
+   */
+  readonly issues: readonly string[];
+}
+// end orchestration-2 additions
 
 // ── Plan mode: step T1 alone ────────────────────────────────────────────────
 
@@ -622,3 +691,88 @@ export type AiPagePlanEvent =
   | (AiAgentEventBase & { type: 'page-plan.repairing'; issues: readonly PagePlanIssue[] })
   | (AiAgentEventBase & { type: 'page-plan.ready'; plan: PagePlan })
   | (AiAgentEventBase & { type: 'page-plan.failed'; error: AiRunFailure });
+
+// fast-edits additions
+/*
+  Small edits made instant and nearly free (owner, 2026-09-28: a one-word
+  title change on a CV showed "~11.3k tokens" and took 46 s). Declared by
+  interface merging, so the declarations above stay as their owners wrote
+  them; every field is optional, so every existing caller and recorded event
+  still type-checks.
+*/
+
+/** Where a run's plan came from: parsed from the words with no model (`direct`), or a model's. */
+export type AiRunSource = 'direct' | 'model';
+
+/** The reasoning budget a fast edit model runs at. */
+export type AiEditEffort = 'low' | 'medium';
+
+/**
+ * The model a run asks its provider for. Handed to `propose` and `repair` as
+ * extra fields on the live options (`{ ...live, model, effort }`); a provider
+ * that speaks the wire names it the way the model picker does (the
+ * `x-craftkit-ai-model` header), and one that does not ignores it.
+ */
+export interface AiRunModelChoice {
+  readonly model: string;
+  readonly effort?: AiEditEffort;
+}
+
+/** A zero-token edit, as the run that made it reports it. */
+export interface AiDirectEditReport {
+  readonly target: DirectEditTarget;
+  /** One sentence in the request's language: the plan's rationale and its history label. */
+  readonly summary: string;
+  readonly language: 'ar' | 'en';
+}
+
+export interface RunAiAgentOptions {
+  /**
+   * Try a ZERO-TOKEN direct edit before any provider call (`tryDirectEdit`):
+   * a small edit stated in full — «غيّر عنوان قسم التعليم إلى مرحبا», "change
+   * the phone number to …" — is parsed, pointed at its one element and landed
+   * through the door with no model. Default `true`; `false` always asks the
+   * provider. Never tried on a build's own steps (`<runId>/<step>`).
+   */
+  directEdits?: boolean;
+  /**
+   * The model for an EDIT or a NEW SECTION (the route's `edit` / `add-section`)
+   * — e.g. the fastest model the server allows. A page build keeps the
+   * provider's configured model. Absent: every run uses the provider's model.
+   */
+  editModel?: string;
+  /** The reasoning budget that goes with `editModel`. Absent: the server's default. */
+  editEffort?: AiEditEffort;
+}
+
+export interface AiAgentEventBase {
+  /**
+   * Where the plan came from, on `plan.proposed` and `run.completed` (and,
+   * on a direct edit, `context.ready` and `plan.applying`).
+   */
+  source?: AiRunSource;
+  /** With `source`: estimated request tokens sent to a model so far — 0 for a direct edit. */
+  tokens?: number;
+  /** With `source`: ms since `run.started`, on the run's clock. */
+  elapsedMs?: number;
+  /** With `source`: the model the run asked for (`editModel`), when it asked for one. */
+  model?: string;
+}
+
+export interface AiAgentRunResult {
+  /** `direct`: no model was asked (`directEdit` says what changed). `model`: a provider answered. */
+  source?: AiRunSource;
+  /** Estimated request tokens sent to a model, every propose and repair — 0 for a direct edit. */
+  tokens?: number;
+  /** ms from `run.started` to `run.completed`, on the run's clock. */
+  elapsedMs?: number;
+  /** The model the run asked for, when it asked for one (`editModel`). */
+  model?: string;
+  /** What the request is for, as this run read it: the host's `intent`, else `routeIntent`. */
+  route?: FastEditRoute;
+  /** Present exactly when `source` is `direct`. */
+  directEdit?: AiDirectEditReport;
+  /** The sections the model saw whole, when the run focused its document. */
+  focus?: AiDocumentFocus;
+}
+// end fast-edits additions

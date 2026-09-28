@@ -22,6 +22,7 @@ import { buildManagedCatalog } from '@craftkit/builder/code-runtime/compiler';
 import {
   createModelRouter,
   defaultModelCandidates,
+  fastestModel,
   type ModelCapability,
   type ModelCapabilityProbe,
 } from './model-policy';
@@ -152,10 +153,19 @@ if (rawEffort !== undefined && cliEffort === undefined) {
   );
 }
 
-/** The dev CLI client for one model, sharing the CLI settings above. */
-function createCliBackend(cliModel: string | undefined): Anthropic {
+/**
+ * The dev CLI client for one model, sharing the CLI settings above. On the
+ * `cli` backend it also runs a call on any model of CRAFTKIT_AI_MODELS the
+ * call names (the picker's choice, a small edit's fast model, the
+ * enhancer's); behind the hybrid router each `cli:` slug gets its own client.
+ */
+function createCliBackend(
+  cliModel: string | undefined,
+  allowedModels: readonly string[] = [],
+): Anthropic {
   return createCliClient({
     ...(cliModel === undefined ? {} : { model: cliModel }),
+    ...(allowedModels.length === 0 ? {} : { allowedModels }),
     ...(cliEffort === undefined ? {} : { effort: cliEffort }),
     ...(cliTimeoutMs === undefined ? {} : { timeoutMs: cliTimeoutMs }),
     // The run log: without it a plan is four minutes of an idle terminal.
@@ -307,7 +317,7 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
 }
 
 async function createClient(): Promise<Anthropic> {
-  if (backend === 'cli') return createCliBackend(model);
+  if (backend === 'cli') return createCliBackend(model, models);
   if (backend === 'openrouter') return createOpenRouterBackend();
   /*
     A bare client. It resolves credentials the way every Anthropic SDK does —
@@ -394,9 +404,37 @@ if (backend === 'cli') {
   );
 }
 
+/*
+  The prompt enhancer's model (POST /v1/prompt/enhance): a small call a person
+  waits on, so the fastest model this server allows, never the picker's. The
+  owner may name one in CRAFTKIT_AI_ENHANCE_MODEL — it must be allowed like
+  any other (the default or in CRAFTKIT_AI_MODELS), or it is ignored with a
+  warning rather than billing a model nobody listed.
+*/
+const rawEnhanceModel = setting('CRAFTKIT_AI_ENHANCE_MODEL');
+const namedModels = [...(model === undefined ? [] : [model]), ...models];
+if (rawEnhanceModel !== undefined && !namedModels.includes(rawEnhanceModel)) {
+  console.warn(
+    `WARNING: CRAFTKIT_AI_ENHANCE_MODEL="${rawEnhanceModel}" is neither CRAFTKIT_AI_MODEL nor in ` +
+      'CRAFTKIT_AI_MODELS. Ignoring it; the prompt enhancer takes the fastest allowed model.',
+  );
+}
+const enhanceModel =
+  rawEnhanceModel !== undefined && namedModels.includes(rawEnhanceModel)
+    ? rawEnhanceModel
+    : fastestModel(namedModels);
+console.log(
+  `[ai-server] prompt enhancer: ${enhanceModel ?? "the backend's default model"}, low effort, ` +
+    'at most 900 output tokens',
+);
+
 const handle = createHandler({
   client,
   codeRuntime,
+  ...(enhanceModel === undefined ? {} : { enhanceModel }),
+  onLog: (line) => {
+    console.log(`[ai-server] ${line}`);
+  },
   ...(authoredRuns === undefined ? {} : { authoredRuns }),
   ...(authToken === undefined ? {} : { authToken }),
   ...(model === undefined ? {} : { model }),
@@ -449,7 +487,7 @@ const handle = createHandler({
   },
   onUsage: (usage) => {
     console.log(
-      `plan in=${String(usage.inputTokens)} out=${String(usage.outputTokens)} ` +
+      `${usage.task ?? 'plan'} in=${String(usage.inputTokens)} out=${String(usage.outputTokens)} ` +
         `cache_read=${String(usage.cacheReadTokens)} cache_write=${String(usage.cacheWriteTokens)} ` +
         `cached=${(usage.cachedShare * 100).toFixed(0)}%`,
     );

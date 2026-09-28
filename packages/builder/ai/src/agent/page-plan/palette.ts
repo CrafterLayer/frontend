@@ -12,10 +12,23 @@
  * ## Why these values
  *
  * Tailwind v3 hex, copied from the table page-power.test.ts computes the deck's
- * contrast on (every shade any deck row uses; 73 entries, 2026-09-28). The plan
- * stores the HEX and the skeleton writes it into `--ck-*` properties, so the
- * page renders exactly the colour whose contrast was measured — v4's OKLCH
- * palette classes are never the colour of record.
+ * contrast on. The plan stores the HEX and the skeleton writes it into `--ck-*`
+ * properties, so the page renders exactly the colour whose contrast was
+ * measured — v4's OKLCH palette classes are never the colour of record.
+ *
+ * ## Which names (counted 2026-09-28)
+ *
+ * 75 entries: all 73 shades the 21 DIRECTION_DECK_ROWS name across their ten
+ * palette roles, plus stone-100 and stone-200, which no row names but the
+ * page-power table holds — they are the ai-server's fallback surface and
+ * border (plan-shape.ts PAGE_PLAN_FALLBACK_BASE, written there as hex), and a
+ * model that names them instead costs nothing. palette.test.ts pins both
+ * halves: every deck shade resolves, and every entry is the table's value.
+ *
+ * yellow-800 and red-400 arrived last: the deck re-inked wedding and auto's
+ * accentInk to them at 07:58 and this table (07:44) named 71 of the 73, so
+ * validatePagePlan refused those two rows' own names and each such page cost
+ * a repair round (~80 s live) until the server wrote them as hex instead.
  *
  * A shade missing here is refused with the hex form offered instead; add one
  * only with its v3 value.
@@ -62,6 +75,7 @@ export const PAGE_PLAN_PALETTE_HEX: Readonly<Record<string, string>> = Object.fr
   'orange-800': '#9a3412',
   'red-50': '#fef2f2',
   'red-200': '#fecaca',
+  'red-400': '#f87171',
   'red-600': '#dc2626',
   'red-700': '#b91c1c',
   'red-950': '#450a0a',
@@ -78,6 +92,7 @@ export const PAGE_PLAN_PALETTE_HEX: Readonly<Record<string, string>> = Object.fr
   'amber-600': '#d97706',
   'yellow-400': '#facc15',
   'yellow-700': '#a16207',
+  'yellow-800': '#854d0e',
   'teal-50': '#f0fdfa',
   'teal-200': '#99f6e4',
   'teal-700': '#0f766e',

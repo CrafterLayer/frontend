@@ -4,7 +4,12 @@ import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
 import { salvageJson } from './json-salvage';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
-import { PAGE_PLAN_ANSWER_SCHEMA, pagePlanShapeCheck, planShapeCheck } from './plan-shape';
+import {
+  PAGE_PLAN_ANSWER_SCHEMA,
+  pagePlanShapeCheck,
+  planShapeCheck,
+  repairPagePlanAnswer,
+} from './plan-shape';
 import { buildPrompt } from './prompt';
 
 /**
@@ -25,7 +30,7 @@ import { buildPrompt } from './prompt';
  * right 85% of the time costs more in rejected round trips than it saves per
  * token. Override deliberately, per deployment, with a measurement in hand.
  */
-const DEFAULT_MODEL = 'claude-opus-5';
+export const DEFAULT_MODEL = 'claude-opus-5';
 
 /**
  * Generous, because a plan is not a chat reply: it composes a whole page as a
@@ -65,6 +70,8 @@ export interface ClaudeOptions {
   readonly onProgress?: (text: string) => void;
   /** Receives the raw answer text before it is parsed — what the model actually said. */
   readonly onAnswer?: (text: string) => void;
+  /** One line per thing this server did to an answer, for the owner's terminal. */
+  readonly onLog?: (line: string) => void;
 }
 
 export type ClaudeOutcome =
@@ -378,7 +385,14 @@ export async function proposePagePlan(
     return { kind: 'invalid-output', message: 'The assistant returned no page plan.' };
   }
 
-  const text = salvageJson(raw, pagePlanShapeCheck);
+  /*
+    The judge asks about each candidate AFTER the code repairs below, so a
+    placeholder phone the next step fills never makes the right rebalance of
+    a dropped closer lose to a wrong one that parses.
+  */
+  const text = salvageJson(raw, (candidate) =>
+    pagePlanShapeCheck(repairPagePlanAnswer(candidate).value),
+  );
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -388,5 +402,15 @@ export async function proposePagePlan(
       message: 'The assistant answer was not valid JSON, so no page plan could be read from it.',
     };
   }
-  return readPagePlanAnswer(parsed, usageOf(message));
+  /*
+    What code can fix without a model round (plan-shape.ts): shade names to
+    the hex they mean, placeholder samples filled in their own format. Each
+    one was a refused plan and a ~60-120 s repair round when measured live on
+    2026-09-28; here it costs nothing, and the log says what changed.
+  */
+  const repaired = repairPagePlanAnswer(parsed);
+  if (repaired.repairs.length > 0) {
+    options.onLog?.(`page plan repaired in code: ${repaired.repairs.join('; ')}`);
+  }
+  return readPagePlanAnswer(repaired.value, usageOf(message));
 }

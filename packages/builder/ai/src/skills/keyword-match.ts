@@ -25,7 +25,8 @@ import { normalizeIntentText } from '../intent/normalize-arabic';
  * matcher gave for free and the keywords were written to rely on: "animate"
  * covers "animated", "bakery" covers "bakeries", "orthodont" covers
  * "orthodontist", "عقار" covers "عقارية". The endings are a closed list, so
- * "villa" never reaches "village" nor "doctor" "doctorate".
+ * "villa" never reaches "village" nor "doctor" "doctorate", and a Latin word
+ * of three letters or fewer takes none: "eid" is not "eider", "cv" not "CVS".
  */
 
 const LATIN_MARKS = /[̀-ͯ]/gu;
@@ -66,6 +67,18 @@ const LATIN_ENDINGS = [
 const LATIN_Y_ENDINGS = ['ies', 'ied', 'ian', 'ians', 'ist', 'ists'];
 const ARABIC_ENDINGS = ['ه', 'ي', 'يه'];
 
+/*
+  A Latin keyword word shorter than this takes no endings. Two or three
+  letters is an abbreviation or a short root, and its "inflections" are other
+  words: "eid" + "er" is Eider ("a page for Eider Ducks conservation" loaded
+  occasion-page) and "cv" + "s" is CVS ("website for CVS pharmacy branch"
+  loaded cv-page) — wave-2 verifier, 2026-09-28. A short keyword that needs
+  its plural lists it, as the Arabic plurals are listed ("faqs", "juice
+  bars"). Arabic roots are three letters as a rule, and their feminine is the
+  same word ("حفل" / "حفلة"), so Arabic keeps its endings.
+*/
+const MIN_INFLECTED_LATIN = 4;
+
 /** Every spelling a keyword word matches: itself, and its endings when it is the last word. */
 function formsOf(word: string, last: boolean): ReadonlySet<string> {
   const forms = new Set([word]);
@@ -74,6 +87,7 @@ function formsOf(word: string, last: boolean): ReadonlySet<string> {
     for (const ending of ARABIC_ENDINGS) forms.add(`${word}${ending}`);
     return forms;
   }
+  if (word.length < MIN_INFLECTED_LATIN) return forms;
   for (const ending of LATIN_ENDINGS) forms.add(`${word}${ending}`);
   if (word.endsWith('y')) {
     for (const ending of LATIN_Y_ENDINGS) forms.add(`${word.slice(0, -1)}${ending}`);

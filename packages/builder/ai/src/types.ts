@@ -10,6 +10,7 @@ import type {
   SlotName,
 } from '@craftkit/builder-schema';
 
+import type { IntentKind } from './intent/route-intent';
 import type { AiSkillActivationPin, AiSkillManifestV1 } from './skills';
 
 export interface AiBlockSlotContext {
@@ -262,6 +263,88 @@ export interface AiPlanProvider {
     context: AssembledAiContext,
     options?: AiProposePagePlanOptions,
   ): Promise<AiPagePlanProposal>;
+  /**
+   * Optional: rewrite a person's DRAFT before it runs — spelling and spacing
+   * fixed in its own language, an edit made explicit, a build turned into a
+   * short professional brief — and name what is missing as 0–3 questions.
+   * Nothing is written and nothing is built: the answer goes back into the
+   * composer for the person to read (the ✨ Improve action, owner request
+   * 2026-09-28, after «هل يمكنك تربط ال صفحه هاي داخل عليها» was taken
+   * literally).
+   *
+   * Optional like every capability added after `propose`: a provider without
+   * it leaves `enhanceRequest` (prompt-enhance/) on its deterministic tidy.
+   * On the remote wire this is `POST <origin>/v1/prompt/enhance` (wire.ts).
+   */
+  enhancePrompt?(
+    input: AiPromptEnhanceInput,
+    options?: AiEnhancePromptOptions,
+  ): Promise<AiPromptEnhancement>;
+}
+
+// ── The prompt enhancer (2026-09-28): the contract both sides implement ──────
+
+/** The two languages the panel speaks; a draft's own language is one of them. */
+export type AiPromptLocale = 'ar' | 'en';
+
+/** What the intent router made of the draft, when it ran: kind and 0–1 confidence. */
+export interface AiPromptEnhanceIntent {
+  readonly kind: IntentKind;
+  readonly confidence: number;
+}
+
+/** What the page holds right now, as the enhancer is told it (≤ 20 section labels). */
+export interface AiPromptEnhancePage {
+  readonly empty: boolean;
+  readonly sections: readonly string[];
+}
+
+/** One answered clarifying question, folded into the rewrite on the next call. */
+export interface AiPromptEnhanceAnswer {
+  readonly question: string;
+  readonly answer: string;
+}
+
+/**
+ * The draft and what surrounds it — the enhance request body minus `version`.
+ * `locale` is the UI's language (the language `understood` and `changes` are
+ * written in); the rewrite itself stays in the draft's own language.
+ */
+export interface AiPromptEnhanceInput {
+  readonly text: string;
+  readonly locale: AiPromptLocale;
+  readonly intent: AiPromptEnhanceIntent | null;
+  readonly page: AiPromptEnhancePage;
+  /** The selected block's label, or null with nothing selected. */
+  readonly selection: string | null;
+  readonly answers: readonly AiPromptEnhanceAnswer[];
+}
+
+/** One question the enhancer needs answered before it can rewrite without guessing. */
+export interface AiPromptEnhanceQuestion {
+  readonly id: string;
+  readonly text: string;
+  /** 2–4 short choices in the draft's language; a person may still type their own. */
+  readonly choices: readonly string[];
+}
+
+/** The enhance answer — the response body minus `version`. */
+export interface AiPromptEnhancement {
+  /** The rewritten request, in the draft's own language and script. */
+  readonly enhanced: string;
+  /** One sentence in the UI locale: what the enhancer understood. */
+  readonly understood: string;
+  /** At most 5 short items in the UI locale: what was changed. */
+  readonly changes: readonly string[];
+  /** 0–3; empty unless essential information is missing or the draft is ambiguous. */
+  readonly questions: readonly AiPromptEnhanceQuestion[];
+  /** The draft's language. */
+  readonly language: AiPromptLocale;
+}
+
+/** Live options for one enhance call: `signal` cancels it for real, as in `propose`. */
+export interface AiEnhancePromptOptions {
+  signal?: AbortSignal;
 }
 
 /**

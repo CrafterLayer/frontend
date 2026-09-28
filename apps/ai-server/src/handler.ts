@@ -5,6 +5,8 @@ import type { ExportPage, RuntimeSnapshot } from '@craftkit/builder/code-runtime
 
 import { proposePagePlan, proposePlan, type ClaudeOptions, type UsageReport } from './claude';
 import type { CodeRuntimeService } from './code-runtime-service';
+import { ENHANCE_PATH, ENHANCE_TIMEOUT_MS, enhancePrompt, readEnhanceRequest } from './enhance';
+import { fastestModel } from './model-policy';
 import {
   isAuthoredRunRequest,
   type AuthoredRunCoordinator,
@@ -30,10 +32,22 @@ export interface HandlerOptions {
   readonly authToken?: string;
   /** Largest request body accepted, in bytes. */
   readonly maxRequestBytes?: number;
-  /** Receives one line per completed request. */
-  readonly onUsage?: (report: UsageReport & { readonly cachedShare: number }) => void;
+  /** Receives one line per completed request; `task` says which endpoint's call it was. */
+  readonly onUsage?: (
+    report: UsageReport & { readonly cachedShare: number; readonly task?: UsageTask },
+  ) => void;
   /** Receives every answer's raw text before it is parsed; for the owner's log. */
   readonly onAnswer?: (text: string) => void;
+  /** One line per thing the server did to an answer (a code repair, a guard); for the owner's log. */
+  readonly onLog?: (line: string) => void;
+  /**
+   * The model `/v1/prompt/enhance` runs on. Unset ⇒ the fastest of `model`
+   * and `models` (`fastestModel`) — the enhancer is a small call a person
+   * waits on, so it never takes the picker's choice.
+   */
+  readonly enhanceModel?: string;
+  /** The enhancer's whole-call cap; defaults to `ENHANCE_TIMEOUT_MS`. */
+  readonly enhanceTimeoutMs?: number;
   /**
    * The reasoning budget for a build's SECTION writers. They compose one
    * section under a direction the skeleton already decided, so thinking is
@@ -48,6 +62,9 @@ export interface HandlerOptions {
 }
 
 const DEFAULT_MAX_REQUEST_BYTES = 4 * 1024 * 1024;
+
+/** Which call a usage line belongs to: a plan, a page plan, or an enhancement. */
+export type UsageTask = 'plan' | 'page-plan' | 'enhance';
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -120,16 +137,36 @@ export const MODEL_HEADER = 'x-craftkit-ai-model';
  * whether it is allowed, because a public endpoint must not let a browser
  * pick the most expensive model on someone else's key. The configured default
  * is always allowed by name; anything else has to be in `models`.
+ *
+ * Two places may name it (2026-09-28). The header is the picker's standing
+ * choice for every call of a provider; the body's `model` is ONE call's —
+ * the fast model a host names for a small edit (the fast-edits contract:
+ * `RunAiAgentOptions.editModel`), while page builds keep the picker's. The
+ * call's own wins, under the same allowlist.
  */
 function resolveModel(
   request: Request,
+  wire: AiPlanWireRequest,
   options: HandlerOptions,
 ): { readonly model: string | undefined } | { readonly refused: string } {
-  const named = (request.headers.get(MODEL_HEADER) ?? '').trim();
+  const perCall: unknown = (wire as { model?: unknown }).model;
+  if (perCall !== undefined && typeof perCall !== 'string') {
+    return { refused: 'The request\'s "model" must be a model name.' };
+  }
+  const called = (perCall ?? '').trim();
+  const named = called !== '' ? called : (request.headers.get(MODEL_HEADER) ?? '').trim();
   if (named === '') return { model: options.model };
   if (named === options.model || (options.models ?? []).includes(named)) return { model: named };
   return { refused: `Model "${named}" is not one this server allows.` };
 }
+
+/**
+ * The reasoning budgets ONE call may ask for in its body's `effort`
+ * (2026-09-28, the fast-edits contract's `editEffort`): the two a small edit
+ * needs, never more — a browser must not raise the thinking bill any more
+ * than it may pick the model.
+ */
+const CALL_EFFORTS: ReadonlySet<unknown> = new Set(['low', 'medium']);
 
 export function createHandler(options: HandlerOptions) {
   const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
@@ -170,6 +207,9 @@ export function createHandler(options: HandlerOptions) {
     if (url.pathname === '/v1/agent/run') {
       return authoredRunResponse(body, options, request);
     }
+    if (url.pathname === ENHANCE_PATH) {
+      return enhanceResponse(body, options, request.signal);
+    }
     if (url.pathname !== '/plan' && url.pathname !== '/') {
       return json({ error: 'Endpoint not found.' }, 404);
     }
@@ -193,9 +233,16 @@ export function createHandler(options: HandlerOptions) {
       return json({ error: `Unknown task "${named}".` }, 400);
     }
 
-    const chosen = resolveModel(request, options);
+    const chosen = resolveModel(request, body, options);
     if ('refused' in chosen) {
       return json({ error: chosen.refused }, 400);
+    }
+    const effort: unknown = (body as { effort?: unknown }).effort;
+    if (effort !== undefined && !CALL_EFFORTS.has(effort)) {
+      return json(
+        { error: `Effort ${JSON.stringify(effort).slice(0, 40)} is not one a call may ask for (low or medium).` },
+        400,
+      );
     }
     const run: HandlerOptions = {
       ...options,
@@ -375,7 +422,53 @@ async function exportResponse(
   }
 }
 
-function reportUsage(options: HandlerOptions, usage: UsageReport): void {
+/**
+ * `POST /v1/prompt/enhance` (enhance.ts has the contract). The same door as
+ * the plan: bearer and body limits were checked before routing, and every
+ * failure leaves in the plan endpoint's envelope and statuses — 400 a
+ * malformed request, 422 the model's refusal, 502 an answer that was not an
+ * enhancement, 504 the enhancer's own cap, 499 a caller that hung up, and a
+ * backend's own sentence and status as the plan gives them.
+ *
+ * The model is never the picker's: the header names the model a person chose
+ * for BUILDING, and an enhancement is a small call they wait on.
+ */
+async function enhanceResponse(
+  body: unknown,
+  options: HandlerOptions,
+  requestSignal: AbortSignal,
+): Promise<Response> {
+  const read = readEnhanceRequest(body);
+  if ('error' in read) return json({ error: read.error }, 400);
+  const timeoutMs = options.enhanceTimeoutMs ?? ENHANCE_TIMEOUT_MS;
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const model = options.enhanceModel ?? fastestModel([options.model, ...(options.models ?? [])]);
+  try {
+    const outcome = await enhancePrompt(read.request, {
+      client: options.client,
+      signal: AbortSignal.any([requestSignal, timeout]),
+      ...(model === undefined ? {} : { model }),
+      ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
+      ...(options.onLog === undefined ? {} : { onLog: options.onLog }),
+    });
+    if (outcome.kind === 'refusal') return json({ error: outcome.message }, 422);
+    if (outcome.kind === 'invalid-output') return json({ error: outcome.message }, 502);
+    reportUsage(options, outcome.usage, 'enhance');
+    return json(outcome.response);
+  } catch (cause) {
+    if (timeout.aborted && !requestSignal.aborted) {
+      return json(
+        {
+          error: `Improving the request took longer than ${String(Math.round(timeoutMs / 1000))} s, so it was stopped; send the request as written.`,
+        },
+        504,
+      );
+    }
+    return errorResponse(cause);
+  }
+}
+
+function reportUsage(options: HandlerOptions, usage: UsageReport, task: UsageTask): void {
   if (options.onUsage === undefined) return;
   const billedInput = usage.inputTokens + usage.cacheWriteTokens + usage.cacheReadTokens;
   options.onUsage({
@@ -383,6 +476,7 @@ function reportUsage(options: HandlerOptions, usage: UsageReport): void {
     // The number worth watching: a cached share near zero means a silent
     // invalidator got into the prefix and the catalog is being re-billed.
     cachedShare: billedInput === 0 ? 0 : usage.cacheReadTokens / billedInput,
+    task,
   });
 }
 
@@ -390,7 +484,8 @@ function reportUsage(options: HandlerOptions, usage: UsageReport): void {
 const SECTION_WRITER_SKILL = 'craftkit.build-fill';
 
 /**
- * This call's own reasoning budget: the section budget for a section writer,
+ * This call's own reasoning budget: the one its body asks for (low or
+ * medium, a small edit's), else the section budget for a section writer,
  * else none. A page plan is a PLANNING call — the design every section writer
  * then builds from — so it keeps the backend default even if a host pinned the
  * writer's skill on it. Measured live 2026-09-28 (cli:haiku at the
@@ -399,9 +494,17 @@ const SECTION_WRITER_SKILL = 'craftkit.build-fill';
  * lowering it is a deliberate deployment choice, never a side effect of a pin.
  */
 function callEffort(wire: AiPlanWireRequest, options: HandlerOptions): { effort?: string } {
-  if (options.sectionEffort === undefined || wire.task === 'page-plan') return {};
+  if (wire.task === 'page-plan') return {};
+  // The call's own budget, already held to CALL_EFFORTS by the handler.
+  const asked: unknown = (wire as { effort?: unknown }).effort;
+  if (asked === 'low' || asked === 'medium') return { effort: asked };
+  if (options.sectionEffort === undefined) return {};
   const writesASection = (wire.context.skills ?? []).some((pin) => pin.id === SECTION_WRITER_SKILL);
   return writesASection ? { effort: options.sectionEffort } : {};
+}
+
+function taskOf(wire: AiPlanWireRequest): UsageTask {
+  return wire.task === 'page-plan' ? 'page-plan' : 'plan';
 }
 
 /** What one request answers on the wire, and what it cost when the model produced it. */
@@ -427,6 +530,7 @@ async function answer(
     ...(options.model === undefined ? {} : { model: options.model }),
     ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
     ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
+    ...(options.onLog === undefined ? {} : { onLog: options.onLog }),
     ...callEffort(wire, options),
     ...(onProgress === undefined ? {} : { onProgress }),
   };
@@ -456,7 +560,7 @@ async function unary(
 ): Promise<Response> {
   try {
     const answered = await answer(wire, options, signal);
-    if (answered.usage !== undefined) reportUsage(options, answered.usage);
+    if (answered.usage !== undefined) reportUsage(options, answered.usage, taskOf(wire));
     return json(answered.body);
   } catch (cause) {
     return errorResponse(cause);
@@ -482,7 +586,7 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
         const answered = await answer(wire, options, signal, (text) => {
           send('status', { text });
         });
-        if (answered.usage !== undefined) reportUsage(options, answered.usage);
+        if (answered.usage !== undefined) reportUsage(options, answered.usage, taskOf(wire));
         send('result', answered.body);
       } catch (cause) {
         /*

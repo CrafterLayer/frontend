@@ -8,17 +8,24 @@ import type {
 import { estimateAssembledAiContextTokens } from '../context';
 import {
   createPhotoCatalogContextProvider,
+  isCatalogPhotoUrl,
   PHOTO_CATALOG_PROVIDER_ID,
 } from '../context/providers/photo-catalog';
+import type { IntentKind } from '../intent';
 import { applyAiPlan, type AppliedAiPlan } from '../plan/apply-plan';
 import { repairAiPlanForIssues } from '../plan/generate-plan';
 import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/validated-proposal';
 import { AiPlanRejectedError } from '../plan/validate-plan';
+import type { AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
 import { readSectionValues } from './build-revert';
 import { classifyAiRunFailure, type AiRunFailure } from './errors';
 import { checkSection } from './page-plan/check-section';
 import { summarizeNeighbours } from './page-plan/neighbours';
-import { skeletonFromPlan, type SkeletonFromPlanContext } from './page-plan/skeleton-from-plan';
+import {
+  PAGE_KIT_CLASSES,
+  skeletonFromPlan,
+  type SkeletonFromPlanContext,
+} from './page-plan/skeleton-from-plan';
 import type {
   LandedSection,
   PagePlan,
@@ -28,6 +35,7 @@ import type {
 } from './page-plan/types';
 import { validatePagePlan } from './page-plan/validate-page-plan';
 import {
+  designMarkup,
   fittingSkillIds as fittingSkills,
   landingTarget,
   PAGE_PLAN_STEP,
@@ -44,6 +52,7 @@ import type {
   AiBuildOutOfScopeStep,
   AiBuildOwnEvent,
   AiBuildPlanAnswer,
+  AiBuildPlanFallback,
   AiBuildPlannedTask,
   AiBuildRunResult,
   AiBuildSectionCheck,
@@ -266,6 +275,47 @@ function withPhotoCatalog(options: RunAiBuildOptions, brief: string): readonly A
     ...additional.filter(({ id }) => id !== PHOTO_CATALOG_PROVIDER_ID),
     createPhotoCatalogContextProvider({ brief }),
   ]);
+}
+
+/**
+ * The registry as ONE step of a build sees it: every `prepare` is asked for
+ * the step's own intent, whatever the words read as.
+ *
+ * Generation now routes a request against the page it is about when no host
+ * route is given (generate-plan `skillIntentForGeneration`, 2026-09-28): an
+ * edit on a page with content no longer loads a whole-page playbook. A build
+ * step is not an edit, though. The scaffold carries the person's BRIEF as
+ * its request, and on a page with content a bare subject («حلويات شرقية
+ * وكنافة») routes as an edit there — the trade's page skill would be gated
+ * out of the one step that decides the page. So the build names each step's
+ * intent itself: the page's steps `build-page`, a section writer
+ * `add-section`. A view, not an option, because the step runs through
+ * `runAiAgent`, which hands generation its registry and nothing else of this.
+ */
+function stepSkillRegistry(
+  registry: AiSkillRegistry | undefined,
+  intent: IntentKind,
+): AiSkillRegistry | undefined {
+  if (registry === undefined) return undefined;
+  return Object.freeze({
+    list: () => registry.list(),
+    get: (id: string) => registry.get(id),
+    readSkill: (id: string) => registry.readSkill(id),
+    listReferences: (id: string) => registry.listReferences(id),
+    readReference: (id: string, path: string) => registry.readReference(id, path),
+    prepare: (prepare: AiSkillPrepareOptions) => registry.prepare({ ...prepare, intent }),
+  });
+}
+
+/** The page's own steps — T1, the scaffold, the one ordinary run — build a page. */
+const PAGE_STEP_INTENT: IntentKind = 'build-page';
+/** A section writer writes one section of it. */
+const SECTION_STEP_INTENT: IntentKind = 'add-section';
+
+/** The skill registry override for a page step, spread over the shared step options. */
+function pageStepSkills(options: RunAiBuildOptions): { skillRegistry?: AiSkillRegistry } {
+  const skills = stepSkillRegistry(options.skillRegistry, PAGE_STEP_INTENT);
+  return skills === undefined ? {} : { skillRegistry: skills };
 }
 
 /**
@@ -657,11 +707,13 @@ function runFill(
   brief: FillBrief,
   signal: AbortSignal,
 ): Promise<AiAgentRunResult> {
-  const { history, additionalContextProviders, ...step } = shared;
+  const { history, additionalContextProviders, skillRegistry, ...step } = shared;
   void additionalContextProviders;
+  const skills = stepSkillRegistry(skillRegistry, SECTION_STEP_INTENT);
   return runAiAgent({
     ...step,
     ...(brief.history && history !== undefined ? { history } : {}),
+    ...(skills === undefined ? {} : { skillRegistry: skills }),
     additionalContextProviders: brief.providers,
     runId: stepRunId(options.runId, `fill-${String(position)}`),
     request: brief.request,
@@ -1017,7 +1069,7 @@ function refusedBuild(
   build: BuildRun,
   planned: readonly AiBuildPlannedTask[],
   direction: string,
-  extra: Pick<AiBuildRunResult, 'scaffold' | 'pagePlan'>,
+  extra: Pick<AiBuildRunResult, 'scaffold' | 'pagePlan' | 'planFallback'>,
 ): AiBuildRunResult {
   const nothing: readonly AiBuildTaskReport[] = Object.freeze([]);
   const elapsedMs = workedMs(build);
@@ -1042,6 +1094,7 @@ function refusedBuild(
     outcome: 'signal' as const,
     plannedTasks: planned,
     ...(extra.pagePlan === undefined ? {} : { pagePlan: extra.pagePlan }),
+    ...(extra.planFallback === undefined ? {} : { planFallback: extra.planFallback }),
   });
 }
 
@@ -1656,7 +1709,7 @@ function finishBuild(
   build: BuildRun,
   filled: FilledSections,
   direction: string,
-  extra: Pick<AiBuildRunResult, 'scaffold' | 'pagePlan'>,
+  extra: Pick<AiBuildRunResult, 'scaffold' | 'pagePlan' | 'planFallback'>,
 ): AiBuildRunResult {
   const elapsedMs = workedMs(build);
   const outcome: AiBuildOutcome = filled.stopped ?? 'completed';
@@ -1680,6 +1733,7 @@ function finishBuild(
     outcome,
     unfilled: filled.unfilled,
     ...(extra.pagePlan === undefined ? {} : { pagePlan: extra.pagePlan }),
+    ...(extra.planFallback === undefined ? {} : { planFallback: extra.planFallback }),
   });
 }
 
@@ -1851,25 +1905,132 @@ function quoted(values: readonly string[]): string {
   return values.map((value) => JSON.stringify(value)).join(' · ');
 }
 
-/** An address that names a picture by its file type; a page or a link is not one. */
-const OWN_PHOTO_URL =
-  /https:\/\/[^\s"'<>()[\]{}]+?\.(?:avif|gif|jpe?g|png|svg|webp)(?:\?[^\s"'<>()[\]{}]*)?(?=[\s"'<>()[\]{},;!?،؛]|\.(?:\s|$)|$)/giu;
+/** Every https address in a text, as typed; the characters that cannot sit in one end it. */
+const HTTPS_ADDRESS = /https:\/\/[^\s"'<>()[\]{}]+/giu;
+/** Punctuation a sentence puts right after an address, never part of it. */
+const ADDRESS_TAIL = /[.,;:!?،؛…]+$/u;
+const IMAGE_FILE = /\.(?:avif|gif|jpe?g|png|svg|webp)$/iu;
+/*
+  Picture hosts whose addresses carry no file type:
+  images.unsplash.com/photo-1509042239860-f550ce710b93?w=1200 is the form
+  the repo's own block examples use, and it reached no writer (wave-2
+  verifier, r2-fixes.mjs §1, 2026-09-28). The catalog's own addresses are
+  asked of the catalog.
+*/
+const IMAGE_HOSTS =
+  /^(?:(?:images|plus|source)\.unsplash\.com|images\.pexels\.com|cdn\.pixabay\.com|i\.imgur\.com|res\.cloudinary\.com|[a-z0-9-]+\.imgix\.net|images\.ctfassets\.net|lh[3-6]\.googleusercontent\.com|pbs\.twimg\.com|cdn\.shopify\.com|upload\.wikimedia\.org|i\.ibb\.co|picsum\.photos|i\.pinimg\.com|img\.freepik\.com|images\.squarespace-cdn\.com|cdn\.dribbble\.com|media\.istockphoto\.com)$/iu;
+/** Parameters only an image service reads: `fm=jpg`, `format=webp`, `auto=format`. */
+const IMAGE_QUERY =
+  /[?&](?:fm|format)=(?:avif|gif|jpe?g|png|webp|auto)(?:&|$)|[?&]auto=(?:format|compress)(?:&|$)/iu;
+/** Pages, whatever words come before them: a profile, a chat, a map is not a picture. */
+const PAGE_HOSTS =
+  /(?:^|\.)(?:instagram\.com|facebook\.com|fb\.com|x\.com|twitter\.com|tiktok\.com|youtube\.com|youtu\.be|linkedin\.com|wa\.me|whatsapp\.com|t\.me|snapchat\.com|pinterest\.com|google\.com|goo\.gl)$/iu;
+/** A page path, not a picture: `.html`, `.php` and the like. */
+const PAGE_FILE = /\.(?:html?|php|aspx?|jsp)$/iu;
+/*
+  The person SAID it is a picture, just before it, in the same sentence:
+  «صورة المحل: https://…», «شعارنا https://…», "our logo https://…". Arabic
+  words are read with their clitics (بالصورة، لصورتنا).
+*/
+const PHOTO_WORD =
+  /(?:^|[^\p{L}])(?:(?:و|ف)?(?:بال|لل|ال|ب|ل)?(?:صور|لوغو|لوجو|لوقو|شعار|خلفي|غلاف|بانر)|photos?|images?|pictures?|pics?|logo|banner|background|cover|img)(?![a-z])/iu;
+/** Characters of the same sentence read before an address for a photo word. */
+const PHOTO_WORD_WINDOW = 48;
 /** Past this many a list stops being a person's photos and becomes noise in every brief. */
 const OWN_PHOTOS_MAX = 6;
 
+/** Whether an address the person typed is a picture, read from the address and what came just before it. */
+function isPictureAddress(address: string, before: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(address);
+  } catch {
+    return false;
+  }
+  if (PAGE_HOSTS.test(url.hostname) || PAGE_FILE.test(url.pathname)) return false;
+  if (IMAGE_FILE.test(url.pathname) || IMAGE_HOSTS.test(url.hostname)) return true;
+  if (IMAGE_QUERY.test(url.search) || isCatalogPhotoUrl(address)) return true;
+  // The sentence so far: a full stop, a line break or an earlier address ends what counts.
+  const sentence =
+    before
+      .slice(-PHOTO_WORD_WINDOW)
+      .split(/[.!?؟;؛\n]|https:\/\//u)
+      .at(-1) ?? '';
+  return PHOTO_WORD.test(sentence);
+}
+
 /**
- * The photo addresses the person typed, first seen first, each once. A writer
- * reads its contract and not the request (P1-10), so without this line an
- * address they gave reached no writer at all — the checker could stop a
- * repair from swapping it out, but nothing could make the page use it.
+ * The picture addresses the person typed, first seen first, each once, exactly
+ * as typed — the checker admits an image only when the person's words hold
+ * its address verbatim. A writer reads its contract and not the request
+ * (P1-10), so without this line an address they gave reached no writer at all:
+ * the checker could stop a repair from swapping it out, but nothing could make
+ * the page use it.
+ *
+ * Any https picture, not only one named by its file type: an extension-less
+ * Unsplash or Pexels address, a catalog address, an image service's
+ * `?fm=jpg`, or any address the person introduced as a photo, logo or
+ * background. A link to a page stays a link.
  */
 function ownPhotoAddresses(personWords: string): readonly string[] {
   const found = new Set<string>();
-  for (const match of personWords.matchAll(OWN_PHOTO_URL)) {
-    found.add(match[0]);
+  for (const match of personWords.matchAll(HTTPS_ADDRESS)) {
+    const address = match[0].replace(ADDRESS_TAIL, '');
+    if (!isPictureAddress(address, personWords.slice(0, match.index))) continue;
+    found.add(address);
     if (found.size === OWN_PHOTOS_MAX) break;
   }
   return Object.freeze([...found]);
+}
+
+/*
+  How a writer colours on a page plan, in the words the checker holds it to.
+  The kit is the skeleton's own (PAGE_KIT_CLASSES, written into the page CSS
+  in @layer components); the old line told writers to use arbitrary classes
+  such as bg-[var(--ck-accent)], which the static vocabulary does not
+  generate — the door refused them ("utility classes with no generated
+  CSS"), or, under the live compiler, they rendered on the canvas and were
+  missing from the published page (skeleton-checker F9, 2026-09-28).
+*/
+const KIT_LINE = `KIT — the page's classes, in its CSS already: ${PAGE_KIT_CLASSES.map(
+  ({ name, use }) => `${name} (${use})`,
+).join(' · ')}`;
+/** A section-variants recipe is written in slots; on a page plan each slot is a kit class. */
+const SLOTS_LINE =
+  "SLOTS — fill a recipe's slots from the kit: bg-{ground} → ck-ground · bg-{card} → ck-card · text-{ink} → ck-ink · text-{muted} → ck-muted · text-{accent-ink} → ck-accent-ink · bg-{accent} text-{on-accent} → ck-btn on an action, ck-accent-fill on a band · bg-{band} text-{band-text} → ck-inverse (text-{band-muted} → ck-muted inside it) · any other colour → a ck- class of your own in this region's css over var(--ck-…)";
+
+/**
+ * What a writer may build with, beyond utilities: region css as a first-class
+ * tool for the signature, inside the door's refusal list (custom-css.ts
+ * REFUSED), and the design markup the vocabulary admits today.
+ */
+function designCodeLine(): string {
+  const markup = designMarkup();
+  return `DESIGN CODE — this region's css (its second setProp, under 8,000 characters) is a first-class tool: build the SIGNATURE and any effect a utility cannot say (a gradient ground, a mask or clip-path, grain, layered shapes, keyframes) as ck- classes coloured only with var(--ck-…) (color-mix() for tints), motion inside @media (prefers-reduced-motion:no-preference). The door refuses only @import, url() over http: or //, expression(), behavior, -moz-binding, javascript: and </style>.${markup === '' ? '' : ` Markup beyond sections and cards: ${markup}.`}`;
+}
+
+/** The IMAGES lines: the contract's photos, the person's own where they fit, or none. */
+function imageLines(contract: SectionContract, ownPhotos: readonly string[]): readonly string[] {
+  const images = contract.images ?? [];
+  // The hero shows the person's own photo even when the plan made it type-led: they gave it for the page.
+  const own = images.length > 0 || contract.role === 'hero' ? ownPhotos : [];
+  const ownLine = `THEIR OWN PHOTOS (the person gave these addresses; use them exactly as written): ${own.join(' · ')}`;
+  if (images.length === 0) {
+    return own.length === 0
+      ? ['IMAGES: none — this section is type-led; no photo']
+      : [
+          'IMAGES: the person’s own — show the first of THEIR OWN PHOTOS that fits this section, exactly as written',
+          ownLine,
+        ];
+  }
+  return [
+    `IMAGES: ${images
+      .map(({ subject, aspect, alt }) => `${subject} (${aspect}) alt ${JSON.stringify(alt)}`)
+      .join(
+        ' · ',
+      )} — each from ${own.length === 0 ? '' : 'THEIR OWN PHOTOS where one fits, else from '}PHOTOS YOU MAY USE`,
+    ...(own.length === 0 ? [] : [ownLine]),
+  ];
 }
 
 /**
@@ -1898,7 +2059,11 @@ function contractRequest(
   return [
     PLAN_HEADING,
     `PAGE: ${plan.title} — lang ${plan.locale.lang}, ${plan.locale.dir}`,
-    `TOKENS — the page's colours and faces, already on the page as CSS custom properties. Colour and type ONLY through them (var(--ck-…) in the region css, or arbitrary classes such as bg-[var(--ck-accent)]); never a palette class, never a hex: --ck-bg ${tokens.bg} ground · --ck-surface ${tokens.surface} cards · --ck-ink ${tokens.ink} text · --ck-muted ${tokens.muted} secondary text · --ck-accent ${tokens.accent} brand fill · --ck-on-accent ${tokens.onAccent} text on the fill · --ck-accent-ink ${tokens.accentInk} accent-coloured text · --ck-border ${tokens.border} hairlines · --ck-radius (${tokens.radius}) · --ck-font-display "${tokens.fontDisplay.family}" headings · --ck-font-body "${tokens.fontBody.family}" text`,
+    `TOKENS — the page's colours and faces, on the page as CSS custom properties: --ck-bg ${tokens.bg} ground · --ck-surface ${tokens.surface} cards · --ck-ink ${tokens.ink} text · --ck-muted ${tokens.muted} secondary text · --ck-accent ${tokens.accent} brand fill · --ck-on-accent ${tokens.onAccent} text on the fill · --ck-accent-ink ${tokens.accentInk} accent-coloured text · --ck-border ${tokens.border} hairlines · --ck-radius (${tokens.radius}) · --ck-font-display "${tokens.fontDisplay.family}" headings · --ck-font-body "${tokens.fontBody.family}" text`,
+    `COLOUR — only through the kit below, or var(--ck-…) in this region's css. Never a hex, a palette shade (bg-orange-700) or an arbitrary class (bg-[var(--ck-accent)]: the published page has no CSS for it); black and white utilities (ring-black/5, bg-black/60, text-white) are fine. Accent-coloured TEXT, numbers and icons are ck-accent-ink (${tokens.accentInk}), never the accent fill ${tokens.accent} as text.`,
+    KIT_LINE,
+    SLOTS_LINE,
+    designCodeLine(),
     `SIGNATURE: ${tokens.signature}`,
     `PRIMARY ACTION: "${plan.primaryCta.label}" → ${plan.primaryCta.href} — every call-to-action button on the page says exactly this`,
     ...(chrome && plan.nav.length > 0
@@ -1919,20 +2084,7 @@ function contractRequest(
     ...(contract.mustNotRepeat.length === 0
       ? []
       : [`MUST NOT REPEAT (another section says it): ${quoted(contract.mustNotRepeat)}`]),
-    ...(contract.images === undefined || contract.images.length === 0
-      ? ['IMAGES: none — this section is type-led; no photo']
-      : [
-          `IMAGES: ${contract.images
-            .map(({ subject, aspect, alt }) => `${subject} (${aspect}) alt ${JSON.stringify(alt)}`)
-            .join(
-              ' · ',
-            )} — each from ${ownPhotos.length === 0 ? '' : 'THEIR OWN PHOTOS where one fits, else from '}PHOTOS YOU MAY USE`,
-          ...(ownPhotos.length === 0
-            ? []
-            : [
-                `THEIR OWN PHOTOS (the person gave these addresses; use them exactly as written): ${ownPhotos.join(' · ')}`,
-              ]),
-        ]),
+    ...imageLines(contract, ownPhotos),
     ...(facts.length === 0
       ? []
       : [
@@ -2003,14 +2155,43 @@ function planStepEvents(build: BuildRun): (note: PagePlanStepNote) => void {
 }
 
 /**
- * Step T1 under a build. Undefined means "no plan": the provider cannot plan
- * a page, or its plan was refused twice, or it failed — and the build falls
- * back to the scaffold run, which still works everywhere it worked before.
+ * Why the plan path gave out, as the result and the fallback event carry it.
+ * `issues` are the validator's (T1) or the door's (skeleton) own words, each
+ * the instruction it gave; a failure with none carries its message alone.
+ */
+function planFallback(
+  stage: AiBuildPlanFallback['stage'],
+  error: AiRunFailure,
+  issues: readonly string[],
+): AiBuildPlanFallback {
+  return Object.freeze({
+    stage,
+    error,
+    issues: Object.freeze(issues.length === 0 ? [error.message] : [...issues]),
+  });
+}
+
+/** A refusal's own issues, or its message when it carries none. */
+function refusalIssues(cause: unknown): readonly string[] {
+  if (cause instanceof AiPlanRejectedError) return cause.issues.map(({ message }) => message);
+  return [errorMessage(cause)];
+}
+
+/**
+ * Step T1 under a build. Undefined means T1 never ran — the provider cannot
+ * plan a page, or the registry has no region block — and the build is the
+ * scaffold build by design. `failure` means it ran and gave out: its plan was
+ * refused twice, or the provider failed; the build falls back to the scaffold
+ * run, which still works everywhere it worked before, and says why.
  * Only an abort escapes: that is the person stopping, not the strategy failing.
  */
 async function planStep(
   build: BuildRun,
-): Promise<{ readonly plan: PagePlan; readonly rationale?: string } | undefined> {
+): Promise<
+  | { readonly plan: PagePlan; readonly rationale?: string }
+  | { readonly failure: AiBuildPlanFallback }
+  | undefined
+> {
   const { options } = build;
   if (options.provider.proposePagePlan === undefined) return undefined;
   // A plan is laid as `customCode` regions; a registry without them keeps the scaffold build.
@@ -2047,7 +2228,17 @@ async function planStep(
     },
     planStepEvents(build),
   );
-  if (!('plan' in result)) return undefined;
+  if (!('plan' in result)) {
+    return {
+      failure: planFallback(
+        'plan',
+        result.error,
+        (result.issues ?? []).map(
+          ({ path, message }) => `${path === '' ? '' : `${path}: `}${message}`,
+        ),
+      ),
+    };
+  }
   return result.rationale === undefined
     ? { plan: result.plan }
     : { plan: result.plan, rationale: result.rationale };
@@ -2058,18 +2249,22 @@ async function planStep(
  * one transaction, and one writer per section that the skeleton did not write
  * in full — each given its contract, checked before it lands.
  *
- * Returns undefined only when the skeleton could not be laid for a plan the
+ * Returns `refused` only when the door refused the skeleton for a plan the
  * build made itself and nobody was asked about; the caller then falls back to
- * the scaffold run. A plan the person approved, edited or handed in is never
- * silently swapped for a different build: its skeleton's refusal is thrown,
- * with nothing written.
+ * the scaffold run — out loud: the door's reasons go on a `build.scaffolding`
+ * event and on the result (`planFallback`). It was a bare `undefined` once,
+ * and the wave-2 verifier (r2-silent-fallback2.mjs, 2026-09-28) watched a
+ * validated plan dropped for the ~25k-character model skeleton with no event
+ * and no field saying so. A plan the person approved, edited or handed in is
+ * never swapped for a different build: its skeleton's refusal is thrown, with
+ * nothing written.
  */
 async function buildFromPlan(
   build: BuildRun,
   proposed: PagePlan,
   rationale: string | undefined,
   source: 'given' | 'planned',
-): Promise<AiBuildRunResult | undefined> {
+): Promise<AiBuildRunResult | { readonly refused: AiBuildPlanFallback }> {
   const { options, emit } = build;
   const direction = planDirection(proposed, rationale);
   const planned: readonly AiBuildPlannedTask[] = Object.freeze(
@@ -2114,7 +2309,11 @@ async function buildFromPlan(
       label: skeleton.label,
     });
   } catch (cause) {
-    if (source === 'planned' && !build.asks) return undefined;
+    if (source === 'planned' && !build.asks) {
+      return {
+        refused: planFallback('skeleton', classifyAiRunFailure(cause), refusalIssues(cause)),
+      };
+    }
     throw cause;
   }
 
@@ -2175,16 +2374,19 @@ async function buildFromPlan(
       return;
     }
     const images = contract.images ?? [];
-    const photos = images.length > 0;
+    // A hero is handed the person's own photos even when the plan made it type-led (see imageLines).
+    const photos = images.length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
     const skillIds = fillSkillIds(options, arabic, photos);
-    const providers = photos
-      ? withPhotoCatalog(
-          options,
-          [contract.title, ...images.flatMap(({ subject, alt }) => [subject, alt])].join(' '),
-        )
-      : (options.additionalContextProviders ?? []).filter(
-          ({ id: providerId }) => providerId !== PHOTO_CATALOG_PROVIDER_ID,
-        );
+    // The catalog is where the contract's subjects come from; the person's own need none.
+    const providers =
+      images.length > 0
+        ? withPhotoCatalog(
+            options,
+            [contract.title, ...images.flatMap(({ subject, alt }) => [subject, alt])].join(' '),
+          )
+        : (options.additionalContextProviders ?? []).filter(
+            ({ id: providerId }) => providerId !== PHOTO_CATALOG_PROVIDER_ID,
+          );
     jobs.push({
       ...common,
       brief: (attempt) => ({
@@ -2236,8 +2438,13 @@ function sectionOf(values: AiBuildSectionValues): LandedSection {
  * registry without `customCode`. A model run lays the skeleton; its rationale
  * is the direction every section writer obeys.
  */
-async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
+async function buildFromScaffold(
+  build: BuildRun,
+  fellBack: AiBuildPlanFallback | undefined,
+): Promise<AiBuildRunResult> {
   const { options, emit, shared, personStopped } = build;
+  // Every result of a build that fell back here says so, whatever it ends as.
+  const told = fellBack === undefined ? {} : { planFallback: fellBack };
   /*
     A skeleton is an EXTRA request this path invented, so its failure must cost
     nothing: the person asked for a page, not for a scaffold, and the single
@@ -2249,6 +2456,7 @@ async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
   try {
     scaffold = await runAiAgent({
       ...shared,
+      ...pageStepSkills(options),
       runId: stepRunId(options.runId, 'scaffold'),
       // "Try another look" reaches the deck's B row as the line it reads.
       request: withRequestedLook(options.request),
@@ -2301,6 +2509,7 @@ async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
       direction,
       outcome: 'planned' as const,
       plannedTasks,
+      ...told,
     });
   }
 
@@ -2319,7 +2528,7 @@ async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
       const answer = await askPerson(build, planned, direction);
       // A scaffold build has no plan to edit; `{ build }` from a host is still a yes.
       if (answer === 'stop' || personStopped()) {
-        return refusedBuild(build, planned, direction, { scaffold });
+        return refusedBuild(build, planned, direction, { scaffold, ...told });
       }
       /*
         Approved: the skeleton the person saw lands now, exactly as proposed,
@@ -2358,6 +2567,7 @@ async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
     });
     const fallback = await runAiAgent({
       ...shared,
+      ...pageStepSkills(options),
       runId: stepRunId(options.runId, 'fallback'),
       request: options.request,
       /*
@@ -2379,6 +2589,7 @@ async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
       direction,
       outcome: 'fallback' as const,
       fallback,
+      ...told,
     });
   }
 
@@ -2424,7 +2635,10 @@ async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
     };
   });
   const filled = await fillAndLand(build, jobs, placeholders);
-  return finishBuild(build, filled, direction, { ...(scaffold === undefined ? {} : { scaffold }) });
+  return finishBuild(build, filled, direction, {
+    ...(scaffold === undefined ? {} : { scaffold }),
+    ...told,
+  });
 }
 
 /**
@@ -2448,7 +2662,12 @@ async function buildFromScaffold(build: BuildRun): Promise<AiBuildRunResult> {
  *   landing in page order as its own labelled transaction.
  *
  * Any provider without it, or a plan refused twice, takes the scaffold build:
- * a model run lays the skeleton and its rationale is the direction.
+ * a model run lays the skeleton and its rationale is the direction. When the
+ * plan path was TRIED and gave out — T1 failed, or the door refused the
+ * code-written skeleton of an automatic build — the fall back is said out
+ * loud: a second `build.scaffolding` event carries `fallback` (the stage and
+ * the validator's or the door's reasons), and the result carries the same as
+ * `planFallback`, whatever the scaffold build then ends as.
  *
  * Either way it is a thin orchestrator: planning and validation still happen
  * inside `runAiAgent` and `validatePagePlan`, and every write goes through
@@ -2462,16 +2681,29 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
   const build = createBuildRun(options);
   build.emit({ type: 'build.scaffolding' });
 
+  let fellBack: AiBuildPlanFallback | undefined;
   if (options.pagePlan !== undefined) {
     const given = revalidated(options.pagePlan, options.pagePlan.intent);
     const result = await buildFromPlan(build, given, undefined, 'given');
-    if (result !== undefined) return result;
+    // A given plan never falls back: its skeleton's refusal is thrown.
+    if (!('refused' in result)) return result;
+    fellBack = result.refused;
   } else {
     const planned = await planStep(build);
-    if (planned !== undefined) {
+    if (planned !== undefined && 'plan' in planned) {
       const result = await buildFromPlan(build, planned.plan, planned.rationale, 'planned');
-      if (result !== undefined) return result;
+      if (!('refused' in result)) return result;
+      fellBack = result.refused;
+    } else if (planned !== undefined) {
+      fellBack = planned.failure;
     }
   }
-  return buildFromScaffold(build);
+  /*
+    The scaffold build starts over from here, so the one event that means
+    "laying the skeleton" says it again — this time with why. Hosts that read
+    `build.scaffolding` as idempotent keep working; a host that reads the
+    `fallback` can tell the person, and a log can count it.
+  */
+  if (fellBack !== undefined) build.emit({ type: 'build.scaffolding', fallback: fellBack });
+  return buildFromScaffold(build, fellBack);
 }

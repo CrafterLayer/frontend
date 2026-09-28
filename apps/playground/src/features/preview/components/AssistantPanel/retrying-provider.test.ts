@@ -2,9 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   AiProviderError,
+  type AiPagePlanProposal,
   type AiPlan,
   type AiPlanProvider,
   type AiPlanValidationIssue,
+  type AiPromptEnhanceInput,
+  type AiPromptEnhancement,
   type AiProposeOptions,
   type AssembledAiContext,
 } from '@craftkit/builder';
@@ -281,5 +284,149 @@ describe('createRetryingAiPlanProvider', () => {
     provider.forget?.('Add a hero.', context);
 
     expect(forget).toHaveBeenCalledWith('Add a hero.', context, undefined);
+  });
+});
+
+/*
+  The optional capabilities (2026-09-28). This decorator used to forward
+  propose and repair alone, so the env provider lost `proposePagePlan` here
+  and every build fell back to the scaffold path (engine wave-2 verifier).
+*/
+describe('createRetryingAiPlanProvider — page plans and rewrites', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const pagePlan: AiPagePlanProposal = { pagePlan: { title: 'Roastery' } };
+  const rewrite: AiPromptEnhancement = {
+    enhanced: 'Build a landing page for a café.',
+    understood: '',
+    changes: [],
+    questions: [],
+    language: 'en',
+  };
+  const draft: AiPromptEnhanceInput = {
+    text: 'cafe page',
+    locale: 'en',
+    intent: null,
+    page: { empty: true, sections: [] },
+    selection: null,
+    answers: [],
+  };
+
+  it('offers neither when the inner provider has neither — absence is the fallback signal', () => {
+    const provider = createRetryingAiPlanProvider({ propose: () => Promise.resolve(plan) });
+    expect(Object.hasOwn(provider, 'proposePagePlan')).toBe(false);
+    expect(Object.hasOwn(provider, 'enhancePrompt')).toBe(false);
+  });
+
+  it('retries a page plan over the same flaky wire, with the same options', async () => {
+    let calls = 0;
+    const seen: unknown[] = [];
+    const provider = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        proposePagePlan: (_request, _context, live) => {
+          calls += 1;
+          seen.push(live?.attempt);
+          return calls === 1 ? Promise.reject(httpError(529)) : Promise.resolve(pagePlan);
+        },
+      },
+      { random: () => 1 },
+    );
+    const attempt = { pagePlan: { title: 'first' }, issues: [] };
+
+    const proposal = provider.proposePagePlan?.('Build my page', context, { attempt });
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await expect(proposal).resolves.toEqual(pagePlan);
+    expect(calls).toBe(2);
+    expect(seen).toEqual([attempt, attempt]);
+  });
+
+  it('does not retry a server that predates the page-plan task — it would answer the same', async () => {
+    let calls = 0;
+    const provider = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        proposePagePlan: () => {
+          calls += 1;
+          return Promise.reject(
+            new AiProviderError('It does not support page plans yet.', {
+              code: 'invalid-output',
+              retryable: false,
+            }),
+          );
+        },
+      },
+      { random: () => 1 },
+    );
+
+    const failure = expect(provider.proposePagePlan?.('Build my page', context)).rejects.toThrow(
+      /page plans/,
+    );
+    await vi.advanceTimersByTimeAsync(10_000);
+    await failure;
+    expect(calls).toBe(1);
+  });
+
+  it('gives a rewrite one quick retry after a blip, and none after a timeout', async () => {
+    const attempts: AiPlanRetryAttempt[] = [];
+    let blips = 0;
+    const flaky = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        enhancePrompt: () => {
+          blips += 1;
+          return blips < 3 ? Promise.reject(networkError()) : Promise.resolve(rewrite);
+        },
+      },
+      { random: () => 1, onRetry: (attempt) => attempts.push(attempt) },
+    );
+    const failure = expect(flaky.enhancePrompt?.(draft)).rejects.toThrow(/could not be reached/);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await failure;
+    // Two attempts, not three: the enhancer sits in front of the Send button.
+    expect(blips).toBe(2);
+    expect(attempts.map(({ maxAttempts }) => maxAttempts)).toEqual([2]);
+
+    let slow = 0;
+    const timingOut = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        enhancePrompt: () => {
+          slow += 1;
+          return Promise.reject(timeoutError());
+        },
+      },
+      { random: () => 1 },
+    );
+    const timedOut = expect(timingOut.enhancePrompt?.(draft)).rejects.toThrow(/timed out/);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await timedOut;
+    expect(slow).toBe(1);
+  });
+
+  it('hands back a rewrite that arrives after one blip', async () => {
+    let calls = 0;
+    const provider = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        enhancePrompt: () => {
+          calls += 1;
+          return calls === 1 ? Promise.reject(httpError(503)) : Promise.resolve(rewrite);
+        },
+      },
+      { random: () => 1 },
+    );
+
+    const rewritten = provider.enhancePrompt?.(draft);
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await expect(rewritten).resolves.toEqual(rewrite);
+    expect(calls).toBe(2);
   });
 });

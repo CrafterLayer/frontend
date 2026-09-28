@@ -471,4 +471,115 @@ export const en = {
   },
   'impact.dir': 'the page direction changed',
   'impact.surface': 'the page surface changed',
+
+  // controller additions (WP-16)
+  // (added) ✨ Improve rewrote the draft; the person's own wording stays one Restore away.
+  'announce.enhance.ready': 'Request improved',
+  // (added) The request was too unclear to run: questions are docked above the composer.
+  'announce.clarify.ready': 'A few questions before starting',
+  // (added) A build that could not land where the words asked says so after its record.
+  'end.siteAsOnePage': 'Built as one page. The chat builds one page at a time.',
+  'end.newPageAppended': "Built below this page. A new page can't be opened from here.",
+  'end.appendedNotReplaced': "Added below what's already here. Nothing was replaced.",
+
+  // WP-14-composer additions
+  // (added) ✨ Improve (EnhanceButton): the owner's own words for the tooltip, which is
+  // also the button's name. While it works the name says so; no ellipsis, because the
+  // spinner and the shimmer on the draft already say "in progress".
+  'enhance.button': 'Improve my request',
+  'enhance.working': 'Improving your request',
+  // (added) Why Improve cannot run now: the tooltip's second line on an aria-disabled button.
+  'enhance.empty': "Available once you've written a request",
+  'enhance.busy': 'Available when the current work ends',
+  // (added) EnhanceNote. The label repeats `announce.enhance.ready`, so the eye and the
+  // ear hear one sentence; `{prompt}` is the model's one-line restatement of the request.
+  'enhance.done': 'Request improved',
+  'enhance.understood': 'Understood: {prompt}',
+  'enhance.changes.show': 'Show changes ({n})',
+  'enhance.changes.hide': 'Hide changes',
+  'enhance.restore': 'Restore my text',
+  // (added) A failed Improve changes nothing, and says so: the cause when it is known.
+  'enhance.failed': "Couldn't improve the request",
+  'enhance.failed.busy': 'The service is busy. Your text is unchanged.',
+  'enhance.failed.unreachable': "The model didn't respond. Your text is unchanged.",
+  'enhance.failed.timeout': 'It took too long. Your text is unchanged.',
+  'enhance.failed.other': 'Your text is unchanged.',
+  // (added) ClarifyPanel. The title repeats `announce.clarify.ready`; the progress is the
+  // question being asked, drawn "1 of 3" and spoken "Question 1 of 3".
+  'clarify.title': 'A few questions before starting',
+  'clarify.progress': '{i} of {n}',
+  'clarify.progress.aria': 'Question {i} of {n}',
+  'clarify.other': 'Other',
+  'clarify.other.placeholder': 'Your own answer',
+  'clarify.other.send': 'Send this answer',
+  'clarify.edit': 'Change this answer',
+  'clarify.sendAsWritten': 'Send as written',
+  'clarify.cancel': 'Cancel',
+  'clarify.rewriting': 'Rewriting your request',
+
+  // WP-11-frame additions
+  // (added) §4.4 JumpToLatest. WCAG 2.5.3 Label in Name: while a run is live the pill reads
+  // "Building" or "Editing", a word `jump.aria` does not contain, so the name opens with
+  // the pill's own word and then says what the button does. Idle, the pill reads "Latest"
+  // and `jump.aria` ("Jump to the latest") already contains it.
+  'jump.aria.live': '{label}: jump to the latest',
+
+  // WP-12-records additions
+  // (added) §4.5: the person's sent request is an article, and it has no head to name it.
+  'message.aria': 'Your request',
+  // (added) §4.8 DirectionLine: `direction.aria` names the mood, the colours and the fonts;
+  // a direction without fonts, or without swatches, says only what it has.
+  'direction.aria.colors': 'Style: {mood}. Colours: {colors}.',
+  'direction.aria.fonts': 'Style: {mood}. Fonts: {fonts}.',
+  // (added) §4.9: the page-wide twins of `edit.title.done` and `edit.title.noChange`, for an
+  // edit with no target to name (`edit.title.runningPage` is the running one).
+  'edit.title.donePage': 'Page updated',
+  'edit.title.noChangePage': 'No change to the page',
+  // (added) §4.13: the page-wide twin of `proposal.applied`.
+  'proposal.appliedPage': 'Proposal applied',
+
+  // WP-13-decisions additions
+  // (added) §4.11 PlanSectionRow: eight rows each carry a handle and a [⋯], so each control
+  // names its section; `plan.row.drag` stays the handle's tooltip hint and description.
+  'plan.row.reorder': 'Reorder {title}',
+  'plan.row.menu': 'Options for {title}',
+  // (added) §4.11 inline rename: the field's label says which section it renames.
+  'plan.row.rename.aria': 'Rename {title}',
+  // (added) §4.11 DirectionEditor: the swatch row's group name, and FontPairMenu's list.
+  'plan.colors': 'Colours',
+  'plan.fonts.menu': 'Fonts',
+  // (added) §3.14 at 420: the "Aa" specimen before the font pair (decorative, aria-hidden).
+  'plan.fonts.specimen': 'Aa',
+  // (added) §4.11 SwatchPopover: the native colour input's label.
+  'swatch.pick': 'Pick a colour',
+  // (added) §4.11 `swatch.ok` / `swatch.low` judge text on the background. A card's text sits
+  // on the surface, and a button's text on the accent, so those pairs say so.
+  'swatch.ok.surface': 'Readable on the surface (contrast {r})',
+  'swatch.low.surface': 'Not readable on the surface (contrast {r})',
+  'swatch.ok.accent': 'Readable on the accent (contrast {r})',
+  'swatch.low.accent': 'Not readable on the accent (contrast {r})',
+  // (added) §4.11: the popover refuses a colour that breaks its pair, and says so.
+  'swatch.refused': "This colour isn't applied while the text can't be read.",
+  'swatch.hex.invalid': 'A hex code looks like {hex}',
+  // (added) §4.13: the page-wide twin of `proposal.title`, for a proposal with no target.
+  'proposal.title.page': 'Proposed change to the page',
+  // (added) §4.12 StepPlanCard: the steps list's name, and each step's target, spoken.
+  'steps.label': 'Steps',
+  'steps.target': 'In {target}',
+  // (added) §4.15 RestoreDialog: the conflict leaves nothing to confirm, only to close; and
+  // the Restore button's description while the restore runs.
+  'restore.close': 'Close',
+  'restore.working': 'Restoring the page',
+
+  // WP-15-history-phone additions
+  // (added) §4.18 HistoryRow: the row button's name. A row shows its title, "Current" and
+  // its time as three pieces; read together without a pause they run into one another
+  // ("Amman Current Now"), so the name says title and time as a phrase. "Current" is
+  // `aria-current` on the button, which a screen reader says in its own words.
+  'history.row': '{title}, {when}',
+  // (added) §4.18: while a run is live, other conversations wait, as New conversation does
+  // (§4.2 `header.new.busy`): leaving mid-run would strand the work being watched.
+  'history.busy': 'Other conversations open when the current work ends',
+  // (added) §4.18: the current conversation cannot be deleted while its run is live.
+  'history.delete.busy': 'Available when the current work ends',
 } as const satisfies Readonly<Record<Key, EnEntry>>;

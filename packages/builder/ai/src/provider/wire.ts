@@ -6,11 +6,16 @@ import type {
   AiChatTurn,
   AiPlan,
   AiPlanValidationIssue,
+  AiPromptEnhanceInput,
+  AiPromptEnhanceQuestion,
+  AiPromptEnhancement,
+  AiPromptLocale,
   AssembledAiContext,
   PagePlanCandidate,
   PagePlanIssue,
 } from '../types';
 import { estimateCanonicalJsonTokens } from '../internal/canonical-json';
+import { detectPromptLanguage } from '../prompt-enhance/language';
 
 export const AI_PLAN_WIRE_VERSION = 1;
 /** Maximum number of Unicode code points exposed from an invalid-output server message. */
@@ -287,5 +292,179 @@ export function readAiPagePlanWireResponse(payload: unknown): AiPagePlanWireRead
   return {
     kind: 'invalid-output',
     message: 'The assistant server answered with something that is not a page plan or a refusal.',
+  };
+}
+
+// ── the prompt enhancer (2026-09-28) ─────────────────────────────────────────
+
+/**
+ * Where the enhancer answers: this path on the plan server's ORIGIN (the plan
+ * endpoint's own path is dropped), with the same bearer and CORS as `/plan`.
+ * Its own route rather than a third `task` on /plan because the answer shares
+ * nothing with a plan — no context, no catalog, no SSE narration — and an
+ * older server must answer 404 (the client's cue to fall back to its tidy)
+ * instead of spending a whole plan generation on a request it misreads.
+ */
+export const AI_PROMPT_ENHANCE_PATH = '/v1/prompt/enhance';
+/** Section labels sent with the draft; a longer page is summarised by its first 20. */
+export const AI_PROMPT_ENHANCE_MAX_SECTIONS = 20;
+/** The contract's limits on an answer, enforced by the reader so a UI never sees more. */
+export const AI_PROMPT_ENHANCE_MAX_CHANGES = 5;
+export const AI_PROMPT_ENHANCE_MAX_QUESTIONS = 3;
+export const AI_PROMPT_ENHANCE_MAX_CHOICES = 4;
+
+/**
+ * POST body of the enhancer:
+ *
+ *   {"version":1,"text":"<the person's draft>","locale":"ar"|"en",
+ *    "intent":{"kind":"build-page"|"build-site"|"add-section"|"edit"|"question",
+ *              "confidence":0.0-1.0}|null,
+ *    "page":{"empty":boolean,"sections":["<section label>", …≤20]},
+ *    "selection":"<selected block label>"|null,
+ *    "answers":[{"question":"…","answer":"…"}]}
+ */
+export interface AiPromptEnhanceWireRequest extends AiPromptEnhanceInput {
+  readonly version: typeof AI_PLAN_WIRE_VERSION;
+}
+
+/**
+ * The 200 answer:
+ *
+ *   {"version":1,"enhanced":"<rewritten request>","understood":"<one sentence, UI locale>",
+ *    "changes":["<≤5 short items, UI locale>"],
+ *    "questions":[{"id":"q1","text":"…","choices":["…","…"]}],"language":"ar"|"en"}
+ *
+ * Failures use /plan's envelope and statuses (`{"error": "…"}` with 4xx/5xx,
+ * or the versioned `invalidOutput` report), so the remote provider's error
+ * taxonomy reads both routes the same way.
+ */
+export interface AiPromptEnhanceWireResponse extends AiPromptEnhancement {
+  readonly version: typeof AI_PLAN_WIRE_VERSION;
+}
+
+/** The exact body the remote provider POSTs for `input`: the contract's fields, nothing else. */
+export function aiPromptEnhanceWireRequest(
+  input: AiPromptEnhanceInput,
+): AiPromptEnhanceWireRequest {
+  return {
+    version: AI_PLAN_WIRE_VERSION,
+    text: input.text,
+    locale: input.locale,
+    intent:
+      input.intent === null ? null : { kind: input.intent.kind, confidence: input.intent.confidence },
+    page: {
+      empty: input.page.empty,
+      sections: input.page.sections.slice(0, AI_PROMPT_ENHANCE_MAX_SECTIONS),
+    },
+    selection: input.selection,
+    answers: input.answers.map(({ question, answer }) => ({ question, answer })),
+  };
+}
+
+/** What an enhance answer turned out to be. Never a throw: the caller decides what a miss costs. */
+export type AiPromptEnhanceWireReading =
+  | { readonly kind: 'enhancement'; readonly enhancement: AiPromptEnhancement }
+  | { readonly kind: 'invalid-output'; readonly message: string }
+  /** The server answered an ordinary plan: it answers every POST as /plan and predates the route. */
+  | { readonly kind: 'unsupported'; readonly message: string };
+
+/** One line of UI text: whitespace folded, ends trimmed. */
+function oneLine(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/\s+/gu, ' ').trim() : '';
+}
+
+/** Distinct non-empty lines, in order, at most `limit`. */
+function distinctLines(value: unknown, limit: number): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    const line = oneLine(item);
+    if (line !== '') seen.add(line);
+    if (seen.size === limit) break;
+  }
+  return [...seen];
+}
+
+function enhanceQuestions(value: unknown): readonly AiPromptEnhanceQuestion[] {
+  if (!Array.isArray(value)) return [];
+  const questions: AiPromptEnhanceQuestion[] = [];
+  const ids = new Set<string>();
+  for (const item of value) {
+    if (!isWireRecord(item)) continue;
+    const text = oneLine(item['text']);
+    if (text === '') continue;
+    const named = oneLine(item['id']);
+    // An id the UI keys answers by: the model's own when usable, else its position.
+    const id = named !== '' && !ids.has(named) ? named : `q${String(questions.length + 1)}`;
+    ids.add(id);
+    questions.push({
+      id,
+      text,
+      choices: distinctLines(item['choices'], AI_PROMPT_ENHANCE_MAX_CHOICES),
+    });
+    if (questions.length === AI_PROMPT_ENHANCE_MAX_QUESTIONS) break;
+  }
+  return questions;
+}
+
+/**
+ * Read an enhance answer (a JSON body, or a provider's own result) into the
+ * contract's shape, holding it to the contract's limits: at most 5 changes,
+ * 3 questions and 4 choices each, blank entries dropped. `enhanced` keeps its
+ * line breaks — a brief may be several lines — and is the one field that
+ * must be there: an answer without a rewrite is not an answer.
+ *
+ * `fallbackLanguage` names the draft's language when the answer names none
+ * the panel speaks; the rewrite's own script decides first.
+ */
+export function readAiPromptEnhanceWireResponse(
+  payload: unknown,
+  fallbackLanguage: AiPromptLocale = 'en',
+): AiPromptEnhanceWireReading {
+  if (!isWireRecord(payload)) {
+    return {
+      kind: 'invalid-output',
+      message: 'The assistant server did not answer with a JSON object.',
+    };
+  }
+  if (Object.hasOwn(payload, 'version') && payload['version'] !== AI_PLAN_WIRE_VERSION) {
+    return {
+      kind: 'invalid-output',
+      message: `The assistant server answered with unsupported wire version ${String(payload['version'])}.`,
+    };
+  }
+  const invalid = payload['invalidOutput'];
+  if (isWireRecord(invalid) && typeof invalid['message'] === 'string') {
+    return {
+      kind: 'invalid-output',
+      message: boundAiPlanWireInvalidOutputMessage(invalid['message']),
+    };
+  }
+  if (typeof payload['rationale'] === 'string' && Array.isArray(payload['commands'])) {
+    return {
+      kind: 'unsupported',
+      message:
+        'The assistant server answered with an ordinary plan: it does not rewrite requests yet.',
+    };
+  }
+  const enhanced = typeof payload['enhanced'] === 'string' ? payload['enhanced'].trim() : '';
+  if (enhanced === '') {
+    return {
+      kind: 'invalid-output',
+      message: 'The assistant server answered without a rewritten request.',
+    };
+  }
+  const named = payload['language'];
+  const language: AiPromptLocale =
+    named === 'ar' || named === 'en' ? named : (detectPromptLanguage(enhanced) ?? fallbackLanguage);
+  return {
+    kind: 'enhancement',
+    enhancement: {
+      enhanced,
+      understood: oneLine(payload['understood']),
+      changes: distinctLines(payload['changes'], AI_PROMPT_ENHANCE_MAX_CHANGES),
+      questions: enhanceQuestions(payload['questions']),
+      language,
+    },
   };
 }

@@ -155,7 +155,16 @@ export type AnnouncementKey =
   | 'queue.started'
   | 'plan.moved'
   | 'plan.removed'
-  | 'copied';
+  | 'copied'
+  /*
+    Controller additions (WP-16), for the owner's "read my request and fix it" tools:
+    `enhance.ready` when ✨ Improve has rewritten the draft ("Request improved"), and
+    `clarify.ready` when a request was too unclear to run and questions are docked above
+    the composer instead. Both are replies to the person's own action, so they are spoken
+    at once (`ANNOUNCE_POLICY`).
+  */
+  | 'enhance.ready'
+  | 'clarify.ready';
 
 /** Interpolation values for a catalog key: counts stay numbers so plurals can pick a form. */
 export type CopyParams = Readonly<Record<string, string | number>>;
@@ -407,9 +416,23 @@ export interface AnswerView {
   readonly menu: readonly RecordMenuItem[];
 }
 
-/** The one-line endings (SPEC §4.10 `end.*`). */
+/**
+ * The one-line endings (SPEC §4.10 `end.*`). The last three are controller additions
+ * (WP-16) for a build that could not land where the words asked, said after its record:
+ * `siteAsOnePage` (a site request built as one page: the chat builds one page at a time),
+ * `newPageAppended` (a new page was asked for but the host offers no `addPage`, so it was
+ * built below this page) and `appendedNotReplaced` (a start-over this build cannot do:
+ * a scaffold build appends, so nothing was replaced).
+ */
 export type EndNoteKey =
-  'proposalDiscarded' | 'planDiscarded' | 'planSuperseded' | 'stoppedBeforeChange' | 'interrupted';
+  | 'proposalDiscarded'
+  | 'planDiscarded'
+  | 'planSuperseded'
+  | 'stoppedBeforeChange'
+  | 'interrupted'
+  | 'siteAsOnePage'
+  | 'newPageAppended'
+  | 'appendedNotReplaced';
 
 /** A turn that ended in one Slate line and no footer (SPEC §4.10 EndNote). */
 export interface EndNoteView {
@@ -718,6 +741,61 @@ export interface SessionSummary {
   readonly current: boolean;
 }
 
+/* ── Improve my request, and asking before guessing (owner request, 2026-09-28) ── */
+
+/*
+  The owner asked (2026-09-28, looking at a request the panel had taken literally —
+  «هل يمكنك تربط ال صفحه هاي داخل عليها») for a tool that READS the request and fixes it
+  before it runs. Two surfaces, both docked above the composer like QueueHeader, so the
+  turn list keeps SPEC §7.4's nine kinds:
+  - EnhancementView: the ✨ Improve action rewrites the draft in the request's own
+    language (bolt.diy's "enhance prompt" pattern), with a visible Restore.
+  - ClarifyView: when a sent request is too unclear to act on, the agent asks one to three
+    short questions with answer chips instead of guessing; "Send as written" skips them.
+*/
+
+/**
+ * The composer's Improve state. `unavailable`: the provider cannot rewrite requests (an
+ * offline provider, or a server without the enhance route), so the Improve action is not
+ * shown at all. `idle`: nothing to show. `enhancing`: the draft is locked
+ * and the Improve button shows progress. `enhanced`: the draft now holds the rewrite;
+ * `understood` restates the request in one line, `changes` lists what was fixed (short,
+ * in the UI locale), and `canRestore` offers the person's own text back. `failed`: the
+ * draft is unchanged and `reason` picks the one-line note.
+ */
+export type EnhancementView =
+  | { readonly status: 'unavailable' }
+  | { readonly status: 'idle' }
+  | { readonly status: 'enhancing' }
+  | {
+      readonly status: 'enhanced';
+      readonly understood: string;
+      readonly changes: readonly string[];
+      readonly canRestore: boolean;
+    }
+  | { readonly status: 'failed'; readonly reason: FailureClass };
+
+/** One clarifying question; choosing a chip answers it (`answer` holds the choice). */
+export interface ClarifyQuestionView {
+  readonly id: string;
+  readonly text: string;
+  readonly choices: readonly string[];
+  readonly answer?: string | undefined;
+}
+
+/**
+ * The questions docked above the composer for the request just sent (`request`), shown
+ * instead of running it when the request is too unclear (router confidence below 0.6, or
+ * the enhancer returned questions). Answering every question rewrites and runs it;
+ * `sendAsWritten` runs it untouched; `dismissClarify` puts the text back in the composer.
+ */
+export interface ClarifyView {
+  readonly request: string;
+  readonly understood: string;
+  readonly questions: readonly ClarifyQuestionView[];
+  readonly status: 'asking' | 'rewriting';
+}
+
 /* ── The controller (SPEC §7.3, WP-16) ───────────────────────────────────────── */
 
 /**
@@ -758,6 +836,35 @@ export interface AgentViewState {
   readonly suggestions: readonly SuggestionView[];
   readonly empty: EmptyStateView;
   readonly announcement: AnnouncementView | null;
+  /** The ✨ Improve state for the current draft. */
+  readonly enhancement: EnhancementView;
+  /** Questions docked above the composer before an unclear request runs; `null` when none. */
+  readonly clarify: ClarifyView | null;
+  /**
+   * (WP-16 addition) The header face's mood, driven by the live run's events (SPEC §4.2
+   * "mood from `useAgentMood`"). Optional so a hand-built state without it still types; the
+   * controller always sets it.
+   */
+  readonly face?: FaceView | undefined;
+}
+
+/**
+ * (WP-16 addition) AgentFace's mood as a view: exactly the props `AgentFace` takes
+ * (`mood`, `variant`, `outcome`, `typing`), so AgentHeader passes it through untouched.
+ */
+export interface FaceView {
+  readonly mood:
+    | 'idle'
+    | 'listening'
+    | 'thinking'
+    | 'planning'
+    | 'working'
+    | 'done'
+    | 'failed'
+    | 'stopped';
+  readonly variant?: 'checking' | 'repairing' | undefined;
+  readonly outcome?: 'proposed' | 'applied' | 'planned' | 'discarded' | undefined;
+  readonly typing: boolean;
 }
 
 /** The outcome RestoreDialog shows in place (SPEC §4.15 `restore.conflict`). */
@@ -819,4 +926,21 @@ export interface AgentController {
   readonly removeChip: (id: string) => void;
   /** Adds a mention chip and removes the draft's trailing `@fragment`. */
   readonly addMention: (nodeId: string) => void;
+
+  /** Rewrites the draft professionally (EnhancementView). A no-op on an empty draft. */
+  readonly enhanceDraft: () => void;
+  /** Puts back the text the person typed before the last Improve. */
+  readonly restoreDraft: () => void;
+  /** Answers one docked clarifying question with the chosen (or typed) answer. */
+  readonly answerClarify: (questionId: string, answer: string) => void;
+  /** Runs the docked request exactly as the person wrote it, skipping the questions. */
+  readonly sendAsWritten: () => void;
+  /** Closes the questions and puts the request back in the composer, unsent. */
+  readonly dismissClarify: () => void;
+
+  /**
+   * (WP-16 addition) The composer's focus, which the face listens to (`listening`). Optional
+   * so a fake controller may leave it out; the Composer calls it when present.
+   */
+  readonly setComposerFocused?: ((focused: boolean) => void) | undefined;
 }

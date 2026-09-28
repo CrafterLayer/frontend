@@ -1,0 +1,80 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EmptyStateStories from './EmptyState.stories';
+
+<Meta of={EmptyStateStories} />
+
+# EmptyState
+
+The empty thread (SPEC §3.1, §4.16): أبو غضب's face at 48px and one greeting, in his own voice, at
+the bottom of the thread, directly above the composer.
+
+<Canvas of={EmptyStateStories.EmptyPageArabic} />
+
+## Purpose
+
+The first thing a person sees should tell them what to do and what will happen: one sentence about
+the project, and the whole page gets built, section by section. The greeting is the one place the
+character speaks in his own voice (Levantine in Arabic, written in forms that read the same for
+either gender); everything functional in the panel speaks in the instrument's plain voice.
+
+The suggestion rows under it (SuggestionList) turn the greeting into a first move: four authored
+starters, each a trade and what its page must do.
+
+## When to use / not
+
+AgentThread renders it when there are no turns, anchored to the bottom, with the rows 16px under it.
+Do not centre it, box it, or show it once the conversation has a turn.
+
+## Props
+
+| prop     | type             | default  | notes                                                             |
+| -------- | ---------------- | -------- | ----------------------------------------------------------------- |
+| `locale` | `'ar' \| 'en'`   | none     |                                                                   |
+| `view`   | `EmptyStateView` | none     | `greeting`, `hasContent` (a section count), `selection` (a title) |
+| `mood`   | `AgentMood`      | `'idle'` | the face's pose; it is never `live` here                          |
+
+## Variants
+
+| `view.kind`  | key                | English                                                                                    |
+| ------------ | ------------------ | ------------------------------------------------------------------------------------------ |
+| `greeting`   | `empty.greeting`   | Tell me about your project in one sentence. I'll build the whole page, section by section. |
+| `hasContent` | `empty.hasContent` | This page has 8 sections. Tell me what to change. (the count through `nouns.ts`)           |
+| `selection`  | `empty.selection`  | Hero is selected. What should change? (the title in `bdi`)                                 |
+
+In Arabic the count is the nominative noun for its plural category (one, two, few, many, other), and
+zero has its own sentence; the selected block's name is quoted «like this».
+
+## Stories
+
+`EmptyPage`, `EmptyPageArabic`, `HasContent`, `HasContentArabic`, `Selection`, `SelectionArabic`,
+`EmptyPageDark`, `EmptyPageArabicDark`, and at 420 `EmptyPageAt420` (the greeting on two lines, each
+starter on one) and `EmptyPageArabicAt420`. Each shows the rows that follow the greeting in the
+thread: the starters on an empty page, the catalog's own example prompts on a page with content, and
+what can be done to the selected block.
+
+## Anatomy
+
+```text
+(face 48)                      aria-hidden, still
+12
+Tell me about your project     Lead: 16/24 Latin, 18/30 Arabic, 500, Ink, start-aligned,
+in one sentence. I'll build    text-wrap: pretty
+the whole page, section by
+section.
+16                             (AgentThread's gap)
+▫ A dental clinic in Amman …   SuggestionList
+```
+
+## Accessibility
+
+- The greeting is a paragraph, not a heading: the panel's `h2` is the header's name.
+- The face is `aria-hidden` decoration and still; only the header's face is `live` (SPEC §5 moment
+  11).
+- Interpolated page words (a selected block's title) sit in `bdi`, so a Latin title keeps its order
+  inside Arabic.
+- Nothing here is live: the greeting is read when the reader reaches it.
+
+## RTL
+
+Start-aligned through logical properties: at the right in Arabic, the face above the first word.

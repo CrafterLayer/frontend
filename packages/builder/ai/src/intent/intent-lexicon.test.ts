@@ -4,17 +4,28 @@ import {
   ADDABLE_PAGE_NOUNS,
   ADVERBIAL_START_OVERS,
   BARE_START_OVER_WORDS,
+  CHANGE_VERBAL_NOUNS_AR,
   CLEAR_ALL,
   COMPARATIVES,
+  CONSEQUENCE_AUXILIARIES,
   CONTROL_FILLERS,
   CONTROL_WORDS,
   COPULAS,
   DEFINITE_AR,
   DEFINITE_EN,
+  EXISTENTIALS_AR,
+  EXISTENTIALS_EN,
+  FIRST_PERSON,
+  FUNCTION_WORDS,
   GREETINGS,
+  HYPOTHETICAL_OPENERS,
+  IDENTITY_WORDS,
   INDEFINITE_EN,
   INTERROGATIVE_PAIRS,
   INTERROGATIVES,
+  IRREGULAR_PASTS_EN,
+  JUDGMENTS,
+  NEGATIONS,
   NEW_WORDS_AR,
   NEW_WORDS_EN,
   NOT_THE_ARTICLE,
@@ -27,16 +38,23 @@ import {
   PAGE_NAMES_AR,
   PAGE_NAMES_EN,
   PAGE_WORDS,
+  PAST_SUFFIXES_AR,
   PHRASE_STOPS,
   PLURAL_PAGE_NOUNS,
   PRONOUNS,
   REPLACE_STRONG,
   REPLACE_WEAK,
+  RESTART_VERBS_AR,
+  SECTION_WORDS,
   START_OVER_LINKS,
   START_OVER_OBJECTS_AR,
   SUGGESTION_OPENERS,
+  SUGGESTION_SUBJECTS,
   THIRD_PERSON_WANTS,
+  TIME_ADVERBS,
+  VERB_GOVERNORS_AR,
   VERB_PAIRS_EN,
+  VERBAL_NOUNS_AR,
   VERBS_AR,
   VERBS_EN,
 } from './intent-lexicon';
@@ -85,6 +103,26 @@ const EVERY_WORD: readonly string[] = [
   ...NOT_THE_ARTICLE,
   ...START_OVER_OBJECTS_AR,
   ...SUGGESTION_OPENERS.flat(),
+  // router-3, 2026-09-28.
+  ...HYPOTHETICAL_OPENERS.flat(),
+  ...CONSEQUENCE_AUXILIARIES,
+  ...FIRST_PERSON,
+  ...SUGGESTION_SUBJECTS,
+  ...EXISTENTIALS_EN.flat(),
+  ...EXISTENTIALS_AR.flat(),
+  ...IRREGULAR_PASTS_EN.keys(),
+  ...IRREGULAR_PASTS_EN.values(),
+  ...PAST_SUFFIXES_AR,
+  ...CHANGE_VERBAL_NOUNS_AR,
+  ...VERBAL_NOUNS_AR,
+  ...VERB_GOVERNORS_AR,
+  ...TIME_ADVERBS.flat(),
+  ...IDENTITY_WORDS,
+  ...JUDGMENTS,
+  ...NEGATIONS,
+  ...RESTART_VERBS_AR,
+  ...SECTION_WORDS,
+  ...FUNCTION_WORDS,
 ];
 
 describe('the intent lexicon', () => {
@@ -148,4 +186,29 @@ describe('the intent lexicon', () => {
       expect(VERBS_AR.find(([pattern]) => pattern.test(word))).toBeUndefined();
     },
   );
+
+  /*
+    router-3, 2026-09-28: an explicit QUESTION of possibility asks the product
+    ("is it possible to…", "هل يمكن + verbal noun"); courtesy addressed to the
+    assistant ("can you", "هل يمكنك", the Levantine bare "ممكن") asks it to act.
+  */
+  it('marks the questions of possibility, and only those', () => {
+    const possibility = (...words: string[]) =>
+      OPENERS.find((opener) => opener.words.join(' ') === words.join(' '))?.possibility;
+    expect(possibility('is', 'it', 'possible', 'to')).toBe('infinitive');
+    expect(possibility('would', 'it', 'be', 'possible', 'to')).toBe('infinitive');
+    expect(possibility('هل', 'يمكن')).toBe('verbal-noun');
+    expect(possibility('هل', 'من', 'الممكن')).toBe('verbal-noun');
+    expect(possibility('can', 'you')).toBeUndefined();
+    expect(possibility('هل', 'يمكنك')).toBeUndefined();
+    expect(possibility('ممكن')).toBeUndefined();
+  });
+
+  it('maps every irregular past to a verb the router reads', () => {
+    expect([...IRREGULAR_PASTS_EN.values()].filter((present) => !VERBS_EN.has(present))).toEqual([]);
+  });
+
+  it('counts every verbal noun of change among the verbal nouns', () => {
+    expect([...CHANGE_VERBAL_NOUNS_AR].filter((noun) => !VERBAL_NOUNS_AR.has(noun))).toEqual([]);
+  });
 });

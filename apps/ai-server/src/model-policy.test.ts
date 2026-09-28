@@ -4,6 +4,7 @@ import {
   MODEL_POLICY_VERSION,
   createModelRouter,
   defaultModelCandidates,
+  fastestModel,
   selectLowestQualifiedModel,
   type ModelCapabilityProbe,
   type ModelProbePort,
@@ -89,5 +90,41 @@ describe('model policy', () => {
     await expect(createModelRouter({ candidates: [luna, luna], probe: available })).rejects.toThrow(
       'Duplicate model candidate',
     );
+  });
+});
+
+/*
+  The prompt enhancer's model (2026-09-28): the fastest the server allows, by
+  what the slug says — and never a free queue ahead of a model the owner runs
+  (nemotron-3.5-lightning:free took 7 min 18 s for one page plan, measured).
+*/
+describe('fastestModel', () => {
+  it("picks the owner's own small model over the default and the free queues", () => {
+    expect(
+      fastestModel(['cli:sonnet', 'nvidia/nemotron-3.5-lightning:free', 'cli:haiku']),
+    ).toBe('cli:haiku');
+    expect(fastestModel(['anthropic/claude-opus-5', 'anthropic/claude-haiku-4.5'])).toBe(
+      'anthropic/claude-haiku-4.5',
+    );
+    expect(fastestModel(['google/gemini-2.5-pro', 'google/gemini-2.5-flash'])).toBe(
+      'google/gemini-2.5-flash',
+    );
+  });
+
+  it('ranks a free slug after every paid or subscription model of its tier', () => {
+    expect(fastestModel(['vendor/model-mini:free', 'vendor/model-mini'])).toBe('vendor/model-mini');
+    expect(fastestModel(['vendor/any:free', 'cli:'])).toBe('cli:');
+  });
+
+  it('reads a tier word only as a whole word of the slug', () => {
+    // "gemini" is not "mini", "minimax" is not "mini": neither outranks sonnet.
+    expect(fastestModel(['google/gemini-3-pro', 'cli:sonnet'])).toBe('cli:sonnet');
+    expect(fastestModel(['minimax/minimax-m3', 'cli:sonnet'])).toBe('cli:sonnet');
+  });
+
+  it('keeps the order given on a tie, and answers nothing when nothing is configured', () => {
+    expect(fastestModel(['a/one', 'b/two'])).toBe('a/one');
+    expect(fastestModel([undefined, ' ', ''])).toBeUndefined();
+    expect(fastestModel([])).toBeUndefined();
   });
 });

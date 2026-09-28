@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AssembledAiContext } from '@craftkit/builder';
+import {
+  createBuilder,
+  enhanceRequest,
+  planAiPage,
+  type AiPlanWireRequest,
+  type AssembledAiContext,
+} from '@craftkit/builder';
+import { fixedClock, fixtureBlocks, seededIds } from '@craftkit/builder/testing';
 
 import { planModelsFromEnv, planProviderFromEnv } from './planProviderFromEnv';
 
@@ -156,5 +163,162 @@ describe('planProviderFromEnv', () => {
         VITE_AI_PLAN_ENDPOINT: 'http://assistant.example.test/plan',
       }),
     ).toThrow(/HTTPS/i);
+  });
+});
+
+/*
+  The chain the panel really uses — cache(retry(remote)) — must carry the
+  optional capabilities through both decorators. Before 2026-09-28 it carried
+  neither: the remote provider had no `proposePagePlan` and both decorators
+  forwarded only propose and repair, so the PagePlan build was unreachable
+  from the product (engine wave-2 verifier).
+*/
+describe('planProviderFromEnv — the page plan and the enhancer through the whole chain', () => {
+  const ENDPOINT = 'https://assistant.example.test/plan';
+  const context: AssembledAiContext = {
+    fragments: [],
+    totalTokens: 0,
+    blocks: [],
+    document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'root', nodes: [] },
+    selection: { ids: [] },
+  };
+  /** The wire's documented page plan (builder-ai provider/wire.ts), which its validator accepts. */
+  const PAGE_PLAN = {
+    intent: 'new-page',
+    locale: { lang: 'en', dir: 'ltr' },
+    title: 'Cardamom Roasters — specialty coffee in Amman',
+    description: 'Small-batch coffee roasted every morning in Amman, delivered fresh.',
+    tokens: {
+      bg: '#f7fee7',
+      surface: '#ffffff',
+      ink: '#022c22',
+      muted: '#065f46',
+      accent: '#c2410c',
+      onAccent: '#ffffff',
+      accentInk: '#c2410c',
+      border: '#d9f99d',
+      fontDisplay: { family: 'Fraunces', weights: [600, 700] },
+      fontBody: { family: 'Instrument Sans', weights: [400, 500] },
+      radius: 'xl',
+      signature: 'The brand name at text-8xl, faint behind the menu.',
+      deckRowId: 'cafe',
+    },
+    primaryCta: { label: 'Order beans', href: '#order' },
+    nav: [
+      { label: 'Menu', anchorId: 'menu' },
+      { label: 'Order', anchorId: 'order' },
+    ],
+    sections: [
+      { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Brand and navigation.' },
+      {
+        key: 'hero',
+        role: 'hero',
+        title: 'Roasted this morning',
+        anchorId: 'hero',
+        purpose: 'Say what the roastery is and invite the first order.',
+        mustSay: ['Roasted daily in Amman'],
+        variant: 'split',
+      },
+      { key: 'menu', role: 'band', title: 'Menu', anchorId: 'menu', purpose: 'The drinks and beans, with prices.', variant: 'menu' },
+      { key: 'order', role: 'cta', title: 'Order', anchorId: 'order', purpose: 'One clear way to order.', variant: 'cta-split' },
+      { key: 'footer', role: 'footer', title: 'Footer', anchorId: 'footer', purpose: 'Address, hours and contact.', variant: 'footer' },
+    ],
+    facts: [{ key: 'phone', sample: '+962 7 9000 0000', section: 'order' }],
+  };
+
+  function json(payload: unknown, status = 200): Response {
+    return new Response(JSON.stringify(payload), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('exposes proposePagePlan and enhancePrompt, because the remote provider under it has them', () => {
+    const provider = planProviderFromEnv({ VITE_AI_PLAN_ENDPOINT: ENDPOINT });
+    expect(typeof provider?.proposePagePlan).toBe('function');
+    expect(typeof provider?.enhancePrompt).toBe('function');
+  });
+
+  it('posts the page-plan task with the bearer, and answers the repeat from the cache', async () => {
+    const fetch = vi.fn((_input: string | URL | Request, _init?: RequestInit) =>
+      Promise.resolve(json({ version: 1, pagePlan: PAGE_PLAN })),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const provider = planProviderFromEnv({
+      VITE_AI_PLAN_ENDPOINT: ENDPOINT,
+      VITE_AI_PLAN_TOKEN: 'development-secret',
+    });
+
+    await provider?.proposePagePlan?.('Build my roastery page', context);
+    await provider?.proposePagePlan?.('Build my roastery page', context);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const init = fetch.mock.calls[0]?.[1];
+    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer development-secret');
+    expect((JSON.parse(String(init?.body)) as AiPlanWireRequest).task).toBe('page-plan');
+  });
+
+  it('plans a page in Plan mode through the chain — the T1 path is reachable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(json({ version: 1, rationale: 'Warm.', pagePlan: PAGE_PLAN }))),
+    );
+    const provider = planProviderFromEnv({ VITE_AI_PLAN_ENDPOINT: ENDPOINT });
+    if (provider === undefined) throw new Error('planProviderFromEnv returned no provider.');
+
+    const result = await planAiPage('Build a landing page for my roastery in Amman', {
+      runId: 'env-plan-mode',
+      clock: fixedClock(1),
+      kernel: createBuilder({
+        extensions: [fixtureBlocks],
+        ports: { clock: fixedClock(1), ids: seededIds('env-plan-mode') },
+      }),
+      provider,
+    });
+
+    if (!('plan' in result)) throw new Error(result.error.message);
+    expect(result.plan.sections.map(({ key }) => key)).toEqual([
+      'header',
+      'hero',
+      'menu',
+      'order',
+      'footer',
+    ]);
+  });
+
+  it('posts a draft to the enhance route with the bearer; a server without it leaves the tidy', async () => {
+    const fetch = vi.fn((_input: string | URL | Request, _init?: RequestInit) =>
+      Promise.resolve(json({ error: 'Endpoint not found.' }, 404)),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const provider = planProviderFromEnv({
+      VITE_AI_PLAN_ENDPOINT: ENDPOINT,
+      VITE_AI_PLAN_TOKEN: 'development-secret',
+    });
+
+    const result = await enhanceRequest(
+      {
+        text: 'هل يمكنك تربط ال صفحه هاي داخل عليها',
+        locale: 'ar',
+        intent: null,
+        page: { empty: false, sections: ['Hero'] },
+        selection: null,
+        answers: [],
+      },
+      { provider },
+    );
+
+    expect(result).toMatchObject({
+      enhanced: 'هل يمكنك تربط الصفحة هاي داخل عليها',
+      source: 'tidy',
+    });
+    // A 404 is terminal: one POST, no retries.
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]?.[0]).toBe('https://assistant.example.test/v1/prompt/enhance');
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('authorization')).toBe(
+      'Bearer development-secret',
+    );
   });
 });

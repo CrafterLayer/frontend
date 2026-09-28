@@ -299,6 +299,27 @@ describe('page-level skills stay out of edits', () => {
     ['خلي صفحة العيادة أغمق', [FLOOR, RTL, 'craftkit.design-direction']],
     ['اجعل صفحة المطعم أبسط', [FLOOR, RTL]],
     ['خلي صفحة الهبوط أفتح', [FLOOR, RTL, 'craftkit.design-direction']],
+    /*
+      MSA verbal nouns of change. Before (wave-2 verifier, 2026-09-28): no verb
+      at all, so the resolver's blank-page route made each a page brief —
+      clinic-page 3,205, menu-page 3,138 ×2, property-page 3,104 tokens. Now
+      the floor and the language, 1,073.
+    */
+    ['هل يمكن تعديل رقم هاتف العيادة؟', [FLOOR, RTL]],
+    ['أريد تعديل سعر القهوة في المنيو', [FLOOR, RTL]],
+    ['الرجاء حذف قسم المنيو من صفحة المطعم', [FLOOR, RTL]],
+    ['أرجو تغيير صور الشقة', [FLOOR, RTL]],
+    /*
+      A title edit on a CV page: no cv-page, no page skill. The section recipe
+      rides on "الشهادات" (certificates, read as testimonials) — a section's
+      expertise, not a page's.
+    */
+    [
+      'تغيير عنوان قسم التعليم والشهادات إلى مرحبا',
+      [FLOOR, RTL, 'craftkit.conversion-recipes'],
+    ],
+    // A question about the person's own action writes nothing and needs nothing.
+    ['what if I delete the hero?', [FLOOR]],
   ];
 
   it.each(EDITS)('“%s” carries only the edit set, at its own cost', (request, expected) => {
@@ -444,5 +465,151 @@ describe('defineAiSkill — activation.intents', () => {
         }),
       ),
     ).toThrow(/activation/iu);
+  });
+});
+
+/*
+  A DEPENDENCY SERVES THE ROUTES IT SERVES (router-3, 2026-09-28). occasion-page
+  serves one section (a banner is add-section) and depends on visual-direction,
+  which serves only page and site builds. Pulled in as a dependency it
+  bypassed its own gate: "أضف قسم عروض رمضان" carried it at 3,333 tokens and
+  "add a section with a ramadan offer" at 2,724 (wave-2 verifier).
+*/
+describe('a dependency stays inside its own intent scope', () => {
+  const registry = createAiSkillRegistry([
+    skill('skill.banner', {
+      activation: { mode: 'auto', keywords: ['banner'], intents: ['add-section', 'build-page'] },
+      dependencies: ['skill.taste', 'skill.words'],
+    }),
+    skill('skill.taste', {
+      activation: { mode: 'auto', keywords: ['distinctive'], intents: ['build-page'] },
+      dependencies: ['skill.palette'],
+    }),
+    skill('skill.palette'),
+    skill('skill.words', { activation: { mode: 'auto', keywords: ['copy'] } }),
+  ]);
+  const prepare = (intent: 'add-section' | 'build-page', selected: readonly string[] = []) =>
+    registry.prepare({ request: 'a banner', intent, selectedSkillIds: selected });
+
+  it('leaves out a dependency whose scope excludes the route, and what only it needed', () => {
+    const prepared = prepare('add-section');
+    expect(prepared.active.map(({ id }) => id)).toEqual(['skill.words', 'skill.banner']);
+    expect(prepared.omitted).toEqual([
+      {
+        id: 'skill.taste',
+        code: 'intent',
+        message: expect.stringMatching(/dependency of skill\.banner.*routes to add-section/u),
+      },
+    ]);
+  });
+
+  it('keeps it, and its own dependencies, on a route it serves', () => {
+    const prepared = prepare('build-page');
+    expect(prepared.active.map(({ id }) => id)).toEqual([
+      'skill.palette',
+      'skill.taste',
+      'skill.words',
+      'skill.banner',
+    ]);
+    expect(prepared.omitted).toEqual([]);
+  });
+
+  it('never gates a selected skill, nor a dependency already active', () => {
+    expect(prepare('add-section', ['skill.banner']).active.map(({ id }) => id)).toContain(
+      'skill.taste',
+    );
+    const withTaste = prepare('add-section', ['skill.taste']);
+    expect(withTaste.active.map(({ id }) => id)).toEqual([
+      'skill.taste',
+      'skill.palette',
+      'skill.words',
+      'skill.banner',
+    ]);
+    expect(withTaste.omitted).toEqual([]);
+  });
+});
+
+describe('one-section occasion requests carry no page taste (built-ins)', () => {
+  const registry = createCraftkitAiSkillRegistry();
+
+  it('costs a Ramadan-offers section the floor, and no occasion playbook', () => {
+    const arabic = registry.prepare({ request: 'أضف قسم عروض رمضان', auto: true });
+    expect(arabic.active.map(({ id }) => id)).toEqual([FLOOR, RTL]);
+    expect(arabic.totalTokens).toBeLessThanOrEqual(1_100);
+    const english = registry.prepare({ request: 'add a section with a ramadan offer', auto: true });
+    expect(english.active.map(({ id }) => id)).toEqual([FLOOR]);
+  });
+
+  it('keeps the occasion for a banner, without visual-direction', () => {
+    const prepared = registry.prepare({
+      request: 'Add a farewell banner for a retiring colleague',
+      auto: true,
+    });
+    const active = prepared.active.map(({ id }) => id);
+    expect(active).toContain('craftkit.occasion-page');
+    expect(active).not.toContain('craftkit.visual-direction');
+    expect(prepared.omitted.map(({ id, code }) => `${id}:${code}`)).toEqual([
+      'craftkit.visual-direction:intent',
+    ]);
+    // Was 2,724 with the taste skill (wave-2 verifier).
+    expect(prepared.totalTokens).toBeLessThan(2_000);
+  });
+
+  it('keeps visual-direction on an occasion PAGE', () => {
+    const active = registry
+      .prepare({ request: 'دعوة زفاف لسارة وعمر', auto: true })
+      .active.map(({ id }) => id);
+    expect(active).toContain('craftkit.occasion-page');
+    expect(active).toContain('craftkit.visual-direction');
+  });
+
+  it('reads Ramadan as an occasion only with its greeting words', () => {
+    for (const request of [
+      'Ramadan Kareem greeting card for our clients',
+      'بطاقة رمضان كريم لعملائنا',
+      'تهنئة برمضان للموظفين',
+      'صفحة رمضان لمتجرنا',
+    ]) {
+      expect({ request, occasion: activeIds(registry, request).includes('craftkit.occasion-page') }).toEqual({
+        request,
+        occasion: true,
+      });
+    }
+    for (const request of ['عروض رمضان على العطور', 'a ramadan sale page for our shop']) {
+      expect({ request, occasion: activeIds(registry, request).includes('craftkit.occasion-page') }).toEqual({
+        request,
+        occasion: false,
+      });
+    }
+  });
+});
+
+/*
+  SHORT KEYWORDS TAKE NO ENDINGS (router-3, 2026-09-28): "eid" + "er" is Eider
+  and "cv" + "s" is CVS. Measured (wave-2 verifier): "a page for Eider Ducks
+  conservation" loaded occasion-page, "website for CVS pharmacy branch"
+  cv-page, 2,724 and 2,733 tokens.
+*/
+describe('keyword endings stop below four Latin letters', () => {
+  it('matches a short keyword only as written', () => {
+    expect(matches(['eid'], 'a page for Eider Ducks conservation')).toBe(false);
+    expect(matches(['cv'], 'website for CVS pharmacy branch')).toBe(false);
+    expect(matches(['faq'], 'add FAQs')).toBe(false);
+    expect(matches(['eid'], 'an Eid page for our shop')).toBe(true);
+    expect(matches(['cv'], 'my CV page')).toBe(true);
+    // Four letters and up still inflect; Arabic keeps its endings.
+    expect(matches(['café'], 'two cafés')).toBe(true);
+    expect(matches(['حفل'], 'صفحة حفلة تخرج')).toBe(true);
+  });
+
+  it('keeps the built-ins’ plurals by listing them', () => {
+    const registry = createCraftkitAiSkillRegistry();
+    expect(activeIds(registry, 'add FAQs')).toContain('craftkit.conversion-recipes');
+    expect(activeIds(registry, 'a page for our juice bars in Amman')).toContain('craftkit.menu-page');
+    expect(activeIds(registry, 'a website for our day spas')).toContain('craftkit.clinic-page');
+    expect(activeIds(registry, 'a page for Eider Ducks conservation')).not.toContain(
+      'craftkit.occasion-page',
+    );
+    expect(activeIds(registry, 'website for CVS pharmacy branch')).not.toContain('craftkit.cv-page');
   });
 });

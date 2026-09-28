@@ -17,7 +17,7 @@ export const CLINIC_PAGE_SKILL: AiSkillDefinitionV1 = {
   name: 'Clinic, salon and appointment page',
   description:
     'An appointment business page: what is treated, who treats it, how to book — services, practitioners, booking steps, FAQ, hours and a WhatsApp booking.',
-  version: '1.0.1',
+  version: '1.0.2',
   source: 'builtin',
   trust: 'builtin',
   priority: 86,
@@ -42,6 +42,8 @@ export const CLINIC_PAGE_SKILL: AiSkillDefinitionV1 = {
       'hair salon',
       'nail salon',
       'day spa',
+      // A three-letter last word takes no endings since 2026-09-28 (keyword-match.ts): plural listed.
+      'day spas',
       'spa center',
       'spa centre',
       'massage',

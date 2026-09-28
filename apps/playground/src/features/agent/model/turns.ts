@@ -1,4 +1,5 @@
 import type {
+  AiBuildSectionValues,
   AiChatTurn,
   AiPlan,
   AiRunFailure,
@@ -113,6 +114,26 @@ export interface BuildTurn {
   readonly revived?: true | undefined;
   readonly followUp?: string | undefined;
   readonly skills?: readonly AiSkillActivationPin[] | undefined;
+  /*
+    WP-16 additions, all plain data so they survive a reload:
+  */
+  /**
+   * Each region's writer-owned props as the skeleton laid them, read at `build.planned`.
+   * What "Remove empty sections" compares against (`removeUnfilledSections` removes only a
+   * region that still holds its placeholder), so the action works after a reload too: the
+   * engine's own `result.unfilled` dies with the run.
+   */
+  readonly placeholders?: Readonly<Record<string, AiBuildSectionValues>> | undefined;
+  /** `removeUnfilledSections` ran: every unfilled region is gone from the page. */
+  readonly placeholdersRemoved?: true | undefined;
+  /** The page plan this build was built from: successor runs read each section's contract. */
+  readonly pagePlan?: PagePlan | undefined;
+  /**
+   * Every transaction this build landed, oldest first (skeleton, sections, the page's
+   * direction). Undo build walks exactly these back while they are the newest history
+   * entries (SPEC §7.6 E3 fallback).
+   */
+  readonly transactionIds?: readonly string[] | undefined;
 }
 
 /**

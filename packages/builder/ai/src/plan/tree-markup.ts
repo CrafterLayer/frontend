@@ -1,5 +1,11 @@
 import { Tokenizer } from 'htmlparser2';
 
+import {
+  customCodeAttributeSpelling,
+  customCodeTagSpelling,
+  isCustomCodeSvgTag,
+} from '@craftkit/builder-schema';
+
 /**
  * Custom-code trees written as markup, read into the stored tree shape.
  *
@@ -58,6 +64,17 @@ import { Tokenizer } from 'htmlparser2';
  * - Markup that closes every tag it opens is read exactly as nested — a
  *   stored `p` holding a `div` stays one. Only markup that leaves tags
  *   unbalanced gets a browser's implied closes (`<li>One<li>Two`).
+ *
+ * ## Case, and svg
+ *
+ * HTML folds case and SVG does not: `<linearGradient>` and `viewBox` mean
+ * nothing as `lineargradient` and `viewbox`. The tokenizer folds everything
+ * (as a browser's HTML parser does), so every tag and attribute name is then
+ * respelled the way the vocabulary spells it — the browser's own
+ * foreign-content adjustment, from the vocabulary rather than from a second
+ * table. The writer spells them that way too, and writes an empty svg shape
+ * self-closed (`<path d='…'/>`), as SVG is written and as the reader takes it
+ * back.
  */
 
 export interface MarkupTreeNode {
@@ -92,7 +109,17 @@ const LEAF_TAGS = new Set([
 ]);
 
 /** The void tags the vocabulary has; written self-closed. */
-const VOID_TAGS = new Set(['br', 'hr', 'img']);
+const VOID_TAGS = new Set(['br', 'hr', 'img', 'source']);
+
+/** A tag as the vocabulary spells it (`lineargradient` → `linearGradient`), or as read. */
+function spellTag(folded: string): string {
+  return customCodeTagSpelling(folded) ?? folded;
+}
+
+/** An attribute as the vocabulary spells it (`viewbox` → `viewBox`), or as read. */
+function spellAttribute(folded: string): string {
+  return customCodeAttributeSpelling(folded) ?? folded;
+}
 
 /**
  * Inline-level elements: a space between two of them is part of the sentence,
@@ -280,11 +307,11 @@ function tokenize(markup: string): MarkupToken[] {
     { decodeEntities: true },
     {
       onopentagname(start, end) {
-        tag = markup.slice(start, end).toLowerCase();
+        tag = spellTag(markup.slice(start, end).toLowerCase());
         attributes = {};
       },
       onattribname(start, end) {
-        attributeName = markup.slice(start, end).toLowerCase();
+        attributeName = spellAttribute(markup.slice(start, end).toLowerCase());
         attributeValue = '';
       },
       onattribdata(start, end) {
@@ -305,7 +332,7 @@ function tokenize(markup: string): MarkupToken[] {
         tokens.push({ type: 'open', tag, attributes, selfClosing: true });
       },
       onclosetag(start, end) {
-        tokens.push({ type: 'close', tag: markup.slice(start, end).toLowerCase() });
+        tokens.push({ type: 'close', tag: spellTag(markup.slice(start, end).toLowerCase()) });
       },
       ontext(start, end) {
         text(markup.slice(start, end), false);
@@ -632,6 +659,8 @@ function nodeMarkup(node: unknown, preserve: boolean): string | undefined {
   const inside = preserve || tag === 'pre' || preservesWhitespace(node['className']);
   const inner = childrenMarkup(node, inside);
   if (inner === undefined) return undefined;
+  const empty = inner.length === 0 && (typeof node['text'] !== 'string' || node['text'] === '');
+  if (empty && isCustomCodeSvgTag(tag)) return `${open}/>`;
   const text =
     typeof node['text'] === 'string'
       ? textMarkup(node['text'], {

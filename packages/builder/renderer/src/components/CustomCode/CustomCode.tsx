@@ -4,10 +4,12 @@ import {
   CUSTOM_CODE_ATTRIBUTES,
   CUSTOM_CODE_MAX_DEPTH,
   blockPropDefaults,
+  customCodeAttributeProblem,
+  isCustomCodeSvgTag,
   isCustomCodeTag,
+  safeCustomCodeUrl,
   withBlockPropDefaults,
   type BlockRenderProps,
-  type CustomCodeAttribute,
   type Node,
   type NodeId,
   type RegisteredBlock,
@@ -40,25 +42,71 @@ import { useCustomCodeBlockLookup, type CustomCodeBlockLookup } from './registry
  */
 
 /** Tags rendered without children, so a malformed tree cannot nest into them. */
-const VOID_TAGS: ReadonlySet<string> = new Set(['br', 'hr', 'img']);
+const VOID_TAGS: ReadonlySet<string> = new Set(['br', 'hr', 'img', 'source']);
 
 const ATTRIBUTE_SET: ReadonlySet<string> = new Set(CUSTOM_CODE_ATTRIBUTES);
 
+/*
+  The vocabulary spells attributes as HTML and SVG do; React wants its own
+  prop names for these, and passing the markup spelling through sets an
+  unknown attribute with a console warning (`stroke-width`, `srcset`) — or,
+  for `autoplay` and `playsinline`, never reaches the element's property at
+  all. Everything not listed passes under its own name (`viewBox`, `aria-*`,
+  `lang`, `popover`, `cx`…), which React already reads as written.
+*/
+const REACT_PROP: Readonly<Record<string, string>> = {
+  datetime: 'dateTime',
+  srcset: 'srcSet',
+  colspan: 'colSpan',
+  rowspan: 'rowSpan',
+  popovertarget: 'popoverTarget',
+  popovertargetaction: 'popoverTargetAction',
+  autoplay: 'autoPlay',
+  playsinline: 'playsInline',
+  'stroke-width': 'strokeWidth',
+  'stroke-linecap': 'strokeLinecap',
+  'stroke-linejoin': 'strokeLinejoin',
+  'stop-color': 'stopColor',
+  'stop-opacity': 'stopOpacity',
+  'fill-rule': 'fillRule',
+  'clip-rule': 'clipRule',
+};
+
+/** Attributes whose presence is the value; stored bare (`''`), rendered as `true`. */
+const BOOLEAN_ATTRIBUTES: ReadonlySet<string> = new Set([
+  'open',
+  'autoplay',
+  'muted',
+  'loop',
+  'playsinline',
+  'controls',
+]);
+
 /**
- * `src` is the one attribute that can reach the network, so it is the one
- * attribute with a policy. Anything that is not a plain relative path, an
- * https URL, or an inline data image is dropped: `javascript:` never renders,
- * and neither does a scheme this list has not considered.
+ * `src` and `poster` reach the network, so they pass the schema's one address
+ * policy (`safeCustomCodeUrl`): a relative path, an https URL, or an inline
+ * data image. `javascript:` never renders, and neither does a scheme the
+ * policy has not considered.
  */
-function safeSrc(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (trimmed === '') return undefined;
-  if (trimmed.startsWith('/') || trimmed.startsWith('./')) return trimmed;
-  if (/^https:\/\//iu.test(trimmed)) return trimmed;
-  if (/^data:image\/(?:png|jpe?g|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/iu.test(trimmed)) {
-    return trimmed;
+const safeSrc = safeCustomCodeUrl;
+
+/**
+ * An in-page link inside an open popover closes it as it jumps: the menu a
+ * phone opened has done its job once the section is on screen. HTML has no
+ * attribute for this — `popovertargetaction` works on a button only — so the
+ * renderer does it, the one behaviour it adds, fixed here and never authored.
+ * (A static page with no script still closes the menu by light dismiss: a tap
+ * outside it, or Escape.)
+ */
+function closeOwningPopover(event: { currentTarget: EventTarget | null }): void {
+  const link = event.currentTarget;
+  if (!(link instanceof Element)) return;
+  const popover = link.closest('[popover]') as (Element & { hidePopover?: () => void }) | null;
+  try {
+    popover?.hidePopover?.();
+  } catch {
+    // Already closed, or a browser without the Popover API: nothing to undo.
   }
-  return undefined;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -94,7 +142,14 @@ function elementAttributes(
   const out: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(declared ?? {})) {
     if (!ATTRIBUTE_SET.has(name) || typeof value !== 'string') continue;
-    if (name === 'src') {
+    /*
+      Every attribute stands only where the door would have let it stand: the
+      same per-tag policy, read again, so a document edited by hand or written
+      before a rule tightened cannot smuggle a `srcset` over http, a paint
+      server from another host, or a popover target on a link.
+    */
+    if (customCodeAttributeProblem(tag, name, value) !== undefined) continue;
+    if (name === 'src' || name === 'poster') {
       const safe = safeSrc(value);
       if (safe !== undefined) out[name] = safe;
       continue;
@@ -114,7 +169,12 @@ function elementAttributes(
       if (value === '_blank') out['target'] = '_blank';
       continue;
     }
-    out[name satisfies string as CustomCodeAttribute] = value;
+    if (BOOLEAN_ATTRIBUTES.has(name)) {
+      // Only a bare spelling passed the policy: '', the name, or 'true'.
+      out[REACT_PROP[name] ?? name] = true;
+      continue;
+    }
+    out[REACT_PROP[name] ?? name] = value;
   }
   if (tag === 'a') {
     const href = out['href'];
@@ -127,11 +187,23 @@ function elementAttributes(
       out['onClick'] = (event: { preventDefault(): void }) => {
         event.preventDefault();
       };
+    } else if (typeof href === 'string' && href.startsWith('#')) {
+      out['onClick'] = closeOwningPopover;
     }
   }
   if (tag === 'button') {
     // Never a submit and never a handler: a styled affordance, wired later.
     out['type'] = 'button';
+  }
+  if (tag === 'video' && out['autoPlay'] === true) {
+    /*
+      A video that plays by itself never plays sound, whatever the stored
+      tree says (the door refuses autoplay without muted; this is the read
+      side of the same rule). And it plays in place: iOS Safari opens an
+      autoplaying video full screen unless it is also playsinline.
+    */
+    out['muted'] = true;
+    out['playsInline'] = true;
   }
   return out;
 }
@@ -357,10 +429,33 @@ function renderElement(
   if (VOID_TAGS.has(tag)) {
     return createElement(tag, props);
   }
-  const children = childrenOf(node).map((child, at) =>
-    renderNode(child, `${path}.${String(at)}`, depth + 1, context),
+  /*
+    An svg shape draws in the SVG namespace, which React enters at the `svg`
+    element and keeps for its descendants: so a shape holds only shapes and
+    no text. Anything else under it — an html element, an icon, a component —
+    would be created as an SVG element nobody can see; the door refuses it on
+    write, and the read skips it here.
+  */
+  const svg = isCustomCodeSvgTag(tag);
+  const children = childrenOf(node).map((child, at) => {
+    if (svg && !isSvgElement(child)) return null;
+    return renderNode(child, `${path}.${String(at)}`, depth + 1, context);
+  });
+  return createElement(
+    tag,
+    props,
+    text === undefined || svg ? children : [text, ...children],
   );
-  return createElement(tag, props, text === undefined ? children : [text, ...children]);
+}
+
+function isSvgElement(value: unknown): boolean {
+  const node = asRecord(value);
+  return (
+    node !== null &&
+    node['kind'] === 'element' &&
+    typeof node['tag'] === 'string' &&
+    isCustomCodeSvgTag(node['tag'])
+  );
 }
 
 function renderNode(

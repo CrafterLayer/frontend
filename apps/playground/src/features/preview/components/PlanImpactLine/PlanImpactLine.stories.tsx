@@ -36,7 +36,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The ordinary case: what would change, and what the request cost. */
+/** The ordinary case: what would change. No token estimate (removed 2026-09-28). */
 export const Default: Story = {};
 
 export const English: Story = { args: { locale: 'en' } };
@@ -59,6 +59,3 @@ export const Mixed: Story = {
     locale: 'en',
   },
 };
-
-/** Rehearsal failed: the cost is still known, so the line still says something. */
-export const CostOnly: Story = { args: { impact: undefined } };

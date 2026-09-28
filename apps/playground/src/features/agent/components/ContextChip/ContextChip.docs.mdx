@@ -1,0 +1,57 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ContextChipStories from './ContextChip.stories';
+
+<Meta of={ContextChipStories} />
+
+# ContextChip
+
+What a request is about (SPEC §4.17, §3.2): the canvas selection, an `@` mention, or, with neither,
+the whole page.
+
+<Canvas of={ContextChipStories.ContextRow} />
+
+## Purpose
+
+The request's visible execution scope (FR-024). "Whole page" is a fact, not a choice: it has no `×`.
+A block chip carries its node id, so removing it is exact and a mention survives a reload.
+
+## Props
+
+| prop        | type                    | default | notes                                                                |
+| ----------- | ----------------------- | ------- | -------------------------------------------------------------------- |
+| `locale`    | `Locale`                | none    |                                                                      |
+| `chip`      | `ContextChipView`       | none    | `{ kind: 'page' }`, or a `selection` / `mention` with `label`, `stale` |
+| `onRemove`  | `(id: string) => void`  | none    | leave it out for a chip that only shows scope (a paused request)     |
+| `className` | `string`                | none    | appended to `ck-agent-chip`                                          |
+
+## States
+
+| story                                        | what it shows                                          |
+| -------------------------------------------- | ------------------------------------------------------ |
+| `WholePage`, `WholePageDark`, `WholePageRightToLeftDark` | the scope, with no `×`                     |
+| `Selection`                                  | a removable block chip                                 |
+| `ReadOnly`                                   | a block chip with no `×`                               |
+| `Stale`                                      | struck through, with "No longer on the page" under it  |
+| `LongLabel`                                  | cut at 16 characters                                   |
+| `ContextRow`, `ContextRowDark`, `ContextRowRightToLeft` | the composer's context row                  |
+
+## Anatomy
+
+28px, Tint, radius 6, a block (or page) glyph and the name in Read type, Graphite (6.45:1 on Tint;
+Slate is forbidden there). The `×` is an IconButton whose 32px hit area (44 on a coarse pointer)
+overhangs the chip; its hover lands on a 20px disc inside the Tint.
+
+## Accessibility
+
+- The chip is a label, not a control; only its `×` is, named "Remove Hero from the request".
+- A stale chip's `×` is described by the caption under the chip.
+- The full name is the label's `title`, and the `×`'s name.
+
+## RTL
+
+The glyph at the right, `×` at the left; the page's own words sit in `<bdi>`.
+
+## Motion
+
+Colour only, on the `×`'s hover (120ms).

@@ -168,6 +168,24 @@ function resolveModel(
  */
 const CALL_EFFORTS: ReadonlySet<unknown> = new Set(['low', 'medium']);
 
+/**
+ * The header a call may name its budget in instead (2026-09-28). The
+ * fast-edits contract says a provider names the edit model "the way the model
+ * picker does" — `MODEL_HEADER` — and a provider that sets headers per call
+ * sets the budget beside it. The body's `effort` wins; both are held to
+ * `CALL_EFFORTS`. `cors.ts` echoes the preflight's requested headers, so a
+ * browser may send it with no CORS change.
+ */
+export const EFFORT_HEADER = 'x-craftkit-ai-effort';
+
+/** The budget one call asked for — its body's, else its header's — or undefined. */
+function askedEffort(request: Request, wire: AiPlanWireRequest): unknown {
+  const inBody: unknown = (wire as { effort?: unknown }).effort;
+  if (inBody !== undefined) return inBody;
+  const inHeader = (request.headers.get(EFFORT_HEADER) ?? '').trim();
+  return inHeader === '' ? undefined : inHeader;
+}
+
 export function createHandler(options: HandlerOptions) {
   const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
 
@@ -237,10 +255,12 @@ export function createHandler(options: HandlerOptions) {
     if ('refused' in chosen) {
       return json({ error: chosen.refused }, 400);
     }
-    const effort: unknown = (body as { effort?: unknown }).effort;
+    const effort = askedEffort(request, body);
     if (effort !== undefined && !CALL_EFFORTS.has(effort)) {
       return json(
-        { error: `Effort ${JSON.stringify(effort).slice(0, 40)} is not one a call may ask for (low or medium).` },
+        {
+          error: `Effort ${JSON.stringify(effort).slice(0, 40)} is not one a call may ask for (low or medium).`,
+        },
         400,
       );
     }
@@ -248,9 +268,12 @@ export function createHandler(options: HandlerOptions) {
       ...options,
       ...(chosen.model === undefined ? {} : { model: chosen.model }),
     };
+    // One place `callEffort` reads the call's budget from, wherever it was named.
+    const wire: AiPlanWireRequest =
+      effort === undefined ? body : ({ ...body, effort } as AiPlanWireRequest);
 
     const wantsStream = (request.headers.get('accept') ?? '').includes('text/event-stream');
-    return wantsStream ? streamed(body, run, request.signal) : unary(body, run, request.signal);
+    return wantsStream ? streamed(wire, run, request.signal) : unary(wire, run, request.signal);
   };
 }
 

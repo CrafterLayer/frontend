@@ -480,7 +480,7 @@ describe('designMarkupFor — the design markup a brief names is only what the d
   it('names each admitted group by the tags it has, with what it is for', () => {
     const line = designMarkupFor(
       new Set(['details', 'summary', 'table', 'tr', 'td', 'svg', 'path', 'video', 'source']),
-      new Set(['popover', 'popovertarget']),
+      new Set(['popover', 'popovertarget', 'd', 'viewBox', 'poster', 'muted']),
     );
     expect(line).toContain('details/summary (a disclosure');
     expect(line).toContain('table/tr/td (a table');
@@ -489,9 +489,22 @@ describe('designMarkupFor — the design markup a brief names is only what the d
     expect(line).toContain('video/source (a video');
   });
 
+  it('names only the attributes the vocabulary admits — never loop or playsinline it refuses', () => {
+    const line = designMarkupFor(
+      new Set(['svg', 'path', 'video', 'source']),
+      new Set(['d', 'viewBox', 'poster']),
+    );
+    expect(line).toContain('attributes viewBox/d)');
+    expect(line).toContain('a short clip; attributes poster)');
+    expect(line).not.toContain('loop');
+    expect(line).not.toContain('playsinline');
+  });
+
   it('leaves out a group whose opening tag, or a needed attribute, is refused', () => {
     // A row without its table, a popover target without the popover: neither can be built.
     expect(designMarkupFor(new Set(['summary', 'tr', 'td']), new Set(['popovertarget']))).toBe('');
+    // An svg with nothing to draw with: no path data, no points, no radius.
+    expect(designMarkupFor(new Set(['svg', 'path']), new Set(['viewBox']))).toBe('');
   });
 });
 

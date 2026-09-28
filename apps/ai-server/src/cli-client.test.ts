@@ -390,7 +390,6 @@ process.stdin.on('end', () => {
   CLI as its system prompt, and its answer comes back as the wire's page plan.
 */
 describe('the page-plan task through a real `claude` process', () => {
-
   let directory: string | undefined;
 
   afterEach(() => {
@@ -564,7 +563,10 @@ describe('cli backend cancellation', () => {
   (claude.ts's `claude-opus-5` placeholder above all) keeps the configured one.
 */
 describe('cli backend per-call model', () => {
-  function argsFor(model: string | undefined, allowedModels?: readonly string[]): readonly string[] {
+  function argsFor(
+    model: string | undefined,
+    allowedModels?: readonly string[],
+  ): readonly string[] {
     const child = new FakeChild();
     const spawnCli = vi.fn(
       (_command: string, _args: readonly string[]): CliChildProcess =>

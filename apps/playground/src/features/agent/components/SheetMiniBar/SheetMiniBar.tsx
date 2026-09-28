@@ -1,12 +1,5 @@
 import { ChromeButton } from '@craftkit/builder';
-import {
-  useId,
-  useLayoutEffect,
-  useRef,
-  type FocusEvent,
-  type ReactNode,
-  type Ref,
-} from 'react';
+import { useId, useLayoutEffect, useRef, type FocusEvent, type ReactNode, type Ref } from 'react';
 
 import { t, tParts, type CopyRef } from '../../copy';
 import type { AgentController, Locale } from '../../model/view-types';
@@ -187,9 +180,14 @@ export function SheetMiniBar({
           run(action);
         });
       case 'finishRest':
-        return button(action, 'primary', t(locale, 'footer.finishRest', { n: action.count }), () => {
-          run(action);
-        });
+        return button(
+          action,
+          'primary',
+          t(locale, 'footer.finishRest', { n: action.count }),
+          () => {
+            run(action);
+          },
+        );
       case 'retryFailed':
         return button(action, 'primary', t(locale, 'row.retry'), () => {
           run(action);
@@ -226,11 +224,21 @@ export function SheetMiniBar({
         holdsFocus.current = true;
       }}
       onBlur={(event: FocusEvent<HTMLDivElement>) => {
-        // Moving within the row keeps the claim; anywhere else, or nowhere, gives it up.
-        // A focused button removed with its moment fires no blur, so the claim survives
-        // exactly the case the fallback is for.
+        // Moving within the row keeps the claim; moving anywhere else gives it up.
         const next = event.relatedTarget;
-        holdsFocus.current = next !== null && event.currentTarget.contains(next);
+        if (next !== null) {
+          holdsFocus.current = event.currentTarget.contains(next);
+          return;
+        }
+        /*
+          Focus went nowhere. A focused button removed with its moment fires no blur in
+          most engines, but where one does, the claim must survive exactly the case the
+          fallback is for; so it is given up only if the button is still on the page.
+        */
+        const left = event.target;
+        queueMicrotask(() => {
+          if (left.isConnected) holdsFocus.current = false;
+        });
       }}
     >
       <div className="ck-agent-mini-bar__spine">

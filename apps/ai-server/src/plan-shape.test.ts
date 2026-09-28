@@ -281,9 +281,9 @@ describe('page-plan contract mirrors', () => {
   /** `'name': '#hex',` entries of a source file's table. */
   const hexTable = (path: string): ReadonlyMap<string, string> =>
     new Map(
-      [
-        ...source(path).matchAll(/^ {2}(?:'([a-z]+-\d+)'|([a-z]+)): '(#[0-9a-f]{6})',$/gmu),
-      ].map((match) => [match[1] ?? match[2] ?? '', match[3] ?? '']),
+      [...source(path).matchAll(/^ {2}(?:'([a-z]+-\d+)'|([a-z]+)): '(#[0-9a-f]{6})',$/gmu)].map(
+        (match) => [match[1] ?? match[2] ?? '', match[3] ?? ''],
+      ),
     );
 
   it("resolves every deck row's shade, at the hex its contrast was measured on", () => {
@@ -495,7 +495,13 @@ describe('placeholder samples', () => {
   ];
 
   it('names every live X placeholder, and masks, as placeholders', () => {
-    for (const sample of [...LIVE_PLACEHOLDERS, 'AED XXX', '$XX.XX', 'info@xxxx.com', '050 ••• ••••']) {
+    for (const sample of [
+      ...LIVE_PLACEHOLDERS,
+      'AED XXX',
+      '$XX.XX',
+      'info@xxxx.com',
+      '050 ••• ••••',
+    ]) {
       expect(isPlaceholderSample(sample), sample).toBe(true);
     }
   });

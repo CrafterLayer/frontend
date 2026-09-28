@@ -60,6 +60,12 @@ export interface PlanSectionRowProps {
   readonly drag?: PlanRowDrag | undefined;
   /** `view-transition-name` for the plan-to-build morph (SPEC §5 moment 4). */
   readonly transitionName?: string | undefined;
+  /**
+   * How long this row waits before it arrives, in ms (SPEC §5 moment 6: the list appears in
+   * page order, 24ms apart). PlanSectionList sets it for the rows the plan arrived with; a
+   * row added later arrives at once.
+   */
+  readonly arrivalDelayMs?: number | undefined;
 }
 
 /**
@@ -112,6 +118,7 @@ export function PlanSectionRow({
   onHandlePointerDown,
   drag,
   transitionName,
+  arrivalDelayMs,
 }: PlanSectionRowProps) {
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
   const duplicateId = useId();
@@ -188,9 +195,19 @@ export function PlanSectionRow({
     if (delta === -1 ? canMoveUp : canMoveDown) onMove(delta, controlOf(target));
   };
 
-  const style: CSSProperties = {
-    ...(transitionName === undefined ? {} : { viewTransitionName: transitionName }),
-    ...(drag === undefined || drag.offset === 0 ? {} : { translate: `0 ${String(drag.offset)}px` }),
+  /*
+    Custom properties the stylesheet reads (`view-transition-name`, `translate`), so the
+    values sit in the style attribute where a test can read them, and no engine that
+    does not know a property drops it.
+  */
+  const style: CSSProperties & Partial<Record<`--${string}`, string>> = {
+    ...(transitionName === undefined ? {} : { '--ck-agent-plan-row-name': transitionName }),
+    ...(arrivalDelayMs === undefined || arrivalDelayMs <= 0
+      ? {}
+      : { animationDelay: `${String(arrivalDelayMs)}ms` }),
+    ...(drag === undefined || drag.offset === 0
+      ? {}
+      : { '--ck-agent-plan-row-shift': `0 ${String(drag.offset)}px` }),
   };
 
   const captureScope = (
@@ -313,6 +330,7 @@ export function PlanSectionRow({
                   chosen.current = null;
                   event.preventDefault();
                   inputRef.current?.focus();
+                  inputRef.current?.select();
                 }}
               >
                 <DropdownMenu.Item

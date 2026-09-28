@@ -11,6 +11,8 @@
  * - row Undo touches only its section and says `changedSince` when it cannot;
  * - successor runs write exactly the named sections, in place;
  * - a question writes nothing; an Ask edit writes only on Apply;
+ * - a direct edit asks no model; a model edit runs on the host's fast model; a picked
+ *   catalog suggestion is answered from the catalog;
  * - Improve replaces the draft, Restore brings it back, typing forgets it;
  * - an unclear request runs nothing until its questions are answered, and "Send as
  *   written" runs the words untouched.
@@ -19,14 +21,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { AiBuildOwnEvent, BuilderKernel } from '@craftkit/builder';
 import { describe, expect, it } from 'vitest';
 
-import type {
-  AgentController,
-  BuildRecordView,
-  EditRecordView,
-  PlanView,
-  ProposalView,
-  TurnView,
-} from '../model/view-types';
+import { capabilitiesFromEngine } from '../model/capabilities';
+import type { AgentController, BuildRecordView, TurnView } from '../model/view-types';
 import {
   BUILD_REQUEST,
   PLAN_TITLES,
@@ -38,6 +34,8 @@ import {
   historyLabels,
   memoryStorage,
   planningProvider,
+  recordingProvider,
+  refusingProvider,
   regionId,
   regionList,
   regionsOf,
@@ -79,13 +77,21 @@ function ask(c: () => AgentController, text: string): void {
   });
 }
 
-function turnsOf<K extends TurnView['kind']>(
-  c: () => AgentController,
-  kind: K,
-): Extract<TurnView, { kind: K }>['view'][] {
-  return c()
-    .state.turns.filter((turn): turn is Extract<TurnView, { kind: K }> => turn.kind === kind)
-    .map((turn) => turn.view as Extract<TurnView, { kind: K }>['view']);
+type ViewByKind = { [T in TurnView as T['kind']]: T['view'] };
+
+function turnsOf<K extends TurnView['kind']>(c: () => AgentController, kind: K): ViewByKind[K][] {
+  const views: ViewByKind[K][] = [];
+  for (const turn of c().state.turns) {
+    if (turn.kind === kind) views.push(turn.view as ViewByKind[K]);
+  }
+  return views;
+}
+
+/** The first record of `kind` on screen; a test that expects one fails loudly without it. */
+function firstOf<K extends TurnView['kind']>(c: () => AgentController, kind: K): ViewByKind[K] {
+  const view = turnsOf(c, kind)[0];
+  if (view === undefined) throw new Error(`No ${kind} record on screen.`);
+  return view;
 }
 
 function build(c: () => AgentController): BuildRecordView {
@@ -326,6 +332,38 @@ describe('useAgentController: builds', () => {
     });
   }, 60_000);
 
+  it('with the engine’s Undo build, puts back every section it can, newest first, and no more', async () => {
+    const kernel = createBuildKernel();
+    const script = scriptBuild(kernel, THREE);
+    const { c } = mount({
+      kernel,
+      provider: script.provider,
+      capabilities: { ...capabilitiesFromEngine(), rowUndo: true, undoBuild: true },
+    });
+
+    ask(c, BUILD_REQUEST);
+    await settled(c);
+    // A hand edit sits on top: a kernel undo would take it too, so the build goes back by rows.
+    act(() => {
+      kernel.dispatch('setProp', { id: regionId(kernel, 'Hero'), key: 'tree', value: 'Mine.' });
+    });
+    act(() => {
+      c().undoBuild(build(c).turnId);
+    });
+
+    expect(regionsOf(kernel)).toEqual({ Hero: 'Mine.', Proof: '', Pricing: '' });
+    expect(historyLabels(kernel).slice(-2)).toEqual([
+      'Assistant: revert 3/3 — Pricing',
+      'Assistant: revert 2/3 — Proof',
+    ]);
+    // Not every section went back, so the build does not claim to be undone.
+    expect(build(c).phase).not.toBe('undone');
+    expect(build(c).rows.find((row) => row.title === 'Hero')?.undo).toEqual({
+      kind: 'unavailable',
+      why: 'changedSince',
+    });
+  }, 60_000);
+
   it('removes the empty sections a stopped build left, as one change', async () => {
     const kernel = createBuildKernel();
     const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
@@ -406,7 +444,7 @@ describe('useAgentController: Ask and Plan', () => {
     await waitFor(() => {
       expect(turnsOf(c, 'page-plan')[0]).toMatchObject({ status: 'ready', approval: true });
     }, WAIT);
-    const plan = turnsOf(c, 'page-plan')[0] as PlanView;
+    const plan = firstOf(c, 'page-plan');
     expect(plan.sections.map((section) => section.title)).toEqual(PLAN_TITLES);
     expect(plan.editable).toBe(true);
     expect(kernel.transactions()).toHaveLength(0);
@@ -417,7 +455,7 @@ describe('useAgentController: Ask and Plan', () => {
     act(() => {
       c().editPlan(plan.turnId, { kind: 'rename', key: menu?.key ?? '', title: 'Our beans' });
     });
-    expect((turnsOf(c, 'page-plan')[0] as PlanView).edited).toBe(true);
+    expect(firstOf(c, 'page-plan').edited).toBe(true);
     expect(kernel.transactions()).toHaveLength(0);
 
     act(() => {
@@ -450,7 +488,7 @@ describe('useAgentController: Ask and Plan', () => {
     }, WAIT);
 
     act(() => {
-      c().discard((turnsOf(c, 'page-plan')[0] as PlanView).turnId);
+      c().discard(firstOf(c, 'page-plan').turnId);
     });
     await settled(c);
     expect(turnsOf(c, 'end')[0]?.key).toBe('planDiscarded');
@@ -467,7 +505,7 @@ describe('useAgentController: Ask and Plan', () => {
 
     ask(c, PLAN_REQUEST);
     await settled(c);
-    const plan = turnsOf(c, 'page-plan')[0] as PlanView;
+    const plan = firstOf(c, 'page-plan');
     expect(plan).toMatchObject({ status: 'ready', approval: false, note: 'exact', editable: true });
     expect(kernel.transactions()).toHaveLength(0);
     expect(provider.planCalls()).toBe(1);
@@ -521,7 +559,7 @@ describe('useAgentController: edits and questions', () => {
 
     ask(c, 'change the heading to Welcome home');
     await settled(c);
-    const proposal = turnsOf(c, 'proposal')[0] as ProposalView;
+    const proposal = firstOf(c, 'proposal');
     expect(proposal).toMatchObject({ status: 'ready', pageUnchanged: true, target: 'Hero' });
     expect(proposal.changes).toEqual([
       { kind: 'changed', label: 'Heading', before: 'Existing section', after: 'Welcome home' },
@@ -533,14 +571,14 @@ describe('useAgentController: edits and questions', () => {
       c().apply(proposal.turnId);
     });
     expect(kernel.getDocument().nodes['selected-hero']?.props['heading']).toBe('Welcome home');
-    const applied = turnsOf(c, 'edit')[0] as EditRecordView;
+    const applied = firstOf(c, 'edit');
     expect(applied).toMatchObject({ phase: 'done', origin: 'proposal', undo: { kind: 'undo' } });
 
     act(() => {
       c().undoEdit(applied.turnId);
     });
     expect(kernel.getDocument().nodes['selected-hero']?.props['heading']).toBe('Existing section');
-    expect((turnsOf(c, 'edit')[0] as EditRecordView).phase).toBe('undone');
+    expect(firstOf(c, 'edit').phase).toBe('undone');
   }, 30_000);
 
   it('Auto edit applies at once, and its Undo refuses once a later change sits on top', async () => {
@@ -555,7 +593,7 @@ describe('useAgentController: edits and questions', () => {
 
     ask(c, 'change the heading to Clinic');
     await settled(c);
-    const edit = turnsOf(c, 'edit')[0] as EditRecordView;
+    const edit = firstOf(c, 'edit');
     expect(edit).toMatchObject({ phase: 'done', target: 'Hero', undo: { kind: 'undo' } });
     expect(kernel.getDocument().nodes['selected-hero']?.props['heading']).toBe('Clinic');
 
@@ -563,11 +601,67 @@ describe('useAgentController: edits and questions', () => {
       kernel.dispatch('setProp', { id: 'selected-hero', key: 'heading', value: 'Mine' });
     });
     await waitFor(() => {
-      expect((turnsOf(c, 'edit')[0] as EditRecordView).undo).toEqual({
+      expect(firstOf(c, 'edit').undo).toEqual({
         kind: 'unavailable',
         why: 'changedSince',
       });
     });
+  }, 30_000);
+});
+
+describe('useAgentController: fast edits', () => {
+  it('a zero-token direct edit reads like any edit, instantly, with Undo', async () => {
+    // The owner's own request: a one-word title change must not wait on a model.
+    const kernel = createPlanKernel(['التعليم والشهادات', 'الخبرات']);
+    const provider = refusingProvider();
+    const { c } = mount({ kernel, provider });
+
+    ask(c, 'تغيير عنوان قسم التعليم والشهادات إلى مرحبا');
+    await settled(c);
+
+    expect(provider.calls()).toBe(0);
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(JSON.stringify(kernel.getDocument().nodes['mine-0']?.props['tree'])).toContain('مرحبا');
+    const edit = turnsOf(c, 'edit')[0];
+    expect(edit).toMatchObject({ phase: 'done', origin: 'request', undo: { kind: 'undo' } });
+
+    act(() => {
+      if (edit !== undefined) c().undoEdit(edit.turnId);
+    });
+    expect(JSON.stringify(kernel.getDocument().nodes['mine-0']?.props['tree'])).not.toContain('مرحبا');
+    expect(turnsOf(c, 'edit')[0]?.phase).toBe('undone');
+  }, 30_000);
+
+  it('runs a model edit on the host’s fast edit model', async () => {
+    const kernel = createEditKernel();
+    kernel.setSelection(['selected-hero']);
+    const provider = recordingProvider([
+      { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'A warmer welcome' } },
+    ]);
+    const { c } = mount({ kernel, provider, editModel: 'vendor/fast:free', editEffort: 'low' });
+
+    // Not a direct edit: nothing in the words is the heading's new text.
+    ask(c, 'give this heading a warmer, friendlier tone');
+    await settled(c);
+
+    expect(provider.live[0]).toMatchObject({ model: 'vendor/fast:free', effort: 'low' });
+    expect(kernel.getDocument().nodes['selected-hero']?.props['heading']).toBe('A warmer welcome');
+  }, 30_000);
+
+  it('answers a picked catalog suggestion from the catalog, never the provider', async () => {
+    const kernel = createEditKernel();
+    const provider = refusingProvider();
+    const { c } = mount({ kernel, provider });
+
+    const picked = c().state.suggestions.find((suggestion) => suggestion.source === 'catalog');
+    expect(picked).toBeDefined();
+    // A suggestion fills the box (SuggestionList) and never sends; the person sends it.
+    ask(c, picked?.text ?? '');
+    await settled(c);
+
+    expect(provider.calls()).toBe(0);
+    expect(kernel.transactions().length).toBeGreaterThan(0);
+    expect(turnsOf(c, 'edit')[0]?.phase).toBe('done');
   }, 30_000);
 });
 

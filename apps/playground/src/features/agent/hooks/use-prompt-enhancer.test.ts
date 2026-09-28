@@ -4,9 +4,16 @@
  * - enhancing → enhanced, with the person's own words kept for Restore;
  * - any edit after an Improve returns to idle, and Restore is gone;
  * - a failure is `failed` with its class, and the text is never touched;
- * - the engine's own `enhanceRequest` / `canEnhance` are adapted when they are exported.
+ * - the engine's own `enhanceRequest` / `canEnhance` are adapted, and a provider that can
+ *   only tidy (a server without the enhance route) turns Improve off after one try.
  */
-import { createLocalAiPlanProvider, type AiPlanProvider } from '@craftkit/builder';
+import {
+  AiProviderError,
+  createLocalAiPlanProvider,
+  type AiPlanProvider,
+  type AiPromptEnhanceInput,
+  type AiPromptEnhancement,
+} from '@craftkit/builder';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
@@ -20,9 +27,8 @@ const REWRITE = 'Build a one-page site for a dental clinic in Amman.';
 
 describe('usePromptEnhancer', () => {
   it('is unavailable, and hides Improve, when nothing can enhance for this provider', () => {
-    const { result } = renderHook(() =>
-      usePromptEnhancer({ provider, enhancer: undefined, engine: {} }),
-    );
+    // The offline provider has no `enhancePrompt`: the engine's `canEnhance` says no.
+    const { result } = renderHook(() => usePromptEnhancer({ provider, enhancer: undefined }));
     expect(result.current.available).toBe(false);
     expect(result.current.view).toEqual({ status: 'unavailable' });
     const off = renderHook(() => usePromptEnhancer({ provider, enhancer: null }));
@@ -39,9 +45,12 @@ describe('usePromptEnhancer', () => {
     expect(result.current.view).toEqual({ status: 'idle' });
 
     let rewritten: string | null = null;
+    let pending: Promise<string | null> = Promise.resolve(null);
+    act(() => {
+      pending = result.current.improve(INPUT);
+    });
+    expect(result.current.view.status).toBe('enhancing');
     await act(async () => {
-      const pending = result.current.improve(INPUT);
-      expect(result.current.view.status).toBe('enhancing');
       rewritten = await pending;
     });
     expect(rewritten).toBe(REWRITE);
@@ -108,9 +117,12 @@ describe('usePromptEnhancer', () => {
     const enhancer = scriptedEnhancer(() => ({ questions: [{ id: 'q', text: 'Which?', choices: ['A'] }] }));
     const { result } = renderHook(() => usePromptEnhancer({ provider, enhancer }));
     let questions = 0;
+    let pending: Promise<{ readonly questions: readonly unknown[] }> = Promise.resolve({ questions: [] });
+    act(() => {
+      pending = result.current.ask(INPUT, { busy: true });
+    });
+    expect(result.current.view.status).toBe('enhancing');
     await act(async () => {
-      const pending = result.current.ask(INPUT, { busy: true });
-      expect(result.current.view.status).toBe('enhancing');
       questions = (await pending).questions.length;
     });
     expect(questions).toBe(1);
@@ -120,33 +132,122 @@ describe('usePromptEnhancer', () => {
   });
 });
 
+/** A provider whose `enhancePrompt` answers from a script, recording what it was sent. */
+function enhancingProvider(
+  answer: (input: AiPromptEnhanceInput) => Partial<AiPromptEnhancement> | Error,
+): AiPlanProvider & { readonly seen: AiPromptEnhanceInput[] } {
+  const local = createLocalAiPlanProvider();
+  const seen: AiPromptEnhanceInput[] = [];
+  return {
+    seen,
+    propose: (request, context, options) => local.propose(request, context, options),
+    enhancePrompt: (input) => {
+      seen.push(input);
+      const result = answer(input);
+      return result instanceof Error ? Promise.reject(result) : Promise.resolve(result as AiPromptEnhancement);
+    },
+  };
+}
+
 describe('engineEnhancer', () => {
-  it('adapts the engine’s functions, and says no when canEnhance does', async () => {
-    const seen: unknown[] = [];
-    const engine = {
-      canEnhance: () => true,
-      enhanceRequest: (options: Readonly<Record<string, unknown>>) => {
-        seen.push(options);
-        return Promise.resolve({
-          enhanced: REWRITE,
-          understood: 'ok',
-          changes: ['a', 'a', ''],
-          questions: [
-            { id: 'q1', text: 'Which city?', choices: ['Amman', 'Irbid'] },
-            { id: 'q1', text: 'A duplicate id', choices: ['x'] },
-            { id: 'q3', text: 'No choices', choices: [] },
-          ],
-        });
-      },
-    };
-    const port = engineEnhancer(provider, engine);
+  it('sends the engine its own request shape and reads the answer defensively', async () => {
+    const remote = enhancingProvider(() => ({
+      enhanced: REWRITE,
+      understood: 'ok',
+      changes: ['a', 'a', ''],
+      questions: [
+        { id: 'q1', text: 'Which city?', choices: ['Amman', 'Irbid'] },
+        { id: 'q1', text: 'A duplicate id', choices: ['x'] },
+        { id: 'q3', text: 'No choices', choices: [] },
+      ],
+      language: 'en',
+    }));
+    const port = engineEnhancer(remote);
     expect(port).not.toBeNull();
-    const result = await port?.enhance({ ...INPUT, intent: 'build-page' });
-    expect(seen[0]).toMatchObject({ provider, text: 'dental page amman', locale: 'en', intent: 'build-page' });
+    const result = await port?.enhance({
+      ...INPUT,
+      intent: 'build-page',
+      confidence: 0.6,
+      page: { nodeCount: 0, placeholderOnly: false, sectionLabels: [] },
+      selection: ['Hero', 'Pricing'],
+      answers: [{ id: 'q1', question: 'Which city?', answer: 'Amman' }],
+    });
+    expect(remote.seen[0]).toEqual({
+      text: 'dental page amman',
+      locale: 'en',
+      intent: { kind: 'build-page', confidence: 0.6 },
+      page: { empty: true, sections: [] },
+      selection: 'Hero, Pricing',
+      answers: [{ question: 'Which city?', answer: 'Amman' }],
+    });
+    expect(result?.source).toBe('model');
     expect(result?.changes).toEqual(['a']);
     expect(result?.questions.map((question) => question.id)).toEqual(['q1', 'q2']);
+  });
 
-    expect(engineEnhancer(provider, { ...engine, canEnhance: () => false })).toBeNull();
-    expect(engineEnhancer(provider, {})).toBeNull();
+  it('says no for a provider that cannot rewrite requests', () => {
+    expect(engineEnhancer(provider)).toBeNull();
+  });
+});
+
+describe('usePromptEnhancer over the engine', () => {
+  it('turns Improve off after a tidy that changed nothing: the server cannot rewrite', async () => {
+    // A server without the enhance route answers 404; the engine then only tidies.
+    const noRoute = enhancingProvider(
+      () => new AiProviderError('Endpoint not found.', { code: 'http-status', status: 404, retryable: false }),
+    );
+    const { result } = renderHook(() => usePromptEnhancer({ provider: noRoute }));
+    expect(result.current.available).toBe(true);
+    let rewritten: string | null = 'unchanged';
+    await act(async () => {
+      rewritten = await result.current.improve({ text: 'Build a page for my shop.', locale: 'en' });
+    });
+    expect(rewritten).toBeNull();
+    expect(result.current.available).toBe(false);
+    expect(result.current.view).toEqual({ status: 'unavailable' });
+  });
+
+  it('says the rewrite failed, and keeps the action, when the server itself failed', async () => {
+    const down = enhancingProvider(
+      () => new AiProviderError('Bad gateway.', { code: 'http-status', status: 502, retryable: true }),
+    );
+    const { result } = renderHook(() => usePromptEnhancer({ provider: down }));
+    let rewritten: string | null = 'unchanged';
+    await act(async () => {
+      rewritten = await result.current.improve({ text: 'Build a page for my shop.', locale: 'en' });
+    });
+    expect(rewritten).toBeNull();
+    expect(result.current.view.status).toBe('failed');
+    expect(result.current.available).toBe(true);
+  });
+
+  it('shows a tidy that fixed something, with its own notes', async () => {
+    const { result } = renderHook(() =>
+      usePromptEnhancer({
+        provider,
+        enhancer: {
+          enhance: () =>
+            Promise.resolve({
+              enhanced: 'اربط هذه الصفحة',
+              understood: '',
+              changes: ['ضبط المسافات'],
+              questions: [],
+              source: 'tidy',
+            }),
+        },
+      }),
+    );
+    let rewritten: string | null = null;
+    await act(async () => {
+      rewritten = await result.current.improve({ text: 'اربط  هذه الصفحه', locale: 'ar' });
+    });
+    expect(rewritten).toBe('اربط هذه الصفحة');
+    expect(result.current.view).toEqual({
+      status: 'enhanced',
+      understood: '',
+      changes: ['ضبط المسافات'],
+      canRestore: true,
+    });
+    expect(result.current.available).toBe(true);
   });
 });

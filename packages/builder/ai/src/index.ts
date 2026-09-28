@@ -562,3 +562,40 @@ export {
   type TidyFix,
 } from './prompt-enhance';
 // end provider-chain additions
+
+// fast-edits additions
+/*
+  Small edits made instant and nearly free (2026-09-28: the owner's one-word
+  CV title change showed "~11.3k tokens" and took 46 s). `tryDirectEdit` makes
+  a small edit stated in full with no model (runAiAgent tries it first unless
+  `directEdits: false`); `resolveDocumentFocus` is how a run picks the
+  sections an edit sees whole (`AiCompositionPolicy.documentFocus`, declared
+  in context/document-tree-mode.ts). From the modules themselves: the agent
+  and context barrels are other owners' files.
+*/
+export {
+  tryDirectEdit,
+  type DirectEdit,
+  type DirectEditChange,
+  type DirectEditRole,
+  type DirectEditTarget,
+  type TryDirectEditOptions,
+} from './plan/direct-edit';
+export {
+  namedSection,
+  outlinePageSections,
+  resolveDocumentFocus,
+  type AiDocumentFocus,
+  type PageSectionOutline,
+} from './context/document-tree-mode';
+export {
+  assembleDirectEditContext,
+  DOCUMENT_FOCUS_FRAGMENT_SOURCE,
+} from './context/assemble-context';
+export type {
+  AiDirectEditReport,
+  AiEditEffort,
+  AiRunModelChoice,
+  AiRunSource,
+} from './agent/types';
+// end fast-edits additions

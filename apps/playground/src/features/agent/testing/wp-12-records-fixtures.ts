@@ -547,9 +547,9 @@ export function editApplied(locale: Locale): EditRecordView {
 /** A page-wide edit: no target, so the titles name the page. */
 export function editPageWide(locale: Locale, phase: 'running' | 'done' = 'done'): EditRecordView {
   const base = phase === 'running' ? editRunning(locale, 'edit.writing') : editDone(locale);
-  const { target: _target, ...rest } = base;
   return {
-    ...rest,
+    ...base,
+    target: undefined,
     turnId: `edit-page-${phase}`,
     ...(phase === 'done'
       ? {
@@ -613,6 +613,19 @@ export function errorView(
     details: `remote/${failure}: fill-3 exceeded 45000ms; setProp craftkit.hero ~11.2k tokens`,
     menu: ['reuse', 'copyError'],
   };
+}
+
+/**
+ * §3.11 as drawn: the error with its run's final time (`0:31`) at the head's end. `ErrorView`
+ * has no field for the time yet; ErrorRecord reads `elapsedMs` structurally, so this fixture
+ * shows the frame the producer will reach once it sends one.
+ */
+export function errorViewTimed(
+  failure: ErrorClass,
+  elapsedMs: number,
+  pageState: ErrorPageState = { kind: 'unchanged' },
+): ErrorView & { readonly elapsedMs: number } {
+  return { ...errorView(failure, pageState), elapsedMs };
 }
 
 /* ── Answers and endings (SPEC §4.10) ─────────────────────────────────────── */

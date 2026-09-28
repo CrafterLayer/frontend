@@ -16,15 +16,25 @@
  * - `ask(input)` is the same call for a sent request: the clarify check (questions come
  *   back when the request is too unclear) and the rewrite once every question is answered.
  *   With `{ busy: true }` the view reads `enhancing` while it runs.
+ * - A provider that says it can enhance but answers with the engine's deterministic tidy
+ *   (`source: 'tidy'`: a server without the enhance route) is taken at its word once:
+ *   a tidy that changed nothing, or any tidy to a sent request, turns Improve off for this
+ *   provider, so no later send pays a round trip for nothing. A tidy that DID fix
+ *   something is still shown, with its own notes.
  *
- * Where the engine does not export the functions yet, or the host passes its own
- * `enhancer`, the port in `model/enhance.ts` is what is called; tests pass a scripted one.
+ * The host may pass its own `enhancer` (a story, a test, a server of its own); the port in
+ * `model/enhance.ts` is what is called either way.
  */
-import * as builder from '@craftkit/builder';
-import { classifyAiRunFailure, type AiPlanProvider } from '@craftkit/builder';
+import {
+  canEnhance,
+  classifyAiRunFailure,
+  enhanceRequest,
+  type AiPlanProvider,
+} from '@craftkit/builder';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import {
+  engineEnhanceInput,
   enhanceFailureOf,
   readEnhanceResult,
   type EnhanceInput,
@@ -35,47 +45,21 @@ import { classifyRunFailure } from '../model/failure-class';
 import type { EnhancementView } from '../model/view-types';
 
 /**
- * The engine functions this hook adapts, read off the facade at runtime: they are being
- * added by the engine work (`packages/builder/ai/src/prompt-enhance`) and this file must
- * compile before and after they land. A test passes a stand-in.
+ * The engine's enhancer (`enhanceRequest` over the provider's `enhancePrompt`) as the
+ * port, or null when this provider cannot rewrite a request (`canEnhance`): the offline
+ * local provider, a bare scripted one. The answer is read defensively and keeps its
+ * `source`, so the hook can tell a model's rewrite from the engine's tidy.
  */
-export interface EnhanceEngineSurface {
-  readonly enhanceRequest?: unknown;
-  readonly canEnhance?: unknown;
-}
-
-type EngineEnhance = (options: Readonly<Record<string, unknown>>) => Promise<unknown>;
-type EngineCanEnhance = (provider: AiPlanProvider) => unknown;
-
-/**
- * The engine's enhancer as the port, or null when this engine cannot enhance for this
- * provider. `canEnhance` absent means "ask and see": the call itself then says no.
- */
-export function engineEnhancer(
-  provider: AiPlanProvider,
-  engine: EnhanceEngineSurface = builder as EnhanceEngineSurface,
-): PromptEnhancer | null {
-  const enhanceRequest = engine.enhanceRequest;
-  if (typeof enhanceRequest !== 'function') return null;
-  const canEnhance = engine.canEnhance;
-  if (typeof canEnhance === 'function' && (canEnhance as EngineCanEnhance)(provider) !== true) {
-    return null;
-  }
-  const call = enhanceRequest as EngineEnhance;
+export function engineEnhancer(provider: AiPlanProvider): PromptEnhancer | null {
+  if (!canEnhance(provider)) return null;
   return {
-    enhance: async (input, signal) =>
-      readEnhanceResult(
-        await call({
-          provider,
-          text: input.text,
-          locale: input.locale,
-          ...(input.intent === undefined ? {} : { intent: input.intent }),
-          ...(input.page === undefined ? {} : { page: input.page }),
-          ...(input.selection === undefined ? {} : { selection: input.selection }),
-          ...(input.answers === undefined ? {} : { answers: input.answers }),
-          ...(signal === undefined ? {} : { signal }),
-        }),
-      ),
+    enhance: async (input, signal) => {
+      const answer = await enhanceRequest(engineEnhanceInput(input), {
+        provider,
+        ...(signal === undefined ? {} : { signal }),
+      });
+      return readEnhanceResult(answer);
+    },
   };
 }
 
@@ -86,8 +70,6 @@ export interface UsePromptEnhancerOptions {
    * off; `undefined` uses the engine's when it has one for this provider.
    */
   readonly enhancer?: PromptEnhancer | null | undefined;
-  /** Where the engine functions are looked up; the facade by default. */
-  readonly engine?: EnhanceEngineSurface | undefined;
 }
 
 export interface PromptEnhancerHandle {
@@ -120,19 +102,21 @@ const IDLE: EnhancementView = { status: 'idle' };
 function failureOf(cause: unknown): EnhancementView {
   const reason = enhanceFailureOf(
     classifyRunFailure(classifyAiRunFailure(cause), {
-      offline: typeof navigator !== 'undefined' && navigator.onLine === false,
+      offline: typeof navigator !== 'undefined' && !navigator.onLine,
     }),
   );
   return { status: 'failed', reason };
 }
 
 export function usePromptEnhancer(options: UsePromptEnhancerOptions): PromptEnhancerHandle {
-  const { provider, enhancer: given, engine } = options;
+  const { provider, enhancer: given } = options;
   const port = useMemo(
-    () => (given === null ? null : (given ?? engineEnhancer(provider, engine))),
-    [given, provider, engine],
+    () => (given === null ? null : (given ?? engineEnhancer(provider))),
+    [given, provider],
   );
   const [view, setView] = useState<EnhancementView>(IDLE);
+  // The port that answered with a tidy for nothing: it cannot read requests (see above).
+  const [dead, setDead] = useState<PromptEnhancer | null>(null);
   const memory = useRef<Memory>({ original: null, rewritten: null });
   const inflight = useRef<AbortController | null>(null);
 
@@ -153,6 +137,12 @@ export function usePromptEnhancer(options: UsePromptEnhancerOptions): PromptEnha
         const result = await port.enhance(input, controller.signal);
         if (controller.signal.aborted) return null;
         const rewritten = result.enhanced.trim();
+        if (result.source === 'tidy' && rewritten === input.text.trim()) {
+          // The server cannot rewrite requests, and there was nothing to tidy: no button.
+          setDead(port);
+          setView(IDLE);
+          return null;
+        }
         if (rewritten === '') {
           setView({ status: 'failed', reason: 'unknown' });
           return null;
@@ -201,7 +191,10 @@ export function usePromptEnhancer(options: UsePromptEnhancerOptions): PromptEnha
       if (port === null) throw new Error('No enhancer is available for this provider.');
       if (askOptions.busy === true) setView({ status: 'enhancing' });
       try {
-        return await port.enhance(input, askOptions.signal);
+        const result = await port.enhance(input, askOptions.signal);
+        // A tidy asks nothing and understands nothing: later sends skip the check.
+        if (result.source === 'tidy') setDead(port);
+        return result;
       } finally {
         if (askOptions.busy === true) {
           setView((current) => (current.status === 'enhancing' ? IDLE : current));
@@ -211,7 +204,7 @@ export function usePromptEnhancer(options: UsePromptEnhancerOptions): PromptEnha
     [port],
   );
 
-  const available = port !== null;
+  const available = port !== null && dead !== port;
   return useMemo(
     () => ({
       available,

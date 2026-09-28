@@ -1,0 +1,92 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SpineRowStories from './SpineRow.stories';
+
+<Meta of={SpineRowStories} />
+
+# SpineRow
+
+One section of the page spine (SPEC §4.8 SpineRow): node, number, title and state word, then one
+trailing action. 32px tall, 44px on a coarse pointer.
+
+<Canvas of={SpineRowStories.StateWordsAt420} />
+
+## Purpose
+
+Each row tells the truth about its section: waiting (a Rule ring over dashed pencil), writing (a
+Halo ring with a rotating arc, a light travelling down its stretch), written and waiting its
+turn (an Indigo outline ring, a still pale stretch), on the page (an Indigo disc with a check,
+solid ink), failed (an Alarm disc, a dashed Alarm stretch, the reason on a second line), not
+written or undone (a dashed ring over pencil). Activating a landed row selects its section.
+
+## When to use / not
+
+Only inside SpineList, which gives it its columns through subgrid. Plan rows before Build are
+PlanSectionRow (WP-13).
+
+## Props
+
+| prop               | type                                        | default | notes                                                        |
+| ------------------ | ------------------------------------------- | ------- | ------------------------------------------------------------ |
+| `locale`           | `Locale`                                    | none    |                                                              |
+| `row`              | `SpineRowView`                              | none    | `position/total`, `title`, `state`, `reason`, `undo`, `canRetry` |
+| `next`             | `Pick<SpineRowView, 'key' \| 'state'> \| null` | `null`  | the row below: this row draws the stretch in its state       |
+| `live`             | `boolean`                                   | `false` | node arrival, the travelling light, the ink filling          |
+| `arrival`          | `number`                                    | none    | this row's place in the arrival stagger                      |
+| `revivedCaptionId` | `string`                                    | none    | the record's caption that explains a revived Undo            |
+| `onReveal`         | `(nodeId: string) => void`                  | none    |                                                              |
+| `onPeek`           | `(nodeId: string \| null) => void`          | none    | phase 2                                                      |
+| `onUndo` / `onRedo` / `onRetry` | `(key: string) => void`        | none    |                                                              |
+
+The module also exports `SpineSegment` (one stretch, drawn with borders), `segmentForRow` and
+`trailingActionOf`, which decide once that only a landed row inks the stretch above its node,
+and what a row offers at its end.
+
+## States
+
+`Waiting`, `Writing`, `Retrying`, `Drafted`, `Landed` (Undo on hover or focus), `LandedUndoOnFocus`,
+`Undone` (Redo), `Failed` (Retry always visible, the reason in Alarm), `NotWritten`,
+`UndoUnavailable` (revived: `aria-disabled`, described), `UndoRefused` (the page moved on: the
+reason on its own line), `StateWordsAt420`, `AccessibleName`, and Arabic and dark twins.
+
+## Anatomy
+
+```text
+[✓] 2  Hero                     On the page    [↺]
+node · number (Figure, Slate) · title (Read) · state word (Meta, Slate) · trailing action
+       Took too long                                  second line on a failed row (Meta, Alarm)
+```
+
+- **Title colour:** Slate while planned, waiting, not written or undone; Ink when writing,
+  drafted, landed or failed; weight 500 while a writer is on it, settling to 400 as it lands.
+- **State word:** shown from 400px for every state (failed in Alarm); below 400 only where the
+  node alone could be mistaken: a second try, not written, undone. Below 400 a failed row says
+  why on its second line instead, beside Retry, as the §3.5 frame draws it. Always in the
+  accessible name.
+- **Trailing action (32px):** Undo on a landed row after `build.completed` (fine pointer: on
+  hover or `:focus-within`; coarse: always); Redo on an undone row; Retry, always visible, on a
+  failed row.
+
+## Accessibility
+
+- Two sibling interactive elements, never nested: the row itself, a button while its section is
+  on the page ("Section 3 of 8: Services, Writing"), and the trailing action ("Undo Hero").
+- A section with no node yet is text, not a button, and says the same sentence through a
+  visually hidden line.
+- Undo and Redo are one button whose label follows the state, so focus stays on it when a row's
+  Undo lands (SPEC §6.3).
+- A revived Undo is `aria-disabled` (still focusable) and described by the record's caption;
+  pressing it does nothing.
+- Focus ring from `--bldr-focus-ring`, drawn inside the row (`outline-offset: -2px`).
+
+## RTL
+
+Logical properties only. The number and the state word are the catalog's; titles are `<bdi>`
+with their own `lang` when their script is not the panel's.
+
+## Motion
+
+Landing: the stretch fills top-down over 360ms, the node crossfades to the disc and its check
+scales 0.6 → 1, the title settles 500 → 400 (§5 moment 1). The light on a writing stretch:
+1.4s linear loop (moment 2). A finished draft: the light stops, the ring turns Indigo (120ms,
+moment 3). Reduced motion: every state instant, the writing stretch a still Halo line.

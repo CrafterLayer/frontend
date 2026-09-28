@@ -1,34 +1,8 @@
-import type { RowState, SpineRowView } from '../../model/view-types';
+import type { SpineRowView } from '../../model/view-types';
+
+import { miniSegmentKind } from './mini-segment-kind';
 
 import './MiniSpine.css';
-
-/**
- * How one segment is drawn: the spine's segment kinds (SPEC §4.8), laid on their side.
- * - `pencil`: dashed Track. Waiting, planned, not written, undone: nothing of it is ink.
- * - `writing`: Halo, with the travelling light while the build is live.
- * - `drafted`: Halo, still. Written, waiting its turn to land.
- * - `ink`: solid Indigo. On the page, and only on the page.
- * - `failed`: dashed Alarm.
- */
-export type MiniSegmentKind = 'pencil' | 'writing' | 'drafted' | 'ink' | 'failed';
-
-const SEGMENT_KIND = {
-  planned: 'pencil',
-  waiting: 'pencil',
-  notWritten: 'pencil',
-  undone: 'pencil',
-  writing: 'writing',
-  // A second attempt is still a writer on the section.
-  retrying: 'writing',
-  drafted: 'drafted',
-  landed: 'ink',
-  failed: 'failed',
-} as const satisfies Readonly<Record<RowState, MiniSegmentKind>>;
-
-/** A section's segment, by its row state. Only `landed` draws ink. */
-export function miniSegmentKind(state: RowState): MiniSegmentKind {
-  return SEGMENT_KIND[state];
-}
 
 export interface MiniSpineProps {
   /** One segment per section, in page order. */
@@ -65,11 +39,12 @@ export function MiniSpine({
   animate = false,
   className,
 }: MiniSpineProps) {
-  const complete =
-    !indeterminate && rows.length > 0 && rows.every((row) => row.state === 'landed');
+  const complete = !indeterminate && rows.length > 0 && rows.every((row) => row.state === 'landed');
   return (
     <div
-      className={className === undefined ? 'ck-agent-mini-spine' : `ck-agent-mini-spine ${className}`}
+      className={
+        className === undefined ? 'ck-agent-mini-spine' : `ck-agent-mini-spine ${className}`
+      }
       aria-hidden="true"
       data-indeterminate={indeterminate ? '' : undefined}
       data-live={live ? '' : undefined}
@@ -83,7 +58,7 @@ export function MiniSpine({
           <span
             key={row.key}
             className="ck-agent-mini-spine__segment"
-            data-kind={SEGMENT_KIND[row.state]}
+            data-kind={miniSegmentKind(row.state)}
           />
         ))
       )}

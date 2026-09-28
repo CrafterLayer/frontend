@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ERROR_CAUSE_KEY, t } from '../../copy';
 import type { ErrorView, Locale } from '../../model/view-types';
-import { ERROR_CLASSES, errorView } from '../../testing/wp-12-records-fixtures';
+import { ERROR_CLASSES, errorView, errorViewTimed } from '../../testing/wp-12-records-fixtures';
 
 import { ErrorRecord, type ErrorRecordActions } from './ErrorRecord';
 
@@ -74,6 +74,17 @@ describe('ErrorRecord', () => {
     expect(screen.getByRole('heading', { level: 3 })).toHaveFocus();
   });
 
+  it('shows the run’s final time once the view carries one, and never "0:00"', () => {
+    const { container, unmount } = renderError(errorViewTimed('unreachable', 31_000));
+    expect(container.querySelector('.ck-agent-record__meta')).toHaveTextContent('0:31');
+    unmount();
+    const quick = renderError(errorViewTimed('offline', 200));
+    expect(quick.container.querySelector('.ck-agent-record__meta')).toBeNull();
+    quick.unmount();
+    const untimed = renderError(errorView('unreachable'));
+    expect(untimed.container.querySelector('.ck-agent-record__meta')).toBeNull();
+  });
+
   it('says so when what landed first was never recorded', () => {
     renderError(errorView('unknown', { kind: 'unknown' }));
     expect(screen.getByText(t('en', 'error.page.unknown'))).toBeInTheDocument();
@@ -82,7 +93,7 @@ describe('ErrorRecord', () => {
   it('never shows the technical details', () => {
     const view = errorView('invalid');
     const { container } = renderError(view);
-    const text = container.textContent ?? '';
+    const text = container.textContent;
     expect(text).not.toContain('fill-3');
     expect(text).not.toContain('setProp');
     expect(text).not.toContain('tokens');
@@ -98,7 +109,7 @@ describe('ErrorRecord', () => {
 
   it('hands Copy error details to its caller', async () => {
     const user = userEvent.setup();
-    globalThis.ResizeObserver ??= class {
+    globalThis.ResizeObserver = class {
       observe = (): void => undefined;
       unobserve = (): void => undefined;
       disconnect = (): void => undefined;

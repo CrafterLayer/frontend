@@ -1,0 +1,88 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EditRecordStories from './EditRecord.stories';
+
+<Meta of={EditRecordStories} />
+
+# EditRecord
+
+One edit run (SPEC §4.9, §3.6, §3.8): the request's target in the title, one live line while it
+runs, what changed once it is done, then Show on page and Undo.
+
+<Canvas of={EditRecordStories.Done} />
+
+## Purpose
+
+A follow-up edit is small and should look small: no spine, no count, one record. While it runs
+it shows one line with the mapped stage phrase ("Checking the change…"), never the provider's
+narration. Done, it shows before → after in the page's own words, at most three lines.
+
+A direct edit (the engine's `source: 'direct'`, a one-word title change applied with no model
+call) is born done: no stages, no live line, and no "0:00" under a second.
+
+## When to use / not
+
+Every `edit` turn: a request run directly, a step plan that ran, the `build.skipped` fallback,
+and an Ask proposal once applied (`origin: 'proposal'`, titled "Applied: FAQ"). A proposal still
+waiting for approval is a ProposalCard.
+
+## Props
+
+| prop             | type                                  | default | notes                                                   |
+| ---------------- | ------------------------------------- | ------- | ------------------------------------------------------- |
+| `locale`         | `Locale`                              | none    |                                                         |
+| `view`           | `EditRecordView`                      | none    | `phase`, `origin`, `target`, `stage`, `changes`, `undo` |
+| `actions`        | `EditRecordActions`                   | none    | the controller's `undoEdit`, `redoEdit`, `reveal`, `openPageHistory` |
+| `onMenuSelect`   | `(item: RecordMenuItem) => void`      | none    | Reuse request, Copy summary; the caller runs them       |
+| `menuFocusAfter` | `RecordMenuProps['focusAfterSelect']` | none    |                                                         |
+| `menuTriggerRef` | `Ref<HTMLButtonElement>`              | none    |                                                         |
+| `headingRef`     | `Ref<HTMLHeadingElement>`             | none    | Run this plan → the new EditRecord's head (SPEC §6.3)   |
+| `className`      | `string`                              | none    | appended to `ck-agent-record ck-agent-edit`             |
+
+## States
+
+| Phase    | Glyph   | Title                    | Body                                    | Footer                    | Stories |
+| -------- | ------- | ------------------------ | --------------------------------------- | ------------------------- | ------- |
+| running  | working | Editing Hero / the page  | one live line, shimmer                  | none                      | `Running`, `RunningEveryStage`, `RunningPageWide` |
+| done     | landed  | Hero updated             | ChangeLines, three then Show all        | Show on page, Undo        | `Done`, `DoneAt420`, `DoneManyChanges`, `DonePageWide`, `DoneUnlisted`, `Applied` |
+| done, direct | landed | FAQ updated          | ChangeLines                             | Show on page, Undo        | `Instant` |
+| noChange | absent  | No change to Hero        | It already matched what you asked for.  | `[⋯]` only                | `NoChange` |
+| stopped  | absent  | Change stopped           | The page wasn't changed.                | `[⋯]` only                | `Stopped` |
+| undone   | absent  | This change was undone   | the lines, kept as the record           | Redo                      | `Undone`, `UndoThenRedo` |
+
+`Revived` and `ChangedSince` show an Undo that cannot run: in place, `aria-disabled`, described
+by the line that says why (a reload also offers Page history). Every story has an Arabic twin,
+and the main phases a dark one.
+
+## Anatomy
+
+```text
+[✓] Hero updated                                 0:16    head (final time; none under 1s)
+    Background   “light” → “deep navy”                   ChangeLines: label (Slate), values (Graphite)
+    Button       + “WhatsApp”
+    [Show on page]  [Undo]                        [⋯]    text button, secondary button, menu
+```
+
+While running, RecordLead draws an indeterminate stretch from the head's node beside the live
+line: the same pale line as a build's skeleton pass.
+
+## Accessibility
+
+- An `<article>` named by its `h3`; the target is in `<bdi>` with its own `lang`, in the locale's
+  quotes.
+- Undo and Redo are one button whose label follows the state, so focus stays on it when the undo
+  lands (SPEC §6.3). Its name opens with its visible word and says what it undoes ("Undo Hero").
+- An Undo that cannot run is `aria-disabled` (focusable, pressing does nothing) and described by
+  its reason.
+- Undo is a history action in every mode: there is no "switch mode to undo".
+- No token counts, costs or provider narration are rendered.
+
+## RTL
+
+Logical properties only; the change arrow mirrors; values keep their own direction in `<bdi>`.
+On a phone (coarse pointer, under 600px) Undo grows to fill the rest of its footer row.
+
+## Motion
+
+The live line's shimmer (2s, moving in the reading direction; still Slate under reduced motion)
+and the working glyph's arc. Nothing else moves.

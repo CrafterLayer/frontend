@@ -16,7 +16,8 @@ import { PAGE_PLAN_PALETTE_HEX } from './palette';
 
 /** Every shade any row names, across all ten palette roles. */
 function deckShades(): ReadonlySet<string> {
-  return new Set(DIRECTION_DECK_ROWS.flatMap(({ palette }) => Object.values(palette)));
+  // Spread first: DeckPalette is an interface, and Object.values types an interface as any[].
+  return new Set(DIRECTION_DECK_ROWS.flatMap(({ palette }) => Object.values({ ...palette })));
 }
 
 /** The Tailwind v3 table page-power.test.ts computes the deck's contrast on, read as text. */

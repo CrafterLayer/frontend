@@ -1,0 +1,66 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EndNoteStories from './EndNote.stories';
+
+<Meta of={EndNoteStories} />
+
+# EndNote
+
+A turn that ended in one line (SPEC §4.10 EndNote): "Proposal discarded", "Replaced by a newer
+plan", "Stopped before anything changed".
+
+<Canvas of={EndNoteStories.EveryEndingAt320} />
+
+## Purpose
+
+The quietest thing in the thread, because nothing on the page came of it: one Slate line beside
+its glyph, and no footer.
+
+## When to use / not
+
+`end` turns: a discarded proposal or plan, a superseded plan, a run stopped or reloaded before
+any output, and three notes said after a build that did land about where it landed (built as one
+page, built below this page, added below what was there). Anything with an outcome or an action
+is a record, not an EndNote.
+
+## Props
+
+| prop         | type                      | default | notes                                     |
+| ------------ | ------------------------- | ------- | ----------------------------------------- |
+| `locale`     | `Locale`                  | none    |                                           |
+| `view`       | `EndNoteView`             | none    | `{ turnId, key }`; `key` picks `end.*`    |
+| `headingRef` | `Ref<HTMLHeadingElement>` | none    | for callers that send focus to it         |
+| `className`  | `string`                  | none    | appended to `ck-agent-record ck-agent-end` |
+
+## States
+
+One story per `EndNoteKey`, each with its Arabic twin: `ProposalDiscarded` (also dark),
+`PlanDiscarded`, `PlanSuperseded`, `StoppedBeforeChange`, `Interrupted`, `SiteAsOnePage`,
+`NewPageAppended`, `AppendedNotReplaced`; and every ending stacked (`EveryEndingAt320`,
+`EveryEndingAt420RightToLeft`, `EveryEndingRightToLeftDark`).
+
+## Anatomy
+
+```text
+[◌] Proposal discarded                   glyph centred on the first 32px line
+[≡] Built as one page. The chat builds   the line: Read, Slate, regular weight, wrapping
+    one page at a time.
+```
+
+- The dashed ring (absent) for an ending with nothing on the page; the note glyph for the three
+  notes after a build that landed, since the dashed ring would claim nothing landed.
+- Slate on Paper is 4.54:1 at 13px Latin / 14px Arabic.
+- A long line wraps instead of ending in an ellipsis; the glyph stays centred on its first line.
+
+## Accessibility
+
+An `<article>` named by its line, whose `h3` takes `tabindex="-1"`, so a screen reader moving by
+headings hears how each turn ended. No buttons.
+
+## RTL
+
+Logical properties only: the glyph is at the right in Arabic.
+
+## Motion
+
+None.

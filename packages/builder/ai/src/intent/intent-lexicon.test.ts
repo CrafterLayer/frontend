@@ -205,7 +205,9 @@ describe('the intent lexicon', () => {
   });
 
   it('maps every irregular past to a verb the router reads', () => {
-    expect([...IRREGULAR_PASTS_EN.values()].filter((present) => !VERBS_EN.has(present))).toEqual([]);
+    expect([...IRREGULAR_PASTS_EN.values()].filter((present) => !VERBS_EN.has(present))).toEqual(
+      [],
+    );
   });
 
   it('counts every verbal noun of change among the verbal nouns', () => {

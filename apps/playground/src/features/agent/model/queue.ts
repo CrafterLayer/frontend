@@ -57,7 +57,7 @@ export function revalidateQueue(queue: QueuedRequest, document: BuilderDocument)
   let stale = false;
   for (const target of queue.targets) {
     const node = document.nodes[target.id];
-    if (node === undefined || node.type !== target.type) return 'missing';
+    if (node?.type !== target.type) return 'missing';
     if (node !== target.node) stale = true;
   }
   return stale ? 'stale' : 'ready';

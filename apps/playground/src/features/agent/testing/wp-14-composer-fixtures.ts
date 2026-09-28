@@ -8,10 +8,14 @@
  * instrument says left to the catalog. Nothing here counts a noun in Arabic; a count is a
  * number the component formats.
  */
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import type { ComposerActions, ComposerView } from '../components/Composer/Composer';
+import { consumeMentionFragment, mentionQuery } from '../model/mentions';
 import { modelSelection } from '../model/model-label';
 import { sendState, type RunLife } from '../model/send-state';
 import type {
+  AssistantMode,
   BlockChipView,
   ClarifyQuestionView,
   ClarifyView,
@@ -308,7 +312,11 @@ export function composerView(overrides: Partial<ComposerView> = {}): ComposerVie
     clarify: null,
   };
   const view = { ...base, ...overrides };
-  if (overrides.send !== undefined) return view;
+  return overrides.send === undefined ? settleSend(view) : view;
+}
+
+/** The Send slot for a view's draft, run and queue, as `model/send-state.ts` decides it. */
+export function settleSend(view: ComposerView): ComposerView {
   const life: RunLife = view.run === null ? 'idle' : view.run.stopping ? 'stopping' : 'live';
   const isQueued =
     view.queue !== null && view.queue.status !== 'paused' && view.queue.text === view.draft;
@@ -341,3 +349,295 @@ export const NO_ACTIONS: ComposerActions = {
   dismissClarify: () => undefined,
   setComposerFocused: () => undefined,
 };
+
+/* ── A composer that moves: stories and behaviour tests ────────────────────── */
+
+/** The fixture page's blocks, as the `@` list offers them (sections first, with a place). */
+const PAGE_BLOCKS: Readonly<Record<Locale, readonly MentionView['candidates'][number][]>> = {
+  ar: [
+    { id: 'node-header', label: 'الترويسة', section: { position: 1, total: 8 } },
+    ...MENTION.ar.candidates,
+    { id: 'node-faq', label: 'الأسئلة الشائعة', section: { position: 7, total: 8 } },
+  ],
+  en: [
+    { id: 'node-hero', label: 'Hero', section: { position: 2, total: 8 } },
+    ...MENTION.en.candidates,
+    { id: 'node-faq', label: 'FAQ', section: { position: 7, total: 8 } },
+  ],
+};
+
+/** The `@` list for a draft, the way the controller derives it: `null` when none is open. */
+export function mentionFor(locale: Locale, draft: string): MentionView | null {
+  const query = mentionQuery(draft);
+  if (query === null) return null;
+  const folded = query.toLocaleLowerCase(locale);
+  return {
+    query,
+    candidates: PAGE_BLOCKS[locale].filter((candidate) =>
+      candidate.label.toLocaleLowerCase(locale).includes(folded),
+    ),
+  };
+}
+
+/** A run that has just started: the moment before its intent is known. */
+function startedRun(): RunBarView {
+  const now = Date.now();
+  return liveRun(now, 'run.understanding', {}, { activity: 'routing', startedAt: now });
+}
+
+export interface ComposerFixtureOptions {
+  /**
+   * How long Stop takes to settle before the run ends; `null` (the default) never settles
+   * by itself, so a test ends the run with `set({ run: null })` at the moment it chooses.
+   */
+  readonly stopSettlesMs?: number | null | undefined;
+  /** How long ✨ Improve works before the rewrite lands; `null` never lands by itself. */
+  readonly enhanceMs?: number | null | undefined;
+  /** How long the answers take to rewrite the request; `null` never finishes by itself. */
+  readonly rewriteMs?: number | null | undefined;
+  /** Called after each action moved the view: a test's spies, a story's `fn()`s. */
+  readonly spy?: Partial<ComposerActions> | undefined;
+}
+
+export interface ComposerFixture {
+  readonly view: ComposerView;
+  readonly actions: ComposerActions;
+  /** Moves the view from outside, as the engine would (a run ending, a queue revalidated). */
+  readonly set: (patch: Partial<ComposerView>) => void;
+}
+
+/**
+ * A Composer's view and actions that behave the way the controller does for everything
+ * the composer can show on its own: typing (the `@` list follows the draft; a queued
+ * request's text IS the draft), Send (clears the box; while a run is live it queues the
+ * draft instead), Stop (stopping, then the run ends and a waiting request pauses), the
+ * chips, the menus, ✨ Improve and Restore, and the clarifying questions. The Send slot is
+ * always recomputed through `sendState`, so a harness can never draw a slot its draft and
+ * run contradict. Nothing here imports vitest: stories load it in the browser.
+ */
+export function useComposerFixture(
+  initial: ComposerView,
+  options: ComposerFixtureOptions = {},
+): ComposerFixture {
+  const { stopSettlesMs = null, enhanceMs = null, rewriteMs = null, spy } = options;
+  const [view, setView] = useState(() => settleSend(initial));
+  const spyRef = useRef(spy);
+  useEffect(() => {
+    spyRef.current = spy;
+  });
+  const original = useRef<string | null>(null);
+
+  const move = useCallback((next: (current: ComposerView) => ComposerView) => {
+    setView((current) => settleSend(next(current)));
+  }, []);
+  const set = useCallback(
+    (patch: Partial<ComposerView>) => {
+      move((current) => ({ ...current, ...patch }));
+    },
+    [move],
+  );
+
+  /* Timers the engine would drive: a stop settling, Improve landing, answers rewriting. */
+  const stopping = view.run?.stopping === true;
+  useEffect(() => {
+    if (!stopping || stopSettlesMs === null) return;
+    const timer = setTimeout(() => {
+      move((current) => ({
+        ...current,
+        run: null,
+        // A request waiting behind a stopped run pauses with its own text (SPEC §3.10).
+        queue: current.queue === null ? null : { ...current.queue, status: 'paused' },
+        draft: current.queue === null ? current.draft : '',
+        mention: null,
+      }));
+    }, stopSettlesMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [stopping, stopSettlesMs, move]);
+
+  const enhancing = view.enhancement.status === 'enhancing';
+  useEffect(() => {
+    if (!enhancing || enhanceMs === null) return;
+    const timer = setTimeout(() => {
+      move((current) => ({
+        ...current,
+        draft: IMPROVED_DRAFT[current.locale],
+        mention: null,
+        enhancement: enhancement(current.locale, 'enhanced'),
+      }));
+    }, enhanceMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [enhancing, enhanceMs, move]);
+
+  const rewriting = view.clarify?.status === 'rewriting';
+  useEffect(() => {
+    if (!rewriting || rewriteMs === null) return;
+    const timer = setTimeout(() => {
+      move((current) => ({
+        ...current,
+        clarify: null,
+        run: startedRun(),
+      }));
+    }, rewriteMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [rewriting, rewriteMs, move]);
+
+  const actions: ComposerActions = {
+    setDraft: (text) => {
+      move((current) => {
+        const { queue } = current;
+        // Editing the text edits the queued request; emptying the box drops it (FR-025).
+        const nextQueue =
+          queue === null || queue.status === 'paused' || queue.text !== current.draft
+            ? queue
+            : text.trim() === ''
+              ? null
+              : { ...queue, text };
+        return {
+          ...current,
+          draft: text,
+          mention: mentionFor(current.locale, text),
+          queue: nextQueue,
+          enhancement:
+            current.enhancement.status === 'unavailable' ? current.enhancement : { status: 'idle' },
+        };
+      });
+      spyRef.current?.setDraft?.(text);
+    },
+    send: () => {
+      move((current) => {
+        if (current.draft.trim() === '') return current;
+        if (current.run !== null) {
+          if (current.queue !== null && current.queue.status !== 'paused') return current;
+          return {
+            ...current,
+            queue: { text: current.draft, chips: current.chips, status: 'editable' },
+          };
+        }
+        return {
+          ...current,
+          draft: '',
+          chips: [SCOPE_CHIP],
+          mention: null,
+          enhancement:
+            current.enhancement.status === 'unavailable' ? current.enhancement : { status: 'idle' },
+          run: startedRun(),
+        };
+      });
+      spyRef.current?.send?.();
+    },
+    stop: () => {
+      move((current) =>
+        current.run === null ? current : { ...current, run: { ...current.run, stopping: true } },
+      );
+      spyRef.current?.stop?.();
+    },
+    removeQueued: () => {
+      move((current) => {
+        if (current.queue === null) return current;
+        const heldTheDraft = current.queue.status !== 'paused';
+        return { ...current, queue: null, draft: heldTheDraft ? '' : current.draft };
+      });
+      spyRef.current?.removeQueued?.();
+    },
+    continueQueued: () => {
+      move((current) => ({
+        ...current,
+        queue: null,
+        run: startedRun(),
+      }));
+      spyRef.current?.continueQueued?.();
+    },
+    removeChip: (id) => {
+      move((current) => {
+        const chips = current.chips.filter((chip) => chip.id !== id);
+        return { ...current, chips: chips.length === 0 ? [SCOPE_CHIP] : chips };
+      });
+      spyRef.current?.removeChip?.(id);
+    },
+    addMention: (nodeId) => {
+      move((current) => {
+        const candidate = PAGE_BLOCKS[current.locale].find((block) => block.id === nodeId);
+        if (candidate === undefined) return current;
+        const blocks = current.chips.filter(
+          (chip): chip is BlockChipView => chip.kind !== 'page' && chip.id !== nodeId,
+        );
+        return {
+          ...current,
+          draft: consumeMentionFragment(current.draft).text,
+          mention: null,
+          chips: [...blocks, { kind: 'mention', id: nodeId, label: candidate.label, stale: false }],
+        };
+      });
+      spyRef.current?.addMention?.(nodeId);
+    },
+    setMode: (mode: AssistantMode) => {
+      move((current) => ({ ...current, mode }));
+      spyRef.current?.setMode?.(mode);
+    },
+    setModel: (id) => {
+      move((current) => ({ ...current, model: modelSelection(MODEL_IDS, id) }));
+      spyRef.current?.setModel?.(id);
+    },
+    enhanceDraft: () => {
+      move((current) => {
+        if (current.draft.trim() === '' || current.enhancement.status === 'unavailable') {
+          return current;
+        }
+        original.current = current.draft;
+        return { ...current, mention: null, enhancement: { status: 'enhancing' } };
+      });
+      spyRef.current?.enhanceDraft?.();
+    },
+    restoreDraft: () => {
+      move((current) => ({
+        ...current,
+        draft: original.current ?? current.draft,
+        mention: null,
+        enhancement: { status: 'idle' },
+      }));
+      original.current = null;
+      spyRef.current?.restoreDraft?.();
+    },
+    answerClarify: (questionId, answer) => {
+      move((current) => {
+        if (current.clarify === null) return current;
+        const questions = current.clarify.questions.map((question) =>
+          question.id === questionId ? { ...question, answer } : question,
+        );
+        const done = questions.every((question) => question.answer !== undefined);
+        return {
+          ...current,
+          clarify: { ...current.clarify, questions, status: done ? 'rewriting' : 'asking' },
+        };
+      });
+      spyRef.current?.answerClarify?.(questionId, answer);
+    },
+    sendAsWritten: () => {
+      move((current) => ({
+        ...current,
+        clarify: null,
+        run: startedRun(),
+      }));
+      spyRef.current?.sendAsWritten?.();
+    },
+    dismissClarify: () => {
+      move((current) => ({
+        ...current,
+        draft: current.clarify === null ? current.draft : current.clarify.request,
+        clarify: null,
+      }));
+      spyRef.current?.dismissClarify?.();
+    },
+    setComposerFocused: (focused) => {
+      spyRef.current?.setComposerFocused?.(focused);
+    },
+  };
+
+  return { view, actions, set };
+}

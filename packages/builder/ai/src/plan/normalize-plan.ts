@@ -1,7 +1,9 @@
 import {
-  CUSTOM_CODE_ATTRIBUTES,
+  customCodeAttributeProblem,
+  customCodeAttributeSpelling,
+  customCodeTagSpelling,
   findRejectedUtilities,
-  isCustomCodeTag,
+  isCustomCodeSvgTag,
   isLucideIconName,
   unknownUtilityClasses,
 } from '@craftkit/builder-schema';
@@ -42,14 +44,17 @@ interface Changes {
 }
 
 /*
-  The tree vocabulary has no forms, media or embeds — on purpose (see
+  The tree vocabulary has no forms, sound or embeds — on purpose (see
   custom-code-tree.ts): a control no handler is wired to is a control that
   lies. A model writing a contact section reaches for a form anyway, and on
   2026-09-27 that refused the whole section as "Invalid input". So what the
   vocabulary cannot hold is mapped to the nearest thing it can: controls and
-  embeds are dropped with their content, phrasing tags become their
-  vocabulary spelling or a span, and any other container becomes a div, so
-  its content survives in place.
+  embeds are dropped with their content, phrasing tags become a span, and any
+  other container becomes a div, so its content survives in place.
+
+  Video, picture/source, svg shapes, tables, details and the phrasing tags
+  (b, i, s, mark, cite, q, abbr) joined the vocabulary on 2026-09-28 and are
+  kept as written now — before, `b` became `strong` and a video vanished.
 
   One exception: a tag that NAMES a registered block (`<contact>`, and the
   `ck-component` spelling itself should it ever arrive as an element) is a
@@ -77,23 +82,16 @@ const DROPPED_TAGS = new Set([
   'progress',
   'script',
   'select',
-  'source',
   'style',
-  'svg',
   'template',
   'textarea',
   'track',
-  'video',
 ]);
 
-const RESPELLED_TAGS: Readonly<Record<string, string>> = { b: 'strong', i: 'em' };
-
 const PHRASING_TAGS = new Set([
-  'abbr',
   'bdi',
   'bdo',
   'big',
-  'cite',
   'data',
   'del',
   'dfn',
@@ -101,10 +99,7 @@ const PHRASING_TAGS = new Set([
   'kbd',
   'label',
   'legend',
-  'mark',
   'output',
-  'q',
-  's',
   'samp',
   'u',
   'var',
@@ -112,7 +107,21 @@ const PHRASING_TAGS = new Set([
 
 const ELEMENT_KEYS = new Set(['kind', 'tag', 'className', 'text', 'attributes', 'children']);
 const ICON_KEYS = new Set(['kind', 'name', 'className', 'size', 'strokeWidth', 'label']);
-const ATTRIBUTES = new Set<string>(CUSTOM_CODE_ATTRIBUTES);
+
+/** Attributes whose presence is the value: `false` means absent, `true` means bare. */
+const BOOLEAN_ATTRIBUTES = new Set(['open', 'autoplay', 'muted', 'loop', 'playsinline', 'controls']);
+/** Shapes that are complete in themselves: nothing drawn inside a path or a stop. */
+const SVG_LEAF_SHAPES = new Set([
+  'path',
+  'circle',
+  'ellipse',
+  'rect',
+  'line',
+  'polyline',
+  'polygon',
+  'stop',
+]);
+const SOURCE_PARENTS = new Set(['picture', 'video']);
 
 /** The className with every unusable class removed; undefined when none is left. */
 function usableClasses(
@@ -136,13 +145,28 @@ function usableClasses(
  * A tag the vocabulary admits, the tag it maps to, or null when the element
  * must go. A tag naming a registered block is returned as written, for the
  * door to refuse (see above).
+ *
+ * Inside a drawing only shapes render: an svg `use`, `image`, `text`,
+ * `title` or `foreignObject` — or any html tag — can never draw there, and
+ * a shape outside an svg draws nothing either, so both go whole.
  */
-function vocabularyTag(tag: string, blockTags: ReadonlySet<string>): string | null {
+function vocabularyTag(
+  tag: string,
+  blockTags: ReadonlySet<string>,
+  parentTag: string | undefined,
+): string | null {
   const lower = tag.toLowerCase();
-  if (isCustomCodeTag(lower)) return lower;
+  const inSvg = parentTag !== undefined && isCustomCodeSvgTag(parentTag);
+  const spelled = customCodeTagSpelling(lower);
+  if (spelled !== undefined) {
+    const svg = isCustomCodeSvgTag(spelled);
+    if (inSvg ? !svg : svg && spelled !== 'svg') return null;
+    return spelled;
+  }
+  if (inSvg) return null;
   if (lower === COMPONENT_MARKUP_TAG || blockTags.has(lower)) return tag;
   if (DROPPED_TAGS.has(lower)) return null;
-  return RESPELLED_TAGS[lower] ?? (PHRASING_TAGS.has(lower) ? 'span' : 'div');
+  return PHRASING_TAGS.has(lower) ? 'span' : 'div';
 }
 
 function clamp(value: unknown, min: number, max: number, integer: boolean): number | undefined {
@@ -151,27 +175,68 @@ function clamp(value: unknown, min: number, max: number, integer: boolean): numb
   return integer ? Math.round(bounded) : bounded;
 }
 
-/** An element's attributes, keeping the ones the vocabulary admits, as strings. */
-function vocabularyAttributes(node: JsonRecord, changes: Changes): unknown {
+/**
+ * One attribute value as the door takes it, or undefined when it cannot
+ * stand: a number as its string, a boolean attribute's `true` bare and its
+ * `false` absent, an html `width='600px'` as `600`.
+ */
+function attributeValue(tag: string, name: string, value: unknown): string | undefined {
+  if (typeof value === 'boolean') return BOOLEAN_ATTRIBUTES.has(name) && value ? '' : undefined;
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined;
+  const written = String(value);
+  if (BOOLEAN_ATTRIBUTES.has(name) && written.toLowerCase() === 'false') return undefined;
+  if ((name === 'width' || name === 'height') && !isCustomCodeSvgTag(tag)) {
+    return written.trim().replace(/(?<=\d)px$/u, '');
+  }
+  return written;
+}
+
+/**
+ * An element's attributes, keeping the ones the vocabulary admits on this
+ * tag, spelled as it spells them. An attribute the door would refuse HERE —
+ * a popover target on a link (HTML opens popovers from buttons only), a
+ * width on a div, a srcset over http — can never do what it says, so it is
+ * dropped rather than costing the section a repair round.
+ */
+function vocabularyAttributes(node: JsonRecord, tag: string, changes: Changes): unknown {
   const original = node['attributes'];
   const attributes: Record<string, string> = {};
   let changed = original !== undefined && !isRecord(original);
+  const keep = (written: string, value: unknown): boolean => {
+    const name = customCodeAttributeSpelling(written);
+    const kept = name === undefined ? undefined : attributeValue(tag, name, value);
+    if (name === undefined || kept === undefined) return false;
+    const problem = customCodeAttributeProblem(tag, name, kept);
+    if (problem !== undefined) {
+      changes.adjustments.push(`dropped attribute ${name}: ${problem}`);
+      return false;
+    }
+    if (Object.hasOwn(attributes, name)) return true;
+    attributes[name] = kept;
+    return name === written && kept === value;
+  };
   const source: JsonRecord = isRecord(original) ? original : {};
   for (const [name, value] of Object.entries(source)) {
-    if (!ATTRIBUTES.has(name) || (typeof value !== 'string' && typeof value !== 'number')) {
+    if (keep(name, value)) continue;
+    if (!Object.hasOwn(attributes, customCodeAttributeSpelling(name) ?? '')) {
       changes.adjustments.push(`dropped attribute ${name}`);
-      changed = true;
-      continue;
     }
-    if (typeof value === 'number') changed = true;
-    attributes[name] = String(value);
+    changed = true;
   }
   // An attribute written beside `tag` instead of inside `attributes`, moved in.
   for (const [name, value] of Object.entries(node)) {
-    if (ELEMENT_KEYS.has(name) || !ATTRIBUTES.has(name)) continue;
-    if (typeof value !== 'string' && typeof value !== 'number') continue;
-    attributes[name] ??= String(value);
+    if (ELEMENT_KEYS.has(name) || customCodeAttributeSpelling(name) === undefined) continue;
+    keep(name, value);
     changes.adjustments.push(`moved ${name} into attributes`);
+    changed = true;
+  }
+  /*
+    A video that plays by itself plays muted — the door refuses it otherwise,
+    and the renderer mutes it anyway. The model meant a silent backdrop.
+  */
+  if (tag === 'video' && Object.hasOwn(attributes, 'autoplay') && !Object.hasOwn(attributes, 'muted')) {
+    attributes['muted'] = '';
+    changes.adjustments.push('muted the autoplaying video');
     changed = true;
   }
   if (!changed) return original;

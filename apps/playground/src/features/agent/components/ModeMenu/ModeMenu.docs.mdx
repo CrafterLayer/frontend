@@ -1,0 +1,52 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ModeMenuStories from './ModeMenu.stories';
+
+<Meta of={ModeMenuStories} />
+
+# ModeMenu
+
+How eagerly a request may touch the page (SPEC §4.17): Auto, Ask first, Plan, as a radio menu of
+two-line items, each saying what it will and will not do to the page.
+
+<Canvas of={ModeMenuStories.Open} />
+
+## Props
+
+| prop           | type                            | default | notes                                                   |
+| -------------- | ------------------------------- | ------- | ------------------------------------------------------- |
+| `locale`       | `Locale`                        | none    |                                                         |
+| `mode`         | `AssistantMode`                 | none    | `auto`, `ask` or `plan`                                 |
+| `running`      | `boolean`                       | none    | stays enabled; the tooltip says it applies next time    |
+| `onModeChange` | `(mode: AssistantMode) => void` | none    |                                                         |
+
+## States
+
+| story                                        | what it shows                                   |
+| -------------------------------------------- | ----------------------------------------------- |
+| `Auto`, `Ask`, `Plan`                        | the trigger for each mode                        |
+| `Open`, `OpenDark`                           | three two-line items; the chosen one checked     |
+| `WhileRunning`                               | the tooltip: "Applies to your next request"      |
+| `RightToLeft`, `OpenRightToLeft`, `OpenRightToLeftDark` | Arabic                               |
+
+## Anatomy
+
+ChoiceMenu's ghost trigger: the mode's name in Meta 500 Graphite and a ▾, never cut (the three names
+are short in both languages). The menu is e2, radius 9; items carry the name in Read 600 and what it
+means in Meta, Slate at rest and Graphite on the chosen item's Mist (Slate is forbidden on Mist).
+
+## Accessibility
+
+- The trigger shows "Auto" and is named "Mode: Auto": the name contains the visible word.
+- Enter, Space or ↓ open it; ↑ ↓ move and wrap, Home and End jump, a letter finds an item; Esc closes
+  it and focus returns to the trigger (SPEC §6.7). The menu takes the panel's `dir`, so the arrows
+  follow the reading direction.
+- Words come from the catalog (`mode.*`), never from `model/modes.ts`.
+
+## RTL
+
+The menu opens from the trigger's inline start, in the panel's direction, language and Arabic type.
+
+## Motion
+
+Opacity and a 4px rise from the composer (SPEC §5 moment 9); opacity only under reduced motion.

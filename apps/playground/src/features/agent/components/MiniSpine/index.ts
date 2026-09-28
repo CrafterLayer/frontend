@@ -1,1 +1,2 @@
-export { MiniSpine, miniSegmentKind, type MiniSegmentKind, type MiniSpineProps } from './MiniSpine';
+export { MiniSpine, type MiniSpineProps } from './MiniSpine';
+export { miniSegmentKind, type MiniSegmentKind } from './mini-segment-kind';

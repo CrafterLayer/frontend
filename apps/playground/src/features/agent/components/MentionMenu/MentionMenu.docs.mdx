@@ -1,0 +1,64 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as MentionMenuStories from './MentionMenu.stories';
+
+<Meta of={MentionMenuStories} />
+
+# MentionMenu
+
+The `@` list (SPEC §4.17, §3.2): the page's sections and blocks by their human names, sections first
+with their place on the page ("3 of 8").
+
+<Canvas of={MentionMenuStories.Open} />
+
+## Purpose
+
+Point a request at a block without knowing its id. Picking inserts a chip and removes the `@fragment`
+from the text. The pattern accepts letters in any script, and tashkeel, so an Arabic name keeps the
+list open mid-word.
+
+## Props
+
+| prop             | type                                        | default | notes                                                  |
+| ---------------- | ------------------------------------------- | ------- | ------------------------------------------------------ |
+| `locale`         | `Locale`                                    | none    |                                                        |
+| `id`             | `string`                                    | none    | the listbox's id: the textarea's `aria-controls`       |
+| `mention`        | `MentionView`                               | none    | the query and the candidates, filtered by the controller |
+| `activeIndex`    | `number`                                    | none    | the keyboard's option; `-1` for none                   |
+| `optionId`       | `(index: number) => string`                 | none    | what the textarea's `aria-activedescendant` points at  |
+| `onActiveChange` | `(index: number) => void`                   | none    | the pointer moved onto an option                       |
+| `onPick`         | `(candidate: MentionCandidateView) => void` | none    |                                                        |
+| `emptyId`        | `string`                                    | none    | the "no match" line, for the textarea's description    |
+| `className`      | `string`                                    | none    | appended to `ck-agent-mention`                         |
+
+## States
+
+| story                                       | what it shows                                   |
+| ------------------------------------------- | ----------------------------------------------- |
+| `Open`, `OpenDark`, `OpenWide`              | the list; the first option active               |
+| `SecondActive`                              | the Mist and the Indigo bar on the second       |
+| `Empty`, `EmptyRightToLeft`                 | a line, not an empty listbox                    |
+| `OpenRightToLeft`, `OpenRightToLeftDark`    | Arabic                                          |
+
+## Anatomy
+
+e2: the Sheet, a hairline, the floating shadow, radius 9. Rows are the panel's rows, 32px (44 on a
+coarse pointer), at most six in view (four on a coarse pointer), then it scrolls. The active option
+is Mist under Ink with a 2px Indigo bar at its inline start; the place is Figure type in Slate,
+Graphite on the active option's Mist (Slate is forbidden there).
+
+## Accessibility
+
+- A named listbox of options. The keys belong to the textarea, which stays focused and is the
+  combobox: ↑ ↓ move, Enter or Tab pick (never send), Esc closes (SPEC §6.7).
+- A pointer press does not take focus from the textarea (mousedown is prevented), so the caret stays.
+- The active option scrolls into view.
+
+## RTL
+
+The glyph and name at the right, the place at the left; names in `<bdi>`; digits stay Latin.
+
+## Motion
+
+Opacity and a 4px rise from the composer below it, 220ms in (SPEC §5 moment 9); opacity only under
+reduced motion.

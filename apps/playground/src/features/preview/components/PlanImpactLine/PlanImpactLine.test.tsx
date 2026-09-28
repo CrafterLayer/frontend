@@ -48,18 +48,18 @@ describe('PlanImpactLine', () => {
     expect(container.textContent).toBe('Changes nothing on the page.');
   });
 
-  it('carries the cost as a labelled estimate, beside the impact', () => {
-    const { container } = render(<PlanImpactLine impact={ADDED} costTokens={4237} locale="en" />);
+  it('never shows a token estimate beside the impact (the owner saw ~11.3k on a one-word change)', () => {
+    const { container } = render(<PlanImpactLine impact={ADDED} costTokens={11_300} locale="ar" />);
 
-    expect(container.textContent).toBe('1 block added. Estimate: ~4.2k tokens');
-    expect(container.querySelector('.pg-chat__cost')?.textContent).toBe('Estimate: ~4.2k tokens');
+    expect(container.textContent).not.toMatch(/تقدير|توكن|Estimate|tokens/u);
+    expect(container.querySelector('.pg-chat__cost')).toBeNull();
   });
 
-  it('shows a cost alone when the plan could not be rehearsed', () => {
+  it('shows nothing when the plan could not be rehearsed, whatever the estimate', () => {
     const { container } = render(
       <PlanImpactLine impact={undefined} costTokens={900} locale="en" />,
     );
-    expect(container.textContent).toBe('Estimate: ~900 tokens');
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('declares its language, because the panel knows it for certain', () => {

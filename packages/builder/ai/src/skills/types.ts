@@ -114,7 +114,8 @@ export interface AiActiveSkillContext extends AiSkillActivationPin {
  * under a one-section request — left out while the skill that needs it
  * activates (router-3, 2026-09-28).
  */
-export type AiSkillOmissionCode = 'active-limit' | 'conflict' | 'intent' | 'token-budget' | 'untrusted';
+export type AiSkillOmissionCode =
+  'active-limit' | 'conflict' | 'intent' | 'token-budget' | 'untrusted';
 
 export interface AiSkillOmission {
   id: string;

@@ -310,16 +310,22 @@ describe('page-level skills stay out of edits', () => {
     ['الرجاء حذف قسم المنيو من صفحة المطعم', [FLOOR, RTL]],
     ['أرجو تغيير صور الشقة', [FLOOR, RTL]],
     /*
-      A title edit on a CV page: no cv-page, no page skill. The section recipe
-      rides on "الشهادات" (certificates, read as testimonials) — a section's
-      expertise, not a page's.
+      A title edit on a CV page: no cv-page, no page skill, and no section
+      recipes — "الشهادات" there is certificates. Bare 'شهادات' loaded the
+      testimonial recipes at 1,832 tokens (router-3 probe, 2026-09-28); now
+      the floor and the language, 1,073.
     */
-    [
-      'تغيير عنوان قسم التعليم والشهادات إلى مرحبا',
-      [FLOOR, RTL, 'craftkit.conversion-recipes'],
-    ],
+    ['تغيير عنوان قسم التعليم والشهادات إلى مرحبا', [FLOOR, RTL]],
+    ['غير عنوان قسم التعليم والشهادات إلى مرحبا', [FLOOR, RTL]],
     // A question about the person's own action writes nothing and needs nothing.
     ['what if I delete the hero?', [FLOOR]],
+    /*
+      A deletion the person WANTS: the want's object is the verb, never a page
+      or a section to make. Before (router-3 probe, 2026-09-28): "I want to
+      remove a page" routed build-page, "بدي حذف قسم الأسئلة" add-section.
+    */
+    ['I want to remove a page', [FLOOR]],
+    ['بدي حذف قسم الأسئلة', [FLOOR, RTL]],
   ];
 
   it.each(EDITS)('“%s” carries only the edit set, at its own cost', (request, expected) => {
@@ -494,13 +500,10 @@ describe('a dependency stays inside its own intent scope', () => {
   it('leaves out a dependency whose scope excludes the route, and what only it needed', () => {
     const prepared = prepare('add-section');
     expect(prepared.active.map(({ id }) => id)).toEqual(['skill.words', 'skill.banner']);
-    expect(prepared.omitted).toEqual([
-      {
-        id: 'skill.taste',
-        code: 'intent',
-        message: expect.stringMatching(/dependency of skill\.banner.*routes to add-section/u),
-      },
-    ]);
+    expect(prepared.omitted.map(({ id, code }) => `${id}:${code}`)).toEqual(['skill.taste:intent']);
+    expect(prepared.omitted[0]?.message).toMatch(
+      /dependency of skill\.banner.*routes to add-section/u,
+    );
   });
 
   it('keeps it, and its own dependencies, on a route it serves', () => {
@@ -570,13 +573,19 @@ describe('one-section occasion requests carry no page taste (built-ins)', () => 
       'تهنئة برمضان للموظفين',
       'صفحة رمضان لمتجرنا',
     ]) {
-      expect({ request, occasion: activeIds(registry, request).includes('craftkit.occasion-page') }).toEqual({
+      expect({
+        request,
+        occasion: activeIds(registry, request).includes('craftkit.occasion-page'),
+      }).toEqual({
         request,
         occasion: true,
       });
     }
     for (const request of ['عروض رمضان على العطور', 'a ramadan sale page for our shop']) {
-      expect({ request, occasion: activeIds(registry, request).includes('craftkit.occasion-page') }).toEqual({
+      expect({
+        request,
+        occasion: activeIds(registry, request).includes('craftkit.occasion-page'),
+      }).toEqual({
         request,
         occasion: false,
       });
@@ -605,11 +614,53 @@ describe('keyword endings stop below four Latin letters', () => {
   it('keeps the built-ins’ plurals by listing them', () => {
     const registry = createCraftkitAiSkillRegistry();
     expect(activeIds(registry, 'add FAQs')).toContain('craftkit.conversion-recipes');
-    expect(activeIds(registry, 'a page for our juice bars in Amman')).toContain('craftkit.menu-page');
+    expect(activeIds(registry, 'a page for our juice bars in Amman')).toContain(
+      'craftkit.menu-page',
+    );
     expect(activeIds(registry, 'a website for our day spas')).toContain('craftkit.clinic-page');
     expect(activeIds(registry, 'a page for Eider Ducks conservation')).not.toContain(
       'craftkit.occasion-page',
     );
-    expect(activeIds(registry, 'website for CVS pharmacy branch')).not.toContain('craftkit.cv-page');
+    expect(activeIds(registry, 'website for CVS pharmacy branch')).not.toContain(
+      'craftkit.cv-page',
+    );
+  });
+});
+
+/*
+  "شهادات" IS CERTIFICATES AS OFTEN AS TESTIMONIALS (router-3, 2026-09-28): the
+  section recipes load for testimonials named with their customers, never for
+  a CV's «التعليم والشهادات».
+*/
+describe('the testimonial recipes and the Arabic “شهادات”', () => {
+  const registry = createCraftkitAiSkillRegistry();
+
+  it('loads them for customer testimonials', () => {
+    for (const request of [
+      'أضف قسم شهادات العملاء',
+      'أضف قسم شهادات عملاء',
+      'أضف قسم آراء العملاء',
+      'add a testimonials section',
+    ]) {
+      expect({
+        request,
+        recipes: activeIds(registry, request).includes('craftkit.conversion-recipes'),
+      }).toEqual({
+        request,
+        recipes: true,
+      });
+    }
+  });
+
+  it('leaves them out of certificates', () => {
+    for (const request of ['تغيير عنوان قسم التعليم والشهادات إلى مرحبا', 'أضف شهادات الخبرة']) {
+      expect({
+        request,
+        recipes: activeIds(registry, request).includes('craftkit.conversion-recipes'),
+      }).toEqual({
+        request,
+        recipes: false,
+      });
+    }
   });
 });

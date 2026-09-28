@@ -16,7 +16,11 @@ import type { IntentKind } from '../intent/route-intent';
  * renders), and the escape hatch's authoring schema (1,251) for a region that
  * already exists. A person naming a section has already done the one thing
  * the rest of the page was there for — finding it — so an edit ships that
- * section whole and an outline of the rest: ids, labels, a shape summary.
+ * section whole and an outline of the rest: ids, labels, and a heading only
+ * where it says more than the label. Measured 2026-09-28 on a nine-section
+ * CV fixture (built-in skills, catalog 'none'): 10,165 → 2,370 wire tokens
+ * for the owner's sentence sent down the model path (it never goes there: it
+ * is a direct edit, 0 tokens).
  *
  * ## What it never does
  *
@@ -171,12 +175,13 @@ export function treeElementText(element: Json): string {
 /** A composed region's first h1–h3 in reading order, and its outermost element's `id`. */
 function treeNames(tree: unknown): { heading?: string; anchor?: string } {
   if (!isRecord(tree) || !Array.isArray(tree['children'])) return {};
-  const first = tree['children'][0];
+  const children: readonly unknown[] = tree['children'];
+  const first = children[0];
   const anchor =
     isRecord(first) && isRecord(first['attributes']) && typeof first['attributes']['id'] === 'string'
       ? clip(first['attributes']['id'])
       : undefined;
-  const stack: unknown[] = [...(tree['children'] as unknown[])].reverse();
+  const stack: unknown[] = [...children].reverse();
   let seen = 0;
   while (stack.length > 0 && seen < TREE_SCAN_LIMIT) {
     const current = stack.pop();
@@ -397,7 +402,7 @@ export function namedSection(
 ): PageSectionOutline | undefined {
   const [best, second] = sectionMentions(words, sections);
   if (best === undefined) return undefined;
-  if (second !== undefined && second.score === best.score) return undefined;
+  if (second?.score === best.score) return undefined;
   if (best.score < 1 && second !== undefined) return undefined;
   return best.section;
 }

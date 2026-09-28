@@ -451,9 +451,7 @@ function orList(names: readonly string[]): string {
 
 /** h1…h6 as the one "h1–h6" the old list spelled, wherever all six stand together. */
 function spelledTags(tags: readonly string[]): string {
-  return tags
-    .join(', ')
-    .replace('h1, h2, h3, h4, h5, h6', 'h1–h6');
+  return tags.join(', ').replace('h1, h2, h3, h4, h5, h6', 'h1–h6');
 }
 
 /** The vocabulary sentence of the markup section, from the request's own customCode schema. */

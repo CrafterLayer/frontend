@@ -637,10 +637,15 @@ function sortedJsonRecord(record: Record<string, JsonValue>): Record<string, Jso
 }
 
 /**
- * One section OUTSIDE an edit's focus, as one line: its name and what stands
- * there, never its contents — a composed region's label and tree summary
- * (`filled · 14 nodes · “Heading”`), a block's label, heading or title. Its
- * slots are not listed: the nodes under it are not in the document either.
+ * One section OUTSIDE an edit's focus, as one line: its name, never its
+ * contents — a composed region's label, a block's label, heading or title,
+ * and a heading only where it says something the label does not. Its slots
+ * are not listed: the nodes under it are not in the document either.
+ *
+ * Measured 2026-09-28 on a nine-section CV: the tree summary each line used
+ * to carry (`filled · 14 nodes · “نبذة عني”`) repeated the label on most
+ * sections and cost ~8 tokens a line — 64 of a 2.5k edit budget — for words
+ * the model is told to leave alone.
  */
 function outlineNode(node: Node): AiDocumentNodeContext {
   const props: Record<string, JsonValue> = {};
@@ -648,10 +653,33 @@ function outlineNode(node: Node): AiDocumentNodeContext {
     const value = node.props[key];
     if (typeof value === 'string') props[key] = value;
   }
-  for (const [key, value] of Object.entries(node.props)) {
-    if (isCustomCodeTreeValue(value)) props[key] = summariseCustomCodeTree(value);
+  const label = typeof props['label'] === 'string' ? props['label'] : undefined;
+  for (const value of Object.values(node.props)) {
+    if (!isCustomCodeTreeValue(value)) continue;
+    const heading = firstTreeHeading(value);
+    if (heading !== undefined && heading !== label) props['heading'] = heading;
   }
   return { id: node.id, type: node.type, props: sortedJsonRecord(props), slots: {} };
+}
+
+/** A composed tree's first h1–h6 text, bounded like the summary. */
+function firstTreeHeading(tree: unknown): string | undefined {
+  const stack: unknown[] = [tree];
+  let seen = 0;
+  while (stack.length > 0 && seen < CUSTOM_CODE_SUMMARY_SCAN_LIMIT) {
+    const current = stack.pop();
+    seen += 1;
+    if (!isJsonRecord(current)) continue;
+    if (typeof current['tag'] === 'string' && HEADING_TAGS.has(current['tag'])) {
+      const text = current['text'];
+      if (typeof text === 'string' && text.trim() !== '') return text.trim().slice(0, 80);
+    }
+    const children = current['children'];
+    if (Array.isArray(children)) {
+      for (let at = children.length - 1; at >= 0; at -= 1) stack.push(children[at]);
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -699,6 +727,41 @@ function collectFocusedDocument(
   };
 }
 
+/**
+ * A command's args schema without what a model never reads: JSON Schema's own
+ * `$schema` pointer (57 characters on every command), the ±2^53−1 bounds zod
+ * writes on every integer, `propertyNames: {type: 'string'}` and
+ * `additionalProperties: {}` (what JSON and JSON Schema already say), and the
+ * `minLength: 1` on every id (the door refuses an empty one either way). On a
+ * focused edit that was ~260 of the ~970 command tokens (fast-edits, measured
+ * 2026-09-28 on the eleven core commands). `properties` and
+ * `additionalProperties: false` — the keys a server closes a plan's args on
+ * (ai-server plan-shape.ts `closedKeys`) — are kept exactly.
+ */
+function compactArgsSchema(schema: JsonValue): JsonValue {
+  if (Array.isArray(schema)) return deepFreezeJson(schema.map(compactArgsSchema));
+  if (typeof schema !== 'object' || schema === null) return schema;
+  const out: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === '$schema') continue;
+    if (key === 'maximum' && value === Number.MAX_SAFE_INTEGER) continue;
+    if (key === 'minimum' && value === Number.MIN_SAFE_INTEGER) continue;
+    if (key === 'minLength' && value === 1) continue;
+    if (key === 'propertyNames' && isStringTypeOnly(value)) continue;
+    if (key === 'additionalProperties' && isEmptyRecord(value)) continue;
+    out[key] = compactArgsSchema(value);
+  }
+  return deepFreezeJson(out);
+}
+
+function isStringTypeOnly(value: JsonValue): boolean {
+  return isJsonRecord(value) && Object.keys(value).length === 1 && value['type'] === 'string';
+}
+
+function isEmptyRecord(value: JsonValue): boolean {
+  return isJsonRecord(value) && Object.keys(value).length === 0;
+}
+
 /** The fragment source that tells a focused run the page is shown in part. */
 export const DOCUMENT_FOCUS_FRAGMENT_SOURCE = 'craftkit.document-focus';
 
@@ -716,7 +779,7 @@ function focusFragment(shown: readonly NodeId[]): Readonly<ContextFragment> {
     },
     {
       shown,
-      note: 'The page is shown in part: the sections in `shown` whole, every other section as one outline line (its label and a summary of what stands there). Change what the request names; leave outlined sections as they are.',
+      note: 'Only the `shown` sections are whole; every other section is one outline line. Change what the request names; leave outlined sections as they are.',
     },
   );
 }
@@ -931,7 +994,13 @@ export function assembleAiContext(
   const commands: readonly AiCommandContext[] = Object.freeze(
     allCommands
       .filter(({ name }) => allowedCommands === undefined || allowedCommands.has(name))
-      .map((command) => Object.freeze({ name: command.name, argsSchema: command.argsSchema })),
+      .map((command) =>
+        Object.freeze({
+          name: command.name,
+          argsSchema:
+            focused === undefined ? command.argsSchema : compactArgsSchema(command.argsSchema),
+        }),
+      ),
   );
   const omittedCommandCount = allCommands.length - commands.length;
   const omissions: readonly AiContextOmission[] = Object.freeze(

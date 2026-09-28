@@ -1,14 +1,24 @@
 import { useCallback, useRef, type ReactNode, type Ref } from 'react';
 
-import { t } from '../../copy';
+import { formatClock, t } from '../../copy';
 import type { AgentController, ErrorView, Locale, RecordMenuItem } from '../../model/view-types';
 import { assignRef } from '../BuildRecord/assign-ref';
 import { RecordButton } from '../BuildRecord/RecordButton';
 import { RecordMenu, type RecordMenuProps } from '../RecordMenu';
-import { RunRecord } from '../RunRecord';
+import { RunRecord, type RecordMetaItem } from '../RunRecord';
 
 import { ErrorBody } from './ErrorBody';
 import './ErrorRecord.css';
+
+/**
+ * An error view that may carry the run's final time. The §3.11 frame draws it at the head's
+ * inline end (`0:31`), as every settled record does; `ErrorView` has no field for it yet, so
+ * the record reads it structurally and shows it once the producer sends it.
+ */
+type TimedErrorView = ErrorView & { readonly elapsedMs?: number | undefined };
+
+/** Under a second a clock says only "0:00", which reads as a fault: no time is shown. */
+const INSTANT_MS = 1_000;
 
 /** The controller actions an error record calls: its successor run, and its clean-up. */
 export type ErrorRecordActions = Pick<AgentController, 'tryAgain' | 'removeEmpty'>;
@@ -60,6 +70,10 @@ export function ErrorRecord({
     heading.current?.focus();
   };
 
+  const elapsedMs = (view as TimedErrorView).elapsedMs;
+  const meta: readonly RecordMetaItem[] =
+    elapsedMs === undefined || elapsedMs < INSTANT_MS ? [] : [{ text: formatClock(elapsedMs) }];
+
   const buttons: ReactNode[] = [];
   if (view.retryable) {
     buttons.push(
@@ -96,6 +110,7 @@ export function ErrorRecord({
       data-failure={view.failure}
       glyph="failed"
       title={t(locale, `error.${view.failure}.title`)}
+      meta={meta}
       headingRef={setHeading}
       actions={buttons.length === 0 ? undefined : buttons}
       menu={

@@ -35,6 +35,7 @@ import {
   buildStopped,
   buildStopping,
   buildUndone,
+  SECTION_TITLES,
   spineRows,
 } from '../../testing/wp-12-records-fixtures';
 
@@ -42,7 +43,7 @@ import { BuildRecord } from './BuildRecord';
 
 /* Radix measures its menu before positioning it; jsdom has no ResizeObserver. */
 beforeAll(() => {
-  globalThis.ResizeObserver ??= class {
+  globalThis.ResizeObserver = class {
     observe = (): void => undefined;
     unobserve = (): void => undefined;
     disconnect = (): void => undefined;
@@ -232,7 +233,13 @@ describe('BuildRecord: rows say their state', () => {
     const { rerender } = renderRecord(buildBuilding('en'));
     expect(screen.queryAllByRole('button', { name: /^Undo /u })).toHaveLength(0);
     rerender(buildDone('en'));
-    expect(screen.getAllByRole('button', { name: /^Undo /u })).toHaveLength(8);
+    // One Undo per landed row, named by its section; "Undo build" is the footer's, not a row's.
+    for (const title of SECTION_TITLES.en) {
+      expect(screen.getByRole('button', { name: `Undo ${title}` })).toBeInTheDocument();
+    }
+    expect(screen.getAllByRole('button', { name: /^Undo /u })).toHaveLength(
+      SECTION_TITLES.en.length + 1,
+    );
   });
 
   it('shows a revived Undo aria-disabled, described by the revived caption, and offers page history', async () => {
@@ -243,9 +250,9 @@ describe('BuildRecord: rows say their state', () => {
     expect(undos).toHaveLength(8);
     for (const undo of undos) {
       expect(undo).toHaveAttribute('aria-disabled', 'true');
-      expect(undo).toHaveAccessibleDescription(caption.textContent ?? '');
+      expect(undo).toHaveAccessibleDescription(caption.textContent);
     }
-    await user.click(undos[0] as HTMLElement);
+    await user.click(undos[0]!);
     expect(called()).toEqual([]);
     await user.click(screen.getByRole('button', { name: t('en', 'build.pageHistory') }));
     expect(spy('openPageHistory')).toHaveBeenCalledOnce();
@@ -511,7 +518,7 @@ describe('BuildRecord: no internals on screen', () => {
   it('shows no command names, skill ids, run ids, token counts or milliseconds', () => {
     for (const view of EVERY_PHASE) {
       const { container, unmount } = renderRecord(view);
-      const text = container.textContent ?? '';
+      const text = container.textContent;
       expect(text, view.phase).not.toMatch(/setProp|craftkit\.|fill-\d|~?\d+(\.\d+)?k tokens|\d+ms\b|tokens?\b/iu);
       unmount();
     }

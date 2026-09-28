@@ -6,16 +6,18 @@
   The choices keep the start and the actions the end; when both cannot fit (a 260px
   container, or Queued's pill beside a long mode name) the actions wrap under the choices,
   still at the inline end, instead of clipping.
+
+  The gap and the target size are inherited custom properties, set here only under a
+  coarse pointer, so a story (or the phone sheet) can preview the coarse sizes from an
+  ancestor without a media query.
 */
 
 .ck-agent-toolbar {
-  --ck-agent-toolbar-gap: var(--bldr-space-xs);
-
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--ck-agent-toolbar-gap);
+  gap: var(--ck-agent-toolbar-gap, var(--bldr-space-xs));
   min-inline-size: 0;
   margin-block-start: var(--bldr-space-xs);
 }
@@ -24,7 +26,7 @@
 .ck-agent-toolbar__actions {
   display: flex;
   align-items: center;
-  gap: var(--ck-agent-toolbar-gap);
+  gap: var(--ck-agent-toolbar-gap, var(--bldr-space-xs));
   min-inline-size: 0;
 }
 

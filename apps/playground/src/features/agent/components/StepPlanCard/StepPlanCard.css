@@ -1,0 +1,57 @@
+/*
+  StepPlanCard (SPEC §4.12). The box, head and footer are DecisionCard's. The steps take the
+  card's glyph column for their numbers, under the head's diamond, and start their words on
+  the title's edge, 24px in, so the card reads as one column of text with a column of
+  figures beside it.
+
+    ◇  Change plan
+    1  Rename the heading to “Questions patients ask”     Read, Ink
+       In FAQ                                             Meta, Graphite
+    2  Add a WhatsApp button under the answers
+*/
+
+.ck-agent-card__body.ck-agent-steps__list {
+  row-gap: var(--bldr-space-xs);
+  padding-inline-start: var(--ck-agent-card-pad);
+  list-style: none;
+}
+
+.ck-agent-steps__step {
+  display: grid;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr);
+  column-gap: var(--bldr-space-md);
+  row-gap: var(--bldr-space-2xs);
+  align-items: baseline;
+  min-inline-size: 0;
+}
+
+/* A figure: tabular, centred under the diamond, on the first line's baseline. */
+.ck-agent-steps__number {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  text-align: center;
+}
+
+/* Prose: it wraps, pretty, one paragraph per step. */
+.ck-agent-steps__text {
+  grid-column: 2;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  unicode-bidi: plaintext;
+}
+
+.ck-agent-steps__target {
+  grid-column: 2;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -155,8 +155,13 @@ export function AgentSheet({
   const marker = useRef<HTMLSpanElement | null>(null);
   const fullFace = useRef<HTMLDivElement | null>(null);
   const miniFace = useRef<HTMLElement | null>(null);
-  const showPageTarget = useRef<HTMLElement | null>(null);
-  const backToChatTarget = useRef<HTMLElement | null>(null);
+  /*
+    `[⤓]` and `[⤒]`, where focus lands on rising and on dropping. Held as state, not refs:
+    the faces receive their setters while rendering (`children(controls)`), and a setter
+    is a stable value, where a ref read during render is not.
+  */
+  const [showPageTarget, setShowPageTarget] = useState<HTMLElement | null>(null);
+  const [backToChatTarget, setBackToChatTarget] = useState<HTMLElement | null>(null);
   /** The detent focus last moved for. `closed` first, so mounting at full takes focus in. */
   const settled = useRef<SheetDetent>('closed');
 
@@ -185,12 +190,8 @@ export function AgentSheet({
       close: () => {
         onDetentChange('closed');
       },
-      showPageRef: (element) => {
-        showPageTarget.current = element;
-      },
-      backToChatRef: (element) => {
-        backToChatTarget.current = element;
-      },
+      showPageRef: setShowPageTarget,
+      backToChatRef: setBackToChatTarget,
     }),
     [detent, onDetentChange],
   );
@@ -209,32 +210,33 @@ export function AgentSheet({
     const active = page.activeElement;
     const ours = active === null || active === page.body || element.contains(active);
     if (detent === 'full') {
-      const counterpart = from === 'mini' ? showPageTarget.current : null;
+      // Raised by a field taking focus (the keyboard opening): the field keeps it.
+      if (active !== null && element.contains(active) && isTextEntry(active)) return;
+      const counterpart = from === 'mini' ? showPageTarget : null;
       const target = counterpart?.isConnected === true ? counterpart : fullFace.current;
       target?.focus({ preventScroll: true });
       return;
     }
     if (!ours) return;
     if (detent === 'mini') {
-      const counterpart = backToChatTarget.current;
+      const counterpart = backToChatTarget;
       const target = counterpart?.isConnected === true ? counterpart : miniFace.current;
       target?.focus({ preventScroll: true });
       return;
     }
     returnFocus?.()?.focus();
-  }, [detent, returnFocus]);
+    // The targets only matter when the detent moves; a new target alone moves nothing.
+  }, [detent, returnFocus, showPageTarget, backToChatTarget]);
 
-  const onGuardFocus =
-    (edge: 'start' | 'end') =>
-    (event: FocusEvent<HTMLSpanElement>): void => {
-      const face = fullFace.current;
-      if (face === null) return;
-      const from = event.relatedTarget;
-      // Tabbing out past an edge wraps to the other end; arriving from outside enters at
-      // the near one.
-      const leaving = from instanceof Node && face.contains(from);
-      focusEdge(face, leaving === (edge === 'start') ? 'last' : 'first');
-    };
+  /** A guard at `edge` took focus, arriving `from` wherever focus was. */
+  function wrapFocus(edge: 'start' | 'end', from: EventTarget | null): void {
+    const face = fullFace.current;
+    if (face === null) return;
+    // Tabbing out past an edge wraps to the other end; arriving from outside enters at
+    // the near one.
+    const leaving = from instanceof Node && face.contains(from);
+    focusEdge(face, leaving === (edge === 'start') ? 'last' : 'first');
+  }
 
   const style = { '--ck-agent-sheet-keyboard': `${String(keyboard)}px` } as CSSProperties;
   const isFull = detent === 'full';
@@ -275,7 +277,9 @@ export function AgentSheet({
             className="ck-agent-sheet__guard"
             tabIndex={0}
             data-ck-agent-sheet-guard="start"
-            onFocus={onGuardFocus('start')}
+            onFocus={(event: FocusEvent<HTMLSpanElement>) => {
+              wrapFocus('start', event.relatedTarget);
+            }}
           />
         ) : null}
         <div className="ck-agent-sheet__content">{children(controls)}</div>
@@ -284,7 +288,9 @@ export function AgentSheet({
             className="ck-agent-sheet__guard"
             tabIndex={0}
             data-ck-agent-sheet-guard="end"
-            onFocus={onGuardFocus('end')}
+            onFocus={(event: FocusEvent<HTMLSpanElement>) => {
+              wrapFocus('end', event.relatedTarget);
+            }}
           />
         ) : null}
       </div>

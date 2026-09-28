@@ -257,7 +257,8 @@ describe('planProviderFromEnv — the page plan and the enhancer through the who
     expect(fetch).toHaveBeenCalledTimes(1);
     const init = fetch.mock.calls[0]?.[1];
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer development-secret');
-    expect((JSON.parse(String(init?.body)) as AiPlanWireRequest).task).toBe('page-plan');
+    if (typeof init?.body !== 'string') throw new Error('Expected a JSON request body.');
+    expect((JSON.parse(init.body) as AiPlanWireRequest).task).toBe('page-plan');
   });
 
   it('plans a page in Plan mode through the chain — the T1 path is reachable', async () => {

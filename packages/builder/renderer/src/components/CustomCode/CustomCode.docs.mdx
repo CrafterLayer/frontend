@@ -33,9 +33,35 @@ There is no `dangerouslySetInnerHTML` in this component, and no code path that c
 `createElement` is called with a tag `isCustomCodeTag` has already admitted, children are React
 nodes built by this same walk, and text is passed as a **child** — which React escapes.
 
-`src` is the one attribute that can reach the network, so it is the one attribute with a policy: a
-relative path, an `https` URL, or an inline `data:` image. Anything else is dropped, which is how
-`javascript:` never renders and how a scheme this list has not considered never renders either.
+Every address — `src`, a video's `poster`, each `srcset` candidate — passes one policy
+(`safeCustomCodeUrl`): a relative path, an `https` URL, or an inline `data:` image. Anything else is
+dropped, which is how `javascript:` never renders and how a scheme this list has not considered never
+renders either. Every other attribute stands only where the door's per-tag policy
+(`customCodeAttributeProblem`) would have let it stand, read again on every render.
+
+## Design markup, still with no script
+
+<Canvas of={CustomCodeStories.Faq} />
+
+A FAQ is `details` and `summary`: it opens with no script, and a shared `name` keeps one answer open.
+
+<Canvas of={CustomCodeStories.PricingTable} />
+
+<Canvas of={CustomCodeStories.WaveDivider} />
+
+An svg is a closed drawing: shapes, paint and geometry, drawn in the SVG namespace with React's prop
+names (`stroke-width` renders as `strokeWidth`). No `use`, `image`, `foreignObject` or `href`, no text,
+and a `fill` may reference only a gradient in the same svg.
+
+<Canvas of={CustomCodeStories.PopoverMenu} />
+
+A button with `popovertarget` opens the element with that id and `popover`; a tap outside or Escape
+closes it. The one behaviour the renderer adds: off the canvas, an in-page link inside an open
+popover closes it as it jumps.
+
+<Canvas of={CustomCodeStories.VideoHero} />
+
+A video that plays by itself is always muted and inline, whatever the tree says.
 
 ## Structure and classes
 

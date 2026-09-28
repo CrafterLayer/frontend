@@ -7,7 +7,7 @@ import '@fontsource/ibm-plex-sans-arabic/arabic-400.css';
 import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
 
 import { t } from '../../copy';
-import type { Locale, SpineRowView } from '../../model/view-types';
+import type { Locale, RowState, SpineRowView } from '../../model/view-types';
 import { spineRows, undoOf, type RowSpec } from '../../testing/wp-12-records-fixtures';
 import { SpineList } from '../SpineList';
 
@@ -78,11 +78,18 @@ function Row({ locale, spec }: { readonly locale: Locale; readonly spec: RowSpec
   );
 }
 
+/** The one row a spec asks for; a story's args need a row, never `undefined`. */
+function oneRow(locale: Locale, state: RowState): SpineRowView {
+  const [row] = spineRows(locale, [state]);
+  if (row === undefined) throw new Error('no row');
+  return row;
+}
+
 const meta = {
   title: 'Agent/Records/SpineRow',
   component: SpineRow,
   parameters: { layout: 'centered' },
-  args: { locale: 'en', row: spineRows('en', ['writing'])[0] as SpineRowView },
+  args: { locale: 'en', row: oneRow('en', 'writing') },
   decorators: [inPanel],
 } satisfies Meta<typeof SpineRow>;
 

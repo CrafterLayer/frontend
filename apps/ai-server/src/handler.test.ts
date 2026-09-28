@@ -930,8 +930,7 @@ describe('page-plan colours and samples on the wire', () => {
     pagePlan['facts'] = [{ key: 'phone', sample: '+971 4 XXX XXXX', section: 'order' }];
     return JSON.stringify({ rationale: 'r', pagePlan });
   };
-  const body = (): unknown =>
-    wireBody({ request: 'صفحة لمعرض سيارات في دبي', task: 'page-plan' });
+  const body = (): unknown => wireBody({ request: 'صفحة لمعرض سيارات في دبي', task: 'page-plan' });
 
   function expectRepaired(plan: unknown): void {
     const { tokens, facts } = (plan as { pagePlan: { tokens: unknown; facts: unknown } }).pagePlan;
@@ -1015,7 +1014,9 @@ describe('per-call model and effort', () => {
     const malformed = await handle(post(wireBody({ model: 42 })));
 
     expect(refused.status).toBe(400);
-    expect(((await refused.json()) as { error: string }).error).toContain('anthropic/claude-opus-5');
+    expect(((await refused.json()) as { error: string }).error).toContain(
+      'anthropic/claude-opus-5',
+    );
     expect(malformed.status).toBe(400);
     expect(seen).toHaveLength(0);
   });
@@ -1035,6 +1036,27 @@ describe('per-call model and effort', () => {
     });
     expect(higher.status).toBe(400);
     expect(seen).toHaveLength(1);
+  });
+
+  it('reads the budget from its header beside the model header, the body winning, same two levels', async () => {
+    const { client, seen } = recording();
+    const handle = createHandler({ client, ...allowlist });
+
+    await handle(
+      post(wireBody(), { 'x-craftkit-ai-model': 'cli:haiku', 'x-craftkit-ai-effort': 'low' }),
+    );
+    await handle(post(wireBody({ effort: 'medium' }), { 'x-craftkit-ai-effort': 'low' }));
+    const higher = await handle(post(wireBody(), { 'x-craftkit-ai-effort': 'high' }));
+
+    expect((seen[0]?.params as { model: string }).model).toBe('cli:haiku');
+    expect(seen[0]?.options).toMatchObject({
+      headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
+    });
+    expect(seen[1]?.options).toMatchObject({
+      headers: { 'x-craftkit-internal-reasoning-effort': 'medium' },
+    });
+    expect(higher.status).toBe(400);
+    expect(seen).toHaveLength(2);
   });
 
   it('never lets a body budget change a page plan, which plans at the backend default', async () => {
@@ -1247,7 +1269,9 @@ describe('the prompt enhancer route', () => {
     const response = await handle(enhanceRequest(REQUEST_BODY));
 
     expect(response.status).toBe(504);
-    expect(((await response.json()) as { error: string }).error).toMatch(/send the request as written/u);
+    expect(((await response.json()) as { error: string }).error).toMatch(
+      /send the request as written/u,
+    );
   });
 
   it('leaves /plan exactly as it was beside it', async () => {

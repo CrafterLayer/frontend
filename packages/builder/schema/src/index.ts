@@ -199,6 +199,20 @@ export {
   type CustomCodeRoot,
   type CustomCodeTag,
 } from './custom-code/custom-code-tree';
+// design-code additions (2026-09-28): the per-tag attribute policy, the svg
+// family and the case-folding spellings the renderer and the AI readers share.
+export {
+  CUSTOM_CODE_SVG_ATTRIBUTES,
+  CUSTOM_CODE_SVG_TAGS,
+  customCodeAttributeProblem,
+  customCodeAttributeSpelling,
+  customCodeSrcsetUrls,
+  customCodeTagSpelling,
+  customCodeTreeProblems,
+  isCustomCodeSvgTag,
+  safeCustomCodeUrl,
+} from './custom-code/custom-code-tree';
+// end design-code additions
 /*
   The custom-CSS refusal list sits beside the `customCss()` declaration it
   polices rather than in the custom-code extension, because the AI plan door

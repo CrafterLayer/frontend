@@ -100,9 +100,9 @@ describe('model policy', () => {
 */
 describe('fastestModel', () => {
   it("picks the owner's own small model over the default and the free queues", () => {
-    expect(
-      fastestModel(['cli:sonnet', 'nvidia/nemotron-3.5-lightning:free', 'cli:haiku']),
-    ).toBe('cli:haiku');
+    expect(fastestModel(['cli:sonnet', 'nvidia/nemotron-3.5-lightning:free', 'cli:haiku'])).toBe(
+      'cli:haiku',
+    );
     expect(fastestModel(['anthropic/claude-opus-5', 'anthropic/claude-haiku-4.5'])).toBe(
       'anthropic/claude-haiku-4.5',
     );

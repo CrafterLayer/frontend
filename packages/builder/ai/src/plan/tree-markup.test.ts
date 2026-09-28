@@ -385,6 +385,75 @@ describe('structure is read as written', () => {
   });
 });
 
+/*
+  Design markup (2026-09-28): SVG names are case-sensitive, and the tokenizer
+  folds case the way an HTML parser does — so a wave divider written by a
+  model came back as `lineargradient`/`viewbox`, which the vocabulary does
+  not have. Every name is respelled as the vocabulary spells it, and the
+  writer writes it that way, so editTree round-trips a drawing exactly.
+*/
+describe('design markup in trees written as markup', () => {
+  const wave =
+    "<svg class='block h-12 w-full' aria-hidden='true' preserveAspectRatio='none' viewBox='0 0 1440 80'>" +
+    "<defs><linearGradient gradientUnits='objectBoundingBox' id='ck-fade' x1='0' x2='0' y1='0' y2='1'>" +
+    "<stop offset='0' stop-color='currentColor' stop-opacity='0.4'/><stop offset='1' stop-color='currentColor'/>" +
+    "</linearGradient></defs><path d='M0 40C360 80 1080 0 1440 40V80H0Z' fill='url(#ck-fade)'/></svg>";
+
+  it('keeps svg names in their own case, and reads self-closed shapes as leaves', () => {
+    const tree = parseTreeMarkup(wave.replace('viewBox', 'VIEWBOX').replace(/linearGradient/gu, 'LINEARGRADIENT'));
+    const svg = tree.children[0] as Record<string, unknown>;
+    expect(svg['tag']).toBe('svg');
+    expect(Object.keys(svg['attributes'] as object)).toEqual(
+      expect.arrayContaining(['viewBox', 'preserveAspectRatio', 'aria-hidden']),
+    );
+    const defs = (svg['children'] as Record<string, unknown>[])[0];
+    const gradient = (defs?.['children'] as Record<string, unknown>[])[0];
+    expect(gradient?.['tag']).toBe('linearGradient');
+    expect(gradient?.['attributes']).toEqual(
+      expect.objectContaining({ gradientUnits: 'objectBoundingBox', id: 'ck-fade' }),
+    );
+    expect(gradient?.['children']).toHaveLength(2);
+    expect((svg['children'] as unknown[])[1]).toEqual({
+      kind: 'element',
+      tag: 'path',
+      attributes: { d: 'M0 40C360 80 1080 0 1440 40V80H0Z', fill: 'url(#ck-fade)' },
+    });
+    expect(customCodeTreeSchema.safeParse(tree).success).toBe(true);
+  });
+
+  it('writes a drawing back byte for byte, shapes self-closed', () => {
+    expect(serializeTreeMarkup(parseTreeMarkup(wave))).toBe(wave);
+  });
+
+  it('round-trips a FAQ, a comparison table, a picture, a muted video and a popover menu', () => {
+    const samples = [
+      "<details name='faq' open=''><summary class='cursor-pointer list-none font-semibold'>Do you deliver?</summary><p>Daily, inside Amman.</p></details>",
+      "<div class='overflow-x-auto'><table class='w-full text-sm'><caption class='sr-only'>Plans</caption><thead><tr><th scope='col'>Feature</th><th scope='col'>Pro</th></tr></thead><tbody><tr><th scope='row'>Seats</th><td colspan='2'>5</td></tr></tbody></table></div>",
+      "<picture><source media='(min-width:768px)' srcset='https://x.test/w.jpg 1600w'/><img alt='A cup' decoding='async' height='600' loading='lazy' src='https://x.test/a.jpg' width='800'/></picture>",
+      "<video class='absolute inset-0 h-full w-full object-cover' autoplay='' loop='' muted='' playsinline='' poster='https://x.test/p.jpg'><source src='https://x.test/v.mp4' type='video/mp4'/></video>",
+      "<button aria-label='Menu' popovertarget='ck-menu'><icon name='menu'/></button><nav id='ck-menu' popover=''><a href='#menu'>Menu</a></nav>",
+      "<p lang='ar'>قهوة <span dir='ltr' lang='en'>Hail</span><b>طازجة</b><mark>اليوم</mark></p>",
+    ];
+    for (const markup of samples) {
+      const tree = parseTreeMarkup(markup);
+      expect(serializeTreeMarkup(tree), markup).toBe(markup);
+      expect(customCodeTreeSchema.safeParse(tree).success, markup).toBe(true);
+    }
+  });
+
+  it('reads bare boolean attributes as the empty value the door takes', () => {
+    const tree = parseTreeMarkup(
+      "<video autoplay muted loop playsinline><source src='/v.mp4' type='video/mp4'></video>",
+    );
+    expect(tree.children[0]).toEqual({
+      kind: 'element',
+      tag: 'video',
+      attributes: { autoplay: '', muted: '', loop: '', playsinline: '' },
+      children: [{ kind: 'element', tag: 'source', attributes: { src: '/v.mp4', type: 'video/mp4' } }],
+    });
+  });
+});
+
 describe('component references in markup', () => {
   it('reads ck-component into a component reference with its props and children', () => {
     const tree = parseTreeMarkup(
@@ -438,7 +507,7 @@ describe('component references in markup', () => {
   to differ — an empty `text`, `className`, `attributes` or `children` is the
   same as none — so the comparison is against that canonical form.
 */
-const VOID_TAGS = new Set(['br', 'hr', 'img']);
+const VOID_TAGS = new Set(['br', 'hr', 'img', 'source']);
 
 function canonical(node: unknown): unknown {
   if (Array.isArray(node)) return node.map(canonical);

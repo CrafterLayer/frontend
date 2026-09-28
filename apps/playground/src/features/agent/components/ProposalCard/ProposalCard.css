@@ -1,0 +1,17 @@
+/*
+  ProposalCard (SPEC §4.13, frame §3.8). The box, head, body and footer are DecisionCard's
+  (the head's node is the decision diamond, so the body's lines start on the title's edge,
+  24px in, where the applied record will keep them). Here only the lines particular to a
+  proposal.
+
+    ◇ Proposed change: FAQ
+      Heading  “FAQ” → “Questions patients ask”     ChangeLines
+      Only 2 of 3 changes can be applied            Amber, when validation dropped some
+      The page hasn't changed yet.                  Graphite, only while true
+    [ Apply ]  Discard                   [◫] [⋯]
+*/
+
+/* The lines under the changes sit 4px below them: a caption, not another change. */
+.ck-agent-proposal .ck-agent-changes + .ck-agent-card__meta {
+  margin-block-start: var(--bldr-space-2xs);
+}

@@ -1,0 +1,102 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ComposerStories from './Composer.stories';
+
+<Meta of={ComposerStories} />
+
+# Composer
+
+Where a request is written (SPEC §4.17), and the panel's one bordered surface besides the decisions
+(SPEC §1): the Sheet, a 1px Rule edge, radius 12. The RunBar, the one queued request, the ✨ Improve
+note and the clarifying questions all dock on it, so the dock never grows a second box.
+
+<Canvas of={ComposerStories.RunningQueued} />
+
+## Purpose
+
+One place for the person's words, whatever the run is doing. While a run is live the RunBar is fused
+to the top of the card; Enter then queues the draft, and the draft **is** the queued request (FR-025):
+there is no second field. After Stop the queued request pauses above a Hairline with its own text, and
+the box below empties for a new draft (SPEC §3.10). ✨ Improve rewrites the draft in place with the
+person's words one Restore away; an unclear request is asked about before it runs.
+
+## When to use / not
+
+AgentPanel mounts exactly one, in the dock. It renders views and calls the controller; it never
+talks to the engine. Suggestions and starters live in the thread, never here, so the dock's height
+does not change with them.
+
+## Props
+
+| prop           | type                                         | default | notes                                                                     |
+| -------------- | -------------------------------------------- | ------- | ------------------------------------------------------------------------- |
+| `view`         | `ComposerView` (a slice of `AgentViewState`) | none    | `locale`, `draft`, `chips`, `mention`, `mode`, `model`, `send`, `run`, `queue`, `enhancement`, `clarify` |
+| `actions`      | `ComposerActions` (a slice of `AgentController`) | none | the panel passes the controller as is                                     |
+| `awaitingPlan` | `boolean`                                    | `false` | a page plan waits in the thread: the empty box asks for a change to it    |
+| `inputRef`     | `Ref<HTMLTextAreaElement>`                   | none    | the panel's own focus destinations (a suggestion fills and focuses it)    |
+| `className`    | `string`                                     | none    | appended to `ck-agent-composer`                                           |
+
+`useComposerFixture` (in `testing/wp-14-composer-fixtures.ts`) moves a `ComposerView` the way the
+controller does; every story and the behaviour test drive the Composer through it.
+
+## States
+
+| story                                                    | what it shows                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `IdleEmpty`, `IdleReady`                                 | Send `aria-disabled` on the Wash, then the Indigo primary                      |
+| `RunningEmpty`, `RunningReady`, `RunningQueued`          | the RunBar on top; the slot is Send, Queue as next, then Queued                |
+| `Stopping`, `StoppingQueued`                             | "Stopping…" in the bar; Stop spins and keeps its word                          |
+| `QueueStale`, `QueueMissing`, `QueuePaused`              | the queue's revalidated captions (Amber, Alarm) and the paused request         |
+| `ContextChips`, `StaleChip`                              | the selection chip and an `@` chip; a block that is gone                       |
+| `MentionOpen`, `MentionEmpty`, `MentionPickByKeyboard`   | the `@` list above the card; no match; ↓ then Enter picks, never sends         |
+| `ModeAuto`, `ModeAsk`, `ModePlan`, `AfterPlan`           | each mode's placeholder, and the one after a plan                              |
+| `LongDraft`, `ArabicInEnglishPanel`, `LatinInArabicPanel`| six lines then a scroll; the box's direction follows its words                 |
+| `ImproveIdle`, `ImproveEnhancing`, `ImproveEnhanced`, `ImproveFailed`, `ImproveUnavailable`, `ImproveThenRestore` | ✨ at rest, at work (locked, shimmering), done, failed, absent, and restored |
+| `ClarifyOneQuestion`, `ClarifyThreeQuestions`, `ClarifyLastQuestion`, `ClarifyRewriting`, `ClarifyByKeyboard` | the questions docked on the card |
+| `EnterQueues`, `StopThenTextarea`                        | the focus destinations of SPEC §6.3, played                                     |
+| `FirstClickSend`, `FirstClickStop`, `FirstClickImprove`  | the regression: the first press after the textarea blurs lands                 |
+| `*Dark`, `Narrow` (288), `Wide` (420), `CoarsePointer`   | theme, widths and 44px targets (previewed through the inherited properties)     |
+| `*RightToLeft`                                           | Arabic, the default, for every family of states above                          |
+| `Playground`, `PlaygroundRightToLeft`                    | the whole composer alive, with Stop and ✨ settling after a moment             |
+
+## Anatomy
+
+From the top: the RunBar (while a run is live, over a Hairline); a paused queued request and the
+clarifying questions, each its own section over a Hairline; then the writing area, stacked at 4px:
+QueueHeader (the live queued request heads its own text), EnhanceNote, the context row of 28px
+chips, the textarea (Input type, 2 to 6 lines, then it scrolls, gutter reserved so the words never
+reflow) and ComposerToolbar. The `@` list (MentionMenu) floats 8px above the whole card.
+
+Every section pads 7 inside the 1px border, so the text, the chips and the toolbar's first item
+start on the thread's 16px gutter, and every control sits 8px from the card's outer edge.
+
+## Accessibility
+
+- The textarea is the `@` list's combobox: `aria-expanded`, `aria-controls`, `aria-activedescendant`.
+  The options are never focused.
+- Keys (SPEC §6.7): Enter sends or queues and is ignored while an input method composes
+  (`isComposing`, and Safari's key code 229); Shift+Enter writes a line; with the list open ↑ ↓ move
+  and Enter or Tab pick; Esc closes the list, then leaves the field; Backspace in an empty box
+  removes the last chip; Ctrl+. (⌘. on a Mac) stops a live run from anywhere in the composer.
+- Focus (SPEC §6.3): Send leaves it in the cleared box; Enter while running leaves it in the box,
+  which now holds the queued request; Stop keeps it on Stop until the RunBar leaves, then the box;
+  a chip's `×`, Remove, Continue and Restore return to the box; the questions take focus when they
+  open and give it back to the box when they close.
+- The textarea is described by the queue's label and caption, the context row, and the "no match"
+  line when there is one. It delegates its focus ring to the card (`data-bldr-focus-ring="delegated"`):
+  one control, one ring.
+- Nothing here is a live region; LiveStatus announces queue and Improve outcomes.
+- No token, cost or model id reaches the screen (SPEC §7.4); `Composer.test.tsx` scans for them.
+
+## RTL
+
+The box's `dir` comes from `resolveDir(draft)`, re-read 100ms after the last keystroke, with
+`unicode-bidi: plaintext` per line; an empty box follows the UI so the placeholder does. Everything
+else mirrors through logical properties: the RunBar's Stop, the queue's `×`, the send cluster.
+
+## Motion
+
+The RunBar folds in and out (`grid-template-rows`, 220ms in, 140ms out, inert while it leaves). While
+✨ Improve works, a copy of the words laid exactly over the locked box carries an Ink band clipped to
+the letters, 2s linear, in the reading direction (SPEC §5 moment 10). Under reduced motion, in high
+contrast, or without text clipping, the words simply step back to Slate. The border never animates.

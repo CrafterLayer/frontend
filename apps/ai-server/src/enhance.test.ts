@@ -34,7 +34,10 @@ function request(overrides: Partial<EnhanceRequest> = {}): EnhanceRequest {
   };
 }
 
-function answering(text: string, stop = 'end_turn'): {
+function answering(
+  text: string,
+  stop = 'end_turn',
+): {
   client: Anthropic;
   seen: { params: Record<string, unknown>; options: unknown }[];
 } {
@@ -188,20 +191,20 @@ describe('readEnhanceRequest', () => {
   });
 
   it('names what is wrong with a malformed request', () => {
-    expect(readEnhanceRequest({ ...request(), version: 2 })).toMatchObject({ error: expect.stringMatching(/version/u) });
-    expect(readEnhanceRequest({ ...request(), text: '' })).toMatchObject({ error: expect.stringMatching(/text/u) });
-    expect(readEnhanceRequest({ ...request(), locale: 'fr' })).toMatchObject({
-      error: expect.stringMatching(/locale/u),
-    });
-    expect(
-      readEnhanceRequest({ ...request(), intent: { kind: 'edit', confidence: 'high' } }),
-    ).toMatchObject({ error: expect.stringMatching(/intent/u) });
-    expect(readEnhanceRequest({ ...request(), selection: 3 })).toMatchObject({
-      error: expect.stringMatching(/selection/u),
-    });
-    expect(readEnhanceRequest({ ...request(), text: 'x'.repeat(8_001) })).toMatchObject({
-      error: expect.stringMatching(/longer/u),
-    });
+    /** The sentence a request is refused with; '' when it was read. */
+    const refusal = (body: unknown): string => {
+      const read = readEnhanceRequest(body);
+      return 'error' in read ? read.error : '';
+    };
+
+    expect(refusal({ ...request(), version: 2 })).toMatch(/version/u);
+    expect(refusal({ ...request(), text: '' })).toMatch(/text/u);
+    expect(refusal({ ...request(), locale: 'fr' })).toMatch(/locale/u);
+    expect(refusal({ ...request(), intent: { kind: 'edit', confidence: 'high' } })).toMatch(
+      /intent/u,
+    );
+    expect(refusal({ ...request(), selection: 3 })).toMatch(/selection/u);
+    expect(refusal({ ...request(), text: 'x'.repeat(8_001) })).toMatch(/longer/u);
   });
 });
 
@@ -316,17 +319,23 @@ describe('enhancePrompt', () => {
       kind: 'refusal',
       message: 'No.',
     });
-    expect(
-      await enhancePrompt(request(), { client: answering('{"enhanced":"بدي', 'max_tokens').client }),
-    ).toMatchObject({ kind: 'invalid-output', message: expect.stringMatching(/cut off/u) });
+    const cut = await enhancePrompt(request(), {
+      client: answering('{"enhanced":"بدي', 'max_tokens').client,
+    });
+    expect(cut.kind).toBe('invalid-output');
+    expect(cut.kind === 'invalid-output' ? cut.message : '').toMatch(/cut off/u);
     expect(await enhancePrompt(request(), { client: answering('').client })).toMatchObject({
       kind: 'invalid-output',
     });
     expect(
       await enhancePrompt(request(), { client: answering('I would add a menu.').client }),
     ).toMatchObject({ kind: 'invalid-output' });
-    expect(
-      await enhancePrompt(request(), { client: answering('{"understood":"x"}').client }),
-    ).toMatchObject({ kind: 'invalid-output', message: expect.stringMatching(/without an improved request/u) });
+    const unwritten = await enhancePrompt(request(), {
+      client: answering('{"understood":"x"}').client,
+    });
+    expect(unwritten.kind).toBe('invalid-output');
+    expect(unwritten.kind === 'invalid-output' ? unwritten.message : '').toMatch(
+      /without an improved request/u,
+    );
   });
 });

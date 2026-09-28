@@ -172,6 +172,28 @@ describe('skills are gated on the intent the request has ON THE PAGE it is about
     expect(prepared?.totalTokens ?? 0).toBeLessThan(blank.totalTokens);
   });
 
+  /*
+    The owner's row (2026-09-28): «تغيير عنوان قسم التعليم والشهادات إلى مرحبا»
+    on a CV page showed ~11.3k tokens and cv-page among its skills. Measured
+    the same day on the built-in registry: 1,073 skill tokens either way — the
+    words alone no longer match cv-page — so what is pinned is the gate: on
+    the CV page it is an edit, and no page playbook can ride on it.
+  */
+  it('reads a heading rename on a CV page as the edit it is — no CV playbook', () => {
+    const cv = page([
+      ['نبذة', 'ريم حداد — مصممة منتجات'],
+      ['الخبرات', 'خمس سنوات في تصميم التطبيقات'],
+      ['التعليم والشهادات', 'بكالوريوس تصميم جرافيك 2018'],
+      ['تواصل', 'reem@example.com'],
+    ]);
+    const request = 'تغيير عنوان قسم التعليم والشهادات إلى مرحبا';
+
+    expect(skillIntentForGeneration(options(cv, request))).toBe('edit');
+    expect(active(prepareAiSkillsForGeneration(options(cv, request)))).not.toContain(
+      'craftkit.cv-page',
+    );
+  });
+
   it('keeps the page playbook for a page ask on a page with content', () => {
     const prepared = prepareAiSkillsForGeneration(
       options(CLINIC, 'اعمل صفحة هبوط لعيادة أسنان في عمّان'),

@@ -1351,16 +1351,17 @@ export function useFakeController(
   const [state, setState] = useState<AgentViewState>(() =>
     typeof initial === 'string' ? fakeViewState(initial, locale) : initial,
   );
-  const calls = useRef<FakeCall[]>([]);
+  // One array for the controller's life, held in state so render may hand it out.
+  const [calls] = useState<FakeCall[]>(() => []);
   const original = useRef<string | null>(null);
   const words = WORDS[state.locale];
   const { onCall } = options;
   const record = useCallback(
     (call: FakeCall) => {
-      calls.current.push(call);
+      calls.push(call);
       onCall?.(call);
     },
-    [onCall],
+    [calls, onCall],
   );
   const delay = options.enhanceDelayMs ?? 900;
 
@@ -1380,7 +1381,7 @@ export function useFakeController(
             mention: mentionFor(draft, WORDS[current.locale]),
             enhancement,
             queue:
-              queued && current.queue !== null
+              queued
                 ? draft.trim() === ''
                   ? null
                   : { ...current.queue, text: draft }
@@ -1615,7 +1616,7 @@ export function useFakeController(
   );
   void words;
   return useMemo(
-    () => controllerOf(state, capabilities, record, calls.current, handlers),
-    [state, capabilities, record, handlers],
+    () => controllerOf(state, capabilities, record, calls, handlers),
+    [state, capabilities, record, calls, handlers],
   );
 }

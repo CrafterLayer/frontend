@@ -84,7 +84,9 @@ type Story = StoryObj<typeof meta>;
 export const Live: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('Writing 4 sections')).toBeInTheDocument();
+    await expect(canvasElement.querySelector('.ck-agent-runbar__status')).toHaveTextContent(
+      'Writing 4 sections',
+    );
     await expect(canvas.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
     await expect(canvasElement.querySelector('[aria-live], [role="status"]')).toBeNull();
   },

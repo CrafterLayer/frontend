@@ -1,0 +1,66 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EnhanceButtonStories from './EnhanceButton.stories';
+
+<Meta of={EnhanceButtonStories} />
+
+# EnhanceButton
+
+✨ Improve my request («حسّن طلبي»): the owner's tool that reads the request and fixes it before it
+runs, in the request's own language, with the person's own words one Restore away (EnhanceNote).
+
+<Canvas of={EnhanceButtonStories.Idle} />
+
+## Purpose
+
+A rough request («خلي الهيرو اغمق وحط زر واتس») becomes one the agent can act on without guessing
+(«اجعل خلفية قسم الواجهة أغمق، وأضف زر حجز عبر واتساب أسفل العنوان.»). It rewrites; it never sends.
+
+## When to use / not
+
+Only in ComposerToolbar. It is absent when the provider cannot rewrite requests
+(`enhancement.status === 'unavailable'`): a control that can never work is worse than none.
+
+## Props
+
+| prop          | type              | default | notes                                                   |
+| ------------- | ----------------- | ------- | ------------------------------------------------------- |
+| `locale`      | `Locale`          | none    |                                                         |
+| `enhancement` | `EnhancementView` | none    | `unavailable` draws nothing; `enhancing` shows progress |
+| `empty`       | `boolean`         | none    | nothing written yet                                     |
+| `running`     | `boolean`         | none    | a run is live                                           |
+| `onEnhance`   | `() => void`      | none    | `AgentController.enhanceDraft`                          |
+| `className`   | `string`          | none    | appended to `ck-agent-enhance`                          |
+
+## States
+
+| story                                            | what it shows                                            |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| `Idle`, `IdleDark`, `IdleRightToLeft`, `Tooltip` | a ghost ✨; the tooltip in the owner's words              |
+| `EmptyDraft`, `EmptyDraftRightToLeftDark`        | `aria-disabled`, "Available once you've written a request" |
+| `WhileRunning`                                   | "Available when the current work ends"                   |
+| `Enhancing`, `EnhancingDark`, `EnhancingRightToLeft` | the spinner; named "Improving your request"          |
+| `Unavailable`                                    | no button at all                                         |
+
+## Anatomy
+
+A 32px ghost square (44 on a coarse pointer), radius 6: exactly IconButton's ghost. No fill, a
+Graphite sparkle, the Wash under Ink on hover, Slate when it cannot run. Never Indigo: Improve helps
+with the request, it is not the request (SPEC §2.1 rule 3). The sparkle is a four-point star and a
+small cross on the 16px grid, a 1.5px stroke.
+
+## Accessibility
+
+- Named by its tooltip's words; unavailable is `aria-disabled` with the reason as the description.
+- While it works it keeps the same button, so focus is never lost; the Composer locks the draft
+  (`readonly`, `aria-busy`), and LiveStatus announces the result.
+- Static JSX glyphs: the first press after the textarea blurs lands (`FirstClickImprove`).
+
+## RTL
+
+The sparkle never mirrors: light has no reading direction.
+
+## Motion
+
+Colour only on hover and press. While working, the spinner turns and the Composer shimmers the draft
+in the reading direction; under reduced motion the draft simply steps back to Slate.

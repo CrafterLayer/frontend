@@ -1,4 +1,4 @@
-import type { BuilderKernel } from '@craftkit/builder-core';
+import { systemClock, type BuilderKernel } from '@craftkit/builder-core';
 import type { BuilderDocument, Node, NodeId } from '@craftkit/builder-schema';
 
 import { resolveAiCompositionPolicy, type AiCompositionPolicy } from '../context/composition-policy';
@@ -224,10 +224,10 @@ function scan(request: string): readonly Token[] {
   const flush = (plain: string, offset: number): void => {
     const pieces: Token[] = [];
     for (const match of plain.matchAll(WORD)) {
-      pieces.push(wordToken(match[0], offset + (match.index ?? 0)));
+      pieces.push(wordToken(match[0], offset + match.index));
     }
     for (const match of plain.matchAll(MARKS)) {
-      const start = offset + (match.index ?? 0);
+      const start = offset + match.index;
       pieces.push({
         kind: 'mark',
         raw: match[0],
@@ -558,7 +558,7 @@ function markersAfter(tokens: readonly Token[], from: number): readonly Marker[]
 /** The words name ONE section in full: every word of its label, heading or anchor. */
 function namesOneSectionFully(words: readonly NamingWord[], sections: readonly PageSectionOutline[]): boolean {
   const [best, second] = sectionMentions(words, sections);
-  return best !== undefined && best.score === 1 && (second === undefined || second.score < 1);
+  return best?.score === 1 && (second === undefined || second.score < 1);
 }
 
 /** The new text: the request after the marker, less trailing courtesy, punctuation and wrapping quotes. */
@@ -671,7 +671,7 @@ function parse(request: string, sections: readonly PageSectionOutline[]): readon
     }
   }
   const renamed = role === undefined && verb?.verb === 'rename';
-  if (renamed && verb !== undefined) {
+  if (renamed) {
     role = 'title';
     roleIndex = verb.index;
   }
@@ -758,13 +758,20 @@ function parseRoleEdit(
     return edit([...before, ...whereTokens(tokens, roleIndex + 1, tokens.length - 1, role)], last.raw);
   }
   if (weakRole) {
-    // The value is whatever reads as a phone, an email or a price.
-    const valueAt = after.findIndex((token) => /[0-9٠-٩۰-۹@+]/u.test(token.raw));
-    const start = after[valueAt];
-    if (start === undefined) return undefined;
+    /*
+      The value is whatever reads as a phone, an email or a price, found in
+      the TEXT after the role word: «حط الإيميل reem@x.com» scans as the words
+      reem/x/com — "@", "+" and "$" never make a word token — so looking for
+      them among tokens found no email at all (fast-edits, 2026-09-28).
+    */
+    const roleEnd = tokens[roleIndex]?.end ?? 0;
+    const found = /[A-Za-z0-9._%+-]+@|[+$€£0-9٠-٩۰-۹]/u.exec(request.slice(roleEnd));
+    if (found === null) return undefined;
+    const valueStart = roleEnd + found.index;
+    const stop = tokens.findIndex((token) => token.end > valueStart);
     return edit(
-      [...before, ...whereTokens(after, 0, valueAt, role)],
-      valueFrom(request, start.start),
+      [...before, ...whereTokens(tokens, roleIndex + 1, stop < 0 ? tokens.length : stop, role)],
+      valueFrom(request, valueStart),
     );
   }
   // The value starts where a section's WHOLE name ends; no name, and the whole tail is the value.
@@ -1131,7 +1138,7 @@ function resolveTitle(edit: RoleEdit, context: ResolveContext): Resolved | undef
   }
   // A bare «العنوان» / "the title" with nothing selected: the page title? the h1? an address? Not guessed.
   const scope = scopeFor(edit.hint, context, false);
-  if (scope === undefined || scope.sections.size !== 1) return undefined;
+  if (scope?.sections.size !== 1) return undefined;
   const [sectionId] = scope.sections;
   const section = sectionId === undefined ? undefined : page.document.nodes[sectionId];
   if (sectionId === undefined || section === undefined) return undefined;
@@ -1226,6 +1233,12 @@ const AMOUNT = `${DIGIT}+(?:[.,٫]${DIGIT}+)?`;
 const PRICE = new RegExp(`${CURRENCY}\\s?${AMOUNT}|${AMOUNT}\\s?${CURRENCY}`, 'gu');
 /** "12-06-2026", "2026/06/12": a date, never a phone. */
 const DATE_SHAPE = /^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/u;
+/**
+ * "2019 - 2021", a CV's years at a job: eight digits and a dash read as a
+ * phone, and every CV has several, so no CV phone could ever be changed
+ * (fast-edits, 2026-09-28). Two years are a span, never a number.
+ */
+const YEAR_SPAN = /^(?:19|20)\d\d\s*[-/]\s*(?:19|20)\d\d$/u;
 
 function asciiDigits(text: string): string {
   return text.replace(/[٠-٩۰-۹]/gu, (digit) => {
@@ -1238,6 +1251,20 @@ function phoneDigits(text: string): string {
   return asciiDigits(text).replace(/\D/gu, '');
 }
 
+/**
+ * One number written two ways: `tel:+962791234567` behind a link that shows
+ * «0791 234 567». The trunk zero dropped, the shorter is the tail of the
+ * longer — at least 7 digits of it, so two different short numbers never
+ * pass as one. Without this, the commonest contact block (an international
+ * href, a local label) refused every phone edit.
+ */
+function samePhone(left: string, right: string): boolean {
+  const a = left.replace(/^0+/u, '');
+  const b = right.replace(/^0+/u, '');
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  return shorter.length >= 7 && longer.endsWith(shorter);
+}
+
 /** A phone as a person writes one: 7–16 digits, with only +, spaces, dashes and brackets around them. */
 function isPhone(text: string, minimum = 7): boolean {
   const trimmed = text.trim();
@@ -1246,7 +1273,8 @@ function isPhone(text: string, minimum = 7): boolean {
     digits.length >= minimum &&
     digits.length <= 16 &&
     /^\+?[0-9٠-٩۰-۹\s\-().]+$/u.test(trimmed) &&
-    !DATE_SHAPE.test(asciiDigits(trimmed))
+    !DATE_SHAPE.test(asciiDigits(trimmed)) &&
+    !YEAR_SPAN.test(asciiDigits(trimmed))
   );
 }
 
@@ -1278,7 +1306,7 @@ function textSpots(
   for (const piece of page.pieces) {
     for (const match of piece.text.matchAll(pattern)) {
       if (!accept(match[0])) continue;
-      const start = match.index ?? 0;
+      const start = match.index;
       spots.push({
         nodeId: piece.nodeId,
         sectionId: piece.sectionId,
@@ -1364,7 +1392,9 @@ function resolveContact(edit: RoleEdit, context: ResolveContext, kind: 'phone' |
     ...hrefSpots(page, kind === 'phone' ? 'tel:' : 'mailto:', identity, kind === 'phone' ? (text) => isPhone(text) : isEmail),
   ].filter((spot) => inScope(scope, spot));
   // ONE number (or address) on the page, however many places show it: they all change together.
-  if (spots.length === 0 || new Set(spots.map((spot) => spot.identity)).size !== 1) return undefined;
+  const [first] = spots;
+  const same = kind === 'phone' ? samePhone : (left: string, right: string) => left === right;
+  if (first === undefined || !spots.every((spot) => same(spot.identity, first.identity))) return undefined;
   const href =
     kind === 'phone'
       ? `${/^(?:\+|00)/u.test(asciiDigits(value)) ? '+' : ''}${phoneDigits(value).replace(/^00/u, '')}`
@@ -1534,7 +1564,7 @@ function markupOf(tree: Json, path: readonly number[]): string | undefined {
 
 function occursOnce(text: string, find: string): boolean {
   const first = text.indexOf(find);
-  return first >= 0 && text.indexOf(find, first + 1) < 0;
+  return first >= 0 && !text.includes(find, first + 1);
 }
 
 /**
@@ -1684,7 +1714,7 @@ function summaryOf(resolved: Resolved, language: 'ar' | 'en'): string {
 
 let dryRunIds = 0;
 const DRY_RUN_PORTS: AiValidationPorts = {
-  clock: { now: () => Date.now() },
+  clock: systemClock,
   // A setProp mints no id; the port exists because the scratch kernel requires one.
   ids: {
     newId: () => {

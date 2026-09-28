@@ -102,8 +102,7 @@ export function HistoryRow({
 
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
   const titleDir = resolveDir(session.title, uiDir);
-  const when =
-    session.updatedAt === null ? null : formatWhen(locale, session.updatedAt, now);
+  const when = session.updatedAt === null ? null : formatWhen(locale, session.updatedAt, now);
   const name =
     when === null ? session.title : t(locale, 'history.row', { title: session.title, when });
 

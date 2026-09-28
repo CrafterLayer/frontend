@@ -19,9 +19,12 @@ function install(start: Start | undefined): void {
   });
 }
 
+/** jsdom has no `matchMedia`: install one answering the reduced-motion query. */
 function prefersReducedMotion(reduce: boolean): void {
-  vi.spyOn(window, 'matchMedia').mockImplementation(
-    (query: string) =>
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string) =>
       ({
         matches: reduce && query.includes('reduce'),
         media: query,
@@ -32,11 +35,12 @@ function prefersReducedMotion(reduce: boolean): void {
         removeListener: () => undefined,
         dispatchEvent: () => false,
       }) as MediaQueryList,
-  );
+  });
 }
 
 afterEach(() => {
   install(undefined);
+  Reflect.deleteProperty(window, 'matchMedia');
   vi.restoreAllMocks();
 });
 

@@ -29,16 +29,50 @@ import { z } from 'zod';
  * own props schema still validates what it is handed.
  */
 
-/** Tags the vocabulary admits. Structure, text, media, lists, links, and buttons — no more. */
+/**
+ * The svg shape family: decoration drawn in place — a wave divider, a blob, a
+ * mark — and nothing that can reach outside the drawing. Case-sensitive, as
+ * SVG is: a reader that lower-cases markup respells `lineargradient` back
+ * (`customCodeTagSpelling`).
+ */
+export const CUSTOM_CODE_SVG_TAGS = [
+  'svg',
+  'g',
+  'path',
+  'circle',
+  'ellipse',
+  'rect',
+  'line',
+  'polyline',
+  'polygon',
+  'defs',
+  'linearGradient',
+  'radialGradient',
+  'stop',
+] as const;
+
+/**
+ * Tags the vocabulary admits: structure, text, media, lists, tables,
+ * disclosure, links, buttons, and the svg shape family — no more.
+ */
 export const CUSTOM_CODE_TAGS = [
   'a',
+  'abbr',
+  'address',
   'article',
   'aside',
+  'b',
   'blockquote',
   'br',
   'button',
+  'caption',
+  'cite',
   'code',
+  'dd',
+  'details',
   'div',
+  'dl',
+  'dt',
   'em',
   'figcaption',
   'figure',
@@ -51,21 +85,37 @@ export const CUSTOM_CODE_TAGS = [
   'h6',
   'header',
   'hr',
+  'i',
   'img',
   'li',
   'main',
+  'mark',
   'nav',
   'ol',
   'p',
+  'picture',
   'pre',
+  'q',
+  's',
   'section',
   'small',
+  'source',
   'span',
   'strong',
   'sub',
+  'summary',
   'sup',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
   'time',
+  'tr',
   'ul',
+  'video',
+  ...CUSTOM_CODE_SVG_TAGS,
 ] as const;
 
 export type CustomCodeTag = (typeof CUSTOM_CODE_TAGS)[number];
@@ -78,9 +128,27 @@ export type CustomCodeTag = (typeof CUSTOM_CODE_TAGS)[number];
     form, input, select, textarea — a control the document cannot wire to a
         handler is a control that lies to the reader; registered blocks own
         real interactivity, and a `component` reference reaches them.
-    video, audio, canvas, svg — media and drawing need their own prop
-        vocabularies (icons have one: the `icon` node kind); a later, explicit
-        addition rather than a silent one.
+    audio, canvas — sound nobody asked to hear, and a surface only script
+        can draw on.
+    svg use, image, foreignObject, script, a, text — the svg elements that
+        reach outside the drawing (an href, a nested document, a handler).
+        The shape family above is closed over paint and geometry only.
+
+  Admitted 2026-09-28, each with a policy enforced here on write and again by
+  the renderer on read (the owner: "let the agent write code when the design
+  needs it, within the scope of design"). A FAQ could only be a list, a price
+  comparison only cards, and a mobile nav only a scrolling row, because the
+  markup had no disclosure, no table and no popover:
+
+    details, summary — a FAQ or "more" that opens without script (`name`
+        makes a group where one opens at a time).
+    table and its parts — prices, hours, a comparison.
+    dl/dt/dd, address, mark, cite, q, abbr, b, i, s — the phrasing and
+        definition markup the section recipes already named and the
+        normalizer was flattening into divs and spans.
+    picture + source, video — media whose every address passes the same
+        policy as `src`; a video that plays by itself is always muted.
+    the svg shape family — see CUSTOM_CODE_SVG_TAGS.
 
   Two were absent in the first version and are present now, each with a policy
   the renderer enforces rather than a hope:
@@ -95,7 +163,47 @@ export type CustomCodeTag = (typeof CUSTOM_CODE_TAGS)[number];
         host wires behaviour to it later.
 */
 
-/** Attributes an element may carry. Presentation, accessibility, and link targets. */
+/**
+ * Paint and geometry: the only attributes an svg shape carries. Case-sensitive
+ * like the tags (`viewBox`, `preserveAspectRatio`, `gradientUnits`).
+ */
+export const CUSTOM_CODE_SVG_ATTRIBUTES = [
+  'viewBox',
+  'xmlns',
+  'preserveAspectRatio',
+  'fill',
+  'fill-rule',
+  'clip-rule',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'opacity',
+  'transform',
+  'd',
+  'points',
+  'cx',
+  'cy',
+  'r',
+  'rx',
+  'ry',
+  'x',
+  'y',
+  'x1',
+  'y1',
+  'x2',
+  'y2',
+  'offset',
+  'stop-color',
+  'stop-opacity',
+  'gradientUnits',
+] as const;
+
+/**
+ * Attributes an element may carry: presentation, accessibility, link
+ * targets, media, disclosure, popovers, and svg paint and geometry. WHICH tag
+ * may carry each one, and what its value may be, is `customCodeAttributeProblem`.
+ */
 export const CUSTOM_CODE_ATTRIBUTES = [
   'alt',
   'aria-hidden',
@@ -107,6 +215,39 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   'src',
   'target',
   'title',
+  // Admitted 2026-09-28 (design code): accessibility and language.
+  'aria-labelledby',
+  'aria-describedby',
+  'aria-current',
+  'lang',
+  'dir',
+  // Declarative menus: a button opens a popover, no script.
+  'popover',
+  'popovertarget',
+  'popovertargetaction',
+  // Media: loading hints, intrinsic size (no layout shift), responsive sources.
+  'loading',
+  'decoding',
+  'width',
+  'height',
+  'srcset',
+  'sizes',
+  'media',
+  'type',
+  'poster',
+  'autoplay',
+  'muted',
+  'loop',
+  'playsinline',
+  'controls',
+  'preload',
+  // Disclosure and tables.
+  'open',
+  'name',
+  'colspan',
+  'rowspan',
+  'scope',
+  ...CUSTOM_CODE_SVG_ATTRIBUTES,
 ] as const;
 
 export type CustomCodeAttribute = (typeof CUSTOM_CODE_ATTRIBUTES)[number];
@@ -167,6 +308,366 @@ export interface CustomCodeIcon {
 }
 
 export type CustomCodeNode = CustomCodeElement | CustomCodeComponent | CustomCodeIcon;
+
+/*
+  ── Where each attribute may sit, and what it may say ──────────────────────
+
+  One policy, three readers: the tree schema refuses on WRITE, the plan
+  normalizer drops what could never render before the door sees it (a refusal
+  is a 25-40 s repair round, measured 2026-09-27), and the renderer drops it
+  again on READ. So it lives here, beside the vocabulary, as data plus one
+  function — never re-stated in the readers.
+*/
+
+const SVG_TAG_SET: ReadonlySet<string> = new Set(CUSTOM_CODE_SVG_TAGS);
+
+/** Whether a tag is in the svg shape family (the renderer draws it in the SVG namespace). */
+export function isCustomCodeSvgTag(tag: string): boolean {
+  return SVG_TAG_SET.has(tag);
+}
+
+/**
+ * The one address policy every URL attribute passes (`src`, `poster`, each
+ * `srcset` candidate): a relative path, an https URL, or an inline data
+ * image. `javascript:` never renders, and neither does a scheme this list
+ * has not considered. The renderer applies the same function on read.
+ */
+export function safeCustomCodeUrl(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  if (trimmed.startsWith('/') || trimmed.startsWith('./')) return trimmed;
+  if (/^https:\/\//iu.test(trimmed)) return trimmed;
+  if (/^data:image\/(?:png|jpe?g|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/iu.test(trimmed)) {
+    return trimmed;
+  }
+  return undefined;
+}
+
+/**
+ * The address candidates of a `srcset`, or undefined when it cannot be read.
+ * The HTML rule, simplified: an address is a run without whitespace (a data
+ * URL keeps its inner comma), a trailing comma ends a candidate, and a
+ * descriptor is one `640w` or `2x`.
+ */
+export function customCodeSrcsetUrls(value: string): readonly string[] | undefined {
+  const urls: string[] = [];
+  let rest = value;
+  for (;;) {
+    rest = rest.replace(/^[\s,]+/u, '');
+    if (rest === '') break;
+    const run = /^\S+/u.exec(rest)?.[0] ?? '';
+    rest = rest.slice(run.length);
+    const url = run.replace(/,+$/u, '');
+    urls.push(url);
+    if (url !== run) continue;
+    const descriptor = /^\s*([^,]*)(?:,|$)/u.exec(rest);
+    const written = descriptor?.[1]?.trim() ?? '';
+    if (written !== '' && !/^(?:\d+w|\d+(?:\.\d+)?x)$/u.test(written)) return undefined;
+    rest = rest.slice(descriptor?.[0].length ?? rest.length);
+  }
+  return urls.length === 0 ? undefined : urls;
+}
+
+type AttributePlace = 'html' | 'svg' | 'any' | readonly string[];
+
+interface AttributeRule {
+  /** `html`: any tag outside the svg family; `svg`: only inside it; or these tags. */
+  readonly on: AttributePlace;
+  /** What is wrong with the value, or undefined when it is fine. */
+  readonly value?: (value: string, name: string) => string | undefined;
+}
+
+const oneOf =
+  (...allowed: readonly string[]) =>
+  (value: string, name: string): string | undefined =>
+    allowed.includes(value)
+      ? undefined
+      : `${name} is one of ${allowed.map((option) => (option === '' ? '(bare)' : option)).join(', ')}`;
+
+const matching =
+  (pattern: RegExp, expected: string) =>
+  (value: string, name: string): string | undefined =>
+    pattern.test(value) ? undefined : `${name} must be ${expected}`;
+
+/** A boolean attribute is written bare: `muted`, or `muted='muted'`, or `muted='true'`. */
+const bare = (value: string, name: string): string | undefined =>
+  value === '' || value.toLowerCase() === name || value.toLowerCase() === 'true'
+    ? undefined
+    : `${name} is written bare (${name}), never ${name}='${value}'`;
+
+const safeAddress = (value: string, name: string): string | undefined =>
+  safeCustomCodeUrl(value) === undefined ? `${name} must be an https or relative address` : undefined;
+
+const safeSrcset = (value: string, name: string): string | undefined => {
+  const urls = customCodeSrcsetUrls(value);
+  if (urls === undefined) return `${name} must be "address 640w, address 1280w"`;
+  return urls.every((url) => safeCustomCodeUrl(url) !== undefined)
+    ? undefined
+    : `every ${name} address must be https or relative`;
+};
+
+const NUMBER = '-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e-?\\d+)?';
+const LENGTH = new RegExp(`^${NUMBER}(?:%|px|em|rem)?$`, 'u');
+const ID_TOKENS = /^[^\s'"<>]+(?:\s+[^\s'"<>]+)*$/u;
+/*
+  Every svg value is inert text — geometry, a colour, a transform — so the
+  guard is a character set that cannot open a string, a tag or a rule, and no
+  `url()` except a same-drawing gradient: `fill='url(#ck-hero-fade)'`. An
+  external paint server would be a fetch the page never showed.
+*/
+const SVG_TEXT = /^[^<>"'`;{}\\]*$/u;
+const LOCAL_PAINT = /^url\(\s*#[A-Za-z][\w-]*\s*\)(?:\s+[^\s()]+)?$/u;
+
+const svgValue = (value: string, name: string): string | undefined => {
+  if (!SVG_TEXT.test(value) || /javascript:|expression\s*\(/iu.test(value)) {
+    return `${name} holds geometry or a colour only`;
+  }
+  if (/url\s*\(/iu.test(value) && !LOCAL_PAINT.test(value.trim())) {
+    return `${name} may reference only a gradient in the same svg: url(#id)`;
+  }
+  return undefined;
+};
+
+const svgLength = matching(LENGTH, 'a number or a length');
+
+const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
+  alt: { on: 'html' },
+  'aria-hidden': { on: 'any' },
+  'aria-label': { on: 'any' },
+  'aria-labelledby': { on: 'any', value: matching(ID_TOKENS, 'ids separated by spaces') },
+  'aria-describedby': { on: 'any', value: matching(ID_TOKENS, 'ids separated by spaces') },
+  'aria-current': {
+    on: 'html',
+    value: oneOf('page', 'step', 'location', 'date', 'time', 'true', 'false'),
+  },
+  datetime: { on: 'html' },
+  href: { on: 'html' },
+  id: { on: 'any' },
+  role: { on: 'any' },
+  src: {
+    on: 'html',
+    // An img keeps its read-time policy (the renderer drops what fails); a new media tag is checked on write.
+  },
+  target: { on: 'html' },
+  title: { on: 'html' },
+  lang: { on: 'html', value: matching(/^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*)?$/u, 'a language tag') },
+  dir: { on: 'html', value: oneOf('ltr', 'rtl', 'auto') },
+  popover: { on: 'html', value: oneOf('', 'auto', 'manual') },
+  popovertarget: { on: ['button'], value: matching(/^[^\s'"<>]{1,120}$/u, "the popover's id") },
+  popovertargetaction: { on: ['button'], value: oneOf('toggle', 'show', 'hide') },
+  loading: { on: ['img'], value: oneOf('lazy', 'eager') },
+  decoding: { on: ['img'], value: oneOf('async', 'sync', 'auto') },
+  srcset: { on: ['img', 'source'], value: safeSrcset },
+  sizes: {
+    on: ['img', 'source'],
+    value: matching(/^[\w\s().,:%+*/-]{1,500}$/u, 'a sizes list such as (min-width:768px) 50vw, 100vw'),
+  },
+  media: {
+    on: ['source'],
+    value: matching(/^[\w\s().,:%/-]{1,500}$/u, 'a media query such as (min-width:768px)'),
+  },
+  type: {
+    on: ['source'],
+    value: matching(
+      /^[a-z]+\/[\w.+-]+(?:\s*;\s*codecs=["']?[\w., +-]+["']?)?$/u,
+      'a media type such as video/mp4',
+    ),
+  },
+  poster: { on: ['video'], value: safeAddress },
+  autoplay: { on: ['video'], value: bare },
+  muted: { on: ['video'], value: bare },
+  loop: { on: ['video'], value: bare },
+  playsinline: { on: ['video'], value: bare },
+  controls: { on: ['video'], value: bare },
+  preload: { on: ['video'], value: oneOf('none', 'metadata', 'auto') },
+  open: { on: ['details'], value: bare },
+  name: { on: ['details'], value: matching(/^[\w-]{1,64}$/u, 'a group name of letters, digits and -') },
+  colspan: { on: ['td', 'th'], value: matching(/^[1-9]\d{0,2}$/u, 'a whole number from 1') },
+  rowspan: { on: ['td', 'th'], value: matching(/^\d{1,3}$/u, 'a whole number') },
+  scope: { on: ['th'], value: oneOf('row', 'col', 'rowgroup', 'colgroup') },
+};
+
+const SVG_ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
+  viewBox: {
+    on: ['svg'],
+    value: matching(new RegExp(`^\\s*${NUMBER}(?:[\\s,]+${NUMBER}){3}\\s*$`, 'u'), 'four numbers'),
+  },
+  xmlns: { on: ['svg'], value: oneOf('http://www.w3.org/2000/svg') },
+  preserveAspectRatio: {
+    on: ['svg'],
+    value: matching(
+      /^(?:none|x(?:Min|Mid|Max)Y(?:Min|Mid|Max))(?:\s+(?:meet|slice))?$/u,
+      'none or xMidYMid meet/slice',
+    ),
+  },
+  fill: { on: 'svg', value: svgValue },
+  stroke: { on: 'svg', value: svgValue },
+  'stop-color': { on: 'svg', value: svgValue },
+  'fill-rule': { on: 'svg', value: oneOf('nonzero', 'evenodd') },
+  'clip-rule': { on: 'svg', value: oneOf('nonzero', 'evenodd') },
+  'stroke-width': { on: 'svg', value: svgLength },
+  'stroke-linecap': { on: 'svg', value: oneOf('butt', 'round', 'square') },
+  'stroke-linejoin': { on: 'svg', value: oneOf('miter', 'round', 'bevel', 'arcs', 'miter-clip') },
+  opacity: { on: 'svg', value: svgLength },
+  'stop-opacity': { on: 'svg', value: svgLength },
+  offset: { on: 'svg', value: svgLength },
+  transform: { on: 'svg', value: matching(/^[\w(),.\s+-]*$/u, 'a transform list') },
+  d: { on: 'svg', value: matching(/^[MmLlHhVvCcSsQqTtAaZz\d\s.,eE+-]*$/u, 'path data') },
+  points: { on: 'svg', value: matching(/^[\d\s.,eE+-]*$/u, 'a list of numbers') },
+  gradientUnits: { on: 'svg', value: oneOf('userSpaceOnUse', 'objectBoundingBox') },
+  ...Object.fromEntries(
+    ['cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'x1', 'y1', 'x2', 'y2'].map((name) => [
+      name,
+      { on: 'svg', value: svgLength } satisfies AttributeRule,
+    ]),
+  ),
+};
+
+/** Tags an html `width`/`height` sizes: its intrinsic box, so the layout does not shift. */
+const HTML_SIZED = new Set(['img', 'video', 'source']);
+
+const ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
+  ...HTML_TAG_RULES,
+  ...SVG_ATTRIBUTE_RULES,
+};
+
+function placeName(on: AttributePlace): string {
+  if (on === 'html') return 'an html element';
+  if (on === 'svg') return 'an svg shape';
+  if (on === 'any') return 'any element';
+  return on.map((tag) => `<${tag}>`).join(' or ');
+}
+
+function fits(on: AttributePlace, tag: string): boolean {
+  if (on === 'any') return true;
+  if (on === 'html') return !SVG_TAG_SET.has(tag);
+  if (on === 'svg') return SVG_TAG_SET.has(tag);
+  return on.includes(tag);
+}
+
+/**
+ * What is wrong with `name='value'` on `<tag>`, or undefined when it may
+ * stand. The sentence names the tag and the fix, because the door's refusal
+ * is the repair round's only instruction.
+ */
+export function customCodeAttributeProblem(
+  tag: string,
+  name: string,
+  value: string,
+): string | undefined {
+  if (name === 'width' || name === 'height') {
+    if (SVG_TAG_SET.has(tag)) return svgLength(value, name);
+    if (!HTML_SIZED.has(tag)) return `${name} belongs on <img>, <video>, <source> or an svg shape, not <${tag}>`;
+    return /^\d{1,5}$/u.test(value) ? undefined : `${name} on <${tag}> is a whole number of pixels`;
+  }
+  const rule = Object.hasOwn(ATTRIBUTE_RULES, name) ? ATTRIBUTE_RULES[name] : undefined;
+  if (rule === undefined) return `${name} is not an attribute the vocabulary admits`;
+  if (!fits(rule.on, tag)) return `${name} belongs on ${placeName(rule.on)}, not <${tag}>`;
+  if (name === 'src' && (tag === 'video' || tag === 'source')) return safeAddress(value, name);
+  const problem = rule.value?.(value, name);
+  return problem === undefined ? undefined : `<${tag}> ${problem}`;
+}
+
+/** The parents a `source` means something in; anywhere else it is inert. */
+const SOURCE_PARENTS = new Set(['picture', 'video']);
+
+/**
+ * What is wrong with an element where it stands — its attributes, and its
+ * place among its parent's children — as `{ path, message }` pairs, the path
+ * relative to the element. Tolerant: it reads unvalidated input and reports
+ * only what it can name.
+ */
+function elementProblems(
+  node: Record<string, unknown>,
+  parentTag: string | undefined,
+): readonly { readonly path: readonly (string | number)[]; readonly message: string }[] {
+  const tag = node['tag'];
+  if (typeof tag !== 'string') return [];
+  const found: { path: (string | number)[]; message: string }[] = [];
+  const attributes = node['attributes'];
+  const record =
+    typeof attributes === 'object' && attributes !== null && !Array.isArray(attributes)
+      ? (attributes as Record<string, unknown>)
+      : {};
+  for (const [name, value] of Object.entries(record)) {
+    if (typeof value !== 'string') continue;
+    const problem = customCodeAttributeProblem(tag, name, value);
+    if (problem !== undefined) found.push({ path: ['attributes', name], message: problem });
+  }
+  const svg = SVG_TAG_SET.has(tag);
+  const inSvg = parentTag !== undefined && SVG_TAG_SET.has(parentTag);
+  if (svg && tag !== 'svg' && !inSvg) {
+    found.push({ path: ['tag'], message: `<${tag}> is drawn only inside an <svg>` });
+  }
+  if (!svg && inSvg) {
+    found.push({
+      path: ['tag'],
+      message: `An svg holds only shapes (${CUSTOM_CODE_SVG_TAGS.join(', ')}), not <${tag}>`,
+    });
+  }
+  if (svg && typeof node['text'] === 'string' && node['text'].trim() !== '') {
+    found.push({ path: ['text'], message: `<${tag}> is a shape and holds no text` });
+  }
+  if (tag === 'source' && (parentTag === undefined || !SOURCE_PARENTS.has(parentTag))) {
+    found.push({ path: ['tag'], message: '<source> belongs inside a <picture> or a <video>' });
+  }
+  if (tag === 'video' && typeof record['autoplay'] === 'string' && typeof record['muted'] !== 'string') {
+    found.push({
+      path: ['attributes', 'autoplay'],
+      message: '<video> that plays by itself is muted: write autoplay muted loop playsinline',
+    });
+  }
+  return found;
+}
+
+/**
+ * Every problem in a tree, in document order, each with its path from the
+ * root — the per-tag half of the door, after the shape half (tags, keys,
+ * ceilings) has passed. Iterative, like every walk in this file.
+ */
+export function customCodeTreeProblems(
+  value: unknown,
+): readonly { readonly path: readonly (string | number)[]; readonly message: string }[] {
+  const found: { path: readonly (string | number)[]; message: string }[] = [];
+  const stack: {
+    node: unknown;
+    path: readonly (string | number)[];
+    parentTag: string | undefined;
+  }[] = [{ node: value, path: [], parentTag: undefined }];
+  while (stack.length > 0) {
+    const entry = stack.pop();
+    /* v8 ignore next -- pop() on a non-empty stack always yields an entry. */
+    if (entry === undefined) continue;
+    const node = entry.node;
+    if (typeof node !== 'object' || node === null || Array.isArray(node)) continue;
+    const record = node as Record<string, unknown>;
+    if (record['kind'] === 'element') {
+      for (const problem of elementProblems(record, entry.parentTag)) {
+        found.push({ path: [...entry.path, ...problem.path], message: problem.message });
+      }
+    } else if (
+      (record['kind'] === 'icon' || record['kind'] === 'component') &&
+      entry.parentTag !== undefined &&
+      SVG_TAG_SET.has(entry.parentTag)
+    ) {
+      found.push({
+        path: [...entry.path, 'kind'],
+        message: `An svg holds only shapes, not ${record['kind'] === 'icon' ? 'an icon' : 'a component'}`,
+      });
+    }
+    const children = record['children'];
+    if (!Array.isArray(children)) continue;
+    const tag = typeof record['tag'] === 'string' ? record['tag'] : undefined;
+    for (let at = children.length - 1; at >= 0; at -= 1) {
+      stack.push({
+        node: children[at],
+        path: [...entry.path, 'children', at],
+        parentTag: record['kind'] === 'element' ? tag : undefined,
+      });
+    }
+  }
+  return found;
+}
 
 /** The shape of a Lucide name: lowercase words joined by single hyphens, digits allowed. */
 export const CUSTOM_CODE_ICON_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -261,10 +762,25 @@ const nodeSchema: z.ZodType<CustomCodeNode> = z.lazy(() =>
   ]),
 );
 
-const structureSchema = z.strictObject({
-  kind: z.literal('root'),
-  children: z.array(nodeSchema),
-});
+/*
+  The per-tag rules run once over the whole tree, after the shape has passed:
+  where an element stands (an svg shape outside an svg, a source outside a
+  picture) is a fact about its parent, which a node schema never sees. Only
+  the first few problems are reported — the kernel shows the first, and a
+  repair round needs one sentence per mistake, not a wall of them.
+*/
+const TREE_PROBLEMS_REPORTED = 8;
+
+const structureSchema = z
+  .strictObject({
+    kind: z.literal('root'),
+    children: z.array(nodeSchema),
+  })
+  .superRefine((tree, context) => {
+    for (const { path, message } of customCodeTreeProblems(tree).slice(0, TREE_PROBLEMS_REPORTED)) {
+      context.addIssue({ code: 'custom', message, path: [...path] });
+    }
+  });
 
 export interface CustomCodeRoot {
   kind: 'root';
@@ -319,6 +835,41 @@ const TAG_SET: ReadonlySet<string> = new Set(CUSTOM_CODE_TAGS);
 /** Whether a tag name is in the render vocabulary — the renderer's read guard. */
 export function isCustomCodeTag(tag: string): tag is CustomCodeTag {
   return TAG_SET.has(tag);
+}
+
+const TAG_SPELLING: ReadonlyMap<string, CustomCodeTag> = new Map(
+  CUSTOM_CODE_TAGS.map((tag) => [tag.toLowerCase(), tag]),
+);
+
+/*
+  React spells a few attributes in camel case (`srcSet`, `colSpan`,
+  `strokeWidth`), and a model that writes a tree as JSON often borrows that
+  spelling; an HTML reader lower-cases everything (`viewbox`). Both fold to
+  the vocabulary's own name.
+*/
+const ATTRIBUTE_SPELLING: ReadonlyMap<string, CustomCodeAttribute> = new Map(
+  CUSTOM_CODE_ATTRIBUTES.flatMap((name): [string, CustomCodeAttribute][] => [
+    [name.toLowerCase(), name],
+    [name.replace(/-/gu, '').toLowerCase(), name],
+  ]),
+);
+
+/**
+ * A tag as the vocabulary spells it, whatever its case (`lineargradient` →
+ * `linearGradient`, `DIV` → `div`); undefined when the vocabulary has no such
+ * tag. For readers that fold case — an HTML tokenizer, a model's JSON.
+ */
+export function customCodeTagSpelling(tag: string): CustomCodeTag | undefined {
+  return TAG_SPELLING.get(tag.toLowerCase());
+}
+
+/**
+ * An attribute as the vocabulary spells it, whatever its case or React's
+ * camel case (`viewbox` → `viewBox`, `strokeWidth` → `stroke-width`,
+ * `srcSet` → `srcset`); undefined when the vocabulary has no such attribute.
+ */
+export function customCodeAttributeSpelling(name: string): CustomCodeAttribute | undefined {
+  return ATTRIBUTE_SPELLING.get(name.toLowerCase()) ?? ATTRIBUTE_SPELLING.get(name.replace(/-/gu, '').toLowerCase());
 }
 
 /**

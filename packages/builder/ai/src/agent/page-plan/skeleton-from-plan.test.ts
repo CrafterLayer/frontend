@@ -907,6 +907,30 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
     expect(onHeadless).not.toContain('scroll-margin-top');
   });
 
+  // A block written before a header rule's wording changed still marks a header on the page.
+  it('reads an earlier block’s header by any of its rules, not one exact string', () => {
+    const older = [
+      '.ck-page-plan{--ck-page-plan:1}',
+      `${REGION}:has(> header.sticky){position:sticky;top:0}`,
+      '.ck-page-plan-end{--ck-page-plan:0}',
+    ].join('\n');
+    const appended = pageCssOf(
+      skeletonFromPlan(arabicCafe('append'), {
+        parentId: 'root',
+        regionType: 'customCode',
+        currentPageCss: `.mine{color:red}\n${older}`,
+      }).plan,
+    );
+    expect(appended).toContain('.mine{color:red}');
+    expect(appended).not.toContain(`${REGION}:has(> header.sticky){position:sticky;top:0}\n`);
+    expect(appended).toContain(
+      `${REGION}:has(> header.sticky),:has(> ${REGION} > header.sticky){position:sticky;top:0;z-index:40}`,
+    );
+    expect(appended).toContain('.ck-bar{flex-wrap:wrap}');
+    expect(appended).toContain(`${REGION} [id]{scroll-margin-top:8rem}`);
+    expect(appended.split('.ck-page-plan{').length - 1).toBe(1);
+  });
+
   /*
     The door must take the code-written skeleton of EVERY plan T1 can
     propose: when it refuses one on an automatic build, the validated plan is
@@ -940,7 +964,17 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
         ? [...bands.slice(0, 2), cta]
         : [
             { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Nav.' },
-            { key: 'hero', role: 'hero', title: row.trades, anchorId: 'hero', purpose: 'Pitch.' },
+            {
+              key: 'hero',
+              role: 'hero',
+              /*
+                A section title is 1–80 characters; the dental and barber rows
+                carry an empty `trades` (direction-deck.ts, 2026-09-28).
+              */
+              title: (row.trades.trim() || row.id).slice(0, 60).trim(),
+              anchorId: 'hero',
+              purpose: 'Pitch.',
+            },
             ...bands,
             cta,
             {

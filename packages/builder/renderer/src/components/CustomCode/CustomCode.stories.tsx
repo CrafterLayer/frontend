@@ -144,3 +144,150 @@ export const Malformed: Story = {
 
 /** Nothing stored at all. An empty region is a region, not an error. */
 export const Empty: Story = {};
+
+/*
+  Design markup (2026-09-28): what a professional section reaches for, with no
+  script — each story is the pattern the craftkit.design-code skill teaches.
+*/
+
+/** A FAQ that opens without script; `name` keeps one answer open at a time. */
+export const Faq: Story = {
+  args: {
+    tree: tree(
+      ...[
+        ['Do you roast every day?', 'Every morning at seven, in small batches.'],
+        ['Can I order beans online?', 'Yes — delivery inside Amman the same day.'],
+        ['Do you offer decaf?', 'A Swiss-water decaf from Colombia, always on the shelf.'],
+      ].map(
+        ([question = '', answer = ''], at): CustomCodeRoot['children'][number] => ({
+          kind: 'element',
+          tag: 'details',
+          attributes: at === 0 ? { name: 'faq', open: '' } : { name: 'faq' },
+          children: [
+            { kind: 'element', tag: 'summary', text: question },
+            { kind: 'element', tag: 'p', text: answer },
+          ],
+        }),
+      ),
+    ),
+  },
+};
+
+/** A comparison table: header scopes for screen readers, a caption for the table's name. */
+export const PricingTable: Story = {
+  args: {
+    tree: tree({
+      kind: 'element',
+      tag: 'table',
+      children: [
+        { kind: 'element', tag: 'caption', text: 'Plans compared' },
+        {
+          kind: 'element',
+          tag: 'thead',
+          children: [
+            {
+              kind: 'element',
+              tag: 'tr',
+              children: [
+                { kind: 'element', tag: 'th', attributes: { scope: 'col' }, text: 'Feature' },
+                { kind: 'element', tag: 'th', attributes: { scope: 'col' }, text: 'Basic' },
+                { kind: 'element', tag: 'th', attributes: { scope: 'col' }, text: 'Pro' },
+              ],
+            },
+          ],
+        },
+        {
+          kind: 'element',
+          tag: 'tbody',
+          children: [
+            {
+              kind: 'element',
+              tag: 'tr',
+              children: [
+                { kind: 'element', tag: 'th', attributes: { scope: 'row' }, text: 'Seats' },
+                { kind: 'element', tag: 'td', text: '1' },
+                { kind: 'element', tag: 'td', text: '5' },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  },
+};
+
+/** A wave divider drawn in place: paint from `currentColor`, geometry only. */
+export const WaveDivider: Story = {
+  args: {
+    tree: tree({
+      kind: 'element',
+      tag: 'svg',
+      attributes: { viewBox: '0 0 1440 80', preserveAspectRatio: 'none', 'aria-hidden': 'true' },
+      className: 'block h-16 w-full text-stone-200',
+      children: [
+        {
+          kind: 'element',
+          tag: 'path',
+          attributes: { d: 'M0 40C360 80 1080 0 1440 40V80H0Z', fill: 'currentColor' },
+        },
+      ],
+    }),
+  },
+};
+
+/** A menu a phone opens: the button names the popover by id, a tap outside closes it. */
+export const PopoverMenu: Story = {
+  args: {
+    tree: tree(
+      {
+        kind: 'element',
+        tag: 'button',
+        attributes: { popovertarget: 'story-menu', 'aria-label': 'Page sections' },
+        children: [{ kind: 'icon', name: 'menu' }],
+      },
+      {
+        kind: 'element',
+        tag: 'nav',
+        attributes: { id: 'story-menu', popover: '', 'aria-label': 'Page sections' },
+        children: ['Menu', 'Story', 'Visit'].map(
+          (label): CustomCodeRoot['children'][number] => ({
+            kind: 'element',
+            tag: 'a',
+            text: label,
+            attributes: { href: `#${label.toLowerCase()}` },
+          }),
+        ),
+      },
+    ),
+  },
+};
+
+/**
+ * A video backdrop: it plays by itself, so the renderer mutes it and keeps it
+ * inline whatever the tree says. The poster shows until the first frame.
+ */
+export const VideoHero: Story = {
+  args: {
+    tree: tree({
+      kind: 'element',
+      tag: 'video',
+      attributes: {
+        autoplay: '',
+        loop: '',
+        poster: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1280',
+        width: '1280',
+        height: '720',
+      },
+      children: [
+        {
+          kind: 'element',
+          tag: 'source',
+          attributes: {
+            src: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+            type: 'video/mp4',
+          },
+        },
+      ],
+    }),
+  },
+};

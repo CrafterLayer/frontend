@@ -31,6 +31,7 @@ import type {
   PlanOp,
   PlanView,
   ProposalView,
+  RestoreResult,
   StepPlanView,
 } from '../model/view-types';
 
@@ -358,7 +359,10 @@ export function useLivePlan(
     [locale],
   );
 
-  const accepts = useCallback((op: PlanOp) => applyPlanOp(latest.current, op) !== latest.current, []);
+  const accepts = useCallback(
+    (op: PlanOp) => applyPlanOp(latest.current, op) !== latest.current,
+    [],
+  );
 
   return { view: planViewOf(original, draft, frame), edit, accepts, announcement };
 }
@@ -497,4 +501,25 @@ export function stepsPageWide(locale: Locale): StepPlanView {
 /** While the model drafts the steps: a working record. */
 export function stepsDrafting(): StepPlanView {
   return { turnId: 'turn-steps', status: 'drafting', steps: [] };
+}
+
+/* ── RestoreDialog (SPEC §4.15) ─────────────────────────────────────────────── */
+
+/**
+ * `AgentController.restore` for one turn, answering `result` after `delayMs`: `restored`
+ * when the door took the forward transaction, `conflict` when the same parts changed after
+ * the request. A delay long enough to see the working state is a story's choice.
+ */
+export function restoreAnswering(result: RestoreResult, delayMs = 0): () => Promise<RestoreResult> {
+  return () =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(result);
+      }, delayMs);
+    });
+}
+
+/** A restore that never answers: the dialog holds its working state. */
+export function restorePending(): () => Promise<RestoreResult> {
+  return () => new Promise<RestoreResult>(() => undefined);
 }

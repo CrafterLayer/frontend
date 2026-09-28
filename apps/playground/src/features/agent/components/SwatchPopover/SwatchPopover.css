@@ -219,8 +219,7 @@
 }
 
 .ck-agent-swatch-popover[data-state='closed'] {
-  animation: ck-agent-swatch-popover-out var(--bldr-duration-exit) var(--bldr-easing-exit)
-    forwards;
+  animation: ck-agent-swatch-popover-out var(--bldr-duration-exit) var(--bldr-easing-exit) forwards;
 }
 
 @keyframes ck-agent-swatch-popover-in {

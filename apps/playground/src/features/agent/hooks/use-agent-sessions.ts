@@ -179,12 +179,10 @@ export function useAgentSessions(options: UseAgentSessionsOptions = {}): AgentSe
   const updateTurns = useCallback(
     (sessionId: string, change: (turns: readonly Turn[]) => readonly Turn[]) => {
       store.setState((previous) => {
-        let changed = false;
         const sessions = previous.sessions.map((session) => {
           if (session.id !== sessionId) return session;
           const turns = change(session.turns);
           if (turns === session.turns) return session;
-          changed = true;
           return {
             ...session,
             turns,
@@ -192,7 +190,10 @@ export function useAgentSessions(options: UseAgentSessionsOptions = {}): AgentSe
             updatedAt: clock(),
           };
         });
-        return changed ? { ...previous, sessions } : previous;
+        // Nothing changed: the same state, so nothing re-renders and nothing is re-saved.
+        return sessions.some((session, index) => session !== previous.sessions[index])
+          ? { ...previous, sessions }
+          : previous;
       });
     },
     [clock, store],
@@ -202,7 +203,7 @@ export function useAgentSessions(options: UseAgentSessionsOptions = {}): AgentSe
     const current = store.getState();
     const active = current.sessions.find((session) => session.id === current.activeId);
     // An empty conversation is reused: New twice must not pile up blank rows.
-    if (active !== undefined && active.turns.length === 0) return active.id;
+    if (active?.turns.length === 0) return active.id;
     const id = nextId('session');
     store.setState((previous) => ({
       ...previous,

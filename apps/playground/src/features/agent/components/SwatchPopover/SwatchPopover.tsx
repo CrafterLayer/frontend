@@ -93,8 +93,11 @@ export function SwatchPopover({ locale, role, hex, judge, onChange }: SwatchPopo
   const [candidate, setCandidate] = useState(hex);
   const [field, setField] = useState(shownHex(hex));
   const fieldRef = useRef<HTMLInputElement>(null);
-  /** Set by Esc: the hex field's blur that follows must not apply what was typed. */
-  const cancelling = useRef(false);
+  /**
+   * Set when the popover is answered (Esc cancels; Enter applied): the hex field's blur that
+   * follows must not apply what was typed, or apply it a second time.
+   */
+  const settled = useRef(false);
 
   const keys = VERDICT[role];
   const roleName = t(locale, `role.${role}`);
@@ -137,6 +140,7 @@ export function SwatchPopover({ locale, role, hex, judge, onChange }: SwatchPopo
 
   const onOpenChange = (next: boolean) => {
     if (next) {
+      settled.current = false;
       setCandidate(hex);
       setField(shownHex(hex));
     }
@@ -198,7 +202,7 @@ export function SwatchPopover({ locale, role, hex, judge, onChange }: SwatchPopo
             fieldRef.current?.select();
           }}
           onEscapeKeyDown={() => {
-            cancelling.current = true;
+            settled.current = true;
           }}
         >
           <p id={titleId} className="ck-agent-swatch-popover__title">
@@ -241,13 +245,13 @@ export function SwatchPopover({ locale, role, hex, judge, onChange }: SwatchPopo
                 if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
                 event.preventDefault();
                 const value = parseHex(field);
-                if (value !== null && commit(value)) setOpen(false);
+                if (value !== null && commit(value)) {
+                  settled.current = true;
+                  setOpen(false);
+                }
               }}
               onBlur={() => {
-                if (cancelling.current) {
-                  cancelling.current = false;
-                  return;
-                }
+                if (settled.current) return;
                 const value = parseHex(field);
                 if (value !== null) commit(value);
               }}

@@ -198,10 +198,15 @@ export function HistoryPopover({
     }
     const target = sessions.length === 0 ? focusWhenEmpty?.() : undefined;
     if (target !== undefined && target !== null) {
-      // Focus leaving a non-modal popover closes it; the sheet's list closes here.
+      /*
+        Nothing is left to list, so the list closes, with focus already on New conversation
+        (and kept there: `interactedOutside`). Closed here rather than left to Radix's
+        focus-outside: the focused confirm button was removed with its row, and a removed
+        element fires no blur, so Radix still believes focus is inside the popover.
+      */
       interactedOutside.current = true;
       target.focus();
-      if (presentation === 'sheet') onOpenChange(false);
+      onOpenChange(false);
       return;
     }
     emptyRef.current?.focus();
@@ -280,9 +285,9 @@ export function HistoryPopover({
   };
 
   const onListFocus = (event: FocusEvent<HTMLUListElement>): void => {
-    const sessionId = (event.target as HTMLElement).closest<HTMLElement>(ROW)?.getAttribute(
-      'data-session',
-    );
+    const sessionId = (event.target as HTMLElement)
+      .closest<HTMLElement>(ROW)
+      ?.getAttribute('data-session');
     if (sessionId !== null && sessionId !== undefined && sessionId !== activeId) {
       setActiveId(sessionId);
     }
@@ -417,7 +422,8 @@ export function HistoryPopover({
           sideOffset={4}
           collisionPadding={8}
           // Inside the panel, the panel is the boundary: the list spans it less 8px a side.
-          collisionBoundary={container?.matches('.ck-agent') === true ? container : undefined}
+          // (Radix's own default is `[]`: the viewport.)
+          collisionBoundary={container?.matches('.ck-agent') === true ? container : []}
           sticky="always"
           lang={scope.lang ?? locale}
           dir={scope.dir ?? (locale === 'ar' ? 'rtl' : 'ltr')}

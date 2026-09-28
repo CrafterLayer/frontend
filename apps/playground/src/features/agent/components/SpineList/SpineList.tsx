@@ -1,4 +1,4 @@
-import type { AnimationEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { t } from '../../copy';
 import type { Locale, SpineRowView } from '../../model/view-types';
@@ -59,8 +59,35 @@ export function SpineList({
   onRetry,
 }: SpineListProps) {
   const trailing = rows.some((row) => trailingActionOf(row) !== null);
+
+  /*
+    The sweep's end, heard on the list itself: a row's own animations bubble through it and
+    are not the sweep's. A native listener, not React's `onAnimationEnd`, which React binds to
+    a vendor-prefixed event name where `AnimationEvent` is missing (jsdom), so the end never
+    reached the record there.
+  */
+  const list = useRef<HTMLOListElement | null>(null);
+  // The newest callback, so a caller's inline arrow does not re-bind the listener every render.
+  const sweepEnd = useRef(onSweepEnd);
+  useLayoutEffect(() => {
+    sweepEnd.current = onSweepEnd;
+  });
+  useEffect(() => {
+    const element = list.current;
+    if (element === null) return;
+    const handle = (event: Event) => {
+      if (event.target !== element) return;
+      if ((event as Partial<AnimationEvent>).animationName === SWEEP) sweepEnd.current?.();
+    };
+    element.addEventListener('animationend', handle);
+    return () => {
+      element.removeEventListener('animationend', handle);
+    };
+  }, []);
+
   return (
     <ol
+      ref={list}
       id={id}
       // WebKit drops list semantics from a list styled without markers.
       role="list"
@@ -68,9 +95,6 @@ export function SpineList({
       className="ck-agent-spine"
       data-trailing={trailing ? '' : undefined}
       data-sweep={sweep ? '' : undefined}
-      onAnimationEnd={(event: AnimationEvent<HTMLOListElement>) => {
-        if (event.target === event.currentTarget && event.animationName === SWEEP) onSweepEnd?.();
-      }}
     >
       {rows.map((row, index) => {
         const next = rows[index + 1];
@@ -79,7 +103,7 @@ export function SpineList({
             key={row.key}
             locale={locale}
             row={row}
-            next={next === undefined ? null : next}
+            next={next ?? null}
             live={live}
             arrival={arrive ? index : undefined}
             revivedCaptionId={revivedCaptionId}

@@ -1,0 +1,72 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ComposerToolbarStories from './ComposerToolbar.stories';
+
+<Meta of={ComposerToolbarStories} />
+
+# ComposerToolbar
+
+The composer's bottom row (SPEC §4.17): Mode ▾ and Model ▾ at the inline start; ✨ Improve, `[@]` and
+the Send slot at the inline end.
+
+<Canvas of={ComposerToolbarStories.Ready} />
+
+## Purpose
+
+Read in the order a request is made: how it may touch the page, who writes it, then the tools for the
+words, then Send, the last thing the hand reaches. A control with nothing to offer is absent, never
+dead: one model means no ModelMenu, no rewriting means no ✨.
+
+## Props
+
+| prop            | type                           | default | notes                                                  |
+| --------------- | ------------------------------ | ------- | ------------------------------------------------------ |
+| `locale`        | `Locale`                       | none    |                                                        |
+| `mode`          | `AssistantMode`                | none    |                                                        |
+| `model`         | `ModelSelectionView \| null`   | none    | `null`: no model menu                                  |
+| `send`          | `SendState`                    | none    | also tells ✨ whether the draft is empty               |
+| `enhancement`   | `EnhancementView`              | none    |                                                        |
+| `running`       | `boolean`                      | none    | Mode says it applies next time; ✨ waits               |
+| `onModeChange`  | `(mode: AssistantMode) => void`| none    |                                                        |
+| `onModelChange` | `(id: string) => void`         | none    | receives the raw id, which is never shown              |
+| `onMention`     | `() => void`                   | none    | the Composer types the `@` and opens the list          |
+| `onEnhance`     | `() => void`                   | none    |                                                        |
+| `onSend`        | `() => void`                   | none    |                                                        |
+| `className`     | `string`                       | none    | appended to `ck-agent-toolbar`                         |
+
+The folder also holds the pieces ModeMenu and ModelMenu share: `ChoiceMenu` (a ghost trigger over a
+Radix DropdownMenu radio group of two-line items) and `ComposerTooltip` (IconButton's tooltip for
+labelled triggers: Stop, Send, ✨ and the menu triggers).
+
+## States
+
+| story                                   | what it shows                                           |
+| --------------------------------------- | ------------------------------------------------------- |
+| `Ready`, `ReadyDark`, `ReadyRightToLeft`| the order, in both directions                           |
+| `Empty`                                 | ✨ and Send wait, still focusable and explained          |
+| `Running`, `Queued`, `QueuedRightToLeftDark` | Queue as next; the Queued pill                     |
+| `Enhancing`, `ImproveUnavailable`       | ✨ at work; ✨ absent                                     |
+| `NoModelChoice`                         | one model: no menu                                      |
+| `Mention`                               | `[@]` calls back                                        |
+| `Narrow` (288)                          | the actions wrap under the choices rather than clip     |
+| `CoarsePointer`, `CoarsePointerRightToLeft` | 44px items 8px apart, previewed                     |
+
+## Anatomy
+
+36px of the composer's budget: 32px items with 4px between them, 4px under the text; 44px items 8px
+apart under a coarse pointer (SPEC §2.3, §6.4). The target size and gap are inherited custom
+properties (`--ck-agent-target`, `--ck-agent-toolbar-gap`), set by the stylesheets only under
+`(pointer: coarse)`, so the phone sheet or a story can preview them from an ancestor.
+
+## Accessibility
+
+- Every control is a button in the tab order, in reading order.
+- The mode trigger is never disabled: a mode chosen while running applies to the next request.
+
+## RTL
+
+The choices at the right, the actions at the left, by `justify-content` and logical margins.
+
+## Motion
+
+None of its own; its menus open with SPEC §5 moment 9.

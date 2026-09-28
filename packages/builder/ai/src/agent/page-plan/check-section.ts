@@ -552,13 +552,23 @@ const SCAFFOLD_LEFTOVERS = ['THE SECTION TITLE'];
   - a mask: three or more X where letters or digits belong (XXX-XXXX, 07XXXXXXXX);
   - masked digits: a phone-shaped run (it starts with +, ( or 0) of seven or
     more digits holding six of one digit in a row — 0000000, +962 7 9000 0000,
-    (555) 555-5555. A price never starts that way, so 1,000,000 is left alone;
-  - an address at a placeholder domain (info@example.com, www.yourdomain.com).
+    (555) 555-5555 — or counting seven in a row, the other stand-in a writer
+    reaches for (+962 79 123 4567). A price never starts that way, so
+    1,000,000 is left alone;
+  - an address at a placeholder domain (info@example.com, www.yourdomain.com,
+    hello@yourbusiness.com).
 */
 const MASK_LETTERS = /(?<!\p{L})[xX]{3,}(?!\p{L})/u;
 const PHONE_RUN = /[+(]?[0-9][0-9 ().-]{5,}[0-9]/gu;
+const MASKED_DIGITS = /([0-9])\1{5,}|1234567|7654321/u;
 const PLACEHOLDER_ADDRESS =
-  /[\w.+-]*@(?:example|domain|yourdomain|yourcompany|yoursite|company|email)\.(?:com|net|org)\b|(?:https?:\/\/)?(?:www\.)?(?:example|yourdomain|yourcompany|yoursite|yourwebsite)\.(?:com|net|org)\b/iu;
+  /[\w.+-]*@(?:example|domain|yourdomain|yourcompany|yoursite|yourbusiness|yourbrand|yourname|mybusiness|company|email|website)\.(?:com|net|org)\b|(?:https?:\/\/)?(?:www\.)?(?:example|yourdomain|yourcompany|yoursite|yourwebsite|yourbusiness|yourbrand|mybusiness|mysite|mywebsite|website)\.(?:com|net|org)\b/iu;
+/*
+  The instruction a template leaves before a field's name — «ضع رقم هاتفك
+  هنا», "Enter your phone number" — is the stand-in all the same. Folded forms
+  (أدخل → ادخل, أضف → اضف), peeled before the name is looked up.
+*/
+const FIELD_INSTRUCTION = /^(?:ضع|اكتب|ادخل|اضف|enter|insert|add|put|type|write) /u;
 
 /**
  * A field's NAME written where its value belongs — «رقم الهاتف» on the line a
@@ -991,7 +1001,7 @@ function maskedValue(value: string): string | undefined {
   const shown = plain.length <= 60 ? plain : undefined;
   const mask = MASK_LETTERS.exec(plain)?.[0];
   if (mask !== undefined) return shown ?? mask;
-  const masked = phoneRuns(plain).find((run) => /([0-9])\1{5,}/u.test(run.replace(/[^0-9]/gu, '')));
+  const masked = phoneRuns(plain).find((run) => MASKED_DIGITS.test(run.replace(/[^0-9]/gu, '')));
   if (masked !== undefined) return shown ?? masked;
   const address = PLACEHOLDER_ADDRESS.exec(plain)?.[0];
   return address === undefined ? undefined : (shown ?? address);
@@ -1001,9 +1011,32 @@ function maskedValue(value: string): string | undefined {
 function fieldNamed(value: string): 'phone' | 'email' | 'name' | 'address' | undefined {
   const afterLabel = value.includes(':') ? (value.split(':').pop() ?? '') : value;
   const folded = foldForMatch(afterLabel)
+    .replace(FIELD_INSTRUCTION, '')
     .replace(/ (?:هنا|here)$/u, '')
     .trim();
   return FIELD_NAMES.get(folded);
+}
+
+/*
+  One address however it is typed: a trailing slash, the case of a scheme and
+  host, and a phone number's spacing do not change where a link leads. The
+  exact compare flagged "https://wa.me/962791234567/" as leading away from
+  the action "https://wa.me/962791234567" — a repair model call for a button
+  that worked.
+*/
+function targetKey(href: string): string {
+  const trimmed = href.trim();
+  if (/^tel:/iu.test(trimmed)) {
+    return `tel:${asciiDigits(trimmed.slice(4)).replace(/[^0-9+]/gu, '')}`;
+  }
+  if (/^mailto:/iu.test(trimmed)) return trimmed.toLowerCase();
+  const web = /^(https?:\/\/[^/?#]+)(.*)$/iu.exec(trimmed);
+  const address = web === null ? trimmed : `${(web[1] ?? '').toLowerCase()}${web[2] ?? ''}`;
+  return address.replace(/(?<=.)\/+(?=$|[?#])/u, '');
+}
+
+function sameTarget(href: string | undefined, target: string): boolean {
+  return href !== undefined && (href === target || targetKey(href) === targetKey(target));
 }
 
 function quoteList(values: readonly string[]): string {
@@ -1076,7 +1109,8 @@ function isBlackOrWhiteRgb(args: string): boolean {
  * one `SectionCheckIssue` per defect (see `SectionCheckCode` for the list):
  * the anchor id on the outer element and every `#link` naming a section that
  * exists or an id inside this section; one h1 on the page and only in the
- * hero; a link styled as a button to `primaryCta.href` labelled
+ * hero; a link styled as a button to `primaryCta.href` (a trailing slash, the
+ * host's case and a phone's spacing aside) labelled
  * `primaryCta.label` (folded: case, hamza, an arrow glyph aside), the action's
  * words on no link that leads elsewhere, and the hero and a `cta` section
  * carrying that action; no `[placeholder]`, lorem or scaffold text and no fact
@@ -1265,10 +1299,10 @@ export function checkSection(
       nowhere: one that carries the action's words or its address is dead.
     */
     if (tagOf(entry) === 'button') {
-      if (saysAction(label) || href === cta.href) deadButton ??= entry;
+      if (saysAction(label) || sameTarget(href, cta.href)) deadButton ??= entry;
       continue;
     }
-    if (href !== cta.href) {
+    if (!sameTarget(href, cta.href)) {
       if (saysAction(label) && !misdirected.has(href ?? '')) misdirected.set(href ?? '', entry);
       continue;
     }
@@ -1366,7 +1400,7 @@ export function checkSection(
   }
   for (const { href, path } of hrefs) {
     // The plan's own action address is the writer's to copy, not to change.
-    if (href === cta.href || !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href)) continue;
+    if (sameTarget(href, cta.href) || !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href)) continue;
     const masked = maskedValue(href.replace(/^(?:tel:|mailto:)/iu, ''));
     if (masked !== undefined && !placeholders.has(masked)) {
       placeholders.set(masked, { path, fact: true });

@@ -54,10 +54,11 @@ export function runViewTransition(update: () => void): void {
     update();
     return;
   }
-  let ran = false;
+  // A box, not a `let`: the browser flips it from a callback the compiler cannot follow.
+  const once = { ran: false };
   const apply = (): void => {
-    if (ran) return;
-    ran = true;
+    if (once.ran) return;
+    once.ran = true;
     flushSync(update);
   };
   try {
@@ -72,8 +73,8 @@ export function runViewTransition(update: () => void): void {
     void transition?.updateCallbackDone?.catch(ignore);
   } catch {
     // The browser refused to start one at all: the state still has to change, now.
-    if (!ran) {
-      ran = true;
+    if (!once.ran) {
+      once.ran = true;
       update();
     }
   }

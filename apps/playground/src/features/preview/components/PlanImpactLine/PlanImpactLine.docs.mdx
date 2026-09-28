@@ -36,17 +36,12 @@ changed" would be true and useless.
 
 <Canvas of={PlanImpactLineStories.DirectionFlip} />
 
-## What it cost
+## No token estimate
 
-The engine's OWN `estimateAiPlanWireRequestTokens`, over the context the run actually carried — so
-the number here is the one `generateAiPlan` checks its budget against, not a second calculation
-wearing the same name.
-
-Rounded to two significant figures and labelled an estimate, because both facts are true and both
-belong on screen: no model was asked, and it measures the REQUEST rather than the answer. "~4.2k"
-says estimate in a way "4,237" does not.
-
-<Canvas of={PlanImpactLineStories.CostOnly} />
+The line used to add the request's token estimate. It is gone (2026-09-28): the owner saw
+"تقدير: ~11.3k توكن" on a one-word title change, because the number measured the whole context this
+panel would send — and the engine now applies a change like that without calling a model at all.
+Cost is telemetry (SPEC §7.4); `costTokens` is still accepted so callers compile, and never shown.
 
 ## When it knows neither
 

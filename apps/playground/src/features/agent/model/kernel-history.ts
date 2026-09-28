@@ -59,7 +59,7 @@ function mergesInto(previous: Entry, next: Entry): boolean {
   if (next.ts - previous.ts > HISTORY_MERGE_WINDOW_MS) return false;
   const a = previous.path;
   const b = next.path;
-  if (a === undefined || b === undefined || a.length !== b.length) return false;
+  if (a === undefined || b?.length !== a.length) return false;
   return a.every((segment, index) => segment === b[index]);
 }
 
@@ -79,14 +79,14 @@ export function recordApplied(shadow: HistoryShadow, tx: ShadowTransaction): His
  */
 export function recordUndone(shadow: HistoryShadow, tx: Pick<ShadowTransaction, 'id'>): HistoryShadow {
   const top = shadow.past.at(-1);
-  if (top === undefined || top.id !== tx.id) return EMPTY_HISTORY;
+  if (top?.id !== tx.id) return EMPTY_HISTORY;
   return { past: shadow.past.slice(0, -1), future: [...shadow.future, top] };
 }
 
 /** `kernel.redo()` put `tx` back. */
 export function recordRedone(shadow: HistoryShadow, tx: Pick<ShadowTransaction, 'id'>): HistoryShadow {
   const next = shadow.future.at(-1);
-  if (next === undefined || next.id !== tx.id) return EMPTY_HISTORY;
+  if (next?.id !== tx.id) return EMPTY_HISTORY;
   return { past: [...shadow.past, next], future: shadow.future.slice(0, -1) };
 }
 

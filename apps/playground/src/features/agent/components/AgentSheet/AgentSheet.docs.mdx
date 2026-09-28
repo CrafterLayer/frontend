@@ -1,0 +1,115 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AgentSheetStories from './AgentSheet.stories';
+
+<Meta of={AgentSheetStories} />
+
+# AgentSheet
+
+The agent panel on a phone (SPEC §4.19, §3.16): below a 600px viewport the panel becomes a sheet
+with two detents, **full** (the chat) and **mini** (one row over the live canvas).
+
+<Canvas of={AgentSheetStories.FullBuilding} />
+
+<Canvas of={AgentSheetStories.MiniBuilding} />
+
+## Purpose
+
+A phone cannot show the chat and the page side by side. The sheet lets the person talk to أبو غضب at
+full, then drop it to one row to watch the sections land on the page, check an edit where it
+happened, or preview a proposal, with Stop, Undo or Apply still under the thumb, and come back.
+
+## When to use / not
+
+AgentPanel renders its content inside AgentSheet when the viewport is under 600px (and at 400% zoom,
+where the viewport is 320 CSS px). The host owns the detent: the sheet asks for a new one through
+`onDetentChange` and never moves by itself. It never rises when a result arrives (§4.19); sending an
+edit in Auto may drop it to mini, and a field taking focus raises it to full.
+
+Do not use it for anything but the agent panel, and do not nest a Radix modal inside it expecting
+the canvas to stay reachable at mini.
+
+## Props
+
+| prop             | type                                  | default  | notes                                                                      |
+| ---------------- | ------------------------------------- | -------- | -------------------------------------------------------------------------- |
+| `locale`         | `Locale`                              | none     | names the dialog and the mini region: «أبو غضب» / "Abu Ghadab"             |
+| `detent`         | `'full' \| 'mini' \| 'closed'`        | none     | controlled                                                                 |
+| `onDetentChange` | `(detent) => void`                    | none     | `[⤓]` and a press above: mini; `[⤒]` and a field: full; `[×]`, Esc: closed |
+| `returnFocus`    | `() => HTMLElement \| null`           | none     | the rail's agent button, focused on close                                  |
+| `children`       | `(sheet: SheetControls) => ReactNode` | none     | the full face: phone header, thread, dock                                  |
+| `mini`           | `(sheet: SheetControls) => ReactNode` | none     | the mini face: a SheetMiniBar                                              |
+| `persistent`     | `ReactNode`                           | none     | the one live region (LiveStatus), mounted once, never inert                |
+| `container`      | `Element \| DocumentFragment \| null` | in place | portal target when an ancestor would contain the fixed layers              |
+
+`SheetControls` gives both faces `detent`, `showPage`, `backToChat`, `close`, and two callback refs:
+`showPageRef` for `[⤓]` (focus lands there on rising) and `backToChatRef` for `[⤒]` (focus lands
+there on dropping). `useKeyboardInset(active)` is exported for the composer's own use.
+
+## States
+
+| story                                                                                   | what it shows                                                      |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `FullEmpty` (+ dark, Arabic, Arabic dark)                                               | the §3.16 first frame: greeting, three starters, 16px composer     |
+| `FullBuilding`, `FullBuildingArabic`, `…ArabicDark`                                     | the §3.16 second frame: 44px rows, the 52px RunBar, 44px Stop      |
+| `FullConversations`, `FullConversationsArabic`                                          | the Conversations page of the sheet, Back where Close stood        |
+| `FullSafeArea`                                                                          | a 34px home indicator: the dock ends above it                      |
+| `MiniSkeleton` … `MiniIdle`, each also in Arabic                                        | every mini-row moment (see SheetMiniBar), over the live canvas     |
+| `MiniBuildingDark`, `MiniBuildingArabicDark`, `MiniBuiltArabicDark`, `MiniProposalDark` | dark                                                               |
+| `MiniSafeArea`                                                                          | the mini row clear of a 34px home indicator                        |
+| `DetentFlow`                                                                            | `[⤓]` → mini, focus `[⤒]`; `[⤒]` → full, focus `[⤓]`; `[×]` → rail |
+| `EscapeCloses`                                                                          | Esc closes; focus back on the rail's agent button                  |
+
+All stories are a 390 × 844 phone, sized for a finger whatever the pointer.
+
+## Anatomy
+
+**Full:** fixed from under the editor's top bar (`--bldr-topbar-height`, which stays visible) to the
+keyboard, Paper, 12px top corners, the overlay shadow (e3). Inside, the panel's own parts at the
+phone's density, set on the sheet's root: a 56px header, 44px rows and targets with 8px between
+them, the 52px RunBar, and 16px input text so iOS never zooms. A transparent band over the top bar
+drops the sheet to mini when pressed.
+
+**Mini:** fixed to the bottom, Paper, 12px top corners, e3: the SheetMiniBar, then 8px or the home
+indicator's inset, whichever is taller.
+
+**Closed:** both faces slide away and stop being drawn; everything stays mounted (§4.1).
+
+Safe areas: the bottom inset keeps the dock and the mini row off the home indicator; the side insets
+(landscape) keep them off the notch, swapped under RTL because the insets are physical and the
+sheet's edges logical.
+
+## Accessibility
+
+- **Full** is a modal dialog: `role="dialog"`, `aria-modal`, named «أبو غضب» / "Abu Ghadab". Tab and
+  Shift+Tab loop inside it (two invisible guards at its edges). Esc closes it, except from a field
+  that owns its Esc (the composer, an inline rename) and except while a tooltip or menu on top takes
+  it first. Focus arrives on the dialog, or on `[⤓]` when it rises from mini, or stays in the field
+  that raised it.
+- **Mini** is a region with the same name, not a dialog: the canvas stays interactive and keeps its
+  own Esc. The full face is `inert`.
+- Focus (SPEC §6.3): dropping to mini lands on `[⤒]`, but only if focus was in the sheet (a drop
+  never takes focus from the canvas); closing returns it to the rail's agent button.
+- The panel's one live region (`persistent`) is mounted once, outside both faces, so it is never
+  made inert, hidden or remounted by a detent change (§6.1).
+- Why not a Radix Dialog, as §4.19 first drew it: a Radix modal hides everything outside it and
+  unmounts its content when closed. The mini detent needs the canvas reachable while the thread and
+  the live region survive; a force-mounted Radix Dialog would keep claiming every Esc on the page.
+  This sheet keeps Radix's contract (dialog role, focus kept inside and returned, Esc) and drops
+  only what fights the second detent.
+
+## RTL
+
+Logical properties only; the sheet moves on the block axis alone, so nothing mirrors in motion. The
+safe-area side insets swap under `:dir(rtl)`. Its faces take `dir`, `lang` and the theme from the
+panel; the theme is also stamped on the sheet's root, so menus and tooltips opened in it mount
+inside the dialog.
+
+## Motion
+
+Detent changes move the faces on the block axis: rising over 220ms (`enter`, `easing-enter`), and
+closing over 140ms (`exit`, `easing-exit`), accelerating away. Dropping from full, the row is
+already in place as the chat slides off it; rising from mini, the row stays put under the rising
+chat. `visibility` switches at the end of the slide, so nothing is left painted under the canvas.
+Instant under reduced motion. The composer rides the visual viewport above the on-screen keyboard
+(`useKeyboardInset`); a pinch zoom never throws the sheet upward.

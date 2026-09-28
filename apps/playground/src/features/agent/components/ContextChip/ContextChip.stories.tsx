@@ -115,7 +115,10 @@ export const Selection: Story = {
 
 /** A chip that only shows what a paused request is about: no `×`. */
 export const ReadOnly: Story = {
-  args: { chip: blockChip('en', 'services'), onRemove: undefined },
+  render: ({ locale }) => <ContextChip locale={locale} chip={blockChip(locale, 'services')} />,
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByRole('button')).toBeNull();
+  },
 };
 
 /** The block is gone: struck through, and the line under it says so. */

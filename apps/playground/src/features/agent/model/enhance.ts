@@ -1,4 +1,10 @@
-import type { IntentDocumentSummary, IntentKind, IntentRoute } from '@craftkit/builder';
+import {
+  AI_PROMPT_ENHANCE_MAX_SECTIONS,
+  type AiPromptEnhanceInput,
+  type IntentDocumentSummary,
+  type IntentKind,
+  type IntentRoute,
+} from '@craftkit/builder';
 
 import type { ClarifyQuestionView, ErrorClass, FailureClass, Locale } from './view-types';
 
@@ -10,7 +16,7 @@ import type { ClarifyQuestionView, ErrorClass, FailureClass, Locale } from './vi
  * `POST /v1/prompt/enhance`) are the real implementation. This module declares only the
  * shape the panel needs, so the controller codes against a narrow interface and a test or
  * a story passes a scripted one; `hooks/use-prompt-enhancer.ts` adapts the engine's
- * functions to it when they are exported.
+ * functions to it (`engineEnhanceInput` below is the request it sends).
  *
  * What comes back is model output, so it is read defensively (`readEnhanceResult`): a
  * missing field is empty, a question without choices is dropped, and nothing is trusted
@@ -36,6 +42,8 @@ export interface EnhanceInput {
   readonly text: string;
   readonly locale: Locale;
   readonly intent?: IntentKind | undefined;
+  /** The router's 0–1 confidence in `intent` (sent with it; 1 when absent). */
+  readonly confidence?: number | undefined;
   readonly page?: IntentDocumentSummary | undefined;
   /** The blocks the request points at, by human name. */
   readonly selection?: readonly string[] | undefined;
@@ -58,6 +66,11 @@ export interface EnhanceResult {
   readonly understood: string;
   readonly changes: readonly string[];
   readonly questions: readonly EnhanceQuestion[];
+  /**
+   * Who rewrote it: a model (`model`), or the engine's deterministic tidy (`tidy`), which
+   * is all a server without the enhance route can give. Absent: a port that does not say.
+   */
+  readonly source?: 'model' | 'tidy' | undefined;
 }
 
 /** The port: one call, cancellable. */
@@ -101,11 +114,55 @@ export function readEnhanceResult(raw: unknown): EnhanceResult {
     questions.push({ id, text: question, choices });
     if (questions.length === MAX_CLARIFY_QUESTIONS) break;
   }
+  const source = record['source'];
   return {
     enhanced: typeof record['enhanced'] === 'string' ? record['enhanced'].trim() : '',
     understood: text(record['understood']),
     changes: texts(record['changes'], 6),
     questions,
+    ...(source === 'model' || source === 'tidy' ? { source } : {}),
+  };
+}
+
+/** The list separator a joined selection is written with, in the UI's language. */
+const LIST_SEPARATOR: Readonly<Record<Locale, string>> = { ar: '، ', en: ', ' };
+
+/**
+ * The panel's request as the engine's `enhanceRequest` takes it (`AiPromptEnhanceInput`,
+ * the `POST /v1/prompt/enhance` body minus `version`): the route as `{ kind, confidence }`,
+ * the page as "empty or not" plus its first 20 section names, the pointed blocks as one
+ * label (joined in the UI's language), and the answers as question/answer pairs.
+ * A request with no page summary is read as a page with content, the reading that never
+ * turns an edit into a build (`routeIntent`'s own rule for an unknown page).
+ */
+export function engineEnhanceInput(input: EnhanceInput): AiPromptEnhanceInput {
+  const confidence = input.confidence ?? 1;
+  const selection = (input.selection ?? [])
+    .map((label) => label.trim())
+    .filter((label) => label !== '');
+  const page = input.page;
+  return {
+    text: input.text,
+    locale: input.locale,
+    intent:
+      input.intent === undefined
+        ? null
+        : {
+            kind: input.intent,
+            confidence: Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : 1,
+          },
+    page:
+      page === undefined
+        ? { empty: false, sections: [] }
+        : {
+            empty: page.nodeCount === 0 || page.placeholderOnly,
+            sections: page.sectionLabels
+              .map((label) => label.trim())
+              .filter((label) => label !== '')
+              .slice(0, AI_PROMPT_ENHANCE_MAX_SECTIONS),
+          },
+    selection: selection.length === 0 ? null : selection.join(LIST_SEPARATOR[input.locale]),
+    answers: (input.answers ?? []).map(({ question, answer }) => ({ question, answer })),
   };
 }
 

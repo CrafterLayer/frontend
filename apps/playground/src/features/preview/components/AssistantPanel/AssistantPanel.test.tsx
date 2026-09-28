@@ -1063,19 +1063,18 @@ describe('AssistantPanel', () => {
     ).toMatch(/block added/);
   });
 
-  it('shows a labelled cost estimate on the card, before the decision', async () => {
+  it('shows no token estimate on the card (2026-09-28: it misled on one-word edits)', async () => {
     /*
-      The engine's OWN estimator, over the context this run actually carried —
-      the same number `generateAiPlan` checks its budget against, not a second
-      calculation wearing the same name. Labelled an estimate because it is one:
-      tokens counted from canonical JSON, no model asked, and it measures the
-      REQUEST rather than the answer.
+      The estimate measured the whole context this panel would send, not what a
+      change cost: the owner saw "~11.3k tokens" on a one-word title change that
+      the engine now applies without a model call. Cost is telemetry (SPEC §7.4).
     */
     const { user } = renderPanel();
     await requestPlan(user, 'add a pricing section');
 
-    const cost = screen.getByRole('log', { name: 'Conversation' }).querySelector('.pg-chat__cost');
-    expect(cost?.textContent).toMatch(/^تقدير: ~[\d.]+k? توكن$/);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    expect(log.querySelector('.pg-chat__cost')).toBeNull();
+    expect(log.textContent).not.toMatch(/تقدير: ~/u);
   });
 
   it('says a plan changes NOTHING rather than letting a person spend an undo finding out', async () => {

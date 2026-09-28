@@ -145,12 +145,20 @@ export function landingTarget(
   CUSTOM_CODE_ATTRIBUTES (2026-09-28); a brief that names a tag the door
   refuses buys one repair round per use (25-40 s measured 2026-09-27), so the
   line is read from the vocabulary, never written ahead of it. A group counts
-  when its first tag, and every attribute it needs, is admitted.
+  when its first tag, every attribute it needs and one of the attributes it
+  draws with are admitted; the attributes it names are only the admitted ones
+  (an svg with no path data, or a video told to loop with no `loop`, is a
+  refusal the brief would have asked for).
 */
 const DESIGN_MARKUP: readonly {
   readonly use: string;
   readonly tags: readonly string[];
+  /** Every one admitted, or the group cannot be built at all. */
   readonly attributes?: readonly string[];
+  /** At least one admitted: what the group draws with. */
+  readonly anyOf?: readonly string[];
+  /** Named after the use, those of them the vocabulary admits. */
+  readonly mentions?: readonly string[];
 }[] = [
   { use: 'a disclosure: FAQ answers, "more"', tags: ['details', 'summary'] },
   {
@@ -158,20 +166,26 @@ const DESIGN_MARKUP: readonly {
     tags: ['table', 'caption', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'],
   },
   {
-    use: 'svg shapes: a divider, a blob, a mark',
+    use: 'svg shapes: a divider, a blob, a mark, coloured from the region css',
     tags: ['svg', 'path', 'circle', 'ellipse', 'rect', 'line', 'polyline', 'polygon', 'g'],
+    anyOf: ['d', 'points', 'r'],
+    mentions: ['viewBox', 'viewbox', 'd', 'points', 'cx', 'cy', 'r', 'preserveAspectRatio'],
   },
   {
     use: 'a popover: a button with popovertarget opens the element with popover',
     tags: [],
     attributes: ['popover', 'popovertarget'],
   },
-  { use: 'a video: muted, looping, playsinline, with a poster', tags: ['video', 'source'] },
+  {
+    use: 'a video: a muted backdrop or a short clip',
+    tags: ['video', 'source'],
+    mentions: ['poster', 'muted', 'loop', 'playsinline', 'autoplay'],
+  },
 ];
 
 /**
- * The design markup a vocabulary admits, one `tags (use)` entry per group,
- * joined with " · "; '' when it admits none of them.
+ * The design markup a vocabulary admits, one `tags (use; attributes)` entry
+ * per group, joined with " · "; '' when it admits none of them.
  *
  * @internal Exported for its test; `designMarkup` is the one caller.
  */
@@ -179,13 +193,18 @@ export function designMarkupFor(
   tags: ReadonlySet<string>,
   attributes: ReadonlySet<string>,
 ): string {
-  return DESIGN_MARKUP.flatMap(({ use, tags: wanted, attributes: needs = [] }) => {
-    const [first] = wanted;
-    if (first !== undefined && !tags.has(first)) return [];
-    if (!needs.every((name) => attributes.has(name))) return [];
-    const admitted = wanted.filter((tag) => tags.has(tag));
-    return [`${(admitted.length === 0 ? needs : admitted).join('/')} (${use})`];
-  }).join(' · ');
+  return DESIGN_MARKUP.flatMap(
+    ({ use, tags: wanted, attributes: needs = [], anyOf = [], mentions = [] }) => {
+      const [first] = wanted;
+      if (first !== undefined && !tags.has(first)) return [];
+      if (!needs.every((name) => attributes.has(name))) return [];
+      if (anyOf.length > 0 && !anyOf.some((name) => attributes.has(name))) return [];
+      const admitted = wanted.filter((tag) => tags.has(tag));
+      const named = mentions.filter((name) => attributes.has(name));
+      const detail = named.length === 0 ? use : `${use}; attributes ${named.join('/')}`;
+      return [`${(admitted.length === 0 ? needs : admitted).join('/')} (${detail})`];
+    },
+  ).join(' · ');
 }
 
 /**

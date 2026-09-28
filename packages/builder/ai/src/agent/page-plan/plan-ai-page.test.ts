@@ -133,7 +133,8 @@ describe('planAiPage from the package root — Plan mode', () => {
     const provider = createRemoteAiPlanProvider({
       endpoint: 'https://assistant.example.test/plan',
       fetch: (_input, init) => {
-        bodies.push(JSON.parse(String(init?.body)) as AiPlanWireRequest);
+        if (typeof init?.body !== 'string') throw new Error('Expected a JSON request body.');
+        bodies.push(JSON.parse(init.body) as AiPlanWireRequest);
         return Promise.resolve(
           new Response(JSON.stringify({ version: 1, rationale, pagePlan }), {
             headers: { 'content-type': 'application/json' },

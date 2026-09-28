@@ -35,8 +35,7 @@
   margin: 0;
   padding-block: 0;
   /* 1px border + 7px = the 8px the field hangs by; the end leaves room for the pencil. */
-  padding-inline: calc(var(--bldr-space-md) - var(--bldr-border-hairline))
-    var(--bldr-space-6xl);
+  padding-inline: calc(var(--bldr-space-md) - var(--bldr-border-hairline)) var(--bldr-space-6xl);
   border: var(--bldr-border-hairline) solid transparent;
   border-radius: var(--bldr-radius-sm);
   background-color: transparent;

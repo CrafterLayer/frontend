@@ -30,12 +30,8 @@ export function foldForSearch(text: string): string {
       .replace(/[ىی]/gu, 'ي')
       .replace(/ة/gu, 'ه')
       .replace(/ک/gu, 'ك')
-      .replace(/[٠-٩]/gu, (digit) =>
-        String(digit.charCodeAt(0) - DIGIT_ZERO.arabic),
-      )
-      .replace(/[۰-۹]/gu, (digit) =>
-        String(digit.charCodeAt(0) - DIGIT_ZERO.extended),
-      )
+      .replace(/[٠-٩]/gu, (digit) => String(digit.charCodeAt(0) - DIGIT_ZERO.arabic))
+      .replace(/[۰-۹]/gu, (digit) => String(digit.charCodeAt(0) - DIGIT_ZERO.extended))
       .toLowerCase()
       .replace(/\s+/gu, ' ')
       .trim()

@@ -13,7 +13,11 @@
 */
 
 .ck-agent-history-row {
-  --ck-agent-history-row-height: max(40px, var(--bldr-agent-row-height));
+  /* 40px on a mouse (a 32px control and 8px of air), the row height's 44 on a finger. */
+  --ck-agent-history-row-height: max(
+    calc(var(--bldr-control-md) + var(--bldr-space-md)),
+    var(--bldr-agent-row-height)
+  );
   --ck-agent-history-delete: var(--bldr-control-md);
 
   position: relative;

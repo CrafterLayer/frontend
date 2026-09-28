@@ -1,5 +1,5 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { useMemo, type KeyboardEvent, type PointerEvent } from 'react';
+import { Fragment, useMemo, type KeyboardEvent, type PointerEvent } from 'react';
 
 import { t } from '../../copy';
 import type { FontPairOption, Locale } from '../../model/view-types';
@@ -56,8 +56,7 @@ export function FontPairMenu({ locale, selectedId, fonts, options, onSelect }: F
   const { scope, capture } = usePortalScope();
   const offered = useMemo(() => verifiedPairs(options), [options]);
   const selected = offered.find((pair) => pair.id === selectedId);
-  const faces =
-    selected === undefined ? facesOfLabel(fonts ?? '') : facesOf(selected);
+  const faces = selected === undefined ? facesOfLabel(fonts ?? '') : facesOf(selected);
   const label = faces.join(' / ');
 
   if (offered.length === 0) return null;
@@ -106,9 +105,10 @@ export function FontPairMenu({ locale, selectedId, fonts, options, onSelect }: F
           collisionPadding={8}
           loop
           lang={locale}
-          aria-label={t(locale, 'plan.fonts.menu')}
         >
+          {/* Radix names the menu by its trigger ("Fonts: Reem Kufi / …"); the radio group says what it holds. */}
           <DropdownMenu.RadioGroup
+            aria-label={t(locale, 'plan.fonts.menu')}
             value={selected?.id ?? ''}
             onValueChange={(id) => {
               if (id !== selected?.id) onSelect(id);
@@ -127,13 +127,16 @@ export function FontPairMenu({ locale, selectedId, fonts, options, onSelect }: F
                 </span>
                 <span className="ck-agent-font-menu__names">
                   {facesOf(pair).map((face, index) => (
-                    <bdi
-                      key={face}
-                      className="ck-agent-font-menu__name"
-                      data-face={index === 0 ? 'heading' : 'body'}
-                    >
-                      {face}
-                    </bdi>
+                    <Fragment key={face}>
+                      {/* Heard between the faces ("Reem Kufi IBM Plex…"); a grid drops it. */}
+                      {index === 0 ? null : ' '}
+                      <bdi
+                        className="ck-agent-font-menu__name"
+                        data-face={index === 0 ? 'heading' : 'body'}
+                      >
+                        {face}
+                      </bdi>
+                    </Fragment>
                   ))}
                 </span>
               </DropdownMenu.RadioItem>

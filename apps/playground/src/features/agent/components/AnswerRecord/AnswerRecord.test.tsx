@@ -51,7 +51,7 @@ beforeAll(() => {
     configurable: true,
     get(this: HTMLElement) {
       if (!this.classList.contains(PROSE)) return 0;
-      return (this.textContent ?? '').length > 300 ? 240 : 40;
+      return this.textContent.length > 300 ? 240 : 40;
     },
   });
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', {

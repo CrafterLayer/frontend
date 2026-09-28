@@ -48,7 +48,11 @@ export function sectionLabel(position: number, total: number, title: string): st
 
 /** A key-sorted JSON, so two snapshots of the same value compare equal. */
 function stable(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'undefined';
+  // `undefined` (and a function or a symbol) has no JSON: it still needs a spelling of its own.
+  if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
+    return 'undefined';
+  }
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
   const record = value as Readonly<Record<string, unknown>>;
   return `{${Object.keys(record)

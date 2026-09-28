@@ -1,0 +1,72 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ClarifyPanelStories from './ClarifyPanel.stories';
+
+<Meta of={ClarifyPanelStories} />
+
+# ClarifyPanel
+
+Questions before guessing: when a request is too unclear to act on, أبو غضب asks one to three short
+questions, docked on top of the composer, instead of running the request as it read it.
+
+<Canvas of={ClarifyPanelStories.Asking} />
+
+## Purpose
+
+The owner's own request («هل يمكنك تربط ال صفحه هاي داخل عليها») was taken literally. Now the agent
+says what it understood, asks what it must know (which page, where, how it looks), and offers the
+likely answers as chips. "Send as written" skips the questions; Cancel puts the request back in the
+box, unsent.
+
+## Props
+
+| prop              | type                                          | default | notes                                     |
+| ----------------- | --------------------------------------------- | ------- | ----------------------------------------- |
+| `locale`          | `Locale`                                      | none    |                                           |
+| `clarify`         | `ClarifyView`                                 | none    | `asking` or `rewriting`                   |
+| `onAnswer`        | `(questionId: string, answer: string) => void`| none    | a chip, or a typed answer                 |
+| `onSendAsWritten` | `() => void`                                  | none    |                                           |
+| `onDismiss`       | `() => void`                                  | none    |                                           |
+| `className`       | `string`                                      | none    | appended to `ck-agent-clarify`            |
+
+## States
+
+| story                                                  | what it shows                                    |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| `Asking`, `AskingDark`, `AskingWide`                   | three questions, the first asked, "1 of 3"       |
+| `OneQuestion`, `TwoQuestions`                          | one question has no count                        |
+| `LastQuestion`, `LastQuestionRightToLeftDark`          | earlier answers as rows back to their question   |
+| `Rewriting`, `RewritingDark`, `RewritingRightToLeft`   | the answers rewrite the request                  |
+| `OtherAnswer`                                          | the person's own answer                          |
+| `ByKeyboard`, `ByKeyboardRightToLeft`                  | arrows in the reading direction; Space picks     |
+| `WaysOut`                                              | Send as written, Cancel                          |
+| `AskingRightToLeft`, `OneQuestionRightToLeft`          | Arabic                                           |
+
+## Anatomy
+
+The composer's first section, over a Hairline. It reads like a decision card's head: the Indigo
+diamond (RunGlyph `decision`) on the glyph column, the title in Heading type, "1 of 3" in Figure
+Slate at the inline end, and every line under it on the record's text column, 24px in. One question
+at a time, so the panel stays short in a 320px column. Choices are chips: Tint and Graphite at rest,
+Mist and Indigo deep with a check once chosen, 32px tall (44 on a coarse pointer). Send as written is
+the secondary button (Rule border), Cancel a ghost.
+
+## Accessibility
+
+- A group named by its title. Progress is drawn "1 of 3" and spoken "Question 1 of 3".
+- Each question's chips are a `radiogroup` named by the question; one roving tab stop. A pick
+  commits, so the arrows only move: ← → ↑ ↓ in the reading direction, Home and End jump, Enter or
+  Space picks.
+- Focus moves to the first chip when it opens, to the next question after each answer, and to the
+  working line while rewriting; the Composer returns it to the textarea when the panel goes.
+- Other opens a field described by its question; Enter sends the answer, Esc returns to the chips.
+
+## RTL
+
+The diamond at the right; ← moves forward. The owner's Arabic questions and chips are authored
+Arabic, not mirrored English.
+
+## Motion
+
+Arrives with opacity and a 4px rise over 220ms. The rewriting line shimmers in the reading direction
+(SPEC §5 moment 10). Reduced motion: none; the line stays Slate.

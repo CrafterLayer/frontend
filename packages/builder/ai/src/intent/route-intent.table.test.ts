@@ -810,6 +810,14 @@ const HYPOTHETICALS: readonly string[] = [
   'إذا شلت الهيرو، شو بيصير؟',
   'ما رأيك لو أنا غيرت الخط؟',
   'ما رأيك لو أضفت قسم أسعار، هل سيكون أفضل؟',
+  /*
+    A CONDITION whose subject is the person. Before (router-3 probe,
+    2026-09-28): read past "if"/"suppose" as the instruction, edit@0.8-0.85.
+  */
+  'if I delete the hero?',
+  'suppose I remove the pricing section?',
+  'imagine I add a video to the hero',
+  'لو أنا حذفت الفوتر؟',
 ];
 
 /*
@@ -824,6 +832,13 @@ const CAPABILITY_QUESTIONS: readonly (readonly [string, IntentKind])[] = [
   ['هل يمكن تغيير الخط؟', 'edit'],
   ['هل يمكن تعديل رقم هاتف العيادة؟', 'edit'],
   ['هل بالإمكان إضافة قسم للأسعار؟', 'add-section'],
+  /*
+    "هل ممكن" + a first-person verb is "can I…?" — folded, the first person's
+    أ is the imperative's ا, so it is asked below the confirm line. Before
+    (router-3 probe, 2026-09-28): edit@0.8, as courtesy.
+  */
+  ['هل ممكن أحذف الفوتر؟', 'edit'],
+  ['هل ممكن أضيف قسم أسعار؟', 'add-section'],
 ];
 
 /* A question of any shape that would BUILD a page or a site is answered first. */
@@ -847,6 +862,10 @@ const POLITE_REQUESTS: readonly (readonly [string, IntentDocumentSummary, Intent
   ['هل ممكن تضيف قسم أسعار؟', LANDING, 'add-section'],
   ['if possible, make the hero darker', LANDING, 'edit'],
   ['اذا بتقدر، ضيف قسم أسعار', LANDING, 'add-section'],
+  // A verb carrying "for me" is asked OF the assistant, whatever its prefix.
+  ['هل ممكن اعمل لي موقع لمطعمي؟', EMPTY, 'build-page'],
+  ['هل ممكن تحذف الفوتر؟', LANDING, 'edit'],
+  ['if you can, add a pricing section', LANDING, 'add-section'],
 ];
 
 /*
@@ -1072,16 +1091,19 @@ const routeOn = (request: string, document: IntentDocumentSummary | undefined) =
   routeIntent({ request, ...(document === undefined ? {} : { document }) });
 
 describe('the routing table — router-3: questions never write with confidence', () => {
-  it.each(HYPOTHETICALS)('answers “%s” in words, on every canvas and over a selection', (request) => {
-    for (const document of EVERY_CANVAS) {
-      expect({ request, kind: routeOn(request, document).kind }).toEqual({
-        request,
-        kind: 'question',
-      });
-    }
-    const pointed = routeIntent({ request, document: LANDING, selection: ['hero'] });
-    expect({ request, kind: pointed.kind }).toEqual({ request, kind: 'question' });
-  });
+  it.each(HYPOTHETICALS)(
+    'answers “%s” in words, on every canvas and over a selection',
+    (request) => {
+      for (const document of EVERY_CANVAS) {
+        expect({ request, kind: routeOn(request, document).kind }).toEqual({
+          request,
+          kind: 'question',
+        });
+      }
+      const pointed = routeIntent({ request, document: LANDING, selection: ['hero'] });
+      expect({ request, kind: pointed.kind }).toEqual({ request, kind: 'question' });
+    },
+  );
 
   it.each(CAPABILITY_QUESTIONS)(
     'routes the capability question “%s” as %s, below the confirm line',
@@ -1103,19 +1125,22 @@ describe('the routing table — router-3: questions never write with confidence'
     }
   });
 
-  it.each(POLITE_REQUESTS)('still acts on the polite request “%s” with confidence', (request, document, kind) => {
-    const route = routeIntent({ request, document });
-    expect({ request, kind: route.kind }).toEqual({ request, kind });
-    expect(route.confidence).toBeGreaterThanOrEqual(0.8);
-  });
+  it.each(POLITE_REQUESTS)(
+    'still acts on the polite request “%s” with confidence',
+    (request, document, kind) => {
+      const route = routeIntent({ request, document });
+      expect({ request, kind: route.kind }).toEqual({ request, kind });
+      expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+    },
+  );
 
   it('says which frame it read, for the logs', () => {
     expect(routeIntent({ request: 'what if I delete the hero?' }).reason).toMatch(
       /^asks about the person’s own action/u,
     );
-    expect(routeIntent({ request: 'what if I remove the footer, will the page break?' }).reason).toMatch(
-      /^asks what would happen .*“will”/u,
-    );
+    expect(
+      routeIntent({ request: 'what if I remove the footer, will the page break?' }).reason,
+    ).toMatch(/^asks what would happen .*“will”/u);
     expect(routeIntent({ request: 'is it possible to change the font to Inter?' }).reason).toMatch(
       /^asks whether it can be done \(“is it possible to”\)/u,
     );
@@ -1129,9 +1154,9 @@ describe('the routing table — router-3: the Levantine “عيد”', () => {
   it.each(EID_THE_NOUN)('reads “%s” as Eid, never a start-over', (request) => {
     for (const document of EVERY_CANVAS) {
       const route = routeOn(request, document);
-      expect({ request, reason: route.reason }).not.toEqual({
+      expect({ request, startsOver: route.reason.startsWith('asks to start over') }).toEqual({
         request,
-        reason: expect.stringMatching(/^asks to start over/u),
+        startsOver: false,
       });
     }
     for (const document of [LANDING, CONTENT_AR]) {
@@ -1173,12 +1198,15 @@ describe('the routing table — router-3: MSA verbal nouns and verbless sections
     }
   });
 
-  it.each(VERBAL_NOUN_TRADES)('still takes the trade “%s” as a brief on an empty page', (request) => {
-    expect(routeIntent({ request, document: EMPTY })).toMatchObject({
-      kind: 'build-page',
-      target: 'replace',
-    });
-  });
+  it.each(VERBAL_NOUN_TRADES)(
+    'still takes the trade “%s” as a brief on an empty page',
+    (request) => {
+      expect(routeIntent({ request, document: EMPTY })).toMatchObject({
+        kind: 'build-page',
+        target: 'replace',
+      });
+    },
+  );
 
   it.each(SECTION_PHRASES)('adds the one section “%s” names on an empty page', (request) => {
     for (const document of [EMPTY, PLACEHOLDERS]) {
@@ -1191,16 +1219,63 @@ describe('the routing table — router-3: MSA verbal nouns and verbless sections
     expect(routeIntent({ request, document: LANDING, selection: ['hero'] }).kind).toBe('edit');
   });
 
-  it.each(BRIEFS_OPENING_WITH_A_PART)('keeps “%s” the brief for a page on an empty page', (request) => {
-    expect(routeIntent({ request, document: EMPTY })).toMatchObject({
-      kind: 'build-page',
-      target: 'replace',
-    });
-  });
+  it.each(BRIEFS_OPENING_WITH_A_PART)(
+    'keeps “%s” the brief for a page on an empty page',
+    (request) => {
+      expect(routeIntent({ request, document: EMPTY })).toMatchObject({
+        kind: 'build-page',
+        target: 'replace',
+      });
+    },
+  );
 
   it('lets the page’s own section own a phrase that names it', () => {
     expect(
       routeIntent({ request: 'a pricing section with three tiers', document: LANDING }).kind,
     ).toBe('edit');
+  });
+});
+
+/*
+  A verb whose object is ANOTHER verb — "I want TO REMOVE a page", "بدي حذف
+  قسم الأسئلة" — asks for what the governed verb says. Before (router-3 probe,
+  2026-09-28): the want's object was read as a page or a section to make —
+  build-page/replace@0.9 on an empty page, new-page@0.75 beside content, and
+  add-section@0.85 — for a deletion.
+*/
+const WANTED_CHANGES: readonly string[] = [
+  'I want to remove a page',
+  'I need to delete a section',
+  'we need to remove a section',
+  "I'd like to remove a page",
+  'the menu needs to change',
+  'بدي حذف قسم الأسئلة',
+  'بدي حذف صفحة من نحن',
+  'أريد إزالة صفحة الخدمات',
+  'أريد حذف قسم الأسعار',
+  'بدي تغيير قسم الهيرو',
+];
+
+/* …while a governed verb that makes or adds still asks for what it names. */
+const WANTED_MAKES: readonly (readonly [string, IntentKind])[] = [
+  ['I want to build a website for my bakery', 'build-page'],
+  ['I want to add a pricing section', 'add-section'],
+  ['أريد إضافة قسم أسعار', 'add-section'],
+  ['بدي إضافة صفحة جديدة', 'build-page'],
+  ['بدي اعمل موقع لمطعمي', 'build-page'],
+  ['help me build a website', 'build-page'],
+];
+
+describe('the routing table — router-3: a verb that governs another verb', () => {
+  it.each(WANTED_CHANGES)('reads “%s” as the change it wants, on every canvas', (request) => {
+    for (const document of EVERY_CANVAS) {
+      expect({ request, kind: routeOn(request, document).kind }).toEqual({ request, kind: 'edit' });
+    }
+  });
+
+  it.each(WANTED_MAKES)('still reads “%s” as %s', (request, kind) => {
+    for (const document of [EMPTY, LANDING]) {
+      expect({ request, kind: routeIntent({ request, document }).kind }).toEqual({ request, kind });
+    }
   });
 });

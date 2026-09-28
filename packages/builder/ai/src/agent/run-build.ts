@@ -233,12 +233,21 @@ function sharedStepOptions(
   };
 }
 
-/** The skills a step asks for by name — see `fittingSkillIds` in plan-page.ts. */
+/**
+ * The skills a step asks for by name — see `fittingSkillIds` in plan-page.ts.
+ *
+ * None without a registry: naming a skill with nowhere to read it from is
+ * refused by generation ("selectedSkillIds requires a skillRegistry"), and
+ * a registry-less build lost every section to it — each writer asked for
+ * the fill skill by name, failed twice and was skipped (found 2026-09-28 by
+ * the plan-path tests, which build with no registry).
+ */
 function fittingSkillIds(
   options: RunAiBuildOptions,
   required: readonly string[],
   optional: readonly string[],
 ): readonly string[] {
+  if (options.skillRegistry === undefined) return [];
   return fittingSkills(options.skillRegistry, options.policy, required, optional);
 }
 

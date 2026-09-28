@@ -709,9 +709,12 @@ export type AiEditEffort = 'low' | 'medium';
 
 /**
  * The model a run asks its provider for. Handed to `propose` and `repair` as
- * extra fields on the live options (`{ ...live, model, effort }`); a provider
- * that speaks the wire names it the way the model picker does (the
- * `x-craftkit-ai-model` header), and one that does not ignores it.
+ * extra fields on the live options (`{ ...live, model, effort }`). The
+ * ai-server reads ONE call's choice from the request body's `model` and
+ * `effort` (handler.ts `resolveModel` / `callEffort`, under the same
+ * allowlist as the picker's `x-craftkit-ai-model` header, which it wins
+ * over), so a wire provider carries these two fields into the body it posts;
+ * a provider that does not simply runs its configured model.
  */
 export interface AiRunModelChoice {
   readonly model: string;

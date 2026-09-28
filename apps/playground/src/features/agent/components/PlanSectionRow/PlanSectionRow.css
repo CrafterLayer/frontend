@@ -11,6 +11,10 @@
 .ck-agent-plan-row {
   position: relative;
   display: grid;
+  /* Set by the row while PlanSectionList drags (the lifted row, and the rows making way). */
+  translate: var(--ck-agent-plan-row-shift, none);
+  /* Set while the plan awaits Build: `ck-plan-row-{key}` (SPEC §5 moment 4). */
+  view-transition-name: var(--ck-agent-plan-row-name, none);
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
   align-items: center;
@@ -19,9 +23,7 @@
   color: var(--bldr-panel-text);
   font-size: var(--bldr-font-size-read);
   line-height: var(--bldr-line-height-read);
-  transition:
-    background-color var(--bldr-duration-state) var(--bldr-easing),
-    translate var(--bldr-duration-move) var(--bldr-easing);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
   animation: ck-agent-plan-row-in var(--bldr-duration-enter) var(--bldr-easing-enter) backwards;
 }
 
@@ -117,7 +119,8 @@
   hovered or holds focus, Ink on the control itself. Each state out-ranks IconButton's
   matching rule (0,4,0 base, 0,6,0 hover).
 */
-.ck-agent-plan-row__actions .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+.ck-agent-plan-row__actions
+  .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
   color: var(--bldr-panel-muted);
 }
 

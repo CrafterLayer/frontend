@@ -7,7 +7,8 @@
  *   person points at (`model/runs.ts` `routeRequest`): a page or a section to build, an
  *   edit, or a question. A site request is built as one page and says so; a new page is
  *   opened through the host's `addPage` when it offers one, else built below this page
- *   and said so; a start-over the build cannot do appends, and says so (end notes).
+ *   and said so; a start-over the build cannot do appends, and says so (end notes). A
+ *   new section is an edit-sized run, not a build (v1 `requestPath`).
  * - BUILDS (`runAiBuild`). Auto runs straight through. Ask stops at the engine's
  *   `onPlanned` question: the build turn becomes the plan card under the same turn id,
  *   nothing is written, and Build answers the question (with the edited plan, verbatim,
@@ -15,10 +16,12 @@
  *   (`planAiPage`, else the scaffold with `apply: 'never'`) and writes nothing; the
  *   card's Build then builds exactly that plan (`runAiBuild({ pagePlan })`). Card and
  *   build are one turn, inked in place through a view transition (SPEC §5 moment 4).
- * - EDITS (`runAiAgent`). Auto applies (the engine tries a zero-token direct edit first;
- *   it reads like any edit, with Undo); Ask proposes, and Apply / Discard answer it; Plan
- *   mode writes a change plan (`outlineAiPlan`) whose "Run this plan" runs it once with
- *   authority to apply. Edits pass the host's fast `editModel` / `editEffort`.
+ * - EDITS and NEW SECTIONS (`runAiAgent`, as v1 ran them). Auto applies (the engine tries
+ *   a zero-token direct edit first; it reads like any edit, with Undo); Ask proposes, and
+ *   Apply / Discard answer it; Plan mode writes a change plan (`outlineAiPlan`) whose
+ *   "Run this plan" runs it once with authority to apply. Edits carry their route (the
+ *   engine does not read the words twice) and the host's fast `editModel` / `editEffort`;
+ *   a catalog suggestion picked and sent unedited is answered from the catalog itself.
  * - QUESTIONS are answered in words (`outlineAiPlan`): nothing is written, in any mode.
  * - STOP. One `AbortController` per run; Stop aborts it, answers a held plan question
  *   with Stop and pauses the queue. Nothing is written after it, by the engine (its lander
@@ -49,6 +52,7 @@ import {
   applyAiPlan,
   classifyAiRunFailure,
   createCraftkitAiSkillRegistry,
+  createDirectPlanProvider,
   createLocalAiPlanProvider,
   customCodeSchema,
   outlineAiPlan,
@@ -80,10 +84,12 @@ import {
   type IntentTarget,
   type NodeId,
   type PagePlan,
+  validatePagePlan,
   type RunAiAgentOptions,
   type RunAiBuildOptions,
 } from '@craftkit/builder';
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -243,6 +249,9 @@ export interface ProposalPreview {
 /** The run clock (`ClockPort`): the facade names it only through the run options. */
 export type AgentClock = RunAiAgentOptions['clock'];
 
+/** The reasoning budget a fast edit model runs at (`low` | `medium`, the engine's `AiEditEffort`). */
+export type EditEffort = NonNullable<RunAiAgentOptions['editEffort']>;
+
 export interface UseAgentControllerOptions {
   /** The page the panel edits. */
   readonly kernel: BuilderKernel;
@@ -259,10 +268,13 @@ export interface UseAgentControllerOptions {
   readonly addPage?: ((title: string) => Promise<{ readonly kernel: BuilderKernel }>) | undefined;
   /** Where the canvas selection lives; the kernel's own when absent. */
   readonly selection?: SelectionSource | undefined;
-  /** The fast model an edit runs on (the engine's `RunAiAgentOptions.editModel`). */
+  /**
+   * The fast model an edit or a new section runs on (the engine's
+   * `RunAiAgentOptions.editModel`); a page build keeps the provider's own model.
+   */
   readonly editModel?: string | undefined;
   /** Its reasoning effort (the engine's `RunAiAgentOptions.editEffort`). */
-  readonly editEffort?: string | undefined;
+  readonly editEffort?: EditEffort | undefined;
   /** Models ModelMenu offers, the chosen one, and the host's setter. */
   readonly models?: readonly string[] | undefined;
   readonly model?: string | undefined;
@@ -391,16 +403,19 @@ function selectionKey(ids: readonly NodeId[]): string {
 }
 
 function offline(): boolean {
-  return typeof navigator !== 'undefined' && navigator.onLine === false;
+  return typeof navigator !== 'undefined' && !navigator.onLine;
 }
 
-/** A short page title from a request, for the host's `addPage` (a word boundary, ≤ 40). */
+/**
+ * A page title from a request, for the host's `addPage`: one line, cut at a word boundary
+ * when it runs past 60 characters. No ellipsis: a page title is a name, not a preview.
+ */
 function pageTitleFrom(request: string): string {
   const flat = request.replace(/\s+/gu, ' ').trim();
-  if (flat.length <= 40) return flat;
-  const cut = flat.slice(0, 40);
+  if (flat.length <= 60) return flat;
+  const cut = flat.slice(0, 60);
   const space = cut.lastIndexOf(' ');
-  return `${(space > 20 ? cut.slice(0, space) : cut).trim()}…`;
+  return (space > 30 ? cut.slice(0, space) : cut).trim();
 }
 
 function stoppedError(): Error {
@@ -422,6 +437,8 @@ interface Env {
   readonly enhancer: PromptEnhancerHandle;
   readonly memory: AppliedChangeMemory;
   readonly selection: readonly NodeId[];
+  /** The catalog suggestions last on screen, by their exact words (`Outgoing.catalog`). */
+  readonly shownCatalog: { readonly current: ReadonlySet<string> };
 }
 
 interface Flow {
@@ -459,14 +476,9 @@ function patchTurn(
   change: (turn: Turn) => Turn,
 ): void {
   flow.env().sessions.updateTurns(sessionId, (turns) => {
-    let changed = false;
-    const next = turns.map((turn) => {
-      if (turn.id !== turnId) return turn;
-      const updated = change(turn);
-      if (updated !== turn) changed = true;
-      return updated;
-    });
-    return changed ? next : turns;
+    const next = turns.map((turn) => (turn.id === turnId ? change(turn) : turn));
+    // Unchanged stays the same array: the conversation is neither re-dated nor re-saved.
+    return next.some((turn, index) => turn !== turns[index]) ? next : turns;
   });
 }
 
@@ -566,7 +578,7 @@ function holds(flow: Flow, slot: Slot): boolean {
 
 function setRun(flow: Flow, slot: Slot, patch: Partial<LiveRun>): void {
   flow.ui.setState((ui) =>
-    ui.run === null || ui.run.runId !== slot.runId ? ui : { ...ui, run: { ...ui.run, ...patch } },
+    ui.run?.runId === slot.runId ? { ...ui, run: { ...ui.run, ...patch } } : ui,
   );
 }
 
@@ -677,20 +689,15 @@ function commonRunOptions(
 }
 
 /**
- * The engine additions an edit carries (the fast model for edits, SPEC owner request).
- * Declared here so the options compile before the engine's `RunAiAgentOptions` has them,
- * and are honoured the moment it does.
+ * The fast model an edit runs on (owner request: a one-word change must not wait on the
+ * page-building model). The engine uses it only for an edit or a new section; a direct
+ * edit it can make with no model at all never reaches it.
  */
-interface EditModelOptions {
-  readonly editModel?: string;
-  readonly editEffort?: string;
-}
-
-function editModelOptions(flow: Flow): EditModelOptions {
+function editModelOptions(flow: Flow): Pick<RunAiAgentOptions, 'editModel' | 'editEffort'> {
   const { editModel, editEffort } = flow.env().options;
   return {
     ...(editModel === undefined || editModel === '' ? {} : { editModel }),
-    ...(editEffort === undefined || editEffort === '' ? {} : { editEffort }),
+    ...(editEffort === undefined ? {} : { editEffort }),
   };
 }
 
@@ -769,6 +776,27 @@ interface Outgoing {
   readonly pointed: readonly NodeId[];
   /** What the engine is asked, when it is more than the words (a change to a plan). */
   readonly request?: string | undefined;
+  /** The words are a catalog suggestion, picked and sent unedited (answered from the catalog). */
+  readonly catalog?: boolean | undefined;
+}
+
+/**
+ * The provider with the block catalog in front of it (v1's `catalogFirstProvider`): a
+ * catalog suggestion carries a block's own example prompt, and the catalog already holds
+ * the node that prompt produces, so asking a model would spend a round trip to be told a
+ * value the page already has. Only a suggestion the person PICKED reaches this; typed
+ * words that happen to read the same are the person's own request (`Outgoing.catalog`).
+ * An example that no longer matches falls through to the provider, unchanged.
+ */
+function catalogFirst(kernel: BuilderKernel, fallback: AiPlanProvider): AiPlanProvider {
+  return createDirectPlanProvider({
+    catalog: () =>
+      kernel.context.registry.blocks(kernel.context.surface).map(({ schema }) => ({
+        type: schema.type,
+        examples: schema.examples,
+      })),
+    fallback,
+  });
 }
 
 function engineRequest(outgoing: Outgoing): string {
@@ -852,7 +880,7 @@ async function dispatchRequest(
         await runWords(flow, outgoing, placement, 'steps');
         return;
       }
-      await runEdit(flow, outgoing, placement, mode === 'ask' ? 'never' : 'auto');
+      await runEdit(flow, outgoing, placement, mode === 'ask' ? 'never' : 'auto', route);
       return;
   }
 }
@@ -969,6 +997,7 @@ async function runEdit(
   outgoing: Outgoing,
   placement: Placement,
   apply: 'auto' | 'never',
+  route?: IntentRoute,
 ): Promise<void> {
   const env = flow.env();
   const kernel = env.options.kernel;
@@ -1006,9 +1035,14 @@ async function runEdit(
   const liveRun = (turn: Turn) =>
     (turn.kind === 'edit' || turn.kind === 'proposal') && turn.run !== undefined ? turn.run : run;
   try {
-    const runOptions: RunAiAgentOptions & EditModelOptions = {
-      ...commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history),
+    const base = commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history);
+    const runOptions: RunAiAgentOptions = {
+      ...base,
+      // A catalog example picked by name is answered from the catalog: no model, no wait.
+      ...(outgoing.catalog === true ? { provider: catalogFirst(kernel, base.provider) } : {}),
       ...editModelOptions(flow),
+      // The route this request was sent on: the engine does not read the words twice.
+      ...(route === undefined ? {} : { intent: route }),
       apply,
       onEvent: (event) => {
         env.mood.onEvent(event);
@@ -1139,29 +1173,42 @@ function canStartOver(flow: Flow, kernel: BuilderKernel): boolean {
   );
 }
 
-async function runPage(
+/** Where a page build lands, and what the thread says about it afterwards. */
+interface Landing {
+  readonly kernel: BuilderKernel;
+  readonly target: IntentTarget | undefined;
+  readonly notes: readonly EndNoteKey[];
+  /** A start-over on a page with content: the plan card asks first, even in Auto. */
+  readonly confirm: boolean;
+}
+
+/**
+ * The landing decisions every page build shares (v1 `requestPath`): a new page opens
+ * through the host's `addPage` when it offers one, else the page is built below this one
+ * and the thread says so; a start-over the build cannot do appends, and says so; a
+ * start-over it can do asks first.
+ */
+async function landingFor(
   flow: Flow,
-  outgoing: Outgoing,
-  placement: Placement,
-  route: IntentRoute,
-  mode: AssistantMode,
-): Promise<void> {
+  wanted: IntentTarget | undefined,
+  request: string,
+  notes: readonly EndNoteKey[],
+): Promise<Landing> {
   const env = flow.env();
   let kernel = env.options.kernel;
-  const notes: EndNoteKey[] = [];
-  if (route.kind === 'build-site') notes.push('siteAsOnePage');
-  let target = route.target;
+  const said = [...notes];
+  let target = wanted;
   if (target === 'new-page') {
     const addPage = env.options.addPage;
     if (addPage === undefined) {
       target = 'append';
-      notes.push('newPageAppended');
+      said.push('newPageAppended');
     } else {
       try {
-        kernel = (await addPage(pageTitleFrom(outgoing.text))).kernel;
+        kernel = (await addPage(pageTitleFrom(request))).kernel;
       } catch {
         target = 'append';
-        notes.push('newPageAppended');
+        said.push('newPageAppended');
       }
     }
   }
@@ -1174,14 +1221,71 @@ async function runPage(
       confirm = true;
     } else {
       target = 'append';
-      notes.push('appendedNotReplaced');
+      said.push('appendedNotReplaced');
     }
   }
+  return { kernel, target, notes: said, confirm };
+}
+
+async function runPage(
+  flow: Flow,
+  outgoing: Outgoing,
+  placement: Placement,
+  route: IntentRoute,
+  mode: AssistantMode,
+): Promise<void> {
+  const landing = await landingFor(
+    flow,
+    route.target,
+    outgoing.text,
+    route.kind === 'build-site' ? ['siteAsOnePage'] : [],
+  );
   await runBuild(flow, outgoing, placement, {
-    target,
-    approval: mode === 'ask' || confirm,
-    kernel,
-    notes,
+    target: landing.target,
+    approval: mode === 'ask' || landing.confirm,
+    kernel: landing.kernel,
+    notes: landing.notes,
+  });
+}
+
+/**
+ * Plan mode's Build: the plan on the card, built verbatim, where its intent says (a new
+ * page through the host, else below this one, and said). The card WAS the question, so
+ * nothing is asked again. A titles-only card (no engine plan) is built from its request,
+ * as a page, and may differ (SPEC §7.6 E6 `plan.note.mayDiffer`).
+ */
+async function buildPlanned(
+  flow: Flow,
+  outgoing: Outgoing,
+  placement: Placement,
+  pagePlan: PagePlan | undefined,
+): Promise<void> {
+  if (pagePlan === undefined) {
+    const routed = routeRequest(outgoing.text, {
+      kernel: flow.env().options.kernel,
+      mentions: [],
+      selection: [],
+    });
+    const route: IntentRoute =
+      routed.kind === 'build-page' || routed.kind === 'build-site'
+        ? routed
+        : { kind: 'build-page', confidence: 1, reason: 'Built from a page plan.' };
+    await runPage(flow, outgoing, placement, route, 'auto');
+    return;
+  }
+  const landing = await landingFor(flow, pagePlan.intent, outgoing.text, []);
+  let plan: PagePlan | undefined = pagePlan;
+  if (landing.target !== undefined && landing.target !== pagePlan.intent) {
+    // Landing elsewhere than planned: the same plan, held to the new intent, or re-planned.
+    const moved = validatePagePlan(pagePlan, { intent: landing.target });
+    plan = moved.ok ? moved.plan : undefined;
+  }
+  await runBuild(flow, outgoing, placement, {
+    ...(plan === undefined ? {} : { pagePlan: plan }),
+    target: landing.target,
+    approval: false,
+    kernel: landing.kernel,
+    notes: landing.notes,
   });
 }
 
@@ -1955,6 +2059,8 @@ function outgoingOf(flow: Flow, text: string): Outgoing {
     text,
     context: blocks.length === 0 ? [{ kind: 'page' }] : blocks,
     pointed: blocks.flatMap((entry) => (entry.kind === 'page' ? [] : [entry.id])),
+    // A suggestion fills the box and never sends; sent unedited, it was picked by name.
+    ...(env.shownCatalog.current.has(text) ? { catalog: true } : {}),
   };
 }
 
@@ -1973,6 +2079,7 @@ function enhanceInputOf(flow: Flow, outgoing: Outgoing, route: IntentRoute): Enh
     text: outgoing.text,
     locale: env.options.locale,
     intent: route.kind,
+    confidence: route.confidence,
     page: summarizeDocumentForIntent(env.options.kernel.getDocument()),
     selection: outgoing.context.flatMap((entry) => (entry.kind === 'page' ? [] : [entry.label])),
   };
@@ -2030,8 +2137,7 @@ async function send(flow: Flow, input: Outgoing, options: SendOptions = {}): Pro
         flow.ui.setState((ui) => ({
           ...ui,
           checking: false,
-          draft: '',
-          mentions: [],
+          ...(ui.draft.trim() === input.text.trim() ? { draft: '', mentions: [] } : {}),
           clarify: {
             request: outgoing.text,
             context: outgoing.context,
@@ -2062,7 +2168,12 @@ async function send(flow: Flow, input: Outgoing, options: SendOptions = {}): Pro
     say(flow, 'queue.queued');
     return;
   }
-  flow.ui.setState((ui) => ({ ...ui, draft: '', mentions: [], clarify: null }));
+  flow.ui.setState((ui) =>
+    // The box empties only while it still reads what was sent: words typed meanwhile stay.
+    ui.draft.trim() === input.text.trim()
+      ? { ...ui, draft: '', mentions: [], clarify: null }
+      : { ...ui, clarify: null },
+  );
   await track(flow, dispatchRequest(flow, outgoing, route, { sessionId: sessionsState.activeId }, mode));
 }
 
@@ -2241,15 +2352,11 @@ function createActions(flow: Flow): Actions {
       patchTurn(flow, located.sessionId, turnId, () => inked(initialBuildProgress(turnId, flow.clock.now())));
       void track(
         flow,
-        runBuild(
+        buildPlanned(
           flow,
           outgoing,
           { sessionId: located.sessionId, recordTurnId: turnId, history },
-          {
-            ...(pagePlan === undefined ? {} : { pagePlan, target: pagePlan.intent }),
-            approval: false,
-            notes: [],
-          },
+          pagePlan,
         ),
       );
     });
@@ -2427,19 +2534,30 @@ function createActions(flow: Flow): Actions {
     const ids = found.turn.transactionIds ?? [];
     if (isNewest(shadowOf(flow, kernel), ids)) {
       // Exactly the build's own transactions, newest first: the skeleton goes too.
-      for (let step = 0; step < ids.length; step += 1) kernel.undo();
+      ids.forEach(() => {
+        kernel.undo();
+      });
       patchKind(flow, found.sessionId, turnId, 'build', (turn) => ({ ...turn, undone: true }));
       say(flow, 'undone', { title: found.turn.request });
       env().mood.noteTurn('discarded');
       return;
     }
-    if (!env().capabilities.undoBuild) return;
+    if (!env().capabilities.rowUndo || !env().capabilities.undoBuild) return;
     // Engine E3 present: every landed section back, newest first, then the empty regions.
     const landed = [...found.turn.progress.tasks].reverse().filter((task) => task.status === 'landed');
     for (const task of landed) undoSection(turnId, task.id);
     removeEmpty(turnId);
-    patchKind(flow, found.sessionId, turnId, 'build', (turn) => ({ ...turn, undone: true }));
+    const after = buildTurnOf(turnId)?.turn;
+    const reverted = landed.filter(
+      (task) => after?.outcomes[outcomeKeyOf(task)]?.kind === 'undone',
+    ).length;
+    if (reverted === 0) return;
+    // "Undone" only when every section went back; a refused row says why on its own line.
+    if (reverted === landed.length) {
+      patchKind(flow, found.sessionId, turnId, 'build', (turn) => ({ ...turn, undone: true }));
+    }
     say(flow, 'undone', { title: found.turn.request });
+    env().mood.noteTurn('discarded');
   };
 
   const redoBuild = (turnId: string): void => {
@@ -2448,7 +2566,9 @@ function createActions(flow: Flow): Actions {
     const kernel = kernelOfBuild(flow, turnId);
     const ids = found.turn.transactionIds ?? [];
     if (!isNextRedo(shadowOf(flow, kernel), ids)) return;
-    for (let step = 0; step < ids.length; step += 1) kernel.redo();
+    ids.forEach(() => {
+      kernel.redo();
+    });
     patchKind(flow, found.sessionId, turnId, 'build', (turn) => {
       const { undone: _undone, ...rest } = turn;
       void _undone;
@@ -2586,6 +2706,7 @@ function createActions(flow: Flow): Actions {
         ? ui.mentions
         : [...ui.mentions, { id: nodeId, label: blockName(kernel, nodeId) }],
     }));
+    env().enhancer.edited(flow.ui.getState().draft);
   };
 
   const enhanceDraft = (): void => {
@@ -2600,8 +2721,12 @@ function createActions(flow: Flow): Actions {
     });
     void enhancer.improve(enhanceInputOf(flow, outgoing, route)).then((rewritten) => {
       if (rewritten === null) return;
-      // Only while the draft is still what was sent to be improved.
-      if (flow.ui.getState().draft.trim() !== text) return;
+      // Only while the draft is still what was sent to be improved; else the note goes too.
+      const now = flow.ui.getState().draft;
+      if (now.trim() !== text) {
+        env().enhancer.edited(now);
+        return;
+      }
       flow.ui.setState((ui) => ({ ...ui, draft: rewritten }));
       say(flow, 'enhance.ready');
     });
@@ -2638,8 +2763,9 @@ function createActions(flow: Flow): Actions {
       } catch {
         // The rewrite failed: the person's own words and their own answers run instead.
       }
-      // Dismissed while it was rewriting: the request is back in the person's hands.
-      if (flow.ui.getState().clarify === null) return;
+      // Dismissed (or replaced) while it was rewriting: the request is the person's again.
+      const now = flow.ui.getState().clarify;
+      if (now?.status !== 'rewriting' || now.request !== clarify.request) return;
       flow.ui.setState((ui) => ({ ...ui, clarify: null }));
       const route = routeRequest(text, {
         kernel: env().options.kernel,
@@ -2665,7 +2791,19 @@ function createActions(flow: Flow): Actions {
   const dismissClarify = (): void => {
     const clarify = flow.ui.getState().clarify;
     if (clarify === null) return;
-    flow.ui.setState((ui) => ({ ...ui, clarify: null, draft: clarify.request }));
+    // The words, and the blocks they were sent about by name, go back into the box.
+    const document = env().options.kernel.getDocument();
+    flow.ui.setState((ui) => ({
+      ...ui,
+      clarify: null,
+      draft: clarify.request,
+      mentions: clarify.context.flatMap((entry) =>
+        entry.kind === 'mention' && document.nodes[entry.id] !== undefined
+          ? [{ id: entry.id, label: entry.label }]
+          : [],
+      ),
+    }));
+    env().enhancer.edited(clarify.request);
   };
 
   const removeQueued = (): void => {
@@ -2708,12 +2846,15 @@ function createActions(flow: Flow): Actions {
   const copy = (turnId: string, what: CopyTarget): void => {
     const text = copyText(flow, turnId, what);
     if (text === null) return;
+    // jsdom and insecure origins have no clipboard, whatever the DOM types say.
+    const clipboard: Clipboard | undefined =
+      typeof navigator === 'undefined' ? undefined : navigator.clipboard;
     const write =
       env().options.clipboard ??
       ((value: string): Promise<void> =>
-        typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function'
-          ? navigator.clipboard.writeText(value)
-          : Promise.reject(new Error('No clipboard.')));
+        clipboard === undefined
+          ? Promise.reject(new Error('No clipboard.'))
+          : clipboard.writeText(value));
     void write(text).then(
       () => {
         say(flow, 'copied');
@@ -2901,13 +3042,16 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   const canvas = useCanvasLink(kernel, { onPeek: options.onPeek });
   const enhancer = usePromptEnhancer({ provider, enhancer: options.enhancer });
   const memory = useAppliedChangeMemory();
+  const shownCatalog = useRef<ReadonlySet<string>>(new Set());
 
   /* The kernel: its document and selection, as snapshots. */
-  const kernelState = useSyncExternalStore(
-    kernel.context.store.subscribe,
-    kernel.context.store.getState,
-    kernel.context.store.getState,
+  const kernelStore = kernel.context.store;
+  const subscribeKernel = useCallback(
+    (listener: () => void) => kernelStore.subscribe(listener),
+    [kernelStore],
   );
+  const readKernel = useCallback(() => kernelStore.getState(), [kernelStore]);
+  const kernelState = useSyncExternalStore(subscribeKernel, readKernel, readKernel);
   const document = kernelState.doc;
   const source = options.selection;
   const external = useSyncExternalStore(
@@ -2953,6 +3097,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     enhancer,
     memory,
     selection,
+    shownCatalog,
   });
   useLayoutEffect(() => {
     env.current = {
@@ -2966,6 +3111,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
       enhancer,
       memory,
       selection,
+      shownCatalog,
     };
   });
 
@@ -3126,7 +3272,10 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   const awaiting = turns.some(isAwaitingDecision);
   const quiet =
     liveRun !== null || uiState.draft.trim() !== '' || awaiting || uiState.clarify !== null;
+  // The registry is mutable: an extension registered later changes the catalog, not its identity.
+  const catalogVersion = kernel.extensions.version();
   const suggestions = useMemo((): readonly SuggestionView[] => {
+    void catalogVersion;
     // Hidden while running, while the box has text, while a decision waits (SPEC §4.16).
     if (quiet) return [];
     const page = summarizeDocumentForIntent(document);
@@ -3152,7 +3301,15 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
       locale,
       limit: activeTurns.length === 0 ? 4 : 3,
     });
-  }, [quiet, document, activeTurns, locale, kernel, shownSelection]);
+  }, [quiet, document, activeTurns, locale, kernel, shownSelection, catalogVersion]);
+
+  // What was last offered stays known after the box fills (the list hides while it has text).
+  useEffect(() => {
+    if (suggestions.length === 0) return;
+    shownCatalog.current = new Set(
+      suggestions.flatMap((suggestion) => (suggestion.source === 'catalog' ? [suggestion.text.trim()] : [])),
+    );
+  }, [suggestions]);
 
   const empty = useMemo((): EmptyStateView => {
     const first = shownSelection[0];

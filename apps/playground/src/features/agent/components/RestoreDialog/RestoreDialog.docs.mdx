@@ -1,0 +1,74 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as RestoreDialogStories from './RestoreDialog.stories';
+
+<Meta of={RestoreDialogStories} />
+
+# RestoreDialog
+
+"Restore the page to before this request?" (SPEC §4.15), opened from a record's `[⋯]` menu.
+
+<Canvas of={RestoreDialogStories.Open} />
+
+## Purpose
+
+Restore undoes a request **and every page change after it**. That is the one history action wide
+enough to deserve a modal: it says the consequence, confirms, and then runs as a forward transaction
+through the door. When the same parts changed after the request, the door refuses rather than
+guesses, and the dialog says so in place.
+
+## When to use / not
+
+Use it only for "Restore page to before this request" (`capabilities.restore`, engine E3). Do not
+use it for a row's Undo or for Undo build: those are reversible and act in place (InlineConfirm for
+Undo build).
+
+## Props
+
+| prop             | type                             | default | notes                                        |
+| ---------------- | -------------------------------- | ------- | -------------------------------------------- |
+| `locale`         | `'ar' \| 'en'`                   | none    |                                              |
+| `open`           | `boolean`                        | none    | controlled                                   |
+| `onOpenChange`   | `(open: boolean) => void`        | none    |                                              |
+| `onRestore`      | `() => Promise<RestoreResult>`   | none    | `AgentController.restore`, bound to the turn |
+| `returnFocusRef` | `RefObject<HTMLElement \| null>` | none    | the record's `[⋯]` (RecordMenu `triggerRef`) |
+
+## States
+
+| story                                  | what it shows                                                     |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| `Open`, `OpenDark`, `OpenRightToLeft…` | the question; focus on Cancel                                     |
+| `Working`                              | Restore unavailable while it runs; the dialog cannot be dismissed |
+| `Conflict`, `ConflictRightToLeft…`     | the refusal in place, the failed node, only Close (focused)       |
+| `EscapeReturnsFocus`                   | Esc closes it; focus back on the record's `[⋯]`                   |
+
+## Anatomy
+
+e3: the Sheet, a 1px surface border, the overlay shadow, radius 9, 16px in, centred in the panel
+over a Paper veil (the panel is a size container, so the fixed overlay covers the panel, not the
+editor). The title (Heading, Ink), the consequence (Read, Graphite, pretty), then 12px down the
+actions: **Restore page** as an Alarm outline and **Cancel** as a Graphite ghost. The destructive
+action is never the Indigo fill: Indigo means "real on the page", and this takes page changes away.
+
+On a conflict the consequence becomes the reason («تعذّر الإرجاع تلقائيًا لأن الأجزاء نفسها تغيّرت
+بعد هذا الطلب.») in Ink beside the failed node, and the actions become Close.
+
+## Accessibility
+
+- A Radix Dialog: `role="dialog"`, named by its title, described by its sentence; it traps focus.
+- Opening focuses Cancel, the answer that changes nothing (as InlineConfirm does).
+- While restoring, Restore is `aria-disabled` and described as "Restoring the page"; the dialog is
+  `aria-busy`, and Esc and a click outside do nothing.
+- A refusal moves focus to Close, which the reason describes.
+- Closing returns focus to the record's `[⋯]` (SPEC §6.3 "dialogs closing: their trigger"), since
+  the menu item that opened the dialog no longer exists.
+
+## RTL
+
+Logical properties only; it mounts inside the panel root, so it keeps the panel's `lang`, `dir` and
+theme.
+
+## Motion
+
+The veil fades and the dialog fades with a 4px rise (`enter` 220ms, `exit` 140ms). Reduced motion: a
+120ms fade.

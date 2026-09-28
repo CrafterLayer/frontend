@@ -284,10 +284,9 @@ export const EveryRowStateAt420: Story = {
       (word) => getComputedStyle(word).display,
     );
     await expect(words.every((display) => display !== 'none')).toBe(true);
-    await expect(
-      getComputedStyle(canvasElement.querySelector('.ck-agent-direction__fonts') as Element)
-        .display,
-    ).not.toBe('none');
+    const fonts = canvasElement.querySelector('.ck-agent-direction__fonts');
+    if (fonts === null) throw new Error('no fonts');
+    await expect(getComputedStyle(fonts).display).not.toBe('none');
   },
 };
 

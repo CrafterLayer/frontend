@@ -607,6 +607,13 @@ describe('checkSection — a landed section held to its contract', () => {
       ['Arabic, no hamza', CAFE, cafeHero, 'اطلب الان'],
       ['English, an arrow glyph', BUILDER, builderHero, 'Get a quote →'],
       ['English, capitals', BUILDER, builderHero, 'GET A QUOTE'],
+      /*
+        Wrapped in bidi isolates (FSI … PDI), as a right-to-left writer does
+        around a mixed-script label: still the action. The verifier's mutant
+        V5 (isolates left in the label) survived the suite, 2026-09-28.
+      */
+      ['Arabic, in bidi isolates', CAFE, cafeHero, '\u2068اطلب الآن\u2069'],
+      ['English, a mark before it', BUILDER, builderHero, '\u200EGet a quote'],
     ])('reads the action’s words however they are typed (%s)', (_l, plan, hero, words) => {
       const landed = withAnchor(hero(), 'hero');
       // Swap the hero's own action for the variant spelling.
@@ -617,6 +624,46 @@ describe('checkSection — a landed section held to its contract', () => {
         ),
       ) as JsonValue;
       expect(checkSection(plan, contract(plan, 'hero'), { tree: swapped })).toEqual([]);
+    });
+
+    /*
+      The action's address, however it is typed: a trailing slash, the host's
+      case, a phone's spacing lead to the same place. An exact compare flagged
+      each as "leads to" somewhere else — a repair model call for a button
+      that worked.
+    */
+    it.each([
+      ['a trailing slash', 'https://wa.me/962791234567', 'https://wa.me/962791234567/'],
+      ['the host in capitals', 'https://wa.me/962791234567', 'https://WA.ME/962791234567'],
+      ['a phone’s spacing', 'tel:+96264612750', 'tel:+962 6 461 2750'],
+      ['Arabic-Indic digits in a phone', 'tel:+96264612750', 'tel:+٩٦٢٦٤٦١٢٧٥٠'],
+    ])('reads the action’s address however it is typed (%s)', (_name, target, written) => {
+      const plan: PagePlan = {
+        ...BUILDER,
+        primaryCta: { label: BUILDER.primaryCta.label, href: target },
+      };
+      const landed = JSON.parse(
+        JSON.stringify(withAnchor(builderHero(), 'hero')).replace(
+          '"#quote"',
+          JSON.stringify(written),
+        ),
+      ) as JsonValue;
+      expect(checkSection(plan, contract(plan, 'hero'), { tree: landed })).toEqual([]);
+    });
+
+    it('still names an address that differs in its path', () => {
+      const plan: PagePlan = {
+        ...BUILDER,
+        primaryCta: { label: BUILDER.primaryCta.label, href: 'https://wa.me/962791234567' },
+      };
+      const landed = JSON.parse(
+        JSON.stringify(withAnchor(builderHero(), 'hero')).replace(
+          '"#quote"',
+          '"https://wa.me/962791234568"',
+        ),
+      ) as JsonValue;
+      const issue = only(checkSection(plan, contract(plan, 'hero'), { tree: landed }), 'cta-label');
+      expect(issue.message).toContain('leads to https://wa.me/962791234568');
     });
   });
 
@@ -688,6 +735,29 @@ describe('checkSection — a landed section held to its contract', () => {
       ['the field’s name after a label', CAFE, 'menu', 'الهاتف: رقم الهاتف', 'الهاتف: رقم الهاتف'],
       ['the field’s name (English)', BUILDER, 'projects', 'Company name', 'Company name'],
       ['an example address', BUILDER, 'projects', 'Write to info@example.com', 'info@example.com'],
+      // The template's instruction before the field's name is the stand-in all the same.
+      [
+        'an instruction and the field (Arabic)',
+        CAFE,
+        'menu',
+        'ضع رقم هاتفك هنا',
+        'ضع رقم هاتفك هنا',
+      ],
+      [
+        'an instruction and the field (English)',
+        BUILDER,
+        'projects',
+        'Enter your phone number',
+        'Enter your phone number',
+      ],
+      ['a counting run', BUILDER, 'projects', 'Call +962 79 123 4567', 'Call +962 79 123 4567'],
+      [
+        'a placeholder business domain',
+        BUILDER,
+        'projects',
+        'hello@yourbusiness.com',
+        'hello@yourbusiness.com',
+      ],
     ])('flags a fact left as its stand-in: %s', (_name, plan, key, text, quoted) => {
       const landed = factSection(plan, key, [h('p', '', text)]);
       const issue = only(
@@ -728,6 +798,19 @@ describe('checkSection — a landed section held to its contract', () => {
         [h('p', '', 'رقم الهاتف'), h('p', '', '+962 6 461 2750')],
       ],
       ['a form label', BUILDER, 'projects', [h('label', '', 'Phone number')]],
+      // A sentence that asks for the number is copy, not a stand-in for it.
+      [
+        'a sentence asking for the number',
+        BUILDER,
+        'projects',
+        [h('p', '', 'Enter your phone number and we call you back within the hour.')],
+      ],
+      [
+        'a real number with a short count in it',
+        BUILDER,
+        'projects',
+        [h('p', '', 'Call +962 6 512 3456')],
+      ],
     ])('leaves a real value alone: %s', (_name, plan, key, lines) => {
       const landed = factSection(plan, key, lines);
       expect(checkSection(plan, contract(plan, key), { tree: landed })).toEqual([]);

@@ -205,7 +205,8 @@ export function clinicRows(locale: Locale, states: readonly RowState[]): readonl
       title: titles[index % titles.length] ?? '',
       state,
       reason: state === 'failed' ? 'timeout' : undefined,
-      undo: state === 'landed' ? { kind: 'undo', transactionId: `tx-${String(index + 1)}` } : undefined,
+      undo:
+        state === 'landed' ? { kind: 'undo', transactionId: `tx-${String(index + 1)}` } : undefined,
       canRetry: state === 'failed',
     };
   });

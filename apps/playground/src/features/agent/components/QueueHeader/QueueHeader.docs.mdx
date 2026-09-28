@@ -1,0 +1,63 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as QueueHeaderStories from './QueueHeader.stories';
+
+<Meta of={QueueHeaderStories} />
+
+# QueueHeader
+
+The header of the one queued request (SPEC §4.17, §3.9, §3.10): an 8px dot, "Up next" with a caption
+under it, and `×` at the inline end. 44px, two lines.
+
+<Canvas of={QueueHeaderStories.Editable} />
+
+## Purpose
+
+While a run is live the queued request **is** the composer's own text (FR-025), so this header sits
+directly on the textarea and heads it; editing the text edits the request. The caption follows the
+revalidation against the page (FR-026). After Stop the request pauses with its own text and scope, and
+Continue runs it (FR-054).
+
+## Props
+
+| prop         | type         | default | notes                                                                    |
+| ------------ | ------------ | ------- | ------------------------------------------------------------------------ |
+| `locale`     | `Locale`     | none    |                                                                          |
+| `queue`      | `QueueView`  | none    | `text`, `chips`, `status`: `editable`, `stale`, `missing` or `paused`    |
+| `onRemove`   | `() => void` | none    | `×`: drops the request and clears the box                                |
+| `onContinue` | `() => void` | none    | offered only while paused                                                |
+| `labelId`    | `string`     | own id  | the Composer passes its own, so the textarea can be described by it      |
+| `captionId`  | `string`     | own id  | same                                                                     |
+| `className`  | `string`     | none    | appended to `ck-agent-queue`                                             |
+
+## States
+
+| story                                             | caption                                               |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| `Editable`, `EditableDark`, `EditableRightToLeft` | Starts when the current work ends                     |
+| `Stale`, `StaleDark`, `StaleRightToLeft`          | the target changed; it'll be rechecked (Amber)        |
+| `Missing`, `MissingDark`, `MissingRightToLeftDark`| the target is gone; pick another (Alarm)              |
+| `Paused`, `PausedDark`, `PausedRightToLeft`       | Paused after Stop, with the text, its scope, Continue |
+
+## Anatomy
+
+Label in Meta 600 Ink, caption in Meta 400 (Slate, Amber or Alarm), `×` an IconButton spanning both
+lines. The dot is Indigo while waiting and Rule while paused, a second cue after the words. Paused, the
+request's scope chips (read-only) and text follow, then Continue as a text button. Nothing is boxed:
+the composer is the border.
+
+## Accessibility
+
+- A group named "Up next" and described by the caption; the Composer points the textarea's
+  description at the same two lines.
+- `×` is named "Remove the next request"; after it, the Composer returns focus to the textarea. So
+  does Continue.
+
+## RTL
+
+The dot and the words at the right, `×` at the left. A paused request's text takes its own direction
+and language from its words (`resolveDir`, `resolveLang`).
+
+## Motion
+
+None of its own; it arrives with the composer's sections.

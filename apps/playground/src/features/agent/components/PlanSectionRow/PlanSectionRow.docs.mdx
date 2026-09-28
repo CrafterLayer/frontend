@@ -1,0 +1,80 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PlanSectionRowStories from './PlanSectionRow.stories';
+
+<Meta of={PlanSectionRowStories} />
+
+# PlanSectionRow
+
+One section of an editable page plan (SPEC §4.11), 32px (44 on a coarse pointer).
+
+<Canvas of={PlanSectionRowStories.Default} />
+
+## Purpose
+
+A row is what a person reads, renames and moves. Its title never moves when the plan inks into the
+build: the controls that do not exist on the build (the handle, `[⋯]`) sit at the inline end, as iOS
+places its reorder control.
+
+## When to use / not
+
+Use it only inside PlanSectionList, which owns its columns (subgrid), the drag and where focus goes
+after a move.
+
+## Props
+
+| prop                                    | type                                                 | default | notes                                                   |
+| --------------------------------------- | ---------------------------------------------------- | ------- | ------------------------------------------------------- |
+| `locale`                                | `'ar' \| 'en'`                                       | none    |                                                         |
+| `section`                               | `PlanSectionView`                                    | none    | key, title, purpose                                     |
+| `position`                              | `number`                                             | none    | 1-based                                                 |
+| `editable`                              | `boolean`                                            | none    | false: node, number and title only                      |
+| `duplicate`                             | `boolean`                                            | `false` | another section has this name                           |
+| `canMoveUp`, `canMoveDown`, `canRemove` | `boolean`                                            | none    | what the plan would take                                |
+| `removeReason`                          | `string`                                             | none    | at two sections: Remove stays reachable with the reason |
+| `onRename`                              | `(title: string) => void`                            | none    |                                                         |
+| `onMove`                                | `(delta: -1 \| 1, from: 'handle' \| 'menu') => void` | none    | the list moves it and keeps focus on `from`             |
+| `onRemove`                              | `(from: 'handle' \| 'menu') => void`                 | none    |                                                         |
+| `onHandlePointerDown`                   | `(event) => void`                                    | none    | the list's drag                                         |
+| `drag`                                  | `{ offset, lifted }`                                 | none    | set by the list while dragging                          |
+| `transitionName`                        | `string`                                             | none    | `ck-plan-row-{key}`                                     |
+| `arrivalDelayMs`                        | `number`                                             | none    | the list's arrival stagger                              |
+
+## States
+
+| story                                               | what it shows                                       |
+| --------------------------------------------------- | --------------------------------------------------- |
+| `Default`, `Dark`, `RightToLeft`, `RightToLeftDark` | at rest                                             |
+| `WithPurposeAt420`, `WithPurposeAt420RightToLeft`   | the purpose inline in Slate                         |
+| `Renaming`, `RenamingRightToLeft`                   | the inline field, text where the title was          |
+| `MenuOpen`                                          | Rename, Move up, Move down, Remove section          |
+| `RemoveRefusedAtFloor`                              | Remove refused at two sections, the reason under it |
+| `DuplicateName`                                     | the Amber wavy underline                            |
+| `Lifted`                                            | mid-drag: the Sheet and e2's shadow                 |
+| `ReadOnly`, `ReadOnlyRightToLeft`                   | no controls                                         |
+
+## Anatomy
+
+From the inline start: the node (a Rule ring on the pencil), the number (Figure, Slate, tabular),
+the title (Read, Ink, one line with an ellipsis), from 400px the purpose (Slate), and at the inline
+end the handle `⠿` and `[⋯]`, 32px each, 4px apart, quiet in Slate until the row is pointed at. The
+hover fill runs the row's length, radius 6.
+
+## Accessibility
+
+- Every control names its section: "Reorder Doctors" (described by "Drag to reorder, or Alt with the
+  arrow keys"), "Options for Doctors".
+- Rename: double-click the title, F2, or ⋯ → Rename. The field is named "Rename Doctors", opens with
+  the name selected; Enter saves, Esc restores, leaving it saves. Focus returns to the control the
+  rename started from (the handle for a double-click or F2, `[⋯]` from the menu).
+- Alt+↑ / Alt+↓ are spent before `[⋯]` can read ↓ as "open the menu".
+- A shared name is said in words on the handle, not only drawn.
+
+## RTL
+
+Logical properties only; a title takes its own direction from its script, in `<bdi>`.
+
+## Motion
+
+Hover fills fade over 120ms. While dragging, the rows it passes glide over `move`; the lifted row
+has no transition.

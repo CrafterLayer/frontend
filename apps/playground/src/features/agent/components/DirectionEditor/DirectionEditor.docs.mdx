@@ -1,0 +1,68 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as DirectionEditorStories from './DirectionEditor.stories';
+
+<Meta of={DirectionEditorStories} />
+
+# DirectionEditor
+
+The plan's look, editable in place (SPEC §4.11): the mood line, the five colours and the font pair.
+
+<Canvas of={DirectionEditorStories.Default} />
+
+## Purpose
+
+A page's direction is three decisions: how it should feel, which colours it uses, which faces set
+it. The editor shows them as the line they are and lets each be changed without leaving the card.
+Every change leaves as one `PlanOp` (`setMood`, `setToken`, `setFonts`); the model applies it to the
+engine's structured plan, and the card shows the result.
+
+## When to use / not
+
+Use it inside PagePlanCard when the plan carries structured direction (engine E7). Without it, the
+card shows a read-only DirectionLine of the direction prose. After Build, the direction is a
+DirectionLine in the build record.
+
+## Props
+
+| prop        | type                        | default       | notes                                        |
+| ----------- | --------------------------- | ------------- | -------------------------------------------- |
+| `locale`    | `'ar' \| 'en'`              | none          |                                              |
+| `direction` | `PlanDirectionView`         | none          | mood, five swatches, the pair's id and names |
+| `onEdit`    | `(op: PlanOp) => void`      | none          | `setMood`, `setToken`, `setFonts`            |
+| `fontPairs` | `readonly FontPairOption[]` | curated pairs | only faces the engine verified               |
+
+## States
+
+| story                                               | what it shows                                 |
+| --------------------------------------------------- | --------------------------------------------- |
+| `Default`, `Dark`, `RightToLeft`, `RightToLeftDark` | the mood, five swatches, the pair             |
+| `At420`, `At420RightToLeft`                         | the pair's specimen and both faces            |
+| `UnreadableText`                                    | a held text colour that fails: the Amber flag |
+| `EditingMood`                                       | the field while typing: Sheet and Rule border |
+
+## Anatomy
+
+Two lines. The mood: a 32px text field in Graphite that looks like its line (no box at rest, the
+Wash on hover, the Sheet with a Rule border while editing) with a pencil at its inline end. Under
+it, the swatches and the pair: five 20px chips in 32px targets (44 on a coarse pointer), 12px apart
+(8 between the 44px targets), background, surface, text, accent, text on accent; the FontPairMenu
+trigger at the inline end. The field and the swatch row hang into the card's padding by their own
+inner space, so the mood's first letter and the first chip's edge sit on the card's content edge.
+
+## Accessibility
+
+- The mood field is named "Style". Enter or leaving it applies; Esc restores the plan's mood; an
+  emptied field applies nothing (the mood it held stays).
+- The swatches are a group named "Colours"; each is named by its role and code ("Text: #0E1116.
+  Change"), and a held colour that fails its pair is described by the verdict.
+- The mood is at most 200 characters, the engine's limit on a plan's signature.
+
+## RTL
+
+Logical properties only. The swatches follow the reading direction, background first; the mood takes
+its own direction from its script.
+
+## Motion
+
+Colour-only state changes at 120ms. The popover and the menu have their own.

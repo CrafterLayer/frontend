@@ -1,0 +1,106 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PagePlanCardStories from './PagePlanCard.stories';
+
+<Meta of={PagePlanCardStories} />
+
+# PagePlanCard
+
+The page plan, drawn in pencil (SPEC §3.7, §4.11): Plan mode's answer to a page request, and Ask
+mode's approval for one. It is a decision surface, so it has a border; everything that already
+happened in the thread has none.
+
+<Canvas of={PagePlanCardStories.Ready} />
+
+## Purpose
+
+A page request is expensive and hard to take back. The card shows the plan the engine will build
+from (the subject, the look and the sections in page order) and lets the person change it before
+anything touches the page. **"Build this page" is the approval.** When it is pressed, the card's box
+dissolves and the same list inks into the build in place (SPEC §5 moment 4): the plan the person
+approved is visibly the plan being built.
+
+## When to use / not
+
+Use it for a `page-plan` turn: Plan mode on a page request, and Ask mode's page approval (with the
+"Waiting for your approval" tag). While the planner writes, it is a working record, not a card.
+
+Do not use it for an edit plan (StepPlanCard) or an Ask edit (ProposalCard). Do not show it after
+Build: the turn is then a BuildRecord under the same turn id.
+
+## Props
+
+| prop             | type                                                        | default       | notes                                                                    |
+| ---------------- | ----------------------------------------------------------- | ------------- | ------------------------------------------------------------------------ |
+| `locale`         | `'ar' \| 'en'`                                              | none          | the UI locale                                                            |
+| `view`           | `PlanView`                                                  | none          | from the controller; `edited`, `problems` and `note` come from the model |
+| `actions`        | `Pick<AgentController, 'build' \| 'discard' \| 'editPlan'>` | none          | every change leaves as one `PlanOp`                                      |
+| `accepts`        | `(op: PlanOp) => boolean`                                   | local limits  | the model's `applyPlanOp` identity check; refused ops show unavailable   |
+| `fontPairs`      | `readonly FontPairOption[]`                                 | curated pairs | only faces the engine verified                                           |
+| `layoutPrepared` | `boolean`                                                   | `false`       | SPEC §7.6 E0c: the empty layout was written before approval              |
+| `className`      | `string`                                                    | none          | appended to `ck-agent-card ck-agent-plan`                                |
+
+Exported with it: `PLAN_HEAD_TRANSITION_NAME` (`ck-plan-head`), `DecisionCard` (the shell shared
+with StepPlanCard and ProposalCard) and `focusAfterAnswer` (`answer-focus.ts`).
+
+## States
+
+| story                                                        | what it shows                                                     |
+| ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `Ready`, `ReadyDark`, `ReadyRightToLeft`, `…RightToLeftDark` | the plan as it arrives, editable through the model                |
+| `ReadyAt420`, `ReadyAt420RightToLeft`, `ReadyAt288`          | purposes inline from 400px; the narrowest dock                    |
+| `Edited`, `EditedRightToLeft`                                | the "Edited" tag after a rename and a move                        |
+| `InvalidContrast`, `InvalidContrastDark`                     | an unreadable text colour: Build waits, an Amber reason under it  |
+| `InvalidDuplicateNames`, `…RightToLeft`                      | two sections named alike, both marked                             |
+| `AskApproval`, `AskApprovalRightToLeft…`                     | Ask mode's tag, "Waiting for your approval"                       |
+| `AskApprovalLayoutPrepared`                                  | E0c: the honesty line that the layout was prepared                |
+| `ReadOnlyFallback`, `…RightToLeft`                           | `capabilities.editablePlan = false`: titles and prose only        |
+| `MayDifferNote`, `MayDifferNoteRightToLeftDark`              | Plan mode without a structured plan: Build re-plans               |
+| `AtMinimum`, `AtMaximum`, `AtMaximumRightToLeft`             | two sections (Remove refused), twelve (Add refused), with reasons |
+| `Drafting`, `DraftingRightToLeft`                            | the working record while the plan is written                      |
+| `ReorderWithKeyboard`                                        | Alt+↓ moves a section; its handle keeps focus                     |
+
+## Anatomy
+
+e1: the Sheet, a 1px Hairline, radius 9, 12px in. Full-width Hairlines with 8px above and below
+split it into four parts:
+
+1. **Head**: the title (Heading, 600, Ink), a Tint tag at the inline end ("Edited", or "Waiting for
+   your approval" in Ask mode), and the subject in Graphite. No node: the plan's nodes are its
+   sections'.
+2. **DirectionEditor**: the mood as a field that reads as its line, five swatches, the font pair.
+   Without structured direction it is a read-only DirectionLine of the direction prose.
+3. **PlanSectionList** on the pencil spine, then **AddSectionRow**. Node, number and title sit
+   exactly where the build's spine will draw them.
+4. **Footer**: "Build this page" (the Indigo fill), "Discard plan" (Indigo words), and one Meta note
+   under them: "Builds exactly the sections shown." or "The built page may differ from this
+   outline." When Build waits, the reasons replace the note, one Amber line each.
+
+## Accessibility
+
+- An `<article>` named by its `h3` ("Page plan"); the heading takes `tabindex="-1"`.
+- The list is an `<ol>` named "Sections (8)". Every row control names its section ("Reorder
+  Doctors", "Options for Doctors"); the handle is described by the drag hint.
+- Reorder three ways, as WCAG 2.5.7 asks: drag the handle, Alt+↑ / Alt+↓, ⋯ → Move up / Move down.
+  Each move is announced through LiveStatus (`plan.moved`), the panel's one live region; the card
+  carries none of its own.
+- Build waits `aria-disabled`, never `disabled`: it stays in the tab order, described by the reason
+  written under it. Remove at two sections and Add at twelve do the same.
+- Focus names its destination (SPEC §6.3), asserted by name in the tests: after Build, the new build
+  record's head; after Discard, the composer; after a move, the moved row's control; after a
+  removal, the `[⋯]` of the row that took its place.
+
+## RTL
+
+Logical properties only. In Arabic the pencil runs down the right edge and the handle and `[⋯]` sit
+at the left; the tag sits at the head's inline end. Titles and the subject take their own direction
+from their script (`resolveDir`), inside `<bdi>`.
+
+## Motion
+
+- Rows arrive in page order, 24ms apart, opacity and 4px (SPEC §5 moment 6).
+- Build: the controller swaps the turn inside a view transition. Each row is named
+  `ck-plan-row-{key}` and the head `ck-plan-head`; the rows hold still and glide the 12px the
+  padding gives back (`enter`, 220ms), while the box fades (`exit`, 140ms). For the rows to morph
+  rather than cross-fade, the BuildRecord's head and spine rows must carry the same names.
+- Reduced motion: no arrival, no view transition; the swap is instant.

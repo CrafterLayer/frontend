@@ -334,6 +334,13 @@ const HEADER_KIT = [
   `${REGION} [id]{scroll-margin-top:${HEADER_CLEARANCE}}`,
   `@media (min-width:64rem){${REGION} [id]{scroll-margin-top:${HEADER_CLEARANCE_LG}}}`,
 ];
+/*
+  How an append tells that the block it replaces served a plan-built header:
+  by any of its header rules, not one exact string — a page built before a
+  rule's wording changes still has its header on the page and still needs
+  them.
+*/
+const EARLIER_HEADER_KIT = /header\.sticky|\.ck-bar\{|scroll-margin-top/u;
 
 /**
  * The plan's page CSS: font imports, the tokens, the component kit.
@@ -355,7 +362,10 @@ const HEADER_KIT = [
  * block's h2 into Lalezar, its body into Almarai and its text emerald.)
  */
 export function pagePlanCss(plan: PagePlan): string {
-  return planBlock(plan, plan.sections.some(({ role }) => role === 'header'));
+  return planBlock(
+    plan,
+    plan.sections.some(({ role }) => role === 'header'),
+  );
 }
 
 /** The plan's fenced block; `hasHeader` adds the sticky host, the bar layout and the anchors' clearance. */
@@ -431,7 +441,7 @@ function pageCssFor(plan: PagePlan, context: SkeletonFromPlanContext): string {
   const earlier = current.match(PLAN_BLOCK) ?? [];
   const header =
     plan.sections.some(({ role }) => role === 'header') ||
-    earlier.some((block) => block.includes(STICKY_HOST) || block.includes('.ck-bar{'));
+    earlier.some((block) => block.includes(STICKY_HOST) || EARLIER_HEADER_KIT.test(block));
   const block = planBlock(plan, header);
   const kept = current.replace(PLAN_BLOCK, '').trim();
   return kept === '' ? block : `${kept}\n${block}`;

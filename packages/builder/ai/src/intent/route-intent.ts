@@ -293,9 +293,13 @@ function routeFramed(
       `asks what would happen (“${frame.opener}” … “${outcome}”), which is answered in words`,
     );
   }
-  if (frame.kind === 'condition') {
-    return routeWords(input, folded, labels, opened.tokens, opened.polite);
-  }
+  /*
+    Whatever the frame — "what if I…", "suppose I…", "if I…", "هل ممكن أنا…"
+    — the person as the subject asks about their OWN action. Read past a
+    condition's opener as an instruction, "if I delete the hero?" and "suppose
+    I remove the pricing section?" routed edit@0.8-0.85 (router-3 probe,
+    2026-09-28), where "what if I delete the hero?" was already answered.
+  */
   const speaker = frame.rest[0];
   if (speaker !== undefined && readsAs(speaker, FIRST_PERSON)) {
     return route(
@@ -303,6 +307,9 @@ function routeFramed(
       CONFIDENCE.interrogative,
       `asks about the person’s own action (“${frame.opener} ${speaker.raw}”), which is theirs to take`,
     );
+  }
+  if (frame.kind === 'condition') {
+    return routeWords(input, folded, labels, opened.tokens, opened.polite);
   }
   const rest = frame.kind === 'suggestion' ? proposalOf(frame.rest, frame.afterIf) : frame.rest;
   const said =
@@ -315,7 +322,9 @@ function routeFramed(
       : routeWords(input, folded, labels, opened.tokens, opened.polite);
   }
   const routed = routeWords(input, folded, labels, rest, true);
-  if (routed.kind === 'question') return route('question', routed.confidence, `${said}, ${routed.reason}`);
+  if (routed.kind === 'question') {
+    return route('question', routed.confidence, `${said}, ${routed.reason}`);
+  }
   if (isBuildIntent(routed)) {
     return route(
       'question',
@@ -559,14 +568,40 @@ function stripOpeners(tokens: readonly IntentToken[]): OpenedRequest {
     polite ||= opener.polite;
     const asksWhatIsPossible =
       opener.possibility === 'infinitive' ||
-      (opener.possibility === 'verbal-noun' && readsAs(tokens[start], VERBAL_NOUNS_AR));
+      (opener.possibility === 'verbal-noun' &&
+        (readsAs(tokens[start], VERBAL_NOUNS_AR) || firstPersonVerbAr(tokens, start)));
     if (asksWhatIsPossible) capability ??= opener.words.join(' ');
   }
   const rest = tokens.slice(start);
-  return capability === undefined
-    ? { tokens: rest, polite }
-    : { tokens: rest, polite, capability };
+  return capability === undefined ? { tokens: rest, polite } : { tokens: rest, polite, capability };
 }
+
+/**
+ * Whether the word at `index` is an Arabic verb in the FIRST person — "هل ممكن
+ * أحذف الفوتر؟" ("is it possible that I delete the footer?", "can I…") — the
+ * Arabic of "can I delete the footer?", which is answered, not performed.
+ *
+ * Folded, the first person's أ is the imperative's ا ("احذف", delete!), so
+ * the word alone cannot tell them apart; after an explicit "هل" of
+ * possibility it is read as a question of what can be done, below the confirm
+ * line, rather than an instruction at 0.8 (router-3 probe, 2026-09-28). A
+ * verb that carries "for me / us" — "هل ممكن اعمل لي موقع؟", "اعمللي" — is
+ * addressed to the assistant, and stays the courtesy it was.
+ */
+function firstPersonVerbAr(tokens: readonly IntentToken[], index: number): boolean {
+  const token = tokens[index];
+  if (token?.arabic !== true || !token.raw.startsWith('ا') || token.raw.length < 3) return false;
+  if (/(?:لي|للي|لنا)$/u.test(token.raw) || FOR_THE_SPEAKER_AR.has(tokens[index + 1]?.raw ?? '')) {
+    return false;
+  }
+  const verb = ARABIC_VERBS.find(
+    ([pattern]) => pattern.test(token.raw) || pattern.test(`ي${token.raw.slice(1)}`),
+  );
+  return verb !== undefined && verb[1] !== 'want';
+}
+
+/** "For me", "for us", after a verb: the verb is asked OF the assistant. */
+const FOR_THE_SPEAKER_AR: ReadonlySet<string> = new Set(['لي', 'الي', 'لنا', 'النا']);
 
 /** How a request shaped as a question is framed; see `routeFramed`. */
 type Frame =
@@ -578,7 +613,7 @@ type Frame =
       readonly afterIf: boolean;
     }
   | { readonly kind: 'capability'; readonly opener: string; readonly rest: readonly IntentToken[] }
-  | { readonly kind: 'condition'; readonly opener: string };
+  | { readonly kind: 'condition'; readonly opener: string; readonly rest: readonly IntentToken[] };
 
 /**
  * The frame a request opens with, if any: a capability question the courtesy
@@ -603,7 +638,9 @@ function frameOf(opened: OpenedRequest): Frame | undefined {
     };
   }
   const condition = HYPOTHETICAL_OPENERS.find(opens);
-  return condition === undefined ? undefined : { kind: 'condition', opener: condition.join(' ') };
+  return condition === undefined
+    ? undefined
+    : { kind: 'condition', opener: condition.join(' '), rest: tokens.slice(condition.length) };
 }
 
 /**
@@ -678,10 +715,14 @@ function englishPresentOf(raw: string): string | undefined {
   const irregular = IRREGULAR_PASTS_EN.get(raw);
   if (irregular !== undefined) return irregular;
   const without = (ending: string): string | undefined =>
-    raw.endsWith(ending) && raw.length > ending.length + 1 ? raw.slice(0, -ending.length) : undefined;
+    raw.endsWith(ending) && raw.length > ending.length + 1
+      ? raw.slice(0, -ending.length)
+      : undefined;
   const candidates: string[] = [];
   const ing = without('ing');
-  if (ing !== undefined) candidates.push(ing, `${ing}e`, ...(doubledEnd(ing) ? [ing.slice(0, -1)] : []));
+  if (ing !== undefined) {
+    candidates.push(ing, `${ing}e`, ...(doubledEnd(ing) ? [ing.slice(0, -1)] : []));
+  }
   const ied = without('ied');
   if (ied !== undefined) candidates.push(`${ied}y`);
   const ed = without('ed');
@@ -761,6 +802,8 @@ interface Scan {
   readonly verbs: readonly Verb[];
   /** Positions of "this time", "هالمرة": when, never a part of the page. */
   readonly adverbs: ReadonlySet<number>;
+  /** Positions of the verbs whose object is another verb: "WANT to remove", "بدي حذف". */
+  readonly governing: ReadonlySet<number>;
 }
 
 function scanOf(tokens: readonly IntentToken[]): Scan {
@@ -783,8 +826,38 @@ function scanOf(tokens: readonly IntentToken[]): Scan {
   }
   const spoken = verbalNounsOf(tokens, nouns, verbs);
   const all = spoken.length === 0 ? verbs : [...verbs, ...spoken].sort((a, b) => a.index - b.index);
-  return { tokens, nouns, verbs: all, adverbs };
+  return { tokens, nouns, verbs: all, adverbs, governing: governingVerbs(tokens, all) };
 }
+
+/**
+ * The verbs whose object is ANOTHER verb — "I want TO REMOVE a page", "we need
+ * to delete a section", "بدي حذف قسم الأسئلة" — by position. The governed verb
+ * says what is asked; the governing one only says that it is wanted, and its
+ * object is read nowhere.
+ *
+ * Read as the want's object, "a page" and "قسم الأسئلة" were a page or a
+ * section to MAKE: "I want to remove a page" routed build-page/replace@0.9 on
+ * an empty page and new-page@0.75 beside content, "بدي حذف قسم الأسئلة"
+ * add-section@0.85 — a deletion that would have written a page or a section
+ * (router-3 probe, 2026-09-28). "I want to build a website" reads the same
+ * with or without this: its governed verb asks for the page itself.
+ */
+function governingVerbs(
+  tokens: readonly IntentToken[],
+  verbs: readonly Verb[],
+): ReadonlySet<number> {
+  const governing = new Set<number>();
+  for (const found of verbs) {
+    let next = found.index + found.width;
+    while (next < tokens.length && readsAs(tokens[next], OBJECT_FILLERS)) next += 1;
+    if (verbs.some((other) => other.index === next)) governing.add(found.index);
+  }
+  return governing;
+}
+
+/** A verb whose own object is what it asks for: not an edit, and not governing another verb. */
+const asksForItsObject = (scan: Scan, found: Verb): boolean =>
+  found.kind !== 'edit' && !scan.governing.has(found.index);
 
 /**
  * The MSA verbal nouns of change that stand as the request's verb: the first
@@ -808,8 +881,9 @@ function verbalNounsOf(
     if (token?.arabic !== true || !isChangeVerbalNoun(token)) continue;
     if (verbs.some((verb) => verb.index === index)) continue;
     const governed =
-      verbs.some((verb) => verb.index === index - 1 && verb.kind !== 'edit' && verb.kind !== 'add') ||
-      VERB_GOVERNORS_AR.has(tokens[index - 1]?.raw ?? '');
+      verbs.some(
+        (verb) => verb.index === index - 1 && verb.kind !== 'edit' && verb.kind !== 'add',
+      ) || VERB_GOVERNORS_AR.has(tokens[index - 1]?.raw ?? '');
     if (governed || (index === 0 && namesWhatExists(tokens, nouns, index + 1))) {
       found.push({ index, kind: 'edit', width: 1 });
     }
@@ -1062,7 +1136,7 @@ function readSignals(
   /* A section NAMED by an Arabic construct, which is one to make unless the words restart it. */
   let namedSection: string | undefined;
   for (const found of scan.verbs) {
-    if (found.kind === 'edit') continue;
+    if (!asksForItsObject(scan, found)) continue;
     const phrase = phraseFrom(scan, found.index + found.width, true);
     const head = phrase.head;
     if (head === undefined) continue;
@@ -1187,7 +1261,7 @@ function carriesArticle(token: IntentToken | undefined): boolean {
  * whose object is a part, not a page — an addition to what exists.
  */
 function wantsAPart(scan: Scan, found: Verb): boolean {
-  if (found.kind !== 'want' || found.index === 0) return false;
+  if (found.kind !== 'want' || found.index === 0 || scan.governing.has(found.index)) return false;
   if (!THIRD_PERSON_WANTS.has(scan.tokens[found.index]?.raw ?? '')) return false;
   const head = phraseFrom(scan, found.index + found.width, true).head;
   return head !== undefined && !isPageLevel(head);
@@ -1400,7 +1474,7 @@ function siteSignal(
     "Add" is not creative here: "add links to other pages" names pages it does
     not ask for. Adding counts only with the pages NAMED (below).
   */
-  const creative = verbs.some((found) => found.kind !== 'edit' && found.kind !== 'add');
+  const creative = verbs.some((found) => asksForItsObject(scan, found) && found.kind !== 'add');
   const adding = verbs.some((found) => found.kind === 'add');
   /*
     A count or a list is a site only when it is ASKED FOR: "translate the 3
@@ -1474,14 +1548,15 @@ function asksForASite(scan: Scan): boolean {
   if (scan.verbs[0]?.index !== 0 && fresh(phraseFrom(scan, 0, false).head)) return true;
   return scan.verbs.some(
     (found) =>
-      found.kind !== 'edit' && fresh(phraseFrom(scan, found.index + found.width, true).head),
+      asksForItsObject(scan, found) &&
+      fresh(phraseFrom(scan, found.index + found.width, true).head),
   );
 }
 
 /** The head of what the first verb that makes, wants or adds is asked for, if it names one. */
 function firstObjectHead(scan: Scan): Noun | undefined {
   for (const found of scan.verbs) {
-    if (found.kind === 'edit') continue;
+    if (!asksForItsObject(scan, found)) continue;
     const head = phraseFrom(scan, found.index + found.width, true).head;
     if (head !== undefined) return head;
   }
@@ -1623,7 +1698,17 @@ function earliestRestart(
 const RESTART_VERBS: ReadonlySet<string> = new Set(RESTART_VERBS_AR);
 
 /** Words of conversation a verb may follow: "يلا عيد تصميمها", "طيب أعد بناء الصفحة". */
-const LEAD_INS_AR: ReadonlySet<string> = new Set(['يلا', 'طيب', 'اوكي', 'تمام', 'خلينا', 'هلا', 'خلص', 'خلاص', 'الان']);
+const LEAD_INS_AR: ReadonlySet<string> = new Set([
+  'يلا',
+  'طيب',
+  'اوكي',
+  'تمام',
+  'خلينا',
+  'هلا',
+  'خلص',
+  'خلاص',
+  'الان',
+]);
 
 /**
  * Whether the strong start-over `phrase` stands at `at`.
@@ -1721,9 +1806,7 @@ function objectAfter(scan: Scan, at: number, phrase: readonly string[]): number 
   */
   const leads =
     isAdverbial(phrase) &&
-    !scan.verbs.some(
-      (found) => found.index < at && found.index >= clauseStart(tokens, at, phrase),
-    );
+    !scan.verbs.some((found) => found.index < at && found.index >= clauseStart(tokens, at, phrase));
   if (first?.breakBefore === true && !START_OVER_LINKS.has(first.raw) && !leads) return undefined;
   while (
     next < tokens.length &&
@@ -1864,8 +1947,7 @@ function hasBrief(scan: Scan, at: number): boolean {
   /* The clause after the restarting one, past any that is only "and" / "but". */
   const after = clauses.findIndex(
     ([start, end], index) =>
-      index > restart &&
-      tokens.slice(start, end).some((token) => !CLAUSE_JOINS.has(token.raw)),
+      index > restart && tokens.slice(start, end).some((token) => !CLAUSE_JOINS.has(token.raw)),
   );
   return clauses.some(([start, end], index) => {
     const from =
@@ -2069,7 +2151,7 @@ function saysNoSubject(token: IntentToken): boolean {
  */
 function newPageSignal(scan: Scan): string | undefined {
   for (const found of scan.verbs) {
-    if (found.kind === 'edit') continue;
+    if (!asksForItsObject(scan, found)) continue;
     const asked = newPageFrom(scan, found.index + found.width, true);
     if (asked !== undefined) return asked;
   }

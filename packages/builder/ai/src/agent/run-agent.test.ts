@@ -539,6 +539,8 @@ describe('runAiAgent', () => {
         propose: (_request, context, options) => {
           expect(context.fragments.map(({ title }) => title)).toEqual([
             'Active AI skill: craftkit.hero-copy',
+            // fast-edits: the selected hero's section is shown whole, the rest outlined.
+            'Document focus',
           ]);
           expect(options?.history).toEqual([{ role: 'user', text: 'Earlier request' }]);
           options?.onProgress?.('Reading the selected hero');

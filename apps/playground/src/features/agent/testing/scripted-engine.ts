@@ -362,6 +362,38 @@ export function editProvider(commands: AiPlan['commands'], rationale = 'Edit the
   return provider;
 }
 
+/**
+ * A provider that must not be asked: a zero-token direct edit, or a catalog example picked
+ * by name, is answered without it. Every call is counted, then refused.
+ */
+export function refusingProvider(): AiPlanProvider & { calls: () => number } {
+  let calls = 0;
+  return {
+    propose() {
+      calls += 1;
+      return Promise.reject(new Error('This request must not reach the provider.'));
+    },
+    calls: () => calls,
+  };
+}
+
+/**
+ * An edit provider that records the live options of every call, so a test can read the
+ * model an edit asked for (`{ model, effort }`, the engine's `editModel` / `editEffort`).
+ */
+export function recordingProvider(
+  commands: AiPlan['commands'],
+): AiPlanProvider & { readonly live: Readonly<Record<string, unknown>>[] } {
+  const live: Readonly<Record<string, unknown>>[] = [];
+  return {
+    live,
+    propose(_request, _context, options) {
+      live.push({ ...(options ?? {}) });
+      return Promise.resolve({ rationale: 'Edit the page.', commands });
+    },
+  };
+}
+
 /** A provider that answers in words only (a question, or Plan mode's change plan). */
 export function wordsProvider(rationale: string): AiPlanProvider & { calls: () => number } {
   let calls = 0;
@@ -432,7 +464,7 @@ export function coffeePlan(): PagePlanCandidate {
       },
     ],
     facts: [{ key: 'phone', sample: '+962 7 9000 0000', section: 'footer' }],
-  } as PagePlanCandidate;
+  };
 }
 
 /**

@@ -110,7 +110,7 @@ function written(heading: string, line: string): JsonValue {
         ],
       },
     ],
-  } as unknown as JsonValue;
+  };
 }
 
 function page(sections: readonly (readonly [string, string])[] = []): BuilderDocument {
@@ -351,20 +351,39 @@ function baseOptions(live: BuilderKernel, provider: AiPlanProvider, events?: AiB
 
 describe('when the plan path gives out, the build says so — event and result', () => {
   /*
-    A real door refusal, not a stubbed one: a page root with room for 200
-    characters of CSS cannot take the plan's block (~2.3–2.8k measured
-    2026-09-28 across the deck), exactly as an APPEND onto a page keeping
-    more than ~17.2k characters of its own CSS overflows the product page's
-    20,000 (door: "Too big: expected string to have <=20000 characters").
+    The one door refusal of a code skeleton left on 2026-09-28, reproduced as
+    it happens: an APPEND keeps the page's own CSS and adds the plan's block
+    (2,700–2,801 characters across the 22 deck rows, Arabic and English), and
+    the product page holds 20,000. Measured the same day: a page keeping
+    17,500 characters of its own CSS takes the append, one keeping 18,000 is
+    refused ("Too big: expected string to have <=20000 characters").
   */
   it('reports the door’s refusal of the code skeleton, and still builds with the model skeleton', async () => {
-    const live = kernel(page(), 200);
+    const full = page([
+      ['Old hero', 'Welcome'],
+      ['Old band', 'Our story'],
+    ]);
+    (full.nodes['root'] as { props: Record<string, unknown> }).props['pageCss'] =
+      '.ck-own{margin:0}'.repeat(1_059); // 18,003 characters of the page's own CSS
+    const live = kernel(full);
     const events: AiBuildEvent[] = [];
-    const script = scripted();
+    const appended = roastery();
+    const script = scripted({
+      pagePlan: () => ({
+        ...appended,
+        intent: 'append',
+        nav: [],
+        facts: [],
+        sections: (appended['sections'] as Record<string, unknown>[])
+          .filter(({ role }) => role === 'band' || role === 'cta')
+          .map((section) => ({ ...section, key: `more-${String(section['key'])}` })),
+        primaryCta: { label: 'Order beans', href: '#order' },
+      }),
+    });
 
     const result = await runAiBuild({
       ...baseOptions(live, script.provider, events),
-      target: 'replace',
+      target: 'append',
     });
 
     expect(script.planCalls).toHaveLength(1);
@@ -374,7 +393,7 @@ describe('when the plan path gives out, the build says so — event and result',
     expect(result.outcome).toBe('completed');
     expect(result.planFallback?.stage).toBe('skeleton');
     expect(result.planFallback?.error.code).toBe('plan-rejected');
-    expect(result.planFallback?.issues.some((issue) => /pageCss/u.test(issue))).toBe(true);
+    expect(result.planFallback?.issues.some((issue) => issue.includes('pageCss'))).toBe(true);
     // The event carries the same reasons, on the one event that means "laying the skeleton".
     expect(fallbacksOf(events)).toEqual([result.planFallback]);
     expect(own(events).filter(({ type }) => type === 'build.scaffolding')).toHaveLength(2);
@@ -443,10 +462,11 @@ const slug = (name: string): string =>
  * row's palette by role, its Arabic or Latin pair, its sections and variants.
  *
  * A shade the plan palette cannot resolve is left out and derived by the
- * validator: on 2026-09-28 the wedding row's accentInk yellow-800 and the
- * auto row's red-400 were missing from PAGE_PLAN_PALETTE_HEX (page-plan
- * owner). That refusal is the validator's and costs T1 a repair round — the
- * door never sees it — so this pin stays on what the door does.
+ * validator: earlier on 2026-09-28 the wedding row's accentInk yellow-800
+ * and the auto row's red-400 were missing from PAGE_PLAN_PALETTE_HEX (added
+ * since by the page-plan owner). Such a refusal is the validator's and costs
+ * T1 a repair round — the door never sees it — so this pin stays on what the
+ * door does.
  */
 function fromRow(
   row: DirectionDeckRow,
@@ -602,6 +622,8 @@ describe('the door accepts the code skeleton of every deck row, Arabic and Engli
       }
       expect(refused).toEqual([]);
     },
+    // 22 rows × 4 builds through the door's dry run and the kernel: ~6–10 s on this machine.
+    120_000,
   );
 });
 

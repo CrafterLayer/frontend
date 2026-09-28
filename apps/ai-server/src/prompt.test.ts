@@ -875,7 +875,7 @@ function customCodeEntry(
     ],
     propertyIntents: { tabs: { advanced: ['css'], content: ['label', 'tree'] }, kinds: {} },
     slots: [],
-  } as unknown as AiPlanWireRequest['context']['blocks'][number];
+  };
 }
 
 const TODAY_TAGS = ['a', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'section', 'span'];
@@ -947,7 +947,13 @@ function editRequest(
         { type: 'page', description: 'The page root.', insertable: false },
       ],
       templates: [
-        { id: 'commerce-launch', name: 'Commerce launch', rootType: 'stack', nodeCount: 16, blockTypes: [] },
+        {
+          id: 'commerce-launch',
+          name: 'Commerce launch',
+          rootType: 'stack',
+          nodeCount: 16,
+          blockTypes: [],
+        },
       ],
       document: PAGE_WITH_CONTENT,
       treeMarkup: true,
@@ -957,10 +963,10 @@ function editRequest(
         version: '1.0.0',
         contentFingerprint: `skill-v1-sha256-${id}`,
         reason,
-      })) as unknown as AiPlanWireRequest['context']['skills'],
+      })) as unknown as NonNullable<AiPlanWireRequest['context']['skills']>,
       skillCatalog: pins.flatMap(([id, , activation]) =>
         activation === undefined ? [] : [manifest(id, activation)],
-      ) as unknown as AiPlanWireRequest['context']['skillCatalog'],
+      ) as unknown as NonNullable<AiPlanWireRequest['context']['skillCatalog']>,
       fragments: pins.map(([id]) =>
         skillFragment({ source: id, title: `Active AI skill: ${id}`, trust: 'builtin' }),
       ),
@@ -1007,9 +1013,9 @@ describe('which rules a plan request is built with', () => {
   it('fails safe: an unknown skill, an empty page or a client that reads no markup is a build', () => {
     const unknown: Pin = ['host.mystery', 'auto', undefined];
     expect(planPromptVariant(editRequest([...EDIT_FLOOR, unknown]))).toBe('build');
-    expect(planPromptVariant(editRequest(EDIT_FLOOR, { document: wireRequest().context.document }))).toBe(
-      'build',
-    );
+    expect(
+      planPromptVariant(editRequest(EDIT_FLOOR, { document: wireRequest().context.document })),
+    ).toBe('build');
     const noMarkup = Object.fromEntries(
       Object.entries(editRequest().context).filter(([key]) => key !== 'treeMarkup'),
     ) as unknown as AiPlanWireRequest['context'];
@@ -1063,7 +1069,9 @@ describe('the edit prompt', () => {
       insertable: false,
     });
     expect(stable).toContain('# Writing a customCode tree');
-    expect(stable).toContain('only the tags in the customCode schema (a, div, h1–h6, p, section, span)');
+    expect(stable).toContain(
+      'only the tags in the customCode schema (a, div, h1–h6, p, section, span)',
+    );
     expect(stable).toContain('## Active AI skill: craftkit.design-direction');
   });
 
@@ -1092,7 +1100,9 @@ describe('design code in the prompts', () => {
     const line = vocabularyOf(opened);
 
     expect(line).toContain('(a, details, summary, table, td, svg, path, video)');
-    expect(line).toContain('attributes only href, open, popover, popovertarget, viewBox, d, poster');
+    expect(line).toContain(
+      'attributes only href, open, popover, popovertarget, viewBox, d, poster',
+    );
     // What the door admits drops out of the "no" list; the rest stays named.
     expect(line).toContain('no form, input, textarea, select, script or iframe;');
     expect(line).not.toMatch(/no [^;]*svg/u);
@@ -1101,7 +1111,9 @@ describe('design code in the prompts', () => {
   });
 
   it('reads the vocabulary however the schema nests it', () => {
-    const nested = customCodeEntry([], []) as { propsSchema: { $defs: Record<string, unknown> } };
+    const nested = customCodeEntry([], []) as unknown as {
+      propsSchema: { $defs: Record<string, unknown> };
+    };
     nested.propsSchema.$defs = {
       element: {
         anyOf: [
@@ -1150,13 +1162,17 @@ describe('design code in the prompts', () => {
   */
   it('states every tag and attribute CUSTOM_CODE_TAGS and CUSTOM_CODE_ATTRIBUTES hold', () => {
     const text = readFileSync(
-      new URL('../../../packages/builder/schema/src/custom-code/custom-code-tree.ts', import.meta.url),
+      new URL(
+        '../../../packages/builder/schema/src/custom-code/custom-code-tree.ts',
+        import.meta.url,
+      ),
       'utf8',
     );
     const listed = (name: string, seen = new Set<string>()): string[] => {
       if (seen.has(name)) return [];
       seen.add(name);
-      const body = new RegExp(`const ${name}\\b[^=]*=\\s*\\[([\\s\\S]*?)\\]`, 'u').exec(text)?.[1] ?? '';
+      const body =
+        new RegExp(`const ${name}\\b[^=]*=\\s*\\[([\\s\\S]*?)\\]`, 'u').exec(text)?.[1] ?? '';
       return [
         ...[...body.matchAll(/'([^']+)'/gu)].map((match) => match[1] ?? ''),
         ...[...body.matchAll(/\.\.\.([A-Z_][A-Z0-9_]*)/gu)].flatMap((match) =>
@@ -1177,7 +1193,9 @@ describe('design code in the prompts', () => {
         .split(', ')
         .flatMap((tag) => (tag === 'h1–h6' ? ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] : [tag])),
     );
-    const statedAttributes = new Set((/attributes only ([^.]*)\./u.exec(line)?.[1] ?? '').split(', '));
+    const statedAttributes = new Set(
+      (/attributes only ([^.]*)\./u.exec(line)?.[1] ?? '').split(', '),
+    );
 
     expect(tags.filter((tag) => !statedTags.has(tag))).toEqual([]);
     expect(attributes.filter((attribute) => !statedAttributes.has(attribute))).toEqual([]);
@@ -1216,7 +1234,9 @@ describe('design code in the prompts', () => {
     );
     const refusedList = /const REFUSED[\s\S]*?\];/u.exec(text)?.[0] ?? '';
     const reasons = [...refusedList.matchAll(/reason: '([^']+)'/gu)].map((match) => match[1] ?? '');
-    const hosts = [...text.matchAll(/'https:\/\/(fonts\.[a-z.]+)\/'/gu)].map((match) => match[1] ?? '');
+    const hosts = [...text.matchAll(/'https:\/\/(fonts\.[a-z.]+)\/'/gu)].map(
+      (match) => match[1] ?? '',
+    );
     expect(reasons.length).toBeGreaterThan(5);
     expect(hosts.length).toBeGreaterThan(0);
 

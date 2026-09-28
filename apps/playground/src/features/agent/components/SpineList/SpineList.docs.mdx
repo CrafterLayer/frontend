@@ -1,0 +1,80 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SpineListStories from './SpineList.stories';
+
+<Meta of={SpineListStories} />
+
+# SpineList
+
+The page spine (SPEC §1, §4.8): an `<ol>` named "Page sections", one SpineRow per section, in
+page order.
+
+<Canvas of={SpineListStories.EveryState} />
+
+## Purpose
+
+The spine is the page in miniature. Each row draws the stretch of spine below its node in the
+next row's state, so the line is continuous down the glyph column: dashed pencil where sections
+wait, pale where writers work, Indigo ink where sections are on the page. Ink grows from the
+top, because the engine lands sections in page order.
+
+## When to use / not
+
+Use it inside BuildRecord, which spans it across both body columns so the head's node and every
+row's node share one vertical line. A page plan's editable list is PlanSectionList (WP-13), not
+this; the phone's horizontal spine is MiniSpine.
+
+## Props
+
+| prop               | type                                  | default | notes                                                         |
+| ------------------ | ------------------------------------- | ------- | ------------------------------------------------------------- |
+| `locale`           | `Locale`                              | none    |                                                               |
+| `rows`             | `readonly SpineRowView[]`             | none    | in page order                                                 |
+| `id`               | `string`                              | none    | for Show sections' `aria-controls`                            |
+| `live`             | `boolean`                             | `false` | a live build: arrival, the travelling light, the ink filling  |
+| `arrive`           | `boolean`                             | `false` | the rows have just appeared: they arrive in page order        |
+| `sweep`            | `boolean`                             | `false` | play the completion sweep once                                |
+| `onSweepEnd`       | `() => void`                          | none    | the sweep passed; the record drops `sweep`                    |
+| `revivedCaptionId` | `string`                              | none    | describes every revived row's unavailable Undo                |
+| `onReveal`         | `(nodeId: string) => void`            | none    | a row activated: select its section on the canvas             |
+| `onPeek`           | `(nodeId: string \| null) => void`    | none    | hover or focus on a row (phase 2); `null` when it ends        |
+| `onUndo`           | `(key: string) => void`               | none    | a row's Undo                                                  |
+| `onRedo`           | `(key: string) => void`               | none    | a row's Redo                                                  |
+| `onRetry`          | `(key: string) => void`               | none    | a failed row's Retry                                          |
+
+## States
+
+`Building` (§3.4: ink at the top, writers lit, one draft waiting, pencil below), `EveryState`
+(every row state and trailing action at 420px, where every state word shows), `Arrival` (the
+rows appear in page order), `CompletionSweep` (one light down the unbroken stroke; replay with
+the button), and `ForcedColors`, whose play reads the high-contrast rules back from the
+stylesheet: pencil dashed GrayText, writing dotted Highlight, drafted dotted CanvasText, ink 3px
+solid Highlight, failed dashed Mark. Dark and Arabic twins of each.
+
+## Anatomy
+
+```text
+[node 16] 8 [number 20] 8 [title ……………] [state word] [action 32]    one row, 32px (44 coarse)
+    ┃                                                                the stretch to the next node
+```
+
+The list owns the columns its rows share through subgrid: node 16, number 20, title, state word,
+and the trailing column only when some row has an action, so a live build's state words sit
+flush at the inline end. Titles start 52px in.
+
+## Accessibility
+
+- `<ol role="list" aria-label>` ("Page sections"): WebKit drops list semantics from a list with
+  no markers, so the role is explicit.
+- Every row is named by its place, title and state; the stretches are `aria-hidden`.
+
+## RTL
+
+Logical properties only: the spine runs down the inline start (the right edge in Arabic), the
+actions sit at the inline end.
+
+## Motion
+
+Arrival: opacity and a 4px rise, 24ms apart, capped at 8 steps (§5 moment 6). The completion
+sweep: one pass of light, 720ms, after the last stroke fills, only when every section landed
+(§5 moment 5); never under reduced motion.

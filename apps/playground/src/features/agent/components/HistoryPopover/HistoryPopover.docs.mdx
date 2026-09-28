@@ -1,0 +1,123 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as HistoryPopoverStories from './HistoryPopover.stories';
+
+<Meta of={HistoryPopoverStories} />
+
+# HistoryPopover
+
+The Conversations list (SPEC §4.18, §3.13): a Radix Popover hanging from the header's `[◷]` in the
+docked panel, and a page of its own in the phone sheet, with Back.
+
+<Canvas of={HistoryPopoverStories.List} />
+
+## Purpose
+
+Every conversation is kept, titled by its first request. The list lets a person go back to one, see
+which one is on screen, and let an old one go, without leaving the panel or losing their place in
+the thread. It is a decision surface only while it is open: it floats (e2) and closes on Esc, on a
+choice, or on a press elsewhere.
+
+## When to use / not
+
+Use it once per panel, with the header's Conversations button as `anchorRef` (AgentHeader's
+`conversationsRef`); AgentHeader owns the button's `aria-expanded` and `aria-controls`. In the phone
+sheet pass `presentation="sheet"`.
+
+It renders `SessionSummary[]` and calls the controller (`openConversation`, `deleteConversation`);
+it never opens, deletes or sorts anything itself. Page restore points are a different feature
+(HistoryPanel), not this list.
+
+## Props
+
+| prop                   | type                        | default     | notes                                                                 |
+| ---------------------- | --------------------------- | ----------- | --------------------------------------------------------------------- |
+| `locale`               | `Locale`                    | none        |                                                                       |
+| `sessions`             | `readonly SessionSummary[]` | none        | newest first, as the controller lists them                            |
+| `open`, `onOpenChange` | `boolean`, `(open) => void` | none        | controlled                                                            |
+| `onOpenConversation`   | `(id) => void`              | none        | not called for the current conversation: choosing it just closes      |
+| `onDeleteConversation` | `(id) => void`              | none        | after the row's InlineConfirm                                         |
+| `anchorRef`            | `RefObject<HTMLElement>`    | none        | `[◷]`: the popover hangs from it, focus returns to it                 |
+| `presentation`         | `'popover' \| 'sheet'`      | `'popover'` | `sheet`: a full page of the phone sheet, with Back                    |
+| `id`                   | `string`                    | generated   | for the button's `aria-controls`                                      |
+| `running`              | `boolean`                   | `false`     | other conversations wait; the current one cannot be deleted           |
+| `focusWhenEmpty`       | `() => HTMLElement \| null` | none        | New conversation, for when a delete leaves nothing                    |
+| `now`                  | `number`                    | the ticker  | epoch ms for the rows' times; default: the panel's shared clock, open |
+
+`SEARCH_THRESHOLD` (8) and the search folding (`foldForSearch`, `matchesQuery`) are exported and
+table-tested.
+
+## States
+
+| story                                                      | what it shows                                                 |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| `List` (+ dark, Arabic, Arabic dark)                       | the §3.13 frame: five conversations, focus on the current one |
+| `ListWide`                                                 | a 420px panel: the list stops at 360                          |
+| `Keyboard`                                                 | ↓, End, Home, then Esc back to `[◷]`                          |
+| `Empty`, `EmptyArabicDark`                                 | "No earlier conversations"                                    |
+| `Long`, `LongArabic`                                       | twelve: the search field first, focused                       |
+| `Search` (+ dark, Arabic, Arabic dark)                     | narrowed as typed; «عياده» finds «عيادة»                      |
+| `SearchNoMatch`                                            | "No matching conversations", focus kept in the field          |
+| `Deleting` (+ dark, Arabic, Arabic dark)                   | the question in the row, focus on Cancel                      |
+| `DeletingEscape`                                           | Esc closes the question first; the list stays                 |
+| `Deleted`                                                  | the row goes; focus lands on the row that took its place      |
+| `Busy`, `BusyArabic`                                       | a run is live: why the others wait                            |
+| `Sheet` (+ dark, Arabic, Arabic dark), `SheetSearchArabic` | the phone's full-sheet list, Back at the inline start         |
+| `SheetBack`                                                | Back closes the page; focus returns to `[◷]`                  |
+
+## Anatomy
+
+**Popover:** the Sheet with a hairline and the floating shadow (e2), radius 9, 4px inset like every
+menu; as wide as the panel less 8px a side (`100cqi − 16`), never wider than 360; never taller than
+60% of the panel. The head is the title "Conversations" (Read 600). Above eight conversations a
+search field follows (32px, 44 on a finger; Input type, 16px on a finger so iOS never zooms). While
+a run is live, one Meta line says why the others wait. Then the rows (HistoryRow), the only part
+that scrolls, contained so a scroll never carries on into the thread.
+
+One text edge: the title, the search glyph, the busy line, every row's title and the empty line all
+start 12px in.
+
+**Phone sheet:** the list covers the sheet's full face, header and all, on Paper. Its head is the
+sheet header's 56px, with a 44px Back where Close stood, and the title in Name type. Rows are 44px
+with Delete always visible.
+
+## Accessibility
+
+Keys (SPEC §6.7): ↑ ↓ move between conversations, Home and End jump, Enter opens, Delete (or
+Backspace) asks to delete, Esc closes. The rows share one tab stop (a roving tabindex), so Tab goes
+from the search field into the list and on out of it. ↓ from the search field enters the list; ↑
+from the first row returns to it.
+
+Focus (SPEC §6.3), each destination tested by name:
+
+| after                          | focus goes to                                            |
+| ------------------------------ | -------------------------------------------------------- |
+| opening                        | the search field, else the current conversation          |
+| Esc, a choice, Back            | `[◷]` Conversations                                      |
+| a press elsewhere              | stays where the person put it                            |
+| Delete asked                   | Cancel; Esc or Cancel returns to the row or trash        |
+| a delete                       | the row that took its place, else the new last row       |
+| a delete that empties a search | the search field                                         |
+| a delete that leaves nothing   | New conversation (`focusWhenEmpty`), and the list closes |
+
+The popover is a Radix dialog (non-modal) named by its title; the phone page is a region named the
+same. Pressing `[◷]` while the list is open closes it once instead of closing and reopening it. Esc
+while a delete question is open answers the question first and leaves the list open. In the phone
+sheet Esc goes back to the chat and never reaches the sheet behind it.
+
+## RTL
+
+The list mounts inside the panel (its portal scope is read off `[◷]`), so it takes the panel's
+`dir`, `lang` and theme. Logical properties only: in Arabic it hangs from `[◷]`'s left end, rows put
+their bar at the right and their time at the left, and Back points right (mirrored). The search
+field and every title run in their own script's direction (`unicode-bidi: plaintext`, `resolveDir`).
+
+Search folds what people type interchangeably: hamza carriers and wasla to a bare alef, «ى» to «ي»,
+«ة» to «ه», Persian «ی» and «ک», harakat and tatweel dropped, Arabic-Indic digits to Latin, and
+Latin case and accents ignored. Every word must appear, in any order.
+
+## Motion
+
+SPEC §5 moment 9: the popover arrives with opacity and a 4px rise from its anchor's side over 220ms
+(`enter`, `easing-enter`) and leaves over 140ms (`exit`, `easing-exit`); the phone page arrives the
+same way. Under reduced motion, opacity only, 120ms.

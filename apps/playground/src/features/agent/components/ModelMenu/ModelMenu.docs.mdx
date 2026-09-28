@@ -1,0 +1,48 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ModelMenuStories from './ModelMenu.stories';
+
+<Meta of={ModelMenuStories} />
+
+# ModelMenu
+
+Which model writes (SPEC §4.17), by what the choice means for the person: its tier («سريع» / "Fast",
+«دقيق» / "Careful", «مجاني» / "Free") and the vendor's product name, never a raw id.
+
+<Canvas of={ModelMenuStories.Open} />
+
+## Props
+
+| prop            | type                   | default | notes                                                   |
+| --------------- | ---------------------- | ------- | ------------------------------------------------------- |
+| `locale`        | `Locale`               | none    |                                                         |
+| `model`         | `ModelSelectionView`   | none    | from `modelSelection` in `model/model-label.ts`         |
+| `onModelChange` | `(id: string) => void` | none    | receives the raw id; only the controller ever sees it   |
+
+## States
+
+| story                                          | what it shows                           |
+| ---------------------------------------------- | --------------------------------------- |
+| `Fast`, `Careful`, `Free`                      | the trigger for each tier               |
+| `Open`, `OpenDark`                             | tier and product, then the trait        |
+| `RightToLeft`, `OpenRightToLeft`, `OpenRightToLeftDark` | Arabic                         |
+
+## Anatomy
+
+ChoiceMenu's trigger with the tier's name, cut at 10 characters; it shrinks before the mode's does.
+Items: the tier in Read 600, the product at the end of line one in `<bdi>` (Meta), the trait on line
+two. An id that carries no name reads by its tier alone, never an English stand-in.
+
+## Accessibility
+
+- Named "Model: Fast"; the menu is a radio group with the chosen item checked.
+- `ModelMenu.test.tsx` and `Composer.test.tsx` assert that no raw id (`cli:haiku`,
+  `minimax/minimax-m3:free`) reaches the screen, even with the menu open.
+
+## RTL
+
+As ModeMenu; product names sit in `<bdi>`, so "MiniMax M3" reads whole inside an Arabic line.
+
+## Motion
+
+As ModeMenu.

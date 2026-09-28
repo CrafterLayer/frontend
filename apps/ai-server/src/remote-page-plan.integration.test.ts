@@ -222,8 +222,9 @@ function remoteOverHandler(options: { readonly olderServer?: boolean } = {}) {
     timeoutMs: 60_000,
     fetch: (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
-      const body = JSON.parse(String(init?.body)) as AiPlanWireRequest;
-      wire.push({ url, authorization: new Headers(init?.headers).get('authorization'), body });
+      if (typeof init?.body !== 'string') throw new Error('Expected a JSON request body.');
+      const body = JSON.parse(init.body) as AiPlanWireRequest;
+      wire.push({ url, authorization: new Headers(init.headers).get('authorization'), body });
       const sent =
         options.olderServer === true
           ? Object.fromEntries(

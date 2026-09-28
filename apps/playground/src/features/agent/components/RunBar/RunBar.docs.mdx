@@ -1,0 +1,75 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as RunBarStories from './RunBar.stories';
+
+<Meta of={RunBarStories} />
+
+# RunBar
+
+The live run's one line (SPEC §4.17, §4.3 "the visible status"), fused to the top of the composer:
+the working glyph, what the run is doing now, the run's one clock, and Stop.
+
+<Canvas of={RunBarStories.Live} />
+
+## Purpose
+
+The status line's visible home while a run is live or stopping, and nothing more. The Composer mounts
+it from `AgentViewState.run` and keeps it for its exit with `useExitPresence`.
+
+## When to use / not
+
+Only inside the Composer. The phone's mini bar and the status-bar pill read the same `RunBarView` with
+their own components.
+
+## Props
+
+| prop        | type                    | default         | notes                                                     |
+| ----------- | ----------------------- | --------------- | --------------------------------------------------------- |
+| `locale`    | `Locale`                | none            |                                                           |
+| `run`       | `RunBarView`            | none            | `statusKey` and `params` from the catalog; `stopping`     |
+| `onStop`    | `() => void`            | none            | never called while stopping                               |
+| `leaving`   | `boolean`               | `false`         | folding away: `inert` for its 140ms exit                  |
+| `ref`       | `Ref<HTMLDivElement>`   | none            | the Composer checks whether focus was in it when it left  |
+| `stopRef`   | `Ref<HTMLButtonElement>`| none            | the Stop button                                           |
+| `apple`     | `boolean`               | the platform's  | ⌘ or Ctrl in Stop's tooltip                               |
+| `className` | `string`                | none            | appended to `ck-agent-runbar`                             |
+
+`useExitPresence(value, exitMs = 140)` keeps a value on screen for its exit and reports `leaving`;
+under reduced motion (and in jsdom) the value goes in the same render.
+
+## States
+
+| story                                 | what it shows                                                 |
+| ------------------------------------- | ------------------------------------------------------------- |
+| `Live`                                | four sections being written; not a live region                |
+| `Stopping`, `StoppingRightToLeft`     | "Stopping…" outranks any stage; Stop spins, `aria-disabled`   |
+| `Blocked`, `Landed`, `LongTitle`      | an interpolated title in `<bdi>`, cut at the inline end       |
+| `EditChecking`                        | an edit's mapped stage, never the provider's narration        |
+| `Narrow` (288), `Wide` (420)          | under a 300px container the clock goes; Stop keeps its word   |
+| `Dark`, `RightToLeft`, `RightToLeftDark` | theme and Arabic                                           |
+| `Leaving`                             | inert while it folds away                                     |
+
+## Anatomy
+
+40px (52 on a coarse pointer) over a Hairline. From the inline start: RunGlyph `working` on the
+thread's glyph column (16 to 32 from the panel's edge), the status in Meta 500 Ink on the record title
+column (40), RunClock (Figure, Slate, a tabular `m:ss` in an LTR `<bdi>`), then StopButton, inset 4px
+from the bar's top, bottom and inline end.
+
+## Accessibility
+
+- Not a live region: the panel's only one is LiveStatus (SPEC §6.1), which speaks a throttled MSA
+  subset of this line.
+- The clock is `aria-hidden` and never announced (SPEC §4.3).
+- While leaving, the bar is `inert`, so nothing in it can be focused or pressed on its way out; the
+  Composer then sends focus to the textarea.
+
+## RTL
+
+The glyph and the status sit at the right, Stop at the left; `1:12` stays `1:12`. Every visible status
+key fits 20 Arabic or 24 Latin characters before interpolation, so the line fits at 288px.
+
+## Motion
+
+Arrives with `grid-template-rows` 0fr → 1fr over 220ms (`easing-enter`), leaves over 140ms
+(`easing-exit`, SPEC §5 moment 8). The working glyph turns; nothing else moves. Reduced motion: instant.

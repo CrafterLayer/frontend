@@ -462,7 +462,7 @@ const CONVERSION_RECIPES: AiSkillDefinitionV1 = builtin({
   name: 'Conversion section recipes',
   description:
     'Exact class recipes for cards, stats, steps, testimonials, pricing and FAQ sections.',
-  version: '1.2.1',
+  version: '1.2.2',
   source: 'builtin',
   trust: 'builtin',
   priority: 60,
@@ -484,7 +484,15 @@ const CONVERSION_RECIPES: AiSkillDefinitionV1 = builtin({
       'اسعار',
       'باقات',
       'آراء العملاء',
-      'شهادات',
+      /*
+        router-3 additions (2026-09-28): testimonials only with their customers.
+        Bare 'شهادات' is certificates as often — «تغيير عنوان قسم التعليم
+        والشهادات إلى مرحبا», a title edit on a CV page, carried these recipes:
+        1,832 tokens against the 1,073 floor + rtl (router-3 probe).
+      */
+      'شهادات العملاء',
+      'شهادات عملاء',
+      'شهادات الزبائن',
       'أسئلة شائعة',
       'إحصائيات',
       'ميزات',

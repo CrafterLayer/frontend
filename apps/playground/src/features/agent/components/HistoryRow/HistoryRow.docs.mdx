@@ -1,0 +1,95 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as HistoryRowStories from './HistoryRow.stories';
+
+<Meta of={HistoryRowStories} />
+
+# HistoryRow
+
+One conversation in the Conversations list (SPEC §4.18, §3.13): the first request as its title and
+its time at the inline end, with Delete beside it.
+
+<Canvas of={HistoryRowStories.Current} />
+
+## Purpose
+
+A conversation has no name, so its row is titled by what the person first asked for, in their own
+words. The row must tell two similar requests apart at a glance (the time), show which one is on
+screen now (the current mark), and let an old one go without a modal.
+
+## When to use / not
+
+Use it only inside HistoryPopover, which owns the list's keys, its one tab stop and where focus goes
+after a delete. It renders a `SessionSummary` and calls `onOpen` / `onDelete`; it never opens or
+deletes anything itself.
+
+## Props
+
+| prop                               | type                        | default | notes                                                          |
+| ---------------------------------- | --------------------------- | ------- | -------------------------------------------------------------- |
+| `locale`                           | `Locale`                    | none    |                                                                |
+| `session`                          | `SessionSummary`            | none    | `title` (first request), `updatedAt` (ms or `null`), `current` |
+| `now`                              | `number`                    | none    | epoch ms; the list passes one value to every row               |
+| `onOpen`                           | `(id) => void`              | none    | click, Enter or Space on the row button                        |
+| `onDelete`                         | `(id) => void`              | none    | after the InlineConfirm is answered                            |
+| `tabStop`                          | `boolean`                   | `true`  | the list's roving tab stop; off, both buttons are `-1`         |
+| `openUnavailable`                  | `boolean`                   | `false` | a run is live elsewhere: `aria-disabled`, described            |
+| `deleteUnavailable`                | `boolean`                   | `false` | the current conversation while its run is live                 |
+| `unavailableId`                    | `string`                    | none    | the line that says why opening waits                           |
+| `touch`                            | `boolean`                   | `false` | the phone sheet: 44px, Delete always visible                   |
+| `confirming`, `onConfirmingChange` | `boolean`, `(open) => void` | none    | controlled confirm, so the list keeps one question open        |
+
+## States
+
+| story                                            | what it shows                                       |
+| ------------------------------------------------ | --------------------------------------------------- |
+| `Default` (+ dark, Arabic, Arabic dark)          | a past conversation: "Yesterday"                    |
+| `Current` (+ dark, Arabic, Arabic dark)          | Mist, the 2px Indigo bar, "Current"; no check mark  |
+| `OlderDate`, `OlderDateArabic`                   | past six days: "21 Sep" / «21 أيلول», Latin digits  |
+| `NoTime`                                         | migrated from v1: the title alone                   |
+| `OtherScript`, `OtherScriptArabic`               | a title in the other script keeps its own direction |
+| `LongTitle`                                      | one line, the ellipsis at the title's own end       |
+| `Focused`                                        | focus brings Delete in over the time                |
+| `Confirming`, `ConfirmingArabicDark`             | the question in the row, focus on Cancel            |
+| `OpenUnavailable`, `DeleteUnavailable`           | while a run is live                                 |
+| `Touch`, `TouchCurrentArabic`, `TouchArabicDark` | the phone sheet's 44px rows, Delete always there    |
+
+## Anatomy
+
+A 40px row button (44 on a coarse pointer and in the phone sheet), radius 6, text 8px in: the title
+in Read and Ink, one line; the time in Meta and Slate, tabular, at the inline end. The current
+conversation takes the selected row's Mist, a 2px Indigo bar 16px tall at the inline start, and
+"Current" (Meta 500) before the time; on Mist the time turns Graphite, because Slate on Mist is
+4.08:1 and forbidden (SPEC §2.1 rule 2). ✓ is never used: it means only "on the page".
+
+Delete is a 32px icon button (44 on a finger) on the row's inline end, a sibling of the row button,
+never nested in it. On a mouse it cross-fades in over the time on hover and with focus in the row,
+so nothing on the line moves; on a finger it is always there, with the time before it. Hover is Wash
+(or Mist deepened on the current row), never Indigo.
+
+## Accessibility
+
+- The row button's name is the title and the time as one phrase ("Coffee roaster page…, Yesterday";
+  «…»، أمس): read as separate pieces they run together. The current row is `aria-current="true"`,
+  which a screen reader says in its own words.
+- Delete is named "Delete conversation" and described by the row's title.
+- The Delete key (and Backspace, which a Mac labels "delete") on the row asks too.
+- Asking moves focus to **Cancel**. Esc or Cancel returns focus to whichever control opened the
+  question: Delete when it was pressed, the row when the Delete key was.
+- The focus ring is the product's 2px ring drawn inside the row (`outline-offset: -2px`), so
+  neighbouring rows never collide (SPEC §6.3).
+- While a run is live, another conversation stays focusable, `aria-disabled` and described by the
+  list's busy line; the current conversation's Delete is unavailable, with the reason as its hint.
+- In forced colours the current row keeps a Highlight edge and its bar.
+
+## RTL
+
+Logical properties only: in Arabic the bar is at the right, the time and Delete at the left. The
+title carries its own direction (`resolveDir`), so an Arabic request in an English list reads right
+to left and ends in its own ellipsis; a title in the other script also carries its `lang`. Times use
+Latin digits in both locales: «أمس», «قبل 3 أيام», «21 أيلول».
+
+## Motion
+
+Only colour and opacity, 120ms: the hover fill, and Delete cross-fading with the time. Nothing under
+reduced motion.

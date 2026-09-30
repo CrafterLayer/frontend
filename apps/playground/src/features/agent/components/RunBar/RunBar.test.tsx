@@ -98,10 +98,16 @@ describe('RunBar', () => {
   });
 });
 
+/** The hook's input across rerenders: a run, then none. */
+interface PresenceProps {
+  readonly value: string | null;
+}
+
 describe('useExitPresence', () => {
   it('holds a value, then drops it at once where motion is not allowed (jsdom)', () => {
+    const initialProps: PresenceProps = { value: 'run' };
     const { result, rerender } = renderHook(({ value }) => useExitPresence(value), {
-      initialProps: { value: 'run' as string | null },
+      initialProps,
     });
     expect(result.current).toEqual({ value: 'run', leaving: false });
     rerender({ value: null });
@@ -113,8 +119,9 @@ describe('useExitPresence', () => {
     const matchMedia = vi.fn(() => ({ matches: false }) as MediaQueryList);
     vi.stubGlobal('matchMedia', matchMedia);
     try {
+      const initialProps: PresenceProps = { value: 'run' };
       const { result, rerender } = renderHook(({ value }) => useExitPresence(value, 140), {
-        initialProps: { value: 'run' as string | null },
+        initialProps,
       });
       rerender({ value: null });
       expect(result.current).toEqual({ value: 'run', leaving: true });

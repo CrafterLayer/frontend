@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -12,6 +12,7 @@ import {
   PAGE_PLAN_EXAMPLE,
   PAGE_PLAN_FALLBACK_ACCENTS,
   PAGE_PLAN_FALLBACK_BASE,
+  PAGE_PLAN_KIT_IDS,
   PAGE_PLAN_LATIN_FAMILIES,
   PAGE_PLAN_PHOTO_TOPICS,
   PAGE_PLAN_SECTION_VARIANTS,
@@ -359,6 +360,8 @@ describe('the page-plan answer schema', () => {
       'nav',
       'sections',
       'facts',
+      // 2026-09-30: optional, what the page is found by.
+      'seo',
     ]);
     const text = JSON.stringify(PAGE_PLAN_ANSWER_SCHEMA);
     expect(text).toContain('"cta-split"');
@@ -638,5 +641,99 @@ describe('the placeholder rule in pagePlanShapeCheck', () => {
       pagePlanShapeCheck(repairPagePlanAnswer(candidate).value);
 
     expect(JSON.parse(salvageJson(written, judged))).toEqual(answer);
+  });
+});
+
+// ── the section kit, SEO and tool steps (2026-09-30) ────────────────────────
+
+describe('tool steps in a plan', () => {
+  const check = planShapeCheck(request);
+
+  it('accepts a {"command":"tool"} step, whose args the client expands', () => {
+    expect(
+      check(
+        planWith({
+          command: 'tool',
+          args: {
+            name: 'kit.section',
+            input: {
+              id: 'r-hero',
+              kit: 'hero-split',
+              slots: { title: 'قهوة تُحمّص كل صباح', cta: { label: 'اطلب', href: '#order' } },
+            },
+          },
+          title: 'البطل',
+        }),
+      ),
+    ).toBe(true);
+    expect(check(planWith({ command: 'tool', args: { name: 'seo.fix', input: {} } }))).toBe(true);
+  });
+
+  it('still refuses a tool step whose title slid out of place, or a node that swallowed a plan key', () => {
+    expect(
+      check({
+        rationale: 'r',
+        commands: [{ command: 'tool', args: { name: 'nav.sync', input: {} }, followUp: 'f' }],
+      }),
+    ).toBe(false);
+    expect(
+      check(
+        planWith({
+          command: 'tool',
+          args: { name: 'kit.insert', input: { kit: 'cta-band', slots: { kind: 'element', commands: [] } } },
+        }),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('the page plan with kits and seo', () => {
+  const AI_SRC = new URL('../../../packages/builder/ai/src/', import.meta.url);
+
+  it('names exactly the section kits builder-ai ships', () => {
+    const kitsDir = new URL('section-kit/kits/', AI_SRC);
+    const ids = readdirSync(kitsDir)
+      .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+      .flatMap((file) =>
+        [...readFileSync(new URL(file, kitsDir), 'utf8').matchAll(/^ {4}id: '([a-z0-9-]+)'/gmu)].map(
+          (match) => match[1] ?? '',
+        ),
+      )
+      .sort();
+    expect(ids.length).toBeGreaterThan(30);
+    expect([...PAGE_PLAN_KIT_IDS]).toEqual(ids);
+  });
+
+  it('decodes kit, slots and seo, with the kit ids and page kinds as enums', () => {
+    const plan = PAGE_PLAN_ANSWER_SCHEMA.properties.pagePlan;
+    const section = plan.properties.sections.items.properties;
+    expect(section.kit.enum).toEqual([...PAGE_PLAN_KIT_IDS]);
+    expect(section.slots).not.toHaveProperty('type');
+    expect(plan.properties.seo.required).toEqual(['keyword', 'pageKind']);
+    expect(plan.properties.seo.properties.pageKind.enum).toContain('home');
+    expect(plan.properties.seo.properties.businessType.enum).toContain('CafeOrCoffeeShop');
+    // Optional, both: a plan without them is still a plan.
+    expect(plan.required).not.toContain('seo');
+    expect(plan.properties.sections.items.required).not.toContain('kit');
+  });
+
+  it('accepts the documented plan with kits, slots and seo, and refuses a key closed inside slots', () => {
+    expect(pagePlanShapeCheck(PAGE_PLAN_EXAMPLE)).toBe(true);
+    const sections = PAGE_PLAN_EXAMPLE.pagePlan.sections;
+    const slid = {
+      ...PAGE_PLAN_EXAMPLE,
+      pagePlan: {
+        ...PAGE_PLAN_EXAMPLE.pagePlan,
+        sections: sections.map((section, index) =>
+          index === 3 ? { ...section, slots: { title: 'x', purpose: 'y' } } : section,
+        ),
+      },
+    };
+    expect(pagePlanShapeCheck(slid)).toBe(false);
+    const strayKey = {
+      ...PAGE_PLAN_EXAMPLE,
+      pagePlan: { ...PAGE_PLAN_EXAMPLE.pagePlan, seo: { keyword: 'x', pageKind: 'home', tokens: {} } },
+    };
+    expect(pagePlanShapeCheck(strayKey)).toBe(false);
   });
 });

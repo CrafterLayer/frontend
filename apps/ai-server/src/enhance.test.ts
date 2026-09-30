@@ -8,6 +8,7 @@ import {
   buildEnhancePrompt,
   enhancePrompt,
   enhanceShapeCheck,
+  impersonalUnderstood,
   readEnhanceAnswer,
   readEnhanceRequest,
   textLanguage,
@@ -64,7 +65,7 @@ function answering(
 
 const GOOD = {
   enhanced: 'بدي صفحة هبوط لمطعم مشاوي في عمّان: الهيرو، المنيو مع الأسعار، الحجز، التواصل.',
-  understood: 'تريد صفحة هبوط لمطعم مشاوي في عمّان.',
+  understood: 'صفحة هبوط لمطعم مشاوي في عمّان.',
   changes: ['«صفحه» ← «صفحة»', 'رتبت الأقسام'],
   questions: [],
   language: 'ar',
@@ -140,6 +141,38 @@ describe('the enhancer’s rules', () => {
     expect(rules).toContain('at most 600 characters');
     expect(rules).toContain('never grows into a new page');
     expect(rules).toContain('A QUESTION stays a question');
+  });
+
+  it('names builder parts in plain Arabic, asks a link target, and forbids a second-person understood', () => {
+    expect(rules).toContain('the hero is «القسم الرئيسي» (or «الواجهة»), never «هيرو»');
+    expect(rules).toContain('the call to action is «زر الإجراء», never «الدعوة الرئيسية»');
+    expect(rules).toContain('NEVER GUESS A LINK TARGET');
+    expect(rules).toContain('"understood": a short NOUN PHRASE');
+    expect(rules).toContain('no «تريد», «تريدين», «بدك», no "You want"');
+    const lines = rules.split('\n');
+    const examples = lines
+      .filter((_line, at) => at > 0 && (lines[at - 1] ?? '').includes('shape only'))
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    for (const example of examples) {
+      const understood = String(example['understood']);
+      expect(impersonalUnderstood(understood)).toBe(understood);
+      expect(String(example['enhanced'])).not.toMatch(/هيرو/u);
+    }
+  });
+
+  it('shows a build becoming a brief in English, beside the Arabic edit', () => {
+    expect(rules).toContain('a short build request with nothing misspelled still becomes a brief');
+    expect(rules).toContain('The shape of a build, for «make a website for my bakery»');
+    // Every example is a whole answer the schema accepts, and a build's is a real brief.
+    const lines = rules.split('\n');
+    const examples = lines
+      .filter((_line, at) => at > 0 && (lines[at - 1] ?? '').includes('shape only'))
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(examples.map((example) => example['language'])).toEqual(['ar', 'en']);
+    expect(examples.every(enhanceShapeCheck)).toBe(true);
+    const brief = String(examples[1]?.['enhanced']);
+    expect(Array.from(brief).length).toBeLessThanOrEqual(600);
+    expect(brief).toMatch(/call to action/u);
   });
 
   it('hands the model the draft, the UI language, the route, the page and the answers', () => {
@@ -271,6 +304,7 @@ describe('enhancePrompt', () => {
       JSON.stringify({
         ...GOOD,
         enhanced: 'Build a landing page for a grill restaurant in Amman.',
+        questions: [{ id: 'q1', text: 'هل تريد قسم حجز؟', choices: ['نعم', 'لا'] }],
         language: 'en',
       }),
     );
@@ -287,6 +321,105 @@ describe('enhancePrompt', () => {
       response: { enhanced: 'بدي صفحه لمطعم مشاوي في عمان', changes: [], language: 'ar' },
     });
     expect(logged[0]).toMatch(/another script/u);
+  });
+
+  /*
+    Found by the final test (2026-09-29, cli:haiku, thinking off): «make a site for my gym»
+    came back word for word, no brief and nothing asked, after 15 s — and the panel called
+    it improved.
+  */
+  describe('an answer that hands the request back unchanged', () => {
+    const GYM = request({
+      text: 'make a site for my gym',
+      locale: 'ar',
+      intent: { kind: 'build-site', confidence: 0.9 },
+    });
+    const echo = (text: string, extra: Record<string, unknown> = {}): Anthropic =>
+      answering(
+        JSON.stringify({
+          enhanced: text,
+          understood: 'موقع لنادٍ رياضي.',
+          changes: [],
+          questions: [],
+          language: 'en',
+          ...extra,
+        }),
+      ).client;
+
+    it('is no enhancement of a build: the rules demand a brief', async () => {
+      const logged: string[] = [];
+      for (const text of ['make a site for my gym', 'Make a site for my gym.']) {
+        const outcome = await enhancePrompt(GYM, {
+          client: echo(text),
+          onLog: (line) => {
+            logged.push(line);
+          },
+        });
+        expect(outcome.kind).toBe('invalid-output');
+        expect(outcome.kind === 'invalid-output' ? outcome.message : '').toMatch(/unchanged/u);
+      }
+      expect(logged[0]).toMatch(/unchanged/u);
+      // Nor is an answer in another script, which the reader swaps for the person's own text.
+      const flipped = await enhancePrompt(request(), {
+        client: echo('Build a landing page for a grill restaurant in Amman.'),
+      });
+      expect(flipped.kind).toBe('invalid-output');
+    });
+
+    it('stands on a build that asks something, and on anything but a build', async () => {
+      const asking = await enhancePrompt(GYM, {
+        client: echo('make a site for my gym', {
+          questions: [{ id: 'q1', text: 'Which classes?', choices: ['Weights', 'Yoga'] }],
+        }),
+      });
+      expect(asking.kind).toBe('enhanced');
+      const edit = await enhancePrompt(
+        request({ text: 'Make the hero darker.', intent: { kind: 'edit', confidence: 0.9 } }),
+        { client: echo('Make the hero darker.') },
+      );
+      expect(edit.kind).toBe('enhanced');
+      const unrouted = await enhancePrompt(
+        request({ text: 'Make the hero darker.', intent: null }),
+        {
+          client: echo('Make the hero darker.'),
+        },
+      );
+      expect(unrouted.kind).toBe('enhanced');
+    });
+
+    it('is no enhancement when the person’s answers never reached the text', async () => {
+      const outcome = await enhancePrompt(
+        request({
+          text: 'Make the hero darker.',
+          intent: { kind: 'edit', confidence: 0.9 },
+          answers: [{ question: 'How dark?', answer: 'Almost black' }],
+        }),
+        {
+          client: echo('Make the hero darker.', {
+            questions: [{ id: 'q1', text: 'Which hero?', choices: ['Top', 'Bottom'] }],
+          }),
+        },
+      );
+      expect(outcome.kind).toBe('invalid-output');
+      expect(outcome.kind === 'invalid-output' ? outcome.message : '').toMatch(/answers/u);
+    });
+  });
+
+  it('writes understood as a noun phrase: no gendered second-person verb reaches the panel', () => {
+    expect(impersonalUnderstood('تريد ربط هذه الصفحة بقائمة التنقل.')).toBe(
+      'ربط هذه الصفحة بقائمة التنقل.',
+    );
+    expect(impersonalUnderstood('تريدين صفحة هبوط لمطعم')).toBe('صفحة هبوط لمطعم');
+    expect(impersonalUnderstood('أنت تريد أن تغيّر اللون')).toBe('تغيّر اللون');
+    expect(impersonalUnderstood('You want a website for your bakery.')).toBe(
+      'A website for your bakery.',
+    );
+    expect(impersonalUnderstood('you want to link this page')).toBe('Link this page');
+    expect(impersonalUnderstood('صفحة هبوط لمطعم')).toBe('صفحة هبوط لمطعم');
+    expect(impersonalUnderstood('تريد')).toBe('تريد');
+    expect(
+      readEnhanceAnswer({ ...GOOD, understood: 'تريد صفحة هبوط لمطعم.' }, request())?.understood,
+    ).toBe('صفحة هبوط لمطعم.');
   });
 
   it('states the language of the person’s text, whatever the model claimed', () => {

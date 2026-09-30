@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { t } from '../../copy';
 import { resolveDir } from '../../model/resolve-dir';
@@ -57,6 +57,16 @@ export function AddSectionRow({ locale, canAdd, onAdd }: AddSectionRowProps) {
   /** Set by Esc: a blur the closing field may still fire must not add what was typed. */
   const closing = useRef(false);
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
+  /*
+    The plan filled up while the field was open: it closes onto the button, which says why,
+    and stays closed if a section is later removed. Derived while rendering (React's "adjust
+    state when a prop changes"), not in an effect that would paint the field once more.
+  */
+  const [seenCanAdd, setSeenCanAdd] = useState(canAdd);
+  if (seenCanAdd !== canAdd) {
+    setSeenCanAdd(canAdd);
+    if (!canAdd) setOpen(false);
+  }
   const isOpen = open && canAdd;
 
   useLayoutEffect(() => {
@@ -71,12 +81,6 @@ export function AddSectionRow({ locale, canAdd, onAdd }: AddSectionRowProps) {
       buttonRef.current?.focus();
     }
   }, [isOpen]);
-
-  // The plan filled up while the field was open: it closes onto the button, which says why,
-  // and stays closed if a section is later removed.
-  useEffect(() => {
-    if (!canAdd) setOpen(false);
-  }, [canAdd]);
 
   const write = (text: string) => {
     typed.current = text;

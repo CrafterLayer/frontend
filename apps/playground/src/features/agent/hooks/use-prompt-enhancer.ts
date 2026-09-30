@@ -29,6 +29,7 @@ import {
   canEnhance,
   classifyAiRunFailure,
   enhanceRequest,
+  isAiProviderError,
   type AiPlanProvider,
 } from '@craftkit/builder';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -99,7 +100,20 @@ interface Memory {
 
 const IDLE: EnhancementView = { status: 'idle' };
 
+/**
+ * The enhance route answers 502 when the model answered without an improved request
+ * (ai-server handler.ts: an answer that is not an enhancement, or a build handed back
+ * unchanged) and when a backend failed; the body that says which never reaches the panel.
+ * "The model didn't respond" is false for the first, so a 502 reads as `invalid`, whose
+ * note says only what is true of both: "Couldn't improve the request. Your text is
+ * unchanged."
+ */
+function answeredWithoutRewrite(cause: unknown): boolean {
+  return isAiProviderError(cause) && cause.code === 'http-status' && cause.status === 502;
+}
+
 function failureOf(cause: unknown): EnhancementView {
+  if (answeredWithoutRewrite(cause)) return { status: 'failed', reason: 'invalid' };
   const reason = enhanceFailureOf(
     classifyRunFailure(classifyAiRunFailure(cause), {
       offline: typeof navigator !== 'undefined' && !navigator.onLine,

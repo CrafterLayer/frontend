@@ -1,5 +1,5 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { act, useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import '@fontsource/ibm-plex-sans/latin-400.css';
@@ -118,7 +118,10 @@ type Story = StoryObj<typeof meta>;
 export const Asking: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole('group', { name: t('en', 'clarify.title') })).toBeVisible();
+    // The group rises in from transparent (ck-agent-clarify-in): visible once it has.
+    await waitFor(() =>
+      expect(canvas.getByRole('group', { name: t('en', 'clarify.title') })).toBeVisible(),
+    );
     await expect(canvas.getByText('Question 1 of 3')).toBeInTheDocument();
     await waitFor(() => expect(canvas.getByRole('radio', { name: 'Services' })).toHaveFocus());
   },
@@ -164,8 +167,17 @@ export const OtherAnswer: Story = {
     await userEvent.click(canvas.getByRole('radio', { name: t('en', 'clarify.other') }));
     const input = canvas.getByRole('textbox', { name: t('en', 'clarify.other.placeholder') });
     await expect(input).toHaveFocus();
-    await userEvent.keyboard('The pricing page{Enter}');
+    await userEvent.keyboard('The pricing page');
+    /*
+      Enter unmounts the answer row, and with it the send button's Radix Tooltip, which
+      sets its own state as it goes. Inside act, that update lands within the story rather
+      than as a stray "not wrapped in act(...)" warning after it.
+    */
+    await act(async () => {
+      await userEvent.keyboard('{Enter}');
+    });
     await expect(args.onAnswer).toHaveBeenCalledWith('q-page', 'The pricing page');
+    await waitFor(() => expect(canvas.getByRole('radio', { name: 'Services' })).toHaveFocus());
   },
 };
 

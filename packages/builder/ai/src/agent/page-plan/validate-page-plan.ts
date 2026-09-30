@@ -1,4 +1,9 @@
-import { contrastRatio, parseHex, relativeLuminance } from '@craftkit/builder-schema';
+import {
+  contrastRatio,
+  parseHex,
+  relativeLuminance,
+  type JsonValue,
+} from '@craftkit/builder-schema';
 
 import {
   PHOTO_TOPIC_KEYWORDS,
@@ -8,6 +13,7 @@ import {
 import { DIRECTION_DECK_ROWS, directionDeckImportUrl } from '../../skills/direction-deck';
 import { SECTION_VARIANTS } from '../../skills/section-variants';
 import { VERIFIED_FONT_FAMILIES } from '../../skills/verified-fonts';
+import { defaultPlanKit, instantiatePlanKit, kitFitsRole, kitIdsForRole, planKit } from './kits';
 import {
   isRecord,
   readArray,
@@ -15,6 +21,7 @@ import {
   readEnum,
   readFace,
   readOptionalText,
+  readPlanSeo,
   readSlug,
   readText,
   readTextList,
@@ -35,6 +42,7 @@ import {
   SECTION_ROLES,
   type PagePlan,
   type PagePlanFact,
+  type PagePlanIssue,
   type PagePlanFont,
   type PagePlanIntent,
   type PagePlanLocale,
@@ -382,6 +390,11 @@ function readSection(value: unknown, path: string, issues: Issues): SectionContr
       message: `Use a section-variants layout id (${VARIANT_IDS.join(', ')}) or omit variant; "${variant}" is not one.`,
     });
   }
+  const rawKit = value['kit'];
+  const kit =
+    typeof rawKit === 'string' && rawKit.trim() !== '' ? rawKit.trim().toLowerCase() : undefined;
+  const rawSlots = value['slots'];
+  const slots = isRecord(rawSlots) ? (rawSlots as Readonly<Record<string, JsonValue>>) : undefined;
   const images: SectionImage[] = [];
   readArray(value['images'], `${path}.images`, issues, 'images', {
     required: false,
@@ -409,7 +422,69 @@ function readSection(value: unknown, path: string, issues: Issues): SectionContr
     mustNotRepeat,
     ...(variant !== undefined && VARIANT_IDS.includes(variant) ? { variant } : {}),
     ...(images.length === 0 ? {} : { images }),
+    ...(kit === undefined ? {} : { kit }),
+    ...(slots === undefined ? {} : { slots }),
   };
+}
+
+/**
+ * A section's kit, resolved (DESIGN §B, 2026-09-30) — by NORMALISING, never
+ * refusing, because a kit only saves a writer work and a refusal would cost
+ * a whole repair round:
+ *
+ * - the header and footer take no kit (code writes them from the plan);
+ * - a named kit that does not exist or does not fit the role is dropped;
+ * - no kit (or a dropped one) with a known variant → that variant's default
+ *   kit, when it fits;
+ * - slots are dry-run through the kit: slots that would not instantiate are
+ *   dropped and the kit kept, so the section gets a writer instead.
+ *
+ * Every drop is recorded as a warning, phrased as what was done.
+ */
+function resolveKit(
+  contract: SectionContract,
+  path: string,
+  locale: PagePlanLocale,
+  warnings: PagePlanIssue[],
+): SectionContract {
+  const { kit: named, slots, ...rest } = contract;
+  if (contract.role === 'header' || contract.role === 'footer') {
+    if (named !== undefined || slots !== undefined) {
+      warnings.push({
+        path: `${path}.kit`,
+        message: `The ${contract.role} is written from the plan's nav and facts; its kit and slots were dropped.`,
+      });
+    }
+    return rest;
+  }
+  let kit = planKit(named);
+  if (named !== undefined && (kit === undefined || !kitFitsRole(kit, contract.role))) {
+    warnings.push({
+      path: `${path}.kit`,
+      message: `"${named}" is not a ${contract.role} kit (${kitIdsForRole(contract.role).join(', ')}); it was dropped${contract.variant === undefined ? '' : ` for the default kit of "${contract.variant}"`}.`,
+    });
+    kit = undefined;
+  }
+  kit ??= defaultPlanKit(contract.variant, contract.role);
+  if (kit === undefined) {
+    if (slots !== undefined) {
+      warnings.push({
+        path: `${path}.slots`,
+        message: 'Slots need a kit; this section has none, so they were dropped.',
+      });
+    }
+    return rest;
+  }
+  if (slots === undefined) return { ...rest, kit: kit.id };
+  const filled = instantiatePlanKit(kit, slots, contract, locale);
+  if (!filled.ok) {
+    warnings.push({
+      path: `${path}.slots`,
+      message: `The slots do not fill kit "${kit.id}" (${filled.error}); they were dropped and a writer fills the section.`,
+    });
+    return { ...rest, kit: kit.id };
+  }
+  return { ...rest, kit: kit.id, slots };
 }
 
 /** Header first, hero right after it, footer last; append adds bands only. */
@@ -652,9 +727,15 @@ export function validatePagePlan(
   });
 
   const tokens = tokenDraft === undefined ? undefined : finishTokens(tokenDraft, locale, issues);
+  const seo = readPlanSeo(value['seo'], locale?.lang, issues);
 
   if (issues.length > 0) return { ok: false, issues: Object.freeze(issues) };
-  const sections = read.filter((section): section is SectionContract => section !== undefined);
+  const warnings: PagePlanIssue[] = [];
+  const sections = read
+    .filter((section): section is SectionContract => section !== undefined)
+    .map((section, index) =>
+      locale === undefined ? section : resolveKit(section, `sections[${String(index)}]`, locale, warnings),
+    );
   if (
     intent === undefined ||
     locale === undefined ||
@@ -682,6 +763,9 @@ export function validatePagePlan(
     nav,
     sections,
     facts,
+    ...(seo === undefined ? {} : { seo }),
   };
-  return { ok: true, plan: deepFreeze(plan), issues: [] };
+  return warnings.length === 0
+    ? { ok: true, plan: deepFreeze(plan), issues: [] }
+    : { ok: true, plan: deepFreeze(plan), issues: [], warnings: Object.freeze(warnings) };
 }

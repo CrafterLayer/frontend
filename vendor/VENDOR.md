@@ -225,3 +225,130 @@ text and the modification notice at the top of the adapted file are what Apache-
   Multilingual Plane, so it changes no result. A test holds the declaration to that spelling and
   fails the file on any invisible format character: an earlier draft wrote the ranges as literal
   code points, which put a BOM and a combining mark inside the class.
+
+## magicui — the marquee and the dot pattern (pattern only, no file copied)
+
+| | |
+| --- | --- |
+| Upstream | [magicuidesign/magicui](https://github.com/magicuidesign/magicui) |
+| Reference | `apps/www/registry/magicui/marquee.tsx`, `apps/www/registry/magicui/dot-pattern.tsx` |
+| License | MIT — `vendor/magicui/LICENSE`; text in THIRD_PARTY_LICENSES.md |
+| Verbatim copy | none: the blocks were written from the components' documented behaviour |
+| Adapted into | `packages/builder/extensions/magicui/src/components/Marquee/`, `MarqueeTrack/`, `DotPatternSurface/` |
+
+Recorded 2026-09-30, because the blocks said "inspired by Magic UI" with no provenance entry. What
+was taken is the idea, not the code: a row written twice and translated by `-50%` so the loop has
+no seam (Marquee), and a decorative dot field drawn behind the slot content (DotPatternSurface).
+Both are Builder-native: the speed, gap and colours are named steps over `--t-*` tokens, the motion
+stops under `prefers-reduced-motion`, and nothing depends on `motion` or `framer-motion`.
+
+## Section kit — HyperUI, Tailark and Meraki UI
+
+The section kit (`packages/builder/ai/src/section-kit/`) is a closed library of section templates
+the agent fills with slot values instead of writing markup token by token (DESIGN B, 2026-09-30:
+a section writer answers with one `kit.section` tool step of ~30–300 tokens instead of a full
+tree). Every kit names its upstream file and commit in its own `source` field, and a unit test
+(`section-kit/kits.test.ts`) fails when that file is missing from `vendor/`.
+
+The kits are **adaptations, never copies**, made by `scripts/section-kit/convert.mjs` and then by
+hand: direction classes become logical (`ms-`/`ps-`/`start-`/`text-start`/`rounded-s`/`border-s`,
+so an Arabic page mirrors), every palette colour becomes a page-kit class (`ck-ground`, `ck-card`,
+`ck-ink`, `ck-muted`, `ck-accent-ink`, `ck-border`, `ck-btn`…), heroicons SVGs become Lucide
+`<icon>` nodes, Alpine (`x-data`, `@click`) becomes `details`/`summary` or a `popover`, forms become
+a registered-block reference, and every text, image and link becomes a `{{slot}}`. The upstream
+files are fetched verbatim, at the pinned commits, by `scripts/section-kit/fetch-upstream.mjs`
+(the list is `scripts/section-kit/upstream-files.json`).
+
+Excluded on purpose (licence): Tailwind Plus, Float UI, Aceternity Pro, Origin UI (AGPL root).
+Preline is deferred (its Fair Use licence needs the owner's sign-off). Tailark's brand-logo SVGs
+(`registry/core/ui/svgs/*`) are trademarks and are never copied.
+
+### hyperui
+
+| | |
+| --- | --- |
+| Upstream | [markmead/hyperui](https://github.com/markmead/hyperui) |
+| Files | 22 examples under `public/examples/marketing/` (headers, announcements, footers, sections, banners, feature-grids, pricing, product-collections, cards, team-sections, testimonials, stats, logo-clouds, blog-cards, faqs, ctas) and `public/examples/application/steps/2.html` |
+| Commit | `2b5aebbc50d2c9ac89650f51b554f53895b4803c` (2026-09-26) |
+| License | MIT (c) Mark Mead — `vendor/hyperui/LICENSE` |
+| Verbatim copy | `vendor/hyperui/upstream/<same path>` |
+| Adapted into | `packages/builder/ai/src/section-kit/kits/` (the kits whose `source.lib` is `hyperui`) |
+
+The primary source: plain HTML on Tailwind v4, the same major the renderer compiles, so a class
+survives as written unless it names a physical side or a palette hue.
+
+### tailark
+
+| | |
+| --- | --- |
+| Upstream | [tailark/blocks](https://github.com/tailark/blocks) |
+| Files | 8 blocks under `registry/bases/radix/` (veil: hero-section/one, features/two, content/one, comparator/one, faqs/one; mist: features/four, testimonials/one, stats/one) |
+| Commit | `8139698115c1341bfd2e3e286c04bb4d8146f472` (2026-07-29) |
+| License | MIT (c) 2025 Irung — `vendor/tailark/LICENCE.md` |
+| Verbatim copy | `vendor/tailark/upstream/<same path>` |
+| Adapted into | `packages/builder/ai/src/section-kit/kits/` (the kits whose `source.lib` is `tailark`) |
+
+The premium look (veil and mist kits). The blocks are React TSX with shadcn `Button`/`Card`,
+`next/link`, `next/image` and `lucide-react`; they were transcribed by hand into the converter's
+draft shape (Lucide names map one to one onto the tree's icon node). `motion-primitives`
+animations are not carried over; the curated behaviours (`data-ck-behavior`) stand in.
+
+### merakiui
+
+| | |
+| --- | --- |
+| Upstream | [merakiuilabs/merakiui](https://github.com/merakiuilabs/merakiui) |
+| Files | 12 components under `components/` (footers/CTAWithLinks, heros/BackgroundImage, heros/SideImage, features/GridListWithImage, teams/Cards, testimonials/Single, portfolio/Cards, portfolio/HoverEffect, blog/Grid, cta/Card, contact/TwoColumn, contact/Grid2x2) |
+| Commit | `fe0472efe93f6cd275424ecbdfa7f6cb8da6f908` (2025-07-11) |
+| License | MIT (c) 2021 Khatab Wedaa — `vendor/merakiui/LICENSE` |
+| Verbatim copy | `vendor/merakiui/upstream/<same path>` |
+| Adapted into | `packages/builder/ai/src/section-kit/kits/` (the kits whose `source.lib` is `merakiui`) |
+
+The RTL reference: Meraki ships `rtl:` variants throughout (`rtl:-scale-x-100` on directional
+icons), which is where the kit's rule for arrows comes from. The kit cannot use `rtl:` utilities
+(the static vocabulary does not generate them), so an arrow carries `ck-flip` and the kit css
+mirrors it with `.ck-flip:dir(rtl){transform:scaleX(-1)}`. Alpine carousels and toggles are dropped
+for native `details` and scroll-snap.
+
+## SEO logic references (logic only, no file copied)
+
+Used by the SEO core (`packages/builder/schema/src/seo/`) and the agent SEO checks
+(`packages/builder/ai/src/seo/`). No code is copied and no package is added; the facts below are
+restated in our own code, with attribution in the adapting files.
+
+### next-seo — the head tags a page ships
+
+| | |
+| --- | --- |
+| Upstream | [garmeeh/next-seo](https://github.com/garmeeh/next-seo) |
+| Reference | the default-SEO and JSON-LD component set (which head tags, in which order, with which fallbacks) |
+| Commit consulted | `ba5afbd8aaa794b0267f5cd815a940b78689d569` (2025-09-19) |
+| License | MIT (c) 2018 Gary Meehan — text in THIRD_PARTY_LICENSES.md |
+| Adapted into | `packages/builder/schema/src/seo/` (`buildSeoHead`) |
+
+### schema-dts — the JSON-LD vocabulary
+
+| | |
+| --- | --- |
+| Upstream | [google/schema-dts](https://github.com/google/schema-dts) |
+| Reference | the schema.org type and property names for WebSite, Organization, LocalBusiness subtypes, WebPage, BreadcrumbList, FAQPage, Menu, Product, Service, Article, Event |
+| Commit consulted | `8e3138bc1a02c93d86db132dd41bcefe6ae643b0` (2026-09-25) |
+| License | Apache-2.0 — notice in THIRD_PARTY_LICENSES.md; full text at `vendor/streamdown-detect-direction/LICENSE-2.0.txt` |
+| Adapted into | `packages/builder/schema/src/seo/` (`buildJsonLdGraph`) |
+
+The package is not depended on: only the names of the types and properties the graph emits are
+used, as plain strings. Upstream has no NOTICE file at this commit.
+
+### lighthouse — non-descriptive link text
+
+| | |
+| --- | --- |
+| Upstream | [GoogleChrome/lighthouse](https://github.com/GoogleChrome/lighthouse) |
+| Reference | `core/audits/seo/link-text.js` — the English `nonDescriptiveLinkTexts` list |
+| Commit consulted | `08c05cdee7e191719480477056bd145abcb09c17` (2026-09-18) |
+| License | Apache-2.0 (c) 2017 Google LLC — notice in THIRD_PARTY_LICENSES.md; full text at `vendor/streamdown-detect-direction/LICENSE-2.0.txt` |
+| Adapted into | `packages/builder/schema/src/seo/` (`VAGUE_LINK_TEXT`) |
+
+The English list is restated; the Arabic list (اضغط هنا، هنا، المزيد، اقرأ المزيد، التفاصيل، اعرف
+أكثر، رابط) is ours. Upstream has no NOTICE file at this commit, so the licence notice and the
+modification note in the adapting file are what Apache-2.0 §4 asks for.

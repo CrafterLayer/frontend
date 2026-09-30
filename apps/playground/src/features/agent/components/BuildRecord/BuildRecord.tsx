@@ -371,6 +371,22 @@ export function BuildRecord({
         </RecordButton>,
       );
     }
+    // A finished build at 420 (SPEC §3.17): Copy summary joins the footer as text. The
+    // stylesheet shows it only from 400px of panel; below, it stays in the [⋯] menu.
+    if ((phase === 'done' || phase === 'partial') && view.menu.includes('copySummary')) {
+      buttons.push(
+        <RecordButton
+          key="copy-summary"
+          tone="text"
+          className="ck-agent-build__copy"
+          onClick={() => {
+            onMenuSelect('copySummary');
+          }}
+        >
+          {t(locale, 'menu.copySummary')}
+        </RecordButton>,
+      );
+    }
     if (phase === 'failed' && view.error?.pageState.kind === 'skeleton') {
       buttons.push(
         <RecordButton
@@ -401,6 +417,13 @@ export function BuildRecord({
   }
 
   const failed = rows.filter((row) => row.state === 'failed').length;
+  // A sample can only need replacing where its section is on the page: a section that was
+  // stopped, failed or undone claims nothing. Facts no row names are kept as given.
+  const rowState = new Map(rows.map((row) => [row.key, row.state]));
+  const facts = view.facts.filter((fact) => {
+    const state = rowState.get(fact.nodeId);
+    return state === undefined || state === 'landed';
+  });
 
   return (
     <RunRecord
@@ -457,8 +480,8 @@ export function BuildRecord({
             : t(locale, 'build.showSections', { n: view.total })}
         </button>
       ) : null}
-      {collapsedClosed || view.facts.length === 0 ? null : (
-        <FactsDisclosure locale={locale} facts={view.facts} onReveal={actions.reveal} />
+      {collapsedClosed || facts.length === 0 ? null : (
+        <FactsDisclosure locale={locale} facts={facts} onReveal={actions.reveal} />
       )}
     </RunRecord>
   );

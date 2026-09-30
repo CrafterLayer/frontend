@@ -1,0 +1,85 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AgentPanelStories from './AgentPanel.stories';
+
+<Meta of={AgentPanelStories} />
+
+# AgentPanel
+
+The agent panel's composition root (SPEC §4.1, §7.2 #51): أبو غضب's column in the editor's left
+dock, 320px by default and resizable from 288 to 480, and its phone sheet.
+
+<Canvas of={AgentPanelStories.Building} />
+
+## Purpose
+
+One place wires every component of `features/agent/` to one `AgentController`: the header, the
+thread (records and cards through TurnView), the dock with the composer, Conversations, the one live
+region and the resize separator. It adds no copy of its own; the region is named by the header.
+
+## When to use / not
+
+- `LiveAgentPanel` is what the app mounts: `useAgentController` over the host's kernel, provider and
+  capabilities, then `AgentPanel`.
+- `AgentPanel` takes any `AgentController`: the stories and tests pass the fake one.
+- Not for the source-code agent (`SourceAgentPanel`); it adopts these components in a later spec.
+
+## Props
+
+| prop            | type                                   | default | notes                                                                   |
+| --------------- | -------------------------------------- | ------- | ----------------------------------------------------------------------- |
+| `controller`    | `AgentController`                      | none    | state and every action                                                  |
+| `visible`       | `boolean`                              | `true`  | hidden keeps it mounted, pauses the ticker; the pill speaks for it      |
+| `width`         | `number`                               | 320     | px, clamped to 288 to 480; uncontrolled when left out                   |
+| `onWidthChange` | `(width) => void`                      | none    | the separator moved; the host resizes its column                        |
+| `presentation`  | `'auto' \| 'dock' \| 'sheet'`          | `auto`  | `auto`: the sheet below 600px on a coarse pointer                       |
+| `onClose`       | `() => void`                           | none    | the sheet's `[×]` or Esc: the host hides the panel                      |
+| `returnFocus`   | `() => HTMLElement \| null`            | none    | the rail's agent button, focused when the sheet closes                  |
+| `pillContainer` | `Element \| null`                      | none    | an element in the status bar the pill is portalled into while hidden    |
+| `onOpen`        | `() => void`                           | none    | the pill was activated                                                  |
+| `tooltipDelay`  | `number`                               | 500     | tests pass 0                                                            |
+
+`LiveAgentPanel` takes every `UseAgentControllerOptions` field (`kernel`, `locale`, `provider`,
+`providerKind`, `addPage`, `selection`, `editModel`, `editEffort`, `models`, `model`,
+`onSelectModel`, `onPreview`, `onViewAsCode`, `onOpenPageHistory`, …) beside these, plus
+`onSiteSeam` for the Site destination's run lease.
+
+## States
+
+`data-state` on `.ck-agent-panel`: `idle`, `running`, `stopping`, `awaiting-decision` (a ready plan,
+step plan or proposal), `hidden`. Stories cover every SPEC §3 frame the fake controller draws: empty
+(3.1), composing and mention (3.2), skeleton, building, blocked, built, partial (3.3 to 3.5), edits
+(3.6), plan and Ask (3.7, 3.8), queue, stopping, stopped, error (3.9 to 3.11), long (3.12),
+Conversations (3.13), 420px (3.14), Arabic (3.15), the phone sheet (3.16), Improve and clarify, and
+hidden with the pill.
+
+## Anatomy
+
+```text
+.ck-agent-panel            the editor's column: width, the editor's direction, the separator
+  section.ck-agent         dir, lang, container agent / inline-size, Paper
+    .ck-agent-panel__column   grid: header 44 | thread 1fr | dock
+      AgentHeader             face, the name (h2), Conversations, New conversation
+      AgentThread             the only scroller: turns (TurnView), suggestions, jump pill
+      .ck-agent-panel__dock   0 8 8: Composer (RunBar, queue, Improve note, questions above)
+      HistoryPopover
+    LiveStatus             the one live region, mounted for the panel's life
+  PanelSeparator           role=separator, 8px hit area on the edge toward the canvas
+```
+
+## Accessibility
+
+- One region, named by the header's `h2` (`aria-labelledby`). Exactly one `aria-live` element.
+- The separator: `role="separator"`, `aria-orientation="vertical"`, `aria-valuemin` 288,
+  `aria-valuemax` 480, `aria-valuenow`. ← → 16px, Shift 48px, Home / End, in visual direction.
+- Ctrl+. (⌘. on macOS) anywhere in the panel stops the live run; the composer spends it first.
+- A suggestion fills the composer and puts the caret at its end; it never sends. Sending while
+  scrolled up follows the thread to the newest line.
+
+## RTL
+
+The panel root carries the UI's `dir` and `lang` and sits inside Radix `DirectionProvider`; logical
+properties mirror everything. The separator lives outside that `dir` and reads the editor's: an
+Arabic panel docked in an English editor keeps its outer edge, and its separator, on the right.
+`.ck-agent, .ck-agent [lang] { font-family: var(--bldr-font) }` re-declares the family where a
+language changes, since the family inherits as a computed value.

@@ -635,9 +635,24 @@ function fillFor(script: Scripted, position: number, total: number): Call | unde
   );
 }
 
+/**
+ * The plan without its variants, so no section is kit-backed (2026-09-30): the
+ * markup writer's contract is what these tests hold, and a kit writer answers
+ * one tool step with none of it (run-build.kit-seo.test.ts).
+ */
+function markupOnly(): Record<string, unknown> {
+  const plan = roastery();
+  const sections = (plan['sections'] as Record<string, unknown>[]).map((section) => {
+    const copy = { ...section };
+    delete copy['variant'];
+    return copy;
+  });
+  return { ...plan, sections };
+}
+
 describe('the section contract — colour, design code and the person’s own photos', () => {
   it('colours through the kit and var(--ck-…), accent text through accent ink — never an arbitrary class', async () => {
-    const script = scripted();
+    const script = scripted({ pagePlan: () => markupOnly() });
     await runAiBuild({ ...baseOptions(kernel(), script.provider), target: 'replace' });
 
     const hero = fillFor(script, 1, 4)?.request ?? '';
@@ -651,8 +666,8 @@ describe('the section contract — colour, design code and the person’s own ph
     expect(hero).not.toContain('or arbitrary classes such as');
   });
 
-  it('hands every writer region css as a first-class tool, inside the door’s refusal list', async () => {
-    const script = scripted();
+  it('hands every markup writer region css as a first-class tool, inside the door’s refusal list', async () => {
+    const script = scripted({ pagePlan: () => markupOnly() });
     await runAiBuild({ ...baseOptions(kernel(), script.provider), target: 'replace' });
 
     for (const fill of script.fills) {

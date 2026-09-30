@@ -8,6 +8,7 @@ import {
   answersOf,
   clarifyQuestionsOf,
   enhanceFailureOf,
+  isUnsureBuild,
   needsClarifying,
   readEnhanceResult,
   requestWithAnswers,
@@ -26,6 +27,26 @@ describe('needsClarifying', () => {
     [{ kind: 'question', confidence: 0.3 }, false],
   ] as const)('%o → %s', (route, expected) => {
     expect(needsClarifying(route)).toBe(expected);
+  });
+});
+
+describe('isUnsureBuild', () => {
+  /*
+    What a failed clarify check may NOT run as written: a build the router is no surer of
+    than the confirm line. «هل يمكنك تربط ال صفحه هاي داخل عليها» routes to a new page at
+    0.6; with the check timed out it built a whole eight-section page for a linking request.
+  */
+  it.each([
+    [{ kind: 'build-page', confidence: 0.6 }, true],
+    [{ kind: 'build-page', confidence: 0.5 }, true],
+    [{ kind: 'build-site', confidence: 0.6 }, true],
+    [{ kind: 'build-page', confidence: 0.75 }, false],
+    // An edit (or a section) falls through as written, as it did before.
+    [{ kind: 'edit', confidence: 0.5 }, false],
+    [{ kind: 'add-section', confidence: 0.4 }, false],
+    [{ kind: 'question', confidence: 0.3 }, false],
+  ] as const)('%o → %s', (route, expected) => {
+    expect(isUnsureBuild(route)).toBe(expected);
   });
 });
 

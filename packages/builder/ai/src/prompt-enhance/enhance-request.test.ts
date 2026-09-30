@@ -34,7 +34,7 @@ function draft(overrides: Partial<AiPromptEnhanceInput> = {}): AiPromptEnhanceIn
 
 const REWRITE: AiPromptEnhancement = {
   enhanced: 'اربط زر قسم البطل بقسم القائمة في الصفحة نفسها.',
-  understood: 'تريد ربط الزر بقسم في الصفحة.',
+  understood: 'ربط الزر بقسم في الصفحة.',
   changes: ['صححت «ال صفحه» إلى «الصفحة»'],
   questions: [],
   language: 'ar',

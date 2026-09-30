@@ -217,8 +217,20 @@ describe('usePromptEnhancer over the engine', () => {
       rewritten = await result.current.improve({ text: 'Build a page for my shop.', locale: 'en' });
     });
     expect(rewritten).toBeNull();
-    expect(result.current.view.status).toBe('failed');
+    // Never "the model didn't respond": the route's 502 is often a model that answered badly.
+    expect(result.current.view).toEqual({ status: 'failed', reason: 'invalid' });
     expect(result.current.available).toBe(true);
+  });
+
+  it('keeps the other statuses in their own words', async () => {
+    const busy = enhancingProvider(
+      () => new AiProviderError('Overloaded.', { code: 'http-status', status: 503, retryable: true }),
+    );
+    const { result } = renderHook(() => usePromptEnhancer({ provider: busy }));
+    await act(async () => {
+      await result.current.improve({ text: 'Build a page for my shop.', locale: 'en' });
+    });
+    expect(result.current.view).toEqual({ status: 'failed', reason: 'busy' });
   });
 
   it('shows a tidy that fixed something, with its own notes', async () => {

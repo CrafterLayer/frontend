@@ -23,6 +23,7 @@ import type {
   PagePlanCandidate,
 } from '../types';
 import { classifyAiRunFailure, type AiRunFailure } from './errors';
+import { planKitIndex } from './page-plan/kits';
 import { PAGE_PLAN_MAX_SECTIONS, type PagePlan, type PagePlanIssue } from './page-plan/types';
 import { validatePagePlan } from './page-plan/validate-page-plan';
 import type { AiAgentPolicy, AiPagePlanEvent, PlanAiPageOptions, PlanAiPageResult } from './types';
@@ -231,10 +232,37 @@ function designLine(): string {
   return `DESIGN CODE: each section's writer may build effects in its own region css — ck- classes over var(--ck-…): gradients, masks, clip-path, grain, keyframes${markup === '' ? '' : `, and markup such as ${markup}`}. Make tokens.signature an effect a writer can build with them.`;
 }
 
+/*
+  The section kit and SEO, said to the planner (2026-09-30, DESIGN §B/D.1).
+  The kit index — one line per kit, ≤ 2,400 characters for all of them —
+  stands where the section-variants skill (~2.8k tokens) stood: a plan names
+  a KIT per section, and fills its slots only where the section is short
+  enough that the planner can write it whole, so it needs no writer at all.
+*/
+const KIT_LINE =
+  'KITS: give every section except the header and footer "kit": one id below whose role fits it (hero → a hero kit; cta → a closing kit). Fill "slots" ONLY for a short section — stats, logos, a cta, a faq of 6 or fewer — so it needs no writer: slot names as listed (a name ending [] is a list of items), text in the page language, a link {"label","href"} (actions carry primaryCta), an image {"subject","alt"}. Leave "slots" out everywhere else.';
+const SEO_LINE =
+  'SEO: add "seo":{"keyword":"<the one phrase this page should be found by, in its language, ≤ 80 characters>","pageKind":"home|menu|product|service|about|contact|article|landing","businessType":"Restaurant|CafeOrCoffeeShop|Bakery|Dentist|MedicalClinic|LegalService|Store|BeautySalon|LocalBusiness|Organization","slug":"<2-5 words of the keyword, in the page language>"}; businessType only when the page is for one. Put the keyword in the title and the hero naturally.';
+
+/** Whether the section kit is there to plan with: an index to show. */
+function kitsAvailable(): boolean {
+  return planKitIndex() !== '';
+}
+
 /** The request as the planner reads it: the person's words, the B line when asked, where it lands, what writers can build. */
-function planningRequest(request: string, target: IntentTarget | undefined): string {
+function planningRequest(
+  request: string,
+  target: IntentTarget | undefined,
+  kits: boolean = kitsAvailable(),
+): string {
   const asked = withRequestedLook(request);
-  return [asked, ...(target === undefined ? [] : [INTENT_LINE[target]]), designLine()].join('\n');
+  return [
+    asked,
+    ...(target === undefined ? [] : [INTENT_LINE[target]]),
+    designLine(),
+    ...(kits ? [KIT_LINE, planKitIndex()] : []),
+    SEO_LINE,
+  ].join('\n');
 }
 
 /** Whether the page being planned is in Arabic: the words, the page's direction, or its lang. */
@@ -301,13 +329,45 @@ function planSkillIds(
   registry: AiSkillRegistry | undefined,
   policy: Partial<AiAgentPolicy> | undefined,
   arabic: boolean,
+  kits: boolean = kitsAvailable(),
 ): readonly string[] {
   return fittingSkillIds(
     registry,
     policy,
     [],
-    [DIRECTION_DECK, SECTION_VARIANTS, COPYWRITING, ...(arabic ? [ARABIC_RTL] : [])],
+    [
+      DIRECTION_DECK,
+      // The kit index replaces the variant library when there are kits to name.
+      ...(kits ? [] : [SECTION_VARIANTS]),
+      COPYWRITING,
+      ...(arabic ? [ARABIC_RTL] : []),
+    ],
   );
+}
+
+/**
+ * What the planner is sent besides the page: its request text and the skills
+ * it names. `kits: false` is the planner as it was before the section kit —
+ * the variant library instead of the kit index — kept so a test can hold the
+ * kit planner to the old one's budget.
+ *
+ * @internal Exported for its test.
+ */
+export function pagePlanningBrief(
+  kernel: BuilderKernel,
+  input: {
+    readonly request: string;
+    readonly target?: IntentTarget;
+    readonly skillRegistry?: AiSkillRegistry;
+    readonly policy?: Partial<AiAgentPolicy>;
+  },
+  kits: boolean = kitsAvailable(),
+): { readonly request: string; readonly skillIds: readonly string[] } {
+  const arabic = isArabicPage(kernel, input.request);
+  return {
+    request: planningRequest(input.request, input.target, kits),
+    skillIds: planSkillIds(input.skillRegistry, input.policy, arabic, kits),
+  };
 }
 
 /**

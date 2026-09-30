@@ -25,6 +25,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { serializeTreeMarkup } from '../plan/tree-markup';
+import { wirePropsSchema } from './wire-schema';
 import type {
   AiBlockContext,
   AiBlockPropertyIntentContext,
@@ -456,7 +457,7 @@ function blockDetailEntry(entry: RegistryBlockEntry): AiBlockContext {
   const propertyIntents = propertyIntentSummary(entry.propertyGroups);
   return {
     ...blockIndexEntry(entry),
-    propsSchema: cloneJson(entry.propsSchema),
+    propsSchema: wirePropsSchema(cloneJson(entry.propsSchema)),
     ...(propertyIntents === undefined ? {} : { propertyIntents }),
     examples: entry.examples.map((example) => ({
       prompt: example.prompt,
@@ -1039,9 +1040,24 @@ export function assembleAiContext(
       owner's CV edit it was 5,431 of 11,368 wire tokens — the largest single
       part of "~11.3k" (fast-edits, measured 2026-09-28).
     */
-    ...(focused === undefined ? { skillCatalog: options.skillContext.catalog } : {}),
+    /*
+      And an unfocused call ships only the PINNED skills' manifests: the one
+      thing a server reads from the catalog is a pin's activation mode and
+      intents (prompt.ts `editCompatible`, the edit-variant decision). The
+      whole catalog was ~23,800 characters on every page plan, section fill
+      and unfocused edit — about 40% of a fill's bytes, unread (2026-09-30).
+    */
+    ...(focused === undefined ? { skillCatalog: pinnedManifests(options.skillContext) } : {}),
     skills: options.skillContext.activations,
   };
+}
+
+/** The catalog entries of the skills this call pinned, in catalog order. */
+function pinnedManifests(
+  skillContext: NonNullable<AssembleAiContextOptions['skillContext']>,
+): NonNullable<AssembledAiContext['skillCatalog']> {
+  const pinned = new Set(skillContext.activations.map(({ id }) => id));
+  return Object.freeze(skillContext.catalog.filter(({ id }) => pinned.has(id)));
 }
 
 /**

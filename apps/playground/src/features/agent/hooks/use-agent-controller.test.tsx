@@ -581,7 +581,7 @@ describe('useAgentController: edits and questions', () => {
     expect(firstOf(c, 'edit').phase).toBe('undone');
   }, 30_000);
 
-  it('Auto edit applies at once, and its Undo refuses once a later change sits on top', async () => {
+  it('Auto edit applies at once, and offers no Undo once a later change sits on top', async () => {
     const kernel = createEditKernel();
     kernel.setSelection(['selected-hero']);
     const { c } = mount({
@@ -600,12 +600,35 @@ describe('useAgentController: edits and questions', () => {
     act(() => {
       kernel.dispatch('setProp', { id: 'selected-hero', key: 'heading', value: 'Mine' });
     });
+    // No greyed Undo under a build row's reason ("this section changed after it was built").
     await waitFor(() => {
-      expect(firstOf(c, 'edit').undo).toEqual({
-        kind: 'unavailable',
-        why: 'changedSince',
-      });
+      expect(firstOf(c, 'edit').undo).toBeUndefined();
     });
+    expect(firstOf(c, 'edit').phase).toBe('done');
+  }, 30_000);
+
+  it('an edit the model answers in words alone is an answer, never "already matched"', async () => {
+    // Auto: no command, so nothing landed; the model's words are the record.
+    const kernel = createEditKernel();
+    kernel.setSelection(['selected-hero']);
+    const provider = wordsProvider('Which page should the link open?');
+    const { c } = mount({ kernel, provider });
+    ask(c, 'change the heading');
+    await settled(c);
+    expect(turnsOf(c, 'edit')).toEqual([]);
+    expect(turnsOf(c, 'answer')[0]?.text).toBe('Which page should the link open?');
+    expect(c().state.announcement?.key).toBe('answer.ready');
+    expect(kernel.transactions()).toHaveLength(0);
+
+    // Ask: no command is no proposal either, so there is no Apply that can do nothing.
+    const asked = mount({ kernel: createEditKernel(), provider: wordsProvider('Which page?') });
+    act(() => {
+      asked.c().setMode('ask');
+    });
+    ask(asked.c, 'change the heading');
+    await settled(asked.c);
+    expect(turnsOf(asked.c, 'proposal')).toEqual([]);
+    expect(turnsOf(asked.c, 'answer')[0]?.text).toBe('Which page?');
   }, 30_000);
 });
 
@@ -624,6 +647,8 @@ describe('useAgentController: fast edits', () => {
     expect(JSON.stringify(kernel.getDocument().nodes['mine-0']?.props['tree'])).toContain('مرحبا');
     const edit = turnsOf(c, 'edit')[0];
     expect(edit).toMatchObject({ phase: 'done', origin: 'request', undo: { kind: 'undo' } });
+    // It names the section it changed, not «عُدِّلت الصفحة» (SPEC §3.6).
+    expect(edit?.target).toBe('التعليم والشهادات');
 
     act(() => {
       if (edit !== undefined) c().undoEdit(edit.turnId);
@@ -822,7 +847,10 @@ describe('useAgentController: Improve and clarify', () => {
       expect(c().state.clarify?.status).toBe('asking');
     });
     expect(c().state.draft).toBe('');
-    expect(c().state.turns).toEqual([]);
+    // No exchange opened, but the person's own words stay on screen as their bubble.
+    expect(c().state.turns.map((turn) => turn.kind)).toEqual(['user']);
+    const bubble = c().state.turns[0];
+    expect(bubble?.kind === 'user' ? bubble.view.text : null).toBe('make it blue');
     expect(provider.calls()).toBe(0);
     expect(c().state.announcement?.key).toBe('clarify.ready');
 
@@ -887,6 +915,66 @@ describe('useAgentController: Improve and clarify', () => {
     expect(turnsOf(c, 'user')[0]?.text).toBe('make it blue');
     expect(provider.calls()).toBe(1);
     expect(kernel.transactions()).toHaveLength(0);
+  }, 30_000);
+
+  it('a failed check never builds an unsure page: it is planned, and nothing is written', async () => {
+    // "a pricing page" beside content routes to a new page at 0.6. With the check timed out,
+    // running it as written opened a new page and built it whole, unasked.
+    const kernel = createPlanKernel(['About us', 'Contact']);
+    const provider = planningProvider();
+    const enhancer = scriptedEnhancer(() => new Error('The request timed out.'));
+    let pagesOpened = 0;
+    const { c } = mount({
+      kernel,
+      provider,
+      enhancer,
+      addPage: () => {
+        pagesOpened += 1;
+        return Promise.resolve({ kernel: createPlanKernel() });
+      },
+    });
+
+    ask(c, 'a pricing page');
+    await settled(c);
+    await waitFor(() => {
+      expect(turnsOf(c, 'page-plan')[0]?.status).toBe('ready');
+    }, WAIT);
+    expect(enhancer.calls).toHaveLength(1);
+    expect(c().state.clarify).toBeNull();
+    expect(firstOf(c, 'page-plan')).toMatchObject({ approval: false });
+    expect(turnsOf(c, 'build')).toEqual([]);
+    expect(provider.planCalls()).toBe(1);
+    expect(pagesOpened).toBe(0);
+    expect(kernel.transactions()).toHaveLength(0);
+
+    // A newer request is its own, not a change to the unsure plan (merged, it would build).
+    ask(c, 'make the headings bigger');
+    await settled(c);
+    await waitFor(() => {
+      expect(turnsOf(c, 'answer')).toHaveLength(1);
+    }, WAIT);
+    expect(turnsOf(c, 'page-plan')[0]?.status).toBe('ready');
+    expect(turnsOf(c, 'end')).toEqual([]);
+    expect(turnsOf(c, 'build')).toEqual([]);
+    expect(provider.planCalls()).toBe(1);
+    expect(pagesOpened).toBe(0);
+    expect(kernel.transactions()).toHaveLength(0);
+  }, 60_000);
+
+  it('a failed check on an unsure edit still runs it as written', async () => {
+    // "make it blue" on an empty page: an edit the router is only 0.5 sure of.
+    const kernel = createBuildKernel();
+    const provider = wordsProvider('Blue what? The page is empty.');
+    const enhancer = scriptedEnhancer(() => new Error('The request timed out.'));
+    const { c } = mount({ kernel, provider, enhancer });
+    ask(c, 'make it blue');
+    await settled(c);
+    await waitFor(() => {
+      expect(turnsOf(c, 'answer')).toHaveLength(1);
+    }, WAIT);
+    expect(enhancer.calls).toHaveLength(1);
+    expect(provider.calls()).toBe(1);
+    expect(turnsOf(c, 'page-plan')).toEqual([]);
   }, 30_000);
 
   it('a low-confidence request with no questions runs as it is', async () => {

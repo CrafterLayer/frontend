@@ -225,6 +225,70 @@ describe('resolveDocumentFocus', () => {
   });
 });
 
+/*
+  Final test (2026-09-30): «اجعل قسم الأسعار أكثر فخامة» on the shawarma page,
+  whose prices live in «قائمة الطعام» (plan key `menu`), named no section and
+  shipped the whole page (14,303 wire tokens). A role word falls back to the
+  section playing that role: by its names first, then — for prices — by the
+  currency it holds.
+*/
+function shawarmaDocument(menuAnchor: string | null = 'menu'): BuilderDocument {
+  const anchor = menuAnchor === null ? '' : ` id='${menuAnchor}'`;
+  return {
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'rtl',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'page', props: { title: 'شاورما أبو علي' }, slots: { default: ['hero', 'menu', 'story', 'footer'] } },
+      hero: region('hero', 'الرئيسية', "<section id='hero'><h1>شاورما أبو علي</h1><p>على الفحم منذ ١٩٩٠.</p></section>"),
+      menu: region(
+        'menu',
+        'قائمة الطعام',
+        `<section${anchor}><h2>أطباقنا</h2><ul><li>شاورما دجاج — 3 د.أ</li><li>وجبة عربي — 4.5 د.أ</li></ul></section>`,
+      ),
+      story: region('story', 'قصتنا', "<section id='story'><h2>حكايتنا</h2><p>ثلاثة أجيال في وسط البلد.</p></section>"),
+      footer: region('footer', 'شاورما أبو علي', "<footer id='footer'><p>© شاورما أبو علي</p></footer>"),
+    },
+  } as unknown as BuilderDocument;
+}
+
+describe('resolveDocumentFocus — role words', () => {
+  it.each([
+    ['اجعل قسم الأسعار أكثر فخامة', ['menu']],
+    ['غير ألوان الاسعار', ['menu']],
+    ['make the pricing section bolder', ['menu']],
+    ['غير لون التذييل', ['footer']],
+    ['make the footer darker', ['footer']],
+    ['كبر خط الهيرو', ['hero']],
+  ])('%s → %j', (request, nodeIds) => {
+    expect(
+      resolveDocumentFocus({ request, document: shawarmaDocument(), selection: [], intent: 'edit' }),
+    ).toEqual({ nodeIds, kind: 'edit' });
+  });
+
+  it('finds the prices by their currency when no name says menu', () => {
+    expect(
+      resolveDocumentFocus({
+        request: 'اجعل قسم الأسعار أكثر فخامة',
+        document: shawarmaDocument(null),
+        selection: [],
+        intent: 'edit',
+      }),
+    ).toEqual({ nodeIds: ['menu'], kind: 'edit' });
+  });
+
+  it('still names nothing when no section plays the role', () => {
+    expect(focusOf('اجعل قسم الأسعار أكثر فخامة')).toBeUndefined();
+  });
+
+  it('prefers a section named in the words over a role', () => {
+    expect(
+      resolveDocumentFocus({ request: 'غير عنوان قصتنا', document: shawarmaDocument(), selection: [], intent: 'edit' }),
+    ).toEqual({ nodeIds: ['story'], kind: 'edit' });
+  });
+});
+
 describe('assembleAiContext — documentFocus', () => {
   it('shows the focused section whole and every other section as one outline line', () => {
     const context = assembleAiContext(kernel().context, {

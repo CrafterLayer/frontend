@@ -374,6 +374,14 @@ export const en = {
   'suggest.rework': 'Rework “{title}” as {prompt}',
   // `{titles}` is the locale's list of quoted section titles.
   'suggest.salvage': 'Finish the changes to {titles}',
+  // (added) what a page just built or edited offers next: a section it does not have yet,
+  // then the two changes that apply to any page. Full sentences, the person's own request.
+  'suggest.page.pricing': 'Add a pricing section with clear packages',
+  'suggest.page.faq': 'Add a section that answers common questions',
+  'suggest.page.contact': 'Add a contact section with a clear way to book',
+  'suggest.page.testimonials': 'Add a section with what customers say',
+  'suggest.page.warmer': 'Make the page colours warmer',
+  'suggest.page.otherLanguage': 'Add an Arabic version of the page',
 
   /* §4.17 the composer family */
   'input.aria': 'Your request',
@@ -400,7 +408,7 @@ export const en = {
   'mode.running': 'Applies to your next request',
   'model.aria': 'Model: {name}',
   'model.fast': 'Fast',
-  'model.fast.trait': 'Quickest, lowest cost',
+  'model.fast.trait': 'Quickest replies',
   'model.careful': 'Careful',
   'model.careful.trait': 'Slower, more careful',
   'model.free': 'Free',

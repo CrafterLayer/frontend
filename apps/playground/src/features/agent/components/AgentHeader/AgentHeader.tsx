@@ -11,6 +11,7 @@ import {
 import { IconButton } from '../IconButton';
 
 import './AgentHeader.css';
+import './face-ring.css';
 
 /** The header face's state, as `useAgentMood` reports it for the live run (SPEC §4.2). */
 export interface AgentHeaderFace {

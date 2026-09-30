@@ -141,6 +141,10 @@ export interface AnsweredTurn {
   readonly followUp?: string | readonly string[] | undefined;
   /** What validation salvaged of this answer's plan, and the steps it dropped. */
   readonly salvaged?: { readonly dropped: readonly DroppedAiPlanStep[] } | undefined;
+  /** A build's or an edit's lifecycle, as `ranOnPage` reads it. */
+  readonly status?: string | undefined;
+  /** Undo build ran on this build. */
+  readonly undone?: true | undefined;
 }
 
 /* The newest turn that is an ANSWER, reading backwards past what the person wrote. */
@@ -161,6 +165,22 @@ export function lastFollowUp(
   turns: readonly AnsweredTurn[],
 ): string | readonly string[] | undefined {
   return newestAnswer(turns)?.followUp;
+}
+
+/**
+ * Whether the NEWEST answer is a build or an edit that has finished with the page in hand
+ * (done, no change, stopped, or a build that settled or was interrupted and not undone).
+ * The suggestion list then offers follow-ups read from that page (SPEC §4.16), instead of
+ * the catalog's examples, which are about blocks and not about the page just made.
+ */
+export function ranOnPage(turns: readonly AnsweredTurn[]): boolean {
+  const newest = newestAnswer(turns);
+  if (newest === undefined) return false;
+  if (newest.kind === 'build') {
+    return (newest.status === 'settled' || newest.status === 'interrupted') && newest.undone !== true;
+  }
+  if (newest.kind === 'edit') return newest.status !== 'running';
+  return false;
 }
 
 /**

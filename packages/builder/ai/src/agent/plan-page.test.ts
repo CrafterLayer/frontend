@@ -22,7 +22,7 @@ import type {
   AssembledAiContext,
   PagePlanCandidate,
 } from '../types';
-import { anotherLookRequested, designMarkupFor, planAiPage } from './plan-page';
+import { anotherLookRequested, designMarkupFor, pagePlanningBrief, planAiPage } from './plan-page';
 import type { AiPagePlanEvent } from './types';
 
 /*
@@ -313,7 +313,7 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  it('plans with the deck, the variants, the copy rules and the Arabic rules — and nothing page-level besides', async () => {
+  it('plans with the deck, the kit index, the copy rules and the Arabic rules — and nothing page-level besides', async () => {
     const { provider, calls } = planner(() => cafe());
     await planAiPage(REQUEST, options(provider).options);
 
@@ -322,11 +322,15 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
     expect(skills).toEqual(
       expect.arrayContaining([
         'craftkit.direction-deck',
-        'craftkit.section-variants',
         'craftkit.copywriting',
         'craftkit.arabic-rtl',
       ]),
     );
+    // 2026-09-30: the kit index, in the request, stands where the variant library stood.
+    expect(skills).not.toContain('craftkit.section-variants');
+    expect(calls[0]?.request).toContain('KITS: give every section');
+    expect(calls[0]?.request).toContain('hero-split');
+    expect(calls[0]?.request).toContain('"seo":{"keyword"');
     // Auto-matching is off: a page archetype's markup rules do not ride into a plan.
     expect(skills).not.toContain('craftkit.page-composition');
     expect(skills).not.toContain('craftkit.build-scaffold');
@@ -542,5 +546,40 @@ describe('anotherLookRequested — how "try another look" reaches the deck', () 
     'أريد تصميماً لصفحة مطعمي',
   ])('leaves "%s" alone', (request) => {
     expect(anotherLookRequested(request)).toBe(false);
+  });
+});
+
+describe('the planner and the section kit (2026-09-30)', () => {
+  /** What one planning call sends besides the page: the request text and the skills it names, in tokens. */
+  function measured(kits: boolean): { tokens: number; request: string; skillIds: readonly string[] } {
+    const registry = createCraftkitAiSkillRegistry();
+    const brief = pagePlanningBrief(
+      kernel(),
+      { request: REQUEST, target: 'replace', skillRegistry: registry },
+      kits,
+    );
+    const skills = registry.prepare({
+      request: brief.request,
+      intent: 'build-page',
+      selectedSkillIds: brief.skillIds,
+      auto: false,
+    });
+    return {
+      tokens: Math.ceil(brief.request.length / 4) + skills.totalTokens,
+      request: brief.request,
+      skillIds: brief.skillIds,
+    };
+  }
+
+  it('swaps the variant library for the kit index and asks for SEO, within 10% of the old prompt', () => {
+    const before = measured(false);
+    const after = measured(true);
+
+    expect(before.skillIds).toContain('craftkit.section-variants');
+    expect(after.skillIds).not.toContain('craftkit.section-variants');
+    expect(after.request).toContain('KITS: give every section');
+    expect(after.request).toContain('hero-split');
+    expect(after.request).toContain('"seo":{"keyword"');
+    expect(after.tokens).toBeLessThanOrEqual(Math.ceil(before.tokens * 1.1));
   });
 });

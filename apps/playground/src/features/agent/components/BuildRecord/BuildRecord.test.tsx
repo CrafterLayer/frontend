@@ -318,6 +318,26 @@ describe('BuildRecord: actions call the controller, never post a message', () =>
     expect(called().sort()).toEqual(['finishRest', 'removeEmpty']);
   });
 
+  it('lists sample details only for sections that landed on the page', async () => {
+    const user = userEvent.setup();
+    const base = buildStopped('en', 'signal');
+    const landed = base.rows.find((row) => row.state === 'landed');
+    const unwritten = base.rows.find((row) => row.state === 'notWritten');
+    if (landed === undefined || unwritten === undefined) throw new Error('fixture changed');
+    const view: BuildRecordView = {
+      ...base,
+      facts: [
+        { sample: '25 JD', section: landed.title, nodeId: landed.key },
+        { sample: '+966 50 123 4567', section: unwritten.title, nodeId: unwritten.key },
+      ],
+    };
+    renderRecord(view);
+    const toggle = screen.getByRole('button', { name: t('en', 'facts.toggle', { n: 1 }) });
+    await user.click(toggle);
+    expect(screen.getByText('25 JD')).toBeInTheDocument();
+    expect(screen.queryByText('+966 50 123 4567')).toBeNull();
+  });
+
   it('says a stopped row was not written, in words, at any width', () => {
     renderRecord(buildStopped('en', 'budget'));
     expect(screen.getByRole('button', { name: 'Section 6 of 8: Testimonials, Not written' })).toBeInTheDocument();
@@ -368,6 +388,29 @@ describe('BuildRecord: actions call the controller, never post a message', () =>
     expect(screen.getByText(t('en', 'build.caption.notResumable'))).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Finish the rest/u })).toBeNull();
     expect(screen.getByRole('button', { name: 'Remove empty sections (5)' })).toBeInTheDocument();
+  });
+
+  it('adds Copy summary to a finished build’s footer, shown from 400px of panel', async () => {
+    const user = userEvent.setup();
+    const { container, onMenuSelect } = renderRecord(buildDone('en'));
+    const footer = container.querySelector('.ck-agent-record__actions');
+    if (!(footer instanceof HTMLElement)) throw new Error('no footer');
+    const copy = within(footer).getByRole('button', { name: 'Copy summary' });
+    expect(copy).toHaveClass('ck-agent-build__copy');
+    expect(copy).toHaveAttribute('data-ck-tone', 'text');
+    await user.click(copy);
+    expect(onMenuSelect).toHaveBeenCalledExactlyOnceWith('copySummary');
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'features', 'agent', 'components', 'BuildRecord', 'BuildRecord.css'),
+      'utf8',
+    );
+    expect(css).toMatch(/\.ck-agent-build__copy[^{]*\{[^}]*display:\s*none/u);
+    expect(css).toMatch(/@container agent \(inline-size >= 400px\)\s*\{[^@]*\.ck-agent-build__copy/u);
+  });
+
+  it('keeps Copy summary in the menu alone while a build is stopped', () => {
+    const { container } = renderRecord(buildStopped('en', 'signal'));
+    expect(container.querySelector('.ck-agent-build__copy')).toBeNull();
   });
 
   it('hands the menu’s choice to its caller', async () => {

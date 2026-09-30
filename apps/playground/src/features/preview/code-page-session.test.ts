@@ -8,7 +8,7 @@ import type {
 } from '@craftkit/builder/code-runtime';
 
 import { createReferenceCodePageSite } from './code-page-fixture';
-import { createCodePageSession } from './code-page-session';
+import { createCodePageSession, exportLanguage } from './code-page-session';
 import type { CodeRuntimeClient, CompiledCodePage, ExportedCodePage } from './code-runtime-client';
 
 function deferred<T>() {
@@ -53,15 +53,24 @@ function result(source: RuntimeSnapshot): CompiledCodePage {
   };
 }
 
-function setup() {
-  const kernel = createSiteBuilder({ site: createReferenceCodePageSite(), extensions: [] });
+function setup(dir: 'ltr' | 'rtl' = 'ltr') {
+  const reference = createReferenceCodePageSite();
+  const site =
+    dir === 'ltr'
+      ? reference
+      : {
+          ...reference,
+          dir,
+          pages: reference.pages.map((page) => ({ ...page, document: { ...page.document, dir } })),
+        };
+  const kernel = createSiteBuilder({ site, extensions: [] });
   const builds: {
     source: RuntimeSnapshot;
     signal: AbortSignal | undefined;
     pending: ReturnType<typeof deferred<CompiledCodePage>>;
   }[] = [];
   const exported = deferred<ExportedCodePage>();
-  const exportPage = vi.fn(() => exported.promise);
+  const exportPage = vi.fn((_page: unknown, _artifactId?: string, _signal?: AbortSignal) => exported.promise);
   const client: CodeRuntimeClient = {
     compile: vi.fn((source: RuntimeSnapshot, signal: AbortSignal | undefined) => {
       const pending = deferred<CompiledCodePage>();
@@ -194,5 +203,28 @@ describe('source page session', () => {
     await t.complete(1);
     expect(t.session.getSnapshot().status).toBe('ready');
     restart();
+  });
+
+  it('passes the page language and direction to the export, so Arabic ships as lang="ar"', async () => {
+    for (const [dir, language] of [
+      ['rtl', 'ar'],
+      ['ltr', 'en'],
+    ] as const) {
+      const t = setup(dir);
+      await t.complete(0);
+      const promise = t.session.exportPage();
+      t.exported.resolve({ files: [], artifactIds: [] });
+      await promise;
+      expect(t.exportPage).toHaveBeenCalledTimes(1);
+      expect(t.exportPage.mock.calls[0]?.[0]).toMatchObject({ language, direction: dir });
+      t.stop();
+    }
+  });
+
+  it('derives the export language from the root lang, falling back to the direction', () => {
+    expect(exportLanguage('ar-JO', 'ltr')).toBe('ar-JO');
+    expect(exportLanguage('', 'rtl')).toBe('ar');
+    expect(exportLanguage(undefined, 'ltr')).toBe('en');
+    expect(exportLanguage('not a tag', 'rtl')).toBe('ar');
   });
 });

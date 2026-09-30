@@ -94,6 +94,27 @@ describe('HistoryRow', () => {
     expect(container.querySelector('li')).toHaveAttribute('data-current');
   });
 
+  it('names an untitled new conversation "New conversation", visibly and to a screen reader', () => {
+    for (const locale of ['en', 'ar'] as const) {
+      const { container, unmount } = renderRow({
+        locale,
+        session: { ...session(locale, 0, true), title: '', updatedAt: null },
+      });
+      const open = rowButton(container);
+      const fallback = t(locale, 'header.new');
+      expect(open.querySelector('.ck-agent-history-row__title')).toHaveTextContent(fallback);
+      expect(open).toHaveAccessibleName(fallback);
+      expect(within(open).getByText(t(locale, 'history.current'))).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('keeps "Current" visible on the current row while it has focus', () => {
+    expect(CSS).toMatch(
+      /\.ck-agent-history-row\[data-current\]:focus-within \.ck-agent-history-row__meta[^{]*\{[^}]*opacity:\s*1/u,
+    );
+  });
+
   it('leaves a past conversation unmarked', () => {
     const { container } = renderRow();
     expect(rowButton(container)).not.toHaveAttribute('aria-current');

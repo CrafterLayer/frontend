@@ -11,7 +11,13 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { QUEUE_CAPTION_KEY, t } from '../../copy';
 import type { Locale, QueueStatus } from '../../model/view-types';
-import { DRAFT, LATIN_DRAFT, queued } from '../../testing/wp-14-composer-fixtures';
+import {
+  blockChip,
+  DRAFT,
+  LATIN_DRAFT,
+  queued,
+  SCOPE_CHIP,
+} from '../../testing/wp-14-composer-fixtures';
 
 import { QueueHeader } from './QueueHeader';
 
@@ -80,6 +86,48 @@ describe('QueueHeader', () => {
     expect(within(group).queryByRole('button', { name: /Remove Hero/u })).toBeNull();
     await user.click(within(group).getByRole('button', { name: t('en', 'queue.continue') }));
     expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it('after Stop: draws no second «Whole page» chip, the composer already shows the scope', () => {
+    render(
+      <QueueHeader
+        locale="ar"
+        queue={{ ...queued('ar', 'paused'), chips: [SCOPE_CHIP] }}
+        dockChips={[SCOPE_CHIP]}
+        onRemove={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+    const group = screen.getByRole('group', { name: t('ar', 'queue.label') });
+    expect(group).toHaveTextContent(DRAFT.ar);
+    expect(within(group).queryByText(t('ar', 'scope.page'))).toBeNull();
+  });
+
+  it('after Stop: draws no chip the composer below already shows', () => {
+    const { container } = render(
+      <QueueHeader
+        locale="en"
+        queue={queued('en', 'paused')}
+        dockChips={[blockChip('en', 'hero')]}
+        onRemove={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+    expect(container.querySelector('.ck-agent-queue .ck-agent-chip')).toBeNull();
+  });
+
+  it('after Stop: keeps a block scope the composer does not show', () => {
+    render(
+      <QueueHeader
+        locale="en"
+        queue={queued('en', 'paused')}
+        dockChips={[SCOPE_CHIP]}
+        onRemove={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+    const group = screen.getByRole('group', { name: 'Up next' });
+    expect(within(group).getByText('Hero')).toBeInTheDocument();
   });
 
   it('sets a paused request’s direction and language from its words', () => {

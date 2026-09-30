@@ -335,6 +335,119 @@ describe('cli backend usage', () => {
       cache_creation_input_tokens: 0,
     });
   });
+
+  /*
+    Measured over 26 fills (2026-09-29): about 9.6 s of every CLI call is the
+    process starting, outside the model — "model 00:09" against "ended after
+    00:21". The log said only the first number, so the cost of the process
+    had to be worked out by hand. It now names the start-up and the whole run
+    beside the model's own time.
+  */
+  it("logs the model's time apart from the process's start-up and the whole run", async () => {
+    vi.useFakeTimers();
+    try {
+      const child = new FakeChild();
+      const lines: string[] = [];
+      const spawnCli = vi.fn(
+        (_command: string, _args: readonly string[]): CliChildProcess =>
+          child as unknown as CliChildProcess,
+      );
+      const finished = createCliClient({
+        spawnCli,
+        writeSystemPrompt: () => ({ path: '/tmp/x.md', remove: () => undefined }),
+        onLog: (text) => lines.push(text),
+      })
+        .messages.stream(REQUEST as never)
+        .finalMessage();
+
+      await vi.advanceTimersByTimeAsync(9_000);
+      child.stdout.write(line({ type: 'system', subtype: 'init' }));
+      await vi.advanceTimersByTimeAsync(12_000);
+      child.stdout.write(
+        line({
+          type: 'result',
+          is_error: false,
+          result: '{"rationale":"ok"}',
+          duration_api_ms: 10_000,
+          usage: { input_tokens: 1, output_tokens: 2 },
+        }),
+      );
+      await Promise.resolve();
+      child.emit('close', 0, null);
+      await finished;
+
+      const usage = lines.find((text) => text.startsWith('cli usage'));
+      expect(usage).toContain('model 00:10');
+      expect(usage).toContain('start-up 00:09');
+      expect(usage).toContain('run 00:21');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/*
+  Thinking off, as the call asked (2026-09-29). The enhancer sends
+  `thinking: {type: 'disabled'}` and this shim dropped it, so the CLI ran its
+  own default — thinking on. Measured on cli:haiku at --effort low: 56 s of
+  thinking_tokens events and not one character of answer before a 90 s cap;
+  on the scratch server «Improve» answered 504 on 6 runs of 6. The same
+  call with thinking disabled answered in 19 s, 351 tokens, on a machine at
+  load 960. The CLI has no --thinking flag; the `alwaysThinkingEnabled`
+  setting is its switch, and it survives --safe-mode.
+*/
+describe('cli backend thinking', () => {
+  function argsFor(thinking: unknown): readonly string[] {
+    const child = new FakeChild();
+    const spawnCli = vi.fn(
+      (_command: string, _args: readonly string[]): CliChildProcess =>
+        child as unknown as CliChildProcess,
+    );
+    createCliClient({
+      spawnCli,
+      writeSystemPrompt: () => ({ path: '/tmp/x.md', remove: () => undefined }),
+    }).messages.stream({ ...REQUEST, ...(thinking === undefined ? {} : { thinking }) } as never);
+    return spawnCli.mock.calls[0]?.[1] ?? [];
+  }
+  const settingsOf = (args: readonly string[]): unknown =>
+    args.includes('--settings')
+      ? JSON.parse(args[args.indexOf('--settings') + 1] ?? 'null')
+      : undefined;
+
+  it('turns thinking off in the CLI when the call disables it', () => {
+    expect(settingsOf(argsFor({ type: 'disabled' }))).toEqual({ alwaysThinkingEnabled: false });
+  });
+
+  function envFor(thinking: unknown): Readonly<Record<string, string>> | undefined {
+    const child = new FakeChild();
+    const spawnCli = vi.fn(
+      (
+        _command: string,
+        _args: readonly string[],
+        _env?: Readonly<Record<string, string>>,
+      ): CliChildProcess => child as unknown as CliChildProcess,
+    );
+    createCliClient({
+      spawnCli,
+      writeSystemPrompt: () => ({ path: '/tmp/x.md', remove: () => undefined }),
+    }).messages.stream({ ...REQUEST, ...(thinking === undefined ? {} : { thinking }) } as never);
+    return spawnCli.mock.calls[0]?.[2];
+  }
+
+  it('caps the thinking budget at zero when the call disables it', () => {
+    // The settings switch alone left haiku writing ~4.3k thinking tokens (40-60 s).
+    expect(envFor({ type: 'disabled' })).toEqual({ MAX_THINKING_TOKENS: '0' });
+  });
+
+  it('adds no thinking env for any other call', () => {
+    expect(envFor(undefined)).toBeUndefined();
+    expect(envFor({ type: 'adaptive', display: 'summarized' })).toBeUndefined();
+  });
+
+  it("leaves the CLI's thinking alone for every other call", () => {
+    expect(argsFor(undefined)).not.toContain('--settings');
+    expect(argsFor({ type: 'adaptive', display: 'summarized' })).not.toContain('--settings');
+  });
 });
 
 describe('cli backend per-call effort', () => {
@@ -447,7 +560,7 @@ describe('the page-plan task through a real `claude` process', () => {
     expect(seen.args).not.toContain('--effort');
     expect(existsSync(seen.systemPath)).toBe(false);
     // A real process: node's own start-up took seconds on the loaded machine this was written on.
-  }, 20_000);
+  }, 60_000);
 });
 
 /*
@@ -528,7 +641,12 @@ describe('cli backend cancellation', () => {
         }),
       );
       let pid = 0;
-      for (let waited = 0; pid === 0 && waited < 10_000; waited += 50) {
+      /*
+        Generous on purpose: this waits on a real node child starting, which took
+        over 20 s at load 450-610 and 2.2 s on a quiet machine. The budget only
+        bounds a genuine hang; a pass never waits for it.
+      */
+      for (let waited = 0; pid === 0 && waited < 30_000; waited += 50) {
         await new Promise((resolve) => setTimeout(resolve, 50));
         if (existsSync(pidFile)) pid = Number(readFileSync(pidFile, 'utf8'));
       }
@@ -539,7 +657,7 @@ describe('cli backend cancellation', () => {
 
       expect(response.status).toBe(499);
       let alive = true;
-      for (let waited = 0; alive && waited < 5_000; waited += 50) {
+      for (let waited = 0; alive && waited < 10_000; waited += 50) {
         await new Promise((resolve) => setTimeout(resolve, 50));
         try {
           process.kill(pid, 0);
@@ -552,7 +670,7 @@ describe('cli backend cancellation', () => {
       vi.unstubAllEnvs();
       rmSync(directory, { recursive: true, force: true });
     }
-  }, 20_000);
+  }, 120_000);
 });
 
 /*
@@ -617,7 +735,7 @@ describe('the prompt enhancer through a real `claude` process', () => {
     const record = join(directory, 'record.json');
     const answer = {
       enhanced: 'اعمل صفحة هبوط لمخبز في عمّان: الهيرو، المنتجات، الأسعار، التواصل.',
-      understood: 'تريد صفحة هبوط لمخبز في عمّان.',
+      understood: 'صفحة هبوط لمخبز في عمّان.',
       changes: ['«صفحه» ← «صفحة»'],
       questions: [{ id: 'q1', text: 'ما الإجراء الرئيسي؟', choices: ['اطلب الآن', 'زرنا'] }],
       language: 'ar',
@@ -658,11 +776,15 @@ describe('the prompt enhancer through a real `claude` process', () => {
     };
     expect(seen.args[seen.args.indexOf('--model') + 1]).toBe('haiku');
     expect(seen.args[seen.args.indexOf('--effort') + 1]).toBe('low');
+    // Thinking off: with it on, haiku thought past every cap and never answered.
+    expect(JSON.parse(seen.args[seen.args.indexOf('--settings') + 1] ?? 'null')).toEqual({
+      alwaysThinkingEnabled: false,
+    });
     expect(seen.system).toContain(ENHANCE_RULES_TEXT);
     expect(seen.system).toContain('# Required output format');
     expect(seen.system).toContain('"enhanced"');
     expect(seen.stdin).toContain('اعمل صفحه هبوط لمخبز في عمان');
     expect(existsSync(seen.systemPath)).toBe(false);
     // A real process: node's own start-up took seconds on the loaded machine this was written on.
-  }, 20_000);
+  }, 60_000);
 });

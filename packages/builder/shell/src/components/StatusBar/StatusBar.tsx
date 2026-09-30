@@ -28,6 +28,18 @@ export interface StatusBarProps {
   deviceLabel?: string | undefined;
   saveState?: 'saved' | 'saving' | 'error' | undefined;
   label?: string | undefined;
+  /**
+   * A host's live activity line, drawn at the inline start after the tools: the agent's
+   * status pill while its panel is hidden. The bar places it and knows nothing about it;
+   * an empty element (a portal target) costs no space.
+   */
+  agent?: ReactNode | undefined;
+  /**
+   * What the strip says when `changes` is empty. Default "No recent changes"; `null` says
+   * nothing, for a host whose changes another surface lists (the agent panel's thread), so
+   * the bar never claims nothing changed right after the page did.
+   */
+  emptyLabel?: string | null | undefined;
 }
 
 const ICON_PROPS = {
@@ -104,6 +116,8 @@ export function StatusBar({
   deviceLabel,
   saveState,
   label = 'Editor status',
+  agent,
+  emptyLabel = 'No recent changes',
 }: StatusBarProps) {
   const zoomLabel = zoom === undefined ? undefined : `${String(Math.round(zoom * 100))}%`;
   const saveLabel = saveState === undefined ? undefined : SAVE_LABELS[saveState];
@@ -136,13 +150,16 @@ export function StatusBar({
               </ChromeButton>
             ))
           : null}
+        {agent === undefined ? null : <div className="bldr-statusbar__agent">{agent}</div>}
       </div>
 
       <div className="bldr-statusbar__centre">
         {changes.length === 0 ? (
-          <span className="bldr-statusbar__empty" role="status">
-            No recent changes
-          </span>
+          emptyLabel === null ? null : (
+            <span className="bldr-statusbar__empty" role="status">
+              {emptyLabel}
+            </span>
+          )
         ) : (
           <ol className="bldr-statusbar__changes" aria-label="Recent changes">
             {changes.map((change, index) => {

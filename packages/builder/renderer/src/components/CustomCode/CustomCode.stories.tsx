@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, userEvent, within } from 'storybook/test';
 
 import { fixtureBlocks } from '@craftkit/builder-core/testing';
 import type { BlockRenderProps, CustomCodeRoot, RegisteredBlock } from '@craftkit/builder-schema';
@@ -158,17 +159,15 @@ export const Faq: Story = {
         ['Do you roast every day?', 'Every morning at seven, in small batches.'],
         ['Can I order beans online?', 'Yes — delivery inside Amman the same day.'],
         ['Do you offer decaf?', 'A Swiss-water decaf from Colombia, always on the shelf.'],
-      ].map(
-        ([question = '', answer = ''], at): CustomCodeRoot['children'][number] => ({
-          kind: 'element',
-          tag: 'details',
-          attributes: at === 0 ? { name: 'faq', open: '' } : { name: 'faq' },
-          children: [
-            { kind: 'element', tag: 'summary', text: question },
-            { kind: 'element', tag: 'p', text: answer },
-          ],
-        }),
-      ),
+      ].map(([question = '', answer = ''], at): CustomCodeRoot['children'][number] => ({
+        kind: 'element',
+        tag: 'details',
+        attributes: at === 0 ? { name: 'faq', open: '' } : { name: 'faq' },
+        children: [
+          { kind: 'element', tag: 'summary', text: question },
+          { kind: 'element', tag: 'p', text: answer },
+        ],
+      })),
     ),
   },
 };
@@ -235,7 +234,12 @@ export const WaveDivider: Story = {
   },
 };
 
-/** A menu a phone opens: the button names the popover by id, a tap outside closes it. */
+/**
+ * A menu a phone opens: the button names the popover by id, a tap outside
+ * closes it — and so does following one of its links, which the renderer does
+ * (HTML closes a popover from a button only). Checked in a real browser: the
+ * Popover API is not in jsdom, where design-markup.test.tsx stubs it.
+ */
 export const PopoverMenu: Story = {
   args: {
     tree: tree(
@@ -249,16 +253,39 @@ export const PopoverMenu: Story = {
         kind: 'element',
         tag: 'nav',
         attributes: { id: 'story-menu', popover: '', 'aria-label': 'Page sections' },
-        children: ['Menu', 'Story', 'Visit'].map(
-          (label): CustomCodeRoot['children'][number] => ({
-            kind: 'element',
-            tag: 'a',
-            text: label,
-            attributes: { href: `#${label.toLowerCase()}` },
-          }),
-        ),
+        children: ['Menu', 'Story', 'Visit'].map((label): CustomCodeRoot['children'][number] => ({
+          kind: 'element',
+          tag: 'a',
+          text: label,
+          attributes: { href: `#${label.toLowerCase()}` },
+        })),
       },
     ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Closed, the sheet is display:none and out of the accessibility tree: found by its id.
+    const sheet = canvasElement.querySelector<HTMLElement>('#story-menu');
+    if (sheet === null) throw new Error('the popover sheet did not render');
+    await expect(sheet.matches(':popover-open')).toBe(false);
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Page sections' }));
+    await expect(sheet.matches(':popover-open')).toBe(true);
+
+    /*
+      The link is not followed here: following it unloaded the test runner's
+      frame mid-run (the browser connection closed). The window hears the
+      click after the renderer's own handler, so this stops the navigation
+      only (design-markup.test.tsx asserts the link still follows). A tap on a
+      link inside the sheet is not a light dismiss, so only the renderer can
+      have closed it.
+    */
+    const stay = (event: Event) => {
+      event.preventDefault();
+    };
+    window.addEventListener('click', stay, { once: true });
+    await userEvent.click(within(sheet).getByRole('link', { name: 'Story' }));
+    await expect(sheet.matches(':popover-open')).toBe(false);
   },
 };
 

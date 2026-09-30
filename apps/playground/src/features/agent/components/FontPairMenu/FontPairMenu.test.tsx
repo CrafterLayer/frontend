@@ -146,6 +146,20 @@ describe('FontPairMenu', () => {
       ).toEqual(new Set(['Cairo', 'Tajawal']));
     });
 
+    it('also takes every face the engine’s direction deck names', () => {
+      const rows = [
+        {
+          arabic: [{ family: 'Lalezar' }, { family: 'Almarai' }],
+          latin: [{ family: 'Fraunces' }, { family: 'Instrument Sans' }],
+        },
+      ];
+      const verified = engineVerifiedFamilies({ DIRECTION_DECK_ROWS: rows });
+      expect(verified).toEqual(new Set(['Lalezar', 'Almarai', 'Fraunces', 'Instrument Sans']));
+      expect(verifiedPairs(FONT_PAIRS, verified).map((pair) => pair.id)).toEqual([
+        'lalezar--almarai',
+      ]);
+    });
+
     it('offers nothing it cannot show: no menu at all when no pair survives', () => {
       const { container } = render(
         <FontPairMenu locale="en" options={[]} selectedId={SELECTED} onSelect={vi.fn()} />,

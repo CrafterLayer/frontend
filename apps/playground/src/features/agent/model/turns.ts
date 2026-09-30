@@ -202,6 +202,10 @@ export interface PlanSection {
  *   `toEnginePagePlan` of the two to `runAiBuild({ pagePlan })`, so exactly these sections
  *   are built. Plain frozen data, so it survives a reload: a revived plan that carries it
  *   still builds as shown (`note` stays `exact`).
+ * - `unsure`: planned instead of built because the router was unsure it was a page at all
+ *   and the clarify check failed (`isUnsureBuild`). The card is the question: a newer
+ *   request is its own request, routed and checked on its own words, never merged into
+ *   this plan as a change to it (which would build a page from a misreading).
  */
 export interface PagePlanTurn {
   readonly id: string;
@@ -218,6 +222,7 @@ export interface PagePlanTurn {
   readonly approval?: true | undefined;
   readonly heldBuild?: BuildProgress | undefined;
   readonly pageTouched?: true | undefined;
+  readonly unsure?: true | undefined;
   readonly followUp?: string | undefined;
   readonly skills?: readonly AiSkillActivationPin[] | undefined;
 }
@@ -384,6 +389,38 @@ function assistantWords(turn: Exclude<Turn, UserTurn>): string | null {
     case 'end':
       return null;
   }
+}
+
+/**
+ * A run whose plan proposed no command but has words (its rationale, or a follow-up to
+ * send next) is the model answering, most often asking what was meant. It is recorded as
+ * an answer, never as an edit that "already matched what you asked for": that line
+ * (`edit.noChange`) is for commands that landed and moved nothing, a verified no-op, and
+ * said of words alone it is a false claim. Null when the plan acts, or says nothing.
+ */
+export function answerFromPlan(input: {
+  readonly id: string;
+  readonly request?: string | undefined;
+  readonly plan: {
+    readonly rationale: string;
+    readonly commands: readonly unknown[];
+    readonly followUp?: string | undefined;
+  };
+  readonly skills?: readonly AiSkillActivationPin[] | undefined;
+}): AnswerTurn | null {
+  const { plan } = input;
+  if (plan.commands.length > 0) return null;
+  const rationale = plan.rationale.trim();
+  const followUp = plan.followUp?.trim() ?? '';
+  if (rationale === '' && followUp === '') return null;
+  return {
+    id: input.id,
+    kind: 'answer',
+    text: rationale === '' ? followUp : rationale,
+    ...(input.request === undefined ? {} : { request: input.request }),
+    ...(followUp === '' ? {} : { followUp }),
+    ...(input.skills === undefined ? {} : { skills: input.skills }),
+  };
 }
 
 /** The newest 12 exchanges, for the next request's context. Empty lines are never sent. */

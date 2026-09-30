@@ -14,6 +14,7 @@ import type { IntentDocumentSummary, IntentRoute } from '../intent';
 import type { AiDocumentFocus } from '../context/document-tree-mode';
 import type { IntentRoute as FastEditRoute } from '../intent';
 import type { DirectEditTarget } from '../plan/direct-edit';
+import type { AgentToolLane } from '../tools/agent/types';
 // end fast-edits additions
 import type { AiRunFailure } from './errors';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
@@ -379,7 +380,14 @@ export type AiBuildOwnEvent =
   | (AiBuildEventBase & { type: 'build.skipped'; reason: string })
   | (AiBuildEventBase & {
       type: 'build.planned';
+      /** Plain prose: the rationale, or the plan's description, or its signature. */
       direction: string;
+      /**
+       * On a page-plan build, the plan's tokens (palette, faces, signature), so
+       * a panel renders the direction as data (swatches, fonts) instead of
+       * parsing prose. Absent on a scaffold build.
+       */
+      tokens?: PagePlan['tokens'];
       tasks: readonly AiBuildTask[];
       /**
        * How many sections are written at once (`fillConcurrencyFor` over the
@@ -568,8 +576,9 @@ export interface AiBuildRunResult {
   scaffold?: AiAgentRunResult;
   /**
    * What every fill obeyed: the scaffold plan's rationale, verbatim; on a
-   * page-plan build, one line summarising the plan (the planner's rationale
-   * or the signature, the two faces, the numbered sections with variants).
+   * page-plan build, plain prose: the planner's rationale, else the plan's
+   * description, else its signature (the faces and sections are data on
+   * `pagePlan`, never folded into this line).
    */
   direction: string;
   outcome: AiBuildOutcome;
@@ -746,6 +755,17 @@ export interface RunAiAgentOptions {
   editModel?: string;
   /** The reasoning budget that goes with `editModel`. Absent: the server's default. */
   editEffort?: AiEditEffort;
+  /**
+   * The facts ledger's sample values (a page build's writers): tool steps are
+   * expanded with them, so no SEO tool writes one as data. Forwarded to
+   * generation; before 2026-09-30 a writer's spread reached nothing.
+   */
+  sampleValues?: readonly string[];
+  /**
+   * The tool lanes this run's steps may name (a section writer: `['section']`,
+   * the lane its prompt lists). Absent: every tool.
+   */
+  toolLanes?: readonly AgentToolLane[];
 }
 
 export interface AiAgentEventBase {

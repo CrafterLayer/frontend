@@ -68,7 +68,11 @@ export const EmptySlotIsHittable: Story = {
     await expect(rect.height).toBeGreaterThan(20);
     await expect(rect.width).toBeGreaterThan(20);
 
-    // And it says WHICH region, so three of them are not three identical boxes.
-    await expect((box as HTMLElement).textContent).toBe('default');
+    /*
+      And an empty PAGE shows no stray words: the page's only region is the
+      unnamed `default` one, whose name is an identifier, not a label. Named
+      regions carry their names (NodeView.test.tsx).
+    */
+    await expect((box as HTMLElement).textContent).toBe('');
   },
 };

@@ -45,7 +45,31 @@ export type QualityCheck =
   | 'direction'
   /* Measured with layout, in the playground — never by this module. */
   | 'overflow'
-  | 'overlap';
+  | 'overlap'
+  /*
+    SEO (seo-agent, 2026-09-30): produced by `checkSeo` in ../seo, never by
+    `checkDocumentQuality`. ADVISORY: `blocks()` ignores every `seo-*` check
+    whatever its severity, because a page with a long title still works.
+  */
+  | 'seo-title'
+  | 'seo-description'
+  | 'seo-h1'
+  | 'seo-img-alt'
+  | 'seo-img-size'
+  | 'seo-lcp'
+  | 'seo-link-text'
+  | 'seo-section-label'
+  | 'seo-lang-dir'
+  | 'seo-canonical'
+  | 'seo-hreflang'
+  | 'seo-jsonld'
+  | 'seo-noindex-home'
+  | 'seo-orphan';
+
+/** Whether a check is one of the advisory SEO checks (`seo-*`). */
+export function isSeoCheck(check: QualityCheck): boolean {
+  return check.startsWith('seo-');
+}
 
 /**
  * `error` blocks a commit; `warning` is reported and does not.

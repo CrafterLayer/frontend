@@ -46,7 +46,7 @@ export interface HandlerOptions {
    * waits on, so it never takes the picker's choice.
    */
   readonly enhanceModel?: string;
-  /** The enhancer's whole-call cap; defaults to `ENHANCE_TIMEOUT_MS`. */
+  /** The enhancer's whole-call cap; defaults to `ENHANCE_SERVER_TIMEOUT_MS`. */
   readonly enhanceTimeoutMs?: number;
   /**
    * The reasoning budget for a build's SECTION writers. They compose one
@@ -56,6 +56,15 @@ export interface HandlerOptions {
    * thinking). Unset ⇒ every call uses the backend default.
    */
   readonly sectionEffort?: string;
+  /**
+   * Whether the PAGE PLAN call thinks. Default false (speed first): measured
+   * live 2026-09-30 on cli:haiku at medium, the plan took 172 s / 17,044
+   * output tokens for a 3.8k-character Arabic plan and 94 s / 9,938 for
+   * English — 78% of the Arabic build — while the kit index, the direction
+   * deck and the validator already make the design decisions thinking was
+   * paying for. `true` restores adaptive thinking.
+   */
+  readonly planThinking?: boolean;
   /** Isolated compiler/prerender boundary. Omitted deployments keep the legacy plan endpoint only. */
   readonly codeRuntime?: CodeRuntimeService;
   readonly authoredRuns?: AuthoredRunCoordinator;
@@ -156,7 +165,17 @@ function resolveModel(
   const called = (perCall ?? '').trim();
   const named = called !== '' ? called : (request.headers.get(MODEL_HEADER) ?? '').trim();
   if (named === '') return { model: options.model };
-  if (named === options.model || (options.models ?? []).includes(named)) return { model: named };
+  /*
+    Match by the model's name WITHOUT its `cli:` prefix, and answer with the
+    server's own spelling. 2026-09-30: the playground lists `cli:haiku` while
+    this server's .env allows `haiku`; the panel started sending its edit model
+    on every call, and every request came back 400 — the owner saw «حدث خطأ غير
+    متوقع» on everything. Both spellings name the same CLI model.
+  */
+  const bare = (name: string): string => name.replace(/^cli:/u, '');
+  const allowed = [...(options.model === undefined ? [] : [options.model]), ...(options.models ?? [])];
+  const match = allowed.find((entry) => entry === named) ?? allowed.find((entry) => bare(entry) === bare(named));
+  if (match !== undefined) return { model: match };
   return { refused: `Model "${named}" is not one this server allows.` };
 }
 
@@ -456,6 +475,15 @@ async function exportResponse(
  * The model is never the picker's: the header names the model a person chose
  * for BUILDING, and an enhancement is a small call they wait on.
  */
+/**
+ * The enhancer's cap when none is configured: 40 s, inside the 45 s the
+ * builder client waits (remote-provider.ts, DEFAULT_ENHANCE_TIMEOUT_MS). At
+ * the contract's 60 s the client always hung up first, and the panel could
+ * only say "took longer than allowed" while this server — the side that knows
+ * why — was still waiting. Never longer than enhance.ts's own cap.
+ */
+const ENHANCE_SERVER_TIMEOUT_MS = Math.min(ENHANCE_TIMEOUT_MS, 40_000);
+
 async function enhanceResponse(
   body: unknown,
   options: HandlerOptions,
@@ -463,7 +491,7 @@ async function enhanceResponse(
 ): Promise<Response> {
   const read = readEnhanceRequest(body);
   if ('error' in read) return json({ error: read.error }, 400);
-  const timeoutMs = options.enhanceTimeoutMs ?? ENHANCE_TIMEOUT_MS;
+  const timeoutMs = options.enhanceTimeoutMs ?? ENHANCE_SERVER_TIMEOUT_MS;
   const timeout = AbortSignal.timeout(timeoutMs);
   const model = options.enhanceModel ?? fastestModel([options.model, ...(options.models ?? [])]);
   try {
@@ -510,20 +538,32 @@ const SECTION_WRITER_SKILL = 'craftkit.build-fill';
  * This call's own reasoning budget: the one its body asks for (low or
  * medium, a small edit's), else the section budget for a section writer,
  * else none. A page plan is a PLANNING call — the design every section writer
- * then builds from — so it keeps the backend default even if a host pinned the
- * writer's skill on it. Measured live 2026-09-28 (cli:haiku at the
+ * then builds from — so a body budget or a pinned writer skill never changes
+ * it; it runs with thinking OFF unless the deployment sets `planThinking`. Measured live 2026-09-28 (cli:haiku at the
  * deployment's `medium`): 6,341–12,435 output tokens for a 2.0k–3.3k-character
  * plan, most of it thinking — so effort IS this call's speed lever, and
  * lowering it is a deliberate deployment choice, never a side effect of a pin.
  */
-function callEffort(wire: AiPlanWireRequest, options: HandlerOptions): { effort?: string } {
-  if (wire.task === 'page-plan') return {};
+function callEffort(
+  wire: AiPlanWireRequest,
+  options: HandlerOptions,
+): { effort?: string; thinkingOff?: true } {
+  // The body's budget never reaches a page plan; its thinking is the deployment's choice (planThinking).
+  if (wire.task === 'page-plan') return options.planThinking === true ? {} : { thinkingOff: true };
   // The call's own budget, already held to CALL_EFFORTS by the handler.
   const asked: unknown = (wire as { effort?: unknown }).effort;
-  if (asked === 'low' || asked === 'medium') return { effort: asked };
-  if (options.sectionEffort === undefined) return {};
   const writesASection = (wire.context.skills ?? []).some((pin) => pin.id === SECTION_WRITER_SKILL);
-  return writesASection ? { effort: options.sectionEffort } : {};
+  /*
+    Thinking off for a section writer (the skeleton already decided its
+    design) and for any call that asked for `low`. Measured 2026-09-30 on
+    cli:haiku with thinking on at effort low: 8,001-20,747 output tokens for a
+    1.1k-2.7k-character section, 49 s-3 min each — over 85% of it thinking.
+  */
+  const thinkingOff = writesASection || asked === 'low';
+  const off = thinkingOff ? ({ thinkingOff: true } as const) : {};
+  if (asked === 'low' || asked === 'medium') return { effort: asked, ...off };
+  if (options.sectionEffort === undefined || !writesASection) return off;
+  return { effort: options.sectionEffort, ...off };
 }
 
 function taskOf(wire: AiPlanWireRequest): UsageTask {

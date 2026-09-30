@@ -58,8 +58,10 @@ import { validateAiPlan } from './validate-plan';
  * address"), a value glued to a bare «ل» with no tatweel or quote («لبنان» is
  * a word, not «ل»+«بنان»), a short value that reads as a style ("blue",
  * «أكبر»: "make the button blue" is not a label), a phone with too few
- * digits, a route that is not an edit. A wrong zero-token edit costs the
- * person more than a right one-call edit.
+ * digits, a route that is not an edit, a new text that is only a pronoun
+ * ("retitle it" names where, not what), a request holding an @mention (the
+ * panel's pointer, read with the words only on the model path). A wrong
+ * zero-token edit costs the person more than a right one-call edit.
  */
 
 export type DirectEditRole = 'title' | 'button' | 'phone' | 'email' | 'price' | 'text';
@@ -91,7 +93,11 @@ export interface DirectEditTarget {
 }
 
 export interface DirectEdit {
-  /** The validated plan: `setProp` steps only (an `editTree` is expanded before the door). */
+  /**
+   * The plan: `setProp` steps only (an `editTree` is expanded before the
+   * door), validated by the door's rehearsal unless `dryRun: false` left that
+   * to the caller's `applyAiPlan`.
+   */
   readonly plan: AiPlan;
   readonly target: DirectEditTarget;
   /** One sentence in the request's language, e.g. «تغيير عنوان «التعليم والشهادات» إلى «مرحبا»». */
@@ -110,6 +116,15 @@ export interface TryDirectEditOptions {
   readonly policy?: AiEffectiveCommandPolicy;
   /** The run's composition policy (vocabulary enforcement, colour policy) for the door. */
   readonly composition?: AiCompositionPolicy;
+  /**
+   * `false` skips the door's rehearsal here, for a caller that applies the
+   * plan at once through `applyAiPlan`: that door rehearses it again anyway,
+   * and refuses it before any write (`AiPlanRejectedError`). A rehearsal
+   * rebuilds and re-validates the whole page, so an Auto edit paid for two
+   * (final test, 2026-09-28). Everything else still runs: the parse, the ONE
+   * element, the tree edit reading back as meant. Default: rehearse.
+   */
+  readonly dryRun?: boolean;
 }
 
 /** A person types an edit on one line; a multi-line brief is never a direct edit. */
@@ -416,7 +431,33 @@ const LOCATOR_PREPOSITIONS: ReadonlySet<string> = new Set(['في', 'داخل', '
 /** "The main title": the page's one h1. */
 const MAIN_WORDS: ReadonlySet<string> = new Set(['main', 'primary', 'رئيسي', 'الرئيسي', 'اساسي', 'الاساسي']);
 /** Words that point at "this": the selection. */
-const THIS_WORDS: ReadonlySet<string> = new Set(['هذا', 'هذه', 'هاد', 'هاي', 'هذي', 'this', 'that']);
+const THIS_WORDS: ReadonlySet<string> = new Set([
+  'هذا',
+  'هذه',
+  'هاد',
+  'هاي',
+  'هذي',
+  'this',
+  'that',
+  'these',
+  'those',
+  'it',
+  'them',
+]);
+/**
+ * The object pronouns among them: "retitle it", "call them …". A pronoun
+ * always points at the selection and is never the new text; a demonstrative
+ * can open a name instead ("Roasted this week in Irbid").
+ */
+const PRONOUNS: ReadonlySet<string> = new Set(['it', 'them']);
+/**
+ * "@menu", «و@الفوتر»: a block the person pointed at in the panel, which the
+ * panel turns into the run's selection. The words around it are for the
+ * model path, which reads that selection with them; this parse never guesses
+ * whether the mention resolved. An email's "@" follows its name, so it never
+ * matches.
+ */
+const MENTION = /(?:^|[^\p{L}\p{M}\p{N}_.%+-])(?:[وفبلك]\p{M}*)?@[\p{L}\p{M}\p{N}_-]/u;
 /** «عنوان البيت / الشركة / شارع…»: «عنوان» as an address, which this edit never guesses at. */
 const ADDRESS_WORDS: ReadonlySet<string> = wordSet(
   'سكن بيت منزل مكتب شركه محل عياده مطعم شارع طريق حي عماره بنايه مبني فرع street road',
@@ -460,6 +501,34 @@ function roleOf(token: Token | undefined, next: Token | undefined): DirectEditRo
   if (token.norm === 'رقمي' || token.norm === 'رقمك') return 'phone';
   if (token.stems.has('رقم') && has(PHONE_NUMBER_WORDS, next)) return 'phone';
   return undefined;
+}
+
+/** A value that only points ("it", «هذا»): the words say where, never what. */
+function onlyPoints(value: string): boolean {
+  const words = value.split(/\s+/u).filter((word) => word !== '');
+  return words.length > 0 && words.every((word) => THIS_WORDS.has(normalizeIntentText(word)));
+}
+
+/**
+ * "this" / «هذا» points at the selection, unless a name goes on after it:
+ * "the Roasted this week in Irbid section" names a section, and read as
+ * "this" it refused the edit with nothing selected (final test, 2026-09-28).
+ * A pronoun always points; a demonstrative points when what follows is a
+ * section or role word, a marker, filler or the end.
+ */
+function pointsAt(tokens: readonly Token[], index: number): boolean {
+  const token = tokens[index];
+  if (!has(THIS_WORDS, token)) return false;
+  if (has(PRONOUNS, token)) return true;
+  const next = tokens[index + 1];
+  if (next?.kind !== 'word' || markerAt(tokens, index + 1) !== undefined) return true;
+  return (
+    has(SECTION_WORDS, next) ||
+    has(FILLERS, next) ||
+    has(THIS_WORDS, next) ||
+    has(ROLE_COMPANIONS, next) ||
+    roleOf(next, tokens[index + 2]) !== undefined
+  );
 }
 
 /** A value that is a style, not text: short, unquoted, and naming a colour, size or alignment. */
@@ -640,6 +709,7 @@ function sectionNameIndex(tokens: readonly Token[], end: number): number {
 
 /** The request read every way it can be read, most specific first. */
 function parse(request: string, sections: readonly PageSectionOutline[]): readonly ParsedEdit[] {
+  if (MENTION.test(request)) return [];
   const tokens = scan(request);
   if (tokens.length < 2) return [];
   const verb = firstVerb(tokens);
@@ -714,10 +784,12 @@ function parseRoleEdit(
   const head = marker?.index ?? tokens.length;
   const phrase = tokens.slice(0, head);
   const main = phrase.some((token) => MAIN_WORDS.has(token.norm));
-  const pointsAtSelection = phrase.some((token) => has(THIS_WORDS, token));
+  const pointsAtSelection = phrase.some((_token, index) => pointsAt(tokens, index));
   const arabicTitle = role === 'title' && ARABIC.test(tokens[roleIndex]?.norm ?? '');
   const edit = (where: readonly Token[], value: string): RoleEdit | undefined => {
     if (value === '' || value.length > MAX_VALUE_CHARS || /[\r\n]/u.test(value)) return undefined;
+    // "retitle it", "change the title to it": the pronoun is the selection, not the new title.
+    if (onlyPoints(value)) return undefined;
     return {
       kind: 'role',
       role,
@@ -817,6 +889,8 @@ function parseSwap(
   ): TextSwap | undefined => {
     if (first === '' || second === '' || first === second) return undefined;
     if (first.length > MAX_VALUE_CHARS || second.length > MAX_VALUE_CHARS) return undefined;
+    // "change it to Hello": "it" is the selection, not two letters of «Visit» to replace.
+    if (onlyPoints(first) || onlyPoints(second)) return undefined;
     if (!secondQuoted && readsAsStyle(order === 'new-old' ? first : second)) return undefined;
     return { kind: 'swap', first, second, order, hint: wordsOf(hint) };
   };
@@ -1662,6 +1736,18 @@ function landsAsMeant(plan: unknown, expected: ReadonlyMap<NodeId, string>): boo
   return checked === expected.size;
 }
 
+/** The expanded plan as the `setProp` steps it is, for a caller whose own door rehearses it. */
+function setPropPlan(candidate: unknown, rationale: string): AiPlan | undefined {
+  if (!isRecord(candidate) || !Array.isArray(candidate['commands'])) return undefined;
+  const commands: AiPlanStep[] = [];
+  for (const step of candidate['commands'] as unknown[]) {
+    if (!isRecord(step) || step['command'] !== 'setProp' || !isRecord(step['args'])) return undefined;
+    const title = step['title'];
+    commands.push({ command: 'setProp', args: step['args'], ...(typeof title === 'string' ? { title } : {}) });
+  }
+  return commands.length === 0 ? undefined : { rationale, commands };
+}
+
 // ── The summary ───────────────────────────────────────────────────────────────
 
 function summaryOf(resolved: Resolved, language: 'ar' | 'en'): string {
@@ -1792,14 +1878,20 @@ export function tryDirectEdit(
     if (built === undefined) continue;
     const expanded = expandTreeEdits(built.plan, kernel);
     if (expanded.issues.length > 0 || !landsAsMeant(expanded.plan, built.expected)) continue;
-    const verdict = validateAiPlan(
-      expanded.plan,
-      kernel,
-      options.validationPorts ?? DRY_RUN_PORTS,
-      policy,
-      resolveAiCompositionPolicy(options.composition),
-    );
-    if (!verdict.ok) continue;
+    let plan: AiPlan | undefined;
+    if (options.dryRun === false) {
+      plan = setPropPlan(expanded.plan, summary);
+    } else {
+      const verdict = validateAiPlan(
+        expanded.plan,
+        kernel,
+        options.validationPorts ?? DRY_RUN_PORTS,
+        policy,
+        resolveAiCompositionPolicy(options.composition),
+      );
+      plan = verdict.ok ? verdict.plan : undefined;
+    }
+    if (plan === undefined) continue;
     const changes = resolved.changes.map(
       (change): DirectEditChange =>
         Object.freeze({
@@ -1812,7 +1904,7 @@ export function tryDirectEdit(
         }),
     );
     return Object.freeze({
-      plan: verdict.plan,
+      plan,
       target: Object.freeze({
         role: resolved.role,
         sectionId: firstSection,

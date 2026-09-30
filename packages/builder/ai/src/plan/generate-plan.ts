@@ -46,6 +46,8 @@ import type {
   AssembledAiContext,
 } from '../types';
 import { normalizeAiPlanTrees, readAiPlanTreeMarkup } from './normalize-plan';
+import { expandAgentTools } from '../tools/agent/expand';
+import type { AgentToolLane } from '../tools/agent/types';
 import { expandTreeEdits } from './tree-edits';
 import { salvageAiPlan, type SalvagedAiPlan } from './salvage-plan';
 import { AiPlanRejectedError, validateAiPlan } from './validate-plan';
@@ -82,6 +84,13 @@ export interface GenerateAiPlanOptions {
   maxSkillTokens?: number;
   /** Hard bound over the complete serialized provider context. */
   maxContextTokens?: number;
+  /**
+   * agent-tools: sample values from the plan's facts ledger. Tool steps are
+   * expanded with them, and SEO tools refuse to write any of them as data.
+   */
+  sampleValues?: readonly string[];
+  /** agent-tools: only these lanes' tools may be named (a section writer: `['section']`); absent = every tool. */
+  toolLanes?: readonly AgentToolLane[];
   /**
    * How much of the block registry this run may see. Omitted ⇒ the full
    * catalog. With `catalogMode: 'scoped'` and no explicit type list, the scope
@@ -409,10 +418,17 @@ function judgedCandidate(
   options: GenerateAiPlanOptions,
   policy: AiEffectiveCommandPolicy,
 ): { readonly candidate: unknown; readonly result: AiPlanValidationResult } {
-  const expanded = expandTreeEdits(raw, options.kernel);
+  // agent-tools additions: tool steps expand first, then editTree, so both read earlier steps.
+  const tools = expandAgentTools(raw, options.kernel, {
+    ...(options.sampleValues === undefined ? {} : { sampleValues: options.sampleValues }),
+    ...(options.toolLanes === undefined ? {} : { lanes: options.toolLanes }),
+  });
+  const expanded = expandTreeEdits(tools.plan, options.kernel);
+  const issues = [...tools.issues, ...expanded.issues];
+  // end agent-tools additions
   const candidate = normalizedCandidate(expanded.plan, options);
-  if (expanded.issues.length > 0) {
-    return { candidate, result: { ok: false, issues: expanded.issues } };
+  if (issues.length > 0) {
+    return { candidate, result: { ok: false, issues } };
   }
   return {
     candidate,

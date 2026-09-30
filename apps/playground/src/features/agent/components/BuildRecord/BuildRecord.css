@@ -145,6 +145,20 @@
   }
 }
 
+/*
+  Copy summary joins a finished build's footer as text only where the panel has room
+  (SPEC §3.17: container ≥ 400); narrower, it lives in the [⋯] menu alone.
+*/
+.ck-agent-build .ck-agent-record__actions .ck-agent-build__copy[data-bldr-chrome-button][data-variant][data-size] {
+  display: none;
+}
+
+@container agent (inline-size >= 400px) {
+  .ck-agent-build .ck-agent-record__actions .ck-agent-build__copy[data-bldr-chrome-button][data-variant][data-size] {
+    display: inline-flex;
+  }
+}
+
 /* ── The phone sheet (SPEC §3.17): the way forward is the easiest thing to reach ─ */
 
 @media (pointer: coarse) and (width < 600px) {

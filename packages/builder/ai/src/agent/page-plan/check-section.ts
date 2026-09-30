@@ -1025,7 +1025,14 @@ function fieldNamed(value: string): 'phone' | 'email' | 'name' | 'address' | und
   that worked.
 */
 function targetKey(href: string): string {
-  const trimmed = href.trim();
+  const trimmed = decodedHref(href.trim());
+  // A WhatsApp chat is its number: the ?text= prefill is wording, not a destination.
+  const whatsapp =
+    /^(?:https?:\/\/)?(?:www\.)?wa\.me\/\+?([0-9٠-٩۰-۹]+)/iu.exec(trimmed)?.[1] ??
+    (/^(?:https?:\/\/)?(?:api|web)\.whatsapp\.com\/send\/?\?(?:[^#]*&)?phone=\+?([0-9٠-٩۰-۹]+)/iu.exec(
+      trimmed,
+    )?.[1]);
+  if (whatsapp !== undefined) return `whatsapp:${asciiDigits(whatsapp)}`;
   if (/^tel:/iu.test(trimmed)) {
     return `tel:${asciiDigits(trimmed.slice(4)).replace(/[^0-9+]/gu, '')}`;
   }
@@ -1033,6 +1040,15 @@ function targetKey(href: string): string {
   const web = /^(https?:\/\/[^/?#]+)(.*)$/iu.exec(trimmed);
   const address = web === null ? trimmed : `${(web[1] ?? '').toLowerCase()}${web[2] ?? ''}`;
   return address.replace(/(?<=.)\/+(?=$|[?#])/u, '');
+}
+
+/** The href with its percent-escapes read; as written when they do not decode. */
+function decodedHref(href: string): string {
+  try {
+    return decodeURIComponent(href);
+  } catch {
+    return href;
+  }
 }
 
 function sameTarget(href: string | undefined, target: string): boolean {

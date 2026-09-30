@@ -53,8 +53,11 @@ import type {
  *   drops it), so it is not a decision any more: it reads as "Interrupted by a page
  *   reload", and suggestions return, instead of an Apply that can do nothing.
  * - An edit's Undo is a kernel undo of its one transaction, offered only while that
- *   transaction is the newest history entry; after a later change it says why it is
- *   unavailable instead of undoing the later change (`changedSince`).
+ *   transaction is the newest history entry. After a later change it is not offered at
+ *   all (nor its Redo), rather than undoing the later change: the only reason the copy
+ *   has, `revert.changedSince` ("this section changed after it was built"), is a build
+ *   row's, and said under an edit it was false (a row Undo on section 3 put it under an
+ *   unrelated title edit on section 2).
  *
  * Pure: the document and the history answers come in through the context.
  */
@@ -178,16 +181,21 @@ export function editTurnView(turn: EditTurn, context: TurnViewContext): EditReco
     outcome?.kind === 'undone' && outcome.transactionId !== undefined
       ? { transactionId: outcome.transactionId }
       : undefined;
-  const undoUnavailable =
-    outcome?.kind === 'refused'
-      ? outcome.why
-      : turn.status === 'done' &&
-          undone === undefined &&
-          turn.revived !== true &&
-          history !== undefined &&
-          !history.canUndo
-        ? ('changedSince' as const)
-        : undefined;
+  /*
+    The refusal reasons (`revert.changedSince` / `revert.regionMissing`) are a build
+    row's, about a section. An edit is never refused live (its Undo is simply not offered
+    once buried), so a refused outcome here is stored data: it reads as buried, with no
+    Undo and no build-row reason under the edit (see the header).
+  */
+  const refused = outcome?.kind === 'refused';
+  // Something landed on top since: a kernel undo would take it too (see the header).
+  const buried =
+    refused ||
+    (turn.status === 'done' &&
+      undone === undefined &&
+      turn.revived !== true &&
+      history !== undefined &&
+      !history.canUndo);
   const input: EditRecordInput = {
     turnId: turn.id,
     origin: turn.origin,
@@ -207,13 +215,15 @@ export function editTurnView(turn: EditTurn, context: TurnViewContext): EditReco
       : {}),
     ...(turn.status === 'stopped' ? { stopped: { at: endedAt } } : {}),
     ...(undone === undefined ? {} : { undone }),
-    ...(undoUnavailable === undefined ? {} : { undoUnavailable }),
     laterPageChanges: false,
   };
   const view = editRecordView(input, context);
   // Redo is a kernel redo too: once something else landed, it would redo nothing true.
-  if (view.undo?.kind === 'redo' && history !== undefined && !history.canRedo) {
-    return { ...view, undo: { kind: 'unavailable', why: 'changedSince' } };
+  const redoGone = view.undo?.kind === 'redo' && history !== undefined && !history.canRedo;
+  if ((buried && view.undo?.kind === 'undo') || redoGone) {
+    const { undo: _undo, ...rest } = view;
+    void _undo;
+    return rest;
   }
   return view;
 }
@@ -305,4 +315,28 @@ export function turnViewsOf(
   // The person's newest request opens the newest exchange; everything before it folds.
   const newestRequest = turns.findLastIndex((turn) => turn.kind === 'user');
   return turns.map((turn, index) => turnViewOf(turn, index < newestRequest, context));
+}
+
+/** The turn id of a request the clarify panel holds: stable while the panel asks. */
+export const PENDING_REQUEST_ID = 'clarify-pending';
+
+/**
+ * The thread with the request the clarify panel is asking about, as the person's own
+ * bubble (SPEC §4.5): it has left the box but no exchange opened yet, and without it the
+ * person's words appear only as the model's paraphrase above an empty-state greeting.
+ * The bubble goes when the panel closes; an answered request opens its real exchange.
+ */
+export function withPendingRequest(
+  views: readonly TurnView[],
+  pending: { readonly request: string; readonly context: readonly SentContext[] } | null,
+  document: BuilderDocument,
+): readonly TurnView[] {
+  if (pending === null || pending.request.trim() === '') return views;
+  const turn: UserTurn = {
+    id: PENDING_REQUEST_ID,
+    kind: 'user',
+    text: pending.request,
+    context: pending.context,
+  };
+  return [...views, { kind: 'user', view: userMessageView(turn, document) }];
 }

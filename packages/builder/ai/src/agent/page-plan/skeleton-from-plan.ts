@@ -1,6 +1,7 @@
 import { contrastRatio, parseHex, relativeLuminance, type NodeId } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiPlanStep } from '../../types';
+import { instantiatePlanKit, planKit } from './kits';
 import type {
   PagePlan,
   PagePlanFont,
@@ -46,6 +47,17 @@ export interface SkeletonFromPlanContext {
    * `replace` and `new-page` write the plan's block alone.
    */
   readonly currentPageCss?: string;
+  /**
+   * The root's `seo` as it stands. The plan's keyword, kind and samples are
+   * merged over it, so the site settings a home page carries (`seo.site`)
+   * survive a rebuild.
+   */
+  readonly currentSeo?: unknown;
+  /**
+   * The root's `slug` as it stands. A slug someone set is kept; the plan's is
+   * written only where there is none (or on a new page).
+   */
+  readonly currentSlug?: string;
 }
 
 /** One region the skeleton creates, and which of its plan steps creates it. */
@@ -72,6 +84,12 @@ export interface SkeletonRegion {
    * caller's test still type-checks; the skeleton always sets it.
    */
   readonly complete?: boolean;
+  /**
+   * The kit the region was written from, when the skeleton filled it from
+   * the plan's slots (`complete` is then true). The build still holds it to
+   * its contract before trusting it; one that misses gets a writer.
+   */
+  readonly kit?: string;
 }
 
 export interface SkeletonFromPlanResult {
@@ -331,6 +349,13 @@ const HEADER_KIT = [
   '.ck-bar{flex-wrap:wrap}',
   '.ck-brand{flex:1 1 0%}',
   '@media (min-width:64rem){.ck-bar{flex-wrap:nowrap}.ck-brand{flex:0 1 auto}}',
+  /*
+    Below sm, a header with a menu drops its bar action: at 390px the button
+    and the menu button left the brand ~100px ('Smile De…', 2026-09-30). The
+    action stays one tap away, first in the menu sheet, and in the hero.
+    Two classes, so it beats `.ck-btn`'s display in this same layer.
+  */
+  '@media (max-width:39.99rem){.ck-bar .ck-bar-cta{display:none}}',
   `${REGION} [id]{scroll-margin-top:${HEADER_CLEARANCE}}`,
   `@media (min-width:64rem){${REGION} [id]{scroll-margin-top:${HEADER_CLEARANCE_LG}}}`,
 ];
@@ -401,7 +426,7 @@ function planBlock(plan: PagePlan, hasHeader: boolean): string {
     `.ck-inverse{${colourProperties(grounds.inverse)};background-color:var(--ck-bg);color:var(--ck-ink)}`,
     `.ck-accent-fill{${colourProperties(grounds.accent)};background-color:var(--ck-bg);color:var(--ck-ink)}`,
     '.ck-ink{color:var(--ck-ink)}',
-    '.ck-link{text-decoration:none;transition:color 150ms}',
+    '.ck-link{color:inherit;text-decoration:none;transition:color 150ms}',
     '.ck-link:hover{color:var(--ck-accent-ink)}',
     '.ck-muted{color:var(--ck-muted)}',
     '.ck-accent-ink{color:var(--ck-accent-ink)}',
@@ -562,17 +587,92 @@ function ctaLink(plan: PagePlan, className: string): TreeElement {
   });
 }
 
+// design-code additions (2026-09-28): the header's phone menu.
+const MENU_COPY: Readonly<Record<string, { readonly open: string; readonly close: string }>> = {
+  ar: { open: 'افتح قائمة الأقسام', close: 'أغلق قائمة الأقسام' },
+  en: { open: 'Open the section menu', close: 'Close the section menu' },
+};
+
+/** A 24-unit line glyph drawn with the svg shape family (a header tree holds elements only). */
+function lineGlyph(d: string): TreeElement {
+  return el('svg', 'size-6', {
+    attributes: {
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'aria-hidden': 'true',
+    },
+    children: [el('path', '', { attributes: { d } })],
+  });
+}
+
+/**
+ * The nav on a phone: a menu button that opens the links as a popover sheet,
+ * no script. `popovertarget` is HTML's own toggle (Chrome 114, Safari 17,
+ * Firefox 125), and an auto popover closes by itself on a tap outside it or
+ * Escape; the close button inside it is `popovertargetaction='hide'`, because
+ * a link cannot carry that attribute (HTML reads it on buttons only) — the
+ * renderer closes the sheet when one of its in-page links is followed.
+ *
+ * The sheet carries no display utility: a `flex` on a popover beats the
+ * browser's `display:none` for a closed one, and the menu would sit open on
+ * every page. Its links are laid out by a child. It is pinned to the inline
+ * end at full height (`me-0 ms-auto h-full` over the popover's own `inset:0;
+ * margin:auto`), so it opens on the side its button stands on in either
+ * direction, whatever height the header has.
+ */
+function phoneMenu(plan: PagePlan, contract: SectionContract, label: string): TreeElement[] {
+  const id = `ck-nav-${contract.anchorId}`;
+  const primary = plan.locale.lang.split('-')[0] ?? plan.locale.lang;
+  // Any other language: no words the page did not choose — the nav's own label stands in.
+  const words = MENU_COPY[primary] ?? { open: label, close: label };
+  const toggle = el(
+    'button',
+    'ck-link flex size-10 shrink-0 items-center justify-center rounded-full border ck-border bg-transparent lg:hidden',
+    {
+      attributes: { popovertarget: id, 'aria-label': words.open },
+      children: [lineGlyph('M4 6h16M4 12h16M4 18h16')],
+    },
+  );
+  const sheet = el('nav', 'ck-surface me-0 ms-auto h-full w-80 max-w-full border-0 p-6 shadow-2xl lg:hidden', {
+    attributes: { id, popover: '', 'aria-label': label },
+    children: [
+      el('div', 'flex flex-col gap-1', {
+        children: [
+          el('button', 'ck-link flex size-10 items-center justify-center self-end rounded-full bg-transparent', {
+            attributes: { popovertarget: id, popovertargetaction: 'hide', 'aria-label': words.close },
+            children: [lineGlyph('M6 6l12 12M18 6L6 18')],
+          }),
+          ...navLinks(plan, 'ck-link block rounded-lg px-3 py-3 text-lg font-medium'),
+          // The bar's action, which a phone's bar hides (HEADER_KIT) — here instead.
+          ctaLink(plan, 'ck-btn mt-4'),
+        ],
+      }),
+    ],
+  });
+  return [toggle, sheet];
+}
+/*
+  Both buttons say bg-transparent themselves: the live utility sheet carries
+  no preflight (live-utilities.ts), so a page served without the host's base
+  layer would paint the UA's grey buttonface behind the glyph.
+*/
+// end design-code additions
+
 /**
  * The header, complete: the brand (linking to the page top), the nav and the
- * page's one action. Below `lg` the links drop to a second, scrollable row
- * under the brand and the button — no menu toggle, because a tree cannot carry
- * a handler — and from `lg` they sit in the bar.
+ * page's one action. From `lg` the links sit in the bar; below it they sit in
+ * a popover sheet a menu button opens (`phoneMenu`), so a phone's header is
+ * one row — brand, action, menu — instead of a second, sideways-scrolling row
+ * of links nobody could see were there.
  *
  * A fixed number of rows whatever the plan holds, because the anchors' scroll
- * margin is a fixed length (HEADER_CLEARANCE): the brand shares row one with
+ * margin is a fixed length (HEADER_CLEARANCE): the brand shares the row with
  * the button and cuts itself short with an ellipsis rather than wrapping onto
- * a row of its own, the nav is one scrolling line, and from `lg` the bar does
- * not wrap at all — a long nav scrolls inside it.
+ * a row of its own, and from `lg` the bar does not wrap at all — a long nav
+ * scrolls inside it.
  */
 function headerTree(plan: PagePlan, contract: SectionContract): TreeElement {
   const copy = copyFor(plan);
@@ -587,26 +687,37 @@ function headerTree(plan: PagePlan, contract: SectionContract): TreeElement {
       ),
     ],
   });
+  // design-code (2026-09-28): the inline nav from lg only; a phone opens it from phoneMenu.
   const nav =
     plan.nav.length === 0
       ? []
       : [
           el(
             'nav',
-            'order-last flex w-full gap-6 overflow-x-auto text-sm font-medium lg:order-none lg:w-auto',
+            'order-last hidden w-full gap-6 overflow-x-auto text-sm font-medium lg:order-none lg:flex lg:w-auto',
             {
               attributes: { 'aria-label': copy.nav },
               children: navLinks(plan, 'ck-link ck-muted whitespace-nowrap'),
             },
           ),
         ];
+  const menu = plan.nav.length === 0 ? [] : phoneMenu(plan, contract, copy.nav);
   return el('header', 'ck-surface sticky top-0 z-40 border-b ck-border', {
     attributes: { id: contract.anchorId },
     children: [
       el(
         'div',
-        'ck-bar mx-auto flex max-w-6xl items-center justify-between gap-x-8 gap-y-3 px-4 py-4 md:px-8',
-        { children: [brand, ...nav, ctaLink(plan, 'ck-btn shrink-0 text-sm')] },
+        // A phone's row holds brand, action and menu button: a 32px gap cost the brand 64px of 328.
+        'ck-bar mx-auto flex max-w-6xl items-center justify-between gap-x-4 gap-y-3 px-4 py-4 md:px-8 lg:gap-x-8',
+        {
+          children: [
+            brand,
+            ...nav,
+            // With a menu, a phone's bar hides the action (HEADER_KIT) so the brand keeps its name.
+            ctaLink(plan, `ck-btn shrink-0 text-sm${menu.length === 0 ? '' : ' ck-bar-cta'}`),
+            ...menu,
+          ],
+        },
       ),
     ],
   });
@@ -704,6 +815,73 @@ function regionTree(plan: PagePlan, contract: SectionContract): TreeElement {
 // ── The plan ──────────────────────────────────────────────────────────────────
 
 const ROOT_PROPS = ['title', 'description', 'lang', 'pageCss'] as const;
+/** The page root's `seo.samples` limit (builder-schema `pageSeoSchema`). */
+const SEO_SAMPLES_MAX = 30;
+const SEO_SAMPLE_MAX = 200;
+const PAGE_SLUG_MAX = 120;
+
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The root's `seo` after the plan (DESIGN D.1): its keyword and kind, and the
+ * facts ledger's samples — which no SEO output may ever carry as a fact —
+ * over what the root already holds. Undefined when the plan says nothing.
+ */
+function rootSeo(plan: PagePlan, current: unknown): Record<string, unknown> | undefined {
+  const samples = [
+    ...new Set(plan.facts.map(({ sample }) => sample.slice(0, SEO_SAMPLE_MAX))),
+  ].slice(0, SEO_SAMPLES_MAX);
+  if (plan.seo === undefined && samples.length === 0) return undefined;
+  const held = isPlainRecord(current) ? current : {};
+  const site = plan.seo === undefined ? undefined : planSite(plan, held['site']);
+  return {
+    ...held,
+    ...(plan.seo === undefined ? {} : { keyword: plan.seo.keyword, pageKind: plan.seo.pageKind }),
+    ...(samples.length === 0 ? {} : { samples }),
+    ...(site === undefined ? {} : { site }),
+  };
+}
+
+/** `seo.site.siteName` limit (builder-schema `siteSeoSchema`). */
+const SITE_NAME_MAX = 60;
+
+/**
+ * The site settings the plan knows (DESIGN D.3): the brand as `siteName`, and
+ * the planner's `businessType` as `business {type, name}` — the name only,
+ * never a sample address or phone (those stay in the facts ledger for the
+ * owner). What the owner already set is kept: the plan fills gaps only.
+ * Without these the built page's JSON-LD carried no WebSite and no
+ * Organization/Restaurant node (final test 2026-09-30).
+ */
+function planSite(plan: PagePlan, current: unknown): Record<string, unknown> | undefined {
+  const held = isPlainRecord(current) ? current : {};
+  const brand = brandName(plan).slice(0, SITE_NAME_MAX);
+  const businessType = plan.seo?.businessType;
+  const addName = typeof held['siteName'] !== 'string' && brand !== '';
+  const addBusiness = businessType !== undefined && !isPlainRecord(held['business']) && brand !== '';
+  if (!addName && !addBusiness) return isPlainRecord(current) ? held : undefined;
+  return {
+    ...held,
+    ...(addName ? { siteName: brand } : {}),
+    ...(addBusiness ? { business: { type: businessType, name: brand } } : {}),
+  };
+}
+
+/** A kit section filled from the plan's slots, when it fills cleanly. */
+function kitRegion(
+  plan: PagePlan,
+  contract: SectionContract,
+): { readonly kit: string; readonly tree: unknown; readonly css: string } | undefined {
+  if (contract.slots === undefined || contract.role === 'header' || contract.role === 'footer') {
+    return undefined;
+  }
+  const kit = planKit(contract.kit);
+  if (kit === undefined) return undefined;
+  const filled = instantiatePlanKit(kit, contract.slots, contract, plan.locale);
+  return filled.ok ? { kit: kit.id, tree: filled.region.tree, css: filled.region.css } : undefined;
+}
 /** The product page block's own limits (editor Page/schema.ts): the plan allows a longer description. */
 const PAGE_TITLE_MAX = 120;
 const PAGE_DESCRIPTION_MAX = 200;
@@ -726,9 +904,14 @@ const REGION_LABEL_MAX = 80;
  *   `--ck-accent-ink`, `--ck-border`, `--ck-radius`, `--ck-radius-button`,
  *   `--ck-font-display`, `--ck-font-body`) and the component kit
  *   (`PAGE_KIT_CLASSES`), fenced so a later append replaces it.
+ * - the root's `seo` (the plan's keyword and kind, and the facts ledger's
+ *   samples, merged over what the root holds) and `slug` — only where the
+ *   root block declares them (`rootProps`), never when appending.
  * - one region per section, in page order, carrying its `anchorId` on its
  *   outer element and its title as the label: the header and footer written
- *   in full from the plan, every other section a role-correct placeholder.
+ *   in full from the plan, a kit section whose slots the planner filled
+ *   written in full from its kit, every other section a role-correct
+ *   placeholder.
  *
  * Pure and deterministic: the same plan and context give the same steps.
  *
@@ -741,7 +924,7 @@ export function skeletonFromPlan(
   const declared = new Set<string>(context.rootProps ?? ROOT_PROPS);
   const parentId = context.parentId;
   const commands: AiPlanStep[] = [];
-  const setRoot = (key: string, value: string): void => {
+  const setRoot = (key: string, value: unknown): void => {
     if (declared.has(key))
       commands.push({ command: 'setProp', args: { id: parentId, key, value } });
   };
@@ -755,6 +938,16 @@ export function skeletonFromPlan(
     setRoot('description', clamp(plan.description, PAGE_DESCRIPTION_MAX));
     const { lang } = plan.locale;
     setRoot('lang', lang.length <= PAGE_LANG_MAX ? lang : (lang.split('-')[0] ?? lang));
+    const seo = rootSeo(plan, context.currentSeo);
+    if (seo !== undefined) setRoot('seo', seo);
+    const slug = plan.seo?.slug;
+    if (
+      slug !== undefined &&
+      slug.length <= PAGE_SLUG_MAX &&
+      (plan.intent === 'new-page' || (context.currentSlug ?? '') === '')
+    ) {
+      setRoot('slug', slug);
+    }
   }
   setRoot('pageCss', pageCssFor(plan, context));
 
@@ -767,6 +960,7 @@ export function skeletonFromPlan(
       `label === title` — a raw title that differed got no task at all.
     */
     const label = clamp(contract.title, REGION_LABEL_MAX);
+    const filled = kitRegion(plan, contract);
     commands.push({
       command: 'insertNode',
       args: {
@@ -774,7 +968,14 @@ export function skeletonFromPlan(
         parentId,
         ...(context.slot === undefined ? {} : { slot: context.slot }),
         ...(context.index === undefined ? {} : { index: context.index + position }),
-        props: { label, tree: root(regionTree(plan, contract)) },
+        props:
+          filled === undefined
+            ? { label, tree: root(regionTree(plan, contract)) }
+            : {
+                label,
+                tree: filled.tree,
+                ...(filled.css === '' ? {} : { css: filled.css }),
+              },
       },
     });
     return {
@@ -782,7 +983,8 @@ export function skeletonFromPlan(
       title: label,
       anchorId: contract.anchorId,
       step,
-      complete: contract.role === 'header' || contract.role === 'footer',
+      complete: filled !== undefined || contract.role === 'header' || contract.role === 'footer',
+      ...(filled === undefined ? {} : { kit: filled.kit }),
     };
   });
 

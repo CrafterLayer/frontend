@@ -9,6 +9,7 @@ import type {
 import {
   CUSTOM_CSS_FONT_HOSTS,
   customCodeClassNames,
+  customCodeIconGaps,
   customCodeIconNames,
   customCodeTreeSchema,
   customCssPropertyNames,
@@ -525,6 +526,21 @@ function customCodeVocabularyIssues(
           message: `Step ${String(index)} names icons that are not in the Lucide set: ${unknownIcons
             .slice(0, 8)
             .join(', ')}. Use exact kebab-case names from lucide.dev/icons.`,
+          step: index,
+        });
+        continue;
+      }
+
+      /*
+        Icon lists, by completeness (final test 2026-09-30): three service
+        cards drew an icon and the fourth none, and the row read as broken.
+        The name that is missing is the writer's to choose, so it is asked for.
+      */
+      const gap = customCodeIconGaps(tree)[0];
+      if (gap !== undefined) {
+        issues.push({
+          code: 'policy-rejected',
+          message: `Step ${String(index)} draws an icon on ${String(gap.items - gap.bare)} of ${String(gap.items)} look-alike <${gap.tag}> items${gap.className === '' ? '' : ` (class "${gap.className}")`}; give the other ${String(gap.bare)} an icon too, so the row reads as one list.`,
           step: index,
         });
         continue;

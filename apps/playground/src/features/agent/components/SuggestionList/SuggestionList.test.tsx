@@ -159,7 +159,7 @@ describe('SuggestionList', () => {
     render(
       <form
         onSubmit={(event) => {
-          submit(event.nativeEvent as SubmitEvent);
+          submit(event.nativeEvent);
         }}
       >
         <SuggestionList

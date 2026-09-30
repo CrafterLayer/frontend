@@ -57,6 +57,14 @@ export interface AiPlanWireRequest {
   task?: AiPlanWireTask;
   /** Only with `task: 'page-plan'`: the refused candidate and why, for the one repair round. */
   pagePlanAttempt?: AiPagePlanWireAttempt;
+  /**
+   * One call's model choice (`AiRunModelChoice`): the edit model a run asks
+   * for. The ai-server reads it under its allowlist and it wins over the
+   * `x-craftkit-ai-model` header (handler.ts `resolveModel`).
+   */
+  model?: string;
+  /** One call's reasoning budget, beside `model` (handler.ts `callEffort`). */
+  effort?: 'low' | 'medium';
 }
 
 /** The kinds of answer the plan endpoint gives. Absent on the wire = `'plan'`. */
@@ -181,19 +189,25 @@ export interface AiPagePlanWireResult {
  *         { "key": "hero", "role": "hero", "title": "Roasted this morning", "anchorId": "hero",
  *           "purpose": "Say what the roastery is and invite the first order.",
  *           "mustSay": ["Roasted daily in Amman"], "mustNotRepeat": [], "variant": "split",
+ *           "kit": "hero-split",
  *           "images": [{ "subject": "cafe", "aspect": "landscape", "alt": "Freshly roasted coffee beans" }] },
  *         { "key": "menu", "role": "band", "title": "Menu", "anchorId": "menu",
  *           "purpose": "The drinks and beans, with prices.",
- *           "mustSay": [], "mustNotRepeat": ["Roasted daily in Amman"], "variant": "menu" },
+ *           "mustSay": [], "mustNotRepeat": ["Roasted daily in Amman"], "variant": "menu",
+ *           "kit": "menu-list" },
  *         { "key": "order", "role": "cta", "title": "Order", "anchorId": "order",
- *           "purpose": "One clear way to order.", "variant": "cta-split" },
+ *           "purpose": "One clear way to order.", "variant": "cta-split", "kit": "cta-split",
+ *           "slots": { "title": "Fresh beans, delivered in Amman",
+ *             "cta": { "label": "Order beans", "href": "#order" } } },
  *         { "key": "footer", "role": "footer", "title": "Footer", "anchorId": "footer",
  *           "purpose": "Address, hours and contact.", "variant": "footer" }
  *       ],
  *       "facts": [
  *         { "key": "phone", "sample": "+962 7 9000 0000", "section": "order" },
  *         { "key": "price-espresso", "sample": "JOD 1.50", "section": "menu" }
- *       ]
+ *       ],
+ *       "seo": { "keyword": "specialty coffee Amman", "pageKind": "home",
+ *         "businessType": "CafeOrCoffeeShop", "slug": "specialty-coffee-amman" }
  *     }
  *   }
  *   END PAGE PLAN WIRE EXAMPLE
@@ -215,6 +229,17 @@ export interface AiPagePlanWireResult {
  *   and cta only. variant: a SECTION_VARIANTS id, or omit. mustSay /
  *   mustNotRepeat: ≤ 6 short strings each. images: ≤ 4, subject a photo
  *   catalog topic, aspect "landscape" | "portrait" | "square".
+ * - kit (2026-09-30): a section-kit id whose role fits the section (a hero
+ *   kit for the hero, a closing kit for a cta; none on the header or
+ *   footer). Omitted with a known variant → that variant's default kit; one
+ *   that does not fit is dropped, never refused. slots: the kit's slots, only
+ *   for a short section (stats, logos, a cta, a faq of ≤ 6) — the skeleton
+ *   then writes it whole and no writer runs; slots that do not fill the kit
+ *   are dropped and a writer fills the section.
+ * - seo (optional): { keyword (≤ 80, page language), pageKind ("home" |
+ *   "menu" | "product" | "service" | "about" | "contact" | "article" |
+ *   "landing"), businessType (a schema.org type, optional), slug (optional;
+ *   normalised by seoSlug, Arabic kept) }.
  * - nav[].anchorId and a "#…" primaryCta.href name a section's anchorId; an
  *   external href is https:, mailto: or tel:.
  * - facts: every invented, owner-replaceable value (phone, price, address,

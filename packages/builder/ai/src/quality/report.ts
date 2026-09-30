@@ -3,6 +3,7 @@ import type { BuilderDocument } from '@craftkit/builder-schema';
 import { checkDocumentContrast } from './check-contrast';
 import {
   checkDocumentQuality,
+  isSeoCheck,
   type CheckDocumentOptions,
   type QualityIssue,
 } from './check-document';
@@ -35,5 +36,7 @@ export function checkQuality(
  * that refused everything would teach people to bypass it.
  */
 export function blocks(issues: readonly QualityIssue[]): readonly QualityIssue[] {
-  return issues.filter((issue) => issue.severity === 'error');
+  /* SEO issues are advisory whatever their severity: a page with a long title
+     or an unlabelled section still works, and must still commit. */
+  return issues.filter((issue) => issue.severity === 'error' && !isSeoCheck(issue.check));
 }

@@ -183,6 +183,7 @@ export {
   CUSTOM_CSS_META_VALUE,
   customCodeClassNames,
   customCodeComponentTypes,
+  customCodeIconGaps,
   customCodeIconNames,
   customCodeTree,
   customCodeTreeSchema,
@@ -195,6 +196,7 @@ export {
   type CustomCodeComponent,
   type CustomCodeElement,
   type CustomCodeIcon,
+  type CustomCodeIconGap,
   type CustomCodeNode,
   type CustomCodeRoot,
   type CustomCodeTag,
@@ -442,3 +444,22 @@ export * from './code';
 export * from './editing';
 export * from './runtime';
 export * from './agent';
+// behaviors additions (2026-09-30): the closed data-ck-behavior enum the
+// renderer's mountBehaviors runs, and the params that tune it.
+export {
+  CUSTOM_CODE_BEHAVIORS,
+  CUSTOM_CODE_BEHAVIOR_PARAMS,
+  isCustomCodeBehavior,
+  type CustomCodeBehavior,
+} from './custom-code/custom-code-tree';
+// end behaviors additions
+// seo additions (2026-09-30): the pure SEO core (DESIGN D.1-D.2) — page/site
+// SEO data on the page root, width-fitted meta, Arabic slugs, content
+// extraction, the JSON-LD @graph, the export head, sitemap/robots and vague
+// link text. NOTE: `pageSeoSchema` / `PageSeo` here are the PAGE-ROOT SEO
+// shape; this explicit export shadows the code-page `pageSeoSchema` that
+// `export * from './code'` also carries (no consumer imported that one by
+// name; code pages keep using it internally via ./code/types).
+export * from './seo';
+export { pageSeoSchema, type PageSeo } from './seo';
+// end seo additions

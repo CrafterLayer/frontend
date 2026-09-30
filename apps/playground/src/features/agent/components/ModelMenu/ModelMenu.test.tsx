@@ -78,6 +78,34 @@ describe('ModelMenu', () => {
     expect(onModelChange).toHaveBeenCalledWith('minimax/minimax-m3:free');
   });
 
+  it('names models that share a tier by their product, with the tier as the tag', async () => {
+    const user = userEvent.setup();
+    const model: ModelSelectionView = {
+      selected: { id: 'a:free', tier: 'free', product: 'MiniMax M3' },
+      options: [
+        { id: 'cli:haiku', tier: 'fast', product: 'Haiku' },
+        { id: 'a:free', tier: 'free', product: 'MiniMax M3' },
+        { id: 'b:free', tier: 'free', product: 'Qwen 3' },
+        { id: 'c:free', tier: 'free', product: '' },
+      ],
+    };
+    render(<ModelMenu locale="en" model={model} onModelChange={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Model: MiniMax M3' }));
+    const items = within(screen.getByRole('menu')).getAllByRole('menuitemradio');
+    const names = items.map(
+      (item) => item.querySelector('.ck-agent-choices__name')?.textContent ?? '',
+    );
+    expect(names).toEqual(['Fast', 'MiniMax M3', 'Qwen 3', 'Free']);
+    expect(items[1]?.querySelector('bdi')).toHaveTextContent('Free');
+    expect(items[0]?.querySelector('bdi')).toHaveTextContent('Haiku');
+  });
+
+  it('describes the fast tier by speed, never by cost', () => {
+    for (const locale of ['en', 'ar'] as const) {
+      expect(t(locale, 'model.fast.trait')).not.toMatch(/cost|cheap|price|كلفة|تكلفة|سعر/u);
+    }
+  });
+
   it('reads an unnamed model by its tier alone, in Arabic', async () => {
     const user = userEvent.setup();
     const model: ModelSelectionView = {

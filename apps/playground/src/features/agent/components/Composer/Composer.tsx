@@ -369,6 +369,7 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
             <QueueHeader
               locale={locale}
               queue={queue}
+              dockChips={chips}
               onRemove={() => {
                 actions.removeQueued();
                 focusInput();

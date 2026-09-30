@@ -159,10 +159,14 @@ export function cssVarName(token: ChromeTokenName): string {
  *    absent region's grid track to zero by writing these on itself. They are
  *    the mechanism BEHIND `--bldr-panel-width`, which IS themeable; a host
  *    re-points the width, never the track.
+ *  - `shell-rail-size` — the same mechanism for the rail: `BuilderShell` writes
+ *    the rail band it reserves (zero when there is no rail) so an overlaid
+ *    panel opens beside the rail instead of over it.
  */
 export const RUNTIME_WRITTEN_TOKENS: readonly string[] = [
   'arrow-x',
   'outline-canvas-x',
   'shell-panel-track',
   'shell-aside-track',
+  'shell-rail-size',
 ];

@@ -139,6 +139,19 @@ describe('AddSectionRow', () => {
     expect(button()).toHaveAccessibleDescription('A plan holds up to 12 sections');
   });
 
+  it('stays closed when a place frees up again after the plan filled', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    const { rerender } = render(<AddSectionRow locale="en" canAdd onAdd={onAdd} />);
+    await user.click(button());
+    expect(field()).toHaveFocus();
+    rerender(<AddSectionRow locale="en" canAdd={false} onAdd={onAdd} />);
+    expect(screen.queryByRole('textbox')).toBeNull();
+    rerender(<AddSectionRow locale="en" canAdd onAdd={onAdd} />);
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(button()).toHaveFocus();
+  });
+
   it('speaks Arabic in Arabic', async () => {
     const user = userEvent.setup();
     render(<AddSectionRow locale="ar" canAdd onAdd={vi.fn()} />);

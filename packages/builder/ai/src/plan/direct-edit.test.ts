@@ -382,6 +382,29 @@ const bakeryRows: readonly Row[] = [
   ['build me a landing page for a bakery', null],
   ['add a testimonials section', null],
   ['what fonts does this page use?', null],
+
+  /*
+    A pronoun is never the new title (final test, 2026-09-28): «retitle it»
+    with a block selected wrote the title "it" with no model call. The
+    pronoun points at the selection; the new text must still be said.
+  */
+  ['retitle it', null, ['menu']],
+  ['rename it', null, ['menu']],
+  ['retitle them', null, ['menu']],
+  ['change the title to it', null, ['menu']],
+  ['call it Launch', [{ nodeId: 'menu', before: 'Our Menu', after: 'Launch' }], ['menu']],
+  ['rename it to Launch', [{ nodeId: 'menu', before: 'Our Menu', after: 'Launch' }], ['menu']],
+  // "It" with nothing selected points at nothing.
+  ['call it Launch', null],
+  /*
+    An @mention is the panel's way to point at a block; the panel turns it
+    into the run's selection, which only the model path reads with the
+    words. «retitle @selected-hero» wrote the title "selected-hero".
+  */
+  ['retitle @menu', null, ['menu']],
+  ['retitle @selected-hero', null, ['hero']],
+  ['rename @menu to Bakery Menu', null, ['menu']],
+  ['change the title of @menu to Our Breads', null, ['menu']],
 ];
 
 describe('tryDirectEdit — the Arabic CV', () => {
@@ -440,6 +463,18 @@ describe('tryDirectEdit — the Arabic CV', () => {
     expect(tryDirectEdit('   ', cv())).toBeNull();
   });
 
+  it('dryRun: false leaves the rehearsal to the door and builds the same plan', () => {
+    const request = 'تغيير عنوان قسم التعليم والشهادات إلى مرحبا';
+    const rehearsed = tryDirectEdit(request, cv());
+    const kernel = cv();
+    const unrehearsed = tryDirectEdit(request, kernel, { dryRun: false });
+
+    expect(unrehearsed?.plan).toEqual(rehearsed?.plan);
+    expect(unrehearsed?.target).toEqual(rehearsed?.target);
+    if (unrehearsed === null) return;
+    expect(markupOf(landed(kernel, unrehearsed), 'education')).toContain('>مرحبا</h2>');
+  });
+
   it('refuses a plan the run policy does not allow', () => {
     const kernel = cv();
     const edit = tryDirectEdit('تغيير عنوان قسم التعليم والشهادات إلى مرحبا', kernel, {
@@ -473,6 +508,58 @@ describe('tryDirectEdit — the English bakery', () => {
     ]);
     if (edit === null) return;
     expect(landed(kernel, edit).nodes['order']?.props['label']).toBe('Order today');
+  });
+});
+
+/*
+  A section whose own name holds a demonstrative and a locator: "Roasted
+  this week in Irbid". The English edit went to the model (1 request, 8 s)
+  while its Arabic twin landed with none (final test, 2026-09-28).
+*/
+const ROASTED =
+  "<section id='roasted' class='py-16'><h2 class='text-3xl'>Roasted this week in Irbid</h2><p>Ethiopia Guji, washed.</p></section>";
+const VISIT =
+  "<section id='visit' class='py-16'><h2 class='text-3xl'>Come by the roastery</h2><p>Visit us in Irbid</p></section>";
+
+function coffee(): BuilderKernel {
+  return kernelFor({
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'ltr',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'page', props: { title: 'Irbid Roasters' }, slots: { default: ['roasted', 'visit'] } },
+      roasted: composed('roasted', 'Roasted this week in Irbid', ROASTED),
+      visit: composed('visit', 'Visit', VISIT),
+    },
+  } as unknown as BuilderDocument);
+}
+
+const coffeeRows: readonly Row[] = [
+  [
+    'Change the title of the Roasted this week in Irbid section to Welcome home',
+    [{ nodeId: 'roasted', before: 'Roasted this week in Irbid', after: 'Welcome home' }],
+  ],
+  [
+    'change the Roasted this week in Irbid heading to Fresh this week',
+    [{ nodeId: 'roasted', before: 'Roasted this week in Irbid', after: 'Fresh this week' }],
+  ],
+  [
+    'change the title of this section to Welcome home',
+    [{ nodeId: 'visit', before: 'Come by the roastery', after: 'Welcome home' }],
+    ['visit'],
+  ],
+  // «this» still points at the selection, and with nothing selected at nothing.
+  ['change the title of this section to Welcome home', null],
+  // A pronoun is not the text to replace: "it" is inside «Visit», once.
+  ['change it to Hello', null, ['visit']],
+];
+
+describe('tryDirectEdit — a section name that says "this" and "in"', () => {
+  it.each(cases(coffeeRows))('$request', ({ request, expected, selection }) => {
+    expect(sortedChanges(tryDirectEdit(request, coffee(), selection === undefined ? {} : { selection }))).toEqual(
+      expected === null ? null : [...expected].sort(byBefore),
+    );
   });
 });
 

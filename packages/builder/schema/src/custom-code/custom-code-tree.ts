@@ -247,7 +247,52 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   'colspan',
   'rowspan',
   'scope',
+  /*
+    Site behaviours (2026-09-30): one closed enum names a curated, audited
+    script the renderer and the exported page run (`mountBehaviors`); the
+    params below tune it. No other `data-*` and never an `on*` handler — a
+    tree still cannot carry code, only the NAME of a behaviour.
+  */
+  'data-ck-behavior',
+  'data-ck-to',
+  'data-ck-until',
+  'data-ck-speed',
+  'data-ck-phone',
+  'data-ck-text',
+  // Loading priority for the one image that paints first (LCP).
+  'fetchpriority',
   ...CUSTOM_CODE_SVG_ATTRIBUTES,
+] as const;
+
+/**
+ * The site behaviours a tree may name with `data-ck-behavior` — a closed
+ * enum. Each is a few lines of vanilla script in the renderer's
+ * `mountBehaviors`, progressive enhancement over native HTML and CSS: the
+ * content reads without it, and `prefers-reduced-motion` stills the motion.
+ */
+export const CUSTOM_CODE_BEHAVIORS = [
+  'reveal',
+  'stagger',
+  'count-up',
+  'countdown',
+  'marquee',
+  'carousel',
+  'tabs',
+  'sticky-header',
+  'lightbox',
+  'whatsapp-form',
+  'copy-text',
+] as const;
+
+export type CustomCodeBehavior = (typeof CUSTOM_CODE_BEHAVIORS)[number];
+
+/** The behaviour params: each means something only beside a `data-ck-behavior`. */
+export const CUSTOM_CODE_BEHAVIOR_PARAMS = [
+  'data-ck-to',
+  'data-ck-until',
+  'data-ck-speed',
+  'data-ck-phone',
+  'data-ck-text',
 ] as const;
 
 export type CustomCodeAttribute = (typeof CUSTOM_CODE_ATTRIBUTES)[number];
@@ -430,6 +475,25 @@ const svgValue = (value: string, name: string): string | undefined => {
 
 const svgLength = matching(LENGTH, 'a number or a length');
 
+/** An ISO 8601 date-time: a date, a time to the minute or finer, and an optional zone. */
+const ISO_DATETIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?$/u;
+
+const BEHAVIOR_SET: ReadonlySet<string> = new Set<string>(CUSTOM_CODE_BEHAVIORS);
+
+/** Whether a value names a behaviour in the closed enum. */
+export function isCustomCodeBehavior(value: string): value is CustomCodeBehavior {
+  return BEHAVIOR_SET.has(value);
+}
+
+const behaviorValue = (value: string, name: string): string | undefined =>
+  BEHAVIOR_SET.has(value) ? undefined : `${name} is one of ${CUSTOM_CODE_BEHAVIORS.join(', ')}`;
+
+/** Behaviours bound to a tag: the WhatsApp form sends from a form or its button. */
+const BEHAVIOR_TAGS: Readonly<Partial<Record<CustomCodeBehavior, readonly string[]>>> = {
+  'whatsapp-form': ['form', 'button'],
+};
+
 const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   alt: { on: 'html' },
   'aria-hidden': { on: 'any' },
@@ -485,6 +549,32 @@ const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   colspan: { on: ['td', 'th'], value: matching(/^[1-9]\d{0,2}$/u, 'a whole number from 1') },
   rowspan: { on: ['td', 'th'], value: matching(/^\d{1,3}$/u, 'a whole number') },
   scope: { on: ['th'], value: oneOf('row', 'col', 'rowgroup', 'colgroup') },
+  'data-ck-behavior': { on: 'html', value: behaviorValue },
+  'data-ck-to': {
+    on: 'html',
+    value: (value, name) =>
+      value.length <= 12 && value.trim() === value && value !== '' && Number.isFinite(Number(value))
+        ? undefined
+        : `${name} is a number of at most 12 characters, such as 1500 or 4.8`,
+  },
+  'data-ck-until': {
+    on: 'html',
+    value: (value, name) =>
+      ISO_DATETIME.test(value) && !Number.isNaN(Date.parse(value))
+        ? undefined
+        : `${name} is an ISO 8601 date and time, such as 2026-12-31T23:59:00+03:00`,
+  },
+  'data-ck-speed': { on: 'html', value: oneOf('slow', 'normal', 'fast') },
+  'data-ck-phone': {
+    on: 'html',
+    value: matching(/^\+?[0-9]{7,15}$/u, 'a phone number of 7 to 15 digits, such as +962790000000'),
+  },
+  'data-ck-text': {
+    on: 'html',
+    value: (value, name) =>
+      value.length <= 200 ? undefined : `${name} holds at most 200 characters`,
+  },
+  fetchpriority: { on: ['img'], value: oneOf('high', 'low', 'auto') },
 };
 
 const SVG_ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
@@ -561,7 +651,21 @@ export function customCodeAttributeProblem(
     return /^\d{1,5}$/u.test(value) ? undefined : `${name} on <${tag}> is a whole number of pixels`;
   }
   const rule = Object.hasOwn(ATTRIBUTE_RULES, name) ? ATTRIBUTE_RULES[name] : undefined;
-  if (rule === undefined) return `${name} is not an attribute the vocabulary admits`;
+  if (rule === undefined) {
+    if (/^on/iu.test(name)) {
+      return `${name} is not an attribute the vocabulary admits: a tree never carries a script handler; name a behaviour with data-ck-behavior (${CUSTOM_CODE_BEHAVIORS.join(', ')})`;
+    }
+    if (/^data-/iu.test(name)) {
+      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')})`;
+    }
+    return `${name} is not an attribute the vocabulary admits`;
+  }
+  if (name === 'data-ck-behavior') {
+    const bound = isCustomCodeBehavior(value) ? BEHAVIOR_TAGS[value] : undefined;
+    if (bound !== undefined && !bound.includes(tag)) {
+      return `data-ck-behavior='${value}' belongs on ${placeName(bound)}, not <${tag}>`;
+    }
+  }
   if (!fits(rule.on, tag)) return `${name} belongs on ${placeName(rule.on)}, not <${tag}>`;
   if (name === 'src' && (tag === 'video' || tag === 'source')) return safeAddress(value, name);
   const problem = rule.value?.(value, name);
@@ -610,6 +714,15 @@ function elementProblems(
   }
   if (tag === 'source' && (parentTag === undefined || !SOURCE_PARENTS.has(parentTag))) {
     found.push({ path: ['tag'], message: '<source> belongs inside a <picture> or a <video>' });
+  }
+  if (typeof record['data-ck-behavior'] !== 'string') {
+    for (const param of CUSTOM_CODE_BEHAVIOR_PARAMS) {
+      if (typeof record[param] !== 'string') continue;
+      found.push({
+        path: ['attributes', param],
+        message: `<${tag}> ${param} tunes a behaviour: write data-ck-behavior on the same element, or drop ${param}`,
+      });
+    }
   }
   if (tag === 'video' && typeof record['autoplay'] === 'string' && typeof record['muted'] !== 'string') {
     found.push({
@@ -922,6 +1035,73 @@ export function customCodeIconNames(value: unknown): readonly string[] {
     }
   }
   return [...found].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+}
+
+/** A row of look-alike items where some carry an icon and a few do not. */
+export interface CustomCodeIconGap {
+  readonly tag: string;
+  readonly className: string;
+  /** Items in the row. */
+  readonly items: number;
+  /** Items without an icon anywhere inside them. */
+  readonly bare: number;
+}
+
+/** Table cells mix a check icon with text by design; they are not an icon list. */
+const ICON_GAP_EXEMPT_TAGS = new Set(['td', 'th', 'tr']);
+
+function containsIcon(value: unknown): boolean {
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (typeof node !== 'object' || node === null) continue;
+    const record = node as { kind?: unknown; children?: unknown };
+    if (record.kind === 'icon') return true;
+    if (Array.isArray(record.children)) stack.push(...(record.children as unknown[]));
+  }
+  return false;
+}
+
+/**
+ * Icon lists with a bare item: three or more sibling elements of the same tag
+ * and classes (one row of cards, one list), at least two carrying an icon,
+ * and fewer bare than iconned.
+ *
+ * Final test 2026-09-30: a services row drew icons on three cards and none on
+ * the fourth. Siblings are grouped by tag AND classes so a heading div beside
+ * a grid div is never read as one row.
+ */
+export function customCodeIconGaps(value: unknown): readonly CustomCodeIconGap[] {
+  const gaps: CustomCodeIconGap[] = [];
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (typeof node !== 'object' || node === null) continue;
+    const children = (node as { children?: unknown }).children;
+    if (!Array.isArray(children)) continue;
+    const rows = new Map<string, { tag: string; className: string; items: number; bare: number }>();
+    for (const child of children as unknown[]) {
+      stack.push(child);
+      if (typeof child !== 'object' || child === null) continue;
+      const element = child as { kind?: unknown; tag?: unknown; className?: unknown };
+      if (element.kind !== 'element' || typeof element.tag !== 'string') continue;
+      if (ICON_GAP_EXEMPT_TAGS.has(element.tag)) continue;
+      const className =
+        typeof element.className === 'string'
+          ? element.className.trim().split(/\s+/u).filter(Boolean).sort().join(' ')
+          : '';
+      const key = `${element.tag}\u0000${className}`;
+      const row = rows.get(key) ?? { tag: element.tag, className, items: 0, bare: 0 };
+      row.items += 1;
+      if (!containsIcon(child)) row.bare += 1;
+      rows.set(key, row);
+    }
+    for (const row of rows.values()) {
+      const iconned = row.items - row.bare;
+      if (row.items >= 3 && iconned >= 2 && row.bare > 0 && row.bare < iconned) gaps.push(row);
+    }
+  }
+  return gaps;
 }
 
 /** Every referenced component type in a tree, deduplicated and sorted. */

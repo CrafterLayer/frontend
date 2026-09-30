@@ -93,7 +93,7 @@
 
 .pg-source-agent__empty strong {
   color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-heading-sm);
+  font-size: var(--bldr-font-size-title);
 }
 
 .pg-source-agent__empty > span {

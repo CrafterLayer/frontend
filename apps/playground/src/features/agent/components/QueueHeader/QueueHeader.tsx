@@ -3,7 +3,7 @@ import { useId } from 'react';
 
 import { QUEUE_CAPTION_KEY, t } from '../../copy';
 import { resolveDir, resolveLang } from '../../model/resolve-dir';
-import type { Locale, QueueView } from '../../model/view-types';
+import type { ContextChipView, Locale, QueueView } from '../../model/view-types';
 import { ContextChip } from '../ContextChip';
 import { IconButton } from '../IconButton';
 
@@ -24,8 +24,30 @@ export interface QueueHeaderProps {
    */
   readonly labelId?: string | undefined;
   readonly captionId?: string | undefined;
+  /**
+   * The chips the composer below shows for the new draft. A paused request's scope that the
+   * dock already shows is not drawn a second time (SPEC §3.10: the queued text and Continue).
+   */
+  readonly dockChips?: readonly ContextChipView[] | undefined;
   /** Appended to `ck-agent-queue`. */
   readonly className?: string | undefined;
+}
+
+/**
+ * The chips a paused request shows for its scope: none for the whole page, which is every
+ * request's scope unless it names a block, and none when the composer below already shows
+ * the very same scope. Two identical chips in one dock read as two requests.
+ */
+function pausedScope(
+  chips: readonly ContextChipView[],
+  dockChips: readonly ContextChipView[] | undefined,
+): readonly ContextChipView[] {
+  const named = chips.filter((chip) => chip.kind !== 'page');
+  if (named.length === 0) return named;
+  const dock = dockChips?.filter((chip) => chip.kind !== 'page') ?? [];
+  const same =
+    dock.length === named.length && named.every((chip, index) => chip.id === dock[index]?.id);
+  return same ? [] : named;
 }
 
 /**
@@ -49,6 +71,7 @@ export function QueueHeader({
   onContinue,
   labelId,
   captionId,
+  dockChips,
   className,
 }: QueueHeaderProps) {
   const ownLabelId = useId();
@@ -56,6 +79,7 @@ export function QueueHeader({
   const label = labelId ?? ownLabelId;
   const caption = captionId ?? ownCaptionId;
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
+  const scope = queue.status === 'paused' ? pausedScope(queue.chips, dockChips) : [];
 
   return (
     <div
@@ -81,9 +105,9 @@ export function QueueHeader({
       />
       {queue.status === 'paused' ? (
         <div className="ck-agent-queue__request">
-          {queue.chips.length === 0 ? null : (
+          {scope.length === 0 ? null : (
             <div className="ck-agent-queue__chips">
-              {queue.chips.map((chip) => (
+              {scope.map((chip) => (
                 <ContextChip key={chip.id} locale={locale} chip={chip} />
               ))}
             </div>

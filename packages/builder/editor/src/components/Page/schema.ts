@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { customCss, defineBlockSchema } from '@craftkit/builder-schema';
+import { customCss, defineBlockSchema, pageSeoSchema } from '@craftkit/builder-schema';
 
 /**
  * The structural document root. Its vocabulary lists every insertable top-level
@@ -49,6 +49,15 @@ export const pageSchema = defineBlockSchema({
       scoped to that region and cannot reach a sibling.
     */
     pageCss: customCss(20_000),
+    /*
+      Search and sharing data the SEO core reads (DESIGN D.1): the page's
+      keyword and kind, canonical path, language alternates, structured-data
+      kinds, facts-ledger samples (never emitted as structured data) and, on
+      the HOME page only, the site settings other pages inherit. Optional, so
+      every document authored before it parses unchanged. The inspector shows
+      an object prop as a read-only row; the agent's seo tools write it.
+    */
+    seo: pageSeoSchema.optional(),
   }),
   propertyGroups: {
     title: { tab: 'content', section: 'Identity' },
@@ -57,6 +66,7 @@ export const pageSchema = defineBlockSchema({
     socialTitle: { tab: 'content', section: 'Sharing' },
     socialDescription: { tab: 'content', section: 'Sharing' },
     socialImage: { tab: 'content', section: 'Sharing' },
+    seo: { tab: 'content', section: 'Sharing' },
     contentWidth: { tab: 'design', section: 'Appearance' },
     noIndex: { tab: 'advanced', section: 'Indexing' },
     pageCss: { tab: 'advanced', section: 'Custom CSS' },

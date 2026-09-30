@@ -599,3 +599,64 @@ export type {
   AiRunSource,
 } from './agent/types';
 // end fast-edits additions
+
+// seo additions (2026-09-30): agent SEO (DESIGN D.3) — checkSeo (advisory
+// quality issues with fixes), the one-transaction safe auto-fix plan, alt text
+// from the photo catalog, and the seo.* agent tools.
+export {
+  SEO_AUTOFIX_LABEL,
+  SEO_TOOLS,
+  altFor,
+  checkSeo,
+  seoAutofixPlan,
+  seoAutofixSteps,
+  type CheckSeoOptions,
+  type SeoAutofixOptions,
+  type SeoIssue,
+  type SeoSitePage,
+} from './seo';
+export { isSeoCheck } from './quality';
+// end seo additions
+// agent-tools additions (2026-09-30): tool steps inside the one plan, expanded before the door (DESIGN.md §A).
+export {
+  AGENT_TOOL_COMMAND,
+  AGENT_TOOL_LANES,
+  defineAgentTool,
+  type AgentTool,
+  type AgentToolContext,
+  type AgentToolLane,
+  type AgentToolParse,
+  type AgentToolRun,
+  type AgentToolStep,
+} from './tools/agent/types';
+export { AGENT_TOOLS, agentTool, agentToolsForLane } from './tools/agent/registry';
+export {
+  expandAgentTools,
+  type AgentToolExpansion,
+  type AgentToolExpansionOptions,
+} from './tools/agent/expand';
+export { AGENT_TOOL_PROMPT_MAX_CHARS, agentToolPrompt } from './tools/agent/catalog-prompt';
+export { tryDirectTool, type DirectToolResult } from './tools/agent/direct-tool';
+// end agent-tools additions
+// section-kit additions (2026-09-30): the section kit (DESIGN.md §B) — kits vendored from HyperUI,
+// Tailark and Meraki UI, filled from slots by code; kit.section / kit.swap / kit.insert tools.
+export {
+  KIT_INDEX_MAX_CHARS,
+  SECTION_KITS,
+  SECTION_KIT_ROLES,
+  SECTION_KIT_TOOLS,
+  checkKitSlots,
+  defaultKitForVariant,
+  instantiateKit,
+  kitIdOfTree,
+  kitIndex,
+  readKitSlots,
+  sectionKit,
+  type InstantiateKitOptions,
+  type InstantiateKitResult,
+  type KitTree,
+  type SectionKit,
+  type SectionKitRole,
+  type SectionKitSlot,
+} from './section-kit';
+// end section-kit additions

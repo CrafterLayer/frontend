@@ -2,14 +2,15 @@ import type { BlockSchema, NodeId } from '@craftkit/builder';
 
 import { formatList, STARTER_KEYS, t } from '../copy';
 
+import { PAGE_GAPS } from './page-gaps';
 import type { Locale, SuggestionSource, SuggestionView } from './view-types';
 
 /**
  * What the panel offers a person to say next (SPEC §4.16 SuggestionList).
  *
  * Every row FILLS the composer and never sends, so each text is written as the person's
- * own request, already in their language. Five sources, in `panelSuggestions`' priority:
- * salvage, the model's follow-ups, the selection, the catalog; and, on an empty page, the
+ * own request, already in their language. Six sources, in `panelSuggestions`' priority:
+ * salvage, the model's follow-ups, the selection, the page just built, the catalog; and, on an empty page, the
  * authored starters instead.
  *
  * Copied from v1 `AssistantPanel.suggestions.ts` and changed per SPEC §7.4:
@@ -257,6 +258,30 @@ export function salvageSuggestions(
   return [suggestion('salvage', t(locale, 'suggest.salvage', { titles: list }))];
 }
 
+/**
+ * Follow-ups for the page just built or edited, read from its own sections (SPEC §4.16).
+ * First the sections it does not have yet (a page with a pricing section is not offered
+ * one), then the two changes that fit any page: warmer colours, and the page in the other
+ * language. The catalog's examples are about blocks, not about this page, so after a run
+ * they are the last resort, not the offer.
+ */
+export function pageSuggestions(
+  sectionLabels: readonly string[] | undefined,
+  locale: Locale,
+  limit: number = SUGGESTION_LIMITS.afterRun,
+): readonly SuggestionView[] {
+  if (sectionLabels === undefined || sectionLabels.length === 0 || limit <= 0) return [];
+  const missing = PAGE_GAPS.filter(
+    (gap) => !sectionLabels.some((label) => gap.match.test(label)),
+  ).map((gap) => gap.key);
+  return take(
+    [...missing.slice(0, 2), 'suggest.page.warmer' as const, 'suggest.page.otherLanguage' as const].map(
+      (key) => suggestion('page', t(locale, key)),
+    ),
+    limit,
+  );
+}
+
 export interface PanelSuggestionInput {
   readonly blocks: readonly { readonly schema: BlockSchema }[];
   readonly nameOf: BlockNameResolver;
@@ -264,6 +289,11 @@ export interface PanelSuggestionInput {
   readonly followUp: readonly string[] | string | undefined;
   /** Titles of the sections the newest answer's salvage left undone. */
   readonly salvaged?: readonly string[] | undefined;
+  /**
+   * The page's section labels, passed when the newest turn is a finished build or edit:
+   * the list then offers follow-ups for THIS page before the catalog's generic examples.
+   */
+  readonly pageSections?: readonly string[] | undefined;
   readonly locale: Locale;
   readonly limit?: number | undefined;
   readonly offset?: number | undefined;
@@ -275,8 +305,9 @@ export interface PanelSuggestionInput {
  * Salvage first, above even the model's follow-up: a follow-up proposes the NEXT thing,
  * and a dropped change is part of the thing just asked for that never happened. Then the
  * follow-ups, which are about this conversation; then the selection, since a person with
- * something selected is usually asking about it; the catalog fills the rest, so the list
- * is never empty. An empty page uses `starterSuggestions` instead.
+ * something selected is usually asking about it; then, after a finished build or edit,
+ * follow-ups read from the page itself; the catalog fills the rest, so the list is never
+ * empty. An empty page uses `starterSuggestions` instead.
  */
 export function panelSuggestions(input: PanelSuggestionInput): readonly SuggestionView[] {
   const limit = input.limit ?? SUGGESTION_LIMITS.empty;
@@ -285,6 +316,7 @@ export function panelSuggestions(input: PanelSuggestionInput): readonly Suggesti
       ...salvageSuggestions(input.salvaged, input.locale),
       ...followUpSuggestions(input.followUp, limit),
       ...selectionSuggestions(input.selected, input.locale, input.nameOf, limit),
+      ...pageSuggestions(input.pageSections, input.locale, limit),
       ...catalogSuggestions(input.blocks, { locale: input.locale, limit, offset: input.offset }),
     ],
     limit,

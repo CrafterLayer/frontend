@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { act, configure, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
 
@@ -20,6 +20,35 @@ import { App } from './App';
   `testTimeout`. A genuine hang still fails, just later.
 */
 configure({ asyncUtilTimeout: 5000 });
+
+/*
+  The agent panel is mounted in every scenario (it stays mounted across rail
+  destinations), and its thread follows its content through a ResizeObserver,
+  which jsdom does not have. An inert one: geometry belongs to the browser stories.
+*/
+/*
+  Every scenario boots the app as a first visit. jsdom keeps one localStorage for
+  the whole file, and the app remembers things there: scenario 6 picks the
+  `empty` fixture from the harness, the app remembers it
+  (`craftkit-current-workspace-v1`), and every scenario after it then booted an
+  empty page — "names the page…", 7, 8 and 9 failed in the full file and passed
+  alone. Cleared BEFORE each boot rather than after: the previous scenario's
+  app is unmounted after its own hooks run, and an unmount may still write. The
+  vault needs no reset: without IndexedDB each mount gets its own memory store.
+*/
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
+
+beforeAll(() => {
+  if (typeof globalThis.ResizeObserver === 'function') return;
+  globalThis.ResizeObserver = class {
+    observe = (): void => undefined;
+    unobserve = (): void => undefined;
+    disconnect = (): void => undefined;
+  };
+});
 
 /** Opens the rail's Settings destination, where the scenario harness lives. */
 async function openHarness(user: ReturnType<typeof userEvent.setup>): Promise<void> {
@@ -319,13 +348,16 @@ describe('US4 — the playground proves it end-to-end', () => {
       expect(document.querySelector('[data-testid="pg-selection-badge"]')).toBeNull();
     });
 
-    // Escape clears through the same kernel door (re-focus: the Dispose click
-    // moved focus to its button).
+    // Escape climbs ONE document level before it clears (EditorCanvas
+    // `handleTraversalKey`): the first selects the page root that holds the
+    // arrowed-to section, and only the second clears — both through the same
+    // kernel door. Re-focus first: the Dispose click moved focus to its button.
     host.focus();
     await user.keyboard('{Escape}');
-    expect(screen.getByRole('status', { name: 'Selection' })).toHaveTextContent(
-      'Selection cleared',
-    );
+    const selectionStatus = screen.getByRole('status', { name: 'Selection' });
+    expect(selectionStatus).toHaveTextContent(/page root.*selected$/i);
+    await user.keyboard('{Escape}');
+    expect(selectionStatus).toHaveTextContent('Selection cleared');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -936,5 +968,80 @@ describe('scenario 10 (B4) — code view and the canvas in lockstep', () => {
         'Build pages your kernel can prove',
       );
     });
+  });
+});
+
+describe('the agent panel (SPEC §8 WP-20)', () => {
+  it('mounts the v2 panel by default: one name, in Arabic, and none of the v1 header', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Assistant' }));
+
+    const panel = await screen.findByRole('region', { name: 'أبو غضب' });
+    expect(panel).toHaveAttribute('lang', 'ar');
+    expect(panel).toHaveAttribute('dir', 'rtl');
+    // The v1 header's English "Agent" name and its status line are gone with it.
+    expect(screen.queryByRole('heading', { name: 'Agent' })).toBeNull();
+    expect(screen.queryByText('Abu Ghadab')).toBeNull();
+    // One separator on the panel's edge: the agent's own, not the shell's as well.
+    expect(screen.getAllByRole('separator')).toHaveLength(1);
+    expect(screen.getByRole('separator')).toHaveAccessibleName('تغيير عرض اللوحة');
+  });
+
+  /*
+    Final test, 2026-09-29, phone 390px: with the agent as the sheet, the inspector stayed
+    open as an overlay over the canvas, and the mini detent showed "No block selected"
+    beside a 40px sliver of the page. The sheet's canvas is the page, whole.
+  */
+  it('closes the inspector while the agent is the phone sheet, so the canvas is the page', async () => {
+    // jsdom has no `matchMedia`: this one answers the phone query (coarse pointer) yes.
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('pointer: coarse'),
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    try {
+      const user = userEvent.setup();
+      const { container } = render(<App />);
+      const shell = container.querySelector('.bldr-shell');
+      // Booted, at the desk layout jsdom measures: the inspector is open.
+      await waitFor(() => {
+        expect(shell).toHaveAttribute('data-aside-open', 'true');
+      });
+
+      await user.click(await screen.findByRole('button', { name: 'Assistant' }));
+      await waitFor(() => {
+        expect(shell).toHaveAttribute('data-aside-open', 'false');
+      });
+      expect(shell).toHaveAttribute('data-panel-open', 'false');
+
+      // Another destination: the inspector the person left open comes back.
+      await user.click(screen.getByRole('button', { name: 'Layers' }));
+      await waitFor(() => {
+        expect(shell).toHaveAttribute('data-panel-open', 'true');
+      });
+      expect(shell).toHaveAttribute('data-aside-open', 'true');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps the panel mounted on another destination, where the status bar speaks for it', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Assistant' }));
+    const panel = await screen.findByRole('region', { name: 'أبو غضب' });
+
+    await user.click(screen.getByRole('button', { name: 'Layers' }));
+    // Hidden, not unmounted: the same element, still in the document.
+    expect(panel).toBeInTheDocument();
+    expect(panel.closest('.ck-agent-panel')).toHaveAttribute('data-state', 'hidden');
+    // The shell's own separator is back for the other destinations.
+    expect(screen.getByRole('separator', { name: 'Resize workspace panel' })).toBeInTheDocument();
   });
 });

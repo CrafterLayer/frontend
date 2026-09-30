@@ -61,6 +61,14 @@ const inPanel: Decorator = (Story, { parameters }) => {
   );
 };
 
+/** A fixture's direction. Every draft these stories read carries one; say so if one does not. */
+function directionOf(draft: {
+  readonly direction?: PlanDirectionView | undefined;
+}): PlanDirectionView {
+  if (draft.direction === undefined) throw new Error('the fixture has no direction');
+  return draft.direction;
+}
+
 function withColour(view: PlanDirectionView, role: SwatchRole, hex: string): PlanDirectionView {
   return {
     ...view,
@@ -81,7 +89,7 @@ function Live({
   readonly held?: string | undefined;
 }) {
   const [direction, setDirection] = useState(() => {
-    const base = dentalDraft(locale).direction as PlanDirectionView;
+    const base = directionOf(dentalDraft(locale));
     return held === undefined ? base : withColour(base, role, held);
   });
   const hex = direction.swatches?.find((swatch) => swatch.role === role)?.hex ?? '#000000';
@@ -132,18 +140,13 @@ const openIt = async (canvasElement: HTMLElement, name: string | RegExp) => {
 export const Closed: Story = story('text');
 
 /** Open: the role, the native picker, the hex field (focused), the verdict. */
-export const Open: Story = {
-  ...story('text'),
-  play: async ({ canvasElement }) => {
-    await openIt(canvasElement, /^Text:/u);
-    const body = within(canvasElement.ownerDocument.body);
-    await expect(body.getByRole('textbox', { name: 'Hex code' })).toHaveFocus();
-  },
+const openText: NonNullable<Story['play']> = async ({ canvasElement }) => {
+  await openIt(canvasElement, /^Text:/u);
+  const body = within(canvasElement.ownerDocument.body);
+  await expect(body.getByRole('textbox', { name: 'Hex code' })).toHaveFocus();
 };
-export const OpenDark: Story = {
-  ...story('text', { theme: 'dark' }),
-  play: Open.play,
-};
+export const Open: Story = { ...story('text'), play: openText };
+export const OpenDark: Story = { ...story('text', { theme: 'dark' }), play: openText };
 export const OpenRightToLeft: Story = {
   ...story('text', { locale: 'ar' }),
   play: async ({ canvasElement }) => {

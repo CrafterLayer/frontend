@@ -18,7 +18,8 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Locale, PlanOp, PlanSectionView } from '../../model/view-types';
 import { dentalDraft, planReady, useLivePlan } from '../../testing/wp-13-decisions-fixtures';
 
-import { PlanSectionList, planRowTransitionName } from './PlanSectionList';
+import { PlanSectionList } from './PlanSectionList';
+import { planRowTransitionName } from './transition-name';
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {

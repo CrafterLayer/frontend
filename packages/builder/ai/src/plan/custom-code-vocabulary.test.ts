@@ -226,3 +226,57 @@ describe('custom-code utility vocabulary enforcement', () => {
     expect(result.issues[0]?.message).toContain('and 12 more');
   });
 });
+
+describe('icon lists are complete (final test 2026-09-30)', () => {
+  const card = (icon: boolean, title: string) => ({
+    kind: 'element',
+    tag: 'article',
+    className: 'rounded-3xl p-6',
+    children: [
+      ...(icon ? [{ kind: 'icon', name: 'stethoscope', size: 28 }] : []),
+      { kind: 'element', tag: 'h3', text: title },
+    ],
+  });
+  const rowPlan = (cards: unknown[]) => ({
+    rationale: 'services',
+    commands: [
+      {
+        command: 'insertNode',
+        args: {
+          type: 'customCode',
+          parentId: 'root',
+          props: {
+            tree: {
+              kind: 'root',
+              children: [{ kind: 'element', tag: 'div', className: 'grid gap-4', children: cards }],
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  it('refuses a row where the last card has no icon, naming the count', () => {
+    const result = validateAiPlan(
+      rowPlan([card(true, 'Check-up'), card(true, 'Braces'), card(true, 'Implants'), card(false, 'Whitening')]),
+      kernel(),
+      ports(),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues[0]?.message).toContain('icon on 3 of 4');
+    expect(result.issues[0]?.message).toContain('give the other 1 an icon');
+  });
+
+  it('lets a complete row, or a row with no icons at all, through the icon rule', () => {
+    for (const cards of [
+      [card(true, 'a'), card(true, 'b'), card(true, 'c')],
+      [card(false, 'a'), card(false, 'b'), card(false, 'c')],
+    ]) {
+      const result = validateAiPlan(rowPlan(cards), kernel(), ports());
+      if (!result.ok) {
+        expect(result.issues.every((issue) => !issue.message.includes('look-alike'))).toBe(true);
+      }
+    }
+  });
+});

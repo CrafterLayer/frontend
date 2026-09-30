@@ -12,6 +12,7 @@ import {
   customCodeAttributeSpelling,
   customCodeClassNames,
   customCodeComponentTypes,
+  customCodeIconGaps,
   customCodeIconNames,
   customCodeSrcsetUrls,
   customCodeTagSpelling,
@@ -200,6 +201,37 @@ describe('custom-code tree', () => {
       expect(customCodeIconNames(tree)).toEqual(['globe', 'mail']);
       expect(customCodeIconNames(null)).toEqual([]);
     });
+
+    it('finds an icon list with a bare item, grouped by tag and classes, never table cells', () => {
+      const li = (icon: boolean) => ({
+        kind: 'element',
+        tag: 'li',
+        className: 'flex gap-2',
+        children: icon ? [{ kind: 'icon', name: 'check' }] : [],
+        text: 'x',
+      });
+      const td = (icon: boolean) => ({ ...li(icon), tag: 'td' });
+      const tree = (children: unknown[]) => ({
+        kind: 'root',
+        children: [{ kind: 'element', tag: 'ul', children }],
+      });
+
+      expect(customCodeIconGaps(tree([li(true), li(true), li(true), li(false)]))).toEqual([
+        { tag: 'li', className: 'flex gap-2', items: 4, bare: 1 },
+      ]);
+      expect(customCodeIconGaps(tree([li(true), li(true), li(true)]))).toEqual([]);
+      // Two items is not a row; a mostly bare row is text with an accent, not an icon list.
+      expect(customCodeIconGaps(tree([li(true), li(false)]))).toEqual([]);
+      expect(customCodeIconGaps(tree([li(true), li(false), li(false)]))).toEqual([]);
+      // A header div beside a grid div differs in classes and is not one row.
+      expect(
+        customCodeIconGaps(
+          tree([li(true), li(true), { ...li(false), className: 'mt-4 text-sm' }]),
+        ),
+      ).toEqual([]);
+      expect(customCodeIconGaps(tree([td(true), td(true), td(true), td(false)]))).toEqual([]);
+      expect(customCodeIconGaps(null)).toEqual([]);
+    });
   });
 
   it('answers tag membership for the renderer read guard', () => {
@@ -219,7 +251,8 @@ describe('custom-code tree — design markup', () => {
     tag: string,
     extra: { attributes?: Record<string, string>; children?: unknown[]; text?: string } = {},
   ) => ({ kind: 'element', tag, ...extra });
-  const parse = (...children: unknown[]) => customCodeTreeSchema.safeParse({ kind: 'root', children });
+  const parse = (...children: unknown[]) =>
+    customCodeTreeSchema.safeParse({ kind: 'root', children });
   const messages = (...children: unknown[]) => {
     const result = parse(...children);
     return result.success ? [] : result.error.issues.map((issue) => issue.message);
@@ -242,7 +275,9 @@ describe('custom-code tree — design markup', () => {
       children: [
         el('caption', { text: 'Plans' }),
         el('thead', {
-          children: [el('tr', { children: [el('th', { attributes: { scope: 'col' }, text: 'Pro' })] })],
+          children: [
+            el('tr', { children: [el('th', { attributes: { scope: 'col' }, text: 'Pro' })] }),
+          ],
         }),
         el('tbody', {
           children: [
@@ -274,18 +309,33 @@ describe('custom-code tree — design markup', () => {
         el('defs', {
           children: [
             el('linearGradient', {
-              attributes: { id: 'ck-fade', x1: '0', x2: '0', y1: '0', y2: '1', gradientUnits: 'objectBoundingBox' },
+              attributes: {
+                id: 'ck-fade',
+                x1: '0',
+                x2: '0',
+                y1: '0',
+                y2: '1',
+                gradientUnits: 'objectBoundingBox',
+              },
               children: [
-                el('stop', { attributes: { offset: '0%', 'stop-color': 'currentColor', 'stop-opacity': '0.4' } }),
+                el('stop', {
+                  attributes: { offset: '0%', 'stop-color': 'currentColor', 'stop-opacity': '0.4' },
+                }),
                 el('stop', { attributes: { offset: '1', 'stop-color': 'currentColor' } }),
               ],
             }),
           ],
         }),
         el('path', {
-          attributes: { d: 'M0 40C360 80 1080 0 1440 40V80H0Z', fill: 'url(#ck-fade)', 'fill-rule': 'evenodd' },
+          attributes: {
+            d: 'M0 40C360 80 1080 0 1440 40V80H0Z',
+            fill: 'url(#ck-fade)',
+            'fill-rule': 'evenodd',
+          },
         }),
-        el('circle', { attributes: { cx: '20', cy: '20', r: '4', stroke: 'currentColor', 'stroke-width': '1.5' } }),
+        el('circle', {
+          attributes: { cx: '20', cy: '20', r: '4', stroke: 'currentColor', 'stroke-width': '1.5' },
+        }),
         el('polygon', { attributes: { points: '0,0 10,0 5,8', transform: 'rotate(45 5 5)' } }),
       ],
     });
@@ -299,21 +349,31 @@ describe('custom-code tree — design markup', () => {
     expect(messages(el('svg', { children: [el('path', { attributes: { href: '#x' } })] }))[0]).toBe(
       'href belongs on an html element, not <path>',
     );
-    expect(parse(el('svg', { children: [el('a', { attributes: { href: '/x' } })] })).success).toBe(false);
-    expect(parse(el('svg', { attributes: { style: 'x' } as never })).success).toBe(false);
-    expect(parse(el('svg', { attributes: { onload: 'x()' } as never })).success).toBe(false);
-    expect(
-      messages(el('svg', { children: [el('path', { attributes: { fill: 'url(https://evil.test/p.svg#a)' } })] }))[0],
-    ).toMatch(/only a gradient in the same svg/u);
-    expect(messages(el('svg', { children: [el('path', { attributes: { d: 'M0 0"/><script>' } })] }))[0]).toMatch(
-      /path data/u,
+    expect(parse(el('svg', { children: [el('a', { attributes: { href: '/x' } })] })).success).toBe(
+      false,
     );
+    expect(parse(el('svg', { attributes: { style: 'x' } })).success).toBe(false);
+    expect(parse(el('svg', { attributes: { onload: 'x()' } })).success).toBe(false);
+    expect(
+      messages(
+        el('svg', {
+          children: [el('path', { attributes: { fill: 'url(https://evil.test/p.svg#a)' } })],
+        }),
+      )[0],
+    ).toMatch(/only a gradient in the same svg/u);
+    expect(
+      messages(el('svg', { children: [el('path', { attributes: { d: 'M0 0"/><script>' } })] }))[0],
+    ).toMatch(/path data/u);
     expect(messages(el('svg', { children: [el('div')] }))[0]).toMatch(/svg holds only shapes/u);
     expect(messages(el('svg', { children: [{ kind: 'icon', name: 'mail' }] }))[0]).toMatch(
       /svg holds only shapes, not an icon/u,
     );
-    expect(messages(el('path', { attributes: { d: 'M0 0' } }))[0]).toBe('<path> is drawn only inside an <svg>');
-    expect(messages(el('svg', { children: [el('path', { text: 'hello' })] }))[0]).toMatch(/holds no text/u);
+    expect(messages(el('path', { attributes: { d: 'M0 0' } }))[0]).toBe(
+      '<path> is drawn only inside an <svg>',
+    );
+    expect(messages(el('svg', { children: [el('path', { text: 'hello' })] }))[0]).toMatch(
+      /holds no text/u,
+    );
     expect(messages(el('div', { attributes: { viewBox: '0 0 1 1' } }))[0]).toBe(
       'viewBox belongs on <svg>, not <div>',
     );
@@ -331,7 +391,11 @@ describe('custom-code tree — design markup', () => {
         width: '1280',
         height: '720',
       },
-      children: [el('source', { attributes: { src: 'https://cdn.example.com/hero.mp4', type: 'video/mp4' } })],
+      children: [
+        el('source', {
+          attributes: { src: 'https://cdn.example.com/hero.mp4', type: 'video/mp4' },
+        }),
+      ],
     });
     expect(parse(hero).success).toBe(true);
     expect(messages(el('video', { attributes: { autoplay: '' } }))[0]).toMatch(/is muted/u);
@@ -339,15 +403,21 @@ describe('custom-code tree — design markup', () => {
       /https or relative/u,
     );
     expect(
-      messages(el('video', { children: [el('source', { attributes: { src: 'javascript:alert(1)' } })] }))[0],
+      messages(
+        el('video', { children: [el('source', { attributes: { src: 'javascript:alert(1)' } })] }),
+      )[0],
     ).toMatch(/https or relative/u);
-    expect(messages(el('source', { attributes: { src: '/a.mp4' } }))[0]).toMatch(/inside a <picture> or a <video>/u);
+    expect(messages(el('source', { attributes: { src: '/a.mp4' } }))[0]).toMatch(
+      /inside a <picture> or a <video>/u,
+    );
   });
 
   it('admits responsive images and refuses an address outside the policy in any srcset candidate', () => {
     const picture = el('picture', {
       children: [
-        el('source', { attributes: { media: '(min-width:768px)', srcset: 'https://x.test/a-1600.jpg 1600w' } }),
+        el('source', {
+          attributes: { media: '(min-width:768px)', srcset: 'https://x.test/a-1600.jpg 1600w' },
+        }),
         el('img', {
           attributes: {
             src: 'https://x.test/a-800.jpg',
@@ -363,10 +433,16 @@ describe('custom-code tree — design markup', () => {
       ],
     });
     expect(parse(picture).success).toBe(true);
-    expect(messages(el('img', { attributes: { srcset: 'http://x.test/a.jpg 1x' } }))[0]).toMatch(/https or relative/u);
+    expect(messages(el('img', { attributes: { srcset: 'http://x.test/a.jpg 1x' } }))[0]).toMatch(
+      /https or relative/u,
+    );
     expect(messages(el('div', { attributes: { width: '40' } }))[0]).toMatch(/belongs on <img>/u);
-    expect(messages(el('img', { attributes: { width: '100%' } }))[0]).toMatch(/whole number of pixels/u);
-    expect(messages(el('video', { attributes: { loading: 'lazy' } }))[0]).toBe('loading belongs on <img>, not <video>');
+    expect(messages(el('img', { attributes: { width: '100%' } }))[0]).toMatch(
+      /whole number of pixels/u,
+    );
+    expect(messages(el('video', { attributes: { loading: 'lazy' } }))[0]).toBe(
+      'loading belongs on <img>, not <video>',
+    );
   });
 
   it('admits a declarative menu: a button opens a popover, and only a button can', () => {
@@ -374,7 +450,9 @@ describe('custom-code tree — design markup', () => {
       el('button', { attributes: { popovertarget: 'ck-menu', 'aria-label': 'Menu' } }),
       el('nav', {
         attributes: { id: 'ck-menu', popover: '', 'aria-label': 'Sections' },
-        children: [el('a', { attributes: { href: '#menu', 'aria-current': 'page' }, text: 'Menu' })],
+        children: [
+          el('a', { attributes: { href: '#menu', 'aria-current': 'page' }, text: 'Menu' }),
+        ],
       }),
       el('button', { attributes: { popovertarget: 'ck-menu', popovertargetaction: 'hide' } }),
     ];
@@ -385,7 +463,9 @@ describe('custom-code tree — design markup', () => {
     expect(messages(el('button', { attributes: { popovertargetaction: 'close' } }))[0]).toBe(
       '<button> popovertargetaction is one of toggle, show, hide',
     );
-    expect(messages(el('div', { attributes: { popover: 'always' } }))[0]).toMatch(/popover is one of/u);
+    expect(messages(el('div', { attributes: { popover: 'always' } }))[0]).toMatch(
+      /popover is one of/u,
+    );
   });
 
   it('admits mixed-language text and the phrasing tags the recipes name', () => {
@@ -403,7 +483,9 @@ describe('custom-code tree — design markup', () => {
         el('address', { text: 'Rainbow St, Amman' }),
       ).success,
     ).toBe(true);
-    expect(messages(el('span', { attributes: { dir: 'right' } }))[0]).toBe('<span> dir is one of ltr, rtl, auto');
+    expect(messages(el('span', { attributes: { dir: 'right' } }))[0]).toBe(
+      '<span> dir is one of ltr, rtl, auto',
+    );
   });
 
   it('reports only the first few problems, each with its path, so the refusal stays one instruction', () => {
@@ -420,12 +502,23 @@ describe('custom-code tree — design markup', () => {
 
   it('states every tag and attribute in the JSON Schema the prompt derives its vocabulary from', () => {
     const json = JSON.stringify(z.toJSONSchema(z.object({ tree: customCodeTreeSchema })));
-    for (const name of ['details', 'linearGradient', 'video', 'viewBox', 'popovertarget', 'stroke-width']) {
+    for (const name of [
+      'details',
+      'linearGradient',
+      'video',
+      'viewBox',
+      'popovertarget',
+      'stroke-width',
+    ]) {
       expect(json).toContain(`"${name}"`);
     }
-    expect(CUSTOM_CODE_SVG_TAGS.every((tag) => (CUSTOM_CODE_TAGS as readonly string[]).includes(tag))).toBe(true);
     expect(
-      CUSTOM_CODE_SVG_ATTRIBUTES.every((name) => (CUSTOM_CODE_ATTRIBUTES as readonly string[]).includes(name)),
+      CUSTOM_CODE_SVG_TAGS.every((tag) => (CUSTOM_CODE_TAGS as readonly string[]).includes(tag)),
+    ).toBe(true);
+    expect(
+      CUSTOM_CODE_SVG_ATTRIBUTES.every((name) =>
+        (CUSTOM_CODE_ATTRIBUTES as readonly string[]).includes(name),
+      ),
     ).toBe(true);
     expect(new Set(CUSTOM_CODE_ATTRIBUTES).size).toBe(CUSTOM_CODE_ATTRIBUTES.length);
     expect(new Set(CUSTOM_CODE_TAGS).size).toBe(CUSTOM_CODE_TAGS.length);
@@ -446,8 +539,13 @@ describe('custom-code tree — design markup', () => {
 
   it('reads srcset candidates the way a browser does, data URL commas included', () => {
     expect(customCodeSrcsetUrls('/a.jpg 1x, /b.jpg 2x')).toEqual(['/a.jpg', '/b.jpg']);
-    expect(customCodeSrcsetUrls('/a.jpg,/b.jpg 640w')).toEqual(['/a.jpg', '/b.jpg']);
-    expect(customCodeSrcsetUrls('data:image/png;base64,AAAA 1x')).toEqual(['data:image/png;base64,AAAA']);
+    // A comma ends a candidate only where it trails an address (HTML's srcset algorithm)…
+    expect(customCodeSrcsetUrls('/a.jpg, /b.jpg 640w')).toEqual(['/a.jpg', '/b.jpg']);
+    // …inside one it is part of the address, as a browser reads it: one relative path.
+    expect(customCodeSrcsetUrls('/a.jpg,/b.jpg 640w')).toEqual(['/a.jpg,/b.jpg']);
+    expect(customCodeSrcsetUrls('data:image/png;base64,AAAA 1x')).toEqual([
+      'data:image/png;base64,AAAA',
+    ]);
     expect(customCodeSrcsetUrls('/a.jpg huge')).toBeUndefined();
     expect(customCodeSrcsetUrls('   ')).toBeUndefined();
     expect(safeCustomCodeUrl('javascript:alert(1)')).toBeUndefined();
@@ -458,7 +556,9 @@ describe('custom-code tree — design markup', () => {
     expect(
       parse(
         el('div', { attributes: { alt: 'x', title: 't', role: 'img', id: 'a' } }),
-        el('img', { attributes: { src: 'http://legacy.test/a.jpg', alt: 'kept for the read-time policy' } }),
+        el('img', {
+          attributes: { src: 'http://legacy.test/a.jpg', alt: 'kept for the read-time policy' },
+        }),
         el('time', { attributes: { datetime: '2026-09-28' }, text: 'Today' }),
       ).success,
     ).toBe(true);

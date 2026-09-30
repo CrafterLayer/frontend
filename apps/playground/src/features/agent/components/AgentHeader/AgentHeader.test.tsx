@@ -235,6 +235,17 @@ describe('AgentHeader.css', () => {
     expect(CSS).toMatch(/forced-colors: active[\s\S]*border-block-end/u);
   });
 
+  it('keeps the applied face ring Indigo inside the panel, never Success green', () => {
+    const ring = readFileSync(
+      join(process.cwd(), 'src', 'features', 'agent', 'components', 'AgentHeader', 'face-ring.css'),
+      'utf8',
+    ).replace(/\/\*[\s\S]*?\*\//gu, '');
+    expect(ring).toMatch(
+      /\.ck-agent \.pg-face\[data-mood='done'\]\[data-outcome='applied'\] \.pg-face__ring\s*\{[^}]*stroke:\s*var\(--bldr-accent\)/u,
+    );
+    expect(ring).not.toMatch(/--bldr-success/u);
+  });
+
   it('follows the thread’s gutter below 320px and spaces touch targets 8px apart', () => {
     expect(CSS).toMatch(/@container agent \(inline-size < 320px\)/u);
     expect(CSS).toMatch(/@media \(pointer: coarse\)[\s\S]*gap:\s*var\(--bldr-space-md\)/u);

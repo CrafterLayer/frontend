@@ -15,6 +15,7 @@
 
 export {
   checkDocumentQuality,
+  isSeoCheck,
   type CheckDocumentOptions,
   type QualityCheck,
   type QualityIssue,
@@ -23,3 +24,5 @@ export {
 export { checkDocumentContrast } from './check-contrast';
 export { briefTerms, measureBriefRelevance, type BriefRelevance } from './brief-relevance';
 export { checkQuality, blocks, type QualityReport } from './report';
+/* SEO issues render on the same quality card; advisory, never in `blocks()`. */
+export { checkSeo, type CheckSeoOptions, type SeoIssue } from '../seo/check-seo';

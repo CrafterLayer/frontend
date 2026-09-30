@@ -111,6 +111,15 @@ describe('the composition escape hatch', () => {
       Against the real 55-block registry the same exemption is ~2% of the
       catalog; the saving is asserted at production size in the playground's
       own cost gate (apps/playground/src/features/preview/ai-context-cost.test.ts).
+
+      Measured 5,510 characters on 2026-09-29, up from under 4,000: the
+      2026-09-28 design-code vocabulary (custom-code-tree.ts) grew to 72 tags
+      (details/summary, the table parts, picture/source/video and the svg
+      shape family joined) and gained the svg paint and geometry attributes.
+      The tree's props schema states each once — nothing is repeated, the
+      lists are longer. The production gate above still passes, so the fixed
+      bound moves with the vocabulary rather than the vocabulary shrinking to
+      fit an old number.
     */
     const withHatch = assembleAiContext(kernel().context, {
       composition: { catalogMode: 'index' },
@@ -126,7 +135,7 @@ describe('the composition escape hatch', () => {
     const exemptionCost = size(withHatch.blocks) - size(withoutHatch.blocks);
 
     expect(exemptionCost).toBe(size(onlyHatch.blocks) - size(withoutHatch.blocks));
-    expect(exemptionCost).toBeLessThan(4_000);
+    expect(exemptionCost).toBeLessThan(6_000);
   });
 
   it('names the escape hatch once, where the renderer and the extension agree on it', () => {

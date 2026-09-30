@@ -198,7 +198,7 @@ async function press(element: Element): Promise<void> {
 function field(canvasElement: HTMLElement, locale: Locale = 'en'): HTMLTextAreaElement {
   return within(canvasElement).getByRole('combobox', {
     name: t(locale, 'input.aria'),
-  }) as HTMLTextAreaElement;
+  });
 }
 
 const meta = {

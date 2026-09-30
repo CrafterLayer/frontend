@@ -22,6 +22,13 @@
   --bldr-agent-runbar-height: calc(var(--bldr-hit-target-min) + var(--bldr-space-md));
   --bldr-font-size-input: 16px;
   --bldr-line-height-input: 24px;
+  /*
+    The composer family's targets (Send, Stop, Improve, the chip ×, the toolbar's menus)
+    read these two from their ancestors and set them only under a coarse pointer; the
+    sheet sets them for its whole subtree: 44px targets, 8px between them.
+  */
+  --ck-agent-target: var(--bldr-hit-target-min);
+  --ck-agent-toolbar-gap: var(--bldr-space-md);
 
   --ck-agent-sheet-top: var(--bldr-topbar-height);
   --ck-agent-sheet-safe-block-end: var(

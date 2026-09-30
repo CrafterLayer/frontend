@@ -66,6 +66,13 @@ export interface ClaudeOptions {
    * needs far less of it than the skeleton that decided it.
    */
   readonly effort?: string;
+  /**
+   * True turns thinking off for THIS call (`thinking: {type: 'disabled'}`,
+   * which the CLI shim maps to its no-thinking settings). For calls whose
+   * design is already decided — a section writer, a small low-budget edit —
+   * where thinking was over 85% of the output (measured 2026-09-30).
+   */
+  readonly thinkingOff?: boolean;
   /** Receives Claude's own narration; becomes SSE `status` frames. */
   readonly onProgress?: (text: string) => void;
   /** Receives the raw answer text before it is parsed — what the model actually said. */
@@ -220,7 +227,10 @@ async function ask(
       max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
       // Thinking earns its cost here: choosing a parent and slot that the
       // schema actually permits is the difference between a plan and a retry.
-      thinking: { type: 'adaptive', display: 'summarized' },
+      // Callers that already have a decided design may turn it off (`thinkingOff`).
+      thinking: options.thinkingOff
+        ? { type: 'disabled' }
+        : { type: 'adaptive', display: 'summarized' },
       system: system as Anthropic.TextBlockParam[],
       messages: messages as Anthropic.MessageParam[],
       output_config: {

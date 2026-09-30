@@ -396,6 +396,14 @@ export const ar = {
   'suggest.rework': 'إعادة تصميم «{title}» على هيئة {prompt}',
   // `{titles}` is the locale's list of quoted section titles («أ» و«ب»).
   'suggest.salvage': 'إكمال التعديلات على {titles}',
+  // (added) ما تقترحه صفحة بُنيت أو عُدِّلت للتوّ: قسم ليس فيها بعد، ثم تعديلان يصلحان لكل
+  // صفحة. مصدر بالفصحى، كسائر نصوص الأداة (§4.0).
+  'suggest.page.pricing': 'إضافة قسم للأسعار والباقات',
+  'suggest.page.faq': 'إضافة قسم للأسئلة الشائعة',
+  'suggest.page.contact': 'إضافة قسم للتواصل وطريقة الحجز',
+  'suggest.page.testimonials': 'إضافة قسم لآراء العملاء',
+  'suggest.page.warmer': 'جعل ألوان الصفحة أدفأ',
+  'suggest.page.otherLanguage': 'إضافة نسخة إنجليزية من الصفحة',
 
   /* §4.17 the composer family */
   'input.aria': 'طلبك',
@@ -422,7 +430,7 @@ export const ar = {
   'mode.running': 'يسري على الطلب التالي',
   'model.aria': 'النموذج: {name}',
   'model.fast': 'سريع',
-  'model.fast.trait': 'الأسرع والأقل كلفة',
+  'model.fast.trait': 'الأسرع في الرد',
   'model.careful': 'دقيق',
   'model.careful.trait': 'أبطأ وأكثر عناية',
   'model.free': 'مجاني',

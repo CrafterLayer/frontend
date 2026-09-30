@@ -11,6 +11,7 @@ import {
 
 import type { BuilderKernel } from '@craftkit/builder-core';
 import {
+  DEFAULT_SLOT,
   blockPropDefaults,
   withBlockPropDefaults,
   type BlockRenderProps,
@@ -367,10 +368,12 @@ function NodeViewInner({
           style={hasChildren ? { display: 'contents' } : undefined}
         >
           {children}
-          {hasChildren ? null : (
+          {hasChildren || slotName === DEFAULT_SLOT ? null : (
             /*
               The slot's NAME, because three identical dashed boxes tell a person
-              nothing about which region they are about to fill.
+              nothing about which region they are about to fill. Not for the
+              block's unnamed `default` region: that name is an identifier, not
+              words, and on an empty page it sat alone mid-canvas as debug text.
             */
             <span className="bldr-slot-empty__label">{slotName}</span>
           )}

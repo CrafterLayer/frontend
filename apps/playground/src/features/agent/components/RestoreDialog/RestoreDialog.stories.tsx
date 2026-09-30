@@ -152,17 +152,18 @@ export const Conflict: Story = {
     ).toBeInTheDocument();
   },
 };
+const conflictInArabic: NonNullable<Story['play']> = async ({ canvasElement }) => {
+  const body = within(canvasElement.ownerDocument.body);
+  await userEvent.click(body.getByRole('button', { name: t('ar', 'restore.confirm') }));
+  await body.findByRole('button', { name: t('ar', 'restore.close') });
+};
 export const ConflictRightToLeft: Story = {
   ...story(restoreAnswering('conflict'), { locale: 'ar' }),
-  play: async ({ canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole('button', { name: t('ar', 'restore.confirm') }));
-    await body.findByRole('button', { name: t('ar', 'restore.close') });
-  },
+  play: conflictInArabic,
 };
 export const ConflictRightToLeftDark: Story = {
   ...story(restoreAnswering('conflict'), { locale: 'ar', theme: 'dark' }),
-  play: ConflictRightToLeft.play,
+  play: conflictInArabic,
 };
 
 /** Esc closes it and focus returns to the record's [⋯] (SPEC §6.3). */

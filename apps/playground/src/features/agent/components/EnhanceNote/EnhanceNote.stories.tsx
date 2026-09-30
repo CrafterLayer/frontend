@@ -1,5 +1,5 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import '@fontsource/ibm-plex-sans/latin-400.css';
 import '@fontsource/ibm-plex-sans/latin-500.css';
@@ -105,7 +105,10 @@ type Story = StoryObj<typeof meta>;
 export const Enhanced: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole('group', { name: t('en', 'enhance.done') })).toBeVisible();
+    // The note fades in: visible once its entrance has run.
+    await waitFor(() =>
+      expect(canvas.getByRole('group', { name: t('en', 'enhance.done') })).toBeVisible(),
+    );
     await userEvent.click(canvas.getByRole('button', { name: t('en', 'enhance.restore') }));
     await expect(args.onRestore).toHaveBeenCalledTimes(1);
   },

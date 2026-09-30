@@ -10,15 +10,19 @@ import {
   PAGE_PLAN_EXAMPLE,
   PAGE_PLAN_FALLBACK_ACCENTS,
   PAGE_PLAN_FALLBACK_BASE,
+  PAGE_PLAN_KIT_IDS,
   PAGE_PLAN_LATIN_FAMILIES,
   PAGE_PLAN_PHOTO_TOPICS,
   PAGE_PLAN_SECTION_VARIANTS,
 } from './plan-shape';
 import {
+  EDIT_TOOL_PROMPT,
   PAGE_PLAN_CONTRACT_MARK,
+  SEO_TOOL_PROMPT,
   SYSTEM_RULES_TEXT,
   buildPrompt,
   markupVocabulary,
+  mentionsSeo,
   planPromptVariant,
 } from './prompt';
 
@@ -1144,6 +1148,27 @@ describe('design code in the prompts', () => {
     });
   });
 
+  it('reads attribute names from the compact catalog form (propertyNames.enum)', () => {
+    const compact = {
+      type: 'customCode',
+      description: 'Region.',
+      propsSchema: {
+        type: 'object',
+        properties: {
+          tag: { enum: ['img'] },
+          attributes: {
+            type: 'object',
+            propertyNames: { enum: ['src', 'alt', 'data-ck-behavior'] },
+            additionalProperties: { type: 'string', maxLength: 2000 },
+          },
+        },
+      },
+    };
+    expect(
+      markupVocabulary([compact as unknown as AiPlanWireRequest['context']['blocks'][number]]),
+    ).toEqual({ tags: ['img'], attributes: ['src', 'alt', 'data-ck-behavior'] });
+  });
+
   it("falls back to the schema's own word when the catalog carries no customCode schema", () => {
     expect(markupVocabulary(wireRequest().context.blocks)).toBeUndefined();
     const line = vocabularyOf(
@@ -1256,5 +1281,91 @@ describe('design code in the prompts', () => {
       expect(rules).toContain(stated);
     }
     for (const host of hosts) expect(rules).toContain(host);
+  });
+});
+
+// ── agent tools, the section kit and SEO in the prompts (2026-09-30) ────────
+
+describe('agent tools in the edit prompt', () => {
+  /*
+    The tool lines are copies (this app cannot import builder-ai); the real
+    catalog is imported here, from its source file, so a renamed tool or a
+    reworded summary fails this test rather than a live edit.
+  */
+  async function realToolPrompt(lane: 'edit' | 'seo'): Promise<string> {
+    const url = new URL(
+      '../../../packages/builder/ai/src/tools/agent/catalog-prompt.ts',
+      import.meta.url,
+    ).href;
+    const module = (await import(/* @vite-ignore */ url)) as {
+      agentToolPrompt: (lane: string) => string;
+    };
+    return module.agentToolPrompt(lane);
+  }
+
+  it('states the edit lane exactly as builder-ai lists it, and the seo lane too', async () => {
+    expect(EDIT_TOOL_PROMPT).toBe(await realToolPrompt('edit'));
+    expect(SEO_TOOL_PROMPT).toBe(await realToolPrompt('seo'));
+  }, 30_000);
+
+  it('lists the edit tools in the frozen edit rules, with the preference and the script rule', () => {
+    const rules = buildPrompt(editRequest()).system[0]?.text ?? '';
+    expect(rules).toContain('## Tools');
+    expect(rules).toContain(EDIT_TOOL_PROMPT);
+    expect(rules).toContain('Prefer ONE tool step over markup');
+    expect(rules).toContain('editTree and setProp remain for everything else');
+    expect(rules).toContain('needs a code page');
+    expect(rules).toContain('never put a script inline');
+    // A build never sees them: its rules are byte-for-byte the recorded ones.
+    expect(buildPrompt(wireRequest()).system[0]?.text).toBe(SYSTEM_RULES_TEXT);
+  });
+
+  it('adds the seo lane only to an edit that asks about SEO, after the cached prefix', () => {
+    const plain = buildPrompt(editRequest());
+    const arabic = buildPrompt({ ...editRequest(), request: 'حسّن السيو للصفحة' });
+    const english = buildPrompt({ ...editRequest(), request: 'improve the SEO of this page' });
+    const last = (parts: typeof plain): string => parts.messages.at(-1)?.content ?? '';
+
+    expect(last(plain)).not.toContain('# SEO tools');
+    expect(last(arabic)).toContain(`# SEO tools\n${SEO_TOOL_PROMPT}`);
+    expect(last(english)).toContain('# SEO tools');
+    expect(last(arabic).indexOf('# SEO tools')).toBeLessThan(last(arabic).indexOf('# The request'));
+    // The cached segments do not move for it.
+    expect(arabic.system).toEqual(plain.system);
+    expect(mentionsSeo('seoul coffee')).toBe(false);
+    expect(mentionsSeo('بدي سيو قوي')).toBe(true);
+  });
+
+  it('keeps the edit prompt compact: each lane within 900 characters, the edit still < 80% of a build', () => {
+    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
+    expect(SEO_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
+    const edit = buildPrompt(editRequest());
+    const build = buildPrompt({
+      ...editRequest(),
+      context: { ...editRequest().context, document: wireRequest().context.document },
+    });
+    const size = (parts: typeof edit): number =>
+      parts.system.reduce((total, part) => total + part.text.length, 0);
+    expect(size(edit)).toBeLessThan(size(build) * 0.8);
+  });
+});
+
+describe('the page-plan prompt with kits and seo', () => {
+  function planRequest(): AiPlanWireRequest {
+    return { ...wireRequest(), request: 'اعمل صفحة هبوط لمحمصة قهوة في عمّان', task: 'page-plan' };
+  }
+
+  it('names the kits, the slots rule and the seo fields in the frozen rules', () => {
+    const rules = buildPrompt(planRequest()).system[0]?.text ?? '';
+    expect(rules).toContain('"variant","kit","slots","images"');
+    for (const id of PAGE_PLAN_KIT_IDS) expect(rules).toContain(id);
+    expect(rules).toContain('slots: ONLY for a short section');
+    expect(rules).toContain('- seo: {"keyword","pageKind","businessType","slug"}');
+    expect(rules).toContain(JSON.stringify(PAGE_PLAN_EXAMPLE));
+  });
+
+  it('stays within its budget: the rules under 11,000 characters (8,340 before kits and seo)', () => {
+    const rules = buildPrompt(planRequest()).system[0]?.text ?? '';
+    expect(rules.length).toBeLessThan(11_000);
   });
 });

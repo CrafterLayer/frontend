@@ -25,6 +25,7 @@ import {
   INTERROGATIVES,
   IRREGULAR_PASTS_EN,
   JUDGMENTS,
+  LEADING_VERBS_EN,
   NEGATIONS,
   NEW_WORDS_AR,
   NEW_WORDS_EN,
@@ -86,6 +87,7 @@ const EVERY_WORD: readonly string[] = [
   ...NEW_WORDS_AR,
   ...NEW_WORDS_EN,
   ...VERBS_EN.keys(),
+  ...LEADING_VERBS_EN.keys(),
   ...VERB_PAIRS_EN.flatMap(([first, second]) => [first, second]),
   ...COMPARATIVES,
   ...COPULAS,
@@ -164,6 +166,7 @@ describe('the intent lexicon', () => {
     ['عايز', 'want'],
     ['محتاج', 'want'],
     ['اعطني', 'want'],
+    ['تعطيني', 'want'],
     ['اجعل', 'make'],
     ['خلي', 'make'],
     ['اضف', 'add'],
@@ -176,6 +179,11 @@ describe('the intent lexicon', () => {
     ['احذف', 'edit'],
     ['ترجم', 'edit'],
     ['اكتب', 'edit'],
+    // Linking pages changes the nav or a link — final test, 2026-09-29.
+    ['اربط', 'edit'],
+    ['تربط', 'edit'],
+    ['تربطها', 'edit'],
+    ['ربط', 'edit'],
   ])('reads the Arabic verb form “%s” as %s', (form, kind) => {
     expect(VERBS_AR.find(([pattern]) => pattern.test(form))?.[1]).toBe(kind);
   });
@@ -202,6 +210,30 @@ describe('the intent lexicon', () => {
     expect(possibility('can', 'you')).toBeUndefined();
     expect(possibility('هل', 'يمكنك')).toBeUndefined();
     expect(possibility('ممكن')).toBeUndefined();
+  });
+
+  /*
+    Final test, 2026-09-29: a question of ABILITY put to the assistant — "can
+    you…", «هل يمكنك…», «هل بتقدر…», the Levantine «ممكن…» — is followed by the
+    verb that says what it asks; courtesy that asks nothing of it is not one.
+  */
+  it('marks the questions of ability put to the assistant, and only those', () => {
+    const ability = (...words: string[]) =>
+      OPENERS.find((opener) => opener.words.join(' ') === words.join(' '))?.ability;
+    for (const words of [
+      ['can', 'you'],
+      ['could', 'you', 'please'],
+      ['هل', 'يمكنك'],
+      ['هل', 'تقدر'],
+      ['هل', 'ممكن'],
+      ['ممكن'],
+      ['بتقدر'],
+    ]) {
+      expect({ words, ability: ability(...words) }).toEqual({ words, ability: true });
+    }
+    for (const words of [['please'], ['من', 'فضلك'], ['يا', 'ابو', 'غضب'], ['hey']]) {
+      expect({ words, ability: ability(...words) }).toEqual({ words, ability: undefined });
+    }
   });
 
   it('maps every irregular past to a verb the router reads', () => {

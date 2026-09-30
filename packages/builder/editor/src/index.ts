@@ -588,3 +588,13 @@ export {
   type SelectionReconciliation,
   type SelectionSnapshot,
 } from '@craftkit/builder-shell';
+// static-export additions (2026-09-30): the renderer's static site exporter,
+// re-exported so the playground's "Publish site" reaches it through this door.
+export {
+  exportStaticSite,
+  type ExportStaticSiteOptions,
+  type StaticSiteFile,
+  type StaticSitePageInput,
+  type StaticSiteResult,
+} from '@craftkit/builder-renderer';
+// end static-export additions

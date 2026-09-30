@@ -13,6 +13,7 @@ import {
   lastFollowUp,
   ownsRun,
   preflightPorts,
+  ranOnPage,
   routeRequest,
   skillsForMode,
   withImpact,
@@ -326,5 +327,23 @@ describe('routeRequest (over the engine’s routeIntent)', () => {
       kind: 'build-page',
       target: 'new-page',
     });
+  });
+});
+
+describe('ranOnPage: the newest answer finished with the page in hand', () => {
+  const user = { kind: 'user' };
+  it('is true after a settled or stopped build and after a finished edit', () => {
+    expect(ranOnPage([user, { kind: 'build', status: 'settled' }])).toBe(true);
+    expect(ranOnPage([user, { kind: 'build', status: 'interrupted' }, user])).toBe(true);
+    expect(ranOnPage([{ kind: 'edit', status: 'done' }])).toBe(true);
+    expect(ranOnPage([{ kind: 'edit', status: 'stopped' }])).toBe(true);
+  });
+  it('is false while running, after a failure, an undone build, or a words-only answer', () => {
+    expect(ranOnPage([])).toBe(false);
+    expect(ranOnPage([{ kind: 'build', status: 'running' }])).toBe(false);
+    expect(ranOnPage([{ kind: 'build', status: 'failed' }])).toBe(false);
+    expect(ranOnPage([{ kind: 'build', status: 'settled', undone: true }])).toBe(false);
+    expect(ranOnPage([{ kind: 'edit', status: 'running' }])).toBe(false);
+    expect(ranOnPage([{ kind: 'build', status: 'settled' }, { kind: 'answer' }])).toBe(false);
   });
 });

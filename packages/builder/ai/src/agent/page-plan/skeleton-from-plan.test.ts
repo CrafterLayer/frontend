@@ -24,7 +24,10 @@ import {
 } from '../../skills/direction-deck';
 import type { AiPlan } from '../../types';
 import { checkSection } from './check-section';
-import { PAGE_KIT_CLASSES, PAGE_SKELETON_LABEL, skeletonFromPlan } from './skeleton-from-plan';
+import { instantiateKit } from '../../section-kit/instantiate';
+import { kitSamples } from '../../section-kit/kit-testing';
+import { SECTION_KITS } from '../../section-kit/kits';
+import { PAGE_KIT_CLASSES, PAGE_SKELETON_LABEL, pagePlanCss, skeletonFromPlan } from './skeleton-from-plan';
 import { validatePagePlan, type PagePlan, type PagePlanIntent } from './index';
 
 /*
@@ -1109,5 +1112,39 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
     const footer = insertedTrees(plan)[2]!;
     expect(textOf(footer)).toContain('© Northlight Studio');
     expect(textOf(footer)).toContain('All rights reserved.');
+  });
+});
+
+describe('kit link colours', () => {
+  /*
+    A published page has no host page around it: an <a> whose classes set no
+    colour renders in the browser's default link blue — blue on a dark footer
+    failed AA on both live pages (final test 2026-09-30). Every link a kit
+    renders must carry a class whose rule sets `color`.
+  */
+  it('gives every link a kit renders a class with a colour rule', () => {
+    const css = pagePlanCss(englishStudio());
+    const coloured = (name: string, kitCss: string) =>
+      new RegExp(`\\.${name.replace(/[/:[\]]/gu, '\\$&')}(?![\\w-])[^{]*\\{(?:[^}]*;)?\\s*color:`, 'u').test(
+        `${css}\n${kitCss}`,
+      );
+    const bare: string[] = [];
+    for (const kit of SECTION_KITS) {
+      const filled = instantiateKit(kit, kitSamples(kit, 'en'), {
+        id: 'k',
+        heading: kit.role === 'hero' ? 'h1' : 'h2',
+        locale: { lang: 'en', dir: 'ltr' },
+      });
+      if (!filled.ok) throw new Error(`${kit.id}: ${filled.error}`);
+      for (const child of filled.tree.children as TreeNode[]) {
+        walk(child, (node) => {
+          if (node.kind !== 'element' || node.tag !== 'a') return;
+          const names = (node.className ?? '').split(/\s+/u).filter(Boolean);
+          if (!names.some((name) => coloured(name, filled.css))) bare.push(`${kit.id}: ${node.className ?? '(none)'}`);
+        });
+      }
+    }
+    expect(css).toContain('.ck-link{color:inherit');
+    expect(bare).toEqual([]);
   });
 });

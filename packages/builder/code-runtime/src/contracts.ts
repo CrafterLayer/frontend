@@ -72,6 +72,16 @@ export interface ExportPage extends RuntimeSnapshot {
   readonly language?: string;
   readonly direction?: 'ltr' | 'rtl';
   readonly noIndex?: boolean;
+  /**
+   * The page root's `seo` prop, as stored. Untrusted wire data: the exporter
+   * parses it with `pageSeoSchema` and ignores it when it does not parse. The
+   * home page's (`address: '/'`) `seo.site` carries the site-wide settings.
+   */
+  readonly seo?: JsonRecord;
+  readonly socialTitle?: string;
+  readonly socialDescription?: string;
+  /** An https image URL for og:image / twitter:image. */
+  readonly socialImage?: string;
 }
 
 export interface PrerenderResult {
@@ -89,6 +99,13 @@ export interface ExportOptions {
     signal?: AbortSignal,
   ) => Promise<PrerenderResult>;
   readonly signal?: AbortSignal;
+  /**
+   * The published https origin. Enables absolute canonical/og URLs, the
+   * sitemap and robots.txt; falls back to the home page's `seo.site.origin`.
+   */
+  readonly origin?: string;
+  /** The sitemap's lastmod; defaults to the export time. */
+  readonly now?: Date;
 }
 
 export type ExportResult =

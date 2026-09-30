@@ -637,6 +637,22 @@ describe('checkSection — a landed section held to its contract', () => {
       ['the host in capitals', 'https://wa.me/962791234567', 'https://WA.ME/962791234567'],
       ['a phone’s spacing', 'tel:+96264612750', 'tel:+962 6 461 2750'],
       ['Arabic-Indic digits in a phone', 'tel:+96264612750', 'tel:+٩٦٢٦٤٦١٢٧٥٠'],
+      [
+        'a wa.me prefill encoded differently',
+        'https://wa.me/962791234567?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7',
+        'https://wa.me/962791234567?text=مرحبا',
+      ],
+      [
+        'a wa.me prefill worded differently',
+        'https://wa.me/962791234567?text=Hello',
+        'https://wa.me/962791234567?text=Hi%20there',
+      ],
+      [
+        'api.whatsapp.com for the same number',
+        'https://wa.me/962791234567',
+        'https://api.whatsapp.com/send?phone=962791234567&text=Hi',
+      ],
+      ['an encoded plus in a phone', 'tel:+96264612750', 'tel:%2B962%206%20461%202750'],
     ])('reads the action’s address however it is typed (%s)', (_name, target, written) => {
       const plan: PagePlan = {
         ...BUILDER,

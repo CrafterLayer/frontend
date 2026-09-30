@@ -13,6 +13,7 @@ import { clinicPlan } from '../testing/page-plans';
 import type { BuildProgress, BuildTask } from './build-progress';
 import type { BuildRecordInput, ErrorRecordInput, SectionOutcome } from './run-view';
 import {
+  answerFromPlan,
   historyOf,
   highestIdSuffix,
   outcomeKeyOf,
@@ -250,6 +251,43 @@ describe('historyOf', () => {
     expect(history).toHaveLength(12);
     expect(history[0]?.text).toBe('request 9');
     expect(history.at(-1)?.text).toBe('request 20');
+  });
+});
+
+describe('answerFromPlan: a plan with words and no command is an answer', () => {
+  /*
+    «can you link the page in here on it»: the model understood nothing, proposed no
+    command and asked back in a follow-up. It was recorded as "No change to the page. It
+    already matched what you asked for.", a false claim. `edit.noChange` is for commands
+    that landed and moved nothing; words alone are an answer.
+  */
+  it('records the rationale as the answer, and keeps the follow-up to send next', () => {
+    const plan: AiPlan = {
+      rationale: 'Which page should the link open?',
+      commands: [],
+      followUp: 'Link the Book button to the Contact page',
+    };
+    expect(answerFromPlan({ id: 'turn-4', request: 'link the page in here', plan })).toEqual({
+      id: 'turn-4',
+      kind: 'answer',
+      text: 'Which page should the link open?',
+      request: 'link the page in here',
+      followUp: 'Link the Book button to the Contact page',
+    });
+  });
+
+  it('answers with the follow-up when the rationale is empty', () => {
+    const plan: AiPlan = { rationale: '  ', commands: [], followUp: 'Which page?' };
+    expect(answerFromPlan({ id: 'turn-4', plan })).toMatchObject({ kind: 'answer', text: 'Which page?' });
+  });
+
+  it('is not an answer when the plan proposed a command, or said nothing at all', () => {
+    const acting: AiPlan = {
+      rationale: 'Recolour the heading.',
+      commands: [{ command: 'setProp', args: { id: 'h', key: 'color', value: 'blue' } }],
+    };
+    expect(answerFromPlan({ id: 'turn-4', plan: acting })).toBeNull();
+    expect(answerFromPlan({ id: 'turn-4', plan: { rationale: '', commands: [] } })).toBeNull();
   });
 });
 

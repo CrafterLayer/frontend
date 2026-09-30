@@ -121,7 +121,6 @@ describe('every token a component reads is a token the theme defines', () => {
       'panel-text-soft',
       'panel-border-strong',
       'accent-strong',
-      'accent-text',
       'accent-ring',
       'danger-soft',
       'danger-border',

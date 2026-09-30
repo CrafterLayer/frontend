@@ -1,0 +1,9 @@
+/*
+  The face in the panel (SPEC §2.1): on the canvas the applied ring is Success green, but
+  the panel has no second hue, so inside it the earned ring keeps the done ring's Indigo.
+  A sheet of its own: the header itself never paints Indigo; this only overrides the
+  face's own done-state colour.
+*/
+.ck-agent .pg-face[data-mood='done'][data-outcome='applied'] .pg-face__ring {
+  stroke: var(--bldr-accent);
+}

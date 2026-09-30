@@ -20,16 +20,19 @@ import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
  * Errors use the envelope and statuses the plan endpoint uses. The call is
  * built to be FAST, the owner's first priority: the fastest model the server
  * allows (`fastestModel`), no thinking, the low reasoning budget on every
- * backend, at most 900 output tokens, and a 60 s cap — a person is waiting
- * with the cursor in the box, and a client that hears nothing in time tidies
- * the text locally instead.
+ * backend, at most 900 output tokens, and a 60 s cap at most — a person is
+ * waiting with the cursor in the box, and a client that hears nothing in time
+ * leaves their text as they typed it.
  */
 
 export const ENHANCE_PATH = '/v1/prompt/enhance';
 export const ENHANCE_WIRE_VERSION = 1;
 /** The contract's output ceiling: a rewritten request, a sentence, five items, three questions. */
 export const ENHANCE_MAX_OUTPUT_TOKENS = 900;
-/** The whole-call cap. A person waits on it; the client falls back to a local tidy past it. */
+/**
+ * The contract's ceiling for the whole call; the handler may serve a shorter one. A
+ * person waits on it, and a client that gives up first leaves their text as typed.
+ */
 export const ENHANCE_TIMEOUT_MS = 60_000;
 
 const MAX_TEXT_CHARACTERS = 8_000;
@@ -254,19 +257,22 @@ Answer with exactly ONE JSON object, minified on one line, nothing before or aft
 
 ## Rules
 
-1. SAME LANGUAGE AND SCRIPT as the person's text — never translate. Arabic stays Arabic and English stays English; a dialect's own words may stay. Fix only what is wrong: spelling, spacing, punctuation — «صفحه» → «صفحة», «ال صفحه» → «الصفحة», «انشاء» → «إنشاء», «اريد» → «أريد». Keep the person's own names, brands, numbers, prices, phone numbers, links and quoted text exactly as written.
+1. SAME LANGUAGE AND SCRIPT as the person's text — never translate. Arabic stays Arabic and English stays English; a dialect's own words may stay. Fix only what is wrong: spelling, spacing, punctuation — «صفحه» → «صفحة», «ال صفحه» → «الصفحة», «انشاء» → «إنشاء», «اريد» → «أريد». Keep the person's own names, brands, numbers, prices, phone numbers, links and quoted text exactly as written. In Arabic, name builder parts in plain Arabic, never English jargon or a calque: the hero is «القسم الرئيسي» (or «الواجهة»), never «هيرو»; the call to action is «زر الإجراء», never «الدعوة الرئيسية» or «CTA».
 2. KEEP THE INTENT. A request to build stays a build, an edit stays an edit, a question stays a question. The routed intent you are given is a hint; the text decides.
 3. NEVER INVENT FACTS: no business name, price, phone number, address, opening hours, statistic or quote the person did not give. Write "the phone number" or "the prices" — or ask.
-4. A BUILD request (a page or a site) becomes a concise professional brief of at most 600 characters: the kind of business and its audience, the place if given, the sections in a sensible order, the tone and visual direction, and the one main call to action.
-5. An EDIT becomes explicit: which section or element — named as the page names it (its section labels, the selected block) — and the exact change. It never grows into a new page and never touches anything the person did not mention.
+4. A BUILD request (a page or a site) becomes a concise professional brief of at most 600 characters: the kind of business and its audience, the place if given, the sections in a sensible order, the tone and visual direction, and the one main call to action. Always — a short build request with nothing misspelled still becomes a brief; handing it back as typed is wrong.
+5. An EDIT becomes explicit: which section or element — named as the page names it (its section labels, the selected block) — and the exact change. It never grows into a new page and never touches anything the person did not mention. NEVER GUESS A LINK TARGET: when the person asks to link or connect something and the text does not name exactly where to (a page, a section, a URL), keep the target open in "enhanced" and ask it as a question — "this page" / «هذه الصفحة» means the page the person is on, not a menu or another page.
 6. A QUESTION stays a question, only clearer.
-7. "understood": one short sentence in the UI language saying what you understood. "changes": at most 5 very short items in the UI language naming what you changed; [] when the text needed nothing.
+7. "understood": a short NOUN PHRASE in the UI language naming what you understood — «ربط هذه الصفحة بقائمة التنقل», «صفحة هبوط لمطعم», "A website for a bakery". Never a second-person verb or address: no «تريد», «تريدين», «بدك», no "You want". "changes": at most 5 very short items in the UI language naming what you changed; [] when the text needed nothing.
 8. "questions": ONLY when essential information is missing or the text is ambiguous — 0 to 3 questions, each with 2 to 4 short choices, in the language of the person's text. Otherwise []. Never ask what the text, the page or the answers already say.
 9. When the person has answered your earlier questions, fold the answers into "enhanced" and ask nothing already answered.
 10. "language": "ar" when the person's text is Arabic, otherwise "en".
 
 The shape, for «خلي خلفيه الهيرو اغمق» with the UI in Arabic — shape only, never reuse its words:
-{"enhanced":"خلّي خلفية قسم الهيرو أغمق.","understood":"تريد خلفية أغمق لقسم الهيرو فقط.","changes":["«خلفيه» ← «خلفية»","«اغمق» ← «أغمق»"],"questions":[],"language":"ar"}
+{"enhanced":"خلّي خلفية القسم الرئيسي أغمق.","understood":"خلفية أغمق للقسم الرئيسي فقط.","changes":["«خلفيه» ← «خلفية»","«اغمق» ← «أغمق»"],"questions":[],"language":"ar"}
+
+The shape of a build, for «make a website for my bakery» with the UI in English — shape only, never reuse its words:
+{"enhanced":"A website for a neighbourhood bakery, for local customers. Sections in order: a hero with the bakery's name and a short welcome, the products with their prices, the bakery's story, customer reviews, opening hours and location, contact. Warm, homely tone; soft natural colours and large photos of the baking. Main call to action: visit the bakery.","understood":"A website for a neighbourhood bakery.","changes":["Turned the request into a brief","Put the sections in order"],"questions":[],"language":"en"}
 
 Be brief: the person is waiting.`;
 
@@ -448,10 +454,54 @@ function contractQuestions(value: unknown, request: EnhanceRequest): EnhanceQues
   return kept.map((question, index) => ({ ...question, id: `q${String(index + 1)}` }));
 }
 
+const BUILD_INTENTS: ReadonlySet<EnhanceIntentKind> = new Set(['build-page', 'build-site']);
+
+/**
+ * Why an answer that reads as an enhancement is still not one — the request
+ * handed back as it was typed (case, spacing and punctuation aside) where the
+ * contract requires a rewrite — or undefined when it is one:
+ * - the person answered questions and none of it reached the text (rule 9):
+ *   the panel would run the request without their answers, where on a failure
+ *   it runs the request with them appended;
+ * - a build routed as one, with nothing asked (rule 4): found by the final
+ *   test on 2026-09-29, when «make a site for my gym» came back word for word
+ *   after 15 s, and the panel called the unchanged text "improved". A build
+ *   that DOES ask something still carries the questions, so it stands.
+ * Also covers an answer in another script, which `readEnhanceAnswer`
+ * replaces with the person's own text.
+ */
+function unchangedRewrite(response: EnhanceResponse, request: EnhanceRequest): string | undefined {
+  if (folded(response.enhanced) !== folded(request.text)) return undefined;
+  if (request.answers.length > 0) {
+    return 'The improved request left out the answers given; send the request with the answers as written.';
+  }
+  const build = request.intent !== null && BUILD_INTENTS.has(request.intent.kind);
+  if (build && response.questions.length === 0) {
+    return 'The assistant handed the build request back unchanged instead of a brief; send the request as written.';
+  }
+  return undefined;
+}
+
 export type EnhanceOutcome =
   | { readonly kind: 'enhanced'; readonly response: EnhanceResponse; readonly usage: UsageReport }
   | { readonly kind: 'refusal'; readonly message: string }
   | { readonly kind: 'invalid-output'; readonly message: string };
+
+/**
+ * A second-person verb that opens `understood` ("You want…", «تريد…») — the
+ * UI addresses nobody by gender (§4.0), so the reader strips it whatever the
+ * model wrote, rule 7 notwithstanding.
+ */
+const SECOND_PERSON_OPENING =
+  /^(?:(?:أنت|انت)\s+)?(?:تريد(?:ين|ون|ي)?|تودّ?(?:ين)?|بدّ?ك|بدك|حابب|حابة)(?:\s+(?:أن|ان))?\s+|^you\s+(?:want|would\s+like|'d\s+like)(?:\s+to)?\s+/iu;
+
+/** `understood` as a noun phrase: a second-person opening removed, the first letter kept upper-case. */
+export function impersonalUnderstood(text: string): string {
+  const trimmed = text.trim();
+  const stripped = trimmed.replace(SECOND_PERSON_OPENING, '').trim();
+  if (stripped === '' || stripped === trimmed) return trimmed;
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+}
 
 /**
  * A parsed answer as the contract's response. The server's own facts win
@@ -480,7 +530,7 @@ export function readEnhanceAnswer(
   return {
     version: ENHANCE_WIRE_VERSION,
     enhanced: flipped ? request.text.trim() : written.trim(),
-    understood: typeof understood === 'string' ? understood.trim() : '',
+    understood: typeof understood === 'string' ? impersonalUnderstood(understood) : '',
     changes: flipped
       ? []
       : distinct(Array.isArray(parsed['changes']) ? (parsed['changes'] as unknown[]) : []).slice(
@@ -579,6 +629,11 @@ export async function enhancePrompt(
       kind: 'invalid-output',
       message: 'The assistant answered without an improved request.',
     };
+  }
+  const unchanged = unchangedRewrite(response, request);
+  if (unchanged !== undefined) {
+    options.onLog?.(`prompt enhancer handed the request back unchanged — ${unchanged}`);
+    return { kind: 'invalid-output', message: unchanged };
   }
   return { kind: 'enhanced', response, usage: usageOf(message) };
 }

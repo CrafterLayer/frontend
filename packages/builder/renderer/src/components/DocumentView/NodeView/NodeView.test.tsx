@@ -258,12 +258,14 @@ describe('NodeView', () => {
     expect(wrapper).toHaveClass('bldr-slot-empty');
     expect(wrapper).not.toHaveAttribute('style');
     /*
-      The box carries the slot's NAME. Three identical dashed rectangles tell a
-      person nothing about which region they are filling — and the geometry that
-      makes the box hittable at all is a browser question, pinned in the
-      Chromium story rather than here, because jsdom computes no layout.
+      `default` is the block's unnamed region, and its name is an identifier,
+      not words: on an empty page it sat alone in the middle of the canvas as
+      stray debug text. So the unnamed region carries no label; a NAMED region
+      does (next test). The geometry that makes the box hittable at all is a
+      browser question, pinned in the Chromium story rather than here, because
+      jsdom computes no layout.
     */
-    expect(wrapper.textContent).toBe('default');
+    expect(wrapper.textContent).toBe('');
     canvas.unmount();
 
     render(
@@ -275,6 +277,36 @@ describe('NodeView', () => {
       />,
     );
     expect(screen.getByTestId('slot-root-default').querySelector('[data-bldr-slot]')).toBeNull();
+  });
+
+  it('labels an empty NAMED slot with its name, so named regions are not identical boxes', () => {
+    const heroWithoutActions: BuilderDocument = {
+      schemaVersion: 1,
+      surface: 'site',
+      dir: 'ltr',
+      rootId: 'root',
+      nodes: {
+        root: { id: 'root', type: 'page', props: { title: 'Hero' }, slots: { default: ['hero1'] } },
+        hero1: { id: 'hero1', type: 'hero', props: { tone: 'dark', heading: 'Build faster' } },
+      },
+    };
+
+    render(
+      <NodeView
+        kernel={makeKernel(heroWithoutActions)}
+        id="root"
+        breakpoint="desktop"
+        attachNodeElement={() => undefined}
+        isCanvas
+      />,
+    );
+    const wrapper = screen.getByTestId('slot-hero1-actions').firstElementChild;
+    if (!(wrapper instanceof HTMLElement)) {
+      throw new Error('expected an empty renderer slot wrapper');
+    }
+
+    expect(wrapper).toHaveClass('bldr-slot-empty');
+    expect(wrapper.textContent).toBe('actions');
   });
 
   it('swaps only the matching node property and keeps stored output for other or pending nodes', () => {

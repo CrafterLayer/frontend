@@ -211,6 +211,24 @@ describe('visibleStatus: the RunBar line (SPEC §4.3 visible column)', () => {
     });
   });
 
+  it('counts only the rows in the writing state, never the waiting or drafted ones', () => {
+    // The dark café at 5:32: row 4 writing, row 5 waiting → one section, never «قسمان».
+    const one = building(rows('landed', 'landed', 'landed', 'writing', 'waiting'));
+    expect(visibleStatus(one, 60_000)).toEqual({ statusKey: 'build.writing', params: { n: 1 } });
+    // No writer at all between two pickups: the rows hold no writing count to report.
+    const between = building(rows('landed', 'drafted', 'waiting'), {
+      lastLanding: { title: 'Hero', at: 0 },
+    });
+    expect(visibleStatus(between, 60_000)).toEqual({
+      statusKey: 'build.landed',
+      params: { title: 'Hero' },
+    });
+    expect(visibleStatus(building(rows('landed', 'waiting', 'waiting')), 60_000)).toEqual({
+      statusKey: 'build.writing',
+      params: { n: 1 },
+    });
+  });
+
   it('never returns a zero count', () => {
     const settled = building(rows('landed', 'failed'));
     const line = visibleStatus(settled, 0);

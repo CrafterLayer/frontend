@@ -95,6 +95,7 @@ const FIXTURE = {
   child: 'Pricing Plan',
   prompt: 'A pricing table with three plans',
   titles: '“Hero” and “FAQ”',
+  when: 'Yesterday',
 } as const;
 
 /** The slots that carry a count: plural selectors and noun slots read these. */

@@ -9,6 +9,9 @@
  * Esc returns to the chips; an answered question is a button back to it; the two ways out
  * call the controller; while rewriting, the working line takes focus and no chip remains.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -237,5 +240,24 @@ describe('ClarifyPanel: answers, ways out, rewriting', () => {
     expect(screen.queryByRole('radio')).toBeNull();
     // The answers stay in view, but are no longer a way back.
     expect(screen.queryByRole('button', { name: /Which page/u })).toBeNull();
+  });
+
+  it('rewriting: Cancel stays a way out while the request is rewritten', async () => {
+    const { user, handlers } = mount('en', clarifying('en', 1));
+    await user.click(radio('Services'));
+    const cancel = screen.getByRole('button', { name: t('en', 'clarify.cancel') });
+    expect(cancel).toBeEnabled();
+    expect(cancel).not.toHaveAttribute('aria-disabled');
+    await user.click(cancel);
+    expect(handlers.onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('rewriting: the working line is a focus destination, not a control, and draws no ring', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'features', 'agent', 'components', 'ClarifyPanel', 'ClarifyPanel.css'),
+      'utf8',
+    ).replace(/\/\*[\s\S]*?\*\//gu, '');
+    expect(css).not.toMatch(/\.ck-agent-clarify__working:focus-visible/u);
+    expect(css).toMatch(/\.ck-agent-clarify__working:focus\s*\{[^}]*outline:\s*none/u);
   });
 });

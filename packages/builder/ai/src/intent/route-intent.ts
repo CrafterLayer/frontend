@@ -23,6 +23,7 @@ import {
   INTERROGATIVES,
   IRREGULAR_PASTS_EN,
   JUDGMENTS,
+  LEADING_VERBS_EN,
   NEGATIONS,
   NEW_WORDS_AR,
   NEW_WORDS_EN,
@@ -252,8 +253,90 @@ export function routeIntent(input: RouteIntentInput): IntentRoute {
   const labels = input.document?.sectionLabels ?? [];
   const opened = stripOpeners(all);
   const frame = frameOf(opened);
-  if (frame === undefined) return routeWords(input, folded, labels, opened.tokens, opened.polite);
-  return routeFramed(input, folded, labels, opened, frame);
+  if (frame !== undefined) return routeFramed(input, folded, labels, opened, frame);
+  const routed = routeWords(input, folded, labels, opened.tokens, opened.polite);
+  return opened.ability === undefined
+    ? routed
+    : askedOfTheAssistant(routed, opened.tokens, opened.ability);
+}
+
+/**
+ * A build asked for as a question of ABILITY — "can you…", «هل يمكنك…», «هل
+ * بتقدر…», «ممكن…» — whose verb the router does not know.
+ *
+ * Such a question says what it asks in the verb after its opener. When no
+ * verb the router knows stands anywhere in the words, and they do not open
+ * with what they ask for either («ممكن موقع لمطعمي؟» asks for the site
+ * itself), the page a later noun names is a GUESS at the request: the owner's
+ * «هل يمكنك تربط ال صفحه هاي داخل عليها» ("can you link this page inside
+ * it") built a page at 0.8 on an empty canvas, no check made, because «تربط»
+ * was unknown and «صفحه» read as a page's name (final test, 2026-09-29). The
+ * build stays what the words most likely ask for, at `CONFIDENCE.capability`
+ * — below the confirm line, so the host checks before minutes of building.
+ */
+function askedOfTheAssistant(
+  routed: IntentRoute,
+  tokens: readonly IntentToken[],
+  opener: string,
+): IntentRoute {
+  if (routed.kind === 'edit') return unaimedEditAsked(routed, tokens, opener);
+  if (!isBuildIntent(routed) || routed.confidence <= CONFIDENCE.capability) return routed;
+  const scan = scanOf(tokens);
+  if (scan.verbs.length > 0) return routed;
+  let first = 0;
+  while (first < tokens.length && readsAs(tokens[first], OBJECT_FILLERS)) first += 1;
+  // What is asked for, or MSA's verbal noun as the verb: «هل يمكنك تصميم موقع لعيادتي؟».
+  if (scan.nouns[first] !== undefined || readsAs(tokens[first], VERBAL_NOUNS_AR)) return routed;
+  return route(
+    routed.kind,
+    CONFIDENCE.capability,
+    `asks whether it can (“${opener}”) “${tokens[first]?.raw ?? ''}”, a verb it does not know, and ${routed.reason}`,
+    routed.target,
+  );
+}
+
+/**
+ * The reasons of an edit aimed at nothing in particular: no block pointed at,
+ * no section of the page named — the whole page, changed as the words say.
+ */
+const EDIT_UNAIMED = {
+  verb: 'asks to change what is there',
+  bare: 'the page has content and the words ask for no new page',
+} as const;
+
+/**
+ * An edit asked as a question of ABILITY — "can you…", «هل يمكنك…» — that
+ * aims at no block and no section the page has: a change to the WHOLE page,
+ * asked of the assistant rather than told to it.
+ *
+ * It sits at `CONFIDENCE.capability`, below the confirm line, like the same
+ * change asked as "is it possible to…": the owner's «هل يمكنك تربط ال صفحه
+ * هاي داخل عليها» over a landing page routed edit@0.8 once «تربط» was known,
+ * so no check was made and a whole-page edit started at once (final test,
+ * 2026-09-30). An edit that names a part — "could you make the hero
+ * darker?", «هل ممكن تحذف الفوتر؟» — or a pointed block is aimed, and keeps
+ * its confidence.
+ */
+function unaimedEditAsked(
+  routed: IntentRoute,
+  tokens: readonly IntentToken[],
+  opener: string,
+): IntentRoute {
+  const unaimed = routed.reason === EDIT_UNAIMED.verb || routed.reason === EDIT_UNAIMED.bare;
+  if (!unaimed || routed.confidence <= CONFIDENCE.capability) return routed;
+  // A part the words name — «هل ممكن تحذف الفوتر؟» — aims it, labelled on this page or not.
+  const scan = scanOf(tokens);
+  const isVerb = (index: number): boolean =>
+    scan.verbs.some((found) => index >= found.index && index < found.index + found.width);
+  const aimed = scan.nouns.some(
+    (noun) => noun !== undefined && !isPageLevel(noun) && !isVerb(noun.index),
+  );
+  if (aimed) return routed;
+  return route(
+    'edit',
+    CONFIDENCE.capability,
+    `asks whether it can (“${opener}”) change the whole page, and ${routed.reason}`,
+  );
 }
 
 /**
@@ -531,12 +614,8 @@ function routeWords(
   if (read.label !== undefined) {
     return route('edit', CONFIDENCE.editNamed, `names the page’s own “${read.label}” section`);
   }
-  if (read.changes) return route('edit', CONFIDENCE.editVerb, 'asks to change what is there');
-  return route(
-    'edit',
-    CONFIDENCE.editDefault,
-    'the page has content and the words ask for no new page',
-  );
+  if (read.changes) return route('edit', CONFIDENCE.editVerb, EDIT_UNAIMED.verb);
+  return route('edit', CONFIDENCE.editDefault, EDIT_UNAIMED.bare);
 }
 
 /* ── Openers and questions ─────────────────────────────────────────────── */
@@ -547,6 +626,8 @@ interface OpenedRequest {
   readonly polite: boolean;
   /** The opener asked whether something CAN be done ("is it possible to"), as its words. */
   readonly capability?: string;
+  /** The opener asked whether the ASSISTANT can do something ("can you"), as its words. */
+  readonly ability?: string;
 }
 
 /**
@@ -558,6 +639,7 @@ function stripOpeners(tokens: readonly IntentToken[]): OpenedRequest {
   let start = 0;
   let polite = false;
   let capability: string | undefined;
+  let ability: string | undefined;
   for (let pass = 0; pass < 4; pass += 1) {
     const opener = OPENERS.find(
       (candidate) =>
@@ -571,9 +653,14 @@ function stripOpeners(tokens: readonly IntentToken[]): OpenedRequest {
       (opener.possibility === 'verbal-noun' &&
         (readsAs(tokens[start], VERBAL_NOUNS_AR) || firstPersonVerbAr(tokens, start)));
     if (asksWhatIsPossible) capability ??= opener.words.join(' ');
+    if (opener.ability === true) ability ??= opener.words.join(' ');
   }
-  const rest = tokens.slice(start);
-  return capability === undefined ? { tokens: rest, polite } : { tokens: rest, polite, capability };
+  return {
+    tokens: tokens.slice(start),
+    polite,
+    ...(capability === undefined ? {} : { capability }),
+    ...(ability === undefined ? {} : { ability }),
+  };
 }
 
 /**
@@ -972,8 +1059,23 @@ function verbAt(tokens: readonly IntentToken[], index: number): Verb | undefined
   for (const [first, second, kind] of VERB_PAIRS_EN) {
     if (phraseAt(tokens, index, [first, second])) return { index, kind, width: 2 };
   }
-  const kind = VERBS_EN.get(token.raw);
+  const kind =
+    VERBS_EN.get(token.raw) ??
+    (leadsAsAVerb(tokens, index) ? LEADING_VERBS_EN.get(token.raw) : undefined);
   return kind === undefined ? undefined : { index, kind, width: 1 };
+}
+
+/**
+ * Whether the word at `index` stands where a request's verb does — first, or
+ * first after a break — with its object right after it: "LINK this page…",
+ * "DO a landing page…". Followed by a preposition it is the noun: "link in
+ * bio page for my shop", "link to my instagram in the footer".
+ */
+function leadsAsAVerb(tokens: readonly IntentToken[], index: number): boolean {
+  const token = tokens[index];
+  const next = tokens[index + 1];
+  if (token === undefined || next === undefined || next.breakBefore) return false;
+  return (index === 0 || token.breakBefore) && !PHRASE_STOPS.has(next.raw);
 }
 
 /** Arabic words that open a noun phrase, whatever letter they start with. */

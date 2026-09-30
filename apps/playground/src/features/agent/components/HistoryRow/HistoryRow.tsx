@@ -101,10 +101,11 @@ export function HistoryRow({
   }, [confirming]);
 
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
-  const titleDir = resolveDir(session.title, uiDir);
+  /* A conversation with no request yet has no title: it is the new conversation. */
+  const title = session.title.trim() === '' ? t(locale, 'header.new') : session.title;
+  const titleDir = resolveDir(title, uiDir);
   const when = session.updatedAt === null ? null : formatWhen(locale, session.updatedAt, now);
-  const name =
-    when === null ? session.title : t(locale, 'history.row', { title: session.title, when });
+  const name = when === null ? title : t(locale, 'history.row', { title, when });
 
   return (
     <li
@@ -144,7 +145,7 @@ export function HistoryRow({
           dir={titleDir}
           lang={titleDir === uiDir ? undefined : titleDir === 'rtl' ? 'ar' : 'en'}
         >
-          {session.title}
+          {title}
         </span>
         {session.current || when !== null ? (
           <span className="ck-agent-history-row__meta">

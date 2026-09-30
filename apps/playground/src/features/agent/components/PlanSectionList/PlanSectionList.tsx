@@ -12,6 +12,8 @@ import { PLAN_MIN_SECTIONS } from '../../model/page-plan-draft';
 import type { Locale, PlanOp, PlanSectionView } from '../../model/view-types';
 import { PlanSectionRow, type PlanRowControl, type PlanRowDrag } from '../PlanSectionRow';
 
+import { planRowTransitionName } from './transition-name';
+
 import './PlanSectionList.css';
 
 export interface PlanSectionListProps {
@@ -54,10 +56,11 @@ const FALLBACK_ROW_PX = 32;
 /** How long a keyboard or menu move waits for the plan to answer before focus lets go. */
 const MOVE_FOCUS_WAIT_MS = 600;
 
-/** A CSS `view-transition-name` for a row: an identifier, whatever the section's key holds. */
-export function planRowTransitionName(key: string): string {
-  return `ck-plan-row-${key.replace(/[^A-Za-z0-9_-]/gu, '-')}`;
-}
+/**
+ * The clock the focus hand-off reads. A module-level reader, called only from handlers and
+ * effects, never while rendering.
+ */
+const now = (): number => performance.now();
 
 interface DragState {
   readonly key: string;
@@ -161,7 +164,7 @@ export function PlanSectionList({
 
   /** Asks for focus on `key`'s `control` once the plan has answered the op about to go out. */
   const focusAfter = (key: string, control: PlanRowControl) => {
-    pending.current = { key, control, sections, until: Date.now() + MOVE_FOCUS_WAIT_MS };
+    pending.current = { key, control, sections, until: now() + MOVE_FOCUS_WAIT_MS };
     setMoveSeq((seq) => seq + 1);
   };
 
@@ -179,7 +182,7 @@ export function PlanSectionList({
   useLayoutEffect(() => {
     const want = pending.current;
     if (want === null) return;
-    if (Date.now() > want.until) {
+    if (now() > want.until) {
       pending.current = null;
       return;
     }

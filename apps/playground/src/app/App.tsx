@@ -10,10 +10,19 @@ import {
   planModelsFromEnv,
   planProviderFromEnv,
 } from '../features/preview/components/AssistantPanel/planProviderFromEnv';
+import { LiveAgentPanel, usePhoneLayout, type ProposalPreview } from '../features/agent';
+import {
+  agentLocaleFromEnv,
+  agentPanelFromEnv,
+  editEffortFromEnv,
+  editModelFromEnv,
+  pageOpener,
+  planModelChoice,
+} from './agent-host';
 import { RailSectionNotice } from './rail-section-notice';
 import { RAIL_SECTIONS, RAIL_UTILITIES } from './rail-sections';
 import { useRecentChanges } from './use-recent-changes';
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
   createOfflineSiteStageProvider,
@@ -34,6 +43,7 @@ import {
   SitePages,
   Palette,
   PreviewMode,
+  StaticDocument,
   darkTheme,
   type BuilderKernel,
   type ColorRole,
@@ -66,12 +76,16 @@ import { useTransactionCount } from '../features/preview/use-transaction-count';
 import { createCodeRuntimeClient } from '../features/preview/code-runtime-client';
 import { useCodePageSession } from '../features/preview/use-code-page-session';
 import { useCodeWorkspace } from '../features/preview/use-code-workspace';
+import { usePublishStaticSite } from '../features/export';
 import { CodeWorkspace } from '../features/preview/code-workspace';
 import { createSourceAgentClient } from '../features/preview/source-agent-client';
 import { useSourceAgent } from '../features/preview/use-source-agent';
 import { useLiveUtilities } from '../features/preview/use-live-utilities';
 import { SourceAgentPanel } from '../features/preview/components/SourceAgentPanel';
-import { PersistenceStatus } from '../features/vault/components/PersistenceStatus';
+import {
+  PersistenceStatus,
+  type PersistenceStatusValue,
+} from '../features/vault/components/PersistenceStatus';
 import { PROFESSIONAL_BUILDER_FLAGS } from '../features/preview/feature-flags';
 import { createArtifactArchive } from '../features/preview/artifact-archive';
 import {
@@ -106,6 +120,24 @@ function deviceForBucket(name: TopBarDevice): DeviceState {
  */
 const envPlanModels = planModelsFromEnv(import.meta.env);
 const PLAN_MODEL_KEY = 'pg-ai-model-v1';
+/*
+  Which agent panel mounts (VITE_AGENT_PANEL): the v2 panel by default, the v1
+  AssistantPanel only as the rollback. Read once: a build ships one panel.
+*/
+const AGENT_PANEL = agentPanelFromEnv(import.meta.env);
+/* Arabic first (SPEC §3.15, §4.0); VITE_AGENT_LOCALE=en for an English reviewer. */
+const AGENT_LOCALE = agentLocaleFromEnv(import.meta.env);
+/*
+  An edit or a new section runs on the fastest model the server allows, at low effort,
+  unless VITE_AI_EDIT_MODEL / VITE_AI_EDIT_EFFORT say otherwise; a page build keeps the
+  model the person picked. Tiny edits must cost next to nothing (owner, 2026-09-28).
+*/
+const AGENT_EDIT_MODEL = editModelFromEnv(import.meta.env, envPlanModels);
+const AGENT_EDIT_EFFORT = editEffortFromEnv(import.meta.env);
+/** The rail's own agent button: where focus returns when the phone sheet closes. */
+function railAgentButton(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('.bldr-icon-rail button[aria-label="Assistant"]');
+}
 const CODE_RUNTIME_ENDPOINT = import.meta.env['VITE_CODE_RUNTIME_ENDPOINT'] as string | undefined;
 const CODE_RUNTIME_TOKEN = import.meta.env['VITE_CODE_RUNTIME_TOKEN'] as string | undefined;
 const EXPORT_SITE_ORIGIN = import.meta.env['VITE_EXPORT_SITE_ORIGIN'] as string | undefined;
@@ -113,14 +145,20 @@ const CODE_PREVIEW_URL_TEMPLATE =
   (import.meta.env['VITE_CODE_PREVIEW_URL_TEMPLATE'] as string | undefined) ??
   'http://{project}.localhost:5175/';
 
-/** The remembered choice, honoured only while it is still on offer. */
-function storedPlanModel(): string | undefined {
+/*
+  The model a page build starts on: the remembered choice while it is still on
+  offer, else the FASTEST offered one (planModelChoice), never simply the first
+  listed — that put every build on Sonnet while the owner ranks speed first. The
+  provider names this model too, so the picker shows the model that runs.
+*/
+function initialPlanModel(): string | undefined {
+  let stored: string | null = null;
   try {
-    const stored = localStorage.getItem(PLAN_MODEL_KEY);
-    return stored !== null && envPlanModels.includes(stored) ? stored : undefined;
+    stored = localStorage.getItem(PLAN_MODEL_KEY);
   } catch {
-    return undefined;
+    // A private window has no memory; the fastest offered model still applies.
   }
+  return planModelChoice(stored, envPlanModels);
 }
 
 /*
@@ -163,15 +201,56 @@ function TransactionCount({ kernel }: { kernel: BuilderKernel }) {
   return <>{useTransactionCount(kernel)}</>;
 }
 
+/** The pane toggles' glyphs (a phone shows these in place of the words). */
+const PANE_ICON = {
+  viewBox: '0 0 16 16',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.5,
+  strokeLinejoin: 'round',
+  focusable: 'false',
+  'aria-hidden': true,
+} as const;
+
 /** Same reason: the provenance strip reads the transaction log through a hook. */
 function ProvenanceStatusBar({
   kernel,
   deviceLabel,
+  saveState,
+  agentSpeaks,
+  agent,
 }: {
   kernel: BuilderKernel;
   deviceLabel: string;
+  saveState: 'saved' | 'saving' | undefined;
+  /** The v2 agent panel speaks for the assistant's changes (its thread, its pill). */
+  agentSpeaks: boolean;
+  agent: ReactNode;
 }) {
-  return <StatusBar changes={useRecentChanges(kernel)} deviceLabel={deviceLabel} />;
+  const { changes, spokenElsewhere } = useRecentChanges(
+    kernel,
+    agentSpeaks ? { exclude: 'assistant' } : {},
+  );
+  return (
+    <StatusBar
+      changes={changes}
+      // The assistant's changes are the panel's to list: never "No recent changes" over them.
+      emptyLabel={spokenElsewhere ? null : undefined}
+      deviceLabel={deviceLabel}
+      saveState={saveState}
+      agent={agent}
+    />
+  );
+}
+
+/**
+ * The save state a healthy vault reports, for the status bar's own slot. Saving and
+ * saved are quiet facts and belong in the bar; a session-only or failed save needs the
+ * person to act, so it keeps its banner with Download and Retry.
+ */
+function quietSaveState(value: PersistenceStatusValue): 'saved' | 'saving' | undefined {
+  if (value.kind === 'saving') return 'saving';
+  return value.kind === 'durable' ? 'saved' : undefined;
 }
 
 /**
@@ -264,7 +343,7 @@ export function App() {
   const [canvasWidth, setCanvasWidth] = useState(1280);
   const [zoomChoice, setZoomChoice] = useState('fit');
   const [workspaceView, setWorkspaceView] = useState<'canvas' | 'sitemap'>('canvas');
-  const [planModel, setPlanModel] = useState<string | undefined>(storedPlanModel);
+  const [planModel, setPlanModel] = useState<string | undefined>(initialPlanModel);
   const selectPlanModel = useCallback((model: string) => {
     setPlanModel(model);
     try {
@@ -370,6 +449,12 @@ export function App() {
     const exported = await codePage.controller?.exportPage();
     if (exported !== undefined) downloadArtifactFiles(exported.files);
   };
+  // Canvas (non-code) pages publish as a static site: SEO head, sitemap, robots, 404.
+  const publishSite = usePublishStaticSite(siteKernel, EXPORT_SITE_ORIGIN);
+  const publishStaticSiteFiles = async () => {
+    const files = await publishSite.publish();
+    if (files !== undefined) downloadArtifactFiles(files);
+  };
   /**
    * What the assistant needs to build a whole site, in one object.
    *
@@ -389,6 +474,29 @@ export function App() {
     site destination may be the first thing a person opens.
   */
   const [siteSeam, setSiteSeam] = useState<SiteRunSeam>(IDLE_SITE_RUN_SEAM);
+  /*
+    The v2 agent panel's place in the status bar: while the panel is hidden it draws its
+    one-line pill here (a portal), in place of the stacked "Assistant: …" change chips.
+  */
+  const [agentPillHost, setAgentPillHost] = useState<HTMLElement | null>(null);
+  /*
+    An Ask proposal shown on the canvas before it is applied (the proposal card's
+    Preview): the would-be page, drawn by the static renderer from the controller's
+    scratch rehearsal. Looking is not applying; nothing here reaches the kernel.
+  */
+  const [agentPreview, setAgentPreview] = useState<ProposalPreview | null>(null);
+  /*
+    On a phone (<600px, coarse pointer) the v2 panel is a sheet over the editor, portalled
+    to the page; the shell's own panel column then stays closed so it never covers the
+    canvas the sheet's mini detent shows. The panel stays mounted in it all the same.
+  */
+  const phone = usePhoneLayout();
+  const agentAsSheet = AGENT_PANEL === 'v2' && phone && railSection === 'assistant';
+  /* A "new page" request opens a real page on the site, as Pages → Add page does. */
+  const openAgentPage = useMemo(
+    () => (siteKernel === undefined ? undefined : pageOpener(siteKernel)),
+    [siteKernel],
+  );
   const assetLibrary = useMemo(() => createLocalAssetLibrary(), []);
   const siteHost = useMemo(
     () =>
@@ -632,7 +740,16 @@ export function App() {
             </div>
             <ChromeButton
               size="sm"
+              disabled={!publishSite.canPublish || publishSite.publishing}
+              title={publishSite.error}
+              onClick={() => void publishStaticSiteFiles()}
+            >
+              Publish site
+            </ChromeButton>
+            <ChromeButton
+              size="sm"
               variant="toggle"
+              className="pg-pane-toggle"
               aria-label="Toggle workspace panel"
               aria-pressed={visiblePanes.panel}
               onClick={() => {
@@ -640,11 +757,17 @@ export function App() {
                 setActiveSide('panel');
               }}
             >
-              Panel
+              {/* On a phone the toggle is its glyph; the word stays its visible name elsewhere. */}
+              <svg className="pg-pane-toggle__icon" {...PANE_ICON}>
+                <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+                <path d="M6 2.5v11" />
+              </svg>
+              <span className="pg-pane-toggle__label">Panel</span>
             </ChromeButton>
             <ChromeButton
               size="sm"
               variant="toggle"
+              className="pg-pane-toggle"
               aria-label="Toggle inspector"
               aria-pressed={visiblePanes.aside}
               onClick={() => {
@@ -652,7 +775,11 @@ export function App() {
                 setActiveSide('aside');
               }}
             >
-              Inspector
+              <svg className="pg-pane-toggle__icon" {...PANE_ICON}>
+                <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+                <path d="M10 2.5v11" />
+              </svg>
+              <span className="pg-pane-toggle__label">Inspector</span>
             </ChromeButton>
             {showcaseOwnsLawSControls ? null : (
               <span className="bldr-visually-hidden">
@@ -669,12 +796,15 @@ export function App() {
         {modeMessage.nonce % 2 === 1 ? '\u200b' : ''}
       </output>
       {/*
-        The one line the vault owes a person, and it costs the layout nothing:
-        absolutely positioned inside `.pg-app`, so the editor beneath it is the
-        same editor whether the page came from storage or from the fixture. A
-        restore that happens silently is a restore a person cannot disagree with.
+        The vault's banner, only when a save needs the person: session-only or
+        failed, with Download and Retry. "Saving…" and "Saved to this device"
+        are quiet facts and live in the status bar's save slot. As a floating pill
+        between the top bar and the editor they sat over the rail and the agent
+        panel's header, the first thing the owner's screenshot showed. The page
+        being open in another tab is not quiet: that keeps the banner.
       */}
-      {session === undefined ? null : (
+      {session === undefined ||
+      (quietSaveState(session.save) !== undefined && !session.save.shared) ? null : (
         <PersistenceStatus
           value={session.save}
           shared={session.save.shared}
@@ -730,11 +860,26 @@ export function App() {
         <BuilderShell
           label="Playground editor"
           adaptive
-          panelOpen={panelOpen}
-          asideOpen={asideOpen && workspaceView === 'canvas'}
+          panelOpen={panelOpen && !agentAsSheet}
+          /*
+            While the agent is the phone sheet, the inspector stays closed. Left open, it
+            was an overlay 288px wide over a 342px canvas: the sheet's mini detent showed
+            the rail, "No block selected" and a 40px sliver of the page (final test,
+            2026-09-29). The canvas is what the mini detent is for (SPEC §3.16).
+          */
+          asideOpen={asideOpen && workspaceView === 'canvas' && !agentAsSheet}
           activeSide={activeSide}
           panelWidth={panelWidth}
-          onPanelWidthChange={setPanelWidth}
+          /*
+            The v2 agent panel carries its own separator (SPEC §4.1: 16px steps,
+            48 with Shift); two separators on one edge would fight, so the shell's
+            steps aside while the agent holds the column.
+          */
+          onPanelWidthChange={
+            AGENT_PANEL === 'v2' && railSection === 'assistant' && codeSnapshot === undefined
+              ? undefined
+              : setPanelWidth
+          }
           onCanvasWidthChange={setCanvasWidth}
           onLayoutChange={setVisiblePanes}
           rail={
@@ -796,6 +941,69 @@ export function App() {
                   hidden={railSection !== 'assistant'}
                   data-section="assistant"
                 >
+                  {AGENT_PANEL === 'v2' ? (
+                    <div className="pg-agent-host" hidden={codeSnapshot !== undefined}>
+                      <LiveAgentPanel
+                        /*
+                          KEYED ON THE BOOT, as the v1 panel was: mounted across rail
+                          destinations, never across a document. "Start over" installs
+                          a new kernel for the same fixture, and a panel carried over
+                          would run its conversation and any run in flight against a
+                          page it was never about. A page change (Pages, or the panel's
+                          own "new page") only hands it the new page's kernel.
+                        */
+                        key={session.bootId}
+                        kernel={session.kernel}
+                        locale={AGENT_LOCALE}
+                        provider={envPlanProvider}
+                        providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
+                        models={envPlanModels}
+                        model={planModel}
+                        onSelectModel={selectPlanModel}
+                        editModel={AGENT_EDIT_MODEL}
+                        editEffort={AGENT_EDIT_EFFORT}
+                        addPage={openAgentPage}
+                        /*
+                          A person who asks for a page gets the page: every section
+                          lands as its own undoable entry. Ask and Plan are one menu away.
+                        */
+                        defaultMode="auto"
+                        onViewAsCode={() => {
+                          setRailSection('code');
+                        }}
+                        onPreview={setAgentPreview}
+                        onOpenPageHistory={() => {
+                          setRailSection('history');
+                          setPanelOpen(true);
+                          setActiveSide('panel');
+                        }}
+                        /*
+                          Mounted, and told whether anyone is looking: hidden, it keeps
+                          its run and pauses its clocks, and its pill speaks for it in
+                          the status bar. On a phone it is the sheet, shown while the
+                          rail's Assistant is open.
+                        */
+                        visible={
+                          railSection === 'assistant' &&
+                          codeSnapshot === undefined &&
+                          (agentAsSheet ? panelOpen : visiblePanes.panel)
+                        }
+                        width={panelWidth}
+                        onWidthChange={setPanelWidth}
+                        onClose={() => {
+                          setPanelOpen(false);
+                        }}
+                        returnFocus={railAgentButton}
+                        pillContainer={agentPillHost}
+                        onOpen={() => {
+                          setRailSection('assistant');
+                          setPanelOpen(true);
+                          setActiveSide('panel');
+                        }}
+                        onSiteSeam={setSiteSeam}
+                      />
+                    </div>
+                  ) : (
                   <div className="pg-legacy-agent-host" hidden={codeSnapshot !== undefined}>
                   <AssistantPanel
                     /*
@@ -818,7 +1026,7 @@ export function App() {
                     kernel={session.kernel}
                     planProvider={envPlanProvider}
                     models={envPlanModels}
-                    model={planModel ?? envPlanModels[0]}
+                    model={planModel}
                     onSelectModel={selectPlanModel}
                     /*
                       The one place that knows what the provider is: it came
@@ -845,6 +1053,7 @@ export function App() {
                     }}
                   />
                   </div>
+                  )}
                   {sourceAgent === undefined ? null : <div className="pg-source-agent-host" hidden={codeSnapshot === undefined}>
                     <SourceAgentPanel port={sourceAgent} visible={railSection === 'assistant' && codeSnapshot !== undefined} />
                   </div>}
@@ -1018,6 +1227,19 @@ export function App() {
               </section>
             ) : codeOpen ? (
               <CodeViewShowcase key={fixture} kernel={session.kernel} />
+            ) : agentPreview !== null ? (
+              <section
+                className="pg-agent-preview"
+                aria-label="Preview of the proposed change. Nothing is applied yet."
+              >
+                <div className="pg-agent-preview__page">
+                  <StaticDocument
+                    document={agentPreview.document}
+                    blocks={session.kernel.context.registry.block}
+                    breakpoint={breakpoint}
+                  />
+                </div>
+              </section>
             ) : (
               /*
                 The site's asset table, made reachable from inside a block. An
@@ -1043,7 +1265,17 @@ export function App() {
               {session === undefined ? (
                 <StatusBar changes={[]} deviceLabel={deviceLabel} />
               ) : (
-                <ProvenanceStatusBar kernel={session.kernel} deviceLabel={deviceLabel} />
+                <ProvenanceStatusBar
+                  kernel={session.kernel}
+                  deviceLabel={deviceLabel}
+                  saveState={session.save.shared ? undefined : quietSaveState(session.save)}
+                  agentSpeaks={AGENT_PANEL === 'v2'}
+                  agent={
+                    AGENT_PANEL === 'v2' ? (
+                      <span ref={setAgentPillHost} className="pg-agent-pill-host" />
+                    ) : undefined
+                  }
+                />
               )}
               <label className="pg-canvas-zoom">
                 Zoom

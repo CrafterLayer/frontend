@@ -54,13 +54,14 @@ describe('EnhanceNote', () => {
     const toggle = screen.getByRole('button', { name: 'Show changes (3)' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     const region = document.getElementById(toggle.getAttribute('aria-controls') ?? '');
+    if (region === null) throw new Error('the disclosure controls no region');
     expect(region).toHaveAttribute('inert');
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(toggle).toHaveAccessibleName(t('en', 'enhance.changes.hide'));
     expect(region).not.toHaveAttribute('inert');
-    const items = within(region as HTMLElement).getAllByRole('listitem');
+    const items = within(region).getAllByRole('listitem');
     expect(items.map((item) => item.textContent)).toEqual([
       'Named the section: the hero',
       'Placed the button below the headline',

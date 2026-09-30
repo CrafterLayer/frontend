@@ -1,5 +1,4 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/react-vite';
-import type { CSSProperties } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import '@fontsource/ibm-plex-sans/latin-400.css';
@@ -41,19 +40,17 @@ const inPanel: Decorator = (Story, { args, parameters }) => {
       data-bldr-theme={theme}
       lang={locale}
       dir={locale === 'ar' ? 'rtl' : 'ltr'}
-      style={
-        {
-          inlineSize: width,
-          background: 'var(--bldr-panel)',
-          color: 'var(--bldr-panel-text)',
-          fontFamily: 'var(--bldr-font)',
-          containerType: 'inline-size',
-          containerName: 'agent',
-          ...(headerHeight === undefined
-            ? {}
-            : { '--bldr-agent-header-height': `${String(headerHeight)}px` }),
-        } as CSSProperties
-      }
+      style={{
+        inlineSize: width,
+        background: 'var(--bldr-panel)',
+        color: 'var(--bldr-panel-text)',
+        fontFamily: 'var(--bldr-font)',
+        containerType: 'inline-size',
+        containerName: 'agent',
+        ...(headerHeight === undefined
+          ? {}
+          : { '--bldr-agent-header-height': `${String(headerHeight)}px` }),
+      }}
     >
       <AgentTooltipProvider>
         <Story />

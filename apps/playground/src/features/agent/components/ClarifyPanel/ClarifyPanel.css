@@ -54,11 +54,19 @@
 }
 
 /* A focus destination, not a control: the ring hugs the words. */
-.ck-agent-clarify__title:focus-visible,
-.ck-agent-clarify__working:focus-visible {
+.ck-agent-clarify__title:focus-visible {
   border-radius: var(--bldr-radius-xs);
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
   outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/*
+  The rewriting line takes focus only so a reader lands on what is happening after a
+  choice (the chip they pressed is gone). It is status text, not a control: a ring there
+  clipped its shimmering words and read as something to press.
+*/
+.ck-agent-clarify__working:focus {
+  outline: none;
 }
 
 .ck-agent-clarify__progress {

@@ -380,6 +380,13 @@ describe('AgentSheet.css', () => {
       /\.ck-agent-sheet\s*\{[^}]*--bldr-agent-row-height:\s*var\(--bldr-hit-target-min\)/u,
     );
     expect(CSS).toMatch(/\.ck-agent-sheet\s*\{[^}]*--bldr-font-size-input:\s*16px/u);
+    // The composer family's targets and the toolbar's gap, whatever the pointer.
+    expect(CSS).toMatch(
+      /\.ck-agent-sheet\s*\{[^}]*--ck-agent-target:\s*var\(--bldr-hit-target-min\)/u,
+    );
+    expect(CSS).toMatch(
+      /\.ck-agent-sheet\s*\{[^}]*--ck-agent-toolbar-gap:\s*var\(--bldr-space-md\)/u,
+    );
     expect(CSS).toMatch(
       /\.ck-agent-icon-button[^{]*\{[^}]*inline-size:\s*var\(--bldr-hit-target-min\)/u,
     );

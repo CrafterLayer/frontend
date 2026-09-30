@@ -10,6 +10,7 @@ import {
   catalogSuggestions,
   followUpSuggestions,
   localeOf,
+  pageSuggestions,
   panelSuggestions,
   salvageSuggestions,
   selectionSuggestions,
@@ -323,5 +324,52 @@ describe('panelSuggestions: what the list shows, in priority order', () => {
     expect(panelSuggestions(input).map(({ key }) => key)).toEqual(
       panelSuggestions(input).map(({ key }) => key),
     );
+  });
+});
+
+describe('pageSuggestions: follow-ups for the page just built (SPEC §4.16)', () => {
+  it('offers the sections the page lacks, then warmer colours and the other language', () => {
+    const shown = pageSuggestions(['Hero', 'Services', 'What patients say'], 'en', 3);
+    expect(shown.map(({ text }) => text)).toEqual([
+      'Add a pricing section with clear packages',
+      'Add a section that answers common questions',
+      'Make the page colours warmer',
+    ]);
+    expect(shown.every(({ source }) => source === 'page')).toBe(true);
+  });
+
+  it('never offers a section the page already has, in either language', () => {
+    const texts = pageSuggestions(['الواجهة', 'الأسعار', 'الأسئلة الشائعة', 'تواصل معنا'], 'ar', 4).map(
+      ({ text }) => text,
+    );
+    expect(texts).toEqual([
+      'إضافة قسم لآراء العملاء',
+      'جعل ألوان الصفحة أدفأ',
+      'إضافة نسخة إنجليزية من الصفحة',
+    ]);
+  });
+
+  it('writes English as full sentences with a capital letter', () => {
+    for (const { text } of pageSuggestions(['Hero'], 'en', 6)) {
+      expect(text).toMatch(/^[A-Z]/u);
+    }
+  });
+
+  it('offers nothing without a page', () => {
+    expect(pageSuggestions(undefined, 'en')).toEqual([]);
+    expect(pageSuggestions([], 'en')).toEqual([]);
+  });
+
+  it('ranks above the catalog after a finished run, so a clinic page is not offered a delivery question', () => {
+    const shown = panelSuggestions({
+      blocks: CATALOG,
+      nameOf,
+      followUp: undefined,
+      locale: 'en',
+      pageSections: ['Hero', 'Services'],
+      limit: SUGGESTION_LIMITS.afterRun,
+    });
+    expect(shown).toHaveLength(3);
+    expect(shown.every(({ source }) => source === 'page')).toBe(true);
   });
 });

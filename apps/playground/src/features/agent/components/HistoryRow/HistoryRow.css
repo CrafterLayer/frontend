@@ -146,6 +146,19 @@
   font-weight: var(--bldr-font-weight-medium);
 }
 
+/*
+  The current row is where focus lands when the list opens, so its "Current" must not
+  fade out for Delete: the row keeps Delete's width free and the word stands before it.
+*/
+.ck-agent-history-row[data-current] .ck-agent-history-row__open {
+  padding-inline-end: calc(var(--ck-agent-history-delete) + var(--bldr-space-md));
+}
+
+.ck-agent-history-row[data-current]:hover .ck-agent-history-row__meta,
+.ck-agent-history-row[data-current]:focus-within .ck-agent-history-row__meta {
+  opacity: 1;
+}
+
 /* ── Delete ───────────────────────────────────────────────────────────────── */
 
 .ck-agent-history-row__delete[data-bldr-chrome-button][data-variant][data-size] {

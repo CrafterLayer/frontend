@@ -154,3 +154,23 @@ export const RightToLeft: Story = {
   ),
   globals: { direction: 'rtl' },
 };
+
+/** A host's activity line (the agent's status pill) at inline start, after the tools. */
+export const WithAgentLine: Story = {
+  args: {
+    ...BASE_ARGS,
+    tools: TOOLS,
+    onToolSelect: fn(),
+    agent: (
+      <button type="button" style={{ font: 'inherit' }}>
+        Abu Ghadab is building the page, 3 of 8
+      </button>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const bar = within(canvasElement).getByRole('region', { name: 'Editor status' });
+    await expect(
+      within(bar).getByRole('button', { name: 'Abu Ghadab is building the page, 3 of 8' }),
+    ).toBeVisible();
+  },
+};

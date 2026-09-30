@@ -8,6 +8,9 @@ import { PHOTO_DIRECTION_SKILL } from './photo-direction';
 import { createAiSkillRegistry } from './registry';
 import { SECTION_VARIANTS_SKILL } from './section-variants';
 import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
+// design-code additions (2026-09-28)
+import { DESIGN_CODE_SKILL } from './design-code';
+// end design-code additions
 
 function freezeData(value: unknown): void {
   if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return;
@@ -1127,6 +1130,9 @@ const MENU_PAGE = builtin(MENU_PAGE_SKILL);
 const PROPERTY_PAGE = builtin(PROPERTY_PAGE_SKILL);
 const CLINIC_PAGE = builtin(CLINIC_PAGE_SKILL);
 const SHOP_PAGE = builtin(SHOP_PAGE_SKILL);
+// design-code additions (2026-09-28): explicit, for section writers and the page plan.
+const DESIGN_CODE = builtin(DESIGN_CODE_SKILL);
+// end design-code additions
 
 /**
  * Reviewed, data-only defaults, ordered by priority descending. Hosts opt in
@@ -1140,6 +1146,9 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   BUILD_FILL,
   PHOTO_DIRECTION,
   SECTION_VARIANTS,
+  // design-code additions (2026-09-28): priority 91, between section-variants and cv-page.
+  DESIGN_CODE,
+  // end design-code additions
   CV_PAGE,
   MENU_PAGE,
   PROPERTY_PAGE,

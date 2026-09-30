@@ -1279,3 +1279,137 @@ describe('the routing table — router-3: a verb that governs another verb', () 
     }
   });
 });
+
+/*
+  LINKING pages changes what exists — the nav, a button, the page's links —
+  and never builds one. The owner's own request, «هل يمكنك تربط ال صفحه هاي
+  داخل عليها» ("can you link this page inside it"), routed build-page/replace
+  @0.8 on an empty page and new-page@0.6 beside content: «تربط» was no verb the
+  router knew, so «صفحه» read as the name of a page to make (final test,
+  2026-09-29).
+*/
+const LINKING_REQUESTS: readonly string[] = [
+  'هل يمكنك تربط ال صفحه هاي داخل عليها',
+  'اربط الصفحة هاي بالقائمة',
+  'ممكن تربط صفحة من نحن بالقائمة',
+  'اربطها بصفحة الخدمات',
+  'ربط صفحة التواصل بالفوتر',
+  'هل يمكن ربط الصفحة بالقائمة؟',
+  'link this page to the home page',
+  'can you link the about page in the nav',
+  'connect this page to the nav',
+  'please connect the contact page to the footer',
+];
+
+/* …while "link" the NOUN, inside a page ask, is still a part of the page asked for. */
+const LINK_THE_NOUN: readonly (readonly [string, IntentKind])[] = [
+  ['a landing page with a link to my shop', 'build-page'],
+  ['build a website with links to my socials', 'build-page'],
+  // First, but followed by a preposition: the noun, and a link-in-bio page's name.
+  ['link in bio page for my shop', 'build-page'],
+];
+
+/*
+  A question of ABILITY put to the assistant — "can you…", «هل يمكنك…», «هل
+  بتقدر…», «ممكن…» — says what it asks in the verb that follows. When that
+  verb is none the router knows, a page named later in the words is a guess
+  at what is asked, and minutes of building never follow a guess: it stays
+  below the confirm line, so the host checks first. Before (final test,
+  2026-09-29): build-page/replace@0.8 on an empty page, with no check.
+*/
+const ABILITY_WITH_AN_UNKNOWN_VERB: readonly string[] = [
+  'هل يمكنك تشبك ال صفحه هاي داخل عليها',
+  'هل بتقدر تشبك صفحة من نحن بالقائمة',
+  'ممكن تشبك صفحة الخدمات بالفوتر',
+  'can you hook this page into the nav',
+  'could you knock together a landing page for my gym',
+];
+
+/* …while one that opens with what it asks for, or with a verb the router knows, still builds. */
+const ABILITY_THAT_STILL_BUILDS: readonly string[] = [
+  'ممكن موقع لمطعمي؟',
+  'can you build me a website for my gym?',
+  'هل تقدر تسوي لي موقع لمطعمي',
+  'can you please design a landing page for my bakery',
+  'can you do a landing page for my gym',
+  'هل يمكنك تصميم موقع لعيادتي',
+  'هل تقدر تعطيني موقع لمطعمي',
+];
+
+describe('the routing table — final test: linking pages, and a verb the router does not know', () => {
+  it.each(LINKING_REQUESTS)('reads “%s” as an edit on every canvas, never a build', (request) => {
+    for (const document of EVERY_CANVAS) {
+      const route = routeOn(request, document);
+      expect({ request, document, kind: route.kind }).toEqual({ request, document, kind: 'edit' });
+    }
+  });
+
+  it('asks before acting on the owner’s linking request over an empty page', () => {
+    const route = routeIntent({
+      request: 'هل يمكنك تربط ال صفحه هاي داخل عليها',
+      document: EMPTY,
+    });
+    expect(route.kind).toBe('edit');
+    expect(route.confidence).toBeLessThan(0.6);
+  });
+
+  it.each(LINK_THE_NOUN)('still reads “%s” as %s on an empty page', (request, kind) => {
+    expect({ request, kind: routeIntent({ request, document: EMPTY }).kind }).toEqual({
+      request,
+      kind,
+    });
+  });
+
+  it.each(ABILITY_WITH_AN_UNKNOWN_VERB)(
+    'never builds from “%s” above the confirm line, on any canvas',
+    (request) => {
+      for (const document of EVERY_CANVAS) {
+        const route = routeOn(request, document);
+        if (isBuild(route.kind)) {
+          expect({ request, document, confidence: route.confidence }).toEqual({
+            request,
+            document,
+            confidence: 0.5,
+          });
+        }
+      }
+    },
+  );
+
+  it('says it could not read the verb, for the logs', () => {
+    expect(
+      routeIntent({ request: 'هل يمكنك تشبك ال صفحه هاي داخل عليها', document: EMPTY }).reason,
+    ).toMatch(/^asks whether it can \(“هل يمكنك”\) “تشبك”, a verb it does not know/u);
+  });
+
+  /*
+    Over a landing page, once «تربط» was known, the same sentence routed
+    edit@0.8 — a whole-page edit started with no check (final test,
+    2026-09-30). A change asked of the assistant that aims at no part of the
+    page sits below the confirm line; one that names its part does not.
+  */
+  it.each([
+    'هل يمكنك تربط ال صفحه هاي داخل عليها',
+    'هل تقدر تخليها احلى',
+    'can you link this page inside it',
+  ])('asks before a whole-page edit asked as “%s” over a landing page', (request) => {
+    const route = routeIntent({ request, document: LANDING });
+    expect(route.kind).toBe('edit');
+    expect(route.confidence).toBeLessThan(0.6);
+  });
+
+  it.each(['could you make the pricing darker?', 'هل تقدر تحذف الفوتر', 'can you change the font'])(
+    'keeps “%s”, which names its part, above the confirm line',
+    (request) => {
+      const route = routeIntent({ request, document: LANDING });
+      expect(route.kind).toBe('edit');
+      expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+    },
+  );
+
+  it.each(ABILITY_THAT_STILL_BUILDS)('still builds “%s” with confidence', (request) => {
+    const route = routeIntent({ request, document: EMPTY });
+    expect({ request, kind: route.kind }).toEqual({ request, kind: 'build-page' });
+    expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+  });
+});

@@ -33,6 +33,27 @@ const TOOLS = [
 afterEach(cleanup);
 
 describe('StatusBar', () => {
+  it('places a host\'s activity line at the inline start, after the tools, and nothing without one', () => {
+    const { container, rerender } = render(<StatusBar changes={CHANGES} />);
+    expect(container.querySelector('.bldr-statusbar__agent')).toBeNull();
+
+    rerender(
+      <StatusBar
+        changes={CHANGES}
+        tools={TOOLS}
+        onToolSelect={() => undefined}
+        agent={<button type="button">Abu Ghadab is building the page, 3 of 8</button>}
+      />,
+    );
+    const start = container.querySelector('.bldr-statusbar__start');
+    const pill = screen.getByRole('button', { name: 'Abu Ghadab is building the page, 3 of 8' });
+    expect(start).toContainElement(pill);
+    // After the tools: the bar's own controls keep their place.
+    const buttons = within(start as HTMLElement).getAllByRole('button');
+    expect(buttons.at(-1)).toBe(pill);
+    expect(CSS_SOURCE).toMatch(/\.bldr-statusbar__agent\s*\{[^}]*align-self:\s*center;/su);
+  });
+
   it('names the region and every change with both its door and label', () => {
     render(<StatusBar changes={CHANGES} onChangeSelect={() => undefined} />);
 
@@ -179,6 +200,15 @@ describe('StatusBar', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('No recent changes');
     expect(screen.queryByRole('list', { name: 'Recent changes' })).not.toBeInTheDocument();
+  });
+
+  it('says nothing, not "No recent changes", when the host lists its changes elsewhere', () => {
+    const { rerender } = render(<StatusBar changes={[]} emptyLabel={null} />);
+    expect(screen.queryByText('No recent changes')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    rerender(<StatusBar changes={[]} emptyLabel="Changes are listed in the assistant" />);
+    expect(screen.getByRole('status')).toHaveTextContent('Changes are listed in the assistant');
   });
 
   it('uses token-sized hit targets, semantic state colours, tabular figures, and reduced motion', () => {

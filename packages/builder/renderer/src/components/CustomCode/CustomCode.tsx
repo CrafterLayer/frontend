@@ -1,4 +1,11 @@
-import { createElement, type ComponentType, type ReactNode, type SyntheticEvent } from 'react';
+import {
+  createElement,
+  useEffect,
+  useRef,
+  type ComponentType,
+  type ReactNode,
+  type SyntheticEvent,
+} from 'react';
 
 import {
   CUSTOM_CODE_ATTRIBUTES,
@@ -16,6 +23,8 @@ import {
   type SlotName,
 } from '@craftkit/builder-schema';
 
+import { ensureBehaviorCss } from '../../behaviors/behaviors-css';
+import { mountBehaviors } from '../../behaviors/runtime';
 import { CUSTOM_CODE_REGION_ATTRIBUTE } from '../../tailwind/live-utilities';
 import { safeHref } from '../RichText/safe-href';
 import { UnknownBlock } from '../UnknownBlock';
@@ -63,6 +72,7 @@ const REACT_PROP: Readonly<Record<string, string>> = {
   popovertargetaction: 'popoverTargetAction',
   autoplay: 'autoPlay',
   playsinline: 'playsInline',
+  fetchpriority: 'fetchPriority',
   'stroke-width': 'strokeWidth',
   'stroke-linecap': 'strokeLinecap',
   'stroke-linejoin': 'strokeLinejoin',
@@ -101,9 +111,9 @@ const safeSrc = safeCustomCodeUrl;
 function closeOwningPopover(event: { currentTarget: EventTarget | null }): void {
   const link = event.currentTarget;
   if (!(link instanceof Element)) return;
-  const popover = link.closest('[popover]') as (Element & { hidePopover?: () => void }) | null;
+  const popover = link.closest<HTMLElement>('[popover]');
   try {
-    popover?.hidePopover?.();
+    popover?.hidePopover();
   } catch {
     // Already closed, or a browser without the Popover API: nothing to undo.
   }
@@ -441,11 +451,7 @@ function renderElement(
     if (svg && !isSvgElement(child)) return null;
     return renderNode(child, `${path}.${String(at)}`, depth + 1, context);
   });
-  return createElement(
-    tag,
-    props,
-    text === undefined || svg ? children : [text, ...children],
-  );
+  return createElement(tag, props, text === undefined || svg ? children : [text, ...children]);
 }
 
 function isSvgElement(value: unknown): boolean {
@@ -498,6 +504,20 @@ export function CustomCode({
   blockLookup,
 }: CustomCodeProps) {
   const contextLookup = useCustomCodeBlockLookup();
+  const regionRef = useRef<HTMLDivElement>(null);
+  /*
+    Site behaviours (data-ck-behavior): the curated runtime mounts on the
+    region after each commit of a new tree and is disposed before the next.
+    On the canvas the click-driven ones (lightbox, WhatsApp, copy) stay inert,
+    so a click selects rather than opens. The styles arrive with the first
+    behaviour, so a host needs no stylesheet import for them.
+  */
+  useEffect(() => {
+    const region = regionRef.current;
+    if (!region?.querySelector('[data-ck-behavior]')) return undefined;
+    ensureBehaviorCss(region.ownerDocument);
+    return mountBehaviors(region, { interactive: !isCanvas });
+  }, [tree, isCanvas]);
   const root = asRecord(tree);
   const context: RenderContext = {
     hostId,
@@ -508,7 +528,7 @@ export function CustomCode({
   // The region marker is where the live Tailwind sheet's `@scope` begins.
   const region = { [CUSTOM_CODE_REGION_ATTRIBUTE]: '' };
   return (
-    <div className={className} data-ck={hostId} {...region}>
+    <div ref={regionRef} className={className} data-ck={hostId} {...region}>
       {children.map((child, at) => renderNode(child, String(at), 0, context))}
     </div>
   );

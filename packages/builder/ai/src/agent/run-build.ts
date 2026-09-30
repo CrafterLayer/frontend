@@ -6,6 +6,7 @@ import type {
 } from '@craftkit/builder-schema';
 
 import { estimateAssembledAiContextTokens } from '../context';
+import { canonicalJsonStringify } from '../internal/canonical-json';
 import {
   createPhotoCatalogContextProvider,
   isCatalogPhotoUrl,
@@ -17,9 +18,14 @@ import { repairAiPlanForIssues } from '../plan/generate-plan';
 import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/validated-proposal';
 import { AiPlanRejectedError } from '../plan/validate-plan';
 import type { AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
+import { seoAutofixPlan, SEO_AUTOFIX_LABEL } from '../seo/autofix';
+import { agentToolPrompt } from '../tools/agent/catalog-prompt';
+import { expandAgentTools } from '../tools/agent/expand';
+import { AGENT_TOOL_COMMAND, type AgentToolLane } from '../tools/agent/types';
 import { readSectionValues } from './build-revert';
 import { classifyAiRunFailure, type AiRunFailure } from './errors';
 import { checkSection } from './page-plan/check-section';
+import { planKit, planKitIndex, writerKitRoles } from './page-plan/kits';
 import { summarizeNeighbours } from './page-plan/neighbours';
 import {
   PAGE_KIT_CLASSES,
@@ -119,8 +125,14 @@ const ARABIC_FILL_SKILL = 'craftkit.arabic-rtl';
  * only when the registry holds it, so the build works in either order.
  */
 const PHOTO_DIRECTION_SKILL = 'craftkit.photo-direction';
+/**
+ * The variant library a markup writer builds from. A KIT-backed writer never
+ * gets it (2026-09-30): the kit index — one line per kit — replaces its
+ * ~2.8k tokens, because the kit already is the layout.
+ */
+const SECTION_VARIANTS_SKILL = 'craftkit.section-variants';
 const FILL_SKILLS_WHEN_PRESENT: readonly string[] = Object.freeze([
-  'craftkit.section-variants',
+  SECTION_VARIANTS_SKILL,
   PHOTO_DIRECTION_SKILL,
 ]);
 const SCAFFOLD_SKILLS_WHEN_PRESENT: readonly string[] = Object.freeze(['craftkit.direction-deck']);
@@ -346,6 +358,7 @@ function fillSkillIds(
   options: RunAiBuildOptions,
   arabic: boolean,
   photos = true,
+  variants = true,
 ): readonly string[] {
   const registry = options.skillRegistry;
   const named = [...FILL_SKILLS, ...(arabic ? [ARABIC_FILL_SKILL] : [])].filter(
@@ -354,9 +367,10 @@ function fillSkillIds(
   return fittingSkillIds(
     options,
     [FILL_SKILL, ...named],
-    photos
-      ? FILL_SKILLS_WHEN_PRESENT
-      : FILL_SKILLS_WHEN_PRESENT.filter((id) => id !== PHOTO_DIRECTION_SKILL),
+    FILL_SKILLS_WHEN_PRESENT.filter(
+      (id) =>
+        (photos || id !== PHOTO_DIRECTION_SKILL) && (variants || id !== SECTION_VARIANTS_SKILL),
+    ),
   );
 }
 
@@ -698,6 +712,11 @@ interface FillBrief {
    * was measured at up to 12 turns per fill (agent-audit P2-20, 2026-09-28).
    */
   readonly history: boolean;
+  /**
+   * The plan's facts-ledger samples (2026-09-30): the tools a writer calls
+   * never write them into SEO data. Absent on a scaffold build.
+   */
+  readonly sampleValues?: readonly string[];
 }
 
 /** The composition a section writer works under: its own region whole, every other one summarised. */
@@ -706,6 +725,8 @@ function fillComposition(
 ): NonNullable<RunAiAgentOptions['composition']> {
   return { ...options.composition, documentTreeMode: 'scoped' };
 }
+
+const SECTION_TOOL_LANES: readonly AgentToolLane[] = Object.freeze(['section']);
 
 function runFill(
   options: RunAiBuildOptions,
@@ -719,8 +740,17 @@ function runFill(
   const { history, additionalContextProviders, skillRegistry, ...step } = shared;
   void additionalContextProviders;
   const skills = stepSkillRegistry(skillRegistry, SECTION_STEP_INTENT);
+  /*
+    The facts ledger rides with the writer so its tool steps (expanded in
+    generation, before the door) keep sample values out of SEO data. Spread
+    from a variable: it reaches generation only where the run forwards it.
+  */
+  const samples = brief.sampleValues === undefined ? {} : { sampleValues: brief.sampleValues };
   return runAiAgent({
     ...step,
+    ...samples,
+    // A writer names only the section lane's tools — the ones its prompt lists.
+    toolLanes: SECTION_TOOL_LANES,
     ...(brief.history && history !== undefined ? { history } : {}),
     ...(skills === undefined ? {} : { skillRegistry: skills }),
     additionalContextProviders: brief.providers,
@@ -1748,20 +1778,23 @@ function finishBuild(
 
 // ── The page-plan build: T1 plan, T2 code skeleton, contracts per writer ────
 
-/** The plan as a one-line direction, for the approval card and the result. */
+/**
+ * The plan as a one-line direction, for the approval card and the result: the
+ * planner's rationale, else the plan's own meta description (in the page's
+ * language), else the token signature. Plain prose only. Until 2026-09-30 it
+ * was `rationale — Display / Body — 1 Header · 2 Hero[split] · …`, a debug
+ * string the build record read aloud with its variant tags and middle dots
+ * (§4.0); the faces and swatches ride structured on `build.planned.tokens`,
+ * and the sections on its `tasks`. The description comes before the
+ * signature because the signature is an internal design note in English —
+ * a plan handed in through `pagePlan` has no rationale, and an Arabic page
+ * reported "the dish photo bled under the hero" as its direction.
+ */
 function planDirection(plan: PagePlan, rationale: string | undefined): string {
-  const lead = rationale?.trim() ?? '';
-  const sections = plan.sections
-    .map(
-      ({ title, variant }, index) =>
-        `${String(index + 1)} ${title}${variant === undefined ? '' : `[${variant}]`}`,
-    )
-    .join(' · ');
-  return [
-    lead === '' ? plan.tokens.signature : lead,
-    `${plan.tokens.fontDisplay.family} / ${plan.tokens.fontBody.family}`,
-    sections,
-  ].join(' — ');
+  const lead = rationale?.replace(/\s+/gu, ' ').trim() ?? '';
+  if (lead !== '') return lead;
+  const description = plan.description.replace(/\s+/gu, ' ').trim();
+  return description === '' ? plan.tokens.signature.trim() : description;
 }
 
 /** A refused plan as the error the host shows: the door's own error type, so it classifies as `plan-rejected`. */
@@ -1830,6 +1863,8 @@ function skeletonContext(options: RunAiBuildOptions, plan: PagePlan): SkeletonFr
   const root = document.nodes[document.rootId];
   const children = root?.slots?.['default'] ?? [];
   const pageCss: unknown = root?.props['pageCss'];
+  const seo: unknown = root?.props['seo'];
+  const slug: unknown = root?.props['slug'];
   const last = children.at(-1);
   const appending = plan.intent === 'append';
   return {
@@ -1845,6 +1880,9 @@ function skeletonContext(options: RunAiBuildOptions, plan: PagePlan): SkeletonFr
     ...(appending && typeof pageCss === 'string' && pageCss !== ''
       ? { currentPageCss: pageCss }
       : {}),
+    // The home page's site settings (seo.site) survive; a slug someone set is kept.
+    ...(seo === undefined ? {} : { currentSeo: seo }),
+    ...(typeof slug === 'string' ? { currentSlug: slug } : {}),
   };
 }
 
@@ -2101,6 +2139,70 @@ function contractRequest(
             .map(({ key, sample }) => `${key}: ${sample}`)
             .join(' · ')}`,
         ]),
+    ...(neighbours.trim() === '' ? [] : ['', 'THE SECTIONS AROUND IT:', neighbours.trim()]),
+  ].join('\n');
+}
+
+/** How an image slot takes a photo: a catalog subject, or an address the person gave. */
+const KIT_IMAGE_LINE =
+  'IMAGE SLOTS: {"subject":"<the photo topic above>","alt":"…"} for a catalog photo, {"src":"<an address the person gave, listed above>","alt":"…"} for theirs; leave an optional image slot out when IMAGES says none.';
+
+/**
+ * A kit-backed writer's brief (2026-09-30, DESIGN §B): the contract as
+ * `contractRequest` states it, but the layout is a KIT — its index line and
+ * the section lane's tools stand where the kit classes, the variant recipe
+ * and the design-code line were — and the answer is ONE `kit.section` tool
+ * step. The kit colours itself from the page's ck- classes, so no colour or
+ * css rules are needed; the words are the writer's whole job.
+ */
+function kitContractRequest(
+  plan: PagePlan,
+  index: number,
+  task: AiBuildTask,
+  neighbours: string,
+  ownPhotos: readonly string[],
+): string {
+  const contract = plan.sections[index];
+  if (contract?.kit === undefined) return '';
+  const facts = plan.facts.filter(({ section }) => section === contract.key);
+  const hero = contract.role === 'hero';
+  const shape = {
+    command: AGENT_TOOL_COMMAND,
+    args: {
+      name: 'kit.section',
+      input: { id: task.id, kit: contract.kit, ...(hero ? { heading: 'h1' } : {}), slots: {} },
+    },
+  };
+  return [
+    PLAN_HEADING,
+    `PAGE: ${plan.title} — lang ${plan.locale.lang}, ${plan.locale.dir}`,
+    `PRIMARY ACTION: "${plan.primaryCta.label}" → ${plan.primaryCta.href} — every call-to-action link in the slots says exactly this`,
+    '',
+    `SECTION ${String(index + 1)} OF ${String(plan.sections.length)}: ${contract.title}`,
+    CONTRACT_ROLE_LINE[contract.role],
+    `REGION ID: ${task.id}`,
+    `ANCHOR: the section's outer element keeps id="${contract.anchorId}" (the kit keeps it for you)`,
+    `PURPOSE: ${contract.purpose}`,
+    ...(contract.mustSay.length === 0 ? [] : [`MUST SAY: ${quoted(contract.mustSay)}`]),
+    ...(contract.mustNotRepeat.length === 0
+      ? []
+      : [`MUST NOT REPEAT (another section says it): ${quoted(contract.mustNotRepeat)}`]),
+    // The same image lines as a markup writer's, and how an image slot takes them.
+    ...imageLines(contract, ownPhotos),
+    KIT_IMAGE_LINE,
+    ...(facts.length === 0
+      ? []
+      : [
+          `SAMPLE FACTS (write exactly these values; the owner replaces them before publishing): ${facts
+            .map(({ key, sample }) => `${key}: ${sample}`)
+            .join(' · ')}`,
+        ]),
+    '',
+    planKitIndex(writerKitRoles(contract)),
+    '',
+    agentToolPrompt('section'),
+    '',
+    `ANSWER with ONE tool step and nothing else: ${JSON.stringify(shape)} — "id" is this region's id (${task.id}); "kit" is ${contract.kit}, or another kit listed above; fill "slots" with this section's copy in the page's language (${plan.locale.lang}): the MUST SAY claims, the SAMPLE FACTS exactly as written, every action link as the PRIMARY ACTION. No markup and no css: the kit is styled by the page.`,
     ...(neighbours.trim() === '' ? [] : ['', 'THE SECTIONS AROUND IT:', neighbours.trim()]),
   ].join('\n');
 }
@@ -2368,7 +2470,15 @@ async function buildFromPlan(
       sectionKey: contract.key,
       facts: Object.freeze(facts),
     };
-    const complete = region.complete === true;
+    /*
+      A kit section the skeleton filled from the planner's slots is held to
+      its contract like any written one; one that misses gets a writer, which
+      starts from the kit it already holds.
+    */
+    const kitMisses =
+      region.kit !== undefined &&
+      guardedCheck(() => checkSection(plan, contract, sectionOf(values), checkOptions)).length > 0;
+    const complete = region.complete === true && !kitMisses;
     if (complete && skeletonTx !== undefined) {
       landedSections.set(contract.key, sectionOf(values));
       jobs.push({
@@ -2386,6 +2496,16 @@ async function buildFromPlan(
     // A hero is handed the person's own photos even when the plan made it type-led (see imageLines).
     const photos = images.length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
     const skillIds = fillSkillIds(options, arabic, photos);
+    /*
+      A kit-backed section (2026-09-30): the writer names the kit and fills
+      its slots in ONE tool step — ~30-300 output tokens instead of the
+      section's markup — with the kit index in place of the variant library.
+      Attempt 2 is today's markup writer, so a kit step refused twice (its
+      repair round included) never costs the section.
+    */
+    const kitBacked = planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
+    const kitSkillIds = kitBacked ? fillSkillIds(options, arabic, photos, false) : skillIds;
+    const sampleValues = Object.freeze(plan.facts.map(({ sample }) => sample));
     // The catalog is where the contract's subjects come from; the person's own need none.
     const providers =
       images.length > 0
@@ -2398,19 +2518,35 @@ async function buildFromPlan(
           );
     jobs.push({
       ...common,
-      brief: (attempt) => ({
-        // The retry is SHORTER: the neighbours go, the contract stays.
-        request: contractRequest(
-          plan,
-          index,
-          task,
-          attempt === 1 ? neighbourSummary(plan, index, landedSections) : '',
-          ownPhotos,
-        ),
-        skillIds,
-        providers,
-        history: false,
-      }),
+      brief: (attempt) =>
+        kitBacked && attempt === 1
+          ? {
+              request: kitContractRequest(
+                plan,
+                index,
+                task,
+                neighbourSummary(plan, index, landedSections),
+                ownPhotos,
+              ),
+              skillIds: kitSkillIds,
+              providers,
+              history: false,
+              sampleValues,
+            }
+          : {
+              // The retry is SHORTER: the neighbours go, the contract stays.
+              request: contractRequest(
+                plan,
+                index,
+                task,
+                attempt === 1 ? neighbourSummary(plan, index, landedSections) : '',
+                ownPhotos,
+              ),
+              skillIds,
+              providers,
+              history: false,
+              sampleValues,
+            },
       check: (section) => checkSection(plan, contract, section, checkOptions),
       onLanded: (after) => {
         landedSections.set(contract.key, sectionOf(after));
@@ -2423,6 +2559,7 @@ async function buildFromPlan(
   emit({
     type: 'build.planned',
     direction: built,
+    tokens: plan.tokens,
     tasks: Object.freeze(tasks),
     writers: fillConcurrencyFor(
       jobs.filter(({ complete }) => complete === undefined).length,
@@ -2430,7 +2567,112 @@ async function buildFromPlan(
     ),
   });
   const filled = await fillAndLand(build, jobs, placeholders);
-  return finishBuild(build, filled, built, { pagePlan: plan });
+  // Every section landed and nobody stopped: the zero-token SEO pass, one transaction.
+  const seoLanded = filled.stopped === undefined && landSeoPass(build, plan);
+  return finishBuild(build, seoLanded ? rebaseLandings(filled, options.kernel.getDocument()) : filled, built, {
+    pagePlan: plan,
+  });
+}
+
+/** The checker never costs a section: one that throws found nothing. */
+function guardedCheck(check: () => readonly SectionCheckIssue[]): readonly SectionCheckIssue[] {
+  try {
+    return check();
+  } catch {
+    return [];
+  }
+}
+
+const SEO_PASS_RATIONALE =
+  'Keep the menu in step with the sections, and apply the safe SEO fixes: alt text, image sizes and loading, one h1, labelled sections, a clamped title and description.';
+
+/**
+ * The post-build pass (DESIGN §0, 2026-09-30) — zero tokens, one transaction
+ * labelled `Assistant: SEO`, through the same door as every write:
+ * `nav.sync` (the header and footer name the sections as they landed), then
+ * every safe fix `seoAutofixPlan` finds on the page as those steps leave it.
+ * The plan's fact samples go with both, so no sample value becomes SEO data.
+ *
+ * Never costs the build: a refused whole is retried as the SEO fixes alone,
+ * then the menu alone, and a pass that still cannot land leaves the page as
+ * the sections left it. Asks "has the person stopped?" before it writes.
+ * What it could not fix stays for `checkSeo`, which the host's quality view
+ * reads from the page.
+ */
+function landSeoPass(build: BuildRun, plan: PagePlan): boolean {
+  const { options } = build;
+  if (build.personStopped()) return false;
+  const sampleValues = plan.facts.map(({ sample }) => sample);
+  let navSteps: AiPlan['commands'] = [];
+  try {
+    const expanded = expandAgentTools(
+      {
+        rationale: SEO_PASS_RATIONALE,
+        commands: [{ command: AGENT_TOOL_COMMAND, args: { name: 'nav.sync', input: {} } }],
+      },
+      options.kernel,
+      { sampleValues, lanes: ['build'] },
+    );
+    const commands: unknown = (expanded.plan as { commands?: unknown }).commands;
+    if (expanded.issues.length === 0 && Array.isArray(commands)) {
+      navSteps = (commands as AiPlan['commands']).filter(
+        ({ command }) => command !== AGENT_TOOL_COMMAND,
+      );
+    }
+  } catch {
+    // No menu to sync is no reason to skip the SEO fixes.
+  }
+  const trees = new Map<NodeId, unknown>();
+  for (const step of navSteps) {
+    const id = stringArg(step.args, 'id');
+    if (step.command === 'setProp' && id !== undefined && stringArg(step.args, 'key') === 'tree') {
+      trees.set(id, (step.args as { value?: unknown }).value);
+    }
+  }
+  let seoSteps: AiPlan['commands'] = [];
+  try {
+    seoSteps = seoAutofixPlan(options.kernel, { sampleValues, trees })?.commands ?? [];
+  } catch {
+    // A checker that throws found nothing to fix.
+  }
+  for (const commands of [[...navSteps, ...seoSteps], seoSteps, navSteps]) {
+    if (commands.length === 0) continue;
+    if (build.personStopped()) return false;
+    const candidate: AiPlan = { rationale: SEO_PASS_RATIONALE, commands };
+    try {
+      applyAiPlan({
+        kernel: options.kernel,
+        validationPorts: options.validationPorts,
+        plan: candidate,
+        policy: policyFor(candidate),
+        label: SEO_AUTOFIX_LABEL,
+      });
+      return true;
+    } catch {
+      // Refused whole: try the smaller pass next.
+    }
+  }
+  return false;
+}
+
+/**
+ * The SEO/menu pass is the BUILD's own write, so each section's record of
+ * what it left (`landing.after`) moves with it. Without this, per-section
+ * Undo read every region the pass touched (alt text, loading, the menu) as
+ * "changed since" and refused — after every build (final test 2026-09-30).
+ * A revert still puts back `before`, the region as it was before its fill;
+ * a person's own later edit is still recognised, since it comes after this.
+ */
+function rebaseLandings(filled: FilledSections, document: BuilderDocument): FilledSections {
+  const reports = filled.reports.map((report) => {
+    const landing = report.landing;
+    if (landing === undefined) return report;
+    const now = readSectionValues(document, report.id, Object.keys(landing.after) as AiBuildSectionKey[]);
+    if (canonicalJsonStringify(now) === canonicalJsonStringify(landing.after)) return report;
+    return { ...report, landing: Object.freeze({ ...landing, after: now }) };
+  });
+  const changed = reports.some((report, index) => report !== filled.reports[index]);
+  return changed ? { ...filled, reports: Object.freeze(reports) } : filled;
 }
 
 /** A region's props as the checker and the neighbour summary read them. */

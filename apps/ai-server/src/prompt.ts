@@ -3,13 +3,36 @@ import { UTILITY_VOCABULARY, type ContextFragment } from '@craftkit/builder/wire
 
 import {
   PAGE_PLAN_ARABIC_FAMILIES,
+  PAGE_PLAN_BUSINESS_TYPES,
   PAGE_PLAN_EXAMPLE,
   PAGE_PLAN_FALLBACK_ACCENTS,
   PAGE_PLAN_FALLBACK_BASE,
+  PAGE_PLAN_KIT_IDS,
   PAGE_PLAN_LATIN_FAMILIES,
   PAGE_PLAN_PHOTO_TOPICS,
   PAGE_PLAN_SECTION_VARIANTS,
+  PAGE_PLAN_SEO_KINDS,
 } from './plan-shape';
+
+/*
+  The agent tools a plan may call (2026-09-30, DESIGN §0/§A): a step
+  {"command":"tool","args":{"name","input"}} that the CLIENT expands into
+  kernel steps before its door, for ~30-300 output tokens instead of markup.
+  These are \`agentToolPrompt('edit')\` and \`agentToolPrompt('seo')\` from
+  builder-ai (tools/agent/catalog-prompt.ts), copied: this app reaches the
+  builder family only through \`@craftkit/builder/wire\`, which carries no
+  tool catalog. prompt.test.ts imports the real ones and fails on a drift.
+*/
+// BEGIN AGENT TOOL PROMPTS
+export const EDIT_TOOL_PROMPT =
+  "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\ntheme.apply {accent?,bg?,ink?,surface?:#hex|shade,radius?,deckRow?}\nfonts.set {display?,body?:verified family} — Set display and body faces\ncopy.set {edits:[{find,text}],id?} — Replace exact texts, keep markup\ndirection.set {lang,dir?} — Switch language and direction\nimage.set {id,find:src,subject,aspect?,alt}\nicon.set {id,find:icon,icon} — Swap a Lucide icon by name\nsection.ops\nnav.sync {} — Rebuild menus from sections\nbehavior.attach {id,find:text|src,behavior,params?}\nkit.section {id,kit,slots,heading?:'h1'|'h2'}\nkit.swap {id,kit} — Relayout a kit section, keeping its content\nkit.insert {kit,slots,after?:id} — Add a new section from a kit\nseo.meta\nseo.business\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"theme.apply\",\"input\":{\"accent\":\"emerald-700\"}}}";
+export const SEO_TOOL_PROMPT =
+  "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\nseo.meta {title?,description?,keyword?,slug?} — omitted fields fill from the h1 and lead — Set page title, description, slug and keyword\nseo.business {type,name,telephone?,whatsapp?,email?,address?:{city,country,street?},hours?,priceRange?,cuisine?,sameAs?} — Record the owner's real business facts\nseo.schema {kinds:[FAQPage|Menu|Product|Service|Article|BreadcrumbList|Event]} — Choose which structured data this page publishes\nseo.fix {} — Apply every safe SEO fix on this page\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"seo.fix\",\"input\":{}}}";
+// END AGENT TOOL PROMPTS
+
+/** When a tool fits, the edit takes it; the rest stays markup; scripts never go inline. */
+const TOOL_PREFERENCE =
+  'Prefer ONE tool step over markup whenever a tool above fits the request; editTree and setProp remain for everything else. A bespoke script (anything a data-ck-behavior cannot do) needs a code page: say so in followUp, and never put a script inline in a tree.';
 
 /**
  * Turning an assembled context into a Claude request.
@@ -165,9 +188,22 @@ You never edit the document. You propose commands; a validator replays them agai
 
 ${REGION_CSS}
 
+## Tools
+
+${EDIT_TOOL_PROMPT}
+${TOOL_PREFERENCE}
+
 ## Refusing
 
 If the request is not about this page, or the commands cannot express it, answer with a plan whose single command is impossible rather than guessing.`;
+
+/** Whether a request is about SEO, in English or Arabic: then the seo lane's tools are listed. */
+const SEO_REQUEST = /(?:^|[^\p{L}])(?:seo|سيو|السيو|بالسيو|للسيو)(?![\p{L}])|محركات البحث|search engine/iu;
+
+/** Whether this request asks about SEO (`seo`, `سيو`, "search engine", «محركات البحث»). */
+export function mentionsSeo(request: string): boolean {
+  return SEO_REQUEST.test(request);
+}
 
 /** The heading every page-plan prompt carries and no other prompt does. */
 export const PAGE_PLAN_CONTRACT_MARK = '# The page plan: output contract';
@@ -214,8 +250,10 @@ ${JSON.stringify(PAGE_PLAN_EXAMPLE)}
 - fontDisplay, fontBody: {"family","weights"} — the row's AR pair on an Arabic page, its EN pair otherwise, with exactly the row's weights (a face listed without weights → "weights":[]; one wrong weight drops every face in the import). Never Cairo or Tajawal by habit: only when the row names them. Only these families exist. Arabic-capable: ${PAGE_PLAN_ARABIC_FAMILIES.join(', ')}. Latin-only, never on an Arabic page: ${PAGE_PLAN_LATIN_FAMILIES.join(', ')}.
 - primaryCta: {"label","href"} — THE one action of the page; href is "#" + a section's anchorId, or an https:, mailto: or tel: URL. Every CTA button on the page will carry this exact label.
 - nav: at most 8 {"label","anchorId"}, each naming a section's anchorId; [] when the page has no header.
-- sections: 2 to 12 in page order, usually 5 to 8, each {"key","role","title","anchorId","purpose","mustSay","mustNotRepeat","variant","images"}. role: "header" (first, at most one) | "hero" (exactly one, first or right after the header; it holds the page's one h1) | "band" | "cta" | "footer" (last, at most one). variant: the row's layout id for that section, else one of ${PAGE_PLAN_SECTION_VARIANTS.join(', ')}; omit it when none fits. mustSay: the claims this section must carry. mustNotRepeat: claims another section makes that this one must not.
+- sections: 2 to 12 in page order, usually 5 to 8, each {"key","role","title","anchorId","purpose","mustSay","mustNotRepeat","variant","kit","slots","images"}. role: "header" (first, at most one) | "hero" (exactly one, first or right after the header; it holds the page's one h1) | "band" | "cta" | "footer" (last, at most one). variant: the row's layout id for that section, else one of ${PAGE_PLAN_SECTION_VARIANTS.join(', ')}; omit it when none fits. mustSay: the claims this section must carry. mustNotRepeat: claims another section makes that this one must not.
 - images: at most 4 per section, each {"subject","aspect","alt"}. subject is a photo-catalog topic: one from PHOTOS YOU MAY USE when that is in your context, else the row's photo subjects, else one of ${PAGE_PLAN_PHOTO_TOPICS.join(', ')} — never a free word. aspect: landscape | portrait | square. alt in the page language. No topic fits → no images: a type-led section beats a wrong photo.
+- kit: the section's layout, one id from KITS in the request (${PAGE_PLAN_KIT_IDS.join(', ')}) whose role fits it — a hero kit for the hero, a closing kit for a cta, none for the header or footer. slots: ONLY for a short section (stats, logos, a cta, a faq of 6 or fewer), the kit's slots filled in the page language, so it needs no writer; omit slots everywhere else.
+- seo: {"keyword","pageKind","businessType","slug"} — keyword the one phrase the page should be found by, in its language, at most 80 characters, used naturally in the title and the hero; pageKind one of ${PAGE_PLAN_SEO_KINDS.join(', ')}; businessType one of ${PAGE_PLAN_BUSINESS_TYPES.join(', ')} when the page is for one; slug 2 to 5 words of the keyword in the page language.
 - facts: EVERY invented detail the owner must replace before publishing — a phone number, a price, an address, opening hours, a person's or business name you made up, a statistic, a quote — each {"key","sample","section"}: sample exactly as the page will show it — a complete, realistic value in the page's own format and language (+962 6 461 2750, +971 4 331 2750, AED 1,850), never XXX, masked digits, all zeros or a bracketed stand-in: the ledger, not the value, marks it as a sample — and section the key of the section that shows it. A made-up value missing from this list gets published as if it were true.
 
 ## A repair
@@ -429,6 +467,11 @@ export function markupVocabulary(
     walkSchema(properties['attributes'], (named) => {
       if (isRecord(named['properties'])) {
         for (const name of Object.keys(named['properties'])) attributes.add(name);
+      }
+      // The catalog's compact form (ai wire-schema.ts): the names as `propertyNames.enum`.
+      const names = isRecord(named['propertyNames']) ? named['propertyNames']['enum'] : undefined;
+      if (Array.isArray(names)) {
+        for (const name of names as unknown[]) if (typeof name === 'string') attributes.add(name);
       }
     });
   });
@@ -713,6 +756,14 @@ function volatileContext(request: AiPlanWireRequest): string {
       '# Why it was rejected — fix exactly these',
       JSON.stringify(request.attempt.issues),
     );
+  }
+
+  /*
+    The seo lane's tools, only on an edit that asks about SEO: per request,
+    so they sit here, after the cached prefix, and cost nothing otherwise.
+  */
+  if (planPromptVariant(request) === 'edit' && mentionsSeo(request.request)) {
+    parts.push('', '# SEO tools', SEO_TOOL_PROMPT);
   }
 
   parts.push('', '# The request', request.request);

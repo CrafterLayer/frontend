@@ -28,6 +28,7 @@ Continue runs it (FR-054).
 | `onContinue` | `() => void` | none    | offered only while paused                                                |
 | `labelId`    | `string`     | own id  | the Composer passes its own, so the textarea can be described by it      |
 | `captionId`  | `string`     | own id  | same                                                                     |
+| `dockChips`  | `ContextChipView[]` | none | the composer's chips; a paused scope they already show is not drawn twice |
 | `className`  | `string`     | none    | appended to `ck-agent-queue`                                             |
 
 ## States
@@ -43,8 +44,9 @@ Continue runs it (FR-054).
 
 Label in Meta 600 Ink, caption in Meta 400 (Slate, Amber or Alarm), `×` an IconButton spanning both
 lines. The dot is Indigo while waiting and Rule while paused, a second cue after the words. Paused, the
-request's scope chips (read-only) and text follow, then Continue as a text button. Nothing is boxed:
-the composer is the border.
+request's scope chips (read-only) and text follow, then Continue as a text button. The scope is left
+out when it is the whole page, or when the composer below already shows the same chips: one dock never
+draws two identical chips. Nothing is boxed: the composer is the border.
 
 ## Accessibility
 

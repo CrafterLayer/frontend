@@ -242,9 +242,18 @@ export const SlowRun: Story = {
     const canvas = within(canvasElement);
     await submitRequest(canvasElement, 'add a hero');
 
-    // The composer is closed, the send slot is Stop, and the rows are narrating.
+    // The send slot is Stop, and the rows are narrating.
     await expect(await canvas.findByRole('button', { name: 'Stop' })).toBeVisible();
-    await expect(canvas.getByRole('textbox', { name: 'Ask the assistant' })).toBeDisabled();
+    /*
+      The composer stays OPEN while a run works: the next request is typed now
+      and queued, not lost to a locked field. This story used to pin the field
+      disabled, which stopped being true when the queue arrived — the placeholder
+      and the Queue-next control are the contract now.
+    */
+    const composer = canvas.getByRole('textbox', { name: 'Ask the assistant' });
+    await expect(composer).not.toBeDisabled();
+    await expect(composer).toHaveAttribute('placeholder', 'Type the next request…');
+    await expect(canvas.getByRole('button', { name: 'Queue next' })).toBeVisible();
     /*
       The EXACT line, not a pattern. "Working on" appears on the stage clock's
       heading as well as here, so a regex matching both makes `findByText` throw
@@ -397,9 +406,16 @@ export const InFlightProgress: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await submitRequest(canvasElement, 'add a hero');
-    const card = await canvas.findByRole('region', { name: 'Working on the page' });
-    await expect(within(card).getByText('Plan')).toBeVisible();
-    await expect(within(card).getByText('Structure')).toBeVisible();
+    /*
+      The in-flight turn is ONE run card: a titled article with its status, a
+      progress bar over the run's stages, and the line it is on. It used to be a
+      stage-by-stage region ("Plan", "Structure"); the card replaced it and says
+      the same thing in less room.
+    */
+    const card = await canvas.findByRole('article', { name: 'Working on the page · Running' });
+    await expect(within(card).getByRole('heading', { name: 'Working on the page' })).toBeVisible();
+    await expect(within(card).getByRole('progressbar', { name: 'Run progress' })).toBeVisible();
+    await expect(within(card).getByText('Reading the page…')).toBeVisible();
     await expect(within(card).queryByText('Apply')).toBeNull();
     await expect(canvas.queryByRole('button', { name: 'Cancel generation' })).toBeNull();
     // The card is silent; the panel's voice is the one live region.
@@ -485,14 +501,13 @@ export const CompactColumn: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const requests = [
-      'add a hero',
-      'add a hero',
-      'add a hero',
-      'add a hero',
-      'add a hero',
-      'add a hero',
-    ];
+    /*
+      Three proposals, not six. Three plan cards already overflow a thread this
+      short (asserted below: `scrollHeight > clientHeight`), and each run now
+      costs ~4 s in the browser, so six took ~24 s and failed the 15 s story
+      budget on every run without ever reaching the layout it exists to check.
+    */
+    const requests = ['add a hero', 'add a hero', 'add a hero'];
     const composerInput = canvas.getByRole<HTMLTextAreaElement>('textbox', {
       name: 'Ask the assistant',
     });
@@ -651,7 +666,7 @@ export const BuildAwaitingApproval: Story = {
     const kernel = createPlaygroundKernel({ fixture: 'empty' });
     return { kernel, planProvider: createBuildStoryProvider(kernel), locale: 'en' };
   })(),
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await submitRequest(canvasElement, BUILD_STORY_REQUEST);
 
@@ -664,8 +679,16 @@ export const BuildAwaitingApproval: Story = {
     await expect(within(approval).getByText('5 sections')).toBeVisible();
     await expect(within(approval).getByRole('button', { name: 'Build' })).toBeVisible();
     await expect(within(approval).getByRole('button', { name: 'Stop build' })).toBeVisible();
-    // The promise the card makes, said out loud.
-    await expect(within(approval).getByText(/The skeleton is already on the page/)).toBeVisible();
+    /*
+      The promise the card makes, said out loud — and kept. Until 2026-09-28
+      this read "The skeleton is already on the page", because the skeleton
+      landed BEFORE the question. That was the defect (agent-audit P0-4): Ask
+      mode wrote empty bands before asking. The engine now asks before its first
+      write, so the card says nothing is there yet and the page agrees.
+    */
+    await expect(within(approval).getByText(/Nothing is on the page yet\./)).toBeVisible();
+    await expect(within(approval).queryByText(/already on the page/)).toBeNull();
+    await expect(args.kernel.transactions()).toHaveLength(0);
   },
 };
 
@@ -717,20 +740,28 @@ export const BuildInFlight: Story = {
 };
 
 /**
- * The window has a BOUND, and this is where you can see it.
+ * The writer pool has a BOUND, and this is where you can see it.
  *
- * `Hero` never settles, so nothing lands at all. Three writers are in flight —
- * the concurrency limit — and the remaining two sections are genuinely
- * `waiting`: the fourth cannot start until the first has landed. Without this
+ * EVERY section is held, so no writer ever comes back. The pool fills — four
+ * writers for a five-section page (`fillConcurrencyFor`) — and the fifth
+ * section is genuinely `waiting`: no writer is free to take it. Without this
  * story the limit is a constant nobody can observe, and raising it to "all of
  * them" would look identical in `BuildInFlight`.
+ *
+ * REWRITTEN 2026-09-29. This held only `Hero` and pinned the fifth row
+ * `waiting` because a writer could not run more than the window ahead of the
+ * section LANDING. That landing-gated window was removed on purpose
+ * (agent-audit P1-8: a slow hero held idle writers back), so with one section
+ * held the other writers now finish theirs and take the fifth — it read
+ * `running`, correctly. Writers are bounded by concurrency alone, so the bound
+ * shows only when every writer is busy.
  */
 export const BuildWindowBounded: Story = {
   args: (() => {
     const kernel = createPlaygroundKernel({ fixture: 'empty' });
     return {
       kernel,
-      planProvider: createBuildStoryProvider(kernel, { hold: ['Hero'] }),
+      planProvider: createBuildStoryProvider(kernel, { hold: [...BUILD_STORY_SECTIONS] }),
       locale: 'en',
     };
   })(),
@@ -741,18 +772,14 @@ export const BuildWindowBounded: Story = {
 
     const list = await canvas.findByRole('list', { name: 'Sections' }, { timeout: 8_000 });
     /*
-      Waits on the SETTLED shape, not on a transient count.
-
-      An earlier version polled for "exactly three rows are running", which is
-      the same fact stated as a moment — and a moment is exactly what a pool of
-      writers does not hold still. The shape below is stable for as long as
-      `Hero` is held, which is forever: the two rows AFTER the window cannot
-      start, and they say so.
+      Waits on the SETTLED shape, not on a transient count. With every section
+      held, the shape below holds forever: the pool is full and stays full.
     */
     await waitFor(
       async () => {
         const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
         await expect(rows).toHaveLength(5);
+        await expect(rows[3]).toHaveAttribute('data-status', 'running');
         await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
       },
       /*
@@ -766,21 +793,21 @@ export const BuildWindowBounded: Story = {
 
     const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
     /*
-      The window is pinned from BOTH sides, which is what makes it observable
-      rather than assumed. Rows 1 and 2 started even though row 0 has not landed
-      — that is what a window wider than one MEANS, and it fails at concurrency
-      1. Row 4 could not start — that is where the window ends, and it fails at
+      The bound is pinned from BOTH sides, which is what makes it observable
+      rather than assumed. Rows 1-3 started even though row 0 has not landed —
+      that is what a pool wider than one MEANS, and it fails at concurrency 1.
+      Row 4 could not start — that is where the pool ends, and it fails at
       unbounded concurrency.
 
-      Deliberately not "exactly three". The pool auto-scales with the page's
-      size (`fillConcurrencyFor`), so for five sections it is four, and writing
-      a constant here would pin the wrong number in the wrong place. The formula
-      is pinned where a formula belongs — a unit test beside it.
+      The four is `fillConcurrencyFor(5)`, pinned as a formula in the unit test
+      beside it; this story pins only that SOME bound exists below the page size.
     */
+    await expect(rows[0]).toHaveAttribute('data-status', 'running');
     await expect(rows[1]).toHaveAttribute('data-status', 'running');
     await expect(rows[2]).toHaveAttribute('data-status', 'running');
+    await expect(rows[3]).toHaveAttribute('data-status', 'running');
     await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
-    // Nothing landed, because the FIRST section is the one that is stuck.
+    // Nothing landed, because the FIRST section is one of the ones that is stuck.
     await expect(canvasElement.querySelector('.pg-chat__tasks-count')).toHaveTextContent('0/5');
   },
 };

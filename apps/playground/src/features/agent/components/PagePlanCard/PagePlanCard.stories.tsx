@@ -186,7 +186,8 @@ export const AtMinimum: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Options for Hero' }));
     const menu = within(canvasElement.ownerDocument.body).getByRole('menu');
-    await expect(within(menu).getByText(t('en', 'plan.min'))).toBeVisible();
+    // The menu opens with a fade: its reason is visible once the entrance has run.
+    await waitFor(() => expect(within(menu).getByText(t('en', 'plan.min'))).toBeVisible());
   },
 };
 /** Twelve sections, the engine’s ceiling: Add section is refused, with the reason shown. */

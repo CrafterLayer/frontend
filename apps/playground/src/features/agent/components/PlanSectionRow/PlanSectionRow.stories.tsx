@@ -69,6 +69,13 @@ function sectionsOf(locale: Locale): readonly PlanSectionView[] {
   return planReady(locale).sections;
 }
 
+/** The dental plan's section at `index`; the plan has eight. */
+function sectionAt(locale: Locale, index: number): PlanSectionView {
+  const section = sectionsOf(locale)[index];
+  if (section === undefined) throw new Error(`the plan has no section ${String(index)}`);
+  return section;
+}
+
 /** Rows 4 to 6 of the dental plan, the middle one the row under study. */
 function Rows({
   locale,
@@ -112,7 +119,7 @@ const meta = {
   parameters: { layout: 'centered' },
   args: {
     locale: 'en',
-    section: sectionsOf('en')[4] as PlanSectionView,
+    section: sectionAt('en', 4),
     position: 5,
     editable: true,
     canMoveUp: true,
@@ -163,20 +170,17 @@ export const RenamingRightToLeft: Story = {
   },
 };
 
-/** The row menu: Rename, Move up, Move down, then Remove section. */
-export const MenuOpen: Story = {
-  ...story(),
-  play: async ({ canvasElement }) => {
-    await userEvent.click(
-      within(canvasElement).getByRole('button', { name: 'Options for Doctors' }),
-    );
-  },
+const openMenu: NonNullable<Story['play']> = async ({ canvasElement }) => {
+  await userEvent.click(within(canvasElement).getByRole('button', { name: 'Options for Doctors' }));
 };
+
+/** The row menu: Rename, Move up, Move down, then Remove section. */
+export const MenuOpen: Story = { ...story(), play: openMenu };
 
 /** At two sections Remove stays reachable, refused, with its reason under it. */
 export const RemoveRefusedAtFloor: Story = {
   ...story({}, { canRemove: false, removeReason: t('en', 'plan.min') }),
-  play: MenuOpen.play,
+  play: openMenu,
 };
 
 /** A name another section shares: the Amber wavy underline, and words on the handle. */

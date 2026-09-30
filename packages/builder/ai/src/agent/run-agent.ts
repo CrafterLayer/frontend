@@ -1,5 +1,6 @@
 import { estimateAssembledAiContextTokens } from '../context';
 import { assembleDirectEditContext } from '../context/assemble-context';
+import { resolveAiCompositionPolicy } from '../context/composition-policy';
 import { resolveDocumentFocus, type AiDocumentFocus } from '../context/document-tree-mode';
 import {
   routeIntent,
@@ -10,6 +11,8 @@ import {
 import type { AiPlan, AiPlanProvider, AiProposeOptions, AssembledAiContext } from '../types';
 import { applyAiPlan } from '../plan/apply-plan';
 import { tryDirectEdit } from '../plan/direct-edit';
+import { tryDirectTool } from '../tools/agent/direct-tool';
+import { AiPlanRejectedError, validateAiPlan } from '../plan/validate-plan';
 import { createAiValidatedProposal } from '../plan/validated-proposal';
 import {
   generateAiPlanWithPreparedSkills,
@@ -23,6 +26,7 @@ import type {
   AiEffectiveCommandPolicy,
   AiPreparedSkillContext,
   AiSkillPrepareOptions,
+  AiSkillManifestV1,
   AiSkillRegistry,
 } from '../skills';
 import type {
@@ -282,6 +286,8 @@ function generationOptions(
       : { maxContextTokens: options.policy.maxContextTokens }),
     ...(options.policy === undefined ? {} : { policy: options.policy }),
     ...(composition === undefined ? {} : { composition }),
+    ...(options.sampleValues === undefined ? {} : { sampleValues: options.sampleValues }),
+    ...(options.toolLanes === undefined ? {} : { toolLanes: options.toolLanes }),
     /*
       The route this run read (or the host's), so the page-level skills are
       gated on what the request is FOR: measured 2026-09-28, an edit routed
@@ -384,12 +390,55 @@ function instrumentProvider(
 // ── The zero-token path ───────────────────────────────────────────────────────
 
 /**
+ * Whether no skill that narrows the command policy can activate on this run:
+ * nothing selected by id, and every skill with `restrictToCommands` — or one
+ * that depends on such a skill, however deeply — is explicit-only. Then the
+ * policy without skills equals the policy with them.
+ */
+function skillsCannotNarrow(
+  options: RunAiAgentOptions,
+  registry: AiSkillRegistry | undefined,
+): boolean {
+  if ((options.selectedSkillIds?.length ?? 0) > 0) return false;
+  if (registry === undefined) return true;
+  let manifests: readonly AiSkillManifestV1[];
+  try {
+    manifests = registry.list();
+  } catch {
+    return false;
+  }
+  const narrowing = new Set(
+    manifests.filter(({ restrictToCommands }) => restrictToCommands !== undefined).map(({ id }) => id),
+  );
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const { id, dependencies } of manifests) {
+      if (!narrowing.has(id) && dependencies.some((dependency) => narrowing.has(dependency))) {
+        narrowing.add(id);
+        grew = true;
+      }
+    }
+  }
+  return manifests.every(({ id, activation }) => !narrowing.has(id) || activation.mode === 'explicit');
+}
+
+/**
  * A small edit stated in full, made with no provider call (fast-edits,
  * 2026-09-28): parsed, pointed at its one element and validated by
  * `tryDirectEdit`, then proposed or applied exactly as a model's plan would
  * be — the same proposal authentication, the same grouped door, one labelled
  * transaction. `undefined` whenever it does not apply; the model path then
  * runs as it always did.
+ *
+ * Auto rehearses the plan ONCE, in `applyAiPlan` (final test, 2026-09-28): a
+ * rehearsal rebuilds and re-validates the whole page, and the edit paid for
+ * two — `tryDirectEdit`'s, then the door's own, microseconds apart on the
+ * same document with the same ports and policy. Only while the run's
+ * composition checks what the door checks (the vocabulary enforced, colours
+ * free); a stricter or looser run keeps its own rehearsal. The door refuses
+ * before any write, so a refused plan still falls back to the model with
+ * nothing written. The events keep their order — `plan.applying` before the
+ * write, which the panel reads as the "before" of its change list.
  */
 function directRun(
   options: RunAiAgentOptions,
@@ -397,11 +446,16 @@ function directRun(
   policy: AiEffectiveCommandPolicy | undefined,
   apply: 'never' | 'auto',
   emit: Emit,
+  /** Called once the edit is parsed and about to be made, before its first event. */
+  onTaken?: () => void,
 ): AiAgentRunResult | undefined {
   // The run's own command policy, skills included: a run whose policy failed to resolve is the model path's to report.
-  if (options.directEdits === false || reading?.route.kind !== 'edit' || policy === undefined) {
+  if (options.directEdits === false || reading === undefined || policy === undefined) {
     return undefined;
   }
+  // agent-tools additions: a request no direct edit reads may still be a zero-token tool (tryDirectTool).
+  if (reading.route.kind !== 'edit') return directToolRun(options, reading, policy, apply, emit, onTaken);
+  // end agent-tools additions
   const selection = options.selection ?? options.kernel.context.store.getState().selection;
   let direct: ReturnType<typeof tryDirectEdit>;
   try {
@@ -411,12 +465,15 @@ function directRun(
       validationPorts: options.validationPorts,
       policy,
       ...(options.composition === undefined ? {} : { composition: options.composition }),
+      // Auto: `applyAiPlan` below is the one rehearsal. Ask: this one, so a refused plan is never proposed.
+      ...(apply === 'auto' && doorRehearsesAsTheRun(options) ? { dryRun: false } : {}),
     });
   } catch {
     // An optimisation that fails must never cost the person their edit: the model path runs.
     return undefined;
   }
-  if (direct === null) return undefined;
+  if (direct === null) return directToolRun(options, reading, policy, apply, emit, onTaken);
+  onTaken?.();
 
   const context = assembleDirectEditContext(options.kernel.context, {
     nodeIds: direct.target.changes.map(({ nodeId }) => nodeId),
@@ -457,14 +514,127 @@ function directRun(
   }
   emit({ type: 'plan.applying', source: 'direct', tokens: 0 });
   assertRunActive(options);
-  const applied = applyAiPlan({
-    kernel: options.kernel,
-    proposal,
-    validationPorts: options.validationPorts,
-    ...(options.label === undefined ? {} : { label: options.label }),
-  });
+  let applied: ReturnType<typeof applyAiPlan>;
+  try {
+    applied = applyAiPlan({
+      kernel: options.kernel,
+      proposal,
+      validationPorts: options.validationPorts,
+      ...(options.label === undefined ? {} : { label: options.label }),
+    });
+  } catch (cause) {
+    /*
+      The door's rehearsal refused it before any write (an existing tree the
+      vocabulary refuses, a policy without setProp): the model path runs, as
+      it did when `tryDirectEdit`'s own rehearsal refused it. Its events
+      follow this attempt's; nothing was written.
+    */
+    if (cause instanceof AiPlanRejectedError) return undefined;
+    throw cause;
+  }
   const done = emit({ type: 'run.completed', status: 'applied', source: 'direct', tokens: 0 });
   return Object.freeze({ ...common, status: 'applied', applied, elapsedMs: done?.elapsedMs ?? 0 });
+}
+
+// agent-tools additions
+/**
+ * A zero-token TOOL (agent-tools, 2026-09-30): «غيّر اللون إلى الأخضر»,
+ * "use font Cairo", «احذف قسم الأسعار» — a request `tryDirectTool` reads in
+ * full becomes its tool plan, expanded and validated with no model, then
+ * proposed or applied exactly as a direct edit is: one validated proposal,
+ * the same grouped door, one labelled transaction. A page or site build is
+ * never a tool. The plan is re-judged under the run's own policy and
+ * composition first, so a Plan-mode skill that allows nothing still wins;
+ * anything that fails returns undefined and the model path runs.
+ */
+function directToolRun(
+  options: RunAiAgentOptions,
+  reading: RunReading,
+  policy: AiEffectiveCommandPolicy,
+  apply: 'never' | 'auto',
+  emit: Emit,
+  onTaken?: () => void,
+): AiAgentRunResult | undefined {
+  if (reading.route.kind === 'build-page' || reading.route.kind === 'build-site') return undefined;
+  let plan: AiPlan;
+  try {
+    const direct = tryDirectTool(options.request, options.kernel);
+    if (direct === undefined) return undefined;
+    const verdict = validateAiPlan(
+      direct.plan,
+      options.kernel,
+      options.validationPorts,
+      policy,
+      resolveAiCompositionPolicy(options.composition),
+    );
+    if (!verdict.ok) return undefined;
+    plan = verdict.plan;
+  } catch {
+    // An optimisation that fails must never cost the person their edit: the model path runs.
+    return undefined;
+  }
+  onTaken?.();
+
+  const nodeIds = [
+    ...new Set(
+      plan.commands.flatMap(({ args }) => {
+        const id = (args as { id?: unknown } | undefined)?.id;
+        return typeof id === 'string' ? [id] : [];
+      }),
+    ),
+  ];
+  const selection = options.selection ?? options.kernel.context.store.getState().selection;
+  const context = assembleDirectEditContext(options.kernel.context, { nodeIds, selection });
+  const proposal = createAiValidatedProposal({ plan, policy, skillActivations: [], context });
+  const common = {
+    runId: options.runId,
+    proposal,
+    plan: proposal.plan,
+    context,
+    policy: proposal.policy,
+    source: 'direct' as const,
+    tokens: 0,
+    route: reading.route,
+  };
+
+  emit({ type: 'context.gathering' });
+  assertRunActive(options);
+  emit({ type: 'context.ready', fragmentCount: 0, totalTokens: 0, source: 'direct', tokens: 0 });
+  assertRunActive(options);
+  if (apply === 'never') {
+    emit({ type: 'plan.proposed', plan: proposal.plan, proposal, source: 'direct', tokens: 0 });
+    assertRunActive(options);
+    const done = emit({ type: 'run.completed', status: 'proposed', source: 'direct', tokens: 0 });
+    return Object.freeze({ ...common, status: 'proposed', elapsedMs: done?.elapsedMs ?? 0 });
+  }
+  emit({ type: 'plan.applying', source: 'direct', tokens: 0 });
+  assertRunActive(options);
+  let applied: ReturnType<typeof applyAiPlan>;
+  try {
+    applied = applyAiPlan({
+      kernel: options.kernel,
+      proposal,
+      validationPorts: options.validationPorts,
+      ...(options.label === undefined ? {} : { label: options.label }),
+    });
+  } catch (cause) {
+    // Refused before any write: the model path runs, as it does for a refused direct edit.
+    if (cause instanceof AiPlanRejectedError) return undefined;
+    throw cause;
+  }
+  const done = emit({ type: 'run.completed', status: 'applied', source: 'direct', tokens: 0 });
+  return Object.freeze({ ...common, status: 'applied', applied, elapsedMs: done?.elapsedMs ?? 0 });
+}
+// end agent-tools additions
+
+/**
+ * Whether `applyAiPlan`'s rehearsal checks what this run's would: the door
+ * validates with the default composition (the vocabulary enforced, colours
+ * free), the run with its own.
+ */
+function doorRehearsesAsTheRun(options: RunAiAgentOptions): boolean {
+  const composition = resolveAiCompositionPolicy(options.composition);
+  return composition.enforceUtilityVocabulary && composition.colourPolicy === 'free';
 }
 
 /**
@@ -502,6 +672,33 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       skillRegistry,
       reading,
     );
+
+    /*
+      Final test (2026-09-30): the first direct edit of a session took
+      422–534 ms, 50–130 of them resolving skills a direct edit never reads.
+      Skills touch a direct edit through one thing only — a restriction that
+      narrows the command policy — so when no skill that restricts can
+      activate on this run, the skill-free policy IS the run's policy and the
+      edit is tried before any skill is resolved. Its `skills.resolved` is
+      the honest one: nothing activated.
+    */
+    let policy: AiEffectiveCommandPolicy | undefined;
+    let policyFailure: { readonly cause: unknown } | undefined;
+    const policyIsSkillFree = skillsCannotNarrow(options, skillRegistry);
+    if (policyIsSkillFree) {
+      // Resolved ONCE (see below): this is the run's policy for both paths.
+      try {
+        policy = resolveAiPolicyForGeneration(initialGenerationOptions, undefined);
+      } catch (cause) {
+        policyFailure = { cause };
+      }
+      const direct = directRun(options, reading, policy, apply, emit, () => {
+        emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
+        assertRunActive(options);
+      });
+      if (direct !== undefined) return direct;
+    }
+
     const skills: AiPreparedSkillContext | undefined =
       prepareAiSkillsForGeneration(initialGenerationOptions);
     emit({
@@ -519,16 +716,16 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       policy that cannot resolve fails where it always failed, after
       `context.gathering`.
     */
-    let policy: AiEffectiveCommandPolicy | undefined;
-    let policyFailure: { readonly cause: unknown } | undefined;
-    try {
-      policy = resolveAiPolicyForGeneration(initialGenerationOptions, skills);
-    } catch (cause) {
-      policyFailure = { cause };
-    }
+    if (!policyIsSkillFree) {
+      try {
+        policy = resolveAiPolicyForGeneration(initialGenerationOptions, skills);
+      } catch (cause) {
+        policyFailure = { cause };
+      }
 
-    const direct = directRun(options, reading, policy, apply, emit);
-    if (direct !== undefined) return direct;
+      const direct = directRun(options, reading, policy, apply, emit);
+      if (direct !== undefined) return direct;
+    }
 
     emit({ type: 'context.gathering' });
     assertRunActive(options);

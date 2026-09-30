@@ -130,6 +130,7 @@ import { capabilitiesFromEngine } from '../model/capabilities';
 import {
   answersOf,
   clarifyQuestionsOf,
+  isUnsureBuild,
   needsClarifying,
   requestWithAnswers,
   type EnhanceInput,
@@ -161,6 +162,7 @@ import {
   lastDropped,
   lastFollowUp,
   ownsRun,
+  ranOnPage,
   preflightPorts,
   routeRequest,
   skillsForMode,
@@ -187,8 +189,9 @@ import {
 } from '../model/successor-fill';
 import { panelSuggestions, starterSuggestions } from '../model/suggestions';
 import { createStore, type Store } from '../model/tiny-store';
-import { turnViewsOf, type TurnViewContext } from '../model/turn-views';
+import { turnViewsOf, withPendingRequest, type TurnViewContext } from '../model/turn-views';
 import {
+  answerFromPlan,
   historyOf,
   outcomeKeyOf,
   type BuildTurn,
@@ -799,6 +802,72 @@ function catalogFirst(kernel: BuilderKernel, fallback: AiPlanProvider): AiPlanPr
   });
 }
 
+/** What a provider said when it answered in words alone: no command at all. */
+interface WordsOnly {
+  readonly rationale: string;
+  readonly commands: readonly unknown[];
+  readonly followUp?: string | undefined;
+}
+
+function wordsOnly(answer: unknown): WordsOnly | null {
+  if (typeof answer !== 'object' || answer === null) return null;
+  const record = answer as Record<string, unknown>;
+  const { rationale, commands, followUp } = record;
+  if (typeof rationale !== 'string' || !Array.isArray(commands) || commands.length > 0) return null;
+  return {
+    rationale,
+    commands: [],
+    ...(typeof followUp === 'string' ? { followUp } : {}),
+  };
+}
+
+/**
+ * The provider with a note of its last words-only answer. The engine's door refuses a plan
+ * with no command ("An AI plan needs at least one command"), and it refuses it before any
+ * event carries the plan, so a model asking back ("Which page should the link open?") would
+ * read as a failure. The note lets the edit tell the two apart: words and no command are an
+ * answer; a refusal of real commands stays a failure. Every other member passes through.
+ */
+function recordingWords(provider: AiPlanProvider): {
+  readonly provider: AiPlanProvider;
+  readonly words: () => WordsOnly | null;
+} {
+  let last: WordsOnly | null = null;
+  const note = (answer: unknown): unknown => {
+    last = wordsOnly(answer);
+    return answer;
+  };
+  const wrapped = new Proxy(provider, {
+    get(target, property, receiver) {
+      const value: unknown = Reflect.get(target, property, receiver);
+      if (typeof value !== 'function') return value;
+      if (property === 'propose' || property === 'repair') {
+        return async (...args: unknown[]) =>
+          note(await (value as (...rest: unknown[]) => Promise<unknown>).apply(target, args));
+      }
+      return (value as (...rest: unknown[]) => unknown).bind(target);
+    },
+  });
+  return { provider: wrapped, words: () => last };
+}
+
+/**
+ * A run the door refused only because the model answered in words: the refusal is
+ * `plan-rejected`, the last answer had no command and something to say, and nothing landed.
+ */
+function spokeInWords(
+  cause: unknown,
+  heard: (() => WordsOnly | null) | undefined,
+  kernel: BuilderKernel,
+  logBefore: number,
+): boolean {
+  if (heard === undefined || kernel.transactions().length !== logBefore) return false;
+  if (classifyAiRunFailure(cause).code !== 'plan-rejected') return false;
+  const said = heard();
+  if (said === null) return false;
+  return said.rationale.trim() !== '' || (said.followUp?.trim() ?? '') !== '';
+}
+
 function engineRequest(outgoing: Outgoing): string {
   return outgoing.request ?? outgoing.text;
 }
@@ -861,6 +930,8 @@ async function dispatchRequest(
   route: IntentRoute,
   placement: Placement,
   mode: AssistantMode,
+  /** Planned only because the router was unsure (`PagePlanTurn.unsure`). */
+  unsure = false,
 ): Promise<void> {
   switch (route.kind) {
     case 'question':
@@ -869,7 +940,7 @@ async function dispatchRequest(
     case 'build-page':
     case 'build-site':
       if (mode === 'plan') {
-        await runPlanPage(flow, outgoing, placement, route.target);
+        await runPlanPage(flow, outgoing, placement, route.target, unsure);
         return;
       }
       await runPage(flow, outgoing, placement, route, mode);
@@ -992,6 +1063,28 @@ async function runWords(
 
 /* ── Edits ───────────────────────────────────────────────────────────────────── */
 
+/**
+ * The section a zero-token direct edit wrote, as the record's target, when the person
+ * named no block and every change sits in that one section. Without it the record reads
+ * «عُدِّلت الصفحة» for an edit that changed one heading. Empty when the person's own chip
+ * names the target, or when the edit was a model's.
+ */
+function directTarget(
+  kernel: BuilderKernel,
+  result: Pick<AiAgentRunResult, 'directEdit'>,
+  chosen: string | undefined,
+): { readonly target?: string; readonly targetNodeId?: string } {
+  const direct = result.directEdit?.target;
+  if (chosen !== undefined || direct === undefined) return {};
+  if (!direct.changes.every((change) => change.sectionId === direct.sectionId)) return {};
+  if (kernel.getDocument().nodes[direct.sectionId] === undefined) return {};
+  const name = direct.sectionName?.trim();
+  return {
+    target: name === undefined || name === '' ? blockName(kernel, direct.sectionId) : name,
+    targetNodeId: direct.sectionId,
+  };
+}
+
 async function runEdit(
   flow: Flow,
   outgoing: Outgoing,
@@ -1034,12 +1127,17 @@ async function runEdit(
   let proposed: Changes | undefined;
   const liveRun = (turn: Turn) =>
     (turn.kind === 'edit' || turn.kind === 'proposal') && turn.run !== undefined ? turn.run : run;
+  let heard: (() => WordsOnly | null) | undefined;
   try {
     const base = commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history);
+    // A catalog example picked by name is answered from the catalog: no model, no wait.
+    const recording = recordingWords(
+      outgoing.catalog === true ? catalogFirst(kernel, base.provider) : base.provider,
+    );
+    heard = recording.words;
     const runOptions: RunAiAgentOptions = {
       ...base,
-      // A catalog example picked by name is answered from the catalog: no model, no wait.
-      ...(outgoing.catalog === true ? { provider: catalogFirst(kernel, base.provider) } : {}),
+      provider: recording.provider,
       ...editModelOptions(flow),
       // The route this request was sent on: the engine does not read the words twice.
       ...(route === undefined ? {} : { intent: route }),
@@ -1067,7 +1165,21 @@ async function runEdit(
       ...(salvaged === undefined ? {} : { salvaged }),
       skills: result.proposal.skillActivations,
     };
-    if (result.status === 'applied') {
+    /*
+      Words and no command (most often the model asking what was meant): an answer, not
+      an edit that "already matched what you asked for" (`answerFromPlan`). Only when
+      nothing landed and nothing was salvaged away: a plan whose commands were all
+      dropped would describe changes that never happened.
+    */
+    const words =
+      salvaged === undefined && kernel.transactions().length === logBefore
+        ? answerFromPlan({ id: turnId, request, plan, skills: result.proposal.skillActivations })
+        : null;
+    if (words !== null) {
+      patchTurn(flow, slot.sessionId, turnId, () => words);
+      say(flow, 'answer.ready');
+      env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
+    } else if (result.status === 'applied') {
       env.memory.note(result.proposal);
       const ids = kernel
         .transactions()
@@ -1078,8 +1190,11 @@ async function runEdit(
       // What the one transaction did (a direct edit too, which proposes nothing to rehearse).
       const changes = compare(flow, kernel, beforeApply ?? documentBefore, kernel.getDocument());
       const status = transactionId !== undefined && !changes.empty ? 'done' : 'noChange';
+      // A zero-token edit knows the one section it wrote: the record names it (SPEC §3.6).
+      const named = directTarget(kernel, result, target.label);
       patchTurn(flow, slot.sessionId, turnId, (turn): Turn => ({
         ...common,
+        ...named,
         kind: 'edit',
         origin: 'request',
         status,
@@ -1091,7 +1206,7 @@ async function runEdit(
         ...(transactionId === undefined || status === 'noChange' ? {} : { transactionId }),
         ...shared,
       }));
-      const end = editEndAnnouncement({ status, target: target.label ?? null });
+      const end = editEndAnnouncement({ status, target: named.target ?? target.label ?? null });
       say(flow, end.key, end.params);
       env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: true });
     } else {
@@ -1133,6 +1248,14 @@ async function runEdit(
       }
       say(flow, 'stopped.none');
       env.mood.settleTurn({ runId: slot.runId, outcome: 'stopped' });
+    } else if (spokeInWords(cause, heard, kernel, logBefore)) {
+      // The model answered in words (most often asking what was meant): its answer.
+      const said = heard?.();
+      const words =
+        said === null || said === undefined ? null : answerFromPlan({ id: turnId, request, plan: said });
+      if (words !== null) patchTurn(flow, slot.sessionId, turnId, () => words);
+      say(flow, 'answer.ready');
+      env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
     } else {
       const failure = failureOf(cause);
       patchTurn(flow, slot.sessionId, turnId, () =>
@@ -1514,7 +1637,21 @@ function settleBuild(
     */
     const fallback = result.fallback;
     const request = current !== undefined && 'request' in current ? (current.request ?? '') : '';
-    if (fallback.status === 'applied') {
+    // Words and no command: an answer, as `runEdit` reads one (`answerFromPlan`).
+    const words =
+      kernel.transactions().length === logBefore
+        ? answerFromPlan({
+            id: turnId,
+            request,
+            plan: fallback.plan,
+            skills: fallback.proposal.skillActivations,
+          })
+        : null;
+    if (words !== null) {
+      patchTurn(flow, slot.sessionId, turnId, () => words);
+      say(flow, 'answer.ready');
+      env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
+    } else if (fallback.status === 'applied') {
       env.memory.note(fallback.proposal);
       const ids = buildTransactions(flow, slot, kernel, logBefore);
       const transactionId = ids.at(-1);
@@ -1685,6 +1822,7 @@ async function runPlanPage(
   outgoing: Outgoing,
   placement: Placement,
   target: IntentTarget | undefined,
+  unsure = false,
 ): Promise<void> {
   const env = flow.env();
   const kernel = env.options.kernel;
@@ -1706,8 +1844,13 @@ async function runPlanPage(
   env.mood.beginRun(slot.runId, '');
   say(flow, 'plan.drafting');
   const startedAt = flow.clock.now();
-  // A new page is planned as a page of its own; where it lands is decided at Build.
-  const landing = target === 'new-page' ? undefined : target;
+  /*
+    A new page is planned as a page of its own (`new-page`: a header, a hero, a footer), and
+    no page is opened until Build decides where it lands. Left unsaid, the engine's landing
+    rule reads the page on screen: one with content means `append`, whose shape rules refuse
+    the hero and footer a whole page has, twice, at the cost of two planning calls.
+  */
+  const landing = target;
   try {
     let ready: PagePlanTurn | null = null;
     if (env.capabilities.editablePlan && env.provider.proposePagePlan !== undefined) {
@@ -1756,7 +1899,7 @@ async function runPlanPage(
         editable: false,
       };
     }
-    const plan = ready;
+    const plan: PagePlanTurn = unsure ? { ...ready, unsure: true } : ready;
     patchTurn(flow, slot.sessionId, turnId, () => plan);
     say(flow, 'plan.ready');
     env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
@@ -2064,12 +2207,17 @@ function outgoingOf(flow: Flow, text: string): Outgoing {
   };
 }
 
-/** The newest plan card still waiting on the person, in the active conversation. */
+/**
+ * The newest plan card still waiting on the person, in the active conversation. A card
+ * planned only because the router was unsure (`PagePlanTurn.unsure`) is not one a newer
+ * request changes: that request is routed, and checked, on its own words.
+ */
 function pendingPlan(flow: Flow): { readonly sessionId: string; readonly turn: PagePlanTurn } | null {
   const sessions = flow.env().sessions.store.getState();
   const session = sessions.sessions.find((entry) => entry.id === sessions.activeId);
   const turn = session?.turns.at(-1);
   if (session === undefined || turn?.kind !== 'page-plan' || turn.status !== 'ready') return null;
+  if (turn.unsure === true) return null;
   return { sessionId: session.id, turn };
 }
 
@@ -2090,6 +2238,8 @@ async function send(flow: Flow, input: Outgoing, options: SendOptions = {}): Pro
   const sessionsState = env.sessions.store.getState();
   const mode = sessionsState.mode;
   let outgoing = input;
+  // The clarify check failed on an unsure build: it is planned, whatever the mode.
+  let planOnly = false;
   let route =
     options.route ??
     routeRequest(input.text, {
@@ -2152,7 +2302,13 @@ async function send(flow: Flow, input: Outgoing, options: SendOptions = {}): Pro
         return;
       }
     } catch {
-      // The check is a courtesy: when it fails, the request runs as it was written.
+      /*
+        The check is a courtesy: when it fails, the request runs as it was written, but
+        never as a build the router is unsure of (`isUnsureBuild`). That is the costliest
+        misreading the check exists to prevent, so it is PLANNED instead: the plan card
+        shows what was read, nothing is written and no page is opened until Build.
+      */
+      if (isUnsureBuild(route)) planOnly = true;
     }
     flow.ui.setState((ui) => ({ ...ui, checking: false }));
   }
@@ -2174,7 +2330,17 @@ async function send(flow: Flow, input: Outgoing, options: SendOptions = {}): Pro
       ? { ...ui, draft: '', mentions: [], clarify: null }
       : { ...ui, clarify: null },
   );
-  await track(flow, dispatchRequest(flow, outgoing, route, { sessionId: sessionsState.activeId }, mode));
+  await track(
+    flow,
+    dispatchRequest(
+      flow,
+      outgoing,
+      route,
+      { sessionId: sessionsState.activeId },
+      planOnly ? 'plan' : mode,
+      planOnly,
+    ),
+  );
 }
 
 /* ── The actions ─────────────────────────────────────────────────────────────── */
@@ -3019,6 +3185,35 @@ const noop = (): void => undefined;
 const subscribeNothing = (): (() => void) => noop;
 const noSelection = (): readonly NodeId[] => NO_SELECTION;
 
+type KernelSnapshot = ReturnType<BuilderKernel['context']['store']['getState']>;
+
+function sameKernelState(last: KernelSnapshot, next: KernelSnapshot): boolean {
+  return (
+    last.doc === next.doc &&
+    last.seq === next.seq &&
+    last.elementFocus === next.elementFocus &&
+    last.selection.length === next.selection.length &&
+    last.selection.every((id, index) => id === next.selection[index])
+  );
+}
+
+/**
+ * (WP-20 fix) The kernel's state as a `useSyncExternalStore` snapshot. A page lens
+ * (`siteKernel.page(id)`, the kernel the app hands the panel) builds a new state object on
+ * every `getState()`, so a snapshot read straight from it never compared equal and the
+ * panel re-rendered until React gave up ("Maximum update depth exceeded"). The last
+ * snapshot is kept while its document, selection, focus and sequence are the same.
+ */
+function stableKernelReader(store: BuilderKernel['context']['store']): () => KernelSnapshot {
+  let last: KernelSnapshot | undefined;
+  return () => {
+    const next = store.getState();
+    if (last !== undefined && sameKernelState(last, next)) return last;
+    last = next;
+    return next;
+  };
+}
+
 /**
  * The agent panel's controller. The host renders `AgentPanel` with it (WP-20); the file
  * header says what each run path does.
@@ -3050,7 +3245,8 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     (listener: () => void) => kernelStore.subscribe(listener),
     [kernelStore],
   );
-  const readKernel = useCallback(() => kernelStore.getState(), [kernelStore]);
+  // (WP-20 fix) A page lens builds a new state per read; see `stableKernelReader`.
+  const readKernel = useMemo(() => stableKernelReader(kernelStore), [kernelStore]);
   const kernelState = useSyncExternalStore(subscribeKernel, readKernel, readKernel);
   const document = kernelState.doc;
   const source = options.selection;
@@ -3298,6 +3494,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
       ...(first !== undefined && schema !== undefined ? { selected: { nodeId: first, schema } } : {}),
       followUp: lastFollowUp(activeTurns),
       ...(salvaged === undefined ? {} : { salvaged: [salvaged] }),
+      ...(ranOnPage(activeTurns) ? { pageSections: page.sectionLabels } : {}),
       locale,
       limit: activeTurns.length === 0 ? 4 : 3,
     });
@@ -3352,9 +3549,16 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     [uiState.queue, document],
   );
 
+  // The request the clarify panel asks about is the person's bubble while it asks.
+  const clarifying = uiState.clarify;
+  const shownTurns = useMemo(
+    () => withPendingRequest(turns, clarifying, document),
+    [turns, clarifying, document],
+  );
+
   const state: AgentViewState = {
     locale,
-    turns,
+    turns: shownTurns,
     draft: uiState.draft,
     chips,
     mention,

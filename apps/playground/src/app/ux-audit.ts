@@ -182,11 +182,21 @@ export function auditRegion(root: HTMLElement, view: Window): readonly Finding[]
         with a proof behind it, and it is written down that way rather than
         listed among the guarantees.
       */
-      const chain = [
-        focusable,
-        focusable.parentElement,
-        focusable.parentElement?.parentElement,
-      ].filter((node): node is HTMLElement => node instanceof HTMLElement);
+      /*
+        Four ancestors, not two. The v2 composer draws its ring on the card by
+        `:has(.ck-agent-composer__input:focus)`, and the card is the textarea's
+        great-grandparent (card > section > field > textarea). Two levels could
+        not see it and the AgentPanel audit story reported a ring that is there.
+        An element may also name its ring host explicitly with
+        `data-focus-ring-host` on any ancestor.
+      */
+      const chain: HTMLElement[] = [focusable];
+      for (let node = focusable.parentElement, depth = 0; node !== null && depth < 4; depth += 1) {
+        chain.push(node);
+        node = node.parentElement;
+      }
+      const host = focusable.parentElement?.closest('[data-focus-ring-host]');
+      if (host instanceof HTMLElement && !chain.includes(host)) chain.push(host);
       const ringOf = (): string =>
         chain
           .map((node) => {

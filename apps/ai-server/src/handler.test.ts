@@ -661,12 +661,14 @@ describe('usage reporting', () => {
 });
 
 describe('per-call reasoning budget', () => {
-  function recordingClient(): { client: Anthropic; seen: unknown[] } {
+  function recordingClient(): { client: Anthropic; seen: unknown[]; params: unknown[] } {
     const seen: unknown[] = [];
+    const params: unknown[] = [];
     const client = {
       messages: {
-        stream: (_params: unknown, requestOptions: unknown) => {
+        stream: (sent: unknown, requestOptions: unknown) => {
           seen.push(requestOptions);
+          params.push(sent);
           return {
             on: () => undefined,
             finalMessage: () =>
@@ -680,7 +682,7 @@ describe('per-call reasoning budget', () => {
         },
       },
     } as unknown as Anthropic;
-    return { client, seen };
+    return { client, seen, params };
   }
 
   const sectionWriter = (): unknown =>
@@ -714,6 +716,35 @@ describe('per-call reasoning budget', () => {
     await handle(post(wireBody()));
 
     expect((seen[0] as { headers?: unknown }).headers).toBeUndefined();
+  });
+
+  it('turns thinking off for a section writer', async () => {
+    const { client, params } = recordingClient();
+    const handle = createHandler({ client, sectionEffort: 'low' });
+
+    await handle(post(sectionWriter()));
+
+    expect(params[0]).toMatchObject({ thinking: { type: 'disabled' } });
+  });
+
+  it('turns thinking off for an edit that asked for low effort', async () => {
+    const { client, params } = recordingClient();
+    const handle = createHandler({ client });
+
+    await handle(post(wireBody({ effort: 'low' })));
+
+    expect(params[0]).toMatchObject({ thinking: { type: 'disabled' } });
+  });
+
+  it('keeps thinking on for a medium edit and for a page plan', async () => {
+    const { client, params } = recordingClient();
+    const handle = createHandler({ client, sectionEffort: 'low' });
+
+    await handle(post(wireBody({ effort: 'medium' })));
+    await handle(post(wireBody()));
+
+    expect(params[0]).toMatchObject({ thinking: { type: 'adaptive' } });
+    expect(params[1]).toMatchObject({ thinking: { type: 'adaptive' } });
   });
 });
 
@@ -1086,6 +1117,35 @@ describe('per-call model and effort', () => {
 
     expect((seen[0] as { headers?: unknown }).headers).toBeUndefined();
   });
+
+  it('plans a page with thinking off by default (speed first), and on when planThinking is set', async () => {
+    const params: { thinking?: { type?: string } }[] = [];
+    const client = {
+      messages: {
+        stream: (sent: { thinking?: { type?: string } }) => {
+          params.push(sent);
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [
+                  { type: 'text', text: JSON.stringify({ pagePlan: PAGE_PLAN_EXAMPLE.pagePlan }) },
+                ],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+
+    await createHandler({ client })(post(wireBody({ task: 'page-plan' })));
+    await createHandler({ client, planThinking: true })(post(wireBody({ task: 'page-plan' })));
+
+    expect(params[0]?.thinking?.type).toBe('disabled');
+    expect(params[1]?.thinking?.type).toBe('adaptive');
+  });
 });
 
 /*
@@ -1096,7 +1156,7 @@ describe('per-call model and effort', () => {
 describe('the prompt enhancer route', () => {
   const ENHANCED = {
     enhanced: 'اعمل صفحة هبوط لمخبز في عمّان: الهيرو، المنتجات، الأسعار، التواصل.',
-    understood: 'تريد صفحة هبوط لمخبز في عمّان.',
+    understood: 'صفحة هبوط لمخبز في عمّان.',
     changes: ['«صفحه» ← «صفحة»'],
     questions: [],
     language: 'ar',
@@ -1272,6 +1332,27 @@ describe('the prompt enhancer route', () => {
     expect(((await response.json()) as { error: string }).error).toMatch(
       /send the request as written/u,
     );
+  });
+
+  /*
+    The builder client gives up on an enhancement after 45 s
+    (remote-provider.ts, DEFAULT_ENHANCE_TIMEOUT_MS); this server's cap was
+    60 s. So the client always hung up first and the panel said only "took
+    longer than allowed", while the server — the side that knew why — was
+    still waiting. The server's cap must end first.
+  */
+  it("stops by default before the builder client's 45 s wait runs out", async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      const { client } = enhancing(JSON.stringify(ENHANCED));
+      await createHandler({ client })(enhanceRequest(REQUEST_BODY));
+
+      const capMs = timeout.mock.calls[0]?.[0];
+      expect(capMs).toBeGreaterThan(0);
+      expect(capMs).toBeLessThan(45_000);
+    } finally {
+      timeout.mockRestore();
+    }
   });
 
   it('leaves /plan exactly as it was beside it', async () => {

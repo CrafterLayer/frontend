@@ -61,6 +61,14 @@ const inPanel: Decorator = (Story, { parameters }) => {
   );
 };
 
+/** A fixture's direction. Every draft these stories read carries one; say so if one does not. */
+function directionOf(draft: {
+  readonly direction?: PlanDirectionView | undefined;
+}): PlanDirectionView {
+  if (draft.direction === undefined) throw new Error('the fixture has no direction');
+  return draft.direction;
+}
+
 /** The editor over a real plan: each op through the model, as the controller applies it. */
 function Live({
   locale,
@@ -70,7 +78,7 @@ function Live({
   readonly start?: PagePlanDraft | undefined;
 }) {
   const [draft, setDraft] = useState(() => start ?? dentalDraft(locale));
-  const direction = draft.direction as PlanDirectionView;
+  const direction = directionOf(draft);
   return (
     <DirectionEditor
       locale={locale}
@@ -82,8 +90,7 @@ function Live({
   );
 }
 
-const direction = (locale: Locale): PlanDirectionView =>
-  dentalDraft(locale).direction as PlanDirectionView;
+const direction = (locale: Locale): PlanDirectionView => directionOf(dentalDraft(locale));
 
 const meta = {
   title: 'Agent/Decisions/DirectionEditor',
@@ -117,11 +124,7 @@ export const At420RightToLeft: Story = story({ locale: 'ar', width: 420 });
 /** A held text colour that fails on the background: its swatch carries the Amber flag. */
 export const UnreadableText: Story = {
   render: () => (
-    <DirectionEditor
-      locale="en"
-      direction={planLowContrast('en').direction as PlanDirectionView}
-      onEdit={fn()}
-    />
+    <DirectionEditor locale="en" direction={directionOf(planLowContrast('en'))} onEdit={fn()} />
   ),
 };
 

@@ -179,8 +179,11 @@ export function createCodePageSession(options: CodePageSessionOptions) {
     }
     const page = kernel.getSite().pages.find(({ id }) => id === source.pageId);
     if (page === undefined) return;
-    const seo = page.document.nodes[page.document.rootId]?.props['seo'];
+    const rootProps = page.document.nodes[page.document.rootId]?.props;
+    const seo = rootProps?.['seo'];
     const metadata = seo !== null && typeof seo === 'object' && !Array.isArray(seo) ? seo : {};
+    const direction = page.document.dir;
+    const language = exportLanguage(rootProps?.['lang'], direction);
     const key = sourceKey(source);
     const ownLease = lease;
     const controller = new AbortController();
@@ -193,7 +196,8 @@ export function createCodePageSession(options: CodePageSessionOptions) {
           title: typeof metadata['title'] === 'string' ? metadata['title'] : page.title,
           description:
             typeof metadata['description'] === 'string' ? metadata['description'] : page.purpose,
-          direction: page.document.dir,
+          direction,
+          language,
           ...(options.publishedOrigin === undefined
             ? {}
             : { canonicalUrl: new URL(page.address, options.publishedOrigin).href }),
@@ -273,4 +277,16 @@ function matchesSource(compiled: CompiledCodePage, source: RuntimeSnapshot) {
 
 function reason(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+const LANGUAGE_TAG = /^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$/u;
+
+/**
+ * The export's `<html lang>`: the page root's own `lang` when it is a valid tag,
+ * otherwise the page's direction decides (an RTL page in this product is Arabic).
+ * Without it every export — Arabic included — shipped as `lang="en"`.
+ */
+export function exportLanguage(lang: unknown, direction: 'ltr' | 'rtl'): string {
+  if (typeof lang === 'string' && LANGUAGE_TAG.test(lang.trim())) return lang.trim();
+  return direction === 'rtl' ? 'ar' : 'en';
 }

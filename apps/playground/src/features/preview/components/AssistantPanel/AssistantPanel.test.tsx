@@ -111,6 +111,9 @@ function replyFaces(container: HTMLElement): HTMLElement[] {
 const IDLE_LINE_EN = 'Say what you want. Skip the preamble.';
 const IDLE_LINE_AR = 'قول شو بدك. بدون مقدمات.';
 
+/** The beats of an ordinary run before it has an outcome: reading, then planning. */
+const IN_FLIGHT_MOODS: readonly (string | null)[] = ['thinking', 'planning'];
+
 async function requestPlan(
   user: ReturnType<typeof userEvent.setup>,
   request: string,
@@ -1832,8 +1835,15 @@ describe('AssistantPanel', () => {
       );
       await user.click(screen.getByRole('button', { name: 'Send' }));
       await screen.findByRole('button', { name: 'Stop' });
+      /*
+        IN FLIGHT, whichever beat. This waited for exactly `thinking`, but the
+        provider here never answers, so the run moves on to `plan.proposing` and
+        rests on `planning` — under a loaded full run the first poll landed
+        after that and `thinking` was never seen again. What this test needs
+        is "a run is showing on the face", not which beat of it.
+      */
       await waitFor(() => {
-        expect(headerFace(container)).toHaveAttribute('data-mood', 'thinking');
+        expect(IN_FLIGHT_MOODS).toContain(headerFace(container).getAttribute('data-mood'));
       });
 
       await user.click(screen.getByRole('button', { name: 'New chat' }));
@@ -2893,7 +2903,10 @@ describe('AssistantPanel — a page-plan build', () => {
     expect(screen.queryByRole('button', { name: 'Undo Footer' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Undo Our coffees' })).toBeEnabled();
 
-    // A section a writer filled still goes back on its own, forward.
+    // The build ends with its own SEO/menu pass, which rewrites the regions it fixes…
+    expect(historyLabels(kernel).at(-1)).toBe('Assistant: SEO');
+
+    // …and a section a writer filled still goes back on its own, forward, after it.
     await user.click(screen.getByRole('button', { name: 'Undo Our coffees' }));
     expect(historyLabels(kernel).at(-1)).toBe('Assistant: revert 2/4 — Our coffees');
     expect(screen.queryByText(/never landed/)).toBeNull();

@@ -78,6 +78,68 @@ body,
   }
 }
 
+/* The pane toggles are words at a desk and glyphs on a phone (below). */
+.pg-pane-toggle__icon {
+  display: none;
+  flex: none;
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
+}
+
+/* A phone: the agent's PHONE_QUERY (<600px, coarse pointer). Final test,
+   2026-09-29, at 390px: the bar scrolled and cut its own start ("temap"), and
+   the status bar's strip and details drew over each other ("No Desktop
+   changes 1280 px"). The bar collapses to its glyphs: the logo and the
+   Canvas/Sitemap switch go (a site map is desk work), the pane toggles and
+   Preview keep their accessible names and lose their words. */
+@media (width < 600px) and (pointer: coarse) {
+  .pg-app .bldr-topbar {
+    gap: var(--bldr-space-md);
+    padding-inline: var(--bldr-space-md);
+  }
+
+  .pg-app .bldr-topbar__start,
+  .pg-app .pg-workspace-view,
+  .pg-app .bldr-topbar__divider {
+    display: none;
+  }
+
+  .pg-app .pg-pane-toggle {
+    padding-inline: var(--bldr-space-sm);
+  }
+
+  .pg-app .pg-pane-toggle__icon {
+    display: block;
+  }
+
+  .pg-app .pg-pane-toggle__label,
+  .pg-app .bldr-topbar__preview > span {
+    position: absolute;
+    overflow: hidden;
+    block-size: var(--bldr-border-hairline);
+    inline-size: var(--bldr-border-hairline);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pg-app .bldr-topbar__preview {
+    padding-inline: var(--bldr-space-md);
+  }
+}
+
+/* Below 600px the status bar keeps its activity and its details and drops the
+   change strip: three columns did not fit, and the strip's centre track was
+   painted over by the details' overflow. Any pointer: this is a width fault. */
+@media (width < 600px) {
+  .pg-app .bldr-statusbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .pg-app .bldr-statusbar__centre {
+    display: none;
+  }
+}
+
 /* The reusable TopBar has a publish surface for hosts that own a real publish
    operation. This in-memory playground does not: drawing either half of the
    split action would promise an operation that cannot happen. Remove the
@@ -2307,9 +2369,47 @@ body,
 }
 
 .pg-source-agent-host,
-.pg-legacy-agent-host {
+.pg-legacy-agent-host,
+.pg-agent-host {
   block-size: 100%;
   min-block-size: 0;
+}
+
+/* The v2 agent panel fills the column the shell gives it; the panel sizes itself to the
+   same width the shell was handed, so the two never disagree. */
+.pg-agent-host {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.pg-agent-host[hidden] {
+  display: none;
+}
+
+/* The status bar's slot for the agent's pill: nothing until the panel hides and a run
+   has something to say. */
+.pg-agent-pill-host {
+  display: contents;
+}
+
+/* A proposal on the canvas before it is applied: the would-be page, read-only, scrolled
+   inside the canvas region like the page itself. */
+.pg-agent-preview {
+  block-size: 100%;
+  box-sizing: border-box;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--bldr-space-3xl);
+  background: var(--bldr-surface-tint);
+}
+
+.pg-agent-preview__page {
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) dashed var(--bldr-accent);
+  border-radius: var(--bldr-radius-sm);
+  margin-inline: auto;
+  max-inline-size: 100%;
+  overflow: hidden;
 }
 
 /* "This came back from your last session."

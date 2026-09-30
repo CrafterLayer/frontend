@@ -108,15 +108,16 @@ function buildLine(
   }
   /*
     No writer, yet sections still in flight: drafted ones landing in order, or waiting
-    ones a free writer is about to pick up. Both are milliseconds long in the engine; the
-    count of what is still to come is the honest line for them.
+    ones a free writer is about to pick up. The count is never theirs: the RunBar's number
+    is the rows in the writing state, so it can never say «قسمان قيد الكتابة» over one
+    writing row and one waiting row. The last landing is still true, so it stays; before
+    any landing, the one section about to be picked up is the honest count.
   */
-  const inFlight = rows.filter((row) => isInFlight(row.state)).length;
-  if (inFlight > 0) return { statusKey: 'build.writing', params: { n: inFlight } };
-  // Nothing left in flight and `build.completed` not yet in: the last landing is still true.
+  const inFlight = rows.some((row) => isInFlight(row.state));
   if (lastLanding !== undefined) {
     return { statusKey: 'build.landed', params: { title: lastLanding.title } };
   }
+  if (inFlight) return { statusKey: 'build.writing', params: { n: 1 } };
   return { statusKey: 'build.planned', params: { n: Math.max(rows.length, 1) } };
 }
 

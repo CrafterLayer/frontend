@@ -23,7 +23,11 @@ export interface AiPlanNormalization {
   readonly plan: unknown;
   /** Class names removed because no CSS exists for them, in the order found. */
   readonly removedClasses: readonly string[];
-  /** Icon names removed because the Lucide set has no such icon. */
+  /**
+   * Icon names the Lucide set does not have, in the order found. Each was
+   * replaced by the nearest name the set has (`tooth-sparkle` → `sparkle`),
+   * else by `sparkles`, and the swap is also listed in `adjustments`.
+   */
   readonly removedIcons: readonly string[];
   /** Every other change, one short phrase each ("form → div", "dropped input"). */
   readonly adjustments: readonly string[];
@@ -109,7 +113,14 @@ const ELEMENT_KEYS = new Set(['kind', 'tag', 'className', 'text', 'attributes', 
 const ICON_KEYS = new Set(['kind', 'name', 'className', 'size', 'strokeWidth', 'label']);
 
 /** Attributes whose presence is the value: `false` means absent, `true` means bare. */
-const BOOLEAN_ATTRIBUTES = new Set(['open', 'autoplay', 'muted', 'loop', 'playsinline', 'controls']);
+const BOOLEAN_ATTRIBUTES = new Set([
+  'open',
+  'autoplay',
+  'muted',
+  'loop',
+  'playsinline',
+  'controls',
+]);
 /** Shapes that are complete in themselves: nothing drawn inside a path or a stop. */
 const SVG_LEAF_SHAPES = new Set([
   'path',
@@ -122,6 +133,47 @@ const SVG_LEAF_SHAPES = new Set([
   'stop',
 ]);
 const SOURCE_PARENTS = new Set(['picture', 'video']);
+
+/*
+  A phone number is a left-to-right run, and inside a right-to-left line an
+  unisolated one reads backwards: final test 2026-09-29, a writer's delivery
+  card on an Arabic page showed "+962 7 9000 0000" as "0000 9000 7 962+". The
+  skeleton isolates the numbers it writes (skeleton-from-plan contactLine); a
+  writer's text did not. So each phone-shaped run is wrapped in Unicode
+  isolates (LRI … PDI): invisible, a no-op in a left-to-right line — which is
+  why this needs no page direction — and in a right-to-left one the digits
+  stay in the order they are dialled.
+
+  Phone-shaped is the page checker's reading (check-section phoneRuns): it
+  starts with +, ( or 0 and holds seven digits or more, so a price (commas) or
+  a year never qualifies. A spaced dash is a range ("08.00 - 22.00"), which a
+  right-to-left reader reads from the right, so it is left alone. A text that
+  already carries a bidi isolate was isolated by whoever wrote it.
+*/
+const DIGIT = '0-9\\u0660-\\u0669\\u06F0-\\u06F9';
+const PHONE_RUN = new RegExp(`\\(?\\+?[${DIGIT}][${DIGIT} ().-]{5,}[${DIGIT}]`, 'gu');
+const PHONE_START = /^[+(0٠۰]/u;
+const ANY_DIGIT = new RegExp(`[${DIGIT}]`, 'gu');
+const BIDI_ISOLATE = /[⁦-⁩]/u;
+const LTR_ISOLATE = '⁦';
+const POP_ISOLATE = '⁩';
+
+/** The text with each phone-shaped run isolated left-to-right; the same string when none is. */
+function isolatePhoneRuns(text: string): string {
+  if (BIDI_ISOLATE.test(text)) return text;
+  return text.replace(PHONE_RUN, (run) =>
+    PHONE_START.test(run) && !run.includes(' - ') && (run.match(ANY_DIGIT)?.length ?? 0) >= 7
+      ? `${LTR_ISOLATE}${run}${POP_ISOLATE}`
+      : run,
+  );
+}
+
+/** An element's or text node's words, phone numbers isolated, the change noted. */
+function isolatedText(text: string, changes: Changes): string {
+  const isolated = isolatePhoneRuns(text);
+  if (isolated !== text) changes.adjustments.push('isolated a phone number');
+  return isolated;
+}
 
 /** The className with every unusable class removed; undefined when none is left. */
 function usableClasses(
@@ -202,39 +254,47 @@ function vocabularyAttributes(node: JsonRecord, tag: string, changes: Changes): 
   const original = node['attributes'];
   const attributes: Record<string, string> = {};
   let changed = original !== undefined && !isRecord(original);
-  const keep = (written: string, value: unknown): boolean => {
+  /** Keep one attribute: `same` when it stands exactly as written, `kept` respelled, `dropped`. */
+  const keep = (written: string, value: unknown): 'same' | 'kept' | 'dropped' => {
     const name = customCodeAttributeSpelling(written);
     const kept = name === undefined ? undefined : attributeValue(tag, name, value);
-    if (name === undefined || kept === undefined) return false;
+    if (name === undefined || kept === undefined) {
+      changes.adjustments.push(`dropped attribute ${written}`);
+      return 'dropped';
+    }
     const problem = customCodeAttributeProblem(tag, name, kept);
     if (problem !== undefined) {
       changes.adjustments.push(`dropped attribute ${name}: ${problem}`);
-      return false;
+      return 'dropped';
     }
-    if (Object.hasOwn(attributes, name)) return true;
+    // `srcSet` beside `srcset`: the first spelling wins, as a browser keeps the first.
+    if (Object.hasOwn(attributes, name)) {
+      changes.adjustments.push(`dropped repeated attribute ${written}`);
+      return 'dropped';
+    }
     attributes[name] = kept;
-    return name === written && kept === value;
+    if (name !== written) changes.adjustments.push(`${written} → ${name}`);
+    return name === written && kept === value ? 'same' : 'kept';
   };
   const source: JsonRecord = isRecord(original) ? original : {};
   for (const [name, value] of Object.entries(source)) {
-    if (keep(name, value)) continue;
-    if (!Object.hasOwn(attributes, customCodeAttributeSpelling(name) ?? '')) {
-      changes.adjustments.push(`dropped attribute ${name}`);
-    }
-    changed = true;
+    if (keep(name, value) !== 'same') changed = true;
   }
   // An attribute written beside `tag` instead of inside `attributes`, moved in.
   for (const [name, value] of Object.entries(node)) {
     if (ELEMENT_KEYS.has(name) || customCodeAttributeSpelling(name) === undefined) continue;
-    keep(name, value);
-    changes.adjustments.push(`moved ${name} into attributes`);
+    if (keep(name, value) !== 'dropped') changes.adjustments.push(`moved ${name} into attributes`);
     changed = true;
   }
   /*
     A video that plays by itself plays muted — the door refuses it otherwise,
     and the renderer mutes it anyway. The model meant a silent backdrop.
   */
-  if (tag === 'video' && Object.hasOwn(attributes, 'autoplay') && !Object.hasOwn(attributes, 'muted')) {
+  if (
+    tag === 'video' &&
+    Object.hasOwn(attributes, 'autoplay') &&
+    !Object.hasOwn(attributes, 'muted')
+  ) {
     attributes['muted'] = '';
     changes.adjustments.push('muted the autoplaying video');
     changed = true;
@@ -243,11 +303,35 @@ function vocabularyAttributes(node: JsonRecord, tag: string, changes: Changes): 
   return Object.keys(attributes).length === 0 ? undefined : attributes;
 }
 
+/**
+ * The icon drawn in place of one the Lucide set lacks.
+ *
+ * Final test 2026-09-30: a clinic's services row lost the icon on its last
+ * item — the writer asked for `tooth`, which the set does not have, and this
+ * pass removed it, so one card of four stood bare. Dropping loses the row's
+ * rhythm; a near name keeps it. Longest run of the name's own words first
+ * (`tooth-sparkle` → `sparkle`), then a neutral mark.
+ */
+const FALLBACK_ICON = 'sparkles';
+
+function nearestIconName(name: string): string {
+  const words = name.toLowerCase().split(/[^a-z0-9]+/u).filter((word) => word.length > 0);
+  for (let length = words.length; length >= 1; length -= 1) {
+    for (let start = 0; start + length <= words.length; start += 1) {
+      const candidate = words.slice(start, start + length).join('-');
+      if (isLucideIconName(candidate)) return candidate;
+    }
+  }
+  return FALLBACK_ICON;
+}
+
 function cleanIcon(node: JsonRecord, colourPolicy: 'free' | 'tokens', changes: Changes): unknown {
-  const name = node['name'];
-  if (typeof name === 'string' && !isLucideIconName(name)) {
-    changes.icons.push(name);
-    return undefined;
+  const written = node['name'];
+  let name = written;
+  if (typeof written === 'string' && !isLucideIconName(written)) {
+    name = nearestIconName(written);
+    changes.icons.push(written);
+    changes.adjustments.push(`icon ${written} → ${String(name)}`);
   }
   const next: JsonRecord = { kind: 'icon', name };
   if (typeof node['className'] === 'string') {
@@ -269,56 +353,106 @@ function cleanElement(
   node: JsonRecord,
   colourPolicy: 'free' | 'tokens',
   changes: Changes,
+  parentTag: string | undefined,
 ): unknown {
   const rawTag = node['tag'];
   if (typeof rawTag !== 'string') return node;
-  const tag = vocabularyTag(rawTag, changes.blockTags);
+  const tag = vocabularyTag(rawTag, changes.blockTags, parentTag);
   if (tag === null) {
     changes.adjustments.push(`dropped ${rawTag}`);
     return undefined;
   }
+  // A source only means something inside a picture or a video; anywhere else it is inert.
+  if (tag === 'source' && (parentTag === undefined || !SOURCE_PARENTS.has(parentTag))) {
+    changes.adjustments.push('dropped source outside picture or video');
+    return undefined;
+  }
   if (tag !== rawTag) changes.adjustments.push(`${rawTag} → ${tag}`);
+  const svg = isCustomCodeSvgTag(tag);
   const next: JsonRecord = { kind: 'element', tag };
   if (typeof node['className'] === 'string') {
     const usable = usableClasses(node['className'], colourPolicy, changes);
     if (usable !== undefined) next['className'] = usable;
   }
+  let attributes = vocabularyAttributes(node, tag, changes);
+  /*
+    A bdi isolates its words (dir=auto); the span it becomes does so only with
+    a dir of its own — without one, the name a writer isolated in an Arabic
+    line would reorder again.
+  */
+  if (
+    rawTag.toLowerCase() === 'bdi' &&
+    !(isRecord(attributes) && typeof attributes['dir'] === 'string')
+  ) {
+    attributes = { ...(isRecord(attributes) ? attributes : {}), dir: 'auto' };
+    changes.adjustments.push("kept bdi's isolation as dir='auto'");
+  }
   const text = node['text'];
-  if (typeof text === 'string' || typeof text === 'number') next['text'] = String(text);
-  const attributes = vocabularyAttributes(node, changes);
+  if (typeof text === 'string' || typeof text === 'number') {
+    // A shape draws; it holds no words (an svg `text` is not in the vocabulary).
+    if (svg && String(text).trim() !== '') changes.adjustments.push(`dropped text in ${tag}`);
+    else if (!svg) {
+      // An element already set left-to-right isolates its own words.
+      const ownLtr = isRecord(attributes) && attributes['dir'] === 'ltr';
+      next['text'] = ownLtr ? String(text) : isolatedText(String(text), changes);
+    }
+  }
   if (attributes !== undefined) next['attributes'] = attributes;
   const children = node['children'];
   if (Array.isArray(children)) {
-    next['children'] = cleanChildren(children as unknown[], colourPolicy, changes);
+    if (SVG_LEAF_SHAPES.has(tag)) {
+      if (children.length > 0) changes.adjustments.push(`dropped what was drawn inside ${tag}`);
+    } else {
+      next['children'] = cleanChildren(children as unknown[], colourPolicy, changes, tag);
+    }
   }
   for (const key of Object.keys(node)) {
-    if (!ELEMENT_KEYS.has(key) && !ATTRIBUTES.has(key)) {
+    if (!ELEMENT_KEYS.has(key) && customCodeAttributeSpelling(key) === undefined) {
       changes.adjustments.push(`dropped element key ${key}`);
     }
   }
   return sameRecord(node, next) ? node : next;
 }
 
-/** One node, brought into the vocabulary; undefined when it cannot render and must go. */
-function cleanNode(node: unknown, colourPolicy: 'free' | 'tokens', changes: Changes): unknown {
+/**
+ * One node, brought into the vocabulary; undefined when it cannot render and
+ * must go. `parentTag` is the tag of the element holding it (undefined at the
+ * root and under a component): a drawing holds only shapes, so an icon, a
+ * component or a text node inside an svg goes whole.
+ */
+function cleanNode(
+  node: unknown,
+  colourPolicy: 'free' | 'tokens',
+  changes: Changes,
+  parentTag: string | undefined,
+): unknown {
   if (!isRecord(node)) return node;
   const kind = node['kind'];
+  const inSvg = parentTag !== undefined && isCustomCodeSvgTag(parentTag);
+  if (inSvg && kind !== 'element' && !(kind === undefined && typeof node['tag'] === 'string')) {
+    changes.adjustments.push(
+      `dropped ${typeof kind === 'string' ? kind : 'node'} inside ${parentTag}`,
+    );
+    return undefined;
+  }
   if (kind === 'icon') return cleanIcon(node, colourPolicy, changes);
-  if (kind === 'element') return cleanElement(node, colourPolicy, changes);
+  if (kind === 'element') return cleanElement(node, colourPolicy, changes, parentTag);
   // A node with a tag and no kind is an element the model forgot to label.
   if (kind === undefined && typeof node['tag'] === 'string') {
     changes.adjustments.push('labelled a node element');
-    return cleanElement({ ...node, kind: 'element' }, colourPolicy, changes) ?? undefined;
+    return (
+      cleanElement({ ...node, kind: 'element' }, colourPolicy, changes, parentTag) ?? undefined
+    );
   }
   // A text node the vocabulary has no kind for is a span carrying the text.
   if (kind === 'text' && (typeof node['text'] === 'string' || typeof node['text'] === 'number')) {
     changes.adjustments.push('text node → span');
-    return { kind: 'element', tag: 'span', text: String(node['text']) };
+    return { kind: 'element', tag: 'span', text: isolatedText(String(node['text']), changes) };
   }
   // A root or a component reference: only its children are this function's business.
   const children = node['children'];
   if (!Array.isArray(children)) return node;
-  const cleaned = cleanChildren(children as unknown[], colourPolicy, changes);
+  const cleaned = cleanChildren(children as unknown[], colourPolicy, changes, undefined);
   return cleaned === children ? node : { ...node, children: cleaned };
 }
 
@@ -326,11 +460,12 @@ function cleanChildren(
   children: unknown[],
   colourPolicy: 'free' | 'tokens',
   changes: Changes,
+  parentTag: string | undefined,
 ): unknown[] {
   let changed = false;
   const cleaned: unknown[] = [];
   for (const child of children) {
-    const next = cleanNode(child, colourPolicy, changes);
+    const next = cleanNode(child, colourPolicy, changes, parentTag);
     if (next !== child) changed = true;
     if (next !== undefined) cleaned.push(next);
   }
@@ -354,7 +489,7 @@ function cleanArgs(value: unknown, colourPolicy: 'free' | 'tokens', changes: Cha
   if (!isRecord(value)) return value;
   // A tree is recognised by its shape, wherever the args put it (see validate-plan).
   if (value['kind'] === 'root' && Array.isArray(value['children'])) {
-    return cleanNode(value, colourPolicy, changes);
+    return cleanNode(value, colourPolicy, changes, undefined);
   }
   let changed = false;
   const next: JsonRecord = {};

@@ -31,6 +31,37 @@ describe('Page', () => {
     expect(props).not.toHaveProperty('socialTitle');
     expect(props).not.toHaveProperty('socialDescription');
     expect(props).not.toHaveProperty('socialImage');
+    expect(props).not.toHaveProperty('seo');
+  });
+
+  it('parses an old root without seo and a new root with page and site seo', () => {
+    const old = pageSchema.props.parse({ title: 'الرئيسية', lang: 'ar', slug: '' });
+    expect(old).not.toHaveProperty('seo');
+
+    const seo = {
+      keyword: 'مقهى في عمّان',
+      pageKind: 'home',
+      schemaKinds: ['FAQPage'],
+      samples: ['+962 7 9000 0000'],
+      alternates: [{ lang: 'en', path: '/en' }],
+      site: {
+        origin: 'https://qahwa.example',
+        siteName: 'قهوة',
+        titleTemplate: '%s | قهوة',
+        business: {
+          type: 'CafeOrCoffeeShop',
+          name: 'قهوة',
+          address: { city: 'عمّان', country: 'JO' },
+        },
+      },
+    };
+    const current = pageSchema.props.parse({ title: 'الرئيسية', lang: 'ar', seo });
+    expect(current.seo).toEqual(seo);
+
+    expect(pageSchema.props.safeParse({ seo: { site: { origin: 'http://x.example' } } }).success).toBe(
+      false,
+    );
+    expect(pageSchema.props.safeParse({ seo: { unknownKey: 1 } }).success).toBe(false);
   });
 
   it('assigns every property to an explicit inspector tab and section', () => {
@@ -44,6 +75,7 @@ describe('Page', () => {
       socialTitle: { tab: 'content', section: 'Sharing' },
       socialDescription: { tab: 'content', section: 'Sharing' },
       socialImage: { tab: 'content', section: 'Sharing' },
+      seo: { tab: 'content', section: 'Sharing' },
       contentWidth: { tab: 'design', section: 'Appearance' },
       noIndex: { tab: 'advanced', section: 'Indexing' },
       pageCss: { tab: 'advanced', section: 'Custom CSS' },

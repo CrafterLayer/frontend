@@ -334,6 +334,12 @@ export const KEYS = [
   'suggest.relayout',
   'suggest.rework',
   'suggest.salvage',
+  'suggest.page.pricing',
+  'suggest.page.faq',
+  'suggest.page.contact',
+  'suggest.page.testimonials',
+  'suggest.page.warmer',
+  'suggest.page.otherLanguage',
 
   // §4.17 the composer family
   'input.aria',

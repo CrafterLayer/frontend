@@ -18,6 +18,15 @@ import type { AiSkillDefinitionV1 } from './types';
  * terms: every class below is checked against the utility vocabulary by
  * page-power.test.ts — slashed ones too, which the builtins guard skips — and
  * every colour is a slot the direction fills, never a hue of the recipe's own.
+ *
+ * Design code (2026-09-28): the tree gained details/summary, tables, video
+ * and lazy images, so faq opens without script, pricing names its
+ * comparison table, overlay takes the request's video, and gallery and rail
+ * load lazily. Each names the element only — the exact markup is in
+ * craftkit.design-code, which the same writers carry — because this skill
+ * sits at the single-skill ceiling: 2794 of 2800 tokens with the floor after
+ * the upgrade (2797 before; the preamble and check line were tightened), 2799
+ * after the 2026-09-30 team and faq fixes — the next addition must trim first.
  */
 
 export type SectionVariantRole = 'hero' | 'features' | 'proof' | 'offer' | 'media' | 'closing';
@@ -61,7 +70,7 @@ export const SECTION_VARIANTS: readonly SectionVariant[] = [
     id: 'overlay',
     role: 'hero',
     recipe:
-      'section relative isolate flex min-h-dvh items-end overflow-hidden > BACKDROP + div absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent + div mx-auto w-full max-w-6xl px-4 pb-16 text-white md:px-8 md:pb-24 > H1 max-w-3xl md:text-7xl + p mt-6 max-w-2xl text-lg text-white/90 + ACTIONS',
+      'section relative isolate flex min-h-dvh items-end overflow-hidden > BACKDROP + div absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent + div mx-auto w-full max-w-6xl px-4 pb-16 text-white md:px-8 md:pb-24 > H1 max-w-3xl md:text-7xl + p mt-6 max-w-2xl text-lg text-white/90 + ACTIONS; a video from the request: video autoplay muted loop playsinline, BACKDROP classes, photo as poster',
   },
   {
     id: 'frame',
@@ -104,7 +113,7 @@ export const SECTION_VARIANTS: readonly SectionVariant[] = [
     id: 'zigzag',
     role: 'features',
     recipe:
-      'div flex flex-col gap-16 md:gap-24 > div grid items-center gap-8 md:grid-cols-2 md:gap-16 > img aspect-4/3 w-full rounded-3xl object-cover + div (h3 text-2xl md:text-3xl font-semibold text-balance + p mt-4 leading-relaxed text-{muted}); every second row adds md:order-last to its img, so the photo stays first on phones',
+      'div flex flex-col gap-16 md:gap-24 > div grid items-center gap-8 md:grid-cols-2 md:gap-16 > img aspect-4/3 w-full rounded-3xl object-cover + div (h3 text-2xl md:text-3xl font-semibold text-balance + p mt-4 leading-relaxed text-{muted}); every second row adds md:order-last to its img (photo first on phones)',
   },
   {
     id: 'steps',
@@ -136,7 +145,7 @@ export const SECTION_VARIANTS: readonly SectionVariant[] = [
     id: 'pricing',
     role: 'offer',
     recipe:
-      'div grid items-stretch gap-6 md:grid-cols-3 > div flex flex-col CARD p-8 (h3 + p text-sm text-{muted} + p mt-6 text-5xl font-bold tabular-nums + ul mt-8 mb-8 space-y-3 > li flex gap-2 with icon check size 20 shrink-0 text-{accent-ink} + the action mt-auto); the one recommended tier: bg-{band} text-{band-text} shadow-2xl md:-mt-4',
+      "div grid items-stretch gap-6 md:grid-cols-3 > div flex flex-col CARD p-8 (h3 + p text-sm text-{muted} + p mt-6 text-5xl font-bold tabular-nums + ul mt-8 mb-8 space-y-3 > li flex gap-2 with icon check size 20 shrink-0 text-{accent-ink} + the action mt-auto); the one recommended tier: bg-{band} text-{band-text} shadow-2xl md:-mt-4; comparing features: table w-full text-sm",
   },
   {
     id: 'menu',
@@ -160,27 +169,27 @@ export const SECTION_VARIANTS: readonly SectionVariant[] = [
     id: 'team',
     role: 'offer',
     recipe:
-      'div grid grid-cols-2 gap-8 md:grid-cols-4 > figure > img aspect-square w-full rounded-2xl object-cover object-top only for a photo the request gives, else div flex aspect-square items-center justify-center rounded-2xl bg-{card} text-4xl font-bold with the initials + figcaption mt-4 (p font-semibold + p text-sm text-{muted})',
+      'div flex flex-wrap justify-center gap-8 > figure w-36 md:w-56 > img aspect-square w-full rounded-2xl object-cover object-top only for a photo the request gives, else div flex aspect-square items-center justify-center rounded-2xl bg-{card} text-4xl font-bold with the initials + figcaption mt-4 (p font-semibold + p text-sm text-{muted})',
   },
   // ── Media ───────────────────────────────────────────────────────────────
   {
     id: 'gallery',
     role: 'media',
     recipe:
-      'div grid grid-cols-2 gap-4 md:grid-cols-4 > img aspect-square w-full rounded-2xl object-cover, the first col-span-2 row-span-2; six at most, none repeated',
+      "div grid grid-cols-2 gap-4 md:grid-cols-4 > img aspect-square w-full rounded-2xl object-cover loading='lazy', the first col-span-2 row-span-2; six at most, none repeated",
   },
   {
     id: 'rail',
     role: 'media',
     recipe:
-      'div flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 > figure w-4/5 shrink-0 snap-start md:w-96 > img aspect-4/3 w-full rounded-2xl object-cover + figcaption mt-3 font-semibold',
+      "div flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 > figure w-4/5 shrink-0 snap-start md:w-96 > img aspect-4/3 w-full rounded-2xl object-cover loading='lazy' + figcaption mt-3 font-semibold",
   },
   // ── Closing ─────────────────────────────────────────────────────────────
   {
     id: 'faq',
     role: 'closing',
     recipe:
-      'div mx-auto max-w-3xl divide-y divide-black/10 > div py-6 > h3 text-lg font-semibold + p mt-2 leading-relaxed text-{muted}; four to six real objections',
+      "div max-w-3xl divide-y divide-black/10, flush with the h2 > details name='faq' py-5, the first open > summary text-lg font-semibold + p mt-2 leading-relaxed text-{muted}; four to six objections",
   },
   {
     id: 'contact',
@@ -231,26 +240,26 @@ export const SECTION_VARIANTS_SKILL: AiSkillDefinitionV1 = {
   id: 'craftkit.section-variants',
   name: 'Named section layouts',
   description:
-    'Named section layouts with exact class recipes; the writer builds the one the direction names.',
+    'Named section layouts as exact class recipes.',
   version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 92,
   activation: { mode: 'explicit' },
   tags: ['build', 'composition', 'layout', 'sections'],
-  instructions: `Build the variant the direction names for this section. With none named, pick the one the content fits — not the first by habit, not the previous section's.
-A recipe is the skeleton: keep its classes and write real content into it, inside the manual's region shell unless it opens with section or footer. A NAME in capitals is a part: ${Object.entries(
+  instructions: `Build the variant the direction names; with none, the one the content fits, not the previous section's.
+A recipe is the skeleton: keep its classes, write real content, inside the manual's region shell unless it opens with section or footer. A NAME in capitals is a part: ${Object.entries(
     SECTION_VARIANT_PARTS,
   )
     .map(([name, part]) => `${name} = ${part}`)
     .join(
       '; ',
     )}. Classes after a part add to it, replacing one of the same property (H1 md:text-7xl drops md:text-6xl).
-SLOTS are the direction's palette as named classes: {ground} {card} {ink} {muted} {band} {band-text}, and {accent} {on-accent} as the manual says. {accent-ink} is accent text and icons (4.5:1 on ground and card; the fill when none is named); on {band}, {band-muted}. On a dark ground write white/10 where a recipe says black/10 or black/5.
+SLOTS name the direction's palette: {ground} {card} {ink} {muted} {band} {band-text}, and {accent} {on-accent} as the manual says. {accent-ink} is accent text and icons (4.5:1 on ground and card; the fill when none is named); on {band}, {band-muted}. On a dark ground, white/10 for black/10 or black/5.
 HIERARCHY: one lead item outweighs the rest; never three identical cards as the second section.
 ${renderVariants()}`,
   references: {
     'checks/variants.md':
-      'Named variant built; recipe classes kept; colours from slots; one lead item; initials, never a stranger’s photo; WhatsApp, tel: and maps linked.',
+      'Named variant, its classes, slot colours, a lead item, initials not photos, local links.',
   },
 };

@@ -48,8 +48,12 @@ export function ContextChip({ locale, chip, onRemove, className }: ContextChipPr
     >
       <span className="ck-agent-chip__body">
         <AgentIcon name={isPage ? 'page' : 'block'} className="ck-agent-chip__glyph" />
-        {/* The page's own words sit in <bdi>; the full name stays reachable by pointer. */}
-        <span className="ck-agent-chip__label" title={label}>
+        {/*
+          The page's own words sit in <bdi>; the full name stays reachable by pointer. The
+          label takes its own direction too, so a Latin name in the Arabic panel is cut at
+          its own end ("Aurora Backg…"), not at its start.
+        */}
+        <span className="ck-agent-chip__label" title={label} dir={isPage ? undefined : 'auto'}>
           {isPage ? label : <bdi>{label}</bdi>}
         </span>
         {chip.kind !== 'page' && onRemove !== undefined ? (

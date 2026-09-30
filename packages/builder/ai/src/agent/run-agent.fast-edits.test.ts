@@ -15,7 +15,12 @@ import {
 import { applyAiPlan } from '../plan/apply-plan';
 import { parseTreeMarkup, serializeTreeMarkup } from '../plan/tree-markup';
 import { AI_PLAN_WIRE_VERSION, estimateAiPlanWireRequestTokens } from '../provider/wire';
-import { createAiSkillRegistry, createCraftkitAiSkillRegistry } from '../skills';
+import {
+  createAiSkillRegistry,
+  createCraftkitAiSkillRegistry,
+  type AiSkillPrepareOptions,
+  type AiSkillRegistry,
+} from '../skills';
 import type { AiPlan, AiPlanProvider, AiProposeOptions, AssembledAiContext } from '../types';
 import { runAiAgent } from './run-agent';
 import type { AiAgentEvent, RunAiAgentOptions } from './types';
@@ -271,6 +276,137 @@ describe('runAiAgent — zero-token direct edits', () => {
     expect(result.route).toBeUndefined();
   });
 
+  /*
+    Final test, 2026-09-28: a direct edit took 270–1,357 ms, most of it
+    rebuilding and re-validating the whole page in a scratch kernel — twice
+    on Auto, once in tryDirectEdit and again in applyAiPlan. A rehearsal is
+    the one thing that reads the validation ports' clock (its transaction's
+    stamp), so the reads count the rehearsals.
+  */
+  it('Auto rehearses a direct edit once, in the door', async () => {
+    const kernel = kernelFor();
+    let reads = 0;
+    const clock = fixedClock(2);
+    const result = await runAiAgent(
+      options(kernel, neverCalled, {
+        apply: 'auto',
+        validationPorts: {
+          clock: {
+            now: () => {
+              reads += 1;
+              return clock.now();
+            },
+          },
+          ids: seededIds('fast-edits-ports'),
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({ status: 'applied', source: 'direct' });
+    expect(reads).toBe(1);
+  });
+
+  it('a run whose composition checks more than the door keeps its own rehearsal', async () => {
+    const kernel = kernelFor();
+    let reads = 0;
+    const clock = fixedClock(2);
+    const result = await runAiAgent(
+      options(kernel, neverCalled, {
+        apply: 'auto',
+        composition: { colourPolicy: 'tokens' },
+        validationPorts: {
+          clock: {
+            now: () => {
+              reads += 1;
+              return clock.now();
+            },
+          },
+          ids: seededIds('fast-edits-ports'),
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({ status: 'applied', source: 'direct' });
+    expect(reads).toBe(2);
+  });
+
+  it('Auto: plan.applying still comes before the write — the panel reads it as the "before"', async () => {
+    const kernel = kernelFor();
+    const original = kernel.getDocument();
+    let atApplying: unknown;
+    await runAiAgent(
+      options(kernel, neverCalled, {
+        apply: 'auto',
+        onEvent: (event) => {
+          if (event.type === 'plan.applying') atApplying = kernel.getDocument();
+        },
+      }),
+    );
+
+    expect(atApplying).toBe(original);
+    expect(kernel.getDocument()).not.toBe(original);
+  });
+
+  it('Auto: a direct edit the door refuses falls back to the model with nothing written', async () => {
+    const kernel = kernelFor();
+    const before = educationMarkup(kernel);
+    const events: AiAgentEvent[] = [];
+    const { provider, calls } = recording(retitleEducation, kernel);
+
+    await expect(
+      runAiAgent(
+        options(kernel, provider, {
+          apply: 'auto',
+          policy: { deniedCommands: ['setProp'] },
+          onEvent: (event) => events.push(event),
+        }),
+      ),
+    ).rejects.toThrow();
+
+    expect(calls).toHaveLength(1);
+    expect(educationMarkup(kernel)).toBe(before);
+    expect(kernel.transactions()).toHaveLength(0);
+    // The door refused it (tryDirectEdit left the rehearsal to it), then the model was asked.
+    expect(events.some(({ type, source }) => type === 'plan.applying' && source === 'direct')).toBe(true);
+    expect(events.some(({ type, source }) => type === 'run.completed' && source === 'direct')).toBe(false);
+    expect(events.at(-1)?.type).toBe('run.failed');
+  });
+
+  /*
+    Final test, 2026-09-28: «retitle it» with a block selected became a
+    zero-token edit titling it "it", and «retitle @selected-hero» titled the
+    hero "selected-hero" — the provider never saw the request, so the
+    mention never reached it as the selection.
+  */
+  it.each([
+    ['retitle it', ['education']],
+    ['rename it', ['education']],
+    ['retitle them', ['education']],
+    ['retitle @education', ['education']],
+    ['retitle @x', ['education']],
+  ] as const)('a pronoun or a mention is never the new title: %s goes to the model', async (request, selection) => {
+    const kernel = kernelFor();
+    const before = educationMarkup(kernel);
+    const { provider, calls } = recording(retitleEducation, kernel);
+    const result = await runAiAgent(options(kernel, provider, { request, selection }));
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.context.selection.ids).toEqual(['education']);
+    expect(result.source).toBe('model');
+    expect(result.directEdit).toBeUndefined();
+    expect(educationMarkup(kernel)).toBe(before);
+  });
+
+  it('a pronoun still points at the selection when the new title is said', async () => {
+    const kernel = kernelFor();
+    const result = await runAiAgent(
+      options(kernel, neverCalled, { request: 'call it Credentials', selection: ['education'], apply: 'auto' }),
+    );
+
+    expect(result).toMatchObject({ status: 'applied', source: 'direct', tokens: 0 });
+    expect(educationMarkup(kernel)).toContain('>Credentials</h2>');
+  });
+
   it('an edit the words do not pin to one element goes to the model', async () => {
     const kernel = kernelFor();
     const { provider, calls } = recording(retitleEducation, kernel);
@@ -351,6 +487,17 @@ describe('runAiAgent — target-scoped context for model edits', () => {
     remains is mostly the active skills (craft-manual 395 + arabic-rtl 531,
     or structure-recipes 685) and the eleven command schemas (~520). The
     owner's own sentence never reaches this path at all: it is a direct edit.
+
+    2026-09-30: an unfocused call ships only the pinned skills' manifests, not
+    the whole catalog (~5.2k tokens), so the whole-page figures are now about
+    5,005 / 5,002 / 5,185 and the focused ones unchanged: a focused edit is
+    under half of an unfocused one, not under a third.
+
+    2026-09-30 (fix pass): the catalog states a props schema compactly
+    (context/wire-schema.ts — no $schema, shared attribute schemas once), which
+    shrinks the UNFOCUSED call to about 4,440 / 4,439 / 4,623 while the focused
+    ones stay 2,370 / 2,399 / 2,539. The focused edit is still ~0.53-0.55 of
+    it; the bound is 0.6 because the baseline got cheaper, not the edit dearer.
   */
   it.each([
     [OWNER, 2_500],
@@ -374,7 +521,7 @@ describe('runAiAgent — target-scoped context for model edits', () => {
     const focused = await measure(true);
 
     expect(focused).toBeLessThanOrEqual(budget);
-    expect(focused).toBeLessThan(whole * 0.3);
+    expect(focused).toBeLessThan(whole * 0.6);
   });
 });
 
@@ -457,5 +604,80 @@ describe('runAiAgent — the route reaches skill gating', () => {
     expect(calls).toHaveLength(1);
     expect(result.route?.reason).toBe('host');
     expect(result.skills?.activations.map(({ id }) => id)).toEqual(['test.cv-page']);
+  });
+});
+
+/*
+  Final test (2026-09-30): the first direct edit of a session took 422–534 ms,
+  50–130 of them resolving skills a direct edit never reads. Skills reach a
+  direct edit only through a command restriction, so while no restricting
+  skill can activate, the edit is made before any skill is resolved.
+*/
+describe('runAiAgent — a direct edit resolves no skills', () => {
+  const counting = (registry: AiSkillRegistry) => {
+    let prepared = 0;
+    return {
+      registry: { ...registry, prepare: (prepare: AiSkillPrepareOptions) => ((prepared += 1), registry.prepare(prepare)) },
+      prepared: () => prepared,
+    };
+  };
+
+  it('never prepares the built-in skills for the owner’s title change', async () => {
+    const kernel = kernelFor();
+    const { registry, prepared } = counting(createCraftkitAiSkillRegistry());
+    const events: AiAgentEvent[] = [];
+    const result = await runAiAgent(
+      options(kernel, neverCalled, { apply: 'auto', skillRegistry: registry, onEvent: (event) => events.push(event) }),
+    );
+
+    expect(result).toMatchObject({ status: 'applied', source: 'direct', tokens: 0 });
+    expect(prepared()).toBe(0);
+    expect(events.map(({ type }) => type)).toEqual([
+      'run.started',
+      'skills.resolving',
+      'skills.resolved',
+      'context.gathering',
+      'context.ready',
+      'plan.applying',
+      'run.completed',
+    ]);
+    expect(events[2]).toMatchObject({ type: 'skills.resolved', activations: [], totalTokens: 0 });
+  });
+
+  it('still resolves skills first when one that narrows the policy can activate', async () => {
+    const kernel = kernelFor();
+    const before = educationMarkup(kernel);
+    const { registry, prepared } = counting(
+      createAiSkillRegistry([
+        {
+          schemaVersion: 1,
+          id: 'test.structure-only',
+          name: 'Structure only',
+          description: 'Allows inserting nodes and nothing else.',
+          version: '1.0.0',
+          instructions: 'Only insert.',
+          activation: { mode: 'always' },
+          restrictToCommands: ['insertNode'],
+        },
+      ]),
+    );
+    const outcome = await runAiAgent(options(kernel, neverCalled, { apply: 'auto', skillRegistry: registry })).then(
+      (result) => result.source,
+      () => 'failed',
+    );
+
+    expect(prepared()).toBe(1);
+    expect(outcome).not.toBe('direct');
+    expect(educationMarkup(kernel)).toBe(before);
+  });
+
+  it('still resolves skills first when the host selects one by id', async () => {
+    const kernel = kernelFor();
+    const { registry, prepared } = counting(createCraftkitAiSkillRegistry());
+    await runAiAgent(
+      options(kernel, neverCalled, { skillRegistry: registry, selectedSkillIds: ['craftkit.plan-mode'] }),
+    ).catch(() => undefined);
+
+    expect(prepared()).toBe(1);
   });
 });

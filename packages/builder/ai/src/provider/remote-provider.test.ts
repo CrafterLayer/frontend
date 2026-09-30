@@ -93,6 +93,21 @@ describe('createRemoteAiPlanProvider', () => {
     expect(call?.body.attempt).toBeUndefined();
   });
 
+  it('carries the run model choice (withModel) into the propose and repair bodies', async () => {
+    const { calls, fetchImpl } = fakeFetch(() => jsonResponse(plan));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+    const live = { model: 'haiku-edit', effort: 'low' } as Parameters<typeof provider.propose>[2];
+
+    await provider.propose('add a hero', context(), live);
+    await provider.repair('add a hero', context(), plan, [], live);
+    await provider.propose('add a hero', context());
+
+    expect(calls[0]?.body).toMatchObject({ model: 'haiku-edit', effort: 'low' });
+    expect(calls[1]?.body).toMatchObject({ model: 'haiku-edit', effort: 'low' });
+    expect(calls[2]?.body.model).toBeUndefined();
+    expect(calls[2]?.body.effort).toBeUndefined();
+  });
+
   it.each([
     'relative/plan',
     'http://assistant.example.test/plan',

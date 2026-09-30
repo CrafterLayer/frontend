@@ -46,6 +46,8 @@ interface CliStreamParams {
   readonly system?: readonly { readonly text: string }[];
   readonly messages?: readonly { readonly role: string; readonly content: unknown }[];
   readonly output_config?: { readonly format?: { readonly schema?: unknown } };
+  /** Only `disabled` is read: the CLI's own default (thinking on) serves every other value. */
+  readonly thinking?: { readonly type?: string };
 }
 
 /**
@@ -70,7 +72,15 @@ export interface CliChildProcess {
   readonly kill: (signal?: string) => unknown;
 }
 
-export type SpawnCli = (command: string, args: readonly string[]) => CliChildProcess;
+/**
+ * `env` holds only the variables a call adds on top of the server's own
+ * environment; the real spawner merges them over `process.env`.
+ */
+export type SpawnCli = (
+  command: string,
+  args: readonly string[],
+  env?: Readonly<Record<string, string>>,
+) => CliChildProcess;
 
 /** The reasoning budgets the CLI accepts; anything else it warns about and ignores. */
 export const CLI_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
@@ -199,10 +209,33 @@ function writeSystemPromptFile(text: string): SystemPromptFile {
   };
 }
 
+/**
+ * The CLI's switch for a call that turns thinking off. It has no `--thinking`
+ * flag; `alwaysThinkingEnabled: false` is the setting it reads, and
+ * `--settings` still applies under `--safe-mode`.
+ *
+ * Why it matters (measured 2026-09-29): the enhancer sends
+ * `thinking: {type: 'disabled'}`, this shim dropped it, and haiku at
+ * `--effort low` then thought for 56 s without writing a character — all 6
+ * «Improve» runs on the scratch server ended in the 60 s cap. With this
+ * setting the same call answered in 19 s, 351 tokens, at load 960.
+ */
+const THINKING_OFF_SETTINGS = JSON.stringify({ alwaysThinkingEnabled: false });
+
+/**
+ * The second half of turning thinking off. Measured 2026-09-30 on cli:haiku:
+ * with the settings switch alone the enhancer still wrote ~4.3k output tokens,
+ * mostly thinking, over 40-60 s, and every call hit the 45 s client cap. With
+ * `MAX_THINKING_TOKENS=0` in the child's environment the same call answered
+ * in 14-17 s with ~376 tokens.
+ */
+const THINKING_OFF_ENV: Readonly<Record<string, string>> = { MAX_THINKING_TOKENS: '0' };
+
 function buildArgs(
   model: string | undefined,
   effort: CliEffort | undefined,
   systemPromptPath: string | undefined,
+  thinkingOff: boolean,
 ): string[] {
   const args = [
     '-p',
@@ -227,6 +260,7 @@ function buildArgs(
     server's reasoning budget depend on who started it.
   */
   if (effort !== undefined) args.push('--effort', effort);
+  if (thinkingOff) args.push('--settings', THINKING_OFF_SETTINGS);
   return args;
 }
 
@@ -262,11 +296,31 @@ function usageOf(event: Readonly<Record<string, unknown>>): CliUsage | undefined
   };
 }
 
-function usageLine(usage: CliUsage): string {
+/** Where a run's wall-clock time went, as this shim saw it. */
+interface CliTiming {
+  /** Spawn to the `result` event. */
+  readonly elapsedMs: number;
+  /** Spawn to the CLI's first event — the process starting, before any model call. */
+  readonly startupMs: number;
+}
+
+/**
+ * The usage, with the model's time and the process's own named apart.
+ * Measured over 26 fills (2026-09-29): about 9.6 s of each CLI call was the
+ * process, not the model ("model 00:09" in a run that "ended after 00:21"),
+ * and the log only said the first — so the CLI's real cost was invisible.
+ *
+ * Start-up is measured here (spawn to the CLI's first event) rather than
+ * derived as run minus model: the CLI's `duration_api_ms` also counts calls
+ * it makes while starting, so the difference understated it (a haiku run
+ * logged model 00:08 of 00:25 with 00:18 before its first event).
+ */
+function usageLine(usage: CliUsage, timing: CliTiming): string {
   return (
     `cli usage — in ${formatCount(usage.input)}, cache read ${formatCount(usage.cacheRead)}, ` +
     `cache write ${formatCount(usage.cacheWrite)}, out ${formatCount(usage.output)}` +
-    (usage.apiMs === undefined ? '' : `, model ${formatElapsed(usage.apiMs)}`)
+    (usage.apiMs === undefined ? '' : `, model ${formatElapsed(usage.apiMs)}`) +
+    `, start-up ${formatElapsed(timing.startupMs)}, run ${formatElapsed(timing.elapsedMs)}`
   );
 }
 
@@ -295,9 +349,10 @@ function cancelled(): Error {
 }
 
 /** The real child: its own process group, so a cancelled request can kill the tree. */
-const spawnRealCli: SpawnCli = (command, args) =>
+const spawnRealCli: SpawnCli = (command, args, env) =>
   spawn(command, [...args], {
     cwd: tmpdir(),
+    ...(env === undefined ? {} : { env: { ...process.env, ...env } }),
     detached: process.platform !== 'win32',
     stdio: ['pipe', 'pipe', 'pipe'],
     // Node's typed `stdout`/`stderr` are nullable in general; with this exact
@@ -309,6 +364,7 @@ function runClaude(
   args: readonly string[],
   timeoutMs: number,
   spawnCli: SpawnCli,
+  env: Readonly<Record<string, string>> | undefined,
   onThinking: (delta: string) => void,
   onLog: (line: string) => void,
   signal: AbortSignal | undefined,
@@ -319,13 +375,16 @@ function runClaude(
       reject(cancelled());
       return;
     }
-    const child = spawnCli('claude', args);
+    const child =
+      env === undefined ? spawnCli('claude', args) : spawnCli('claude', args, env);
 
     let settled = false;
     let buffer = '';
     let finalText: string | undefined;
     let usage: CliUsage | undefined;
     let stderr = '';
+    /** When the CLI said anything at all: the end of its start-up. */
+    let firstEventAt: number | undefined;
 
     const startedAt = Date.now();
     const narrator = new RunNarrator(onThinking, startedAt);
@@ -389,6 +448,7 @@ function runClaude(
           continue;
         }
         if (!isRecord(event)) continue;
+        firstEventAt ??= Date.now();
         if (event['type'] === 'stream_event' && isRecord(event['event'])) {
           const frame = event['event'];
           const block = frame['content_block'];
@@ -428,7 +488,14 @@ function runClaude(
           }
           finalText = typeof event['result'] === 'string' ? event['result'] : '';
           usage = usageOf(event);
-          if (usage !== undefined) onLog(usageLine(usage));
+          if (usage !== undefined) {
+            onLog(
+              usageLine(usage, {
+                elapsedMs: Date.now() - startedAt,
+                startupMs: firstEventAt - startedAt,
+              }),
+            );
+          }
         }
       }
     });
@@ -528,10 +595,12 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
         (level) => requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER] === level,
       ) ?? options.effort;
     const model = callModel(params.model, options);
-    const args = buildArgs(model, effort, systemFile?.path);
+    const thinkingOff = params.thinking?.type === 'disabled';
+    const args = buildArgs(model, effort, systemFile?.path, thinkingOff);
     onLog(
       `cli run started — model ${model ?? '(CLI default)'}, ` +
-        `effort ${effort ?? '(CLI default)'}, system ${formatCount(prompt.system.length)} + ` +
+        `effort ${effort ?? '(CLI default)'}${thinkingOff ? ', thinking off' : ''}, ` +
+        `system ${formatCount(prompt.system.length)} + ` +
         `request ${formatCount(prompt.user.length)} characters`,
     );
     const done = runClaude(
@@ -539,6 +608,7 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
       args,
       timeoutMs,
       spawnCli,
+      thinkingOff ? THINKING_OFF_ENV : undefined,
       (delta) => {
         listeners.get('thinking')?.(delta);
       },

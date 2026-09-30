@@ -720,7 +720,13 @@ export type EmptyStateView =
   | { readonly kind: 'selection'; readonly title: string };
 
 /** Where a suggestion came from, in `panelSuggestions`' priority order (SPEC §4.16). */
-export type SuggestionSource = 'starter' | 'salvage' | 'followUp' | 'selection' | 'catalog';
+export type SuggestionSource =
+  | 'starter'
+  | 'salvage'
+  | 'followUp'
+  | 'selection'
+  | 'page'
+  | 'catalog';
 
 /** One suggestion row: choosing it fills the composer with `text` and never sends (SPEC §4.16). */
 export interface SuggestionView {

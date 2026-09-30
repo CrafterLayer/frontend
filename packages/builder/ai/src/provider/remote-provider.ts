@@ -442,6 +442,20 @@ interface RemoteLive {
   readonly onProgress?: ((text: string) => void) | undefined;
 }
 
+/**
+ * The model choice a run put on the live options (`withModel` in run-agent:
+ * `{ ...live, model, effort }`), carried into the body the server reads.
+ * Without this the edit model and effort never left the client.
+ */
+function modelChoiceFields(live: unknown): { model?: string; effort?: 'low' | 'medium' } {
+  if (live === null || typeof live !== 'object') return {};
+  const { model, effort } = live as { model?: unknown; effort?: unknown };
+  return {
+    ...(typeof model === 'string' && model !== '' ? { model } : {}),
+    ...(effort === 'low' || effort === 'medium' ? { effort } : {}),
+  };
+}
+
 /** One POST: where, what, how long it may take, and how its answer is read. */
 interface RemoteExchange<T> {
   readonly url: string;
@@ -639,6 +653,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
             request,
             context,
             ...(live?.history === undefined ? {} : { history: live.history }),
+            ...modelChoiceFields(live),
           },
           parseWireResponse,
         ),
@@ -660,6 +675,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
             context,
             ...(live?.history === undefined ? {} : { history: live.history }),
             attempt: { plan, issues },
+            ...modelChoiceFields(live),
           },
           parseWireResponse,
         ),

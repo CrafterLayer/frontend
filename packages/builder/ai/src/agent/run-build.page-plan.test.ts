@@ -433,10 +433,13 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     expect(hero.request).toContain('PURPOSE: Say what the roastery is and invite the first order.');
     expect(hero.request).toContain('MUST SAY: "Roasted in Amman"');
     expect(hero.request).toContain('id="hero"');
-    expect(hero.request).toContain('VARIANT: Roasted this morning[split]');
+    // 2026-09-30: a section with a variant is kit-backed — its default kit, one tool step.
+    expect(hero.request).toContain('"kit":"hero-split"');
     expect(hero.request).toContain('ROLE: HERO');
-    expect(hero.request).toContain('--ck-accent #065f46');
     expect(hero.request).toContain('PRIMARY ACTION: "Order beans" → #order');
+    // A markup writer (no variant, so no kit) still gets the page's tokens.
+    const order = script.fills.find(({ request }) => request.includes('SECTION 3 OF 4'));
+    expect(order?.request).toContain('--ck-accent #065f46');
     expect(menu.request).toContain('MUST NOT REPEAT');
     expect(menu.request).toContain('"Roasted in Amman"');
     // The facts ledger reaches the section that shows them.
@@ -503,6 +506,35 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     ]);
   });
 
+  it('reports the direction as plain prose, with the tokens as data on build.planned (§4.0)', async () => {
+    const live = kernel();
+    const events: AiBuildEvent[] = [];
+    const script = scripted();
+    const result = await runAiBuild({
+      ...baseOptions(live, script.provider, events),
+      target: 'replace',
+    });
+
+    const planned = own(events).find((event) => event.type === 'build.planned');
+    if (planned?.type !== 'build.planned') throw new Error('no build.planned');
+    expect(planned.direction).toBe('A warm, bean-forward roastery page.');
+    expect(result.direction).toBe('A warm, bean-forward roastery page.');
+    // No faces, no numbered sections, no variant tags, no middle dots.
+    expect(planned.direction).not.toMatch(/ — |·|\[/u);
+    expect(planned.tokens?.signature).toBe('one oversized origin name per section');
+    expect(planned.tokens?.fontDisplay.family).toBe(result.pagePlan?.tokens.fontDisplay.family);
+  });
+
+  it('describes a GIVEN plan by its own description, never the internal signature', async () => {
+    const live = kernel();
+    const script = scripted();
+    const given = validated({ ...roastery(), intent: 'new-page' });
+
+    const result = await runAiBuild({ ...baseOptions(live, script.provider), pagePlan: given });
+
+    expect(result.direction).toBe('Specialty coffee roasted in Amman every morning.');
+  });
+
   it('replaces the page’s content in the SAME transaction as the skeleton, so one undo restores it', async () => {
     const live = kernel(page(['old-hero', 'old-band']));
     const script = scripted();
@@ -514,7 +546,9 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
       'Order today',
       'Footer',
     ]);
-    // Undo every section, then the skeleton: the old page comes back whole.
+    // Undo the SEO pass (2026-09-30), every section, then the skeleton: the old page comes back whole.
+    expect(labels(live).at(-1)).toBe('Assistant: SEO');
+    live.undo();
     const sections = result.tasks.filter(({ attempts }) => attempts > 0).length;
     for (let undo = 0; undo < sections; undo += 1) live.undo();
     live.undo();
@@ -636,9 +670,8 @@ describe('the one approval, on a page plan', () => {
 
     expect(childLabels(live)).toEqual(['Roasted this morning', 'Order today', 'Footer']);
     expect(result.pagePlan?.sections.map(({ key }) => key)).toEqual(['hero', 'order', 'footer']);
-    // The direction describes the plan that was BUILT, not the one first shown.
-    expect(result.direction).not.toContain('Our coffees');
-    expect(result.direction).toContain('Order today');
+    // The direction is prose; the sections of the plan that was BUILT are data.
+    expect(result.direction).toBe('A warm, bean-forward roastery page.');
   });
 
   it('writes nothing, and says why, when the edited plan fails validation', async () => {

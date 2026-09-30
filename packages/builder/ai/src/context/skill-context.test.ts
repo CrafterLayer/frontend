@@ -8,7 +8,7 @@ import {
   seededIds,
 } from '@craftkit/builder-core/testing';
 
-import { createAiSkillRegistry } from '../skills';
+import { createAiSkillRegistry, createCraftkitAiSkillRegistry } from '../skills';
 import { assembleAiContext } from './assemble-context';
 
 function kernel() {
@@ -50,10 +50,9 @@ describe('AI skill context assembly', () => {
     const context = assembleAiContext(kernel().context, { skillContext });
     const serializedFragments = context.fragments.map(({ body }) => body).join('\n');
 
-    expect(context.skillCatalog?.map(({ id }) => id)).toEqual([
-      'craftkit.metadata-only',
-      'craftkit.page-design',
-    ]);
+    // Only the pinned skills' manifests travel: the server reads nothing else from it.
+    expect(context.skillCatalog?.map(({ id }) => id)).toEqual(['craftkit.page-design']);
+    expect(context.skillCatalog?.[0]?.activation).toEqual({ mode: 'explicit' });
     expect(context.skills?.map(({ id }) => id)).toEqual(['craftkit.page-design']);
     expect(context.fragments).toHaveLength(1);
     expect(context.fragments[0]?.title).toBe('Active AI skill: craftkit.page-design');
@@ -67,6 +66,20 @@ describe('AI skill context assembly', () => {
     expect(serializedFragments).not.toContain('SECRET_INACTIVE_BODY');
     expect(serializedFragments).not.toContain('Design complete page hierarchy.');
     expect(JSON.stringify(context.skillCatalog)).not.toContain('instructions');
+  });
+
+  it('keeps the shipped catalog within a wire budget: the pins only, never all of it', () => {
+    const registry = createCraftkitAiSkillRegistry();
+    const skillContext = registry.prepare({ request: 'Build a landing page for a dental clinic' });
+    const context = assembleAiContext(kernel().context, { skillContext });
+
+    const pinned = new Set(skillContext.activations.map(({ id }) => id));
+    expect(context.skillCatalog?.every(({ id }) => pinned.has(id))).toBe(true);
+    expect(context.skillCatalog).toHaveLength(pinned.size);
+    const shipped = JSON.stringify(context.skillCatalog).length;
+    const whole = JSON.stringify(skillContext.catalog).length;
+    expect(shipped).toBeLessThan(whole);
+    expect(shipped).toBeLessThanOrEqual(Math.max(1500 * pinned.size, 1500));
   });
 
   it('preserves the previous context shape when no prepared skills are supplied', () => {

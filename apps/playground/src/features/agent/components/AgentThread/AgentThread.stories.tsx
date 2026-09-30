@@ -424,9 +424,7 @@ async function expectOneLiveRegion(canvasElement: HTMLElement, locale: Locale): 
 
 async function expectAtBottom(thread: HTMLElement): Promise<void> {
   await waitFor(
-    () => {
-      expect(thread.scrollHeight - thread.clientHeight - thread.scrollTop).toBeLessThan(2);
-    },
+    () => expect(thread.scrollHeight - thread.clientHeight - thread.scrollTop).toBeLessThan(2),
     { timeout: 4000 },
   );
 }
@@ -448,12 +446,19 @@ async function scrollUpAndExpectPill(
 ): Promise<HTMLElement> {
   const thread = threadOf(canvasElement, locale);
   await expectAtBottom(thread);
-  thread.scrollTop = 120;
+  // A frame the conversation does not overflow has nothing to scroll up from: say so plainly.
+  await expect(thread.scrollHeight).toBeGreaterThan(thread.clientHeight + 120);
+  thread.scrollTo({ top: 120, behavior: 'instant' });
   const pill = await waitFor(() =>
     within(canvasElement).getByRole('button', { name: pillName(locale, activity) }),
   );
-  await expect(pill).toBeVisible();
-  await expect(canvasElement.querySelector('.ck-agent-header')).toHaveAttribute('data-scrolled');
+  // The pill fades and rises 4px in from transparent (SPEC §5 moment 9): visible at once,
+  // measured only once the rise has run, or it is caught a pixel short of its place.
+  await waitFor(() => expect(pill).toBeVisible(), { timeout: 2000 });
+  await Promise.allSettled(pill.getAnimations().map((animation) => animation.finished));
+  await waitFor(() =>
+    expect(canvasElement.querySelector('.ck-agent-header')).toHaveAttribute('data-scrolled'),
+  );
   await expect(thread.scrollTop).toBe(120);
   // Centred, 12px above the dock.
   const dock = within(canvasElement).getByRole('textbox').getBoundingClientRect();
@@ -560,7 +565,10 @@ export const Long: Story = {
     await expect(
       within(canvasElement).queryByRole('button', { name: pillName('en', null) }),
     ).toBeNull();
-    await expect(canvasElement.querySelector('.ck-agent-header')).toHaveAttribute('data-scrolled');
+    // The hairline follows the thread's scroll event, a frame after the follow lands.
+    await waitFor(() =>
+      expect(canvasElement.querySelector('.ck-agent-header')).toHaveAttribute('data-scrolled'),
+    );
     await expectOneLiveRegion(canvasElement, 'en');
   },
 };

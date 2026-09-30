@@ -80,6 +80,19 @@ describe('ContextChip', () => {
     expect(container.querySelector('.ck-agent-chip__label')).toHaveAttribute('title', LONG_LABEL.ar);
   });
 
+  it('cuts a Latin name at its own end inside the Arabic panel (the label takes its own direction)', () => {
+    const { container } = render(
+      <ContextChip locale="ar" chip={blockChip('ar', 'hero', { label: 'Aurora Background' })} />,
+    );
+    // The ellipsis falls at the label's inline end: "Aurora Backg…", never "…ora Background".
+    expect(container.querySelector('.ck-agent-chip__label')).toHaveAttribute('dir', 'auto');
+  });
+
+  it('keeps the Whole page chip in the panel’s direction', () => {
+    const { container } = render(<ContextChip locale="ar" chip={SCOPE_CHIP} />);
+    expect(container.querySelector('.ck-agent-chip__label')).not.toHaveAttribute('dir');
+  });
+
   it('draws a 28px chip, cut at 16 characters, with a 32/44px remove target', () => {
     expect(CSS).toMatch(/16ch/u);
     expect(CSS).toMatch(/--ck-agent-target:\s*var\(--bldr-hit-target-min\)/u);

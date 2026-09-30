@@ -224,7 +224,7 @@ function rect(top: number, bottom: number): DOMRect {
     x: 0,
     y: top,
     toJSON: () => ({}),
-  } as DOMRect;
+  };
 }
 
 beforeEach(() => {
@@ -463,8 +463,9 @@ function FillHarness({ controller }: FillHarnessProps) {
           activity: null,
           suggestions: frameSuggestions('en').starters,
           draft,
-          onSuggestion: choose,
         })}
+        // A handler, handed over as a prop: it reads the field's ref only when a row is chosen.
+        onSuggestion={choose}
       />
       <textarea
         ref={field}

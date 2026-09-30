@@ -1,38 +1,38 @@
 .bldr-selection-toolbar {
   align-items: center;
-  background: var(--bldr-surface, #fff);
-  border: var(--bldr-border-hairline, 1px) solid var(--bldr-surface-border, rgb(15 23 42 / 12%));
-  border-radius: var(--bldr-radius-lg, 10px);
-  box-shadow: var(--bldr-shadow-floating, 0 10px 30px rgb(15 23 42 / 16%));
-  color: var(--bldr-panel-text, #1e293b);
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
   display: flex;
-  font-family: var(--bldr-font, system-ui, sans-serif);
-  gap: var(--bldr-space-sm, 6px);
-  max-inline-size: min(100%, 720px);
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-sm);
+  max-inline-size: min(100%, calc(var(--bldr-space-md) * 90));
   overflow-x: auto;
-  padding: var(--bldr-space-xs, 4px);
+  padding: var(--bldr-space-xs);
 }
 
 .bldr-selection-toolbar__kind {
-  color: var(--bldr-panel-muted, #64748b);
+  color: var(--bldr-panel-muted);
   flex: 0 0 auto;
-  font-size: var(--bldr-font-size-caption, 12px);
-  max-inline-size: 240px;
+  font-size: var(--bldr-font-size-caption);
+  max-inline-size: calc(var(--bldr-space-md) * 30);
   overflow: hidden;
-  padding-inline: var(--bldr-space-sm, 6px);
+  padding-inline: var(--bldr-space-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .bldr-selection-toolbar__actions {
   display: flex;
-  gap: var(--bldr-space-2xs, 2px);
+  gap: var(--bldr-space-2xs);
 }
 
 .bldr-selection-toolbar__action {
   flex: 0 0 auto;
-  font-size: var(--bldr-font-size-caption, 12px);
-  padding-inline: var(--bldr-space-md, 8px);
+  font-size: var(--bldr-font-size-caption);
+  padding-inline: var(--bldr-space-md);
   white-space: nowrap;
 }
 
@@ -45,11 +45,11 @@
 }
 
 .bldr-selection-toolbar__action[data-destructive]:enabled:hover {
-  background: var(--bldr-danger-soft, #fee2e2);
-  color: var(--bldr-danger, #b91c1c);
+  background: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
 }
 
 .bldr-selection-toolbar__action:focus-visible {
-  outline: var(--bldr-border-thick, 2px) solid var(--bldr-selection, #4f46e5);
-  outline-offset: var(--bldr-border-hairline, 1px);
+  outline: var(--bldr-border-thick) solid var(--bldr-selection);
+  outline-offset: var(--bldr-border-hairline);
 }

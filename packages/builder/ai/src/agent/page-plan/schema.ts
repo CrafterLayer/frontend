@@ -1,6 +1,15 @@
+import { seoSlug } from '@craftkit/builder-schema';
+
 import type { PagePlanIssue } from '../../types';
 import { VERIFIED_FONT_FAMILIES } from '../../skills/verified-fonts';
 import { PAGE_PLAN_PALETTE_HEX } from './palette';
+import {
+  PAGE_PLAN_BUSINESS_TYPES,
+  PAGE_PLAN_SEO_KEYWORD_MAX,
+  PAGE_PLAN_SEO_KINDS,
+  type PagePlanBusinessType,
+  type PagePlanSeo,
+} from './types';
 
 /**
  * The FIELD rules of a page plan: one reader per kind of value, each of which
@@ -297,4 +306,64 @@ export function readFace(
       weights.add(weight);
   }
   return { family, weights: [...weights].sort((left, right) => left - right) };
+}
+
+// ── seo (2026-09-30, DESIGN D.1) ─────────────────────────────────────────────
+
+/**
+ * The plan's `seo` block: normalised where code can decide (a slug through
+ * `seoSlug`, in the page's own script; a kind's or type's casing), refused
+ * only where it cannot (a keyword over its limit, a kind outside the list).
+ * Absent or null → `undefined` without an issue: a plan need not carry it.
+ */
+export function readPlanSeo(
+  value: unknown,
+  lang: string | undefined,
+  issues: Issues,
+): PagePlanSeo | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isRecord(value)) {
+    issues.push({
+      path: 'seo',
+      message:
+        'Write seo as { "keyword": "<the phrase the page should be found by>", "pageKind": "home", "businessType": "Restaurant", "slug": "<url words>" }, or omit it.',
+    });
+    return undefined;
+  }
+  const keyword = readText(
+    value['keyword'],
+    'seo.keyword',
+    issues,
+    'the SEO keyword (the one phrase this page should be found by, in its language)',
+    PAGE_PLAN_SEO_KEYWORD_MAX,
+  );
+  const pageKind = readEnum(
+    value['pageKind'],
+    PAGE_PLAN_SEO_KINDS,
+    'seo.pageKind',
+    issues,
+    'the page kind',
+  );
+  const rawType = value['businessType'];
+  let businessType: PagePlanBusinessType | undefined;
+  if (rawType !== undefined && rawType !== null && rawType !== '') {
+    const folded = typeof rawType === 'string' ? rawType.trim().toLowerCase() : '';
+    businessType = PAGE_PLAN_BUSINESS_TYPES.find((type) => type.toLowerCase() === folded);
+    if (businessType === undefined) {
+      issues.push({
+        path: 'seo.businessType',
+        message: `Set the business type to one of: ${PAGE_PLAN_BUSINESS_TYPES.join(', ')}, or omit it.`,
+      });
+    }
+  }
+  const rawSlug = value['slug'];
+  const slug =
+    typeof rawSlug === 'string' && rawSlug.trim() !== '' ? seoSlug(rawSlug, lang) : undefined;
+  if (keyword === undefined || pageKind === undefined) return undefined;
+  return {
+    keyword,
+    pageKind,
+    ...(businessType === undefined ? {} : { businessType }),
+    ...(slug === undefined ? {} : { slug }),
+  };
 }

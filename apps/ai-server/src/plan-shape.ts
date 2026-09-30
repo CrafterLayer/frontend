@@ -15,6 +15,11 @@ import type { AiPlanWireRequest } from '@craftkit/builder/wire';
  *
  * It judges shape, not validity. The plan's own validator, two layers later,
  * still decides whether the plan is allowed.
+ *
+ * A TOOL step (`{"command":"tool","args":{"name","input"}}`, 2026-09-30) is
+ * a plan step like any other here: the client expands it into kernel steps
+ * before its door, and no request lists `tool` among its commands, so its
+ * args are open — only the node rule reads inside them.
  */
 
 type JsonRecord = Readonly<Record<string, unknown>>;
@@ -163,6 +168,84 @@ export const PAGE_PLAN_SECTION_VARIANTS = [
   'band',
   'cta-split',
   'footer',
+] as const;
+
+/**
+ * `SECTION_KITS[].id` (section-kit/kits/*.ts, 2026-09-30): the kits a section
+ * may name. Header and footer kits are listed too — a plan's header and
+ * footer are written by code, and the client drops a kit named there.
+ */
+export const PAGE_PLAN_KIT_IDS = [
+  // BEGIN KIT IDS
+  'blog-cards',
+  'blog-feature',
+  'contact-cards',
+  'contact-split',
+  'content-story',
+  'content-zigzag',
+  'cta-band',
+  'cta-card',
+  'cta-split',
+  'faq-accordion',
+  'faq-split',
+  'features-bento',
+  'features-cards',
+  'features-lead',
+  'features-list',
+  'features-sticky',
+  'footer-columns',
+  'footer-cta',
+  'gallery-mosaic',
+  'gallery-rail',
+  'header-bar',
+  'header-notice',
+  'hero-centered',
+  'hero-editorial',
+  'hero-frame',
+  'hero-overlay',
+  'hero-split',
+  'listing-cards',
+  'logos-row',
+  'menu-list',
+  'pricing-duo',
+  'pricing-table',
+  'pricing-tiers',
+  'products-grid',
+  'stats-row',
+  'stats-story',
+  'steps-timeline',
+  'team-cards',
+  'team-grid',
+  'testimonial-quote',
+  'testimonials-cards',
+  'testimonials-wall',
+  // END KIT IDS
+] as const;
+
+/** `SEO_PAGE_KINDS` (builder-schema seo/schema.ts): what kind of page a plan is. */
+export const PAGE_PLAN_SEO_KINDS = [
+  'home',
+  'menu',
+  'product',
+  'service',
+  'about',
+  'contact',
+  'article',
+  'landing',
+] as const;
+
+/** `SEO_BUSINESS_TYPES` (builder-schema seo/schema.ts): the schema.org types a business may be. */
+export const PAGE_PLAN_BUSINESS_TYPES = [
+  'Restaurant',
+  'CafeOrCoffeeShop',
+  'Bakery',
+  'Dentist',
+  'MedicalClinic',
+  'LegalService',
+  'Store',
+  'BeautySalon',
+  'LocalBusiness',
+  'Organization',
 ] as const;
 
 /** `DIRECTION_DECK_ROWS[].id` (skills/direction-deck.ts): the rows a look may start from. */
@@ -430,6 +513,7 @@ export const PAGE_PLAN_EXAMPLE = {
         mustSay: ['Roasted daily in Amman'],
         mustNotRepeat: [],
         variant: 'split',
+        kit: 'hero-split',
         images: [{ subject: 'cafe', aspect: 'landscape', alt: 'Freshly roasted coffee beans' }],
       },
       {
@@ -441,6 +525,7 @@ export const PAGE_PLAN_EXAMPLE = {
         mustSay: [],
         mustNotRepeat: ['Roasted daily in Amman'],
         variant: 'menu',
+        kit: 'menu-list',
       },
       {
         key: 'order',
@@ -449,6 +534,11 @@ export const PAGE_PLAN_EXAMPLE = {
         anchorId: 'order',
         purpose: 'One clear way to order.',
         variant: 'cta-split',
+        kit: 'cta-split',
+        slots: {
+          title: 'Fresh beans, delivered in Amman',
+          cta: { label: 'Order beans', href: '#order' },
+        },
       },
       {
         key: 'footer',
@@ -463,6 +553,12 @@ export const PAGE_PLAN_EXAMPLE = {
       { key: 'phone', sample: '+962 7 9000 0000', section: 'order' },
       { key: 'price-espresso', sample: 'JOD 1.50', section: 'menu' },
     ],
+    seo: {
+      keyword: 'specialty coffee Amman',
+      pageKind: 'home',
+      businessType: 'CafeOrCoffeeShop',
+      slug: 'specialty-coffee-amman',
+    },
   },
 } as const;
 
@@ -479,6 +575,7 @@ const PAGE_PLAN_KEYS = new Set([
   'nav',
   'sections',
   'facts',
+  'seo',
 ]);
 /** A bare plan may still carry the rationale the wrapper would have held. */
 const BARE_PLAN_KEYS = new Set([...PAGE_PLAN_KEYS, 'rationale']);
@@ -511,7 +608,10 @@ const SECTION_KEYS = new Set([
   'mustNotRepeat',
   'variant',
   'images',
+  'kit',
+  'slots',
 ]);
+const SEO_KEYS = new Set(['keyword', 'pageKind', 'businessType', 'slug']);
 const IMAGE_KEYS = new Set(['subject', 'aspect', 'alt']);
 const FACT_KEYS = new Set(['key', 'sample', 'section']);
 
@@ -536,12 +636,19 @@ function textsOnly(value: unknown): boolean {
   );
 }
 
+/** Keys only a section holds — never a kit slot's name. */
+const SECTION_ONLY_KEYS = new Set(['key', 'role', 'anchorId', 'purpose', 'mustSay', 'mustNotRepeat', 'variant', 'kit', 'slots']);
+
 function sectionInPlace(value: unknown): boolean {
   if (!isRecord(value) || !keysWithin(value, SECTION_KEYS)) return false;
+  const { kit, slots } = value;
   return (
     textsOnly(value['mustSay']) &&
     textsOnly(value['mustNotRepeat']) &&
-    listWithin(value['images'], IMAGE_KEYS)
+    listWithin(value['images'], IMAGE_KEYS) &&
+    (kit === undefined || typeof kit === 'string') &&
+    // Slots are the kit's own shape; a section key closed inside them was closed a level early.
+    (slots === undefined || (isRecord(slots) && !Object.keys(slots).some((key) => SECTION_ONLY_KEYS.has(key))))
   );
 }
 
@@ -558,7 +665,8 @@ function planInPlace(plan: JsonRecord, allowed: ReadonlySet<string>): boolean {
     objectWithin(plan['locale'], LOCALE_KEYS) &&
     objectWithin(plan['primaryCta'], LINK_KEYS) &&
     listWithin(plan['nav'], NAV_KEYS) &&
-    listWithin(plan['facts'], FACT_KEYS)
+    listWithin(plan['facts'], FACT_KEYS) &&
+    objectWithin(plan['seo'], SEO_KEYS)
   );
 }
 
@@ -870,6 +978,12 @@ export const PAGE_PLAN_ANSWER_SCHEMA = {
               mustSay: texts,
               mustNotRepeat: texts,
               variant: { type: 'string', enum: [...PAGE_PLAN_SECTION_VARIANTS] },
+              kit: { type: 'string', enum: [...PAGE_PLAN_KIT_IDS] },
+              // The kit's own slots; open, because every kit names its own.
+              slots: {
+                description:
+                  "The kit's slots, only for a short section (stats, logos, a cta, a faq of 6 or fewer).",
+              },
               images: {
                 type: 'array',
                 items: {
@@ -893,6 +1007,17 @@ export const PAGE_PLAN_ANSWER_SCHEMA = {
             additionalProperties: false,
             required: ['key', 'sample', 'section'],
             properties: { key: text, sample: text, section: text },
+          },
+        },
+        seo: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['keyword', 'pageKind'],
+          properties: {
+            keyword: text,
+            pageKind: { type: 'string', enum: [...PAGE_PLAN_SEO_KINDS] },
+            businessType: { type: 'string', enum: [...PAGE_PLAN_BUSINESS_TYPES] },
+            slug: text,
           },
         },
       },

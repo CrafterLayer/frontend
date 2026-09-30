@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { createEditKernel } from '../testing/scripted-engine';
 import { initialBuildProgress, reduceBuildProgress } from './build-progress';
 import type { BuildTurn, EditTurn, Turn } from './turns';
-import { turnViewsOf, type TurnViewContext } from './turn-views';
+import { PENDING_REQUEST_ID, turnViewsOf, withPendingRequest, type TurnViewContext } from './turn-views';
 import type { AgentCapabilities } from './view-types';
 
 const CAPABILITIES: AgentCapabilities = {
@@ -114,7 +114,9 @@ describe('turnViewsOf', () => {
     expect(view).toEqual({ kind: 'end', view: { turnId: 'turn-2', key: 'interrupted' } });
   });
 
-  it('says why an edit cannot be undone once a later change sits on top', () => {
+  it('offers no Undo on an edit once a later change sits on top, and no build-row reason', () => {
+    // The only reason in the copy, `revert.changedSince`, is a build row's ("this section
+    // changed after it was built"); under a title edit, after a row Undo elsewhere, it lied.
     const edit: EditTurn = {
       id: 'turn-2',
       kind: 'edit',
@@ -127,6 +129,65 @@ describe('turnViewsOf', () => {
     const live = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: true, canRedo: false }) }))[0];
     expect(live?.kind === 'edit' && live.view.undo).toEqual({ kind: 'undo', transactionId: 'tx-9' });
     const buried = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: false, canRedo: false }) }))[0];
-    expect(buried?.kind === 'edit' && buried.view.undo).toEqual({ kind: 'unavailable', why: 'changedSince' });
+    expect(buried?.kind).toBe('edit');
+    expect(buried?.kind === 'edit' && buried.view.phase).toBe('done');
+    expect(buried?.kind === 'edit' && 'undo' in buried.view).toBe(false);
+  });
+
+  it('reads a refused outcome on an edit (stored data) as no Undo, never a build-row reason', () => {
+    const edit: EditTurn = {
+      id: 'turn-2',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      changes: [{ kind: 'changed', label: 'Heading', before: 'A', after: 'B' }],
+      transactionId: 'tx-9',
+      outcome: { kind: 'refused', why: 'changedSince' },
+      elapsedMs: 1_000,
+    };
+    const [view] = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: true, canRedo: false }) }));
+    expect(view?.kind === 'edit' && view.view.phase).toBe('done');
+    expect(view?.kind === 'edit' && 'undo' in view.view).toBe(false);
+  });
+
+  it('offers no Redo on an undone edit once something else landed', () => {
+    const edit: EditTurn = {
+      id: 'turn-2',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      changes: [{ kind: 'changed', label: 'Heading', before: 'A', after: 'B' }],
+      transactionId: 'tx-9',
+      outcome: { kind: 'undone', transactionId: 'tx-10' },
+      elapsedMs: 1_000,
+    };
+    const redoable = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: false, canRedo: true }) }))[0];
+    expect(redoable?.kind === 'edit' && redoable.view.undo).toEqual({ kind: 'redo', transactionId: 'tx-10' });
+    const gone = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: false, canRedo: false }) }))[0];
+    expect(gone?.kind === 'edit' && gone.view.phase).toBe('undone');
+    expect(gone?.kind === 'edit' && 'undo' in gone.view).toBe(false);
+  });
+});
+
+describe('withPendingRequest', () => {
+  const document = createEditKernel().getDocument();
+
+  it('shows the request the clarify panel asks about as the person\'s bubble', () => {
+    const shown = withPendingRequest(
+      [],
+      { request: 'صفحة لعيادة أسنان', context: [{ kind: 'page' }] },
+      document,
+    );
+    expect(shown).toEqual([
+      {
+        kind: 'user',
+        view: { turnId: PENDING_REQUEST_ID, text: 'صفحة لعيادة أسنان', chips: [], notRun: false },
+      },
+    ]);
+  });
+
+  it('adds nothing when no request waits', () => {
+    const turns = turnViewsOf([builtWith({ tree: '' })], context());
+    expect(withPendingRequest(turns, null, document)).toBe(turns);
   });
 });

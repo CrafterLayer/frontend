@@ -133,7 +133,7 @@ export function RestoreDialog({
           }}
           onCloseAutoFocus={(event) => {
             const trigger = returnFocusRef?.current;
-            if (trigger === null || trigger === undefined || !trigger.isConnected) return;
+            if (!trigger?.isConnected) return;
             event.preventDefault();
             trigger.focus();
           }}

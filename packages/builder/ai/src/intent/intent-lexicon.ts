@@ -503,8 +503,36 @@ export const VERBS_EN: ReadonlyMap<string, VerbKind> = new Map([
       'rotate',
       'pin',
       'unpin',
+      /*
+        LINKING changes what exists — the nav, a button, the links between
+        pages — and never makes a page (final test, 2026-09-29). "Link" is a
+        noun as often, so it is a verb only where a request's verb stands
+        (`LEADING_VERBS_EN`); these never name a part.
+      */
+      'connect',
+      'interlink',
+      'relink',
+      'unlink',
     ] as const
   ).map((word): [string, VerbKind] => [word, 'edit']),
+]);
+
+/**
+ * Words that are a verb only where a request's verb stands — first, or first
+ * after a break: "LINK this page to the home page", "…. link it in the nav".
+ * Anywhere else they are the noun: "a landing page with a LINK to my shop"
+ * names a part of the page asked for, and read as an edit there it would turn
+ * the page ask into a change (see the note on `VERBS_EN`).
+ */
+export const LEADING_VERBS_EN: ReadonlyMap<string, VerbKind> = new Map([
+  ['link', 'edit'],
+  ['hyperlink', 'edit'],
+  /*
+    "Can you DO a landing page for my gym?" — "do" makes what it names where a
+    request's verb stands; elsewhere it is an auxiliary ("how do I…", "I don't
+    …"), and "do you" / "do I" open questions before any verb is read.
+  */
+  ['do', 'create'],
 ]);
 
 /*
@@ -537,7 +565,8 @@ export const VERBS_AR: readonly (readonly [RegExp, VerbKind])[] = [
   [/^[وف]?عا(?:ي|و)ز(?:ه|ين)?$/u, 'want'],
   [/^[وف]?حاب(?:ب|ه|ين)$/u, 'want'],
   [/^[وف]?(?:ا|ن|م)?حتاج(?:ين|ه)?$/u, 'want'],
-  [/^[وف]?(?:ا)?عط(?:ي)?(?:ني|نا)$/u, 'want'],
+  // "Give me", and after «هل تقدر» / «ممكن» the second person's «تعطيني».
+  [/^[وف]?(?:ا|ت)?عط(?:ي)?(?:ني|نا)$/u, 'want'],
   [verb('جعل'), 'make'],
   [/^[وف]?خل(?:ي|يها|يه|يلي)$/u, 'make'],
   [verb('ضي?ف'), 'add'],
@@ -562,6 +591,13 @@ export const VERBS_AR: readonly (readonly [RegExp, VerbKind])[] = [
   [/^[وف]?اعد$/u, 'edit'],
   [/^[وف]?(?:ب|ل)?اعاده$/u, 'edit'],
   [verb('جرب', '(?:ت|ي|ن)?'), 'edit'],
+  /*
+    "Link": «اربط الصفحة بالقائمة», «هل يمكنك تربط الصفحة…», and MSA's «ربط
+    صفحة التواصل بالفوتر». Unknown, the owner's «هل يمكنك تربط ال صفحه هاي
+    داخل عليها» read «صفحه» as a page to build, at 0.8 on an empty page (final
+    test, 2026-09-29).
+  */
+  [verb('ربط'), 'edit'],
 ];
 
 /** Two-word English verbs whose first word alone means something else: "set up". */
@@ -1073,6 +1109,8 @@ export const CHANGE_VERBAL_NOUNS_AR: ReadonlySet<string> = new Set([
   'زياده',
   'تفتيح',
   'تغميق',
+  // «هل يمكن ربط الصفحة بالقائمة؟» — linking, asked of the product (final test, 2026-09-29).
+  'ربط',
 ]);
 
 /** Every verbal noun a request is made with — the change ones, and making and adding. */
@@ -1302,14 +1340,26 @@ export interface Opener {
    * 0.9 (wave-2 verifier, 2026-09-28); both were questions in wave 1.
    */
   readonly possibility?: 'infinitive' | 'verbal-noun';
+  /**
+   * The opener asks whether the ASSISTANT can do something — "can you",
+   * «هل يمكنك», «هل بتقدر», the Levantine «ممكن» — so the word after it is the
+   * verb that says what. When that word is no verb the router knows, a page
+   * named later in the request is a guess at what is asked: «هل يمكنك تربط ال
+   * صفحه هاي» built a page at 0.8 before «تربط» was known (final test,
+   * 2026-09-29). Courtesy that asks nothing of the assistant ("please", «من
+   * فضلك») and a name or greeting are not.
+   */
+  readonly ability?: true;
 }
 
 const polite = (...words: string[]): Opener => ({ words, polite: true });
+const ask = (...words: string[]): Opener => ({ words, polite: true, ability: true });
 const vocative = (...words: string[]): Opener => ({ words, polite: false });
 const possible = (...words: string[]): Opener => ({
   words,
   polite: true,
   possibility: /[؀-ۿ]/u.test(words.join('')) ? 'verbal-noun' : 'infinitive',
+  ability: true,
 });
 
 /** Longest first, so "can you please" is stripped whole rather than as "can you". */
@@ -1321,29 +1371,29 @@ export const OPENERS: readonly Opener[] = [
   polite("i'd", 'like', 'you', 'to'),
   polite('i', 'want', 'you', 'to'),
   polite('i', 'need', 'you', 'to'),
-  polite('would', 'you', 'please'),
-  polite('can', 'you', 'please'),
-  polite('could', 'you', 'please'),
-  polite('can', 'you'),
-  polite('could', 'you'),
-  polite('would', 'you'),
-  polite('will', 'you'),
-  polite('can', 'u'),
+  ask('would', 'you', 'please'),
+  ask('can', 'you', 'please'),
+  ask('could', 'you', 'please'),
+  ask('can', 'you'),
+  ask('could', 'you'),
+  ask('would', 'you'),
+  ask('will', 'you'),
+  ask('can', 'u'),
   polite('please'),
   polite('pls'),
   polite('kindly'),
   possible('هل', 'من', 'الممكن'),
-  polite('هل', 'يمكنك'),
+  ask('هل', 'يمكنك'),
   possible('هل', 'يمكن'),
   possible('هل', 'ممكن'),
   possible('هل', 'بالامكان'),
-  polite('هل', 'تستطيع'),
-  polite('هل', 'بامكانك'),
-  polite('هل', 'تقدر'),
+  ask('هل', 'تستطيع'),
+  ask('هل', 'بامكانك'),
+  ask('هل', 'تقدر'),
   polite('لو', 'سمحت'),
   polite('من', 'فضلك'),
-  polite('اذا', 'ممكن'),
-  polite('لو', 'ممكن'),
+  ask('اذا', 'ممكن'),
+  ask('لو', 'ممكن'),
   polite('يا', 'ريت'),
   polite('ياريت'),
   /*
@@ -1351,7 +1401,7 @@ export const OPENERS: readonly Opener[] = [
     the site. Only the QUESTION of possibility — "هل يمكن…", like "is it
     possible…" — is asked of the product.
   */
-  polite('ممكن'),
+  ask('ممكن'),
   polite('رجاء'),
   polite('رجاءا'),
   /*
@@ -1363,10 +1413,10 @@ export const OPENERS: readonly Opener[] = [
   polite('نرجو'),
   polite('يرجي'),
   polite('بليز'),
-  polite('تقدر'),
-  polite('بتقدر'),
-  polite('تقدري'),
-  polite('بتقدري'),
+  ask('تقدر'),
+  ask('بتقدر'),
+  ask('تقدري'),
+  ask('بتقدري'),
   vocative('يا', 'ابو', 'غضب'),
   vocative('ابو', 'غضب'),
   vocative('abu', 'ghadab'),

@@ -106,7 +106,7 @@ export function ProposalCard({
     );
   }
 
-  const nothingToApply = view.partial !== undefined && view.partial.kept === 0;
+  const nothingToApply = view.partial?.kept === 0;
 
   const apply = () => {
     if (nothingToApply) return;

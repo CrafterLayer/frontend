@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { RailItem } from '@craftkit/builder';
 
 /**
@@ -7,8 +9,15 @@ import type { RailItem } from '@craftkit/builder';
  *
  * One consistent style: 16px grid, 1.5 stroke, round caps, `currentColor` so
  * every glyph takes the rail's text colour and its active state for free.
+ *
+ * STATIC JSX, built once at module load. The glyphs used to be strings handed to
+ * `dangerouslySetInnerHTML`, whose `{ __html }` object is new on every render: React
+ * then rewrites the SVG's children on every render of the rail, and a render that lands
+ * between pointerdown and click replaces the node under the pointer, so the click never
+ * arrives. The same bug swallowed the first click on the assistant's Send (SPEC §4.21,
+ * visual audit P0-1). An element built once is the same node on every render.
  */
-function glyph(paths: string) {
+function glyph(shapes: ReactNode) {
   return (
     <svg
       width="17"
@@ -21,43 +30,69 @@ function glyph(paths: string) {
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
-      dangerouslySetInnerHTML={{ __html: paths }}
-    />
+    >
+      {shapes}
+    </svg>
   );
 }
 
-const BLOCKS =
-  '<rect x="2.5" y="2.5" width="4.6" height="4.6" rx="1.2"/>' +
-  '<rect x="8.9" y="2.5" width="4.6" height="4.6" rx="1.2"/>' +
-  '<rect x="2.5" y="8.9" width="4.6" height="4.6" rx="1.2"/>' +
-  '<rect x="8.9" y="8.9" width="4.6" height="4.6" rx="1.2"/>';
-const LAYERS = '<path d="M8 2.2 14 5.5 8 8.8 2 5.5z"/><path d="M2 8.7 8 12l6-3.3"/>';
-const ASSETS =
-  '<rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.6"/>' +
-  '<circle cx="6" cy="6.6" r="1.1"/><path d="m3 11.5 3.2-3 2.4 2.2 2-1.8L13.8 11"/>';
-const CODE = '<path d="m5.4 5-3 3 3 3M10.6 5l3 3-3 3"/>';
-const SETTINGS =
-  '<circle cx="8" cy="8" r="2.1"/>' +
-  '<path d="M8 1.9v1.6M8 12.5v1.6M13 5.2l-1.4.8M4.4 10l-1.4.8M13 10.8l-1.4-.8M4.4 6l-1.4-.8"/>';
-const ASSISTANT =
-  '<path d="M8 2.4 9.3 6l3.6 1.3-3.6 1.3L8 12.2 6.7 8.6 3.1 7.3 6.7 6z"/>' +
-  '<path d="M12.6 11.4 13 12.7l1.3.4-1.3.4-.4 1.3-.4-1.3-1.3-.4 1.3-.4z"/>';
+const BLOCKS = glyph(
+  <>
+    <rect x="2.5" y="2.5" width="4.6" height="4.6" rx="1.2" />
+    <rect x="8.9" y="2.5" width="4.6" height="4.6" rx="1.2" />
+    <rect x="2.5" y="8.9" width="4.6" height="4.6" rx="1.2" />
+    <rect x="8.9" y="8.9" width="4.6" height="4.6" rx="1.2" />
+  </>,
+);
+const LAYERS = glyph(
+  <>
+    <path d="M8 2.2 14 5.5 8 8.8 2 5.5z" />
+    <path d="M2 8.7 8 12l6-3.3" />
+  </>,
+);
+const ASSETS = glyph(
+  <>
+    <rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.6" />
+    <circle cx="6" cy="6.6" r="1.1" />
+    <path d="m3 11.5 3.2-3 2.4 2.2 2-1.8L13.8 11" />
+  </>,
+);
+const CODE = glyph(<path d="m5.4 5-3 3 3 3M10.6 5l3 3-3 3" />);
+const SETTINGS = glyph(
+  <>
+    <circle cx="8" cy="8" r="2.1" />
+    <path d="M8 1.9v1.6M8 12.5v1.6M13 5.2l-1.4.8M4.4 10l-1.4.8M13 10.8l-1.4-.8M4.4 6l-1.4-.8" />
+  </>,
+);
+const ASSISTANT = glyph(
+  <>
+    <path d="M8 2.4 9.3 6l3.6 1.3-3.6 1.3L8 12.2 6.7 8.6 3.1 7.3 6.7 6z" />
+    <path d="M12.6 11.4 13 12.7l1.3.4-1.3.4-.4 1.3-.4-1.3-1.3-.4 1.3-.4z" />
+  </>,
+);
 /* A page stack with a spark: a whole site, built. */
-const SITE =
-  '<rect x="2.2" y="2.6" width="8.4" height="6.2" rx="1.3"/>' +
-  '<path d="M4.6 11.2h6.2M4.6 13.4h4"/>' +
-  '<path d="M12.6 2.2 13.2 4l1.8.6-1.8.6-.6 1.8-.6-1.8L10.2 4.6 12 4z"/>';
-const HELP =
-  '<circle cx="8" cy="8" r="5.8"/>' +
-  '<path d="M6.4 6.3a1.7 1.7 0 0 1 3.3.5c0 1.1-1.7 1.4-1.7 2.5"/><path d="M8 11.6h.01"/>';
+const SITE = glyph(
+  <>
+    <rect x="2.2" y="2.6" width="8.4" height="6.2" rx="1.3" />
+    <path d="M4.6 11.2h6.2M4.6 13.4h4" />
+    <path d="M12.6 2.2 13.2 4l1.8.6-1.8.6-.6 1.8-.6-1.8L10.2 4.6 12 4z" />
+  </>,
+);
+const HELP = glyph(
+  <>
+    <circle cx="8" cy="8" r="5.8" />
+    <path d="M6.4 6.3a1.7 1.7 0 0 1 3.3.5c0 1.1-1.7 1.4-1.7 2.5" />
+    <path d="M8 11.6h.01" />
+  </>,
+);
 
 export const RAIL_SECTIONS: readonly RailItem[] = [
-  { id: 'blocks', label: 'Blocks', icon: glyph(BLOCKS) },
-  { id: 'pages', label: 'Pages', icon: glyph(SITE) },
-  { id: 'layers', label: 'Layers', icon: glyph(LAYERS) },
-  { id: 'assets', label: 'Assets', icon: glyph(ASSETS) },
-  { id: 'code', label: 'Code', icon: glyph(CODE) },
-  { id: 'assistant', label: 'Assistant', icon: glyph(ASSISTANT) },
+  { id: 'blocks', label: 'Blocks', icon: BLOCKS },
+  { id: 'pages', label: 'Pages', icon: SITE },
+  { id: 'layers', label: 'Layers', icon: LAYERS },
+  { id: 'assets', label: 'Assets', icon: ASSETS },
+  { id: 'code', label: 'Code', icon: CODE },
+  { id: 'assistant', label: 'Assistant', icon: ASSISTANT },
   /*
     ITS OWN DESTINATION, not a card in the assistant.
 
@@ -68,10 +103,10 @@ export const RAIL_SECTIONS: readonly RailItem[] = [
     whatever was left. A site build is not a message in a conversation; it is a
     job with its own progress and its own Stop, and jobs get their own place.
   */
-  { id: 'site', label: 'Site', icon: glyph(SITE) },
+  { id: 'site', label: 'Site', icon: SITE },
 ];
 
 export const RAIL_UTILITIES: readonly RailItem[] = [
-  { id: 'settings', label: 'Settings', icon: glyph(SETTINGS) },
-  { id: 'help', label: 'Help', icon: glyph(HELP) },
+  { id: 'settings', label: 'Settings', icon: SETTINGS },
+  { id: 'help', label: 'Help', icon: HELP },
 ];

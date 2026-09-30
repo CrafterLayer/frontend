@@ -1,0 +1,159 @@
+/*
+  AgentPanel (SPEC §3.0, §4.1, §2.2, §2.3): the panel's shell.
+
+  Two boxes. `.ck-agent-panel` is the column the editor places: its width is
+  `--bldr-assistant-width` (288 to 480), it inherits the EDITOR's direction and carries the
+  resize separator on its edge toward the canvas, so the edge is right in an English editor
+  even when the panel inside speaks Arabic. `.ck-agent` is the panel itself: `dir`, `lang`,
+  the `agent` inline-size container every component's container queries read, Paper.
+
+  The panel is a three-row grid: the 44px header (none), the thread (1fr, the only
+  scroller) and the dock (none) with the composer, padded 0 8px 8px so typed text starts on
+  the thread's 16px gutter. Suggestions live in the thread, never in the dock, so the dock's
+  height does not change with them.
+*/
+
+.ck-agent-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  box-sizing: border-box;
+  inline-size: clamp(
+    var(--bldr-assistant-width-min),
+    var(--bldr-assistant-width),
+    var(--bldr-assistant-width-max)
+  );
+  max-inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.ck-agent-panel[hidden] {
+  display: none;
+}
+
+/*
+  `font-family` inherits as a computed value, so re-pointing `--bldr-font` under
+  `:lang(ar)` is not enough on its own: the panel re-declares it on itself and on every
+  element that carries its own `lang` (an English message in an Arabic panel, a model name),
+  so each takes the stack its own language re-points (SPEC §2.2).
+*/
+.ck-agent,
+.ck-agent [lang] {
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-panel__root {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-block-size: 0;
+  min-inline-size: 0;
+  background-color: var(--bldr-panel);
+  color: var(--bldr-panel-text);
+  container: agent / inline-size;
+}
+
+.ck-agent-panel__column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.ck-agent-panel__header {
+  min-inline-size: 0;
+}
+
+.ck-agent-panel__dock {
+  min-inline-size: 0;
+  padding-block: 0 var(--bldr-space-md);
+  padding-inline: var(--bldr-space-md);
+}
+
+/*
+  The clarify check's line (fix pass, 2026-09-29): a sent request being read before it
+  runs. Laid out as the RunBar's row (glyph at the thread's glyph column, Meta 500 in Ink),
+  so the check reads as the start of the run it becomes.
+*/
+.ck-agent-panel__checking {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  box-sizing: border-box;
+  min-inline-size: 0;
+  block-size: var(--bldr-agent-runbar-height);
+  margin: 0;
+  padding-inline: var(--bldr-space-md);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-panel__checking > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+  The resize separator (SPEC §4.1): an 8px hit area at the panel's outer edge, drawn as a
+  2px Rule line only on hover or focus. Its own focus ring would sit over the canvas's edge,
+  so the line itself turns Indigo instead, inside the hit area.
+*/
+.ck-agent-panel__resize {
+  position: absolute;
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: var(--bldr-space-md);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.ck-agent-panel__resize::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: var(--bldr-space-2xs);
+  background-color: transparent;
+  content: '';
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-panel__resize:hover::after {
+  background-color: var(--bldr-panel-border-strong);
+}
+
+.ck-agent-panel .ck-agent-panel__resize:focus-visible {
+  outline: none;
+}
+
+.ck-agent-panel__resize:focus-visible::after {
+  background-color: var(--bldr-focus-ring);
+}
+
+/*
+  On a phone the panel is the sheet, portalled to a body-level layer (its faces are
+  `position: fixed`, and the column's container would otherwise be their containing
+  block). What stays in place lays out nothing, so it never covers the canvas.
+*/
+.ck-agent-panel[data-presentation='sheet'],
+.ck-agent-panel__sheet-host {
+  display: contents;
+}
+
+/* In the sheet the column fills the full face; the sheet's CSS owns the rest. */
+.ck-agent-sheet .ck-agent-panel__column {
+  flex: 1 1 auto;
+}
+
+@media (forced-colors: active) {
+  .ck-agent-panel__resize:hover::after,
+  .ck-agent-panel__resize:focus-visible::after {
+    background-color: Highlight;
+  }
+}

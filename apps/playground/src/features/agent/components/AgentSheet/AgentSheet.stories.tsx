@@ -479,7 +479,10 @@ export const FullConversations: Story = {
   play: async ({ canvasElement }) => {
     await expectFull(canvasElement, 'en');
     const page = within(canvasElement).getByRole('region', { name: t('en', 'history.title') });
-    await expect(within(page).getByRole('button', { name: t('en', 'history.back') })).toBeVisible();
+    // Back takes Close's place behind a delayed visibility transition.
+    await waitFor(() =>
+      expect(within(page).getByRole('button', { name: t('en', 'history.back') })).toBeVisible(),
+    );
   },
 };
 export const FullConversationsArabic: Story = fullStory('conversations', 'built', 'ar');
@@ -491,7 +494,8 @@ export const FullSafeArea: Story = {
   play: async ({ canvasElement }) => {
     await expectFull(canvasElement, 'en');
     const face = sheetOf(canvasElement).querySelector('.ck-agent-sheet__full');
-    await expect(getComputedStyle(face!).paddingBlockEnd).toBe('34px');
+    if (face === null) throw new Error('no full face');
+    await expect(getComputedStyle(face).paddingBlockEnd).toBe('34px');
   },
 };
 
@@ -600,10 +604,11 @@ export const EscapeCloses: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await expectFull(canvasElement, 'ar');
-    const [starter] = within(
-      canvasElement.querySelector<HTMLElement>('.ck-agent-suggestions')!,
-    ).getAllByRole('button');
-    await userEvent.click(starter!);
+    const suggestions = canvasElement.querySelector<HTMLElement>('.ck-agent-suggestions');
+    if (suggestions === null) throw new Error('no starters');
+    const [starter] = within(suggestions).getAllByRole('button');
+    if (starter === undefined) throw new Error('no starter');
+    await userEvent.click(starter);
     await userEvent.keyboard('{Escape}');
     await expect(args.onDetentChange).toHaveBeenLastCalledWith('closed');
     await waitFor(() =>

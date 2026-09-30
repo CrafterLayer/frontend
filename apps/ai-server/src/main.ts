@@ -91,6 +91,8 @@ const models = (setting('CRAFTKIT_AI_MODELS') ?? '')
   Messages API takes it as `output_config.effort`, the CLI as `--effort`,
   and OpenRouter — which has no `max` — asks for its highest, `xhigh`.
 */
+/* The page plan thinks only when asked (speed first; handler.ts `planThinking`). */
+const planThinking = setting('CRAFTKIT_AI_PLAN_THINKING') === 'on';
 const rawSectionEffort = setting('CRAFTKIT_AI_SECTION_EFFORT') ?? 'low';
 const sectionEffort =
   rawSectionEffort === 'default'
@@ -441,6 +443,7 @@ const handle = createHandler({
   ...(models.length === 0 ? {} : { models }),
   ...(maxTokens === undefined ? {} : { maxTokens }),
   ...(sectionEffort === undefined ? {} : { sectionEffort }),
+  ...(planThinking ? { planThinking } : {}),
   /*
     The start of every answer, so a plan the validator refuses two layers
     later ("names unknown command "e"") can be read here in the model's own

@@ -58,6 +58,8 @@ provenance until `onChangeSelect` is supplied; tools render only when both `tool
 | `deviceLabel`    | `string`                         | hidden            | Caller-authored device and viewport description    |
 | `saveState`      | `'saved' \| 'saving' \| 'error'` | hidden            | Visible, politely announced persistence state      |
 | `label`          | `string`                         | `'Editor status'` | Accessible name for the complete status-bar region |
+| `agent`          | `ReactNode`                      | hidden            | A host's live activity line (the agent's status pill), at inline start after the tools |
+| `emptyLabel`     | `string \| null`                 | `'No recent changes'` | What an empty strip says; `null` says nothing, for a host that lists its changes elsewhere |
 
 `StatusBarTool` carries `id`, an accessible `label`, and a decorative `icon`. `RecentChange` carries
 `id`, one of the three doors, and the author's short description of what changed.

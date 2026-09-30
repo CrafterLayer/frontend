@@ -305,6 +305,16 @@ describe('craftkit.section-variants — a closed library of named layouts', () =
     expect([...used].filter((name) => SECTION_VARIANT_PARTS[name] === undefined)).toEqual([]);
   });
 
+  it('centres a short team row and keeps the faq column flush with its heading', () => {
+    // Final test 2026-09-30: two initials cards left half a 4-column grid empty,
+    // and a mx-auto faq column sat indented under a start-aligned heading.
+    const recipe = (id: string) => SECTION_VARIANTS.find((variant) => variant.id === id)?.recipe ?? '';
+    expect(recipe('team')).toMatch(/^div flex flex-wrap justify-center /u);
+    expect(recipe('team')).not.toContain('grid-cols');
+    expect(recipe('faq')).not.toContain('mx-auto');
+    expect(recipe('faq')).toContain('flush with the h2');
+  });
+
   it('keeps a zigzag photo first on phones and alternates it only from md up', () => {
     const zigzag = SECTION_VARIANTS.find(({ id }) => id === 'zigzag')?.recipe ?? '';
     expect(zigzag).toContain('md:order-last');

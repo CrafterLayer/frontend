@@ -44,9 +44,18 @@ export const UnsupportedClaimsAreAbsent: Story = {
     // Non-vacuous anchor: the status bar is mounted and carries the one real
     // view fact the app owns.
     await expect(within(status).getByText('Desktop · 1280 px')).toBeVisible();
-    // Mutation that kills this line: restore `saveState="saved"` in App.
+    // The save slot reports the vault's own acknowledgement, never a constant: it
+    // appears once storage has answered, and it reads what storage said. (It used to
+    // be a hard-coded `saveState="saved"`; a fixed "Saved" is the lie this pins.)
+    await waitFor(async () => {
+      await expect(within(status).getByRole('status', { name: 'Save status' })).toHaveTextContent(
+        /^(Saved|Saving)$/u,
+      );
+    });
+    // Saved is a quiet fact in the bar, not a floating pill over the rail and the
+    // agent panel's header (the owner's screenshot, 2026-09-28).
     await expect(
-      within(status).queryByRole('status', { name: 'Save status' }),
+      canvas.queryByRole('status', { name: 'Project save status' }),
     ).not.toBeInTheDocument();
     // Mutation that kills this line: restore the width/baseline ratio as the
     // StatusBar's `zoom` prop. Width without scaling is not zoom.

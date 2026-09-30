@@ -29,6 +29,18 @@
   min-inline-size: var(--bldr-space-0);
 }
 
+.bldr-statusbar__agent {
+  align-items: center;
+  align-self: center;
+  display: flex;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-statusbar__agent:empty,
+.bldr-statusbar__agent > :empty {
+  display: none;
+}
+
 .bldr-statusbar__tool {
   background: none;
   border: none;

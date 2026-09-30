@@ -180,7 +180,19 @@ export function engineEnhanceInput(input: EnhanceInput): AiPromptEnhanceInput {
  */
 export function needsClarifying(route: Pick<IntentRoute, 'kind' | 'confidence'>): boolean {
   if (route.kind === 'question') return false;
-  if (route.confidence < CLARIFY_BELOW_CONFIDENCE) return true;
+  return route.confidence < CLARIFY_BELOW_CONFIDENCE || isUnsureBuild(route);
+}
+
+/**
+ * A build (a page or a site) the router is no surer of than its confirm line. When the
+ * clarify check for one FAILS (a timeout, the server down), it is never built as written:
+ * the controller plans it instead, and the plan card waits for Build, so nothing is
+ * written and no page is opened unasked. The owner's «هل يمكنك تربط ال صفحه هاي داخل
+ * عليها» on a built page routes to a new page at 0.6; with the check timed out, running it
+ * "as written" built a whole eight-section page for a linking request. Every other route
+ * still runs as written when the check fails: an edit writes one reviewable change.
+ */
+export function isUnsureBuild(route: Pick<IntentRoute, 'kind' | 'confidence'>): boolean {
   const builds = route.kind === 'build-page' || route.kind === 'build-site';
   return builds && route.confidence <= CLARIFY_BELOW_CONFIDENCE;
 }

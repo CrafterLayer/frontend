@@ -4,6 +4,7 @@ import { expect, within } from 'storybook/test';
 import './App.css';
 import { BuilderTheme, DesignSystemPanel, SitePages, defaultDesignSystem } from '@craftkit/builder';
 
+import { LiveAgentPanel } from '../features/agent';
 import { AssistantPanel } from '../features/preview/components/AssistantPanel';
 import { auditKernel, auditSiteKernel } from './ux-audit-kernel';
 import { auditRegion } from './ux-audit';
@@ -85,6 +86,33 @@ export const Assistant: Story = {
     await expect(panel.querySelectorAll('button, input, textarea, select').length).toBeGreaterThan(
       4,
     );
+    await expect(
+      findings.map((finding) => `${finding.rule}: ${finding.detail}`),
+      'UX audit findings',
+    ).toEqual([]);
+  },
+};
+
+/**
+ * The v2 agent panel the app now mounts by default (SPEC §8 WP-20), audited by the same
+ * rules as the v1 panel above: the real LiveAgentPanel over a real kernel, in English so
+ * the findings read in the audit's language.
+ */
+export const AgentPanel: Story = {
+  render: () => (
+    <BuilderTheme className="pg-app" theme="dark">
+      <div style={{ blockSize: '44rem', display: 'grid' }}>
+        <LiveAgentPanel kernel={auditKernel()} locale="en" storage={null} enhancer={null} />
+      </div>
+    </BuilderTheme>
+  ),
+  play: async ({ canvasElement }) => {
+    const view = canvasElement.ownerDocument.defaultView;
+    if (view === null) throw new Error('a real window is required');
+    const panel = within(canvasElement).getByRole('region', { name: 'Abu Ghadab' });
+
+    const findings = auditRegion(panel, view);
+    await expect(panel.querySelectorAll('button, textarea').length).toBeGreaterThan(4);
     await expect(
       findings.map((finding) => `${finding.rule}: ${finding.detail}`),
       'UX audit findings',

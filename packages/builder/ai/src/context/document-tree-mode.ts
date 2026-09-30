@@ -407,9 +407,114 @@ export function namedSection(
   return best.section;
 }
 
+// ── Roles: «الأسعار» finds the menu, «التذييل» the footer ──────────────────
+
+/**
+ * A role a person names a section by when its label says something else:
+ * prices live in «قائمة الطعام» (key `menu`), the footer is labelled with the
+ * brand. `asked` are the folded stems a request uses for the role; `names` the
+ * stems a section's label, heading, anchor or block type carries when it
+ * plays it; `content` recognises it by what it holds.
+ */
+interface SectionRole {
+  readonly asked: ReadonlySet<string>;
+  readonly names: ReadonlySet<string>;
+  readonly content?: (text: string) => boolean;
+}
+
+/** A number next to a currency — "3 د.أ", "JD 4.5", "$12", «١٥ ريال». */
+const PRICE_PATTERN =
+  /[\d٠-٩][\d٠-٩.,٫]*\s*(?:\$|€|£|₪|د\.?\s?[أا]|دينار|ريال|ر\.?\s?س|درهم|د\.?\s?إ|جنيه|ج\.?\s?م|ليره|ليرة|شيكل|jd|jod|sar|aed|usd|egp|kwd|qar)|(?:\$|€|£|₪|jd|jod|sar|aed|usd)\s*[\d٠-٩]/iu;
+
+const ROLES: readonly SectionRole[] = [
+  {
+    asked: wordSet('اسعار سعر تسعير باق باقات pricing price prices plan plans packages tariff'),
+    names: wordSet(
+      'منيو طعام مشروب مشروبات اسعار سعر تسعير باق باقات عروض',
+      'menu pricing price prices plan plans packages tariff',
+    ),
+    content: (text) => PRICE_PATTERN.test(text),
+  },
+  {
+    asked: wordSet('تذييل فوتر ذيل footer'),
+    names: wordSet('تذييل فوتر ذيل footer'),
+  },
+  {
+    asked: wordSet('هيرو بانر واجهه hero banner'),
+    names: wordSet('هيرو بانر واجهه رئيسي رئيسيه hero banner'),
+  },
+  {
+    asked: wordSet('هيدر ترويسه نافبار header nav navbar navigation'),
+    names: wordSet('هيدر ترويسه نافبار header nav navbar navigation'),
+  },
+  {
+    asked: wordSet('تواصل اتصال contact'),
+    names: wordSet('تواصل اتصال contact'),
+  },
+  {
+    asked: wordSet('اراء تقييم تقييمات testimonials testimonial reviews review'),
+    names: wordSet('اراء تقييم تقييمات testimonials testimonial reviews review'),
+  },
+  {
+    asked: wordSet('معرض gallery'),
+    names: wordSet('معرض صور gallery photos'),
+  },
+  {
+    asked: wordSet('اسئله faq'),
+    names: wordSet('اسئله faq questions'),
+  },
+];
+
+function stemHit(words: readonly NamingWord[], vocabulary: ReadonlySet<string>): boolean {
+  return words.some(({ stems }) => [...stems].some((stem) => vocabulary.has(stem)));
+}
+
+/** The visible text a section holds, for a role recognised by its content. */
+function sectionText(section: PageSectionOutline, document: BuilderDocument): string {
+  const node = document.nodes[section.id];
+  if (node === undefined) return '';
+  if (node.type === CUSTOM_CODE) {
+    const tree = node.props['tree'];
+    return isRecord(tree) ? treeElementText(tree) : '';
+  }
+  const parts: string[] = [];
+  for (const id of subtreeIds(section.id, document).slice(0, TREE_SCAN_LIMIT)) {
+    for (const value of Object.values(document.nodes[id]?.props ?? {})) {
+      if (typeof value === 'string' || typeof value === 'number') parts.push(String(value));
+    }
+  }
+  return parts.join(' ');
+}
+
+/**
+ * The sections a request names by ROLE rather than by name: a section whose
+ * names say the role first; failing that, for a role known by content, the
+ * sections holding it. Empty when the words ask no role or no section plays it.
+ */
+export function roleSections(
+  words: readonly NamingWord[],
+  sections: readonly PageSectionOutline[],
+  document: BuilderDocument,
+): readonly PageSectionOutline[] {
+  const found = new Set<PageSectionOutline>();
+  for (const role of ROLES) {
+    if (!stemHit(words, role.asked)) continue;
+    const named = sections.filter((section) =>
+      namesOf(section).some((name) => stemHit(name, role.names)),
+    );
+    const playing =
+      named.length > 0 || role.content === undefined
+        ? named
+        : sections.filter((section) => role.content?.(sectionText(section, document)) === true);
+    for (const section of playing) found.add(section);
+  }
+  return sections.filter((section) => found.has(section));
+}
+
 /**
  * The sections a request is about, for the model path: every section named in
- * full (else the one best partial), plus the sections holding the selection.
+ * full (else the one best partial; else the sections playing the role it
+ * names — «الأسعار» → the menu), plus the sections holding the selection.
  * Undefined — the full document — when the route is not an edit or a new
  * section, the words speak of the whole page, more than three sections are
  * named, or focusing would hide nothing.
@@ -425,14 +530,17 @@ export function resolveDocumentFocus(input: {
   if (speaksOfWholePage(input.request)) return undefined;
   const sections = outlinePageSections(input.document);
   if (sections.length < 2) return undefined;
-  const mentions = sectionMentions(namingWords(input.request), sections);
+  const words = namingWords(input.request);
+  const mentions = sectionMentions(words, sections);
   const whole = mentions.filter(({ score }) => score === 1);
   const named =
     whole.length > 0
       ? whole.map(({ section }) => section.id)
       : mentions.length === 1 && mentions[0] !== undefined
         ? [mentions[0].section.id]
-        : [];
+        : mentions.length === 0
+          ? roleSections(words, sections, input.document).map(({ id }) => id)
+          : [];
   if (named.length > MAX_FOCUSED_SECTIONS) return undefined;
   const parents = parentsOf(input.document);
   const pinned = input.selection.flatMap((id) => {

@@ -1,0 +1,65 @@
+{
+  "hyperui": {
+    "repo": "markmead/hyperui",
+    "commit": "2b5aebbc50d2c9ac89650f51b554f53895b4803c",
+    "license": "LICENSE",
+    "files": [
+      "public/examples/marketing/headers/1.html",
+      "public/examples/marketing/announcements/1.html",
+      "public/examples/marketing/footers/3.html",
+      "public/examples/marketing/sections/2.html",
+      "public/examples/marketing/banners/1.html",
+      "public/examples/marketing/feature-grids/1.html",
+      "public/examples/marketing/feature-grids/3.html",
+      "public/examples/marketing/sections/1.html",
+      "public/examples/application/steps/2.html",
+      "public/examples/marketing/pricing/1.html",
+      "public/examples/marketing/pricing/2.html",
+      "public/examples/marketing/product-collections/1.html",
+      "public/examples/marketing/product-collections/3.html",
+      "public/examples/marketing/cards/5.html",
+      "public/examples/marketing/team-sections/1.html",
+      "public/examples/marketing/testimonials/1.html",
+      "public/examples/marketing/stats/1.html",
+      "public/examples/marketing/logo-clouds/1.html",
+      "public/examples/marketing/blog-cards/1.html",
+      "public/examples/marketing/faqs/1.html",
+      "public/examples/marketing/ctas/1.html",
+      "public/examples/marketing/ctas/3.html"
+    ]
+  },
+  "tailark": {
+    "repo": "tailark/blocks",
+    "commit": "8139698115c1341bfd2e3e286c04bb4d8146f472",
+    "license": "LICENCE.md",
+    "files": [
+      "registry/bases/radix/veil/blocks/hero-section/one/hero-section.tsx",
+      "registry/bases/radix/mist/blocks/features/four.tsx",
+      "registry/bases/radix/veil/blocks/features/two.tsx",
+      "registry/bases/radix/veil/blocks/content/one.tsx",
+      "registry/bases/radix/veil/blocks/comparator/one.tsx",
+      "registry/bases/radix/mist/blocks/testimonials/one.tsx",
+      "registry/bases/radix/mist/blocks/stats/one.tsx",
+      "registry/bases/radix/veil/blocks/faqs/one.tsx"
+    ]
+  },
+  "merakiui": {
+    "repo": "merakiuilabs/merakiui",
+    "commit": "fe0472efe93f6cd275424ecbdfa7f6cb8da6f908",
+    "license": "LICENSE",
+    "files": [
+      "components/footers/CTAWithLinks.html",
+      "components/heros/BackgroundImage.html",
+      "components/heros/SideImage.html",
+      "components/features/GridListWithImage.html",
+      "components/teams/Cards.html",
+      "components/testimonials/Single.html",
+      "components/portfolio/Cards.html",
+      "components/portfolio/HoverEffect.html",
+      "components/blog/Grid.html",
+      "components/cta/Card.html",
+      "components/contact/TwoColumn.html",
+      "components/contact/Grid2x2.html"
+    ]
+  }
+}

@@ -14,7 +14,7 @@ import type { KeyboardEvent } from 'react';
 /** The legacy key code every browser gives a key press that an input method is handling. */
 const IME_PROCESSING = 229;
 
-export function isImeComposing(event: KeyboardEvent<Element>): boolean {
+export function isImeComposing(event: KeyboardEvent): boolean {
   const native: { readonly isComposing: boolean; readonly keyCode?: number } = event.nativeEvent;
   return native.isComposing || native.keyCode === IME_PROCESSING;
 }

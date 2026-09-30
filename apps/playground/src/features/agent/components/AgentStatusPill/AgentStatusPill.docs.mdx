@@ -1,0 +1,59 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AgentStatusPillStories from './AgentStatusPill.stories';
+
+<Meta of={AgentStatusPillStories} />
+
+# AgentStatusPill
+
+The agent's one line in the editor's status bar while the panel is hidden (SPEC §4.20, §7.2 #52):
+«أبو غضب يبني الصفحة، 3 من 8».
+
+<Canvas of={AgentStatusPillStories.BuildingArabic} />
+
+## Purpose
+
+A person who opened Layers mid-build still sees the build: how far it is, with Stop in reach, and
+one press back to the panel. It replaces the three "Assistant: …" change chips a build used to stack
+in the bar, one per landed section, in engine words.
+
+## When to use / not
+
+AgentPanel draws it itself, into the host's `pillContainer`, while `visible` is false and
+`pillView(state, finished)` has something to say. Hosts do not mount it directly.
+
+## Props
+
+| prop       | type          | default | notes                                                      |
+| ---------- | ------------- | ------- | ---------------------------------------------------------- |
+| `locale`   | `Locale`      | none    |                                                            |
+| `view`     | `PillView`    | none    | `building` / `editing` / `working` / `done`                |
+| `face`     | `FaceView`    | working | the header face's mood                                     |
+| `onOpen`   | `() => void`  | none    | activating the pill opens the panel                        |
+| `onStop`   | `() => void`  | none    | left out once nothing is running                           |
+| `stopping` | `boolean`     | false   | Stop is `aria-disabled` and reads "Stopping…"              |
+
+## What it says (`pillView`)
+
+| moment                                         | line                                             |
+| ---------------------------------------------- | ------------------------------------------------ |
+| a live build with sections                     | `pill.building`: landed of total (ink only)      |
+| a live edit with a target                      | `pill.editing`                                   |
+| any other live run                             | `pill.working`                                   |
+| a whole build that landed while hidden         | `pill.done`, until the panel shows               |
+| partial, stopped, failed, or nothing happening | no pill                                          |
+
+## Anatomy
+
+```text
+( ◉ Abu Ghadab is building the page, 3 of 8 | [■] )   28px, Tint, radius full
+```
+
+## Accessibility
+
+The sentence is the open button's name; Stop is a 32px-hit IconButton with its tooltip. Not a live
+region: the panel's LiveStatus stays mounted while hidden.
+
+## RTL
+
+Its own `dir` and `lang` (it is drawn outside the panel); counts sit in `<bdi dir="ltr">`.

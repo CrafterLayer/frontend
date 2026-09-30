@@ -105,6 +105,9 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.copywriting',
       'craftkit.craft-manual',
       'craftkit.cv-page',
+      // design-code additions (2026-09-28): explicit, for section writers and the page plan.
+      'craftkit.design-code',
+      // end design-code additions
       'craftkit.design-direction',
       'craftkit.design-tokens',
       // Explicit, for the skeleton pass only: the look decided from a checked menu.

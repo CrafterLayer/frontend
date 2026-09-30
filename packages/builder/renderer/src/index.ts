@@ -65,3 +65,24 @@ export { RichText, safeHref, type RichTextProps } from './components/RichText';
   ever reaches a document.
 */
 export { MOTION_CLASS, buildMotionCss, motionAttributes } from './motion';
+// behaviors additions (2026-09-30): the curated site-behaviour runtime a
+// custom-code tree names with data-ck-behavior — mounted by CustomCode on the
+// canvas, embedded by the exporter as one inline script plus BEHAVIOR_CSS.
+export {
+  BEHAVIOR_CSS,
+  behaviorRuntimeScript,
+  ensureBehaviorCss,
+  hasBehaviors,
+  mountBehaviors,
+} from './behaviors';
+// end behaviors additions
+// static-export additions (2026-09-30): publish kernel/customCode pages as a
+// static website — SEO head, compiled CSS, behaviour runtime, sitemap, robots, 404.
+export {
+  exportStaticSite,
+  type ExportStaticSiteOptions,
+  type StaticSiteFile,
+  type StaticSitePageInput,
+  type StaticSiteResult,
+} from './export';
+// end static-export additions

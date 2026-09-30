@@ -53,6 +53,54 @@ export interface PagePlan {
    * the Built card (P1-13) — invented facts were never surfaced before.
    */
   readonly facts: readonly PagePlanFact[];
+  /**
+   * What the page is found by (DESIGN D.1, 2026-09-30): its focus keyword,
+   * its kind, the business it is for and its URL slug. The skeleton writes
+   * `seo {keyword, pageKind, samples}` and `slug` on the page root, and the
+   * post-build SEO pass works from them. Optional: a plan without it builds
+   * exactly as before.
+   */
+  readonly seo?: PagePlanSeo;
+}
+
+/** The page kinds a plan names (`SEO_PAGE_KINDS` in builder-schema). */
+export const PAGE_PLAN_SEO_KINDS = [
+  'home',
+  'menu',
+  'product',
+  'service',
+  'about',
+  'contact',
+  'article',
+  'landing',
+] as const;
+export type PagePlanSeoKind = (typeof PAGE_PLAN_SEO_KINDS)[number];
+
+/** The business types a plan names (`SEO_BUSINESS_TYPES` in builder-schema). */
+export const PAGE_PLAN_BUSINESS_TYPES = [
+  'Restaurant',
+  'CafeOrCoffeeShop',
+  'Bakery',
+  'Dentist',
+  'MedicalClinic',
+  'LegalService',
+  'Store',
+  'BeautySalon',
+  'LocalBusiness',
+  'Organization',
+] as const;
+export type PagePlanBusinessType = (typeof PAGE_PLAN_BUSINESS_TYPES)[number];
+
+/** A page keyword never runs longer (the page root's `seo.keyword` limit). */
+export const PAGE_PLAN_SEO_KEYWORD_MAX = 80;
+
+export interface PagePlanSeo {
+  /** The one phrase the page should rank for, in the page's language. ≤ 80 characters. */
+  readonly keyword: string;
+  readonly pageKind: PagePlanSeoKind;
+  readonly businessType?: PagePlanBusinessType;
+  /** The URL slug, in the page's script (`seoSlug`): `قهوة-مختصة`, `specialty-coffee`. */
+  readonly slug?: string;
 }
 
 /** Same three values as the intent router's target, by construction. */
@@ -180,6 +228,19 @@ export interface SectionContract {
   readonly variant?: string;
   /** Pictures this section needs, resolved from the photo catalog by subject (≤ 4). */
   readonly images?: readonly SectionImage[];
+  /**
+   * The section kit this section is built from (`section-kit`, DESIGN §B):
+   * a kit id whose role fits the section's. A contract with a known
+   * `variant` and no kit gets that variant's default kit. The writer answers
+   * with ONE `kit.section` tool step instead of markup.
+   */
+  readonly kit?: string;
+  /**
+   * The kit's slots, filled by the planner for a SHORT section (stats, logos,
+   * a cta, a faq of six or fewer): the skeleton then writes the section in
+   * full and no writer runs. Present only when they instantiate cleanly.
+   */
+  readonly slots?: Readonly<Record<string, JsonValue>>;
 }
 
 export interface SectionImage {
@@ -231,7 +292,17 @@ export interface ValidatePagePlanOptions {
  * fixes it, in document order — the repair round sends them all at once.
  */
 export type PagePlanValidationResult =
-  | { readonly ok: true; readonly plan: PagePlan; readonly issues: readonly [] }
+  | {
+      readonly ok: true;
+      readonly plan: PagePlan;
+      readonly issues: readonly [];
+      /**
+       * What the validator dropped rather than refused — a kit that does not
+       * fit its section, slots that would not instantiate. The plan is still
+       * good (the section falls back to a writer); these say what changed.
+       */
+      readonly warnings?: readonly PagePlanIssue[];
+    }
   | { readonly ok: false; readonly issues: readonly PagePlanIssue[] };
 
 // ── what the checker and the neighbour summary read ──────────────────────────

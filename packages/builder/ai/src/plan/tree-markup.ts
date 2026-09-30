@@ -124,8 +124,8 @@ function spellAttribute(folded: string): string {
 /**
  * Inline-level elements: a space between two of them is part of the sentence,
  * and a space at the edge of one separates it from its neighbour. The phrasing
- * tags the normalizer later respells (`b`, `i`, `mark`…) are here too, since
- * the markup is read before it respells them.
+ * tags the vocabulary lacks (`bdi`, `kbd`, `u`…) are here too: the markup is
+ * read before the normalizer maps them to a span.
  */
 const INLINE_TAGS = new Set([
   'a',

@@ -1,5 +1,10 @@
 import { t, type Key } from '../../copy';
-import type { Locale, ModelSelectionView, ModelTier } from '../../model/view-types';
+import type {
+  Locale,
+  ModelOption,
+  ModelSelectionView,
+  ModelTier,
+} from '../../model/view-types';
 import { ChoiceMenu, type ChoiceOption } from '../ComposerToolbar/ChoiceMenu';
 
 import './ModelMenu.css';
@@ -31,14 +36,27 @@ const TRAIT_KEY = {
  *
  * A raw model id is never shown (`model-label.ts` maps each id to a tier and a product);
  * it is only what `onModelChange` receives. An id that carries no name reads by its tier
- * alone. The trigger reads the tier and cuts at 10 characters.
+ * alone. Where several models share a tier, each reads by its product with the tier as
+ * the tag, so the rows differ at a glance. The trigger reads the same name and cuts at 10.
  */
 export function ModelMenu({ locale, model, onModelChange }: ModelMenuProps) {
-  const name = t(locale, TIER_KEY[model.selected.tier]);
+  /*
+    Several models on one tier (six free ones, say) would read as a column of one word.
+    Among those, the product is the name the eye needs, and the tier drops to the tag.
+  */
+  const perTier = new Map<ModelTier, number>();
+  for (const option of model.options) perTier.set(option.tier, (perTier.get(option.tier) ?? 0) + 1);
+  const label = (option: ModelOption): { name: string; detail: string | undefined } => {
+    const tier = t(locale, TIER_KEY[option.tier]);
+    if (option.product === '') return { name: tier, detail: undefined };
+    return (perTier.get(option.tier) ?? 0) > 1
+      ? { name: option.product, detail: tier }
+      : { name: tier, detail: option.product };
+  };
+  const { name } = label(model.selected);
   const options: readonly ChoiceOption<string>[] = model.options.map((option) => ({
     value: option.id,
-    name: t(locale, TIER_KEY[option.tier]),
-    detail: option.product === '' ? undefined : option.product,
+    ...label(option),
     description: t(locale, TRAIT_KEY[option.tier]),
   }));
   return (

@@ -14,6 +14,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { assembleAiContext, estimateContextTokens } from './assemble-context';
+import { wirePropsSchema } from './wire-schema';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -158,21 +159,21 @@ describe('AI context-provider contracts', () => {
       {
         type: 'context-article',
         description: article.description,
-        propsSchema: blockPropsJsonSchema(article),
+        propsSchema: wirePropsSchema(blockPropsJsonSchema(article)),
         examples: article.examples,
         slots: [],
       },
       {
         type: 'context-cta',
         description: cta.description,
-        propsSchema: blockPropsJsonSchema(cta),
+        propsSchema: wirePropsSchema(blockPropsJsonSchema(cta)),
         examples: cta.examples,
         slots: [],
       },
       {
         type: 'context-hero',
         description: hero.description,
-        propsSchema: blockPropsJsonSchema(hero),
+        propsSchema: wirePropsSchema(blockPropsJsonSchema(hero)),
         propertyIntents: {
           tabs: { content: ['heading'], design: ['tone'] },
           kinds: { 'color-role': ['tone'] },
@@ -190,7 +191,7 @@ describe('AI context-provider contracts', () => {
         // lesson, and a rule is only a request. The schema stays: the root is
         // edited constantly.
         insertable: false,
-        propsSchema: blockPropsJsonSchema(page),
+        propsSchema: wirePropsSchema(blockPropsJsonSchema(page)),
         slots: [
           { name: 'main', allow: ['context-article', 'context-hero'], max: 4 },
           { name: 'sidebar', allow: ['context-cta'], max: 1 },

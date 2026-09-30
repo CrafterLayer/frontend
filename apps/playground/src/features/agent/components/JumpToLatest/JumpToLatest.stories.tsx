@@ -68,8 +68,10 @@ async function expectLabelInName(
   const word = t(locale, activity === null ? 'jump.idle' : JUMP_LABEL_KEY[activity]);
   const pill = within(canvasElement).getByRole('button');
   await expect(pill).toHaveTextContent(word);
-  const name = pill.getAttribute('aria-label') ?? '';
-  await expect(activity === null ? name.includes(word) : name.startsWith(word)).toBe(true);
+  // Speech input matches words, not letter case (WCAG 2.5.3): "Latest" is in "Jump to the latest".
+  const name = (pill.getAttribute('aria-label') ?? '').toLocaleLowerCase(locale);
+  const spoken = word.toLocaleLowerCase(locale);
+  await expect(activity === null ? name.includes(spoken) : name.startsWith(spoken)).toBe(true);
   const box = pill.getBoundingClientRect();
   await expect(Math.round(box.height)).toBe(32);
 }

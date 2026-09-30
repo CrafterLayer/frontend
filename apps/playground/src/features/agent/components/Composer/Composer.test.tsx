@@ -132,7 +132,12 @@ function mount(overrides: Partial<ComposerView> = {}, awaitingPlan = false) {
 }
 
 function box(locale: Locale = 'en'): HTMLTextAreaElement {
-  return screen.getByRole('combobox', { name: t(locale, 'input.aria') }) as HTMLTextAreaElement;
+  return screen.getByRole('combobox', { name: t(locale, 'input.aria') });
+}
+
+/** A description that holds `text` somewhere: `expect.stringContaining`, typed for the matcher. */
+function containing(text: string): string {
+  return expect.stringContaining(text) as string;
 }
 
 function button(name: string): HTMLElement {
@@ -242,7 +247,7 @@ describe('Composer: the @ list', () => {
     const { user, spy } = mount();
     await user.type(box(), 'Move @pricing');
     expect(screen.queryByRole('listbox')).toBeNull();
-    expect(box()).toHaveAccessibleDescription(expect.stringContaining(t('en', 'mention.empty')));
+    expect(box()).toHaveAccessibleDescription(containing(t('en', 'mention.empty')));
     await user.keyboard('{Enter}');
     expect(spy.send).toHaveBeenCalledTimes(1);
   });
@@ -285,7 +290,7 @@ describe('Composer: context chips', () => {
 
   it('describes the box by its context', () => {
     mount({ chips: [blockChip('en', 'hero')] });
-    expect(box()).toHaveAccessibleDescription(expect.stringContaining('Hero'));
+    expect(box()).toHaveAccessibleDescription(containing('Hero'));
   });
 });
 
@@ -356,7 +361,7 @@ describe('Composer: the queued request is the composer’s own text', () => {
     expect(screen.getByRole('group', { name: t('en', 'queue.label') })).toBeInTheDocument();
     expect(button('Queued')).toHaveAttribute('aria-disabled', 'true');
     expect(box()).toHaveAccessibleDescription(
-      expect.stringContaining(`${t('en', 'queue.label')} ${t('en', 'queue.caption')}`),
+      containing(`${t('en', 'queue.label')} ${t('en', 'queue.caption')}`),
     );
     // One field: the page holds exactly one place where words are written.
     expect(screen.getAllByRole('combobox')).toHaveLength(1);

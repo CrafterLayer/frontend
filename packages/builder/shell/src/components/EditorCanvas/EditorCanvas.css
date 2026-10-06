@@ -16,13 +16,19 @@
 }
 
 /* Device emulation shell (007 §6): the frame and its overlay layer share one
-   authored coordinate space and are transformed together. */
+   authored coordinate space and are transformed together.
+   The anchor is PHYSICAL on purpose (fix pass 2026-10-06): the scale grows
+   from the top-left corner, so the box must sit at the left edge too. With
+   `inset-inline-start` an Arabic (RTL) editor pinned the unscaled 1280px box
+   to the RIGHT edge and then shrank it toward the LEFT, pushing the page's
+   start off screen and leaving an empty strip on the other side. The page
+   inside keeps its own direction; only the zoom box is physical. */
 .bldr-canvas-frame-shell {
   block-size: 100%;
   inline-size: 100%;
-  inset-block-start: 0;
-  inset-inline-start: 0;
+  left: 0;
   position: absolute;
+  top: 0;
   transform-origin: top left;
 }
 

@@ -395,6 +395,17 @@ describe('recipes (live)', () => {
     expect(fake.timelines).toHaveLength(2);
   });
 
+  it('prints the end state of an entrance still below the fold, and stops listening on dispose (fix pass 2026-10-06)', () => {
+    const fake = fakeWindow();
+    const dispose = engineOf(fake).mount(element('<ul data-ck-timeline="stagger-in"><li>a</li></ul>', 2_000), ctx());
+    const tl = nth(fake.timelines);
+    window.dispatchEvent(new Event('beforeprint'));
+    expect(tl.progressed).toEqual([1]);
+    dispose();
+    window.dispatchEvent(new Event('beforeprint'));
+    expect(tl.progressed).toEqual([1]);
+  });
+
   it('runs nothing when reduced motion is preferred', () => {
     const fake = fakeWindow({ motion: false });
     engineOf(fake).mount(element('<h2 data-ck-timeline="split-reveal">Hi there</h2>'), ctx());

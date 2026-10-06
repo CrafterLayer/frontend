@@ -17,7 +17,9 @@ import {
 import { TREE_FIXTURE_VOCAB, treeFixtureDocument } from '../../clipboard/tree-commands.fixture';
 import { createElementSelection } from '../../selection/element-selection';
 import { installBrowserStandIns } from '../../style-manager/test-support';
+import { ELEMENT_NAME_WORDS_AR } from '../../custom-code/element-target';
 import { LayersTree } from './LayersTree';
+import { LAYERS_TREE_LABELS_AR } from './LayersTree.labels';
 
 const NullRender: BlockRenderComponent = () => null;
 const block = (type: string, description: string, slots?: Record<string, { allow: string[] }>) => ({
@@ -213,6 +215,39 @@ describe('LayersTree (006 contract §5)', () => {
     // …and ArrowLeft = expand-or-step-in (the LTR ArrowRight):
     await user.keyboard('{ArrowLeft}');
     expect(rowNames()).toEqual(['Page', 'Section', 'Text', 'Text', 'Section']);
+  });
+
+  it('l4-chrome: an Arabic editor mirrors the keys over an LTR page, and an English one does not over RTL (arabic-editor)', async () => {
+    const user = userEvent.setup();
+    // The tree is chrome: the editor's `dir` above it decides, not the page's.
+    const { unmount } = render(
+      <div dir="rtl">
+        <LayersTree kernel={makeKernel()} labels={LAYERS_TREE_LABELS_AR} words={ELEMENT_NAME_WORDS_AR} />
+      </div>,
+    );
+    expect(screen.getByRole('tree', { name: 'بنية المستند' })).toBeInTheDocument();
+    // Block rows are named from the Arabic catalogue.
+    expect(rowNames()).toEqual(['الصفحة', 'قسم', 'نص', 'نص', 'قسم']);
+    screen.getAllByRole('treeitem')[0]!.focus();
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowRight}'); // RTL: collapse
+    expect(rowNames()).toEqual(['الصفحة', 'قسم', 'قسم']);
+    unmount();
+
+    const rtlPage = createBuilder({
+      document: { ...DOC, dir: 'rtl' },
+      extensions: [VOCAB],
+      ports: { clock: fixedClock(), ids: seededIds('ltr-chrome') },
+    });
+    render(
+      <div dir="ltr">
+        <LayersTree kernel={rtlPage} />
+      </div>,
+    );
+    screen.getAllByRole('treeitem')[0]!.focus();
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowLeft}'); // LTR chrome: collapse, though the page is RTL
+    expect(rowNames()).toEqual(['Page', 'Section', 'Section']);
   });
 
   it('l2: clicking selects through the kernel; external selection highlights and reveals', async () => {

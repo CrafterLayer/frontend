@@ -622,7 +622,7 @@ describe('US1 — generated inspector (007 contract §4)', () => {
     expect(screen.getByText('Select a block to edit its properties.')).toBeInTheDocument();
   });
 
-  it('states the no-editable-properties case and falls back to read-only for exotic schemas', () => {
+  it('states the no-editable-properties case and edits a string record as key/value rows, never JSON', () => {
     const kernel = makeKernel();
     kernel.setSelection(['pl1']);
     const { rerender } = render(<Inspector kernel={kernel} />);
@@ -630,9 +630,10 @@ describe('US1 — generated inspector (007 contract §4)', () => {
 
     kernel.setSelection(['ex1']);
     rerender(<Inspector kernel={kernel} />);
-    const readonly = screen.getByRole('textbox', { name: 'meta' });
-    expect(readonly).toHaveValue('{"a":"b"}');
-    expect(readonly).toHaveAttribute('readonly');
+    // block-parts P3: z.record(string, string) is a KeyValueField (one row per entry).
+    expect(screen.getByRole('textbox', { name: 'Name 1' })).toHaveValue('a');
+    expect(screen.getByRole('textbox', { name: 'Value a' })).toHaveValue('b');
+    expect(screen.queryByDisplayValue('{"a":"b"}')).toBeNull();
   });
 
   it('US2 AC1/AC2: an override bucket labels itself, writes setResponsive, and renders per breakpoint', async () => {
@@ -886,6 +887,9 @@ describe('Inspector information design', () => {
     expect(within(designPanel).getByRole('textbox', { name: 'title' })).toHaveValue(
       'Declared design title',
     );
+    // The block's own options read as presets, one layer under the style classes.
+    expect(within(designPanel).getByRole('heading', { name: 'Block presets' })).toBeVisible();
+    expect(within(contentPanel).queryByRole('heading', { name: 'Block presets' })).toBeNull();
 
     await user.click(screen.getByRole('tab', { name: 'Advanced' }));
     expect(

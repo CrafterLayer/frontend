@@ -27,15 +27,24 @@ describe('BucketStateSwitcher', () => {
   it('offers the three device buckets and every state, with the current pair checked', () => {
     setup({ bucket: 'mobile', state: 'hover' });
     expect(screen.getByRole('radio', { name: 'Mobile' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: 'Hover' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getAllByRole('radio', { checked: false }).length).toBeGreaterThan(5);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    const state = screen.getByRole('combobox', { name: 'State' });
+    expect(state).toHaveValue('hover');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Default',
+      'Hover',
+      'Focus',
+      'Active',
+      'Open',
+      'Group hover',
+    ]);
   });
 
   it('switches the bucket and the state independently', async () => {
     const user = userEvent.setup();
     const { onBucketChange, onStateChange } = setup();
     await user.click(screen.getByRole('radio', { name: 'Tablet' }));
-    await user.click(screen.getByRole('radio', { name: 'Focus' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'State' }), 'focus');
     expect(onBucketChange).toHaveBeenCalledWith('tablet');
     expect(onStateChange).toHaveBeenCalledWith('focus');
   });
@@ -58,6 +67,14 @@ describe('BucketStateSwitcher', () => {
     setup({ labels: BUCKET_STATE_SWITCHER_LABELS_AR, dir: 'rtl' });
     expect(screen.getByRole('radiogroup', { name: 'حجم الشاشة' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'جوال' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'الحالة' })).toBeInTheDocument();
+  });
+
+  it('tints the header when the edit lands off the defaults', () => {
+    setup({ bucket: 'tablet', state: 'focus' });
+    const header = screen.getByRole('radiogroup', { name: 'Screen size' }).closest('.bldr-bucket-state-switcher');
+    expect(header).toHaveAttribute('data-state-active');
+    expect(header).toHaveAttribute('data-bucket-active');
   });
 
   it('round-trips bucket values', () => {

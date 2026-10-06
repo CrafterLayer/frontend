@@ -1,6 +1,9 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { NodeId } from '@craftkit/builder-schema';
 
+import type { ElementNameWords } from '../custom-code/element-target';
+import { localBlockName } from '../i18n/block-names';
+
 const BLOCK_TYPE_ACRONYMS: Readonly<Record<string, string>> = {
   cta: 'CTA',
 };
@@ -65,7 +68,16 @@ function instanceLabel(kernel: BuilderKernel, nodeId: NodeId): string | undefine
     : trimmed;
 }
 
-export function blockDisplayName(kernel: BuilderKernel, nodeId: NodeId): string {
+/**
+ * What the chrome calls a block instance: its own `label`, else its type's
+ * name — the localised one when `words` carries a table for the editor's
+ * language (arabic-editor), else the humanised type.
+ */
+export function blockDisplayName(
+  kernel: BuilderKernel,
+  nodeId: NodeId,
+  words?: Pick<ElementNameWords, 'blocks'>,
+): string {
   const type = kernel.getDocument().nodes[nodeId]?.type;
   if (type === undefined) {
     // A stale node's id is the only stable identity left to show or announce.
@@ -76,5 +88,9 @@ export function blockDisplayName(kernel: BuilderKernel, nodeId: NodeId): string 
     // registry knowledge and make the missing registration harder to diagnose.
     return type;
   }
-  return instanceLabel(kernel, nodeId) ?? displayNameForBlockType(type);
+  return (
+    instanceLabel(kernel, nodeId) ??
+    localBlockName(type, words?.blocks) ??
+    displayNameForBlockType(type)
+  );
 }

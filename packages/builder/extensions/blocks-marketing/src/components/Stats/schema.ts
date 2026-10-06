@@ -61,7 +61,7 @@ export const statsSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     items: { tab: 'content', section: 'Metrics' },
     variant: { tab: 'design', section: 'Style' },
     columns: { tab: 'design', section: 'Layout' },
@@ -77,6 +77,62 @@ export const statsSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the intro text, the
+    metric grid, each metric, and each metric's value, label and detail.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Metrics', ar: 'المؤشرات' },
+      aliases: ['stats', 'numbers', 'grid', 'الأرقام', 'الإحصاءات'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Metric', ar: 'المؤشر' },
+      aliases: ['stat', 'number', 'card', 'رقم', 'إحصائية'],
+    },
+    'item.value': {
+      kind: 'text',
+      bind: 'items.*.value',
+      label: { en: 'Metric value', ar: 'قيمة المؤشر' },
+      aliases: ['value', 'number', 'figure', 'القيمة', 'الرقم'],
+    },
+    'item.label': {
+      kind: 'text',
+      bind: 'items.*.label',
+      label: { en: 'Metric label', ar: 'اسم المؤشر' },
+      aliases: ['label', 'name', 'caption', 'الاسم', 'التسمية'],
+    },
+    'item.detail': {
+      kind: 'text',
+      bind: 'items.*.detail',
+      label: { en: 'Metric detail', ar: 'تفصيل المؤشر' },
+      aliases: ['detail', 'note', 'description', 'التفصيل', 'ملاحظة'],
+    },
+  },
   examples: statsExamples,
 });
 

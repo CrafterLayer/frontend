@@ -51,6 +51,7 @@ import {
   AiBuildRevertError,
   applyAiPlan,
   classifyAiRunFailure,
+  isAiNeedsInputError,
   createCraftkitAiSkillRegistry,
   createDirectPlanProvider,
   createLocalAiPlanProvider,
@@ -148,6 +149,7 @@ import {
 } from '../model/kernel-history';
 import { consumeMentionFragment, mentionCandidatesFor, mentionQuery } from '../model/mentions';
 import type { AgentStorage } from '../model/migrate-sessions';
+import { effortSelection } from '../model/effort';
 import { modelSelection } from '../model/model-label';
 import {
   applyPlanOp,
@@ -212,6 +214,7 @@ import {
   type AgentController,
   type AgentViewState,
   type AssistantMode,
+  type EffortLevel,
   type ClarifyQuestionView,
   type ClarifyView,
   type ContextChipView,
@@ -282,6 +285,12 @@ export interface UseAgentControllerOptions {
   readonly models?: readonly string[] | undefined;
   readonly model?: string | undefined;
   readonly onSelectModel?: ((id: string) => void) | undefined;
+  /**
+   * The reasoning budget in force and the host's setter. Without the setter no effort menu
+   * is drawn: a host with no server to take a budget has none to offer.
+   */
+  readonly effort?: EffortLevel | undefined;
+  readonly onSelectEffort?: ((level: EffortLevel) => void) | undefined;
   readonly skillRegistry?: AiSkillRegistry | undefined;
   readonly selectedSkillIds?: readonly string[] | undefined;
   readonly agentPolicy?: Partial<AiAgentPolicy> | undefined;
@@ -863,9 +872,18 @@ function spokeInWords(
 ): boolean {
   if (heard === undefined || kernel.transactions().length !== logBefore) return false;
   if (classifyAiRunFailure(cause).code !== 'plan-rejected') return false;
-  const said = heard();
+  const said = wordsSaid(cause, heard);
   if (said === null) return false;
   return said.rationale.trim() !== '' || (said.followUp?.trim() ?? '') !== '';
+}
+
+/**
+ * The words a refused run said: the engine's own question (media-motion fix pass,
+ * 2026-10-06: a video with no link is asked for with no model), else the model's.
+ */
+function wordsSaid(cause: unknown, heard: (() => WordsOnly | null) | undefined): WordsOnly | null {
+  if (isAiNeedsInputError(cause)) return { rationale: cause.words.rationale, commands: [] };
+  return heard?.() ?? null;
 }
 
 function engineRequest(outgoing: Outgoing): string {
@@ -1250,9 +1268,9 @@ async function runEdit(
       env.mood.settleTurn({ runId: slot.runId, outcome: 'stopped' });
     } else if (spokeInWords(cause, heard, kernel, logBefore)) {
       // The model answered in words (most often asking what was meant): its answer.
-      const said = heard?.();
+      const said = wordsSaid(cause, heard);
       const words =
-        said === null || said === undefined ? null : answerFromPlan({ id: turnId, request, plan: said });
+        said === null ? null : answerFromPlan({ id: turnId, request, plan: said });
       if (words !== null) patchTurn(flow, slot.sessionId, turnId, () => words);
       say(flow, 'answer.ready');
       env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
@@ -3077,6 +3095,9 @@ function createActions(flow: Flow): Actions {
     setModel: (id) => {
       env().options.onSelectModel?.(id);
     },
+    setEffort: (level) => {
+      env().options.onSelectEffort?.(level);
+    },
     newConversation,
     openConversation,
     deleteConversation,
@@ -3544,6 +3565,10 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     () => modelSelection(options.models ?? [], options.model),
     [options.models, options.model],
   );
+  const effort = useMemo(
+    () => effortSelection(options.effort, options.onSelectEffort !== undefined),
+    [options.effort, options.onSelectEffort],
+  );
   const queue = useMemo(
     () => (uiState.queue === null ? null : queueView(uiState.queue, document)),
     [uiState.queue, document],
@@ -3564,6 +3589,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     mention,
     mode: sessions.state.mode,
     model,
+    effort,
     send: sendSlot,
     run: runBar,
     queue,

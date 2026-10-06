@@ -97,7 +97,7 @@ export const gallerySchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     items: { tab: 'content', section: 'Images' },
     linkLabel: { tab: 'content', section: 'Image links' },
     layout: { tab: 'design', section: 'Layout' },
@@ -119,6 +119,59 @@ export const gallerySchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    the image list, each figure, its image and its caption. `linkLabel` is
+    read only by assistive technology, so it stays an Inspector row; the
+    section heading is a part because the link names read it through
+    aria-labelledby rather than a copy of its text.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Images', ar: 'الصور' },
+      aliases: ['gallery', 'photos', 'grid', 'list', 'المعرض', 'القائمة'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Gallery image', ar: 'صورة المعرض' },
+      aliases: ['tile', 'figure', 'card', 'بطاقة', 'عنصر'],
+    },
+    'item.image': {
+      kind: 'image',
+      bind: { src: 'items.*.src', alt: 'items.*.alt' },
+      label: { en: 'Image', ar: 'الصورة' },
+      aliases: ['image', 'photo', 'picture', 'صورة'],
+    },
+    'item.caption': {
+      kind: 'text',
+      bind: 'items.*.caption',
+      label: { en: 'Image caption', ar: 'تعليق الصورة' },
+      aliases: ['caption', 'figcaption', 'description', 'تعليق', 'الوصف'],
+    },
+  },
   examples: galleryExamples,
 });
 

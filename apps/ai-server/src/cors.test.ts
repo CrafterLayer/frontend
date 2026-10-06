@@ -92,7 +92,7 @@ describe('withCors', () => {
 
     expect(response.status).toBe(204);
     expect(response.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
-    expect(response.headers.get('access-control-allow-methods')).toBe('POST, OPTIONS');
+    expect(response.headers.get('access-control-allow-methods')).toBe('GET, POST, OPTIONS');
     expect(response.headers.get('access-control-allow-headers')).toBe('authorization,content-type');
     expect(response.headers.get('access-control-max-age')).toBe('600');
     expect(response.headers.get('vary')).toBe('Origin');
@@ -106,7 +106,7 @@ describe('withCors', () => {
     )(request('OPTIONS', { origin: 'http://localhost:5173' }));
 
     expect(response.headers.get('access-control-allow-headers')).toBe(
-      'authorization, content-type, accept, x-craftkit-ai-model',
+      'authorization, content-type, accept, x-craftkit-ai-model, x-craftkit-ai-effort',
     );
   });
 
@@ -202,7 +202,7 @@ describe('through the Node adapter', () => {
 
       expect(response.status).toBe(204);
       expect(response.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
-      expect(response.headers.get('access-control-allow-methods')).toBe('POST, OPTIONS');
+      expect(response.headers.get('access-control-allow-methods')).toBe('GET, POST, OPTIONS');
       expect(await response.text()).toBe('');
     } finally {
       await new Promise<void>((resolve, reject) => {

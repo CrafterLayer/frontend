@@ -42,10 +42,12 @@ interface DemoProps {
   readonly path: readonly number[];
   readonly dir: 'ltr' | 'rtl';
   readonly arabic?: boolean;
+  /** A narrow canvas frame (the Mobile device is 390px): the bar must wrap inside it. */
+  readonly frameWidth?: number;
 }
 
 /** A real kernel behind the bar: every control writes a real transaction. */
-function Demo({ path, dir, arabic = false }: DemoProps) {
+function Demo({ path, dir, arabic = false, frameWidth }: DemoProps) {
   const kernel = useMemo(() => treeKernel([TREE], dir), [dir]);
   const clipboard = useMemo(() => createMemoryStyleClipboard(), []);
   const [, refresh] = useReducer((count: number) => count + 1, 0);
@@ -53,7 +55,15 @@ function Demo({ path, dir, arabic = false }: DemoProps) {
   const model = createElementBarModel(kernel, targets, { bucket: 'base', state: 'default', pageDir: dir });
   if (model === undefined) return null;
   return (
-    <div dir={dir} style={{ padding: 24 }}>
+    <div
+      dir={dir}
+      data-testid="quick-bar-frame"
+      style={
+        frameWidth === undefined
+          ? { padding: 24 }
+          : { padding: 8, inlineSize: frameWidth, overflow: 'hidden', boxSizing: 'border-box' }
+      }
+    >
       <ElementQuickBar
         model={model}
         actions={resolveElementActions(kernel, targets, { styleClipboard: clipboard })}
@@ -103,3 +113,33 @@ export const LinkOrButton: Story = { args: { path: [0, 2] } };
 export const Icon: Story = { args: { path: [0, 3] } };
 
 export const ArabicRtl: Story = { args: { path: [0, 0], dir: 'rtl', arabic: true } };
+
+/*
+  Fix pass (2026-10-06): at the Mobile device the bar was 502px inside a 390px
+  frame, so three (English) or five (Arabic) actions sat outside the clip and
+  could not be reached. Its rows now wrap: every button stays inside the frame.
+*/
+async function everyButtonInsideTheFrame(canvasElement: HTMLElement): Promise<void> {
+  const frame = within(canvasElement).getByTestId('quick-bar-frame').getBoundingClientRect();
+  const buttons = Array.from(within(canvasElement).getByRole('toolbar').querySelectorAll('button'));
+  await expect(buttons.length).toBeGreaterThan(8);
+  for (const button of buttons) {
+    const box = button.getBoundingClientRect();
+    await expect(box.left).toBeGreaterThanOrEqual(frame.left);
+    await expect(box.right).toBeLessThanOrEqual(frame.right);
+  }
+}
+
+export const MobileFrame: Story = {
+  args: { path: [0, 0], frameWidth: 300 },
+  play: async ({ canvasElement }) => {
+    await everyButtonInsideTheFrame(canvasElement);
+  },
+};
+
+export const ArabicMobileFrame: Story = {
+  args: { path: [0, 0], dir: 'rtl', arabic: true, frameWidth: 300 },
+  play: async ({ canvasElement }) => {
+    await everyButtonInsideTheFrame(canvasElement);
+  },
+};

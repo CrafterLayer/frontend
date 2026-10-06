@@ -121,3 +121,11 @@ export const RAIL_UTILITIES: readonly RailItem[] = [
   { id: 'settings', label: 'Settings', icon: SETTINGS },
   { id: 'help', label: 'Help', icon: HELP },
 ];
+
+/** The rail's items named in the editor's language (arabic-editor); an unnamed id keeps its label. */
+export function railItemsIn(
+  items: readonly RailItem[],
+  names: Readonly<Record<string, string>>,
+): readonly RailItem[] {
+  return items.map((item) => ({ ...item, label: names[item.id] ?? item.label }));
+}

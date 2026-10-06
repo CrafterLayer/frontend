@@ -31,3 +31,18 @@ export const ArabicRtl: Story = {
   globals: { direction: 'rtl' },
   args: { props: badgeSchema.props.parse({ label: 'الأكثر شيوعاً', variant: 'success' }) },
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    node: { id: 'badge-parts', type: 'badge', props: {} },
+    props: badgeSchema.props.parse({ label: 'Beta' }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+};

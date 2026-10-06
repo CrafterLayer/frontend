@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { paginationExamples } from './examples';
@@ -96,6 +97,8 @@ export const paginationSchema = defineBlockSchema({
     tone: z.enum(['transparent', 'surface', 'inverse']).default('transparent'),
     motion: motionSpecSchema.optional(),
     className: utilityClasses.optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     navigationLabel: { tab: 'content', section: 'Accessibility' },
@@ -118,6 +121,54 @@ export const paginationSchema = defineBlockSchema({
     tone: { tab: 'design', section: 'Style' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
+  },
+  /*
+    The control's inner elements (block-parts DESIGN §1): the Previous and Next
+    labels, the page word ("Page 2 / 9" in the compact layout; the prefix every
+    page link's accessible name reads in the full one), and in explicit mode
+    the page list, each page, and each page's link. `navigationLabel` and
+    `ellipsisLabel` are for assistive technology only, so they stay in the
+    Inspector.
+  */
+  parts: {
+    previousLabel: {
+      kind: 'text',
+      bind: 'previousLabel',
+      label: { en: 'Previous label', ar: 'نص السابق' },
+      aliases: ['previous', 'prev', 'back', 'السابق', 'الخلف'],
+    },
+    nextLabel: {
+      kind: 'text',
+      bind: 'nextLabel',
+      label: { en: 'Next label', ar: 'نص التالي' },
+      aliases: ['next', 'forward', 'التالي', 'الأمام'],
+    },
+    pageLabel: {
+      kind: 'text',
+      bind: 'pageLabel',
+      label: { en: 'Page word', ar: 'كلمة الصفحة' },
+      aliases: ['page', 'page label', 'status', 'صفحة', 'الحالة'],
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Pages', ar: 'الصفحات' },
+      aliases: ['pages', 'explicit pages', 'list', 'القائمة'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Page', ar: 'الصفحة' },
+      aliases: ['page', 'entry', 'صفحة', 'عنصر'],
+    },
+    'item.link': {
+      kind: 'link',
+      bind: { text: 'items.*.label', href: 'items.*.href' },
+      label: { en: 'Page link', ar: 'رابط الصفحة' },
+      aliases: ['link', 'label', 'page link', 'رابط', 'نص الرابط'],
+    },
   },
   examples: paginationExamples,
 });

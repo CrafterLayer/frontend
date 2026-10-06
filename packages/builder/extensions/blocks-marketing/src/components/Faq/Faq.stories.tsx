@@ -52,3 +52,40 @@ export const Empty: Story = {
     isCanvas: false,
   },
 };
+
+/* Block parts (DESIGN §4.4): each inner element is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node,
+    props: {
+      ...faqSchema.props.parse({
+        eyebrow: 'Support',
+        heading: 'Frequently asked questions.',
+        body: 'Everything about the builder.',
+        items: [
+          { question: 'Can I edit in place?', answer: 'Yes, every line.' },
+          { question: 'Is Arabic supported?', answer: 'Right to left, first class.' },
+        ],
+      }),
+      partStyles: {
+        'item.question': { className: 'text-accent' },
+        'item.question@0': { className: 'underline' },
+      },
+    },
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const styled = canvasElement.querySelectorAll('[data-ck-part="item.question"]');
+    await expect(styled.length).toBeGreaterThan(1);
+    await expect(styled[0]).toHaveAttribute('data-ck-bind', 'items.0.question');
+    await expect(styled[0]).toHaveClass('underline');
+    await expect(styled[1]).toHaveClass('text-accent');
+    await expect(styled[1]).not.toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="items"]')).toHaveAttribute(
+      'data-ck-bind',
+      'items',
+    );
+  },
+};

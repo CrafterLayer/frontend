@@ -14,25 +14,27 @@ import {
 import { BucketStateSwitcher } from '../controls/BucketStateSwitcher';
 import { resolveColor, type ColorSwatch } from '../controls/StyleColorControl';
 import { appliesToTag, isTokenCapable } from '../property-models';
-import { intentsAt, StyleProperty, type StyleEdit } from '../StyleProperty';
+import { intentsAt, StyleProperty, withDisplayCleanup, type StyleEdit } from '../StyleProperty';
 import { StyleSector } from '../StyleSector';
 import type { StyleSource } from '../style-source';
 import { emptyView, viewStyles, type PropertyView } from '../style-view';
 import { useStyleSourceClasses } from '../use-style-source';
 import { STYLE_PANEL_SECTORS } from './sectors';
 import { STYLE_PANEL_LABELS_EN, type StylePanelLabels } from './StylePanel.labels';
+import { StylePanelFilter } from '../StylePanelFilter';
 
 import './StylePanel.css';
 
-const OPEN_BY_DEFAULT: readonly StyleSectorId[] = [
-  'layout',
-  'spacing',
-  'size',
-  'typography',
-  'backgrounds',
-  'borders',
-  'effects',
-];
+/** The most-used sectors start open; the rest are one click (or one search) away. */
+const OPEN_BY_DEFAULT: readonly StyleSectorId[] = ['layout', 'spacing', 'size', 'typography', 'backgrounds'];
+
+/** Case- and diacritic-insensitive text for the property filter (Arabic tashkil too). */
+function searchable(text: string): string {
+  return text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f\u064b-\u065f\u0670]/gu, '')
+    .toLocaleLowerCase();
+}
 
 /** Properties drawn inside another's control (padding draws margin; border width draws style). */
 const COMPANION_OF: Readonly<Partial<Record<StylePropertyId, StylePropertyId>>> = {
@@ -122,6 +124,7 @@ export function StylePanel({
     revealSector === undefined ? new Set(OPEN_BY_DEFAULT) : new Set([...OPEN_BY_DEFAULT, revealSector.sector]),
   );
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const [seenReveal, setSeenReveal] = useState<number | undefined>(undefined);
   if (revealSector !== undefined && seenReveal !== revealSector.nonce) {
@@ -155,7 +158,7 @@ export function StylePanel({
     id === 'textColor' ? background : id === 'backgroundColor' ? foreground : undefined;
 
   const write = (edits: readonly StyleEdit[], property: string) => {
-    const result = source.apply(intentsAt(edits, bucket, state, isBaseOnly), property);
+    const result = source.apply(intentsAt(withDisplayCleanup(edits), bucket, state, isBaseOnly), property);
     if (result.ok) {
       setRefusal(null);
       announce(labels.updated(property));
@@ -169,10 +172,10 @@ export function StylePanel({
     onPreview === undefined
       ? undefined
       : (edits: readonly StyleEdit[] | null) => {
-          onPreview(edits === null ? null : intentsAt(edits, bucket, state, isBaseOnly));
+          onPreview(edits === null ? null : intentsAt(withDisplayCleanup(edits), bucket, state, isBaseOnly));
         };
 
-  const shown = STYLE_SECTORS.filter((sector) => sectors.includes(sector.id))
+  const available = STYLE_SECTORS.filter((sector) => sectors.includes(sector.id))
     .map((sector) => ({
       sector,
       properties: sector.properties.filter(
@@ -185,6 +188,38 @@ export function StylePanel({
     }))
     .filter((entry) => entry.properties.length > 0);
 
+  // The filter matches a property's name in either language, its id, or its
+  // sector's name (which keeps the whole sector). A row drawn with a companion
+  // (padding with margin) also matches on the companion's name.
+  const needle = searchable(query.trim());
+  const matches = (labelsOf: { readonly en: string; readonly ar: string }, id: string) =>
+    searchable(`${labelsOf.en} ${labelsOf.ar} ${id}`).includes(needle);
+  const shown =
+    needle === ''
+      ? available
+      : available
+          .map(({ sector, properties }) => ({
+            sector,
+            properties: matches(sector.labels, sector.id)
+              ? properties
+              : properties.filter((def) => {
+                  const companionId = COMPANION_OF[def.id];
+                  return (
+                    matches(def.labels, def.id) ||
+                    (companionId !== undefined && matches(STYLE_PROPERTIES[companionId].labels, companionId))
+                  );
+                }),
+          }))
+          .filter((entry) => entry.properties.length > 0);
+
+  const setHereIn = (properties: readonly { readonly id: StylePropertyId }[]) =>
+    properties.reduce((total, def) => {
+      const companionId = COMPANION_OF[def.id];
+      const own = viewOf(def.id).origin === 'here' ? 1 : 0;
+      const companion = companionId !== undefined && viewOf(companionId).origin === 'here' ? 1 : 0;
+      return total + own + companion;
+    }, 0);
+
   return (
     <div
       ref={rootRef}
@@ -192,58 +227,81 @@ export function StylePanel({
       role="group"
       aria-label={labels.panel}
       data-mode={source.mode}
+      dir={labels.locale === 'ar' ? 'rtl' : 'ltr'}
     >
-      {onBucketChange === undefined || onStateChange === undefined ? null : (
-        <BucketStateSwitcher
-          bucket={bucket}
-          state={state}
-          onBucketChange={onBucketChange}
-          onStateChange={onStateChange}
-          customWidths={customWidths}
-          freeWidth={freeWidth}
-          dir={labels.locale === 'ar' ? 'rtl' : 'ltr'}
-          labels={labels.switcher}
-        />
-      )}
+      <div className="bldr-style-panel__header">
+        {onBucketChange === undefined || onStateChange === undefined ? null : (
+          <BucketStateSwitcher
+            bucket={bucket}
+            state={state}
+            onBucketChange={onBucketChange}
+            onStateChange={onStateChange}
+            customWidths={customWidths}
+            freeWidth={freeWidth}
+            dir={labels.locale === 'ar' ? 'rtl' : 'ltr'}
+            labels={labels.switcher}
+          />
+        )}
+        <StylePanelFilter query={query} onQueryChange={setQuery} labels={labels} />
+      </div>
       {refusal === null ? null : (
         <p className="bldr-style-panel__refusal" role="alert">
           {refusal}
         </p>
       )}
-      {shown.map(({ sector, properties }) => (
-        <StyleSector
-          key={sector.id}
-          title={sector.labels[labels.locale]}
-          sectorId={sector.id}
-          expanded={open.has(sector.id)}
-          onToggle={() => {
-            const next = new Set(open);
-            if (next.has(sector.id)) next.delete(sector.id);
-            else next.add(sector.id);
-            setOpen(next);
-            onActiveSectorChange?.(next.has(sector.id) ? sector.id : null);
-          }}
-        >
-          {properties.map((def) => {
-            const companionId = COMPANION_OF[def.id];
-            return (
-              <StyleProperty
-                key={def.id}
-                view={viewOf(def.id)}
-                companion={companionId === undefined ? undefined : viewOf(companionId)}
-                mode={source.mode}
-                dir={dir}
-                tokens={tokens}
-                palette={source.mode === 'free' ? palette : []}
-                contrastWith={contrastFor(def.id)}
-                labels={labels}
-                onEdit={write}
-                onPreview={preview}
-              />
-            );
-          })}
-        </StyleSector>
-      ))}
+      {shown.length === 0 ? (
+        <p className="bldr-style-panel__empty" role="status">
+          {labels.noMatches(query.trim())}
+        </p>
+      ) : null}
+      {shown.map(({ sector, properties }) => {
+        const count = setHereIn(properties);
+        return (
+          <StyleSector
+            key={sector.id}
+            title={sector.labels[labels.locale]}
+            sectorId={sector.id}
+            expanded={needle !== '' || open.has(sector.id)}
+            count={count}
+            countLabel={labels.setHere(count)}
+            onToggle={() => {
+              if (needle !== '') {
+                // A filtered sector is open because it matched: closing it ends the search there.
+                setQuery('');
+                const next = new Set(open);
+                next.delete(sector.id);
+                setOpen(next);
+                onActiveSectorChange?.(null);
+                return;
+              }
+              const next = new Set(open);
+              if (next.has(sector.id)) next.delete(sector.id);
+              else next.add(sector.id);
+              setOpen(next);
+              onActiveSectorChange?.(next.has(sector.id) ? sector.id : null);
+            }}
+          >
+            {properties.map((def) => {
+              const companionId = COMPANION_OF[def.id];
+              return (
+                <StyleProperty
+                  key={def.id}
+                  view={viewOf(def.id)}
+                  companion={companionId === undefined ? undefined : viewOf(companionId)}
+                  mode={source.mode}
+                  dir={dir}
+                  tokens={tokens}
+                  palette={source.mode === 'free' ? palette : []}
+                  contrastWith={contrastFor(def.id)}
+                  labels={labels}
+                  onEdit={write}
+                  onPreview={preview}
+                />
+              );
+            })}
+          </StyleSector>
+        );
+      })}
       {children}
     </div>
   );

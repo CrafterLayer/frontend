@@ -23,3 +23,12 @@ and the control the catalogue (`STYLE_PROPERTIES`) names for it:
 
 The row only reports `StyleEdit`s through `onEdit(edits, propertyLabel)`; the panel adds the bucket
 and state and writes them as one labelled transaction.
+
+## Row layout
+
+`data-layout="inline"` puts the label and a compact control on one 28px line. It is used for number
+fields (with scrub), selects (with a chevron), `ColorField`, segmented glyph rows with up to six
+glyphs, and text choices with up to three options. `data-layout="block"` gives the full width to
+the box model, corners, border sides, stacks, grid tracks, the effect picker, the image URL,
+gradient arrows and longer text choices. The label takes the value's source colour, and the custom
+breakpoint badge sits under the row.

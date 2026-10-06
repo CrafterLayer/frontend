@@ -469,6 +469,7 @@ describe('useAgentController: Ask and Plan', () => {
     // The same turn inked in place, and exactly the edited plan was built.
     expect(build(c).turnId).toBe(plan.turnId);
     expect(regionList(kernel).map(([label]) => label)).toEqual([
+      'Header',
       'Roasted this morning',
       'Our beans',
       'Order today',

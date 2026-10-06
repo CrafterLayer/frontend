@@ -54,7 +54,7 @@ export function DesignColorsSection({
     <div className="bldr-design-system__section">
       <div className="bldr-design-system__edit">
         <label className="bldr-design-system__label" htmlFor={fieldId}>
-          {selected}
+          {labels.token(selected)}
         </label>
         <div className="bldr-design-system__edit-row">
           <span className="bldr-design-system__swatch" style={{ background: committed }} aria-hidden />
@@ -78,6 +78,7 @@ export function DesignColorsSection({
         label={labels.colourTokens}
         selected={selected}
         onSelect={setSelected}
+        nameOf={labels.token}
         columns={3}
       />
       {commit === undefined ? null : (

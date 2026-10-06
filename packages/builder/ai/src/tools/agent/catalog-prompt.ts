@@ -15,10 +15,15 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 
 // media-motion (2026-10-06): per-lane caps. The edit lane lists ~30 tools (style tools, media.add,
 // motion.add); at 900 characters every one degrades to a bare name and media.add loses its kinds.
+// red-tests (2026-10-06): edit 1400 → 1600, measured. The five part.* lines take 182 characters at
+// their signatures; under 1400 they pushed fonts.set, image.set, kit.section and palette.set down to
+// bare names (all four had signatures before), and those are inputs a model cannot guess (`subject`,
+// `heading?:'h1'|'h2'`, a verified family), so a bare name costs a refusal and a repair round. The
+// lane is part of the frozen, cached system[0]: +200 characters is ~50 cached tokens per edit.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
   build: AGENT_TOOL_PROMPT_MAX_CHARS,
   section: AGENT_TOOL_PROMPT_MAX_CHARS,
-  edit: 1_400,
+  edit: 1_600,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -38,6 +43,13 @@ const EXAMPLES: Readonly<Record<string, unknown>> = {
   // media-motion (2026-10-06)
   'media.add': { kind: 'gallery', layout: 'masonry', images: 'catalog:restaurant' },
   'motion.add': { id: 'r-hero', find: 'Heading text', recipe: 'split-reveal' },
+  // ── block-parts (2026-10-06): the parts of registered blocks (DESIGN §2.12) ──
+  'part.text': { id: 'hero-1', part: 'heading', text: 'New words' },
+  'part.style': { id: 'hero-1', part: 'heading', style: { textColor: 'accent', fontSize: '5xl' } },
+  'part.link': { id: 'cta-1', part: 'button', text: 'Book now', href: '/contact' },
+  'part.image': { id: 'content-1', part: 'image', src: 'https://…', alt: 'What it shows' },
+  'part.list': { id: 'features-1', part: 'item', op: 'add', index: 3 },
+  // ── /block-parts ──
 };
 
 // media-motion (2026-10-06): one line of fields per tool whose signature cannot hold them (DESIGN §F.1).
@@ -80,18 +92,37 @@ export function agentToolPrompt(lane: AgentToolLane): string {
   };
   const level = tools.map(() => 0);
   const text = () => render(tools, (tool) => lineAt(tool, level[tools.indexOf(tool)] ?? 0));
+  /*
+    block-parts (2026-10-06): a tool with a DETAILS line (media.add, motion.add)
+    keeps its signature while any other line can still shorten — the part.*
+    signatures pushed media.add down to a bare name, and its kinds line then
+    described fields the model could not see. Only when nothing else is left
+    does it shorten too.
+  */
+  // ── block-parts (2026-10-06) ──
+  let guarded = true;
+  // ── /block-parts ──
   while (text().length > max) {
     let longest = -1;
     let width = -1;
     for (const [index, tool] of tools.entries()) {
       const at = level[index] ?? 0;
       if (at >= shapes.length - 1) continue;
+      // ── block-parts (2026-10-06) ──
+      if (guarded && at >= 1 && DETAILS[tool.name] !== undefined) continue;
+      // ── /block-parts ──
       const length = lineAt(tool, at).length;
       if (length > width) {
         width = length;
         longest = index;
       }
     }
+    // ── block-parts (2026-10-06) ──
+    if (longest < 0 && guarded) {
+      guarded = false;
+      continue;
+    }
+    // ── /block-parts ──
     if (longest < 0) break;
     level[longest] = (level[longest] ?? 0) + 1;
   }

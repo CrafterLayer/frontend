@@ -48,6 +48,7 @@ function Hosted({ initial, dir }: { initial: string; dir?: 'rtl' }) {
             key={action.id}
             type="button"
             aria-pressed={action.pressed}
+            disabled={action.disabled === true}
             onMouseDown={(event) => {
               event.preventDefault(); // keep the caret — the bubble's own law
             }}
@@ -83,8 +84,10 @@ export const InPlace: Story = {
     const surface = within(canvasElement).getByRole('textbox', { name: 'Article body' });
     await expect(surface).toHaveFocus();
     await expect(surface).toHaveAttribute('aria-multiline', 'true');
-    // No selection yet ⇒ no actions ⇒ the canvas shows no bubble.
+    // A bare caret: no anchor (the canvas docks its bar at the surface), and the
+    // marks are offered DISABLED — there are no characters to carry them.
     await expect(within(canvasElement).getByTestId('anchor')).toHaveTextContent('no selection');
+    await expect(await within(canvasElement).findByRole('button', { name: 'Bold' })).toBeDisabled();
   },
 };
 
@@ -123,7 +126,8 @@ export const MarksExactlyTheSelection: Story = {
 
     const bold = await waitFor(() => {
       const found = canvas.queryByRole('button', { name: 'Bold' });
-      if (found === null) {
+      // At the caret Bold is offered disabled; the selection is what enables it.
+      if (found === null || found.hasAttribute('disabled')) {
         selectWord(); // a selectionchange race, not a failure
         throw new Error('a live selection must offer Bold');
       }
@@ -154,4 +158,41 @@ export const RightToLeft: Story = {
   },
   render: () => <Hosted initial="اختر كلمة وميّزها" dir="rtl" />,
   globals: { direction: 'rtl' },
+};
+
+export const CommitsOnceOnEnter: Story = {
+  args: {
+    value: doc('Type, then press Enter'),
+    label: 'Article body',
+    onCommit: () => undefined,
+    onExit: () => undefined,
+    onAnchor: () => undefined,
+    onActions: () => undefined,
+  },
+  render: () => <Hosted initial="Type, then press Enter" />,
+  play: async ({ canvasElement }) => {
+    // Typing stages a local draft; the host's stored document moves ONCE, on
+    // Enter (law L1: one gesture, one Undo).
+    const canvas = within(canvasElement);
+    const surface = canvas.getByRole('textbox', { name: 'Article body' });
+    await expect(surface).toHaveFocus();
+    for (const data of ['!', '!']) {
+      surface.dispatchEvent(
+        new InputEvent('beforeinput', {
+          bubbles: true,
+          cancelable: true,
+          inputType: 'insertText',
+          data,
+        }),
+      );
+    }
+    await expect(surface).toHaveTextContent('Type, then press Enter!!');
+    await expect(canvas.getByTestId('stored').textContent.includes('Enter!!')).toBe(false);
+    surface.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await waitFor(async () => {
+      await expect(canvas.getByTestId('stored').textContent.includes('Enter!!')).toBe(true);
+    });
+  },
 };

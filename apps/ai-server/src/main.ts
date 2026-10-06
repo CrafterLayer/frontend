@@ -8,6 +8,7 @@ import { createCliWarmPool, type CliWarmPool } from './cli-warm-pool';
 import { createCodeRuntimeService } from './code-runtime-service';
 import { createAuthoredRunCoordinator } from './authored-run';
 import { parseAllowedOrigins, withCors } from './cors';
+import { createFreeModelCatalog } from './free-models';
 import { createHandler } from './handler';
 import {
   OPENROUTER_EFFORT_LEVELS,
@@ -225,6 +226,30 @@ function createCliBackend(
 }
 
 /*
+  The free OpenRouter models as OpenRouter lists them now (free-models.ts), shared by the
+  picker's list (`GET /v1/models`), the allowlist (a listed free slug may be named without
+  being in CRAFTKIT_AI_MODELS) and the OpenRouter client, which learns each live model's
+  output ceiling from `liveModelFacts` — the same map the startup probe fills for configured
+  slugs — so a model that appeared a minute ago is clamped and decoded like any other.
+*/
+const liveModelFacts = new Map<string, OpenRouterModelFacts>();
+const freeModelsBaseUrl = setting('CRAFTKIT_AI_OPENROUTER_BASE_URL');
+const freeModels =
+  backend === 'openrouter'
+    ? createFreeModelCatalog({
+        ...(freeModelsBaseUrl === undefined ? {} : { baseUrl: freeModelsBaseUrl }),
+        onFacts: (facts) => {
+          for (const [slug, fact] of facts) liveModelFacts.set(slug, fact);
+        },
+        onLog: (line) => {
+          console.log(`[ai-server] ${line}`);
+        },
+      })
+    : undefined;
+// Asked now, so the first picker request finds the answer waiting.
+void freeModels?.list();
+
+/*
   OpenRouter has no lazy credential resolution and no default model that
   means anything — its slugs are `vendor/model`, and the SDK's default
   `claude-opus-5` is not one — so both are demanded at startup.
@@ -301,7 +326,8 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
     ...(baseUrl === undefined ? {} : { baseUrl }),
   });
   openRouterModelFacts = facts;
-  if (facts.size === 0) {
+  for (const [slug, fact] of facts) liveModelFacts.set(slug, fact);
+  if (facts.size === 0 && slugs.length > 0) {
     console.warn(
       "WARNING: could not read OpenRouter's model list; strict decoding and output ceilings are unknown for this run.",
     );
@@ -335,7 +361,7 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   const openrouter = createOpenRouterClient({
     apiKey,
     model: openRouterDefault,
-    models: facts,
+    models: liveModelFacts,
     ...(effort === undefined ? {} : { effort }),
     ...(strict === undefined ? {} : { strict }),
     ...(baseUrl === undefined ? {} : { baseUrl }),
@@ -488,6 +514,7 @@ const handle = createHandler({
   ...(authToken === undefined ? {} : { authToken }),
   ...(model === undefined ? {} : { model }),
   ...(models.length === 0 ? {} : { models }),
+  ...(freeModels === undefined ? {} : { freeModels }),
   ...(maxTokens === undefined ? {} : { maxTokens }),
   ...(sectionEffort === undefined ? {} : { sectionEffort }),
   ...(planThinking ? { planThinking } : {}),

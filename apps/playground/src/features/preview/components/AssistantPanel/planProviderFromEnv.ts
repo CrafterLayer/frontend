@@ -35,6 +35,8 @@ export function planProviderFromEnv(
   env: Readonly<Record<string, unknown>>,
   /** A model the person picked; named to the server, which decides whether it is allowed. */
   model?: string,
+  /** The reasoning budget the person picked (`low` … `max`); the server holds it to its five. */
+  effort?: string,
 ): AiPlanProvider | undefined {
   const raw = env['VITE_AI_PLAN_ENDPOINT'];
   const endpoint = typeof raw === 'string' ? raw.trim() : '';
@@ -44,9 +46,11 @@ export function planProviderFromEnv(
   const rawToken = env['VITE_AI_PLAN_TOKEN'];
   const token = typeof rawToken === 'string' ? rawToken.trim() : '';
   const chosen = model?.trim() ?? '';
+  const budget = effort?.trim() ?? '';
   const headers = {
     ...(token === '' ? {} : { authorization: `Bearer ${token}` }),
     ...(chosen === '' ? {} : { 'x-craftkit-ai-model': chosen }),
+    ...(budget === '' ? {} : { 'x-craftkit-ai-effort': budget }),
   };
   /*
     Eleven minutes, and it has to be this long. A plan is 15-25k output tokens

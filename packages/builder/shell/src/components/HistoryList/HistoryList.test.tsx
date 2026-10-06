@@ -7,6 +7,7 @@ import { fixedClock, fixtureBlocks, landingFixture, seededIds } from '@craftkit/
 
 import { HistoryList } from './HistoryList';
 import { HISTORY_LIST_LABELS_AR } from './HistoryList.labels';
+import { relativeTime } from './history-format';
 
 const makeKernel = () =>
   createBuilder({
@@ -73,5 +74,13 @@ describe('HistoryList', () => {
     });
     expect(screen.getByRole('button', { name: /حذف/u })).toHaveAttribute('aria-current', 'step');
     expect(screen.getByRole('img', { name: 'أنت' })).toBeInTheDocument();
+  });
+});
+
+describe('history times in Arabic (arabic-editor)', () => {
+  it('writes the numbers of a relative time in Latin digits', () => {
+    const text = relativeTime(0, 5 * 60_000, HISTORY_LIST_LABELS_AR.locale);
+    expect(text).toMatch(/5/u);
+    expect(text).not.toMatch(/[٠-٩]/u);
   });
 });

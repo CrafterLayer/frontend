@@ -16,7 +16,7 @@ export function createArtifactArchive(files: readonly ArtifactFile[]): Uint8Arra
       throw new Error('Export contains an unsafe file path.');
     }
     const name = encoder.encode(file.path);
-    const content = encoder.encode(file.content);
+    const content = file.bytes ?? encoder.encode(file.content);
     if (name.length > 65535) throw new Error('Export file path is too long.');
     return { name, content, crc: crc32(content) };
   });

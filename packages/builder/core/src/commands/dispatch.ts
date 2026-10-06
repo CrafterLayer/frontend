@@ -1,7 +1,10 @@
 import {
+  blockPropDefaults,
   builderError,
   canonicalizeJsonValue,
   findJsonViolation,
+  hasPartInstance,
+  withBlockPropDefaults,
   type Author,
   type BuilderDocument,
   type ClockPort,
@@ -9,6 +12,7 @@ import {
   type EventBus,
   type KernelState,
   type NodeId,
+  type PartFocus,
   type Patch,
   type RegistryRead,
   type Transaction,
@@ -158,7 +162,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     log.append(tx);
     history.record(tx);
     deps.store.write(
-      { ...state, doc: nextDoc, ...pruneSelection(state, nextDoc) },
+      { ...state, doc: nextDoc, ...pruneSelection(state, nextDoc, deps.registry) },
       changedNodeIds(tx.patches),
     );
     deps.events.emit('tx.applied', { tx });
@@ -179,7 +183,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     // semantics; undo/redo never creates a new transaction (Law S).
     const nextDoc = applyPatchSet(state.doc, patchesOf(tx));
     deps.store.write(
-      { ...state, doc: nextDoc, ...pruneSelection(state, nextDoc) },
+      { ...state, doc: nextDoc, ...pruneSelection(state, nextDoc, deps.registry) },
       changedNodeIds(patchesOf(tx)),
     );
     deps.events.emit(event, { tx });
@@ -296,17 +300,46 @@ export function assertJsonPatches(
  * — and is returned by reference, for the same subscribers.
  */
 function pruneSelection(
-  state: Pick<KernelState, 'selection' | 'elementFocus'>,
+  state: Pick<KernelState, 'selection' | 'elementFocus' | 'partFocus'>,
   doc: BuilderDocument,
-): Pick<KernelState, 'selection' | 'elementFocus'> {
+  registry: RegistryRead,
+): Pick<KernelState, 'selection' | 'elementFocus'> & { partFocus: PartFocus | null } {
   const { selection, elementFocus } = state;
   const live =
     selection.length === 0 ? selection : selection.filter((id) => doc.nodes[id] !== undefined);
   const nextSelection = live.length === selection.length ? selection : live;
   const nextFocus =
     elementFocus !== null && nextSelection[0] === elementFocus.id ? elementFocus : null;
-  return { selection: nextSelection, elementFocus: nextFocus };
+  // ── block-parts (2026-10-06) ──
+  const partFocus = prunePartFocus(state.partFocus ?? null, nextSelection, doc, registry);
+  return { selection: nextSelection, elementFocus: nextFocus, partFocus };
+  // ── /block-parts ──
 }
+
+// ── block-parts (2026-10-06) ──
+/**
+ * Part focus rides on the selection rule too (block-parts DESIGN §2.5): it
+ * survives only while its node is `selection[0]` and the part instance still
+ * exists in the node's (default-filled) props, so removing the focused item
+ * or clearing the optional prop drops it. Returned BY REFERENCE when kept.
+ * Shared by the page and the site dispatcher.
+ */
+export function prunePartFocus(
+  partFocus: PartFocus | null,
+  selection: readonly string[],
+  doc: BuilderDocument,
+  registry: Pick<RegistryRead, 'block'>,
+): PartFocus | null {
+  if (partFocus === null) return null;
+  if (selection[0] !== partFocus.id) return null;
+  const node = doc.nodes[partFocus.id];
+  if (node === undefined) return null;
+  const schema = registry.block(node.type)?.schema;
+  if (schema?.parts === undefined) return null;
+  const props = withBlockPropDefaults(node.props, blockPropDefaults(schema.props));
+  return hasPartInstance(schema.parts, props, partFocus) ? partFocus : null;
+}
+// ── /block-parts ──
 
 /** Node-scoped notification targets: every patch under nodes/<id> names its node. */
 export function changedNodeIds(patches: readonly Patch[]): Set<NodeId> {

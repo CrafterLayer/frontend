@@ -41,6 +41,7 @@ export type ComposerView = Pick<
   | 'mention'
   | 'mode'
   | 'model'
+  | 'effort'
   | 'send'
   | 'run'
   | 'queue'
@@ -60,6 +61,7 @@ export type ComposerActions = Pick<
   | 'addMention'
   | 'setMode'
   | 'setModel'
+  | 'setEffort'
   | 'enhanceDraft'
   | 'restoreDraft'
   | 'answerClarify'
@@ -135,7 +137,20 @@ function lastRemovableChip(chips: readonly ContextChipView[]): ContextChipView |
  * and its words shimmer in the reading direction (still Slate under reduced motion).
  */
 export function Composer({ view, actions, awaitingPlan = false, inputRef, className }: ComposerProps) {
-  const { locale, draft, chips, mention, mode, model, send, run, queue, enhancement, clarify } =
+  const {
+    locale,
+    draft,
+    chips,
+    mention,
+    mode,
+    model,
+    effort,
+    send,
+    run,
+    queue,
+    enhancement,
+    clarify,
+  } =
     view;
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
   const listboxId = useId();
@@ -484,11 +499,13 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
             locale={locale}
             mode={mode}
             model={model}
+            effort={effort}
             send={send}
             enhancement={enhancement}
             running={run !== null}
             onModeChange={actions.setMode}
             onModelChange={actions.setModel}
+            onEffortChange={actions.setEffort}
             onMention={startMention}
             onEnhance={actions.enhanceDraft}
             onSend={() => {

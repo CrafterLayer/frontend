@@ -1,0 +1,39 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as RichTextFieldSkeletonStories from './RichTextFieldSkeleton.stories';
+
+<Meta of={RichTextFieldSkeletonStories} />
+
+# RichTextFieldSkeleton
+
+What a rich-text Inspector row shows while its editor is not mounted.
+
+<Canvas of={RichTextFieldSkeletonStories.Loading} />
+
+## Why it exists
+
+The rich-text editor is a lazily loaded contribution (the `@craftkit/builder-richtext` extension).
+Before this component, the row's interim and failure states fell back to a read-only input holding
+`JSON.stringify` of the stored document, which is how a person saw `{"type":"doc","content":[…` in a
+one-line box (owner screenshot, 2026-10-06). It was reproduced in a DOM test: the row showed that
+JSON for the whole time the editor module was loading.
+
+## States
+
+- **loading**: a disabled frame with the document's words (`richTextPlainText`), a pulsing toolbar
+  strip, and a status line. The frame has the editor's shape, so the row does not jump when the
+  editor arrives.
+- **failed**: the same frame, the error sentence as an alert, and a **Retry** button. A failed load
+  is no longer cached forever, so Retry really loads the module again.
+
+<Canvas of={RichTextFieldSkeletonStories.Failed} />
+
+## Arabic
+
+The copy follows the `FieldServicesProvider` locale, and the text surface is `dir="auto"`.
+
+<Canvas of={RichTextFieldSkeletonStories.Arabic} />
+
+## When not to use
+
+It never edits anything. It is only the stand-in for the contributed rich-text field.

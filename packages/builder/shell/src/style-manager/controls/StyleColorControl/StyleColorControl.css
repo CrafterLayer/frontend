@@ -142,3 +142,79 @@
 .bldr-style-color__fix:focus-visible {
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
 }
+
+/* The inline picker (inside the side panel's colour popover). */
+.bldr-style-color__inline-picker {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  padding-block-start: var(--bldr-space-md);
+}
+
+.bldr-style-color__inline-picker .react-colorful {
+  block-size: calc(var(--bldr-control-lg) * 4);
+  inline-size: 100%;
+}
+
+/*
+  Inline mode draws design-system token CHIPS — a swatch and the token's name
+  — two to a row, so "Accent" is read, not guessed from a dot.
+*/
+.bldr-style-color[data-picker='inline'] .bldr-style-color__swatches {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bldr-style-color[data-picker='inline'] .bldr-style-color__swatch {
+  align-items: center;
+  background: var(--bldr-surface-sunken);
+  min-block-size: var(--bldr-control-sm);
+  border-color: var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  display: flex;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-sm);
+  inline-size: auto;
+  min-inline-size: 0;
+  padding-inline: var(--bldr-space-xs) var(--bldr-space-sm);
+  text-align: start;
+}
+
+.bldr-style-color[data-picker='inline'] .bldr-style-color__swatch:hover:not(:disabled) {
+  background: var(--bldr-surface-hover);
+}
+
+.bldr-style-color[data-picker='inline'] .bldr-style-color__swatch[aria-checked='true'] {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent);
+  box-shadow: none;
+}
+
+.bldr-style-color__chip-swatch {
+  block-size: var(--bldr-space-3xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-xs);
+  flex: none;
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-style-color__swatch[data-kind='token'] .bldr-style-color__chip-swatch {
+  border-radius: var(--bldr-radius-full);
+}
+
+.bldr-style-color__chip-name {
+  /* A long role name ("Inverse surface", "الخلفية المعكوسة") takes a second
+     line; an ellipsis cut it to "…erse surface" in Arabic (fix pass 2026-10-06). */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  line-height: var(--bldr-line-height-tight);
+  min-inline-size: 0;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  padding-block: var(--bldr-space-2xs);
+}

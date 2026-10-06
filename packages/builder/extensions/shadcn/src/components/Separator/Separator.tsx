@@ -1,9 +1,9 @@
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
-import type { SeparatorProps } from './schema';
+import { separatorSchema, type SeparatorProps } from './schema';
 
 const TONE_CLASSES: Record<SeparatorProps['tone'], string> = {
   subtle: 'border-text/15',
@@ -67,7 +67,14 @@ function lineClasses(props: SeparatorProps, labelled: boolean): string {
 }
 
 /** A semantic divider whose orientation, weight, rhythm, and label stay token-bound. */
-export function Separator({ props }: BlockRenderProps<SeparatorProps>) {
+export function Separator({ node, props, isCanvas }: BlockRenderProps<SeparatorProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, separatorSchema.parts);
+  /*
+    The separator is named by its VISIBLE label, never a copy of its text:
+    inline editing swaps the label for an editor element, and an element in
+    `aria-label` stringifies to "[object Object]".
+  */
+  const labelId = `${node.id}-separator-label`;
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const spacingClass =
     props.orientation === 'horizontal'
@@ -98,16 +105,19 @@ export function Separator({ props }: BlockRenderProps<SeparatorProps>) {
       className={className}
       role="separator"
       aria-orientation={props.orientation}
-      aria-label={props.label}
+      aria-labelledby={labelId}
       {...motionData}
     >
       <span aria-hidden="true" className={lineClasses(props, true)} />
       <span
-        className={clsx(
-          'shrink-0 text-xs leading-tight font-medium whitespace-nowrap',
-          props.orientation === 'vertical' ? '-rotate-90' : undefined,
-          LABEL_CLASSES[props.tone],
-        )}
+        {...part('label', {
+          id: labelId,
+          className: clsx(
+            'shrink-0 text-xs leading-tight font-medium whitespace-nowrap',
+            props.orientation === 'vertical' ? '-rotate-90' : undefined,
+            LABEL_CLASSES[props.tone],
+          ),
+        })}
       >
         {props.label}
       </span>

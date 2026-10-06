@@ -1,12 +1,26 @@
 import {
   formatCustomCodePath,
   parseCustomCodePath,
+  PART_OWNER_ATTRIBUTE,
   type CustomCodePath,
   type NodeId,
+  type PartRef,
   type SlotName,
 } from '@craftkit/builder-schema';
 
 import { systemGeometryPorts, type GeometryPorts } from './geometry-ports';
+
+/**
+ * A registered block's part under the pointer (block-parts DESIGN §2.6): its
+ * declared name, its array indices, and the bound prop path the renderer
+ * stamped (`data-ck-bind`), when it stamped one.
+ */
+export interface CanvasPartHit extends PartRef {
+  readonly bind?: string;
+}
+
+// ── block-parts (2026-10-06) ── PART_OWNER_ATTRIBUTE: a part a parent draws for a child (Tabs' triggers)
+// ── /block-parts ──
 
 /**
  * What the pointer is over: always a document node, and — inside a composed
@@ -17,6 +31,13 @@ import { systemGeometryPorts, type GeometryPorts } from './geometry-ports';
 export interface CanvasHit {
   readonly nodeId: NodeId;
   readonly elementPath?: CustomCodePath;
+  /**
+   * The part of a registered block under the point — only when the part's
+   * nearest node wrapper IS this node, so a part inside a nested child block
+   * belongs to that child. Never set together with `elementPath`: inside a
+   * composed region the authored element address keeps precedence.
+   */
+  readonly part?: CanvasPartHit;
 }
 
 export interface NodeRect {
@@ -72,6 +93,15 @@ export interface RectIndex {
    * rendered on this canvas). Optional, as `hitAt`.
    */
   elementRect?(id: NodeId, path: CustomCodePath): NodeRect | undefined;
+  /**
+   * Geometry of one part instance of an attached node (block-parts §2.6).
+   * Lazy and version-cached like `elementRect`; `undefined` when the node is
+   * not attached or the instance is not stamped inside it (a canvas-only
+   * marker, so a published render never has one). Optional, as `hitAt`.
+   */
+  partRect?(id: NodeId, ref: PartRef): NodeRect | undefined;
+  /** The stamped element of one part instance, owned by this node. Optional, as `hitAt`. */
+  partElement?(id: NodeId, ref: PartRef): HTMLElement | undefined;
   has(id: NodeId): boolean;
   /**
    * The attached element, for chrome that must mark a node's STATE on the node
@@ -91,6 +121,69 @@ export interface RectIndex {
   /** Test instrumentation (Lane-A observer-attribution proofs). */
   stats(): { measures: number; invalidations: number };
   dispose(): void;
+}
+
+/** `data-ck-part-index` → indices; absent/empty is `[]`, anything malformed is refused. */
+function parseStampedIndex(text: string | null): readonly number[] | undefined {
+  if (text === null || text === '') return [];
+  if (!/^\d+(?:\.\d+)*$/u.test(text)) return undefined;
+  return text.split('.').map(Number);
+}
+
+/** A part name as declared: ASCII words joined by dots (the schema's PART_NAME_PATTERN). */
+const STAMPED_PART_NAME = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)*$/u;
+
+/** The part a hit element belongs to, read from its nearest stamped ancestor within `wrapper`. */
+function partHitOf(hit: Element, wrapper: Element): CanvasPartHit | undefined {
+  const stamped = hit.closest('[data-ck-part]');
+  // A part found above the wrapper, or inside a NESTED node, is not this node's.
+  if (stamped?.closest('[data-bldr-node]') !== wrapper) return undefined;
+  const part = stamped.getAttribute('data-ck-part') ?? '';
+  const index = parseStampedIndex(stamped.getAttribute('data-ck-part-index'));
+  if (!STAMPED_PART_NAME.test(part) || index === undefined) return undefined;
+  const bind = stamped.getAttribute('data-ck-bind');
+  return bind === null || bind === '' ? { part, index } : { part, index, bind };
+}
+
+// ── block-parts (2026-10-06) ──
+/** The child node a forwarded part belongs to (`data-ck-part-owner`), when the stamp names one. */
+function partOwnerOf(hit: Element, wrapper: Element): string | undefined {
+  const stamped = hit.closest('[data-ck-part]');
+  if (stamped?.closest('[data-bldr-node]') !== wrapper) return undefined;
+  const owner = stamped.getAttribute(PART_OWNER_ATTRIBUTE);
+  return owner === null || owner === '' ? undefined : owner;
+}
+
+/** A part forwarded to node `id` by its parent, anywhere in the frame document. */
+function forwardedPartElement(frameDocument: Document, id: NodeId, ref: PartRef): HTMLElement | undefined {
+  if (!STAMPED_PART_NAME.test(ref.part)) return undefined;
+  const wanted = ref.index.join('.');
+  for (const candidate of frameDocument.querySelectorAll<HTMLElement>(`[${PART_OWNER_ATTRIBUTE}]`)) {
+    if (candidate.getAttribute(PART_OWNER_ATTRIBUTE) !== id) continue;
+    if (candidate.getAttribute('data-ck-part') !== ref.part) continue;
+    if ((candidate.getAttribute('data-ck-part-index') ?? '') !== wanted) continue;
+    return candidate;
+  }
+  return undefined;
+}
+// ── /block-parts ──
+
+/** The stamped element of one part instance inside `owner`, never one owned by a nested node. */
+function partElementIn(owner: HTMLElement, id: NodeId, ref: PartRef): HTMLElement | undefined {
+  if (!STAMPED_PART_NAME.test(ref.part)) return undefined;
+  const wanted = ref.index.join('.');
+  for (const candidate of owner.querySelectorAll<HTMLElement>(`[data-ck-part="${ref.part}"]`)) {
+    if ((candidate.getAttribute('data-ck-part-index') ?? '') !== wanted) continue;
+    // ── block-parts (2026-10-06) ── a part drawn here FOR a child is the child's
+    const forwardedTo = candidate.getAttribute(PART_OWNER_ATTRIBUTE);
+    if (forwardedTo !== null && forwardedTo !== '' && forwardedTo !== id) continue;
+    // ── /block-parts ──
+    // The nearest node of the part must be the owner itself.
+    if (candidate.closest('[data-bldr-node]')?.getAttribute('data-bldr-node') === id) {
+      return candidate;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -332,7 +425,15 @@ export function createRectIndex(options: {
       // as an address within this one.
       const addressed = hit?.closest('[data-ck-path]');
       if (addressed === null || addressed === undefined || !wrapper.contains(addressed)) {
-        return { nodeId };
+        // ── block-parts (2026-10-06) ──
+        // No authored element here: a registered block's part, when the
+        // renderer stamped one under the point and it belongs to THIS node.
+        const part = hit === null ? undefined : partHitOf(hit, wrapper);
+        // A part the parent draws for a child (a tab trigger) is the child's.
+        const owner = hit === null || part === undefined ? undefined : partOwnerOf(hit, wrapper);
+        if (part !== undefined && owner !== undefined) return { nodeId: owner, part };
+        return part === undefined ? { nodeId } : { nodeId, part };
+        // ── /block-parts ──
       }
       const elementPath = parseCustomCodePath(addressed.getAttribute('data-ck-path') ?? '');
       return elementPath === undefined ? { nodeId } : { nodeId, elementPath };
@@ -361,6 +462,36 @@ export function createRectIndex(options: {
       elementRects.set(key, record);
       return record;
     },
+    // ── block-parts (2026-10-06) ──
+    partRect(id, ref) {
+      const owner = elements.get(id);
+      // Same namespace as element rects, under a prefix no element path can
+      // spell (paths are digits and dots; part keys start with `part:`).
+      const key = `${id}\npart:${ref.part}@${ref.index.join('.')}`;
+      const cached = elementRects.get(key);
+      if (cached?.version === version) {
+        return cached;
+      }
+      const element =
+        (owner === undefined ? undefined : partElementIn(owner, id, ref)) ??
+        forwardedPartElement(frameDocument, id, ref);
+      if (element === undefined) {
+        elementRects.delete(key);
+        return undefined;
+      }
+      measures += 1;
+      const record: NodeRect = { nodeId: id, ...ports.measure(element), version };
+      elementRects.set(key, record);
+      return record;
+    },
+    partElement(id, ref) {
+      const owner = elements.get(id);
+      return (
+        (owner === undefined ? undefined : partElementIn(owner, id, ref)) ??
+        forwardedPartElement(frameDocument, id, ref)
+      );
+    },
+    // ── /block-parts ──
     has: (id) => elements.has(id),
     element: (id) => elements.get(id),
     version: () => version,

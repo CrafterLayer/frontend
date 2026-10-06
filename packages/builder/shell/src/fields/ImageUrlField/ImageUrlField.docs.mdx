@@ -1,0 +1,33 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ImageUrlFieldStories from './ImageUrlField.stories';
+
+<Meta of={ImageUrlFieldStories} />
+
+# ImageUrlField
+
+An image address with its thumbnail and the site's picture library beside it.
+
+<Canvas of={ImageUrlFieldStories.WithLibrary} />
+
+## When it is chosen
+
+By declaration, never by a property name: a block's **image part** binds `{ src: 'imageSrc' }` (also
+inside repeater items, for example `posts.*.imageSrc`), or the property is declared `kind: 'image'`.
+
+## Behaviour
+
+- **Library.** When the host provides an `assetLibrary` (`FieldServicesProvider`), "Choose from
+  library" opens the shared `AssetPicker`. A pick writes the picture's address once.
+- **URL entry.** Without a library, or for an outside picture, the person types the address. It is
+  checked (`isAcceptableImageSrc`: http(s), a relative path, or an inline `data:image/` picture) and
+  committed once on blur or Enter. A refused address shows a sentence and writes nothing.
+- **Bidi.** The address is always `dir="ltr"`.
+
+<Canvas of={ImageUrlFieldStories.UrlEntryOnly} />
+
+<Canvas of={ImageUrlFieldStories.Arabic} />
+
+## Related
+
+`AssetField` edits the other image shape, `imagePropSchema` (`{ assetId }` or a stated absence).

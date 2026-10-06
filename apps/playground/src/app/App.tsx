@@ -10,7 +10,14 @@ import {
   planModelsFromEnv,
   planProviderFromEnv,
 } from '../features/preview/components/AssistantPanel/planProviderFromEnv';
-import { LiveAgentPanel, usePhoneLayout, type ProposalPreview } from '../features/agent';
+import {
+  DEFAULT_EFFORT,
+  LiveAgentPanel,
+  effortLevel,
+  usePhoneLayout,
+  type EffortLevel,
+  type ProposalPreview,
+} from '../features/agent';
 import {
   agentLocaleFromEnv,
   agentPanelFromEnv,
@@ -20,17 +27,34 @@ import {
   planModelChoice,
 } from './agent-host';
 import { RailSectionNotice } from './rail-section-notice';
-import { RAIL_SECTIONS, RAIL_UTILITIES } from './rail-sections';
+import { RAIL_SECTIONS, RAIL_UTILITIES, railItemsIn } from './rail-sections';
 import { SiteDesignHost } from './site-design-host';
 import { DesignRailPanel } from './design-rail-panel';
-import { editorLabels, editorLocaleFromEnv, type EditorLocale } from './editor-labels';
+import {
+  editorLabels,
+  initialEditorLocale,
+  rememberEditorLocale,
+  type EditorLocale,
+} from './editor-labels';
 import { EditorShortcutsHost } from './editor-shortcuts-host';
+import { useOfferedModels } from './use-offered-models';
 import { useCanvasFrameDocument } from './use-canvas-frame-document';
 import { useEditorChrome } from './use-editor-chrome';
 import { useInspectorFocus } from './use-inspector-focus';
+// ── block-parts (2026-10-06) ──
+import { usePartWiring } from './use-part-wiring';
+// ── /block-parts ──
 import { librarySections } from './library-sections';
 import { useRecentChanges } from './use-recent-changes';
-import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
+import { DirectionProvider } from '@radix-ui/react-direction';
 
 import {
   createOfflineSiteStageProvider,
@@ -71,6 +95,7 @@ import {
   type TopBarDevice,
   type BuilderSite,
   type ArtifactFile,
+  type StatusBarLabels,
 } from '@craftkit/builder';
 
 import {
@@ -138,6 +163,16 @@ function deviceForBucket(name: TopBarDevice): DeviceState {
  */
 const envPlanModels = planModelsFromEnv(import.meta.env);
 const PLAN_MODEL_KEY = 'pg-ai-model-v1';
+/* How hard the model may think (the composer's effort menu); `medium` until a person says otherwise. */
+const PLAN_EFFORT_KEY = 'pg-ai-effort-v1';
+function initialPlanEffort(): EffortLevel {
+  try {
+    return effortLevel(localStorage.getItem(PLAN_EFFORT_KEY)) ?? DEFAULT_EFFORT;
+  } catch {
+    // A private window has no memory; the default applies.
+    return DEFAULT_EFFORT;
+  }
+}
 /*
   Which agent panel mounts (VITE_AGENT_PANEL): the v2 panel by default, the v1
   AssistantPanel only as the rollback. Read once: a build ships one panel.
@@ -145,20 +180,18 @@ const PLAN_MODEL_KEY = 'pg-ai-model-v1';
 const AGENT_PANEL = agentPanelFromEnv(import.meta.env);
 /* Arabic first (SPEC §3.15, §4.0); VITE_AGENT_LOCALE=en for an English reviewer. */
 const AGENT_LOCALE = agentLocaleFromEnv(import.meta.env);
-/* The editor chrome's language (style-manager surfaces): VITE_EDITOR_LOCALE, switchable in Settings. */
-const EDITOR_LOCALE = editorLocaleFromEnv(import.meta.env);
 /* Google font previews in the design-system editor: never in tests (no network there). */
 const LOAD_FONT_PREVIEWS = import.meta.env['MODE'] !== 'test';
 /*
   An edit or a new section runs on the fastest model the server allows, at low effort,
   unless VITE_AI_EDIT_MODEL / VITE_AI_EDIT_EFFORT say otherwise; a page build keeps the
   model the person picked. Tiny edits must cost next to nothing (owner, 2026-09-28).
+  The model is worked out inside `App` (`agentEditModel`), from the live offered list.
 */
-const AGENT_EDIT_MODEL = editModelFromEnv(import.meta.env, envPlanModels);
 const AGENT_EDIT_EFFORT = editEffortFromEnv(import.meta.env);
 /** The rail's own agent button: where focus returns when the phone sheet closes. */
-function railAgentButton(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('.bldr-icon-rail button[aria-label="Assistant"]');
+function railAgentButton(name: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`.bldr-icon-rail button[aria-label="${name}"]`);
 }
 const CODE_RUNTIME_ENDPOINT = import.meta.env['VITE_CODE_RUNTIME_ENDPOINT'] as string | undefined;
 const CODE_RUNTIME_TOKEN = import.meta.env['VITE_CODE_RUNTIME_TOKEN'] as string | undefined;
@@ -241,7 +274,11 @@ function ProvenanceStatusBar({
   saveState,
   agentSpeaks,
   agent,
+  labels,
+  phrases,
 }: {
+  labels: StatusBarLabels;
+  phrases: Readonly<Record<string, string>>;
   kernel: BuilderKernel;
   deviceLabel: string;
   saveState: 'saved' | 'saving' | undefined;
@@ -251,7 +288,7 @@ function ProvenanceStatusBar({
 }) {
   const { changes, spokenElsewhere } = useRecentChanges(
     kernel,
-    agentSpeaks ? { exclude: 'assistant' } : {},
+    agentSpeaks ? { exclude: 'assistant', phrases } : { phrases },
   );
   return (
     <StatusBar
@@ -261,6 +298,7 @@ function ProvenanceStatusBar({
       deviceLabel={deviceLabel}
       saveState={saveState}
       agent={agent}
+      labels={labels}
     />
   );
 }
@@ -365,13 +403,34 @@ export function App() {
   const [canvasWidth, setCanvasWidth] = useState(1280);
   const [zoomChoice, setZoomChoice] = useState('fit');
   const [workspaceView, setWorkspaceView] = useState<'canvas' | 'sitemap'>('canvas');
-  const [planModel, setPlanModel] = useState<string | undefined>(initialPlanModel);
+  const [pickedModel, setPickedModel] = useState<string | undefined>(initialPlanModel);
   const selectPlanModel = useCallback((model: string) => {
-    setPlanModel(model);
+    setPickedModel(model);
     try {
       localStorage.setItem(PLAN_MODEL_KEY, model);
     } catch {
       // A private window forgets the choice; the picker still works for the session.
+    }
+  }, []);
+  /*
+    What the picker offers is what the server says it can run NOW: its own models plus every
+    free OpenRouter model listed this minute (use-offered-models.ts), starting from
+    VITE_AI_PLAN_MODELS. A model the person picked that is no longer offered (a free one
+    OpenRouter withdrew) gives way to the fastest offered one without forgetting the pick:
+    it comes back if it is listed again.
+  */
+  const offeredModels = useOfferedModels(import.meta.env, envPlanModels);
+  const planModel = useMemo(
+    () => planModelChoice(pickedModel ?? null, offeredModels),
+    [pickedModel, offeredModels],
+  );
+  const [planEffort, setPlanEffort] = useState<EffortLevel>(initialPlanEffort);
+  const selectPlanEffort = useCallback((level: EffortLevel) => {
+    setPlanEffort(level);
+    try {
+      localStorage.setItem(PLAN_EFFORT_KEY, level);
+    } catch {
+      // A private window forgets the choice; the menu still works for the session.
     }
   }, []);
   /*
@@ -382,8 +441,13 @@ export function App() {
     a different answer to the same page.
   */
   const envPlanProvider = useMemo(
-    () => planProviderFromEnv(import.meta.env, planModel),
-    [planModel],
+    () => planProviderFromEnv(import.meta.env, planModel, planEffort),
+    [planModel, planEffort],
+  );
+  /* The edit model follows the offered list too: a free model that left must not run edits. */
+  const agentEditModel = useMemo(
+    () => editModelFromEnv(import.meta.env, offeredModels),
+    [offeredModels],
   );
   /*
     The scenario harness is a disclosure, not a strip. Eight controls plus the
@@ -411,8 +475,34 @@ export function App() {
   */
   const [customBucket, setCustomBucket] = useState<{ readonly maxWidth: number } | undefined>(undefined);
   const styleBucket: StyleBucket = customBucket ?? device.bucket;
-  const [editorLocale, setEditorLocale] = useState<EditorLocale>(EDITOR_LOCALE);
+  // The chosen language survives a reload (per viewer; the env decides a first visit).
+  const [editorLocale, setEditorLocale] = useState<EditorLocale>(() =>
+    initialEditorLocale(import.meta.env, () => localStorage),
+  );
   const labels = useMemo(() => editorLabels(editorLocale), [editorLocale]);
+  /*
+    The editor's language reaches the whole document (arabic-editor): the html
+    element carries `lang` and `dir`, so the browser's own UI, popovers that
+    portal to <body>, and the scrollbar side follow the chrome. The PAGE keeps
+    its own direction inside the canvas frame.
+  */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.lang = editorLocale;
+    root.dir = labels.dir;
+  }, [editorLocale, labels.dir]);
+  const railDestinations = useMemo(
+    () => railItemsIn(RAIL_DESTINATIONS, labels.chrome.rail),
+    [labels.chrome.rail],
+  );
+  const railUtilities = useMemo(
+    () => railItemsIn(RAIL_UTILITIES, labels.chrome.rail),
+    [labels.chrome.rail],
+  );
+  const returnFocusToRailAgent = useCallback(
+    () => railAgentButton(labels.chrome.rail.assistant),
+    [labels.chrome.rail.assistant],
+  );
   // The editor actions' polite channel: outcomes and refusals of shortcuts, Layers, templates.
   const [chromeMessage, setChromeMessage] = useState({ text: '', nonce: 0 });
   const announceChrome = useCallback((text: string) => {
@@ -477,18 +567,14 @@ export function App() {
       setRailSection('assistant');
       setPanelOpen(true);
       setActiveSide('panel');
-      announceChrome(
-        editorLocale === 'ar'
-          ? `اطلب من المساعد تعديل ${resolved?.displayName ?? 'هذا العنصر'}.`
-          : `Ask the assistant to change ${resolved?.displayName ?? 'this element'}.`,
-      );
+      announceChrome(labels.chrome.askAssistant(resolved?.displayName));
       requestAnimationFrame(() => {
         document
           .querySelector<HTMLElement>('.pg-agent-host textarea, .pg-legacy-agent-host textarea')
           ?.focus();
       });
     },
-    [kernel, labels.elementWords, announceChrome, editorLocale],
+    [kernel, labels.elementWords, labels.chrome, announceChrome],
   );
   const openAside = useCallback(() => {
     setAsideOpen(true);
@@ -496,6 +582,15 @@ export function App() {
   }, []);
   // The quick bar's More / Animate open the Inspector at that place, not just the aside.
   const inspectorFocus = useInspectorFocus(openAside);
+  // ── block-parts (2026-10-06) ── the canvas's part gestures: image, style, Edit with AI
+  const partWiring = usePartWiring({
+    kernel,
+    locale: editorLocale,
+    openAside,
+    openStyleSector: inspectorFocus.openStyleSector,
+    editWithAi,
+  });
+  // ── /block-parts ──
   const openAssets = useCallback(() => {
     setRailSection('assets');
     setPanelOpen(true);
@@ -736,7 +831,7 @@ export function App() {
   // Named once: the status bar is rendered by two branches now (with a live
   // provenance strip, and without one while the document is opening), and the
   // device is the same fact in both.
-  const deviceLabel = `${labels.chrome.device[device.bucket]} · ${String(device.width)} px`;
+  const deviceLabel = labels.chrome.deviceLine(labels.chrome.device[device.bucket], device.width);
   // The Library's thumbnails: the page theme's tokens and a readable base font, and the kits as Sections.
   const libraryPreviewCss = useMemo(
     () =>
@@ -780,7 +875,7 @@ export function App() {
             setPreviewFlipped(false);
             requestAnimationFrame(() => {
               setModeMessage((current) => ({
-                text: 'Preview closed — back to editing.',
+                text: labels.chrome.previewClosed,
                 nonce: current.nonce + 1,
               }));
             });
@@ -793,7 +888,7 @@ export function App() {
             setPreviewFlipped((flipped) => !flipped);
           }}
         >
-          Flip direction (preview)
+          {labels.chrome.flipPreview}
         </button>
       </div>
       </SiteDesignHost>
@@ -805,7 +900,13 @@ export function App() {
     // into an actual theme, and it is the element a host re-points a token on.
     // The site design library (palette, named styles, symbols) around every page render.
     <SiteDesignHost siteKernel={siteKernel}>
-    <BuilderTheme className="pg-app" theme={chromeThemeFor(chromeChoice)} dir={labels.dir}>
+    {/* Radix menus, tabs and popovers read the chrome's direction from here. */}
+    <DirectionProvider dir={labels.dir}>
+    <BuilderTheme
+      className="pg-app"
+      theme={chromeThemeFor(chromeChoice)}
+      dir={labels.dir}
+    >
       {/*
         The designed bar replaces what was a debug harness: a fieldset of radio
         buttons, a bare select, a checkbox and six unstyled buttons in a row.
@@ -974,19 +1075,19 @@ export function App() {
       )}
       {session !== undefined && session.restored && noticeDismissedFor !== fixture ? (
         <div className="pg-restored" role="status">
-          <p>Picked up where you left off — this page came back from your last session.</p>
+          <p>{labels.chrome.restored}</p>
           <ChromeButton
             size="sm"
             onClick={() => {
               session.startOver();
             }}
           >
-            Start over
+            {labels.chrome.startOver}
           </ChromeButton>
           <ChromeButton
             variant="icon"
             size="sm"
-            aria-label="Dismiss restored notice"
+            aria-label={labels.chrome.dismissRestored}
             onClick={() => {
               setNoticeDismissedFor(fixture);
             }}
@@ -1004,7 +1105,7 @@ export function App() {
           Now an absent region is simply an omitted prop.
         */}
         <BuilderShell
-          label="Playground editor"
+          label={labels.chrome.editor}
           adaptive
           panelOpen={panelOpen && !agentAsSheet}
           /*
@@ -1030,8 +1131,9 @@ export function App() {
           onLayoutChange={setVisiblePanes}
           rail={
             <IconRail
-              items={RAIL_DESTINATIONS}
-              secondary={RAIL_UTILITIES}
+              items={railDestinations}
+              secondary={railUtilities}
+              label={labels.chrome.railLabel}
               activeId={railSection}
               onSelect={(id) => {
                 /*
@@ -1103,10 +1205,17 @@ export function App() {
                         locale={AGENT_LOCALE}
                         provider={envPlanProvider}
                         providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
-                        models={envPlanModels}
+                        models={offeredModels}
                         model={planModel}
                         onSelectModel={selectPlanModel}
-                        editModel={AGENT_EDIT_MODEL}
+                        /*
+                          The effort menu is for a server that takes a budget: with the
+                          offline provider there is none to set, so no menu is drawn.
+                        */
+                        {...(envPlanProvider === undefined
+                          ? {}
+                          : { effort: planEffort, onSelectEffort: selectPlanEffort })}
+                        editModel={agentEditModel}
                         editEffort={AGENT_EDIT_EFFORT}
                         addPage={openAgentPage}
                         /*
@@ -1139,7 +1248,7 @@ export function App() {
                         onClose={() => {
                           setPanelOpen(false);
                         }}
-                        returnFocus={railAgentButton}
+                        returnFocus={returnFocusToRailAgent}
                         pillContainer={agentPillHost}
                         onOpen={() => {
                           setRailSection('assistant');
@@ -1171,7 +1280,7 @@ export function App() {
                     visible={railSection === 'assistant'}
                     kernel={session.kernel}
                     planProvider={envPlanProvider}
-                    models={envPlanModels}
+                    models={offeredModels}
                     model={planModel}
                     onSelectModel={selectPlanModel}
                     /*
@@ -1215,7 +1324,7 @@ export function App() {
                     not been told the name of.
                   */
                   <div className="pg-structure">
-                    <SitePages siteKernel={session.siteKernel} />
+                    <SitePages siteKernel={session.siteKernel} labels={labels.sitePages} />
                     <LayersTree
                       kernel={session.kernel}
                       selection={chrome.selection}
@@ -1252,11 +1361,13 @@ export function App() {
                     <ChromePicker value={chromeChoice} onChange={setChromeChoice} />
                     <ThemePicker value={themeName} onChange={setThemeName} />
                     <label className="pg-width">
-                      <span>Editor language</span>
+                      <span>{labels.chrome.editorLanguage}</span>
                       <select
                         value={editorLocale}
                         onChange={(event) => {
-                          setEditorLocale(event.currentTarget.value === 'ar' ? 'ar' : 'en');
+                          const next = event.currentTarget.value === 'ar' ? 'ar' : 'en';
+                          setEditorLocale(next);
+                          rememberEditorLocale(next, () => localStorage);
                         }}
                       >
                         <option value="en">English</option>
@@ -1317,7 +1428,7 @@ export function App() {
                     loadFontPreviews={LOAD_FONT_PREVIEWS}
                   />
                 ) : railSection === 'help' ? (
-                  <RailSectionNotice section={railSection} />
+                  <RailSectionNotice section={railSection} locale={editorLocale} />
                 ) : railSection === 'site' ? (
                   <div className="pg-panel-scroll">
                     <SiteBuilderPanel
@@ -1481,6 +1592,11 @@ export function App() {
                   activeSector={inspectorFocus.styleContext.sector}
                   styleState={inspectorFocus.styleContext.state}
                   onEditWithAi={editWithAi}
+                  // ── block-parts (2026-10-06) ──
+                  onReplacePartImage={partWiring.onReplacePartImage}
+                  onOpenPartStyle={partWiring.onOpenPartStyle}
+                  onEditWithAiPart={partWiring.onEditWithAiPart}
+                  // ── /block-parts ──
                   onSaveTemplate={chrome.saveTargetAsTemplate}
                   onReplaceMedia={openAssets}
                   onShortcut={chrome.onFrameShortcut}
@@ -1489,8 +1605,10 @@ export function App() {
                   namedStyleClasses={namedStyleClasses}
                   quickBarLabels={labels.quickBar}
                   treeTextLabels={labels.treeText}
+                  richTextLabels={labels.richText}
                   elementNameWords={labels.elementWords}
                   editorDir={labels.dir}
+                  canvasLabels={labels.canvas}
                   symbolTree={symbolTree}
                 />
               </AssetTableProvider>
@@ -1499,13 +1617,15 @@ export function App() {
           status={
             <div className="pg-canvas-status">
               {session === undefined ? (
-                <StatusBar changes={[]} deviceLabel={deviceLabel} />
+                <StatusBar changes={[]} deviceLabel={deviceLabel} labels={labels.statusBar} />
               ) : (
                 <ProvenanceStatusBar
                   kernel={session.kernel}
                   deviceLabel={deviceLabel}
                   saveState={session.save.shared ? undefined : quietSaveState(session.save)}
                   agentSpeaks={AGENT_PANEL === 'v2'}
+                  labels={labels.statusBar}
+                  phrases={labels.chrome.changes}
                   agent={
                     AGENT_PANEL === 'v2' ? (
                       <span ref={setAgentPillHost} className="pg-agent-pill-host" />
@@ -1625,12 +1745,16 @@ export function App() {
                 focusRequest={inspectorFocus.request}
                 onFocusRequestHandled={inspectorFocus.onRequestHandled}
                 onStyleContextChange={inspectorFocus.onStyleContextChange}
+                // ── block-parts (2026-10-06) ── image and asset fields pick from the catalogue
+                assetLibrary={assetLibrary}
+                // ── /block-parts ──
               />
             )
           }
         />
       </div>
     </BuilderTheme>
+    </DirectionProvider>
     </SiteDesignHost>
   );
 }

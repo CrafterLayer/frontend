@@ -58,3 +58,44 @@ export const Stacked: Story = {
     isCanvas: false,
   },
 };
+
+/* Block parts (DESIGN §4.4): each inner element is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node,
+    props: {
+      ...contentSectionSchema.props.parse({
+        eyebrow: 'Story',
+        heading: 'A clearer way forward.',
+        body: 'Tell the story behind the work.',
+        highlights: [
+          { title: 'Faster', body: 'Pages ship in days.' },
+          { title: 'Safer', body: 'Every edit is undoable.' },
+        ],
+        imageSrc: '/images/story.jpg',
+        imageAlt: 'The team at work',
+        caption: 'Our studio.',
+        link: { label: 'Read the story', href: '/story' },
+      }),
+      partStyles: {
+        'highlight.title': { className: 'text-accent' },
+        'highlight.title@0': { className: 'underline' },
+      },
+    },
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const styled = canvasElement.querySelectorAll('[data-ck-part="highlight.title"]');
+    await expect(styled.length).toBeGreaterThan(1);
+    await expect(styled[0]).toHaveAttribute('data-ck-bind', 'highlights.0.title');
+    await expect(styled[0]).toHaveClass('underline');
+    await expect(styled[1]).toHaveClass('text-accent');
+    await expect(styled[1]).not.toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="highlights"]')).toHaveAttribute(
+      'data-ck-bind',
+      'highlights',
+    );
+  },
+};

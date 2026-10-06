@@ -75,6 +75,7 @@ export function createPageView(pageId: PageId, deps: PageViewDeps): BuilderKerne
       doc: documentOf(),
       selection: mine ? state.selection : [],
       elementFocus: mine ? state.elementFocus : null,
+      partFocus: mine ? (state.partFocus ?? null) : null, // block-parts (2026-10-06)
       seq: state.seq,
     };
   };
@@ -155,17 +156,35 @@ export function createPageView(pageId: PageId, deps: PageViewDeps): BuilderKerne
         seat of UI state, and every surface reading `state.selection` would
         have to ask which page it belonged to.
       */
-      setPageState({ pageId, selection: [...ids], elementFocus: null });
+      setPageState({ pageId, selection: [...ids], elementFocus: null, partFocus: null });
     },
     clearSelection: () => {
-      setPageState({ pageId, selection: [], elementFocus: null });
+      setPageState({ pageId, selection: [], elementFocus: null, partFocus: null });
     },
     focusElement: (id, path) => {
-      setPageState({ pageId, selection: [id], elementFocus: { id, path: [...path] } });
+      setPageState({
+        pageId,
+        selection: [id],
+        elementFocus: { id, path: [...path] },
+        partFocus: null,
+      });
     },
     clearElementFocus: () => {
       setPageState({ elementFocus: null });
     },
+    // ── block-parts (2026-10-06) ──
+    focusPart: (id, ref) => {
+      setPageState({
+        pageId,
+        selection: [id],
+        elementFocus: null,
+        partFocus: { id, part: ref.part, index: [...ref.index] },
+      });
+    },
+    clearPartFocus: () => {
+      setPageState({ partFocus: null });
+    },
+    // ── /block-parts ──
     transactions: () => deps.dispatcher.log.all(),
     // P11-integration: the site's one undo stack, read-only, for the History list (style-manager §E).
     history: () => createKernelHistoryView(deps.dispatcher),

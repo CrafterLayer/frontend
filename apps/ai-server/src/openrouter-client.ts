@@ -611,6 +611,33 @@ function perMillion(key: string, value: unknown): Record<string, number> {
   return Number.isFinite(rate) ? { [key]: Math.round(rate * 1e6 * 100) / 100 } : {};
 }
 
+/** One entry of OpenRouter's `/models` listing, read as the facts this server acts on. */
+export function openRouterFactsOf(entry: Record<string, unknown>): OpenRouterModelFacts {
+  const parameters: unknown[] = Array.isArray(entry['supported_parameters'])
+    ? entry['supported_parameters']
+    : [];
+  const top = isRecord(entry['top_provider']) ? entry['top_provider'] : {};
+  const pricing = isRecord(entry['pricing']) ? entry['pricing'] : {};
+  const architecture = isRecord(entry['architecture']) ? entry['architecture'] : {};
+  const inputModalities: unknown[] = Array.isArray(architecture['input_modalities'])
+    ? architecture['input_modalities']
+    : [];
+  const maxOut = top['max_completion_tokens'];
+  return {
+    listed: true,
+    structuredOutputs: parameters.includes('structured_outputs'),
+    supportedParameters: parameters.filter(
+      (parameter): parameter is string => typeof parameter === 'string',
+    ),
+    inputModalities: inputModalities.filter(
+      (modality): modality is string => typeof modality === 'string',
+    ),
+    maxOutputTokens: typeof maxOut === 'number' && maxOut > 0 ? maxOut : undefined,
+    ...perMillion('promptPerMillion', pricing['prompt']),
+    ...perMillion('completionPerMillion', pricing['completion']),
+  };
+}
+
 /**
  * What OpenRouter lists today, for the slugs this server is configured with.
  *
@@ -656,29 +683,7 @@ export async function probeOpenRouterModels(
       });
       continue;
     }
-    const parameters: unknown[] = Array.isArray(entry['supported_parameters'])
-      ? entry['supported_parameters']
-      : [];
-    const top = isRecord(entry['top_provider']) ? entry['top_provider'] : {};
-    const pricing = isRecord(entry['pricing']) ? entry['pricing'] : {};
-    const architecture = isRecord(entry['architecture']) ? entry['architecture'] : {};
-    const inputModalities: unknown[] = Array.isArray(architecture['input_modalities'])
-      ? architecture['input_modalities']
-      : [];
-    const maxOut = top['max_completion_tokens'];
-    facts.set(slug, {
-      listed: true,
-      structuredOutputs: parameters.includes('structured_outputs'),
-      supportedParameters: parameters.filter(
-        (parameter): parameter is string => typeof parameter === 'string',
-      ),
-      inputModalities: inputModalities.filter(
-        (modality): modality is string => typeof modality === 'string',
-      ),
-      maxOutputTokens: typeof maxOut === 'number' && maxOut > 0 ? maxOut : undefined,
-      ...perMillion('promptPerMillion', pricing['prompt']),
-      ...perMillion('completionPerMillion', pricing['completion']),
-    });
+    facts.set(slug, openRouterFactsOf(entry));
   }
   return facts;
 }

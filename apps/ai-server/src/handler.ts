@@ -12,6 +12,7 @@ import {
 } from './claude';
 import type { CodeRuntimeService } from './code-runtime-service';
 import { ENHANCE_PATH, ENHANCE_TIMEOUT_MS, enhancePrompt, readEnhanceRequest } from './enhance';
+import type { FreeModelCatalog } from './free-models';
 import { fastestModel } from './model-policy';
 import {
   isAuthoredRunRequest,
@@ -33,6 +34,12 @@ export interface HandlerOptions {
   readonly model?: string;
   /** The OTHER models a request may name through `x-craftkit-ai-model`. Unset ⇒ only the default. */
   readonly models?: readonly string[];
+  /**
+   * The free OpenRouter models listed right now. A request may name any of them
+   * (the allowlist above is no longer the only door), and `GET /v1/models`
+   * offers them to the picker. Omitted ⇒ only the configured models.
+   */
+  readonly freeModels?: FreeModelCatalog;
   readonly maxTokens?: number;
   /** Bearer token required on every request. Omitted ⇒ no auth (local only). */
   readonly authToken?: string;
@@ -171,11 +178,11 @@ export const MODEL_HEADER = 'x-craftkit-ai-model';
  * `RunAiAgentOptions.editModel`), while page builds keep the picker's. The
  * call's own wins, under the same allowlist.
  */
-function resolveModel(
+async function resolveModel(
   request: Request,
   wire: AiPlanWireRequest,
   options: HandlerOptions,
-): { readonly model: string | undefined } | { readonly refused: string } {
+): Promise<{ readonly model: string | undefined } | { readonly refused: string }> {
   const perCall: unknown = (wire as { model?: unknown }).model;
   if (perCall !== undefined && typeof perCall !== 'string') {
     return { refused: 'The request\'s "model" must be a model name.' };
@@ -194,16 +201,27 @@ function resolveModel(
   const allowed = [...(options.model === undefined ? [] : [options.model]), ...(options.models ?? [])];
   const match = allowed.find((entry) => entry === named) ?? allowed.find((entry) => bare(entry) === bare(named));
   if (match !== undefined) return { model: match };
+  // A free model OpenRouter lists right now costs nothing, so it needs no place in the owner's list.
+  if (named.endsWith(':free') && (await options.freeModels?.has(named)) === true) {
+    return { model: named };
+  }
   return { refused: `Model "${named}" is not one this server allows.` };
 }
 
 /**
- * The reasoning budgets ONE call may ask for in its body's `effort`
- * (2026-09-28, the fast-edits contract's `editEffort`): the two a small edit
- * needs, never more — a browser must not raise the thinking bill any more
- * than it may pick the model.
+ * The reasoning budgets a call may ask for, in the order the picker lists them.
+ * Born as a small edit's `low | medium` (2026-09-28, the fast-edits contract's
+ * `editEffort`); 2026-10-06 the picker's standing choice joined it, so a person
+ * can spend `high`, `xhigh` or `max` on a page build. The model allowlist is
+ * still what keeps a browser from picking a bill; the budget only decides how
+ * long an allowed model thinks. `medium` is the default everywhere.
  */
-const CALL_EFFORTS: ReadonlySet<unknown> = new Set(['low', 'medium']);
+export const CALL_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type CallEffort = (typeof CALL_EFFORT_LEVELS)[number];
+export const DEFAULT_CALL_EFFORT: CallEffort = 'medium';
+const CALL_EFFORTS: ReadonlySet<unknown> = new Set(CALL_EFFORT_LEVELS);
+/** The budgets that are asking for depth: thinking stays ON for every call at these. */
+const DEEP_EFFORTS: ReadonlySet<unknown> = new Set(['high', 'xhigh', 'max']);
 
 /**
  * The header a call may name its budget in instead (2026-09-28). The
@@ -223,6 +241,74 @@ function askedEffort(request: Request, wire: AiPlanWireRequest): unknown {
   return inHeader === '' ? undefined : inHeader;
 }
 
+export const MODELS_PATH = '/v1/models';
+
+/** One model the picker may offer; `live` ones come from OpenRouter's listing, not the owner's file. */
+export interface OfferedModel {
+  readonly id: string;
+  readonly kind: 'configured' | 'live';
+  /** The vendor's display name, when OpenRouter gave one. */
+  readonly name?: string;
+  readonly contextLength?: number;
+  readonly structuredOutputs?: boolean;
+}
+
+/**
+ * `GET /v1/models` — what the picker may offer, and how hard it may make a model
+ * think. The owner's configured models first (the default leading), then every free
+ * model OpenRouter lists right now. A configured `:free` slug the live listing no
+ * longer carries is left out: it was withdrawn, and a request naming it would fail.
+ * While the listing is unreadable nothing is left out — the configured models are
+ * all there is to go on — and `error` says why the live part is missing.
+ */
+async function modelsListing(options: HandlerOptions): Promise<{
+  readonly version: 1;
+  readonly default: string | undefined;
+  readonly defaultEffort: CallEffort;
+  readonly efforts: readonly CallEffort[];
+  readonly models: readonly OfferedModel[];
+  readonly fetchedAt: number;
+  readonly error?: string;
+}> {
+  const live = await options.freeModels?.list();
+  const liveById = new Map((live?.models ?? []).map((model) => [model.id, model]));
+  const liveKnown = live !== undefined && live.fetchedAt > 0;
+  const configured = [
+    ...new Set([...(options.model === undefined ? [] : [options.model]), ...(options.models ?? [])]),
+  ].filter((id) => !(liveKnown && id.endsWith(':free') && !liveById.has(id)));
+  const models: OfferedModel[] = configured.map((id) => {
+    const facts = liveById.get(id);
+    return facts === undefined
+      ? { id, kind: 'configured' }
+      : {
+          id,
+          kind: 'configured',
+          name: facts.name,
+          contextLength: facts.contextLength,
+          structuredOutputs: facts.structuredOutputs,
+        };
+  });
+  for (const model of live?.models ?? []) {
+    if (configured.includes(model.id)) continue;
+    models.push({
+      id: model.id,
+      kind: 'live',
+      name: model.name,
+      contextLength: model.contextLength,
+      structuredOutputs: model.structuredOutputs,
+    });
+  }
+  return {
+    version: 1,
+    default: options.model,
+    defaultEffort: DEFAULT_CALL_EFFORT,
+    efforts: CALL_EFFORT_LEVELS,
+    models,
+    fetchedAt: live?.fetchedAt ?? 0,
+    ...(live?.error === undefined ? {} : { error: live.error }),
+  };
+}
+
 export function createHandler(options: HandlerOptions) {
   const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
 
@@ -230,6 +316,10 @@ export function createHandler(options: HandlerOptions) {
     const url = new URL(request.url);
     if (request.method === 'GET' && url.pathname.startsWith('/artifacts/')) {
       return options.codeRuntime?.serveArtifact(url) ?? json({ error: 'Artifact not found.' }, 404);
+    }
+    if (request.method === 'GET' && url.pathname === MODELS_PATH) {
+      if (!authorized(request, options.authToken)) return json({ error: 'Unauthorized.' }, 401);
+      return json(await modelsListing(options));
     }
     if (request.method !== 'POST') {
       return json({ error: 'Use POST.' }, 405);
@@ -288,7 +378,7 @@ export function createHandler(options: HandlerOptions) {
       return json({ error: `Unknown task "${named}".` }, 400);
     }
 
-    const chosen = resolveModel(request, body, options);
+    const chosen = await resolveModel(request, body, options);
     if ('refused' in chosen) {
       return json({ error: chosen.refused }, 400);
     }
@@ -296,7 +386,9 @@ export function createHandler(options: HandlerOptions) {
     if (effort !== undefined && !CALL_EFFORTS.has(effort)) {
       return json(
         {
-          error: `Effort ${JSON.stringify(effort).slice(0, 40)} is not one a call may ask for (low or medium).`,
+          error:
+            `Effort ${JSON.stringify(effort).slice(0, 40)} is not one a call may ask for ` +
+            `(${CALL_EFFORT_LEVELS.join(', ')}).`,
         },
         400,
       );
@@ -568,10 +660,18 @@ function callEffort(
   wire: AiPlanWireRequest,
   options: HandlerOptions,
 ): { effort?: string; thinkingOff?: true } {
-  // The body's budget never reaches a page plan; its thinking is the deployment's choice (planThinking).
-  if (wire.task === 'page-plan') return options.planThinking === true ? {} : { thinkingOff: true };
   // The call's own budget, already held to CALL_EFFORTS by the handler.
   const asked: unknown = (wire as { effort?: unknown }).effort;
+  const deep = DEEP_EFFORTS.has(asked);
+  /*
+    The body's budget never reaches a page plan; its thinking is the deployment's choice
+    (planThinking) — unless the person asked for depth (`high` and up): then the plan
+    thinks, at the budget they named. Their picker is the only thing that sends those.
+  */
+  if (wire.task === 'page-plan') {
+    if (deep) return { effort: asked as string };
+    return options.planThinking === true ? {} : { thinkingOff: true };
+  }
   const pins = wire.context.skills ?? [];
   const writesASection = pins.some((pin) => pin.id === SECTION_WRITER_SKILL);
   const scaffoldsABuild = pins.some((pin) => pin.id === SCAFFOLD_SKILL);
@@ -586,9 +686,9 @@ function callEffort(
     221 s baseline. It is a planning call like the page plan, which already
     runs with thinking off.
   */
-  const thinkingOff = writesASection || scaffoldsABuild || asked === 'low';
+  const thinkingOff = !deep && (writesASection || scaffoldsABuild || asked === 'low');
   const off = thinkingOff ? ({ thinkingOff: true } as const) : {};
-  if (asked === 'low' || asked === 'medium') return { effort: asked, ...off };
+  if (CALL_EFFORTS.has(asked)) return { effort: asked as string, ...off };
   if (options.sectionEffort === undefined || !writesASection) return off;
   return { effort: options.sectionEffort, ...off };
 }

@@ -156,3 +156,8 @@ export { resolveCustomCodeAssetSrc } from './assets/asset-table';
 // (scene, timeline, lottie) a page's markup uses. Engine sources stay dynamic.
 export { BEHAVIOR_PACKS, mountSiteBehaviors, pageEngines, type BehaviorPack, type PageEngine } from './behaviors';
 // end media-motion (2026-10-06) additions
+// P2-bidi additions (block-parts 2026-10-06): the text-direction rule the
+// canvas frame injects and the static export carries in its base layer, so an
+// English line on an RTL page keeps its full stop at the end (DESIGN §2.11).
+export { TEXT_BIDI_CANVAS_CSS, TEXT_BIDI_CSS, TEXT_BIDI_STYLE_ID } from './bidi';
+// end P2-bidi additions

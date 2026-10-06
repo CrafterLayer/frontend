@@ -279,6 +279,7 @@ describe('Image', () => {
       ...spacingKeys,
       'gutter',
       'className',
+      'partStyles',
     ];
 
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
@@ -344,7 +345,7 @@ describe('Image', () => {
   it('places every property in its required inspector tab', () => {
     expect(imageSchema.propertyGroups).toEqual({
       asset: { tab: 'content', section: 'Image' },
-      src: { tab: 'content', section: 'Image' },
+      src: { tab: 'content', section: 'Image', kind: 'image' },
       alt: { tab: 'content', section: 'Accessibility' },
       decorative: { tab: 'advanced', section: 'Accessibility' },
       fit: { tab: 'design', section: 'Image' },

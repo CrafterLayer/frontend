@@ -1,5 +1,7 @@
 import type { CustomCodeNode } from '@craftkit/builder-schema';
 
+import { ELEMENT_NAME_WORDS_EN, type ElementNameWords } from '../custom-code/element-target';
+import { localBlockName } from '../i18n/block-names';
 import { displayNameForBlockType } from './block-display-name';
 
 /**
@@ -50,13 +52,24 @@ const ELEMENT_NAMES: Readonly<Record<string, string>> = {
   ul: 'List',
 };
 
-export function customCodeElementName(node: CustomCodeNode): string {
+/**
+ * `words` names the element in the editor's language (arabic-editor). Absent,
+ * or the English words, the chrome keeps this file's own English table — it
+ * says "Paragraph" where a history label says "Text".
+ */
+export function customCodeElementName(
+  node: CustomCodeNode,
+  words?: ElementNameWords,
+): string {
+  const local = words === undefined || words === ELEMENT_NAME_WORDS_EN ? undefined : words;
   switch (node.kind) {
     case 'icon':
-      return `Icon (${node.name})`;
+      return `${local?.icon ?? 'Icon'} (${node.name})`;
     case 'component':
-      return displayNameForBlockType(node.component);
+      return localBlockName(node.component, local?.blocks) ?? displayNameForBlockType(node.component);
     case 'element':
-      return ELEMENT_NAMES[node.tag] ?? displayNameForBlockType(node.tag);
+      return local === undefined
+        ? (ELEMENT_NAMES[node.tag] ?? displayNameForBlockType(node.tag))
+        : (local.tags[node.tag] ?? local.element);
   }
 }

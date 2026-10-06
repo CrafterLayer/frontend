@@ -57,6 +57,12 @@ page one place later. Only the horizontal keys mirror; up and down never do.
 
 <Canvas of={SitePagesStories.RightToLeft} />
 
+The list is chrome, so the direction its keys follow is the EDITOR's: the nearest `dir` above it.
+Inside an Arabic editor the keys mirror even over an English site; a host that sets no `dir` falls
+back to the site's. `labels` takes `SITE_PAGES_LABELS_AR` for the Arabic editor.
+
+<Canvas of={SitePagesStories.ArabicEditor} />
+
 ## What it does not do
 
 It does not draw a separator or choose its own width — the shell region that places a panel owns

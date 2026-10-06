@@ -17,7 +17,9 @@ import type {
 } from '../types';
 import { applyAiPlan } from '../plan/apply-plan';
 import { tryDirectEdit } from '../plan/direct-edit';
-import { tryDirectTool } from '../tools/agent/direct-tool';
+import { directQuestion, tryDirectTool } from '../tools/agent/direct-tool';
+// media-motion (2026-10-06, fix pass): a video with no link is asked for, not invented.
+import { AiNeedsInputError } from './needs-input';
 import { planChangesLook } from '../tools/agent/visible-change';
 import { AiPlanRejectedError, validateAiPlan } from '../plan/validate-plan';
 import { createAiValidatedProposal } from '../plan/validated-proposal';
@@ -564,6 +566,21 @@ function directToolRun(
   onTaken?: () => void,
 ): AiAgentRunResult | undefined {
   if (reading.route.kind === 'build-page' || reading.route.kind === 'build-site') return undefined;
+  // media-motion (2026-10-06, fix pass): ask for what only the person has, for 0 tokens.
+  let question: string | undefined;
+  try {
+    // ── block-parts (2026-10-06) ── the kernel lets a part colour no theme role carries ask first
+    question = directQuestion(options.request, options.kernel);
+    // ── /block-parts ──
+  } catch {
+    question = undefined;
+  }
+  if (question !== undefined) {
+    onTaken?.();
+    emit({ type: 'context.gathering' });
+    assertRunActive(options);
+    throw new AiNeedsInputError(question);
+  }
   let plan: AiPlan;
   try {
     const direct = tryDirectTool(options.request, options.kernel);

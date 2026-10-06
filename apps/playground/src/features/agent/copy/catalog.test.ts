@@ -87,6 +87,7 @@ const FIXTURE = {
   role: 'Background',
   hex: '#0E1116',
   mode: 'Auto',
+  level: 'Medium',
   name: 'Fast',
   shortcut: '⌘.',
   before: 'light',

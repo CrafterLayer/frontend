@@ -76,9 +76,9 @@ export const contentSectionSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     highlights: { tab: 'content', section: 'Highlights' },
-    imageSrc: { tab: 'content', section: 'Media' },
+    imageSrc: { tab: 'content', section: 'Media', kind: 'image' },
     imageAlt: { tab: 'content', section: 'Media' },
     caption: { tab: 'content', section: 'Media' },
     link: { tab: 'content', section: 'Action' },
@@ -96,6 +96,77 @@ export const contentSectionSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the copy, each
+    highlight and its lines, the action link (label in place, destination in
+    the Link popover), the image (replaced through the asset picker; its alt
+    text is the image part's second value) and the caption.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    highlights: {
+      kind: 'list',
+      bind: 'highlights',
+      label: { en: 'Highlights', ar: 'النقاط البارزة' },
+      aliases: ['points', 'bullets', 'list', 'النقاط', 'القائمة'],
+    },
+    highlight: {
+      kind: 'item',
+      bind: 'highlights.*',
+      list: 'highlights',
+      label: { en: 'Highlight', ar: 'نقطة بارزة' },
+      aliases: ['point', 'bullet', 'نقطة', 'بند'],
+    },
+    'highlight.title': {
+      kind: 'text',
+      bind: 'highlights.*.title',
+      label: { en: 'Highlight title', ar: 'عنوان النقطة' },
+      aliases: ['point title', 'h3', 'عنوان'],
+    },
+    'highlight.body': {
+      kind: 'text',
+      bind: 'highlights.*.body',
+      label: { en: 'Highlight text', ar: 'وصف النقطة' },
+      aliases: ['point text', 'description', 'النص'],
+      multiline: true,
+    },
+    link: {
+      kind: 'link',
+      bind: { text: 'link.label', href: 'link.href' },
+      label: { en: 'Link', ar: 'الرابط' },
+      aliases: ['button', 'cta', 'action', 'الزر', 'رابط'],
+    },
+    image: {
+      kind: 'image',
+      bind: { src: 'imageSrc', alt: 'imageAlt' },
+      label: { en: 'Image', ar: 'الصورة' },
+      aliases: ['media', 'picture', 'photo', 'صورة', 'الوسائط'],
+    },
+    caption: {
+      kind: 'text',
+      bind: 'caption',
+      label: { en: 'Caption', ar: 'التعليق' },
+      aliases: ['image caption', 'figcaption', 'تعليق الصورة', 'الشرح'],
+    },
+  },
   examples: contentSectionExamples,
 });
 

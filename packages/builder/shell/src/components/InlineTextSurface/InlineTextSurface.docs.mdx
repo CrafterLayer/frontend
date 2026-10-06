@@ -31,11 +31,26 @@ This surface is portaled into the preview **iframe**, and React delegates synthe
 host root — an `input` fired inside the frame would never reach an `onInput` prop. Every listener is
 attached to the element itself. (The same law as B2b's "keydown does not cross documents".)
 
-## Commit law
+## Commit law (one gesture, one Undo)
 
-Each change calls `onCommit` once; the canvas turns that into ONE dispatch through the kernel door,
-and history's typing merge owns undo granularity — identical to the inspector's text field, so both
-surfaces produce the same undo steps for the same typing.
+Typing is **buffered** in the surface. `onCommit(next, reason)` is called once per finished edit —
+on **Enter** (`reason: 'enter'`) or on **blur** (`reason: 'blur'`) — and never per keystroke. The
+canvas turns that call into ONE labelled transaction through the kernel door (for a block part:
+`partInlineCommit`, label `Edit text · Hero heading`), so one edit is one Undo.
+
+- An unchanged text commits nothing.
+- **Escape cancels**: the draft is discarded, the stored text shows again, and the blur caused by
+  the focus hand-off commits nothing.
+- A draft whose session ends before a blur reaches it (another block was selected first) is
+  committed once on unmount instead of being lost.
+- While a draft is unsaved, incoming values (an Undo/Redo replay, a collaborator) do **not**
+  overwrite the typing; once it is committed or cancelled, document truth shows through again.
+
+| key         | single-line | multiline       |
+| ----------- | ----------- | --------------- |
+| Enter       | commit      | commit          |
+| Shift+Enter | inert       | inserts `\n`    |
+| Escape      | cancel      | cancel          |
 
 ## Usage
 
@@ -48,16 +63,17 @@ surfaces produce the same undo steps for the same typing.
 | Prop         | Type             | Notes                                       |
 | ------------ | ---------------- | ------------------------------------------- |
 | `value`      | `unknown`        | document truth; non-strings render as empty |
-| `onCommit`   | `(next) => void` | one call per change                         |
-| `onExit`     | `() => void`     | Escape                                      |
-| `singleLine` | `boolean`        | refuses newlines in the value and on Enter  |
+| `onCommit`   | `(next, reason) => void` | once per edit, on Enter or blur       |
+| `onExit`     | `() => void`     | Escape, after the draft is discarded        |
+| `singleLine` | `boolean`        | refuses newlines; Shift+Enter is inert      |
 | `label`      | `string`         | accessible name — the property being edited |
 
 ## Accessibility & RTL
 
-A named `textbox` that takes focus when the session opens; Escape exits; arrow keys move the caret
-and never reach the canvas traversal behind it. Direction follows the document, since the surface
-inherits the block's own typography and flow.
+A named `textbox` that takes focus when the session opens; Escape cancels and exits; every key
+stops at the surface, so arrow keys move the caret and never reach the canvas traversal behind it.
+The surface carries `dir="auto"`: Arabic and English each follow their own content's direction, so an
+English line on an RTL page keeps its full stop at the end.
 
 ## When not to use
 
@@ -67,5 +83,5 @@ canvas belongs to the Inspector.
 ## Known limitations
 
 - Plain text only: one property, no formatting (that is what the rich surface is for).
-- Multi-line editing is supported but the canvas currently opens declared properties as single-line;
-  the block decides.
+- Multi-line editing follows the block part's `multiline` declaration (`singleLine = !multiline`);
+  the legacy `inlineEditable` path opens single-line.

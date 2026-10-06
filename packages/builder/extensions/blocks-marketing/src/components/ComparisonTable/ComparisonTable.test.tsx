@@ -60,7 +60,7 @@ describe('ComparisonTable', () => {
     expect(within(table).getByRole('rowheader', { name: 'Projects' })).toBeInTheDocument();
     expect(screen.getByText('Popular')).toBeInTheDocument();
     expect(screen.getByText('/ month')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Start free: Growth' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Start free Growth' })).toHaveAttribute(
       'href',
       '/signup/growth',
     );

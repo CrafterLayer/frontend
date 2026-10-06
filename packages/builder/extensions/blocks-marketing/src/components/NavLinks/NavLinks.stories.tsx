@@ -102,3 +102,37 @@ export const ArabicRtl: Story = {
     }),
   },
 };
+
+/* Block parts (DESIGN §4.4): each inner element is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node,
+    props: {
+      ...navLinksSchema.props.parse({
+        links: [
+          { label: 'Home', href: '/' },
+          { label: 'Pricing', href: '/pricing' },
+        ],
+      }),
+      partStyles: {
+        'item.link': { className: 'text-accent' },
+        'item.link@0': { className: 'underline' },
+      },
+    },
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const styled = canvasElement.querySelectorAll('[data-ck-part="item.link"]');
+    await expect(styled.length).toBeGreaterThan(1);
+    await expect(styled[0]).toHaveAttribute('data-ck-bind', 'links.0.label');
+    await expect(styled[0]).toHaveClass('underline');
+    await expect(styled[1]).toHaveClass('text-accent');
+    await expect(styled[1]).not.toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="links"]')).toHaveAttribute(
+      'data-ck-bind',
+      'links',
+    );
+  },
+};

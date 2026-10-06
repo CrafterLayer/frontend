@@ -13,13 +13,16 @@ import {
 
 import { BorderSidesControl } from '../controls/BorderSidesControl';
 import { BoxModelControl, type BoxRing, type BoxSideState } from '../controls/BoxModelControl';
-import { ChoiceGroup } from '../controls/ChoiceGroup';
+import { ChoiceGroup, type ChoiceOption } from '../controls/ChoiceGroup';
+import { ColorField } from '../controls/ColorField';
 import { CornerRadiusControl } from '../controls/CornerRadiusControl';
 import { EffectPresetPicker } from '../controls/EffectPresetPicker';
 import { GridTracksControl } from '../controls/GridTracksControl';
 import { ScaleNumberControl } from '../controls/ScaleNumberControl';
+import { OptionIcon, optionGlyph } from '../controls/OptionIcon';
+import { SegmentedChoice } from '../controls/SegmentedChoice';
 import { joinLayers, splitLayers, StackControl } from '../controls/StackControl';
-import { StyleColorControl, type ColorSwatch } from '../controls/StyleColorControl';
+import type { ColorSwatch } from '../controls/StyleColorControl';
 import { TransformOriginControl } from '../controls/TransformOriginControl';
 import { ValueSourceDot } from '../controls/ValueSourceDot';
 import { keywordsFor, modelFor, unitsFor } from '../property-models';
@@ -79,6 +82,50 @@ function optionLabel(option: StyleOption, locale: 'en' | 'ar'): string {
   return option.labels?.[locale] ?? option.value;
 }
 
+/** The row's options, each with its glyph when the panel has one. */
+function choiceOptions(
+  property: string,
+  options: readonly StyleOption[],
+  locale: 'en' | 'ar',
+): readonly ChoiceOption[] {
+  return options.map((option) => {
+    const label = optionLabel(option, locale);
+    return optionGlyph(property, option.value) === undefined
+      ? { value: option.value, label }
+      : { value: option.value, label, icon: <OptionIcon property={property} value={option.value} /> };
+  });
+}
+
+/** Segments that fit beside the label column; a longer row of glyphs takes the full width. */
+const MAX_INLINE_SEGMENTS = 6;
+/** Text choices that fit beside the label column. */
+const MAX_INLINE_TEXT_CHOICES = 3;
+
+/**
+ * How a row is laid out: `inline` puts the label and a compact control side
+ * by side on one 28px line; `block` gives a large control (box model, stack,
+ * a long text choice) the whole width under its label.
+ */
+export type StyleRowLayout = 'inline' | 'block';
+
+function layoutOf(control: string, id: string, choices: readonly ChoiceOption[]): StyleRowLayout {
+  switch (control) {
+    case 'radio': {
+      const glyphs = choices.filter((choice) => choice.icon !== undefined).length;
+      if (glyphs > 0) return glyphs > MAX_INLINE_SEGMENTS ? 'block' : 'inline';
+      return choices.length <= MAX_INLINE_TEXT_CHOICES ? 'inline' : 'block';
+    }
+    case 'select':
+    case 'color':
+      return 'inline';
+    case 'number':
+    case 'slider':
+      return id === 'gridColumns' || id === 'gridRows' ? 'block' : 'inline';
+    default:
+      return 'block';
+  }
+}
+
 /** A CSS image for a typed URL: `https://…` → `url(https://…)`; gradients pass through. */
 function imageCss(text: string): string {
   const trimmed = text.trim();
@@ -119,12 +166,28 @@ export function StyleProperty({
     onEdit([side === undefined ? { property: def.id, value } : { property: def.id, value, side }], name);
   };
   const options = (def.options ?? []).filter((option) => option.legacy !== true);
+  const choices = choiceOptions(def.id, options, labels.locale);
+  const layout = layoutOf(def.control, def.id, choices);
   const model = modelFor(def);
 
   let control: ReactNode;
   switch (def.control) {
     case 'radio':
-      control = (
+      control = choices.some((choice) => choice.icon !== undefined) ? (
+        <SegmentedChoice
+          label={name}
+          dir={dir}
+          disabled={disabled}
+          mixed={view.mixed}
+          mixedLabel={labels.mixed}
+          moreLabel={labels.moreOptions(name)}
+          value={keywordOf(view.value)}
+          options={choices}
+          onChange={(keyword) => {
+            edit({ kind: 'keyword', keyword });
+          }}
+        />
+      ) : (
         <ChoiceGroup
           label={name}
           dir={dir}
@@ -132,7 +195,7 @@ export function StyleProperty({
           mixed={view.mixed}
           mixedLabel={labels.mixed}
           value={keywordOf(view.value)}
-          options={options.map((option) => ({ value: option.value, label: optionLabel(option, labels.locale) }))}
+          options={choices}
           onChange={(keyword) => {
             edit({ kind: 'keyword', keyword });
           }}
@@ -167,26 +230,31 @@ export function StyleProperty({
               ? `r:${view.value.css}`
               : '';
       control = (
-        <select
-          className="bldr-style-property__select"
-          aria-labelledby={labelId}
-          value={current}
-          disabled={disabled}
-          onChange={(event) => {
-            const picked = event.target.value;
-            if (picked === '') edit(null);
-            else if (picked.startsWith('k:')) edit({ kind: 'keyword', keyword: picked.slice(2) });
-            else if (picked.startsWith('t:')) edit({ kind: 'token', token: picked.slice(2) });
-          }}
-        >
-          <option value="">{view.mixed ? labels.mixed : labels.unset}</option>
-          {current.startsWith('r:') ? <option value={current}>{current.slice(2)}</option> : null}
-          {entries.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.label}
-            </option>
-          ))}
-        </select>
+        <span className="bldr-style-property__select-wrap">
+          <select
+            className="bldr-style-property__select"
+            aria-labelledby={labelId}
+            value={current}
+            disabled={disabled}
+            onChange={(event) => {
+              const picked = event.target.value;
+              if (picked === '') edit(null);
+              else if (picked.startsWith('k:')) edit({ kind: 'keyword', keyword: picked.slice(2) });
+              else if (picked.startsWith('t:')) edit({ kind: 'token', token: picked.slice(2) });
+            }}
+          >
+            <option value="">{view.mixed ? labels.mixed : labels.unset}</option>
+            {current.startsWith('r:') ? <option value={current}>{current.slice(2)}</option> : null}
+            {entries.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.label}
+              </option>
+            ))}
+          </select>
+          <svg className="bldr-style-property__chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M4.5 6.5 8 10l3.5-3.5" />
+          </svg>
+        </span>
       );
       break;
     }
@@ -216,15 +284,23 @@ export function StyleProperty({
             mixed={view.mixed}
             disabled={disabled}
             labels={labels.number}
+            scrub
             onCommit={(value) => {
               edit(value);
             }}
+            onPreview={
+              onPreview === undefined
+                ? undefined
+                : (value) => {
+                    onPreview(value === null ? null : [{ property: def.id, value }]);
+                  }
+            }
           />
         );
       break;
     case 'color':
       control = (
-        <StyleColorControl
+        <ColorField
           label={name}
           value={view.value}
           mode={mode}
@@ -234,7 +310,8 @@ export function StyleProperty({
           mixed={view.mixed}
           disabled={disabled}
           dir={dir}
-          labels={labels.color}
+          labels={labels.colorField}
+          controlLabels={labels.color}
           onCommit={(value) => {
             edit(value);
           }}
@@ -339,16 +416,17 @@ export function StyleProperty({
         );
         break;
       }
-      // The gradient direction: its options are the logical directions.
+      // The gradient direction: its options are the logical directions, drawn as arrows.
       control = (
-        <ChoiceGroup
+        <SegmentedChoice
           label={name}
           dir={dir}
           disabled={disabled}
           mixed={view.mixed}
           mixedLabel={labels.mixed}
+          moreLabel={labels.moreOptions(name)}
           value={keywordOf(view.value)}
-          options={options.map((option) => ({ value: option.value, label: optionLabel(option, labels.locale) }))}
+          options={choices}
           onChange={(keyword) => {
             edit({ kind: 'keyword', keyword });
           }}
@@ -423,14 +501,16 @@ export function StyleProperty({
   }
 
   return (
-    <div className="bldr-style-property" data-property={def.id}>
+    <div
+      className="bldr-style-property"
+      data-property={def.id}
+      data-layout={layout}
+      data-origin={view.origin}
+    >
       <div className="bldr-style-property__head">
-        <span id={labelId} className="bldr-style-property__name">
+        <span id={labelId} className="bldr-style-property__name" title={name}>
           {name}
         </span>
-        {view.customBreakpoint ? (
-          <span className="bldr-style-property__badge">{labels.customBreakpoint}</span>
-        ) : null}
         <ValueSourceDot
           origin={view.origin}
           property={name}
@@ -447,6 +527,9 @@ export function StyleProperty({
         />
       </div>
       <div className="bldr-style-property__control">{control}</div>
+      {view.customBreakpoint ? (
+        <span className="bldr-style-property__badge">{labels.customBreakpoint}</span>
+      ) : null}
     </div>
   );
 }

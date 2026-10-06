@@ -1,0 +1,57 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LayersPartRowStories from './LayersPartRow.stories';
+
+<Meta of={LayersPartRowStories} />
+
+# LayersPartRow
+
+One **part** of a registered block in Layers (block-parts DESIGN §2.13). A block that declares
+`parts` in its schema expands, below its own row, into one row per part instance: the hero's badge,
+heading and body, the CTA link, the image, and each feature card with its title. Rows nest the way
+their binds nest — `items.2.title` sits under `items.2`, which sits under `items` — and come from
+`partInstances`, so a removed item or a cleared optional prop removes its row.
+
+<Canvas of={LayersPartRowStories.InTheTree} />
+
+## Behaviour
+
+- **Select.** A click (or Enter / Space) calls `kernel.focusPart(nodeId, ref)`: the block is
+  selected, the part is focused, the Inspector shows the part panel and the canvas outlines the
+  part. A part focus set anywhere else (the canvas, the agent) highlights the row and expands its
+  ancestors.
+- **Not draggable.** A part's place is the block's own; there is no grip and no drop target.
+- **Item actions.** Item rows carry Duplicate, Move up, Move down and Remove. Each runs
+  `planPartListOp` and dispatches its one `setProp` through `kernel.dispatchGroup`, labelled
+  "Duplicate item · Hero", so one Undo puts the list back. The focus follows the item to its new
+  place. Delete / Backspace remove the focused item, Alt+↑ / Alt+↓ move it. Move up is disabled on
+  the first item, Move down on the last.
+- **Keyboard.** Part rows join the tree's roving tab stop: ↑ / ↓ walk visible rows, → / ← expand or
+  step in and collapse or step out (mirrored in an RTL editor), exactly like block and element rows.
+
+<Canvas of={LayersPartRowStories.SelectedItem} />
+
+## Bidi
+
+The preview is the part's own text, wrapped in `<bdi>`, so an English sentence in an Arabic editor
+keeps its full stop at the end and never reorders the row's name.
+
+<Canvas of={LayersPartRowStories.MixedDirectionPreview} />
+
+## Arabic
+
+Names come from the declaration's `label.ar` (`LAYERS_TREE_LABELS_AR.parts`), and actions, counts and
+announcements are Arabic.
+
+<Canvas of={LayersPartRowStories.ArabicTree} />
+
+## API
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `row` | `PartLayerRow` | from `withPartRows` |
+| `name` / `preview` / `description` / `glyph` | `string` | the localized label, the text preview, the tooltip, the kind glyph |
+| `selected` / `tabbable` / `collapsed` | `boolean` | tree state, owned by `LayersTree` |
+| `labels` | `LayersPartLabels` | `LAYERS_PART_LABELS_EN` / `_AR` |
+| `onSelect` / `onToggleExpanded` / `onRowKeyDown` / `onRowFocus` | handlers | the tree's own |
+| `onAction` | `(row, action) => void` | item rows only: `duplicate`, `moveUp`, `moveDown`, `remove` |

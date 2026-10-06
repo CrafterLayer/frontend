@@ -1,0 +1,26 @@
+/* A link's label and address, stacked; logical properties and chrome tokens only. */
+.bldr-link-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.bldr-link-field__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+.bldr-link-field__label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+}
+
+/* An address is always left-to-right, even on an Arabic page — but it lines up with the column. */
+.bldr-link-field__href {
+  font-family: var(--bldr-font-mono);
+  text-align: start;
+}

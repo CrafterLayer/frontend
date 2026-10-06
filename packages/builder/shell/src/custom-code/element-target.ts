@@ -13,6 +13,7 @@ import type {
   Transaction,
 } from '@craftkit/builder-schema';
 
+import { BLOCK_NAMES_AR, localBlockName } from '../i18n/block-names';
 import { customCodeElementAt } from './element-at';
 
 /*
@@ -59,6 +60,12 @@ export interface ElementNameWords {
   readonly element: string;
   readonly icon: string;
   readonly component: string;
+  /**
+   * Localised names of registered block types, keyed by `blockNameKey(type)`
+   * (arabic-editor). Absent: the chrome humanises the type (`logoCloud` →
+   * "Logo Cloud"), which is the English name.
+   */
+  readonly blocks?: Readonly<Record<string, string>> | undefined;
 }
 
 export const ELEMENT_NAME_WORDS_EN: ElementNameWords = {
@@ -151,6 +158,7 @@ export const ELEMENT_NAME_WORDS_AR: ElementNameWords = {
   element: 'عنصر',
   icon: 'أيقونة',
   component: 'مكوّن',
+  blocks: BLOCK_NAMES_AR,
 };
 
 const PREVIEW_MAX = 24;
@@ -208,7 +216,9 @@ export function resolveElementTarget(
   if (target.kind === 'block') {
     const label = host.props['label'];
     const displayName =
-      typeof label === 'string' && label.trim() !== '' ? label.trim() : humanizeType(host.type);
+      typeof label === 'string' && label.trim() !== ''
+        ? label.trim()
+        : (localBlockName(host.type, words.blocks) ?? humanizeType(host.type));
     return { kind: 'block', target, node: host, displayName };
   }
   const found = customCodeElementAt(kernel, target.nodeId, target.path);

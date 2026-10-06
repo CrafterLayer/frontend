@@ -30,3 +30,25 @@ export function intentsAt(
       : { property: edit.property, value: edit.value, side: edit.side, ...at };
   });
 }
+
+/** Displays under which `flex-direction` / `flex-wrap` do nothing (hidden and contents keep them for later). */
+const NOT_FLEX = new Set(['block', 'grid', 'inline', 'inline-block', 'inline-grid', 'flow-root']);
+
+/**
+ * A Display change away from flex also clears the flex-only properties at the
+ * same bucket and state, in the SAME write (one transaction, one Undo).
+ * Choosing Grid on a `flex flex-col` card left `grid flex-col`: a dead class
+ * the panel kept showing as a live Direction.
+ */
+export function withDisplayCleanup(edits: readonly StyleEdit[]): readonly StyleEdit[] {
+  const leavesFlex = edits.some(
+    ({ property, value }) =>
+      property === 'display' && value?.kind === 'keyword' && NOT_FLEX.has(value.keyword),
+  );
+  if (!leavesFlex) return edits;
+  const touched = new Set(edits.map(({ property }) => property));
+  const clears = (['flexDirection', 'flexWrap'] as const)
+    .filter((property) => !touched.has(property))
+    .map((property) => ({ property, value: null }));
+  return [...edits, ...clears];
+}

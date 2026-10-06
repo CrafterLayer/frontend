@@ -1,10 +1,10 @@
 import { clsx } from 'clsx';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
-import type { ButtonProps } from './schema';
+import { buttonSchema, type ButtonProps } from './schema';
 
 const VARIANT_CLASSES: Record<ButtonProps['variant'], string> = {
   solid:
@@ -40,7 +40,8 @@ const ICONS: Record<Exclude<ButtonProps['icon'], 'none'>, string> = {
 };
 
 /** A token-bound action that preserves native link and button semantics. */
-export function Button({ props, isCanvas }: BlockRenderProps<ButtonProps>) {
+export function Button({ node, props, isCanvas }: BlockRenderProps<ButtonProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, buttonSchema.parts);
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const icon =
     props.icon === 'none' ? null : (
@@ -60,7 +61,7 @@ export function Button({ props, isCanvas }: BlockRenderProps<ButtonProps>) {
   const content = (
     <>
       {props.iconPosition === 'start' ? icon : null}
-      <span>{props.label}</span>
+      <span {...part('label')}>{props.label}</span>
       {props.iconPosition === 'end' ? icon : null}
     </>
   );
@@ -71,12 +72,17 @@ export function Button({ props, isCanvas }: BlockRenderProps<ButtonProps>) {
   return (
     <div className={clsx('flex min-w-0', ALIGN_CLASSES[props.align])}>
       {props.href === undefined ? (
-        <button className={className} type={props.type} onClick={guardCanvasAction} {...motionData}>
+        <button
+          {...part('button', { className })}
+          type={props.type}
+          onClick={guardCanvasAction}
+          {...motionData}
+        >
           {content}
         </button>
       ) : (
         <a
-          className={className}
+          {...part('button', { className })}
           href={props.href}
           target={props.openInNewTab ? '_blank' : undefined}
           rel={props.openInNewTab ? 'noreferrer noopener' : undefined}

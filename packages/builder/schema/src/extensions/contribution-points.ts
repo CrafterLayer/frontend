@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { z } from 'zod';
 
 import type { BlockPropertyGroup, BlockSchema } from '../blocks/define-block-schema';
+import type { PartRef } from '../blocks/block-parts';
 import type { CompositionDef, DeclarativeWidgetTypeDef } from '../widgets/contract';
 import type {
   Author,
@@ -67,11 +68,29 @@ export interface ElementFocus {
   readonly path: readonly number[];
 }
 
+// ── block-parts (2026-10-06) ──
+/**
+ * Ephemeral focus on ONE part of a selected registered block (block-parts
+ * DESIGN §2.5): the block's heading, or the title of its third item. The same
+ * law as `selection` and `elementFocus`: never document data, never a
+ * transaction. It excludes `elementFocus`, and the kernel drops it once the
+ * part instance no longer exists.
+ */
+export interface PartFocus extends PartRef {
+  /** The document node owning the part; always the selected node. */
+  readonly id: NodeId;
+}
+// ── /block-parts ──
+
 export interface KernelState {
   doc: BuilderDocument;
   selection: NodeId[];
   /** Absent whenever the selection is a whole node (the common case). */
   elementFocus: ElementFocus | null;
+  // ── block-parts (2026-10-06) ──
+  /** Absent or null unless one part of the selected block is focused. Optional so existing literals compile. */
+  partFocus?: PartFocus | null;
+  // ── /block-parts ──
   /** Persistence position. */
   seq: number;
 }

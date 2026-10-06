@@ -701,3 +701,64 @@ export {
 } from './custom-code/media-vocabulary';
 export * from './media-recipes';
 // ── end schema-media additions ──
+// ── block-parts (2026-10-06) ──
+// Named inner elements of registered blocks (block-parts DESIGN §2.1–§2.5):
+// the declaration and its registration gate, the renderer helper, the
+// partStyles prop, nested prop paths and the pure part-edit planners.
+export {
+  bindPathOf,
+  bindPatternOf,
+  blockPartsOf,
+  formatPropPath,
+  hasPartInstance,
+  PART_NAME_PATTERN,
+  parsePropPath,
+  partInstances,
+  partStyleKey,
+  propSchemaAt,
+  unwrapPropSchema,
+  validateBlockParts,
+  type BlockPartDecl,
+  type BlockPartKind,
+  type BlockParts,
+  type PartBind,
+  type PartInstance,
+  type PartRef,
+  type PartValueSlot,
+} from './blocks/block-parts';
+export { getAtPropPath, setAtPropPath, type PropPath } from './blocks/prop-path';
+export {
+  isPartStylesSchema,
+  PART_DIRECTIONS,
+  PART_STYLE_CLASS_MAX,
+  PART_STYLE_KEY_PATTERN,
+  PART_STYLES_META_KEY,
+  PART_STYLES_META_VALUE,
+  partStylesKeyOf,
+  partStylesProp,
+  readPartStyles,
+  type PartStyle,
+} from './blocks/part-styles';
+export {
+  blockPartProps,
+  // ── block-parts (2026-10-06) ──
+  forwardedPartProps,
+  mergePartClasses,
+  PART_OWNER_ATTRIBUTE,
+  PART_OWN_CLASSES_ATTRIBUTE,
+  // ── /block-parts ──
+  type PartAttributeOptions,
+  type PartAttributes,
+  type PartRenderContext,
+} from './blocks/part-attributes';
+export {
+  planPartDir,
+  planPartListOp,
+  planPartStyle,
+  planPartValue,
+  type PartListOp,
+  type PartPlan,
+  type PartStep,
+} from './blocks/part-edits';
+export type { PartFocus } from './extensions/contribution-points';
+// ── /block-parts ──

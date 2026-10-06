@@ -50,3 +50,21 @@ processStepsSchema.props.parse({
   ],
 });
 ```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name         | kind | bind            | label (en / ar)                    |
+| ------------ | ---- | --------------- | ---------------------------------- |
+| `eyebrow`    | text | `eyebrow`       | Eyebrow / الشارة                   |
+| `heading`    | text | `heading`       | Heading / العنوان                  |
+| `body`       | text | `body`          | Body / الوصف (multiline)           |
+| `steps`      | list | `steps`         | Steps / الخطوات                    |
+| `step`       | item | `steps.*`       | Step / الخطوة                      |
+| `step.title` | text | `steps.*.title` | Step title / عنوان الخطوة          |
+| `step.body`  | text | `steps.*.body`  | Step text / وصف الخطوة (multiline) |
+| `step.meta`  | text | `steps.*.meta`  | Step meta / تفصيل الخطوة           |

@@ -1,6 +1,11 @@
 import { createReactTestConfig } from '@craftkit/test-config/react';
 
 export default createReactTestConfig({
+  // Tests never read the developer's `.env.local`. Loading it pointed the app at
+  // the live ai-server (the model picker fetched /v1/models, failing the
+  // "no network" scenarios) and printed its bearer token in failure output.
+  // CI has no env file either, so this is the configuration the suite is for.
+  envDir: false,
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
     // These are END-TO-END app scenarios: each one mounts the whole playground and

@@ -65,3 +65,22 @@ videoSectionSchema.props.parse({
   layout: 'split',
 });
 ```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`caption`, `cta`), and addressable by the agent by name, alias or
+label. Text parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at
+the end.
+
+| name      | kind | bind                                  | label (en / ar)               |
+| --------- | ---- | ------------------------------------- | ----------------------------- |
+| `eyebrow` | text | `eyebrow`                             | Eyebrow / الشارة              |
+| `heading` | text | `heading`                             | Heading / العنوان             |
+| `body`    | text | `body`                                | Body / الوصف (multiline)      |
+| `caption` | text | `caption`                             | Video caption / تعليق الفيديو |
+| `cta`     | link | `{ text: cta.label, href: cta.href }` | Button / الزر                 |
+
+The video address and poster are media rows (`kind: 'image'`, the asset picker), not parts.
+`videoLabel` and `captionsLabel` are read only by assistive technology, so they stay Inspector rows;
+with no `videoLabel`, the video is named by the visible heading through `aria-labelledby`.

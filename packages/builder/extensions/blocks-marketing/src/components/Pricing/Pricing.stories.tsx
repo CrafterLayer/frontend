@@ -249,3 +249,27 @@ export const ControlRenderingContract: Story = {
     );
   },
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    node: { id: 'pricing-parts', type: 'pricing', props: {} },
+    props: pricingSchema.props.parse({
+      heading: 'Simple pricing.',
+      body: 'Pick the plan that fits.',
+    }),
+    slots: { default: <article className="rounded-xl border p-6">Plan</article> },
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-ck-part="heading"]')).toHaveAttribute(
+      'data-ck-bind',
+      'heading',
+    );
+  },
+};

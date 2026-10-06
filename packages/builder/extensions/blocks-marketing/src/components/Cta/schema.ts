@@ -53,7 +53,7 @@ export const ctaSchema = defineBlockSchema({
   */
   propertyGroups: {
     label: { tab: 'content', section: 'Text' },
-    href: { tab: 'content', section: 'Link' },
+    href: { tab: 'content', section: 'Link', kind: 'link' },
     newTab: { tab: 'advanced', section: 'Link' },
     note: { tab: 'content', section: 'Text' },
     emphasis: { tab: 'design', section: 'Style' },
@@ -64,6 +64,31 @@ export const ctaSchema = defineBlockSchema({
     ...sectionCustomGroups,
     ...sectionTypographyGroups,
     ...sectionSpacingGroups,
+  },
+  /*
+    The control is a link part (its label and destination together), the label
+    text inside it a text part, and the note under it a text part
+    (block-parts DESIGN §1).
+  */
+  parts: {
+    button: {
+      kind: 'link',
+      bind: { text: 'label', href: 'href' },
+      label: { en: 'Button', ar: 'الزر' },
+      aliases: ['cta', 'link', 'action', 'زر', 'الرابط'],
+    },
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Button label', ar: 'نص الزر' },
+      aliases: ['text', 'button text', 'النص'],
+    },
+    note: {
+      kind: 'text',
+      bind: 'note',
+      label: { en: 'Note', ar: 'الملاحظة' },
+      aliases: ['caption', 'hint', 'ملاحظة'],
+    },
   },
   examples: ctaExamples,
 });

@@ -27,14 +27,14 @@ COLOUR: theme tokens first; a site palette colour is bg-(--ck-c-<id>) or text-(-
 NAMED STYLES: a look several elements share is one style; elements carry ck-s-<id> and one edit of the style updates every one.
 EFFECTS, hook classes whose CSS ships with fallbacks: ${CUSTOM_CODE_EFFECTS.map((name) => `ck-fx-${name}`).join(' ')}.
 ANIMATE BY NAME (the page ships the CSS; reduced motion shows the final state): data-ck-motion='<preset>' with data-ck-trigger (view load hover click scroll), data-ck-delay 0-6, data-ck-speed slow|normal|fast, data-ck-ease (${list(CUSTOM_CODE_MOTION_EASES)}), data-ck-once, data-ck-distance sm|md|lg, data-ck-stagger on a stagger container, data-ck-target (click plays the element with that id). Entrance: ${list(CUSTOM_CODE_ENTRANCE_PRESETS)}. Stagger: ${list(CUSTOM_CODE_STAGGER_PRESETS)}. Scroll, on view or scroll: ${list(CUSTOM_CODE_SCROLL_PRESETS)}. Loop: ${list(CUSTOM_CODE_LOOP_PRESETS)}. Text, on view load or click: ${list(CUSTOM_CODE_TEXT_PRESETS)}. Hover data-ck-hover='<preset>': ${list(CUSTOM_CODE_HOVER_PRESETS)}. One or two moments a section.
-NEW TAGS: form with input textarea select option label fieldset legend sends only through data-ck-behavior='whatsapp-form' with data-ck-phone; dialog opened by a popovertarget button; iframe with a title, only youtube-nocookie.com/embed, player.vimeo.com/video, google.com/maps/embed or open.spotify.com/embed; audio with https sources; svg text textPath clipPath mask pattern and feTurbulence/feGaussianBlur filters.`;
+NEW TAGS: form with input textarea select option label fieldset legend sends only through data-ck-behavior='whatsapp-form' with data-ck-phone; dialog opened by a popovertarget button; iframe with a title, only google.com/maps/embed or open.spotify.com/embed (a YouTube or Vimeo video is media.add, a light facade); audio with https sources; svg text textPath clipPath mask pattern and feTurbulence/feGaussianBlur filters.`;
 // end P10-agent-power additions
 
 // media-motion (2026-10-06, DESIGN §F.4): the media tools, one line each, read only where TOOLS lists them.
 export const MEDIA_MOTION_TEACHING = `MEDIA, when TOOLS lists media.add: a gallery, video, map, before/after or pricing toggle is ONE media.add step (images 'catalog:<topic>' — alt, sizes and srcset are filled for you), not markup.
-SCROLL STORY, when TOOLS lists motion.add: motion.add {id,find,recipe} plays a named timeline; never data-ck-motion on the same element.
+GSAP / SCROLL ANIMATION, when TOOLS lists motion.add: motion.add {id,find,recipe} plays a named timeline (stagger-in for items, split-reveal for a heading) — never hand-written GSAP, never css that hides content for a reveal, never data-ck-motion on the same element.
 ANIMATED BACKGROUND: media.add {kind:scene,scene,behind:<hero id>} puts particles, a gradient or a mural behind the hero's real text.
-A video only with an address the request gives; a background video is media.add {kind:video,url,behind} — no autoplay, the page plays it in view.`;
+A video only with an address the request gives — never an invented id, never a raw YouTube/Vimeo iframe; a background video is media.add {kind:video,url,behind} — no autoplay, the page plays it in view.`;
 
 /**
  * When a section needs code, and how to write it so the door takes it.

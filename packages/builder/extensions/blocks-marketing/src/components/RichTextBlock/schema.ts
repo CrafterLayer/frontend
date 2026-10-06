@@ -35,6 +35,15 @@ export const richTextBlockSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'content',
+  /* The prose itself is the block's one part (block-parts DESIGN §1). */
+  parts: {
+    content: {
+      kind: 'rich',
+      bind: 'content',
+      label: { en: 'Text', ar: 'النص' },
+      aliases: ['prose', 'paragraph', 'body', 'rich text', 'المحتوى', 'الفقرة', 'الوصف'],
+    },
+  },
   examples: richTextBlockExamples,
 });
 

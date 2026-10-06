@@ -1,0 +1,44 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PartLinkPopoverStories from './PartLinkPopover.stories';
+
+<Meta of={PartLinkPopoverStories} />
+
+# PartLinkPopover
+
+The link editor of a registered block's **link part** (block-parts DESIGN §2.14): the hero's
+"Get started" button, a card's "Read more". It opens from the **Link** action in the part's quick
+bar and edits the link's visible text and its address in one small form.
+
+## Behaviour
+
+- **One write, one Undo.** Apply hands `{ text, href }` to `onApply`; the canvas builds both
+  values with `planPartLinkValue` (two `planPartValue` plans merged into one `setProp` group) and
+  dispatches them as ONE labelled transaction. An unchanged value writes nothing.
+- **Safe addresses only.** The address must pass `safeHref` — `https://`, `http://`, `mailto:`,
+  `tel:` or a clear relative path such as `/about` or `#pricing` — before anything is written.
+  A refused address keeps the form open, marks the field `aria-invalid` and shows the reason in a
+  `role="alert"` sentence next to it.
+- **Door refusals stay visible.** When the write itself is refused (a label longer than the
+  schema allows), the door's sentence appears in the same place and the draft is kept.
+- **Site pages.** With `pages`, a select fills the address from a page of the site.
+- **Fresh every time.** Each opening starts from the stored values; Cancel writes nothing.
+
+## Bidi
+
+The text field is `dir="auto"`, so an English label on an RTL page keeps its punctuation at the
+end; the address field is always LTR. The popover follows the editor direction (`dir`), and every
+label comes from `PART_QUICK_BAR_LABELS_EN` / `PART_QUICK_BAR_LABELS_AR`.
+
+## Props
+
+| Prop           | Meaning                                                                 |
+| -------------- | ----------------------------------------------------------------------- |
+| `text`, `href` | The stored link text and address.                                       |
+| `pages`        | Optional site pages for the address picker.                             |
+| `labels`       | The part bar's words (`PartQuickBarLabels`); English by default.        |
+| `dir`          | The editor UI direction.                                                |
+| `container`    | Where the popover portals (the editor's theme scope).                   |
+| `open`         | Controlled open state, with `onOpenChange`.                             |
+| `onApply`      | Writes both values; returns `{ ok }` or `{ ok: false, message }`.       |
+| `children`     | The trigger, rendered `asChild` (a toolbar button keeps roving focus).  |

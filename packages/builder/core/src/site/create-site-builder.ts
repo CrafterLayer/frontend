@@ -134,6 +134,7 @@ export function createSiteBuilder(options: CreateSiteBuilderOptions): BuilderSit
     pageId: firstPage.id,
     selection: [],
     elementFocus: null,
+    partFocus: null, // block-parts (2026-10-06)
     seq: options.initialSeq ?? 0,
   });
 
@@ -302,7 +303,10 @@ export function createSiteBuilder(options: CreateSiteBuilderOptions): BuilderSit
       pageIndex(store.getState().site, pageId);
       const state = store.getState();
       if (state.pageId === pageId) return;
-      store.write({ ...state, pageId, selection: [], elementFocus: null }, SITE_NOTHING_CHANGED);
+      store.write(
+        { ...state, pageId, selection: [], elementFocus: null, partFocus: null },
+        SITE_NOTHING_CHANGED,
+      );
     },
     page: (pageId) => {
       pageIndex(store.getState().site, pageId);

@@ -59,6 +59,32 @@ export const navLinksSchema = defineBlockSchema({
     ...sectionTypographyGroups,
     ...sectionSpacingGroups,
   },
+  /*
+    The list's inner elements (block-parts DESIGN §1): the link list, each
+    entry, and each entry's link, whose label edits in place and whose
+    destination opens in the Link popover.
+  */
+  parts: {
+    links: {
+      kind: 'list',
+      bind: 'links',
+      label: { en: 'Links', ar: 'الروابط' },
+      aliases: ['navigation', 'menu', 'nav', 'القائمة', 'التنقل'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'links.*',
+      list: 'links',
+      label: { en: 'Menu entry', ar: 'عنصر القائمة' },
+      aliases: ['entry', 'menu item', 'nav item', 'عنصر', 'بند'],
+    },
+    'item.link': {
+      kind: 'link',
+      bind: { text: 'links.*.label', href: 'links.*.href' },
+      label: { en: 'Link', ar: 'الرابط' },
+      aliases: ['link', 'label', 'link text', 'رابط', 'نص الرابط'],
+    },
+  },
   examples: navLinksExamples,
 });
 

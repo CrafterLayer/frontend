@@ -46,9 +46,11 @@ exported for the deferred source's flush-time measurement and visibility checks.
 
 On the canvas this surface is resolved from the REGISTRY, not imported: the extension contributes a
 lazy `inlineEditors` entry whose module (`./inline-editor`) adapts this component to the schema's
-`InlineEditorProps` — commit/exit/anchor pass through, and an `onActions` channel reports the FR-006
-formatting actions (bold, italic, link, clear) for the current selection so the shell can draw the
-bubble without ever importing the engine. Direct use looks like this:
+`InlineEditorProps` — commit/exit/anchor pass through, and an `onActions` channel reports the
+formatting actions (bold, italic, link, bulleted list, numbered list, clear) for as long as the edit
+owns focus, a collapsed caret included (Link is disabled there), so the shell can keep its formatting
+bar beside the editor without ever importing the engine. The anchor still follows `shouldShowBubble`:
+at a bare caret it is `null`, and the canvas docks the bar at the editing surface. Direct use looks like this:
 
 ```tsx
 import { InlineRichText } from '@craftkit/builder-richtext';

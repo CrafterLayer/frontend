@@ -1,11 +1,14 @@
 import { t } from '../../copy';
 import type {
   AssistantMode,
+  EffortLevel,
+  EffortSelectionView,
   EnhancementView,
   Locale,
   ModelSelectionView,
   SendState,
 } from '../../model/view-types';
+import { EffortMenu } from '../EffortMenu';
 import { EnhanceButton } from '../EnhanceButton';
 import { IconButton } from '../IconButton';
 import { ModeMenu } from '../ModeMenu';
@@ -19,12 +22,15 @@ export interface ComposerToolbarProps {
   readonly mode: AssistantMode;
   /** The model picker; `null` when the provider offers no choice, and then none is drawn. */
   readonly model: ModelSelectionView | null;
+  /** The effort picker; absent or `null` when the provider takes no budget, and none is drawn. */
+  readonly effort?: EffortSelectionView | null | undefined;
   readonly send: SendState;
   readonly enhancement: EnhancementView;
   /** A run is live: Mode says its change applies next time, Improve waits. */
   readonly running: boolean;
   readonly onModeChange: (mode: AssistantMode) => void;
   readonly onModelChange: (id: string) => void;
+  readonly onEffortChange?: ((level: EffortLevel) => void) | undefined;
   /** `[@]`: start a mention in the draft (the Composer types the `@` and opens the list). */
   readonly onMention: () => void;
   readonly onEnhance: () => void;
@@ -34,8 +40,8 @@ export interface ComposerToolbarProps {
 }
 
 /**
- * The composer's bottom row (SPEC §4.17 ComposerToolbar): Mode ▾ and Model ▾ at the
- * inline start, then ✨ Improve, `[@]` and the Send slot at the inline end. 36px tall with
+ * The composer's bottom row (SPEC §4.17 ComposerToolbar): Mode ▾, Model ▾ and, when the
+ * provider takes a reasoning budget, Effort ▾ at the inline start, then ✨ Improve, `[@]` and the Send slot at the inline end. 36px tall with
  * 32px items and 4px between them; 52 and 44 with 8 between them on a coarse pointer.
  *
  * Read in the order a request is made: how it may touch the page, who writes it, then the
@@ -46,11 +52,13 @@ export function ComposerToolbar({
   locale,
   mode,
   model,
+  effort,
   send,
   enhancement,
   running,
   onModeChange,
   onModelChange,
+  onEffortChange,
   onMention,
   onEnhance,
   onSend,
@@ -62,6 +70,9 @@ export function ComposerToolbar({
         <ModeMenu locale={locale} mode={mode} running={running} onModeChange={onModeChange} />
         {model === null ? null : (
           <ModelMenu locale={locale} model={model} onModelChange={onModelChange} />
+        )}
+        {effort == null || onEffortChange === undefined ? null : (
+          <EffortMenu locale={locale} effort={effort} onEffortChange={onEffortChange} />
         )}
       </div>
       <div className="ck-agent-toolbar__actions">

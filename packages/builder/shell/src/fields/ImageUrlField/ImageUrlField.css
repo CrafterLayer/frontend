@@ -1,0 +1,54 @@
+/* An image address with its thumbnail and the library toggle. Chrome tokens only. */
+.bldr-image-url-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.bldr-image-url-field__row {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-image-url-field__thumb {
+  background-color: var(--bldr-surface-sunken);
+  block-size: var(--bldr-control-height);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  flex: none;
+  inline-size: var(--bldr-control-height);
+  object-fit: cover;
+}
+
+.bldr-image-url-field__input {
+  flex: 1;
+  font-family: var(--bldr-font-mono);
+  min-inline-size: 0;
+  text-align: start;
+}
+
+.bldr-image-url-field__toggle {
+  align-self: flex-start;
+  background-color: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-image-url-field__toggle:hover:not(:disabled) {
+  background-color: var(--bldr-surface-hover);
+}
+
+.bldr-image-url-field__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

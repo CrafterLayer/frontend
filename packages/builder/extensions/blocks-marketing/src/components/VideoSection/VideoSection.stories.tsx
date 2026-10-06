@@ -72,3 +72,25 @@ export const EmptyCanvas: Story = {
     isCanvas: true,
   },
 };
+
+/* Block parts (DESIGN §4.4): the introduction, caption and button are parts on the canvas. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'video-section-parts' },
+    props: videoSectionSchema.props.parse({
+      ...(videoSectionExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: { caption: { className: 'text-accent' }, cta: { className: 'underline' } },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-ck-part="caption"]')).toHaveClass(
+      'text-accent',
+    );
+    const cta = canvasElement.querySelector('[data-ck-part="cta"]');
+    await expect(cta).toHaveAttribute('data-ck-bind', 'cta.label');
+    await expect(cta).toHaveClass('underline');
+  },
+};

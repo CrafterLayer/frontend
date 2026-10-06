@@ -2720,7 +2720,11 @@ function planLabels(kernel: BuilderKernel): string[] {
 const START_OVER_REQUEST = 'start over and build me a landing page for my ceramics studio';
 const PLAN_REQUEST =
   'Build a landing page for my specialty coffee roastery in Amman, Northlight Coffee';
-const PLAN_TITLES = ['Roasted this morning', 'Our coffees', 'Order today', 'Footer'];
+/*
+  'Header' first: every full page has one (page-completion.ts `withPageChrome`,
+  2026-10-05), so the plan states it rather than having the engine add it.
+*/
+const PLAN_TITLES = ['Header', 'Roasted this morning', 'Our coffees', 'Order today', 'Footer'];
 
 /** A plan the engine's validator accepts (the wave-2 verifier's pageplan-revert.mjs, verbatim). */
 const COFFEE_PLAN = {
@@ -2744,6 +2748,13 @@ const COFFEE_PLAN = {
   primaryCta: { label: 'Order beans', href: '#order' },
   nav: [{ label: 'Menu', anchorId: 'menu' }],
   sections: [
+    {
+      key: 'header',
+      role: 'header',
+      title: 'Header',
+      anchorId: 'header',
+      purpose: 'The brand, the menu and the page’s one action.',
+    },
     {
       key: 'hero',
       role: 'hero',
@@ -2895,7 +2906,7 @@ describe('AssistantPanel — a page-plan build', () => {
 
     await waitFor(
       () => {
-        expect(screen.getByText(/4\/4 built in/)).toBeInTheDocument();
+        expect(screen.getByText(/5\/5 built in/)).toBeInTheDocument();
       },
       { timeout: 30_000 },
     );
@@ -2908,7 +2919,7 @@ describe('AssistantPanel — a page-plan build', () => {
 
     // …and a section a writer filled still goes back on its own, forward, after it.
     await user.click(screen.getByRole('button', { name: 'Undo Our coffees' }));
-    expect(historyLabels(kernel).at(-1)).toBe('Assistant: revert 2/4 — Our coffees');
+    expect(historyLabels(kernel).at(-1)).toBe('Assistant: revert 3/5 — Our coffees');
     expect(screen.queryByText(/never landed/)).toBeNull();
   }, 60_000);
 });
@@ -3086,7 +3097,7 @@ describe('AssistantPanel — routing', () => {
 
     await waitFor(
       () => {
-        expect(screen.getByText(/4\/4 built in/)).toBeInTheDocument();
+        expect(screen.getByText(/5\/5 built in/)).toBeInTheDocument();
       },
       { timeout: 30_000 },
     );

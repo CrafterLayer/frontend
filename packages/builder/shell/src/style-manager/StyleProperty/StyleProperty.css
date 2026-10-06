@@ -1,26 +1,70 @@
+/*
+  One property row (style-manager panel design).
+
+  `inline`: label | control on one 28px line, the label column shared by
+  every row of the panel so controls align down the page (Webstudio, Framer).
+  `block`: the label above a control that needs the full width.
+  All sizes come from --bldr tokens on the 4px grid; all sides are logical.
+*/
 .bldr-style-property {
-  display: flex;
-  flex-direction: column;
-  gap: var(--bldr-space-2xs);
+  align-items: center;
+  column-gap: var(--bldr-space-md);
+  display: grid;
+  /* About 40% of the row (fix pass 2026-10-06): a fixed 80–88px column cut
+     31 of 55 English labels to "Decora…" / "Backgr…" at 287px. */
+  grid-template-columns: var(--bldr-style-label-column, 40%) minmax(0, 1fr);
   min-inline-size: 0;
+  row-gap: var(--bldr-space-xs);
+}
+
+.bldr-style-property[data-layout='block'] {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .bldr-style-property__head {
   align-items: center;
   display: flex;
-  gap: var(--bldr-space-xs);
+  gap: var(--bldr-space-2xs);
+  min-block-size: var(--bldr-control-sm);
   min-inline-size: 0;
 }
 
+.bldr-style-property[data-layout='block'] .bldr-style-property__head {
+  min-block-size: var(--bldr-space-4xl);
+}
+
 .bldr-style-property__name {
+  /* A long name ("Gradient middle colour", "تثبيت الخلفية") takes a second
+     line instead of an ellipsis; two lines fit the 28px row's rhythm. */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--bldr-panel-text-soft);
-  flex: 1 1 auto;
+  display: -webkit-box;
+  flex: 0 1 auto;
   font-size: var(--bldr-font-size-caption);
   font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-tight);
   min-inline-size: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+/* The label speaks the value's source too, not only the dot beside it. */
+.bldr-style-property[data-origin='here'] .bldr-style-property__name {
+  color: var(--bldr-accent-strong);
+}
+
+.bldr-style-property[data-origin='larger-bucket'] .bldr-style-property__name {
+  color: var(--bldr-warning);
+}
+
+.bldr-style-property[data-origin='named-style'] .bldr-style-property__name {
+  color: var(--bldr-success);
+}
+
+.bldr-style-property__control {
+  min-inline-size: 0;
 }
 
 .bldr-style-property__badge {
@@ -28,29 +72,80 @@
   border: var(--bldr-border-hairline) solid var(--bldr-warning-border);
   border-radius: var(--bldr-radius-full);
   color: var(--bldr-panel-text);
-  flex: none;
   font-size: var(--bldr-font-size-micro);
-  padding-inline: var(--bldr-space-xs);
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding-inline: var(--bldr-space-sm);
 }
 
-.bldr-style-property__control {
+/* A long row of glyphs (gradient directions) wraps under its label. */
+.bldr-style-property[data-layout='block'] .bldr-choice-group[data-icons] {
+  flex-wrap: wrap;
+}
+
+.bldr-style-property[data-layout='block'] .bldr-choice-group:not([data-icons]) .bldr-choice-group__option {
+  flex: 1 1 0;
+}
+
+.bldr-style-property__select-wrap {
+  display: flex;
   min-inline-size: 0;
+  position: relative;
 }
 
 .bldr-style-property__select,
 .bldr-style-property__text {
   background: var(--bldr-input-bg);
+  block-size: var(--bldr-control-sm);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   border-radius: var(--bldr-radius-sm);
   color: var(--bldr-panel-text);
   font: inherit;
   font-size: var(--bldr-font-size-caption);
   inline-size: 100%;
-  min-block-size: var(--bldr-control-sm);
-  padding-inline: var(--bldr-space-sm);
+  min-inline-size: 0;
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-style-property__select {
+  appearance: none;
+  cursor: pointer;
+  padding-inline-end: var(--bldr-space-4xl);
+  text-overflow: ellipsis;
+}
+
+.bldr-style-property__select:hover:not(:disabled),
+.bldr-style-property__text:hover:not(:disabled) {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.bldr-style-property__chevron {
+  block-size: var(--bldr-space-xl);
+  fill: none;
+  inline-size: var(--bldr-space-xl);
+  inset-block-start: 50%;
+  inset-inline-end: var(--bldr-space-sm);
+  pointer-events: none;
+  position: absolute;
+  stroke: var(--bldr-panel-muted);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  translate: 0 -50%;
 }
 
 .bldr-style-property__select:focus-visible,
 .bldr-style-property__text:focus-visible {
+  border-color: var(--bldr-border-focus);
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-border-hairline) * -1);
+}
+
+/* Inline rows keep every control exactly one 28px line tall. */
+.bldr-style-property[data-layout='inline'] .bldr-scale-number {
+  block-size: var(--bldr-control-sm);
+}
+
+.bldr-style-property[data-layout='inline'] .bldr-choice-group:not([data-icons]) {
+  flex-wrap: nowrap;
 }

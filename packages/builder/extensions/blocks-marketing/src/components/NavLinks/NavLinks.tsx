@@ -1,6 +1,6 @@
 import '../section-layout.css';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -14,7 +14,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { NavLinksProps } from './schema';
+import { navLinksSchema, type NavLinksProps } from './schema';
 
 const LINK_STYLE_CLASSES: Record<NavLinksProps['style'], string | undefined> = {
   plain: undefined,
@@ -63,6 +63,8 @@ export function NavLinks({ node, props, isCanvas }: BlockRenderProps<NavLinksPro
   }
 
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, navLinksSchema.parts);
 
   return (
     <nav
@@ -78,21 +80,27 @@ export function NavLinks({ node, props, isCanvas }: BlockRenderProps<NavLinksPro
       style={style}
     >
       <ul
-        className={cx(
-          'm-0 flex list-none items-center p-0',
-          DIRECTION_CLASSES[props.direction],
-          props.direction === 'column' ? ALIGN_CLASSES.start : undefined,
-          GAP_CLASSES[props.gap],
-          WRAP_CLASSES[props.wrap],
-        )}
+        {...part('links', {
+          className: cx(
+            'm-0 flex list-none items-center p-0',
+            DIRECTION_CLASSES[props.direction],
+            props.direction === 'column' ? ALIGN_CLASSES.start : undefined,
+            GAP_CLASSES[props.gap],
+            WRAP_CLASSES[props.wrap],
+          ),
+        })}
       >
         {props.links.map((link, index) => (
-          <li key={`${link.href}-${String(index)}`}>
+          /* Keyed by position: a bound value may be an inline editor element. */
+          <li key={index} {...part('item', { index: [index] })}>
             <a
-              className={cx(
-                'inline-flex text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-                LINK_STYLE_CLASSES[props.style],
-              )}
+              {...part('item.link', {
+                index: [index],
+                className: cx(
+                  'inline-flex text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  LINK_STYLE_CLASSES[props.style],
+                ),
+              })}
               href={link.href}
             >
               {link.label}

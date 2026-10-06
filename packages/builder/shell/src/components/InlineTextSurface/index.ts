@@ -1,1 +1,5 @@
-export { InlineTextSurface, type InlineTextSurfaceProps } from './InlineTextSurface';
+export {
+  InlineTextSurface,
+  type InlineCommitReason,
+  type InlineTextSurfaceProps,
+} from './InlineTextSurface';

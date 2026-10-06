@@ -57,20 +57,36 @@ describe('buildJsonLdGraph', () => {
     ]);
   });
 
-  it('skips LocalBusiness without an address city and skips FAQ/Menu kinds not asked for (en)', () => {
+  it('keeps the specific type without an address city, writes no address, and skips FAQ/Menu kinds not asked for (en)', () => {
     const graph = buildJsonLdGraph({
       site: { origin: 'https://shop.example', business: { type: 'Store', name: 'Brew Shop' } },
       page: { title: 'Home', lang: 'en', path: '/' },
       content: extractSeoContent(seoFixture('en')),
     });
     const types = graph['@graph'].map((node) => node['@type']);
-    expect(types).not.toContain('Store');
-    expect(types).toContain('Organization');
+    expect(types).toContain('Store');
+    expect(types).not.toContain('Organization');
+    expect(byType(graph['@graph'], 'Store')?.['address']).toBeUndefined();
     expect(types).toContain('WebSite');
     expect(types).not.toContain('FAQPage');
     expect(types).not.toContain('Menu');
     expect(types).not.toContain('BreadcrumbList');
   });
+
+  // page-defects additions (2026-10-06)
+  it.each(['Restaurant', 'Dentist', 'LegalService', 'CafeOrCoffeeShop'] as const)(
+    'describes a %s with no confirmed address as that type, never a plain Organization',
+    (type) => {
+      const graph = buildJsonLdGraph({
+        site: { origin: 'https://example.com', siteName: 'الياسمين', business: { type, name: 'مطعم الياسمين', priceRange: '$$' } },
+        page: { title: 'الرئيسية', lang: 'ar', path: '/' },
+      });
+      const node = byType(graph['@graph'], type);
+      expect(node).toMatchObject({ '@id': 'https://example.com/#organization', name: 'مطعم الياسمين', priceRange: '$$' });
+      expect(node?.['address']).toBeUndefined();
+      expect(graph['@graph'].map((entry) => entry['@type'])).not.toContain('Organization');
+    },
+  );
 
   it('drops the business entirely when its name is a sample', () => {
     const graph = buildJsonLdGraph({

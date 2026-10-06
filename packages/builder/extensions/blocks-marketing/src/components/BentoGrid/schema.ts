@@ -51,7 +51,7 @@ export const bentoGridSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     items: { tab: 'content', section: 'Cards' },
     layout: { tab: 'design', section: 'Layout' },
     align: { tab: 'design', section: 'Alignment' },
@@ -65,6 +65,69 @@ export const bentoGridSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The grid's inner elements (block-parts DESIGN §1): the intro text, the
+    card grid, each card, and each card's kicker, metric, title and text.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Cards', ar: 'البطاقات' },
+      aliases: ['grid', 'bento', 'tiles', 'الشبكة', 'المربعات'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Card', ar: 'البطاقة' },
+      aliases: ['tile', 'cell', 'بطاقة', 'مربع'],
+    },
+    'item.kicker': {
+      kind: 'text',
+      bind: 'items.*.kicker',
+      label: { en: 'Card kicker', ar: 'تمهيد البطاقة' },
+      aliases: ['kicker', 'label', 'tag', 'وسم'],
+    },
+    'item.metric': {
+      kind: 'text',
+      bind: 'items.*.metric',
+      label: { en: 'Card metric', ar: 'رقم البطاقة' },
+      aliases: ['metric', 'number', 'stat', 'value', 'الرقم', 'القيمة'],
+    },
+    'item.title': {
+      kind: 'text',
+      bind: 'items.*.title',
+      label: { en: 'Card title', ar: 'عنوان البطاقة' },
+      aliases: ['card heading', 'h3', 'عنوان'],
+    },
+    'item.body': {
+      kind: 'text',
+      bind: 'items.*.body',
+      label: { en: 'Card text', ar: 'نص البطاقة' },
+      aliases: ['card body', 'description', 'وصف البطاقة'],
+      multiline: true,
+    },
+  },
   examples: bentoGridExamples,
 });
 

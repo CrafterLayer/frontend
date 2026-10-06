@@ -1,6 +1,6 @@
 import '../section-layout.css';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import { cx } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
@@ -8,7 +8,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { CtaProps } from './schema';
+import { ctaSchema, type CtaProps } from './schema';
 
 const ROOT_WIDTH_CLASSES: Record<CtaProps['width'], string> = {
   fit: 'inline-flex',
@@ -34,9 +34,10 @@ const SIZE_CLASSES: Record<CtaProps['size'], string> = {
 };
 
 /** A real button element — keyboard-reachable and labelled by its content. */
-export function Cta({ props }: BlockRenderProps<CtaProps>) {
+export function Cta({ node, props, isCanvas }: BlockRenderProps<CtaProps>) {
   /* Motion arrives as attributes; `class` is pulled out because React spells it `className`. */
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
+  const part = blockPartProps({ node, props, isCanvas }, ctaSchema.parts);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
   const style =
@@ -51,7 +52,7 @@ export function Cta({ props }: BlockRenderProps<CtaProps>) {
   );
   const label = (
     <>
-      <span>{props.label}</span>
+      <span {...part('label')}>{props.label}</span>
       {props.emphasis === 'link' ? (
         <span aria-hidden="true" className="text-lg leading-none">
           ↗
@@ -74,13 +75,13 @@ export function Cta({ props }: BlockRenderProps<CtaProps>) {
       {...motionData}
     >
       {props.href === undefined ? (
-        <button type="button" className={controlClasses}>
+        <button type="button" {...part('button', { className: controlClasses })}>
           {label}
         </button>
       ) : (
         <a
           href={props.href}
-          className={controlClasses}
+          {...part('button', { className: controlClasses })}
           target={props.newTab ? '_blank' : undefined}
           rel={props.newTab ? 'noreferrer' : undefined}
         >
@@ -88,7 +89,7 @@ export function Cta({ props }: BlockRenderProps<CtaProps>) {
         </a>
       )}
       {props.note === undefined ? null : (
-        <small className="text-start text-text-muted">{props.note}</small>
+        <small {...part('note', { className: 'text-start text-text-muted' })}>{props.note}</small>
       )}
     </span>
   );

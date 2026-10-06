@@ -1,3 +1,5 @@
+import { PALETTE_LABELS_AR, PALETTE_LABELS_EN, type PaletteLabels } from '../Palette/Palette.labels';
+
 /** Every user-facing string of the Library panel; the host picks one set by locale. */
 export interface LibraryPanelLabels {
   readonly language: 'en' | 'ar';
@@ -20,6 +22,8 @@ export interface LibraryPanelLabels {
   readonly insert: (name: string) => string;
   readonly savedKinds: { readonly element: string; readonly section: string };
   readonly removeTemplate: (name: string) => string;
+  /** The Blocks tab's composed palette (its tabs, search, groups and names). */
+  readonly palette: PaletteLabels;
 }
 
 export const LIBRARY_PANEL_LABELS_EN: LibraryPanelLabels = {
@@ -37,6 +41,7 @@ export const LIBRARY_PANEL_LABELS_EN: LibraryPanelLabels = {
   insert: (name) => `Insert ${name}`,
   savedKinds: { element: 'Element', section: 'Section' },
   removeTemplate: (name) => `Remove ${name} from Saved`,
+  palette: PALETTE_LABELS_EN,
 };
 
 export const LIBRARY_PANEL_LABELS_AR: LibraryPanelLabels = {
@@ -54,4 +59,5 @@ export const LIBRARY_PANEL_LABELS_AR: LibraryPanelLabels = {
   insert: (name) => `إدراج ${name}`,
   savedKinds: { element: 'عنصر', section: 'قسم' },
   removeTemplate: (name) => `إزالة ${name} من المحفوظة`,
+  palette: PALETTE_LABELS_AR,
 };

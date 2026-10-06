@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { breadcrumbsExamples } from './examples';
@@ -78,6 +79,8 @@ export const breadcrumbsSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Navigation' },
@@ -89,6 +92,35 @@ export const breadcrumbsSchema = defineBlockSchema({
     align: { tab: 'design', section: 'Layout' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
+  },
+  /*
+    The trail's inner elements (block-parts DESIGN §1): the trail list, each
+    crumb, and each crumb's link (label in place, destination in the Link
+    popover). The current page is a link part without a destination. `label`
+    names the navigation for assistive technology only, so it stays in the
+    Inspector.
+  */
+  parts: {
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Trail', ar: 'المسار' },
+      aliases: ['breadcrumbs', 'crumbs', 'path', 'list', 'مسار التنقل'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Crumb', ar: 'خطوة المسار' },
+      aliases: ['crumb', 'step', 'level', 'عنصر', 'خطوة'],
+    },
+    'item.link': {
+      kind: 'link',
+      bind: { text: 'items.*.label', href: 'items.*.href' },
+      label: { en: 'Crumb link', ar: 'رابط الخطوة' },
+      aliases: ['link', 'label', 'page', 'رابط', 'الصفحة'],
+    },
   },
   examples: breadcrumbsExamples,
 });

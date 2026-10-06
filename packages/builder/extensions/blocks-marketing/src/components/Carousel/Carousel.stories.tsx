@@ -66,3 +66,32 @@ export const EmptyCanvas: Story = {
     isCanvas: true,
   },
 };
+
+/* Block parts (DESIGN §4.4): each slide, its lines and its button are parts on the canvas. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'carousel-parts' },
+    props: carouselSchema.props.parse({
+      ...(carouselExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: {
+        'item.title': { className: 'text-accent' },
+        'item.label@0': { className: 'underline' },
+      },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const titles = canvasElement.querySelectorAll('[data-ck-part="item.title"]');
+    await expect(titles[0]).toHaveAttribute('data-ck-bind', 'items.0.title');
+    await expect(titles[0]).toHaveClass('text-accent');
+    await expect(canvasElement.querySelector('[data-ck-part="item.label"]')).toHaveClass(
+      'underline',
+    );
+    await expect(canvasElement.querySelector('[data-ck-part="item.action"]')).toHaveAttribute(
+      'data-ck-bind',
+      'items.0.action.label',
+    );
+  },
+};

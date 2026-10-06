@@ -1,4 +1,4 @@
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { resolveImage, useAssetTable } from '@craftkit/builder-renderer';
 
 import { WIDTH_CLASSES, cx } from '../section-classes';
@@ -6,7 +6,7 @@ import { sectionColorStyle } from '../section-color';
 import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 
-import type { ImageProps } from './schema';
+import { imageSchema, type ImageProps } from './schema';
 
 const ALIGNMENT_CLASSES: Record<ImageProps['align'], string> = {
   start: 'ms-0 me-auto',
@@ -35,7 +35,8 @@ const RADIUS_CLASSES: Record<ImageProps['radius'], string> = {
 };
 
 /** A publish-safe image whose empty and accessibility guidance exists only on the canvas. */
-export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
+export function Image({ node, props, isCanvas }: BlockRenderProps<ImageProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, imageSchema.parts);
   /*
     Resolved against the site's own asset table, never against anything the
     props carry: a block that could render an address written into its props
@@ -82,12 +83,18 @@ export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
 
     return (
       <div className={className} style={style} {...motionData}>
+        {/*
+          The empty frame is the image part too, so a double-click on it opens
+          the asset picker exactly as it would on a picture.
+        */}
         <div
-          className={cx(
-            mediaClassName,
-            'grid place-items-center border border-dashed border-text-muted px-gutter py-section-sm text-center',
-            props.ratio === 'auto' ? 'min-h-48' : 'min-h-0',
-          )}
+          {...part('image', {
+            className: cx(
+              mediaClassName,
+              'grid place-items-center border border-dashed border-text-muted px-gutter py-section-sm text-center',
+              props.ratio === 'auto' ? 'min-h-48' : 'min-h-0',
+            ),
+          })}
         >
           {message}
         </div>
@@ -108,7 +115,7 @@ export function Image({ props, isCanvas }: BlockRenderProps<ImageProps>) {
   return (
     <div className={className} style={style} {...motionData}>
       <img
-        className={cx(mediaClassName, 'block h-auto')}
+        {...part('image', { className: cx(mediaClassName, 'block h-auto') })}
         src={source}
         alt={props.decorative ? '' : altText}
         loading="lazy"

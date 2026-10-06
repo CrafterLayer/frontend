@@ -29,3 +29,24 @@ A labelled `section` with an `h2` heading and a semantic `ul` list; each card is
 Tokens + logical properties only; alignment follows the document direction. Tone paints the full
 section while width constrains its inner content. An empty `items` list renders its heading and
 optional supporting copy with no placeholder rows.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`item.title` for every card, `item.title@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name          | kind | bind             | label (en / ar)                       |
+| ------------- | ---- | ---------------- | ------------------------------------- |
+| `eyebrow`     | text | `eyebrow`        | Eyebrow / الشارة                      |
+| `heading`     | text | `heading`        | Heading / العنوان                     |
+| `body`        | text | `body`           | Body / الوصف (multiline)              |
+| `items`       | list | `items`          | Features / الميزات                    |
+| `item`        | item | `items.*`        | Feature / الميزة                      |
+| `item.icon`   | text | `items.*.icon`   | Feature icon / أيقونة الميزة          |
+| `item.kicker` | text | `items.*.kicker` | Feature kicker / تمهيد الميزة         |
+| `item.title`  | text | `items.*.title`  | Feature title / عنوان الميزة          |
+| `item.body`   | text | `items.*.body`   | Feature text / وصف الميزة (multiline) |
+
+The numbered badge shown when a card has no `icon` is decoration, not a part.

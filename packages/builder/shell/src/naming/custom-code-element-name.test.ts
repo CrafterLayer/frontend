@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { ELEMENT_NAME_WORDS_AR, ELEMENT_NAME_WORDS_EN } from '../custom-code/element-target';
 import { customCodeElementName } from './custom-code-element-name';
 
 describe('customCodeElementName', () => {
@@ -34,5 +35,20 @@ describe('customCodeElementName', () => {
     // The tag enum can grow before this table does; a raw tag is still a name.
     expect(customCodeElementName({ kind: 'element', tag: 'time' })).toBe('Time');
     expect(customCodeElementName({ kind: 'element', tag: 'article' })).toBe('Article');
+  });
+});
+
+describe('customCodeElementName in the editor language (arabic-editor)', () => {
+  it('names elements, icons and components in Arabic from the words it is given', () => {
+    const ar = ELEMENT_NAME_WORDS_AR;
+    expect(customCodeElementName({ kind: 'element', tag: 'h2' }, ar)).toBe('عنوان');
+    expect(customCodeElementName({ kind: 'element', tag: 'img' }, ar)).toBe('صورة');
+    expect(customCodeElementName({ kind: 'element', tag: 'pre' }, ar)).toBe('عنصر');
+    expect(customCodeElementName({ kind: 'icon', name: 'mail' }, ar)).toBe('أيقونة (mail)');
+    expect(customCodeElementName({ kind: 'component', component: 'accordion' }, ar)).toBe('أقسام قابلة للطي');
+  });
+
+  it('keeps its own English table when given the English words', () => {
+    expect(customCodeElementName({ kind: 'element', tag: 'p' }, ELEMENT_NAME_WORDS_EN)).toBe('Paragraph');
   });
 });

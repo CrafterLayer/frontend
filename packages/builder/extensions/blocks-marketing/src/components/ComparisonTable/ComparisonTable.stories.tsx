@@ -28,7 +28,7 @@ export const PricingComparison: Story = {
     const canvas = within(canvasElement);
     const table = canvas.getByRole('table', { name: /Choose the plan/i });
     await expect(within(table).getAllByRole('columnheader')).toHaveLength(4);
-    await expect(canvas.getByRole('link', { name: 'Start free: Growth' })).toBeVisible();
+    await expect(canvas.getByRole('link', { name: 'Start free Growth' })).toBeVisible();
   },
 };
 
@@ -50,5 +50,30 @@ export const EmptyTable: Story = {
     slots: {},
     data: {},
     isCanvas: true,
+  },
+};
+
+/* Block parts (DESIGN §4.4): plan headers, row names and every cell are parts on the canvas. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'comparison-parts' },
+    props: comparisonTableSchema.props.parse({
+      ...(comparisonTableExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: {
+        'plan.price': { className: 'text-accent' },
+        'row.value@0.1': { className: 'underline' },
+      },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const prices = canvasElement.querySelectorAll('[data-ck-part="plan.price"]');
+    await expect(prices[1]).toHaveAttribute('data-ck-bind', 'plans.1.price');
+    await expect(prices[1]).toHaveClass('text-accent');
+    const cells = canvasElement.querySelectorAll('[data-ck-part="row.value"]');
+    await expect(cells[1]).toHaveAttribute('data-ck-bind', 'rows.0.values.1');
+    await expect(cells[1]).toHaveClass('underline');
   },
 };

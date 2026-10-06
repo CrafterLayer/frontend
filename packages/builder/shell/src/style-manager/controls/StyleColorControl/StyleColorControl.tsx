@@ -44,6 +44,12 @@ export interface StyleColorControlProps {
   readonly mixed?: boolean | undefined;
   readonly disabled?: boolean | undefined;
   readonly dir?: 'ltr' | 'rtl' | undefined;
+  /**
+   * Where the free picker lives: behind the rainbow button (`popover`, the
+   * quick bar), or drawn under the swatches (`inline`, inside the side
+   * panel's own colour popover).
+   */
+  readonly picker?: 'popover' | 'inline' | undefined;
   readonly labels?: StyleColorControlLabels | undefined;
 }
 
@@ -75,6 +81,7 @@ export function StyleColorControl({
   mixed = false,
   disabled = false,
   dir = 'ltr',
+  picker = 'popover',
   labels = STYLE_COLOR_CONTROL_LABELS_EN,
 }: StyleColorControlProps) {
   const groupRef = useRef<HTMLDivElement>(null);
@@ -151,8 +158,44 @@ export function StyleColorControl({
     if (color !== undefined) onCommit({ kind: 'raw', css: color });
   };
 
+  const pickerBody = (
+    <>
+      <div
+        className="bldr-style-color__picker"
+        onPointerUp={commitDraft}
+        onKeyUp={(event) => {
+          if (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') {
+            commitDraft();
+          }
+        }}
+      >
+        <HexAlphaColorPicker
+          color={draft ?? (value?.kind === 'raw' ? value.css : (shown ?? '#000000'))}
+          onChange={(next) => {
+            setDraft(next);
+            onPreview?.({ kind: 'raw', css: next });
+          }}
+        />
+      </div>
+      <HexColorInput
+        className="bldr-style-color__hex"
+        aria-label={labels.hex}
+        alpha
+        prefixed
+        color={draft ?? (value?.kind === 'raw' ? value.css : (shown ?? ''))}
+        onChange={(next) => {
+          setDraft(next);
+        }}
+        onBlur={commitDraft}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') commitDraft();
+        }}
+      />
+    </>
+  );
+
   return (
-    <div className="bldr-style-color" data-mixed={mixed ? '' : undefined}>
+    <div className="bldr-style-color" data-mixed={mixed ? '' : undefined} data-picker={picker}>
       <div className="bldr-style-color__row">
         <div
           ref={groupRef}
@@ -172,7 +215,7 @@ export function StyleColorControl({
               disabled={disabled}
               data-kind={entry.kind}
               className="bldr-style-color__swatch"
-              style={{ backgroundColor: entry.swatch.css }}
+              style={picker === 'inline' ? undefined : { backgroundColor: entry.swatch.css }}
               onClick={() => {
                 choose(index);
               }}
@@ -183,10 +226,23 @@ export function StyleColorControl({
                 choose(next);
                 focusRadioAt(groupRef.current, next);
               }}
-            />
+            >
+              {picker === 'inline' ? (
+                <>
+                  <span
+                    className="bldr-style-color__chip-swatch"
+                    style={{ backgroundColor: entry.swatch.css }}
+                    aria-hidden="true"
+                  />
+                  <span className="bldr-style-color__chip-name" aria-hidden="true">
+                    {entry.swatch.name}
+                  </span>
+                </>
+              ) : null}
+            </button>
           ))}
         </div>
-        {mode === 'free' ? (
+        {mode === 'free' && picker === 'popover' ? (
           <Popover.Root
             open={open}
             onOpenChange={(next) => {
@@ -217,37 +273,7 @@ export function StyleColorControl({
                 sideOffset={6}
                 collisionPadding={8}
               >
-                <div
-                  className="bldr-style-color__picker"
-                  onPointerUp={commitDraft}
-                  onKeyUp={(event) => {
-                    if (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') {
-                      commitDraft();
-                    }
-                  }}
-                >
-                  <HexAlphaColorPicker
-                    color={draft ?? (value?.kind === 'raw' ? value.css : (shown ?? '#000000'))}
-                    onChange={(next) => {
-                      setDraft(next);
-                      onPreview?.({ kind: 'raw', css: next });
-                    }}
-                  />
-                </div>
-                <HexColorInput
-                  className="bldr-style-color__hex"
-                  aria-label={labels.hex}
-                  alpha
-                  prefixed
-                  color={draft ?? (value?.kind === 'raw' ? value.css : (shown ?? ''))}
-                  onChange={(next) => {
-                    setDraft(next);
-                  }}
-                  onBlur={commitDraft}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') commitDraft();
-                  }}
-                />
+                {pickerBody}
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>
@@ -274,6 +300,9 @@ export function StyleColorControl({
           />
         )}
       </div>
+      {mode === 'free' && picker === 'inline' ? (
+        <div className="bldr-style-color__inline-picker">{pickerBody}</div>
+      ) : null}
       {lowContrast ? (
         <p className="bldr-style-color__warning" role="status">
           <span>{labels.lowContrast(ratio.toFixed(1), String(MIN_CONTRAST))}</span>

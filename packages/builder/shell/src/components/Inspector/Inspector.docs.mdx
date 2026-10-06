@@ -448,6 +448,16 @@ This is not a general form library. It edits exactly the selected block's schema
 the kernel door. App-owned settings use their own forms; custom property editors contribute a field
 type.
 
+## The Arabic editor
+
+`locale="ar"` switches every string the panel draws or announces to Arabic through one set,
+`INSPECTOR_LABELS_AR` (`inspectorLabelsFor(locale)`): the region, its tabs and tablist, the empty
+states, "selection cleared", and the NAME of the selection — a registered block from the Arabic
+block-name catalogue (`بطاقة`, not "Card"), an element from the Arabic element words (`عنوان`).
+The tab arrows follow the direction the strip is drawn in (the nearest `dir` above it), so an Arabic
+editor mirrors them even over an English page. A block's own property labels come from its schema
+and stay as the block author wrote them.
+
 ## Known limitations
 
 - One node is edited at a time; a multi-id selection uses the first id.
@@ -460,3 +470,28 @@ type.
 - Inside a composed region, only authored elements and icons are addressable; a referenced block
   (`{kind:'component'}`) still edits as part of the region. Element rows always edit the base value:
   a composition tree has no per-device overrides.
+
+{/* ── block-parts (2026-10-06) ── */}
+
+## Parts of a registered block
+
+When the kernel's `partFocus` names a declared part of the selected block (a click on the hero's
+heading, a feature card's title, a Layers part row), the panel becomes the **part panel**
+(`InspectorPartPanel`): the header reads "Heading · Hero", **Back to block** clears the part focus,
+Content shows only that part's bound rows, and Design is the style manager over `partSource` with a
+This item / All items switch for repeated parts and a Text direction control. See the
+InspectorPartPanel docs.
+
+`assetLibrary` (an `AssetLibraryPort`) is handed to every field through `FieldServicesProvider`, so
+image and asset fields pick from the host's catalogue; without it they fall back to URL entry.
+
+{/* ── /block-parts ── */}
+
+## Block presets and style classes
+
+A registered block's Design tab opens with a **Block presets** heading over the block's own schema
+options (variant, background, padding…), and the style panel follows under **Style classes**. The
+classes override the presets on that element. The two layers are named so that one property never
+looks like two competing controls. The style panel's sticky header (screen size, state, search) sits
+under the Inspector's sticky head, using the `--bldr-inspector-head-size` variable that
+`InspectorHeader` sets.

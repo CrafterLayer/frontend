@@ -40,16 +40,21 @@ export function GridTracksControl({
 
   return (
     <div className="bldr-grid-tracks" role="group" aria-label={label}>
-      <div className="bldr-grid-tracks__preview" aria-hidden="true">
-        {tracks.map((track, index) => (
-          <span
-            // Tracks are positional: the index IS the identity here.
-            key={index}
-            className="bldr-grid-tracks__bar"
-            style={{ flexGrow: track.endsWith('fr') ? Number.parseFloat(track) : 1 }}
-          />
-        ))}
-      </div>
+      {tracks.length === 0 ? (
+        // A clear empty state, not a blank box above the "Add track" button.
+        <p className="bldr-grid-tracks__empty">{labels.empty}</p>
+      ) : (
+        <div className="bldr-grid-tracks__preview" aria-hidden="true">
+          {tracks.map((track, index) => (
+            <span
+              // Tracks are positional: the index IS the identity here.
+              key={index}
+              className="bldr-grid-tracks__bar"
+              style={{ flexGrow: track.endsWith('fr') ? Number.parseFloat(track) : 1 }}
+            />
+          ))}
+        </div>
+      )}
       <input
         className="bldr-grid-tracks__count"
         type="number"

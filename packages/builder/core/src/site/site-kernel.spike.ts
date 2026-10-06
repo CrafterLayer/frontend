@@ -15,6 +15,7 @@ import {
   type KernelState,
   type NodeId,
   type PageId,
+  type PartFocus,
   type Patch,
   type StateFacade,
   type Transaction,
@@ -67,6 +68,7 @@ export interface KernelSiteState {
   pageId: PageId;
   selection: NodeId[];
   elementFocus: ElementFocus | null;
+  partFocus?: PartFocus | null; // block-parts (2026-10-06)
   seq: number;
 }
 
@@ -346,6 +348,7 @@ export function createSiteKernelSpike(options: CreateSiteKernelSpikeOptions): Si
         doc: documentOf(),
         selection: mine ? state.selection : [],
         elementFocus: mine ? state.elementFocus : null,
+        partFocus: mine ? (state.partFocus ?? null) : null, // block-parts (2026-10-06)
         seq: state.seq,
       };
     };
@@ -436,17 +439,35 @@ export function createSiteKernelSpike(options: CreateSiteKernelSpikeOptions): Si
       getDocument: documentOf,
       validate: () => validateDocument(documentOf(), lookup),
       setSelection: (idsToSelect) => {
-        setPageState({ pageId, selection: [...idsToSelect], elementFocus: null });
+        setPageState({ pageId, selection: [...idsToSelect], elementFocus: null, partFocus: null });
       },
       clearSelection: () => {
-        setPageState({ pageId, selection: [], elementFocus: null });
+        setPageState({ pageId, selection: [], elementFocus: null, partFocus: null });
       },
       focusElement: (id, path) => {
-        setPageState({ pageId, selection: [id], elementFocus: { id, path: [...path] } });
+        setPageState({
+          pageId,
+          selection: [id],
+          elementFocus: { id, path: [...path] },
+          partFocus: null,
+        });
       },
       clearElementFocus: () => {
         setPageState({ elementFocus: null });
       },
+      // ── block-parts (2026-10-06) ──
+      focusPart: (id, ref) => {
+        setPageState({
+          pageId,
+          selection: [id],
+          elementFocus: null,
+          partFocus: { id, part: ref.part, index: [...ref.index] },
+        });
+      },
+      clearPartFocus: () => {
+        setPageState({ partFocus: null });
+      },
+      // ── /block-parts ──
       transactions: () => log.all(),
       flush: () => Promise.resolve(store.getState().seq),
     };
@@ -459,7 +480,10 @@ export function createSiteKernelSpike(options: CreateSiteKernelSpikeOptions): Si
     setCurrentPage: (pageId) => {
       pageIndex(store.getState().site, pageId);
       const state = store.getState();
-      write({ ...state, pageId, selection: [], elementFocus: null }, NOTHING_CHANGED);
+      write(
+        { ...state, pageId, selection: [], elementFocus: null, partFocus: null },
+        NOTHING_CHANGED,
+      );
     },
     page: (pageId) => {
       pageIndex(store.getState().site, pageId);

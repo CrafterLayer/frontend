@@ -18,10 +18,12 @@ import type {
  *
  * ## Loading (export)
  *
- * A published page that uses an engine carries
- * `<link rel="prefetch" as="script" href="…/assets/ck-<kind>.js" data-ck-engine="<kind>">`
- * in its head. This pack injects `<script src=link.href data-ck-engine=<kind>>`
- * once per document:
+ * A published page that uses an engine carries the locator
+ * `<link rel="ck-engine" href="…/assets/ck-<kind>.js" data-ck-engine="<kind>">`
+ * in its head — an unknown rel, so the browser fetches nothing (fix pass
+ * 2026-10-06: a rel="prefetch" downloaded the engines under reduced motion
+ * too). This pack injects `<script src=link.href data-ck-engine=<kind>>`
+ * once per document, only when motion is allowed:
  * - timeline: at once (its recipes set the initial state on first paint);
  * - scene and lottie: after first paint AND near the viewport —
  *   `requestIdleCallback` (fallback `setTimeout` 200 ms) and an
@@ -220,7 +222,7 @@ export function mountEngines(
     }
   }
 
-  /* Export: request each waiting engine from its prefetch link, once per document. */
+  /* Export: request each waiting engine from its locator link, once per document. */
   function inject(kind: CkEngineKind, href: string): void {
     if (page.querySelector(`script[data-ck-engine="${kind}"]`) !== null) return;
     const script = page.createElement('script');

@@ -45,7 +45,7 @@ export const pricingSchema = defineBlockSchema({
   */
   propertyGroups: {
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     columns: { tab: 'design', section: 'Layout' },
     align: { tab: 'design', section: 'Alignment' },
     tone: { tab: 'design', section: 'Colour' },
@@ -58,6 +58,27 @@ export const pricingSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /* The section's own text (block-parts DESIGN §1); each plan card is a pricingPlan node with its own parts. */
+  parts: {
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'عنوان'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Intro', ar: 'المقدمة' },
+      aliases: ['lead', 'description', 'paragraph', 'الوصف', 'مقدمة', 'النص'],
+      multiline: true,
+    },
+    plans: {
+      kind: 'box',
+      label: { en: 'Plan row', ar: 'صف الخطط' },
+      aliases: ['grid', 'cards', 'الخطط', 'البطاقات'],
+    },
+  },
   /*
     The plans are NODES now, not data.
 

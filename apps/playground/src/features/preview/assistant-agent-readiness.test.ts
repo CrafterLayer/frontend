@@ -9,6 +9,7 @@ import {
 } from '@craftkit/builder';
 import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
+import { catalogPolicyFor } from './components/AssistantPanel/catalogPolicyFor';
 import { createPlaygroundKernel, type PlaygroundFixture } from './create-playground-kernel';
 
 const REQUEST = 'Change the page direction to RTL.';
@@ -24,8 +25,18 @@ const DUPLICATED_BUILTIN_FRAGMENT_SOURCES = new Set([
   register shows up here as a number, not as an assistant that quietly stops
   offering half the catalog.
 */
-const LANDING_BLOCK_COUNT = 55;
+// 56 since 9521efa (2026-10-05) registered the symbol-instance block beside customCode.
+const LANDING_BLOCK_COUNT = 56;
 const LANDING_NODE_COUNT = 27;
+/*
+  The FULL catalog is what the panel sends the offline provider, and it sends
+  it with that path's own budget (catalogPolicyFor.ts): 55 blocks no longer
+  fit the 64k wire default (65,308 measured 2026-10-06 on the landing fixture,
+  after the svg and media vocabulary joined customCode's schema). The remote
+  path sends no catalog and keeps the default (ai-context-cost.test.ts).
+*/
+const FULL_CATALOG = catalogPolicyFor('offline', []);
+const FULL_CATALOG_BUDGET = FULL_CATALOG.policy?.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
 
 async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'empty'>) {
   const kernel = createPlaygroundKernel({ fixture });
@@ -72,6 +83,7 @@ async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'emp
     provider,
     request: REQUEST,
     validationPorts: { clock: fixedClock(200), ids: seededIds(`readiness-${fixture}`) },
+    ...FULL_CATALOG,
     apply: 'never',
   });
 
@@ -80,14 +92,14 @@ async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'emp
 
 describe('real Playground AI agent readiness', () => {
   it.each(['landing', 'empty'] as const)(
-    'fits the complete %s request under the default budget and reaches the provider once',
+    'fits the complete %s request under the full-catalog budget and reaches the provider once',
     async (fixture) => {
       const evidence = await probeFixture(fixture);
 
       expect(evidence.result.status).toBe('proposed');
       expect(evidence.providerCalls).toBe(1);
       expect(evidence.completeWireTokens).toBeGreaterThan(0);
-      expect(evidence.completeWireTokens).toBeLessThan(DEFAULT_AI_CONTEXT_TOKEN_BUDGET);
+      expect(evidence.completeWireTokens).toBeLessThan(FULL_CATALOG_BUDGET);
       expect(evidence.duplicateBuiltinFragments).toEqual([]);
     },
   );
@@ -122,10 +134,11 @@ describe('real Playground AI agent readiness', () => {
       provider,
       request: REQUEST,
       validationPorts: { clock: fixedClock(200), ids: seededIds('readiness-all-selected') },
+      ...FULL_CATALOG,
       apply: 'never',
     });
 
     expect(result.status).toBe('proposed');
-    expect(completeWireTokens).toBeLessThan(DEFAULT_AI_CONTEXT_TOKEN_BUDGET);
+    expect(completeWireTokens).toBeLessThan(FULL_CATALOG_BUDGET);
   });
 });

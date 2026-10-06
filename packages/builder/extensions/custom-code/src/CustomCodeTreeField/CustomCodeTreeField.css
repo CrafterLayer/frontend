@@ -38,3 +38,26 @@
   color: var(--ck-danger, #dc2626);
   font-size: var(--ck-text-sm, 0.8125rem);
 }
+
+/* ── block-parts (2026-10-06) ── where to edit, and the advanced source toggle */
+.bldr-cc-tree__hint {
+  margin: 0;
+  color: var(--ck-fg, #111827);
+  font-size: var(--ck-text-sm, 0.8125rem);
+}
+
+.bldr-cc-tree__toggle {
+  align-self: flex-start;
+  padding: var(--ck-space-1, 0.25rem) var(--ck-space-2, 0.5rem);
+  border: 1px solid var(--ck-border, #d1d5db);
+  border-radius: var(--ck-radius-sm, 0.25rem);
+  background: none;
+  color: var(--ck-fg-muted, #6b7280);
+  cursor: pointer;
+  font-size: var(--ck-text-sm, 0.8125rem);
+}
+
+.bldr-cc-tree__toggle[aria-expanded='true'] {
+  color: var(--ck-fg, #111827);
+}
+/* ── /block-parts ── */

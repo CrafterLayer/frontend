@@ -1,2 +1,2 @@
-export { StyleProperty, type StylePropertyProps } from './StyleProperty';
-export { intentsAt, type StyleEdit } from './style-edit';
+export { StyleProperty, type StylePropertyProps, type StyleRowLayout } from './StyleProperty';
+export { intentsAt, withDisplayCleanup, type StyleEdit } from './style-edit';

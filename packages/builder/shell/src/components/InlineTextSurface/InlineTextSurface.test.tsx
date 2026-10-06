@@ -18,6 +18,20 @@ const type = (element: HTMLElement, text: string) => {
   element.dispatchEvent(new Event('input', { bubbles: true }));
 };
 
+const key = (element: HTMLElement, name: string, init: KeyboardEventInit = {}): KeyboardEvent => {
+  const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init });
+  act(() => {
+    element.dispatchEvent(event);
+  });
+  return event;
+};
+
+const blur = (element: HTMLElement) => {
+  act(() => {
+    element.dispatchEvent(new FocusEvent('blur'));
+  });
+};
+
 describe('InlineTextSurface (009 contract §4 t1)', () => {
   it('renders the stored value and exposes itself as a named textbox', () => {
     const { container } = render(
@@ -37,15 +51,124 @@ describe('InlineTextSurface (009 contract §4 t1)', () => {
     }
   });
 
-  it('commits ONE call per change, through NATIVE listeners (the frame has no React delegation)', () => {
+  it('BUFFERS keystrokes and commits ONCE on blur (law L1: one gesture, one Undo)', () => {
     const onCommit = vi.fn();
     const { container } = render(<InlineTextSurface value="a" onCommit={onCommit} />);
     const surface = surfaceIn(container);
 
     type(surface, 'ab');
     type(surface, 'abc');
-    expect(onCommit).toHaveBeenNthCalledWith(1, 'ab');
-    expect(onCommit).toHaveBeenNthCalledWith(2, 'abc');
+    type(surface, 'abcd');
+    expect(onCommit).not.toHaveBeenCalled();
+
+    blur(surface);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('abcd', 'blur');
+  });
+
+  it('Enter commits once; a later blur with nothing new commits nothing', () => {
+    const onCommit = vi.fn();
+    const { container } = render(<InlineTextSurface value="a" singleLine onCommit={onCommit} />);
+    const surface = surfaceIn(container);
+    type(surface, 'a b');
+    type(surface, 'a bc');
+
+    const enter = key(surface, 'Enter');
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('a bc', 'enter');
+
+    blur(surface);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it('an unchanged value commits nothing — no empty transaction', () => {
+    const onCommit = vi.fn();
+    const { container } = render(<InlineTextSurface value="same" onCommit={onCommit} />);
+    const surface = surfaceIn(container);
+    type(surface, 'same');
+    key(surface, 'Enter');
+    blur(surface);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('Escape CANCELS: the draft is discarded and the blur after exit commits nothing', () => {
+    const onCommit = vi.fn();
+    const onExit = vi.fn();
+    const { container } = render(
+      <InlineTextSurface value="Original" onCommit={onCommit} onExit={onExit} />,
+    );
+    const surface = surfaceIn(container);
+    type(surface, 'Original but changed');
+
+    key(surface, 'Escape');
+    expect(onExit).toHaveBeenCalledTimes(1);
+    expect(surface.textContent).toBe('Original');
+    blur(surface);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('a draft whose session ends before any blur is committed on unmount, once', () => {
+    const onCommit = vi.fn();
+    const view = render(<InlineTextSurface value="a" onCommit={onCommit} />);
+    type(surfaceIn(view.container), 'kept');
+    view.unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('kept', 'blur');
+  });
+
+  it('multiline: Shift+Enter inserts a line feed, Enter commits the whole text', () => {
+    const onCommit = vi.fn();
+    const { container } = render(<InlineTextSurface value="" onCommit={onCommit} />);
+    const surface = surfaceIn(container);
+    surface.textContent = 'one';
+    const caret = document.createRange();
+    caret.selectNodeContents(surface);
+    caret.collapse(false);
+    document.getSelection()?.removeAllRanges();
+    document.getSelection()?.addRange(caret);
+
+    const shiftEnter = key(surface, 'Enter', { shiftKey: true });
+    expect(shiftEnter.defaultPrevented).toBe(true);
+    expect(onCommit).not.toHaveBeenCalled();
+    surface.append('two');
+    surface.dispatchEvent(new Event('input', { bubbles: true }));
+
+    key(surface, 'Enter');
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('one\ntwo', 'enter');
+    expect(surface.getAttribute('aria-multiline')).toBe('true');
+  });
+
+  it('IGNORES incoming values while a draft is unsaved (history replay never eats typing)', () => {
+    const onCommit = vi.fn();
+    const view = render(<InlineTextSurface value="a" onCommit={onCommit} />);
+    const surface = surfaceIn(view.container);
+    type(surface, 'typing in progress');
+    view.rerender(<InlineTextSurface value="replayed by undo" onCommit={onCommit} />);
+    expect(surface.textContent).toBe('typing in progress');
+
+    blur(surface);
+    expect(onCommit).toHaveBeenCalledWith('typing in progress', 'blur');
+    // Once the draft is committed, document truth shows through again.
+    view.rerender(<InlineTextSurface value="restored" onCommit={onCommit} />);
+    expect(surface.textContent).toBe('restored');
+  });
+
+  it('edits Arabic and English alike, with direction taken from the content', () => {
+    const onCommit = vi.fn();
+    const { container } = render(<InlineTextSurface value="مرحبا" onCommit={onCommit} />);
+    const surface = surfaceIn(container);
+    expect(surface.getAttribute('dir')).toBe('auto');
+    expect(surface.textContent).toBe('مرحبا');
+
+    type(surface, 'مرحبا بالعالم');
+    key(surface, 'Enter');
+    expect(onCommit).toHaveBeenLastCalledWith('مرحبا بالعالم', 'enter');
+
+    type(surface, 'Your site grows.');
+    blur(surface);
+    expect(onCommit).toHaveBeenLastCalledWith('Your site grows.', 'blur');
     expect(onCommit).toHaveBeenCalledTimes(2);
   });
 
@@ -54,6 +177,7 @@ describe('InlineTextSurface (009 contract §4 t1)', () => {
     const view = render(<InlineTextSurface value="a" onCommit={onCommit} />);
     const surface = surfaceIn(view.container);
     type(surface, 'ab');
+    key(surface, 'Enter');
 
     // The host commits and hands the same text back — the value the surface
     // already shows. Rewriting here is what resets a caret mid-typing.
@@ -69,16 +193,25 @@ describe('InlineTextSurface (009 contract §4 t1)', () => {
     expect(surface.textContent).toBe('restored');
   });
 
-  it('single-line refuses newlines in both the value and the key', () => {
+  it('single-line refuses newlines in the value, on Enter, Shift+Enter and line-break input', () => {
     const onCommit = vi.fn();
     const { container } = render(<InlineTextSurface value="a" singleLine onCommit={onCommit} />);
     const surface = surfaceIn(container);
     type(surface, 'one\ntwo');
-    expect(onCommit).toHaveBeenLastCalledWith('onetwo');
+    const shiftEnter = key(surface, 'Enter', { shiftKey: true });
+    expect(shiftEnter.defaultPrevented).toBe(true);
+    expect(onCommit).not.toHaveBeenCalled();
 
-    const enter = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true });
-    surface.dispatchEvent(enter);
-    expect(enter.defaultPrevented).toBe(true);
+    const lineBreak = new InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'insertLineBreak',
+    });
+    surface.dispatchEvent(lineBreak);
+    expect(lineBreak.defaultPrevented).toBe(true);
+
+    key(surface, 'Enter');
+    expect(onCommit).toHaveBeenLastCalledWith('onetwo', 'enter');
     expect(surface.getAttribute('aria-multiline')).toBeNull();
   });
 

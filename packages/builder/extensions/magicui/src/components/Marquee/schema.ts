@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { marqueeExamples } from './examples';
@@ -79,6 +80,8 @@ export const marqueeSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Accessibility' },
@@ -95,6 +98,73 @@ export const marqueeSchema = defineBlockSchema({
     radius: { tab: 'design', section: 'Appearance' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
+  },
+  /*
+    The marquee's inner elements (block-parts DESIGN §1): the visible pause
+    and resume labels, the item row and every item's image, title, text,
+    detail and link. Each item is drawn in every seamless copy; all copies
+    carry the part, and only the first, readable copy hosts an inline editor.
+    `label` names the region for assistive technology only, so it stays an
+    Inspector row.
+  */
+  parts: {
+    pauseLabel: {
+      kind: 'text',
+      bind: 'pauseLabel',
+      label: { en: 'Pause button', ar: 'زر الإيقاف' },
+      aliases: ['pause', 'pause text', 'stop', 'إيقاف'],
+    },
+    resumeLabel: {
+      kind: 'text',
+      bind: 'resumeLabel',
+      label: { en: 'Resume button', ar: 'زر الاستئناف' },
+      aliases: ['resume', 'play', 'resume text', 'استئناف', 'تشغيل'],
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Items', ar: 'العناصر' },
+      aliases: ['row', 'logos', 'cards', 'track', 'list', 'الشريط', 'القائمة'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Item', ar: 'العنصر' },
+      aliases: ['logo', 'card', 'tile', 'بطاقة', 'شعار', 'عنصر'],
+    },
+    'item.image': {
+      kind: 'image',
+      bind: { src: 'items.*.imageUrl', alt: 'items.*.imageAlt' },
+      label: { en: 'Item image', ar: 'صورة العنصر' },
+      aliases: ['image', 'logo image', 'photo', 'mark', 'صورة', 'الشعار'],
+    },
+    'item.title': {
+      kind: 'text',
+      bind: 'items.*.title',
+      label: { en: 'Item title', ar: 'عنوان العنصر' },
+      aliases: ['title', 'name', 'عنوان', 'الاسم'],
+    },
+    'item.description': {
+      kind: 'text',
+      bind: 'items.*.description',
+      label: { en: 'Item text', ar: 'نص العنصر' },
+      aliases: ['description', 'quote', 'text', 'وصف', 'النص'],
+      multiline: true,
+    },
+    'item.meta': {
+      kind: 'text',
+      bind: 'items.*.meta',
+      label: { en: 'Item detail', ar: 'تفصيل العنصر' },
+      aliases: ['meta', 'category', 'role', 'tag', 'تصنيف', 'وسم'],
+    },
+    'item.link': {
+      kind: 'link',
+      bind: { text: 'items.*.title', href: 'items.*.href' },
+      label: { en: 'Item link', ar: 'رابط العنصر' },
+      aliases: ['link', 'action', 'رابط', 'الرابط'],
+    },
   },
   examples: marqueeExamples,
 });

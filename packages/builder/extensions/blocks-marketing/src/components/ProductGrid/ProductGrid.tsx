@@ -1,8 +1,8 @@
 import '../section-layout.css';
 
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -16,7 +16,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { ProductGridProps } from './schema';
+import { productGridSchema, type ProductGridProps } from './schema';
 
 const GRID_CLASSES: Record<ProductGridProps['columns'], string> = {
   '2': 'grid-cols-1 @md:grid-cols-2',
@@ -36,9 +36,25 @@ function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
   event.preventDefault();
 }
 
+/*
+  `actionLabel` is ONE part shown on every card. While it is edited in place
+  its value is the editor element, which must render exactly once: the first
+  card hosts it and the others show the label again once it is committed.
+*/
+function sharedText(value: ReactNode, host: boolean): ReactNode {
+  return host || typeof value === 'string' ? value : null;
+}
+
+/* The decorative monogram reads only a committed name, never an editor element. */
+function initialOf(value: unknown): string {
+  return typeof value === 'string' ? value.trim().slice(0, 1).toLocaleUpperCase() : '';
+}
+
 /** Commerce-ready product cards with pricing, ratings, merchandising badges, and safe actions. */
 export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductGridProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, productGridSchema.parts);
   const explicitlyFeatured = props.products.findIndex((product) => product.featured === true);
   const featuredIndex = explicitlyFeatured < 0 ? 0 : explicitlyFeatured;
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
@@ -78,22 +94,32 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
           )}
         >
           {props.eyebrow === undefined ? null : (
-            <p className="m-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase">
+            <p
+              {...part('eyebrow', {
+                className:
+                  'm-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase',
+              })}
+            >
               {props.eyebrow}
             </p>
           )}
           <h2
-            id={headingId}
-            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
             <p
-              className={cx(
-                'm-0 text-lg leading-relaxed',
-                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-              )}
+              {...part('body', {
+                className: cx(
+                  'm-0 text-lg leading-relaxed',
+                  props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+                ),
+              })}
             >
               {props.body}
             </p>
@@ -119,29 +145,38 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
           ) : null
         ) : (
           <ul
-            className={cx(
-              'm-0 grid w-full list-none p-0',
-              GRID_CLASSES[props.columns],
-              GAP_CLASSES.md,
-            )}
+            {...part('products', {
+              className: cx(
+                'm-0 grid w-full list-none p-0',
+                GRID_CLASSES[props.columns],
+                GAP_CLASSES.md,
+              ),
+            })}
             data-product-grid={props.variant}
           >
             {props.products.map((product, index) => {
               const isFeatured = props.variant === 'featured' && index === featuredIndex;
               const rating = product.rating;
+              const at = [index];
+              const nameId = `${node.id}-product-${String(index)}-name`;
+              const linkId = `${node.id}-product-${String(index)}-link`;
 
               return (
+                /* Keyed by position: a bound value may be an inline editor element. */
                 <li
-                  key={`${product.name}-${product.href}`}
+                  key={index}
                   className={cx('min-w-0', isFeatured ? '@xl:col-span-2' : undefined)}
                 >
                   <article
-                    className={cx(
-                      'group relative h-full min-w-0 overflow-hidden rounded-xl border bg-surface text-text shadow-soft transition hover:-translate-y-1 hover:shadow-elevated motion-reduce:transform-none motion-reduce:transition-none',
-                      isFeatured
-                        ? 'border-accent @lg:grid @lg:grid-cols-2'
-                        : 'flex flex-col border-text/10',
-                    )}
+                    {...part('product', {
+                      index: at,
+                      className: cx(
+                        'group relative h-full min-w-0 overflow-hidden rounded-xl border bg-surface text-text shadow-soft transition hover:-translate-y-1 hover:shadow-elevated motion-reduce:transform-none motion-reduce:transition-none',
+                        isFeatured
+                          ? 'border-accent @lg:grid @lg:grid-cols-2'
+                          : 'flex flex-col border-text/10',
+                      ),
+                    })}
                     data-product-card={isFeatured ? 'featured' : 'standard'}
                   >
                     <div
@@ -153,11 +188,15 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
                     >
                       {product.imageSrc === undefined ? (
                         <span aria-hidden="true" className="text-4xl font-bold opacity-30">
-                          {product.name.trim().slice(0, 1).toLocaleUpperCase()}
+                          {initialOf(product.name)}
                         </span>
                       ) : (
                         <img
-                          className="h-full w-full object-cover transition group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none"
+                          {...part('product.image', {
+                            index: at,
+                            className:
+                              'h-full w-full object-cover transition group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none',
+                          })}
                           src={product.imageSrc}
                           alt={product.imageAlt ?? ''}
                           loading="lazy"
@@ -165,7 +204,13 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
                         />
                       )}
                       {product.badge === undefined ? null : (
-                        <span className="absolute start-4 top-4 inline-flex rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-text shadow-soft">
+                        <span
+                          {...part('product.badge', {
+                            index: at,
+                            className:
+                              'absolute start-4 top-4 inline-flex rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-text shadow-soft',
+                          })}
+                        >
                           {product.badge}
                         </span>
                       )}
@@ -178,15 +223,26 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
                       )}
                     >
                       <h3
-                        className={cx(
-                          'm-0 leading-tight font-semibold tracking-tight text-balance',
-                          isFeatured ? 'text-3xl' : 'text-xl',
-                        )}
+                        {...part('product.name', {
+                          index: at,
+                          id: nameId,
+                          className: cx(
+                            'm-0 leading-tight font-semibold tracking-tight text-balance',
+                            isFeatured ? 'text-3xl' : 'text-xl',
+                          ),
+                        })}
                       >
                         {product.name}
                       </h3>
                       {product.description === undefined ? null : (
-                        <p className="m-0 leading-relaxed text-text-muted">{product.description}</p>
+                        <p
+                          {...part('product.description', {
+                            index: at,
+                            className: 'm-0 leading-relaxed text-text-muted',
+                          })}
+                        >
+                          {product.description}
+                        </p>
                       )}
 
                       {!props.showRatings || rating === undefined ? null : (
@@ -249,21 +305,45 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
                       )}
 
                       <p className="m-0 flex flex-wrap items-baseline gap-gap-sm">
-                        <span className="text-2xl leading-tight font-bold tracking-tight">
+                        <span
+                          {...part('product.price', {
+                            index: at,
+                            className: 'text-2xl leading-tight font-bold tracking-tight',
+                          })}
+                        >
                           {product.price}
                         </span>
                         {product.originalPrice === undefined ? null : (
-                          <del className="text-sm text-text-muted">{product.originalPrice}</del>
+                          <del
+                            {...part('product.originalPrice', {
+                              index: at,
+                              className: 'text-sm text-text-muted',
+                            })}
+                          >
+                            {product.originalPrice}
+                          </del>
                         )}
                       </p>
 
+                      {/*
+                        The accessible name is the button's own label followed
+                        by the product name, read through aria-labelledby: a
+                        bound value never reaches an attribute (DESIGN §2.3).
+                      */}
                       <a
-                        className="mt-auto inline-flex min-h-12 items-center justify-center rounded-xl border border-accent bg-accent px-control-inline-lg py-control-block-md font-semibold text-accent-text shadow-soft transition hover:-translate-y-0.5 hover:shadow-elevated focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transform-none motion-reduce:transition-none"
+                        {...part('product.link', {
+                          index: at,
+                          id: linkId,
+                          className:
+                            'mt-auto inline-flex min-h-12 items-center justify-center rounded-xl border border-accent bg-accent px-control-inline-lg py-control-block-md font-semibold text-accent-text shadow-soft transition hover:-translate-y-0.5 hover:shadow-elevated focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transform-none motion-reduce:transition-none',
+                        })}
                         href={product.href}
-                        aria-label={`${props.actionLabel}: ${product.name}`}
+                        aria-labelledby={`${linkId} ${nameId}`}
                         onClick={isCanvas ? preventCanvasNavigation : undefined}
                       >
-                        {props.actionLabel}
+                        <span {...part('actionLabel')}>
+                          {sharedText(props.actionLabel, index === 0)}
+                        </span>
                       </a>
                     </div>
                   </article>

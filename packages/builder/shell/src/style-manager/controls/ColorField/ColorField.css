@@ -1,0 +1,112 @@
+/*
+  The colour row's field: 28px high, swatch + name, the same frame as the
+  number and select fields beside it so the panel reads as one column.
+*/
+.bldr-color-field {
+  align-items: center;
+  background: var(--bldr-input-bg);
+  block-size: var(--bldr-control-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-inline: var(--bldr-space-xs) var(--bldr-space-sm);
+  text-align: start;
+}
+
+.bldr-color-field:hover:not(:disabled) {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.bldr-color-field:focus-visible,
+.bldr-color-field[data-state='open'] {
+  border-color: var(--bldr-border-focus);
+  outline: none;
+}
+
+.bldr-color-field:focus-visible {
+  box-shadow: 0 0 0 var(--bldr-border-hairline) var(--bldr-border-focus);
+}
+
+.bldr-color-field:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bldr-color-field[data-mixed] {
+  border-style: dashed;
+}
+
+.bldr-color-field__swatch {
+  background: repeating-conic-gradient(var(--bldr-surface-tint) 0 25%, var(--bldr-surface) 0 50%) 0 0 /
+    var(--bldr-space-md) var(--bldr-space-md);
+  block-size: var(--bldr-space-4xl);
+  border-radius: var(--bldr-radius-xs);
+  box-shadow: inset 0 0 0 var(--bldr-border-hairline) var(--bldr-surface-border);
+  flex: none;
+  inline-size: var(--bldr-space-4xl);
+  overflow: hidden;
+}
+
+.bldr-color-field__fill {
+  block-size: 100%;
+  display: block;
+  inline-size: 100%;
+}
+
+/* No colour: a diagonal slash, the universal "none". */
+.bldr-color-field[data-unset] .bldr-color-field__swatch {
+  background: linear-gradient(
+      to top right,
+      transparent calc(50% - var(--bldr-border-hairline)),
+      var(--bldr-danger) calc(50% - var(--bldr-border-hairline)),
+      var(--bldr-danger) calc(50% + var(--bldr-border-hairline)),
+      transparent calc(50% + var(--bldr-border-hairline))
+    ),
+    var(--bldr-surface);
+}
+
+.bldr-color-field__text {
+  flex: 1 1 auto;
+  font-family: var(--bldr-font-mono);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-color-field[data-unset] .bldr-color-field__text,
+.bldr-color-field[data-mixed] .bldr-color-field__text {
+  color: var(--bldr-panel-muted);
+  font-family: inherit;
+}
+
+.bldr-color-field__warning {
+  block-size: var(--bldr-space-3xl);
+  fill: none;
+  flex: none;
+  inline-size: var(--bldr-space-3xl);
+  stroke: var(--bldr-warning);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.bldr-color-field__popover {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  inline-size: calc(var(--bldr-measure-picker) + var(--bldr-space-6xl) + var(--bldr-space-3xl));
+  max-block-size: var(--radix-popover-content-available-height);
+  overflow-y: auto;
+  padding: var(--bldr-space-md);
+  z-index: 40;
+}

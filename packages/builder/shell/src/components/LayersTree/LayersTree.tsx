@@ -52,6 +52,8 @@ import {
   type ElementTarget,
 } from '../../custom-code/element-target';
 import { parentOf, type SlotOrderLookup } from '../../keyboard/traversal';
+import { localBlockName } from '../../i18n/block-names';
+import { logicalArrowKey, resolveChromeDir } from '../../i18n/editor-locale';
 import { blockDisplayName } from '../../naming/block-display-name';
 import type { ElementSelection } from '../../selection/element-selection';
 import '../../styles/visually-hidden.css';
@@ -69,6 +71,11 @@ import {
   type LayerRow,
   type Projection,
 } from './layers-rows';
+// ── block-parts (2026-10-06) ──
+import { partFocusKey, withPartRows, type PartLayerRow, type TreeRow } from './layers-part-rows';
+import { LayersPartRow } from './LayersPartRow';
+import { useLayersParts } from './use-layers-parts';
+// ── /block-parts ──
 import './LayersTree.css';
 
 /** What "Save as template" hands the host (P5's `saveTemplate` command takes it from here). */
@@ -108,6 +115,10 @@ const NO_TARGETS: readonly ElementTarget[] = [];
 const noopSubscribe = (): (() => void) => () => undefined;
 
 function primaryKeyOf(state: Readonly<KernelState>): string | null {
+  // ── block-parts (2026-10-06) ── a focused part is the primary row
+  const part = partFocusKey(state);
+  if (part !== null) return part;
+  // ── /block-parts ──
   if (state.elementFocus !== null) {
     return elementTargetKey({ kind: 'tree', nodeId: state.elementFocus.id, path: state.elementFocus.path });
   }
@@ -195,7 +206,11 @@ export function LayersTree({
 
   /** Visible rows, document order — re-derived per document reference (l3). */
   const rows = useMemo(() => buildLayerRows(kernel, doc, slotOrder, collapsed), [kernel, doc, slotOrder, collapsed]);
-  const shownRows = drag === null ? rows : drag.rows;
+  // ── block-parts (2026-10-06) ── a registered block's parts continue below its row
+  const parts = useLayersParts({ kernel, doc, rows, collapsed, labels: labels.parts, words, announce, setActiveRow });
+  const treeRows: readonly TreeRow[] = parts.rows;
+  const shownRows: readonly TreeRow[] = drag === null ? treeRows : drag.rows;
+  // ── /block-parts ──
 
   // l2: an external selection reveals its row — expand every ancestor (blocks
   // AND elements). The adjust-during-render pattern: corrected in the SAME
@@ -215,6 +230,18 @@ export function LayersTree({
             ancestors.push(elementTargetKey({ kind: 'tree', nodeId: hostId, path: path.slice(0, length) }));
           }
         }
+        // ── block-parts (2026-10-06) ── a focused part reveals its block and its enclosing parts
+        if (primaryKey.startsWith('part:')) {
+          ancestors.push(blockRowKey(hostId));
+          const all = withPartRows(kernel, doc, buildLayerRows(kernel, doc, slotOrder, new Set()), new Set());
+          let parentKey = all.find((candidate) => candidate.key === primaryKey)?.parentKey;
+          while (parentKey !== undefined && parentKey !== blockRowKey(hostId)) {
+            ancestors.push(parentKey);
+            const at: string = parentKey;
+            parentKey = all.find((candidate) => candidate.key === at)?.parentKey;
+          }
+        }
+        // ── /block-parts ──
         let ancestor = parentOf(doc, hostId);
         while (ancestor !== undefined) {
           ancestors.push(blockRowKey(ancestor));
@@ -241,7 +268,7 @@ export function LayersTree({
       if (row.kind === 'block') {
         const type = doc.nodes[row.id]?.type;
         return {
-          name: blockDisplayName(kernel, row.id),
+          name: blockDisplayName(kernel, row.id, words),
           detail: row.id,
           description: type === undefined ? undefined : kernel.context.registry.block(type)?.schema.description,
           glyph: undefined,
@@ -255,7 +282,7 @@ export function LayersTree({
           : node.kind === 'icon'
             ? `${words.icon} ${node.name}`
             : node.kind === 'component'
-              ? `${words.component} ${node.component}`
+              ? (localBlockName(node.component, words.blocks) ?? `${words.component} ${node.component}`)
               : (words.tags[node.tag] ?? words.element);
       return {
         name,
@@ -307,25 +334,35 @@ export function LayersTree({
     [announce],
   );
 
+  const navRef = useRef<HTMLElement | null>(null);
+  /** The direction the tree is DRAWN in: the editor's, else (no host `dir`) the page's. */
+  const chromeDir = useCallback(
+    () => resolveChromeDir(navRef.current, kernel.getDocument().dir === 'rtl' ? 'rtl' : 'ltr'),
+    [kernel],
+  );
+
   const onRowKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLLIElement>, row: LayerRow) => {
+    // ── block-parts (2026-10-06) ── part rows share the walk; `navRows` holds them
+    (event: KeyboardEvent<HTMLLIElement>, row: TreeRow) => {
       // Keys typed in the row's own controls (grip, rename field) stay theirs.
       if (event.target !== event.currentTarget) return;
-      const at = rows.findIndex((candidate) => candidate.key === row.key);
-      const mirrored = (key: string) =>
-        doc.dir === 'rtl' && (key === 'ArrowLeft' || key === 'ArrowRight')
-          ? key === 'ArrowLeft'
-            ? 'ArrowRight'
-            : 'ArrowLeft'
-          : key;
-      switch (mirrored(event.key)) {
+      if (row.kind === 'part' && parts.onItemKey(event, row)) {
+        event.preventDefault();
+        return;
+      }
+      const navRows = treeRows;
+      const at = navRows.findIndex((candidate) => candidate.key === row.key);
+      // ── /block-parts ──
+      // The tree is chrome: it is drawn in the editor's direction (the nearest `dir`
+      // above it), and only a host that sets none falls back to the page's.
+      switch (logicalArrowKey(event.key, chromeDir())) {
         case 'ArrowDown': {
-          const next = rows[at + 1];
+          const next = navRows[at + 1];
           if (next !== undefined) setActiveRow(next.key);
           break;
         }
         case 'ArrowUp': {
-          const previous = rows[at - 1];
+          const previous = navRows[at - 1];
           if (previous !== undefined) setActiveRow(previous.key);
           break;
         }
@@ -333,7 +370,7 @@ export function LayersTree({
           if (row.expandable && collapsed.has(row.key)) {
             toggle(row.key); // expand first…
           } else {
-            const next = rows[at + 1];
+            const next = navRows[at + 1];
             if (next !== undefined && next.depth > row.depth) setActiveRow(next.key); // …then step in
           }
           break;
@@ -348,7 +385,10 @@ export function LayersTree({
         }
         case 'Enter':
         case ' ': {
-          selectRow(row);
+          // ── block-parts (2026-10-06) ──
+          if (row.kind === 'part') parts.select(row);
+          else selectRow(row);
+          // ── /block-parts ──
           break;
         }
         case 'F2': {
@@ -358,7 +398,7 @@ export function LayersTree({
         }
         case 'Delete':
         case 'Backspace': {
-          if (row.parentKey === undefined) return;
+          if (row.parentKey === undefined || row.kind === 'part') return; // block-parts: items handled above
           report(deleteElements(contextFor(row)));
           break;
         }
@@ -367,14 +407,13 @@ export function LayersTree({
       }
       event.preventDefault();
     },
-    [rows, collapsed, doc, toggle, selectRow, report, contextFor],
+    [treeRows, parts, collapsed, toggle, selectRow, report, contextFor, chromeDir],
   );
 
   // Keep the roving focus target valid when rows change under it (state only).
-  const navRef = useRef<HTMLElement | null>(null);
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
   const focusInsideRef = useRef(false);
-  if (!rows.some((row) => row.key === activeRow)) {
+  if (!treeRows.some((row) => row.key === activeRow)) { // block-parts: part rows are valid stops
     setActiveRow(blockRowKey(doc.rootId));
   }
 
@@ -419,7 +458,7 @@ export function LayersTree({
     (event, { currentCoordinates }) => {
       const state = dragRef.current;
       if (state === null) return undefined;
-      const rtl = kernel.context.dir === 'rtl';
+      const rtl = chromeDir() === 'rtl';
       const code = event.code;
       let { overIndex, depth } = state.projection;
       if (code === 'ArrowDown') overIndex += 1;
@@ -438,7 +477,7 @@ export function LayersTree({
         y: currentCoordinates.y + (next.overIndex - previous.overIndex) * ROW_PX,
       };
     },
-    [kernel, updateDrag],
+    [chromeDir, updateDrag],
   );
 
   const sensors = useSensors(
@@ -474,13 +513,13 @@ export function LayersTree({
         over === null ? state.projection.overIndex : state.rows.findIndex((row) => row.key === String(over.id));
       const active = state.rows.find((row) => row.key === state.activeKey);
       if (active === undefined || overIndex < 0) return;
-      const sign = kernel.context.dir === 'rtl' ? -1 : 1;
+      const sign = chromeDir() === 'rtl' ? -1 : 1;
       const next = projectDrop(state.rows, state.activeKey, overIndex, active.depth + Math.round((sign * delta.x) / INDENT_PX));
       if (next === undefined) return;
       if (next.overIndex === state.projection.overIndex && next.depth === state.projection.depth) return;
       updateDrag({ ...state, projection: next });
     },
-    [kernel, updateDrag],
+    [chromeDir, updateDrag],
   );
 
   const onDragEnd = useCallback(
@@ -620,6 +659,37 @@ export function LayersTree({
     [onSaveTemplate, viewOf, regionCss, doc],
   );
 
+  // ── block-parts (2026-10-06) ── one row per part instance; not draggable, no context menu
+  const renderPartRow = (row: PartLayerRow) => {
+    const view = parts.viewOf(row);
+    return (
+      <LayersPartRow
+        key={row.key}
+        row={row}
+        name={view.name}
+        preview={view.preview}
+        description={view.description}
+        glyph={view.glyph}
+        selected={row.key === primaryKey}
+        tabbable={activeRow === row.key}
+        collapsed={collapsed.has(row.key)}
+        labels={parts.labels}
+        registerRow={registerRow}
+        onSelect={parts.select}
+        onToggleExpanded={(target) => {
+          toggle(target.key);
+        }}
+        onRowKeyDown={onRowKeyDown}
+        onRowFocus={(target) => {
+          focusInsideRef.current = true;
+          setActiveRow(target.key);
+        }}
+        onAction={parts.runAction}
+      />
+    );
+  };
+  // ── /block-parts ──
+
   const menuIsElement = menuRow?.kind === 'element';
   const menuIsRegion = menuRow?.kind === 'block' && menuRow.treeKey !== undefined;
   const menuIsRoot = menuRow?.parentKey === undefined;
@@ -650,7 +720,11 @@ export function LayersTree({
         onDragEnd={onDragEnd}
         onDragCancel={onDragCancel}
       >
-        <SortableContext items={shownRows.map((row) => row.key)} strategy={verticalListSortingStrategy}>
+        <SortableContext
+          // block-parts (2026-10-06): part rows are never sortable
+          items={shownRows.filter((row) => row.kind !== 'part').map((row) => row.key)}
+          strategy={verticalListSortingStrategy}
+        >
           <ContextMenu.Root
             onOpenChange={(open) => {
               if (!open) setMenuRow(null);
@@ -659,6 +733,9 @@ export function LayersTree({
             <ContextMenu.Trigger asChild>
               <ul role="tree" className="bldr-layers__tree" aria-label={labels.tree} aria-multiselectable={selection !== undefined}>
                 {shownRows.map((row) => {
+                  // ── block-parts (2026-10-06) ──
+                  if (row.kind === 'part') return renderPartRow(row);
+                  // ── /block-parts ──
                   const view = viewOf(row);
                   const node = row.kind === 'element' ? row.node : undefined;
                   const className = node === undefined || node.kind === 'component' ? undefined : (node.className ?? '');

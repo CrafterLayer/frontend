@@ -6,7 +6,7 @@ import { createBuilder, emptyDocument } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import type { FieldProps, FieldTypeDef } from '@craftkit/builder-schema';
 
-import { fieldModuleCache } from './field-module-cache';
+import { fieldModuleCache, fieldModuleFailures } from './field-module-cache';
 import { useFieldRendering } from './use-field-rendering';
 
 const Custom = (props: FieldProps) => <span>{String(props.value)}</span>;
@@ -40,7 +40,7 @@ const settle = async () => {
 describe('useFieldRendering', () => {
   it('resolves the default control for a plain schema and read-only for an exotic one', () => {
     const kernel = makeKernel();
-    const text = renderHook(() => useFieldRendering(kernel, z.string(), undefined, 0));
+    const text = renderHook(() => useFieldRendering(kernel, z.string().max(40), undefined, 0));
     expect(text.result.current.rendering).toEqual({
       kind: 'default',
       control: 'text',
@@ -54,7 +54,7 @@ describe('useFieldRendering', () => {
 
   it('shows a loading default until the contribution lands in the shared cache', async () => {
     const kernel = makeKernel();
-    const target = z.string();
+    const target = z.string().max(40);
     const def: FieldTypeDef = {
       id: 'custom-string',
       match: (schema) => (schema === target ? 10 : 0),
@@ -79,7 +79,7 @@ describe('useFieldRendering', () => {
 
   it('contains a rejected loader as the live default', async () => {
     const kernel = makeKernel();
-    const target = z.string();
+    const target = z.string().max(40);
     const def: FieldTypeDef = {
       id: 'broken-string',
       match: (schema) => (schema === target ? 10 : 0),
@@ -90,7 +90,9 @@ describe('useFieldRendering', () => {
       useFieldRendering(kernel, target, undefined, kernel.extensions.version()),
     );
     await settle();
-    expect(fieldModuleCache.get(def)).toBe('failed');
+    expect(fieldModuleCache.has(def)).toBe(false);
+    expect(fieldModuleFailures.get(def)?.message).toBe('nope');
+    expect(view.result.current.failure?.message).toBe('nope');
     expect(view.result.current.rendering).toEqual({
       kind: 'default',
       control: 'text',
@@ -98,9 +100,90 @@ describe('useFieldRendering', () => {
     });
   });
 
+  it('a failed load is NOT cached forever: retry() loads again and mounts the field', async () => {
+    const kernel = makeKernel();
+    const target = z.string().max(40);
+    let attempts = 0;
+    const def: FieldTypeDef = {
+      id: 'flaky-string',
+      match: (schema) => (schema === target ? 10 : 0),
+      load: () => {
+        attempts += 1;
+        return attempts === 1
+          ? Promise.reject(new Error('chunk 504'))
+          : Promise.resolve({ default: Custom });
+      },
+    };
+    contribute(kernel, 'flaky', def);
+    const view = renderHook(() =>
+      useFieldRendering(kernel, target, undefined, kernel.extensions.version()),
+    );
+    await settle();
+    expect(view.result.current.failure?.message).toBe('chunk 504');
+
+    act(() => {
+      view.result.current.retry();
+    });
+    await settle();
+    expect(attempts).toBe(2);
+    expect(view.result.current.failure).toBeUndefined();
+    expect(view.result.current.rendering).toEqual({ kind: 'contributed', def, component: Custom });
+  });
+
+  it('a row mounting after a failure tries again on its own', async () => {
+    const kernel = makeKernel();
+    const target = z.string().max(40);
+    let attempts = 0;
+    const def: FieldTypeDef = {
+      id: 'second-chance',
+      match: (schema) => (schema === target ? 10 : 0),
+      load: () => {
+        attempts += 1;
+        return attempts === 1
+          ? Promise.reject(new Error('offline'))
+          : Promise.resolve({ default: Custom });
+      },
+    };
+    contribute(kernel, 'second-chance', def);
+    const first = renderHook(() =>
+      useFieldRendering(kernel, target, undefined, kernel.extensions.version()),
+    );
+    await settle();
+    expect(first.result.current.failure).toBeDefined();
+    first.unmount();
+
+    const second = renderHook(() =>
+      useFieldRendering(kernel, target, undefined, kernel.extensions.version()),
+    );
+    await settle();
+    expect(attempts).toBe(2);
+    expect(second.result.current.rendering.kind).toBe('contributed');
+  });
+
+  it('resolves a part-declared binding from the row’s place', () => {
+    const kernel = makeKernel();
+    const view = renderHook(() =>
+      useFieldRendering(kernel, z.string(), undefined, 0, {
+        parts: {
+          image: {
+            kind: 'image',
+            bind: { src: 'imageSrc' },
+            label: { en: 'Image', ar: 'الصورة' },
+          },
+        },
+        propPath: ['imageSrc'],
+      }),
+    );
+    expect(view.result.current.rendering).toEqual({
+      kind: 'default',
+      control: 'image-url',
+      loading: false,
+    });
+  });
+
   it('R8: lock freezes the mounted renderer while the live one moves; unlock releases it', async () => {
     const kernel = makeKernel();
-    const target = z.string();
+    const target = z.string().max(40);
     const view = renderHook(
       ({ version }: { version: number }) => useFieldRendering(kernel, target, undefined, version),
       { initialProps: { version: kernel.extensions.version() } },
@@ -135,7 +218,7 @@ describe('useFieldRendering', () => {
 
   it('markFailed records a throwing contribution and falls back live', async () => {
     const kernel = makeKernel();
-    const target = z.string();
+    const target = z.string().max(40);
     const def: FieldTypeDef = {
       id: 'throwing-string',
       match: (schema) => (schema === target ? 10 : 0),
@@ -148,9 +231,10 @@ describe('useFieldRendering', () => {
     await settle();
     expect(view.result.current.rendering.kind).toBe('contributed');
     act(() => {
-      view.result.current.markFailed();
+      view.result.current.markFailed(new Error('render threw'));
     });
-    expect(fieldModuleCache.get(def)).toBe('failed');
+    expect(fieldModuleCache.has(def)).toBe(false);
+    expect(view.result.current.failure?.message).toBe('render threw');
     expect(view.result.current.rendering).toEqual({
       kind: 'default',
       control: 'text',

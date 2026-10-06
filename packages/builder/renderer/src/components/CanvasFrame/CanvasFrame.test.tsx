@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { TEXT_BIDI_CANVAS_CSS } from '../../bidi';
 import { darkTheme, lightTheme } from '../../themes';
 import { CanvasFrame } from './CanvasFrame';
 
@@ -128,4 +129,36 @@ describe('CanvasFrame', () => {
     preExisting.remove();
     injected.remove();
   });
+
+  // ── block-parts (2026-10-06) ──
+  it('injects the text-direction style exactly once, under StrictMode and across rerenders and remounts', async () => {
+    const tree = (theme: typeof lightTheme, dir: 'ltr' | 'rtl') => (
+      <StrictMode>
+        <CanvasFrame theme={theme} dir={dir}>
+          <p>The site grows.</p>
+        </CanvasFrame>
+      </StrictMode>
+    );
+    const first = render(tree(lightTheme, 'rtl'));
+    await waitFor(() => {
+      const styles = frameDocumentOf('Preview').head.querySelectorAll('style#ck-text-bidi');
+      expect(styles).toHaveLength(1);
+      expect(styles[0]?.textContent).toBe(TEXT_BIDI_CANVAS_CSS);
+    });
+    first.rerender(tree(darkTheme, 'ltr'));
+    first.rerender(tree(lightTheme, 'rtl'));
+    await waitFor(() => {
+      expect(frameDocumentOf('Preview').documentElement.getAttribute('dir')).toBe('rtl');
+    });
+    expect(frameDocumentOf('Preview').head.querySelectorAll('style#ck-text-bidi')).toHaveLength(1);
+    first.unmount();
+
+    render(tree(lightTheme, 'rtl'));
+    await waitFor(() => {
+      expect(frameDocumentOf('Preview').head.querySelectorAll('style#ck-text-bidi')).toHaveLength(
+        1,
+      );
+    });
+  });
+  // ── /block-parts ──
 });

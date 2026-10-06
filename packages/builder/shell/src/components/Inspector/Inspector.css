@@ -39,6 +39,13 @@
   z-index: 1;
 }
 
+/* A sticky header nested in the panel (the style panel's screen size, state
+   and search) parks UNDER the sticky head instead of sliding over its title;
+   InspectorHeader publishes its measured height. */
+.bldr-inspector .bldr-style-panel__header {
+  inset-block-start: var(--bldr-inspector-head-size, var(--bldr-space-0));
+}
+
 .bldr-inspector__title-row {
   align-items: center;
   display: flex;
@@ -124,6 +131,12 @@
 .bldr-inspector__back {
   flex: none;
 }
+
+/* ── block-parts (2026-10-06) ── "back" points toward the reading start: right in RTL. */
+.bldr-inspector__back:dir(rtl) svg {
+  transform: scaleX(-1);
+}
+/* ── /block-parts ── */
 
 .bldr-inspector__within {
   color: var(--bldr-panel-text-soft);
@@ -425,6 +438,14 @@
 
 .bldr-inspector__element-panel:focus-visible {
   outline: none;
+}
+
+/* The "Block presets" lead over a registered block's own options (Design tab). */
+.bldr-inspector__presets-lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  padding-block-start: var(--bldr-space-xs);
 }
 
 .bldr-inspector__element-note {

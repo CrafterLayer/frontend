@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { StatusBar, type RecentChange, type StatusBarProps, type StatusBarTool } from './StatusBar';
+import { STATUS_BAR_LABELS_AR } from './StatusBar.labels';
 
 const STORY_ICON_PROPS = {
   viewBox: '0 0 16 16',
@@ -172,5 +173,31 @@ export const WithAgentLine: Story = {
     await expect(
       within(bar).getByRole('button', { name: 'Abu Ghadab is building the page, 3 of 8' }),
     ).toBeVisible();
+  },
+};
+
+/** The Arabic editor (arabic-editor): every word and door in Arabic, digits Latin, laid out RTL. */
+export const Arabic: Story = {
+  args: {
+    changes: [
+      { id: 'ar-2', door: 'canvas', label: 'إضافة عنصر' },
+      { id: 'ar-1', door: 'assistant', label: 'تعديل خاصية' },
+    ],
+    deviceLabel: 'سطح المكتب · 1280 px',
+    zoom: 0.71,
+    saveState: 'saved',
+    labels: STATUS_BAR_LABELS_AR,
+  },
+  render: (args) => (
+    <div dir="rtl" lang="ar">
+      <StatusBar {...args} />
+    </div>
+  ),
+  globals: { direction: 'rtl' },
+  play: async ({ canvasElement }) => {
+    const bar = within(canvasElement).getByRole('region', { name: 'حالة المحرر' });
+    await expect(within(bar).getByText('اللوحة: إضافة عنصر')).toBeVisible();
+    await expect(within(bar).getByText('محفوظ')).toBeVisible();
+    await expect(within(bar).getByLabelText('التكبير 71%')).toBeVisible();
   },
 };

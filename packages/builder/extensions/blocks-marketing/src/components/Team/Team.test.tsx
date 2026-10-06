@@ -54,7 +54,8 @@ describe('Team', () => {
       'lazy',
     );
     expect(screen.getByRole('presentation')).toHaveAttribute('alt', '');
-    expect(screen.getByRole('link', { name: 'View profile: Maya Chen' })).toHaveAttribute(
+    /* The name is read from the visible label and name (aria-labelledby). */
+    expect(screen.getByRole('link', { name: 'View profile Maya Chen' })).toHaveAttribute(
       'href',
       '/team/maya',
     );

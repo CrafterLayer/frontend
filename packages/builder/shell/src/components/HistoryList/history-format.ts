@@ -1,5 +1,6 @@
 import type { HistoryEntry } from '@craftkit/builder-core';
 
+import { latinDigitsLocale } from '../../i18n/editor-locale';
 import type { HistoryListLabels } from './HistoryList.labels';
 
 const UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
@@ -9,10 +10,14 @@ const UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
   ['second', 1],
 ];
 
-/** "now", "2 minutes ago", "قبل ساعة" — the largest whole unit, rounded toward zero. */
+/**
+ * "now", "2 minutes ago", "قبل 5 دقائق" — the largest whole unit, rounded
+ * toward zero. Digits stay Latin in Arabic too (arabic-editor), like every
+ * other number in the chrome.
+ */
 export function relativeTime(at: number, now: number, locale: string): string {
   const seconds = Math.round((at - now) / 1000);
-  const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  const format = new Intl.RelativeTimeFormat(latinDigitsLocale(locale), { numeric: 'auto' });
   if (Math.abs(seconds) < 10) return format.format(0, 'second');
   for (const [unit, size] of UNITS) {
     if (Math.abs(seconds) >= size) return format.format(Math.trunc(seconds / size), unit);

@@ -7,7 +7,7 @@ import type { InlineEditorProps, InlineFormatAction } from '@craftkit/builder-sc
 
 import { InlineRichText } from './InlineRichText';
 import { subscribeBubbleReports } from './bubble-reporting';
-import { shouldShowBubble } from './should-show';
+import { liveViewOf } from './selection-anchor';
 
 /**
  * The registry adapter for the `inlineEditors` contribution point (009): the
@@ -17,10 +17,16 @@ import { shouldShowBubble } from './should-show';
  * whether they are active, how to toggle them — and renders NO chrome and NO
  * geometry of its own.
  *
- * The action set is FR-006's: bold, italic, link, clear formatting — the
- * quick-format bubble, not the block toolbar (headings and lists stay
- * inspector concerns). Labels match the B3b toolbar so announcements stay
- * consistent.
+ * The action set: bold, italic, link, bulleted and numbered lists, clear
+ * formatting. Headings stay an inspector concern. Labels match the B3b toolbar
+ * so announcements stay consistent.
+ *
+ * block-parts (2026-10-06): the actions are reported for the whole time the
+ * editor (or its formatting chrome) owns focus, not only over a non-empty
+ * selection. The canvas docks its formatting bar at the editing surface while
+ * the caret is collapsed and moves it to the selection when there is one, so
+ * the chrome is always beside the editor (a caret toggles the stored mark for
+ * the next characters typed; Link needs a selection or an existing link).
  */
 
 /** The B3b toolbar's link flow (minimal prompt; the design milestone replaces it). */
@@ -42,16 +48,35 @@ function runLink(editor: Editor): void {
 }
 
 /**
- * Actions for the CURRENT selection. Every `run` is ONE transaction (a chain
- * dispatches once) and starts with `focus()` so activating a bubble control
- * never strands the caret or drops the selection (risk 2). Empty whenever
- * `shouldShowBubble` says no bubble belongs on screen.
+ * True while this edit owns focus: the editor's own view, or the canvas's
+ * formatting chrome (focus there still belongs to the edit). The same focus
+ * reading as `shouldShowBubble`, without its non-empty-selection rule.
+ */
+function editingOwnsFocus(editor: Editor, formattingMenuElement?: Element | null): boolean {
+  const view = liveViewOf(editor);
+  if (view === null || !editor.isEditable) {
+    return false;
+  }
+  const activeElement = formattingMenuElement?.ownerDocument.activeElement ?? null;
+  const menuOwnsFocus =
+    formattingMenuElement !== undefined &&
+    formattingMenuElement !== null &&
+    activeElement !== null &&
+    formattingMenuElement.contains(activeElement);
+  return view.hasFocus() || menuOwnsFocus;
+}
+
+/**
+ * Actions for the CURRENT selection (collapsed or not). Every `run` is ONE
+ * transaction (a chain dispatches once) and starts with `focus()` so
+ * activating a control never strands the caret or drops the selection
+ * (risk 2). Empty whenever the edit does not own focus.
  */
 function formatActions(
   editor: Editor,
   formattingMenuElement?: Element | null,
 ): InlineFormatAction[] {
-  if (!shouldShowBubble(editor, formattingMenuElement)) {
+  if (!editingOwnsFocus(editor, formattingMenuElement)) {
     return [];
   }
   const can = editor.can();
@@ -81,9 +106,29 @@ function formatActions(
       pressed: linkActive,
       disabled: linkActive
         ? !can.chain().focus().unsetLink().run()
-        : !can.chain().focus().setLink({ href: 'https://example.com/' }).run(),
+        : // A link needs characters to carry it: never a stored mark at a bare caret.
+          editor.state.selection.empty ||
+          !can.chain().focus().setLink({ href: 'https://example.com/' }).run(),
       run: () => {
         runLink(editor);
+      },
+    },
+    {
+      id: 'bulletList',
+      label: 'Bulleted list',
+      pressed: editor.isActive('bulletList'),
+      disabled: !can.chain().focus().toggleBulletList().run(),
+      run: () => {
+        editor.chain().focus().toggleBulletList().run();
+      },
+    },
+    {
+      id: 'orderedList',
+      label: 'Numbered list',
+      pressed: editor.isActive('orderedList'),
+      disabled: !can.chain().focus().toggleOrderedList().run(),
+      run: () => {
+        editor.chain().focus().toggleOrderedList().run();
       },
     },
     {

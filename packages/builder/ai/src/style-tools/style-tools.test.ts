@@ -78,7 +78,7 @@ afterAll(() => {
 });
 
 describe('the catalog', () => {
-  it('exports 13 tools, each registered exactly once in the agent registry', () => {
+  it('exports 18 tools, each registered exactly once in the agent registry', () => {
     const names = STYLE_AGENT_TOOLS.map(({ name }) => name);
     expect(names).toEqual([
       'element.style',
@@ -94,6 +94,13 @@ describe('the catalog', () => {
       'style.apply',
       'palette.set',
       'block.convert',
+      // P7-agent-part-tools additions (block-parts DESIGN §2.12)
+      'part.text',
+      'part.style',
+      'part.link',
+      'part.image',
+      'part.list',
+      // end P7-agent-part-tools additions
     ]);
     expect(new Set(names).size).toBe(names.length);
     const registered = AGENT_TOOLS.map(({ name }) => name);

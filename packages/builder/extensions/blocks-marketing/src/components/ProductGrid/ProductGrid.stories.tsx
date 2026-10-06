@@ -50,3 +50,27 @@ export const EmptyState: Story = {
     isCanvas: true,
   },
 };
+
+/* Block parts (DESIGN §4.4): every card line, image and price is a part on the canvas. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'product-grid-parts' },
+    props: productGridSchema.props.parse({
+      ...(productGridExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: {
+        'product.price': { className: 'text-accent' },
+        'product.name@0': { className: 'underline' },
+      },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const names = canvasElement.querySelectorAll('[data-ck-part="product.name"]');
+    await expect(names[1]).toHaveAttribute('data-ck-bind', 'products.1.name');
+    await expect(names[0]).toHaveClass('underline');
+    const prices = canvasElement.querySelectorAll('[data-ck-part="product.price"]');
+    await expect(prices[1]).toHaveClass('text-accent');
+  },
+};

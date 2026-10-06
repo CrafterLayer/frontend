@@ -9,6 +9,9 @@
 export { refusalMessage, styleTransactionLabel, type StyleApplyResult, type StyleSource } from './style-source';
 export { treeElementSource, type TreeElementSourceOptions } from './tree-element-source';
 export { blockSource, utilityClassesKey } from './block-source';
+// ── block-parts (2026-10-06) ──
+export { partSource, type PartSourceOptions, type PartStyleScope } from './part-source';
+// ── /block-parts ──
 export {
   classNameOfNode,
   ELEMENT_GONE,
@@ -70,6 +73,13 @@ export * from './controls/MediaParamFields';
 export * from './controls/ScenePresetPicker';
 export * from './controls/TimelineRecipePicker';
 // ── end shell-media-editor additions ──
+// panel-design additions (style panel redesign 2026-10-06)
+export * from './controls/ColorField';
+export * from './controls/OptionIcon';
+export * from './controls/SegmentedChoice';
+export * from './StylePanelFilter';
+export type { StyleRowLayout } from './StyleProperty';
+// ── end panel-design additions ──
 
 // Shared behaviour for P7's quick bar and canvas handles.
 export { BOX_SIDES, growthOf, sideForModifiers, sidesOf } from './box-sides';

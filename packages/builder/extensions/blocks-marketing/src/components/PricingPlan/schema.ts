@@ -75,6 +75,21 @@ export const pricingPlanSchema = defineBlockSchema({
   },
   slots: { default: { allow: [...PRICING_PLAN_CHILDREN] } },
   inlineEditable: 'name',
+  /* The card's own text (block-parts DESIGN §1); its body is composed from slot children. */
+  parts: {
+    name: {
+      kind: 'text',
+      bind: 'name',
+      label: { en: 'Plan name', ar: 'اسم الخطة' },
+      aliases: ['title', 'heading', 'plan', 'العنوان', 'الاسم', 'الخطة'],
+    },
+    price: {
+      kind: 'text',
+      bind: 'price',
+      label: { en: 'Price', ar: 'السعر' },
+      aliases: ['amount', 'cost', 'سعر', 'المبلغ'],
+    },
+  },
   examples: pricingPlanExamples,
 });
 

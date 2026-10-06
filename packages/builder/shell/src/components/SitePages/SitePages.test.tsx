@@ -14,6 +14,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { SitePages } from './SitePages';
+import { SITE_PAGES_LABELS_AR } from './SitePages.labels';
 
 function page(id: string, address: string, title: string, dir: ContentDirection): SitePage {
   return {
@@ -450,5 +451,32 @@ describe('shared regions', () => {
     const list = screen.getByRole('listbox', { name: 'Site pages' });
     expect(list.querySelector('input[type="checkbox"]')).toBeNull();
     expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+  });
+});
+
+describe('SitePages in the Arabic editor (arabic-editor)', () => {
+  it('draws its own words in Arabic and mirrors keys by the editor direction over an LTR site', async () => {
+    const siteKernel = createSiteBuilder({
+      site: siteOf(FOUR),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(), ids: seededIds('ar') },
+    });
+    render(
+      <div dir="rtl">
+        <SitePages siteKernel={siteKernel} labels={SITE_PAGES_LABELS_AR} />
+      </div>,
+    );
+    expect(screen.getByRole('navigation', { name: 'الصفحات' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'إضافة صفحة' })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'صفحات الموقع' })).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const first = screen.getAllByRole('option')[0]!;
+    act(() => {
+      first.focus();
+    });
+    // RTL chrome: ArrowLeft is FORWARD, to the next page.
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getAllByRole('option')[1]).toHaveFocus();
   });
 });

@@ -96,7 +96,7 @@ export const portfolioGridSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     items: { tab: 'content', section: 'Case studies' },
     actionLabel: { tab: 'content', section: 'Case studies' },
     showMetrics: { tab: 'design', section: 'Content' },
@@ -113,6 +113,108 @@ export const portfolioGridSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    the case-study list, each card, its lines, its image and its outcome
+    metrics. `actionLabel` is one part shown on every card; `item.link` is the
+    card's link, named by its label and the project title.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Case studies', ar: 'دراسات الحالة' },
+      aliases: ['projects', 'work', 'cards', 'grid', 'list', 'المشاريع', 'الأعمال', 'القائمة'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Case study', ar: 'دراسة الحالة' },
+      aliases: ['project', 'card', 'case', 'مشروع', 'بطاقة'],
+    },
+    'item.image': {
+      kind: 'image',
+      bind: { src: 'items.*.imageSrc', alt: 'items.*.imageAlt' },
+      label: { en: 'Project image', ar: 'صورة المشروع' },
+      aliases: ['image', 'photo', 'cover', 'thumbnail', 'صورة', 'الصورة'],
+    },
+    'item.category': {
+      kind: 'text',
+      bind: 'items.*.category',
+      label: { en: 'Project category', ar: 'تصنيف المشروع' },
+      aliases: ['category', 'tag', 'sector', 'تصنيف', 'وسم'],
+    },
+    'item.title': {
+      kind: 'text',
+      bind: 'items.*.title',
+      label: { en: 'Project title', ar: 'عنوان المشروع' },
+      aliases: ['card title', 'h3', 'عنوان البطاقة'],
+    },
+    'item.summary': {
+      kind: 'text',
+      bind: 'items.*.summary',
+      label: { en: 'Project summary', ar: 'ملخص المشروع' },
+      aliases: ['summary', 'card text', 'description', 'ملخص', 'نص البطاقة'],
+      multiline: true,
+    },
+    'item.metrics': {
+      kind: 'list',
+      bind: 'items.*.metrics',
+      label: { en: 'Project results', ar: 'نتائج المشروع' },
+      aliases: ['metrics', 'results', 'outcomes', 'stats', 'النتائج', 'الأرقام'],
+    },
+    'item.metric': {
+      kind: 'item',
+      bind: 'items.*.metrics.*',
+      list: 'item.metrics',
+      label: { en: 'Result', ar: 'النتيجة' },
+      aliases: ['metric', 'outcome', 'stat', 'رقم', 'نتيجة'],
+    },
+    'item.metric.value': {
+      kind: 'text',
+      bind: 'items.*.metrics.*.value',
+      label: { en: 'Result value', ar: 'قيمة النتيجة' },
+      aliases: ['value', 'number', 'figure', 'القيمة', 'الرقم'],
+    },
+    'item.metric.label': {
+      kind: 'text',
+      bind: 'items.*.metrics.*.label',
+      label: { en: 'Result label', ar: 'وصف النتيجة' },
+      aliases: ['metric label', 'caption', 'الوصف'],
+    },
+    'item.link': {
+      kind: 'link',
+      bind: { text: 'items.*.title', href: 'items.*.href' },
+      label: { en: 'Case study link', ar: 'رابط دراسة الحالة' },
+      aliases: ['link', 'action', 'cta', 'view', 'رابط', 'الرابط'],
+    },
+    actionLabel: {
+      kind: 'text',
+      bind: 'actionLabel',
+      label: { en: 'Link label', ar: 'نص الرابط' },
+      aliases: ['button text', 'link text', 'view text', 'نص الزر'],
+    },
+  },
   examples: portfolioGridExamples,
 });
 

@@ -90,6 +90,7 @@ export const comparisonTableExamples: { prompt: string; node: JsonValue }[] = [
           { feature: 'المشاريع', values: ['٣', 'غير محدودة'] },
           { feature: 'أعضاء الفريق', values: ['٢', '١٥'] },
           { feature: 'الدعم', values: ['عبر البريد', 'أولوية'] },
+          { feature: 'الدعم الهاتفي', values: [] },
         ],
         showActions: true,
         emptyValue: '—',

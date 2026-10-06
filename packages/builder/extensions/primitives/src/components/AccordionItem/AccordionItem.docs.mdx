@@ -64,3 +64,15 @@ accordion
   the stories wrap it in a Radix root for that reason.
 - **One heading level.** The trigger sits in Radix's `Header`, which is a `<h3>` by default and not
   yet configurable from the document.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name      | kind | bind    | label (en / ar)          |
+| --------- | ---- | ------- | ------------------------ |
+| `trigger` | box  | —       | Trigger row / صف العنوان |
+| `title`   | text | `title` | Title / العنوان          |

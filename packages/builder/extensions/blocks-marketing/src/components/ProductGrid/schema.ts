@@ -98,7 +98,7 @@ export const productGridSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     products: { tab: 'content', section: 'Products' },
     actionLabel: { tab: 'content', section: 'Product action' },
     showRatings: { tab: 'design', section: 'Ratings' },
@@ -119,6 +119,96 @@ export const productGridSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    the product list, each card, its image, badge, name, description and
+    prices. `actionLabel` is one part shown on every card; `product.link` is
+    the card's button, named by its label and the product name. The rating
+    words are read only by assistive technology, so they stay Inspector rows.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    products: {
+      kind: 'list',
+      bind: 'products',
+      label: { en: 'Products', ar: 'المنتجات' },
+      aliases: ['items', 'cards', 'grid', 'catalogue', 'list', 'البطاقات', 'القائمة'],
+    },
+    product: {
+      kind: 'item',
+      bind: 'products.*',
+      list: 'products',
+      label: { en: 'Product', ar: 'المنتج' },
+      aliases: ['card', 'item', 'product card', 'بطاقة', 'منتج'],
+    },
+    'product.image': {
+      kind: 'image',
+      bind: { src: 'products.*.imageSrc', alt: 'products.*.imageAlt' },
+      label: { en: 'Product image', ar: 'صورة المنتج' },
+      aliases: ['image', 'photo', 'picture', 'thumbnail', 'صورة', 'الصورة'],
+    },
+    'product.badge': {
+      kind: 'text',
+      bind: 'products.*.badge',
+      label: { en: 'Product badge', ar: 'شارة المنتج' },
+      aliases: ['badge', 'tag', 'label', 'sale', 'شارة', 'وسم'],
+    },
+    'product.name': {
+      kind: 'text',
+      bind: 'products.*.name',
+      label: { en: 'Product name', ar: 'اسم المنتج' },
+      aliases: ['name', 'title', 'h3', 'الاسم', 'العنوان'],
+    },
+    'product.description': {
+      kind: 'text',
+      bind: 'products.*.description',
+      label: { en: 'Product description', ar: 'وصف المنتج' },
+      aliases: ['description', 'card text', 'وصف', 'نص البطاقة'],
+      multiline: true,
+    },
+    'product.price': {
+      kind: 'text',
+      bind: 'products.*.price',
+      label: { en: 'Price', ar: 'السعر' },
+      aliases: ['price', 'cost', 'سعر', 'الثمن'],
+    },
+    'product.originalPrice': {
+      kind: 'text',
+      bind: 'products.*.originalPrice',
+      label: { en: 'Original price', ar: 'السعر الأصلي' },
+      aliases: ['old price', 'was', 'compare at', 'السعر القديم'],
+    },
+    'product.link': {
+      kind: 'link',
+      bind: { text: 'products.*.name', href: 'products.*.href' },
+      label: { en: 'Product link', ar: 'رابط المنتج' },
+      aliases: ['link', 'button', 'action', 'cta', 'buy', 'رابط', 'الزر'],
+    },
+    actionLabel: {
+      kind: 'text',
+      bind: 'actionLabel',
+      label: { en: 'Button label', ar: 'نص الزر' },
+      aliases: ['button text', 'link text', 'cta text', 'نص الرابط'],
+    },
+  },
   examples: productGridExamples,
 });
 

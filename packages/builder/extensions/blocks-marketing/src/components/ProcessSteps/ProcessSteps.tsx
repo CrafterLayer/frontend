@@ -1,6 +1,6 @@
 import '../section-layout.css';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -14,7 +14,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { ProcessStepsProps } from './schema';
+import { processStepsSchema, type ProcessStepsProps } from './schema';
 
 const COLUMN_CLASSES: Readonly<Record<ProcessStepsProps['columns'], string>> = {
   auto: 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-4',
@@ -30,8 +30,10 @@ const ITEM_CLASSES: Readonly<Record<ProcessStepsProps['variant'], string>> = {
 };
 
 /** An ordered workflow that makes a service, onboarding flow, or methodology easy to scan. */
-export function ProcessSteps({ node, props }: BlockRenderProps<ProcessStepsProps>) {
+export function ProcessSteps({ node, props, isCanvas }: BlockRenderProps<ProcessStepsProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, processStepsSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -63,37 +65,52 @@ export function ProcessSteps({ node, props }: BlockRenderProps<ProcessStepsProps
         data-process-content=""
       >
         <header className={cx('flex max-w-content-narrow flex-col', GAP_CLASSES.sm)}>
-          <p className="m-0 text-xs font-semibold uppercase tracking-wide text-accent">
+          <p
+            {...part('eyebrow', {
+              className: 'm-0 text-xs font-semibold uppercase tracking-wide text-accent',
+            })}
+          >
             {props.eyebrow}
           </p>
           <h2
-            id={headingId}
-            className="m-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           <p
-            className={cx(
-              'm-0 text-base leading-relaxed',
-              props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-            )}
+            {...part('body', {
+              className: cx(
+                'm-0 text-base leading-relaxed',
+                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+              ),
+            })}
           >
             {props.body}
           </p>
         </header>
         <ol
-          className={cx(
-            'm-0 w-full list-none p-0',
-            props.layout === 'horizontal'
-              ? cx('grid gap-4', COLUMN_CLASSES[props.columns])
-              : 'flex max-w-content-standard flex-col gap-4',
-          )}
+          {...part('steps', {
+            className: cx(
+              'm-0 w-full list-none p-0',
+              props.layout === 'horizontal'
+                ? cx('grid gap-4', COLUMN_CLASSES[props.columns])
+                : 'flex max-w-content-standard flex-col gap-4',
+            ),
+          })}
           data-process-list={props.layout}
         >
           {props.steps.map((step, index) => (
+            /* Keyed by position: a bound value may be an inline editor element. */
             <li
-              key={`${step.title}-${String(index)}`}
-              className={cx('group relative flex min-w-0 flex-col', ITEM_CLASSES[props.variant])}
+              key={index}
+              {...part('step', {
+                index: [index],
+                className: cx('group relative flex min-w-0 flex-col', ITEM_CLASSES[props.variant]),
+              })}
               data-process-step=""
             >
               <div className="mb-5 flex items-center justify-between gap-3">
@@ -119,23 +136,38 @@ export function ProcessSteps({ node, props }: BlockRenderProps<ProcessStepsProps
                 )}
                 {step.meta === undefined ? null : (
                   <span
-                    className={cx(
-                      'text-xs font-semibold uppercase tracking-wide',
-                      props.variant === 'accented' ? 'text-inherit opacity-75' : 'text-text-muted',
-                    )}
+                    {...part('step.meta', {
+                      index: [index],
+                      className: cx(
+                        'text-xs font-semibold uppercase tracking-wide',
+                        props.variant === 'accented'
+                          ? 'text-inherit opacity-75'
+                          : 'text-text-muted',
+                      ),
+                    })}
                   >
                     {step.meta}
                   </span>
                 )}
               </div>
-              <h3 className="m-0 text-xl font-bold leading-tight tracking-tight">{step.title}</h3>
+              <h3
+                {...part('step.title', {
+                  index: [index],
+                  className: 'm-0 text-xl font-bold leading-tight tracking-tight',
+                })}
+              >
+                {step.title}
+              </h3>
               <p
-                className={cx(
-                  'm-0 mt-3 text-sm leading-relaxed',
-                  props.variant === 'accented' || props.tone === 'dark'
-                    ? 'text-inherit opacity-80'
-                    : 'text-text-muted',
-                )}
+                {...part('step.body', {
+                  index: [index],
+                  className: cx(
+                    'm-0 mt-3 text-sm leading-relaxed',
+                    props.variant === 'accented' || props.tone === 'dark'
+                      ? 'text-inherit opacity-80'
+                      : 'text-text-muted',
+                  ),
+                })}
               >
                 {step.body}
               </p>

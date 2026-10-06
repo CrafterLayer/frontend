@@ -47,7 +47,7 @@ export const heroSchema = defineBlockSchema({
     variant: { tab: 'design', section: 'Layout' },
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     trustLine: { tab: 'content', section: 'Text' },
     layoutDirection: { tab: 'design', section: 'Layout' },
     layoutJustify: { tab: 'design', section: 'Layout' },
@@ -61,6 +61,48 @@ export const heroSchema = defineBlockSchema({
     ...sectionCustomGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The hero's inner elements (block-parts DESIGN §1): each is selectable,
+    editable and stylable on its own. The action buttons are slot children and
+    carry their own parts in their own blocks.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h1', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['paragraph', 'description', 'subtitle', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    trustLine: {
+      kind: 'text',
+      bind: 'trustLine',
+      label: { en: 'Trust line', ar: 'سطر الثقة' },
+      aliases: ['meta', 'meta line', 'note', 'ملاحظة', 'السطر الأخير'],
+    },
+    copy: {
+      kind: 'box',
+      label: { en: 'Text column', ar: 'عمود النص' },
+      aliases: ['content', 'column', 'المحتوى'],
+    },
+    media: {
+      kind: 'box',
+      label: { en: 'Media frame', ar: 'إطار الوسائط' },
+      aliases: ['visual', 'image area', 'الوسائط'],
+    },
+  },
   slots: {
     actions: { allow: ['cta', 'button'], max: 2 },
     media: { allow: ['image', 'grid', 'stack', 'richText'], max: 1 },

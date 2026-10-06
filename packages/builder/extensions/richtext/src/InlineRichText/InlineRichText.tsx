@@ -100,6 +100,31 @@ export function InlineRichText({
     readyRef.current?.(instance);
   }, []);
 
+  /*
+    The session opens ON this surface (the built-in surface's law): take focus
+    once per editor instance, unless something else in the frame already has
+    it. Without this, an editor instance that replaced the one the canvas put
+    the caret in (React StrictMode mounts effects twice in development, and
+    tiptap recreates its view then) opened with focus on the frame's body:
+    a double-click showed the editor but typing went nowhere. A pointer entry
+    still places the caret afterwards (the canvas applies it after mount).
+  */
+  useEffect(() => {
+    if (editor === null) {
+      return;
+    }
+    const view = liveViewOf(editor);
+    if (view === null || view.hasFocus()) {
+      return;
+    }
+    const frameDocument = view.dom.ownerDocument;
+    const active = frameDocument.activeElement;
+    if (active !== null && active !== frameDocument.body) {
+      return;
+    }
+    view.focus();
+  }, [editor]);
+
   // Selection visibility is synchronous; geometry stays deferred until the
   // canvas's frame-coalesced anchor channel invokes this source.
   useEffect(() => {

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { NodeId, StyleBucket, StyleState } from '@craftkit/builder-schema';
 
+import type { ElementNameWords } from '../../custom-code/element-target';
 import type { EditingBucket } from '../../devices/buckets';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { blockSource } from '../../style-manager/block-source';
@@ -28,6 +29,8 @@ export interface InspectorBlockDesignProps {
   readonly regionType?: string | undefined;
   readonly labels: InspectorElementLabels;
   readonly styleLabels: StylePanelLabels;
+  /** Names in the editor's language (arabic-editor); English by default. */
+  readonly words?: ElementNameWords | undefined;
 }
 
 /**
@@ -49,6 +52,7 @@ export function InspectorBlockDesign({
   regionType = 'customCode',
   labels,
   styleLabels,
+  words,
 }: InspectorBlockDesignProps) {
   const [refusal, setRefusal] = useState<{ readonly nodeId: NodeId; readonly text: string } | null>(null);
   const [bucket, setBucket] = useState<StyleBucket>(device);
@@ -64,7 +68,7 @@ export function InspectorBlockDesign({
     [kernel, nodeId, utilityKey, device],
   );
   if (source === undefined && onConvertBlock === undefined) return null;
-  const blockedBy = onConvertBlock === undefined ? undefined : refusingContainer(kernel, nodeId, regionType);
+  const blockedBy = onConvertBlock === undefined ? undefined : refusingContainer(kernel, nodeId, regionType, words);
   const shownRefusal = refusal?.nodeId === nodeId ? refusal.text : undefined;
 
   return (
@@ -123,13 +127,18 @@ export function InspectorBlockDesign({
  * conversion can land. The same rule the kernel door applies, read first so
  * the button is never offered where it cannot work.
  */
-function refusingContainer(kernel: BuilderKernel, nodeId: NodeId, regionType: string): string | undefined {
+function refusingContainer(
+  kernel: BuilderKernel,
+  nodeId: NodeId,
+  regionType: string,
+  words?: ElementNameWords,
+): string | undefined {
   const document = kernel.getDocument();
   for (const parent of Object.values(document.nodes)) {
     for (const [slot, children] of Object.entries(parent.slots ?? {})) {
       if (!children.includes(nodeId)) continue;
       const allow = kernel.context.registry.block(parent.type)?.schema.slots?.[slot]?.allow;
-      return allow === undefined || allow.includes(regionType) ? undefined : blockDisplayName(kernel, parent.id);
+      return allow === undefined || allow.includes(regionType) ? undefined : blockDisplayName(kernel, parent.id, words);
     }
   }
   return undefined;

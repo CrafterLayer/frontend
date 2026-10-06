@@ -33,3 +33,28 @@ shape.
 
 <Controls />
 <Stories />
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`field.label` for every instance, `field.label@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name           | kind | bind                       | label (en / ar)                          |
+| -------------- | ---- | -------------------------- | ---------------------------------------- |
+| `eyebrow`      | text | `eyebrow`                  | Eyebrow / الشارة                         |
+| `heading`      | text | `heading`                  | Heading / العنوان                        |
+| `body`         | text | `body`                     | Body / الوصف (multiline)                 |
+| `fields`       | list | `fields`                   | Form fields / حقول النموذج               |
+| `field`        | item | `fields.*`                 | Field / الحقل                            |
+| `field.label`  | text | `fields.*.label`           | Field label / تسمية الحقل                |
+| `field.helper` | text | `fields.*.helper`          | Field hint / تلميح الحقل                 |
+| `field.option` | text | `fields.*.options.*.label` | Choice / الخيار                          |
+| `submitLabel`  | text | `submitLabel`              | Submit button / زر الإرسال               |
+| `footerNote`   | text | `footerNote`               | Footer note / ملاحظة التذييل (multiline) |
+| `successHint`  | text | `successHint`              | Success hint / رسالة النجاح (multiline)  |
+
+A field's `placeholder` is an input attribute, so it stays an Inspector row; a select shows it
+through the empty option's `label` attribute. `footerNote` renders beside the copy in `split` and
+under the button otherwise; both places are the same part.

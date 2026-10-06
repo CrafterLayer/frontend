@@ -13,6 +13,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { SitePages } from './SitePages';
+import { SITE_PAGES_LABELS_AR } from './SitePages.labels';
 
 function page(id: string, address: string, title: string, dir: ContentDirection): SitePage {
   return {
@@ -217,5 +218,33 @@ export const SharedRegions: Story = {
       await expect(canvas.getByRole('group', { name: 'Shared regions on Our work' })).toBeVisible();
     });
     await expect(canvas.getByRole('checkbox', { name: /masthead/u })).not.toBeChecked();
+  },
+};
+
+/** The Arabic editor (arabic-editor): the list's own words in Arabic. */
+export const ArabicEditor: Story = {
+  args: {
+    siteKernel: kernelOf(
+      siteOf(
+        [
+          ['home', '/', 'الرئيسية'],
+          ['about', '/about', 'من نحن'],
+        ],
+        'rtl',
+      ),
+    ),
+    labels: SITE_PAGES_LABELS_AR,
+  },
+  decorators: [
+    (Story) => (
+      <div dir="rtl" lang="ar" style={{ inlineSize: '18rem', blockSize: '20rem' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('navigation', { name: 'الصفحات' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'إضافة صفحة' })).toBeVisible();
   },
 };

@@ -7,11 +7,16 @@ import { seatOf, slotAccepts } from '../../overlay/drop-resolver';
 import type { CanvasDragHandle } from '../EditorCanvas';
 import '../../styles/visually-hidden.css';
 import './Palette.css';
+import { localBlockName } from '../../i18n/block-names';
 import { diagramForBlockType } from './diagrams';
+import { PALETTE_LABELS_EN, type PaletteCategory, type PaletteLabels } from './Palette.labels';
 
-const PALETTE_CATEGORIES = ['Layout', 'Content', 'Marketing', 'Primary'] as const;
-
-type PaletteCategory = (typeof PALETTE_CATEGORIES)[number];
+const PALETTE_CATEGORIES = [
+  'Layout',
+  'Content',
+  'Marketing',
+  'Primary',
+] as const satisfies readonly PaletteCategory[];
 
 const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   action: 'Action',
@@ -276,6 +281,8 @@ export interface PaletteProps {
   kernel: BuilderKernel;
   /** Hands insert payloads to the canvas session; absent ⇒ keyboard-insert only. */
   dragHandle?: CanvasDragHandle | undefined;
+  /** Every string the palette shows or announces (arabic-editor); English by default. */
+  labels?: PaletteLabels | undefined;
 }
 
 /**
@@ -285,7 +292,8 @@ export interface PaletteProps {
  * dragging onto the canvas (payload handoff p3 — the canvas owns chrome and
  * resolution; the palette owns nothing but the payload).
  */
-export function Palette({ kernel, dragHandle }: PaletteProps) {
+export function Palette({ kernel, dragHandle, labels = PALETTE_LABELS_EN }: PaletteProps) {
+  const blockNames = labels.blockNames;
   const paletteId = useId();
   const searchId = `${paletteId}-search`;
   const [query, setQuery] = useState('');
@@ -323,18 +331,29 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
   const entries = useMemo(() => {
     void catalogVersion; // the memo's real dependency: the catalog generation
     const surface = kernel.getDocument().surface;
-    return kernel.context.registry.blocks(surface).map((entry): PaletteEntry => {
-      const type = entry.schema.type;
-      const name = blockName(type, entry.schema.description);
-      const category = categoryForBlock(type);
-      return {
-        category,
-        name,
-        searchText: `${name} ${type} ${entry.schema.description} ${category}`.toLocaleLowerCase(),
-        type,
-      };
-    });
-  }, [kernel, catalogVersion]);
+    return kernel.context.registry
+      .blocks(surface)
+      // ── block-parts (2026-10-06) ──
+      // A card inserts with NO props, so a block whose schema cannot default
+      // (a symbol instance needs a symbol id; the Symbols panel places those)
+      // has no card: clicking it threw "failed its schema" and inserted nothing.
+      .filter((entry) => entry.schema.props.safeParse({}).success)
+      // ── /block-parts ──
+      .map((entry): PaletteEntry => {
+        const type = entry.schema.type;
+        const english = blockName(type, entry.schema.description);
+        const name = localBlockName(type, blockNames) ?? english;
+        const category = categoryForBlock(type);
+        return {
+          category,
+          name,
+          // Either language finds a block: the shown name, the English name and the type.
+          searchText:
+            `${name} ${english} ${type} ${entry.schema.description} ${category} ${labels.categories[category]}`.toLocaleLowerCase(),
+          type,
+        };
+      });
+  }, [kernel, catalogVersion, blockNames, labels]);
 
   const templates = useMemo(() => {
     void catalogVersion;
@@ -373,32 +392,35 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
 
   const insertAtSelection = useCallback(
     (type: string) => {
+      // English announces the type (its long-standing wording); a localised palette says the name.
+      const spoken = blockNames === undefined ? type : (localBlockName(type, blockNames) ?? type);
       const placement = insertionPlacement(kernel, type);
       if (placement === undefined) {
-        setMessage(`No slot accepts ${type} here`);
+        setMessage(labels.noSlot(spoken));
         return;
       }
       const tx = kernel.dispatch('insertNode', { type, ...placement });
       const inserted = insertedNodeId(tx.patches);
       if (inserted !== undefined) kernel.setSelection([inserted]);
-      setMessage(`Inserted ${type}`);
+      setMessage(labels.inserted(spoken));
     },
-    [kernel, setMessage],
+    [kernel, setMessage, blockNames, labels],
   );
 
   const insertTemplateAtSelection = useCallback(
-    (compositionId: string, rootType: string) => {
+    (compositionId: string, rootType: string, name: string) => {
+      const spoken = labels.language === 'en' ? compositionId : name;
       const placement = insertionPlacement(kernel, rootType);
       if (placement === undefined) {
-        setMessage(`No slot accepts template ${compositionId} here`);
+        setMessage(labels.noTemplateSlot(spoken));
         return;
       }
       const tx = kernel.dispatch('insertComposition', { compositionId, ...placement });
       const inserted = insertedNodeId(tx.patches);
       if (inserted !== undefined) kernel.setSelection([inserted]);
-      setMessage(`Inserted template ${compositionId}`);
+      setMessage(labels.insertedTemplate(spoken));
     },
-    [kernel, setMessage],
+    [kernel, setMessage, labels],
   );
 
   const toggleCategory = (category: PaletteCategory) => {
@@ -414,8 +436,8 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
   };
 
   return (
-    <nav className="bldr-palette" aria-label="Block palette">
-      <div className="bldr-palette__tabs" role="tablist" aria-label="Palette content">
+    <nav className="bldr-palette" aria-label={labels.palette}>
+      <div className="bldr-palette__tabs" role="tablist" aria-label={labels.tabs}>
         {(['blocks', 'templates'] as const).map((candidate) => (
           <button
             key={candidate}
@@ -428,22 +450,20 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
               setQuery('');
             }}
           >
-            {candidate === 'blocks'
-              ? 'Blocks'
-              : `Templates${templates.length > 0 ? ` ${String(templates.length)}` : ''}`}
+            {candidate === 'blocks' ? labels.blocksTab : labels.templatesTab(templates.length)}
           </button>
         ))}
       </div>
       <div className="bldr-palette__search">
         <label className="bldr-visually-hidden" htmlFor={searchId}>
-          {view === 'blocks' ? 'Search blocks' : 'Search templates'}
+          {view === 'blocks' ? labels.searchBlocks : labels.searchTemplates}
         </label>
         <input
           id={searchId}
           className="bldr-palette__search-input"
           type="search"
           value={query}
-          placeholder={view === 'blocks' ? 'Search blocks' : 'Search templates'}
+          placeholder={view === 'blocks' ? labels.searchBlocks : labels.searchTemplates}
           onChange={(event) => {
             setQuery(event.currentTarget.value);
           }}
@@ -475,9 +495,7 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
       {view === 'templates' ? (
         visibleTemplates.length === 0 ? (
           <p className="bldr-palette__empty" role="status">
-            {templates.length === 0
-              ? 'No templates are registered for this surface.'
-              : 'No templates found. Try another name.'}
+            {templates.length === 0 ? labels.noTemplates : labels.noTemplateMatch}
           </p>
         ) : (
           <ul className="bldr-palette__template-grid">
@@ -487,7 +505,7 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
                   type="button"
                   className="bldr-palette__template"
                   onClick={() => {
-                    insertTemplateAtSelection(template.id, template.rootType);
+                    insertTemplateAtSelection(template.id, template.rootType, template.name);
                   }}
                 >
                   <span
@@ -504,7 +522,7 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
                   </span>
                   <span className="bldr-palette__template-copy">
                     <strong>{template.name}</strong>
-                    <small>{`${String(template.sectionCount)} responsive ${template.sectionCount === 1 ? 'section' : 'sections'}`}</small>
+                    <small>{labels.sections(template.sectionCount)}</small>
                   </span>
                 </button>
               </li>
@@ -513,7 +531,7 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
         )
       ) : groups.length === 0 ? (
         <p className="bldr-palette__empty" role="status">
-          No blocks found. Try another block name.
+          {labels.noBlockMatch}
         </p>
       ) : (
         <div className="bldr-palette__groups">
@@ -545,7 +563,7 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
                     >
                       <path d="M1.75 4.25 6 8.1l4.25-3.85-1-1.1L6 6.1l-3.25-2.95-1 1.1Z" />
                     </svg>
-                    <span id={labelId}>{group.category}</span>
+                    <span id={labelId}>{labels.categories[group.category]}</span>
                   </button>
                 </h2>
                 <div
@@ -611,7 +629,7 @@ export function Palette({ kernel, dragHandle }: PaletteProps) {
           })}
         </div>
       )}
-      <output className="bldr-visually-hidden" aria-live="polite" aria-label="Palette">
+      <output className="bldr-visually-hidden" aria-live="polite" aria-label={labels.status}>
         {message.text}
         {message.nonce % 2 === 1 ? '​' : ''}
       </output>

@@ -1,9 +1,9 @@
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
-import type { ShadcnAlertProps } from './schema';
+import { shadcnAlertSchema, type ShadcnAlertProps } from './schema';
 
 /**
  * shadcn/ui's Alert, re-pointed at this project's tokens.
@@ -42,7 +42,8 @@ const VARIANT_GLYPH: Record<ShadcnAlertProps['variant'], string> = {
   critical: '!',
 };
 
-export function ShadcnAlert({ props, slots }: BlockRenderProps<ShadcnAlertProps>) {
+export function ShadcnAlert({ node, props, slots, isCanvas }: BlockRenderProps<ShadcnAlertProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, shadcnAlertSchema.parts);
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
 
   /*
@@ -64,14 +65,17 @@ export function ShadcnAlert({ props, slots }: BlockRenderProps<ShadcnAlertProps>
       {...motionData}
     >
       <span
-        className="flex size-6 flex-none items-center justify-center rounded-full border border-current text-sm font-bold"
+        {...part('icon', {
+          className:
+            'flex size-6 flex-none items-center justify-center rounded-full border border-current text-sm font-bold',
+        })}
         aria-hidden="true"
       >
         {VARIANT_GLYPH[props.variant]}
       </span>
 
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="font-semibold">{props.title}</p>
+        <p {...part('title', { className: 'font-semibold' })}>{props.title}</p>
         <div className="flex min-w-0 flex-col gap-2 text-sm">{slots['default']}</div>
       </div>
     </div>

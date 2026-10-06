@@ -158,7 +158,7 @@ export function treeParentAccepts(
   if (tag === undefined) return true;
   for (let depth = parent.length; depth > 0; depth -= 1) {
     const node = customCodeNodeAtPath(tree, parent.slice(0, depth));
-    if (node === undefined || node.kind !== 'element') return true;
+    if (node?.kind !== 'element') return true;
     if (!customCodeTagAccepts(node.tag, tag)) return false;
     // Inside a drawing only the drawing's own rule applies.
     if (isCustomCodeSvgTag(node.tag)) return true;

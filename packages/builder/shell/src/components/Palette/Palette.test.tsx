@@ -13,6 +13,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { Palette } from './Palette';
+import { PALETTE_LABELS_AR } from './Palette.labels';
 
 const NullRender: BlockRenderComponent = () => null;
 const block = (type: string, label: string, slots?: Record<string, { allow: string[] }>) => ({
@@ -466,5 +467,37 @@ describe('convergence: an aborted drag never becomes a click-insert (US2/AC5)', 
     activated = false;
     await user.click(entry);
     expect(kernel.transactions()).toHaveLength(1);
+  });
+});
+
+describe('the Arabic palette (arabic-editor)', () => {
+  it('speaks Arabic: tabs, groups, block names, search and the insert announcement', async () => {
+    const user = userEvent.setup();
+    const kernel = makeKernel();
+    kernel.setSelection(['s1']);
+    render(<Palette kernel={kernel} labels={PALETTE_LABELS_AR} />);
+
+    const palette = screen.getByRole('navigation', { name: 'لوحة الكتل' });
+    expect(within(palette).getByRole('tab', { name: 'الكتل' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(palette).getByRole('tab', { name: 'القوالب' })).toBeInTheDocument();
+    expect(within(palette).getByRole('button', { name: 'التخطيط' })).toBeInTheDocument();
+    // Arabic names from the catalogue, not the humanised English type.
+    expect(within(palette).getByRole('button', { name: 'نص' })).toBeInTheDocument();
+    expect(within(palette).queryByRole('button', { name: 'Text' })).not.toBeInTheDocument();
+
+    // Search finds a block by its Arabic name AND by its English one.
+    const search = within(palette).getByRole('searchbox', { name: 'ابحث في الكتل' });
+    await user.type(search, 'قسم');
+    expect(within(palette).getByRole('button', { name: 'قسم' })).toBeInTheDocument();
+    expect(within(palette).queryByRole('button', { name: 'نص' })).not.toBeInTheDocument();
+    await user.clear(search);
+    await user.type(search, 'text');
+    expect(within(palette).getByRole('button', { name: 'نص' })).toBeInTheDocument();
+
+    // One transaction, announced in Arabic with the Arabic name.
+    const before = kernel.transactions().length;
+    await user.click(within(palette).getByRole('button', { name: 'نص' }));
+    expect(kernel.transactions()).toHaveLength(before + 1);
+    expect(screen.getByRole('status', { name: 'لوحة الكتل' })).toHaveTextContent('أُدرج نص');
   });
 });

@@ -24,6 +24,13 @@ Hrefs pass an allowlist (`http:`, `https:`, `mailto:`, clearly relative paths). 
 `javascript:`, `data:`, protocol-relative, control-character smuggling — is neutralized: the link's
 TEXT stays visible with no navigable anchor.
 
+## Text direction
+
+Every paragraph, heading and list item renders with `dir="auto"`: each takes its base direction from
+its own first strong character. An English sentence on an Arabic page keeps its full stop at the
+end, and an Arabic sentence on an English page reads right to left. The wrapper and the lists
+themselves carry no `dir`, so the page direction still decides their layout.
+
 ## Usage
 
 ```tsx

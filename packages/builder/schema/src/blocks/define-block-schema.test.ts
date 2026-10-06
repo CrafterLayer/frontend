@@ -179,3 +179,59 @@ describe('blockPropsJsonSchema', () => {
     expect(Object.keys(jsonSchema.properties)).toEqual(['heading']);
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('defineBlockSchema — parts', () => {
+  const props = z.object({
+    heading: z.string(),
+    body: z.string().optional(),
+    items: z.array(z.object({ title: z.string() })).default([]),
+  });
+
+  it('keeps a valid parts declaration and the new declared kinds', () => {
+    const block = defineBlockSchema({
+      type: 'parts-ok',
+      description: 'A block with parts.',
+      props,
+      propertyGroups: {
+        body: { tab: 'content', kind: 'multiline' },
+        heading: { tab: 'content', kind: 'link' },
+        items: { tab: 'content', kind: 'image' },
+      },
+      parts: {
+        heading: { kind: 'text', bind: 'heading', label: { en: 'Heading', ar: 'العنوان' } },
+        'item.title': { kind: 'text', bind: 'items.*.title', label: { en: 'Title', ar: 'العنوان' } },
+      },
+      inlineEditable: 'heading',
+      examples: [],
+    });
+    expect(Object.keys(block.parts ?? {})).toEqual(['heading', 'item.title']);
+    const kind: BlockPropertyGroup['kind'] = 'part-styles';
+    expect(kind).toBe('part-styles');
+  });
+
+  it('runs the parts gate at registration', () => {
+    expect(() =>
+      defineBlockSchema({
+        type: 'parts-bad',
+        description: 'A block with a broken part.',
+        props,
+        parts: { body: { kind: 'text', bind: 'items.*', label: { en: 'Body', ar: 'النص' } } },
+        examples: [],
+      }),
+    ).toThrow(BuilderError);
+  });
+
+  it('leaves blocks without parts exactly as before (inlineEditable alone is enough)', () => {
+    expect(() =>
+      defineBlockSchema({
+        type: 'no-parts',
+        description: 'A block without parts.',
+        props,
+        inlineEditable: 'body',
+        examples: [],
+      }),
+    ).not.toThrow();
+  });
+});
+// ── /block-parts ──

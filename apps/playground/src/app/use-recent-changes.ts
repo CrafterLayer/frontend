@@ -80,6 +80,8 @@ export interface RecentChangesOptions {
    * one per landed section, in engine words (SPEC §4.20: the pill replaces them).
    */
   readonly exclude?: ChangeDoor | undefined;
+  /** Commands phrased in the editor's language (arabic-editor); English otherwise. */
+  readonly phrases?: Readonly<Record<string, string>> | undefined;
 }
 
 /** What the strip lists, and whether it left out changes another surface speaks for. */
@@ -101,12 +103,12 @@ export function recentChangesOf(
     readonly author: string;
     readonly command: string;
   }[],
-  { limit = 3, exclude }: RecentChangesOptions = {},
+  { limit = 3, exclude, phrases }: RecentChangesOptions = {},
 ): RecentChanges {
   const all = transactions.map((transaction) => ({
     id: transaction.id,
     door: DOOR_BY_AUTHOR[transaction.author] ?? 'canvas',
-    label: phraseOf(transaction.command),
+    label: phrases?.[transaction.command] ?? phraseOf(transaction.command),
   }));
   const shown = all.filter((change) => change.door !== exclude);
   return {

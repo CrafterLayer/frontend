@@ -13,6 +13,7 @@ import {
   BUCKET_STATE_SWITCHER_LABELS_EN,
   type BucketStateSwitcherLabels,
 } from '../controls/BucketStateSwitcher';
+import { COLOR_FIELD_LABELS_AR, COLOR_FIELD_LABELS_EN, type ColorFieldLabels } from '../controls/ColorField';
 import {
   CORNER_RADIUS_CONTROL_LABELS_AR,
   CORNER_RADIUS_CONTROL_LABELS_EN,
@@ -75,6 +76,19 @@ export interface StylePanelLabels {
   readonly origin: TransformOriginControlLabels;
   readonly color: StyleColorControlLabels;
   readonly effects: EffectPresetPickerLabels;
+  // panel-design additions
+  readonly colorField: ColorFieldLabels;
+  /** The property filter's accessible name. */
+  readonly filter: string;
+  readonly filterPlaceholder: string;
+  readonly clearFilter: string;
+  /** Shown when the filter matches no property. */
+  readonly noMatches: (query: string) => string;
+  /** A segmented row's overflow menu: "More Display options". */
+  readonly moreOptions: (property: string) => string;
+  /** A sector's count, read as its description: "2 set here". */
+  readonly setHere: (count: number) => string;
+  // end panel-design additions
 }
 
 export const STYLE_PANEL_LABELS_EN: StylePanelLabels = {
@@ -97,6 +111,13 @@ export const STYLE_PANEL_LABELS_EN: StylePanelLabels = {
   origin: TRANSFORM_ORIGIN_CONTROL_LABELS_EN,
   color: STYLE_COLOR_CONTROL_LABELS_EN,
   effects: EFFECT_PRESET_PICKER_LABELS_EN,
+  colorField: COLOR_FIELD_LABELS_EN,
+  filter: 'Filter properties',
+  filterPlaceholder: 'Find a property…',
+  clearFilter: 'Clear filter',
+  noMatches: (query) => `No property matches “${query}”`,
+  moreOptions: (property) => `More ${property} options`,
+  setHere: (count) => (count === 1 ? '1 value set here' : `${String(count)} values set here`),
 };
 
 export const STYLE_PANEL_LABELS_AR: StylePanelLabels = {
@@ -119,4 +140,11 @@ export const STYLE_PANEL_LABELS_AR: StylePanelLabels = {
   origin: TRANSFORM_ORIGIN_CONTROL_LABELS_AR,
   color: STYLE_COLOR_CONTROL_LABELS_AR,
   effects: EFFECT_PRESET_PICKER_LABELS_AR,
+  colorField: COLOR_FIELD_LABELS_AR,
+  filter: 'تصفية الخصائص',
+  filterPlaceholder: 'ابحث عن خاصية…',
+  clearFilter: 'مسح البحث',
+  noMatches: (query) => `لا توجد خاصية تطابق «${query}»`,
+  moreOptions: (property) => `خيارات أخرى: ${property}`,
+  setHere: (count) => (count === 1 ? 'قيمة واحدة مضبوطة هنا' : `${String(count)} قيم مضبوطة هنا`),
 };

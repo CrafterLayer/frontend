@@ -770,6 +770,20 @@ describe('per-call reasoning budget', () => {
     expect(params[0]).toMatchObject({ thinking: { type: 'adaptive' } });
     expect(params[1]).toMatchObject({ thinking: { type: 'adaptive' } });
   });
+
+  it('keeps thinking on for a section writer when the person asked for depth, at their budget', async () => {
+    const { client, params, seen } = recordingClient();
+    const handle = createHandler({ client, sectionEffort: 'low' });
+
+    await handle(post({ ...(sectionWriter() as object), effort: 'high' }));
+    await handle(post({ ...(sectionWriter() as object), effort: 'medium' }));
+
+    expect(params[0]).toMatchObject({ thinking: { type: 'adaptive' } });
+    expect(seen[0]).toMatchObject({ headers: { 'x-craftkit-internal-reasoning-effort': 'high' } });
+    // Medium is the default: the writer still skips thinking, but runs at the budget named.
+    expect(params[1]).toMatchObject({ thinking: { type: 'disabled' } });
+    expect(seen[1]).toMatchObject({ headers: { 'x-craftkit-internal-reasoning-effort': 'medium' } });
+  });
 });
 
 /*
@@ -1076,12 +1090,12 @@ describe('per-call model and effort', () => {
     expect(seen).toHaveLength(0);
   });
 
-  it('gives a call the low or medium budget its body asks for, and refuses any other', async () => {
+  it('gives a call the budget its body asks for among the five levels, and refuses any other', async () => {
     const { client, seen } = recording();
     const handle = createHandler({ client, ...allowlist });
 
     await handle(post(wireBody({ effort: 'low' })));
-    const higher = await handle(post(wireBody({ effort: 'max' })));
+    const higher = await handle(post(wireBody({ effort: 'ludicrous' })));
 
     expect(seen[0]?.options).toMatchObject({
       headers: { 'x-craftkit-internal-reasoning-effort': 'low' },
@@ -1093,7 +1107,7 @@ describe('per-call model and effort', () => {
     expect(seen).toHaveLength(1);
   });
 
-  it('reads the budget from its header beside the model header, the body winning, same two levels', async () => {
+  it('reads the budget from its header beside the model header, the body winning', async () => {
     const { client, seen } = recording();
     const handle = createHandler({ client, ...allowlist });
 
@@ -1101,7 +1115,7 @@ describe('per-call model and effort', () => {
       post(wireBody(), { 'x-craftkit-ai-model': 'cli:haiku', 'x-craftkit-ai-effort': 'low' }),
     );
     await handle(post(wireBody({ effort: 'medium' }), { 'x-craftkit-ai-effort': 'low' }));
-    const higher = await handle(post(wireBody(), { 'x-craftkit-ai-effort': 'high' }));
+    const higher = await handle(post(wireBody(), { 'x-craftkit-ai-effort': 'ludicrous' }));
 
     expect((seen[0]?.params as { model: string }).model).toBe('cli:haiku');
     expect(seen[0]?.options).toMatchObject({
@@ -1169,6 +1183,152 @@ describe('per-call model and effort', () => {
 
     expect(params[0]?.thinking?.type).toBe('disabled');
     expect(params[1]?.thinking?.type).toBe('adaptive');
+  });
+
+  it('lets a page plan think when the person asked for depth, and only then', async () => {
+    const params: { thinking?: { type?: string } }[] = [];
+    const client = {
+      messages: {
+        stream: (sent: { thinking?: { type?: string } }) => {
+          params.push(sent);
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [
+                  { type: 'text', text: JSON.stringify({ pagePlan: PAGE_PLAN_EXAMPLE.pagePlan }) },
+                ],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    const handle = createHandler({ client });
+
+    await handle(post(wireBody({ task: 'page-plan' }), { 'x-craftkit-ai-effort': 'medium' }));
+    await handle(post(wireBody({ task: 'page-plan' }), { 'x-craftkit-ai-effort': 'xhigh' }));
+
+    expect(params[0]?.thinking?.type).toBe('disabled');
+    expect(params[1]?.thinking?.type).toBe('adaptive');
+  });
+});
+
+describe('GET /v1/models, the picker’s list', () => {
+  const get = (headers: Record<string, string> = {}): Request =>
+    new Request('http://localhost/v1/models', { method: 'GET', headers });
+  const catalog = (
+    models: readonly { id: string; name: string }[],
+    extra: { fetchedAt?: number; error?: string } = {},
+  ) => ({
+    list: () =>
+      Promise.resolve({
+        models: models.map((model) => ({
+          ...model,
+          contextLength: 262_144,
+          structuredOutputs: true,
+          created: 1,
+        })),
+        fetchedAt: extra.fetchedAt ?? 1,
+        ...(extra.error === undefined ? {} : { error: extra.error }),
+      }),
+    has: (slug: string) => Promise.resolve(models.some((model) => model.id === slug)),
+  });
+  const config = {
+    client: fakeClient(planAnswer()),
+    model: 'cli:claude-sonnet-5-5',
+    models: ['cli:claude-opus-5-5', 'old/withdrawn:free', 'kept/free:free'],
+  };
+
+  it('offers the configured models, then every free one OpenRouter lists, and the five budgets', async () => {
+    const handle = createHandler({
+      ...config,
+      freeModels: catalog([
+        { id: 'kept/free:free', name: 'Kept' },
+        { id: 'new/arrival:free', name: 'New Arrival' },
+      ]),
+    });
+
+    const response = await handle(get());
+    const body = (await response.json()) as {
+      default: string;
+      defaultEffort: string;
+      efforts: string[];
+      models: { id: string; kind: string; name?: string }[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.default).toBe('cli:claude-sonnet-5-5');
+    expect(body.defaultEffort).toBe('medium');
+    expect(body.efforts).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
+    // The withdrawn free slug is gone; the configured one that is still listed keeps its name.
+    expect(body.models.map((model) => [model.id, model.kind])).toEqual([
+      ['cli:claude-sonnet-5-5', 'configured'],
+      ['cli:claude-opus-5-5', 'configured'],
+      ['kept/free:free', 'configured'],
+      ['new/arrival:free', 'live'],
+    ]);
+    expect(body.models[2]?.name).toBe('Kept');
+  });
+
+  it('keeps every configured model while the live listing is unreadable, and says why', async () => {
+    const handle = createHandler({
+      ...config,
+      freeModels: catalog([], { fetchedAt: 0, error: 'OpenRouter answered 503' }),
+    });
+
+    const body = (await (await handle(get())).json()) as {
+      models: { id: string }[];
+      error: string;
+    };
+
+    expect(body.models.map((model) => model.id)).toContain('old/withdrawn:free');
+    expect(body.error).toBe('OpenRouter answered 503');
+  });
+
+  it('wants the bearer token like every other route', async () => {
+    const handle = createHandler({ ...config, authToken: 'secret' });
+
+    expect((await handle(get())).status).toBe(401);
+    expect((await handle(get({ authorization: 'Bearer secret' }))).status).toBe(200);
+  });
+
+  it('lets a request name a free model the live listing carries, and refuses one it does not', async () => {
+    const seen: unknown[] = [];
+    const client = {
+      messages: {
+        stream: (params: unknown) => {
+          seen.push(params);
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                stop_details: null,
+                content: [{ type: 'text', text: JSON.stringify(PLAN) }],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    const handle = createHandler({
+      ...config,
+      client,
+      freeModels: catalog([{ id: 'new/arrival:free', name: 'New Arrival' }]),
+    });
+
+    const allowed = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'new/arrival:free' }));
+    const gone = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'gone/model:free' }));
+    // Free only: a paid slug is never opened by the live list.
+    const paid = await handle(post(wireBody(), { 'x-craftkit-ai-model': 'openai/gpt-5' }));
+
+    expect(allowed.status).toBe(200);
+    expect((seen[0] as { model: string }).model).toBe('new/arrival:free');
+    expect(gone.status).toBe(400);
+    expect(paid.status).toBe(400);
   });
 });
 

@@ -289,3 +289,54 @@ describe('§10 review fixes — safety hardening', () => {
     expect(probe.textContent).toBe(container.textContent);
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('RichText text direction (block-parts DESIGN §2.11)', () => {
+  const MIXED = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: 'Why CraftKit' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'The site grows.' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'الموقع ينمو.' }] },
+      {
+        type: 'bulletList',
+        content: [
+          {
+            type: 'listItem',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Every edit becomes one undo.' }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('gives every paragraph, heading and list item dir="auto" inside an RTL page', () => {
+    const { container } = render(
+      <div dir="rtl">
+        <RichText value={MIXED} />
+      </div>,
+    );
+    const blocks = container.querySelectorAll(
+      '.bldr-richtext h3, .bldr-richtext p, .bldr-richtext li',
+    );
+    expect(blocks).toHaveLength(5);
+    for (const block of blocks) {
+      expect(block, block.textContent).toHaveAttribute('dir', 'auto');
+    }
+    expect(screen.getByText('The site grows.').closest('p')).toHaveAttribute('dir', 'auto');
+  });
+
+  it('stamps the same direction in static markup, and never on the wrapper or the lists', () => {
+    const probe = document.createElement('div');
+    probe.innerHTML = renderToStaticMarkup(<RichText value={MIXED} />);
+    expect(probe.querySelectorAll('[dir="auto"]')).toHaveLength(5);
+    expect(probe.querySelector('.bldr-richtext')).not.toHaveAttribute('dir');
+    expect(probe.querySelector('ul')).not.toHaveAttribute('dir');
+  });
+});
+// ── /block-parts ──

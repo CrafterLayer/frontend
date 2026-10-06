@@ -25,3 +25,29 @@ appropriate name, type, autocomplete hint, and required state. Builder-canvas su
 prevented so editing never navigates away; published output preserves the authored form action.
 Unsafe form-action schemes are rejected by the schema. Layout uses container queries and logical
 spacing, so it responds to the builder column and reads correctly in RTL.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (for example `email` or `submitLabel`), and addressable by the agent
+by name, alias or label. Text parts carry `dir="auto"`, so an English line on an Arabic page keeps
+its full stop at the end.
+
+| name           | kind | bind           | label (en / ar)                         |
+| -------------- | ---- | -------------- | --------------------------------------- |
+| `eyebrow`      | text | `eyebrow`      | Eyebrow / الشارة                        |
+| `heading`      | text | `heading`      | Heading / العنوان                       |
+| `body`         | text | `body`         | Body / الوصف (multiline)                |
+| `email`        | text | `email`        | Email address / البريد الإلكتروني       |
+| `phone`        | text | `phone`        | Phone number / رقم الهاتف               |
+| `address`      | text | `address`      | Address / العنوان البريدي (multiline)   |
+| `availability` | text | `availability` | Availability / التوفر                   |
+| `formTitle`    | text | `formTitle`    | Form title / عنوان النموذج              |
+| `formBody`     | text | `formBody`     | Form text / نص النموذج (multiline)      |
+| `nameLabel`    | text | `nameLabel`    | Name field label / تسمية حقل الاسم      |
+| `emailLabel`   | text | `emailLabel`   | Email field label / تسمية حقل البريد    |
+| `messageLabel` | text | `messageLabel` | Message field label / تسمية حقل الرسالة |
+| `submitLabel`  | text | `submitLabel`  | Submit button / زر الإرسال              |
+
+The `mailto:` and `tel:` addresses are derived from the committed `email` and `phone` text only, so
+an inline editor never reaches an attribute.

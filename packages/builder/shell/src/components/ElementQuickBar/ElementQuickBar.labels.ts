@@ -1,5 +1,61 @@
 import type { ElementActionId } from '../../overlay/element-actions';
 import type { QuickGroupId } from './quick-bar-groups';
+// ── block-parts (2026-10-06) ──
+import { PART_ACTION_WORDS_EN, type PartActionWords } from './part-actions';
+
+/** The part bar's words (block-parts §2.14): its actions, refusals and the link popover. */
+export interface PartQuickBarLabels extends PartActionWords {
+  readonly linkTitle: string;
+  readonly linkText: string;
+  readonly linkAddress: string;
+  readonly page: string;
+  readonly noPage: string;
+  readonly invalidHref: string;
+  readonly apply: string;
+  readonly cancel: string;
+}
+
+export const PART_QUICK_BAR_LABELS_EN: PartQuickBarLabels = {
+  ...PART_ACTION_WORDS_EN,
+  linkTitle: 'Edit link',
+  linkText: 'Link text',
+  linkAddress: 'Link address',
+  page: 'Page on this site',
+  noPage: 'Choose a page',
+  invalidHref: 'This address is not allowed · use https://, mailto:, tel: or a path such as /about',
+  apply: 'Apply',
+  cancel: 'Cancel',
+};
+
+export const PART_QUICK_BAR_LABELS_AR: PartQuickBarLabels = {
+  actions: {
+    editText: 'تحرير النص',
+    link: 'الرابط',
+    addAfter: 'إضافة عنصر بعده',
+    duplicate: 'تكرار العنصر',
+    moveUp: 'نقل العنصر للأعلى',
+    moveDown: 'نقل العنصر للأسفل',
+    remove: 'إزالة العنصر',
+    scopeThis: 'تنسيق هذا العنصر وحده',
+    dirAuto: 'الاتجاه حسب النص',
+    dirLtr: 'من اليسار إلى اليمين',
+    dirRtl: 'من اليمين إلى اليسار',
+    selectBlock: 'تحديد القسم كاملًا',
+  },
+  alreadyFirst: 'هذا أول عنصر',
+  alreadyLast: 'هذا آخر عنصر',
+  notInList: 'هذا الجزء ليس داخل قائمة',
+  notText: 'هذا الجزء لا يحوي نصًا',
+  linkTitle: 'تحرير الرابط',
+  linkText: 'نص الرابط',
+  linkAddress: 'عنوان الرابط',
+  page: 'صفحة من هذا الموقع',
+  noPage: 'اختر صفحة',
+  invalidHref: 'هذا العنوان غير مسموح · استخدم https:// أو mailto: أو tel: أو مسارًا يبدأ بـ /',
+  apply: 'تطبيق',
+  cancel: 'إلغاء',
+};
+// ── /block-parts ──
 
 export interface ElementQuickBarLabels {
   /** Which catalogue label language the generic controls use. */
@@ -24,6 +80,10 @@ export interface ElementQuickBarLabels {
   readonly apply: string;
   readonly hideOn: string;
   readonly showOn: string;
+  // ── block-parts (2026-10-06) ──
+  /** The part bar's words. Absent ⇒ English. */
+  readonly parts?: PartQuickBarLabels | undefined;
+  // ── /block-parts ──
 }
 
 export const ELEMENT_QUICK_BAR_LABELS_EN: ElementQuickBarLabels = {
@@ -86,6 +146,9 @@ export const ELEMENT_QUICK_BAR_LABELS_EN: ElementQuickBarLabels = {
   apply: 'Apply',
   hideOn: 'Hide on this device',
   showOn: 'Show on this device',
+  // ── block-parts (2026-10-06) ──
+  parts: PART_QUICK_BAR_LABELS_EN,
+  // ── /block-parts ──
 };
 
 export const ELEMENT_QUICK_BAR_LABELS_AR: ElementQuickBarLabels = {
@@ -148,4 +211,7 @@ export const ELEMENT_QUICK_BAR_LABELS_AR: ElementQuickBarLabels = {
   apply: 'تطبيق',
   hideOn: 'إخفاء على هذا الجهاز',
   showOn: 'إظهار على هذا الجهاز',
+  // ── block-parts (2026-10-06) ──
+  parts: PART_QUICK_BAR_LABELS_AR,
+  // ── /block-parts ──
 };

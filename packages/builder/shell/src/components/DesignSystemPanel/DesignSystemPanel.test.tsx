@@ -53,7 +53,7 @@ describe('DesignSystemPanel', () => {
     const onChangeToken = vi.fn<(token: TokenName, value: string) => void>();
     render(<DesignSystemPanel system={defaultDesignSystem()} onChangeToken={onChangeToken} />);
 
-    const field = screen.getByLabelText('accent');
+    const field = screen.getByLabelText('Accent');
     await user.clear(field);
     await user.type(field, '#0b5cff');
     expect(onChangeToken).not.toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe('DesignSystemPanel', () => {
     const user = userEvent.setup();
     const onChangeToken = vi.fn<(token: TokenName, value: string) => void>();
     render(<DesignSystemPanel system={defaultDesignSystem()} onChangeToken={onChangeToken} />);
-    await user.click(screen.getByLabelText('accent'));
+    await user.click(screen.getByLabelText('Accent'));
     await user.tab();
     expect(onChangeToken).not.toHaveBeenCalled();
   });
@@ -76,18 +76,18 @@ describe('DesignSystemPanel', () => {
     const { rerender } = render(
       <DesignSystemPanel system={withAccent('#111111')} onChangeToken={vi.fn()} />,
     );
-    const field = screen.getByLabelText('accent');
+    const field = screen.getByLabelText('Accent');
     await user.clear(field);
     await user.type(field, '#abcabc');
     rerender(<DesignSystemPanel system={withAccent('#222222')} onChangeToken={vi.fn()} />);
-    expect(screen.getByLabelText('accent')).toHaveValue('#222222');
+    expect(screen.getByLabelText('Accent')).toHaveValue('#222222');
   });
 
   it('shows the token a person picked from the grid, with its committed value', async () => {
     const user = userEvent.setup();
     render(<DesignSystemPanel system={defaultDesignSystem()} onChangeToken={vi.fn()} />);
-    await user.click(screen.getByRole('button', { name: /^text muted/u }));
-    expect(screen.getByLabelText('textMuted')).toHaveValue(defaultDesignSystem().tokens.textMuted);
+    await user.click(screen.getByRole('button', { name: /^Muted text/u }));
+    expect(screen.getByLabelText('Muted text')).toHaveValue(defaultDesignSystem().tokens.textMuted);
   });
 
   it('ANNOUNCES what the door refused, and ties it to the field', () => {
@@ -99,7 +99,7 @@ describe('DesignSystemPanel', () => {
       />,
     );
     expect(screen.getByRole('status')).toHaveTextContent('below the 4.5:1');
-    const field = screen.getByLabelText('accent');
+    const field = screen.getByLabelText('Accent');
     expect(field).toHaveAttribute('aria-invalid', 'true');
     expect(field.getAttribute('aria-describedby') ?? '').not.toBe('');
   });
@@ -113,7 +113,7 @@ describe('DesignSystemPanel', () => {
       <DesignSystemPanel system={defaultDesignSystem()} onChangeToken={vi.fn()} onRegenerate={vi.fn()} busy />,
     );
     expect(screen.getByRole('button', { name: 'Regenerate' })).toBeDisabled();
-    expect(screen.getByLabelText('accent')).toBeDisabled();
+    expect(screen.getByLabelText('Accent')).toBeDisabled();
   });
 
   describe('over a live site kernel', () => {
@@ -137,14 +137,14 @@ describe('DesignSystemPanel', () => {
       const kernel = createDesignTestKernel();
       render(<Live kernel={kernel} />);
       const before = kernel.getSite().designSystem.tokens.text;
-      await user.click(screen.getByText('text', { selector: '.bldr-swatches__name' }));
-      const field = screen.getByLabelText('text');
+      await user.click(screen.getByText('Text', { selector: '.bldr-swatches__name' }));
+      const field = screen.getByLabelText('Text');
       await user.clear(field);
       await user.type(field, defaultDesignSystem().tokens.surface + '{Enter}');
 
       expect(kernel.getSite().designSystem.tokens.text).toBe(before);
       expect(screen.getAllByRole('status')[0]?.textContent).not.toBe('');
-      expect(screen.getByLabelText('text')).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByLabelText('Text')).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('adds a palette colour, then refuses to remove it while an element uses it', async () => {
@@ -197,5 +197,13 @@ describe('DesignSystemPanel', () => {
     );
     expect(screen.getByRole('region', { name: 'نظام التصميم' })).toHaveAttribute('dir', 'rtl');
     expect(screen.getByRole('tab', { name: 'الخطوط' })).toBeVisible();
+    // Fix pass (2026-10-06): role names, the system's title and hex values in Arabic.
+    expect(screen.getByRole('heading', { name: 'نظام التصميم الافتراضي' })).toBeInTheDocument();
+    expect(screen.getByLabelText('لون التمييز')).toBeInTheDocument();
+    expect(screen.getByText('الخلفية المعكوسة', { selector: '.bldr-swatches__name' })).toBeInTheDocument();
+    expect(screen.queryByText('surface inverse')).not.toBeInTheDocument();
+    for (const value of document.querySelectorAll('.bldr-swatches__value')) {
+      expect(value).toHaveAttribute('dir', 'ltr');
+    }
   });
 });

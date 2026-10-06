@@ -51,3 +51,21 @@ statsSchema.props.parse({
   ],
 });
 ```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name          | kind | bind             | label (en / ar)              |
+| ------------- | ---- | ---------------- | ---------------------------- |
+| `eyebrow`     | text | `eyebrow`        | Eyebrow / الشارة             |
+| `heading`     | text | `heading`        | Heading / العنوان            |
+| `body`        | text | `body`           | Body / الوصف (multiline)     |
+| `items`       | list | `items`          | Metrics / المؤشرات           |
+| `item`        | item | `items.*`        | Metric / المؤشر              |
+| `item.value`  | text | `items.*.value`  | Metric value / قيمة المؤشر   |
+| `item.label`  | text | `items.*.label`  | Metric label / اسم المؤشر    |
+| `item.detail` | text | `items.*.detail` | Metric detail / تفصيل المؤشر |

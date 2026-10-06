@@ -1,9 +1,9 @@
 import { clsx } from 'clsx';
 
 import { motionAttributes } from '@craftkit/builder-renderer';
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
-import type { ProgressProps } from './schema';
+import { progressSchema, type ProgressProps } from './schema';
 
 const SIZE_CLASSES: Record<ProgressProps['size'], string> = {
   small: 'h-1.5',
@@ -25,7 +25,8 @@ const RADIUS_CLASSES: Record<ProgressProps['radius'], string> = {
 };
 
 /** A determinate progress indicator that grows from the logical inline start. */
-export function Progress({ node, props }: BlockRenderProps<ProgressProps>) {
+export function Progress({ node, props, isCanvas }: BlockRenderProps<ProgressProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, progressSchema.parts);
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const boundedValue = Math.min(Math.max(props.value, 0), props.max);
   const percentage = (boundedValue / props.max) * 100;
@@ -38,11 +39,20 @@ export function Progress({ node, props }: BlockRenderProps<ProgressProps>) {
       {...motionData}
     >
       <div className="flex min-w-0 items-baseline justify-between gap-4">
-        <span id={labelId} className="min-w-0 text-sm font-semibold text-balance">
+        <span
+          {...part('label', {
+            id: labelId,
+            className: 'min-w-0 text-sm font-semibold text-balance',
+          })}
+        >
           {props.label}
         </span>
         {props.showValue ? (
-          <span className="shrink-0 text-sm font-medium tabular-nums text-text-muted">
+          <span
+            {...part('value', {
+              className: 'shrink-0 text-sm font-medium tabular-nums text-text-muted',
+            })}
+          >
             {roundedPercentage}%
           </span>
         ) : null}
@@ -54,20 +64,24 @@ export function Progress({ node, props }: BlockRenderProps<ProgressProps>) {
         aria-valuemin={0}
         aria-valuenow={boundedValue}
         aria-valuetext={`${String(roundedPercentage)}%`}
-        className={clsx(
-          'w-full overflow-hidden bg-text/10',
-          SIZE_CLASSES[props.size],
-          RADIUS_CLASSES[props.radius],
-        )}
+        {...part('track', {
+          className: clsx(
+            'w-full overflow-hidden bg-text/10',
+            SIZE_CLASSES[props.size],
+            RADIUS_CLASSES[props.radius],
+          ),
+        })}
         role="progressbar"
       >
         <span
           aria-hidden="true"
-          className={clsx(
-            'ms-0 me-auto block h-full transition-all duration-300 motion-reduce:transition-none',
-            VARIANT_CLASSES[props.variant],
-            RADIUS_CLASSES[props.radius],
-          )}
+          {...part('indicator', {
+            className: clsx(
+              'ms-0 me-auto block h-full transition-all duration-300 motion-reduce:transition-none',
+              VARIANT_CLASSES[props.variant],
+              RADIUS_CLASSES[props.radius],
+            ),
+          })}
           data-progress-percent={roundedPercentage}
           style={{ inlineSize: `${String(percentage)}%` }}
         />

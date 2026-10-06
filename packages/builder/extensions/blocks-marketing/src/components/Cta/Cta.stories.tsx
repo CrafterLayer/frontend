@@ -121,3 +121,24 @@ export const ControlRenderingContract: Story = {
     });
   },
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    node: { id: 'cta-parts', type: 'cta', props: {} },
+    props: ctaSchema.props.parse({ label: 'Learn more', href: '/docs', note: 'Free for 14 days.' }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-ck-part="button"]')).toHaveAttribute(
+      'data-ck-bind',
+      'label',
+    );
+  },
+};

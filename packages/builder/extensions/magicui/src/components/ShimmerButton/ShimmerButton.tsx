@@ -1,10 +1,10 @@
 import { clsx } from 'clsx';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
-import type { ShimmerButtonProps } from './schema';
+import { shimmerButtonSchema, type ShimmerButtonProps } from './schema';
 
 import './ShimmerButton.css';
 
@@ -51,7 +51,8 @@ const INTENSITY_STRENGTH: Record<ShimmerButtonProps['intensity'], string> = {
 };
 
 /** A semantic action with one restrained, token-bound travelling highlight. */
-export function ShimmerButton({ props, isCanvas }: BlockRenderProps<ShimmerButtonProps>) {
+export function ShimmerButton({ node, props, isCanvas }: BlockRenderProps<ShimmerButtonProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, shimmerButtonSchema.parts);
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const actionClassName = clsx(
     'mgc-shimmer-button',
@@ -69,7 +70,9 @@ export function ShimmerButton({ props, isCanvas }: BlockRenderProps<ShimmerButto
     ['--mgc-shimmer-strength' as string]: INTENSITY_STRENGTH[props.intensity],
     ['--mgc-shimmer-play' as string]: props.animate ? 'running' : 'paused',
   };
-  const content = <span className="mgc-shimmer-button__label">{props.label}</span>;
+  const content = (
+    <span {...part('label', { className: 'mgc-shimmer-button__label' })}>{props.label}</span>
+  );
   const guardCanvasAction = (event: ReactMouseEvent<HTMLElement>) => {
     if (isCanvas) event.preventDefault();
   };
@@ -78,7 +81,7 @@ export function ShimmerButton({ props, isCanvas }: BlockRenderProps<ShimmerButto
     <div className={clsx('flex min-w-0', ALIGN_CLASSES[props.align])}>
       {props.href === undefined ? (
         <button
-          className={actionClassName}
+          {...part('button', { className: actionClassName })}
           style={style}
           type={props.type}
           onClick={guardCanvasAction}
@@ -89,7 +92,7 @@ export function ShimmerButton({ props, isCanvas }: BlockRenderProps<ShimmerButto
         </button>
       ) : (
         <a
-          className={actionClassName}
+          {...part('button', { className: actionClassName })}
           style={style}
           href={props.href}
           target={props.openInNewTab ? '_blank' : undefined}

@@ -1,4 +1,4 @@
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import { GAP_CLASSES, cx, sectionContentClasses, sectionShellClasses } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
@@ -6,7 +6,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { PricingProps } from './schema';
+import { pricingSchema, type PricingProps } from './schema';
 
 /**
  * A pricing section: a heading, an optional lead, and a row of composed plans.
@@ -44,13 +44,14 @@ const COLUMN_CLASSES: Record<PricingProps['columns'], string> = {
   '4': 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
 };
 
-export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) {
+export function Pricing({ node, props, slots, isCanvas }: BlockRenderProps<PricingProps>) {
   /*
     The accessible name comes from the VISIBLE heading, never a copy of its
     text: inline editing swaps that property for an editor element, and an
     element in `aria-label` stringifies to "[object Object]".
   */
   const headingId = `${node.id}-heading`;
+  const part = blockPartProps({ node, props, isCanvas }, pricingSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
 
   const colorStyle = sectionColorStyle(props);
@@ -85,15 +86,20 @@ export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) 
         <header className="flex min-w-0 max-w-content-narrow flex-col gap-3">
           <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">Plans</p>
           <h2
-            id={headingId}
-            className="m-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
             <p
               data-mkt-part="intro"
-              className="m-0 max-w-content-narrow text-lg leading-relaxed text-text-muted"
+              {...part('body', {
+                className: 'm-0 max-w-content-narrow text-lg leading-relaxed text-text-muted',
+              })}
             >
               {props.body}
             </p>
@@ -107,7 +113,9 @@ export function Pricing({ node, props, slots }: BlockRenderProps<PricingProps>) 
         */}
         <div
           data-mkt-part="grid"
-          className={cx('grid items-stretch', COLUMN_CLASSES[props.columns], GAP_CLASSES.lg)}
+          {...part('plans', {
+            className: cx('grid items-stretch', COLUMN_CLASSES[props.columns], GAP_CLASSES.lg),
+          })}
         >
           {slots['default']}
         </div>

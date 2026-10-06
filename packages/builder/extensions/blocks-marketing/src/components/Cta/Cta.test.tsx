@@ -105,7 +105,7 @@ describe('Cta', () => {
       'gutter',
       'className',
     ];
-    const noDefaultKeys = [...motionKeys, 'href', 'note', ...sharedOptionalKeys];
+    const noDefaultKeys = [...motionKeys, 'href', 'note', 'partStyles', ...sharedOptionalKeys];
 
     expect(colorKeys.sort()).toEqual(['background', 'textColor']);
     expect(typographyKeys.sort()).toEqual([

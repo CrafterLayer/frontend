@@ -1,0 +1,35 @@
+/*
+  Segmented-control glyphs: 16px on a 4px grid, stroked in currentcolor so the
+  option's text colour (soft, hover, checked) drives them in light and dark.
+*/
+.bldr-option-icon,
+.bldr-choice-group__option .bldr-option-icon {
+  block-size: var(--bldr-space-3xl);
+  fill: none;
+  flex: none;
+  inline-size: var(--bldr-space-3xl);
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+/* :dir() reads the NEAREST direction: a group laid out in the page's LTR
+   direction inside the Arabic editor keeps its arrows unflipped. */
+.bldr-option-icon[data-mirror]:dir(rtl) {
+  scale: -1 1;
+}
+
+.bldr-option-icon--text,
+.bldr-choice-group__option .bldr-option-icon--text {
+  align-items: center;
+  display: inline-flex;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  inline-size: auto;
+  justify-content: center;
+  letter-spacing: 0;
+  line-height: 1;
+  min-inline-size: var(--bldr-space-3xl);
+}

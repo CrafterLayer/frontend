@@ -10,6 +10,7 @@ import {
   type CommandRuntime,
   type EventBus,
   type PageId,
+  type PartFocus,
   type Patch,
   type RegistryRead,
   type Transaction,
@@ -22,7 +23,7 @@ import {
   type GroupedDispatchOptions,
   type GroupStep,
 } from '../commands/dispatch';
-import { GROUPED_DISPATCH_LABEL_MAX_LENGTH } from '../commands/dispatch';
+import { GROUPED_DISPATCH_LABEL_MAX_LENGTH, prunePartFocus } from '../commands/dispatch';
 import { isSiteCommandName, siteCommands } from '../commands/site-commands';
 import {
   applyCodeChangesArgsSchema,
@@ -236,7 +237,7 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
     log.append(tx);
     history.record(tx);
     deps.store.write(
-      { ...state, site: nextSite, ...pruneViewState(state, state.site, nextSite) },
+      { ...state, site: nextSite, ...pruneViewState(state, state.site, nextSite, deps.registry) },
       changedPageNodes(state.site, patches),
     );
     deps.events.emit('tx.applied', { tx });
@@ -252,7 +253,7 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
     const state = deps.store.getState();
     const nextSite = applySitePatchSet(state.site, patchesOf(tx));
     deps.store.write(
-      { ...state, site: nextSite, ...pruneViewState(state, state.site, nextSite) },
+      { ...state, site: nextSite, ...pruneViewState(state, state.site, nextSite, deps.registry) },
       changedPageNodes(state.site, patchesOf(tx)),
     );
     deps.events.emit(event, { tx });
@@ -329,11 +330,15 @@ export function pageIndex(site: BuilderSite, pageId: PageId): number {
  * when the removed one was at the end.
  */
 function pruneViewState(
-  state: Pick<KernelSiteState, 'selection' | 'elementFocus' | 'pageId'>,
+  state: Pick<KernelSiteState, 'selection' | 'elementFocus' | 'partFocus' | 'pageId'>,
   previous: BuilderSite,
   site: BuilderSite,
-): Pick<KernelSiteState, 'selection' | 'elementFocus' | 'pageId'> {
+  registry: Pick<RegistryRead, 'block'>,
+): Pick<KernelSiteState, 'selection' | 'elementFocus' | 'pageId'> & {
+  partFocus: PartFocus | null;
+} {
   const { selection, elementFocus } = state;
+  const partFocus = state.partFocus ?? null; // block-parts (2026-10-06)
   let pageId = state.pageId;
   let page = site.pages.find((candidate) => candidate.id === pageId);
 
@@ -349,12 +354,17 @@ function pruneViewState(
         Returning the state unchanged is correct there: the transaction is about
         to be thrown away.
       */
-      return { selection, elementFocus, pageId };
+      return { selection, elementFocus, partFocus, pageId };
     }
     pageId = neighbour.id;
     page = neighbour;
     // A page change always clears selection, exactly as `setCurrentPage` does.
-    return { selection: selection.length === 0 ? selection : [], elementFocus: null, pageId };
+    return {
+      selection: selection.length === 0 ? selection : [],
+      elementFocus: null,
+      partFocus: null,
+      pageId,
+    };
   }
 
   const live =
@@ -364,5 +374,8 @@ function pruneViewState(
   const nextSelection = live.length === selection.length ? selection : live;
   const nextFocus =
     elementFocus !== null && nextSelection[0] === elementFocus.id ? elementFocus : null;
-  return { selection: nextSelection, elementFocus: nextFocus, pageId };
+  // ── block-parts (2026-10-06) ──
+  const nextPartFocus = prunePartFocus(partFocus, nextSelection, page.document, registry);
+  return { selection: nextSelection, elementFocus: nextFocus, partFocus: nextPartFocus, pageId };
+  // ── /block-parts ──
 }

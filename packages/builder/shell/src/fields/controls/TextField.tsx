@@ -37,6 +37,9 @@ export function TextField({
       id={controlId}
       className="bldr-field__input"
       type="text"
+      // Mixed ar/en content: the box follows its own text's direction, so an
+      // English line on an Arabic page keeps its full stop at the end.
+      dir="auto"
       value={draft ?? documentText}
       placeholder={placeholder}
       disabled={disabled}

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { z } from 'zod';
 
 import { installClassOracle } from '../../style-manager/test-support';
+import { FieldServicesProvider } from '../field-services';
 import { UtilityClassField } from './UtilityClassField';
 
 afterEach(cleanup);
@@ -30,6 +31,21 @@ function renderField(value: unknown, onChange = vi.fn()) {
   quietly dropped, since losing them would change the role back.
 */
 describe('UtilityClassField', () => {
+  it('names each Remove button in the editor language (fix pass 2026-10-06)', () => {
+    render(
+      <FieldServicesProvider value={{ locale: 'ar' }}>
+        <UtilityClassField
+          schema={schema}
+          value="text-xl"
+          path={['className']}
+          onChange={vi.fn()}
+          controlId="utilities"
+        />
+      </FieldServicesProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'إزالة text-xl' })).toBeInTheDocument();
+  });
+
   it('shows one removable chip per applied class', () => {
     renderField('flex flex-col gap-4');
 

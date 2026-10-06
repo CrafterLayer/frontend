@@ -1,0 +1,20 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StylePanelFilterStories from './StylePanelFilter.stories';
+
+<Meta of={StylePanelFilterStories} />
+
+# StylePanelFilter
+
+The search box in the style panel's sticky header. It narrows about ninety properties to the few you
+mean.
+
+- The panel matches the query against each property's English and Arabic names and its id, and
+  against each sector's names. A sector-name match keeps the whole sector. The panel ignores case,
+  Latin diacritics and Arabic tashkil. Padding also matches "margin", because the two share one box
+  model.
+- While it is filled, every matching sector is open. "No property matches …" is announced when
+  nothing does. Toggling a filtered sector closed clears the search.
+- Escape clears the field without leaving it. The clear button empties the field and returns focus
+  to it.
+- The component only holds the field. `StylePanel` owns the query and the matching.

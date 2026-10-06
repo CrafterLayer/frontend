@@ -2,7 +2,7 @@ import '../section-layout.css';
 
 import type { MouseEvent } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -16,7 +16,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { GalleryProps } from './schema';
+import { gallerySchema, type GalleryProps } from './schema';
 
 const GRID_COLUMN_CLASSES: Readonly<Record<GalleryProps['columns'], string>> = {
   '2': 'grid-cols-1 @sm:grid-cols-2',
@@ -42,6 +42,8 @@ function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
 /** A responsive editorial gallery built from semantic figures and optional safe full-size links. */
 export function Gallery({ node, props, isCanvas }: BlockRenderProps<GalleryProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, gallerySchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -79,22 +81,32 @@ export function Gallery({ node, props, isCanvas }: BlockRenderProps<GalleryProps
           )}
         >
           {props.eyebrow === undefined ? null : (
-            <p className="m-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase">
+            <p
+              {...part('eyebrow', {
+                className:
+                  'm-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase',
+              })}
+            >
               {props.eyebrow}
             </p>
           )}
           <h2
-            id={headingId}
-            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
             <p
-              className={cx(
-                'm-0 text-lg leading-relaxed text-pretty',
-                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-              )}
+              {...part('body', {
+                className: cx(
+                  'm-0 text-lg leading-relaxed text-pretty',
+                  props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+                ),
+              })}
             >
               {props.body}
             </p>
@@ -109,31 +121,49 @@ export function Gallery({ node, props, isCanvas }: BlockRenderProps<GalleryProps
 
         {props.items.length === 0 ? null : (
           <ul
-            className={cx(
-              'm-0 grid w-full list-none items-stretch gap-4 p-0 @lg:gap-6',
-              props.layout === 'grid'
-                ? GRID_COLUMN_CLASSES[props.columns]
-                : 'grid-cols-1 @sm:grid-cols-2',
-            )}
+            {...part('items', {
+              className: cx(
+                'm-0 grid w-full list-none items-stretch gap-4 p-0 @lg:gap-6',
+                props.layout === 'grid'
+                  ? GRID_COLUMN_CLASSES[props.columns]
+                  : 'grid-cols-1 @sm:grid-cols-2',
+              ),
+            })}
             data-gallery-list={props.layout}
           >
             {props.items.map((item, index) => {
+              const at = [index];
               const isFeatured =
                 props.layout === 'editorial' && (item.featured === true || index === 0);
               const trimmedAlt = item.alt.trim();
-              const accessibleName =
+              const showCaption = props.showCaptions && item.caption !== undefined;
+              const linkId = `${node.id}-image-${String(index)}-link`;
+              const captionId = `${node.id}-image-${String(index)}-caption`;
+              /*
+                The link's name: its label and the alt text; with no alt, its
+                label then the visible caption or section heading, read through
+                aria-labelledby so a bound value never reaches an attribute.
+              */
+              const linkName =
                 trimmedAlt.length > 0
-                  ? trimmedAlt
-                  : (item.caption ?? `${props.heading} ${String(index + 1)}`);
+                  ? { 'aria-label': `${props.linkLabel}: ${trimmedAlt}` }
+                  : {
+                      id: linkId,
+                      'aria-label': `${props.linkLabel}:`,
+                      'aria-labelledby': `${linkId} ${showCaption ? captionId : headingId}`,
+                    };
               const image = (
                 <img
-                  className={cx(
-                    'block h-full w-full bg-accent/10',
-                    FIT_CLASSES[props.imageFit],
-                    props.linkImages
-                      ? 'transition duration-500 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none'
-                      : undefined,
-                  )}
+                  {...part('item.image', {
+                    index: at,
+                    className: cx(
+                      'block h-full w-full bg-accent/10',
+                      FIT_CLASSES[props.imageFit],
+                      props.linkImages
+                        ? 'transition duration-500 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none'
+                        : undefined,
+                    ),
+                  })}
                   src={item.src}
                   alt={item.decorative ? '' : item.alt}
                   loading="lazy"
@@ -144,7 +174,10 @@ export function Gallery({ node, props, isCanvas }: BlockRenderProps<GalleryProps
               return (
                 <li
                   key={`${item.src}-${String(index)}`}
-                  className={cx(isFeatured ? '@sm:col-span-2' : undefined)}
+                  {...part('item', {
+                    index: at,
+                    className: cx(isFeatured ? '@sm:col-span-2' : undefined),
+                  })}
                   data-gallery-item={isFeatured ? 'featured' : 'standard'}
                 >
                   <figure className="relative m-0 flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-text/10 bg-surface text-text shadow-soft">
@@ -160,7 +193,7 @@ export function Gallery({ node, props, isCanvas }: BlockRenderProps<GalleryProps
                           href={item.href ?? item.src}
                           target={props.newTab ? '_blank' : undefined}
                           rel={props.newTab ? 'noreferrer' : undefined}
-                          aria-label={`${props.linkLabel}: ${accessibleName}`}
+                          {...linkName}
                           onClick={isCanvas ? preventCanvasNavigation : undefined}
                         >
                           {image}
@@ -170,14 +203,18 @@ export function Gallery({ node, props, isCanvas }: BlockRenderProps<GalleryProps
                       )}
                     </div>
 
-                    {props.showCaptions && item.caption !== undefined ? (
+                    {showCaption ? (
                       <figcaption
-                        className={cx(
-                          'text-start text-sm leading-relaxed',
-                          props.captionStyle === 'below'
-                            ? 'p-4 text-text-muted'
-                            : 'absolute inset-x-3 bottom-3 rounded-lg bg-surface-inverse/90 p-3 text-text-inverse shadow-soft',
-                        )}
+                        {...part('item.caption', {
+                          index: at,
+                          id: captionId,
+                          className: cx(
+                            'text-start text-sm leading-relaxed',
+                            props.captionStyle === 'below'
+                              ? 'p-4 text-text-muted'
+                              : 'absolute inset-x-3 bottom-3 rounded-lg bg-surface-inverse/90 p-3 text-text-inverse shadow-soft',
+                          ),
+                        })}
                       >
                         {item.caption}
                       </figcaption>

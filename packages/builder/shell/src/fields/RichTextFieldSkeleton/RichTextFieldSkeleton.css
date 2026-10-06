@@ -1,0 +1,103 @@
+/*
+  The rich-text editor's stand-in. It mirrors the editor's frame — one border
+  around a toolbar strip and a text surface — so the row does not jump when the
+  real editor lands. Chrome tokens only.
+*/
+.bldr-richtext-skeleton {
+  background-color: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.bldr-richtext-skeleton__toolbar {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-xs);
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-richtext-skeleton__tool {
+  background-color: var(--bldr-surface-sunken);
+  block-size: var(--bldr-control-sm);
+  border-radius: var(--bldr-radius-sm);
+  inline-size: var(--bldr-control-sm);
+}
+
+.bldr-richtext-skeleton[data-state='loading'] .bldr-richtext-skeleton__tool {
+  animation: bldr-richtext-skeleton-pulse var(--bldr-duration-shimmer) var(--bldr-easing) infinite;
+}
+
+.bldr-richtext-skeleton__surface {
+  background: transparent;
+  border: 0;
+  box-sizing: border-box;
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-control);
+  inline-size: 100%;
+  line-height: var(--bldr-line-height-read);
+  padding: var(--bldr-space-sm) var(--bldr-space-lg);
+  resize: none;
+  white-space: pre-wrap;
+}
+
+.bldr-richtext-skeleton__surface:disabled {
+  cursor: progress;
+}
+
+.bldr-richtext-skeleton[data-state='failed'] .bldr-richtext-skeleton__surface:disabled {
+  cursor: default;
+}
+
+.bldr-richtext-skeleton__status {
+  align-items: center;
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-sm);
+  justify-content: space-between;
+  padding: var(--bldr-space-xs) var(--bldr-space-lg);
+}
+
+.bldr-richtext-skeleton__message {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+}
+
+.bldr-richtext-skeleton[data-state='failed'] .bldr-richtext-skeleton__message {
+  color: var(--bldr-danger);
+}
+
+.bldr-richtext-skeleton__retry {
+  background-color: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-richtext-skeleton__retry:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+@keyframes bldr-richtext-skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-richtext-skeleton[data-state='loading'] .bldr-richtext-skeleton__tool {
+    animation: none;
+  }
+}

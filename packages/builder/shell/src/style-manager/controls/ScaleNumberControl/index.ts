@@ -15,3 +15,4 @@ export {
   type ScaleModel,
 } from './scale-math';
 export { namedModel, numberModel, spacingModel } from './spacing-model';
+export { scrubAmount, type ScrubBounds } from './scrub-amount';

@@ -1,16 +1,58 @@
-import { BEHAVIOR_PACKS } from './packs';
+import {
+  BEHAVIOR_PACKS,
+  mountBgVideo,
+  mountCarousel,
+  mountCompare,
+  mountEmbedFacade,
+  mountEngines,
+  mountGallery,
+  mountMailtoForm,
+  mountToggleGroup,
+  mountVideoPlayer,
+  type BehaviorPack,
+} from './packs';
 import { mountBehaviors } from './runtime';
+
+/*
+  media-motion fix pass (2026-10-06): ck-behaviors.js carried every pack to
+  every page that used any behaviour — a restaurant page with one stagger
+  loaded 91 KB (21.3 KB gzip) against ~12.6 KB before. A pack now ships only
+  when the site's markup carries its marker.
+*/
+const behavior = (...names: readonly string[]): RegExp =>
+  new RegExp(`data-ck-behavior=["']?(?:${names.join('|')})["'\\s>/]`, 'u');
+
+/** What each pack mounts on, as it appears in rendered markup. */
+const PACK_MARKERS: ReadonlyMap<BehaviorPack, RegExp> = new Map<BehaviorPack, RegExp>([
+  [mountGallery, behavior('gallery', 'lightbox')],
+  [mountCarousel, behavior('carousel')],
+  [mountVideoPlayer, behavior('video-player')],
+  [mountBgVideo, behavior('bg-video')],
+  [mountEmbedFacade, behavior('embed-facade')],
+  [mountCompare, behavior('compare')],
+  [mountToggleGroup, behavior('toggle-group')],
+  [mountMailtoForm, behavior('mailto-form')],
+  [mountEngines, /\sdata-ck-(?:scene|timeline|lottie)(?=[\s=>/])/u],
+]);
+
+/** The packs rendered markup uses, in `BEHAVIOR_PACKS` order. */
+export function pageBehaviorPacks(markup: string | readonly string[]): readonly BehaviorPack[] {
+  const text = typeof markup === 'string' ? markup : markup.join('\n');
+  return BEHAVIOR_PACKS.filter((pack) => PACK_MARKERS.get(pack)?.test(text) ?? true);
+}
 
 /**
  * The behaviour runtime as one inline script for an exported page:
- * `mountBehaviors` and every behaviour pack (media-motion DESIGN §2.1),
+ * `mountBehaviors` and the behaviour packs (media-motion DESIGN §2.1) —
+ * every pack, or only those `markup` (the site's rendered pages) uses —
  * each serialised by `Function.prototype.toString` and called on the
  * document. It must run after the markup is parsed, so an exporter places
  * it at the end of <body> (or in a `defer`/module script).
  */
-export function behaviorRuntimeScript(): string {
+export function behaviorRuntimeScript(markup?: string | readonly string[]): string {
   // media-motion (2026-10-06): the packs follow the core runtime, in order.
-  return [mountBehaviors, ...BEHAVIOR_PACKS].map((mount) => `(${mount.toString()})(document);`).join('\n');
+  const packs = markup === undefined ? BEHAVIOR_PACKS : pageBehaviorPacks(markup);
+  return [mountBehaviors, ...packs].map((mount) => `(${mount.toString()})(document);`).join('\n');
 }
 
 /**

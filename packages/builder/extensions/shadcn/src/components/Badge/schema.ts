@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { defineBlockSchema, findRejectedUtilities } from '@craftkit/builder-schema';
+import { defineBlockSchema, findRejectedUtilities, partStylesProp } from '@craftkit/builder-schema';
 
 import { badgeExamples } from './examples';
 
@@ -28,15 +28,27 @@ export const badgeSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     label: { tab: 'content' },
     variant: { tab: 'design', section: 'Badge' },
     size: { tab: 'design', section: 'Badge' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
   },
   /* `label` is the visible text, so it edits in place on the canvas. */
   inlineEditable: 'label',
+  /* The badge IS its label: one text part on the pill (block-parts DESIGN §1). */
+  parts: {
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Label', ar: 'النص' },
+      aliases: ['text', 'badge', 'tag', 'شارة', 'وسم'],
+    },
+  },
   examples: badgeExamples,
 });
 

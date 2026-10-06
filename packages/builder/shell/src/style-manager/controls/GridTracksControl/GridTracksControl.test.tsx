@@ -32,6 +32,15 @@ describe('GridTracksControl', () => {
     expect(onCommit).toHaveBeenLastCalledWith({ kind: 'token', token: '1' });
   });
 
+  it('says no track is set instead of showing an empty box', () => {
+    setup(undefined);
+    expect(screen.getByText('Auto · no tracks set')).toBeVisible();
+    expect(document.querySelector('.bldr-grid-tracks__preview')).toBeNull();
+    cleanup();
+    setup({ kind: 'token', token: '2' });
+    expect(screen.queryByText('Auto · no tracks set')).toBeNull();
+  });
+
   it('tokens mode edits the count only', () => {
     const onCommit = setup({ kind: 'token', token: '2' }, 'tokens');
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();

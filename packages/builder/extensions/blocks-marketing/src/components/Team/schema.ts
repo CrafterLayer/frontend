@@ -70,7 +70,7 @@ export const teamSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     members: { tab: 'content', section: 'People' },
     profileLabel: { tab: 'content', section: 'People' },
     variant: { tab: 'design', section: 'Layout' },
@@ -86,6 +86,79 @@ export const teamSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the intro text, the
+    people grid, each person, and each person's name, role, bio and portrait.
+
+    `profileLabel` is ONE value shown in every profile link, so it is one
+    top-level part: editing it in any card edits them all. Each link's
+    destination stays in the person's row in the Inspector.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    members: {
+      kind: 'list',
+      bind: 'members',
+      label: { en: 'People', ar: 'الأشخاص' },
+      aliases: ['team', 'members', 'grid', 'الفريق', 'الأعضاء'],
+    },
+    member: {
+      kind: 'item',
+      bind: 'members.*',
+      list: 'members',
+      label: { en: 'Person', ar: 'الشخص' },
+      aliases: ['member', 'card', 'profile', 'عضو', 'بطاقة'],
+    },
+    'member.name': {
+      kind: 'text',
+      bind: 'members.*.name',
+      label: { en: 'Name', ar: 'الاسم' },
+      aliases: ['name', 'person name', 'h3', 'اسم'],
+    },
+    'member.role': {
+      kind: 'text',
+      bind: 'members.*.role',
+      label: { en: 'Role', ar: 'المنصب' },
+      aliases: ['role', 'title', 'job', 'position', 'الوظيفة'],
+    },
+    'member.bio': {
+      kind: 'text',
+      bind: 'members.*.bio',
+      label: { en: 'Bio', ar: 'النبذة' },
+      aliases: ['bio', 'biography', 'about', 'description', 'نبذة', 'الوصف'],
+      multiline: true,
+    },
+    'member.image': {
+      kind: 'image',
+      bind: { src: 'members.*.imageSrc', alt: 'members.*.imageAlt' },
+      label: { en: 'Portrait', ar: 'الصورة' },
+      aliases: ['photo', 'picture', 'avatar', 'image', 'صورة', 'الصورة الشخصية'],
+    },
+    profileLabel: {
+      kind: 'text',
+      bind: 'profileLabel',
+      label: { en: 'Profile link text', ar: 'نص رابط الملف' },
+      aliases: ['profile link', 'link text', 'view profile', 'رابط الملف', 'نص الرابط'],
+    },
+  },
   examples: teamExamples,
 });
 

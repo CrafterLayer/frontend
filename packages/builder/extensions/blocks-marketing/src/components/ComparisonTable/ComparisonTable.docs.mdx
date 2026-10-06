@@ -21,8 +21,42 @@ actions an intentional visual hierarchy.
 
 ## Accessibility and responsive behavior
 
-The visible heading labels the section and is repeated as the table caption for a stable table name.
-Plan names are column headers and feature names are row headers, so every value has both
-associations in assistive technology. On narrow builder columns the table remains intact inside a
-keyboard-focusable, labelled horizontal scroll region. Action URLs reject unsafe schemes, and all
-visual styling resolves through theme roles and spacing tokens.
+The visible heading labels the section and names the table through `aria-labelledby`, so the table
+has a stable name without a second copy of the heading's text. Plan names are column headers and
+feature names are row headers, so every value has both associations in assistive technology. On
+narrow builder columns the table remains intact inside a keyboard-focusable, labelled horizontal
+scroll region. Action URLs reject unsafe schemes, and all visual styling resolves through theme
+roles and spacing tokens.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`plan.price` for every instance, `plan.price@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name               | kind | bind                                                      | label (en / ar)                           |
+| ------------------ | ---- | --------------------------------------------------------- | ----------------------------------------- |
+| `eyebrow`          | text | `eyebrow`                                                 | Eyebrow / الشارة                          |
+| `heading`          | text | `heading`                                                 | Heading / العنوان                         |
+| `body`             | text | `body`                                                    | Body / الوصف (multiline)                  |
+| `featureLabel`     | text | `featureLabel`                                            | Feature column label / عنوان عمود الميزات |
+| `plans`            | list | `plans`                                                   | Plans / الخطط                             |
+| `plan`             | item | `plans.*`                                                 | Plan / الخطة                              |
+| `plan.badge`       | text | `plans.*.badge`                                           | Plan badge / شارة الخطة                   |
+| `plan.name`        | text | `plans.*.name`                                            | Plan name / اسم الخطة                     |
+| `plan.description` | text | `plans.*.description`                                     | Plan description / وصف الخطة              |
+| `plan.price`       | text | `plans.*.price`                                           | Plan price / سعر الخطة                    |
+| `plan.period`      | text | `plans.*.period`                                          | Billing period / فترة الدفع               |
+| `plan.action`      | link | `{ text: plans.*.actionLabel, href: plans.*.actionHref }` | Plan button / زر الخطة                    |
+| `rows`             | list | `rows`                                                    | Rows / الصفوف                             |
+| `row`              | item | `rows.*`                                                  | Row / الصف                                |
+| `row.feature`      | text | `rows.*.feature`                                          | Feature name / اسم الميزة                 |
+| `row.value`        | text | `rows.*.values.*`                                         | Cell value / قيمة الخلية                  |
+| `emptyValue`       | text | `emptyValue`                                              | Empty cell text / نص الخلية الفارغة       |
+| `note`             | text | `note`                                                    | Footnote / الحاشية (multiline)            |
+
+A cell value is addressed by row and plan (`row.value@2.1` is the third row's second plan).
+`emptyValue` is one part shown in every empty cell; while it is edited in place, the first empty
+cell hosts the editor. Each plan button is named by its label followed by the plan name through
+`aria-labelledby`. `scrollLabel` is read only by assistive technology, so it stays an Inspector row.

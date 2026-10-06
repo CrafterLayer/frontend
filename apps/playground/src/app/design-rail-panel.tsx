@@ -64,7 +64,8 @@ export function DesignRailPanel({
     },
     [siteKernel, announce],
   );
-  const tokens = useMemo(() => themeColorSwatches(theme), [theme]);
+  const colorRoles = labels.designSystem.colorRoles;
+  const tokens = useMemo(() => themeColorSwatches(theme, colorRoles), [theme, colorRoles]);
   const palette = useMemo(() => paletteSwatches(site.library?.palette), [site.library?.palette]);
   const renderStyleEditor = useCallback(
     (source: StyleSource) => (

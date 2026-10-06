@@ -11,6 +11,12 @@
   min-block-size: var(--bldr-space-md);
 }
 
+.bldr-grid-tracks__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+}
+
 .bldr-grid-tracks__bar {
   background: var(--bldr-accent-soft);
   border: var(--bldr-border-hairline) solid var(--bldr-accent-ring);

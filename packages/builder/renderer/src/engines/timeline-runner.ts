@@ -486,7 +486,15 @@ export function installTimelineEngine(win: TimelineWindow): void {
         live = null;
       };
     });
+    /* fix pass (2026-10-06): a print (or a print-mode capture) shows the end state, not
+       the from-state of entrances still below the fold (inline opacity 0). */
+    const printed = function printed(): void {
+      const built = live;
+      if (built?.tl) built.tl.progress(built.rest);
+    };
+    view.addEventListener('beforeprint', printed);
     return function dispose(): void {
+      view.removeEventListener('beforeprint', printed);
       teardown(live);
       live = null;
       media.revert();

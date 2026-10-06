@@ -2,7 +2,7 @@ import '../section-layout.css';
 
 import type { MouseEvent } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -17,7 +17,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { PromoBannerProps } from './schema';
+import { promoBannerSchema, type PromoBannerProps } from './schema';
 
 const PANEL_STYLE_CLASSES: Readonly<Record<PromoBannerProps['panelStyle'], string>> = {
   surface: 'border-text/10 bg-surface text-text shadow-strong',
@@ -72,6 +72,7 @@ function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
 /** A campaign banner with token-bound surface, responsive media, and safe primary actions. */
 export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBannerProps>) {
   const headingId = `${node.id}-heading`;
+  const part = blockPartProps({ node, props, isCanvas }, promoBannerSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -97,15 +98,17 @@ export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBan
     >
       <div className={sectionContentClasses(props.width, props.align, props.gutter)}>
         <div
-          className={cx(
-            'relative w-full min-w-0 overflow-hidden border',
-            RADIUS_CLASSES[props.radius],
-            LAYOUT_CLASSES[props.variant],
-            props.variant === 'split' && !hasMedia ? '@lg:grid-cols-1' : undefined,
-            isMediaOverlay
-              ? 'border-text/10 bg-surface shadow-elevated'
-              : PANEL_STYLE_CLASSES[props.panelStyle],
-          )}
+          {...part('panel', {
+            className: cx(
+              'relative w-full min-w-0 overflow-hidden border',
+              RADIUS_CLASSES[props.radius],
+              LAYOUT_CLASSES[props.variant],
+              props.variant === 'split' && !hasMedia ? '@lg:grid-cols-1' : undefined,
+              isMediaOverlay
+                ? 'border-text/10 bg-surface shadow-elevated'
+                : PANEL_STYLE_CLASSES[props.panelStyle],
+            ),
+          })}
           data-promo-panel=""
           data-promo-variant={props.variant}
         >
@@ -128,10 +131,12 @@ export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBan
               data-promo-media=""
             >
               <img
-                className={cx(
-                  'block h-full min-h-64 w-full object-cover',
-                  isMediaOverlay ? 'min-h-96' : undefined,
-                )}
+                {...part('image', {
+                  className: cx(
+                    'block h-full min-h-64 w-full object-cover',
+                    isMediaOverlay ? 'min-h-96' : undefined,
+                  ),
+                })}
                 src={props.imageSrc}
                 alt={props.imageAlt}
                 loading="lazy"
@@ -159,18 +164,31 @@ export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBan
           >
             <div className={cx('flex max-w-content-standard flex-col', GAP_CLASSES.sm)}>
               {props.label === undefined ? null : (
-                <span className="self-start rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-bold tracking-wide uppercase">
+                <span
+                  {...part('label', {
+                    className:
+                      'self-start rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-bold tracking-wide uppercase',
+                  })}
+                >
                   {props.label}
                 </span>
               )}
               <h2
-                id={headingId}
-                className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+                {...part('headline', {
+                  id: headingId,
+                  className:
+                    'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+                })}
               >
                 {props.headline}
               </h2>
               {props.body === undefined ? null : (
-                <p className="m-0 max-w-content-narrow text-lg leading-relaxed text-inherit opacity-80 text-pretty">
+                <p
+                  {...part('body', {
+                    className:
+                      'm-0 max-w-content-narrow text-lg leading-relaxed text-inherit opacity-80 text-pretty',
+                  })}
+                >
                   {props.body}
                 </p>
               )}
@@ -178,26 +196,35 @@ export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBan
 
             {props.actions.length === 0 ? null : (
               <div
-                className={cx(
-                  'flex w-full flex-wrap items-center',
-                  GAP_CLASSES.sm,
-                  JUSTIFY_CLASSES[props.align],
-                )}
+                {...part('actions', {
+                  className: cx(
+                    'flex w-full flex-wrap items-center',
+                    GAP_CLASSES.sm,
+                    JUSTIFY_CLASSES[props.align],
+                  ),
+                })}
                 data-promo-actions=""
               >
                 {props.actions.map((action, index) => (
                   <a
-                    key={`${action.label}-${String(index)}`}
-                    className={cx(
-                      'inline-flex min-h-11 items-center justify-center rounded-lg border px-control-inline-md py-control-block-md font-semibold shadow-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current',
-                      action.emphasis === 'primary'
-                        ? PRIMARY_ACTION_CLASSES[props.panelStyle]
-                        : 'border-current/25 bg-transparent text-inherit',
-                    )}
+                    /*
+                      Keyed by position only: the label is a bound value, and
+                      inline editing swaps it for an editor element.
+                    */
+                    key={String(index)}
+                    {...part('action', {
+                      index: [index],
+                      className: cx(
+                        'inline-flex min-h-11 items-center justify-center rounded-lg border px-control-inline-md py-control-block-md font-semibold shadow-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current',
+                        action.emphasis === 'primary'
+                          ? PRIMARY_ACTION_CLASSES[props.panelStyle]
+                          : 'border-current/25 bg-transparent text-inherit',
+                      ),
+                    })}
                     href={action.href}
                     onClick={isCanvas ? preventCanvasNavigation : undefined}
                   >
-                    {action.label}
+                    <span {...part('action.link', { index: [index] })}>{action.label}</span>
                   </a>
                 ))}
               </div>

@@ -46,6 +46,7 @@ export function ChoiceGroup({
   const groupRef = useRef<HTMLDivElement>(null);
   const checkedIndex = mixed ? -1 : options.findIndex((option) => option.value === value);
   const tabStop = checkedIndex === -1 ? 0 : checkedIndex;
+  const iconic = options.length > 0 && options.every((option) => option.icon !== undefined);
 
   const choose = (index: number) => {
     const option = options[index];
@@ -62,6 +63,7 @@ export function ChoiceGroup({
       className="bldr-choice-group"
       dir={dir}
       data-mixed={mixed ? '' : undefined}
+      data-icons={iconic ? '' : undefined}
     >
       {options.map((option, index) => (
         <button

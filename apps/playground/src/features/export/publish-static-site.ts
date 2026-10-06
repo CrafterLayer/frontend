@@ -107,5 +107,7 @@ export async function publishStaticSite(
 ): Promise<readonly ArtifactFile[]> {
   if (!hasStaticPages(site)) throw new Error('The site has no canvas pages to publish.');
   const { files } = await exportStaticSite(staticSiteOptions(site, deps));
-  return files.map(({ path, content }) => ({ path, content }));
+  return files.map(({ path, content, bytes }) =>
+    bytes === undefined ? { path, content } : { path, content, bytes },
+  );
 }

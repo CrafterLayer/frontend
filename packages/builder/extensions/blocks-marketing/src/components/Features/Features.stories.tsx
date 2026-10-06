@@ -217,3 +217,34 @@ export const ControlRenderingContract: Story = {
     );
   },
 };
+
+/* Block parts (DESIGN §4.4): every card line is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node,
+    props: featuresSchema.props.parse({
+      eyebrow: 'Why teams switch',
+      heading: 'Every line is editable.',
+      body: 'Click the heading, a card, or any line inside a card.',
+      items: proofItems,
+      partStyles: {
+        'item.title': { className: 'text-accent' },
+        'item.title@0': { className: 'underline' },
+      },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const titles = canvasElement.querySelectorAll('[data-ck-part="item.title"]');
+    await expect(titles).toHaveLength(proofItems.length);
+    await expect(titles[1]).toHaveAttribute('data-ck-bind', 'items.1.title');
+    await expect(titles[1]).toHaveClass('text-accent');
+    await expect(titles[0]).toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="items"]')).toHaveAttribute(
+      'data-ck-bind',
+      'items',
+    );
+  },
+};

@@ -225,3 +225,57 @@ describe('Tabs', () => {
     expect(tabPanelSchema.inlineEditable).toBe('label');
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('Tabs — each trigger is its panel\'s label part (fix pass)', () => {
+  const panels = [metadata('panel-a', 'Overview'), metadata('panel-b', 'Pricing')];
+  const children = [panel('panel-a', 'Overview', 'A body'), panel('panel-b', 'Pricing', 'B body')];
+
+  it('on the canvas, stamps each trigger with the label part, its bind and the owning panel', () => {
+    render(
+      <Tabs
+        node={node}
+        props={tabsSchema.props.parse({})}
+        slots={{ default: children }}
+        slotChildren={{ default: panels }}
+        data={{}}
+        isCanvas
+      />,
+    );
+    const trigger = screen.getByRole('tab', { name: 'Pricing' });
+    expect(trigger).toHaveAttribute('data-ck-part', 'label');
+    expect(trigger).toHaveAttribute('data-ck-bind', 'label');
+    expect(trigger).toHaveAttribute('data-ck-part-owner', 'panel-b');
+    expect(trigger).toHaveAttribute('dir', 'auto');
+  });
+
+  it('applies the panel\'s own label part styles to its trigger', () => {
+    render(
+      <Tabs
+        node={node}
+        props={tabsSchema.props.parse({})}
+        slots={{ default: children }}
+        slotChildren={{
+          default: [
+            panels[0] ?? metadata('panel-a', 'Overview'),
+            { id: 'panel-b', type: 'tabPanel', props: { label: 'Pricing', partStyles: { label: { className: 'ps-4', dir: 'ltr' } } } },
+          ],
+        }}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    const trigger = screen.getByRole('tab', { name: 'Pricing' });
+    expect(trigger).toHaveClass('ps-4');
+    expect(trigger).toHaveAttribute('dir', 'ltr');
+  });
+
+  it('publishes no canvas stamp', () => {
+    renderTabs(children, {}, panels);
+    for (const trigger of screen.getAllByRole('tab')) {
+      expect(trigger).not.toHaveAttribute('data-ck-part');
+      expect(trigger).not.toHaveAttribute('data-ck-part-owner');
+    }
+  });
+});
+// ── /block-parts ──

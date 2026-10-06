@@ -74,9 +74,9 @@ describe('expandAgentTools', () => {
 });
 
 describe('agentToolPrompt', () => {
-  // media-motion (2026-10-06): per-lane caps — the edit lane takes 1400, every other lane 900.
-  it('stays within its lane cap (900, the edit lane 1400) and shows one example step', () => {
-    expect(agentToolPromptMaxChars('edit')).toBe(1_400);
+  // media-motion (2026-10-06): per-lane caps — the edit lane takes 1600 (red-tests: was 1400), every other lane 900.
+  it('stays within its lane cap (900, the edit lane 1600) and shows one example step', () => {
+    expect(agentToolPromptMaxChars('edit')).toBe(1_600);
     for (const lane of ['build', 'section', 'seo'] as const) expect(agentToolPromptMaxChars(lane)).toBe(AGENT_TOOL_PROMPT_MAX_CHARS);
     for (const lane of AGENT_TOOL_LANES) {
       const prompt = agentToolPrompt(lane);

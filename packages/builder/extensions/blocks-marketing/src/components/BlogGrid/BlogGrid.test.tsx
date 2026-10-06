@@ -58,7 +58,8 @@ describe('BlogGrid', () => {
       screen.getByRole('img', { name: 'A product team reviewing a prototype' }),
     ).toHaveAttribute('loading', 'lazy');
     expect(screen.getByText('August 24, 2026')).toHaveAttribute('datetime', '2026-08-24');
-    expect(screen.getByRole('link', { name: 'Read article: Designing for trust' })).toHaveAttribute(
+    /* The link's own label, then the article title, through aria-labelledby. */
+    expect(screen.getByRole('link', { name: 'Read article Designing for trust' })).toHaveAttribute(
       'href',
       '/insights/trust',
     );

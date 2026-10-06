@@ -28,3 +28,17 @@ reads tokens that are already numbers (z-index, opacity, duration in ms); `named
 
 Keywords such as `auto`, `full` and `fit` are offered in the unit menu. `mixed` shows "Mixed" for
 disagreeing targets. Labels: `SCALE_NUMBER_CONTROL_LABELS_EN` / `_AR`.
+
+## Scrubbing
+
+With `scrub`, a grip sits at the field's inline start, as in Framer and Webstudio. Dragging right or
+up grows the value, and dragging left or down shrinks it, whatever the page direction. Each move
+calls `onPreview` (a canvas-only preview), and release calls `onCommit` **once**, with `onPreview(null)`
+before it. That is one Undo per gesture. A press without travel writes nothing.
+
+- Exact amounts move one increment per 2px of travel: 1px, 1%, 1deg, 0.05rem/em, 10ms, 0.05s, or
+  0.05 for a fractional unitless scale. A result that matches a scale step exactly is written as that
+  token.
+- A named value (`lg`), an unset field, or tokens mode walks the scale one step per 12px.
+- `min`/`max` bound the scrub. The grip is `aria-hidden`; keyboard users have the spinbutton's
+  arrows and PageUp/PageDown. `scrubAmount` is the pure rule behind it.

@@ -1,10 +1,10 @@
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import { cx } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
 import { sectionMotionAttributes } from '../section-motion-attributes';
 
-import type { PricingPlanProps } from './schema';
+import { pricingPlanSchema, type PricingPlanProps } from './schema';
 
 const PERIOD_LABEL: Record<PricingPlanProps['period'], string> = {
   once: 'one-time',
@@ -24,7 +24,8 @@ const PERIOD_LABEL: Record<PricingPlanProps['period'], string> = {
  * out of `pricing`: a plan can hold a feature list, a button, a note, a badge,
  * or anything else, because the card does not decide what a plan contains.
  */
-export function PricingPlan({ props, slots }: BlockRenderProps<PricingPlanProps>) {
+export function PricingPlan({ node, props, slots, isCanvas }: BlockRenderProps<PricingPlanProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, pricingPlanSchema.parts);
   const featured = props.emphasis === 'featured';
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
 
@@ -56,9 +57,15 @@ export function PricingPlan({ props, slots }: BlockRenderProps<PricingPlanProps>
         </span>
       ) : null}
       <header className="flex min-w-0 flex-col gap-2 pe-16">
-        <h3 className="m-0 text-lg font-semibold leading-tight">{props.name}</h3>
+        <h3 {...part('name', { className: 'm-0 text-lg font-semibold leading-tight' })}>
+          {props.name}
+        </h3>
         <p className="flex items-baseline gap-1">
-          <span className="text-3xl font-bold leading-tight tracking-tight">{props.price}</span>
+          <span
+            {...part('price', { className: 'text-3xl font-bold leading-tight tracking-tight' })}
+          >
+            {props.price}
+          </span>
           {/*
             The period is muted and small because it modifies the price rather
             than competing with it — and it is inside the same paragraph so a

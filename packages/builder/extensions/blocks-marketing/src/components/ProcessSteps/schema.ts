@@ -80,7 +80,7 @@ export const processStepsSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     steps: { tab: 'content', section: 'Steps' },
     variant: { tab: 'design', section: 'Style' },
     layout: { tab: 'design', section: 'Layout' },
@@ -97,6 +97,63 @@ export const processStepsSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the intro text, the
+    step list, each step, and each step's title, text and meta line.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    steps: {
+      kind: 'list',
+      bind: 'steps',
+      label: { en: 'Steps', ar: 'الخطوات' },
+      aliases: ['process', 'timeline', 'list', 'المراحل', 'القائمة'],
+    },
+    step: {
+      kind: 'item',
+      bind: 'steps.*',
+      list: 'steps',
+      label: { en: 'Step', ar: 'الخطوة' },
+      aliases: ['stage', 'phase', 'card', 'مرحلة', 'خطوة'],
+    },
+    'step.title': {
+      kind: 'text',
+      bind: 'steps.*.title',
+      label: { en: 'Step title', ar: 'عنوان الخطوة' },
+      aliases: ['title', 'h3', 'عنوان'],
+    },
+    'step.body': {
+      kind: 'text',
+      bind: 'steps.*.body',
+      label: { en: 'Step text', ar: 'وصف الخطوة' },
+      aliases: ['description', 'text', 'body', 'الوصف', 'النص'],
+      multiline: true,
+    },
+    'step.meta': {
+      kind: 'text',
+      bind: 'steps.*.meta',
+      label: { en: 'Step meta', ar: 'تفصيل الخطوة' },
+      aliases: ['meta', 'duration', 'tag', 'المدة', 'وسم'],
+    },
+  },
   examples: processStepsExamples,
 });
 

@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { avatarGroupExamples } from './examples';
@@ -67,6 +68,8 @@ export const avatarGroupSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     groupLabel: { tab: 'content', section: 'Accessibility' },
@@ -80,6 +83,47 @@ export const avatarGroupSchema = defineBlockSchema({
     align: { tab: 'design', section: 'Layout' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
+  },
+  /*
+    The group's inner elements (block-parts DESIGN §1): the avatar list, each
+    person, their portrait (replaced through the asset picker), their shown
+    initials, and their name, which names the avatar for assistive technology
+    and in the hover title. `groupLabel` and `overflowLabel` are for assistive
+    technology only, so they stay in the Inspector.
+  */
+  parts: {
+    people: {
+      kind: 'list',
+      bind: 'people',
+      label: { en: 'People', ar: 'الأشخاص' },
+      aliases: ['avatars', 'group', 'list', 'الصور', 'المجموعة'],
+    },
+    person: {
+      kind: 'item',
+      bind: 'people.*',
+      list: 'people',
+      label: { en: 'Person', ar: 'الشخص' },
+      aliases: ['avatar', 'member', 'صورة', 'عضو'],
+    },
+    'person.name': {
+      kind: 'text',
+      bind: 'people.*.name',
+      label: { en: 'Name', ar: 'الاسم' },
+      aliases: ['name', 'person name', 'اسم'],
+    },
+    'person.initials': {
+      kind: 'text',
+      bind: 'people.*.initials',
+      label: { en: 'Initials', ar: 'الأحرف الأولى' },
+      aliases: ['initials', 'letters', 'monogram', 'الحروف'],
+    },
+    'person.image': {
+      kind: 'image',
+      bind: { src: 'people.*.imageSrc' },
+      label: { en: 'Avatar image', ar: 'صورة الشخص' },
+      aliases: ['photo', 'picture', 'image', 'avatar image', 'صورة', 'الصورة الشخصية'],
+    },
   },
   examples: avatarGroupExamples,
 });

@@ -9,6 +9,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import type { FieldControlProps } from '../controls';
+import { useFieldLabels } from '../field-services-context';
 
 import './UtilityClassField.css';
 
@@ -145,7 +146,10 @@ export interface UtilityClassFieldProps extends FieldControlProps {
 }
 
 /** What is wrong with these classes in this mode, as the first rejection, if any. */
-function rejectionFor(parts: readonly string[], mode: 'tokens' | 'free'): UtilityRejection | undefined {
+function rejectionFor(
+  parts: readonly string[],
+  mode: 'tokens' | 'free',
+): UtilityRejection | undefined {
   if (mode === 'tokens') return findRejectedUtilities(parts.join(' '))[0];
   const unknown = unknownUtilityClasses(parts.join(' '))[0];
   return unknown === undefined
@@ -190,6 +194,7 @@ export function UtilityClassField({
   placeholder,
   mode = 'tokens',
 }: UtilityClassFieldProps) {
+  const fieldLabels = useFieldLabels();
   const stored = typeof value === 'string' ? value : '';
   const utilities = useMemo(() => splitUtilities(stored), [stored]);
 
@@ -202,9 +207,12 @@ export function UtilityClassField({
     const applied = new Set(utilities);
     const typed = draft.trim().toLowerCase();
     const pool = mode === 'free' ? [...ALL_SUGGESTIONS, ...FREE_SUGGESTIONS] : ALL_SUGGESTIONS;
-    return pool.filter(
-      (utility) => !applied.has(utility) && (typed === '' || utility.toLowerCase().includes(typed)),
-    ).slice(0, 8);
+    return pool
+      .filter(
+        (utility) =>
+          !applied.has(utility) && (typed === '' || utility.toLowerCase().includes(typed)),
+      )
+      .slice(0, 8);
   }, [utilities, draft, mode]);
 
   const commit = (next: readonly string[]) => {
@@ -289,7 +297,7 @@ export function UtilityClassField({
                 }}
                 disabled={disabled}
                 /* The class is IN the name: "Remove" alone repeats nine times. */
-                aria-label={`Remove ${utility}`}
+                aria-label={fieldLabels.removeEntry(utility)}
               >
                 <span aria-hidden="true">×</span>
               </button>

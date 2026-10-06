@@ -93,7 +93,7 @@ export const carouselSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     items: { tab: 'content', section: 'Slides' },
     controlsLabel: { tab: 'content', section: 'Accessibility' },
     previousLabel: { tab: 'content', section: 'Accessibility' },
@@ -121,6 +121,89 @@ export const carouselSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    the slide track, each slide, its image, label, title, text and button,
+    and the visible play and pause labels. The control and indicator names
+    are read only by assistive technology, so they stay Inspector rows.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Slides', ar: 'الشرائح' },
+      aliases: ['slides', 'track', 'list', 'العارض', 'القائمة'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Slide', ar: 'الشريحة' },
+      aliases: ['slide', 'card', 'panel', 'شريحة', 'بطاقة'],
+    },
+    'item.image': {
+      kind: 'image',
+      bind: { src: 'items.*.imageSrc', alt: 'items.*.imageAlt' },
+      label: { en: 'Slide image', ar: 'صورة الشريحة' },
+      aliases: ['image', 'photo', 'media', 'picture', 'صورة', 'الصورة'],
+    },
+    'item.label': {
+      kind: 'text',
+      bind: 'items.*.label',
+      label: { en: 'Slide label', ar: 'وسم الشريحة' },
+      aliases: ['label', 'tag', 'kicker', 'step', 'وسم', 'تصنيف'],
+    },
+    'item.title': {
+      kind: 'text',
+      bind: 'items.*.title',
+      label: { en: 'Slide title', ar: 'عنوان الشريحة' },
+      aliases: ['slide title', 'h3', 'عنوان البطاقة'],
+    },
+    'item.body': {
+      kind: 'text',
+      bind: 'items.*.body',
+      label: { en: 'Slide text', ar: 'نص الشريحة' },
+      aliases: ['slide text', 'description', 'card text', 'نص البطاقة', 'الوصف'],
+      multiline: true,
+    },
+    'item.action': {
+      kind: 'link',
+      bind: { text: 'items.*.action.label', href: 'items.*.action.href' },
+      label: { en: 'Slide button', ar: 'زر الشريحة' },
+      aliases: ['button', 'action', 'cta', 'link', 'زر', 'الزر', 'الرابط'],
+    },
+    pauseLabel: {
+      kind: 'text',
+      bind: 'pauseLabel',
+      label: { en: 'Pause button', ar: 'زر الإيقاف' },
+      aliases: ['pause', 'pause text', 'stop', 'إيقاف'],
+    },
+    playLabel: {
+      kind: 'text',
+      bind: 'playLabel',
+      label: { en: 'Play button', ar: 'زر التشغيل' },
+      aliases: ['play', 'play text', 'resume', 'تشغيل'],
+    },
+  },
   examples: carouselExamples,
 });
 

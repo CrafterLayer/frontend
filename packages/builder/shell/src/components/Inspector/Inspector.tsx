@@ -11,6 +11,11 @@ import {
 } from '@craftkit/builder-renderer';
 
 import {
+  // ── block-parts (2026-10-06) ──
+  blockPartsOf,
+  type AssetLibraryPort,
+  type KernelState,
+  // ── /block-parts ──
   isCustomCodeTreeSchema,
   SYMBOL_INSTANCE_BLOCK_TYPE,
   type NodeId,
@@ -18,7 +23,11 @@ import {
   type StyleBucket,
 } from '@craftkit/builder-schema';
 
-import type { ElementTarget } from '../../custom-code/element-target';
+import {
+  ELEMENT_NAME_WORDS_AR,
+  ELEMENT_NAME_WORDS_EN,
+  type ElementTarget,
+} from '../../custom-code/element-target';
 import type { EditingBucket } from '../../devices/buckets';
 import { utilityClassesKey } from '../../style-manager/block-source';
 import { STYLE_PANEL_LABELS_AR, STYLE_PANEL_LABELS_EN } from '../../style-manager/StylePanel';
@@ -26,13 +35,12 @@ import { readTreeTarget, type TreeTarget, type TreeWriteOptions } from '../../st
 import { propsShapeOf } from '../../fields/resolve-field';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { customCodeElementName } from '../../naming/custom-code-element-name';
-import { NO_SELECTION_NAME, SELECTION_CLEARED } from './constants';
-import { INSPECTOR_ELEMENT_LABELS_AR, INSPECTOR_ELEMENT_LABELS_EN } from './element-panel.labels';
+import { COLOR_ROLE_NAMES_AR } from '../DesignSystemPanel/DesignSystemPanel.labels';
+import { inspectorLabelsFor } from './Inspector.labels';
 import { InspectorBlockDesign } from './InspectorBlockDesign';
 import { InspectorElementPanel } from './InspectorElementPanel';
 import { InspectorEmptyState } from './InspectorEmptyState';
 import { InspectorHeader } from './InspectorHeader';
-import { INSPECTOR_HEADER_LABELS_AR, INSPECTOR_HEADER_LABELS_EN } from './InspectorHeader.labels';
 import type { InspectorFocusRequest, InspectorStyleContext } from './inspector-request';
 import { InspectorLiveRegion } from './InspectorLiveRegion';
 import { InspectorSection } from './InspectorSection';
@@ -51,6 +59,11 @@ import { useCollapsedSections } from './use-collapsed-sections';
 import { useAnnouncer } from './use-inspector-announcer';
 import { useInspectorTabs } from './use-inspector-tabs';
 import { useStableCallback } from './use-stable-callback';
+// ── block-parts (2026-10-06) ──
+import { FieldServicesProvider, type FieldServices } from '../../fields/field-services';
+import { InspectorPartPanel } from './InspectorPartPanel';
+import { inspectorPartLabelsFor } from './part-panel.labels';
+// ── /block-parts ──
 import '../../styles/visually-hidden.css';
 import './Inspector.css';
 
@@ -98,7 +111,15 @@ export interface InspectorProps {
   onFocusRequestHandled?: ((nonce: number) => void) | undefined;
   /** The element panel's open sector and forced state, for the canvas overlays. */
   onStyleContextChange?: ((context: InspectorStyleContext) => void) | undefined;
+  // ── block-parts (2026-10-06) ──
+  /** The host's photo catalogue: image and asset fields pick from it (URL entry without it). */
+  assetLibrary?: AssetLibraryPort | undefined;
+  // ── /block-parts ──
 }
+
+// ── block-parts (2026-10-06) ──
+const selectPartFocus = (state: Readonly<KernelState>) => state.partFocus ?? null;
+// ── /block-parts ──
 
 /**
  * The generated properties panel (007 contract §4): rows derive from the
@@ -139,8 +160,10 @@ export function Inspector({
   focusRequest,
   onFocusRequestHandled,
   onStyleContextChange,
+  assetLibrary, // block-parts (2026-10-06)
 }: InspectorProps) {
   const selectedId = useKernelSelector(kernel, selectSelectedId);
+  const partFocus = useKernelSelector(kernel, selectPartFocus); // block-parts (2026-10-06)
   const selectedType = useKernelSelector(kernel, selectSelectedType);
   const selectedLabel = useKernelSelector(kernel, selectSelectedLabel);
   const dir = useKernelSelector(kernel, selectDir);
@@ -151,6 +174,9 @@ export function Inspector({
   const catalogVersion = useRegistryEpoch(kernel);
   const announcer = useAnnouncer();
   const retheme = useStableCallback(onRetheme);
+  // The editor's language (arabic-editor): every string below, and the words names are made of.
+  const labels = inspectorLabelsFor(locale);
+  const words = locale === 'ar' ? ELEMENT_NAME_WORDS_AR : ELEMENT_NAME_WORDS_EN;
 
   const blockSchema = useMemo(() => {
     void catalogVersion; // the memo's real dependency: a late registration
@@ -199,10 +225,11 @@ export function Inspector({
     () =>
       palette.map((entry) => ({
         id: entry.role.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`),
-        name: entry.name,
+        // The colour popover speaks the editor's language (fix pass 2026-10-06).
+        name: locale === 'ar' ? COLOR_ROLE_NAMES_AR[entry.role] : entry.name,
         css: entry.value,
       })),
-    [palette],
+    [palette, locale],
   );
   const propertyTabs = useMemo(
     () => partitionProperties(properties, declarations),
@@ -230,26 +257,62 @@ export function Inspector({
   // The same string as the canvas chip and the layers tree. The label
   // selector is what keeps it fresh while a person types the block's name.
   void selectedLabel;
-  const regionName = selectedId === null ? NO_SELECTION_NAME : blockDisplayName(kernel, selectedId);
+  const regionName =
+    selectedId === null ? labels.chrome.noSelection : blockDisplayName(kernel, selectedId, words);
+  // ── block-parts (2026-10-06) ──
+  // A part focus is honoured only when it names a declared part of THIS
+  // selection (and no element of a composed region is focused instead).
+  const partLabels = inspectorPartLabelsFor(locale);
+  const partDecl =
+    partFocus !== null && partFocus.id === selectedId && focusPath === null
+      ? blockPartsOf(blockSchema)[partFocus.part]
+      : undefined;
+  const focusedPart = partDecl === undefined ? null : partFocus;
+  const partPosition = focusedPart?.index.at(-1);
+  const partTitle =
+    partDecl === undefined
+      ? undefined
+      : partLabels.title(
+          partPosition === undefined
+            ? partDecl.label[locale]
+            : `${partDecl.label[locale]} ${String(partPosition + 1)}`,
+          regionName,
+        );
+  const fieldServices = useMemo<FieldServices>(() => ({ assetLibrary, locale }), [assetLibrary, locale]);
+  const backToBlock = useCallback(() => {
+    // Out of the part, not out of the selection: the block stays selected.
+    // Names are read at call time, so the callback keeps one identity per locale.
+    const id = kernel.context.store.getState().selection[0];
+    kernel.clearPartFocus();
+    if (id === undefined) return;
+    const name = blockDisplayName(kernel, id, locale === 'ar' ? ELEMENT_NAME_WORDS_AR : ELEMENT_NAME_WORDS_EN);
+    announcer.announce(inspectorPartLabelsFor(locale).announce.backToBlock(name));
+  }, [kernel, announcer, locale]);
+  // ── /block-parts ──
   const blockName =
-    focusedElement === undefined ? regionName : customCodeElementName(focusedElement);
+    partTitle ?? (focusedElement === undefined ? regionName : customCodeElementName(focusedElement, words));
 
   const clearSelection = useCallback(() => {
     // The SAME ephemeral door the canvas uses — never a transaction, so Undo
     // keeps meaning "put my edit back". Announced through the panel's own
     // region: that is the channel its keyboard user is already on.
     kernel.clearSelection();
-    announcer.announce(SELECTION_CLEARED);
-  }, [kernel, announcer]);
+    announcer.announce(labels.chrome.selectionCleared);
+  }, [kernel, announcer, labels]);
 
   const backToRegion = useCallback(() => {
     // Out of the element, not out of the selection: the region stays selected.
     kernel.clearElementFocus();
-    announcer.announce(`${regionName} selected`);
-  }, [kernel, announcer, regionName]);
+    announcer.announce(labels.chrome.selected(regionName));
+  }, [kernel, announcer, regionName, labels]);
   const within = useMemo(
-    () => (focusPath === null ? undefined : { regionName, onBack: backToRegion }),
-    [focusPath, regionName, backToRegion],
+    () =>
+      focusPath !== null
+        ? { regionName, onBack: backToRegion }
+        : focusedPart !== null // block-parts (2026-10-06)
+          ? { regionName, onBack: backToBlock }
+          : undefined,
+    [focusPath, regionName, backToRegion, focusedPart, backToBlock],
   );
 
   const idPrefix = useId();
@@ -260,21 +323,22 @@ export function Inspector({
     idPrefix,
   });
   const sections = useCollapsedSections();
-  const hasRows = propertyTabs.length > 0 && focusPath === null;
+  const hasRows = propertyTabs.length > 0 && focusPath === null && focusedPart === null; // block-parts: + part
   // The block's style manager lives on its Design tab, or its last tab when it declares none.
   const blockDesignTab =
     propertyTabs.find((candidate) => candidate.id === 'design')?.id ?? propertyTabs.at(-1)?.id;
 
   return (
-    <section className="bldr-inspector" aria-label="Inspector">
-      <InspectorLiveRegion announcer={announcer} />
+    <section className="bldr-inspector" aria-label={labels.chrome.region}>
+      <InspectorLiveRegion announcer={announcer} label={labels.chrome.messages} />
       <InspectorHeader
         blockName={blockName}
         selected={selectedId !== null}
         bucket={bucket}
         onClearSelection={clearSelection}
         within={within}
-        labels={locale === 'ar' ? INSPECTOR_HEADER_LABELS_AR : INSPECTOR_HEADER_LABELS_EN}
+        // block-parts (2026-10-06): out of a part goes back to the block, not "the section"
+        labels={focusedPart === null ? labels.header : { ...labels.header, backToRegion: partLabels.backToBlock }}
       >
         {hasRows ? (
           <InspectorTabs
@@ -285,12 +349,38 @@ export function Inspector({
             onSelect={tabs.selectTab}
             onKeyDown={tabs.onTabKeyDown}
             bindTab={tabs.bindTab}
+            label={labels.chrome.tablist}
+            tabLabels={labels.chrome.tabs}
           />
         ) : null}
       </InspectorHeader>
+      {/* block-parts (2026-10-06): every row, however nested, reaches the host's services */}
+      <FieldServicesProvider value={fieldServices}>
       <div className="bldr-inspector__body">
         {selectedId === null || scope === undefined ? (
-          <InspectorEmptyState kind="invitation" />
+          <InspectorEmptyState kind="invitation" copy={labels.chrome.empty} />
+        ) : focusedPart !== null ? (
+          // ── block-parts (2026-10-06): the clicked part of a registered block ──
+          <InspectorPartPanel
+            key={`${selectedId}:${focusedPart.part}@${focusedPart.index.join('.')}`}
+            kernel={kernel}
+            nodeId={selectedId}
+            part={focusedPart}
+            palette={palette}
+            onRetheme={retheme}
+            catalogVersion={catalogVersion}
+            announce={announcer.announce}
+            dir={dir}
+            device={bucket}
+            onBucketChange={onBucketChange}
+            freeWidth={freeWidth}
+            locale={locale}
+            frameDocument={frameDocument}
+            request={focusRequest}
+            onRequestHandled={onFocusRequestHandled}
+            onStyleContextChange={onStyleContextChange}
+            labels={partLabels}
+          />
         ) : focusPath !== null ? (
           <InspectorElementPanel
             key={`${selectedId}:${focusPath.join('.')}`}
@@ -318,9 +408,9 @@ export function Inspector({
           />
         ) : blockSchema === undefined ? (
           // An unregistered type is NOT "nothing to edit" — say what happened.
-          <InspectorEmptyState kind="unknown-type" />
+          <InspectorEmptyState kind="unknown-type" copy={labels.chrome.empty} />
         ) : properties.length === 0 ? (
-          <InspectorEmptyState kind="no-properties" />
+          <InspectorEmptyState kind="no-properties" copy={labels.chrome.empty} />
         ) : (
           propertyTabs.map((tab) => (
             <InspectorTabPanel
@@ -330,6 +420,20 @@ export function Inspector({
               active={tab.id === tabs.activeTab?.id}
               mounted={tabs.isMounted(tab.id)}
             >
+              {tab.id === 'design' && tab.sections.length > 0 ? (
+                /*
+                  A registered block's schema options (variant, background,
+                  padding…) are its PRESETS; the style panel below writes
+                  classes that override them. Named as two layers so the same
+                  property never reads as two competing controls.
+                */
+                <div className="bldr-inspector__presets-lead">
+                  <h3 className="bldr-inspector__section-heading bldr-inspector__section-title">
+                    {labels.element.blockPresets}
+                  </h3>
+                  <p className="bldr-inspector__element-note">{labels.element.blockPresetsHint}</p>
+                </div>
+              ) : null}
               {tab.sections.map((section) => {
                 const collapseKey = `${selectedId}:${bucket}:${tab.id}:${section.name}`;
                 return (
@@ -353,7 +457,8 @@ export function Inspector({
                   tokens={tokens}
                   announce={announcer.announce}
                   onConvertBlock={onConvertBlock}
-                  labels={locale === 'ar' ? INSPECTOR_ELEMENT_LABELS_AR : INSPECTOR_ELEMENT_LABELS_EN}
+                  labels={labels.element}
+                  words={words}
                   styleLabels={locale === 'ar' ? STYLE_PANEL_LABELS_AR : STYLE_PANEL_LABELS_EN}
                 />
               ) : null}
@@ -361,6 +466,7 @@ export function Inspector({
           ))
         )}
       </div>
+      </FieldServicesProvider>
     </section>
   );
 }

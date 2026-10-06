@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { shimmerButtonExamples } from './examples';
@@ -57,10 +58,12 @@ export const shimmerButtonSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Action' },
-    href: { tab: 'content', section: 'Action' },
+    href: { tab: 'content', section: 'Action', kind: 'link' },
     openInNewTab: { tab: 'content', section: 'Action' },
     type: { tab: 'advanced', section: 'Button semantics' },
     tone: { tab: 'design', section: 'Appearance' },
@@ -73,8 +76,28 @@ export const shimmerButtonSchema = defineBlockSchema({
     animate: { tab: 'design', section: 'Shimmer' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
   },
   inlineEditable: 'label',
+  /*
+    The control is a link part (label and destination together); the label
+    text inside it is a text part, the one Enter edits in place
+    (block-parts DESIGN §1).
+  */
+  parts: {
+    button: {
+      kind: 'link',
+      bind: { text: 'label', href: 'href' },
+      label: { en: 'Button', ar: 'الزر' },
+      aliases: ['link', 'action', 'cta', 'زر', 'الرابط'],
+    },
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Button label', ar: 'نص الزر' },
+      aliases: ['text', 'button text', 'النص'],
+    },
+  },
   examples: shimmerButtonExamples,
 });
 

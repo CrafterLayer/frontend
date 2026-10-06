@@ -43,7 +43,7 @@ export const imageSchema = defineBlockSchema({
   }),
   propertyGroups: {
     asset: { tab: 'content', section: 'Image' },
-    src: { tab: 'content', section: 'Image' },
+    src: { tab: 'content', section: 'Image', kind: 'image' },
     alt: { tab: 'content', section: 'Accessibility' },
     decorative: { tab: 'advanced', section: 'Accessibility' },
     fit: { tab: 'design', section: 'Image' },
@@ -55,6 +55,19 @@ export const imageSchema = defineBlockSchema({
     ...sectionMotionGroups,
     ...sectionCustomGroups,
     ...sectionSpacingGroups,
+  },
+  /*
+    The picture is the block's one part (block-parts DESIGN §1): double-click
+    opens the asset picker, and its alt text is edited beside it. A chosen
+    library `asset` still wins over `src` when both are set.
+  */
+  parts: {
+    image: {
+      kind: 'image',
+      bind: { src: 'src', alt: 'alt' },
+      label: { en: 'Image', ar: 'الصورة' },
+      aliases: ['picture', 'photo', 'media', 'صورة', 'الوسائط'],
+    },
   },
   examples: imageExamples,
 });

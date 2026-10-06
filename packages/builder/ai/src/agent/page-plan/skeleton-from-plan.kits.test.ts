@@ -266,6 +266,27 @@ describe('skeletonFromPlan — a kit section with slots needs no writer', () => 
     expect((rootSets(kept)['seo'] as { site?: Record<string, unknown> }).site?.['business']).toEqual(owned);
   });
 
+  // page-defects additions (2026-10-06)
+  it('re-types a generic business an earlier plan wrote to the plan’s specific kind, never an owner’s', () => {
+    const plan = arabicCafe();
+    const restaurant = { ...plan, seo: { ...(plan.seo ?? { keyword: 'x', pageKind: 'home' as const }), businessType: 'Restaurant' as const } };
+    const business = (currentBusiness: Record<string, unknown>) => {
+      const { plan: written } = skeletonFromPlan(restaurant, {
+        parentId: 'root',
+        regionType: 'customCode',
+        rootProps: ROOT_PROPS,
+        currentSeo: { site: { siteName: 'مطعم', business: currentBusiness } },
+      });
+      return (rootSets(written)['seo'] as { site?: Record<string, unknown> }).site?.['business'];
+    };
+    expect(business({ type: 'Organization', name: 'مطعم الياسمين' })).toEqual({ type: 'Restaurant', name: 'مطعم الياسمين' });
+    expect(business({ type: 'LocalBusiness', name: 'مطعم الياسمين' })).toEqual({ type: 'Restaurant', name: 'مطعم الياسمين' });
+    // Anything the owner added beyond the plan's two fields keeps the business theirs.
+    const owned = { type: 'Organization', name: 'مطعم الياسمين', telephone: '+96264000000' };
+    expect(business(owned)).toEqual(owned);
+    expect(business({ type: 'Bakery', name: 'مخبز' })).toEqual({ type: 'Bakery', name: 'مخبز' });
+  });
+
   it('writes no seo or slug on a root that does not declare them (the default four props)', () => {
     const { plan } = skeletonFromPlan(arabicCafe(), { parentId: 'root', regionType: 'customCode' });
     expect(Object.keys(rootSets(plan))).toEqual(['title', 'description', 'lang', 'pageCss']);

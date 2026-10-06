@@ -1,6 +1,6 @@
 import '../section-layout.css';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -14,7 +14,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { StatsProps } from './schema';
+import { statsSchema, type StatsProps } from './schema';
 
 const COLUMN_CLASSES: Readonly<Record<StatsProps['columns'], string>> = {
   auto: 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-4',
@@ -30,8 +30,10 @@ const ITEM_CLASSES: Readonly<Record<StatsProps['variant'], string>> = {
 };
 
 /** Quantified outcomes presented as a semantic description list. */
-export function Stats({ node, props }: BlockRenderProps<StatsProps>) {
+export function Stats({ node, props, isCanvas }: BlockRenderProps<StatsProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, statsSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -72,55 +74,87 @@ export function Stats({ node, props }: BlockRenderProps<StatsProps>) {
           data-stats-header={props.headerLayout}
         >
           <div className={cx('flex max-w-content-narrow flex-col', GAP_CLASSES.sm)}>
-            <p className="m-0 text-xs font-semibold uppercase tracking-wide text-accent">
+            <p
+              {...part('eyebrow', {
+                className: 'm-0 text-xs font-semibold uppercase tracking-wide text-accent',
+              })}
+            >
               {props.eyebrow}
             </p>
             <h2
-              id={headingId}
-              className="m-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl"
+              {...part('heading', {
+                id: headingId,
+                className:
+                  'm-0 text-3xl font-bold leading-tight tracking-tight text-balance @md:text-4xl',
+              })}
             >
               {props.heading}
             </h2>
           </div>
           <p
-            className={cx(
-              'm-0 max-w-content-narrow text-base leading-relaxed',
-              props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-            )}
+            {...part('body', {
+              className: cx(
+                'm-0 max-w-content-narrow text-base leading-relaxed',
+                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+              ),
+            })}
           >
             {props.body}
           </p>
         </header>
         <dl
-          className={cx('m-0 grid w-full gap-4', COLUMN_CLASSES[props.columns])}
+          {...part('items', {
+            className: cx('m-0 grid w-full gap-4', COLUMN_CLASSES[props.columns]),
+          })}
           data-stats-grid=""
         >
-          {props.items.map((item) => (
-            <div
-              key={`${item.value}-${item.label}`}
-              className={cx('flex min-w-0 flex-col', ITEM_CLASSES[props.variant])}
-              data-stat-item=""
-            >
-              <dt className="order-2 mt-3 text-sm font-bold uppercase tracking-wide">
-                {item.label}
-              </dt>
-              <dd className="order-1 m-0 text-3xl font-bold leading-none tracking-tight text-accent @lg:text-4xl">
-                {item.value}
-              </dd>
-              {item.detail === undefined ? null : (
-                <dd
-                  className={cx(
-                    'order-3 m-0 mt-2 text-sm leading-relaxed',
-                    props.variant === 'contrast' || props.tone === 'dark'
-                      ? 'text-inherit opacity-75'
-                      : 'text-text-muted',
-                  )}
+          {props.items.map((item, index) => {
+            const at = [index];
+            return (
+              /* Keyed by position: a bound value may be an inline editor element. */
+              <div
+                key={index}
+                {...part('item', {
+                  index: at,
+                  className: cx('flex min-w-0 flex-col', ITEM_CLASSES[props.variant]),
+                })}
+                data-stat-item=""
+              >
+                <dt
+                  {...part('item.label', {
+                    index: at,
+                    className: 'order-2 mt-3 text-sm font-bold uppercase tracking-wide',
+                  })}
                 >
-                  {item.detail}
+                  {item.label}
+                </dt>
+                <dd
+                  {...part('item.value', {
+                    index: at,
+                    className:
+                      'order-1 m-0 text-3xl font-bold leading-none tracking-tight text-accent @lg:text-4xl',
+                  })}
+                >
+                  {item.value}
                 </dd>
-              )}
-            </div>
-          ))}
+                {item.detail === undefined ? null : (
+                  <dd
+                    {...part('item.detail', {
+                      index: at,
+                      className: cx(
+                        'order-3 m-0 mt-2 text-sm leading-relaxed',
+                        props.variant === 'contrast' || props.tone === 'dark'
+                          ? 'text-inherit opacity-75'
+                          : 'text-text-muted',
+                      ),
+                    })}
+                  >
+                    {item.detail}
+                  </dd>
+                )}
+              </div>
+            );
+          })}
         </dl>
       </div>
     </section>

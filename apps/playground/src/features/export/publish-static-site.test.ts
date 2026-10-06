@@ -1,4 +1,9 @@
 // @vitest-environment node
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import {
   LATEST_SCHEMA_VERSION,
@@ -9,6 +14,7 @@ import {
   type SitePage,
 } from '@craftkit/builder';
 
+import { createArtifactArchive } from '../preview/artifact-archive';
 import { createReferenceCodePageFixture } from '../preview/code-page-fixture';
 
 import {
@@ -107,5 +113,32 @@ describe('publish static site', () => {
     expect(host.querySelector).toHaveBeenCalledWith('style[data-ck-live-utilities]');
     const empty = liveUtilitiesCompileCss({ querySelector: () => null });
     await expect(empty(doc('r', {}))).resolves.toBe('');
+  });
+
+  it('zips an uploaded picture with its bytes, not as an empty file', async () => {
+    // A 1x1 PNG, the shape an upload takes (FileReader.readAsDataURL).
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const compileCss = vi.fn(() =>
+      Promise.resolve(`.hero{background-image:url(data:image/png;base64,${png})}`),
+    );
+    const files = await publishStaticSite(site([page('home', '/', 'الرئيسية')]), {
+      blocks,
+      compileCss,
+    });
+    const picture = files.find(({ path }) => path.startsWith('assets/images/'));
+    expect(picture?.path).toMatch(/\.png$/u);
+    expect(picture?.bytes?.length).toBeGreaterThan(0);
+    const directory = await mkdtemp(join(tmpdir(), 'craftkit-publish-'));
+    try {
+      const zip = join(directory, 'site.zip');
+      await writeFile(zip, createArtifactArchive(files));
+      await promisify(execFile)('unzip', ['-qq', zip, '-d', join(directory, 'site')]);
+      const unpacked = await readFile(join(directory, 'site', picture?.path ?? 'missing'));
+      expect(unpacked.length).toBeGreaterThan(0);
+      expect(Buffer.compare(unpacked, Buffer.from(png, 'base64'))).toBe(0);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

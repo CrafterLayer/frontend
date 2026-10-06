@@ -129,7 +129,9 @@ function renderListItem(value: unknown, key: number, depth: number): ReactNode {
     return null;
   }
   return (
-    <li key={key}>{childrenOf(node).map((child, at) => renderBlock(child, at, depth + 1))}</li>
+    <li key={key} dir="auto">
+      {childrenOf(node).map((child, at) => renderBlock(child, at, depth + 1))}
+    </li>
   );
 }
 
@@ -143,6 +145,11 @@ function renderMixed(value: unknown, key: number, depth: number): ReactNode {
     : renderBlock(value, key, depth);
 }
 
+/*
+  Every text block carries dir="auto" (block-parts DESIGN §2.11): it takes its
+  base direction from its own first strong character, so an English paragraph
+  on an Arabic page keeps its full stop at the end instead of the start.
+*/
 function renderBlock(value: unknown, key: number, depth: number): ReactNode {
   const node = asNode(value);
   if (node === null) {
@@ -150,21 +157,41 @@ function renderBlock(value: unknown, key: number, depth: number): ReactNode {
   }
   if (depth >= MAX_DEPTH) {
     // Ceiling reached: the text survives, the structure does not (r3).
-    return <p key={key}>{plainText(node)}</p>;
+    return (
+      <p key={key} dir="auto">
+        {plainText(node)}
+      </p>
+    );
   }
   const inline = () => childrenOf(node).map((child, at) => renderInline(child, at, depth + 1));
   switch (node.type) {
     case 'paragraph':
-      return <p key={key}>{inline()}</p>;
+      return (
+        <p key={key} dir="auto">
+          {inline()}
+        </p>
+      );
     case 'heading': {
       const level = levelOf(node);
       if (level === 3) {
-        return <h3 key={key}>{inline()}</h3>;
+        return (
+          <h3 key={key} dir="auto">
+            {inline()}
+          </h3>
+        );
       }
       if (level === 4) {
-        return <h4 key={key}>{inline()}</h4>;
+        return (
+          <h4 key={key} dir="auto">
+            {inline()}
+          </h4>
+        );
       }
-      return <h2 key={key}>{inline()}</h2>;
+      return (
+        <h2 key={key} dir="auto">
+          {inline()}
+        </h2>
+      );
     }
     case 'bulletList':
       return (

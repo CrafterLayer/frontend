@@ -1470,6 +1470,8 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     act(() => {
       editable!.textContent = 'Edited title';
       editable!.dispatchEvent(new Event('input', { bubbles: true }));
+      // block-parts (2026-10-06): the surface buffers and commits once, on Enter or blur.
+      editable!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     });
     expect(h.kernel.transactions().length).toBe(before + 1);
     expect(labelOf(h.kernel, 'h1')).toBe('Edited title');
@@ -1486,6 +1488,8 @@ describe('EditorCanvas inline editing (009 US1)', () => {
       if (editable !== null) {
         editable.textContent = '';
         editable.dispatchEvent(new Event('input', { bubbles: true }));
+        // block-parts (2026-10-06): the surface buffers and commits once, on Enter or blur.
+        editable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       }
     });
 
@@ -1503,6 +1507,8 @@ describe('EditorCanvas inline editing (009 US1)', () => {
       if (editable !== null) {
         editable.textContent = 'Corrected';
         editable.dispatchEvent(new Event('input', { bubbles: true }));
+        // block-parts (2026-10-06): the surface buffers and commits once, on Enter or blur.
+        editable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       }
     });
     expect(labelOf(h.kernel, 'h1')).toBe('Corrected');
@@ -1548,6 +1554,8 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     act(() => {
       editable!.textContent = 'Changed';
       editable!.dispatchEvent(new Event('input', { bubbles: true }));
+      // block-parts (2026-10-06): the surface buffers and commits once, on Enter or blur.
+      editable!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     });
     expect(labelOf(h.kernel, 'h1')).toBe('Changed');
 
@@ -1578,6 +1586,8 @@ describe('EditorCanvas inline editing (009 US1)', () => {
     act(() => {
       editable!.textContent = 'Scoped';
       editable!.dispatchEvent(new Event('input', { bubbles: true }));
+      // block-parts (2026-10-06): the surface buffers and commits once, on Enter or blur.
+      editable!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     });
     expect(new Set(h.renders)).toEqual(new Set(['h1']));
   });
@@ -2172,6 +2182,34 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
     expect(h.host('bubble')?.style.visibility).toBe('hidden');
   });
 
+  it('block-parts: with a collapsed caret the formatting bar DOCKS at the editing surface', async () => {
+    const h = floatingHarness();
+    await h.openRich();
+    for (const element of h.frameDocument.querySelectorAll<HTMLElement>('[data-bldr-node="pr"], [data-bldr-node="pr"] *')) {
+      element.getBoundingClientRect = () => new DOMRect(20, 200, 240, 60);
+    }
+    // The editor reports actions with NO selection anchor (a bare caret).
+    act(() => {
+      fake?.anchor(null);
+      fake?.actions([{ id: 'bold', label: 'Bold', pressed: false, run: () => undefined }]);
+    });
+    h.tick();
+    expect(h.bubble()).not.toBeNull();
+    expect(h.bubble()?.getAttribute('aria-label')).toBe('Formatting');
+    expect(h.host('bubble')?.style.visibility).toBe('visible');
+    expect(h.host('bubble')?.dataset['placement']).toBe('above');
+
+    // A real selection takes over the anchor; collapsing it docks again.
+    h.report(BOLD);
+    expect(h.host('bubble')?.style.visibility).toBe('visible');
+    act(() => {
+      fake?.exit();
+    });
+    h.tick();
+    expect(h.bubble()).toBeNull();
+    expect(h.host('bubble')?.style.visibility).toBe('hidden');
+  });
+
   it('US2/AC4: the bubble RE-MEASURES its selection when the frame scrolls', async () => {
     const h = floatingHarness();
     await h.openRich();
@@ -2314,6 +2352,8 @@ describe('EditorCanvas floating toolbars (009 US2/US3)', () => {
       if (surface !== null) {
         surface.textContent = 'Edited in place';
         surface.dispatchEvent(new Event('input', { bubbles: true }));
+        // block-parts (2026-10-06): the surface buffers and commits once, on Enter or blur.
+        surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       }
     });
     expect(new Set(h.renders)).toEqual(new Set(['headline']));

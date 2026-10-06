@@ -35,7 +35,36 @@ Products are semantic `article` elements in a list. Images preserve authored alt
 decorative when adjacent product copy already carries their meaning. Each star treatment is one
 labelled image exposing the exact rating and review count rather than five noisy glyphs; fractional
 fills reflect the authored tenth precisely instead of rounding. Repeated calls to action include the
-product name. Safe raster-image and destination schemas reject executable, protocol-relative, and
-slash-backslash URLs. Links stay semantic but cannot navigate on the canvas, where an empty grid
-receives clear setup guidance. Container queries follow the builder column, badge positioning uses
-logical `start`, RTL copy remains natural, and hover motion is removed for reduced-motion users.
+product name through `aria-labelledby`. Safe raster-image and destination schemas reject executable,
+protocol-relative, and slash-backslash URLs. Links stay semantic but cannot navigate on the canvas,
+where an empty grid receives clear setup guidance. Container queries follow the builder column,
+badge positioning uses logical `start`, RTL copy remains natural, and hover motion is removed for
+reduced-motion users.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`product.name` for every instance, `product.name@2` for the third),
+and addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English
+line on an Arabic page keeps its full stop at the end.
+
+| name                    | kind  | bind                                                     | label (en / ar)                              |
+| ----------------------- | ----- | -------------------------------------------------------- | -------------------------------------------- |
+| `eyebrow`               | text  | `eyebrow`                                                | Eyebrow / الشارة                             |
+| `heading`               | text  | `heading`                                                | Heading / العنوان                            |
+| `body`                  | text  | `body`                                                   | Body / الوصف (multiline)                     |
+| `products`              | list  | `products`                                               | Products / المنتجات                          |
+| `product`               | item  | `products.*`                                             | Product / المنتج                             |
+| `product.image`         | image | `{ src: products.*.imageSrc, alt: products.*.imageAlt }` | Product image / صورة المنتج                  |
+| `product.badge`         | text  | `products.*.badge`                                       | Product badge / شارة المنتج                  |
+| `product.name`          | text  | `products.*.name`                                        | Product name / اسم المنتج                    |
+| `product.description`   | text  | `products.*.description`                                 | Product description / وصف المنتج (multiline) |
+| `product.price`         | text  | `products.*.price`                                       | Price / السعر                                |
+| `product.originalPrice` | text  | `products.*.originalPrice`                               | Original price / السعر الأصلي                |
+| `product.link`          | link  | `{ text: products.*.name, href: products.*.href }`       | Product link / رابط المنتج                   |
+| `actionLabel`           | text  | `actionLabel`                                            | Button label / نص الزر                       |
+
+`actionLabel` is one part shown on every card; while it is edited in place, the first card hosts the
+editor. The button's accessible name is its label followed by the product name, read through
+`aria-labelledby`. The rating words (`ratingPrefix`, `ratingSuffix`, `reviewCountLabel`,
+`ratingLabel`) are read only by assistive technology, so they stay Inspector rows.

@@ -262,3 +262,49 @@ describe('prefer: below (the block action bar side)', () => {
     expect(placed.placement).toBe('below');
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('positionFloating — keepClear, the two-row part quick bar (fix pass)', () => {
+  const TWO_ROWS = { width: 260, height: 62 };
+  const frame = { x: 0, y: 0, width: 1200, height: 900 };
+  const viewport = { width: 1200, height: 900 };
+  const intersects = (y: number, part: { y: number; height: number }) =>
+    y < part.y + part.height && y + TWO_ROWS.height > part.y;
+
+  it('sits wholly above a short part: bar.bottom <= part.top - gap', () => {
+    const part = { x: 100, y: 499, width: 300, height: 15 }; // the FAQ question
+    const placed = positionFloating({ ...BASE, anchor: part, size: TWO_ROWS, frame, viewport, keepClear: true });
+    expect(placed.placement).toBe('above');
+    expect(placed.y + TWO_ROWS.height).toBeLessThanOrEqual(part.y - 8);
+  });
+
+  it('flips below a part near the top of the clip box instead of clamping over it', () => {
+    const part = { x: 100, y: 30, width: 300, height: 20 };
+    const placed = positionFloating({
+      ...BASE,
+      anchor: part,
+      size: TWO_ROWS,
+      frame: { x: 0, y: 400, width: 1200, height: 900 },
+      viewport,
+      visible: { width: 1200, height: 80 },
+      keepClear: true,
+    });
+    expect(placed.placement).toBe('below');
+    expect(intersects(placed.y, part)).toBe(false);
+    expect(placed.y).toBeGreaterThanOrEqual(part.y + part.height + 8);
+  });
+
+  it('without keepClear the old clamp still applies (text bubble, block bar)', () => {
+    const part = { x: 100, y: 30, width: 300, height: 20 };
+    const placed = positionFloating({
+      ...BASE,
+      anchor: part,
+      size: TWO_ROWS,
+      frame: { x: 0, y: 400, width: 1200, height: 900 },
+      viewport,
+      visible: { width: 1200, height: 80 },
+    });
+    expect(intersects(placed.y, part)).toBe(true);
+  });
+});
+// ── /block-parts ──

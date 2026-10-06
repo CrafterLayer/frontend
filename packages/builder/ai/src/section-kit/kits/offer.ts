@@ -44,11 +44,11 @@ export const OFFER_KITS: readonly SectionKit[] = [
     source: hyperui('marketing/pricing/2.html'),
     slots: { ...HEAD_SLOTS, items: list(TIER, 3) },
     markup: band(`${HEAD_CENTER}
-      <div class='mt-14 grid items-stretch gap-6 md:grid-cols-3'>
-        {{#items}}<div class='ck-card flex flex-col p-8'>
-          <div class='flex items-center justify-between gap-3'><h3 class='text-lg font-semibold'>{{item.name}}</h3>{{#item.badge}}<span class='ck-accent-fill rounded-full px-3 py-1 text-xs font-semibold'>{{item.badge}}</span>{{/item.badge}}</div>
+      <div class='mt-14 grid grid-cols-1 items-stretch gap-6 md:grid-cols-3'>
+        {{#items}}<div class='ck-card flex min-w-0 flex-col p-6 sm:p-8'>
+          <div class='flex flex-wrap items-center justify-between gap-x-3 gap-y-2'><h3 class='min-w-0 text-lg font-semibold break-words'>{{item.name}}</h3>{{#item.badge}}<span class='ck-accent-fill rounded-full px-3 py-1 text-xs font-semibold'>{{item.badge}}</span>{{/item.badge}}</div>
           {{#item.text}}<p class='ck-muted mt-2 text-sm leading-relaxed'>{{item.text}}</p>{{/item.text}}
-          <p class='mt-6 flex items-baseline gap-2'><span class='ck-display text-5xl font-bold tabular-nums'>{{item.price}}</span>{{#item.period}}<span class='ck-muted text-sm'>{{item.period}}</span>{{/item.period}}</p>
+          <p class='mt-6 flex flex-wrap items-baseline gap-x-2'><span class='ck-display min-w-0 text-4xl font-bold tabular-nums break-words md:text-5xl'>{{item.price}}</span>{{#item.period}}<span class='ck-muted text-sm'>{{item.period}}</span>{{/item.period}}</p>
           <ul class='mt-8 mb-8 space-y-3'>
             {{#item.features}}<li class='flex gap-2'><icon name='check' class='ck-accent-ink shrink-0' size='20'/><span>{{item.text}}</span></li>{{/item.features}}
           </ul>
@@ -63,11 +63,11 @@ export const OFFER_KITS: readonly SectionKit[] = [
     source: hyperui('marketing/pricing/1.html'),
     slots: { ...HEAD_SLOTS, items: list(TIER, 2) },
     markup: band(`${HEAD_CENTER}
-      <div class='mx-auto mt-14 grid max-w-4xl gap-6 md:grid-cols-2'>
-        {{#items}}<div class='ck-card flex flex-col p-8 md:p-10'>
-          <h3 class='text-xl font-semibold'>{{item.name}}</h3>
+      <div class='mx-auto mt-14 grid max-w-4xl grid-cols-1 gap-6 md:grid-cols-2'>
+        {{#items}}<div class='ck-card flex min-w-0 flex-col p-6 sm:p-8 md:p-10'>
+          <h3 class='text-xl font-semibold break-words'>{{item.name}}</h3>
           {{#item.badge}}<p class='ck-eyebrow mt-1'>{{item.badge}}</p>{{/item.badge}}
-          <p class='mt-4 flex items-baseline gap-2'><span class='ck-display text-5xl font-bold tabular-nums'>{{item.price}}</span>{{#item.period}}<span class='ck-muted'>{{item.period}}</span>{{/item.period}}</p>
+          <p class='mt-4 flex flex-wrap items-baseline gap-x-2'><span class='ck-display min-w-0 text-4xl font-bold tabular-nums break-words md:text-5xl'>{{item.price}}</span>{{#item.period}}<span class='ck-muted'>{{item.period}}</span>{{/item.period}}</p>
           {{#item.text}}<p class='ck-muted mt-4 leading-relaxed'>{{item.text}}</p>{{/item.text}}
           <ul class='mt-8 mb-10 space-y-3 border-t ck-border pt-8'>
             {{#item.features}}<li class='flex gap-3'><icon name='circle-check' class='ck-accent-ink shrink-0' size='20'/><span>{{item.text}}</span></li>{{/item.features}}

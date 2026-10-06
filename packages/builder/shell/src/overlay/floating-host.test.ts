@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createFloatingHost, type FloatingHost, type FloatingTarget } from './floating-host';
+import {
+  createFloatingHost,
+  systemFloatingPorts,
+  type FloatingHost,
+  type FloatingTarget,
+} from './floating-host';
 
 let host: FloatingHost | null = null;
 afterEach(() => {
@@ -161,3 +166,22 @@ describe('createFloatingHost (009 §2/§7)', () => {
     resize(); // must not throw against a detached element
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('systemFloatingPorts.measure — layer-local size under canvas zoom', () => {
+  it('reads the layout box, not the scaled client rect', () => {
+    const element = document.createElement('div');
+    Object.defineProperty(element, 'offsetWidth', { value: 260 });
+    Object.defineProperty(element, 'offsetHeight', { value: 62 });
+    // At 73% zoom the client rect is host px: 62 × 0.73 ≈ 45.
+    element.getBoundingClientRect = () => ({ x: 0, y: 0, width: 190, height: 45 }) as DOMRect;
+    expect(systemFloatingPorts().measure(element)).toEqual({ width: 260, height: 62 });
+  });
+
+  it('falls back to the client rect where there is no layout (jsdom)', () => {
+    const element = document.createElement('div');
+    element.getBoundingClientRect = () => ({ x: 0, y: 0, width: 120, height: 32 }) as DOMRect;
+    expect(systemFloatingPorts().measure(element)).toEqual({ width: 120, height: 32 });
+  });
+});
+// ── /block-parts ──

@@ -76,7 +76,7 @@ export const blogGridSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     posts: { tab: 'content', section: 'Articles' },
     actionLabel: { tab: 'content', section: 'Articles' },
     showImages: { tab: 'design', section: 'Media' },
@@ -93,6 +93,102 @@ export const blogGridSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    the article list, each article card and every line on it are selectable,
+    editable and stylable on the canvas. `actionLabel` is one part shown on
+    every card; `post.link` is the card's link (its text binds the article
+    title, which the link's accessible name reads through aria-labelledby).
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    posts: {
+      kind: 'list',
+      bind: 'posts',
+      label: { en: 'Articles', ar: 'المقالات' },
+      aliases: ['posts', 'articles', 'cards', 'grid', 'list', 'البطاقات', 'القائمة', 'المدونة'],
+    },
+    post: {
+      kind: 'item',
+      bind: 'posts.*',
+      list: 'posts',
+      label: { en: 'Article', ar: 'المقالة' },
+      aliases: ['article', 'post', 'card', 'مقال', 'مقالة', 'بطاقة'],
+    },
+    'post.image': {
+      kind: 'image',
+      bind: { src: 'posts.*.imageSrc', alt: 'posts.*.imageAlt' },
+      label: { en: 'Article image', ar: 'صورة المقالة' },
+      aliases: ['image', 'photo', 'cover', 'thumbnail', 'صورة', 'الصورة'],
+    },
+    'post.category': {
+      kind: 'text',
+      bind: 'posts.*.category',
+      label: { en: 'Article category', ar: 'تصنيف المقالة' },
+      aliases: ['category', 'tag', 'topic', 'تصنيف', 'وسم'],
+    },
+    'post.title': {
+      kind: 'text',
+      bind: 'posts.*.title',
+      label: { en: 'Article title', ar: 'عنوان المقالة' },
+      aliases: ['card title', 'h3', 'عنوان البطاقة'],
+    },
+    'post.excerpt': {
+      kind: 'text',
+      bind: 'posts.*.excerpt',
+      label: { en: 'Article excerpt', ar: 'مقتطف المقالة' },
+      aliases: ['excerpt', 'summary', 'card text', 'مقتطف', 'ملخص', 'نص البطاقة'],
+      multiline: true,
+    },
+    'post.author': {
+      kind: 'text',
+      bind: 'posts.*.author',
+      label: { en: 'Article author', ar: 'كاتب المقالة' },
+      aliases: ['author', 'byline', 'writer', 'الكاتب', 'المؤلف'],
+    },
+    'post.publishedLabel': {
+      kind: 'text',
+      bind: 'posts.*.publishedLabel',
+      label: { en: 'Publication date', ar: 'تاريخ النشر' },
+      aliases: ['date', 'published', 'التاريخ'],
+    },
+    'post.readingTime': {
+      kind: 'text',
+      bind: 'posts.*.readingTime',
+      label: { en: 'Reading time', ar: 'مدة القراءة' },
+      aliases: ['read time', 'minutes', 'وقت القراءة'],
+    },
+    'post.link': {
+      kind: 'link',
+      bind: { text: 'posts.*.title', href: 'posts.*.href' },
+      label: { en: 'Article link', ar: 'رابط المقالة' },
+      aliases: ['link', 'read more', 'action', 'cta', 'رابط', 'الرابط', 'اقرأ المزيد'],
+    },
+    actionLabel: {
+      kind: 'text',
+      bind: 'actionLabel',
+      label: { en: 'Link label', ar: 'نص الرابط' },
+      aliases: ['button text', 'link text', 'read more text', 'نص الزر'],
+    },
+  },
   examples: blogGridExamples,
 });
 

@@ -722,3 +722,71 @@ export {
   type CustomCodeComponentSchemaResolver,
 } from '@craftkit/builder-schema';
 // ── end fix pass ──
+// arabic-editor additions: the editor UI's one typed catalogue (en/ar), its
+// direction and Latin digits, and the label sets the host passes to surfaces.
+export {
+  BLOCK_NAMES_AR,
+  EDITOR_CANVAS_LABELS_AR,
+  EDITOR_CANVAS_LABELS_EN,
+  EDITOR_CATALOGUES,
+  EDITOR_LOCALES,
+  INSPECTOR_LABELS_AR,
+  INSPECTOR_LABELS_EN,
+  PALETTE_LABELS_AR,
+  PALETTE_LABELS_EN,
+  SITE_PAGES_LABELS_AR,
+  SITE_PAGES_LABELS_EN,
+  STATUS_BAR_LABELS_AR,
+  STATUS_BAR_LABELS_EN,
+  blockNameKey,
+  editorCatalogue,
+  editorDirection,
+  formatEditorNumber,
+  inspectorLabelsFor,
+  isEditorLocale,
+  latinDigitsLocale,
+  localBlockName,
+  logicalArrowKey,
+  resolveChromeDir,
+  type EditorCanvasLabels,
+  type EditorCatalogue,
+  type EditorDirection,
+  type EditorLocale,
+  type EditorStrings,
+  type InspectorChromeLabels,
+  type InspectorLabels,
+  type PaletteLabels,
+  type SitePagesLabels,
+  type StatusBarLabels,
+} from '@craftkit/builder-shell';
+// end arabic-editor additions
+// ── block-parts (2026-10-06) ── P3-inspector-fields additions
+// The Inspector's field services and its field resolution: a host mounts
+// FieldServicesProvider around composed rows, and the playground's
+// field-kinds registry gate resolves every registered prop through the same
+// resolver the Inspector uses.
+export {
+  FieldServicesProvider,
+  defaultFieldFor,
+  partBindingFor,
+  propsShapeOf,
+  repeaterSchemaInfo,
+  resolveField,
+  richTextPlainText,
+  unwrapSchema,
+  useFieldServices,
+  type DefaultControl,
+  type FieldPage,
+  type FieldResolutionContext,
+  type FieldServices,
+  type FieldServicesProviderProps,
+  type PartBinding,
+  type ResolvedField,
+} from '@craftkit/builder-shell';
+export {
+  blockPartsOf,
+  type BlockParts,
+  type BlockPropertyGroup,
+  type BlockPropertyKind,
+} from '@craftkit/builder-schema';
+// ── /block-parts ──

@@ -1,10 +1,10 @@
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
-import type { PaginationProps } from './schema';
+import { paginationSchema, type PaginationProps } from './schema';
 
 type PageRangeItem = number | string;
 
@@ -64,6 +64,15 @@ function pageHref(template: string, page: number): string {
   return template.split('{page}').join(String(page));
 }
 
+/*
+  A label repeated in an attribute is a plain-string copy. While the label is
+  edited in place it is an editor element, not text, so the attribute is left
+  off for that moment instead of reading "[object Object]".
+*/
+function textOf(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
 /** Semantic pagination with generated sibling ranges or a fully explicit navigation list. */
 export function Pagination({ node, props, isCanvas }: BlockRenderProps<PaginationProps>) {
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
@@ -97,6 +106,17 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
   const handleNavigation = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (isCanvas) event.preventDefault();
   };
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, paginationSchema.parts);
+  /*
+    The full layout's page links are named "<page word> <number>" by
+    aria-labelledby: the page word renders once, hidden, and every link reads
+    it with its own number. A name built as a string would stringify the
+    inline editor while the page word is being edited.
+  */
+  const pageLabelId = `${node.id}-page-label`;
+  const pageId = (page: number) => `${node.id}-page-${String(page)}`;
+  const listsItems = props.mode === 'explicit' && props.variant !== 'compact';
 
   return (
     <nav
@@ -110,11 +130,25 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
       data-pagination={node.id}
       {...motionData}
     >
+      {props.variant === 'compact' ? null : (
+        <span hidden {...part('pageLabel', { id: pageLabelId })}>
+          {props.pageLabel}
+        </span>
+      )}
       <ul
-        className={clsx(
-          'm-0 flex w-full min-w-0 list-none flex-wrap items-center gap-1 p-0',
-          ALIGN_CLASSES[props.align],
-        )}
+        {...(listsItems
+          ? part('items', {
+              className: clsx(
+                'm-0 flex w-full min-w-0 list-none flex-wrap items-center gap-1 p-0',
+                ALIGN_CLASSES[props.align],
+              ),
+            })
+          : {
+              className: clsx(
+                'm-0 flex w-full min-w-0 list-none flex-wrap items-center gap-1 p-0',
+                ALIGN_CLASSES[props.align],
+              ),
+            })}
       >
         <li>
           {previousHref === undefined ? (
@@ -128,7 +162,11 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
               <span aria-hidden="true" className="rtl:rotate-180">
                 ←
               </span>
-              <span className={props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only'}>
+              <span
+                {...part('previousLabel', {
+                  className: props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only',
+                })}
+              >
                 {props.previousLabel}
               </span>
             </span>
@@ -140,13 +178,16 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
               )}
               href={previousHref}
               rel="prev"
-              aria-label={props.previousLabel}
               onClick={handleNavigation}
             >
               <span aria-hidden="true" className="rtl:rotate-180">
                 ←
               </span>
-              <span className={props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only'}>
+              <span
+                {...part('previousLabel', {
+                  className: props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only',
+                })}
+              >
                 {props.previousLabel}
               </span>
             </a>
@@ -155,40 +196,51 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
 
         {props.variant === 'compact' ? (
           <li className="px-2 text-sm font-semibold tabular-nums" aria-live="polite">
-            {props.pageLabel} {String(statusCurrent)} / {String(statusCount)}
+            <span {...part('pageLabel')}>{props.pageLabel}</span> {String(statusCurrent)} /{' '}
+            {String(statusCount)}
           </li>
         ) : props.mode === 'explicit' ? (
           props.items.map((item, index) => (
-            <li key={`${item.label}-${String(index)}`}>
+            /* Keyed by position: a bound value may be an inline editor element. */
+            <li key={index} {...part('item', { index: [index] })}>
               {index === explicitCurrentIndex ? (
                 <span
-                  className={clsx(
-                    'inline-flex items-center justify-center rounded-lg border border-accent bg-accent font-semibold text-accent-text shadow-soft',
-                    SIZE_CLASSES[props.size],
-                  )}
+                  {...part('item.link', {
+                    index: [index],
+                    className: clsx(
+                      'inline-flex items-center justify-center rounded-lg border border-accent bg-accent font-semibold text-accent-text shadow-soft',
+                      SIZE_CLASSES[props.size],
+                    ),
+                  })}
                   aria-current="page"
-                  aria-label={item.label}
+                  aria-label={textOf(item.label)}
                 >
                   {item.label}
                 </span>
               ) : item.href === undefined || item.disabled ? (
                 <span
-                  className={clsx(
-                    'inline-flex items-center justify-center rounded-lg border border-transparent opacity-50',
-                    SIZE_CLASSES[props.size],
-                  )}
+                  {...part('item.link', {
+                    index: [index],
+                    className: clsx(
+                      'inline-flex items-center justify-center rounded-lg border border-transparent opacity-50',
+                      SIZE_CLASSES[props.size],
+                    ),
+                  })}
                   aria-disabled="true"
                 >
                   {item.label}
                 </span>
               ) : (
+                /* The link is named by its visible label. */
                 <a
-                  className={clsx(
-                    'inline-flex items-center justify-center rounded-lg border border-transparent text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-                    SIZE_CLASSES[props.size],
-                  )}
+                  {...part('item.link', {
+                    index: [index],
+                    className: clsx(
+                      'inline-flex items-center justify-center rounded-lg border border-transparent text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                      SIZE_CLASSES[props.size],
+                    ),
+                  })}
                   href={item.href}
-                  aria-label={item.label}
                   onClick={handleNavigation}
                 >
                   {item.label}
@@ -207,7 +259,8 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
                       SIZE_CLASSES[props.size],
                     )}
                     aria-current="page"
-                    aria-label={`${props.pageLabel} ${String(item)}`}
+                    id={pageId(item)}
+                    aria-labelledby={`${pageLabelId} ${pageId(item)}`}
                   >
                     {item}
                   </span>
@@ -218,7 +271,8 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
                       SIZE_CLASSES[props.size],
                     )}
                     href={pageHref(props.pageHrefTemplate, item)}
-                    aria-label={`${props.pageLabel} ${String(item)}`}
+                    id={pageId(item)}
+                    aria-labelledby={`${pageLabelId} ${pageId(item)}`}
                     onClick={handleNavigation}
                   >
                     {item}
@@ -227,14 +281,20 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
               </li>
             ) : (
               <li key={item}>
+                {/*
+                  The gap is announced by its label, kept in an attribute: the
+                  label is for assistive technology only and is edited in the
+                  Inspector, never on the canvas.
+                */}
                 <span
                   className={clsx(
                     'inline-flex items-center justify-center opacity-70',
                     SIZE_CLASSES[props.size],
                   )}
+                  role="img"
+                  aria-label={props.ellipsisLabel}
                 >
                   <span aria-hidden="true">…</span>
-                  <span className="sr-only">{props.ellipsisLabel}</span>
                 </span>
               </li>
             ),
@@ -250,7 +310,11 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
               )}
               aria-disabled="true"
             >
-              <span className={props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only'}>
+              <span
+                {...part('nextLabel', {
+                  className: props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only',
+                })}
+              >
                 {props.nextLabel}
               </span>
               <span aria-hidden="true" className="rtl:rotate-180">
@@ -265,10 +329,13 @@ export function Pagination({ node, props, isCanvas }: BlockRenderProps<Paginatio
               )}
               href={nextHref}
               rel="next"
-              aria-label={props.nextLabel}
               onClick={handleNavigation}
             >
-              <span className={props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only'}>
+              <span
+                {...part('nextLabel', {
+                  className: props.variant === 'compact' ? 'inline' : 'sr-only @sm:not-sr-only',
+                })}
+              >
                 {props.nextLabel}
               </span>
               <span aria-hidden="true" className="rtl:rotate-180">

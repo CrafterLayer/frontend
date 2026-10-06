@@ -4,7 +4,8 @@ import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
-import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
+// block-parts (2026-10-06): containers declare no parts, so they take no partStyles.
+import { containerCustomGroups, containerCustomProps } from '../section-custom';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import {
   sectionAlignments,
@@ -84,7 +85,7 @@ export const gridSchema = defineBlockSchema({
     width: z.enum(sectionWidths).default('standard'),
     ...sectionColorProps,
     ...sectionMotionProps,
-    ...sectionCustomProps,
+    ...containerCustomProps,
     ...sectionSpacingProps,
   }),
   propertyGroups: {
@@ -98,7 +99,7 @@ export const gridSchema = defineBlockSchema({
     width: { tab: 'design', section: 'Width' },
     ...sectionColorGroups,
     ...sectionMotionGroups,
-    ...sectionCustomGroups,
+    ...containerCustomGroups,
     ...sectionSpacingGroups,
   },
   slots: { default: { allow: [...GRID_CHILDREN] } },

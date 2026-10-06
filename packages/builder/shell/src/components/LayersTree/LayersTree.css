@@ -299,3 +299,46 @@
     transition: none;
   }
 }
+
+/* ── block-parts (2026-10-06): a registered block's part rows ── */
+.bldr-layers__row--part .bldr-layers__name {
+  color: var(--bldr-panel-text-soft);
+}
+
+.bldr-layers__row--part.bldr-layers__row--selected .bldr-layers__name {
+  color: var(--bldr-panel-text);
+}
+
+/* A selected item keeps its actions in view; a disabled move says why by fading. */
+.bldr-layers__row--part.bldr-layers__row--selected .bldr-layers__part-action {
+  opacity: 1;
+}
+
+.bldr-layers__part-action:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+/* The preview shrinks inside the row's flex track and truncates at its OWN end
+   (fix pass: in the RTL panel it overflowed past the left edge, cut mid-word). */
+.bldr-layers__row--part .bldr-layers__label {
+  overflow: hidden;
+}
+
+.bldr-layers__row--part .bldr-layers__preview {
+  display: block;
+  flex: 1 1 0;
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  unicode-bidi: isolate;
+  white-space: nowrap;
+}
+
+.bldr-layers__row:hover .bldr-layers__part-action:disabled,
+.bldr-layers__row:focus-within .bldr-layers__part-action:disabled {
+  opacity: 0.35;
+}
+/* ── /block-parts ── */

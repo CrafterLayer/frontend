@@ -36,7 +36,7 @@ export const HERO_KITS: readonly SectionKit[] = [
     markup: `<section class='ck-ground relative overflow-hidden py-24 md:py-40'>
       <div class='mx-auto max-w-4xl px-4 text-center'>
         ${EYEBROW}
-        <h1 data-kit-heading class='ck-display mt-4 text-5xl font-black leading-snug text-balance md:text-7xl'>{{title}}</h1>
+        <h1 data-kit-heading class='ck-display mt-4 text-4xl font-black leading-snug text-balance break-words sm:text-5xl md:text-7xl'>{{title}}</h1>
         {{#lead}}<p class='ck-muted mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-pretty md:text-xl'>{{lead}}</p>{{/lead}}
         ${ACTIONS_CENTER}
         {{#note}}<p class='ck-muted mt-6 text-sm'>{{note}}</p>{{/note}}
@@ -71,7 +71,7 @@ export const HERO_KITS: readonly SectionKit[] = [
       <div class='absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent'></div>
       <div class='mx-auto w-full max-w-6xl px-4 pb-16 text-white md:px-8 md:pb-24'>
         {{#eyebrow}}<p class='inline-flex rounded-full bg-white/10 px-3 py-1 text-sm font-semibold backdrop-blur-md'>{{eyebrow}}</p>{{/eyebrow}}
-        <h1 data-kit-heading class='ck-display mt-4 max-w-3xl text-4xl font-bold leading-snug text-balance md:text-7xl'>{{title}}</h1>
+        <h1 data-kit-heading class='ck-display mt-4 max-w-3xl text-4xl font-bold leading-snug text-balance break-words md:text-7xl'>{{title}}</h1>
         {{#lead}}<p class='mt-6 max-w-2xl text-lg leading-relaxed text-white/90 text-pretty'>{{lead}}</p>{{/lead}}
         <div class='mt-8 flex flex-wrap gap-3'>${CTA_ARROW}{{#cta2}}<a class='ck-btn ck-btn--ghost bg-white/10 text-white backdrop-blur-md' href='{{cta2.href}}'>{{cta2.label}}</a>{{/cta2}}</div>
         {{#note}}<p class='mt-6 text-sm text-white/80'>{{note}}</p>{{/note}}
@@ -88,7 +88,7 @@ export const HERO_KITS: readonly SectionKit[] = [
     markup: `<section class='ck-ground relative overflow-hidden pt-20 pb-16 md:pt-32 md:pb-24'>
       <div class='mx-auto max-w-3xl px-4 text-center'>
         {{#eyebrow}}<p class='ck-card ck-muted inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm'><icon name='sparkles' class='ck-accent-ink' size='16'/>{{eyebrow}}</p>{{/eyebrow}}
-        <h1 data-kit-heading class='ck-display mt-6 text-4xl font-bold leading-snug text-balance md:text-6xl'>{{title}}</h1>
+        <h1 data-kit-heading class='ck-display mt-6 text-4xl font-bold leading-snug text-balance break-words md:text-6xl'>{{title}}</h1>
         {{#lead}}<p class='ck-muted mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-pretty'>{{lead}}</p>{{/lead}}
         ${ACTIONS_CENTER}
       </div>
@@ -109,7 +109,7 @@ export const HERO_KITS: readonly SectionKit[] = [
     slots: { ...HERO_SLOTS, image: image(true) },
     markup: `<section class='ck-ground py-16 md:py-24'>
       <div class='mx-auto grid max-w-6xl gap-8 px-4 md:grid-cols-12 md:gap-12 md:px-8'>
-        <div class='md:col-span-7'>${EYEBROW}<h1 data-kit-heading class='ck-display mt-4 text-4xl font-bold leading-snug text-balance md:text-7xl'>{{title}}</h1></div>
+        <div class='md:col-span-7'>${EYEBROW}<h1 data-kit-heading class='ck-display mt-4 text-4xl font-bold leading-snug text-balance break-words md:text-7xl'>{{title}}</h1></div>
         <div class='self-end md:col-span-5'>
           {{#lead}}<p class='ck-muted text-lg leading-relaxed text-pretty'>{{lead}}</p>{{/lead}}
           ${ACTIONS}

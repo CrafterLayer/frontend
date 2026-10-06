@@ -143,10 +143,13 @@ describe('StylePanel', () => {
         announce={vi.fn()}
       />,
     );
-    expect(screen.queryByRole('button', { name: /Custom colour/u })).not.toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'Brand' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Effect presets' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Image URL')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Effects' }));
+    expect(screen.queryByRole('group', { name: 'Effect presets' })).not.toBeInTheDocument();
+    // The colour row is a field; its popover holds the theme tokens only.
+    await user.click(screen.getByRole('button', { name: 'Background colour: None' }));
+    expect(screen.queryByRole('radio', { name: 'Brand' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Hex colour' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('radiogroup', { name: 'Background colour' }).querySelector('[aria-label="Accent"]')!);
     expect(kernel.getDocument().nodes['c1']?.props['className']).toBe('p-4 bg-accent');
   });
@@ -225,9 +228,76 @@ describe('StylePanel', () => {
       />,
     );
     expect(screen.getByRole('radiogroup', { name: 'حجم الشاشة' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'التصميم' })).toHaveAttribute('dir', 'rtl');
     const typography = screen.getByRole('button', { name: 'الطباعة' });
     expect(typography).toHaveAttribute('aria-expanded', 'true');
     await user.click(typography);
     expect(typography).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('the filter keeps only matching properties, in either language, with their sectors open', async () => {
+    const user = userEvent.setup();
+    const kernel = makeStyleTestKernel();
+    renderPanel(kernel, [[0]]);
+    const filter = screen.getByRole('searchbox', { name: 'Filter properties' });
+    await user.type(filter, 'radius');
+    expect(screen.getByRole('button', { name: 'Borders' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('group', { name: /Corner radius/u })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Layout' })).not.toBeInTheDocument();
+    await user.clear(filter);
+    await user.type(filter, 'الحشوة');
+    expect(screen.getByRole('group', { name: 'Padding' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Typography' })).not.toBeInTheDocument();
+    await user.clear(filter);
+    await user.type(filter, 'zzz');
+    expect(screen.getByRole('status')).toHaveTextContent('No property matches “zzz”');
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Layout' })).toBeInTheDocument();
+  });
+
+  it('a sector counts the values set here, and segmented rows write their keyword', async () => {
+    const user = userEvent.setup();
+    const kernel = makeStyleTestKernel();
+    renderPanel(kernel, [[0]]);
+    // The fixture element is `grid gap-8 p-4`: display + gap in Layout, padding in Spacing.
+    expect(screen.getByRole('button', { name: 'Layout' })).toHaveAccessibleDescription('2 values set here');
+    expect(screen.getByRole('button', { name: 'Spacing' })).toHaveAccessibleDescription('1 value set here');
+    expect(screen.getByRole('radio', { name: 'Grid' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('radio', { name: 'Flex' }));
+    expect(classAt(kernel, 0)).toMatch(/\bflex\b/u);
+    expect(classAt(kernel, 0)).not.toMatch(/\bgrid\b/u);
+  });
+
+  it('a number field scrub previews on the canvas and writes once on release', () => {
+    const kernel = makeStyleTestKernel();
+    const group = vi.spyOn(kernel, 'dispatchGroup');
+    const onPreview = vi.fn();
+    const source = treeElementSource(kernel, [{ kind: 'tree', nodeId: 'r1', path: [0] }]);
+    render(
+      <StylePanel
+        source={source}
+        bucket="base"
+        state="default"
+        dir="ltr"
+        tokens={tokens}
+        announce={vi.fn()}
+        onPreview={onPreview}
+      />,
+    );
+    const grip = screen.getByRole('spinbutton', { name: 'Gap' }).parentElement?.querySelector('.bldr-scale-number__scrub');
+    if (!(grip instanceof HTMLElement)) throw new Error('no scrub grip');
+    fireEvent.pointerDown(grip, { pointerId: 1, button: 0, clientX: 0, clientY: 0 });
+    // gap-8 is 32px; 16px of travel adds 8px and lands exactly on step 10 (40px).
+    fireEvent.pointerMove(grip, { pointerId: 1, clientX: 16, clientY: 0 });
+    expect(onPreview).toHaveBeenLastCalledWith([
+      { property: 'gap', value: { kind: 'token', token: '10' }, bucket: 'base', state: 'default' },
+    ]);
+    expect(group).not.toHaveBeenCalled();
+    act(() => {
+      fireEvent.pointerUp(grip, { pointerId: 1, clientX: 16, clientY: 0 });
+    });
+    expect(onPreview).toHaveBeenLastCalledWith(null);
+    expect(group).toHaveBeenCalledTimes(1);
+    expect(classAt(kernel, 0)).toBe('grid gap-10 p-4');
   });
 });

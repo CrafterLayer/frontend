@@ -19,6 +19,10 @@ export interface InspectorElementLabels {
   readonly iconNoInteractions: string;
   readonly codeOnlyElements: string;
   readonly designBlock: string;
+  /** The heading over a registered block's own schema options in its Design tab. */
+  readonly blockPresets: string;
+  /** Why the block's options and the style classes below are two layers, not two copies. */
+  readonly blockPresetsHint: string;
   readonly convert: string;
   readonly convertHint: string;
   /** Why "Convert to editable" is off: the block's container only holds certain blocks. */
@@ -45,6 +49,8 @@ export const INSPECTOR_ELEMENT_LABELS_EN: InspectorElementLabels = {
   iconNoInteractions: 'Icons animate with their parent. Select the element around this icon to animate it.',
   codeOnlyElements: 'Icons and components are edited in Content. The Code tab shows HTML elements.',
   designBlock: 'Style classes',
+  blockPresets: 'Block presets',
+  blockPresetsHint: "This block's own options. Style classes below override them on this element.",
   convert: 'Convert to editable',
   convertHint: 'Turns this block into an editable section, so every part of it becomes its own element.',
   convertBlocked: (container) =>
@@ -71,6 +77,8 @@ export const INSPECTOR_ELEMENT_LABELS_AR: InspectorElementLabels = {
   iconNoInteractions: 'تتحرك الأيقونات مع العنصر الحاوي. اختر العنصر المحيط بالأيقونة لتحريكه.',
   codeOnlyElements: 'تُحرَّر الأيقونات والمكوّنات من المحتوى. تعرض الشيفرة عناصر HTML.',
   designBlock: 'أصناف التنسيق',
+  blockPresets: 'إعدادات الكتلة الجاهزة',
+  blockPresetsHint: 'خيارات هذه الكتلة نفسها. أصناف التنسيق أدناه تتقدّم عليها في هذا العنصر.',
   convert: 'تحويل إلى قابل للتحرير',
   convertHint: 'يحوّل هذه الكتلة إلى قسم قابل للتحرير، فيصبح كل جزء منها عنصرًا مستقلًا.',
   convertBlocked: (container) =>

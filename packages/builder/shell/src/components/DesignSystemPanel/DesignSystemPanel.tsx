@@ -114,7 +114,7 @@ export function DesignSystemPanel({
   return (
     <section className="bldr-design-system" aria-label={labels.region} dir={dir}>
       <header className="bldr-design-system__head">
-        <h2 className="bldr-design-system__title">{system.name}</h2>
+        <h2 className="bldr-design-system__title">{labels.systemName(system.name)}</h2>
         {onRegenerate === undefined ? null : (
           <ChromeButton variant="quiet" size="sm" disabled={busy} onClick={onRegenerate}>
             {labels.regenerate}

@@ -9,9 +9,9 @@ import * as FieldControlsStories from './FieldControls.stories';
 The Inspector's default field library (milestone B3a) — five small controls, one catalog entry,
 because they ship and evolve as a single unit behind field resolution: `TextField` (string),
 `SelectField` (enum, members derived from the schema itself), `SwitchField` (boolean), `NumberField`
-(number), and `ReadOnlyField` (the accessible fallback for anything unmatched). They are INTERNAL to
-the shell: apps never import them; extensions replace them per-property through the field-type
-contribution point.
+(number), and `ReadOnlyField` (the accessible fallback for anything unmatched, shown as a readable
+summary). They are INTERNAL to the shell: apps never import them; extensions replace them
+per-property through the field-type contribution point.
 
 ## The contract they implement
 
@@ -37,5 +37,9 @@ contribute a field type (`FieldTypeDef`) rather than forking a control.
 
 - `NumberField` accepts what `type="number"` accepts; locale-specific separators are the browser's
   business.
-- `ReadOnlyField` shows compact JSON — large objects are readable but unformatted (rich leaf editing
-  is B3b's scope).
+- `ReadOnlyField` shows a human summary ("3 items", "4 fields", "Empty", the text itself, a
+  rich-text document's words), never raw JSON. It is reached only by shapes no editor fits: objects,
+  records, links, images, long text and string unions all have their own editors now (block-parts
+  P3).
+- `TextField` carries `dir="auto"`, so an English line on an Arabic page keeps its punctuation at
+  its end.

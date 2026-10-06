@@ -406,7 +406,11 @@ export function wordsProvider(rationale: string): AiPlanProvider & { calls: () =
   };
 }
 
-export const PLAN_TITLES = ['Roasted this morning', 'Our coffees', 'Order today', 'Footer'];
+/*
+  'Header' first: every full page has one (page-completion.ts `withPageChrome`,
+  2026-10-05), so the plan states it rather than having the engine add it.
+*/
+export const PLAN_TITLES = ['Header', 'Roasted this morning', 'Our coffees', 'Order today', 'Footer'];
 
 /** A plan the engine's validator accepts (the v1 panel's COFFEE_PLAN, verbatim). */
 export function coffeePlan(): PagePlanCandidate {
@@ -431,6 +435,13 @@ export function coffeePlan(): PagePlanCandidate {
     primaryCta: { label: 'Order beans', href: '#order' },
     nav: [{ label: 'Menu', anchorId: 'menu' }],
     sections: [
+      {
+        key: 'header',
+        role: 'header',
+        title: 'Header',
+        anchorId: 'header',
+        purpose: 'The brand, the menu and the page’s one action.',
+      },
       {
         key: 'hero',
         role: 'hero',

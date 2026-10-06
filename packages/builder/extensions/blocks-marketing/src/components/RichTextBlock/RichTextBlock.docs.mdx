@@ -39,3 +39,17 @@ to dedicated blocks — this block is for prose.
 
 - The B3b whitelist excludes tables, images, and embeds (future milestones).
 - Rich responsive overrides are deferred; the content edits the base bucket.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name      | kind | bind      | label (en / ar) |
+| --------- | ---- | --------- | --------------- |
+| `content` | rich | `content` | Text / النص     |
+
+The prose part sits inside the section padding: a click on the text focuses the text, a click on the
+padding selects the block.

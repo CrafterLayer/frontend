@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect } from 'storybook/test';
 
 import type { Node } from '@craftkit/builder-schema';
 
 import { FormSection } from './FormSection';
+import { formSectionExamples } from './examples';
 import { formSectionSchema } from './schema';
 
 const node: Node = { id: 'form-section-story', type: 'formSection', props: {} };
@@ -62,4 +64,29 @@ export const MinimalArabic: Story = {
       </div>
     ),
   ],
+};
+
+/* Block parts (DESIGN §4.4): each field's label, hint and choices are parts on the canvas. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'form-section-parts' },
+    props: formSectionSchema.props.parse({
+      ...(formSectionExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: {
+        'field.label': { className: 'text-accent' },
+        'field.label@0': { className: 'underline' },
+      },
+    }),
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const labels = canvasElement.querySelectorAll('[data-ck-part="field.label"]');
+    await expect(labels[1]).toHaveAttribute('data-ck-bind', 'fields.1.label');
+    await expect(labels[1]).toHaveClass('text-accent');
+    await expect(labels[0]).toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="submitLabel"]')).toHaveAttribute(
+      'data-ck-bind',
+      'submitLabel',
+    );
+  },
 };

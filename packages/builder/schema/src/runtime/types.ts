@@ -43,6 +43,12 @@ export const artifactFileSchema = z.strictObject({
   path: modulePathSchema,
   content: z.string(),
   integrity: z.string().optional(),
+  /**
+   * A binary file's bytes (an uploaded picture or font in a static export);
+   * `content` is '' then. A host that zips or uploads files writes these.
+   */
+  // `custom`, not `instanceof`: any Uint8Array view (ArrayBufferLike), as exporters produce.
+  bytes: z.custom<Uint8Array>((value) => value instanceof Uint8Array).optional(),
 });
 export type ArtifactFile = z.infer<typeof artifactFileSchema>;
 

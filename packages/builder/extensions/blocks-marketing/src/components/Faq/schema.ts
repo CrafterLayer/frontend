@@ -50,7 +50,7 @@ export const faqSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     items: { tab: 'content', section: 'Questions' },
     layout: { tab: 'design', section: 'Layout' },
     variant: { tab: 'design', section: 'Style' },
@@ -67,6 +67,57 @@ export const faqSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the intro text, the
+    question list, each question, and each question's own text and answer.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Questions', ar: 'الأسئلة' },
+      aliases: ['faq', 'faqs', 'list', 'القائمة', 'الأسئلة الشائعة'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Question', ar: 'السؤال' },
+      aliases: ['entry', 'row', 'accordion item', 'سؤال', 'بند'],
+    },
+    'item.question': {
+      kind: 'text',
+      bind: 'items.*.question',
+      label: { en: 'Question text', ar: 'نص السؤال' },
+      aliases: ['question', 'q', 'سؤال'],
+    },
+    'item.answer': {
+      kind: 'text',
+      bind: 'items.*.answer',
+      label: { en: 'Answer', ar: 'الإجابة' },
+      aliases: ['answer', 'a', 'reply', 'جواب', 'الرد'],
+      multiline: true,
+    },
+  },
   examples: faqExamples,
 });
 

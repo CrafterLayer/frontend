@@ -63,6 +63,15 @@
   box-sizing: border-box;
   min-inline-size: 240px;
   max-inline-size: min(320px, calc(100vw - var(--bldr-space-6xl)));
+  /*
+    The model list grows with OpenRouter's free models (a dozen or more), and a menu taller
+    than the space above the composer was cut off with its last rows out of reach. Radix
+    reports the room it has (`--radix-dropdown-menu-content-available-height`, which
+    already honours collisionPadding); the list scrolls inside it instead.
+  */
+  max-block-size: min(var(--radix-dropdown-menu-content-available-height, 60vh), 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--bldr-space-xs);
   border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
   border-radius: var(--bldr-radius-lg);

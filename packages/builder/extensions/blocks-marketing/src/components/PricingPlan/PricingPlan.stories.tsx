@@ -106,3 +106,18 @@ export const RightToLeft: Story = {
     ),
   ],
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    node: { id: 'pricingPlan-parts', type: 'pricingPlan', props: {} },
+    props: pricingPlanSchema.props.parse({ name: 'Pro', price: '$29', emphasis: 'featured' }),
+    slots: { default: <p>Everything in Free, plus priority support.</p> },
+    data: {},
+    isCanvas: true,
+  },
+};

@@ -116,6 +116,11 @@
   cursor: zoom-in;
 }
 dialog[data-ck-lightbox] {
+  /* fix pass (2026-10-06): the published site.css carries the Tailwind preflight
+     (*,::backdrop{margin:0}), which undoes the UA dialog{margin:auto}; restated so
+     the lightbox is centred, not pinned to the inline-start corner. */
+  margin: auto;
+  inset: 0;
   max-width: min(92vw, 1200px);
   max-height: 92vh;
   padding: 0;

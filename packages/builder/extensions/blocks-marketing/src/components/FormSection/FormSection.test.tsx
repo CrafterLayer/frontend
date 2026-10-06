@@ -69,7 +69,10 @@ describe('FormSection', () => {
       ],
     });
 
-    expect(screen.getByLabelText(/Service/)).toHaveDisplayValue('Choose one');
+    /* The placeholder option shows its text through the `label` attribute (an Inspector row). */
+    const service = screen.getByLabelText(/Service/);
+    expect(service).toHaveValue('');
+    expect(service.querySelector('option[value=""]')).toHaveAttribute('label', 'Choose one');
     expect(screen.getByRole('option', { name: 'Design' })).toHaveValue('design');
     const consent = screen.getByRole('checkbox', { name: /I agree to be contacted/ });
     expect(consent).toBeRequired();

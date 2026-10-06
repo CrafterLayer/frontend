@@ -2,7 +2,7 @@ import '../section-layout.css';
 
 import type { MouseEvent } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -16,7 +16,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { VideoSectionProps } from './schema';
+import { videoSectionSchema, type VideoSectionProps } from './schema';
 
 const MEDIA_POSITION_CLASSES: Readonly<Record<VideoSectionProps['mediaPosition'], string>> = {
   start: '@lg:order-first',
@@ -35,6 +35,8 @@ function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
 /** A native-video storytelling section with safe media sources and an accessible text fallback. */
 export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSectionProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, videoSectionSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -84,22 +86,32 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
             )}
           >
             {props.eyebrow === undefined ? null : (
-              <p className="m-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase">
+              <p
+                {...part('eyebrow', {
+                  className:
+                    'm-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase',
+                })}
+              >
                 {props.eyebrow}
               </p>
             )}
             <h2
-              id={headingId}
-              className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+              {...part('heading', {
+                id: headingId,
+                className:
+                  'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+              })}
             >
               {props.heading}
             </h2>
             {props.body === undefined ? null : (
               <p
-                className={cx(
-                  'm-0 text-lg leading-relaxed text-pretty',
-                  props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-                )}
+                {...part('body', {
+                  className: cx(
+                    'm-0 text-lg leading-relaxed text-pretty',
+                    props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+                  ),
+                })}
               >
                 {props.body}
               </p>
@@ -108,7 +120,10 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
 
           {props.cta === undefined ? null : (
             <a
-              className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 self-start rounded-xl border border-accent bg-accent px-control-inline-lg py-control-block-md font-semibold text-accent-text shadow-soft transition duration-200 hover:-translate-y-0.5 hover:shadow-elevated focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transform-none motion-reduce:transition-none"
+              {...part('cta', {
+                className:
+                  'inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 self-start rounded-xl border border-accent bg-accent px-control-inline-lg py-control-block-md font-semibold text-accent-text shadow-soft transition duration-200 hover:-translate-y-0.5 hover:shadow-elevated focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transform-none motion-reduce:transition-none',
+              })}
               href={props.cta.href}
               target={props.cta.newTab ? '_blank' : undefined}
               rel={props.cta.newTab ? 'noreferrer' : undefined}
@@ -157,7 +172,9 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
                 )}
                 src={props.src}
                 poster={props.poster}
-                aria-label={props.videoLabel ?? props.heading}
+                {...(props.videoLabel === undefined
+                  ? { 'aria-labelledby': headingId }
+                  : { 'aria-label': props.videoLabel })}
                 controls
                 playsInline
                 preload={props.preload}
@@ -184,7 +201,11 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
             ) : null}
 
             {props.caption === undefined ? null : (
-              <figcaption className="px-3 pt-3 pb-2 text-start text-sm leading-relaxed text-text-muted">
+              <figcaption
+                {...part('caption', {
+                  className: 'px-3 pt-3 pb-2 text-start text-sm leading-relaxed text-text-muted',
+                })}
+              >
                 {props.caption}
               </figcaption>
             )}

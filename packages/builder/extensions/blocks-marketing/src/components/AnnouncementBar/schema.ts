@@ -62,7 +62,7 @@ export const announcementBarSchema = defineBlockSchema({
     label: { tab: 'content', section: 'Message' },
     message: { tab: 'content', section: 'Message' },
     linkLabel: { tab: 'content', section: 'Link' },
-    href: { tab: 'content', section: 'Link' },
+    href: { tab: 'content', section: 'Link', kind: 'link' },
     showLabel: { tab: 'design', section: 'Visibility' },
     showLink: { tab: 'design', section: 'Visibility' },
     emphasis: { tab: 'design', section: 'Style' },
@@ -79,6 +79,27 @@ export const announcementBarSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'message',
+  /* The bar's inner elements (block-parts DESIGN §1). */
+  parts: {
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Label', ar: 'الوسم' },
+      aliases: ['badge', 'tag', 'status', 'شارة', 'وسم'],
+    },
+    message: {
+      kind: 'text',
+      bind: 'message',
+      label: { en: 'Message', ar: 'الرسالة' },
+      aliases: ['text', 'announcement', 'headline', 'النص', 'الإعلان', 'رسالة'],
+    },
+    link: {
+      kind: 'link',
+      bind: { text: 'linkLabel', href: 'href' },
+      label: { en: 'Link', ar: 'الرابط' },
+      aliases: ['button', 'cta', 'action', 'رابط', 'الزر'],
+    },
+  },
   examples: announcementBarExamples,
 });
 

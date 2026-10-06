@@ -12,6 +12,9 @@ export interface InspectorTabsProps {
   readonly onSelect: (id: BlockPropertyTab) => void;
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>, id: BlockPropertyTab) => void;
   readonly bindTab: (id: BlockPropertyTab) => (element: HTMLButtonElement | null) => void;
+  /** The tablist's name and the tab names in the editor's language (arabic-editor). */
+  readonly label?: string | undefined;
+  readonly tabLabels?: Readonly<Partial<Record<BlockPropertyTab, string>>> | undefined;
 }
 
 /** The strip: a roving-tabindex tablist whose tabs control their panels by id. */
@@ -23,9 +26,11 @@ export function InspectorTabs({
   onSelect,
   onKeyDown,
   bindTab,
+  label = 'Inspector tabs',
+  tabLabels,
 }: InspectorTabsProps) {
   return (
-    <div className="bldr-inspector__tabs" role="tablist" aria-label="Inspector tabs">
+    <div className="bldr-inspector__tabs" role="tablist" aria-label={label}>
       {tabs.map((tab) => {
         const selected = tab.id === activeTabId;
         return (
@@ -46,7 +51,7 @@ export function InspectorTabs({
               onKeyDown(event, tab.id);
             }}
           >
-            {tab.label}
+            {tabLabels?.[tab.id] ?? tab.label}
           </button>
         );
       })}

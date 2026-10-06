@@ -740,21 +740,19 @@ export const BuildInFlight: Story = {
 };
 
 /**
- * The writer pool has a BOUND, and this is where you can see it.
+ * The writer pool is as wide as the page, up to its cap, and this is where you
+ * can see it.
  *
- * EVERY section is held, so no writer ever comes back. The pool fills — four
- * writers for a five-section page (`fillConcurrencyFor`) — and the fifth
- * section is genuinely `waiting`: no writer is free to take it. Without this
- * story the limit is a constant nobody can observe, and raising it to "all of
- * them" would look identical in `BuildInFlight`.
+ * EVERY section is held, so no writer ever comes back. Since the speed pass
+ * (2026-10-06) the automatic pool is `fillConcurrencyFor(n) = min(n, 8)`: a
+ * five-section page gets FIVE writers, so every row starts at once even though
+ * the first section never lands. The cap itself (eight) is pinned as a formula
+ * in run-build's unit test; this story pins what the person sees on a normal
+ * page: no section waits behind another one's writer.
  *
- * REWRITTEN 2026-09-29. This held only `Hero` and pinned the fifth row
- * `waiting` because a writer could not run more than the window ahead of the
- * section LANDING. That landing-gated window was removed on purpose
- * (agent-audit P1-8: a slow hero held idle writers back), so with one section
- * held the other writers now finish theirs and take the fifth — it read
- * `running`, correctly. Writers are bounded by concurrency alone, so the bound
- * shows only when every writer is busy.
+ * REWRITTEN 2026-10-06. This pinned the fifth row `waiting` while the pool was
+ * four writers wide. With five writers for five sections that row starts too,
+ * correctly.
  */
 export const BuildWindowBounded: Story = {
   args: (() => {
@@ -779,8 +777,7 @@ export const BuildWindowBounded: Story = {
       async () => {
         const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
         await expect(rows).toHaveLength(5);
-        await expect(rows[3]).toHaveAttribute('data-status', 'running');
-        await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
+        await expect(rows[4]).toHaveAttribute('data-status', 'running');
       },
       /*
         UNDER the project's own 15s test timeout, deliberately. An inner wait
@@ -793,20 +790,12 @@ export const BuildWindowBounded: Story = {
 
     const rows = [...list.querySelectorAll<HTMLElement>(':scope > li.pg-chat__task')];
     /*
-      The bound is pinned from BOTH sides, which is what makes it observable
-      rather than assumed. Rows 1-3 started even though row 0 has not landed —
-      that is what a pool wider than one MEANS, and it fails at concurrency 1.
-      Row 4 could not start — that is where the pool ends, and it fails at
-      unbounded concurrency.
-
-      The four is `fillConcurrencyFor(5)`, pinned as a formula in the unit test
-      beside it; this story pins only that SOME bound exists below the page size.
+      Every row started though row 0 has not landed: that is what a pool as wide
+      as the page MEANS, and it fails at any concurrency below five.
     */
-    await expect(rows[0]).toHaveAttribute('data-status', 'running');
-    await expect(rows[1]).toHaveAttribute('data-status', 'running');
-    await expect(rows[2]).toHaveAttribute('data-status', 'running');
-    await expect(rows[3]).toHaveAttribute('data-status', 'running');
-    await expect(rows[4]).toHaveAttribute('data-status', 'waiting');
+    for (const row of rows) {
+      await expect(row).toHaveAttribute('data-status', 'running');
+    }
     // Nothing landed, because the FIRST section is one of the ones that is stuck.
     await expect(canvasElement.querySelector('.pg-chat__tasks-count')).toHaveTextContent('0/5');
   },

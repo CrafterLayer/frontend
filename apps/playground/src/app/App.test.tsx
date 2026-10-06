@@ -373,8 +373,12 @@ describe('US4 — the playground proves it end-to-end', () => {
       const frame = screen.getByTitle<HTMLIFrameElement>('Editor canvas');
       expect(frame.contentDocument?.querySelector('[data-bldr-node]')).not.toBeNull();
     });
+    // NODE rows only: block-parts (2026-10-06) adds a row per part of each
+    // block (data-part-kind), which is not what this arithmetic counts.
     const treeRows = () =>
-      within(screen.getByRole('tree', { name: 'Document structure' })).getAllByRole('treeitem');
+      within(screen.getByRole('tree', { name: 'Document structure' }))
+        .getAllByRole('treeitem')
+        .filter((row) => !row.hasAttribute('data-part-kind'));
     await openLayers(user);
     const rowsBefore = treeRows().length; // the empty page (root alone)
     await openBlocks(user);
@@ -841,11 +845,13 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
     expect(surface?.getAttribute('aria-label')).toBe('message');
     expect(txCount()).toBe(0);
 
-    // One inline commit = ONE transaction, and the canvas follows.
+    // One inline commit = ONE transaction, and the canvas follows. The surface
+    // commits once, on Enter or blur (block-parts L1, no per-keystroke commits).
     act(() => {
       if (surface !== null) {
         surface.textContent = 'Edited in place';
         surface.dispatchEvent(new Event('input', { bubbles: true }));
+        surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
       }
     });
     await waitFor(() => {

@@ -1305,7 +1305,7 @@ const DEFS: Readonly<Record<StylePropertyId, Def>> = {
   divideInline: {
     sector: 'borders',
     control: 'number',
-    labels: L('Dividers between items (inline)', 'فواصل بين العناصر أفقياً'),
+    labels: L('Item dividers (inline)', 'فواصل بين العناصر أفقياً'),
     prefix: 'divide-x',
     bare: 'default',
     tokens: 'number',
@@ -1316,7 +1316,7 @@ const DEFS: Readonly<Record<StylePropertyId, Def>> = {
   divideBlock: {
     sector: 'borders',
     control: 'number',
-    labels: L('Dividers between items (block)', 'فواصل بين العناصر عمودياً'),
+    labels: L('Item dividers (block)', 'فواصل بين العناصر عمودياً'),
     prefix: 'divide-y',
     bare: 'default',
     tokens: 'number',

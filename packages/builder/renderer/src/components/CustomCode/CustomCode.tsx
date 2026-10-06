@@ -654,6 +654,17 @@ function renderElement(
     write, and the read skips it here.
   */
   const svg = isCustomCodeSvgTag(tag);
+  // ── block-parts (2026-10-06) ──
+  /*
+    An html element that carries its own text takes its base direction from
+    that text (DESIGN §2.11), so an English line on an Arabic page keeps its
+    full stop at the end. An author's `dir` always stands; an svg shape is
+    left alone (SVG has no `dir`), and nothing else about the markup changes.
+  */
+  if (!svg && text !== undefined && text.trim() !== '' && props['dir'] === undefined) {
+    props['dir'] = 'auto';
+  }
+  // ── /block-parts ──
   if (tag === 'textarea') {
     // A textarea's text is where it starts, not a child React would own.
     if (text !== undefined) props['defaultValue'] = text;

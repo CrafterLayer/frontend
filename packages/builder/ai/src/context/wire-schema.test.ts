@@ -45,3 +45,27 @@ describe('wirePropsSchema — the catalog wording of a props schema', () => {
     expect(wirePropsSchema(required)).toEqual(required);
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('wirePropsSchema — partStyles stays off the wire (context budget fix)', () => {
+  it('drops the partStyles record and keeps every other prop', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        heading: { type: 'string', maxLength: 120 },
+        partStyles: {
+          type: 'object',
+          propertyNames: { type: 'string', pattern: '^[a-z]+$' },
+          additionalProperties: { type: 'object', properties: { className: { type: 'string' } } },
+        },
+      },
+      required: ['heading', 'partStyles'],
+    };
+    expect(wirePropsSchema(schema)).toEqual({
+      type: 'object',
+      properties: { heading: { type: 'string', maxLength: 120 } },
+      required: ['heading'],
+    });
+  });
+});
+// ── /block-parts ──

@@ -9,6 +9,7 @@ const POST = {
   href: text(300),
 } as const;
 
+// page-defects additions (2026-10-06): captions, the lead article's thumbnail and its title fit a 320px phone.
 // media-motion (2026-10-06): the two gallery kits carry data-ck-behavior='gallery' (DESIGN §F.4), so a built
 // page's photos open the shared dialog — keys, swipe, counter, captions — in Preview and the export.
 export const MEDIA_KITS: readonly SectionKit[] = [
@@ -23,7 +24,7 @@ export const MEDIA_KITS: readonly SectionKit[] = [
       <div data-ck-behavior='gallery' class='ck-mosaic mt-12 grid grid-cols-2 gap-4 md:grid-cols-4'>
         {{#items}}<figure class='group relative overflow-hidden rounded-2xl'>
           <img class='aspect-square h-full w-full object-cover transition duration-500 group-hover:scale-105 motion-reduce:transform-none' src='{{item.image.src}}' alt='{{item.image.alt}}'/>
-          {{#item.caption}}<figcaption class='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-sm font-semibold text-white'>{{item.caption}}</figcaption>{{/item.caption}}
+          {{#item.caption}}<figcaption class='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-sm font-semibold break-words text-white md:p-4'>{{item.caption}}</figcaption>{{/item.caption}}
         </figure>{{/items}}
       </div>`),
     css: '.ck-mosaic > :first-child{grid-column:span 2;grid-row:span 2}',
@@ -69,11 +70,11 @@ export const MEDIA_KITS: readonly SectionKit[] = [
     slots: { ...HEAD_SLOTS, items: list(POST, 4) },
     markup: band(`${HEAD_START}
       <div class='ck-posts mt-12 grid gap-8 lg:grid-cols-2'>
-        {{#items}}<article class='ck-post flex gap-5'>
-          <img class='aspect-square w-28 shrink-0 rounded-2xl object-cover' src='{{item.image.src}}' alt='{{item.image.alt}}'/>
-          <div>
+        {{#items}}<article class='ck-post flex gap-4 sm:gap-5'>
+          <img class='aspect-square w-20 shrink-0 rounded-2xl object-cover sm:w-28' src='{{item.image.src}}' alt='{{item.image.alt}}'/>
+          <div class='min-w-0'>
             {{#item.meta}}<p class='ck-muted text-xs'>{{item.meta}}</p>{{/item.meta}}
-            {{#item.href}}<h3 class='ck-display mt-1 text-xl font-bold leading-snug'><a class='ck-link' href='{{item.href}}'>{{item.title}}</a></h3>{{/item.href}}{{^item.href}}<h3 class='ck-display mt-1 text-xl font-bold leading-snug'>{{item.title}}</h3>{{/item.href}}
+            {{#item.href}}<h3 class='ck-display mt-1 text-xl font-bold leading-snug break-words'><a class='ck-link' href='{{item.href}}'>{{item.title}}</a></h3>{{/item.href}}{{^item.href}}<h3 class='ck-display mt-1 text-xl font-bold leading-snug break-words'>{{item.title}}</h3>{{/item.href}}
             {{#item.text}}<p class='ck-muted mt-2 line-clamp-3 text-sm leading-relaxed'>{{item.text}}</p>{{/item.text}}
           </div>
         </article>{{/items}}

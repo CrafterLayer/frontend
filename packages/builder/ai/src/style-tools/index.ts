@@ -11,6 +11,9 @@ import {
   elementWrapTool,
 } from './element-structure';
 import { paletteSetTool, styleApplyTool, styleDefineTool } from './library-tools';
+// P7-agent-part-tools additions (block-parts DESIGN §2.12)
+import { partImageTool, partLinkTool, partListTool, partStyleTool, partTextTool } from './part-tools';
+// end P7-agent-part-tools additions
 
 /**
  * The agent's "build and edit anything" tools (style-manager DESIGN.md §D.3):
@@ -47,6 +50,13 @@ export const STYLE_AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   styleApplyTool,
   paletteSetTool,
   blockConvertTool,
+  // P7-agent-part-tools additions: the parts of registered blocks (block-parts DESIGN §2.12)
+  partTextTool,
+  partStyleTool,
+  partLinkTool,
+  partImageTool,
+  partListTool,
+  // end P7-agent-part-tools additions
 ] as readonly AgentTool[]);
 
 export {
@@ -65,6 +75,32 @@ export {
   styleDefineTool,
 };
 export { libraryIdFor } from './library-ids';
+// P7-agent-part-tools additions
+export {
+  blockDisplayName,
+  matchPartNames,
+  partBlockOf,
+  partBlocks,
+  partInstanceText,
+  partWordKey,
+  resolvePartAddress,
+  resolvePartName,
+  type PartAddressInput,
+  type PartBlock,
+  type ResolvedPart,
+} from './part-address';
+export {
+  chainPartPlans,
+  PART_AGENT_TOOLS,
+  partImageTool,
+  partLinkTool,
+  partListTool,
+  partStyleTool,
+  partTextTool,
+  richTextFromPlain,
+  safePartHref,
+} from './part-tools';
+// end P7-agent-part-tools additions
 export { clampToSrgb, oklchRamp, oklchToHex, parseColour, RAMP_STEPS, type Oklch, type RampStep } from './oklch';
 export { liveToolContext, runStyleTool, type StyleToolResult } from './run-direct';
 export { readStyleValue } from './style-value';

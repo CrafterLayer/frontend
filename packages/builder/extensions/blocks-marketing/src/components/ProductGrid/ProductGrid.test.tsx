@@ -60,7 +60,7 @@ describe('ProductGrid', () => {
     expect(
       screen.getByRole('img', { name: 'Rated 4.9 out of 5, 128 reviews' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View product: Arc task lamp' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'View product Arc task lamp' })).toHaveAttribute(
       'href',
       '/products/lamp',
     );
@@ -141,7 +141,7 @@ describe('ProductGrid', () => {
 
   it('preserves product anchors but prevents navigation on the builder canvas', () => {
     renderProducts({}, true);
-    const action = screen.getByRole('link', { name: 'View product: Arc task lamp' });
+    const action = screen.getByRole('link', { name: 'View product Arc task lamp' });
     expect(action).toHaveAttribute('href', '/products/lamp');
     expect(fireEvent.click(action)).toBe(false);
   });

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 
 import type { EditingBucket } from '../../devices/buckets';
 import { ChromeButton } from '../ChromeButton';
@@ -34,8 +34,30 @@ export function InspectorHeader({
   children,
   labels = INSPECTOR_HEADER_LABELS_EN,
 }: InspectorHeaderProps) {
+  const headRef = useRef<HTMLElement>(null);
+  /*
+    The head is sticky, and so is the style panel's own header (screen size,
+    state, search) further down. Both stuck at 0, so the style header slid
+    OVER the title and left the head's lower lines ("in Card") peeking out
+    under it. The head publishes its height; nested sticky headers sit below.
+  */
+  useLayoutEffect(() => {
+    const head = headRef.current;
+    const panel = head?.closest<HTMLElement>('.bldr-inspector');
+    if (head === null || panel === null || panel === undefined) return undefined;
+    const publish = () => {
+      panel.style.setProperty('--bldr-inspector-head-size', `${String(head.offsetHeight)}px`);
+    };
+    publish();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(publish);
+    observer.observe(head);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
   return (
-    <header className="bldr-inspector__head">
+    <header ref={headRef} className="bldr-inspector__head">
       <div className="bldr-inspector__title-row">
         <h2 className="bldr-inspector__title">{labels.title}</h2>
         {/* The way OUT of a selection, next to the name of what is selected.

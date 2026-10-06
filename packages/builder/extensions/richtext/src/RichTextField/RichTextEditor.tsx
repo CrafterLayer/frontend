@@ -110,6 +110,18 @@ export function RichTextEditor({
       }),
     ],
     content: asContent(value),
+    /*
+      Every paragraph, heading and list item takes its OWN direction from its
+      content (block-parts DESIGN §2.10). The surface's `dir="auto"` alone
+      decides ONE direction for the whole document from its first strong
+      character, so an English paragraph after an Arabic heading was laid out
+      right-to-left and showed its full stop at the start (".site grows").
+      tiptap renders `dir="auto"` on each block; the stored projection
+      (`toStoredRichText`) keeps only the whitelist, so the attribute never
+      reaches the document. The canvas inline editor reuses this editor, so
+      both surfaces get it from this one line.
+    */
+    textDirection: 'auto',
     editable: disabled !== true,
     // Loud, not silent (§10 review fix): a document the engine cannot load is
     // reported instead of being replaced by an empty one that the next

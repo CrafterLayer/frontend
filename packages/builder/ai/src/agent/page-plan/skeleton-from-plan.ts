@@ -6,6 +6,7 @@ import { instantiatePlanKit, planKit } from './kits';
 import { shortBrand } from './page-completion';
 import type {
   PagePlan,
+  PagePlanBusinessType,
   PagePlanFont,
   PagePlanRadius,
   PagePlanTokens,
@@ -378,6 +379,21 @@ const HEADER_KIT = [
 */
 const EARLIER_HEADER_KIT = /header\.sticky|\.ck-bar\{|scroll-margin-top/u;
 
+// page-defects additions (2026-10-06)
+/**
+ * The page at phone width: nothing scrolls sideways (final test 2026-10-06,
+ * the English SaaS page was 404px wide at 390). A button's label wraps below
+ * 40rem — a link label may hold 60 characters, and `white-space:nowrap` set
+ * it wider than the screen — and region text breaks a word longer than its
+ * line (a long Arabic word in a display heading, an email in a card).
+ * `break-word`, not `anywhere`: it changes nothing until a word cannot fit.
+ * The kits' own layout fits without it (section-kit kits.fit.test.ts).
+ */
+export const PHONE_KIT: readonly string[] = Object.freeze([
+  `${REGION} :is(h1,h2,h3,h4,p,li,dt,dd,blockquote,figcaption,summary,a,span,td,th){overflow-wrap:break-word}`,
+  '@media (max-width:39.99rem){.ck-btn{white-space:normal;max-width:100%;text-align:center}}',
+]);
+
 /**
  * The plan's page CSS: font imports, the tokens, the component kit.
  *
@@ -447,6 +463,7 @@ function planBlock(plan: PagePlan, hasHeader: boolean): string {
     '.ck-btn:hover{filter:brightness(1.08)}',
     '.ck-btn:focus-visible{outline:2px solid var(--ck-accent-ink);outline-offset:2px}',
     '.ck-btn--ghost{background-color:transparent;color:var(--ck-ink);box-shadow:inset 0 0 0 1px var(--ck-border)}',
+    ...PHONE_KIT, // page-defects additions (2026-10-06)
     ...(hasHeader ? HEADER_KIT : []),
   ];
   return [
@@ -891,12 +908,30 @@ function planSite(plan: PagePlan, current: unknown): Record<string, unknown> | u
   const businessType = plan.seo?.businessType;
   const addName = typeof held['siteName'] !== 'string' && brand !== '';
   const addBusiness = businessType !== undefined && !isPlainRecord(held['business']) && brand !== '';
-  if (!addName && !addBusiness) return isPlainRecord(current) ? held : undefined;
+  // page-defects additions (2026-10-06): a business an earlier plan wrote ({type, name}, nothing the owner
+  // added) and left generic takes this plan's specific kind — a Restaurant, not an Organization.
+  const sharpened = sharpenedBusiness(held['business'], businessType);
+  if (!addName && !addBusiness && sharpened === undefined) return isPlainRecord(current) ? held : undefined;
   return {
     ...held,
     ...(addName ? { siteName: brand } : {}),
     ...(addBusiness ? { business: { type: businessType, name: brand } } : {}),
+    ...(sharpened === undefined ? {} : { business: sharpened }),
   };
+}
+
+// page-defects additions (2026-10-06)
+const GENERIC_BUSINESS_TYPES: ReadonlySet<unknown> = new Set(['Organization', 'LocalBusiness']);
+
+/** A plan-written, generic `business` re-typed to the plan's specific kind; undefined when it stays. */
+function sharpenedBusiness(
+  held: unknown,
+  businessType: PagePlanBusinessType | undefined,
+): Record<string, unknown> | undefined {
+  if (!isPlainRecord(held) || businessType === undefined || GENERIC_BUSINESS_TYPES.has(businessType)) return undefined;
+  const planShaped = Object.keys(held).every((key) => key === 'type' || key === 'name');
+  if (!planShaped || !GENERIC_BUSINESS_TYPES.has(held['type'])) return undefined;
+  return { ...held, type: businessType };
 }
 
 /** A kit section filled from the plan's slots, when it fills cleanly. */

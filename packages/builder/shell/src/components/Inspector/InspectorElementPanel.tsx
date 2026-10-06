@@ -48,6 +48,7 @@ import { treeIdsOf } from './element-tree-ids';
 import { InspectorElementAdvanced } from './InspectorElementAdvanced';
 import { InspectorElementContent } from './InspectorElementContent';
 import { InspectorEmptyState } from './InspectorEmptyState';
+import { inspectorLabelsFor } from './Inspector.labels';
 import type { InspectorFocusRequest, InspectorStyleContext } from './inspector-request';
 import type { DocumentDirection } from './types';
 import { useTreeElement } from './use-tree-element';
@@ -187,7 +188,7 @@ export function InspectorElementPanel({
   useForcedStatePreview(tab === 'design' ? frameDocument : null, resolveCanvas, state);
 
   if (element === undefined) {
-    return <InspectorEmptyState kind="element-gone" />;
+    return <InspectorEmptyState kind="element-gone" copy={inspectorLabelsFor(locale).chrome.empty} />;
   }
   const name = treeNodeDisplayName(element, words);
   const pageDir: 'ltr' | 'rtl' = dir === 'rtl' ? 'rtl' : 'ltr';

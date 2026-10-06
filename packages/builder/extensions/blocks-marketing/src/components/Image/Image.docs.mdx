@@ -82,3 +82,17 @@ literals.
   `@craftkit/builder-ai`, and browsing is `AssetPicker`.
 - It does not infer dimensions or alternative text.
 - Broken remote URLs use the browser's native broken-image behavior.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name    | kind  | bind          | label (en / ar) |
+| ------- | ----- | ------------- | --------------- |
+| `image` | image | `src` + `alt` | Image / الصورة  |
+
+On the canvas the empty frame is the image part too, so a double-click on it opens the asset picker.
+A library `asset` still wins over `src`.

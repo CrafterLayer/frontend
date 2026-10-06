@@ -91,11 +91,32 @@ describe('NumberField', () => {
 });
 
 describe('ReadOnlyField', () => {
-  it('shows the JSON value, read-only', () => {
-    render(<ReadOnlyField {...base({ value: { items: [1] } })} />);
+  it('shows a human summary, read-only — never JSON', () => {
+    render(<ReadOnlyField {...base({ value: { items: [1], title: 'x' } })} />);
     const input = screen.getByRole('textbox');
-    expect(input).toHaveValue('{"items":[1]}');
+    expect(input).toHaveValue('2 fields');
     expect(input).toHaveAttribute('readonly');
+    expect((input as HTMLInputElement).value).not.toContain('{');
+  });
+
+  it('summarises a rich-text document as its words and an array as a count', () => {
+    const doc = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Prose here.' }] }],
+    };
+    const view = render(<ReadOnlyField {...base({ value: doc })} />);
+    expect(screen.getByRole('textbox')).toHaveValue('Prose here.');
+    view.rerender(<ReadOnlyField {...base({ value: ['a', 'b', 'c'] })} />);
+    expect(screen.getByRole('textbox')).toHaveValue('3 items');
+    view.rerender(<ReadOnlyField {...base({ value: undefined })} />);
+    expect(screen.getByRole('textbox')).toHaveValue('Empty');
+  });
+});
+
+describe('bidi', () => {
+  it('TextField follows its own content direction (dir=auto)', () => {
+    render(<TextField {...base({ value: 'The site grows.' })} />);
+    expect(screen.getByRole('textbox')).toHaveAttribute('dir', 'auto');
   });
 });
 

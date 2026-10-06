@@ -94,9 +94,26 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/**
+ * fix pass (2026-10-06): the published site.css carries the Tailwind preflight
+ * (`*,::backdrop{margin:0}`), which pinned the lightbox to the inline-start
+ * corner. The story adds that rule and holds the dialog to the viewport centre.
+ */
+async function expectCentred(dialog: HTMLElement): Promise<void> {
+  const root = dialog.ownerDocument.documentElement;
+  await waitFor(async () => {
+    const rect = dialog.getBoundingClientRect();
+    await expect(Math.abs(rect.left + rect.width / 2 - root.clientWidth / 2)).toBeLessThan(4);
+    await expect(Math.abs(rect.top + rect.height / 2 - root.clientHeight / 2)).toBeLessThan(4);
+  });
+}
+
 /** Grid: open an image, step with the arrow key, close; focus returns to the thumbnail. */
 export const Grid: Story = {
   play: async ({ canvasElement }) => {
+    const preflight = canvasElement.ownerDocument.createElement('style');
+    preflight.textContent = '*,::backdrop{margin:0}';
+    canvasElement.ownerDocument.head.appendChild(preflight);
     const canvas = within(canvasElement);
     const first = canvas.getByRole('button', { name: /^Photo 1/u });
     await userEvent.click(first);
@@ -105,7 +122,15 @@ export const Grid: Story = {
       if (found === null) throw new Error('no dialog yet');
       return found as HTMLElement;
     });
-    await expect(within(dialog).getByText('1 / 6')).toBeVisible();
+    try {
+      await expectCentred(dialog);
+    } finally {
+      preflight.remove();
+    }
+    // The dialog fades in from opacity 0 (ck-lightbox-in): visible once its first frame has painted.
+    await waitFor(async () => {
+      await expect(within(dialog).getByText('1 / 6')).toBeVisible();
+    });
     await userEvent.keyboard('{ArrowRight}');
     await expect(within(dialog).getByText('2 / 6')).toBeVisible();
     await expect(within(dialog).getByText('Market street')).toBeVisible();
@@ -135,7 +160,9 @@ export const GridArabic: Story = {
       if (found === null) throw new Error('no dialog yet');
       return found as HTMLElement;
     });
-    await expect(within(dialog).getByText('١ / ٦')).toBeVisible();
+    await waitFor(async () => {
+      await expect(within(dialog).getByText('١ / ٦')).toBeVisible();
+    });
     await userEvent.keyboard('{ArrowLeft}');
     await expect(within(dialog).getByText('٢ / ٦')).toBeVisible();
     await userEvent.click(within(dialog).getByRole('button', { name: 'إغلاق' }));

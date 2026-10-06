@@ -30,4 +30,5 @@ export {
   type PillView,
 } from './components/AgentStatusPill';
 export type { EditEffort, ProposalPreview } from './hooks/use-agent-controller';
-export type { AgentController, Locale } from './model/view-types';
+export { DEFAULT_EFFORT, effortLevel } from './model/effort';
+export type { AgentController, EffortLevel, Locale } from './model/view-types';

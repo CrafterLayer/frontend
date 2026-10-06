@@ -77,3 +77,23 @@ Selection syncs both ways with `focusElement` and the multi-selection store.
 <Canvas of={LayersTreeStories.ElementTrees} />
 
 <Canvas of={LayersTreeStories.ArabicElementTrees} />
+
+## The Arabic editor
+
+With `labels={LAYERS_TREE_LABELS_AR}` and `words={ELEMENT_NAME_WORDS_AR}` every row, menu and
+announcement is Arabic, and a block row is named from the Arabic block-name catalogue. The tree is
+chrome, so its arrow keys (and a keyboard or pointer re-parent) follow the direction it is DRAWN in:
+the nearest `dir` above it. An Arabic editor mirrors them over an English page; a host that sets no
+`dir` falls back to the page's direction.
+
+{/* ── block-parts (2026-10-06) ── */}
+
+## Parts of registered blocks
+
+A block whose schema declares `parts` expands into one `LayersPartRow` per part instance (from
+`partInstances`), nested by bind: a list holds its items, an item holds its sub-parts. Part rows
+carry the localized part label and a `<bdi>` text preview, are never draggable, select through
+`kernel.focusPart`, and highlight while the kernel's part focus names them. Item rows duplicate, move
+and remove through `planPartListOp`, each one labelled transaction. See the LayersPartRow docs.
+
+{/* ── /block-parts ── */}

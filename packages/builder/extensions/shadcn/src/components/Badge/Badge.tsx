@@ -1,8 +1,8 @@
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
-import type { BadgeProps } from './schema';
+import { badgeSchema, type BadgeProps } from './schema';
 
 /**
  * shadcn/ui's Badge, re-pointed at this project's tokens.
@@ -26,16 +26,19 @@ const SIZE_CLASSES: Record<BadgeProps['size'], string> = {
   regular: 'px-3 py-1 text-sm',
 };
 
-export function Badge({ props }: BlockRenderProps<BadgeProps>) {
+export function Badge({ node, props, isCanvas }: BlockRenderProps<BadgeProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, badgeSchema.parts);
   return (
     <span
-      className={clsx(
-        'inline-flex min-w-0 items-center gap-1 rounded-full font-medium',
-        VARIANT_CLASSES[props.variant],
-        SIZE_CLASSES[props.size],
-        /* The document's own utilities go LAST, so a caller wins a conflict. */
-        props.className,
-      )}
+      {...part('label', {
+        className: clsx(
+          'inline-flex min-w-0 items-center gap-1 rounded-full font-medium',
+          VARIANT_CLASSES[props.variant],
+          SIZE_CLASSES[props.size],
+          /* The document's own utilities go LAST, so a caller wins a conflict. */
+          props.className,
+        ),
+      })}
     >
       {props.label}
     </span>

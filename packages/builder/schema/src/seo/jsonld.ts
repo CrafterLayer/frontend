@@ -7,9 +7,9 @@ import { collapseSpace, isRtlLang } from './text';
   schema.org JSON-LD as one `@graph` (DESIGN D.2). Structured data must match
   what the page shows and what the owner confirmed: any value that contains a
   facts-ledger SAMPLE (the placeholder phone, the made-up street) is dropped
-  before it can reach a search engine. A LocalBusiness subtype needs `name`
-  and `address.city`; without a city the business is described as a plain
-  Organization instead.
+  before it can reach a search engine. A business keeps its own type (a
+  Restaurant, a Dentist) whether or not its address is confirmed; the
+  PostalAddress is written only once `address.city` is.
 */
 
 export type JsonLdValue = string | number | boolean | JsonLdObject | JsonLdValue[];
@@ -126,9 +126,17 @@ function businessNode(
   site: SiteSeo,
   hasMenu: boolean,
 ): JsonLdObject {
-  const local = business.type !== 'Organization' && business.address?.city !== undefined;
-  const type = business.type === 'Organization' || !local ? 'Organization' : business.type;
-  const node: JsonLdObject = { '@type': type, name: business.name };
+  /*
+    page-defects additions (2026-10-06): the node keeps the business's own
+    schema.org type — a restaurant is a Restaurant, a dental clinic a Dentist
+    — with or without a confirmed address. Only the PostalAddress (and the
+    geo point read with it) waits for a city: an Arabic restaurant page whose
+    plan named no street was published as a plain Organization (final test
+    2026-10-06), which told a search engine it was not a place at all.
+  */
+  const specific = business.type !== 'Organization';
+  const local = specific && business.address?.city !== undefined;
+  const node: JsonLdObject = { '@type': business.type, name: business.name };
   if (origin !== undefined) {
     node['@id'] = `${origin}/#organization`;
     node['url'] = `${origin}/`;
@@ -137,7 +145,7 @@ function businessNode(
   if (business.email !== undefined) node['email'] = business.email;
   if (business.logo !== undefined) node['logo'] = business.logo;
   const image = site.defaultImage ?? business.logo;
-  if (local && image !== undefined) node['image'] = image;
+  if (specific && image !== undefined) node['image'] = image;
   if (business.sameAs !== undefined && business.sameAs.length > 0) node['sameAs'] = [...business.sameAs];
   if (business.whatsapp !== undefined) {
     const digits = digitsOf(business.whatsapp);
@@ -166,6 +174,8 @@ function businessNode(
         longitude: business.geo.lng,
       };
     }
+  }
+  if (specific) {
     if (business.openingHours !== undefined && business.openingHours.length > 0) {
       node['openingHours'] = [...business.openingHours];
     }

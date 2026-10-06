@@ -84,3 +84,18 @@ export const RightToLeft: Story = {
     ),
   ],
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    node: { id: 'accordionItem-parts', type: 'accordionItem', props: {} },
+    props: accordionItemSchema.props.parse({ title: 'How long does delivery take?' }),
+    slots: { default: <p>Two working days.</p> },
+    data: {},
+    isCanvas: true,
+  },
+};

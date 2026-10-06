@@ -12,6 +12,7 @@ import {
   type IdPort,
   type KernelApi,
   type NodeId,
+  type PartRef,
   type PersistenceAdapter,
   type Surface,
   type Transaction,
@@ -106,6 +107,16 @@ export interface BuilderKernel {
    * same law as `clearSelection`, for the same subscribers.
    */
   clearElementFocus(): void;
+  // ── block-parts (2026-10-06) ──
+  /**
+   * Select `id` AND focus one of its declared parts (block-parts DESIGN §2.5):
+   * ONE write that sets the selection to `[id]`, clears `elementFocus` and
+   * sets `partFocus`. Ephemeral, never a transaction.
+   */
+  focusPart(id: NodeId, ref: PartRef): void;
+  /** Step back from a part to its block: the selection is kept. One write per call. */
+  clearPartFocus(): void;
+  // ── /block-parts ──
   /** The session's transaction log (replay source). */
   transactions(): readonly Transaction[];
   /**
@@ -185,6 +196,7 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
     doc: document,
     selection: [],
     elementFocus: null,
+    partFocus: null, // block-parts (2026-10-06)
     seq: options.initialSeq ?? 0,
   });
   const events = createEventBus();
@@ -314,23 +326,47 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
     validate: () => validateDocument(store.getState().doc, lookup),
     setSelection(idsToSelect) {
       const state = store.getState();
-      store.write({ ...state, selection: [...idsToSelect], elementFocus: null }, []);
+      store.write(
+        { ...state, selection: [...idsToSelect], elementFocus: null, partFocus: null },
+        [],
+      );
     },
     clearSelection() {
       // A fresh array on every call, exactly as setSelection writes one: the
       // write itself is the signal selection subscribers key off, and an
       // "already empty" short-circuit here would make the two doors diverge.
       const state = store.getState();
-      store.write({ ...state, selection: [], elementFocus: null }, []);
+      store.write({ ...state, selection: [], elementFocus: null, partFocus: null }, []);
     },
     focusElement(id, path) {
       const state = store.getState();
-      store.write({ ...state, selection: [id], elementFocus: { id, path: [...path] } }, []);
+      store.write(
+        { ...state, selection: [id], elementFocus: { id, path: [...path] }, partFocus: null },
+        [],
+      );
     },
     clearElementFocus() {
       const state = store.getState();
       store.write({ ...state, elementFocus: null }, []);
     },
+    // ── block-parts (2026-10-06) ──
+    focusPart(id, ref) {
+      const state = store.getState();
+      store.write(
+        {
+          ...state,
+          selection: [id],
+          elementFocus: null,
+          partFocus: { id, part: ref.part, index: [...ref.index] },
+        },
+        [],
+      );
+    },
+    clearPartFocus() {
+      const state = store.getState();
+      store.write({ ...state, partFocus: null }, []);
+    },
+    // ── /block-parts ──
     transactions: () => dispatcher.log.all(),
     history: () => historyView,
     flush,

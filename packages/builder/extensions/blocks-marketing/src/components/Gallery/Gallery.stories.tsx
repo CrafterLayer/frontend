@@ -66,3 +66,30 @@ export const EmptyCanvas: Story = {
     isCanvas: true,
   },
 };
+
+/* Block parts (DESIGN §4.4): each figure, image and caption is a part on the canvas. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'gallery-parts' },
+    props: gallerySchema.props.parse({
+      ...(galleryExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: {
+        'item.caption': { className: 'text-accent' },
+        heading: { className: 'underline' },
+      },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const captions = canvasElement.querySelectorAll('[data-ck-part="item.caption"]');
+    await expect(captions[0]).toHaveAttribute('data-ck-bind', 'items.0.caption');
+    await expect(captions[0]).toHaveClass('text-accent');
+    await expect(canvasElement.querySelector('[data-ck-part="item.image"]')).toHaveAttribute(
+      'data-ck-bind',
+      'items.0.src',
+    );
+    await expect(canvasElement.querySelector('[data-ck-part="heading"]')).toHaveClass('underline');
+  },
+};

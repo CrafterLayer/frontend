@@ -1,5 +1,13 @@
+// ── block-parts (2026-10-06) ──
+import { LAYERS_PART_LABELS_AR, LAYERS_PART_LABELS_EN, type LayersPartLabels } from './LayersPartRow.labels';
+// ── /block-parts ──
+
 /** Every user-facing string of the Layers navigator; the host picks one set by locale. */
 export interface LayersTreeLabels {
+  // ── block-parts (2026-10-06) ──
+  /** A registered block's part rows (English when absent). */
+  readonly parts?: LayersPartLabels | undefined;
+  // ── /block-parts ──
   readonly title: string;
   readonly tree: string;
   readonly dragHandle: (name: string) => string;
@@ -41,6 +49,7 @@ export interface LayersTreeLabels {
 }
 
 export const LAYERS_TREE_LABELS_EN: LayersTreeLabels = {
+  parts: LAYERS_PART_LABELS_EN, // block-parts (2026-10-06)
   title: 'Layers',
   tree: 'Document structure',
   dragHandle: (name) => `Drag ${name}`,
@@ -82,6 +91,7 @@ export const LAYERS_TREE_LABELS_EN: LayersTreeLabels = {
 };
 
 export const LAYERS_TREE_LABELS_AR: LayersTreeLabels = {
+  parts: LAYERS_PART_LABELS_AR, // block-parts (2026-10-06)
   title: 'الطبقات',
   tree: 'بنية المستند',
   dragHandle: (name) => `اسحب ${name}`,

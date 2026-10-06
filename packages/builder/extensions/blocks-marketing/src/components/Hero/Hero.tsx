@@ -1,4 +1,4 @@
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -15,7 +15,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { HeroProps } from './schema';
+import { heroSchema, type HeroProps } from './schema';
 
 /**
  * The opening section: a large heading, optional body, and up to two actions.
@@ -29,13 +29,15 @@ import type { HeroProps } from './schema';
  * runs to the glass was not expressible while the padding was a stylesheet
  * constant), the class list, and the alignment of the action row.
  */
-export function Hero({ node, props, slots }: BlockRenderProps<HeroProps>) {
+export function Hero({ node, props, slots, isCanvas }: BlockRenderProps<HeroProps>) {
   /*
     The accessible name comes from the VISIBLE heading, never a copy of its
     text: inline editing swaps that property for an editor element, and an
     element in `aria-label` stringifies to "[object Object]".
   */
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, heroSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
 
   const colorStyle = sectionColorStyle(props);
@@ -101,20 +103,24 @@ export function Hero({ node, props, slots }: BlockRenderProps<HeroProps>) {
         >
           <div
             data-mkt-part="copy"
-            className={cx(
-              'flex min-w-0 flex-col gap-6',
-              ALIGN_CLASSES[props.align],
-              !split && !editorial ? 'mx-auto max-w-content-standard' : undefined,
-              editorial ? 'max-w-content-narrow font-serif' : undefined,
-            )}
+            {...part('copy', {
+              className: cx(
+                'flex min-w-0 flex-col gap-6',
+                ALIGN_CLASSES[props.align],
+                !split && !editorial ? 'mx-auto max-w-content-standard' : undefined,
+                editorial ? 'max-w-content-narrow font-serif' : undefined,
+              ),
+            })}
           >
             {props.eyebrow === undefined ? null : (
               <p
                 data-mkt-part="eyebrow"
-                className={cx(
-                  'inline-flex w-fit items-center rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase',
-                  props.tone === 'dark' ? 'text-inherit' : 'text-accent',
-                )}
+                {...part('eyebrow', {
+                  className: cx(
+                    'inline-flex w-fit items-center rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase',
+                    props.tone === 'dark' ? 'text-inherit' : 'text-accent',
+                  ),
+                })}
               >
                 <span
                   className="me-2 inline-block h-2 w-2 rounded-full bg-accent"
@@ -130,23 +136,27 @@ export function Hero({ node, props, slots }: BlockRenderProps<HeroProps>) {
           single orphan on the second line.
         */}
             <h1
-              id={headingId}
-              className={cx(
-                'm-0 leading-tight font-bold tracking-tight text-balance',
-                editorial
-                  ? 'text-4xl @md:text-5xl @xl:text-6xl'
-                  : 'text-4xl @md:text-5xl @xl:text-6xl',
-              )}
+              {...part('heading', {
+                id: headingId,
+                className: cx(
+                  'm-0 leading-tight font-bold tracking-tight text-balance',
+                  editorial
+                    ? 'text-4xl @md:text-5xl @xl:text-6xl'
+                    : 'text-4xl @md:text-5xl @xl:text-6xl',
+                ),
+              })}
             >
               {props.heading}
             </h1>
 
             {props.body === undefined ? null : (
               <p
-                className={cx(
-                  'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty @md:text-xl',
-                  inheritsSurroundingInk ? 'text-inherit opacity-80' : 'text-text-muted',
-                )}
+                {...part('body', {
+                  className: cx(
+                    'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty @md:text-xl',
+                    inheritsSurroundingInk ? 'text-inherit opacity-80' : 'text-text-muted',
+                  ),
+                })}
               >
                 {props.body}
               </p>
@@ -182,10 +192,12 @@ export function Hero({ node, props, slots }: BlockRenderProps<HeroProps>) {
 
             {props.trustLine === undefined ? null : (
               <p
-                className={cx(
-                  'm-0 text-sm font-medium',
-                  inheritsSurroundingInk ? 'text-inherit opacity-70' : 'text-text-muted',
-                )}
+                {...part('trustLine', {
+                  className: cx(
+                    'm-0 text-sm font-medium',
+                    inheritsSurroundingInk ? 'text-inherit opacity-70' : 'text-text-muted',
+                  ),
+                })}
                 data-mkt-part="trust-line"
               >
                 {props.trustLine}
@@ -196,10 +208,12 @@ export function Hero({ node, props, slots }: BlockRenderProps<HeroProps>) {
           {media === undefined ? null : (
             <div
               data-mkt-part="media"
-              className={cx(
-                'relative min-w-0 overflow-hidden rounded-xl border border-text/10 bg-surface shadow-elevated',
-                split ? '@lg:justify-self-end' : 'mx-auto mt-4 w-full max-w-content-wide',
-              )}
+              {...part('media', {
+                className: cx(
+                  'relative min-w-0 overflow-hidden rounded-xl border border-text/10 bg-surface shadow-elevated',
+                  split ? '@lg:justify-self-end' : 'mx-auto mt-4 w-full max-w-content-wide',
+                ),
+              })}
             >
               {media}
             </div>

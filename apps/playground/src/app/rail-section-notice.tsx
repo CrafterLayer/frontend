@@ -10,19 +10,38 @@
  * Each line names a real fact about this repository, so the panel is a status
  * report rather than a placeholder.
  */
-const NOTICE: Readonly<Record<string, { title: string; body: string }>> = {
-  assets: {
-    title: 'Assets',
-    body: 'No asset library yet. Blocks carry their own content until one exists.',
+const NOTICE: Readonly<Record<'en' | 'ar', Readonly<Record<string, { title: string; body: string }>>>> = {
+  en: {
+    assets: {
+      title: 'Assets',
+      body: 'No asset library yet. Blocks carry their own content until one exists.',
+    },
+    help: {
+      title: 'Help',
+      body: 'Component documentation lives in Storybook, next to the stories that prove each behaviour.',
+    },
   },
-  help: {
-    title: 'Help',
-    body: 'Component documentation lives in Storybook, next to the stories that prove each behaviour.',
+  ar: {
+    assets: {
+      title: 'الوسائط',
+      body: 'لا توجد مكتبة وسائط بعد. تحمل الكتل محتواها إلى أن توجد.',
+    },
+    help: {
+      title: 'المساعدة',
+      body: 'توثيق المكوّنات في Storybook، بجوار القصص التي تثبت سلوك كل مكوّن.',
+    },
   },
 };
 
-export function RailSectionNotice({ section }: { section: string }) {
-  const notice = NOTICE[section];
+export function RailSectionNotice({
+  section,
+  locale = 'en',
+}: {
+  section: string;
+  /** The editor's language (arabic-editor). */
+  locale?: 'en' | 'ar' | undefined;
+}) {
+  const notice = NOTICE[locale][section];
   if (notice === undefined) {
     return null;
   }

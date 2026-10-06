@@ -2,7 +2,11 @@ import '../section-layout.css';
 
 import type { ReactNode, SyntheticEvent } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import {
+  blockPartProps,
+  type BlockRenderProps,
+  type PartAttributes,
+} from '@craftkit/builder-schema';
 
 import { ALIGN_CLASSES, cx, sectionContentClasses, sectionShellClasses } from '../section-classes';
 import { sectionColorStyle } from '../section-color';
@@ -10,7 +14,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { FormSectionField, FormSectionProps } from './schema';
+import { formSectionSchema, type FormSectionField, type FormSectionProps } from './schema';
 
 const PANEL_CLASSES: Record<FormSectionProps['variant'], string> = {
   split:
@@ -50,6 +54,7 @@ function fieldControl(
   inputId: string,
   helperId: string | undefined,
   controlClassName: string,
+  optionPart: (optionIndex: number) => PartAttributes,
 ): ReactNode {
   if (field.type === 'textarea') {
     return (
@@ -77,13 +82,16 @@ function fieldControl(
         required={field.required}
         defaultValue=""
       >
+        {/*
+          The placeholder is an Inspector row, not a part: the empty option
+          shows it through its `label` attribute, so no field type renders a
+          placeholder as text.
+        */}
         {field.placeholder === undefined ? null : (
-          <option value="" disabled>
-            {field.placeholder}
-          </option>
+          <option value="" disabled label={field.placeholder} />
         )}
-        {field.options.map((option) => (
-          <option key={`${option.value}-${option.label}`} value={option.value}>
+        {field.options.map((option, optionIndex) => (
+          <option key={optionIndex} {...optionPart(optionIndex)} value={option.value}>
             {option.label}
           </option>
         ))}
@@ -127,6 +135,8 @@ function fieldControl(
 /** A configurable native form that stays inert in the canvas and publishable outside it. */
 export function FormSection({ node, props, isCanvas }: BlockRenderProps<FormSectionProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, formSectionSchema.parts);
   const successId = props.successHint === undefined ? undefined : `${node.id}-success-hint`;
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
@@ -161,24 +171,33 @@ export function FormSection({ node, props, isCanvas }: BlockRenderProps<FormSect
           <header className={cx(COPY_CLASSES[props.variant], ALIGN_CLASSES[props.align])}>
             <div className="flex min-w-0 flex-col gap-gap-sm">
               {props.eyebrow === undefined ? null : (
-                <p className="m-0 text-sm font-semibold tracking-wide text-accent uppercase">
+                <p
+                  {...part('eyebrow', {
+                    className: 'm-0 text-sm font-semibold tracking-wide text-accent uppercase',
+                  })}
+                >
                   {props.eyebrow}
                 </p>
               )}
               <h2
-                id={headingId}
-                className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+                {...part('heading', {
+                  id: headingId,
+                  className:
+                    'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+                })}
               >
                 {props.heading}
               </h2>
               {props.body === undefined ? null : (
                 <p
-                  className={cx(
-                    'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
-                    props.variant === 'split' || props.tone === 'dark'
-                      ? 'text-inherit opacity-80'
-                      : 'text-text-muted',
-                  )}
+                  {...part('body', {
+                    className: cx(
+                      'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
+                      props.variant === 'split' || props.tone === 'dark'
+                        ? 'text-inherit opacity-80'
+                        : 'text-text-muted',
+                    ),
+                  })}
                 >
                   {props.body}
                 </p>
@@ -186,31 +205,41 @@ export function FormSection({ node, props, isCanvas }: BlockRenderProps<FormSect
             </div>
 
             {props.footerNote === undefined || props.variant !== 'split' ? null : (
-              <p className="m-0 text-sm leading-relaxed text-inherit opacity-70">
+              <p
+                {...part('footerNote', {
+                  className: 'm-0 text-sm leading-relaxed text-inherit opacity-70',
+                })}
+              >
                 {props.footerNote}
               </p>
             )}
           </header>
 
           <form
-            className={FORM_CLASSES[props.variant]}
+            {...part('fields', { className: FORM_CLASSES[props.variant] })}
             action={props.action}
             method={props.method}
             onSubmit={isCanvas ? preventCanvasSubmission : undefined}
             aria-labelledby={headingId}
             aria-describedby={successId}
           >
-            {props.fields.map((field) => {
+            {props.fields.map((field, index) => {
               const inputId = `${node.id}-${field.id}`;
               const helperId = field.helper === undefined ? undefined : `${inputId}-helper`;
               const isCheckbox = field.type === 'checkbox';
+              const at = [index];
+              const optionPart = (optionIndex: number) =>
+                part('field.option', { index: [index, optionIndex] });
               return (
                 <div
                   key={field.id}
-                  className={cx(
-                    'flex min-w-0 flex-col gap-gap-xs text-start',
-                    field.width === 'full' ? '@md:col-span-2' : undefined,
-                  )}
+                  {...part('field', {
+                    index: at,
+                    className: cx(
+                      'flex min-w-0 flex-col gap-gap-xs text-start',
+                      field.width === 'full' ? '@md:col-span-2' : undefined,
+                    ),
+                  })}
                 >
                   <label
                     className={cx(
@@ -221,8 +250,10 @@ export function FormSection({ node, props, isCanvas }: BlockRenderProps<FormSect
                     )}
                     htmlFor={inputId}
                   >
-                    {isCheckbox ? fieldControl(field, inputId, helperId, controlClassName) : null}
-                    <span>
+                    {isCheckbox
+                      ? fieldControl(field, inputId, helperId, controlClassName, optionPart)
+                      : null}
+                    <span {...part('field.label', { index: at })}>
                       {field.label}
                       {field.required ? (
                         <span className="ms-1 text-accent" aria-hidden="true">
@@ -230,10 +261,18 @@ export function FormSection({ node, props, isCanvas }: BlockRenderProps<FormSect
                         </span>
                       ) : null}
                     </span>
-                    {isCheckbox ? null : fieldControl(field, inputId, helperId, controlClassName)}
+                    {isCheckbox
+                      ? null
+                      : fieldControl(field, inputId, helperId, controlClassName, optionPart)}
                   </label>
                   {field.helper === undefined ? null : (
-                    <p id={helperId} className="m-0 text-sm leading-relaxed text-text-muted">
+                    <p
+                      {...part('field.helper', {
+                        index: at,
+                        id: helperId,
+                        className: 'm-0 text-sm leading-relaxed text-text-muted',
+                      })}
+                    >
                       {field.helper}
                     </p>
                   )}
@@ -243,22 +282,35 @@ export function FormSection({ node, props, isCanvas }: BlockRenderProps<FormSect
 
             <div className="flex min-w-0 flex-col gap-gap-sm @md:col-span-2">
               <button
-                className={cx(
-                  'inline-flex min-h-12 items-center justify-center rounded-xl border px-control-inline-lg py-control-block-md font-semibold transition duration-300 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transform-none',
-                  props.buttonVariant === 'solid'
-                    ? 'border-accent bg-accent text-accent-text shadow-strong hover:shadow-elevated'
-                    : 'border-accent bg-transparent text-accent hover:bg-accent/10',
-                  props.buttonWidth === 'full' ? 'w-full' : 'self-start',
-                )}
+                {...part('submitLabel', {
+                  className: cx(
+                    'inline-flex min-h-12 items-center justify-center rounded-xl border px-control-inline-lg py-control-block-md font-semibold transition duration-300 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transform-none',
+                    props.buttonVariant === 'solid'
+                      ? 'border-accent bg-accent text-accent-text shadow-strong hover:shadow-elevated'
+                      : 'border-accent bg-transparent text-accent hover:bg-accent/10',
+                    props.buttonWidth === 'full' ? 'w-full' : 'self-start',
+                  ),
+                })}
                 type="submit"
               >
                 {props.submitLabel}
               </button>
               {props.footerNote === undefined || props.variant === 'split' ? null : (
-                <p className="m-0 text-sm leading-relaxed text-text-muted">{props.footerNote}</p>
+                <p
+                  {...part('footerNote', {
+                    className: 'm-0 text-sm leading-relaxed text-text-muted',
+                  })}
+                >
+                  {props.footerNote}
+                </p>
               )}
               {props.successHint === undefined ? null : (
-                <p id={successId} className="m-0 text-sm font-medium text-success">
+                <p
+                  {...part('successHint', {
+                    id: successId,
+                    className: 'm-0 text-sm font-medium text-success',
+                  })}
+                >
                   {props.successHint}
                 </p>
               )}

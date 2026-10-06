@@ -35,3 +35,15 @@ The same argument the Card makes. An alert whose body is a string holds a senten
 a sentence **and a link to the thing that fixes it**.
 
 <Canvas of={AlertStories.SeverityContract} />
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name    | kind | bind    | label (en / ar) |
+| ------- | ---- | ------- | --------------- |
+| `icon`  | box  | —       | Icon / الأيقونة |
+| `title` | text | `title` | Title / العنوان |

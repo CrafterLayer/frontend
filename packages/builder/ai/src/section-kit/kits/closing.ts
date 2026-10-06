@@ -65,7 +65,7 @@ export const CLOSING_KITS: readonly SectionKit[] = [
       <div class='mx-auto max-w-6xl px-4 md:px-8'>
         <div class='ck-accent-fill relative isolate overflow-hidden rounded-3xl px-6 py-16 text-center md:px-16 md:py-24'>
           {{#eyebrow}}<p class='font-semibold opacity-80'>{{eyebrow}}</p>{{/eyebrow}}
-          <h2 data-kit-heading class='ck-display mx-auto mt-3 max-w-3xl text-3xl font-bold leading-snug text-balance md:text-5xl'>{{title}}</h2>
+          <h2 data-kit-heading class='ck-display mx-auto mt-3 max-w-3xl text-3xl font-bold leading-snug text-balance break-words md:text-5xl'>{{title}}</h2>
           {{#lead}}<p class='mx-auto mt-4 max-w-xl text-lg leading-relaxed opacity-90'>{{lead}}</p>{{/lead}}
           ${ACTIONS_CENTER}
         </div>
@@ -81,7 +81,7 @@ export const CLOSING_KITS: readonly SectionKit[] = [
     slots: CTA_SLOTS,
     markup: `<section class='ck-ground py-16 md:py-20'>
       <div class='mx-auto grid max-w-6xl items-center gap-8 border-t ck-border px-4 pt-12 md:grid-cols-12 md:px-8'>
-        <div class='md:col-span-8'>${EYEBROW}<h2 data-kit-heading class='ck-display mt-2 text-3xl font-bold leading-snug text-balance md:text-4xl'>{{title}}</h2>{{#lead}}<p class='ck-muted mt-3 text-lg'>{{lead}}</p>{{/lead}}</div>
+        <div class='min-w-0 md:col-span-8'>${EYEBROW}<h2 data-kit-heading class='ck-display mt-2 text-3xl font-bold leading-snug text-balance break-words md:text-4xl'>{{title}}</h2>{{#lead}}<p class='ck-muted mt-3 text-lg'>{{lead}}</p>{{/lead}}</div>
         <div class='flex flex-wrap gap-3 md:col-span-4 md:justify-end'>${CTA_ARROW}${CTA2}</div>
       </div>
     </section>`,
@@ -94,10 +94,10 @@ export const CLOSING_KITS: readonly SectionKit[] = [
     slots: { ...CTA_SLOTS, image: image(true) },
     markup: `<section class='ck-ground py-16 md:py-24'>
       <div class='mx-auto max-w-6xl px-4 md:px-8'>
-        <div class='ck-inverse grid overflow-hidden rounded-3xl md:grid-cols-2'>
-          <div class='p-8 md:p-14'>
+        <div class='ck-inverse grid grid-cols-1 overflow-hidden rounded-3xl md:grid-cols-2'>
+          <div class='min-w-0 p-6 sm:p-8 md:p-14'>
             ${EYEBROW}
-            <h2 data-kit-heading class='ck-display mt-3 text-3xl font-bold leading-snug text-balance md:text-4xl'>{{title}}</h2>
+            <h2 data-kit-heading class='ck-display mt-3 text-3xl font-bold leading-snug text-balance break-words md:text-4xl'>{{title}}</h2>
             {{#lead}}<p class='ck-muted mt-4 text-lg leading-relaxed'>{{lead}}</p>{{/lead}}
             <div class='mt-8 flex flex-wrap gap-3'>${CTA_ARROW}${CTA2}</div>
           </div>

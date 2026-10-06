@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -25,6 +25,8 @@ function renderField(value: unknown = TREE, overrides: Partial<FieldProps> = {})
     ...overrides,
   };
   render(<CustomCodeTreeField {...props} />);
+  // The JSON source is advanced: it mounts only once the disclosure is opened.
+  fireEvent.click(screen.getByRole('button', { name: 'Edit source (advanced)' }));
   return { onChange, field: screen.getByRole('textbox', { name: 'Composition tree' }) };
 }
 
@@ -43,6 +45,31 @@ async function write(field: HTMLElement, json: string): Promise<void> {
 }
 
 describe('CustomCodeTreeField', () => {
+  // ── block-parts (2026-10-06) ──
+  it('shows no JSON until the person asks for the source, and says where to edit instead', () => {
+    render(<CustomCodeTreeField schema={z.unknown()} value={TREE} path={['props', 'tree']} onChange={vi.fn()} />);
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(document.body.textContent).not.toContain('"kind"');
+    expect(screen.getByText('2 elements.')).toBeInTheDocument();
+    expect(screen.getByText(/Click any element on the canvas/u)).toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: 'Edit source (advanced)' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('textbox', { name: 'Composition tree' })).toHaveAttribute('dir', 'ltr');
+  });
+
+  it('speaks Arabic inside an RTL panel', () => {
+    render(
+      <div dir="rtl">
+        <CustomCodeTreeField schema={z.unknown()} value={TREE} path={['props', 'tree']} onChange={vi.fn()} />
+      </div>,
+    );
+    expect(screen.getByRole('button', { name: 'تحرير المصدر (متقدّم)' })).toBeInTheDocument();
+    expect(screen.getByText(/انقر أي عنصر على اللوحة/u)).toBeInTheDocument();
+  });
+  // ── /block-parts ──
+
   it('shows the stored tree as formatted JSON', () => {
     expect(renderField().field).toHaveValue(JSON.stringify(TREE, null, 2));
   });

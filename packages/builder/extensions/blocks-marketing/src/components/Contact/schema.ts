@@ -68,14 +68,14 @@ export const contactSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     email: { tab: 'content', section: 'Contact details' },
     phone: { tab: 'content', section: 'Contact details' },
-    address: { tab: 'content', section: 'Contact details' },
+    address: { tab: 'content', section: 'Contact details', kind: 'multiline' },
     availability: { tab: 'content', section: 'Contact details' },
     showForm: { tab: 'content', section: 'Form' },
     formTitle: { tab: 'content', section: 'Form' },
-    formBody: { tab: 'content', section: 'Form' },
+    formBody: { tab: 'content', section: 'Form', kind: 'multiline' },
     nameLabel: { tab: 'content', section: 'Form labels' },
     emailLabel: { tab: 'content', section: 'Form labels' },
     messageLabel: { tab: 'content', section: 'Form labels' },
@@ -94,6 +94,96 @@ export const contactSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    every contact detail, the availability note, and the form's title, text,
+    field labels and submit button. The email and phone links derive their
+    `mailto:`/`tel:` address from the committed text only, so an inline
+    editor never reaches an attribute.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    email: {
+      kind: 'text',
+      bind: 'email',
+      label: { en: 'Email address', ar: 'البريد الإلكتروني' },
+      aliases: ['email', 'mail', 'e-mail', 'بريد', 'الإيميل'],
+    },
+    phone: {
+      kind: 'text',
+      bind: 'phone',
+      label: { en: 'Phone number', ar: 'رقم الهاتف' },
+      aliases: ['phone', 'telephone', 'number', 'هاتف', 'الهاتف', 'الجوال'],
+    },
+    address: {
+      kind: 'text',
+      bind: 'address',
+      label: { en: 'Address', ar: 'العنوان البريدي' },
+      aliases: ['address', 'location', 'office', 'الموقع', 'المكتب'],
+      multiline: true,
+    },
+    availability: {
+      kind: 'text',
+      bind: 'availability',
+      label: { en: 'Availability', ar: 'التوفر' },
+      aliases: ['availability', 'status', 'hours', 'response time', 'التوفر', 'الحالة'],
+    },
+    formTitle: {
+      kind: 'text',
+      bind: 'formTitle',
+      label: { en: 'Form title', ar: 'عنوان النموذج' },
+      aliases: ['form title', 'form heading', 'h3', 'عنوان النموذج'],
+    },
+    formBody: {
+      kind: 'text',
+      bind: 'formBody',
+      label: { en: 'Form text', ar: 'نص النموذج' },
+      aliases: ['form text', 'form description', 'وصف النموذج'],
+      multiline: true,
+    },
+    nameLabel: {
+      kind: 'text',
+      bind: 'nameLabel',
+      label: { en: 'Name field label', ar: 'تسمية حقل الاسم' },
+      aliases: ['name label', 'name field', 'حقل الاسم'],
+    },
+    emailLabel: {
+      kind: 'text',
+      bind: 'emailLabel',
+      label: { en: 'Email field label', ar: 'تسمية حقل البريد' },
+      aliases: ['email label', 'email field', 'حقل البريد'],
+    },
+    messageLabel: {
+      kind: 'text',
+      bind: 'messageLabel',
+      label: { en: 'Message field label', ar: 'تسمية حقل الرسالة' },
+      aliases: ['message label', 'message field', 'حقل الرسالة'],
+    },
+    submitLabel: {
+      kind: 'text',
+      bind: 'submitLabel',
+      label: { en: 'Submit button', ar: 'زر الإرسال' },
+      aliases: ['submit', 'button', 'send', 'زر', 'الزر', 'إرسال'],
+    },
+  },
   examples: contactExamples,
 });
 

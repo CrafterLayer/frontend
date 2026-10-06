@@ -47,6 +47,9 @@ import {
   createMemoryStyleClipboard,
   performElementAction,
   resolveElementActions,
+  // ── block-parts (2026-10-06) ──
+  type ElementAction,
+  // ── /block-parts ──
   type ElementActionId,
   type StyleClipboard,
 } from '../../overlay/element-actions';
@@ -83,6 +86,7 @@ import {
   type ElementQuickBarLabels,
   type NamedStyleChoice,
 } from '../ElementQuickBar';
+import { COLOR_ROLE_NAMES_AR } from '../DesignSystemPanel/DesignSystemPanel.labels';
 import {
   bucketForBreakpoint,
   elementDomOf,
@@ -92,6 +96,7 @@ import {
 import { performMoveAction, resolveMoveAction } from '../../keyboard/move-actions';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { customCodeElementName } from '../../naming/custom-code-element-name';
+import { EDITOR_CANVAS_LABELS_EN, type EditorCanvasLabels } from './EditorCanvas.labels';
 import {
   parentOf,
   resolveTraversalAction,
@@ -103,9 +108,20 @@ import { performBlockAction, resolveBlockActions } from '../../overlay/block-act
 import { createDragSession, type DragSession } from '../../overlay/drag-session';
 import { createFloatingHost, type FloatingHostPorts } from '../../overlay/floating-host';
 import { createFrameBridge } from '../../overlay/frame-bridge';
+// ── block-parts (2026-10-06) ── the docked formatting bar
+import {
+  RICH_TEXT_ACTION_LABELS_AR,
+  RICH_TEXT_ACTION_LABELS_EN,
+  localizeRichActions,
+  measureInlineDock,
+  withDockFallback,
+  type RichTextActionLabels,
+} from '../../overlay/inline-dock-anchor';
+// ── /block-parts ──
 import {
   createInlineSession,
   inlineTargetOf,
+  partInlineTargetOf,
   type InlineSession,
 } from '../../overlay/inline-session';
 import { BlockActionBar } from '../BlockActionBar';
@@ -120,6 +136,37 @@ import {
   type GeometryPorts,
   type RectIndex,
 } from '../../rects';
+// ── block-parts (2026-10-06) ──
+import { PART_OWNER_ATTRIBUTE, getAtPropPath, parsePropPath, type PartRef } from '@craftkit/builder-schema';
+
+import { beginInPlaceTextEdit, type InPlaceTextEdit } from '../../overlay/in-place-text-edit';
+import { partInlineCommit } from '../../overlay/part-inline';
+import { cancelCanvasActivation } from './canvas-activation-guard';
+import {
+  enclosingItemRef,
+  firstPart,
+  firstPartInside,
+  partChipLabel,
+  partDeclOf,
+  partInstanceName,
+  partsOfNode,
+  partTarget,
+  steppedPart,
+  type PartTarget,
+} from '../../overlay/part-target';
+import {
+  createPartBarModel,
+  dispatchPartPlan,
+  partStringValue,
+  performPartAction,
+  planPartLinkValue,
+  quickGroupsForPart,
+  resolvePartActions,
+  PART_QUICK_BAR_LABELS_EN,
+  type PartActionId,
+  type PartLinkPage,
+} from '../ElementQuickBar';
+// ── /block-parts ──
 import '../../styles/visually-hidden.css';
 import './EditorCanvas.css';
 
@@ -212,10 +259,17 @@ export interface EditorCanvasProps {
   quickBarLabels?: ElementQuickBarLabels | undefined;
   /** Text-bubble labels for formatting tree text. */
   treeTextLabels?: TreeTextActionLabels | undefined;
+  /**
+   * Labels for the rich inline editor's formatting bar, by action id. Default:
+   * the `canvasLabels` locale's set (Arabic for an Arabic canvas).
+   */
+  richTextLabels?: RichTextActionLabels | undefined;
   /** Element names in labels and announcements. */
   elementNameWords?: ElementNameWords | undefined;
   /** The EDITOR UI direction (roving arrows in the quick bar). Default `ltr`. */
   editorDir?: 'ltr' | 'rtl' | undefined;
+  /** The canvas's announcements in the editor's language (arabic-editor); English by default. */
+  canvasLabels?: EditorCanvasLabels | undefined;
   /** Test-only geometry for tree drops (jsdom has no layout). */
   treeDropPorts?: Partial<TreeDropPorts> | undefined;
   /**
@@ -223,6 +277,20 @@ export interface EditorCanvasProps {
    * its quick bar, which writes the instance's overrides (fix pass, §G).
    */
   symbolTree?: ((symbolId: string) => CustomCodeRoot | undefined) | undefined;
+  // ── block-parts (2026-10-06) ──
+  /**
+   * An image PART of a registered block was double-clicked, or its quick bar
+   * asked to replace it: the host opens its asset picker, then writes the
+   * chosen asset with `planPartValue('src' / 'alt')`. Absent ⇒ Replace is disabled.
+   */
+  onReplacePartImage?: ((target: PartTarget) => void) | undefined;
+  /** A part's quick bar "More": open the side panel's part Design tab at this sector. */
+  onOpenPartStyle?: ((sector: StyleSectorId, target: PartTarget) => void) | undefined;
+  /** A part's quick bar "Edit with AI": prefill the composer with the part's address. Absent ⇒ no sparkle. */
+  onEditWithAiPart?: ((target: PartTarget) => void) | undefined;
+  /** The site's pages, offered by a link part's address picker. */
+  linkPages?: readonly PartLinkPage[] | undefined;
+  // ── /block-parts ──
 }
 
 /**
@@ -439,6 +507,27 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(EDITABLE_TARGET_SELECTOR) !== null;
 }
 
+// ── block-parts (2026-10-06) ──
+/** A part's bar has no element actions; its own row comes from `resolvePartActions`. */
+const NO_ELEMENT_ACTIONS: readonly ElementAction[] = [];
+const ignoreElementAction = (): void => undefined;
+
+/** The anchor path that means "the focused part" (no authored element path is negative). */
+const PART_ANCHOR_PATH = [-1] as const;
+
+/** What the floating bars anchor to: the focused element's path, the part sentinel, or the block. */
+function anchorPathOf(
+  state: ReturnType<BuilderKernel['context']['store']['getState']>,
+  selected: NodeId | null,
+): readonly number[] | null {
+  const focus = state.elementFocus;
+  if (focus !== null && focus.id === selected) return focus.path;
+  const partFocus = state.partFocus ?? null;
+  if (partFocus !== null && partFocus.id === selected) return PART_ANCHOR_PATH;
+  return null;
+}
+// ── /block-parts ──
+
 export function EditorCanvas({
   kernel,
   theme,
@@ -469,11 +558,26 @@ export function EditorCanvas({
   namedStyleClasses,
   quickBarLabels = ELEMENT_QUICK_BAR_LABELS_EN,
   treeTextLabels = TREE_TEXT_ACTION_LABELS_EN,
+  richTextLabels,
   elementNameWords = ELEMENT_NAME_WORDS_EN,
   editorDir = 'ltr',
+  canvasLabels = EDITOR_CANVAS_LABELS_EN,
   treeDropPorts,
   symbolTree,
+  // ── block-parts (2026-10-06) ──
+  onReplacePartImage,
+  onOpenPartStyle,
+  onEditWithAiPart,
+  linkPages,
+  // ── /block-parts ──
 }: EditorCanvasProps) {
+  // Read by imperative chrome (chips, gesture announcements) without re-creating it.
+  const canvasLabelsRef = useRef(canvasLabels);
+  const wordsRef = useRef(elementNameWords);
+  useEffect(() => {
+    canvasLabelsRef.current = canvasLabels;
+    wordsRef.current = elementNameWords;
+  }, [canvasLabels, elementNameWords]);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const frameShellRef = useRef<HTMLDivElement | null>(null);
   const layerRef = useRef<HTMLDivElement | null>(null);
@@ -645,7 +749,78 @@ export function EditorCanvas({
     [kernel],
   );
 
-  const beginInlineEdit = useCallback((nodeId: NodeId, entry: InlineEditEntryIntent): boolean => {
+  // ── block-parts (2026-10-06) ──
+  /**
+   * Typing in place on a part a PARENT draws for this node (a tab trigger,
+   * `data-ck-part-owner`). The node's own render never draws that text, so
+   * the inline-edit seam cannot swap an editor into it; the drawn element is
+   * edited where it is instead (in-place-text-edit.ts), and the commit takes
+   * the part planner's door: ONE labelled transaction, one Undo.
+   */
+  const forwardedEditRef = useRef<InPlaceTextEdit | null>(null);
+  const beginForwardedPartText = useCallback(
+    (nodeId: NodeId, part: PartRef): boolean => {
+      const element = machineryRef.current?.index.partElement?.(nodeId, part) ?? null;
+      const target = partInlineTargetOf(kernel, nodeId, part);
+      const node = kernel.getDocument().nodes[nodeId];
+      if (element === null || target?.kind !== 'text' || node === undefined) {
+        return false;
+      }
+      const stored = getAtPropPath(node.props, parsePropPath(target.bind));
+      if (typeof stored !== 'string') {
+        return false;
+      }
+      treeSessionRef.current?.commit();
+      sessionRef.current?.end();
+      forwardedEditRef.current?.commit();
+      const session: InlineSession = { nodeId, ...target };
+      const name = partInstanceName(kernel, nodeId, part, canvasLabelsRef.current.locale ?? 'en');
+      const opened: InPlaceTextEdit = beginInPlaceTextEdit({
+        element,
+        storedText: stored,
+        singleLine: target.singleLine,
+        label: name,
+        onCommit: (text) => {
+          const result = partInlineCommit(kernel, session, text);
+          return result.ok ? { ok: true } : { ok: false, message: result.message };
+        },
+        onEnd: (outcome, exit, message) => {
+          if (forwardedEditRef.current === opened) {
+            forwardedEditRef.current = null;
+          }
+          layerRef.current?.classList.remove('bldr-overlay--tree-editing');
+          machineryRef.current?.anchors.refresh();
+          if (outcome === 'rejected' && message !== undefined) {
+            announceGestureRef.current(message);
+          }
+          if (exit === 'keyboard') {
+            hostRef.current?.focus({ preventScroll: true });
+          }
+        },
+      });
+      forwardedEditRef.current = opened;
+      layerRef.current?.classList.add('bldr-overlay--tree-editing');
+      machineryRef.current?.anchors.refresh();
+      announceGestureRef.current(canvasLabelsRef.current.editing(name));
+      return true;
+    },
+    [kernel],
+  );
+  // Any other write while the trigger is open (an agent, Undo) ends the edit
+  // FIRST, so React's own nodes are back before it reconciles them; unmount
+  // keeps what was typed.
+  useEffect(() => {
+    const off = kernel.context.events.on('tx.applied', () => {
+      forwardedEditRef.current?.commit();
+    });
+    return () => {
+      off();
+      forwardedEditRef.current?.commit();
+    };
+  }, [kernel]);
+  // `part`: open that part's bound value instead of `inlineEditable`.
+  const beginInlineEdit = useCallback((nodeId: NodeId, entry: InlineEditEntryIntent, part?: PartRef): boolean => {
+    // ── /block-parts ──
     const handle = sessionRef.current;
     if (handle === null) {
       return false;
@@ -662,17 +837,30 @@ export function EditorCanvas({
     returnFocusToEditorRef.current = null;
     textMeasureRef.current = null;
     machineryRef.current?.anchors.setText(null);
-    const opened = handle.begin(nodeId);
+    // ── block-parts (2026-10-06) ──
+    // A part a parent draws for this node (a tab trigger, `data-ck-part-owner`)
+    // is not rendered by this node, so the swap seam cannot reach it: it is
+    // typed in place on the drawn element instead.
+    const forwarded =
+      part === undefined
+        ? false
+        : machineryRef.current?.index.partElement?.(nodeId, part)?.hasAttribute(PART_OWNER_ATTRIBUTE) === true;
+    if (forwarded && part !== undefined) {
+      setInlineEntryPoint(null);
+      return beginForwardedPartText(nodeId, part);
+    }
+    const opened = part === undefined ? handle.begin(nodeId) : handle.begin(nodeId, part);
+    // ── /block-parts ──
     if (!opened) {
       setInlineEntryPoint(null);
     }
     return opened;
-  }, []);
+  }, [beginForwardedPartText]);
 
   const reportTextAnchor = useCallback(
     (report: InlineSelectionAnchorReport | null) => {
       const session = sessionRef.current?.current() ?? null;
-      const measure =
+      const selectionMeasure =
         report === null || session === null
           ? null
           : isInlineSelectionAnchorSource(report)
@@ -686,6 +874,16 @@ export function EditorCanvas({
                   ? null
                   : measureTextSelection(frameDocument, editedElement);
               };
+      // ── block-parts (2026-10-06) ──
+      // A RICH session keeps its formatting bar beside the editor: over the
+      // selection when there is one, docked at the editing surface otherwise.
+      const measure =
+        session?.kind !== 'rich'
+          ? selectionMeasure
+          : withDockFallback(selectionMeasure, () =>
+              measureInlineDock(elementsRef.current.get(session.nodeId)),
+            );
+      // ── /block-parts ──
       textMeasureRef.current = measure;
       machineryRef.current?.anchors.setText(measure);
     },
@@ -699,9 +897,16 @@ export function EditorCanvas({
   const suppressClickRef = useRef(false);
   const onDragHandleRef = useRef(onDragHandle);
   const onToolErrorRef = useRef(onToolError);
+  // ── block-parts (2026-10-06) ──
+  // Read by the frame listeners, which must not re-subscribe per host render.
+  const onReplacePartImageRef = useRef(onReplacePartImage);
+  // ── /block-parts ──
   useEffect(() => {
     onDragHandleRef.current = onDragHandle;
     onToolErrorRef.current = onToolError;
+    // ── block-parts (2026-10-06) ──
+    onReplacePartImageRef.current = onReplacePartImage;
+    // ── /block-parts ──
   });
 
   /**
@@ -727,7 +932,7 @@ export function EditorCanvas({
       // One editing surface at a time: a block's open inline session ends.
       sessionRef.current?.end();
       const frameDocument = element.ownerDocument;
-      const name = customCodeElementName(located.element);
+      const name = customCodeElementName(located.element, wordsRef.current);
       const stored = located.element.kind === 'element' ? (located.element.text ?? '') : '';
       const opened: TreeTextSession = beginTreeTextEdit({
         kernel,
@@ -765,7 +970,7 @@ export function EditorCanvas({
       setTreeSession(opened);
       layerRef.current?.classList.add('bldr-overlay--tree-editing');
       machineryRef.current?.anchors.refresh();
-      announceGestureRef.current(`Editing ${name}`);
+      announceGestureRef.current(canvasLabelsRef.current.editing(name));
       return true;
     },
     [kernel, editable],
@@ -883,6 +1088,11 @@ export function EditorCanvas({
       index,
       layer,
       schedule: ports.schedule,
+      words: () => wordsRef.current,
+      // ── block-parts (2026-10-06) ──
+      partLabel: (id, ref) =>
+        partChipLabel(kernel, id, ref, canvasLabelsRef.current.locale ?? 'en', wordsRef.current),
+      // ── /block-parts ──
     });
     const tools = createToolHost({ kernel, index, layer, onToolError });
     tools.start();
@@ -916,6 +1126,9 @@ export function EditorCanvas({
       className: 'bldr-floating--element',
       align: 'start',
       prefer: 'above',
+      // ── block-parts (2026-10-06) ── the bar never covers the part it edits
+      keepClear: true,
+      // ── /block-parts ──
       ...(floatingPorts === undefined ? {} : { ports: floatingPorts }),
     });
 
@@ -966,8 +1179,24 @@ export function EditorCanvas({
       }
     };
 
+    // ── block-parts (2026-10-06) ──
+    // The floating bars anchor to a focused PART the way they anchor to a
+    // focused element: the channel asks `elementRect` for the anchor path, and
+    // the part sentinel path answers with the part's own rect (falling back
+    // to the block's when the instance is gone).
+    const anchorIndex: RectIndex = {
+      ...index,
+      elementRect: (id, path) => {
+        const partFocus = kernel.context.store.getState().partFocus ?? null;
+        if (path.length === 1 && path[0] === PART_ANCHOR_PATH[0]) {
+          return partFocus !== null && partFocus.id === id ? index.partRect?.(id, partFocus) : undefined;
+        }
+        return index.elementRect?.(id, path);
+      },
+    };
+    // ── /block-parts ──
     const anchors = createAnchorChannel({
-      index,
+      index: anchorIndex,
       bridge,
       schedule: ports.schedule,
       onSnapshot: (snapshot) => {
@@ -1027,8 +1256,9 @@ export function EditorCanvas({
       // Same law for the action bar: its anchor follows the selection, and a
       // node that vanished has no rect, so the bar hides instead of stranding.
       // With an element focused the anchor is the ELEMENT (P7 quick bar).
-      const focus = state.elementFocus;
-      anchors.setBlock(selected, focus !== null && focus.id === selected ? focus.path : null);
+      // ── block-parts (2026-10-06) ── …and with a part focused, the PART.
+      anchors.setBlock(selected, anchorPathOf(state, selected));
+      // ── /block-parts ──
       // An edit can move an element without resizing any observed block;
       // one batched flush re-reads the element chrome either way.
       anchors.refresh();
@@ -1036,8 +1266,9 @@ export function EditorCanvas({
     {
       const state = kernel.context.store.getState();
       const selected = state.selection[0] ?? null;
-      const focus = state.elementFocus;
-      anchors.setBlock(selected, focus !== null && focus.id === selected ? focus.path : null);
+      // ── block-parts (2026-10-06) ──
+      anchors.setBlock(selected, anchorPathOf(state, selected));
+      // ── /block-parts ──
     }
 
     // What is under the pointer: the node, and — inside a composed region —
@@ -1155,7 +1386,9 @@ export function EditorCanvas({
       // Locked elements pass the pointer to their parent (DESIGN §E Layers lock).
       const hoverPath =
         hit?.elementPath === undefined ? undefined : unlockedPath(kernel, hit.nodeId, hit.elementPath);
-      controller.setHover(hit?.nodeId ?? null, hoverPath);
+      // ── block-parts (2026-10-06) ── outside authored elements, the part under the pointer
+      controller.setHover(hit?.nodeId ?? null, hoverPath, hoverPath === undefined ? hit?.part : undefined);
+      // ── /block-parts ──
       tools.notifyHover(hit?.nodeId ?? null);
     };
     const onPointerUp = () => {
@@ -1183,6 +1416,9 @@ export function EditorCanvas({
       tools.notifyHover(null);
     };
     const onClick = (event: MouseEvent) => {
+      // ── block-parts (2026-10-06) ── a link or submit in a block selects, never navigates
+      cancelCanvasActivation(event);
+      // ── /block-parts ──
       if (suppressClickRef.current) {
         suppressClickRef.current = false;
         return; // a completed drop already set the selection
@@ -1199,6 +1435,12 @@ export function EditorCanvas({
         hit?.elementPath === undefined ? undefined : unlockedPath(kernel, hit.nodeId, hit.elementPath);
       if (hit === undefined) {
         kernel.setSelection([]);
+      // ── block-parts (2026-10-06) ──
+      } else if (path === undefined && hit.part !== undefined && !event.shiftKey) {
+        // A registered block's part, the GrapesJS way: the click means the
+        // heading (or the third card's title), and it selects its block too.
+        kernel.focusPart(hit.nodeId, { part: hit.part.part, index: hit.part.index });
+      // ── /block-parts ──
       } else if (path === undefined) {
         kernel.setSelection([hit.nodeId]);
       } else if (event.shiftKey && selectionStoreRef.current !== null) {
@@ -1371,6 +1613,47 @@ export function EditorCanvas({
     machineryRef.current?.anchors.refresh();
   }, [normalizedZoom]);
 
+  /*
+    A new screen size keeps the selection — and keeps it IN VIEW. At a narrower
+    frame the page reflows taller, so the element a person picked on desktop
+    sat thousands of pixels below the fold on mobile: the outline and quick
+    bar hid with it, and the selection read as lost (final test, 2026-10-06).
+    Only a width change scrolls; the first render never does.
+  */
+  const sizedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const key = `${String(frameWidth)}:${breakpoint ?? 'desktop'}`;
+    const previous = sizedFor.current;
+    sizedFor.current = key;
+    if (previous === null || previous === key || frame === null) return undefined;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      // Two frames: the breakpoint's re-render lands, then its layout settles.
+      second = requestAnimationFrame(() => {
+        const machinery = machineryRef.current;
+        const state = kernel.context.store.getState();
+        const focus = state.elementFocus;
+        const selected = state.selection[0];
+        const element =
+          focus !== null && machinery !== null
+            ? elementDomOf(machinery.index, focus.id, focus.path)
+            : selected === undefined
+              ? null
+              : (elementsRef.current.get(selected) ?? null);
+        try {
+          element?.scrollIntoView({ block: 'center', inline: 'nearest' });
+        } catch {
+          // A document without layout (jsdom) has nothing to scroll.
+        }
+        machinery?.anchors.refresh();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [frameWidth, breakpoint, frame, kernel]);
+
   // ── P7 element chrome wiring ──────────────────────────────────────────────
 
   // A private multi-selection store when the host shares none.
@@ -1447,7 +1730,15 @@ export function EditorCanvas({
     machineryRef.current?.anchors.setText(null);
   }, [inlineSession]);
 
-  const visibleTextActions = inlineSession === null ? NO_ACTIONS : textActions;
+  // ── block-parts (2026-10-06) ── the editor's actions in the editor's language
+  const richLabels =
+    richTextLabels ??
+    (canvasLabels.locale === 'ar' ? RICH_TEXT_ACTION_LABELS_AR : RICH_TEXT_ACTION_LABELS_EN);
+  const visibleTextActions = useMemo(
+    () => (inlineSession === null ? NO_ACTIONS : localizeRichActions(textActions, richLabels)),
+    [inlineSession, textActions, richLabels],
+  );
+  // ── /block-parts ──
 
   useEffect(() => {
     if (inlineSession === null || visibleTextActions.length === 0) {
@@ -1534,6 +1825,13 @@ export function EditorCanvas({
         kernel.clearElementFocus();
         return true;
       }
+      // ── block-parts (2026-10-06) ──
+      // …and out of a part the same way: the block stays selected.
+      if (key === 'Escape' && (kernel.context.store.getState().partFocus ?? null) !== null) {
+        kernel.clearPartFocus();
+        return true;
+      }
+      // ── /block-parts ──
       // After foreground chrome and inline editing have had their own first
       // chance, Escape climbs exactly one document level before it clears.
       if (key === 'Escape') {
@@ -1630,6 +1928,173 @@ export function EditorCanvas({
     [kernel, beginInlineEdit, endInlineEditFromKeyboard],
   );
 
+  // ── block-parts (2026-10-06) ──
+  // Part gestures (block-parts DESIGN §2.7). The words are read through refs:
+  // these handlers live on the frame document and must not re-subscribe.
+  const partWordsRef = useRef(quickBarLabels.parts ?? PART_QUICK_BAR_LABELS_EN);
+  const partScopeRef = useRef<'all' | 'this'>('all');
+  useEffect(() => {
+    partWordsRef.current = quickBarLabels.parts ?? PART_QUICK_BAR_LABELS_EN;
+  }, [quickBarLabels]);
+
+  /**
+   * Open what a part IS: a text, rich or link part opens its inline editor at
+   * the part's bind; an image part asks the host for its asset picker. The
+   * part is focused first, so the session and the focus name the same thing.
+   * False when nothing opened (a read-only canvas, no picker, a list or box).
+   */
+  const activatePart = useCallback(
+    (nodeId: NodeId, ref: PartRef, entry: InlineEditEntryIntent): boolean => {
+      const decl = partDeclOf(kernel, nodeId, ref.part);
+      if (decl === undefined) {
+        return false;
+      }
+      const focus = kernel.context.store.getState().partFocus;
+      if (
+        focus?.id !== nodeId ||
+        focus.part !== ref.part ||
+        focus.index.join('.') !== ref.index.join('.')
+      ) {
+        kernel.focusPart(nodeId, ref);
+      }
+      const labels = canvasLabelsRef.current;
+      const name = partInstanceName(kernel, nodeId, ref, labels.locale ?? 'en');
+      if (decl.kind === 'image') {
+        const replace = onReplacePartImageRef.current;
+        if (replace === undefined || !editable) {
+          announceGestureRef.current(labels.partNotEditable?.(name) ?? labels.editingUnavailable);
+          return false;
+        }
+        replace(partTarget(nodeId, ref));
+        return true;
+      }
+      if ((decl.kind !== 'text' && decl.kind !== 'rich' && decl.kind !== 'link') || !editable) {
+        return false;
+      }
+      const opened = beginInlineEdit(nodeId, entry, ref);
+      announceGestureRef.current(opened ? labels.editing(name) : labels.editingUnavailable);
+      return opened;
+    },
+    [kernel, editable, beginInlineEdit],
+  );
+
+  /**
+   * Keys with a part focused, claimed BEFORE the block's inline Enter and
+   * before traversal: Enter opens the part (or steps into a list or item),
+   * Shift+Enter steps out to the enclosing item, list or block, Delete removes
+   * a focused item, Alt+↑/↓ move the item the part lives in, Tab/Shift+Tab
+   * walk the block's parts in document order (and leave the canvas at either
+   * end — never a keyboard trap), Alt+F10 enters the quick bar. An open
+   * inline edit owns every key.
+   */
+  const handlePartKey = useCallback(
+    (event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'altKey' | 'ctrlKey' | 'metaKey'>): boolean => {
+      const state = kernel.context.store.getState();
+      const focus = state.partFocus;
+      const selected = state.selection[0];
+      if (sessionRef.current?.current() != null || selected === undefined) {
+        return false;
+      }
+      if (focus?.id !== selected) {
+        // A selected block that declares parts but no inline text: Enter steps
+        // INTO its first part, the keyboard way to reach the heading.
+        if (
+          event.key !== 'Enter' ||
+          event.shiftKey ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          inlineTargetOf(kernel, selected) !== null
+        ) {
+          return false;
+        }
+        const first = firstPart(kernel, selected);
+        if (first === undefined) {
+          return false;
+        }
+        kernel.focusPart(selected, first);
+        return true;
+      }
+      if (event.ctrlKey || event.metaKey) {
+        return false;
+      }
+      if (event.key === 'F10' && event.altKey) {
+        setQuickFocusRequest((current) => current + 1);
+        return true;
+      }
+      const nodeId = focus.id;
+      const ref: PartRef = { part: focus.part, index: [...focus.index] };
+      const parts = partsOfNode(kernel, nodeId);
+      const decl = parts[ref.part];
+      if (decl === undefined) {
+        return false;
+      }
+      const context = {
+        scope: partScopeRef.current,
+        locale: canvasLabelsRef.current.locale ?? 'en',
+        words: partWordsRef.current,
+        nameWords: wordsRef.current,
+        editable,
+      } as const;
+      const run = (id: PartActionId) => {
+        announceGestureRef.current(performPartAction(kernel, partTarget(nodeId, ref), id, context).announcement);
+      };
+      const stepPart = (step: 1 | -1): boolean => {
+        const next = steppedPart(kernel, nodeId, ref, step);
+        if (next === undefined) {
+          return false; // the native Tab leaves the canvas
+        }
+        kernel.focusPart(nodeId, next);
+        return true;
+      };
+      if (event.key === 'Enter' && !event.altKey) {
+        if (event.shiftKey) {
+          // Out one level: a part inside a card → the card; a card → its list.
+          const item = enclosingItemRef(parts, ref);
+          const listName = decl.kind === 'item' ? decl.list : undefined;
+          if (item !== undefined && item.part !== ref.part) {
+            kernel.focusPart(nodeId, item);
+          } else if (listName !== undefined && parts[listName] !== undefined) {
+            kernel.focusPart(nodeId, { part: listName, index: ref.index.slice(0, -1) });
+          } else {
+            kernel.clearPartFocus();
+          }
+          return true;
+        }
+        if (activatePart(nodeId, ref, { kind: 'keyboard' })) {
+          return true;
+        }
+        // A list or an item steps INTO its first part — the keyboard way down.
+        const inside = firstPartInside(kernel, nodeId, ref);
+        if (inside !== undefined) {
+          kernel.focusPart(nodeId, inside);
+          return true;
+        }
+        return decl.kind === 'image';
+      }
+      if (!editable) {
+        return event.key === 'Tab' && !event.altKey ? stepPart(event.shiftKey ? -1 : 1) : false;
+      }
+      if ((event.key === 'Delete' || event.key === 'Backspace') && !event.altKey && decl.kind === 'item') {
+        run('remove');
+        return true;
+      }
+      if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        if (enclosingItemRef(parts, ref) === undefined) {
+          return false;
+        }
+        run(event.key === 'ArrowUp' ? 'moveUp' : 'moveDown');
+        return true;
+      }
+      if (event.key === 'Tab' && !event.altKey) {
+        return stepPart(event.shiftKey ? -1 : 1);
+      }
+      return false;
+    },
+    [kernel, editable, activatePart],
+  );
+  // ── /block-parts ──
+
   useEffect(() => {
     const frameDocument = frame?.contentDocument ?? null;
     /* v8 ignore next 3 -- same-origin frames always expose a document. */
@@ -1665,6 +2130,12 @@ export function EditorCanvas({
         event.preventDefault();
         return;
       }
+      // ── block-parts (2026-10-06) ──
+      if (handlePartKey(event)) {
+        event.preventDefault();
+        return;
+      }
+      // ── /block-parts ──
       if (handleInlineKey(event.key)) {
         event.preventDefault();
         return;
@@ -1702,6 +2173,22 @@ export function EditorCanvas({
         // inline edit would be the wrong surface for what was double-clicked.
         return;
       }
+      // ── block-parts (2026-10-06) ──
+      // A part of a registered block: its own text opens in place (or its
+      // image opens the asset picker). A list, item or box part falls through
+      // to the block's declared inline edit, as before.
+      const partHit = elementHit?.elementPath === undefined ? elementHit?.part : undefined;
+      if (elementHit !== undefined && partHit !== undefined) {
+        const ref = { part: partHit.part, index: partHit.index };
+        const kind = partDeclOf(kernel, elementHit.nodeId, ref.part)?.kind;
+        if (kind === 'text' || kind === 'rich' || kind === 'link' || kind === 'image') {
+          if (activatePart(elementHit.nodeId, ref, { kind: 'pointer', clientX: event.clientX, clientY: event.clientY })) {
+            event.preventDefault();
+          }
+          return;
+        }
+      }
+      // ── /block-parts ──
       const hit = machinery.index.nodeAt(event.clientX, event.clientY);
       if (
         hit !== undefined &&
@@ -1730,6 +2217,10 @@ export function EditorCanvas({
     handleElementKey,
     beginInlineEdit,
     beginTreeTextEditing,
+    // ── block-parts (2026-10-06) ──
+    handlePartKey,
+    activatePart,
+    // ── /block-parts ──
   ]);
 
   const onKeyDown = useCallback(
@@ -1779,6 +2270,12 @@ export function EditorCanvas({
         event.preventDefault();
         return;
       }
+      // ── block-parts (2026-10-06) ──
+      if (handlePartKey(event)) {
+        event.preventDefault();
+        return;
+      }
+      // ── /block-parts ──
       if (handleInlineKey(event.key)) {
         event.preventDefault();
         return;
@@ -1787,7 +2284,8 @@ export function EditorCanvas({
         event.preventDefault();
       }
     },
-    [handleTraversalKey, handleInlineKey, handleElementKey],
+    // ── block-parts (2026-10-06) ── + handlePartKey
+    [handleTraversalKey, handleInlineKey, handleElementKey, handlePartKey],
   );
 
   const onHostClick = useCallback(
@@ -1822,7 +2320,32 @@ export function EditorCanvas({
       return null;
     }
     const { nodeId, propKey, kind } = inlineSession;
+    // ── block-parts (2026-10-06) ──
+    // A PART session edits a nested bound value: NodeView swaps the editor in
+    // at `bind`, the surface is named after the part, and the commit goes
+    // through the part planner as ONE labelled transaction (one Undo).
+    const session = inlineSession;
+    const bind = session.bind;
+    const part = session.part;
+    const label =
+      bind === undefined || part === undefined
+        ? propKey
+        : partInstanceName(kernel, nodeId, part, canvasLabels.locale ?? 'en');
+    const singleLine = session.singleLine ?? true;
+    // ── /block-parts ──
     const commit = (next: unknown) => {
+      // ── block-parts (2026-10-06) ──
+      if (bind !== undefined) {
+        const result = partInlineCommit(kernel, session, next);
+        if (result.ok) {
+          setInlineRejection(null);
+        } else {
+          setInlineRejection(result.message);
+          announceGestureRef.current(result.message);
+        }
+        return;
+      }
+      // ── /block-parts ──
       // The SAME door as the inspector: one dispatch per commit, and history's
       // typing merge owns undo granularity (FR-003).
       try {
@@ -1844,6 +2367,9 @@ export function EditorCanvas({
       nodeId,
       target: {
         propKey,
+        // ── block-parts (2026-10-06) ──
+        ...(bind === undefined ? {} : { bind }),
+        // ── /block-parts ──
         render: contributedEditorPending
           ? null
           : ({ value }) => {
@@ -1854,7 +2380,7 @@ export function EditorCanvas({
                 return (
                   <Contributed
                     value={value}
-                    label={propKey}
+                    label={label}
                     onCommit={commit}
                     onExit={exit}
                     onAnchor={reportTextAnchor}
@@ -1867,7 +2393,7 @@ export function EditorCanvas({
               return kind === 'rich' ? (
                 <InlineRichSurface
                   value={value}
-                  label={propKey}
+                  label={label}
                   onCommit={commit}
                   onExit={exit}
                   onAnchor={reportTextAnchor}
@@ -1878,8 +2404,8 @@ export function EditorCanvas({
               ) : (
                 <InlineTextSurface
                   value={value}
-                  label={propKey}
-                  singleLine
+                  label={label}
+                  singleLine={singleLine}
                   onCommit={commit}
                   onExit={exit}
                 />
@@ -1904,6 +2430,9 @@ export function EditorCanvas({
     requestFormattingMenuFocus,
     floating,
     endInlineEditFromSurfaceKeyboard,
+    // ── block-parts (2026-10-06) ──
+    canvasLabels,
+    // ── /block-parts ──
   ]);
 
   useLayoutEffect(() => {
@@ -1928,11 +2457,31 @@ export function EditorCanvas({
     ),
   );
 
+  // ── block-parts (2026-10-06) ──
+  const partFocus = useKernelSelector(
+    kernel,
+    useCallback(
+      (state: ReturnType<BuilderKernel['context']['store']['getState']>) => state.partFocus ?? null,
+      [],
+    ),
+  );
+  // ── /block-parts ──
+
   const selectedName = useMemo(() => {
     const node = selectedId === null ? undefined : doc.nodes[selectedId];
     if (node === undefined) {
       return null;
     }
+    // ── block-parts (2026-10-06) ──
+    // A focused part is announced inside its block — "Heading in Hero",
+    // «العنوان في البطل» — with the part's own label in the editor's language.
+    if (partFocus !== null && partFocus.id === node.id) {
+      return canvasLabels.within(
+        partInstanceName(kernel, node.id, partFocus, canvasLabels.locale ?? 'en'),
+        blockDisplayName(kernel, node.id, elementNameWords),
+      );
+    }
+    // ── /block-parts ──
     // A focused element is announced as the thing it is, inside the region
     // it belongs to — "Image in CV header" — never as the region alone.
     const located =
@@ -1940,18 +2489,21 @@ export function EditorCanvas({
         ? customCodeElementAt(kernel, node.id, elementFocus.path)
         : undefined;
     if (located !== undefined) {
-      return `${customCodeElementName(located.element)} in ${blockDisplayName(kernel, node.id)}`;
+      return canvasLabels.within(
+        customCodeElementName(located.element, elementNameWords),
+        blockDisplayName(kernel, node.id, elementNameWords),
+      );
     }
     // The block's display name (its label, or the registry's name for the type) —
     // never its AI-facing description, which read ~1 KB aloud (fix pass).
-    return blockDisplayName(kernel, node.id);
-  }, [kernel, doc, selectedId, elementFocus]);
+    return blockDisplayName(kernel, node.id, elementNameWords);
+  }, [kernel, doc, selectedId, elementFocus, canvasLabels, elementNameWords, partFocus]);
 
   const announcement = useMemo(
     // A selection id that no longer resolves to a live node is "no selection"
     // for announcement purposes — never read a raw internal id aloud.
-    () => (selectedName === null ? 'Selection cleared' : `${selectedName} selected`),
-    [selectedName],
+    () => (selectedName === null ? canvasLabels.selectionCleared : canvasLabels.selected(selectedName)),
+    [selectedName, canvasLabels],
   );
 
   const blockActions = useMemo(
@@ -1971,7 +2523,9 @@ export function EditorCanvas({
       if (id === 'editText') {
         const opened = beginInlineEdit(selected, { kind: 'keyboard' });
         announceGestureRef.current(
-          opened ? `Editing ${selectedName ?? 'text'}` : 'Text editing is no longer available',
+          opened
+            ? canvasLabelsRef.current.editing(selectedName ?? canvasLabelsRef.current.text)
+            : canvasLabelsRef.current.editingUnavailable,
         );
         return;
       }
@@ -2042,7 +2596,12 @@ export function EditorCanvas({
           }),
     [kernel, doc, elementTargets, bucket, styleState, dir, elementNameWords, namedStyleClasses, symbolTree],
   );
-  const colorTokens = useMemo(() => themeColorSwatches(theme), [theme]);
+  // The colour roles in the editor's language (fix pass 2026-10-06).
+  const quickBarLocale = quickBarLabels.locale;
+  const colorTokens = useMemo(
+    () => themeColorSwatches(theme, quickBarLocale === 'ar' ? COLOR_ROLE_NAMES_AR : undefined),
+    [theme, quickBarLocale],
+  );
   const paletteColors = useMemo(() => paletteSwatches(palette), [palette]);
 
   const actionContext = useMemo(
@@ -2086,6 +2645,110 @@ export function EditorCanvas({
   );
 
   const primaryTarget = elementTargets[0];
+
+  // ── block-parts (2026-10-06) ──
+  // The quick bar over a focused PART of a registered block (DESIGN §2.14):
+  // the same bar, its model writing `partStyles` in tokens mode and bound
+  // values through the part planners — one transaction per control.
+  const focusedPart = useMemo<PartTarget | undefined>(
+    () =>
+      partFocus !== null && partFocus.id === selectedId ? partTarget(partFocus.id, partFocus) : undefined,
+    [partFocus, selectedId],
+  );
+  // The scope switch belongs to ONE part name on one node; moving on resets it.
+  const focusedPartKey = focusedPart === undefined ? '' : `${focusedPart.nodeId}|${focusedPart.part}`;
+  const [partScopeState, setPartScopeState] = useState<{ key: string; scope: 'all' | 'this' }>({
+    key: '',
+    scope: 'all',
+  });
+  // A click on an indexed instance ("Feature 1") means THAT instance: the bar
+  // names one item, so styling starts on it, and the scope switch widens it.
+  const partScope =
+    partScopeState.key === focusedPartKey
+      ? partScopeState.scope
+      : (focusedPart?.index.length ?? 0) > 0
+        ? 'this'
+        : 'all';
+  useEffect(() => {
+    partScopeRef.current = partScope;
+  }, [partScope]);
+  const partLocale = canvasLabels.locale ?? 'en';
+  const partWords = quickBarLabels.parts ?? PART_QUICK_BAR_LABELS_EN;
+  const partModel = useMemo(
+    () =>
+      focusedPart === undefined || doc.nodes[focusedPart.nodeId] === undefined
+        ? undefined
+        : createPartBarModel(kernel, focusedPart, {
+            bucket,
+            state: styleState,
+            pageDir: dir,
+            scope: partScope,
+            locale: partLocale,
+            words: elementNameWords,
+            namedStyles: namedStyleClasses,
+          }),
+    [kernel, doc, focusedPart, bucket, styleState, dir, partScope, partLocale, elementNameWords, namedStyleClasses],
+  );
+  const partDecl =
+    focusedPart === undefined ? undefined : partDeclOf(kernel, focusedPart.nodeId, focusedPart.part);
+  const partGroups = useMemo(
+    () => (partModel === undefined ? undefined : quickGroupsForPart(partModel.kind, partDecl?.styleSections)),
+    [partModel, partDecl],
+  );
+  const partActionContext = useMemo(
+    () => ({ scope: partScope, locale: partLocale, words: partWords, nameWords: elementNameWords, editable }),
+    [partScope, partLocale, partWords, elementNameWords, editable],
+  );
+  // Read at render time on purpose (cheap): the gates follow every edit.
+  const partActions =
+    focusedPart === undefined || partModel === undefined
+      ? []
+      : resolvePartActions(kernel, focusedPart, partActionContext);
+  const runPartAction = useCallback(
+    (id: PartActionId) => {
+      const target = focusedPart;
+      if (target === undefined) {
+        return;
+      }
+      if (id === 'editText') {
+        activatePart(target.nodeId, target, { kind: 'keyboard' });
+        return;
+      }
+      if (id === 'scopeThis') {
+        const next = partScope === 'this' ? 'all' : 'this';
+        setPartScopeState({ key: focusedPartKey, scope: next });
+        announceGestureRef.current(
+          next === 'this' ? partWords.actions.scopeThis : partInstanceName(kernel, target.nodeId, { part: target.part, index: [] }, partLocale),
+        );
+        return;
+      }
+      if (id === 'selectBlock') {
+        // Focus moves FIRST: the bar unmounts with the part focus.
+        hostRef.current?.focus({ preventScroll: true });
+      }
+      const result = performPartAction(kernel, target, id, partActionContext);
+      if ((kernel.context.store.getState().partFocus ?? null) === null) {
+        hostRef.current?.focus({ preventScroll: true });
+      }
+      announceGestureRef.current(result.announcement);
+    },
+    [kernel, focusedPart, focusedPartKey, partScope, partWords, partLocale, partActionContext, activatePart],
+  );
+  const partLink = useMemo(() => {
+    const node = focusedPart === undefined ? undefined : doc.nodes[focusedPart.nodeId];
+    if (focusedPart === undefined || node === undefined || partDecl?.kind !== 'link') {
+      return undefined;
+    }
+    return {
+      text: partStringValue(node, partDecl, focusedPart, 'text') ?? '',
+      href: partStringValue(node, partDecl, focusedPart, 'href') ?? '',
+      pages: linkPages,
+      onApply: (value: { readonly text: string; readonly href: string }) =>
+        dispatchPartPlan(kernel, planPartLinkValue(kernel, focusedPart, value)),
+    };
+  }, [kernel, doc, focusedPart, partDecl, linkPages]);
+  // ── /block-parts ──
+
   const treeActions = useMemo(
     () =>
       treeSession === null
@@ -2176,6 +2839,7 @@ export function EditorCanvas({
             ? createPortal(
                 <TextBubble
                   dir={dir}
+                  label={richLabels.formatting}
                   actions={visibleTextActions}
                   onReturnFocus={returnFocusToEditor}
                 />,
@@ -2284,16 +2948,74 @@ export function EditorCanvas({
                 floating.element,
               )
             : null}
+          {/* ── block-parts (2026-10-06) ── with a PART focused, its quick bar
+            REPLACES the block action bar, as an element focus does. It is
+            never shown over an open inline editor. */}
+          {floating !== null &&
+          editable &&
+          !dragging &&
+          !scrubbing &&
+          inlineSession === null &&
+          treeSession === null &&
+          quickModel === undefined &&
+          partModel !== undefined &&
+          focusedPart !== undefined
+            ? createPortal(
+                <ElementQuickBar
+                  model={partModel}
+                  actions={NO_ELEMENT_ACTIONS}
+                  onAction={ignoreElementAction}
+                  groups={partGroups}
+                  partActions={partActions}
+                  onPartAction={runPartAction}
+                  partLink={partLink}
+                  onMore={(sector) => {
+                    onOpenPartStyle?.(sector, focusedPart);
+                  }}
+                  {...(onEditWithAiPart === undefined
+                    ? {}
+                    : {
+                        onEditWithAi: () => {
+                          onEditWithAiPart(focusedPart);
+                        },
+                      })}
+                  {...(onReplacePartImage === undefined
+                    ? {}
+                    : {
+                        onReplaceMedia: () => {
+                          onReplacePartImage(focusedPart);
+                        },
+                      })}
+                  onReturnFocus={() => {
+                    hostRef.current?.focus({ preventScroll: true });
+                  }}
+                  onAnnounce={(message) => {
+                    announceGestureRef.current(message);
+                  }}
+                  dir={editorDir}
+                  colorTokens={colorTokens}
+                  palette={paletteColors}
+                  namedStyles={namedStyles}
+                  focusRequest={quickFocusRequest}
+                  labels={quickBarLabels}
+                />,
+                floating.element,
+              )
+            : null}
+          {/* ── /block-parts ── */}
           {floating !== null &&
           editable &&
           !dragging &&
           inlineSession === null &&
           quickModel === undefined &&
+          // ── block-parts (2026-10-06) ──
+          partModel === undefined &&
+          // ── /block-parts ──
           selectedName !== null &&
           blockActions.length > 0
             ? createPortal(
                 <BlockActionBar
-                  label={`Actions for ${selectedName}`}
+                  label={canvasLabels.actionsFor(selectedName)}
                   actions={blockActions}
                   onMovePointerDown={beginMoveFromHandle}
                   onAction={runBlockAction}
@@ -2304,11 +3026,11 @@ export function EditorCanvas({
             : null}
         </div>
       </div>
-      <output className="bldr-visually-hidden" aria-live="polite" aria-label="Selection">
+      <output className="bldr-visually-hidden" aria-live="polite" aria-label={canvasLabels.selectionRegion}>
         {announcement}
         {selectionNonce % 2 === 1 ? '​' : ''}
       </output>
-      <output className="bldr-visually-hidden" aria-live="polite" aria-label="Gesture">
+      <output className="bldr-visually-hidden" aria-live="polite" aria-label={canvasLabels.gestureRegion}>
         {gestureMessage.text}
         {gestureMessage.nonce % 2 === 1 ? '​' : ''}
       </output>

@@ -17,3 +17,6 @@ the bucket and state switchers. It is a WAI-ARIA radio group with one tab stop.
 - An option with an `icon` keeps its `label` as the accessible name and tooltip.
 
 The group carries no strings of its own beyond `mixedLabel`; the caller passes translated labels.
+
+When every option has an icon, the group becomes a segmented control (`data-icons`): square 24px
+cells on one line, sized by their glyphs. `SegmentedChoice` builds on this with an overflow menu.

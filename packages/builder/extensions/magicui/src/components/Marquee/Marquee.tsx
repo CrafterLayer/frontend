@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
 import { MarqueeTrack } from '../MarqueeTrack';
 
-import type { MarqueeProps } from './schema';
+import { marqueeSchema, type MarqueeProps } from './schema';
 
 import './Marquee.css';
 
@@ -23,8 +23,10 @@ const TONE_CLASSES: Record<MarqueeProps['tone'], string> = {
 };
 
 /** A seamless semantic marquee whose duplicate track is hidden from assistive technology. */
-export function Marquee({ props, isCanvas }: BlockRenderProps<MarqueeProps>) {
+export function Marquee({ node, props, isCanvas }: BlockRenderProps<MarqueeProps>) {
   const [paused, setPaused] = useState(false);
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, marqueeSchema.parts);
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const secondaryDirection = props.direction === 'forward' ? 'reverse' : 'forward';
 
@@ -54,7 +56,16 @@ export function Marquee({ props, isCanvas }: BlockRenderProps<MarqueeProps>) {
         }}
         data-marquee-pause-control=""
       >
-        {paused ? props.resumeLabel : props.pauseLabel}
+        {/*
+          Both labels stay rendered, one hidden, so each is a part the canvas
+          can reach whichever state the button is in.
+        */}
+        <span {...part('pauseLabel')} hidden={paused}>
+          {props.pauseLabel}
+        </span>
+        <span {...part('resumeLabel')} hidden={!paused}>
+          {props.resumeLabel}
+        </span>
       </button>
       <MarqueeTrack
         items={props.items}
@@ -62,6 +73,7 @@ export function Marquee({ props, isCanvas }: BlockRenderProps<MarqueeProps>) {
         radius={props.radius}
         direction={props.direction}
         isCanvas={isCanvas}
+        part={part}
       />
       {props.rows === 'two' ? (
         <MarqueeTrack
@@ -71,6 +83,7 @@ export function Marquee({ props, isCanvas }: BlockRenderProps<MarqueeProps>) {
           direction={secondaryDirection}
           secondary
           isCanvas={isCanvas}
+          part={part}
         />
       ) : null}
     </section>

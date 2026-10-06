@@ -121,6 +121,8 @@ describe('inline-editor — the registry adapter (009 inlineEditors contribution
         frameBox: () => ({ x: 0, y: 0, width: 400, height: 300 }),
         hostViewport: () => ({ width: 800, height: 600 }),
         visibleArea: () => ({ width: 400, height: 300 }),
+        // FrameBridge gained `scale` (the zoomed canvas); an unscaled frame is 1.
+        scale: () => 1,
       } as unknown as FrameBridge,
       schedule: (callback) => {
         queue.push(callback);
@@ -226,29 +228,61 @@ describe('inline-editor — the registry adapter (009 inlineEditors contribution
     }
   });
 
-  it('reports the FR-006 actions for a non-empty selection, [] for a collapsed one', () => {
+  it('reports the formatting actions while the edit owns focus, collapsed caret included', () => {
     const { onActions, ed } = mount();
-    // Mount reports a defined initial state: no focus, no selection — no bubble.
-    expect(lastActions(onActions)).toEqual([]);
+    // The session opens ON the surface: it takes focus, so the chrome is there
+    // from the first moment, at a bare caret.
+    expect(ed.view.hasFocus()).toBe(true);
+    expect(lastActions(onActions).map((action) => action.id)).toContain('bold');
 
     selectStart(ed);
     const actions = lastActions(onActions);
-    expect(actions.map((action) => action.id)).toEqual(['bold', 'italic', 'link', 'clear']);
+    expect(actions.map((action) => action.id)).toEqual([
+      'bold',
+      'italic',
+      'link',
+      'bulletList',
+      'orderedList',
+      'clear',
+    ]);
     expect(actions.map((action) => action.label)).toEqual([
       'Bold',
       'Italic',
       'Link',
+      'Bulleted list',
+      'Numbered list',
       'Clear formatting',
     ]);
     // Toggles carry pressed; the one-shot carries NO pressed key at all.
     expect(actions[0]?.pressed).toBe(false);
     expect(actions[0]?.disabled).toBe(false);
-    expect(Object.keys(actions[3] ?? {})).not.toContain('pressed');
+    expect(Object.keys(actions[5] ?? {})).not.toContain('pressed');
 
+    // A collapsed caret keeps the chrome (the canvas docks it at the surface):
+    // marks and lists stay usable, Link needs characters to carry it.
     act(() => {
       ed.commands.setTextSelection({ from: 3, to: 3 });
     });
-    expect(lastActions(onActions)).toEqual([]);
+    const atCaret = lastActions(onActions);
+    expect(atCaret.map((action) => action.id)).toContain('bulletList');
+    expect(atCaret.find((action) => action.id === 'bold')?.disabled).toBe(false);
+    expect(atCaret.find((action) => action.id === 'link')?.disabled).toBe(true);
+  });
+
+  it('a list toggle at the caret is ONE commit and its pressed state follows', () => {
+    const { onCommit, onActions, ed } = mount();
+    act(() => {
+      ed.view.dom.focus();
+      ed.commands.setTextSelection({ from: 3, to: 3 });
+    });
+    const bullets = lastActions(onActions).find((action) => action.id === 'bulletList');
+    expect(bullets?.pressed).toBe(false);
+    act(() => {
+      bullets?.run();
+    });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(onCommit.mock.lastCall?.[0])).toContain('"bulletList"');
+    expect(lastActions(onActions).find((action) => action.id === 'bulletList')?.pressed).toBe(true);
   });
 
   it('run() is ONE commit and the selection survives; pressed follows the mark', () => {
@@ -524,5 +558,18 @@ describe('inline-editor — the registry adapter (009 inlineEditors contribution
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('block-parts bidi — the canvas inline editor (DESIGN §2.10)', () => {
+  it('gives each block its own content direction, never stored', () => {
+    const { ed, onCommit } = mount();
+    for (const paragraph of ed.view.dom.querySelectorAll('p')) {
+      expect(paragraph).toHaveAttribute('dir', 'auto');
+    }
+    act(() => {
+      ed.chain().focus('end').insertContent(' grows.').run();
+    });
+    expect(JSON.stringify(onCommit.mock.lastCall?.[0])).not.toContain('"dir"');
   });
 });

@@ -461,7 +461,7 @@ const galleryTree: JsonValue = {
 };
 
 describe('exportStaticSite — media packs and engines', () => {
-  it('a page with a scene gets the prefetch link, and the site gets assets/ck-scene.js once', async () => {
+  it('a page with a scene gets the engine locator (never a prefetch), and the site gets assets/ck-scene.js once', async () => {
     const { SCENE_SOURCE } = await import('../engines/scene-source');
     const file = await exportCode([
       { address: '/', tree: plainTree },
@@ -471,7 +471,7 @@ describe('exportStaticSite — media packs and engines', () => {
     const mural = file('mural/index.html') ?? '';
     expect(mural).toContain('data-ck-scene="particles"');
     expect(mural).toContain(
-      '<link rel="prefetch" as="script" href="../assets/ck-scene.js" data-ck-engine="scene">',
+      '<link rel="ck-engine" href="../assets/ck-scene.js" data-ck-engine="scene">',
     );
     expect(mural).toContain('<script defer src="../assets/ck-behaviors.js"></script>');
     expect(file('wall/index.html')).toContain('data-ck-engine="scene"');
@@ -480,6 +480,9 @@ describe('exportStaticSite — media packs and engines', () => {
     const home = file('index.html') ?? '';
     expect(home).not.toContain('data-ck-engine');
     expect(home).not.toContain('ck-behaviors.js');
+    // fix pass (2026-10-06): nothing is prefetched (reduced motion downloads no engine), and no page asks for /favicon.ico.
+    expect(mural).not.toContain('rel="prefetch"');
+    expect(home).toContain('<link rel="icon" href="data:,">');
     expect(file('assets/ck-timeline.js')).toBeUndefined();
     expect(file('assets/ck-lottie.js')).toBeUndefined();
   });
@@ -492,10 +495,10 @@ describe('exportStaticSite — media packs and engines', () => {
       { address: '/anim', tree: lottieTree },
     ]);
     const home = file('index.html') ?? '';
-    expect(home).toContain('<link rel="prefetch" as="script" href="assets/ck-timeline.js" data-ck-engine="timeline">');
+    expect(home).toContain('<link rel="ck-engine" href="assets/ck-timeline.js" data-ck-engine="timeline">');
     expect(home).not.toContain('data-ck-engine="lottie"');
     const anim = file('anim/index.html') ?? '';
-    expect(anim).toContain('<link rel="prefetch" as="script" href="../assets/ck-lottie.js" data-ck-engine="lottie">');
+    expect(anim).toContain('<link rel="ck-engine" href="../assets/ck-lottie.js" data-ck-engine="lottie">');
     expect(anim).not.toContain('data-ck-engine="timeline"');
     const timeline = file('assets/ck-timeline.js') ?? '';
     expect(timeline.startsWith(TIMELINE_BANNER + TIMELINE_SOURCE)).toBe(true);
@@ -506,11 +509,13 @@ describe('exportStaticSite — media packs and engines', () => {
     expect(file('assets/ck-scene.js')).toBeUndefined();
   });
 
-  it('carries the gallery, video and engines packs inside ck-behaviors.js and their styles in ck-behaviors.css', async () => {
+  it('carries the packs the site uses inside ck-behaviors.js, and every pack style in ck-behaviors.css', async () => {
     const file = await exportCode([{ address: '/', tree: galleryTree }]);
     const script = file('assets/ck-behaviors.js') ?? '';
-    for (const name of ['mountBehaviors', 'mountGallery', 'mountCarousel', 'mountVideoPlayer', 'mountBgVideo', 'mountEmbedFacade', 'mountEngines'])
-      expect(script).toContain(`function ${name}(`);
+    for (const name of ['mountBehaviors', 'mountGallery']) expect(script).toContain(`function ${name}(`);
+    // fix pass (2026-10-06): a pack the site does not use is not shipped.
+    for (const name of ['mountCarousel', 'mountVideoPlayer', 'mountBgVideo', 'mountEmbedFacade', 'mountEngines'])
+      expect(script).not.toContain(`function ${name}(`);
     const css = file('assets/ck-behaviors.css') ?? '';
     expect(css).toContain('dialog[data-ck-lightbox]');
     expect(css).toContain("[data-ck-behavior='video-player']");

@@ -63,6 +63,11 @@ export const TypingCommits: Story = {
     surface.dispatchEvent(
       new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '!' }),
     );
+    await expect(within(canvasElement).getByTestId('stored')).toHaveTextContent('Type here');
+    await expect(within(canvasElement).getByTestId('stored')).not.toHaveTextContent('Type here!');
+    surface.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
     // A NATIVE listener's setState is batched by React's scheduler, so the host
     // update lands after this tick — wait for it rather than racing it.
     await waitFor(async () => {
@@ -84,4 +89,34 @@ export const RightToLeft: Story = {
   args: { value: 'حرّر النص في مكانه', onCommit: () => undefined },
   render: () => <Hosted initial="حرّر النص في مكانه" />,
   globals: { direction: 'rtl' },
+  play: async ({ canvasElement }) => {
+    const surface = within(canvasElement).getByRole('textbox', { name: 'heading' });
+    await expect(surface).toHaveAttribute('dir', 'auto');
+  },
+};
+
+/**
+ * An English line on an RTL page: `dir="auto"` keeps its full stop at the END
+ * (".site grows" was the defect this guards).
+ */
+export const EnglishOnRightToLeftPage: Story = {
+  args: { value: 'Your site grows.', onCommit: () => undefined },
+  render: () => (
+    <div dir="rtl">
+      <Hosted initial="Your site grows." />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const surface = within(canvasElement).getByRole('textbox', { name: 'heading' });
+    await expect(surface).toHaveAttribute('dir', 'auto');
+  },
+};
+
+export const Multiline: Story = {
+  args: { value: 'First line', onCommit: () => undefined },
+  render: () => <Hosted initial="First line" singleLine={false} />,
+  play: async ({ canvasElement }) => {
+    const surface = within(canvasElement).getByRole('textbox', { name: 'heading' });
+    await expect(surface).toHaveAttribute('aria-multiline', 'true');
+  },
 };

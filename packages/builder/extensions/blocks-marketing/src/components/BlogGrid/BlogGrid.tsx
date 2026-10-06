@@ -1,6 +1,8 @@
 import '../section-layout.css';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import type { ReactNode } from 'react';
+
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -14,7 +16,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { BlogGridProps } from './schema';
+import { blogGridSchema, type BlogGridProps } from './schema';
 
 const COLUMN_CLASSES: Record<BlogGridProps['columns'], string> = {
   '2': 'grid-cols-1 @lg:grid-cols-2',
@@ -30,9 +32,20 @@ const ARTICLE_CLASSES: Record<BlogGridProps['variant'], string> = {
     'group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-text/10 bg-surface text-text shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-elevated',
 };
 
+/*
+  `actionLabel` is ONE part shown on every card. While it is edited in place
+  its value is the editor element, which must render exactly once: the first
+  card hosts it and the others show the label again once it is committed.
+*/
+function sharedText(value: ReactNode, host: boolean): ReactNode {
+  return host || typeof value === 'string' ? value : null;
+}
+
 /** An editorial article collection with semantic metadata and a first-class featured layout. */
-export function BlogGrid({ node, props }: BlockRenderProps<BlogGridProps>) {
+export function BlogGrid({ node, props, isCanvas }: BlockRenderProps<BlogGridProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, blogGridSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -70,22 +83,32 @@ export function BlogGrid({ node, props }: BlockRenderProps<BlogGridProps>) {
           )}
         >
           {props.eyebrow === undefined ? null : (
-            <p className="m-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase">
+            <p
+              {...part('eyebrow', {
+                className:
+                  'm-0 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase',
+              })}
+            >
               {props.eyebrow}
             </p>
           )}
           <h2
-            id={headingId}
-            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
             <p
-              className={cx(
-                'm-0 text-lg leading-relaxed',
-                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-              )}
+              {...part('body', {
+                className: cx(
+                  'm-0 text-lg leading-relaxed',
+                  props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+                ),
+              })}
             >
               {props.body}
             </p>
@@ -93,30 +116,39 @@ export function BlogGrid({ node, props }: BlockRenderProps<BlogGridProps>) {
         </header>
 
         <ul
-          className={cx(
-            'm-0 grid w-full list-none p-0',
-            COLUMN_CLASSES[props.columns],
-            GAP_CLASSES.lg,
-          )}
+          {...part('posts', {
+            className: cx(
+              'm-0 grid w-full list-none p-0',
+              COLUMN_CLASSES[props.columns],
+              GAP_CLASSES.lg,
+            ),
+          })}
           data-blog-grid-list=""
         >
           {props.posts.map((post, index) => {
             const isFeatured =
               props.variant === 'featured' && (post.featured === true || index === 0);
+            const at = [index];
+            const titleId = `${node.id}-post-${String(index)}-title`;
+            const linkId = `${node.id}-post-${String(index)}-link`;
 
             return (
+              /* Keyed by position: a bound value may be an inline editor element. */
               <li
-                key={`${post.title}-${post.href}`}
+                key={index}
                 className={cx(
                   isFeatured ? '@lg:col-span-2' : undefined,
                   props.variant === 'editorial' ? 'min-w-0' : undefined,
                 )}
               >
                 <article
-                  className={cx(
-                    ARTICLE_CLASSES[props.variant],
-                    isFeatured ? '@lg:grid @lg:grid-cols-2' : undefined,
-                  )}
+                  {...part('post', {
+                    index: at,
+                    className: cx(
+                      ARTICLE_CLASSES[props.variant],
+                      isFeatured ? '@lg:grid @lg:grid-cols-2' : undefined,
+                    ),
+                  })}
                   data-blog-card={isFeatured ? 'featured' : 'standard'}
                 >
                   {!props.showImages || post.imageSrc === undefined ? null : (
@@ -130,7 +162,11 @@ export function BlogGrid({ node, props }: BlockRenderProps<BlogGridProps>) {
                       )}
                     >
                       <img
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none"
+                        {...part('post.image', {
+                          index: at,
+                          className:
+                            'h-full w-full object-cover transition duration-500 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none',
+                        })}
                         src={post.imageSrc}
                         alt={post.imageAlt ?? ''}
                         loading="lazy"
@@ -147,38 +183,78 @@ export function BlogGrid({ node, props }: BlockRenderProps<BlogGridProps>) {
                     )}
                   >
                     {post.category === undefined ? null : (
-                      <p className="m-0 inline-flex self-start rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase">
+                      <p
+                        {...part('post.category', {
+                          index: at,
+                          className:
+                            'm-0 inline-flex self-start rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase',
+                        })}
+                      >
                         {post.category}
                       </p>
                     )}
                     <h3
-                      className={cx(
-                        'm-0 leading-tight font-semibold tracking-tight text-balance',
-                        isFeatured ? 'text-2xl @lg:text-3xl' : 'text-xl',
-                      )}
+                      {...part('post.title', {
+                        index: at,
+                        id: titleId,
+                        className: cx(
+                          'm-0 leading-tight font-semibold tracking-tight text-balance',
+                          isFeatured ? 'text-2xl @lg:text-3xl' : 'text-xl',
+                        ),
+                      })}
                     >
                       {post.title}
                     </h3>
-                    <p className="m-0 leading-relaxed text-text-muted">{post.excerpt}</p>
+                    <p
+                      {...part('post.excerpt', {
+                        index: at,
+                        className: 'm-0 leading-relaxed text-text-muted',
+                      })}
+                    >
+                      {post.excerpt}
+                    </p>
 
                     {post.author === undefined &&
                     post.publishedLabel === undefined &&
                     post.readingTime === undefined ? null : (
                       <p className="m-0 flex flex-wrap items-center gap-x-gap-sm gap-y-1 text-sm text-text-muted">
-                        {post.author === undefined ? null : <span>{post.author}</span>}
-                        {post.publishedLabel === undefined ? null : (
-                          <time dateTime={post.dateTime}>{post.publishedLabel}</time>
+                        {post.author === undefined ? null : (
+                          <span {...part('post.author', { index: at })}>{post.author}</span>
                         )}
-                        {post.readingTime === undefined ? null : <span>{post.readingTime}</span>}
+                        {post.publishedLabel === undefined ? null : (
+                          <time
+                            {...part('post.publishedLabel', { index: at })}
+                            dateTime={post.dateTime}
+                          >
+                            {post.publishedLabel}
+                          </time>
+                        )}
+                        {post.readingTime === undefined ? null : (
+                          <span {...part('post.readingTime', { index: at })}>
+                            {post.readingTime}
+                          </span>
+                        )}
                       </p>
                     )}
 
+                    {/*
+                      The accessible name is the link's own label followed by
+                      the article title, read through aria-labelledby: a bound
+                      value never reaches an attribute (DESIGN §2.3).
+                    */}
                     <a
-                      className="mt-auto inline-flex min-h-11 items-center self-start font-semibold text-accent underline-offset-4 transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                      {...part('post.link', {
+                        index: at,
+                        id: linkId,
+                        className:
+                          'mt-auto inline-flex min-h-11 items-center self-start font-semibold text-accent underline-offset-4 transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent',
+                      })}
                       href={post.href}
-                      aria-label={`${props.actionLabel}: ${post.title}`}
+                      aria-labelledby={`${linkId} ${titleId}`}
                     >
-                      {props.actionLabel}
+                      <span {...part('actionLabel')}>
+                        {sharedText(props.actionLabel, index === 0)}
+                      </span>
                       <span aria-hidden="true" className="ms-gap-xs">
                         ↗
                       </span>

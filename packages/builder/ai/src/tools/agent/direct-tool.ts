@@ -2,13 +2,15 @@ import { systemClock, type BuilderKernel } from '@craftkit/builder-core';
 
 import { normalizeIntentText } from '../../intent/normalize-arabic';
 // media-motion (2026-10-06): zero-token media readings (DESIGN §F.3)
-import { readMedia } from '../../media-tools/direct-media';
+import { askMedia, readMedia } from '../../media-tools/direct-media';
 import { validateAiPlan } from '../../plan/validate-plan';
 import { checkSeo } from '../../seo/check-seo';
 import type { AiPlan, AiValidationPorts } from '../../types';
 import { verifiedFamily } from './builtin/fonts-set';
 import { colourOf } from './colour-words';
-import { readElementColour } from './element-colour';
+// ── block-parts (2026-10-06): askElementColour ──
+import { askElementColour, readElementColour } from './element-colour';
+// ── /block-parts ──
 import { expandAgentTools } from './expand';
 import { rootChildren } from './shared';
 import { AGENT_TOOL_COMMAND, type AgentToolStep } from './types';
@@ -332,3 +334,27 @@ export function tryDirectTool(
     remaining,
   });
 }
+
+// media-motion (2026-10-06, fix pass)
+/**
+ * What to ask the person before any tool or model runs, in the request's
+ * language: a video request with no link («حط فيديو تعريفي من يوتيوب»).
+ * Undefined when the request can run as it is.
+ */
+export function directQuestion(
+  request: string,
+  // ── block-parts (2026-10-06): a part colour no theme role carries («اجعل العنوان في الهيرو أحمر») asks first ──
+  kernel?: BuilderKernel,
+  // ── /block-parts ──
+): string | undefined {
+  const trimmed = request.trim();
+  if (trimmed === '' || trimmed.length > MAX_REQUEST_CHARS || /[\r\n]/u.test(trimmed)) return undefined;
+  // ── block-parts (2026-10-06) ──
+  const question =
+    askMedia(folded(trimmed)) ??
+    (kernel === undefined ? undefined : askElementColour(folded(trimmed), kernel));
+  // ── /block-parts ──
+  if (question === undefined) return undefined;
+  return ARABIC.test(trimmed) ? question.ar : question.en;
+}
+// end media-motion

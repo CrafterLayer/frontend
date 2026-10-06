@@ -175,11 +175,11 @@ export const formSectionSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
     fields: { tab: 'content', section: 'Fields' },
     submitLabel: { tab: 'content', section: 'Submission' },
-    footerNote: { tab: 'content', section: 'Submission' },
-    successHint: { tab: 'content', section: 'Submission' },
+    footerNote: { tab: 'content', section: 'Submission', kind: 'multiline' },
+    successHint: { tab: 'content', section: 'Submission', kind: 'multiline' },
     action: { tab: 'advanced', section: 'Submission' },
     method: { tab: 'advanced', section: 'Submission' },
     variant: { tab: 'design', section: 'Layout' },
@@ -198,6 +198,85 @@ export const formSectionSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    the field list, each field with its label, hint and select choices, the
+    submit button and the notes under it. A placeholder is an input
+    attribute, so it stays an Inspector row (a select shows it through the
+    empty option's `label` attribute for the same reason).
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    fields: {
+      kind: 'list',
+      bind: 'fields',
+      label: { en: 'Form fields', ar: 'حقول النموذج' },
+      aliases: ['form', 'fields', 'inputs', 'النموذج', 'الحقول'],
+    },
+    field: {
+      kind: 'item',
+      bind: 'fields.*',
+      list: 'fields',
+      label: { en: 'Field', ar: 'الحقل' },
+      aliases: ['field', 'input', 'question', 'حقل', 'سؤال'],
+    },
+    'field.label': {
+      kind: 'text',
+      bind: 'fields.*.label',
+      label: { en: 'Field label', ar: 'تسمية الحقل' },
+      aliases: ['label', 'field label', 'question', 'التسمية', 'عنوان الحقل'],
+    },
+    'field.helper': {
+      kind: 'text',
+      bind: 'fields.*.helper',
+      label: { en: 'Field hint', ar: 'تلميح الحقل' },
+      aliases: ['helper', 'hint', 'help text', 'description', 'تلميح', 'مساعدة'],
+    },
+    'field.option': {
+      kind: 'text',
+      bind: 'fields.*.options.*.label',
+      label: { en: 'Choice', ar: 'الخيار' },
+      aliases: ['option', 'choice', 'select option', 'خيار'],
+    },
+    submitLabel: {
+      kind: 'text',
+      bind: 'submitLabel',
+      label: { en: 'Submit button', ar: 'زر الإرسال' },
+      aliases: ['submit', 'button', 'send', 'زر', 'الزر', 'إرسال'],
+    },
+    footerNote: {
+      kind: 'text',
+      bind: 'footerNote',
+      label: { en: 'Footer note', ar: 'ملاحظة التذييل' },
+      aliases: ['footnote', 'privacy note', 'fine print', 'ملاحظة', 'حاشية'],
+      multiline: true,
+    },
+    successHint: {
+      kind: 'text',
+      bind: 'successHint',
+      label: { en: 'Success hint', ar: 'رسالة النجاح' },
+      aliases: ['success', 'confirmation', 'after submit', 'رسالة التأكيد'],
+      multiline: true,
+    },
+  },
   examples: formSectionExamples,
 });
 

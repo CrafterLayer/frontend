@@ -18,6 +18,9 @@ import {
 } from '@craftkit/builder-schema';
 
 import { treeKernel } from '../../overlay/tree-test-kit';
+// ── block-parts (2026-10-06) ──
+import { promoKernel } from '../../overlay/part-test-kit';
+// ── /block-parts ──
 import { EditorCanvas } from './EditorCanvas';
 
 // Self-contained demo vocabulary: the shell may not depend on layer-4 block
@@ -695,9 +698,12 @@ export const FormattingBubble: Story = {
 
     const host = await waitFor(() => {
       const found = canvasElement.querySelector<HTMLElement>('.bldr-floating--bubble');
-      if (found?.style.visibility !== 'visible') {
+      // The bar is docked (marks disabled) at a bare caret; the SELECTION is
+      // what enables Bold, so wait for that, not merely for a visible bar.
+      const enabledBold = found?.querySelector('.bldr-text-bubble__action:not(:disabled)');
+      if (found?.style.visibility !== 'visible' || enabledBold === null || enabledBold === undefined) {
         applyWordSelection(); // a focus race, not a failure — re-apply and wait
-        throw new Error('the bubble must be placed and visible');
+        throw new Error('the bubble must be placed and visible, with Bold enabled');
       }
       return found;
     });
@@ -818,3 +824,30 @@ export const ElementChrome: Story = {
     });
   },
 };
+
+// ── block-parts (2026-10-06) ──
+// Every inner element of a REGISTERED block is a part: click the heading, a
+// feature card or its title; double-click to type; the part's quick bar
+// styles it in tokens mode and moves, duplicates or removes cards.
+const blockPartsKernel = promoKernel();
+
+export const BlockParts: Story = {
+  args: { kernel: blockPartsKernel, theme: lightTheme, editable: true },
+  play: async ({ canvasElement }) => {
+    const frame = frameOf(canvasElement);
+    await waitFor(async () => {
+      await expect(frame.contentDocument?.querySelector('[data-ck-part="heading"]')).toBeTruthy();
+    });
+    blockPartsKernel.focusPart('promo', { part: 'heading', index: [] });
+    await waitFor(async () => {
+      await expect(within(canvasElement).getByRole('toolbar', { name: /Heading · Promo/u })).toBeTruthy();
+    });
+  },
+};
+
+const blockPartsRtlKernel = promoKernel('rtl');
+
+export const BlockPartsArabicRtl: Story = {
+  args: { kernel: blockPartsRtlKernel, theme: lightTheme, editable: true },
+};
+// ── /block-parts ──

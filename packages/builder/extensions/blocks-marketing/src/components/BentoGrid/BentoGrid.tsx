@@ -1,6 +1,6 @@
 import '../section-layout.css';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -14,7 +14,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { BentoGridProps } from './schema';
+import { bentoGridSchema, type BentoGridProps } from './schema';
 
 const MOSAIC_SPAN_CLASSES: Record<BentoGridProps['items'][number]['size'], string> = {
   small: '@md:col-span-3 @xl:col-span-4',
@@ -43,8 +43,10 @@ const CARD_HEIGHT_CLASSES: Record<BentoGridProps['items'][number]['size'], strin
 };
 
 /** A responsive editorial grid whose hierarchy is controlled by explicit item intent. */
-export function BentoGrid({ node, props }: BlockRenderProps<BentoGridProps>) {
+export function BentoGrid({ node, props, isCanvas }: BlockRenderProps<BentoGridProps>) {
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, bentoGridSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -78,26 +80,33 @@ export function BentoGrid({ node, props }: BlockRenderProps<BentoGridProps>) {
         <div className={cx('flex max-w-content-standard flex-col', GAP_CLASSES.sm)}>
           {props.eyebrow === undefined ? null : (
             <p
-              className={cx(
-                'm-0 text-sm font-semibold tracking-wide uppercase',
-                props.tone === 'dark' ? 'text-inherit opacity-70' : 'text-text-muted',
-              )}
+              {...part('eyebrow', {
+                className: cx(
+                  'm-0 text-sm font-semibold tracking-wide uppercase',
+                  props.tone === 'dark' ? 'text-inherit opacity-70' : 'text-text-muted',
+                ),
+              })}
             >
               {props.eyebrow}
             </p>
           )}
           <h2
-            id={headingId}
-            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
             <p
-              className={cx(
-                'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
-                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-              )}
+              {...part('body', {
+                className: cx(
+                  'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
+                  props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+                ),
+              })}
             >
               {props.body}
             </p>
@@ -105,63 +114,88 @@ export function BentoGrid({ node, props }: BlockRenderProps<BentoGridProps>) {
         </div>
 
         <ul
-          className={cx(
-            'm-0 grid w-full list-none grid-cols-1 p-0 @md:grid-cols-6 @xl:grid-cols-12',
-            GAP_CLASSES.md,
-          )}
+          {...part('items', {
+            className: cx(
+              'm-0 grid w-full list-none grid-cols-1 p-0 @md:grid-cols-6 @xl:grid-cols-12',
+              GAP_CLASSES.md,
+            ),
+          })}
           data-bento-grid=""
         >
-          {props.items.map((item, index) => (
-            <li
-              key={`${item.title}-${String(index)}`}
-              className={cx(
-                'group relative overflow-hidden rounded-xl border p-6 shadow-soft hover:shadow-elevated @lg:p-8',
-                CARD_HEIGHT_CLASSES[item.size],
-                props.layout === 'equal'
-                  ? '@md:col-span-3 @xl:col-span-4'
-                  : MOSAIC_SPAN_CLASSES[item.size],
-                EMPHASIS_CLASSES[item.emphasis],
-              )}
-              data-bento-card=""
-              data-bento-size={item.size}
-            >
-              <article className="flex h-full min-h-0 flex-col justify-between gap-gap-lg text-start">
-                <div className="flex items-start justify-between gap-gap">
-                  <span
-                    className={cx(
-                      'text-xs font-semibold tracking-wide uppercase',
-                      MUTED_CLASSES[item.emphasis],
-                    )}
-                  >
-                    {item.kicker ?? String(index + 1).padStart(2, '0')}
-                  </span>
-                  {item.metric === undefined ? null : (
-                    <strong
-                      className="text-3xl leading-none font-bold tracking-tight"
-                      data-bento-metric=""
+          {props.items.map((item, index) => {
+            const at = [index];
+            const kickerClassName = cx(
+              'text-xs font-semibold tracking-wide uppercase',
+              MUTED_CLASSES[item.emphasis],
+            );
+            return (
+              /* Keyed by position: a bound value may be an inline editor element. */
+              <li
+                key={index}
+                {...part('item', {
+                  index: at,
+                  className: cx(
+                    'group relative overflow-hidden rounded-xl border p-6 shadow-soft hover:shadow-elevated @lg:p-8',
+                    CARD_HEIGHT_CLASSES[item.size],
+                    props.layout === 'equal'
+                      ? '@md:col-span-3 @xl:col-span-4'
+                      : MOSAIC_SPAN_CLASSES[item.size],
+                    EMPHASIS_CLASSES[item.emphasis],
+                  ),
+                })}
+                data-bento-card=""
+                data-bento-size={item.size}
+              >
+                <article className="flex h-full min-h-0 flex-col justify-between gap-gap-lg text-start">
+                  <div className="flex items-start justify-between gap-gap">
+                    {/* The numbered fallback is decoration, not data: only a stored kicker is a part. */}
+                    <span
+                      {...(item.kicker === undefined
+                        ? { className: kickerClassName }
+                        : part('item.kicker', { index: at, className: kickerClassName }))}
                     >
-                      {item.metric}
-                    </strong>
-                  )}
-                </div>
-                <div className="flex flex-col gap-gap-sm">
-                  <h3
-                    className={cx(
-                      'm-0 leading-tight font-semibold tracking-tight text-balance',
-                      item.size === 'small' ? 'text-xl' : 'text-2xl @lg:text-3xl',
+                      {item.kicker ?? String(index + 1).padStart(2, '0')}
+                    </span>
+                    {item.metric === undefined ? null : (
+                      <strong
+                        {...part('item.metric', {
+                          index: at,
+                          className: 'text-3xl leading-none font-bold tracking-tight',
+                        })}
+                        data-bento-metric=""
+                      >
+                        {item.metric}
+                      </strong>
                     )}
-                  >
-                    {item.title}
-                  </h3>
-                  <p
-                    className={cx('m-0 leading-relaxed text-pretty', MUTED_CLASSES[item.emphasis])}
-                  >
-                    {item.body}
-                  </p>
-                </div>
-              </article>
-            </li>
-          ))}
+                  </div>
+                  <div className="flex flex-col gap-gap-sm">
+                    <h3
+                      {...part('item.title', {
+                        index: at,
+                        className: cx(
+                          'm-0 leading-tight font-semibold tracking-tight text-balance',
+                          item.size === 'small' ? 'text-xl' : 'text-2xl @lg:text-3xl',
+                        ),
+                      })}
+                    >
+                      {item.title}
+                    </h3>
+                    <p
+                      {...part('item.body', {
+                        index: at,
+                        className: cx(
+                          'm-0 leading-relaxed text-pretty',
+                          MUTED_CLASSES[item.emphasis],
+                        ),
+                      })}
+                    >
+                      {item.body}
+                    </p>
+                  </div>
+                </article>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>

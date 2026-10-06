@@ -3,6 +3,9 @@ import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } 
 import type { BuilderSiteKernel } from '@craftkit/builder-core';
 import type { PageId } from '@craftkit/builder-schema';
 
+import { logicalArrowKey, resolveChromeDir } from '../../i18n/editor-locale';
+import { SITE_PAGES_LABELS_EN, type SitePagesLabels } from './SitePages.labels';
+
 import './SitePages.css';
 
 export interface SitePagesProps {
@@ -10,6 +13,8 @@ export interface SitePagesProps {
   siteKernel: BuilderSiteKernel;
   /** Address given to a newly added page; the host owns the naming scheme. */
   nextAddress?: (existing: readonly string[]) => string;
+  /** Every string the list shows (arabic-editor); English by default. */
+  labels?: SitePagesLabels | undefined;
 }
 
 /** Where focus goes after a page is deleted, named rather than left to chance. */
@@ -52,7 +57,11 @@ function titleFor(address: string): string {
  * `removePage`, `renamePage`, `reorderPage` — so each is one transaction and
  * one undo, and each refusal is the door's, not this component's.
  */
-export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: SitePagesProps) {
+export function SitePages({
+  siteKernel,
+  nextAddress = defaultNextAddress,
+  labels = SITE_PAGES_LABELS_EN,
+}: SitePagesProps) {
   const subscribe = useCallback(
     (listener: () => void) => siteKernel.subscribe(listener),
     [siteKernel],
@@ -108,10 +117,10 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
       setRefusal(null);
       return true;
     } catch (error) {
-      setRefusal(error instanceof Error ? error.message : 'That change was refused.');
+      setRefusal(error instanceof Error ? error.message : labels.refused);
       return false;
     }
-  }, []);
+  }, [labels]);
 
   const activePage = pages.find((page) => page.id === activeId);
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -203,13 +212,12 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent, id: PageId) => {
       const at = pages.findIndex((page) => page.id === id);
-      // RTL mirrors the horizontal keys; vertical ones never mirror.
-      const key =
-        site.dir === 'rtl' && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
-          ? event.key === 'ArrowLeft'
-            ? 'ArrowRight'
-            : 'ArrowLeft'
-          : event.key;
+      // RTL mirrors the horizontal keys; vertical ones never mirror. The list is
+      // chrome: the editor's direction wins, the site's when the host sets none.
+      const key = logicalArrowKey(
+        event.key,
+        resolveChromeDir(event.currentTarget, site.dir === 'rtl' ? 'rtl' : 'ltr'),
+      );
 
       if (event.altKey && (key === 'ArrowUp' || key === 'ArrowLeft')) {
         move(id, -1);
@@ -291,7 +299,7 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
   return (
     <nav
       className="bldr-site-pages"
-      aria-label="Pages"
+      aria-label={labels.nav}
       onBlur={(event) => {
         const next = event.relatedTarget;
         if (next !== null && !event.currentTarget.contains(next)) {
@@ -300,9 +308,9 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
       }}
     >
       <div className="bldr-site-pages__header">
-        <h2 className="bldr-site-pages__title">Pages</h2>
+        <h2 className="bldr-site-pages__title">{labels.title}</h2>
         <button type="button" className="bldr-site-pages__add" onClick={addPage}>
-          Add page
+          {labels.add}
         </button>
       </div>
       {refusal === null ? null : (
@@ -311,9 +319,9 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
         </p>
       )}
       {pages.length === 0 ? (
-        <p className="bldr-site-pages__empty">This site has no pages yet.</p>
+        <p className="bldr-site-pages__empty">{labels.empty}</p>
       ) : (
-        <ul ref={listRef} role="listbox" aria-label="Site pages" className="bldr-site-pages__list">
+        <ul ref={listRef} role="listbox" aria-label={labels.list} className="bldr-site-pages__list">
           {pages.map((page, index) => {
             const selected = page.id === currentPage;
             return (
@@ -350,7 +358,7 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
                 {renaming === page.id ? (
                   <input
                     className="bldr-site-pages__rename"
-                    aria-label={`Rename ${page.title}`}
+                    aria-label={labels.rename(page.title)}
                     autoFocus
                     value={draftTitle}
                     onChange={(event) => {
@@ -407,7 +415,7 @@ export function SitePages({ siteKernel, nextAddress = defaultNextAddress }: Site
       {regionIds.length === 0 || activePage === undefined ? null : (
         <fieldset className="bldr-site-pages__regions">
           <legend className="bldr-site-pages__regions-legend">
-            Shared regions on {activePage.title}
+            {labels.sharedRegions(activePage.title)}
           </legend>
           {regionIds.map((regionId) => {
             const region = site.sharedRegions[regionId];

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import type { ContentDirection } from '@craftkit/builder-schema';
 
+import { TEXT_BIDI_CANVAS_CSS, TEXT_BIDI_STYLE_ID } from '../../bidi';
 import { themeToCssVars, type Theme } from '../../resolve/theme';
 
 export interface CanvasFrameProps {
@@ -26,7 +27,8 @@ const TOKEN_STYLE_ID = 'bldr-theme-tokens';
 /**
  * The isolation boundary document content renders into (FR-018): a same-origin
  * iframe that mirrors the host page's stylesheets (initial copy + observer for
- * dev-server style injection), injects one managed token style, carries the
+ * dev-server style injection), injects one managed token style and one text
+ * direction style (`TEXT_BIDI_CSS`), carries the
  * document direction on its root, and portals children into its body. Built
  * in-repo by decision (research R3) — the reference vendor pass arrives with the
  * canvas-editing milestone.
@@ -123,6 +125,27 @@ export function CanvasFrame({
     }
     tokenStyle.textContent = themeToCssVars(theme);
   }, [theme, frameBody]);
+
+  // ── block-parts (2026-10-06) ──
+  // Text direction (block-parts DESIGN §2.11): one managed style that gives
+  // every text element its own base direction, so an English line on an RTL
+  // page keeps its full stop at the end. Looked up by id before it is created,
+  // so StrictMode's double effects and remounts never add a second copy.
+  useEffect(() => {
+    const frameDocument = frameRef.current?.contentDocument ?? null;
+    /* v8 ignore next 3 -- unreachable in same-origin environments (see mount effect). */
+    if (frameDocument === null) {
+      return;
+    }
+    let bidiStyle = frameDocument.getElementById(TEXT_BIDI_STYLE_ID);
+    if (bidiStyle === null) {
+      bidiStyle = frameDocument.createElement('style');
+      bidiStyle.id = TEXT_BIDI_STYLE_ID;
+      frameDocument.head.appendChild(bidiStyle);
+    }
+    bidiStyle.textContent = TEXT_BIDI_CANVAS_CSS;
+  }, [frameBody]);
+  // ── /block-parts ──
 
   // Direction: the frame ROOT carries the document dir (host UI dir untouched).
   useEffect(() => {

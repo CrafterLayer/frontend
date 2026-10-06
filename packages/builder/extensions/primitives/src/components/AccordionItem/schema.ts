@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { defineBlockSchema } from '@craftkit/builder-schema';
+import { defineBlockSchema, partStylesProp } from '@craftkit/builder-schema';
 
 import { accordionItemExamples } from './examples';
 
@@ -44,12 +44,29 @@ export const accordionItemSchema = defineBlockSchema({
       schema refuses one rather than letting the page ship with it.
     */
     title: z.string().min(1).max(120).default('Section title'),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     title: { tab: 'content' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
   },
   slots: { default: { allow: [...ACCORDION_ITEM_CHILDREN] } },
   inlineEditable: 'title',
+  /* The trigger row and its title (block-parts DESIGN §1); the answer is composed from slot children. */
+  parts: {
+    trigger: {
+      kind: 'box',
+      label: { en: 'Trigger row', ar: 'صف العنوان' },
+      aliases: ['header', 'question row', 'الرأس', 'السؤال'],
+    },
+    title: {
+      kind: 'text',
+      bind: 'title',
+      label: { en: 'Title', ar: 'العنوان' },
+      aliases: ['heading', 'question', 'عنوان', 'السؤال'],
+    },
+  },
   examples: accordionItemExamples,
 });
 

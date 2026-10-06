@@ -1,6 +1,6 @@
 import '../section-layout.css';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -14,7 +14,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { FeaturesProps } from './schema';
+import { featuresSchema, type FeaturesProps } from './schema';
 
 const COLUMN_CLASSES: Record<FeaturesProps['columns'], string> = {
   '1': 'grid-cols-1',
@@ -31,9 +31,11 @@ const CARD_CLASSES: Record<FeaturesProps['variant'], string> = {
 };
 
 /** Feature cards from document data — a labelled section over a semantic list. */
-export function Features({ node, props }: BlockRenderProps<FeaturesProps>) {
+export function Features({ node, props, isCanvas }: BlockRenderProps<FeaturesProps>) {
   // The accessible name comes from the visible heading, never a copy of its text.
   const headingId = `${node.id}-heading`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, featuresSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -68,22 +70,31 @@ export function Features({ node, props }: BlockRenderProps<FeaturesProps>) {
           className={cx('flex max-w-content-narrow flex-col gap-3', ALIGN_CLASSES[props.align])}
         >
           {props.eyebrow === undefined ? null : (
-            <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">
+            <p
+              {...part('eyebrow', {
+                className: 'm-0 text-xs font-semibold tracking-wide text-accent uppercase',
+              })}
+            >
               {props.eyebrow}
             </p>
           )}
           <h2
-            id={headingId}
-            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
             <p
-              className={cx(
-                'm-0 max-w-content-narrow',
-                props.tone === 'dark' ? 'text-inherit opacity-85' : 'text-text-muted',
-              )}
+              {...part('body', {
+                className: cx(
+                  'm-0 max-w-content-narrow',
+                  props.tone === 'dark' ? 'text-inherit opacity-85' : 'text-text-muted',
+                ),
+              })}
               data-features-intro=""
             >
               {props.body}
@@ -91,36 +102,69 @@ export function Features({ node, props }: BlockRenderProps<FeaturesProps>) {
           )}
         </header>
         <ul
-          className={cx(
-            'm-0 grid w-full list-none p-0',
-            COLUMN_CLASSES[props.columns],
-            GAP_CLASSES.md,
-          )}
+          {...part('items', {
+            className: cx(
+              'm-0 grid w-full list-none p-0',
+              COLUMN_CLASSES[props.columns],
+              GAP_CLASSES.md,
+            ),
+          })}
           data-features-grid=""
         >
-          {props.items.map((item, index) => (
-            <li
-              key={`${item.title}-${String(index)}`}
-              className={cx('group flex min-w-0 flex-col gap-4', CARD_CLASSES[props.variant])}
-              data-features-card=""
-            >
-              <span
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 text-sm font-bold text-accent"
-                aria-hidden="true"
+          {props.items.map((item, index) => {
+            const at = [index];
+            const iconClassName =
+              'inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 text-sm font-bold text-accent';
+            return (
+              /* Keyed by position: a bound value may be an inline editor element. */
+              <li
+                key={index}
+                {...part('item', {
+                  index: at,
+                  className: cx('group flex min-w-0 flex-col gap-4', CARD_CLASSES[props.variant]),
+                })}
+                data-features-card=""
               >
-                {item.icon ?? String(index + 1).padStart(2, '0')}
-              </span>
-              <div className="flex flex-col gap-2">
-                {item.kicker === undefined ? null : (
-                  <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">
-                    {item.kicker}
+                {/* The numbered fallback is decoration, not data: only a stored icon is a part. */}
+                <span
+                  {...(item.icon === undefined
+                    ? { className: iconClassName }
+                    : part('item.icon', { index: at, className: iconClassName }))}
+                  aria-hidden="true"
+                >
+                  {item.icon ?? String(index + 1).padStart(2, '0')}
+                </span>
+                <div className="flex flex-col gap-2">
+                  {item.kicker === undefined ? null : (
+                    <p
+                      {...part('item.kicker', {
+                        index: at,
+                        className: 'm-0 text-xs font-semibold tracking-wide text-accent uppercase',
+                      })}
+                    >
+                      {item.kicker}
+                    </p>
+                  )}
+                  <h3
+                    {...part('item.title', {
+                      index: at,
+                      className: 'm-0 text-xl font-semibold tracking-tight',
+                    })}
+                  >
+                    {item.title}
+                  </h3>
+                  <p
+                    {...part('item.body', {
+                      index: at,
+                      className: 'm-0 leading-relaxed text-text-muted',
+                    })}
+                  >
+                    {item.body}
                   </p>
-                )}
-                <h3 className="m-0 text-xl font-semibold tracking-tight">{item.title}</h3>
-                <p className="m-0 leading-relaxed text-text-muted">{item.body}</p>
-              </div>
-            </li>
-          ))}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>

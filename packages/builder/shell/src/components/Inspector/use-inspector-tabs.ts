@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { BlockPropertyTab } from '@craftkit/builder-schema';
 
+import { logicalArrowKey, resolveChromeDir } from '../../i18n/editor-locale';
 import type { DocumentDirection, InspectorTabModel } from './types';
 
 export interface InspectorTabsOptions {
@@ -72,12 +73,12 @@ export function useInspectorTabs({
   );
 
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, id: BlockPropertyTab) => {
-    const key =
-      dir === 'rtl' && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
-        ? event.key === 'ArrowLeft'
-          ? 'ArrowRight'
-          : 'ArrowLeft'
-        : event.key;
+    // The strip is chrome: its drawn direction is the editor's (the nearest `dir`
+    // above it), falling back to the page's when the host sets none.
+    const key = logicalArrowKey(
+      event.key,
+      resolveChromeDir(event.currentTarget, dir === 'rtl' ? 'rtl' : 'ltr'),
+    );
     const currentIndex = tabs.findIndex((candidate) => candidate.id === id);
     let nextIndex: number | undefined;
 

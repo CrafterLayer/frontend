@@ -205,7 +205,8 @@ describe('craftkit.design-code', () => {
         expect(text, tag).toContain(tag);
       }
       expect(text).toContain("data-ck-behavior='whatsapp-form'");
-      expect(text).toMatch(/iframe with a title, only youtube-nocookie\.com\/embed/u);
+      // fix pass (2026-10-06): a YouTube/Vimeo video is media.add's facade, never a raw iframe.
+      expect(text).toMatch(/iframe with a title, only google\.com\/maps\/embed or open\.spotify\.com\/embed \(a YouTube or Vimeo video is media\.add/u);
     });
   });
   // end P10-agent-power additions

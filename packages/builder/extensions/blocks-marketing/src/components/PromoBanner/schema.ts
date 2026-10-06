@@ -79,9 +79,9 @@ export const promoBannerSchema = defineBlockSchema({
   propertyGroups: {
     label: { tab: 'content', section: 'Message' },
     headline: { tab: 'content', section: 'Message' },
-    body: { tab: 'content', section: 'Message' },
+    body: { tab: 'content', section: 'Message', kind: 'multiline' },
     actions: { tab: 'content', section: 'Actions' },
-    imageSrc: { tab: 'content', section: 'Media' },
+    imageSrc: { tab: 'content', section: 'Media', kind: 'image' },
     imageAlt: { tab: 'content', section: 'Media' },
     showMedia: { tab: 'design', section: 'Media' },
     variant: { tab: 'design', section: 'Layout' },
@@ -101,6 +101,62 @@ export const promoBannerSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'headline',
+  /*
+    The banner's inner elements (block-parts DESIGN §1). Each action is an item
+    of the `actions` list (duplicate, move, remove) whose visible label and
+    destination are its `action.link` part.
+  */
+  parts: {
+    panel: {
+      kind: 'box',
+      label: { en: 'Panel', ar: 'اللوحة' },
+      aliases: ['card', 'background', 'الخلفية', 'البطاقة'],
+    },
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Label', ar: 'الوسم' },
+      aliases: ['eyebrow', 'badge', 'tag', 'شارة', 'وسم'],
+    },
+    headline: {
+      kind: 'text',
+      bind: 'headline',
+      label: { en: 'Headline', ar: 'العنوان' },
+      aliases: ['heading', 'title', 'عنوان'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    actions: {
+      kind: 'list',
+      bind: 'actions',
+      label: { en: 'Actions', ar: 'الأزرار' },
+      aliases: ['buttons', 'links', 'أزرار', 'الروابط'],
+    },
+    action: {
+      kind: 'item',
+      bind: 'actions.*',
+      list: 'actions',
+      label: { en: 'Action', ar: 'زر' },
+      aliases: ['button', 'cta', 'الزر'],
+    },
+    'action.link': {
+      kind: 'link',
+      bind: { text: 'actions.*.label', href: 'actions.*.href' },
+      label: { en: 'Action label', ar: 'نص الزر' },
+      aliases: ['button text', 'link', 'الرابط', 'نص الرابط'],
+    },
+    image: {
+      kind: 'image',
+      bind: { src: 'imageSrc', alt: 'imageAlt' },
+      label: { en: 'Image', ar: 'الصورة' },
+      aliases: ['media', 'picture', 'photo', 'صورة', 'الوسائط'],
+    },
+  },
   examples: promoBannerExamples,
 });
 

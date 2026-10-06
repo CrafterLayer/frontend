@@ -1,8 +1,33 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
+// ── block-parts (2026-10-06) ──
+import {
+  lightTheme,
+  partInstances,
+  type BlockPartDecl,
+  type ColorToken,
+} from '@craftkit/builder-schema';
 
+import {
+  namedSection,
+  namingWords,
+  outlinePageSections,
+  roleSections,
+  sectionMentions,
+  subtreeIds,
+  type PageSectionOutline,
+} from '../../context/document-tree-mode';
+import { blockSectionWordsAr } from '../../style-tools/block-section-words';
+import { parseColour } from '../../style-tools/oklch';
+import { matchPartNames, partBlocks, type PartBlock } from '../../style-tools/part-address';
+import { partStyleTool } from '../../style-tools/part-tools';
+import { liveToolContext } from '../../style-tools/run-direct';
+// ── /block-parts ──
 import { normalizeIntentText } from '../../intent/normalize-arabic';
 import { isTreeMarkup, parseTreeMarkup } from '../../plan/tree-markup';
 import { COLOUR_WORDS, colourOf, SHADE_NAMES, WHITE_WORDS } from './colour-words';
+// ── block-parts (2026-10-06) ──
+import { colourHex, mix } from './page-kit';
+// ── /block-parts ──
 import {
   isElement,
   isRecord,
@@ -369,11 +394,45 @@ function quoted(text: string): string {
 /**
  * «سارة خليها احمر لونها» as one tree setProp that recolours the h1, or
  * undefined. Reads the document; never writes.
+ *
+ * block-parts (2026-10-06): a registered block's part comes first when the
+ * request names its section («غيّر لون العنوان في الهيرو للأزرق»), and
+ * otherwise when no composed element answers. A colour no theme role is near
+ * returns undefined here; `askElementColour` holds the question.
  */
 export function readElementColour(
   text: string,
   kernel: BuilderKernel,
+  // ── block-parts (2026-10-06) ──
+  options: ElementColourOptions = {},
 ): ElementColourReading | undefined {
+  const part = readPartColour(text, kernel, options);
+  if (part?.named === true) return part.kind === 'reading' ? part.reading : undefined;
+  const tree = readTreeColour(text, kernel);
+  if (tree !== undefined) return tree;
+  return part?.kind === 'reading' ? part.reading : undefined;
+}
+
+/**
+ * What to ask before anything runs, when a request names a part of a
+ * registered block but no theme role can carry its colour (or it names no
+ * colour at all): a needs-input with the two ways forward, in both
+ * languages. Undefined when the request reads (or does not concern a part).
+ */
+export function askElementColour(
+  text: string,
+  kernel: BuilderKernel,
+  options: ElementColourOptions = {},
+): ElementColourQuestion | undefined {
+  const part = readPartColour(text, kernel, options);
+  if (part?.kind !== 'question') return undefined;
+  if (!part.named && readTreeColour(text, kernel) !== undefined) return undefined;
+  return part.question;
+}
+
+/* The composed-region reading (colour-target fix, 2026-10-05), unchanged. */
+function readTreeColour(text: string, kernel: BuilderKernel): ElementColourReading | undefined {
+  // ── /block-parts ──
   const parsed = parse(text);
   if (parsed === undefined) return undefined;
   const spot = resolve(parsed, kernel);
@@ -391,3 +450,422 @@ export function readElementColour(
     label: { ar: `تلوين «${says}» ب${name.ar}`, en: `Colour “${says}” ${name.en}` },
   };
 }
+
+// ── block-parts (2026-10-06) ──
+/*
+  The parts of REGISTERED blocks (block-parts DESIGN §2.12). A hero is not a
+  composed tree: its heading is a part (`heading`, aliases «العنوان»,
+  "title"), styled through `partStyles` in tokens mode — the theming law of a
+  block's className (DESIGN §6.1). So a colour named in words maps to the
+  NEAREST THEME ROLE (accent, text, text-muted, success, surface,
+  surface-inverse, text-inverse, with an /opacity step) by OKLab distance
+  against the current theme, and lands as ONE `part.style`. When no role is
+  near, nothing is written: the person chooses (the accent colour, or
+  "Convert to editable" for free colours).
+*/
+
+/** The theme roles a part colour may take. */
+export const THEME_COLOUR_ROLES = [
+  'accent',
+  'text',
+  'text-muted',
+  'success',
+  'surface',
+  'surface-inverse',
+  'text-inverse',
+] as const;
+export type ThemeColourRole = (typeof THEME_COLOUR_ROLES)[number];
+
+const ROLE_TOKEN: Readonly<Record<ThemeColourRole, ColorToken>> = {
+  accent: 'accent',
+  text: 'text',
+  'text-muted': 'textMuted',
+  success: 'success',
+  surface: 'surface',
+  'surface-inverse': 'surfaceInverse',
+  'text-inverse': 'textInverse',
+};
+
+/** The label colour that reads ON a role used as a background. */
+const ON_ROLE: Readonly<Record<ThemeColourRole, string>> = {
+  accent: 'accent-text',
+  success: 'success-text',
+  'surface-inverse': 'text-inverse',
+  text: 'text-inverse',
+  'text-muted': 'text-inverse',
+  surface: 'text',
+  'text-inverse': 'text',
+};
+
+const ROLE_NAMES: Readonly<Record<ThemeColourRole, { readonly ar: string; readonly en: string }>> = {
+  accent: { ar: 'لون التمييز', en: 'the accent colour' },
+  text: { ar: 'لون النص', en: 'the text colour' },
+  'text-muted': { ar: 'لون النص الخافت', en: 'the muted text colour' },
+  success: { ar: 'لون النجاح', en: 'the success colour' },
+  surface: { ar: 'لون السطح', en: 'the surface colour' },
+  'surface-inverse': { ar: 'لون السطح الداكن', en: 'the inverse surface colour' },
+  'text-inverse': { ar: 'لون النص المعكوس', en: 'the inverse text colour' },
+};
+
+/** Words that name a theme role directly: the follow-up «استخدم لون التمييز». */
+const THEME_ROLE_WORDS: ReadonlyMap<string, ThemeColourRole> = new Map([
+  ['accent', 'accent'],
+  ['تمييز', 'accent'],
+  ['التمييز', 'accent'],
+  ['مميز', 'accent'],
+  ['المميز', 'accent'],
+  ['muted', 'text-muted'],
+  ['خافت', 'text-muted'],
+  ['الخافت', 'text-muted'],
+]);
+
+/** OKLab distance under which a named colour IS a role (≈ "the same colour, a shade off"). */
+export const THEME_ROLE_TOLERANCE = 0.1;
+const OPACITY_STEPS = [90, 80, 70, 60, 50, 40, 30, 20] as const;
+/** A blended role is a second choice: it must beat a pure role by this much. */
+const OPACITY_PENALTY = 0.012;
+
+export interface ElementColourOptions {
+  /** The theme the page is painted with; defaults to the site's tokens when the kernel exposes them, else the starter light theme. */
+  readonly theme?: Readonly<Partial<Record<ColorToken, string>>>;
+}
+
+export interface ThemeRoleMatch {
+  readonly role: ThemeColourRole;
+  /** The token as a utility writes it: `accent`, `text/70`. */
+  readonly token: string;
+  readonly opacity?: number;
+  readonly distance: number;
+}
+
+export interface ElementColourQuestion {
+  readonly ar: string;
+  readonly en: string;
+  /** The ways forward, in order; a host may render them as buttons. */
+  readonly choices: readonly { readonly id: 'accent' | 'convert' | ThemeColourRole; readonly ar: string; readonly en: string }[];
+}
+
+function themeOf(kernel: BuilderKernel, options: ElementColourOptions): Readonly<Partial<Record<ColorToken, string>>> {
+  if (options.theme !== undefined) return { ...lightTheme, ...options.theme };
+  // A site kernel exposes its design system; a page lens does not, and the starter theme stands in.
+  const site = (kernel as { getSite?: () => unknown }).getSite?.();
+  const tokens = (site as { designSystem?: { tokens?: unknown } } | undefined)?.designSystem?.tokens;
+  if (typeof tokens === 'object' && tokens !== null) return { ...lightTheme, ...(tokens as Record<string, string>) };
+  return lightTheme;
+}
+
+function labOf(hex: string): readonly [number, number, number] | undefined {
+  const colour = parseColour(hex);
+  if (colour === undefined) return undefined;
+  const radians = (colour.h * Math.PI) / 180;
+  return [colour.l, colour.c * Math.cos(radians), colour.c * Math.sin(radians)];
+}
+
+function distance(left: readonly [number, number, number], right: readonly [number, number, number]): number {
+  return Math.hypot(left[0] - right[0], left[1] - right[1], left[2] - right[2]);
+}
+
+/**
+ * The theme role (optionally at an /opacity over the surface) nearest a
+ * colour, or undefined when none is within `THEME_ROLE_TOLERANCE`. `prefer`
+ * breaks near-ties toward the roles that suit the property (a text colour
+ * prefers text roles over surfaces).
+ */
+export function nearestThemeRole(
+  colour: string,
+  theme: Readonly<Partial<Record<ColorToken, string>>>,
+  prefer: readonly ThemeColourRole[] = THEME_COLOUR_ROLES,
+): ThemeRoleMatch | undefined {
+  const target = labOf(colourHex(colour) ?? colour);
+  if (target === undefined) return undefined;
+  const surface = theme.surface ?? lightTheme.surface;
+  let best: ThemeRoleMatch | undefined;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const role of THEME_COLOUR_ROLES) {
+    const hex = theme[ROLE_TOKEN[role]];
+    if (hex === undefined) continue;
+    const order = prefer.indexOf(role);
+    const bias = (order < 0 ? THEME_COLOUR_ROLES.length : order) * 0.001;
+    const options: { readonly opacity?: number; readonly hex: string }[] = [
+      { hex },
+      ...OPACITY_STEPS.map((opacity) => ({ opacity, hex: mix(hex, surface, opacity / 100) })),
+    ];
+    for (const option of options) {
+      const lab = labOf(option.hex);
+      if (lab === undefined) continue;
+      const gap = distance(target, lab);
+      const score = gap + bias + (option.opacity === undefined ? 0 : OPACITY_PENALTY);
+      if (score < bestScore) {
+        bestScore = score;
+        best = {
+          role,
+          token: option.opacity === undefined ? role : `${role}/${String(option.opacity)}`,
+          ...(option.opacity === undefined ? {} : { opacity: option.opacity }),
+          distance: gap,
+        };
+      }
+    }
+  }
+  return best !== undefined && best.distance <= THEME_ROLE_TOLERANCE ? best : undefined;
+}
+
+/** The request read as «colour <part> [in <section>]». */
+interface PartColourWords {
+  readonly shade?: string;
+  readonly role?: ThemeColourRole;
+  /** «لون», "colour": the request is about a colour even when it names none. */
+  readonly colourNoun: boolean;
+  readonly content: readonly string[];
+}
+
+function partColourWords(text: string): PartColourWords | undefined {
+  const words = normalizeIntentText(text).match(WORD) ?? [];
+  if (words.length < 2 || words.length > 14) return undefined;
+  const shades: string[] = [];
+  const roles: ThemeColourRole[] = [];
+  const content: string[] = [];
+  let signal = false;
+  let colourNoun = false;
+  for (const word of words) {
+    const role = THEME_ROLE_WORDS.get(word) ?? THEME_ROLE_WORDS.get(bare(word));
+    if (role !== undefined) {
+      roles.push(role);
+      continue;
+    }
+    const shade = colourWord(word);
+    if (shade !== undefined) {
+      shades.push(shade);
+      continue;
+    }
+    if (COLOUR_NOUN.test(word) || COLOUR_NOUN_EN.has(word)) {
+      signal = true;
+      colourNoun = true;
+      continue;
+    }
+    if (VERBS.has(word)) {
+      signal = true;
+      continue;
+    }
+    if (PAGE_WORDS.has(word) || PAGE_WORDS.has(bare(word))) return undefined;
+    if (MAIN_WORDS.has(word) || FILLERS.has(word)) continue;
+    content.push(word);
+  }
+  if (!signal || shades.length + roles.length > 1) return undefined;
+  if (content.length === 0 || content.length > 6) return undefined;
+  const [shade] = shades;
+  const [role] = roles;
+  // «غيّر العنوان في الهيرو» with no colour word is a text edit, not a colour request.
+  if (shade === undefined && role === undefined && !colourNoun) return undefined;
+  return {
+    ...(shade === undefined ? {} : { shade }),
+    ...(role === undefined ? {} : { role }),
+    colourNoun,
+    content,
+  };
+}
+
+/** Generic role words a block may not alias itself: «العنوان» → its heading. */
+const GENERIC_PART_WORDS: Readonly<Record<Role, readonly string[]>> = {
+  title: ['heading', 'title', 'headline', 'name'],
+  button: ['button', 'cta', 'action', 'label', 'link'],
+};
+
+/** The parts of one block a word (or phrase) names: aliases and labels first, generic role words after. */
+function partNamesFor(block: PartBlock, word: string): readonly string[] {
+  const direct = matchPartNames(block.parts, word);
+  if (direct.length > 0) return direct;
+  const role = word.includes(' ') ? undefined : roleOf(word);
+  if (role === undefined) return [];
+  for (const generic of GENERIC_PART_WORDS[role]) {
+    if (Object.hasOwn(block.parts, generic)) return [generic];
+  }
+  return [];
+}
+
+interface PartColourTarget {
+  readonly block: PartBlock;
+  readonly part: string;
+  readonly decl: BlockPartDecl;
+  readonly index: readonly number[];
+  readonly scope: 'all' | 'this';
+  /** True when the request named the section the part is in. */
+  readonly named: boolean;
+}
+
+function repeated(decl: BlockPartDecl): boolean {
+  const bind = decl.bind;
+  const pattern = bind === undefined ? '' : typeof bind === 'string' ? bind : 'href' in bind ? bind.text : bind.src;
+  return pattern.split('.').includes('*');
+}
+
+/**
+ * The ONE registered block a request's section words name: by its type
+ * ("hero", "logo cloud"), its Arabic display name and everyday words
+ * («الهيرو», «الواجهة الرئيسية»), its heading, or the role it plays
+ * («الأسعار»). A tie names nothing.
+ */
+function namedPartBlock(
+  naming: ReturnType<typeof namingWords>,
+  blocks: readonly PartBlock[],
+  document: ReturnType<BuilderKernel['getDocument']>,
+): string | undefined {
+  const outlines = blocks.flatMap((block, index): PageSectionOutline[] => {
+    const heading = block.node.props['heading'] ?? block.node.props['title'];
+    const base = {
+      id: block.id,
+      type: block.node.type,
+      index,
+      ...(typeof heading === 'string' && heading.trim() !== '' ? { heading: heading.slice(0, 80) } : {}),
+    };
+    return [base, ...blockSectionWordsAr(block.node.type).map((label) => ({ ...base, label }))];
+  });
+  const mentions = sectionMentions(naming, outlines).filter(
+    (mention, at, all) => all.findIndex((other) => other.section.id === mention.section.id) === at,
+  );
+  const [best, second] = mentions;
+  if (best !== undefined) {
+    if (second?.score === best.score) return undefined;
+    if (best.score < 1 && second !== undefined) return undefined;
+    return best.section.id;
+  }
+  const byRole = [...new Set(roleSections(naming, outlines, document).map(({ id }) => id))];
+  return byRole.length === 1 ? byRole[0] : undefined;
+}
+
+/** The ONE part a request's words mean, or undefined. */
+function resolvePartTarget(words: PartColourWords, kernel: BuilderKernel): PartColourTarget | undefined {
+  const blocks = partBlocks(kernel);
+  if (blocks.length === 0) return undefined;
+  const isPartWord = (word: string) => blocks.some((block) => partNamesFor(block, word).length > 0);
+  const partWords = words.content.filter(isPartWord);
+  const sectionWords = words.content.filter((word) => !isPartWord(word));
+  if (partWords.length === 0) return undefined;
+  const document = kernel.getDocument();
+  let inside: ReadonlySet<string> | undefined;
+  let sectionId: string | undefined;
+  if (sectionWords.length > 0) {
+    const sections = outlinePageSections(document);
+    const naming = namingWords(sectionWords.join(' '));
+    const byRole = roleSections(naming, sections, document);
+    const section = namedSection(naming, sections) ?? (byRole.length === 1 ? byRole[0] : undefined);
+    // A registered block the words name, at any depth (the landing hero sits inside an aurora).
+    const sectionBlockId = section === undefined ? namedPartBlock(naming, blocks, document) : undefined;
+    // Words that name no section are a name the composed reading may know («سارة»).
+    const id = section?.id ?? sectionBlockId;
+    if (id === undefined) return undefined;
+    sectionId = id;
+    inside = new Set(subtreeIds(id, document));
+  }
+  const phrase = partWords.join(' ');
+  const scoped = blocks.filter((block) => inside === undefined || inside.has(block.id));
+  // The whole phrase names the part («عنوان البطاقة»); words that name two different parts name none.
+  const found = scoped.flatMap((block) => partNamesFor(block, phrase).map((part) => ({ block, part })));
+  // The section block's own part beats one of its children's (the hero's heading, not a button's label).
+  const own = found.filter(({ block }) => block.id === sectionId);
+  const pool = own.length > 0 ? own : found;
+  const unique = pool.filter(
+    (entry, at) => pool.findIndex((other) => other.block.id === entry.block.id && other.part === entry.part) === at,
+  );
+  if (unique.length !== 1) return undefined;
+  const [hit] = unique;
+  const decl = hit === undefined ? undefined : hit.block.parts[hit.part];
+  if (hit === undefined || decl === undefined) return undefined;
+  if (!repeated(decl)) return { block: hit.block, part: hit.part, decl, index: [], scope: 'this', named: sectionId !== undefined };
+  const instances = partInstances(hit.block.parts, hit.block.node.props).filter(({ part }) => part === hit.part);
+  const [only] = instances;
+  return instances.length === 1 && only !== undefined
+    ? { block: hit.block, part: hit.part, decl, index: only.index, scope: 'this', named: sectionId !== undefined }
+    : { block: hit.block, part: hit.part, decl, index: [], scope: 'all', named: sectionId !== undefined };
+}
+
+const BUTTON_WORDS: ReadonlySet<string> = new Set(['button', 'btn', 'cta', 'زر', 'زرار', 'بتن', 'buttons']);
+
+/** A part a person calls a button: its colour is its background, its label reads on it. */
+function buttonLike(target: PartColourTarget): boolean {
+  if (target.decl.kind !== 'link' && target.decl.kind !== 'box') {
+    return /button|cta/iu.test(target.block.node.type) && target.decl.kind === 'text';
+  }
+  if (/button|cta/iu.test(target.block.node.type)) return true;
+  const words = [target.part, target.decl.label.en, target.decl.label.ar, ...(target.decl.aliases ?? [])];
+  return words.some((word) =>
+    (normalizeIntentText(word).match(WORD) ?? []).some((part) => BUTTON_WORDS.has(part) || BUTTON_WORDS.has(bare(part))),
+  );
+}
+
+type PartColourResult =
+  | { readonly kind: 'reading'; readonly reading: ElementColourReading; readonly named: boolean }
+  | { readonly kind: 'question'; readonly question: ElementColourQuestion; readonly named: boolean };
+
+function partTitle(target: PartColourTarget): { readonly ar: string; readonly en: string } {
+  return { ar: `«${target.decl.label.ar}»`, en: `the ${target.block.blockName} ${target.decl.label.en.toLowerCase()}` };
+}
+
+function noRoleQuestion(target: PartColourTarget, shade: string | undefined): ElementColourQuestion {
+  const what = partTitle(target);
+  const name = shade === undefined ? undefined : (SHADE_NAMES[shade] ?? { ar: shade, en: shade });
+  const choices = [
+    { id: 'accent' as const, ar: 'استخدم لون التمييز', en: 'Use the accent colour' },
+    { id: 'convert' as const, ar: 'حوّل إلى قابل للتعديل (ألوان حرة)', en: 'Convert to editable (free colours)' },
+  ];
+  if (name === undefined) {
+    return {
+      ar: `أي لون تريد لـ${what.ar}؟ ألوان هذا القسم من ألوان الموقع: ${choices[0]?.ar ?? ''}، أو «${choices[1]?.ar ?? ''}» لأي لون آخر.`,
+      en: `Which colour should ${what.en} take? This section uses the site's colours: ${choices[0]?.en.toLowerCase() ?? ''}, or “${choices[1]?.en ?? ''}” for any other colour.`,
+      choices,
+    };
+  }
+  return {
+    ar: `لا يوجد ${name.ar.replace(/^ال/u, '')} بين ألوان الموقع لـ${what.ar}. اختر: ${choices[0]?.ar ?? ''}، أو «${choices[1]?.ar ?? ''}» لتلوينه ب${name.ar}.`,
+    en: `The site's colours have no ${name.en} for ${what.en}. Choose: ${choices[0]?.en.toLowerCase() ?? ''}, or “${choices[1]?.en ?? ''}” to make it ${name.en}.`,
+    choices,
+  };
+}
+
+const TEXT_PREFERENCE: readonly ThemeColourRole[] = ['text', 'text-muted', 'accent', 'success', 'text-inverse', 'surface-inverse', 'surface'];
+const BACKGROUND_PREFERENCE: readonly ThemeColourRole[] = ['accent', 'success', 'surface-inverse', 'surface', 'text', 'text-muted', 'text-inverse'];
+
+/** The part reading: a part.style for the nearest role, a question, or undefined when no part is meant. */
+function readPartColour(text: string, kernel: BuilderKernel, options: ElementColourOptions): PartColourResult | undefined {
+  const words = partColourWords(text);
+  if (words === undefined) return undefined;
+  const target = resolvePartTarget(words, kernel);
+  if (target === undefined) return undefined;
+  const button = buttonLike(target);
+  const background = button || target.decl.kind === 'box' || target.decl.kind === 'item' || target.decl.kind === 'list';
+  let match: ThemeRoleMatch | undefined;
+  if (words.role !== undefined) {
+    match = { role: words.role, token: words.role, distance: 0 };
+  } else if (words.shade !== undefined) {
+    const hex = words.shade === 'white' ? '#ffffff' : colourHex(words.shade);
+    match = hex === undefined ? undefined : nearestThemeRole(hex, themeOf(kernel, options), background ? BACKGROUND_PREFERENCE : TEXT_PREFERENCE);
+  }
+  if (match === undefined) {
+    return { kind: 'question', question: noRoleQuestion(target, words.shade), named: target.named };
+  }
+  const style: Record<string, string> = background
+    ? { backgroundColor: match.token, ...(button ? { textColor: ON_ROLE[match.role] } : {}) }
+    : { textColor: match.token };
+  const input = {
+    id: target.block.id,
+    part: target.part,
+    ...(target.index.length === 0 ? {} : { index: [...target.index] }),
+    scope: target.scope,
+    style,
+  };
+  const parsed = partStyleTool.parse(input);
+  if (!parsed.ok) return undefined;
+  const run = partStyleTool.run(parsed.value, liveToolContext(kernel));
+  if (!run.ok) return undefined;
+  const what = partTitle(target);
+  const role = ROLE_NAMES[match.role];
+  const faded = match.opacity === undefined ? '' : ` (${String(match.opacity)}%)`;
+  return {
+    kind: 'reading',
+    named: target.named,
+    reading: {
+      steps: run.steps,
+      label: { ar: `تلوين ${what.ar} ب${role.ar}${faded}`, en: `Colour ${what.en} with ${role.en}${faded}` },
+    },
+  };
+}
+// ── /block-parts ──

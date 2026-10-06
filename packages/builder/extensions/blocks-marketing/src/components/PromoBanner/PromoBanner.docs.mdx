@@ -36,3 +36,24 @@ HTTP(S) sources. Container queries and logical positioning serve LTR and RTL fro
 The block intentionally does not expose a cosmetic dismiss button. A trustworthy dismissal needs a
 persistence contract and host-owned consent state; hiding content only until the next render would
 be misleading behavior.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name          | kind  | bind                                 | label (en / ar)          |
+| ------------- | ----- | ------------------------------------ | ------------------------ |
+| `panel`       | box   | —                                    | Panel / اللوحة           |
+| `label`       | text  | `label`                              | Label / الوسم            |
+| `headline`    | text  | `headline`                           | Headline / العنوان       |
+| `body`        | text  | `body`                               | Body / الوصف (multiline) |
+| `actions`     | list  | `actions`                            | Actions / الأزرار        |
+| `action`      | item  | `actions.*`                          | Action / زر              |
+| `action.link` | link  | `actions.*.label` + `actions.*.href` | Action label / نص الزر   |
+| `image`       | image | `imageSrc` + `imageAlt`              | Image / الصورة           |
+
+Each action is an item of the `actions` list (add, duplicate, move, remove). A `this item` style is
+stored under `action@<index>`, an `all items` style under `action`.

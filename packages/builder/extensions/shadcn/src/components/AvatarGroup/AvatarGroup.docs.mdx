@@ -31,3 +31,23 @@ negative `margin-inline-start`, so the visual stack reverses correctly with RTL 
 
 <Controls />
 <Stories />
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name              | kind  | bind                | label (en / ar)           |
+| ----------------- | ----- | ------------------- | ------------------------- |
+| `people`          | list  | `people`            | People / الأشخاص          |
+| `person`          | item  | `people.*`          | Person / الشخص            |
+| `person.name`     | text  | `people.*.name`     | Name / الاسم              |
+| `person.initials` | text  | `people.*.initials` | Initials / الأحرف الأولى  |
+| `person.image`    | image | `people.*.imageSrc` | Avatar image / صورة الشخص |
+
+The name names the avatar through `aria-labelledby` over a hidden element, and the hover title is a
+plain-string copy. Only stored initials are a part; initials derived from the name are decoration.
+`groupLabel` and `overflowLabel` are for assistive technology only and stay in the Inspector. People
+beyond `maxVisible` are not rendered.

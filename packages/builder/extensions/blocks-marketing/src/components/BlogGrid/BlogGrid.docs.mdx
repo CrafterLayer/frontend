@@ -29,3 +29,31 @@ Repeated action labels include the article title for assistive technology. Missi
 makes the optional image decorative because its adjacent title already describes the destination.
 Container queries let the cards adapt to the actual canvas column, and all directional spacing is
 logical for RTL layouts.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`post.title` for every card, `post.title@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name                  | kind  | bind                                               | label (en / ar)                             |
+| --------------------- | ----- | -------------------------------------------------- | ------------------------------------------- |
+| `eyebrow`             | text  | `eyebrow`                                          | Eyebrow / الشارة                            |
+| `heading`             | text  | `heading`                                          | Heading / العنوان                           |
+| `body`                | text  | `body`                                             | Body / الوصف (multiline)                    |
+| `posts`               | list  | `posts`                                            | Articles / المقالات                         |
+| `post`                | item  | `posts.*`                                          | Article / المقالة                           |
+| `post.image`          | image | `{ src: posts.*.imageSrc, alt: posts.*.imageAlt }` | Article image / صورة المقالة                |
+| `post.category`       | text  | `posts.*.category`                                 | Article category / تصنيف المقالة            |
+| `post.title`          | text  | `posts.*.title`                                    | Article title / عنوان المقالة               |
+| `post.excerpt`        | text  | `posts.*.excerpt`                                  | Article excerpt / مقتطف المقالة (multiline) |
+| `post.author`         | text  | `posts.*.author`                                   | Article author / كاتب المقالة               |
+| `post.publishedLabel` | text  | `posts.*.publishedLabel`                           | Publication date / تاريخ النشر              |
+| `post.readingTime`    | text  | `posts.*.readingTime`                              | Reading time / مدة القراءة                  |
+| `post.link`           | link  | `{ text: posts.*.title, href: posts.*.href }`      | Article link / رابط المقالة                 |
+| `actionLabel`         | text  | `actionLabel`                                      | Link label / نص الرابط                      |
+
+`actionLabel` is one part shown on every card; while it is edited in place, the first card hosts the
+editor. The link's accessible name is its label followed by the article title, read through
+`aria-labelledby`, so no bound value is copied into an attribute.

@@ -37,3 +37,21 @@ protocol-relative destinations are rejected.
 Motion passes through the renderer's named motion contract and its reduced-motion fallback. The
 layout uses logical `end` positioning and responsive container variants, so the same markup serves
 LTR and RTL.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name              | kind | bind                                             | label (en / ar)                    |
+| ----------------- | ---- | ------------------------------------------------ | ---------------------------------- |
+| `trigger`         | text | `triggerLabel`                                   | Trigger button / زر الفتح          |
+| `panel`           | box  | —                                                | Dialog panel / لوحة الحوار         |
+| `title`           | text | `title`                                          | Title / العنوان                    |
+| `body`            | text | `body`                                           | Body / الوصف (multiline)           |
+| `primaryAction`   | link | `primaryAction.label` + `primaryAction.href`     | Primary action / الإجراء الرئيسي   |
+| `secondaryAction` | link | `secondaryAction.label` + `secondaryAction.href` | Secondary action / الإجراء الثانوي |
+
+`closeLabel` names the close button through an attribute, so it stays an Inspector row.

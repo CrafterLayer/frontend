@@ -117,6 +117,7 @@ export const formSectionExamples: { prompt: string; node: JsonValue }[] = [
           },
         ],
         submitLabel: 'إرسال الطلب',
+        successHint: 'سنرد خلال يوم عمل واحد.',
         action: '/ar/consultation',
         variant: 'card',
         buttonWidth: 'full',

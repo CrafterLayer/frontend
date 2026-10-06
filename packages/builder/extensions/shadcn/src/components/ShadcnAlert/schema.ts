@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { shadcnAlertExamples } from './examples';
@@ -33,14 +34,31 @@ export const shadcnAlertSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     title: { tab: 'content' },
     variant: { tab: 'design', section: 'Alert' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
   },
   inlineEditable: 'title',
+  /* The callout's own elements (block-parts DESIGN §1); its body is composed from slot children. */
+  parts: {
+    icon: {
+      kind: 'box',
+      label: { en: 'Icon', ar: 'الأيقونة' },
+      aliases: ['glyph', 'symbol', 'أيقونة', 'الرمز'],
+    },
+    title: {
+      kind: 'text',
+      bind: 'title',
+      label: { en: 'Title', ar: 'العنوان' },
+      aliases: ['heading', 'headline', 'message', 'عنوان', 'الرسالة'],
+    },
+  },
   slots: {
     default: { allow: ['richText', 'cta', 'button', 'shimmerButton', 'navLinks'] },
   },

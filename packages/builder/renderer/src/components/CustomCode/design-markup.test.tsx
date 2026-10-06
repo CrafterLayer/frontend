@@ -266,7 +266,9 @@ describe('CustomCode — design markup', () => {
 
     expect(container.querySelector('p')?.getAttribute('dir')).toBe('rtl');
     expect(container.querySelector('p > span')?.getAttribute('lang')).toBe('en');
-    expect(container.querySelector('[data-ck] > span')?.hasAttribute('dir')).toBe(false);
+    // block-parts (2026-10-06): a rejected author dir ('sideways') is dropped by policy, and the
+    // text then takes its direction from its own content like every other text element.
+    expect(container.querySelector('[data-ck] > span')?.getAttribute('dir')).toBe('auto');
   });
 
   it('renders the phrasing and definition tags the recipes name', () => {

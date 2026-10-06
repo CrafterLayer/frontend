@@ -126,15 +126,15 @@ export const videoSectionSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Introduction' },
     heading: { tab: 'content', section: 'Introduction' },
-    body: { tab: 'content', section: 'Introduction' },
-    src: { tab: 'content', section: 'Video' },
-    poster: { tab: 'content', section: 'Video' },
+    body: { tab: 'content', section: 'Introduction', kind: 'multiline' },
+    src: { tab: 'content', section: 'Video', kind: 'image' },
+    poster: { tab: 'content', section: 'Video', kind: 'image' },
     videoLabel: { tab: 'content', section: 'Accessibility' },
     caption: { tab: 'content', section: 'Video' },
     captionsSrc: { tab: 'content', section: 'Captions' },
     captionsLanguage: { tab: 'content', section: 'Captions' },
     captionsLabel: { tab: 'content', section: 'Captions' },
-    cta: { tab: 'content', section: 'Action' },
+    cta: { tab: 'content', section: 'Action', kind: 'link' },
     layout: { tab: 'design', section: 'Layout' },
     mediaPosition: { tab: 'design', section: 'Layout' },
     videoFit: { tab: 'design', section: 'Media' },
@@ -152,6 +152,47 @@ export const videoSectionSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the introduction,
+    the caption under the video and the call-to-action link. The video
+    address and poster are media rows (asset picker); its label and caption
+    track label are read only by assistive technology, so they stay
+    Inspector rows. With no `videoLabel`, the video is named by the visible
+    heading through aria-labelledby, never by a copy of its text.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    caption: {
+      kind: 'text',
+      bind: 'caption',
+      label: { en: 'Video caption', ar: 'تعليق الفيديو' },
+      aliases: ['caption', 'figcaption', 'video text', 'تعليق', 'وصف الفيديو'],
+    },
+    cta: {
+      kind: 'link',
+      bind: { text: 'cta.label', href: 'cta.href' },
+      label: { en: 'Button', ar: 'الزر' },
+      aliases: ['button', 'action', 'cta', 'link', 'زر', 'الرابط'],
+    },
+  },
   examples: videoSectionExamples,
 });
 

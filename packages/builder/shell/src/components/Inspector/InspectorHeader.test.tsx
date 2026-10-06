@@ -78,4 +78,14 @@ describe('InspectorHeader', () => {
     expect(screen.getByText('tablet')).toBeInTheDocument();
     expect(screen.queryByText('Editing tablet overrides')).not.toBeInTheDocument();
   });
+
+  it('publishes its height so nested sticky headers park under it, not over the title', () => {
+    const { container } = render(
+      <section className="bldr-inspector">
+        <InspectorHeader blockName="Heading" selected bucket="base" onClearSelection={vi.fn()} />
+      </section>,
+    );
+    const panel = container.querySelector<HTMLElement>('.bldr-inspector');
+    expect(panel?.style.getPropertyValue('--bldr-inspector-head-size')).toMatch(/^\d+px$/u);
+  });
 });

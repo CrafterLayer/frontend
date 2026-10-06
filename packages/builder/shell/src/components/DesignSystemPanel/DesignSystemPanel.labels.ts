@@ -1,4 +1,4 @@
-import type { TokenName } from '@craftkit/builder-schema';
+import { isColorToken, type ColorToken, type TokenName } from '@craftkit/builder-schema';
 
 export interface DesignSystemPanelLabels {
   readonly region: string;
@@ -27,6 +27,10 @@ export interface DesignSystemPanelLabels {
   readonly preview: string;
   /** "radius sm" from "radiusSm"; override to translate token names. */
   readonly token: (token: TokenName) => string;
+  /** What each colour role is called (fix pass 2026-10-06): the swatch grid, the colour popovers. */
+  readonly colorRoles: Readonly<Record<ColorToken, string>>;
+  /** The design system's title; the built-in one is stored as "Default". */
+  readonly systemName: (name: string) => string;
   readonly commitToken: (token: string) => string;
   readonly commitColour: (name: string) => string;
   readonly commitRemoveColour: (name: string) => string;
@@ -37,6 +41,35 @@ export interface DesignSystemPanelLabels {
 /** Camel to words, so "surfaceInverse" reads as a person would say it. */
 export function readableToken(name: string): string {
   return name.replace(/([a-z0-9])([A-Z])/gu, '$1 $2').toLowerCase();
+}
+
+export const COLOR_ROLE_NAMES_EN: Readonly<Record<ColorToken, string>> = {
+  surface: 'Surface',
+  surfaceInverse: 'Inverse surface',
+  text: 'Text',
+  textInverse: 'Inverse text',
+  textMuted: 'Muted text',
+  accent: 'Accent',
+  accentText: 'On accent',
+  success: 'Success',
+  successText: 'On success',
+};
+
+export const COLOR_ROLE_NAMES_AR: Readonly<Record<ColorToken, string>> = {
+  surface: 'الخلفية',
+  surfaceInverse: 'الخلفية المعكوسة',
+  text: 'النص',
+  textInverse: 'النص المعكوس',
+  textMuted: 'النص الخافت',
+  accent: 'لون التمييز',
+  accentText: 'نص على لون التمييز',
+  success: 'لون النجاح',
+  successText: 'نص على لون النجاح',
+};
+
+/** A colour role by its catalogue name; any other token reads as words. */
+function tokenNameIn(names: Readonly<Record<ColorToken, string>>): (token: TokenName) => string {
+  return (token) => (isColorToken(token) ? names[token] : readableToken(token));
 }
 
 export const DESIGN_SYSTEM_PANEL_LABELS_EN: DesignSystemPanelLabels = {
@@ -64,7 +97,9 @@ export const DESIGN_SYSTEM_PANEL_LABELS_EN: DesignSystemPanelLabels = {
   spacingScale: 'Spacing',
   widths: 'Widths',
   preview: 'Preview',
-  token: readableToken,
+  token: tokenNameIn(COLOR_ROLE_NAMES_EN),
+  colorRoles: COLOR_ROLE_NAMES_EN,
+  systemName: (name) => name,
   commitToken: (token) => `Design token · ${token}`,
   commitColour: (name) => `Palette colour · ${name}`,
   commitRemoveColour: (name) => `Remove palette colour · ${name}`,
@@ -97,7 +132,9 @@ export const DESIGN_SYSTEM_PANEL_LABELS_AR: DesignSystemPanelLabels = {
   spacingScale: 'المسافات',
   widths: 'العروض',
   preview: 'معاينة',
-  token: readableToken,
+  token: tokenNameIn(COLOR_ROLE_NAMES_AR),
+  colorRoles: COLOR_ROLE_NAMES_AR,
+  systemName: (name) => (name === 'Default' ? 'نظام التصميم الافتراضي' : name),
   commitToken: (token) => `رمز التصميم · ${token}`,
   commitColour: (name) => `لون اللوحة · ${name}`,
   commitRemoveColour: (name) => `حذف لون اللوحة · ${name}`,

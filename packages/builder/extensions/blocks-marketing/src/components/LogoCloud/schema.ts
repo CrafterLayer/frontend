@@ -57,7 +57,7 @@ export const logoCloudSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     items: { tab: 'content', section: 'Brands' },
     variant: { tab: 'design', section: 'Style' },
     columns: { tab: 'design', section: 'Layout' },
@@ -72,6 +72,57 @@ export const logoCloudSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the intro text, the
+    brand grid, each brand, and each brand's name and descriptor. The
+    monogram is decoration derived from the name, not a part.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Brands', ar: 'العلامات' },
+      aliases: ['logos', 'clients', 'grid', 'الشعارات', 'العملاء'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Brand', ar: 'العلامة' },
+      aliases: ['logo', 'client', 'tile', 'شعار', 'عميل'],
+    },
+    'item.name': {
+      kind: 'text',
+      bind: 'items.*.name',
+      label: { en: 'Brand name', ar: 'اسم العلامة' },
+      aliases: ['name', 'company', 'الاسم', 'الشركة'],
+    },
+    'item.descriptor': {
+      kind: 'text',
+      bind: 'items.*.descriptor',
+      label: { en: 'Brand descriptor', ar: 'وصف العلامة' },
+      aliases: ['descriptor', 'tagline', 'industry', 'الوصف', 'المجال'],
+    },
+  },
   examples: logoCloudExamples,
 });
 

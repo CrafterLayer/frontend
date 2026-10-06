@@ -25,7 +25,7 @@ export const FeaturedInsights: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByRole('article')).toHaveLength(3);
-    await expect(canvas.getByRole('link', { name: /Read insight: Why the best/i })).toBeVisible();
+    await expect(canvas.getByRole('link', { name: /Read insight Why the best/i })).toBeVisible();
   },
 };
 
@@ -47,5 +47,33 @@ export const EmptyState: Story = {
     slots: {},
     data: {},
     isCanvas: true,
+  },
+};
+
+/* Block parts (DESIGN §4.4): every card line is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'blog-parts' },
+    props: blogGridSchema.props.parse({
+      ...(blogGridExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: {
+        'post.title': { className: 'text-accent' },
+        'post.title@0': { className: 'underline' },
+      },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const titles = canvasElement.querySelectorAll('[data-ck-part="post.title"]');
+    await expect(titles).toHaveLength(3);
+    await expect(titles[1]).toHaveAttribute('data-ck-bind', 'posts.1.title');
+    await expect(titles[1]).toHaveClass('text-accent');
+    await expect(titles[0]).toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="post.link"]')).toHaveAttribute(
+      'data-ck-bind',
+      'posts.0.title',
+    );
   },
 };

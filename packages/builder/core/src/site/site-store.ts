@@ -1,6 +1,13 @@
 import { createStore } from 'zustand/vanilla';
 
-import type { BuilderSite, ElementFocus, Node, NodeId, PageId } from '@craftkit/builder-schema';
+import type {
+  BuilderSite,
+  ElementFocus,
+  Node,
+  NodeId,
+  PageId,
+  PartFocus,
+} from '@craftkit/builder-schema';
 
 /**
  * The site kernel's single state (013, ق١).
@@ -21,6 +28,10 @@ export interface KernelSiteState {
   pageId: PageId;
   selection: NodeId[];
   elementFocus: ElementFocus | null;
+  // ── block-parts (2026-10-06) ──
+  /** The focused part of the selected block on the current page (DESIGN §2.5). */
+  partFocus?: PartFocus | null;
+  // ── /block-parts ──
   seq: number;
 }
 

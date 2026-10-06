@@ -46,6 +46,17 @@ const TOPIC_ALIASES: Readonly<Record<string, PhotoTopic>> = {
   dentist: 'dental',
   clinic: 'medical',
   fitness: 'gym',
+  // media-motion fix pass (2026-10-06): «معرض صور للأطباق» named no topic and filled from the cafe.
+  اطباق: 'restaurant',
+  اكل: 'restaurant',
+  اكلات: 'restaurant',
+  طعام: 'restaurant',
+  مطعم: 'restaurant',
+  وجبات: 'restaurant',
+  مشاوي: 'restaurant',
+  قهوه: 'cafe',
+  كافيه: 'cafe',
+  حلويات: 'sweets',
 };
 
 /**
@@ -54,7 +65,8 @@ const TOPIC_ALIASES: Readonly<Record<string, PhotoTopic>> = {
  * cafe's and the sweets' plates next, never a law office.
  */
 const RELATED_TOPICS: Readonly<Partial<Record<PhotoTopic, readonly PhotoTopic[]>>> = {
-  restaurant: ['cafe', 'sweets'],
+  // Not the cafe (fix pass 2026-10-06): a grill's dishes gallery showed baristas and lattes. Fewer on-topic photos beat six mixed ones.
+  restaurant: ['sweets'],
   cafe: ['sweets', 'restaurant'],
   sweets: ['cafe', 'restaurant'],
   ramadan: ['sweets', 'restaurant'],
@@ -293,7 +305,8 @@ export function catalogImages(context: AgentToolContext, options: CatalogImagesO
           : `no catalog photo matches "${options.topic}"; use 'catalog:<topic>' with one of: ${catalogTopicList()}.`,
     };
   }
-  const chosen = [...photos];
+  // A named topic keeps to its own subject; only the fill below may widen it.
+  const chosen = options.topic === undefined ? [...photos] : photos.filter(({ subject }) => subject === first.subject);
   for (const related of RELATED_TOPICS[first.subject] ?? []) {
     if (chosen.length >= options.count) break;
     const taken = new Set(chosen.map(({ url }) => url));

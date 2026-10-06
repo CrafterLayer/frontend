@@ -58,11 +58,11 @@ export const newsletterSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     emailLabel: { tab: 'content', section: 'Form' },
     placeholder: { tab: 'content', section: 'Form' },
     buttonLabel: { tab: 'content', section: 'Form' },
-    privacy: { tab: 'content', section: 'Consent' },
+    privacy: { tab: 'content', section: 'Consent', kind: 'multiline' },
     action: { tab: 'advanced', section: 'Form' },
     variant: { tab: 'design', section: 'Style' },
     formLayout: { tab: 'design', section: 'Form' },
@@ -77,6 +77,55 @@ export const newsletterSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1). The placeholder is an
+    attribute of the email input, so it stays an Inspector row.
+  */
+  parts: {
+    panel: {
+      kind: 'box',
+      label: { en: 'Panel', ar: 'اللوحة' },
+      aliases: ['card', 'background', 'البطاقة', 'الخلفية'],
+    },
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['overline', 'kicker', 'badge', 'شارة'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'عنوان'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    emailLabel: {
+      kind: 'text',
+      bind: 'emailLabel',
+      label: { en: 'Email label', ar: 'تسمية البريد' },
+      aliases: ['field label', 'تسمية الحقل'],
+    },
+    button: {
+      kind: 'text',
+      bind: 'buttonLabel',
+      label: { en: 'Button', ar: 'الزر' },
+      aliases: ['submit', 'buttonLabel', 'subscribe', 'زر', 'زر الاشتراك'],
+    },
+    privacy: {
+      kind: 'text',
+      bind: 'privacy',
+      label: { en: 'Privacy note', ar: 'ملاحظة الخصوصية' },
+      aliases: ['consent', 'note', 'الخصوصية', 'ملاحظة'],
+      multiline: true,
+    },
+  },
   examples: newsletterExamples,
 });
 

@@ -41,11 +41,57 @@
   cursor: pointer;
   flex: none;
   font: inherit;
+  /* Sized to the option it shows (fix pass 2026-10-06): a 40px cap cut
+     "full" / "first" / "none" to "ful" / "fir" / "no" (and to "ull" / "rst"
+     from the other end in Arabic). Without field-sizing a select is as wide
+     as its longest option, which never clips either. */
+  field-sizing: content;
   font-size: var(--bldr-font-size-micro);
-  max-inline-size: var(--bldr-control-lg);
+  min-inline-size: var(--bldr-control-sm);
   padding-inline: var(--bldr-space-2xs);
 }
 
 .bldr-scale-number__unit:focus-visible {
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+/*
+  The scrub grip: drag sideways (or up) to change the number, as in Framer
+  and Webstudio. Keyboard users have the spinbutton's arrows instead.
+*/
+.bldr-scale-number__scrub {
+  align-items: center;
+  border-end-start-radius: inherit;
+  border-start-start-radius: inherit;
+  color: var(--bldr-panel-muted);
+  cursor: ew-resize;
+  display: inline-flex;
+  flex: none;
+  inline-size: var(--bldr-space-4xl);
+  justify-content: center;
+  touch-action: none;
+}
+
+.bldr-scale-number__scrub svg {
+  block-size: var(--bldr-space-xl);
+  fill: none;
+  inline-size: var(--bldr-space-xl);
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.bldr-scale-number__scrub:hover,
+.bldr-scale-number[data-scrubbing] .bldr-scale-number__scrub {
+  background: var(--bldr-surface-hover);
+  color: var(--bldr-accent);
+}
+
+.bldr-scale-number__scrub + .bldr-scale-number__input {
+  padding-inline-start: 0;
+}
+
+.bldr-scale-number[data-scrubbing] {
+  border-color: var(--bldr-border-focus);
 }

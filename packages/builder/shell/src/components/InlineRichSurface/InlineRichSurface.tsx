@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { RichText } from '@craftkit/builder-renderer';
 import type { InlineEditorProps, InlineFormatAction } from '@craftkit/builder-schema';
@@ -19,6 +19,12 @@ import {
   type ToggleableMark,
 } from '../../inline/mark-range';
 import './InlineRichSurface.css';
+
+/** A local edit; `dirty` until it has been handed to the host. */
+interface RichDraft {
+  readonly doc: unknown;
+  readonly dirty: boolean;
+}
 
 /** The marks the built-in surface offers, in bubble order. */
 const MARKS: { id: ToggleableMark; label: string }[] = [
@@ -96,11 +102,17 @@ function fallbackDeletionRange(range: TextRange, inputType: string, length: numb
  * lists, links, and undo remain the contributed engine's job, and a contributed
  * editor still outranks this one wherever an extension registers it.
  *
- * CONTROLLED contenteditable: every input is intercepted and applied to the
- * document instead, so React stays the single authority over the DOM and the
- * stored document can never drift from what is on screen. The caret is
- * restored by offset after each commit, which is what makes typing feel
- * continuous through a round trip to the kernel and back.
+ * CONTROLLED contenteditable: every input is intercepted and applied to a
+ * LOCAL draft document instead, so React stays the single authority over the
+ * DOM and what is on screen is always a real document. The caret is restored
+ * by offset after each edit.
+ *
+ * Commit law (block-parts DESIGN §2.7, law L1): the draft is handed to the host
+ * ONCE — on Enter, on blur, or when the session ends under it — never per
+ * keystroke, so one edit is one Undo. A formatting action (Bold, Italic) is a
+ * discrete gesture and commits immediately, together with any typing before
+ * it. Escape discards the draft. While a draft is unsaved, incoming values (an
+ * Undo/Redo replay, a collaborator) do not overwrite it.
  */
 export function InlineRichSurface({
   value,
@@ -113,6 +125,25 @@ export function InlineRichSurface({
   formattingMenuElement,
 }: InlineEditorProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  /*
+    The local draft. `null` = nothing typed: the stored value shows. After a
+    commit the draft is kept CLEAN until the stored value moves (the host's
+    echo, or an undo), so a refused commit never snaps the text back under the
+    caret.
+  */
+  const [draft, setDraft] = useState<RichDraft | null>(null);
+  const draftRef = useRef<RichDraft | null>(null);
+  // The stored value moved (the host's echo, an undo, a collaborator): a CLEAN
+  // draft yields to it; a dirty one is kept (a replay never eats typing).
+  // Adjusting state while rendering is React's documented pattern for this.
+  const [seenValue, setSeenValue] = useState(value);
+  if (seenValue !== value) {
+    setSeenValue(value);
+    if (draft !== null && !draft.dirty) {
+      setDraft(null);
+    }
+  }
+  const shown = draft === null ? value : draft.doc;
   /** Where to put the caret once the committed value comes back. */
   const pendingCaretRef = useRef<TextRange | null>(null);
   /** Selection bookmark while host-document formatting chrome owns focus. */
@@ -122,13 +153,20 @@ export function InlineRichSurface({
   // native listeners below must not re-bind for that (they live on the FRAME's
   // document, and re-binding mid-gesture drops events).
   const valueRef = useRef(value);
+  /** The document on screen right now — what every edit applies to. */
+  const docRef = useRef<unknown>(shown);
   const commitRef = useRef(onCommit);
   const exitRef = useRef(onExit);
   const anchorRef = useRef(onAnchor);
   const actionsRef = useRef(onActions);
   const requestFormattingMenuFocusRef = useRef(requestFormattingMenuFocus);
-  useEffect(() => {
+  // A LAYOUT effect, not a passive one: a deferred passive sync could land
+  // after a keystroke staged a newer draft and overwrite it with the previous
+  // render's — layout effects run in the commit itself, before any next event.
+  useLayoutEffect(() => {
     valueRef.current = value;
+    docRef.current = shown;
+    draftRef.current = draft;
     commitRef.current = onCommit;
     exitRef.current = onExit;
     anchorRef.current = onAnchor;
@@ -141,10 +179,33 @@ export function InlineRichSurface({
     return offsetsOfSelection(root, selection);
   }, []);
 
-  /** One commit, plus where the caret belongs once the value returns. */
-  const commit = useCallback((next: unknown, caret: TextRange) => {
+  /** Apply an edit to the draft (no commit), plus where the caret belongs. */
+  const stage = useCallback((next: unknown, caret: TextRange) => {
     pendingCaretRef.current = caret;
-    commitRef.current(next);
+    const staged: RichDraft = { doc: next, dirty: true };
+    draftRef.current = staged;
+    docRef.current = next;
+    setDraft(staged);
+  }, []);
+
+  /** Hand an unsaved draft to the host: ONE commit, or nothing when clean. */
+  const flush = useCallback(() => {
+    const current = draftRef.current;
+    if (current?.dirty !== true) {
+      return;
+    }
+    const clean: RichDraft = { ...current, dirty: false };
+    draftRef.current = clean;
+    setDraft(clean);
+    commitRef.current(current.doc);
+  }, []);
+
+  /** Escape: forget the draft; the stored value shows again. */
+  const discard = useCallback(() => {
+    draftRef.current = null;
+    docRef.current = valueRef.current;
+    pendingCaretRef.current = null;
+    setDraft(null);
   }, []);
 
   /**
@@ -171,29 +232,46 @@ export function InlineRichSurface({
     const range =
       formattingSelectionRef.current ??
       (editorOwnsFocus || menuOwnsFocus ? selectionOf(root) : null);
-    const document_ = valueRef.current;
-    if (range === null || range.from >= range.to) {
+    const document_ = docRef.current;
+    if (range === null) {
       anchorRef.current(null);
       actionsRef.current([]);
       return;
     }
-    anchorRef.current({
-      measure: () => rangeGeometry(root, range),
-    });
+    /*
+      block-parts (2026-10-06): a collapsed caret keeps the formatting chrome
+      on screen (the canvas docks it at this surface instead of a selection),
+      with the marks DISABLED: this surface stores marks on characters, and a
+      caret has none to carry them. No anchor, so the bar never points at a
+      zero-width rect.
+    */
+    const collapsed = range.from >= range.to;
+    anchorRef.current(collapsed ? null : { measure: () => rangeGeometry(root, range) });
     actionsRef.current(
       MARKS.map((mark): InlineFormatAction => ({
         id: mark.id,
         label: mark.label,
-        pressed: isMarkActive(document_, range, mark.id),
+        pressed: !collapsed && isMarkActive(document_, range, mark.id),
+        disabled: collapsed,
         run: () => {
-          // ONE transaction, and the selection is preserved across it: the
-          // caret comes back to the same characters, so a second press
-          // toggles the same word rather than a stale one.
-          commit(toggleMark(valueRef.current, range, mark.id), range);
+          if (collapsed) {
+            return;
+          }
+          // ONE transaction (with any typing before it), and the selection
+          // is preserved across it: the caret comes back to the same
+          // characters, so a second press toggles the same word.
+          stage(toggleMark(docRef.current, range, mark.id), range);
+          flush();
         },
       })),
     );
-  }, [commit, formattingMenuElement, selectionOf]);
+  }, [flush, formattingMenuElement, selectionOf, stage]);
+  // The mount effect below must run ONCE (its cleanup commits an unsaved
+  // draft), so it reads the latest `report` through a ref.
+  const reportRef = useRef(report);
+  useLayoutEffect(() => {
+    reportRef.current = report;
+  });
 
   // Selection lives on the DOCUMENT, not the element — and this surface is
   // portaled into the preview frame, where React's synthetic events never
@@ -210,19 +288,27 @@ export function InlineRichSurface({
     const onFocusChange = () => {
       report();
     };
+    const onBlur = () => {
+      // Tab toward the formatting chrome bookmarks the selection first: that
+      // blur is a hand-off within the edit, not the end of it.
+      if (formattingSelectionRef.current === null) {
+        flush();
+      }
+      report();
+    };
     frameDocument.addEventListener('selectionchange', onSelectionChange);
     root.addEventListener('focus', onFocusChange);
-    root.addEventListener('blur', onFocusChange);
+    root.addEventListener('blur', onBlur);
     return () => {
       frameDocument.removeEventListener('selectionchange', onSelectionChange);
       root.removeEventListener('focus', onFocusChange);
-      root.removeEventListener('blur', onFocusChange);
+      root.removeEventListener('blur', onBlur);
       formattingSelectionRef.current = null;
       // Never strand a bubble over text nobody is editing.
       anchorRef.current(null);
       actionsRef.current([]);
     };
-  }, [report]);
+  }, [flush, report]);
 
   // Leaving the formatting host for unrelated host content retires the editor
   // bookmark after focus has settled. Moving between its own buttons keeps it.
@@ -278,8 +364,8 @@ export function InlineRichSurface({
         // Paste arrives as data OR as dataTransfer text; both are plain text
         // here on purpose — pasting formatting is the engine's job.
         const text = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
-        const applied = replaceRange(valueRef.current, range, text);
-        commit(applied.doc, { from: applied.caret, to: applied.caret });
+        const applied = replaceRange(docRef.current, range, text);
+        stage(applied.doc, { from: applied.caret, to: applied.caret });
         return;
       }
       if (TARGET_RANGE_DELETIONS.has(type)) {
@@ -294,13 +380,13 @@ export function InlineRichSurface({
           if (selection === null) {
             return;
           }
-          target = fallbackDeletionRange(selection, type, richTextLength(valueRef.current));
+          target = fallbackDeletionRange(selection, type, richTextLength(docRef.current));
         }
         if (target.from === target.to) {
           return; // nothing to delete at the edges
         }
-        const applied = replaceRange(valueRef.current, target, '');
-        commit(applied.doc, { from: applied.caret, to: applied.caret });
+        const applied = replaceRange(docRef.current, target, '');
+        stage(applied.doc, { from: applied.caret, to: applied.caret });
         return;
       }
       // Everything else this surface does not model (composition, formatting
@@ -310,7 +396,22 @@ export function InlineRichSurface({
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // Discard BEFORE exiting: exiting moves focus away, and the blur that
+        // follows must find nothing to commit.
+        event.stopPropagation();
+        discard();
         exitRef.current();
+        return;
+      }
+      if (event.key === 'Enter' && !event.isComposing) {
+        // This surface models no paragraphs: Enter finishes the edit (one
+        // commit) and Shift+Enter is inert. The contributed engine owns
+        // block structure.
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.shiftKey) {
+          flush();
+        }
         return;
       }
       if (
@@ -366,7 +467,7 @@ export function InlineRichSurface({
       root.removeEventListener('pointerdown', stop);
       root.removeEventListener('dblclick', stop);
     };
-  }, [commit, report, selectionOf]);
+  }, [discard, flush, report, selectionOf, stage]);
 
   // The session opens ON this surface: take focus and put the caret at the end,
   // so the first keystroke lands here rather than in the canvas behind it.
@@ -378,11 +479,23 @@ export function InlineRichSurface({
     root.focus({ preventScroll: true });
     const end = richTextLength(valueRef.current);
     applyOffsets(root, { from: end, to: end }, root.ownerDocument.getSelection());
+    // The caret is placed: report it now (a caret keeps the docked chrome)
+    // rather than waiting on a selectionchange some engines never deliver.
+    reportRef.current();
+    return () => {
+      // The session ended under an unsaved draft (another block was selected
+      // before any blur reached this surface): commit it once, never lose it.
+      const current = draftRef.current;
+      if (current?.dirty === true) {
+        draftRef.current = { ...current, dirty: false };
+        commitRef.current(current.doc);
+      }
+    };
   }, []);
 
-  // Document truth came back (our own commit, an undo, a collaborator): React
-  // has just rebuilt the text nodes, so the caret must be re-applied BEFORE
-  // paint or the user sees it jump to the start.
+  // An edit was staged (or document truth came back): React has just rebuilt
+  // the text nodes, so the caret must be re-applied BEFORE paint or the user
+  // sees it jump to the start.
   useLayoutEffect(() => {
     const root = rootRef.current;
     const caret = pendingCaretRef.current;
@@ -392,7 +505,7 @@ export function InlineRichSurface({
     pendingCaretRef.current = null;
     applyOffsets(root, caret, root.ownerDocument.getSelection());
     report();
-  }, [value, report]);
+  }, [shown, report]);
 
   return (
     <div
@@ -408,7 +521,7 @@ export function InlineRichSurface({
       // contributed editor's surface does.
       dir="auto"
     >
-      <RichText value={value} />
+      <RichText value={shown} />
     </div>
   );
 }

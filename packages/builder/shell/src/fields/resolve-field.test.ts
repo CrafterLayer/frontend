@@ -1,11 +1,19 @@
 import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 
-import type { FieldTypeDef, RegistryRead } from '@craftkit/builder-schema';
+import {
+  imagePropSchema,
+  partStylesProp,
+  type BlockParts,
+  type FieldTypeDef,
+  type RegistryRead,
+} from '@craftkit/builder-schema';
 
 import {
   defaultFieldFor,
   enumValuesOf,
+  isImagePropSchema,
+  partBindingFor,
   propsShapeOf,
   resolveField,
   unwrapSchema,
@@ -24,7 +32,7 @@ const field = (id: string, match: (schema: z.ZodType) => number): FieldTypeDef =
 describe('defaultFieldFor (f2)', () => {
   it('maps scalar and array kinds to their default controls', () => {
     // Mutation: returning readonly for arrays makes this named gate fail.
-    expect(defaultFieldFor(z.string())).toEqual({ kind: 'default', control: 'text' });
+    expect(defaultFieldFor(z.string().max(80))).toEqual({ kind: 'default', control: 'text' });
     expect(defaultFieldFor(z.enum(['a', 'b']))).toEqual({ kind: 'default', control: 'select' });
     expect(defaultFieldFor(z.boolean())).toEqual({ kind: 'default', control: 'switch' });
     expect(defaultFieldFor(z.number())).toEqual({ kind: 'default', control: 'number' });
@@ -35,7 +43,10 @@ describe('defaultFieldFor (f2)', () => {
   });
 
   it('unwraps optional/default/nullable (nested included) before mapping', () => {
-    expect(defaultFieldFor(z.string().optional())).toEqual({ kind: 'default', control: 'text' });
+    expect(defaultFieldFor(z.string().max(60).optional())).toEqual({
+      kind: 'default',
+      control: 'text',
+    });
     expect(defaultFieldFor(z.number().default(3))).toEqual({ kind: 'default', control: 'number' });
     expect(defaultFieldFor(z.boolean().nullable())).toEqual({ kind: 'default', control: 'switch' });
     expect(defaultFieldFor(z.enum(['x', 'y']).default('x').optional())).toEqual({
@@ -48,9 +59,118 @@ describe('defaultFieldFor (f2)', () => {
     });
   });
 
-  it('falls back to readonly for anything else', () => {
-    expect(defaultFieldFor(z.object({ a: z.string() }))).toEqual({ kind: 'readonly' });
-    expect(defaultFieldFor(z.record(z.string(), z.string()))).toEqual({ kind: 'readonly' });
+  it('long or unbounded strings get the paragraph editor; formatted strings stay one line', () => {
+    // Mutation: dropping the bound check sends every body to a one-line input.
+    expect(defaultFieldFor(z.string())).toEqual({ kind: 'default', control: 'textarea' });
+    expect(defaultFieldFor(z.string().max(200))).toEqual({ kind: 'default', control: 'textarea' });
+    expect(defaultFieldFor(z.string().max(120))).toEqual({ kind: 'default', control: 'text' });
+    expect(defaultFieldFor(z.email())).toEqual({ kind: 'default', control: 'text' });
+    expect(defaultFieldFor(z.string().regex(/^[a-z]+$/u))).toEqual({
+      kind: 'default',
+      control: 'text',
+    });
+  });
+
+  it('a union of strings and string literals is text (blankOr), never JSON', () => {
+    const blankOr = z
+      .union([
+        z.literal(''),
+        z
+          .string()
+          .max(400)
+          .regex(/\.vtt$/u),
+      ])
+      .optional();
+    expect(defaultFieldFor(blankOr)).toEqual({ kind: 'default', control: 'text' });
+    expect(defaultFieldFor(z.union([z.string(), z.number()]))).toEqual({ kind: 'readonly' });
+  });
+
+  it('objects get grouped rows, string records name/value rows', () => {
+    expect(defaultFieldFor(z.object({ a: z.string() }))).toEqual({
+      kind: 'default',
+      control: 'object',
+    });
+    expect(defaultFieldFor(z.object({ a: z.string() }).optional())).toEqual({
+      kind: 'default',
+      control: 'object',
+    });
+    expect(defaultFieldFor(z.record(z.string(), z.string().nullable()))).toEqual({
+      kind: 'default',
+      control: 'key-value',
+    });
+    expect(defaultFieldFor(z.record(z.string(), z.number()))).toEqual({ kind: 'readonly' });
+  });
+
+  it('the image asset prop gets the asset picker; partStyles gets its own field (markers)', () => {
+    expect(defaultFieldFor(imagePropSchema.optional())).toEqual({
+      kind: 'default',
+      control: 'asset',
+    });
+    expect(isImagePropSchema(imagePropSchema)).toBe(true);
+    expect(defaultFieldFor(partStylesProp())).toEqual({ kind: 'default', control: 'part-styles' });
+  });
+
+  it('falls back to a readonly summary only for what no editor fits', () => {
+    expect(defaultFieldFor(z.date())).toEqual({ kind: 'readonly' });
+    expect(defaultFieldFor(z.literal('fixed'))).toEqual({ kind: 'readonly' });
+  });
+});
+
+describe('part-declared bindings (block-parts DESIGN §2.10 step 2)', () => {
+  const PARTS: BlockParts = {
+    link: {
+      kind: 'link',
+      bind: { text: 'link.label', href: 'link.href' },
+      label: { en: 'Link', ar: 'الرابط' },
+    },
+    'item.action': {
+      kind: 'link',
+      bind: { text: 'items.*.action.label', href: 'items.*.action.href' },
+      label: { en: 'Item action', ar: 'إجراء العنصر' },
+    },
+    cta: {
+      kind: 'link',
+      bind: { text: 'linkLabel', href: 'href' },
+      label: { en: 'Link', ar: 'الرابط' },
+    },
+    'post.image': {
+      kind: 'image',
+      bind: { src: 'posts.*.imageSrc', alt: 'posts.*.imageAlt' },
+      label: { en: 'Post image', ar: 'صورة المقال' },
+    },
+  };
+  const linkSchema = z.object({ label: z.string(), href: z.string() });
+
+  it('finds link objects, href strings and image sources by declaration, nested too', () => {
+    expect(partBindingFor(PARTS, ['link'])).toEqual({
+      kind: 'link',
+      textKey: 'label',
+      hrefKey: 'href',
+    });
+    expect(partBindingFor(PARTS, ['items', 3, 'action'])).toMatchObject({ textKey: 'label' });
+    expect(partBindingFor(PARTS, ['href'])).toEqual({ kind: 'link' });
+    expect(partBindingFor(PARTS, ['posts', 0, 'imageSrc'])).toEqual({ kind: 'image' });
+    // Not by name: an undeclared `imageSrc` is just a string.
+    expect(partBindingFor(PARTS, ['imageSrc'])).toBeUndefined();
+    expect(partBindingFor(PARTS, ['items', 'x', 'action'])).toBeUndefined();
+  });
+
+  it('resolves the bound rows to LinkField and ImageUrlField before contributions', () => {
+    const greedy = field('greedy', () => 100);
+    const registry = registryWith(greedy);
+    expect(
+      resolveField(registry, linkSchema, undefined, { parts: PARTS, propPath: ['link'] }),
+    ).toEqual({ kind: 'default', control: 'link' });
+    expect(
+      resolveField(registry, z.string(), undefined, {
+        parts: PARTS,
+        propPath: ['posts', 1, 'imageSrc'],
+      }),
+    ).toEqual({ kind: 'default', control: 'image-url' });
+    // A binding that does not fit the schema's shape is ignored.
+    expect(
+      resolveField(registryWith(), z.number(), undefined, { parts: PARTS, propPath: ['href'] }),
+    ).toEqual({ kind: 'default', control: 'number' });
   });
 });
 
@@ -102,6 +222,31 @@ describe('resolveField (declared kinds, then f1 contributions)', () => {
     });
   });
 
+  it('maps the block-parts declared kinds to their editors', () => {
+    const alwaysWins = field('always-wins', () => 100);
+    const registry = registryWith(alwaysWins);
+    expect(resolveField(registry, z.string().max(20), 'multiline')).toEqual({
+      kind: 'default',
+      control: 'textarea',
+    });
+    expect(resolveField(registry, z.string(), 'image')).toEqual({
+      kind: 'default',
+      control: 'image-url',
+    });
+    expect(resolveField(registry, imagePropSchema, 'image')).toEqual({
+      kind: 'default',
+      control: 'asset',
+    });
+    expect(resolveField(registry, z.string(), 'link')).toEqual({
+      kind: 'default',
+      control: 'link',
+    });
+    expect(resolveField(registry, partStylesProp(), 'part-styles')).toEqual({
+      kind: 'default',
+      control: 'part-styles',
+    });
+  });
+
   it('picks the highest positive match score over the defaults', () => {
     const low = field('low', () => 1);
     const high = field('high', () => 5);
@@ -123,7 +268,7 @@ describe('resolveField (declared kinds, then f1 contributions)', () => {
   it('skips scores ≤ 0 and falls through to the default mapping', () => {
     const zero = field('zero', () => 0);
     const negative = field('negative', () => -3);
-    expect(resolveField(registryWith(zero, negative), z.string())).toEqual({
+    expect(resolveField(registryWith(zero, negative), z.string().max(40))).toEqual({
       kind: 'default',
       control: 'text',
     });
@@ -138,15 +283,13 @@ describe('resolveField (declared kinds, then f1 contributions)', () => {
       kind: 'contributed',
       def: sane,
     });
-    expect(resolveField(registryWith(throwing), z.string())).toEqual({
+    expect(resolveField(registryWith(throwing), z.string().max(40))).toEqual({
       kind: 'default',
       control: 'text',
     });
   });
 
   it('resolves readonly when nothing matches an exotic schema', () => {
-    expect(resolveField(registryWith(), z.object({ nested: z.string() }))).toEqual({
-      kind: 'readonly',
-    });
+    expect(resolveField(registryWith(), z.date())).toEqual({ kind: 'readonly' });
   });
 });

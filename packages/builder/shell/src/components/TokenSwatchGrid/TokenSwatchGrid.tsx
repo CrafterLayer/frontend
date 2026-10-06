@@ -15,6 +15,8 @@ export interface TokenSwatchGridProps {
   readonly onSelect?: ((token: TokenName) => void) | undefined;
   /** Cells per row. The keyboard model needs it; the CSS follows it. */
   readonly columns?: number | undefined;
+  /** What a person reads for each token, in the editor's language. Defaults to the name as words. */
+  readonly nameOf?: ((token: TokenName) => string) | undefined;
 }
 
 const DEFAULT_COLUMNS = 4;
@@ -50,6 +52,7 @@ export function TokenSwatchGrid({
   selected,
   onSelect,
   columns = DEFAULT_COLUMNS,
+  nameOf = readable,
 }: TokenSwatchGridProps) {
   const width = Math.max(1, columns);
   /*
@@ -137,9 +140,12 @@ export function TokenSwatchGrid({
                       style={{ background: `var(${tokenCssName(name)}, ${value})` }}
                     />
                   ) : null}
-                  <span className="bldr-swatches__name">{readable(name)}</span>
+                  <span className="bldr-swatches__name">{nameOf(name)}</span>
                   {/* The value in text, so the cell is legible without the colour. */}
-                  <span className="bldr-swatches__value">{value}</span>
+                  {/* A colour value is Latin, left to right: isolated, "#ffffff" never reads "ffffff#" in Arabic. */}
+                  <bdi className="bldr-swatches__value" dir="ltr">
+                    {value}
+                  </bdi>
                 </button>
               </div>
             );

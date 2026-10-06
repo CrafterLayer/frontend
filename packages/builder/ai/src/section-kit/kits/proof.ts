@@ -73,9 +73,9 @@ export const PROOF_KITS: readonly SectionKit[] = [
     source: hyperui('marketing/stats/1.html'),
     slots: { ...HEAD_SLOTS, items: list({ value: text(12, true), label: text(60, true) }, 4) },
     markup: band(`${HEAD_START}
-      <dl class='mt-12 grid grid-cols-2 gap-8 md:grid-cols-4'>
-        {{#items}}<div class='border-t ck-border pt-6'>
-          <dd class='ck-display ck-accent-ink text-4xl font-bold tabular-nums md:text-5xl' data-ck-behavior='count-up'>{{item.value}}</dd>
+      <dl class='mt-12 grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-8 md:grid-cols-4'>
+        {{#items}}<div class='min-w-0 border-t ck-border pt-6'>
+          <dd class='ck-display ck-accent-ink text-3xl font-bold tabular-nums break-words sm:text-4xl md:text-5xl' data-ck-behavior='count-up'>{{item.value}}</dd>
           <dt class='ck-muted mt-2 text-sm'>{{item.label}}</dt>
         </div>{{/items}}
       </dl>`),
@@ -86,11 +86,11 @@ export const PROOF_KITS: readonly SectionKit[] = [
     summary: 'Text, stat cards',
     source: tailark('mist/blocks/stats/one.tsx'),
     slots: { ...HEAD_SLOTS, items: list({ value: text(12, true), label: text(60, true) }, 4) },
-    markup: band(`<div class='grid items-center gap-12 lg:grid-cols-2'>
+    markup: band(`<div class='grid grid-cols-1 items-center gap-12 lg:grid-cols-2'>
         ${HEAD_START}
-        <dl class='grid grid-cols-2 gap-4'>
-          {{#items}}<div class='ck-card p-6'>
-            <dd class='ck-display text-4xl font-bold tabular-nums' data-ck-behavior='count-up'>{{item.value}}</dd>
+        <dl class='grid grid-cols-2 gap-3 sm:gap-4'>
+          {{#items}}<div class='ck-card min-w-0 p-4 sm:p-6'>
+            <dd class='ck-display text-3xl font-bold tabular-nums break-words sm:text-4xl' data-ck-behavior='count-up'>{{item.value}}</dd>
             <dt class='ck-muted mt-2 text-sm'>{{item.label}}</dt>
           </div>{{/items}}
         </dl>

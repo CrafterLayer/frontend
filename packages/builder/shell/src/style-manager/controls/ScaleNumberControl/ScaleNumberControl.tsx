@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react';
 
 import type { StyleMode, StyleValue } from '@craftkit/builder-schema';
 
+import { useScrub } from '../../use-scrub';
 import {
   SCALE_NUMBER_CONTROL_LABELS_EN,
   type ScaleNumberControlLabels,
@@ -17,6 +18,7 @@ import {
   valueForAmount,
   type ScaleModel,
 } from './scale-math';
+import { scrubAmount } from './scrub-amount';
 
 import './ScaleNumberControl.css';
 
@@ -39,6 +41,13 @@ export interface ScaleNumberControlProps {
   readonly disabled?: boolean | undefined;
   readonly id?: string | undefined;
   readonly labels?: ScaleNumberControlLabels | undefined;
+  /**
+   * Draws the scrub grip at the field's inline start: dragging it previews
+   * through `onPreview` and commits ONCE on release (one Undo per gesture).
+   */
+  readonly scrub?: boolean | undefined;
+  /** Canvas-only preview while scrubbing; `null` ends it. Never a document write. */
+  readonly onPreview?: ((value: StyleValue | null) => void) | undefined;
 }
 
 const KEYWORD_PREFIX = 'keyword:';
@@ -75,12 +84,20 @@ export function ScaleNumberControl({
   disabled = false,
   id,
   labels = SCALE_NUMBER_CONTROL_LABELS_EN,
+  scrub = false,
+  onPreview,
 }: ScaleNumberControlProps) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [scrubbing, setScrubbing] = useState<StyleValue | null>(null);
   const current = amountOfValue(model, value);
   const [pickedUnit, setPickedUnit] = useState<string | undefined>(undefined);
   const unit = current?.unit ?? pickedUnit ?? units[0] ?? scaleUnit(model);
-  const shown = mixed && draft === null ? '' : (draft ?? displayText(model, value));
+  const shown =
+    scrubbing !== null
+      ? displayText(model, scrubbing)
+      : mixed && draft === null
+        ? ''
+        : (draft ?? displayText(model, value));
 
   const clamp = (amount: number) =>
     Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min ?? Number.NEGATIVE_INFINITY, amount));
@@ -94,6 +111,27 @@ export function ScaleNumberControl({
     }
     onCommit(valueForAmount(model, exact));
   };
+
+  const landing = (dx: number, dy: number) =>
+    scrubAmount(model, mixed ? undefined : value, mode, dx - dy, { min, max });
+
+  const scrubber = useScrub({
+    onPreview: (delta) => {
+      const next = landing(delta.dx, delta.dy);
+      setScrubbing(next ?? null);
+      onPreview?.(next ?? null);
+    },
+    onCommit: (delta) => {
+      setScrubbing(null);
+      onPreview?.(null);
+      const next = landing(delta.dx, delta.dy);
+      if (next !== undefined) onCommit(next);
+    },
+    onCancel: () => {
+      setScrubbing(null);
+      onPreview?.(null);
+    },
+  });
 
   const commitText = (text: string) => {
     const trimmed = text.trim();
@@ -163,7 +201,27 @@ export function ScaleNumberControl({
   const showMenu = (mode === 'free' && units.length > 0) || keywords.length > 0;
 
   return (
-    <div className="bldr-scale-number" data-mixed={mixed ? '' : undefined}>
+    <div
+      className="bldr-scale-number"
+      data-mixed={mixed ? '' : undefined}
+      data-scrubbing={scrubbing === null ? undefined : ''}
+    >
+      {scrub && !disabled ? (
+        <span
+          className="bldr-scale-number__scrub"
+          aria-hidden="true"
+          onPointerDown={scrubber.onPointerDown}
+          onPointerMove={scrubber.onPointerMove}
+          onPointerUp={scrubber.onPointerUp}
+          onPointerCancel={scrubber.onPointerCancel}
+        >
+          <svg viewBox="0 0 16 16" focusable="false">
+            <path d="M5.5 5 2.5 8l3 3" />
+            <path d="M10.5 5l3 3-3 3" />
+            <path d="M8 4.5v7" />
+          </svg>
+        </span>
+      ) : null}
       <input
         id={id}
         className="bldr-scale-number__input"

@@ -2,10 +2,16 @@ import type { BuilderKernel } from '@craftkit/builder-core';
 import { formatCustomCodePath, type CustomCodePath, type NodeId } from '@craftkit/builder-schema';
 
 import { customCodeElementAt } from '../custom-code/element-at';
+import type { ElementNameWords } from '../custom-code/element-target';
 import { blockDisplayName } from '../naming/block-display-name';
 import { customCodeElementName } from '../naming/custom-code-element-name';
 import type { GeometryPorts, RectIndex } from '../rects';
 import { createOutline, type OutlineHandle } from './outline-elements';
+// ── block-parts (2026-10-06) ──
+import type { PartRef } from '@craftkit/builder-schema';
+
+import { partChipLabel, samePartRef } from './part-target';
+// ── /block-parts ──
 
 export interface OverlayController {
   /**
@@ -13,7 +19,10 @@ export interface OverlayController {
    * element path, the hover chrome wraps the authored element under the
    * pointer inside a composed region rather than the whole region.
    */
-  setHover(id: NodeId | null, elementPath?: CustomCodePath): void;
+  // ── block-parts (2026-10-06) ──
+  /** …and with a part (block-parts §2.7), the hover wraps that part of a registered block. */
+  setHover(id: NodeId | null, elementPath?: CustomCodePath, part?: PartRef): void;
+  // ── /block-parts ──
   hoveredId(): NodeId | null;
   /**
    * The EXTRA members of a multi-selection (P7, DESIGN §E): each gets its own
@@ -36,8 +45,15 @@ export function createOverlayController(options: {
   index: RectIndex;
   layer: HTMLElement;
   schedule: GeometryPorts['schedule'];
+  /** The chips' names in the editor's language (arabic-editor); read at every draw. */
+  words?: (() => ElementNameWords | undefined) | undefined;
+  // ── block-parts (2026-10-06) ──
+  /** A part's chip ("Heading · Hero") in the editor's language. Absent ⇒ English part labels. */
+  partLabel?: ((id: NodeId, ref: PartRef) => string) | undefined;
+  // ── /block-parts ──
 }): OverlayController {
   const { kernel, index, layer, schedule } = options;
+  const words = () => options.words?.();
   const hover: OutlineHandle = createOutline(layer, 'hover');
   const selection: OutlineHandle = createOutline(layer, 'selection');
 
@@ -45,6 +61,9 @@ export function createOverlayController(options: {
   const extraOutlines: OutlineHandle[] = [];
   let hoverId: NodeId | null = null;
   let hoverPath: CustomCodePath | null = null;
+  // ── block-parts (2026-10-06) ──
+  let hoverPart: PartRef | null = null;
+  // ── /block-parts ──
   let cancelFlush: (() => void) | null = null;
   let disposed = false;
 
@@ -62,11 +81,41 @@ export function createOverlayController(options: {
     }
     outline.element.style.setProperty('--bldr-outline-canvas-x', `${String(rect.x)}px`);
     outline.element.setAttribute('data-element', '');
-    outline.show(rect, customCodeElementName(located.element));
+    outline.show(rect, customCodeElementName(located.element, words()));
     return true;
   };
 
-  const applyOutline = (outline: OutlineHandle, id: NodeId | null, path: CustomCodePath | null) => {
+  // ── block-parts (2026-10-06) ──
+  /**
+   * An outline over one PART of a registered block (block-parts §2.7). Stale
+   * by design, like an element path: a part an undo removed has no stamped
+   * element, so this returns false and the caller draws the block.
+   */
+  const applyPartOutline = (outline: OutlineHandle, id: NodeId, part: PartRef) => {
+    const rect = index.partRect?.(id, part);
+    if (rect === undefined) {
+      return false;
+    }
+    outline.element.style.setProperty('--bldr-outline-canvas-x', `${String(rect.x)}px`);
+    outline.element.setAttribute('data-element', '');
+    outline.element.setAttribute('data-part', '');
+    outline.show(rect, options.partLabel?.(id, part) ?? partChipLabel(kernel, id, part, 'en', words()));
+    return true;
+  };
+  // ── /block-parts ──
+
+  const applyOutline = (
+    outline: OutlineHandle,
+    id: NodeId | null,
+    path: CustomCodePath | null,
+    part: PartRef | null = null,
+  ) => {
+    // ── block-parts (2026-10-06) ──
+    if (id !== null && part !== null && applyPartOutline(outline, id, part)) {
+      return;
+    }
+    outline.element.removeAttribute('data-part');
+    // ── /block-parts ──
     if (id !== null && path !== null && applyElementOutline(outline, id, path)) {
       return;
     }
@@ -80,7 +129,7 @@ export function createOverlayController(options: {
     // crossing the canvas edge. No additional geometry read is introduced.
     outline.element.style.setProperty('--bldr-outline-canvas-x', `${String(rect.x)}px`);
     outline.element.removeAttribute('data-element');
-    outline.show(rect, blockDisplayName(kernel, id));
+    outline.show(rect, blockDisplayName(kernel, id, words()));
   };
 
   /*
@@ -123,12 +172,16 @@ export function createOverlayController(options: {
     const state = kernel.context.store.getState();
     const selectedId = state.selection[0] ?? null;
     const focus = state.elementFocus;
-    applyOutline(hover, hoverId, hoverPath);
+    // ── block-parts (2026-10-06) ──
+    const partFocus = state.partFocus ?? null;
+    applyOutline(hover, hoverId, hoverPath, hoverPart);
     applyOutline(
       selection,
       selectedId,
       focus !== null && focus.id === selectedId ? focus.path : null,
+      partFocus !== null && partFocus.id === selectedId ? partFocus : null,
     );
+    // ── /block-parts ──
     stamp('data-bldr-selected', selectedId);
     stamp('data-bldr-hovered', hoverId);
     while (extraOutlines.length < extras.length) {
@@ -161,11 +214,15 @@ export function createOverlayController(options: {
     (left !== null && right !== null && formatCustomCodePath(left) === formatCustomCodePath(right));
 
   return {
-    setHover(id, elementPath) {
+    setHover(id, elementPath, part) {
       const path = id === null || elementPath === undefined ? null : elementPath;
-      if (id === hoverId && samePath(path, hoverPath)) {
+      // ── block-parts (2026-10-06) ──
+      const nextPart = id === null || path !== null || part === undefined ? null : part;
+      if (id === hoverId && samePath(path, hoverPath) && samePartRef(nextPart, hoverPart)) {
         return;
       }
+      hoverPart = nextPart;
+      // ── /block-parts ──
       hoverId = id;
       hoverPath = path;
       markDirty();

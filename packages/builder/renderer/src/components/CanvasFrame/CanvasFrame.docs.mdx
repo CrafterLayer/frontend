@@ -31,6 +31,12 @@ is one managed token style.
 - Mirrors host `<style>`/`<link rel="stylesheet">` into the frame (initial copy + a head observer
   for dev-server style injection), so block CSS works inside.
 - Writes `--t-*` custom properties from the theme; block styles consume only those.
+- Injects one managed `<style id="ck-text-bidi">` holding `TEXT_BIDI_CSS` (`unicode-bidi: plaintext`
+  on text elements and `[data-ck-part]`): each paragraph, heading, list item, link and button takes
+  its base direction from its own first strong character, so an English line on an RTL page keeps
+  its full stop at the end. The style is looked up by id before it is created, so StrictMode and
+  remounts never duplicate it. Known effect: an English paragraph in an RTL section with start
+  alignment aligns to its own start (the left); centred text is unchanged.
 - Built in-repo by design decision (research R3); the reference third-party vendor pass arrives with
   the canvas-editing milestone.
 

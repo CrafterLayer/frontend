@@ -13,6 +13,11 @@ import type { BuilderKernel } from '@craftkit/builder-core';
 import {
   DEFAULT_SLOT,
   blockPropDefaults,
+  // ── block-parts (2026-10-06) ──
+  getAtPropPath,
+  parsePropPath,
+  setAtPropPath,
+  // ── /block-parts ──
   withBlockPropDefaults,
   type BlockRenderProps,
   type BlockSlotChildMetadata,
@@ -72,12 +77,22 @@ export type InlineEditEntryPoint =
   | { key: number; kind: 'keyboard' };
 
 export interface InlineEditTarget {
+  /** The TOP-LEVEL prop being edited (for a nested part, the key that holds it). */
   propKey: string;
+  /**
+   * A block part's dotted bind path (block-parts DESIGN §2.8), e.g. `heading`
+   * or `items.2.title`. When set, the value AT THIS PATH is swapped for the
+   * editor, so a part inside an array edits in place while its siblings render
+   * untouched. Absent ⇒ the classic top-level `propKey` swap.
+   */
+  bind?: string | undefined;
   /** Null while the chosen contributed implementation is still loading. */
   render:
     | ((context: {
         nodeId: NodeId;
         propKey: string;
+        /** The bind path, when the session edits a block part. */
+        bind?: string | undefined;
         value: unknown;
         entryPoint?: InlineEditEntryPoint | undefined;
       }) => ReactNode)
@@ -151,6 +166,13 @@ function applyEntryPoint(control: HTMLElement, entryPoint: InlineEditEntryPoint)
   selection.addRange(range);
   return true;
 }
+
+// ── block-parts (2026-10-06) ──
+/** An object or array a nested bind can be set inside. */
+function isContainer(value: unknown): boolean {
+  return typeof value === 'object' && value !== null;
+}
+// ── /block-parts ──
 
 function removeDescription(control: HTMLElement, id: string): void {
   const remaining = (control.getAttribute('aria-describedby') ?? '')
@@ -408,39 +430,54 @@ function NodeViewInner({
       // says JsonValue; at this one boundary, in edit mode only, it is a React
       // element. (The same trick Puck's field transforms use — see
       // vendor/VENDOR.md — and the reason blocks need no editing awareness.)
-      const swapped: Record<string, unknown> = {
-        ...stored,
-        [activeInlineEdit.propKey]:
-          activeInlineEdit.rejection === undefined ? (
-            activeInlineEdit.render({
-              nodeId: id,
-              propKey: activeInlineEdit.propKey,
-              value: stored[activeInlineEdit.propKey],
-              ...(activeInlineEdit.entryPoint === undefined
-                ? {}
-                : { entryPoint: activeInlineEdit.entryPoint }),
-            })
-          ) : (
-            <>
-              {activeInlineEdit.render({
-                nodeId: id,
-                propKey: activeInlineEdit.propKey,
-                value: stored[activeInlineEdit.propKey],
-                ...(activeInlineEdit.entryPoint === undefined
-                  ? {}
-                  : { entryPoint: activeInlineEdit.entryPoint }),
-              })}
-              <span
-                id={activeInlineEdit.rejection.id}
-                className="bldr-inline-rejection"
-                data-bldr-inline-rejection
-              >
-                {activeInlineEdit.rejection.message}
-              </span>
-            </>
-          ),
-      };
-      resolved = swapped as typeof stored;
+      // ── block-parts (2026-10-06) ──
+      // A part's bind addresses a NESTED value (`items.2.title`): the editor is
+      // set at that path with structural sharing, so only the containers on
+      // the path are copied and every sibling item renders exactly as stored.
+      // A bind whose container is gone (the item was removed mid-session)
+      // swaps nothing rather than inventing the missing item.
+      const bindPath =
+        activeInlineEdit.bind === undefined ? undefined : parsePropPath(activeInlineEdit.bind);
+      const bindReachable =
+        bindPath === undefined ||
+        (bindPath.length > 0 &&
+          isContainer(bindPath.length === 1 ? stored : getAtPropPath(stored, bindPath.slice(0, -1))));
+      const value =
+        bindPath === undefined ? stored[activeInlineEdit.propKey] : getAtPropPath(stored, bindPath);
+      // ── /block-parts ──
+      const editor = activeInlineEdit.render({
+        nodeId: id,
+        propKey: activeInlineEdit.propKey,
+        ...(activeInlineEdit.bind === undefined ? {} : { bind: activeInlineEdit.bind }),
+        value,
+        ...(activeInlineEdit.entryPoint === undefined
+          ? {}
+          : { entryPoint: activeInlineEdit.entryPoint }),
+      });
+      const surface =
+        activeInlineEdit.rejection === undefined ? (
+          editor
+        ) : (
+          <>
+            {editor}
+            <span
+              id={activeInlineEdit.rejection.id}
+              className="bldr-inline-rejection"
+              data-bldr-inline-rejection
+            >
+              {activeInlineEdit.rejection.message}
+            </span>
+          </>
+        );
+      if (bindPath === undefined) {
+        const swapped: Record<string, unknown> = {
+          ...stored,
+          [activeInlineEdit.propKey]: surface,
+        };
+        resolved = swapped as typeof stored;
+      } else if (bindReachable) {
+        resolved = setAtPropPath(stored, bindPath, surface);
+      }
     }
     content = (
       <Block

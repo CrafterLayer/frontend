@@ -1,4 +1,7 @@
 import {
+  // ── block-parts (2026-10-06) ──
+  blockPartsOf,
+  // ── /block-parts ──
   blockPropsJsonSchema,
   commandArgsJsonSchema,
   defineContextFragment,
@@ -785,6 +788,57 @@ function focusFragment(shown: readonly NodeId[]): Readonly<ContextFragment> {
   );
 }
 
+// ── block-parts (2026-10-06) ──
+/** The fragment source that lists the parts of the registered blocks an edit can reach. */
+export const BLOCK_PARTS_FRAGMENT_SOURCE = 'craftkit.block-parts';
+const MAX_PART_BLOCK_TYPES = 12;
+const MAX_PART_NAMES = 16;
+
+/**
+ * The parts of every registered block type among `ids`, one compact line per
+ * type — `hero: eyebrow, heading, body, trustLine`; a repeated part ends in
+ * `[]` (it takes an index) — so the model names `part.style {id, part}`
+ * instead of rewriting className. Types in a stable order, so an unchanged
+ * page serializes to the same bytes. Undefined when no type declares parts.
+ */
+function blockPartsFragment(
+  ctx: AiContextAssemblySource,
+  ids: Iterable<NodeId>,
+): Readonly<ContextFragment> | undefined {
+  const { doc } = ctx.store.getState();
+  const lines = new Map<string, string>();
+  for (const id of ids) {
+    const type = doc.nodes[id]?.type;
+    if (type === undefined || lines.has(type)) continue;
+    const parts = Object.entries(blockPartsOf(ctx.registry.block(type)?.schema));
+    if (parts.length === 0) continue;
+    const names = parts.slice(0, MAX_PART_NAMES).map(([name, decl]) => {
+      const bind = decl.bind;
+      const pattern =
+        bind === undefined ? '' : typeof bind === 'string' ? bind : 'href' in bind ? bind.text : bind.src;
+      return pattern.split('.').includes('*') ? `${name}[]` : name;
+    });
+    lines.set(type, `${names.join(', ')}${parts.length > MAX_PART_NAMES ? ', …' : ''}`);
+  }
+  if (lines.size === 0) return undefined;
+  const parts = Object.fromEntries(
+    [...lines.entries()].sort(([left], [right]) => compareText(left, right)).slice(0, MAX_PART_BLOCK_TYPES),
+  );
+  return fragment(
+    {
+      source: BLOCK_PARTS_FRAGMENT_SOURCE,
+      kind: 'data',
+      trust: 'builtin',
+      title: 'Block parts',
+    },
+    {
+      parts,
+      note: 'Edit a registered block\'s inner element with part.text / part.style / part.link / part.image / part.list {id, part (name, alias or label) or find (its exact text), index? (for [] parts)}. part.style takes style: {property: token}, e.g. {"textColor":"accent","fontSize":"2xl","padding":"4"}, and scope "all" for every item; theme tokens only, never palette colours.',
+    },
+  );
+}
+// ── /block-parts ──
+
 function collectSelection(
   _ctx: AiContextReadApi,
   selection: readonly NodeId[],
@@ -984,10 +1038,24 @@ export function assembleAiContext(
   const focus = options.composition?.documentFocus;
   const focused =
     focus === undefined ? undefined : collectFocusedDocument(readCtx, focus, selection);
+  // ── block-parts (2026-10-06): an edit sees the parts of the blocks it can reach ──
+  const partsFragment =
+    options.outline === true || focus?.kind === 'add-section'
+      ? undefined
+      : blockPartsFragment(
+          ctx,
+          focused === undefined
+            ? Object.keys(readCtx.store.getState().doc.nodes)
+            : focused.shown.flatMap((id) => subtreeIds(id, readCtx.store.getState().doc)),
+        );
+  // ── /block-parts ──
   const fragments = Object.freeze([
     ...providerFragments,
     ...skillFragments,
     ...(focused === undefined ? [] : [focusFragment(focused.shown)]),
+    // ── block-parts (2026-10-06) ──
+    ...(partsFragment === undefined ? [] : [partsFragment]),
+    // ── /block-parts ──
   ]);
   const allowedCommands =
     options.allowedCommands === undefined ? undefined : new Set([...options.allowedCommands]);

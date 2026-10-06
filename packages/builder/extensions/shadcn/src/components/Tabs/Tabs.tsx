@@ -2,9 +2,16 @@ import { useState } from 'react';
 import * as RadixTabs from '@radix-ui/react-tabs';
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps, BlockSlotChildMetadata } from '@craftkit/builder-schema';
+import {
+  forwardedPartProps,
+  type BlockRenderProps,
+  type BlockSlotChildMetadata,
+} from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
+// ── block-parts (2026-10-06) ──
+import { tabPanelSchema } from '../TabPanel/schema';
+// ── /block-parts ──
 import type { TabsProps } from './schema';
 
 /**
@@ -28,6 +35,9 @@ import type { TabsProps } from './schema';
 interface PanelSummary {
   readonly id: string;
   readonly label: string;
+  // ── block-parts (2026-10-06) ── the panel's own props: its label part's styles and direction
+  readonly props: BlockSlotChildMetadata['props'];
+  // ── /block-parts ──
 }
 
 /**
@@ -43,7 +53,9 @@ interface PanelSummary {
 function summarise(children: readonly BlockSlotChildMetadata[]): PanelSummary[] {
   return children.flatMap((child) => {
     const label = child.props['label'];
-    return child.type === 'tabPanel' && typeof label === 'string' ? [{ id: child.id, label }] : [];
+    return child.type === 'tabPanel' && typeof label === 'string'
+      ? [{ id: child.id, label, props: child.props }]
+      : [];
   });
 }
 
@@ -53,7 +65,7 @@ const ALIGN_CLASSES: Record<TabsProps['align'], string> = {
   end: 'justify-end',
 };
 
-export function Tabs({ node, props, slots, slotChildren }: BlockRenderProps<TabsProps>) {
+export function Tabs({ node, props, slots, slotChildren, isCanvas }: BlockRenderProps<TabsProps>) {
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
   const panels = summarise(slotChildren?.['default'] ?? []);
   const first = panels[0];
@@ -99,8 +111,25 @@ export function Tabs({ node, props, slots, slotChildren }: BlockRenderProps<Tabs
               Radix writes the attribute; the styling follows it, so the active
               tab is correct on the first paint and during hydration — there is
               no frame where every tab looks selected.
+
+              block-parts (2026-10-06): the trigger IS the panel's `label`
+              part, drawn here. It carries the panel's part classes and
+              direction, and on the canvas the owner stamp gives a click or a
+              double-click on the tab text to the panel node.
             */
-            className="min-w-0 rounded-md px-4 py-2 text-sm font-medium text-text-inverse data-[state=active]:bg-accent data-[state=active]:text-accent-text"
+            {...forwardedPartProps(
+              {
+                node: { id: panel.id, type: 'tabPanel', props: {} },
+                props: panel.props,
+                isCanvas,
+              },
+              tabPanelSchema.parts,
+              'label',
+              {
+                className:
+                  'min-w-0 rounded-md px-4 py-2 text-sm font-medium text-text-inverse data-[state=active]:bg-accent data-[state=active]:text-accent-text',
+              },
+            )}
           >
             {panel.label}
           </RadixTabs.Trigger>

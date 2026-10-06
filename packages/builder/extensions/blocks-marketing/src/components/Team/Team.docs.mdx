@@ -30,3 +30,28 @@ name already identifies the person. Initials are also hidden from assistive tech
 links include the member name in their accessible label. Container queries collapse every layout
 inside the actual space allocated by the builder, independent of viewport width, and all spacing
 uses logical or token-bound utilities for RTL safety.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name           | kind  | bind                                        | label (en / ar)                   |
+| -------------- | ----- | ------------------------------------------- | --------------------------------- |
+| `eyebrow`      | text  | `eyebrow`                                   | Eyebrow / الشارة                  |
+| `heading`      | text  | `heading`                                   | Heading / العنوان                 |
+| `body`         | text  | `body`                                      | Body / الوصف (multiline)          |
+| `members`      | list  | `members`                                   | People / الأشخاص                  |
+| `member`       | item  | `members.*`                                 | Person / الشخص                    |
+| `member.name`  | text  | `members.*.name`                            | Name / الاسم                      |
+| `member.role`  | text  | `members.*.role`                            | Role / المنصب                     |
+| `member.bio`   | text  | `members.*.bio`                             | Bio / النبذة (multiline)          |
+| `member.image` | image | `members.*.imageSrc` + `members.*.imageAlt` | Portrait / الصورة                 |
+| `profileLabel` | text  | `profileLabel`                              | Profile link text / نص رابط الملف |
+
+`profileLabel` is one value shown in every profile link, so it is one top-level part: while it is
+edited in place the first link holds the editor and the others keep the stored text. Each link is
+named by `aria-labelledby` over its visible label and the person's name, never a string built from
+them. A link's destination (`profileHref`) is edited in the person's row in the Inspector.

@@ -128,3 +128,36 @@ export function quickGroupsFor(kind: QuickElementKind): readonly QuickGroup[] {
 export function quickGroup(id: QuickGroupId): QuickGroup {
   return GROUPS[id];
 }
+
+// ── block-parts (2026-10-06) ──
+/*
+  A registered block's PART gets the same bar minus the groups that write
+  free attributes (direction, motion, hover preset, the attribute link editor)
+  or named-style markers: a part's attributes belong to its block, and its
+  classes keep the tokens law. Direction has its own part actions
+  (`planPartDir`), and a link part edits text + address in PartLinkPopover.
+*/
+const PART_BY_KIND: Readonly<Record<QuickElementKind, readonly QuickGroupId[]>> = {
+  text: ['fontSize', 'fontWeight', 'textColor', 'background', 'padding', 'textAlign', 'lineHeight', 'radius', 'shadow'],
+  container: ['background', 'padding', 'gap', 'flexDirection', 'align', 'radius', 'border', 'shadow'],
+  media: ['replace', 'fit', 'radius', 'aspect', 'alt', 'padding', 'shadow'],
+  link: ['textColor', 'background', 'padding', 'radius', 'shadow'],
+  icon: [],
+  component: [],
+};
+
+/**
+ * The groups of one PART kind, in bar order. With `sectors` (the part's
+ * declared `styleSections`) the style groups narrow to those sectors; the
+ * replace and alt editors are content, not style, and always stay.
+ */
+export function quickGroupsForPart(
+  kind: QuickElementKind,
+  sectors?: readonly StyleSectorId[],
+): readonly QuickGroup[] {
+  const groups = PART_BY_KIND[kind].map((id) => GROUPS[id]);
+  if (sectors === undefined || sectors.length === 0) return groups;
+  const allowed = new Set(sectors);
+  return groups.filter((group) => group.properties.length === 0 || allowed.has(group.sector));
+}
+// ── /block-parts ──

@@ -59,7 +59,7 @@ export const testimonialsSchema = defineBlockSchema({
   propertyGroups: {
     eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
-    body: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
     items: { tab: 'content', section: 'Quotes' },
     columns: { tab: 'design', section: 'Layout' },
     variant: { tab: 'design', section: 'Layout' },
@@ -74,6 +74,70 @@ export const testimonialsSchema = defineBlockSchema({
     ...sectionSpacingGroups,
   },
   inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the intro text, the
+    quote list, each quote card, and each card's quote, author, role and
+    company.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Quotes', ar: 'الآراء' },
+      aliases: ['testimonials', 'reviews', 'list', 'الشهادات', 'التقييمات'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Testimonial', ar: 'الشهادة' },
+      aliases: ['quote card', 'review', 'card', 'رأي', 'بطاقة'],
+    },
+    'item.quote': {
+      kind: 'text',
+      bind: 'items.*.quote',
+      label: { en: 'Quote', ar: 'الاقتباس' },
+      aliases: ['quote', 'testimonial text', 'review text', 'اقتباس', 'النص'],
+      multiline: true,
+    },
+    'item.author': {
+      kind: 'text',
+      bind: 'items.*.author',
+      label: { en: 'Author', ar: 'الكاتب' },
+      aliases: ['name', 'person', 'customer', 'الاسم', 'العميل'],
+    },
+    'item.role': {
+      kind: 'text',
+      bind: 'items.*.role',
+      label: { en: 'Author role', ar: 'منصب الكاتب' },
+      aliases: ['role', 'title', 'job', 'المنصب', 'الوظيفة'],
+    },
+    'item.company': {
+      kind: 'text',
+      bind: 'items.*.company',
+      label: { en: 'Company', ar: 'الشركة' },
+      aliases: ['company', 'organisation', 'organization', 'الشركة', 'المؤسسة'],
+    },
+  },
   examples: testimonialsExamples,
 });
 

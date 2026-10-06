@@ -4,12 +4,14 @@ import type { BuilderKernel } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import type { CustomCodeNode, CustomCodeRoot } from '@craftkit/builder-schema';
 
+import { AiNeedsInputError } from '../agent/needs-input';
 import { runAiAgent } from '../agent/run-agent';
+import { validateAiPlan } from '../plan/validate-plan';
 import { isCatalogPhotoUrl } from '../context/providers/photo-catalog';
 import { runStyleTool } from '../style-tools/run-direct';
 import { styleKernel, treeOf } from '../style-tools/style-tools.fixtures';
 import { expandAndValidate } from '../tools/agent/agent-tools.fixtures';
-import { tryDirectTool } from '../tools/agent/direct-tool';
+import { directQuestion, tryDirectTool } from '../tools/agent/direct-tool';
 import { agentToolPrompt, agentToolPromptMaxChars } from '../tools/agent/catalog-prompt';
 import { agentTool, agentToolsForLane } from '../tools/agent/registry';
 import { planChangesLook } from '../tools/agent/visible-change';
@@ -67,7 +69,7 @@ describe('media.add — registered and catalogued', () => {
 });
 
 describe('the edit-lane prompt', () => {
-  it('fits its 1400-character cap and keeps both signatures and the kinds and recipes lines', () => {
+  it('fits its 1600-character cap and keeps both signatures and the kinds and recipes lines', () => {
     const prompt = agentToolPrompt('edit');
     expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars('edit'));
     expect(prompt).toContain(`media.add ${mediaAddTool.signature}`);
@@ -237,6 +239,46 @@ describe('media.add scene', () => {
     expect(again.steps.some(({ command }) => command === 'patchTreeNode')).toBe(false);
   });
 
+  it('puts the layer over a cover photo and scrim, not under them (fix pass 2026-10-06)', () => {
+    // The hero-overlay kit's shape: a cover img and a gradient scrim, both -z-10, then the content.
+    const coverHero = (): BuilderKernel => {
+      const kernel = styleKernel();
+      const section: CustomCodeNode = {
+        kind: 'element',
+        tag: 'section',
+        className: 'relative isolate flex min-h-dvh items-end overflow-hidden',
+        children: [
+          { kind: 'element', tag: 'img', className: 'absolute inset-0 -z-10 h-full w-full object-cover', attributes: { src: 'https://images.pexels.com/photos/30146018/pexels-photo-30146018.jpeg', alt: 'Coffee' } },
+          { kind: 'element', tag: 'div', className: 'absolute inset-0 -z-10 bg-gradient-to-t from-black/80 to-transparent' },
+          { kind: 'element', tag: 'div', className: 'mx-auto max-w-6xl', children: [{ kind: 'element', tag: 'h1', text: 'Fresh coffee daily' }] },
+        ],
+      };
+      kernel.dispatchGroup([{ command: 'setTreeNode', args: { id: 'r-hero', path: [0], node: section } }], { author: 'user', label: 'Cover hero' });
+      return kernel;
+    };
+    const layers = (kernel: BuilderKernel) => {
+      const outer = treeOf(kernel, 'r-hero').children[0];
+      return outer?.kind === 'element' ? (outer.children ?? []) : [];
+    };
+    const isScene = (node: CustomCodeNode | undefined) => node?.kind === 'element' && node.attributes?.['data-ck-scene'] !== undefined;
+
+    const particles = coverHero();
+    expect(runStyleTool(particles, mediaAddTool, { kind: 'scene', scene: 'particles', behind: 'r-hero' }).ok).toBe(true);
+    // After the photo AND the scrim: equal -z-10 siblings paint in tree order, so the particles show.
+    expect(layers(particles).findIndex(isScene)).toBe(2);
+    expect(layers(particles).slice(0, 2).map((node) => (node.kind === 'element' ? node.tag : node.kind))).toEqual(['img', 'div']);
+
+    const gradient = coverHero();
+    expect(runStyleTool(gradient, mediaAddTool, { kind: 'scene', scene: 'mesh-gradient', behind: 'r-hero' }).ok).toBe(true);
+    // Opaque: over the photo, under the scrim that keeps the text readable.
+    expect(layers(gradient).findIndex(isScene)).toBe(1);
+
+    // Replacing moves the old layer to where the new one belongs, as one step set.
+    expect(runStyleTool(gradient, mediaAddTool, { kind: 'scene', scene: 'particles', behind: 'r-hero' }).ok).toBe(true);
+    expect(layers(gradient).filter(isScene)).toHaveLength(1);
+    expect(layers(gradient).findIndex(isScene)).toBe(2);
+  });
+
   it('builds a mural section from catalog textures, and refuses a scene "into" a region', () => {
     const mural = door(styleKernel(), 'media.add', { kind: 'scene', scene: 'mural', images: 'catalog:cafe', after: 'r-hero' });
     expect(mural.issues).toEqual([]);
@@ -351,6 +393,135 @@ describe('readMedia — zero-token readings', () => {
     ]) {
       expect(tryDirectTool(request, kernel), request).toBeUndefined();
     }
+  });
+});
+
+describe('fix pass 2026-10-06 — scroll motion, a video with no link, gallery topics, depth', () => {
+  it('reads a scroll animation that names its section as ONE motion.add (stagger-in, split-reveal for a heading)', () => {
+    const en = tryDirectTool('add a GSAP scroll reveal to the menu', styleKernel());
+    expect(en?.label).toBe('Scroll animation added');
+    expect(en?.plan.commands[0]).toMatchObject({ command: 'patchTreeNode', args: { id: 'r-menu', attributes: { 'data-ck-timeline': 'stagger-in' } } });
+
+    const ar = tryDirectTool('ضيف حركة GSAP عند التمرير لقسم الأسعار', styleKernel({ locale: 'ar' }));
+    expect(ar?.label).toBe('أُضيفت حركة عند التمرير');
+    expect(ar?.plan.commands[0]).toMatchObject({ args: { id: 'r-menu', attributes: { 'data-ck-timeline': 'stagger-in' } } });
+
+    const story = tryDirectTool('حط حركة عند التمرير لقصتنا', styleKernel({ locale: 'ar' }));
+    expect(story?.plan.commands[0]).toMatchObject({ args: { id: 'r-story' } });
+
+    const heading = tryDirectTool('ضيف حركة للعنوان', styleKernel({ locale: 'ar' }));
+    expect(heading?.plan.commands[0]).toMatchObject({ args: { id: 'r-hero', path: [0, 0], attributes: { 'data-ck-timeline': 'split-reveal' } } });
+
+    // A section the page does not have is the model's to answer.
+    expect(tryDirectTool('add a GSAP scroll reveal to the pricing', styleKernel())).toBeUndefined();
+  });
+
+  it('staggers the repeated items of a section, and gives parallax depth to the items, not the container', () => {
+    const kernel = styleKernel();
+    expect(runStyleTool(kernel, mediaAddTool, { kind: 'gallery', layout: 'grid', images: 'catalog:restaurant' }).ok).toBe(true);
+    const slots = kernel.getDocument().nodes['root']?.slots as Record<string, readonly string[]>;
+    const gallery = slots['default']?.at(-2) ?? '';
+    const depth = door(kernel, 'motion.add', { id: gallery, recipe: 'parallax-depth' });
+    expect(depth.issues).toEqual([]);
+    const marks = depth.steps.slice(1);
+    expect(marks.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(marks.map(({ args }) => (args['attributes'] as Record<string, string>)['data-ck-depth']))).toEqual(new Set(['1', '2', '3']));
+    expect(marks.every(({ args }) => (args['path'] as number[]).length > 2)).toBe(true);
+  });
+
+  it('asks for the link of a video request that has none, and reads none for one that has it', async () => {
+    expect(directQuestion('حط فيديو تعريفي من يوتيوب')).toMatch(/رابط الفيديو/u);
+    expect(directQuestion('add a youtube video')).toMatch(/video link/u);
+    expect(directQuestion('حط فيديو https://youtu.be/dQw4w9WgXcQ')).toBeUndefined();
+    expect(directQuestion('make the video bigger')).toBeUndefined();
+
+    let calls = 0;
+    const provider: AiPlanProvider = {
+      propose: () => {
+        calls += 1;
+        return Promise.reject(new Error('A video with no link must not reach the provider.'));
+      },
+    };
+    const kernel = styleKernel({ locale: 'ar' });
+    const run = runAiAgent({
+      runId: 'media-ask',
+      clock: fixedClock(1),
+      kernel,
+      provider,
+      request: 'حط فيديو تعريفي من يوتيوب',
+      apply: 'auto',
+      validationPorts: { clock: fixedClock(2), ids: seededIds('media-ask') },
+    });
+    await expect(run).rejects.toBeInstanceOf(AiNeedsInputError);
+    expect(calls).toBe(0);
+    expect(kernel.transactions()).toHaveLength(0);
+  });
+
+  it('takes the gallery topic without its «لل» and its «مع …» clause', () => {
+    const dishes = readMedia('ضيف معرض صور للاطباق مع عرض كبير عند الضغط', styleKernel({ locale: 'ar' }));
+    expect(dishes?.calls[0]?.input).toMatchObject({ kind: 'gallery', images: 'catalog:اطباق' });
+    const result = door(styleKernel({ locale: 'ar' }), 'media.add', { kind: 'gallery', images: 'catalog:اطباق' });
+    expect(result.issues).toEqual([]);
+    const subjects = elements(insertedTree(result.steps))
+      .filter((node) => node.tag === 'img')
+      .map((node) => node.attributes?.src ?? '');
+    // No café photos in a dishes gallery.
+    expect(subjects.length).toBeGreaterThan(0);
+    expect(subjects.every((src) => !src.includes('30146018'))).toBe(true);
+  });
+});
+
+describe('the door refuses what the published page would pay for (fix pass 2026-10-06)', () => {
+  const ports = { clock: fixedClock(1), ids: seededIds('media-door') };
+  const pageCss = (css: string) => ({
+    rationale: 'css',
+    commands: [{ command: 'setProp', args: { id: 'root', key: 'pageCss', value: css } }],
+  });
+
+  it('refuses css that hides content nothing reveals, with the motion.add repair', () => {
+    const refused = validateAiPlan(pageCss('.ck-feature-item{opacity:0;transform:translateY(20px)}'), styleKernel(), ports);
+    expect(refused.ok).toBe(false);
+    expect(refused.ok ? '' : refused.issues[0]?.message).toMatch(/motion\.add/u);
+    for (const css of [
+      '.ck-feature-item{opacity:0;animation:ck-in .6s forwards}',
+      '.ck-glow{opacity:0}.ck-card:hover .ck-glow{opacity:1}',
+      '@keyframes ck-in{from{opacity:0}to{opacity:1}}',
+      '.ck-x::before{opacity:0}',
+    ]) {
+      expect(validateAiPlan(pageCss(css), styleKernel(), ports).ok, css).toBe(true);
+    }
+  });
+
+  it('refuses a new raw YouTube iframe and names media.add', () => {
+    const plan = {
+      rationale: 'video',
+      commands: [
+        {
+          command: 'insertNode',
+          args: {
+            type: 'customCode',
+            parentId: 'root',
+            props: {
+              label: 'Video',
+              css: '',
+              tree: {
+                kind: 'root',
+                children: [
+                  {
+                    kind: 'element',
+                    tag: 'iframe',
+                    attributes: { src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', title: 'Video' },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    };
+    const verdict = validateAiPlan(plan, styleKernel(), ports);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.ok ? '' : verdict.issues[0]?.message).toMatch(/media\.add step \{"kind":"video"/u);
   });
 });
 

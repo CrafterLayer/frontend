@@ -694,6 +694,9 @@ export {
   type MotionAddInput,
   type VideoMode,
 } from './media-tools';
+// media-motion (2026-10-06, fix pass): the 0-token question a video with no link gets.
+export { AiNeedsInputError, isAiNeedsInputError, type AiNeedsInputWords } from './agent/needs-input';
+export { askMedia, type MediaQuestion } from './media-tools/direct-media';
 export {
   AGENT_TOOL_PROMPT_LANE_MAX_CHARS,
   agentToolPromptMaxChars,

@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { StatusBar, type RecentChange, type StatusBarTool } from './StatusBar';
+import { STATUS_BAR_LABELS_AR } from './StatusBar.labels';
 
 const CSS_SOURCE = readFileSync(
   join(process.cwd(), 'src', 'components', 'StatusBar', 'StatusBar.css'),
@@ -252,5 +253,38 @@ describe('StatusBar', () => {
     expect(CSS_SOURCE).not.toMatch(/#[\da-f]{3,8}\b/iu);
     expect(CSS_SOURCE).not.toMatch(/\b\d*\.?\d+(?:px|rem|em)\b/u);
     expect(CSS_SOURCE).not.toMatch(/\bopacity\s*:/u);
+  });
+});
+
+describe('the Arabic status bar (arabic-editor)', () => {
+  it('names the region, doors, zoom, save state and empty strip in Arabic, digits Latin', () => {
+    const { rerender } = render(
+      <StatusBar
+        changes={[{ id: 'c1', door: 'canvas', label: 'إضافة عنصر' }]}
+        zoom={0.71}
+        deviceLabel="سطح المكتب · 1280 px"
+        saveState="saved"
+        labels={STATUS_BAR_LABELS_AR}
+      />,
+    );
+    const bar = screen.getByRole('region', { name: 'حالة المحرر' });
+    expect(within(bar).getByText('اللوحة: إضافة عنصر')).toBeInTheDocument();
+    expect(within(bar).getByRole('list', { name: 'آخر التغييرات' })).toBeInTheDocument();
+    expect(within(bar).getByLabelText('التكبير 71%')).toHaveTextContent('71%');
+    expect(within(bar).getByRole('status', { name: 'حالة الحفظ' })).toHaveTextContent('محفوظ');
+    expect(bar.textContent).not.toMatch(/[\u0660-\u0669]/u);
+
+    rerender(<StatusBar changes={[]} labels={STATUS_BAR_LABELS_AR} />);
+    expect(screen.getByRole('status')).toHaveTextContent('لا تغييرات حديثة');
+  });
+
+  it('does not prefix a label that already names its door in Arabic', () => {
+    render(
+      <StatusBar
+        changes={[{ id: 'c1', door: 'assistant', label: 'المساعد: 3/4 — القائمة' }]}
+        labels={STATUS_BAR_LABELS_AR}
+      />,
+    );
+    expect(screen.getByText('المساعد: 3/4 — القائمة')).toBeInTheDocument();
   });
 });

@@ -270,3 +270,46 @@ export const ControlRenderingContract: Story = {
     });
   },
 };
+
+/* Block parts (DESIGN §4.4): each inner element is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node,
+    props: {
+      ...testimonialsSchema.props.parse({
+        eyebrow: 'Customers',
+        heading: 'Loved by teams.',
+        body: 'What they say.',
+        items: [
+          {
+            quote: 'It just works.',
+            author: 'Rana',
+            role: 'Staff Engineer',
+            company: 'Acme',
+            rating: 5,
+          },
+          { quote: 'Arabic first.', author: 'Omar', role: 'Designer' },
+        ],
+      }),
+      partStyles: {
+        'item.quote': { className: 'text-accent' },
+        'item.quote@0': { className: 'underline' },
+      },
+    },
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const styled = canvasElement.querySelectorAll('[data-ck-part="item.quote"]');
+    await expect(styled.length).toBeGreaterThan(1);
+    await expect(styled[0]).toHaveAttribute('data-ck-bind', 'items.0.quote');
+    await expect(styled[0]).toHaveClass('underline');
+    await expect(styled[1]).toHaveClass('text-accent');
+    await expect(styled[1]).not.toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="items"]')).toHaveAttribute(
+      'data-ck-bind',
+      'items',
+    );
+  },
+};

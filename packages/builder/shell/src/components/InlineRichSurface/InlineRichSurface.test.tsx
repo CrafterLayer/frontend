@@ -74,6 +74,47 @@ function mount(value: unknown = doc('Select a word here')): Harness {
   };
 }
 
+/**
+ * The surface BUFFERS edits and commits once (on blur, Enter, or unmount): end
+ * the edit with a blur, then read the single commit it produced.
+ */
+const committed = (h: Harness): unknown => {
+  act(() => {
+    h.surface.dispatchEvent(new FocusEvent('blur'));
+  });
+  return h.commits.at(-1);
+};
+
+const insertText = (surface: HTMLElement, data: string): InputEvent => {
+  const event = new InputEvent('beforeinput', {
+    bubbles: true,
+    cancelable: true,
+    inputType: 'insertText',
+    data,
+  });
+  act(() => {
+    surface.dispatchEvent(event);
+  });
+  return event;
+};
+
+const caretAtEnd = (surface: HTMLElement): void => {
+  const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
+  let last: Node | null = null;
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    last = node;
+  }
+  if (last === null) {
+    throw new Error('the surface must render text');
+  }
+  const range = document.createRange();
+  range.setStart(last, (last.textContent ?? '').length);
+  range.collapse(true);
+  const selection = document.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+};
+
 /** Put a real DOM selection over [from,to) of the surface's first text node. */
 const selectWord = (surface: HTMLElement, word: string) => {
   const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
@@ -146,8 +187,22 @@ describe('InlineRichSurface (009 contract §15)', () => {
     expect(h.surface).toHaveFocus();
   });
 
-  it('reports NO actions without a selection — that is how the bubble stays hidden', () => {
+  it('a collapsed caret keeps the chrome with the marks DISABLED and reports no anchor', () => {
     const h = mount();
+    // The surface opens focused with the caret at the end: the canvas docks
+    // the bar at the surface, and nothing can be marked without characters.
+    const reported = h.actions.at(-1) ?? [];
+    expect(reported.map((action) => action.id)).toEqual(['bold', 'italic']);
+    expect(reported.every((action) => action.disabled === true)).toBe(true);
+    expect(reported.every((action) => action.pressed === false)).toBe(true);
+    expect(h.anchors.at(-1) ?? null).toBeNull();
+  });
+
+  it('reports NO actions once the surface no longer owns focus', () => {
+    const h = mount();
+    act(() => {
+      h.surface.blur();
+    });
     expect(h.actions.at(-1) ?? []).toEqual([]);
     expect(h.anchors.at(-1) ?? null).toBeNull();
   });
@@ -193,7 +248,7 @@ describe('InlineRichSurface (009 contract §15)', () => {
     });
     // The browser's own mutation is REFUSED: React stays the authority.
     expect(event.defaultPrevented).toBe(true);
-    expect(JSON.stringify(h.commits.at(-1))).toContain('Select a line here');
+    expect(JSON.stringify(committed(h))).toContain('Select a line here');
   });
 
   it('backspace with a caret deletes exactly one character', () => {
@@ -218,7 +273,7 @@ describe('InlineRichSurface (009 contract §15)', () => {
         }),
       );
     });
-    expect(JSON.stringify(h.commits.at(-1))).toContain('"a"');
+    expect(JSON.stringify(committed(h))).toContain('"a"');
   });
 
   it('Backspace after a hard break removes the BREAK, never the preceding character', () => {
@@ -246,7 +301,7 @@ describe('InlineRichSurface (009 contract §15)', () => {
       h.surface.dispatchEvent(event);
     });
     expect(event.defaultPrevented).toBe(true);
-    expect(plainTextOf(h.commits.at(-1))).toBe('ab');
+    expect(plainTextOf(committed(h))).toBe('ab');
   });
 
   it.each(STANDARD_TARGET_DELETIONS)(
@@ -262,7 +317,7 @@ describe('InlineRichSurface (009 contract §15)', () => {
         h.surface.dispatchEvent(event);
       });
       expect(event.defaultPrevented).toBe(true);
-      expect(plainTextOf(h.commits.at(-1))).toBe('alpha ');
+      expect(plainTextOf(committed(h))).toBe('alpha ');
     },
   );
 
@@ -277,7 +332,7 @@ describe('InlineRichSurface (009 contract §15)', () => {
       h.surface.dispatchEvent(event);
     });
     expect(event.defaultPrevented).toBe(true);
-    expect(plainTextOf(h.commits.at(-1))).toBe('a');
+    expect(plainTextOf(committed(h))).toBe('a');
   });
 
   it.each([
@@ -459,6 +514,114 @@ describe('InlineRichSurface (009 contract §15)', () => {
     view.unmount();
     expect(onAnchor).toHaveBeenLastCalledWith(null);
     expect(onActions).toHaveBeenLastCalledWith([]);
+  });
+
+  it('COMMIT ONCE: several keystrokes stage a draft; one blur commits it once', () => {
+    const h = mount(doc('Hi'));
+    caretAtEnd(h.surface);
+    insertText(h.surface, ' t');
+    caretAtEnd(h.surface);
+    insertText(h.surface, 'he');
+    caretAtEnd(h.surface);
+    insertText(h.surface, 're');
+    // Typing shows on screen but is NOT handed to the host per keystroke.
+    expect(h.surface.textContent).toBe('Hi there');
+    expect(h.commits).toHaveLength(0);
+
+    expect(plainTextOf(committed(h))).toBe('Hi there');
+    expect(h.commits).toHaveLength(1);
+    // A second blur with nothing new commits nothing.
+    committed(h);
+    expect(h.commits).toHaveLength(1);
+  });
+
+  it('Enter finishes the edit with ONE commit; Shift+Enter is inert', () => {
+    const h = mount(doc('Hi'));
+    caretAtEnd(h.surface);
+    insertText(h.surface, '!');
+    const shiftEnter = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      h.surface.dispatchEvent(shiftEnter);
+    });
+    expect(shiftEnter.defaultPrevented).toBe(true);
+    expect(h.commits).toHaveLength(0);
+
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    act(() => {
+      h.surface.dispatchEvent(enter);
+    });
+    expect(enter.defaultPrevented).toBe(true);
+    expect(h.commits).toHaveLength(1);
+    expect(plainTextOf(h.commits[0])).toBe('Hi!');
+  });
+
+  it('Escape CANCELS: the draft is discarded, nothing is committed, the stored text shows', () => {
+    const h = mount(doc('Stored'));
+    caretAtEnd(h.surface);
+    insertText(h.surface, ' draft');
+    expect(h.surface.textContent).toBe('Stored draft');
+
+    act(() => {
+      h.surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(h.exits).toBe(1);
+    expect(h.surface.textContent).toBe('Stored');
+    committed(h); // the blur that follows the focus hand-off
+    expect(h.commits).toHaveLength(0);
+  });
+
+  it('IGNORES incoming values while a draft is unsaved (history replay never eats typing)', () => {
+    const h = mount(doc('Hi'));
+    caretAtEnd(h.surface);
+    insertText(h.surface, '!');
+    h.rerender(doc('Replayed'));
+    expect(h.surface.textContent).toBe('Hi!');
+
+    expect(plainTextOf(committed(h))).toBe('Hi!');
+    // Once committed, the next stored value shows through again.
+    h.rerender(doc('After undo'));
+    expect(h.surface.textContent).toBe('After undo');
+  });
+
+  it('a draft whose session ends before any blur is committed on unmount, once', () => {
+    const commits: unknown[] = [];
+    const view = render(
+      <InlineRichSurface
+        value={doc('Hi')}
+        label="body"
+        onCommit={(next) => commits.push(next)}
+        onExit={vi.fn()}
+        onAnchor={vi.fn()}
+        onActions={vi.fn()}
+      />,
+    );
+    const surface = view.container.querySelector<HTMLElement>('.bldr-inline-rich');
+    if (surface === null) {
+      throw new Error('the rich surface must render');
+    }
+    caretAtEnd(surface);
+    insertText(surface, ' you');
+    view.unmount();
+    expect(commits).toHaveLength(1);
+    expect(plainTextOf(commits[0])).toBe('Hi you');
+  });
+
+  it('Arabic and English both edit in place, with direction from the content', () => {
+    const h = mount(doc('مرحبا'));
+    expect(h.surface.getAttribute('dir')).toBe('auto');
+    caretAtEnd(h.surface);
+    insertText(h.surface, ' بالعالم');
+    expect(plainTextOf(committed(h))).toBe('مرحبا بالعالم');
+
+    const english = mount(doc('Your site'));
+    caretAtEnd(english.surface);
+    insertText(english.surface, ' grows.');
+    expect(plainTextOf(committed(english))).toBe('Your site grows.');
   });
 
   it('an EXTERNAL change (undo, collaborator) shows through', () => {

@@ -7,10 +7,10 @@ import {
 } from 'react';
 import { clsx } from 'clsx';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 import { motionAttributes } from '@craftkit/builder-renderer';
 
-import type { DialogProps } from './schema';
+import { dialogSchema, type DialogProps } from './schema';
 
 const SIZE_CLASSES: Readonly<Record<DialogProps['size'], string>> = {
   sm: 'max-w-content-narrow',
@@ -40,6 +40,7 @@ const TRIGGER_CLASSES: Readonly<Record<DialogProps['triggerVariant'], string>> =
 /** A native modal dialog: browser focus containment and inert background, with explicit policies. */
 export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>) {
   const dialogId = `${node.id}-dialog`;
+  const part = blockPartProps({ node, props, isCanvas }, dialogSchema.parts);
   const titleId = `${node.id}-title`;
   const bodyId = props.body === undefined ? undefined : `${node.id}-body`;
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -132,10 +133,12 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
     <div className="inline-flex min-w-0">
       <button
         ref={triggerRef}
-        className={clsx(
-          'inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border px-5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent',
-          TRIGGER_CLASSES[props.triggerVariant],
-        )}
+        {...part('trigger', {
+          className: clsx(
+            'inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border px-5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent',
+            TRIGGER_CLASSES[props.triggerVariant],
+          ),
+        })}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
@@ -164,10 +167,12 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
       >
         <div
           ref={panelRef}
-          className={clsx(
-            'relative m-4 flex min-w-0 flex-col gap-6 rounded-xl border p-6 shadow-elevated outline-none @md:m-6 @md:p-8 motion-reduce:transition-none',
-            TONE_CLASSES[props.tone],
-          )}
+          {...part('panel', {
+            className: clsx(
+              'relative m-4 flex min-w-0 flex-col gap-6 rounded-xl border p-6 shadow-elevated outline-none @md:m-6 @md:p-8 motion-reduce:transition-none',
+              TONE_CLASSES[props.tone],
+            ),
+          })}
           tabIndex={-1}
           data-dialog-panel=""
         >
@@ -185,15 +190,20 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
 
           <header className="flex min-w-0 flex-col gap-3 pe-12">
             <h2
-              id={titleId}
-              className="m-0 text-2xl leading-tight font-bold tracking-tight text-balance"
+              {...part('title', {
+                id: titleId,
+                className: 'm-0 text-2xl leading-tight font-bold tracking-tight text-balance',
+              })}
             >
               {props.title}
             </h2>
             {props.body === undefined ? null : (
               <p
-                id={bodyId}
-                className="m-0 max-w-content-narrow leading-relaxed text-inherit opacity-80 text-pretty"
+                {...part('body', {
+                  id: bodyId,
+                  className:
+                    'm-0 max-w-content-narrow leading-relaxed text-inherit opacity-80 text-pretty',
+                })}
               >
                 {props.body}
               </p>
@@ -204,7 +214,10 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
             <footer className="flex flex-col-reverse gap-3 @sm:flex-row @sm:justify-end">
               {props.secondaryAction === undefined ? null : (
                 <a
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-current/25 bg-transparent px-5 py-2.5 font-semibold text-inherit focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+                  {...part('secondaryAction', {
+                    className:
+                      'inline-flex min-h-11 items-center justify-center rounded-lg border border-current/25 bg-transparent px-5 py-2.5 font-semibold text-inherit focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current',
+                  })}
                   href={props.secondaryAction.href}
                   onClick={handleAction}
                 >
@@ -214,10 +227,12 @@ export function Dialog({ node, props, isCanvas }: BlockRenderProps<DialogProps>)
               {props.primaryAction === undefined ? null : (
                 <a
                   ref={primaryRef}
-                  className={clsx(
-                    'inline-flex min-h-11 items-center justify-center rounded-lg border px-5 py-2.5 font-semibold shadow-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current',
-                    PRIMARY_ACTION_CLASSES[props.tone],
-                  )}
+                  {...part('primaryAction', {
+                    className: clsx(
+                      'inline-flex min-h-11 items-center justify-center rounded-lg border px-5 py-2.5 font-semibold shadow-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current',
+                      PRIMARY_ACTION_CLASSES[props.tone],
+                    ),
+                  })}
                   href={props.primaryAction.href}
                   onClick={handleAction}
                 >

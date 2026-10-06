@@ -721,3 +721,31 @@ export const UnthemedPublishContract: Story = {
     });
   },
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    ...Light.args,
+    node: { ...node, slots: { media: ['media-story'] } },
+    props: heroSchema.props.parse({
+      variant: 'split',
+      eyebrow: 'New release',
+      heading: 'Every element is editable.',
+      body: 'Click the eyebrow, the heading, the body or the trust line.',
+      trustLine: 'Trusted by 2,000 teams.',
+      partStyles: { heading: { className: 'text-accent' } },
+    }),
+    slots: { media: <span className="block p-6">Media</span> },
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const heading = canvasElement.querySelector('[data-ck-part="heading"]');
+    await expect(heading).toHaveAttribute('data-ck-bind', 'heading');
+    await expect(heading).toHaveClass('text-accent');
+    await expect(canvasElement.querySelector('[data-ck-part="trustLine"]')).not.toBeNull();
+  },
+};

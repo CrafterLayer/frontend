@@ -77,3 +77,32 @@ export const CompactSurface: Story = {
     isCanvas: false,
   },
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    node: { id: 'promoBanner-parts', type: 'promoBanner', props: {} },
+    props: promoBannerSchema.props.parse({
+      label: 'Limited',
+      headline: 'Spring sale.',
+      body: 'Everything 20% off this week.',
+      actions: [
+        { label: 'Shop now', href: '/shop' },
+        { label: 'Learn more', href: '/about', emphasis: 'secondary' },
+      ],
+      partStyles: { 'action@1': { className: 'shadow-none' } },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-ck-part="action.link"][data-ck-part-index="1"]'),
+    ).toHaveAttribute('data-ck-bind', 'actions.1.label');
+  },
+};

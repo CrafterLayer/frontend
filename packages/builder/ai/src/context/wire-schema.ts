@@ -14,9 +14,18 @@ import type { JsonValue } from '@craftkit/builder-schema';
  *   as `propertyNames.enum` + `additionalProperties` — the same language.
  * - The page root's `seo` object is summarised: the seo.* tools write it
  *   (and keep sample facts out of it); a model never authors it by hand.
+ * - block-parts (2026-10-06): `partStyles` is dropped. Every marketing block
+ *   carries it (~330 characters of record schema each), which pushed the
+ *   landing request to 67,153 tokens against 64,000. The model styles a part
+ *   with `part.style {id, part, style}` (the "Block parts" fragment and the
+ *   part.* tool signatures); it never writes the record by hand.
  */
 
 type JsonRecord = Record<string, JsonValue>;
+
+// ── block-parts (2026-10-06) ── the per-part styles prop, written through part.style only
+const PART_STYLES_KEY = 'partStyles';
+// ── /block-parts ──
 
 /** Fewer shared properties than this are cheaper written out. */
 const SHARED_MIN = 8;
@@ -58,9 +67,19 @@ export function wirePropsSchema(schema: JsonValue): JsonValue {
   const rest: JsonRecord = { ...schema };
   delete rest['$schema'];
   const properties = rest['properties'];
-  const summarised =
+  const summarised: JsonRecord =
     isRecord(properties) && isRecord(properties['seo'])
       ? { ...rest, properties: { ...properties, seo: SEO_SUMMARY } }
       : rest;
+  // ── block-parts (2026-10-06) ──
+  const wired = summarised['properties'];
+  if (isRecord(wired) && Object.hasOwn(wired, PART_STYLES_KEY)) {
+    const kept: JsonRecord = { ...wired };
+    delete kept[PART_STYLES_KEY];
+    const required = summarised['required'];
+    summarised['properties'] = kept;
+    if (Array.isArray(required)) summarised['required'] = required.filter((name) => name !== PART_STYLES_KEY);
+  }
+  // ── /block-parts ──
   return compact(summarised);
 }

@@ -4,6 +4,7 @@ import type { Surface, SlotName } from '../document/types';
 import { builderError } from '../errors';
 import { isJsonValue, type JsonValue } from '../json/json-value';
 import { isRichTextSchema } from '../rich-text/rich-text';
+import { validateBlockParts, type BlockParts } from './block-parts';
 
 export interface SlotDecl {
   /** Block types this slot accepts. */
@@ -29,7 +30,19 @@ export type BlockPropertyTab = 'content' | 'design' | 'advanced';
   optional enums; without the declaration it resolves to the read-only fallback,
   which is technically correct and useless.
 */
-export type BlockPropertyKind = 'color-role' | 'motion' | 'utility-classes';
+/*
+  block-parts (DESIGN §2.1): `multiline` is a long text (TextAreaField), `image`
+  an image address (asset picker plus URL), `link` a `{ label, href }` object or
+  an href string (LinkField), `part-styles` the `partStyles` record.
+*/
+export type BlockPropertyKind =
+  | 'color-role'
+  | 'motion'
+  | 'utility-classes'
+  | 'multiline'
+  | 'image'
+  | 'link'
+  | 'part-styles';
 
 /** A block-owned declaration of where one property appears in the Inspector. */
 export interface BlockPropertyGroup {
@@ -79,6 +92,12 @@ export interface BlockSchema<P extends z.ZodType = z.ZodType> {
    * a block edits in place.
    */
   inlineEditable?: string;
+  /**
+   * The block's named inner elements (block-parts DESIGN §1): each one is
+   * selectable, editable and stylable on the canvas, in the Inspector, in
+   * Layers and by the agent. Validated at registration by `validateBlockParts`.
+   */
+  parts?: BlockParts;
   bindings?: Record<string, { shape: z.ZodType; required?: boolean }>;
   /** Few-shot examples for AI context assembly. */
   examples: { prompt: string; node: JsonValue }[];
@@ -168,6 +187,10 @@ export function defineBlockSchema<P extends z.ZodType>(def: BlockSchema<P>): Blo
         ['inlineEditable'],
       );
     }
+  }
+
+  if (def.parts !== undefined) {
+    validateBlockParts(def.type, def.props, def.parts, def.inlineEditable);
   }
 
   try {

@@ -185,6 +185,38 @@ export function insertInto(context: AgentToolContext, id: string, recipe: MediaR
 export interface LayerHost {
   readonly className: string;
   readonly behavior?: string | undefined;
+  /**
+   * A see-through layer (particles) goes ABOVE the host's cover photo and
+   * scrim; an opaque one (a video, a gradient) between the photo and the
+   * scrim, so the text keeps its contrast. Absent: opaque.
+   */
+  readonly overlay?: boolean | undefined;
+}
+
+/*
+  media-motion fix pass (2026-10-06): particles placed behind the hero-overlay
+  kit were invisible — the layer went in as child [0] with -z-10, and the
+  kit's cover img and gradient scrim (also -z-10) came later in the DOM, so
+  they painted on top while Pixi drew 120 frames a second under them. Equal
+  z-index siblings paint in tree order, so the layer now goes AFTER the
+  covers it must show over, with the same -z-10 and below the content.
+*/
+/** A cover the host already paints under its content: an absolute, negatively stacked photo or scrim. */
+function coverKind(node: unknown): 'photo' | 'scrim' | undefined {
+  if (!isElement(node) || isLayer(node)) return undefined;
+  const classes = (node.className ?? '').split(/\s+/u);
+  if (!classes.includes('absolute') || !classes.some((name) => name.startsWith('-z-'))) return undefined;
+  return node.tag === 'img' || node.tag === 'picture' || node.tag === 'video' ? 'photo' : 'scrim';
+}
+
+/** Where the layer sits among the host's children (the old layer, if any, left out). */
+function layerIndex(children: readonly unknown[], overlay: boolean): number {
+  let index = 0;
+  for (const [at, child] of children.entries()) {
+    const kind = coverKind(child);
+    if (kind === 'photo' || (kind === 'scrim' && overlay)) index = at + 1;
+  }
+  return index;
 }
 
 /** A first child that is a background layer already: a scene div or a decorative video. */
@@ -222,12 +254,17 @@ export function insertBehind(
     return refuse(`"${id}" already runs data-ck-behavior "${behavior}"; a background video needs the section's behaviour — put it on another region or remove "${behavior}" first.`);
   }
   const node = mediaRecipeNode(recipe) as CustomCodeNode;
-  const replacing = isLayer(outer.children?.[0]);
-  const steps: AgentToolStep[] = [
-    replacing
-      ? step('setTreeNode', { id, path: [0, 0], node })
-      : step('insertTreeNode', { id, parent: [0], index: 0, node }),
-  ];
+  const children = outer.children ?? [];
+  const existing = children.findIndex(isLayer);
+  const others = existing < 0 ? children : children.filter((_child, at) => at !== existing);
+  const wanted = layerIndex(others, host.overlay === true);
+  const steps: AgentToolStep[] =
+    existing === wanted
+      ? [step('setTreeNode', { id, path: [0, existing], node })]
+      : [
+          ...(existing < 0 ? [] : [step('removeTreeNode', { id, path: [0, existing] })]),
+          step('insertTreeNode', { id, parent: [0], index: wanted, node }),
+        ];
   const className = hostClassName(outer.className, host.className);
   const attributes: Record<string, string | null> = {};
   if (host.behavior !== undefined && behavior !== host.behavior) attributes['data-ck-behavior'] = host.behavior;

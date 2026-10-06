@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { defineBlockSchema, findRejectedUtilities } from '@craftkit/builder-schema';
+import { defineBlockSchema, findRejectedUtilities, partStylesProp } from '@craftkit/builder-schema';
 
 import { tabPanelExamples } from './examples';
 
@@ -54,12 +54,33 @@ export const tabPanelSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     label: { tab: 'content' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
   },
   inlineEditable: 'label',
+  /*
+    The label is declared so the Inspector, Layers and the agent address it
+    (block-parts DESIGN §1). It is DRAWN by the parent Tabs block as this
+    panel's trigger, so this renderer stamps no element for it, and the panel
+    itself is the block (a box part on the root would swallow every click that
+    should select the panel). Tabs stamps the trigger with
+    `forwardedPartProps` (fix pass 2026-10-06): `data-ck-part="label"` plus
+    `data-ck-part-owner=<this panel>`, so the tab text is selected and edited
+    in place as this panel's part.
+  */
+  parts: {
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Tab label', ar: 'اسم التبويب' },
+      aliases: ['tab', 'title', 'التبويب', 'العنوان'],
+    },
+  },
   slots: { default: { allow: [...PANEL_CHILDREN] } },
   examples: tabPanelExamples,
 });

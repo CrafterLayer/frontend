@@ -55,3 +55,18 @@ moved elsewhere without changing its schema.
 
 Each item supports one visible label and one destination. Nested menus, icons, descriptions,
 per-link targets, and custom landmark labels are intentionally outside this compact block.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name        | kind | bind                             | label (en / ar)           |
+| ----------- | ---- | -------------------------------- | ------------------------- |
+| `links`     | list | `links`                          | Links / الروابط           |
+| `item`      | item | `links.*`                        | Menu entry / عنصر القائمة |
+| `item.link` | link | `links.*.label` + `links.*.href` | Link / الرابط             |
+
+Each link part edits its label in place and its destination in the Link popover.

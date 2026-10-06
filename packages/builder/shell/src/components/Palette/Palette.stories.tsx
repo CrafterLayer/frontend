@@ -13,6 +13,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { Palette } from './Palette';
+import { PALETTE_LABELS_AR } from './Palette.labels';
 
 const NullRender: BlockRenderComponent = () => null;
 const block = (type: string, label: string, slots?: Record<string, { allow: string[] }>) => ({
@@ -391,5 +392,21 @@ export const CardsOnARowMatchHeight: Story = {
         Math.round(cell.getBoundingClientRect().height),
       );
     }
+  },
+};
+
+/** The Arabic editor (arabic-editor): tabs, groups, block names and search all in Arabic. */
+export const Arabic: Story = {
+  args: { kernel: makeKernel('rtl'), labels: PALETTE_LABELS_AR },
+  globals: { direction: 'rtl' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('tab', { name: 'الكتل' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'التسويق' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'واجهة رئيسية' })).toBeVisible();
+    await userEvent.type(canvas.getByRole('searchbox', { name: 'ابحث في الكتل' }), 'واجهة');
+    await waitFor(async () => {
+      await expect(canvas.queryByRole('button', { name: 'نص' })).not.toBeInTheDocument();
+    });
   },
 };

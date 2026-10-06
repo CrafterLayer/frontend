@@ -177,11 +177,13 @@ export function useEditorChrome(options: EditorChromeOptions): EditorChrome {
         ...(request.css === undefined ? {} : { css: request.css }),
         savedAt: new Date().toISOString(),
       };
-      if (commitSite([{ command: 'saveTemplate', args: { template } }], `Save template · ${name}`)) {
-        announce(`Saved “${name}” to the library.`);
+      if (
+        commitSite([{ command: 'saveTemplate', args: { template } }], labels.chrome.saveTemplateLabel(name))
+      ) {
+        announce(labels.chrome.savedTemplate(name));
       }
     },
-    [commitSite, announce],
+    [commitSite, announce, labels.chrome],
   );
 
   const saveTargetAsTemplate = useCallback(
@@ -204,7 +206,7 @@ export function useEditorChrome(options: EditorChromeOptions): EditorChrome {
       }
       const tree = resolved.node.props['tree'];
       if (typeof tree !== 'object' || tree === null) {
-        announce('Only an element or a composed region can be saved as a template.');
+        announce(labels.chrome.onlyTemplates);
         return;
       }
       saveTemplate({
@@ -215,14 +217,15 @@ export function useEditorChrome(options: EditorChromeOptions): EditorChrome {
         ...(cssText === undefined ? {} : { css: cssText }),
       });
     },
-    [kernel, labels.elementWords, saveTemplate, announce],
+    [kernel, labels.elementWords, labels.chrome, saveTemplate, announce],
   );
 
   const makeSymbol = useCallback(
     (regionId: string) => {
       if (kernel === undefined || siteKernel === undefined) return;
       const label = kernel.getDocument().nodes[regionId]?.props['label'];
-      const name = typeof label === 'string' && label.trim() !== '' ? label.trim() : 'Symbol';
+      const name =
+        typeof label === 'string' && label.trim() !== '' ? label.trim() : labels.chrome.symbolFallback;
       const result = makeSymbolSteps(
         siteKernel.getSite(),
         kernel.getDocument(),
@@ -234,16 +237,18 @@ export function useEditorChrome(options: EditorChromeOptions): EditorChrome {
         announce(result.message);
         return;
       }
-      if (commitSite(result.steps, `Make symbol · ${name}`)) announce(`“${name}” is now a symbol.`);
+      if (commitSite(result.steps, labels.chrome.makeSymbolLabel(name))) {
+        announce(labels.chrome.madeSymbol(name));
+      }
     },
-    [kernel, siteKernel, commitSite, announce],
+    [kernel, siteKernel, commitSite, announce, labels.chrome],
   );
 
   const removeTemplate = useCallback(
     (id: string) => {
-      commitSite([{ command: 'removeTemplate', args: { id } }], 'Remove template');
+      commitSite([{ command: 'removeTemplate', args: { id } }], labels.chrome.removeTemplateLabel);
     },
-    [commitSite],
+    [commitSite, labels.chrome],
   );
 
   const convertBlock = useCallback(
@@ -257,11 +262,11 @@ export function useEditorChrome(options: EditorChromeOptions): EditorChrome {
         announce(reason);
         return reason;
       }
-      announce(`${result.label}: every part is now editable.`);
+      announce(labels.chrome.converted(result.label));
       if (result.regionId !== undefined) kernel.setSelection([result.regionId]);
       return undefined;
     },
-    [kernel, announce],
+    [kernel, announce, labels.chrome],
   );
 
   const previewElement = useCallback(

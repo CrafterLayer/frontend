@@ -60,3 +60,29 @@ export const AccentDialog: Story = {
     isCanvas: false,
   },
 };
+
+/**
+ * Block parts on the canvas: every inner element carries its part address
+ * (`data-ck-part` / `data-ck-bind`), which the canvas hit test, the outline,
+ * the quick bar and inline editing read. A published render carries none.
+ */
+export const Parts: Story = {
+  args: {
+    node: { id: 'dialog-parts', type: 'dialog', props: {} },
+    props: dialogSchema.props.parse({
+      triggerLabel: 'Open settings',
+      title: 'Save changes?',
+      body: 'Your edits will be published.',
+      primaryAction: { label: 'Save', href: '#save' },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-ck-part="trigger"]')).toHaveAttribute(
+      'data-ck-bind',
+      'triggerLabel',
+    );
+  },
+};

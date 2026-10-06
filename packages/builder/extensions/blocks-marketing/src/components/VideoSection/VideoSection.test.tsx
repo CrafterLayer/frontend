@@ -237,7 +237,7 @@ describe('VideoSection', () => {
     expect(videoSectionSchema.propertyGroups).toEqual(
       expect.objectContaining({
         heading: { tab: 'content', section: 'Introduction' },
-        src: { tab: 'content', section: 'Video' },
+        src: { tab: 'content', section: 'Video', kind: 'image' },
         layout: { tab: 'design', section: 'Layout' },
         preload: { tab: 'advanced', section: 'Playback' },
         ...sectionColorGroups,

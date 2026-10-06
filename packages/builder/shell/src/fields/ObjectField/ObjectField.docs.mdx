@@ -1,0 +1,31 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ObjectFieldStories from './ObjectField.stories';
+
+<Meta of={ObjectFieldStories} />
+
+# ObjectField
+
+A plain object property shown as grouped sub-rows, one per key, for example
+`cta: { label, href, newTab }`, `dialog.primaryAction`, `carousel.items[].action` or the nested
+`page.seo.site.business`.
+
+<Canvas of={ObjectFieldStories.GroupedRows} />
+
+## How it works
+
+- Each sub-row is rendered by the host (`renderRow`): the Inspector renders it through its own field
+  resolution, so a sub-property gets the editor its schema calls for, and an object inside an object
+  recurses. This is the same recursion the repeater uses for its items.
+- **One write per edit.** A sub-edit writes the whole object once, through the owning top-level
+  property's door. One change is one Undo.
+- **Absent optional objects.** The first edit seeds the object from the schema's defaults, so the
+  write that creates it can pass validation.
+- `omitKeys` lets a specialised field (LinkField) render some keys itself and leave the rest to this
+  group.
+
+## Why it exists
+
+Before this component, every object property fell through to a read-only box holding raw JSON.
+
+<Canvas of={ObjectFieldStories.RightToLeft} />

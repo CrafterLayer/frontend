@@ -84,6 +84,10 @@ at that size. Canvas and Code stay muted; only Assistant uses the brand accent.
 - `Saving` and `SaveError` keep visible state text as well as semantic colour.
 - `NoChanges` displays “No recent changes” instead of leaving a blank strip.
 - `RightToLeft` inherits RTL direction without changing markup or styles.
+- `Arabic` passes `STATUS_BAR_LABELS_AR` (`labels`): the region, doors ("اللوحة: …"), save state,
+  zoom and empty strip are all Arabic, and numbers stay in Latin digits. A change label that already
+  names its door in either language is not prefixed twice. The host picks the set through the
+  editor catalogue (`editorCatalogue(locale).statusBar`).
 
 ## Accessibility and keyboard behavior
 

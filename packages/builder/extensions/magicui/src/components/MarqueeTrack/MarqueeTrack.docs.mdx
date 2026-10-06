@@ -16,3 +16,13 @@ The component is independently covered because canvas navigation guards and dupl
 are track-level responsibilities, while pause state and overall section semantics belong to Marquee.
 Primary, auxiliary, and context-menu link activation are all suppressed on the editing canvas while
 the authored destination remains intact for published output.
+
+## Parts
+
+`part` is the owning block's `blockPartProps` helper. With it, every element of every copy is a part
+of the marquee (`items`, `item`, `item.image`, `item.title`, `item.description`, `item.meta`,
+`item.link`), so a click on any copy selects the same part and `partStyles` styles every copy alike.
+Only the primary copy hosts an inline editor: while a value is being edited, the duplicates show the
+committed text again once the edit lands. Without `part` the track renders its own classes only.
+
+<Canvas of={MarqueeTrackStories.Parts} />

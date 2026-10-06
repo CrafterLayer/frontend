@@ -61,3 +61,27 @@ export const DetailsOnly: Story = {
     isCanvas: false,
   },
 };
+
+/* Block parts (DESIGN §4.4): every contact detail and form label is a part on the canvas. */
+export const Parts: Story = {
+  args: {
+    node: { ...node, id: 'contact-parts' },
+    props: contactSchema.props.parse({
+      ...(contactExamples[0]?.node as { props: Record<string, unknown> }).props,
+      partStyles: { email: { className: 'underline' }, submitLabel: { className: 'w-full' } },
+    }),
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const email = canvasElement.querySelector('[data-ck-part="email"]');
+    await expect(email).toHaveAttribute('data-ck-bind', 'email');
+    await expect(email).toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="nameLabel"]')).toHaveAttribute(
+      'data-ck-bind',
+      'nameLabel',
+    );
+    await expect(canvasElement.querySelector('[data-ck-part="submitLabel"]')).toHaveClass('w-full');
+  },
+};

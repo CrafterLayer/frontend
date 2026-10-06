@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { separatorExamples } from './examples';
@@ -37,6 +38,8 @@ export const separatorSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Label' },
@@ -47,8 +50,18 @@ export const separatorSchema = defineBlockSchema({
     thickness: { tab: 'design', section: 'Line' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
   },
   inlineEditable: 'label',
+  /* The optional visible label is the divider's one part (block-parts DESIGN §1). */
+  parts: {
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Label', ar: 'التسمية' },
+      aliases: ['text', 'caption', 'النص', 'تسمية'],
+    },
+  },
   examples: separatorExamples,
 });
 

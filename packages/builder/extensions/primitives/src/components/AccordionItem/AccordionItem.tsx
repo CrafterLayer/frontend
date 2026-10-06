@@ -1,8 +1,8 @@
 import * as RadixAccordion from '@radix-ui/react-accordion';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
-import type { AccordionItemProps } from './schema';
+import { accordionItemSchema, type AccordionItemProps } from './schema';
 
 import './AccordionItem.css';
 
@@ -21,12 +21,18 @@ import './AccordionItem.css';
  * swaps that property for an editor element, and an element placed in
  * `aria-label` stringifies to "[object Object]".
  */
-export function AccordionItem({ node, props, slots }: BlockRenderProps<AccordionItemProps>) {
+export function AccordionItem({
+  node,
+  props,
+  slots,
+  isCanvas,
+}: BlockRenderProps<AccordionItemProps>) {
+  const part = blockPartProps({ node, props, isCanvas }, accordionItemSchema.parts);
   return (
     <RadixAccordion.Item className="pri-accordion-item" value={node.id}>
       <RadixAccordion.Header className="pri-accordion-item__header">
-        <RadixAccordion.Trigger className="pri-accordion-item__trigger">
-          <span className="pri-accordion-item__title">{props.title}</span>
+        <RadixAccordion.Trigger {...part('trigger', { className: 'pri-accordion-item__trigger' })}>
+          <span {...part('title', { className: 'pri-accordion-item__title' })}>{props.title}</span>
           {/*
             Decorative, and marked so. The trigger already announces its state
             through `aria-expanded`; a chevron a screen reader also reads is

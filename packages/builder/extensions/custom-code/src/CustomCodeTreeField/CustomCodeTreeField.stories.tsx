@@ -69,5 +69,16 @@ export const EmptyRegion: Story = { args: { initial: { kind: 'root', children: [
  */
 export const InvalidJson: Story = { args: { initial: TREE } };
 
+// ── block-parts (2026-10-06) ──
+/** In an Arabic (RTL) Inspector: the hint and the source toggle speak Arabic; the JSON stays LTR. */
+export const Arabic: Story = {
+  render: () => (
+    <div dir="rtl">
+      <LiveField />
+    </div>
+  ),
+};
+// ── /block-parts ──
+
 /** Closed by the host. */
 export const Disabled: Story = { args: { disabled: true } };

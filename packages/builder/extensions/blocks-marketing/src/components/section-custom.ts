@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import { findRejectedUtilities, type BlockPropertyGroup } from '@craftkit/builder-schema';
+import {
+  findRejectedUtilities,
+  partStylesProp,
+  type BlockPropertyGroup,
+  type PartStyle,
+} from '@craftkit/builder-schema';
 
 import { sectionSpacings } from './section-options';
 
@@ -59,6 +64,10 @@ const utilityClassSchema = z
 export const sectionCustomProps = {
   gutter: z.enum(sectionGutters).optional(),
   className: utilityClassSchema.optional(),
+  // ── block-parts (2026-10-06) ──
+  /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+  partStyles: partStylesProp(),
+  // ── /block-parts ──
 };
 
 export const sectionCustomGroups: Readonly<Record<string, BlockPropertyGroup>> = {
@@ -69,7 +78,26 @@ export const sectionCustomGroups: Readonly<Record<string, BlockPropertyGroup>> =
     would invite it as a first resort rather than a last one.
   */
   className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+  // ── block-parts (2026-10-06) ──
+  partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
+  // ── /block-parts ──
 };
+
+// ── block-parts (2026-10-06) ──
+/*
+  The customisation half for CONTAINERS (Grid, Stack, PageHeader, PageFooter):
+  the same gutter and classes, no `partStyles`. A container declares no parts,
+  so the prop would style nothing and still show as an Inspector row.
+*/
+export const containerCustomProps = {
+  gutter: sectionCustomProps.gutter,
+  className: sectionCustomProps.className,
+};
+
+export const containerCustomGroups: Readonly<Record<string, BlockPropertyGroup>> = Object.fromEntries(
+  Object.entries(sectionCustomGroups).filter(([key]) => key !== 'partStyles'),
+);
+// ── /block-parts ──
 
 /*
   `| undefined` is written out because the workspace runs
@@ -79,4 +107,7 @@ export const sectionCustomGroups: Readonly<Record<string, BlockPropertyGroup>> =
 export interface SectionCustomProps {
   readonly gutter?: (typeof sectionGutters)[number] | undefined;
   readonly className?: string | undefined;
+  // ── block-parts (2026-10-06) ──
+  readonly partStyles?: Readonly<Record<string, PartStyle>> | undefined;
+  // ── /block-parts ──
 }

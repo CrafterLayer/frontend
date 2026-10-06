@@ -159,6 +159,22 @@ describe('behaviorRuntimeScript — packs', () => {
     const size = gzipSync(behaviorRuntimeScript()).length;
     expect(size - BASELINE_GZIP_BYTES).toBeLessThanOrEqual(PACKS_BUDGET_GZIP_BYTES);
   });
+
+  it('ships only the packs the markup uses (fix pass 2026-10-06: a stagger page paid for every pack)', () => {
+    const stagger = behaviorRuntimeScript(['<ul data-ck-behavior="stagger"><li>1</li></ul>']);
+    expect(stagger).toContain(mountBehaviors.toString());
+    for (const pack of BEHAVIOR_PACKS) expect(stagger).not.toContain(pack.toString());
+    expect(gzipSync(stagger).length).toBeLessThanOrEqual(BASELINE_GZIP_BYTES + 512);
+
+    const gallery = behaviorRuntimeScript([
+      '<div data-ck-behavior="gallery"></div>',
+      '<section><div data-ck-scene="particles"></div></section>',
+    ]);
+    const included = BEHAVIOR_PACKS.filter((pack) => gallery.includes(pack.toString())).map((pack) => pack.name);
+    expect(included).toEqual(['mountGallery', 'mountEngines']);
+    // The single-image lightbox is the gallery pack's too.
+    expect(behaviorRuntimeScript(["<img data-ck-behavior='lightbox'>"])).toContain('function mountGallery');
+  });
 });
 
 describe('BEHAVIOR_RUNTIME_SELECTOR — engine markers', () => {

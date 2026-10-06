@@ -1,0 +1,90 @@
+/* The parts that carry their own style, each with its classes and a Reset. Chrome tokens only. */
+.bldr-part-styles-field__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+}
+
+.bldr-part-styles-field__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bldr-part-styles-field__row {
+  background-color: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-xs) var(--bldr-space-sm);
+}
+
+.bldr-part-styles-field__head {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-xs);
+  justify-content: space-between;
+}
+
+.bldr-part-styles-field__name {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-part-styles-field__reset {
+  align-items: center;
+  background: transparent;
+  block-size: var(--bldr-control-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: inline-flex;
+  inline-size: var(--bldr-control-sm);
+  justify-content: center;
+  padding: 0;
+}
+
+.bldr-part-styles-field__reset:hover:not(:disabled) {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-part-styles-field__reset svg {
+  block-size: var(--bldr-space-xl);
+  inline-size: var(--bldr-space-xl);
+}
+
+.bldr-part-styles-field__summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-xs);
+  margin: 0;
+}
+
+.bldr-part-styles-field__classes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-part-styles-field__class {
+  background-color: var(--bldr-surface-raised);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  padding-inline: var(--bldr-space-2xs);
+}
+
+.bldr-part-styles-field__dir {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}

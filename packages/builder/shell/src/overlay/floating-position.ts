@@ -102,6 +102,16 @@ export interface FloatingInput {
   padding?: number;
   /** Arrow width, if the toolbar draws one (default 0 — no arrow). */
   arrowSize?: number;
+  // ── block-parts (2026-10-06) ──
+  /**
+   * Never let the toolbar intersect the anchor rect. When the clip-box clamp
+   * would push it back over the anchor (no room on either side), it takes the
+   * other side instead, even if that side is clipped. A part's quick bar uses
+   * it: a bar covering its own short part swallowed the double-click meant for
+   * the part (fix pass, FAQ question / Features eyebrow).
+   */
+  keepClear?: boolean;
+  // ── /block-parts ──
 }
 
 const clamp = (value: number, low: number, high: number): number =>
@@ -204,10 +214,32 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
     layer does not paint.
   */
   const maxY = Math.max(visible.height - size.height, 0);
+  const clamped = Math.min(Math.max(y, 0), maxY);
+
+  // ── block-parts (2026-10-06) ── keepClear: bar.bottom <= anchor.top - gap, or below it
+  if (input.keepClear === true) {
+    const top = first.y;
+    const bottom = last.y + last.height;
+    const covers = (at: number) => at < bottom && at + size.height > top;
+    if (covers(clamped)) {
+      const above = top - size.height - gap;
+      const below = bottom + gap;
+      // The clamp moved the bar onto its anchor, so the chosen side did not fit:
+      // take the other side. Below is the fallback when above would leave the clip box.
+      const flipBelow = placeAbove || above < 0;
+      const flipped = flipBelow ? below : above;
+      // An anchor taller than the clip box (a whole section) keeps the clamp:
+      // a bar flipped off-screen would be worse than one over a large element.
+      if (flipped + size.height > 0 && flipped < visible.height) {
+        return { x, y: flipped, placement: flipBelow ? 'below' : 'above', hidden, arrowOffset };
+      }
+    }
+  }
+  // ── /block-parts ──
 
   return {
     x,
-    y: Math.min(Math.max(y, 0), maxY),
+    y: clamped,
     placement: placeAbove ? 'above' : 'below',
     hidden,
     arrowOffset,

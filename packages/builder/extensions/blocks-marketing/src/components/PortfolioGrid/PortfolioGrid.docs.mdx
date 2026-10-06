@@ -31,8 +31,37 @@ optional with no defaults, preserving existing authored documents.
 The section is labelled by its visible heading and each project is a semantic `article` inside a
 list. Authored image descriptions are preserved; missing alt text makes optional imagery decorative
 because the adjacent project title carries the meaning. Metrics use `dl`, and repeated links include
-the project title in their accessible name. Safe raster-image and destination schemas reject
-executable, protocol-relative, and slash-backslash URLs. Links stay semantic but cannot navigate on
-the canvas, where an empty portfolio receives clear setup guidance. Container queries adapt to the
-actual builder column, logical spacing remains RTL-safe, and hover motion is disabled when reduced
-motion is requested.
+the project title in their accessible name through `aria-labelledby`. Safe raster-image and
+destination schemas reject executable, protocol-relative, and slash-backslash URLs. Links stay
+semantic but cannot navigate on the canvas, where an empty portfolio receives clear setup guidance.
+Container queries adapt to the actual builder column, logical spacing remains RTL-safe, and hover
+motion is disabled when reduced motion is requested.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`item.title` for every instance, `item.title@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name                | kind  | bind                                               | label (en / ar)                            |
+| ------------------- | ----- | -------------------------------------------------- | ------------------------------------------ |
+| `eyebrow`           | text  | `eyebrow`                                          | Eyebrow / الشارة                           |
+| `heading`           | text  | `heading`                                          | Heading / العنوان                          |
+| `body`              | text  | `body`                                             | Body / الوصف (multiline)                   |
+| `items`             | list  | `items`                                            | Case studies / دراسات الحالة               |
+| `item`              | item  | `items.*`                                          | Case study / دراسة الحالة                  |
+| `item.image`        | image | `{ src: items.*.imageSrc, alt: items.*.imageAlt }` | Project image / صورة المشروع               |
+| `item.category`     | text  | `items.*.category`                                 | Project category / تصنيف المشروع           |
+| `item.title`        | text  | `items.*.title`                                    | Project title / عنوان المشروع              |
+| `item.summary`      | text  | `items.*.summary`                                  | Project summary / ملخص المشروع (multiline) |
+| `item.metrics`      | list  | `items.*.metrics`                                  | Project results / نتائج المشروع            |
+| `item.metric`       | item  | `items.*.metrics.*`                                | Result / النتيجة                           |
+| `item.metric.value` | text  | `items.*.metrics.*.value`                          | Result value / قيمة النتيجة                |
+| `item.metric.label` | text  | `items.*.metrics.*.label`                          | Result label / وصف النتيجة                 |
+| `item.link`         | link  | `{ text: items.*.title, href: items.*.href }`      | Case study link / رابط دراسة الحالة        |
+| `actionLabel`       | text  | `actionLabel`                                      | Link label / نص الرابط                     |
+
+`actionLabel` is one part shown on every card; while it is edited in place, the first card hosts the
+editor. The link's accessible name is its label followed by the project title, read through
+`aria-labelledby`. The monogram shown when a project has no image is decoration, not a part.

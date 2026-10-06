@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
 
-import { sectionCustomGroups } from '../section-custom';
+import { containerCustomGroups } from '../section-custom';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
 
 import { PageHeader } from './PageHeader';
@@ -82,7 +82,7 @@ describe('PageHeader', () => {
       sticky: { tab: 'advanced', section: 'Behaviour' },
       translucent: { tab: 'advanced', section: 'Behaviour' },
       ...sectionMotionGroups,
-      ...sectionCustomGroups,
+      ...containerCustomGroups, // block-parts: a container takes no partStyles
     });
     expect(Object.keys(pageHeaderSchema.propertyGroups ?? {}).sort()).toEqual(
       Object.keys(pageHeaderSchema.props.shape).sort(),

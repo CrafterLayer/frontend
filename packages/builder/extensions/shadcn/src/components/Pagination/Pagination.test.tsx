@@ -30,7 +30,8 @@ describe('Pagination', () => {
     expect(screen.getByLabelText('Page 5')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Page 4' })).toHaveAttribute('href', '/archive?page=4');
     expect(screen.getByRole('link', { name: 'Page 10' })).toBeVisible();
-    expect(screen.getAllByText('More pages')).toHaveLength(2);
+    /* Each gap is announced by its label, an attribute (the label is a11y-only). */
+    expect(screen.getAllByRole('img', { name: 'More pages' })).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute('rel', 'prev');
     expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute('rel', 'next');
   });
@@ -58,7 +59,10 @@ describe('Pagination', () => {
       </div>,
     );
 
-    expect(screen.getByText('صفحة 1 / 8')).toHaveAttribute('aria-live', 'polite');
+    /* The page word is its own part, so the status reads across two text nodes. */
+    expect(screen.getByRole('navigation').querySelector('[aria-live="polite"]')).toHaveTextContent(
+      /^صفحة 1 \/ 8$/,
+    );
     expect(screen.getByText('السابق').closest('[aria-disabled]')).toHaveAttribute(
       'aria-disabled',
       'true',
@@ -198,8 +202,10 @@ describe('Pagination', () => {
       />,
     );
 
-    expect(screen.getByText('Page 2 / 3')).toHaveAttribute('aria-live', 'polite');
-    expect(screen.queryByText('Page 99 / 100')).not.toBeInTheDocument();
+    /* The page word is its own part, so the status reads across two text nodes. */
+    const status = screen.getByRole('navigation').querySelector('[aria-live="polite"]');
+    expect(status).toHaveTextContent(/^Page 2 \/ 3$/);
+    expect(status).not.toHaveTextContent('Page 99 / 100');
   });
 
   it('keeps motion and utility classes optional and validated', () => {

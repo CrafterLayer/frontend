@@ -13,6 +13,10 @@
  * It sits in `@layer base`, after an explicit layer order, so every utility
  * (in `@layer utilities`) and every unlayered region stylesheet still wins.
  */
+// ── block-parts (2026-10-06) ──
+import { TEXT_BIDI_CSS } from '../bidi';
+// ── /block-parts ──
+
 const FONT_SANS =
   "var(--default-font-family,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue','Noto Sans',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji')";
 const FONT_MONO =
@@ -57,5 +61,11 @@ const PREFLIGHT = [
   "[hidden]:where(:not([hidden='until-found'])){display:none!important}",
 ].join('');
 
-/** Layer order first, then the reset in `@layer base` — prepended to every published stylesheet. */
-export const STATIC_BASE_CSS = `@layer properties,theme,base,components,utilities;\n@layer base{${PREFLIGHT}}`;
+/**
+ * Layer order first, then the reset in `@layer base` — prepended to every published stylesheet.
+ * The base layer ends with the text-direction rule (block-parts DESIGN §2.11), the same one the
+ * canvas frame injects, so a published RTL page keeps an English line's full stop at its end.
+ */
+// ── block-parts (2026-10-06) ──
+export const STATIC_BASE_CSS = `@layer properties,theme,base,components,utilities;\n@layer base{${PREFLIGHT}${TEXT_BIDI_CSS}}`;
+// ── /block-parts ──

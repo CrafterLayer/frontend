@@ -34,6 +34,8 @@ function renderTreeField(value: unknown, onChange = vi.fn()) {
       onChange={onChange}
     />,
   );
+  // block-parts (2026-10-06): the JSON source sits behind the advanced disclosure.
+  fireEvent.click(screen.getByRole('button', { name: 'Edit source (advanced)' }));
   return { onChange, textarea: screen.getByLabelText('Composition tree') };
 }
 

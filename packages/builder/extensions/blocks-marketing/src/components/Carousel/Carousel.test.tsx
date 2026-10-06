@@ -415,11 +415,20 @@ describe('Carousel — static export markup', () => {
     expect(articles.map((article) => article.querySelector('h3')?.textContent)).toEqual(
       slides.map((slide) => slide.title),
     );
+    /* Each slide is named by its position, then its title through aria-labelledby. */
     expect(articles.map((article) => article.getAttribute('aria-label'))).toEqual([
-      '1 / 3: Plan with evidence',
-      '2 / 3: Build with context',
-      '3 / 3: Learn from outcomes',
+      '1 / 3:',
+      '2 / 3:',
+      '3 / 3:',
     ]);
+    expect(
+      articles.map((article) => {
+        const [self, title] = (article.getAttribute('aria-labelledby') ?? '').split(' ');
+        return self === article.id
+          ? host.querySelector(`[id="${title ?? ''}"]`)?.textContent
+          : null;
+      }),
+    ).toEqual(slides.map((slide) => slide.title));
     for (const article of articles) {
       expect(article.hasAttribute('hidden')).toBe(false);
       expect(article.getAttribute('style')).toBeNull();
@@ -430,7 +439,9 @@ describe('Carousel — static export markup', () => {
     const host = staticMarkup();
     const carousel = host.querySelector('[data-ck-behavior="carousel"]')!;
     const track = carousel.firstElementChild!;
-    const outside = [...carousel.querySelectorAll('button')].filter((button) => !track.contains(button));
+    const outside = [...carousel.querySelectorAll('button')].filter(
+      (button) => !track.contains(button),
+    );
     expect(outside.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Previous slide',
       'Next slide',

@@ -1,0 +1,21 @@
+/*
+  Long text. It inherits the Inspector's field skin (`.bldr-field__input`) and
+  only changes what a paragraph needs: room to wrap, room to grow, and a
+  vertical resize handle. Every measurement is a chrome token.
+*/
+.bldr-textarea-field {
+  display: block;
+  field-sizing: content;
+  line-height: var(--bldr-line-height-read);
+  max-block-size: calc(var(--bldr-control-height) * 8);
+  min-block-size: calc(var(--bldr-control-height) * 2);
+  overflow-wrap: anywhere;
+  padding-block: var(--bldr-space-sm);
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+.bldr-inspector .bldr-field__input.bldr-textarea-field {
+  line-height: var(--bldr-line-height-read);
+  padding-block: var(--bldr-space-sm);
+}

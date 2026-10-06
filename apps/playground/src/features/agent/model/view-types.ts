@@ -708,6 +708,18 @@ export interface ModelSelectionView {
   readonly options: readonly ModelOption[];
 }
 
+/**
+ * How hard the model may think: the five budgets the server takes (`apps/ai-server`
+ * `CALL_EFFORT_LEVELS`), listed in `model/effort.ts` in the order the menu shows them.
+ */
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/** The effort picker's state; `null` in AgentViewState when the provider takes no budget. */
+export interface EffortSelectionView {
+  readonly selected: EffortLevel;
+  readonly options: readonly EffortLevel[];
+}
+
 /* ── Empty state, suggestions, conversations (SPEC §4.16, §4.18) ─────────────── */
 
 /**
@@ -835,6 +847,8 @@ export interface AgentViewState {
   readonly mention: MentionView | null;
   readonly mode: AssistantMode;
   readonly model: ModelSelectionView | null;
+  /** Absent or `null`: the provider takes no reasoning budget, and no effort menu is drawn. */
+  readonly effort?: EffortSelectionView | null;
   readonly send: SendState;
   readonly run: RunBarView | null;
   readonly queue: QueueView | null;
@@ -915,6 +929,8 @@ export interface AgentController {
   readonly setDraft: (text: string) => void;
   readonly setMode: (mode: AssistantMode) => void;
   readonly setModel: (id: string) => void;
+  /** Optional like `setComposerFocused`: a host with no budget to set leaves it out. */
+  readonly setEffort?: (level: EffortLevel) => void;
   readonly newConversation: () => void;
   readonly openConversation: (id: string) => void;
   readonly deleteConversation: (id: string) => void;

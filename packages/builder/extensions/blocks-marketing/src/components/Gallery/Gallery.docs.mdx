@@ -66,3 +66,24 @@ gallerySchema.props.parse({
   ],
 });
 ```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`item.caption` for every instance, `item.caption@2` for the third),
+and addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English
+line on an Arabic page keeps its full stop at the end.
+
+| name           | kind  | bind                                     | label (en / ar)              |
+| -------------- | ----- | ---------------------------------------- | ---------------------------- |
+| `eyebrow`      | text  | `eyebrow`                                | Eyebrow / الشارة             |
+| `heading`      | text  | `heading`                                | Heading / العنوان            |
+| `body`         | text  | `body`                                   | Body / الوصف (multiline)     |
+| `items`        | list  | `items`                                  | Images / الصور               |
+| `item`         | item  | `items.*`                                | Gallery image / صورة المعرض  |
+| `item.image`   | image | `{ src: items.*.src, alt: items.*.alt }` | Image / الصورة               |
+| `item.caption` | text  | `items.*.caption`                        | Image caption / تعليق الصورة |
+
+`linkLabel` is read only by assistive technology, so it stays an Inspector row. When an image has no
+alt text, its link is named by `linkLabel` followed by the visible caption or the section heading
+through `aria-labelledby`, never by a copy of their text.

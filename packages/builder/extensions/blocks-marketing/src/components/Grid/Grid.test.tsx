@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Node } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
-import { sectionCustomGroups } from '../section-custom';
+import { containerCustomGroups } from '../section-custom';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { stackSchema } from '../Stack/schema';
@@ -138,7 +138,7 @@ describe('Grid', () => {
       ...sectionColorGroups,
       ...sectionMotionGroups,
       ...sectionSpacingGroups,
-      ...sectionCustomGroups,
+      ...containerCustomGroups, // block-parts: a container takes no partStyles
     });
     expect(Object.keys(gridSchema.propertyGroups ?? {}).sort()).toEqual(
       Object.keys(gridSchema.props.shape).sort(),

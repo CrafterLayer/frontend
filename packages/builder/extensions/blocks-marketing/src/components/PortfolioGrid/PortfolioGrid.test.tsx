@@ -58,7 +58,7 @@ describe('PortfolioGrid', () => {
     expect(screen.getByText('4.2×')).toBeInTheDocument();
     expect(screen.getByText('Faster reporting')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'View case study: A clearer finance workspace' }),
+      screen.getByRole('link', { name: 'View case study A clearer finance workspace' }),
     ).toHaveAttribute('href', '/work/finance');
     expect(screen.getByText('A clearer finance workspace').closest('article')).toHaveClass(
       'rounded-xl',
@@ -104,7 +104,7 @@ describe('PortfolioGrid', () => {
   it('preserves case-study anchors but prevents navigation on the builder canvas', () => {
     renderPortfolio({}, true);
     const action = screen.getByRole('link', {
-      name: 'View case study: A clearer finance workspace',
+      name: 'View case study A clearer finance workspace',
     });
     expect(action).toHaveAttribute('href', '/work/finance');
     expect(fireEvent.click(action)).toBe(false);

@@ -88,4 +88,40 @@ describe('StyleProperty', () => {
     expect(screen.getByText('نقطة توقف مخصّصة')).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'الحجم' })).toBeInTheDocument();
   });
+
+  it('compact rows sit beside their label; large controls take the full width', () => {
+    setup('flex', 'display');
+    setup('p-4', 'padding');
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('.bldr-style-property'));
+    expect(rows.map((row) => [row.dataset['property'], row.dataset['layout']])).toEqual([
+      ['display', 'inline'],
+      ['padding', 'block'],
+    ]);
+  });
+
+  it('a segmented row keeps rare values one menu away and writes them', async () => {
+    const user = userEvent.setup();
+    const onEdit = setup('justify-between', 'justifyContent');
+    expect(screen.getByRole('radio', { name: 'Space between' })).toHaveAttribute('aria-checked', 'true');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'More Justify options' }), 'stretch');
+    expect(onEdit).toHaveBeenCalledWith(
+      [{ property: 'justifyContent', value: { kind: 'keyword', keyword: 'stretch' } }],
+      'Justify',
+    );
+  });
+
+  it('a colour row is one field that opens the token chips', async () => {
+    const user = userEvent.setup();
+    const onEdit = setup('', 'textColor');
+    await user.click(screen.getByRole('button', { name: 'Text colour: None' }));
+    await user.click(screen.getByRole('radio', { name: 'Accent' }));
+    expect(onEdit).toHaveBeenCalledWith([{ property: 'textColor', value: { kind: 'token', token: 'accent' } }], 'Text colour');
+  });
+
+  it('a select row writes the picked keyword', async () => {
+    const user = userEvent.setup();
+    const onEdit = setup('', 'alignSelf');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Align self' }), 'k:center');
+    expect(onEdit).toHaveBeenCalledWith([{ property: 'alignSelf', value: { kind: 'keyword', keyword: 'center' } }], 'Align self');
+  });
 });

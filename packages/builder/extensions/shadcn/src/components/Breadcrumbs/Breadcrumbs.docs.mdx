@@ -33,3 +33,20 @@ neutral. Default, muted, and inverse tones use CraftKit roles; inverse always pa
 ink and adds a token shadow for a finished navigation surface.
 
 <Canvas of={BreadcrumbsStories.ArabicRtl} />
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name        | kind | bind                             | label (en / ar)          |
+| ----------- | ---- | -------------------------------- | ------------------------ |
+| `items`     | list | `items`                          | Trail / المسار           |
+| `item`      | item | `items.*`                        | Crumb / خطوة المسار      |
+| `item.link` | link | `items.*.label` + `items.*.href` | Crumb link / رابط الخطوة |
+
+The current page is a link part without a destination. `label` (the navigation's accessible name) is
+for assistive technology only and stays in the Inspector. The hover title is a plain-string copy of
+the label.

@@ -56,3 +56,21 @@
 .bldr-choice-group[data-mixed] {
   border-style: dashed;
 }
+
+/*
+  An all-icon group is a segmented control: square 24px cells on one line,
+  sized by their glyphs rather than stretched across the row.
+*/
+.bldr-choice-group[data-icons] {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  max-inline-size: 100%;
+}
+
+.bldr-choice-group[data-icons] .bldr-choice-group__option {
+  block-size: calc(var(--bldr-control-sm) - var(--bldr-space-xs));
+  flex: 0 0 auto;
+  min-block-size: 0;
+  min-inline-size: calc(var(--bldr-control-sm) - var(--bldr-space-xs));
+  padding: 0;
+}

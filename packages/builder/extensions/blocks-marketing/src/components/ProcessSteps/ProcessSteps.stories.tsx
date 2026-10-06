@@ -52,3 +52,40 @@ export const ArabicVerticalRtl: Story = {
   globals: { direction: 'rtl' },
   args: { ...Default.args, props: exampleProps(1) },
 };
+
+/* Block parts (DESIGN §4.4): each inner element is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node,
+    props: {
+      ...processStepsSchema.props.parse({
+        eyebrow: 'How it works',
+        heading: 'A clear path to launch.',
+        body: 'Each stage has an outcome.',
+        steps: [
+          { title: 'Discover', body: 'We map the work.', meta: 'Week 1' },
+          { title: 'Build', body: 'We ship the pages.' },
+        ],
+      }),
+      partStyles: {
+        'step.title': { className: 'text-accent' },
+        'step.title@0': { className: 'underline' },
+      },
+    },
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const styled = canvasElement.querySelectorAll('[data-ck-part="step.title"]');
+    await expect(styled.length).toBeGreaterThan(1);
+    await expect(styled[0]).toHaveAttribute('data-ck-bind', 'steps.0.title');
+    await expect(styled[0]).toHaveClass('underline');
+    await expect(styled[1]).toHaveClass('text-accent');
+    await expect(styled[1]).not.toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="steps"]')).toHaveAttribute(
+      'data-ck-bind',
+      'steps',
+    );
+  },
+};

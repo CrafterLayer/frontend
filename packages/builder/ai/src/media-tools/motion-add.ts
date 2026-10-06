@@ -7,7 +7,7 @@ import {
   type CustomCodeTimelineRecipe,
 } from '@craftkit/builder-schema';
 
-import { formatPath, resolveElement, type ElementAddress } from '../style-tools/address';
+import { formatPath, nodesWithPaths, resolveElement, type ElementAddress } from '../style-tools/address';
 import { finish, step } from '../style-tools/finish';
 import { isRecord } from '../tools/agent/shared';
 import { defineAgentTool, type AgentToolContext, type AgentToolParse, type AgentToolRun, type AgentToolStep } from '../tools/agent/types';
@@ -33,7 +33,7 @@ export interface MotionAddInput {
 }
 
 const KEYS = ['id', 'find', 'path', 'recipe', 'scrub'] as const;
-const MAX_DEPTH_LAYERS = 6;
+const MAX_DEPTH_LAYERS = 12;
 
 function no(error: string): { readonly ok: false; readonly error: string } {
   return { ok: false, error };
@@ -73,6 +73,48 @@ function parse(input: unknown): AgentToolParse<MotionAddInput> {
   };
 }
 
+/*
+  media-motion fix pass (2026-10-06): parallax-depth on a gallery section marked
+  only the container, and the whole grid moved together 2 px. Depth (and a
+  stagger) belongs on the REPEATED items — the cards, figures, list items.
+*/
+/** Whether these siblings read as one list: 3+ of one tag, or 2+ with the same classes. */
+function looksRepeated(children: readonly CustomCodeNode[]): boolean {
+  const elements = children.filter((child) => child.kind === 'element');
+  if (elements.length < 2) return false;
+  const byTag = new Map<string, number>();
+  const byClass = new Map<string, number>();
+  for (const child of elements) {
+    byTag.set(child.tag, (byTag.get(child.tag) ?? 0) + 1);
+    const classes = (child.className ?? '').trim();
+    if (classes !== '') byClass.set(classes, (byClass.get(classes) ?? 0) + 1);
+  }
+  return [...byTag.values()].some((count) => count >= 3) || [...byClass.values()].some((count) => count >= 2);
+}
+
+/**
+ * The first container at or under `node` whose children are a repeated list,
+ * as a path relative to `node` ([] is `node` itself); undefined when none is.
+ */
+export function repeatedItemsPath(node: CustomCodeNode): readonly number[] | undefined {
+  if (node.kind !== 'element') return undefined;
+  if (looksRepeated(node.children ?? [])) return [];
+  const hit = nodesWithPaths({ kind: 'root', children: node.children ?? [] }).find(
+    ({ node: inner }) => inner.kind === 'element' && looksRepeated(inner.children ?? []),
+  );
+  return hit?.path;
+}
+
+function nodeAt(node: CustomCodeNode, path: readonly number[]): CustomCodeNode | undefined {
+  let current: CustomCodeNode | undefined = node;
+  for (const index of path) {
+    if (current === undefined || current.kind === 'icon') return undefined;
+    current = current.children?.[index];
+  }
+  return current;
+}
+// end media-motion fix pass
+
 function hasDepth(node: CustomCodeNode): boolean {
   if (node.kind === 'icon') return false;
   if (node.kind === 'element' && node.attributes?.['data-ck-depth'] !== undefined) return true;
@@ -106,15 +148,17 @@ function run(input: MotionAddInput, context: AgentToolContext): AgentToolRun {
   }
   const steps: AgentToolStep[] = [];
   if (Object.keys(attributes).length > 0) steps.push(step('patchTreeNode', { id: input.id, path: [...path], attributes }));
-  // parallax-depth moves layers marked 1-3: mark the direct children when nothing is marked yet.
+  // parallax-depth moves layers marked 1-3: mark the repeated items (else the direct children) when nothing is marked yet.
   if (input.recipe === 'parallax-depth' && !(node.children ?? []).some(hasDepth)) {
+    const listAt = repeatedItemsPath(node) ?? [];
+    const list = nodeAt(node, listAt) ?? node;
     let depth = 0;
-    for (const [index, child] of (node.children ?? []).entries()) {
+    for (const [index, child] of (list.kind === 'icon' ? [] : (list.children ?? [])).entries()) {
       if (child.kind !== 'element' || depth >= MAX_DEPTH_LAYERS) continue;
       steps.push(
         step('patchTreeNode', {
           id: input.id,
-          path: [...path, index],
+          path: [...path, ...listAt, index],
           attributes: { 'data-ck-depth': String((depth % 3) + 1) },
         }),
       );

@@ -665,3 +665,178 @@ describe('NodeView', () => {
     expect(unavailableSelection.view.unmount).not.toThrow();
   });
 });
+
+// ── block-parts (2026-10-06) ──
+interface ListItem {
+  title: unknown;
+  body: unknown;
+}
+
+/** What the list block last received — to prove sibling items are shared, not copied. */
+const listRenders: { items: readonly ListItem[] }[] = [];
+
+const ListFixtureBlock = (({ node, props }: BlockRenderProps<Record<string, unknown>>) => {
+  const items = (Array.isArray(props['items']) ? props['items'] : []) as readonly ListItem[];
+  listRenders.push({ items });
+  return (
+    <ul data-testid={`list-${node.id}`}>
+      {items.map((item, index) => (
+        <li key={index}>
+          <h3 data-testid={`item-${String(index)}-title`}>{visibleValue(item.title)}</h3>
+          <p data-testid={`item-${String(index)}-body`}>{visibleValue(item.body)}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}) as BlockRenderComponent;
+
+const listFixtureBlocks: TrustedExtensionManifest = {
+  ...fixtureBlocks,
+  name: 'node-view-list-fixtures',
+  contributes: {
+    ...fixtureBlocks.contributes,
+    blocks: (fixtureBlocks.contributes?.blocks ?? []).map((contribution) => ({
+      schema: contribution.schema,
+      render: contribution.schema.type === 'text' ? ListFixtureBlock : ObservableFixtureBlock,
+    })),
+  },
+};
+
+const LIST_ITEMS = [
+  { title: 'One', body: 'First' },
+  { title: 'اثنان', body: 'Second' },
+  { title: 'Three', body: 'Third' },
+];
+
+function makeListKernel() {
+  const document = landingFixture();
+  const paragraph = document.nodes['p1'];
+  if (paragraph === undefined) {
+    throw new Error('the landing fixture must hold p1');
+  }
+  const nodes = {
+    ...document.nodes,
+    p1: { ...paragraph, props: { ...paragraph.props, items: LIST_ITEMS } },
+  };
+  return createBuilder({
+    document: { ...document, nodes },
+    extensions: [listFixtureBlocks],
+    ports: { clock: fixedClock(), ids: seededIds('nvl') },
+  });
+}
+
+const editorAt = ({ propKey, bind, value }: Parameters<NonNullable<InlineEditTarget['render']>>[0]) => (
+  <strong data-testid="nested-editor" data-prop-key={propKey} data-bind={bind}>
+    {typeof value === 'string' ? value : 'unsupported'}
+  </strong>
+);
+
+describe('NodeView nested part bind (block-parts DESIGN §2.8)', () => {
+  afterEach(() => {
+    listRenders.length = 0;
+  });
+
+  it('swaps the value AT the bind path and leaves every sibling untouched', () => {
+    const kernel = makeListKernel();
+    const seam = createTestInlineEditSeam();
+    render(<NodeView kernel={kernel} id="p1" breakpoint="desktop" inlineEdit={seam} />);
+
+    act(() => {
+      seam.set({
+        nodeId: 'p1',
+        target: { propKey: 'items', bind: 'items.1.title', render: editorAt },
+      });
+    });
+
+    const editor = screen.getByTestId('nested-editor');
+    expect(screen.getByTestId('item-1-title')).toContainElement(editor);
+    // The editor receives the NESTED value (Arabic here) and both addresses.
+    expect(editor).toHaveTextContent('اثنان');
+    expect(editor.getAttribute('data-prop-key')).toBe('items');
+    expect(editor.getAttribute('data-bind')).toBe('items.1.title');
+    // Siblings — other items, and the same item's other fields — render as stored.
+    expect(screen.getByTestId('item-0-title')).toHaveTextContent('One');
+    expect(screen.getByTestId('item-1-body')).toHaveTextContent('Second');
+    expect(screen.getByTestId('item-2-title')).toHaveTextContent('Three');
+
+    // Structural sharing: untouched items are the STORED objects, not copies,
+    // and the document itself never sees the React element.
+    const stored = kernel.getDocument().nodes['p1']?.props['items'] as unknown as readonly ListItem[];
+    const last = listRenders.at(-1)?.items ?? [];
+    expect(last[0]).toBe(stored[0]);
+    expect(last[2]).toBe(stored[2]);
+    expect(last[1]).not.toBe(stored[1]);
+    expect(stored[1]?.title).toBe('اثنان');
+  });
+
+  it('a top-level bind behaves exactly like the classic propKey swap', () => {
+    const kernel = makeKernel();
+    const seam = createTestInlineEditSeam();
+    render(<NodeView kernel={kernel} id="hero1" breakpoint="desktop" inlineEdit={seam} />);
+    act(() => {
+      seam.set({
+        nodeId: 'hero1',
+        target: { propKey: 'heading', bind: 'heading', render: editorAt },
+      });
+    });
+    expect(screen.getByTestId('prop-hero1-heading')).toContainElement(
+      screen.getByTestId('nested-editor'),
+    );
+    expect(screen.getByTestId('nested-editor')).toHaveTextContent('Build faster');
+    expect(screen.getByTestId('prop-hero1-tone')).toHaveTextContent('dark');
+  });
+
+  it('keeps the rejection description beside a nested editor', () => {
+    const kernel = makeListKernel();
+    const seam = createTestInlineEditSeam({
+      nodeId: 'p1',
+      target: {
+        propKey: 'items',
+        bind: 'items.2.title',
+        render: editorAt,
+        rejection: { id: 'nested-rejection', message: 'Too long' },
+      },
+    });
+    render(<NodeView kernel={kernel} id="p1" breakpoint="desktop" inlineEdit={seam} />);
+    const title = screen.getByTestId('item-2-title');
+    expect(title).toContainElement(screen.getByTestId('nested-editor'));
+    expect(title.querySelector('#nested-rejection')).toHaveTextContent('Too long');
+  });
+
+  it('a bind whose item is gone swaps nothing and never invents the missing item', () => {
+    const kernel = makeListKernel();
+    const seam = createTestInlineEditSeam({
+      nodeId: 'p1',
+      target: { propKey: 'items', bind: 'items.7.title', render: editorAt },
+    });
+    render(<NodeView kernel={kernel} id="p1" breakpoint="desktop" inlineEdit={seam} />);
+    expect(screen.queryByTestId('nested-editor')).not.toBeInTheDocument();
+    expect(screen.getByTestId('list-p1').querySelectorAll('li')).toHaveLength(3);
+  });
+
+  it('the published render is unchanged: no seam, no editor, identical markup', () => {
+    const kernel = makeListKernel();
+    const published = render(
+      <NodeView kernel={kernel} id="p1" breakpoint="desktop" isCanvas={false} />,
+    );
+    const before = published.container.innerHTML;
+    published.unmount();
+
+    const seam = createTestInlineEditSeam();
+    const canvas = render(<NodeView kernel={kernel} id="p1" breakpoint="desktop" inlineEdit={seam} />);
+    act(() => {
+      seam.set({
+        nodeId: 'p1',
+        target: { propKey: 'items', bind: 'items.0.title', render: editorAt },
+      });
+    });
+    expect(canvas.container.innerHTML).not.toBe(before);
+    act(() => {
+      seam.set(null);
+    });
+    // Session closed: the block renders byte-for-byte what was published.
+    expect(canvas.container.innerHTML).toBe(before);
+    expect(canvas.container.innerHTML).not.toContain('nested-editor');
+  });
+});
+// ── /block-parts ──

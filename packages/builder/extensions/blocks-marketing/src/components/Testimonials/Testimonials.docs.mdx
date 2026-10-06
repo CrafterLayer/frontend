@@ -29,3 +29,25 @@ author.
 Tokens + logical properties; the accent bar uses `border-inline-start`, so it sits on the reading
 side in both directions. `auto` preserves the responsive card grid while fixed columns provide an
 explicit layout choice.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name           | kind | bind              | label (en / ar)              |
+| -------------- | ---- | ----------------- | ---------------------------- |
+| `eyebrow`      | text | `eyebrow`         | Eyebrow / الشارة             |
+| `heading`      | text | `heading`         | Heading / العنوان            |
+| `body`         | text | `body`            | Body / الوصف (multiline)     |
+| `items`        | list | `items`           | Quotes / الآراء              |
+| `item`         | item | `items.*`         | Testimonial / الشهادة        |
+| `item.quote`   | text | `items.*.quote`   | Quote / الاقتباس (multiline) |
+| `item.author`  | text | `items.*.author`  | Author / الكاتب              |
+| `item.role`    | text | `items.*.role`    | Author role / منصب الكاتب    |
+| `item.company` | text | `items.*.company` | Company / الشركة             |
+
+Role and company are separate parts on one line; the `·` separator is drawn only between two. The
+avatar letter is decoration derived from the author.

@@ -1,13 +1,15 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { StyleValue } from '@craftkit/builder-schema';
 
+import { installBrowserStandIns } from '../../test-support';
 import { ScaleNumberControl, type ScaleNumberControlProps } from './ScaleNumberControl';
 import { SCALE_NUMBER_CONTROL_LABELS_AR } from './ScaleNumberControl.labels';
 import { namedModel, spacingModel } from './spacing-model';
 
+beforeAll(installBrowserStandIns);
 afterEach(cleanup);
 
 const SPACING = spacingModel(['0', 'px', '1', '2', '3', '4', '6', '8', '12']);
@@ -151,5 +153,36 @@ describe('ScaleNumberControl', () => {
     const input = screen.getByRole('spinbutton', { name: 'الحشوة' });
     expect(input).toHaveAttribute('aria-valuetext', 'مختلطة');
     expect(screen.getByRole('combobox', { name: 'وحدة الحشوة' })).toBeInTheDocument();
+  });
+});
+
+describe('ScaleNumberControl scrub grip', () => {
+  it('previews while dragged and commits ONCE on release, then ends the preview', () => {
+    const onPreview = vi.fn();
+    const { onCommit, input } = setup({ kind: 'token', token: '4' }, { scrub: true, onPreview });
+    const grip = input.parentElement?.querySelector('.bldr-scale-number__scrub');
+    if (!(grip instanceof HTMLElement)) throw new Error('no scrub grip');
+    expect(grip).toHaveAttribute('aria-hidden', 'true');
+    fireEvent.pointerDown(grip, { pointerId: 1, button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(grip, { pointerId: 1, clientX: 4, clientY: 0 });
+    expect(onPreview).toHaveBeenLastCalledWith({ kind: 'raw', css: '18px' });
+    expect(input).toHaveValue('18');
+    fireEvent.pointerMove(grip, { pointerId: 1, clientX: 16, clientY: 0 });
+    fireEvent.pointerUp(grip, { pointerId: 1, clientX: 16, clientY: 0 });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({ kind: 'token', token: '6' });
+    expect(onPreview).toHaveBeenLastCalledWith(null);
+  });
+
+  it('a press without travel writes nothing, and a disabled field has no grip', () => {
+    const { onCommit, input } = setup({ kind: 'token', token: '4' }, { scrub: true });
+    const grip = input.parentElement?.querySelector('.bldr-scale-number__scrub');
+    if (!(grip instanceof HTMLElement)) throw new Error('no scrub grip');
+    fireEvent.pointerDown(grip, { pointerId: 1, button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(grip, { pointerId: 1, clientX: 1, clientY: 0 });
+    expect(onCommit).not.toHaveBeenCalled();
+    cleanup();
+    const disabled = setup({ kind: 'token', token: '4' }, { scrub: true, disabled: true });
+    expect(disabled.input.parentElement?.querySelector('.bldr-scale-number__scrub')).toBeNull();
   });
 });

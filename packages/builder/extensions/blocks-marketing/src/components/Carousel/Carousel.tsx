@@ -9,7 +9,7 @@ import {
   type MouseEvent,
 } from 'react';
 
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
   ALIGN_CLASSES,
@@ -23,7 +23,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
-import type { CarouselProps } from './schema';
+import { carouselSchema, type CarouselProps } from './schema';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -99,6 +99,10 @@ function staticSnapshot(): boolean {
 export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselProps>) {
   const headingId = `${node.id}-heading`;
   const slideId = `${node.id}-slide`;
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, carouselSchema.parts);
+  /* Each slide's title id: the slide and its indicator read their names through it. */
+  const titleIdOf = (index: number) => `${node.id}-slide-${String(index)}-title`;
   const isLive = useSyncExternalStore(subscribeNever, liveSnapshot, staticSnapshot);
   const [requestedIndex, setRequestedIndex] = useState(0);
   const [pausedByUser, setPausedByUser] = useState(false);
@@ -250,26 +254,33 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
         <header className={cx('flex max-w-content-standard flex-col', GAP_CLASSES.sm)}>
           {props.eyebrow === undefined ? null : (
             <p
-              className={cx(
-                'm-0 text-sm font-semibold tracking-wide uppercase',
-                props.tone === 'dark' ? 'text-inherit opacity-70' : 'text-accent',
-              )}
+              {...part('eyebrow', {
+                className: cx(
+                  'm-0 text-sm font-semibold tracking-wide uppercase',
+                  props.tone === 'dark' ? 'text-inherit opacity-70' : 'text-accent',
+                ),
+              })}
             >
               {props.eyebrow}
             </p>
           )}
           <h2
-            id={headingId}
-            className="m-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl"
+            {...part('heading', {
+              id: headingId,
+              className:
+                'm-0 text-3xl leading-tight font-bold tracking-tight text-balance @md:text-4xl',
+            })}
           >
             {props.heading}
           </h2>
           {props.body === undefined ? null : (
             <p
-              className={cx(
-                'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
-                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
-              )}
+              {...part('body', {
+                className: cx(
+                  'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
+                  props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+                ),
+              })}
             >
               {props.body}
             </p>
@@ -289,29 +300,43 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
             {...staticBehavior}
           >
             <div
-              id={slideId}
-              className={cx(
-                'flex w-full min-w-0 snap-x snap-mandatory overflow-x-auto',
-                GAP_CLASSES.md,
-              )}
+              {...part('items', {
+                id: slideId,
+                className: cx(
+                  'flex w-full min-w-0 snap-x snap-mandatory overflow-x-auto',
+                  GAP_CLASSES.md,
+                ),
+              })}
               data-carousel-track=""
             >
               {props.items.map((item, index) => {
                 const hasMediaOverlay = props.variant === 'media' && item.imageSrc !== undefined;
                 const isHidden = isLive && index !== activeIndex;
+                const at = [index];
+                const slideItemId = `${node.id}-slide-${String(index)}`;
                 return (
+                  /*
+                    Keyed by position: a bound value may be an inline editor
+                    element. The slide is named "1 / 3:" followed by its title,
+                    read through aria-labelledby rather than a copy of the text.
+                  */
                   <article
-                    key={`${item.title}-${String(index)}`}
-                    className={cx(
-                      'relative w-full min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border border-text/10 shadow-elevated',
-                      SLIDE_CLASSES[props.variant],
-                      props.variant === 'split' && item.imageSrc === undefined
-                        ? '@lg:grid-cols-1'
-                        : undefined,
-                    )}
+                    key={index}
+                    {...part('item', {
+                      index: at,
+                      id: slideItemId,
+                      className: cx(
+                        'relative w-full min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border border-text/10 shadow-elevated',
+                        SLIDE_CLASSES[props.variant],
+                        props.variant === 'split' && item.imageSrc === undefined
+                          ? '@lg:grid-cols-1'
+                          : undefined,
+                      ),
+                    })}
                     role="group"
                     aria-roledescription="slide"
-                    aria-label={`${String(index + 1)} / ${String(itemCount)}: ${item.title}`}
+                    aria-label={`${String(index + 1)} / ${String(itemCount)}:`}
+                    aria-labelledby={`${slideItemId} ${titleIdOf(index)}`}
                     hidden={isHidden}
                     style={isHidden ? { display: 'none' } : undefined}
                     data-carousel-slide=""
@@ -327,17 +352,24 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
                             360px phone is nearly twice the screen.
                           */
                           'm-0 w-full min-w-0 overflow-hidden bg-text-muted/10',
-                          hasMediaOverlay ? 'col-start-1 row-start-1 min-h-64 @md:min-h-96' : undefined,
+                          hasMediaOverlay
+                            ? 'col-start-1 row-start-1 min-h-64 @md:min-h-96'
+                            : undefined,
                           ASPECT_CLASSES[props.mediaAspect],
-                          !hasMediaOverlay ? MEDIA_POSITION_CLASSES[props.mediaPosition] : undefined,
+                          !hasMediaOverlay
+                            ? MEDIA_POSITION_CLASSES[props.mediaPosition]
+                            : undefined,
                         )}
                         data-carousel-media=""
                       >
                         <img
-                          className={cx(
-                            'block h-full min-h-64 w-full object-cover',
-                            hasMediaOverlay ? 'min-h-96' : undefined,
-                          )}
+                          {...part('item.image', {
+                            index: at,
+                            className: cx(
+                              'block h-full min-h-64 w-full object-cover',
+                              hasMediaOverlay ? 'min-h-96' : undefined,
+                            ),
+                          })}
                           src={item.imageSrc}
                           alt={item.imageAlt}
                           loading="lazy"
@@ -358,26 +390,46 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
                       data-carousel-copy=""
                     >
                       {item.label === undefined ? null : (
-                        <span className="self-start rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase">
+                        <span
+                          {...part('item.label', {
+                            index: at,
+                            className:
+                              'self-start rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase',
+                          })}
+                        >
                           {item.label}
                         </span>
                       )}
-                      <h3 className="m-0 text-2xl leading-tight font-bold tracking-tight text-balance @md:text-3xl">
+                      <h3
+                        {...part('item.title', {
+                          index: at,
+                          id: titleIdOf(index),
+                          className:
+                            'm-0 text-2xl leading-tight font-bold tracking-tight text-balance @md:text-3xl',
+                        })}
+                      >
                         {item.title}
                       </h3>
                       {item.body === undefined ? null : (
                         <p
-                          className={cx(
-                            'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
-                            hasMediaOverlay ? 'text-inherit opacity-85' : 'text-text-muted',
-                          )}
+                          {...part('item.body', {
+                            index: at,
+                            className: cx(
+                              'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
+                              hasMediaOverlay ? 'text-inherit opacity-85' : 'text-text-muted',
+                            ),
+                          })}
                         >
                           {item.body}
                         </p>
                       )}
                       {item.action === undefined ? null : (
                         <a
-                          className="inline-flex min-h-11 items-center justify-center self-start rounded-lg bg-accent px-control-inline-md py-control-block-md font-semibold text-accent-text shadow-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                          {...part('item.action', {
+                            index: at,
+                            className:
+                              'inline-flex min-h-11 items-center justify-center self-start rounded-lg bg-accent px-control-inline-md py-control-block-md font-semibold text-accent-text shadow-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent',
+                          })}
                           href={item.action.href}
                           onClick={isCanvas ? preventCanvasNavigation : undefined}
                         >
@@ -468,7 +520,16 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
                     aria-pressed={playbackEnabled}
                     onClick={togglePlayback}
                   >
-                    {playbackEnabled ? props.pauseLabel : props.playLabel}
+                    {/*
+                      Both labels stay rendered, one hidden, so each is a part
+                      the canvas can reach whichever state the button is in.
+                    */}
+                    <span {...part('pauseLabel')} hidden={!playbackEnabled}>
+                      {props.pauseLabel}
+                    </span>
+                    <span {...part('playLabel')} hidden={playbackEnabled}>
+                      {props.playLabel}
+                    </span>
                   </button>
                 ) : null}
               </div>
@@ -476,12 +537,15 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
 
             {props.showIndicators ? (
               <div className="flex flex-wrap items-center justify-center gap-gap-sm">
-                {props.items.map((item, index) => (
+                {props.items.map((_item, index) => (
+                  /* Named "Go to slide 1:" then the slide title, through aria-labelledby. */
                   <button
-                    key={`${item.title}-${String(index)}`}
+                    key={index}
+                    id={`${node.id}-dot-${String(index)}`}
                     className="inline-grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     type="button"
-                    aria-label={`${props.goToLabel} ${String(index + 1)}: ${item.title}`}
+                    aria-label={`${props.goToLabel} ${String(index + 1)}:`}
+                    aria-labelledby={`${node.id}-dot-${String(index)} ${titleIdOf(index)}`}
                     aria-current={index === activeIndex ? 'true' : undefined}
                     aria-controls={slideId}
                     onClick={() => {
@@ -507,7 +571,12 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
           </div>
         ) : null}
 
-        {!isLive || activeItem === undefined ? null : (
+        {/*
+          The live status repeats the active title for screen readers. The
+          canvas is an editing surface, where a second copy of the title would
+          be a second home for its inline editor, so only a page shows it.
+        */}
+        {!isLive || isCanvas || activeItem === undefined ? null : (
           <p
             className="sr-only"
             role="status"

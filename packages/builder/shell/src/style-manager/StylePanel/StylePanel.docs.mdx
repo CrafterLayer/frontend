@@ -27,5 +27,33 @@ catalogue's sectors (`STYLE_SECTORS`) for any `StyleSource` at a `{bucket, state
 - **Contrast**: text and background colours are checked against each other (or the theme surface
   and text tokens).
 
-Sectors are collapsible (Layout, Spacing, Size, Typography, Backgrounds, Borders and Effects start
-open). `children` render after the sectors (the element panel puts Advanced there).
+## Layout (panel design)
+
+The panel follows Webstudio and Framer. It is dense and aligned on a 4px grid, built for 280 to
+360px, and works in light, dark and RTL.
+
+- **Sticky header**: the screen-size buckets as device glyphs, then the state as a labelled menu.
+  The header turns accent when the state is not Default, and the checked device turns warning when
+  the bucket is not Desktop. The property filter (`StylePanelFilter`) sits under them.
+- **Two-column rows**: compact controls sit beside a shared label column (`data-layout="inline"`).
+  These are number fields with a scrub grip, selects, colour fields and segmented glyph rows. The box
+  model, corners, border sides, stacks, grid tracks, gradient arrows and long text choices take the
+  full width under their label (`data-layout="block"`). The label column narrows under 264px and
+  widens over 340px (a container query).
+- **Segmented glyphs** (`SegmentedChoice` + `OptionIcon`) are used for display, direction, wrap,
+  justify, align, text align, transform, decoration and italic. Rare values stay in an overflow
+  menu. Inline-axis glyphs mirror on an RTL page.
+- **Colour** is one `ColorField`: a swatch and the value's name. It opens token chips, the palette,
+  and an inline react-colorful picker.
+- **Numbers scrub**: drag the grip at the field's start. Each move previews on the canvas, and
+  release writes one transaction (`scrubAmount`).
+- **Provenance**: the label takes the source's colour (accent here, warning from a larger screen,
+  success from a named style) beside the `ValueSourceDot`. Each sector header counts the values set
+  here, and the count is read as the toggle's description.
+- **Sectors**: Layout, Spacing, Size, Typography and Backgrounds start open. While the filter is
+  filled, every matching sector is open.
+- The panel root carries the editor's direction (`rtl` for Arabic labels). `dir` stays the PAGE
+  direction for sides, corners, origins and glyph mirroring.
+
+`children` render after the sectors (the element panel puts Advanced there). The `*Sector` stories
+draw each sector in light and dark, in English (LTR page) and Arabic (RTL page).

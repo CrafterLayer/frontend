@@ -18,3 +18,11 @@ Both rows are `ChoiceGroup` radio groups (one tab stop each, arrows mirrored for
 the bucket in step with the DeviceBar; this control only reports choices.
 
 Labels: `BUCKET_STATE_SWITCHER_LABELS_EN` (default) and `BUCKET_STATE_SWITCHER_LABELS_AR`.
+
+## Compact header (panel design)
+
+The switcher fits on one line. The buckets are device glyphs in an icon radio group (custom widths
+are text segments beside them), and the state is a labelled native menu ("State"). When the state is
+not Default, the header turns accent (`data-state-active`). When the bucket is not Desktop, the
+checked device turns warning (`data-bucket-active`). An edit that will land on Mobile · Hover never
+looks like a Desktop edit.

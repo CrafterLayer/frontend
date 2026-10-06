@@ -1,9 +1,18 @@
 import { clsx } from 'clsx';
 
 import { motionAttributes } from '@craftkit/builder-renderer';
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
-import type { BreadcrumbsProps } from './schema';
+import { breadcrumbsSchema, type BreadcrumbsProps } from './schema';
+
+/*
+  The hover title repeats the crumb's text for a shortened label. While the
+  label is edited in place it is an editor element, not text, so the title is
+  left off for that moment instead of reading "[object Object]".
+*/
+function titleOf(label: unknown): string | undefined {
+  return typeof label === 'string' ? label : undefined;
+}
 
 const SIZE_CLASSES: Record<BreadcrumbsProps['size'], string> = {
   small: 'gap-1.5 text-xs',
@@ -36,8 +45,10 @@ const SEPARATORS: Record<BreadcrumbsProps['separator'], string> = {
 };
 
 /** Semantic breadcrumb navigation with canvas-safe links and responsive middle collapse. */
-export function Breadcrumbs({ props, isCanvas }: BlockRenderProps<BreadcrumbsProps>) {
+export function Breadcrumbs({ node, props, isCanvas }: BlockRenderProps<BreadcrumbsProps>) {
   const { class: motionClassName, ...motionData } = motionAttributes(props.motion);
+  /* Each inner element is a part: addressable on the canvas, stylable per part. */
+  const part = blockPartProps({ node, props, isCanvas }, breadcrumbsSchema.parts);
   const currentIndex = props.items.length - 1;
   const shouldCollapse = props.collapse === 'responsive' && props.items.length > 4;
 
@@ -58,25 +69,32 @@ export function Breadcrumbs({ props, isCanvas }: BlockRenderProps<BreadcrumbsPro
         <p className="m-0 text-sm text-text-muted">Add breadcrumb items.</p>
       ) : (
         <ol
-          className={clsx(
-            'm-0 flex min-w-0 list-none flex-wrap items-center p-0',
-            SIZE_CLASSES[props.size],
-            ALIGN_CLASSES[props.align],
-          )}
+          {...part('items', {
+            className: clsx(
+              'm-0 flex min-w-0 list-none flex-wrap items-center p-0',
+              SIZE_CLASSES[props.size],
+              ALIGN_CLASSES[props.align],
+            ),
+          })}
         >
           {props.items.map((item, index) => {
             const isCurrent = index === currentIndex;
             const isResponsiveMiddle =
               shouldCollapse && index > 0 && index < props.items.length - 2;
+            const at = [index];
 
             return (
+              /* Keyed by position: a bound value may be an inline editor element. */
               <li
-                className={clsx(
-                  'min-w-0 items-center',
-                  SEPARATOR_GAP_CLASSES[props.size],
-                  isResponsiveMiddle ? 'hidden @md:flex' : 'flex',
-                )}
-                key={[item.label, item.href ?? 'current', String(index)].join('-')}
+                {...part('item', {
+                  index: at,
+                  className: clsx(
+                    'min-w-0 items-center',
+                    SEPARATOR_GAP_CLASSES[props.size],
+                    isResponsiveMiddle ? 'hidden @md:flex' : 'flex',
+                  ),
+                })}
+                key={index}
               >
                 {shouldCollapse && index === props.items.length - 2 ? (
                   <>
@@ -114,18 +132,31 @@ export function Breadcrumbs({ props, isCanvas }: BlockRenderProps<BreadcrumbsPro
                 {isCurrent ? (
                   <span
                     aria-current="page"
-                    className="min-w-0 truncate font-semibold text-current"
-                    title={item.label}
+                    {...part('item.link', {
+                      index: at,
+                      className: 'min-w-0 truncate font-semibold text-current',
+                    })}
+                    title={titleOf(item.label)}
                   >
                     {item.label}
                   </span>
                 ) : item.href === undefined ? (
-                  <span className="min-w-0 truncate text-current opacity-70" title={item.label}>
+                  <span
+                    {...part('item.link', {
+                      index: at,
+                      className: 'min-w-0 truncate text-current opacity-70',
+                    })}
+                    title={titleOf(item.label)}
+                  >
                     {item.label}
                   </span>
                 ) : (
                   <a
-                    className="min-w-0 truncate rounded text-current opacity-70 underline-offset-4 transition hover:opacity-100 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none"
+                    {...part('item.link', {
+                      index: at,
+                      className:
+                        'min-w-0 truncate rounded text-current opacity-70 underline-offset-4 transition hover:opacity-100 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none',
+                    })}
                     href={item.href}
                     onClick={
                       isCanvas
@@ -134,7 +165,7 @@ export function Breadcrumbs({ props, isCanvas }: BlockRenderProps<BreadcrumbsPro
                           }
                         : undefined
                     }
-                    title={item.label}
+                    title={titleOf(item.label)}
                   >
                     {item.label}
                   </a>

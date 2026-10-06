@@ -27,7 +27,7 @@ const VOCAB: TrustedExtensionManifest = {
           type: 'page',
           description: 'Page',
           props: z.object({}),
-          slots: { default: { allow: ['heading', 'article', 'plain'] } },
+          slots: { default: { allow: ['heading', 'article', 'plain', 'card'] } },
           examples: [],
         }),
         render: NullRender,
@@ -61,6 +61,46 @@ const VOCAB: TrustedExtensionManifest = {
         }),
         render: NullRender,
       },
+      // ── block-parts (2026-10-06) ──
+      {
+        schema: defineBlockSchema({
+          type: 'card',
+          description: 'Card with parts',
+          props: z.object({
+            heading: z.string().default('Card'),
+            body: z.string().default(''),
+            content: richText().default(emptyRichText() as never),
+            link: z.object({ label: z.string(), href: z.string() }).default({ label: 'Go', href: '#' }),
+            imageSrc: z.string().default(''),
+            items: z.array(z.object({ title: z.string() })).default([]),
+            note: z.string().optional(),
+          }),
+          inlineEditable: 'heading',
+          parts: {
+            heading: { kind: 'text', bind: 'heading', label: { en: 'Heading', ar: 'العنوان' } },
+            body: { kind: 'text', bind: 'body', multiline: true, label: { en: 'Body', ar: 'النص' } },
+            content: { kind: 'rich', bind: 'content', label: { en: 'Content', ar: 'المحتوى' } },
+            cta: {
+              kind: 'link',
+              bind: { text: 'link.label', href: 'link.href' },
+              label: { en: 'Link', ar: 'الرابط' },
+            },
+            image: { kind: 'image', bind: { src: 'imageSrc' }, label: { en: 'Image', ar: 'الصورة' } },
+            items: { kind: 'list', bind: 'items', label: { en: 'Items', ar: 'العناصر' } },
+            item: { kind: 'item', bind: 'items.*', list: 'items', label: { en: 'Item', ar: 'العنصر' } },
+            'item.title': {
+              kind: 'text',
+              bind: 'items.*.title',
+              label: { en: 'Item title', ar: 'عنوان العنصر' },
+            },
+            note: { kind: 'text', bind: 'note', label: { en: 'Note', ar: 'ملاحظة' } },
+            frame: { kind: 'box', label: { en: 'Frame', ar: 'الإطار' } },
+          },
+          examples: [],
+        }),
+        render: NullRender,
+      },
+      // ── /block-parts ──
     ],
   },
 };
@@ -71,10 +111,22 @@ const DOC: BuilderDocument = {
   dir: 'ltr',
   rootId: 'root',
   nodes: {
-    root: { id: 'root', type: 'page', props: {}, slots: { default: ['h1', 'a1', 'p1'] } },
+    root: { id: 'root', type: 'page', props: {}, slots: { default: ['h1', 'a1', 'p1', 'c1'] } },
     h1: { id: 'h1', type: 'heading', props: { text: 'Title', tone: 'a' } },
     a1: { id: 'a1', type: 'article', props: { body: emptyRichText() as never } },
     p1: { id: 'p1', type: 'plain', props: { label: 'no inline' } },
+    c1: {
+      id: 'c1',
+      type: 'card',
+      props: {
+        heading: 'Card title',
+        body: 'Line one',
+        content: emptyRichText() as never,
+        link: { label: 'Read more', href: '/docs' },
+        imageSrc: '/a.png',
+        items: [{ title: 'One' }, { title: 'اثنان' }, { title: 'Three' }],
+      },
+    },
   },
 };
 
@@ -239,3 +291,143 @@ describe('createInlineSession (009 contract §3)', () => {
     session.dispose();
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('createInlineSession with a block part (block-parts DESIGN §2.8)', () => {
+  const part = (name: string, ...index: number[]) => ({ part: name, index });
+
+  it('resolves kind, top-level key, bind and singleLine from the part declaration', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    const session = createInlineSession(kernel);
+    const before = kernel.transactions().length;
+
+    expect(session.begin('c1', part('heading'))).toBe(true);
+    expect(session.current()).toEqual({
+      nodeId: 'c1',
+      propKey: 'heading',
+      bind: 'heading',
+      kind: 'text',
+      part: part('heading'),
+      singleLine: true,
+    });
+
+    expect(session.begin('c1', part('item.title', 1))).toBe(true);
+    expect(session.current()).toEqual({
+      nodeId: 'c1',
+      propKey: 'items',
+      bind: 'items.1.title',
+      kind: 'text',
+      part: part('item.title', 1),
+      singleLine: true,
+    });
+
+    // multiline text → Shift+Enter inserts a line feed
+    expect(session.begin('c1', part('body'))).toBe(true);
+    expect(session.current()?.singleLine).toBe(false);
+
+    // rich → the rich surface
+    expect(session.begin('c1', part('content'))).toBe(true);
+    expect(session.current()).toMatchObject({ kind: 'rich', propKey: 'content', bind: 'content' });
+
+    // a link edits its visible LABEL as plain text
+    expect(session.begin('c1', part('cta'))).toBe(true);
+    expect(session.current()).toMatchObject({ kind: 'text', propKey: 'link', bind: 'link.label' });
+
+    // opening sessions is view state: nothing was dispatched
+    expect(kernel.transactions().length).toBe(before);
+    session.dispose();
+  });
+
+  it('is inert for image, list, item, box, undeclared and absent parts', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    const session = createInlineSession(kernel);
+    for (const ref of [
+      part('image'),
+      part('items'),
+      part('item', 0),
+      part('frame'),
+      part('nope'),
+      part('note'), // optional and unset: no instance to edit
+      part('item.title', 9), // out of range
+      part('item.title'), // missing index
+    ]) {
+      expect(session.begin('c1', ref)).toBe(false);
+    }
+    expect(session.current()).toBeNull();
+    expect(session.begin('ghost', part('heading'))).toBe(false);
+    expect(session.begin('h1', part('heading'))).toBe(false); // the heading block declares no parts
+    session.dispose();
+  });
+
+  it('the same ref is idempotent; a different ref REPLACES the session', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    const session = createInlineSession(kernel);
+    const seen: (string | undefined)[] = [];
+    session.subscribe((next) => seen.push(next?.bind));
+
+    session.begin('c1', part('item.title', 0));
+    session.begin('c1', part('item.title', 0));
+    expect(seen).toEqual(['items.0.title']);
+
+    session.begin('c1', part('item.title', 2));
+    expect(seen).toEqual(['items.0.title', 'items.2.title']);
+    session.dispose();
+  });
+
+  it('without a ref, falls back to inlineEditable exactly as before', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    const session = createInlineSession(kernel);
+    expect(session.begin('c1')).toBe(true);
+    expect(session.current()).toEqual({ nodeId: 'c1', propKey: 'heading', kind: 'text' });
+    expect(inlineTargetOf(kernel, 'c1')).toEqual({ propKey: 'heading', kind: 'text' });
+    session.dispose();
+  });
+
+  it('ends when part focus moves to ANOTHER part of the same node, not on the same one', () => {
+    const kernel = makeKernel();
+    kernel.focusPart('c1', part('item.title', 1));
+    const session = createInlineSession(kernel);
+    session.begin('c1', part('item.title', 1));
+
+    kernel.focusPart('c1', part('item.title', 1)); // same part again
+    expect(session.current()?.bind).toBe('items.1.title');
+
+    kernel.clearPartFocus(); // no part focused is not a move
+    expect(session.current()?.bind).toBe('items.1.title');
+
+    kernel.focusPart('c1', part('item.title', 2));
+    expect(session.current()).toBeNull();
+    session.dispose();
+  });
+
+  it('ends when the edited item VANISHES (an undo or a removal) and commits nothing', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    const session = createInlineSession(kernel);
+    session.begin('c1', part('item.title', 2));
+
+    kernel.dispatch('setProp', { id: 'c1', key: 'items', value: [{ title: 'One' }] }, 'user');
+    expect(session.current()).toBeNull();
+    expect(kernel.transactions()).toHaveLength(1);
+    session.dispose();
+  });
+
+  it('survives an edit to a sibling item', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    const session = createInlineSession(kernel);
+    session.begin('c1', part('item.title', 0));
+    kernel.dispatch(
+      'setProp',
+      { id: 'c1', key: 'items', value: [{ title: 'One' }, { title: 'Two' }, { title: 'Three' }] },
+      'user',
+    );
+    expect(session.current()?.bind).toBe('items.0.title');
+    session.dispose();
+  });
+});
+// ── /block-parts ──

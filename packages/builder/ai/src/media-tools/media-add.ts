@@ -417,6 +417,13 @@ function runVideo(input: MediaAddInput, context: AgentToolContext): AgentToolRun
     if (!recipe.ok) return recipe;
     return insertInto(context, input.into, recipe.recipe);
   }
+  /*
+    fix pass (2026-10-06): a section with no title read «شغّل: الفيديو» and had no
+    heading, so two video sections stacked as two look-alike posters with no
+    context. A new section always has a visible heading, and the facade's
+    label and the iframe's title name it.
+  */
+  const title = input.title ?? (locale === 'ar' ? 'فيديو تعريفي' : 'Introduction video');
   const recipe = built(
     buildVideoSection(locale, {
       url: video.video.kind === 'file' ? video.video.src : (input.url ?? ''),
@@ -425,12 +432,12 @@ function runVideo(input: MediaAddInput, context: AgentToolContext): AgentToolRun
       // with no page topic the facade falls back to YouTube's own still.
       poster: picture.image,
       captions: input.captionsUrl,
-      title: input.title,
+      title,
       text: input.text,
     }),
   );
   if (!recipe.ok) return recipe;
-  return insertSection(context, recipe.recipe, { after: input.after, title: input.title, anchor: 'video' });
+  return insertSection(context, recipe.recipe, { after: input.after, title, anchor: 'video' });
 }
 
 const SCENE_IMAGE_COUNT: Readonly<Record<CustomCodeScene, number>> = {
@@ -464,7 +471,11 @@ function runScene(input: MediaAddInput, context: AgentToolContext): AgentToolRun
       }),
     );
     if (!layer.ok) return layer;
-    const run = insertBehind(context, input.behind, layer.recipe, { className: SCENE_HOST.className });
+    // fix pass (2026-10-06): particles draw see-through, so they go above a cover photo and its scrim.
+    const run = insertBehind(context, input.behind, layer.recipe, {
+      className: SCENE_HOST.className,
+      overlay: scene === 'particles',
+    });
     return run.ok ? { ...run, note: `scene ${scene} behind ${input.behind}` } : run;
   }
   const recipe = built(

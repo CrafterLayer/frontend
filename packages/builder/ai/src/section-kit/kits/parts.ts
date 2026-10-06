@@ -6,6 +6,11 @@ import type { SectionKit, SectionKitSlot } from '../types';
   colour, and utilities from the static vocabulary for everything else —
   logical sides only, no `tracking-*` (Arabic letters join, and spacing pulls
   them apart), leading-snug on display type (Arabic ascenders need it).
+  At phone width (kits.fit.test.ts, 320–390px): display type breaks a word
+  longer than its line (`break-words`), a grid or flex item that holds a long
+  number or word carries `min-w-0` (break-words alone does not let an item
+  shrink), and a grid that must hold its width says `grid-cols-1` (a bare
+  `grid` track grows to its content).
 */
 
 export const HYPERUI_COMMIT = '2b5aebbc50d2c9ac89650f51b554f53895b4803c';
@@ -50,13 +55,13 @@ export const HEAD_SLOTS: Readonly<Record<string, SectionKitSlot>> = {
 // ── Markup ────────────────────────────────────────────────────────────────────
 
 export const EYEBROW = `{{#eyebrow}}<p class='ck-eyebrow'>{{eyebrow}}</p>{{/eyebrow}}`;
-export const H2 = `<h2 data-kit-heading class='ck-display mt-3 text-3xl font-bold leading-snug text-balance md:text-5xl'>{{title}}</h2>`;
+export const H2 = `<h2 data-kit-heading class='ck-display mt-3 text-3xl font-bold leading-snug text-balance break-words md:text-5xl'>{{title}}</h2>`;
 export const LEAD = `{{#lead}}<p class='ck-muted mt-5 text-lg leading-relaxed text-pretty'>{{lead}}</p>{{/lead}}`;
 
 export const HEAD_CENTER = `<div class='mx-auto max-w-2xl text-center'>${EYEBROW}${H2}${LEAD}</div>`;
 export const HEAD_START = `<div class='max-w-2xl'>${EYEBROW}${H2}${LEAD}</div>`;
 
-export const H1 = `<h1 data-kit-heading class='ck-display text-4xl font-bold leading-snug text-balance md:text-6xl'>{{title}}</h1>`;
+export const H1 = `<h1 data-kit-heading class='ck-display text-4xl font-bold leading-snug text-balance break-words md:text-6xl'>{{title}}</h1>`;
 
 export const CTA = `<a class='ck-btn' href='{{cta.href}}'>{{cta.label}}</a>`;
 export const CTA_ARROW = `<a class='ck-btn' href='{{cta.href}}'>{{cta.label}}<icon name='arrow-right' class='ck-flip' size='18'/></a>`;

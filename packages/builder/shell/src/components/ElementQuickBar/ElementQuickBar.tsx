@@ -21,6 +21,12 @@ import { ELEMENT_QUICK_BAR_LABELS_EN, type ElementQuickBarLabels } from './Eleme
 import { visibleGroupCount } from './measure-groups';
 import { quickGroupsFor, type QuickGroup, type QuickGroupId } from './quick-bar-groups';
 import { QuickGroupPanel, type NamedStyleChoice } from './QuickGroupPanel';
+// ── block-parts (2026-10-06) ──
+import { PART_ACTION_ICONS } from './ElementQuickBar.icons';
+import { PART_QUICK_BAR_LABELS_EN } from './ElementQuickBar.labels';
+import type { PartAction, PartActionId } from './part-actions';
+import { PartLinkPopover, type PartLinkPage } from './PartLinkPopover';
+// ── /block-parts ──
 import '../../styles/visually-hidden.css';
 import './ElementQuickBar.css';
 
@@ -50,6 +56,22 @@ export interface ElementQuickBarProps {
   /** Each new value moves focus into the bar (Alt+F10 from the canvas). */
   readonly focusRequest?: number | undefined;
   readonly labels?: ElementQuickBarLabels | undefined;
+  // ── block-parts (2026-10-06) ──
+  /** The groups to show instead of the kind's defaults (a part's bar: `quickGroupsForPart`). */
+  readonly groups?: readonly QuickGroup[] | undefined;
+  /** A part's action row (`resolvePartActions`); replaces `actions` when given. */
+  readonly partActions?: readonly PartAction[] | undefined;
+  readonly onPartAction?: ((id: PartActionId) => void) | undefined;
+  /** A link part's text + address editor, opened by the `link` part action. */
+  readonly partLink?:
+    | {
+        readonly text: string;
+        readonly href: string;
+        readonly pages?: readonly PartLinkPage[] | undefined;
+        readonly onApply: (value: { readonly text: string; readonly href: string }) => QuickWriteResult;
+      }
+    | undefined;
+  // ── /block-parts ──
 }
 
 /** Space the bar keeps for More, Edit with AI, the separator and its own padding. */
@@ -86,8 +108,18 @@ export function ElementQuickBar({
   namedStyles,
   focusRequest,
   labels = ELEMENT_QUICK_BAR_LABELS_EN,
+  // ── block-parts (2026-10-06) ──
+  groups: groupsOverride,
+  partActions,
+  onPartAction,
+  partLink,
+  // ── /block-parts ──
 }: ElementQuickBarProps) {
-  const groups = quickGroupsFor(model.kind);
+  const groups = groupsOverride ?? quickGroupsFor(model.kind);
+  // ── block-parts (2026-10-06) ──
+  const partWords = labels.parts ?? PART_QUICK_BAR_LABELS_EN;
+  const [linkOpen, setLinkOpen] = useState(false);
+  // ── /block-parts ──
   const [openGroup, setOpenGroup] = useState<QuickGroupId | null>(null);
   const [lastSector, setLastSector] = useState<StyleSectorId | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +135,9 @@ export function ElementQuickBar({
     setShownFor(subjectKey);
     setOpenGroup(null);
     setError(null);
+    // ── block-parts (2026-10-06) ──
+    setLinkOpen(false);
+    // ── /block-parts ──
   }
 
   // Alt+F10: the canvas asks for focus by bumping a counter.
@@ -307,6 +342,64 @@ export function ElementQuickBar({
           </div>
         </Popover.Anchor>
         <div className="bldr-quick-bar__row bldr-quick-bar__actions" role="presentation">
+          {/* ── block-parts (2026-10-06) ── a part's own action row */}
+          {(partActions ?? []).map((action) => {
+            const name = partWords.actions[action.id];
+            const opensLink = action.id === 'link' && partLink !== undefined;
+            const button = (
+              <Toolbar.Button
+                key={action.id}
+                className="bldr-quick-bar__item bldr-quick-bar__action"
+                data-bldr-quick-item=""
+                data-part-action={action.id}
+                disabled={!action.enabled}
+                {...(action.pressed === undefined ? {} : { 'aria-pressed': action.pressed })}
+                {...(opensLink ? { 'aria-haspopup': 'dialog' as const, 'aria-expanded': linkOpen } : {})}
+                title={
+                  action.enabled
+                    ? action.hint === undefined
+                      ? name
+                      : `${name} (${action.hint})`
+                    : `${name} — ${action.reason ?? ''}`
+                }
+                {...(opensLink
+                  ? {}
+                  : {
+                      onClick: () => {
+                        onPartAction?.(action.id);
+                      },
+                    })}
+              >
+                {PART_ACTION_ICONS[action.id]}
+                <span className="bldr-visually-hidden">{name}</span>
+              </Toolbar.Button>
+            );
+            if (!opensLink) return button;
+            return (
+              <PartLinkPopover
+                key={action.id}
+                text={partLink.text}
+                href={partLink.href}
+                pages={partLink.pages}
+                labels={partWords}
+                dir={dir}
+                container={scope}
+                open={linkOpen}
+                onOpenChange={(open) => {
+                  setOpenGroup(null);
+                  setLinkOpen(open);
+                }}
+                onApply={(value) => {
+                  const result = partLink.onApply(value);
+                  if (!result.ok) onAnnounce?.(result.message);
+                  return result;
+                }}
+              >
+                {button}
+              </PartLinkPopover>
+            );
+          })}
+          {/* ── /block-parts ── */}
           {actions.map((action) => {
             const name = labels.actions[action.id];
             const shown = action.id === 'hideOnBucket' && action.pressed === true ? labels.showOn : name;

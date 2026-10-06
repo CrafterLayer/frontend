@@ -30,3 +30,18 @@ alone carrying meaning beyond emphasis.
 Tokens + logical properties; `padding-inline-start` keeps feature bullets on the correct side in
 RTL. `auto` preserves the responsive plan grid; fixed columns let an author choose a deliberate
 layout.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name      | kind | bind      | label (en / ar)             |
+| --------- | ---- | --------- | --------------------------- |
+| `heading` | text | `heading` | Heading / العنوان           |
+| `body`    | text | `body`    | Intro / المقدمة (multiline) |
+| `plans`   | box  | —         | Plan row / صف الخطط         |
+
+Each plan card is a `pricingPlan` node with its own parts.

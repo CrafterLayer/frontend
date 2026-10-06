@@ -4,6 +4,7 @@ import {
   defineBlockSchema,
   findRejectedUtilities,
   motionSpecSchema,
+  partStylesProp,
 } from '@craftkit/builder-schema';
 
 import { progressExamples } from './examples';
@@ -36,6 +37,8 @@ export const progressSchema = defineBlockSchema({
             .join(' '),
       })
       .optional(),
+    /* Per-part classes and direction (block-parts DESIGN §2.2), under the tokens law. */
+    partStyles: partStylesProp(),
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Progress' },
@@ -47,8 +50,33 @@ export const progressSchema = defineBlockSchema({
     radius: { tab: 'design', section: 'Track' },
     motion: { tab: 'design', section: 'Motion', kind: 'motion' },
     className: { tab: 'advanced', section: 'Custom classes', kind: 'utility-classes' },
+    partStyles: { tab: 'advanced', section: 'Custom classes', kind: 'part-styles' },
   },
   inlineEditable: 'label',
+  /* The label, the percentage readout and the bar (block-parts DESIGN §1). */
+  parts: {
+    label: {
+      kind: 'text',
+      bind: 'label',
+      label: { en: 'Label', ar: 'التسمية' },
+      aliases: ['title', 'text', 'العنوان', 'النص', 'تسمية'],
+    },
+    value: {
+      kind: 'box',
+      label: { en: 'Percentage', ar: 'النسبة' },
+      aliases: ['percent', 'number', 'readout', 'نسبة', 'الرقم'],
+    },
+    track: {
+      kind: 'box',
+      label: { en: 'Track', ar: 'المسار' },
+      aliases: ['bar background', 'rail', 'مسار', 'خلفية الشريط'],
+    },
+    indicator: {
+      kind: 'box',
+      label: { en: 'Bar', ar: 'الشريط' },
+      aliases: ['fill', 'bar', 'progress bar', 'شريط', 'التعبئة'],
+    },
+  },
   examples: progressExamples,
 });
 

@@ -42,6 +42,9 @@ export interface FloatingHostOptions {
   prefer?: 'above' | 'below';
   gap?: number;
   arrowSize?: number;
+  // ── block-parts (2026-10-06) ── see FloatingInput.keepClear
+  keepClear?: boolean;
+  // ── /block-parts ──
   ports?: Partial<FloatingHostPorts>;
 }
 
@@ -70,6 +73,14 @@ export interface FloatingHost {
 export function systemFloatingPorts(): FloatingHostPorts {
   return {
     measure: (element) => {
+      // ── block-parts (2026-10-06) ──
+      // LAYER-LOCAL size: the layout box, which a zoomed canvas's
+      // `scale()` does not change. getBoundingClientRect is host px — at 73%
+      // zoom a 62px two-row bar measured 45 and was placed over its own part.
+      if (element.offsetWidth > 0 && element.offsetHeight > 0) {
+        return { width: element.offsetWidth, height: element.offsetHeight };
+      }
+      // ── /block-parts ──
       const rect = element.getBoundingClientRect();
       return { width: rect.width, height: rect.height };
     },
@@ -133,6 +144,9 @@ export function createFloatingHost(options: FloatingHostOptions): FloatingHost {
       ...(options.prefer === undefined ? {} : { prefer: options.prefer }),
       ...(options.gap === undefined ? {} : { gap: options.gap }),
       ...(options.arrowSize === undefined ? {} : { arrowSize: options.arrowSize }),
+      // ── block-parts (2026-10-06) ──
+      ...(options.keepClear === true ? { keepClear: true } : {}),
+      // ── /block-parts ──
     });
     current = placement;
     if (placement.hidden) {

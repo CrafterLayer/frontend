@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   customCodeComponentTypes,
@@ -35,10 +35,35 @@ import './CustomCodeTreeField.css';
  * reordering, component references, and anything the element rows do not
  * cover. Promoting an element into a real document node stays a later
  * milestone.
+ *
+ * block-parts fix pass (2026-10-06): the owner said NEVER raw JSON anywhere.
+ * The panel now shows the summary and where to edit (the canvas, Layers);
+ * the JSON source mounts only behind an explicit "Edit source (advanced)"
+ * disclosure, so no Inspector row shows JSON unless the person asks for it.
  */
+const WORDS = {
+  en: {
+    hint: 'Click any element on the canvas to edit it, or pick it in Layers.',
+    source: 'Edit source (advanced)',
+  },
+  ar: {
+    hint: 'انقر أي عنصر على اللوحة لتعديله، أو اختره من الطبقات.',
+    source: 'تحرير المصدر (متقدّم)',
+  },
+} as const;
 export default function CustomCodeTreeField({ value, onChange, disabled }: FieldProps) {
   const errorId = useId();
   const summaryId = useId();
+  const sourceId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  // The editor's language, read from the panel it sits in: an RTL panel speaks Arabic.
+  const [arabic, setArabic] = useState(false);
+  useLayoutEffect(() => {
+    const scope = rootRef.current?.closest('[dir]');
+    setArabic(scope?.getAttribute('dir') === 'rtl');
+  }, []);
+  const words = arabic ? WORDS.ar : WORDS.en;
   const serialized = useMemo(() => JSON.stringify(value ?? null, null, 2), [value]);
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -68,11 +93,26 @@ export default function CustomCodeTreeField({ value, onChange, disabled }: Field
   };
 
   return (
-    <div className="bldr-cc-tree">
+    <div className="bldr-cc-tree" ref={rootRef}>
       <p className="bldr-cc-tree__summary" id={summaryId}>
-        {summary}
+        <bdi>{summary}</bdi>
       </p>
+      <p className="bldr-cc-tree__hint">{words.hint}</p>
+      <button
+        type="button"
+        className="bldr-cc-tree__toggle"
+        aria-expanded={open}
+        aria-controls={open ? sourceId : undefined}
+        onClick={() => {
+          setOpen((was) => !was);
+        }}
+      >
+        {words.source}
+      </button>
+      {open ? (
       <textarea
+        id={sourceId}
+        dir="ltr"
         className="bldr-cc-tree__source"
         spellCheck={false}
         rows={14}
@@ -94,6 +134,7 @@ export default function CustomCodeTreeField({ value, onChange, disabled }: Field
           if (event.target.value !== serialized) commit(event.target.value);
         }}
       />
+      ) : null}
       {error === undefined ? null : (
         <p className="bldr-cc-tree__error" id={errorId} role="alert">
           {error}

@@ -322,6 +322,8 @@ export function LibraryPanel({
     <nav className="bldr-library" aria-label={labels.title} lang={labels.language}>
       <Tabs.Root
         className="bldr-library__tabs"
+        // Arrow keys follow the reading direction: Arabic tabs run right to left.
+        dir={labels.language === 'ar' ? 'rtl' : undefined}
         value={tab}
         onValueChange={(value) => {
           setTab(value as LibraryTab);
@@ -361,7 +363,7 @@ export function LibraryPanel({
           {renderGrid(sectionEntries, labels.noSections)}
         </Tabs.Content>
         <Tabs.Content value="blocks" className="bldr-library__panel bldr-library__panel--blocks">
-          <Palette kernel={kernel} dragHandle={dragHandle} />
+          <Palette kernel={kernel} dragHandle={dragHandle} labels={labels.palette} />
         </Tabs.Content>
         <Tabs.Content value="saved" className="bldr-library__panel">
           {renderGrid(savedEntries, labels.noSaved)}

@@ -12,12 +12,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--bldr-space-2xs);
+  /* Never wider than the canvas overlay (the nearest inline-size container),
+     less the collision padding the floating placement keeps from its edges. */
+  max-inline-size: calc(100cqi - 2 * var(--bldr-space-xs));
   padding: var(--bldr-space-xs);
 }
 
+/* Rows wrap instead of overflowing: in a narrow frame (Mobile, 390px) the
+   floating host's shrink-to-fit width is the overlay layer's, so a row longer
+   than the frame folds onto a second line and every action stays reachable. */
 .bldr-quick-bar__row {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--bldr-space-2xs);
 }
 
@@ -198,3 +205,17 @@
 .bldr-quick-bar__menu-item[data-disabled] {
   opacity: 0.45;
 }
+
+/* ── block-parts (2026-10-06) ── the part link popover's Apply / Cancel row */
+.bldr-quick-bar__panel-actions {
+  display: flex;
+  gap: var(--bldr-space-xs);
+  justify-content: flex-end;
+}
+
+.bldr-quick-bar__panel-actions > .bldr-quick-bar__apply:last-child {
+  background: transparent;
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 18%));
+  color: inherit;
+}
+/* ── /block-parts ── */

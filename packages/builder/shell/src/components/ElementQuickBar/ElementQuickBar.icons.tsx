@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import type { ElementActionId } from '../../overlay/element-actions';
+import type { PartActionId } from './part-actions';
 import type { QuickGroupId } from './quick-bar-groups';
 
 /**
@@ -124,6 +125,31 @@ export const ELEMENT_ACTION_ICONS: Readonly<Record<ElementActionId, ReactElement
   hideOnBucket: glyph(HIDE),
   deselect: glyph(DESELECT),
 };
+
+// ── block-parts (2026-10-06) ──
+const EDIT_TEXT = '<path d="M3 13h3l7-7-3-3-7 7z"/><path d="M8.5 4.5l3 3"/>';
+const ADD_AFTER = '<rect x="2.5" y="2.5" width="11" height="5" rx="1"/><path d="M8 10v4M6 12h4"/>';
+const SCOPE_THIS = '<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1" stroke-dasharray="1.6 1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke-dasharray="1.6 1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke-dasharray="1.6 1.4"/>';
+const DIR_AUTO = '<path d="M3 12.5 6 3.5l3 9M4 9.5h4"/><path d="M11 5.5h3M12.5 4v3"/><path d="M11 11.5h3"/>';
+const DIR_LTR = '<path d="M2.5 8h10M10 5.5 12.5 8 10 10.5"/><path d="M2.5 3.5h5M2.5 12.5h5"/>';
+const DIR_RTL = '<path d="M13.5 8h-10M6 5.5 3.5 8 6 10.5"/><path d="M8.5 3.5h5M8.5 12.5h5"/>';
+
+/** The part bar's actions (block-parts §2.14); total over `PartActionId`, like the maps above. */
+export const PART_ACTION_ICONS: Readonly<Record<PartActionId, ReactElement>> = {
+  editText: glyph(EDIT_TEXT),
+  link: glyph(LINK),
+  addAfter: glyph(ADD_AFTER),
+  duplicate: glyph(DUPLICATE),
+  moveUp: glyph(MOVE_EARLIER),
+  moveDown: glyph(MOVE_LATER),
+  remove: glyph(DELETE),
+  scopeThis: glyph(SCOPE_THIS),
+  dirAuto: glyph(DIR_AUTO),
+  dirLtr: glyph(DIR_LTR),
+  dirRtl: glyph(DIR_RTL),
+  selectBlock: glyph(SELECT_PARENT),
+};
+// ── /block-parts ──
 
 export const MORE_ICON = glyph('<circle cx="3.5" cy="8" r="0.6"/><circle cx="8" cy="8" r="0.6"/><circle cx="12.5" cy="8" r="0.6"/>');
 export const SETTINGS_ICON = glyph(

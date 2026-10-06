@@ -772,3 +772,31 @@ describe('B3c stale-echo protocol — two commits in one frame (009 field report
     });
   });
 });
+
+describe('block-parts bidi — every block follows its own direction (DESIGN §2.10)', () => {
+  it('renders dir="auto" on each paragraph, and the stored doc never carries it', () => {
+    const kernel = makeKernel();
+    let editor: Editor | null = null;
+    render(
+      <FieldHarness
+        kernel={kernel}
+        onEditor={(instance) => {
+          editor = instance;
+        }}
+      />,
+    );
+    const ed = editor as unknown as Editor;
+    const paragraphs = ed.view.dom.querySelectorAll('p');
+    expect(paragraphs.length).toBeGreaterThan(0);
+    for (const paragraph of paragraphs) {
+      expect(paragraph).toHaveAttribute('dir', 'auto');
+    }
+    act(() => {
+      ed.chain().focus('end').insertContent(' — and the site grows.').run();
+    });
+    // The projection keeps the whitelist: the editor's `dir` attribute is
+    // view state and must never reach the document (the door would refuse it).
+    expect(JSON.stringify(bodyOf(kernel))).not.toContain('"dir"');
+    expect(JSON.stringify(bodyOf(kernel))).toContain('the site grows.');
+  });
+});

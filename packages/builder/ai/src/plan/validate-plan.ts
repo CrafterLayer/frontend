@@ -29,6 +29,8 @@ import type {
 } from '../types';
 import { DEFAULT_AI_MAX_OPERATIONS, type AiEffectiveCommandPolicy } from '../skills';
 import type { ResolvedAiCompositionPolicy } from '../context/composition-policy';
+// media-motion (2026-10-06, fix pass): raw video iframes and css that hides content.
+import { mediaMotionIssues } from './media-plan-checks';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -753,6 +755,22 @@ function customCssIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanVa
   return issues;
 }
 
+// media-motion (2026-10-06, fix pass)
+/** The stylesheets step `index` writes, as `customCssIssues` reads them (a caption named css is not one). */
+function planSheets(plan: AiPlan, kernel: BuilderKernel, index: number): readonly string[] {
+  const propertyNames = allCustomCssPropertyNames(kernel);
+  const step = plan.commands[index];
+  if (step === undefined || propertyNames.size === 0) return [];
+  const args = isRecord(step.args) ? step.args : {};
+  return customCssSheetsInArgs(args, propertyNames)
+    .filter((sheet) => {
+      const blockType = stylesheetBlockType(kernel, args, sheet.owner);
+      return blockType === undefined || customCssPropertyNamesForType(kernel, blockType).has(sheet.property);
+    })
+    .map(({ css }) => css);
+}
+// end media-motion
+
 /** @internal Shared with previewAiPlan: the scratch world a plan is rehearsed in. */
 export function validationManifest(plan: AiPlan, kernel: BuilderKernel): TrustedExtensionManifest {
   const commands: Record<string, RegisteredCommand> = {};
@@ -958,6 +976,9 @@ export function validateAiPlan(
   */
   const cssIssues = customCssIssues(plan, kernel);
   if (cssIssues.length > 0) return { ok: false, issues: cssIssues };
+  // media-motion (2026-10-06, fix pass): before the dry run, which takes both happily.
+  const mediaIssues = mediaMotionIssues(plan, kernel, (index) => planSheets(plan, kernel, index));
+  if (mediaIssues.length > 0) return { ok: false, issues: mediaIssues };
   /*
     Before the dry run too, and for the same reason as the sheet: the door's own
     refusal is a slot list, which reads as "wrong vocabulary" when the truth is

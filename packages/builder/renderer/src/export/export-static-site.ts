@@ -28,6 +28,7 @@ import type { Theme } from '../resolve/theme';
 import { buildLibraryCss } from '../site-design/build-library-css';
 import { createNamedStyleTransform } from '../site-design/named-style-transform';
 import { SiteDesignContext, type SiteDesign } from '../site-design/site-design-context';
+import { createAssetFileWriter } from './asset-files'; // page-defects additions (2026-10-06)
 import { STATIC_BASE_CSS } from './base-css';
 import { normalRoute, relativeRoot, routeFile } from './routes';
 
@@ -107,7 +108,14 @@ export interface ExportStaticSiteOptions {
 
 export interface StaticSiteFile {
   readonly path: string;
+  /** The file's text; '' for a binary file, whose `bytes` hold it. */
   readonly content: string;
+  /**
+   * page-defects additions (2026-10-06): a binary file's bytes — an uploaded
+   * picture or font written to `assets/images/` instead of inlined as a data
+   * URL. A host that zips or uploads the files writes these bytes.
+   */
+  readonly bytes?: Uint8Array;
 }
 
 export interface StaticSiteResult {
@@ -354,6 +362,8 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
   if (options.pages.some((page) => /"tabler(?:-filled)?:/u.test(JSON.stringify([page.before, page.document, page.after]))))
     await loadTablerIcons();
 
+  // page-defects additions (2026-10-06): uploaded pictures leave the HTML and CSS as files, once each.
+  const assetFiles = createAssetFileWriter();
   const usedPresets = new Set<string>();
   const usedHovers = new Set<string>();
   const usedEffects = new Set<string>();
@@ -382,7 +392,9 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
           ),
         ),
       );
-    const { body, fonts } = liftFontImports(documents.map(render).join(''));
+    const lifted = liftFontImports(documents.map(render).join(''));
+    const fonts = lifted.fonts;
+    const body = assetFiles.rewrite(lifted.body, `${relativeRoot(file)}assets/`); // page-defects additions
     const sheets = await Promise.all(documents.map((document) => options.compileCss(document)));
     if (options.compileClasses !== undefined) sheets.push(await options.compileClasses(renderedClasses(body)));
     const usage = motionUsage(body);
@@ -390,11 +402,14 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
     for (const name of usage.hovers) usedHovers.add(name);
     for (const name of usage.effects) usedEffects.add(name);
     // The base reset leads every sheet: the canvas's host page carries it, a published page does not.
-    const css = [
-      STATIC_BASE_CSS,
-      ...siteCss,
-      ...new Set(sheets.map((sheet) => sheet.trim()).filter((sheet) => sheet !== '')),
-    ].join('\n');
+    const css = assetFiles.rewrite(
+      [
+        STATIC_BASE_CSS,
+        ...siteCss,
+        ...new Set(sheets.map((sheet) => sheet.trim()).filter((sheet) => sheet !== '')),
+      ].join('\n'),
+      '', // page-defects additions: the stylesheet sits in assets/, beside images/
+    );
     const props = rootProps(input.document);
     rendered.push({
       input,
@@ -436,7 +451,8 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
   const anyBehaviors = rendered.some((page) => page.behaviors);
   if (anyBehaviors) {
     out.push({ path: 'assets/ck-behaviors.css', content: BEHAVIOR_CSS });
-    out.push({ path: 'assets/ck-behaviors.js', content: behaviorRuntimeScript() });
+    // fix pass (2026-10-06): only the packs the site's pages use.
+    out.push({ path: 'assets/ck-behaviors.js', content: behaviorRuntimeScript(rendered.map((page) => page.body)) });
   }
   // Only the presets, hovers and effects the site names: a page pays for what it uses.
   const motionCss = [
@@ -479,6 +495,8 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
       xDefaultPath: '/',
     });
     const up = relativeRoot(page.file);
+    // page-defects additions (2026-10-06): a head reference (og:image, a JSON-LD logo) is absolute when the origin is known.
+    const headHtml = assetFiles.rewrite(head, origin === undefined ? `${up}assets/` : `${origin}/assets/`);
     const stylesheet = cssPath.get(page);
     const links = [
       fontLinks(page.fonts),
@@ -487,14 +505,25 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
       page.motion && motionCss !== '' ? `<link rel="stylesheet" href="${up}assets/ck-motion.css">` : '',
       page.behaviors ? `<script defer src="${up}assets/ck-behaviors.js"></script>` : '',
       smoothScroll ? `<script defer src="${up}assets/ck-smooth-scroll.js"></script>` : '',
-      // media-motion (2026-10-06): prefetch only; the `engines` pack injects the script when due.
+      /*
+        media-motion (2026-10-06): a LOCATOR, not a prefetch. The `engines` pack reads
+        link[data-ck-engine] and injects the script only when motion is allowed and the
+        element is due. A rel="prefetch" made reduced-motion visitors download 646 KB +
+        137 KB that never ran, and a host without cache headers served each engine twice
+        (fix pass 2026-10-06). An unknown rel fetches nothing.
+      */
       ...ENGINE_ORDER.filter((kind) => page.engines.has(kind)).map(
-        (kind) => `<link rel="prefetch" as="script" href="${up}assets/ck-${kind}.js" data-ck-engine="${kind}">`,
+        (kind) => `<link rel="ck-engine" href="${up}assets/ck-${kind}.js" data-ck-engine="${kind}">`,
       ),
+      // fix pass (2026-10-06): no site icon → an empty one, so no page logs GET /favicon.ico 404.
+      headHtml.includes('rel="icon"') ? '' : '<link rel="icon" href="data:,">',
     ].join('');
-    const html = `<!doctype html><html lang="${escapeAttribute(page.lang)}" dir="${page.dir}"><head>${head}${links}</head><body>${page.body}</body></html>`;
+    const html = `<!doctype html><html lang="${escapeAttribute(page.lang)}" dir="${page.dir}"><head>${headHtml}${links}</head><body>${page.body}</body></html>`;
     out.push({ path: page.file, content: html });
   }
+
+  // page-defects additions (2026-10-06): each distinct picture the pages, stylesheets and heads referenced.
+  for (const asset of assetFiles.files()) out.push(asset);
 
   const homePage = rendered.find(({ route }) => route === '/') ?? rendered[0];
   out.push({

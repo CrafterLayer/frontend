@@ -4,7 +4,8 @@ import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
-import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
+// block-parts (2026-10-06): containers declare no parts, so they take no partStyles.
+import { containerCustomGroups, containerCustomProps } from '../section-custom';
 import {
   sectionAlignments,
   sectionSpacings,
@@ -41,7 +42,7 @@ export const pageFooterSchema = defineBlockSchema({
     border: z.enum(footerBorders).default('none'),
     ...sectionColorProps,
     ...sectionMotionProps,
-    ...sectionCustomProps,
+    ...containerCustomProps,
     align: z.enum(sectionAlignments).default('start'),
     tone: z.enum(sectionTones).default('transparent'),
     spacing: z.enum(sectionSpacings).default('lg'),
@@ -55,7 +56,7 @@ export const pageFooterSchema = defineBlockSchema({
     width: { tab: 'design', section: 'Layout' },
     ...sectionColorGroups,
     ...sectionMotionGroups,
-    ...sectionCustomGroups,
+    ...containerCustomGroups,
     tone: { tab: 'design', section: 'Colour' },
     border: { tab: 'design', section: 'Edge' },
     spacing: { tab: 'design', section: 'Spacing' },

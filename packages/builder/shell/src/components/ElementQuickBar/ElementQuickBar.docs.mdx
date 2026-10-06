@@ -56,3 +56,39 @@ keeps every group.
 
 User-facing strings come from `labels` (`ELEMENT_QUICK_BAR_LABELS_EN` / `_AR`); catalogue
 property and option names come from the §A.4 catalogue in the same language.
+
+{/* ── block-parts (2026-10-06) ── */}
+
+## Parts of registered blocks (block-parts DESIGN §2.14)
+
+The same bar serves a registered block's **part** — the hero's heading, its button, a feature
+card. `createPartBarModel(kernel, target, options)` implements `ElementBarModel`, so every group,
+popover and control is reused; only the door differs:
+
+- **Kind.** text and rich → text, link → link, image → media, list / item / box → container.
+  `quickGroupsForPart(kind, styleSections)` drops the groups that write free attributes
+  (direction, motion, hover preset, the attribute link editor) or named-style markers, and narrows
+  to the part's declared `styleSections`.
+- **Style writes.** `apply()` runs `planPartStyle` (the style engine in **tokens** mode, the law a
+  block's `className` keeps) into the block's `partStyles` prop at the bar's bucket, state and
+  scope (`all`, or `this` for one instance of a repeated part) — ONE `dispatchGroup`, one Undo. A
+  palette colour is refused with the engine's sentence.
+- **Values.** `alt` (image) and `href` (link) are bound props written through `planPartValue`;
+  any other attribute, and `setIcon`, are refused with a sentence (`PART_NO_ATTRIBUTES`,
+  `PART_NO_ICON`).
+- **Action row.** `resolvePartActions` / `performPartAction` (part-actions.ts): Edit text, Link
+  (`PartLinkPopover`: text + address, `safeHref`, an optional page list — one transaction through
+  `planPartLinkValue`), Add item after, Duplicate, Move up / down, Remove (from the item or any part
+  inside it, the focus following the item), This item only (scope), Direction auto / LTR / RTL
+  (`planPartDir`) and Select the whole block. Replace image and Alt text are the media groups.
+  More (`onMore` → the part's Design tab) and Edit with AI stay at the end of the bar.
+
+Props added to `ElementQuickBar`: `groups`, `partActions`, `onPartAction`, `partLink`. The part
+words live in `labels.parts` (`PART_QUICK_BAR_LABELS_EN` / `PART_QUICK_BAR_LABELS_AR`).
+
+## Narrow frames
+
+The rows wrap, and the bar is never wider than the canvas overlay (`100cqi` of `.bldr-overlay`,
+less the placement padding). At the Mobile device (390px) the actions fold onto another line
+instead of running past the frame's clip. The `MobileFrame` and `ArabicMobileFrame` stories check
+that every button stays inside a 300px frame.

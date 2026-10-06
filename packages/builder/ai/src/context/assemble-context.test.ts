@@ -13,8 +13,14 @@ import {
   BUILDER_AI_CONTEXT_PROVIDERS,
   assembleAiContext,
   estimateContextTokens,
+  // ── block-parts (2026-10-06) ──
+  BLOCK_PARTS_FRAGMENT_SOURCE,
+  // ── /block-parts ──
 } from './assemble-context';
 import { builderAiContextExtension } from './manifest';
+// ── block-parts (2026-10-06) ──
+import { partsKernel } from '../style-tools/part-tools.fixtures';
+// ── /block-parts ──
 
 function contextKernel() {
   return createBuilder({
@@ -390,3 +396,39 @@ describe('AI context assembly', () => {
     expect(context.omissions).toEqual([]);
   });
 });
+
+// ── block-parts (2026-10-06) ──
+describe('block parts in the edit context', () => {
+  function partsOf(context: ReturnType<typeof assembleAiContext>): Record<string, string> | undefined {
+    const fragment = context.fragments.find(({ source }) => source === BLOCK_PARTS_FRAGMENT_SOURCE);
+    return fragment === undefined ? undefined : (JSON.parse(fragment.body) as { parts: Record<string, string> }).parts;
+  }
+
+  it('lists each registered block type\'s parts compactly, a repeated part marked []', () => {
+    const parts = partsOf(assembleAiContext(partsKernel().context, { selection: [] }));
+    expect(parts?.['hero']).toBe('eyebrow, heading, body, trustLine');
+    expect(parts?.['features']).toBe('heading, items, item[], item.title[], item.body[], link, image');
+    expect(parts?.['cta']).toBe('button');
+    expect(parts?.['customCode']).toBeUndefined();
+  });
+
+  it('a focused edit lists only the blocks it shows, within a small budget', () => {
+    const context = assembleAiContext(partsKernel().context, {
+      selection: [],
+      composition: { documentFocus: { nodeIds: ['hero-1'], kind: 'edit' } },
+    });
+    const parts = partsOf(context);
+    expect(Object.keys(parts ?? {})).toEqual(['cta', 'hero']);
+    const fragment = context.fragments.find(({ source }) => source === BLOCK_PARTS_FRAGMENT_SOURCE);
+    expect(fragment?.body.length ?? 0).toBeLessThan(600);
+  });
+
+  it('adds nothing when no block declares parts, or when a section is being added', () => {
+    expect(partsOf(assembleAiContext(contextKernel().context))).toBeUndefined();
+    const adding = assembleAiContext(partsKernel().context, {
+      composition: { documentFocus: { nodeIds: ['hero-1'], kind: 'add-section' } },
+    });
+    expect(partsOf(adding)).toBeUndefined();
+  });
+});
+// ── /block-parts ──

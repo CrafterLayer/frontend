@@ -59,3 +59,37 @@ export const Empty: Story = {
     isCanvas: true,
   },
 };
+
+/* Block parts (DESIGN §4.4): each inner element is a part on the canvas, styled per part. */
+export const Parts: Story = {
+  args: {
+    node,
+    props: {
+      ...avatarGroupSchema.props.parse({
+        people: [
+          { name: 'Maya Chen', imageSrc: '/images/maya.jpg', initials: 'mc' },
+          { name: 'Omar Haddad', initials: 'OH' },
+        ],
+      }),
+      partStyles: {
+        'person.initials': { className: 'text-accent' },
+        'person.initials@0': { className: 'underline' },
+      },
+    },
+    slots: {},
+    data: {},
+    isCanvas: true,
+  },
+  play: async ({ canvasElement }) => {
+    const styled = canvasElement.querySelectorAll('[data-ck-part="person.initials"]');
+    await expect(styled.length).toBeGreaterThan(1);
+    await expect(styled[0]).toHaveAttribute('data-ck-bind', 'people.0.initials');
+    await expect(styled[0]).toHaveClass('underline');
+    await expect(styled[1]).toHaveClass('text-accent');
+    await expect(styled[1]).not.toHaveClass('underline');
+    await expect(canvasElement.querySelector('[data-ck-part="people"]')).toHaveAttribute(
+      'data-ck-bind',
+      'people',
+    );
+  },
+};

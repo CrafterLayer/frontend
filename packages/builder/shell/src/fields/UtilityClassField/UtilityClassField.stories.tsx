@@ -126,3 +126,8 @@ export const RefusalContract: Story = {
     });
   },
 };
+
+/** Free mode, for elements of agent trees: exact values are admitted. */
+export const FreeMode: Story = {
+  args: { value: 'flex p-[18px] bg-[#0f766e] ck-fx-glass', mode: 'free' },
+};

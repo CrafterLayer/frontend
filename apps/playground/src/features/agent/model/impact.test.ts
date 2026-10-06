@@ -741,3 +741,40 @@ describe('impactLines names a block by its words, never by a token, an enum or a
     ).toEqual([{ kind: 'removed', label: 'Section', value: 'Welcome band' }]);
   });
 });
+
+// colour-target-fix additions
+describe('a page css change reads in words, never as raw CSS (colour-target fix, 2026-10-05)', () => {
+  const KIT = (accent: string, imports: string) =>
+    `.ck-page-plan{--ck-page-plan:1}\n${imports}\n> *{--ck-ink:#1c1917;--ck-accent:${accent}}\n.ck-btn{background-color:var(--ck-accent)}\n.ck-page-plan-end{--ck-page-plan:0}`;
+  const SPLIT =
+    "@import url('https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400%3B700&display=swap');\n@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400%3B700&display=swap');";
+  const MERGED =
+    "@import url('https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400%3B700&family=IBM+Plex+Sans+Arabic:wght@400%3B700&display=swap');";
+  const withCss = (pageCss: string) =>
+    doc({ root: { id: 'root', type: 'page', props: { title: 'سارة الحلبي', pageCss }, slots: { default: [] } } });
+
+  it('a recoloured kit is «ألوان الصفحة» / "Page colours", with the page’s name', () => {
+    const before = withCss(KIT('#0f766e', SPLIT));
+    const after = withCss(KIT('#b91c1c', SPLIT));
+    expect(impactLines(before, after, arabic)).toEqual([
+      { kind: 'restyled', label: 'ألوان الصفحة', value: 'سارة الحلبي' },
+    ]);
+    expect(impactLines(before, after, english)).toEqual([
+      { kind: 'restyled', label: 'Page colours', value: 'سارة الحلبي' },
+    ]);
+  });
+
+  it('any other page css change is «تنسيق الصفحة» / "Page styling" — the owner’s regrouped imports included', () => {
+    const before = withCss(KIT('#0f766e', SPLIT));
+    const regrouped = withCss(KIT('#0f766e', MERGED));
+    expect(impactLines(before, regrouped, arabic)).toEqual([
+      { kind: 'restyled', label: 'تنسيق الصفحة', value: 'سارة الحلبي' },
+    ]);
+    const added = withCss(`${KIT('#0f766e', SPLIT)}\nh1{letter-spacing:0}`);
+    expect(impactLines(before, added, english)).toEqual([
+      { kind: 'restyled', label: 'Page styling', value: 'سارة الحلبي' },
+    ]);
+    expect(JSON.stringify(impactLines(before, added, english))).not.toMatch(/@import|ck-page-plan|letter-spacing/u);
+  });
+});
+// end colour-target-fix additions

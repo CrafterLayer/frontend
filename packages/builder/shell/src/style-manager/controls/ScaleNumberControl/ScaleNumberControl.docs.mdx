@@ -1,0 +1,30 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ScaleNumberControlStories from './ScaleNumberControl.stories';
+
+<Meta of={ScaleNumberControlStories} />
+
+# ScaleNumberControl
+
+A number on a design scale: spacing, sizes, gap, z-index, durations, rotation. It is a `spinbutton`
+with a unit menu.
+
+| Key                    | Effect                                              |
+| ---------------------- | --------------------------------------------------- |
+| ArrowUp / ArrowDown    | ±1 in the current unit                              |
+| Shift + Arrow          | ±10                                                 |
+| Alt + Arrow            | ±0.1                                                |
+| PageUp / PageDown      | the next / previous scale step                      |
+| Enter (or leaving it)  | commits what was typed; an empty field resets       |
+| Escape                 | drops the draft                                     |
+
+**Snapping.** A number that lands exactly on a step is written as that token (`16px` → `p-4`).
+Anything else becomes an exact arbitrary value (`p-[17px]`). In `tokens` mode (registered blocks)
+every write snaps to the nearest step and free units are not offered.
+
+**Models.** `spacingModel(scale)` reads spacing steps as multiples of 4px; `numberModel(scale, unit)`
+reads tokens that are already numbers (z-index, opacity, duration in ms); `namedModel(scale)` walks
+`sm`/`lg`/`xl` by position.
+
+Keywords such as `auto`, `full` and `fit` are offered in the unit menu. `mixed` shows "Mixed" for
+disagreeing targets. Labels: `SCALE_NUMBER_CONTROL_LABELS_EN` / `_AR`.

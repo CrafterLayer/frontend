@@ -1,17 +1,22 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createBuilder } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import {
   defineBlockSchema,
   type BlockRenderComponent,
+  setUtilityClassOracle,
   type BuilderDocument,
+  type CustomCodeRoot,
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
+import { TREE_FIXTURE_VOCAB, treeFixtureDocument } from '../../clipboard/tree-commands.fixture';
+import { createElementSelection } from '../../selection/element-selection';
+import { installBrowserStandIns } from '../../style-manager/test-support';
 import { LayersTree } from './LayersTree';
 
 const NullRender: BlockRenderComponent = () => null;
@@ -285,5 +290,164 @@ describe('LayersTree (006 contract §5)', () => {
     for (const row of screen.getAllByRole('treeitem')) {
       expect(row).toHaveAttribute('aria-selected', 'false');
     }
+  });
+});
+
+// ── P8-manual-editor: element rows (style-manager DESIGN.md §E) ──────────────
+
+describe('LayersTree — element trees under custom-code regions', () => {
+  beforeAll(() => {
+    installBrowserStandIns();
+    // The live compiler answers for `max-md:` in the product (see element-clipboard.test.ts).
+    setUtilityClassOracle(() => true);
+  });
+  afterAll(() => {
+    setUtilityClassOracle(undefined);
+  });
+
+  const setupTree = (dir: 'ltr' | 'rtl' = 'ltr') => {
+    const kernel = createBuilder({
+      document: treeFixtureDocument(dir),
+      extensions: [TREE_FIXTURE_VOCAB],
+      ports: { clock: fixedClock(0, 5_000), ids: seededIds('lte') },
+    });
+    const selection = createElementSelection(kernel);
+    return { kernel, selection };
+  };
+  const tree = (kernel: ReturnType<typeof setupTree>['kernel'], id: string) =>
+    kernel.getDocument().nodes[id]?.props['tree'] as unknown as CustomCodeRoot;
+  const rowByName = (name: string): HTMLElement => {
+    const row = screen
+      .getAllByRole('treeitem')
+      .find((candidate) => candidate.querySelector('.bldr-layers__preview')?.textContent === name);
+    if (row === undefined) throw new Error(`no element row previews "${name}"`);
+    return row;
+  };
+
+  it('lists each region’s elements with glyph, name and text preview, nested under the region', () => {
+    const { kernel } = setupTree();
+    render(<LayersTree kernel={kernel} />);
+    expect(rowNames()).toEqual([
+      'Page',
+      'Region',
+      'Heading',
+      'Container',
+      'Text',
+      'Text',
+      'Region',
+      'Text',
+      'Text',
+    ]);
+    const heading = rowByName('Our story');
+    expect(heading).toHaveAttribute('aria-level', '3');
+    expect(heading.querySelector('.bldr-layers__glyph')).toHaveTextContent('H2');
+    expect(rowByName('Second')).toHaveAttribute('aria-level', '4');
+  });
+
+  it('selection syncs both ways: a click focuses the element, Shift-click adds to the multi-selection', async () => {
+    const { kernel, selection } = setupTree();
+    const user = userEvent.setup();
+    render(<LayersTree kernel={kernel} selection={selection} />);
+    await user.click(rowByName('Our story'));
+    expect(kernel.context.store.getState().elementFocus).toEqual({ id: 'rA', path: [0] });
+    expect(rowByName('Our story')).toHaveAttribute('aria-selected', 'true');
+
+    await user.keyboard('{Shift>}');
+    await user.click(rowByName('Elsewhere'));
+    await user.keyboard('{/Shift}');
+    expect(selection.targets()).toHaveLength(2);
+    expect(rowByName('Elsewhere')).toHaveAttribute('aria-selected', 'true');
+    expect(rowByName('Our story')).toHaveAttribute('aria-selected', 'true');
+
+    // From outside: the canvas focuses another element — the row follows.
+    act(() => {
+      kernel.focusElement('rA', [1, 1]);
+    });
+    expect(rowByName('Second')).toHaveAttribute('aria-selected', 'true');
+    expect(rowByName('Elsewhere')).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('a keyboard-sensor drag reorders an element and is exactly one undo', async () => {
+    const { kernel } = setupTree();
+    const user = userEvent.setup();
+    render(<LayersTree kernel={kernel} />);
+    const before = kernel.transactions().length;
+    const second = within(rowByName('Second')).getByRole('button', { name: /^Drag / });
+    second.focus();
+    await user.keyboard('[Space]');
+    await user.keyboard('[ArrowUp]');
+    await user.keyboard('[Space]');
+    const card = tree(kernel, 'rA').children[1];
+    expect(card?.kind === 'element' ? card.children?.map((c) => (c.kind === 'element' ? c.text : '')) : []).toEqual([
+      'Second',
+      'First',
+    ]);
+    expect(kernel.transactions()).toHaveLength(before + 1);
+    expect(kernel.transactions().at(-1)?.command).toBe('Move · Text');
+    act(() => {
+      kernel.undo();
+    });
+    const restored = tree(kernel, 'rA').children[1];
+    expect(
+      restored?.kind === 'element' ? restored.children?.map((c) => (c.kind === 'element' ? c.text : '')) : [],
+    ).toEqual(['First', 'Second']);
+  });
+
+  it('renames inline (double-click, Enter) into the element label', async () => {
+    const { kernel } = setupTree();
+    const user = userEvent.setup();
+    render(<LayersTree kernel={kernel} />);
+    await user.dblClick(rowByName('Our story').querySelector('.bldr-layers__name')!);
+    const input = screen.getByRole('textbox', { name: 'Name for Heading' });
+    await user.type(input, 'Story title{Enter}');
+    const heading = tree(kernel, 'rA').children[0];
+    expect(heading?.kind === 'element' ? heading.label : '').toBe('Story title');
+    expect(rowNames()).toContain('Story title');
+    expect(kernel.transactions().at(-1)?.command).toBe('Rename · Story title');
+  });
+
+  it('the eye hides at the current bucket and shows it; the lock writes locked', async () => {
+    const { kernel } = setupTree();
+    const user = userEvent.setup();
+    render(<LayersTree kernel={kernel} bucket="mobile" />);
+    const eye = screen.getByRole('button', { name: 'Hide Heading on mobile' });
+    expect(eye).toHaveAttribute('aria-pressed', 'false');
+    expect(eye).toHaveTextContent('M');
+    await user.click(eye);
+    const heading = tree(kernel, 'rA').children[0];
+    expect(heading?.kind === 'element' ? heading.className : '').toContain('max-md:hidden');
+    expect(screen.getByRole('button', { name: 'Hide Heading on mobile' })).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Lock Heading' }));
+    expect(tree(kernel, 'rA').children[0]?.locked).toBe(true);
+    expect(screen.getByRole('button', { name: 'Lock Heading' })).toHaveAttribute('aria-pressed', 'true');
+    // Each switch was one transaction.
+    expect(kernel.transactions()).toHaveLength(2);
+  });
+
+  it('Delete on a focused element row removes it in one transaction', async () => {
+    const { kernel } = setupTree();
+    const user = userEvent.setup();
+    render(<LayersTree kernel={kernel} />);
+    rowByName('Elsewhere').focus();
+    await user.keyboard('{Delete}');
+    expect(tree(kernel, 'rB').children).toEqual([]);
+    expect(kernel.transactions()).toHaveLength(1);
+  });
+
+  it('the context menu duplicates and offers save-as-template', async () => {
+    const { kernel } = setupTree();
+    const user = userEvent.setup();
+    const onSaveTemplate = vi.fn();
+    render(<LayersTree kernel={kernel} onSaveTemplate={onSaveTemplate} />);
+    fireEvent.contextMenu(rowByName('Our story'));
+    await user.click(await screen.findByRole('menuitem', { name: 'Duplicate' }));
+    expect(tree(kernel, 'rA').children).toHaveLength(3);
+
+    fireEvent.contextMenu(rowByName('Elsewhere'));
+    await user.click(await screen.findByRole('menuitem', { name: 'Save as template' }));
+    expect(onSaveTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'element', name: 'Text', tree: { kind: 'root', children: [expect.objectContaining({ text: 'Elsewhere' })] } }),
+    );
   });
 });

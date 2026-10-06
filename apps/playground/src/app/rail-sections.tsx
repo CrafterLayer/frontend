@@ -78,6 +78,15 @@ const SITE = glyph(
     <path d="M12.6 2.2 13.2 4l1.8.6-1.8.6-.6 1.8-.6-1.8L10.2 4.6 12 4z" />
   </>,
 );
+/* A swatch fan: the site's colours, type and named styles (style-manager DESIGN §G). */
+const DESIGN = glyph(
+  <>
+    <path d="M3 13.5V3.2c0-.4.3-.7.7-.7h3.6c.4 0 .7.3.7.7v10.3a2.5 2.5 0 0 1-5 0Z" />
+    <path d="m8 5.2 2.6-2.6c.3-.3.7-.3 1 0l2.5 2.5c.3.3.3.7 0 1L8 12.3" />
+    <path d="M5.5 13.5h8.3c.4 0 .7-.3.7-.7V9.7c0-.4-.3-.7-.7-.7h-2.4" />
+    <circle cx="5.5" cy="13.5" r=".6" />
+  </>,
+);
 const HELP = glyph(
   <>
     <circle cx="8" cy="8" r="5.8" />
@@ -91,6 +100,8 @@ export const RAIL_SECTIONS: readonly RailItem[] = [
   { id: 'pages', label: 'Pages', icon: SITE },
   { id: 'layers', label: 'Layers', icon: LAYERS },
   { id: 'assets', label: 'Assets', icon: ASSETS },
+  /* The design system, named styles, symbols and design-library transfer (style-manager §G). */
+  { id: 'design', label: 'Design', icon: DESIGN },
   { id: 'code', label: 'Code', icon: CODE },
   { id: 'assistant', label: 'Assistant', icon: ASSISTANT },
   /*

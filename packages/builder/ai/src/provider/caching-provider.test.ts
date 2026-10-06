@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type {
+  AiPagePlanDraftEvent,
   AiPagePlanProposal,
   AiPlan,
   AiPlanProvider,
@@ -394,6 +395,45 @@ describe('createCachingAiPlanProvider — page plans and rewrites', () => {
     controller.abort();
     release?.(pagePlan);
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('passes the draft observer through on a miss, keeps it out of the key, and emits no drafts on a hit', async () => {
+    const seenLive: unknown[] = [];
+    const cached = createCachingAiPlanProvider({
+      propose: () => Promise.resolve(plan),
+      proposePagePlan: (_request, _context, live) => {
+        seenLive.push(live);
+        live?.onDraft?.({ kind: 'start' });
+        live?.onDraft?.({ kind: 'text', text: '{"version":1' });
+        return Promise.resolve(pagePlan);
+      },
+    });
+    const firstDrafts: AiPagePlanDraftEvent[] = [];
+    const first = {
+      onDraft: (event: AiPagePlanDraftEvent) => {
+        firstDrafts.push(event);
+      },
+    };
+
+    await expect(cached.proposePagePlan?.('Build my page', context(), first)).resolves.toEqual(
+      pagePlan,
+    );
+    // The very same options object reached the inner provider, observer included.
+    expect(seenLive).toEqual([first]);
+    expect(seenLive[0]).toBe(first);
+    expect(firstDrafts).toEqual([{ kind: 'start' }, { kind: 'text', text: '{"version":1' }]);
+
+    // A different observer is the same question: a hit, and the hit streams nothing.
+    const hitDrafts: AiPagePlanDraftEvent[] = [];
+    await expect(
+      cached.proposePagePlan?.('Build my page', context(), {
+        onDraft: (event) => {
+          hitDrafts.push(event);
+        },
+      }),
+    ).resolves.toEqual(pagePlan);
+    expect(seenLive).toHaveLength(1);
+    expect(hitDrafts).toEqual([]);
   });
 
   it('answers the exact same draft from memory, and asks again when anything in it differs', async () => {

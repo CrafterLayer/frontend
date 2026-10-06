@@ -1,0 +1,19 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ChoiceGroupStories from './ChoiceGroup.stories';
+
+<Meta of={ChoiceGroupStories} />
+
+# ChoiceGroup
+
+The single-choice row of the style panel: display, direction, wrap, justify, text align, position,
+the bucket and state switchers. It is a WAI-ARIA radio group with one tab stop.
+
+- Arrow keys move the choice and commit it, as a radio group does. Inline arrows follow `dir`, so in
+  an RTL group ArrowLeft moves forward. Home and End jump to the ends.
+- Clicking the option that is already checked writes nothing.
+- `mixed` (several targets disagree) checks nothing, adds "(Mixed)" to the group name and dashes
+  the frame; choosing an option writes it to every target.
+- An option with an `icon` keeps its `label` as the accessible name and tooltip.
+
+The group carries no strings of its own beyond `mixedLabel`; the caller passes translated labels.

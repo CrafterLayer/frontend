@@ -7,10 +7,12 @@ import {
   type BuilderDocument,
   type JsonValue,
   type RegisteredBlock,
+  type SiteLibrary,
 } from '@craftkit/builder-schema';
 
+import { CustomCode } from '../components/CustomCode';
 import { STATIC_BASE_CSS } from './base-css';
-import { exportStaticSite, type StaticSitePageInput } from './export-static-site';
+import { exportStaticSite, VIEW_TRANSITION_CSS, type StaticSitePageInput } from './export-static-site';
 import { routeFile } from './routes';
 
 /* A real registered schema from the kernel fixtures; the renderers are this test's own. */
@@ -151,7 +153,7 @@ describe('exportStaticSite', () => {
 
   it('shares one site.css when every page compiles alike, and splits it when they differ', async () => {
     const same = await run();
-    expect(same.file('assets/site.css')).toBe(`${STATIC_BASE_CSS}\n.p-4{padding:1rem}`);
+    expect(same.file('assets/site.css')).toBe(`${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.p-4{padding:1rem}`);
     expect(same.file('index.html')).toContain('<link rel="stylesheet" href="assets/site.css">');
     expect(same.file('قائمة-الطعام/index.html')).toContain('href="../assets/site.css"');
 
@@ -160,8 +162,8 @@ describe('exportStaticSite', () => {
     );
     const split = await run(arabicSite(), compileCss);
     expect(split.file('assets/site.css')).toBeUndefined();
-    expect(split.file('assets/home.css')).toBe(`${STATIC_BASE_CSS}\n.home{}`);
-    expect(split.file('assets/menu.css')).toBe(`${STATIC_BASE_CSS}\n.menu{}`);
+    expect(split.file('assets/home.css')).toBe(`${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.home{}`);
+    expect(split.file('assets/menu.css')).toBe(`${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.menu{}`);
     expect(split.file('قائمة-الطعام/index.html')).toContain('href="../assets/menu.css"');
   });
 
@@ -198,8 +200,10 @@ describe('exportStaticSite', () => {
     });
     const home = files.find(({ path }) => path === 'index.html')?.content ?? '';
     expect(home).toContain('<link rel="canonical" href="https://menu.example.org/">');
-    // Even an empty compile ships the base reset.
-    expect(files.find(({ path }) => path === 'assets/site.css')?.content).toBe(STATIC_BASE_CSS);
+    // Even an empty compile ships the base reset (and, on a multi-page site, the page transition).
+    expect(files.find(({ path }) => path === 'assets/site.css')?.content).toBe(
+      `${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}`,
+    );
   });
 
   it('ships the base reset: border-box sizing, no figure/blockquote margins, unstyled lists, inherited link colour', async () => {
@@ -278,5 +282,131 @@ describe('exportStaticSite', () => {
     await expect(
       exportStaticSite({ pages: [], blocks, compileCss: () => Promise.resolve('') }),
     ).rejects.toThrow(/at least one page/u);
+  });
+});
+
+/* ── style-manager (P4): library, named styles, motion, effects, transitions, smooth scroll ── */
+
+function Code({ node }: BlockRenderProps) {
+  return <CustomCode hostId={node.id} tree={node.props['tree']} />;
+}
+
+const codeRegistry: Record<string, RegisteredBlock> = {
+  ...registry,
+  code: { schema: anySchema, render: Code as NonNullable<RegisteredBlock['render']> },
+};
+
+function codeDoc(tree: JsonValue): BuilderDocument {
+  return {
+    schemaVersion: LATEST_SCHEMA_VERSION,
+    surface: 'site',
+    dir: 'rtl',
+    rootId: 'root',
+    nodes: {
+      root: { id: 'root', type: 'page', props: { title: 'الرئيسية', lang: 'ar' }, slots: { default: ['c'] } },
+      c: { id: 'c', type: 'code', props: { tree } },
+    },
+  };
+}
+
+const animatedTree: JsonValue = {
+  kind: 'root',
+  children: [
+    { kind: 'element', tag: 'h1', text: 'مرحبا', attributes: { 'data-ck-motion': 'fade-up' } },
+    { kind: 'element', tag: 'a', text: 'اطلب', attributes: { href: '/menu', 'data-ck-hover': 'lift' } },
+    { kind: 'element', tag: 'div', className: 'ck-fx-glass ck-s-card p-2', text: 'بطاقة' },
+  ],
+};
+const plainTree: JsonValue = { kind: 'root', children: [{ kind: 'element', tag: 'p', text: 'قائمة' }] };
+
+const designLibrary: SiteLibrary = {
+  styles: { card: { id: 'card', name: 'Card', className: 'rounded-lg p-6 bg-accent' } },
+  settings: { smoothScroll: true },
+};
+
+async function exportCode(
+  pages: { address: string; tree: JsonValue }[],
+  extra: Partial<Parameters<typeof exportStaticSite>[0]> = {},
+) {
+  const { files } = await exportStaticSite({
+    pages: pages.map(({ address, tree }, at) => ({ pageId: `p${String(at)}`, address, document: codeDoc(tree) })),
+    blocks: (type: string) => codeRegistry[type],
+    compileCss: () => Promise.resolve(''),
+    ...extra,
+  });
+  return (path: string) => files.find((candidate) => candidate.path === path)?.content;
+}
+
+describe('exportStaticSite — design library and motion', () => {
+  it('expands named styles, and ships only the presets, hovers and effects the site uses', async () => {
+    const file = await exportCode(
+      [
+        { address: '/', tree: animatedTree },
+        { address: '/menu', tree: plainTree },
+      ],
+      { library: designLibrary },
+    );
+    const home = file('index.html') ?? '';
+    const card = /<div class="([^"]*)"[^>]*>بطاقة/u.exec(home)?.[1]?.split(' ') ?? [];
+    expect(card).toContain('ck-s-card');
+    expect(card).toContain('rounded-lg');
+    expect(card).toContain('p-2');
+    expect(card).not.toContain('p-6');
+
+    const motion = file('assets/ck-motion.css') ?? '';
+    expect(motion).toContain("[data-ck-motion='fade-up']");
+    expect(motion).toContain("[data-ck-hover='lift']");
+    expect(motion).toContain('.ck-fx-glass');
+    expect(motion).not.toContain("[data-ck-motion='fade-down']");
+    expect(motion).not.toContain('.ck-fx-mesh');
+
+    expect(home).toContain('<link rel="stylesheet" href="assets/ck-motion.css">');
+    expect(home).toContain('<script defer src="assets/ck-behaviors.js"></script>');
+    const menu = file('menu/index.html') ?? '';
+    expect(menu).not.toContain('ck-motion.css');
+    expect(menu).not.toContain('ck-behaviors.js');
+  });
+
+  it('adds the cross-fade page transition to a multi-page site, and the opt-in smooth scroll', async () => {
+    const file = await exportCode(
+      [
+        { address: '/', tree: animatedTree },
+        { address: '/menu', tree: plainTree },
+      ],
+      { library: designLibrary },
+    );
+    expect(file('assets/site.css')).toContain('@view-transition');
+    const smooth = file('assets/ck-smooth-scroll.js') ?? '';
+    expect(smooth).toContain('MIT License');
+    expect(smooth).toContain('Lenis');
+    expect(smooth).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
+    expect(file('index.html')).toContain('<script defer src="assets/ck-smooth-scroll.js"></script>');
+    expect(file('menu/index.html')).toContain('<script defer src="../assets/ck-smooth-scroll.js"></script>');
+    expect(file('assets/site.css')).toContain('html.lenis');
+  });
+
+  it('ships none of it when nothing asks: one page, no library, no motion', async () => {
+    const file = await exportCode([{ address: '/', tree: plainTree }]);
+    expect(file('assets/ck-motion.css')).toBeUndefined();
+    expect(file('assets/ck-smooth-scroll.js')).toBeUndefined();
+    expect(file('assets/ck-behaviors.js')).toBeUndefined();
+    expect(file('assets/site.css')).toBe(STATIC_BASE_CSS);
+    const turnedOff = await exportCode(
+      [
+        { address: '/', tree: plainTree },
+        { address: '/menu', tree: plainTree },
+      ],
+      { library: { settings: { pageTransitions: false } } },
+    );
+    expect(turnedOff('assets/site.css')).not.toContain('@view-transition');
+  });
+
+  it('compiles the classes the RENDERED page carries, so expanded named styles get CSS', async () => {
+    const compileClasses = vi.fn((names: Iterable<string>) =>
+      Promise.resolve([...names].includes('rounded-lg') ? '.rounded-lg{border-radius:.5rem}' : ''),
+    );
+    const file = await exportCode([{ address: '/', tree: animatedTree }], { library: designLibrary, compileClasses });
+    expect(compileClasses).toHaveBeenCalled();
+    expect(file('assets/site.css')).toContain('.rounded-lg{border-radius:.5rem}');
   });
 });

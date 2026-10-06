@@ -1,4 +1,4 @@
-import type { NodeId } from '@craftkit/builder-schema';
+import type { CustomCodePath, NodeId } from '@craftkit/builder-schema';
 
 import type { FloatingAnchor, FloatingBox } from './floating-position';
 import type { FrameBridge } from './frame-bridge';
@@ -19,7 +19,11 @@ import type { RectIndex } from '../rects';
  * know when geometry changed.
  */
 export interface AnchorSnapshot {
-  /** The selected node's rect in layer-local space, when it has one. */
+  /**
+   * The selected node's rect in layer-local space, when it has one — or, with
+   * an element focused inside it, that ELEMENT's rect (the quick bar anchors
+   * to the element, never the region around it).
+   */
   block: FloatingBox | null;
   /** The current text selection's anchor, when an inline edit reports one. */
   text: FloatingAnchor | null;
@@ -40,8 +44,12 @@ export interface AnchorChannelOptions {
 }
 
 export interface AnchorChannel {
-  /** The node whose rect feeds `block`; null clears it. */
-  setBlock: (nodeId: NodeId | null) => void;
+  /**
+   * The node whose rect feeds `block`; null clears it. With an element path
+   * the element's rect feeds it instead, falling back to the node's own rect
+   * when the path no longer resolves on the canvas.
+   */
+  setBlock: (nodeId: NodeId | null, elementPath?: CustomCodePath | null) => void;
   /**
    * A LIVE measurement of the inline editor's current selection, in FRAME
    * coordinates. Geometry is read during every flush rather than retained as
@@ -56,12 +64,16 @@ export interface AnchorChannel {
 export function createAnchorChannel(options: AnchorChannelOptions): AnchorChannel {
   const { index, bridge, schedule, onSnapshot } = options;
   let blockId: NodeId | null = null;
+  let blockPath: CustomCodePath | null = null;
+  let blockKey = '';
   let measureText: (() => FloatingAnchor | null) | null = null;
   let cancel: (() => void) | null = null;
   let disposed = false;
 
   const compute = (): AnchorSnapshot => {
-    const rect = blockId === null ? undefined : index.rect(blockId);
+    const elementRect =
+      blockId === null || blockPath === null ? undefined : index.elementRect?.(blockId, blockPath);
+    const rect = elementRect ?? (blockId === null ? undefined : index.rect(blockId));
     return {
       block:
         rect === undefined
@@ -94,11 +106,15 @@ export function createAnchorChannel(options: AnchorChannelOptions): AnchorChanne
   const offInvalidate = index.onInvalidate(markDirty);
 
   return {
-    setBlock: (nodeId) => {
-      if (blockId === nodeId) {
+    setBlock: (nodeId, elementPath) => {
+      const path = nodeId === null || elementPath === undefined || elementPath === null ? null : elementPath;
+      const key = nodeId === null ? '' : `${nodeId}\n${path === null ? '' : path.join('.')}`;
+      if (blockKey === key) {
         return;
       }
+      blockKey = key;
       blockId = nodeId;
+      blockPath = path === null ? null : [...path];
       markDirty();
     },
     setText: (measure) => {

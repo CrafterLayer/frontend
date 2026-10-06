@@ -1,0 +1,180 @@
+.bldr-symbols {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-lg);
+}
+
+.bldr-symbols__title {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-body);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-symbols__subtitle {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-symbols__muted,
+.bldr-symbols__label,
+.bldr-symbols__count {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-symbols__make,
+.bldr-symbols__instance {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  padding: var(--bldr-space-sm);
+}
+
+.bldr-symbols__input,
+.bldr-symbols__field {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-symbols__field--mono {
+  font-family: var(--bldr-font-mono);
+}
+
+.bldr-symbols__list,
+.bldr-symbols__overrides,
+.bldr-symbols__outline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-symbols__row {
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  padding: var(--bldr-space-sm);
+}
+
+.bldr-symbols__row[data-open='true'] {
+  border-color: var(--bldr-accent);
+}
+
+.bldr-symbols__head {
+  align-items: center;
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bldr-symbols__actions,
+.bldr-symbols__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-symbols__confirm {
+  background: var(--bldr-warning-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-warning-border);
+  border-radius: var(--bldr-radius-sm);
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-symbols__confirm-text {
+  color: var(--bldr-panel-text);
+  flex-basis: 100%;
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-symbols__override {
+  align-items: center;
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.bldr-symbols__override-what {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-symbols__badge {
+  background: var(--bldr-warning-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-warning-border);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-micro);
+  margin-inline-start: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-symbols__node {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-symbols__node-name {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.bldr-symbols__button {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-symbols__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.bldr-symbols__button--danger {
+  color: var(--bldr-danger);
+}
+
+.bldr-symbols__button:focus-visible,
+.bldr-symbols__input:focus-visible,
+.bldr-symbols__field:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-symbols__status {
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+  min-block-size: 1em;
+}
+
+.bldr-symbols__status[data-kind='refused'] {
+  color: var(--bldr-danger);
+}

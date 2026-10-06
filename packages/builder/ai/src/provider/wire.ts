@@ -119,17 +119,43 @@ export type AiPlanWireResponse =
  *   event: status
  *   data: {"text": "Reading the catalog…"}     (any number of these)
  *
+ *   event: draft                                (page plans only, optional)
+ *   data: {"text": "{\"version\":1,\"rationale\":…"}  (any number of these)
+ *
  *   event: result
  *   data: <AiPlanWireResponse>                  (exactly one, then the stream ends)
  *
  * `status` text feeds the UI's live narration; `result` is validated exactly
- * like the plain JSON body. A server that ignores the accept header and
+ * like the plain JSON body. `draft` frames (see `AiPlanWireDraft`) carry the
+ * model's raw answer text while it is written. A server that ignores the accept header and
  * answers plain JSON remains fully conformant. Aborting the request is the
  * cancellation signal — a server should stop the underlying work when the
  * connection closes.
  */
 export interface AiPlanWireStatus {
   text: string;
+}
+
+/**
+ * The OPTIONAL `draft` SSE frame (2026-10-05, additive to wire v1): the raw
+ * text of a `task: 'page-plan'` answer while the model writes it, so the client
+ * can act on each finished part of the plan before the whole answer arrives.
+ *
+ * - `{ "text": "…" }`: the next slice of the answer, in order; the slices
+ *   concatenate to the model's raw output (which may differ from the `result`
+ *   after the server's salvage and repairs).
+ * - `{ "reset": true }`: the answer starts over (e.g. the server fell back to
+ *   another model mid-stream) — forget every earlier slice.
+ *
+ * Advisory only: the `result` frame is the authority. A client ignores any
+ * other payload and any draft after the result (neither is a protocol error),
+ * and a client written before drafts ignores the event entirely. A server may
+ * send none (`CRAFTKIT_AI_PLAN_DRAFTS=off`, or a plain JSON answer). Only the
+ * page-plan task carries drafts; the client ignores them on every other task.
+ */
+export interface AiPlanWireDraft {
+  text?: string;
+  reset?: true;
 }
 
 // ── the page-plan task (2026-09-28) ─────────────────────────────────────────
@@ -152,7 +178,9 @@ export interface AiPagePlanWireResult {
  * the same `status` frames as a plan (see `AiPlanWireStatus`).
  *
  * THE SERVER'S OUTPUT CONTRACT — copy this block. Answer with exactly one JSON
- * object and nothing around it:
+ * object and nothing around it. This is the COMPACT form (2026-10-05, fast
+ * page build); the server's `PAGE_PLAN_EXAMPLE` (apps/ai-server plan-shape.ts)
+ * is this exact JSON, and tests compare the two:
  *
  *   BEGIN PAGE PLAN WIRE EXAMPLE
  *   {
@@ -163,48 +191,27 @@ export interface AiPagePlanWireResult {
  *       "locale": { "lang": "en", "dir": "ltr" },
  *       "title": "Cardamom Roasters — specialty coffee in Amman",
  *       "description": "Small-batch coffee roasted every morning in Amman, delivered fresh.",
- *       "tokens": {
- *         "bg": "#f7fee7",
- *         "surface": "#ffffff",
- *         "ink": "#022c22",
- *         "muted": "#065f46",
- *         "accent": "#c2410c",
- *         "onAccent": "#ffffff",
- *         "accentInk": "#c2410c",
- *         "border": "#d9f99d",
- *         "fontDisplay": { "family": "Fraunces", "weights": [600, 700] },
- *         "fontBody": { "family": "Instrument Sans", "weights": [400, 500] },
- *         "radius": "xl",
- *         "signature": "The brand name at text-8xl, faint behind the menu.",
- *         "deckRowId": "cafe"
- *       },
+ *       "tokens": { "deckRowId": "cafe", "signature": "The brand name at text-8xl, faint behind the menu." },
  *       "primaryCta": { "label": "Order beans", "href": "#order" },
- *       "nav": [
- *         { "label": "Menu", "anchorId": "menu" },
- *         { "label": "Order", "anchorId": "order" }
- *       ],
  *       "sections": [
- *         { "key": "header", "role": "header", "title": "Header", "anchorId": "top",
- *           "purpose": "Brand and navigation." },
- *         { "key": "hero", "role": "hero", "title": "Roasted this morning", "anchorId": "hero",
- *           "purpose": "Say what the roastery is and invite the first order.",
- *           "mustSay": ["Roasted daily in Amman"], "mustNotRepeat": [], "variant": "split",
- *           "kit": "hero-split",
+ *         { "key": "header", "role": "header", "title": "Header" },
+ *         { "key": "hero", "role": "hero", "title": "Roasted this morning", "variant": "split" },
+ *         { "key": "menu", "role": "band", "title": "Menu", "variant": "menu", "nav": "Menu" },
+ *         { "key": "order", "role": "cta", "title": "Order", "variant": "cta-split", "nav": "Order" },
+ *         { "key": "footer", "role": "footer", "title": "Footer", "variant": "footer" }
+ *       ],
+ *       "briefs": [
+ *         { "key": "hero", "purpose": "Say what the roastery is and invite the first order.",
+ *           "mustSay": ["Roasted daily in Amman"],
  *           "images": [{ "subject": "cafe", "aspect": "landscape", "alt": "Freshly roasted coffee beans" }] },
- *         { "key": "menu", "role": "band", "title": "Menu", "anchorId": "menu",
- *           "purpose": "The drinks and beans, with prices.",
- *           "mustSay": [], "mustNotRepeat": ["Roasted daily in Amman"], "variant": "menu",
- *           "kit": "menu-list" },
- *         { "key": "order", "role": "cta", "title": "Order", "anchorId": "order",
- *           "purpose": "One clear way to order.", "variant": "cta-split", "kit": "cta-split",
+ *         { "key": "menu", "purpose": "The drinks and beans, with prices.",
+ *           "mustNotRepeat": ["Roasted daily in Amman"],
+ *           "facts": [{ "key": "price-espresso", "sample": "JOD 1.50" }] },
+ *         { "key": "order", "purpose": "One clear way to order.",
  *           "slots": { "title": "Fresh beans, delivered in Amman",
  *             "cta": { "label": "Order beans", "href": "#order" } } },
- *         { "key": "footer", "role": "footer", "title": "Footer", "anchorId": "footer",
- *           "purpose": "Address, hours and contact.", "variant": "footer" }
- *       ],
- *       "facts": [
- *         { "key": "phone", "sample": "+962 7 9000 0000", "section": "order" },
- *         { "key": "price-espresso", "sample": "JOD 1.50", "section": "menu" }
+ *         { "key": "footer", "purpose": "Address, hours and contact.",
+ *           "facts": [{ "key": "phone", "sample": "+962 6 461 2750" }] }
  *       ],
  *       "seo": { "keyword": "specialty coffee Amman", "pageKind": "home",
  *         "businessType": "CafeOrCoffeeShop", "slug": "specialty-coffee-amman" }
@@ -212,23 +219,78 @@ export interface AiPagePlanWireResult {
  *   }
  *   END PAGE PLAN WIRE EXAMPLE
  *
+ * KEY ORDER is part of the contract — it is what lets the client act on the
+ * answer while it streams (the `draft` frames, `AiPlanWireDraft`): the
+ * skeleton lands when `sections` closes, and each section's writer starts when
+ * its brief closes. `rationale`, then inside `pagePlan`: intent, locale,
+ * title, description, tokens, primaryCta, [nav], sections, briefs, [facts],
+ * seo.
+ *
+ * `validatePagePlan` accepts three shapes and normalises all of them to one
+ * `PagePlan`: the classic plan (every field written out on each section, full
+ * tokens, top-level nav and facts — still valid, unchanged), the compact plan
+ * above, and any mix. The compact form expands first (`expandCompactPagePlan`:
+ * total, pure, idempotent, never throws, leaves a classic plan untouched):
+ *
+ * 1. tokens: when `tokens.deckRowId` names a DIRECTION_DECK_ROWS row, every
+ *    token NOT written is filled from it — bg = ground, surface = card, ink,
+ *    muted, accent, onAccent, accentInk (shade names, resolved to hex);
+ *    border = mix(bg, muted, 0.2) as "#rrggbb"; fontDisplay / fontBody = the
+ *    row's arabic pair when locale.lang starts with "ar", else its latin pair;
+ *    radius = "xl"; signature = the row's. A token the model DID write wins
+ *    (contrast is still checked). No deckRowId → tokens in full, as before.
+ * 2. sections (the outline): anchorId defaults to key; mustSay / mustNotRepeat
+ *    default to []; kit defaults from variant; a `nav` string on a section is
+ *    its nav label.
+ * 3. briefs: each brief merges into the section with the same key (purpose,
+ *    mustSay, mustNotRepeat, images, slots, and variant / kit when given — the
+ *    brief's value wins). brief.facts ([{ key, sample }]) are appended to the
+ *    top-level facts with section = the brief's key. A brief whose key names
+ *    no section is dropped with a warning. `briefs` is removed after merging.
+ * 4. purpose: a header or footer without a brief gets purpose = title. Any
+ *    other section still without one gets purpose = title with a WARNING
+ *    (never an issue — a thin contract beats a repair round).
+ * 5. nav: when the top-level `nav` is absent, it is built from the outline
+ *    sections carrying `nav`, in page order ([] without a header). A
+ *    top-level `nav` wins and section labels are ignored.
+ * 6. facts absent → [].
+ *
+ * Code repairs (client, after expansion; each is a warning, never an issue,
+ * so no model repair round is spent on what code can fix):
+ * - an unknown variant is dropped;
+ * - a kit on the header or footer, or one that does not fit, is dropped;
+ * - Tailwind shade names in tokens become hex;
+ * - a fact sample holding a placeholder run ("XXXX") is filled, exactly as the
+ *   server's fillPlaceholderSample does;
+ * - a masked digit run (a digit repeated 6+ times, 1234567, 7654321) in a fact
+ *   sample, the primaryCta href or a slot string is refilled in place from
+ *   "4612750389" (separators kept), the same way everywhere, so equal masks
+ *   stay equal.
+ *
  * Field rules (the client refuses anything else, with a repair instruction):
  * - intent: "new-page" | "replace" | "append" (the host may override it).
  * - locale.lang: BCP 47 ("ar", "en"); dir follows the language.
- * - tokens colours: "#rrggbb", or a Tailwind shade from the direction deck
- *   ("orange-700"). ink and muted must read ≥ 4.5:1 on bg AND surface,
- *   onAccent on accent, accentInk on bg AND surface (omit accentInk to let the
- *   client use the accent when it reads, else the ink).
+ * - tokens: { deckRowId, signature }, plus a colour or font key ONLY when the
+ *   person named one; with no fitting deck row, the full set. Colours:
+ *   "#rrggbb" or a Tailwind shade from the direction deck ("orange-700"). ink
+ *   and muted must read ≥ 4.5:1 on bg AND surface, onAccent on accent,
+ *   accentInk on bg AND surface (omit accentInk to let the client use the
+ *   accent when it reads, else the ink).
  * - fonts: a VERIFIED_FONT_FAMILIES family, weights it ships; Arabic-capable
  *   faces only on an Arabic page. "url" may be omitted — the client builds it.
- * - radius: "none" | "md" | "xl" | "full". deckRowId: a DIRECTION_DECK_ROWS id, or omit.
- * - sections: 2..12, in page order. key and anchorId: unique slugs
- *   ([a-z][a-z0-9-]*, Latin even on an Arabic page). role: "header" (first,
- *   at most one) | "hero" (exactly one, first or right after the header) |
- *   "band" | "cta" | "footer" (last, at most one); an "append" plan uses band
- *   and cta only. variant: a SECTION_VARIANTS id, or omit. mustSay /
- *   mustNotRepeat: ≤ 6 short strings each. images: ≤ 4, subject a photo
- *   catalog topic, aspect "landscape" | "portrait" | "square".
+ * - radius: "none" | "md" | "xl" | "full".
+ * - sections: 2..12, in page order, each { key, role, title, [variant],
+ *   [nav] } (classic fields such as anchorId, purpose and kit are still
+ *   accepted here). key (and anchorId): unique slugs ([a-z][a-z0-9-]*, Latin
+ *   even on an Arabic page). role: "header" (first, at most one) | "hero"
+ *   (exactly one, first or right after the header) | "band" | "cta" |
+ *   "footer" (last, at most one); an "append" plan uses band and cta only.
+ *   variant: a SECTION_VARIANTS id, or omit.
+ * - briefs: one per section in page order, except the header (the footer's is
+ *   optional and carries contact facts): { key, purpose, [mustSay],
+ *   [mustNotRepeat], [images], [slots], [facts] }. mustSay / mustNotRepeat:
+ *   ≤ 6 short strings each. images: ≤ 4, subject a photo catalog topic,
+ *   aspect "landscape" | "portrait" | "square".
  * - kit (2026-09-30): a section-kit id whose role fits the section (a hero
  *   kit for the hero, a closing kit for a cta; none on the header or
  *   footer). Omitted with a known variant → that variant's default kit; one
@@ -240,10 +302,11 @@ export interface AiPagePlanWireResult {
  *   "menu" | "product" | "service" | "about" | "contact" | "article" |
  *   "landing"), businessType (a schema.org type, optional), slug (optional;
  *   normalised by seoSlug, Arabic kept) }.
- * - nav[].anchorId and a "#…" primaryCta.href name a section's anchorId; an
- *   external href is https:, mailto: or tel:.
+ * - nav anchors and a "#…" primaryCta.href name a section's anchorId (its key
+ *   by default); an external href is https:, mailto: or tel:.
  * - facts: every invented, owner-replaceable value (phone, price, address,
- *   hours), each tied to the section key that shows it.
+ *   hours), inside the brief of the section that shows it, complete and
+ *   realistic — never a mask.
  * - All prose (titles, purpose, labels, alt, samples) in the page language.
  */
 export type AiPagePlanWireResponse =
@@ -376,7 +439,9 @@ export function aiPromptEnhanceWireRequest(
     text: input.text,
     locale: input.locale,
     intent:
-      input.intent === null ? null : { kind: input.intent.kind, confidence: input.intent.confidence },
+      input.intent === null
+        ? null
+        : { kind: input.intent.kind, confidence: input.intent.confidence },
     page: {
       empty: input.page.empty,
       sections: input.page.sections.slice(0, AI_PROMPT_ENHANCE_MAX_SECTIONS),

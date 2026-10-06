@@ -407,6 +407,8 @@ class Answer {
     private readonly model: string,
     private readonly narrator: RunNarrator,
     private readonly report: (text: string) => void,
+    /** Each piece of the answer as it arrives (`stream.on('text')`): a page plan's drafts. */
+    private readonly onText: (text: string) => void,
   ) {}
 
   take(data: string): void {
@@ -454,6 +456,7 @@ class Answer {
     if (typeof delta['content'] === 'string' && delta['content'] !== '') {
       this.text += delta['content'];
       this.narrator.addText(delta['content'].length);
+      this.onText(delta['content']);
     }
     if (typeof delta['refusal'] === 'string') this.refusal += delta['refusal'];
   }
@@ -517,6 +520,7 @@ async function runChat(
   options: OpenRouterClientOptions,
   signal: AbortSignal | undefined,
   report: (text: string) => void,
+  onText: (text: string) => void,
 ): Promise<Anthropic.Message> {
   const onLog = options.onLog ?? ((): void => undefined);
   const fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
@@ -529,7 +533,7 @@ async function runChat(
 
   const startedAt = Date.now();
   const narrator = new RunNarrator(report, startedAt);
-  const answer = new Answer(model, narrator, report);
+  const answer = new Answer(model, narrator, report, onText);
   /*
     The clock speaks only when the model does not: a model that reasons
     aloud narrates itself, and a status line that alternates between its
@@ -699,6 +703,9 @@ export function createOpenRouterClient(options: OpenRouterClientOptions): Anthro
       options,
       requestOptions.signal,
       report,
+      (text) => {
+        listeners.get('text')?.(text);
+      },
     );
     return {
       on: (event: string, listener: (delta: string) => void) => {

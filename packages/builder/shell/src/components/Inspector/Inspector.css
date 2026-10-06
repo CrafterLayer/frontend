@@ -368,3 +368,151 @@
     transition: none;
   }
 }
+
+/* ── P6-style-panel additions (style-manager DESIGN.md §A.5) ─────────────── */
+
+.bldr-inspector__element-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-inspector__element-tablist {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-sm);
+  display: flex;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-2xs);
+}
+
+.bldr-inspector__element-tab {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  /* Sized by its label: "Interactions" takes the room it needs and the short
+     tabs give way, so no label is elided at the panel's usual width. */
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-inline: var(--bldr-space-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-inspector__element-tab[data-state='active'] {
+  background: var(--bldr-surface-raised);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-inspector__element-tab:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-inspector__element-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-inspector__element-panel:focus-visible {
+  outline: none;
+}
+
+.bldr-inspector__element-note {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-inspector__advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+}
+
+.bldr-inspector__advanced-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+.bldr-inspector__advanced-label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-inspector__advanced-select,
+.bldr-inspector__convert-button {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-inspector__convert-button {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-strong);
+  cursor: pointer;
+}
+
+.bldr-inspector__advanced-select:focus-visible,
+.bldr-inspector__convert-button:focus-visible,
+.bldr-inspector__named-style-remove:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-inspector__convert {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  margin-block-end: var(--bldr-space-sm);
+}
+
+.bldr-inspector__named-styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bldr-inspector__named-style {
+  align-items: center;
+  background: var(--bldr-success-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-success-border);
+  border-radius: var(--bldr-radius-full);
+  display: inline-flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-2xs);
+}
+
+.bldr-inspector__named-style-remove {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: var(--bldr-control-sm);
+}
+
+/* ── end P6-style-panel additions ── */

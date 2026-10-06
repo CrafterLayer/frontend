@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createHandler } from './handler';
+import { DRAFT_FLUSH_CHARS, DRAFT_FLUSH_MS, createHandler } from './handler';
 import { createOpenRouterClient, type OpenRouterFetch } from './openrouter-client';
 import { PAGE_PLAN_ANSWER_SCHEMA, PAGE_PLAN_EXAMPLE } from './plan-shape';
 import { PAGE_PLAN_CONTRACT_MARK } from './prompt';
@@ -727,6 +727,30 @@ describe('per-call reasoning budget', () => {
     expect(params[0]).toMatchObject({ thinking: { type: 'disabled' } });
   });
 
+  it('turns thinking off for a build scaffold (the fallback after a refused page plan)', async () => {
+    const { client, params, seen } = recordingClient();
+    const handle = createHandler({ client, sectionEffort: 'low' });
+    const scaffold = wireBody({
+      context: {
+        ...(wireBody() as { context: Record<string, unknown> }).context,
+        skills: [
+          {
+            id: 'craftkit.build-scaffold',
+            version: '1.0.0',
+            contentFingerprint: 'x',
+            reason: 'explicit',
+          },
+        ],
+      },
+    });
+
+    await handle(post(scaffold));
+
+    expect(params[0]).toMatchObject({ thinking: { type: 'disabled' } });
+    // The section budget is a writer's, not the scaffold's.
+    expect((seen[0] as { headers?: unknown }).headers).toBeUndefined();
+  });
+
   it('turns thinking off for an edit that asked for low effort', async () => {
     const { client, params } = recordingClient();
     const handle = createHandler({ client });
@@ -1367,5 +1391,185 @@ describe('the prompt enhancer route', () => {
       }),
     );
     expect(unknownPath.status).toBe(404);
+  });
+});
+
+/*
+  Page-plan drafts (DESIGN §5.1, 2026-10-05). A streamed page plan also
+  carries the model's raw text while it is written, as `event: draft` frames,
+  so the client can land the skeleton and start each section writer on the
+  part of the plan that has closed. Coalesced (every DRAFT_FLUSH_MS, or at
+  DRAFT_FLUSH_CHARS), always flushed before the one `result`; a backend that
+  starts over sends `{reset: true}` and the unsent text is dropped. Unary
+  answers and every other task are exactly as before.
+*/
+describe('page-plan drafts', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const ANSWER = JSON.stringify({
+    rationale: PAGE_PLAN_EXAMPLE.rationale,
+    pagePlan: PAGE_PLAN_EXAMPLE.pagePlan,
+  });
+
+  /** A backend the test writes through by hand, answering when released. */
+  function liveClient(text: string = ANSWER) {
+    const listeners = new Map<string, (...args: string[]) => void>();
+    const subscribed: string[] = [];
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const client = {
+      messages: {
+        stream: () => ({
+          on: (event: string, listener: (...args: string[]) => void) => {
+            subscribed.push(event);
+            listeners.set(event, listener);
+          },
+          finalMessage: async () => {
+            await released;
+            return {
+              stop_reason: 'end_turn',
+              stop_details: null,
+              content: [{ type: 'text', text }],
+              usage: { input_tokens: 900, output_tokens: 700 },
+            };
+          },
+        }),
+      },
+    } as unknown as Anthropic;
+    return {
+      client,
+      subscribed,
+      write: (delta: string) => {
+        // The SDK's (delta, snapshot); only the delta may become a draft.
+        listeners.get('text')?.(delta, `snapshot:${delta}`);
+      },
+      restart: () => {
+        listeners.get('restart')?.();
+      },
+      release: () => {
+        release();
+      },
+    };
+  }
+
+  interface Frame {
+    readonly event: string;
+    readonly data: unknown;
+  }
+
+  function framesOf(body: string): Frame[] {
+    return [...body.matchAll(/event: (\w+)\ndata: (.*)\n\n/gu)].map((match) => ({
+      event: match[1] ?? '',
+      data: JSON.parse(match[2] ?? 'null') as unknown,
+    }));
+  }
+
+  function pagePlanBody(overrides: Record<string, unknown> = {}): unknown {
+    return wireBody({ request: 'Build a page for my roastery', task: 'page-plan', ...overrides });
+  }
+
+  const STREAM = { accept: 'text/event-stream' };
+
+  it('sends the coalesced draft text before exactly one result', async () => {
+    const live = liveClient();
+    const response = await createHandler({ client: live.client })(post(pagePlanBody(), STREAM));
+    const pieces = ANSWER.match(/[\s\S]{1,7}/gu) ?? [];
+    for (const piece of pieces) live.write(piece);
+    live.release();
+
+    const frames = framesOf(await new Response(response.body).text());
+    const drafts = frames.filter((entry) => entry.event === 'draft');
+    const results = frames.filter((entry) => entry.event === 'result');
+
+    expect(drafts.length).toBeGreaterThan(0);
+    // Coalesced: far fewer frames than deltas.
+    expect(drafts.length).toBeLessThan(pieces.length);
+    expect(drafts.map((entry) => (entry.data as { text: string }).text).join('')).toBe(ANSWER);
+    expect(results).toHaveLength(1);
+    expect(frames.at(-1)?.event).toBe('result');
+    expect(results[0]?.data).toMatchObject({ version: 1, pagePlan: PAGE_PLAN_EXAMPLE.pagePlan });
+  });
+
+  it(`flushes every ${String(DRAFT_FLUSH_MS)} ms or at ${String(DRAFT_FLUSH_CHARS)} characters`, async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const live = liveClient();
+    const response = await createHandler({ client: live.client })(post(pagePlanBody(), STREAM));
+    const long = 'x'.repeat(DRAFT_FLUSH_CHARS);
+
+    live.write('ab');
+    await vi.advanceTimersByTimeAsync(DRAFT_FLUSH_MS - 1);
+    live.write('cd');
+    await vi.advanceTimersByTimeAsync(1);
+    live.write('ef');
+    live.write(long);
+    live.write('gh');
+    live.release();
+
+    const drafts = framesOf(await new Response(response.body).text())
+      .filter((entry) => entry.event === 'draft')
+      .map((entry) => entry.data);
+    expect(drafts).toEqual([{ text: 'abcd' }, { text: `ef${long}` }, { text: 'gh' }]);
+  });
+
+  it('drops the unsent text on a reset and says {reset: true}', async () => {
+    const live = liveClient();
+    const response = await createHandler({ client: live.client })(post(pagePlanBody(), STREAM));
+
+    live.write('{"from":"the failed model');
+    live.restart();
+    live.write('{"from":"cli"}');
+    live.release();
+
+    const frames = framesOf(await new Response(response.body).text());
+    expect(frames.filter((entry) => entry.event !== 'status').map((entry) => entry.data)).toEqual([
+      { reset: true },
+      { text: '{"from":"cli"}' },
+      expect.objectContaining({ version: 1 }),
+    ]);
+  });
+
+  it('sends no drafts when the deployment turned them off', async () => {
+    const live = liveClient();
+    const response = await createHandler({ client: live.client, planDrafts: false })(
+      post(pagePlanBody(), STREAM),
+    );
+    live.write('{"rationale"');
+    live.release();
+
+    const frames = framesOf(await new Response(response.body).text());
+    expect(frames.some((entry) => entry.event === 'draft')).toBe(false);
+    expect(frames.filter((entry) => entry.event === 'result')).toHaveLength(1);
+    expect(live.subscribed).not.toContain('text');
+  });
+
+  it('sends no drafts for an ordinary plan', async () => {
+    const live = liveClient(JSON.stringify(PLAN));
+    const response = await createHandler({ client: live.client })(post(wireBody(), STREAM));
+    live.write('{"rationale"');
+    live.release();
+
+    const frames = framesOf(await new Response(response.body).text());
+    expect(frames.some((entry) => entry.event === 'draft')).toBe(false);
+    expect(frames.filter((entry) => entry.event === 'result')).toHaveLength(1);
+    expect(live.subscribed).not.toContain('text');
+  });
+
+  it('answers a unary page plan exactly as before, with no draft subscription', async () => {
+    const live = liveClient();
+    const pending = createHandler({ client: live.client })(post(pagePlanBody()));
+    live.release();
+    const response = await pending;
+
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(await response.json()).toEqual({
+      version: 1,
+      rationale: PAGE_PLAN_EXAMPLE.rationale,
+      pagePlan: PAGE_PLAN_EXAMPLE.pagePlan,
+    });
+    expect(live.subscribed).not.toContain('text');
   });
 });

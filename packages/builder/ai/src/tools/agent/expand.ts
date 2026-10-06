@@ -1,5 +1,6 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 
+import { treeWritesOf } from '../../style-tools';
 import type { AiPlanValidationIssue } from '../../types';
 import { agentTool, AGENT_TOOLS } from './registry';
 import { isRecord, type JsonRecord } from './shared';
@@ -74,6 +75,8 @@ export function expandAgentTools(
     if (step['command'] === 'setProp' && typeof args['id'] === 'string' && typeof args['key'] === 'string') {
       written.set(slot(args['id'], args['key']), args['value']);
     }
+    // Tree commands (setTreeNode, insertTreeNode…): a later tool reads the tree they leave.
+    for (const [id, tree] of treeWritesOf(step, (id) => readProp(id, 'tree'))) written.set(slot(id, 'tree'), tree);
     if (step['command'] === 'setDocMeta' && (args['dir'] === 'rtl' || args['dir'] === 'ltr')) dir = args['dir'];
   };
   const context = (): AgentToolContext => {

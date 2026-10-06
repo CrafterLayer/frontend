@@ -254,6 +254,10 @@ export const ar = {
   'change.label.text': 'النص',
   'change.label.pageDirection': 'اتجاه الصفحة',
   'change.label.pageSurface': 'سطح الصفحة',
+  // colour-target-fix additions
+  'change.label.pageColours': 'ألوان الصفحة',
+  'change.label.pageStyling': 'تنسيق الصفحة',
+  // end colour-target-fix additions
   'change.value.ltr': 'من اليسار إلى اليمين',
   'change.value.rtl': 'من اليمين إلى اليسار',
   'change.value.on': 'مفعّل',

@@ -21,6 +21,12 @@ import {
 } from './agent-host';
 import { RailSectionNotice } from './rail-section-notice';
 import { RAIL_SECTIONS, RAIL_UTILITIES } from './rail-sections';
+import { SiteDesignHost } from './site-design-host';
+import { DesignRailPanel } from './design-rail-panel';
+import { editorLabels, editorLocaleFromEnv, type EditorLocale } from './editor-labels';
+import { EditorShortcutsHost } from './editor-shortcuts-host';
+import { useCanvasFrameDocument } from './use-canvas-frame-document';
+import { useEditorChrome } from './use-editor-chrome';
 import { useRecentChanges } from './use-recent-changes';
 import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
@@ -44,6 +50,14 @@ import {
   Palette,
   PreviewMode,
   StaticDocument,
+  AssetManager,
+  HistoryList,
+  LibraryPanel,
+  ShortcutsDialog,
+  resolveElementTarget,
+  type ElementTarget,
+  type EditorDevice,
+  type StyleBucket,
   darkTheme,
   type BuilderKernel,
   type ColorRole,
@@ -127,6 +141,10 @@ const PLAN_MODEL_KEY = 'pg-ai-model-v1';
 const AGENT_PANEL = agentPanelFromEnv(import.meta.env);
 /* Arabic first (SPEC §3.15, §4.0); VITE_AGENT_LOCALE=en for an English reviewer. */
 const AGENT_LOCALE = agentLocaleFromEnv(import.meta.env);
+/* The editor chrome's language (style-manager surfaces): VITE_EDITOR_LOCALE, switchable in Settings. */
+const EDITOR_LOCALE = editorLocaleFromEnv(import.meta.env);
+/* Google font previews in the design-system editor: never in tests (no network there). */
+const LOAD_FONT_PREVIEWS = import.meta.env['MODE'] !== 'test';
 /*
   An edit or a new section runs on the fastest model the server allows, at low effort,
   unless VITE_AI_EDIT_MODEL / VITE_AI_EDIT_EFFORT say otherwise; a page build keeps the
@@ -382,6 +400,24 @@ export function App() {
   const [dragHandle, setDragHandle] = useState<CanvasDragHandle | undefined>(undefined);
   // B3a view state: device emulation and preview — never document, never kernel.
   const [device, setDevice] = useState<DeviceState>({ width: 1280, bucket: 'base' });
+  /*
+    The style bucket the panel, the quick bar and the canvas handles write at
+    (style-manager DESIGN §A.7). It follows the device; a custom width chosen in
+    the panel ("Edit at ≤ N px") overrides it until the device changes again.
+  */
+  const [customBucket, setCustomBucket] = useState<{ readonly maxWidth: number } | undefined>(undefined);
+  const styleBucket: StyleBucket = customBucket ?? device.bucket;
+  const [editorLocale, setEditorLocale] = useState<EditorLocale>(EDITOR_LOCALE);
+  const labels = useMemo(() => editorLabels(editorLocale), [editorLocale]);
+  // The editor actions' polite channel: outcomes and refusals of shortcuts, Layers, templates.
+  const [chromeMessage, setChromeMessage] = useState({ text: '', nonce: 0 });
+  const announceChrome = useCallback((text: string) => {
+    setChromeMessage((current) => ({ text, nonce: current.nonce + 1 }));
+  }, []);
+  const changeDevice = useCallback((next: TopBarDevice) => {
+    setCustomBucket(undefined);
+    setDevice(deviceForBucket(next));
+  }, []);
   const [preview, setPreview] = useState(false);
   const [previewFlipped, setPreviewFlipped] = useState(false);
   // FR-010: preview EXIT must reach a polite channel, and PreviewMode's own
@@ -407,7 +443,56 @@ export function App() {
   const kernel = session?.kernel;
   const siteKernel = session?.siteKernel;
   // Any Tailwind class the assistant writes renders, and the door judges classes by the same compiler.
-  useLiveUtilities(siteKernel);
+  const liveUtilities = useLiveUtilities(siteKernel);
+  const frameDocument = useCanvasFrameDocument();
+  const chrome = useEditorChrome({
+    kernel,
+    siteKernel,
+    labels,
+    bucket: styleBucket,
+    frameDocument,
+    onDevice: (next: EditorDevice) => {
+      changeDevice(next);
+    },
+    announce: announceChrome,
+  });
+  /*
+    "Edit with AI" on the quick bar: the assistant, scoped to THIS element. The
+    agent reads the kernel's selection and element focus as its context, so the
+    seam is the focus itself — set it, open the assistant, put the cursor in its
+    composer. No agent model file changes for it.
+  */
+  const editWithAi = useCallback(
+    (target: ElementTarget) => {
+      if (kernel === undefined) return;
+      const resolved = resolveElementTarget(kernel, target, labels.elementWords);
+      if (target.kind === 'tree') kernel.focusElement(target.nodeId, target.path);
+      else kernel.setSelection([target.nodeId]);
+      setRailSection('assistant');
+      setPanelOpen(true);
+      setActiveSide('panel');
+      announceChrome(
+        editorLocale === 'ar'
+          ? `اطلب من المساعد تعديل ${resolved?.displayName ?? 'هذا العنصر'}.`
+          : `Ask the assistant to change ${resolved?.displayName ?? 'this element'}.`,
+      );
+      requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>('.pg-agent-host textarea, .pg-legacy-agent-host textarea')
+          ?.focus();
+      });
+    },
+    [kernel, labels.elementWords, announceChrome, editorLocale],
+  );
+  const openAside = useCallback(() => {
+    setAsideOpen(true);
+    setActiveSide('aside');
+  }, []);
+  const openAssets = useCallback(() => {
+    setRailSection('assets');
+    setPanelOpen(true);
+    setActiveSide('panel');
+  }, []);
   const codeRuntimeClient = useMemo(
     () =>
       CODE_RUNTIME_ENDPOINT === undefined
@@ -450,7 +535,7 @@ export function App() {
     if (exported !== undefined) downloadArtifactFiles(exported.files);
   };
   // Canvas (non-code) pages publish as a static site: SEO head, sitemap, robots, 404.
-  const publishSite = usePublishStaticSite(siteKernel, EXPORT_SITE_ORIGIN);
+  const publishSite = usePublishStaticSite(siteKernel, EXPORT_SITE_ORIGIN, liveUtilities);
   const publishStaticSiteFiles = async () => {
     const files = await publishSite.publish();
     if (files !== undefined) downloadArtifactFiles(files);
@@ -593,6 +678,26 @@ export function App() {
     ),
     useCallback(() => siteKernel?.getSite().assets, [siteKernel]),
   );
+  /* The site design library (palette, named styles, templates), subscribed like the tokens. */
+  const siteLibrary = useSyncExternalStore(
+    useCallback(
+      (onStoreChange: () => void) =>
+        siteKernel === undefined ? () => undefined : siteKernel.subscribe(onStoreChange),
+      [siteKernel],
+    ),
+    useCallback(() => siteKernel?.getSite().library, [siteKernel]),
+  );
+  const namedStyleChoices = useMemo(
+    () => Object.values(siteLibrary?.styles ?? {}).map((style) => ({ id: style.id, name: style.name })),
+    [siteLibrary?.styles],
+  );
+  const namedStyleClasses = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.values(siteLibrary?.styles ?? {}).map((style) => [style.id, style.className]),
+      ) as Readonly<Record<string, string>>,
+    [siteLibrary?.styles],
+  );
   /*
     The site's palette is the DEFAULT; the harness picker is a layer over it.
 
@@ -644,6 +749,7 @@ export function App() {
     // flip here is VIEW state: the document-mutating flip stays in the header.
     const dirOverride = previewFlipped ? (docDir === 'ltr' ? 'rtl' : 'ltr') : null;
     return (
+      <SiteDesignHost siteKernel={siteKernel}>
       <div style={{ blockSize: '100vh', position: 'relative' }}>
         <PreviewMode
           kernel={kernel}
@@ -672,12 +778,15 @@ export function App() {
           Flip direction (preview)
         </button>
       </div>
+      </SiteDesignHost>
     );
   }
 
   return (
     // The chrome root: this is what turns twenty stylesheets' fallback values
     // into an actual theme, and it is the element a host re-points a token on.
+    // The site design library (palette, named styles, symbols) around every page render.
+    <SiteDesignHost siteKernel={siteKernel}>
     <BuilderTheme className="pg-app" theme={chromeThemeFor(chromeChoice)}>
       {/*
         The designed bar replaces what was a debug harness: a fieldset of radio
@@ -689,9 +798,7 @@ export function App() {
         productName="CraftKit Builder"
         logo={<span className="pg-mark">CK</span>}
         device={device.bucket === 'base' ? 'desktop' : device.bucket}
-        onDeviceChange={(next) => {
-          setDevice(deviceForBucket(next));
-        }}
+        onDeviceChange={changeDevice}
         canUndo={!showcaseOwnsLawSControls && canUndo}
         canRedo={!showcaseOwnsLawSControls && canRedo}
         onUndo={() => {
@@ -795,6 +902,25 @@ export function App() {
         {modeMessage.text}
         {modeMessage.nonce % 2 === 1 ? '\u200b' : ''}
       </output>
+      <output aria-live="polite" aria-label="Editor actions" className="bldr-visually-hidden">
+        {chromeMessage.text}
+        {chromeMessage.nonce % 2 === 1 ? '\u200b' : ''}
+      </output>
+      {/* The editor keymap (style-manager §E): undo/redo, copy/paste, duplicate, wrap, devices, `?`. */}
+      {session === undefined || codeSnapshot !== undefined || codeOpen ? null : (
+        <EditorShortcutsHost
+          kernel={session.kernel}
+          onAction={chrome.runShortcut}
+          enabled={!chrome.shortcutsOpen}
+        />
+      )}
+      <ShortcutsDialog
+        open={chrome.shortcutsOpen}
+        onClose={() => {
+          chrome.setShortcutsOpen(false);
+        }}
+        labels={labels.shortcuts}
+      />
       {/*
         The vault's banner, only when a save needs the person: session-only or
         failed, with Download and Retry. "Saving…" and "Saved to this device"
@@ -1070,7 +1196,17 @@ export function App() {
                   */
                   <div className="pg-structure">
                     <SitePages siteKernel={session.siteKernel} />
-                    <LayersTree kernel={session.kernel} />
+                    <LayersTree
+                      kernel={session.kernel}
+                      selection={chrome.selection}
+                      clipboard={chrome.clipboard}
+                      bucket={styleBucket}
+                      labels={labels.layersTree}
+                      actionLabels={labels.elementActions}
+                      words={labels.elementWords}
+                      onSaveTemplate={chrome.saveTemplate}
+                      onMakeSymbol={chrome.makeSymbol}
+                    />
                   </div>
                 ) : railSection === 'settings' ? (
                   /*
@@ -1095,6 +1231,18 @@ export function App() {
                     />
                     <ChromePicker value={chromeChoice} onChange={setChromeChoice} />
                     <ThemePicker value={themeName} onChange={setThemeName} />
+                    <label className="pg-width">
+                      <span>Editor language</span>
+                      <select
+                        value={editorLocale}
+                        onChange={(event) => {
+                          setEditorLocale(event.currentTarget.value === 'ar' ? 'ar' : 'en');
+                        }}
+                      >
+                        <option value="en">English</option>
+                        <option value="ar">العربية</option>
+                      </select>
+                    </label>
                     <DirectionFlip kernel={session.kernel} siteKernel={session.siteKernel} />
                     <RegisterDemoExtension key={fixture} kernel={session.kernel} />
                     {codeOpen ? null : (
@@ -1108,6 +1256,7 @@ export function App() {
                           value={device.width}
                           onChange={(event) => {
                             const width = Number(event.currentTarget.value);
+                            setCustomBucket(undefined);
                             setDevice({ width, bucket: bucketForWidth(width) });
                           }}
                         />
@@ -1120,8 +1269,34 @@ export function App() {
                       directly. The session's own saving is continuous and invisible;
                       this is the shelf they put something on deliberately.
                     */
-                  <HistoryPanel kernel={session.kernel} shelf={session.shelf} />
-                ) : railSection === 'assets' || railSection === 'help' ? (
+                  <div className="pg-panel-scroll">
+                    {/* The session's labelled steps (click to jump), beside the vault's restore points. */}
+                    <HistoryList kernel={session.kernel} labels={labels.historyList} />
+                    <HistoryPanel kernel={session.kernel} shelf={session.shelf} />
+                  </div>
+                ) : railSection === 'assets' ? (
+                  <div className="pg-panel-scroll">
+                    <AssetManager
+                      site={session.siteKernel}
+                      library={assetLibrary}
+                      target={chrome.targets[0]}
+                      labels={labels.assetManager}
+                      cropperLabels={labels.imageCropper}
+                      iconLabels={labels.iconBrowser}
+                      dir={labels.dir}
+                    />
+                  </div>
+                ) : railSection === 'design' ? (
+                  <DesignRailPanel
+                    siteKernel={session.siteKernel}
+                    targets={chrome.targets}
+                    theme={theme}
+                    pageDir={docDir === 'rtl' ? 'rtl' : 'ltr'}
+                    labels={labels}
+                    announce={announceChrome}
+                    loadFontPreviews={LOAD_FONT_PREVIEWS}
+                  />
+                ) : railSection === 'help' ? (
                   <RailSectionNotice section={railSection} />
                 ) : railSection === 'site' ? (
                   <div className="pg-panel-scroll">
@@ -1133,10 +1308,31 @@ export function App() {
                       }}
                     />
                   </div>
-                ) : railSection === 'assistant' ? null : (
-                  // Blocks, and Code: the palette stays beside the projection,
-                  // because reading the document as text is not a reason to
-                  // lose the ability to add to it.
+                ) : railSection === 'assistant' ? null : railSection === 'blocks' ? (
+                  /*
+                    The library: elements, sections, the registered blocks (the
+                    palette, composed in its Blocks tab) and the site's saved
+                    templates. Click inserts at the selection; a drag lands
+                    through the canvas's tree drop.
+                  */
+                  <LibraryPanel
+                    kernel={session.kernel}
+                    dragHandle={dragHandle}
+                    templates={siteLibrary?.templates}
+                    onRemoveTemplate={chrome.removeTemplate}
+                    // The rail item is "Blocks": it opens on them; Elements, Sections and Saved are one tab away.
+                    defaultTab="blocks"
+                    labels={labels.libraryPanel}
+                    actionLabels={labels.elementActions}
+                    words={labels.elementWords}
+                    {...(liveUtilities === undefined
+                      ? {}
+                      : { compilePreviewCss: (names: readonly string[]) => liveUtilities.compileFor(names) })}
+                  />
+                ) : (
+                  // Code: the palette stays beside the projection, because
+                  // reading the document as text is not a reason to lose the
+                  // ability to add to it.
                   <Palette kernel={session.kernel} dragHandle={dragHandle} />
                 )}
               </>
@@ -1256,6 +1452,21 @@ export function App() {
                   frameWidth={device.width}
                   zoom={canvasZoom}
                   breakpoint={breakpoint}
+                  elementSelection={chrome.selection}
+                  styleBucket={styleBucket}
+                  onOpenStyleSector={openAside}
+                  onAnimate={openAside}
+                  onEditWithAi={editWithAi}
+                  onSaveTemplate={chrome.saveTargetAsTemplate}
+                  onReplaceMedia={openAssets}
+                  onShortcut={chrome.onFrameShortcut}
+                  palette={siteLibrary?.palette}
+                  namedStyles={namedStyleChoices}
+                  namedStyleClasses={namedStyleClasses}
+                  quickBarLabels={labels.quickBar}
+                  treeTextLabels={labels.treeText}
+                  elementNameWords={labels.elementWords}
+                  editorDir={labels.dir}
                 />
               </AssetTableProvider>
             )
@@ -1360,11 +1571,36 @@ export function App() {
                 bucket={device.bucket}
                 theme={theme}
                 onRetheme={retheme}
+                onBucketChange={(next) => {
+                  if (typeof next === 'string') {
+                    changeDevice(next === 'base' ? 'desktop' : next);
+                    return;
+                  }
+                  // "Edit at ≤ N px": the canvas takes that width, the panel writes max-[Npx]:.
+                  setDevice({ width: next.maxWidth, bucket: bucketForWidth(next.maxWidth) });
+                  setCustomBucket(next);
+                }}
+                {...(device.width === 1280 || device.width === 834 || device.width === 390
+                  ? {}
+                  : { freeWidth: device.width })}
+                locale={editorLocale}
+                library={siteLibrary}
+                elementTargets={chrome.targets}
+                frameDocument={frameDocument}
+                onPreviewElement={chrome.previewElement}
+                onConvertBlock={chrome.convertBlock}
+                onOpenRegionCss={(nodeId) => {
+                  session.kernel.setSelection([nodeId]);
+                }}
+                onOpenPageCss={() => {
+                  session.kernel.setSelection([session.kernel.getDocument().rootId]);
+                }}
               />
             )
           }
         />
       </div>
     </BuilderTheme>
+    </SiteDesignHost>
   );
 }

@@ -205,10 +205,11 @@ describe('pagePlanShapeCheck', () => {
     expect(pagePlanShapeCheck(planKeyInWrapper)).toBe(false);
   });
 
-  it('is the judge salvageJson restores a dropped section closer under', () => {
+  it('is the judge salvageJson restores a dropped brief closer under', () => {
     const good = JSON.stringify(answer());
-    // The hero section's own `}` dropped: its images close, then the next section follows.
-    const cut = good.indexOf('},{"key":"menu"');
+    // The hero brief's own `}` dropped: its images close, then the next brief follows.
+    const cut = good.indexOf('}]},{"key":"menu"') + 2;
+    expect(cut).toBeGreaterThan(2);
     const written = `${good.slice(0, cut)}${good.slice(cut + 1)}`;
     expect(() => JSON.parse(written) as unknown).toThrow();
 
@@ -325,6 +326,14 @@ describe('page-plan contract mirrors', () => {
     );
   });
 
+  it('accepts a plan that names its brand — the header and footer show it', () => {
+    const answer = {
+      rationale: PAGE_PLAN_EXAMPLE.rationale,
+      pagePlan: { ...structuredClone(PAGE_PLAN_EXAMPLE.pagePlan), brand: 'Cardamom Roasters' },
+    };
+    expect(pagePlanShapeCheck(answer)).toBe(true);
+  });
+
   it("shows the model the wire's own documented example — the one the client's validator accepts", () => {
     const text = source('provider/wire.ts');
     const start = text.indexOf('BEGIN PAGE PLAN WIRE EXAMPLE');
@@ -354,12 +363,15 @@ describe('the page-plan answer schema', () => {
       'intent',
       'locale',
       'title',
+      // Quality pass 2026-10-05: the business's short name, shown by the header and footer.
+      'brand',
       'description',
       'tokens',
       'primaryCta',
-      'nav',
       'sections',
-      'facts',
+      // 2026-10-05: the compact plan's one brief per section. Top-level nav and
+      // facts left the schema in the fix pass: listing them invited mixed answers.
+      'briefs',
       // 2026-09-30: optional, what the page is found by.
       'seo',
     ]);
@@ -634,7 +646,7 @@ describe('the placeholder rule in pagePlanShapeCheck', () => {
       },
     };
     const good = JSON.stringify(answer);
-    const cut = good.indexOf('},{"key":"menu"');
+    const cut = good.indexOf('}]},{"key":"menu"') + 2;
     const written = `${good.slice(0, cut)}${good.slice(cut + 1)}`;
 
     const judged = (candidate: unknown): boolean =>
@@ -708,7 +720,8 @@ describe('the page plan with kits and seo', () => {
     const plan = PAGE_PLAN_ANSWER_SCHEMA.properties.pagePlan;
     const section = plan.properties.sections.items.properties;
     expect(section.kit.enum).toEqual([...PAGE_PLAN_KIT_IDS]);
-    expect(section.slots).not.toHaveProperty('type');
+    // Slots live in the briefs (fix pass 2026-10-05), still an open object.
+    expect(plan.properties.briefs.items.properties.slots).not.toHaveProperty('type');
     expect(plan.properties.seo.required).toEqual(['keyword', 'pageKind']);
     expect(plan.properties.seo.properties.pageKind.enum).toContain('home');
     expect(plan.properties.seo.properties.businessType.enum).toContain('CafeOrCoffeeShop');
@@ -735,5 +748,278 @@ describe('the page plan with kits and seo', () => {
       pagePlan: { ...PAGE_PLAN_EXAMPLE.pagePlan, seo: { keyword: 'x', pageKind: 'home', tokens: {} } },
     };
     expect(pagePlanShapeCheck(strayKey)).toBe(false);
+  });
+});
+
+// ── the compact, ordered plan (2026-10-05, speed DESIGN §3) ─────────────────
+/*
+  T1 now answers in the compact plan — tokens by deck row, an outline of
+  {key, role, title, variant, nav}, one brief per section with its facts — and
+  the client's validatePagePlan expands it. The judge must take it, the
+  classic plan and a mix, and still refuse a key closed in the wrong object.
+*/
+
+/** The classic plan the compact one replaced: every field written out (wire example before 2026-10-05). */
+const CLASSIC_PLAN = {
+  intent: 'new-page',
+  locale: { lang: 'en', dir: 'ltr' },
+  title: 'Cardamom Roasters — specialty coffee in Amman',
+  description: 'Small-batch coffee roasted every morning in Amman, delivered fresh.',
+  tokens: {
+    bg: '#f7fee7',
+    surface: '#ffffff',
+    ink: '#022c22',
+    muted: '#065f46',
+    accent: '#c2410c',
+    onAccent: '#ffffff',
+    accentInk: '#c2410c',
+    border: '#d9f99d',
+    fontDisplay: { family: 'Fraunces', weights: [600, 700] },
+    fontBody: { family: 'Instrument Sans', weights: [400, 500] },
+    radius: 'xl',
+    signature: 'The brand name at text-8xl, faint behind the menu.',
+    deckRowId: 'cafe',
+  },
+  primaryCta: { label: 'Order beans', href: '#order' },
+  nav: [
+    { label: 'Menu', anchorId: 'menu' },
+    { label: 'Order', anchorId: 'order' },
+  ],
+  sections: [
+    { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Brand and navigation.' },
+    {
+      key: 'hero',
+      role: 'hero',
+      title: 'Roasted this morning',
+      anchorId: 'hero',
+      purpose: 'Say what the roastery is and invite the first order.',
+      mustSay: ['Roasted daily in Amman'],
+      mustNotRepeat: [],
+      variant: 'split',
+      kit: 'hero-split',
+      images: [{ subject: 'cafe', aspect: 'landscape', alt: 'Freshly roasted coffee beans' }],
+    },
+    {
+      key: 'order',
+      role: 'cta',
+      title: 'Order',
+      anchorId: 'order',
+      purpose: 'One clear way to order.',
+      variant: 'cta-split',
+      kit: 'cta-split',
+      slots: { title: 'Fresh beans, delivered in Amman', cta: { label: 'Order beans', href: '#order' } },
+    },
+    { key: 'footer', role: 'footer', title: 'Footer', anchorId: 'footer', purpose: 'Address.', variant: 'footer' },
+  ],
+  facts: [{ key: 'phone', sample: '+962 6 461 2750', section: 'footer' }],
+  seo: { keyword: 'specialty coffee Amman', pageKind: 'home', slug: 'specialty-coffee-amman' },
+};
+
+describe('the compact page plan', () => {
+  type Plan = Record<string, unknown> & {
+    sections: Record<string, unknown>[];
+    briefs: Record<string, unknown>[];
+  };
+  const compact = (): Plan => structuredClone(PAGE_PLAN_EXAMPLE.pagePlan) as unknown as Plan;
+  const wrap = (pagePlan: unknown): Record<string, unknown> => ({ rationale: 'r', pagePlan });
+
+  it('accepts the compact example, wrapped and bare, with tokens holding only deckRowId and signature', () => {
+    expect(Object.keys(PAGE_PLAN_EXAMPLE.pagePlan.tokens)).toEqual(['deckRowId', 'signature']);
+    expect(pagePlanShapeCheck(wrap(compact()))).toBe(true);
+    expect(pagePlanShapeCheck(compact())).toBe(true);
+  });
+
+  it('still accepts a classic plan, and a mix of the two', () => {
+    expect(pagePlanShapeCheck(wrap(structuredClone(CLASSIC_PLAN)))).toBe(true);
+    const mixed = { ...structuredClone(CLASSIC_PLAN), briefs: compact().briefs };
+    expect(pagePlanShapeCheck(wrap(mixed))).toBe(true);
+  });
+
+  it('accepts a brief that names its variant and kit, which the client merges into the section', () => {
+    const plan = compact();
+    plan.briefs[0] = { ...plan.briefs[0], variant: 'split', kit: 'hero-split' };
+    expect(pagePlanShapeCheck(wrap(plan))).toBe(true);
+  });
+
+  it('refuses a brief key closed inside a section, and a section key closed inside a brief', () => {
+    const factsInSection = compact();
+    factsInSection.sections[1] = {
+      ...factsInSection.sections[1],
+      facts: [{ key: 'phone', sample: '+962 6 461 2750' }],
+    };
+    expect(pagePlanShapeCheck(wrap(factsInSection))).toBe(false);
+
+    const roleInBrief = compact();
+    roleInBrief.briefs[1] = { ...roleInBrief.briefs[1], role: 'band' };
+    expect(pagePlanShapeCheck(wrap(roleInBrief))).toBe(false);
+
+    const sectionInBriefs = compact();
+    sectionInBriefs.briefs.push({ key: 'faq', role: 'band', title: 'FAQ' });
+    expect(pagePlanShapeCheck(wrap(sectionInBriefs))).toBe(false);
+
+    const briefInSections = compact();
+    briefInSections.sections.push({ key: 'faq', purpose: 'Answers.', facts: [] });
+    expect(pagePlanShapeCheck(wrap(briefInSections))).toBe(false);
+  });
+
+  it('refuses a brief without a key, a stray key in a brief fact, a nav that is not a label, briefs in the wrapper', () => {
+    const keyless = compact();
+    keyless.briefs[0] = { purpose: 'No key.' };
+    expect(pagePlanShapeCheck(wrap(keyless))).toBe(false);
+
+    const strayFactKey = compact();
+    strayFactKey.briefs[3] = {
+      ...strayFactKey.briefs[3],
+      facts: [{ key: 'phone', sample: '+962 6 461 2750', purpose: 'x' }],
+    };
+    expect(pagePlanShapeCheck(wrap(strayFactKey))).toBe(false);
+
+    const navObject = compact();
+    navObject.sections[2] = { ...navObject.sections[2], nav: { label: 'Menu' } };
+    expect(pagePlanShapeCheck(wrap(navObject))).toBe(false);
+
+    const plan = compact();
+    expect(pagePlanShapeCheck({ rationale: 'r', pagePlan: plan, briefs: plan.briefs })).toBe(false);
+
+    const briefsNotAList = compact() as Record<string, unknown>;
+    briefsNotAList['briefs'] = { hero: {} };
+    expect(pagePlanShapeCheck(wrap(briefsNotAList))).toBe(false);
+  });
+
+  it("refuses an X placeholder inside a brief's facts, and the repair fills it and logs the brief path", () => {
+    const plan = compact();
+    plan.briefs[3] = {
+      ...plan.briefs[3],
+      facts: [
+        { key: 'email', sample: 'info@roasters.jo' },
+        { key: 'phone', sample: '+971 4 XXX XXXX' },
+      ],
+    };
+    const answer = wrap(plan);
+    const before = structuredClone(answer);
+    expect(pagePlanShapeCheck(answer)).toBe(false);
+
+    const { value, repairs } = repairPagePlanAnswer(answer);
+
+    expect(repairs).toEqual(['pagePlan.briefs[3].facts[1].sample "+971 4 XXX XXXX" → "+971 4 234 5678"']);
+    const repaired = (value as { pagePlan: Plan }).pagePlan;
+    expect(repaired.briefs[3]?.['facts']).toEqual([
+      { key: 'email', sample: 'info@roasters.jo' },
+      { key: 'phone', sample: '+971 4 234 5678' },
+    ]);
+    // Briefs with nothing to fill are the very same objects; the input is never mutated.
+    expect(repaired.briefs[0]).toBe(plan.briefs[0]);
+    expect(answer).toEqual(before);
+    expect(pagePlanShapeCheck(value)).toBe(true);
+  });
+
+  it('fills a bare compact plan in place, its path without the wrapper', () => {
+    const plan = compact();
+    plan.briefs[1] = { ...plan.briefs[1], facts: [{ key: 'price-espresso', sample: 'JOD XX.XX' }] };
+    const { value, repairs } = repairPagePlanAnswer(plan);
+    expect(repairs).toEqual(['briefs[1].facts[0].sample "JOD XX.XX" → "JOD 23.45"']);
+    expect((value as Plan).briefs[1]?.['facts']).toEqual([
+      { key: 'price-espresso', sample: 'JOD 23.45' },
+    ]);
+  });
+
+  it('restores a dropped closer in a compact answer whose brief phone is a placeholder, judged after the repair', () => {
+    const plan = compact();
+    plan.briefs[3] = { ...plan.briefs[3], facts: [{ key: 'phone', sample: '+971 4 XXXX XXXX' }] };
+    const answer = { rationale: PAGE_PLAN_EXAMPLE.rationale, pagePlan: plan };
+    const good = JSON.stringify(answer);
+    const cut = good.indexOf('}]},{"key":"menu"') + 2;
+    const written = `${good.slice(0, cut)}${good.slice(cut + 1)}`;
+    expect(() => JSON.parse(written) as unknown).toThrow();
+
+    const judged = (candidate: unknown): boolean =>
+      pagePlanShapeCheck(repairPagePlanAnswer(candidate).value);
+
+    expect(JSON.parse(salvageJson(written, judged))).toEqual(answer);
+  });
+});
+
+describe('the answer schema admits both shapes, in the contract order', () => {
+  const plan = PAGE_PLAN_ANSWER_SCHEMA.properties.pagePlan;
+
+  it('lists tokens deck row first, every colour, face and radius optional', () => {
+    const tokens = plan.properties.tokens;
+    expect(Object.keys(tokens.properties).slice(0, 2)).toEqual(['deckRowId', 'signature']);
+    expect(tokens.required).toEqual(['signature']);
+    expect(tokens.properties.deckRowId.enum).toEqual([...PAGE_PLAN_DECK_ROWS]);
+  });
+
+  it('lists the outline fields only — key, role and title required, nav a label', () => {
+    const items = plan.properties.sections.items;
+    // Fix pass 2026-10-05: no contract field on an outline section, so nothing invites a duplicate.
+    expect(Object.keys(items.properties)).toEqual(['key', 'role', 'title', 'variant', 'kit', 'nav']);
+    expect(items.required).toEqual(['key', 'role', 'title']);
+    expect(items.properties.nav.type).toBe('string');
+    expect(items.properties.variant.description).toMatch(/never a kit id/u);
+    expect(plan.properties).not.toHaveProperty('nav');
+    expect(plan.properties).not.toHaveProperty('facts');
+  });
+
+  it('decodes one brief per section with its facts', () => {
+    const items = plan.properties.briefs.items;
+    expect(Object.keys(items.properties)).toEqual([
+      'key',
+      'purpose',
+      'mustSay',
+      'mustNotRepeat',
+      'images',
+      'slots',
+      'facts',
+    ]);
+    expect(items.required).toEqual(['key', 'purpose']);
+    expect(Object.keys(items.properties.facts.items.properties)).toEqual(['key', 'sample']);
+    expect(plan.required).toEqual([
+      'intent',
+      'locale',
+      'title',
+      'description',
+      'tokens',
+      'primaryCta',
+      'sections',
+    ]);
+  });
+});
+
+/*
+  R-xrun parity (DESIGN §4). The client restates `fillPlaceholderSample` in
+  validatePagePlan (agent/page-plan) so a provisional contract equals the
+  final one; the two must behave identically, so this table is copied
+  VERBATIM into the client's test. Change one, change both.
+*/
+const R_XRUN_PARITY: [input: string, filled: string][] = [
+  // phone
+  ['+971 4 XXX XXXX', '+971 4 234 5678'],
+  ['+971 4 XXXX XXXX', '+971 4 2345 6789'],
+  ['050 ••• ••••', '050 234 5678'],
+  ['+962 79 *** ####', '+962 79 234 5678'],
+  ['+962 7 9XXX XXXX', '+962 7 9XXX 2345'],
+  ['+962 6 461 2750', '+962 6 461 2750'],
+  // price
+  ['$XX.XX', '$23.45'],
+  ['AED XXX', 'AED 234'],
+  ['JOD XX.XX', 'JOD 23.45'],
+  ['AED 1,XXX', 'AED 1,234'],
+  ['٣٥ ريال XX', '٣٥ ريال 23'],
+  // email
+  ['info@xxxx.com', 'info@example.com'],
+  ['xxxx@gmail.com', 'info@gmail.com'],
+  ['xxx@xxxx.ae', 'info@example.ae'],
+  // www
+  ['www.xxxx.ae', 'www.example.ae'],
+  ['https://xxxx.com/menu', 'https://example.com/menu'],
+  ['www.example.com', 'www.example.com'],
+  // values an X lives inside
+  ['Size XXL', 'Size XXL'],
+];
+
+describe('R-xrun parity', () => {
+  it.each(R_XRUN_PARITY)('fills %j as %j', (input, filled) => {
+    expect(fillPlaceholderSample(input)).toBe(filled);
+    expect(isPlaceholderSample(input)).toBe(input !== filled);
   });
 });

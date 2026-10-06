@@ -20,6 +20,7 @@ import { createScriptedAiPlanProvider } from '../../testing/scripted-provider';
 import type { PagePlanCandidate } from '../../types';
 import { planAiPage as realPlanAiPage } from '../plan-page';
 import type { AiPagePlanEvent } from '../types';
+import { validatePagePlan } from './validate-page-plan';
 
 /*
   Plan mode's public entry point. Until 2026-09-28 the package root exported
@@ -99,6 +100,30 @@ const REQUEST = 'Build a landing page for my specialty coffee roastery in Amman'
 describe('planAiPage from the package root — Plan mode', () => {
   it('is the real implementation, not a stub', () => {
     expect(root.planAiPage).toBe(realPlanAiPage);
+  });
+
+  /*
+    2026-10-05 (fast-build DESIGN §3): the documented example is the COMPACT
+    answer — tokens by deck row, an outline, one brief per section. It must
+    pass the validator as it stands, with no repair round.
+  */
+  it('accepts the wire’s documented example as it is written, compact or classic', () => {
+    const { pagePlan } = documentedPlan();
+    const result = validatePagePlan(pagePlan);
+    if (!result.ok) {
+      throw new Error(result.issues.map((i) => `${i.path}: ${i.message}`).join('\n'));
+    }
+    expect(result.plan.tokens.deckRowId).toBe('cafe');
+    expect(result.plan.tokens.bg).toBe('#f7fee7');
+    expect(result.plan.tokens.fontDisplay.family).toBe('Fraunces');
+    expect(result.plan.nav.map(({ label }) => label)).toEqual(['Menu', 'Order']);
+    expect(result.plan.sections.at(0)?.role).toBe('header');
+    expect(result.plan.sections.at(-1)?.role).toBe('footer');
+    expect(result.plan.primaryCta).toEqual({ label: 'Order beans', href: '#order' });
+    // No masked or placeholder sample survives into a writer's contract.
+    for (const { sample } of result.plan.facts) {
+      expect(sample).not.toMatch(/([0-9])\1{5,}|XX/u);
+    }
   });
 
   it('plans with a scripted provider: one call, a validated plan, nothing written', async () => {

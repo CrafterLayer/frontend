@@ -16,7 +16,7 @@ import {
 
 import type { GroupedDispatchOptions, GroupStep } from '../commands/dispatch';
 import type { ExtensionManagerHandle } from '../extensions/manager';
-import type { BuilderKernel } from '../kernel/create-builder';
+import { createKernelHistoryView, type BuilderKernel } from '../kernel/create-builder';
 import { pageIndex, type SiteDispatcher } from './site-dispatcher';
 import { SITE_NOTHING_CHANGED, type KernelSiteState, type SiteStoreHandle } from './site-store';
 
@@ -167,6 +167,8 @@ export function createPageView(pageId: PageId, deps: PageViewDeps): BuilderKerne
       setPageState({ elementFocus: null });
     },
     transactions: () => deps.dispatcher.log.all(),
+    // P11-integration: the site's one undo stack, read-only, for the History list (style-manager §E).
+    history: () => createKernelHistoryView(deps.dispatcher),
     flush: deps.flush,
   };
 }

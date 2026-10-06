@@ -11,6 +11,7 @@ import {
   defineBlockSchema,
   emptyCustomCodeTree,
   findCssRejection,
+  pageSeoSchema,
   type BlockRenderComponent,
   type BuilderDocument,
   type TrustedExtensionManifest,
@@ -27,7 +28,14 @@ import { checkSection } from './check-section';
 import { instantiateKit } from '../../section-kit/instantiate';
 import { kitSamples } from '../../section-kit/kit-testing';
 import { SECTION_KITS } from '../../section-kit/kits';
-import { PAGE_KIT_CLASSES, PAGE_SKELETON_LABEL, pagePlanCss, skeletonFromPlan } from './skeleton-from-plan';
+import {
+  PAGE_KIT_CLASSES,
+  PAGE_SKELETON_FINISH_LABEL,
+  PAGE_SKELETON_LABEL,
+  pagePlanCss,
+  skeletonFinish,
+  skeletonFromPlan,
+} from './skeleton-from-plan';
 import { validatePagePlan, type PagePlan, type PagePlanIntent } from './index';
 
 /*
@@ -1113,6 +1121,20 @@ describe('skeletonFromPlan — the page skeleton, written by code', () => {
     expect(textOf(footer)).toContain('© Northlight Studio');
     expect(textOf(footer)).toContain('All rights reserved.');
   });
+
+  it('shows the plan’s brand, else the shortest side of the title (fix pass 2026-10-05)', () => {
+    const studio = englishStudio();
+    const footerOf = (pagePlan: PagePlan) =>
+      textOf(
+        insertedTrees(skeletonFromPlan(pagePlan, { parentId: 'root', regionType: 'customCode' }).plan)[2]!,
+      );
+    // "Tagline — Name": the English run's header showed "Invoice freelance clients in s…".
+    const tagline = { ...studio, title: 'Invoice freelance clients in seconds — Invoicy' };
+    expect(footerOf(tagline)).toContain('© Invoicy');
+    expect(footerOf(tagline)).not.toContain('Invoice freelance');
+    // A brand the plan names wins over the title.
+    expect(footerOf({ ...tagline, brand: 'Invoicy Ltd' })).toContain('© Invoicy Ltd');
+  });
 });
 
 describe('kit link colours', () => {
@@ -1148,3 +1170,252 @@ describe('kit link colours', () => {
     expect(bare).toEqual([]);
   });
 });
+
+// p5-plan-stream additions (2026-10-05): the provisional skeleton and its finish (DESIGN §6.1).
+
+/** The product page root with the two props the skeleton writes for SEO. */
+const SEO_PAGE = PRODUCT_PAGE.extend({
+  slug: z.string().max(120).default(''),
+  seo: pageSeoSchema.optional(),
+});
+const SEO_PROPS = ['title', 'description', 'lang', 'pageCss', 'seo', 'slug'] as const;
+
+/** An Arabic café whose cta section the planner filled from its kit, with SEO and a footer fact. */
+function kitCafe(): PagePlan {
+  return accepted({
+    intent: 'new-page',
+    locale: { lang: 'ar' },
+    title: 'محمصة الهيل — قهوة مختصة في عمّان',
+    description: 'قهوة مختصة محمصة في عمّان، تصلك طازجة.',
+    tokens: {
+      bg: 'lime-50',
+      surface: 'white',
+      ink: 'emerald-950',
+      muted: 'emerald-800',
+      accent: 'orange-700',
+      onAccent: 'white',
+      border: 'stone-200',
+      fontDisplay: { family: 'Lalezar' },
+      fontBody: { family: 'Almarai', weights: [400, 700] },
+      radius: 'xl',
+      signature: 'the brand name at text-8xl, faint behind the menu',
+    },
+    primaryCta: { label: 'اطلب الآن', href: '#order' },
+    nav: [{ label: 'اطلب', anchorId: 'order' }],
+    sections: [
+      { key: 'header', role: 'header', title: 'الترويسة', anchorId: 'top', purpose: 'العلامة.' },
+      {
+        key: 'hero',
+        role: 'hero',
+        title: 'قهوة تُحمّص كل صباح',
+        anchorId: 'hero',
+        purpose: 'ما هي المحمصة.',
+        variant: 'split',
+      },
+      {
+        key: 'order',
+        role: 'cta',
+        title: 'اطلب',
+        anchorId: 'order',
+        purpose: 'طريقة واحدة للطلب.',
+        kit: 'cta-split',
+        slots: { title: 'حبوب طازجة تصلك في عمّان', cta: { label: 'اطلب الآن', href: '#order' } },
+      },
+      { key: 'footer', role: 'footer', title: 'التذييل', anchorId: 'footer', purpose: 'العنوان.' },
+    ],
+    facts: [{ key: 'phone', sample: '+962 6 461 2750', section: 'footer' }],
+    seo: { keyword: 'قهوة مختصة في عمّان', pageKind: 'home', slug: 'قهوة مختصة عمان' },
+  });
+}
+
+type StepArgs = Record<string, unknown>;
+
+/** The keys of the `setProp` steps on `id`, in order. */
+function setKeys(plan: AiPlan, id: string): string[] {
+  return plan.commands
+    .filter(({ command, args }) => command === 'setProp' && (args as StepArgs)['id'] === id)
+    .map(({ args }) => (args as StepArgs)['key'] as string);
+}
+
+function setValue(plan: AiPlan, id: string, key: string): unknown {
+  const step = plan.commands.find(
+    ({ command, args }) =>
+      command === 'setProp' && (args as StepArgs)['id'] === id && (args as StepArgs)['key'] === key,
+  );
+  return (step?.args as StepArgs | undefined)?.['value'];
+}
+
+const SEO_CONTEXT = { parentId: 'root', regionType: 'customCode', rootProps: SEO_PROPS } as const;
+
+describe('skeletonFromPlan — the provisional skeleton of a streamed build', () => {
+  it('writes the footer and kit sections as placeholders and leaves seo and slug alone', () => {
+    const pagePlan = kitCafe();
+    const full = skeletonFromPlan(pagePlan, SEO_CONTEXT);
+    const draft = skeletonFromPlan(pagePlan, { ...SEO_CONTEXT, provisional: true });
+
+    expect(setKeys(full.plan, 'root')).toEqual(expect.arrayContaining(['seo', 'slug']));
+    expect(setKeys(draft.plan, 'root')).toEqual(['title', 'description', 'lang', 'pageCss']);
+    expect(draft.label).toBe(PAGE_SKELETON_LABEL);
+
+    expect(full.regions.map(({ complete }) => complete)).toEqual([true, false, true, true]);
+    expect(draft.regions.map(({ complete }) => complete)).toEqual([true, false, false, false]);
+    expect(draft.regions.map(({ kit }) => kit)).toEqual([undefined, undefined, undefined, undefined]);
+
+    const trees = insertedTrees(draft.plan);
+    // The header is the whole header already; the page CSS is the same block.
+    expect(trees[0]).toEqual(insertedTrees(full.plan)[0]);
+    expect(pageCssOf(draft.plan)).toBe(pageCssOf(full.plan));
+    // The kit section is a titled placeholder a writer (or the finish) replaces.
+    const order = outer(trees[2]!);
+    expect(order.tag).toBe('section');
+    expect(order.attributes?.['id']).toBe('order');
+    expect(tags(order, 'h2').map(textOf)).toEqual(['اطلب']);
+    // The footer keeps its outer tag, so run-build still reads it as chrome and as the footer.
+    const footer = outer(trees[3]!);
+    expect(footer.tag).toBe('footer');
+    expect(footer.attributes?.['id']).toBe('footer');
+    expect(textOf(footer)).not.toContain('461 2750');
+    expect(tags(footer, 'a')).toEqual([]);
+
+    const target = kernel(page(), blocks(SEO_PAGE));
+    const verdict = validateAiPlan(draft.plan, target, ports(), policyFor(draft.plan));
+    expect(verdict.ok ? [] : verdict.issues).toEqual([]);
+  });
+
+  it('is the whole skeleton, step for step, when provisional is false or absent', () => {
+    const pagePlan = kitCafe();
+    expect(skeletonFromPlan(pagePlan, { ...SEO_CONTEXT, provisional: false })).toEqual(
+      skeletonFromPlan(pagePlan, SEO_CONTEXT),
+    );
+  });
+});
+
+describe('skeletonFinish — what the final plan adds to a provisional skeleton', () => {
+  it('writes the footer, the kit section and the root seo in ONE transaction the door accepts', () => {
+    const pagePlan = kitCafe();
+    const target = kernel(page(), blocks(SEO_PAGE));
+    const draft = skeletonFromPlan(pagePlan, { ...SEO_CONTEXT, provisional: true });
+    expect(land(target, draft.plan).transactions).toHaveLength(1);
+    const children = target.getDocument().nodes['root']?.slots?.['default'] ?? [];
+    const regions = new Map(pagePlan.sections.map(({ key }, index) => [key, children[index]!]));
+
+    const finish = skeletonFinish({ provisional: pagePlan, final: pagePlan, context: SEO_CONTEXT, regions });
+    if (finish === undefined) throw new Error('nothing to finish');
+    expect(finish.label).toBe(PAGE_SKELETON_FINISH_LABEL);
+    expect(finish.label).toBe('Assistant: page skeleton (finish)');
+    expect(finish.complete).toEqual(['order', 'footer']);
+    // An identical head: no identity, direction or page CSS step — only what was left out.
+    expect(setKeys(finish.plan, 'root')).toEqual(['seo', 'slug']);
+    expect(finish.plan.commands.map(({ command }) => command)).not.toContain('setDocMeta');
+    expect(new Set(finish.plan.commands.map(({ command }) => command))).toEqual(new Set(['setProp']));
+    expect(setKeys(finish.plan, regions.get('header')!)).toEqual([]);
+    expect(setKeys(finish.plan, regions.get('hero')!)).toEqual([]);
+
+    const verdict = validateAiPlan(finish.plan, target, ports(), policyFor(finish.plan));
+    expect(verdict.ok ? [] : verdict.issues).toEqual([]);
+    const before = target.transactions().length;
+    const applied = applyAiPlan({
+      kernel: target,
+      validationPorts: ports(),
+      plan: finish.plan,
+      policy: policyFor(finish.plan),
+      label: PAGE_SKELETON_FINISH_LABEL,
+    });
+    expect(applied.transactions).toHaveLength(1);
+    expect(target.transactions()).toHaveLength(before + 1);
+
+    const document = target.getDocument();
+    const rootProps = document.nodes['root']?.props ?? {};
+    expect((rootProps['seo'] as { samples?: string[] } | undefined)?.samples).toEqual([
+      '+962 6 461 2750',
+    ]);
+    expect(rootProps['slug']).toBe(pagePlan.seo?.slug);
+    const footer = outer(document.nodes[regions.get('footer')!]?.props['tree'] as unknown as TreeNode);
+    expect(footer.tag).toBe('footer');
+    expect(textOf(footer)).toContain('461 2750');
+    expect(tags(footer, 'a').map(({ attributes }) => attributes?.['href'])).toContain('tel:+96264612750');
+    const order = document.nodes[regions.get('order')!]?.props['tree'];
+    expect(JSON.stringify(order)).toContain('ck-kit-cta-split');
+    // The finished regions are what the whole skeleton would have written.
+    const full = insertedTrees(skeletonFromPlan(pagePlan, SEO_CONTEXT).plan);
+    expect(textOf(footer)).toBe(textOf(outer(full[3]!)));
+  });
+
+  it('rewrites only what changed in the head: a new nav redraws the header, new tokens the CSS', () => {
+    const provisional = arabicCafe();
+    const context = { parentId: 'root', regionType: 'customCode' } as const;
+    const regions = new Map(provisional.sections.map(({ key }) => [key, `r-${key}`]));
+
+    const same = skeletonFinish({ provisional, final: arabicCafe(), context, regions });
+    expect(same?.complete).toEqual(['footer']);
+    // Default root props declare no seo/slug: nothing on the root at all.
+    expect(setKeys(same!.plan, 'root')).toEqual([]);
+    expect(same!.plan.commands.map(({ args }) => (args as StepArgs)['id'])).toEqual(['r-footer']);
+
+    const navChanged: PagePlan = { ...provisional, nav: [{ label: 'القائمة', anchorId: 'menu' }] };
+    const redrawn = skeletonFinish({ provisional, final: navChanged, context, regions })!;
+    expect(setKeys(redrawn.plan, 'root')).toEqual([]);
+    expect(setKeys(redrawn.plan, 'r-header')).toEqual(['tree']);
+    const header = outer(setValue(redrawn.plan, 'r-header', 'tree') as TreeNode);
+    expect(tags(header, 'nav').flatMap((nav) => tags(nav, 'a')).map(textOf)).not.toContain('اطلب');
+    // The header is redrawn but stays complete from the skeleton: only the footer is new.
+    expect(redrawn.complete).toEqual(['footer']);
+
+    const retinted: PagePlan = {
+      ...provisional,
+      tokens: { ...provisional.tokens, accent: '#9a3412', accentInk: '#9a3412' },
+    };
+    const recoloured = skeletonFinish({ provisional, final: retinted, context, regions })!;
+    expect(setKeys(recoloured.plan, 'root')).toEqual(['pageCss']);
+    expect(setValue(recoloured.plan, 'root', 'pageCss')).toBe(pagePlanCss(retinted));
+    expect(setKeys(recoloured.plan, 'r-header')).toEqual([]);
+
+    const renamed: PagePlan = { ...provisional, title: 'محمصة البن' };
+    const retitled = skeletonFinish({ provisional, final: renamed, context, regions })!;
+    expect(setKeys(retitled.plan, 'root')).toEqual(['title']);
+    expect(setKeys(retitled.plan, 'r-header')).toEqual(['tree']);
+    expect(retitled.plan.commands.map(({ command }) => command)).not.toContain('setDocMeta');
+  });
+
+  it('skips a section with no region, and returns undefined when nothing needs writing', () => {
+    const plan = accepted({
+      intent: 'replace',
+      locale: { lang: 'en' },
+      title: 'Northlight Studio | Brand design',
+      description: 'A two-person brand studio in Leeds.',
+      tokens: {
+        bg: 'zinc-950',
+        surface: 'zinc-900',
+        ink: 'zinc-50',
+        muted: 'zinc-400',
+        accent: 'amber-400',
+        onAccent: 'zinc-950',
+        border: 'zinc-600',
+        fontDisplay: { family: 'Archivo Black' },
+        fontBody: { family: 'Archivo', weights: [400, 600] },
+        radius: 'full',
+        signature: 'one oversized numeral per section',
+      },
+      primaryCta: { label: 'Book a call', href: 'mailto:hello@northlight.studio' },
+      nav: [{ label: 'Work', anchorId: 'work' }],
+      sections: [
+        { key: 'hero', role: 'hero', title: 'Brands that hold', anchorId: 'hero', purpose: 'Pitch.' },
+        { key: 'work', role: 'band', title: 'Selected work', anchorId: 'work', purpose: 'Proof.' },
+      ],
+      facts: [],
+    });
+    const context = { parentId: 'root', regionType: 'customCode', rootProps: SEO_PROPS } as const;
+    const regions = new Map([
+      ['hero', 'r-hero'],
+      ['work', 'r-work'],
+    ]);
+    expect(skeletonFinish({ provisional: plan, final: plan, context, regions })).toBeUndefined();
+
+    // A footer whose region is unknown is not written either.
+    const studio = englishStudio();
+    expect(
+      skeletonFinish({ provisional: studio, final: studio, context, regions: new Map() }),
+    ).toBeUndefined();
+  });
+});
+// end p5-plan-stream additions

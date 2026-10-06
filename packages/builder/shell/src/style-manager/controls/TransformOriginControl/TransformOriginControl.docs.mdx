@@ -1,0 +1,17 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TransformOriginControlStories from './TransformOriginControl.stories';
+
+<Meta of={TransformOriginControlStories} />
+
+# TransformOriginControl
+
+A nine-point picker for `transform-origin` (style-manager DESIGN.md §A.4 Transforms).
+
+CSS has no logical keywords for `transform-origin`, so the control speaks **logical points** (block
+start/centre/end × inline start/centre/end), lays the grid out in the **page** direction, and writes
+the physical keyword the point means on that page: inline-start is `left` on an LTR page and `right`
+on an RTL page. A stored keyword is read back as its logical point.
+
+It is a radio group with one tab stop; the four arrows move in two dimensions (inline arrows mirrored
+in RTL). Labels: `TRANSFORM_ORIGIN_CONTROL_LABELS_EN` and `TRANSFORM_ORIGIN_CONTROL_LABELS_AR`.

@@ -657,8 +657,79 @@ describe('the page-plan task', () => {
   it('asks for a compact answer, because the answer length IS the wait', () => {
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
-    expect(rules).toMatch(/2,000.{1,3}4,000 characters/u);
+    expect(rules).toMatch(/Be brief: aim for 1,500.{1,3}2,800 characters/u);
     expect(rules).toContain('one line');
+    // The limits that keep each field short (speed DESIGN §3).
+    expect(rules).toContain('title at most 60 characters');
+    expect(rules).toContain('purpose one sentence of at most 120');
+    expect(rules).toContain('at most 3 mustSay items of at most 60 characters each');
+    expect(rules).toContain('alt at most 80');
+  });
+
+  /*
+    2026-10-05 (speed DESIGN §3): the client streams the plan and acts on each
+    part as it closes — the skeleton when `sections` closes, a writer when its
+    brief does — so the key order is part of the contract, and the outline,
+    the briefs and the deck tokens are what the example and rules ask for.
+  */
+  it('states the key order as part of the contract', () => {
+    const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
+
+    expect(rules).toContain(
+      'The key ORDER is part of the contract — the client starts building each part the moment it closes: rationale, then in pagePlan intent, locale, title, brand, description, tokens, primaryCta, sections, briefs, seo.',
+    );
+    // The example the model copies is written in that order.
+    expect(Object.keys(PAGE_PLAN_EXAMPLE.pagePlan)).toEqual([
+      'intent',
+      'locale',
+      'title',
+      'description',
+      'tokens',
+      'primaryCta',
+      'sections',
+      'briefs',
+      'seo',
+    ]);
+  });
+
+  it('asks for the brand, a header and footer, the contact kit on a local business, and Organization for software', () => {
+    // Quality pass 2026-10-05 (measure-v2): a SaaS plan with no header, a footer showing the
+    // title cut off, LocalBusiness on a SaaS page, and a booking section with no way to book.
+    const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
+
+    expect(rules).toContain("- brand: the business's own short name, 1 to 4 words");
+    expect(rules).toContain('A whole page (new-page or replace) has a header first and a footer last.');
+    expect(rules).toContain('its booking or contact section is kit contact-split');
+    expect(rules).toContain('software, a SaaS, an app or an online product is Organization, never LocalBusiness');
+  });
+
+  it('asks for an outline with nav labels, then one brief per section with its facts inside', () => {
+    const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
+
+    expect(rules).toContain('- sections: the OUTLINE');
+    expect(rules).toContain('{"key","role","title","variant","nav"} and nothing more');
+    expect(rules).toContain('nav: the menu label, only on the sections the header');
+    expect(rules).toContain(
+      '- briefs: ONE per section in page order, every section except the header (the footer\'s brief carries the contact facts)',
+    );
+    expect(rules).toContain('{"key","purpose","mustSay","mustNotRepeat","images","slots","facts"}');
+    expect(rules).toContain('inside the brief of the section that shows it, each {"key","sample"}');
+    expect(rules).toContain('Write no top-level nav or facts');
+  });
+
+  it('asks for tokens by deck row, a colour or face only when the person named one', () => {
+    const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
+    const tokens = /- tokens: [^\n]*/u.exec(rules)?.[0] ?? '';
+
+    expect(tokens).toContain('{"deckRowId","signature"}');
+    expect(tokens).toContain('The client fills every colour, both faces and the radius from that row');
+    expect(tokens).toContain('Add a colour or font key ONLY when the person named one');
+    expect(tokens).toContain('"VARIANT: B" in the request → also write the row\'s band colours');
+    expect(tokens).toContain('omit deckRowId and write the tokens in full');
+    expect(PAGE_PLAN_EXAMPLE.pagePlan.tokens).toEqual({
+      deckRowId: 'cafe',
+      signature: 'The brand name at text-8xl, faint behind the menu.',
+    });
   });
 
   it('derives tokens from ONE deck row, with accentInk for accent text and no habitual Cairo', () => {
@@ -683,9 +754,8 @@ describe('the page-plan task', () => {
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
     expect(rules).toContain(
-      'every colour is a Tailwind shade name or #rrggbb hex, and both resolve — nothing else does',
+      'A colour you write is a Tailwind shade name or #rrggbb hex — both resolve, nothing else does',
     );
-    expect(rules).toContain('border = a hairline between ground and muted (e.g. stone-200');
     expect(rules).not.toContain('does not resolve');
     expect(rules).not.toContain('written as their hex');
   });
@@ -698,7 +768,9 @@ describe('the page-plan task', () => {
     */
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
-    expect(rules).toContain('accentInk is never the on-accent colour');
+    expect(rules).toContain(
+      'accentInk is the colour of accent TEXT on bg and surface, never the on-accent colour',
+    );
   });
 
   it('gives a plan with no deck row the checked base, not a colour of its own', () => {
@@ -740,7 +812,10 @@ describe('the page-plan task', () => {
 
     expect(facts).toContain("a complete, realistic value in the page's own format and language");
     expect(facts).toContain('+971 4 331 2750');
-    expect(facts).toContain('never XXX, masked digits, all zeros or a bracketed stand-in');
+    expect(facts).toContain(
+      'never XXX, masked digits, all zeros, 1234567 or a bracketed stand-in',
+    );
+    expect(facts).toContain('inside the brief of the section that shows it');
     expect(facts).toContain('the ledger, not the value, marks it as a sample');
   });
 
@@ -1047,6 +1122,21 @@ describe('the edit prompt', () => {
     expect(rules).not.toContain('## Building the page');
     expect(rules).not.toContain('Design to a professional standard');
     expect(buildPrompt(asBuild(editRequest())).system[0]?.text).toBe(SYSTEM_RULES_TEXT);
+  });
+
+  it('sends a colour that names an element to that element, and theme.apply only to the whole page', () => {
+    /*
+      Owner's bug (2026-10-05): «عنوان قسم الخبرات خليه أزرق» reached the
+      model, which answered theme.apply on an accent nothing read, and the
+      panel said «عُدِّلت الصفحة» with nothing changed on screen.
+    */
+    const rules = buildPrompt({ ...editRequest(), request: 'عنوان قسم الخبرات خليه أزرق' }).system[0]?.text ?? '';
+
+    expect(rules).toContain('colours THAT element');
+    expect(rules).toContain('`text-blue-700` for its text, `bg-blue-700` for its ground');
+    expect(rules).toContain('`theme.apply` changes page colour tokens and is ONLY for a request about the whole page or its theme');
+    // The build rules (and their cached prefix) are untouched.
+    expect(SYSTEM_RULES_TEXT).not.toContain('colours THAT element');
   });
 
   it('drops the page templates and the JSON-form customCode schema, keeping the markup section', () => {
@@ -1357,14 +1447,15 @@ describe('the page-plan prompt with kits and seo', () => {
 
   it('names the kits, the slots rule and the seo fields in the frozen rules', () => {
     const rules = buildPrompt(planRequest()).system[0]?.text ?? '';
-    expect(rules).toContain('"variant","kit","slots","images"');
+    expect(rules).toContain('- kit: optional on an outline section');
+    expect(rules).toContain('omitted, the client picks it from the variant');
     for (const id of PAGE_PLAN_KIT_IDS) expect(rules).toContain(id);
-    expect(rules).toContain('slots: ONLY for a short section');
+    expect(rules).toContain('- slots (in a brief): ONLY for a short section');
     expect(rules).toContain('- seo: {"keyword","pageKind","businessType","slug"}');
     expect(rules).toContain(JSON.stringify(PAGE_PLAN_EXAMPLE));
   });
 
-  it('stays within its budget: the rules under 11,000 characters (8,340 before kits and seo)', () => {
+  it('stays within its budget: the rules under 11,000 characters (8,340 before kits and seo; 9,932 compact)', () => {
     const rules = buildPrompt(planRequest()).system[0]?.text ?? '';
     expect(rules.length).toBeLessThan(11_000);
   });

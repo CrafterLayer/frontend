@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+import { isLucideIconName } from './lucide-icon-names';
+import {
+  CUSTOM_CODE_HOVER_PRESETS,
+  CUSTOM_CODE_MOTION_DELAYS,
+  CUSTOM_CODE_MOTION_DISTANCES,
+  CUSTOM_CODE_MOTION_EASES,
+  CUSTOM_CODE_MOTION_ONCE,
+  CUSTOM_CODE_MOTION_PARAMS,
+  CUSTOM_CODE_MOTION_PRESETS,
+  CUSTOM_CODE_MOTION_STAGGERS,
+  CUSTOM_CODE_MOTION_TRIGGERS,
+  isMotionPreset,
+  motionTriggerProblem,
+} from './motion-vocabulary';
+import { isTablerIconName } from './tabler-icon-names';
+
 /**
  * The custom-code tree: what the assistant writes when no registered
  * block says the shape it needs.
@@ -49,11 +65,50 @@ export const CUSTOM_CODE_SVG_TAGS = [
   'linearGradient',
   'radialGradient',
   'stop',
+  /*
+    Admitted 2026-10-05 (style-manager DESIGN §D.1): drawn text, clipping,
+    masks, patterns and the filter primitives a grain, a glow or a duotone is
+    made of. Still closed over paint and geometry: no `use`, `image`,
+    `foreignObject`, `script` or `animate*`, and no href that leaves the drawing.
+  */
+  'text',
+  'tspan',
+  'textPath',
+  'clipPath',
+  'mask',
+  'pattern',
+  'filter',
+  'feGaussianBlur',
+  'feOffset',
+  'feBlend',
+  'feColorMatrix',
+  'feTurbulence',
+  'feDisplacementMap',
+  'feMerge',
+  'feMergeNode',
+  'feFlood',
+  'feComposite',
+] as const;
+
+/** The svg tags that hold TEXT (every other svg shape holds none). */
+export const CUSTOM_CODE_SVG_TEXT_TAGS = ['text', 'tspan', 'textPath'] as const;
+
+/** Form controls: inert on the canvas, sent only through the `whatsapp-form` behaviour. */
+export const CUSTOM_CODE_FORM_TAGS = [
+  'form',
+  'input',
+  'textarea',
+  'select',
+  'option',
+  'label',
+  'fieldset',
+  'legend',
 ] as const;
 
 /**
  * Tags the vocabulary admits: structure, text, media, lists, tables,
- * disclosure, links, buttons, and the svg shape family — no more.
+ * disclosure, links, buttons, forms, dialogs, allowlisted embeds, and the svg
+ * shape family — no more.
  */
 export const CUSTOM_CODE_TAGS = [
   'a',
@@ -115,6 +170,12 @@ export const CUSTOM_CODE_TAGS = [
   'tr',
   'ul',
   'video',
+  // Admitted 2026-10-05 (style-manager DESIGN §D.1), each with its guard below.
+  ...CUSTOM_CODE_FORM_TAGS,
+  'dialog',
+  'iframe',
+  'audio',
+  'track',
   ...CUSTOM_CODE_SVG_TAGS,
 ] as const;
 
@@ -161,6 +222,22 @@ export type CustomCodeTag = (typeof CUSTOM_CODE_TAGS)[number];
     button — always `type="button"`, never a submit, never a handler. It is
         a styled affordance the assistant can place; a registered block or a
         host wires behaviour to it later.
+
+  Admitted 2026-10-05 (style-manager DESIGN §D.1 — "build and edit anything",
+  safely). Each absence above that is now lifted carries its guard:
+
+    form and its controls — a form has no `action`, `method` or
+        `formaction`; it sends only through the `whatsapp-form` behaviour (a
+        button inside such a form may be `type="submit"`). Controls are inert
+        on the editing canvas (tabindex -1, readOnly).
+    dialog — opened by a `popovertarget` button, never by script.
+    iframe — `src` must match one of four allowlisted embed hosts
+        (CUSTOM_CODE_IFRAME_SOURCES), `title` is required, and the renderer
+        forces the sandbox, lazy loading, the referrer policy and `allow`.
+    audio, track — https or relative addresses only; audio never autoplays.
+
+  Still refused, deliberately: script, style (element and attribute), on*
+  handlers, object, embed, canvas, external @import and arbitrary data-*.
 */
 
 /**
@@ -197,6 +274,53 @@ export const CUSTOM_CODE_SVG_ATTRIBUTES = [
   'stop-color',
   'stop-opacity',
   'gradientUnits',
+  // Admitted 2026-10-05 with the text, clip, mask, pattern and filter family.
+  'clip-path',
+  'mask',
+  'filter',
+  'clipPathUnits',
+  'maskUnits',
+  'maskContentUnits',
+  'patternUnits',
+  'patternContentUnits',
+  'patternTransform',
+  'gradientTransform',
+  'filterUnits',
+  'primitiveUnits',
+  'spreadMethod',
+  'fx',
+  'fy',
+  'dx',
+  'dy',
+  'text-anchor',
+  'dominant-baseline',
+  'font-size',
+  'font-weight',
+  'font-family',
+  'letter-spacing',
+  'startOffset',
+  'textLength',
+  'lengthAdjust',
+  'stdDeviation',
+  'in',
+  'in2',
+  'result',
+  'mode',
+  'values',
+  'baseFrequency',
+  'numOctaves',
+  'seed',
+  'stitchTiles',
+  'scale',
+  'xChannelSelector',
+  'yChannelSelector',
+  'flood-color',
+  'flood-opacity',
+  'operator',
+  'k1',
+  'k2',
+  'k3',
+  'k4',
 ] as const;
 
 /**
@@ -261,6 +385,40 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   'data-ck-text',
   // Loading priority for the one image that paints first (LCP).
   'fetchpriority',
+  // Admitted 2026-10-05 (style-manager DESIGN §D.1): form controls.
+  'placeholder',
+  'required',
+  'autocomplete',
+  'inputmode',
+  'min',
+  'max',
+  'step',
+  'minlength',
+  'maxlength',
+  'rows',
+  'for',
+  'value',
+  'checked',
+  'disabled',
+  'multiple',
+  // Media tracks.
+  'kind',
+  'srclang',
+  // Accessibility.
+  'tabindex',
+  'aria-expanded',
+  'aria-controls',
+  'aria-haspopup',
+  'aria-pressed',
+  'aria-selected',
+  'aria-live',
+  'aria-modal',
+  // Links: closed relationship tokens.
+  'rel',
+  // Motion (DESIGN §B.2): a preset NAME plus its params, never a timing literal.
+  'data-ck-motion',
+  'data-ck-hover',
+  ...CUSTOM_CODE_MOTION_PARAMS,
   ...CUSTOM_CODE_SVG_ATTRIBUTES,
 ] as const;
 
@@ -282,6 +440,9 @@ export const CUSTOM_CODE_BEHAVIORS = [
   'lightbox',
   'whatsapp-form',
   'copy-text',
+  // Added 2026-10-05 (style-manager DESIGN §B.1): rolling digits, FLIP layout.
+  'ticker',
+  'layout',
 ] as const;
 
 export type CustomCodeBehavior = (typeof CUSTOM_CODE_BEHAVIORS)[number];
@@ -311,6 +472,17 @@ export interface CustomCodeElement {
   */
   attributes?: Partial<Record<CustomCodeAttribute, string | undefined>> | undefined;
   children?: CustomCodeNode[] | undefined;
+  /**
+   * Editor metadata: the element's name in Layers (≤ 60 characters). Never
+   * rendered — not to the canvas DOM, not to the published page.
+   */
+  label?: string | undefined;
+  /**
+   * Editor metadata: a locked element is not selectable on the canvas (a
+   * click passes to its parent) and Layers shows a lock. Only `true` is
+   * stored; unlocking removes the field. Never rendered.
+   */
+  locked?: true | undefined;
 }
 
 export interface CustomCodeComponent {
@@ -321,6 +493,10 @@ export interface CustomCodeComponent {
   props?: Record<string, unknown> | undefined;
   /** Rendered into the referenced block's default slot. */
   children?: CustomCodeNode[] | undefined;
+  /** Editor metadata: the Layers name (≤ 60). Never rendered. */
+  label?: string | undefined;
+  /** Editor metadata: locked on the canvas. Never rendered. */
+  locked?: true | undefined;
 }
 
 /**
@@ -336,7 +512,11 @@ export interface CustomCodeComponent {
  */
 export interface CustomCodeIcon {
   kind: 'icon';
-  /** Kebab-case Lucide name. Validated for shape here; for existence at the door. */
+  /**
+   * Kebab-case Lucide name (`mail`), or a Tabler one prefixed with its style
+   * (`tabler:brand-whatsapp`, `tabler-filled:heart`). Validated for shape here;
+   * for existence by `isCustomCodeIconName` at the door.
+   */
   name: string;
   className?: string | undefined;
   /** Rendered size in CSS pixels; 24 when absent, the set's native grid. */
@@ -348,8 +528,13 @@ export interface CustomCodeIcon {
    * icon is decorative and hidden from assistive technology. There is no
    * third state: an unlabelled icon that is not hidden is announced as
    * "image", which is worse than either.
+   *
+   * (Unlike an element's `label`, an icon's is its ACCESSIBLE name; Layers
+   * shows it too.)
    */
   label?: string | undefined;
+  /** Editor metadata: locked on the canvas. Never rendered. */
+  locked?: true | undefined;
 }
 
 export type CustomCodeNode = CustomCodeElement | CustomCodeComponent | CustomCodeIcon;
@@ -388,6 +573,63 @@ export function safeCustomCodeUrl(value: string): string | undefined {
   return undefined;
 }
 
+/*
+  The characters an embed address may carry after its fixed prefix: no
+  whitespace, quote, angle bracket, backslash or backtick — nothing that could
+  end the attribute or start markup. Google Maps embeds use `!` and `%`.
+*/
+const EMBED_REST = String.raw`[^\s"'<>\\` + '`' + String.raw`]*`;
+
+/**
+ * The only addresses an `<iframe>` may show (DESIGN §D.1): four embed
+ * players, each pinned to its https origin and path. Anything else is a
+ * frame the page never vetted, so it never renders.
+ */
+export const CUSTOM_CODE_IFRAME_SOURCES = [
+  {
+    host: 'YouTube (privacy-enhanced)',
+    example: 'https://www.youtube-nocookie.com/embed/VIDEO_ID',
+    pattern: new RegExp(
+      `^https://www\\.youtube-nocookie\\.com/embed/[\\w-]+(?:[?]${EMBED_REST})?$`,
+      'u',
+    ),
+  },
+  {
+    host: 'Vimeo',
+    example: 'https://player.vimeo.com/video/123456789',
+    pattern: new RegExp(`^https://player\\.vimeo\\.com/video/\\d+(?:[?]${EMBED_REST})?$`, 'u'),
+  },
+  {
+    host: 'Google Maps',
+    example: 'https://www.google.com/maps/embed?pb=…',
+    pattern: new RegExp(`^https://www\\.google\\.com/maps/embed[?]${EMBED_REST}$`, 'u'),
+  },
+  {
+    host: 'Spotify',
+    example: 'https://open.spotify.com/embed/track/TRACK_ID',
+    pattern: new RegExp(
+      `^https://open\\.spotify\\.com/embed/(?:track|album|playlist|episode|show|artist)/\\w+(?:[?]${EMBED_REST})?$`,
+      'u',
+    ),
+  },
+] as const;
+
+/** Whether an address is one an `<iframe>` may show. */
+export function isAllowedIframeSrc(value: string): boolean {
+  return CUSTOM_CODE_IFRAME_SOURCES.some(({ pattern }) => pattern.test(value));
+}
+
+/**
+ * The sandbox, permissions and referrer policy the renderer FORCES on every
+ * iframe, whatever the stored tree says (none of them is an attribute the
+ * vocabulary admits, so a tree cannot weaken them).
+ */
+export const CUSTOM_CODE_IFRAME_SANDBOX =
+  'allow-scripts allow-same-origin allow-presentation allow-popups';
+export const CUSTOM_CODE_IFRAME_ALLOW =
+  'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+export const CUSTOM_CODE_IFRAME_REFERRER_POLICY = 'strict-origin-when-cross-origin';
+
 /**
  * The address candidates of a `srcset`, or undefined when it cannot be read.
  * The HTML rule, simplified: an address is a run without whitespace (a data
@@ -419,7 +661,7 @@ interface AttributeRule {
   /** `html`: any tag outside the svg family; `svg`: only inside it; or these tags. */
   readonly on: AttributePlace;
   /** What is wrong with the value, or undefined when it is fine. */
-  readonly value?: (value: string, name: string) => string | undefined;
+  readonly value?: (value: string, name: string, tag: string) => string | undefined;
 }
 
 const oneOf =
@@ -441,7 +683,9 @@ const bare = (value: string, name: string): string | undefined =>
     : `${name} is written bare (${name}), never ${name}='${value}'`;
 
 const safeAddress = (value: string, name: string): string | undefined =>
-  safeCustomCodeUrl(value) === undefined ? `${name} must be an https or relative address` : undefined;
+  safeCustomCodeUrl(value) === undefined
+    ? `${name} must be an https or relative address`
+    : undefined;
 
 const safeSrcset = (value: string, name: string): string | undefined => {
   const urls = customCodeSrcsetUrls(value);
@@ -494,6 +738,104 @@ const BEHAVIOR_TAGS: Readonly<Partial<Record<CustomCodeBehavior, readonly string
   'whatsapp-form': ['form', 'button'],
 };
 
+/** An id another attribute points at (`for`, `data-ck-target`). */
+const ID_TOKEN = /^[^\s'"<>]{1,120}$/u;
+const NUMBER_PATTERN = new RegExp(`^${NUMBER}$`, 'u');
+const plainText =
+  (max: number) =>
+  (value: string, name: string): string | undefined =>
+    value.length > max
+      ? `${name} holds at most ${String(max)} characters`
+      : /[<>]/u.test(value)
+        ? `${name} is plain text, without < or >`
+        : undefined;
+
+/** The input types a form may carry. No password, file, submit, image or reset. */
+export const CUSTOM_CODE_INPUT_TYPES = [
+  'text',
+  'email',
+  'tel',
+  'number',
+  'url',
+  'search',
+  'date',
+  'time',
+  'datetime-local',
+  'month',
+  'week',
+  'checkbox',
+  'radio',
+  'range',
+  'color',
+  'hidden',
+] as const;
+
+/** The autocomplete tokens a control may name: contact and address facts only. */
+export const CUSTOM_CODE_AUTOCOMPLETE_TOKENS = [
+  'on',
+  'off',
+  'name',
+  'honorific-prefix',
+  'given-name',
+  'additional-name',
+  'family-name',
+  'nickname',
+  'email',
+  'organization',
+  'organization-title',
+  'street-address',
+  'address-line1',
+  'address-line2',
+  'address-level1',
+  'address-level2',
+  'country',
+  'country-name',
+  'postal-code',
+  'tel',
+  'tel-national',
+  'bday',
+  'sex',
+  'url',
+  'language',
+] as const;
+
+/** The link relationships `rel` may name (space-separated). */
+export const CUSTOM_CODE_REL_TOKENS = [
+  'noopener',
+  'noreferrer',
+  'nofollow',
+  'ugc',
+  'sponsored',
+  'me',
+] as const;
+
+const relValue = (value: string, name: string): string | undefined => {
+  const tokens = value.trim().split(/\s+/u);
+  return value.trim() !== '' &&
+    tokens.every((token) => (CUSTOM_CODE_REL_TOKENS as readonly string[]).includes(token))
+    ? undefined
+    : `${name} is one or more of ${CUSTOM_CODE_REL_TOKENS.join(', ')}`;
+};
+
+/** `type` means a different thing on each tag that carries it. */
+const typeValue = (value: string, name: string, tag: string): string | undefined => {
+  if (tag === 'source') {
+    return matching(
+      /^[a-z]+\/[\w.+-]+(?:\s*;\s*codecs=["']?[\w., +-]+["']?)?$/u,
+      'a media type such as video/mp4',
+    )(value, name);
+  }
+  if (tag === 'input') return oneOf(...CUSTOM_CODE_INPUT_TYPES)(value, name);
+  if (tag === 'button') return oneOf('button', 'submit')(value, name);
+  if (tag === 'feColorMatrix') {
+    return oneOf('matrix', 'saturate', 'hueRotate', 'luminanceToAlpha')(value, name);
+  }
+  return oneOf('fractalNoise', 'turbulence')(value, name);
+};
+
+const motionPresetValue = oneOf(...CUSTOM_CODE_MOTION_PRESETS);
+const hoverPresetValue = oneOf(...CUSTOM_CODE_HOVER_PRESETS);
+
 const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   alt: { on: 'html' },
   'aria-hidden': { on: 'any' },
@@ -514,38 +856,108 @@ const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   },
   target: { on: 'html' },
   title: { on: 'html' },
-  lang: { on: 'html', value: matching(/^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*)?$/u, 'a language tag') },
+  lang: {
+    on: 'html',
+    value: matching(/^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*)?$/u, 'a language tag'),
+  },
   dir: { on: 'html', value: oneOf('ltr', 'rtl', 'auto') },
   popover: { on: 'html', value: oneOf('', 'auto', 'manual') },
   popovertarget: { on: ['button'], value: matching(/^[^\s'"<>]{1,120}$/u, "the popover's id") },
   popovertargetaction: { on: ['button'], value: oneOf('toggle', 'show', 'hide') },
-  loading: { on: ['img'], value: oneOf('lazy', 'eager') },
+  loading: { on: ['img', 'iframe'], value: oneOf('lazy', 'eager') },
   decoding: { on: ['img'], value: oneOf('async', 'sync', 'auto') },
   srcset: { on: ['img', 'source'], value: safeSrcset },
   sizes: {
     on: ['img', 'source'],
-    value: matching(/^[\w\s().,:%+*/-]{1,500}$/u, 'a sizes list such as (min-width:768px) 50vw, 100vw'),
+    value: matching(
+      /^[\w\s().,:%+*/-]{1,500}$/u,
+      'a sizes list such as (min-width:768px) 50vw, 100vw',
+    ),
   },
   media: {
     on: ['source'],
     value: matching(/^[\w\s().,:%/-]{1,500}$/u, 'a media query such as (min-width:768px)'),
   },
   type: {
-    on: ['source'],
-    value: matching(
-      /^[a-z]+\/[\w.+-]+(?:\s*;\s*codecs=["']?[\w., +-]+["']?)?$/u,
-      'a media type such as video/mp4',
-    ),
+    on: ['source', 'input', 'button', 'feColorMatrix', 'feTurbulence'],
+    value: typeValue,
   },
   poster: { on: ['video'], value: safeAddress },
+  // Sound nobody asked to hear: audio never plays by itself.
   autoplay: { on: ['video'], value: bare },
-  muted: { on: ['video'], value: bare },
-  loop: { on: ['video'], value: bare },
+  muted: { on: ['video', 'audio'], value: bare },
+  loop: { on: ['video', 'audio'], value: bare },
   playsinline: { on: ['video'], value: bare },
-  controls: { on: ['video'], value: bare },
-  preload: { on: ['video'], value: oneOf('none', 'metadata', 'auto') },
-  open: { on: ['details'], value: bare },
-  name: { on: ['details'], value: matching(/^[\w-]{1,64}$/u, 'a group name of letters, digits and -') },
+  controls: { on: ['video', 'audio'], value: bare },
+  preload: { on: ['video', 'audio'], value: oneOf('none', 'metadata', 'auto') },
+  open: { on: ['details', 'dialog'], value: bare },
+  name: {
+    on: ['details', 'form', 'input', 'textarea', 'select', 'fieldset', 'button'],
+    value: matching(/^[\w-]{1,64}$/u, 'a name of letters, digits and -'),
+  },
+  // Form controls (2026-10-05).
+  placeholder: { on: ['input', 'textarea'], value: plainText(200) },
+  required: { on: ['input', 'textarea', 'select'], value: bare },
+  autocomplete: {
+    on: ['form', 'input', 'textarea', 'select'],
+    value: oneOf(...CUSTOM_CODE_AUTOCOMPLETE_TOKENS),
+  },
+  inputmode: {
+    on: ['input', 'textarea'],
+    value: oneOf('none', 'text', 'decimal', 'numeric', 'tel', 'search', 'email', 'url'),
+  },
+  min: { on: ['input'], value: matching(/^-?[\d.:T-]{1,32}$/u, 'a number, a date or a time') },
+  max: { on: ['input'], value: matching(/^-?[\d.:T-]{1,32}$/u, 'a number, a date or a time') },
+  step: {
+    on: ['input'],
+    value: (value, name) =>
+      value === 'any' || (NUMBER_PATTERN.test(value) && Number(value) > 0)
+        ? undefined
+        : `${name} is a positive number or any`,
+  },
+  minlength: { on: ['input', 'textarea'], value: matching(/^\d{1,6}$/u, 'a whole number') },
+  maxlength: { on: ['input', 'textarea'], value: matching(/^\d{1,6}$/u, 'a whole number') },
+  rows: { on: ['textarea'], value: matching(/^[1-9]\d?$/u, 'a whole number from 1 to 99') },
+  for: { on: ['label'], value: matching(ID_TOKEN, "the control's id") },
+  value: { on: ['input', 'option', 'button'], value: plainText(500) },
+  checked: { on: ['input'], value: bare },
+  disabled: { on: ['input', 'textarea', 'select', 'option', 'fieldset', 'button'], value: bare },
+  multiple: { on: ['select', 'input'], value: bare },
+  // Media tracks.
+  kind: {
+    on: ['track'],
+    value: oneOf('subtitles', 'captions', 'descriptions', 'chapters', 'metadata'),
+  },
+  srclang: {
+    on: ['track'],
+    value: matching(/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u, 'a language tag'),
+  },
+  // Accessibility.
+  tabindex: { on: 'html', value: oneOf('0', '-1') },
+  'aria-expanded': { on: 'html', value: oneOf('true', 'false') },
+  'aria-controls': { on: 'html', value: matching(ID_TOKENS, 'ids separated by spaces') },
+  'aria-haspopup': {
+    on: 'html',
+    value: oneOf('true', 'false', 'menu', 'listbox', 'tree', 'grid', 'dialog'),
+  },
+  'aria-pressed': { on: 'html', value: oneOf('true', 'false', 'mixed') },
+  'aria-selected': { on: 'html', value: oneOf('true', 'false') },
+  'aria-live': { on: 'html', value: oneOf('off', 'polite', 'assertive') },
+  'aria-modal': { on: 'html', value: oneOf('true', 'false') },
+  rel: { on: ['a'], value: relValue },
+  // Motion (DESIGN §B.2): closed enums, checked again in pairs by elementProblems.
+  'data-ck-motion': { on: 'html', value: motionPresetValue },
+  'data-ck-hover': { on: 'html', value: hoverPresetValue },
+  'data-ck-trigger': { on: 'html', value: oneOf(...CUSTOM_CODE_MOTION_TRIGGERS) },
+  'data-ck-delay': { on: 'html', value: oneOf(...CUSTOM_CODE_MOTION_DELAYS) },
+  'data-ck-ease': { on: 'html', value: oneOf(...CUSTOM_CODE_MOTION_EASES) },
+  'data-ck-once': { on: 'html', value: oneOf(...CUSTOM_CODE_MOTION_ONCE) },
+  'data-ck-distance': { on: 'html', value: oneOf(...CUSTOM_CODE_MOTION_DISTANCES) },
+  'data-ck-stagger': { on: 'html', value: oneOf(...CUSTOM_CODE_MOTION_STAGGERS) },
+  'data-ck-target': {
+    on: 'html',
+    value: matching(/^[A-Za-z][\w-]{0,63}$/u, 'the id of an element in this region'),
+  },
   colspan: { on: ['td', 'th'], value: matching(/^[1-9]\d{0,2}$/u, 'a whole number from 1') },
   rowspan: { on: ['td', 'th'], value: matching(/^\d{1,3}$/u, 'a whole number') },
   scope: { on: ['th'], value: oneOf('row', 'col', 'rowgroup', 'colgroup') },
@@ -606,15 +1018,154 @@ const SVG_ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
   points: { on: 'svg', value: matching(/^[\d\s.,eE+-]*$/u, 'a list of numbers') },
   gradientUnits: { on: 'svg', value: oneOf('userSpaceOnUse', 'objectBoundingBox') },
   ...Object.fromEntries(
-    ['cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'x1', 'y1', 'x2', 'y2'].map((name) => [
+    [
+      'cx',
+      'cy',
+      'r',
+      'rx',
+      'ry',
+      'x',
+      'y',
+      'x1',
+      'y1',
+      'x2',
+      'y2',
+      // 2026-10-05: text, gradient focus and filter geometry.
+      'fx',
+      'fy',
+      'dx',
+      'dy',
+      'startOffset',
+      'textLength',
+      'font-size',
+      'letter-spacing',
+      'flood-opacity',
+      'seed',
+      'scale',
+      'k1',
+      'k2',
+      'k3',
+      'k4',
+    ].map((name) => [name, { on: 'svg', value: svgLength } satisfies AttributeRule]),
+  ),
+  ...Object.fromEntries(
+    [
+      'clipPathUnits',
+      'maskUnits',
+      'maskContentUnits',
+      'patternUnits',
+      'patternContentUnits',
+      'filterUnits',
+      'primitiveUnits',
+    ].map((name) => [
       name,
-      { on: 'svg', value: svgLength } satisfies AttributeRule,
+      { on: 'svg', value: oneOf('userSpaceOnUse', 'objectBoundingBox') } satisfies AttributeRule,
     ]),
   ),
+  // A clip, mask or filter is referenced inside the same drawing only: url(#id).
+  'clip-path': { on: 'svg', value: svgValue },
+  mask: { on: 'svg', value: svgValue },
+  filter: { on: 'svg', value: svgValue },
+  'flood-color': { on: 'svg', value: svgValue },
+  'font-family': {
+    on: 'svg',
+    value: (value, name) =>
+      value.length > 120 ? `${name} is at most 120 characters` : svgValue(value, name),
+  },
+  patternTransform: { on: 'svg', value: matching(/^[\w(),.\s+-]*$/u, 'a transform list') },
+  gradientTransform: { on: 'svg', value: matching(/^[\w(),.\s+-]*$/u, 'a transform list') },
+  spreadMethod: { on: 'svg', value: oneOf('pad', 'reflect', 'repeat') },
+  'text-anchor': { on: 'svg', value: oneOf('start', 'middle', 'end') },
+  'dominant-baseline': {
+    on: 'svg',
+    value: oneOf(
+      'auto',
+      'middle',
+      'central',
+      'hanging',
+      'alphabetic',
+      'ideographic',
+      'mathematical',
+      'text-top',
+      'text-bottom',
+    ),
+  },
+  'font-weight': {
+    on: 'svg',
+    value: oneOf(
+      'normal',
+      'bold',
+      'bolder',
+      'lighter',
+      '100',
+      '200',
+      '300',
+      '400',
+      '500',
+      '600',
+      '700',
+      '800',
+      '900',
+    ),
+  },
+  lengthAdjust: { on: 'svg', value: oneOf('spacing', 'spacingAndGlyphs') },
+  stdDeviation: {
+    on: 'svg',
+    value: matching(new RegExp(`^${NUMBER}(?:[\\s,]+${NUMBER})?$`, 'u'), 'one or two numbers'),
+  },
+  baseFrequency: {
+    on: 'svg',
+    value: matching(new RegExp(`^${NUMBER}(?:[\\s,]+${NUMBER})?$`, 'u'), 'one or two numbers'),
+  },
+  numOctaves: { on: 'svg', value: matching(/^\d{1,2}$/u, 'a whole number') },
+  in: {
+    on: 'svg',
+    value: matching(/^[A-Za-z][\w-]{0,31}$/u, 'SourceGraphic, SourceAlpha or a result name'),
+  },
+  in2: {
+    on: 'svg',
+    value: matching(/^[A-Za-z][\w-]{0,31}$/u, 'SourceGraphic, SourceAlpha or a result name'),
+  },
+  result: { on: 'svg', value: matching(/^[A-Za-z][\w-]{0,31}$/u, 'a result name') },
+  mode: {
+    on: 'svg',
+    value: oneOf(
+      'normal',
+      'multiply',
+      'screen',
+      'overlay',
+      'darken',
+      'lighten',
+      'color-dodge',
+      'color-burn',
+      'hard-light',
+      'soft-light',
+      'difference',
+      'exclusion',
+      'hue',
+      'saturation',
+      'color',
+      'luminosity',
+    ),
+  },
+  values: { on: 'svg', value: matching(/^[\d\s.,eE+-]*$/u, 'a list of numbers') },
+  stitchTiles: { on: 'svg', value: oneOf('stitch', 'noStitch') },
+  xChannelSelector: { on: 'svg', value: oneOf('R', 'G', 'B', 'A') },
+  yChannelSelector: { on: 'svg', value: oneOf('R', 'G', 'B', 'A') },
+  operator: {
+    on: 'svg',
+    value: oneOf('over', 'in', 'out', 'atop', 'xor', 'lighter', 'arithmetic'),
+  },
 };
 
 /** Tags an html `width`/`height` sizes: its intrinsic box, so the layout does not shift. */
-const HTML_SIZED = new Set(['img', 'video', 'source']);
+const HTML_SIZED = new Set(['img', 'video', 'source', 'iframe']);
+
+/** Tags whose `src` is checked on WRITE as an https or relative address. */
+const MEDIA_SRC_TAGS = new Set(['video', 'source', 'audio', 'track']);
+
+/** Form attributes a tree never carries: a form sends only through its behaviour. */
+const FORM_SUBMISSION_ATTRIBUTES = new Set(['action', 'method', 'formaction', 'enctype', 'target']);
 
 const ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
   ...HTML_TAG_RULES,
@@ -647,18 +1198,40 @@ export function customCodeAttributeProblem(
 ): string | undefined {
   if (name === 'width' || name === 'height') {
     if (SVG_TAG_SET.has(tag)) return svgLength(value, name);
-    if (!HTML_SIZED.has(tag)) return `${name} belongs on <img>, <video>, <source> or an svg shape, not <${tag}>`;
+    if (!HTML_SIZED.has(tag)) {
+      return `${name} belongs on <img>, <video>, <source>, <iframe> or an svg shape, not <${tag}>`;
+    }
     return /^\d{1,5}$/u.test(value) ? undefined : `${name} on <${tag}> is a whole number of pixels`;
+  }
+  if (tag === 'form' && FORM_SUBMISSION_ATTRIBUTES.has(name)) {
+    return `<form> never carries ${name}: a form sends only through data-ck-behavior='whatsapp-form' with data-ck-phone`;
+  }
+  if (name === 'formaction' || name === 'formmethod') {
+    return `${name} is not an attribute the vocabulary admits: a form sends only through data-ck-behavior='whatsapp-form'`;
   }
   const rule = Object.hasOwn(ATTRIBUTE_RULES, name) ? ATTRIBUTE_RULES[name] : undefined;
   if (rule === undefined) {
     if (/^on/iu.test(name)) {
-      return `${name} is not an attribute the vocabulary admits: a tree never carries a script handler; name a behaviour with data-ck-behavior (${CUSTOM_CODE_BEHAVIORS.join(', ')})`;
+      return `${name} is not an attribute the vocabulary admits: a tree never carries a script handler; name a behaviour with data-ck-behavior (${CUSTOM_CODE_BEHAVIORS.join(', ')}) or an animation with data-ck-motion / data-ck-hover`;
     }
     if (/^data-/iu.test(name)) {
-      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')})`;
+      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), and data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed)`;
+    }
+    if (name === 'style') {
+      return 'style is not an attribute the vocabulary admits: write utility classes in className';
     }
     return `${name} is not an attribute the vocabulary admits`;
+  }
+  // A text path follows a path in the same drawing, and nothing outside it.
+  if (name === 'href' && tag === 'textPath') {
+    return /^#[A-Za-z][\w-]{0,63}$/u.test(value)
+      ? undefined
+      : "<textPath> href points at a path in the same svg: href='#id'";
+  }
+  if (name === 'src' && tag === 'iframe') {
+    return isAllowedIframeSrc(value.trim())
+      ? undefined
+      : `<iframe> src must be an embed from ${CUSTOM_CODE_IFRAME_SOURCES.map((source) => `${source.host} (${source.example})`).join(', ')}`;
   }
   if (name === 'data-ck-behavior') {
     const bound = isCustomCodeBehavior(value) ? BEHAVIOR_TAGS[value] : undefined;
@@ -667,13 +1240,237 @@ export function customCodeAttributeProblem(
     }
   }
   if (!fits(rule.on, tag)) return `${name} belongs on ${placeName(rule.on)}, not <${tag}>`;
-  if (name === 'src' && (tag === 'video' || tag === 'source')) return safeAddress(value, name);
-  const problem = rule.value?.(value, name);
+  if (name === 'src' && MEDIA_SRC_TAGS.has(tag)) return safeAddress(value, name);
+  const problem = rule.value?.(value, name, tag);
   return problem === undefined ? undefined : `<${tag}> ${problem}`;
 }
 
 /** The parents a `source` means something in; anywhere else it is inert. */
-const SOURCE_PARENTS = new Set(['picture', 'video']);
+const SOURCE_PARENTS = new Set(['picture', 'video', 'audio']);
+
+/** The parents a `track` means something in. */
+const TRACK_PARENTS = new Set(['video', 'audio']);
+
+const SVG_TEXT_TAG_SET: ReadonlySet<string> = new Set(CUSTOM_CODE_SVG_TEXT_TAGS);
+
+interface Problem {
+  readonly path: readonly (string | number)[];
+  readonly message: string;
+}
+
+/** Where an element stands: its parent's tag, and whether a form encloses it. */
+interface Place {
+  readonly parentTag: string | undefined;
+  readonly inForm: boolean;
+  /** The nearest enclosing element whose content model is phrasing only, if any. */
+  readonly phrasingParent?: string | undefined;
+  /** The nearest enclosing link or button (interactive content nests in neither). */
+  readonly interactiveParent?: string | undefined;
+}
+
+/**
+ * Void tags: the HTML parser gives them no content, so they hold no text and
+ * no children (2026-10-05: a stored `<track>` held the text "a").
+ */
+export const CUSTOM_CODE_VOID_TAGS = ['br', 'hr', 'img', 'input', 'source', 'track'] as const;
+const VOID_TAG_SET: ReadonlySet<string> = new Set(CUSTOM_CODE_VOID_TAGS);
+
+/** Tags whose content is raw text: words, never child elements. */
+const TEXT_ONLY_TAG_SET: ReadonlySet<string> = new Set(['textarea', 'option']);
+
+/**
+ * Tags whose content model is phrasing only: a heading, a paragraph or a block
+ * dropped inside one breaks the page (the parser closes a <p> before an <h2>,
+ * and React reports a hydration error).
+ */
+const PHRASING_ONLY_TAGS: ReadonlySet<string> = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'span',
+  'button',
+  'label',
+  'legend',
+  'b',
+  'i',
+  'em',
+  'strong',
+  'small',
+  'mark',
+  'cite',
+  'q',
+  'abbr',
+  's',
+  'sub',
+  'sup',
+  'code',
+  'time',
+  'pre',
+]);
+
+/** Phrasing content: what a phrasing-only parent may hold (svg drawings included). */
+const PHRASING_CONTENT_TAGS: ReadonlySet<string> = new Set([
+  'a',
+  'abbr',
+  'audio',
+  'b',
+  'br',
+  'button',
+  'cite',
+  'code',
+  'em',
+  'i',
+  'iframe',
+  'img',
+  'input',
+  'label',
+  'mark',
+  'picture',
+  'q',
+  's',
+  'select',
+  'small',
+  'source',
+  'span',
+  'strong',
+  'sub',
+  'sup',
+  'svg',
+  'textarea',
+  'time',
+  'track',
+  'video',
+]);
+
+/** Interactive content: never inside a link or a button. */
+const INTERACTIVE_TAGS: ReadonlySet<string> = new Set([
+  'a',
+  'button',
+  'details',
+  'iframe',
+  'input',
+  'label',
+  'select',
+  'textarea',
+]);
+
+/**
+ * Whether an element with this tag may stand inside one with `parentTag` by
+ * the HTML content model the door enforces: no children in void tags, only
+ * phrasing content in phrasing-only tags, no interactive content in a link
+ * or a button. A tree drop target asks this before it offers itself.
+ */
+export function customCodeTagAccepts(parentTag: string, childTag: string): boolean {
+  if (VOID_TAG_SET.has(parentTag) || TEXT_ONLY_TAG_SET.has(parentTag) || parentTag === 'iframe') {
+    return false;
+  }
+  // A drawing holds only shapes, and a shape stands only in a drawing.
+  if (SVG_TAG_SET.has(parentTag)) return SVG_TAG_SET.has(childTag);
+  if (SVG_TAG_SET.has(childTag) && childTag !== 'svg') return false;
+  if (PHRASING_ONLY_TAGS.has(parentTag) && !PHRASING_CONTENT_TAGS.has(childTag)) return false;
+  if ((parentTag === 'a' || parentTag === 'button') && INTERACTIVE_TAGS.has(childTag)) return false;
+  return true;
+}
+
+/** Whether an element with this tag may hold text or children at all. */
+export function customCodeTagHoldsContent(tag: string): boolean {
+  return !VOID_TAG_SET.has(tag);
+}
+
+/** The content-model half of an element's problems: void tags, phrasing, interactive nesting. */
+function contentModelProblems(node: Record<string, unknown>, tag: string, place: Place): Problem[] {
+  const found: Problem[] = [];
+  if (VOID_TAG_SET.has(tag)) {
+    if (typeof node['text'] === 'string' && node['text'] !== '') {
+      found.push({ path: ['text'], message: `<${tag}> is a void element and holds no text` });
+    }
+    if (Array.isArray(node['children']) && node['children'].length > 0) {
+      found.push({ path: ['children'], message: `<${tag}> is a void element and holds no children` });
+    }
+  }
+  // Raw-text content: a textarea and an option hold words only; an iframe shows none.
+  if (TEXT_ONLY_TAG_SET.has(tag) && Array.isArray(node['children']) && node['children'].length > 0) {
+    found.push({ path: ['children'], message: `<${tag}> holds text only, no child elements` });
+  }
+  if (tag === 'iframe') {
+    if (typeof node['text'] === 'string' && node['text'] !== '') {
+      found.push({ path: ['text'], message: '<iframe> shows its src, never text: drop the text' });
+    }
+    if (Array.isArray(node['children']) && node['children'].length > 0) {
+      found.push({ path: ['children'], message: '<iframe> shows its src, never children' });
+    }
+  }
+  if (SVG_TAG_SET.has(tag)) return found;
+  const phrasing = place.phrasingParent;
+  if (phrasing !== undefined && !PHRASING_CONTENT_TAGS.has(tag)) {
+    found.push({
+      path: ['tag'],
+      message: `<${tag}> cannot stand inside <${phrasing}>, which holds only phrasing content (text, span, a, strong, img…): move it beside the <${phrasing}>, or make the <${phrasing}> a <div>`,
+    });
+  }
+  const interactive = place.interactiveParent;
+  if (interactive !== undefined && INTERACTIVE_TAGS.has(tag)) {
+    found.push({
+      path: ['tag'],
+      message: `<${tag}> is interactive and cannot sit inside <${interactive}>`,
+    });
+  }
+  return found;
+}
+
+/** The motion half of an element's problems: params need a name, triggers fit the preset. */
+function motionProblems(tag: string, record: Record<string, unknown>): Problem[] {
+  const found: Problem[] = [];
+  const motion =
+    typeof record['data-ck-motion'] === 'string' ? record['data-ck-motion'] : undefined;
+  const hover = typeof record['data-ck-hover'] === 'string' ? record['data-ck-hover'] : undefined;
+  const behavior = typeof record['data-ck-behavior'] === 'string';
+  if (motion === undefined && hover === undefined) {
+    for (const param of CUSTOM_CODE_MOTION_PARAMS) {
+      if (typeof record[param] !== 'string') continue;
+      found.push({
+        path: ['attributes', param],
+        message: `<${tag}> ${param} tunes an animation: write data-ck-motion or data-ck-hover on the same element, or drop ${param}`,
+      });
+    }
+  }
+  const trigger =
+    typeof record['data-ck-trigger'] === 'string' ? record['data-ck-trigger'] : undefined;
+  if (trigger !== undefined && motion === undefined && hover !== undefined) {
+    found.push({
+      path: ['attributes', 'data-ck-trigger'],
+      message: `<${tag}> data-ck-trigger chooses when data-ck-motion plays; a data-ck-hover preset always plays on hover — drop data-ck-trigger or add data-ck-motion`,
+    });
+  }
+  if (trigger !== undefined && motion !== undefined && isMotionPreset(motion)) {
+    const problem = motionTriggerProblem(motion, trigger);
+    if (problem !== undefined) {
+      found.push({ path: ['attributes', 'data-ck-trigger'], message: `<${tag}> ${problem}` });
+    }
+  }
+  if (typeof record['data-ck-target'] === 'string' && motion !== undefined && trigger !== 'click') {
+    found.push({
+      path: ['attributes', 'data-ck-target'],
+      message: `<${tag}> data-ck-target names what a click plays: write data-ck-trigger='click' beside it, or drop data-ck-target`,
+    });
+  }
+  if (
+    !behavior &&
+    typeof record['data-ck-speed'] === 'string' &&
+    motion === undefined &&
+    hover === undefined
+  ) {
+    found.push({
+      path: ['attributes', 'data-ck-speed'],
+      message: `<${tag}> data-ck-speed tunes a behaviour or an animation: write data-ck-behavior, data-ck-motion or data-ck-hover on the same element, or drop data-ck-speed`,
+    });
+  }
+  return found;
+}
 
 /**
  * What is wrong with an element where it stands — its attributes, and its
@@ -681,13 +1478,11 @@ const SOURCE_PARENTS = new Set(['picture', 'video']);
  * relative to the element. Tolerant: it reads unvalidated input and reports
  * only what it can name.
  */
-function elementProblems(
-  node: Record<string, unknown>,
-  parentTag: string | undefined,
-): readonly { readonly path: readonly (string | number)[]; readonly message: string }[] {
+function elementProblems(node: Record<string, unknown>, place: Place): readonly Problem[] {
   const tag = node['tag'];
   if (typeof tag !== 'string') return [];
-  const found: { path: (string | number)[]; message: string }[] = [];
+  const parentTag = place.parentTag;
+  const found: Problem[] = [];
   const attributes = node['attributes'];
   const record =
     typeof attributes === 'object' && attributes !== null && !Array.isArray(attributes)
@@ -709,22 +1504,67 @@ function elementProblems(
       message: `An svg holds only shapes (${CUSTOM_CODE_SVG_TAGS.join(', ')}), not <${tag}>`,
     });
   }
-  if (svg && typeof node['text'] === 'string' && node['text'].trim() !== '') {
-    found.push({ path: ['text'], message: `<${tag}> is a shape and holds no text` });
+  if (
+    svg &&
+    !SVG_TEXT_TAG_SET.has(tag) &&
+    typeof node['text'] === 'string' &&
+    node['text'].trim() !== ''
+  ) {
+    found.push({
+      path: ['text'],
+      message: `<${tag}> is a shape and holds no text; drawn text goes in <text> or <tspan>`,
+    });
   }
   if (tag === 'source' && (parentTag === undefined || !SOURCE_PARENTS.has(parentTag))) {
-    found.push({ path: ['tag'], message: '<source> belongs inside a <picture> or a <video>' });
+    found.push({
+      path: ['tag'],
+      message: '<source> belongs inside a <picture>, a <video> or an <audio>',
+    });
+  }
+  if (tag === 'track' && (parentTag === undefined || !TRACK_PARENTS.has(parentTag))) {
+    found.push({ path: ['tag'], message: '<track> belongs inside a <video> or an <audio>' });
+  }
+  if (tag === 'option' && parentTag !== 'select') {
+    found.push({ path: ['tag'], message: '<option> belongs inside a <select>' });
+  }
+  if (tag === 'legend' && parentTag !== 'fieldset') {
+    found.push({ path: ['tag'], message: '<legend> belongs inside a <fieldset>' });
+  }
+  found.push(...contentModelProblems(node, tag, place));
+  if (tag === 'form' && place.inForm) {
+    found.push({ path: ['tag'], message: 'A <form> never sits inside another <form>' });
+  }
+  if (tag === 'iframe') {
+    const title = record['title'];
+    if (typeof title !== 'string' || title.trim() === '') {
+      found.push({
+        path: ['attributes', 'title'],
+        message: "<iframe> needs a title naming what it shows, such as title='Map to our office'",
+      });
+    }
+    if (typeof record['src'] !== 'string') {
+      found.push({
+        path: ['attributes', 'src'],
+        message: `<iframe> needs a src from ${CUSTOM_CODE_IFRAME_SOURCES.map((source) => source.host).join(', ')}`,
+      });
+    }
   }
   if (typeof record['data-ck-behavior'] !== 'string') {
     for (const param of CUSTOM_CODE_BEHAVIOR_PARAMS) {
-      if (typeof record[param] !== 'string') continue;
+      // data-ck-speed may also tune an animation; motionProblems judges it.
+      if (param === 'data-ck-speed' || typeof record[param] !== 'string') continue;
       found.push({
         path: ['attributes', param],
         message: `<${tag}> ${param} tunes a behaviour: write data-ck-behavior on the same element, or drop ${param}`,
       });
     }
   }
-  if (tag === 'video' && typeof record['autoplay'] === 'string' && typeof record['muted'] !== 'string') {
+  found.push(...motionProblems(tag, record));
+  if (
+    tag === 'video' &&
+    typeof record['autoplay'] === 'string' &&
+    typeof record['muted'] !== 'string'
+  ) {
     found.push({
       path: ['attributes', 'autoplay'],
       message: '<video> that plays by itself is muted: write autoplay muted loop playsinline',
@@ -733,20 +1573,96 @@ function elementProblems(
   return found;
 }
 
+/*
+  ── Component props, validated against the referenced block ───────────────
+
+  This package is layer 0 and cannot see the block registry, so a host that
+  can (the renderer's registry context, the kernel) installs a resolver here.
+  With one installed, a component's props are validated on WRITE against the
+  block's own props schema and refused with the block's own issue text —
+  instead of rendering a silent UnknownBlock three screens later. Without one
+  the door keeps today's rule (any JSON). An unknown type is not refused here:
+  the AI door names unknown components, and a registry may be partial while an
+  extension is disposed.
+*/
+
+/** Returns the props schema of a registered block type, or undefined when unknown. */
+export type CustomCodeComponentSchemaResolver = (type: string) => z.ZodType | undefined;
+
+let componentSchemaResolver: CustomCodeComponentSchemaResolver | undefined;
+
+/** Install (or, with undefined, remove) the resolver component props are validated with. */
+export function setCustomCodeComponentSchemaResolver(
+  resolver: CustomCodeComponentSchemaResolver | undefined,
+): void {
+  componentSchemaResolver = resolver;
+}
+
+/** The resolver currently installed, if any. */
+export function getCustomCodeComponentSchemaResolver():
+  CustomCodeComponentSchemaResolver | undefined {
+  return componentSchemaResolver;
+}
+
+function componentProblems(record: Record<string, unknown>): Problem[] {
+  const resolver = componentSchemaResolver;
+  const type = record['component'];
+  if (resolver === undefined || typeof type !== 'string') return [];
+  let schema: z.ZodType | undefined;
+  try {
+    schema = resolver(type);
+  } catch {
+    return [];
+  }
+  if (schema === undefined) return [];
+  const props = record['props'];
+  const parsed = schema.safeParse(
+    typeof props === 'object' && props !== null && !Array.isArray(props) ? props : {},
+  );
+  if (parsed.success) return [];
+  return parsed.error.issues.slice(0, 3).map((issue) => {
+    const where = issue.path.map(String).join('.');
+    return {
+      path: [
+        'props',
+        ...issue.path.map((part) => (typeof part === 'symbol' ? String(part) : part)),
+      ],
+      message: `component '${type}' prop ${where === '' ? '(props)' : where}: ${issue.message}`,
+    };
+  });
+}
+
+/** Every `id` attribute in a tree — what `data-ck-target` may point at. */
+function treeIds(value: unknown): ReadonlySet<string> {
+  const ids = new Set<string>();
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (typeof node !== 'object' || node === null) continue;
+    const record = node as { attributes?: unknown; children?: unknown };
+    const attributes = record.attributes;
+    if (typeof attributes === 'object' && attributes !== null) {
+      const id = (attributes as Record<string, unknown>)['id'];
+      if (typeof id === 'string') ids.add(id);
+    }
+    if (Array.isArray(record.children)) stack.push(...(record.children as unknown[]));
+  }
+  return ids;
+}
+
 /**
  * Every problem in a tree, in document order, each with its path from the
  * root — the per-tag half of the door, after the shape half (tags, keys,
  * ceilings) has passed. Iterative, like every walk in this file.
  */
-export function customCodeTreeProblems(
-  value: unknown,
-): readonly { readonly path: readonly (string | number)[]; readonly message: string }[] {
-  const found: { path: readonly (string | number)[]; message: string }[] = [];
+export function customCodeTreeProblems(value: unknown): readonly Problem[] {
+  const found: Problem[] = [];
+  let ids: ReadonlySet<string> | undefined;
   const stack: {
     node: unknown;
     path: readonly (string | number)[];
-    parentTag: string | undefined;
-  }[] = [{ node: value, path: [], parentTag: undefined }];
+    place: Place;
+  }[] = [{ node: value, path: [], place: { parentTag: undefined, inForm: false } }];
   while (stack.length > 0) {
     const entry = stack.pop();
     /* v8 ignore next -- pop() on a non-empty stack always yields an entry. */
@@ -754,36 +1670,106 @@ export function customCodeTreeProblems(
     const node = entry.node;
     if (typeof node !== 'object' || node === null || Array.isArray(node)) continue;
     const record = node as Record<string, unknown>;
+    const parentTag = entry.place.parentTag;
     if (record['kind'] === 'element') {
-      for (const problem of elementProblems(record, entry.parentTag)) {
+      for (const problem of elementProblems(record, entry.place)) {
         found.push({ path: [...entry.path, ...problem.path], message: problem.message });
+      }
+      const attributes = record['attributes'];
+      const target =
+        typeof attributes === 'object' && attributes !== null
+          ? (attributes as Record<string, unknown>)['data-ck-target']
+          : undefined;
+      if (typeof target === 'string') {
+        ids ??= treeIds(value);
+        if (!ids.has(target)) {
+          found.push({
+            path: [...entry.path, 'attributes', 'data-ck-target'],
+            message: `data-ck-target='${target}' names no element in this region: give the element to play id='${target}', or point at an existing id`,
+          });
+        }
       }
     } else if (
       (record['kind'] === 'icon' || record['kind'] === 'component') &&
-      entry.parentTag !== undefined &&
-      SVG_TAG_SET.has(entry.parentTag)
+      parentTag !== undefined &&
+      SVG_TAG_SET.has(parentTag)
     ) {
       found.push({
         path: [...entry.path, 'kind'],
         message: `An svg holds only shapes, not ${record['kind'] === 'icon' ? 'an icon' : 'a component'}`,
       });
     }
+    if (record['kind'] === 'component') {
+      for (const problem of componentProblems(record)) {
+        found.push({ path: [...entry.path, ...problem.path], message: problem.message });
+      }
+    }
     const children = record['children'];
     if (!Array.isArray(children)) continue;
     const tag = typeof record['tag'] === 'string' ? record['tag'] : undefined;
+    const element = record['kind'] === 'element' && tag !== undefined;
+    const place: Place = {
+      parentTag: record['kind'] === 'element' ? tag : undefined,
+      inForm: entry.place.inForm || (record['kind'] === 'element' && tag === 'form'),
+      /*
+        A component renders a block of its own: its children start a fresh
+        content model, as an svg does.
+      */
+      phrasingParent:
+        record['kind'] === 'component' || (element && SVG_TAG_SET.has(tag))
+          ? undefined
+          : element && PHRASING_ONLY_TAGS.has(tag)
+            ? tag
+            : entry.place.phrasingParent,
+      interactiveParent:
+        record['kind'] === 'component'
+          ? undefined
+          : element && (tag === 'a' || tag === 'button')
+            ? tag
+            : entry.place.interactiveParent,
+    };
     for (let at = children.length - 1; at >= 0; at -= 1) {
-      stack.push({
-        node: children[at],
-        path: [...entry.path, 'children', at],
-        parentTag: record['kind'] === 'element' ? tag : undefined,
-      });
+      stack.push({ node: children[at], path: [...entry.path, 'children', at], place });
     }
   }
   return found;
 }
 
-/** The shape of a Lucide name: lowercase words joined by single hyphens, digits allowed. */
-export const CUSTOM_CODE_ICON_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+/**
+ * The shape of an icon name: lowercase words joined by single hyphens, digits
+ * allowed — a Lucide name (`mail`), or a Tabler one behind its set prefix
+ * (`tabler:brand-whatsapp`, `tabler-filled:heart`).
+ */
+export const CUSTOM_CODE_ICON_NAME = /^(?:tabler(?:-filled)?:)?[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+
+/** The icon sets a name may come from; Lucide is the default (no prefix). */
+export type CustomCodeIconSet = 'lucide' | 'tabler' | 'tabler-filled';
+
+/** An icon name split into its set and its bare kebab-case name. */
+export interface CustomCodeIconRef {
+  readonly set: CustomCodeIconSet;
+  readonly name: string;
+}
+
+/** `tabler-filled:heart` → `{ set: 'tabler-filled', name: 'heart' }`; `mail` → Lucide. */
+export function parseCustomCodeIconName(value: string): CustomCodeIconRef {
+  if (value.startsWith('tabler-filled:')) {
+    return { set: 'tabler-filled', name: value.slice('tabler-filled:'.length) };
+  }
+  if (value.startsWith('tabler:')) return { set: 'tabler', name: value.slice('tabler:'.length) };
+  return { set: 'lucide', name: value };
+}
+
+/**
+ * Whether an icon name exists in its set — the door's existence check, against
+ * the generated name lists (Lucide, Tabler outline, Tabler filled).
+ */
+export function isCustomCodeIconName(value: string): boolean {
+  if (!CUSTOM_CODE_ICON_NAME.test(value)) return false;
+  const ref = parseCustomCodeIconName(value);
+  if (ref.set === 'lucide') return isLucideIconName(ref.name);
+  return isTablerIconName(ref.name, ref.set === 'tabler-filled' ? 'filled' : 'outline');
+}
 
 /**
  * Structural nesting ceiling — the same argument as `RICH_TEXT_MAX_DEPTH`, and
@@ -837,6 +1823,9 @@ function walkLimits(value: unknown): WalkLimits {
   return { withinDepth: true, withinCount: true };
 }
 
+/** The longest Layers name an element or component may carry (editor metadata). */
+export const CUSTOM_CODE_LABEL_MAX = 60;
+
 const attributesSchema = z.strictObject(
   Object.fromEntries(
     CUSTOM_CODE_ATTRIBUTES.map((name) => [name, z.string().max(2_000).optional()]),
@@ -852,6 +1841,8 @@ const nodeSchema: z.ZodType<CustomCodeNode> = z.lazy(() =>
       text: z.string().max(20_000).optional(),
       attributes: attributesSchema.optional(),
       children: z.array(nodeSchema).optional(),
+      label: z.string().max(CUSTOM_CODE_LABEL_MAX).optional(),
+      locked: z.literal(true).optional(),
     }),
     z.strictObject({
       kind: z.literal('component'),
@@ -861,16 +1852,24 @@ const nodeSchema: z.ZodType<CustomCodeNode> = z.lazy(() =>
         payload — the renderer only ever uses this to key a registry lookup.
       */
       component: z.string().min(1).max(120),
+      /*
+        Any JSON here; validated against the referenced block's own props
+        schema by the tree pass when a resolver is installed
+        (setCustomCodeComponentSchemaResolver).
+      */
       props: z.record(z.string(), z.json()).optional(),
       children: z.array(nodeSchema).optional(),
+      label: z.string().max(CUSTOM_CODE_LABEL_MAX).optional(),
+      locked: z.literal(true).optional(),
     }),
     z.strictObject({
       kind: z.literal('icon'),
-      name: z.string().min(1).max(64).regex(CUSTOM_CODE_ICON_NAME),
+      name: z.string().min(1).max(80).regex(CUSTOM_CODE_ICON_NAME),
       className: z.string().max(1_000).optional(),
       size: z.number().int().min(8).max(256).optional(),
       strokeWidth: z.number().min(0.5).max(4).optional(),
       label: z.string().max(120).optional(),
+      locked: z.literal(true).optional(),
     }),
   ]),
 );
@@ -960,12 +1959,14 @@ const TAG_SPELLING: ReadonlyMap<string, CustomCodeTag> = new Map(
   spelling; an HTML reader lower-cases everything (`viewbox`). Both fold to
   the vocabulary's own name.
 */
-const ATTRIBUTE_SPELLING: ReadonlyMap<string, CustomCodeAttribute> = new Map(
-  CUSTOM_CODE_ATTRIBUTES.flatMap((name): [string, CustomCodeAttribute][] => [
+const ATTRIBUTE_SPELLING: ReadonlyMap<string, CustomCodeAttribute> = new Map([
+  ...CUSTOM_CODE_ATTRIBUTES.flatMap((name): [string, CustomCodeAttribute][] => [
     [name.toLowerCase(), name],
     [name.replace(/-/gu, '').toLowerCase(), name],
   ]),
-);
+  // React's spelling of the one attribute whose name is a reserved word.
+  ['htmlfor', 'for'],
+]);
 
 /**
  * A tag as the vocabulary spells it, whatever its case (`lineargradient` →
@@ -982,7 +1983,10 @@ export function customCodeTagSpelling(tag: string): CustomCodeTag | undefined {
  * `srcSet` → `srcset`); undefined when the vocabulary has no such attribute.
  */
 export function customCodeAttributeSpelling(name: string): CustomCodeAttribute | undefined {
-  return ATTRIBUTE_SPELLING.get(name.toLowerCase()) ?? ATTRIBUTE_SPELLING.get(name.replace(/-/gu, '').toLowerCase());
+  return (
+    ATTRIBUTE_SPELLING.get(name.toLowerCase()) ??
+    ATTRIBUTE_SPELLING.get(name.replace(/-/gu, '').toLowerCase())
+  );
 }
 
 /**
@@ -1149,8 +2153,17 @@ export const CUSTOM_CSS_META_VALUE = 'custom-css';
   loosely, `props.css` infers as `unknown` and every renderer that touches it
   needs a cast — a type hole opened by a presentation concern.
 */
+/**
+ * The ceiling on a custom-code region's own stylesheet. Raised from 8 000 to
+ * 24 000 on 2026-10-05 (style-manager DESIGN §D.1): the region `css` is the
+ * escape hatch for what utilities cannot say (`@keyframes`, complex
+ * selectors), and an animated, effect-rich section outgrew 8 000. The page
+ * root's `pageCss` keeps its own explicit ceiling.
+ */
+export const CUSTOM_CODE_REGION_CSS_MAX = 24_000;
+
 /** Declare a scoped-CSS prop: a string, marked as a stylesheet. */
-export function customCss(max = 8_000): z.ZodType<string> {
+export function customCss(max = CUSTOM_CODE_REGION_CSS_MAX): z.ZodType<string> {
   return z
     .string()
     .max(max)

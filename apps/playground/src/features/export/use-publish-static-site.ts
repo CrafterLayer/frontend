@@ -1,8 +1,14 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 
-import type { ArtifactFile, BuilderSiteKernel } from '@craftkit/builder';
+import {
+  createLiveUtilities,
+  type ArtifactFile,
+  type BuilderSiteKernel,
+  type LiveUtilities,
+} from '@craftkit/builder';
 
-import { hasStaticPages, liveUtilitiesCompileCss, publishStaticSite } from './publish-static-site';
+import { exportCompilers, type ExportClassCompiler } from './export-compilers';
+import { hasStaticPages, LIVE_UTILITIES_STYLE_SELECTOR, publishStaticSite } from './publish-static-site';
 
 export interface PublishStaticSiteState {
   /** The site has at least one non-code page. */
@@ -15,10 +21,26 @@ export interface PublishStaticSiteState {
 
 const noop = () => () => undefined;
 
+/**
+ * A compiler for the export when the page's live one is not running: a fresh,
+ * generate-only instance (no document, no canvas variants). Undefined when
+ * Tailwind cannot start here either — `exportCompilers` then refuses.
+ */
+async function freshCompiler(): Promise<ExportClassCompiler | undefined> {
+  try {
+    const theme = await import('tailwindcss/theme.css?raw');
+    return await createLiveUtilities({ tailwindThemeCss: theme.default });
+  } catch (cause) {
+    console.warn('[playground] the export could not start a Tailwind compiler:', cause);
+    return undefined;
+  }
+}
+
 /** The "Publish site" action: the live site kernel in, the static site's files out. */
 export function usePublishStaticSite(
   siteKernel: BuilderSiteKernel | undefined,
   origin: string | undefined,
+  live?: LiveUtilities,
 ): PublishStaticSiteState {
   const subscribe = useMemo(
     () => (siteKernel === undefined ? noop : (listener: () => void) => siteKernel.subscribe(listener)),
@@ -35,10 +57,15 @@ export function usePublishStaticSite(
     setPublishing(true);
     setError(undefined);
     try {
+      const site = siteKernel.getSite();
       const lens = siteKernel.page(siteKernel.currentPage());
-      return await publishStaticSite(siteKernel.getSite(), {
+      const liveSheet = document.querySelector(LIVE_UTILITIES_STYLE_SELECTOR)?.textContent ?? '';
+      const compiler = live ?? (await freshCompiler());
+      const { compileCss, compileClasses } = exportCompilers({ site, liveSheet, compiler });
+      return await publishStaticSite(site, {
         blocks: lens.context.registry.block,
-        compileCss: liveUtilitiesCompileCss(),
+        compileCss,
+        ...(compileClasses === undefined ? {} : { compileClasses }),
         origin,
       });
     } catch (cause) {
@@ -47,6 +74,6 @@ export function usePublishStaticSite(
     } finally {
       setPublishing(false);
     }
-  }, [siteKernel, origin, publishing]);
+  }, [siteKernel, origin, publishing, live]);
   return { canPublish, publishing, error, publish };
 }

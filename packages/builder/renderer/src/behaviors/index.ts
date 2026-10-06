@@ -1,3 +1,4 @@
 export { mountBehaviors } from './runtime';
-export { BEHAVIOR_CSS, ensureBehaviorCss } from './behaviors-css';
-export { behaviorRuntimeScript, hasBehaviors } from './script';
+export { BEHAVIOR_CSS, ensureBehaviorCss, ensureMotionCss } from './behaviors-css';
+export { BEHAVIOR_RUNTIME_SELECTOR, behaviorRuntimeScript, hasBehaviors } from './script';
+export { replayMotion } from './preview';

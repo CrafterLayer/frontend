@@ -1,0 +1,58 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ElementQuickBarStories from './ElementQuickBar.stories';
+
+<Meta of={ElementQuickBarStories} />
+
+# ElementQuickBar
+
+The quick controls beside a focused element on the canvas (style-manager DESIGN.md §A.6). Every
+element inside a custom-code region is a widget: click it and its colour, size, spacing, alignment
+and direction are one click away, without opening the side panel.
+
+## Groups per element kind
+
+| Kind            | Tags                                                       | Groups                                                                |
+| --------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| Text            | h1–h6, p, span, li, blockquote, label, …                   | size, weight, colour, align, line height, direction                   |
+| Container       | div, section, header, footer, nav, article, ul, form, …    | background, padding (mini box model), gap, flex direction, align/justify, radius, border, shadow |
+| Image / video   | img, video, picture, iframe, audio                         | replace (host asset manager), fit, radius, aspect, alt                |
+| Link / button   | a, button                                                  | link editor (href, new tab), colour, style preset, hover preset       |
+| Icon            | icon nodes                                                 | icon name, size, colour                                               |
+
+Each group opens a compact popover with the P6 style-manager controls (`StyleColorControl`,
+`BoxModelControl`, `CornerRadiusControl`, `ChoiceGroup`, `ScaleNumberControl`,
+`MotionPresetGrid`). The bar ends with **More** (the matching side-panel sector, via
+`onMore(sector)`) and **Edit with AI** (`onEditWithAi`).
+
+The second row carries the element actions from `resolveElementActions`: select parent,
+duplicate, delete, move earlier/later, wrap, unwrap, copy/paste style, save as template, animate,
+hide on this device, deselect. With an element focused these act on the **element** (tree
+commands), never on the region around it.
+
+## Writes
+
+Every control commits through `createElementBarModel`: the P1 engine turns the edit into classes
+(`applyStyleIntents`, free mode), and every target is written by `patchTreeNode` (or `setTreeNode`
+for icon fields) in ONE `dispatchGroup` labelled `"<Property> · <element name>"` — one Undo, for one
+element or a whole multi-selection. Direction and the hover preset are attributes (`dir`,
+`data-ck-hover`), never classes.
+
+## Keyboard
+
+- One WAI-ARIA toolbar (Radix): a single tab stop for both rows, roving arrows that follow the
+  editor's `dir` (ArrowLeft is forward in RTL), Home/End.
+- `Alt+F10` on the canvas enters the bar (`focusRequest`).
+- Escape closes an open popover first; with none open it returns focus to the element
+  (`onReturnFocus`) — it never means "leave the element".
+
+## Overflow
+
+Groups that do not fit the canvas fold, from the end, into a "More controls" menu.
+`visibleGroupCount` (measure-groups.ts) is a pure function over measured widths; an unmeasured bar
+keeps every group.
+
+## Labels
+
+User-facing strings come from `labels` (`ELEMENT_QUICK_BAR_LABELS_EN` / `_AR`); catalogue
+property and option names come from the §A.4 catalogue in the same language.

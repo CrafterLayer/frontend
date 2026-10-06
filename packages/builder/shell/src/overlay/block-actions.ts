@@ -1,8 +1,15 @@
 import { insertedNodeId, type BuilderKernel } from '@craftkit/builder-core';
 import type { NodeId, SlotName } from '@craftkit/builder-schema';
 
+import { customCodeElementAt } from '../custom-code/element-at';
 import { blockDisplayName } from '../naming/block-display-name';
 import { seatOf } from './drop-resolver';
+import {
+  performElementAction,
+  resolveElementActions,
+  type ElementActionId,
+  type TreeTarget,
+} from './element-actions';
 import { inlineTargetOf } from './inline-session';
 
 /**
@@ -128,6 +135,51 @@ function planFor(kernel: BuilderKernel, nodeId: NodeId): ActionPlan {
   };
 }
 
+/*
+  ── Element focus wins (style-manager DESIGN.md §A.6, P7) ──────────────────
+
+  The region bug: with an element focused INSIDE a custom-code region, the
+  canvas still resolved and performed actions for the selected NODE — so
+  Delete removed the whole region when the person meant the headline they had
+  clicked. Both entry points now ask first whether the node's focus names a
+  live element, and if so every structural action is the element's tree
+  command (removeTreeNode, duplicateTreeNode, moveTreeNode). A stale focus
+  (the element vanished) falls back to the region, as every reader must.
+*/
+function focusedElementOf(kernel: BuilderKernel, nodeId: NodeId): TreeTarget | undefined {
+  const focus = kernel.context.store.getState().elementFocus;
+  if (focus?.id !== nodeId) return undefined;
+  if (customCodeElementAt(kernel, nodeId, focus.path) === undefined) return undefined;
+  return { kind: 'tree', nodeId, path: [...focus.path] };
+}
+
+const ELEMENT_EQUIVALENT: Readonly<Partial<Record<BlockActionId, ElementActionId>>> = {
+  selectParent: 'selectParent',
+  duplicate: 'duplicate',
+  delete: 'delete',
+  moveEarlier: 'moveEarlier',
+  moveLater: 'moveLater',
+  deselect: 'deselect',
+};
+
+function elementBlockActions(kernel: BuilderKernel, target: TreeTarget): BlockAction[] {
+  const byId = new Map(resolveElementActions(kernel, [target]).map((action) => [action.id, action]));
+  const ids: readonly BlockActionId[] = [
+    'selectParent',
+    'duplicate',
+    'delete',
+    'moveEarlier',
+    'moveLater',
+    'deselect',
+  ];
+  return ids.map((id) => {
+    const element = byId.get(ELEMENT_EQUIVALENT[id] ?? 'deselect');
+    return id === 'deselect'
+      ? DESELECT_ACTION
+      : { id, label: element?.label ?? id, enabled: element?.enabled === true };
+  });
+}
+
 /**
  * The ordered action list for THAT node: Select parent, the four structural
  * actions, Edit text when the block declares an inline target, and Deselect
@@ -139,6 +191,10 @@ function planFor(kernel: BuilderKernel, nodeId: NodeId): ActionPlan {
 export function resolveBlockActions(kernel: BuilderKernel, nodeId: NodeId): BlockAction[] {
   if (kernel.getDocument().nodes[nodeId] === undefined) {
     return [];
+  }
+  const element = focusedElementOf(kernel, nodeId);
+  if (element !== undefined) {
+    return elementBlockActions(kernel, element);
   }
   const { gates, seat } = planFor(kernel, nodeId);
   /*
@@ -181,6 +237,12 @@ export function performBlockAction(
   nodeId: NodeId,
   actionId: string,
 ): BlockActionResult {
+  const element = focusedElementOf(kernel, nodeId);
+  const equivalent = ELEMENT_EQUIVALENT[actionId as BlockActionId];
+  if (element !== undefined && equivalent !== undefined && actionId !== 'deselect') {
+    const result = performElementAction(kernel, [element], equivalent);
+    return { ok: result.ok, announcement: result.announcement, selection: nodeId };
+  }
   if (actionId === 'deselect') {
     /*
       Selection-only, like select parent: no dispatch, nothing to undo. Not

@@ -1,0 +1,42 @@
+.bldr-transform-origin {
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  display: inline-grid;
+  gap: var(--bldr-space-2xs);
+  grid-template-columns: repeat(3, var(--bldr-control-sm));
+  padding: var(--bldr-space-2xs);
+}
+
+.bldr-transform-origin__point {
+  align-items: center;
+  background: none;
+  block-size: var(--bldr-control-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.bldr-transform-origin__dot {
+  background: var(--bldr-panel-border-strong);
+  block-size: var(--bldr-space-xs);
+  border-radius: var(--bldr-radius-full);
+  inline-size: var(--bldr-space-xs);
+}
+
+.bldr-transform-origin__point:hover:not(:disabled) {
+  background: var(--bldr-surface-hover);
+}
+
+.bldr-transform-origin__point[aria-checked='true'] .bldr-transform-origin__dot {
+  background: var(--bldr-accent);
+  block-size: var(--bldr-space-md);
+  inline-size: var(--bldr-space-md);
+}
+
+.bldr-transform-origin__point:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}

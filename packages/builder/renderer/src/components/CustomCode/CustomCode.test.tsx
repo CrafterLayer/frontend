@@ -245,11 +245,11 @@ describe('CustomCode', () => {
     it('skips a tag outside the vocabulary instead of substituting a container', () => {
       const { container } = renderTree([
         { kind: 'element', tag: 'script' as never, text: 'alert(1)' },
-        { kind: 'element', tag: 'iframe' as never, children: [] },
+        { kind: 'element', tag: 'object' as never, children: [] },
       ]);
 
       expect(container.querySelector('script')).toBeNull();
-      expect(container.querySelector('iframe')).toBeNull();
+      expect(container.querySelector('object')).toBeNull();
       expect(container.textContent).toBe('');
     });
 

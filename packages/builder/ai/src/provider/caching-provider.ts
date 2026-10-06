@@ -182,6 +182,14 @@ export function createCachingAiPlanProvider(
       A page plan is a whole page's design — ~60-85 s of a live model call
       (cli:haiku, 2026-09-28) — so Plan mode followed by Build, or a retried
       build on an unchanged page, is exactly the repeat worth remembering.
+
+      Drafts (2026-10-05, DESIGN §5.2): `live` — `onDraft` included — reaches
+      the inner provider unchanged on a miss, so a streaming inner provider
+      feeds the caller's observer as the answer is written. `onDraft` never
+      enters the cache key (pagePlanKey reads only request, context, history
+      and attempt): an observer is not part of the question. A HIT emits no
+      drafts at all — the caller gets the remembered proposal at once and
+      takes its non-streamed path, which is the fast one anyway.
     */
     provider.proposePagePlan = async (
       request: string,

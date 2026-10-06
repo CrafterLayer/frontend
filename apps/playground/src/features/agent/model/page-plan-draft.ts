@@ -715,9 +715,11 @@ export function toEnginePagePlan(draft: PagePlanDraft): PagePlanValidationResult
   if (base === undefined) return undefined;
   const judge = (followLabels: boolean): PagePlanValidationResult => {
     const candidate = candidateOf(draft, base, followLabels);
-    const result = validatePagePlan(candidate, { intent: base.intent });
+    // A colour the PERSON set is theirs: a miss is named on the card, never moved in code.
+    const options = { intent: base.intent, repairContrast: false } as const;
+    const result = validatePagePlan(candidate, options);
     return !result.ok && result.issues.some(isWeightIssue)
-      ? validatePagePlan(withBareFaces(candidate, result.issues), { intent: base.intent })
+      ? validatePagePlan(withBareFaces(candidate, result.issues), options)
       : result;
   };
   const followed = judge(true);

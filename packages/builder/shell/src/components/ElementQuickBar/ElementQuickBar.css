@@ -1,0 +1,200 @@
+/* Content skin ONLY: the floating host (.bldr-floating, overlay.css) owns
+   position, transform, visibility and pointer-events. --bldr chrome tokens and
+   logical properties throughout — the bar is laid out in the editor's own
+   direction, and nothing here positions itself. Same floating-surface
+   language as the block action bar: white card, hairline border, layered
+   shadow, quiet square icon actions. */
+.bldr-quick-bar {
+  background: var(--bldr-surface, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-quick-bar__row {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-2xs);
+}
+
+/* The second row reads as secondary: a hairline above it, slightly quieter. */
+.bldr-quick-bar__actions {
+  border-block-start: var(--bldr-border-hairline) solid
+    var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  padding-block-start: var(--bldr-space-2xs);
+}
+
+.bldr-quick-bar__item {
+  align-items: center;
+  background: none;
+  block-size: var(--bldr-control-lg);
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text, #334155);
+  cursor: pointer;
+  display: inline-flex;
+  inline-size: var(--bldr-control-lg);
+  justify-content: center;
+  padding: 0;
+}
+
+.bldr-quick-bar__item:enabled:hover {
+  background: var(--bldr-surface-hover, rgb(15 23 42 / 6%));
+}
+
+.bldr-quick-bar__item[aria-expanded='true'],
+.bldr-quick-bar__item[aria-pressed='true'] {
+  background: var(--bldr-selection-soft, rgb(79 70 229 / 12%));
+  color: var(--bldr-selection, #4f46e5);
+}
+
+.bldr-quick-bar__item:focus-visible {
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
+}
+
+.bldr-quick-bar__item:disabled {
+  color: var(--bldr-panel-muted, #64748b);
+  cursor: default;
+  opacity: 0.45;
+}
+
+.bldr-quick-bar .bldr-quick-bar__action[data-action='delete']:enabled:hover {
+  background: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+.bldr-quick-bar__ai {
+  color: var(--bldr-selection, #4f46e5);
+}
+
+.bldr-quick-bar__separator {
+  align-self: stretch;
+  background: var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  inline-size: var(--bldr-border-hairline);
+  margin-inline: var(--bldr-space-2xs);
+}
+
+.bldr-quick-bar__grip {
+  align-items: center;
+  align-self: stretch;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted, #64748b);
+  cursor: grab;
+  display: inline-flex;
+  inline-size: var(--bldr-control-md, 24px);
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.bldr-quick-bar__grip:active {
+  cursor: grabbing;
+}
+
+/* The group popover: compact, scrollable when a control is tall. */
+.bldr-quick-bar__panel {
+  background: var(--bldr-surface, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text, #334155);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: var(--bldr-font-size-caption);
+  max-block-size: min(420px, 70vh);
+  max-inline-size: min(320px, 92vw);
+  min-inline-size: 220px;
+  overflow: auto;
+  padding: var(--bldr-space-sm);
+  z-index: 50;
+}
+
+.bldr-quick-bar__panel-title {
+  font-weight: var(--bldr-font-weight-medium, 600);
+  margin-block: 0 var(--bldr-space-xs);
+}
+
+.bldr-quick-bar__panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-quick-bar__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-quick-bar__field-label {
+  color: var(--bldr-panel-muted, #64748b);
+}
+
+.bldr-quick-bar__select,
+.bldr-quick-bar__input {
+  background: var(--bldr-surface, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 18%));
+  border-radius: var(--bldr-radius-md);
+  color: inherit;
+  font: inherit;
+  min-block-size: var(--bldr-control-lg);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-quick-bar__check {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-quick-bar__apply {
+  align-self: flex-end;
+  background: var(--bldr-selection, #4f46e5);
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-label-text, #ffffff);
+  cursor: pointer;
+  font: inherit;
+  min-block-size: var(--bldr-control-lg);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-quick-bar__error {
+  color: var(--bldr-danger, #b42318);
+  margin-block: var(--bldr-space-xs) 0;
+}
+
+.bldr-quick-bar__menu {
+  background: var(--bldr-surface, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text, #334155);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: var(--bldr-font-size-caption);
+  padding: var(--bldr-space-2xs);
+  z-index: 50;
+}
+
+.bldr-quick-bar__menu-item {
+  align-items: center;
+  border-radius: var(--bldr-radius-md);
+  cursor: pointer;
+  display: flex;
+  gap: var(--bldr-space-xs);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-quick-bar__menu-item[data-highlighted] {
+  background: var(--bldr-surface-hover, rgb(15 23 42 / 6%));
+  outline: none;
+}
+
+.bldr-quick-bar__menu-item[data-disabled] {
+  opacity: 0.45;
+}

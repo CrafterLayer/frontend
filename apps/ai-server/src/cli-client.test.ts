@@ -6,7 +6,13 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CLI_DEFAULT_TIMEOUT_MS, createCliClient, type CliChildProcess } from './cli-client';
+import {
+  CLI_DEFAULT_TIMEOUT_MS,
+  cliShapeKey,
+  createCliClient,
+  type CliChildProcess,
+} from './cli-client';
+import { createCliWarmPool } from './cli-warm-pool';
 import { ENHANCE_RULES_TEXT } from './enhance';
 import { createHandler } from './handler';
 import { PAGE_PLAN_EXAMPLE } from './plan-shape';
@@ -787,4 +793,293 @@ describe('the prompt enhancer through a real `claude` process', () => {
     expect(existsSync(seen.systemPath)).toBe(false);
     // A real process: node's own start-up took seconds on the loaded machine this was written on.
   }, 60_000);
+});
+
+/*
+  The answer's text as it is written (DESIGN §5.1, 2026-10-05): a page plan's
+  drafts. The CLI's text_delta events go to `stream.on('text')`, one delta at
+  a time; its thinking never does — drafts are the answer, not the reasoning.
+*/
+describe('cli backend text', () => {
+  it("emits each text delta on 'text' and no thinking delta", async () => {
+    const child = new FakeChild();
+    const { client } = clientWith(child);
+    const texts: string[] = [];
+    const thinking: string[] = [];
+
+    const stream = client.messages.stream(REQUEST as never);
+    stream.on('text', (delta: string) => {
+      texts.push(delta);
+    });
+    stream.on('thinking', (delta: string) => {
+      thinking.push(delta);
+    });
+    child.stdout.write(
+      line({
+        type: 'stream_event',
+        event: {
+          type: 'content_block_delta',
+          delta: { type: 'thinking_delta', thinking: 'secret plan', estimated_tokens: 9 },
+        },
+      }),
+    );
+    for (const text of ['{"rationale"', ':"ok"}']) {
+      child.stdout.write(
+        line({
+          type: 'stream_event',
+          event: { type: 'content_block_delta', delta: { type: 'text_delta', text } },
+        }),
+      );
+    }
+    child.stdout.write(line({ type: 'result', is_error: false, result: '{"rationale":"ok"}' }));
+    await new Promise((resolve) => setImmediate(resolve));
+    child.emit('close', 0, null);
+    await stream.finalMessage();
+
+    expect(texts).toEqual(['{"rationale"', ':"ok"}']);
+    expect(texts.join('')).not.toContain('secret plan');
+    expect(thinking.join('')).not.toContain('rationale');
+  });
+});
+
+/*
+  Warm spares (DESIGN §7, 2026-10-05). After a call starts, the client keeps
+  one `claude -p` of the same shape waiting on stdin; the next call of that
+  shape writes its prompt there instead of paying the process start-up. A
+  call of another shape starts cold, exactly as before.
+*/
+describe('cli backend warm spares', () => {
+  interface Run {
+    readonly child: FakeChild;
+    readonly args: readonly string[];
+    readonly env: Readonly<Record<string, string>> | undefined;
+    stdin: string;
+  }
+
+  function warmClient() {
+    const runs: Run[] = [];
+    const files: { path: string; removed: boolean }[] = [];
+    const lines: string[] = [];
+    const pool = createCliWarmPool();
+    const spawnCli = vi.fn(
+      (
+        _command: string,
+        args: readonly string[],
+        env?: Readonly<Record<string, string>>,
+      ): CliChildProcess => {
+        const child = new FakeChild();
+        const run: Run = { child, args, env, stdin: '' };
+        child.stdin.on('data', (chunk: Buffer) => {
+          run.stdin += chunk.toString('utf8');
+        });
+        runs.push(run);
+        return child;
+      },
+    );
+    const client = createCliClient({
+      spawnCli,
+      warmPool: pool,
+      writeSystemPrompt: () => {
+        const file = { path: `/tmp/system-${String(files.length)}.md`, removed: false };
+        files.push(file);
+        return {
+          path: file.path,
+          remove: () => {
+            file.removed = true;
+          },
+        };
+      },
+      onLog: (text) => lines.push(text),
+    });
+    return { client, runs, files, lines, pool, spawnCli };
+  }
+
+  async function finish(child: FakeChild): Promise<void> {
+    child.stdout.write(line({ type: 'result', is_error: false, result: '{"rationale":"ok"}' }));
+    await new Promise((resolve) => setImmediate(resolve));
+    child.emit('close', 0, null);
+  }
+
+  const OTHER_SHAPE = { ...REQUEST, thinking: { type: 'disabled' } };
+
+  it('starts cold, then leaves a spare of the same shape waiting with its input open', async () => {
+    const { client, runs, files, lines, pool } = warmClient();
+
+    const first = client.messages.stream(REQUEST as never).finalMessage();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(runs).toHaveLength(2);
+    expect(lines.find((text) => text.startsWith('cli run started'))).toMatch(
+      /^cli run started — cold, /u,
+    );
+    expect(runs[0]?.stdin).toContain('make a hero');
+    // The spare: the same command line with its own system file, a keep-alive newline, no prompt.
+    expect(runs[1]?.args.slice(0, -2)).toEqual(runs[0]?.args.slice(0, -2));
+    expect(runs[1]?.args).toContain(files[1]?.path);
+    expect(runs[1]?.stdin).toBe('\n');
+    expect(runs[1]?.child.stdin.writableEnded).toBe(false);
+
+    const child = runs[0]?.child;
+    if (child !== undefined) await finish(child);
+    await first;
+    expect(files[0]?.removed).toBe(true);
+    expect(files[1]?.removed).toBe(false);
+    pool.dispose();
+    expect(files[1]?.removed).toBe(true);
+  });
+
+  it('runs the second call of the same shape on the spare, and primes the next one', async () => {
+    const { client, runs, files, lines, pool, spawnCli } = warmClient();
+
+    const first = client.messages.stream(REQUEST as never).finalMessage();
+    const firstChild = runs[0]?.child;
+    if (firstChild !== undefined) await finish(firstChild);
+    await first;
+
+    const second = client.messages.stream(REQUEST as never).finalMessage();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // One spawn for the first call, one spare, one new spare: the second call spawned nothing itself.
+    expect(spawnCli).toHaveBeenCalledTimes(3);
+    // The spare's age is said, so a spare still in its own start-up is visible in the log.
+    expect(lines.filter((text) => text.startsWith('cli run started'))[1]).toMatch(
+      /^cli run started — warm \(spare \d+\.\d s old\), /u,
+    );
+    expect(runs[1]?.stdin).toContain('make a hero');
+    expect(runs[1]?.child.stdin.writableEnded).toBe(true);
+    expect(runs[2]?.stdin).toBe('\n');
+
+    const spare = runs[1]?.child;
+    if (spare !== undefined) await finish(spare);
+    await second;
+    // The spare's own system file goes with its run.
+    expect(files[1]?.removed).toBe(true);
+    pool.dispose();
+  });
+
+  it('keeps one spare per running call of a shape, so a writer wave finds one each', async () => {
+    const { client, runs, pool, spawnCli } = warmClient();
+
+    // Two calls of one shape at once: the second takes the first's spare and asks for two more.
+    const first = client.messages.stream(REQUEST as never).finalMessage();
+    await new Promise((resolve) => setImmediate(resolve));
+    const second = client.messages.stream(REQUEST as never).finalMessage();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // cold call + its spare; the second ran on that spare and primed two (one per running call).
+    expect(spawnCli).toHaveBeenCalledTimes(4);
+    expect(runs[2]?.stdin).toBe('\n');
+    expect(runs[3]?.stdin).toBe('\n');
+
+    for (const run of runs.slice(0, 2)) await finish(run.child);
+    await Promise.all([first, second]);
+    pool.dispose();
+  });
+
+  it('starts a call of another shape cold, with its own spare', async () => {
+    const { client, runs, lines, pool } = warmClient();
+
+    const first = client.messages.stream(REQUEST as never).finalMessage();
+    const firstChild = runs[0]?.child;
+    if (firstChild !== undefined) await finish(firstChild);
+    await first;
+
+    const other = client.messages.stream(OTHER_SHAPE as never).finalMessage();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(lines.filter((text) => text.startsWith('cli run started'))[1]).toMatch(
+      /^cli run started — cold, .*thinking off/u,
+    );
+    expect(runs[2]?.stdin).toContain('make a hero');
+    expect(runs[2]?.env).toEqual({ MAX_THINKING_TOKENS: '0' });
+    // The first shape's spare is still waiting, untouched.
+    expect(runs[1]?.child.stdin.writableEnded).toBe(false);
+    // And the new shape got a spare of its own, with the same thinking-off environment.
+    expect(runs[3]?.env).toEqual({ MAX_THINKING_TOKENS: '0' });
+    expect(runs[3]?.stdin).toBe('\n');
+
+    const otherChild = runs[2]?.child;
+    if (otherChild !== undefined) await finish(otherChild);
+    await other;
+    pool.dispose();
+  });
+
+  it('cancels a warm run exactly as a cold one: the child is killed, the call is an abort', async () => {
+    const { client, runs, pool } = warmClient();
+
+    const first = client.messages.stream(REQUEST as never).finalMessage();
+    const firstChild = runs[0]?.child;
+    if (firstChild !== undefined) await finish(firstChild);
+    await first;
+
+    const controller = new AbortController();
+    const second = client.messages
+      .stream(REQUEST as never, { signal: controller.signal })
+      .finalMessage();
+    controller.abort();
+
+    await expect(second).rejects.toMatchObject({ name: 'AbortError' });
+    expect(runs[1]?.child.kill).toHaveBeenCalledWith('SIGTERM');
+    pool.dispose();
+  });
+
+  it('takes no spare and starts nothing for a call cancelled before it began', async () => {
+    const { client, runs, pool, spawnCli } = warmClient();
+
+    const first = client.messages.stream(REQUEST as never).finalMessage();
+    const firstChild = runs[0]?.child;
+    if (firstChild !== undefined) await finish(firstChild);
+    await first;
+
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      client.messages.stream(REQUEST as never, { signal: controller.signal }).finalMessage(),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(spawnCli).toHaveBeenCalledTimes(2);
+    expect(runs[1]?.child.stdin.writableEnded).toBe(false);
+    pool.dispose();
+  });
+
+  it('names the stdin→first event time in the usage line', async () => {
+    const { client, runs, lines, pool } = warmClient();
+
+    const first = client.messages.stream(REQUEST as never).finalMessage();
+    runs[0]?.child.stdout.write(line({ type: 'system', subtype: 'init' }));
+    runs[0]?.child.stdout.write(
+      line({
+        type: 'result',
+        is_error: false,
+        result: '{"rationale":"ok"}',
+        usage: { input_tokens: 1, output_tokens: 2 },
+      }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    runs[0]?.child.emit('close', 0, null);
+    await first;
+
+    expect(lines.find((text) => text.startsWith('cli usage'))).toMatch(
+      /stdin→first event \d+ ms/u,
+    );
+    pool.dispose();
+  });
+
+  it('gives every call the same shape key for the same model, effort, thinking and system', () => {
+    expect(cliShapeKey('haiku', 'low', true, 'rules')).toBe(
+      cliShapeKey('haiku', 'low', true, 'rules'),
+    );
+    expect(cliShapeKey('haiku', 'low', true, 'rules')).not.toBe(
+      cliShapeKey('haiku', 'low', false, 'rules'),
+    );
+    expect(cliShapeKey('haiku', 'low', true, 'rules')).not.toBe(
+      cliShapeKey('haiku', undefined, true, 'rules'),
+    );
+    expect(cliShapeKey('haiku', 'low', true, 'rules')).not.toBe(
+      cliShapeKey('sonnet', 'low', true, 'rules'),
+    );
+    expect(cliShapeKey('haiku', 'low', true, 'rules')).not.toBe(
+      cliShapeKey('haiku', 'low', true, 'rules!'),
+    );
+  });
 });

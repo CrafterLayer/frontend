@@ -38,7 +38,7 @@ import { runAiBuild } from './index';
 
 const NullRender: BlockRenderComponent = () => null;
 const SEO_LABEL = 'Assistant: SEO';
-const SAMPLE_PHONE = '+962 7 9000 0000';
+const SAMPLE_PHONE = '+962 7 9646 1275';
 const LONG_TITLE =
   'محمصة الهيل في عمّان — قهوة مختصة تُحمّص كل صباح وتصلك طازجة إلى باب بيتك في كل أحياء المدينة';
 
@@ -417,6 +417,86 @@ describe('runAiBuild — kit-backed writers and the SEO pass', () => {
       revertBuildSection(live, menu, { clock: { now: () => 2 }, ids: seededIds('kit-seo-revert') }),
     ).not.toThrow();
     expect(labels(live).at(-1)).toMatch(/^Assistant: revert /u);
+  });
+
+  it('keeps the plan’s curated menu: the SEO pass never re-syncs it to every section (fix pass 2026-10-05)', async () => {
+    const live = kernel();
+    const script = provider((request) => markup(request, false));
+    const curated = { ...cafe(), nav: [{ label: 'المشروبات', anchorId: 'menu' }] };
+    const planned: AiPlanProvider = {
+      ...script.provider,
+      proposePagePlan: () => Promise.resolve({ pagePlan: curated, rationale: 'صفحة محمصة.' }),
+    };
+
+    const result = await runAiBuild(options(live, planned));
+
+    expect(result.outcome).toBe('completed');
+    const headerLinks = elements(regionTree(live, 'top'))
+      .filter(({ tag, attributes }) => tag === 'a' && (attributes?.['href'] ?? '').startsWith('#'))
+      .filter(({ className }) => !(className ?? '').includes('ck-btn'))
+      .map(({ text, attributes }) => [text, attributes?.['href']]);
+    expect(headerLinks).toContainEqual(['المشروبات', '#menu']);
+    // The order section's title is no menu item the plan named.
+    expect(headerLinks.some(([text]) => text === 'اطلب')).toBe(false);
+  });
+
+  it('lands a kit the planner filled even when its slots word a mustSay their own way', async () => {
+    const live = kernel();
+    const script = provider((request) => markup(request, false));
+    const plan = cafe() as Record<string, unknown> & { sections: Record<string, unknown>[] };
+    const worded = {
+      ...plan,
+      sections: plan.sections.map((section) =>
+        section['key'] === 'order' ? { ...section, mustSay: ['توصيل مجاني لكل عمّان'] } : section,
+      ),
+    };
+    const planned: AiPlanProvider = {
+      ...script.provider,
+      proposePagePlan: () => Promise.resolve({ pagePlan: worded, rationale: 'صفحة محمصة.' }),
+    };
+
+    const result = await runAiBuild(options(live, planned));
+
+    expect(result.outcome).toBe('completed');
+    // No writer was asked for the order section: the planner's slots are its contract.
+    expect(script.calls.some(({ request }) => anchorOf(request) === 'order')).toBe(false);
+    expect(result.tasks.find(({ sectionKey }) => sectionKey === 'order')?.attempts).toBe(0);
+  });
+
+  it('moves a writer’s palette classes onto the tokens before the check: no repair round', async () => {
+    const live = kernel();
+    const script = provider(
+      (request) => {
+        const plan = markup(request, false);
+        if (!request.includes('ROLE: HERO')) return plan;
+        const [step] = plan.commands;
+        const args = step?.args as { value: string };
+        return {
+          ...plan,
+          commands: [{ ...step!, args: { ...args, value: args.value.replace("class='py-16'", "class='py-16 bg-blue-50'") } }],
+        };
+      },
+      (request) => markup(request, false),
+    );
+    const events: string[] = [];
+    const result = await runAiBuild({
+      ...options(live, script.provider),
+      onEvent: (event) => {
+        if (event.type === 'task.completed' && event.transactionId !== undefined) {
+          events.push(`${event.label ?? ''}|${event.transactionId}`);
+        }
+      },
+    });
+
+    expect(result.outcome).toBe('completed');
+    expect(script.repairs).toHaveLength(0);
+    const hero = elements(regionTree(live, 'hero')).find(({ tag }) => tag === 'section');
+    const heroClasses = hero?.className?.split(/\s+/u) ?? [];
+    expect(heroClasses.some((name) => name === 'ck-ground' || name === 'ck-surface')).toBe(true);
+    expect(hero?.className).not.toContain('bg-blue-50');
+    // Every landed section says which transaction it landed in, and under which label.
+    expect(events.length).toBeGreaterThanOrEqual(result.applied);
+    expect(events.every((line) => /^Assistant: .+\|.+$/u.test(line))).toBe(true);
   });
 
   it('keeps a sample phone out of seo.site.business: the tool refuses it, and the repair is told why', async () => {

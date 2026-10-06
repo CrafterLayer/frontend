@@ -110,3 +110,10 @@ claims the reserved finger-target size.
 - The arrow paints behind the bubble via `z-index: -1`, which relies on the host's stacking context
   (`.bldr-floating` sets `z-index`).
 - Actions render in the order given; the component imposes no grouping or overflow behavior.
+
+## Prompt mode (P7, style-manager DESIGN.md §E)
+
+`prompt` replaces the actions with a one-field form — the link address when a range of tree text
+is formatted as a link on the canvas. The field takes focus (the bubble's press guard lets the
+field, and only the field, take it), Enter submits the trimmed value and Escape cancels; both stay
+inside the bubble. `label` names the group ("Formatting" by default).

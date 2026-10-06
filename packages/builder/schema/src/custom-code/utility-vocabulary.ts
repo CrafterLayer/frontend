@@ -50,6 +50,8 @@
  * `AiCompositionPolicy.colourPolicy: 'tokens'`.
  */
 
+import { customCodeEffectOfClass, isCustomCodeEffectNamespace } from './effects-vocabulary';
+
 /** One `@source inline(...)` pattern: `{a,b}` alternates and `{0..N}` ranges. */
 export type UtilityPattern = string;
 
@@ -347,7 +349,14 @@ export function isCustomHookClass(name: string): boolean {
   if (!name.startsWith(CUSTOM_CLASS_PREFIX) || name.length === CUSTOM_CLASS_PREFIX.length) {
     return false;
   }
-  return !name.includes('[') && !name.includes(']');
+  if (name.includes('[') || name.includes(']')) return false;
+  /*
+    The effects library (`ck-fx-*`) is a CLOSED list: its CSS ships with the
+    renderer, not with the region, so an unknown `ck-fx-` name would be a hook
+    nothing styles. Other `ck-` hooks behave as before.
+  */
+  if (isCustomCodeEffectNamespace(name)) return customCodeEffectOfClass(name) !== undefined;
+  return true;
 }
 
 /**

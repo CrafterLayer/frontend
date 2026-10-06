@@ -36,6 +36,12 @@ import { LayersTree } from '@craftkit/builder';
 | Prop     | Type            | Notes                                                   |
 | -------- | --------------- | ------------------------------------------------------- |
 | `kernel` | `BuilderKernel` | required; by prop (the shell never reads React context) |
+| `selection` | `ElementSelection` | optional multi-selection store; Shift/Mod-click toggles members |
+| `clipboard` | `ElementClipboard` | optional; share it with the keyboard map so copy/paste agree |
+| `bucket` | `StyleBucket` | the style panel's bucket; the eye hides there (default `base`) |
+| `labels` / `actionLabels` / `words` | label sets | English defaults; Arabic sets are exported |
+| `onSaveTemplate` | `(request) => void` | shows "Save as template" (element or whole section) |
+| `onMakeSymbol` | `(regionId) => void` | shows "Make a symbol" on custom-code region rows |
 
 ## Accessibility
 
@@ -49,3 +55,25 @@ Rows are always one line. Both the primary name and the quieter id stay non-wrap
 with an ellipsis when the panel is narrower than their combined content.
 
 <Canvas of={LayersTreeStories.Default} />
+
+## Element trees (style-manager DESIGN.md §E)
+
+Below every custom-code region the tree continues into the region's ELEMENTS: a tag glyph, the
+element's Layers name (its `label`, or a derived word such as Heading), and a short text preview.
+Selection syncs both ways with `focusElement` and the multi-selection store.
+
+- **Drag to reorder or nest** with the grip (dnd-kit): the pointer's horizontal travel, or the
+  start/end arrows during a keyboard drag, changes the level. A drop is ONE labelled transaction —
+  `moveTreeNode` for an element (across regions too), `moveNode` for a block — and so one Undo.
+  Pick up with Space or Enter, move with the arrows, drop with Space or Enter, cancel with Escape;
+  every step is announced.
+- **Rename** with a double-click or F2: Enter commits to `label` (≤ 60), Escape abandons.
+- **Hide** with the eye: it writes `hidden` at the CURRENT bucket through the style engine, so hiding
+  on mobile writes `max-md:hidden` only; the badge says which bucket the eye is acting on.
+- **Lock** writes `locked` (editor metadata; the canvas lets clicks pass through).
+- **Delete** with Delete/Backspace on a focused row; the context menu adds copy, cut, paste, copy and
+  paste style, duplicate, wrap, unwrap, rename, save as template and make a symbol.
+
+<Canvas of={LayersTreeStories.ElementTrees} />
+
+<Canvas of={LayersTreeStories.ArabicElementTrees} />

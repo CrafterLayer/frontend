@@ -1,7 +1,7 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
@@ -15,6 +15,7 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
+import { installBrowserStandIns, installClassOracle } from '../../style-manager/test-support';
 import { Inspector } from './Inspector';
 
 const NullRender: BlockRenderComponent = () => null;
@@ -115,41 +116,58 @@ const elementAt = (kernel: BuilderKernel, ...path: number[]) => {
   return node as Record<string, unknown>;
 };
 
+let restoreOracle: () => void = () => undefined;
+beforeAll(() => {
+  installBrowserStandIns();
+  restoreOracle = installClassOracle();
+});
+afterAll(() => {
+  restoreOracle();
+});
+
+async function openTab(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole('tab', { name }));
+}
+
 describe('Inspector — a focused element inside a composed region', () => {
-  it('names the element, says which region it is in, and shows the element rows instead of the region rows', () => {
+  it('names the element, says which region it is in, and shows the element tabs instead of the region rows', async () => {
     const kernel = makeKernel();
     kernel.focusElement('r1', [0, 0]);
+    const user = userEvent.setup();
     render(<Inspector kernel={kernel} />);
 
     expect(screen.getByRole('paragraph', { name: 'Selected block' })).toHaveTextContent('Image');
     expect(screen.getByText('in CV header')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back to region' })).toBeInTheDocument();
-    // The region's own rows and tabs are not what is being edited.
+    // The region's own rows are not what is being edited.
     expect(screen.queryByRole('textbox', { name: 'label' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-    // The image's rows, grouped.
-    const image = screen.getByRole('region', { name: 'Image' });
-    expect(within(image).getByRole('textbox', { name: 'src' })).toHaveValue(
-      'https://example.com/a.jpg',
-    );
-    expect(within(image).getByRole('textbox', { name: 'alt' })).toHaveValue('Portrait');
-    expect(
-      within(screen.getByRole('region', { name: 'Design' })).getByRole('textbox', {
-        name: 'className',
-      }),
-    ).toHaveValue('rounded-full');
-    expect(
-      within(screen.getByRole('region', { name: 'Advanced' })).getByRole('textbox', {
-        name: 'title',
-      }),
-    ).toHaveValue('');
+    // Every element is a widget: Content · Design · Interactions · Code.
+    const tabs = within(screen.getByRole('tablist', { name: 'Element panel' }));
+    expect(tabs.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Content',
+      'Design',
+      'Interactions',
+      'Code',
+    ]);
+
+    await openTab(user, 'Content');
+    const content = screen.getByRole('region', { name: 'Content' });
+    expect(within(content).getByRole('textbox', { name: 'src' })).toHaveValue('https://example.com/a.jpg');
+    expect(within(content).getByRole('textbox', { name: 'alt' })).toHaveValue('Portrait');
+
+    await openTab(user, 'Design');
+    expect(screen.getByRole('group', { name: 'Design' })).toBeInTheDocument();
+    const advanced = screen.getByRole('region', { name: 'Advanced' });
+    expect(within(advanced).getByText('rounded-full')).toBeInTheDocument();
+    expect(within(advanced).getByRole('textbox', { name: 'title' })).toHaveValue('');
   });
 
-  it('a committed edit is ONE transaction that rewrites the tree prop at the path — and only there', async () => {
+  it('a committed trait is ONE labelled transaction that changes the tree at the path — and only there', async () => {
     const kernel = makeKernel();
     kernel.focusElement('r1', [0, 0]);
     const user = userEvent.setup();
     render(<Inspector kernel={kernel} />);
+    await openTab(user, 'Content');
     const before = treeOf(kernel);
 
     const alt = screen.getByRole('textbox', { name: 'alt' });
@@ -158,7 +176,7 @@ describe('Inspector — a focused element inside a composed region', () => {
     expect(kernel.transactions()).toHaveLength(0); // drafted, not yet committed
     await user.tab();
     expect(kernel.transactions()).toHaveLength(1);
-    expect(kernel.transactions()[0]?.command).toBe('setProp');
+    expect(kernel.transactions()[0]?.command).toBe('Alternative text · Image');
 
     expect(elementAt(kernel, 0, 0)['attributes']).toEqual({
       src: 'https://example.com/a.jpg',
@@ -173,11 +191,12 @@ describe('Inspector — a focused element inside a composed region', () => {
     expect(treeOf(kernel)).toEqual(TREE);
   });
 
-  it('text, links and icons edit their own rows', async () => {
+  it('text, links and icons edit their own Content rows', async () => {
     const kernel = makeKernel();
     const user = userEvent.setup();
     kernel.focusElement('r1', [0, 1]);
     const view = render(<Inspector kernel={kernel} />);
+    await openTab(user, 'Content');
     expect(screen.getByRole('paragraph', { name: 'Selected block' })).toHaveTextContent('Heading');
     const text = screen.getByRole('textbox', { name: 'text' });
     expect(text).toHaveValue('Reem Haddad');
@@ -194,9 +213,7 @@ describe('Inspector — a focused element inside a composed region', () => {
     act(() => {
       kernel.focusElement('r1', [0, 3]);
     });
-    expect(screen.getByRole('paragraph', { name: 'Selected block' })).toHaveTextContent(
-      'Icon (mail)',
-    );
+    expect(screen.getByRole('paragraph', { name: 'Selected block' })).toHaveTextContent('Icon (mail)');
     expect(screen.getByRole('spinbutton', { name: 'size' })).toHaveValue(20);
     view.unmount();
   });
@@ -206,13 +223,71 @@ describe('Inspector — a focused element inside a composed region', () => {
     kernel.focusElement('r1', [0, 3]);
     const user = userEvent.setup();
     render(<Inspector kernel={kernel} />);
+    await openTab(user, 'Content');
     const name = screen.getByRole('textbox', { name: 'name' });
     await user.clear(name);
     await user.type(name, 'Not Kebab Case');
     await user.tab();
     expect(kernel.transactions()).toHaveLength(0);
     expect(name).toHaveAttribute('aria-describedby');
-    expect(name.closest('.bldr-inspector__row')?.textContent).toMatch(/invalid|regex|match/iu);
+    expect(name.closest('.bldr-inspector__row')?.textContent).toMatch(/invalid|regex|match|name/iu);
+  });
+
+  it('Design: a control writes the class at the bucket as one labelled transaction', async () => {
+    const kernel = makeKernel();
+    kernel.focusElement('r1', [0, 1]);
+    const user = userEvent.setup();
+    render(<Inspector kernel={kernel} bucket="mobile" />);
+    await openTab(user, 'Design');
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Size' }), { key: 'PageUp' });
+    });
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(kernel.transactions()[0]?.command).toBe('Size · Heading “Reem Haddad”');
+    expect(elementAt(kernel, 0, 1)['className']).toBe('max-md:text-xs');
+    expect(screen.getByRole('status', { name: 'Inspector messages' })).toHaveTextContent('Size updated');
+  });
+
+  it('Interactions: choosing a preset writes the motion attribute in one transaction', async () => {
+    const kernel = makeKernel();
+    kernel.focusElement('r1', [0, 1]);
+    const user = userEvent.setup();
+    render(<Inspector kernel={kernel} />);
+    await openTab(user, 'Interactions');
+    await user.click(screen.getByRole('radio', { name: 'Fade up' }));
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(elementAt(kernel, 0, 1)['attributes']).toEqual({ 'data-ck-motion': 'fade-up' });
+  });
+
+  it('Code: the element as markup; an edit is applied as one patch; a refusal shows at the attribute', async () => {
+    const kernel = makeKernel();
+    kernel.focusElement('r1', [0, 2]);
+    const user = userEvent.setup();
+    render(<Inspector kernel={kernel} />);
+    await openTab(user, 'Code');
+    const editor = screen.getByRole('textbox', { name: 'Element code' });
+    expect(editor).toHaveValue('<a href="mailto:r@x.io">Email me</a>');
+    fireEvent.change(editor, { target: { value: '<a class="underline" href="mailto:r@x.io">Write to me</a>' } });
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(elementAt(kernel, 0, 2)).toMatchObject({ className: 'underline', text: 'Write to me' });
+
+    fireEvent.change(editor, { target: { value: '<a href="mailto:r@x.io" onclick="x()">Write to me</a>' } });
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('At onclick:');
+  });
+
+  it('the tab is remembered across elements for the session', async () => {
+    const kernel = makeKernel();
+    kernel.focusElement('r1', [0, 1]);
+    const user = userEvent.setup();
+    render(<Inspector kernel={kernel} />);
+    await openTab(user, 'Interactions');
+    act(() => {
+      kernel.focusElement('r1', [0, 2]);
+    });
+    expect(screen.getByRole('tab', { name: 'Interactions' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('Back to region drops the focus, keeps the selection, and brings the region rows back', async () => {
@@ -223,9 +298,7 @@ describe('Inspector — a focused element inside a composed region', () => {
     await user.click(screen.getByRole('button', { name: 'Back to region' }));
     expect(kernel.context.store.getState().selection).toEqual(['r1']);
     expect(kernel.context.store.getState().elementFocus).toBeNull();
-    expect(screen.getByRole('paragraph', { name: 'Selected block' })).toHaveTextContent(
-      'CV header',
-    );
+    expect(screen.getByRole('paragraph', { name: 'Selected block' })).toHaveTextContent('CV header');
     expect(screen.getByRole('textbox', { name: 'label' })).toHaveValue('CV header');
     expect(screen.queryByRole('button', { name: 'Back to region' })).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('CV header selected');
@@ -236,9 +309,7 @@ describe('Inspector — a focused element inside a composed region', () => {
     kernel.focusElement('r1', [0, 9]);
     const view = render(<Inspector kernel={kernel} />);
     expect(
-      screen.getByText(
-        'That element is no longer in this region. Go back to the region to continue.',
-      ),
+      screen.getByText('That element is no longer in this region. Go back to the region to continue.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back to region' })).toBeInTheDocument();
     view.unmount();

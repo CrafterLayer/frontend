@@ -170,6 +170,10 @@ export const pageSchema = defineBlockSchema({
         // vocabulary that admits it only inside a container would leave the
         // one case it was built for unreachable.
         'customCode',
+        // P11-integration: a symbol instance replaces a region in place
+        // ("Make into symbol", style-manager DESIGN §G), so it is root-level
+        // wherever a region is.
+        'customCodeSymbol',
       ],
     },
   },

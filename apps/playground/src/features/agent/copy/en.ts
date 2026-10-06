@@ -234,6 +234,10 @@ export const en = {
   'change.label.text': 'Text',
   'change.label.pageDirection': 'Page direction',
   'change.label.pageSurface': 'Page surface',
+  // colour-target-fix additions
+  'change.label.pageColours': 'Page colours',
+  'change.label.pageStyling': 'Page styling',
+  // end colour-target-fix additions
   'change.value.ltr': 'Left to right',
   'change.value.rtl': 'Right to left',
   'change.value.on': 'On',

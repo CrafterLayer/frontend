@@ -86,3 +86,65 @@ export {
   type StaticSiteResult,
 } from './export';
 // end static-export additions
+// ── P5-site-library (style-manager DESIGN.md) ──
+// The site design library on the canvas and in the export (§2): the context a
+// render reads the library and the named-style class transform from, and the
+// library's stylesheet (palette variables, font imports, uploaded faces).
+export {
+  buildLibraryCss,
+  fontImportRule,
+  SiteDesignContext,
+  siteFontImportUrl,
+  SiteLibraryStyle,
+  useSiteDesign,
+  type SiteDesign,
+  type SiteLibraryStyleProps,
+} from './site-design';
+// ── end P5-site-library ──
+// ── P3-vocabulary-renderer (style-manager DESIGN.md) ──
+// The class-transform hook (named-style expansion, §A.2/D6), the lazy Tabler
+// icon set (§C.3: the export awaits loadTablerIcons() before a static render),
+// and the canvas-only forced-state variants (§A.7).
+export {
+  CustomCodeClassTransformContext,
+  useCustomCodeClassTransform,
+  type CustomCodeClassTransform,
+} from './components/CustomCode/class-transform-context';
+export {
+  loadTablerIcons,
+  setTablerIconLoader,
+  subscribeTablerIcons,
+  tablerIconNode,
+  tablerIconsFailed,
+  tablerIconsLoaded,
+  type TablerIconLoader,
+  type TablerIconNode,
+  type TablerIconSets,
+  type TablerIconStyle,
+} from './components/CustomCode/tabler-icons';
+export {
+  CANVAS_STATES,
+  CANVAS_STATE_ATTRIBUTE,
+  type CanvasState,
+} from './tailwind/live-utilities';
+// ── end P3-vocabulary-renderer ──
+// ── P4-animation (style-manager DESIGN.md) ──
+// Motion presets + effects as CSS (§B, §C), the canvas injection and Preview
+// replay, the runtime's trigger selector, and the named-style transform (D6)
+// a host passes as SiteDesignContext.classTransform.
+export {
+  buildMotionPresetsCss,
+  hoverPresetCss,
+  INLINE_AXIS_HOVERS,
+  INLINE_AXIS_PRESETS,
+  motionPresetCss,
+  type MotionCssSelection,
+} from './motion/presets-css';
+export { buildEffectsCss, effectCss } from './motion/effects-css';
+export { BEHAVIOR_RUNTIME_SELECTOR, ensureMotionCss, replayMotion } from './behaviors';
+export {
+  createNamedStyleTransform,
+  namedStyleMap,
+  type NamedStyleTransform,
+} from './site-design/named-style-transform';
+// ── end P4-animation ──

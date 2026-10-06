@@ -12,7 +12,7 @@ import {
   isCatalogPhotoUrl,
   PHOTO_CATALOG_PROVIDER_ID,
 } from '../context/providers/photo-catalog';
-import type { IntentKind } from '../intent';
+import type { IntentKind, IntentTarget } from '../intent';
 import { applyAiPlan, type AppliedAiPlan } from '../plan/apply-plan';
 import { repairAiPlanForIssues } from '../plan/generate-plan';
 import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/validated-proposal';
@@ -24,11 +24,22 @@ import { expandAgentTools } from '../tools/agent/expand';
 import { AGENT_TOOL_COMMAND, type AgentToolLane } from '../tools/agent/types';
 import { readSectionValues } from './build-revert';
 import { classifyAiRunFailure, type AiRunFailure } from './errors';
-import { checkSection } from './page-plan/check-section';
+import { checkSection, tokeniseColourClasses } from './page-plan/check-section';
+import { completeKitSlots, fillSlotPhotos, pagePhotoPlan } from './page-plan/kit-slots';
 import { planKit, planKitIndex, writerKitRoles } from './page-plan/kits';
 import { summarizeNeighbours } from './page-plan/neighbours';
 import {
+  provisionalCandidate,
+  reconcilePlans,
+  sectionFingerprint,
+  startPlanDraft,
+  withBrief,
+  type PlanDraft,
+} from './page-plan/plan-draft';
+import { createPlanStreamReader, type PlanStreamEvent } from './page-plan/plan-stream';
+import {
   PAGE_KIT_CLASSES,
+  skeletonFinish,
   skeletonFromPlan,
   type SkeletonFromPlanContext,
 } from './page-plan/skeleton-from-plan';
@@ -50,7 +61,13 @@ import {
   type PagePlanStepNote,
 } from './plan-page';
 import { runAiAgent } from './run-agent';
-import type { AiPlan, AiPlanValidationIssue } from '../types';
+import type {
+  AiPagePlanDraftEvent,
+  AiPlan,
+  AiPlanProvider,
+  AiPlanStep,
+  AiPlanValidationIssue,
+} from '../types';
 import type {
   AiAgentEvent,
   AiAgentRunResult,
@@ -81,28 +98,26 @@ export const DEFAULT_AI_BUILD_MAX_TASKS = 12;
 export const DEFAULT_AI_BUILD_TASK_TIMEOUT_MS = 240_000;
 /** Ceiling for the whole build. The running section still finishes. */
 export const DEFAULT_AI_BUILD_BUDGET_MS = 900_000;
-/** Baseline writers for an automatic build; fewer sections use fewer writers. */
-export const DEFAULT_AI_BUILD_FILL_CONCURRENCY = 3;
-/** Automatic builds may grow to this many writers, never to the task count without a ceiling. */
-export const MAX_AI_BUILD_AUTO_FILL_CONCURRENCY = 6;
-/** Each complete group beyond the baseline earns one additional writer. */
-const AI_BUILD_TASKS_PER_ADDITIONAL_WRITER = 3;
+/**
+ * Automatic builds run one writer per section that needs one, up to this many
+ * (2026-10-05, DESIGN D7): never the task count without a ceiling.
+ */
+export const MAX_AI_BUILD_AUTO_FILL_CONCURRENCY = 8;
 
 /**
  * Sections written at once.
  *
- * Three is the baseline, not a fixed bottleneck. A four-section page can use
- * four writers; larger pages add one writer per further group of three until
- * six are active. This shortens the long builds without turning a twelve-part
- * page into twelve local CLI processes at once. A caller-provided number stays
- * exact, including `1` for strictly sequential work.
+ * Automatic: one writer per section, capped at eight. It was three growing by
+ * one per further group of three, capped at six — and measured live
+ * (baseline 2026-09-30) six writers in a pool of four cost ≈ 7 s of a 65 s
+ * page, while a streamed plan already staggers the writers' starts by about
+ * a second each, so the machine never sees them all start at once. A
+ * caller-provided number stays exact, including `1` for strictly sequential
+ * work.
  */
 export function fillConcurrencyFor(taskCount: number, requested: number | undefined): number {
   if (requested !== undefined) return Math.min(taskCount, Math.max(1, requested));
-  const automatic =
-    DEFAULT_AI_BUILD_FILL_CONCURRENCY +
-    Math.floor(Math.max(0, taskCount - 1) / AI_BUILD_TASKS_PER_ADDITIONAL_WRITER);
-  return Math.min(taskCount, automatic, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY);
+  return Math.min(taskCount, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY);
 }
 
 const MAX_RUN_ID_LENGTH = 160;
@@ -666,6 +681,12 @@ async function underDeadline<T>(
   task: AiBuildTask,
   taskTimeoutMs: number,
   work: (signal: AbortSignal) => Promise<T>,
+  /**
+   * The section's own abort (the streamed build's): a speculative write whose
+   * contract changed in the final plan is cancelled through it, and nothing
+   * else is.
+   */
+  jobSignal?: AbortSignal,
 ): Promise<T> {
   const deadline = new AbortController();
   // A property, not a local: the flag is set in a timer the checker cannot see.
@@ -684,6 +705,11 @@ async function underDeadline<T>(
   };
   if (outer?.aborted === true) forwardStop();
   else outer?.addEventListener('abort', forwardStop, { once: true });
+  const forwardJob = (): void => {
+    deadline.abort(jobSignal?.reason);
+  };
+  if (jobSignal?.aborted === true) forwardJob();
+  else jobSignal?.addEventListener('abort', forwardJob, { once: true });
   try {
     return await work(deadline.signal);
   } catch (cause) {
@@ -697,6 +723,7 @@ async function underDeadline<T>(
   } finally {
     clearTimeout(timer);
     outer?.removeEventListener('abort', forwardStop);
+    jobSignal?.removeEventListener('abort', forwardJob);
   }
 }
 
@@ -717,6 +744,81 @@ interface FillBrief {
    * never write them into SEO data. Absent on a scaffold build.
    */
   readonly sampleValues?: readonly string[];
+  /**
+   * Completes the writer's answer before the door sees it (quality pass
+   * 2026-10-05): a `kit.section` step's slots get what code can derive from
+   * the contract (`completeKitSlots`) and the photos the plan assigned this
+   * section (`fillSlotPhotos`). Every measure-v2 run spent a repair round on
+   * `kit "features-bento" needs slot "caption"` — words the contract held.
+   */
+  readonly completeStep?: (answer: AiPlan) => AiPlan;
+}
+
+/**
+ * The provider a writer proposes through, with every answer — first and
+ * repaired — completed by `complete` before validation. Forget passes through.
+ */
+function completingProvider(inner: AiPlanProvider, complete: (answer: AiPlan) => AiPlan): AiPlanProvider {
+  const provider: AiPlanProvider = {
+    propose: async (request, context, live) => complete(await inner.propose(request, context, live)),
+  };
+  const repair = inner.repair?.bind(inner);
+  if (repair !== undefined) {
+    provider.repair = async (request, context, plan, issues, live) =>
+      complete(await repair(request, context, plan, issues, live));
+  }
+  const forget = inner.forget?.bind(inner);
+  if (forget !== undefined) provider.forget = forget;
+  return provider;
+}
+
+function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * A writer's answer with each `kit.section` step's slots completed for its
+ * contract: derivable required slots filled, broken optional ones dropped,
+ * and every catalog image given the section's assigned photo (no photo twice
+ * on a page). Anything else is returned as written; never throws.
+ */
+export function completeKitSteps(plan: PagePlan, contract: SectionContract, answer: AiPlan): AiPlan {
+  try {
+    const written: unknown = (answer as { readonly commands?: unknown }).commands;
+    if (!Array.isArray(written)) return answer;
+    const steps = written as readonly AiPlanStep[];
+    const commands = steps.map((step): AiPlanStep => {
+      const args: unknown = step.args;
+      if (step.command !== AGENT_TOOL_COMMAND || !isPlainObject(args) || args['name'] !== 'kit.section') {
+        return step;
+      }
+      const input = args['input'];
+      if (!isPlainObject(input)) return step;
+      const kit = planKit(typeof input['kit'] === 'string' ? input['kit'] : contract.kit);
+      if (kit === undefined) return step;
+      const written = isPlainObject(input['slots'])
+        ? (input['slots'] as Readonly<Record<string, JsonValue>>)
+        : {};
+      const completed = completeKitSlots(kit, written, {
+        contract,
+        primaryCta: plan.primaryCta,
+        pageBrief: `${plan.title} ${plan.description}`,
+      });
+      const slots = fillSlotPhotos(
+        kit,
+        completed.slots,
+        contract.key,
+        pagePhotoPlan(plan),
+        plan.locale.lang,
+      );
+      if (slots === input['slots']) return step;
+      return { ...step, args: { ...args, input: { ...input, slots } } };
+    });
+    return commands.some((step, index) => step !== steps[index]) ? { ...answer, commands } : answer;
+  } catch {
+    // A completion that throws completes nothing: the door judges what was written.
+    return answer;
+  }
 }
 
 /** The composition a section writer works under: its own region whole, every other one summarised. */
@@ -746,8 +848,11 @@ function runFill(
     from a variable: it reaches generation only where the run forwards it.
   */
   const samples = brief.sampleValues === undefined ? {} : { sampleValues: brief.sampleValues };
+  const provider =
+    brief.completeStep === undefined ? step.provider : completingProvider(step.provider, brief.completeStep);
   return runAiAgent({
     ...step,
+    provider,
     ...samples,
     // A writer names only the section lane's tools — the ones its prompt lists.
     toolLanes: SECTION_TOOL_LANES,
@@ -780,6 +885,8 @@ function runFill(
 interface GuardedFill {
   /** The steps that stay inside the region, in the order the writer wrote them. */
   readonly commands: AiPlan['commands'];
+  /** Set when code changed a step (`SectionJob.tidy`): the run's own proposal no longer matches. */
+  readonly tidied?: true;
   /** The props those steps write — what the landing records and a revert restores. */
   readonly keys: readonly AiBuildSectionKey[];
   readonly outOfScope: readonly AiBuildOutOfScopeStep[];
@@ -845,7 +952,7 @@ function guardFill(plan: AiPlan, task: AiBuildTask): GuardedFill {
  * narrows what lands without ever widening what may.
  */
 function landingProposal(run: AiAgentRunResult, guarded: GuardedFill): AiValidatedProposal {
-  if (guarded.outOfScope.length === 0) return run.proposal;
+  if (guarded.outOfScope.length === 0 && guarded.tidied !== true) return run.proposal;
   return createAiValidatedProposal({
     plan: { ...run.proposal.plan, commands: guarded.commands },
     policy: run.proposal.policy,
@@ -1155,8 +1262,21 @@ interface SectionJob {
   readonly brief?: (attempt: 1 | 2) => FillBrief;
   /** The section's contract check (step E); absent on a scaffold build. */
   readonly check?: (landed: LandedSection) => readonly SectionCheckIssue[];
+  /**
+   * Code repairs on what a writer wrote, BEFORE the check (palette classes →
+   * token classes): what code can fix never costs a repair round. Returns
+   * the same commands when nothing changed. Absent on a scaffold build.
+   */
+  readonly tidy?: (commands: AiPlan['commands']) => AiPlan['commands'];
   readonly sectionKey?: string;
-  readonly facts?: readonly AiBuildTaskFact[];
+  /** The plan's facts for the report — read when the section is reported, so the final plan's. */
+  readonly facts?: () => readonly AiBuildTaskFact[];
+  /**
+   * The contract a write starts from, as `sectionFingerprint` — read when a
+   * writer takes the section, so a streamed build can tell a write made from
+   * a provisional contract the final plan changed.
+   */
+  readonly fingerprint?: () => string | undefined;
   /** Told what landed, so later writers see it as written. */
   readonly onLanded?: (values: AiBuildSectionValues) => void;
 }
@@ -1186,13 +1306,63 @@ type Written =
   | { readonly kind: 'complete'; readonly landing: AiBuildSectionLanding };
 
 interface Slot {
-  readonly written: Promise<Written>;
+  written: Promise<Written>;
   /** First verdict wins: a Stop may settle a slot its writer settles later. */
-  readonly settle: (written: Written) => void;
+  settle: (written: Written) => void;
   claimed: boolean;
   settled: boolean;
   /** Attempts begun so far, for a section a Stop cuts off. */
   attempts: number;
+  /**
+   * Bumped whenever the slot is opened again (a streamed build reruns a
+   * section whose contract the final plan changed): a write begun under an
+   * older generation is discarded, whatever it returns.
+   */
+  generation: number;
+  /** Whether a writer may take it. A streamed build releases a section when its brief arrives. */
+  released: boolean;
+  /** Counted against `maxTasks` already: a rerun is the same section, not a new one. */
+  counted: boolean;
+  /** The contract fingerprint the current write started from. */
+  fingerprint: string | undefined;
+  /** Aborts the current write, and only it. */
+  abort: AbortController | undefined;
+}
+
+/** A slot's verdict, open again: a fresh promise, first verdict wins. */
+function armSlot(slot: Slot): void {
+  let resolve!: (written: Written) => void;
+  slot.written = new Promise<Written>((settle) => {
+    resolve = settle;
+  });
+  slot.settled = false;
+  slot.settle = (verdict) => {
+    if (slot.settled) return;
+    slot.settled = true;
+    resolve(verdict);
+  };
+}
+
+function createSlot(released: boolean): Slot {
+  const slot: Slot = {
+    written: Promise.resolve<Written>({
+      kind: 'not-started',
+      reason: '',
+      reasonCode: 'unknown',
+      attempts: 0,
+    }),
+    settle: () => undefined,
+    claimed: false,
+    settled: false,
+    attempts: 0,
+    generation: 0,
+    released,
+    counted: false,
+    fingerprint: undefined,
+    abort: undefined,
+  };
+  armSlot(slot);
+  return slot;
 }
 
 function stopReasonCode(reason: AiBuildStopReason): AiBuildSkipReasonCode {
@@ -1274,15 +1444,21 @@ async function checkAndRepair(
   build: BuildRun,
   job: SectionJob,
   run: AiAgentRunResult,
-  guarded: GuardedFill,
+  wrote: GuardedFill,
   request: string,
   placeholder: AiBuildSectionValues,
   budgetSpent: () => boolean,
+  jobSignal?: AbortSignal,
 ): Promise<{
   readonly guarded: GuardedFill;
   readonly proposal: AiValidatedProposal;
   readonly check?: AiBuildSectionCheck;
 }> {
+  const tidied = job.tidy?.(wrote.commands);
+  const guarded: GuardedFill =
+    tidied === undefined || tidied === wrote.commands
+      ? wrote
+      : { ...wrote, commands: tidied, tidied: true };
   const first = { guarded, proposal: landingProposal(run, guarded) };
   if (job.check === undefined) return first;
   const issues = checkedIssues(job, candidateSection(guarded.commands, placeholder));
@@ -1297,27 +1473,37 @@ async function checkAndRepair(
   emit({ type: 'plan.repairing', issues: issues.map(({ message }) => message) });
   const landedPlan: AiPlan = { ...run.proposal.plan, commands: guarded.commands };
   try {
-    const repaired = await underDeadline(options, job.task, build.taskTimeoutMs, (signal) =>
-      repairAiPlanForIssues(
-        {
-          kernel: options.kernel,
-          provider: options.provider,
-          request,
-          validationPorts: options.validationPorts,
-          signal,
-          composition: fillComposition(options),
-          ...(options.policy?.maxContextTokens === undefined
-            ? {}
-            : { maxContextTokens: options.policy.maxContextTokens }),
-        },
-        run.context,
-        landedPlan,
-        repairIssues(issues),
-        run.policy,
-      ),
+    const repaired = await underDeadline(
+      options,
+      job.task,
+      build.taskTimeoutMs,
+      (signal) =>
+        repairAiPlanForIssues(
+          {
+            kernel: options.kernel,
+            provider: options.provider,
+            request,
+            validationPorts: options.validationPorts,
+            signal,
+            composition: fillComposition(options),
+            ...(options.policy?.maxContextTokens === undefined
+              ? {}
+              : { maxContextTokens: options.policy.maxContextTokens }),
+          },
+          run.context,
+          landedPlan,
+          repairIssues(issues),
+          run.policy,
+        ),
+      jobSignal,
     );
     emit({ type: 'plan.validating', attempt: 2 });
-    const second = guardFill(repaired, job.task);
+    const guardedSecond = guardFill(repaired, job.task);
+    const tidiedSecond = job.tidy?.(guardedSecond.commands);
+    const second =
+      tidiedSecond === undefined || tidiedSecond === guardedSecond.commands
+        ? guardedSecond
+        : { ...guardedSecond, commands: tidiedSecond, tidied: true as const };
     const remaining =
       second.commands.length === 0
         ? undefined
@@ -1379,33 +1565,90 @@ async function fillAndLand(
   jobs: readonly SectionJob[],
   placeholders: ReadonlyMap<NodeId, AiBuildSectionValues>,
 ): Promise<FilledSections> {
+  return startFill(build, jobs, placeholders, false).done;
+}
+
+/**
+ * A fill in progress, as the streamed build steers it (DESIGN §6.3,
+ * 2026-10-05). A plain build never sees one: `fillAndLand` releases every
+ * section at once and lands as soon as each is written.
+ */
+interface FillHandle {
+  /** Settles once every section is reported. Never rejects. */
+  readonly done: Promise<FilledSections>;
+  /** A writer may take this section now. */
+  release(index: number): void;
+  /** No NEW write starts until the gate opens; writes in flight continue. */
+  hold(): void;
+  /**
+   * Throw away this section's write — in flight or finished — and write it
+   * again from its contract as it reads NOW. Not a second attempt: the rerun
+   * has both of its own.
+   */
+  rewrite(index: number): void;
+  /** The section was written in full by code; `landing` is that transaction. */
+  complete(index: number, landing: AiBuildSectionLanding): void;
+  /** Whether a writer took this section (or it was settled without one). */
+  claimed(index: number): boolean;
+  /** The contract fingerprint the section's current write started from. */
+  writtenWith(index: number): string | undefined;
+  /** Landing may begin: the final plan is validated and reconciled. */
+  openGate(): void;
+  /** Speculation thrown away: every write aborted, nothing lands, nothing is reported. */
+  cancel(): void;
+}
+
+const NOTHING_FILLED: FilledSections = Object.freeze({
+  reports: Object.freeze([]),
+  applied: 0,
+  skipped: 0,
+  stopped: undefined,
+  unfilled: Object.freeze([]),
+});
+
+function sectionAbort(message: string): Error {
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
+}
+
+/**
+ * The pool and the lander. `speculative` is the streamed build's: no section
+ * is released until its brief arrives (or the final plan does), and the
+ * lander waits for `openGate` — nothing a writer wrote lands before the final
+ * plan is the plan.
+ */
+function startFill(
+  build: BuildRun,
+  jobs: readonly SectionJob[],
+  placeholders: ReadonlyMap<NodeId, AiBuildSectionValues>,
+  speculative: boolean,
+): FillHandle {
   const { options, emit, personStopped } = build;
   const reports: AiBuildTaskReport[] = [];
   const fillCount = jobs.filter(({ complete }) => complete === undefined).length;
-  const fillConcurrency = fillConcurrencyFor(fillCount, options.fillConcurrency);
+  const automatic = fillConcurrencyFor(fillCount, options.fillConcurrency);
+  // A streamed build may rerun a section the skeleton did not leave to a writer at first.
+  const fillConcurrency = speculative ? Math.max(1, automatic) : automatic;
   let applied = 0;
   let skipped = 0;
   let stopped: AiBuildStopReason | undefined;
+  let gateOpen = !speculative;
+  let held = false;
+  let cancelled = false;
+  let pendingStop: AiBuildStopReason | undefined;
+  let openTheGate!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    openTheGate = resolve;
+  });
+  if (gateOpen) openTheGate();
 
   const slots = jobs.map((job): Slot => {
-    let resolve!: (written: Written) => void;
-    const written = new Promise<Written>((settle) => {
-      resolve = settle;
-    });
-    const slot: Slot = {
-      written,
-      settle: (verdict) => {
-        if (slot.settled) return;
-        slot.settled = true;
-        resolve(verdict);
-      },
-      claimed: false,
-      settled: false,
-      attempts: 0,
-    };
+    const slot = createSlot(!speculative);
     // Written by the skeleton: nothing to write, and nothing a Stop can take back.
     if (job.complete !== undefined) {
       slot.claimed = true;
+      slot.released = true;
       slot.settle({ kind: 'complete', landing: job.complete });
     }
     return slot;
@@ -1426,7 +1669,9 @@ async function fillAndLand(
     if (!announced) {
       announced = true;
       stopped = reason;
-      emit({ type: 'build.stopped', reason });
+      // A speculation still waiting on its plan says so only if it is kept.
+      if (gateOpen) emit({ type: 'build.stopped', reason });
+      else pendingStop = reason;
     }
     // Nobody may wait on a section that will never be written.
     for (const slot of slots) {
@@ -1462,13 +1707,24 @@ async function fillAndLand(
   };
   options.signal?.addEventListener('abort', onStop, { once: true });
 
-  /** One section, up to two attempts, guarded, checked. Never throws. */
-  const writeSection = async (slot: Slot, job: SectionJob): Promise<Written> => {
+  /**
+   * One section, up to two attempts, guarded, checked. Never throws. Answers
+   * `undefined` when the write was thrown away (its slot opened again, or the
+   * speculation cancelled) — that answer is never read.
+   */
+  const writeSection = async (
+    slot: Slot,
+    job: SectionJob,
+    generation: number,
+    signal: AbortSignal,
+  ): Promise<Written | undefined> => {
+    const stale = (): boolean => cancelled || slot.generation !== generation;
     const { task, position, total } = job;
     const placeholder = placeholders.get(task.id) ?? Object.freeze<AiBuildSectionValues>({});
     let failure: unknown;
     let outOfScope: readonly AiBuildOutOfScopeStep[] = [];
     for (const attempt of [1, 2] as const) {
+      if (stale()) return undefined;
       if (attempt === 2) {
         // A retry is a new start: never after Stop, and never on a spent budget.
         if (personStopped()) break;
@@ -1481,13 +1737,26 @@ async function fillAndLand(
         }
       }
       slot.attempts = attempt;
-      emit({ type: 'task.started', position, total, task, attempt });
+      const kitMisses = attempt === 1 ? KIT_MISSES.get(task) : undefined;
+      emit({
+        type: 'task.started',
+        position,
+        total,
+        task,
+        attempt,
+        ...(kitMisses === undefined ? {} : { kitMisses }),
+      });
       const brief = job.brief?.(attempt);
       if (brief === undefined) break;
       try {
-        const run = await underDeadline(options, task, build.taskTimeoutMs, (signal) =>
-          runFill(options, build.shared, task, position, total, brief, signal),
+        const run = await underDeadline(
+          options,
+          task,
+          build.taskTimeoutMs,
+          (deadline) => runFill(options, build.shared, task, position, total, brief, deadline),
+          signal,
         );
+        if (stale()) return undefined;
         const guarded = guardFill(run.proposal.plan, task);
         outOfScope = guarded.outOfScope;
         if (guarded.commands.length === 0) {
@@ -1506,7 +1775,9 @@ async function fillAndLand(
           brief.request,
           placeholder,
           budgetSpent,
+          signal,
         );
+        if (stale()) return undefined;
         return {
           kind: 'ready',
           proposal: checked.proposal,
@@ -1516,6 +1787,7 @@ async function fillAndLand(
           ...(checked.check === undefined ? {} : { check: checked.check }),
         };
       } catch (cause) {
+        if (stale()) return undefined;
         failure = cause;
       }
     }
@@ -1528,29 +1800,28 @@ async function fillAndLand(
     };
   };
 
-  let nextToWrite = 0;
   let started = 0;
-  const writer = async (): Promise<void> => {
-    for (;;) {
-      const index = nextToWrite;
-      nextToWrite += 1;
-      const slot = slots[index];
-      const job = jobs[index];
-      if (slot === undefined || job === undefined) return;
-      if (slot.claimed) continue;
-      slot.claimed = true;
+  let active = 0;
+  const inflight = new Set<Promise<void>>();
 
-      const reason = stopReason();
-      if (reason !== undefined) {
-        slot.settle({
-          kind: 'not-started',
-          reason: notStartedReason(reason),
-          reasonCode: stopReasonCode(reason),
-          attempts: 0,
-        });
-        halt(reason);
-        return;
-      }
+  /** Hand section `index` to a writer — or settle it, when the build may start nothing more. */
+  const dispatch = (index: number): void => {
+    const slot = slots[index];
+    const job = jobs[index];
+    if (slot === undefined || job === undefined) return;
+    slot.claimed = true;
+    const reason = stopReason();
+    if (reason !== undefined) {
+      slot.settle({
+        kind: 'not-started',
+        reason: notStartedReason(reason),
+        reasonCode: stopReasonCode(reason),
+        attempts: 0,
+      });
+      halt(reason);
+      return;
+    }
+    if (!slot.counted) {
       if (started >= build.maxTasks) {
         slot.settle({
           kind: 'not-started',
@@ -1562,185 +1833,302 @@ async function fillAndLand(
         return;
       }
       started += 1;
-      slot.settle(await writeSection(slot, job));
+      slot.counted = true;
     }
+    const generation = slot.generation;
+    const abort = new AbortController();
+    slot.abort = abort;
+    slot.fingerprint = job.fingerprint?.();
+    active += 1;
+    const run: Promise<void> = writeSection(slot, job, generation, abort.signal)
+      .then((written) => {
+        if (written !== undefined && slot.generation === generation) slot.settle(written);
+      })
+      .finally(() => {
+        active -= 1;
+        inflight.delete(run);
+        pump();
+      });
+    inflight.add(run);
   };
 
-  const writers = Array.from({ length: Math.min(fillConcurrency, fillCount) }, () => writer());
+  /** Start every released section a writer is free for, in page order. */
+  function pump(): void {
+    if (cancelled || (held && !gateOpen)) return;
+    while (active < fillConcurrency) {
+      const index = slots.findIndex((slot) => slot.released && !slot.claimed);
+      if (index === -1) return;
+      dispatch(index);
+    }
+  }
 
-  for (const [index, job] of jobs.entries()) {
-    const { task, position, total } = job;
-    const slot = slots[index];
-    const written: Written =
-      slot === undefined
-        ? {
-            kind: 'not-started',
-            reason: notStartedReason('max-tasks'),
-            reasonCode: 'budget',
-            attempts: 0,
-          }
-        : await slot.written;
-    const ledger = {
-      ...(job.sectionKey === undefined ? {} : { sectionKey: job.sectionKey }),
-      ...(job.facts === undefined || job.facts.length === 0 ? {} : { facts: job.facts }),
-    };
+  const land = async (): Promise<FilledSections> => {
+    await gate;
+    if (cancelled) return NOTHING_FILLED;
+    for (const [index, job] of jobs.entries()) {
+      const { task, position, total } = job;
+      const slot = slots[index];
+      const written: Written =
+        slot === undefined
+          ? {
+              kind: 'not-started',
+              reason: notStartedReason('max-tasks'),
+              reasonCode: 'budget',
+              attempts: 0,
+            }
+          : await slot.written;
+      const facts = job.facts?.() ?? [];
+      const ledger = {
+        ...(job.sectionKey === undefined ? {} : { sectionKey: job.sectionKey }),
+        ...(facts.length === 0 ? {} : { facts }),
+      };
 
-    if (written.kind === 'complete') {
+      if (written.kind === 'complete') {
+        applied += 1;
+        reports.push({
+          ...task,
+          status: 'applied',
+          attempts: 0,
+          landing: written.landing,
+          ...ledger,
+        });
+        emit({
+          type: 'task.completed',
+          position,
+          total,
+          task,
+          attempts: 0,
+          transactionId: written.landing.transactionId,
+          label: written.landing.label,
+        });
+        continue;
+      }
+      if (written.kind === 'not-started') {
+        reports.push({
+          ...task,
+          status: 'not-started',
+          attempts: written.attempts,
+          reason: written.reason,
+          reasonCode: written.reasonCode,
+          ...ledger,
+        });
+        continue;
+      }
+      const dropped = written.outOfScope.length === 0 ? {} : { outOfScope: written.outOfScope };
+      if (written.kind === 'failed') {
+        /*
+          Self-recovery, never a question. A section that would not be written
+          twice is recorded and left as the placeholder the skeleton laid down;
+          the page keeps its shape and the next section still gets its turn.
+        */
+        skipped += 1;
+        reports.push({
+          ...task,
+          status: 'skipped',
+          attempts: written.attempts,
+          reason: written.reason,
+          reasonCode: written.reasonCode,
+          ...dropped,
+          ...ledger,
+        });
+        emit({
+          type: 'task.skipped',
+          position,
+          total,
+          task,
+          attempts: written.attempts,
+          reason: written.reason,
+          reasonCode: written.reasonCode,
+        });
+        continue;
+      }
+      /*
+        THE LANDER'S OWN CHECK. A section that finished writing before Stop and
+        was waiting for the one above it to land is still work the person
+        stopped: nothing lands after Stop, however it got here.
+      */
+      if (personStopped()) {
+        halt('signal');
+        reports.push({
+          ...task,
+          status: 'not-started',
+          attempts: written.attempts,
+          reason: STOPPED_BEFORE_LANDING,
+          reasonCode: 'stopped',
+          ...dropped,
+          ...ledger,
+        });
+        continue;
+      }
+
+      const label = stepLabel(position, total, task.title);
+      const before = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
+      let landed: AppliedAiPlan;
+      try {
+        landed = applyAiPlan({
+          kernel: options.kernel,
+          validationPorts: options.validationPorts,
+          proposal: written.proposal,
+          label,
+        });
+      } catch (cause) {
+        /*
+          Written fine, refused on landing: the page moved under it while it was
+          being written. Same answer as a failed write — the section is left as
+          the placeholder, and the rest of the page still lands.
+        */
+        const reason = errorMessage(cause);
+        skipped += 1;
+        reports.push({
+          ...task,
+          status: 'skipped',
+          attempts: written.attempts,
+          reason,
+          reasonCode: 'page-changed',
+          ...dropped,
+          ...ledger,
+        });
+        emit({
+          type: 'task.skipped',
+          position,
+          total,
+          task,
+          attempts: written.attempts,
+          reason,
+          reasonCode: 'page-changed',
+        });
+        continue;
+      }
+
+      /*
+        Recorded so the section can be put back FORWARD (`revertBuildSection`):
+        the one transaction it landed in, by id, and the props the fill wrote as
+        they stood just before and just after.
+      */
+      const transaction = landed.transactions[0];
+      const after = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
       applied += 1;
+      job.onLanded?.(readSectionValues(options.kernel.getDocument(), task.id));
       reports.push({
         ...task,
         status: 'applied',
-        attempts: 0,
-        landing: written.landing,
-        ...ledger,
-      });
-      emit({ type: 'task.completed', position, total, task, attempts: 0 });
-      continue;
-    }
-    if (written.kind === 'not-started') {
-      reports.push({
-        ...task,
-        status: 'not-started',
         attempts: written.attempts,
-        reason: written.reason,
-        reasonCode: written.reasonCode,
-        ...ledger,
-      });
-      continue;
-    }
-    const dropped = written.outOfScope.length === 0 ? {} : { outOfScope: written.outOfScope };
-    if (written.kind === 'failed') {
-      /*
-        Self-recovery, never a question. A section that would not be written
-        twice is recorded and left as the placeholder the skeleton laid down;
-        the page keeps its shape and the next section still gets its turn.
-      */
-      skipped += 1;
-      reports.push({
-        ...task,
-        status: 'skipped',
-        attempts: written.attempts,
-        reason: written.reason,
-        reasonCode: written.reasonCode,
         ...dropped,
+        ...(transaction === undefined
+          ? {}
+          : {
+              landing: Object.freeze({ transactionId: transaction.id, label, before, after }),
+            }),
         ...ledger,
+        ...(written.check === undefined ? {} : { check: written.check }),
       });
       emit({
-        type: 'task.skipped',
+        type: 'task.completed',
         position,
         total,
         task,
         attempts: written.attempts,
-        reason: written.reason,
-        reasonCode: written.reasonCode,
+        ...(transaction === undefined ? {} : { transactionId: transaction.id, label }),
       });
-      continue;
-    }
-    /*
-      THE LANDER'S OWN CHECK. A section that finished writing before Stop and
-      was waiting for the one above it to land is still work the person
-      stopped: nothing lands after Stop, however it got here.
-    */
-    if (personStopped()) {
-      halt('signal');
-      reports.push({
-        ...task,
-        status: 'not-started',
-        attempts: written.attempts,
-        reason: STOPPED_BEFORE_LANDING,
-        reasonCode: 'stopped',
-        ...dropped,
-        ...ledger,
-      });
-      continue;
     }
 
-    const label = stepLabel(position, total, task.title);
-    const before = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
-    let landed: AppliedAiPlan;
-    try {
-      landed = applyAiPlan({
-        kernel: options.kernel,
-        validationPorts: options.validationPorts,
-        proposal: written.proposal,
-        label,
-      });
-    } catch (cause) {
-      /*
-        Written fine, refused on landing: the page moved under it while it was
-        being written. Same answer as a failed write — the section is left as
-        the placeholder, and the rest of the page still lands.
-      */
-      const reason = errorMessage(cause);
-      skipped += 1;
-      reports.push({
-        ...task,
-        status: 'skipped',
-        attempts: written.attempts,
-        reason,
-        reasonCode: 'page-changed',
-        ...dropped,
-        ...ledger,
-      });
-      emit({
-        type: 'task.skipped',
-        position,
-        total,
-        task,
-        attempts: written.attempts,
-        reason,
-        reasonCode: 'page-changed',
-      });
-      continue;
-    }
-
+    options.signal?.removeEventListener('abort', onStop);
     /*
-      Recorded so the section can be put back FORWARD (`revertBuildSection`):
-      the one transaction it landed in, by id, and the props the fill wrote as
-      they stood just before and just after.
+      Every slot is settled. Without a Stop every writer has also finished, and
+      this only reaps the pool. After a Stop a writer may still be waiting on a
+      provider that is slow to notice its abort; the build does not wait for it —
+      whatever it returns is never read, and it never throws.
     */
-    const transaction = landed.transactions[0];
-    const after = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
-    applied += 1;
-    job.onLanded?.(readSectionValues(options.kernel.getDocument(), task.id));
-    reports.push({
-      ...task,
-      status: 'applied',
-      attempts: written.attempts,
-      ...dropped,
-      ...(transaction === undefined
-        ? {}
-        : {
-            landing: Object.freeze({ transactionId: transaction.id, label, before, after }),
+    const drained = async (): Promise<void> => {
+      while (inflight.size > 0) await Promise.all([...inflight]);
+    };
+    if (personStopped()) void drained();
+    else await drained();
+
+    const unfilled: readonly AiBuildUnfilledSection[] = Object.freeze(
+      reports
+        .filter(({ status }) => status !== 'applied')
+        .map(({ id, title }) =>
+          Object.freeze({
+            id,
+            title,
+            placeholder: placeholders.get(id) ?? Object.freeze<AiBuildSectionValues>({}),
           }),
-      ...ledger,
-      ...(written.check === undefined ? {} : { check: written.check }),
-    });
-    emit({ type: 'task.completed', position, total, task, attempts: written.attempts });
-  }
+        ),
+    );
+    return { reports: Object.freeze(reports), applied, skipped, stopped, unfilled };
+  };
 
-  options.signal?.removeEventListener('abort', onStop);
-  /*
-    Every slot is settled. Without a Stop every writer has also finished, and
-    this only reaps the pool. After a Stop a writer may still be waiting on a
-    provider that is slow to notice its abort; the build does not wait for it —
-    whatever it returns is never read, and it never throws.
-  */
-  if (personStopped()) void Promise.all(writers);
-  else await Promise.all(writers);
+  pump();
+  const done = land();
 
-  const unfilled: readonly AiBuildUnfilledSection[] = Object.freeze(
-    reports
-      .filter(({ status }) => status !== 'applied')
-      .map(({ id, title }) =>
-        Object.freeze({
-          id,
-          title,
-          placeholder: placeholders.get(id) ?? Object.freeze<AiBuildSectionValues>({}),
-        }),
-      ),
-  );
-  return { reports: Object.freeze(reports), applied, skipped, stopped, unfilled };
+  /** Throw the slot's current write away and open it again. */
+  const reopen = (slot: Slot): void => {
+    slot.abort?.abort(
+      sectionAbort('The final page plan changed this section; it is written again.'),
+    );
+    slot.abort = undefined;
+    slot.generation += 1;
+    armSlot(slot);
+    slot.claimed = false;
+    slot.attempts = 0;
+    slot.fingerprint = undefined;
+  };
+
+  return {
+    done,
+    release(index) {
+      const slot = slots[index];
+      if (slot === undefined || cancelled) return;
+      slot.released = true;
+      pump();
+    },
+    hold() {
+      held = true;
+    },
+    rewrite(index) {
+      const slot = slots[index];
+      if (slot === undefined || cancelled || stopped !== undefined) return;
+      if (slot.claimed) reopen(slot);
+      slot.released = true;
+      pump();
+    },
+    complete(index, landing) {
+      const slot = slots[index];
+      if (slot === undefined || cancelled) return;
+      reopen(slot);
+      slot.claimed = true;
+      slot.released = true;
+      slot.settle({ kind: 'complete', landing });
+    },
+    claimed(index) {
+      return slots[index]?.claimed ?? false;
+    },
+    writtenWith(index) {
+      return slots[index]?.fingerprint;
+    },
+    openGate() {
+      if (gateOpen || cancelled) return;
+      gateOpen = true;
+      held = false;
+      if (pendingStop !== undefined) emit({ type: 'build.stopped', reason: pendingStop });
+      openTheGate();
+      pump();
+    },
+    cancel() {
+      if (cancelled) return;
+      cancelled = true;
+      options.signal?.removeEventListener('abort', onStop);
+      for (const slot of slots) {
+        slot.abort?.abort(
+          sectionAbort('The page plan changed; this speculative write was dropped.'),
+        );
+        slot.claimed = true;
+        slot.settle({ kind: 'not-started', reason: '', reasonCode: 'unknown', attempts: 0 });
+      }
+      openTheGate();
+    },
+  };
 }
 
 /** The build's last word, and its result. */
@@ -2057,7 +2445,11 @@ function designCodeLine(): string {
 }
 
 /** The IMAGES lines: the contract's photos, the person's own where they fit, or none. */
-function imageLines(contract: SectionContract, ownPhotos: readonly string[]): readonly string[] {
+function imageLines(
+  contract: SectionContract,
+  ownPhotos: readonly string[],
+  assigned: readonly string[] = [],
+): readonly string[] {
   const images = contract.images ?? [];
   // The hero shows the person's own photo even when the plan made it type-led: they gave it for the page.
   const own = images.length > 0 || contract.role === 'hero' ? ownPhotos : [];
@@ -2077,6 +2469,12 @@ function imageLines(contract: SectionContract, ownPhotos: readonly string[]): re
         ' · ',
       )} — each from ${own.length === 0 ? '' : 'THEIR OWN PHOTOS where one fits, else from '}PHOTOS YOU MAY USE`,
     ...(own.length === 0 ? [] : [ownLine]),
+    // The plan's photo for each image, distinct across the page (quality pass 2026-10-05).
+    ...(assigned.length === 0
+      ? []
+      : [
+          `THIS SECTION'S PHOTOS (assigned by the plan; no other section shows them — use these addresses, in order): ${assigned.join(' · ')}`,
+        ]),
   ];
 }
 
@@ -2131,7 +2529,11 @@ function contractRequest(
     ...(contract.mustNotRepeat.length === 0
       ? []
       : [`MUST NOT REPEAT (another section says it): ${quoted(contract.mustNotRepeat)}`]),
-    ...imageLines(contract, ownPhotos),
+    ...imageLines(
+      contract,
+      ownPhotos,
+      (pagePhotoPlan(plan).bySection.get(contract.key) ?? []).map(({ url }) => url),
+    ),
     ...(facts.length === 0
       ? []
       : [
@@ -2288,6 +2690,11 @@ function refusalIssues(cause: unknown): readonly string[] {
   return [errorMessage(cause)];
 }
 
+/** The most sections a planned page may have: the build's task limit, never above the default. */
+function planMaxSections(build: BuildRun): number {
+  return Math.min(build.maxTasks, DEFAULT_AI_BUILD_MAX_TASKS);
+}
+
 /**
  * Step T1 under a build. Undefined means T1 never ran — the provider cannot
  * plan a page, or the registry has no region block — and the build is the
@@ -2298,6 +2705,8 @@ function refusalIssues(cause: unknown): readonly string[] {
  */
 async function planStep(
   build: BuildRun,
+  target: IntentTarget,
+  onDraft?: (event: AiPagePlanDraftEvent) => void,
 ): Promise<
   | { readonly plan: PagePlan; readonly rationale?: string }
   | { readonly failure: AiBuildPlanFallback }
@@ -2334,8 +2743,9 @@ async function planStep(
       ...(options.additionalContextProviders === undefined
         ? {}
         : { additionalContextProviders: options.additionalContextProviders }),
-      target: landingTarget(options.kernel, options.target),
-      maxSections: Math.min(build.maxTasks, DEFAULT_AI_BUILD_MAX_TASKS),
+      target,
+      maxSections: planMaxSections(build),
+      ...(onDraft === undefined ? {} : { onDraft }),
     },
     planStepEvents(build),
   );
@@ -2353,6 +2763,261 @@ async function planStep(
   return result.rationale === undefined
     ? { plan: result.plan }
     : { plan: result.plan, rationale: result.rationale };
+}
+
+/** What `planJobs` makes of a landed skeleton: one job per region, and what they share. */
+interface PlanJobs {
+  readonly tasks: readonly AiBuildTask[];
+  readonly jobs: readonly SectionJob[];
+  /** The section key of each job, in job order. */
+  readonly keys: readonly string[];
+  readonly placeholders: Map<NodeId, AiBuildSectionValues>;
+  /** What each section holds once written, for the neighbours' summaries. */
+  readonly landedSections: Map<string, LandedSection>;
+  /** What the checker reads: the person's own words. */
+  readonly checkOptions: { readonly request: string };
+}
+
+/** A section's contract in a plan, by key. */
+function contractOf(plan: PagePlan, key: string): SectionContract | undefined {
+  return plan.sections.find((section) => section.key === key);
+}
+
+/** A section's facts-ledger entries, for its report. */
+function factsOf(plan: PagePlan, key: string): readonly AiBuildTaskFact[] {
+  return Object.freeze(
+    plan.facts
+      .filter(({ section }) => section === key)
+      .map(({ key: factKey, sample }) => Object.freeze({ key: factKey, sample })),
+  );
+}
+
+/**
+ * The jobs of a page-plan build, one per region the skeleton laid: the ones
+ * the skeleton wrote in full are complete (their landing is its
+ * transaction), every other one gets a writer briefed with its contract.
+ *
+ * `plan` is the plan the skeleton was written from (its outline names the
+ * regions); `planFor(key)` is the plan a section is WRITTEN from, read each
+ * time a writer starts, checks or reports it. On a plain build the two are
+ * one plan. On a streamed build `planFor` is the provisional plan that held
+ * the section's brief, and the final plan once it is in — so a rerun, a check
+ * and a report read the final contract (DESIGN §6.3).
+ */
+function planJobs(
+  build: BuildRun,
+  input: {
+    readonly plan: PagePlan;
+    readonly planFor: (key: string) => PagePlan;
+    readonly skeleton: ReturnType<typeof skeletonFromPlan>;
+    readonly ids: readonly (NodeId | undefined)[];
+    readonly skeletonTx: AppliedAiPlan['transactions'][number] | undefined;
+  },
+): PlanJobs {
+  const { options } = build;
+  const { plan, planFor, skeleton, ids, skeletonTx } = input;
+  const document = options.kernel.getDocument();
+  const tasks: AiBuildTask[] = [];
+  const keys: string[] = [];
+  const placeholders = new Map<NodeId, AiBuildSectionValues>();
+  const landedSections = new Map<string, LandedSection>();
+  /*
+    What the PERSON wrote — this request and their earlier messages, never the
+    assistant's — is what the checker's image rule reads: an address they
+    typed is theirs to use. Handed nothing, the checker flagged the shop's own
+    photo as foreign, and the repair round told the writer to swap it for a
+    catalog one (wave-1 verifier, v5-own-photo: 1 issue, 1 extra model call,
+    the person's photo replaced, 2026-09-28).
+  */
+  const checkOptions = {
+    request: [
+      options.request,
+      ...(options.history ?? []).filter(({ role }) => role === 'user').map(({ text }) => text),
+    ].join('\n'),
+  };
+  const ownPhotos = ownPhotoAddresses(checkOptions.request);
+  const jobs: SectionJob[] = [];
+  const total = plan.sections.length;
+  skeleton.regions.forEach((region, index) => {
+    const id = ids[index];
+    const outline = plan.sections[index];
+    if (id === undefined || outline === undefined) return;
+    const key = outline.key;
+    const task: AiBuildTask = Object.freeze({ id, title: region.title });
+    tasks.push(task);
+    keys.push(key);
+    const values = readSectionValues(document, id);
+    placeholders.set(id, values);
+    const common = {
+      task,
+      position: index + 1,
+      total,
+      sectionKey: key,
+      facts: () => factsOf(planFor(key), key),
+      fingerprint: () => sectionFingerprint(planFor(key), key),
+    };
+    /*
+      A kit section the skeleton filled from the planner's slots is held to
+      its contract like any written one; one that misses gets a writer, which
+      starts from the kit it already holds.
+    */
+    const kitMisses =
+      region.kit !== undefined &&
+      kitSlotMisses(task, () => checkSection(plan, outline, sectionOf(values), checkOptions));
+    const complete = region.complete === true && !kitMisses;
+    if (complete && skeletonTx !== undefined) {
+      landedSections.set(key, sectionOf(values));
+      jobs.push({
+        ...common,
+        complete: Object.freeze({
+          transactionId: skeletonTx.id,
+          label: skeleton.label,
+          before: Object.freeze({}),
+          after: values,
+        }),
+      });
+      return;
+    }
+    /*
+      Everything a writer is handed is read from the plan it is written from,
+      once per plan: on a streamed build that plan changes from the
+      provisional one to the final one between a speculative write and its
+      rerun.
+    */
+    let briefing: { readonly plan: PagePlan; readonly value: SectionBriefing } | undefined;
+    const briefingFor = (current: PagePlan): SectionBriefing | undefined => {
+      if (briefing?.plan === current) return briefing.value;
+      const value = sectionBriefing(build, current, key, ownPhotos);
+      if (value !== undefined) briefing = { plan: current, value };
+      return value;
+    };
+    jobs.push({
+      ...common,
+      brief: (attempt) => {
+        const current = planFor(key);
+        const at = current.sections.findIndex((section) => section.key === key);
+        const briefed = briefingFor(current);
+        // A key the plan no longer has is never handed to a writer; the outline guarantees it.
+        if (briefed === undefined || at === -1) {
+          return { request: '', skillIds: [], providers: [], history: false };
+        }
+        const { kitBacked, kitSkillIds, skillIds, providers, sampleValues } = briefed;
+        const contract = current.sections[at];
+        const completeStep =
+          contract === undefined
+            ? undefined
+            : (answer: AiPlan): AiPlan => completeKitSteps(current, contract, answer);
+        /*
+          A kit-backed section (2026-09-30): the writer names the kit and fills
+          its slots in ONE tool step — ~30-300 output tokens instead of the
+          section's markup — with the kit index in place of the variant library.
+          Attempt 2 is today's markup writer, so a kit step refused twice (its
+          repair round included) never costs the section.
+        */
+        return kitBacked && attempt === 1
+          ? {
+              request: kitContractRequest(
+                current,
+                at,
+                task,
+                neighbourSummary(current, at, landedSections),
+                ownPhotos,
+              ),
+              skillIds: kitSkillIds,
+              providers,
+              history: false,
+              sampleValues,
+              ...(completeStep === undefined ? {} : { completeStep }),
+            }
+          : {
+              // The retry is SHORTER: the neighbours go, the contract stays.
+              request: contractRequest(
+                current,
+                at,
+                task,
+                attempt === 1 ? neighbourSummary(current, at, landedSections) : '',
+                ownPhotos,
+              ),
+              skillIds,
+              providers,
+              history: false,
+              sampleValues,
+              ...(completeStep === undefined ? {} : { completeStep }),
+            };
+      },
+      check: (section) => {
+        const current = planFor(key);
+        const contract = contractOf(current, key);
+        return contract === undefined ? [] : checkSection(current, contract, section, checkOptions);
+      },
+      tidy: (commands) => {
+        const tokens = planFor(key).tokens;
+        try {
+          const next = commands.map((step) => {
+            const args = tokeniseColourClasses(step.args, tokens);
+            return args === step.args ? step : { ...step, args };
+          });
+          return next.some((step, index) => step !== commands[index]) ? next : commands;
+        } catch {
+          // A repair that throws repairs nothing: the check judges what was written.
+          return commands;
+        }
+      },
+      onLanded: (after) => {
+        landedSections.set(key, sectionOf(after));
+      },
+    });
+  });
+  return {
+    tasks: Object.freeze(tasks),
+    jobs: Object.freeze(jobs),
+    keys: Object.freeze(keys),
+    placeholders,
+    landedSections,
+    checkOptions,
+  };
+}
+
+/** What a section's writer is handed besides its request, as one plan decides it. */
+interface SectionBriefing {
+  readonly kitBacked: boolean;
+  readonly skillIds: readonly string[];
+  readonly kitSkillIds: readonly string[];
+  readonly providers: readonly AiContextProvider[];
+  readonly sampleValues: readonly string[];
+}
+
+function sectionBriefing(
+  build: BuildRun,
+  plan: PagePlan,
+  key: string,
+  ownPhotos: readonly string[],
+): SectionBriefing | undefined {
+  const { options } = build;
+  const contract = contractOf(plan, key);
+  if (contract === undefined) return undefined;
+  const arabic = ARABIC_LANG.test(plan.locale.lang);
+  const images = contract.images ?? [];
+  // A hero is handed the person's own photos even when the plan made it type-led (see imageLines).
+  const photos = images.length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
+  const skillIds = fillSkillIds(options, arabic, photos);
+  const kitBacked = planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
+  return {
+    kitBacked,
+    skillIds,
+    kitSkillIds: kitBacked ? fillSkillIds(options, arabic, photos, false) : skillIds,
+    // The catalog is where the contract's subjects come from; the person's own need none.
+    providers:
+      images.length > 0
+        ? withPhotoCatalog(
+            options,
+            [contract.title, ...images.flatMap(({ subject, alt }) => [subject, alt])].join(' '),
+          )
+        : (options.additionalContextProviders ?? []).filter(
+            ({ id: providerId }) => providerId !== PHOTO_CATALOG_PROVIDER_ID,
+          ),
+    sampleValues: Object.freeze(plan.facts.map(({ sample }) => sample)),
+  };
 }
 
 /**
@@ -2430,128 +3095,12 @@ async function buildFromPlan(
 
   const document = options.kernel.getDocument();
   const ids = regionIds(landed, skeleton.plan, skeleton.regions, document);
-  const skeletonTx = landed.transactions[0];
-  const tasks: AiBuildTask[] = [];
-  const placeholders = new Map<NodeId, AiBuildSectionValues>();
-  const landedSections = new Map<string, LandedSection>();
-  const arabic = ARABIC_LANG.test(plan.locale.lang);
-  /*
-    What the PERSON wrote — this request and their earlier messages, never the
-    assistant's — is what the checker's image rule reads: an address they
-    typed is theirs to use. Handed nothing, the checker flagged the shop's own
-    photo as foreign, and the repair round told the writer to swap it for a
-    catalog one (wave-1 verifier, v5-own-photo: 1 issue, 1 extra model call,
-    the person's photo replaced, 2026-09-28).
-  */
-  const checkOptions = {
-    request: [
-      options.request,
-      ...(options.history ?? []).filter(({ role }) => role === 'user').map(({ text }) => text),
-    ].join('\n'),
-  };
-  const ownPhotos = ownPhotoAddresses(checkOptions.request);
-  const jobs: SectionJob[] = [];
-  const total = plan.sections.length;
-  skeleton.regions.forEach((region, index) => {
-    const id = ids[index];
-    const contract = plan.sections[index];
-    if (id === undefined || contract === undefined) return;
-    const task: AiBuildTask = Object.freeze({ id, title: region.title });
-    tasks.push(task);
-    const values = readSectionValues(document, id);
-    placeholders.set(id, values);
-    const facts = plan.facts
-      .filter(({ section }) => section === contract.key)
-      .map(({ key, sample }) => Object.freeze({ key, sample }));
-    const common = {
-      task,
-      position: index + 1,
-      total,
-      sectionKey: contract.key,
-      facts: Object.freeze(facts),
-    };
-    /*
-      A kit section the skeleton filled from the planner's slots is held to
-      its contract like any written one; one that misses gets a writer, which
-      starts from the kit it already holds.
-    */
-    const kitMisses =
-      region.kit !== undefined &&
-      guardedCheck(() => checkSection(plan, contract, sectionOf(values), checkOptions)).length > 0;
-    const complete = region.complete === true && !kitMisses;
-    if (complete && skeletonTx !== undefined) {
-      landedSections.set(contract.key, sectionOf(values));
-      jobs.push({
-        ...common,
-        complete: Object.freeze({
-          transactionId: skeletonTx.id,
-          label: skeleton.label,
-          before: Object.freeze({}),
-          after: values,
-        }),
-      });
-      return;
-    }
-    const images = contract.images ?? [];
-    // A hero is handed the person's own photos even when the plan made it type-led (see imageLines).
-    const photos = images.length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
-    const skillIds = fillSkillIds(options, arabic, photos);
-    /*
-      A kit-backed section (2026-09-30): the writer names the kit and fills
-      its slots in ONE tool step — ~30-300 output tokens instead of the
-      section's markup — with the kit index in place of the variant library.
-      Attempt 2 is today's markup writer, so a kit step refused twice (its
-      repair round included) never costs the section.
-    */
-    const kitBacked = planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
-    const kitSkillIds = kitBacked ? fillSkillIds(options, arabic, photos, false) : skillIds;
-    const sampleValues = Object.freeze(plan.facts.map(({ sample }) => sample));
-    // The catalog is where the contract's subjects come from; the person's own need none.
-    const providers =
-      images.length > 0
-        ? withPhotoCatalog(
-            options,
-            [contract.title, ...images.flatMap(({ subject, alt }) => [subject, alt])].join(' '),
-          )
-        : (options.additionalContextProviders ?? []).filter(
-            ({ id: providerId }) => providerId !== PHOTO_CATALOG_PROVIDER_ID,
-          );
-    jobs.push({
-      ...common,
-      brief: (attempt) =>
-        kitBacked && attempt === 1
-          ? {
-              request: kitContractRequest(
-                plan,
-                index,
-                task,
-                neighbourSummary(plan, index, landedSections),
-                ownPhotos,
-              ),
-              skillIds: kitSkillIds,
-              providers,
-              history: false,
-              sampleValues,
-            }
-          : {
-              // The retry is SHORTER: the neighbours go, the contract stays.
-              request: contractRequest(
-                plan,
-                index,
-                task,
-                attempt === 1 ? neighbourSummary(plan, index, landedSections) : '',
-                ownPhotos,
-              ),
-              skillIds,
-              providers,
-              history: false,
-              sampleValues,
-            },
-      check: (section) => checkSection(plan, contract, section, checkOptions),
-      onLanded: (after) => {
-        landedSections.set(contract.key, sectionOf(after));
-      },
-    });
+  const { tasks, jobs, placeholders } = planJobs(build, {
+    plan,
+    planFor: () => plan,
+    skeleton,
+    ids,
+    skeletonTx: landed.transactions[0],
   });
 
   // An edited plan is described as edited: the card said one thing, the build does this.
@@ -2569,9 +3118,14 @@ async function buildFromPlan(
   const filled = await fillAndLand(build, jobs, placeholders);
   // Every section landed and nobody stopped: the zero-token SEO pass, one transaction.
   const seoLanded = filled.stopped === undefined && landSeoPass(build, plan);
-  return finishBuild(build, seoLanded ? rebaseLandings(filled, options.kernel.getDocument()) : filled, built, {
-    pagePlan: plan,
-  });
+  return finishBuild(
+    build,
+    seoLanded ? rebaseLandings(filled, options.kernel.getDocument()) : filled,
+    built,
+    {
+      pagePlan: plan,
+    },
+  );
 }
 
 /** The checker never costs a section: one that throws found nothing. */
@@ -2581,6 +3135,36 @@ function guardedCheck(check: () => readonly SectionCheckIssue[]): readonly Secti
   } catch {
     return [];
   }
+}
+
+/**
+ * Why a kit section the skeleton filled from the PLANNER's slots goes to a
+ * writer after all, by task — said on its first `task.started` (`kitMisses`),
+ * so a slow first section can be traced to the check that sent it there.
+ */
+const KIT_MISSES = new WeakMap<AiBuildTask, readonly string[]>();
+
+/**
+ * A kit section filled from the planner's slots, checked like a written one —
+ * except `must-say`: the planner wrote both the claim and the slots, so its
+ * own wording is the contract. 2026-10-05 (English): the hero's slots said
+ * "in seconds… no credit card" in other words than its mustSay, so a writer
+ * rewrote it and the first section landed at 28.5 s instead of ≈ 12 s.
+ */
+function kitSlotMisses(
+  task: AiBuildTask,
+  check: () => readonly SectionCheckIssue[],
+): boolean {
+  const misses = guardedCheck(check).filter(({ code }) => code !== 'must-say');
+  if (misses.length === 0) {
+    KIT_MISSES.delete(task);
+    return false;
+  }
+  KIT_MISSES.set(
+    task,
+    Object.freeze(misses.map(({ code, message }) => `${code}: ${message}`)),
+  );
+  return true;
 }
 
 const SEO_PASS_RATIONALE =
@@ -2604,23 +3188,33 @@ function landSeoPass(build: BuildRun, plan: PagePlan): boolean {
   if (build.personStopped()) return false;
   const sampleValues = plan.facts.map(({ sample }) => sample);
   let navSteps: AiPlan['commands'] = [];
-  try {
-    const expanded = expandAgentTools(
-      {
-        rationale: SEO_PASS_RATIONALE,
-        commands: [{ command: AGENT_TOOL_COMMAND, args: { name: 'nav.sync', input: {} } }],
-      },
-      options.kernel,
-      { sampleValues, lanes: ['build'] },
-    );
-    const commands: unknown = (expanded.plan as { commands?: unknown }).commands;
-    if (expanded.issues.length === 0 && Array.isArray(commands)) {
-      navSteps = (commands as AiPlan['commands']).filter(
-        ({ command }) => command !== AGENT_TOOL_COMMAND,
+  /*
+    A plan that names its menu keeps it (fix pass 2026-10-05): the skeleton
+    wrote the header and footer from `plan.nav`, every region it links to
+    stays on the page (a section that failed keeps its placeholder and its
+    anchor), so a sync could only replace the curated menu with every
+    section title — the English run's header listed the closing CTA and
+    clipped a fifth item to "S" at 1280 px.
+  */
+  if (plan.nav.length === 0) {
+    try {
+      const expanded = expandAgentTools(
+        {
+          rationale: SEO_PASS_RATIONALE,
+          commands: [{ command: AGENT_TOOL_COMMAND, args: { name: 'nav.sync', input: {} } }],
+        },
+        options.kernel,
+        { sampleValues, lanes: ['build'] },
       );
+      const commands: unknown = (expanded.plan as { commands?: unknown }).commands;
+      if (expanded.issues.length === 0 && Array.isArray(commands)) {
+        navSteps = (commands as AiPlan['commands']).filter(
+          ({ command }) => command !== AGENT_TOOL_COMMAND,
+        );
+      }
+    } catch {
+      // No menu to sync is no reason to skip the SEO fixes.
     }
-  } catch {
-    // No menu to sync is no reason to skip the SEO fixes.
   }
   const trees = new Map<NodeId, unknown>();
   for (const step of navSteps) {
@@ -2667,7 +3261,11 @@ function rebaseLandings(filled: FilledSections, document: BuilderDocument): Fill
   const reports = filled.reports.map((report) => {
     const landing = report.landing;
     if (landing === undefined) return report;
-    const now = readSectionValues(document, report.id, Object.keys(landing.after) as AiBuildSectionKey[]);
+    const now = readSectionValues(
+      document,
+      report.id,
+      Object.keys(landing.after) as AiBuildSectionKey[],
+    );
     if (canonicalJsonStringify(now) === canonicalJsonStringify(landing.after)) return report;
     return { ...report, landing: Object.freeze({ ...landing, after: now }) };
   });
@@ -2679,6 +3277,446 @@ function rebaseLandings(filled: FilledSections, document: BuilderDocument): Fill
 function sectionOf(values: AiBuildSectionValues): LandedSection {
   const tree: JsonValue = values.tree ?? null;
   return typeof values.css === 'string' ? { tree, css: values.css } : { tree };
+}
+
+// ── The streamed build: act on the plan while it is still being written ──
+
+/*
+  DESIGN §6.3 (2026-10-05). The planner's answer streams in as text; the
+  reader (page-plan/plan-stream.ts) hands over each finished unit as it
+  closes — the bolt.diy / open-lovable pattern, act on close. The outline
+  closes first: a PROVISIONAL skeleton lands then (one transaction, the
+  header complete and every other region a placeholder), so the canvas shows
+  the page's shape seconds into the plan. Each brief closes next: its
+  section's writer starts while the planner is still writing the others.
+
+  The final plan stays the authority. Nothing a writer wrote lands before it
+  is validated (the lander waits at a gate), and it is reconciled with the
+  provisional one: the same outline keeps everything, finishes the skeleton
+  (footer, kit sections, the root's seo) in one more transaction and rewrites
+  only the sections whose contract changed; a different outline throws the
+  speculation away and builds the final plan exactly as a plain build would.
+  Measured before (baseline 2026-09-30): plan 18.9 s + 18 s repair, skeleton
+  at 37 s, first section at 44 s, page at 65 s — every writer waited for the
+  whole answer.
+*/
+
+/** The one transaction that takes a provisional skeleton back off the page. */
+const WITHDRAWN_LABEL = 'Assistant: page skeleton (withdrawn)';
+
+/** Whether this build may act on its plan while the plan is being written. */
+function streamEligible(build: BuildRun): boolean {
+  const { options } = build;
+  return (
+    build.writes &&
+    !build.asks &&
+    options.streamPlan !== false &&
+    options.pagePlan === undefined &&
+    options.provider.proposePagePlan !== undefined &&
+    options.kernel.context.registry.block(REGION_TYPE) !== undefined
+  );
+}
+
+/** What T1 answered, as `planStep` returns it. */
+type PlannedStep = Awaited<ReturnType<typeof planStep>>;
+
+/** A provisional skeleton on the page, and the writers working from it. */
+interface Speculation {
+  /** The validated provisional plan the skeleton was written from. */
+  readonly plan: PagePlan;
+  readonly context: SkeletonFromPlanContext;
+  /** Section key → its region. */
+  readonly regions: ReadonlyMap<string, NodeId>;
+  readonly built: PlanJobs;
+  readonly fill: FillHandle;
+  /** The plan each section is written from: the provisional plan holding its brief, then the final one. */
+  readonly snapshots: Map<string, PagePlan>;
+}
+
+/** How the streamed build ended: built from the speculation, or handed back to the plain path. */
+type StreamOutcome =
+  | { readonly kind: 'built'; readonly result: AiBuildRunResult }
+  /** Nothing was speculated, or the final outline differs: build the final plan as usual. */
+  | { readonly kind: 'classic' }
+  /** The plan failed: the speculation is off the page, the scaffold build follows. */
+  | { readonly kind: 'fallback' }
+  /**
+   * The plan failed, but the streamed draft validated: build that plan on the
+   * plain path instead of the scaffold (no speculation was on the page).
+   */
+  | { readonly kind: 'rescued'; readonly plan: PagePlan; readonly rationale?: string };
+
+interface PlanStream {
+  /** The `live.onDraft` T1 is given. Never throws. */
+  readonly onDraft: (event: AiPagePlanDraftEvent) => void;
+  /** Settle the speculation against what T1 answered. */
+  readonly finish: (planned: NonNullable<PlannedStep>) => Promise<StreamOutcome>;
+  /** T1 was aborted (Stop, or the lease was lost): end every speculative write, write nothing. */
+  readonly abandon: () => void;
+}
+
+function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
+  const { options, emit } = build;
+  const reader = createPlanStreamReader();
+  // completePage: the provisional plan is completed exactly as the final one is (plan-page.ts).
+  const validation = { intent: target, maxSections: planMaxSections(build), completePage: true };
+  /** No more speculation: a response after the speculating one began, or the plan is in. */
+  let closed = false;
+  const isClosed = (): boolean => closed;
+  /**
+   * This response's outline was refused: read nothing more of it. Unlike
+   * `closed`, the next response (the repair answer) may still speculate —
+   * fix pass 2026-10-05: the Arabic page got no skeleton until 264 s because
+   * one refused head closed the stream for good.
+   */
+  let skipping = false;
+  const isSkipping = (): boolean => skipping;
+  let draft: PlanDraft | undefined;
+  let speculation: Speculation | undefined;
+
+  const onHead = (event: Extract<PlanStreamEvent, { kind: 'head' }>): void => {
+    if (build.personStopped()) {
+      closed = true;
+      return;
+    }
+    draft = startPlanDraft(event);
+    const checked = validatePagePlan(provisionalCandidate(draft), validation);
+    // An outline the validator refuses is no page to lay: wait for this answer's repair, or the final plan.
+    if (!checked.ok) {
+      skipping = true;
+      return;
+    }
+    const plan = checked.plan;
+    const context = skeletonContext(options, plan);
+    let skeleton: ReturnType<typeof skeletonFromPlan>;
+    let landed: AppliedAiPlan;
+    try {
+      skeleton = skeletonFromPlan(plan, { ...context, provisional: true });
+      landed = applyAiPlan({
+        kernel: options.kernel,
+        validationPorts: options.validationPorts,
+        plan: skeleton.plan,
+        policy: policyFor(skeleton.plan),
+        label: skeleton.label,
+      });
+    } catch {
+      // The door refused it: nothing landed, and the final plan takes the plain path.
+      closed = true;
+      return;
+    }
+    const snapshots = new Map<string, PagePlan>();
+    const built = planJobs(build, {
+      plan,
+      planFor: (key) => snapshots.get(key) ?? plan,
+      skeleton,
+      ids: regionIds(landed, skeleton.plan, skeleton.regions, options.kernel.getDocument()),
+      skeletonTx: landed.transactions[0],
+    });
+    const regions = new Map<string, NodeId>(
+      built.keys.flatMap((key, index) => {
+        const id = built.tasks[index]?.id;
+        return id === undefined ? [] : [[key, id] as const];
+      }),
+    );
+    emit({
+      type: 'build.planned',
+      direction: planDirection(plan, draft.rationale),
+      tokens: plan.tokens,
+      tasks: built.tasks,
+      writers: fillConcurrencyFor(
+        built.jobs.filter(({ complete }) => complete === undefined).length,
+        options.fillConcurrency,
+      ),
+    });
+    speculation = {
+      plan,
+      context,
+      regions,
+      built,
+      fill: startFill(build, built.jobs, built.placeholders, true),
+      snapshots,
+    };
+  };
+
+  const onBrief = (event: Extract<PlanStreamEvent, { kind: 'brief' }>): void => {
+    const current = speculation;
+    if (current === undefined || draft === undefined) return;
+    draft = withBrief(draft, event.brief);
+    const key = event.brief['key'];
+    if (typeof key !== 'string') return;
+    const index = current.built.keys.indexOf(key);
+    // The header is the skeleton's already; a key the outline lacks waits for the final plan.
+    if (index === -1 || current.built.jobs[index]?.complete !== undefined) return;
+    const checked = validatePagePlan(provisionalCandidate(draft), validation);
+    if (!checked.ok) return;
+    const contract = contractOf(checked.plan, key);
+    /*
+      Code jobs are never a writer's: the footer and a section whose slots the
+      planner filled are written by the finish transaction from the final
+      plan. And a brief that would move the outline the skeleton was laid
+      from is not built on.
+    */
+    if (
+      contract === undefined ||
+      contract.role === 'header' ||
+      contract.role === 'footer' ||
+      contract.slots !== undefined ||
+      !reconcilePlans(current.plan, checked.plan).sameOutline
+    ) {
+      return;
+    }
+    current.snapshots.set(key, checked.plan);
+    current.fill.release(index);
+  };
+
+  const onDraft = (event: AiPagePlanDraftEvent): void => {
+    if (closed) return;
+    try {
+      if (event.kind === 'start') {
+        /*
+          A response began. Until a skeleton has landed, every response may
+          speculate — the first, or a later one (a transport retry, a routing
+          fallback, the repair answer) after the first never laid one.
+        */
+        if (speculation === undefined) {
+          reader.reset();
+          skipping = false;
+          return;
+        }
+        /*
+          A response after the one that speculated: only the speculating one
+          dispatches — the writers already running continue, everything else
+          waits for the final plan.
+        */
+        closed = true;
+        speculation.fill.hold();
+        return;
+      }
+      if (skipping) return;
+      for (const unit of reader.push(event.text)) {
+        // A unit acted on may close the stream (an outline the door refused) or skip this answer.
+        if (isClosed() || isSkipping()) return;
+        if (unit.kind === 'head') {
+          if (speculation === undefined) onHead(unit);
+        } else {
+          onBrief(unit);
+        }
+      }
+    } catch {
+      // Speculation is advisory: a fault in it only means the build waits for the final plan.
+      closed = true;
+      speculation?.fill.hold();
+    }
+  };
+
+  /** The streamed draft as a validated plan, or undefined. Never throws. */
+  const rescuePlan = (): PagePlan | undefined => {
+    if (draft === undefined || build.personStopped()) return undefined;
+    try {
+      const checked = validatePagePlan(provisionalCandidate(draft), validation);
+      return checked.ok ? checked.plan : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  /** The speculation off the page: writes aborted, and (where asked) its regions removed in one transaction. */
+  const withdraw = (current: Speculation, removeRegions: boolean): void => {
+    current.fill.cancel();
+    if (!removeRegions || build.personStopped()) return;
+    const document = options.kernel.getDocument();
+    const commands: AiPlan['commands'] = [...current.regions.values()]
+      .filter((id) => document.nodes[id] !== undefined)
+      .map((id) => ({ command: 'removeNode', args: { id } }));
+    if (commands.length === 0) return;
+    const plan: AiPlan = {
+      rationale:
+        'The page plan changed while it was being written; its first skeleton is taken back.',
+      commands,
+    };
+    try {
+      applyAiPlan({
+        kernel: options.kernel,
+        validationPorts: options.validationPorts,
+        plan,
+        policy: policyFor(plan),
+        label: WITHDRAWN_LABEL,
+      });
+    } catch {
+      // A page that will not give the regions back keeps them; the build goes on.
+    }
+  };
+
+  return {
+    onDraft,
+    abandon: () => {
+      closed = true;
+      speculation?.fill.cancel();
+    },
+    finish: async (planned) => {
+      closed = true;
+      const current = speculation;
+      if ('failure' in planned) {
+        /*
+          T1 gave out (refused twice, or the provider failed mid-answer). The
+          streamed draft — its outline, the deck row's tokens and every brief
+          that closed — is a plan code can still validate; when it does, it is
+          built instead of the model-written scaffold, which cost 208 s on
+          2026-10-05 against ≈ 60 s for a planned page.
+        */
+        const rescued = rescuePlan();
+        if (current !== undefined) {
+          if (rescued !== undefined && reconcilePlans(current.plan, rescued).sameOutline) {
+            return {
+              kind: 'built',
+              result: await finishSpeculation(build, current, rescued, draft?.rationale),
+            };
+          }
+          withdraw(current, true);
+        }
+        return rescued === undefined
+          ? { kind: 'fallback' }
+          : {
+              kind: 'rescued',
+              plan: rescued,
+              ...(draft?.rationale === undefined ? {} : { rationale: draft.rationale }),
+            };
+      }
+      if (current === undefined) return { kind: 'classic' };
+      const final = planned.plan;
+      if (!reconcilePlans(current.plan, final).sameOutline) {
+        /*
+          A different page. The plain path builds it: a `replace` skeleton
+          takes the speculative regions with the page's children (they are
+          all the page holds now); anywhere else they are removed first, so
+          the page never holds two copies.
+        */
+        withdraw(current, final.intent !== 'replace');
+        return { kind: 'classic' };
+      }
+      return {
+        kind: 'built',
+        result: await finishSpeculation(build, current, final, planned.rationale),
+      };
+    },
+  };
+}
+
+/**
+ * The finish transaction (DESIGN §6.1): what the provisional skeleton left
+ * for the final plan, as ONE labelled transaction through the door.
+ * Undefined when there was nothing to write or the door refused it — then
+ * the footer and the kit sections go to writers like any other section.
+ */
+function landSkeletonFinish(
+  build: BuildRun,
+  current: Speculation,
+  final: PagePlan,
+):
+  | {
+      readonly complete: readonly string[];
+      readonly landing: (after: AiBuildSectionValues) => AiBuildSectionLanding;
+    }
+  | undefined {
+  const { options } = build;
+  try {
+    const finish = skeletonFinish({
+      provisional: current.plan,
+      final,
+      context: current.context,
+      regions: current.regions,
+    });
+    if (finish === undefined) return undefined;
+    const transaction = applyAiPlan({
+      kernel: options.kernel,
+      validationPorts: options.validationPorts,
+      plan: finish.plan,
+      policy: policyFor(finish.plan),
+      label: finish.label,
+    }).transactions[0];
+    if (transaction === undefined) return undefined;
+    return {
+      complete: finish.complete,
+      landing: (after) =>
+        Object.freeze({
+          transactionId: transaction.id,
+          label: finish.label,
+          before: Object.freeze({}),
+          after,
+        }),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The final plan has the outline the skeleton was laid from: finish the
+ * skeleton, rewrite what changed, open the gate, land in page order.
+ */
+async function finishSpeculation(
+  build: BuildRun,
+  current: Speculation,
+  final: PagePlan,
+  rationale: string | undefined,
+): Promise<AiBuildRunResult> {
+  const { options } = build;
+  const { built, fill } = current;
+  // Every section reads the final plan from here: reruns, checks and reports.
+  for (const key of built.keys) current.snapshots.set(key, final);
+
+  if (!build.personStopped()) {
+    const finished = landSkeletonFinish(build, current, final);
+    const document = options.kernel.getDocument();
+    built.keys.forEach((key, index) => {
+      const job = built.jobs[index];
+      if (job === undefined) return;
+      const id = job.task.id;
+      if (finished?.complete.includes(key) === true) {
+        const values = readSectionValues(document, id);
+        const contract = contractOf(final, key);
+        // A kit filled from the planner's slots is held to its contract, as on a plain build.
+        const misses =
+          contract?.kit !== undefined &&
+          kitSlotMisses(job.task, () =>
+            checkSection(final, contract, sectionOf(values), built.checkOptions),
+          );
+        if (!misses) {
+          built.landedSections.set(key, sectionOf(values));
+          fill.complete(index, finished.landing(values));
+          return;
+        }
+      }
+      if (job.complete !== undefined) {
+        // The header: complete since the skeleton, redrawn by the finish when the final plan changed it.
+        const values = readSectionValues(document, id);
+        if (
+          finished !== undefined &&
+          canonicalJsonStringify(values) !== canonicalJsonStringify(job.complete.after)
+        ) {
+          built.landedSections.set(key, sectionOf(values));
+          fill.complete(index, finished.landing(values));
+        }
+        return;
+      }
+      // A write begun from a contract the final plan changed is written again, once.
+      if (fill.claimed(index) && fill.writtenWith(index) !== sectionFingerprint(final, key)) {
+        fill.rewrite(index);
+      } else {
+        fill.release(index);
+      }
+    });
+  }
+  fill.openGate();
+  const filled = await fill.done;
+  // Every section landed and nobody stopped: the zero-token SEO pass, one transaction.
+  const seoLanded = filled.stopped === undefined && landSeoPass(build, final);
+  return finishBuild(
+    build,
+    seoLanded ? rebaseLandings(filled, options.kernel.getDocument()) : filled,
+    planDirection(final, rationale),
+    { pagePlan: final },
+  );
 }
 
 // ── The scaffold build: the model lays the skeleton ─────────────────────────
@@ -2912,6 +3950,14 @@ async function buildFromScaffold(
  *   checked BEFORE it lands and repaired once when it misses (step E), each
  *   landing in page order as its own labelled transaction.
  *
+ * A build that writes without asking acts on the plan WHILE it streams
+ * (`streamPlan`, default on; DESIGN §6.3, 2026-10-05): the provisional
+ * skeleton lands when the outline closes, each writer starts when its brief
+ * closes, and the lander waits for the final validated plan — reconciled by
+ * contract fingerprint, so only a section whose contract changed is written
+ * again, and a changed outline throws the speculation away for the plain
+ * path. A provider that streams nothing gets the plain path unchanged.
+ *
  * Any provider without it, or a plan refused twice, takes the scaffold build:
  * a model run lays the skeleton and its rationale is the direction. When the
  * plan path was TRIED and gave out — T1 failed, or the door refused the
@@ -2940,8 +3986,25 @@ export async function runAiBuild(options: RunAiBuildOptions): Promise<AiBuildRun
     if (!('refused' in result)) return result;
     fellBack = result.refused;
   } else {
-    const planned = await planStep(build);
-    if (planned !== undefined && 'plan' in planned) {
+    // Where the page lands, read ONCE: a provisional skeleton on the page must not move it.
+    const target = landingTarget(options.kernel, options.target);
+    const stream = streamEligible(build) ? createPlanStream(build, target) : undefined;
+    let planned: PlannedStep;
+    try {
+      planned = await planStep(build, target, stream?.onDraft);
+    } catch (cause) {
+      // Stop during T1 ends the speculative writers too; nothing more is written.
+      stream?.abandon();
+      throw cause;
+    }
+    const streamed =
+      stream === undefined || planned === undefined ? undefined : await stream.finish(planned);
+    if (streamed?.kind === 'built') return streamed.result;
+    if (streamed?.kind === 'rescued') {
+      const result = await buildFromPlan(build, streamed.plan, streamed.rationale, 'planned');
+      if (!('refused' in result)) return result;
+      fellBack = result.refused;
+    } else if (planned !== undefined && 'plan' in planned) {
       const result = await buildFromPlan(build, planned.plan, planned.rationale, 'planned');
       if (!('refused' in result)) return result;
       fellBack = result.refused;

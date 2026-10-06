@@ -13,7 +13,18 @@ import {
 import { DIRECTION_DECK_ROWS, directionDeckImportUrl } from '../../skills/direction-deck';
 import { SECTION_VARIANTS } from '../../skills/section-variants';
 import { VERIFIED_FONT_FAMILIES } from '../../skills/verified-fonts';
+import { MASKED_DIGITS } from './check-section';
+import { expandCompactPagePlan } from './compact-plan';
+import { completeKitSlots } from './kit-slots';
 import { defaultPlanKit, instantiatePlanKit, kitFitsRole, kitIdsForRole, planKit } from './kits';
+import {
+  businessKindOf,
+  isLocalBusinessType,
+  withBusinessType,
+  withContactDetails,
+  withHeroPhoto,
+  withPageChrome,
+} from './page-completion';
 import {
   isRecord,
   readArray,
@@ -45,6 +56,7 @@ import {
   type PagePlanIssue,
   type PagePlanFont,
   type PagePlanIntent,
+  type PagePlanLink,
   type PagePlanLocale,
   type PagePlanNavItem,
   type PagePlanTokens,
@@ -114,6 +126,65 @@ function luminance(hex: string): number {
 
 function readsOn(foreground: string, ground: string): boolean {
   return (contrastRatio(foreground, ground) ?? 0) >= AA;
+}
+
+function hexOf(channels: { r: number; g: number; b: number }): string {
+  const part = (value: number) =>
+    Math.round(Math.min(1, Math.max(0, value)) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${part(channels.r)}${part(channels.g)}${part(channels.b)}`;
+}
+
+/** `weight` of `towards` mixed into `from`, per sRGB channel. */
+function mixTowards(from: string, towards: string, weight: number): string {
+  const one = parseHex(from);
+  const two = parseHex(towards);
+  if (one === undefined || two === undefined) return from;
+  return hexOf({
+    r: one.r * (1 - weight) + two.r * weight,
+    g: one.g * (1 - weight) + two.g * weight,
+    b: one.b * (1 - weight) + two.b * weight,
+  });
+}
+
+/** Black or white: whichever reads better on the worse of the grounds. */
+function extremeFor(grounds: readonly string[]): string {
+  const worst = (colour: string) =>
+    Math.min(...grounds.map((ground) => contrastRatio(colour, ground) ?? 0));
+  return worst('#000000') >= worst('#ffffff') ? '#000000' : '#ffffff';
+}
+
+/**
+ * `colour` itself when it reads on every ground; else the least change
+ * towards `towards` (5 % steps) that does; `undefined` when even `towards`
+ * itself does not — then the miss stays an issue for the model.
+ */
+function readableOn(
+  colour: string,
+  grounds: readonly string[],
+  towards: string,
+): string | undefined {
+  const reads = (candidate: string) => grounds.every((ground) => readsOn(candidate, ground));
+  if (reads(colour)) return colour;
+  for (let step = 1; step <= 20; step += 1) {
+    const candidate = mixTowards(colour, towards, step / 20);
+    if (reads(candidate)) return candidate;
+  }
+  return undefined;
+}
+
+function contrastRepaired(
+  role: 'ink' | 'muted',
+  before: string,
+  after: string,
+  grounds: readonly [string, string],
+): PagePlanIssue {
+  const worst = Math.min(...grounds.map((ground) => contrastRatio(before, ground) ?? 0));
+  return {
+    path: `tokens.${role}`,
+    message: `"${before}" → "${after}": ${role} read at ${ratioText(worst)}:1 on bg/surface; moved in code to ${String(AA)}:1.`,
+  };
 }
 
 function deepFreeze<T>(value: T): T {
@@ -243,8 +314,35 @@ function finishTokens(
   draft: TokenDraft,
   locale: PagePlanLocale | undefined,
   issues: Issues,
+  warnings: PagePlanIssue[],
+  repairContrast: boolean,
 ): PagePlanTokens | undefined {
-  const { bg, surface, ink, muted, accent, onAccent, border } = draft.colours;
+  const { bg, surface, accent, onAccent, border } = draft.colours;
+  let { ink, muted } = draft.colours;
+  /*
+    R-contrast (fix pass 2026-10-05): an ink or muted colour that misses 4.5:1
+    is moved in code until it reads, never refused. The miss was the #1
+    bottleneck of the 2026-09-30 baseline (an 18 s repair round) and again on
+    2026-10-05 (muted #dc2626 on #fef2f2, 4.41:1: 22.5 s, and the streamed
+    skeleton never started). Ink first, so muted can lean on the final ink.
+  */
+  if (repairContrast && bg !== undefined && surface !== undefined) {
+    if (ink !== undefined) {
+      const fixed = readableOn(ink, [bg, surface], extremeFor([bg, surface]));
+      if (fixed !== undefined && fixed !== ink) {
+        warnings.push(contrastRepaired('ink', ink, fixed, [bg, surface]));
+        ink = fixed;
+      }
+    }
+    if (muted !== undefined && ink !== undefined) {
+      const towards = readsOn(ink, bg) && readsOn(ink, surface) ? ink : extremeFor([bg, surface]);
+      const fixed = readableOn(muted, [bg, surface], towards);
+      if (fixed !== undefined && fixed !== muted) {
+        warnings.push(contrastRepaired('muted', muted, fixed, [bg, surface]));
+        muted = fixed;
+      }
+    }
+  }
   if (
     bg === undefined ||
     surface === undefined ||
@@ -354,7 +452,12 @@ function readImage(value: unknown, path: string, issues: Issues): SectionImage |
   return { subject, aspect, alt };
 }
 
-function readSection(value: unknown, path: string, issues: Issues): SectionContract | undefined {
+function readSection(
+  value: unknown,
+  path: string,
+  issues: Issues,
+  warnings: PagePlanIssue[],
+): SectionContract | undefined {
   if (!isRecord(value)) {
     issues.push({
       path,
@@ -383,16 +486,32 @@ function readSection(value: unknown, path: string, issues: Issues): SectionContr
     'mustNotRepeat',
     claims,
   );
-  const variant = readOptionalText(value['variant'], `${path}.variant`, issues, 'the variant', 40);
-  if (variant !== undefined && !VARIANT_IDS.includes(variant)) {
-    issues.push({
+  const written = readOptionalText(value['variant'], `${path}.variant`, issues, 'the variant', 40);
+  const rawKit = value['kit'];
+  let kit =
+    typeof rawKit === 'string' && rawKit.trim() !== '' ? rawKit.trim().toLowerCase() : undefined;
+  /*
+    R-variant-kit (fix pass 2026-10-05): both T1 answers wrote kit ids as
+    variants ("hero-centered", "features-bento"). A kit id IS a layout: it
+    becomes the section's kit (when none was named) and its layout word.
+  */
+  let variant = written;
+  const asKit = written === undefined || VARIANT_IDS.includes(written) ? undefined : planKit(written.toLowerCase());
+  if (written !== undefined && asKit !== undefined) {
+    kit ??= asKit.id;
+    variant = asKit.variant !== undefined && VARIANT_IDS.includes(asKit.variant) ? asKit.variant : undefined;
+    warnings.push({
       path: `${path}.variant`,
-      message: `Use a section-variants layout id (${VARIANT_IDS.join(', ')}) or omit variant; "${variant}" is not one.`,
+      message: `"${written}" → "${variant ?? '(none)'}": a kit id, not a layout word; it names the kit instead.`,
+    });
+  } else if (variant !== undefined && !VARIANT_IDS.includes(variant)) {
+    // R-variant (DESIGN §4): an unknown layout is dropped, never refused — the
+    // only plan repair of the 2026-09-30 baseline was `variant: "bar"` (18 s).
+    warnings.push({
+      path: `${path}.variant`,
+      message: `"${variant}" → (none): not a section-variants layout id (${VARIANT_IDS.join(', ')}); it was dropped and the writer picks the layout.`,
     });
   }
-  const rawKit = value['kit'];
-  const kit =
-    typeof rawKit === 'string' && rawKit.trim() !== '' ? rawKit.trim().toLowerCase() : undefined;
   const rawSlots = value['slots'];
   const slots = isRecord(rawSlots) ? (rawSlots as Readonly<Record<string, JsonValue>>) : undefined;
   const images: SectionImage[] = [];
@@ -446,6 +565,7 @@ function resolveKit(
   path: string,
   locale: PagePlanLocale,
   warnings: PagePlanIssue[],
+  primaryCta?: PagePlanLink,
 ): SectionContract {
   const { kit: named, slots, ...rest } = contract;
   if (contract.role === 'header' || contract.role === 'footer') {
@@ -476,7 +596,17 @@ function resolveKit(
     return rest;
   }
   if (slots === undefined) return { ...rest, kit: kit.id };
-  const filled = instantiatePlanKit(kit, slots, contract, locale);
+  const derived = withDerivedSlots(kit, slots, contract, path, warnings);
+  // The rest code can decide (a required link, an unknown icon, a broken optional link) never costs a writer.
+  const finished = completeKitSlots(kit, derived, {
+    contract,
+    ...(primaryCta === undefined ? {} : { primaryCta }),
+  });
+  for (const change of finished.changes) {
+    warnings.push({ path: `${path}.slots`, message: `Kit "${kit.id}": ${change}.` });
+  }
+  const completed = finished.slots;
+  const filled = instantiatePlanKit(kit, completed, contract, locale);
   if (!filled.ok) {
     warnings.push({
       path: `${path}.slots`,
@@ -484,7 +614,56 @@ function resolveKit(
     });
     return { ...rest, kit: kit.id };
   }
-  return { ...rest, kit: kit.id, slots };
+  return { ...rest, kit: kit.id, slots: completed };
+}
+
+/** Blank or absent: the planner did not fill it. */
+function unfilled(value: JsonValue | undefined): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim() === '') ||
+    (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)
+  );
+}
+
+/**
+ * The planner's slots with every REQUIRED slot code can derive from the
+ * contract filled in (fix pass 2026-10-05): `title` from the section title,
+ * `caption` from its purpose, `image` from its first image. English run: the
+ * features-bento slots lacked a caption and the pricing and faq slots a
+ * title, so ~2.5k characters of planned copy (and features' only image) were
+ * dropped and three writers rewrote the sections. Each fill is a warning.
+ */
+function withDerivedSlots(
+  kit: NonNullable<ReturnType<typeof planKit>>,
+  slots: Readonly<Record<string, JsonValue>>,
+  contract: SectionContract,
+  path: string,
+  warnings: PagePlanIssue[],
+): Readonly<Record<string, JsonValue>> {
+  const derived: Record<string, JsonValue> = {};
+  const image = contract.images?.[0];
+  for (const [name, slot] of Object.entries(kit.slots)) {
+    if (slot.required !== true || !unfilled(slots[name])) continue;
+    let value: JsonValue | undefined;
+    if (slot.kind === 'text' && name === 'title') value = contract.title;
+    // A caption is shown on the photo: a claim the page makes, never the brief's instruction
+    // (measure-v3 run 1 printed "Show the core features that solve…" on the image).
+    else if (slot.kind === 'text' && name === 'caption') {
+      value = contract.mustSay[0] ?? image?.alt ?? contract.title;
+    }
+    else if (slot.kind === 'image' && image !== undefined) {
+      value = { subject: image.subject, alt: image.alt };
+    }
+    if (value === undefined) continue;
+    derived[name] = value;
+    warnings.push({
+      path: `${path}.slots.${name}`,
+      message: `Kit "${kit.id}" needs "${name}"; it was filled from the section's ${slot.kind === 'image' ? 'first image' : name === 'title' ? 'title' : 'first claim (else its image alt, else its title)'}.`,
+    });
+  }
+  return Object.keys(derived).length === 0 ? slots : { ...slots, ...derived };
 }
 
 /** Header first, hero right after it, footer last; append adds bands only. */
@@ -566,6 +745,111 @@ function readHref(value: unknown, anchors: readonly string[], issues: Issues): s
   return undefined;
 }
 
+// ── code repairs (DESIGN §4): what code can fix never costs a model round ────
+
+/*
+  R-xrun. RESTATED FROM apps/ai-server/src/plan-shape.ts
+  (`PLACEHOLDER_RUN`, `SAMPLE_DIGITS`, `isPlaceholderSample`,
+  `fillPlaceholderSample`): the two MUST stay identical, so a provisional
+  contract read from the streamed draft equals the final one the server
+  repaired. Both test files carry the same fixture table. A run is two or more
+  X or three or more mask marks standing alone (never inside a word: `XXL`,
+  `Louis XIV` and `Maxx` are values); it is filled in the sample's own format.
+*/
+const PLACEHOLDER_RUN = /(?<![\p{L}\p{N}])(?:[Xx]{2,}|[•*#_]{3,})(?![\p{L}\p{N}])/gu;
+const SAMPLE_DIGITS = '2345678901';
+const PLACEHOLDER_TEST = new RegExp(PLACEHOLDER_RUN.source, 'u');
+
+function isPlaceholderSample(sample: string): boolean {
+  return PLACEHOLDER_TEST.test(sample);
+}
+
+function fillPlaceholderSample(sample: string): string {
+  const address = /@|:\/\/|^\s*www\./iu.test(sample);
+  let next = 0;
+  return sample.replace(PLACEHOLDER_RUN, (run: string, at: number) => {
+    const before = sample[at - 1];
+    const after = sample.slice(at + run.length);
+    if (address && after.startsWith('@')) return 'info';
+    if (address && (before === '@' || before === '.' || after.startsWith('.'))) return 'example';
+    // One digit per mark; every mark the run can hold is a single code unit.
+    return run.replace(/./gu, () => {
+      const digit = SAMPLE_DIGITS[next % SAMPLE_DIGITS.length] ?? '0';
+      next += 1;
+      return digit;
+    });
+  });
+}
+
+/*
+  R-masked. A planner that writes "+962 79 123 4567" or wa.me/962790000000
+  hands every writer a number the checker then flags as a stand-in (baseline
+  2026-09-30: one section repair, 10 s + a 13 s hold). The MATCHED digits are
+  replaced in place, separators kept, digit by digit from MASK_FILL_DIGITS,
+  restarting at its first digit for each run — so the same number written
+  twice (a CTA link and a fact) becomes the same number twice:
+  wa.me/962791234567 → wa.me/962794612750, "+962 79 123 4567" → "+962 79 461 2750".
+*/
+const MASK_FILL_DIGITS = '4612750389';
+/** A digit run with phone separators, seven digits or more once the separators go. */
+const DIGIT_RUN = /[+(]?[0-9][0-9 ().-]{5,}[0-9]/gu;
+/** A link's number need not start like a phone: wa.me/962…, tel:962…. */
+const LINK = /^(?:https?:|tel:|sms:|mailto:|\/\/)|wa\.me\//iu;
+
+function fillMaskedRun(run: string): string {
+  // The run is ASCII digits, separators and +( only (DIGIT_RUN), so code units are characters.
+  const chars = run.split('');
+  const positions = chars.flatMap((char, index) => (/[0-9]/u.test(char) ? [index] : []));
+  // Bounded: the fill digits never form a masked run, so one pass per match suffices.
+  for (let pass = 0; pass < 4; pass += 1) {
+    const digits = positions.map((index) => chars[index]).join('');
+    const match = MASKED_DIGITS.exec(digits);
+    if (match === null) break;
+    for (let offset = 0; offset < match[0].length; offset += 1) {
+      const at = positions[match.index + offset];
+      if (at !== undefined) chars[at] = MASK_FILL_DIGITS[offset % MASK_FILL_DIGITS.length] ?? '0';
+    }
+  }
+  return chars.join('');
+}
+
+function repairMaskedDigits(text: string): string {
+  const link = LINK.test(text.trim());
+  return text.replace(DIGIT_RUN, (run: string) => {
+    const digits = run.replace(/[^0-9]/gu, '');
+    const phoneShaped = link || /^[+(0]/u.test(run);
+    return phoneShaped && digits.length >= 7 && MASKED_DIGITS.test(digits)
+      ? fillMaskedRun(run)
+      : run;
+  });
+}
+
+function repaired(path: string, before: string, after: string): PagePlanIssue {
+  return { path, message: `"${before}" → "${after}" (filled in code; the owner replaces it).` };
+}
+
+/** Every string inside a kit's slots with its masked digit runs filled; each change is a warning. */
+function repairSlots(value: JsonValue, path: string, warnings: PagePlanIssue[]): JsonValue {
+  if (typeof value === 'string') {
+    const after = repairMaskedDigits(value);
+    if (after !== value) warnings.push(repaired(path, value, after));
+    return after;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, index) => repairSlots(item, `${path}[${String(index)}]`, warnings));
+  }
+  if (typeof value === 'object' && value !== null) {
+    // fromEntries defines own properties, so a "__proto__" slot stays data.
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        repairSlots(item, `${path}.${key}`, warnings),
+      ]),
+    );
+  }
+  return value;
+}
+
 /**
  * Turn a provider's page-plan answer into the `PagePlan` a build uses — or into
  * every reason it cannot be one, each phrased as the instruction that fixes it.
@@ -575,17 +859,27 @@ function readHref(value: unknown, anchors: readonly string[], issues: Issues): s
  * URLs, `16:9` → `landscape`) so a repair round is spent only on judgement.
  * Unknown fields are dropped. The result's plan is deeply frozen.
  *
+ * Reads the classic plan, the compact one (DESIGN §3, expanded first by
+ * `expandCompactPagePlan`) and any mix. Repairs in code, each recorded as a
+ * warning and never as an issue (DESIGN §4): an unknown variant is dropped, a
+ * kit that does not fit is dropped, a fact sample's placeholder run is filled
+ * (R-xrun, identical to the server's), and a masked digit run in a fact sample,
+ * the CTA's address or a kit slot is filled in place (R-masked).
+ *
  * Checked: field shapes and bounds; 2..`maxSections` sections; unique section
  * keys, anchors and fact keys; header first / one hero after it / footer last
  * (and no header, hero or footer when appending); nav, CTA and facts pointing at
- * sections that exist; variants, photo subjects and deck rows from their
- * libraries; verified faces with shipped weights, Arabic-capable on an
- * Arabic-script page; WCAG AA (4.5:1) on all seven text pairs.
+ * sections that exist; photo subjects and deck rows from their libraries;
+ * verified faces with shipped weights, Arabic-capable on an Arabic-script
+ * page; WCAG AA (4.5:1) on all seven text pairs.
  */
 export function validatePagePlan(
-  value: unknown,
+  candidate: unknown,
   options: ValidatePagePlanOptions = {},
 ): PagePlanValidationResult {
+  // The compact answer (DESIGN §3) and any mix of it become the classic shape first.
+  const expansion = expandCompactPagePlan(candidate);
+  const value = expansion.value;
   if (!isRecord(value)) {
     return {
       ok: false,
@@ -593,12 +887,13 @@ export function validatePagePlan(
         {
           path: '',
           message:
-            'Answer with the page plan as one JSON object ({ "intent", "locale", "title", "description", "tokens", "primaryCta", "nav", "sections", "facts" }) and nothing around it.',
+            'Answer with the page plan as one JSON object and nothing around it: the compact form ({ "intent", "locale", "title", "description", "tokens": { "deckRowId", "signature" }, "primaryCta", "sections", "briefs", "seo" }) or the full one ({ "intent", "locale", "title", "description", "tokens", "primaryCta", "nav", "sections", "facts" }).',
         },
       ]),
     };
   }
   const issues: Issues = [];
+  const warnings: PagePlanIssue[] = [...expansion.warnings];
   const maxSections = Math.max(
     PAGE_PLAN_MIN_SECTIONS,
     Math.min(PAGE_PLAN_MAX_SECTIONS, Math.floor(options.maxSections ?? PAGE_PLAN_MAX_SECTIONS)),
@@ -633,7 +928,7 @@ export function validatePagePlan(
     });
   }
   const read = rawSections.map((section, index) =>
-    readSection(section, `sections[${String(index)}]`, issues),
+    readSection(section, `sections[${String(index)}]`, issues, warnings),
   );
 
   const keys: string[] = [];
@@ -696,18 +991,59 @@ export function validatePagePlan(
 
   const facts: PagePlanFact[] = [];
   const factKeys: string[] = [];
-  readArray(value['facts'], 'facts', issues, 'facts', {
+  const rawFacts = readArray(value['facts'], 'facts', issues, 'facts', {
     required: false,
     max: PAGE_PLAN_MAX_FACTS,
-  }).forEach((fact, index) => {
+  });
+  /*
+    A fact key in another script («سعر_شيش_لحم», live run 2026-10-05) is a
+    label no visitor sees, yet it cost a 16 s plan repair round. It is
+    renamed in code — the same written key always to the same `fact-<n>`, so
+    a twin is still a twin — and a warning says so.
+  */
+  const renamedFactKeys = new Map<string, string>();
+  const usedFactKeys = new Set(
+    rawFacts.flatMap((fact) =>
+      isRecord(fact) && typeof fact['key'] === 'string' ? [toSlug(fact['key'])] : [],
+    ),
+  );
+  const factKeyOf = (raw: unknown, path: string): string | undefined => {
+    if (typeof raw !== 'string' || raw.trim() === '') return readSlug(raw, path, issues, 'the fact key');
+    const probe: Issues = [];
+    const slug = readSlug(raw, path, probe, 'the fact key');
+    if (slug !== undefined) return slug;
+    let renamed = renamedFactKeys.get(raw.trim());
+    if (renamed === undefined) {
+      let n = renamedFactKeys.size + 1;
+      while (usedFactKeys.has(`fact-${String(n)}`)) n += 1;
+      renamed = `fact-${String(n)}`;
+      usedFactKeys.add(renamed);
+      renamedFactKeys.set(raw.trim(), renamed);
+    }
+    warnings.push({
+      path,
+      message: `The fact key "${raw.slice(0, 40)}" is not a Latin slug; it was renamed "${renamed}".`,
+    });
+    return renamed;
+  };
+  rawFacts.forEach((fact, index) => {
     const path = `facts[${String(index)}]`;
     if (!isRecord(fact)) {
       issues.push({ path, message: 'Write each fact as { "key", "sample", "section" }.' });
       return;
     }
-    const key = readSlug(fact['key'], `${path}.key`, issues, 'the fact key');
+    const key = factKeyOf(fact['key'], `${path}.key`);
     const sample = readText(fact['sample'], `${path}.sample`, issues, 'the sample value', 200);
     const section = readSlug(fact['section'], `${path}.section`, issues, 'the fact’s section key');
+    // The same fact written twice says nothing new: dropped in code, never a repair round.
+    const twin = key === undefined ? undefined : facts.find((earlier) => earlier.key === key);
+    if (sample !== undefined && twin?.sample.trim() === sample.trim()) {
+      warnings.push({
+        path: `${path}.key`,
+        message: `"${key ?? ''}" was written twice; the copy was dropped.`,
+      });
+      return;
+    }
     if (key !== undefined && factKeys.includes(key)) {
       issues.push({
         path: `${path}.key`,
@@ -726,16 +1062,102 @@ export function validatePagePlan(
       facts.push({ key, sample, section });
   });
 
-  const tokens = tokenDraft === undefined ? undefined : finishTokens(tokenDraft, locale, issues);
+  // The brand is a nicety: one that does not fit is left out with a warning, never refused.
+  const rawBrand = value['brand'];
+  const brandText = typeof rawBrand === 'string' ? rawBrand.trim().replace(/\s+/gu, ' ') : '';
+  const brand = brandText !== '' && brandText.length <= 40 ? brandText : undefined;
+  if (brand === undefined && brandText !== '') {
+    warnings.push({ path: 'brand', message: `"${brandText.slice(0, 60)}" is longer than 40 characters; the name is read from the title.` });
+  }
+  const tokens =
+    tokenDraft === undefined
+      ? undefined
+      : finishTokens(tokenDraft, locale, issues, warnings, options.repairContrast !== false);
   const seo = readPlanSeo(value['seo'], locale?.lang, issues);
 
   if (issues.length > 0) return { ok: false, issues: Object.freeze(issues) };
-  const warnings: PagePlanIssue[] = [];
-  const sections = read
+  const complete = options.completePage === true && intent !== 'append';
+  // R-xrun then R-masked on every sample; R-masked on the action's address.
+  const repairedFacts = facts.map((fact, index) => {
+    const path = `facts[${String(index)}].sample`;
+    const filled = isPlaceholderSample(fact.sample)
+      ? fillPlaceholderSample(fact.sample)
+      : fact.sample;
+    const sample = repairMaskedDigits(filled);
+    if (sample !== fact.sample) warnings.push(repaired(path, fact.sample, sample));
+    return sample === fact.sample ? fact : { ...fact, sample };
+  });
+  if (primaryCta !== undefined) {
+    const href = repairMaskedDigits(primaryCta.href);
+    if (href !== primaryCta.href) {
+      warnings.push(repaired('primaryCta.href', primaryCta.href, href));
+      primaryCta = { ...primaryCta, href };
+    }
+  }
+  // The business type the page's own words support (a SaaS page is never a LocalBusiness).
+  const finalSeo = withBusinessType(
+    seo,
+    [title ?? '', description ?? '', seo?.keyword ?? ''].join(' '),
+    warnings,
+    complete,
+  );
+  /*
+    What the completions below decide from is the plan's HEAD only (title and
+    description), never the seo or the briefs that stream in after it: the
+    provisional plan built at the outline must make the same kit choices as
+    the final one, or the streamed build's outline no longer matches and every
+    speculative writer is thrown away (plan-draft reconcilePlans).
+  */
+  const pageWords = [title ?? '', description ?? ''].join(' ');
+  const local = isLocalBusinessType(businessKindOf(pageWords));
+  const action = primaryCta;
+  let sections: readonly SectionContract[] = read
     .filter((section): section is SectionContract => section !== undefined)
-    .map((section, index) =>
-      locale === undefined ? section : resolveKit(section, `sections[${String(index)}]`, locale, warnings),
-    );
+    .map((written, index) => {
+      const path = `sections[${String(index)}]`;
+      if (locale === undefined) return written;
+      let section = written;
+      /*
+        The page's action is on every CTA by rule; "must not repeat" it
+        contradicts that rule, and the checker then refused the pricing
+        tiers' "Start free trial" buttons (measure-v3: a 7 s repair round).
+      */
+      const actionWords = action?.label.trim().toLowerCase();
+      const kept = section.mustNotRepeat.filter((claim) => claim.trim().toLowerCase() !== actionWords);
+      if (kept.length !== section.mustNotRepeat.length) {
+        warnings.push({
+          path: `${path}.mustNotRepeat`,
+          message: `"${action?.label ?? ''}" is the page's action, which every call to action carries; it was dropped from mustNotRepeat.`,
+        });
+        section = { ...section, mustNotRepeat: kept };
+      }
+      const pictured = complete
+        ? withHeroPhoto(section, { brief: pageWords, locale }, path, warnings)
+        : section;
+      let resolved = resolveKit(pictured, path, locale, warnings, action);
+      if (complete && action !== undefined) {
+        const contact = withContactDetails(
+          resolved,
+          { local, facts: repairedFacts, primaryCta: action, locale },
+          path,
+          warnings,
+        );
+        const kit = planKit(contact.kit);
+        // Only when the contact kit fills cleanly; otherwise the section stays as resolved.
+        if (contact !== resolved && kit !== undefined && instantiatePlanKit(kit, contact.slots, contact, locale).ok) {
+          resolved = contact;
+        }
+      }
+      if (resolved.slots === undefined) return resolved;
+      const slots = repairSlots(resolved.slots, `${path}.slots`, warnings);
+      return { ...resolved, slots: slots as Readonly<Record<string, JsonValue>> };
+    });
+  let finalNav: readonly PagePlanNavItem[] = nav;
+  if (complete && locale !== undefined && sections.length === read.length) {
+    const chrome = withPageChrome({ sections, nav, locale, maxSections, warnings });
+    sections = chrome.sections;
+    finalNav = chrome.nav;
+  }
   if (
     intent === undefined ||
     locale === undefined ||
@@ -743,7 +1165,7 @@ export function validatePagePlan(
     description === undefined ||
     tokens === undefined ||
     primaryCta === undefined ||
-    sections.length !== read.length
+    read.some((section) => section === undefined)
   ) {
     // Unreachable: every undefined above recorded an issue. Kept so a future reader cannot lie.
     return {
@@ -760,10 +1182,11 @@ export function validatePagePlan(
     description,
     tokens,
     primaryCta,
-    nav,
+    nav: finalNav,
     sections,
-    facts,
-    ...(seo === undefined ? {} : { seo }),
+    facts: repairedFacts,
+    ...(finalSeo === undefined ? {} : { seo: finalSeo }),
+    ...(brand === undefined ? {} : { brand }),
   };
   return warnings.length === 0
     ? { ok: true, plan: deepFreeze(plan), issues: [] }

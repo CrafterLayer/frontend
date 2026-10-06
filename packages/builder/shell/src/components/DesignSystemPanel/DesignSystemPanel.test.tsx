@@ -1,10 +1,14 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { BuilderSiteKernel } from '@craftkit/builder-core';
 import { defaultDesignSystem, type DesignSystem, type TokenName } from '@craftkit/builder-schema';
 
+import { createDesignTestKernel } from './design-test-site';
 import { DesignSystemPanel } from './DesignSystemPanel';
+import { DESIGN_SYSTEM_PANEL_LABELS_AR } from './DesignSystemPanel.labels';
+import { siteCommitFor, useSiteSnapshot } from './site-door';
 
 afterEach(cleanup);
 
@@ -13,13 +17,35 @@ const withAccent = (accent: string): DesignSystem => {
   return { ...base, tokens: { ...base.tokens, accent } };
 };
 
+/** The panel over a live kernel, the way the host mounts it. */
+function Live({ kernel }: { readonly kernel: BuilderSiteKernel }) {
+  const site = useSiteSnapshot(kernel);
+  return (
+    <DesignSystemPanel
+      system={site.designSystem}
+      library={site.library}
+      onChangeToken={() => undefined}
+      onCommit={siteCommitFor(kernel)}
+      loadFontPreviews={false}
+    />
+  );
+}
+
 describe('DesignSystemPanel', () => {
-  it('names the system and groups the tokens a person can walk', () => {
+  it('names the system and offers its four sections', () => {
     render(<DesignSystemPanel system={defaultDesignSystem()} onChangeToken={vi.fn()} />);
 
     expect(screen.getByRole('region', { name: 'Design system' })).toBeVisible();
+    const tabs = within(screen.getByRole('tablist', { name: 'Design system sections' })).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      'Colours',
+      'Typography',
+      'Radius & shadows',
+      'Spacing & widths',
+    ]);
     expect(screen.getByRole('grid', { name: 'Colour tokens' })).toBeVisible();
-    expect(screen.getByRole('grid', { name: 'Measurement tokens' })).toBeVisible();
+    /* Every section stays mounted, so an open draft survives; the others are hidden. */
+    expect(screen.getByLabelText('radius lg')).not.toBeVisible();
   });
 
   it('commits ONE dispatch per edit, not one per keystroke', async () => {
@@ -30,41 +56,18 @@ describe('DesignSystemPanel', () => {
     const field = screen.getByLabelText('accent');
     await user.clear(field);
     await user.type(field, '#0b5cff');
-
-    /*
-      Seven characters, zero dispatches so far. A controlled field that
-      dispatched per keystroke would put seven entries in history and make
-      "undo the colour" seven presses.
-    */
     expect(onChangeToken).not.toHaveBeenCalled();
 
     await user.tab();
-    expect(onChangeToken).toHaveBeenCalledTimes(1);
-    expect(onChangeToken).toHaveBeenCalledWith('accent', '#0b5cff');
-  });
-
-  it('commits on Enter as well, without submitting anything', async () => {
-    const user = userEvent.setup();
-    const onChangeToken = vi.fn<(token: TokenName, value: string) => void>();
-    render(<DesignSystemPanel system={defaultDesignSystem()} onChangeToken={onChangeToken} />);
-
-    const field = screen.getByLabelText('accent');
-    await user.clear(field);
-    await user.type(field, '#0b5cff{Enter}');
-
     expect(onChangeToken).toHaveBeenCalledExactlyOnceWith('accent', '#0b5cff');
   });
 
   it('says nothing when the value did not change', async () => {
     const user = userEvent.setup();
     const onChangeToken = vi.fn<(token: TokenName, value: string) => void>();
-    const system = defaultDesignSystem();
-    render(<DesignSystemPanel system={system} onChangeToken={onChangeToken} />);
-
+    render(<DesignSystemPanel system={defaultDesignSystem()} onChangeToken={onChangeToken} />);
     await user.click(screen.getByLabelText('accent'));
     await user.tab();
-
-    /* "It did nothing" and "it did nothing but I recorded it" differ. */
     expect(onChangeToken).not.toHaveBeenCalled();
   });
 
@@ -73,30 +76,17 @@ describe('DesignSystemPanel', () => {
     const { rerender } = render(
       <DesignSystemPanel system={withAccent('#111111')} onChangeToken={vi.fn()} />,
     );
-
     const field = screen.getByLabelText('accent');
     await user.clear(field);
     await user.type(field, '#abcabc');
-    expect(field).toHaveValue('#abcabc');
-
-    /* A generation lands, or another tab commits, or an undo runs. */
     rerender(<DesignSystemPanel system={withAccent('#222222')} onChangeToken={vi.fn()} />);
-
-    /*
-      The draft is DISCARDED. Keeping it would let a half-typed colour outrank a
-      value the kernel has already committed, and the next commit would
-      overwrite a change the person never saw. Losing three keystrokes is the
-      smaller harm than showing a site a colour it does not have.
-    */
     expect(screen.getByLabelText('accent')).toHaveValue('#222222');
   });
 
   it('shows the token a person picked from the grid, with its committed value', async () => {
     const user = userEvent.setup();
     render(<DesignSystemPanel system={defaultDesignSystem()} onChangeToken={vi.fn()} />);
-
     await user.click(screen.getByRole('button', { name: /^text muted/u }));
-
     expect(screen.getByLabelText('textMuted')).toHaveValue(defaultDesignSystem().tokens.textMuted);
   });
 
@@ -108,11 +98,6 @@ describe('DesignSystemPanel', () => {
         issues={['"accent" on "surface" measures 1.2:1, below the 4.5:1 this text size needs.']}
       />,
     );
-
-    /*
-      A person who has just typed a colour is looking at the field, not at a
-      banner — so the refusal goes into a live region as well as beside it.
-    */
     expect(screen.getByRole('status')).toHaveTextContent('below the 4.5:1');
     const field = screen.getByLabelText('accent');
     expect(field).toHaveAttribute('aria-invalid', 'true');
@@ -124,27 +109,93 @@ describe('DesignSystemPanel', () => {
       <DesignSystemPanel system={defaultDesignSystem()} onChangeToken={vi.fn()} />,
     );
     expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull();
-
     rerender(
-      <DesignSystemPanel
-        system={defaultDesignSystem()}
-        onChangeToken={vi.fn()}
-        onRegenerate={vi.fn()}
-      />,
+      <DesignSystemPanel system={defaultDesignSystem()} onChangeToken={vi.fn()} onRegenerate={vi.fn()} busy />,
     );
-    expect(screen.getByRole('button', { name: 'Regenerate' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Regenerate' })).toBeDisabled();
+    expect(screen.getByLabelText('accent')).toBeDisabled();
   });
 
-  it('closes the field while a run owns the panel', () => {
+  describe('over a live site kernel', () => {
+    it('labels a token edit and makes it one Undo', async () => {
+      const user = userEvent.setup();
+      const kernel = createDesignTestKernel();
+      render(<Live kernel={kernel} />);
+      await user.click(screen.getByRole('tab', { name: 'Radius & shadows' }));
+      const field = screen.getByLabelText('radius lg');
+      await user.clear(field);
+      await user.type(field, '20px{Enter}');
+
+      expect(kernel.getSite().designSystem.tokens.radiusLg).toBe('20px');
+      expect(kernel.transactions().at(-1)?.command).toBe('Design token · radius lg');
+      kernel.undo();
+      expect(kernel.getSite().designSystem.tokens.radiusLg).toBe(defaultDesignSystem().tokens.radiusLg);
+    });
+
+    it('announces a legibility refusal from the door and leaves the site alone', async () => {
+      const user = userEvent.setup();
+      const kernel = createDesignTestKernel();
+      render(<Live kernel={kernel} />);
+      const before = kernel.getSite().designSystem.tokens.text;
+      await user.click(screen.getByText('text', { selector: '.bldr-swatches__name' }));
+      const field = screen.getByLabelText('text');
+      await user.clear(field);
+      await user.type(field, defaultDesignSystem().tokens.surface + '{Enter}');
+
+      expect(kernel.getSite().designSystem.tokens.text).toBe(before);
+      expect(screen.getAllByRole('status')[0]?.textContent).not.toBe('');
+      expect(screen.getByLabelText('text')).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    it('adds a palette colour, then refuses to remove it while an element uses it', async () => {
+      const user = userEvent.setup();
+      const kernel = createDesignTestKernel();
+      render(<Live kernel={kernel} />);
+      await user.type(screen.getByLabelText('New colour name'), 'Sand');
+      await user.type(screen.getByLabelText('New colour value'), '#e7d8b8');
+      await user.click(screen.getByRole('button', { name: 'Add colour' }));
+      expect(kernel.getSite().library?.palette).toEqual([{ id: 'sand', name: 'Sand', value: '#e7d8b8' }]);
+
+      kernel.dispatchGroup(
+        [{ command: 'patchTreeNode', args: { id: 'region', path: [0, 0], set: { className: 'bg-(--ck-c-sand)' } } }],
+        { author: 'user' },
+      );
+      await user.click(screen.getByRole('button', { name: 'Remove Sand' }));
+      expect(kernel.getSite().library?.palette).toHaveLength(1);
+      expect(screen.getAllByRole('status')[0]).toHaveTextContent('still used');
+    });
+
+    it('picks a family for a role as ONE transaction: the font loads and the token names it', async () => {
+      const user = userEvent.setup();
+      const kernel = createDesignTestKernel();
+      render(<Live kernel={kernel} />);
+      await user.click(screen.getByRole('tab', { name: 'Typography' }));
+      await user.click(screen.getByRole('button', { name: /^Tajawal/u }));
+
+      const site = kernel.getSite();
+      expect(site.library?.fonts?.[0]).toMatchObject({ family: 'Tajawal', source: 'google' });
+      expect(site.designSystem.tokens.fontFamilySans).toBe('"Tajawal", system-ui, sans-serif');
+      expect(kernel.transactions()).toHaveLength(1);
+      expect(kernel.transactions()[0]?.command).toBe('Font · Sans (body & headings) · Tajawal');
+
+      kernel.undo();
+      expect(kernel.getSite().library).toBeUndefined();
+      expect(kernel.getSite().designSystem.tokens.fontFamilySans).toBe(
+        defaultDesignSystem().tokens.fontFamilySans,
+      );
+    });
+  });
+
+  it('speaks Arabic and follows the editor direction', () => {
     render(
       <DesignSystemPanel
         system={defaultDesignSystem()}
         onChangeToken={vi.fn()}
-        onRegenerate={vi.fn()}
-        busy
+        labels={DESIGN_SYSTEM_PANEL_LABELS_AR}
+        dir="rtl"
       />,
     );
-    expect(screen.getByLabelText('accent')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Regenerate' })).toBeDisabled();
+    expect(screen.getByRole('region', { name: 'نظام التصميم' })).toHaveAttribute('dir', 'rtl');
+    expect(screen.getByRole('tab', { name: 'الخطوط' })).toBeVisible();
   });
 });

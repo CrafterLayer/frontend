@@ -235,6 +235,10 @@ export const IMPACT_WORD_KEYS = [
   'change.label.text',
   'change.label.pageDirection',
   'change.label.pageSurface',
+  // colour-target-fix additions
+  'change.label.pageColours',
+  'change.label.pageStyling',
+  // end colour-target-fix additions
   'change.value.ltr',
   'change.value.rtl',
   'change.value.on',
@@ -617,6 +621,40 @@ function isScalar(value: unknown): boolean {
   return value === undefined || value === null || typeof value !== 'object';
 }
 
+// colour-target-fix additions
+/*
+  A css prop that is not `css` itself (the root's `pageCss`). Its change has no words to set
+  before and after an arrow — it showed «.ck-page-plan{--ck-page-plan:1} @import url(…» on
+  both sides — so it reads as one restyled line: «ألوان الصفحة» when only colour values
+  moved, «تنسيق الصفحة» otherwise. Any other `…Css` prop is styling like `css`: the
+  block's own restyled line covers it.
+*/
+const CSS_KEY = /css$/iu;
+const PAGE_KEY = /^page/iu;
+
+/** The css without its font imports, whitespace collapsed; `blankColours` also blanks every colour value. */
+function cssShape(value: unknown, blankColours: boolean): string {
+  const css = (typeof value === 'string' ? value : '').replace(/@import\s+url\([^)]*\)\s*;?/giu, '');
+  const shaped = blankColours
+    ? css.replace(/#[0-9a-f]{3,8}\b/giu, '#').replace(/\b(?:rgba?|hsla?|oklch|oklab)\([^)]*\)/giu, '#')
+    : css;
+  return shaped.replace(/\s+/gu, ' ').trim();
+}
+
+function pageCssLine(before: unknown, after: unknown, node: Node, naming: ImpactNaming): ChangeLineView {
+  // Colours: the colour values moved and nothing else did (font imports regrouped are not colours).
+  const coloursOnly =
+    cssShape(before, true) !== '' &&
+    cssShape(before, true) === cssShape(after, true) &&
+    cssShape(before, false) !== cssShape(after, false);
+  return {
+    kind: 'restyled',
+    label: naming.word(coloursOnly ? 'change.label.pageColours' : 'change.label.pageStyling'),
+    value: titleOf(node, naming) ?? naming.blockType(node.type),
+  };
+}
+// end colour-target-fix additions
+
 /** One changed node's lines in words: what it says that differs, prop by prop. */
 function propLines(previous: Node, next: Node, naming: ImpactNaming): ChangeLineView[] {
   const lines: ChangeLineView[] = [];
@@ -626,6 +664,12 @@ function propLines(previous: Node, next: Node, naming: ImpactNaming): ChangeLine
     const before = previous.props[key];
     const after = next.props[key];
     if (stableJson(before) === stableJson(after)) continue;
+    // colour-target-fix additions: CSS is never a line's words (the owner read raw `@import url(…)`).
+    if (CSS_KEY.test(key)) {
+      if (PAGE_KEY.test(key)) lines.push(pageCssLine(before, after, next, naming));
+      continue;
+    }
+    // end colour-target-fix additions
     const label = naming.property(next.type, key);
 
     if (isScalar(before) && isScalar(after)) {

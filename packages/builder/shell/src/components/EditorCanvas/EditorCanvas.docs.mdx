@@ -130,3 +130,46 @@ the session directly; it deliberately does not enter the structural action dispa
 Chrome geometry is measured (physical) and therefore direction-proof; a live `dir` flip reflows the
 content and the observer channel repositions the chrome. Chrome colors read shell-owned `--bldr-*`
 custom properties with fallbacks, independent of the document's `--t-*` theme.
+
+## Element chrome (P7, style-manager DESIGN.md §A.6, §A.7, §E)
+
+Every element inside a custom-code region is a widget on the canvas.
+
+- **Quick bar.** With an element focused, `ElementQuickBar` replaces the block action bar,
+  anchored ABOVE the element (flipping below when clipped) on the same anchor channel the bar
+  uses — scrolling renders nothing. Its actions are tree commands on the element, never the
+  region (the old `block-actions.ts` bug: Delete removed the whole region). `Alt+F10` enters the
+  bar; Escape there returns to the element.
+- **Selection.** A click focuses the element under the pointer; a LOCKED element passes the click
+  (and the hover) to its parent. Shift-click toggles the element in the shared multi-selection
+  (`elementSelection`, P2), drawn with extra outlines; the quick bar writes every member in one
+  transaction. Enter steps into the first child (or into a region's tree), Shift+Enter to the
+  parent.
+- **In-place text.** Double-click or Enter on a text element opens it for typing
+  (`contenteditable="plaintext-only"` on its own canvas DOM). Enter or blur commits ONE
+  `patchTreeNode {text}`; Escape cancels with no trace. Selecting a range shows the text bubble:
+  bold, italic, underline, highlight, link (an address prompt), larger, accent colour — each one
+  `formatTreeText`, written together with any pending typing as one transaction.
+- **Spacing handles.** Padding and margin bands per logical side over the focused element. A drag
+  previews by swapping classes on the canvas DOM only, snaps to the spacing scale with a value
+  badge, and commits once on release (Shift = all sides, Alt = the opposite pair).
+- **Positioned elements.** An absolute/fixed element is dragged directly: the preview is a DOM
+  translate, snapping (6px) to its parent's and siblings' edges and centres with guide lines; the
+  release writes `inset-s` / `inset-bs` through the engine. Arrow keys nudge it 1px (Shift 10px),
+  the inline arrows mirrored on an RTL page.
+- **Tree drops.** The drag session also carries tree payloads: `beginTreeInsert` (the Library
+  panel) and the quick bar's grip (a move). The tree drop resolver finds the container under the
+  pointer and the seat along its axis (RTL-aware), drawing the insertion line and the edges the
+  siblings share; the drop is one `insertTreeNode` or `moveTreeNode`.
+- **Forced state.** `styleState` other than `default` stamps `data-ck-state` on the focused element
+  (on its `.group` ancestor for group-hover); the canvas's live compiler must be created with
+  `canvasStateVariants: true` for the stamp to show.
+- **Grid tracks.** `activeSector === 'layout'` draws the focused grid's column and row tracks.
+- **Shortcuts.** Frame keydowns the canvas does not claim go to `onShortcut` (focus inside the
+  iframe never reaches host listeners); editable targets are skipped.
+
+New props: `elementSelection`, `styleBucket`, `styleState`, `activeSector`, `onOpenStyleSector`,
+`onEditWithAi`, `onSaveTemplate`, `onAnimate`, `onReplaceMedia`, `onShortcut`, `styleClipboard`,
+`palette`, `namedStyles`, `namedStyleClasses`, `quickBarLabels`, `treeTextLabels`,
+`elementNameWords`, `editorDir`, and the test-only `treeDropPorts`. `CanvasDragHandle` gains the
+optional `beginTreeInsert(node, label, x, y)`.

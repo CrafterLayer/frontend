@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CUSTOM_CODE_ATTRIBUTES,
+  // P10-agent-power additions
+  CUSTOM_CODE_EFFECTS,
+  CUSTOM_CODE_HOVER_PRESETS,
+  CUSTOM_CODE_MOTION_EASES,
+  CUSTOM_CODE_MOTION_PRESETS,
+  // end P10-agent-power additions
   CUSTOM_CODE_TAGS,
   customCodeTreeSchema,
   findCssRejection,
@@ -170,4 +176,37 @@ describe('craftkit.design-code', () => {
     expect(text).toMatch(/only with a video address the request gives/u);
     expect(text).toMatch(/video autoplay muted loop playsinline/u);
   });
+
+  // P10-agent-power additions (style-manager DESIGN.md §D.3)
+  describe('the style manager vocabulary', () => {
+    const words = new Set(text.split(/[\s|,()]+/u).map((word) => word.replace(/[.:;]+$/u, '')));
+
+    it('names every motion preset, hover preset, ease and effect the vocabulary lists', () => {
+      for (const name of [...CUSTOM_CODE_MOTION_PRESETS, ...CUSTOM_CODE_HOVER_PRESETS, ...CUSTOM_CODE_MOTION_EASES]) {
+        expect(words.has(name), name).toBe(true);
+      }
+      for (const effect of CUSTOM_CODE_EFFECTS) expect(words.has(`ck-fx-${effect}`), effect).toBe(true);
+    });
+
+    it('teaches the tools, the desktop-first prefix law, logical sides, palette variables and named styles', () => {
+      expect(text).toMatch(/prefer element\.style .* and element\.animate .* over rewriting className/u);
+      expect(text).toContain('max-lg:');
+      expect(text).toContain('max-md:px-4');
+      expect(text).toMatch(/hover: focus-visible: active: open: group-hover:/u);
+      expect(text).toMatch(/LOGICAL ONLY: ps-\/pe-/u);
+      expect(text).toContain('bg-(--ck-c-<id>)');
+      expect(text).toContain('ck-s-<id>');
+      expect(text).toMatch(/palette\.set .*ramp/u);
+    });
+
+    it('teaches the widened tags with their guards', () => {
+      for (const tag of ['form', 'input', 'textarea', 'select', 'label', 'fieldset', 'dialog', 'iframe', 'audio', 'textPath', 'clipPath', 'feTurbulence']) {
+        expect(CUSTOM_CODE_TAGS as readonly string[], tag).toContain(tag);
+        expect(text, tag).toContain(tag);
+      }
+      expect(text).toContain("data-ck-behavior='whatsapp-form'");
+      expect(text).toMatch(/iframe with a title, only youtube-nocookie\.com\/embed/u);
+    });
+  });
+  // end P10-agent-power additions
 });

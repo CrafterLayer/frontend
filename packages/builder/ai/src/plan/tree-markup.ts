@@ -109,7 +109,7 @@ const LEAF_TAGS = new Set([
 ]);
 
 /** The void tags the vocabulary has; written self-closed. */
-const VOID_TAGS = new Set(['br', 'hr', 'img', 'source']);
+const VOID_TAGS = new Set(['br', 'hr', 'img', 'input', 'source', 'track']);
 
 /** A tag as the vocabulary spells it (`lineargradient` → `linearGradient`), or as read. */
 function spellTag(folded: string): string {

@@ -166,6 +166,7 @@ function roastery(overrides: Record<string, unknown> = {}): PagePlanCandidate {
     primaryCta: { label: 'Order beans', href: '#order' },
     nav: [{ label: 'Menu', anchorId: 'menu' }],
     sections: [
+      { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Brand and menu.' },
       {
         key: 'hero',
         role: 'hero',
@@ -655,7 +656,7 @@ describe('the section contract — colour, design code and the person’s own ph
     const script = scripted({ pagePlan: () => markupOnly() });
     await runAiBuild({ ...baseOptions(kernel(), script.provider), target: 'replace' });
 
-    const hero = fillFor(script, 1, 4)?.request ?? '';
+    const hero = fillFor(script, 2, 5)?.request ?? '';
     for (const { name } of PAGE_KIT_CLASSES) expect(hero).toContain(name);
     // emerald-800 is the plan's accent, and reads as text on stone-50 and white: its own ink.
     expect(hero).toContain('ck-accent-ink (#065f46)');
@@ -691,7 +692,7 @@ describe('the section contract — colour, design code and the person’s own ph
       target: 'replace',
     });
 
-    const ownLine = /^THEIR OWN PHOTOS[^\n]*$/mu.exec(fillFor(script, 1, 4)?.request ?? '')?.[0];
+    const ownLine = /^THEIR OWN PHOTOS[^\n]*$/mu.exec(fillFor(script, 2, 5)?.request ?? '')?.[0];
     expect(ownLine).toBeDefined();
     const given = (ownLine ?? '').slice((ownLine ?? '').indexOf(':') + 2).split(' · ');
     // Exactly as typed — the Arabic comma and the full stop after them are not theirs.
@@ -701,10 +702,12 @@ describe('the section contract — colour, design code and the person’s own ph
   it('shows the person’s photo in a hero the plan made type-led — and in no type-led band', async () => {
     const unsplash = 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1200';
     const plan = roastery();
-    const [hero, ...rest] = plan['sections'] as Record<string, unknown>[];
+    const [header, hero, ...rest] = plan['sections'] as Record<string, unknown>[];
     const typeLedHero = { ...hero };
     delete typeLedHero['images'];
-    const script = scripted({ pagePlan: () => ({ ...plan, sections: [typeLedHero, ...rest] }) });
+    const script = scripted({
+      pagePlan: () => ({ ...plan, sections: [header, typeLedHero, ...rest] }),
+    });
 
     await runAiBuild({
       ...baseOptions(kernel(), script.provider),
@@ -712,12 +715,13 @@ describe('the section contract — colour, design code and the person’s own ph
       target: 'replace',
     });
 
-    const heroRequest = fillFor(script, 1, 4)?.request ?? '';
-    expect(heroRequest).toContain('IMAGES: the person’s own');
+    const heroRequest = fillFor(script, 2, 5)?.request ?? '';
+    // Quality pass 2026-10-05: a type-led hero gets the page's catalog photo, and the person's own comes first.
+    expect(heroRequest).toContain('each from THEIR OWN PHOTOS where one fits');
     expect(heroRequest).toContain(
       `THEIR OWN PHOTOS (the person gave these addresses; use them exactly as written): ${unsplash}`,
     );
-    const menu = fillFor(script, 2, 4)?.request ?? '';
+    const menu = fillFor(script, 3, 5)?.request ?? '';
     expect(menu).toContain('IMAGES: none');
     expect(menu).not.toContain(unsplash);
   });

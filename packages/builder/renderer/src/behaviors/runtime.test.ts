@@ -335,3 +335,175 @@ describe('mountBehaviors', () => {
     expect(host.querySelector('[data-ck-behavior="reveal"]')?.hasAttribute('data-ck-mounted')).toBe(true);
   });
 });
+
+/* ── motion presets (style-manager DESIGN.md §B) ──────────────────────────── */
+
+function enterAt(top: number, height = 100, viewport = 800): void {
+  for (const entry of observed) {
+    const records = entry.targets.map(
+      (target) =>
+        ({
+          isIntersecting: top < viewport && top + height > 0,
+          target,
+          boundingClientRect: { top, bottom: top + height, height },
+          rootBounds: { height: viewport },
+        }) as unknown as IntersectionObserverEntry,
+    );
+    if (records.length > 0) entry.callback(records, {} as IntersectionObserver);
+  }
+}
+
+describe('mountBehaviors — motion presets', () => {
+  it('splits words into aria-hidden spans with their index, keeps the sentence in aria-label, and undoes it', () => {
+    const host = mount('<h2 data-ck-motion="split-words">Hello brave world</h2>');
+    const dispose = mountBehaviors(host);
+    const heading = host.querySelector('h2');
+    expect(heading?.getAttribute('aria-label')).toBe('Hello brave world');
+    const units = Array.from(host.querySelectorAll<HTMLElement>('.ck-u'));
+    expect(units.map((unit) => unit.textContent)).toEqual(['Hello', 'brave', 'world']);
+    expect(units.every((unit) => unit.getAttribute('aria-hidden') === 'true')).toBe(true);
+    expect(units.map((unit) => unit.style.getPropertyValue('--ck-u-i'))).toEqual(['0', '1', '2']);
+    expect(heading?.hasAttribute('data-ck-mounted')).toBe(true);
+    dispose();
+    expect(host.querySelectorAll('.ck-u')).toHaveLength(0);
+    expect(heading?.textContent).toBe('Hello brave world');
+    expect(heading?.hasAttribute('aria-label')).toBe(false);
+  });
+
+  it('splits Latin text by character but Arabic by word, so joined letters keep their shapes', () => {
+    const host = mount(
+      '<h2 data-ck-motion="split-chars">Hi you</h2><h3 dir="rtl" data-ck-motion="split-chars">مرحبا بالعالم</h3>',
+    );
+    mountBehaviors(host);
+    expect(host.querySelectorAll('h2 .ck-c')).toHaveLength(5);
+    expect(host.querySelectorAll('h3 .ck-c')).toHaveLength(0);
+    expect(Array.from(host.querySelectorAll('h3 .ck-u'), (unit) => unit.textContent)).toEqual(['مرحبا', 'بالعالم']);
+    expect(host.querySelector<HTMLElement>('h3')?.style.getPropertyValue('--ck-u-step')).toBe('80ms');
+  });
+
+  it('is inert under reduced motion: no split, no meteors, no observer; the final state stays', () => {
+    reducedMotion = true;
+    const host = mount(
+      '<h2 data-ck-motion="split-chars">Hi</h2><div data-ck-motion="fade-up">x</div><div data-ck-motion="meteors"></div><button data-ck-hover="tilt">t</button>',
+    );
+    mountBehaviors(host);
+    expect(host.querySelectorAll('.ck-u, .ck-meteor')).toHaveLength(0);
+    expect(host.querySelector('h2')?.hasAttribute('aria-label')).toBe(false);
+    expect(observed).toHaveLength(0);
+    expect(host.querySelector('[data-ck-motion="fade-up"]')?.getAttribute('data-ck-mounted')).toBe('static');
+    expect(host.querySelector('h2')?.hasAttribute('data-ck-mounted')).toBe(false);
+  });
+
+  it('plays a click trigger on its data-ck-target, and replays on every click', () => {
+    const host = mount(
+      '<button data-ck-motion="fade" data-ck-trigger="click" data-ck-target="card">Go</button><div id="card" data-ck-motion="zoom-in" data-ck-trigger="click">x</div>',
+    );
+    mountBehaviors(host);
+    const button = host.querySelector('button');
+    const card = host.querySelector('#card');
+    button?.click();
+    expect(card?.hasAttribute('data-ck-play')).toBe(true);
+    expect(button?.hasAttribute('data-ck-play')).toBe(false);
+    now = 2_345;
+    button?.click();
+    expect(card?.getAttribute('data-ck-play')).toBe('2345');
+    (card as HTMLElement).click();
+    expect(card?.hasAttribute('data-ck-play')).toBe(true);
+  });
+
+  it('indexes stagger children (capped) and a grid by row + column', () => {
+    const host = mount(
+      '<ul data-ck-motion="stagger-up"><li>a</li><li>b</li><li>c</li></ul><div data-ck-motion="stagger-grid"><i></i><i></i><i></i><i></i></div>',
+    );
+    const cells = Array.from(host.querySelectorAll<HTMLElement>('i'));
+    cells.forEach((cell, at) => {
+      Object.defineProperty(cell, 'offsetTop', { value: at < 2 ? 0 : 50 });
+    });
+    mountBehaviors(host);
+    const items = Array.from(host.querySelectorAll<HTMLElement>('li'));
+    expect(items.map((item) => item.style.getPropertyValue('--ck-i'))).toEqual(['0', '1', '2']);
+    expect(host.querySelector<HTMLElement>('ul')?.style.getPropertyValue('--ck-n')).toBe('3');
+    expect(cells.map((cell) => cell.style.getPropertyValue('--ck-i'))).toEqual(['0', '1', '1', '2']);
+  });
+
+  it('marks a view-triggered element seen, then done once its range has passed (once)', () => {
+    const host = mount('<div data-ck-motion="fade-up">x</div><div data-ck-motion="fade-up" data-ck-once="false">y</div>');
+    mountBehaviors(host);
+    const [once, again] = Array.from(host.querySelectorAll('[data-ck-motion]'));
+    enterAt(700);
+    expect(once?.hasAttribute('data-ck-inview')).toBe(true);
+    expect(once?.hasAttribute('data-ck-done')).toBe(false);
+    enterAt(200);
+    expect(once?.hasAttribute('data-ck-done')).toBe(true);
+    expect(again?.hasAttribute('data-ck-done')).toBe(false);
+    enterAt(900);
+    expect(again?.hasAttribute('data-ck-inview')).toBe(false);
+  });
+
+  it('keeps the canvas still, and builds a DOM preset only while Preview plays it', async () => {
+    const host = mount('<h2 data-ck-motion="split-words">Hello world</h2><div data-ck-motion="fade-up">x</div>');
+    const dispose = mountBehaviors(host, { interactive: false });
+    expect(host.hasAttribute('data-ck-still')).toBe(true);
+    expect(host.querySelectorAll('.ck-u')).toHaveLength(0);
+    expect(observed).toHaveLength(0);
+    const heading = host.querySelector('h2');
+    heading?.setAttribute('data-ck-play', '1');
+    await Promise.resolve();
+    expect(host.querySelectorAll('.ck-u')).toHaveLength(2);
+    heading?.removeAttribute('data-ck-play');
+    await Promise.resolve();
+    expect(host.querySelectorAll('.ck-u')).toHaveLength(0);
+    expect(heading?.textContent).toBe('Hello world');
+    dispose();
+    expect(host.hasAttribute('data-ck-still')).toBe(false);
+  });
+
+  it('types a typewriter sentence into an aria-hidden span while aria-label keeps all of it', () => {
+    vi.useFakeTimers();
+    try {
+      const host = mount('<p data-ck-motion="typewriter" data-ck-trigger="load" data-ck-speed="fast">Hi there</p>');
+      mountBehaviors(host);
+      const line = host.querySelector('p');
+      const typed = host.querySelector('.ck-tw');
+      expect(line?.getAttribute('aria-label')).toBe('Hi there');
+      expect(typed?.getAttribute('aria-hidden')).toBe('true');
+      vi.advanceTimersByTime(2_000);
+      expect(typed?.textContent).toBe('Hi there');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rotates "a|b|c" words with every word kept for screen readers', () => {
+    const host = mount('<h1>Sites that are <span data-ck-motion="word-rotate">fast|simple|secure</span></h1>');
+    mountBehaviors(host);
+    const words = Array.from(host.querySelectorAll('.ck-wr-word'));
+    expect(words.map((word) => word.textContent)).toEqual(['fast', 'simple', 'secure']);
+    expect(words[0]?.hasAttribute('data-ck-on')).toBe(true);
+    expect(words.every((word) => word.getAttribute('aria-hidden') === 'true')).toBe(true);
+    expect(host.querySelector('.ck-sr')?.textContent).toBe('fast, simple, secure');
+  });
+
+  it('rolls ticker digits in the page language, with the final value as the label', () => {
+    const host = mount('<p lang="en"><span data-ck-behavior="ticker" data-ck-to="250">0 users</span></p>');
+    mountBehaviors(host);
+    const ticker = host.querySelector('[data-ck-behavior="ticker"]');
+    expect(ticker?.getAttribute('aria-label')).toBe('250 users');
+    const strips = Array.from(host.querySelectorAll<HTMLElement>('.ck-tick-strip'));
+    expect(strips).toHaveLength(3);
+    enterAll();
+    expect(strips.map((strip) => strip.style.getPropertyValue('--ck-d'))).toEqual(['2', '5', '0']);
+  });
+
+  it('sets pathLength on every shape of a draw-line, and aria-hides a reading-progress bar', () => {
+    const host = mount(
+      '<svg data-ck-motion="draw-line"><path d="M0 0L10 10"></path><circle r="2"></circle></svg><div data-ck-motion="reading-progress"></div>',
+    );
+    mountBehaviors(host);
+    expect(Array.from(host.querySelectorAll('path, circle'), (shape) => shape.getAttribute('pathLength'))).toEqual([
+      '1',
+      '1',
+    ]);
+    expect(host.querySelector('[data-ck-motion="reading-progress"]')?.getAttribute('aria-hidden')).toBe('true');
+  });
+});

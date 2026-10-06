@@ -1,0 +1,172 @@
+.bldr-ramp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+}
+
+.bldr-ramp__title {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-ramp__inputs {
+  display: grid;
+  gap: var(--bldr-space-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bldr-ramp__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-ramp__label {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.bldr-ramp__input {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-control);
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-ramp__input--mono {
+  font-family: var(--bldr-font-mono);
+}
+
+.bldr-ramp__input:focus-visible,
+.bldr-ramp__add:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-ramp__input[aria-invalid='true'] {
+  border-color: var(--bldr-danger);
+}
+
+.bldr-ramp__picker .react-colorful {
+  block-size: 9rem;
+  inline-size: 100%;
+}
+
+.bldr-ramp__error {
+  color: var(--bldr-danger);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-ramp__shades {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-ramp__shade {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-ramp__chip {
+  block-size: var(--bldr-control-height-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  inline-size: 100%;
+}
+
+.bldr-ramp__shade[data-anchor='true'] .bldr-ramp__chip {
+  outline: var(--bldr-border-thick) solid var(--bldr-accent);
+  outline-offset: var(--bldr-border-hairline);
+}
+
+.bldr-ramp__step {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.bldr-ramp__matrix {
+  border-collapse: collapse;
+  font-size: var(--bldr-font-size-micro);
+  inline-size: 100%;
+}
+
+.bldr-ramp__caption {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  padding-block-end: var(--bldr-space-2xs);
+  text-align: start;
+}
+
+.bldr-ramp__matrix th,
+.bldr-ramp__matrix td {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  color: var(--bldr-panel-text);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-2xs);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.bldr-ramp__matrix td[data-grade='fail'] {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-ramp__matrix td[data-grade='AAA'],
+.bldr-ramp__matrix td[data-grade='AA'] {
+  color: var(--bldr-success);
+}
+
+.bldr-ramp__dot {
+  block-size: 0.75em;
+  border-radius: var(--bldr-radius-full);
+  display: inline-block;
+  inline-size: 0.75em;
+  margin-inline-end: var(--bldr-space-2xs);
+}
+
+.bldr-ramp__hint {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-ramp__add {
+  align-self: flex-start;
+  background: var(--bldr-accent);
+  border: none;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-control);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-ramp__add:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.bldr-ramp__status {
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-ramp__status[data-kind='refused'] {
+  color: var(--bldr-danger);
+}

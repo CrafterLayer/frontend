@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  CUSTOM_CODE_REGION_CSS_MAX,
   customCodeTree,
   customCss,
   defineBlockSchema,
@@ -57,7 +58,7 @@ export const customCodeSchema = defineBlockSchema({
      * namespace the AI door admits without a generated utility behind them,
      * precisely because their CSS is expected to come from here.
      */
-    css: customCss(8_000),
+    css: customCss(CUSTOM_CODE_REGION_CSS_MAX),
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Identity' },

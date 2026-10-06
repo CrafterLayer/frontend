@@ -40,7 +40,10 @@ describe('hasBehaviors', () => {
     expect(hasBehaviors(main)).toBe(true);
     expect(hasBehaviors(document.createElement('main'))).toBe(false);
     expect(
-      hasBehaviors({ kind: 'root', children: [{ kind: 'element', tag: 'div', attributes: { 'data-ck-behavior': 'reveal' } }] }),
+      hasBehaviors({
+        kind: 'root',
+        children: [{ kind: 'element', tag: 'div', attributes: { 'data-ck-behavior': 'reveal' } }],
+      }),
     ).toBe(true);
     expect(hasBehaviors({ kind: 'root', children: [] })).toBe(false);
     expect(hasBehaviors(null)).toBe(false);
@@ -55,7 +58,9 @@ describe('BEHAVIOR_CSS', () => {
 
   it('scopes every rule by a behaviour or the lightbox, and gates motion on the preference', () => {
     expect(BEHAVIOR_CSS).toContain('@media (prefers-reduced-motion: no-preference)');
-    expect(BEHAVIOR_CSS).toMatch(/\[data-ck-behavior='reveal'\]\[data-ck-mounted\]:not\(\.ck-in\)/u);
+    expect(BEHAVIOR_CSS).toMatch(
+      /\[data-ck-behavior='reveal'\]\[data-ck-mounted\]:not\(\.ck-in\)/u,
+    );
   });
 
   it('is injected into a document once', () => {
@@ -64,5 +69,32 @@ describe('BEHAVIOR_CSS', () => {
     ensureBehaviorCss(document);
     expect(document.head.querySelectorAll('style[data-ck-behavior-css]')).toHaveLength(1);
     document.head.innerHTML = '';
+  });
+
+  it('brings the motion presets and the effects library with it, once each', () => {
+    document.head.innerHTML = '';
+    ensureBehaviorCss(document);
+    ensureBehaviorCss(document);
+    const motion = document.head.querySelectorAll('style[data-ck-motion-css]');
+    const effects = document.head.querySelectorAll('style[data-ck-effects-css]');
+    expect(motion).toHaveLength(1);
+    expect(effects).toHaveLength(1);
+    expect(motion[0]?.textContent).toContain("[data-ck-motion='fade-up']");
+    expect(effects[0]?.textContent).toContain('.ck-fx-glass');
+    document.head.innerHTML = '';
+  });
+});
+
+describe('hasBehaviors — motion', () => {
+  it('needs the runtime for a motion or hover preset and for the spotlight effect, not for plain effects', () => {
+    expect(hasBehaviors('<h2 data-ck-motion="split-words">x</h2>')).toBe(true);
+    expect(hasBehaviors('<a data-ck-hover="magnetic">x</a>')).toBe(true);
+    expect(hasBehaviors('<div class="p-4 ck-fx-spotlight">x</div>')).toBe(true);
+    expect(hasBehaviors('<div class="ck-fx-glass">x</div>')).toBe(false);
+    const main = document.createElement('main');
+    main.innerHTML = '<div class="ck-fx-spotlight"></div>';
+    expect(hasBehaviors(main)).toBe(true);
+    expect(hasBehaviors({ attributes: { 'data-ck-motion': 'fade-up' } })).toBe(true);
+    expect(hasBehaviors({ className: 'ck-fx-spotlight' })).toBe(true);
   });
 });

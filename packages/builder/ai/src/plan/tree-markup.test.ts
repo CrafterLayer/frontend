@@ -507,7 +507,7 @@ describe('component references in markup', () => {
   to differ — an empty `text`, `className`, `attributes` or `children` is the
   same as none — so the comparison is against that canonical form.
 */
-const VOID_TAGS = new Set(['br', 'hr', 'img', 'source']);
+const VOID_TAGS = new Set(['br', 'hr', 'img', 'input', 'source', 'track']);
 
 function canonical(node: unknown): unknown {
   if (Array.isArray(node)) return node.map(canonical);
@@ -599,6 +599,12 @@ const treeArbitrary = fc.letrec((tie) => ({
         delete node['text'];
         delete node['children'];
       }
+      // Raw-text content (the door refuses otherwise): an iframe holds nothing, a textarea or option only words.
+      if (fields.tag === 'iframe') {
+        delete node['text'];
+        delete node['children'];
+      }
+      if (fields.tag === 'textarea' || fields.tag === 'option') delete node['children'];
       return node;
     }),
   icon: fc.record(

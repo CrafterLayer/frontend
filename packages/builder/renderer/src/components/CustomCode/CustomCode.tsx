@@ -1,7 +1,9 @@
 import {
+  Fragment,
   createElement,
   useEffect,
   useRef,
+  useSyncExternalStore,
   type ComponentType,
   type ReactNode,
   type SyntheticEvent,
@@ -9,11 +11,17 @@ import {
 
 import {
   CUSTOM_CODE_ATTRIBUTES,
+  CUSTOM_CODE_IFRAME_ALLOW,
+  CUSTOM_CODE_IFRAME_REFERRER_POLICY,
+  CUSTOM_CODE_IFRAME_SANDBOX,
   CUSTOM_CODE_MAX_DEPTH,
+  CUSTOM_CODE_SVG_TEXT_TAGS,
   blockPropDefaults,
   customCodeAttributeProblem,
+  customCodeIconNames,
   isCustomCodeSvgTag,
   isCustomCodeTag,
+  parseCustomCodeIconName,
   safeCustomCodeUrl,
   withBlockPropDefaults,
   type BlockRenderProps,
@@ -23,14 +31,27 @@ import {
   type SlotName,
 } from '@craftkit/builder-schema';
 
-import { ensureBehaviorCss } from '../../behaviors/behaviors-css';
+import { ensureBehaviorCss, ensureMotionCss } from '../../behaviors/behaviors-css';
+import { BEHAVIOR_RUNTIME_SELECTOR } from '../../behaviors/script';
 import { mountBehaviors } from '../../behaviors/runtime';
 import { CUSTOM_CODE_REGION_ATTRIBUTE } from '../../tailwind/live-utilities';
 import { safeHref } from '../RichText/safe-href';
 import { UnknownBlock } from '../UnknownBlock';
 
+import {
+  useCustomCodeClassTransform,
+  type CustomCodeClassTransform,
+} from './class-transform-context';
 import { lucideIconNode } from './lucide-icon-node';
 import { useCustomCodeBlockLookup, type CustomCodeBlockLookup } from './registry-context';
+import {
+  loadTablerIcons,
+  subscribeTablerIcons,
+  tablerIconNode,
+  tablerIconsFailed,
+  tablerIconsLoaded,
+  tablerIconsVersion,
+} from './tabler-icons';
 
 /**
  * The custom-code renderer: a tolerant READ over a tree the door validated
@@ -51,7 +72,13 @@ import { useCustomCodeBlockLookup, type CustomCodeBlockLookup } from './registry
  */
 
 /** Tags rendered without children, so a malformed tree cannot nest into them. */
-const VOID_TAGS: ReadonlySet<string> = new Set(['br', 'hr', 'img', 'source']);
+const VOID_TAGS: ReadonlySet<string> = new Set(['br', 'hr', 'img', 'source', 'input', 'track']);
+
+/** The svg tags whose `text` renders (every other shape holds none). */
+const SVG_TEXT_TAGS: ReadonlySet<string> = new Set(CUSTOM_CODE_SVG_TEXT_TAGS);
+
+/** Form controls: inert on the editing canvas, so a click selects instead of typing. */
+const CONTROL_TAGS: ReadonlySet<string> = new Set(['input', 'textarea', 'select']);
 
 const ATTRIBUTE_SET: ReadonlySet<string> = new Set(CUSTOM_CODE_ATTRIBUTES);
 
@@ -80,6 +107,24 @@ const REACT_PROP: Readonly<Record<string, string>> = {
   'stop-opacity': 'stopOpacity',
   'fill-rule': 'fillRule',
   'clip-rule': 'clipRule',
+  // 2026-10-05: form, track and accessibility attributes React spells its own way.
+  tabindex: 'tabIndex',
+  maxlength: 'maxLength',
+  minlength: 'minLength',
+  inputmode: 'inputMode',
+  autocomplete: 'autoComplete',
+  for: 'htmlFor',
+  srclang: 'srcLang',
+  // 2026-10-05: svg text, clip and filter attributes.
+  'clip-path': 'clipPath',
+  'flood-color': 'floodColor',
+  'flood-opacity': 'floodOpacity',
+  'text-anchor': 'textAnchor',
+  'dominant-baseline': 'dominantBaseline',
+  'font-size': 'fontSize',
+  'font-weight': 'fontWeight',
+  'font-family': 'fontFamily',
+  'letter-spacing': 'letterSpacing',
 };
 
 /** Attributes whose presence is the value; stored bare (`''`), rendered as `true`. */
@@ -90,7 +135,32 @@ const BOOLEAN_ATTRIBUTES: ReadonlySet<string> = new Set([
   'loop',
   'playsinline',
   'controls',
+  'required',
+  'disabled',
+  'multiple',
+  'checked',
 ]);
+
+/*
+  A stored `value` or `checked` is where a control STARTS, not a value React
+  owns: rendered as `value`/`checked` it would be a controlled field with no
+  change handler (React warns, and the field cannot be typed into).
+*/
+const INITIAL_VALUE_PROP: Readonly<Record<string, string>> = {
+  checked: 'defaultChecked',
+};
+
+/** Swallow an event: on the canvas a form never submits and a link never navigates. */
+function preventDefault(event: { preventDefault(): void }): void {
+  event.preventDefault();
+}
+
+/** The relationship tokens a link renders with: authored ones first, then the forced ones. */
+function linkRel(authored: unknown, forced: readonly string[]): string | undefined {
+  const tokens = typeof authored === 'string' ? authored.trim().split(/\s+/u).filter(Boolean) : [];
+  for (const token of forced) if (!tokens.includes(token)) tokens.push(token);
+  return tokens.length === 0 ? undefined : tokens.join(' ');
+}
 
 /**
  * `src` and `poster` reach the network, so they pass the schema's one address
@@ -146,8 +216,9 @@ function plainText(value: unknown): string {
 function elementAttributes(
   tag: string,
   node: Record<string, unknown>,
-  isCanvas: boolean,
+  context: RenderContext,
 ): Record<string, unknown> {
+  const isCanvas = context.isCanvas;
   const declared = asRecord(node['attributes']);
   const out: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(declared ?? {})) {
@@ -160,7 +231,8 @@ function elementAttributes(
     */
     if (customCodeAttributeProblem(tag, name, value) !== undefined) continue;
     if (name === 'src' || name === 'poster') {
-      const safe = safeSrc(value);
+      // An iframe's src already passed the embed allowlist above.
+      const safe = tag === 'iframe' ? value.trim() : safeSrc(value);
       if (safe !== undefined) out[name] = safe;
       continue;
     }
@@ -168,9 +240,10 @@ function elementAttributes(
       /*
         The same policy RichText applies to a link mark: https, mailto, tel,
         and relative survive; `javascript:` and every unconsidered scheme are
-        dropped, and the element renders as text without a destination.
+        dropped, and the element renders as text without a destination. A
+        text path's href is a `#id` in the same drawing (checked above).
       */
-      const safe = tag === 'a' ? safeHref(value) : undefined;
+      const safe = tag === 'a' ? safeHref(value) : tag === 'textPath' ? value : undefined;
       if (safe !== undefined) out['href'] = safe;
       continue;
     }
@@ -179,31 +252,75 @@ function elementAttributes(
       if (value === '_blank') out['target'] = '_blank';
       continue;
     }
+    if (name === 'value' && tag === 'input') {
+      out['defaultValue'] = value;
+      continue;
+    }
+    if (name === 'type' && tag === 'button') continue; // decided below
     if (BOOLEAN_ATTRIBUTES.has(name)) {
       // Only a bare spelling passed the policy: '', the name, or 'true'.
-      out[REACT_PROP[name] ?? name] = true;
+      out[INITIAL_VALUE_PROP[name] ?? REACT_PROP[name] ?? name] = true;
       continue;
     }
     out[REACT_PROP[name] ?? name] = value;
   }
   if (tag === 'a') {
     const href = out['href'];
+    const forced: string[] = [];
     if (typeof href === 'string' && /^https?:\/\//iu.test(href)) {
       // An external link never hands the opener to the destination.
-      out['rel'] = 'noopener noreferrer';
+      forced.push('noopener', 'noreferrer');
     }
+    // A new tab never gets the opener either, wherever it points.
+    if (out['target'] === '_blank') forced.push('noopener');
+    const rel = linkRel(out['rel'], forced);
+    if (rel === undefined) delete out['rel'];
+    else out['rel'] = rel;
     if (isCanvas) {
       // On the editing canvas a link is something to select, not to follow.
-      out['onClick'] = (event: { preventDefault(): void }) => {
-        event.preventDefault();
-      };
+      out['onClick'] = preventDefault;
     } else if (typeof href === 'string' && href.startsWith('#')) {
       out['onClick'] = closeOwningPopover;
     }
   }
   if (tag === 'button') {
-    // Never a submit and never a handler: a styled affordance, wired later.
-    out['type'] = 'button';
+    /*
+      Never a handler, and a submit only inside a form that sends through the
+      WhatsApp behaviour — the one way a tree's form leaves the page. Anywhere
+      else it is a styled affordance, wired later.
+    */
+    out['type'] = declared?.['type'] === 'submit' && context.inSendingForm ? 'submit' : 'button';
+  }
+  if (tag === 'form') {
+    /*
+      A form has no action, so a submit that reached the browser would reload
+      the page with its fields in the address. The WhatsApp behaviour sends
+      it (and prevents the reload itself) on a published page; on the canvas,
+      and for a form without that behaviour, React swallows the submit.
+    */
+    if (isCanvas || declared?.['data-ck-behavior'] !== 'whatsapp-form') {
+      out['onSubmit'] = preventDefault;
+    }
+  }
+  if (tag === 'iframe') {
+    /*
+      Forced, whatever the tree says — none of these is an attribute the
+      vocabulary admits, so a stored tree cannot weaken them. On the canvas
+      the frame does not take the pointer, so a click selects it.
+    */
+    out['sandbox'] = CUSTOM_CODE_IFRAME_SANDBOX;
+    out['loading'] = 'lazy';
+    out['referrerPolicy'] = CUSTOM_CODE_IFRAME_REFERRER_POLICY;
+    out['allow'] = CUSTOM_CODE_IFRAME_ALLOW;
+    out['allowFullScreen'] = true;
+    if (isCanvas) out['style'] = { pointerEvents: 'none' };
+  }
+  if (isCanvas && CONTROL_TAGS.has(tag)) {
+    // Inert in the editor: not a tab stop, and typing never changes the page.
+    out['tabIndex'] = -1;
+    if (tag !== 'select') out['readOnly'] = true;
+    // readOnly does not stop a checkbox or radio toggling; a swallowed click does.
+    if (tag === 'input') out['onClick'] = preventDefault;
   }
   if (tag === 'video' && out['autoPlay'] === true) {
     /*
@@ -223,6 +340,20 @@ interface RenderContext {
   readonly hostId: NodeId;
   readonly lookup: CustomCodeBlockLookup | undefined;
   readonly isCanvas: boolean;
+  /** Rewrites every element and icon className before it renders (named styles). */
+  readonly classTransform: CustomCodeClassTransform;
+  /** Inside a form that sends through the WhatsApp behaviour: a button may submit it. */
+  readonly inSendingForm: boolean;
+  /**
+   * Changes when the lazily loaded icon data lands, so a render that drew a
+   * placeholder draws the icon on the next pass. Read by nothing but identity.
+   */
+  readonly iconVersion: number;
+}
+
+function transformedClass(context: RenderContext, value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  return context.classTransform(value);
 }
 
 /**
@@ -301,14 +432,56 @@ function renderComponent(
 ): ReactNode {
   const type = node['component'];
   if (typeof type !== 'string') return null;
+  return addressComponent(
+    context,
+    key,
+    path,
+    type,
+    componentBody(node, path, depth, context, type),
+  );
+}
+
+/**
+ * On the canvas a tree component is ADDRESSABLE like an element: it sits in a
+ * box-less wrapper (`display: contents`) carrying its path, so the shell's
+ * hit-test can name it and the Inspector can read and write it by path. The
+ * published page renders the block alone — the wrapper is chrome, not content.
+ */
+function addressComponent(
+  context: RenderContext,
+  key: string,
+  path: string,
+  type: string,
+  body: ReactNode,
+): ReactNode {
+  if (!context.isCanvas) return <Fragment key={key}>{body}</Fragment>;
+  return (
+    <div
+      key={key}
+      {...{ [PATH_ATTRIBUTE]: path }}
+      data-ck-component={type}
+      style={{ display: 'contents' }}
+    >
+      {body}
+    </div>
+  );
+}
+
+function componentBody(
+  node: Record<string, unknown>,
+  path: string,
+  depth: number,
+  context: RenderContext,
+  type: string,
+): ReactNode {
   const entry = context.lookup?.(type);
   const render = entry?.render;
   if (entry === undefined || render === undefined) {
-    return <UnknownBlock key={key} type={type} />;
+    return <UnknownBlock type={type} />;
   }
   const props = validatedProps(entry, asRecord(node['props']) ?? {});
   if (props === undefined) {
-    return <UnknownBlock key={key} type={type} />;
+    return <UnknownBlock type={type} />;
   }
   const children = childrenOf(node);
   const rendered = children.map((child, at) =>
@@ -317,7 +490,6 @@ function renderComponent(
   const Block = render as ComponentType<BlockRenderProps>;
   return (
     <Block
-      key={key}
       node={syntheticNode(context, path, type, props, children.length)}
       props={props}
       slots={{ default: rendered }}
@@ -336,8 +508,36 @@ function renderComponent(
 function renderIcon(node: Record<string, unknown>, key: string, context: RenderContext): ReactNode {
   const name = node['name'];
   if (typeof name !== 'string') return null;
-  const data = lucideIconNode(name);
+  const ref = parseCustomCodeIconName(name);
+  const filled = ref.set === 'tabler-filled';
   const address = pathAttribute(context, key);
+  const size = typeof node['size'] === 'number' ? node['size'] : 24;
+  const className = transformedClass(context, node['className']);
+  if (ref.set !== 'lucide' && !tablerIconsLoaded() && !tablerIconsFailed()) {
+    /*
+      The Tabler set arrives lazily. Until it lands the icon keeps its box,
+      empty and hidden from assistive technology, so the layout does not jump
+      and nothing announces a placeholder; CustomCode re-renders on arrival.
+    */
+    return (
+      <svg
+        key={key}
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
+        className={className}
+        data-icon={name}
+        data-ck-icon-pending=""
+        aria-hidden
+        {...address}
+      />
+    );
+  }
+  const data =
+    ref.set === 'lucide'
+      ? lucideIconNode(ref.name)
+      : tablerIconNode(ref.name, filled ? 'filled' : 'outline');
   if (data === undefined) {
     // Visible, like UnknownBlock: a missing icon that renders as nothing is a
     // layout that looks finished and is not.
@@ -354,9 +554,7 @@ function renderIcon(node: Record<string, unknown>, key: string, context: RenderC
       </span>
     );
   }
-  const size = typeof node['size'] === 'number' ? node['size'] : 24;
   const strokeWidth = typeof node['strokeWidth'] === 'number' ? node['strokeWidth'] : 2;
-  const className = typeof node['className'] === 'string' ? node['className'] : undefined;
   const rawLabel = node['label'];
   const label =
     typeof rawLabel === 'string' && rawLabel.trim() !== '' ? rawLabel.trim() : undefined;
@@ -367,9 +565,10 @@ function renderIcon(node: Record<string, unknown>, key: string, context: RenderC
       viewBox="0 0 24 24"
       width={size}
       height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
+      // A filled Tabler icon is painted, not stroked.
+      fill={filled ? 'currentColor' : 'none'}
+      stroke={filled ? 'none' : 'currentColor'}
+      strokeWidth={filled ? undefined : strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
@@ -426,9 +625,14 @@ function renderElement(
   // stored `iframe` must not become a container the reader cannot see.
   if (typeof tag !== 'string' || !isCustomCodeTag(tag)) return null;
 
-  const className = typeof node['className'] === 'string' ? node['className'] : undefined;
+  const className = transformedClass(context, node['className']);
   const text = typeof node['text'] === 'string' ? node['text'] : undefined;
-  const attributes = elementAttributes(tag, node, context.isCanvas);
+  /*
+    `label` and `locked` are editor metadata (the Layers name, the canvas
+    lock). They are node fields, not attributes, and nothing here reads them:
+    they never reach the DOM, on the canvas or in the published page.
+  */
+  const attributes = elementAttributes(tag, node, context);
   const props: Record<string, unknown> = { key, ...attributes, ...pathAttribute(context, path) };
   if (className !== undefined) props['className'] = className;
 
@@ -447,11 +651,27 @@ function renderElement(
     write, and the read skips it here.
   */
   const svg = isCustomCodeSvgTag(tag);
+  if (tag === 'textarea') {
+    // A textarea's text is where it starts, not a child React would own.
+    if (text !== undefined) props['defaultValue'] = text;
+    return createElement(tag, props);
+  }
+  const attributesRecord = asRecord(node['attributes']);
+  const inner: RenderContext =
+    tag === 'form' && attributesRecord?.['data-ck-behavior'] === 'whatsapp-form'
+      ? { ...context, inSendingForm: true }
+      : context;
   const children = childrenOf(node).map((child, at) => {
     if (svg && !isSvgElement(child)) return null;
-    return renderNode(child, `${path}.${String(at)}`, depth + 1, context);
+    return renderNode(child, `${path}.${String(at)}`, depth + 1, inner);
   });
-  return createElement(tag, props, text === undefined || svg ? children : [text, ...children]);
+  // Drawn text (`text`, `tspan`, `textPath`) is the one svg family that holds text.
+  const drawsText = !svg || SVG_TEXT_TAGS.has(tag);
+  return createElement(
+    tag,
+    props,
+    text === undefined || !drawsText ? children : [text, ...children],
+  );
 }
 
 function isSvgElement(value: unknown): boolean {
@@ -504,7 +724,22 @@ export function CustomCode({
   blockLookup,
 }: CustomCodeProps) {
   const contextLookup = useCustomCodeBlockLookup();
+  const classTransform = useCustomCodeClassTransform();
   const regionRef = useRef<HTMLDivElement>(null);
+  /*
+    Tabler icons draw from data loaded on first use. The version is part of
+    the render context, so the pass after it lands draws them; a tree without
+    a Tabler name never starts the load.
+  */
+  const iconVersion = useSyncExternalStore(
+    subscribeTablerIcons,
+    tablerIconsVersion,
+    tablerIconsVersion,
+  );
+  const usesTabler = customCodeIconNames(tree).some((name) => name.startsWith('tabler'));
+  useEffect(() => {
+    if (usesTabler && !tablerIconsLoaded()) void loadTablerIcons();
+  }, [usesTabler]);
   /*
     Site behaviours (data-ck-behavior): the curated runtime mounts on the
     region after each commit of a new tree and is disposed before the next.
@@ -514,7 +749,14 @@ export function CustomCode({
   */
   useEffect(() => {
     const region = regionRef.current;
-    if (!region?.querySelector('[data-ck-behavior]')) return undefined;
+    if (region === null) return undefined;
+    /*
+      Effects (ck-fx-*) need only their stylesheet; motion, hover presets and
+      the spotlight also need the runtime, which sets data-ck-still on the
+      canvas so Preview (data-ck-play) can replay them.
+    */
+    if (region.querySelector('[class*="ck-fx-"]') !== null) ensureMotionCss(region.ownerDocument);
+    if (region.querySelector(BEHAVIOR_RUNTIME_SELECTOR) === null) return undefined;
     ensureBehaviorCss(region.ownerDocument);
     return mountBehaviors(region, { interactive: !isCanvas });
   }, [tree, isCanvas]);
@@ -523,6 +765,9 @@ export function CustomCode({
     hostId,
     lookup: blockLookup ?? contextLookup,
     isCanvas,
+    classTransform,
+    inSendingForm: false,
+    iconVersion,
   };
   const children = root === null ? [] : childrenOf(root);
   // The region marker is where the live Tailwind sheet's `@scope` begins.

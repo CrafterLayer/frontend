@@ -17,12 +17,14 @@ import type { AiPreparedSkillContext, AiSkillRegistry } from '../skills';
 import type {
   AiChatTurn,
   AiPagePlanAttempt,
+  AiPagePlanDraftEvent,
   AiPlanProvider,
   AiProposePagePlanOptions,
   AssembledAiContext,
   PagePlanCandidate,
 } from '../types';
 import { classifyAiRunFailure, type AiRunFailure } from './errors';
+import { expandCompactPagePlan } from './page-plan/compact-plan';
 import { planKitIndex } from './page-plan/kits';
 import { PAGE_PLAN_MAX_SECTIONS, type PagePlan, type PagePlanIssue } from './page-plan/types';
 import { validatePagePlan } from './page-plan/validate-page-plan';
@@ -240,9 +242,9 @@ function designLine(): string {
   enough that the planner can write it whole, so it needs no writer at all.
 */
 const KIT_LINE =
-  'KITS: give every section except the header and footer "kit": one id below whose role fits it (hero → a hero kit; cta → a closing kit). Fill "slots" ONLY for a short section — stats, logos, a cta, a faq of 6 or fewer — so it needs no writer: slot names as listed (a name ending [] is a list of items), text in the page language, a link {"label","href"} (actions carry primaryCta), an image {"subject","alt"}. Leave "slots" out everywhere else.';
+  'KITS: give every section except the header and footer "kit": one id below whose role fits it (hero → a hero kit; cta → a closing kit). Fill "slots" ONLY for a short section — stats, logos, a cta, a faq of 6 or fewer — so it needs no writer: slot names as listed (a name ending [] is a list of items), text in the page language, a link {"label","href"} (actions carry primaryCta), an image {"subject","alt"}. Leave "slots" out everywhere else. A local business (restaurant, café, clinic, salon, shop): its booking or contact section is kit contact-split, and that section\'s facts carry the phone, WhatsApp, opening hours and address.';
 const SEO_LINE =
-  'SEO: add "seo":{"keyword":"<the one phrase this page should be found by, in its language, ≤ 80 characters>","pageKind":"home|menu|product|service|about|contact|article|landing","businessType":"Restaurant|CafeOrCoffeeShop|Bakery|Dentist|MedicalClinic|LegalService|Store|BeautySalon|LocalBusiness|Organization","slug":"<2-5 words of the keyword, in the page language>"}; businessType only when the page is for one. Put the keyword in the title and the hero naturally.';
+  'SEO: add "seo":{"keyword":"<the one phrase this page should be found by, in its language, ≤ 80 characters>","pageKind":"home|menu|product|service|about|contact|article|landing","businessType":"Restaurant|CafeOrCoffeeShop|Bakery|Dentist|MedicalClinic|LegalService|Store|BeautySalon|LocalBusiness|Organization","slug":"<2-5 words of the keyword, in the page language>"}; businessType only when the page is for one: a place people visit or call takes its kind (Restaurant, Dentist, LegalService…, else LocalBusiness); software, a SaaS, an app or an online product is an Organization, never LocalBusiness. Put the keyword in the title and the hero naturally.';
 
 /** Whether the section kit is there to plan with: an index to show. */
 function kitsAvailable(): boolean {
@@ -403,6 +405,13 @@ export interface PagePlanStepInput {
   readonly additionalContextProviders?: readonly AiContextProvider[];
   readonly target?: IntentTarget;
   readonly maxSections?: number;
+  /**
+   * The streamed answer's text (DESIGN §6.2, 2026-10-05), forwarded to the
+   * provider's `live.onDraft` on BOTH attempts — a `start` opens each
+   * response, so an observer can tell the repair answer from the first.
+   * Advisory: the validated plan this step returns is the authority.
+   */
+  readonly onDraft?: (event: AiPagePlanDraftEvent) => void;
 }
 
 /** @internal What the step reports while it works. */
@@ -446,6 +455,30 @@ function rejected(issues: readonly PagePlanIssue[]): AiRunFailure {
       .join(' ')}`,
     retryable: false,
   });
+}
+
+/**
+ * A compact answer — briefs, or an outline whose sections carry no purpose of
+ * their own — in the classic shape the validator read (DESIGN §6.2). A
+ * classic answer is quoted exactly as the model wrote it: the expansion also
+ * fills its defaults (`mustSay: []`), and the repair should see its own plan.
+ */
+function classicShape(candidate: PagePlanCandidate): PagePlanCandidate {
+  const sections = candidate['sections'];
+  const compact =
+    'briefs' in candidate ||
+    (Array.isArray(sections) &&
+      sections.some(
+        (section: unknown) =>
+          typeof section === 'object' &&
+          section !== null &&
+          typeof (section as { purpose?: unknown }).purpose !== 'string',
+      ));
+  if (!compact) return candidate;
+  const expanded: unknown = expandCompactPagePlan(candidate).value;
+  return typeof expanded === 'object' && expanded !== null && !Array.isArray(expanded)
+    ? (expanded as PagePlanCandidate)
+    : candidate;
 }
 
 /**
@@ -561,6 +594,7 @@ export async function proposeValidatedPagePlan(
           if (active() && text.trim().length > 0) note({ type: 'progress', text });
         },
         ...(attempt === undefined ? {} : { attempt }),
+        ...(input.onDraft === undefined ? {} : { onDraft: input.onDraft }),
       };
       const answer = await propose(request, context, live);
       assertActive();
@@ -570,6 +604,8 @@ export async function proposeValidatedPagePlan(
     const validation = {
       ...(input.target === undefined ? {} : { intent: input.target }),
       maxSections: input.maxSections ?? PAGE_PLAN_MAX_SECTIONS,
+      // The planner's answer is completed in code: header, footer, menu, hero photo, contact details.
+      completePage: true,
     };
     const first = await ask();
     const firstCandidate: PagePlanCandidate = first.pagePlan;
@@ -584,7 +620,15 @@ export async function proposeValidatedPagePlan(
     }
 
     note({ type: 'repairing', issues: checked.issues });
-    const second = await ask({ pagePlan: firstCandidate, issues: checked.issues });
+    /*
+      The repair quotes the plan in the CLASSIC shape the validator read
+      (DESIGN §6.2): an issue at \`sections[3].purpose\` must point at a field
+      the quoted plan has, and a compact answer keeps its purposes in
+      \`briefs\`. A classic answer is quoted as it was — the expansion returns
+      it unchanged.
+    */
+    const quoted = classicShape(firstCandidate);
+    const second = await ask({ pagePlan: quoted, issues: checked.issues });
     const repaired = validatePagePlan(second.pagePlan, validation);
     if (!repaired.ok) return fail(rejected(repaired.issues), repaired.issues);
     note({ type: 'ready', plan: repaired.plan });

@@ -168,6 +168,7 @@ function roastery(): Record<string, unknown> {
     primaryCta: { label: 'Order beans', href: '#order' },
     nav: [{ label: 'Menu', anchorId: 'menu' }],
     sections: [
+      { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Brand and menu.' },
       {
         key: 'hero',
         role: 'hero',
@@ -204,7 +205,7 @@ function roastery(): Record<string, unknown> {
     ],
     facts: [
       { key: 'price-espresso', sample: '1.5 JOD', section: 'menu' },
-      { key: 'phone', sample: '+962 7 9000 0000', section: 'footer' },
+      { key: 'phone', sample: '+962 7 9646 1275', section: 'footer' },
     ],
   };
 }
@@ -388,6 +389,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     expect(script.fills.every(({ request }) => request.includes('REGION ID: '))).toBe(true);
     expect(labels(live)[0]).toBe(PAGE_SKELETON_LABEL);
     expect(childLabels(live)).toEqual([
+      'Header',
       'Roasted this morning',
       'Our coffees',
       'Order today',
@@ -396,6 +398,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     expect(result.outcome).toBe('completed');
     expect(result.scaffold).toBeUndefined();
     expect(result.pagePlan?.sections.map(({ key }) => key)).toEqual([
+      'header',
       'hero',
       'menu',
       'order',
@@ -403,6 +406,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     ]);
     // Every section is accounted for, applied, in page order.
     expect(result.tasks.map(({ title, status }) => [title, status])).toEqual([
+      ['Header', 'applied'],
       ['Roasted this morning', 'applied'],
       ['Our coffees', 'applied'],
       ['Order today', 'applied'],
@@ -414,7 +418,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     expect(script.fills).toHaveLength(written.length);
     for (const task of written) {
       expect(labels(live)).toContain(task.landing?.label);
-      expect(task.landing?.label).toMatch(/^Assistant: \d\/4 — /u);
+      expect(task.landing?.label).toMatch(/^Assistant: \d\/5 — /u);
     }
     expect(result.unfilled).toEqual([]);
     // A writer that honours its contract passes the checker as written: no repair round.
@@ -426,8 +430,8 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     const script = scripted();
     await runAiBuild({ ...baseOptions(live, script.provider), target: 'replace' });
 
-    const hero = script.fills.find(({ request }) => request.includes('SECTION 1 OF 4'));
-    const menu = script.fills.find(({ request }) => request.includes('SECTION 2 OF 4'));
+    const hero = script.fills.find(({ request }) => request.includes('SECTION 2 OF 5'));
+    const menu = script.fills.find(({ request }) => request.includes('SECTION 3 OF 5'));
     if (hero === undefined || menu === undefined) throw new Error('missing fills');
 
     expect(hero.request).toContain('PURPOSE: Say what the roastery is and invite the first order.');
@@ -438,7 +442,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     expect(hero.request).toContain('ROLE: HERO');
     expect(hero.request).toContain('PRIMARY ACTION: "Order beans" → #order');
     // A markup writer (no variant, so no kit) still gets the page's tokens.
-    const order = script.fills.find(({ request }) => request.includes('SECTION 3 OF 4'));
+    const order = script.fills.find(({ request }) => request.includes('SECTION 4 OF 5'));
     expect(order?.request).toContain('--ck-accent #065f46');
     expect(menu.request).toContain('MUST NOT REPEAT');
     expect(menu.request).toContain('"Roasted in Amman"');
@@ -464,8 +468,8 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
 
     const photosOf = (call: FillCall | undefined) =>
       call?.context.fragments.filter(({ title }) => title === PHOTO_CATALOG_FRAGMENT_TITLE) ?? [];
-    const hero = script.fills.find(({ request }) => request.includes('SECTION 1 OF 4'));
-    const menu = script.fills.find(({ request }) => request.includes('SECTION 2 OF 4'));
+    const hero = script.fills.find(({ request }) => request.includes('SECTION 2 OF 5'));
+    const menu = script.fills.find(({ request }) => request.includes('SECTION 3 OF 5'));
 
     expect(photosOf(hero)).toHaveLength(1);
     const offered = JSON.parse(photosOf(hero)[0]?.body ?? '{}') as {
@@ -485,7 +489,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     const menu = result.tasks.find(({ sectionKey }) => sectionKey === 'menu');
     const footer = result.tasks.find(({ sectionKey }) => sectionKey === 'footer');
     expect(menu?.facts).toEqual([{ key: 'price-espresso', sample: '1.5 JOD' }]);
-    expect(footer?.facts).toEqual([{ key: 'phone', sample: '+962 7 9000 0000' }]);
+    expect(footer?.facts).toEqual([{ key: 'phone', sample: '+962 7 9646 1275' }]);
     expect(result.tasks.find(({ sectionKey }) => sectionKey === 'hero')?.facts).toBeUndefined();
   });
 
@@ -499,6 +503,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     if (planned?.type !== 'build.planned') throw new Error('no build.planned');
     expect(planned.writers).toBe(fillConcurrencyFor(script.fills.length, undefined));
     expect(planned.tasks.map(({ title }) => title)).toEqual([
+      'Header',
       'Roasted this morning',
       'Our coffees',
       'Order today',
@@ -541,6 +546,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     const result = await runAiBuild({ ...baseOptions(live, script.provider), target: 'replace' });
 
     expect(childLabels(live)).toEqual([
+      'Header',
       'Roasted this morning',
       'Our coffees',
       'Order today',
@@ -565,6 +571,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     expect(script.planCalls).toHaveLength(0);
     expect(result.pagePlan).toEqual(given);
     expect(childLabels(live)).toEqual([
+      'Header',
       'Roasted this morning',
       'Our coffees',
       'Order today',
@@ -639,6 +646,7 @@ describe('the one approval, on a page plan', () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]?.written).toBe(0);
     expect(seen[0]?.titles).toEqual([
+      'Header',
       'Roasted this morning',
       'Our coffees',
       'Order today',
@@ -668,8 +676,8 @@ describe('the one approval, on a page plan', () => {
       },
     });
 
-    expect(childLabels(live)).toEqual(['Roasted this morning', 'Order today', 'Footer']);
-    expect(result.pagePlan?.sections.map(({ key }) => key)).toEqual(['hero', 'order', 'footer']);
+    expect(childLabels(live)).toEqual(['Header', 'Roasted this morning', 'Order today', 'Footer']);
+    expect(result.pagePlan?.sections.map(({ key }) => key)).toEqual(['header', 'hero', 'order', 'footer']);
     // The direction is prose; the sections of the plan that was BUILT are data.
     expect(result.direction).toBe('A warm, bean-forward roastery page.');
   });
@@ -705,7 +713,7 @@ describe('the one approval, on a page plan', () => {
     expect(live.transactions()).toHaveLength(0);
     expect(result.outcome).toBe('signal');
     expect(result.tasks).toEqual([]);
-    expect(result.plannedTasks?.map(({ title }) => title)).toHaveLength(4);
+    expect(result.plannedTasks?.map(({ title }) => title)).toHaveLength(5);
     expect(result.pagePlan?.title).toBe('Northlight Coffee | Amman roastery');
     expect(script.fills).toHaveLength(0);
   });
@@ -746,12 +754,13 @@ describe('the one approval, on a page plan', () => {
     expect(live.transactions()).toHaveLength(0);
     expect(script.fills).toHaveLength(0);
     expect(result.plannedTasks?.map(({ title }) => title)).toEqual([
+      'Header',
       'Roasted this morning',
       'Our coffees',
       'Order today',
       'Footer',
     ]);
-    expect(result.pagePlan?.sections).toHaveLength(4);
+    expect(result.pagePlan?.sections).toHaveLength(5);
   });
 });
 
@@ -902,6 +911,7 @@ describe('where a page-plan build lands, and how it stops', () => {
     expect(labels(live)).toEqual([PAGE_SKELETON_LABEL]);
     const statuses = result.tasks.map(({ sectionKey, status }) => [sectionKey, status]);
     expect(statuses).toEqual([
+      ['header', 'applied'],
       ['hero', 'not-started'],
       ['menu', 'not-started'],
       ['order', 'not-started'],
@@ -926,7 +936,7 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
     const script = scripted({
       fill: (call) => {
         const tree = honestSection(call.request);
-        if (call.request.includes('SECTION 2 OF 4')) {
+        if (call.request.includes('SECTION 3 OF 5')) {
           // A bracketed placeholder is exactly what a published page must never show.
           const section = tree.children[0];
           if (section?.kind === 'element') {
@@ -960,7 +970,7 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
     const result = await runAiBuild({ ...baseOptions(live, script.provider), target: 'replace' });
 
     expect(script.repairs).toHaveLength(1);
-    expect(script.repairs[0]?.request).toContain('SECTION 2 OF 4');
+    expect(script.repairs[0]?.request).toContain('SECTION 3 OF 5');
     expect(
       script.repairs[0]?.issues.some(({ message }) => /placeholder|\[price\]/iu.test(message)),
     ).toBe(true);
@@ -1008,9 +1018,9 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
     };
     const script = scripted({
       fill: (call) => {
-        if (call.request.includes('SECTION 1 OF 4')) return withPhoto(call, shopFront);
-        if (call.request.includes('SECTION 2 OF 4')) return withPhoto(call, counter);
-        if (call.request.includes('SECTION 3 OF 4')) return withPhoto(call, invented);
+        if (call.request.includes('SECTION 2 OF 5')) return withPhoto(call, shopFront);
+        if (call.request.includes('SECTION 3 OF 5')) return withPhoto(call, counter);
+        if (call.request.includes('SECTION 4 OF 5')) return withPhoto(call, invented);
         return withPhoto(call, shopFront);
       },
       repair: (request) => ({
@@ -1044,7 +1054,7 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
     ).toContain(shopFront);
     // The one address nobody gave is still sent back, in exactly one repair call.
     expect(script.repairs.map(({ request }) => /SECTION (\d) OF/u.exec(request)?.[1])).toEqual([
-      '3',
+      '4',
     ]);
     expect(script.repairs[0]?.issues.some(({ message }) => message.includes(invented))).toBe(true);
   });
@@ -1070,8 +1080,8 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
       target: 'replace',
     });
 
-    const hero = script.fills.find(({ request }) => request.includes('SECTION 1 OF 4'));
-    const menu = script.fills.find(({ request }) => request.includes('SECTION 2 OF 4'));
+    const hero = script.fills.find(({ request }) => request.includes('SECTION 2 OF 5'));
+    const menu = script.fills.find(({ request }) => request.includes('SECTION 3 OF 5'));
     const ownLine = /^THEIR OWN PHOTOS[^\n]*$/mu.exec(hero?.request ?? '')?.[0] ?? '';
     expect(ownLine).toContain(shopFront);
     expect(ownLine).toContain(counter);
@@ -1090,7 +1100,7 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
       fill: (call) => {
         const tree = honestSection(call.request);
         const section = tree.children[0];
-        if (call.request.includes('SECTION 2 OF 4') && section?.kind === 'element') {
+        if (call.request.includes('SECTION 3 OF 5') && section?.kind === 'element') {
           section.children = [
             ...(section.children ?? []),
             { kind: 'element', tag: 'p', text: 'Espresso [price]', children: [] },

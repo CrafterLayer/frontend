@@ -184,6 +184,14 @@ export function hasKitBlock(pageCss: string): boolean {
   return PLAN_BLOCK.test(pageCss);
 }
 
+/** The page css split into its kit block (undefined when it has none) and everything else, trimmed. */
+export function splitKitBlock(pageCss: string): { readonly block: string | undefined; readonly rest: string } {
+  PLAN_BLOCK.lastIndex = 0;
+  const block = pageCss.match(PLAN_BLOCK)?.[0];
+  PLAN_BLOCK.lastIndex = 0;
+  return { block, rest: pageCss.replace(PLAN_BLOCK, '').trim() };
+}
+
 /**
  * The kit as the page holds it. A page with no kit block reads as the
  * defaults (and `hasKit: false`), so a tool can write a fresh block.

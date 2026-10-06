@@ -186,7 +186,8 @@ describe('normalizeAiPlanTrees — the tree vocabulary', () => {
     textarea) was refused whole as "Invalid input". The vocabulary has no
     controls on purpose; the section's words and layout still belong on the page.
   */
-  it('keeps a form section as layout and drops the controls nothing could wire up', () => {
+  // 2026-10-05: the widened door admits form controls (the owner wants to build anything).
+  it('keeps a form section with its controls as written', () => {
     const result = normalizeAiPlanTrees(
       planWith([
         {
@@ -208,18 +209,18 @@ describe('normalizeAiPlanTrees — the tree vocabulary', () => {
       children: [
         {
           kind: 'element',
-          tag: 'div',
+          tag: 'form',
           className: 'grid gap-4',
           children: [
-            { kind: 'element', tag: 'span', text: 'Your name' },
+            { kind: 'element', tag: 'label', text: 'Your name' },
+            { kind: 'element', tag: 'input', className: 'border-2' },
+            { kind: 'element', tag: 'textarea' },
             { kind: 'element', tag: 'button', text: 'Send' },
           ],
         },
       ],
     });
-    expect(result.adjustments).toEqual(
-      expect.arrayContaining(['form → div', 'label → span', 'dropped input', 'dropped textarea']),
-    );
+    expect(result.adjustments).not.toContain('form → div');
   });
 
   // b and i joined the vocabulary on 2026-09-28; before, they became strong and em.
@@ -260,7 +261,7 @@ describe('normalizeAiPlanTrees — the tree vocabulary', () => {
           kind: 'element',
           tag: 'a',
           text: 'Menu',
-          attributes: { 'aria-label': 'Open the menu', href: '#menu' },
+          attributes: { rel: 'nofollow', 'aria-label': 'Open the menu', href: '#menu' },
         },
       ],
     });
@@ -374,8 +375,11 @@ describe('normalizeAiPlanTrees — trees written as markup', () => {
           children: [
             {
               kind: 'element',
-              tag: 'div',
-              children: [{ kind: 'element', tag: 'h2', text: 'تواصل' }],
+              tag: 'form',
+              children: [
+                { kind: 'element', tag: 'h2', text: 'تواصل' },
+                { kind: 'element', tag: 'input' },
+              ],
             },
           ],
         },
@@ -693,7 +697,10 @@ describe('normalizeAiPlanTrees — design markup', () => {
       children: [
         el('svg', {
           attributes: { viewBox: '0 0 10 10' },
-          children: [el('path', { attributes: { d: 'M0 0' } })],
+          children: [
+            el('text', { text: 'Hello' }),
+            el('path', { attributes: { d: 'M0 0' } }),
+          ],
         }),
       ],
     });

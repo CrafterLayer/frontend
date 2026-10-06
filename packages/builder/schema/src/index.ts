@@ -463,3 +463,184 @@ export {
 export * from './seo';
 export { pageSeoSchema, type PageSeo } from './seo';
 // end seo additions
+// ── P2-tree-commands (style-manager DESIGN.md) ──
+// Pure, immutable path-addressed operations over one custom-code tree (§D.2);
+// the custom-code extension's tree commands wrap them behind the door.
+export {
+  adjustAfterRemoval,
+  cloneTreeNode,
+  duplicateNodeAt,
+  extractNodeAt,
+  formatTextRange,
+  insertNodeAt,
+  moveNode,
+  patchNodeAt,
+  removeNodeAt,
+  setNodeAt,
+  similarSiblings,
+  treeNodeAt,
+  unwrapNodeAt,
+  wrapNodesAt,
+  TREE_TEXT_MARKS,
+  type TreeNodePatch,
+  type TreeOpErrorCode,
+  type TreeOpFailure,
+  type TreeOpResult,
+  type TreeTextMark,
+  type TreeTextMarkExtras,
+  type TreeWrapper,
+} from './custom-code/custom-code-tree-ops';
+// ── end P2-tree-commands ──
+// ── P5-site-library (style-manager DESIGN.md) ──
+// The optional site design library (§2, D5/D6): palette, named styles,
+// symbols, saved templates, fonts and site motion settings, plus the readers
+// that say where an entry is used.
+export {
+  applySymbolOverrides,
+  DETACHED_SYMBOL_BLOCK_TYPE,
+  expandNamedStyleMarkers,
+  hasNamedStyleMarker,
+  isLibraryId,
+  isPaletteColorValue,
+  isUploadedFontUrl,
+  LIBRARY_ID_PATTERN,
+  LIBRARY_LIMITS,
+  libraryIdSchema,
+  NAMED_STYLE_MARKER_PREFIX,
+  namedStyleClassProblem,
+  namedStyleIdOf,
+  namedStyleMarker,
+  namedStyleSchema,
+  paletteColorSchema,
+  paletteVariable,
+  savedTemplateSchema,
+  SITE_FONT_FAMILY,
+  siteFontSchema,
+  siteLibrarySchema,
+  siteLibrarySettingsSchema,
+  siteSymbolSchema,
+  SYMBOL_INSTANCE_BLOCK_TYPE,
+  symbolOverrideSchema,
+  symbolOverridesSchema,
+  UPLOADED_FONT_PREFIX,
+  validateSiteLibrary,
+  type LibraryId,
+  type NamedStyle,
+  type PaletteColor,
+  type SavedTemplate,
+  type SiteFont,
+  type SiteFontScript,
+  type SiteFontSource,
+  type SiteLibrary,
+  type SiteLibrarySettings,
+  type SiteLibraryValidationResult,
+  type SiteSymbol,
+  type SymbolOverride,
+} from './site/library';
+export {
+  describeLibraryUsage,
+  describeLibraryUsages,
+  findAssetUsages,
+  findNamedStyleUsages,
+  findPaletteUsages,
+  findSymbolInstances,
+  holdsClassToken,
+  isSymbolInstance,
+  libraryHosts,
+  namedStyleUsageCounts,
+  referencedSymbolIds,
+  symbolCycle,
+  walkLibraryValues,
+  type LibraryHost,
+  type LibraryUsage,
+  type LibraryUsageOwner,
+  type LibraryWalkVisitor,
+} from './site/library-usage';
+// ── end P5-site-library ──
+// ── P3-vocabulary-renderer (style-manager DESIGN.md) ──
+// The widened door (§D.1): forms, dialog, allowlisted iframes, audio, the svg
+// text/filter family, motion attributes (§B.2), effect hooks (§C.1), Tabler
+// icon names, editor metadata, the region css cap and the component-props
+// resolver.
+export {
+  CUSTOM_CODE_AUTOCOMPLETE_TOKENS,
+  CUSTOM_CODE_FORM_TAGS,
+  CUSTOM_CODE_IFRAME_ALLOW,
+  CUSTOM_CODE_IFRAME_REFERRER_POLICY,
+  CUSTOM_CODE_IFRAME_SANDBOX,
+  CUSTOM_CODE_IFRAME_SOURCES,
+  CUSTOM_CODE_INPUT_TYPES,
+  CUSTOM_CODE_LABEL_MAX,
+  CUSTOM_CODE_REGION_CSS_MAX,
+  CUSTOM_CODE_REL_TOKENS,
+  CUSTOM_CODE_SVG_TEXT_TAGS,
+  getCustomCodeComponentSchemaResolver,
+  isAllowedIframeSrc,
+  isCustomCodeIconName,
+  parseCustomCodeIconName,
+  setCustomCodeComponentSchemaResolver,
+  type CustomCodeComponentSchemaResolver,
+  type CustomCodeIconRef,
+  type CustomCodeIconSet,
+} from './custom-code/custom-code-tree';
+export {
+  CUSTOM_CODE_ENTRANCE_PRESETS,
+  CUSTOM_CODE_HOVER_PRESETS,
+  CUSTOM_CODE_LOOP_PRESETS,
+  CUSTOM_CODE_MOTION_ATTRIBUTES,
+  CUSTOM_CODE_MOTION_DELAYS,
+  CUSTOM_CODE_MOTION_DISTANCES,
+  CUSTOM_CODE_MOTION_EASES,
+  CUSTOM_CODE_MOTION_NAME_ATTRIBUTES,
+  CUSTOM_CODE_MOTION_ONCE,
+  CUSTOM_CODE_MOTION_PARAMS,
+  CUSTOM_CODE_MOTION_PRESETS,
+  CUSTOM_CODE_MOTION_SPEEDS,
+  CUSTOM_CODE_MOTION_STAGGERS,
+  CUSTOM_CODE_MOTION_TRIGGERS,
+  CUSTOM_CODE_MOTION_TRIGGER_TABLE,
+  CUSTOM_CODE_SCROLL_PRESETS,
+  CUSTOM_CODE_STAGGER_PRESETS,
+  CUSTOM_CODE_TEXT_PRESETS,
+  isHoverPreset,
+  isMotionPreset,
+  isMotionTrigger,
+  motionPresetGroup,
+  motionTriggerProblem,
+  motionTriggersFor,
+  type CustomCodeHoverPreset,
+  type CustomCodeMotionEase,
+  type CustomCodeMotionGroup,
+  type CustomCodeMotionPreset,
+  type CustomCodeMotionTrigger,
+} from './custom-code/motion-vocabulary';
+export {
+  CUSTOM_CODE_EFFECTS,
+  CUSTOM_CODE_EFFECT_PREFIX,
+  customCodeEffectClass,
+  customCodeEffectOfClass,
+  isCustomCodeEffect,
+  isCustomCodeEffectNamespace,
+  type CustomCodeEffect,
+} from './custom-code/effects-vocabulary';
+export {
+  TABLER_VERSION,
+  isTablerIconName,
+  tablerFilledIconNames,
+  tablerOutlineIconNames,
+} from './custom-code/tabler-icon-names';
+// ── end P3-vocabulary-renderer ──
+// ── P1-style-engine (style-manager DESIGN.md) ──
+// The headless class-patch engine (§A.2–A.4): intents → className, the §A.4
+// catalogue, named-style expansion, copy/paste style and ckTwMerge.
+export * from './style';
+// ── end P1-style-engine ──
+// ── P12-fix-pass (style-manager DESIGN.md) ──
+// The HTML content model the tree door enforces (void tags, phrasing-only
+// parents, no interactive content inside a link or a button).
+export {
+  CUSTOM_CODE_VOID_TAGS,
+  customCodeTagAccepts,
+  customCodeTagHoldsContent,
+} from './custom-code/custom-code-tree';
+// ── end P12-fix-pass ──

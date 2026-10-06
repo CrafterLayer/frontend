@@ -196,3 +196,24 @@ export const RightToLeft: Story = {
     await expect(canvas.getByRole('group', { name: 'Formatting' })).toHaveAttribute('dir', 'rtl');
   },
 };
+
+/** P7: the one-field prompt (the link address while formatting tree text). */
+export const LinkPrompt: Story = {
+  args: {
+    dir: 'ltr',
+    actions: [],
+    prompt: {
+      label: 'Link address',
+      submitLabel: 'Apply',
+      cancelLabel: 'Cancel',
+      initialValue: 'https://',
+      onSubmit: () => undefined,
+      onCancel: () => undefined,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByLabelText('Link address')).toHaveValue('https://');
+    await expect(canvas.queryByRole('button', { name: 'Bold' })).toBeNull();
+  },
+};

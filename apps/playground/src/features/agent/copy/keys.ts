@@ -206,6 +206,10 @@ export const KEYS = [
   'change.label.text',
   'change.label.pageDirection',
   'change.label.pageSurface',
+  // colour-target-fix additions: a page css change in words, never its raw CSS.
+  'change.label.pageColours',
+  'change.label.pageStyling',
+  // end colour-target-fix additions
   'change.value.ltr',
   'change.value.rtl',
   'change.value.on',

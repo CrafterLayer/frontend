@@ -381,9 +381,25 @@ export interface AiPagePlanAttempt {
   readonly issues: readonly PagePlanIssue[];
 }
 
+/**
+ * The raw text of a page-plan answer while the model is still writing it
+ * (the `draft` SSE frame, wire.ts `AiPlanWireDraft`). `start`: a (new)
+ * response began — forget any earlier text. `text`: the next raw slice of the
+ * model's answer, in order. Advisory only: the resolved proposal is the
+ * authority, and a provider that does not stream emits nothing.
+ */
+export type AiPagePlanDraftEvent =
+  { readonly kind: 'start' } | { readonly kind: 'text'; readonly text: string };
+
 export interface AiProposePagePlanOptions extends AiProposeOptions {
   /** Present on the one repair call; absent on the first proposal. */
   attempt?: AiPagePlanAttempt;
+  /**
+   * Observer of the streamed answer text (see `AiPagePlanDraftEvent`).
+   * Advisory only: the resolved proposal is the authority. Observer errors are
+   * swallowed by the provider and never change the call's outcome.
+   */
+  onDraft?: (event: AiPagePlanDraftEvent) => void;
 }
 
 /** Dedicated deterministic capabilities for preflight; never borrow the live kernel's instances. */

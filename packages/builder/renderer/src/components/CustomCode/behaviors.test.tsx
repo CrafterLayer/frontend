@@ -74,6 +74,32 @@ describe('CustomCode site behaviours', () => {
     expect(open).toHaveBeenCalledTimes(1);
   });
 
+  it('gives a motion-only region its presets, the runtime and data-ck-still on the canvas', () => {
+    const { container } = render(
+      <CustomCode
+        hostId="m"
+        isCanvas
+        tree={tree([
+          { kind: 'element', tag: 'h2', text: 'Hi', attributes: { 'data-ck-motion': 'fade-up' } },
+        ])}
+      />,
+    );
+    expect(document.head.querySelectorAll('style[data-ck-motion-css]')).toHaveLength(1);
+    expect(container.querySelector('[data-ck-custom-code]')?.hasAttribute('data-ck-still')).toBe(true);
+  });
+
+  it('gives an effects-only region the effects stylesheet without mounting the runtime', () => {
+    const { container } = render(
+      <CustomCode
+        hostId="fx"
+        isCanvas
+        tree={tree([{ kind: 'element', tag: 'div', className: 'ck-fx-glass p-4', text: 'x' }])}
+      />,
+    );
+    expect(document.head.querySelectorAll('style[data-ck-effects-css]')).toHaveLength(1);
+    expect(container.querySelector('[data-ck-still]')).toBeNull();
+  });
+
   it('mounts nothing and injects no styles for a tree without behaviours', () => {
     const { container } = render(
       <CustomCode hostId="h" tree={tree([{ kind: 'element', tag: 'p', text: 'hi' }])} />,

@@ -10,13 +10,29 @@ import { isCustomCodeTreeSchema, isCustomCssSchema } from '@craftkit/builder-sch
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { CustomCodeBlock, customCodeSchema } from './CustomCodeBlock';
+// P2-tree-commands additions
+import { treeNodeCommands } from './commands';
+// end P2-tree-commands additions
+// P9-design-system-ui additions
+import { SymbolInstanceBlock, customCodeSymbolSchema } from './SymbolInstanceBlock';
+// end P9-design-system-ui additions
 
 export const builderCustomCode: TrustedExtensionManifest = {
   tier: 1,
   name: 'custom-code',
   version: '0.1.0',
   contributes: {
-    blocks: [{ schema: customCodeSchema, render: CustomCodeBlock }],
+    blocks: [
+      { schema: customCodeSchema, render: CustomCodeBlock },
+      // P9-design-system-ui additions: symbol instances (style-manager DESIGN.md §G).
+      { schema: customCodeSymbolSchema, render: SymbolInstanceBlock },
+      // end P9-design-system-ui additions
+    ],
+    // P2-tree-commands additions: path-addressed element edits (style-manager
+    // DESIGN.md §D.2) as page commands — one validated, labelled, undoable
+    // write path for the panel, canvas, layers, clipboard and agent.
+    commands: { ...treeNodeCommands },
+    // end P2-tree-commands additions
     /*
       Both controls match on a DECLARATION, never on a property name — the rule
       `richText()` established. `pageCss` on the page root is not this pack's
@@ -56,3 +72,13 @@ export {
   type CustomCodeBlockProps,
   type CustomCodeCssPolicy,
 } from './CustomCodeBlock';
+// P2-tree-commands additions
+export * from './commands';
+// end P2-tree-commands additions
+// P9-design-system-ui additions
+export {
+  SymbolInstanceBlock,
+  customCodeSymbolSchema,
+  type SymbolInstanceBlockProps,
+} from './SymbolInstanceBlock';
+// end P9-design-system-ui additions

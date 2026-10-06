@@ -286,6 +286,12 @@ export function createRetryingAiPlanProvider(
     playground's env provider lost `proposePagePlan` here even once the
     remote provider had it — every build fell back to the scaffold path
     (engine wave-2 verifier).
+
+    `live` reaches EVERY attempt unchanged, `onDraft` included (fast page
+    build, 2026-10-05): the remote provider says `start` when each attempt's
+    stream begins, so a retry's draft observer forgets the failed attempt's
+    partial text before the new one arrives — nothing here has to replay or
+    filter drafts.
   */
   if (innerProposePagePlan !== undefined) {
     provider.proposePagePlan = (

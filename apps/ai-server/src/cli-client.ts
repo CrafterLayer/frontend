@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type Anthropic from '@anthropic-ai/sdk';
 
+import type { CliWarmPool } from './cli-warm-pool';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
 
@@ -64,6 +66,8 @@ export interface CliChildProcess {
   readonly stdin: {
     on: (event: 'error', listener: () => void) => unknown;
     end: (text: string) => unknown;
+    /** Used only to keep a warm spare waiting (`cli-warm-pool.ts`); a fake may leave it out. */
+    write?: (text: string) => unknown;
   };
   readonly on: {
     (event: 'error', listener: (error: Error) => void): unknown;
@@ -110,6 +114,12 @@ export interface CliClientOptions {
   readonly writeSystemPrompt?: (text: string) => SystemPromptFile;
   /** One line per run milestone, for the server's own terminal. */
   readonly onLog?: (line: string) => void;
+  /**
+   * Keeps one pre-spawned `claude -p` per call shape waiting on stdin, so the
+   * next call of that shape skips the process start-up (DESIGN §7). Shared by
+   * every client the server builds; omitted ⇒ every call starts cold, as before.
+   */
+  readonly warmPool?: CliWarmPool;
 }
 
 /**
@@ -302,6 +312,12 @@ interface CliTiming {
   readonly elapsedMs: number;
   /** Spawn to the CLI's first event — the process starting, before any model call. */
   readonly startupMs: number;
+  /**
+   * The prompt written to stdin to the CLI's first event: the number a warm
+   * spare is judged by (DESIGN D8), since a spare spawned long before its
+   * prompt arrived has no meaningful "spawn" time of its own.
+   */
+  readonly firstEventMs: number;
 }
 
 /**
@@ -320,7 +336,8 @@ function usageLine(usage: CliUsage, timing: CliTiming): string {
     `cli usage — in ${formatCount(usage.input)}, cache read ${formatCount(usage.cacheRead)}, ` +
     `cache write ${formatCount(usage.cacheWrite)}, out ${formatCount(usage.output)}` +
     (usage.apiMs === undefined ? '' : `, model ${formatElapsed(usage.apiMs)}`) +
-    `, start-up ${formatElapsed(timing.startupMs)}, run ${formatElapsed(timing.elapsedMs)}`
+    `, start-up ${formatElapsed(timing.startupMs)}, run ${formatElapsed(timing.elapsedMs)}` +
+    `, stdin→first event ${String(timing.firstEventMs)} ms`
   );
 }
 
@@ -359,24 +376,33 @@ const spawnRealCli: SpawnCli = (command, args, env) =>
     // stdio triple they are always streams.
   }) as unknown as CliChildProcess;
 
-function runClaude(
-  prompt: string,
-  args: readonly string[],
-  timeoutMs: number,
-  spawnCli: SpawnCli,
-  env: Readonly<Record<string, string>> | undefined,
-  onThinking: (delta: string) => void,
-  onLog: (line: string) => void,
-  signal: AbortSignal | undefined,
-): Promise<Anthropic.Message> {
+/** One CLI run: a child already spawned (cold, or a warm spare) and what to tell whom. */
+interface CliRun {
+  readonly child: CliChildProcess;
+  readonly prompt: string;
+  readonly timeoutMs: number;
+  /** The thinking narration (`stream.on('thinking')`). */
+  readonly onThinking: (delta: string) => void;
+  /** Each piece of the answer's text as it is written (`stream.on('text')`). */
+  readonly onText: (delta: string) => void;
+  readonly onLog: (line: string) => void;
+  readonly signal: AbortSignal | undefined;
+}
+
+/**
+ * Drives one child to its answer. The child is spawned by the caller —
+ * either now (cold) or earlier, as a warm spare waiting on stdin — and is
+ * driven, timed out, cancelled and killed identically either way.
+ */
+function runClaude(run: CliRun): Promise<Anthropic.Message> {
+  const { child, prompt, timeoutMs, onThinking, onText, onLog, signal } = run;
   return new Promise((resolve, reject) => {
-    // Cancelled before it began: no process is worth starting for nobody.
+    // Cancelled before it began (the caller checks first; this is the backstop).
     if (signal?.aborted === true) {
+      killTree(child.pid, () => child.kill('SIGTERM'));
       reject(cancelled());
       return;
     }
-    const child =
-      env === undefined ? spawnCli('claude', args) : spawnCli('claude', args, env);
 
     let settled = false;
     let buffer = '';
@@ -387,6 +413,8 @@ function runClaude(
     let firstEventAt: number | undefined;
 
     const startedAt = Date.now();
+    /** When the prompt went in: the start a warm spare's latency is measured from. */
+    let stdinWrittenAt = startedAt;
     const narrator = new RunNarrator(onThinking, startedAt);
     const narrationTimer = setInterval(() => {
       narrator.emit();
@@ -468,6 +496,8 @@ function runClaude(
             }
             if (delta['type'] === 'text_delta' && typeof delta['text'] === 'string') {
               narrator.addText(delta['text'].length);
+              // The answer as it is written: a page plan's drafts (handler.ts).
+              onText(delta['text']);
             }
           }
         }
@@ -493,6 +523,7 @@ function runClaude(
               usageLine(usage, {
                 elapsedMs: Date.now() - startedAt,
                 startupMs: firstEventAt - startedAt,
+                firstEventMs: firstEventAt - stdinWrittenAt,
               }),
             );
           }
@@ -549,6 +580,7 @@ function runClaude(
         );
       });
     });
+    stdinWrittenAt = Date.now();
     child.stdin.end(prompt);
   });
 }
@@ -578,17 +610,57 @@ function callModel(requested: string | undefined, options: CliClientOptions): st
   return options.model;
 }
 
+/**
+ * The warm-pool key of one call shape: everything that decides the spare's
+ * command line and system file. Hashed so the pool never holds a prompt.
+ */
+export function cliShapeKey(
+  model: string | undefined,
+  effort: CliEffort | undefined,
+  thinkingOff: boolean,
+  system: string,
+): string {
+  return createHash('sha256')
+    .update(JSON.stringify([model ?? null, effort ?? null, thinkingOff, system]))
+    .digest('hex');
+}
+
+/**
+ * What a warm spare is sent the moment it starts. `claude -p` gives up on an
+ * empty stdin after 3 s ("no stdin data received in 3s, proceeding without
+ * it", then "Input must be provided"; measured 2026-10-05 on 2.1.283), so a
+ * spare that only waited would be dead before the next call came. One
+ * newline keeps it reading; it leads the prompt, where whitespace is inert.
+ */
+const SPARE_KEEPALIVE = '\n';
+
 /** A `client.messages.stream(...)`-shaped shim over the local `claude` CLI. */
 export function createCliClient(options: CliClientOptions = {}): Anthropic {
   const timeoutMs = options.timeoutMs ?? CLI_DEFAULT_TIMEOUT_MS;
   const spawnCli = options.spawnCli ?? spawnRealCli;
   const writeSystemPrompt = options.writeSystemPrompt ?? writeSystemPromptFile;
   const onLog = options.onLog ?? ((): void => undefined);
+  const warmPool = options.warmPool;
+  /** Calls of each shape now running: how many spares the next wave of that shape wants. */
+  const running = new Map<string, number>();
 
   const stream = (params: CliStreamParams, requestOptions: CliRequestOptions = {}) => {
     const listeners = new Map<string, (delta: string) => void>();
+    const shim = (done: Promise<Anthropic.Message>) => ({
+      on: (event: string, listener: (delta: string) => void) => {
+        listeners.set(event, listener);
+      },
+      finalMessage: () => done,
+    });
+    /** A call that ends before any child runs; observed so an unread rejection is never "unhandled". */
+    const failed = (error: Error) => {
+      const done: Promise<Anthropic.Message> = Promise.reject(error);
+      done.catch(() => undefined);
+      return shim(done);
+    };
+    // Cancelled before it began: no process is worth starting (or taking) for nobody.
+    if (requestOptions.signal?.aborted === true) return failed(cancelled());
     const prompt = renderPrompt(params);
-    const systemFile = prompt.system === '' ? undefined : writeSystemPrompt(prompt.system);
     // A per-call budget (a section writer's) wins over the backend default.
     const effort =
       CLI_EFFORT_LEVELS.find(
@@ -596,33 +668,96 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
       ) ?? options.effort;
     const model = callModel(params.model, options);
     const thinkingOff = params.thinking?.type === 'disabled';
-    const args = buildArgs(model, effort, systemFile?.path, thinkingOff);
+    const env = thinkingOff ? THINKING_OFF_ENV : undefined;
+    /** Spawns this shape's child with its own system file, exactly as a cold call always has. */
+    const spawnShape = (): { child: CliChildProcess; systemFile: SystemPromptFile | undefined } => {
+      const systemFile = prompt.system === '' ? undefined : writeSystemPrompt(prompt.system);
+      const args = buildArgs(model, effort, systemFile?.path, thinkingOff);
+      try {
+        const child = env === undefined ? spawnCli('claude', args) : spawnCli('claude', args, env);
+        return { child, systemFile };
+      } catch (cause) {
+        systemFile?.remove();
+        throw cause;
+      }
+    };
+
+    const key =
+      warmPool === undefined ? undefined : cliShapeKey(model, effort, thinkingOff, prompt.system);
+    const spare = key === undefined ? undefined : warmPool?.take(key);
+    /*
+      Said as it is (fix pass 2026-10-05): a spare primed a moment ago is still
+      in its own start-up, and calling it plain "warm" hid that concurrent
+      writers' "warm" starts took 4.0-4.4 s to the first event. Its age says
+      how much of the start-up it saved.
+    */
+    const startKind =
+      spare === undefined
+        ? 'cold'
+        : `warm (spare ${(Math.max(0, Date.now() - spare.spawnedAt) / 1000).toFixed(1)} s old)`;
     onLog(
-      `cli run started — model ${model ?? '(CLI default)'}, ` +
+      `cli run started — ${startKind}, model ${model ?? '(CLI default)'}, ` +
         `effort ${effort ?? '(CLI default)'}${thinkingOff ? ', thinking off' : ''}, ` +
         `system ${formatCount(prompt.system.length)} + ` +
         `request ${formatCount(prompt.user.length)} characters`,
     );
-    const done = runClaude(
-      prompt.user,
-      args,
+    let started: { child: CliChildProcess; systemFile: SystemPromptFile | undefined };
+    if (spare === undefined) {
+      try {
+        started = spawnShape();
+      } catch (cause) {
+        return failed(
+          new CliBackendError(
+            'The dev backend could not start the `claude` CLI ' +
+              `(${boundedCliText(cause instanceof Error ? cause.message : String(cause))}).`,
+          ),
+        );
+      }
+    } else {
+      started = { child: spare.child as CliChildProcess, systemFile: spare.systemFile };
+    }
+    const { systemFile } = started;
+    if (key !== undefined) running.set(key, (running.get(key) ?? 0) + 1);
+    const done = runClaude({
+      child: started.child,
+      prompt: prompt.user,
       timeoutMs,
-      spawnCli,
-      thinkingOff ? THINKING_OFF_ENV : undefined,
-      (delta) => {
+      onThinking: (delta) => {
         listeners.get('thinking')?.(delta);
       },
-      onLog,
-      requestOptions.signal,
-    ).finally(() => {
-      systemFile?.remove();
-    });
-    return {
-      on: (event: string, listener: (delta: string) => void) => {
-        listeners.set(event, listener);
+      onText: (delta) => {
+        listeners.get('text')?.(delta);
       },
-      finalMessage: () => done,
-    };
+      onLog,
+      signal: requestOptions.signal,
+    }).finally(() => {
+      systemFile?.remove();
+      if (key !== undefined) {
+        const left = (running.get(key) ?? 1) - 1;
+        if (left <= 0) running.delete(key);
+        else running.set(key, left);
+      }
+    });
+    /*
+      After the prompt went in, so the spare never competes with the call
+      that is waiting: the NEXT call of this shape finds it ready.
+    */
+    if (warmPool !== undefined && key !== undefined) {
+      // As many spares as calls of this shape are running: a writer wave's next call finds one each.
+      const want = Math.max(1, running.get(key) ?? 1);
+      warmPool.prime(key, () => {
+        const next = spawnShape();
+        // An idle spare's input is nobody's to fail on; its run attaches its own handler.
+        next.child.stdin.on('error', () => undefined);
+        next.child.stdin.write?.(SPARE_KEEPALIVE);
+        return {
+          child: next.child,
+          ...(next.systemFile === undefined ? {} : { systemFile: next.systemFile }),
+          spawnedAt: Date.now(),
+        };
+      }, want);
+    }
+    return shim(done);
   };
 
   return { messages: { stream } } as unknown as Anthropic;

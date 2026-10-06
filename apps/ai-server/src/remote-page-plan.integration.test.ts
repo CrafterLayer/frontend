@@ -45,6 +45,14 @@ import { PAGE_PLAN_ANSWER_SCHEMA, PAGE_PLAN_EXAMPLE } from './plan-shape';
     skillRegistry." — measured here 2026-09-28: every writer skipped and the
     scaffold never ran. A registry that knows no skills is what a skill-less
     headless host means.
+
+  2026-10-05 (speed DESIGN §3): the documented answer is now the COMPACT plan
+  — tokens by deck row, an outline, one brief per section with its facts —
+  so the fake backend answers what T1 is asked for, and the build must read
+  it through the client's expansion (validatePagePlan) into the full plan:
+  the row's palette and faces, anchors from keys, the menu from the nav
+  labels, each brief merged into its section, the facts ledger from the
+  briefs. The fake streams no text, so no draft frames: the classic flow.
 */
 
 const TOKEN = 'integration-secret';
@@ -277,6 +285,38 @@ describe('the page-plan path is reachable through the real remote provider and h
       'order',
       'footer',
     ]);
+    // The compact answer, expanded by the client into the full contract.
+    expect(PAGE_PLAN_EXAMPLE.pagePlan).toHaveProperty('briefs');
+    expect(PAGE_PLAN_EXAMPLE.pagePlan.tokens).not.toHaveProperty('bg');
+    const plan = result.pagePlan;
+    expect(plan?.tokens.deckRowId).toBe('cafe');
+    expect(plan?.tokens.bg).toMatch(/^#[0-9a-f]{6}$/u);
+    expect(plan?.tokens.fontDisplay.family).toBe('Fraunces');
+    expect(plan?.nav).toEqual([
+      { label: 'Menu', anchorId: 'menu' },
+      { label: 'Order', anchorId: 'order' },
+    ]);
+    expect(plan?.sections.map(({ anchorId }) => anchorId)).toEqual([
+      'header',
+      'hero',
+      'menu',
+      'order',
+      'footer',
+    ]);
+    const hero = plan?.sections.find(({ key }) => key === 'hero');
+    expect(hero?.purpose).toBe('Say what the roastery is and invite the first order.');
+    expect(hero?.mustSay).toEqual(['Roasted daily in Amman']);
+    expect(hero?.images?.[0]?.subject).toBe('cafe');
+    expect(plan?.sections.find(({ key }) => key === 'order')?.slots).toMatchObject({
+      title: 'Fresh beans, delivered in Amman',
+    });
+    expect(plan?.facts).toEqual(
+      expect.arrayContaining([
+        { key: 'price-espresso', sample: 'JOD 1.50', section: 'menu' },
+        { key: 'phone', sample: '+962 6 461 2750', section: 'footer' },
+      ]),
+    );
+    expect(plan).not.toHaveProperty('briefs');
     expect(live.transactions()[0]?.command).toMatch(/skeleton/iu);
     expect(result.outcome).toBe('completed');
     expect(result.tasks.every(({ status }) => status === 'applied')).toBe(true);

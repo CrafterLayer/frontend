@@ -386,3 +386,75 @@ const ANSWER_OF_EXAMPLE = {
   rationale: PAGE_PLAN_EXAMPLE.rationale,
   pagePlan: PAGE_PLAN_EXAMPLE.pagePlan,
 };
+
+/*
+  The answer's raw text while it is written (DESIGN §5.1, 2026-10-05): what
+  the handler turns into a page plan's `draft` frames. Each text delta is a
+  draft; the routing client's `restart` is a reset.
+*/
+describe('answer drafts', () => {
+  function draftingClient() {
+    const subscribed: string[] = [];
+    const listeners = new Map<string, (...args: string[]) => void>();
+    const client = {
+      messages: {
+        stream: () => ({
+          on: (event: string, listener: (...args: string[]) => void) => {
+            subscribed.push(event);
+            listeners.set(event, listener);
+          },
+          finalMessage: () => {
+            // The SDK passes (delta, snapshot); the snapshot must not become the draft.
+            listeners.get('text')?.('{"ratio', '{"ratio');
+            listeners.get('restart')?.();
+            listeners.get('text')?.('{"rationale"', '{"rationale"');
+            return Promise.resolve({
+              stop_reason: 'end_turn',
+              stop_details: null,
+              content: [{ type: 'text', text: JSON.stringify(PLAN) }],
+              usage: { input_tokens: 1, output_tokens: 1 },
+            });
+          },
+        }),
+      },
+    } as unknown as Anthropic;
+    return { client, subscribed };
+  }
+
+  it('reports each text delta as {text} and a restart as {reset: true}', async () => {
+    const { client } = draftingClient();
+    const drafts: unknown[] = [];
+
+    const outcome = await proposePlan(REQUEST, {
+      client,
+      onDraft: (draft) => {
+        drafts.push(draft);
+      },
+    });
+
+    expect(outcome.kind).toBe('plan');
+    expect(drafts).toEqual([{ text: '{"ratio' }, { reset: true }, { text: '{"rationale"' }]);
+  });
+
+  it('keeps the answer when the draft observer throws', async () => {
+    const { client } = draftingClient();
+
+    const outcome = await proposePlan(REQUEST, {
+      client,
+      onDraft: () => {
+        throw new Error('observer broke');
+      },
+    });
+
+    expect(outcome.kind).toBe('plan');
+  });
+
+  it('subscribes to neither text nor restart when nobody asked for drafts', async () => {
+    const { client, subscribed } = draftingClient();
+
+    await proposePlan(REQUEST, { client });
+
+    expect(subscribed).not.toContain('text');
+    expect(subscribed).not.toContain('restart');
+  });
+});

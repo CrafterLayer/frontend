@@ -24,11 +24,13 @@ export const PROOF_KITS: readonly SectionKit[] = [
     markup: band(`${HEAD_CENTER}
       <div class='mt-14 grid gap-6 md:grid-cols-3' data-ck-behavior='stagger'>
         {{#items}}<figure class='ck-card flex flex-col p-8'>
-          <div class='ck-accent-ink flex gap-1'><icon name='star' size='18'/><icon name='star' size='18'/><icon name='star' size='18'/><icon name='star' size='18'/><icon name='star' size='18'/></div>
+          <div class='ck-stars ck-accent-ink flex gap-1'><icon name='star' size='18'/><icon name='star' size='18'/><icon name='star' size='18'/><icon name='star' size='18'/><icon name='star' size='18'/></div>
           <blockquote class='mt-5 text-lg leading-relaxed text-pretty'>{{item.quote}}</blockquote>
           ${PERSON}
         </figure>{{/items}}
       </div>`),
+    // Lucide's star is an outline: filled in the accent ink, a rating reads as five stars, not ☆☆☆☆☆.
+    css: '.ck-stars svg{fill:currentColor}',
   },
   {
     id: 'testimonials-wall',

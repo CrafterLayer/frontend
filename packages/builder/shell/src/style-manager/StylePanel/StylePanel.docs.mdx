@@ -1,0 +1,31 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StylePanelStories from './StylePanel.stories';
+
+<Meta of={StylePanelStories} />
+
+# StylePanel
+
+The side-panel style manager (style-manager DESIGN.md §A.4–A.5, A.7–A.9). It renders the
+catalogue's sectors (`STYLE_SECTORS`) for any `StyleSource` at a `{bucket, state}`:
+
+- **Sources**: `treeElementSource(kernel, targets)` for elements inside AI trees (free mode, one or
+  many targets), `blockSource(kernel, nodeId, propKey)` for a registered block's `utility-classes` prop
+  (tokens mode). A named-style source (P9) implements the same interface.
+- **Bucket and state**: pass `onBucketChange` and `onStateChange` to draw the `BucketStateSwitcher`
+  at the top. Edits write at that bucket (desktop-first prefixes) and state (`hover:` …); effect hook
+  classes always write at base.
+- **Commit law** (§A.8): a control reports edits; the panel turns them into engine intents and the
+  source writes all targets as **one** labelled transaction, e.g. "Padding · Heading “Our story”".
+  The outcome is announced through `announce`; a refusal is shown as an alert and the document is
+  untouched.
+- **Provenance**: every row has a `ValueSourceDot` (here, larger screen, default state, named style)
+  with Reset, and a "Custom breakpoint" badge for families with untouched `sm:`/`xl:`/`@md:` classes.
+- **Mixed**: with several targets that disagree, controls show "Mixed"; a write sets them all.
+- **Tokens mode** shows only token-capable rows: no palette, no free picker, no effects, no image
+  URL, stacks as presets only.
+- **Contrast**: text and background colours are checked against each other (or the theme surface
+  and text tokens).
+
+Sectors are collapsible (Layout, Spacing, Size, Typography, Backgrounds, Borders and Effects start
+open). `children` render after the sectors (the element panel puts Advanced there).

@@ -831,6 +831,59 @@ describe('checkSection — a landed section held to its contract', () => {
       const landed = factSection(plan, key, lines);
       expect(checkSection(plan, contract(plan, key), { tree: landed })).toEqual([]);
     });
+
+    /*
+      Fast-build DESIGN §4 (baseline 2026-09-30, bottleneck #4): the planner's
+      CTA was wa.me/962791234567 and the FAQ writer copied "+962 79 123 4567"
+      as told — and the checker flagged the plan's own number, costing a repair
+      round and a 13 s hold. A number the plan gave is the writer's to copy.
+    */
+    describe('a masked number the plan itself gave', () => {
+      const WHATSAPP: PagePlan = {
+        ...BUILDER,
+        primaryCta: { label: 'Get a quote', href: 'https://wa.me/962791234567' },
+      };
+
+      it.each([
+        ['as written', '+962 79 123 4567'],
+        ['in the local form (a shared ≥ 7-digit suffix)', '079 123 4567'],
+        ['run together', '+962791234567'],
+      ])('is not flagged when it is the CTA’s number: %s', (_name, phone) => {
+        const landed = factSection(WHATSAPP, 'projects', [
+          h('p', '', `Questions? Call ${phone}`),
+          h('a', 'ck-link', 'Call us', { href: `tel:${phone.replace(/\s/gu, '')}` }),
+        ]);
+        expect(checkSection(WHATSAPP, contract(WHATSAPP, 'projects'), { tree: landed })).toEqual(
+          [],
+        );
+      });
+
+      it('is not flagged when it is a fact’s sample', () => {
+        const plan: PagePlan = {
+          ...BUILDER,
+          facts: [{ key: 'phone', sample: '+962 7 9000 0000', section: 'projects' }],
+        };
+        const landed = factSection(plan, 'projects', [h('p', '', 'Phone: +962 7 9000 0000')]);
+        expect(checkSection(plan, contract(plan, 'projects'), { tree: landed })).toEqual([]);
+      });
+
+      it('still flags a masked number the plan never gave', () => {
+        const landed = factSection(WHATSAPP, 'projects', [h('p', '', 'Phone: +962 7 9000 0000')]);
+        const issue = only(
+          checkSection(WHATSAPP, contract(WHATSAPP, 'projects'), { tree: landed }),
+          'placeholder-left',
+        );
+        expect(issue.message).toContain('Phone: +962 7 9000 0000');
+      });
+
+      it('still flags a mask, whatever number the plan gave', () => {
+        const landed = factSection(WHATSAPP, 'projects', [h('p', '', 'Call +962 79 XXX XXXX')]);
+        only(
+          checkSection(WHATSAPP, contract(WHATSAPP, 'projects'), { tree: landed }),
+          'placeholder-left',
+        );
+      });
+    });
   });
 
   describe('foreign-image', () => {

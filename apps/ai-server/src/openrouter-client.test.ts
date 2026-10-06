@@ -910,3 +910,28 @@ describe('openrouter narration', () => {
     await finished;
   });
 });
+
+/* The answer's text as it is written (DESIGN §5.1, 2026-10-05): a page plan's drafts. */
+describe('openrouter text', () => {
+  it("emits each content delta on 'text', and no reasoning", async () => {
+    const texts: string[] = [];
+    const fetch = fetchAnswering(() =>
+      streamResponse(
+        chunk({ reasoning: 'Weighing the hero.\n' }) +
+          chunk({ content: '{"ratio' }) +
+          chunk({ content: '' }) +
+          chunk({ content: 'nale":"ok"}' }, {}, 'stop') +
+          DONE,
+      ),
+    );
+    const stream = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch }).messages.stream(
+      REQUEST as never,
+    );
+    stream.on('text', (delta: string) => {
+      texts.push(delta);
+    });
+    await stream.finalMessage();
+
+    expect(texts).toEqual(['{"ratio', 'nale":"ok"}']);
+  });
+});

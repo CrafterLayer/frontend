@@ -1,8 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { z } from 'zod';
 
+import { installClassOracle } from '../../style-manager/test-support';
 import { UtilityClassField } from './UtilityClassField';
 
 afterEach(cleanup);
@@ -181,5 +182,37 @@ describe('UtilityClassField', () => {
     expect(options.length).toBeGreaterThan(0);
     expect(options).not.toContain('flex');
     expect(options).not.toContain('bg-accent');
+  });
+
+  /*
+    FREE mode (style-manager DESIGN.md D1): an agent tree may use exact values,
+    so the arbitrary value the tokens law refuses is admitted — but a class the
+    page cannot style at all is still refused, with the reason at the input.
+  */
+  it('free mode admits an exact value and still refuses an unknown class', async () => {
+    // The live compiler is the oracle in the app; the test stands one in.
+    const restore = installClassOracle();
+    onTestFinished(restore);
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <UtilityClassField
+        schema={schema}
+        value="flex"
+        path={['className']}
+        onChange={onChange}
+        controlId="free"
+        mode="free"
+      />,
+    );
+    await user.click(screen.getByRole('combobox'));
+    await user.paste('p-[17px]');
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith('flex p-[17px]');
+
+    await user.paste('totally-not-a-class');
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('totally-not-a-class');
   });
 });

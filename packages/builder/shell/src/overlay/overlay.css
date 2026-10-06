@@ -144,3 +144,100 @@
 .bldr-overlay--editing .bldr-outline--selection {
   display: none;
 }
+
+/* ── P7 canvas chrome (style-manager DESIGN.md §A.6, §E) ───────────────────
+   Spacing bands, the scrub badge, snap guides and grid tracks. All of it is
+   MEASURED-GEOMETRY chrome positioned by transforms from a physical origin —
+   the same exception the outlines take; labels stay logical. */
+.bldr-box-handles {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.bldr-box-band {
+  left: 0;
+  opacity: 0.55;
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  transition: opacity 120ms ease;
+}
+
+.bldr-box-band--padding {
+  background: var(--bldr-box-padding, rgb(34 197 94 / 22%));
+}
+
+.bldr-box-band--margin {
+  background: var(--bldr-box-margin, rgb(249 115 22 / 22%));
+}
+
+.bldr-box-band[data-physical='top'],
+.bldr-box-band[data-physical='bottom'] {
+  cursor: ns-resize;
+}
+
+.bldr-box-band[data-physical='left'],
+.bldr-box-band[data-physical='right'] {
+  cursor: ew-resize;
+}
+
+.bldr-box-band:hover,
+.bldr-box-band[data-active] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-box-band {
+    transition: none;
+  }
+}
+
+.bldr-box-badge {
+  background: var(--bldr-selection, #4f46e5);
+  border-radius: var(--bldr-border-focus);
+  color: var(--bldr-label-text, #ffffff);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  left: 0;
+  line-height: 1;
+  padding-block: var(--bldr-border-focus);
+  padding-inline: var(--bldr-space-sm);
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+
+.bldr-snap-guide {
+  background: var(--bldr-guide, #ec4899);
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+}
+
+.bldr-grid-track {
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+}
+
+.bldr-grid-track--column {
+  background: var(--bldr-grid-track, rgb(79 70 229 / 8%));
+  outline: var(--bldr-border-hairline) dashed var(--bldr-selection, #4f46e5);
+}
+
+.bldr-grid-track--row {
+  outline: var(--bldr-border-hairline) dotted var(--bldr-selection, #4f46e5);
+}
+
+/* Inline tree-text editing: the element's own caret and a quiet ring. */
+.bldr-overlay--tree-editing .bldr-outline--selection,
+.bldr-overlay--tree-editing .bldr-box-handles {
+  display: none;
+}

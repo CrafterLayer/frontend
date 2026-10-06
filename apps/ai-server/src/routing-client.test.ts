@@ -219,3 +219,94 @@ describe('fallback', () => {
     expect(cliFactory).not.toHaveBeenCalled();
   });
 });
+
+/*
+  The answer's text as it is written (DESIGN §5.1, 2026-10-05). The router
+  forwards `text` from whichever backend is answering; when it hands a call
+  from OpenRouter to the CLI mid-stream, the text already written belongs to
+  an abandoned answer, so it says `restart` before the fallback's first word.
+*/
+describe('text and restart', () => {
+  /** `restart` is the router's own event, not one the SDK's types name. */
+  function onRestart(stream: unknown, listener: () => void): void {
+    (stream as { on: (event: 'restart', listener: () => void) => unknown }).on('restart', listener);
+  }
+
+  /** A backend that writes its text a tick after `on('text')`, as a real stream does. */
+  function writing(outcome: { readonly text: readonly string[]; readonly error?: Error }) {
+    return {
+      messages: {
+        stream: () => {
+          let written: Promise<void> = Promise.resolve();
+          return {
+            on: (event: string, listener: (delta: string) => void) => {
+              if (event !== 'text') return;
+              written = (async () => {
+                for (const delta of outcome.text) {
+                  await Promise.resolve();
+                  listener(delta);
+                }
+              })();
+            },
+            finalMessage: async () => {
+              await written;
+              if (outcome.error !== undefined) throw outcome.error;
+              return answer(outcome.text.join(''));
+            },
+          };
+        },
+      },
+    } as unknown as Anthropic;
+  }
+
+  it("forwards the answering backend's text", async () => {
+    const client = createRoutingClient({
+      openrouter: writing({ text: ['{"a"', ':1}'] }),
+      cli: () => backend({}).client,
+    });
+    const seen: string[] = [];
+
+    const stream = client.messages.stream(PARAMS as never);
+    stream.on('text', (delta: string) => {
+      seen.push(delta);
+    });
+    await stream.finalMessage();
+
+    expect(seen).toEqual(['{"a"', ':1}']);
+  });
+
+  it('says restart before the fallback writes, after the failed model’s text', async () => {
+    const client = createRoutingClient({
+      openrouter: writing({ text: ['{"from":"open'], error: openRouterFailure(429) }),
+      cli: () => writing({ text: ['{"from":', '"cli"}'] }),
+      fallback: 'cli:haiku',
+    });
+    const seen: string[] = [];
+
+    const stream = client.messages.stream(PARAMS as never);
+    stream.on('text', (delta: string) => {
+      seen.push(`text:${delta}`);
+    });
+    onRestart(stream, () => {
+      seen.push('restart');
+    });
+    await stream.finalMessage();
+
+    expect(seen).toEqual(['text:{"from":"open', 'restart', 'text:{"from":', 'text:"cli"}']);
+  });
+
+  it('never says restart when nothing fell back', async () => {
+    const client = createRoutingClient({
+      openrouter: writing({ text: ['{}'] }),
+      cli: () => backend({}).client,
+      fallback: 'cli:haiku',
+    });
+    const restart = vi.fn();
+
+    const stream = client.messages.stream(PARAMS as never);
+    onRestart(stream, restart);
+    await stream.finalMessage();
+
+    expect(restart).not.toHaveBeenCalled();
+  });
+});

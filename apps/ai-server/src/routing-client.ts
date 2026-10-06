@@ -86,8 +86,17 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
       if (listener === undefined) early.push(delta);
       else listener(delta);
     };
+    /*
+      The answer's text as it is written (a page plan's drafts), from whichever
+      inner stream is live. Never early: text only arrives after `stream()`
+      has returned and the caller has subscribed.
+    */
+    const text = (delta: string): void => {
+      listeners.get('text')?.(delta);
+    };
     const follow = (inner: StreamLike): Promise<Anthropic.Message> => {
       inner.on('thinking', report);
+      inner.on('text', text);
       return inner.finalMessage();
     };
     const runCli = (slug: string): Promise<Anthropic.Message> => {
@@ -120,6 +129,11 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
           `falling back to ${fallback} after ${model ?? 'the OpenRouter model'} failed: ${cause.message}`,
         );
         report(`${model ?? 'The free model'} is unavailable right now; switching to ${fallback}\n`);
+        /*
+          Whatever text the failed model already wrote is void: say so before
+          the fallback's first word, so a reader of the drafts starts over.
+        */
+        (listeners.get('restart') as (() => void) | undefined)?.();
         return runCli(fallback);
       }
     })();

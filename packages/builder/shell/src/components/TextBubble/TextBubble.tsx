@@ -1,4 +1,5 @@
 import { ChromeButton } from '../ChromeButton';
+import { TextBubblePrompt, type TextBubblePromptSpec } from './TextBubblePrompt';
 import './TextBubble.css';
 
 export interface TextBubbleAction {
@@ -18,6 +19,13 @@ export interface TextBubbleProps {
   actions: TextBubbleAction[];
   /** Return to the editor-owned selection bookmark; true means focus moved. */
   onReturnFocus: () => boolean;
+  /**
+   * A one-field form shown INSTEAD of the actions (the link address while
+   * formatting tree text, style-manager DESIGN.md §E). Its field takes focus.
+   */
+  prompt?: TextBubblePromptSpec | undefined;
+  /** The group's accessible name. Default "Formatting". */
+  label?: string | undefined;
 }
 
 function firstEnabledAction(group: HTMLElement): HTMLButtonElement | null {
@@ -42,22 +50,27 @@ function firstEnabledAction(group: HTMLElement): HTMLButtonElement | null {
  * click; keyboard activation therefore leaves focus on the button, where the
  * `aria-pressed` change is actually announced — the ToolbarButton lesson.
  */
-export function TextBubble({ dir, actions, onReturnFocus }: TextBubbleProps) {
+function insidePrompt(target: EventTarget): boolean {
+  return target instanceof Element && target.closest('.bldr-text-bubble__prompt') !== null;
+}
+
+export function TextBubble({ dir, actions, onReturnFocus, prompt, label = 'Formatting' }: TextBubbleProps) {
   return (
     <div
       className="bldr-text-bubble"
       role="group"
-      aria-label="Formatting"
+      aria-label={label}
       dir={dir}
       onPointerDown={(event) => {
-        // RISK 2: the editor keeps its focus, caret, and selection.
-        event.preventDefault();
         event.stopPropagation();
+        // RISK 2: the editor keeps its focus, caret, and selection — except in
+        // the prompt's own field, which must be able to take focus to type.
+        if (!insidePrompt(event.target)) event.preventDefault();
       }}
       onMouseDown={(event) => {
         // Compatibility path (no PointerEvent, or a browser that fires both).
-        event.preventDefault();
         event.stopPropagation();
+        if (!insidePrompt(event.target)) event.preventDefault();
       }}
       onClick={(event) => {
         // RISK 9: the canvas selection path never sees layer-origin clicks.
@@ -82,7 +95,8 @@ export function TextBubble({ dir, actions, onReturnFocus }: TextBubbleProps) {
         event.stopPropagation();
       }}
     >
-      {actions.map((action) =>
+      {prompt !== undefined ? <TextBubblePrompt prompt={prompt} /> : null}
+      {prompt !== undefined ? null : actions.map((action) =>
         action.pressed === undefined ? (
           <ChromeButton
             key={action.id}

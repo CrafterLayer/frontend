@@ -63,7 +63,7 @@ function candidate(): Json {
       },
       { key: 'footer', role: 'footer', title: 'التذييل', anchorId: 'footer', purpose: 'العنوان.' },
     ],
-    facts: [{ key: 'phone', sample: '+962 7 9000 0000', section: 'order' }],
+    facts: [{ key: 'phone', sample: '+962 7 9646 1275', section: 'order' }],
     seo: {
       keyword: 'قهوة مختصة في عمّان',
       pageKind: 'home',
@@ -130,14 +130,72 @@ describe('validatePagePlan — section kits', () => {
 
   it('drops slots that do not fill the kit, keeps the kit, and records why', () => {
     const value = candidate();
-    // cta-split needs a title and a link; a link without an href cannot be one.
+    // menu-list needs its items, which nothing in the contract can write.
+    (sections(value)[2]!)['slots'] = { title: 'القائمة' };
+    const { plan, warnings } = accepted(value);
+    expect(plan.sections[2]?.kit).toBe('menu-list');
+    expect(plan.sections[2]?.slots).toBeUndefined();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.path).toBe('sections[2].slots');
+    expect(warnings[0]?.message).toContain('menu-list');
+  });
+
+  it("gives a cta's broken required link the page's action instead of dropping the planned slots", () => {
+    // Quality pass 2026-10-05: a link without an href cost the section a writer.
+    const value = candidate();
     (sections(value)[3]!)['slots'] = { title: 'اطلب', cta: { label: 'اطلب الآن' } };
     const { plan, warnings } = accepted(value);
     expect(plan.sections[3]?.kit).toBe('cta-split');
-    expect(plan.sections[3]?.slots).toBeUndefined();
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]?.path).toBe('sections[3].slots');
-    expect(warnings[0]?.message).toContain('cta-split');
+    expect(plan.sections[3]?.slots).toMatchObject({ cta: { label: 'اطلب الآن', href: '#order' } });
+    expect(warnings.map(({ path }) => path)).toEqual(['sections[3].slots']);
+  });
+
+  it('fills a missing required title from the section title and keeps the planned slots', () => {
+    // Fix pass 2026-10-05: pricing and faq slots without a title were dropped whole.
+    const value = candidate();
+    (sections(value)[3]!)['slots'] = { cta: { label: 'اطلب الآن', href: '#order' } };
+    const { plan, warnings } = accepted(value);
+    expect(plan.sections[3]?.slots).toMatchObject({ title: 'اطلب' });
+    expect(warnings.map(({ path }) => path)).toEqual(['sections[3].slots.title']);
+  });
+
+  it('fills a missing caption from the image alt (no claim) and the image from the section’s first image', () => {
+    const value = candidate();
+    sections(value)[2] = {
+      key: 'menu',
+      role: 'band',
+      title: 'القائمة',
+      anchorId: 'menu',
+      purpose: 'المشروبات وأسعارها.',
+      kit: 'features-bento',
+      images: [{ subject: 'cafe', aspect: 'landscape', alt: 'فنجان قهوة على طاولة خشبية' }],
+      slots: {
+        title: 'قهوة تستحق الزيارة',
+        items: [
+          { icon: 'coffee', title: 'تحميص يومي' },
+          { icon: 'leaf', title: 'حبوب مختارة' },
+        ],
+      },
+    };
+    const { plan, warnings } = accepted(value);
+    expect(plan.sections[2]?.slots).toMatchObject({
+      caption: 'فنجان قهوة على طاولة خشبية',
+      image: { subject: 'cafe', alt: 'فنجان قهوة على طاولة خشبية' },
+    });
+    expect(warnings.map(({ path }) => path).sort()).toEqual([
+      'sections[2].slots.caption',
+      'sections[2].slots.image',
+    ]);
+  });
+
+  it('reads a kit id written as a variant as the kit, with its layout word', () => {
+    // Both 2026-10-05 T1 answers wrote "hero-centered", "features-bento" as variants.
+    const value = candidate();
+    (sections(value)[1]!)['variant'] = 'hero-centered';
+    const { plan, warnings } = accepted(value);
+    expect(plan.sections[1]?.kit).toBe('hero-centered');
+    expect(plan.sections[1]?.variant).toBe('centered');
+    expect(warnings.map(({ path }) => path)).toEqual(['sections[1].variant']);
   });
 
   it('passes a plan it already normalised, unchanged (the build re-validates a given plan)', () => {

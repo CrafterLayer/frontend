@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 
 import { CLI_EFFORT_LEVELS, createCliClient } from './cli-client';
+import { createCliWarmPool, type CliWarmPool } from './cli-warm-pool';
 import { createCodeRuntimeService } from './code-runtime-service';
 import { createAuthoredRunCoordinator } from './authored-run';
 import { parseAllowedOrigins, withCors } from './cors';
@@ -102,6 +103,50 @@ const sectionEffort =
         `CRAFTKIT_AI_SECTION_EFFORT="${rawSectionEffort}" is not one of ${CLI_EFFORT_LEVELS.join(', ')} or default.`,
       ));
 
+/*
+  A streamed page plan sends the model's raw text as `draft` frames while it
+  is written, so the client starts the skeleton and the section writers on
+  each finished part (DESIGN §5.1). On unless `off`.
+*/
+const planDrafts = setting('CRAFTKIT_AI_PLAN_DRAFTS') !== 'off';
+if (!planDrafts) {
+  console.log('[ai-server] CRAFTKIT_AI_PLAN_DRAFTS=off: page plans arrive whole, with no draft frames');
+}
+
+/*
+  Warm CLI spares (DESIGN §7): after a CLI call starts, one pre-spawned
+  `claude -p` of the same shape waits for the next call (at most 3, 60 s
+  each). On unless `off`. Made on the first CLI client, so only a server that
+  reaches the CLI (the cli backend, or cli: entries behind the router) has one.
+*/
+const cliWarm = setting('CRAFTKIT_AI_CLI_WARM') !== 'off';
+let cliWarmPool: CliWarmPool | undefined;
+function sharedWarmPool(): CliWarmPool | undefined {
+  if (!cliWarm) return undefined;
+  if (cliWarmPool === undefined) {
+    cliWarmPool = createCliWarmPool();
+    console.log('[ai-server] cli warm spares: on (one per running call of a shape, at most 8, 60 s each)');
+  }
+  return cliWarmPool;
+}
+/*
+  Spares run detached, in their own process groups, so a Ctrl-C in the
+  terminal never reaches them: they are killed here, or they outlive the
+  server. A signal handler replaces Node's default exit, so it exits itself.
+*/
+process.once('exit', () => {
+  cliWarmPool?.dispose();
+});
+for (const [signal, code] of [
+  ['SIGINT', 130],
+  ['SIGTERM', 143],
+] as const) {
+  process.once(signal, () => {
+    cliWarmPool?.dispose();
+    process.exit(code);
+  });
+}
+
 /** Where to keep every raw answer, for diagnosis. Unset ⇒ nothing is written. */
 const answerDumpDir = setting('CRAFTKIT_AI_DUMP_DIR');
 const rawMaxTokens = Number(setting('CRAFTKIT_AI_MAX_TOKENS'));
@@ -165,7 +210,9 @@ function createCliBackend(
   cliModel: string | undefined,
   allowedModels: readonly string[] = [],
 ): Anthropic {
+  const warmPool = sharedWarmPool();
   return createCliClient({
+    ...(warmPool === undefined ? {} : { warmPool }),
     ...(cliModel === undefined ? {} : { model: cliModel }),
     ...(allowedModels.length === 0 ? {} : { allowedModels }),
     ...(cliEffort === undefined ? {} : { effort: cliEffort }),
@@ -444,6 +491,7 @@ const handle = createHandler({
   ...(maxTokens === undefined ? {} : { maxTokens }),
   ...(sectionEffort === undefined ? {} : { sectionEffort }),
   ...(planThinking ? { planThinking } : {}),
+  ...(planDrafts ? {} : { planDrafts: false }),
   /*
     The start of every answer, so a plan the validator refuses two layers
     later ("names unknown command "e"") can be read here in the model's own

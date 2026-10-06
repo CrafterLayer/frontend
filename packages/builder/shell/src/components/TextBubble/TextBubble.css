@@ -112,3 +112,28 @@
   top: var(--bldr-space-0);
   translate: -50% -50%;
 }
+
+/* The one-field prompt (link address, style-manager DESIGN.md §E). */
+.bldr-text-bubble__prompt {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-text-bubble__prompt-label {
+  color: var(--bldr-panel-muted, #64748b);
+  font-size: var(--bldr-font-size-caption);
+  white-space: nowrap;
+}
+
+.bldr-text-bubble__prompt-input {
+  background: var(--bldr-surface, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 18%));
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text, #334155);
+  font: inherit;
+  inline-size: 14rem;
+  max-inline-size: 60vw;
+  min-block-size: var(--bldr-control-lg);
+  padding-inline: var(--bldr-space-xs);
+}

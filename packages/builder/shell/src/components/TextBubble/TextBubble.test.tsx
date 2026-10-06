@@ -151,4 +151,31 @@ describe('TextBubble (009 contract §5)', () => {
     expect(onReturnFocus).toHaveBeenCalledTimes(1);
     expect(failedEscape.defaultPrevented).toBe(false);
   });
+
+  it('P7: the prompt replaces the actions, takes focus, and submits or cancels', () => {
+    const onSubmit = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <TextBubble
+        dir="ltr"
+        actions={[{ id: 'bold', label: 'Bold', run: vi.fn() }]}
+        onReturnFocus={() => true}
+        prompt={{
+          label: 'Link address',
+          submitLabel: 'Apply',
+          cancelLabel: 'Cancel',
+          onSubmit,
+          onCancel,
+        }}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Bold' })).toBeNull();
+    const field = screen.getByLabelText('Link address');
+    expect(document.activeElement).toBe(field);
+    fireEvent.change(field, { target: { value: ' https://example.com ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onSubmit).toHaveBeenCalledWith('https://example.com');
+    fireEvent.keyDown(field, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
 });

@@ -3,7 +3,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { AI_PLAN_WIRE_VERSION, type AiPlanWireRequest } from '@craftkit/builder/wire';
 import type { ExportPage, RuntimeSnapshot } from '@craftkit/builder/code-runtime';
 
-import { proposePagePlan, proposePlan, type ClaudeOptions, type UsageReport } from './claude';
+import {
+  proposePagePlan,
+  proposePlan,
+  type AnswerDraft,
+  type ClaudeOptions,
+  type UsageReport,
+} from './claude';
 import type { CodeRuntimeService } from './code-runtime-service';
 import { ENHANCE_PATH, ENHANCE_TIMEOUT_MS, enhancePrompt, readEnhanceRequest } from './enhance';
 import { fastestModel } from './model-policy';
@@ -65,6 +71,14 @@ export interface HandlerOptions {
    * paying for. `true` restores adaptive thinking.
    */
   readonly planThinking?: boolean;
+  /**
+   * Whether a STREAMED page plan also sends the model's raw text as it is
+   * written, as `event: draft` frames before the one `result` (DESIGN §5.1),
+   * so the client can start building on each finished part of the plan.
+   * Default true; `CRAFTKIT_AI_PLAN_DRAFTS=off` sets it false. Additive to wire
+   * v1: a client that does not know the event ignores it.
+   */
+  readonly planDrafts?: boolean;
   /** Isolated compiler/prerender boundary. Omitted deployments keep the legacy plan endpoint only. */
   readonly codeRuntime?: CodeRuntimeService;
   readonly authoredRuns?: AuthoredRunCoordinator;
@@ -126,8 +140,12 @@ function authorized(request: Request, expected: string | undefined): boolean {
   return tokenMatches(provided, expected);
 }
 
-/** SSE frame. `status` narrates; exactly one `result` ends the stream. */
-function frame(event: 'status' | 'unit' | 'result', data: unknown): string {
+/**
+ * SSE frame. `status` narrates; `draft` carries a page plan's raw text as it
+ * is written (`{text}`, or `{reset: true}` when the answer starts over);
+ * exactly one `result` ends the stream.
+ */
+function frame(event: 'status' | 'unit' | 'draft' | 'result', data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
@@ -533,6 +551,8 @@ function reportUsage(options: HandlerOptions, usage: UsageReport, task: UsageTas
 
 /** The skill a build pins on every section writer (run-build.ts). */
 const SECTION_WRITER_SKILL = 'craftkit.build-fill';
+/** The skill a build pins on its scaffold call — the fallback after a refused page plan (run-build.ts). */
+const SCAFFOLD_SKILL = 'craftkit.build-scaffold';
 
 /**
  * This call's own reasoning budget: the one its body asks for (low or
@@ -552,14 +572,21 @@ function callEffort(
   if (wire.task === 'page-plan') return options.planThinking === true ? {} : { thinkingOff: true };
   // The call's own budget, already held to CALL_EFFORTS by the handler.
   const asked: unknown = (wire as { effort?: unknown }).effort;
-  const writesASection = (wire.context.skills ?? []).some((pin) => pin.id === SECTION_WRITER_SKILL);
+  const pins = wire.context.skills ?? [];
+  const writesASection = pins.some((pin) => pin.id === SECTION_WRITER_SKILL);
+  const scaffoldsABuild = pins.some((pin) => pin.id === SCAFFOLD_SKILL);
   /*
     Thinking off for a section writer (the skeleton already decided its
-    design) and for any call that asked for `low`. Measured 2026-09-30 on
-    cli:haiku with thinking on at effort low: 8,001-20,747 output tokens for a
-    1.1k-2.7k-character section, 49 s-3 min each — over 85% of it thinking.
+    design), for a build's scaffold call, and for any call that asked for
+    `low`. Measured 2026-09-30 on cli:haiku with thinking on at effort low:
+    8,001-20,747 output tokens for a 1.1k-2.7k-character section, 49 s-3 min
+    each — over 85% of it thinking. The scaffold is the fallback after a
+    refused page plan; with thinking on (2026-10-05) one took 3:28 and 22,035
+    output tokens, so any T1 failure made the build slower than the old
+    221 s baseline. It is a planning call like the page plan, which already
+    runs with thinking off.
   */
-  const thinkingOff = writesASection || asked === 'low';
+  const thinkingOff = writesASection || scaffoldsABuild || asked === 'low';
   const off = thinkingOff ? ({ thinkingOff: true } as const) : {};
   if (asked === 'low' || asked === 'medium') return { effort: asked, ...off };
   if (options.sectionEffort === undefined || !writesASection) return off;
@@ -586,6 +613,7 @@ async function answer(
   options: HandlerOptions,
   signal: AbortSignal,
   onProgress?: (text: string) => void,
+  onDraft?: (draft: AnswerDraft) => void,
 ): Promise<Answered> {
   const call: ClaudeOptions = {
     client: options.client,
@@ -596,6 +624,7 @@ async function answer(
     ...(options.onLog === undefined ? {} : { onLog: options.onLog }),
     ...callEffort(wire, options),
     ...(onProgress === undefined ? {} : { onProgress }),
+    ...(onDraft === undefined ? {} : { onDraft }),
   };
   if (wire.task === 'page-plan') {
     const outcome = await proposePagePlan(wire, call);
@@ -642,14 +671,37 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (event: 'status' | 'result', data: unknown): void => {
+      const send = (event: 'status' | 'draft' | 'result', data: unknown): void => {
         controller.enqueue(encoder.encode(frame(event, data)));
       };
+      const drafts =
+        wire.task === 'page-plan' && options.planDrafts !== false
+          ? createDraftFrames((data) => {
+              /*
+                A timer may flush after the client hung up (the stream is
+                cancelled, enqueue throws); a draft nobody reads is no failure,
+                and a throw from a timer would take the server down.
+              */
+              try {
+                send('draft', data);
+              } catch {
+                // The reader is gone.
+              }
+            })
+          : undefined;
       try {
-        const answered = await answer(wire, options, signal, (text) => {
-          send('status', { text });
-        });
+        const answered = await answer(
+          wire,
+          options,
+          signal,
+          (text) => {
+            send('status', { text });
+          },
+          drafts?.take,
+        );
         if (answered.usage !== undefined) reportUsage(options, answered.usage, taskOf(wire));
+        // Every draft before the one result, never after it.
+        drafts?.flush();
         send('result', answered.body);
       } catch (cause) {
         /*
@@ -657,8 +709,10 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
           send. The client's taxonomy still needs an answer, and an
           invalid-output result is the one shape that reaches it here.
         */
+        drafts?.flush();
         send('result', invalidOutputBody(describeFailure(cause)));
       } finally {
+        drafts?.dispose();
         controller.close();
       }
     },
@@ -671,6 +725,67 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
       connection: 'keep-alive',
     },
   });
+}
+
+/** Coalescing for `draft` frames: one frame per this many ms, at most. */
+export const DRAFT_FLUSH_MS = 100;
+/** …or as soon as this many characters wait, whichever comes first. */
+export const DRAFT_FLUSH_CHARS = 512;
+
+interface DraftFrames {
+  /** The `onDraft` the model call reports to. */
+  readonly take: (draft: AnswerDraft) => void;
+  /** Sends whatever text waits, now. */
+  readonly flush: () => void;
+  /** Stops the timer; nothing more is sent. */
+  readonly dispose: () => void;
+}
+
+/**
+ * Coalesces a model's text deltas — dozens a second, a few characters each
+ * — into `draft` frames: flushed every `DRAFT_FLUSH_MS`, or at
+ * `DRAFT_FLUSH_CHARS` waiting. A reset drops the text not yet sent (it
+ * belongs to an answer that was abandoned) and is sent as `{reset: true}`.
+ */
+function createDraftFrames(send: (data: unknown) => void): DraftFrames {
+  let waiting = '';
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+  const stopTimer = (): void => {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+  };
+  const flush = (): void => {
+    stopTimer();
+    if (disposed || waiting === '') return;
+    const text = waiting;
+    waiting = '';
+    send({ text });
+  };
+  return {
+    take: (draft) => {
+      if (disposed) return;
+      if ('reset' in draft) {
+        stopTimer();
+        waiting = '';
+        send({ reset: true });
+        return;
+      }
+      if (draft.text === '') return;
+      waiting += draft.text;
+      if (waiting.length >= DRAFT_FLUSH_CHARS) {
+        flush();
+        return;
+      }
+      timer ??= setTimeout(flush, DRAFT_FLUSH_MS);
+    },
+    flush,
+    dispose: () => {
+      disposed = true;
+      stopTimer();
+      waiting = '';
+    },
+  };
 }
 
 /**

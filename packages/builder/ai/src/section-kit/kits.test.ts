@@ -240,6 +240,33 @@ describe('section kits', () => {
     }
   });
 
+  it('fills an image from the nearest catalog photo, never refusing a subject (fix pass 2026-10-05)', () => {
+    const kit = sectionKit('hero-split');
+    if (kit === undefined) throw new Error('hero-split');
+    const options = { id: 'hero', heading: 'h1' as const, locale: { lang: 'en', dir: 'ltr' as const } };
+    const good = kitSamples(kit, 'en');
+    const image = (subject: string, alt?: string) => {
+      const result = instantiateKit(kit, { ...good, image: { subject, ...(alt === undefined ? {} : { alt }) } }, options);
+      if (!result.ok) throw new Error(result.error);
+      return JSON.stringify(result.tree);
+    };
+    // The English run's features writer: a free description matched no topic and was refused.
+    const fallback = image('freelancer sending professional invoice on laptop', 'An invoice on a laptop');
+    expect(fallback).toMatch(/https:\/\//u);
+    // A generic stand-in is described as what it shows, not as what was asked for.
+    expect(fallback).not.toContain('An invoice on a laptop');
+    // A subject that matches keeps the writer's own alt.
+    expect(image('coffee', 'A cup of coffee')).toContain('A cup of coffee');
+  });
+
+  it('fills the testimonial stars: a rating reads as five stars, not five outlines', () => {
+    const kit = sectionKit('testimonials-cards');
+    if (kit === undefined) throw new Error('testimonials-cards');
+    const result = fill(kit, 'en', 'ltr');
+    expect(result.css).toContain('.ck-stars svg{fill:currentColor}');
+    expect(JSON.stringify(result.tree)).toContain('ck-stars');
+  });
+
   it('says how to fix a bad call', () => {
     const kit = sectionKit('hero-split');
     if (kit === undefined) throw new Error('hero-split');

@@ -571,6 +571,29 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(screen.queryByRole('region', { name: 'History' })).not.toBeInTheDocument();
   });
 
+  it('mounts the style-manager destinations: Design, the edit history and the shortcuts dialog', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Editor canvas' });
+
+    // Design: the design system, named styles, symbols and the library transfer, together.
+    await user.click(screen.getByRole('button', { name: 'Design' }));
+    expect(await screen.findByRole('region', { name: 'Design system' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Styles' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Symbols' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Import & export design system' })).toBeInTheDocument();
+
+    // History: the labelled steps sit beside the vault's restore points.
+    await user.click(screen.getByRole('button', { name: 'History' }));
+    expect(await screen.findByRole('region', { name: 'Edit history' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'History' })).toBeInTheDocument();
+
+    // `?` opens the keymap, from anywhere outside a field.
+    await user.click(document.body);
+    await user.keyboard('?');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
   it('scenario 7 (B3a): device → override edit → preview round trip, every view-state law intact', async () => {
     render(<App />);
     const user = userEvent.setup();

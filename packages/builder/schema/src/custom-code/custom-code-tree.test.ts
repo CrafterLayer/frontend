@@ -236,7 +236,8 @@ describe('custom-code tree', () => {
 
   it('answers tag membership for the renderer read guard', () => {
     expect(isCustomCodeTag('section')).toBe(true);
-    expect(isCustomCodeTag('iframe')).toBe(false);
+    expect(isCustomCodeTag('object')).toBe(false);
+    expect(isCustomCodeTag('script')).toBe(false);
   });
 });
 
@@ -408,7 +409,7 @@ describe('custom-code tree — design markup', () => {
       )[0],
     ).toMatch(/https or relative/u);
     expect(messages(el('source', { attributes: { src: '/a.mp4' } }))[0]).toMatch(
-      /inside a <picture> or a <video>/u,
+      /inside a <picture>, a <video> or an <audio>/u,
     );
   });
 
@@ -441,7 +442,7 @@ describe('custom-code tree — design markup', () => {
       /whole number of pixels/u,
     );
     expect(messages(el('video', { attributes: { loading: 'lazy' } }))[0]).toBe(
-      'loading belongs on <img>, not <video>',
+      'loading belongs on <img> or <iframe>, not <video>',
     );
   });
 
@@ -527,7 +528,9 @@ describe('custom-code tree — design markup', () => {
   it('folds case and React spellings back to the vocabulary', () => {
     expect(customCodeTagSpelling('lineargradient')).toBe('linearGradient');
     expect(customCodeTagSpelling('DIV')).toBe('div');
-    expect(customCodeTagSpelling('iframe')).toBeUndefined();
+    expect(customCodeTagSpelling('object')).toBeUndefined();
+    expect(customCodeTagSpelling('IFRAME')).toBe('iframe');
+    expect(customCodeTagSpelling('textpath')).toBe('textPath');
     expect(customCodeAttributeSpelling('viewbox')).toBe('viewBox');
     expect(customCodeAttributeSpelling('strokeWidth')).toBe('stroke-width');
     expect(customCodeAttributeSpelling('srcSet')).toBe('srcset');

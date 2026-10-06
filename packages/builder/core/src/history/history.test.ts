@@ -64,4 +64,77 @@ describe('history', () => {
     expect(kernel.canUndo()).toBe(false);
     expect(kernel.canRedo()).toBe(false);
   });
+
+  // ── P8-manual-editor: the read view (style-manager DESIGN.md §E) ──
+  it('lists labelled entries with author and time, and tracks the position', () => {
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(0, TYPING_MERGE_WINDOW_MS + 1), ids: seededIds('h') },
+    });
+    const history = kernel.history?.();
+    expect(history).toBeDefined();
+    if (history === undefined) return;
+    expect(history.entries()).toEqual([]);
+    expect(history.position()).toBe(0);
+
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'A' });
+    kernel.dispatchGroup(
+      [{ command: 'setProp', args: { id: 'hero1', key: 'heading', value: 'B' } }],
+      { author: 'ai', label: 'Heading · Hero' },
+    );
+    const entries = history.entries();
+    expect(entries.map((entry) => [entry.label, entry.author])).toEqual([
+      ['setProp', 'user'],
+      ['Heading · Hero', 'ai'],
+    ]);
+    expect(entries[1]!.at).toBeGreaterThan(entries[0]!.at);
+    expect(history.position()).toBe(2);
+    // A stable snapshot until the stack changes.
+    expect(history.entries()).toBe(entries);
+
+    kernel.undo();
+    expect(history.position()).toBe(1);
+    // Undone entries stay listed (redo order) until a new change clears them.
+    expect(history.entries().map((entry) => entry.label)).toEqual(['setProp', 'Heading · Hero']);
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'C' });
+    expect(history.entries().map((entry) => entry.label)).toEqual(['setProp', 'setProp']);
+  });
+
+  it('a merged typing burst is ONE entry', () => {
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(0, 1), ids: seededIds('h') },
+    });
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'W' });
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'We' });
+    expect(kernel.history?.().entries()).toHaveLength(1);
+  });
+
+  it('jumpTo replays undo/redo — no new transaction — and clamps', () => {
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(0, TYPING_MERGE_WINDOW_MS + 1), ids: seededIds('h') },
+    });
+    const history = kernel.history!();
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'One' });
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'Two' });
+    kernel.dispatch('setProp', { id: 'p1', key: 'content', value: 'Three' });
+    const logged = kernel.transactions().length;
+
+    expect(history.jumpTo(1)).toBe(2);
+    expect(kernel.getDocument().nodes['p1']?.props['content']).toBe('One');
+    expect(history.position()).toBe(1);
+
+    expect(history.jumpTo(3)).toBe(2);
+    expect(kernel.getDocument().nodes['p1']?.props['content']).toBe('Three');
+
+    expect(history.jumpTo(-5)).toBe(3);
+    expect(kernel.getDocument()).toEqual(landingFixture());
+    expect(history.jumpTo(99)).toBe(3);
+    expect(history.position()).toBe(3);
+    expect(kernel.transactions()).toHaveLength(logged);
+  });
 });

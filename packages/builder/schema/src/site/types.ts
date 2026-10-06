@@ -5,6 +5,7 @@ import { codeProjectSchema, type CodeProject } from '../code/types';
 import type { BuilderDocument, ContentDirection, Node } from '../document/types';
 import { jsonRecordZod } from '../json/json-value-schema';
 import { designSystemSchema, type DesignSystem } from '../theme/design-system';
+import { siteLibrarySchema, type SiteLibrary } from './library';
 
 /** v2 adds authored code projects without changing existing page documents. */
 export const LATEST_SITE_VERSION = 2;
@@ -38,6 +39,12 @@ export interface BuilderSite {
   designSystem: DesignSystem;
   assets: Readonly<Record<AssetId, AssetEntry>>;
   codeProjects?: Readonly<Record<string, CodeProject>>;
+  /**
+   * The site design library (style-manager DESIGN.md §2): palette, named
+   * styles, symbols, templates, fonts and site motion settings. Optional, so
+   * `siteVersion` is unchanged and no migration runs — absent means empty.
+   */
+  library?: SiteLibrary;
 }
 
 export const pageIdSchema: z.ZodType<PageId> = z.string();
@@ -135,8 +142,10 @@ export const builderSiteSchema: z.ZodType<BuilderSite> = z
         codeProjectSchema,
       )
       .optional(),
+    library: siteLibrarySchema.optional(),
   })
-  .transform(({ codeProjects, ...site }): BuilderSite => ({
+  .transform(({ codeProjects, library, ...site }): BuilderSite => ({
     ...site,
     ...(codeProjects === undefined ? {} : { codeProjects }),
+    ...(library === undefined ? {} : { library }),
   }));

@@ -1,0 +1,25 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StylePropertyStories from './StyleProperty.stories';
+
+<Meta of={StylePropertyStories} />
+
+# StyleProperty
+
+One row of the `StylePanel`: the property's name, a `ValueSourceDot` (provenance + Reset), a
+"Custom breakpoint" badge when the family also has `sm:`/`xl:`/`@md:` classes the panel leaves alone,
+and the control the catalogue (`STYLE_PROPERTIES`) names for it:
+
+| Catalogue control | Control                                                                 |
+| ----------------- | ----------------------------------------------------------------------- |
+| `radio`           | `ChoiceGroup`                                                           |
+| `select`          | native select (`TransformOriginControl` for the origin)                 |
+| `number`/`slider` | `ScaleNumberControl` (`GridTracksControl` for grid columns/rows)        |
+| `color`           | `StyleColorControl` (palette when the property admits it)               |
+| `composite`       | `BoxModelControl` (padding + margin, inset), `BorderSidesControl`, `CornerRadiusControl`, gradient direction |
+| `stack`           | `StackControl` (presets only in tokens mode)                            |
+| `text`            | background image URL (committed on Enter or blur)                       |
+| `keyword`         | `EffectPresetPicker`                                                    |
+
+The row only reports `StyleEdit`s through `onEdit(edits, propertyLabel)`; the panel adds the bucket
+and state and writes them as one labelled transaction.

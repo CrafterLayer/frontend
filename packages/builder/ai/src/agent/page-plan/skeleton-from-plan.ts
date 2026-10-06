@@ -1,7 +1,9 @@
 import { contrastRatio, parseHex, relativeLuminance, type NodeId } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiPlanStep } from '../../types';
+import { fillSlotPhotos, pagePhotoPlan } from './kit-slots';
 import { instantiatePlanKit, planKit } from './kits';
+import { shortBrand } from './page-completion';
 import type {
   PagePlan,
   PagePlanFont,
@@ -58,6 +60,15 @@ export interface SkeletonFromPlanContext {
    * written only where there is none (or on a new page).
    */
   readonly currentSlug?: string;
+  /**
+   * The streamed build's PROVISIONAL skeleton (DESIGN §6.1, 2026-10-05): it
+   * lands when the plan's outline closes, before the briefs and facts have
+   * arrived. The footer and every kit-slot section are written as
+   * placeholders (`complete: false`, no `kit`) and the root's `seo` and `slug`
+   * are left alone; `skeletonFinish` writes them from the final plan.
+   * Everything else is exactly as without it. Absent = the whole skeleton.
+   */
+  readonly provisional?: boolean;
 }
 
 /** One region the skeleton creates, and which of its plan steps creates it. */
@@ -513,12 +524,22 @@ function clamp(text: string, max: number): string {
   return `${cut.trimEnd()}…`;
 }
 
-const TITLE_SEPARATOR = /\s+[|·•—–:-]\s+/u;
-
-/** The name a header and footer show: the title before an SEO separator ("Name | Tagline"). */
+/**
+ * The name a header and footer show (`shortBrand`): the plan's `brand`; else
+ * a fact naming the business; else the shortest name-length part of a title
+ * split at an SEO separator ("Name | Tagline", "Tagline — Name"); else the
+ * title's first words — never the title cut mid-sentence (measure-v2: the
+ * English footer read "Project management software for teams…").
+ */
 function brandName(plan: PagePlan): string {
-  const [name = plan.title] = plan.title.split(TITLE_SEPARATOR);
-  return clamp(name.trim() === '' ? plan.title : name.trim(), 40);
+  return clamp(
+    shortBrand({
+      ...(plan.brand === undefined ? {} : { brand: plan.brand }),
+      title: plan.title,
+      facts: plan.facts,
+    }),
+    40,
+  );
 }
 
 const COPY: Readonly<
@@ -735,7 +756,10 @@ function footerTree(plan: PagePlan, contract: SectionContract): TreeElement {
   const light = relativeLuminance(parseHex(plan.tokens.bg) ?? { r: 1, g: 1, b: 1 }) > 0.5;
   const ground = light ? 'ck-inverse' : 'ck-surface border-t ck-border';
   const brand = brandName(plan);
-  const facts = plan.facts.filter(({ section }) => section === contract.key);
+  // The brand already heads the footer; a fact that only names it again is not a contact line.
+  const facts = plan.facts.filter(
+    ({ section, sample }) => section === contract.key && sample.trim() !== brand,
+  );
   const lines = [...contract.mustSay, ...facts.map(({ sample }) => sample)];
   const columns: TreeElement[] = [
     el('div', '', {
@@ -786,9 +810,15 @@ function footerTree(plan: PagePlan, contract: SectionContract): TreeElement {
  * The placeholder a writer replaces — the scaffold's markup contract, which
  * the lander reads roles from: the hero's heading is the page's one h1, every
  * other placeholder a `section` with its title as an h2.
+ *
+ * A provisional footer (p5-plan-stream additions) is a `footer`, not a
+ * `section`: run-build reads a region's chrome role and the page's footer
+ * from the outer tag (`placeholderShape`, `isFooter`) until the finish
+ * transaction writes the real one.
  */
 function placeholderTree(plan: PagePlan, contract: SectionContract): TreeElement {
   const hero = contract.role === 'hero';
+  const tag = contract.role === 'footer' ? 'footer' : 'section';
   const heading = hero
     ? el(
         'h1',
@@ -797,7 +827,7 @@ function placeholderTree(plan: PagePlan, contract: SectionContract): TreeElement
       )
     : el('h2', 'text-3xl font-semibold text-balance md:text-4xl', { text: contract.title });
   return el(
-    'section',
+    tag,
     hero ? 'ck-ground relative overflow-hidden py-24 md:py-32' : 'ck-ground py-16 md:py-24',
     {
       attributes: { id: contract.anchorId },
@@ -806,9 +836,9 @@ function placeholderTree(plan: PagePlan, contract: SectionContract): TreeElement
   );
 }
 
-function regionTree(plan: PagePlan, contract: SectionContract): TreeElement {
+function regionTree(plan: PagePlan, contract: SectionContract, provisional = false): TreeElement {
   if (contract.role === 'header') return headerTree(plan, contract);
-  if (contract.role === 'footer') return footerTree(plan, contract);
+  if (contract.role === 'footer' && !provisional) return footerTree(plan, contract);
   return placeholderTree(plan, contract);
 }
 
@@ -879,9 +909,29 @@ function kitRegion(
   }
   const kit = planKit(contract.kit);
   if (kit === undefined) return undefined;
-  const filled = instantiatePlanKit(kit, contract.slots, contract, plan.locale);
+  // Each image gets the photo the plan assigned this section: no photo twice on a page.
+  const slots = fillSlotPhotos(kit, contract.slots, contract.key, pagePhotoPlan(plan), plan.locale.lang);
+  const filled = instantiatePlanKit(kit, slots, contract, plan.locale);
   return filled.ok ? { kit: kit.id, tree: filled.region.tree, css: filled.region.css } : undefined;
 }
+/** The root's `seo` and `slug` from the plan, by the rules `skeletonFromPlan` documents. */
+function writeSeoAndSlug(
+  plan: PagePlan,
+  context: SkeletonFromPlanContext,
+  setRoot: (key: string, value: unknown) => void,
+): void {
+  const seo = rootSeo(plan, context.currentSeo);
+  if (seo !== undefined) setRoot('seo', seo);
+  const slug = plan.seo?.slug;
+  if (
+    slug !== undefined &&
+    slug.length <= PAGE_SLUG_MAX &&
+    (plan.intent === 'new-page' || (context.currentSlug ?? '') === '')
+  ) {
+    setRoot('slug', slug);
+  }
+}
+
 /** The product page block's own limits (editor Page/schema.ts): the plan allows a longer description. */
 const PAGE_TITLE_MAX = 120;
 const PAGE_DESCRIPTION_MAX = 200;
@@ -923,6 +973,7 @@ export function skeletonFromPlan(
 ): SkeletonFromPlanResult {
   const declared = new Set<string>(context.rootProps ?? ROOT_PROPS);
   const parentId = context.parentId;
+  const provisional = context.provisional === true;
   const commands: AiPlanStep[] = [];
   const setRoot = (key: string, value: unknown): void => {
     if (declared.has(key))
@@ -938,16 +989,7 @@ export function skeletonFromPlan(
     setRoot('description', clamp(plan.description, PAGE_DESCRIPTION_MAX));
     const { lang } = plan.locale;
     setRoot('lang', lang.length <= PAGE_LANG_MAX ? lang : (lang.split('-')[0] ?? lang));
-    const seo = rootSeo(plan, context.currentSeo);
-    if (seo !== undefined) setRoot('seo', seo);
-    const slug = plan.seo?.slug;
-    if (
-      slug !== undefined &&
-      slug.length <= PAGE_SLUG_MAX &&
-      (plan.intent === 'new-page' || (context.currentSlug ?? '') === '')
-    ) {
-      setRoot('slug', slug);
-    }
+    if (!provisional) writeSeoAndSlug(plan, context, setRoot);
   }
   setRoot('pageCss', pageCssFor(plan, context));
 
@@ -960,7 +1002,7 @@ export function skeletonFromPlan(
       `label === title` — a raw title that differed got no task at all.
     */
     const label = clamp(contract.title, REGION_LABEL_MAX);
-    const filled = kitRegion(plan, contract);
+    const filled = provisional ? undefined : kitRegion(plan, contract);
     commands.push({
       command: 'insertNode',
       args: {
@@ -970,7 +1012,7 @@ export function skeletonFromPlan(
         ...(context.index === undefined ? {} : { index: context.index + position }),
         props:
           filled === undefined
-            ? { label, tree: root(regionTree(plan, contract)) }
+            ? { label, tree: root(regionTree(plan, contract, provisional)) }
             : {
                 label,
                 tree: filled.tree,
@@ -983,7 +1025,10 @@ export function skeletonFromPlan(
       title: label,
       anchorId: contract.anchorId,
       step,
-      complete: filled !== undefined || contract.role === 'header' || contract.role === 'footer',
+      complete:
+        filled !== undefined ||
+        contract.role === 'header' ||
+        (contract.role === 'footer' && !provisional),
       ...(filled === undefined ? {} : { kit: filled.kit }),
     };
   });
@@ -997,3 +1042,117 @@ export function skeletonFromPlan(
     regions,
   };
 }
+
+// p5-plan-stream additions (2026-10-05): the streamed build's finish transaction.
+
+/** The history label of the transaction that completes a provisional skeleton. */
+export const PAGE_SKELETON_FINISH_LABEL = 'Assistant: page skeleton (finish)';
+
+export interface SkeletonFinishInput {
+  /** The plan the provisional skeleton was written from. */
+  readonly provisional: PagePlan;
+  /** The validated final plan. Precondition: `reconcilePlans(provisional, final).sameOutline`. */
+  readonly final: PagePlan;
+  /** The context the provisional skeleton was written with (without `provisional`). */
+  readonly context: SkeletonFromPlanContext;
+  /** Section key → the region node the provisional skeleton created for it. */
+  readonly regions: ReadonlyMap<string, NodeId>;
+}
+
+export interface SkeletonFinishResult {
+  /** One plan of `setProp`/`setDocMeta` steps, landed as ONE transaction through `applyAiPlan`. */
+  readonly plan: AiPlan;
+  readonly label: typeof PAGE_SKELETON_FINISH_LABEL;
+  /** The section keys this plan wrote in full: the footer and each kit section its slots filled. */
+  readonly complete: readonly string[];
+}
+
+/**
+ * What the provisional skeleton left for the final plan (DESIGN §6.1), as one
+ * pure plan of `setProp` and `setDocMeta` steps:
+ *
+ * - the root's `seo` and `slug` from the final plan, by `skeletonFromPlan`'s
+ *   rules (never when appending);
+ * - the root's `title`, `description`, `lang`, `pageCss` and the document's
+ *   `dir`, each only where the final plan's value differs from the
+ *   provisional one's;
+ * - the header's tree, only when the final plan draws a different header
+ *   (its nav, primary action, title or locale changed);
+ * - the footer's tree, always, from the final plan's facts;
+ * - each kit section whose final slots fill its kit.
+ *
+ * Undefined when there is nothing to write.
+ */
+export function skeletonFinish(input: SkeletonFinishInput): SkeletonFinishResult | undefined {
+  const { provisional, final, context, regions } = input;
+  const declared = new Set<string>(context.rootProps ?? ROOT_PROPS);
+  const parentId = context.parentId;
+  const commands: AiPlanStep[] = [];
+  const complete: string[] = [];
+  const setRoot = (key: string, value: unknown): void => {
+    if (declared.has(key))
+      commands.push({ command: 'setProp', args: { id: parentId, key, value } });
+  };
+  const setRootWhereChanged = (key: string, before: string, after: string): void => {
+    if (before !== after) setRoot(key, after);
+  };
+  const langOf = ({ locale: { lang } }: PagePlan): string =>
+    lang.length <= PAGE_LANG_MAX ? lang : (lang.split('-')[0] ?? lang);
+
+  if (final.intent !== 'append') {
+    if (final.locale.dir !== provisional.locale.dir) {
+      commands.push({ command: 'setDocMeta', args: { dir: final.locale.dir } });
+    }
+    setRootWhereChanged(
+      'title',
+      clamp(provisional.title, PAGE_TITLE_MAX),
+      clamp(final.title, PAGE_TITLE_MAX),
+    );
+    setRootWhereChanged(
+      'description',
+      clamp(provisional.description, PAGE_DESCRIPTION_MAX),
+      clamp(final.description, PAGE_DESCRIPTION_MAX),
+    );
+    setRootWhereChanged('lang', langOf(provisional), langOf(final));
+    writeSeoAndSlug(final, context, setRoot);
+  }
+  setRootWhereChanged('pageCss', pageCssFor(provisional, context), pageCssFor(final, context));
+
+  const setRegion = (id: NodeId, key: string, value: unknown): void => {
+    commands.push({ command: 'setProp', args: { id, key, value } });
+  };
+  for (const contract of final.sections) {
+    const id = regions.get(contract.key);
+    if (id === undefined) continue;
+    if (contract.role === 'header') {
+      const before = provisional.sections.find(({ key }) => key === contract.key);
+      const tree = root(headerTree(final, contract));
+      const was = before === undefined ? undefined : root(headerTree(provisional, before));
+      if (JSON.stringify(was) !== JSON.stringify(tree)) setRegion(id, 'tree', tree);
+      continue;
+    }
+    if (contract.role === 'footer') {
+      setRegion(id, 'tree', root(footerTree(final, contract)));
+      complete.push(contract.key);
+      continue;
+    }
+    const filled = kitRegion(final, contract);
+    if (filled === undefined) continue;
+    setRegion(id, 'tree', filled.tree);
+    if (filled.css !== '') setRegion(id, 'css', filled.css);
+    complete.push(contract.key);
+  }
+
+  if (commands.length === 0) return undefined;
+  return {
+    plan: {
+      rationale: `The page skeleton for "${final.title}", finished from the final plan: ${
+        complete.length === 0 ? 'the page settings' : `${String(complete.length)} sections written in full`
+      }.`,
+      commands,
+    },
+    label: PAGE_SKELETON_FINISH_LABEL,
+    complete,
+  };
+}
+// end p5-plan-stream additions

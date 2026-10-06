@@ -1,0 +1,131 @@
+/*
+  The box model. Each ring is a 3 × 3 grid laid out in the PAGE direction (the
+  root carries `dir`), so `inline-start` lands on the right of an RTL page
+  without a single physical property here.
+*/
+.bldr-box-model {
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  min-inline-size: 0;
+}
+
+.bldr-box-model__ring {
+  align-items: center;
+  border: var(--bldr-border-hairline) dashed var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  grid-template-areas:
+    'label block-start .'
+    'inline-start inner inline-end'
+    '. block-end .';
+  grid-template-columns: minmax(var(--bldr-control-sm), auto) minmax(0, 1fr) minmax(
+      var(--bldr-control-sm),
+      auto
+    );
+  padding: var(--bldr-space-2xs);
+  position: relative;
+}
+
+.bldr-box-model__ring[data-ring='margin'] {
+  background: var(--bldr-warning-soft);
+}
+
+.bldr-box-model__ring[data-ring='padding'] {
+  background: var(--bldr-success-soft);
+  border-style: solid;
+}
+
+.bldr-box-model__ring-label {
+  align-self: start;
+  color: var(--bldr-panel-text-soft);
+  grid-area: label;
+  overflow: hidden;
+  padding-inline-start: var(--bldr-space-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-box-model__slot {
+  display: flex;
+  justify-content: center;
+}
+
+.bldr-box-model__slot[data-side='block-start'] {
+  grid-area: block-start;
+}
+
+.bldr-box-model__slot[data-side='block-end'] {
+  grid-area: block-end;
+}
+
+.bldr-box-model__slot[data-side='inline-start'] {
+  grid-area: inline-start;
+}
+
+.bldr-box-model__slot[data-side='inline-end'] {
+  grid-area: inline-end;
+}
+
+.bldr-box-model__inner {
+  grid-area: inner;
+  min-inline-size: 0;
+}
+
+.bldr-box-model__content {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-muted);
+  min-block-size: var(--bldr-control-sm);
+  display: grid;
+  place-items: center;
+}
+
+.bldr-box-side {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-text);
+  cursor: ew-resize;
+  font: inherit;
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-xs);
+  touch-action: none;
+}
+
+.bldr-box-model__slot[data-side^='block'] .bldr-box-side {
+  cursor: ns-resize;
+}
+
+.bldr-box-side:hover:not(:disabled),
+.bldr-box-side[data-scrubbing] {
+  background: var(--bldr-surface-hover);
+}
+
+.bldr-box-side:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-box-model__slot[data-origin='here'] .bldr-box-side {
+  color: var(--bldr-accent-strong);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.bldr-box-model__slot[data-origin='larger-bucket'] .bldr-box-side,
+.bldr-box-model__slot[data-origin='default-state'] .bldr-box-side,
+.bldr-box-model__slot[data-origin='named-style'] .bldr-box-side {
+  color: var(--bldr-panel-text-soft);
+  text-decoration: underline dotted;
+}
+
+.bldr-box-side__popover {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-shadow: var(--bldr-shadow-floating);
+  inline-size: var(--bldr-measure-picker);
+  padding: var(--bldr-space-sm);
+  z-index: 40;
+}

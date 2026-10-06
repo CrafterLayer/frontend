@@ -1,0 +1,27 @@
+.bldr-bucket-state-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+.bldr-bucket-state-switcher__edit-at {
+  align-self: flex-start;
+  background: var(--bldr-accent-soft);
+  border: var(--bldr-border-hairline) dashed var(--bldr-accent);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-bucket-state-switcher__edit-at:hover {
+  background: var(--bldr-accent-soft-hover);
+}
+
+.bldr-bucket-state-switcher__edit-at:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}

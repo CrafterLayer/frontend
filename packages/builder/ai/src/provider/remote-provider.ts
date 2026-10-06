@@ -1,6 +1,7 @@
 import { detectPromptLanguage } from '../prompt-enhance/language';
 import type {
   AiEnhancePromptOptions,
+  AiPagePlanDraftEvent,
   AiPagePlanProposal,
   AiPlan,
   AiPlanProvider,
@@ -324,14 +325,36 @@ function nextSseFrameBoundary(buffer: string): { index: number; length: number }
   return match?.index === undefined ? undefined : { index: match.index, length: match[0].length };
 }
 
+/** Calls a host observer; its failure never alters the transport outcome. */
+function notifyDraft(
+  onDraft: ((event: AiPagePlanDraftEvent) => void) | undefined,
+  event: AiPagePlanDraftEvent,
+): void {
+  if (onDraft === undefined) return;
+  try {
+    onDraft(event);
+  } catch {
+    // Draft observers are advisory; the resolved proposal is the authority.
+  }
+}
+
 /**
- * Streaming answers: `status` frames narrate, exactly one `result` frame ends
- * the story with the same JSON shape the plain path uses.
+ * Streaming answers: `status` frames narrate, `draft` frames carry the raw
+ * answer text while the model writes it (page plans only), exactly one
+ * `result` frame ends the story with the same JSON shape the plain path uses.
+ *
+ * `onDraft` is given only by `proposePagePlan`: it hears `start` when the
+ * stream begins and on every `{reset: true}` draft, and `text` for every
+ * draft with a string `text`. Any other draft payload, and any draft after
+ * the result, is ignored rather than treated as a protocol error — drafts are
+ * advisory. Without `onDraft` (every other task) draft frames are ignored, as
+ * any unknown event is.
  */
 async function readSseResponse(
   response: Response,
   onProgress: ((text: string) => void) | undefined,
   maxResponseBytes: number,
+  onDraft?: (event: AiPagePlanDraftEvent) => void,
 ): Promise<unknown> {
   if (response.body === null) {
     throw new RemoteAiProviderError('The assistant server stream had no body.', {
@@ -346,6 +369,7 @@ async function readSseResponse(
   let buffer = '';
   let result: unknown = missing;
   let resultSeen = false;
+  notifyDraft(onDraft, { kind: 'start' });
 
   const handleFrame = (frame: string) => {
     const { event, data } = parseSseFrame(frame);
@@ -384,6 +408,13 @@ async function readSseResponse(
       }
       resultSeen = true;
       result = payload;
+    } else if (event === 'draft') {
+      if (resultSeen || onDraft === undefined || !isRecord(payload)) return;
+      if (payload['reset'] === true) {
+        notifyDraft(onDraft, { kind: 'start' });
+      } else if (typeof payload['text'] === 'string') {
+        notifyDraft(onDraft, { kind: 'text', text: payload['text'] });
+      }
     }
   };
 
@@ -436,10 +467,15 @@ function assertEndpointAllowed(endpoint: string, allowInsecureHttp: boolean): vo
   );
 }
 
-/** The live options a POST reads: every task's cancellation, and a plan's narration. */
+/**
+ * The live options a POST reads: every task's cancellation, a plan's
+ * narration, and a page plan's draft observer (read only when the exchange
+ * says `drafts: true`).
+ */
 interface RemoteLive {
   readonly signal?: AbortSignal | undefined;
   readonly onProgress?: ((text: string) => void) | undefined;
+  readonly onDraft?: ((event: AiPagePlanDraftEvent) => void) | undefined;
 }
 
 /**
@@ -463,6 +499,8 @@ interface RemoteExchange<T> {
   readonly accept: string;
   readonly timeoutMs: number;
   readonly read: (payload: unknown) => T;
+  /** Forward `draft` frames to `live.onDraft` — the page plan only. */
+  readonly drafts?: boolean;
 }
 
 /**
@@ -473,7 +511,9 @@ interface RemoteExchange<T> {
  * Both answer styles are accepted from the same POST: a plain JSON body, or —
  * when the server honours the advertised `text/event-stream` — an SSE stream
  * whose `status` frames feed `onProgress` and whose `result` frame carries the
- * final wire response.
+ * final wire response. For `proposePagePlan` only, the stream's `draft` frames
+ * (the model's raw answer text) feed `live.onDraft` — `start` when the stream
+ * begins or the server resets it, then `text` slices; a JSON answer emits none.
  *
  * Three tasks, one transport (auth, deadline, cancellation, size cap, SSE):
  * `propose`/`repair` post a plan request to the endpoint; `proposePagePlan`
@@ -583,7 +623,12 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       let payload: unknown;
       try {
         if ((response.headers.get('content-type') ?? '').startsWith('text/event-stream')) {
-          payload = await readSseResponse(response, live?.onProgress, maxResponseBytes);
+          payload = await readSseResponse(
+            response,
+            live?.onProgress,
+            maxResponseBytes,
+            exchange.drafts === true ? live?.onDraft : undefined,
+          );
         } else {
           payload = await readJsonResponse(response, maxResponseBytes);
         }
@@ -636,8 +681,9 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
   function planExchange<T>(
     body: AiPlanWireRequest,
     read: (payload: unknown) => T,
+    drafts = false,
   ): RemoteExchange<T> {
-    return { url: options.endpoint, body, accept: ACCEPT_STREAM_OR_JSON, timeoutMs, read };
+    return { url: options.endpoint, body, accept: ACCEPT_STREAM_OR_JSON, timeoutMs, read, drafts };
   }
 
   const provider = {
@@ -709,6 +755,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
               : { pagePlanAttempt: { pagePlan: attempt.pagePlan, issues: attempt.issues } }),
           },
           (payload) => parsePagePlanResponse(payload, remember),
+          true,
         ),
         live,
       );

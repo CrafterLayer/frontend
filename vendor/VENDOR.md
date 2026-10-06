@@ -352,3 +352,113 @@ used, as plain strings. Upstream has no NOTICE file at this commit.
 The English list is restated; the Arabic list (اضغط هنا، هنا، المزيد، اقرأ المزيد، التفاصيل، اعرف
 أكثر، رابط) is ours. Upstream has no NOTICE file at this commit, so the licence notice and the
 modification note in the adapting file are what Apache-2.0 §4 asks for.
+
+## bolt.diy — act on each closed unit of a streamed answer (logic only, no file copied)
+
+| | |
+| --- | --- |
+| Upstream | [stackblitz-labs/bolt.diy](https://github.com/stackblitz-labs/bolt.diy) |
+| Reference | `app/lib/runtime/message-parser.ts` — `StreamingMessageParser` (`onActionOpen` / `onActionStream` / `onActionClose`) |
+| License | MIT |
+| Adapted into | `packages/builder/ai/src/agent/page-plan/plan-stream.ts` (`createPlanStreamReader`) |
+
+One idea is taken, with attribution in the adapting file: read the model's answer incrementally,
+keep the scan position between deltas, and act on each unit the moment it closes instead of
+waiting for the whole answer (upstream writes each file while the next is still being generated;
+ours lands the page skeleton when the plan's outline closes and starts each section writer when
+its brief closes). **No code is copied and no package is added**: upstream parses XML-like action
+tags, ours is a small JSON scanner (strings with escapes, a container stack, the key path)
+that cuts each closed unit out of the text and `JSON.parse`s it. Because no upstream code is
+reproduced, no licence text is carried in THIRD_PARTY_LICENSES.md for it.
+
+Considered and not adopted (DESIGN 2026-10-05, D4): partial-JSON parsers (`partial-json`,
+`@streamparser/json`, Vercel `ai`'s `fixJson`) — every unit acted on is complete JSON by the time
+it closes, so a partial parser buys nothing.
+
+<!-- P0-libs additions (style-manager DESIGN.md, 2026-10-05) -->
+
+## lenis — opt-in smooth scrolling for published sites
+
+| | |
+| --- | --- |
+| Upstream | [darkroomengineering/lenis](https://github.com/darkroomengineering/lenis) |
+| Release | `lenis@1.3.26` (npm, published 2026-08-05), upstream gitHead `27059e9054142979e88b2f2b027c7cbf1540310c` |
+| Tarball | `https://registry.npmjs.org/lenis/-/lenis-1.3.26.tgz`, integrity `sha512-s/xTCZCxTFvHbAN1OzuhNaN5YPJH2ail0XAkctKW1b+RUAG4nUL5UHLXwNko1h8aEeT2jspBXegMgPJd8zcuag==` (checked on download) |
+| License | MIT (c) 2024 darkroom.engineering — `vendor/lenis/LICENSE`; text in THIRD_PARTY_LICENSES.md |
+| Verbatim copies | `vendor/lenis/lenis.min.js` (sha256 `53195c9797e7ce7bf9d7fa9242b08209e57f46de4c9dac126a6494fa780e3346`), `vendor/lenis/lenis.css` (sha256 `2f668ae84a668327f246faf8a770383a2bf69196d214290fbc4d5548910606c5`), `vendor/lenis/LICENSE` |
+| Adapted into | `packages/builder/renderer/src/behaviors/lenis-source.ts` (generated string module: `LENIS_SOURCE`, `LENIS_CSS`, `LENIS_VERSION`, `LENIS_SHA256`, `LENIS_CSS_SHA256`, `LENIS_BANNER`); `lenis-source.test.ts` asserts both strings hash to the vendored files |
+
+**Why vendored rather than depended on**: the published static site cannot import npm code, so
+the script must travel as a string the export writes out (`assets/ck-smooth-scroll.js`, emitted
+only when the site setting `smoothScroll` is on; DESIGN.md D7). It never runs in the editor canvas
+and is skipped under `prefers-reduced-motion: reduce`. Nothing is changed: the bytes are upstream's
+minified build, including its trailing `sourceMappingURL` comment (the map is not shipped, so an
+emitter may drop that last line). The emitter prepends `LENIS_BANNER` so the MIT notice travels
+with the shipped copy. To upgrade: download the new tarball, re-copy the three files, regenerate
+`lenis-source.ts` with new hashes, and update this entry.
+
+## Animation idea ports (planned, filled by P4)
+
+Planned 2026-10-05 by the style-manager design (LIBRARIES.md §B). Each row is **planned, filled by
+P4**: when P4 copies or adapts code it records the commit consulted, the exact upstream file, what
+was copied and the adapting file here, and keeps the licence text in THIRD_PARTY_LICENSES.md (the
+texts below are already there). These ports exist because the behaviours runtime is one serialised
+function and cannot import, and because published sites ship no animation library.
+
+| Port | Upstream | Licence | What is taken | Planned destination | Status |
+| --- | --- | --- | --- | --- | --- |
+| Splitting.js | [shshaw/Splitting](https://github.com/shshaw/Splitting) | MIT (c) 2018 Stephen Shaw | Wrap chars and words in `span`s carrying `--ck-char-i` / `--ck-word-i`; full text in `aria-label` on the parent, `aria-hidden` on the spans (about 30 lines) | `packages/builder/renderer/src/behaviors/runtime.ts` (`split-chars`, `split-words`) | planned, filled by P4 |
+| auto-animate | [formkit/auto-animate](https://github.com/formkit/auto-animate) | MIT (c) 2022 FormKit Inc. | MutationObserver + WAAPI FLIP (under 60 lines), plus our reduced-motion guard | behaviour `layout` in the same runtime | planned, filled by P4 |
+| NumberFlow | [barvian/number-flow](https://github.com/barvian/number-flow) | MIT (c) 2024 Maxwell Barvian | Rolling digits: a per-digit vertical strip translated by `--ck-digit` | behaviour `ticker` | planned, filled by P4 |
+| anime.js v4 | [juliangarnier/anime](https://github.com/juliangarnier/anime) | MIT (c) 2025 Julian Garnier | Ideas: `splitText` line detection; SVG line-draw with `pathLength=1` + `stroke-dashoffset`. Attribute any line copied | presets `draw-line`, `split-lines` | planned, filled by P4 |
+| Magic UI (more ports) | [magicuidesign/magicui](https://github.com/magicuidesign/magicui) | MIT — same licence as the Magic UI entries above (`vendor/magicui/LICENSE`) | border-beam, animated-gradient-text, blur-fade, word-rotate, number-ticker, retro-grid, grid-pattern, meteors, orbiting-circles, animated-beam, each ported to CSS + tokens the way ShineBorder was | `packages/builder/renderer/src/motion/presets-css.ts`; block-style ones in `packages/builder/extensions/magicui` | planned, filled by P4 |
+
+<!-- end P0-libs additions -->
+
+## Animation idea ports — as built (P4, style-manager DESIGN.md §B, §C)
+
+Recorded 2026-10-05 by P4; this fills in the planned table above. **No upstream file was copied
+into the repository.** Every port below is a technique re-expressed in our own CSS (generated by
+`packages/builder/renderer/src/motion/presets-css.ts` and `effects-css.ts`) or inside the
+serialised behaviours runtime (`packages/builder/renderer/src/behaviors/runtime.ts`), which cannot
+import anything. Each adapting site carries an attribution comment beside the idea. Upstream files
+were read at the commits named, to learn the technique and the defaults; no licence text beyond the
+existing MIT entries in THIRD_PARTY_LICENSES.md is needed, because no code is reproduced — the
+entries are kept anyway so provenance stays answerable.
+
+What changed in every Magic UI port, the same way ShineBorder changed: numbers became named steps
+(`data-ck-speed`, `data-ck-distance`), colours became tokens (`--t-accent`, `--t-success`, …,
+overridable per element through `--ck-fx-c1` / `--ck-fx-c2`), every movement lives under
+`prefers-reduced-motion: no-preference`, inline-axis movement reads `--ck-inline-sign` so Arabic
+pages mirror, and nothing depends on `motion` / `framer-motion` (published pages ship no animation
+library, DESIGN D7).
+
+### Magic UI — commit `cdb348cb4c72a9b54b554d8617801e479fbc8714` (2026-10-05), MIT
+
+| Upstream file | Our name | What is taken | Adapting site |
+| --- | --- | --- | --- |
+| `apps/www/registry/magicui/border-beam.tsx` | hover `border-beam` | A beam travelling round the border, masked to the border box. Upstream moves a gradient square along `offset-path: rect()` with Motion; ours paints the ShineBorder ring with a `conic-gradient` whose start angle is a registered `@property` (`--ck-beam-angle`) rotated by keyframes — no engine | `presets-css.ts` (`HOVER['border-beam']`) |
+| `apps/www/registry/magicui/animated-gradient-text.tsx` | motion `gradient-text` | A 300 % three-stop gradient clipped to the text and panned (`background-position`) | `presets-css.ts` (`TEXT['gradient-text']`) |
+| `apps/www/registry/magicui/blur-fade.tsx` | motion `blur-in` | Start from `blur(6px)`, transparent, a quarter-distance below; play on view | `presets-css.ts` (`ENTRANCE_FROM['blur-in']`) |
+| `apps/www/registry/magicui/word-rotate.tsx` | motion `word-rotate` | One word at a time, entering from above with a fade; ours keeps all words in a visually hidden `.ck-sr` span for screen readers | `runtime.ts` (`wordRotate`), `presets-css.ts` |
+| `apps/www/registry/magicui/number-ticker.tsx` | behaviour `ticker` | Count to a value once it is in view (with NumberFlow's rolling-digit presentation, below) | `runtime.ts` (`ticker`), `behaviors-css.ts` |
+| `apps/www/registry/magicui/retro-grid.tsx` | effect `ck-fx-retro-grid` | Upstream now renders with WebGL and keeps a CSS fallback: a grid plane tipped back by `perspective(200px) rotateX(…)` that scrolls toward the viewer, faded by a gradient. The CSS fallback is what is ported, as one `::before` | `effects-css.ts` |
+| `apps/www/registry/magicui/grid-pattern.tsx`, `dot-pattern.tsx` | effects `ck-fx-grid`, `ck-fx-dots` | A 1 px lattice / one dot per cell behind the content, faded out by a radial mask; drawn with gradients instead of an SVG `<pattern>` | `effects-css.ts` |
+| `apps/www/registry/magicui/meteors.tsx` | loop `meteors` | Small heads with a gradient tail, random start position, delay 0.2–1.2 s and duration 2–10 s, travelling diagonally and fading out; the runtime adds the spans (none under reduced motion) | `runtime.ts` (`meteors`), `presets-css.ts` (`LOOP.meteors`) |
+| `apps/www/registry/magicui/orbiting-circles.tsx` | loop `orbit` | Children placed round a circle by `rotate(a) translateY(r) rotate(-a)`, rotating 360° per loop; the runtime writes each child's index and the count | `presets-css.ts` (`LOOP.orbit`), `runtime.ts` (`indexChildren`) |
+| `apps/www/registry/magicui/animated-beam.tsx` | — | **Not ported**: it measures two element refs and draws an SVG path between them at run time; the vocabulary has no slot for "connect A to B", and a CSS-only version cannot know the endpoints | — |
+
+### Logic ideas (no file copied)
+
+| Upstream | Commit read | Licence | Idea | Adapting site |
+| --- | --- | --- | --- | --- |
+| [shshaw/Splitting](https://github.com/shshaw/Splitting) | `d5a8fd0137e90770ae10d2e0e874a4a101161544` | MIT (c) 2018 Stephen Shaw | Wrap words / characters in spans that carry their index as a custom property (`--ck-word-i`, `--ck-char-i`, `--ck-line-i`, and `--ck-u-i` for the animated unit); the parent's `aria-label` keeps the sentence, the spans are `aria-hidden`. Ours adds: the original text nodes stay in place (emptied) so React can still own them; joining scripts (Arabic, Syriac, N'Ko, Mongolian, Indic) split by word, never by letter, so their shapes survive; graphemes via `Intl.Segmenter` | `runtime.ts` (`splitText`) |
+| [juliangarnier/anime](https://github.com/juliangarnier/anime) v4 | `01b81be1df6843ccfe0a71c0699a746bf740dd77` | MIT (c) 2025 Julian Garnier | Line drawing with `pathLength="1"` so a dash of 1 is the whole stroke, animating `stroke-dashoffset` 1 → 0; `splitText`'s line detection (words grouped by their top edge, re-measured on resize) | `runtime.ts` (`drawLine`, `splitText` lines), `presets-css.ts` (`draw-line`) |
+| [formkit/auto-animate](https://github.com/formkit/auto-animate) | `06882a8e69ba9bc8456d8f2ae6010f697fd7a37c` | MIT (c) 2022 FormKit Inc. | FLIP on child changes: remember each child's place, observe the container with a MutationObserver, play moved children from the old place with WAAPI, fade new ones in. Ours adds the reduced-motion guard and stays off on the canvas | `runtime.ts` (`layout`) |
+| [barvian/number-flow](https://github.com/barvian/number-flow) | `c5906cf35c86583e756a6b91e043291c10b416e0` | MIT (c) 2024 Maxwell Barvian | Rolling digits: each digit a vertical strip of 0–9 translated to its value. Ours uses the page language's digits (Arabic-Indic on Arabic pages), isolates the number LTR, and puts the final value in `aria-label` | `runtime.ts` (`ticker`), `behaviors-css.ts` |
+
+Curves: the `spring` and `bounce` eases are CSS `linear()` curves sampled at build time from a
+damped-spring formula and the four-arc bounce-out definition, written in `presets-css.ts`; no
+curve table was copied.
+
+<!-- end P4-animation additions -->

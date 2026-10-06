@@ -45,6 +45,8 @@ describe('site behaviours in the custom-code vocabulary', () => {
       'lightbox',
       'whatsapp-form',
       'copy-text',
+      'ticker',
+      'layout',
     ]);
     expect(isCustomCodeBehavior('marquee')).toBe(true);
     expect(isCustomCodeBehavior('parallax')).toBe(false);

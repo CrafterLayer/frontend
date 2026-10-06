@@ -3,6 +3,7 @@ import { codePageReferenceSchema, pageLinkSchema } from '../code/types';
 import { LATEST_SCHEMA_VERSION, type BuilderDocument } from '../document/types';
 import { validateDocument } from '../document/validate';
 import { validateDesignSystem } from '../theme/validate';
+import { symbolCycle } from './library-usage';
 import {
   builderSiteSchema,
   LATEST_SITE_VERSION,
@@ -50,9 +51,18 @@ export interface SiteValidationIssue {
     | 'invalid-page-document'
     | 'page-direction-mismatch'
     | 'unresolved-asset-reference'
-    | 'design-system-contrast-failure';
+    | 'design-system-contrast-failure'
+    /* style-manager DESIGN.md §2: the optional site design library. */
+    | 'invalid-site-library';
   message: string;
-  at?: { pageId?: PageId; regionId?: SharedRegionId; projectId?: string; modulePath?: string };
+  at?: {
+    pageId?: PageId;
+    regionId?: SharedRegionId;
+    projectId?: string;
+    modulePath?: string;
+    /** The library entry at fault, e.g. `symbols.card`. */
+    libraryPath?: string;
+  };
 }
 
 /** Whole-site validation. Page validity remains owned by validateDocument(). */
@@ -83,6 +93,7 @@ export function validateSite(value: unknown): SiteValidationResult {
   collectDuplicatePageIssues(site.pages, 'address', 'duplicate-page-address', issues);
   collectDuplicatePageIssues(site.pages, 'id', 'duplicate-page-id', issues);
   collectCodeProjectIssues(site, issues);
+  collectLibraryIssues(site, issues);
 
   for (const page of site.pages) {
     collectCodePageIssues(site, page, issues);
@@ -175,6 +186,24 @@ export function validateSite(value: unknown): SiteValidationResult {
   }
 
   return issues.length === 0 ? { ok: true, site } : { ok: false, issues };
+}
+
+/*
+  The library's SHAPE is the schema's (every limit, id and colour rule parses
+  in `builderSiteSchema`); what is checked here is what no single entry can
+  see: a symbol that, through the instances in its tree, contains itself.
+  Rendering one would recurse until the stack gives out.
+*/
+function collectLibraryIssues(site: BuilderSite, issues: SiteValidationIssue[]): void {
+  for (const symbolId of Object.keys(site.library?.symbols ?? {})) {
+    const cycle = symbolCycle(site.library, symbolId);
+    if (cycle === undefined) continue;
+    issues.push({
+      code: 'invalid-site-library',
+      message: `Symbol "${symbolId}" contains itself: ${cycle.join(' → ')}.`,
+      at: { libraryPath: `symbols.${symbolId}` },
+    });
+  }
 }
 
 function collectCodeProjectIssues(site: BuilderSite, issues: SiteValidationIssue[]): void {
@@ -331,9 +360,11 @@ function shapeIssues(
       code:
         path[0] === 'codeProjects'
           ? 'invalid-code-project'
-          : isNestedDocument
-            ? 'invalid-page-document'
-            : 'malformed-site',
+          : path[0] === 'library'
+            ? 'invalid-site-library'
+            : isNestedDocument
+              ? 'invalid-page-document'
+              : 'malformed-site',
       message: `Site shape is invalid${path.length === 0 ? '' : ` at ${path.join('.')}`}: ${issue.message}`,
       ...(at === undefined ? {} : { at }),
     };
@@ -363,6 +394,10 @@ function locationFromRawSite(
 
   if (path[0] === 'sharedRegions' && typeof path[1] === 'string') {
     return { regionId: path[1] };
+  }
+
+  if (path[0] === 'library' && path.length > 1) {
+    return { libraryPath: path.slice(1, 3).join('.') };
   }
 
   return undefined;

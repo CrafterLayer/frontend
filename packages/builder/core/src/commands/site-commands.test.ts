@@ -602,6 +602,20 @@ describe('the door itself', () => {
         'setPageRegions',
         'setSharedRegion',
         'setSiteDirection',
+        // style-manager DESIGN.md §2 — the site design library (P5).
+        'setPaletteColor',
+        'removePaletteColor',
+        'setNamedStyle',
+        'removeNamedStyle',
+        'setSymbol',
+        'removeSymbol',
+        'saveTemplate',
+        'removeTemplate',
+        'setSiteFonts',
+        'setLibrarySettings',
+        'importDesignLibrary',
+        'updateAsset',
+        'removeAsset',
       ].sort(),
     );
   });

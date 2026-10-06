@@ -69,6 +69,13 @@ export interface LiveUtilities {
   readonly watch: (target: Document) => () => void;
   /** The stylesheet generated so far. */
   readonly css: () => string;
+  /**
+   * A one-shot compile of exactly these classes — the export's fallback when
+   * no sheet was generated for a page. Unscoped (a published page has no
+   * second sheet for it to fight), and it neither grows nor rewrites the live
+   * sheet. Classes Tailwind does not know are skipped.
+   */
+  readonly compileFor: (classNames: Iterable<string>) => Promise<string>;
   /** Remove the generated stylesheet and stop every watch. */
   readonly dispose: () => void;
 }
@@ -82,7 +89,35 @@ export interface LiveUtilitiesOptions {
    * because only the host's bundler can turn a stylesheet into a string.
    */
   readonly tailwindThemeCss: string;
+  /**
+   * Canvas only. Let `hover:`, `focus-visible:`, `active:` and `open:` also
+   * match `[data-ck-state~="<state>"]`, so the editor can show and edit a
+   * state without the pointer being there (style-manager DESIGN §A.7). The
+   * published sheet never has these: an export compiles without the option.
+   */
+  readonly canvasStateVariants?: boolean | undefined;
 }
+
+/** The attribute the canvas stamps on an element to preview one of its states. */
+export const CANVAS_STATE_ATTRIBUTE = 'data-ck-state';
+
+/** The states the canvas can force, in switcher order. */
+export const CANVAS_STATES = ['hover', 'focus-visible', 'active', 'open'] as const;
+
+export type CanvasState = (typeof CANVAS_STATES)[number];
+
+/*
+  Each override keeps the real pseudo-class (hover still only where a pointer
+  hovers, like Tailwind's own) and adds the forced-state attribute. Verified
+  against tailwindcss 4.3.3: `max-md:hover:` and `group-hover:` compose
+  through them unchanged.
+*/
+const STATE_VARIANTS = [
+  `@custom-variant hover { &:hover { @media (hover: hover) { @slot; } } &[${CANVAS_STATE_ATTRIBUTE}~="hover"] { @slot; } }`,
+  `@custom-variant focus-visible { &:focus-visible { @slot; } &[${CANVAS_STATE_ATTRIBUTE}~="focus-visible"] { @slot; } }`,
+  `@custom-variant active { &:active { @slot; } &[${CANVAS_STATE_ATTRIBUTE}~="active"] { @slot; } }`,
+  `@custom-variant open { &:is([open], :popover-open, :open) { @slot; } &[${CANVAS_STATE_ATTRIBUTE}~="open"] { @slot; } }`,
+].join('\n');
 
 const ENTRY = [
   "@import 'tailwindcss/theme.css' layer(theme);",
@@ -220,9 +255,10 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
     }
     return Promise.resolve({ path: id, base, content });
   };
+  const entry = options.canvasStateVariants === true ? `${ENTRY}\n${STATE_VARIANTS}` : ENTRY;
   const [compiler, design] = await Promise.all([
-    tailwind.compile(ENTRY, { loadStylesheet }),
-    tailwind.__unstable__loadDesignSystem(ENTRY, { loadStylesheet }),
+    tailwind.compile(entry, { loadStylesheet }),
+    tailwind.__unstable__loadDesignSystem(entry, { loadStylesheet }),
   ]);
 
   const verdicts = new Map<string, boolean>();
@@ -378,10 +414,27 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
     return stop;
   };
 
+  const compileFor = async (classNames: Iterable<string>): Promise<string> => {
+    const wanted = new Set<string>();
+    for (const name of classNames) {
+      if (!MARKER_CLASS.test(name) && isUtilityClass(name)) wanted.add(name);
+    }
+    if (wanted.size === 0) return '';
+    /*
+      A fresh compiler each time: Tailwind's `build` accumulates every
+      candidate it was ever handed, so reusing the live one would leak this
+      page's classes into the next export and the live sheet. The plain entry
+      also keeps the canvas-only state variants out of a published sheet.
+    */
+    const plain = await tailwind.compile(ENTRY, { loadStylesheet });
+    return plain.build([...wanted]);
+  };
+
   return {
     isUtilityClass,
     ensure,
     watch,
+    compileFor,
     css: () => generated,
     dispose: () => {
       for (const stop of [...watches]) stop();

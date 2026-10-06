@@ -8,6 +8,7 @@ import { pageKitGrounds, type PageKitColours, type PageKitGrounds } from './skel
 import type {
   LandedSection,
   PagePlan,
+  PagePlanTokens,
   SectionCheckCode,
   SectionCheckIssue,
   SectionContract,
@@ -560,7 +561,13 @@ const SCAFFOLD_LEFTOVERS = ['THE SECTION TITLE'];
 */
 const MASK_LETTERS = /(?<!\p{L})[xX]{3,}(?!\p{L})/u;
 const PHONE_RUN = /[+(]?[0-9][0-9 ().-]{5,}[0-9]/gu;
-const MASKED_DIGITS = /([0-9])\1{5,}|1234567|7654321/u;
+/**
+ * Digits a writer types instead of a number: six of one digit in a row, or a
+ * count. Read against a phone run's digits with the separators removed. Also
+ * the trigger of validatePagePlan's R-masked repair, so the planner's own
+ * samples never carry one to a writer.
+ */
+export const MASKED_DIGITS = /([0-9])\1{5,}|1234567|7654321/u;
 const PLACEHOLDER_ADDRESS =
   /[\w.+-]*@(?:example|domain|yourdomain|yourcompany|yoursite|yourbusiness|yourbrand|yourname|mybusiness|company|email|website)\.(?:com|net|org)\b|(?:https?:\/\/)?(?:www\.)?(?:example|yourdomain|yourcompany|yoursite|yourwebsite|yourbusiness|yourbrand|mybusiness|mysite|mywebsite|website)\.(?:com|net|org)\b/iu;
 /*
@@ -1007,6 +1014,49 @@ function maskedValue(value: string): string | undefined {
   return address === undefined ? undefined : (shown ?? address);
 }
 
+/** Each digit string of `value` worth matching: its whole digits, and each run's, seven or more. */
+function numbersIn(value: string): readonly string[] {
+  const plain = asciiDigits(value.replace(ISOLATES, ''));
+  const whole = plain.replace(/[^0-9]/gu, '');
+  const runs = [...plain.matchAll(PHONE_RUN)].map(([run]) => run.replace(/[^0-9]/gu, ''));
+  return [whole, ...runs].filter((digits) => digits.length >= 7);
+}
+
+/** Whether two digit strings are one number: equal, or ending in the same seven digits or more. */
+function sameNumber(one: string, two: string): boolean {
+  if (one === two) return true;
+  let shared = 0;
+  while (
+    shared < one.length &&
+    shared < two.length &&
+    one[one.length - 1 - shared] === two[two.length - 1 - shared]
+  ) {
+    shared += 1;
+  }
+  return shared >= 7;
+}
+
+/**
+ * Whether a value's only stand-in is masked digits the PLAN itself gave — a
+ * fact's sample or the action's number. The writer was told to copy those
+ * exactly; flagging them is the checker contradicting the plan (fast-build
+ * DESIGN §4, baseline bottleneck #4: wa.me/962791234567 in the CTA and
+ * "+962 79 123 4567" in the FAQ cost a repair round and a 13 s hold).
+ * A mask (XXX) or an example address is never the plan's to excuse.
+ */
+function planNumber(value: string, planNumbers: readonly string[]): boolean {
+  if (planNumbers.length === 0) return false;
+  const plain = value.replace(ISOLATES, '').replace(/\s+/gu, ' ').trim();
+  if (MASK_LETTERS.test(plain) || PLACEHOLDER_ADDRESS.test(plain)) return false;
+  const masked = phoneRuns(plain)
+    .map((run) => run.replace(/[^0-9]/gu, ''))
+    .filter((digits) => MASKED_DIGITS.test(digits));
+  return (
+    masked.length > 0 &&
+    masked.every((digits) => planNumbers.some((known) => sameNumber(digits, known)))
+  );
+}
+
 /** The field a line of text only names ("رقم الهاتف", "Company name"), if that is all it says. */
 function fieldNamed(value: string): 'phone' | 'email' | 'name' | 'address' | undefined {
   const afterLabel = value.includes(':') ? (value.split(':').pop() ?? '') : value;
@@ -1115,6 +1165,155 @@ function isBlackOrWhiteRgb(args: string): boolean {
     channels.length === 3 &&
     (channels.every((channel) => channel === 0) || channels.every((channel) => channel === 255))
   );
+}
+
+// ── R-colour-class: palette classes → the page's token classes, in code ────
+
+/** The ground classes a `bg-` palette class may become, by the token each paints. */
+const GROUND_TOKEN_CLASSES: readonly (readonly [keyof PagePlanTokens, string])[] = [
+  ['bg', 'ck-ground'],
+  ['surface', 'ck-surface'],
+  ['accent', 'ck-accent-fill'],
+  ['ink', 'ck-inverse'],
+];
+/** The text classes a `text-` palette class may become. */
+const TEXT_TOKEN_CLASSES: readonly (readonly [keyof PagePlanTokens, string])[] = [
+  ['ink', 'ck-ink'],
+  ['muted', 'ck-muted'],
+  ['accentInk', 'ck-accent-ink'],
+];
+
+function luminanceOf(hex: string): number {
+  // contrastRatio against black is (L + 0.05) / 0.05: L recovered without a second helper.
+  return ((contrastRatio(hex, '#000000') ?? 1) - 1) * 0.05;
+}
+
+/** The token class nearest in lightness (`target`, relative luminance) for this utility, or undefined (dropped). */
+function tokenClassFor(property: string, target: number, tokens: PagePlanTokens): string | undefined {
+  const table =
+    property === 'bg' ? GROUND_TOKEN_CLASSES : property === 'text' ? TEXT_TOKEN_CLASSES : undefined;
+  if (table === undefined) return /^border(?:-[trblxyse])?$/u.test(property) ? 'ck-border' : undefined;
+  let best: { readonly name: string; readonly distance: number } | undefined;
+  for (const [token, name] of table) {
+    const value = tokens[token];
+    if (typeof value !== 'string') continue;
+    const distance = Math.abs(luminanceOf(value) - target);
+    if (best === undefined || distance < best.distance) best = { name, distance };
+  }
+  return best?.name;
+}
+
+/**
+ * Tailwind's shades by their rough relative luminance (v3, averaged over the
+ * hues): enough to tell a ground from a card from an ink when the exact hex
+ * is not in PAGE_PLAN_PALETTE_HEX, which holds the deck's shades only.
+ */
+const SHADE_LUMINANCE: Readonly<Record<string, number>> = {
+  '50': 0.93,
+  '100': 0.86,
+  '200': 0.74,
+  '300': 0.58,
+  '400': 0.4,
+  '500': 0.26,
+  '600': 0.17,
+  '700': 0.11,
+  '800': 0.07,
+  '900': 0.04,
+  '950': 0.02,
+};
+
+/** The lightness a raw colour class paints with: its palette shade or its bracketed hex. */
+function rawClassLuminance(base: string): number | undefined {
+  const value = COLOUR_UTILITY.exec(base)?.[2] ?? '';
+  const palette = PALETTE_VALUE.exec(value);
+  if (palette !== null) {
+    const name = palette[1] ?? '';
+    const hex = PAGE_PLAN_PALETTE_HEX[name];
+    return hex === undefined ? SHADE_LUMINANCE[name.split('-').at(-1) ?? ''] : luminanceOf(hex);
+  }
+  const inner = /^\[(?:color:)?(#[0-9a-f]{3,8})\]$/iu.exec(value)?.[1];
+  return inner !== undefined && HEX.test(inner) ? luminanceOf(normalHex(inner)) : undefined;
+}
+
+/**
+ * A class list with every colour class the checker would call `raw-colour`
+ * moved onto the page's tokens (fix pass 2026-10-05): a bare `bg-blue-50`
+ * becomes the token class nearest in lightness (`ck-surface`), a `text-`
+ * one `ck-ink` / `ck-muted` / `ck-accent-ink`, a `border-` one `ck-border`;
+ * one behind a variant (`hover:`, `md:`), with an opacity, or of another
+ * utility (gradients, rings) is dropped. The same list comes back when
+ * nothing changes. English run: the features writer's `bg-blue-50` cost a
+ * repair round while five finished sections below it waited to land.
+ */
+export function tokenisePaletteClasses(className: string, tokens: PagePlanTokens): string {
+  const planHexes = new Set<string>([
+    tokens.bg,
+    tokens.surface,
+    tokens.ink,
+    tokens.muted,
+    tokens.accent,
+    tokens.onAccent,
+    tokens.accentInk,
+    tokens.border,
+  ]);
+  const names = className.split(/\s+/u).filter((name) => name !== '');
+  let changed = false;
+  const out: string[] = [];
+  for (const name of names) {
+    const read = readColourClass(name, planHexes);
+    if (read?.read.kind !== 'raw') {
+      out.push(name);
+      continue;
+    }
+    changed = true;
+    const { base, variants } = baseUtility(name);
+    const lightness = variants || read.translucent ? undefined : rawClassLuminance(base);
+    const replacement =
+      lightness === undefined ? undefined : tokenClassFor(read.property, lightness, tokens);
+    if (replacement !== undefined && !out.includes(replacement) && !names.includes(replacement)) {
+      out.push(replacement);
+    }
+  }
+  return changed ? out.join(' ') : className;
+}
+
+const MARKUP_CLASS = /(\bclass\s*=\s*)(["'])([^"']*)\2/gu;
+
+/**
+ * `tokenisePaletteClasses` over a writer's step arguments: every `className`
+ * in a tree, and every `class` in tree markup. The same value comes back when
+ * nothing changed, so a caller can tell by identity.
+ */
+export function tokeniseColourClasses(value: unknown, tokens: PagePlanTokens): unknown {
+  if (typeof value === 'string') {
+    if (!isTreeMarkup(value)) return value;
+    const next = value.replace(
+      MARKUP_CLASS,
+      (whole: string, open: string, quote: string, list: string) => {
+        const tidied = tokenisePaletteClasses(list, tokens);
+        return tidied === list ? whole : `${open}${quote}${tidied}${quote}`;
+      },
+    );
+    return next;
+  }
+  if (Array.isArray(value)) {
+    const items = (value as readonly unknown[]).map((item) => tokeniseColourClasses(item, tokens));
+    return items.some((item, index) => item !== value[index]) ? items : value;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const before = Object.entries(value);
+    const entries = before.map(([key, item]) => {
+      const next =
+        key === 'className' && typeof item === 'string'
+          ? tokenisePaletteClasses(item, tokens)
+          : tokeniseColourClasses(item, tokens);
+      return [key, next] as const;
+    });
+    const changed = entries.some(([, next], index) => next !== before[index]?.[1]);
+    // fromEntries defines own properties, so a "__proto__" key stays data.
+    return changed ? Object.fromEntries(entries) : value;
+  }
+  return value;
 }
 
 /**
@@ -1394,7 +1593,9 @@ export function checkSection(
     const href = attribute(entry.node, 'href')?.trim();
     return href === undefined ? [] : [{ href, path: `${entry.path}.attributes.href` }];
   });
-  const realValue = (value: string): boolean => maskedValue(value) === undefined;
+  const planNumbers = [...plan.facts.map(({ sample }) => sample), cta.href].flatMap(numbersIn);
+  const realValue = (value: string): boolean =>
+    maskedValue(value) === undefined || planNumber(value, planNumbers);
   const showsPhone =
     hrefs.some(({ href }) => href.startsWith('tel:') && realValue(href.slice(4))) ||
     shown.some(({ value }) => phoneShaped(value) && realValue(value));
@@ -1404,7 +1605,9 @@ export function checkSection(
   for (const { value, path, line } of shown) {
     const masked = maskedValue(value);
     if (masked !== undefined) {
-      if (!placeholders.has(masked)) placeholders.set(masked, { path, fact: true });
+      if (!planNumber(value, planNumbers) && !placeholders.has(masked)) {
+        placeholders.set(masked, { path, fact: true });
+      }
       continue;
     }
     if (line === undefined || LABEL_TAGS.has(tagOf(line).toLowerCase())) continue;
@@ -1417,8 +1620,9 @@ export function checkSection(
   for (const { href, path } of hrefs) {
     // The plan's own action address is the writer's to copy, not to change.
     if (sameTarget(href, cta.href) || !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href)) continue;
-    const masked = maskedValue(href.replace(/^(?:tel:|mailto:)/iu, ''));
-    if (masked !== undefined && !placeholders.has(masked)) {
+    const address = href.replace(/^(?:tel:|mailto:)/iu, '');
+    const masked = maskedValue(address);
+    if (masked !== undefined && !planNumber(address, planNumbers) && !placeholders.has(masked)) {
       placeholders.set(masked, { path, fact: true });
     }
   }

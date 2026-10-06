@@ -139,7 +139,7 @@ function arabicCafe(): PagePlan {
       },
       { key: 'footer', role: 'footer', title: 'التذييل', anchorId: 'footer', purpose: 'العنوان.' },
     ],
-    facts: [{ key: 'phone', sample: '+962 7 9000 0000', section: 'footer' }],
+    facts: [{ key: 'phone', sample: '+962 7 9646 1275', section: 'footer' }],
     seo: { keyword: 'قهوة مختصة في عمّان', pageKind: 'home', slug: 'قهوة مختصة عمان' },
   });
   if (!result.ok) throw new Error(result.issues.map(({ message }) => message).join('\n'));
@@ -221,7 +221,7 @@ describe('skeletonFromPlan — a kit section with slots needs no writer', () => 
     expect(sets['seo']).toEqual({
       keyword: 'قهوة مختصة في عمّان',
       pageKind: 'home',
-      samples: ['+962 7 9000 0000'],
+      samples: ['+962 7 9646 1275'],
       // The brand becomes the site name, so the page publishes a WebSite node.
       site: { siteName: 'محمصة الهيل' },
     });

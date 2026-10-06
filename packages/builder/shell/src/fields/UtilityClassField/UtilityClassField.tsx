@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 import {
   findRejectedUtilities,
   splitUtilities,
+  unknownUtilityClasses,
   type UtilityRejection,
 } from '@craftkit/builder-schema';
 
@@ -117,6 +118,46 @@ const SUGGESTIONS: readonly { readonly group: string; readonly utilities: readon
 const ALL_SUGGESTIONS = SUGGESTIONS.flatMap((section) => section.utilities);
 
 /**
+ * Extra suggestions for FREE mode (agent trees), where exact values, palette
+ * variables and effect hooks are all legitimate (style-manager DESIGN.md D1).
+ */
+const FREE_SUGGESTIONS: readonly string[] = [
+  'p-[18px]',
+  'max-w-[72ch]',
+  'bg-[#0f766e]',
+  'bg-linear-to-b',
+  'backdrop-blur-md',
+  'ck-fx-glass',
+  'ck-fx-mesh',
+  'hover:-translate-y-1',
+  'max-md:text-center',
+  'transition',
+];
+
+export interface UtilityClassFieldProps extends FieldControlProps {
+  /**
+   * `tokens` (the default) keeps a registered block's law: theme tokens only,
+   * no arbitrary values, no default palette. `free` is for elements of agent
+   * trees: any class the live compiler can style is admitted, checked by the
+   * same oracle the door uses.
+   */
+  readonly mode?: 'tokens' | 'free' | undefined;
+}
+
+/** What is wrong with these classes in this mode, as the first rejection, if any. */
+function rejectionFor(parts: readonly string[], mode: 'tokens' | 'free'): UtilityRejection | undefined {
+  if (mode === 'tokens') return findRejectedUtilities(parts.join(' '))[0];
+  const unknown = unknownUtilityClasses(parts.join(' '))[0];
+  return unknown === undefined
+    ? undefined
+    : {
+        utility: unknown,
+        code: 'arbitrary-value',
+        message: `"${unknown}" is not a class the page can style. Check the spelling, or write the value as an arbitrary class such as p-[18px].`,
+      };
+}
+
+/**
  * The Tailwind control.
  *
  * ## Why this is not a text input
@@ -147,7 +188,8 @@ export function UtilityClassField({
   describedBy,
   disabled,
   placeholder,
-}: FieldControlProps) {
+  mode = 'tokens',
+}: UtilityClassFieldProps) {
   const stored = typeof value === 'string' ? value : '';
   const utilities = useMemo(() => splitUtilities(stored), [stored]);
 
@@ -159,10 +201,11 @@ export function UtilityClassField({
   const available = useMemo(() => {
     const applied = new Set(utilities);
     const typed = draft.trim().toLowerCase();
-    return ALL_SUGGESTIONS.filter(
+    const pool = mode === 'free' ? [...ALL_SUGGESTIONS, ...FREE_SUGGESTIONS] : ALL_SUGGESTIONS;
+    return pool.filter(
       (utility) => !applied.has(utility) && (typed === '' || utility.toLowerCase().includes(typed)),
     ).slice(0, 8);
-  }, [utilities, draft]);
+  }, [utilities, draft, mode]);
 
   const commit = (next: readonly string[]) => {
     const joined = next.join(' ');
@@ -182,9 +225,9 @@ export function UtilityClassField({
 
     /* One class at a time, but a paste of several is still worth honouring. */
     const parts = splitUtilities(candidate);
-    const rejected = findRejectedUtilities(parts.join(' '));
-    if (rejected[0] !== undefined) {
-      setRejection(rejected[0]);
+    const rejected = rejectionFor(parts, mode);
+    if (rejected !== undefined) {
+      setRejection(rejected);
       return;
     }
 

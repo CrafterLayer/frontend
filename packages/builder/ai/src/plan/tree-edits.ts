@@ -1,5 +1,6 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 
+import { treeWritesOf } from '../style-tools/tree-steps';
 import type { AiPlanValidationIssue } from '../types';
 import { isTreeMarkup, parseTreeMarkup, serializeTreeMarkup } from './tree-markup';
 
@@ -97,7 +98,11 @@ function currentTree(
 }
 
 /** A non-editTree step that writes a region's whole tree, remembered for the steps after it. */
-function recordTreeWrite(step: JsonRecord, working: WorkingTrees): void {
+function recordTreeWrite(step: JsonRecord, kernel: BuilderKernel, working: WorkingTrees): void {
+  // A path-addressed tree command (patchTreeNode, insertTreeNode, …) also leaves a new tree.
+  for (const [id, tree] of treeWritesOf(step, (id) => currentTree(id, kernel, working)?.tree)) {
+    working.set(id, tree);
+  }
   if (step['command'] !== 'setProp' || !isRecord(step['args'])) return;
   const { id, key, value } = step['args'];
   if (typeof id !== 'string' || key !== 'tree') return;
@@ -184,7 +189,7 @@ export function expandTreeEdits(candidate: unknown, kernel: BuilderKernel): Tree
   const expanded = commands.map((step, index) => {
     if (!isRecord(step)) return step;
     if (step['command'] !== EDIT_TREE_COMMAND) {
-      recordTreeWrite(step, working);
+      recordTreeWrite(step, kernel, working);
       return step;
     }
     const result = expandStep(step, index, kernel, working);

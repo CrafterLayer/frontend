@@ -6,42 +6,45 @@ import * as DesignSystemPanelStories from './DesignSystemPanel.stories';
 
 # DesignSystemPanel
 
-A site's design system, edited one token at a time.
+A site's design system, sectioned (style-manager DESIGN.md §G).
 
-<Canvas of={DesignSystemPanelStories.Default} />
+<Canvas of={DesignSystemPanelStories.WithLibrary} />
 
-## One edit is one dispatch
+## Sections
 
-The field holds a **draft** while a person types. A controlled input that dispatched on every
-keystroke would put an entry in history per character, and "undo the colour" would become seven
-presses instead of one.
+- **Colours.** The nine colour roles (pick one in the grid, edit its value), then the **site palette**
+  (free colours published as `--ck-c-<id>`; add, edit and remove) and the
+  [PaletteRampEditor](?path=/docs/builder-shell-designsystem-paletterampeditor--docs), which
+  generates 50–950 OKLCH shades from one brand colour with a contrast matrix.
+- **Typography.** A family per role (sans, serif, mono) from the
+  [FontPicker](?path=/docs/builder-shell-designsystem-fontpicker--docs) (Google list, Arabic filter,
+  previews in both scripts, WOFF2 upload), then the type-scale tokens with live previews.
+- **Radius & shadows** and **Spacing & widths**, each token with a live preview.
 
-<Canvas of={DesignSystemPanelStories.Editing} />
+Every section stays mounted and is hidden when not chosen, so a draft typed in one section survives a
+look at another. Font previews load only while Typography is open.
 
-The commit happens on blur and on Enter. A value equal to the one already committed dispatches
-nothing at all — "it did nothing" and "it did nothing but I recorded it anyway" are different lies
-to tell a person reading their own history.
+## One edit, one transaction
 
-## An external write always wins
+Every field keeps a draft while a person types and commits once, on blur or Enter. An external
+write (a generation, an undo) discards the draft. With `onCommit` (from
+`siteCommitFor(siteKernel)`), every edit is one labelled transaction:
 
-<Canvas of={DesignSystemPanelStories.ExternalWriteWins} />
+| Edit | Steps | Label |
+| --- | --- | --- |
+| A token | `setDesignToken` | `Design token · radius lg` |
+| A palette colour | `setPaletteColor` / `removePaletteColor` | `Palette colour · Sand` |
+| A shade ramp | 11 × `setPaletteColor` | `Palette shades · Brand` |
+| A family for a role | `setSiteFonts` + `setDesignToken` | `Font · Sans (body & headings) · Tajawal` |
+| A font upload | `setSiteFonts` | `Upload font · Brand Sans` |
 
-If the system changes underneath — a generation lands, another tab commits, an undo runs — the draft
-is **discarded** and the field shows what the site actually holds.
+Without `onCommit` the panel is token-only and calls `onChangeToken` (the legacy contract).
 
-That direction is the uncomfortable one and it is deliberate. Keeping the draft would let a
-half-typed colour outrank a value the kernel has already committed, and the next commit would
-silently overwrite a change the person never saw. Losing three keystrokes is the smaller harm than
-showing a site a colour it does not have.
+## Refusals are announced
 
-## Refusals are announced, not drawn
+The door refuses a token that would make a declared pairing unreadable, and a palette colour that
+is still used. The reason goes into a live region and is tied to the colour field, because a person
+who has just typed a value is looking at the field, not at a banner.
 
-<Canvas of={DesignSystemPanelStories.ContrastWarning} />
-
-The **door** owns legibility: `setDesignToken` refuses a value that would push a pairing the site
-declared as legible under its threshold, and the panel never re-computes that. A second opinion
-about contrast would be a second answer to one question, and the day the two disagreed a site would
-ship text nobody could read.
-
-The refusal goes into a live region as well as beside the field, because a person who has just typed
-a colour is looking at the field. A banner they are not looking at is a banner they will not read.
+Labels: `DESIGN_SYSTEM_PANEL_LABELS_EN` / `_AR`, plus `fontLabels` and `rampLabels` for the two
+embedded editors. Pass `dir="rtl"` for the Arabic editor.

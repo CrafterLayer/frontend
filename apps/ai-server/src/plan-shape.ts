@@ -468,6 +468,13 @@ export const PAGE_PLAN_FALLBACK_ACCENTS = [
  * EXAMPLE"), which the client's validator is tested to accept — so the one
  * example the model sees is one the door lets through. Shown minified in the
  * prompt; its values are a café's and the prompt says never to reuse them.
+ *
+ * The COMPACT, ORDERED form (2026-10-05, speed DESIGN §3): head, tokens by
+ * deck row, the outline, one brief per section (facts inside), seo — the
+ * order the client streams it in, so the skeleton lands when `sections`
+ * closes and each writer starts when its brief does. Everything the client
+ * derives (palette and faces from the row, anchorId, kit, the nav list) is
+ * left out, because on a stage whose time is generation every key is wait.
  */
 export const PAGE_PLAN_EXAMPLE = {
   rationale: 'A warm, type-led roastery page: burnt orange on pale lime, Fraunces headings.',
@@ -476,65 +483,31 @@ export const PAGE_PLAN_EXAMPLE = {
     locale: { lang: 'en', dir: 'ltr' },
     title: 'Cardamom Roasters — specialty coffee in Amman',
     description: 'Small-batch coffee roasted every morning in Amman, delivered fresh.',
-    tokens: {
-      bg: '#f7fee7',
-      surface: '#ffffff',
-      ink: '#022c22',
-      muted: '#065f46',
-      accent: '#c2410c',
-      onAccent: '#ffffff',
-      accentInk: '#c2410c',
-      border: '#d9f99d',
-      fontDisplay: { family: 'Fraunces', weights: [600, 700] },
-      fontBody: { family: 'Instrument Sans', weights: [400, 500] },
-      radius: 'xl',
-      signature: 'The brand name at text-8xl, faint behind the menu.',
-      deckRowId: 'cafe',
-    },
+    tokens: { deckRowId: 'cafe', signature: 'The brand name at text-8xl, faint behind the menu.' },
     primaryCta: { label: 'Order beans', href: '#order' },
-    nav: [
-      { label: 'Menu', anchorId: 'menu' },
-      { label: 'Order', anchorId: 'order' },
-    ],
     sections: [
-      {
-        key: 'header',
-        role: 'header',
-        title: 'Header',
-        anchorId: 'top',
-        purpose: 'Brand and navigation.',
-      },
+      { key: 'header', role: 'header', title: 'Header' },
+      { key: 'hero', role: 'hero', title: 'Roasted this morning', variant: 'split' },
+      { key: 'menu', role: 'band', title: 'Menu', variant: 'menu', nav: 'Menu' },
+      { key: 'order', role: 'cta', title: 'Order', variant: 'cta-split', nav: 'Order' },
+      { key: 'footer', role: 'footer', title: 'Footer', variant: 'footer' },
+    ],
+    briefs: [
       {
         key: 'hero',
-        role: 'hero',
-        title: 'Roasted this morning',
-        anchorId: 'hero',
         purpose: 'Say what the roastery is and invite the first order.',
         mustSay: ['Roasted daily in Amman'],
-        mustNotRepeat: [],
-        variant: 'split',
-        kit: 'hero-split',
         images: [{ subject: 'cafe', aspect: 'landscape', alt: 'Freshly roasted coffee beans' }],
       },
       {
         key: 'menu',
-        role: 'band',
-        title: 'Menu',
-        anchorId: 'menu',
         purpose: 'The drinks and beans, with prices.',
-        mustSay: [],
         mustNotRepeat: ['Roasted daily in Amman'],
-        variant: 'menu',
-        kit: 'menu-list',
+        facts: [{ key: 'price-espresso', sample: 'JOD 1.50' }],
       },
       {
         key: 'order',
-        role: 'cta',
-        title: 'Order',
-        anchorId: 'order',
         purpose: 'One clear way to order.',
-        variant: 'cta-split',
-        kit: 'cta-split',
         slots: {
           title: 'Fresh beans, delivered in Amman',
           cta: { label: 'Order beans', href: '#order' },
@@ -542,16 +515,9 @@ export const PAGE_PLAN_EXAMPLE = {
       },
       {
         key: 'footer',
-        role: 'footer',
-        title: 'Footer',
-        anchorId: 'footer',
         purpose: 'Address, hours and contact.',
-        variant: 'footer',
+        facts: [{ key: 'phone', sample: '+962 6 461 2750' }],
       },
-    ],
-    facts: [
-      { key: 'phone', sample: '+962 7 9000 0000', section: 'order' },
-      { key: 'price-espresso', sample: 'JOD 1.50', section: 'menu' },
     ],
     seo: {
       keyword: 'specialty coffee Amman',
@@ -562,18 +528,24 @@ export const PAGE_PLAN_EXAMPLE = {
   },
 } as const;
 
-// Where every key of a page-plan answer lives (agent/page-plan/types.ts).
+// Where every key of a page-plan answer lives (agent/page-plan/types.ts), in
+// either shape the client's `validatePagePlan` reads: the classic plan, the
+// compact one (2026-10-05: `briefs`, a section's `nav` label, tokens holding
+// only `deckRowId` and `signature`), or a mix.
 const ANSWER_KEYS = new Set(['version', 'rationale', 'pagePlan']);
 const REFUSAL_KEYS = new Set(['version', 'rationale', 'refusal']);
 const PAGE_PLAN_KEYS = new Set([
   'intent',
   'locale',
   'title',
+  // The business's short name (quality pass 2026-10-05): the header, footer and copyright show it.
+  'brand',
   'description',
   'tokens',
   'primaryCta',
   'nav',
   'sections',
+  'briefs',
   'facts',
   'seo',
 ]);
@@ -602,6 +574,8 @@ const SECTION_KEYS = new Set([
   'key',
   'role',
   'title',
+  // The compact outline's menu label: the client builds the nav list from it.
+  'nav',
   'anchorId',
   'purpose',
   'mustSay',
@@ -614,6 +588,22 @@ const SECTION_KEYS = new Set([
 const SEO_KEYS = new Set(['keyword', 'pageKind', 'businessType', 'slug']);
 const IMAGE_KEYS = new Set(['subject', 'aspect', 'alt']);
 const FACT_KEYS = new Set(['key', 'sample', 'section']);
+/**
+ * A compact plan's brief: the contract of the outline section with the same
+ * key, merged into it by the client — which also takes a brief's `variant`
+ * and `kit` (brief values win), so those are in place here too.
+ */
+const BRIEF_KEYS = new Set([
+  'key',
+  'purpose',
+  'mustSay',
+  'mustNotRepeat',
+  'images',
+  'slots',
+  'facts',
+  'variant',
+  'kit',
+]);
 
 /** An optional object whose keys all belong there. */
 function objectWithin(value: unknown, allowed: ReadonlySet<string>): boolean {
@@ -639,17 +629,57 @@ function textsOnly(value: unknown): boolean {
 /** Keys only a section holds — never a kit slot's name. */
 const SECTION_ONLY_KEYS = new Set(['key', 'role', 'anchorId', 'purpose', 'mustSay', 'mustNotRepeat', 'variant', 'kit', 'slots']);
 
-function sectionInPlace(value: unknown): boolean {
-  if (!isRecord(value) || !keysWithin(value, SECTION_KEYS)) return false;
-  const { kit, slots } = value;
+/** Optional text: a label that swallowed an object or a list was closed in the wrong place. */
+function textOrAbsent(value: unknown): boolean {
+  return value === undefined || typeof value === 'string';
+}
+
+/** Slots are the kit's own shape; a section key closed inside them was closed a level early. */
+function slotsInPlace(slots: unknown): boolean {
+  return (
+    slots === undefined ||
+    (isRecord(slots) && !Object.keys(slots).some((key) => SECTION_ONLY_KEYS.has(key)))
+  );
+}
+
+/** What a section and a brief share: claims, images, a kit and its slots. */
+function contractInPlace(value: JsonRecord): boolean {
   return (
     textsOnly(value['mustSay']) &&
     textsOnly(value['mustNotRepeat']) &&
     listWithin(value['images'], IMAGE_KEYS) &&
-    (kit === undefined || typeof kit === 'string') &&
-    // Slots are the kit's own shape; a section key closed inside them was closed a level early.
-    (slots === undefined || (isRecord(slots) && !Object.keys(slots).some((key) => SECTION_ONLY_KEYS.has(key))))
+    textOrAbsent(value['kit']) &&
+    slotsInPlace(value['slots'])
   );
+}
+
+function sectionInPlace(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    keysWithin(value, SECTION_KEYS) &&
+    textOrAbsent(value['nav']) &&
+    contractInPlace(value)
+  );
+}
+
+/**
+ * A brief has a key and its own facts; a section key (`role`, `title`,
+ * `anchorId`) inside one, or a brief key inside a section (`facts`), was
+ * closed a level early or late.
+ */
+function briefInPlace(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    keysWithin(value, BRIEF_KEYS) &&
+    typeof value['key'] === 'string' &&
+    listWithin(value['facts'], FACT_KEYS) &&
+    contractInPlace(value)
+  );
+}
+
+/** The optional briefs list, every entry in place. */
+function briefsInPlace(value: unknown): boolean {
+  return value === undefined || (Array.isArray(value) && value.every(briefInPlace));
 }
 
 function planInPlace(plan: JsonRecord, allowed: ReadonlySet<string>): boolean {
@@ -662,6 +692,7 @@ function planInPlace(plan: JsonRecord, allowed: ReadonlySet<string>): boolean {
     objectWithin(tokens['fontBody'], FONT_KEYS) &&
     Array.isArray(sections) &&
     sections.every(sectionInPlace) &&
+    briefsInPlace(plan['briefs']) &&
     objectWithin(plan['locale'], LOCALE_KEYS) &&
     objectWithin(plan['primaryCta'], LINK_KEYS) &&
     listWithin(plan['nav'], NAV_KEYS) &&
@@ -726,9 +757,8 @@ export function fillPlaceholderSample(sample: string): string {
   });
 }
 
-/** Whether any fact of a plan holds a placeholder sample. */
-function hasPlaceholderFacts(plan: JsonRecord): boolean {
-  const facts = plan['facts'];
+/** Whether a list of facts holds a placeholder sample. */
+function hasPlaceholderSample(facts: unknown): boolean {
   return (
     Array.isArray(facts) &&
     (facts as unknown[]).some(
@@ -736,6 +766,33 @@ function hasPlaceholderFacts(plan: JsonRecord): boolean {
         isRecord(fact) && typeof fact['sample'] === 'string' && isPlaceholderSample(fact['sample']),
     )
   );
+}
+
+/** Whether any fact of a plan — the ledger's, or a compact brief's — holds a placeholder sample. */
+function hasPlaceholderFacts(plan: JsonRecord): boolean {
+  const briefs = plan['briefs'];
+  return (
+    hasPlaceholderSample(plan['facts']) ||
+    (Array.isArray(briefs) &&
+      (briefs as unknown[]).some((brief) => isRecord(brief) && hasPlaceholderSample(brief['facts'])))
+  );
+}
+
+/**
+ * A list of facts with every placeholder sample filled, each fill logged under
+ * `path[index].sample`; the list itself when nothing needed filling.
+ */
+function fillFacts(facts: readonly unknown[], path: string, repairs: string[]): readonly unknown[] {
+  const logged = repairs.length;
+  const next = facts.map((fact, index) => {
+    if (!isRecord(fact) || typeof fact['sample'] !== 'string') return fact;
+    const sample = fact['sample'];
+    if (!isPlaceholderSample(sample)) return fact;
+    const filled = fillPlaceholderSample(sample);
+    repairs.push(`${path}[${String(index)}].sample "${sample}" → "${filled}"`);
+    return { ...fact, sample: filled };
+  });
+  return repairs.length > logged ? next : facts;
 }
 
 /** Where a parsed answer keeps its plan: wrapped, bare, or nowhere (a refusal, a commands plan). */
@@ -748,7 +805,7 @@ function planOf(
     wrapped === undefined &&
     value['refusal'] === undefined &&
     value['commands'] === undefined &&
-    (isRecord(value['tokens']) || Array.isArray(value['facts']));
+    (isRecord(value['tokens']) || Array.isArray(value['facts']) || Array.isArray(value['briefs']));
   return bare ? { plan: value, wrapped: false } : undefined;
 }
 
@@ -767,8 +824,9 @@ export interface RepairedPagePlanAnswer {
  *   shade or `#rgb` becomes the lower-case `#rrggbb` it means
  *   (`PAGE_PLAN_SHADE_HEX`); a value that means nothing certain is left for
  *   the client's validator to name;
- * - every fact sample holding a placeholder run is filled in its own format
- *   (`fillPlaceholderSample`).
+ * - every fact sample holding a placeholder run — in the ledger, or in a
+ *   compact plan's brief (`briefs[i].facts[j].sample`) — is filled in its own
+ *   format (`fillPlaceholderSample`).
  *
  * Total on any input — salvage hands it half-repaired candidates — and it
  * never mutates what it was given: a repaired answer is a copy.
@@ -795,14 +853,15 @@ export function repairPagePlanAnswer(value: unknown): RepairedPagePlanAnswer {
   }
 
   let facts = found.plan['facts'];
-  if (Array.isArray(facts)) {
-    facts = (facts as unknown[]).map((fact, index) => {
-      if (!isRecord(fact) || typeof fact['sample'] !== 'string') return fact;
-      const sample = fact['sample'];
-      if (!isPlaceholderSample(sample)) return fact;
-      const filled = fillPlaceholderSample(sample);
-      repairs.push(`${prefix}facts[${String(index)}].sample "${sample}" → "${filled}"`);
-      return { ...fact, sample: filled };
+  if (Array.isArray(facts)) facts = fillFacts(facts as unknown[], `${prefix}facts`, repairs);
+
+  let briefs = found.plan['briefs'];
+  if (Array.isArray(briefs)) {
+    briefs = (briefs as unknown[]).map((brief, index) => {
+      if (!isRecord(brief) || !Array.isArray(brief['facts'])) return brief;
+      const written = brief['facts'] as unknown[];
+      const filled = fillFacts(written, `${prefix}briefs[${String(index)}].facts`, repairs);
+      return filled === written ? brief : { ...brief, facts: filled };
     });
   }
 
@@ -811,6 +870,7 @@ export function repairPagePlanAnswer(value: unknown): RepairedPagePlanAnswer {
     ...found.plan,
     ...(tokens === undefined ? {} : { tokens }),
     ...(facts === undefined ? {} : { facts }),
+    ...(briefs === undefined ? {} : { briefs }),
   };
   return { value: found.wrapped ? { ...value, pagePlan: plan } : plan, repairs };
 }
@@ -818,7 +878,8 @@ export function repairPagePlanAnswer(value: unknown): RepairedPagePlanAnswer {
 /**
  * Whether a parsed answer has the SHAPE of a page-plan answer: the wrapper
  * (`{rationale, pagePlan}`, `version` allowed, as the wire carries it), a
- * bare plan from a model that forgot the wrapper, or a refusal. A commands
+ * bare plan from a model that forgot the wrapper, or a refusal — the plan in
+ * the classic shape, the compact one (outline + `briefs`) or a mix. A commands
  * plan is none of them. Shape only, as `planShapeCheck` is: every key where
  * the contract puts it, tokens and sections present, no object closed a level
  * early — plus one content rule, because it is the one the page cannot
@@ -871,6 +932,27 @@ const face = {
   },
 } as const;
 
+/** A section's or a brief's photos: catalog topics only. */
+const images = {
+  type: 'array',
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['subject', 'aspect', 'alt'],
+    properties: {
+      subject: { type: 'string', enum: [...PAGE_PLAN_PHOTO_TOPICS] },
+      aspect: { type: 'string', enum: ['landscape', 'portrait', 'square'] },
+      alt: text,
+    },
+  },
+} as const;
+
+/** A kit's slots; open, because every kit names its own. */
+const slots = {
+  description:
+    "The kit's slots, only for a short section (stats, logos, a cta, a faq of 6 or fewer).",
+} as const;
+
 /**
  * The JSON Schema a page-plan answer is decoded into — on the Messages API as
  * `output_config.format`, on OpenRouter as `response_format` where decoding is
@@ -885,6 +967,14 @@ const face = {
  * only minItems 0/1 and moves every other bound into a description) — and
  * tighter only in the enums, which are the values a model most often
  * invents. `refusal` stands in for `pagePlan` when a request cannot be a page.
+ *
+ * It admits BOTH shapes the client reads (2026-10-05, speed DESIGN §3): the
+ * compact plan the rules ask for — tokens by deck row, an outline of
+ * `{key, role, title, variant, nav}`, one brief per section — and the classic
+ * one, every field written out. Properties are listed in the contract's ORDER
+ * (rationale; intent, locale, title, description, tokens, primaryCta, nav,
+ * sections, briefs, facts, seo), which is the order a decoder writes them in
+ * and the order the client streams them in.
  */
 export const PAGE_PLAN_ANSWER_SCHEMA = {
   type: 'object',
@@ -895,17 +985,7 @@ export const PAGE_PLAN_ANSWER_SCHEMA = {
     pagePlan: {
       type: 'object',
       additionalProperties: false,
-      required: [
-        'intent',
-        'locale',
-        'title',
-        'description',
-        'tokens',
-        'primaryCta',
-        'nav',
-        'sections',
-        'facts',
-      ],
+      required: ['intent', 'locale', 'title', 'description', 'tokens', 'primaryCta', 'sections'],
       properties: {
         intent: { type: 'string', enum: ['new-page', 'replace', 'append'] },
         locale: {
@@ -915,24 +995,18 @@ export const PAGE_PLAN_ANSWER_SCHEMA = {
           properties: { lang: text, dir: { type: 'string', enum: ['rtl', 'ltr'] } },
         },
         title: text,
+        brand: { type: 'string', description: "The business's own short name, 1-4 words; never the title." },
         description: text,
+        // A deck row's id and the signature; every other token only when the person named it.
         tokens: {
           type: 'object',
           additionalProperties: false,
-          required: [
-            'bg',
-            'surface',
-            'ink',
-            'muted',
-            'accent',
-            'onAccent',
-            'border',
-            'fontDisplay',
-            'fontBody',
-            'radius',
-            'signature',
-          ],
+          required: ['signature'],
+          description:
+            'deckRowId and signature only, unless the person named a colour or face, or no deck row fits.',
           properties: {
+            deckRowId: { type: 'string', enum: [...PAGE_PLAN_DECK_ROWS] },
+            signature: text,
             bg: colour,
             surface: colour,
             ink: colour,
@@ -944,8 +1018,6 @@ export const PAGE_PLAN_ANSWER_SCHEMA = {
             fontDisplay: face,
             fontBody: face,
             radius: { type: 'string', enum: ['none', 'md', 'xl', 'full'] },
-            signature: text,
-            deckRowId: { type: 'string', enum: [...PAGE_PLAN_DECK_ROWS] },
           },
         },
         primaryCta: {
@@ -954,59 +1026,58 @@ export const PAGE_PLAN_ANSWER_SCHEMA = {
           required: ['label', 'href'],
           properties: { label: text, href: text },
         },
-        nav: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['label', 'anchorId'],
-            properties: { label: text, anchorId: text },
-          },
-        },
+        /*
+          The OUTLINE only (fix pass 2026-10-05). The classic contract fields
+          and the top-level nav and facts are gone from the schema: the
+          client still reads them, but listing them invited a mixed answer —
+          the Arabic T1 wrote every fact twice (on the sections and in the
+          briefs) and was refused twice for duplicate keys, and both answers
+          ran 1.5-2.3x over the length target.
+        */
         sections: {
           type: 'array',
           items: {
             type: 'object',
             additionalProperties: false,
-            required: ['key', 'role', 'title', 'anchorId', 'purpose'],
+            required: ['key', 'role', 'title'],
             properties: {
               key: text,
               role: { type: 'string', enum: ['header', 'hero', 'band', 'cta', 'footer'] },
               title: text,
-              anchorId: text,
-              purpose: text,
-              mustSay: texts,
-              mustNotRepeat: texts,
-              variant: { type: 'string', enum: [...PAGE_PLAN_SECTION_VARIANTS] },
+              variant: {
+                type: 'string',
+                enum: [...PAGE_PLAN_SECTION_VARIANTS],
+                description: 'A layout word from this list, never a kit id (a kit id goes in kit).',
+              },
               kit: { type: 'string', enum: [...PAGE_PLAN_KIT_IDS] },
-              // The kit's own slots; open, because every kit names its own.
-              slots: {
-                description:
-                  "The kit's slots, only for a short section (stats, logos, a cta, a faq of 6 or fewer).",
-              },
-              images: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  additionalProperties: false,
-                  required: ['subject', 'aspect', 'alt'],
-                  properties: {
-                    subject: { type: 'string', enum: [...PAGE_PLAN_PHOTO_TOPICS] },
-                    aspect: { type: 'string', enum: ['landscape', 'portrait', 'square'] },
-                    alt: text,
-                  },
-                },
-              },
+              nav: { type: 'string', description: 'The menu label, on a section the menu links to.' },
             },
           },
         },
-        facts: {
+        // One per section but the header, in page order; facts inside the section that shows them.
+        briefs: {
           type: 'array',
           items: {
             type: 'object',
             additionalProperties: false,
-            required: ['key', 'sample', 'section'],
-            properties: { key: text, sample: text, section: text },
+            required: ['key', 'purpose'],
+            properties: {
+              key: text,
+              purpose: text,
+              mustSay: texts,
+              mustNotRepeat: texts,
+              images,
+              slots,
+              facts: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['key', 'sample'],
+                  properties: { key: text, sample: text },
+                },
+              },
+            },
           },
         },
         seo: {

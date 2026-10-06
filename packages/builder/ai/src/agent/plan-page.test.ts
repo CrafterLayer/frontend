@@ -18,11 +18,19 @@ import { AiProviderError } from '../provider/errors';
 import { createCraftkitAiSkillRegistry } from '../skills';
 import type {
   AiPagePlanAttempt,
+  AiPagePlanDraftEvent,
   AiPlanProvider,
   AssembledAiContext,
   PagePlanCandidate,
 } from '../types';
-import { anotherLookRequested, designMarkupFor, pagePlanningBrief, planAiPage } from './plan-page';
+import { expandCompactPagePlan } from './page-plan/compact-plan';
+import {
+  anotherLookRequested,
+  designMarkupFor,
+  pagePlanningBrief,
+  planAiPage,
+  proposeValidatedPagePlan,
+} from './plan-page';
 import type { AiPagePlanEvent } from './types';
 
 /*
@@ -148,10 +156,13 @@ function cafe(): Record<string, unknown> {
   };
 }
 
-/** The same plan with a muted colour that fails contrast on the ground. */
+/**
+ * The same plan with a button label lost on its fill. (A faint muted was the
+ * fixture until 2026-10-05; code repairs that one now, so it costs no round.)
+ */
 function unreadable(): Record<string, unknown> {
   const plan = cafe();
-  return { ...plan, tokens: { ...(plan['tokens'] as object), muted: 'stone-300' } };
+  return { ...plan, tokens: { ...(plan['tokens'] as object), onAccent: 'orange-600' } };
 }
 
 interface PlanCall {
@@ -246,7 +257,7 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
     expect(result.attempts).toBe(2);
     expect(calls).toHaveLength(2);
     expect(calls[1]?.attempt?.pagePlan).toEqual(unreadable());
-    expect(calls[1]?.attempt?.issues.some(({ path }) => path.startsWith('tokens.muted'))).toBe(
+    expect(calls[1]?.attempt?.issues.some(({ path }) => path.startsWith('tokens.onAccent'))).toBe(
       true,
     );
     expect(events.map(({ type }) => type)).toEqual([
@@ -266,7 +277,7 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
 
     if (!('error' in result)) throw new Error('expected the plan to be refused');
     expect(result.error.code).toBe('plan-rejected');
-    expect(result.issues?.some(({ path }) => path.startsWith('tokens.muted'))).toBe(true);
+    expect(result.issues?.some(({ path }) => path.startsWith('tokens.onAccent'))).toBe(true);
     expect(calls).toHaveLength(2);
     expect(events.at(-1)?.type).toBe('page-plan.failed');
   });
@@ -551,7 +562,11 @@ describe('anotherLookRequested — how "try another look" reaches the deck', () 
 
 describe('the planner and the section kit (2026-09-30)', () => {
   /** What one planning call sends besides the page: the request text and the skills it names, in tokens. */
-  function measured(kits: boolean): { tokens: number; request: string; skillIds: readonly string[] } {
+  function measured(kits: boolean): {
+    tokens: number;
+    request: string;
+    skillIds: readonly string[];
+  } {
     const registry = createCraftkitAiSkillRegistry();
     const brief = pagePlanningBrief(
       kernel(),
@@ -581,5 +596,127 @@ describe('the planner and the section kit (2026-09-30)', () => {
     expect(after.request).toContain('hero-split');
     expect(after.request).toContain('"seo":{"keyword"');
     expect(after.tokens).toBeLessThanOrEqual(Math.ceil(before.tokens * 1.1));
+  });
+});
+
+/** The café page in the COMPACT shape (fast-build DESIGN §3): an outline, then one brief per section. */
+function compactCafe(): Record<string, unknown> {
+  return {
+    intent: 'new-page',
+    locale: { lang: 'ar', dir: 'rtl' },
+    title: 'محمصة الهيل',
+    description: 'قهوة مختصة محمصة في عمّان، تصلك طازجة.',
+    tokens: { deckRowId: 'cafe', signature: 'اسم المحمصة كبيرًا وباهتًا خلف القائمة.' },
+    primaryCta: { label: 'اطلب الآن', href: '#order' },
+    sections: [
+      { key: 'header', role: 'header', title: 'الترويسة' },
+      { key: 'hero', role: 'hero', title: 'قهوة تُحمّص كل صباح', variant: 'split' },
+      { key: 'menu', role: 'band', title: 'القائمة', variant: 'menu', nav: 'القائمة' },
+      { key: 'order', role: 'cta', title: 'اطلب', nav: 'اطلب' },
+      { key: 'footer', role: 'footer', title: 'التذييل' },
+    ],
+    briefs: [
+      { key: 'hero', purpose: 'قل ما هي المحمصة وادعُ إلى أول طلب.', mustSay: ['محمصة في عمّان'] },
+      { key: 'menu', purpose: 'المشروبات وأسعارها.', facts: [{ key: 'price', sample: '1.5 د.أ' }] },
+      { key: 'order', purpose: 'طريقة واحدة واضحة للطلب.' },
+      {
+        key: 'footer',
+        purpose: 'الساعات والهاتف.',
+        facts: [{ key: 'phone', sample: '+962 6 461 2750' }],
+      },
+    ],
+  };
+}
+
+describe('the planning step and the streamed answer (fast-build DESIGN §6.2, 2026-10-05)', () => {
+  function drafting(answer: (attempt: AiPagePlanAttempt | undefined) => Record<string, unknown>) {
+    const attempts: (AiPagePlanAttempt | undefined)[] = [];
+    const provider: AiPlanProvider = {
+      propose: () => Promise.reject(new Error('a page plan never asks for commands')),
+      proposePagePlan(_request, _context, live) {
+        const attempt = live?.attempt;
+        attempts.push(attempt);
+        live?.onDraft?.({ kind: 'start' });
+        live?.onDraft?.({ kind: 'text', text: attempt === undefined ? 'first' : 'second' });
+        return Promise.resolve({ pagePlan: answer(attempt), rationale: 'A warm roastery page.' });
+      },
+    };
+    return { provider, attempts };
+  }
+
+  function step(provider: AiPlanProvider, onDraft?: (event: AiPagePlanDraftEvent) => void) {
+    return proposeValidatedPagePlan(
+      {
+        runId: 'plan-draft',
+        kernel: kernel(),
+        provider,
+        request: REQUEST,
+        skillRegistry: createCraftkitAiSkillRegistry(),
+        target: 'new-page',
+        ...(onDraft === undefined ? {} : { onDraft }),
+      },
+      () => undefined,
+    );
+  }
+
+  it('forwards onDraft to the provider on the first attempt AND on the repair', async () => {
+    const { provider, attempts } = drafting((attempt) =>
+      attempt === undefined ? unreadable() : cafe(),
+    );
+    const drafts: AiPagePlanDraftEvent[] = [];
+
+    const result = await step(provider, (event) => drafts.push(event));
+
+    if (!('plan' in result)) throw new Error(result.error.message);
+    expect(attempts).toHaveLength(2);
+    expect(drafts).toEqual([
+      { kind: 'start' },
+      { kind: 'text', text: 'first' },
+      { kind: 'start' },
+      { kind: 'text', text: 'second' },
+    ]);
+  });
+
+  it('passes no onDraft when the caller gives none', async () => {
+    let seen: unknown = 'unset';
+    const provider: AiPlanProvider = {
+      propose: () => Promise.reject(new Error('unused')),
+      proposePagePlan(_request, _context, live) {
+        seen = live?.onDraft;
+        return Promise.resolve({ pagePlan: cafe() });
+      },
+    };
+
+    const result = await step(provider);
+
+    if (!('plan' in result)) throw new Error(result.error.message);
+    expect(seen).toBeUndefined();
+  });
+
+  it('quotes a compact answer back in the CLASSIC shape, so the issue paths point at fields it has', async () => {
+    // The model named a button label its fill cannot carry: one issue, one repair.
+    const first = {
+      ...compactCafe(),
+      tokens: {
+        deckRowId: 'cafe',
+        signature: 'faint brand name',
+        accent: 'orange-700',
+        onAccent: 'orange-600',
+      },
+    };
+    const { provider, attempts } = drafting((attempt) =>
+      attempt === undefined ? first : compactCafe(),
+    );
+
+    const result = await step(provider);
+
+    if (!('plan' in result)) throw new Error(result.error.message);
+    expect(result.attempts).toBe(2);
+    const quoted = attempts[1]?.pagePlan;
+    expect(quoted).toEqual(expandCompactPagePlan(first).value);
+    expect(quoted).not.toHaveProperty('briefs');
+    const sections = (quoted?.['sections'] ?? []) as { purpose?: unknown }[];
+    expect(sections.every(({ purpose }) => typeof purpose === 'string')).toBe(true);
+    expect(attempts[1]?.issues.some(({ path }) => path.startsWith('tokens.onAccent'))).toBe(true);
   });
 });

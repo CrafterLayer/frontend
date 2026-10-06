@@ -1,0 +1,103 @@
+/*
+  Previews are drawn with chrome tokens only: they suggest the effect's shape
+  (a frosted pane, a dot field, a ring), never the page's colours.
+*/
+.bldr-effect-picker {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: repeat(auto-fill, minmax(var(--bldr-hit-target-min), 1fr));
+}
+
+.bldr-effect-picker__card {
+  align-items: center;
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-effect-picker__card[aria-pressed='true'] {
+  border-color: var(--bldr-accent);
+  box-shadow: 0 0 0 var(--bldr-border-hairline) var(--bldr-accent);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-effect-picker__card:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-effect-picker__preview {
+  align-items: center;
+  aspect-ratio: 1;
+  background: var(--bldr-surface-raised);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-accent);
+  display: flex;
+  font-weight: var(--bldr-font-weight-bold);
+  inline-size: 100%;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bldr-effect-picker__preview[data-effect='glass'] {
+  background: linear-gradient(135deg, var(--bldr-accent-soft), var(--bldr-surface-raised));
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.bldr-effect-picker__preview[data-effect='mesh'],
+.bldr-effect-picker__preview[data-effect='aurora-bg'] {
+  background:
+    radial-gradient(circle at 20% 20%, var(--bldr-accent-soft), transparent 60%),
+    radial-gradient(circle at 80% 70%, var(--bldr-success-soft), transparent 60%),
+    radial-gradient(circle at 40% 90%, var(--bldr-warning-soft), transparent 60%);
+}
+
+.bldr-effect-picker__preview[data-effect='noise'] {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bldr-surface-sunken) 0 var(--bldr-border-hairline),
+    var(--bldr-surface-raised) var(--bldr-border-hairline) var(--bldr-border-thick)
+  );
+}
+
+.bldr-effect-picker__preview[data-effect='grid'],
+.bldr-effect-picker__preview[data-effect='retro-grid'] {
+  background-image:
+    linear-gradient(var(--bldr-panel-border) var(--bldr-border-hairline), transparent 0),
+    linear-gradient(90deg, var(--bldr-panel-border) var(--bldr-border-hairline), transparent 0);
+  background-size: var(--bldr-space-md) var(--bldr-space-md);
+}
+
+.bldr-effect-picker__preview[data-effect='retro-grid'] {
+  transform: perspective(var(--bldr-measure-picker)) rotateX(40deg);
+}
+
+.bldr-effect-picker__preview[data-effect='dots'] {
+  background-image: radial-gradient(var(--bldr-panel-border-strong) var(--bldr-border-hairline), transparent 0);
+  background-size: var(--bldr-space-sm) var(--bldr-space-sm);
+}
+
+.bldr-effect-picker__preview[data-effect='spotlight'] {
+  background: radial-gradient(circle at 30% 30%, var(--bldr-accent-soft), var(--bldr-surface-raised) 70%);
+}
+
+.bldr-effect-picker__preview[data-effect='gradient-border'] {
+  border: var(--bldr-border-thick) solid var(--bldr-accent);
+  border-block-end-color: var(--bldr-success);
+  border-inline-end-color: var(--bldr-warning);
+}
+
+.bldr-effect-picker__preview[data-effect='ring-glow'] {
+  box-shadow: inset 0 0 0 var(--bldr-border-thick) var(--bldr-accent-ring);
+}
+
+.bldr-effect-picker__preview[data-effect='text-gradient'] {
+  color: var(--bldr-accent-strong);
+}

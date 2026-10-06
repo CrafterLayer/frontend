@@ -163,12 +163,24 @@ function refusal(colours: KitColours, named: Partial<Record<ColourInput, string>
   }`;
 }
 
+/** Whether two kit states draw the same page: colours, radius and faces. */
+function sameLook(left: PageKitState, right: PageKitState): boolean {
+  const face = ({ family, weights }: PageKitState['display']) => `${family}:${[...weights].sort().join(';')}`;
+  return (
+    (Object.keys(left.colours) as KitColourKey[]).every((key) => left.colours[key] === right.colours[key]) &&
+    left.radius === right.radius &&
+    face(left.display) === face(right.display) &&
+    face(left.body) === face(right.body)
+  );
+}
+
 function run(input: ThemeApplyInput, context: AgentToolContext): AgentToolRun {
   const rootId = rootIdOf(context.kernel);
   const current = context.readProp(rootId, 'pageCss');
   const pageCss = typeof current === 'string' ? current : '';
   const arabic = isArabicLocale(context) || context.locale.dir === 'rtl';
-  let { state } = readPageKit(pageCss, arabic);
+  const read = readPageKit(pageCss, arabic);
+  let { state } = read;
   if (input.deckRow !== undefined) state = deckState(input.deckRow, state, arabic);
   const named: Partial<Record<ColourInput, string>> = {};
   for (const key of COLOUR_KEYS) {
@@ -185,8 +197,14 @@ function run(input: ThemeApplyInput, context: AgentToolContext): AgentToolRun {
   const refused = refusal(colours, named);
   if (refused !== undefined) return { ok: false, error: refused };
   const next: PageKitState = { ...state, colours, ...(input.radius === undefined ? {} : { radius: input.radius }) };
+  /*
+    colour-target fix: the kit is compared as values, not text. `writePageKit`
+    re-emits the font imports as one URL, so a rewrite with the values the page
+    already holds differed as text while nothing on screen moved.
+  */
+  const same = read.hasKit && sameLook(read.state, next);
   const css = writePageKit(pageCss, next, context.locale);
-  if (css === pageCss) return { ok: true, steps: [], note: 'the theme already has these values' };
+  if (same || css === pageCss) return { ok: true, steps: [], note: 'the theme already has these values' };
   return { ok: true, steps: [setProp(rootId, 'pageCss', css)] };
 }
 

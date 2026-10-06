@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   AiProviderError,
+  type AiPagePlanDraftEvent,
   type AiPagePlanProposal,
   type AiPlan,
   type AiPlanProvider,
@@ -345,6 +346,46 @@ describe('createRetryingAiPlanProvider — page plans and rewrites', () => {
     await expect(proposal).resolves.toEqual(pagePlan);
     expect(calls).toBe(2);
     expect(seen).toEqual([attempt, attempt]);
+  });
+
+  it('hands the draft observer to every attempt unchanged, so each retry streams from a fresh start', async () => {
+    let calls = 0;
+    const seenLive: unknown[] = [];
+    const provider = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        proposePagePlan: (_request, _context, live) => {
+          calls += 1;
+          seenLive.push(live);
+          // What the remote provider does per attempt: a fresh stream says `start`.
+          live?.onDraft?.({ kind: 'start' });
+          live?.onDraft?.({ kind: 'text', text: `{"attempt":${String(calls)}` });
+          return calls === 1 ? Promise.reject(networkError()) : Promise.resolve(pagePlan);
+        },
+      },
+      { random: () => 1 },
+    );
+    const drafts: AiPagePlanDraftEvent[] = [];
+    const live = {
+      onDraft: (event: AiPagePlanDraftEvent) => {
+        drafts.push(event);
+      },
+    };
+
+    const proposal = provider.proposePagePlan?.('Build my page', context, live);
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await expect(proposal).resolves.toEqual(pagePlan);
+    expect(calls).toBe(2);
+    expect(seenLive).toHaveLength(2);
+    expect(seenLive[0]).toBe(live);
+    expect(seenLive[1]).toBe(live);
+    expect(drafts).toEqual([
+      { kind: 'start' },
+      { kind: 'text', text: '{"attempt":1' },
+      { kind: 'start' },
+      { kind: 'text', text: '{"attempt":2' },
+    ]);
   });
 
   it('does not retry a server that predates the page-plan task — it would answer the same', async () => {

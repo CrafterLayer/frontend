@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { customCodeTree, customCss } from './custom-code-tree';
 import {
   CUSTOM_CSS_FONT_HOSTS,
+  CUSTOM_CSS_FONT_IMPORT,
   customCssPropertyNames,
   findCssRejection,
   normalizeCssForInspection,
@@ -100,5 +101,27 @@ describe('custom-css property names', () => {
 
   it('returns nothing for a schema that is not an object', () => {
     expect(customCssPropertyNames(z.string()).size).toBe(0);
+  });
+});
+
+describe('web-font imports', () => {
+  it('keeps a ";" inside the address: css2 weights are written wght@500;700', () => {
+    // The 2026-10-05 Arabic scaffold page: the import was cut at "@500;".
+    const css =
+      "@import url('https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;700&display=swap');.a{color:red}";
+    expect(css.match(CUSTOM_CSS_FONT_IMPORT)).toEqual([
+      "@import url('https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;700&display=swap');",
+    ]);
+    expect(css.replace(CUSTOM_CSS_FONT_IMPORT, '')).toBe('.a{color:red}');
+    expect(findCssRejection(css)).toBeUndefined();
+  });
+
+  it('still reads the bare and %3B forms, and never a host off the list', () => {
+    const bare = '@import "https://fonts.bunny.net/css?family=a;b";.b{}';
+    expect(bare.replace(CUSTOM_CSS_FONT_IMPORT, '')).toBe('.b{}');
+    const encoded = '@import url(https://fonts.googleapis.com/css2?family=A:wght@400%3B700);.c{}';
+    expect(encoded.replace(CUSTOM_CSS_FONT_IMPORT, '')).toBe('.c{}');
+    expect("@import url('https://evil.example/x;y');".match(CUSTOM_CSS_FONT_IMPORT)).toBeNull();
+    expect(findCssRejection("@import url('https://evil.example/x');")).toBeDefined();
   });
 });

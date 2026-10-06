@@ -78,3 +78,19 @@ export { TYPING_MERGE_WINDOW_MS } from './history/history';
 
 export { systemClock } from './ports/system-clock';
 export { systemIds } from './ports/system-ids';
+// ── P5-site-library (style-manager DESIGN.md) ──
+// The site design library commands (§2), spread into `siteCommands`.
+export {
+  libraryCommands,
+  type LibraryCommandName,
+  type LibraryCommands,
+} from './commands/library-commands';
+// ── end P5-site-library ──
+// ── P8-manual-editor (style-manager DESIGN.md) ──
+// The undo stack's read view (§E, History panel): entries, position, jumpTo.
+export {
+  createKernelHistoryView,
+  type KernelHistory,
+} from './kernel/create-builder';
+export type { HistoryEntry } from './history/history';
+// ── end P8-manual-editor ──

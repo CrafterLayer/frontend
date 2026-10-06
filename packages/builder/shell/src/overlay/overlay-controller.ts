@@ -15,6 +15,11 @@ export interface OverlayController {
    */
   setHover(id: NodeId | null, elementPath?: CustomCodePath): void;
   hoveredId(): NodeId | null;
+  /**
+   * The EXTRA members of a multi-selection (P7, DESIGN §E): each gets its own
+   * selection outline beside the primary's. Empty clears them.
+   */
+  setExtraElements(targets: readonly { nodeId: NodeId; path: CustomCodePath }[]): void;
   dispose(): void;
 }
 
@@ -36,6 +41,8 @@ export function createOverlayController(options: {
   const hover: OutlineHandle = createOutline(layer, 'hover');
   const selection: OutlineHandle = createOutline(layer, 'selection');
 
+  let extras: readonly { nodeId: NodeId; path: CustomCodePath }[] = [];
+  const extraOutlines: OutlineHandle[] = [];
   let hoverId: NodeId | null = null;
   let hoverPath: CustomCodePath | null = null;
   let cancelFlush: (() => void) | null = null;
@@ -124,6 +131,17 @@ export function createOverlayController(options: {
     );
     stamp('data-bldr-selected', selectedId);
     stamp('data-bldr-hovered', hoverId);
+    while (extraOutlines.length < extras.length) {
+      const outline = createOutline(layer, 'selection');
+      outline.element.setAttribute('data-extra', '');
+      extraOutlines.push(outline);
+    }
+    extraOutlines.forEach((outline, at) => {
+      const extra = extras[at];
+      if (extra === undefined || !applyElementOutline(outline, extra.nodeId, extra.path)) {
+        outline.hide();
+      }
+    });
   };
 
   const markDirty = () => {
@@ -153,6 +171,15 @@ export function createOverlayController(options: {
       markDirty();
     },
     hoveredId: () => hoverId,
+    setExtraElements(targets) {
+      const key = (list: readonly { nodeId: NodeId; path: CustomCodePath }[]) =>
+        list.map((target) => `${target.nodeId}:${formatCustomCodePath(target.path)}`).join('|');
+      if (key(targets) === key(extras)) {
+        return;
+      }
+      extras = [...targets];
+      markDirty();
+    },
     dispose() {
       disposed = true;
       cancelFlush?.();
@@ -160,6 +187,7 @@ export function createOverlayController(options: {
       offInvalidate();
       hover.element.remove();
       selection.element.remove();
+      for (const outline of extraOutlines) outline.element.remove();
     },
   };
 }

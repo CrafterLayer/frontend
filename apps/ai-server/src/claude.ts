@@ -77,9 +77,19 @@ export interface ClaudeOptions {
   readonly onProgress?: (text: string) => void;
   /** Receives the raw answer text before it is parsed — what the model actually said. */
   readonly onAnswer?: (text: string) => void;
+  /**
+   * Receives the answer's raw text WHILE it is written (DESIGN §5.1): each
+   * text delta as `{text}`, and `{reset: true}` when a backend starts the
+   * answer over (the routing client's fallback), so earlier text is void.
+   * Advisory only — the parsed, repaired answer stays the authority.
+   */
+  readonly onDraft?: (draft: AnswerDraft) => void;
   /** One line per thing this server did to an answer, for the owner's terminal. */
   readonly onLog?: (line: string) => void;
 }
+
+/** One piece of an answer being written, or the word that it started over. */
+export type AnswerDraft = { readonly text: string } | { readonly reset: true };
 
 export type ClaudeOutcome =
   | { readonly kind: 'plan'; readonly plan: unknown; readonly usage: UsageReport }
@@ -273,6 +283,29 @@ async function ask(
       }
       carried = carried.slice(boundary + 1);
     });
+  }
+
+  if (options.onDraft !== undefined) {
+    const onDraft = options.onDraft;
+    /** An observer's failure never becomes the answer's. */
+    const tell = (draft: AnswerDraft): void => {
+      try {
+        onDraft(draft);
+      } catch {
+        // Drafts are advisory; the result frame still carries the answer.
+      }
+    };
+    // The SDK passes (delta, snapshot); the delta is the draft.
+    stream.on('text', (delta: string) => {
+      tell({ text: delta });
+    });
+    // Not an SDK event: the routing client's own, when it hands the call to its fallback.
+    (stream as unknown as { on: (event: 'restart', listener: () => void) => unknown }).on(
+      'restart',
+      () => {
+        tell({ reset: true });
+      },
+    );
   }
 
   return stream.finalMessage();

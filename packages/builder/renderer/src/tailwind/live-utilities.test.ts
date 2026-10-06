@@ -4,6 +4,8 @@ import { createRequire } from 'node:module';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  CANVAS_STATES,
+  CANVAS_STATE_ATTRIBUTE,
   CUSTOM_CODE_REGION_ATTRIBUTE,
   createLiveUtilities as createWithTheme,
   type LiveUtilitiesOptions,
@@ -315,5 +317,59 @@ describe('live utilities watch what renders in AI regions', () => {
     document.body.append(regionWith('<p class="indent-[3px]"></p>'));
     await settle();
     expect(live.css()).not.toContain('indent-');
+  });
+});
+
+/*
+  style-manager DESIGN §A.7 (2026-10-05): the canvas previews a state without
+  the pointer being there. Its live instance lets hover:/focus-visible:/
+  active:/open: also match [data-ck-state~="<state>"]; nothing else does.
+*/
+describe('canvas state variants', () => {
+  it('compiles hover, focus-visible, active and open to also match the forced-state attribute', async () => {
+    const live = await createLiveUtilities({ canvasStateVariants: true });
+    live.ensure([
+      'hover:bg-red-500',
+      'focus-visible:ring-2',
+      'active:scale-95',
+      'open:block',
+      'max-md:hover:p-4',
+    ]);
+    const css = live.css();
+    expect(css).toContain(`.hover\\:bg-red-500[${CANVAS_STATE_ATTRIBUTE}~="hover"]`);
+    expect(css).toContain('.hover\\:bg-red-500:hover');
+    expect(css).toContain(`.focus-visible\\:ring-2[${CANVAS_STATE_ATTRIBUTE}~="focus-visible"]`);
+    expect(css).toContain(`.active\\:scale-95[${CANVAS_STATE_ATTRIBUTE}~="active"]`);
+    expect(css).toContain(`.open\\:block[${CANVAS_STATE_ATTRIBUTE}~="open"]`);
+    // Buckets and states combine: the mobile hover rule previews too.
+    expect(css).toContain(`.max-md\\:hover\\:p-4[${CANVAS_STATE_ATTRIBUTE}~="hover"]`);
+    expect(CANVAS_STATES).toEqual(['hover', 'focus-visible', 'active', 'open']);
+  });
+
+  it('is off by default, so a published sheet never carries the attribute', async () => {
+    const live = await createLiveUtilities();
+    live.ensure(['hover:bg-red-500']);
+    expect(live.css()).not.toContain(CANVAS_STATE_ATTRIBUTE);
+    expect(live.css()).toContain('.hover\\:bg-red-500:hover');
+  });
+});
+
+describe('compileFor, the export fallback', () => {
+  it('compiles exactly the classes asked for, unscoped, without touching the live sheet', async () => {
+    const live = await createLiveUtilities({ canvasStateVariants: true });
+    live.ensure(['p-2']);
+    const before = live.css();
+    const css = await live.compileFor(['p-[17px]', 'hover:bg-red-500', 'not-a-utility', 'group']);
+    expect(css).toContain('.p-\\[17px\\]');
+    expect(css).toContain('.hover\\:bg-red-500:hover');
+    // Canvas-only state variants and the region scope stay out of an export sheet.
+    expect(css).not.toContain(CANVAS_STATE_ATTRIBUTE);
+    expect(css).not.toContain('@scope');
+    expect(css).not.toContain('not-a-utility');
+    expect(live.css()).toBe(before);
+    // A second compile does not inherit the first one's classes.
+    const next = await live.compileFor(['m-1']);
+    expect(next).not.toContain('17px');
+    expect(await live.compileFor([])).toBe('');
   });
 });

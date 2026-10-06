@@ -1,0 +1,22 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ImageCropperStories from './ImageCropper.stories';
+
+<Meta of={ImageCropperStories} />
+
+# ImageCropper
+
+Aspect presets plus a focal point (style-manager DESIGN.md §G). Our own code, under 200 lines:
+`react-easy-crop` was rejected because its `normalize-wheel` dependency is BSD-3 (LIBRARIES.md §C).
+
+- **Pointer.** Click or drag on the picture to place the focal point.
+- **Keyboard.** The focal handle is one `role="slider"` with `aria-valuetext` ("30% across, 60%
+  down"), the same pattern react-colorful uses for its 2-D picker. Arrows move it 1%, Shift+arrow
+  10%, Home centres it.
+- **Image coordinates.** The focal point is measured from the picture's left and top edges. A
+  photograph is not mirrored in a right-to-left page, so the stage and the arrows are not either.
+- **Never writes.** `onApply(crop)` hands `{ aspect, x, y }` to the host, which either writes it
+  non-destructively with `cropIntents(crop)` (`aspect-16/9 object-cover object-[30%_60%]`, through
+  the class-patch engine, one `patchTreeNode`) or crops the pixels on upload with `cropRect`.
+
+Labels: `IMAGE_CROPPER_LABELS_EN` / `_AR`.

@@ -329,6 +329,7 @@ export {
   type AiPlanOutputContract,
   type AiPlanProvider,
   type AiProposePagePlanOptions,
+  type AiPagePlanDraftEvent, // P3-client-wire addition (fast page build, DESIGN §5.2)
   type AiPlanStep,
   type AiChatTurn,
   type AiPlanValidationIssue,
@@ -660,3 +661,18 @@ export {
   type SectionKitSlot,
 } from './section-kit';
 // end section-kit additions
+// ── P11-integration (style-manager DESIGN.md §D.3, §A.9) ──
+// The style tools (registered into AGENT_TOOLS only after the colour-target
+// agent agrees: tools/* is theirs) and "Convert to editable".
+export { STYLE_AGENT_TOOLS } from './style-tools';
+export {
+  detachBlockToCustomCode,
+  detachFidelity,
+  getBlockMarkupRenderer,
+  planBlockDetach,
+  setBlockMarkupRenderer,
+  type BlockMarkupRenderer,
+  type DetachOptions,
+  type DetachResult,
+} from './editing';
+// ── end P11-integration ──

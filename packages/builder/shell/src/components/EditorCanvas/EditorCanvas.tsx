@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ComponentType,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -20,6 +21,7 @@ import {
   type Theme,
 } from '@craftkit/builder-renderer';
 import type {
+  CustomCodeNode,
   InlineEditableKind,
   InlineEditorProps,
   InlineFormatAction,
@@ -27,9 +29,65 @@ import type {
   InlineSelectionAnchorReport,
   InlineSelectionAnchorSource,
   NodeId,
+  PaletteColor,
+  StyleBucket,
+  StyleSectorId,
+  StyleState,
 } from '@craftkit/builder-schema';
 
 import { customCodeElementAt } from '../../custom-code/element-at';
+import {
+  ELEMENT_NAME_WORDS_EN,
+  type ElementNameWords,
+  type ElementTarget,
+} from '../../custom-code/element-target';
+import { createElementSelection, type ElementSelection } from '../../selection/element-selection';
+import {
+  createMemoryStyleClipboard,
+  performElementAction,
+  resolveElementActions,
+  type ElementActionId,
+  type StyleClipboard,
+} from '../../overlay/element-actions';
+import { createElementHandles, type ElementHandles } from '../../overlay/element-handles';
+import { createForcedStatePreview, type ForcedStatePreview } from '../../overlay/forced-state';
+import { createGridOverlay, readGridMetrics, type GridOverlay } from '../../overlay/grid-overlay';
+import {
+  computeSnap,
+  createGuideChrome,
+  isFreelyPositioned,
+  isNudgeKey,
+  measuredInsets,
+  moveTreeElementBy,
+  nudgeDelta,
+  type GuideChrome,
+} from '../../overlay/snap-guides';
+import type { TreeDragPayload, TreeDropPorts } from '../../overlay/tree-drop-resolver';
+import {
+  TREE_TEXT_ACTION_LABELS_EN,
+  treeTextBubbleActions,
+  type TreeTextActionLabels,
+} from '../../overlay/tree-text-actions';
+import {
+  beginTreeTextEdit,
+  isTreeTextEditable,
+  type TreeTextSession,
+} from '../../overlay/tree-text-session';
+import {
+  createElementBarModel,
+  ELEMENT_QUICK_BAR_LABELS_EN,
+  ElementQuickBar,
+  paletteSwatches,
+  themeColorSwatches,
+  type ElementQuickBarLabels,
+  type NamedStyleChoice,
+} from '../ElementQuickBar';
+import {
+  bucketForBreakpoint,
+  elementDomOf,
+  focusedTreeTarget,
+  unlockedPath,
+} from './element-canvas-helpers';
 import { performMoveAction, resolveMoveAction } from '../../keyboard/move-actions';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { customCodeElementName } from '../../naming/custom-code-element-name';
@@ -44,7 +102,11 @@ import { performBlockAction, resolveBlockActions } from '../../overlay/block-act
 import { createDragSession, type DragSession } from '../../overlay/drag-session';
 import { createFloatingHost, type FloatingHostPorts } from '../../overlay/floating-host';
 import { createFrameBridge } from '../../overlay/frame-bridge';
-import { createInlineSession, type InlineSession } from '../../overlay/inline-session';
+import {
+  createInlineSession,
+  inlineTargetOf,
+  type InlineSession,
+} from '../../overlay/inline-session';
 import { BlockActionBar } from '../BlockActionBar';
 import { InlineRichSurface } from '../InlineRichSurface';
 import { InlineTextSurface } from '../InlineTextSurface';
@@ -103,6 +165,58 @@ export interface EditorCanvasProps {
    * desktop, byte-compatible with 005/006.
    */
   breakpoint?: RenderBreakpoint | undefined;
+
+  // ── P7 canvas chrome (style-manager DESIGN.md §A.6, §A.7, §E) ──────────────
+  /**
+   * The shared multi-selection store (P2). Shift-click on the canvas toggles
+   * members in it. Absent ⇒ the canvas keeps a private one (the panel and
+   * Layers then cannot see canvas multi-selections).
+   */
+  elementSelection?: ElementSelection | undefined;
+  /** The bucket the quick bar and handles write at. Absent ⇒ derived from `breakpoint`. */
+  styleBucket?: StyleBucket | undefined;
+  /**
+   * The panel's state switcher. Not `default` ⇒ the focused element is
+   * stamped `data-ck-state` so the canvas shows that state (needs the live
+   * compiler created with `canvasStateVariants: true`), and the quick bar
+   * writes in that state.
+   */
+  styleState?: StyleState | undefined;
+  /** The open panel sector; `layout` draws the focused grid's tracks. */
+  activeSector?: StyleSectorId | null | undefined;
+  /** Quick bar "More": open the side panel at this sector for the element. */
+  onOpenStyleSector?: ((sector: StyleSectorId, target: ElementTarget) => void) | undefined;
+  /** Quick bar "Edit with AI". Absent ⇒ no sparkle button. */
+  onEditWithAi?: ((target: ElementTarget) => void) | undefined;
+  /** Element action "Save as template". Absent ⇒ disabled. */
+  onSaveTemplate?: ((target: ElementTarget) => void) | undefined;
+  /** Element action "Animate": open the Interactions editor. Absent ⇒ the motion sector via `onOpenStyleSector`. */
+  onAnimate?: ((target: ElementTarget) => void) | undefined;
+  /** Image/video "Replace": the host opens its asset manager. Absent ⇒ disabled. */
+  onReplaceMedia?: ((target: ElementTarget) => void) | undefined;
+  /**
+   * Frame keydowns the canvas did not handle (focus inside the iframe never
+   * reaches host-document listeners). Return true when the key was consumed.
+   */
+  onShortcut?: ((event: KeyboardEvent) => boolean) | undefined;
+  /** Where Copy style / Paste style keep classes. Absent ⇒ in memory, per canvas. */
+  styleClipboard?: StyleClipboard | undefined;
+  /** Site-library palette colours for the colour controls. */
+  palette?: readonly PaletteColor[] | undefined;
+  /** Site-library named styles for the link/button style preset. */
+  namedStyles?: readonly NamedStyleChoice[] | undefined;
+  /** Named-style utilities by id, so values from `ck-s-*` markers show their source. */
+  namedStyleClasses?: Readonly<Record<string, string>> | undefined;
+  /** Quick-bar labels (EN default; the host picks AR by locale). */
+  quickBarLabels?: ElementQuickBarLabels | undefined;
+  /** Text-bubble labels for formatting tree text. */
+  treeTextLabels?: TreeTextActionLabels | undefined;
+  /** Element names in labels and announcements. */
+  elementNameWords?: ElementNameWords | undefined;
+  /** The EDITOR UI direction (roving arrows in the quick bar). Default `ltr`. */
+  editorDir?: 'ltr' | 'rtl' | undefined;
+  /** Test-only geometry for tree drops (jsdom has no layout). */
+  treeDropPorts?: Partial<TreeDropPorts> | undefined;
 }
 
 /**
@@ -125,6 +239,17 @@ export interface CanvasDragHandle {
    * inserts nothing" true on the palette side too (§9 convergence fix).
    */
   beginInsert(type: string, hostX: number, hostY: number): { didActivate: () => boolean };
+  /**
+   * P7: start inserting a custom-code tree node (P2's element payload, from
+   * the Library panel). It drops into a region's tree at the seat under the
+   * pointer: `insertTreeNode`, one transaction.
+   */
+  beginTreeInsert?(
+    node: CustomCodeNode,
+    label: string,
+    hostX: number,
+    hostY: number,
+  ): { didActivate: () => boolean };
 }
 
 interface Machinery {
@@ -133,7 +258,12 @@ interface Machinery {
   tools: ToolHost;
   session: DragSession | null;
   beginMoveFromHandle: (nodeId: NodeId, hostX: number, hostY: number) => void;
+  beginTreeMove: (payload: TreeDragPayload, hostX: number, hostY: number) => void;
   anchors: AnchorChannel;
+  handles: ElementHandles | null;
+  grid: GridOverlay;
+  forced: ForcedStatePreview;
+  syncElementChrome: () => void;
   detachListeners: () => void;
 }
 
@@ -146,6 +276,8 @@ interface Machinery {
 interface FloatingMounts {
   text: HTMLElement;
   block: HTMLElement;
+  /** The element quick bar: above the element, flipping below when clipped (§A.6). */
+  element: HTMLElement;
 }
 
 /** Stable empty list, so "no bubble" never allocates a new array per render. */
@@ -315,6 +447,25 @@ export function EditorCanvas({
   frameWidth,
   zoom = 1,
   breakpoint,
+  elementSelection,
+  styleBucket,
+  styleState = 'default',
+  activeSector = null,
+  onOpenStyleSector,
+  onEditWithAi,
+  onSaveTemplate,
+  onAnimate,
+  onReplaceMedia,
+  onShortcut,
+  styleClipboard,
+  palette,
+  namedStyles,
+  namedStyleClasses,
+  quickBarLabels = ELEMENT_QUICK_BAR_LABELS_EN,
+  treeTextLabels = TREE_TEXT_ACTION_LABELS_EN,
+  elementNameWords = ELEMENT_NAME_WORDS_EN,
+  editorDir = 'ltr',
+  treeDropPorts,
 }: EditorCanvasProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const frameShellRef = useRef<HTMLDivElement | null>(null);
@@ -422,6 +573,29 @@ export function EditorCanvas({
   // The snapshot handler lives in plain TS and must read the CURRENT direction
   // without re-subscribing the whole machinery when it flips.
   const dirRef = useRef<'ltr' | 'rtl'>('ltr');
+
+  // ── P7 element chrome state (style-manager DESIGN.md §A.6, §A.7, §E) ──────
+  // Refs carry the CURRENT panel bucket/state/sector into the plain-TS
+  // machinery without rebuilding it; the effects below sync them and ask the
+  // anchor channel for one fresh flush.
+  const bucket = styleBucket ?? bucketForBreakpoint(breakpoint);
+  const bucketRef = useRef<StyleBucket>(bucket);
+  const styleStateRef = useRef<StyleState>(styleState);
+  const activeSectorRef = useRef<StyleSectorId | null>(activeSector);
+  const onShortcutRef = useRef(onShortcut);
+  const [ownSelection, setOwnSelection] = useState<ElementSelection | null>(null);
+  const selectionStore = elementSelection ?? ownSelection;
+  const selectionStoreRef = useRef<ElementSelection | null>(selectionStore);
+  const fallbackClipboard = useMemo(() => createMemoryStyleClipboard(), []);
+  const clipboard = styleClipboard ?? fallbackClipboard;
+  // Bumped after Copy style so the bar re-renders with Paste style enabled.
+  const [, setClipboardNonce] = useState(0);
+  const [quickFocusRequest, setQuickFocusRequest] = useState(0);
+  const [scrubbing, setScrubbing] = useState(false);
+  const [treeSession, setTreeSession] = useState<TreeTextSession | null>(null);
+  const treeSessionRef = useRef<TreeTextSession | null>(null);
+  const [treeHasRange, setTreeHasRange] = useState(false);
+  const [linkRange, setLinkRange] = useState<{ start: number; end: number } | null>(null);
   // Synced BEFORE the session effect below reads it: the handle callback must
   // not join that effect's dependencies, or every render of a host passing an
   // inline arrow would tear down and rebuild the author's open editing session.
@@ -523,6 +697,154 @@ export function EditorCanvas({
     onToolErrorRef.current = onToolError;
   });
 
+  /**
+   * P7: open a tree text element for in-place typing (DESIGN §E). False when
+   * the element holds no plain text of its own (a container, an image, a
+   * paragraph already split into runs) or the canvas is read-only.
+   */
+  const beginTreeTextEditing = useCallback(
+    (target: Extract<ElementTarget, { kind: 'tree' }>): boolean => {
+      const machinery = machineryRef.current;
+      if (!editable || machinery === null) {
+        return false;
+      }
+      const located = customCodeElementAt(kernel, target.nodeId, target.path);
+      if (located === undefined || !isTreeTextEditable(located.element)) {
+        return false;
+      }
+      const element = elementDomOf(machinery.index, target.nodeId, target.path);
+      if (element === null) {
+        return false;
+      }
+      treeSessionRef.current?.commit();
+      // One editing surface at a time: a block's open inline session ends.
+      sessionRef.current?.end();
+      const frameDocument = element.ownerDocument;
+      const name = customCodeElementName(located.element);
+      const stored = located.element.kind === 'element' ? (located.element.text ?? '') : '';
+      const opened: TreeTextSession = beginTreeTextEdit({
+        kernel,
+        element,
+        target,
+        storedText: stored,
+        name,
+        onEnd: (outcome, exit, message) => {
+          if (treeSessionRef.current === opened) {
+            treeSessionRef.current = null;
+          }
+          setTreeSession((current) => (current === opened ? null : current));
+          setTreeHasRange(false);
+          setLinkRange(null);
+          machineryRef.current?.anchors.setText(null);
+          layerRef.current?.classList.remove('bldr-overlay--tree-editing');
+          machineryRef.current?.anchors.refresh();
+          if (outcome === 'rejected' && message !== undefined) {
+            announceGestureRef.current(message);
+          }
+          if (exit === 'keyboard') {
+            // Keyboard exits keep the keyboard on the canvas, on the element.
+            hostRef.current?.focus({ preventScroll: true });
+          }
+        },
+        onSelectionChange: () => {
+          const has = opened.isOpen() && opened.selectionRange() !== null;
+          setTreeHasRange(has);
+          machineryRef.current?.anchors.setText(
+            has ? () => measureTextSelection(frameDocument, element) : null,
+          );
+        },
+      });
+      treeSessionRef.current = opened;
+      setTreeSession(opened);
+      layerRef.current?.classList.add('bldr-overlay--tree-editing');
+      machineryRef.current?.anchors.refresh();
+      announceGestureRef.current(`Editing ${name}`);
+      return true;
+    },
+    [kernel, editable],
+  );
+
+  /**
+   * P7 element keys, claimed BEFORE inline editing and traversal:
+   * Alt+F10 enters the quick bar; Enter edits a text element in place or
+   * steps into the first child; Shift+Enter steps to the parent; arrows nudge
+   * an absolutely positioned element (1px, Shift 10px, mirrored under RTL);
+   * Escape abandons a spacing scrub in flight.
+   */
+  const handleElementKey = useCallback(
+    (event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'altKey' | 'ctrlKey' | 'metaKey'>): boolean => {
+      const modified = event.ctrlKey || event.metaKey;
+      if (event.key === 'F10' && event.altKey) {
+        if (focusedTreeTarget(kernel) === undefined) {
+          return false;
+        }
+        setQuickFocusRequest((current) => current + 1);
+        return true;
+      }
+      const machinery = machineryRef.current;
+      if (event.key === 'Escape' && machinery?.handles?.isScrubbing() === true) {
+        machinery.handles.cancel();
+        return true;
+      }
+      const target = focusedTreeTarget(kernel);
+      if (target === undefined) {
+        // A selected region that declares no inline text: Enter steps INTO
+        // its tree, the keyboard way to reach the elements inside it.
+        const selected = kernel.context.store.getState().selection[0];
+        if (
+          event.key === 'Enter' &&
+          !event.shiftKey &&
+          !modified &&
+          selected !== undefined &&
+          inlineTargetOf(kernel, selected) === null &&
+          customCodeElementAt(kernel, selected, [0]) !== undefined
+        ) {
+          kernel.focusElement(selected, [0]);
+          return true;
+        }
+        return false;
+      }
+      if (modified || event.altKey) {
+        return false;
+      }
+      if (event.key === 'Enter' && event.shiftKey) {
+        if (target.path.length > 1) {
+          kernel.focusElement(target.nodeId, target.path.slice(0, -1));
+        } else {
+          kernel.clearElementFocus();
+        }
+        return true;
+      }
+      if (event.key === 'Enter') {
+        if (beginTreeTextEditing(target)) {
+          return true;
+        }
+        if (customCodeElementAt(kernel, target.nodeId, [...target.path, 0]) !== undefined) {
+          kernel.focusElement(target.nodeId, [...target.path, 0]);
+          return true;
+        }
+        return false;
+      }
+      if (editable && isNudgeKey(event.key) && machinery !== null) {
+        const element = elementDomOf(machinery.index, target.nodeId, target.path);
+        if (element === null || !isFreelyPositioned(element)) {
+          return false;
+        }
+        const result = moveTreeElementBy(kernel, target, nudgeDelta(event.key, event.shiftKey), {
+          bucket: bucketRef.current,
+          state: styleStateRef.current,
+          dir: dirRef.current,
+          label: 'Nudge',
+          measured: measuredInsets(element, dirRef.current),
+        });
+        announceGestureRef.current(result.announcement);
+        return true;
+      }
+      return false;
+    },
+    [kernel, editable, beginTreeTextEditing],
+  );
+
   const attachNodeElement = useCallback((id: NodeId, element: HTMLElement | null) => {
     if (element === null) {
       elementsRef.current.delete(id);
@@ -579,6 +901,64 @@ export function EditorCanvas({
       prefer: 'below',
       ...(floatingPorts === undefined ? {} : { ports: floatingPorts }),
     });
+    // P7: the element quick bar sits ABOVE the element, flipping below when
+    // clipped (§A.6). Same anchor as the action bar — only one of the two
+    // ever has content, and an empty host stays hidden.
+    const elementHost = createFloatingHost({
+      layer,
+      className: 'bldr-floating--element',
+      align: 'start',
+      prefer: 'above',
+      ...(floatingPorts === undefined ? {} : { ports: floatingPorts }),
+    });
+
+    // P7 element chrome: spacing handles (editable canvases only), the grid
+    // overlay, the forced-state stamp and the positioning guides. All plain
+    // TS, all synced on the anchor channel's rhythm — never per React render.
+    const handles = editable
+      ? createElementHandles({
+          layer,
+          kernel,
+          bucket: () => bucketRef.current,
+          state: () => styleStateRef.current,
+          dir: () => dirRef.current,
+          scale: () => zoomRef.current,
+          announce: (message) => {
+            announceGestureRef.current(message);
+          },
+          onScrubChange: setScrubbing,
+        })
+      : null;
+    const grid = createGridOverlay(layer);
+    const forced = createForcedStatePreview();
+    const positionGuides: GuideChrome = createGuideChrome(layer);
+    const syncElementChrome = () => {
+      const target = focusedTreeTarget(kernel);
+      const element = target === undefined ? null : elementDomOf(index, target.nodeId, target.path);
+      const node =
+        target === undefined ? undefined : customCodeElementAt(kernel, target.nodeId, target.path)?.element;
+      const rect = target === undefined ? undefined : index.elementRect?.(target.nodeId, target.path);
+      const box = rect === undefined ? null : { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      forced.apply(element ?? undefined, styleStateRef.current);
+      const dragSession = machineryRef.current?.session ?? null;
+      const showHandles =
+        target !== undefined &&
+        element !== null &&
+        box !== null &&
+        node !== undefined &&
+        node.kind !== 'component' &&
+        treeSessionRef.current === null &&
+        (dragSession === null || dragSession.phase() === 'idle');
+      handles?.update(showHandles ? target : null, showHandles ? element : null, showHandles ? box : null);
+      const metrics =
+        activeSectorRef.current === 'layout' && element !== null ? readGridMetrics(element) : undefined;
+      if (metrics !== undefined && box !== null) {
+        grid.show(box, metrics, dirRef.current);
+      } else {
+        grid.hide();
+      }
+    };
+
     const anchors = createAnchorChannel({
       index,
       bridge,
@@ -592,13 +972,15 @@ export function EditorCanvas({
           dir: dirRef.current,
         };
         blockHost.place({ anchor: snapshot.block, ...common });
+        elementHost.place({ anchor: snapshot.block, ...common });
         textHost.place({ anchor: snapshot.text, ...common });
+        syncElementChrome();
       },
     });
     anchors.setText(textMeasureRef.current);
     // ONE setState for the whole mount: React needs the portal targets, and
     // after this it never hears about geometry again.
-    setFloating({ text: textHost.element, block: blockHost.element });
+    setFloating({ text: textHost.element, block: blockHost.element, element: elementHost.element });
 
     // B2b: the drag session exists only on editable canvases (FR-012).
     const session = editable
@@ -611,6 +993,9 @@ export function EditorCanvas({
           announce: (message) => {
             announceGestureRef.current(message);
           },
+          frameDocument,
+          dir: () => dirRef.current,
+          treePorts: treeDropPorts,
           onHoverSuppress: (active) => {
             if (active) {
               controller.setHover(null);
@@ -628,14 +1013,25 @@ export function EditorCanvas({
       // host drops a target whose node no longer exists, so an undo that removes
       // the targeted node cannot leave orphaned tool chrome behind (FR-007) —
       // hover included, even though no pointer moved.
-      const selected = kernel.context.store.getState().selection[0] ?? null;
+      const state = kernel.context.store.getState();
+      const selected = state.selection[0] ?? null;
       tools.notifySelection(selected);
       tools.notifyHover(controller.hoveredId());
       // Same law for the action bar: its anchor follows the selection, and a
       // node that vanished has no rect, so the bar hides instead of stranding.
-      anchors.setBlock(selected);
+      // With an element focused the anchor is the ELEMENT (P7 quick bar).
+      const focus = state.elementFocus;
+      anchors.setBlock(selected, focus !== null && focus.id === selected ? focus.path : null);
+      // An edit can move an element without resizing any observed block;
+      // one batched flush re-reads the element chrome either way.
+      anchors.refresh();
     });
-    anchors.setBlock(kernel.context.store.getState().selection[0] ?? null);
+    {
+      const state = kernel.context.store.getState();
+      const selected = state.selection[0] ?? null;
+      const focus = state.elementFocus;
+      anchors.setBlock(selected, focus !== null && focus.id === selected ? focus.path : null);
+    }
 
     // What is under the pointer: the node, and — inside a composed region —
     // the authored element (the portrait, the headline, the button). The
@@ -648,16 +1044,118 @@ export function EditorCanvas({
       const nodeId = index.nodeAt(clientX, clientY);
       return nodeId === undefined ? undefined : { nodeId };
     };
+    /*
+      P7: dragging a positioned (absolute/fixed) element. The preview is a
+      canvas-DOM translate only; snapping (6px) to the parent's and siblings'
+      edges and centres draws guide lines; release writes `inset-*` through
+      the engine as ONE transaction.
+    */
+    interface PositionDrag {
+      target: NonNullable<ReturnType<typeof focusedTreeTarget>>;
+      element: HTMLElement;
+      startX: number;
+      startY: number;
+      rect: { x: number; y: number; width: number; height: number };
+      others: { x: number; y: number; width: number; height: number }[];
+      previousTranslate: string;
+      measured: ReturnType<typeof measuredInsets>;
+      dx: number;
+      dy: number;
+      moved: boolean;
+    }
+    let positionDrag: PositionDrag | null = null;
+    const endPositionDrag = (commit: boolean) => {
+      const drag = positionDrag;
+      if (drag === null) return;
+      positionDrag = null;
+      drag.element.style.translate = drag.previousTranslate;
+      positionGuides.hide();
+      if (!commit || !drag.moved) return;
+      suppressClickRef.current = true;
+      const result = moveTreeElementBy(
+        kernel,
+        drag.target,
+        { dx: Math.round(drag.dx), dy: Math.round(drag.dy) },
+        {
+          bucket: bucketRef.current,
+          state: styleStateRef.current,
+          dir: dirRef.current,
+          measured: drag.measured,
+        },
+      );
+      announceGestureRef.current(result.announcement);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!editable || event.button !== 0 || event.shiftKey || treeSessionRef.current !== null) {
+        return;
+      }
+      const target = focusedTreeTarget(kernel);
+      const element = target === undefined ? null : elementDomOf(index, target.nodeId, target.path);
+      if (
+        target === undefined ||
+        element === null ||
+        !(event.target instanceof Node) ||
+        !element.contains(event.target) ||
+        !isFreelyPositioned(element)
+      ) {
+        return;
+      }
+      const parent = element.parentElement;
+      const siblings =
+        parent === null
+          ? []
+          : Array.from(parent.children).filter(
+              (child): child is HTMLElement => child !== element && child.hasAttribute('data-ck-path'),
+            );
+      positionDrag = {
+        target,
+        element,
+        startX: event.clientX,
+        startY: event.clientY,
+        rect: ports.measure(element),
+        others: [...(parent === null ? [] : [ports.measure(parent)]), ...siblings.map((sibling) => ports.measure(sibling))],
+        previousTranslate: element.style.translate,
+        measured: measuredInsets(element, dirRef.current),
+        dx: 0,
+        dy: 0,
+        moved: false,
+      };
+      // No text selection while an element is being dragged.
+      event.preventDefault();
+    };
     const onPointerMove = (event: MouseEvent) => {
+      if (positionDrag !== null) {
+        const drag = positionDrag;
+        const rawX = event.clientX - drag.startX;
+        const rawY = event.clientY - drag.startY;
+        if (!drag.moved && Math.hypot(rawX, rawY) < 3) return;
+        drag.moved = true;
+        const snap = computeSnap(
+          { x: drag.rect.x + rawX, y: drag.rect.y + rawY, width: drag.rect.width, height: drag.rect.height },
+          drag.others,
+        );
+        drag.dx = rawX + snap.dx;
+        drag.dy = rawY + snap.dy;
+        drag.element.style.translate = `${String(drag.dx)}px ${String(drag.dy)}px`;
+        positionGuides.show(snap.guides);
+        return;
+      }
       if (session !== null && session.phase() !== 'idle') {
         session.move(event.clientX, event.clientY);
         return; // hover chrome is suppressed for the session's duration
       }
       const hit = hitAt(event.clientX, event.clientY);
-      controller.setHover(hit?.nodeId ?? null, hit?.elementPath);
+      // Locked elements pass the pointer to their parent (DESIGN §E Layers lock).
+      const hoverPath =
+        hit?.elementPath === undefined ? undefined : unlockedPath(kernel, hit.nodeId, hit.elementPath);
+      controller.setHover(hit?.nodeId ?? null, hoverPath);
       tools.notifyHover(hit?.nodeId ?? null);
     };
     const onPointerUp = () => {
+      if (positionDrag !== null) {
+        endPositionDrag(true);
+        return;
+      }
       if (session !== null && session.phase() === 'active') {
         // The suppress flag exists for gestures that CAN be followed by a
         // same-document click: a frame pointerup concluding a frame-originated
@@ -673,6 +1171,7 @@ export function EditorCanvas({
       }
     };
     const onPointerLeave = () => {
+      endPositionDrag(false);
       controller.setHover(null);
       tools.notifyHover(null);
     };
@@ -681,15 +1180,27 @@ export function EditorCanvas({
         suppressClickRef.current = false;
         return; // a completed drop already set the selection
       }
+      // A click inside text being edited in place places the caret: it is the
+      // editor's, and pulling focus to the host would end the edit.
+      const editing = treeSessionRef.current;
+      if (editing !== null && event.target instanceof Node && editing.element.contains(event.target)) {
+        return;
+      }
       const hit = hitAt(event.clientX, event.clientY);
+      // Locked elements pass clicks to their parent; all-locked lands on the region.
+      const path =
+        hit?.elementPath === undefined ? undefined : unlockedPath(kernel, hit.nodeId, hit.elementPath);
       if (hit === undefined) {
         kernel.setSelection([]);
-      } else if (hit.elementPath === undefined) {
+      } else if (path === undefined) {
         kernel.setSelection([hit.nodeId]);
+      } else if (event.shiftKey && selectionStoreRef.current !== null) {
+        // Shift-click adds the element to the multi-selection (or removes it).
+        selectionStoreRef.current.toggle({ kind: 'tree', nodeId: hit.nodeId, path });
       } else {
         // Straight to the element: a person who clicks the portrait in a
         // generated header means the portrait. Escape steps back out.
-        kernel.focusElement(hit.nodeId, hit.elementPath);
+        kernel.focusElement(hit.nodeId, path);
       }
       // Clicking inside the frame moves focus to the iframe's browsing context,
       // which would silently strand keyboard traversal on the host region
@@ -697,6 +1208,7 @@ export function EditorCanvas({
       // back deliberately — nothing inside the canvas wants it.
       hostRef.current?.focus({ preventScroll: true });
     };
+    frameDocument.addEventListener('pointerdown', onPointerDown);
     frameDocument.addEventListener('pointermove', onPointerMove, { passive: true });
     frameDocument.addEventListener('pointerup', onPointerUp);
     frameDocument.addEventListener('pointerleave', onPointerLeave);
@@ -766,6 +1278,11 @@ export function EditorCanvas({
           session.press({ kind: 'insert', type }, start.x, start.y, 'handle');
           return { didActivate: () => session.lastGestureActivated() };
         },
+        beginTreeInsert(node, label, hostX, hostY) {
+          const start = toFrame(hostX, hostY);
+          session.press({ kind: 'tree-insert', node, label }, start.x, start.y, 'handle');
+          return { didActivate: () => session.lastGestureActivated() };
+        },
       });
     }
 
@@ -785,8 +1302,20 @@ export function EditorCanvas({
         const start = toFrame(hostX, hostY);
         session.press({ kind: 'move', id: nodeId }, start.x, start.y, 'handle');
       },
+      beginTreeMove: (payload, hostX, hostY) => {
+        if (session === null) {
+          return;
+        }
+        const start = toFrame(hostX, hostY);
+        session.press(payload, start.x, start.y, 'handle');
+      },
       anchors,
+      handles,
+      grid,
+      forced,
+      syncElementChrome,
       detachListeners: () => {
+        frameDocument.removeEventListener('pointerdown', onPointerDown);
         frameDocument.removeEventListener('pointermove', onPointerMove);
         frameDocument.removeEventListener('pointerup', onPointerUp);
         frameDocument.removeEventListener('pointerleave', onPointerLeave);
@@ -804,8 +1333,14 @@ export function EditorCanvas({
       tools.dispose();
       controller.dispose();
       anchors.dispose();
+      endPositionDrag(false);
+      handles?.dispose();
+      grid.dispose();
+      forced.clear();
+      positionGuides.dispose();
       textHost.dispose();
       blockHost.dispose();
+      elementHost.dispose();
       index.dispose();
       offSelection();
       machineryRef.current = null;
@@ -828,6 +1363,63 @@ export function EditorCanvas({
     zoomRef.current = normalizedZoom;
     machineryRef.current?.anchors.refresh();
   }, [normalizedZoom]);
+
+  // ── P7 element chrome wiring ──────────────────────────────────────────────
+
+  // A private multi-selection store when the host shares none.
+  useEffect(() => {
+    if (elementSelection !== undefined) {
+      return undefined;
+    }
+    const own = createElementSelection(kernel);
+    // The store subscribes to the kernel, so it is created (and disposed) by
+    // this effect rather than during render; React needs it for the bar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
+    setOwnSelection(own);
+    return () => {
+      own.dispose();
+      setOwnSelection(null);
+    };
+  }, [kernel, elementSelection]);
+
+  // The panel's bucket/state/sector reach the plain-TS chrome through refs;
+  // a change asks for one fresh flush (the forced-state stamp, the grid).
+  useEffect(() => {
+    bucketRef.current = bucket;
+    styleStateRef.current = styleState;
+    activeSectorRef.current = activeSector;
+    machineryRef.current?.anchors.refresh();
+  }, [bucket, styleState, activeSector]);
+
+  useEffect(() => {
+    onShortcutRef.current = onShortcut;
+    selectionStoreRef.current = selectionStore;
+  });
+
+  // An in-place text edit ends (and commits) when the focus moves elsewhere —
+  // a click on another element, Escape out of the region, an undo.
+  useEffect(
+    () =>
+      kernel.context.store.subscribe((state) => {
+        const editing = treeSessionRef.current;
+        if (editing === null) {
+          return;
+        }
+        const focus = state.elementFocus;
+        const same =
+          focus !== null &&
+          focus.id === editing.target.nodeId &&
+          focus.path.length === editing.target.path.length &&
+          focus.path.every((value, at) => editing.target.path[at] === value);
+        if (!same) {
+          // Never write from inside a store notification.
+          queueMicrotask(() => {
+            editing.commit();
+          });
+        }
+      }),
+    [kernel],
+  );
 
   // While a block's text is open IN PLACE, the editing surface's own focus ring
   // is the chrome. Stacking the selection outline and its name label on top
@@ -1062,11 +1654,22 @@ export function EditorCanvas({
         event.preventDefault();
         return;
       }
+      if (handleElementKey(event)) {
+        event.preventDefault();
+        return;
+      }
       if (handleInlineKey(event.key)) {
         event.preventDefault();
         return;
       }
       if (handleTraversalKey(event.key, event.altKey)) {
+        event.preventDefault();
+        return;
+      }
+      // P7: focus inside the iframe never reaches host-document shortcut
+      // listeners, so what the canvas did not claim is forwarded — never
+      // from inside an editable field, where keys are the field's own.
+      if (!isEditableTarget(event.target) && onShortcutRef.current?.(event) === true) {
         event.preventDefault();
       }
     };
@@ -1074,6 +1677,22 @@ export function EditorCanvas({
       const handle = sessionRef.current;
       const machinery = machineryRef.current;
       if (handle === null || machinery === null) {
+        return;
+      }
+      // P7: a double-click on a tree text element edits it in place.
+      const elementHit = machinery.index.hitAt?.(event.clientX, event.clientY);
+      const elementPath =
+        elementHit?.elementPath === undefined
+          ? undefined
+          : unlockedPath(kernel, elementHit.nodeId, elementHit.elementPath);
+      if (elementHit !== undefined && elementPath !== undefined) {
+        const target = { kind: 'tree' as const, nodeId: elementHit.nodeId, path: elementPath };
+        kernel.focusElement(target.nodeId, target.path);
+        if (beginTreeTextEditing(target)) {
+          event.preventDefault();
+        }
+        // An element that is not plain text stays focused: the region's own
+        // inline edit would be the wrong surface for what was double-clicked.
         return;
       }
       const hit = machinery.index.nodeAt(event.clientX, event.clientY);
@@ -1096,7 +1715,15 @@ export function EditorCanvas({
       frameDocument.removeEventListener('keydown', onFrameKeyDown);
       frameDocument.removeEventListener('dblclick', onFrameDoubleClick);
     };
-  }, [frame, handleTraversalKey, handleInlineKey, beginInlineEdit]);
+  }, [
+    frame,
+    kernel,
+    handleTraversalKey,
+    handleInlineKey,
+    handleElementKey,
+    beginInlineEdit,
+    beginTreeTextEditing,
+  ]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -1141,6 +1768,10 @@ export function EditorCanvas({
         event.preventDefault();
         return;
       }
+      if (handleElementKey(event)) {
+        event.preventDefault();
+        return;
+      }
       if (handleInlineKey(event.key)) {
         event.preventDefault();
         return;
@@ -1149,7 +1780,7 @@ export function EditorCanvas({
         event.preventDefault();
       }
     },
-    [handleTraversalKey, handleInlineKey],
+    [handleTraversalKey, handleInlineKey, handleElementKey],
   );
 
   const onHostClick = useCallback(
@@ -1351,6 +1982,118 @@ export function EditorCanvas({
     [kernel, beginInlineEdit, selectedName],
   );
 
+  // ── P7: the element quick bar ─────────────────────────────────────────────
+  const emptyTargets = useMemo<readonly ElementTarget[]>(() => [], []);
+  const subscribeSelection = useCallback(
+    (listener: () => void) => selectionStore?.subscribe(listener) ?? (() => undefined),
+    [selectionStore],
+  );
+  const readSelection = useCallback(
+    () => selectionStore?.targets() ?? emptyTargets,
+    [selectionStore, emptyTargets],
+  );
+  const selectedTargets = useSyncExternalStore(subscribeSelection, readSelection, readSelection);
+
+  /** Primary first (the kernel's element focus), then the multi-selection's other tree members. */
+  const elementTargets = useMemo<readonly Extract<ElementTarget, { kind: 'tree' }>[]>(() => {
+    if (elementFocus?.id !== selectedId) {
+      return [];
+    }
+    const primary = { kind: 'tree' as const, nodeId: elementFocus.id, path: [...elementFocus.path] };
+    const extras = selectedTargets.filter(
+      (target): target is Extract<ElementTarget, { kind: 'tree' }> =>
+        target.kind === 'tree' &&
+        !(
+          target.nodeId === primary.nodeId &&
+          target.path.length === primary.path.length &&
+          target.path.every((value, at) => primary.path[at] === value)
+        ),
+    );
+    return [primary, ...extras];
+  }, [elementFocus, selectedId, selectedTargets]);
+  const elementTargetsRef = useRef(elementTargets);
+  useEffect(() => {
+    elementTargetsRef.current = elementTargets;
+    machineryRef.current?.controller.setExtraElements(
+      elementTargets.slice(1).map((target) => ({ nodeId: target.nodeId, path: target.path })),
+    );
+  }, [elementTargets]);
+
+  const quickModel = useMemo(
+    () =>
+      elementTargets[0] === undefined || doc.nodes[elementTargets[0].nodeId] === undefined
+        ? undefined
+        : createElementBarModel(kernel, elementTargets, {
+            bucket,
+            state: styleState,
+            pageDir: dir,
+            words: elementNameWords,
+            namedStyles: namedStyleClasses,
+          }),
+    [kernel, doc, elementTargets, bucket, styleState, dir, elementNameWords, namedStyleClasses],
+  );
+  const colorTokens = useMemo(() => themeColorSwatches(theme), [theme]);
+  const paletteColors = useMemo(() => paletteSwatches(palette), [palette]);
+
+  const actionContext = useMemo(
+    () => ({
+      bucket,
+      styleClipboard: clipboard,
+      ...(onSaveTemplate === undefined ? {} : { onSaveTemplate }),
+      ...(onAnimate !== undefined
+        ? { onAnimate }
+        : onOpenStyleSector === undefined
+          ? {}
+          : {
+              onAnimate: (target: ElementTarget) => {
+                onOpenStyleSector('motion', target);
+              },
+            }),
+    }),
+    [bucket, clipboard, onSaveTemplate, onAnimate, onOpenStyleSector],
+  );
+  // Read at render time on purpose (cheap): Paste style enables the moment
+  // Copy style fills the clipboard, and the copy re-renders for it.
+  const elementActions =
+    quickModel === undefined ? [] : resolveElementActions(kernel, elementTargets, actionContext);
+
+  const runElementAction = useCallback(
+    (id: ElementActionId) => {
+      if (id === 'deselect') {
+        hostRef.current?.focus({ preventScroll: true });
+      }
+      const result = performElementAction(kernel, elementTargetsRef.current, id, actionContext);
+      if (id === 'copyStyle') {
+        setClipboardNonce((current) => current + 1);
+      }
+      if (kernel.context.store.getState().elementFocus === null) {
+        // The bar unmounts with the element focus; keyboard users land on the canvas.
+        hostRef.current?.focus({ preventScroll: true });
+      }
+      announceGestureRef.current(result.announcement);
+    },
+    [kernel, actionContext],
+  );
+
+  const primaryTarget = elementTargets[0];
+  const treeActions = useMemo(
+    () =>
+      treeSession === null
+        ? []
+        : treeTextBubbleActions(treeSession, treeTextLabels, {
+            onRequestLink: (range) => {
+              treeSession.suspendBlur(true);
+              setLinkRange(range);
+            },
+            onResult: (result) => {
+              if (!result.ok) {
+                setGestureMessage((current) => ({ text: result.message, nonce: current.nonce + 1 }));
+              }
+            },
+          }),
+    [treeSession, treeTextLabels],
+  );
+
   const beginMoveFromHandle = useCallback(
     (hostX: number, hostY: number) => {
       const selected = kernel.context.store.getState().selection[0];
@@ -1433,10 +2176,109 @@ export function EditorCanvas({
             something else: not while a drag is in flight (US3/AC4), and not
             while its own text is open for editing — the bubble owns that
             moment, and two toolbars over one block is noise, not power. */}
+          {/* P7: the tree text bubble — formatting a selected range of an
+            element being edited in place, or the link address prompt. */}
+          {floating !== null && treeSession !== null && (treeHasRange || linkRange !== null)
+            ? createPortal(
+                <TextBubble
+                  dir={dir}
+                  label={treeTextLabels.formatting}
+                  actions={treeActions}
+                  onReturnFocus={() => {
+                    treeSession.refocus();
+                    return true;
+                  }}
+                  prompt={
+                    linkRange === null
+                      ? undefined
+                      : {
+                          label: treeTextLabels.linkAddress,
+                          submitLabel: treeTextLabels.apply,
+                          cancelLabel: treeTextLabels.cancel,
+                          onSubmit: (href) => {
+                            const range = linkRange;
+                            setLinkRange(null);
+                            treeSession.suspendBlur(false);
+                            const result = treeSession.format(
+                              { mark: 'a', href, label: treeTextLabels.link },
+                              range,
+                            );
+                            if (!result.ok) {
+                              announceGestureRef.current(result.message);
+                              treeSession.refocus();
+                            }
+                          },
+                          onCancel: () => {
+                            setLinkRange(null);
+                            treeSession.suspendBlur(false);
+                            treeSession.refocus();
+                          },
+                        }
+                  }
+                />,
+                floating.text,
+              )
+            : null}
+          {/* P7: with an element focused, its quick bar REPLACES the block
+            action bar — every control and action there is the element's. */}
+          {floating !== null &&
+          editable &&
+          !dragging &&
+          !scrubbing &&
+          inlineSession === null &&
+          treeSession === null &&
+          quickModel !== undefined &&
+          primaryTarget !== undefined
+            ? createPortal(
+                <ElementQuickBar
+                  model={quickModel}
+                  actions={elementActions}
+                  onAction={runElementAction}
+                  onMore={(sector) => {
+                    onOpenStyleSector?.(sector, primaryTarget);
+                  }}
+                  {...(onEditWithAi === undefined
+                    ? {}
+                    : {
+                        onEditWithAi: () => {
+                          onEditWithAi(primaryTarget);
+                        },
+                      })}
+                  {...(onReplaceMedia === undefined
+                    ? {}
+                    : {
+                        onReplaceMedia: () => {
+                          onReplaceMedia(primaryTarget);
+                        },
+                      })}
+                  onReturnFocus={() => {
+                    hostRef.current?.focus({ preventScroll: true });
+                  }}
+                  onMovePointerDown={(hostX, hostY) => {
+                    machineryRef.current?.beginTreeMove(
+                      { kind: 'tree-move', id: primaryTarget.nodeId, path: primaryTarget.path },
+                      hostX,
+                      hostY,
+                    );
+                  }}
+                  onAnnounce={(message) => {
+                    announceGestureRef.current(message);
+                  }}
+                  dir={editorDir}
+                  colorTokens={colorTokens}
+                  palette={paletteColors}
+                  namedStyles={namedStyles}
+                  focusRequest={quickFocusRequest}
+                  labels={quickBarLabels}
+                />,
+                floating.element,
+              )
+            : null}
           {floating !== null &&
           editable &&
           !dragging &&
           inlineSession === null &&
+          quickModel === undefined &&
           selectedName !== null &&
           blockActions.length > 0
             ? createPortal(

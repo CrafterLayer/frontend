@@ -47,3 +47,27 @@ export {
 export { checkSection } from './check-section';
 export { NEIGHBOUR_SUMMARY_MAX_CHARS, summarizeNeighbours } from './neighbours';
 export { planAiPage } from './plan-ai-page';
+// p5-plan-stream additions (2026-10-05): the streamed build's building blocks (DESIGN §5.3, §5.4, §6.1).
+export {
+  createPlanStreamReader,
+  type PlanStreamEvent,
+  type PlanStreamReader,
+} from './plan-stream';
+export {
+  briefArrived,
+  provisionalCandidate,
+  reconcilePlans,
+  sectionFingerprint,
+  startPlanDraft,
+  withBrief,
+  type PlanDraft,
+  type PlanReconciliation,
+} from './plan-draft';
+export {
+  PAGE_SKELETON_FINISH_LABEL,
+  skeletonFinish,
+  type SkeletonFinishInput,
+  type SkeletonFinishResult,
+} from './skeleton-from-plan';
+export { expandCompactPagePlan } from './compact-plan';
+// end p5-plan-stream additions

@@ -1,0 +1,12 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StyleSectorStories from './StyleSector.stories';
+
+<Meta of={StyleSectorStories} />
+
+# StyleSector
+
+One collapsible sector of the `StylePanel` (Layout, Spacing, Size, Position, Typography,
+Backgrounds, Borders, Effects, Transforms, Transitions). The heading holds a disclosure button with
+`aria-expanded` and `aria-controls`; the rows sit in a labelled `region` and are unmounted while the
+sector is collapsed. The chevron mirrors in RTL and does not animate under reduced motion.

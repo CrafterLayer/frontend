@@ -1,0 +1,27 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as InteractionsPanelStories from './InteractionsPanel.stories';
+
+<Meta of={InteractionsPanelStories} />
+
+# InteractionsPanel
+
+The element **Interactions** tab (style-manager DESIGN.md §B.4). Animation is stored as attributes,
+never script: `data-ck-motion` (a preset name), `data-ck-hover`, and the params `data-ck-trigger`,
+`data-ck-delay`, `data-ck-speed`, `data-ck-ease`, `data-ck-distance`, `data-ck-once`,
+`data-ck-stagger` and `data-ck-target`.
+
+- **Plays**: On view, On load, On hover, On click, While scrolling. The preset cards are filtered to
+  what the trigger can play; switching to a trigger the current preset cannot play drops the preset
+  in the same write (the door would refuse the pair).
+- **Animation** and **Hover effect**: `MotionPresetGrid` cards; None removes the attribute, and
+  clearing the last animation clears the params.
+- **Timing**: speed, delay (0–6 steps of 80 ms), easing, distance, play once, stagger (containers
+  only) and, for click triggers, which element plays (an id in the same tree). Disabled until
+  something animates, because a param means nothing alone.
+- **Preview** calls `onPreview` (the host stamps `data-ck-play` on the canvas DOM only).
+- **Remove animation** clears every motion attribute in one write (a behaviour's shared
+  `data-ck-speed` is kept).
+
+Every row calls `onCommit(patch, label)` once; the host writes it as one `patchTreeNode`. Labels:
+`INTERACTIONS_PANEL_LABELS_EN` and `INTERACTIONS_PANEL_LABELS_AR`.

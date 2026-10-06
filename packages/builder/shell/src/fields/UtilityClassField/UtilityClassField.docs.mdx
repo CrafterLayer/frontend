@@ -63,3 +63,10 @@ accepted. The gate is `findRejectedUtilities`, and it is the only gate.
 - The input carries the `combobox` role, because it does offer a list of values.
 
 <Canvas of={UtilityClassFieldStories.Empty} />
+
+## Free mode
+
+`mode="free"` is for elements of agent-built trees (style-manager DESIGN.md D1): exact values
+(`p-[17px]`, `bg-[#0f766e]`), palette variables and `ck-fx-*` hooks are admitted, and a class is
+refused only when the live compiler cannot style it at all (`unknownUtilityClasses`, the same oracle
+the door uses). The default, `mode="tokens"`, keeps the registered-block law above unchanged.

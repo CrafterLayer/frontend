@@ -1,0 +1,398 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`element.animate > attaches a preset, a hover and params by name in one transaction 1`] = `
+[
+  {
+    "args": {
+      "attributes": {
+        "data-ck-delay": "2",
+        "data-ck-ease": "spring",
+        "data-ck-hover": "lift",
+        "data-ck-motion": "fade-up",
+        "data-ck-once": "true",
+      },
+      "id": "r-hero",
+      "path": [
+        0,
+        0,
+      ],
+    },
+    "command": "patchTreeNode",
+    "title": "Animation · Heading 'Fresh coffee daily'",
+  },
+]
+`;
+
+exports[`element.attr / element.effect > attr sets and removes attributes the door admits 1`] = `
+[
+  {
+    "args": {
+      "attributes": {
+        "alt": "A cup of coffee",
+        "loading": "lazy",
+      },
+      "id": "r-hero",
+      "path": [
+        0,
+        2,
+      ],
+    },
+    "command": "patchTreeNode",
+    "title": "Attributes alt, loading · Image 'Coffee'",
+  },
+]
+`;
+
+exports[`element.attr / element.effect > effect adds and removes ck-fx hooks 1`] = `
+[
+  {
+    "args": {
+      "id": "r-hero",
+      "path": [
+        0,
+      ],
+      "set": {
+        "className": "py-16 text-left ck-fx-glass ck-fx-noise",
+      },
+    },
+    "command": "patchTreeNode",
+    "title": "Effect glass, noise · Section",
+  },
+]
+`;
+
+exports[`element.insert > parses markup and inserts each top-level node after an anchor, as one group 1`] = `
+[
+  {
+    "args": {
+      "id": "r-story",
+      "index": 1,
+      "node": {
+        "className": "text-lg",
+        "kind": "element",
+        "tag": "p",
+        "text": "Fresh beans",
+      },
+      "parent": [
+        0,
+      ],
+    },
+    "command": "insertTreeNode",
+    "title": "Insert · 2 elements",
+  },
+  {
+    "args": {
+      "id": "r-story",
+      "index": 2,
+      "node": {
+        "attributes": {
+          "href": "#menu",
+        },
+        "children": [
+          {
+            "kind": "icon",
+            "name": "arrow-right",
+          },
+        ],
+        "className": "ck-btn",
+        "kind": "element",
+        "tag": "a",
+        "text": "Order",
+      },
+      "parent": [
+        0,
+      ],
+    },
+    "command": "insertTreeNode",
+  },
+]
+`;
+
+exports[`element.remove / move / duplicate / wrap > duplicate inserts a deep copy after the element 1`] = `
+[
+  {
+    "args": {
+      "id": "r-hero",
+      "path": [
+        0,
+        3,
+      ],
+    },
+    "command": "duplicateTreeNode",
+    "title": "Duplicate · Link 'See the menu'",
+  },
+]
+`;
+
+exports[`element.remove / move / duplicate / wrap > move places an element before a sibling, and across regions 1`] = `
+[
+  {
+    "args": {
+      "from": [
+        0,
+        1,
+      ],
+      "id": "r-story",
+      "to": {
+        "index": 0,
+        "parent": [
+          0,
+        ],
+      },
+    },
+    "command": "moveTreeNode",
+    "title": "Move · Text 'Since 1998.' before Heading 'Our story'",
+  },
+]
+`;
+
+exports[`element.remove / move / duplicate / wrap > remove deletes one element in one transaction 1`] = `
+[
+  {
+    "args": {
+      "id": "r-story",
+      "path": [
+        0,
+        1,
+      ],
+    },
+    "command": "removeTreeNode",
+    "title": "Delete · Text 'Since 1998.'",
+  },
+]
+`;
+
+exports[`element.remove / move / duplicate / wrap > wrap puts contiguous siblings in a new container 1`] = `
+[
+  {
+    "args": {
+      "id": "r-story",
+      "paths": [
+        [
+          0,
+          0,
+        ],
+        [
+          0,
+          1,
+        ],
+      ],
+      "wrapper": {
+        "className": "flex flex-col gap-4",
+        "tag": "div",
+      },
+    },
+    "command": "wrapTreeNode",
+    "title": "Wrap · 2 elements",
+  },
+]
+`;
+
+exports[`element.style > writes classes through the engine as one patchTreeNode, one Undo 1`] = `
+[
+  {
+    "args": {
+      "id": "r-hero",
+      "path": [
+        0,
+        0,
+      ],
+      "set": {
+        "className": "text-6xl text-accent max-md:px-4 hover:bg-accent/10",
+      },
+    },
+    "command": "patchTreeNode",
+    "title": "Style · Heading 'Fresh coffee daily'",
+  },
+]
+`;
+
+exports[`style.define / style.apply / palette.set (site library through the page lens) > define + apply land as ONE transaction mixing site and page steps 1`] = `
+[
+  {
+    "args": {
+      "style": {
+        "className": "rounded-xl bg-surface p-6",
+        "id": "card-featured",
+        "name": "Card featured",
+      },
+    },
+    "command": "setNamedStyle",
+    "title": "Style · Card featured",
+  },
+  {
+    "args": {
+      "id": "r-menu",
+      "path": [
+        0,
+        1,
+      ],
+      "set": {
+        "className": "ck-s-card-featured",
+      },
+    },
+    "command": "patchTreeNode",
+    "title": "Apply style card-featured · 2 elements",
+  },
+  {
+    "args": {
+      "id": "r-menu",
+      "path": [
+        0,
+        2,
+      ],
+      "set": {
+        "className": "ck-s-card-featured rounded-l-lg border-l",
+      },
+    },
+    "command": "patchTreeNode",
+  },
+]
+`;
+
+exports[`style.define / style.apply / palette.set (site library through the page lens) > palette.set with a ramp adds the colour and its 50-950 shades in one transaction 1`] = `
+[
+  {
+    "args": {
+      "color": {
+        "id": "brand",
+        "name": "Brand",
+        "value": "#0f766e",
+      },
+    },
+    "command": "setPaletteColor",
+    "title": "Palette · Brand, Ink",
+  },
+  {
+    "args": {
+      "color": {
+        "id": "ink",
+        "name": "Ink",
+        "value": "oklch(25% 0.02 260)",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-50",
+        "name": "Brand 50",
+        "value": "#eef8f6",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-100",
+        "name": "Brand 100",
+        "value": "#dbefec",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-200",
+        "name": "Brand 200",
+        "value": "#bee2dd",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-300",
+        "name": "Brand 300",
+        "value": "#94cdc6",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-400",
+        "name": "Brand 400",
+        "value": "#63b0a7",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-500",
+        "name": "Brand 500",
+        "value": "#3e988f",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-600",
+        "name": "Brand 600",
+        "value": "#218078",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-700",
+        "name": "Brand 700",
+        "value": "#0b6961",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-800",
+        "name": "Brand 800",
+        "value": "#02534d",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-900",
+        "name": "Brand 900",
+        "value": "#04403b",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+  {
+    "args": {
+      "color": {
+        "group": "brand",
+        "id": "brand-950",
+        "name": "Brand 950",
+        "value": "#042c29",
+      },
+    },
+    "command": "setPaletteColor",
+  },
+]
+`;

@@ -8,15 +8,23 @@ import {
   type IntentDocumentSummary,
   type IntentRoute,
 } from '../intent';
-import type { AiPlan, AiPlanProvider, AiProposeOptions, AssembledAiContext } from '../types';
+import type {
+  AiPlan,
+  AiPlanProvider,
+  AiPlanValidationIssue,
+  AiProposeOptions,
+  AssembledAiContext,
+} from '../types';
 import { applyAiPlan } from '../plan/apply-plan';
 import { tryDirectEdit } from '../plan/direct-edit';
 import { tryDirectTool } from '../tools/agent/direct-tool';
+import { planChangesLook } from '../tools/agent/visible-change';
 import { AiPlanRejectedError, validateAiPlan } from '../plan/validate-plan';
 import { createAiValidatedProposal } from '../plan/validated-proposal';
 import {
   generateAiPlanWithPreparedSkills,
   prepareAiSkillsForGeneration,
+  repairAiPlanForIssues,
   resolveAiPolicyForGeneration,
   type GenerateAiPlanOptions,
 } from '../plan/generate-plan';
@@ -627,6 +635,61 @@ function directToolRun(
 }
 // end agent-tools additions
 
+// ── A model plan that changes nothing on screen ──────────────────────────────
+
+/**
+ * colour-target fix, model path (2026-10-05). «عنوان قسم الخبرات خليه أزرق»
+ * reached the model, which answered `theme.apply` on an accent no element
+ * reads: the door accepted a valid pageCss rewrite, it landed, and the panel
+ * said «عُدِّلت الصفحة» while nothing moved. The zero-token tools already
+ * refuse such a plan (`planChangesLook`); a model plan is held to the same
+ * bar here, with ONE repair round that says what to do instead.
+ */
+const INVISIBLE_THEME_PLAN_ISSUE: AiPlanValidationIssue = Object.freeze({
+  code: 'invalid-plan',
+  message:
+    'This plan changes nothing anyone can see: it rewrites the page colour tokens (theme.apply / pageCss), and no element on this page reads what it changes. A colour request that names an element, a section or a role (a heading, a title, a name, a button) colours THAT element: add the colour utility to its className — text-<colour>-<shade> for its text, bg-<colour>-<shade> for its ground — with editTree on its region. Use theme.apply only when the request is about the whole page or its theme.',
+});
+
+/**
+ * Whether a validated plan's only effect is a page-css (theme) rewrite that
+ * changes no look: it writes the root's `pageCss`, every step is a setProp,
+ * and `planChangesLook` proves none of them visible. Conservative: anything
+ * it cannot judge lands as before.
+ */
+function isInvisibleThemeOnlyPlan(plan: AiPlan, kernel: RunAiAgentOptions['kernel']): boolean {
+  if (plan.commands.length === 0) return false;
+  const rootId = kernel.getDocument().rootId;
+  const writesPageCss = plan.commands.some(({ command, args }) => {
+    const step = args as { id?: unknown; key?: unknown } | undefined;
+    return command === 'setProp' && step?.id === rootId && step.key === 'pageCss';
+  });
+  if (!writesPageCss) return false;
+  try {
+    return !planChangesLook(plan.commands, kernel);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ONE repair round for an invisible theme plan, on the same wire and door as
+ * every repair. A correction that is still invisible, or a provider that
+ * cannot repair, is refused: an edit that changes nothing never lands.
+ */
+async function repairInvisibleThemePlan(
+  options: GenerateAiPlanOptions,
+  context: AssembledAiContext,
+  plan: AiPlan,
+  policy: AiEffectiveCommandPolicy,
+  kernel: RunAiAgentOptions['kernel'],
+): Promise<AiPlan> {
+  if (options.provider.repair === undefined) throw new AiPlanRejectedError([INVISIBLE_THEME_PLAN_ISSUE]);
+  const repaired = await repairAiPlanForIssues(options, context, plan, [INVISIBLE_THEME_PLAN_ISSUE], policy);
+  if (isInvisibleThemeOnlyPlan(repaired, kernel)) throw new AiPlanRejectedError([INVISIBLE_THEME_PLAN_ISSUE]);
+  return repaired;
+}
+
 /**
  * Whether `applyAiPlan`'s rehearsal checks what this run's would: the door
  * validates with the default composition (the vocabulary enforced, colours
@@ -761,10 +824,14 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
         emit({ type: 'plan.salvaged', kept, dropped });
       },
     );
-    const plan = await generateAiPlanWithPreparedSkills(preparedOptions, skills, policy);
+    let plan = await generateAiPlanWithPreparedSkills(preparedOptions, skills, policy);
     assertRunActive(options);
     if (assembledContext === undefined) {
       throw new Error('The AI provider was not given an assembled context.');
+    }
+    if (reading !== undefined && isInvisibleThemeOnlyPlan(plan, options.kernel)) {
+      plan = await repairInvisibleThemePlan(preparedOptions, assembledContext, plan, policy, options.kernel);
+      assertRunActive(options);
     }
     const proposal = createAiValidatedProposal({
       plan,

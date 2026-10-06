@@ -404,6 +404,11 @@ export type AiBuildOwnEvent =
       total: number;
       task: AiBuildTask;
       attempt: 1 | 2;
+      /**
+       * On a kit section the skeleton filled from the planner's slots, why it
+       * still got a writer: the check's misses (`code: message`). Diagnostic.
+       */
+      kitMisses?: readonly string[];
     })
   | (AiBuildEventBase & {
       type: 'task.completed';
@@ -411,6 +416,13 @@ export type AiBuildOwnEvent =
       total: number;
       task: AiBuildTask;
       attempts: number;
+      /**
+       * The transaction the section landed in, and its label (the skeleton's or
+       * the finish's for a section code wrote), so landing times are
+       * observable from the events alone — `kernel.transactions()` carries no label.
+       */
+      transactionId?: string;
+      label?: string;
     })
   | (AiBuildEventBase & {
       type: 'task.skipped';
@@ -483,9 +495,11 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
    */
   buildBudgetMs?: number;
   /**
-   * How many sections are WRITTEN at once. When omitted, automatic mode starts
-   * at 3, grows by one writer for each further group of three sections, and is
-   * capped at 6. Pass `1` to restore strictly sequential work.
+   * How many sections are WRITTEN at once. When omitted, automatic mode runs
+   * one writer per section that needs one, capped at 8
+   * (`MAX_AI_BUILD_AUTO_FILL_CONCURRENCY`, 2026-10-05: six writers in a pool
+   * of four cost ≈ 7 s live, and a streamed plan staggers their starts
+   * anyway). Pass `1` to restore strictly sequential work.
    *
    * Only the writing overlaps, and it is bounded by this number alone: a slow
    * section never holds back the writers behind it. Sections still LAND one
@@ -556,6 +570,18 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
    * root as it always did.
    */
   target?: IntentTarget;
+  /**
+   * The streamed build (DESIGN §6.3, 2026-10-05). On (the default), a build
+   * that plans its page itself, writes without asking first and has a
+   * provider that streams the plan's text (`onDraft`) acts on the plan while
+   * it is still being written: the skeleton lands when the outline closes,
+   * and each section's writer starts when its brief closes. Nothing a writer
+   * wrote lands before the final plan is validated, and a final plan whose
+   * outline differs throws the speculation away. `false` is the build exactly
+   * as it was before: plan, then skeleton, then writers. A provider that
+   * sends no drafts gets that same build either way.
+   */
+  streamPlan?: boolean;
   onEvent?: (event: AiBuildEvent) => void;
 }
 

@@ -61,6 +61,13 @@ export interface PagePlan {
    * exactly as before.
    */
   readonly seo?: PagePlanSeo;
+  /**
+   * The business's own short name (≤ 40 characters), when the plan gives one
+   * — top-level `brand`, or the header's or footer's `slots.brand` (fix pass
+   * 2026-10-05). The header, footer and copyright show it; without it the
+   * name is read from the title.
+   */
+  readonly brand?: string;
 }
 
 /** The page kinds a plan names (`SEO_PAGE_KINDS` in builder-schema). */
@@ -284,6 +291,23 @@ export interface ValidatePagePlanOptions {
   readonly intent?: PagePlanIntent;
   /** A lower section ceiling, e.g. the build's `maxTasks`. Never above `PAGE_PLAN_MAX_SECTIONS`. */
   readonly maxSections?: number;
+  /**
+   * Whether an ink or muted colour that misses 4.5:1 on bg/surface is moved
+   * in code until it reads (a warning), instead of refused (an issue).
+   * Default true: a model's near miss never costs a repair round. A plan
+   * editor where a PERSON chose the colour passes false, so it can say why.
+   */
+  readonly repairContrast?: boolean;
+  /**
+   * Whether what a whole page always has is completed in code when the
+   * planner left it out (quality pass 2026-10-05): a header and a footer on a
+   * full page, a menu from the sections' anchors, the hero's catalog photo,
+   * and the contact kit with the facts' phone, WhatsApp, hours and address on
+   * a local business's booking section. Each completion is a warning. Default
+   * false: a plan a PERSON edited keeps exactly the sections they left; the
+   * planner's own answers (and its streamed drafts) pass true.
+   */
+  readonly completePage?: boolean;
 }
 
 /**
@@ -297,9 +321,12 @@ export type PagePlanValidationResult =
       readonly plan: PagePlan;
       readonly issues: readonly [];
       /**
-       * What the validator dropped rather than refused — a kit that does not
-       * fit its section, slots that would not instantiate. The plan is still
-       * good (the section falls back to a writer); these say what changed.
+       * What the validator dropped or repaired rather than refused — a kit
+       * that does not fit its section, slots that would not instantiate, an
+       * unknown variant, a brief naming no section, a section built from its
+       * title for want of a brief, a placeholder or masked sample filled in
+       * code (fast-build DESIGN §3-§4). The plan is still good; these say
+       * what changed.
        */
       readonly warnings?: readonly PagePlanIssue[];
     }

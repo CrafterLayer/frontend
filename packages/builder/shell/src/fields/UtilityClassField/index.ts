@@ -1,1 +1,1 @@
-export { UtilityClassField } from './UtilityClassField';
+export { UtilityClassField, type UtilityClassFieldProps } from './UtilityClassField';

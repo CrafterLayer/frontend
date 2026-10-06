@@ -11,7 +11,10 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
+import { TREE_FIXTURE_VOCAB, treeFixtureDocument } from '../../clipboard/tree-commands.fixture';
+import { createElementSelection } from '../../selection/element-selection';
 import { LayersTree } from './LayersTree';
+import { LAYERS_TREE_LABELS_AR } from './LayersTree.labels';
 
 const NullRender: BlockRenderComponent = () => null;
 const block = (type: string, description: string, slots?: Record<string, { allow: string[] }>) => ({
@@ -127,4 +130,39 @@ export const SelectionSync: Story = {
       await expect(selected?.textContent).toContain('Text');
     });
   },
+};
+
+// ── P8-manual-editor: element trees (style-manager DESIGN.md §E) ──
+
+const elementKernel = (dir: 'ltr' | 'rtl' = 'ltr') =>
+  createBuilder({
+    document: treeFixtureDocument(dir),
+    extensions: [TREE_FIXTURE_VOCAB],
+    ports: { clock: fixedClock(), ids: seededIds('layers-elements') },
+  });
+
+const treeKernel = elementKernel();
+export const ElementTrees: Story = {
+  args: {
+    kernel: treeKernel,
+    selection: createElementSelection(treeKernel),
+    bucket: 'mobile',
+    onSaveTemplate: () => undefined,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Our story')).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole('button', { name: 'Hide Heading on mobile' }));
+    await expect(canvas.getByRole('button', { name: 'Hide Heading on mobile' })).toHaveAttribute('aria-pressed', 'true');
+  },
+};
+
+const rtlKernel = elementKernel('rtl');
+export const ArabicElementTrees: Story = {
+  args: { kernel: rtlKernel, selection: createElementSelection(rtlKernel), labels: LAYERS_TREE_LABELS_AR },
+  render: (args) => (
+    <div dir="rtl" lang="ar" style={{ inlineSize: 'var(--bldr-inspector-width)' }}>
+      <LayersTree {...args} />
+    </div>
+  ),
 };

@@ -223,6 +223,10 @@ describe('view-types unions are catalog keys', () => {
       'النص',
       'اتجاه الصفحة',
       'سطح الصفحة',
+      // colour-target-fix additions
+      'ألوان الصفحة',
+      'تنسيق الصفحة',
+      // end colour-target-fix additions
       'من اليسار إلى اليمين',
       'من اليمين إلى اليسار',
       'مفعّل',

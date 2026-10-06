@@ -1,0 +1,16 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BorderSidesControlStories from './BorderSidesControl.stories';
+
+<Meta of={BorderSidesControlStories} />
+
+# BorderSidesControl
+
+Border width per logical side plus the border style (style-manager DESIGN.md §A.4 Borders).
+
+The widths are a single `BoxModelControl` ring, so they behave exactly like spacing: drag a side to
+scrub (one commit on release), press it for an exact field, Shift for all sides, Alt for the opposite
+pair, laid out in the page direction. The style (`solid`, `dashed`, `dotted`, `double`, `none`) is a
+`ChoiceGroup`. Border colour is a separate `StyleColorControl` row in the panel.
+
+Labels: `BORDER_SIDES_CONTROL_LABELS_EN` and `BORDER_SIDES_CONTROL_LABELS_AR`.

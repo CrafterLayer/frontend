@@ -1,0 +1,50 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LibraryPanelStories from './LibraryPanel.stories';
+
+<Meta of={LibraryPanelStories} />
+
+# LibraryPanel
+
+Everything a person can add, in one place (style-manager DESIGN.md §E). Four tabs share one search,
+which matches English and Arabic names alike:
+
+- **Elements** — twenty starting points (heading, text, button, link, image, video, icon, divider,
+  spacer, container, columns, grid, card, list, form, input, map embed, video embed, accordion, tabs).
+  Each is an ordinary custom-code node with logical, token-based classes, so once inserted it is a
+  widget like any other: every Design sector, the quick bar, Layers and the agent work on it.
+- **Sections** — the host's ready-made sections (the section-kit catalogue, read-only) and the
+  registered page templates.
+- **Blocks** — the Palette, composed rather than copied.
+- **Saved** — the site's own templates (`site.library.templates`), saved from Layers.
+
+<Canvas of={LibraryPanelStories.Elements} />
+
+## Inserting is the kernel's door
+
+A click inserts at the selection as ONE labelled transaction:
+
+- an element goes into the focused custom section with `insertTreeNode` — after the focused element,
+  inside a focused container, or at the end of a selected section;
+- a section, or an element when nothing editable is selected, becomes a new custom-code region with
+  `insertNode`, after the selected block.
+
+Region CSS a saved element needs travels with it and is merged into the destination once. A press
+that
+turns into a drag hands the element payload to the canvas (`beginElementDrag`), which resolves the
+drop.
+
+<Canvas of={LibraryPanelStories.ClickInserts} />
+
+## Thumbnails
+
+Previews are built only when a tile scrolls into view: the entry is rendered by the same static
+renderer the export uses and shown in a scaled, sandboxed `srcdoc` iframe (no script, never
+focusable), in the page's direction. `previewStylesheet` and `compilePreviewCss` give it the theme
+and exactly the classes it uses.
+
+<Canvas of={LibraryPanelStories.Arabic} />
+
+<Canvas of={LibraryPanelStories.Sections} />
+
+<Canvas of={LibraryPanelStories.Saved} />

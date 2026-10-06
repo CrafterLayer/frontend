@@ -28,6 +28,7 @@ import { snapshot } from '../patches/immer';
 import { applyOnePatch, type RootPatch } from '../patches/apply-one-patch';
 import { defineSiteCommand } from './define-site-command';
 import { codeProjectCommands, type CodeProjectCommands } from './code-project-commands';
+import { libraryCommands, type LibraryCommands } from './library-commands';
 import { pageCommands, type PageCommands } from './page-commands';
 
 /**
@@ -47,7 +48,7 @@ import { pageCommands, type PageCommands } from './page-commands';
  * command that could only be caught by the backstop would report its fault as
  * "the site is invalid" instead of "that address is already taken".
  */
-export interface SiteCommands extends CodeProjectCommands, PageCommands {
+export interface SiteCommands extends CodeProjectCommands, PageCommands, LibraryCommands {
   addPage: {
     address: string;
     title: string;
@@ -286,6 +287,8 @@ export const siteCommands: Record<SiteCommandName, RegisteredSiteCommand> = {
   }),
   ...pageCommands,
   ...codeProjectCommands,
+  /* style-manager DESIGN.md §2: the site design library (P5). */
+  ...libraryCommands,
 };
 
 // ── Refusal helpers ──────────────────────────────────────────────────────────

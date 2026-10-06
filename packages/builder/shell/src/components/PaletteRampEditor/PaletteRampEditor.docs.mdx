@@ -1,0 +1,24 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PaletteRampEditorStories from './PaletteRampEditor.stories';
+
+<Meta of={PaletteRampEditorStories} />
+
+# PaletteRampEditor
+
+One brand colour becomes eleven shades, 50 to 950, generated in OKLCH with culori
+(style-manager DESIGN.md §C.5, §G).
+
+- **Exact brand step.** The lightness ladder is Tailwind v4's, bent so the brand colour lands
+  exactly on its nearest step. That step is outlined in the swatch row.
+- **In gamut.** Chroma follows a bell (less at the pale and deep ends) and every shade is clamped
+  into sRGB, so the swatch, the contrast figure and the published page agree.
+- **Contrast matrix.** Each shade as text on white, on black and on any `contrastColumns` the host
+  passes (the site's surface and text colours), graded AAA, AA, AA large or fails.
+- **One transaction.** Typing and dragging the picker only preview. "Add shades to palette"
+  writes eleven `setPaletteColor` steps through `commit` as one labelled transaction
+  ("Palette shades · Brand"), so one Undo removes the whole ramp. Ids are `<slug>-<step>`;
+  existing ids are announced before they are replaced.
+
+Labels: `PALETTE_RAMP_EDITOR_LABELS_EN` and `PALETTE_RAMP_EDITOR_LABELS_AR`. Pass `dir="rtl"` for
+the Arabic editor.

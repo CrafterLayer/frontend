@@ -28,6 +28,7 @@ import {
 export { GROUPED_DISPATCH_LABEL_MAX_LENGTH } from '../commands/dispatch';
 export type { GroupedDispatchOptions, GroupStep };
 import { createEventBus } from '../events/bus';
+import type { History, HistoryEntry } from '../history/history';
 import { createExtensionManager, type ExtensionManagerHandle } from '../extensions/manager';
 import { systemClock } from '../ports/system-clock';
 import { systemIds } from '../ports/system-ids';
@@ -107,8 +108,53 @@ export interface BuilderKernel {
   clearElementFocus(): void;
   /** The session's transaction log (replay source). */
   transactions(): readonly Transaction[];
+  /**
+   * The undo stack, read-only (style-manager DESIGN.md §E, History panel).
+   * Reading never changes anything; `jumpTo` only replays undo/redo, so the
+   * dispatch semantics, the log and persistence are exactly as before.
+   * Optional on the interface so every other kernel shape (the site kernel's
+   * page lens) keeps compiling until it wires `createKernelHistoryView` too.
+   */
+  history?: () => KernelHistory;
   /** Persist all unflushed transactions; resolves to the new store position. */
   flush(): Promise<number>;
+}
+
+/** The kernel's read view of its undo stack, plus a jump built from undo/redo. */
+export interface KernelHistory {
+  /** Every recorded step, oldest first: applied ones, then undone ones in redo order. */
+  entries(): readonly HistoryEntry[];
+  /** How many entries are applied (0 … entries().length). */
+  position(): number;
+  /**
+   * Move to `position` (0 = before the first step, entries().length = all
+   * applied) by repeated undo or redo — never a new transaction. Out-of-range
+   * positions are clamped. Returns how many steps were taken.
+   */
+  jumpTo(position: number): number;
+}
+
+/**
+ * The read view over any dispatcher's history — shared so the site kernel's
+ * page lens can expose the same API with one line
+ * (`history: () => createKernelHistoryView(deps.dispatcher)`).
+ */
+export function createKernelHistoryView(source: {
+  readonly history: History;
+  readonly undo: () => boolean;
+  readonly redo: () => boolean;
+}): KernelHistory {
+  return {
+    entries: () => source.history.entries(),
+    position: () => source.history.position(),
+    jumpTo(position) {
+      const target = Math.max(0, Math.min(Math.trunc(position), source.history.entries().length));
+      let steps = 0;
+      while (source.history.position() > target && source.undo()) steps += 1;
+      while (source.history.position() < target && source.redo()) steps += 1;
+      return steps;
+    },
+  };
 }
 
 /*
@@ -225,6 +271,8 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
     return result;
   }
 
+  const historyView = createKernelHistoryView(dispatcher);
+
   function dispatch(command: string, args: unknown, author?: Author): Transaction {
     return afterDoor(dispatcher.dispatch(command, args, author));
   }
@@ -284,6 +332,7 @@ export function createBuilder(options: CreateBuilderOptions = {}): BuilderKernel
       store.write({ ...state, elementFocus: null }, []);
     },
     transactions: () => dispatcher.log.all(),
+    history: () => historyView,
     flush,
   };
 }

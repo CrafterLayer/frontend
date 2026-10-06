@@ -1,8 +1,10 @@
 import {
+  CUSTOM_CODE_SVG_TEXT_TAGS,
   customCodeAttributeProblem,
   customCodeAttributeSpelling,
   customCodeTagSpelling,
   findRejectedUtilities,
+  isCustomCodeIconName,
   isCustomCodeSvgTag,
   isLucideIconName,
   unknownUtilityClasses,
@@ -315,10 +317,15 @@ function vocabularyAttributes(node: JsonRecord, tag: string, changes: Changes): 
 const FALLBACK_ICON = 'sparkles';
 
 function nearestIconName(name: string): string {
-  const words = name.toLowerCase().split(/[^a-z0-9]+/u).filter((word) => word.length > 0);
+  // A Tabler name (`tabler:` / `tabler-filled:`) is searched in its own set first.
+  const colon = name.indexOf(':');
+  const prefix = colon > 0 ? name.slice(0, colon + 1) : '';
+  const bare = colon > 0 ? name.slice(colon + 1) : name;
+  const words = bare.toLowerCase().split(/[^a-z0-9]+/u).filter((word) => word.length > 0);
   for (let length = words.length; length >= 1; length -= 1) {
     for (let start = 0; start + length <= words.length; start += 1) {
       const candidate = words.slice(start, start + length).join('-');
+      if (prefix !== '' && isCustomCodeIconName(`${prefix}${candidate}`)) return `${prefix}${candidate}`;
       if (isLucideIconName(candidate)) return candidate;
     }
   }
@@ -328,7 +335,7 @@ function nearestIconName(name: string): string {
 function cleanIcon(node: JsonRecord, colourPolicy: 'free' | 'tokens', changes: Changes): unknown {
   const written = node['name'];
   let name = written;
-  if (typeof written === 'string' && !isLucideIconName(written)) {
+  if (typeof written === 'string' && !isCustomCodeIconName(written)) {
     name = nearestIconName(written);
     changes.icons.push(written);
     changes.adjustments.push(`icon ${written} → ${String(name)}`);
@@ -389,9 +396,13 @@ function cleanElement(
   }
   const text = node['text'];
   if (typeof text === 'string' || typeof text === 'number') {
-    // A shape draws; it holds no words (an svg `text` is not in the vocabulary).
-    if (svg && String(text).trim() !== '') changes.adjustments.push(`dropped text in ${tag}`);
-    else if (!svg) {
+    // A shape draws; it holds no words. Drawn text (text, tspan, textPath) keeps them.
+    const svgText = (CUSTOM_CODE_SVG_TEXT_TAGS as readonly string[]).includes(tag);
+    if (svg && !svgText) {
+      if (String(text).trim() !== '') changes.adjustments.push(`dropped text in ${tag}`);
+    } else if (svgText) {
+      next['text'] = String(text);
+    } else {
       // An element already set left-to-right isolates its own words.
       const ownLtr = isRecord(attributes) && attributes['dir'] === 'ltr';
       next['text'] = ownLtr ? String(text) : isolatedText(String(text), changes);

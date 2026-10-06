@@ -439,3 +439,60 @@ describe('validateSite — rule 9, the design system must be legible (FR-014)', 
     expect(validateDesignSystem(defaultDesignSystem()).ok).toBe(true);
   });
 });
+
+// ── P5-site-library (style-manager DESIGN.md §2) ──
+describe('the optional site design library', () => {
+  it('leaves a site without a library valid and unchanged in shape', () => {
+    const result = validateSite(validSite());
+    expect(result.ok).toBe(true);
+    expect(result.ok && 'library' in result.site).toBe(false);
+  });
+
+  it('accepts a valid library and keeps it on the parsed site', () => {
+    const site: BuilderSite = {
+      ...validSite(),
+      library: {
+        palette: [{ id: 'brand', name: 'Brand', value: '#0f766e' }],
+        styles: { card: { id: 'card', name: 'Card', className: 'rounded-lg p-4' } },
+        settings: { pageTransitions: true },
+      },
+    };
+    const result = validateSite(site);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.site.library?.styles?.['card']?.className).toBe('rounded-lg p-4');
+  });
+
+  it('reports a malformed library under its own code, naming the entry', () => {
+    const issues = issuesOf({
+      ...validSite(),
+      library: { styles: { card: { id: 'card', name: 'Card', className: 'ck-s-other p-4' } } },
+    });
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.code).toBe('invalid-site-library');
+    expect(issues[0]?.at).toEqual({ libraryPath: 'styles.card' });
+  });
+
+  it('refuses a symbol that contains itself through another symbol', () => {
+    const instance = (symbolId: string) => ({
+      kind: 'component' as const,
+      component: 'customCodeSymbol',
+      props: { symbolId },
+    });
+    const site: BuilderSite = {
+      ...validSite(),
+      library: {
+        symbols: {
+          a: { id: 'a', name: 'A', tree: { kind: 'root', children: [instance('b')] } },
+          b: { id: 'b', name: 'B', tree: { kind: 'root', children: [instance('a')] } },
+        },
+      },
+    };
+    const issues = issuesOf(site);
+    expect(issues.map((issue) => issue.code)).toEqual([
+      'invalid-site-library',
+      'invalid-site-library',
+    ]);
+    expect(issues[0]?.message).toContain('a → b → a');
+  });
+});
+// ── end P5-site-library ──

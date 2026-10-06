@@ -1,0 +1,17 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StackLayerRowStories from './StackLayerRow.stories';
+
+<Meta of={StackLayerRowStories} />
+
+# StackLayerRow
+
+One layer of a `StackControl`. It must render inside a `DndContext` + `SortableContext` that list its
+`id`.
+
+- The handle is the sortable activator (`useSortable`), usable with a pointer or the keyboard.
+- The layer's CSS is a text field committed on Enter or blur; Escape drops the draft.
+- Move up / move down are explicit buttons (disabled at the ends) for anyone not dragging.
+- Remove deletes the layer.
+
+Labels come from `StackControlLabels`.

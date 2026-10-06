@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   createLiveUtilities,
   setUtilityClassOracle,
   type BuilderSiteKernel,
+  type LiveUtilities,
 } from '@craftkit/builder';
 
 import { liveUtilityClasses } from './live-utility-classes';
@@ -18,15 +19,25 @@ import { liveUtilityClasses } from './live-utility-classes';
  * validator, the plan normalizer and the prompt all judge a class by the
  * engine that styles it. Until it is ready, or if it cannot start, nothing
  * changes: the static vocabulary keeps answering, exactly as before.
+ *
+ * The canvas instance carries the canvas-only state variants (style-manager
+ * DESIGN §A.7): `hover:` & co. also match `[data-ck-state~="hover"]`, so the
+ * panel's state switcher shows a state without the pointer. The published
+ * sheet is unaffected: the attribute never exists there, and the export's
+ * `compileFor` fallback compiles without the variants.
+ *
+ * Returns the running compiler (undefined until it is ready, or when it could
+ * not start), so "Publish site" can fall back to its `compileFor`.
  */
-export function useLiveUtilities(siteKernel: BuilderSiteKernel | undefined): void {
+export function useLiveUtilities(siteKernel: BuilderSiteKernel | undefined): LiveUtilities | undefined {
+  const [current, setCurrent] = useState<LiveUtilities | undefined>(undefined);
   useEffect(() => {
     if (siteKernel === undefined) return;
     let disposed = false;
     let stop: (() => void) | undefined;
     // Tailwind's scale and palette as text, loaded with the compiler and only then.
     import('tailwindcss/theme.css?raw')
-      .then((theme) => createLiveUtilities({ document, tailwindThemeCss: theme.default }))
+      .then((theme) => createLiveUtilities({ document, tailwindThemeCss: theme.default, canvasStateVariants: true }))
       .then((live) => {
         if (disposed) {
           live.dispose();
@@ -50,7 +61,9 @@ export function useLiveUtilities(siteKernel: BuilderSiteKernel | undefined): voi
           frame in it, gets its CSS as it appears.
         */
         const unwatch = live.watch(document);
+        setCurrent(live);
         stop = () => {
+          setCurrent(undefined);
           unwatch();
           unsubscribe();
           setUtilityClassOracle(undefined);
@@ -66,4 +79,5 @@ export function useLiveUtilities(siteKernel: BuilderSiteKernel | undefined): voi
       stop?.();
     };
   }, [siteKernel]);
+  return current;
 }

@@ -1,0 +1,39 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssetManagerStories from './AssetManager.stories';
+
+<Meta of={AssetManagerStories} />
+
+# AssetManager
+
+The Assets rail (style-manager DESIGN.md §G). Two tabs: **Pictures** and **Icons**.
+
+## Pictures
+
+- **Grid** of the site's assets (with size, an alt-text field and an "Alt text missing" flag) and,
+  when the host passes `library`, the photo catalogue through the existing `AssetPicker`.
+- **Upload** by the labelled file input or by dropping a file on it. `prepareImageUpload` decodes,
+  optionally crops ("Crop before saving" opens the ImageCropper first), downscales to at most 2400px,
+  and encodes WebP at q 0.85 (then 0.72, 0.6) to at most 2 MB, stored inline as
+  `data:image/webp;base64,…` by `registerAsset`.
+- **Alt text** commits once per edit through `updateAsset`.
+- **Use on selected**: a block's image prop becomes `{assetId}`; a tree `img` gets `src` and `alt`;
+  any other tree element gets a cover background image through the class-patch engine. A catalogue
+  photo is registered and used in the same transaction.
+- **Crop the selected image** writes `aspect-*`, `object-cover` and `object-[x%_y%]` as classes.
+- **Delete** sends `removeAsset`; the door refuses while a page or region references the picture and
+  names where.
+
+## Icons
+
+The [IconBrowser](?path=/docs/builder-shell-designsystem-iconbrowser--docs): picking an icon replaces
+the selected icon node or appends one inside the selected element (`iconSteps`).
+
+## A limit worth knowing
+
+A tree element's attribute holds at most 2000 characters, so an inline upload (a data URL) cannot be
+an `img` `src` inside a composed region. Using one there is refused with what to do instead (use it
+on an image block, or a hosted https address). Resolving `/ck-assets/<id>` addresses in the renderer
+and the export would lift this; it is listed for integration.
+
+Labels: `ASSET_MANAGER_LABELS_EN` / `_AR`, plus `cropperLabels` and `iconLabels`.

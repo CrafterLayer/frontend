@@ -722,7 +722,7 @@ describe('runAiBuild', () => {
     ]);
   });
 
-  it('caps the automatic writer pool at six for a large build', async () => {
+  it('caps the automatic writer pool at eight for a large build', async () => {
     const live = kernel();
     let inFlight = 0;
     let peak = 0;
@@ -747,13 +747,13 @@ describe('runAiBuild', () => {
       skillRegistry: createCraftkitAiSkillRegistry(),
     });
 
-    for (let tick = 0; tick < 300 && peak < 6; tick += 1) await Promise.resolve();
+    for (let tick = 0; tick < 300 && peak < 8; tick += 1) await Promise.resolve();
     const firstWavePeak = peak;
     release();
     const result = await building;
 
-    expect(firstWavePeak).toBe(6);
-    expect(peak).toBe(6);
+    expect(firstWavePeak).toBe(8);
+    expect(peak).toBe(8);
     expect(result.applied).toBe(12);
     expect(live.transactions().map(({ command }) => command)).toEqual([
       'Assistant: page skeleton',
@@ -1129,20 +1129,22 @@ describe('fillConcurrencyFor — how many sections are written at once', () => {
     exactly how a story ended up asserting "exactly three" for a five-section
     build the code runs four writers on.
   */
-  it('starts at the default and grows with the page', () => {
+  it('runs one writer per section, up to the cap (fast-build DESIGN D7, 2026-10-05)', () => {
     expect(fillConcurrencyFor(1, undefined)).toBe(1);
     expect(fillConcurrencyFor(3, undefined)).toBe(3);
     /*
-      Every size where the formula turns over, because "how many writers does a
-      four-section page get" is a question people answer from memory and get
-      wrong — I told a peer 3 for exactly this case, and it is 4.
-      3 + floor((n-1)/3), capped at n and at the maximum.
+      Every size around the cap. It was 3 + floor((n-1)/3) capped at 6, and
+      six writers in a pool of four cost ≈ 7 s of a 65 s page live
+      (baseline 2026-09-30): min(n, 8) now.
     */
     expect(fillConcurrencyFor(4, undefined)).toBe(4);
-    expect(fillConcurrencyFor(5, undefined)).toBe(4);
-    expect(fillConcurrencyFor(6, undefined)).toBe(4);
-    expect(fillConcurrencyFor(7, undefined)).toBe(5);
-    expect(fillConcurrencyFor(10, undefined)).toBe(6);
+    expect(fillConcurrencyFor(5, undefined)).toBe(5);
+    expect(fillConcurrencyFor(6, undefined)).toBe(6);
+    expect(fillConcurrencyFor(7, undefined)).toBe(7);
+    expect(fillConcurrencyFor(8, undefined)).toBe(8);
+    expect(fillConcurrencyFor(10, undefined)).toBe(8);
+    expect(fillConcurrencyFor(12, undefined)).toBe(8);
+    expect(MAX_AI_BUILD_AUTO_FILL_CONCURRENCY).toBe(8);
   });
 
   it('never exceeds the page, so a two-section build does not start three writers', () => {

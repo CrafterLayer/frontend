@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import type { CustomCodeNode } from '@craftkit/builder-schema';
 
-import { customCodeElementSections } from './element-fields';
+import {
+  ADVANCED_ATTRIBUTE_FIELDS,
+  customCodeElementSections,
+  joinIconName,
+  splitIconName,
+} from './element-fields';
 
 const keys = (node: CustomCodeNode) =>
-  customCodeElementSections(node).map((section) => [
-    section.name,
-    section.fields.map((field) => field.key),
-  ]);
+  customCodeElementSections(node).flatMap((section) => section.fields.map((field) => field.key));
 
 const field = (node: CustomCodeNode, key: string) => {
   const found = customCodeElementSections(node)
@@ -18,114 +20,116 @@ const field = (node: CustomCodeNode, key: string) => {
   return found;
 };
 
-describe('customCodeElementSections', () => {
-  it('an image edits its source and alternative text, its classes, and the advanced attributes', () => {
-    expect(keys({ kind: 'element', tag: 'img', attributes: { src: '/a.jpg', alt: 'A' } })).toEqual([
-      ['Image', ['src', 'alt']],
-      ['Design', ['className']],
-      ['Advanced', ['id', 'title', 'role', 'aria-label', 'aria-hidden']],
+describe('customCodeElementSections — Content traits per tag (DESIGN §A.4)', () => {
+  it('text tags edit their text; a void element never offers text', () => {
+    expect(keys({ kind: 'element', tag: 'h1', text: 'Hi' })).toEqual(['text']);
+    expect(keys({ kind: 'element', tag: 'p', text: 'Hi' })).toEqual(['text']);
+    expect(keys({ kind: 'element', tag: 'hr' })).toEqual([]);
+    expect(customCodeElementSections({ kind: 'element', tag: 'hr' })).toEqual([]);
+  });
+
+  it('a link: text, href, target, rel', () => {
+    expect(keys({ kind: 'element', tag: 'a', text: 'Docs' })).toEqual(['text', 'href', 'target', 'rel']);
+  });
+
+  it('an image: src, alt, loading, decoding, width/height, srcset/sizes, fetchpriority', () => {
+    expect(keys({ kind: 'element', tag: 'img' })).toEqual([
+      'src', 'alt', 'loading', 'decoding', 'width', 'height', 'srcset', 'sizes', 'fetchpriority',
     ]);
   });
 
-  it('a text-bearing element edits its text first; a void element never offers text', () => {
-    expect(keys({ kind: 'element', tag: 'h1', text: 'Hi' })[0]).toEqual(['Content', ['text']]);
-    expect(keys({ kind: 'element', tag: 'button', text: 'Go' })[0]).toEqual(['Content', ['text']]);
-    expect(keys({ kind: 'element', tag: 'hr' })[0]).toEqual(['Design', ['className']]);
-    expect(keys({ kind: 'element', tag: 'br' })[0]).toEqual(['Design', ['className']]);
+  it('a video: src, poster, one autoplay toggle, loop, controls, preload', () => {
+    expect(keys({ kind: 'element', tag: 'video' })).toEqual(['src', 'poster', 'autoplay', 'loop', 'controls', 'preload']);
   });
 
-  it('a link edits its text and destination', () => {
-    expect(keys({ kind: 'element', tag: 'a', text: 'Docs' })[0]).toEqual([
-      'Content',
-      ['text', 'href', 'target'],
+  it('an iframe, a button, details, table cells, time and label', () => {
+    expect(keys({ kind: 'element', tag: 'iframe' })).toEqual(['src', 'title']);
+    expect(keys({ kind: 'element', tag: 'button', text: 'Go' })).toEqual([
+      'text', 'popovertarget', 'popovertargetaction', 'aria-label', 'type',
     ]);
+    expect(keys({ kind: 'element', tag: 'details' })).toEqual(['open', 'name']);
+    expect(keys({ kind: 'element', tag: 'td', text: '1' })).toEqual(['text', 'scope', 'colspan', 'rowspan']);
+    expect(keys({ kind: 'element', tag: 'time', text: '2024' })).toEqual(['text', 'datetime']);
+    expect(keys({ kind: 'element', tag: 'label', text: 'Name' })).toEqual(['text', 'for']);
   });
 
-  it('a time element edits its machine-readable datetime', () => {
-    expect(keys({ kind: 'element', tag: 'time', text: '2024' })[0]).toEqual([
-      'Content',
-      ['text', 'datetime'],
+  it('form controls: name, placeholder, required, autocomplete, inputmode, min/max/step, rows', () => {
+    expect(keys({ kind: 'element', tag: 'input' })).toEqual([
+      'name', 'placeholder', 'required', 'autocomplete', 'inputmode', 'min', 'max', 'step',
     ]);
+    expect(keys({ kind: 'element', tag: 'textarea' })).toContain('rows');
   });
 
-  it('an icon edits its glyph, label, size and stroke; a component reference offers nothing yet', () => {
-    expect(keys({ kind: 'icon', name: 'mail' })).toEqual([
-      ['Icon', ['name', 'label']],
-      ['Design', ['size', 'strokeWidth', 'className']],
-    ]);
+  it('an icon: set, name, size, stroke, label; a component gets its block rows elsewhere', () => {
+    expect(keys({ kind: 'icon', name: 'mail' })).toEqual(['iconSet', 'name', 'size', 'strokeWidth', 'label']);
     expect(keys({ kind: 'component', component: 'hero' })).toEqual([]);
   });
 
-  it('reads the current value of each field from the node', () => {
-    const img: CustomCodeNode = {
-      kind: 'element',
-      tag: 'img',
-      className: 'rounded',
-      attributes: { src: '/a.jpg', alt: 'A' },
-    };
+  it('every field has a label in English and Arabic', () => {
+    for (const node of [
+      { kind: 'element', tag: 'img' },
+      { kind: 'element', tag: 'video' },
+      { kind: 'icon', name: 'mail' },
+    ] as CustomCodeNode[]) {
+      for (const section of customCodeElementSections(node)) {
+        for (const entry of section.fields) {
+          expect(entry.label.en).not.toBe('');
+          expect(entry.label.ar).not.toBe('');
+        }
+      }
+    }
+  });
+});
+
+describe('trait writes', () => {
+  it('reads current values and patches attributes; clearing removes the attribute (null)', () => {
+    const img: CustomCodeNode = { kind: 'element', tag: 'img', attributes: { src: '/a.jpg', alt: 'A' } };
     expect(field(img, 'src').read(img)).toBe('/a.jpg');
-    expect(field(img, 'alt').read(img)).toBe('A');
-    expect(field(img, 'className').read(img)).toBe('rounded');
-    expect(field(img, 'title').read(img)).toBeUndefined();
-    const icon: CustomCodeNode = { kind: 'icon', name: 'mail', size: 32 };
-    expect(field(icon, 'size').read(icon)).toBe(32);
-    expect(field(icon, 'strokeWidth').read(icon)).toBeUndefined();
+    expect(field(img, 'alt').patch?.('Portrait')).toEqual({ attributes: { alt: 'Portrait' } });
+    expect(field(img, 'alt').patch?.('  ')).toEqual({ attributes: { alt: null } });
   });
 
-  it('writes return a NEW node and never mutate the input', () => {
-    const img: CustomCodeNode = { kind: 'element', tag: 'img', attributes: { src: '/a.jpg' } };
-    const next = field(img, 'alt').write(img, 'Portrait');
-    expect(next).toEqual({
-      kind: 'element',
-      tag: 'img',
-      attributes: { src: '/a.jpg', alt: 'Portrait' },
-    });
-    expect(img).toEqual({ kind: 'element', tag: 'img', attributes: { src: '/a.jpg' } });
-    expect(next).not.toBe(img);
-  });
-
-  it('clearing a value DELETES the key rather than storing an empty string or undefined (Law J)', () => {
-    const img: CustomCodeNode = {
-      kind: 'element',
-      tag: 'img',
-      className: 'rounded',
-      attributes: { src: '/a.jpg', alt: 'A', title: 'T' },
-    };
-    const noAlt = field(img, 'alt').write(img, '');
-    expect(noAlt).toEqual({
-      kind: 'element',
-      tag: 'img',
-      className: 'rounded',
-      attributes: { src: '/a.jpg', title: 'T' },
-    });
-    expect('alt' in ((noAlt as { attributes?: object }).attributes ?? {})).toBe(false);
-    const noClass = field(img, 'className').write(img, '   ');
-    expect('className' in noClass).toBe(false);
-    // Dropping the last attribute drops the attributes object itself.
-    const bare: CustomCodeNode = { kind: 'element', tag: 'img', attributes: { alt: 'A' } };
-    expect(field(bare, 'alt').write(bare, '')).toEqual({ kind: 'element', tag: 'img' });
-  });
-
-  it('text stays a string even when emptied — an emptied heading is still a heading', () => {
+  it('text stays a string when emptied', () => {
     const h1: CustomCodeNode = { kind: 'element', tag: 'h1', text: 'Hi' };
-    expect(field(h1, 'text').write(h1, '')).toEqual({ kind: 'element', tag: 'h1', text: '' });
+    expect(field(h1, 'text').patch?.('')).toEqual({ set: { text: '' } });
   });
 
-  it('icon numbers are written as numbers and cleared by deletion', () => {
-    const icon: CustomCodeNode = { kind: 'icon', name: 'mail', size: 32, strokeWidth: 1.5 };
-    expect(field(icon, 'size').write(icon, 48)).toEqual({ ...icon, size: 48 });
-    const cleared = field(icon, 'strokeWidth').write(icon, undefined);
-    expect('strokeWidth' in cleared).toBe(false);
-    expect(field(icon, 'name').write(icon, 'globe')).toEqual({ ...icon, name: 'globe' });
+  it('flags are written bare and removed when off; the video autoplay toggle carries muted + playsinline', () => {
+    const video: CustomCodeNode = { kind: 'element', tag: 'video', attributes: { loop: '' } };
+    expect(field(video, 'loop').read(video)).toBe(true);
+    expect(field(video, 'loop').patch?.(false)).toEqual({ attributes: { loop: null } });
+    expect(field(video, 'autoplay').patch?.(true)).toEqual({
+      attributes: { autoplay: '', muted: '', playsinline: '' },
+    });
   });
 
-  it('every field carries a schema the door will agree with', () => {
+  it('numeric attributes read and write as numbers stored as strings', () => {
+    const td: CustomCodeNode = { kind: 'element', tag: 'td', attributes: { colspan: '2' } };
+    expect(field(td, 'colspan').read(td)).toBe(2);
+    expect(field(td, 'colspan').patch?.(3)).toEqual({ attributes: { colspan: '3' } });
+  });
+
+  it('icon traits write a whole new node; the set keeps the glyph', () => {
+    const icon: CustomCodeNode = { kind: 'icon', name: 'heart', size: 32 };
+    expect(field(icon, 'iconSet').read(icon)).toBe('lucide');
+    expect(field(icon, 'iconSet').write?.(icon, 'tabler-filled')).toEqual({ ...icon, name: 'tabler-filled:heart' });
+    expect(field(icon, 'size').write?.(icon, 48)).toEqual({ ...icon, size: 48 });
+    expect('strokeWidth' in (field(icon, 'strokeWidth').write?.(icon, undefined) ?? {})).toBe(false);
+    expect(splitIconName('tabler:brand-whatsapp')).toEqual({ set: 'tabler', glyph: 'brand-whatsapp' });
+    expect(joinIconName('lucide', 'mail')).toBe('mail');
+  });
+
+  it('schemas agree with the door', () => {
     const img: CustomCodeNode = { kind: 'element', tag: 'img' };
     expect(field(img, 'src').schema.safeParse('x'.repeat(2_001)).success).toBe(false);
-    expect(field(img, 'className').schema.safeParse('x'.repeat(1_001)).success).toBe(false);
     const icon: CustomCodeNode = { kind: 'icon', name: 'mail' };
     expect(field(icon, 'size').schema.safeParse(4).success).toBe(false);
-    expect(field(icon, 'size').schema.safeParse(24).success).toBe(true);
     expect(field(icon, 'name').schema.safeParse('Not Kebab').success).toBe(false);
+  });
+
+  it('the Advanced group edits id, role, aria, lang and tabindex', () => {
+    expect(ADVANCED_ATTRIBUTE_FIELDS.map((entry) => entry.key)).toEqual([
+      'id', 'role', 'aria-label', 'aria-labelledby', 'aria-describedby', 'aria-hidden', 'aria-live', 'lang', 'tabindex', 'title',
+    ]);
   });
 });

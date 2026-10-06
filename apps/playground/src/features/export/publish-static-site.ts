@@ -50,6 +50,8 @@ export function liveUtilitiesCompileCss(
 export interface PublishStaticSiteDeps {
   readonly blocks: ExportStaticSiteOptions['blocks'];
   readonly compileCss: ExportStaticSiteOptions['compileCss'];
+  /** CSS for exactly these rendered classes: the `compileFor` fallback (see `exportCompilers`). */
+  readonly compileClasses?: ExportStaticSiteOptions['compileClasses'];
   /** The published https origin (EXPORT_SITE_ORIGIN / VITE_EXPORT_SITE_ORIGIN). */
   readonly origin?: string | undefined;
   readonly now?: Date;
@@ -88,6 +90,9 @@ export function staticSiteOptions(
     blocks: deps.blocks,
     theme: themeFromDesignSystem(site.designSystem),
     compileCss: deps.compileCss,
+    // The site design library: palette variables, fonts, named styles, motion settings.
+    ...(site.library === undefined ? {} : { library: site.library }),
+    ...(deps.compileClasses === undefined ? {} : { compileClasses: deps.compileClasses }),
     ...(origin === undefined || origin === '' ? {} : { origin }),
     ...(deps.now === undefined ? {} : { now: deps.now }),
   };

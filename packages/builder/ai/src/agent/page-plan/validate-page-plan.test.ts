@@ -1,3 +1,4 @@
+import { contrastRatio } from '@craftkit/builder-schema';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_AI_BUILD_MAX_TASKS } from '../run-build';
@@ -212,12 +213,15 @@ describe('validatePagePlan — a plan a model wrote becomes the one the build us
   it('names every missing field with the fix, not just "invalid"', () => {
     const value = candidate();
     delete value.title;
+    // Without a deck row nothing fills a missing token (with one, the row does: compact-plan).
+    delete value.tokens.deckRowId;
     delete value.tokens.ink;
     delete sec(value, 2).purpose;
     const issues = refused(value);
     expect(at(issues, 'title')?.message).toMatch(/Write/u);
     expect(at(issues, 'tokens.ink')?.message).toMatch(/#rrggbb|palette/u);
-    expect(at(issues, 'sections[2].purpose')?.message).toMatch(/Write/u);
+    // 2026-10-05 (fast-build DESIGN §3): a missing purpose is the title plus a warning, never an issue.
+    expect(at(issues, 'sections[2].purpose')).toBeUndefined();
   });
 
   describe('sections', () => {
@@ -253,9 +257,21 @@ describe('validatePagePlan — a plan a model wrote becomes the one the build us
       expect(at(issues, 'sections[3].anchorId')?.message).toMatch(/unique/u);
     });
 
-    it('refuses a key that cannot become a slug', () => {
+    it('renames a key that cannot become a slug in code, with a warning, never a repair round', () => {
+      // Live run 2026-10-05: Arabic section keys cost a 15.7 s plan repair round.
       const value = candidate();
       sec(value, 2).key = 'القائمة';
+      const facts = (value as { facts?: { section?: string }[] }).facts ?? [];
+      for (const fact of facts) if (fact.section === 'menu') fact.section = 'القائمة';
+      const result = validatePagePlan(value);
+      if (!result.ok) throw new Error(result.issues.map((i) => `${i.path}: ${i.message}`).join('\n'));
+      expect(result.plan.sections[2]?.key).toMatch(/^[a-z][a-z0-9-]*$/u);
+      expect(result.warnings?.some(({ path }) => path === 'sections[2].key')).toBe(true);
+    });
+
+    it('still refuses a section with no key', () => {
+      const value = candidate();
+      sec(value, 2).key = '';
       expect(at(refused(value), 'sections[2].key')?.message).toMatch(/a-z/u);
     });
 
@@ -297,7 +313,8 @@ describe('validatePagePlan — a plan a model wrote becomes the one the build us
       sec(value, 2).variant = 'carousel';
       sec(value, 1).images = [{ subject: 'spaceship', aspect: 'wide', alt: '' }];
       const issues = refused(value);
-      expect(at(issues, 'sections[2].variant')?.message).toMatch(/zigzag/u);
+      // 2026-10-05 (R-variant): an unknown variant is dropped with a warning, never refused.
+      expect(at(issues, 'sections[2].variant')).toBeUndefined();
       expect(at(issues, 'sections[1].images[0].subject')?.message).toMatch(/cafe/u);
       expect(at(issues, 'sections[1].images[0].aspect')?.message).toMatch(/landscape/u);
       expect(at(issues, 'sections[1].images[0].alt')?.message).toMatch(/Write/u);
@@ -319,8 +336,8 @@ describe('validatePagePlan — a plan a model wrote becomes the one the build us
 
     it('accepts an external CTA and refuses a script URL', () => {
       const external = candidate();
-      external.primaryCta.href = 'https://wa.me/962790000000';
-      expect(accepted(external).primaryCta.href).toBe('https://wa.me/962790000000');
+      external.primaryCta.href = 'https://wa.me/962796481253';
+      expect(accepted(external).primaryCta.href).toBe('https://wa.me/962796481253');
 
       const script = candidate();
       script.primaryCta.href = 'javascript:alert(1)';
@@ -334,6 +351,21 @@ describe('validatePagePlan — a plan a model wrote becomes the one the build us
       const issues = refused(value);
       expect(at(issues, 'facts[2].key')?.message).toMatch(/unique/u);
       expect(at(issues, 'facts[3].section')?.message).toMatch(/footer/u);
+    });
+
+    it('renames a fact key in another script in code — one name per written key, twins still dropped', () => {
+      // Live run 2026-10-05: «سعر_شيش_لحم» as a fact key cost a 16 s plan repair round.
+      const value = candidate();
+      value.facts.push({ key: 'سعر_شيش_لحم', sample: '6.50 د.ا', section: 'order' });
+      value.facts.push({ key: 'سعر_شيش_لحم', sample: '6.50 د.ا', section: 'order' });
+      value.facts.push({ key: 'سعر الكباب', sample: '5.50 د.ا', section: 'order' });
+      const result = validatePagePlan(value);
+      if (!result.ok) throw new Error(result.issues.map((i) => `${i.path}: ${i.message}`).join('\n'));
+      expect(result.plan.facts.slice(-2)).toEqual([
+        { key: 'fact-1', sample: '6.50 د.ا', section: 'order' },
+        { key: 'fact-2', sample: '5.50 د.ا', section: 'order' },
+      ]);
+      expect(result.warnings?.some(({ message }) => message.includes('"fact-1"'))).toBe(true);
     });
   });
 
@@ -365,15 +397,61 @@ describe('validatePagePlan — a plan a model wrote becomes the one the build us
       expect(plan.tokens.accentInk).toBe('#18181b');
     });
 
-    it('refuses muted text too faint to read, and a button label lost on its fill', () => {
+    it('refuses a button label lost on its fill — and repairs faint muted text in code', () => {
       const value = candidate();
       value.tokens.bg = 'white';
       value.tokens.muted = 'stone-400';
       value.tokens.onAccent = 'amber-300';
       value.tokens.accent = 'amber-400';
       const issues = refused(value);
-      expect(at(issues, 'tokens.muted')?.message).toMatch(/darker/u);
+      // R-contrast (2026-10-05): muted is moved in code, never refused.
+      expect(at(issues, 'tokens.muted')).toBeUndefined();
       expect(at(issues, 'tokens.onAccent')?.message).toMatch(/4\.5:1/u);
+    });
+
+    it('moves a faint muted towards the ink until it reads on bg and surface, with a warning', () => {
+      // The 2026-10-05 Arabic head: muted red-600 on a red-50 surface, 4.41:1.
+      const value = candidate();
+      value.tokens.bg = 'white';
+      value.tokens.surface = 'red-50';
+      value.tokens.ink = 'red-950';
+      value.tokens.muted = 'red-600';
+      value.tokens.accent = 'red-700';
+      value.tokens.onAccent = 'white';
+      value.tokens.border = 'red-200';
+      const result = validatePagePlan(value);
+      if (!result.ok) throw new Error(result.issues.map(({ path }) => path).join(', '));
+      const { muted, bg, surface, ink } = result.plan.tokens;
+      expect(muted).not.toBe('#dc2626');
+      expect(contrastRatio(muted, bg) ?? 0).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(muted, surface) ?? 0).toBeGreaterThanOrEqual(4.5);
+      // The least move: still clearly lighter than the ink it leans on.
+      expect(muted).not.toBe(ink);
+      const warning = result.warnings?.find(({ path }) => path === 'tokens.muted');
+      expect(warning?.message).toMatch(/#dc2626/u);
+      expect(warning?.message).toMatch(/4\.4\d:1/u);
+      // Deterministic: a provisional and a final plan agree.
+      const again = validatePagePlan(value);
+      expect(again.ok && again.plan.tokens.muted).toBe(muted);
+    });
+
+    it('lightens an ink lost on a dark ground, and keeps refusing when told not to repair', () => {
+      const value = candidate();
+      value.tokens.bg = '#111827';
+      value.tokens.surface = '#1f2937';
+      value.tokens.ink = '#4b5563';
+      value.tokens.muted = '#9ca3af';
+      value.tokens.accent = '#f59e0b';
+      value.tokens.onAccent = '#111827';
+      value.tokens.border = '#374151';
+      const result = validatePagePlan(value);
+      if (!result.ok) throw new Error(result.issues.map(({ path }) => path).join(', '));
+      expect(contrastRatio(result.plan.tokens.ink, '#1f2937') ?? 0).toBeGreaterThanOrEqual(4.5);
+      expect(result.warnings?.map(({ path }) => path)).toContain('tokens.ink');
+
+      const asked = validatePagePlan(value, { repairContrast: false });
+      expect(asked.ok).toBe(false);
+      expect(asked.ok ? [] : asked.issues.map(({ path }) => path)).toContain('tokens.ink');
     });
 
     it('refuses a colour it cannot measure, and says which forms it can', () => {
@@ -435,6 +513,90 @@ describe('validatePagePlan — a plan a model wrote becomes the one the build us
       const value = candidate();
       value.locale = { lang: 'AR', dir: 'ltr' };
       expect(accepted(value).locale).toEqual({ lang: 'ar', dir: 'rtl' });
+    });
+  });
+
+  describe('code repairs: what code can fix never costs a repair round (DESIGN §4)', () => {
+    function warned(value: unknown) {
+      const result = validatePagePlan(value);
+      if (!result.ok) {
+        throw new Error(result.issues.map((i) => `${i.path}: ${i.message}`).join('\n'));
+      }
+      return { plan: result.plan, warnings: result.warnings ?? [] };
+    }
+
+    it('drops an unknown variant with a warning — variant "bar" on the header, the baseline’s only repair', () => {
+      const value = candidate();
+      sec(value, 0).variant = 'bar';
+      const { plan, warnings } = warned(value);
+      expect(plan.sections[0]?.variant).toBeUndefined();
+      const warning = at(warnings, 'sections[0].variant');
+      expect(warning?.message).toMatch(/"bar"/u);
+      expect(warning?.message).toMatch(/dropped/u);
+    });
+
+    it('fills masked digits in place, the same way in the CTA, the facts and the slots', () => {
+      const value = candidate();
+      value.primaryCta.href = 'https://wa.me/962791234567';
+      value.facts = [
+        { key: 'phone', sample: '+962 79 123 4567', section: 'order' },
+        { key: 'landline', sample: '+962 7 9000 0000', section: 'footer' },
+        { key: 'price-espresso', sample: '1.5 د.أ', section: 'menu' },
+      ];
+      const { plan, warnings } = warned(value);
+      expect(plan.primaryCta.href).toBe('https://wa.me/962794612750');
+      expect(plan.facts[0]?.sample).toBe('+962 79 461 2750');
+      expect(plan.facts[1]?.sample).toBe('+962 7 9461 2750');
+      // Not a phone run: left exactly as written.
+      expect(plan.facts[2]?.sample).toBe('1.5 د.أ');
+      // The CTA's number and the fact's are still one number.
+      expect(plan.primaryCta.href.replace(/[^0-9]/gu, '')).toBe(
+        plan.facts[0]?.sample.replace(/[^0-9]/gu, ''),
+      );
+      expect(at(warnings, 'primaryCta.href')?.message).toContain('→');
+      expect(at(warnings, 'facts[0].sample')?.message).toContain('"+962 79 461 2750"');
+      expect(at(warnings, 'facts[2].sample')).toBeUndefined();
+    });
+
+    it('leaves a real number alone', () => {
+      const value = candidate();
+      value.primaryCta.href = 'tel:+962 6 461 2750';
+      value.facts = [{ key: 'phone', sample: '+962 6 512 3456', section: 'order' }];
+      const { plan, warnings } = warned(value);
+      expect(plan.primaryCta.href).toBe('tel:+962 6 461 2750');
+      expect(plan.facts[0]?.sample).toBe('+962 6 512 3456');
+      expect(
+        warnings.filter(({ path }) => path.startsWith('facts') || path === 'primaryCta.href'),
+      ).toEqual([]);
+    });
+
+    /*
+      R-xrun parity: the SAME fixture table as apps/ai-server/src/plan-shape.test.ts
+      (fillPlaceholderSample). The client restates the server's repair so a
+      provisional contract equals the final one; if one side changes, both change.
+    */
+    it.each([
+      ['+971 4 XXX XXXX', '+971 4 234 5678'],
+      ['$XX.XX', '$23.45'],
+      ['info@xxxx.com', 'info@example.com'],
+      ['www.xxxx.ae', 'www.example.ae'],
+      ['xxxx@site.com', 'info@site.com'],
+    ])('fills the placeholder sample %s as %s, exactly as the server does', (sample, filled) => {
+      const value = candidate();
+      value.facts = [{ key: 'contact', sample, section: 'footer' }];
+      const { plan, warnings } = warned(value);
+      expect(plan.facts[0]?.sample).toBe(filled);
+      expect(at(warnings, 'facts[0].sample')?.message).toContain(`"${sample}" → "${filled}"`);
+    });
+
+    it('leaves values that only look like a mask alone', () => {
+      const value = candidate();
+      value.facts = [
+        { key: 'sizes', sample: 'S to XXL', section: 'menu' },
+        { key: 'king', sample: 'Louis XIV', section: 'menu' },
+      ];
+      const { plan } = warned(value);
+      expect(plan.facts.map(({ sample }) => sample)).toEqual(['S to XXL', 'Louis XIV']);
     });
   });
 

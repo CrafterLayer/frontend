@@ -1,4 +1,34 @@
+import {
+  CUSTOM_CODE_EFFECTS,
+  CUSTOM_CODE_ENTRANCE_PRESETS,
+  CUSTOM_CODE_HOVER_PRESETS,
+  CUSTOM_CODE_LOOP_PRESETS,
+  CUSTOM_CODE_MOTION_EASES,
+  CUSTOM_CODE_SCROLL_PRESETS,
+  CUSTOM_CODE_STAGGER_PRESETS,
+  CUSTOM_CODE_TEXT_PRESETS,
+} from '@craftkit/builder-schema';
+
 import type { AiSkillDefinitionV1 } from './types';
+
+// P10-agent-power additions (style-manager DESIGN.md §D.3): the element
+// vocabulary widened on 2026-10-05 — style tools, the desktop-first prefix
+// law, logical utilities, palette variables, named styles, effects, motion
+// presets by name and the new tags. Every name list is READ from the
+// vocabulary, so a preset added there is taught here without an edit.
+// Enums are written a|b|c, the skill's spelling for attribute values, so a
+// preset such as blur-in or sticky-stack never reads as a utility class.
+const list = (names: readonly string[]): string => names.join('|');
+
+export const STYLE_MANAGER_TEACHING = `EDIT BY NAME on a follow-up: prefer element.style {id,path|find,styles:[{property,value,bucket?,state?,side?}]} and element.animate {id,path|find,preset,hover,trigger,…} over rewriting className — the engine writes the canonical class and replaces the old one; element.insert adds markup, element.effect adds an effect, style.define + style.apply share one look, palette.set adds colours (ramp → 50-950 shades).
+RESPONSIVE + STATES, desktop first: unprefixed is every screen, max-lg: is tablet and down, max-md: is the phone (a phone-only edit: max-md:px-4). States hover: focus-visible: active: open: group-hover: combine after the screen (max-md:hover:…). Mobile-first md:/lg: pairs are rewritten to this form.
+LOGICAL ONLY: ps-/pe-/ms-/me-/pbs-/pbe-/inset-s-/inset-e-/rounded-s-/rounded-e-/border-s/border-e/text-start/text-end follow dir, so an Arabic page mirrors itself; a left/right class is a bug.
+COLOUR: theme tokens first; a site palette colour is bg-(--ck-c-<id>) or text-(--ck-c-<id>), or element.style value "palette:<id>"; an exact colour is element.style value "#0f766e".
+NAMED STYLES: a look several elements share is one style; elements carry ck-s-<id> and one edit of the style updates every one.
+EFFECTS, hook classes whose CSS ships with fallbacks: ${CUSTOM_CODE_EFFECTS.map((name) => `ck-fx-${name}`).join(' ')}.
+ANIMATE BY NAME (the page ships the CSS; reduced motion shows the final state): data-ck-motion='<preset>' with data-ck-trigger (view load hover click scroll), data-ck-delay 0-6, data-ck-speed slow|normal|fast, data-ck-ease (${list(CUSTOM_CODE_MOTION_EASES)}), data-ck-once, data-ck-distance sm|md|lg, data-ck-stagger on a stagger container, data-ck-target (click plays the element with that id). Entrance: ${list(CUSTOM_CODE_ENTRANCE_PRESETS)}. Stagger: ${list(CUSTOM_CODE_STAGGER_PRESETS)}. Scroll, on view or scroll: ${list(CUSTOM_CODE_SCROLL_PRESETS)}. Loop: ${list(CUSTOM_CODE_LOOP_PRESETS)}. Text, on view load or click: ${list(CUSTOM_CODE_TEXT_PRESETS)}. Hover data-ck-hover='<preset>': ${list(CUSTOM_CODE_HOVER_PRESETS)}. One or two moments a section.
+NEW TAGS: form with input textarea select option label fieldset legend sends only through data-ck-behavior='whatsapp-form' with data-ck-phone; dialog opened by a popovertarget button; iframe with a title, only youtube-nocookie.com/embed, player.vimeo.com/video, google.com/maps/embed or open.spotify.com/embed; audio with https sources; svg text textPath clipPath mask pattern and feTurbulence/feGaussianBlur filters.`;
+// end P10-agent-power additions
 
 /**
  * When a section needs code, and how to write it so the door takes it.
@@ -25,7 +55,7 @@ export const DESIGN_CODE_SKILL: AiSkillDefinitionV1 = {
   name: 'Design code',
   description:
     'Region CSS for a signature effect, and interactive markup that needs no script.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 91,
@@ -43,7 +73,8 @@ VIDEO HERO, only with a video address the request gives: video autoplay muted lo
 IMAGES after the hero: loading='lazy' decoding='async' width height; srcset with sizes, or picture > source media srcset + img. A Latin name in Arabic: span lang='en' dir='ltr'.
 REAL CONTROLS: a form, map or booking the catalog registers is <ck-component type='…' props='{…}'/>; never imitate one.
 ONLINE BOOKING, when the request names booking or appointments online — a real form, not steps and links; WhatsApp stays beside it: <ck-component type='formSection' props='{"heading":"…","variant":"card","fields":[{"id":"service","name":"service","type":"select","label":"…","required":true,"options":[{"label":"…","value":"…"}]},{"id":"date","name":"date","type":"date","label":"…","required":true,"width":"half"},{"id":"time","name":"time","type":"select","label":"…","required":true,"width":"half","options":[{"label":"10:00","value":"10:00"}]},{"id":"phone","name":"phone","type":"tel","label":"…","required":true}],"submitLabel":"…"}'/> — the services and hours are the page's own.
-NEVER: script, on… handlers, a style attribute, iframes, form controls, http:// addresses.`,
+${STYLE_MANAGER_TEACHING}
+NEVER: script, on… handlers, a style attribute, an iframe from another host, form action or method, http:// addresses.`,
   references: {
     'checks/design-code.md':
       'Code only for the signature; motion guarded; FAQ details, phone nav a popover, comparison a table; video muted; online booking a formSection with service, date and time.',

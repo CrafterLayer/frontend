@@ -17,6 +17,7 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
+import { treeKernel } from '../../overlay/tree-test-kit';
 import { EditorCanvas } from './EditorCanvas';
 
 // Self-contained demo vocabulary: the shell may not depend on layer-4 block
@@ -777,6 +778,43 @@ export const FormattingBubble: Story = {
     await waitFor(async () => {
       await expect(frameDocument.querySelector('.bldr-inline-rich')).toBeNull();
       await expect(continuation).toHaveFocus();
+    });
+  },
+};
+
+/*
+  P7 (style-manager DESIGN.md §A.6, §E): every element inside a composed
+  region is a widget. Click the heading: the element quick bar appears above
+  it, with padding/margin bands to scrub; double-click edits the text in place.
+*/
+const elementChromeKernel = treeKernel([
+  {
+    kind: 'root',
+    children: [
+      {
+        kind: 'element',
+        tag: 'section',
+        className: 'flex flex-col gap-4 p-8',
+        children: [
+          { kind: 'element', tag: 'h2', className: 'text-3xl font-bold', text: 'Our story' },
+          { kind: 'element', tag: 'p', className: 'text-base', text: 'Built by hand, edited by anyone.' },
+          { kind: 'element', tag: 'a', className: 'text-accent underline', text: 'Read more', attributes: { href: '#more' } },
+        ],
+      },
+    ],
+  },
+]);
+
+export const ElementChrome: Story = {
+  args: { kernel: elementChromeKernel, theme: lightTheme, editable: true },
+  play: async ({ canvasElement }) => {
+    const frame = frameOf(canvasElement);
+    await waitFor(async () => {
+      await expect(frame.contentDocument?.querySelector('[data-ck-path="0.0"]')).toBeTruthy();
+    });
+    elementChromeKernel.focusElement('r1', [0, 0]);
+    await waitFor(async () => {
+      await expect(within(canvasElement).getByRole('toolbar', { name: /Our story/u })).toBeTruthy();
     });
   },
 };

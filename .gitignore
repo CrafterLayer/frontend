@@ -4,7 +4,8 @@ node_modules/
 .yarn/cache/
 .yarn/unplugged/
 .cache/
-
+.graphify-out/
+graphify-out/
 # Framework, build, test, and Storybook output
 dist/
 build/

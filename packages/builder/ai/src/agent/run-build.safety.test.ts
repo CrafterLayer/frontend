@@ -397,6 +397,8 @@ describe('P0-3 — Stop stops', () => {
       request: 'Create a landing page for a SaaS analytics tool',
       validationPorts: ports('stop'),
       skillRegistry: createCraftkitAiSkillRegistry(),
+      // A wave of five, set here: the automatic pool is min(sections, 8) since 2026-10-05.
+      fillConcurrency: 5,
       signal: controller.signal,
       onEvent: (event) => {
         events.push(event);
@@ -639,12 +641,14 @@ describe('P1-8 — a slow first section does not hold back the writers behind it
       request: 'Create a landing page for a SaaS analytics tool',
       validationPorts: ports('hol'),
       skillRegistry: createCraftkitAiSkillRegistry(),
+      // A pool of five, set here: the automatic one is min(sections, 8) since 2026-10-05.
+      fillConcurrency: 5,
     });
 
     await settle(() => arrived.length === EIGHT.length);
     // Every section reached a writer while the hero was still out…
     expect([...arrived].sort((left, right) => left - right)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    // …with the pool still bounded (auto concurrency for eight sections is five)…
+    // …with the pool still bounded (five, as set)…
     expect(peak).toBeLessThanOrEqual(5);
     // …and nothing landed out of order: section 2 waits for the hero to land.
     expect(live.transactions()).toHaveLength(1);

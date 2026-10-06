@@ -1,0 +1,28 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ShortcutsDialogStories from './ShortcutsDialog.stories';
+
+<Meta of={ShortcutsDialogStories} />
+
+# ShortcutsDialog
+
+The editor keymap, listed (style-manager DESIGN.md §E). It renders `EDITOR_SHORTCUTS` — the same table
+`resolveEditorShortcut` implements — so the dialog cannot drift from what the keys do. The host opens
+it when `useEditorShortcuts` reports `openShortcuts` (`?` or Mod+/).
+
+<Canvas of={ShortcutsDialogStories.Mac} />
+
+## Platform and language
+
+`Mod` prints as ⌘ on macOS and Ctrl elsewhere, Alt as ⌥ or Alt. Action names come from each keymap
+row's own English and Arabic labels; chords always read left to right, because they are keys, not
+words.
+
+<Canvas of={ShortcutsDialogStories.Arabic} />
+
+## A real modal
+
+Focus moves to Close on open, Tab cycles inside the dialog, Escape, Close or a click on the backdrop
+closes it, and focus returns to where it was.
+
+<Canvas of={ShortcutsDialogStories.EscapeCloses} />

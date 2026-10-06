@@ -1,4 +1,4 @@
-import type { BuilderKernel } from '@craftkit/builder-core';
+import { isSiteCommandName, type BuilderKernel } from '@craftkit/builder-core';
 import type { BuilderDocument } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiValidationPorts } from '../types';
@@ -49,8 +49,11 @@ export function previewAiPlan(options: PreviewAiPlanOptions): BuilderDocument {
   if (authority.proposal !== undefined) {
     assertAuthenticatedAiValidatedProposal(authority.proposal);
   }
+  // The would-be PAGE: site steps (palette, named styles) change the site, not this document.
+  const pageSteps = plan.commands.filter((step) => !isSiteCommandName(step.command));
+  if (pageSteps.length === 0) return scratch.getDocument();
   scratch.dispatchGroup(
-    plan.commands.map((step) => ({ command: step.command, args: step.args })),
+    pageSteps.map((step) => ({ command: step.command, args: step.args })),
     { author: 'ai', label: 'AI plan preview' },
   );
   return scratch.getDocument();

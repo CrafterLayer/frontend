@@ -115,6 +115,9 @@ function slotShape(slot: SectionKitSlot): string {
   }
 }
 
+/** The catalog subject a photo falls back to when the one named matches nothing. */
+const GENERIC_PHOTO_SUBJECT = 'business';
+
 function checkImage(where: string, value: unknown, context: CheckContext): SlotCheck {
   if (!isRecord(value)) {
     return { ok: false, error: `slot "${where}" is an image: ${slotShape({ kind: 'image' })}.` };
@@ -122,17 +125,29 @@ function checkImage(where: string, value: unknown, context: CheckContext): SlotC
   let src = typeof value['src'] === 'string' ? value['src'].trim() : '';
   let alt = typeof value['alt'] === 'string' ? cleanText(value['alt']) : '';
   if (src === '' && typeof value['subject'] === 'string' && value['subject'].trim() !== '') {
-    const photo = selectCatalogPhotos(value['subject'], {
-      exclude: (entry) => context.usedPhotos.has(entry.url),
-    })[0];
+    const subject = value['subject'];
+    const pick = (brief: string) =>
+      selectCatalogPhotos(brief, { exclude: (entry) => context.usedPhotos.has(entry.url) })[0];
+    /*
+      The nearest catalog photo, never a refusal (fix pass 2026-10-05): the
+      subject, then the subject with its alt, then the generic business photo.
+      "freelancer sending professional invoice on laptop" matched no topic,
+      and the refusal cost the English features section a whole repair round
+      while five finished sections below it waited to land.
+    */
+    const exact = pick(subject) ?? (alt === '' ? undefined : pick(`${subject} ${alt}`));
+    const photo = exact ?? pick(GENERIC_PHOTO_SUBJECT);
     if (photo === undefined) {
       return {
         ok: false,
-        error: `slot "${where}": no catalog photo matches subject "${value['subject']}"; name a plainer subject (coffee, bakery, clinic, office, team) or give "src" from PHOTOS YOU MAY USE.`,
+        error: `slot "${where}": no catalog photo matches subject "${subject}"; name a plainer subject (coffee, bakery, clinic, office, team) or give "src" from PHOTOS YOU MAY USE.`,
       };
     }
     src = photo.url;
-    if (alt === '') alt = context.lang.startsWith('ar') ? photo.alt.ar : photo.alt.en;
+    // A generic stand-in is described as what it shows, not as what was asked for.
+    if (alt === '' || exact === undefined) {
+      alt = context.lang.startsWith('ar') ? photo.alt.ar : photo.alt.en;
+    }
   }
   if (src === '') {
     return { ok: false, error: `slot "${where}" needs "src" (an https photo address) or "subject".` };

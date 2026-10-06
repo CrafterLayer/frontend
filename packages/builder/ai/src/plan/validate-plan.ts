@@ -1,4 +1,4 @@
-import { coreCommands, createBuilder } from '@craftkit/builder-core';
+import { coreCommands, createBuilder, isSiteCommandName, siteCommands } from '@craftkit/builder-core';
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type {
   BlockRenderComponent,
@@ -15,8 +15,8 @@ import {
   customCssPropertyNames,
   findCssRejection,
   findRejectedUtilities,
+  isCustomCodeIconName,
   isJsonValue,
-  isLucideIconName,
   unknownUtilityClasses,
 } from '@craftkit/builder-schema';
 
@@ -154,7 +154,16 @@ function normalizeFreeCompositionTypes(plan: AiPlan, kernel: BuilderKernel): AiP
 function commandIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanValidationIssue[] {
   const issues: AiPlanValidationIssue[] = [];
   plan.commands.forEach((step, index) => {
-    const registered = kernel.context.registry.command(step.command);
+    /*
+      Site commands (setNamedStyle, setPaletteColor, setDesignToken, …) are not
+      in the page registry: a site page lens routes them to the site draft
+      inside the same one transaction (site-dispatcher `prepare`). The agent's
+      library tools emit them, so the door checks their args here and the
+      page rehearsal below skips them (style-manager DESIGN.md P11).
+    */
+    const registered = isSiteCommandName(step.command)
+      ? siteCommands[step.command]
+      : kernel.context.registry.command(step.command);
     if (registered === undefined) {
       issues.push({
         code: 'unknown-command',
@@ -519,13 +528,13 @@ function customCodeVocabularyIssues(
         page is still a defect, and the name is knowable here, so it is
         refused here, by name.
       */
-      const unknownIcons = customCodeIconNames(tree).filter((name) => !isLucideIconName(name));
+      const unknownIcons = customCodeIconNames(tree).filter((name) => !isCustomCodeIconName(name));
       if (unknownIcons.length > 0) {
         issues.push({
           code: 'policy-rejected',
-          message: `Step ${String(index)} names icons that are not in the Lucide set: ${unknownIcons
+          message: `Step ${String(index)} names icons that are not in the Lucide or Tabler sets: ${unknownIcons
             .slice(0, 8)
-            .join(', ')}. Use exact kebab-case names from lucide.dev/icons.`,
+            .join(', ')}. Use exact kebab-case names from lucide.dev/icons, or tabler:<name> / tabler-filled:<name> from tabler.io/icons.`,
           step: index,
         });
         continue;
@@ -748,7 +757,11 @@ function customCssIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanVa
 export function validationManifest(plan: AiPlan, kernel: BuilderKernel): TrustedExtensionManifest {
   const commands: Record<string, RegisteredCommand> = {};
   for (const step of plan.commands) {
-    if (Object.hasOwn(coreCommands, step.command) || Object.hasOwn(commands, step.command)) {
+    if (
+      Object.hasOwn(coreCommands, step.command) ||
+      Object.hasOwn(commands, step.command) ||
+      isSiteCommandName(step.command)
+    ) {
       continue;
     }
     const registered = kernel.context.registry.command(step.command);
@@ -864,13 +877,17 @@ function dryRun(
     documents that most need editing.
   */
   const priorIssues = new Set(scratch.validate().map((issue) => issue.message));
+  // The scratch world is one page: site steps were judged by their args above.
+  const pageSteps = plan.commands.filter((step) => !isSiteCommandName(step.command));
+  if (pageSteps.length === 0) return { ok: true, plan };
   try {
     scratch.dispatchGroup(
-      plan.commands.map((step) => ({ command: step.command, args: step.args })),
+      pageSteps.map((step) => ({ command: step.command, args: step.args })),
       { author: 'ai', label: 'AI plan validation' },
     );
   } catch (cause) {
-    const step = plan.commands.length === 1 ? 0 : undefined;
+    const step =
+      pageSteps.length === 1 ? plan.commands.indexOf(pageSteps[0] as AiPlanStep) : undefined;
     return {
       ok: false,
       issues: [

@@ -1,3 +1,6 @@
+import { buildEffectsCss } from '../motion/effects-css';
+import { buildMotionPresetsCss } from '../motion/presets-css';
+
 /**
  * The styles the site behaviours need, scoped by `[data-ck-behavior]` and the
  * runtime's mount marker so an unmounted page (no script) always shows its
@@ -132,6 +135,39 @@ dialog[data-ck-lightbox] button {
 [data-ck-behavior='countdown'] {
   font-variant-numeric: tabular-nums;
 }
+
+.ck-ticker {
+  display: inline-flex;
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+.ck-tick-col {
+  display: inline-block;
+  block-size: 1.15em;
+  line-height: 1.15em;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+.ck-tick-strip {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(calc(var(--ck-d, 0) * -10%));
+}
+.ck-tick-strip > span {
+  block-size: 1.15em;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ck-tick-strip {
+    transition: transform var(--ck-tick-dur, 1.2s) cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  [data-ck-behavior='ticker'][data-ck-speed='slow'] .ck-tick-strip {
+    --ck-tick-dur: 2s;
+  }
+  [data-ck-behavior='ticker'][data-ck-speed='fast'] .ck-tick-strip {
+    --ck-tick-dur: 0.7s;
+  }
+}
 [data-ck-behavior='copy-text'].ck-copied {
   outline: 2px solid currentColor;
   outline-offset: 2px;
@@ -139,15 +175,34 @@ dialog[data-ck-lightbox] button {
 `;
 
 const STYLE_MARK = 'data-ck-behavior-css';
+const MOTION_MARK = 'data-ck-motion-css';
+const EFFECTS_MARK = 'data-ck-effects-css';
+
+function ensureStyle(document: Document, mark: string, css: () => string): void {
+  if (document.head.querySelector(`style[${mark}]`) !== null) return;
+  const style = document.createElement('style');
+  style.setAttribute(mark, '');
+  style.textContent = css();
+  document.head.appendChild(style);
+}
 
 /**
- * Put the behaviour styles in a document once. The canvas calls it before
- * mounting, so a host needs no stylesheet import for behaviours to render.
+ * Put the motion presets and the effects library in a document once (every
+ * preset and effect: the canvas cannot know which ones the next edit adds).
+ * The canvas region carries `data-ck-still`, so the presets show their final
+ * states there until a Preview sets `data-ck-play`.
+ */
+export function ensureMotionCss(document: Document): void {
+  ensureStyle(document, MOTION_MARK, () => buildMotionPresetsCss());
+  ensureStyle(document, EFFECTS_MARK, () => buildEffectsCss());
+}
+
+/**
+ * Put the behaviour styles in a document once — and with them the motion
+ * presets and effects. The canvas calls it before mounting, so a host needs
+ * no stylesheet import for behaviours, presets or effects to render.
  */
 export function ensureBehaviorCss(document: Document): void {
-  if (document.head.querySelector(`style[${STYLE_MARK}]`) !== null) return;
-  const style = document.createElement('style');
-  style.setAttribute(STYLE_MARK, '');
-  style.textContent = BEHAVIOR_CSS;
-  document.head.appendChild(style);
+  ensureStyle(document, STYLE_MARK, () => BEHAVIOR_CSS);
+  ensureMotionCss(document);
 }

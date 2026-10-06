@@ -1,6 +1,8 @@
 import { systemClock, type BuilderKernel } from '@craftkit/builder-core';
 
 import { normalizeIntentText } from '../../intent/normalize-arabic';
+// media-motion (2026-10-06): zero-token media readings (DESIGN §F.3)
+import { readMedia } from '../../media-tools/direct-media';
 import { validateAiPlan } from '../../plan/validate-plan';
 import { checkSeo } from '../../seo/check-seo';
 import type { AiPlan, AiValidationPorts } from '../../types';
@@ -287,7 +289,9 @@ export function tryDirectTool(
     readSeo(text) ??
     readNav(text) ??
     readDirection(text) ??
-    readSections(text, kernel);
+    readSections(text, kernel) ??
+    // media-motion (2026-10-06): «ضيف معرض صور», «حط فيديو <url>», «خلفية متحركة» … (URLs read from the typed request)
+    readMedia(text, kernel, trimmed);
   if (reading === undefined) return undefined;
   const label = ARABIC.test(trimmed) ? reading.label.ar : reading.label.en;
   const candidate = {

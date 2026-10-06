@@ -39,14 +39,11 @@
  *   dialog, and restores each attribute it set — unless the host (React) has
  *   since rewritten it, in which case the host's value stands.
  *
- * ## Carousel buttons
+ * ## Carousel and lightbox
  *
- * The vocabulary admits no `data-ck-carousel-prev/next`, so the buttons are
- * DERIVED: the track is the first element child that is not a button or a row
- * of buttons, and the buttons are every `<button>` inside the carousel but
- * outside the track — the first is "previous", the last is "next". The first
- * button sits at the inline start (the right in RTL), so it always means
- * "back"; what flips in RTL is the physical scroll direction.
+ * media-motion (2026-10-06): `carousel` and `lightbox` moved into their own
+ * packs (`packs/carousel.ts`, `packs/gallery.ts`), mounted beside this
+ * function by `mountSiteBehaviors` and serialised after it by `script.ts`.
  *
  * ## Tabs structure
  *
@@ -378,37 +375,6 @@ export function mountBehaviors(
     });
   }
 
-  function carousel(el: Element): void {
-    const rtl = isRtl(el);
-    let track: Element = el;
-    for (const child of Array.from(el.children)) {
-      if (child.tagName === 'BUTTON') continue;
-      const kids = Array.from(child.children);
-      if (kids.length > 0 && kids.every((kid) => kid.tagName === 'BUTTON')) continue;
-      track = child;
-      break;
-    }
-    setAttr(track, 'data-ck-track', '');
-    if (track.getAttribute('tabindex') === null) setAttr(track, 'tabindex', '0');
-    const buttons = Array.from(el.querySelectorAll('button')).filter(
-      (button) => track === el || !track.contains(button),
-    );
-    const prev = buttons.length >= 2 ? buttons[0] : undefined;
-    const next = buttons.length >= 2 ? buttons[buttons.length - 1] : undefined;
-    function go(forward: boolean): void {
-      const step = Math.max(160, (track as HTMLElement).clientWidth * 0.85 || 0);
-      const sign = (forward ? 1 : -1) * (rtl ? -1 : 1);
-      const scroller = track as HTMLElement & { scrollBy?: unknown };
-      if (typeof scroller.scrollBy === 'function') {
-        scroller.scrollBy({ left: sign * step, behavior: reduced ? 'auto' : 'smooth' });
-      } else {
-        scroller.scrollLeft += sign * step;
-      }
-    }
-    if (prev !== undefined) listen(prev, 'click', () => { go(false); });
-    if (next !== undefined) listen(next, 'click', () => { go(true); });
-  }
-
   function tabs(el: Element): void {
     let list: Element | undefined;
     for (const child of Array.from(el.children)) {
@@ -480,66 +446,6 @@ export function mountBehaviors(
     listen(view, 'scroll', check, true);
     cleanups.push(function unstick() {
       el.classList.remove('ck-scrolled');
-    });
-  }
-
-  function lightbox(el: HTMLElement): void {
-    const image = el.tagName === 'IMG' ? (el as HTMLImageElement) : el.querySelector('img');
-    if (image === null) return;
-    const picture: HTMLImageElement = image;
-    if (el.tagName !== 'BUTTON' && el.tagName !== 'A') {
-      if (el.getAttribute('tabindex') === null) setAttr(el, 'tabindex', '0');
-      if (el.getAttribute('role') === null) setAttr(el, 'role', 'button');
-    }
-    setAttr(el, 'aria-haspopup', 'dialog');
-    let open: HTMLDialogElement | null = null;
-    function close(): void {
-      const dialog = open;
-      if (dialog === null) return;
-      open = null;
-      if (typeof dialog.close === 'function' && dialog.open) dialog.close();
-      dialog.remove();
-      el.focus();
-    }
-    function show(event: Event): void {
-      event.preventDefault();
-      if (open !== null) return;
-      const arabic = (langOf(el) ?? '').toLowerCase().startsWith('ar');
-      const dialog = page.createElement('dialog');
-      dialog.setAttribute('data-ck-lightbox', '');
-      dialog.setAttribute('aria-label', picture.alt !== '' ? picture.alt : arabic ? 'صورة' : 'Image');
-      const large = page.createElement('img');
-      large.src = picture.currentSrc !== '' ? picture.currentSrc : picture.src;
-      large.alt = picture.alt;
-      const button = page.createElement('button');
-      button.type = 'button';
-      button.setAttribute('aria-label', arabic ? 'إغلاق' : 'Close');
-      button.textContent = '×';
-      dialog.append(large, button);
-      page.body.appendChild(dialog);
-      open = dialog;
-      dialog.addEventListener('click', close);
-      dialog.addEventListener('close', close);
-      if (typeof dialog.showModal === 'function') {
-        try {
-          dialog.showModal();
-        } catch {
-          dialog.setAttribute('open', '');
-        }
-      } else {
-        dialog.setAttribute('open', '');
-      }
-      button.focus();
-    }
-    listen(el, 'click', show);
-    listen(el, 'keydown', function key(event) {
-      const pressed = (event as KeyboardEvent).key;
-      if (el.tagName !== 'BUTTON' && (pressed === 'Enter' || pressed === ' ')) show(event);
-    });
-    cleanups.push(function unlightbox() {
-      const dialog = open;
-      open = null;
-      if (dialog !== null) dialog.remove();
     });
   }
 
@@ -1233,7 +1139,9 @@ export function mountBehaviors(
 
   /* ── mount ─────────────────────────────────────────────────────────────── */
 
-  const SELECTOR = '[data-ck-behavior], [data-ck-motion], [data-ck-hover], .ck-fx-spotlight';
+  // media-motion (2026-10-06): the engine markers join, equal to script.ts BEHAVIOR_RUNTIME_SELECTOR.
+  const SELECTOR =
+    '[data-ck-behavior], [data-ck-motion], [data-ck-hover], .ck-fx-spotlight, [data-ck-scene], [data-ck-timeline], [data-ck-lottie]';
   if (still && (root as Node).nodeType === 1) setAttr(root as Element, 'data-ck-still', '');
   const found: Element[] = [];
   if ((root as Node).nodeType === 1 && (root as Element).matches(SELECTOR)) {
@@ -1252,10 +1160,8 @@ export function mountBehaviors(
     else if (behavior === 'count-up') countUp(el);
     else if (behavior === 'countdown') countdown(el);
     else if (behavior === 'marquee') marquee(html);
-    else if (behavior === 'carousel') carousel(el);
     else if (behavior === 'tabs') tabs(el);
     else if (behavior === 'sticky-header') stickyHeader(el);
-    else if (behavior === 'lightbox' && interactive) lightbox(html);
     else if (behavior === 'whatsapp-form' && interactive) whatsappForm(el);
     else if (behavior === 'copy-text' && interactive) copyText(el);
     else if (behavior === 'ticker') ticker(html);

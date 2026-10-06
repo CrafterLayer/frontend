@@ -30,6 +30,12 @@ ANIMATE BY NAME (the page ships the CSS; reduced motion shows the final state): 
 NEW TAGS: form with input textarea select option label fieldset legend sends only through data-ck-behavior='whatsapp-form' with data-ck-phone; dialog opened by a popovertarget button; iframe with a title, only youtube-nocookie.com/embed, player.vimeo.com/video, google.com/maps/embed or open.spotify.com/embed; audio with https sources; svg text textPath clipPath mask pattern and feTurbulence/feGaussianBlur filters.`;
 // end P10-agent-power additions
 
+// media-motion (2026-10-06, DESIGN §F.4): the media tools, one line each, read only where TOOLS lists them.
+export const MEDIA_MOTION_TEACHING = `MEDIA, when TOOLS lists media.add: a gallery, video, map, before/after or pricing toggle is ONE media.add step (images 'catalog:<topic>' — alt, sizes and srcset are filled for you), not markup.
+SCROLL STORY, when TOOLS lists motion.add: motion.add {id,find,recipe} plays a named timeline; never data-ck-motion on the same element.
+ANIMATED BACKGROUND: media.add {kind:scene,scene,behind:<hero id>} puts particles, a gradient or a mural behind the hero's real text.
+A video only with an address the request gives; a background video is media.add {kind:video,url,behind} — no autoplay, the page plays it in view.`;
+
 /**
  * When a section needs code, and how to write it so the door takes it.
  *
@@ -74,6 +80,7 @@ IMAGES after the hero: loading='lazy' decoding='async' width height; srcset with
 REAL CONTROLS: a form, map or booking the catalog registers is <ck-component type='…' props='{…}'/>; never imitate one.
 ONLINE BOOKING, when the request names booking or appointments online — a real form, not steps and links; WhatsApp stays beside it: <ck-component type='formSection' props='{"heading":"…","variant":"card","fields":[{"id":"service","name":"service","type":"select","label":"…","required":true,"options":[{"label":"…","value":"…"}]},{"id":"date","name":"date","type":"date","label":"…","required":true,"width":"half"},{"id":"time","name":"time","type":"select","label":"…","required":true,"width":"half","options":[{"label":"10:00","value":"10:00"}]},{"id":"phone","name":"phone","type":"tel","label":"…","required":true}],"submitLabel":"…"}'/> — the services and hours are the page's own.
 ${STYLE_MANAGER_TEACHING}
+${MEDIA_MOTION_TEACHING}
 NEVER: script, on… handlers, a style attribute, an iframe from another host, form action or method, http:// addresses.`,
   references: {
     'checks/design-code.md':

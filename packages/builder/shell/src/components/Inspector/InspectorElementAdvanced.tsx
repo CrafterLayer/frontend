@@ -6,6 +6,7 @@ import type { PaletteEntry } from '@craftkit/builder-renderer';
 import {
   CUSTOM_CODE_BEHAVIORS,
   CUSTOM_CODE_BEHAVIOR_PARAMS,
+  CUSTOM_CODE_MEDIA_BEHAVIOR_PARAM_OWNERS,
   namedStyleIdOf,
   namedStyleMarker,
   type CustomCodeNode,
@@ -13,9 +14,20 @@ import {
   type TreeNodePatch,
 } from '@craftkit/builder-schema';
 
-import { ADVANCED_ATTRIBUTE_FIELDS } from '../../custom-code/element-fields';
+import { ADVANCED_ATTRIBUTE_FIELDS, customCodeMediaParamFields } from '../../custom-code/element-fields';
 import { UtilityClassField } from '../../fields/UtilityClassField';
 import { ChoiceGroup } from '../../style-manager/controls/ChoiceGroup';
+// media-motion (2026-10-06)
+import {
+  MEDIA_PARAM_FIELDS_LABELS_AR,
+  MEDIA_PARAM_FIELDS_LABELS_EN,
+  MediaParamFields,
+} from '../../style-manager/controls/MediaParamFields';
+import {
+  SCENE_PRESET_PICKER_LABELS_AR,
+  SCENE_PRESET_PICKER_LABELS_EN,
+  ScenePresetPicker,
+} from '../../style-manager/controls/ScenePresetPicker';
 import { styleTransactionLabel, type StyleApplyResult } from '../../style-manager/style-source';
 import { patchTreeTargets, type TreeTarget, type TreeWriteOptions } from '../../style-manager/tree-writes';
 import type { InspectorElementLabels } from './element-panel.labels';
@@ -45,6 +57,13 @@ function attributesOf(node: CustomCodeNode): Readonly<Record<string, string | un
   return node.kind === 'element' ? (node.attributes ?? {}) : {};
 }
 
+/** media-motion (2026-10-06): the `img` children of a scene layer (its fallback and textures). */
+function imageChildCount(node: CustomCodeNode): number {
+  return node.kind === 'element'
+    ? (node.children ?? []).filter((child) => child.kind === 'element' && child.tag === 'img').length
+    : 0;
+}
+
 /**
  * The Advanced group, last in the Design tab (style-manager DESIGN.md §A.4):
  * the raw class chips (UtilityClassField in FREE mode — an agent tree may use
@@ -72,6 +91,18 @@ export function InspectorElementAdvanced({
   const worn = classList.map(namedStyleIdOf).filter((id): id is string => id !== undefined);
   const attributes = attributesOf(element);
   const behavior = attributes['data-ck-behavior'];
+  // media-motion (2026-10-06): typed rows for the media params; the free-text rows below skip them.
+  const mediaFields = customCodeMediaParamFields(element);
+  const typedParams = new Set(mediaFields.map((field) => field.key));
+  // A media param tunes only its own behaviours (a gallery has no indicator row).
+  const owners = CUSTOM_CODE_MEDIA_BEHAVIOR_PARAM_OWNERS as Readonly<Record<string, readonly string[] | undefined>>;
+  const freeParam = (param: string) => {
+    if (typedParams.has(param)) return false;
+    const tuned = owners[param];
+    return tuned === undefined || (behavior !== undefined && tuned.includes(behavior));
+  };
+  const isScene = attributes['data-ck-scene'] !== undefined;
+  const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
 
   const write = (patch: TreeNodePatch, what: string): StyleApplyResult => {
     const result = patchTreeTargets(kernel, [{ target, patch }], styleTransactionLabel(what, elementName), writeOptions);
@@ -235,9 +266,47 @@ export function InspectorElementAdvanced({
               </select>
             </div>
 
+            {/* media-motion (2026-10-06): typed media params and the scene layer's picker. */}
+            {mediaFields.length === 0 ? null : (
+              <div className="bldr-inspector__advanced-field">
+                <MediaParamFields
+                  dir={uiDir}
+                  labels={locale === 'ar' ? MEDIA_PARAM_FIELDS_LABELS_AR : MEDIA_PARAM_FIELDS_LABELS_EN}
+                  rows={mediaFields.map((field) => {
+                    const value = field.read(element);
+                    return {
+                      key: field.key,
+                      label: field.label[locale],
+                      value: typeof value === 'string' ? value : undefined,
+                      choices: field.choices,
+                      input: field.input,
+                    };
+                  })}
+                  onCommit={(key, value) => {
+                    const field = mediaFields.find((entry) => entry.key === key);
+                    if (field?.patch !== undefined) write(field.patch(value), field.label[locale]);
+                  }}
+                />
+              </div>
+            )}
+
+            {isScene ? (
+              <div className="bldr-inspector__advanced-field">
+                <ScenePresetPicker
+                  attributes={attributes}
+                  imageCount={imageChildCount(element)}
+                  dir={uiDir}
+                  labels={locale === 'ar' ? SCENE_PRESET_PICKER_LABELS_AR : SCENE_PRESET_PICKER_LABELS_EN}
+                  onCommit={(patch, what) => {
+                    write({ attributes: { ...patch } }, what);
+                  }}
+                />
+              </div>
+            ) : null}
+
             {behavior === undefined ? null : (
               <div className="bldr-inspector__rows" role="group" aria-label={labels.behaviorParams}>
-                {CUSTOM_CODE_BEHAVIOR_PARAMS.map((param) => {
+                {CUSTOM_CODE_BEHAVIOR_PARAMS.filter(freeParam).map((param) => {
                   const value = attributes[param];
                   const schema =
                     param === 'data-ck-speed' ? z.enum(['slow', 'normal', 'fast']).optional() : PARAM_TEXT;

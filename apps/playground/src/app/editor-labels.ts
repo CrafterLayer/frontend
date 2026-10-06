@@ -33,6 +33,8 @@ import {
   STYLE_PANEL_LABELS_EN,
   SYMBOLS_PANEL_LABELS_AR,
   SYMBOLS_PANEL_LABELS_EN,
+  TOP_BAR_LABELS_AR,
+  TOP_BAR_LABELS_EN,
   TREE_TEXT_ACTION_LABELS_AR,
   TREE_TEXT_ACTION_LABELS_EN,
 } from '@craftkit/builder';
@@ -46,6 +48,52 @@ export function editorLocaleFromEnv(env: Readonly<Record<string, unknown>>): Edi
   return typeof value === 'string' && value.trim().toLowerCase() === 'ar' ? 'ar' : 'en';
 }
 
+/** The app's own chrome strings (top bar extras, zoom, device line); EN is today's wording. */
+export interface ChromeLabels {
+  readonly workspaceView: string;
+  readonly canvas: string;
+  readonly sitemap: string;
+  readonly publishSite: string;
+  readonly panel: string;
+  readonly togglePanel: string;
+  readonly inspector: string;
+  readonly toggleInspector: string;
+  readonly zoom: string;
+  readonly canvasZoom: string;
+  readonly fit: string;
+  readonly device: Readonly<Record<'base' | 'tablet' | 'mobile', string>>;
+}
+
+const CHROME_LABELS_EN: ChromeLabels = {
+  workspaceView: 'Workspace view',
+  canvas: 'Canvas',
+  sitemap: 'Sitemap',
+  publishSite: 'Publish site',
+  panel: 'Panel',
+  togglePanel: 'Toggle workspace panel',
+  inspector: 'Inspector',
+  toggleInspector: 'Toggle inspector',
+  zoom: 'Zoom',
+  canvasZoom: 'Canvas zoom',
+  fit: 'Fit',
+  device: { base: 'Desktop', tablet: 'Tablet', mobile: 'Mobile' },
+};
+
+const CHROME_LABELS_AR: ChromeLabels = {
+  workspaceView: 'عرض مساحة العمل',
+  canvas: 'اللوحة',
+  sitemap: 'خريطة الموقع',
+  publishSite: 'نشر الموقع',
+  panel: 'اللوحة الجانبية',
+  togglePanel: 'إظهار لوحة العمل أو إخفاؤها',
+  inspector: 'الخصائص',
+  toggleInspector: 'إظهار لوحة الخصائص أو إخفاؤها',
+  zoom: 'التكبير',
+  canvasZoom: 'تكبير اللوحة',
+  fit: 'ملاءمة',
+  device: { base: 'سطح المكتب', tablet: 'جهاز لوحي', mobile: 'جوال' },
+};
+
 /**
  * Every style-manager surface's labels, picked once per locale (DESIGN §0.3:
  * defaults live in each component's `X.labels.ts`; the host picks one).
@@ -54,6 +102,8 @@ export function editorLabels(locale: EditorLocale) {
   const ar = locale === 'ar';
   return {
     dir: ar ? ('rtl' as const) : ('ltr' as const),
+    chrome: ar ? CHROME_LABELS_AR : CHROME_LABELS_EN,
+    topBar: ar ? TOP_BAR_LABELS_AR : TOP_BAR_LABELS_EN,
     assetManager: ar ? ASSET_MANAGER_LABELS_AR : ASSET_MANAGER_LABELS_EN,
     classManager: ar ? CLASS_MANAGER_LABELS_AR : CLASS_MANAGER_LABELS_EN,
     designTransfer: ar ? DESIGN_LIBRARY_TRANSFER_LABELS_AR : DESIGN_LIBRARY_TRANSFER_LABELS_EN,

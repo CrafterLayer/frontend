@@ -1,4 +1,19 @@
-import type { CustomCodeNode } from '@craftkit/builder-schema';
+import {
+  buildCompare,
+  buildGallery,
+  buildMapFacade,
+  buildPricingToggle,
+  buildSceneSection,
+  buildVideoFacade,
+  buildVideoPlayer,
+  buildVideoSection,
+  isMediaRecipeError,
+  mediaRecipeNode,
+  type CustomCodeNode,
+  type GalleryLayout,
+  type MediaImage,
+  type MediaRecipeResult,
+} from '@craftkit/builder-schema';
 
 /*
   The Library's Elements tab (style-manager DESIGN.md §E): twenty starting
@@ -20,13 +35,17 @@ export interface LibraryElementPreset {
   /** Extra search words in both languages. */
   readonly keywords: string;
   readonly node: (language: LibraryLanguage) => CustomCodeNode;
+  /** Region CSS the node's own `ck-` hooks need (media-motion (2026-10-06): masonry, bento, carousel). */
+  readonly css?: ((language: LibraryLanguage) => string) | undefined;
 }
 
 const t = (language: LibraryLanguage, en: string, ar: string): string => (language === 'ar' ? ar : en);
 
 const IMAGE_SRC = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
+// A complete "Share → Embed a map" address: the `pb` blob declares 18 parts (`!1m18`), and the
+// earlier one stopped after 12, which Google answers with HTTP 400 ("rejected your request").
 const MAP_SRC =
-  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3022.215!2d-73.9878!3d40.7484!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1';
+  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3022.6175843!2d-73.98784!3d40.74844!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c259a9b3117469%3A0xd134e199a405a163!2sEmpire%20State%20Building!5e0!3m2!1sen!2sus!4v1700000000000!5m2!1sen!2sus';
 const VIDEO_EMBED_SRC = 'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ';
 const VIDEO_SRC = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
 
@@ -46,6 +65,206 @@ const column = (language: LibraryLanguage, n: number): CustomCodeNode => ({
     paragraph(t(language, 'A short line of supporting text.', 'سطر قصير من النص الداعم.'), 'text-sm text-text-muted'),
   ],
 });
+
+// media-motion (2026-10-06) additions — helpers for the media presets below.
+/*
+  The media presets (media-motion DESIGN D10) are built ONLY by the schema's
+  media recipes, the same pure builders the agent's `media.add` calls, so a
+  gallery inserted by hand and one the agent adds are the same tree. Each is
+  element-level where the recipe allows it (a gallery, a player, a facade, a
+  widget lands inside the current section); a background video and a scene
+  are whole hero sections because their layer needs its host. Images are the
+  Library's own placeholder photo (the catalog lives in the AI package, which
+  the shell cannot import); the compare preset shows it in black and white
+  before and in colour after.
+*/
+
+const VIDEO_YOUTUBE_ID = 'aqz-KE-bpKQ';
+
+/** The recipe's one element; a preset's fixed inputs never fail, so a refusal is a programming error. */
+function recipeNode(result: MediaRecipeResult): CustomCodeNode {
+  if (isMediaRecipeError(result)) throw new Error(`media preset: ${result.error}`);
+  return mediaRecipeNode(result);
+}
+
+function recipeCss(result: MediaRecipeResult): string {
+  return isMediaRecipeError(result) ? '' : result.css;
+}
+
+function placeholderImages(language: LibraryLanguage, count: number): MediaImage[] {
+  return Array.from({ length: count }, (_, at) => ({
+    src: IMAGE_SRC,
+    alt: t(language, `Hills under a morning sky, photo ${String(at + 1)}`, `تلال تحت سماء الصباح، الصورة ${String(at + 1)}`),
+    width: 1200,
+    height: 800,
+  }));
+}
+
+function galleryPreset(language: LibraryLanguage, layout: GalleryLayout): MediaRecipeResult {
+  return buildGallery({
+    layout,
+    images: placeholderImages(language, 6),
+    locale: language,
+    captions: layout === 'masonry',
+    standalone: false,
+  });
+}
+
+function galleryEntry(
+  id: string,
+  layout: GalleryLayout,
+  labels: LibraryElementPreset['labels'],
+  keywords: string,
+): LibraryElementPreset {
+  return {
+    id,
+    labels,
+    keywords,
+    node: (l) => recipeNode(galleryPreset(l, layout)),
+    css: (l) => recipeCss(galleryPreset(l, layout)),
+  };
+}
+
+function mediaPresets(): LibraryElementPreset[] {
+  return [
+    galleryEntry('gallery-grid', 'grid', { en: 'Photo gallery', ar: 'معرض صور' }, 'معرض صور gallery photos grid lightbox شبكة'),
+    galleryEntry(
+      'gallery-masonry',
+      'masonry',
+      { en: 'Masonry gallery', ar: 'معرض صور متداخل' },
+      'معرض صور متداخل gallery masonry pinterest',
+    ),
+    galleryEntry(
+      'gallery-carousel',
+      'carousel',
+      { en: 'Gallery carousel', ar: 'معرض صور منزلق' },
+      'معرض صور سلايدر منزلق gallery carousel slider',
+    ),
+    {
+      id: 'video-player',
+      labels: { en: 'Video player', ar: 'مشغل فيديو' },
+      keywords: 'فيديو مشغل video player mp4 controls',
+      node: (l) =>
+        recipeNode(
+          buildVideoPlayer(l, {
+            src: VIDEO_SRC,
+            type: 'video/mp4',
+            poster: IMAGE_SRC,
+            title: t(l, 'A flower opens', 'زهرة تتفتح'),
+          }),
+        ),
+    },
+    {
+      id: 'video-youtube',
+      labels: { en: 'YouTube video', ar: 'فيديو يوتيوب' },
+      keywords: 'فيديو يوتيوب video youtube vimeo facade',
+      node: (l) =>
+        recipeNode(
+          buildVideoFacade(l, {
+            video: { kind: 'youtube', id: VIDEO_YOUTUBE_ID },
+            poster: IMAGE_SRC,
+            title: t(l, 'Our story on video', 'قصتنا بالفيديو'),
+          }),
+        ),
+    },
+    {
+      id: 'bg-video-hero',
+      labels: { en: 'Background video hero', ar: 'واجهة بفيديو خلفي' },
+      keywords: 'فيديو خلفية هيرو background video hero loop',
+      node: (l) =>
+        recipeNode(
+          buildVideoSection(l, {
+            mode: 'background',
+            url: VIDEO_SRC,
+            poster: IMAGE_SRC,
+            title: t(l, 'A clear headline', 'عنوان واضح'),
+            text: t(l, 'One line that says what you offer.', 'سطر واحد يقول ما تقدمه.'),
+          }),
+        ),
+    },
+    {
+      id: 'scene-particles',
+      labels: { en: 'Animated background', ar: 'خلفية متحركة' },
+      keywords: 'خلفية متحركة جزيئات animated background particles pixi',
+      node: (l) =>
+        recipeNode(
+          buildSceneSection({
+            scene: 'particles',
+            locale: l,
+            title: t(l, 'A clear headline', 'عنوان واضح'),
+            text: t(l, 'One line that says what you offer.', 'سطر واحد يقول ما تقدمه.'),
+          }),
+        ),
+    },
+    {
+      id: 'scene-mural',
+      labels: { en: 'Moving mural', ar: 'جدارية متحركة' },
+      keywords: 'خلفية متحركة جدارية mural pixi animated wall',
+      node: (l) =>
+        recipeNode(
+          buildSceneSection({
+            scene: 'mural',
+            images: placeholderImages(l, 3),
+            locale: l,
+            title: t(l, 'A clear headline', 'عنوان واضح'),
+          }),
+        ),
+    },
+    {
+      id: 'compare',
+      labels: { en: 'Before and after', ar: 'قبل وبعد' },
+      keywords: 'قبل وبعد compare before after slider',
+      node: (l) =>
+        recipeNode(
+          buildCompare({
+            locale: l,
+            standalone: false,
+            before: {
+              src: `${IMAGE_SRC}&sat=-100`,
+              alt: t(l, 'Before: the hills in black and white', 'قبل: التلال بالأبيض والأسود'),
+              width: 1200,
+              height: 800,
+            },
+            after: {
+              src: IMAGE_SRC,
+              alt: t(l, 'After: the hills in colour', 'بعد: التلال بالألوان'),
+              width: 1200,
+              height: 800,
+            },
+          }),
+        ),
+    },
+    {
+      id: 'pricing-toggle',
+      labels: { en: 'Pricing (monthly / yearly)', ar: 'أسعار (شهري / سنوي)' },
+      keywords: 'أسعار شهري سنوي pricing monthly yearly plans toggle',
+      node: (l) =>
+        recipeNode(
+          buildPricingToggle({
+            locale: l,
+            standalone: false,
+            plans: [
+              { name: t(l, 'Starter', 'أساسي'), a: '$9', b: '$90', features: [t(l, 'One site', 'موقع واحد')] },
+              { name: t(l, 'Pro', 'احترافي'), a: '$29', b: '$290', features: [t(l, 'Five sites', 'خمسة مواقع')] },
+            ],
+          }),
+        ),
+    },
+    {
+      id: 'map-facade',
+      labels: { en: 'Map (loads on click)', ar: 'خريطة (تُحمَّل عند النقر)' },
+      keywords: 'خريطة map location address privacy موقع عنوان',
+      node: (l) =>
+        recipeNode(
+          buildMapFacade(t(l, 'Empire State Building, New York', 'مبنى إمباير ستيت، نيويورك'), {
+            locale: l,
+            standalone: false,
+          }),
+        ),
+    },
+  ];
+}
+// ── end media-motion (2026-10-06) additions ──
 
 export const LIBRARY_ELEMENT_PRESETS: readonly LibraryElementPreset[] = Object.freeze([
   {
@@ -147,7 +366,7 @@ export const LIBRARY_ELEMENT_PRESETS: readonly LibraryElementPreset[] = Object.f
     node: (l) => ({
       kind: 'element',
       tag: 'div',
-      className: 'grid gap-6 md:grid-cols-2',
+      className: 'grid grid-cols-2 gap-6 max-md:grid-cols-1',
       children: [column(l, 1), column(l, 2)],
     }),
   },
@@ -158,7 +377,7 @@ export const LIBRARY_ELEMENT_PRESETS: readonly LibraryElementPreset[] = Object.f
     node: (l) => ({
       kind: 'element',
       tag: 'div',
-      className: 'grid gap-6 sm:grid-cols-2 lg:grid-cols-3',
+      className: 'grid grid-cols-3 gap-6 max-lg:grid-cols-2 max-md:grid-cols-1',
       children: [column(l, 1), column(l, 2), column(l, 3)],
     }),
   },
@@ -343,4 +562,6 @@ export const LIBRARY_ELEMENT_PRESETS: readonly LibraryElementPreset[] = Object.f
       ],
     }),
   },
+  // media-motion (2026-10-06) additions: galleries, video, scenes and widgets from the schema media recipes.
+  ...mediaPresets(),
 ] satisfies LibraryElementPreset[]);

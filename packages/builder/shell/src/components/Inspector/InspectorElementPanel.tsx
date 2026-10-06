@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 
 import type { BuilderKernel } from '@craftkit/builder-core';
@@ -9,6 +9,7 @@ import type {
   NodeId,
   SiteLibrary,
   StyleBucket,
+  StyleSectorId,
   StyleState,
 } from '@craftkit/builder-schema';
 
@@ -47,6 +48,7 @@ import { treeIdsOf } from './element-tree-ids';
 import { InspectorElementAdvanced } from './InspectorElementAdvanced';
 import { InspectorElementContent } from './InspectorElementContent';
 import { InspectorEmptyState } from './InspectorEmptyState';
+import type { InspectorFocusRequest, InspectorStyleContext } from './inspector-request';
 import type { DocumentDirection } from './types';
 import { useTreeElement } from './use-tree-element';
 
@@ -75,6 +77,12 @@ export interface InspectorElementPanelProps {
   readonly onPreviewElement?: ((target: TreeTarget) => void) | undefined;
   readonly onOpenRegionCss?: ((nodeId: NodeId) => void) | undefined;
   readonly onOpenPageCss?: (() => void) | undefined;
+  /** The quick bar's "More" / "Animate": a tab (and sector) to show now. */
+  readonly request?: InspectorFocusRequest | undefined;
+  /** Reports the open Design sector and the forced state, for canvas overlays. */
+  readonly onStyleContextChange?: ((context: InspectorStyleContext) => void) | undefined;
+  /** The request was honoured; the host drops it so another element does not inherit it. */
+  readonly onRequestHandled?: ((nonce: number) => void) | undefined;
 }
 
 function roleToken(role: string): string {
@@ -109,6 +117,9 @@ export function InspectorElementPanel({
   onPreviewElement,
   onOpenRegionCss,
   onOpenPageCss,
+  request,
+  onStyleContextChange,
+  onRequestHandled,
 }: InspectorElementPanelProps) {
   const labels = locale === 'ar' ? INSPECTOR_ELEMENT_LABELS_AR : INSPECTOR_ELEMENT_LABELS_EN;
   const styleLabels = locale === 'ar' ? STYLE_PANEL_LABELS_AR : STYLE_PANEL_LABELS_EN;
@@ -123,6 +134,21 @@ export function InspectorElementPanel({
   const [tab, setTab] = useState<ElementTabId>(rememberedElementTab);
   const [bucket, setBucket] = useState<StyleBucket>(device);
   const [state, setState] = useState<StyleState>('default');
+  const [seenRequest, setSeenRequest] = useState<number | undefined>(undefined);
+  if (request !== undefined && seenRequest !== request.nonce) {
+    // The host asked for a place (quick bar "More" / "Animate"): go there.
+    setSeenRequest(request.nonce);
+    setTab(request.tab);
+    rememberElementTab(request.tab);
+  }
+  useEffect(() => {
+    if (seenRequest !== undefined) onRequestHandled?.(seenRequest);
+  }, [seenRequest, onRequestHandled]);
+  const [sector, setSector] = useState<StyleSectorId | null>(request?.sector ?? null);
+  const shownSector = tab === 'design' ? sector : null;
+  useEffect(() => {
+    onStyleContextChange?.({ sector: shownSector, state });
+  }, [onStyleContextChange, shownSector, state]);
   const [seenDevice, setSeenDevice] = useState(device);
   if (seenDevice !== device) {
     // The DeviceBar moved: the panel edits that bucket now (§A.7).
@@ -222,6 +248,12 @@ export function InspectorElementPanel({
             tag={element.kind === 'element' ? element.tag : undefined}
             announce={announce}
             labels={styleLabels}
+            revealSector={
+              request?.tab === 'design' && request.sector !== undefined
+                ? { sector: request.sector, nonce: request.nonce }
+                : undefined
+            }
+            onActiveSectorChange={setSector}
           >
             <InspectorElementAdvanced
               kernel={kernel}

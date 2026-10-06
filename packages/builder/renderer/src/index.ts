@@ -148,3 +148,11 @@ export {
   type NamedStyleTransform,
 } from './site-design/named-style-transform';
 // ── end P4-animation ──
+// ── fix pass (style-manager DESIGN.md P11) ──
+export { resolveCustomCodeAssetSrc } from './assets/asset-table';
+// ── end fix pass ──
+// media-motion (2026-10-06) additions: the behaviour packs (gallery, carousel,
+// video, widgets, engines), the composed canvas mount, and which lazy engines
+// (scene, timeline, lottie) a page's markup uses. Engine sources stay dynamic.
+export { BEHAVIOR_PACKS, mountSiteBehaviors, pageEngines, type BehaviorPack, type PageEngine } from './behaviors';
+// end media-motion (2026-10-06) additions

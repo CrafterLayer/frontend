@@ -16,7 +16,8 @@ import {
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { BEHAVIOR_CSS, behaviorRuntimeScript, hasBehaviors } from '../behaviors';
+import { AssetTableContext, type AssetTable } from '../assets/asset-table';
+import { BEHAVIOR_CSS, behaviorRuntimeScript, hasBehaviors, pageEngines, type PageEngine } from '../behaviors'; // media-motion (2026-10-06): + engines
 import { LENIS_BANNER, LENIS_CSS, LENIS_SOURCE } from '../behaviors/lenis-source';
 import { CustomCodeClassTransformContext } from '../components/CustomCode/class-transform-context';
 import { loadTablerIcons } from '../components/CustomCode/tabler-icons';
@@ -96,6 +97,12 @@ export interface ExportStaticSiteOptions {
    * when `compileCss` reads the stored document.
    */
   readonly compileClasses?: ((classNames: Iterable<string>) => Promise<string>) | undefined;
+  /**
+   * The site's asset table, so a block image (`{assetId}`) and a tree image
+   * (`/ck-assets/<id>`) publish the picture they show on the canvas instead
+   * of a labelled absence.
+   */
+  readonly assets?: AssetTable | undefined;
 }
 
 export interface StaticSiteFile {
@@ -251,6 +258,28 @@ function fontLinks(fonts: readonly string[]): string {
   return [...preconnect, ...fonts.map((url) => `<link rel="stylesheet" href="${escapeAttribute(url)}">`)].join('');
 }
 
+// media-motion (2026-10-06): the engine assets, imported only when a page uses one (the loadTablerIcons precedent).
+const ENGINE_ORDER: readonly PageEngine[] = ['timeline', 'scene', 'lottie'];
+
+async function engineAsset(kind: PageEngine): Promise<string> {
+  if (kind === 'timeline') {
+    const [{ TIMELINE_BANNER, TIMELINE_SOURCE }, { installTimelineEngine }] = await Promise.all([
+      import('../engines/timeline-source'),
+      import('../engines/timeline-runner'),
+    ]);
+    return `${TIMELINE_BANNER}${TIMELINE_SOURCE}\n;(${installTimelineEngine.toString()})(window);\n`;
+  }
+  if (kind === 'lottie') {
+    const [{ LOTTIE_BANNER, LOTTIE_SOURCE }, { installLottieEngine }] = await Promise.all([
+      import('../engines/lottie-source'),
+      import('../engines/lottie-runner'),
+    ]);
+    return `${LOTTIE_BANNER}${LOTTIE_SOURCE}\n;(${installLottieEngine.toString()})(window);\n`;
+  }
+  // The scene bundle carries its own banner (Pixi + dependency notices) and installs itself.
+  return (await import('../engines/scene-source')).SCENE_SOURCE;
+}
+
 interface RenderedPage {
   readonly input: StaticSitePageInput;
   readonly file: string;
@@ -261,6 +290,8 @@ interface RenderedPage {
   readonly fonts: readonly string[];
   readonly css: string;
   readonly behaviors: boolean;
+  /** media-motion (2026-10-06): the lazy engines (scene, timeline, lottie) the page's markup uses. */
+  readonly engines: ReadonlySet<PageEngine>;
   readonly motion: boolean;
   readonly seo: PageSeo | undefined;
   readonly noIndex: boolean;
@@ -333,17 +364,21 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
     const render = (document: BuilderDocument) =>
       renderToStaticMarkup(
         createElement(
-          SiteDesignContext.Provider,
-          { value: design },
+          AssetTableContext.Provider,
+          { value: options.assets ?? {} },
           createElement(
-            CustomCodeClassTransformContext.Provider,
-            { value: classTransform },
-            createElement(StaticDocument, {
-              document,
-              blocks: options.blocks,
-              breakpoint: 'desktop',
-              ...(options.theme === undefined ? {} : { theme: options.theme }),
-            }),
+            SiteDesignContext.Provider,
+            { value: design },
+            createElement(
+              CustomCodeClassTransformContext.Provider,
+              { value: classTransform },
+              createElement(StaticDocument, {
+                document,
+                blocks: options.blocks,
+                breakpoint: 'desktop',
+                ...(options.theme === undefined ? {} : { theme: options.theme }),
+              }),
+            ),
           ),
         ),
       );
@@ -371,6 +406,7 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
       fonts: [...libraryCss.fonts, ...fonts.filter((url) => !libraryCss.fonts.includes(url))],
       css,
       behaviors: hasBehaviors(body),
+      engines: pageEngines(body), // media-motion (2026-10-06)
       motion: usage.presets.size + usage.hovers.size + usage.effects.size > 0,
       seo: parsePageSeo(props['seo']),
       noIndex: props['noIndex'] === true,
@@ -413,6 +449,11 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
   if (smoothScroll) {
     out.push({ path: 'assets/ck-smooth-scroll.js', content: `${LENIS_BANNER}${LENIS_SOURCE}\n${SMOOTH_SCROLL_INIT}` });
   }
+  // media-motion (2026-10-06): each engine any page uses ships ONCE, loaded only when used.
+  const usedEngines = new Set<PageEngine>(rendered.flatMap((page) => [...page.engines]));
+  for (const kind of ENGINE_ORDER) {
+    if (usedEngines.has(kind)) out.push({ path: `assets/ck-${kind}.js`, content: await engineAsset(kind) });
+  }
 
   for (const page of rendered) {
     const props = rootProps(page.input.document);
@@ -446,6 +487,10 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
       page.motion && motionCss !== '' ? `<link rel="stylesheet" href="${up}assets/ck-motion.css">` : '',
       page.behaviors ? `<script defer src="${up}assets/ck-behaviors.js"></script>` : '',
       smoothScroll ? `<script defer src="${up}assets/ck-smooth-scroll.js"></script>` : '',
+      // media-motion (2026-10-06): prefetch only; the `engines` pack injects the script when due.
+      ...ENGINE_ORDER.filter((kind) => page.engines.has(kind)).map(
+        (kind) => `<link rel="prefetch" as="script" href="${up}assets/ck-${kind}.js" data-ck-engine="${kind}">`,
+      ),
     ].join('');
     const html = `<!doctype html><html lang="${escapeAttribute(page.lang)}" dir="${page.dir}"><head>${head}${links}</head><body>${page.body}</body></html>`;
     out.push({ path: page.file, content: html });

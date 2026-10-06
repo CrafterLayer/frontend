@@ -31,9 +31,10 @@ import {
   type SlotName,
 } from '@craftkit/builder-schema';
 
+import { resolveCustomCodeAssetSrc, useAssetTable, type AssetTable } from '../../assets/asset-table';
 import { ensureBehaviorCss, ensureMotionCss } from '../../behaviors/behaviors-css';
 import { BEHAVIOR_RUNTIME_SELECTOR } from '../../behaviors/script';
-import { mountBehaviors } from '../../behaviors/runtime';
+import { mountSiteBehaviors } from '../../behaviors/mount'; // media-motion (2026-10-06)
 import { CUSTOM_CODE_REGION_ATTRIBUTE } from '../../tailwind/live-utilities';
 import { safeHref } from '../RichText/safe-href';
 import { UnknownBlock } from '../UnknownBlock';
@@ -232,7 +233,7 @@ function elementAttributes(
     if (customCodeAttributeProblem(tag, name, value) !== undefined) continue;
     if (name === 'src' || name === 'poster') {
       // An iframe's src already passed the embed allowlist above.
-      const safe = tag === 'iframe' ? value.trim() : safeSrc(value);
+      const safe = tag === 'iframe' ? value.trim() : safeSrc(resolveCustomCodeAssetSrc(value, context.assets));
       if (safe !== undefined) out[name] = safe;
       continue;
     }
@@ -349,6 +350,8 @@ interface RenderContext {
    * placeholder draws the icon on the next pass. Read by nothing but identity.
    */
   readonly iconVersion: number;
+  /** The site's asset table: an `<img src="/ck-assets/<id>">` draws that entry. */
+  readonly assets: AssetTable;
 }
 
 function transformedClass(context: RenderContext, value: unknown): string | undefined {
@@ -725,6 +728,7 @@ export function CustomCode({
 }: CustomCodeProps) {
   const contextLookup = useCustomCodeBlockLookup();
   const classTransform = useCustomCodeClassTransform();
+  const assets = useAssetTable();
   const regionRef = useRef<HTMLDivElement>(null);
   /*
     Tabler icons draw from data loaded on first use. The version is part of
@@ -758,7 +762,7 @@ export function CustomCode({
     if (region.querySelector('[class*="ck-fx-"]') !== null) ensureMotionCss(region.ownerDocument);
     if (region.querySelector(BEHAVIOR_RUNTIME_SELECTOR) === null) return undefined;
     ensureBehaviorCss(region.ownerDocument);
-    return mountBehaviors(region, { interactive: !isCanvas });
+    return mountSiteBehaviors(region, { interactive: !isCanvas }); // media-motion (2026-10-06): core + packs + canvas engines
   }, [tree, isCanvas]);
   const root = asRecord(tree);
   const context: RenderContext = {
@@ -768,6 +772,7 @@ export function CustomCode({
     classTransform,
     inSendingForm: false,
     iconVersion,
+    assets,
   };
   const children = root === null ? [] : childrenOf(root);
   // The region marker is where the live Tailwind sheet's `@scope` begins.

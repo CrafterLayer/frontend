@@ -48,3 +48,15 @@ type Story = StoryObj<typeof meta>;
 export const Animated: Story = {};
 export const Empty: Story = { args: { attributes: {} } };
 export const Arabic: Story = { args: { labels: INTERACTIONS_PANEL_LABELS_AR, dir: 'rtl' } };
+// media-motion (2026-10-06): the flag-gated Cinematic motion section, opted in for review.
+export const CinematicEnglishLtr: Story = {
+  args: { attributes: { 'data-ck-timeline': 'split-reveal' }, timelinePanel: true, dir: 'ltr' },
+};
+export const CinematicArabicRtl: Story = {
+  args: {
+    attributes: { 'data-ck-timeline': 'pin-sequence', 'data-ck-scrub': 'true' },
+    timelinePanel: true,
+    labels: INTERACTIONS_PANEL_LABELS_AR,
+    dir: 'rtl',
+  },
+};

@@ -33,7 +33,7 @@ describe('LibraryPanel', () => {
   });
 
   it.each(['en', 'ar'] as const)('every Elements preset is a valid tree node (%s)', (language) => {
-    expect(LIBRARY_ELEMENT_PRESETS).toHaveLength(20);
+    expect(LIBRARY_ELEMENT_PRESETS).toHaveLength(31);
     for (const preset of LIBRARY_ELEMENT_PRESETS) {
       const tree = { kind: 'root', children: [preset.node(language)] };
       expect({ id: preset.id, problems: customCodeTreeProblems(tree) }).toEqual({ id: preset.id, problems: [] });
@@ -79,7 +79,7 @@ describe('LibraryPanel', () => {
     render(<LibraryPanel kernel={makeKernel()} />);
     await user.type(screen.getByRole('searchbox'), 'خريطة');
     const tiles = screen.getAllByRole('button', { name: /^Insert / });
-    expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual(['Insert Map embed']);
+    expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual(['Insert Map embed', 'Insert Map (loads on click)']);
     await user.clear(screen.getByRole('searchbox'));
     await user.type(screen.getByRole('searchbox'), 'zzzz');
     expect(screen.getByText('Nothing matches. Try another word.')).toBeInTheDocument();
@@ -144,5 +144,83 @@ describe('LibraryPanel', () => {
     const doc = previewSrcdoc({ markup: '<p>Hi</p>', css: 'p{color:red}</style><script>', dir: 'rtl', lang: 'ar' });
     expect(doc).toContain('<html dir="rtl" lang="ar">');
     expect(doc).not.toContain('</style><script>');
+  });
+});
+
+// media-motion (2026-10-06) additions: the media presets are the schema recipes' trees.
+describe('LibraryPanel — media presets (media-motion DESIGN D10)', () => {
+  const MEDIA_IDS = [
+    'gallery-grid',
+    'gallery-masonry',
+    'gallery-carousel',
+    'video-player',
+    'video-youtube',
+    'bg-video-hero',
+    'scene-particles',
+    'scene-mural',
+    'compare',
+    'pricing-toggle',
+    'map-facade',
+  ];
+  const preset = (id: string) => {
+    const found = LIBRARY_ELEMENT_PRESETS.find((entry) => entry.id === id);
+    if (found === undefined) throw new Error(`no preset ${id}`);
+    return found;
+  };
+  const attributesOf = (node: CustomCodeRoot['children'][number]) =>
+    node.kind === 'element' ? (node.attributes ?? {}) : {};
+
+  beforeAll(() => {
+    installBrowserStandIns();
+  });
+
+  it('every media preset id is unique and searchable in Arabic and English', () => {
+    const ids = LIBRARY_ELEMENT_PRESETS.map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of MEDIA_IDS) {
+      const entry = preset(id);
+      expect(entry.keywords, id).toMatch(/[؀-ۿ]/u);
+      expect(entry.keywords, id).toMatch(/[a-z]/u);
+    }
+  });
+
+  it.each(['en', 'ar'] as const)('each media preset carries its behaviour or engine marker (%s)', (language) => {
+    expect(attributesOf(preset('gallery-grid').node(language))).toMatchObject({ 'data-ck-behavior': 'gallery' });
+    expect(attributesOf(preset('gallery-masonry').node(language))).toMatchObject({ 'data-ck-behavior': 'gallery' });
+    expect(attributesOf(preset('gallery-carousel').node(language))).toMatchObject({ 'data-ck-behavior': 'gallery' });
+    expect(attributesOf(preset('video-player').node(language))).toMatchObject({ 'data-ck-behavior': 'video-player' });
+    expect(attributesOf(preset('video-youtube').node(language))).toMatchObject({ 'data-ck-behavior': 'embed-facade' });
+    expect(attributesOf(preset('bg-video-hero').node(language))).toMatchObject({ 'data-ck-behavior': 'bg-video' });
+    expect(attributesOf(preset('compare').node(language))).toMatchObject({ 'data-ck-behavior': 'compare' });
+    expect(attributesOf(preset('pricing-toggle').node(language))).toMatchObject({ 'data-ck-behavior': 'toggle-group' });
+    expect(attributesOf(preset('map-facade').node(language))).toMatchObject({ 'data-ck-behavior': 'embed-facade' });
+    const scene = preset('scene-mural').node(language);
+    const layer = scene.kind === 'element' ? scene.children?.[0] : undefined;
+    expect(layer === undefined ? {} : attributesOf(layer)).toMatchObject({ 'data-ck-scene': 'mural', 'aria-hidden': 'true' });
+    expect(attributesOf(scene)).toMatchObject(language === 'ar' ? { lang: 'ar', dir: 'rtl' } : { lang: 'en', dir: 'ltr' });
+  });
+
+  it('a gallery whose layout needs region hooks carries the recipe CSS', () => {
+    expect(preset('gallery-masonry').css?.('ar')).toContain('.ck-masonry');
+    expect(preset('gallery-grid').css?.('en') ?? '').toBe('');
+  });
+
+  it('inserting the masonry gallery is ONE transaction that writes the tree and its CSS; one undo removes it', async () => {
+    const kernel = makeKernel();
+    const user = userEvent.setup();
+    render(<LibraryPanel kernel={kernel} labels={LIBRARY_PANEL_LABELS_AR} />);
+    await user.click(screen.getByRole('button', { name: 'إدراج معرض صور متداخل' }));
+    expect(kernel.transactions()).toHaveLength(1);
+    const slots = kernel.getDocument().nodes['root']?.slots?.['default'] ?? [];
+    const created = slots[3] ?? '';
+    expect(treeOf(kernel, created).children[0]).toMatchObject({
+      tag: 'div',
+      attributes: { 'data-ck-behavior': 'gallery' },
+    });
+    expect((kernel.getDocument().nodes[created]?.props['css'] as string | undefined) ?? '').toContain('.ck-masonry');
+    act(() => {
+      kernel.undo();
+    });
+    expect(kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(3);
   });
 });

@@ -271,6 +271,18 @@ export function planBlockDetach(kernel: BuilderKernel, nodeId: NodeId, options: 
   if (treeKey === undefined) return { ok: false, reasons: [`no "${regionType}" region block is registered on this editor`] };
   const place = parentOf(document, nodeId);
   if (place === undefined) return { ok: false, reasons: [`"${nodeId}" sits in no slot`] };
+  // Before rendering anything: a slot that cannot hold a region makes the conversion impossible here.
+  const parentType = document.nodes[place.parentId]?.type;
+  const allow =
+    parentType === undefined ? undefined : kernel.context.registry.block(parentType)?.schema.slots?.[place.slot]?.allow;
+  if (allow !== undefined && !allow.includes(regionType)) {
+    return {
+      ok: false,
+      reasons: [
+        `"${nodeId}" sits in slot "${place.slot}" of "${parentType ?? ''}", which accepts [${allow.join(', ')}] and not an editable region · convert the block that holds it instead`,
+      ],
+    };
+  }
   const render = options.render ?? registeredRenderer;
   if (render === undefined) return { ok: false, reasons: ['Convert to editable is not available here: no static renderer is registered'] };
 

@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { AssetEntry, AssetId, ImageProp } from '@craftkit/builder-schema';
+import { customCodeAssetId, type AssetEntry, type AssetId, type ImageProp } from '@craftkit/builder-schema';
 
 /**
  * The site's asset table, made reachable from inside a block (FR-045).
@@ -66,4 +66,11 @@ export function resolveImage(
     };
   }
   return { kind: 'asset', entry };
+}
+
+/** A tree address with its `/ck-assets/<id>` reference resolved to the entry's own url. */
+export function resolveCustomCodeAssetSrc(src: string, table: AssetTable): string {
+  const id = customCodeAssetId(src);
+  if (id === undefined || !Object.hasOwn(table, id)) return src;
+  return table[id]?.url ?? src;
 }

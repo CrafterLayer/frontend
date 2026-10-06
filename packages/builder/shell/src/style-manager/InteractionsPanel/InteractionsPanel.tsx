@@ -9,6 +9,7 @@ import {
 
 import { ChoiceGroup } from '../controls/ChoiceGroup';
 import { MotionPresetGrid } from '../controls/MotionPresetGrid';
+import { TimelineRecipePicker } from '../controls/TimelineRecipePicker'; // media-motion (2026-10-06)
 import type { StyleApplyResult } from '../style-source';
 import {
   INTERACTIONS_PANEL_LABELS_EN,
@@ -23,6 +24,7 @@ import {
   type AttributePatch,
   type MotionAttributes,
 } from './motion-attributes';
+import { TIMELINE_PANEL_ENABLED } from './timeline-flag'; // media-motion (2026-10-06)
 
 import './InteractionsPanel.css';
 
@@ -41,6 +43,12 @@ export interface InteractionsPanelProps {
   /** The editor UI direction. */
   readonly dir?: 'ltr' | 'rtl' | undefined;
   readonly labels?: InteractionsPanelLabels | undefined;
+  /**
+   * media-motion (2026-10-06): show the "Cinematic motion" section even while
+   * `TIMELINE_PANEL_ENABLED` is off — for stories and tests only (GSAP licence,
+   * DESIGN §C.1.2; see timeline-flag.ts).
+   */
+  readonly timelinePanel?: boolean | undefined;
 }
 
 const SIZES = ['sm', 'md', 'lg'] as const;
@@ -61,6 +69,7 @@ export function InteractionsPanel({
   announce,
   dir = 'ltr',
   labels = INTERACTIONS_PANEL_LABELS_EN,
+  timelinePanel = false,
 }: InteractionsPanelProps) {
   const [pendingTrigger, setPendingTrigger] = useState<CustomCodeMotionTrigger>(triggerOf(attributes));
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -69,6 +78,8 @@ export function InteractionsPanel({
   const hover = attributes['data-ck-hover'];
   const trigger = motion === undefined ? pendingTrigger : triggerOf(attributes);
   const tunable = hasAnimation(attributes);
+  // media-motion (2026-10-06): the named scroll timeline is flag-gated (GSAP licence, DESIGN §C.1.2).
+  const showTimeline = TIMELINE_PANEL_ENABLED || timelinePanel;
 
   const write = (patch: AttributePatch, what: string) => {
     if (Object.keys(patch).length === 0) return;
@@ -116,7 +127,13 @@ export function InteractionsPanel({
           dir={dir}
           labels={labels.grid}
           onSelect={(preset) => {
-            write(presetPatch(attributes, 'data-ck-motion', preset, trigger), labels.animation);
+            const patch = presetPatch(attributes, 'data-ck-motion', preset, trigger);
+            // media-motion (2026-10-06): a CSS preset and a scroll timeline never drive one element.
+            if (preset !== null && attributes['data-ck-timeline'] !== undefined) {
+              patch['data-ck-timeline'] = null;
+              if (attributes['data-ck-scrub'] !== undefined) patch['data-ck-scrub'] = null;
+            }
+            write(patch, labels.animation);
           }}
         />
       </div>
@@ -235,6 +252,21 @@ export function InteractionsPanel({
           }}
         />
       </div>
+
+      {showTimeline ? (
+        <section className="bldr-interactions__row" aria-label={labels.cinematic}>
+          <h4 className="bldr-interactions__label bldr-interactions__heading">{labels.cinematic}</h4>
+          <p className="bldr-interactions__hint">{labels.cinematicHint}</p>
+          <TimelineRecipePicker
+            attributes={attributes}
+            dir={dir}
+            labels={labels.timeline}
+            onCommit={(patch, what) => {
+              write({ ...patch }, what);
+            }}
+          />
+        </section>
+      ) : null}
 
       <div className="bldr-interactions__actions">
         <button

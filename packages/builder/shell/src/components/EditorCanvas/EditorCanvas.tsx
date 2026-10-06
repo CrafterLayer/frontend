@@ -22,6 +22,7 @@ import {
 } from '@craftkit/builder-renderer';
 import type {
   CustomCodeNode,
+  CustomCodeRoot,
   InlineEditableKind,
   InlineEditorProps,
   InlineFormatAction,
@@ -217,6 +218,11 @@ export interface EditorCanvasProps {
   editorDir?: 'ltr' | 'rtl' | undefined;
   /** Test-only geometry for tree drops (jsdom has no layout). */
   treeDropPorts?: Partial<TreeDropPorts> | undefined;
+  /**
+   * The site's symbol masters by id: an element inside a symbol instance gets
+   * its quick bar, which writes the instance's overrides (fix pass, §G).
+   */
+  symbolTree?: ((symbolId: string) => CustomCodeRoot | undefined) | undefined;
 }
 
 /**
@@ -466,6 +472,7 @@ export function EditorCanvas({
   elementNameWords = ELEMENT_NAME_WORDS_EN,
   editorDir = 'ltr',
   treeDropPorts,
+  symbolTree,
 }: EditorCanvasProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const frameShellRef = useRef<HTMLDivElement | null>(null);
@@ -1935,7 +1942,9 @@ export function EditorCanvas({
     if (located !== undefined) {
       return `${customCodeElementName(located.element)} in ${blockDisplayName(kernel, node.id)}`;
     }
-    return kernel.context.registry.block(node.type)?.schema.description ?? node.type;
+    // The block's display name (its label, or the registry's name for the type) —
+    // never its AI-facing description, which read ~1 KB aloud (fix pass).
+    return blockDisplayName(kernel, node.id);
   }, [kernel, doc, selectedId, elementFocus]);
 
   const announcement = useMemo(
@@ -2029,8 +2038,9 @@ export function EditorCanvas({
             pageDir: dir,
             words: elementNameWords,
             namedStyles: namedStyleClasses,
+            writeOptions: { symbolTree },
           }),
-    [kernel, doc, elementTargets, bucket, styleState, dir, elementNameWords, namedStyleClasses],
+    [kernel, doc, elementTargets, bucket, styleState, dir, elementNameWords, namedStyleClasses, symbolTree],
   );
   const colorTokens = useMemo(() => themeColorSwatches(theme), [theme]);
   const paletteColors = useMemo(() => paletteSwatches(palette), [palette]);

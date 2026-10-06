@@ -410,3 +410,110 @@ describe('exportStaticSite — design library and motion', () => {
     expect(file('assets/site.css')).toContain('.rounded-lg{border-radius:.5rem}');
   });
 });
+
+/* ── media-motion (2026-10-06): behaviour packs and lazy engines in the export ── */
+
+const sceneTree: JsonValue = {
+  kind: 'root',
+  children: [
+    {
+      kind: 'element',
+      tag: 'section',
+      className: 'relative isolate overflow-hidden',
+      children: [
+        {
+          kind: 'element',
+          tag: 'div',
+          className: 'absolute inset-0 -z-10',
+          attributes: { 'data-ck-scene': 'particles' },
+          children: [{ kind: 'element', tag: 'img', attributes: { src: 'https://images.example.com/a.jpg', alt: '' } }],
+        },
+        { kind: 'element', tag: 'h1', text: 'جدارية' },
+      ],
+    },
+  ],
+};
+const timelineTree: JsonValue = {
+  kind: 'root',
+  children: [{ kind: 'element', tag: 'h2', text: 'قصتنا', attributes: { 'data-ck-timeline': 'split-reveal' } }],
+};
+const lottieTree: JsonValue = {
+  kind: 'root',
+  children: [
+    {
+      kind: 'element',
+      tag: 'div',
+      attributes: { 'data-ck-lottie': '', 'data-ck-src': 'https://assets.example.com/a.json' },
+      children: [{ kind: 'element', tag: 'img', attributes: { src: 'https://images.example.com/p.png', alt: '' } }],
+    },
+  ],
+};
+const galleryTree: JsonValue = {
+  kind: 'root',
+  children: [
+    {
+      kind: 'element',
+      tag: 'div',
+      attributes: { 'data-ck-behavior': 'gallery' },
+      children: [{ kind: 'element', tag: 'img', attributes: { src: 'https://images.example.com/g.jpg', alt: 'طبق' } }],
+    },
+  ],
+};
+
+describe('exportStaticSite — media packs and engines', () => {
+  it('a page with a scene gets the prefetch link, and the site gets assets/ck-scene.js once', async () => {
+    const { SCENE_SOURCE } = await import('../engines/scene-source');
+    const file = await exportCode([
+      { address: '/', tree: plainTree },
+      { address: '/mural', tree: sceneTree },
+      { address: '/wall', tree: sceneTree },
+    ]);
+    const mural = file('mural/index.html') ?? '';
+    expect(mural).toContain('data-ck-scene="particles"');
+    expect(mural).toContain(
+      '<link rel="prefetch" as="script" href="../assets/ck-scene.js" data-ck-engine="scene">',
+    );
+    expect(mural).toContain('<script defer src="../assets/ck-behaviors.js"></script>');
+    expect(file('wall/index.html')).toContain('data-ck-engine="scene"');
+    expect(file('assets/ck-scene.js')).toBe(SCENE_SOURCE);
+    // A page without a scene gets nothing.
+    const home = file('index.html') ?? '';
+    expect(home).not.toContain('data-ck-engine');
+    expect(home).not.toContain('ck-behaviors.js');
+    expect(file('assets/ck-timeline.js')).toBeUndefined();
+    expect(file('assets/ck-lottie.js')).toBeUndefined();
+  });
+
+  it('ships the timeline and lottie engines, banner + source + runner, only where used', async () => {
+    const { TIMELINE_BANNER, TIMELINE_SOURCE } = await import('../engines/timeline-source');
+    const { LOTTIE_BANNER, LOTTIE_SOURCE } = await import('../engines/lottie-source');
+    const file = await exportCode([
+      { address: '/', tree: timelineTree },
+      { address: '/anim', tree: lottieTree },
+    ]);
+    const home = file('index.html') ?? '';
+    expect(home).toContain('<link rel="prefetch" as="script" href="assets/ck-timeline.js" data-ck-engine="timeline">');
+    expect(home).not.toContain('data-ck-engine="lottie"');
+    const anim = file('anim/index.html') ?? '';
+    expect(anim).toContain('<link rel="prefetch" as="script" href="../assets/ck-lottie.js" data-ck-engine="lottie">');
+    expect(anim).not.toContain('data-ck-engine="timeline"');
+    const timeline = file('assets/ck-timeline.js') ?? '';
+    expect(timeline.startsWith(TIMELINE_BANNER + TIMELINE_SOURCE)).toBe(true);
+    expect(timeline).toMatch(/;\(function installTimelineEngine\([\s\S]*\)\(window\);\n$/u);
+    const lottie = file('assets/ck-lottie.js') ?? '';
+    expect(lottie.startsWith(LOTTIE_BANNER + LOTTIE_SOURCE)).toBe(true);
+    expect(lottie).toMatch(/;\(function installLottieEngine\([\s\S]*\)\(window\);\n$/u);
+    expect(file('assets/ck-scene.js')).toBeUndefined();
+  });
+
+  it('carries the gallery, video and engines packs inside ck-behaviors.js and their styles in ck-behaviors.css', async () => {
+    const file = await exportCode([{ address: '/', tree: galleryTree }]);
+    const script = file('assets/ck-behaviors.js') ?? '';
+    for (const name of ['mountBehaviors', 'mountGallery', 'mountCarousel', 'mountVideoPlayer', 'mountBgVideo', 'mountEmbedFacade', 'mountEngines'])
+      expect(script).toContain(`function ${name}(`);
+    const css = file('assets/ck-behaviors.css') ?? '';
+    expect(css).toContain('dialog[data-ck-lightbox]');
+    expect(css).toContain("[data-ck-behavior='video-player']");
+    expect(file('index.html')).not.toContain('data-ck-engine');
+  });
+});

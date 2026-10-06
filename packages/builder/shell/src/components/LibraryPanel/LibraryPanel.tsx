@@ -135,6 +135,7 @@ export function LibraryPanel({
           search: `${preset.labels.en} ${preset.labels.ar} ${preset.keywords}`.toLocaleLowerCase(),
           glyph: glyphOf(node),
           tree: { kind: 'root', children: [node] },
+          css: preset.css?.(language), // media-motion (2026-10-06): a media preset's region hooks
         };
       }),
     [language],

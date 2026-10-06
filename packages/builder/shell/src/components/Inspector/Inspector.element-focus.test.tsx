@@ -342,4 +342,43 @@ describe('Inspector — a focused element inside a composed region', () => {
     await user.click(screen.getByRole('button', { name: 'Back to region' }));
     expect(screen.getByRole('textbox', { name: 'label' })).toBeInTheDocument();
   });
+
+  it('a host request opens Interactions (Animate) or Design at a sector (More), once (fix pass)', () => {
+    const kernel = makeKernel();
+    kernel.focusElement('r1', [0, 1]);
+    const handled: number[] = [];
+    const contexts: { sector: string | null; state: string }[] = [];
+    const { rerender } = render(
+      <Inspector
+        kernel={kernel}
+        focusRequest={{ tab: 'interactions', nonce: 1 }}
+        onFocusRequestHandled={(nonce) => handled.push(nonce)}
+        onStyleContextChange={(context) => contexts.push(context)}
+      />,
+    );
+    expect(screen.getByRole('tab', { name: 'Interactions' })).toHaveAttribute('aria-selected', 'true');
+    expect(handled).toEqual([1]);
+
+    rerender(
+      <Inspector
+        kernel={kernel}
+        focusRequest={{ tab: 'design', sector: 'effects', nonce: 2 }}
+        onFocusRequestHandled={(nonce) => handled.push(nonce)}
+        onStyleContextChange={(context) => contexts.push(context)}
+      />,
+    );
+    expect(screen.getByRole('tab', { name: 'Design' })).toHaveAttribute('aria-selected', 'true');
+    expect(document.querySelector('[data-sector="effects"]')?.hasAttribute('data-expanded')).toBe(true);
+    expect(handled).toEqual([1, 2]);
+    expect(contexts.at(-1)).toEqual({ sector: 'effects', state: 'default' });
+  });
+
+  it('offers no "Convert to editable" where the container refuses a region, and says why (fix pass)', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['c1']);
+    // This page's slot holds region and card blocks only, never a customCode region.
+    render(<Inspector kernel={kernel} onConvertBlock={() => 'refused'} />);
+    expect(screen.getByRole('button', { name: 'Convert to editable' })).toBeDisabled();
+    expect(screen.getByText(/only holds certain blocks/u)).toBeInTheDocument();
+  });
 });

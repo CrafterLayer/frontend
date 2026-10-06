@@ -90,6 +90,8 @@ export function staticSiteOptions(
     blocks: deps.blocks,
     theme: themeFromDesignSystem(site.designSystem),
     compileCss: deps.compileCss,
+    // Pictures: block images and tree `/ck-assets/<id>` references publish what the canvas shows.
+    assets: site.assets,
     // The site design library: palette variables, fonts, named styles, motion settings.
     ...(site.library === undefined ? {} : { library: site.library }),
     ...(deps.compileClasses === undefined ? {} : { compileClasses: deps.compileClasses }),

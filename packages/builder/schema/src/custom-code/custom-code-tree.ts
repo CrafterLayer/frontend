@@ -15,6 +15,27 @@ import {
   motionTriggerProblem,
 } from './motion-vocabulary';
 import { isTablerIconName } from './tabler-icon-names';
+// media-motion (2026-10-06): the media behaviours, engine markers and their params.
+import {
+  CAROUSEL_INDICATORS,
+  CUSTOM_CODE_ENGINE_MARKERS,
+  CUSTOM_CODE_ENGINE_PARAMS,
+  CUSTOM_CODE_ENGINE_PARAM_OWNERS,
+  CUSTOM_CODE_MEDIA_ATTRIBUTES,
+  CUSTOM_CODE_MEDIA_BEHAVIOR_PARAMS,
+  CUSTOM_CODE_MEDIA_BEHAVIOR_PARAM_OWNERS,
+  CUSTOM_CODE_MEDIA_BEHAVIOR_TAGS,
+  CUSTOM_CODE_MEDIA_BEHAVIORS,
+  CUSTOM_CODE_MEDIA_PART_ATTRIBUTES,
+  CUSTOM_CODE_SCENES,
+  CUSTOM_CODE_TIMELINE_RECIPES,
+  MEDIA_SWITCH_VALUES,
+  SCENE_DENSITIES,
+  SCENE_PALETTES,
+  TIMELINE_DEPTHS,
+  TIMELINE_REUSED_MOTION_PARAMS,
+  TOGGLE_OPTIONS,
+} from './media-vocabulary';
 
 /**
  * The custom-code tree: what the assistant writes when no registered
@@ -420,6 +441,10 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   'data-ck-hover',
   ...CUSTOM_CODE_MOTION_PARAMS,
   ...CUSTOM_CODE_SVG_ATTRIBUTES,
+  // media-motion (2026-10-06): engine markers + media params (media-vocabulary.ts),
+  // and `hidden`, which a toggle group's second option carries without script.
+  ...CUSTOM_CODE_MEDIA_ATTRIBUTES,
+  'hidden',
 ] as const;
 
 /**
@@ -443,6 +468,8 @@ export const CUSTOM_CODE_BEHAVIORS = [
   // Added 2026-10-05 (style-manager DESIGN §B.1): rolling digits, FLIP layout.
   'ticker',
   'layout',
+  // media-motion (2026-10-06): gallery, video, embed facade and widgets (DESIGN §A, §B, §E).
+  ...CUSTOM_CODE_MEDIA_BEHAVIORS,
 ] as const;
 
 export type CustomCodeBehavior = (typeof CUSTOM_CODE_BEHAVIORS)[number];
@@ -454,6 +481,8 @@ export const CUSTOM_CODE_BEHAVIOR_PARAMS = [
   'data-ck-speed',
   'data-ck-phone',
   'data-ck-text',
+  // media-motion (2026-10-06): carousel indicator/autoplay, mailto address.
+  ...CUSTOM_CODE_MEDIA_BEHAVIOR_PARAMS,
 ] as const;
 
 export type CustomCodeAttribute = (typeof CUSTOM_CODE_ATTRIBUTES)[number];
@@ -612,6 +641,16 @@ export const CUSTOM_CODE_IFRAME_SOURCES = [
       'u',
     ),
   },
+  /*
+    media-motion (2026-10-06, DESIGN §E): the keyless Maps embed the map facade
+    swaps in on click. One query and the embed flag, nothing else: `&` cannot
+    appear inside the query, so no further parameter rides along.
+  */
+  {
+    host: 'Google Maps (keyless)',
+    example: 'https://www.google.com/maps?q=Amman%20Citadel&output=embed',
+    pattern: /^https:\/\/www\.google\.com\/maps[?]q=[^\s"'<>&]+&output=embed$/u,
+  },
 ] as const;
 
 /** Whether an address is one an `<iframe>` may show. */
@@ -736,6 +775,8 @@ const behaviorValue = (value: string, name: string): string | undefined =>
 /** Behaviours bound to a tag: the WhatsApp form sends from a form or its button. */
 const BEHAVIOR_TAGS: Readonly<Partial<Record<CustomCodeBehavior, readonly string[]>>> = {
   'whatsapp-form': ['form', 'button'],
+  // media-motion (2026-10-06): the video player, facade and mailto form are tag-bound too.
+  ...CUSTOM_CODE_MEDIA_BEHAVIOR_TAGS,
 };
 
 /** An id another attribute points at (`for`, `data-ck-target`). */
@@ -835,6 +876,12 @@ const typeValue = (value: string, name: string, tag: string): string | undefined
 
 const motionPresetValue = oneOf(...CUSTOM_CODE_MOTION_PRESETS);
 const hoverPresetValue = oneOf(...CUSTOM_CODE_HOVER_PRESETS);
+
+// media-motion (2026-10-06): the two media params that are patterns, not names.
+/** A Lottie animation: an https address whose path ends in `.json`, nothing that ends the attribute. */
+const LOTTIE_SRC = /^https:\/\/[^\s"'<>\\`?#]+\.json$/iu;
+/** The address a mailto form sends to: one plain mailbox, no list, no header injection. */
+const MAILTO_EMAIL = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}$/u;
 
 const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   alt: { on: 'html' },
@@ -987,6 +1034,29 @@ const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
       value.length <= 200 ? undefined : `${name} holds at most 200 characters`,
   },
   fetchpriority: { on: ['img'], value: oneOf('high', 'low', 'auto') },
+  // media-motion (2026-10-06): engine markers and media params (DESIGN §C.2, §D.2, §E).
+  'data-ck-timeline': { on: 'html', value: oneOf(...CUSTOM_CODE_TIMELINE_RECIPES) },
+  'data-ck-scene': { on: ['div'], value: oneOf(...CUSTOM_CODE_SCENES) },
+  'data-ck-lottie': { on: ['div'], value: oneOf('') },
+  'data-ck-src': {
+    on: ['div'],
+    value: (value, name) =>
+      value.length <= 2_048 && LOTTIE_SRC.test(value)
+        ? undefined
+        : `${name} is an https address of a .json animation (at most 2048 characters), such as https://assets.example.com/hero.json`,
+  },
+  'data-ck-email': {
+    on: ['form'],
+    value: matching(MAILTO_EMAIL, 'an email address such as hello@example.com'),
+  },
+  'data-ck-option': { on: 'html', value: oneOf(...TOGGLE_OPTIONS) },
+  'data-ck-indicator': { on: 'html', value: oneOf(...CAROUSEL_INDICATORS) },
+  'data-ck-autoplay': { on: 'html', value: oneOf(...MEDIA_SWITCH_VALUES) },
+  'data-ck-scrub': { on: 'html', value: oneOf(...MEDIA_SWITCH_VALUES) },
+  'data-ck-depth': { on: 'html', value: oneOf(...TIMELINE_DEPTHS) },
+  'data-ck-density': { on: ['div'], value: oneOf(...SCENE_DENSITIES) },
+  'data-ck-palette': { on: ['div'], value: oneOf(...SCENE_PALETTES) },
+  hidden: { on: 'html', value: bare },
 };
 
 const SVG_ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
@@ -1215,7 +1285,8 @@ export function customCodeAttributeProblem(
       return `${name} is not an attribute the vocabulary admits: a tree never carries a script handler; name a behaviour with data-ck-behavior (${CUSTOM_CODE_BEHAVIORS.join(', ')}) or an animation with data-ck-motion / data-ck-hover`;
     }
     if (/^data-/iu.test(name)) {
-      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), and data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed)`;
+      // media-motion (2026-10-06): the list names the engine markers and media params too.
+      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed), the engine markers ${CUSTOM_CODE_ENGINE_MARKERS.join(', ')} with their params (${CUSTOM_CODE_ENGINE_PARAMS.join(', ')}), and the part markers ${CUSTOM_CODE_MEDIA_PART_ATTRIBUTES.join(', ')}`;
     }
     if (name === 'style') {
       return 'style is not an attribute the vocabulary admits: write utility classes in className';
@@ -1429,9 +1500,12 @@ function motionProblems(tag: string, record: Record<string, unknown>): Problem[]
     typeof record['data-ck-motion'] === 'string' ? record['data-ck-motion'] : undefined;
   const hover = typeof record['data-ck-hover'] === 'string' ? record['data-ck-hover'] : undefined;
   const behavior = typeof record['data-ck-behavior'] === 'string';
+  // media-motion (2026-10-06): a timeline recipe reuses ease, delay, stagger and speed.
+  const timeline = typeof record['data-ck-timeline'] === 'string';
   if (motion === undefined && hover === undefined) {
     for (const param of CUSTOM_CODE_MOTION_PARAMS) {
       if (typeof record[param] !== 'string') continue;
+      if (timeline && (TIMELINE_REUSED_MOTION_PARAMS as readonly string[]).includes(param)) continue;
       found.push({
         path: ['attributes', param],
         message: `<${tag}> ${param} tunes an animation: write data-ck-motion or data-ck-hover on the same element, or drop ${param}`,
@@ -1460,6 +1534,7 @@ function motionProblems(tag: string, record: Record<string, unknown>): Problem[]
   }
   if (
     !behavior &&
+    !timeline &&
     typeof record['data-ck-speed'] === 'string' &&
     motion === undefined &&
     hover === undefined
@@ -1467,6 +1542,58 @@ function motionProblems(tag: string, record: Record<string, unknown>): Problem[]
     found.push({
       path: ['attributes', 'data-ck-speed'],
       message: `<${tag}> data-ck-speed tunes a behaviour or an animation: write data-ck-behavior, data-ck-motion or data-ck-hover on the same element, or drop data-ck-speed`,
+    });
+  }
+  return found;
+}
+
+/*
+  media-motion (2026-10-06, DESIGN §C.2, §D.2, §E): the pairs the media
+  vocabulary needs. An engine param means something only beside its marker, a
+  carousel or mailto param only beside its behaviour, and a CSS motion preset
+  and a scroll timeline never drive the same element (both would write its
+  transform and fight every frame).
+*/
+function mediaProblems(tag: string, record: Record<string, unknown>): Problem[] {
+  const found: Problem[] = [];
+  if (typeof record['data-ck-motion'] === 'string' && typeof record['data-ck-timeline'] === 'string') {
+    found.push({
+      path: ['attributes', 'data-ck-timeline'],
+      message: `<${tag}> carries both data-ck-motion (a CSS animation preset) and data-ck-timeline (a scroll timeline), which fight over the same element: choose one — drop data-ck-motion to keep the timeline, or drop data-ck-timeline to keep the preset`,
+    });
+  }
+  for (const param of CUSTOM_CODE_ENGINE_PARAMS) {
+    if (typeof record[param] !== 'string') continue;
+    const marker = CUSTOM_CODE_ENGINE_PARAM_OWNERS[param];
+    if (typeof record[marker] === 'string') continue;
+    found.push({
+      path: ['attributes', param],
+      message: `<${tag}> ${param} tunes ${marker}: write ${marker} on the same element, or drop ${param}`,
+    });
+  }
+  if (typeof record['data-ck-lottie'] === 'string' && typeof record['data-ck-src'] !== 'string') {
+    found.push({
+      path: ['attributes', 'data-ck-lottie'],
+      message: `<${tag}> data-ck-lottie plays the animation at data-ck-src: write data-ck-src='https://….json' beside it`,
+    });
+  }
+  const behavior =
+    typeof record['data-ck-behavior'] === 'string' ? record['data-ck-behavior'] : undefined;
+  if (behavior !== undefined) {
+    for (const param of CUSTOM_CODE_MEDIA_BEHAVIOR_PARAMS) {
+      if (typeof record[param] !== 'string') continue;
+      const owners = CUSTOM_CODE_MEDIA_BEHAVIOR_PARAM_OWNERS[param];
+      if (owners.includes(behavior)) continue;
+      found.push({
+        path: ['attributes', param],
+        message: `<${tag}> ${param} tunes data-ck-behavior='${owners.join("' or '")}', not '${behavior}': drop ${param}`,
+      });
+    }
+  }
+  if (behavior === 'mailto-form' && typeof record['data-ck-email'] !== 'string') {
+    found.push({
+      path: ['attributes', 'data-ck-email'],
+      message: `<${tag}> data-ck-behavior='mailto-form' sends to data-ck-email: write data-ck-email='hello@example.com' beside it`,
     });
   }
   return found;
@@ -1560,6 +1687,7 @@ function elementProblems(node: Record<string, unknown>, place: Place): readonly 
     }
   }
   found.push(...motionProblems(tag, record));
+  found.push(...mediaProblems(tag, record)); // media-motion (2026-10-06)
   if (
     tag === 'video' &&
     typeof record['autoplay'] === 'string' &&

@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
 import {
+  CAROUSEL_INDICATORS,
   CUSTOM_CODE_AUTOCOMPLETE_TOKENS,
   CUSTOM_CODE_ICON_NAME,
+  MEDIA_SWITCH_VALUES,
+  TOGGLE_OPTIONS,
   type CustomCodeElement,
   type CustomCodeIcon,
   type CustomCodeNode,
@@ -272,6 +275,159 @@ const A = {
   for: attributeField('for', L('Labels the field (id)', 'يصف الحقل (المعرّف)')),
 } as const;
 
+// media-motion (2026-10-06) additions — captions, a Lottie file, and typed behaviour params
+// (media-motion DESIGN §A.1, §B.3, §E). Every value list is the schema's closed vocabulary.
+
+/** The track kinds a captions row edits (the first such `<track>` of the video). */
+const CAPTION_TRACK_KINDS: ReadonlySet<string> = new Set(['captions', 'subtitles']);
+
+/** An https or uploaded (`/…`) WebVTT address. */
+const VTT_ADDRESS = /^(?:https:\/\/|\/(?!\/))[^\s"'<>\\`]+\.vtt(?:\?[^\s"'<>\\`]*)?$/iu;
+const LANGUAGE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u;
+/** An https address of a `.json` animation; the door's own pattern is the authority. */
+const LOTTIE_ADDRESS = /^https:\/\/[^\s"'<>\\`]+\.json(?:\?[^\s"'<>\\`]*)?$/iu;
+const EMAIL_ADDRESS = /^[^\s@"'<>\\`]+@[^\s@"'<>\\`]+\.[^\s@"'<>\\`]+$/u;
+
+const blankOr = (pattern: RegExp, max: number) =>
+  z.union([z.literal(''), z.string().max(max).regex(pattern)]).optional();
+
+function captionTrackIndex(element: CustomCodeElement): number {
+  return (element.children ?? []).findIndex((child) => {
+    if (child.kind !== 'element' || child.tag !== 'track') return false;
+    const kind = (child.attributes as Readonly<Record<string, string | undefined>> | undefined)?.['kind'];
+    return kind === undefined || CAPTION_TRACK_KINDS.has(kind);
+  });
+}
+
+function captionTrack(node: CustomCodeNode): CustomCodeElement | undefined {
+  const element = asElement(node);
+  if (element === undefined) return undefined;
+  const child = element.children?.[captionTrackIndex(element)];
+  return child?.kind === 'element' ? child : undefined;
+}
+
+/** The video with its captions track changed: `undefined` from `change` removes the track. */
+function withCaptionTrack(
+  node: CustomCodeNode,
+  change: (track: CustomCodeElement | undefined) => CustomCodeElement | undefined,
+): CustomCodeNode {
+  const element = asElement(node);
+  if (element === undefined) return node;
+  const children = [...(element.children ?? [])];
+  const index = captionTrackIndex(element);
+  const current = index === -1 ? undefined : children[index];
+  const next = change(current?.kind === 'element' ? current : undefined);
+  if (index === -1) {
+    if (next === undefined) return node;
+    children.push(next);
+  } else if (next === undefined) {
+    children.splice(index, 1);
+  } else {
+    children[index] = next;
+  }
+  const rebuilt: CustomCodeElement = { ...element, children };
+  if (children.length === 0) delete rebuilt.children;
+  return rebuilt;
+}
+
+function trackAttributes(track: CustomCodeElement | undefined): Record<string, string | undefined> {
+  return { ...((track?.attributes ?? {}) as Readonly<Record<string, string | undefined>>) };
+}
+
+/**
+ * The video's captions: a WebVTT file and its language, written as ONE
+ * `<track kind="captions">` child (the video-player chrome shows its toggle
+ * only when a track exists). Clearing the file removes the track.
+ */
+const CAPTION_FIELDS: readonly CustomCodeElementField[] = [
+  {
+    key: 'captions',
+    label: L('Captions file (.vtt)', 'ملف الترجمة (.vtt)'),
+    schema: blankOr(VTT_ADDRESS, 2_000),
+    read: (node) => captionTrack(node)?.attributes?.src,
+    write: (node, value) =>
+      withCaptionTrack(node, (track) => {
+        const src = typeof value === 'string' ? value.trim() : '';
+        if (src === '') return undefined;
+        const attributes = trackAttributes(track);
+        attributes['kind'] = attributes['kind'] ?? 'captions';
+        attributes['src'] = src;
+        return { ...(track ?? { kind: 'element', tag: 'track' }), attributes };
+      }),
+  },
+  {
+    key: 'captionsLang',
+    label: L('Captions language', 'لغة الترجمة'),
+    schema: blankOr(LANGUAGE_TAG, 35),
+    read: (node) => captionTrack(node)?.attributes?.srclang,
+    // A language without a file has nothing to describe: it waits for the file.
+    write: (node, value) =>
+      withCaptionTrack(node, (track) => {
+        if (track === undefined) return undefined;
+        const attributes = trackAttributes(track);
+        const lang = typeof value === 'string' ? value.trim() : '';
+        if (lang === '') delete attributes['srclang'];
+        else attributes['srclang'] = lang;
+        return { ...track, attributes };
+      }),
+  },
+];
+
+const LOTTIE_SRC_FIELD: CustomCodeElementField = attributeField(
+  'data-ck-src',
+  L('Animation file (.json)', 'ملف الرسم المتحرك (.json)'),
+  blankOr(LOTTIE_ADDRESS, 2_048),
+);
+
+/** A behaviour param row with its closed values (absent ⇒ free text, such as an email address). */
+export interface CustomCodeMediaParamField extends CustomCodeElementField {
+  readonly choices?: readonly string[] | undefined;
+  /** The keyboard a free-text row asks for. */
+  readonly input?: 'email' | undefined;
+}
+
+function choiceField(name: string, label: FieldLabel, values: readonly [string, ...string[]]): CustomCodeMediaParamField {
+  return { ...enumField(name, label, values), choices: values };
+}
+
+const MEDIA_PARAM_FIELDS = {
+  indicator: choiceField('data-ck-indicator', L('Position indicator', 'مؤشر الموضع'), CAROUSEL_INDICATORS),
+  autoplay: choiceField('data-ck-autoplay', L('Autoplay', 'تشغيل تلقائي'), MEDIA_SWITCH_VALUES),
+  speed: choiceField('data-ck-speed', L('Speed', 'السرعة'), ['slow', 'normal', 'fast']),
+  email: {
+    ...attributeField('data-ck-email', L('Send to (email)', 'الإرسال إلى (البريد)'), blankOr(EMAIL_ADDRESS, 254)),
+    input: 'email',
+  } satisfies CustomCodeMediaParamField,
+  // The second side starts `hidden` (no script shows side a only), so the side and `hidden` move together.
+  option: {
+    ...choiceField('data-ck-option', L('Toggle side', 'جهة التبديل'), TOGGLE_OPTIONS),
+    patch: (value: unknown) => ({
+      attributes:
+        value === 'b'
+          ? { 'data-ck-option': 'b', hidden: '' }
+          : { 'data-ck-option': value === 'a' ? 'a' : null, hidden: null },
+    }),
+  } satisfies CustomCodeMediaParamField,
+} as const;
+
+/**
+ * The typed behaviour params of one element (media-motion DESIGN §B.3, §E):
+ * a carousel's indicator, autoplay and speed, a mailto form's address, and the
+ * side of a toggle group's option. Galleries, compares and toggle-group
+ * containers carry no params (a gallery's layout is classes, not attributes),
+ * so they get no rows here.
+ */
+export function customCodeMediaParamFields(node: CustomCodeNode): readonly CustomCodeMediaParamField[] {
+  if (asElement(node) === undefined) return [];
+  const behavior = attributeOf(node, 'data-ck-behavior');
+  const fields: CustomCodeMediaParamField[] = [];
+  if (behavior === 'carousel') fields.push(MEDIA_PARAM_FIELDS.indicator, MEDIA_PARAM_FIELDS.autoplay, MEDIA_PARAM_FIELDS.speed);
+  if (behavior === 'mailto-form') fields.push(MEDIA_PARAM_FIELDS.email);
+  if (attributeOf(node, 'data-ck-option') !== undefined) fields.push(MEDIA_PARAM_FIELDS.option);
+  return fields;
+}
+// ── end media-motion (2026-10-06) additions ──
+
 function contentFields(element: CustomCodeElement): CustomCodeElementField[] {
   const fields: CustomCodeElementField[] = [];
   const hasChildren = (element.children ?? []).length > 0;
@@ -287,6 +443,7 @@ function contentFields(element: CustomCodeElement): CustomCodeElementField[] {
       break;
     case 'video':
       fields.push(A.src, A.poster, A.autoplay, A.loop, A.controls, A.preload);
+      fields.push(...CAPTION_FIELDS); // media-motion (2026-10-06)
       break;
     case 'iframe':
       fields.push(A.embed, A.title);
@@ -314,6 +471,8 @@ function contentFields(element: CustomCodeElement): CustomCodeElementField[] {
     fields.push(A.name, A.placeholder, A.required, A.autocomplete, A.inputmode, A.min, A.max, A.step);
     if (element.tag === 'textarea') fields.push(A.rows);
   }
+  // media-motion (2026-10-06): a Lottie layer's animation file is its content.
+  if (element.attributes?.['data-ck-lottie'] !== undefined) fields.push(LOTTIE_SRC_FIELD);
   return fields;
 }
 

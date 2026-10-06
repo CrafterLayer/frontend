@@ -1,0 +1,60 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EmbedFacadeStories from './EmbedFacade.stories';
+
+<Meta of={EmbedFacadeStories} />
+
+# Embed facade
+
+`data-ck-behavior="embed-facade"` on an `<a href>` with a poster image. The link can point at:
+
+- a YouTube video: `youtube.com/watch?v=ID`, `youtu.be/ID` or `youtube.com/shorts/ID`;
+- a Vimeo video: `vimeo.com/N`;
+- a Google Maps place: `?q=`, `/maps/place/…` or `/@lat,lng`.
+
+Without the script it is a plain link. With the `embed-facade` pack (`behaviors/packs/embed-facade.ts`,
+`mountEmbedFacade`), the page still makes no request to the player until the reader asks.
+
+<Canvas of={EmbedFacadeStories.English} />
+
+## On click
+
+A click, or Enter on the focused link, swaps the poster for the player:
+
+1. The pack derives the embed address. YouTube becomes
+   `https://www.youtube-nocookie.com/embed/ID?autoplay=1`, Vimeo becomes
+   `https://player.vimeo.com/video/N?autoplay=1`, and Maps becomes
+   `https://www.google.com/maps?q=…&output=embed`.
+2. It re-tests that address against inline copies of the schema's iframe allowlist
+   (`CUSTOM_CODE_IFRAME_SOURCES`).
+3. It builds the iframe with the same `sandbox`, `allow` and `referrerpolicy` the renderer forces on
+   every iframe, plus `allowfullscreen`.
+4. The link's own children are hidden, not removed, so a host such as React still owns them. Focus
+   moves into the iframe.
+
+`embed-facade-parity.test.ts` holds the inline copies equal to the schema's constants.
+
+A modified click (Ctrl, ⌘ or Shift) keeps the link's own behaviour and opens the page in a new tab or
+window.
+
+<Canvas of={EmbedFacadeStories.Arabic} />
+
+## Title
+
+The iframe's `title` comes from the link's `aria-label`, then from the poster's `alt`. If neither is
+set, it falls back to «فيديو» / «خريطة» on Arabic pages and "Video" / "Map" on others.
+
+<Canvas of={EmbedFacadeStories.GoogleMap} />
+
+## On the canvas
+
+With `interactive: false` nothing is wired, so a click selects. The link is marked
+`data-ck-facade="still"`.
+
+<Canvas of={EmbedFacadeStories.Canvas} />
+
+## Accessibility
+
+The facade is a real link with a label in the page language («شغّل: …»), so it reads and works
+without the script. After the swap, focus lands in the player. Dispose removes the iframe and
+restores the link's children and attributes.

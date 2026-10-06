@@ -27,6 +27,9 @@ import type { AiSkillDefinitionV1 } from './types';
  * sits at the single-skill ceiling: 2794 of 2800 tokens with the floor after
  * the upgrade (2797 before; the preamble and check line were tightened), 2799
  * after the 2026-09-30 team and faq fixes — the next addition must trim first.
+ * media-motion (2026-10-06): gallery and rail gained data-ck-behavior='gallery' (the
+ * shared dialog) and paid for it by dropping loading='lazy', which design-code's IMAGES
+ * line already teaches the same writers for every image after the hero (2798 of 2800).
  */
 
 export type SectionVariantRole = 'hero' | 'features' | 'proof' | 'offer' | 'media' | 'closing';
@@ -172,17 +175,18 @@ export const SECTION_VARIANTS: readonly SectionVariant[] = [
       'div flex flex-wrap justify-center gap-8 > figure w-36 md:w-56 > img aspect-square w-full rounded-2xl object-cover object-top only for a photo the request gives, else div flex aspect-square items-center justify-center rounded-2xl bg-{card} text-4xl font-bold with the initials + figcaption mt-4 (p font-semibold + p text-sm text-{muted})',
   },
   // ── Media ───────────────────────────────────────────────────────────────
+  // media-motion (2026-10-06): both carry data-ck-behavior='gallery' (the shared lightbox dialog, DESIGN §F.4).
   {
     id: 'gallery',
     role: 'media',
     recipe:
-      "div grid grid-cols-2 gap-4 md:grid-cols-4 > img aspect-square w-full rounded-2xl object-cover loading='lazy', the first col-span-2 row-span-2; six at most, none repeated",
+      "div data-ck-behavior='gallery' grid grid-cols-2 gap-4 md:grid-cols-4 > img aspect-square w-full rounded-2xl object-cover, first col-span-2 row-span-2, ≤6",
   },
   {
     id: 'rail',
     role: 'media',
     recipe:
-      "div flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 > figure w-4/5 shrink-0 snap-start md:w-96 > img aspect-4/3 w-full rounded-2xl object-cover loading='lazy' + figcaption mt-3 font-semibold",
+      "div data-ck-behavior='gallery' flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 > figure w-4/5 shrink-0 snap-start md:w-96 > img aspect-4/3 w-full rounded-2xl object-cover + figcaption mt-3 font-semibold",
   },
   // ── Closing ─────────────────────────────────────────────────────────────
   {

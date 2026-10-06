@@ -1,0 +1,22 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TimelineRecipePickerStories from './TimelineRecipePicker.stories';
+
+<Meta of={TimelineRecipePickerStories} />
+
+# TimelineRecipePicker
+
+The manual way to attach a named scroll timeline (media-motion DESIGN §C.4). It sets `data-ck-timeline` to one of
+the closed recipe names (split reveal, stagger in, pinned steps, horizontal scroll, parallax depth, scrub scale,
+velocity marquee) and, optionally, `data-ck-scrub`. A fixed runner in the published site plays the name.
+
+**Licence condition (DESIGN §C.1.2).** The timeline engine today is GSAP 3.15, under its no-charge licence, which
+forbids a visual animation builder. So this control is a **select of names** with the schema's bilingual label and
+a one-line description (`CUSTOM_CODE_TIMELINE_RECIPE_INFO`). There is no timeline, keyframe, easing-curve or
+duration editor, and there never will be. The Interactions panel shows it only when `TIMELINE_PANEL_ENABLED`
+(`InteractionsPanel/timeline-flag.ts`) is true, which it is not until the owner answers question Q1.
+
+**One write each.** Choosing a recipe removes any CSS preset (`data-ck-motion`) and its preset-only params in the
+same patch, because the two never drive one element. **None** removes the recipe, its scrub, and the reused motion
+params that nothing else owns (`clearTimelinePatch`). The scrub row is a radio group (arrows mirrored for RTL).
+Labels: `TIMELINE_RECIPE_PICKER_LABELS_EN` and `TIMELINE_RECIPE_PICKER_LABELS_AR`.

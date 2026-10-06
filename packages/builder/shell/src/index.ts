@@ -205,3 +205,7 @@ export {
   type TreeTextActionLabels,
 } from './overlay/tree-text-actions';
 // ── end P11-integration ──
+// ── fix pass (style-manager DESIGN.md P11) ──
+export type { InspectorFocusRequest, InspectorStyleContext } from './components/Inspector';
+export { TOP_BAR_LABELS_AR, TOP_BAR_LABELS_EN, type TopBarLabels } from './components/TopBar';
+// ── end fix pass ──

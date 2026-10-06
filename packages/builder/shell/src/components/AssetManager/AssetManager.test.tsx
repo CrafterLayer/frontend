@@ -141,7 +141,7 @@ describe('AssetManager', () => {
     );
   });
 
-  it('refuses an inline upload on a tree image, and sets it on an image block', async () => {
+  it('points a tree image at an inline upload by reference, and sets it on an image block', async () => {
     const user = userEvent.setup();
     const big = hosted('big', { url: `data:image/webp;base64,${'A'.repeat(5000)}` });
     const kernel = createDesignTestKernel({
@@ -151,12 +151,16 @@ describe('AssetManager', () => {
     });
     const { rerender } = render(<AssetManager site={kernel} target={imgTarget} />);
     await user.click(screen.getByRole('button', { name: 'Use on selected' }));
-    expect(screen.getByRole('status')).toHaveTextContent('Use it on an image block');
-    expect(kernel.transactions()).toHaveLength(0);
+    expect(imageAt(homeTree(kernel), 0)?.attributes?.src).toBe('/ck-assets/big');
+    expect(kernel.transactions()).toHaveLength(1);
 
     rerender(<AssetManager site={kernel} target={{ kind: 'block', nodeId: 'pic' }} />);
     await user.click(screen.getByRole('button', { name: 'Use on selected' }));
     expect(kernel.page('home').getDocument().nodes['pic']?.props['image']).toEqual({ assetId: 'big' });
+    // A referenced picture cannot be deleted out from under the tree image.
+    expect(() => {
+      kernel.dispatch('removeAsset', { id: 'big' });
+    }).toThrow(/still used/u);
   });
 
   it('registers and uses a catalogue photo in one transaction', async () => {

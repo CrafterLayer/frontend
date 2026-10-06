@@ -3,8 +3,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { gzipSync } from 'node:zlib';
+
 import { BEHAVIOR_CSS, ensureBehaviorCss } from './behaviors-css';
-import { behaviorRuntimeScript, hasBehaviors } from './script';
+import { BEHAVIOR_PACKS, PACK_CSS } from './packs';
+import { mountBehaviors } from './runtime';
+import { BEHAVIOR_RUNTIME_SELECTOR, behaviorRuntimeScript, hasBehaviors, pageEngines } from './script';
 
 describe('behaviorRuntimeScript', () => {
   it('is self-contained: evaluated alone in a fresh document, it mounts count-up', async () => {
@@ -96,5 +100,109 @@ describe('hasBehaviors — motion', () => {
     expect(hasBehaviors(main)).toBe(true);
     expect(hasBehaviors({ attributes: { 'data-ck-motion': 'fade-up' } })).toBe(true);
     expect(hasBehaviors({ className: 'ck-fx-spotlight' })).toBe(true);
+  });
+});
+
+/* ── media-motion (2026-10-06): the behaviour packs and the engine markers ── */
+
+/*
+  gzip size of `assets/ck-behaviors.js` before the packs: HEAD 9521efa's
+  runtime.ts, `(mountBehaviors)(document);` alone, serialised under this same
+  vitest transform (measured 2026-10-06 from a temporary copy of the HEAD file:
+  42 835 chars, 12 605 B gzip). The packs measured 24 564 B gzip in all then.
+*/
+const BASELINE_GZIP_BYTES = 12_605;
+const PACKS_BUDGET_GZIP_BYTES = 14_000;
+
+describe('behaviorRuntimeScript — packs', () => {
+  it('serialises the core runtime and then every pack, each called on the document', () => {
+    const script = behaviorRuntimeScript();
+    const calls = script.split('\n').filter((line) => line.endsWith(')(document);'));
+    expect(calls.length).toBeGreaterThanOrEqual(1 + BEHAVIOR_PACKS.length);
+    for (const mount of [mountBehaviors, ...BEHAVIOR_PACKS]) expect(script).toContain(mount.toString());
+    expect(script.indexOf(mountBehaviors.toString())).toBe(1);
+  });
+
+  it('evaluated alone in a fresh document, mounts each pack', () => {
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    const fresh = frame.contentDocument!;
+    fresh.documentElement.setAttribute('lang', 'ar');
+    fresh.documentElement.setAttribute('dir', 'rtl');
+    fresh.body.innerHTML = [
+      '<div id="gallery" data-ck-behavior="gallery"><figure><img src="https://example.com/a.jpg" alt="أ"></figure><figure><img src="https://example.com/b.jpg" alt="ب"></figure></div>',
+      '<div id="carousel" data-ck-behavior="carousel"><ul><li>1</li><li>2</li></ul><div><button>prev</button><button>next</button></div></div>',
+      '<figure id="player" data-ck-behavior="video-player"><video controls src="https://example.com/a.mp4"></video></figure>',
+      '<a id="facade" data-ck-behavior="embed-facade" href="https://www.youtube.com/watch?v=abcdefghijk" aria-label="شغّل"><img src="https://example.com/p.jpg" alt=""></a>',
+      '<div id="compare" data-ck-behavior="compare"><img src="https://example.com/1.jpg" alt="قبل"><img src="https://example.com/2.jpg" alt="بعد"></div>',
+      '<div id="toggle" data-ck-behavior="toggle-group"><button>شهري / سنوي</button><p data-ck-option="a">10</p><p data-ck-option="b" hidden>100</p></div>',
+      '<form id="mailto" data-ck-behavior="mailto-form" data-ck-email="a@example.com"><label>الاسم <input name="name"></label><button>أرسل</button></form>',
+      '<section><div id="scene" data-ck-scene="particles"><img src="https://example.com/s.jpg" alt=""></div><h1>مرحبا</h1></section>',
+    ].join('');
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call -- evaluating the serialised runtime IS the test
+    new Function('document', behaviorRuntimeScript())(fresh);
+    const el = (id: string) => fresh.getElementById(id);
+    expect(el('gallery')?.hasAttribute('data-ck-mounted')).toBe(true);
+    expect(el('carousel')?.hasAttribute('data-ck-mounted')).toBe(true);
+    expect(el('player')?.hasAttribute('data-ck-player')).toBe(true);
+    expect(el('facade')?.hasAttribute('data-ck-facade')).toBe(true);
+    expect(el('compare')?.hasAttribute('data-ck-mounted')).toBe(true);
+    expect(el('toggle')?.hasAttribute('data-ck-mounted')).toBe(true);
+    expect(el('mailto')?.hasAttribute('data-ck-mounted')).toBe(true);
+    expect(el('scene')?.hasAttribute('data-ck-engine-mounted')).toBe(true);
+    const engines = (frame.contentWindow as unknown as { ckEngines?: { queue: { kind: string }[] } }).ckEngines;
+    expect(engines?.queue.map((entry) => entry.kind)).toEqual(['scene']);
+    frame.remove();
+  });
+
+  it('grows ck-behaviors.js by at most 14 kB gzip over the pre-pack runtime', () => {
+    const size = gzipSync(behaviorRuntimeScript()).length;
+    expect(size - BASELINE_GZIP_BYTES).toBeLessThanOrEqual(PACKS_BUDGET_GZIP_BYTES);
+  });
+});
+
+describe('BEHAVIOR_RUNTIME_SELECTOR — engine markers', () => {
+  it('names the engine markers and is the selector inside mountBehaviors', () => {
+    for (const marker of ['[data-ck-scene]', '[data-ck-timeline]', '[data-ck-lottie]'])
+      expect(BEHAVIOR_RUNTIME_SELECTOR).toContain(marker);
+    expect(mountBehaviors.toString()).toContain(BEHAVIOR_RUNTIME_SELECTOR);
+  });
+
+  it('makes a page with only an engine marker need the runtime', () => {
+    expect(hasBehaviors('<div data-ck-scene="mural"></div>')).toBe(true);
+    expect(hasBehaviors('<h2 data-ck-timeline="split-reveal">x</h2>')).toBe(true);
+    expect(hasBehaviors({ attributes: { 'data-ck-lottie': '', 'data-ck-src': 'https://a.example/x.json' } })).toBe(true);
+    const main = document.createElement('main');
+    main.innerHTML = '<div data-ck-timeline="stagger-in"></div>';
+    expect(hasBehaviors(main)).toBe(true);
+  });
+});
+
+describe('pageEngines', () => {
+  it('reads the engines from markup, a DOM node (itself included) and a stored JSON value', () => {
+    expect([...pageEngines('<div data-ck-scene="mural"><img src="a"></div>')]).toEqual(['scene']);
+    expect([...pageEngines('<h2 class="x" data-ck-timeline="split-reveal">x</h2><div data-ck-lottie="" data-ck-src="y"></div>')].sort()).toEqual([
+      'lottie',
+      'timeline',
+    ]);
+    expect(pageEngines('<p data-ck-scene-canvas="">x</p><p>data-ck-scene</p>').size).toBe(0);
+    const node = document.createElement('div');
+    node.setAttribute('data-ck-scene', 'particles');
+    expect([...pageEngines(node)]).toEqual(['scene']);
+    const main = document.createElement('main');
+    main.innerHTML = '<h2 data-ck-timeline="stagger-in">x</h2>';
+    expect([...pageEngines(main)]).toEqual(['timeline']);
+    expect([...pageEngines({ kind: 'root', children: [{ attributes: { 'data-ck-lottie': '' } }] })]).toEqual(['lottie']);
+    expect(pageEngines(null).size).toBe(0);
+    expect(pageEngines('<div data-ck-behavior="gallery"></div>').size).toBe(0);
+  });
+});
+
+describe('BEHAVIOR_CSS — packs', () => {
+  it('carries every pack style once, and the old lightbox/carousel rules only from the packs', () => {
+    expect(BEHAVIOR_CSS).toContain(PACK_CSS);
+    expect(BEHAVIOR_CSS.split("[data-ck-behavior='lightbox'] {").length).toBe(2);
+    expect(BEHAVIOR_CSS.split("[data-ck-behavior='carousel'] [data-ck-track] > * {").length).toBe(2);
+    expect(BEHAVIOR_CSS).toContain('[data-ck-scene][data-ck-ready] > img');
   });
 });

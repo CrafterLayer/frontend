@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -381,5 +382,94 @@ describe('Carousel', () => {
       expect(Object.hasOwn(props, sharedProp), `${sharedProp} must not be defaulted`).toBe(false);
       expect(carouselSchema.propertyGroups?.[sharedProp]).toBeDefined();
     }
+  });
+});
+
+// media-motion (2026-10-06): the published page never hydrates, so the static
+// render must carry every slide as the `carousel` behaviour pack's markup.
+describe('Carousel — static export markup', () => {
+  function staticMarkup(overrides: Record<string, unknown> = {}): HTMLElement {
+    const host = document.createElement('div');
+    host.innerHTML = renderToStaticMarkup(
+      <Carousel
+        node={node}
+        props={carouselSchema.props.parse({ heading: 'Product tour', items: slides, ...overrides })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    return host;
+  }
+
+  it('renders every slide inside one scroll-snap track under data-ck-behavior=carousel', () => {
+    const host = staticMarkup();
+    const carousel = host.querySelector('[data-ck-behavior="carousel"]');
+    expect(carousel).not.toBeNull();
+    expect(carousel?.getAttribute('data-ck-indicator')).toBe('dots');
+    expect(carousel?.hasAttribute('data-ck-autoplay')).toBe(false);
+    const track = carousel?.firstElementChild;
+    expect(track?.hasAttribute('data-carousel-track')).toBe(true);
+    expect(track?.className).toContain('snap-x');
+    const articles = [...(track?.querySelectorAll('article[data-carousel-slide]') ?? [])];
+    expect(articles.map((article) => article.querySelector('h3')?.textContent)).toEqual(
+      slides.map((slide) => slide.title),
+    );
+    expect(articles.map((article) => article.getAttribute('aria-label'))).toEqual([
+      '1 / 3: Plan with evidence',
+      '2 / 3: Build with context',
+      '3 / 3: Learn from outcomes',
+    ]);
+    for (const article of articles) {
+      expect(article.hasAttribute('hidden')).toBe(false);
+      expect(article.getAttribute('style')).toBeNull();
+    }
+  });
+
+  it('places exactly the prev/next buttons outside the track, so the pack derives them', () => {
+    const host = staticMarkup();
+    const carousel = host.querySelector('[data-ck-behavior="carousel"]')!;
+    const track = carousel.firstElementChild!;
+    const outside = [...carousel.querySelectorAll('button')].filter((button) => !track.contains(button));
+    expect(outside.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Previous slide',
+      'Next slide',
+    ]);
+    // React-only controls (dots, play, the counter, the live status) stay out of the static page.
+    expect(host.querySelector('[aria-label^="Go to slide"]')).toBeNull();
+    expect(host.querySelector('[data-carousel-controls]')).toBeNull();
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    expect(host.querySelector('section')?.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('maps autoplay, its interval and the indicator switch onto the closed params', () => {
+    const host = staticMarkup({ autoplay: true, autoplayInterval: 'slow', showIndicators: false });
+    const carousel = host.querySelector('[data-ck-behavior="carousel"]');
+    expect(carousel?.getAttribute('data-ck-autoplay')).toBe('true');
+    expect(carousel?.getAttribute('data-ck-speed')).toBe('slow');
+    expect(carousel?.getAttribute('data-ck-indicator')).toBe('none');
+  });
+
+  it('omits the buttons when controls are off, and keeps one slide static', () => {
+    expect(staticMarkup({ showControls: false }).querySelectorAll('button')).toHaveLength(0);
+    const single = staticMarkup({ items: [slides[0]] });
+    expect(single.querySelectorAll('article')).toHaveLength(1);
+    expect(single.querySelectorAll('button')).toHaveLength(0);
+  });
+
+  it('keeps every slide in the DOM in a live render, showing only the active one', () => {
+    const { container } = render(
+      <Carousel
+        node={node}
+        props={carouselSchema.props.parse({ items: slides })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    const articles = [...container.querySelectorAll('article[data-carousel-slide]')];
+    expect(articles).toHaveLength(3);
+    expect(articles.map((article) => article.hasAttribute('hidden'))).toEqual([false, true, true]);
+    expect(container.querySelector('[data-ck-behavior]')).toBeNull();
   });
 });

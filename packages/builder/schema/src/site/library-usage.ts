@@ -1,5 +1,6 @@
 import { collectAssetRefs } from '../assets/validate';
 import type { AssetId } from '../assets/types';
+import { customCodeAssetId } from '../custom-code/asset-reference';
 import type { BuilderDocument, NodeId } from '../document/types';
 import {
   namedStyleMarker,
@@ -234,6 +235,27 @@ export function findAssetUsages(site: BuilderSite, id: AssetId): LibraryUsage[] 
       if (ref.ref.assetId !== id) continue;
       const path = ref.propPath[0] === 'responsive' ? ref.propPath : ['props', ...ref.propPath];
       usages.push({ owner, nodeId: ref.nodeId, path });
+    }
+    // A tree image points at an asset by `src="/ck-assets/<id>"` (asset-reference.ts).
+    for (const node of Object.values(document.nodes)) {
+      const walk = (value: unknown, path: (string | number)[]): void => {
+        if (typeof value === 'string') {
+          if (path.at(-1) === 'src' && customCodeAssetId(value) === id) {
+            usages.push({ owner, nodeId: node.id, path: ['props', ...path] });
+          }
+          return;
+        }
+        if (Array.isArray(value)) {
+          value.forEach((item, index) => {
+            walk(item, [...path, index]);
+          });
+          return;
+        }
+        if (typeof value === 'object' && value !== null) {
+          for (const [key, item] of Object.entries(value)) walk(item, [...path, key]);
+        }
+      };
+      walk(node.props, []);
     }
   };
   for (const page of site.pages) scan(page.document, { kind: 'page', pageId: page.id });

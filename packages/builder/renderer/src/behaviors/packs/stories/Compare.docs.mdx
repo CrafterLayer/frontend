@@ -1,0 +1,41 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CompareStories from './Compare.stories';
+
+<Meta of={CompareStories} />
+
+# Compare (before / after)
+
+`data-ck-behavior="compare"` on a container with exactly two `img` children: the first is **before**, the
+second **after**. The `compare` pack (`behaviors/packs/compare.ts`) appends a native `input[type=range]`
+from 0 to 100, starting at 50, and writes the position to the container as `--ck-compare`.
+
+<Canvas of={CompareStories.English} />
+
+## What the pack adds, and what it leaves alone
+
+- **One control.** The range is labelled «قبل / بعد» on an Arabic page and "Before / after" elsewhere.
+  Its `aria-valuetext` reads the position as a percentage in the page's own digits («٥٠٪» in Arabic).
+  The keyboard is the native range's, so arrows, Home and End work with no code of ours.
+- **One custom property.** `--ck-compare` is set with `style.setProperty`. The disposer removes the range,
+  restores any value the container had, and drops the mount marker.
+- **No new markup in the tree.** The stored tree holds the two images and the behaviour name, nothing
+  else. Without the script the two images read one after the other.
+
+## Direction
+
+`clip-path: inset()` has no logical form, so `WIDGETS_PACK_CSS` writes it per direction. Under LTR the
+after image is clipped from the left. Under RTL it is clipped from the right, which is the inline start
+there and also where the native range starts. It reads `:dir()` where the browser supports it, and a
+`[dir='rtl']` ancestor where it does not. The divider line is positioned with `inset-inline-start`, so it
+mirrors on its own.
+
+<Canvas of={CompareStories.Arabic} />
+
+## On the canvas
+
+With `interactive: false` the slider is drawn at 50% and is inert: it is not a tab stop and not a
+pointer target, so a click selects the element under it. Reduced motion changes nothing here, because
+the slider only moves when a person moves it.
+
+<Canvas of={CompareStories.Canvas} />

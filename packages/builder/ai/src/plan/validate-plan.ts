@@ -886,8 +886,8 @@ function dryRun(
       { author: 'ai', label: 'AI plan validation' },
     );
   } catch (cause) {
-    const step =
-      pageSteps.length === 1 ? plan.commands.indexOf(pageSteps[0] as AiPlanStep) : undefined;
+    const [only, ...others] = pageSteps;
+    const step = only !== undefined && others.length === 0 ? plan.commands.indexOf(only) : undefined;
     return {
       ok: false,
       issues: [

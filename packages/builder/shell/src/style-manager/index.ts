@@ -65,6 +65,11 @@ export * from './controls/StackLayerRow';
 export * from './controls/StyleColorControl';
 export * from './controls/TransformOriginControl';
 export * from './controls/ValueSourceDot';
+// shell-media-editor additions (media-motion 2026-10-06)
+export * from './controls/MediaParamFields';
+export * from './controls/ScenePresetPicker';
+export * from './controls/TimelineRecipePicker';
+// ── end shell-media-editor additions ──
 
 // Shared behaviour for P7's quick bar and canvas handles.
 export { BOX_SIDES, growthOf, sideForModifiers, sidesOf } from './box-sides';

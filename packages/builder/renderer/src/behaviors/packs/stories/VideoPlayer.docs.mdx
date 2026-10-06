@@ -1,0 +1,64 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as VideoPlayerStories from './VideoPlayer.stories';
+
+<Meta of={VideoPlayerStories} />
+
+# Video player
+
+`data-ck-behavior="video-player"` on a `figure` (or a `div`) that wraps a native `<video controls>`. The
+`video-player` pack (`behaviors/packs/video-player.ts`, `mountVideoPlayer`) draws CraftKit's own
+chrome over the video. Without the script, the browser's native controls are the player.
+
+<Canvas of={VideoPlayerStories.English} />
+
+## The chrome
+
+- A centred big play button, and a control bar holding: play/pause, a native `input[type=range]`
+  scrubber, the time (`0:12 / 1:30`), mute, a captions toggle (only when the video has a `<track>`),
+  picture-in-picture (only where the document supports it) and fullscreen on the wrapper.
+- While the pack is mounted, the native `controls` attribute is removed. Dispose puts it back in its
+  original place.
+- Icons are CSS masks from `VIDEO_PACK_CSS`, so the serialised runtime carries no SVG.
+
+## Keyboard
+
+With focus anywhere in the wrapper:
+
+- Space or K plays and pauses.
+- ← and → seek 5 seconds. Under RTL they are swapped, so → goes back.
+- M mutes, F toggles fullscreen and C toggles captions.
+
+Letter keys are also read from `event.code`, so they work on an Arabic keyboard layout. The scrubber
+keeps its native arrow keys.
+
+<Canvas of={VideoPlayerStories.Arabic} />
+
+## Arabic and RTL
+
+- Labels follow the page `lang`. Arabic gives «تشغيل», «إيقاف مؤقت», «كتم الصوت», «إلغاء الكتم»,
+  «ملء الشاشة», «الترجمة», «صورة داخل صورة», «تقديم» and «الوقت».
+- Arabic pages write the time in Arabic-Indic digits (`٠:١٢ / ١:٣٠`). The Maghreb regions keep
+  Latin digits.
+- The bar uses logical properties, and the range input mirrors natively, so nothing is flipped
+  twice.
+
+## Playback rules
+
+- The video pauses when it leaves the viewport and when the tab is hidden. Picture-in-picture keeps
+  playing.
+- Under reduced motion nothing is forced: an authored `autoplay` is dropped, and the reader presses
+  play.
+
+<Canvas of={VideoPlayerStories.Canvas} />
+
+## On the canvas
+
+With `interactive: false`, the chrome is drawn but `inert` with `pointer-events: none`, so a click
+selects the element. The video never plays there, and the designer sees the real look.
+
+## Accessibility
+
+Every control is a real `button` with a label in the page language. Captions, picture-in-picture
+and fullscreen report their state with `aria-pressed`. The scrubber carries `aria-valuetext` with the
+spoken time, and the time display is a `timer`. Each control shows a focus-visible ring.

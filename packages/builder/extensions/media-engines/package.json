@@ -1,0 +1,37 @@
+{
+  "name": "@craftkit/builder-media-engines",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./entry": "./src/entry.ts",
+    "./policy": "./src/policy.ts",
+    "./palette": "./src/palette.ts"
+  },
+  "scripts": {
+    "build:scene": "node ../../../../scripts/build-scene-engine.mjs",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "pixi.js": "catalog:"
+  },
+  "devDependencies": {
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/test-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "esbuild": "catalog:",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

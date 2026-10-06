@@ -97,3 +97,15 @@
   margin: 0;
   padding: var(--bldr-space-xs) var(--bldr-space-sm);
 }
+
+/* media-motion (2026-10-06): the flag-gated "Cinematic motion" section. */
+.bldr-interactions__heading {
+  margin: 0;
+}
+
+.bldr-interactions__hint {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-snug);
+  margin: 0;
+}

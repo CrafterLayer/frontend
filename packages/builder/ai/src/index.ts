@@ -676,3 +676,26 @@ export {
   type DetachResult,
 } from './editing';
 // ── end P11-integration ──
+// ── media-motion (2026-10-06): media.add, motion.add and their zero-token readings (DESIGN §F) ──
+export {
+  catalogImages,
+  heroRegionId,
+  MEDIA_AGENT_TOOLS,
+  MEDIA_KINDS,
+  mediaAddTool,
+  motionAddTool,
+  readMedia,
+  resolveImages,
+  resolveVideo,
+  VIDEO_MODES,
+  type MediaAddInput,
+  type MediaKind,
+  type MediaReading,
+  type MotionAddInput,
+  type VideoMode,
+} from './media-tools';
+export {
+  AGENT_TOOL_PROMPT_LANE_MAX_CHARS,
+  agentToolPromptMaxChars,
+} from './tools/agent/catalog-prompt';
+// ── end media-motion ──

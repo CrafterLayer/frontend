@@ -66,6 +66,25 @@ const CONTAINED_DEPENDENCIES = Object.freeze([
     matches: (name) => name === 'motion' || name.startsWith('motion/') || name === 'framer-motion',
     owners: Object.freeze(new Set(['@craftkit/builder-motion'])),
   }),
+  // media-motion (2026-10-06)
+  /*
+    The canvas scene engine (PixiJS, media-motion). Contained because it is the
+    heaviest library the builder ships (~180 kB gzip) and it exists only for
+    decorative `data-ck-scene` backgrounds — murals, particle fields, mesh
+    gradients. It reaches published pages ONLY as one prebuilt asset
+    (`assets/ck-scene.js`, generated into the renderer as a string module by
+    `scripts/build-scene-engine.mjs`) and only on pages that carry a scene.
+
+    Left uncontained, a block or the renderer would import Pixi directly and
+    every published page — and the editor's main chunk — would start paying
+    for a WebGL engine most pages never draw with.
+  */
+  Object.freeze({
+    label: 'canvas scene engine',
+    matches: (name) =>
+      name === 'pixi.js' || name.startsWith('pixi.js/') || name.startsWith('@pixi/'),
+    owners: Object.freeze(new Set(['@craftkit/builder-media-engines'])),
+  }),
 ]);
 
 /**

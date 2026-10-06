@@ -21,6 +21,8 @@ export interface InspectorElementLabels {
   readonly designBlock: string;
   readonly convert: string;
   readonly convertHint: string;
+  /** Why "Convert to editable" is off: the block's container only holds certain blocks. */
+  readonly convertBlocked: (container: string) => string;
   readonly elements: (count: number) => string;
 }
 
@@ -45,6 +47,8 @@ export const INSPECTOR_ELEMENT_LABELS_EN: InspectorElementLabels = {
   designBlock: 'Style classes',
   convert: 'Convert to editable',
   convertHint: 'Turns this block into an editable section, so every part of it becomes its own element.',
+  convertBlocked: (container) =>
+    `This block sits inside ${container}, which only holds certain blocks. Convert ${container} instead.`,
   elements: (count) => `${String(count)} elements`,
 };
 
@@ -69,5 +73,7 @@ export const INSPECTOR_ELEMENT_LABELS_AR: InspectorElementLabels = {
   designBlock: 'أصناف التنسيق',
   convert: 'تحويل إلى قابل للتحرير',
   convertHint: 'يحوّل هذه الكتلة إلى قسم قابل للتحرير، فيصبح كل جزء منها عنصرًا مستقلًا.',
+  convertBlocked: (container) =>
+    `هذه الكتلة داخل ${container}، ولا يقبل إلا كتلًا محددة. حوّل ${container} بدلًا منها.`,
   elements: (count) => `${String(count)} عناصر`,
 };

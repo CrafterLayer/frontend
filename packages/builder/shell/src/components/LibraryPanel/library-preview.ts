@@ -59,6 +59,19 @@ export function previewSrcdoc(options: {
   readonly lang: string;
 }): string {
   const css = options.css.replace(/<\/style/giu, '<\\/style');
+  /*
+    A thumbnail never loads a third-party embed (fix pass): a map or video
+    iframe here made a network request per tile, logged sandbox errors on
+    every open and drew the provider's error page. It is drawn as a poster
+    the size the embed's own classes give it.
+  */
+  const markup = options.markup.replace(
+    /<iframe\b([^>]*)>(?:\s*<\/iframe>)?/giu,
+    (_tag: string, attributes: string) => {
+      const className = /\bclass="([^"]*)"/u.exec(attributes)?.[1] ?? '';
+      return `<div class="ck-embed-poster ${className}" aria-hidden="true"></div>`;
+    },
+  );
   return [
     '<!doctype html>',
     `<html dir="${options.dir}" lang="${options.lang}">`,
@@ -66,7 +79,8 @@ export function previewSrcdoc(options: {
     `<style>${css}</style>`,
     '<style>html,body{margin:0;overflow:hidden;background:transparent}',
     'body{padding:24px;inline-size:1040px;transform:scale(.25);transform-origin:top left}',
-    '[dir=rtl] body{transform-origin:top right}</style>',
-    `</head><body>${options.markup}</body></html>`,
+    '[dir=rtl] body{transform-origin:top right}',
+    '.ck-embed-poster{min-block-size:160px;background:color-mix(in srgb,currentColor 12%,transparent);border-radius:12px}</style>',
+    `</head><body>${markup}</body></html>`,
   ].join('');
 }

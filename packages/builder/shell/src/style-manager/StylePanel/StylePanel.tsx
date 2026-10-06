@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -70,6 +70,13 @@ export interface StylePanelProps {
   readonly labels?: StylePanelLabels | undefined;
   /** Rendered after the sectors: the Advanced group of the element panel. */
   readonly children?: ReactNode;
+  /**
+   * A host asking for one sector (the quick bar's "More"): expanded and
+   * scrolled into view each time `nonce` changes.
+   */
+  readonly revealSector?: { readonly sector: StyleSectorId; readonly nonce: number } | undefined;
+  /** The sector a person last opened (or a host revealed), for canvas overlays. */
+  readonly onActiveSectorChange?: ((sector: StyleSectorId | null) => void) | undefined;
 }
 
 const isBaseOnly = (property: StylePropertyId) => STYLE_PROPERTIES[property].baseOnly === true;
@@ -103,14 +110,41 @@ export function StylePanel({
   onPreview,
   labels = STYLE_PANEL_LABELS_EN,
   children,
+  revealSector,
+  onActiveSectorChange,
 }: StylePanelProps) {
   const classes = useStyleSourceClasses(source);
   const views = useMemo(
     () => viewStyles(classes, { bucket, state }, namedStyles),
     [classes, bucket, state, namedStyles],
   );
-  const [open, setOpen] = useState<ReadonlySet<StyleSectorId>>(() => new Set(OPEN_BY_DEFAULT));
+  const [open, setOpen] = useState<ReadonlySet<StyleSectorId>>(() =>
+    revealSector === undefined ? new Set(OPEN_BY_DEFAULT) : new Set([...OPEN_BY_DEFAULT, revealSector.sector]),
+  );
   const [refusal, setRefusal] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [seenReveal, setSeenReveal] = useState<number | undefined>(undefined);
+  if (revealSector !== undefined && seenReveal !== revealSector.nonce) {
+    setSeenReveal(revealSector.nonce);
+    if (!open.has(revealSector.sector)) setOpen(new Set([...open, revealSector.sector]));
+  }
+  const revealNonce = revealSector?.nonce;
+  const revealId = revealSector?.sector;
+  const activeSectorChange = useRef(onActiveSectorChange);
+  useLayoutEffect(() => {
+    activeSectorChange.current = onActiveSectorChange;
+  });
+  useEffect(() => {
+    if (revealId === undefined || revealNonce === undefined) return;
+    activeSectorChange.current?.(revealId);
+    const sector = rootRef.current?.querySelector<HTMLElement>(`[data-sector="${revealId}"]`);
+    try {
+      sector?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    } catch {
+      // A host without layout (jsdom) has no scrolling; the sector is still open.
+    }
+    sector?.querySelector<HTMLElement>('.bldr-style-sector__toggle')?.focus({ preventScroll: true });
+  }, [revealNonce, revealId]);
 
   const viewOf = (id: StylePropertyId): PropertyView => views.get(id) ?? emptyView(STYLE_PROPERTIES[id]);
   const surface = tokens.find((swatch) => swatch.id === 'surface')?.css;
@@ -152,7 +186,13 @@ export function StylePanel({
     .filter((entry) => entry.properties.length > 0);
 
   return (
-    <div className="bldr-style-panel" role="group" aria-label={labels.panel} data-mode={source.mode}>
+    <div
+      ref={rootRef}
+      className="bldr-style-panel"
+      role="group"
+      aria-label={labels.panel}
+      data-mode={source.mode}
+    >
       {onBucketChange === undefined || onStateChange === undefined ? null : (
         <BucketStateSwitcher
           bucket={bucket}
@@ -174,12 +214,14 @@ export function StylePanel({
         <StyleSector
           key={sector.id}
           title={sector.labels[labels.locale]}
+          sectorId={sector.id}
           expanded={open.has(sector.id)}
           onToggle={() => {
             const next = new Set(open);
             if (next.has(sector.id)) next.delete(sector.id);
             else next.add(sector.id);
             setOpen(next);
+            onActiveSectorChange?.(next.has(sector.id) ? sector.id : null);
           }}
         >
           {properties.map((def) => {

@@ -421,6 +421,9 @@ catalogs:
     pixelmatch:
       specifier: 7.2.0
       version: 7.2.0
+    pixi.js:
+      specifier: 8.22.0
+      version: 8.22.0
     playwright:
       specifier: 1.62.1
       version: 1.62.1
@@ -1549,6 +1552,43 @@ importers:
       storybook:
         specifier: 'catalog:'
         version: 10.5.10(@types/react@19.2.18)(prettier@3.9.6)(react@19.2.8)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/builder/extensions/media-engines:
+    dependencies:
+      pixi.js:
+        specifier: 'catalog:'
+        version: 8.22.0
+    devDependencies:
+      '@craftkit/eslint-config':
+        specifier: workspace:*
+        version: link:../../../eslint-config
+      '@craftkit/test-config':
+        specifier: workspace:*
+        version: link:../../../test-config
+      '@craftkit/typescript-config':
+        specifier: workspace:*
+        version: link:../../../typescript-config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(@vitest/browser@4.1.11)(vitest@4.1.11)
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.2
+      jsdom:
+        specifier: 'catalog:'
+        version: 30.0.1
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -4569,6 +4609,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@pixi/colord@2.9.6':
+    resolution: {integrity: sha512-nezytU2pw587fQstUu1AsJZDVEynjskwOL+kibwcdxsMBFqPsFFNA7xl0ii/gXuDi6M0xj3mfRJj8pBSc2jCfA==}
+
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
@@ -5923,6 +5966,9 @@ packages:
   '@types/doctrine@0.0.9':
     resolution: {integrity: sha512-eOIHzCUSH7SMfonMG1LsC2f8vxBFtho6NGBznK41R84YzPuvSBzrhEps33IsQiOW9+VL6NQ9DbjQJznk/S4uRA==}
 
+  '@types/earcut@3.0.0':
+    resolution: {integrity: sha512-k/9fOUGO39yd2sCjrbAJvGDEQvRwRnQIZlBz43roGwUZo5SHAmyVvSFyaVVZkicRVCaDXPKlbxrUcBuJoSWunQ==}
+
   '@types/esrecurse@4.3.1':
     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
 
@@ -6195,6 +6241,13 @@ packages:
 
   '@webcontainer/env@1.1.1':
     resolution: {integrity: sha512-6aN99yL695Hi9SuIk1oC88l9o0gmxL1nGWWQ/kNy81HigJ0FoaoTXpytCj6ItzgyCEwA9kF1wixsTuv5cjsgng==}
+
+  '@webgpu/types@0.1.74':
+    resolution: {integrity: sha512-lgiI4hbuLcI9unnm2cL/tvCaQU45dp0xcLWJh5uB/9MBGvIA4F8XIk7nSiBeg+K4xWGYwgZKn80LmERI5CxoTA==}
+
+  '@xmldom/xmldom@0.8.15':
+    resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
+    engines: {node: '>=10.0.0'}
 
   a-sync-waterfall@1.0.1:
     resolution: {integrity: sha512-RYTOHHdWipFUliRFMCS4X2Yn2X8M87V/OpSqWzKKOGhzqyUxzyVmhHDH9sAvG+ZuQf/TAOFsLCpMw09I1ufUnA==}
@@ -6883,6 +6936,9 @@ packages:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
 
+  earcut@3.2.4:
+    resolution: {integrity: sha512-FHc6yNpnTORB0tM5kmZ03iD2mDuNakDE2lvf4Hw1XkfxtEHIGVi01B/GqUSwx+NcC1WGjidAfpTXzeALtPtfpg==}
+
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
@@ -7343,6 +7399,9 @@ packages:
     resolution: {integrity: sha512-/5N/P4Lrh0p/mDwlDRi7Y1+P2o/OyzZI3l6Iz1Ov6XXwwm1y3RlZLuo3gVgML99djrEDtV980bBxSuOeHLk8ww==}
     engines: {node: '>= 20'}
 
+  gifuct-js@2.1.2:
+    resolution: {integrity: sha512-rI2asw77u0mGgwhV3qA+OEgYqaDn5UNqgs+Bx0FGwSpuqfYn+Ir6RQY5ENNQ8SbIiG/m5gVa7CD5RriO4f4Lsg==}
+
   glob-parent@6.0.2:
     resolution: {integrity: sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A==}
     engines: {node: '>=10.13.0'}
@@ -7626,6 +7685,9 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  ismobilejs@1.1.1:
+    resolution: {integrity: sha512-VaFW53yt8QO61k2WJui0dHf4SlL8lxBofUuUmwBo0ljPk0Drz2TiuDW4jo3wDcv41qy/SxrJ+VAzJ/qYqsmzRw==}
+
   isstream@0.1.2:
     resolution: {integrity: sha512-Yljz7ffyPbrLpLngrMtZ7NduUgVvi6wG9RJ9IUcyCd59YQ911PBJphODUcbOVbqYfxe1wuYf/LJ8PauMRwsM/g==}
 
@@ -7663,6 +7725,9 @@ packages:
 
   js-base64@3.9.3:
     resolution: {integrity: sha512-uwYQp+VJ38FVvtim6qNbit6e9uT6dwWQ4Y1+H9TxhW5hcHjpHwoxlR0nMpqUmIFOmu4VqMxwdJA88gIVuZJQ/g==}
+
+  js-binary-schema-parser@2.0.3:
+    resolution: {integrity: sha512-xezGJmOb4lk/M1ZZLTR/jaBHQ4gG/lqQnJqdIv4721DMggsa1bDVlHXNeHYogaIEHD9vCRv0fcL4hMA+Coarkg==}
 
   js-rouge@3.2.1:
     resolution: {integrity: sha512-rr9vSk+0+IFJyQi8ts4Im9sSs2k8RY5tLKVpreq5Qib2j/N5jsk5qJLMTbDU8DbPZUVV7mqjUumV+vgrUnouzw==}
@@ -8408,6 +8473,9 @@ packages:
     resolution: {integrity: sha512-TXfryirbmq34y8QBwgqCVLi+8oA3oWx2eAnSn62ITyEhEYaWRlVZ2DvMM9eZbMs/RfxPu/PK/aBLyGj4IrqMHw==}
     engines: {node: '>=18'}
 
+  parse-svg-path@0.2.0:
+    resolution: {integrity: sha512-Tf7FFIrguPKQwzD4pWnYkR2VOv3raoHeKED80Bm+BYHI3KxC8KsgsGC5+fSMzAGDA6UEk4bHvmi+RsjmL3khpg==}
+
   parse5@8.0.1:
     resolution: {integrity: sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==}
 
@@ -8520,6 +8588,9 @@ packages:
   pixelmatch@7.2.0:
     resolution: {integrity: sha512-xhcb4yHu9sM/G7foGzoLtXYcC0zHEaOXXjRKhGup0fw78Nf2Tkiapv4EQyMzrbcmQPsllAI7DbFY2UT7PlI9Pg==}
     hasBin: true
+
+  pixi.js@8.22.0:
+    resolution: {integrity: sha512-QbTANHMZ751MIjLiLSUSM8a7LNMWwMIf0KbRCqlW+SPS9hNLfSVS+cl1O2SEp9g1K/wyLzj/OJHv+1TUfiPr/w==}
 
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
@@ -9180,6 +9251,10 @@ packages:
 
   tiny-invariant@1.3.3:
     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
+
+  tiny-lru@11.4.7:
+    resolution: {integrity: sha512-w/Te7uMUVeH0CR8vZIjr+XiN41V+30lkDdK+NRIDCUYKKuL9VcmaUEmaPISuwGhLlrTGh5yu18lENtR9axSxYw==}
+    engines: {node: '>=12'}
 
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
@@ -11886,6 +11961,8 @@ snapshots:
   '@oxc-resolver/binding-win32-x64-msvc@11.21.2':
     optional: true
 
+  '@pixi/colord@2.9.6': {}
+
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -13165,6 +13242,8 @@ snapshots:
 
   '@types/doctrine@0.0.9': {}
 
+  '@types/earcut@3.0.0': {}
+
   '@types/esrecurse@4.3.1': {}
 
   '@types/estree@1.0.9': {}
@@ -13517,6 +13596,10 @@ snapshots:
       tinyrainbow: 3.1.1
 
   '@webcontainer/env@1.1.1': {}
+
+  '@webgpu/types@0.1.74': {}
+
+  '@xmldom/xmldom@0.8.15': {}
 
   a-sync-waterfall@1.0.1: {}
 
@@ -14077,6 +14160,8 @@ snapshots:
       es-errors: 1.3.0
       gopd: 1.2.0
 
+  earcut@3.2.4: {}
+
   eastasianwidth@0.2.0:
     optional: true
 
@@ -14335,8 +14420,7 @@ snapshots:
   eventemitter3@4.0.7:
     optional: true
 
-  eventemitter3@5.0.4:
-    optional: true
+  eventemitter3@5.0.4: {}
 
   events@3.3.0:
     optional: true
@@ -14661,6 +14745,10 @@ snapshots:
       debug: 4.4.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
+
+  gifuct-js@2.1.2:
+    dependencies:
+      js-binary-schema-parser: 2.0.3
 
   glob-parent@6.0.2:
     dependencies:
@@ -15007,6 +15095,8 @@ snapshots:
 
   isexe@2.0.0: {}
 
+  ismobilejs@1.1.1: {}
+
   isstream@0.1.2:
     optional: true
 
@@ -15050,6 +15140,8 @@ snapshots:
   jose@6.2.10: {}
 
   js-base64@3.9.3: {}
+
+  js-binary-schema-parser@2.0.3: {}
 
   js-rouge@3.2.1: {}
 
@@ -15807,6 +15899,8 @@ snapshots:
 
   parse-ms@4.0.0: {}
 
+  parse-svg-path@0.2.0: {}
+
   parse5@8.0.1:
     dependencies:
       entities: 8.0.0
@@ -15919,6 +16013,19 @@ snapshots:
   pixelmatch@7.2.0:
     dependencies:
       pngjs: 7.0.0
+
+  pixi.js@8.22.0:
+    dependencies:
+      '@pixi/colord': 2.9.6
+      '@types/earcut': 3.0.0
+      '@webgpu/types': 0.1.74
+      '@xmldom/xmldom': 0.8.15
+      earcut: 3.2.4
+      eventemitter3: 5.0.4
+      gifuct-js: 2.1.2
+      ismobilejs: 1.1.1
+      parse-svg-path: 0.2.0
+      tiny-lru: 11.4.7
 
   pkce-challenge@5.0.1: {}
 
@@ -16931,6 +17038,8 @@ snapshots:
   tiny-emitter@2.1.0: {}
 
   tiny-invariant@1.3.3: {}
+
+  tiny-lru@11.4.7: {}
 
   tinybench@2.9.0: {}
 

@@ -644,3 +644,60 @@ export {
   customCodeTagHoldsContent,
 } from './custom-code/custom-code-tree';
 // ── end P12-fix-pass ──
+// ── fix pass: tree asset references (style-manager DESIGN.md P11) ──
+export {
+  CUSTOM_CODE_ASSET_PREFIX,
+  customCodeAssetId,
+  customCodeAssetSrc,
+} from './custom-code/asset-reference';
+// ── end fix pass ──
+// ── schema-media additions — media-motion (2026-10-06) ──
+// The media and motion vocabulary (DESIGN §C.2, §D.2, §E): media behaviours,
+// timeline recipes, scenes, engine markers and their params; and the pure
+// media recipes (D10) the agent tools and the shell's Insert presets share.
+export {
+  CAROUSEL_INDICATORS,
+  CUSTOM_CODE_ENGINE_KINDS,
+  CUSTOM_CODE_ENGINE_MARKERS,
+  CUSTOM_CODE_ENGINE_OF_MARKER,
+  CUSTOM_CODE_ENGINE_PARAMS,
+  CUSTOM_CODE_ENGINE_PARAM_OWNERS,
+  CUSTOM_CODE_MEDIA_ATTRIBUTES,
+  CUSTOM_CODE_MEDIA_BEHAVIORS,
+  CUSTOM_CODE_MEDIA_BEHAVIOR_PARAMS,
+  CUSTOM_CODE_MEDIA_BEHAVIOR_PARAM_OWNERS,
+  CUSTOM_CODE_MEDIA_BEHAVIOR_TAGS,
+  CUSTOM_CODE_MEDIA_PARAMS,
+  CUSTOM_CODE_MEDIA_PART_ATTRIBUTES,
+  CUSTOM_CODE_SCENE_INFO,
+  CUSTOM_CODE_SCENES,
+  CUSTOM_CODE_TIMELINE_RECIPE_INFO,
+  CUSTOM_CODE_TIMELINE_RECIPES,
+  customCodeEnginesOf,
+  isCustomCodeEngineMarker,
+  isCustomCodeMediaBehavior,
+  isCustomCodeScene,
+  isCustomCodeTimelineRecipe,
+  MEDIA_SWITCH_VALUES,
+  SCENE_DENSITIES,
+  SCENE_PALETTES,
+  TIMELINE_DEPTHS,
+  TIMELINE_REUSED_MOTION_PARAMS,
+  TOGGLE_OPTIONS,
+  type CarouselIndicator,
+  type CustomCodeEngineKind,
+  type CustomCodeEngineMarker,
+  type CustomCodeEngineParam,
+  type CustomCodeMediaBehavior,
+  type CustomCodeMediaParam,
+  type CustomCodeScene,
+  type CustomCodeTimelineRecipe,
+  type MediaBilingual,
+  type MediaVocabularyInfo,
+  type SceneDensity,
+  type ScenePalette,
+  type TimelineDepth,
+  type ToggleOption,
+} from './custom-code/media-vocabulary';
+export * from './media-recipes';
+// ── end schema-media additions ──

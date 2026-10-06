@@ -177,10 +177,18 @@ function briefHas(brief: readonly string[], keyword: readonly string[]): boolean
   return false;
 }
 
+// media-motion (2026-10-06, DESIGN §F.4): words people use for a food gallery that the
+// data file does not list («ضيف معرض صور أكل», "a gallery of dishes"). Keywords only, no entries.
+const TOPIC_KEYWORD_ALIASES: Readonly<Partial<Record<PhotoTopic, readonly string[]>>> = {
+  restaurant: ['food', 'طعام', 'أكل', 'أكلات', 'أطباق', 'dishes', 'meals'],
+};
+
 const NORMALIZED_KEYWORDS: ReadonlyMap<PhotoTopic, readonly (readonly string[])[]> = new Map(
   Object.entries(PHOTO_TOPIC_KEYWORDS).map(([topic, { ar, en }]) => [
     topic as PhotoTopic,
-    [...ar, ...en].map((keyword) => words(keyword)).filter((parts) => parts.length > 0),
+    [...ar, ...en, ...(TOPIC_KEYWORD_ALIASES[topic as PhotoTopic] ?? [])]
+      .map((keyword) => words(keyword))
+      .filter((parts) => parts.length > 0),
   ]),
 );
 

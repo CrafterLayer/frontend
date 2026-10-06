@@ -9,6 +9,8 @@ const POST = {
   href: text(300),
 } as const;
 
+// media-motion (2026-10-06): the two gallery kits carry data-ck-behavior='gallery' (DESIGN §F.4), so a built
+// page's photos open the shared dialog — keys, swipe, counter, captions — in Preview and the export.
 export const MEDIA_KITS: readonly SectionKit[] = [
   {
     id: 'gallery-mosaic',
@@ -18,7 +20,7 @@ export const MEDIA_KITS: readonly SectionKit[] = [
     source: merakiui('portfolio/Cards.html'),
     slots: { ...HEAD_SLOTS, items: list({ image: image(true), caption: text(60) }, 6) },
     markup: band(`${HEAD_START}
-      <div class='ck-mosaic mt-12 grid grid-cols-2 gap-4 md:grid-cols-4'>
+      <div data-ck-behavior='gallery' class='ck-mosaic mt-12 grid grid-cols-2 gap-4 md:grid-cols-4'>
         {{#items}}<figure class='group relative overflow-hidden rounded-2xl'>
           <img class='aspect-square h-full w-full object-cover transition duration-500 group-hover:scale-105 motion-reduce:transform-none' src='{{item.image.src}}' alt='{{item.image.alt}}'/>
           {{#item.caption}}<figcaption class='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-sm font-semibold text-white'>{{item.caption}}</figcaption>{{/item.caption}}
@@ -34,7 +36,7 @@ export const MEDIA_KITS: readonly SectionKit[] = [
     source: merakiui('portfolio/HoverEffect.html'),
     slots: { ...HEAD_SLOTS, items: list({ image: image(true), caption: text(60, true) }, 10) },
     markup: band(`${HEAD_START}
-      <div class='mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4'>
+      <div data-ck-behavior='gallery' class='mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4'>
         {{#items}}<figure class='w-4/5 shrink-0 snap-start md:w-96'>
           <img class='aspect-4/3 w-full rounded-2xl object-cover' src='{{item.image.src}}' alt='{{item.image.alt}}'/>
           <figcaption class='mt-3 font-semibold'>{{item.caption}}</figcaption>

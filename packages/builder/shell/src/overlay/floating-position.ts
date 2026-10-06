@@ -141,7 +141,14 @@ export function positionFloating(input: FloatingInput): FloatingPlacement {
   const first = rects[0] ?? union;
   const last = rects[rects.length - 1] ?? union;
   const needed = (size.height + gap) * scale;
-  const roomAbove = frame.y + first.y * scale - needed;
+  /*
+    Room above is the smaller of the host's room and the CLIP BOX's: an
+    element near the top of the visible canvas had host room above it (the
+    top bar's height), so the bar was placed above, then the final clamp to
+    y = 0 pushed it back down over the very heading being edited (fix pass,
+    shots A02 / E-en-light-05). Layer-local 0 is the clip box's top edge.
+  */
+  const roomAbove = Math.min(frame.y + first.y * scale - needed, (first.y - size.height - gap) * scale);
   /*
     Room below is measured against the CLIP BOX, not the window. `viewport` is
     `window.innerHeight`, which counts the status bar and everything else

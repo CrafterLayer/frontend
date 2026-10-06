@@ -27,6 +27,8 @@ import { editorLabels, editorLocaleFromEnv, type EditorLocale } from './editor-l
 import { EditorShortcutsHost } from './editor-shortcuts-host';
 import { useCanvasFrameDocument } from './use-canvas-frame-document';
 import { useEditorChrome } from './use-editor-chrome';
+import { useInspectorFocus } from './use-inspector-focus';
+import { librarySections } from './library-sections';
 import { useRecentChanges } from './use-recent-changes';
 import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
@@ -34,6 +36,7 @@ import {
   createOfflineSiteStageProvider,
   createSiteBuilder,
   themeFromDesignSystem,
+  themeToCssVars,
   bucketForWidth,
   AssetTableProvider,
   BuilderShell,
@@ -94,6 +97,7 @@ import { usePublishStaticSite } from '../features/export';
 import { CodeWorkspace } from '../features/preview/code-workspace';
 import { createSourceAgentClient } from '../features/preview/source-agent-client';
 import { useSourceAgent } from '../features/preview/use-source-agent';
+import { useComponentSchemaResolver } from '../features/preview/use-component-schema-resolver';
 import { useLiveUtilities } from '../features/preview/use-live-utilities';
 import { SourceAgentPanel } from '../features/preview/components/SourceAgentPanel';
 import {
@@ -444,6 +448,8 @@ export function App() {
   const siteKernel = session?.siteKernel;
   // Any Tailwind class the assistant writes renders, and the door judges classes by the same compiler.
   const liveUtilities = useLiveUtilities(siteKernel);
+  // Component props inside a tree are judged by their block's own schema.
+  useComponentSchemaResolver(kernel);
   const frameDocument = useCanvasFrameDocument();
   const chrome = useEditorChrome({
     kernel,
@@ -488,6 +494,8 @@ export function App() {
     setAsideOpen(true);
     setActiveSide('aside');
   }, []);
+  // The quick bar's More / Animate open the Inspector at that place, not just the aside.
+  const inspectorFocus = useInspectorFocus(openAside);
   const openAssets = useCallback(() => {
     setRailSection('assets');
     setPanelOpen(true);
@@ -691,6 +699,9 @@ export function App() {
     () => Object.values(siteLibrary?.styles ?? {}).map((style) => ({ id: style.id, name: style.name })),
     [siteLibrary?.styles],
   );
+  // Symbol masters by id: elements inside a symbol instance get their quick bar too.
+  const symbols = siteLibrary?.symbols;
+  const symbolTree = useCallback((symbolId: string) => symbols?.[symbolId]?.tree, [symbols]);
   const namedStyleClasses = useMemo(
     () =>
       Object.fromEntries(
@@ -725,7 +736,14 @@ export function App() {
   // Named once: the status bar is rendered by two branches now (with a live
   // provenance strip, and without one while the document is opening), and the
   // device is the same fact in both.
-  const deviceLabel = `${device.bucket === 'base' ? 'Desktop' : device.bucket === 'tablet' ? 'Tablet' : 'Mobile'} · ${String(device.width)} px`;
+  const deviceLabel = `${labels.chrome.device[device.bucket]} · ${String(device.width)} px`;
+  // The Library's thumbnails: the page theme's tokens and a readable base font, and the kits as Sections.
+  const libraryPreviewCss = useMemo(
+    () =>
+      `${themeToCssVars(theme)}\nbody{font-family:ui-sans-serif,system-ui,sans-serif;color:var(--t-text);background:var(--t-surface);line-height:1.5}\nimg{max-inline-size:100%;block-size:auto}`,
+    [theme],
+  );
+  const libraryKitSections = useMemo(() => librarySections(editorLocale), [editorLocale]);
   const canvasZoom =
     zoomChoice === 'fit'
       ? Math.max(0.1, Math.min(1, (canvasWidth - 32) / device.width))
@@ -787,7 +805,7 @@ export function App() {
     // into an actual theme, and it is the element a host re-points a token on.
     // The site design library (palette, named styles, symbols) around every page render.
     <SiteDesignHost siteKernel={siteKernel}>
-    <BuilderTheme className="pg-app" theme={chromeThemeFor(chromeChoice)}>
+    <BuilderTheme className="pg-app" theme={chromeThemeFor(chromeChoice)} dir={labels.dir}>
       {/*
         The designed bar replaces what was a debug harness: a fieldset of radio
         buttons, a bare select, a checkbox and six unstyled buttons in a row.
@@ -795,6 +813,8 @@ export function App() {
         which is exactly the slot the component offers for them.
       */}
       <TopBar
+        labels={labels.topBar}
+        dir={labels.dir}
         productName="CraftKit Builder"
         logo={<span className="pg-mark">CK</span>}
         device={device.bucket === 'base' ? 'desktop' : device.bucket}
@@ -823,7 +843,7 @@ export function App() {
             every view for the law's assertions and has no business being seen.
           */
           <>
-            <div className="pg-workspace-view" role="group" aria-label="Workspace view">
+            <div className="pg-workspace-view" role="group" aria-label={labels.chrome.workspaceView}>
               <ChromeButton
                 size="sm"
                 variant="toggle"
@@ -832,7 +852,7 @@ export function App() {
                   setWorkspaceView('canvas');
                 }}
               >
-                Canvas
+                {labels.chrome.canvas}
               </ChromeButton>
               <ChromeButton
                 size="sm"
@@ -842,7 +862,7 @@ export function App() {
                   setWorkspaceView('sitemap');
                 }}
               >
-                Sitemap
+                {labels.chrome.sitemap}
               </ChromeButton>
             </div>
             <ChromeButton
@@ -851,13 +871,13 @@ export function App() {
               title={publishSite.error}
               onClick={() => void publishStaticSiteFiles()}
             >
-              Publish site
+              {labels.chrome.publishSite}
             </ChromeButton>
             <ChromeButton
               size="sm"
               variant="toggle"
               className="pg-pane-toggle"
-              aria-label="Toggle workspace panel"
+              aria-label={labels.chrome.togglePanel}
               aria-pressed={visiblePanes.panel}
               onClick={() => {
                 setPanelOpen(!visiblePanes.panel);
@@ -869,13 +889,13 @@ export function App() {
                 <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
                 <path d="M6 2.5v11" />
               </svg>
-              <span className="pg-pane-toggle__label">Panel</span>
+              <span className="pg-pane-toggle__label">{labels.chrome.panel}</span>
             </ChromeButton>
             <ChromeButton
               size="sm"
               variant="toggle"
               className="pg-pane-toggle"
-              aria-label="Toggle inspector"
+              aria-label={labels.chrome.toggleInspector}
               aria-pressed={visiblePanes.aside}
               onClick={() => {
                 setAsideOpen(!visiblePanes.aside);
@@ -886,7 +906,7 @@ export function App() {
                 <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
                 <path d="M10 2.5v11" />
               </svg>
-              <span className="pg-pane-toggle__label">Inspector</span>
+              <span className="pg-pane-toggle__label">{labels.chrome.inspector}</span>
             </ChromeButton>
             {showcaseOwnsLawSControls ? null : (
               <span className="bldr-visually-hidden">
@@ -1325,6 +1345,8 @@ export function App() {
                     labels={labels.libraryPanel}
                     actionLabels={labels.elementActions}
                     words={labels.elementWords}
+                    sections={libraryKitSections}
+                    previewStylesheet={libraryPreviewCss}
                     {...(liveUtilities === undefined
                       ? {}
                       : { compilePreviewCss: (names: readonly string[]) => liveUtilities.compileFor(names) })}
@@ -1454,8 +1476,10 @@ export function App() {
                   breakpoint={breakpoint}
                   elementSelection={chrome.selection}
                   styleBucket={styleBucket}
-                  onOpenStyleSector={openAside}
-                  onAnimate={openAside}
+                  onOpenStyleSector={inspectorFocus.openStyleSector}
+                  onAnimate={inspectorFocus.animate}
+                  activeSector={inspectorFocus.styleContext.sector}
+                  styleState={inspectorFocus.styleContext.state}
                   onEditWithAi={editWithAi}
                   onSaveTemplate={chrome.saveTargetAsTemplate}
                   onReplaceMedia={openAssets}
@@ -1467,6 +1491,7 @@ export function App() {
                   treeTextLabels={labels.treeText}
                   elementNameWords={labels.elementWords}
                   editorDir={labels.dir}
+                  symbolTree={symbolTree}
                 />
               </AssetTableProvider>
             )
@@ -1489,15 +1514,17 @@ export function App() {
                 />
               )}
               <label className="pg-canvas-zoom">
-                Zoom
+                {labels.chrome.zoom}
                 <select
-                  aria-label="Canvas zoom"
+                  aria-label={labels.chrome.canvasZoom}
                   value={zoomChoice}
                   onChange={(event) => {
                     setZoomChoice(event.currentTarget.value);
                   }}
                 >
-                  <option value="fit">Fit · {Math.round(canvasZoom * 100)}%</option>
+                  <option value="fit">
+                    {labels.chrome.fit} · {Math.round(canvasZoom * 100)}%
+                  </option>
                   <option value="0.5">50%</option>
                   <option value="0.75">75%</option>
                   <option value="1">100%</option>
@@ -1595,6 +1622,9 @@ export function App() {
                 onOpenPageCss={() => {
                   session.kernel.setSelection([session.kernel.getDocument().rootId]);
                 }}
+                focusRequest={inspectorFocus.request}
+                onFocusRequestHandled={inspectorFocus.onRequestHandled}
+                onStyleContextChange={inspectorFocus.onStyleContextChange}
               />
             )
           }

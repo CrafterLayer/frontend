@@ -1,11 +1,14 @@
 import type { BuilderKernel, SiteGroupStep } from '@craftkit/builder-core';
 import {
   applyStyleIntents,
+  customCodeAssetSrc,
   isAssetRef,
   type AssetEntry,
   type BuilderSite,
   type PageId,
 } from '@craftkit/builder-schema';
+
+import { resolveCustomCodeAssetSrc, type AssetTable } from '@craftkit/builder-renderer';
 
 import { resolveElementTarget, type ElementTarget } from '../../custom-code/element-target';
 import { cropIntents, type CropValue } from '../ImageCropper/crop-math';
@@ -88,18 +91,22 @@ export function assetUseSteps(
   if (node.kind !== 'element') return { ok: false, message: 'Pick an image or a container to put the picture on.' };
   const at = { id: target.nodeId, path: [...resolved.target.path] };
   if (node.tag === 'img') {
-    if (asset.url.length > TREE_ATTRIBUTE_MAX) {
-      return {
-        ok: false,
-        message: `This picture is stored inside the site (${String(Math.round(asset.url.length / 1024))} kB) and an image element can only point at an address of up to ${String(TREE_ATTRIBUTE_MAX)} characters. Use it on an image block, or use a hosted https address.`,
-      };
-    }
+    /*
+      A picture stored inside the site (an upload's data URL) is too long for
+      a tree attribute: the element points at it by reference instead
+      (`/ck-assets/<id>`), which the canvas and the export resolve through
+      the site's asset table. A short hosted address is written as it is.
+    */
+    const src =
+      asset.url.length > TREE_ATTRIBUTE_MAX || asset.url.startsWith('data:')
+        ? customCodeAssetSrc(asset.id)
+        : asset.url;
     return {
       ok: true,
       steps: [
         {
           command: 'patchTreeNode',
-          args: { ...at, attributes: { src: asset.url, ...(asset.alt === '' ? {} : { alt: asset.alt }) } },
+          args: { ...at, attributes: { src, ...(asset.alt === '' ? {} : { alt: asset.alt }) } },
           pageId,
         },
       ],
@@ -150,9 +157,15 @@ export function cropElementSteps(
 }
 
 /** The `src` of the selected tree image, for the cropper and the alt default. */
-export function selectedImageSource(page: BuilderKernel, target: ElementTarget | undefined): string | undefined {
+export function selectedImageSource(
+  page: BuilderKernel,
+  target: ElementTarget | undefined,
+  assets: AssetTable = {},
+): string | undefined {
   if (target === undefined) return undefined;
   const resolved = resolveElementTarget(page, target);
   if (resolved?.kind !== 'tree' || resolved.node.kind !== 'element' || resolved.node.tag !== 'img') return undefined;
-  return resolved.node.attributes?.src;
+  const src = resolved.node.attributes?.src;
+  // A `/ck-assets/<id>` reference is the picture in the site's table.
+  return src === undefined ? undefined : resolveCustomCodeAssetSrc(src, assets);
 }

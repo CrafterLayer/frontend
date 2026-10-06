@@ -5,6 +5,12 @@ import {
   MOTION_PRESET_GRID_LABELS_EN,
   type MotionPresetGridLabels,
 } from '../controls/MotionPresetGrid';
+// media-motion (2026-10-06)
+import {
+  TIMELINE_RECIPE_PICKER_LABELS_AR,
+  TIMELINE_RECIPE_PICKER_LABELS_EN,
+  type TimelineRecipePickerLabels,
+} from '../controls/TimelineRecipePicker';
 
 export interface InteractionsPanelLabels {
   readonly panel: string;
@@ -32,6 +38,10 @@ export interface InteractionsPanelLabels {
   readonly updated: (what: string) => string;
   readonly removed: string;
   readonly grid: MotionPresetGridLabels;
+  // media-motion (2026-10-06): the flag-gated named scroll-timeline section.
+  readonly cinematic: string;
+  readonly cinematicHint: string;
+  readonly timeline: TimelineRecipePickerLabels;
 }
 
 export const INTERACTIONS_PANEL_LABELS_EN: InteractionsPanelLabels = {
@@ -71,6 +81,10 @@ export const INTERACTIONS_PANEL_LABELS_EN: InteractionsPanelLabels = {
   updated: (what) => `${what} updated`,
   removed: 'Animation removed',
   grid: MOTION_PRESET_GRID_LABELS_EN,
+  // media-motion (2026-10-06)
+  cinematic: 'Cinematic motion',
+  cinematicHint: 'A named scroll animation. It replaces the animation above on this element.',
+  timeline: TIMELINE_RECIPE_PICKER_LABELS_EN,
 };
 
 export const INTERACTIONS_PANEL_LABELS_AR: InteractionsPanelLabels = {
@@ -110,4 +124,8 @@ export const INTERACTIONS_PANEL_LABELS_AR: InteractionsPanelLabels = {
   updated: (what) => `تم تحديث ${what}`,
   removed: 'أُزيلت الحركة',
   grid: MOTION_PRESET_GRID_LABELS_AR,
+  // media-motion (2026-10-06)
+  cinematic: 'حركة سينمائية',
+  cinematicHint: 'حركة تمرير باسم جاهز. تحل محل الحركة أعلاه على هذا العنصر.',
+  timeline: TIMELINE_RECIPE_PICKER_LABELS_AR,
 };

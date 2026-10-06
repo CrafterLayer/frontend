@@ -79,10 +79,27 @@ function preventCanvasNavigation(event: MouseEvent<HTMLAnchorElement>): void {
   event.preventDefault();
 }
 
+// media-motion (2026-10-06): whether React is running this render. A client
+// render reads `true`; `renderToStaticMarkup` — the static export, which never
+// hydrates — reads the server snapshot, `false`. The static render hands the
+// carousel to the `carousel` behaviour pack instead of React state.
+function subscribeNever(): () => void {
+  return () => undefined;
+}
+
+function liveSnapshot(): boolean {
+  return true;
+}
+
+function staticSnapshot(): boolean {
+  return false;
+}
+
 /** An accessible, keyboard-operable carousel with opt-in and user-controllable autoplay. */
 export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselProps>) {
   const headingId = `${node.id}-heading`;
   const slideId = `${node.id}-slide`;
+  const isLive = useSyncExternalStore(subscribeNever, liveSnapshot, staticSnapshot);
   const [requestedIndex, setRequestedIndex] = useState(0);
   const [pausedByUser, setPausedByUser] = useState(false);
   const [isPointerInside, setIsPointerInside] = useState(false);
@@ -176,7 +193,23 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
     }
   };
 
-  const hasMediaOverlay = props.variant === 'media' && activeItem?.imageSrc !== undefined;
+  /*
+    The published page never hydrates, so its markup must work without React:
+    every slide sits in one scroll-snap track, the prev/next buttons sit
+    outside it, and the `carousel` behaviour pack (renderer
+    behaviors/packs/carousel.ts) derives them, builds the dots and drives
+    autoplay. A live render keeps its React state and shows the active slide;
+    the other slides stay in the DOM, hidden.
+  */
+  const staticBehavior: Record<string, string> = isLive
+    ? {}
+    : {
+        'data-ck-behavior': 'carousel',
+        'data-ck-indicator': props.showIndicators ? 'dots' : 'none',
+        ...(props.autoplay
+          ? { 'data-ck-autoplay': 'true', 'data-ck-speed': props.autoplayInterval }
+          : {}),
+      };
 
   return (
     <section
@@ -190,8 +223,8 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
       style={rootStyle}
       aria-labelledby={headingId}
       aria-roledescription="carousel"
-      aria-keyshortcuts={itemCount > 1 ? 'ArrowLeft ArrowRight Home End' : undefined}
-      tabIndex={itemCount > 1 ? 0 : undefined}
+      aria-keyshortcuts={isLive && itemCount > 1 ? 'ArrowLeft ArrowRight Home End' : undefined}
+      tabIndex={isLive && itemCount > 1 ? 0 : undefined}
       onKeyDown={handleKeyboard}
       onMouseEnter={() => {
         setIsPointerInside(true);
@@ -250,93 +283,144 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
             </p>
           ) : null
         ) : (
-          <article
-            id={slideId}
-            className={cx(
-              'relative w-full min-w-0 overflow-hidden rounded-xl border border-text/10 shadow-elevated',
-              SLIDE_CLASSES[props.variant],
-              props.variant === 'split' && activeItem.imageSrc === undefined
-                ? '@lg:grid-cols-1'
-                : undefined,
-            )}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`${String(activeIndex + 1)} / ${String(itemCount)}: ${activeItem.title}`}
-            data-carousel-slide=""
+          <div
+            className={cx('flex w-full min-w-0 flex-col', GAP_CLASSES.md)}
+            data-carousel-viewport=""
+            {...staticBehavior}
           >
-            {activeItem.imageSrc === undefined ? null : (
-              <figure
-                className={cx(
-                  /*
-                    `w-full` so the TRACK decides the width and the aspect ratio
-                    decides the height — the same trap `PromoBanner` had, found
-                    by the same Chromium gate. `min-h-96` (384px) run through an
-                    aspect ratio the other way forces a 683px figure, which on a
-                    360px phone is nearly twice the screen.
-                  */
-                  'm-0 w-full min-w-0 overflow-hidden bg-text-muted/10',
-                  hasMediaOverlay ? 'col-start-1 row-start-1 min-h-64 @md:min-h-96' : undefined,
-                  ASPECT_CLASSES[props.mediaAspect],
-                  !hasMediaOverlay ? MEDIA_POSITION_CLASSES[props.mediaPosition] : undefined,
-                )}
-                data-carousel-media=""
-              >
-                <img
-                  className={cx(
-                    'block h-full min-h-64 w-full object-cover',
-                    hasMediaOverlay ? 'min-h-96' : undefined,
-                  )}
-                  src={activeItem.imageSrc}
-                  alt={activeItem.imageAlt}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </figure>
-            )}
-
             <div
+              id={slideId}
               className={cx(
-                'relative z-10 flex min-w-0 flex-col p-6 text-start @md:p-8 @lg:p-10',
+                'flex w-full min-w-0 snap-x snap-mandatory overflow-x-auto',
                 GAP_CLASSES.md,
-                hasMediaOverlay
-                  ? 'col-start-1 row-start-1 m-4 max-w-content-narrow self-end rounded-lg bg-surface-inverse/90 text-text-inverse shadow-strong @md:m-8'
-                  : undefined,
-                hasMediaOverlay ? OVERLAY_POSITION_CLASSES[props.mediaPosition] : undefined,
               )}
-              data-carousel-copy=""
+              data-carousel-track=""
             >
-              {activeItem.label === undefined ? null : (
-                <span className="self-start rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase">
-                  {activeItem.label}
-                </span>
-              )}
-              <h3 className="m-0 text-2xl leading-tight font-bold tracking-tight text-balance @md:text-3xl">
-                {activeItem.title}
-              </h3>
-              {activeItem.body === undefined ? null : (
-                <p
-                  className={cx(
-                    'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
-                    hasMediaOverlay ? 'text-inherit opacity-85' : 'text-text-muted',
-                  )}
-                >
-                  {activeItem.body}
-                </p>
-              )}
-              {activeItem.action === undefined ? null : (
-                <a
-                  className="inline-flex min-h-11 items-center justify-center self-start rounded-lg bg-accent px-control-inline-md py-control-block-md font-semibold text-accent-text shadow-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-                  href={activeItem.action.href}
-                  onClick={isCanvas ? preventCanvasNavigation : undefined}
-                >
-                  {activeItem.action.label}
-                </a>
-              )}
+              {props.items.map((item, index) => {
+                const hasMediaOverlay = props.variant === 'media' && item.imageSrc !== undefined;
+                const isHidden = isLive && index !== activeIndex;
+                return (
+                  <article
+                    key={`${item.title}-${String(index)}`}
+                    className={cx(
+                      'relative w-full min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border border-text/10 shadow-elevated',
+                      SLIDE_CLASSES[props.variant],
+                      props.variant === 'split' && item.imageSrc === undefined
+                        ? '@lg:grid-cols-1'
+                        : undefined,
+                    )}
+                    role="group"
+                    aria-roledescription="slide"
+                    aria-label={`${String(index + 1)} / ${String(itemCount)}: ${item.title}`}
+                    hidden={isHidden}
+                    style={isHidden ? { display: 'none' } : undefined}
+                    data-carousel-slide=""
+                  >
+                    {item.imageSrc === undefined ? null : (
+                      <figure
+                        className={cx(
+                          /*
+                            `w-full` so the TRACK decides the width and the aspect ratio
+                            decides the height — the same trap `PromoBanner` had, found
+                            by the same Chromium gate. `min-h-96` (384px) run through an
+                            aspect ratio the other way forces a 683px figure, which on a
+                            360px phone is nearly twice the screen.
+                          */
+                          'm-0 w-full min-w-0 overflow-hidden bg-text-muted/10',
+                          hasMediaOverlay ? 'col-start-1 row-start-1 min-h-64 @md:min-h-96' : undefined,
+                          ASPECT_CLASSES[props.mediaAspect],
+                          !hasMediaOverlay ? MEDIA_POSITION_CLASSES[props.mediaPosition] : undefined,
+                        )}
+                        data-carousel-media=""
+                      >
+                        <img
+                          className={cx(
+                            'block h-full min-h-64 w-full object-cover',
+                            hasMediaOverlay ? 'min-h-96' : undefined,
+                          )}
+                          src={item.imageSrc}
+                          alt={item.imageAlt}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </figure>
+                    )}
+
+                    <div
+                      className={cx(
+                        'relative z-10 flex min-w-0 flex-col p-6 text-start @md:p-8 @lg:p-10',
+                        GAP_CLASSES.md,
+                        hasMediaOverlay
+                          ? 'col-start-1 row-start-1 m-4 max-w-content-narrow self-end rounded-lg bg-surface-inverse/90 text-text-inverse shadow-strong @md:m-8'
+                          : undefined,
+                        hasMediaOverlay ? OVERLAY_POSITION_CLASSES[props.mediaPosition] : undefined,
+                      )}
+                      data-carousel-copy=""
+                    >
+                      {item.label === undefined ? null : (
+                        <span className="self-start rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase">
+                          {item.label}
+                        </span>
+                      )}
+                      <h3 className="m-0 text-2xl leading-tight font-bold tracking-tight text-balance @md:text-3xl">
+                        {item.title}
+                      </h3>
+                      {item.body === undefined ? null : (
+                        <p
+                          className={cx(
+                            'm-0 max-w-content-narrow text-lg leading-relaxed text-pretty',
+                            hasMediaOverlay ? 'text-inherit opacity-85' : 'text-text-muted',
+                          )}
+                        >
+                          {item.body}
+                        </p>
+                      )}
+                      {item.action === undefined ? null : (
+                        <a
+                          className="inline-flex min-h-11 items-center justify-center self-start rounded-lg bg-accent px-control-inline-md py-control-block-md font-semibold text-accent-text shadow-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                          href={item.action.href}
+                          onClick={isCanvas ? preventCanvasNavigation : undefined}
+                        >
+                          {item.action.label}
+                        </a>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          </article>
+
+            {!isLive && props.showControls && itemCount > 1 ? (
+              <div
+                className="flex items-center justify-center gap-gap-sm"
+                data-carousel-static-controls=""
+              >
+                <button
+                  className="inline-grid min-h-11 min-w-11 cursor-pointer place-items-center rounded-full border border-text-muted/30 bg-surface text-xl text-text shadow-soft"
+                  type="button"
+                  aria-label={props.previousLabel}
+                  aria-controls={slideId}
+                >
+                  <span aria-hidden="true" className="rtl:rotate-180">
+                    ‹
+                  </span>
+                </button>
+                <button
+                  className="inline-grid min-h-11 min-w-11 cursor-pointer place-items-center rounded-full border border-text-muted/30 bg-surface text-xl text-text shadow-soft"
+                  type="button"
+                  aria-label={props.nextLabel}
+                  aria-controls={slideId}
+                >
+                  <span aria-hidden="true" className="rtl:rotate-180">
+                    ›
+                  </span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         )}
 
-        {itemCount > 1 ? (
+        {isLive && itemCount > 1 ? (
           <div
             className="flex w-full flex-col items-center justify-between gap-gap @sm:flex-row"
             aria-label={props.controlsLabel}
@@ -423,7 +507,7 @@ export function Carousel({ node, props, isCanvas }: BlockRenderProps<CarouselPro
           </div>
         ) : null}
 
-        {activeItem === undefined ? null : (
+        {!isLive || activeItem === undefined ? null : (
           <p
             className="sr-only"
             role="status"

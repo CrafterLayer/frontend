@@ -1,0 +1,39 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as MailtoFormStories from './MailtoForm.stories';
+
+<Meta of={MailtoFormStories} />
+
+# Mailto form
+
+`data-ck-behavior="mailto-form"` on a `form` with `data-ck-email`. It is the e-mail sibling of
+`whatsapp-form`. On submit, the `mailto-form` pack (`behaviors/packs/mailto-form.ts`) opens the visitor's
+mail app with `mailto:<email>?subject=…&body=…`. A published page has no server to post to, and this
+way it never needs one.
+
+<Canvas of={MailtoFormStories.English} />
+
+## What is sent
+
+- **Subject:** the first filled field's value. If no field is filled, the page title.
+- **Body:** one `label: value` line for each filled field. The label comes from the field's `aria-label`,
+  then its `label[for]` (or a label wrapping it, read without the field's own text), then its
+  placeholder, then its name. Hidden, password and file fields, and checkboxes that are not checked,
+  are skipped.
+- **Encoding:** both parts pass through `encodeURIComponent`, so nothing a visitor types reaches the
+  address unencoded.
+- **Validation:** if `data-ck-email` is not a plain address (one with a `?cc=` tail, for example), the
+  pack mounts nothing.
+
+The renderer writes a tree's buttons as `type="button"` outside a sending form. So besides the form's
+`submit` event, a click on the form's last button also sends, after the browser's own validation
+(`reportValidity`).
+
+<Canvas of={MailtoFormStories.Arabic} />
+
+## On the canvas
+
+Nothing mounts with `interactive: false`, so a click on the canvas selects. These stories inject a
+stand-in window and print the address below the form instead of opening a mail app.
+
+<Canvas of={MailtoFormStories.Canvas} />

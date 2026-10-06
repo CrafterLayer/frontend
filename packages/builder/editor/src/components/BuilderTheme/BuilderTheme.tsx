@@ -20,6 +20,8 @@ export interface BuilderThemeProps {
   overrides?: ChromeThemeOverride | undefined;
   /** Merged after the theme's own class, so a host can add layout of its own. */
   className?: string | undefined;
+  /** The EDITOR's direction (`rtl` for an Arabic editor); absent inherits the document's. */
+  dir?: 'ltr' | 'rtl' | undefined;
 }
 
 /**
@@ -41,6 +43,7 @@ export function BuilderTheme({
   density,
   overrides,
   className,
+  dir,
 }: BuilderThemeProps) {
   return (
     <div
@@ -48,6 +51,7 @@ export function BuilderTheme({
       {...(theme === undefined ? {} : { 'data-bldr-theme': theme })}
       {...(density === undefined ? {} : { 'data-bldr-density': density })}
       {...(overrides === undefined ? {} : { style: themeStyle(overrides) })}
+      {...(dir === undefined ? {} : { dir })}
     >
       {children}
     </div>

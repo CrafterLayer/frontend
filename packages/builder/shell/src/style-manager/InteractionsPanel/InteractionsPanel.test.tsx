@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { InteractionsPanel, type InteractionsPanelProps } from './InteractionsPanel';
 import { INTERACTIONS_PANEL_LABELS_AR } from './InteractionsPanel.labels';
+import { TIMELINE_PANEL_ENABLED } from './timeline-flag';
 
 afterEach(cleanup);
 
@@ -96,5 +97,51 @@ describe('InteractionsPanel', () => {
     );
     await user.click(screen.getByRole('radio', { name: 'ارتفاع' }));
     expect(screen.getByRole('alert')).toHaveTextContent('refused by the door');
+  });
+});
+
+// media-motion (2026-10-06) additions: the flag-gated "Cinematic motion" section.
+describe('InteractionsPanel — Cinematic motion (media-motion DESIGN §C.1.2, §C.4)', () => {
+  it('the section is hidden by default: the flag is off until the owner answers Q1', () => {
+    expect(TIMELINE_PANEL_ENABLED).toBe(false);
+    setup({ attributes: { 'data-ck-motion': 'fade-up' } });
+    expect(screen.queryByRole('region', { name: 'Cinematic motion' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Cinematic motion' })).not.toBeInTheDocument();
+  });
+
+  it('the timelinePanel prop shows it; picking a recipe drops the CSS preset in the SAME write', async () => {
+    const user = userEvent.setup();
+    const { onCommit } = setup({
+      attributes: { 'data-ck-motion': 'fade-up', 'data-ck-trigger': 'load' },
+      timelinePanel: true,
+    });
+    const section = screen.getByRole('region', { name: 'Cinematic motion' });
+    expect(section).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Cinematic motion' }), 'split-reveal');
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(
+      expect.objectContaining({ 'data-ck-timeline': 'split-reveal', 'data-ck-motion': null, 'data-ck-trigger': null }),
+      'Cinematic motion',
+    );
+  });
+
+  it('choosing a CSS preset removes the scroll timeline (and its scrub) in the SAME write', async () => {
+    const user = userEvent.setup();
+    const { onCommit } = setup({
+      attributes: { 'data-ck-timeline': 'stagger-in', 'data-ck-scrub': 'true' },
+      timelinePanel: true,
+    });
+    await user.click(screen.getByRole('radio', { name: 'Fade up' }));
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(
+      { 'data-ck-motion': 'fade-up', 'data-ck-timeline': null, 'data-ck-scrub': null },
+      'Animation',
+    );
+  });
+
+  it('labels the section in Arabic', () => {
+    setup({ labels: INTERACTIONS_PANEL_LABELS_AR, dir: 'rtl', timelinePanel: true });
+    expect(screen.getByRole('region', { name: 'حركة سينمائية' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'حركة سينمائية' })).toHaveValue('');
   });
 });

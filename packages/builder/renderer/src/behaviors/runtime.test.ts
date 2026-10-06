@@ -271,20 +271,7 @@ describe('mountBehaviors', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('scrolls the carousel track the other way in RTL; the buttons are derived', () => {
-    const host = mount(
-      '<div dir="rtl" data-ck-behavior="carousel"><ul><li>1</li><li>2</li></ul><div><button>prev</button><button>next</button></div></div>',
-    );
-    mountBehaviors(host);
-    const track = host.querySelector('ul') as HTMLElement;
-    expect(track.hasAttribute('data-ck-track')).toBe(true);
-    const [prev, next] = [...host.querySelectorAll('button')];
-    next?.click();
-    expect(track.scrollLeft).toBeLessThan(0);
-    prev?.click();
-    prev?.click();
-    expect(track.scrollLeft).toBeGreaterThan(0);
-  });
+  // media-motion (2026-10-06): the carousel case moved to packs/carousel.test.ts (the ported core).
 
   it('counts down to data-ck-until in a polite live region', () => {
     vi.useFakeTimers({ now: new Date('2026-12-31T00:00:00Z') });
@@ -303,23 +290,18 @@ describe('mountBehaviors', () => {
     vi.useRealTimers();
   });
 
-  it('opens a lightbox dialog and copies text with the clipboard', async () => {
+  // media-motion (2026-10-06): the lightbox half moved to packs/gallery.test.ts (the ported lightbox).
+  it('copies text with the clipboard', async () => {
     const writeText = vi.fn(() => Promise.resolve());
     vi.stubGlobal('navigator', { clipboard: { writeText } });
-    const host = mount(
-      '<figure data-ck-behavior="lightbox"><img src="/a.webp" alt="القهوة" /></figure><button data-ck-behavior="copy-text" data-ck-text="IBAN 123">نسخ</button>',
-    );
+    const host = mount('<button data-ck-behavior="copy-text" data-ck-text="IBAN 123">نسخ</button>');
     const dispose = mountBehaviors(host);
-    (host.querySelector('figure')!).click();
-    const dialog = document.querySelector('dialog[data-ck-lightbox]');
-    expect(dialog?.getAttribute('aria-label')).toBe('القهوة');
-    expect(dialog?.querySelector('img')?.getAttribute('src')).toMatch(/\/a\.webp$/u);
     host.querySelector('button')?.click();
     await Promise.resolve();
     expect(writeText).toHaveBeenCalledWith('IBAN 123');
     expect(host.querySelector('button')?.classList.contains('ck-copied')).toBe(true);
     dispose();
-    expect(document.querySelector('dialog[data-ck-lightbox]')).toBeNull();
+    expect(host.querySelector('button')?.classList.contains('ck-copied')).toBe(false);
   });
 
   it('leaves the click-driven behaviours inert when not interactive (the canvas)', () => {

@@ -88,7 +88,20 @@ describe('ElementQuickBar (DESIGN §A.6)', () => {
     const groups = Array.from(document.querySelectorAll('[data-group]')).map((node) =>
       node.getAttribute('data-group'),
     );
-    expect(groups).toEqual(['fontSize', 'fontWeight', 'textColor', 'textAlign', 'lineHeight', 'direction']);
+    // Fix pass: text gets background, the spacing box model, radius, shadow and motion too.
+    expect(groups).toEqual([
+      'fontSize',
+      'fontWeight',
+      'textColor',
+      'background',
+      'padding',
+      'textAlign',
+      'lineHeight',
+      'direction',
+      'radius',
+      'shadow',
+      'motion',
+    ]);
     expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit with AI' })).toBeInTheDocument();
   });
@@ -98,7 +111,17 @@ describe('ElementQuickBar (DESIGN §A.6)', () => {
     const groups = Array.from(document.querySelectorAll('[data-group]')).map((node) =>
       node.getAttribute('data-group'),
     );
-    expect(groups).toEqual(['background', 'padding', 'gap', 'flexDirection', 'align', 'radius', 'border', 'shadow']);
+    expect(groups).toEqual([
+      'background',
+      'padding',
+      'gap',
+      'flexDirection',
+      'align',
+      'radius',
+      'border',
+      'shadow',
+      'motion',
+    ]);
   });
 
   it('a group writes ONE labelled transaction through the engine', async () => {

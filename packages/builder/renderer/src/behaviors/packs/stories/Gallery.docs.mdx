@@ -1,0 +1,68 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as GalleryStories from './Gallery.stories';
+
+<Meta of={GalleryStories} />
+
+# Gallery (behaviour pack)
+
+`mountGallery` (`packages/builder/renderer/src/behaviors/packs/gallery.ts`) runs two behaviours with
+one dialog:
+
+- **`data-ck-behavior="lightbox"`**: one element, one image. The original single-image lightbox,
+  moved out of `runtime.ts` with its markup unchanged: the image, a close button labelled
+  «إغلاق» / Close, and focus returned to the element on close.
+- **`data-ck-behavior="gallery"`**: a container. Every descendant `img` (except marquee clones and
+  images of a nested gallery) becomes a thumbnail button, and all of them share **one**
+  `<dialog data-ck-lightbox>`.
+
+It is a self-contained function serialised into the published page's `assets/ck-behaviors.js`, so
+the same bytes run on the canvas and on the published site.
+
+<Canvas of={GalleryStories.Grid} />
+
+## The dialog
+
+- The image uses `currentSrc` (the source the browser picked), else `src`; a `srcset` is carried
+  over so the large view can choose a larger candidate.
+- The caption is the nearest `figcaption`, else the alt text.
+- The counter reads «٣ / ١٢» under `lang=ar` (Arabic-Indic digits) and `3 / 12` otherwise, in an
+  `aria-live="polite"` region.
+- Previous and next buttons are labelled «السابق» / «التالي» (Previous / Next).
+- The next and previous images are preloaded.
+
+## Keys and gestures
+
+- ← and → step through the images, swapped under RTL. Home and End jump to the ends. Esc closes
+  (the native dialog).
+- A touch swipe of 40 px or more steps too, mirrored under RTL. A mouse drag is not a swipe.
+- Closing returns focus to the thumbnail that opened the dialog.
+
+<Canvas of={GalleryStories.GridArabic} />
+
+## Layouts are CSS only
+
+The layout is utility classes on the container, never a behaviour (DESIGN D3):
+
+| Layout | Container classes |
+| --- | --- |
+| grid | `grid grid-cols-2 md:grid-cols-3 gap-4`, images `aspect-[4/3] object-cover` |
+| masonry | `columns-2 md:columns-3 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid` |
+| bento | `grid grid-cols-2 md:grid-cols-4 auto-rows-[12rem] gap-4`, first item `col-span-2 row-span-2` |
+| carousel | a `gallery` around a `carousel` (track + buttons) |
+
+<Canvas of={GalleryStories.Masonry} />
+
+<Canvas of={GalleryStories.Bento} />
+
+<Canvas of={GalleryStories.Carousel} />
+
+## Motion, canvas and dispose
+
+- Transitions (a fade on open, a short slide between images) live in `GALLERY_PACK_CSS` under
+  `prefers-reduced-motion: no-preference` only. Under reduce, images change at once.
+- On the editing canvas (`interactive: false`) nothing is attached, so a click selects the element.
+- The disposer removes the dialog and every listener, and restores each attribute the host has not
+  rewritten.
+
+<Canvas of={GalleryStories.Canvas} />

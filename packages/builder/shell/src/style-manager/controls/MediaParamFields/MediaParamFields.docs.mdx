@@ -1,0 +1,22 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as MediaParamFieldsStories from './MediaParamFields.stories';
+
+<Meta of={MediaParamFieldsStories} />
+
+# MediaParamFields
+
+Typed rows for the params of the media behaviours (media-motion DESIGN §B.3, §E), shown in the Inspector's
+Advanced group when the selected element carries them:
+
+- a `carousel`'s `data-ck-indicator` (dots, counter, none), `data-ck-autoplay` (on, off) and `data-ck-speed`;
+- a `mailto-form`'s `data-ck-email` (an email text row);
+- a toggle group option's `data-ck-option` (first or second side).
+
+A closed list is a **radio group** (`ChoiceGroup`): one tab stop, arrow keys mirrored for RTL. Its first
+choice, **Default**, removes the param so the runtime's own default applies. A text row commits on Enter or
+when focus leaves, and Escape restores the saved value.
+
+The rows are data from `customCodeMediaParamFields` (`custom-code/element-fields.ts`), whose value lists are the
+schema's closed vocabulary. Every change calls `onCommit(key, value)` once, and the caller writes it as ONE
+labelled `patchTreeNode` transaction. Labels: `MEDIA_PARAM_FIELDS_LABELS_EN` and `MEDIA_PARAM_FIELDS_LABELS_AR`.

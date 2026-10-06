@@ -37,7 +37,38 @@ const PHRASE_BY_COMMAND: Readonly<Record<string, string>> = {
   setResponsive: 'device override',
   setDocMeta: 'page settings',
   applyPatches: 'code edit',
+  // Site commands (fix pass: the strip read "Canvas: setSiteDirection").
+  setSiteDirection: 'page direction',
+  setDesignToken: 'design token',
+  setDesignSystem: 'design system',
+  setSharedRegion: 'header or footer',
+  setPageRegions: 'page regions',
+  registerAsset: 'add picture',
+  updateAsset: 'edit picture',
+  removeAsset: 'remove picture',
+  setPaletteColor: 'palette colour',
+  removePaletteColor: 'remove palette colour',
+  setNamedStyle: 'named style',
+  removeNamedStyle: 'remove named style',
+  // Element edits inside an editable region.
+  patchTreeNode: 'edit element',
+  setTreeNode: 'edit element',
+  insertTreeNode: 'add element',
+  removeTreeNode: 'remove element',
+  moveTreeNode: 'move element',
+  duplicateTreeNode: 'duplicate element',
+  wrapTreeNode: 'wrap element',
+  unwrapTreeNode: 'unwrap element',
+  formatTreeText: 'format text',
 };
+
+/** A bare command name nobody phrased yet (`setFooBar`) reads as words (`set foo bar`). */
+function phraseOf(command: string): string {
+  const phrased = PHRASE_BY_COMMAND[command];
+  if (phrased !== undefined) return phrased;
+  if (!/^[a-z]+(?:[A-Z][a-z0-9]*)+$/u.test(command)) return command;
+  return command.replace(/([a-z0-9])([A-Z])/gu, '$1 $2').toLowerCase();
+}
 
 export interface RecentChangesOptions {
   /** How many chips the strip shows (default 3). */
@@ -75,7 +106,7 @@ export function recentChangesOf(
   const all = transactions.map((transaction) => ({
     id: transaction.id,
     door: DOOR_BY_AUTHOR[transaction.author] ?? 'canvas',
-    label: PHRASE_BY_COMMAND[transaction.command] ?? transaction.command,
+    label: phraseOf(transaction.command),
   }));
   const shown = all.filter((change) => change.door !== exclude);
   return {

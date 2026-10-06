@@ -1,0 +1,41 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BgVideoStories from './BgVideo.stories';
+
+<Meta of={BgVideoStories} />
+
+# Background video
+
+`data-ck-behavior="bg-video"` on a `section` (or a `header`, `div` or `figure`) whose first child is
+a `<video muted loop playsinline preload="metadata" aria-hidden="true">` laid behind the content. The
+`bg-video` pack (`behaviors/packs/bg-video.ts`, `mountBgVideo`) decides when it plays.
+
+<Canvas of={BgVideoStories.English} />
+
+## When it plays
+
+- The tree carries no `autoplay`. An authored one is dropped while the pack is mounted.
+- The pack calls `play()` only when four things hold: the page is interactive, motion is allowed,
+  the section is in view and the tab is visible. Otherwise it pauses the video.
+- Without the script, the poster shows.
+
+## The toggle
+
+A pause/play button sits at the inline end and block end of the section, so it lands bottom left
+on an RTL page. It is labelled «إيقاف الخلفية» / «تشغيل الخلفية» on Arabic pages and "Pause
+background" / "Play background" on others, so moving content can always be stopped (WCAG 2.2.2).
+Once the reader pauses, scrolling back into view does not restart the video.
+
+<Canvas of={BgVideoStories.Arabic} />
+
+## Reduced motion and the canvas
+
+Under `prefers-reduced-motion: reduce` and on the editing canvas (`interactive: false`), nothing
+plays and no button is drawn. The section is marked `data-ck-bg-video="static"` or `"still"`.
+
+<Canvas of={BgVideoStories.Canvas} />
+
+## Accessibility
+
+The video is decorative (`aria-hidden`), so the content in front of it carries the meaning. The
+toggle is a real `button` with a label in the page language and a focus-visible ring.

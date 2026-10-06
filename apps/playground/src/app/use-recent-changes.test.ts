@@ -31,4 +31,19 @@ describe('recentChangesOf', () => {
     // An empty log hid nothing: "No recent changes" is then the truth.
     expect(recentChangesOf([], { exclude: 'assistant' }).spokenElsewhere).toBe(false);
   });
+
+  it('phrases site and element commands, and reads an unphrased command name as words', () => {
+    const log = [
+      { id: 'a', author: 'user', command: 'setSiteDirection' },
+      { id: 'b', author: 'user', command: 'patchTreeNode' },
+      { id: 'c', author: 'user', command: 'setFooBar' },
+      { id: 'd', author: 'user', command: 'Padding · Hero heading' },
+    ];
+    expect(recentChangesOf(log, { limit: 4 }).changes.map((change) => change.label)).toEqual([
+      'Padding · Hero heading',
+      'set foo bar',
+      'edit element',
+      'page direction',
+    ]);
+  });
 });

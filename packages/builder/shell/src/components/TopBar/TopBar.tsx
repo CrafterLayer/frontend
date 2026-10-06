@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent, type ReactNode, type SVGProps } from 'react';
 
 import { ChromeButton } from '../ChromeButton';
+import { TOP_BAR_LABELS_EN, type TopBarLabels } from './TopBar.labels';
 import './TopBar.css';
 
 export type TopBarDevice = 'desktop' | 'tablet' | 'mobile';
@@ -20,6 +21,10 @@ export interface TopBarProps {
   /** Free slot before the actions — where a host puts its own controls. */
   extra?: ReactNode | undefined;
   label?: string | undefined;
+  /** Every visible string (EN default; the host passes TOP_BAR_LABELS_AR for Arabic). */
+  labels?: TopBarLabels | undefined;
+  /** The EDITOR direction: arrow keys between devices follow it. */
+  dir?: 'ltr' | 'rtl' | undefined;
 }
 
 const ICON_PROPS = {
@@ -38,7 +43,6 @@ const ICON_PROPS = {
 const DEVICE_OPTIONS = [
   {
     id: 'desktop',
-    label: 'Desktop',
     icon: (
       <svg {...ICON_PROPS}>
         <rect x="1.75" y="2.5" width="12.5" height="8.5" rx="1.25" />
@@ -48,7 +52,6 @@ const DEVICE_OPTIONS = [
   },
   {
     id: 'tablet',
-    label: 'Tablet',
     icon: (
       <svg {...ICON_PROPS}>
         <rect x="3.25" y="1.5" width="9.5" height="13" rx="1.5" />
@@ -58,7 +61,6 @@ const DEVICE_OPTIONS = [
   },
   {
     id: 'mobile',
-    label: 'Mobile',
     icon: (
       <svg {...ICON_PROPS}>
         <rect x="4.25" y="1.25" width="7.5" height="13.5" rx="1.5" />
@@ -68,7 +70,6 @@ const DEVICE_OPTIONS = [
   },
 ] as const satisfies readonly {
   readonly id: TopBarDevice;
-  readonly label: string;
   readonly icon: ReactNode;
 }[];
 
@@ -98,7 +99,9 @@ export function TopBar({
   onPublish,
   onPublishOptions,
   extra,
-  label = 'Editor toolbar',
+  labels = TOP_BAR_LABELS_EN,
+  label = labels.toolbar,
+  dir = 'ltr',
 }: TopBarProps) {
   const deviceButtons = useRef<Record<TopBarDevice, HTMLButtonElement | null>>({
     desktop: null,
@@ -111,9 +114,11 @@ export function TopBar({
     currentDevice: TopBarDevice,
   ) => {
     let nextDevice: TopBarDevice | undefined;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    const forward = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+    const backward = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+    if (event.key === forward || event.key === 'ArrowDown') {
       nextDevice = NEXT_DEVICE[currentDevice];
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    } else if (event.key === backward || event.key === 'ArrowUp') {
       nextDevice = PREVIOUS_DEVICE[currentDevice];
     } else if (event.key === 'Home') {
       nextDevice = 'desktop';
@@ -142,7 +147,7 @@ export function TopBar({
         <span className="bldr-topbar__product-name">{productName}</span>
       </div>
 
-      <div className="bldr-topbar__devices" role="radiogroup" aria-label="Preview device">
+      <div className="bldr-topbar__devices" role="radiogroup" aria-label={labels.devices}>
         {DEVICE_OPTIONS.map((option) => (
           <ChromeButton
             key={option.id}
@@ -153,7 +158,7 @@ export function TopBar({
             size="lg"
             variant="icon"
             role="radio"
-            aria-label={option.label}
+            aria-label={labels.device[option.id]}
             aria-checked={device === option.id}
             tabIndex={device === option.id ? 0 : -1}
             onKeyDown={(event) => {
@@ -175,7 +180,7 @@ export function TopBar({
           className="bldr-topbar__icon-button"
           size="lg"
           variant="icon"
-          aria-label="Undo"
+          aria-label={labels.undo}
           disabled={!canUndo}
           onClick={onUndo}
         >
@@ -188,7 +193,7 @@ export function TopBar({
           className="bldr-topbar__icon-button"
           size="lg"
           variant="icon"
-          aria-label="Redo"
+          aria-label={labels.redo}
           disabled={!canRedo}
           onClick={onRedo}
         >
@@ -210,7 +215,7 @@ export function TopBar({
             <path d="M1.5 8S3.75 4 8 4s6.5 4 6.5 4-2.25 4-6.5 4S1.5 8 1.5 8Z" />
             <circle cx="8" cy="8" r="1.75" />
           </svg>
-          <span>Preview</span>
+          <span>{labels.preview}</span>
         </ChromeButton>
 
         {/*
@@ -230,17 +235,17 @@ export function TopBar({
             size="lg"
             variant="primary"
             disabled={onPublish === undefined}
-            title={onPublish === undefined ? 'Publishing is not connected' : undefined}
+            title={onPublish === undefined ? labels.publishingOff : undefined}
             onClick={onPublish}
           >
-            Publish
+            {labels.publish}
           </ChromeButton>
           <ChromeButton
             className="bldr-topbar__publish-options"
             size="lg"
             tone="primary"
             variant="icon"
-            aria-label="Publish options"
+            aria-label={labels.publishOptions}
             disabled={onPublishOptions === undefined}
             onClick={onPublishOptions}
           >

@@ -7,8 +7,20 @@ import * as CarouselStories from './Carousel.stories';
 # Carousel
 
 A production-oriented content slider for product stories, destinations, campaigns, and featured
-work. It renders one active slide at a time instead of moving a hidden strip with literal
-transforms.
+work. Every slide is always in the DOM, inside one scroll-snap track; a live (React) render shows
+the active slide and hides the others, instead of moving a hidden strip with literal transforms.
+
+## Published pages (no hydration)
+
+The static export renders with `renderToStaticMarkup` and never hydrates, so React state cannot
+run there. The static render therefore hands the block to the site behaviour runtime: the track and
+the previous/next buttons sit inside an element carrying `data-ck-behavior="carousel"`, with
+`data-ck-indicator="dots"` (or `none` when indicators are off) and, when autoplay is on,
+`data-ck-autoplay="true"` and `data-ck-speed` set from `autoplayInterval`. The `carousel` behaviour
+pack (`packages/builder/renderer/src/behaviors/packs/carousel.ts`) derives the buttons, builds the
+dots and the pause/play toggle, and scrolls the track — in the published page exactly as in the
+canvas. The React-only controls (direct indicators, play, the counter and the live status) are not
+part of the static markup.
 
 ## Content contract
 

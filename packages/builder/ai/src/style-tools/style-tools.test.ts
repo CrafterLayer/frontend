@@ -414,9 +414,10 @@ describe('style.define / style.apply / palette.set (site library through the pag
     if (!defined.ok || !applied.ok) throw new Error('run');
     const steps = [...defined.steps, ...applied.steps].map(({ command, args }) => ({ command, args }));
     const ports = { clock: fixedClock(9), ids: seededIds('site-door') };
-    expect(validateAiPlan({ commands: steps }, page, ports).ok).toBe(true);
+    const accepted = validateAiPlan({ rationale: 'Card featured', commands: steps }, page, ports);
+    expect(accepted.ok ? [] : accepted.issues).toEqual([]);
     // A site step's args are still judged by its schema.
-    const bad = validateAiPlan({ commands: [{ command: 'setNamedStyle', args: { style: { id: 1 } } }] }, page, ports);
+    const bad = validateAiPlan({ rationale: 'bad', commands: [{ command: 'setNamedStyle', args: { style: { id: 1 } } }] }, page, ports);
     expect(bad.ok ? 'ok' : bad.issues[0]?.code).toBe('invalid-args');
   });
 

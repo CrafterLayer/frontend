@@ -1,6 +1,9 @@
 import { buildEffectsCss } from '../motion/effects-css';
 import { buildMotionPresetsCss } from '../motion/presets-css';
 
+// media-motion (2026-10-06): the packs' styles join BEHAVIOR_CSS (the old carousel/lightbox rules moved there).
+import { PACK_CSS } from './packs';
+
 /**
  * The styles the site behaviours need, scoped by `[data-ck-behavior]` and the
  * runtime's mount marker so an unmounted page (no script) always shows its
@@ -70,20 +73,6 @@ export const BEHAVIOR_CSS = `/*
   --ck-marquee-duration: 15s;
 }
 
-[data-ck-behavior='carousel'] [data-ck-track],
-[data-ck-behavior='carousel'][data-ck-track] {
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-}
-[data-ck-behavior='carousel'] [data-ck-track]::-webkit-scrollbar {
-  display: none;
-}
-[data-ck-behavior='carousel'] [data-ck-track] > * {
-  scroll-snap-align: start;
-}
-
 [data-ck-behavior='sticky-header'] {
   position: sticky;
   top: 0;
@@ -95,41 +84,6 @@ export const BEHAVIOR_CSS = `/*
 [data-ck-behavior='sticky-header'].ck-scrolled {
   box-shadow: 0 8px 24px -16px rgb(0 0 0 / 0.35);
   backdrop-filter: saturate(1.4) blur(10px);
-}
-
-[data-ck-behavior='lightbox'] {
-  cursor: zoom-in;
-}
-dialog[data-ck-lightbox] {
-  max-width: min(92vw, 1200px);
-  max-height: 92vh;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: zoom-out;
-}
-dialog[data-ck-lightbox]::backdrop {
-  background: rgb(0 0 0 / 0.8);
-}
-dialog[data-ck-lightbox] img {
-  display: block;
-  max-width: 100%;
-  max-height: 88vh;
-  object-fit: contain;
-}
-dialog[data-ck-lightbox] button {
-  position: absolute;
-  inset-block-start: 0.5rem;
-  inset-inline-end: 0.5rem;
-  inline-size: 2.5rem;
-  block-size: 2.5rem;
-  border: 0;
-  border-radius: 999px;
-  background: rgb(0 0 0 / 0.55);
-  color: #fff;
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
 }
 
 [data-ck-behavior='countdown'] {
@@ -172,6 +126,9 @@ dialog[data-ck-lightbox] button {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+
+/* Behaviour packs (media-motion 2026-10-06): gallery/lightbox, carousel, video, widgets, engines. */
+${PACK_CSS}
 `;
 
 const STYLE_MARK = 'data-ck-behavior-css';

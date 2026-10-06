@@ -171,7 +171,7 @@ describe('StylePanel', () => {
     expect(field).toHaveValue('section-lg');
     await user.clear(field);
     await user.type(field, '96{Enter}');
-    const className = String(kernel.getDocument().nodes['c1']?.props['className']);
+    const className = (kernel.getDocument().nodes['c1']?.props['className'] as string | undefined) ?? '';
     expect(className).toBe('pbs-24 pbe-section-lg');
     expect(className.split(' ').filter((utility) => utility.endsWith('-'))).toEqual([]);
   });

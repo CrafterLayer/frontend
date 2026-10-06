@@ -19,11 +19,20 @@ import {
 import {
   ELEMENT_NAME_WORDS_EN,
   resolveElementTarget,
+  treeNodeDisplayName,
   tryDispatchTreeEdits,
   type ElementNameWords,
   type ElementTarget,
-  type ResolvedTreeTarget,
 } from '../../custom-code/element-target';
+import {
+  isSymbolInstance,
+  patchTreeTargets,
+  readTreeTarget,
+  setTreeTarget,
+  type TreeEdit,
+  type TreeTarget,
+  type TreeWriteOptions,
+} from '../../style-manager/tree-writes';
 import type { ValueOrigin } from '../../style-manager/controls/ValueSourceDot';
 
 /*
@@ -160,6 +169,19 @@ export interface ElementBarModelOptions {
   readonly words?: ElementNameWords | undefined;
   /** Named-style utilities by id, so values from a `ck-s-*` marker show their source. */
   readonly namedStyles?: Readonly<Record<string, string>> | undefined;
+  /**
+   * The site's symbol masters: an element inside a symbol instance is read
+   * from its master (with the instance's overrides) and written to the
+   * instance's overrides, never to the master (fix pass, DESIGN §G).
+   */
+  readonly writeOptions?: TreeWriteOptions | undefined;
+}
+
+/** One live target: where it is, what it is, what to call it. */
+interface BarEntry {
+  readonly target: TreeTarget;
+  readonly node: CustomCodeNode;
+  readonly displayName: string;
 }
 
 /**
@@ -173,11 +195,17 @@ export function createElementBarModel(
   options: ElementBarModelOptions,
 ): ElementBarModel | undefined {
   const words = options.words ?? ELEMENT_NAME_WORDS_EN;
-  const resolved: ResolvedTreeTarget[] = [];
+  const writeOptions = options.writeOptions ?? {};
+  const resolved: BarEntry[] = [];
   for (const target of targets) {
     if (target.kind !== 'tree') continue;
+    if (isSymbolInstance(kernel, target.nodeId)) {
+      const node = readTreeTarget(kernel, target, writeOptions);
+      if (node !== undefined) resolved.push({ target, node, displayName: treeNodeDisplayName(node, words) });
+      continue;
+    }
     const found = resolveElementTarget(kernel, target, words);
-    if (found?.kind === 'tree') resolved.push(found);
+    if (found?.kind === 'tree') resolved.push({ target: found.target, node: found.node, displayName: found.displayName });
   }
   const primary = resolved[0];
   if (primary === undefined) return undefined;
@@ -190,6 +218,12 @@ export function createElementBarModel(
   const write = (steps: readonly GroupStep[], propertyLabel: string): QuickWriteResult => {
     if (steps.length === 0) return { ok: true };
     const result = tryDispatchTreeEdits(kernel, steps, `${propertyLabel} · ${subject}`);
+    return result.ok ? { ok: true } : { ok: false, message: result.message };
+  };
+  // Class and attribute patches: one transaction, symbol instances writing their overrides.
+  const patch = (edits: readonly TreeEdit[], propertyLabel: string): QuickWriteResult => {
+    if (edits.length === 0) return { ok: true };
+    const result = patchTreeTargets(kernel, edits, `${propertyLabel} · ${subject}`, writeOptions);
     return result.ok ? { ok: true } : { ok: false, message: result.message };
   };
 
@@ -216,7 +250,7 @@ export function createElementBarModel(
       return (node.attributes as Record<string, string | undefined> | undefined)?.[name];
     },
     apply: (intents, propertyLabel) => {
-      const steps: GroupStep[] = [];
+      const edits: TreeEdit[] = [];
       for (const entry of resolved) {
         if (entry.node.kind === 'component') continue;
         const next = applyStyleIntents(
@@ -226,55 +260,39 @@ export function createElementBarModel(
         );
         if (!next.ok) return { ok: false, message: next.message };
         if (next.className === classNameOf(entry.node)) continue;
-        steps.push({
-          command: 'patchTreeNode',
-          args: {
-            id: entry.target.nodeId,
-            path: [...entry.target.path],
-            set: { className: next.className === '' ? null : next.className },
-          },
-        });
+        edits.push({ target: entry.target, patch: { set: { className: next.className === '' ? null : next.className } } });
       }
-      return write(steps, propertyLabel);
+      return patch(edits, propertyLabel);
     },
     setAttributes: (attributes, propertyLabel) =>
-      write(
+      patch(
         resolved
           .filter((entry) => entry.node.kind === 'element')
-          .map((entry) => ({
-            command: 'patchTreeNode',
-            args: { id: entry.target.nodeId, path: [...entry.target.path], attributes: { ...attributes } },
-          })),
+          .map((entry) => ({ target: entry.target, patch: { attributes: { ...attributes } } })),
         propertyLabel,
       ),
     editClasses: (transform, propertyLabel) =>
-      write(
+      patch(
         resolved.flatMap((entry) => {
           if (entry.node.kind === 'component') return [];
           const before = classNameOf(entry.node);
           const after = transform(before).replace(/\s+/gu, ' ').trim();
           if (after === before) return [];
-          return [
-            {
-              command: 'patchTreeNode',
-              args: {
-                id: entry.target.nodeId,
-                path: [...entry.target.path],
-                set: { className: after === '' ? null : after },
-              },
-            },
-          ];
+          return [{ target: entry.target, patch: { set: { className: after === '' ? null : after } } }];
         }),
         propertyLabel,
       ),
-    setIcon: (patch, propertyLabel) =>
-      write(
+    setIcon: (iconPatch, propertyLabel) => {
+      // Inside a symbol instance only text, classes and attributes can be overridden.
+      const locked = resolved.find((entry) => entry.node.kind === 'icon' && isSymbolInstance(kernel, entry.target.nodeId));
+      if (locked !== undefined) return setTreeTarget(kernel, locked.target, locked.node, propertyLabel, writeOptions);
+      return write(
         resolved.flatMap((entry) => {
           if (entry.node.kind !== 'icon') return [];
           const next: Record<string, unknown> = { ...entry.node };
-          if (patch.name !== undefined) next['name'] = patch.name;
-          if (patch.size === null) delete next['size'];
-          else if (patch.size !== undefined) next['size'] = patch.size;
+          if (iconPatch.name !== undefined) next['name'] = iconPatch.name;
+          if (iconPatch.size === null) delete next['size'];
+          else if (iconPatch.size !== undefined) next['size'] = iconPatch.size;
           return [
             {
               command: 'setTreeNode',
@@ -283,7 +301,8 @@ export function createElementBarModel(
           ];
         }),
         propertyLabel,
-      ),
+      );
+    },
   };
 }
 

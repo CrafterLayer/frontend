@@ -1,6 +1,8 @@
 import { SEO_TOOLS } from '../../seo/tools';
 import { SECTION_KIT_TOOLS } from '../../section-kit/tools';
 import { STYLE_AGENT_TOOLS } from '../../style-tools';
+// media-motion (2026-10-06): media.add, motion.add
+import { MEDIA_AGENT_TOOLS } from '../../media-tools';
 import { BUILTIN_AGENT_TOOLS } from './builtin';
 import type { AgentTool, AgentToolLane } from './types';
 
@@ -15,6 +17,8 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   ...(SEO_TOOLS),
   // style-manager DESIGN.md §D.3: element.*, style.*, palette.set, block.convert
   ...STYLE_AGENT_TOOLS,
+  // media-motion (2026-10-06): DESIGN §F — media.add, motion.add
+  ...MEDIA_AGENT_TOOLS,
 ]);
 
 const BY_NAME: ReadonlyMap<string, AgentTool> = new Map(AGENT_TOOLS.map((tool) => [tool.name, tool]));

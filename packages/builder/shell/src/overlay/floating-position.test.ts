@@ -29,12 +29,17 @@ describe('positionFloating — flip (009 contract §2 p1)', () => {
     expect(placed.y).toBe(4 + 20 + 8);
   });
 
-  it('decides in HOST space, not frame space', () => {
-    const anchor = { x: 100, y: 10, width: 80, height: 20 };
-    expect(at({ anchor, frame: { x: 0, y: 0, width: 800, height: 600 } }).placement).toBe('below');
-    expect(at({ anchor, frame: { x: 0, y: 300, width: 800, height: 600 } }).placement).toBe(
-      'above',
-    );
+  it('decides in HOST space too: a frame pushed above the window has no room there', () => {
+    const anchor = { x: 100, y: 50, width: 80, height: 20 };
+    expect(at({ anchor, frame: { x: 0, y: -30, width: 800, height: 600 } }).placement).toBe('below');
+    expect(at({ anchor, frame: { x: 0, y: 0, width: 800, height: 600 } }).placement).toBe('above');
+  });
+
+  it('never covers the anchor: with no room above inside the clip box it flips below (fix pass)', () => {
+    // Host room above (the frame sits 300px down the window), none inside the clip box.
+    const placed = at({ anchor: { x: 100, y: 10, width: 80, height: 20 }, frame: { x: 0, y: 300, width: 800, height: 600 } });
+    expect(placed.placement).toBe('below');
+    expect(placed.y).toBeGreaterThanOrEqual(10 + 20);
   });
 
   it('with neither side fitting, takes the side with MORE room', () => {

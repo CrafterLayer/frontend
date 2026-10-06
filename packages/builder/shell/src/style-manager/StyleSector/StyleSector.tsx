@@ -8,6 +8,8 @@ export interface StyleSectorProps {
   readonly expanded: boolean;
   readonly onToggle: () => void;
   readonly children: ReactNode;
+  /** The sector's catalogue id, stamped as `data-sector` so a host can scroll to it. */
+  readonly sectorId?: string | undefined;
 }
 
 /**
@@ -16,10 +18,14 @@ export interface StyleSectorProps {
  * a collapsed sector unmounts its rows, so twelve sectors cost nothing until
  * opened.
  */
-export function StyleSector({ title, expanded, onToggle, children }: StyleSectorProps) {
+export function StyleSector({ title, expanded, onToggle, children, sectorId }: StyleSectorProps) {
   const regionId = useId();
   return (
-    <section className="bldr-style-sector" data-expanded={expanded ? '' : undefined}>
+    <section
+      className="bldr-style-sector"
+      data-expanded={expanded ? '' : undefined}
+      data-sector={sectorId}
+    >
       <h3 className="bldr-style-sector__heading">
         <button
           type="button"

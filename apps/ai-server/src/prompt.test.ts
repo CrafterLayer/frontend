@@ -1426,8 +1426,9 @@ describe('agent tools in the edit prompt', () => {
     expect(mentionsSeo('بدي سيو قوي')).toBe(true);
   });
 
-  it('keeps the edit prompt compact: each lane within 900 characters, the edit still < 80% of a build', () => {
-    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
+  // media-motion (2026-10-06): the edit lane's cap is 1400 (media.add kinds, motion.add recipes); seo stays 900.
+  it('keeps the edit prompt compact: edit within 1400 characters, seo within 900, the edit still < 80% of a build', () => {
+    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(1_400);
     expect(SEO_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
     const edit = buildPrompt(editRequest());
     const build = buildPrompt({

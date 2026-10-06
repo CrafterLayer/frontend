@@ -32,6 +32,8 @@ import { InspectorBlockDesign } from './InspectorBlockDesign';
 import { InspectorElementPanel } from './InspectorElementPanel';
 import { InspectorEmptyState } from './InspectorEmptyState';
 import { InspectorHeader } from './InspectorHeader';
+import { INSPECTOR_HEADER_LABELS_AR, INSPECTOR_HEADER_LABELS_EN } from './InspectorHeader.labels';
+import type { InspectorFocusRequest, InspectorStyleContext } from './inspector-request';
 import { InspectorLiveRegion } from './InspectorLiveRegion';
 import { InspectorSection } from './InspectorSection';
 import { InspectorTabPanel } from './InspectorTabPanel';
@@ -83,12 +85,19 @@ export interface InspectorProps {
   frameDocument?: Document | null | undefined;
   /** Replays an element's animation on the canvas (Interactions → Preview). */
   onPreviewElement?: ((target: TreeTarget) => void) | undefined;
-  /** "Convert to editable" for a registered block (DESIGN §A.9). */
-  onConvertBlock?: ((nodeId: NodeId) => void) | undefined;
+  /** "Convert to editable" for a registered block (DESIGN §A.9); a returned string is the refusal. */
+  onConvertBlock?: ((nodeId: NodeId) => unknown) | undefined;
   /** Code tab links to the region css and the page css. */
   onOpenRegionCss?: ((nodeId: NodeId) => void) | undefined;
   onOpenPageCss?: (() => void) | undefined;
   // ── end P6-style-panel additions ──
+  // ── fix pass: the quick bar's More / Animate reach the panel (style-manager §A.6) ──
+  /** A tab (and Design sector) to show now; see {@link InspectorFocusRequest}. */
+  focusRequest?: InspectorFocusRequest | undefined;
+  /** The request was honoured: the host should drop it. */
+  onFocusRequestHandled?: ((nonce: number) => void) | undefined;
+  /** The element panel's open sector and forced state, for the canvas overlays. */
+  onStyleContextChange?: ((context: InspectorStyleContext) => void) | undefined;
 }
 
 /**
@@ -127,6 +136,9 @@ export function Inspector({
   onConvertBlock,
   onOpenRegionCss,
   onOpenPageCss,
+  focusRequest,
+  onFocusRequestHandled,
+  onStyleContextChange,
 }: InspectorProps) {
   const selectedId = useKernelSelector(kernel, selectSelectedId);
   const selectedType = useKernelSelector(kernel, selectSelectedType);
@@ -262,6 +274,7 @@ export function Inspector({
         bucket={bucket}
         onClearSelection={clearSelection}
         within={within}
+        labels={locale === 'ar' ? INSPECTOR_HEADER_LABELS_AR : INSPECTOR_HEADER_LABELS_EN}
       >
         {hasRows ? (
           <InspectorTabs
@@ -299,6 +312,9 @@ export function Inspector({
             onPreviewElement={onPreviewElement}
             onOpenRegionCss={onOpenRegionCss}
             onOpenPageCss={onOpenPageCss}
+            request={focusRequest}
+            onRequestHandled={onFocusRequestHandled}
+            onStyleContextChange={onStyleContextChange}
           />
         ) : blockSchema === undefined ? (
           // An unregistered type is NOT "nothing to edit" — say what happened.

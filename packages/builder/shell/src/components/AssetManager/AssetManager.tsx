@@ -84,7 +84,7 @@ export function AssetManager({
   const pageId = site.currentPage();
   const page = site.page(pageId);
   const assets = Object.values(snapshot.assets);
-  const selectedSrc = selectedImageSource(page, target);
+  const selectedSrc = selectedImageSource(page, target, snapshot.assets);
 
   const send = (steps: readonly SiteGroupStep[], label: string): boolean => {
     const sent = commitSiteSteps(site, steps, label, author);

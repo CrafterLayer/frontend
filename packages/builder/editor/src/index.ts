@@ -710,3 +710,15 @@ export {
   type SymbolsPanelProps,
 } from '@craftkit/builder-shell';
 // ── end P11-integration ──
+// ── fix pass (style-manager DESIGN.md P11) ──
+export type { InspectorFocusRequest, InspectorStyleContext } from '@craftkit/builder-shell';
+export { TOP_BAR_LABELS_AR, TOP_BAR_LABELS_EN, type TopBarLabels } from '@craftkit/builder-shell';
+export type { LibrarySectionEntry, LibraryTab } from '@craftkit/builder-shell';
+export type { StyleSectorId } from '@craftkit/builder-schema';
+// A host installs the resolver so component props inside a tree are judged by their block's schema.
+export {
+  getCustomCodeComponentSchemaResolver,
+  setCustomCodeComponentSchemaResolver,
+  type CustomCodeComponentSchemaResolver,
+} from '@craftkit/builder-schema';
+// ── end fix pass ──

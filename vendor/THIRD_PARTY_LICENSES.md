@@ -584,3 +584,239 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 Planned, filled by P4: border-beam, animated-gradient-text, blur-fade, word-rotate, number-ticker, retro-grid, grid-pattern, meteors, orbiting-circles and animated-beam, ported to CSS + tokens (`packages/builder/renderer/src/motion/presets-css.ts`, `packages/builder/extensions/magicui`). Same licence as the Magic UI section above (`vendor/magicui/LICENSE`); upstream https://github.com/magicuidesign/magicui currently reads "Copyright (c) Magic UI".
 
 <!-- end P0-libs additions -->
+
+
+<!-- media-motion (2026-10-06) engine-timeline additions -->
+
+## GSAP 3.15.0 — GSAP Standard "No Charge" License (NOT OSI; owner-approved 2026-10-06)
+
+Verbatim copies of `gsap@3.15.0` `dist/gsap.min.js`, `dist/ScrollTrigger.min.js` and `dist/SplitText.min.js` in `vendor/gsap/`, carried as one string by `packages/builder/renderer/src/engines/timeline-source.ts` and shipped to published sites as `assets/ck-timeline.js` only on pages that use a timeline recipe. Each file keeps its own notice: "@license Copyright 2026, GreenSock. All rights reserved. Subject to the terms at https://gsap.com/standard-license." Upstream: https://gsap.com
+
+**Not an OSI licence and not on the workspace's MIT / Apache-2.0 / ISC list.** Adopted on the owner's explicit request of 2026-10-06 under these conditions (media-motion DESIGN.md §C.1; recorded in VENDOR.md and durable/media-motion/LIBRARIES.md): agent-chosen fixed recipes only; no visual GSAP timeline or keyframe editor (the licence's Prohibited Use); the style-manager recipe picker stays behind `TIMELINE_PANEL_ENABLED = false` until the owner answers whether CraftKit is a paid product and, if needed, Webflow consents in writing; version pinned; files unmodified with their notices.
+
+Licence text below: https://gsap.com/standard-license as published on 2026-10-06 (tags stripped; also in `vendor/gsap/LICENSE.md`).
+
+### Standard "No Charge" GSAP License
+
+#### I. DEFINITIONS
+
+- “GSAP License” means the terms and conditions of this GSAP Software License Agreement.
+
+- "GSAP Products" means any Software made available at gsap.com (https://gsap.com) or any successor sites, including but not limited to the GSAP animation library and related plugins, tools, or extensions.
+
+- "Permitted Uses" means the implementation and/or use of GSAP Products on any website, web application, or digital interface by any person or entity (which may include, for clarity, those of companies that compete with Webflow in other areas of business).
+
+- "Prohibited Uses" means any implementation and/or use of GSAP Products in tools that allow users to build visual animations without code that encourages, induces, or materially assists in creating a solution that competes with Webflow’s visual animation building capabilities.
+
+- "Competitive Products" means any software, tool, or service that enables users to create, edit, or manage animations through a visual interface or builder similar to Webflow (https://webflow.com).
+
+#### II. GRANT OF LICENSE
+
+Subject to the terms and conditions of this GSAP License, Webflow grants you a non-exclusive, worldwide license to use, reproduce, display, and implement GSAP Products solely for Permitted Uses.
+
+#### III. RESTRICTIONS
+
+You may not:
+
+- Use any GSAP Products for any Prohibited Uses without prior written consent;
+
+- Reverse engineer any GSAP Products for the purpose of creating Competitive Products;
+
+- Remove or alter any proprietary notices or branding from GSAP Products.
+
+#### IV. OWNERSHIP AND INTELLECTUAL PROPERTY
+
+All intellectual property rights in GSAP Products, including but not limited to copyright, patents, trademarks, and trade secrets, remain the exclusive property of Webflow. This GSAP License does not transfer any ownership rights in GSAP Products to you.
+
+#### V. TERMINATION
+
+Webflow may terminate this GSAP License and revoke your access in its discretion if you fail to comply with any of these terms and conditions. Upon termination, you must cease all use of GSAP Products and destroy all copies in your possession.
+
+#### VI. MISCELLANEOUS PROVISIONS
+
+- General: This GSAP License is incorporated into and subject to Webflow’s Terms of Service available here (https://webflow.com/legal/terms) ("Terms of Service"). In the event of any conflict or inconsistency between this GSAP License and the Terms of Service, the terms of this GSAP License shall govern in relation to your use of any GSAP Products.
+
+- Amendments: Webflow reserves the right to update or modify this GSAP License at any time by posting the revised terms on this website, provided that any such updates or modifications shall not result in any material degradation to the security, integrity, or functionality of any GSAP Products. You understand and agree that your continued use of any GSAP Products after such revisions to this GSAP License constitutes your acceptance of this GSAP License as revised. If you do not accept the revised GSAP License, you are prohibited from using versions of the GSAP Products released after the effective date of the revised GSAP License (as well as any updates made to previous versions). Notwithstanding, you may continue using previous versions of GSAP Products under the applicable terms licensed to you prior to the effective date of the revised GSAP License (for clarity, excluding any updates made thereto).
+
+- No Waiver: Failure of Webflow to enforce any provision of this GSAP License shall not constitute a waiver of future enforcement of that or any other provision.
+
+#### FAQ
+
+- Is it acceptable for AI tools like ChatGPT, Cursor, Lovable, Webstudio, etc. to generate GSAP code?
+Absolutely! AI-generated code is not a "Prohibited Use".
+
+- What if a WordPress plugin or theme or other niche tool allows users to create GSAP-driven effects through a visual interface? Is that prohibited?
+We want to encourage developers to build on top of GSAP, including visual tools that don't directly compete with Webflow's rich animation-building capabilities. If you are not sure if your product might be considered a "Prohibited Use", feel free to contact us (https://gsap.com/contact) so we can talk through it!
+
+- Can I really use GSAP in commercial projects without paying anything?
+Yes, really! Commercial usage is covered under the standard license. All of GSAP including the plugins that were formerly "members-only" like SplitText (https://gsap.com/docs/v3/Plugins/SplitText/) and MorphSVG (https://gsap.com/docs/v3/Plugins/MorphSVGPlugin) can be used in commercial projects at no charge. Enjoy! 💚
+
+Effective date: April 30, 2025
+
+Last modified date: May 30, 2025
+
+Copyright (©) 2025, Webflow
+
+## lottie-web 5.13.0 (light player) — MIT
+
+Verbatim copy of `lottie-web@5.13.0` `build/player/lottie_light.min.js` in `vendor/lottie/`, carried by `packages/builder/renderer/src/engines/lottie-source.ts` and shipped as `assets/ck-lottie.js` only on pages with `data-ck-lottie`. Upstream: https://github.com/airbnb/lottie-web
+
+The MIT License (MIT)
+
+Copyright (c) 2015 Bodymovin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## PixiJS 8.22.0 — MIT
+
+`pixi.js@8.22.0` installed from the pnpm catalog into `@craftkit/builder-media-engines` only, and bundled (subset + CraftKit scenes) into `packages/builder/renderer/src/engines/scene-source.ts`, shipped as `assets/ck-scene.js` only on pages with `data-ck-scene`. Upstream: https://github.com/pixijs/pixijs
+
+- bundled dependency licences: see scene-source.ts banner
+
+The MIT License
+
+Copyright (c) 2013-2023 Mathew Groves, Chad Engler
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+## lite-youtube (@justinribeiro/lite-youtube) — MIT
+
+Idea source only (no file copied): the click-to-load YouTube facade in `packages/builder/renderer/src/behaviors/packs/embed-facade.ts`. Upstream: https://github.com/justinribeiro/lite-youtube
+
+MIT License
+
+Copyright (c) 2019 Justin Ribeiro
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## lite-vimeo-embed — MIT
+
+Idea source only (no file copied): the Vimeo facade in `packages/builder/renderer/src/behaviors/packs/embed-facade.ts`. Upstream: https://github.com/luwes/lite-vimeo-embed — the npm `license` field of 0.3.0 reads "MIT"; the repository ships no LICENSE file (checked the `main` and `master` branches, 2026-10-06), so no licence text can be reproduced here. Nothing is copied.
+
+## PhotoSwipe — MIT
+
+Idea source only (no file copied): gallery dialog navigation, swipe and focus return in `packages/builder/renderer/src/behaviors/packs/gallery.ts`. Upstream: https://github.com/dimsemenov/PhotoSwipe
+
+The MIT License (MIT)
+
+Copyright (c) 2014-2022 Dmitry Semenov, https://dimsemenov.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+## Embla Carousel — MIT
+
+Idea source only (no file copied): carousel indicators and autoplay with a pause control in `packages/builder/renderer/src/behaviors/packs/carousel.ts`. Upstream: https://github.com/davidjerleke/embla-carousel
+
+MIT License
+
+Copyright (c) David Jerleke.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## img-comparison-slider — MIT
+
+Idea source only (no file copied): the before/after compare in `packages/builder/renderer/src/behaviors/packs/compare.ts`. Upstream: https://github.com/sneas/img-comparison-slider
+
+MIT License
+
+Copyright (c) 2019 Dmytro Snisarenko
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+<!-- end media-motion engine-timeline additions -->

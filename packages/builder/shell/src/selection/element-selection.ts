@@ -7,6 +7,7 @@ import {
   sameElementTarget,
   type ElementTarget,
 } from '../custom-code/element-target';
+import { isSymbolInstance } from '../style-manager/tree-writes';
 
 /*
   ── Multi-selection of elements (style-manager DESIGN.md §A.1, §E) ──────────
@@ -69,6 +70,8 @@ export function createElementSelection(kernel: BuilderKernel): ElementSelection 
   let lastPrimary = primaryKey(kernel.context.store.getState());
 
   function isLive(target: ElementTarget): boolean {
+    // An element inside a symbol instance lives in the master's tree (read through the library).
+    if (target.kind === 'tree' && isSymbolInstance(kernel, target.nodeId)) return true;
     return resolveElementTarget(kernel, target) !== undefined;
   }
 

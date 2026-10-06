@@ -355,7 +355,8 @@ describe('US4 — the playground proves it end-to-end', () => {
     host.focus();
     await user.keyboard('{Escape}');
     const selectionStatus = screen.getByRole('status', { name: 'Selection' });
-    expect(selectionStatus).toHaveTextContent(/page root.*selected$/i);
+    // The block's display name, never its AI-facing description (fix pass).
+    expect(selectionStatus).toHaveTextContent(/^page selected$/i);
     await user.keyboard('{Escape}');
     expect(selectionStatus).toHaveTextContent('Selection cleared');
     expect(fetchSpy).not.toHaveBeenCalled();

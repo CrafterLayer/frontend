@@ -357,3 +357,53 @@ test('contained engine (013): an npm ALIAS cannot smuggle the animation engine p
   const result = await validateWorkspace(fixture.repositoryRoot);
   assert.deepEqual(builderCodes(result), ['BUILDER_CONTAINED_DEPENDENCY']);
 });
+
+// media-motion (2026-10-06)
+/*
+  The canvas scene engine (PixiJS) is contained in @craftkit/builder-media-engines.
+  It ships to published pages only as one prebuilt asset on pages that carry a
+  `data-ck-scene`; a direct import anywhere else would put a WebGL engine on
+  every page.
+*/
+test('contained engine (media-motion): only @craftkit/builder-media-engines may declare pixi.js', async (t) => {
+  const fixture = await createRepositoryFixture(t);
+  await fixture.writeJson(
+    'packages/builder/renderer/package.json',
+    packageManifest('@craftkit/builder-renderer', {
+      dependencies: { 'pixi.js': '8.22.0' },
+    }),
+  );
+
+  const result = await validateWorkspace(fixture.repositoryRoot);
+  assert.deepEqual(builderCodes(result), ['BUILDER_CONTAINED_DEPENDENCY']);
+  assert.equal(result.valid, false);
+});
+
+test('contained engine (media-motion): the owner declares pixi.js freely', async (t) => {
+  const fixture = await createRepositoryFixture(t);
+  await fixture.writeJson(
+    'packages/builder/extensions/media-engines/package.json',
+    packageManifest('@craftkit/builder-media-engines', {
+      dependencies: { 'pixi.js': '8.22.0' },
+    }),
+  );
+
+  const result = await validateWorkspace(fixture.repositoryRoot);
+  assert.deepEqual(builderCodes(result), []);
+});
+
+test('contained engine (media-motion): @pixi/* scoped packages and npm aliases are the same engine', async (t) => {
+  const fixture = await createRepositoryFixture(t);
+  await fixture.writeJson(
+    'packages/builder/shell/package.json',
+    packageManifest('@craftkit/builder-shell', {
+      dependencies: { '@pixi/react': '8.0.0', 'canvas-engine': 'npm:pixi.js@8.22.0' },
+    }),
+  );
+
+  const result = await validateWorkspace(fixture.repositoryRoot);
+  assert.deepEqual(builderCodes(result), [
+    'BUILDER_CONTAINED_DEPENDENCY',
+    'BUILDER_CONTAINED_DEPENDENCY',
+  ]);
+});

@@ -13,3 +13,5 @@ export {
   type AttributePatch,
   type MotionAttributes,
 } from './motion-attributes';
+// media-motion (2026-10-06) additions
+export { TIMELINE_PANEL_ENABLED } from './timeline-flag';

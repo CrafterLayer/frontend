@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { serializeTreeMarkup } from '../../plan/tree-markup';
 import { fixtureKernel, toolPlan } from './agent-tools.fixtures';
-import { agentToolPrompt, AGENT_TOOL_PROMPT_MAX_CHARS } from './catalog-prompt';
+import { agentToolPrompt, agentToolPromptMaxChars, AGENT_TOOL_PROMPT_MAX_CHARS } from './catalog-prompt';
 import { expandAgentTools } from './expand';
 import { AGENT_TOOLS, agentTool, agentToolsForLane } from './registry';
 import { AGENT_TOOL_LANES, defineAgentTool } from './types';
@@ -74,10 +74,13 @@ describe('expandAgentTools', () => {
 });
 
 describe('agentToolPrompt', () => {
-  it('stays within 900 characters for every lane and shows one example step', () => {
+  // media-motion (2026-10-06): per-lane caps — the edit lane takes 1400, every other lane 900.
+  it('stays within its lane cap (900, the edit lane 1400) and shows one example step', () => {
+    expect(agentToolPromptMaxChars('edit')).toBe(1_400);
+    for (const lane of ['build', 'section', 'seo'] as const) expect(agentToolPromptMaxChars(lane)).toBe(AGENT_TOOL_PROMPT_MAX_CHARS);
     for (const lane of AGENT_TOOL_LANES) {
       const prompt = agentToolPrompt(lane);
-      expect(prompt.length).toBeLessThanOrEqual(AGENT_TOOL_PROMPT_MAX_CHARS);
+      expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars(lane));
       if (agentToolsForLane(lane).length === 0) continue;
       expect(prompt).toContain('"command":"tool"');
       for (const tool of agentToolsForLane(lane)) expect(prompt).toContain(tool.name);

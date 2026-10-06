@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 import type { EditingBucket } from '../../devices/buckets';
 import { ChromeButton } from '../ChromeButton';
-import { BACK_TO_REGION } from './constants';
 import { INSPECTOR_ICONS } from './Inspector.icons';
+import { INSPECTOR_HEADER_LABELS_EN, type InspectorHeaderLabels } from './InspectorHeader.labels';
 
 export interface InspectorHeaderProps {
   /** The shared display name — the same string as the canvas chip and LayersTree. */
@@ -18,6 +18,7 @@ export interface InspectorHeaderProps {
   readonly within?: { readonly regionName: string; readonly onBack: () => void } | undefined;
   /** The tab strip, when there is one. */
   readonly children?: ReactNode | undefined;
+  readonly labels?: InspectorHeaderLabels | undefined;
 }
 
 /**
@@ -31,11 +32,12 @@ export function InspectorHeader({
   onClearSelection,
   within,
   children,
+  labels = INSPECTOR_HEADER_LABELS_EN,
 }: InspectorHeaderProps) {
   return (
     <header className="bldr-inspector__head">
       <div className="bldr-inspector__title-row">
-        <h2 className="bldr-inspector__title">Inspector</h2>
+        <h2 className="bldr-inspector__title">{labels.title}</h2>
         {/* The way OUT of a selection, next to the name of what is selected.
             Quiet and small: it is furniture, not the panel's purpose. The
             cross is decorative — the text is the one accessible name. */}
@@ -47,7 +49,7 @@ export function InspectorHeader({
             onClick={onClearSelection}
           >
             {INSPECTOR_ICONS['clear-selection']}
-            Clear selection
+            {labels.clearSelection}
           </ChromeButton>
         ) : null}
       </div>
@@ -63,23 +65,23 @@ export function InspectorHeader({
             onClick={within.onBack}
           >
             {INSPECTOR_ICONS.back}
-            {BACK_TO_REGION}
+            {labels.backToRegion}
           </ChromeButton>
         )}
         <p
           className="bldr-inspector__block-name"
           data-empty={selected ? undefined : 'true'}
-          aria-label="Selected block"
+          aria-label={labels.selectedBlock}
         >
           {blockName}
         </p>
-        {bucket !== 'base' ? <span className="bldr-inspector__bucket">{bucket}</span> : null}
+        {bucket !== 'base' ? <span className="bldr-inspector__bucket">{labels.bucket(bucket)}</span> : null}
       </div>
       {within === undefined ? null : (
-        <p className="bldr-inspector__within">in {within.regionName}</p>
+        <p className="bldr-inspector__within">{labels.within(within.regionName)}</p>
       )}
       {selected && bucket !== 'base' ? (
-        <p className="bldr-inspector__bucket-note">Editing {bucket} overrides</p>
+        <p className="bldr-inspector__bucket-note">{labels.editingOverrides(bucket)}</p>
       ) : null}
       {children}
     </header>

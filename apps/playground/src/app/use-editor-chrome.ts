@@ -60,7 +60,8 @@ export interface EditorChrome {
   readonly makeSymbol: (regionId: string) => void;
   readonly removeTemplate: (id: string) => void;
   /** Registered block → editable custom-code region (DESIGN §A.9). */
-  readonly convertBlock: (nodeId: string) => void;
+  /** Converts a block to an editable region; returns the refusal, shown in the panel. */
+  readonly convertBlock: (nodeId: string) => string | undefined;
   /** Interactions → Preview: replay the element's animation on the canvas. */
   readonly previewElement: (target: { readonly nodeId: string; readonly path: readonly number[] }) => void;
 }
@@ -247,16 +248,18 @@ export function useEditorChrome(options: EditorChromeOptions): EditorChrome {
 
   const convertBlock = useCallback(
     (nodeId: string) => {
-      if (kernel === undefined) return;
+      if (kernel === undefined) return undefined;
       const result = detachBlockToCustomCode(kernel, nodeId, {
         render: (document) => renderStaticMarkup(document, { blocks: kernel.context.registry.block }),
       });
       if (!result.ok) {
-        announce(result.reasons.join(' '));
-        return;
+        const reason = result.reasons.join(' ');
+        announce(reason);
+        return reason;
       }
       announce(`${result.label}: every part is now editable.`);
       if (result.regionId !== undefined) kernel.setSelection([result.regionId]);
+      return undefined;
     },
     [kernel, announce],
   );

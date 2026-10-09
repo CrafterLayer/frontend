@@ -1,6 +1,7 @@
 import { useId } from 'react';
 
 import {
+  isHostedScene, // gsap-pixi additions (2026-10-08)
   SPACING_SCALE,
   STYLE_PROPERTIES,
   type StyleBoxSide,
@@ -14,6 +15,18 @@ import { BOX_SIDES } from '../../style-manager/box-sides';
 import { BoxModelControl } from '../../style-manager/controls/BoxModelControl';
 import { ChoiceGroup } from '../../style-manager/controls/ChoiceGroup';
 import { CORNERS, CornerRadiusControl } from '../../style-manager/controls/CornerRadiusControl';
+// gsap-pixi additions (2026-10-08)
+import {
+  ENGINE_MOTION_PICKER_LABELS_AR,
+  ENGINE_MOTION_PICKER_LABELS_EN,
+  EngineMotionPicker,
+  engineMotionAttributePatch,
+  engineMotionOfAttributes,
+  engineMotionPartPatch,
+  engineRecipesFor,
+  isSceneHostTag,
+} from '../../style-manager/controls/EngineMotionPicker';
+// ── end gsap-pixi additions ──
 import {
   MOTION_PRESET_GRID_LABELS_AR,
   MOTION_PRESET_GRID_LABELS_EN,
@@ -80,17 +93,58 @@ export function QuickPropertyControl({
   if (def.storage === 'attribute') {
     const attribute = def.attribute ?? '';
     if (property === 'motion') {
-      return (
-        <MotionPresetGrid
-          kind="motion"
-          value={model.attribute(attribute)}
+      // gsap-pixi additions (2026-10-08): the CSS presets, then Cinematic motion
+      // (+ an Animated background on a container) — a registered part gets
+      // Cinematic motion only, stored in its partStyles by the part model.
+      const part = model.motionScope === 'part';
+      const node = model.node;
+      const stored =
+        node.kind === 'element'
+          ? (node.attributes as Readonly<Record<string, string | undefined>> | undefined)
+          : undefined;
+      const sceneNow = model.attribute('data-ck-scene');
+      const engine = (
+        <EngineMotionPicker
+          value={engineMotionOfAttributes(
+            part
+              ? { 'data-ck-timeline': model.attribute('data-ck-timeline'), 'data-ck-scrub': model.attribute('data-ck-scrub') }
+              : stored,
+          )}
+          recipes={engineRecipesFor(model.kind, { marquee: model.attribute('data-ck-behavior') === 'marquee' })}
+          scenes={
+            !part &&
+            model.kind === 'container' &&
+            node.kind === 'element' &&
+            isSceneHostTag(node.tag) &&
+            (sceneNow === undefined || isHostedScene(sceneNow))
+          }
           dir={dir}
-          labels={labels.locale === 'ar' ? MOTION_PRESET_GRID_LABELS_AR : MOTION_PRESET_GRID_LABELS_EN}
-          onSelect={(preset) => {
-            onResult(model.setAttributes({ [attribute]: preset }, label));
+          labels={labels.locale === 'ar' ? ENGINE_MOTION_PICKER_LABELS_AR : ENGINE_MOTION_PICKER_LABELS_EN}
+          onChange={(next, what) => {
+            onResult(
+              model.setAttributes(part ? engineMotionPartPatch(next) : engineMotionAttributePatch(stored, next), what),
+            );
           }}
         />
       );
+      if (part) return engine;
+      // A CSS preset and a recipe never drive one element: a preset takes the recipe off in the same patch.
+      const recipeOff = model.attribute('data-ck-timeline') === undefined ? {} : { 'data-ck-timeline': null, 'data-ck-scrub': null };
+      return (
+        <>
+          <MotionPresetGrid
+            kind="motion"
+            value={model.attribute(attribute)}
+            dir={dir}
+            labels={labels.locale === 'ar' ? MOTION_PRESET_GRID_LABELS_AR : MOTION_PRESET_GRID_LABELS_EN}
+            onSelect={(preset) => {
+              onResult(model.setAttributes({ [attribute]: preset, ...(preset === null ? {} : recipeOff) }, label));
+            }}
+          />
+          {engine}
+        </>
+      );
+      // ── end gsap-pixi additions ──
     }
     if (property === 'hoverMotion') {
       return (

@@ -82,6 +82,16 @@ export interface ElementBarModel {
   editClasses(transform: (className: string) => string, propertyLabel: string): QuickWriteResult;
   /** Icon fields (name, size) on every icon target. */
   setIcon(patch: { readonly name?: string; readonly size?: number | null }, propertyLabel: string): QuickWriteResult;
+  // gsap-pixi additions (2026-10-08)
+  /**
+   * Where engine motion (Cinematic motion, Animated background) is written:
+   * `tree` — the element's own `data-ck-*` attributes (CSS presets too);
+   * `part` — a registered block part's `partStyles` entry, Cinematic motion
+   * only (`setAttributes` takes `data-ck-timeline` / `data-ck-scrub`).
+   * Absent ⇒ `tree`.
+   */
+  readonly motionScope?: 'tree' | 'part' | undefined;
+  // ── end gsap-pixi additions ──
 }
 
 const TEXT_TAGS = new Set([
@@ -242,6 +252,7 @@ export function createElementBarModel(
     bucket: options.bucket,
     state: options.state,
     node: primary.node,
+    motionScope: 'tree', // gsap-pixi additions (2026-10-08)
     read: (property) => quick((reading) => reading.get(property)),
     readSide: (property, side) => quick((reading) => sideOf(reading.get(property), side)),
     attribute: (name) => {

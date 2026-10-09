@@ -61,7 +61,7 @@ export const DESIGN_CODE_SKILL: AiSkillDefinitionV1 = {
   name: 'Design code',
   description:
     'Region CSS for a signature effect, and interactive markup that needs no script.',
-  version: '1.1.0',
+  version: '1.2.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 91,
@@ -79,6 +79,7 @@ VIDEO HERO, only with a video address the request gives: video autoplay muted lo
 IMAGES after the hero: loading='lazy' decoding='async' width height; srcset with sizes, or picture > source media srcset + img. A Latin name in Arabic: span lang='en' dir='ltr'.
 REAL CONTROLS: a form, map or booking the catalog registers is <ck-component type='…' props='{…}'/>; never imitate one.
 ONLINE BOOKING, when the request names booking or appointments online — a real form, not steps and links; WhatsApp stays beside it: <ck-component type='formSection' props='{"heading":"…","variant":"card","fields":[{"id":"service","name":"service","type":"select","label":"…","required":true,"options":[{"label":"…","value":"…"}]},{"id":"date","name":"date","type":"date","label":"…","required":true,"width":"half"},{"id":"time","name":"time","type":"select","label":"…","required":true,"width":"half","options":[{"label":"10:00","value":"10:00"}]},{"id":"phone","name":"phone","type":"tel","label":"…","required":true}],"submitLabel":"…"}'/> — the services and hours are the page's own.
+TAP TARGETS: every link in a footer or a nav list is a 44px target on a phone: a class='inline-flex min-h-11 items-center'.
 ${STYLE_MANAGER_TEACHING}
 ${MEDIA_MOTION_TEACHING}
 NEVER: script, on… handlers, a style attribute, an iframe from another host, form action or method, http:// addresses.`,

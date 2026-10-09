@@ -92,7 +92,7 @@
 .bldr-asset-manager__grid {
   display: grid;
   gap: var(--bldr-space-sm);
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--bldr-thumb-width), 1fr));
   list-style: none;
   margin: var(--bldr-space-0);
   padding: var(--bldr-space-0);

@@ -31,7 +31,8 @@ const HEADER_SLOTS = {
   cta: link(),
 } as const;
 
-const FOOTER_LINKS = `<nav aria-label='{{nav_label}}'><ul class='space-y-2 text-sm'>{{#nav}}<li><a class='ck-link' href='{{item.href}}'>{{item.label}}</a></li>{{/nav}}</ul></nav>`;
+// Each link is a 44px tap target (WCAG 2.5.8; the 390px walk measured 15px rows).
+const FOOTER_LINKS = `<nav aria-label='{{nav_label}}'><ul class='text-sm'>{{#nav}}<li><a class='ck-link inline-flex min-h-11 items-center' href='{{item.href}}'>{{item.label}}</a></li>{{/nav}}</ul></nav>`;
 const FOOTER_CONTACT = `<ul class='space-y-3 text-sm'>{{#contact}}<li class='flex items-start gap-2'><icon name='{{item.icon}}' class='ck-accent-ink shrink-0' size='18'/>{{#item.href}}<a class='ck-link min-w-0 break-words' href='{{item.href}}'>{{item.text}}</a>{{/item.href}}{{^item.href}}<span class='min-w-0 break-words'>{{item.text}}</span>{{/item.href}}</li>{{/contact}}</ul>`;
 const COPYRIGHT = `<div class='border-t ck-border'><p class='ck-muted mx-auto max-w-6xl px-4 py-6 text-xs md:px-8'>{{copyright}}</p></div>`;
 

@@ -5,17 +5,20 @@
   under jsdom `import.meta.url` is an http URL and fileURLToPath rejects it).
 */
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
 import { LOTTIE_BANNER, LOTTIE_SHA256, LOTTIE_SOURCE, LOTTIE_VERSION } from './lottie-source';
 import {
-  GSAP_VERSION,
+  ANIME_VERSION,
   TIMELINE_BANNER,
+  TIMELINE_ENGINE,
+  TIMELINE_EXPORTS,
+  TIMELINE_GLOBAL,
   TIMELINE_LICENSE,
-  TIMELINE_PARTS,
+  TIMELINE_SHA256,
   TIMELINE_SOURCE,
 } from './timeline-source';
 
@@ -29,57 +32,53 @@ function readVendored(path: string): string {
   return readFileSync(fileURLToPath(new URL(path, VENDOR)), 'utf8');
 }
 
-describe('vendored GSAP (timeline-source)', () => {
-  it('carries the three pinned files, each slice byte for byte the vendored file', () => {
-    expect(GSAP_VERSION).toBe('3.15.0');
-    expect(TIMELINE_PARTS.map((part) => part.file)).toEqual([
-      'gsap.min.js',
-      'ScrollTrigger.min.js',
-      'SplitText.min.js',
-    ]);
-    for (const part of TIMELINE_PARTS) {
-      const vendored = readVendored(`gsap/${part.file}`);
-      expect(sha256(vendored)).toBe(part.sha256);
-      expect(sha256(TIMELINE_SOURCE.slice(part.start, part.end))).toBe(part.sha256);
+describe('vendored anime.js subset (timeline-source), MIT — GSAP is gone (gsap-pixi 2026-10-08)', () => {
+  it('reproduces vendor/animejs/anime.ck.min.js byte for byte', () => {
+    expect(TIMELINE_ENGINE).toBe('anime.js');
+    expect(ANIME_VERSION).toBe('4.5.0');
+    const vendored = readVendored('animejs/anime.ck.min.js');
+    expect(sha256(vendored)).toBe(TIMELINE_SHA256);
+    expect(sha256(TIMELINE_SOURCE)).toBe(TIMELINE_SHA256);
+  });
+
+  it('defines window.ckAnime with exactly the recipe surface, and carries no GSAP', () => {
+    expect(TIMELINE_GLOBAL).toBe('ckAnime');
+    expect(TIMELINE_EXPORTS).toEqual(['createTimeline', 'animate', 'stagger', 'onScroll', 'splitText']);
+    const global = /window\.ckAnime=\{([^}]*)\}/u.exec(TIMELINE_SOURCE);
+    expect(global).not.toBeNull();
+    const keys = (global?.[1] ?? '').split(',').map((pair) => pair.split(':')[0]);
+    expect(keys).toEqual([...TIMELINE_EXPORTS, 'version']);
+    for (const text of [TIMELINE_SOURCE, TIMELINE_BANNER]) {
+      expect(text).not.toMatch(/gsap|greensock|ScrollTrigger|webflow/iu);
     }
+    expect(TIMELINE_SOURCE).not.toMatch(/\bimport\(/u);
   });
 
-  it('is exactly the files joined by "\\n;" with nothing added or removed', () => {
-    const joined = TIMELINE_PARTS.map((part) => readVendored(`gsap/${part.file}`)).join('\n;');
-    expect(sha256(TIMELINE_SOURCE)).toBe(sha256(joined));
-  });
-
-  it('keeps every GSAP notice intact (the licence forbids removing or altering them)', () => {
-    const names = ['GSAP', 'ScrollTrigger', 'SplitText'];
-    TIMELINE_PARTS.forEach((part, index) => {
-      const slice = TIMELINE_SOURCE.slice(part.start, part.end);
-      expect(slice.startsWith(`/*!\n * ${String(names[index])} ${GSAP_VERSION}\n`)).toBe(true);
-      expect(slice).toContain('@license Copyright 2026, GreenSock. All rights reserved.');
-      expect(slice).toContain('https://gsap.com/standard-license');
-    });
-  });
-
-  it('banner names the licence, the conditions, and every file hash', () => {
-    expect(TIMELINE_LICENSE).toBe('GSAP Standard No-Charge License');
+  it('is MIT: the banner carries the full notice, the version, the integrity and the hash', () => {
+    expect(TIMELINE_LICENSE).toBe('MIT');
+    const licence = readVendored('animejs/LICENSE.md');
+    expect(licence).toContain('The MIT License');
+    expect(licence).toContain('Copyright (c) 2025 Julian Garnier');
     expect(TIMELINE_BANNER.startsWith('/*!')).toBe(true);
-    expect(TIMELINE_BANNER.trimEnd().endsWith('*/')).toBe(true);
-    expect(TIMELINE_BANNER).toContain(TIMELINE_LICENSE);
-    expect(TIMELINE_BANNER).toContain('NOT OSI');
-    expect(TIMELINE_BANNER).toContain('unmodified');
-    expect(TIMELINE_BANNER).toContain('no visual GSAP timeline or keyframe editor');
-    for (const part of TIMELINE_PARTS) expect(TIMELINE_BANNER).toContain(part.sha256);
+    expect(TIMELINE_BANNER).toContain('anime.js 4.5.0');
+    expect(TIMELINE_BANNER).toContain('Copyright (c) 2025 Julian Garnier');
+    expect(TIMELINE_BANNER).toContain('Permission is hereby granted, free of charge');
+    expect(TIMELINE_BANNER).toContain('THE SOFTWARE IS PROVIDED "AS IS"');
+    expect(TIMELINE_BANNER).toContain(TIMELINE_SHA256);
     // One comment only: nothing after the closing */ but the newline.
     expect(TIMELINE_BANNER.indexOf('*/')).toBe(TIMELINE_BANNER.length - 3);
   });
 
-  it('ships the licence text and provenance beside the files', () => {
-    const licence = readVendored('gsap/LICENSE.md');
-    expect(licence).toContain('Standard "No Charge" GSAP License');
-    expect(licence).toContain('II. GRANT OF LICENSE');
-    expect(licence).toContain('Prohibited Uses');
-    expect(licence).toContain('fetched 2026-10-06');
-    const provenance = readVendored('gsap/PROVENANCE.md');
-    for (const part of TIMELINE_PARTS) expect(provenance).toContain(part.sha256);
+  it('records its provenance beside the bundle', () => {
+    const provenance = readVendored('animejs/PROVENANCE.md');
+    expect(provenance).toContain('https://registry.npmjs.org/animejs/-/animejs-4.5.0.tgz');
+    expect(provenance).toContain('sha512-');
+    expect(provenance).toContain(TIMELINE_SHA256);
+    expect(TIMELINE_BANNER).toMatch(/sha512-[A-Za-z0-9+/=]+/u);
+  });
+
+  it('leaves no GSAP file in the repository', () => {
+    expect(existsSync(fileURLToPath(new URL('gsap', VENDOR)))).toBe(false);
   });
 });
 

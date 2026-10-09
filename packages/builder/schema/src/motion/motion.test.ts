@@ -114,3 +114,23 @@ describe('document-wide motion validation', () => {
     ).toEqual([]);
   });
 });
+
+// gsap-pixi additions (2026-10-08)
+describe('motion vocabulary — engine motion on a section', () => {
+  it('accepts a timeline recipe, scrub and a hosted scene with density and palette', () => {
+    const spec: MotionSpec = {
+      timeline: 'stagger-in',
+      scrub: false,
+      scene: 'particles',
+      sceneDensity: 'low',
+      scenePalette: 'accent',
+    };
+    expect(validateMotionSpec(spec)).toEqual({ ok: true, spec });
+  });
+
+  it('refuses an image scene and an unknown recipe', () => {
+    expect(validateMotionSpec({ scene: 'mural' }).ok).toBe(false);
+    expect(validateMotionSpec({ timeline: 'explode' }).ok).toBe(false);
+  });
+});
+

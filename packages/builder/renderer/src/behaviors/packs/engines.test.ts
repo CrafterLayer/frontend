@@ -84,6 +84,7 @@ describe('mountEngines — the handshake', () => {
     const [el, ctx] = mount.mock.calls[0] ?? [];
     expect(el).toBe(scene);
     expect(ctx?.still).toBe(false);
+    expect(ctx?.canvas).toBe(false);
     expect(ctx?.rtl).toBe(true);
     expect(ctx?.lang).toBe('ar');
     expect(api?.queue.map((entry) => entry.kind)).toEqual(['timeline']);
@@ -178,8 +179,8 @@ describe('mountEngines — requesting the asset (export)', () => {
   });
 });
 
-describe('mountEngines — still (canvas)', () => {
-  it('passes still and forwards data-ck-play to onPlay / onStop', async () => {
+describe('mountEngines — the canvas (gsap-pixi 2026-10-08: it runs)', () => {
+  it('passes { still: false, canvas: true } and forwards data-ck-play to onPlay / onStop', async () => {
     const play = vi.fn();
     const stop = vi.fn();
     let seen: CkEngineContext | undefined;
@@ -193,7 +194,8 @@ describe('mountEngines — still (canvas)', () => {
     });
     const root = host('<h2 data-ck-timeline="split-reveal">x</h2>');
     const dispose = mountEngines(root, { interactive: false });
-    expect(seen?.still).toBe(true);
+    expect(seen?.still).toBe(false);
+    expect(seen?.canvas).toBe(true);
     const heading = root.querySelector('h2') as HTMLElement;
     heading.setAttribute('data-ck-play', '1');
     await flush();
@@ -206,12 +208,93 @@ describe('mountEngines — still (canvas)', () => {
     await flush();
     expect(play).toHaveBeenCalledTimes(1);
   });
+
+  it('wires no Preview watcher on a published page', async () => {
+    const play = vi.fn();
+    ensureCkEngines(window as unknown as CkEnginesHost).ready('timeline', {
+      mount: (_el, ctx) => {
+        ctx.onPlay(play);
+        return () => undefined;
+      },
+    });
+    const root = host('<h2 data-ck-timeline="split-reveal">x</h2>');
+    mountEngines(root);
+    root.querySelector('h2')?.setAttribute('data-ck-play', '1');
+    await flush();
+    expect(play).not.toHaveBeenCalled();
+  });
+});
+
+describe('mountEngines — one element, several engines (gsap-pixi 2026-10-08)', () => {
+  it('mounts a scene AND a timeline on the same section, and dispose unmarks both', () => {
+    const root = host('<section data-ck-scene="particles" data-ck-timeline="fade-in"><h2>x</h2></section>');
+    const section = root.querySelector('section')!;
+    const dispose = mountEngines(root);
+    expect(engines()?.queue.map((entry) => [entry.kind, entry.el])).toEqual([
+      ['scene', section],
+      ['timeline', section],
+    ]);
+    expect(section.getAttribute('data-ck-engine-mounted')).toBe('scene timeline');
+    // Idempotent per (kind, element): a second pass queues nothing new.
+    mountEngines(root);
+    expect(engines()?.queue).toHaveLength(2);
+    dispose();
+    expect(engines()?.queue).toEqual([]);
+    expect(section.hasAttribute('data-ck-engine-mounted')).toBe(false);
+  });
+
+  it('a second mount adds only the kind the first one lacked, and each dispose removes its own', () => {
+    const root = host('<section data-ck-scene="particles"><h2>x</h2></section>');
+    const section = root.querySelector('section')!;
+    const first = mountEngines(root);
+    section.setAttribute('data-ck-timeline', 'fade-in');
+    const second = mountEngines(root);
+    expect(engines()?.queue.map((entry) => entry.kind)).toEqual(['scene', 'timeline']);
+    expect(section.getAttribute('data-ck-engine-mounted')).toBe('scene timeline');
+    first();
+    expect(section.getAttribute('data-ck-engine-mounted')).toBe('timeline');
+    second();
+    expect(section.hasAttribute('data-ck-engine-mounted')).toBe(false);
+  });
+});
+
+describe('mountEngines — self', () => {
+  it('handles only the root itself, never its descendants', () => {
+    const root = host('<section data-ck-scene="particles"><h2 data-ck-timeline="split-reveal">x</h2></section>');
+    const section = root.querySelector('section')!;
+    mountEngines(section, { self: true });
+    expect(engines()?.queue.map((entry) => [entry.kind, entry.el])).toEqual([['scene', section]]);
+    expect(root.querySelector('h2')?.hasAttribute('data-ck-engine-mounted')).toBe(false);
+
+    const heading = root.querySelector('h2') as HTMLElement;
+    expect(mountEngines(root, { self: true })).toBeTypeOf('function');
+    expect(engines()?.queue).toHaveLength(1);
+    mountEngines(heading, { self: true });
+    expect(engines()?.queue.map((entry) => entry.el)).toEqual([section, heading]);
+  });
+
+  it('on the canvas, forwards Preview set on an ANCESTOR of a self-mounted element', async () => {
+    const play = vi.fn();
+    ensureCkEngines(window as unknown as CkEnginesHost).ready('timeline', {
+      mount: (_el, ctx) => {
+        ctx.onPlay(play);
+        return () => undefined;
+      },
+    });
+    const root = host('<section><h2 data-ck-timeline="split-reveal">x</h2></section>');
+    const dispose = mountEngines(root.querySelector('h2') as HTMLElement, { interactive: false, self: true });
+    root.querySelector('section')?.setAttribute('data-ck-play', '1');
+    await flush();
+    expect(play).toHaveBeenCalledTimes(1);
+    dispose();
+  });
 });
 
 describe('ENGINES_PACK_CSS', () => {
-  it('hides the fallback imgs only once the engine drew', () => {
-    expect(ENGINES_PACK_CSS).toContain('[data-ck-scene][data-ck-ready] > img');
+  it('hides the fallback imgs only once the engine drew, and never a scene host’s content imgs', () => {
+    expect(ENGINES_PACK_CSS).toContain('[data-ck-scene][data-ck-ready]:not([data-ck-scene-host]) > img');
     expect(ENGINES_PACK_CSS).toContain('[data-ck-lottie][data-ck-ready] > img');
     expect(ENGINES_PACK_CSS).not.toMatch(/\[data-ck-scene\]\s*>\s*img/u);
+    expect(ENGINES_PACK_CSS).not.toMatch(/\[data-ck-scene\]\[data-ck-ready\]\s*>\s*img/u);
   });
 });

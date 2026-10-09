@@ -8,7 +8,8 @@
   - `--bldr-*` is the builder CHROME contract
     (packages/builder/theme/src/contract.ts: `--bldr-accent`,
     `--bldr-accent-strong`, `--bldr-panel-text`, `--bldr-panel-muted`,
-    `--bldr-surface`). There is no `--bldr-primary` or `--bldr-text`.
+    `--bldr-surface`). The chrome has no "primary" or bare "text" token, so
+    a scene never asks it for one.
 
   So each role reads the site token first and the chrome token second, then a
   safe default. `data-ck-palette`:

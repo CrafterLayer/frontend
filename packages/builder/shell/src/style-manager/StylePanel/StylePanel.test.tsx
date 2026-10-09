@@ -71,6 +71,27 @@ describe('StylePanel', () => {
     expect(announce).toHaveBeenCalledWith('Size updated');
   });
 
+  it('opens a text element on Typography, with Layout after the look', () => {
+    const kernel = makeStyleTestKernel();
+    const source = treeElementSource(kernel, [{ kind: 'tree', nodeId: 'r1', path: [0, 0] }]);
+    const { container } = render(
+      <StylePanel
+        source={source}
+        bucket="base"
+        state="default"
+        dir="ltr"
+        tokens={tokens}
+        announce={vi.fn()}
+        tag="h2"
+      />,
+    );
+    const order = [...container.querySelectorAll('[data-sector]')].map((node) =>
+      node.getAttribute('data-sector'),
+    );
+    expect(order[0]).toBe('typography');
+    expect(order.indexOf('layout')).toBeGreaterThan(order.indexOf('backgrounds'));
+  });
+
   it('shows an inherited value from a larger bucket and edits only the mobile bucket', () => {
     const kernel = makeStyleTestKernel();
     renderPanel(kernel, [[0]], { bucket: 'mobile' });

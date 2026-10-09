@@ -67,6 +67,34 @@ const surfaceOf = (): HTMLElement => {
 };
 
 describe('InlineRichText — the canvas rich surface (009 contract §4 t2)', () => {
+  it('adopts the caret the canvas placed at the click point when focus arrives', async () => {
+    let editor: Editor | null = null;
+    render(
+      <Harness
+        onEditor={(instance) => {
+          editor = instance;
+        }}
+      />,
+    );
+    const surface = surfaceOf();
+    const text = surface.querySelector('p')?.firstChild;
+    expect(text?.nodeType).toBe(Node.TEXT_NODE);
+    // What the canvas does on a double-click: a DOM caret at the clicked letter.
+    const range = document.createRange();
+    range.setStart(text as Node, 3);
+    range.collapse(true);
+    document.getSelection()?.removeAllRanges();
+    document.getSelection()?.addRange(range);
+    act(() => {
+      surface.dispatchEvent(new FocusEvent('focus'));
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+    // "Sta|rt": position 1 opens the paragraph, so the caret is at 1 + 3.
+    expect((editor as Editor | null)?.state.selection.from).toBe(4);
+  });
+
   it('one commit per update, ZERO on mount — and no block toolbar on the canvas', () => {
     const onCommit = vi.fn();
     let editor: Editor | null = null;

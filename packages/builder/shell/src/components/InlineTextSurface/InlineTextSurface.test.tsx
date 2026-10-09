@@ -66,6 +66,36 @@ describe('InlineTextSurface (009 contract §4 t1)', () => {
     expect(onCommit).toHaveBeenCalledWith('abcd', 'blur');
   });
 
+  it('types Space itself and cancels its default, so a <button> part never activates', () => {
+    const onCommit = vi.fn();
+    const onClick = vi.fn();
+    const { container } = render(
+      <button type="button" onClick={onClick}>
+        <InlineTextSurface value="Go" singleLine onCommit={onCommit} />
+      </button>,
+    );
+    const surface = surfaceIn(container);
+    surface.focus();
+    // The caret after "Go", where a person typing the label has it.
+    const caret = document.createRange();
+    caret.selectNodeContents(surface);
+    caret.collapse(false);
+    document.getSelection()?.removeAllRanges();
+    document.getSelection()?.addRange(caret);
+    const down = key(surface, ' ');
+    const up = new KeyboardEvent('keyup', { key: ' ', bubbles: true, cancelable: true });
+    act(() => {
+      surface.dispatchEvent(up);
+    });
+    expect(down.defaultPrevented).toBe(true);
+    expect(up.defaultPrevented).toBe(true);
+    expect(surface.textContent).toBe('Go ');
+    type(surface, 'Go now');
+    key(surface, 'Enter');
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('Go now', 'enter');
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it('Enter commits once; a later blur with nothing new commits nothing', () => {
     const onCommit = vi.fn();
     const { container } = render(<InlineTextSurface value="a" singleLine onCommit={onCommit} />);

@@ -7,6 +7,9 @@
 import type { BuilderKernel, BuilderSiteKernel } from '@craftkit/builder';
 
 import type { EditEffort, Locale } from '../features/agent';
+// script-wiring additions
+import { rememberAgentSite } from '../features/agent/model/script-site';
+// end script-wiring additions
 
 type Env = Readonly<Record<string, unknown>>;
 
@@ -115,6 +118,15 @@ export function nextPageAddress(addresses: readonly string[]): string {
 export function pageOpener(
   siteKernel: BuilderSiteKernel,
 ): (title: string) => Promise<{ readonly kernel: BuilderKernel }> {
+  // script-wiring additions
+  /*
+    The panel's site hand-off for code mode (agent-script DESIGN §A.9): the opener is the
+    one thing the app builds from its site kernel for the panel, so the site is remembered
+    here, and an edit run finds it again by its page lens (`agentScriptSiteFor`) — a script
+    may then write every page in one transaction, one Undo.
+  */
+  rememberAgentSite(siteKernel);
+  // end script-wiring additions
   return (title) => {
     try {
       const pages = siteKernel.getSite().pages;

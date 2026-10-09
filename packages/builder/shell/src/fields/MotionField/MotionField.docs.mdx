@@ -30,6 +30,15 @@ vocabulary rather than from the schema it is handed.
 Standard `FieldControlProps`. `value` is the stored `MotionSpec`; anything that is not an object is
 treated as no motion at all, which is the state a hand-edited document or an older schema produces.
 
+## Cinematic motion and Animated background (gsap-pixi, 2026-10-08)
+
+The control opens with `EngineMotionPicker`: a **Cinematic motion** recipe (`timeline`, + how it
+plays: `scrub`) and an **Animated background** behind the section's content (`scene`,
+`sceneDensity`, `scenePalette`; the palette-only scenes). Each choice is one `onChange` of the whole
+spec (`specWithEngineMotion`), so the host writes ONE transaction. Choosing a recipe drops `reveal`,
+and choosing an "On entry" effect drops the recipe: one animation per section. The labels follow the
+editor's language (`FieldServicesProvider`'s `locale`).
+
 ## Variants and state
 
 `Empty` is the default — every row reads `—`. `Reveal`, `ScrollDriven`, and `Staggered` show the

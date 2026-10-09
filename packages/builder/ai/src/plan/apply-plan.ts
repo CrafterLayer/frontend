@@ -13,6 +13,10 @@ import {
   type AiValidatedProposal,
 } from './validated-proposal';
 import { assertValidAiPlan } from './validate-plan';
+// script-wiring additions
+import type { SiteGroupStep } from '@craftkit/builder-core';
+import type { AiPlanSite, ScriptCrossPage } from '../script/cross-page';
+// end script-wiring additions
 
 export interface AppliedAiPlan {
   /**
@@ -32,6 +36,20 @@ interface ApplyAiPlanOptionsBase {
   validationPorts: AiValidationPorts;
   /** Human history label. The core door validates explicitly supplied values. */
   label?: string;
+  // script-wiring additions
+  /**
+   * agent-script (DESIGN §A.9): the site `kernel` is a page lens of. Needed
+   * only with `crossPage`; the plan then lands in ONE `site.dispatchGroup`.
+   */
+  site?: AiPlanSite;
+  /**
+   * agent-script: a script's writes to other pages (`scriptCrossPage(plan)`).
+   * Every page's steps are re-validated on that page's lens with the plan's
+   * policy, then applied with the open page's steps as one transaction whose
+   * Undo reverts every page. Requires `site`.
+   */
+  crossPage?: ScriptCrossPage;
+  // end script-wiring additions
 }
 
 export interface ApplyAiValidatedProposalOptions extends ApplyAiPlanOptionsBase {
@@ -101,8 +119,95 @@ function turningTheWholeSite(steps: readonly GroupStep[], current: ContentDirect
   return said;
 }
 
+// script-wiring additions
+/** `turningTheWholeSite`, keeping each page step's `pageId` (a site command ignores it). */
+function turningTheWholeSiteAcrossPages(
+  steps: readonly SiteGroupStep[],
+  current: ContentDirection,
+): SiteGroupStep[] {
+  return steps.flatMap((step) =>
+    turningTheWholeSite([step], current).map((said) =>
+      step.pageId === undefined ? said : { ...said, pageId: step.pageId },
+    ),
+  );
+}
+
+/**
+ * A plan whose script also wrote other pages (DESIGN §A.9): the open page's
+ * steps and every other page's, each re-validated on its own page lens under
+ * the plan's policy, land in ONE grouped site write — one history entry, one
+ * Undo that reverts every page.
+ */
+function applyAcrossPages(
+  options: ApplyAiPlanOptions,
+  authority: ReturnType<typeof resolveAiProposalAuthority>,
+  crossPage: ScriptCrossPage,
+): AppliedAiPlan {
+  const site = options.site;
+  if (site === undefined) {
+    throw new Error(
+      'applyAiPlan: this plan writes other pages of the site (a script); pass `site` so they land in one transaction.',
+    );
+  }
+  const currentPage = site.currentPage();
+  if (site.page(currentPage) !== options.kernel) {
+    throw new Error(
+      `applyAiPlan: the site's current page "${currentPage}" is not the page this plan was made for.`,
+    );
+  }
+  // A script that wrote only other pages leaves the open page nothing to judge.
+  const plan =
+    authority.plan.commands.length === 0
+      ? authority.plan
+      : assertValidAiPlan(authority.plan, options.kernel, options.validationPorts, authority.policy);
+  const elsewhere = crossPage.map(({ pageId, commands }) => {
+    if (pageId === currentPage) {
+      throw new Error(`applyAiPlan: cross-page writes name the open page "${pageId}".`);
+    }
+    const checked = assertValidAiPlan(
+      { rationale: plan.rationale, commands },
+      site.page(pageId),
+      options.validationPorts,
+      authority.policy,
+    );
+    return { pageId, commands: checked.commands };
+  });
+  // Keep the authentication check adjacent to the only live mutation door.
+  if (authority.proposal !== undefined) {
+    assertAuthenticatedAiValidatedProposal(authority.proposal);
+  }
+  const steps: SiteGroupStep[] = [
+    ...plan.commands.map((step) => ({ command: step.command, args: step.args, pageId: currentPage })),
+    ...elsewhere.flatMap(({ pageId, commands }) =>
+      commands.map((step) => ({ command: step.command, args: step.args, pageId })),
+    ),
+  ];
+  const group = { author: 'ai' as const, label: options.label ?? defaultLabel(plan) };
+  let tx: Transaction;
+  try {
+    tx = site.dispatchGroup(steps, group);
+  } catch (cause) {
+    if (!refusesAPageTurningAlone(cause)) throw cause;
+    tx = site.dispatchGroup(
+      turningTheWholeSiteAcrossPages(steps, options.kernel.getDocument().dir),
+      group,
+    );
+  }
+  return {
+    mode: 'group',
+    transactions: [tx],
+    ...(authority.proposal === undefined ? {} : { proposal: authority.proposal }),
+  };
+}
+// end script-wiring additions
+
 export function applyAiPlan(options: ApplyAiPlanOptions): AppliedAiPlan {
   const authority = resolveAiProposalAuthority(options);
+  // script-wiring additions
+  if (options.crossPage !== undefined && options.crossPage.length > 0) {
+    return applyAcrossPages(options, authority, options.crossPage);
+  }
+  // end script-wiring additions
   const plan = assertValidAiPlan(
     authority.plan,
     options.kernel,

@@ -136,6 +136,59 @@ export const CUSTOM_CODE_REGION_ATTRIBUTE = 'data-ck-custom-code';
 
 const REGION_SELECTOR = `[${CUSTOM_CODE_REGION_ATTRIBUTE}]`;
 
+/*
+  A built-in block's PART on the canvas (block-parts law L5): `data-ck-part`
+  names it, and `data-ck-part-own` lists the classes the block's renderer gave
+  it. Every other class on the element was written by a person through the
+  style panel — and those are the ones the static sheet may not carry.
+*/
+const PART_ATTRIBUTE = 'data-ck-part';
+const PART_OWN_ATTRIBUTE = 'data-ck-part-own';
+const PART_SELECTOR = `[${PART_ATTRIBUTE}]`;
+
+/**
+ * Every class name a stylesheet's selectors mention, unescaped
+ * (`.max-md\:text-2xl` → `max-md:text-2xl`, `.\32 xl\:p-4` → `2xl:p-4`).
+ */
+function selectorClassNames(selector: string, into: Set<string>): void {
+  for (let at = selector.indexOf('.'); at !== -1; at = selector.indexOf('.', at + 1)) {
+    let name = '';
+    let cursor = at + 1;
+    while (cursor < selector.length) {
+      const char = selector[cursor] ?? '';
+      if (char === '\\') {
+        const hex = /^[0-9a-fA-F]{1,6} ?/u.exec(selector.slice(cursor + 1, cursor + 8));
+        if (hex !== null) {
+          name += String.fromCodePoint(Number.parseInt(hex[0].trim(), 16));
+          cursor += 1 + hex[0].length;
+        } else {
+          name += selector[cursor + 1] ?? '';
+          cursor += 2;
+        }
+      } else if (/[\w-]/u.test(char) || char.charCodeAt(0) > 127) {
+        name += char;
+        cursor += 1;
+      } else {
+        break;
+      }
+    }
+    if (name !== '') into.add(name);
+    at = cursor - 1;
+  }
+}
+
+interface RuleListLike {
+  readonly length: number;
+  readonly [index: number]: CSSRule;
+}
+
+function collectRuleClassNames(rules: RuleListLike, into: Set<string>): void {
+  for (const rule of Array.from(rules) as (CSSRule & { selectorText?: string; cssRules?: RuleListLike })[]) {
+    if (typeof rule.selectorText === 'string') selectorClassNames(rule.selectorText, into);
+    if (rule.cssRules !== undefined) collectRuleClassNames(rule.cssRules, into);
+  }
+}
+
 /**
  * Index just past the `}` that closes the block opened at `open`, or -1.
  * Strings, comments and backslash escapes are skipped: an escaped `\{` in a
@@ -256,13 +309,23 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
     return Promise.resolve({ path: id, base, content });
   };
   const entry = options.canvasStateVariants === true ? `${ENTRY}\n${STATE_VARIANTS}` : ENTRY;
-  const [compiler, design] = await Promise.all([
+  /*
+    Two builds, because Tailwind's `build` accumulates every candidate it was
+    ever handed: one for custom-code regions (scoped, below), one for the
+    classes a person wrote on a BUILT-IN block's part that the static sheet
+    lacks (unscoped — see `ensureParts`).
+  */
+  const [compiler, partCompiler, design] = await Promise.all([
+    tailwind.compile(entry, { loadStylesheet }),
     tailwind.compile(entry, { loadStylesheet }),
     tailwind.__unstable__loadDesignSystem(entry, { loadStylesheet }),
   ]);
 
   const verdicts = new Map<string, boolean>();
   const built = new Set<string>();
+  const partBuilt = new Set<string>();
+  let regionCss = '';
+  let partCss = '';
   let generated = '';
   let sheet: HTMLStyleElement | undefined;
 
@@ -278,6 +341,7 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
   };
 
   const write = (): void => {
+    generated = partCss === '' ? regionCss : `${regionCss}\n${partCss}`;
     const target = options.document;
     if (target === undefined) return;
     const next = target.createElement('style');
@@ -296,8 +360,68 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
       grew = true;
     }
     if (!grew) return;
-    generated = scopeToCustomCodeRegions(compiler.build([...built]));
+    regionCss = scopeToCustomCodeRegions(compiler.build([...built]));
     write();
+  };
+
+  /*
+    Every class the host's OTHER stylesheets already define — the static
+    Tailwind sheet above all. Read from the CSSOM rather than from the static
+    vocabulary, because the static sheet also carries whatever the blocks'
+    own sources use. Re-read only when the page gains or loses a sheet.
+  */
+  let staticIndex: { readonly sheets: number; readonly names: ReadonlySet<string> } | undefined;
+  const staticClassNames = (): ReadonlySet<string> => {
+    const target = options.document;
+    if (target === undefined) return new Set();
+    const sheets = target.styleSheets;
+    if (staticIndex?.sheets === sheets.length) return staticIndex.names;
+    const names = new Set<string>();
+    for (const owned of Array.from(sheets)) {
+      if (owned.ownerNode === sheet) continue;
+      try {
+        collectRuleClassNames(owned.cssRules, names);
+      } catch {
+        // A cross-origin sheet hides its rules; nothing of ours lives there.
+      }
+    }
+    staticIndex = { sheets: sheets.length, names };
+    return names;
+  };
+
+  /**
+   * The style panel writes ordinary utilities onto a built-in block's parts
+   * (`pbs-8`, `mbs-6`, `max-md:text-2xl`), and the static sheet carries only
+   * the vocabulary it was built from: a class outside it recorded a
+   * transaction and changed nothing on the canvas (walk 2026-10-08).
+   *
+   * So those classes are generated too — but ONLY the ones no other sheet
+   * defines, and unscoped. A class the static sheet lacks styles nothing
+   * today, so giving it CSS cannot re-order the cascade any built-in block
+   * relies on (the region scope above exists because duplicating a STATIC
+   * class did exactly that). Being later than the static sheet in the same
+   * layer, a person's class also wins over the block's own base class
+   * (`mbs-6` over `m-0`), which is what writing it meant.
+   */
+  const ensureParts = (classNames: Iterable<string>): void => {
+    let grew = false;
+    let known: ReadonlySet<string> | undefined;
+    for (const name of classNames) {
+      if (partBuilt.has(name) || MARKER_CLASS.test(name) || !isUtilityClass(name)) continue;
+      known ??= staticClassNames();
+      if (known.has(name)) continue;
+      partBuilt.add(name);
+      grew = true;
+    }
+    if (!grew) return;
+    partCss = partCompiler.build([...partBuilt]);
+    write();
+  };
+
+  /** The classes on a part a person added: everything its renderer did not give it. */
+  const addPartClasses = (element: Element, into: Set<string>): void => {
+    const own = new Set((element.getAttribute(PART_OWN_ATTRIBUTE) ?? '').split(/\s+/u));
+    for (const name of element.classList) if (!own.has(name)) into.add(name);
   };
 
   /*
@@ -320,12 +444,21 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
     // Each followed frame and the document it was showing when last seen.
     const frames = new Map<HTMLIFrameElement, Document | null>();
 
-    const collect = (node: Node, into: Set<string>, found: HTMLIFrameElement[]): void => {
+    const collect = (
+      node: Node,
+      into: Set<string>,
+      found: HTMLIFrameElement[],
+      parts: Set<string>,
+    ): void => {
       if (node.nodeType !== 1) return;
       const element = node as Element;
       if (element.closest(REGION_SELECTOR) === null) {
         for (const region of element.querySelectorAll(REGION_SELECTOR)) {
           for (const inner of region.querySelectorAll('[class]')) addClasses(inner, into);
+        }
+        if (element.hasAttribute(PART_ATTRIBUTE)) addPartClasses(element, parts);
+        for (const part of element.querySelectorAll(PART_SELECTOR)) {
+          if (part.closest(REGION_SELECTOR) === null) addPartClasses(part, parts);
         }
       } else {
         addClasses(element, into);
@@ -363,20 +496,23 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
       if (root === null || observers.has(root)) return;
       const observer = new Observer((records) => {
         const found = new Set<string>();
+        const parts = new Set<string>();
         const framesFound: HTMLIFrameElement[] = [];
         let removed = false;
         for (const record of records) {
           if (record.type === 'attributes') {
             const element = record.target as Element;
             if (element.closest(REGION_SELECTOR) !== null) addClasses(element, found);
+            else if (element.hasAttribute(PART_ATTRIBUTE)) addPartClasses(element, parts);
           } else {
-            for (const added of record.addedNodes) collect(added, found, framesFound);
+            for (const added of record.addedNodes) collect(added, found, framesFound, parts);
             removed ||= record.removedNodes.length > 0;
           }
         }
         if (removed && frames.size > 0) forgetDetachedFrames();
         for (const frame of framesFound) follow(frame);
         ensure(found);
+        ensureParts(parts);
       });
       observer.observe(root, {
         subtree: true,
@@ -386,10 +522,12 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
       });
       observers.set(root, observer);
       const found = new Set<string>();
+      const parts = new Set<string>();
       const framesFound: HTMLIFrameElement[] = [];
-      collect(root.documentElement, found, framesFound);
+      collect(root.documentElement, found, framesFound, parts);
       for (const frame of framesFound) follow(frame);
       ensure(found);
+      ensureParts(parts);
     };
 
     function follow(frame: HTMLIFrameElement): void {

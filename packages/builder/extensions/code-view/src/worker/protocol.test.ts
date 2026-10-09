@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { stressDocument } from '@craftkit/builder-core/testing';
 import type { BuilderSite } from '@craftkit/builder-schema';
-import { defaultDesignSystem } from '@craftkit/builder-schema';
+import { defaultDesignSystem, LATEST_SITE_VERSION } from '@craftkit/builder-schema';
 import { SITE_MANIFEST_PROJECTION_ID } from '@craftkit/builder-transforms';
 
 import {
@@ -152,7 +152,7 @@ describe('a site snapshot is as stale-checked as a document one', () => {
   });
 
   const site: BuilderSite = {
-    siteVersion: 1,
+    siteVersion: LATEST_SITE_VERSION,
     dir: 'ltr',
     pages: [page('home', '/'), page('about', '/about'), page('work', '/work')],
     sharedRegions: {},

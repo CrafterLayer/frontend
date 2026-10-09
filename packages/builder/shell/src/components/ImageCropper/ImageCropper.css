@@ -43,11 +43,11 @@
 }
 
 .bldr-cropper__handle {
-  block-size: 1.25rem;
+  block-size: var(--bldr-measure-handle);
   border: var(--bldr-border-thick) solid var(--bldr-surface);
   border-radius: var(--bldr-radius-full);
   box-shadow: var(--bldr-shadow-raised);
-  inline-size: 1.25rem;
+  inline-size: var(--bldr-measure-handle);
   position: absolute;
   translate: -50% -50%;
 }

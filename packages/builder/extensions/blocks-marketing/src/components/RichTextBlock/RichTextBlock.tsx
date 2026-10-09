@@ -31,7 +31,13 @@ export function RichTextBlock({ node, props, isCanvas }: BlockRenderProps<RichTe
   return (
     <section
       className={cx(
-        sectionContentClasses('narrow', undefined, props.gutter),
+        /*
+          The column every section shares (blocks-polish 2026-10-08): prose used
+          to centre itself in the NARROW column, so its left edge sat on an axis
+          of its own between two wide sections ("Why it holds" on the landing).
+          The column is the shared wide one; the reading measure is the prose's.
+        */
+        sectionContentClasses('wide', undefined, props.gutter),
         'py-section-sm',
         sectionTypographyClasses(props),
         motionClassName,
@@ -46,7 +52,7 @@ export function RichTextBlock({ node, props, isCanvas }: BlockRenderProps<RichTe
         padding still selects the block. A classless div changes no layout:
         the section's padding already stops the prose's margins.
       */}
-      <div {...part('content')}>
+      <div {...part('content', { className: 'max-w-content-narrow' })}>
         {isValidElement(props.content) ? props.content : <RichText value={props.content} />}
       </div>
     </section>

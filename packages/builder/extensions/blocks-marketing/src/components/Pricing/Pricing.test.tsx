@@ -182,7 +182,7 @@ describe('Pricing', () => {
       columns: 'auto',
       spacing: 'md',
       tone: 'transparent',
-      width: 'full',
+      width: 'wide', // one shared column by default (blocks-polish 2026-10-08)
     });
     expect(props.body).toBeUndefined();
     for (const sharedProp of [
@@ -241,5 +241,33 @@ describe('Pricing', () => {
         false,
       );
     }
+  });
+});
+
+// blocks-polish additions (2026-10-08): an eyebrow of its own and a header that follows the alignment.
+describe('Pricing header', () => {
+  function renderPricing(props: Record<string, unknown>) {
+    return render(
+      <Pricing node={node} props={pricingSchema.props.parse(props)} slots={{}} data={{}} isCanvas={false} />,
+    );
+  }
+
+  it('shows no English eyebrow unless one is given', () => {
+    renderPricing({ heading: 'الأسعار' });
+    expect(screen.queryByText('Plans')).toBeNull();
+  });
+
+  it('shows the eyebrow it is given', () => {
+    renderPricing({ heading: 'الأسعار', eyebrow: 'الخطط' });
+    expect(screen.getByText('الخطط')).toHaveClass('uppercase');
+  });
+
+  it.each([
+    ['start', 'items-start'],
+    ['center', 'mx-auto'],
+    ['end', 'ms-auto'],
+  ] as const)('places the header box itself at %s', (align, expected) => {
+    const { container } = renderPricing({ heading: 'Pricing', align });
+    expect(container.querySelector('header')).toHaveClass(expected);
   });
 });

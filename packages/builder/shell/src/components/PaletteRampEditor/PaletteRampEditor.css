@@ -55,7 +55,7 @@
 }
 
 .bldr-ramp__picker .react-colorful {
-  block-size: 9rem;
+  block-size: var(--bldr-measure-picker-field);
   inline-size: 100%;
 }
 

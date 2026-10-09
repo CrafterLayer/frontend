@@ -170,6 +170,8 @@ interface Parsed {
 }
 
 const MAX_NAME_WORDS = 4;
+/** Section words may come with the element's («العنوان في قسم مشاوي طازة يومياً»). */
+const MAX_SCOPED_NAME_WORDS = 8;
 
 /** The request read as «colour X», or undefined when it is not exactly that. */
 function parse(text: string): Parsed | undefined {
@@ -214,7 +216,7 @@ function parse(text: string): Parsed | undefined {
     return { shade, name };
   }
   // «زر تواصل معي», «عنوان سارة»: the role narrows, the words pick. «قسم» and friends are never said by an element.
-  if (name.length > MAX_NAME_WORDS) return undefined;
+  if (name.length > MAX_SCOPED_NAME_WORDS) return undefined;
   return { shade, role, name };
 }
 
@@ -333,13 +335,26 @@ function isButton(element: TreeElementNode): boolean {
   return classes.includes('ck-btn') || classes.includes('ck-btn--ghost');
 }
 
-function resolve(parsed: Parsed, kernel: BuilderKernel): Spot | undefined {
-  const spots = spotsOf(kernel);
+function resolve(
+  parsed: Parsed,
+  kernel: BuilderKernel,
+  spots: readonly Spot[] = spotsOf(kernel),
+  /** The spots are one named section's: a bare title is its highest-ranked heading. */
+  inSection = false,
+): Spot | undefined {
   const saysSomething = ({ element }: Spot) => textOf(element).trim() !== '';
   if (parsed.role === 'title') {
     if (parsed.name.length === 0) {
       const top = spots.filter((spot) => spot.element.tag === 'h1' && saysSomething(spot));
-      return top.length === 1 ? top[0] : undefined;
+      if (top.length === 1) return top[0];
+      // Inside one section (scoped below): its highest-ranked heading, when only one holds that rank.
+      if (top.length === 0 && inSection) {
+        const headings = spots.filter(
+          (spot) => headingLevel(spot.element.tag) < 7 && saysSomething(spot),
+        );
+        return headings.length === 0 ? undefined : onlyOne(headings);
+      }
+      return undefined;
     }
     const headings = spots.filter(
       (spot) => headingLevel(spot.element.tag) < 7 && says(spot.text, parsed.name),
@@ -430,12 +445,73 @@ export function askElementColour(
   return part.question;
 }
 
-/* The composed-region reading (colour-target fix, 2026-10-05), unchanged. */
+/*
+  The section a request's words name, and the words left for the element
+  (colour-in-section fix, 2026-10-08). «غيّر لون العنوان في الهيرو إلى أحمر»
+  on an AI-built page went to the model: «الهيرو» was read as words the
+  heading itself had to say. The longest run of name words that names ONE
+  section (by its label, heading, anchor or role: «الهيرو», «قسم مشاوي طازة
+  يومياً», "hero") now limits the spots to that region, and the rest of the
+  words pick inside it; a title with no words left is the region's
+  highest-ranked heading.
+*/
+function sectionScoped(
+  parsed: Parsed,
+  kernel: BuilderKernel,
+): { readonly parsed: Parsed; readonly spots: readonly Spot[] } | undefined {
+  if (parsed.name.length === 0) return undefined;
+  const document = kernel.getDocument();
+  const sections = outlinePageSections(document);
+  if (sections.length === 0) return undefined;
+  const all = spotsOf(kernel);
+  for (let size = parsed.name.length; size >= 1; size -= 1) {
+    for (let start = 0; start + size <= parsed.name.length; start += 1) {
+      const naming = namingWords(parsed.name.slice(start, start + size).join(' '));
+      if (naming.length === 0) continue;
+      const byRole = roleSections(naming, sections, document);
+      const section =
+        namedSection(naming, sections) ??
+        explainedSection(sectionMentions(naming, sections)) ??
+        (byRole.length === 1 ? byRole[0] : undefined);
+      if (section === undefined) continue;
+      const inside = new Set(subtreeIds(section.id, document));
+      const spots = all.filter(({ regionId }) => inside.has(regionId));
+      if (spots.length === 0) continue;
+      const rest = [...parsed.name.slice(0, start), ...parsed.name.slice(start + size)];
+      if (rest.length > MAX_NAME_WORDS) return undefined;
+      return { parsed: { ...parsed, name: rest }, spots };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Two sections named equally well, where one explains more of the words:
+ * «مشاوي طازة يومياً» says a whole heading of one section and only the first
+ * word of another's («مشاوي أبو غضب»). The one that explains them wins.
+ */
+function explainedSection(
+  mentions: ReturnType<typeof sectionMentions>,
+): PageSectionOutline | undefined {
+  const [best, second] = mentions;
+  if (best === undefined || best.score < 1) return undefined;
+  if (second !== undefined && second.coverage >= best.coverage) return undefined;
+  return best.section;
+}
+
+/* The composed-region reading (colour-target fix, 2026-10-05). */
 function readTreeColour(text: string, kernel: BuilderKernel): ElementColourReading | undefined {
   // ── /block-parts ──
   const parsed = parse(text);
   if (parsed === undefined) return undefined;
-  const spot = resolve(parsed, kernel);
+  const direct = parsed.name.length <= MAX_NAME_WORDS ? resolve(parsed, kernel) : undefined;
+  const scoped = direct === undefined ? sectionScoped(parsed, kernel) : undefined;
+  // A section named with no role and no words left is the section's colour, not an element's.
+  const spot =
+    direct ??
+    (scoped === undefined || (scoped.parsed.role === undefined && scoped.parsed.name.length === 0)
+      ? undefined
+      : resolve(scoped.parsed, kernel, scoped.spots, true));
   if (spot === undefined) return undefined;
   const className = recoloured(spot.element, parsed.shade);
   if (className === (spot.element.className ?? '')) return undefined;

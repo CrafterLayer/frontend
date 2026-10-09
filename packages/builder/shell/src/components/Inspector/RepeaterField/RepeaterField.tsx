@@ -1,5 +1,6 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { useFieldLabels, useFieldServices } from '../../../fields/field-services-context';
 import { propsShapeOf, unwrapSchema } from '../../../fields/resolve-field';
 import {
   initialValueForSchema,
@@ -7,6 +8,7 @@ import {
   repeaterSchemaInfo,
 } from '../../../fields/repeater-schema';
 import type { FieldCommitResult } from '../../../fields/field-commit';
+import { schemaName } from '../../../i18n/schema-words';
 import type { RepeaterFieldProps } from './types';
 import '../InspectorRow.css';
 import './RepeaterField.css';
@@ -83,6 +85,8 @@ export function RepeaterField({
   renderRow,
 }: RepeaterFieldProps) {
   const uid = useId();
+  const words = useFieldLabels().repeater;
+  const locale = useFieldServices().locale ?? 'en';
   const rootRef = useRef<HTMLDivElement | null>(null);
   const pendingFocus = useRef<{ readonly index: number; readonly action: 'up' | 'down' } | null>(
     null,
@@ -117,7 +121,7 @@ export function RepeaterField({
   }, [values]);
 
   if (info === undefined) {
-    return <p className="bldr-inspector__rejection">This array schema cannot be inspected.</p>;
+    return <p className="bldr-inspector__rejection">{words.unsupported}</p>;
   }
 
   const seed = initialValueForSchema(info.element);
@@ -126,8 +130,9 @@ export function RepeaterField({
   const minReasonId = `${uid}-minimum`;
   const addReasonId = `${uid}-add-reason`;
   const addErrorId = `${uid}-add-error`;
+  const listKey = String(path.at(-1) ?? 'array');
   const addReason = atMax
-    ? `Maximum of ${String(info.max)} items reached.`
+    ? words.maximum(info.max)
     : seed.ok
       ? undefined
       : seed.reason;
@@ -167,7 +172,7 @@ export function RepeaterField({
 
   return (
     <div ref={rootRef} className="bldr-repeater">
-      {values.length === 0 ? <p className="bldr-repeater__empty">No items yet.</p> : null}
+      {values.length === 0 ? <p className="bldr-repeater__empty">{words.empty}</p> : null}
       {values.length > 0 ? (
         <ol className="bldr-repeater__list">
           {values.map((item, index) => {
@@ -175,7 +180,7 @@ export function RepeaterField({
               key: `untracked-${String(index)}`,
               value: item,
             };
-            const label = repeaterItemLabel(info.element, item, index);
+            const label = repeaterItemLabel(info.element, item, index, words.item);
             const disclosureId = `${uid}-${identity.key}-disclosure`;
             const panelId = `${uid}-${identity.key}-fields`;
             const expanded = !collapsed.has(identity.key);
@@ -228,8 +233,12 @@ export function RepeaterField({
                     >
                       <path d={expanded ? 'm4 10 4-4 4 4' : 'm4 6 4 4 4-4'} />
                     </svg>
+                    {/* Isolated, so "1. name" keeps its order in the Arabic
+                        chrome instead of reading "name .1". */}
                     <span className="bldr-repeater__item-label">
-                      {String(index + 1)}. {label}
+                      <bdi>
+                        {String(index + 1)}. {label}
+                      </bdi>
                     </span>
                   </button>
                   <div className="bldr-repeater__actions">
@@ -238,7 +247,7 @@ export function RepeaterField({
                       className="bldr-repeater__action"
                       data-repeater-index={index}
                       data-repeater-action="up"
-                      aria-label={`Move ${label} up`}
+                      aria-label={words.moveUp(label)}
                       aria-describedby={actionDescription('up')}
                       disabled={disabled || index === 0}
                       onClick={() => {
@@ -247,8 +256,8 @@ export function RepeaterField({
                         const accepted = finish(
                           commit(nextValues),
                           { kind: 'item', itemKey: identity.key, action: 'up' },
-                          `${label} moved up`,
-                          `${label} move rejected`,
+                          words.movedUp(label),
+                          words.moveRejected(label),
                           () => {
                             setIdentityState({
                               source: nextValues,
@@ -280,7 +289,7 @@ export function RepeaterField({
                       className="bldr-repeater__action"
                       data-repeater-index={index}
                       data-repeater-action="down"
-                      aria-label={`Move ${label} down`}
+                      aria-label={words.moveDown(label)}
                       aria-describedby={actionDescription('down')}
                       disabled={disabled || index === values.length - 1}
                       onClick={() => {
@@ -289,8 +298,8 @@ export function RepeaterField({
                         const accepted = finish(
                           commit(nextValues),
                           { kind: 'item', itemKey: identity.key, action: 'down' },
-                          `${label} moved down`,
-                          `${label} move rejected`,
+                          words.movedDown(label),
+                          words.moveRejected(label),
                           () => {
                             setIdentityState({
                               source: nextValues,
@@ -320,7 +329,7 @@ export function RepeaterField({
                     <button
                       type="button"
                       className="bldr-repeater__action bldr-repeater__action--remove"
-                      aria-label={`Remove ${label}`}
+                      aria-label={words.remove(label)}
                       aria-describedby={reasonIds(
                         actionDescription('remove'),
                         atMin && info.min > 0 ? minReasonId : undefined,
@@ -333,8 +342,8 @@ export function RepeaterField({
                         finish(
                           commit(nextValues),
                           { kind: 'item', itemKey: identity.key, action: 'remove' },
-                          `${label} removed`,
-                          `${label} removal rejected`,
+                          words.removed(label),
+                          words.removalRejected(label),
                           () => {
                             setIdentityState({
                               source: nextValues,
@@ -386,7 +395,7 @@ export function RepeaterField({
                       )
                     : renderRow({
                         key: `${identity.key}:value`,
-                        propKey: `Item ${String(index + 1)}`,
+                        propKey: words.item(index + 1),
                         schema: info.element,
                         value: item,
                         path: [...path, index],
@@ -408,7 +417,7 @@ export function RepeaterField({
       <button
         type="button"
         className="bldr-repeater__add"
-        aria-label={`Add item to ${String(path.at(-1) ?? 'array')}`}
+        aria-label={words.addTo(locale === 'ar' ? schemaName(listKey, locale) : listKey)}
         aria-describedby={reasonIds(
           describedBy,
           addReason === undefined ? undefined : addReasonId,
@@ -423,8 +432,8 @@ export function RepeaterField({
           finish(
             commit(nextValues),
             { kind: 'add' },
-            `Item ${String(values.length + 1)} added`,
-            'Item addition rejected',
+            words.added(values.length + 1),
+            words.addRejected,
             () => {
               setIdentityState({
                 source: nextValues,
@@ -453,12 +462,12 @@ export function RepeaterField({
         >
           <path d="M8 3v10M3 8h10" />
         </svg>
-        <span>Add item</span>
+        <span>{words.add}</span>
       </button>
 
       {atMin && info.min > 0 ? (
         <p id={minReasonId} className="bldr-repeater__reason">
-          Minimum of {String(info.min)} item{info.min === 1 ? '' : 's'} required.
+          {words.minimum(info.min)}
         </p>
       ) : null}
       {addReason !== undefined ? (

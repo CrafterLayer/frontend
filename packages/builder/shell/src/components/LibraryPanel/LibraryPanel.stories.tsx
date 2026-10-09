@@ -95,3 +95,64 @@ export const ClickInserts: Story = {
     await expect(tree.children).toHaveLength(3);
   },
 };
+
+// library-playground additions (2026-10-08): the top-level Templates tab of photo cards.
+const STORY_CARDS = [
+  {
+    id: 'story-restaurant',
+    templateKey: 'restaurant',
+    lang: 'en',
+    category: 'restaurant',
+    name: { en: 'Restaurant', ar: 'مطعم بيت الزيتون' },
+    description: { en: 'A menu with prices, a gallery and table booking.', ar: 'قائمة بالأسعار ومعرض صور وحجز طاولة.' },
+    sections: 10,
+    thumbnail: {
+      src: 'https://images.pexels.com/photos/8585881/pexels-photo-8585881.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Restaurant table filled with shared dishes',
+    },
+  },
+  {
+    id: 'story-restaurant-ar',
+    templateKey: 'restaurant',
+    lang: 'ar',
+    category: 'restaurant',
+    name: { en: 'Restaurant', ar: 'مطعم بيت الزيتون' },
+    description: { en: 'A menu with prices, a gallery and table booking.', ar: 'قائمة بالأسعار ومعرض صور وحجز طاولة.' },
+    sections: 10,
+    thumbnail: {
+      src: 'https://images.pexels.com/photos/8585881/pexels-photo-8585881.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'مائدة مطعم مليئة بالأطباق المشتركة',
+    },
+  },
+] as const;
+
+function templatesKernel() {
+  const built = kernel();
+  built.extensions.hydrateDeclarative({
+    tier: 2,
+    name: 'library-story-templates',
+    version: '1.0.0',
+    contributes: {
+      compositions: STORY_CARDS.map((card) => ({
+        id: card.id,
+        name: card.name[card.lang],
+        version: 1,
+        surfaces: ['site'],
+        rootId: `${card.id}-text`,
+        nodes: { [`${card.id}-text`]: { id: `${card.id}-text`, type: 'text', props: {} } },
+      })),
+    },
+  });
+  return built;
+}
+
+export const Templates: Story = {
+  args: { kernel: templatesKernel(), templateCards: STORY_CARDS, defaultTab: 'templates' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('region', { name: 'Other language' })).toBeInTheDocument();
+    const [first] = canvas.getAllByRole('button', { name: 'Insert template Restaurant' });
+    if (first !== undefined) await userEvent.click(first);
+  },
+};
+// end library-playground additions

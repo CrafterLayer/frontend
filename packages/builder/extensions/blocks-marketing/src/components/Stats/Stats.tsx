@@ -26,7 +26,7 @@ const COLUMN_CLASSES: Readonly<Record<StatsProps['columns'], string>> = {
 const ITEM_CLASSES: Readonly<Record<StatsProps['variant'], string>> = {
   cards: 'min-h-40 rounded-xl border border-text/10 bg-surface p-6 text-text shadow-soft',
   minimal: 'border-s-2 border-accent py-4 ps-5',
-  contrast: 'min-h-40 rounded-xl bg-surface-inverse p-6 text-text-inverse shadow-elevated',
+  contrast: 'min-h-40 rounded-xl bg-surface-inverse p-6 text-text-inverse shadow-elevated mkt-slab',
 };
 
 /** Quantified outcomes presented as a semantic description list. */

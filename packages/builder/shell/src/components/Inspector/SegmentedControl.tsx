@@ -1,3 +1,5 @@
+import { useFieldServices } from '../../fields/field-services-context';
+import { schemaName, schemaOption } from '../../i18n/schema-words';
 import { alignmentIconOption, SEGMENT_LABELS, SEGMENT_PATHS } from './segment-icons';
 import type { DocumentDirection, SegmentKind, SegmentOption } from './types';
 
@@ -20,6 +22,7 @@ export function SegmentedControl({
   disabled,
   onSelect,
 }: SegmentedControlProps) {
+  const locale = useFieldServices().locale ?? 'en';
   return (
     <div className="bldr-inspector__alignment-control">
       <div className="bldr-inspector__segments">
@@ -28,7 +31,11 @@ export function SegmentedControl({
             key={option}
             type="button"
             className="bldr-inspector__segment"
-            aria-label={`${SEGMENT_LABELS[option]} ${kind}`}
+            aria-label={
+              locale === 'ar'
+                ? `${schemaOption(option, locale)} · ${schemaName(kind, locale)}`
+                : `${SEGMENT_LABELS[option]} ${kind}`
+            }
             aria-pressed={value === option}
             disabled={disabled}
             onClick={() => {

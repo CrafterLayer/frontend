@@ -248,6 +248,35 @@ export function buildMotionCss(): string {
     .concat('\n');
 }
 
+// gsap-pixi additions (2026-10-08): the section's named steps, in the engine params' vocabulary
+// (`data-ck-speed`, `data-ck-ease`, `data-ck-stagger`, `data-ck-delay` — media-vocabulary).
+const ENGINE_SPEED: Record<(typeof MOTION_DURATIONS)[number], string> = {
+  instant: 'fast',
+  fast: 'fast',
+  normal: 'normal',
+  slow: 'slow',
+  deliberate: 'slow',
+};
+
+const ENGINE_EASE: Record<(typeof MOTION_EASINGS)[number], string> = {
+  'ease-out': 'standard',
+  'ease-in-out': 'emphasized',
+  spring: 'spring',
+  bounce: 'bounce',
+  linear: 'linear',
+};
+
+const ENGINE_STAGGER: Record<string, string> = { tight: 'sm', normal: 'md', loose: 'lg' };
+
+/** `data-ck-delay` counts 80 ms steps. */
+const ENGINE_DELAY: Record<(typeof MOTION_DELAYS)[number], string> = {
+  none: '',
+  short: '1',
+  medium: '3',
+  long: '6',
+};
+// end gsap-pixi additions
+
 /**
  * The DOM attributes a node's motion becomes.
  *
@@ -256,6 +285,14 @@ export function buildMotionCss(): string {
  * `pin` is absent here on purpose: CSS cannot pin, so it is the extension's
  * job, and a `pin` that quietly did nothing would be worse than one that
  * visibly needs the engine.
+ *
+ * gsap-pixi (2026-10-08): the engine markers too. `timeline` becomes
+ * `data-ck-timeline` (+ `data-ck-scrub`), and then the section's timing steps
+ * are the recipe's params (`data-ck-speed` / `-ease` / `-stagger` / `-delay`)
+ * and `data-reveal` is dropped — one entrance per element. `scene` becomes
+ * `data-ck-scene` (+ `data-ck-density`, `data-ck-palette`): an animated
+ * background the scene engine draws behind the section's content. The CSS
+ * motion class is set only while a CSS attribute remains.
  */
 export function motionAttributes(spec: MotionSpec | undefined): Record<string, string> {
   if (spec === undefined) {
@@ -264,20 +301,47 @@ export function motionAttributes(spec: MotionSpec | undefined): Record<string, s
 
   const attributes: Record<string, string> = {};
   const set = (key: string, value: string | undefined): void => {
-    if (value !== undefined && value !== 'none') {
+    if (value !== undefined && value !== 'none' && value !== '') {
       attributes[key] = value;
     }
   };
 
-  set('data-reveal', spec.reveal);
+  const timeline = spec.timeline;
+  // With a timeline, a scroll effect is the only CSS animation left, and the timing steps tune it.
+  const cssTiming = timeline === undefined || (spec.scroll !== undefined && spec.scroll !== 'none');
+  if (timeline === undefined) set('data-reveal', spec.reveal);
   set('data-scroll', spec.scroll);
-  set('data-duration', spec.duration);
-  set('data-delay', spec.delay);
-  set('data-easing', spec.easing);
-  set('data-stagger', spec.stagger);
-  if (spec.repeat === true) {
+  if (cssTiming) {
+    set('data-duration', spec.duration);
+    set('data-delay', spec.delay);
+    set('data-easing', spec.easing);
+    set('data-stagger', spec.stagger);
+  }
+  if (timeline === undefined && spec.repeat === true) {
     attributes['data-motion-repeat'] = 'true';
   }
+  const css = Object.keys(attributes).length > 0;
 
-  return Object.keys(attributes).length === 0 ? {} : { class: MOTION_CLASS, ...attributes };
+  // gsap-pixi additions (2026-10-08): the engine markers and their params.
+  const engine: Record<string, string> = {};
+  if (timeline !== undefined) {
+    engine['data-ck-timeline'] = timeline;
+    if (spec.scrub !== undefined) engine['data-ck-scrub'] = spec.scrub ? 'true' : 'false';
+    const speed = spec.duration === undefined ? '' : ENGINE_SPEED[spec.duration];
+    const ease = spec.easing === undefined ? '' : ENGINE_EASE[spec.easing];
+    const stagger = spec.stagger === undefined ? '' : (ENGINE_STAGGER[spec.stagger] ?? '');
+    const delay = spec.delay === undefined ? '' : ENGINE_DELAY[spec.delay];
+    if (speed !== '') engine['data-ck-speed'] = speed;
+    if (ease !== '') engine['data-ck-ease'] = ease;
+    if (stagger !== '') engine['data-ck-stagger'] = stagger;
+    if (delay !== '') engine['data-ck-delay'] = delay;
+  }
+  if (spec.scene !== undefined) {
+    engine['data-ck-scene'] = spec.scene;
+    if (spec.sceneDensity !== undefined) engine['data-ck-density'] = spec.sceneDensity;
+    if (spec.scenePalette !== undefined) engine['data-ck-palette'] = spec.scenePalette;
+  }
+  // end gsap-pixi additions
+
+  return css ? { class: MOTION_CLASS, ...attributes, ...engine } : engine;
 }

@@ -22,16 +22,27 @@ import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
 import { demoExtension } from './demo-extension';
 import { createReferenceCodePageFixture } from './code-page-fixture';
+// blocks-polish additions (2026-10-08)
+import { landingCopy } from './landing-copy';
+// end blocks-polish additions
 
 export type PlaygroundFixture = 'code-page' | 'code-view' | 'empty' | 'landing' | 'inline';
 
-/** The playground's own marketing landing document (real vocabulary, ar+en). */
+// blocks-polish additions (2026-10-08): the landing reads its words from landing-copy.ts.
+/**
+ * The playground's own marketing landing document (real vocabulary, ar+en).
+ *
+ * The words come from `LANDING_COPY` by direction: English for `ltr`, Arabic
+ * for `rtl` (landing-copy.ts). The structure and every node id stay here —
+ * other tests address the nodes by id (landing-fixture.test.ts pins the list).
+ */
 export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument {
+  const copy = landingCopy(dir);
   const nodes: Record<string, Node> = {
     root: {
       id: 'root',
       type: 'page',
-      props: { title: 'CraftKit Landing' },
+      props: { title: copy.title },
       slots: {
         default: [
           'announcement',
@@ -58,9 +69,9 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       id: 'announcement',
       type: 'announcementBar',
       props: {
-        label: 'New',
-        message: 'Professional page templates are now available in the builder.',
-        linkLabel: 'Explore the library',
+        label: copy.announcement.label,
+        message: copy.announcement.message,
+        linkLabel: copy.announcement.linkLabel,
         href: '#templates',
         emphasis: 'inverse',
         layout: 'inline',
@@ -79,10 +90,10 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
         tone: 'transparent',
         align: 'center',
         variant: 'centered',
-        eyebrow: 'The professional website builder',
-        heading: 'Build pages your kernel can prove',
-        body: 'Design a complete, production-ready experience from premium blocks while every change stays validated and reversible.',
-        trustLine: 'Original templates · Responsive by default · RTL ready',
+        eyebrow: copy.hero.eyebrow,
+        heading: copy.hero.heading,
+        body: copy.hero.body,
+        trustLine: copy.hero.trustLine,
         /*
           Motion, as a NAMED STEP rather than a duration. The stylesheet decides
           what 'normal' is worth, so re-pointing one theme value retimes every
@@ -96,50 +107,39 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       },
       /*
         Still on a phone. Motion is a real per-breakpoint choice, and a hero
-        that slides on a small screen mostly reads as jank.
+        that slides on a small screen mostly reads as jank. Edge to edge is a
+        desktop choice too: on a 390px screen the heading and the actions keep
+        the site gutter, so nothing touches the glass.
       */
-      responsive: { mobile: { align: 'start', motion: { reveal: 'none' } } },
+      responsive: { mobile: { align: 'start', motion: { reveal: 'none' }, gutter: 'md' } },
       slots: { actions: ['cta-start', 'cta-docs'] },
     },
     logos: {
       id: 'logos',
       type: 'logoCloud',
       props: {
-        eyebrow: 'Built for ambitious teams',
-        heading: 'A dependable foundation from first concept to global launch',
-        body: 'Product, studio, and commerce teams share the same professional design vocabulary.',
+        eyebrow: copy.logos.eyebrow,
+        heading: copy.logos.heading,
+        body: copy.logos.body,
         variant: 'minimal',
         columns: '5',
         align: 'center',
         tone: 'transparent',
         spacing: 'md',
         width: 'wide',
-        items: [
-          { name: 'Northstar', descriptor: 'Product' },
-          { name: 'Arcform', descriptor: 'Design' },
-          { name: 'Meridian', descriptor: 'Commerce' },
-          { name: 'Canopy', descriptor: 'Operations' },
-          { name: 'Fieldwork', descriptor: 'Research' },
-        ],
+        items: copy.logos.items.map((item) => ({ ...item })),
       },
     },
     marquee: {
       id: 'marquee',
       type: 'marquee',
       props: {
-        label: 'Professional capabilities',
+        label: copy.marquee.label,
         presentation: 'compact',
         direction: 'forward',
         speed: 'slow',
         edgeFade: true,
-        items: [
-          { title: 'Responsive', meta: 'Container-aware' },
-          { title: 'Accessible', meta: 'Semantic by default' },
-          { title: 'RTL-ready', meta: 'Logical layout' },
-          { title: 'Token-bound', meta: 'Fully themeable' },
-          { title: 'Atomic', meta: 'Reliable undo' },
-          { title: 'AI-ready', meta: 'Validated commands' },
-        ],
+        items: copy.marquee.items.map((item) => ({ ...item })),
       },
     },
     /*
@@ -172,9 +172,9 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       id: 'carousel',
       type: 'carousel',
       props: {
-        eyebrow: 'A complete visual system',
-        heading: 'Move from a strong first frame to a complete story',
-        body: 'Each slide is responsive, accessible, editable, and safe to publish.',
+        eyebrow: copy.carousel.eyebrow,
+        heading: copy.carousel.heading,
+        body: copy.carousel.body,
         variant: 'split',
         mediaPosition: 'end',
         mediaAspect: 'wide',
@@ -183,28 +183,28 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
         showIndicators: true,
         items: [
           {
-            label: '01 · Compose',
-            title: 'Start with a professional structure',
-            body: 'Use complete sections and templates instead of rebuilding the same page skeleton.',
+            label: copy.carousel.items[0]?.label ?? '',
+            title: copy.carousel.items[0]?.title ?? '',
+            body: copy.carousel.items[0]?.body ?? '',
             imageSrc: 'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=1400&q=85',
-            imageAlt: 'A product team composing a launch plan together',
-            action: { label: 'Explore templates', href: '#templates' },
+            imageAlt: copy.carousel.items[0]?.imageAlt ?? '',
+            action: { label: copy.carousel.items[0]?.action ?? '', href: '#templates' },
           },
           {
-            label: '02 · Customize',
-            title: 'Shape every block through explicit controls',
-            body: 'Typography, spacing, layout, colour roles, motion, media, and content stay inspectable.',
+            label: copy.carousel.items[1]?.label ?? '',
+            title: copy.carousel.items[1]?.title ?? '',
+            body: copy.carousel.items[1]?.body ?? '',
             imageSrc: 'https://images.unsplash.com/photo-1558655146-d09347e92766?w=1400&q=85',
-            imageAlt: 'A designer refining a responsive interface system',
-            action: { label: 'See customization', href: '#customization' },
+            imageAlt: copy.carousel.items[1]?.imageAlt ?? '',
+            action: { label: copy.carousel.items[1]?.action ?? '', href: '#customization' },
           },
           {
-            label: '03 · Prove',
-            title: 'Publish from a document the kernel can validate',
-            body: 'Atomic changes, safe URLs, and deterministic composition keep quality in the architecture.',
+            label: copy.carousel.items[2]?.label ?? '',
+            title: copy.carousel.items[2]?.title ?? '',
+            body: copy.carousel.items[2]?.body ?? '',
             imageSrc: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1400&q=85',
-            imageAlt: 'A product analytics view showing a successful launch',
-            action: { label: 'Read the architecture', href: '#architecture' },
+            imageAlt: copy.carousel.items[2]?.imageAlt ?? '',
+            action: { label: copy.carousel.items[2]?.action ?? '', href: '#architecture' },
           },
         ],
       },
@@ -223,7 +223,7 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       type: 'image',
       props: {
         src: 'https://images.unsplash.com/photo-1618477247222-acbdb0e159b3?w=1600&q=80',
-        alt: 'A grid of coloured panels seen from directly above.',
+        alt: copy.showcaseAlt,
         width: 'wide',
         ratio: 'wide',
         radius: 'md',
@@ -234,27 +234,19 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       id: 'about',
       type: 'content-section',
       props: {
-        eyebrow: 'Designed as a system',
-        heading: 'Move fast without trading away quality or control',
-        body: 'CraftKit combines a curated design vocabulary with a deterministic editing kernel. The result is a builder that stays expressive, inspectable, and safe as the site grows.',
+        eyebrow: copy.about.eyebrow,
+        heading: copy.about.heading,
+        body: copy.about.body,
         layout: 'editorial',
-        highlights: [
-          {
-            title: 'One validated door',
-            body: 'Every edit becomes a transparent transaction with reliable undo.',
-          },
-          {
-            title: 'A real design language',
-            body: 'Responsive spacing, typography, surfaces, and motion stay token-bound.',
-          },
-        ],
-        link: { label: 'See the architecture', href: '#architecture' },
+        highlights: copy.about.highlights.map((highlight) => ({ ...highlight })),
+        link: { label: copy.about.link, href: '#architecture' },
         align: 'start',
         tone: 'light',
         spacing: 'lg',
         width: 'wide',
       },
     },
+    /* The prose sits on the shared wide column now (RichTextBlock), so its edge lines up. */
     'rich-story': {
       id: 'rich-story',
       type: 'richText',
@@ -265,78 +257,49 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
             {
               type: 'heading',
               attrs: { level: 2 },
-              content: [{ type: 'text', text: 'Why it holds' }],
+              content: [{ type: 'text', text: copy.story.heading }],
             },
             {
               type: 'paragraph',
               content: [
-                { type: 'text', text: 'Every edit is ' },
-                { type: 'text', text: 'one transaction', marks: [{ type: 'bold' }] },
-                { type: 'text', text: ' through a ' },
+                { type: 'text', text: copy.story.before },
+                { type: 'text', text: copy.story.bold, marks: [{ type: 'bold' }] },
+                { type: 'text', text: copy.story.between },
                 {
                   type: 'text',
-                  text: 'validated door',
+                  text: copy.story.link,
                   marks: [{ type: 'link', attrs: { href: '#architecture' } }],
                 },
-                {
-                  type: 'text',
-                  text: ', so design freedom never creates a second mutation path.',
-                },
+                { type: 'text', text: copy.story.after },
               ],
             },
           ],
         },
       },
     },
-    'cta-start': { id: 'cta-start', type: 'cta', props: { label: 'Get started' } },
+    'cta-start': { id: 'cta-start', type: 'cta', props: { label: copy.ctaStart } },
     'cta-docs': {
       id: 'cta-docs',
       type: 'cta',
-      props: { label: 'اقرأ التوثيق', emphasis: 'ghost' },
+      props: { label: copy.ctaDocs, emphasis: 'ghost' },
     },
     bento: {
       id: 'bento',
       type: 'bento-grid',
       props: {
-        eyebrow: 'Everything works together',
-        heading: 'A professional building system, not a pile of disconnected widgets',
-        body: 'Compose rich sections, preserve design coherence, and keep the document portable.',
+        eyebrow: copy.bento.eyebrow,
+        heading: copy.bento.heading,
+        body: copy.bento.body,
         layout: 'mosaic',
         align: 'start',
         tone: 'transparent',
         spacing: 'lg',
         width: 'wide',
         items: [
-          {
-            kicker: 'Vocabulary',
-            title: '32 production-ready marketing blocks',
-            body: 'From sliders, banners, galleries, and video to products, forms, comparisons, and editorial content.',
-            metric: '32',
-            size: 'featured',
-            emphasis: 'inverse',
-          },
-          {
-            kicker: 'Templates',
-            title: 'Complete pages in one action',
-            body: 'Start with a coherent layout and then refine every block independently.',
-            metric: '4',
-            size: 'tall',
-            emphasis: 'accent',
-          },
-          {
-            kicker: 'Safety',
-            title: 'Atomic changes',
-            body: 'Validation happens before the document changes.',
-            size: 'small',
-            emphasis: 'neutral',
-          },
-          {
-            kicker: 'Reach',
-            title: 'Responsive and RTL-ready',
-            body: 'Logical properties and container queries adapt without fragile overrides.',
-            size: 'wide',
-            emphasis: 'neutral',
-          },
+          { ...copy.bento.items[0], size: 'featured', emphasis: 'inverse' },
+          { ...copy.bento.items[1], size: 'tall', emphasis: 'accent' },
+          { ...copy.bento.items[2], size: 'small', emphasis: 'neutral' },
+          { ...copy.bento.items[3], size: 'wide', emphasis: 'neutral' },
         ],
       },
     },
@@ -344,9 +307,9 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       id: 'stats',
       type: 'stats',
       props: {
-        eyebrow: 'Quality you can inspect',
-        heading: 'A stronger starting point for every launch',
-        body: 'The library is designed to reduce repetitive setup while keeping every decision editable.',
+        eyebrow: copy.stats.eyebrow,
+        heading: copy.stats.heading,
+        body: copy.stats.body,
         variant: 'cards',
         columns: '4',
         headerLayout: 'split',
@@ -354,43 +317,20 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
         tone: 'light',
         spacing: 'lg',
         width: 'wide',
-        items: [
-          { value: '32', label: 'Marketing blocks', detail: 'Across the full customer journey' },
-          { value: '4', label: 'Page templates', detail: 'Inserted as one transaction' },
-          { value: '100%', label: 'Token-bound', detail: 'No theme-breaking magic values' },
-          { value: 'RTL', label: 'Native direction', detail: 'The same document model' },
-        ],
+        items: copy.stats.items.map((item) => ({ ...item })),
       },
     },
     features: {
       id: 'features',
       type: 'features',
       props: {
-        eyebrow: 'Built for real work',
-        heading: 'Why CraftKit',
-        body: 'The core guarantees stay invisible when you design—and dependable when you ship.',
+        eyebrow: copy.features.eyebrow,
+        heading: copy.features.heading,
+        body: copy.features.body,
         variant: 'cards',
         columns: '3',
-        items: [
-          {
-            kicker: 'Predictable',
-            icon: '01',
-            title: 'Deterministic',
-            body: 'Same seed, same history — bit for bit.',
-          },
-          {
-            kicker: 'Protected',
-            icon: '02',
-            title: 'Sealed',
-            body: 'One validated door; no second mutation path.',
-          },
-          {
-            kicker: 'Global',
-            icon: '03',
-            title: 'ثنائي الاتجاه',
-            body: 'RTL و LTR بنفس المستند.',
-          },
-        ],
+        width: 'wide',
+        items: copy.features.items.map((item) => ({ ...item })),
       },
     },
     /*
@@ -399,36 +339,43 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       The plans used to be an array of data on this node, which meant a card
       could hold a feature list and nothing else — no button, no badge, no
       note. They are `pricingPlan` NODES now, and each one holds whatever a
-      person puts inside it. The call-to-action inside the featured card is the
-      whole point, and it was impossible to author before.
+      person puts inside it. Every plan carries its own call to action.
+
+      The section keeps the shared wide column and the site gutter: edge to
+      edge with a scaled card ran 18px past a 1440px screen (audit 2026-10-08).
     */
     pricing: {
       id: 'pricing',
       type: 'pricing',
       props: {
-        heading: 'Pricing',
+        eyebrow: copy.pricing.eyebrow,
+        heading: copy.pricing.heading,
+        body: copy.pricing.body,
         columns: '2',
         align: 'center',
         spacing: 'lg',
+        width: 'wide',
         /*
-          Full-bleed, and customised from the document.
-
-          `gutter: 'none'` was not expressible at all until the side padding
-          stopped being a constant in the stylesheet. `className` is arbitrary
-          Tailwind, validated at the door: `p-4` is allowed because it means
-          four steps of the site's rhythm, `bg-blue-500` and `p-[17px]` are
-          refused because the design system cannot reach either.
+          `className` is arbitrary Tailwind, validated at the door: `rounded-base`
+          is allowed because it reads the site's radius token, `bg-blue-500` and
+          `p-[17px]` are refused because the design system cannot reach either.
         */
-        gutter: 'none',
         className: 'rounded-base',
       },
+      // On a phone the plans keep the site gutter, so a card never meets the glass.
+      responsive: { mobile: { gutter: 'md' } },
       slots: { default: ['plan-solo', 'plan-team'] },
     },
     'plan-solo': {
       id: 'plan-solo',
       type: 'pricingPlan',
-      props: { name: 'Solo', price: '$9', period: 'month' },
-      slots: { default: ['plan-solo-body'] },
+      props: {
+        name: copy.pricing.solo.name,
+        price: copy.pricing.solo.price,
+        period: 'month',
+        periodLabel: copy.pricing.solo.period,
+      },
+      slots: { default: ['plan-solo-body', 'plan-solo-cta'] },
     },
     'plan-solo-body': {
       id: 'plan-solo-body',
@@ -439,22 +386,29 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
           content: [
             {
               type: 'paragraph',
-              content: [{ type: 'text', text: 'One project, and everything to publish it.' }],
+              content: [{ type: 'text', text: copy.pricing.solo.body }],
             },
           ],
         },
       },
     },
+    'plan-solo-cta': {
+      id: 'plan-solo-cta',
+      type: 'cta',
+      props: { label: copy.pricing.solo.cta, emphasis: 'secondary', width: 'full' },
+    },
     'plan-team': {
       id: 'plan-team',
       type: 'pricingPlan',
       props: {
-        name: 'Team',
-        price: '$29',
+        name: copy.pricing.team.name,
+        price: copy.pricing.team.price,
         period: 'month',
+        periodLabel: copy.pricing.team.period,
+        badge: copy.pricing.team.badge,
         emphasis: 'featured',
-        // Arbitrary Tailwind on one card only, stored in the document.
-        className: 'lg:scale-105 ring-2 ring-accent/30',
+        // Arbitrary Tailwind on one card only, stored in the document. No scale: it overflowed.
+        className: 'ring-2 ring-accent/30',
       },
       slots: { default: ['plan-team-body', 'plan-team-cta'] },
     },
@@ -467,7 +421,7 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
           content: [
             {
               type: 'paragraph',
-              content: [{ type: 'text', text: 'Unlimited projects and priority support.' }],
+              content: [{ type: 'text', text: copy.pricing.team.body }],
             },
           ],
         },
@@ -476,42 +430,27 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
     'plan-team-cta': {
       id: 'plan-team-cta',
       type: 'cta',
-      props: { label: 'Choose Team', emphasis: 'primary', width: 'full' },
+      props: { label: copy.pricing.team.cta, emphasis: 'primary', width: 'full' },
     },
     quotes: {
       id: 'quotes',
       type: 'testimonials',
       props: {
-        eyebrow: 'What teams notice',
-        heading: 'Loved by teams',
-        body: 'A builder can feel fast without becoming careless.',
+        eyebrow: copy.quotes.eyebrow,
+        heading: copy.quotes.heading,
+        body: copy.quotes.body,
         variant: 'spotlight',
-        items: [
-          {
-            quote: 'أفضل تجربة بناء صفحات جربناها. أخيرًا السرعة والجودة في نفس المكان.',
-            author: 'سارة',
-            role: 'مؤسِّسة',
-            company: 'مدار',
-            rating: 5,
-          },
-          {
-            quote:
-              'We moved from a rough idea to a coherent launch page without fighting the system.',
-            author: 'Maya Chen',
-            role: 'Product lead',
-            company: 'Northstar',
-            rating: 5,
-          },
-        ],
+        width: 'wide',
+        items: copy.quotes.items.map((item) => ({ ...item, rating: 5 })),
       },
     },
     faq: {
       id: 'faq',
       type: 'faq',
       props: {
-        eyebrow: 'Answers, upfront',
-        heading: 'Everything you need before you start building',
-        body: 'Straight answers about templates, customization, and document safety.',
+        eyebrow: copy.faq.eyebrow,
+        heading: copy.faq.heading,
+        body: copy.faq.body,
         layout: 'columns',
         variant: 'cards',
         openFirst: true,
@@ -520,43 +459,22 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
         tone: 'transparent',
         spacing: 'lg',
         width: 'wide',
-        items: [
-          {
-            question: 'Can I customize every template?',
-            answer:
-              'Yes. A template inserts ordinary registered blocks, so every supported property remains editable.',
-          },
-          {
-            question: 'Does inserting a template create many undo steps?',
-            answer:
-              'No. The complete composition is validated and inserted as one atomic transaction.',
-          },
-          {
-            question: 'Will the sections work on mobile?',
-            answer:
-              'Each professional block uses responsive, container-aware layouts and logical spacing.',
-          },
-          {
-            question: 'Can the same page be used in Arabic?',
-            answer:
-              'Yes. The document direction can switch to RTL without maintaining a separate component set.',
-          },
-        ],
+        items: copy.faq.items.map((item) => ({ ...item })),
       },
     },
     form: {
       id: 'form',
       type: 'formSection',
       props: {
-        eyebrow: 'Build something consequential',
-        heading: 'Start with the outcome you want to create',
-        body: 'A flexible native form for enquiries, applications, bookings, and custom workflows.',
+        eyebrow: copy.form.eyebrow,
+        heading: copy.form.heading,
+        body: copy.form.body,
         fields: [
           {
             id: 'name',
             name: 'name',
             type: 'text',
-            label: 'Name',
+            label: copy.form.name,
             autoComplete: 'name',
             required: true,
             width: 'half',
@@ -565,7 +483,7 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
             id: 'email',
             name: 'email',
             type: 'email',
-            label: 'Work email',
+            label: copy.form.email,
             autoComplete: 'email',
             required: true,
             width: 'half',
@@ -574,37 +492,37 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
             id: 'website-type',
             name: 'website_type',
             type: 'select',
-            label: 'What are you building?',
-            placeholder: 'Choose a website type',
+            label: copy.form.websiteType,
+            placeholder: copy.form.websitePlaceholder,
             required: true,
             width: 'half',
             options: [
-              { label: 'Product or SaaS', value: 'saas' },
-              { label: 'Commerce', value: 'commerce' },
-              { label: 'Portfolio or studio', value: 'portfolio' },
-              { label: 'Professional services', value: 'services' },
+              { label: copy.form.options[0], value: 'saas' },
+              { label: copy.form.options[1], value: 'commerce' },
+              { label: copy.form.options[2], value: 'portfolio' },
+              { label: copy.form.options[3], value: 'services' },
             ],
           },
           {
             id: 'timeline',
             name: 'timeline',
             type: 'date',
-            label: 'Ideal launch date',
+            label: copy.form.timeline,
             width: 'half',
           },
           {
             id: 'brief',
             name: 'brief',
             type: 'textarea',
-            label: 'What must this website achieve?',
-            helper: 'A few direct sentences are enough.',
+            label: copy.form.brief,
+            helper: copy.form.briefHelper,
             required: true,
             width: 'full',
             rows: 5,
           },
         ],
-        submitLabel: 'Send the brief',
-        footerNote: 'Every field, label, action, and visual treatment remains editable.',
+        submitLabel: copy.form.submitLabel,
+        footerNote: copy.form.footerNote,
         action: '/project-enquiry',
         variant: 'split',
         tone: 'light',
@@ -629,12 +547,12 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       id: 'promo',
       type: 'promoBanner',
       props: {
-        label: 'Ready when the page matters',
-        headline: 'Begin with a complete professional system, then make it unmistakably yours',
-        body: 'Choose a template or compose from the full block catalog. Every part stays editable and every change remains reversible.',
+        label: copy.promo.label,
+        headline: copy.promo.headline,
+        body: copy.promo.body,
         actions: [
-          { label: 'Open templates', href: '#templates', emphasis: 'primary' },
-          { label: 'Browse all blocks', href: '#blocks', emphasis: 'secondary' },
+          { label: copy.promo.primary, href: '#templates', emphasis: 'primary' },
+          { label: copy.promo.secondary, href: '#blocks', emphasis: 'secondary' },
         ],
         showMedia: false,
         variant: 'centered',
@@ -651,13 +569,13 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
       id: 'newsletter',
       type: 'newsletter',
       props: {
-        eyebrow: 'Product notes',
-        heading: 'Build the next version with us',
-        body: 'A concise note about new blocks, templates, and the decisions behind them.',
-        emailLabel: 'Work email',
-        placeholder: 'name@company.com',
-        buttonLabel: 'Join the list',
-        privacy: 'No noise. Unsubscribe in one click.',
+        eyebrow: copy.newsletter.eyebrow,
+        heading: copy.newsletter.heading,
+        body: copy.newsletter.body,
+        emailLabel: copy.newsletter.emailLabel,
+        placeholder: copy.newsletter.placeholder,
+        buttonLabel: copy.newsletter.buttonLabel,
+        privacy: copy.newsletter.privacy,
         action: '/subscribe',
         variant: 'split',
         formLayout: 'row',
@@ -670,7 +588,9 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
   };
   return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
 }
+// end blocks-polish additions
 
+// blocks-polish additions (2026-10-08): one language per fixture, chosen by direction.
 /**
  * The B3c inline-editing fixture: one block with an inline-editable STRING
  * prop (the announcement's message) and one with an inline-editable RICH prop
@@ -678,14 +598,15 @@ export function marketingLanding(dir: ContentDirection = 'ltr'): BuilderDocument
  * place → format via the bubble → act via the block action bar.
  */
 export function inlineEditing(dir: ContentDirection = 'ltr'): BuilderDocument {
+  const copy = landingCopy(dir).inline;
   const nodes: Record<string, Node> = {
     root: {
       id: 'root',
       type: 'page',
-      props: { title: 'Inline editing' },
+      props: { title: copy.title },
       slots: { default: ['note', 'tale'] },
     },
-    note: { id: 'note', type: 'announcement', props: { message: 'Edit me in place' } },
+    note: { id: 'note', type: 'announcement', props: { message: copy.message } },
     tale: {
       id: 'tale',
       type: 'story',
@@ -695,7 +616,7 @@ export function inlineEditing(dir: ContentDirection = 'ltr'): BuilderDocument {
           content: [
             {
               type: 'paragraph',
-              content: [{ type: 'text', text: 'Select this line and make it bold.' }],
+              content: [{ type: 'text', text: copy.story }],
             },
           ],
         },
@@ -707,11 +628,13 @@ export function inlineEditing(dir: ContentDirection = 'ltr'): BuilderDocument {
 
 /** The smallest registry-valid page that proves scoped code editing and refusal. */
 export function codeViewEditing(dir: ContentDirection = 'ltr'): BuilderDocument {
+  const all = landingCopy(dir);
+  const copy = all.codeView;
   const nodes: Record<string, Node> = {
     root: {
       id: 'root',
       type: 'page',
-      props: { title: 'Code view editing' },
+      props: { title: copy.title },
       slots: { default: ['hero'] },
     },
     hero: {
@@ -720,21 +643,22 @@ export function codeViewEditing(dir: ContentDirection = 'ltr'): BuilderDocument 
       props: {
         tone: 'dark',
         align: 'center',
-        heading: 'Build pages your kernel can prove',
-        body: 'كل تعديل يمر من باب واحد — وقابل للتراجع.',
+        heading: copy.heading,
+        body: copy.body,
       },
       responsive: { mobile: { align: 'start' } },
       slots: { actions: ['cta-start', 'cta-docs'] },
     },
-    'cta-start': { id: 'cta-start', type: 'cta', props: { label: 'Get started' } },
+    'cta-start': { id: 'cta-start', type: 'cta', props: { label: all.ctaStart } },
     'cta-docs': {
       id: 'cta-docs',
       type: 'cta',
-      props: { label: 'اقرأ التوثيق', emphasis: 'ghost' },
+      props: { label: all.ctaDocs, emphasis: 'ghost' },
     },
   };
   return { schemaVersion: 1, surface: 'site', dir, rootId: 'root', nodes };
 }
+// end blocks-polish additions
 
 /**
  * The DOCUMENT a fixture names.

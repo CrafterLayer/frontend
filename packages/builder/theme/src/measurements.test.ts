@@ -18,10 +18,11 @@ import { describe, expect, it } from 'vitest';
  * Two exemptions, both structural rather than convenient:
  *
  *  - `0` needs no token; a token for nothing is noise.
- *  - MEDIA QUERY CONDITIONS. A media query cannot read a custom property — the
- *    cascade has not run when the condition is evaluated — so a breakpoint
- *    physically cannot be a token. They are the one place a raw length is
- *    forced, and they are checked to be few and named in a comment instead.
+ *  - MEDIA AND CONTAINER QUERY CONDITIONS. A query condition cannot read a
+ *    custom property — the cascade has not run when the condition is
+ *    evaluated — so a breakpoint physically cannot be a token, whether it
+ *    measures the viewport or the panel a component sits in. They are the one
+ *    place a raw length is forced, and they are kept few and named in a comment.
  *
  * The generated stylesheet is excluded because it is where the values live.
  */
@@ -78,7 +79,7 @@ function declarationsOf(css: string): string {
   return css
     .replaceAll(/\/\*[\s\S]*?\*\//g, '')
     .split('\n')
-    .filter((line) => !line.trimStart().startsWith('@media'))
+    .filter((line) => !/^@(?:media|container)\b/u.test(line.trimStart()))
     .join('\n');
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder-core';
 import {
@@ -18,6 +18,7 @@ import {
   // ── /block-parts ──
   isCustomCodeTreeSchema,
   SYMBOL_INSTANCE_BLOCK_TYPE,
+  type BlockPropertyTab, // gsap-pixi additions (2026-10-08)
   type NodeId,
   type SiteLibrary,
   type StyleBucket,
@@ -54,7 +55,7 @@ import {
   selectSelectedLabel,
   selectSelectedType,
 } from './selectors';
-import type { ErasedPropertyGroups, InspectorRowScope } from './types';
+import type { ErasedPropertyGroups, InspectorRowScope, InspectorTabModel } from './types';
 import { useCollapsedSections } from './use-collapsed-sections';
 import { useAnnouncer } from './use-inspector-announcer';
 import { useInspectorTabs } from './use-inspector-tabs';
@@ -120,6 +121,28 @@ export interface InspectorProps {
 // ── block-parts (2026-10-06) ──
 const selectPartFocus = (state: Readonly<KernelState>) => state.partFocus ?? null;
 // ── /block-parts ──
+
+// gsap-pixi additions (2026-10-08)
+/** Where a block's motion control sits (the property declared `kind: 'motion'`): its tab and section. */
+function motionSectionOf(
+  tabs: readonly InspectorTabModel[],
+  declarations: ErasedPropertyGroups | undefined,
+): { readonly tab: BlockPropertyTab; readonly section: string } | undefined {
+  const key = Object.entries(declarations ?? {}).find(([, group]) => group?.kind === 'motion')?.[0];
+  if (key === undefined) return undefined;
+  for (const tab of tabs) {
+    for (const section of tab.sections) {
+      const holds = section.entries.some((entry) =>
+        entry.kind === 'property'
+          ? entry.property[0] === key
+          : entry.properties.some((one) => one.property[0] === key),
+      );
+      if (holds) return { tab: tab.id, section: section.name };
+    }
+  }
+  return undefined;
+}
+// ── end gsap-pixi additions ──
 
 /**
  * The generated properties panel (007 contract §4): rows derive from the
@@ -328,6 +351,45 @@ export function Inspector({
   const blockDesignTab =
     propertyTabs.find((candidate) => candidate.id === 'design')?.id ?? propertyTabs.at(-1)?.id;
 
+  // ── gsap-pixi additions (2026-10-08) ──
+  /*
+    The block bar's "Animate" asks for Design at the motion sector. On a
+    registered block that declares a motion control (`kind: 'motion'`), that
+    is the block's own Motion section — Cinematic motion and Animated
+    background: its tab is selected and the section opened (once per request),
+    then scrolled to with focus on its first card. An element or a part panel
+    answers its own requests.
+  */
+  const motionPlace = useMemo(() => motionSectionOf(propertyTabs, declarations), [propertyTabs, declarations]);
+  const [seenMotionRequest, setSeenMotionRequest] = useState<number | undefined>(undefined);
+  const [motionReveal, setMotionReveal] = useState(0);
+  if (
+    focusRequest !== undefined &&
+    focusRequest.nonce !== seenMotionRequest &&
+    focusRequest.tab === 'design' &&
+    focusRequest.sector === 'motion' &&
+    hasRows &&
+    selectedId !== null &&
+    motionPlace !== undefined
+  ) {
+    setSeenMotionRequest(focusRequest.nonce);
+    tabs.selectTab(motionPlace.tab);
+    const collapseKey = `${selectedId}:${bucket}:${motionPlace.tab}:${motionPlace.section}`;
+    if (sections.isCollapsed(collapseKey)) sections.toggle(collapseKey);
+    setMotionReveal((count) => count + 1);
+  }
+  useEffect(() => {
+    if (seenMotionRequest !== undefined) onFocusRequestHandled?.(seenMotionRequest);
+  }, [seenMotionRequest, onFocusRequestHandled]);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (motionReveal === 0) return;
+    const control = bodyRef.current?.querySelector<HTMLElement>('[data-bldr-engine-motion]');
+    control?.scrollIntoView({ block: 'nearest' });
+    control?.querySelector<HTMLElement>('button[tabindex="0"]')?.focus({ preventScroll: true });
+  }, [motionReveal]);
+  // ── end gsap-pixi additions ──
+
   return (
     <section className="bldr-inspector" aria-label={labels.chrome.region}>
       <InspectorLiveRegion announcer={announcer} label={labels.chrome.messages} />
@@ -356,7 +418,7 @@ export function Inspector({
       </InspectorHeader>
       {/* block-parts (2026-10-06): every row, however nested, reaches the host's services */}
       <FieldServicesProvider value={fieldServices}>
-      <div className="bldr-inspector__body">
+      <div className="bldr-inspector__body" ref={bodyRef} /* gsap-pixi additions: Animate scrolls to Motion */>
         {selectedId === null || scope === undefined ? (
           <InspectorEmptyState kind="invitation" copy={labels.chrome.empty} />
         ) : focusedPart !== null ? (

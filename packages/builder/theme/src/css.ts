@@ -5,6 +5,7 @@ import {
   type ChromeThemeOverride,
 } from './contract';
 import {
+  effect,
   agentPanelMetrics,
   arabicReadingScale,
   coarsePointer,
@@ -108,6 +109,7 @@ export function scaleDeclarations(): string {
     ['border-', borderWidth],
     ['control-', control],
     ['measure-', measure],
+    ['effect-', effect],
     ['font-size-', fontSize],
     ['font-weight-', fontWeight],
     ['line-height-', lineHeight],
@@ -174,6 +176,7 @@ export function definedTokenNames(): readonly string[] {
     ...Object.keys(borderWidth).map((key) => `border-${key}`),
     ...Object.keys(control).map((key) => `control-${key}`),
     ...Object.keys(measure).map((key) => `measure-${key}`),
+    ...Object.keys(effect).map((key) => `effect-${key}`),
     ...Object.keys(fontSize).map((key) => `font-size-${key}`),
     ...Object.keys(fontWeight).map((key) => `font-weight-${key}`),
     ...Object.keys(lineHeight).map((key) => `line-height-${key}`),

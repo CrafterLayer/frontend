@@ -44,9 +44,9 @@ export interface InteractionsPanelProps {
   readonly dir?: 'ltr' | 'rtl' | undefined;
   readonly labels?: InteractionsPanelLabels | undefined;
   /**
-   * media-motion (2026-10-06): show the "Cinematic motion" section even while
-   * `TIMELINE_PANEL_ENABLED` is off — for stories and tests only (GSAP licence,
-   * DESIGN §C.1.2; see timeline-flag.ts).
+   * Show the "Cinematic motion" section even if `TIMELINE_PANEL_ENABLED` is
+   * off (stories and tests). The flag is on since 2026-10-08, when the engine
+   * moved from GSAP to anime.js (MIT); see timeline-flag.ts.
    */
   readonly timelinePanel?: boolean | undefined;
 }
@@ -78,7 +78,7 @@ export function InteractionsPanel({
   const hover = attributes['data-ck-hover'];
   const trigger = motion === undefined ? pendingTrigger : triggerOf(attributes);
   const tunable = hasAnimation(attributes);
-  // media-motion (2026-10-06): the named scroll timeline is flag-gated (GSAP licence, DESIGN §C.1.2).
+  // The named scroll timeline (anime.js, MIT) — on by default since 2026-10-08.
   const showTimeline = TIMELINE_PANEL_ENABLED || timelinePanel;
 
   const write = (patch: AttributePatch, what: string) => {

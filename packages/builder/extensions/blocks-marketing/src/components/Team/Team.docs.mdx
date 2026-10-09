@@ -15,6 +15,9 @@ visual layout, `editorial` gives every biography more room, and `compact` works 
 - `heading: string (1–80) = 'Meet the team'`
 - `body?: string (1–240)`
 - `members (≤12)` contain a name, role, and optional biography, portrait, alt text, and profile URL.
+- With a photo, a member gets a 4:5 portrait cropped with `object-fit: cover`. Without one, a
+  compact 64px avatar with initials (two for a Latin name, one letter for an Arabic name) sits above
+  the name — never a portrait-sized box around one letter.
 - `profileLabel: string (1–40) = 'View profile'` localizes the repeated profile action.
 - `variant: 'cards' | 'editorial' | 'compact' = 'cards'`
 - `columns: '2' | '3' | '4' = '4'`

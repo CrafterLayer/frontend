@@ -5,18 +5,18 @@
 */
 
 @media (prefers-reduced-motion: no-preference) {
-  [data-ck-behavior='reveal'][data-ck-mounted]:not(.ck-in),
-  [data-ck-behavior='stagger'][data-ck-mounted]:not(.ck-in) > * {
+  [data-ck-behavior='reveal'][data-ck-mounted]:not(.ck-in):not([data-ck-timeline]),
+  [data-ck-behavior='stagger'][data-ck-mounted]:not(.ck-in):not([data-ck-timeline]) > * {
     opacity: 0;
     transform: translateY(1.25rem);
   }
-  [data-ck-behavior='reveal'][data-ck-mounted],
-  [data-ck-behavior='stagger'][data-ck-mounted] > * {
+  [data-ck-behavior='reveal'][data-ck-mounted]:not([data-ck-timeline]),
+  [data-ck-behavior='stagger'][data-ck-mounted]:not([data-ck-timeline]) > * {
     transition:
       opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
       transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  [data-ck-behavior='stagger'][data-ck-mounted] > * {
+  [data-ck-behavior='stagger'][data-ck-mounted]:not([data-ck-timeline]) > * {
     transition-delay: calc(var(--ck-i, 0) * 80ms);
   }
   [data-ck-behavior='reveal'][data-ck-speed='slow'][data-ck-mounted],
@@ -669,7 +669,7 @@ dialog[data-ck-lightbox] [data-ck-lightbox-counter] {
   }
 }
 
-[data-ck-scene][data-ck-ready] > img,
+[data-ck-scene][data-ck-ready]:not([data-ck-scene-host]) > img,
 [data-ck-lottie][data-ck-ready] > img {
   display: none;
 }

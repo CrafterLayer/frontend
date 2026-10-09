@@ -35,6 +35,9 @@ import {
   TIMELINE_DEPTHS,
   TIMELINE_REUSED_MOTION_PARAMS,
   TOGGLE_OPTIONS,
+  HOSTED_SCENES,
+  isHostedScene,
+  SCENE_HOST_TAGS,
 } from './media-vocabulary';
 
 /**
@@ -1036,7 +1039,8 @@ const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   fetchpriority: { on: ['img'], value: oneOf('high', 'low', 'auto') },
   // media-motion (2026-10-06): engine markers and media params (DESIGN §C.2, §D.2, §E).
   'data-ck-timeline': { on: 'html', value: oneOf(...CUSTOM_CODE_TIMELINE_RECIPES) },
-  'data-ck-scene': { on: ['div'], value: oneOf(...CUSTOM_CODE_SCENES) },
+  // gsap-pixi additions (2026-10-08): a hosted scene (particles, mesh-gradient) may sit on a sectioning element.
+  'data-ck-scene': { on: ['div', ...SCENE_HOST_TAGS], value: oneOf(...CUSTOM_CODE_SCENES) },
   'data-ck-lottie': { on: ['div'], value: oneOf('') },
   'data-ck-src': {
     on: ['div'],
@@ -1054,8 +1058,8 @@ const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   'data-ck-autoplay': { on: 'html', value: oneOf(...MEDIA_SWITCH_VALUES) },
   'data-ck-scrub': { on: 'html', value: oneOf(...MEDIA_SWITCH_VALUES) },
   'data-ck-depth': { on: 'html', value: oneOf(...TIMELINE_DEPTHS) },
-  'data-ck-density': { on: ['div'], value: oneOf(...SCENE_DENSITIES) },
-  'data-ck-palette': { on: ['div'], value: oneOf(...SCENE_PALETTES) },
+  'data-ck-density': { on: ['div', ...SCENE_HOST_TAGS], value: oneOf(...SCENE_DENSITIES) }, // gsap-pixi additions (2026-10-08)
+  'data-ck-palette': { on: ['div', ...SCENE_HOST_TAGS], value: oneOf(...SCENE_PALETTES) }, // gsap-pixi additions (2026-10-08)
   hidden: { on: 'html', value: bare },
 };
 
@@ -1569,6 +1573,14 @@ function mediaProblems(tag: string, record: Record<string, unknown>): Problem[] 
     found.push({
       path: ['attributes', param],
       message: `<${tag}> ${param} tunes ${marker}: write ${marker} on the same element, or drop ${param}`,
+    });
+  }
+  // gsap-pixi additions (2026-10-08): an image scene needs its own div layer with img children.
+  const scene = record['data-ck-scene'];
+  if (typeof scene === 'string' && tag !== 'div' && !isHostedScene(scene)) {
+    found.push({
+      path: ['attributes', 'data-ck-scene'],
+      message: `<${tag}> data-ck-scene='${scene}' draws from images: put it on a div layer with img children (first child of the section), or use ${HOSTED_SCENES.join(' or ')} on the section itself`,
     });
   }
   if (typeof record['data-ck-lottie'] === 'string' && typeof record['data-ck-src'] !== 'string') {

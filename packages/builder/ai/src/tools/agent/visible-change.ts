@@ -71,9 +71,19 @@ function tokensOf(block: string): ReadonlyMap<string, string> {
 
 function rulesOf(block: string): readonly string[] {
   const body = block.replace(IMPORT, '').replace(TOKEN_RULE, (match) => (match.startsWith('}') ? '}\n' : '\n'));
-  return [...body.matchAll(RULE)].map(
-    ([, selector = '', declarations = '']) => `${selector.trim().replace(/\s+/gu, ' ')}{${declarations.trim()}}`,
-  );
+  return [...body.matchAll(RULE)]
+    // blocks-polish additions (2026-10-08)
+    /*
+      A later `> *` rule is the kit's dark-scheme token rule (skeleton-from-plan
+      `pageKitSchemeCss`): custom properties re-declared for a dark page, never
+      a style. Its values follow the light tokens, so whether it shows is
+      whether the page reads a changed token — the question asked above.
+    */
+    .filter(([, selector = '']) => selector.trim() !== '> *')
+    // end blocks-polish additions
+    .map(
+      ([, selector = '', declarations = '']) => `${selector.trim().replace(/\s+/gu, ' ')}{${declarations.trim()}}`,
+    );
 }
 
 /** A selector list split on its top-level commas (`:is(h1,h2),.x` is two). */

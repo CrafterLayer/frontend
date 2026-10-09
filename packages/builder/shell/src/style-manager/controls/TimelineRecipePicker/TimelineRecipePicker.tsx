@@ -30,8 +30,9 @@ export interface TimelineRecipePickerProps {
  * The named scroll-timeline picker (media-motion DESIGN §C.4). It chooses a
  * recipe NAME from the closed list — with the schema's bilingual label and
  * a one-line description — and whether it follows the scrollbar. A fixed
- * runner plays the name; there is deliberately NO timeline, keyframe or
- * easing-curve editing here (GSAP licence condition, DESIGN §C.1.2).
+ * runner plays the name (anime.js, MIT, since 2026-10-08 — GSAP's licence
+ * forbids it in a visual animation builder); names only, no timeline,
+ * keyframe or easing-curve editing here.
  *
  * Choosing a recipe removes any CSS preset (`data-ck-motion`) in the same
  * patch: the two never drive one element.

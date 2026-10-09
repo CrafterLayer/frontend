@@ -79,6 +79,12 @@ const SELECT_PARENT =
 */
 const DESELECT = '<path d="M4.4 4.4 11.6 11.6"/><path d="M11.6 4.4 4.4 11.6"/>';
 
+/*
+  gsap-pixi additions (2026-10-08) — Animate: a ball with three speed lines
+  trailing it, the same mark the element quick bar's Animate action uses.
+*/
+const ANIMATE = '<path d="M2.5 8h3M3.5 5h3M3.5 11h3"/><circle cx="10.5" cy="8" r="3"/>';
+
 export const BLOCK_ACTION_ICONS: Readonly<Record<BlockActionId, ReactElement>> = {
   selectParent: glyph(SELECT_PARENT),
   duplicate: glyph(DUPLICATE),
@@ -86,5 +92,6 @@ export const BLOCK_ACTION_ICONS: Readonly<Record<BlockActionId, ReactElement>> =
   moveEarlier: glyph(MOVE_EARLIER),
   moveLater: glyph(MOVE_LATER),
   editText: glyph(EDIT_TEXT),
+  animate: glyph(ANIMATE), // gsap-pixi additions (2026-10-08)
   deselect: glyph(DESELECT),
 };

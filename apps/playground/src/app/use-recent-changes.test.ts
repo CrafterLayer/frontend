@@ -9,11 +9,11 @@ const LOG = [
 ] as const;
 
 describe('recentChangesOf', () => {
-  it('lists the newest first, at most the limit', () => {
+  it('lists the newest first, at most the limit, one row per run of the same change', () => {
     expect(recentChangesOf(LOG, { limit: 2 })).toEqual({
       changes: [
-        { id: 't3', door: 'assistant', label: 'add block' },
-        { id: 't2', door: 'assistant', label: 'add block' },
+        { id: 't3', door: 'assistant', label: 'Add block' },
+        { id: 't1', door: 'canvas', label: 'Edit property' },
       ],
       spokenElsewhere: false,
     });
@@ -26,7 +26,7 @@ describe('recentChangesOf', () => {
       spokenElsewhere: true,
     });
     expect(recentChangesOf(LOG, { exclude: 'assistant' }).changes).toEqual([
-      { id: 't1', door: 'canvas', label: 'edit property' },
+      { id: 't1', door: 'canvas', label: 'Edit property' },
     ]);
     // An empty log hid nothing: "No recent changes" is then the truth.
     expect(recentChangesOf([], { exclude: 'assistant' }).spokenElsewhere).toBe(false);
@@ -41,9 +41,9 @@ describe('recentChangesOf', () => {
     ];
     expect(recentChangesOf(log, { limit: 4 }).changes.map((change) => change.label)).toEqual([
       'Padding · Hero heading',
-      'set foo bar',
-      'edit element',
-      'page direction',
+      'Set foo bar',
+      'Edit element',
+      'Page direction',
     ]);
   });
 });

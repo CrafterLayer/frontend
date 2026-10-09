@@ -16,9 +16,10 @@ import { PartStylesField } from '../../fields/PartStylesField';
 import { RichTextFieldSkeleton } from '../../fields/RichTextFieldSkeleton';
 import { ReadOnlyField, type FieldControlProps } from '../../fields/controls';
 import type { FieldCommitResult } from '../../fields/field-commit';
-import { useFieldLabels } from '../../fields/field-services-context';
+import { useFieldLabels, useFieldServices } from '../../fields/field-services-context';
 import { planPartStyleReset } from '../../fields/part-styles-reset';
 import { partBindingFor, propsShapeOf, unwrapSchema } from '../../fields/resolve-field';
+import { schemaName } from '../../i18n/schema-words';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { FieldErrorBoundary } from './FieldErrorBoundary';
 import { DEFAULT_CONTROLS, fallbackRendering, isCompositeControl } from './field-module-cache';
@@ -108,6 +109,7 @@ export function InspectorRowBody({
   const labelId = `${uid}-label`;
   const rowRef = useRef<HTMLDivElement | null>(null);
   const fieldLabels = useFieldLabels();
+  const locale = useFieldServices().locale ?? 'en';
 
   // The block's declared parts (block-parts DESIGN §2.10 step 2). A node's
   // type never changes, so this is read once per node and catalog generation.
@@ -461,8 +463,17 @@ export function InspectorRowBody({
           className="bldr-inspector__label"
           htmlFor={compositeControl ? undefined : controlId}
         >
-          <span aria-hidden="true">{pairItemLabel ?? displayPropertyLabel(propKey)}</span>
-          <span className="bldr-visually-hidden">{propKey}</span>
+          {/* The code key names the row for assistive tech in the English
+              chrome; the Arabic chrome names it by its Arabic label alone
+              (it read "العنوان التمهيدي eyebrow"). */}
+          {locale === 'ar' ? (
+            <span>{pairItemLabel ?? schemaName(propKey, locale, displayPropertyLabel(propKey))}</span>
+          ) : (
+            <>
+              <span aria-hidden="true">{pairItemLabel ?? displayPropertyLabel(propKey)}</span>
+              <span className="bldr-visually-hidden">{propKey}</span>
+            </>
+          )}
         </label>
         {/* This capability is declared by the Inspector caller, rather than
             inferred from the active bucket. The glyph exists BEFORE an override
@@ -471,7 +482,7 @@ export function InspectorRowBody({
           <span
             className="bldr-inspector__breakpoint-glyph"
             role="img"
-            aria-label="Supports device overrides"
+            aria-label={fieldLabels.supportsDeviceOverrides}
           >
             {INSPECTOR_ICONS['device-override']}
           </span>

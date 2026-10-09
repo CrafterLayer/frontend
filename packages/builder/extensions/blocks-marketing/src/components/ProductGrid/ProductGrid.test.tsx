@@ -231,3 +231,59 @@ describe('ProductGrid', () => {
     ).toBe(false);
   });
 });
+
+// blocks-polish additions (2026-10-08): a balanced featured layout and a compact placeholder.
+describe('ProductGrid featured balance', () => {
+  const many = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      name: `Product ${String(index + 1)}`,
+      price: `$${String(10 + index)}`,
+      href: `/p/${String(index)}`,
+      imageSrc: `/p${String(index)}.jpg`,
+      imageAlt: `Product ${String(index + 1)}`,
+      featured: index === 0,
+    }));
+
+  it('gives the featured card its own row so no neighbour sets its height', () => {
+    const { container } = renderProducts({ variant: 'featured', columns: '3', products: many(4) });
+    const featured = container.querySelector('[data-product-card="featured"]')?.closest('li');
+    expect(featured).toHaveClass('col-span-full');
+    expect(featured).toHaveAttribute('data-product-span', 'row');
+    expect(featured).not.toHaveClass('@xl:col-span-2');
+    /* With a photo, the featured media fills its half of the row. */
+    expect(container.querySelector('[data-product-card="featured"] [data-product-media]')).toHaveClass(
+      '@lg:h-full',
+      '@lg:aspect-auto',
+    );
+  });
+
+  it.each([
+    ['3', 4, '3'],
+    ['3', 5, '2'],
+    ['3', 3, '2'],
+    ['4', 7, '3'],
+    ['4', 5, '4'],
+    ['2', 4, '3'],
+  ] as const)('with %s columns and %i products the rest use %s columns, leaving no orphan', (columns, count, expected) => {
+    const { container } = renderProducts({ variant: 'featured', columns, products: many(count) });
+    const grid = container.querySelector('[data-product-grid="featured"]');
+    const others = count - 1;
+    expect(others % Number(expected)).toBe(0);
+    const wide = { '2': '@md:grid-cols-2', '3': '@xl:grid-cols-3', '4': '@xl:grid-cols-4' }[expected];
+    expect(grid).toHaveClass(wide);
+  });
+
+  it('keeps the chosen columns for a standard grid', () => {
+    const { container } = renderProducts({ variant: 'grid', columns: '3', products: many(4) });
+    expect(container.querySelector('ul')).toHaveClass('@xl:grid-cols-3');
+  });
+
+  it('draws a short monogram band, not a full-ratio box, when a product has no photo', () => {
+    const { container } = renderProducts({ showRatings: false });
+    const placeholder = container.querySelector('[data-product-media="placeholder"]');
+    expect(placeholder).toHaveClass('h-24');
+    expect(placeholder).not.toHaveClass('aspect-square');
+    expect(placeholder).not.toHaveClass('aspect-4/5');
+    expect(container.querySelector('[data-product-media="image"]')?.className).toMatch(/aspect-/u);
+  });
+});

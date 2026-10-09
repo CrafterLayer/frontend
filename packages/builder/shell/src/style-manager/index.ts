@@ -73,6 +73,9 @@ export * from './controls/MediaParamFields';
 export * from './controls/ScenePresetPicker';
 export * from './controls/TimelineRecipePicker';
 // ── end shell-media-editor additions ──
+// gsap-pixi additions (2026-10-08): Cinematic motion + Animated background cards
+export * from './controls/EngineMotionPicker';
+// ── end gsap-pixi additions ──
 // panel-design additions (style panel redesign 2026-10-06)
 export * from './controls/ColorField';
 export * from './controls/OptionIcon';

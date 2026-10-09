@@ -13,6 +13,11 @@
  */
 import { z } from 'zod';
 
+import {
+  CUSTOM_CODE_TIMELINE_RECIPES,
+  isCustomCodeTimelineRecipe,
+  type CustomCodeTimelineRecipe,
+} from '../custom-code/media-vocabulary';
 import { unwrapPropSchema } from './block-parts';
 import { findRejectedUtilities } from './utility-classes';
 
@@ -20,6 +25,10 @@ import { findRejectedUtilities } from './utility-classes';
 export interface PartStyle {
   readonly className?: string | undefined;
   readonly dir?: 'auto' | 'ltr' | 'rtl' | undefined;
+  // gsap-pixi additions (2026-10-08): a named scroll-timeline recipe on this part
+  // (rendered as `data-ck-timeline` / `data-ck-scrub`, played by the timeline engine).
+  readonly timeline?: CustomCodeTimelineRecipe | undefined;
+  readonly scrub?: boolean | undefined;
 }
 
 /** The meta marker field resolution matches on (by META, never by identity). */
@@ -47,6 +56,9 @@ const partClassSchema = z
 const partStyleSchema = z.object({
   className: partClassSchema.optional(),
   dir: z.enum(PART_DIRECTIONS).optional(),
+  // gsap-pixi additions (2026-10-08)
+  timeline: z.enum(CUSTOM_CODE_TIMELINE_RECIPES).optional(),
+  scrub: z.boolean().optional(),
 });
 
 /**
@@ -116,10 +128,18 @@ export function readPartStyles(
   const styles: Record<string, PartStyle> = {};
   for (const [styleKey, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue;
-    const { className, dir } = entry as Record<string, unknown>;
-    const style: { className?: string; dir?: PartStyle['dir'] } = {};
+    const { className, dir, timeline, scrub } = entry as Record<string, unknown>;
+    const style: {
+      className?: string;
+      dir?: PartStyle['dir'];
+      timeline?: CustomCodeTimelineRecipe;
+      scrub?: boolean;
+    } = {};
     if (typeof className === 'string') style.className = className;
     if (dir === 'auto' || dir === 'ltr' || dir === 'rtl') style.dir = dir;
+    // gsap-pixi additions (2026-10-08)
+    if (typeof timeline === 'string' && isCustomCodeTimelineRecipe(timeline)) style.timeline = timeline;
+    if (typeof scrub === 'boolean') style.scrub = scrub;
     styles[styleKey] = style;
   }
   return styles;

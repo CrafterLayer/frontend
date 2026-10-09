@@ -60,6 +60,14 @@ export const pricingPlanSchema = defineBlockSchema({
       card that hard-coded its own would stop following the theme.
     */
     emphasis: z.enum(['normal', 'featured']).default('normal'),
+    /*
+      The card's own words for its badge and its billing period (blocks-polish
+      2026-10-08). Both used to be English literals in the component — an
+      Arabic page read "Popular" and "per month". Optional: unset, the card
+      keeps the English words it always showed.
+    */
+    badge: z.string().min(1).max(24).optional(),
+    periodLabel: z.string().min(1).max(24).optional(),
     ...sectionColorProps,
     ...sectionMotionProps,
     ...sectionCustomProps,
@@ -68,6 +76,8 @@ export const pricingPlanSchema = defineBlockSchema({
     name: { tab: 'content' },
     price: { tab: 'content' },
     period: { tab: 'content' },
+    badge: { tab: 'content' },
+    periodLabel: { tab: 'content' },
     emphasis: { tab: 'design', section: 'Emphasis' },
     ...sectionColorGroups,
     ...sectionMotionGroups,
@@ -88,6 +98,18 @@ export const pricingPlanSchema = defineBlockSchema({
       bind: 'price',
       label: { en: 'Price', ar: 'السعر' },
       aliases: ['amount', 'cost', 'سعر', 'المبلغ'],
+    },
+    period: {
+      kind: 'text',
+      bind: 'periodLabel',
+      label: { en: 'Billing period', ar: 'فترة الدفع' },
+      aliases: ['per month', 'billing', 'الفترة', 'شهريًا'],
+    },
+    badge: {
+      kind: 'text',
+      bind: 'badge',
+      label: { en: 'Badge', ar: 'الشارة' },
+      aliases: ['popular', 'tag', 'ribbon', 'شارة', 'الأكثر طلبًا'],
     },
   },
   examples: pricingPlanExamples,

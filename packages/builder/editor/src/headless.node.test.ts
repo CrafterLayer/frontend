@@ -118,6 +118,20 @@ describe('the headless runtime door', () => {
       here — `@craftkit/builder-blocks-marketing` with no subpath — still fails.
     */
     const GRAPH_PROVEN_SUBPATHS = ['@craftkit/builder-blocks-marketing/schemas'];
+    // script-servers additions (2026-10-08)
+    /*
+      A subpath of a package this door already re-exports is judged by THAT
+      package's manifest: an entry cannot depend on anything its package does
+      not declare. builder-ai's `script-node` (the worker_threads script
+      runner, Node-only by design) is the one in use; the assertion keeps the
+      exemption from ever covering a package the loop below does not check.
+    */
+    const SAME_MANIFEST_SUBPATHS = ['@craftkit/builder-ai/script-node'];
+    for (const subpath of SAME_MANIFEST_SUBPATHS.filter((s) => external.includes(s))) {
+      expect(external, subpath).toContain(subpath.split('/').slice(0, 2).join('/'));
+    }
+    GRAPH_PROVEN_SUBPATHS.push(...SAME_MANIFEST_SUBPATHS);
+    // end script-servers additions
     const byManifest = external.filter((specifier) => !GRAPH_PROVEN_SUBPATHS.includes(specifier));
 
     // Exhaustive by construction: the loop below only has to know these three.

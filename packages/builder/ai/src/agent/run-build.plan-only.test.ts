@@ -95,6 +95,12 @@ async function planOnly(plan: AiPlan = scaffoldPlan) {
   return { kernel, result, propose, before };
 }
 
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
+
 describe('runAiBuild with apply: never', () => {
   it('writes NOTHING — not the skeleton, not a section', async () => {
     const { kernel, before } = await planOnly();

@@ -13,6 +13,12 @@ import { PACK_CSS } from './packs';
  * behaviors-css.test.ts), the static exporter (embeds `BEHAVIOR_CSS` in a
  * <style>), and the canvas (`ensureBehaviorCss` injects it once per document).
  * Colours are neutral shadows only, so any page palette sits under them.
+ *
+ * One owner per entrance (walk 2026-10-08): an element whose entrance a
+ * timeline plays (`data-ck-timeline`) is never held hidden or transitioned by
+ * the reveal/stagger rules. Both together left a published testimonials grid
+ * at opacity 0 for good: the timeline animated from the hidden state to the
+ * hidden state the stagger CSS was still holding.
  */
 export const BEHAVIOR_CSS = `/*
   GENERATED FILE — do not edit by hand.
@@ -21,18 +27,18 @@ export const BEHAVIOR_CSS = `/*
 */
 
 @media (prefers-reduced-motion: no-preference) {
-  [data-ck-behavior='reveal'][data-ck-mounted]:not(.ck-in),
-  [data-ck-behavior='stagger'][data-ck-mounted]:not(.ck-in) > * {
+  [data-ck-behavior='reveal'][data-ck-mounted]:not(.ck-in):not([data-ck-timeline]),
+  [data-ck-behavior='stagger'][data-ck-mounted]:not(.ck-in):not([data-ck-timeline]) > * {
     opacity: 0;
     transform: translateY(1.25rem);
   }
-  [data-ck-behavior='reveal'][data-ck-mounted],
-  [data-ck-behavior='stagger'][data-ck-mounted] > * {
+  [data-ck-behavior='reveal'][data-ck-mounted]:not([data-ck-timeline]),
+  [data-ck-behavior='stagger'][data-ck-mounted]:not([data-ck-timeline]) > * {
     transition:
       opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
       transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  [data-ck-behavior='stagger'][data-ck-mounted] > * {
+  [data-ck-behavior='stagger'][data-ck-mounted]:not([data-ck-timeline]) > * {
     transition-delay: calc(var(--ck-i, 0) * 80ms);
   }
   [data-ck-behavior='reveal'][data-ck-speed='slow'][data-ck-mounted],

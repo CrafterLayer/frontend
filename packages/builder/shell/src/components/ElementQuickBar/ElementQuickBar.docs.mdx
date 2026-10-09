@@ -67,8 +67,15 @@ popover and control is reused; only the door differs:
 
 - **Kind.** text and rich → text, link → link, image → media, list / item / box → container.
   `quickGroupsForPart(kind, styleSections)` drops the groups that write free attributes
-  (direction, motion, hover preset, the attribute link editor) or named-style markers, and narrows
+  (direction, hover preset, the attribute link editor) or named-style markers, and narrows
   to the part's declared `styleSections`.
+- **Animation (gsap-pixi, 2026-10-08).** Text, container, media and link parts keep the `motion`
+  group, but the model says `motionScope: 'part'`, so the popover shows **Cinematic motion only**
+  (`EngineMotionPicker`, the recipes that fit the kind). `setAttributes` takes exactly
+  `data-ck-timeline` / `data-ck-scrub` and stores them in the part's own `partStyles` entry at the
+  bar's scope — ONE `setProp`, labelled `Cinematic motion · Hero heading`. A CSS preset or hover
+  effect is refused (`PART_NO_CSS_MOTION`). A customCode element's popover shows the CSS presets
+  THEN Cinematic motion, plus Animated background cards on a `div` or sectioning container.
 - **Style writes.** `apply()` runs `planPartStyle` (the style engine in **tokens** mode, the law a
   block's `className` keeps) into the block's `partStyles` prop at the bar's bucket, state and
   scope (`all`, or `this` for one instance of a repeated part) — ONE `dispatchGroup`, one Undo. A

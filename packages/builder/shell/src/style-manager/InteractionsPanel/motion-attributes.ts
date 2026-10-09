@@ -15,18 +15,37 @@ export function triggerOf(attributes: MotionAttributes): CustomCodeMotionTrigger
     : 'view';
 }
 
-/** Whether a motion or hover preset is set, which is what makes the params valid. */
+/**
+ * The timeline-recipe attributes (media-motion vocabulary). They live outside
+ * CUSTOM_CODE_MOTION_ATTRIBUTES, so they are named here: an element animated
+ * only by a recipe must still count as animated and still be clearable.
+ */
+const TIMELINE_ATTRIBUTES = ['data-ck-timeline', 'data-ck-scrub'] as const;
+
+/**
+ * Whether a motion preset, hover preset or timeline recipe is set — what makes
+ * the params valid and Preview / Remove usable. 2026-10-08: an element with only
+ * `data-ck-timeline` could not be previewed (the owner "can't use" the motion).
+ */
 export function hasAnimation(attributes: MotionAttributes): boolean {
-  return attributes['data-ck-motion'] !== undefined || attributes['data-ck-hover'] !== undefined;
+  return (
+    attributes['data-ck-motion'] !== undefined ||
+    attributes['data-ck-hover'] !== undefined ||
+    attributes['data-ck-timeline'] !== undefined
+  );
 }
 
 /**
- * The patch that clears every motion attribute. `data-ck-speed` is shared
- * with behaviours (marquee, count-up), so it stays when one is set.
+ * The patch that clears every motion attribute, timeline recipes included.
+ * `data-ck-speed` is shared with behaviours (marquee, count-up), so it stays
+ * when one is set.
  */
 export function clearMotionPatch(attributes: MotionAttributes): AttributePatch {
   const patch: AttributePatch = {};
   for (const name of CUSTOM_CODE_MOTION_ATTRIBUTES) {
+    if (attributes[name] !== undefined) patch[name] = null;
+  }
+  for (const name of TIMELINE_ATTRIBUTES) {
     if (attributes[name] !== undefined) patch[name] = null;
   }
   if (attributes['data-ck-speed'] !== undefined && attributes['data-ck-behavior'] === undefined) {

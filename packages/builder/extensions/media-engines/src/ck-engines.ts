@@ -24,6 +24,13 @@ export interface CkEngineContext {
   onPlay(cb: () => void): void;
   /** The pack forwards `data-ck-play` being removed. */
   onStop(cb: () => void): void;
+  // gsap-pixi additions (2026-10-08)
+  /**
+   * The editor canvas: the scene RUNS there (`still` is false) but never captures pointer
+   * input. Absent/false: a published page or Preview.
+   */
+  canvas?: boolean;
+  // end gsap-pixi additions
 }
 
 export interface CkEngine {

@@ -339,6 +339,30 @@ describe('normalizeAiPlanTrees — one setProp per prop', () => {
     expect(result.adjustments).toContain('split css into its own setProp');
   });
 
+  it('lifts attributes a patchTreeNode wrote inside set to beside it', () => {
+    const result = normalizeAiPlanTrees({
+      rationale: 'motion',
+      commands: [
+        {
+          command: 'patchTreeNode',
+          args: { id: 'r1', path: [0], set: { className: 'py-16', attributes: { 'data-ck-behavior': 'reveal' } } },
+        },
+        { command: 'patchTreeNode', args: { id: 'r2', path: [0], set: { attributes: { id: 'menu' } } } },
+      ],
+    });
+    expect(result.plan).toEqual({
+      rationale: 'motion',
+      commands: [
+        {
+          command: 'patchTreeNode',
+          args: { id: 'r1', path: [0], set: { className: 'py-16' }, attributes: { 'data-ck-behavior': 'reveal' } },
+        },
+        { command: 'patchTreeNode', args: { id: 'r2', path: [0], attributes: { id: 'menu' } } },
+      ],
+    });
+    expect(result.adjustments).toContain('lifted set.attributes beside set');
+  });
+
   it('leaves a setProp that is already one prop untouched', () => {
     const plan = {
       rationale: 'r',

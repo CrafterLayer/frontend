@@ -9,6 +9,17 @@ import {
 } from '@craftkit/builder-schema';
 
 import type { FieldControlProps } from '../controls/field-control-props';
+// gsap-pixi additions (2026-10-08)
+import {
+  ENGINE_MOTION_PICKER_LABELS_AR,
+  ENGINE_MOTION_PICKER_LABELS_EN,
+  EngineMotionPicker,
+  engineMotionOfSpec,
+  engineRecipesFor,
+  specWithEngineMotion,
+} from '../../style-manager/controls/EngineMotionPicker';
+import { useFieldServices } from '../field-services-context';
+// ── end gsap-pixi additions ──
 
 import './MotionField.css';
 
@@ -76,6 +87,8 @@ export function MotionField({
 }: FieldControlProps) {
   const spec: MotionSpec = typeof value === 'object' && value !== null ? value : {};
   const base = controlId ?? 'motion';
+  // gsap-pixi additions (2026-10-08): the editor's language for the engine rows.
+  const { locale } = useFieldServices();
 
   /*
     A key set to undefined is REMOVED rather than stored as undefined. The
@@ -88,13 +101,35 @@ export function MotionField({
     mutating an object mid-construction.
   */
   const update = (key: keyof MotionSpec, next: string | boolean | undefined): void => {
-    const kept = Object.entries(spec).filter(([entryKey]) => entryKey !== key);
+    // gsap-pixi additions (2026-10-08): an entry effect and a Cinematic motion
+    // recipe never drive one section — choosing the effect takes the recipe off.
+    const recipeOff = key === 'reveal' && next !== undefined;
+    const kept = Object.entries(spec).filter(
+      ([entryKey]) => entryKey !== key && !(recipeOff && (entryKey === 'timeline' || entryKey === 'scrub')),
+    );
     const draft = Object.fromEntries(next === undefined ? kept : [...kept, [key, next]]);
     onChange(draft);
   };
 
   return (
     <fieldset className="bldr-motion-field" disabled={disabled} aria-labelledby={labelledBy}>
+      {/* ── gsap-pixi additions (2026-10-08): the engine rows — Cinematic motion
+          (a recipe replaces "On entry") and an Animated background behind the
+          section's content. One onChange = one transaction of the whole spec. ── */}
+      <div className="bldr-motion-field__row" data-bldr-engine-motion="">
+        <EngineMotionPicker
+          value={engineMotionOfSpec(spec)}
+          recipes={engineRecipesFor('container')}
+          scenes
+          dir={locale === 'ar' ? 'rtl' : 'ltr'}
+          disabled={disabled}
+          labels={locale === 'ar' ? ENGINE_MOTION_PICKER_LABELS_AR : ENGINE_MOTION_PICKER_LABELS_EN}
+          onChange={(next) => {
+            onChange(specWithEngineMotion(spec, next));
+          }}
+        />
+      </div>
+      {/* ── end gsap-pixi additions ── */}
       <MotionRow
         id={`${base}-reveal`}
         label="On entry"

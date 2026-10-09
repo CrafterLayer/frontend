@@ -746,8 +746,11 @@ export {
   isEditorLocale,
   latinDigitsLocale,
   localBlockName,
+  localHistoryLabel,
   logicalArrowKey,
   resolveChromeDir,
+  schemaName,
+  schemaOption,
   type EditorCanvasLabels,
   type EditorCatalogue,
   type EditorDirection,
@@ -790,3 +793,33 @@ export {
   type BlockPropertyKind,
 } from '@craftkit/builder-schema';
 // ── /block-parts ──
+// script-wiring additions (2026-10-08): code mode (agent-script DESIGN §A.9/§A.13) — what a host
+// needs to hand a run its site and read its script reports. The rest arrives via `export *` above.
+export {
+  SCRIPT_TOOL_NAME,
+  scriptCrossPage,
+  type AiAgentScriptSite,
+  type AiPlanSite,
+  type ScriptCrossPage,
+  type ScriptPage,
+  type ScriptRunReport,
+  type ScriptSite,
+} from '@craftkit/builder-ai';
+// end script-wiring additions
+// library-playground additions (2026-10-08): the Library's template cards (agent-script DESIGN §B.5)
+// — the catalog the host passes as `templateCards`, and the shell card that renders it. The page-kit
+// helpers (`readPageKit`, `writePageKit`) and `PHOTO_CATALOG` arrive via `export *` from builder-ai.
+export {
+  marketingTemplateCatalog,
+  type MarketingTemplateCard,
+} from '@craftkit/builder-blocks-marketing';
+export {
+  TEMPLATE_CARD_LABELS_AR,
+  TEMPLATE_CARD_LABELS_EN,
+  TemplateCard,
+  type LibraryPageKit,
+  type TemplateCardInfo,
+  type TemplateCardLabels,
+  type TemplateCardProps,
+} from '@craftkit/builder-shell';
+// end library-playground additions

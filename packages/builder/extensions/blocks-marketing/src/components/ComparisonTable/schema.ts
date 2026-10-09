@@ -69,6 +69,13 @@ export const comparisonTableSchema = defineBlockSchema({
     showActions: z.boolean().default(true),
     emptyValue: z.string().max(20).default('—'),
     scrollLabel: z.string().min(1).max(80).default('Scrollable plan comparison'),
+    /*
+      What a check or a cross says to a screen reader (blocks-polish
+      2026-10-08). A ✓ cell used to be read as "check mark" or nothing; the
+      table and the phone cards now pair each glyph with these words.
+    */
+    includedLabel: z.string().min(1).max(40).default('Included'),
+    excludedLabel: z.string().min(1).max(40).default('Not included'),
     note: z.string().min(1).max(200).optional(),
     variant: z.enum(comparisonTableVariants).default('boxed'),
     align: z.enum(sectionAlignments).default('start'),
@@ -91,6 +98,8 @@ export const comparisonTableSchema = defineBlockSchema({
     showActions: { tab: 'content', section: 'Plans' },
     emptyValue: { tab: 'content', section: 'Rows' },
     scrollLabel: { tab: 'advanced', section: 'Accessibility' },
+    includedLabel: { tab: 'advanced', section: 'Accessibility' },
+    excludedLabel: { tab: 'advanced', section: 'Accessibility' },
     note: { tab: 'content', section: 'Footnote', kind: 'multiline' },
     variant: { tab: 'design', section: 'Layout' },
     align: { tab: 'design', section: 'Alignment' },

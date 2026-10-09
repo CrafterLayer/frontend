@@ -237,6 +237,9 @@ import { useCanvasLink } from './use-canvas-link';
 import { useLiveStatus, type LiveStatus } from './use-live-status';
 import { usePromptEnhancer, type PromptEnhancerHandle } from './use-prompt-enhancer';
 import { runViewTransition } from './use-view-transition';
+// script-wiring additions
+import { agentScriptSiteFor, scriptRunLine } from '../model/script-site';
+// end script-wiring additions
 
 /* ── The host's props ────────────────────────────────────────────────────────── */
 
@@ -713,6 +716,25 @@ function editModelOptions(flow: Flow): Pick<RunAiAgentOptions, 'editModel' | 'ed
   };
 }
 
+// script-wiring additions
+/**
+ * Code mode for an edit (agent-script DESIGN §A.9, §A.13): the site this page belongs to,
+ * so a script may write every page in ONE transaction (one Undo), and — in dev — one
+ * console line per script run. A page that is no lens of the app's site gets no site; its
+ * scripts edit this page only.
+ */
+function scriptRunOptions(kernel: BuilderKernel): Pick<RunAiAgentOptions, 'site' | 'onScriptRun'> {
+  const site = agentScriptSiteFor(kernel);
+  const onScriptRun: NonNullable<RunAiAgentOptions['onScriptRun']> = (report) => {
+    console.info(scriptRunLine(report));
+  };
+  return {
+    ...(site === undefined ? {} : { site }),
+    ...(import.meta.env['DEV'] === true ? { onScriptRun } : {}),
+  };
+}
+// end script-wiring additions
+
 /** A ChangeLines naming in the panel's locale, from the registry's own names. */
 function namingFor(flow: Flow, kernel: BuilderKernel) {
   const { locale } = flow.env().options;
@@ -1157,6 +1179,9 @@ async function runEdit(
       ...base,
       provider: recording.provider,
       ...editModelOptions(flow),
+      // script-wiring additions
+      ...scriptRunOptions(kernel),
+      // end script-wiring additions
       // The route this request was sent on: the engine does not read the words twice.
       ...(route === undefined ? {} : { intent: route }),
       apply,

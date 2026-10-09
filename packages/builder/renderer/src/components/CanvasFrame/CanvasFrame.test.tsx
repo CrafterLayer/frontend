@@ -1,6 +1,20 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// gsap-pixi additions (2026-10-08): the frame mounts the document engines through this seam.
+const engines = vi.hoisted(() => ({
+  calls: [] as { root: Element; interactive: boolean }[],
+  dispose: [] as ReturnType<typeof vi.fn>[],
+}));
+vi.mock('../../engines/document-engines', () => ({
+  mountDocumentEngines: (root: Element, options: { interactive: boolean }) => {
+    engines.calls.push({ root, interactive: options.interactive });
+    const dispose = vi.fn();
+    engines.dispose.push(dispose);
+    return dispose;
+  },
+}));
 
 import { TEXT_BIDI_CANVAS_CSS } from '../../bidi';
 import { darkTheme, lightTheme } from '../../themes';
@@ -161,4 +175,43 @@ describe('CanvasFrame', () => {
     });
   });
   // ── /block-parts ──
+
+  // gsap-pixi additions (2026-10-08)
+  it('mounts the document engines on the frame body only when asked, keyed on the mode', async () => {
+    engines.calls.length = 0;
+    engines.dispose.length = 0;
+    const tree = (siteEngines?: { interactive: boolean }) => (
+      <CanvasFrame theme={lightTheme} dir="rtl" siteEngines={siteEngines}>
+        <section data-ck-scene="particles">
+          <h2>مرحبا</h2>
+        </section>
+      </CanvasFrame>
+    );
+    const view = render(tree());
+    await waitFor(() => {
+      expect(frameDocumentOf('Preview').body.textContent).toContain('مرحبا');
+    });
+    expect(engines.calls).toEqual([]);
+
+    view.rerender(tree({ interactive: false }));
+    await waitFor(() => {
+      expect(engines.calls).toHaveLength(1);
+    });
+    expect(engines.calls[0]?.root).toBe(frameDocumentOf('Preview').body);
+    expect(engines.calls[0]?.interactive).toBe(false);
+
+    // A fresh object with the same mode never re-mounts.
+    view.rerender(tree({ interactive: false }));
+    expect(engines.calls).toHaveLength(1);
+
+    view.rerender(tree({ interactive: true }));
+    await waitFor(() => {
+      expect(engines.calls).toHaveLength(2);
+    });
+    expect(engines.dispose[0]).toHaveBeenCalledTimes(1);
+    expect(engines.calls[1]?.interactive).toBe(true);
+
+    view.unmount();
+    expect(engines.dispose[1]).toHaveBeenCalledTimes(1);
+  });
 });

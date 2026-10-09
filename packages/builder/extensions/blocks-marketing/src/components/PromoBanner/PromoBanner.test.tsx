@@ -188,3 +188,36 @@ describe('PromoBanner', () => {
     }
   });
 });
+
+// blocks-polish additions (2026-10-08)
+describe('PromoBanner alignment and slabs', () => {
+  function renderPromo(props: Record<string, unknown>) {
+    return render(
+      <PromoBanner
+        node={node}
+        props={promoBannerSchema.props.parse({ headline: 'Ready when it matters', ...props })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+  }
+
+  it('centres the paragraph box under a centred headline, not only its text', () => {
+    const { container } = renderPromo({ align: 'center', body: 'Every part stays editable.' });
+    const column = container.querySelector('[data-promo-copy-column]');
+    expect(column).toHaveClass('items-center');
+    expect(screen.getByText('Every part stays editable.').parentElement).toBe(column);
+  });
+
+  it('keeps a start-aligned banner at the start', () => {
+    const { container } = renderPromo({ align: 'start', label: 'New' });
+    expect(container.querySelector('[data-promo-copy-column]')).toHaveClass('items-start');
+    expect(screen.getByText('New')).not.toHaveClass('self-start');
+  });
+
+  it('marks the inverse panel as a slab that stays dark in a dark theme', () => {
+    const { container } = renderPromo({ panelStyle: 'inverse' });
+    expect(container.querySelector('.bg-surface-inverse')).toHaveClass('mkt-slab');
+  });
+});

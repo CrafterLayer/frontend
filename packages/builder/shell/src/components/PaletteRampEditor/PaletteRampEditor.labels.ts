@@ -1,5 +1,7 @@
 export interface PaletteRampEditorLabels {
   readonly title: string;
+  /** The colour name the field opens with. */
+  readonly defaultName: string;
   readonly name: string;
   readonly color: string;
   readonly picker: string;
@@ -22,6 +24,7 @@ export interface PaletteRampEditorLabels {
 
 export const PALETTE_RAMP_EDITOR_LABELS_EN: PaletteRampEditorLabels = {
   title: 'Generate shades',
+  defaultName: 'Brand',
   name: 'Colour name',
   color: 'Brand colour',
   picker: 'Pick the brand colour',
@@ -42,6 +45,7 @@ export const PALETTE_RAMP_EDITOR_LABELS_EN: PaletteRampEditorLabels = {
 
 export const PALETTE_RAMP_EDITOR_LABELS_AR: PaletteRampEditorLabels = {
   title: 'توليد درجات اللون',
+  defaultName: 'العلامة',
   name: 'اسم اللون',
   color: 'لون العلامة',
   picker: 'اختر لون العلامة',

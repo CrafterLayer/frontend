@@ -25,7 +25,7 @@ const PANEL_CLASSES: Record<FormSectionProps['variant'], string> = {
 
 const COPY_CLASSES: Record<FormSectionProps['variant'], string> = {
   split:
-    'flex min-w-0 flex-col justify-between gap-gap-lg bg-surface-inverse p-6 text-text-inverse @md:p-8 @lg:col-span-2 @lg:p-10',
+    'flex min-w-0 flex-col justify-between gap-gap-lg bg-surface-inverse p-6 text-text-inverse @md:p-8 @lg:col-span-2 @lg:p-10 mkt-slab',
   card: 'flex min-w-0 flex-col gap-gap-sm',
   minimal: 'flex min-w-0 flex-col gap-gap-sm',
 };

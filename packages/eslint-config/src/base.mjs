@@ -16,6 +16,8 @@ export const baseConfig = typescript.config(
       '**/dist/**',
       '**/node_modules/**',
       '**/playwright-report/**',
+      // The remember plugin's scratch folder (gitignored by its own .gitignore).
+      '**/.remember/**',
       '**/storybook-static/**',
       '**/test-results/**',
       '.agents/**',

@@ -3,14 +3,15 @@ import * as Tabs from '@radix-ui/react-tabs';
 
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { PaletteEntry } from '@craftkit/builder-renderer';
-import type {
-  CustomCodePath,
-  NamedStyle,
-  NodeId,
-  SiteLibrary,
-  StyleBucket,
-  StyleSectorId,
-  StyleState,
+import {
+  isHostedScene, // gsap-pixi additions (2026-10-08)
+  type CustomCodePath,
+  type NamedStyle,
+  type NodeId,
+  type SiteLibrary,
+  type StyleBucket,
+  type StyleSectorId,
+  type StyleState,
 } from '@craftkit/builder-schema';
 
 import {
@@ -31,11 +32,22 @@ import {
   INTERACTIONS_PANEL_LABELS_EN,
   InteractionsPanel,
 } from '../../style-manager/InteractionsPanel';
+// gsap-pixi additions (2026-10-08)
+import {
+  ENGINE_MOTION_PICKER_LABELS_AR,
+  ENGINE_MOTION_PICKER_LABELS_EN,
+  EngineMotionPicker,
+  engineMotionAttributePatch,
+  engineMotionOfAttributes,
+  isSceneHostTag,
+} from '../../style-manager/controls/EngineMotionPicker';
+// ── end gsap-pixi additions ──
 import { styleTransactionLabel } from '../../style-manager/style-source';
 import { STYLE_PANEL_LABELS_AR, STYLE_PANEL_LABELS_EN, StylePanel } from '../../style-manager/StylePanel';
 import { treeElementSource } from '../../style-manager/tree-element-source';
 import { patchTreeTargets, type TreeTarget, type TreeWriteOptions } from '../../style-manager/tree-writes';
 import { findCanvasElement, useForcedStatePreview } from '../../style-manager/use-forced-state-preview';
+import { COLOR_ROLE_NAMES_AR } from '../DesignSystemPanel/DesignSystemPanel.labels';
 import { INSPECTOR_ELEMENT_LABELS_AR, INSPECTOR_ELEMENT_LABELS_EN } from './element-panel.labels';
 import {
   ELEMENT_TABS,
@@ -167,8 +179,14 @@ export function InspectorElementPanel({
     [kernel, targets, writeOptions, words, labels],
   );
   const tokens = useMemo<ColorSwatch[]>(
-    () => palette.map((entry) => ({ id: roleToken(entry.role), name: entry.name, css: entry.value })),
-    [palette],
+    () =>
+      palette.map((entry) => ({
+        id: roleToken(entry.role),
+        // The colour popover speaks the editor's language (walk 2026-10-08).
+        name: locale === 'ar' ? COLOR_ROLE_NAMES_AR[entry.role] : entry.name,
+        css: entry.value,
+      })),
+    [palette, locale],
   );
   const libraryPalette = useMemo<ColorSwatch[]>(
     () =>
@@ -301,6 +319,33 @@ export function InspectorElementPanel({
           ) : (
             <p className="bldr-inspector__element-note">{labels.iconNoInteractions}</p>
           )}
+          {/* ── gsap-pixi additions (2026-10-08): an Animated background behind a
+              container's own content (div or a sectioning element), one attribute
+              patch through the same door as the panel above. An image-scene layer
+              keeps its own picker (Code tab). ── */}
+          {element.kind === 'element' &&
+          isSceneHostTag(element.tag) &&
+          (element.attributes?.['data-ck-scene'] === undefined || isHostedScene(element.attributes['data-ck-scene'])) ? (
+            <section className="bldr-inspector__element-scene" data-bldr-scene-section="">
+              <EngineMotionPicker
+                value={engineMotionOfAttributes(element.attributes)}
+                recipes={[]}
+                scenes
+                dir={uiDir}
+                labels={locale === 'ar' ? ENGINE_MOTION_PICKER_LABELS_AR : ENGINE_MOTION_PICKER_LABELS_EN}
+                onChange={(next, what) => {
+                  const result = patchTreeTargets(
+                    kernel,
+                    [{ target, patch: { attributes: engineMotionAttributePatch(element.attributes, next) } }],
+                    styleTransactionLabel(what, name),
+                    writeOptions,
+                  );
+                  if (!result.ok) announce(result.message);
+                }}
+              />
+            </section>
+          ) : null}
+          {/* ── end gsap-pixi additions ── */}
         </Tabs.Content>
 
         <Tabs.Content value="code" className="bldr-inspector__element-panel">

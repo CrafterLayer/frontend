@@ -36,10 +36,17 @@ import type {
  *
  * - Reduced motion: nothing at all — no queue, no request. The fallback markup
  *   (the scene's first img, the Lottie poster) stays.
- * - Canvas (`interactive: false`): `ctx.still` is true, and a MutationObserver
- *   on `data-ck-play` forwards Preview to the engine's `ctx.onPlay` /
- *   `ctx.onStop` callbacks.
- * - Idempotent: a handled element carries `data-ck-engine-mounted`.
+ * - Canvas (`interactive: false`): `ctx` is `{ still: false, canvas: true }` —
+ *   the engines RUN while editing but never restructure React's DOM nor take
+ *   pointer input (gsap-pixi 2026-10-08) — and a MutationObserver on
+ *   `data-ck-play` forwards Preview to the engine's `ctx.onPlay` / `ctx.onStop`
+ *   callbacks. Published / Preview: `{ still: false, canvas: false }`.
+ * - One element may carry several markers (a section with a scene AND a
+ *   timeline): each (kind, element) pair mounts once.
+ * - `self: true` handles only `root` itself, never its descendants (the
+ *   document engines mount registered blocks one element at a time).
+ * - Idempotent: a handled element carries `data-ck-engine-mounted`, whose value
+ *   lists the kinds mounted on it (`"scene timeline"`).
  * - Dispose calls each entry's disposer and removes this mount's entries from
  *   the queue, so a late `ready` never mounts them.
  *
@@ -53,7 +60,7 @@ import type {
  */
 export function mountEngines(
   root: ParentNode,
-  options?: { readonly interactive?: boolean },
+  options?: { readonly interactive?: boolean; readonly self?: boolean },
 ): () => void {
   function ensureCkEngines(win: CkEnginesHost): CkEngines {
     const existing = win.ckEngines as Partial<CkEngines> | undefined;
@@ -105,7 +112,9 @@ export function mountEngines(
   if (reduced) return function noop() {
       // Reduced motion: no engine, the fallback markup stays.
     };
-  const still = options?.interactive === false;
+  /* The canvas RUNS the engines (gsap-pixi 2026-10-08): `still` stays false, `canvas` says where. */
+  const canvas = options?.interactive === false;
+  const self = options?.self === true;
   const MARK = 'data-ck-engine-mounted';
   const KINDS: readonly (readonly [CkEngineKind, string])[] = [
     ['scene', 'data-ck-scene'],
@@ -113,15 +122,22 @@ export function mountEngines(
     ['lottie', 'data-ck-lottie'],
   ];
 
+  /* The kinds already mounted on an element: the MARK value is a space-separated list. */
+  function marksOf(el: Element): string[] {
+    return (el.getAttribute(MARK) ?? '').split(' ').filter(function named(token: string) {
+      return token !== '';
+    });
+  }
+
   const found: { kind: CkEngineKind; el: HTMLElement }[] = [];
   for (const [kind, attribute] of KINDS) {
     const selector = `[${attribute}]`;
     const els: Element[] = [];
     if ((root as Node).nodeType === 1 && (root as Element).matches(selector)) els.push(root as Element);
-    els.push(...Array.from(root.querySelectorAll(selector)));
+    if (!self) els.push(...Array.from(root.querySelectorAll(selector)));
     for (const el of els) {
-      if (el.hasAttribute(MARK) || el.closest('[data-ck-clone]') !== null) continue;
-      if (found.some((item) => item.el === el)) continue;
+      if (marksOf(el).includes(kind) || el.closest('[data-ck-clone]') !== null) continue;
+      if (found.some((item) => item.el === el && item.kind === kind)) continue;
       found.push({ kind, el: el as HTMLElement });
     }
   }
@@ -160,7 +176,8 @@ export function mountEngines(
     const play: (() => void)[] = [];
     const stop: (() => void)[] = [];
     const ctx: CkEngineContext = {
-      still,
+      still: false,
+      canvas,
       rtl: isRtl(el),
       lang: langOf(el),
       onPlay: function onPlay(cb: () => void): void {
@@ -171,8 +188,9 @@ export function mountEngines(
       },
     };
     const entry: CkEngineQueueEntry = { kind, el, ctx };
-    const marked = !el.hasAttribute(MARK);
-    if (marked) el.setAttribute(MARK, '');
+    const marks = marksOf(el);
+    const marked = !marks.includes(kind);
+    if (marked) el.setAttribute(MARK, marks.concat([kind]).join(' '));
     own.push({ entry, play, stop, marked });
     const engine = api.engines[kind];
     if (engine) {
@@ -195,8 +213,12 @@ export function mountEngines(
     }
   }
 
-  /* Canvas Preview: data-ck-play on the marker (or an ancestor) plays; removing it stops. */
-  if (still) {
+  /*
+    Canvas Preview: data-ck-play on the marker (or an ancestor) plays; removing it stops. The
+    pack never builds a still context any more (the canvas runs), so `canvas` alone wires it.
+    With `self` the root is the marker, so its ancestors are watched through the whole document.
+  */
+  if (canvas) {
     const Mutation = (view as unknown as { MutationObserver?: typeof MutationObserver }).MutationObserver;
     if (typeof Mutation === 'function') {
       const watcher = new Mutation(function previewed(records: MutationRecord[]) {
@@ -215,7 +237,11 @@ export function mountEngines(
           }
         }
       });
-      watcher.observe(root, { subtree: true, attributes: true, attributeFilter: ['data-ck-play'] });
+      watcher.observe(self ? page.documentElement : root, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-ck-play'],
+      });
       cleanups.push(function unwatch() {
         watcher.disconnect();
       });
@@ -317,7 +343,14 @@ export function mountEngines(
           // An engine that fails to dispose leaves its element as it is.
         }
       }
-      if (item.marked && item.entry.el.getAttribute(MARK) === '') item.entry.el.removeAttribute(MARK);
+      if (item.marked) {
+        const kind = item.entry.kind;
+        const rest = marksOf(item.entry.el).filter(function other(token: string) {
+          return token !== kind;
+        });
+        if (rest.length === 0) item.entry.el.removeAttribute(MARK);
+        else item.entry.el.setAttribute(MARK, rest.join(' '));
+      }
     }
     own.length = 0;
   };
@@ -326,10 +359,12 @@ export function mountEngines(
 /**
  * The fallback imgs inside a scene or a Lottie element are the no-JS and
  * reduced-motion view; they are hidden only once the engine has drawn
- * (`data-ck-ready`), so a failed load leaves them visible.
+ * (`data-ck-ready`), so a failed load leaves them visible. A scene HOST (a
+ * section whose content the scene draws behind, `data-ck-scene-host`) keeps its
+ * imgs: they are content, not a fallback (gsap-pixi 2026-10-08).
  */
 export const ENGINES_PACK_CSS = `
-[data-ck-scene][data-ck-ready] > img,
+[data-ck-scene][data-ck-ready]:not([data-ck-scene-host]) > img,
 [data-ck-lottie][data-ck-ready] > img {
   display: none;
 }

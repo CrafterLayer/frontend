@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
@@ -305,6 +305,12 @@ function regionTree(live: BuilderKernel, anchor: string): unknown {
   );
   return id === undefined ? undefined : document.nodes[id]?.props['tree'];
 }
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('runAiBuild — kit-backed writers and the SEO pass', () => {
   it('lands a writer’s single kit.section step as its region, inside the target guard', async () => {

@@ -121,6 +121,14 @@ describe('ScaleNumberControl', () => {
     expect(onCommit).toHaveBeenCalledWith({ kind: 'token', token: 'auto' });
   });
 
+  it('a keyword value reads as the keyword alone, never as an internal "keyword:" option', () => {
+    setup({ kind: 'token', token: 'auto' }, { mode: 'tokens' });
+    const menu = screen.getByRole('combobox', { name: 'Padding unit' });
+    const names = [...menu.querySelectorAll('option')].map((option) => option.textContent);
+    expect(names.some((name) => name.startsWith('keyword:'))).toBe(false);
+    expect(screen.getByRole('option', { name: 'auto' })).toHaveProperty('selected', true);
+  });
+
   it('emptying the field resets the value', async () => {
     const user = userEvent.setup();
     const { onCommit, input } = setup({ kind: 'token', token: '4' });

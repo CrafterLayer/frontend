@@ -219,6 +219,7 @@ describe('BEHAVIOR_CSS — packs', () => {
     expect(BEHAVIOR_CSS).toContain(PACK_CSS);
     expect(BEHAVIOR_CSS.split("[data-ck-behavior='lightbox'] {").length).toBe(2);
     expect(BEHAVIOR_CSS.split("[data-ck-behavior='carousel'] [data-ck-track] > * {").length).toBe(2);
-    expect(BEHAVIOR_CSS).toContain('[data-ck-scene][data-ck-ready] > img');
+    // gsap-pixi (2026-10-08): a scene HOST keeps its content imgs.
+    expect(BEHAVIOR_CSS).toContain('[data-ck-scene][data-ck-ready]:not([data-ck-scene-host]) > img');
   });
 });

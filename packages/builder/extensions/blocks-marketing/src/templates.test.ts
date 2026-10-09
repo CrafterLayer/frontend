@@ -43,21 +43,27 @@ function templateKernel() {
   return kernel;
 }
 
+const ENGLISH_IDS = ['saas-launch', 'creative-agency', 'commerce-launch', 'professional-services'];
+
 describe('professional marketing templates', () => {
-  it('is valid Tier-2 data and exposes four original responsive page compositions', () => {
+  it('is valid Tier-2 data and keeps the four historical English ids, each with an Arabic twin', () => {
     const validation = validateTier2Manifest(marketingTemplates);
     expect(validation.ok).toBe(true);
+    expect(marketingTemplates.version).toBe('2.0.0');
 
-    const compositions = marketingTemplates.contributes?.compositions ?? [];
-    expect(compositions.map((composition) => composition.id)).toEqual([
-      'saas-launch',
-      'creative-agency',
-      'commerce-launch',
-      'professional-services',
-    ]);
-    expect(compositions.every((composition) => Object.keys(composition.nodes).length >= 9)).toBe(
-      true,
+    const ids = (marketingTemplates.contributes?.compositions ?? []).map(
+      (composition) => composition.id,
     );
+    for (const id of ENGLISH_IDS) {
+      expect(ids, id).toContain(id);
+      expect(ids, `${id}-ar`).toContain(`${id}-ar`);
+    }
+    expect(ids.slice(0, 8)).toEqual(ENGLISH_IDS.flatMap((id) => [id, `${id}-ar`]));
+    expect(
+      (marketingTemplates.contributes?.compositions ?? []).every(
+        (composition) => Object.keys(composition.nodes).length >= 20,
+      ),
+    ).toBe(true);
   });
 
   it('inserts every template through one transaction, validates it, and undoes it exactly', () => {
@@ -77,7 +83,7 @@ describe('professional marketing templates', () => {
     }
   });
 
-  it('covers every major marketing job with at least one ready composition', () => {
+  it('frames every page with registered chrome and covers the major marketing jobs', () => {
     const usedTypes = new Set(
       (marketingTemplates.contributes?.compositions ?? []).flatMap((composition) =>
         Object.values(composition.nodes).map((node) => node.type),
@@ -85,12 +91,14 @@ describe('professional marketing templates', () => {
     );
 
     for (const type of [
+      'pageHeader',
+      'navLinks',
+      'pageFooter',
+      'richText',
       'announcementBar',
       'promoBanner',
       'hero',
-      'carousel',
-      'videoSection',
-      'gallery',
+      'image',
       'logoCloud',
       'features',
       'bento-grid',

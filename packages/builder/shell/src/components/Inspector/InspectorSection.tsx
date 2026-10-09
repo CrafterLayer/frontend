@@ -1,5 +1,7 @@
 import { memo, useId } from 'react';
 
+import { useFieldServices } from '../../fields/field-services-context';
+import { schemaName } from '../../i18n/schema-words';
 import { INSPECTOR_ICONS } from './Inspector.icons';
 import { InspectorPropertyPair } from './InspectorPropertyPair';
 import { InspectorPropertyRow } from './InspectorPropertyRow';
@@ -28,6 +30,7 @@ export const InspectorSection = memo(function InspectorSection({
   scope,
 }: InspectorSectionProps) {
   const uid = useId();
+  const locale = useFieldServices().locale ?? 'en';
   const toggleId = `${uid}-toggle`;
   const regionId = `${uid}-region`;
   return (
@@ -46,7 +49,7 @@ export const InspectorSection = memo(function InspectorSection({
           <span className="bldr-inspector__chevron" data-collapsed={expanded ? undefined : 'true'}>
             {INSPECTOR_ICONS.chevron}
           </span>
-          <span>{section.name}</span>
+          <span>{schemaName(section.name, locale)}</span>
         </button>
       </h3>
       <div

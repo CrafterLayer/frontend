@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { stressDocument } from '@craftkit/builder-core/testing';
 import {
   defaultDesignSystem,
+  LATEST_SITE_VERSION,
   type BuilderDocument,
   type BuilderSite,
 } from '@craftkit/builder-schema';
@@ -204,7 +205,7 @@ function markedPage(id: string): BuilderDocument {
 
 function markedSite(): BuilderSite {
   return {
-    siteVersion: 1,
+    siteVersion: LATEST_SITE_VERSION,
     dir: 'ltr',
     pages: MARKED_PAGES.map((id, index) => ({
       id,

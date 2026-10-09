@@ -103,6 +103,24 @@ describe('StyleColorControl', () => {
     expect(onCommit).toHaveBeenCalledWith({ kind: 'raw', css: '#0f766e' });
   });
 
+  it('keeps a typed short prefix as typed until Enter, left to right in the Arabic editor', async () => {
+    const user = userEvent.setup({ delay: null });
+    const onCommit = setup({ kind: 'raw', css: '#000000' }, { dir: 'rtl' });
+    await user.click(screen.getByRole('button', { name: 'Custom colour: Text colour' }));
+    const hex = await screen.findByRole('textbox', { name: 'Hex colour' });
+    expect(hex).toHaveAttribute('dir', 'ltr');
+    await user.clear(hex);
+    // "#e11" is already a colour; it must not come back expanded mid-typing.
+    await user.type(hex, '#e11');
+    expect(hex).toHaveValue('#e11');
+    expect(onCommit).not.toHaveBeenCalled();
+    await user.type(hex, 'd48');
+    expect(hex).toHaveValue('#e11d48');
+    await user.keyboard('{Enter}');
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({ kind: 'raw', css: '#e11d48' });
+  });
+
   it('shows Mixed and labels in Arabic', () => {
     setup(undefined, { mixed: true, labels: STYLE_COLOR_CONTROL_LABELS_AR, label: 'لون النص' });
     expect(screen.getByRole('radiogroup', { name: 'لون النص (مختلطة)' })).toBeInTheDocument();

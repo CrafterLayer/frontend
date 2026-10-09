@@ -81,3 +81,15 @@ export {
   type PricingToggleOptions,
   type WidgetOptions,
 } from './widgets';
+// gsap-pixi additions (2026-10-08): sections that move — the Library's motion presets and the agent's builders.
+export {
+  buildAnimatedHero,
+  buildScrollRevealFeatures,
+  buildScrollRevealSection,
+  type AnimatedHeroOptions,
+  type MotionSectionAction,
+  type MotionSectionCard,
+  type ScrollRevealFeaturesOptions,
+  type ScrollRevealSectionOptions,
+} from './motion-sections';
+// end gsap-pixi additions

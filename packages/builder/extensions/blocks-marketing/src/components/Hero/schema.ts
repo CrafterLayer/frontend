@@ -31,7 +31,7 @@ export const heroSchema = defineBlockSchema({
     align: z.enum(sectionAlignments).default('center'),
     tone: z.enum(sectionTones).default('light'),
     spacing: z.enum(sectionSpacings).default('lg'),
-    width: z.enum(sectionWidths).default('full'),
+    width: z.enum(sectionWidths).default('wide'),
     layoutDirection: z.enum(sectionDirections).optional(),
     layoutJustify: z.enum(sectionAlignments).optional(),
     layoutAlign: z.enum(sectionAlignments).optional(),

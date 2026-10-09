@@ -2,6 +2,7 @@ import type { BuilderKernel, GroupStep } from '@craftkit/builder-core';
 import type { CustomCodeNode, TreeTextMark } from '@craftkit/builder-schema';
 
 import { tryDispatchTreeEdits, type ElementTarget } from '../custom-code/element-target';
+import { isSpaceKey, typeAtCaret } from '../inline/type-space';
 
 /*
   ── Inline text editing for tree elements (style-manager DESIGN.md §E, P7) ──
@@ -173,6 +174,7 @@ export function beginTreeTextEdit(options: TreeTextSessionOptions): TreeTextSess
 
   const detach = () => {
     element.removeEventListener('keydown', onKeyDown);
+    element.removeEventListener('keyup', onKeyUp);
     element.removeEventListener('blur', onBlur);
     doc.removeEventListener('selectionchange', onSelection);
   };
@@ -278,7 +280,18 @@ export function beginTreeTextEdit(options: TreeTextSessionOptions): TreeTextSess
       event.preventDefault();
       exit = 'keyboard';
       session.commit();
+      return;
     }
+    if (isSpaceKey(event)) {
+      // An edited <button> (or <summary>) activates on the Space keyup, and the
+      // canvas reads that click as a press that ends the edit: typed here instead.
+      event.preventDefault();
+      typeAtCaret(element, ' ');
+    }
+  }
+  function onKeyUp(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (isSpaceKey(event)) event.preventDefault();
   }
   function onBlur(): void {
     if (blurSuspended) return;
@@ -292,6 +305,7 @@ export function beginTreeTextEdit(options: TreeTextSessionOptions): TreeTextSess
   element.setAttribute('contenteditable', 'plaintext-only');
   element.setAttribute('data-bldr-inline-editing', '');
   element.addEventListener('keydown', onKeyDown);
+  element.addEventListener('keyup', onKeyUp);
   doc.addEventListener('selectionchange', onSelection);
   element.focus({ preventScroll: true });
   placeCaretAtEnd(element);

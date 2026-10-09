@@ -199,3 +199,43 @@
     transition: none;
   }
 }
+
+/* library-playground additions (2026-10-08): the Templates tab (agent-script DESIGN §B.5). */
+
+/* Five tabs in a narrow panel: the strip scrolls instead of clipping a tab. */
+.bldr-library__tablist {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bldr-library__tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* One card per row in a narrow panel, two or more when the panel is wide. */
+.bldr-library__template-grid {
+  display: grid;
+  gap: var(--bldr-space-md);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12.5rem), 1fr));
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-library__template {
+  display: flex;
+}
+
+.bldr-library__template-group {
+  margin-block-start: var(--bldr-space-xl);
+}
+
+.bldr-library__group-heading {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin-block: var(--bldr-space-0) var(--bldr-space-sm);
+}
+
+/* end library-playground additions */

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createSiteBuilder } from '@craftkit/builder-core';
@@ -99,6 +99,12 @@ function fillPlan(regionId: string): AiPlan {
     commands: [{ command: 'setProp', args: { id: regionId, key: 'tree', value: region('done') } }],
   };
 }
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('runAiBuild on a site kernel page lens', () => {
   it('derives one task per region the scaffold inserted, from site-rooted patches', async () => {

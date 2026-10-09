@@ -10,14 +10,17 @@ Plans side by side from document data; one plan may be highlighted as recommende
 
 ## Props (intent-only)
 
+- `eyebrow?: string (1–40)` — the small line above the heading; unset shows nothing (it used to be
+  a hard-coded English "Plans").
 - `heading: string (1–80) = 'Pricing'`
 - `body?: string (1–200)` — supporting copy below the heading.
 - `plans (≤4): Array<{ name (1–40); price (1–20); period: 'month' | 'year'; features: string[] (≤8, each ≤80); highlighted?: boolean }> = []`
 - `columns: 'auto' | '2' | '3' | '4' = 'auto'`
-- `align: 'start' | 'center' | 'end' = 'start'`
+- `align: 'start' | 'center' | 'end' = 'start'` — aligns the header box itself, not only its text, so a
+  centred heading sits in the middle of the column.
 - `tone: 'transparent' | 'light' | 'dark' = 'transparent'`
 - `spacing: 'none' | 'sm' | 'md' | 'lg' = 'md'`
-- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'full'`
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'wide'` (the column every section shares by default)
 
 ## Accessibility
 

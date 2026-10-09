@@ -35,6 +35,14 @@ export interface CkEngineContext {
   onPlay(cb: () => void): void;
   /** The pack forwards `data-ck-play` being removed. */
   onStop(cb: () => void): void;
+  // gsap-pixi additions (2026-10-08)
+  /**
+   * The editor canvas: RUN (still is false there), but never restructure the DOM React owns
+   * (no pin spacers, no split text) and never capture pointer input. Absent/false: a published
+   * page or Preview.
+   */
+  canvas?: boolean;
+  // end gsap-pixi additions
 }
 
 export interface CkEngine {

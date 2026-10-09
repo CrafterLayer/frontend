@@ -40,6 +40,12 @@ export const STAGE_TOKENS = [
   'stage-veil',
   'stage-ink',
   'stage-danger',
+  // The box-model and layout aids drawn over a selected element: its padding
+  // and margin bands, a snap guide, and the columns of a grid container.
+  'stage-box-padding',
+  'stage-box-margin',
+  'stage-guide',
+  'stage-grid-track',
 ] as const;
 
 export type StageTokenName = (typeof STAGE_TOKENS)[number];
@@ -162,9 +168,12 @@ export function cssVarName(token: ChromeTokenName): string {
  *  - `shell-rail-size` — the same mechanism for the rail: `BuilderShell` writes
  *    the rail band it reserves (zero when there is no rail) so an overlaid
  *    panel opens beside the rail instead of over it.
+ *  - `inspector-head-size` — `InspectorHeader` measures its sticky head and
+ *    writes the height on the panel, so a section header sticks just below it.
  */
 export const RUNTIME_WRITTEN_TOKENS: readonly string[] = [
   'arrow-x',
+  'inspector-head-size',
   'outline-canvas-x',
   'shell-panel-track',
   'shell-aside-track',

@@ -16,11 +16,16 @@ import { sectionTypographyClasses } from '../section-typography';
 
 import { featuresSchema, type FeaturesProps } from './schema';
 
+/*
+  One card a row on a phone (blocks-polish 2026-10-08): two columns from 24rem
+  put a 390px screen at two ~160px cards and one-word lines. Two columns from
+  28rem, three from 48rem, four from 64rem.
+*/
 const COLUMN_CLASSES: Record<FeaturesProps['columns'], string> = {
   '1': 'grid-cols-1',
-  '2': 'grid-cols-1 @sm:grid-cols-2',
-  '3': 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3',
-  '4': 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3 @xl:grid-cols-4',
+  '2': 'grid-cols-1 @md:grid-cols-2',
+  '3': 'grid-cols-1 @md:grid-cols-2 @3xl:grid-cols-3',
+  '4': 'grid-cols-1 @md:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4',
 };
 
 const CARD_CLASSES: Record<FeaturesProps['variant'], string> = {

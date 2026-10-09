@@ -50,7 +50,7 @@
   gap: var(--bldr-space-2xs);
   list-style: none;
   margin: var(--bldr-space-0);
-  max-block-size: 22rem;
+  max-block-size: var(--bldr-measure-list-lg);
   overflow-y: auto;
   padding: var(--bldr-space-0);
 }

@@ -16,6 +16,7 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
+import { balancedColumns } from './balanced-columns';
 import { productGridSchema, type ProductGridProps } from './schema';
 
 const GRID_CLASSES: Record<ProductGridProps['columns'], string> = {
@@ -57,6 +58,10 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
   const part = blockPartProps({ node, props, isCanvas }, productGridSchema.parts);
   const explicitlyFeatured = props.products.findIndex((product) => product.featured === true);
   const featuredIndex = explicitlyFeatured < 0 ? 0 : explicitlyFeatured;
+  const featuredLayout = props.variant === 'featured' && props.products.length > 1;
+  const columns = featuredLayout
+    ? balancedColumns(props.columns, props.products.length - 1)
+    : props.columns;
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
   const colorStyle = sectionColorStyle(props);
   const spacingStyle = sectionSpacingStyle(props);
@@ -148,7 +153,7 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
             {...part('products', {
               className: cx(
                 'm-0 grid w-full list-none p-0',
-                GRID_CLASSES[props.columns],
+                GRID_CLASSES[columns],
                 GAP_CLASSES.md,
               ),
             })}
@@ -156,6 +161,7 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
           >
             {props.products.map((product, index) => {
               const isFeatured = props.variant === 'featured' && index === featuredIndex;
+              const hasImage = product.imageSrc !== undefined;
               const rating = product.rating;
               const at = [index];
               const nameId = `${node.id}-product-${String(index)}-name`;
@@ -165,16 +171,17 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
                 /* Keyed by position: a bound value may be an inline editor element. */
                 <li
                   key={index}
-                  className={cx('min-w-0', isFeatured ? '@xl:col-span-2' : undefined)}
+                  className={cx('min-w-0', isFeatured ? 'col-span-full' : undefined)}
+                  data-product-span={isFeatured ? 'row' : undefined}
                 >
                   <article
                     {...part('product', {
                       index: at,
                       className: cx(
                         'group relative h-full min-w-0 overflow-hidden rounded-xl border bg-surface text-text shadow-soft transition hover:-translate-y-1 hover:shadow-elevated motion-reduce:transform-none motion-reduce:transition-none',
-                        isFeatured
+                        isFeatured && hasImage
                           ? 'border-accent @lg:grid @lg:grid-cols-2'
-                          : 'flex flex-col border-text/10',
+                          : cx('flex flex-col', isFeatured ? 'border-accent' : 'border-text/10'),
                       ),
                     })}
                     data-product-card={isFeatured ? 'featured' : 'standard'}
@@ -182,12 +189,18 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
                     <div
                       className={cx(
                         'relative grid w-full place-items-center overflow-hidden bg-accent/10 text-accent',
-                        RATIO_CLASSES[props.imageRatio],
-                        isFeatured ? '@lg:aspect-auto @lg:min-h-80' : undefined,
+                        /*
+                          A photo gets its ratio; a missing photo gets a short
+                          band with the monogram, not a full portrait of empty
+                          lavender (audit 2026-10-08: "letter placeholders").
+                        */
+                        hasImage ? RATIO_CLASSES[props.imageRatio] : 'h-24',
+                        isFeatured && hasImage ? '@lg:aspect-auto @lg:h-full @lg:min-h-80' : undefined,
                       )}
+                      data-product-media={hasImage ? 'image' : 'placeholder'}
                     >
                       {product.imageSrc === undefined ? (
-                        <span aria-hidden="true" className="text-4xl font-bold opacity-30">
+                        <span aria-hidden="true" className="text-2xl font-bold opacity-60">
                           {initialOf(product.name)}
                         </span>
                       ) : (
@@ -219,7 +232,7 @@ export function ProductGrid({ node, props, isCanvas }: BlockRenderProps<ProductG
                     <div
                       className={cx(
                         'flex min-w-0 flex-1 flex-col gap-gap-sm p-6',
-                        isFeatured ? '@lg:justify-center @lg:p-8' : undefined,
+                        isFeatured && hasImage ? '@lg:justify-center @lg:p-8' : undefined,
                       )}
                     >
                       <h3

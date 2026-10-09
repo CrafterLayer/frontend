@@ -27,7 +27,9 @@ describe('Testimonials', () => {
       'py-section-md',
       '@container',
     );
-    expect(screen.getByRole('list')).toHaveClass('grid', '@lg:grid-cols-3', 'gap-gap');
+    expect(screen.getByRole('list')).toHaveClass('grid', '@4xl:grid-cols-3', 'gap-gap');
+    /* blocks-polish 2026-10-08: one quote a row on a phone. */
+    expect(screen.getByRole('list')).not.toHaveClass('@sm:grid-cols-2');
     expect(screen.getByRole('figure')).toHaveClass('rounded-xl', 'border', 'bg-surface');
     expect(screen.getByRole('figure')).toHaveTextContent('Boring tests, happy team.');
     expect(screen.getByText(/Rana/)).toBeInTheDocument();
@@ -159,7 +161,7 @@ describe('Testimonials', () => {
       spacing: 'md',
       tone: 'transparent',
       variant: 'cards',
-      width: 'full',
+      width: 'wide', // one shared column by default (blocks-polish 2026-10-08)
     });
     expect(props.body).toBeUndefined();
 

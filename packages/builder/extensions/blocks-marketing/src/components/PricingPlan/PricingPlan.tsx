@@ -52,11 +52,22 @@ export function PricingPlan({ node, props, slots, isCanvas }: BlockRenderProps<P
       {...motionData}
     >
       {featured ? (
-        <span className="absolute end-4 top-4 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
-          Popular
+        <span
+          {...part('badge', {
+            className:
+              'absolute end-4 top-4 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent',
+          })}
+        >
+          {props.badge ?? 'Popular'}
         </span>
       ) : null}
-      <header className="flex min-w-0 flex-col gap-2 pe-16">
+      {/*
+        Start-aligned whatever the section's alignment (blocks-polish
+        2026-10-08): a centred section centred the name while the price row,
+        a flex line, stayed at the start — two axes in one card. The room for
+        the badge is kept only on the card that has one.
+      */}
+      <header className={cx('flex min-w-0 flex-col gap-2 text-start', featured ? 'pe-24' : undefined)}>
         <h3 {...part('name', { className: 'm-0 text-lg font-semibold leading-tight' })}>
           {props.name}
         </h3>
@@ -71,7 +82,9 @@ export function PricingPlan({ node, props, slots, isCanvas }: BlockRenderProps<P
             than competing with it — and it is inside the same paragraph so a
             screen reader reads "twenty-nine dollars per month" as one thought.
           */}
-          <span className="text-sm text-text-muted">{PERIOD_LABEL[props.period]}</span>
+          <span {...part('period', { className: 'text-sm text-text-muted' })}>
+            {props.periodLabel ?? PERIOD_LABEL[props.period]}
+          </span>
         </p>
       </header>
 

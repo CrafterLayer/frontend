@@ -32,11 +32,18 @@ function monogramOf(name: unknown): string {
     .toUpperCase();
 }
 
+/*
+  Never one logo per row (blocks-polish 2026-10-08): six logos stacked into six
+  rows on a phone read as a list, not a cloud. Two columns from the smallest
+  container, three from 32rem (the nearest container step to 480px), and the
+  chosen count once there is room for it. Four logos skip three columns,
+  which would leave one alone on a second row.
+*/
 const COLUMN_CLASSES: Readonly<Record<LogoCloudProps['columns'], string>> = {
-  '3': 'grid-cols-1 @sm:grid-cols-2 @xl:grid-cols-3',
-  '4': 'grid-cols-1 @sm:grid-cols-2 @3xl:grid-cols-4',
-  '5': 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3 @4xl:grid-cols-5',
-  '6': 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3 @5xl:grid-cols-6',
+  '3': 'grid-cols-2 @lg:grid-cols-3',
+  '4': 'grid-cols-2 @3xl:grid-cols-4',
+  '5': 'grid-cols-2 @lg:grid-cols-3 @4xl:grid-cols-5',
+  '6': 'grid-cols-2 @lg:grid-cols-3 @5xl:grid-cols-6',
 };
 
 const ITEM_CLASSES: Readonly<Record<LogoCloudProps['variant'], string>> = {

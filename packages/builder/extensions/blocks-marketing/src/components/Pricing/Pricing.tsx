@@ -44,6 +44,12 @@ const COLUMN_CLASSES: Record<PricingProps['columns'], string> = {
   '4': 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
 };
 
+const HEADER_ALIGN_CLASSES: Record<PricingProps['align'], string> = {
+  start: 'items-start',
+  center: 'mx-auto items-center',
+  end: 'ms-auto items-end',
+};
+
 export function Pricing({ node, props, slots, isCanvas }: BlockRenderProps<PricingProps>) {
   /*
     The accessible name comes from the VISIBLE heading, never a copy of its
@@ -83,8 +89,26 @@ export function Pricing({ node, props, slots, isCanvas }: BlockRenderProps<Prici
           'flex flex-col gap-10',
         )}
       >
-        <header className="flex min-w-0 max-w-content-narrow flex-col gap-3">
-          <p className="m-0 text-xs font-semibold tracking-wide text-accent uppercase">Plans</p>
+        {/*
+          The header box follows the section's alignment as a BOX, not only its
+          text: a centred heading inside a start-aligned narrow box sat centred
+          in a left column (landing pricing, audit 2026-10-08).
+        */}
+        <header
+          className={cx(
+            'flex min-w-0 max-w-content-narrow flex-col gap-3',
+            HEADER_ALIGN_CLASSES[props.align],
+          )}
+        >
+          {props.eyebrow === undefined ? null : (
+            <p
+              {...part('eyebrow', {
+                className: 'm-0 text-xs font-semibold tracking-wide text-accent uppercase',
+              })}
+            >
+              {props.eyebrow}
+            </p>
+          )}
           <h2
             {...part('heading', {
               id: headingId,

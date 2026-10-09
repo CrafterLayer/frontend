@@ -1,6 +1,7 @@
 import type { HistoryEntry } from '@craftkit/builder-core';
 
 import { latinDigitsLocale } from '../../i18n/editor-locale';
+import { localHistoryLabel } from '../../i18n/history-words';
 import type { HistoryListLabels } from './HistoryList.labels';
 
 const UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
@@ -33,5 +34,6 @@ export function entryLabel(entry: HistoryEntry, labels: HistoryListLabels): stri
     const words = entry.label.replace(/([a-z])([A-Z])/gu, '$1 $2').toLowerCase();
     return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
   }
-  return entry.label;
+  // A recorded label ("Edit text · Hero heading") reads in the list's language.
+  return localHistoryLabel(entry.label, labels.locale === 'ar' ? 'ar' : 'en');
 }

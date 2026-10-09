@@ -9,7 +9,8 @@
   ],
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing/index.ts"
+    "./testing": "./src/testing/index.ts",
+    "./script-node": "./src/script/node.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -20,7 +21,9 @@
   "dependencies": {
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",
-    "htmlparser2": "catalog:"
+    "@jitl/quickjs-wasmfile-release-sync": "catalog:",
+    "htmlparser2": "catalog:",
+    "quickjs-emscripten-core": "catalog:"
   },
   "devDependencies": {
     "@craftkit/eslint-config": "workspace:*",

@@ -99,7 +99,10 @@ export function InspectorHeader({
         </p>
         {bucket !== 'base' ? <span className="bldr-inspector__bucket">{labels.bucket(bucket)}</span> : null}
       </div>
-      {within === undefined ? null : (
+      {/* Said only when it adds something: "Icon (sparkles) in Icon" and
+          "Button label · Get started in Get started" repeated the name. */}
+      {within === undefined ||
+      blockName.toLocaleLowerCase().includes(within.regionName.trim().toLocaleLowerCase()) ? null : (
         <p className="bldr-inspector__within">{labels.within(within.regionName)}</p>
       )}
       {selected && bucket !== 'base' ? (

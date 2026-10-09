@@ -9,8 +9,12 @@ import {
 
 import { formatPath, nodesWithPaths, resolveElement, type ElementAddress } from '../style-tools/address';
 import { finish, step } from '../style-tools/finish';
-import { isRecord } from '../tools/agent/shared';
+// gsap-pixi additions (2026-10-08)
+import { parsePartIndex } from '../style-tools/part-address';
+import { isRecord, readTree } from '../tools/agent/shared';
 import { defineAgentTool, type AgentToolContext, type AgentToolParse, type AgentToolRun, type AgentToolStep } from '../tools/agent/types';
+import { runBlockMotion } from './motion-registered';
+// end gsap-pixi additions
 import { mediaLocale } from './resolve-images';
 
 /**
@@ -28,11 +32,16 @@ export interface MotionAddInput {
   readonly id: string;
   readonly find?: string | undefined;
   readonly path?: readonly number[] | undefined;
+  // gsap-pixi additions (2026-10-08): a part of a REGISTERED block (`id` is then the block's node id).
+  readonly part?: string | undefined;
+  readonly index?: readonly number[] | undefined;
+  // end gsap-pixi additions
   readonly recipe: CustomCodeTimelineRecipe;
   readonly scrub?: boolean | undefined;
 }
 
-const KEYS = ['id', 'find', 'path', 'recipe', 'scrub'] as const;
+// gsap-pixi additions (2026-10-08): + part, index
+const KEYS = ['id', 'find', 'path', 'part', 'index', 'recipe', 'scrub'] as const;
 const MAX_DEPTH_LAYERS = 12;
 
 function no(error: string): { readonly ok: false; readonly error: string } {
@@ -61,6 +70,18 @@ function parse(input: unknown): AgentToolParse<MotionAddInput> {
     return no('"path" must be child indices, e.g. [0,1].');
   }
   if (scrub !== undefined && typeof scrub !== 'boolean') return no('"scrub" is true (tied to the scrollbar) or false (plays once).');
+  // gsap-pixi additions (2026-10-08): `part` (+ `index`) names an element of a registered block.
+  const { part } = input;
+  if (part !== undefined && (typeof part !== 'string' || part.trim() === '')) {
+    return no('"part" is a registered block\'s part name, e.g. "heading" or "items".');
+  }
+  if (part !== undefined && (find !== undefined || path !== undefined)) {
+    return no('name the element with "part" (a registered block) or "find"/"path" (a composed region), not both.');
+  }
+  const index = parsePartIndex(input['index']);
+  if (!index.ok) return index;
+  if (index.value !== undefined && part === undefined) return no('"index" picks one instance of a repeated "part": send "part" too.');
+  // end gsap-pixi additions
   return {
     ok: true,
     value: {
@@ -68,6 +89,10 @@ function parse(input: unknown): AgentToolParse<MotionAddInput> {
       recipe: recipe as CustomCodeTimelineRecipe,
       ...(typeof find === 'string' ? { find } : {}),
       ...(path === undefined ? {} : { path: path as number[] }),
+      // gsap-pixi additions (2026-10-08)
+      ...(typeof part === 'string' ? { part: part.trim() } : {}),
+      ...(index.value === undefined ? {} : { index: index.value }),
+      // end gsap-pixi additions
       ...(scrub === undefined ? {} : { scrub }),
     },
   };
@@ -122,6 +147,13 @@ function hasDepth(node: CustomCodeNode): boolean {
 }
 
 function run(input: MotionAddInput, context: AgentToolContext): AgentToolRun {
+  // gsap-pixi additions (2026-10-08): a registered block takes ONE setProp (motion, or partStyles for a part).
+  const block = runBlockMotion(input, context);
+  if (block !== undefined) return block;
+  if (input.part !== undefined && readTree(context, input.id) !== undefined) {
+    return no(`"part" names an element of a registered block; "${input.id}" is a composed region · use "find" (its exact text) or "path".`);
+  }
+  // end gsap-pixi additions
   const address: ElementAddress =
     input.find !== undefined
       ? { id: input.id, find: input.find }
@@ -174,7 +206,8 @@ export const motionAddTool = defineAgentTool<MotionAddInput>({
   name: 'motion.add',
   lanes: ['edit', 'build'],
   summary: 'Cinematic scroll animation on an element',
-  signature: '{id,find?|path?,recipe,scrub?}',
+  // gsap-pixi additions (2026-10-08): `part` (+ `index`) on a registered block; no address = the whole section.
+  signature: '{id,find?|path?|part?,recipe,scrub?}',
   parse,
   run,
 });

@@ -14,6 +14,18 @@
   4. build the scene, draw the first frame, set `data-ck-ready` (CSS hides the
      fallback images only under it), then hand the ticker to the policy.
   Dispose → `app.destroy(true)` (removes the canvas) and removes `data-ck-ready`.
+
+  HOST mode (gsap-pixi 2026-10-08): when the scene element holds content — any
+  element child that is not an `img` (a registered section root, a customCode
+  `section`) — the scene draws BEHIND that content instead of over a fallback:
+  the element gets `data-ck-scene-host`, a `div[data-ck-scene-layer]
+  [aria-hidden=true]` is prepended as its FIRST child (absolute, inset 0,
+  z-index -1, no pointer events, clipped), and the host gets `isolation:
+  isolate` plus `position: relative` when it computes static — inline, and
+  restored on dispose — so the layer sits above the section background and
+  below its content. No texture is loaded from a host (its imgs are content),
+  the app resizes to the layer, and pointer input is read from the host.
+  LAYER mode (a div with only img children) is unchanged.
 */
 
 import type { CkEngine, CkEngineContext } from './ck-engines';
@@ -83,10 +95,98 @@ export interface SceneEngineDeps<TApp extends SceneApp, TTexture> {
 }
 
 export const READY_ATTR = 'data-ck-ready';
+/** Set on a scene element in HOST mode (gsap-pixi 2026-10-08). */
+export const HOST_ATTR = 'data-ck-scene-host';
+/** The runtime layer a hosted scene draws into, the host's first child. */
+export const LAYER_ATTR = 'data-ck-scene-layer';
+const CANVAS_ATTR = 'data-ck-scene-canvas';
 
 const noop = (): void => {
   /* nothing to undo */
 };
+
+/**
+ * HOST mode: the scene element has an element child that is not an `img` (the
+ * engine's own layer and canvas do not count, so a re-mount reads the same).
+ */
+export function isSceneHost(el: Element): boolean {
+  for (const child of Array.from(el.children)) {
+    if (
+      child.localName === 'img' ||
+      child.hasAttribute(LAYER_ATTR) ||
+      child.hasAttribute(CANVAS_ATTR)
+    ) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Prepare a host: the layer as its first child, `isolation: isolate` and (when
+ * it computes static) `position: relative` inline. Returns the layer and the
+ * undo, which restores the host's own inline values exactly.
+ */
+function prepareHost(el: HTMLElement, win: Window): { layer: HTMLElement; restore: () => void } {
+  const doc = el.ownerDocument;
+  const host = el.style;
+  const hadStyle = el.hasAttribute('style');
+  const previous = {
+    isolation: host.getPropertyValue('isolation'),
+    position: host.getPropertyValue('position'),
+  };
+  let computedPosition = '';
+  try {
+    computedPosition = win.getComputedStyle(el).position;
+  } catch {
+    computedPosition = '';
+  }
+  const positioned = computedPosition !== '' && computedPosition !== 'static';
+  el.setAttribute(HOST_ATTR, '');
+  host.setProperty('isolation', 'isolate');
+  if (!positioned) {
+    host.setProperty('position', 'relative');
+  }
+
+  const layer = doc.createElement('div');
+  layer.setAttribute(LAYER_ATTR, '');
+  layer.setAttribute('aria-hidden', 'true');
+  const style = layer.style;
+  style.setProperty('position', 'absolute');
+  style.setProperty('inset', '0');
+  style.setProperty('z-index', '-1');
+  style.setProperty('pointer-events', 'none');
+  style.setProperty('overflow', 'hidden');
+  el.insertBefore(layer, el.firstChild);
+
+  const put = (name: 'isolation' | 'position', value: string) => {
+    if (value === '') {
+      host.removeProperty(name);
+    } else {
+      host.setProperty(name, value);
+    }
+  };
+  let restored = false;
+  return {
+    layer,
+    restore: () => {
+      if (restored) {
+        return;
+      }
+      restored = true;
+      layer.remove();
+      el.removeAttribute(HOST_ATTR);
+      put('isolation', previous.isolation);
+      if (!positioned) {
+        put('position', previous.position);
+      }
+      if (!hadStyle && (el.getAttribute('style') ?? '').trim() === '') {
+        el.removeAttribute('style');
+      }
+    },
+  };
+}
 
 function imageSources(el: HTMLElement): string[] {
   const sources: string[] = [];
@@ -102,7 +202,7 @@ function imageSources(el: HTMLElement): string[] {
 function styleCanvas(canvas: HTMLCanvasElement, interactive: boolean): void {
   canvas.setAttribute('aria-hidden', 'true');
   canvas.setAttribute('role', 'presentation');
-  canvas.setAttribute('data-ck-scene-canvas', '');
+  canvas.setAttribute(CANVAS_ATTR, '');
   const style = canvas.style;
   style.position = 'absolute';
   style.insetBlockStart = '0';
@@ -131,6 +231,9 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
       }
       const scene = deps.scenes[sceneName];
       active.add(el);
+      // gsap-pixi additions (2026-10-08): HOST mode, read once at mount (see the header).
+      const hosted = isSceneHost(el);
+      let restoreHost: () => void = noop;
 
       let disposed = false;
       // Read through a function: TS would otherwise narrow `disposed` to false across the awaits.
@@ -138,9 +241,18 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
       let teardown: () => void = noop;
 
       const run = async () => {
-        const textures = await Promise.all(imageSources(el).map((src) => deps.loadTexture(src)));
+        // A host's imgs are content: no texture is loaded from it.
+        const textures: TTexture[] = hosted
+          ? []
+          : await Promise.all(imageSources(el).map((src) => deps.loadTexture(src)));
         if (isDisposed()) {
           return;
+        }
+        let surface: HTMLElement = el;
+        if (hosted) {
+          const prepared = prepareHost(el, win);
+          surface = prepared.layer;
+          restoreHost = prepared.restore;
         }
 
         const app = deps.createApp();
@@ -160,6 +272,7 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
           teardown = noop;
           destroyApp();
           el.removeAttribute(READY_ATTR);
+          restoreHost();
           active.delete(el);
         };
         await app.init({
@@ -168,7 +281,7 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
           autoDensity: true,
           resolution: sceneResolution(win),
           preference: 'webgl',
-          resizeTo: el,
+          resizeTo: surface,
           autoStart: false,
           sharedTicker: false,
         });
@@ -178,12 +291,14 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
         }
 
         const canvas = app.canvas;
-        styleCanvas(canvas, sceneName === 'ripple' && !ctx.still);
-        el.appendChild(canvas);
+        // Only a live ripple on a published page takes pointer input; the editor canvas never does.
+        styleCanvas(canvas, sceneName === 'ripple' && !ctx.still && ctx.canvas !== true);
+        surface.appendChild(canvas);
 
         const density = readDensity(el);
         const sceneDispose = scene(app, el, {
           still: ctx.still,
+          ...(ctx.canvas === undefined ? {} : { canvas: ctx.canvas }),
           rtl: ctx.rtl,
           lang: ctx.lang,
           onPlay: (cb) => {
@@ -197,7 +312,7 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
           density,
           count: densityCount(density, win),
           sign: rtlSign(ctx),
-          pointerHost: el.parentElement ?? el,
+          pointerHost: hosted ? el : (el.parentElement ?? el),
           win,
         });
 
@@ -228,6 +343,7 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
           } finally {
             destroyApp();
             el.removeAttribute(READY_ATTR);
+            restoreHost();
             active.delete(el);
           }
         };
@@ -241,20 +357,22 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
           resizeObserver = new RO(() => {
             app.resize?.();
           });
-          resizeObserver.observe(el);
+          resizeObserver.observe(surface);
         }
         el.setAttribute(READY_ATTR, '');
       };
 
       run().catch(() => {
-        // Texture CORS/404, no renderer, a scene error: the fallback image stays.
+        // Texture CORS/404, no renderer, a scene error: the fallback image stays (a host is restored).
         teardown();
+        restoreHost();
         active.delete(el);
       });
 
       return () => {
         disposed = true;
         teardown();
+        restoreHost();
         active.delete(el);
       };
     },

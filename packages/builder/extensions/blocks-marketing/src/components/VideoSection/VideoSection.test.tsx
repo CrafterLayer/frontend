@@ -251,3 +251,34 @@ describe('VideoSection', () => {
     expect(videoSectionExamples.some(({ prompt }) => /[a-z]/iu.test(prompt))).toBe(true);
   });
 });
+
+// blocks-polish additions (2026-10-08): never a black box while the video loads.
+describe('VideoSection while loading', () => {
+  it('paints a token gradient behind the video instead of the inverse ground', () => {
+    const { container } = renderVideoSection(
+      videoSectionSchema.props.parse({ heading: 'See it work', src: '/media/demo.mp4' }),
+    );
+    const video = container.querySelector('video');
+    expect(video).toHaveClass('bg-linear-to-br', 'from-accent/20', 'via-surface', 'to-accent/10');
+    expect(video).not.toHaveClass('bg-surface-inverse');
+    /* No poster is invented: the schema keeps it unset unless a person sets one. */
+    expect(video).not.toHaveAttribute('poster');
+    expect(videoSectionSchema.props.parse({}).poster).toBeUndefined();
+  });
+
+  it('shows an authored poster over the gradient', () => {
+    const { container } = renderVideoSection(
+      videoSectionSchema.props.parse({
+        heading: 'See it work',
+        src: '/media/demo.mp4',
+        poster: '/media/demo-poster.jpg',
+      }),
+    );
+    expect(container.querySelector('video')).toHaveAttribute('poster', '/media/demo-poster.jpg');
+  });
+
+  it('keeps the empty-source placeholder a slab that stays dark in a dark theme', () => {
+    renderVideoSection(videoSectionSchema.props.parse({ heading: 'See it work' }), true);
+    expect(screen.getByRole('status')).toHaveClass('mkt-slab', 'bg-surface-inverse');
+  });
+});

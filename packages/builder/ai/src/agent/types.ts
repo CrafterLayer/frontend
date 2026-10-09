@@ -16,6 +16,11 @@ import type { IntentRoute as FastEditRoute } from '../intent';
 import type { DirectEditTarget } from '../plan/direct-edit';
 import type { AgentToolLane } from '../tools/agent/types';
 // end fast-edits additions
+// script-wiring additions
+import type { AiPlanSite } from '../script/cross-page';
+import type { ScriptRunReport, ScriptSite } from '../script/expand-scripts';
+import type { ScriptRunner } from '../script/types';
+// end script-wiring additions
 import type { AiRunFailure } from './errors';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
 import type {
@@ -825,3 +830,30 @@ export interface AiAgentRunResult {
   focus?: AiDocumentFocus;
 }
 // end fast-edits additions
+
+// script-wiring additions
+/*
+  Code mode (agent-script DESIGN §A.9, §A.13): the site a run's page belongs
+  to, the sandbox a `script.run` step runs in, and where its reports go.
+  Declared by interface merging, every field optional, so every existing
+  caller still type-checks.
+*/
+
+/** A site as a run needs it: a script reads its pages and lands one write across them. */
+export type AiAgentScriptSite = ScriptSite & AiPlanSite;
+
+export interface RunAiAgentOptions {
+  /**
+   * The site `kernel` is a page lens of. With it a script may read and write
+   * every page: an auto run lands those writes as ONE site transaction (one
+   * Undo); a proposal (`apply: 'never'`) that would span pages proposes
+   * nothing and says so in its `followUp`. Absent: a script edits the open
+   * page only.
+   */
+  site?: AiAgentScriptSite;
+  /** The sandbox for `script.run`. Absent: `defaultScriptRunner()`, loaded only when a plan needs it. */
+  scriptRunner?: ScriptRunner;
+  /** One report per script run (ms, calls, steps, notes, result), for the host's log. */
+  onScriptRun?: (report: ScriptRunReport) => void;
+}
+// end script-wiring additions

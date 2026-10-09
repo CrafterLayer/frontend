@@ -33,6 +33,7 @@ export function NumberField({
       id={controlId}
       className="bldr-field__input"
       type="number"
+      dir="ltr"
       value={draft ?? documentText}
       placeholder={placeholder}
       disabled={disabled}

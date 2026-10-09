@@ -399,3 +399,20 @@
   color: var(--bldr-panel-muted);
   font-size: var(--bldr-font-size-caption);
 }
+
+/* library-playground additions (2026-10-08): template cards and the "Other language" group. */
+.bldr-palette__template-card {
+  display: flex;
+}
+
+.bldr-palette__template-group {
+  margin-block-start: var(--bldr-space-xl);
+}
+
+.bldr-palette__template-group-heading {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin-block: var(--bldr-space-0) var(--bldr-space-sm);
+}
+/* end library-playground additions */

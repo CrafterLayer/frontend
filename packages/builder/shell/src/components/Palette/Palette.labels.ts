@@ -25,6 +25,10 @@ export interface PaletteLabels {
   readonly noTemplateSlot: (name: string) => string;
   /** Block names by `blockNameKey(type)`; absent ⇒ the English names. */
   readonly blockNames?: Readonly<Record<string, string>> | undefined;
+  // library-playground additions (2026-10-08)
+  /** The heading over template cards in another language than the page's (absent ⇒ by language). */
+  readonly otherLanguage?: string | undefined;
+  // end library-playground additions
 }
 
 export const PALETTE_LABELS_EN: PaletteLabels = {
@@ -45,6 +49,7 @@ export const PALETTE_LABELS_EN: PaletteLabels = {
   noSlot: (name) => `No slot accepts ${name} here`,
   insertedTemplate: (name) => `Inserted template ${name}`,
   noTemplateSlot: (name) => `No slot accepts template ${name} here`,
+  otherLanguage: 'Other language', // library-playground additions (2026-10-08)
 };
 
 /** Arabic plural for a count of sections, digits kept Latin. */
@@ -74,4 +79,5 @@ export const PALETTE_LABELS_AR: PaletteLabels = {
   insertedTemplate: (name) => `أُدرج القالب ${name}`,
   noTemplateSlot: (name) => `لا مكان يقبل القالب ${name} هنا`,
   blockNames: BLOCK_NAMES_AR,
+  otherLanguage: 'لغة أخرى', // library-playground additions (2026-10-08)
 };

@@ -15,6 +15,7 @@ import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
 import { processStepsSchema, type ProcessStepsProps } from './schema';
+import { metaRepeatsNumber } from './step-number';
 
 const COLUMN_CLASSES: Readonly<Record<ProcessStepsProps['columns'], string>> = {
   auto: 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-4',
@@ -134,7 +135,8 @@ export function ProcessSteps({ node, props, isCanvas }: BlockRenderProps<Process
                     data-process-marker=""
                   />
                 )}
-                {step.meta === undefined ? null : (
+                {step.meta === undefined ||
+                (props.showNumbers && metaRepeatsNumber(step.meta, index + 1)) ? null : (
                   <span
                     {...part('step.meta', {
                       index: [index],

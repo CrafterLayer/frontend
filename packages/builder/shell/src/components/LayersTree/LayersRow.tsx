@@ -102,6 +102,9 @@ export function LayersRow({
         registerRow(row.key, element);
       }}
       role="treeitem"
+      // The row's name alone: without it the name read the toggle glyph and
+      // the node id with it ("▾Newannouncement").
+      aria-label={view.name}
       aria-selected={selected}
       {...(row.expandable ? { 'aria-expanded': !collapsed } : {})}
       aria-level={row.depth + 1}

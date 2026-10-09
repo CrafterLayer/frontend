@@ -9,6 +9,11 @@ import {
   buildVideoSection,
   isMediaRecipeError,
   mediaRecipeNode,
+  // gsap-pixi additions (2026-10-08): motion sections
+  buildAnimatedHero,
+  buildScrollRevealFeatures,
+  buildScrollRevealSection,
+  // end gsap-pixi additions
   type CustomCodeNode,
   type GalleryLayout,
   type MediaImage,
@@ -265,6 +270,70 @@ function mediaPresets(): LibraryElementPreset[] {
   ];
 }
 // ── end media-motion (2026-10-06) additions ──
+
+// gsap-pixi additions (2026-10-08)
+/*
+  Sections that MOVE (diagnosis blocker 10: searching "Animated hero",
+  "Scroll reveal" or «حركة» found nothing). Built by the schema's motion
+  sections — the same pure builders the agent may reuse — so each is an
+  ordinary custom-code section the timeline and scene engines play: the hero
+  carries a palette scene on the section itself (the engine draws it behind
+  the content) and a heading that reveals word by word; the features grid
+  and the plain band enter in sequence as they scroll in.
+*/
+function motionPresets(): LibraryElementPreset[] {
+  return [
+    {
+      id: 'animated-hero',
+      labels: { en: 'Animated hero', ar: 'هيرو متحرك' },
+      keywords:
+        'animated hero animation motion cinematic particles background gsap انميشن أنيميشن حركة سينمائية متحرك خلفية متحركة جزيئات واجهة',
+      node: (l) =>
+        recipeNode(
+          buildAnimatedHero({
+            locale: l,
+            scene: 'particles',
+            title: t(l, 'A clear headline', 'عنوان واضح'),
+            text: t(l, 'One line that says what you offer.', 'سطر واحد يقول ما تقدمه.'),
+            action: { label: t(l, 'Get started', 'ابدأ الآن') },
+          }),
+        ),
+    },
+    {
+      id: 'scroll-reveal-features',
+      labels: { en: 'Scroll reveal features', ar: 'مميزات بحركة ظهور' },
+      keywords:
+        'scroll reveal features animation motion stagger cards gsap انميشن أنيميشن حركة عند التمرير ظهور متحرك مميزات بطاقات',
+      node: (l) =>
+        recipeNode(
+          buildScrollRevealFeatures({
+            locale: l,
+            title: t(l, 'Why choose us', 'لماذا تختارنا'),
+            text: t(l, 'Three reasons, one after another.', 'ثلاثة أسباب، واحدًا تلو الآخر.'),
+          }),
+        ),
+    },
+    {
+      id: 'scroll-reveal-section',
+      labels: { en: 'Scroll reveal section', ar: 'قسم بحركة ظهور' },
+      keywords: 'scroll reveal section animation motion fade gsap انميشن أنيميشن حركة عند التمرير ظهور تدريجي متحرك قسم',
+      node: (l) =>
+        recipeNode(
+          buildScrollRevealSection({
+            locale: l,
+            title: t(l, 'Our story', 'قصتنا'),
+            text: t(
+              l,
+              'Write a few lines that say what this part of the page is for.',
+              'اكتب بضعة أسطر تقول ما الغرض من هذا الجزء من الصفحة.',
+            ),
+            action: { label: t(l, 'Learn more', 'اعرف المزيد') },
+          }),
+        ),
+    },
+  ];
+}
+// end gsap-pixi additions
 
 export const LIBRARY_ELEMENT_PRESETS: readonly LibraryElementPreset[] = Object.freeze([
   {
@@ -564,4 +633,7 @@ export const LIBRARY_ELEMENT_PRESETS: readonly LibraryElementPreset[] = Object.f
   },
   // media-motion (2026-10-06) additions: galleries, video, scenes and widgets from the schema media recipes.
   ...mediaPresets(),
+  // gsap-pixi additions (2026-10-08): animated hero, scroll-reveal features and section.
+  ...motionPresets(),
+  // end gsap-pixi additions
 ] satisfies LibraryElementPreset[]);

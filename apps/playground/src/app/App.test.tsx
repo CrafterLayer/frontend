@@ -733,8 +733,9 @@ describe('scenario 8 (B3b) — rich text end to end', () => {
     const before = txCount();
     // LAZY EDITOR ROAD: this waits on a dynamic import plus an engine mount, not on a
     // render, so it needs more than testing-library's 1s render budget — under parallel
-    // CPU load the import alone outlives it (observed 1.9s in `pnpm verify`).
-    const LAZY_EDITOR_BUDGET = { timeout: 5000 };
+    // CPU load the import alone outlives it (observed 1.9s in `pnpm verify`, and past 5s
+    // in three full workspace runs). It only bounds a hang; a passing run never waits on it.
+    const LAZY_EDITOR_BUDGET = { timeout: 15_000 };
     expect(
       await screen.findByRole('button', { name: 'Bold' }, LAZY_EDITOR_BUDGET),
     ).toBeInTheDocument();

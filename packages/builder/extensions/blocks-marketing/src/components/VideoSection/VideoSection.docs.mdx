@@ -19,6 +19,8 @@ injects an iframe or stores executable embed markup.
   becomes the video accessible name unless `videoLabel` is supplied.
 - `src?` accepts a safe http(s), root-relative, or supported video data URL. `poster?` accepts the
   equivalent safe raster-image forms. Both remain unset by default.
+  Until the poster or the first frame paints, the player shows a soft accent-to-surface token
+  gradient rather than a black box.
 - `caption?` provides visible context below the media.
 - `captionsSrc?`, `captionsLanguage?`, and `captionsLabel?` create a native captions track. When
   language and label are omitted, the rendered fallbacks are `en` and `Captions` without persisting

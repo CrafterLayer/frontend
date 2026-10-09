@@ -19,7 +19,7 @@ const apply = (attributes: Record<string, string | undefined>, patch: Readonly<R
 };
 
 describe('TimelineRecipePicker', () => {
-  it('lists None and the seven named recipes with a one-line description; no keyframe surface', () => {
+  it('lists None and the nine named recipes with a one-line description; no keyframe surface', () => {
     render(<TimelineRecipePicker attributes={{ 'data-ck-timeline': 'split-reveal' }} onCommit={vi.fn()} />);
     const select = screen.getByRole('combobox', { name: 'Cinematic motion' });
     expect(Array.from((select as HTMLSelectElement).options).map((option) => option.value)).toEqual([
@@ -31,6 +31,9 @@ describe('TimelineRecipePicker', () => {
       'parallax-depth',
       'scrub-scale',
       'velocity-marquee',
+      // 2026-10-08: the plain entrances added with the anime.js (MIT) engine.
+      'fade-in',
+      'slide-in',
     ]);
     expect(select).toHaveValue('split-reveal');
     expect(select).toHaveAccessibleDescription('Words rise and fade in as they enter');

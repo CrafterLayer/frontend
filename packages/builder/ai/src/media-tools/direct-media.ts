@@ -5,6 +5,15 @@ import { liveToolContext } from '../style-tools/run-direct';
 import { isElement, readTree, rootChildren, treeNodes, type TreeElementNode, type TreeRoot } from '../tools/agent/shared';
 import { repeatedItemsPath } from './motion-add';
 import { heroOf } from './placement';
+// gsap-pixi additions (2026-10-08): registered sections (the playground's hero, features, pricing …)
+import {
+  alreadyAnimated,
+  registeredSections,
+  sectionMotionCall,
+  type MotionCall,
+  type RegisteredSection,
+} from './registered-sections';
+// end gsap-pixi additions
 import { VIDEO_ADDRESS } from './resolve-video';
 
 /**
@@ -19,6 +28,9 @@ import { VIDEO_ADDRESS } from './resolve-video';
  *   «جدارية (متحركة)»                    → a mural section after the hero
  *   «قبل وبعد»                           → before/after compare from the catalog
  *   «خريطة <address>»                    → map facade
+ *   «ضيف انميشن للأقسام» / "animate all sections" → motion.add on every content section
+ *                                          (gsap-pixi, 2026-10-08: customCode regions AND
+ *                                          registered blocks, all in ONE plan = one Undo)
  *
  * — and the English of each. The text arrives folded by `normalizeIntentText`
  * (direct-tool.ts `folded`), so every rule is written once; addresses and
@@ -145,10 +157,12 @@ function readVideo(text: string, kernel: BuilderKernel, original: string): Media
   const background = BG_VIDEO_AR.exec(text) ?? BG_VIDEO_EN.exec(text);
   if (background !== null) {
     const url = urlOf(background[1], original);
-    const hero = heroOf(kernel);
-    if (url === undefined || hero === undefined) return undefined;
+    // gsap-pixi additions (2026-10-08): a background video needs a composed hero's layer, never a registered block.
+    const hero = heroTarget(kernel);
+    if (url === undefined || hero?.region !== true) return undefined;
+    // end gsap-pixi additions
     return {
-      calls: [{ name: 'media.add', input: { kind: 'video', url, mode: 'background', behind: hero } }],
+      calls: [{ name: 'media.add', input: { kind: 'video', url, mode: 'background', behind: hero.id } }],
       label: { ar: 'أُضيف فيديو خلفية', en: 'Background video added' },
     };
   }
@@ -161,6 +175,23 @@ function readVideo(text: string, kernel: BuilderKernel, original: string): Media
     label: { ar: 'أُضيف فيديو', en: 'Video added' },
   };
 }
+
+// gsap-pixi additions (2026-10-08)
+/** The hero as the readings use it: its id, whether it is a composed region, and the root child holding it. */
+interface HeroTarget {
+  readonly id: string;
+  readonly region: boolean;
+  readonly rootChild: string;
+}
+
+function heroTarget(kernel: BuilderKernel): HeroTarget | undefined {
+  const id = heroOf(kernel);
+  if (id === undefined) return undefined;
+  if (readTree(liveToolContext(kernel), id) !== undefined) return { id, region: true, rootChild: id };
+  const section = registeredSections(kernel).find((entry) => entry.id === id);
+  return { id, region: false, rootChild: section?.rootChild ?? id };
+}
+// end gsap-pixi additions
 
 // ── Scenes ────────────────────────────────────────────────────────────────────
 
@@ -183,7 +214,9 @@ function readScene(text: string, kernel: BuilderKernel): MediaReading | undefine
   const en = ar === null ? SCENE_EN.exec(text) : null;
   const particles = ar === null && en === null ? PARTICLES_EN.test(text) : false;
   if (ar === null && en === null && !particles) return undefined;
+  // gsap-pixi additions (2026-10-08): a composed hero takes a layer, a registered hero its motion.scene (media.add decides).
   const hero = heroOf(kernel);
+  // end gsap-pixi additions
   if (hero === undefined) return undefined;
   const scene = particles ? 'particles' : sceneOf(ar?.[1] ?? en?.[1] ?? en?.[2]);
   return {
@@ -202,7 +235,9 @@ function readMural(text: string, kernel: BuilderKernel): MediaReading | undefine
   const match = MURAL_AR.exec(text) ?? MURAL_EN.exec(text);
   if (match === null) return undefined;
   const topic = match[1]?.trim();
-  const hero = heroOf(kernel);
+  // gsap-pixi additions (2026-10-08): after the ROOT section holding the hero (a registered hero may sit in a surface).
+  const hero = heroTarget(kernel);
+  // end gsap-pixi additions
   return {
     calls: [
       {
@@ -211,7 +246,7 @@ function readMural(text: string, kernel: BuilderKernel): MediaReading | undefine
           kind: 'scene',
           scene: 'mural',
           ...(topic === undefined || topic === '' ? {} : { images: `catalog:${topic}` }),
-          ...(hero === undefined ? {} : { after: hero }),
+          ...(hero === undefined ? {} : { after: hero.rootChild }),
         },
       },
     ],
@@ -348,27 +383,76 @@ function regionsOf(kernel: BuilderKernel): readonly Region[] {
   });
 }
 
-/** The ONE region a section noun names (label, heading, anchor or kind), or undefined. */
-function regionNamed(kernel: BuilderKernel, noun: string): Region | undefined {
+// gsap-pixi additions (2026-10-08): a section noun names a composed region OR a registered block.
+/** What a motion reading animates: a composed region, or a registered section block. */
+type MotionTarget =
+  | { readonly kind: 'region'; readonly region: Region }
+  | { readonly kind: 'block'; readonly section: RegisteredSection };
+
+/** The registered block types a section concept means (keyed by the concept's first anchor). */
+const CONCEPT_BLOCK_TYPES: Readonly<Record<string, readonly string[]>> = {
+  features: ['features'],
+  reviews: ['testimonials'],
+  about: ['content-section'],
+  pricing: ['pricing', 'comparisonTable'],
+  team: ['team'],
+  faq: ['faq'],
+  gallery: ['gallery', 'portfolioGrid'],
+  contact: ['contact', 'formSection'],
+  stats: ['stats'],
+};
+
+/** A registered section's own words: its heading and label props, folded like a section noun. */
+function blockKeys(section: RegisteredSection): readonly string[] {
+  return ['label', 'heading', 'headline', 'title'].flatMap((key) => {
+    const value = section.props[key];
+    return typeof value === 'string' && value.trim() !== '' ? [sectionKey(value)] : [];
+  });
+}
+
+/** The hero as a motion target (a composed hero region, or the registered hero block). */
+function heroMotionTarget(kernel: BuilderKernel): MotionTarget | undefined {
+  const hero = heroOf(kernel);
+  if (hero === undefined) return undefined;
+  const region = regionsOf(kernel).find(({ id }) => id === hero);
+  if (region !== undefined) return { kind: 'region', region };
+  const section = registeredSections(kernel).find(({ id }) => id === hero);
+  return section === undefined ? undefined : { kind: 'block', section };
+}
+
+/** The ONE region or registered block a section noun names (label, heading, anchor, kind or block type), or undefined. */
+function targetNamed(kernel: BuilderKernel, noun: string): MotionTarget | undefined {
   const key = sectionKey(noun);
   if (key === '') return undefined;
+  if (HERO_WORDS.has(key)) return heroMotionTarget(kernel);
   const regions = regionsOf(kernel);
-  if (HERO_WORDS.has(key)) {
-    const hero = heroOf(kernel);
-    return regions.find(({ id }) => id === hero);
-  }
-  const exact = regions.filter(({ keys }) => keys.includes(key));
+  const blocks = registeredSections(kernel).map((section) => ({ section, keys: blockKeys(section) }));
+  const asRegion = (region: Region): MotionTarget => ({ kind: 'region', region });
+  const asBlock = ({ section }: { readonly section: RegisteredSection }): MotionTarget => ({ kind: 'block', section });
+  const exact = [
+    ...regions.filter(({ keys }) => keys.includes(key)).map(asRegion),
+    ...blocks.filter(({ keys }) => keys.includes(key)).map(asBlock),
+  ];
   if (exact.length === 1) return exact[0];
   if (exact.length > 1) return undefined;
   const concept = FOLDED_CONCEPTS.find(({ words }) => words.includes(key));
   if (concept === undefined) return undefined;
-  const hits = regions.filter(
-    ({ keys, anchor, classes }) =>
-      concept.anchors.some((name) => anchor === name || anchor.startsWith(`${name}-`) || new RegExp(`(?:^|\\s)ck-${name}(?:[\\s-]|$)`, 'u').test(classes)) ||
-      keys.some((own) => concept.words.some((word) => own === word || own.split(' ').includes(word))),
-  );
+  const ownWords = (keys: readonly string[]) =>
+    keys.some((own) => concept.words.some((word) => own === word || own.split(' ').includes(word)));
+  const types = CONCEPT_BLOCK_TYPES[concept.anchors[0] ?? ''] ?? [];
+  const hits = [
+    ...regions
+      .filter(
+        ({ keys, anchor, classes }) =>
+          concept.anchors.some((name) => anchor === name || anchor.startsWith(`${name}-`) || new RegExp(`(?:^|\\s)ck-${name}(?:[\\s-]|$)`, 'u').test(classes)) ||
+          ownWords(keys),
+      )
+      .map(asRegion),
+    ...blocks.filter(({ section, keys }) => types.includes(section.type) || ownWords(keys)).map(asBlock),
+  ];
   return hits.length === 1 ? hits[0] : undefined;
 }
+// end gsap-pixi additions
 
 /** Child indices from the tree root to `target`, or undefined. */
 function pathTo(tree: TreeRoot, target: unknown): readonly number[] | undefined {
@@ -386,17 +470,114 @@ function pathTo(tree: TreeRoot, target: unknown): readonly number[] | undefined 
   return walk(tree.children, []);
 }
 
+// gsap-pixi additions (2026-10-08) ────────────────────────────────────────────
+/*
+  «ضيف انميشن GSAP للأقسام», «حركة للأقسام», "animate all sections" and "add a
+  scroll reveal to the sections" named no section, so they reached the model.
+  They mean every CONTENT section: the hero's heading word by word, a list
+  section's cards one by one, any other section fading in — chrome (header,
+  navigation, footer, announcement bar) left still, a section already moved
+  by an engine or a scroll effect left as it is. Every call is in ONE reading,
+  so the plan is one transaction and one Undo.
+*/
+const ANIMATE_ALL_EN =
+  /^animate\s+(?:(?:all\s+(?:of\s+)?(?:the\s+)?|the\s+)?sections|(?:every|each)\s+section|(?:the\s+)?(?:whole\s+|entire\s+)?(?:page|site))(?:\s+(?:on|with|while)\s+(?:scroll|scrolling))?(?:\s+with\s+gsap)?$/u;
+const ALL_SECTIONS_NOUN = new RegExp(
+  [
+    '^(?:(?:كل|جميع)\\s+)?(?:ال)?(?:اقسام|سكاشن|سكشنات)(?:\\s+(?:ال)?(?:صفحه|موقع))?(?:\\s+(?:كلها|جميعها|كلهم))?$',
+    '^(?:(?:كل|جميع)\\s+)?(?:ال)?(?:صفحه|موقع)(?:\\s+(?:كلها|كله|كامله|كامل|بالكامل))?$',
+    '^(?:all\\s+(?:of\\s+)?(?:the\\s+)?)?sections(?:\\s+(?:on|of|in)\\s+(?:the\\s+|this\\s+)?(?:page|site))?$',
+    '^(?:every|each)\\s+section(?:\\s+(?:on|of|in)\\s+(?:the\\s+|this\\s+)?(?:page|site))?$',
+    '^(?:whole\\s+|entire\\s+)?(?:page|site)$',
+  ].join('|'),
+  'u',
+);
+const CHROME_TAGS: ReadonlySet<string> = new Set(['header', 'nav', 'footer']);
+const CHROME_WORD = /^(?:ck-)?(?:nav|navbar|navigation|header|site-header|footer|site-footer|announcement(?:-bar)?|top-?bar)$/u;
+
+function isHeadingNode(node: unknown): node is TreeElementNode {
+  return isElement(node) && /^h[1-3]$/u.test(node.tag);
+}
+
+/** Whether a marquee drives the outer element or any container down to `path` (its items never stagger). */
+function marqueeAlong(outer: TreeElementNode, path: readonly number[]): boolean {
+  let node: unknown = outer;
+  for (const index of [-1, ...path]) {
+    if (index >= 0) node = isElement(node) ? node.children?.[index] : undefined;
+    if (!isElement(node)) return false;
+    if (node.attributes?.['data-ck-behavior'] === 'marquee') return true;
+  }
+  return false;
+}
+
+/** The motion.add call that animates one composed region, or undefined (chrome, already moving). */
+function regionMotionCall(region: Region, hero: boolean): MotionCall | undefined {
+  const outer = region.tree.children.find(isElement);
+  if (outer === undefined) return undefined;
+  const outerAt = region.tree.children.indexOf(outer);
+  if (CHROME_TAGS.has(outer.tag)) return undefined;
+  if ([...(outer.className ?? '').split(/\s+/u), region.anchor].some((word) => CHROME_WORD.test(word))) return undefined;
+  if (treeNodes(region.tree).some((node) => isElement(node) && node.attributes?.['data-ck-timeline'] !== undefined)) {
+    return undefined;
+  }
+  if (hero) {
+    const nodes = treeNodes(region.tree);
+    const title = nodes.find((node): node is TreeElementNode => isElement(node) && node.tag === 'h1') ?? nodes.find(isHeadingNode);
+    const path = title === undefined ? undefined : pathTo(region.tree, title);
+    if (path !== undefined) return { name: 'motion.add', input: { id: region.id, path, recipe: 'split-reveal' } };
+  }
+  const items = repeatedItemsPath(outer as unknown as Parameters<typeof repeatedItemsPath>[0]);
+  if (items !== undefined && !marqueeAlong(outer, items)) {
+    return { name: 'motion.add', input: { id: region.id, path: [outerAt, ...items], recipe: 'stagger-in' } };
+  }
+  return { name: 'motion.add', input: { id: region.id, path: [outerAt], recipe: 'fade-in' } };
+}
+
+/** Every content section of the page, composed or registered, animated in ONE reading. */
+function readAllSections(kernel: BuilderKernel): MediaReading | undefined {
+  const hero = heroOf(kernel);
+  const regions = new Map(regionsOf(kernel).map((region) => [region.id, region]));
+  const blocks = registeredSections(kernel);
+  const calls: MotionCall[] = [];
+  for (const id of rootChildren(kernel)) {
+    const region = regions.get(id);
+    if (region !== undefined) {
+      const call = regionMotionCall(region, region.id === hero);
+      if (call !== undefined) calls.push(call);
+      continue;
+    }
+    for (const section of blocks) {
+      if (section.rootChild !== id || alreadyAnimated(section)) continue;
+      const call = sectionMotionCall(section, section.id === hero ? 'hero' : 'section');
+      if (call !== undefined) calls.push(call);
+    }
+  }
+  if (calls.length === 0) return undefined;
+  return { calls, label: { ar: 'أُضيفت حركة للأقسام', en: 'Scroll animation added to the sections' } };
+}
+// end gsap-pixi additions
+
 function readMotion(text: string, kernel: BuilderKernel): MediaReading | undefined {
+  // gsap-pixi additions (2026-10-08): "animate all sections" names no one section
+  if (ANIMATE_ALL_EN.test(text)) return readAllSections(kernel);
+  // end gsap-pixi additions
   const noun = (MOTION_AR.exec(text) ?? MOTION_EN.exec(text) ?? ANIMATE_EN.exec(text))?.[1]?.trim();
   if (noun === undefined || noun === '' || noun.split(' ').length > 6) return undefined;
+  // gsap-pixi additions (2026-10-08): «للأقسام», "to the sections", "to the page" → every content section
+  if (ALL_SECTIONS_NOUN.test(noun)) return readAllSections(kernel);
+  // end gsap-pixi additions
   const heading = HEADING_WORD.exec(noun) ?? HEADING_TAIL.exec(noun);
   const sectionNoun = heading === null ? noun : noun.replace(heading[0], ' ').trim();
-  const region =
-    sectionNoun === '' && heading !== null
-      ? regionsOf(kernel).find(({ id }) => id === heroOf(kernel))
-      : regionNamed(kernel, sectionNoun);
-  if (region === undefined) return undefined;
+  // gsap-pixi additions (2026-10-08): the noun may name a registered block (the playground's features, hero …)
+  const target = sectionNoun === '' && heading !== null ? heroMotionTarget(kernel) : targetNamed(kernel, sectionNoun);
+  if (target === undefined) return undefined;
   const label = { ar: 'أُضيفت حركة عند التمرير', en: 'Scroll animation added' };
+  if (target.kind === 'block') {
+    const call = sectionMotionCall(target.section, heading !== null ? 'heading' : 'section');
+    return call === undefined ? undefined : { calls: [call], label };
+  }
+  const { region } = target;
+  // end gsap-pixi additions
   if (heading !== null) {
     const title = treeNodes(region.tree).find((node): node is TreeElementNode => isElement(node) && /^h[1-3]$/u.test(node.tag));
     const path = title === undefined ? undefined : pathTo(region.tree, title);

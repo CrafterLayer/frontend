@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
@@ -480,6 +480,12 @@ function baseOptions(live: BuilderKernel, provider: AiPlanProvider, events?: AiB
     ...(events === undefined ? {} : { onEvent: (event: AiBuildEvent) => events.push(event) }),
   };
 }
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('the streamed build — the skeleton at the outline, writers at their briefs', () => {
   it('lands the skeleton and starts the writers while the plan is still being written, and lands nothing a writer wrote before it is in', async () => {

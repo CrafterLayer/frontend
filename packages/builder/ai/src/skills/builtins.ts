@@ -825,7 +825,7 @@ const MOTION: AiSkillDefinitionV1 = builtin({
   name: 'Motion and interaction',
   description:
     'Restrained motion the renderer can run: transition and hover utilities, keyframes in pageCss, reduced-motion guards, CSS-only lift, reveal and marquee.',
-  version: '1.3.0',
+  version: '1.4.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 45,
@@ -841,6 +841,7 @@ const MOTION: AiSkillDefinitionV1 = builtin({
       'transition',
       'scroll reveal',
       'marquee',
+      'gsap',
       'تحريك',
       'متحرك',
       'حركة',
@@ -859,7 +860,8 @@ SCROLL REVEAL without JavaScript: @supports (animation-timeline: view()){.ck-fad
 MARQUEE: prefer the marquee block when present; otherwise div overflow-hidden > div ck-marquee-track flex gap-12 whitespace-nowrap with the items duplicated once, css .ck-marquee-track{animation:ck-marquee 20s linear infinite} and keyframes translateX(0) to translateX(-50%) in pageCss.
 HOVER REVEALS: group on the card and group-hover:translate-x-1 on its arrow; for a reveal, .ck-card .ck-meta{opacity:0;transition:opacity .2s} .ck-card:hover .ck-meta{opacity:1}.
 PARALLAX: in css, background-attachment:fixed on a background-image region only inside @media (min-width:768px); phones get a static image.
-Never animate layout (width, height, margin); animate transform and opacity only.`,
+Never animate layout (width, height, margin); animate transform and opacity only.
+GSAP, SCROLL REVEALS AND TIMELINES go through the motion tool, never through attributes you write: {"command":"tool","args":{"name":"motion.add","input":{"id":"<region id>","recipe":"stagger-in"}}}, one step per section (recipes: fade-in, slide-in, stagger-in, split-reveal, parallax-depth, scrub-scale). Never write data-ck-motion or data-ck-timeline yourself, and never put "attributes" inside "set".`,
   references: {
     'checks/motion.md':
       "At most two moving things per screen; keyframes in pageCss, applied from region css; prefers-reduced-motion guard present; transform/opacity only; a hover lift moves transform and shadow one step, never layout; group-hover only on a card's own children; no pulsing glow or blob.",

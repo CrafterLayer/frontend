@@ -97,12 +97,14 @@ describe('RichTextBlock (008 contract §4)', () => {
     const { container } = render(<RichTextBlock {...blockRenderProps} />);
 
     const section = container.firstElementChild as HTMLElement;
+    /* The shared wide column (blocks-polish 2026-10-08); the prose keeps a narrow measure inside it. */
     expect(section).toHaveClass(
-      'max-w-content-narrow',
+      'max-w-content-wide',
       'px-gutter',
       'py-section-sm',
       'mkt-type--size-lg',
     );
+    expect(section.firstElementChild).toHaveClass('max-w-content-narrow');
     expect(section.style.color).toBe('var(--t-text-muted)');
     expect(section.style.marginBlockEnd).toBe('calc(var(--t-space-unit, 4px) * 5)');
   });

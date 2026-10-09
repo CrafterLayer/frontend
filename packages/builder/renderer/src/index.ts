@@ -161,3 +161,7 @@ export { BEHAVIOR_PACKS, mountSiteBehaviors, pageEngines, type BehaviorPack, typ
 // English line on an RTL page keeps its full stop at the end (DESIGN §2.11).
 export { TEXT_BIDI_CANVAS_CSS, TEXT_BIDI_CSS, TEXT_BIDI_STYLE_ID } from './bidi';
 // end P2-bidi additions
+// gsap-pixi additions (2026-10-08): engines on REGISTERED blocks (outside customCode regions),
+// mounted per element on a document view; CanvasFrame's `siteEngines` prop wires it.
+export { mountDocumentEngines } from './engines/document-engines';
+// end gsap-pixi additions

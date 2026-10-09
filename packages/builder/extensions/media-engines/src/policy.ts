@@ -5,8 +5,11 @@
   A scene is decoration behind real HTML. It is never worth a spinning fan:
   - reduced motion: the engine is never mounted, the fallback image shows;
   - off-screen or a hidden tab: the ticker stops, and resumes when visible;
-  - the editor canvas (`ctx.still`): one frame is drawn, then nothing runs until
+  - a still context (`ctx.still`): one frame is drawn, then nothing runs until
     Preview (`onPlay`) starts it, and `onStop` stops it again;
+  - the editor canvas (`ctx.canvas`, gsap-pixi 2026-10-08) is NOT still: the
+    scene runs while editing under the same off-screen / hidden-tab pauses, and
+    the end of a Preview (`onStop`) returns it to running, never freezes it;
   - a lost WebGL context: the scene is destroyed and the fallback image stays;
   - DPR is capped at 2, and the dot count is capped and halved on weak devices;
   - RTL mirrors horizontal drift.
@@ -173,7 +176,8 @@ export function attachPlaybackPolicy(options: PlaybackPolicyOptions): PlaybackPo
     update();
   });
   ctx.onStop(() => {
-    playing = false;
+    // Back to the context's own state: still stops, a live scene (canvas included) keeps running.
+    playing = !ctx.still;
     update();
   });
 

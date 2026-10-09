@@ -26,7 +26,13 @@ import { inlineTargetOf } from './inline-session';
  */
 
 type StructuralBlockActionId = 'duplicate' | 'delete' | 'moveEarlier' | 'moveLater';
-export type BlockActionId = StructuralBlockActionId | 'editText' | 'selectParent' | 'deselect';
+export type BlockActionId =
+  | StructuralBlockActionId
+  | 'editText'
+  | 'selectParent'
+  | 'deselect'
+  // gsap-pixi additions (2026-10-08): opens the block's Design › Motion control (the host does it).
+  | 'animate';
 
 export interface BlockAction {
   id: BlockActionId;
@@ -180,15 +186,44 @@ function elementBlockActions(kernel: BuilderKernel, target: TreeTarget): BlockAc
   });
 }
 
+// gsap-pixi additions (2026-10-08)
+/** The "Animate" action's name in the editor's language. */
+export const BLOCK_ANIMATE_LABELS: Readonly<Record<'en' | 'ar', string>> = { en: 'Animate', ar: 'تحريك' };
+
+export interface BlockActionOptions {
+  /**
+   * The host can open the block's Design › Motion control: offer "Animate"
+   * (in this language) on a block that declares a `kind: 'motion'` property.
+   */
+  readonly animate?: { readonly locale: 'en' | 'ar' } | undefined;
+}
+
+/** The prop a registered block keeps its motion in (`propertyGroups[key].kind === 'motion'`), if any. */
+export function blockMotionProperty(kernel: BuilderKernel, nodeId: NodeId): string | undefined {
+  const type = kernel.getDocument().nodes[nodeId]?.type;
+  const groups = type === undefined ? undefined : kernel.context.registry.block(type)?.schema.propertyGroups;
+  if (groups === undefined) return undefined;
+  const found = Object.entries(groups as Readonly<Record<string, { readonly kind?: string } | undefined>>).find(
+    ([, group]) => group?.kind === 'motion',
+  );
+  return found?.[0];
+}
+// ── end gsap-pixi additions ──
+
 /**
  * The ordered action list for THAT node: Select parent, the four structural
- * actions, Edit text when the block declares an inline target, and Deselect
+ * actions, Edit text when the block declares an inline target, Animate when
+ * the host asks for it and the block has a motion control, and Deselect
  * last. Structural actions keep stable seats and become disabled when
  * unavailable (a3); Edit text is absent when undeclared because there is no
  * session the canvas could open. A node that no longer exists resolves to no
  * actions at all.
  */
-export function resolveBlockActions(kernel: BuilderKernel, nodeId: NodeId): BlockAction[] {
+export function resolveBlockActions(
+  kernel: BuilderKernel,
+  nodeId: NodeId,
+  options: BlockActionOptions = {},
+): BlockAction[] {
   if (kernel.getDocument().nodes[nodeId] === undefined) {
     return [];
   }
@@ -221,7 +256,12 @@ export function resolveBlockActions(kernel: BuilderKernel, nodeId: NodeId): Bloc
     inlineTargetOf(kernel, nodeId) === null
       ? actions
       : [...actions, { id: 'editText', label: 'Edit text', enabled: true }];
-  return [...withEditText, DESELECT_ACTION];
+  // gsap-pixi additions (2026-10-08): Cinematic motion / Animated background for the whole section.
+  const animate: BlockAction[] =
+    options.animate !== undefined && blockMotionProperty(kernel, nodeId) !== undefined
+      ? [{ id: 'animate', label: BLOCK_ANIMATE_LABELS[options.animate.locale], enabled: true }]
+      : [];
+  return [...withEditText, ...animate, DESELECT_ACTION];
 }
 
 /**
@@ -278,6 +318,14 @@ export function performBlockAction(
     return {
       ok: false,
       announcement: 'Edit text must be opened by the canvas',
+      selection: kernel.getDocument().nodes[nodeId] === undefined ? null : nodeId,
+    };
+  }
+  // gsap-pixi additions (2026-10-08): a panel to open, not a document write.
+  if (actionId === 'animate') {
+    return {
+      ok: false,
+      announcement: 'Animate must be opened by the host',
       selection: kernel.getDocument().nodes[nodeId] === undefined ? null : nodeId,
     };
   }

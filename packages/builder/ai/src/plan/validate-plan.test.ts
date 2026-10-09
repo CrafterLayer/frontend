@@ -198,6 +198,16 @@ describe('AI plan validation', () => {
     });
   });
 
+  it('says where the arguments failed and what to remove, so a repair round can converge', () => {
+    const result = validateAiPlan(
+      { rationale: 'Extra key.', commands: [{ command: 'fake.tag', args: { id: 'ghost', bogus: 1 } }] },
+      planKernel(),
+      validationPorts('args-hint'),
+    );
+    expect(result).toMatchObject({ ok: false, issues: [{ code: 'invalid-args', step: 0 }] });
+    if (!result.ok) expect(result.issues[0]?.message).toContain('remove "bogus"');
+  });
+
   it('rejects malformed command arguments before a handler can see them', () => {
     const result = validateAiPlan(
       {

@@ -394,6 +394,131 @@ export const PHONE_KIT: readonly string[] = Object.freeze([
   '@media (max-width:39.99rem){.ck-btn{white-space:normal;max-width:100%;text-align:center}}',
 ]);
 
+// blocks-polish additions (2026-10-08)
+/*
+  The kit on a dark page.
+
+  A kit's colours are the plan's own hex, written once for the light page the
+  plan was designed on. The page theme can still turn dark (the playground's
+  dark preview, or a site whose design system is dark), and the page's ground
+  then follows `--t-surface` while the kit's ink stayed dark: offer kits
+  measured 1.12:1 in dark mode (templates audit 2026-10-08). A page carries no
+  "dark scheme" signal a stylesheet can branch on — a dark page is a different
+  token table — so the kit reads the page's own surface: with CSS relative
+  colour, `clamp(0, (0.5 - l) * 1000, 1)` is 0 on a light surface and 1 on a
+  dark one, and every kit colour is written as its light value plus that
+  switch times the step to its dark value. Ground and text flip TOGETHER, so
+  every pair the plan measured is measured again below for the dark side.
+
+  A kit that is already dark (its ground below 0.5 OKLCH lightness) has no
+  second scheme and writes nothing. Browsers without relative colour keep the
+  light hex from the token rule above.
+*/
+const SCHEME_SWITCH = 'clamp(0, (0.5 - l) * 1000, 1)';
+const SCHEME_PROBE = '@supports (color:oklch(from oklch(0.5 0 0) calc(l - 0.1) c h))';
+
+interface KitOklch {
+  readonly l: number;
+  readonly c: number;
+  readonly h: number;
+}
+
+function kitOklch(hex: string): KitOklch {
+  const rgb = parseHex(hex) ?? { r: 0, g: 0, b: 0 };
+  const linear = [rgb.r, rgb.g, rgb.b].map((value) =>
+    value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
+  ) as [number, number, number];
+  const [r, g, b] = linear;
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const lightness = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const bb = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  const hue = (Math.atan2(bb, a) * 180) / Math.PI;
+  return { l: lightness, c: Math.hypot(a, bb), h: hue < 0 ? hue + 360 : hue };
+}
+
+/** Whether a kit ground is dark already (then it has no second scheme). */
+export function kitIsDark(tokens: PagePlanTokens): boolean {
+  return kitOklch(tokens.bg).l < 0.5;
+}
+
+/** The kit's colours on a dark page: the plan's ink becomes the ground, its ground the ink. */
+export function pageKitDarkColours(tokens: PagePlanTokens): PageKitColours {
+  const bg = mix(tokens.ink, '#000000', 0.7);
+  const raised = mix(tokens.bg, bg, 0.07);
+  const surface = (contrastRatio(tokens.bg, raised) ?? 0) >= AA ? raised : bg;
+  const grounds = [bg, surface];
+  return {
+    bg,
+    surface,
+    ink: readable([tokens.bg, '#ffffff'], grounds),
+    muted: readable([mix(tokens.bg, bg, 0.72), mix(tokens.bg, bg, 0.85), tokens.bg], grounds),
+    accent: tokens.accent,
+    onAccent: tokens.onAccent,
+    accentInk: readable(
+      [
+        tokens.accentInk,
+        tokens.accent,
+        mix(tokens.accent, tokens.bg, 0.6),
+        mix(tokens.accent, tokens.bg, 0.4),
+        tokens.bg,
+      ],
+      grounds,
+    ),
+    border: mix(tokens.bg, bg, 0.16),
+  };
+}
+
+function schemeNumber(value: number): string {
+  const text = value.toFixed(4).replace(/\.?0+$/u, '');
+  return text === '-0' ? '0' : text;
+}
+
+function schemeChannel(light: number, dark: number): string {
+  const step = dark - light;
+  if (Math.abs(step) < 0.0001) return schemeNumber(light);
+  return `calc(${schemeNumber(light)} + ${schemeNumber(step)} * ${SCHEME_SWITCH})`;
+}
+
+/** One kit colour that is `light` on a light page surface and `dark` on a dark one. */
+export function schemeColour(light: string, dark: string): string {
+  const one = kitOklch(light);
+  const two = kitOklch(dark);
+  /* An achromatic end has no hue of its own: borrow the other's, so nothing spins. */
+  const hueOne = one.c < 0.005 ? two.h : one.h;
+  const hueTwo = two.c < 0.005 ? hueOne : two.h;
+  const hueStep = ((hueTwo - hueOne + 540) % 360) - 180;
+  return `oklch(from var(--t-surface,#ffffff) ${schemeChannel(one.l, two.l)} ${schemeChannel(one.c, two.c)} ${schemeChannel(hueOne, hueOne + hueStep)})`;
+}
+
+/** The scheme switch for a plan's kit tokens, or nothing for a kit that is dark already. */
+export function pageKitSchemeCss(tokens: PagePlanTokens): readonly string[] {
+  if (kitIsDark(tokens)) return [];
+  const light = pageKitGrounds(tokens).page;
+  const dark = pageKitDarkColours(tokens);
+  const names: readonly [keyof PageKitColours, string][] = [
+    ['bg', 'bg'],
+    ['surface', 'surface'],
+    ['ink', 'ink'],
+    ['muted', 'muted'],
+    ['accentInk', 'accent-ink'],
+    ['border', 'border'],
+  ];
+  const declarations = names
+    .filter(([key]) => light[key] !== dark[key])
+    .map(([key, name]) => `--ck-${name}:${schemeColour(light[key], dark[key])}`);
+  /*
+    `> *` again, after the light token rule: the same children, the same
+    custom properties. page-kit and visible-change read the FIRST `> *` rule as
+    the tokens; visible-change leaves this one out of its style rules, since it
+    only re-declares tokens the page may or may not read.
+  */
+  return declarations.length === 0 ? [] : [`${SCHEME_PROBE}{> *{${declarations.join(';')}}}`];
+}
+// end blocks-polish additions
+
 /**
  * The plan's page CSS: font imports, the tokens, the component kit.
  *
@@ -470,6 +595,9 @@ function planBlock(plan: PagePlan, hasHeader: boolean): string {
     BLOCK_START,
     ...imports.map((url) => `@import url('${url}');`),
     `> *{${colourProperties(grounds.page)};--ck-radius:${radius.card};--ck-radius-button:${radius.button};--ck-font-display:${fontStack(tokens.fontDisplay.family)};--ck-font-body:${fontStack(tokens.fontBody.family)}}`,
+    // blocks-polish additions (2026-10-08): the same tokens on a dark page surface.
+    ...pageKitSchemeCss(tokens),
+    // end blocks-polish additions
     ...(hasHeader ? [STICKY_HOST] : []),
     `@layer components{\n${kit.join('\n')}\n}`,
     BLOCK_END,

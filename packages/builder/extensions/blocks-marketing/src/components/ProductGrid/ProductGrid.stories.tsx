@@ -74,3 +74,34 @@ export const Parts: Story = {
     await expect(prices[1]).toHaveClass('text-accent');
   },
 };
+
+/*
+  Balanced featured layout (blocks-polish 2026-10-08): the featured product
+  owns a full row; the other four use the column count that divides them
+  evenly, so no row ends with an empty cell.
+*/
+export const FeaturedBalanced: Story = {
+  args: {
+    node: { ...node, id: 'products-balanced' },
+    props: productGridSchema.props.parse({
+      heading: 'New in the studio',
+      variant: 'featured',
+      columns: '3',
+      products: [
+        { name: 'Arc task lamp', price: '$180', href: '/p/lamp', featured: true, description: 'Hand-finished brass with a dimmable warm light.' },
+        { name: 'Still carafe', price: '$64', href: '/p/carafe' },
+        { name: 'Fold tray', price: '$38', href: '/p/tray' },
+        { name: 'Oak stool', price: '$220', href: '/p/stool' },
+        { name: 'Linen throw', price: '$95', href: '/p/throw' },
+      ],
+    }),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    const featured = canvasElement.querySelector('[data-product-span="row"]');
+    await expect(featured).not.toBeNull();
+    await expect(canvasElement.querySelectorAll('[data-product-media="placeholder"]').length).toBeGreaterThan(0);
+  },
+};

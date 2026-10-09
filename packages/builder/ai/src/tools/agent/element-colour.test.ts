@@ -314,3 +314,76 @@ describe('a page-css rewrite that changes no look never lands', () => {
     expect((expanded.plan as { commands: unknown[] }).commands).toEqual([]);
   });
 });
+
+/*
+  colour-in-section fix (2026-10-08): on an AI-built page every section is a
+  composed tree, and «غيّر لون العنوان في الهيرو إلى أحمر» went to the model
+  (one call, 9 s) because «الهيرو» was read as words the heading had to say.
+  The section words now pick the region; the heading is its highest rank.
+*/
+describe('element colour inside a named section of an AI-built page', () => {
+  function grillKernel(): BuilderKernel {
+    return kernelOf({
+      ...blank(),
+      nodes: {
+        root: {
+          id: 'root',
+          type: 'page',
+          props: { title: 'مشاوي', lang: 'ar', pageCss: kitCss('ar') },
+          slots: { default: ['hero', 'dishes', 'menu'] },
+        },
+        hero: {
+          id: 'hero',
+          type: 'customCode',
+          props: {
+            label: 'الواجهة الرئيسية',
+            tree: parseTreeMarkup(
+              "<section id='hero' class='py-16'><h1 class='text-5xl'>مشاوي أبو غضب</h1><p>طعم أصيل</p><a class='ck-btn' href='#menu'>اطلب الآن</a></section>",
+            ),
+            css: '',
+          },
+          slots: {},
+        },
+        dishes: {
+          id: 'dishes',
+          type: 'customCode',
+          props: {
+            label: 'الأطباق المشهورة',
+            tree: parseTreeMarkup(
+              "<section id='dishes' class='py-16'><h2 class='text-3xl'>مشاوي طازة يومياً</h2><h3>شيش طاووق</h3><p>صدر دجاج متبّل</p></section>",
+            ),
+            css: '',
+          },
+          slots: {},
+        },
+        menu: {
+          id: 'menu',
+          type: 'customCode',
+          props: {
+            label: 'قائمة الطعام',
+            tree: parseTreeMarkup(
+              "<section id='menu' class='py-16'><h2 class='text-3xl'>قائمة الطعام</h2><h3>كباب</h3></section>",
+            ),
+            css: '',
+          },
+          slots: {},
+        },
+      },
+    } as unknown as BuilderDocument);
+  }
+
+  it.each([
+    ['غيّر لون العنوان في الهيرو إلى أحمر', 'h1', 'مشاوي أبو غضب'],
+    ['make the hero heading red', 'h1', 'مشاوي أبو غضب'],
+    ['غيّر لون العنوان في قسم مشاوي طازة يومياً إلى أحمر', 'h2', 'مشاوي طازة يومياً'],
+  ] as const)('«%s» → %s «%s», with no model call', (request, tag, text) => {
+    const result = recoloured(grillKernel(), request);
+    expect(result?.changed).toHaveLength(1);
+    expect(result?.changed[0]).toMatchObject({ tag, text });
+    expect(result?.changed[0]?.className.split(' ')).toContain('text-red-700');
+  });
+
+  it('a section named with no element in it is not read as one element', () => {
+    expect(readElementColour('خلي الهيرو احمر', grillKernel())).toBeUndefined();
+  });
+});

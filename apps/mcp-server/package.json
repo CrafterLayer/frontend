@@ -17,7 +17,9 @@
   },
   "dependencies": {
     "@craftkit/builder": "workspace:*",
+    "@jitl/quickjs-wasmfile-release-sync": "catalog:",
     "@modelcontextprotocol/sdk": "catalog:",
+    "quickjs-emscripten-core": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

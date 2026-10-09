@@ -247,6 +247,9 @@ catalogs:
     '@fontsource/ibm-plex-sans-arabic':
       specifier: 5.3.0
       version: 5.3.0
+    '@jitl/quickjs-wasmfile-release-sync':
+      specifier: 0.32.0
+      version: 0.32.0
     '@modelcontextprotocol/sdk':
       specifier: 1.30.0
       version: 1.30.0
@@ -436,6 +439,9 @@ catalogs:
     promptfoo:
       specifier: 0.122.2
       version: 0.122.2
+    quickjs-emscripten-core:
+      specifier: 0.32.0
+      version: 0.32.0
     react:
       specifier: 19.2.8
       version: 19.2.8
@@ -706,9 +712,15 @@ importers:
       '@craftkit/builder':
         specifier: workspace:*
         version: link:../../packages/builder/editor
+      '@jitl/quickjs-wasmfile-release-sync':
+        specifier: 'catalog:'
+        version: 0.32.0
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
         version: 1.30.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3)
+      quickjs-emscripten-core:
+        specifier: 'catalog:'
+        version: 0.32.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -919,9 +931,15 @@ importers:
       '@craftkit/builder-schema':
         specifier: workspace:*
         version: link:../schema
+      '@jitl/quickjs-wasmfile-release-sync':
+        specifier: 'catalog:'
+        version: 0.32.0
       htmlparser2:
         specifier: 'catalog:'
         version: 12.0.0
+      quickjs-emscripten-core:
+        specifier: 'catalog:'
+        version: 0.32.0
     devDependencies:
       '@craftkit/eslint-config':
         specifier: workspace:*
@@ -3799,6 +3817,12 @@ packages:
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
+
+  '@jitl/quickjs-ffi-types@0.32.0':
+    resolution: {integrity: sha512-v9T+GQpmk43VDJ7d72sf0Nexhk+ArvtUihW27dy7lqAl0zBObFKtSBBIm5RBjwIhE8VwsPPm9PNuvPvNqLWUEg==}
+
+  '@jitl/quickjs-wasmfile-release-sync@0.32.0':
+    resolution: {integrity: sha512-BKNDI/TPBfGlLNGYpLrhcDGXmIk4xHm4MRAisOBnOzpXVn9HZWsfmMAc9WMBrAHjvvds6HOikKeaOBKdPdpVrg==}
 
   '@joshwooding/vite-plugin-react-docgen-typescript@0.7.0':
     resolution: {integrity: sha512-qvsTEwEFefhdirGOPnu9Wp6ChfIwy2dBCRuETU3uE+4cC+PFoxMSiiEhxk4lOluA34eARHA0OxqsEUYDqRMgeQ==}
@@ -8770,6 +8794,9 @@ packages:
   querystringify@2.2.0:
     resolution: {integrity: sha512-FIqgj2EUvTa7R50u0rGsyTftzjYmv/a3hO345bZNrqabNqjtgiDMgmo4mkUjd+nzU5oF3dClKqFIPUKybUyqoQ==}
 
+  quickjs-emscripten-core@0.32.0:
+    resolution: {integrity: sha512-QFnPfjFey8EqknSrSxe1hZrf1/8z7/6s1QzGOmKo6++02r7QRRX7ZoyNaZh7JuVjWsVW87KnQrbZqnHkOAzUyg==}
+
   quickjs-wasi@2.2.0:
     resolution: {integrity: sha512-zQxXmQMrEoD3S+jQdYsloq4qAuaxKFHZj6hHqOYGwB2iQZH+q9e/lf5zQPXCKOk0WJuAjzRFbO4KwHIp2D05Iw==}
 
@@ -11196,6 +11223,12 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
     optional: true
+
+  '@jitl/quickjs-ffi-types@0.32.0': {}
+
+  '@jitl/quickjs-wasmfile-release-sync@0.32.0':
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.32.0
 
   '@joshwooding/vite-plugin-react-docgen-typescript@0.7.0(typescript@6.0.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))':
     dependencies:
@@ -16415,6 +16448,10 @@ snapshots:
 
   querystringify@2.2.0:
     optional: true
+
+  quickjs-emscripten-core@0.32.0:
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.32.0
 
   quickjs-wasi@2.2.0: {}
 

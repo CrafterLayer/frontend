@@ -1,5 +1,5 @@
 import type { ChromeTheme, StageTokenName } from '../contract';
-import { alpha, family, green, ink, red, amber, shadow, slate, violet } from '../tokens/primitives';
+import { alpha, family, green, ink, pink, red, amber, shadow, slate, violet } from '../tokens/primitives';
 
 /**
  * The stage palette, owned HERE and spread into both themes, because it must
@@ -21,6 +21,10 @@ export const stageTokens: Readonly<Record<StageTokenName, string>> = {
   'stage-veil': alpha.paper94,
   'stage-ink': slate[600],
   'stage-danger': red[700],
+  'stage-box-padding': alpha.padding22,
+  'stage-box-margin': alpha.margin22,
+  'stage-guide': pink[500],
+  'stage-grid-track': alpha.violet8,
 };
 
 /**

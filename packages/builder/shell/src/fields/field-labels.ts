@@ -42,6 +42,33 @@ export interface FieldLabels {
   readonly partReset: (label: string) => string;
   readonly partDirection: (dir: string) => string;
   readonly partClasses: (count: number) => string;
+  /** The row glyph's name: this property can differ per device. */
+  readonly supportsDeviceOverrides: string;
+  /** A list property's editor (RepeaterField). */
+  readonly repeater: RepeaterLabels;
+}
+
+/** Every string a list property's editor shows or announces. */
+export interface RepeaterLabels {
+  readonly empty: string;
+  readonly unsupported: string;
+  /** A scalar item's row name: "Item 2". */
+  readonly item: (position: number) => string;
+  readonly moveUp: (item: string) => string;
+  readonly moveDown: (item: string) => string;
+  readonly remove: (item: string) => string;
+  readonly movedUp: (item: string) => string;
+  readonly movedDown: (item: string) => string;
+  readonly moveRejected: (item: string) => string;
+  readonly removed: (item: string) => string;
+  readonly removalRejected: (item: string) => string;
+  readonly add: string;
+  /** The add button's full name: "Add item to Options". */
+  readonly addTo: (list: string) => string;
+  readonly added: (position: number) => string;
+  readonly addRejected: string;
+  readonly minimum: (count: number) => string;
+  readonly maximum: (count: number) => string;
 }
 
 export const FIELD_LABELS_EN: FieldLabels = {
@@ -83,6 +110,26 @@ export const FIELD_LABELS_EN: FieldLabels = {
   partReset: (label) => `${label} reset`,
   partDirection: (dir) => `Direction ${dir.toUpperCase()}`,
   partClasses: (count) => (count === 1 ? '1 class' : `${String(count)} classes`),
+  supportsDeviceOverrides: 'Supports device overrides',
+  repeater: {
+    empty: 'No items yet.',
+    unsupported: 'This array schema cannot be inspected.',
+    item: (position) => `Item ${String(position)}`,
+    moveUp: (item) => `Move ${item} up`,
+    moveDown: (item) => `Move ${item} down`,
+    remove: (item) => `Remove ${item}`,
+    movedUp: (item) => `${item} moved up`,
+    movedDown: (item) => `${item} moved down`,
+    moveRejected: (item) => `${item} move rejected`,
+    removed: (item) => `${item} removed`,
+    removalRejected: (item) => `${item} removal rejected`,
+    add: 'Add item',
+    addTo: (list) => `Add item to ${list}`,
+    added: (position) => `Item ${String(position)} added`,
+    addRejected: 'Item addition rejected',
+    minimum: (count) => `Minimum of ${String(count)} item${count === 1 ? '' : 's'} required.`,
+    maximum: (count) => `Maximum of ${String(count)} items reached.`,
+  },
 };
 
 /**
@@ -140,6 +187,28 @@ export const FIELD_LABELS_AR: FieldLabels = {
   partReset: (label) => `أُعيد ضبط ${label}`,
   partDirection: (dir) => `الاتجاه ${dir.toUpperCase()}`,
   partClasses: (count) => arabicCount(count, ['صنف واحد', 'صنفان', 'أصناف', 'صنفًا']),
+  supportsDeviceOverrides: 'يمكن تخصيصها لكل جهاز',
+  repeater: {
+    empty: 'لا عناصر بعد.',
+    unsupported: 'لا يمكن عرض هذه القائمة للتعديل.',
+    item: (position) => `العنصر ${String(position)}`,
+    moveUp: (item) => `نقل ${item} إلى الأعلى`,
+    moveDown: (item) => `نقل ${item} إلى الأسفل`,
+    remove: (item) => `إزالة ${item}`,
+    movedUp: (item) => `نُقل ${item} إلى الأعلى`,
+    movedDown: (item) => `نُقل ${item} إلى الأسفل`,
+    moveRejected: (item) => `تعذّر نقل ${item}`,
+    removed: (item) => `أُزيل ${item}`,
+    removalRejected: (item) => `تعذّرت إزالة ${item}`,
+    add: 'إضافة عنصر',
+    addTo: (list) => `إضافة عنصر إلى ${list}`,
+    added: (position) => `أُضيف العنصر ${String(position)}`,
+    addRejected: 'تعذّرت إضافة العنصر',
+    minimum: (count) =>
+      `مطلوب ${arabicCount(count, ['عنصر واحد', 'عنصران', 'عناصر', 'عنصرًا'])} على الأقل.`,
+    maximum: (count) =>
+      `بلغت القائمة الحد الأقصى: ${arabicCount(count, ['عنصر واحد', 'عنصران', 'عناصر', 'عنصرًا'])}.`,
+  },
 };
 
 export const FIELD_LABELS: Readonly<Record<FieldLocale, FieldLabels>> = {

@@ -22,12 +22,12 @@ import { promoBannerSchema, type PromoBannerProps } from './schema';
 const PANEL_STYLE_CLASSES: Readonly<Record<PromoBannerProps['panelStyle'], string>> = {
   surface: 'border-text/10 bg-surface text-text shadow-strong',
   accent: 'border-accent bg-accent text-accent-text shadow-elevated',
-  inverse: 'border-text-inverse/10 bg-surface-inverse text-text-inverse shadow-elevated',
+  inverse: 'border-text-inverse/10 bg-surface-inverse text-text-inverse shadow-elevated mkt-slab',
 };
 
 const PRIMARY_ACTION_CLASSES: Readonly<Record<PromoBannerProps['panelStyle'], string>> = {
   surface: 'border-accent bg-accent text-accent-text',
-  accent: 'border-surface-inverse bg-surface-inverse text-text-inverse',
+  accent: 'border-surface-inverse bg-surface-inverse text-text-inverse mkt-slab',
   inverse: 'border-accent bg-accent text-accent-text',
 };
 
@@ -162,12 +162,24 @@ export function PromoBanner({ node, props, isCanvas }: BlockRenderProps<PromoBan
             )}
             data-promo-copy=""
           >
-            <div className={cx('flex max-w-content-standard flex-col', GAP_CLASSES.sm)}>
+            {/*
+              The copy column aligns its CHILDREN, not only their text (blocks-
+              polish 2026-10-08): a centred banner set its narrow paragraph box
+              at the start, so the paragraph sat left under a centred heading.
+            */}
+            <div
+              className={cx(
+                'flex max-w-content-standard flex-col',
+                GAP_CLASSES.sm,
+                ALIGN_CLASSES[props.align],
+              )}
+              data-promo-copy-column=""
+            >
               {props.label === undefined ? null : (
                 <span
                   {...part('label', {
                     className:
-                      'self-start rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-bold tracking-wide uppercase',
+                      'rounded-full border border-current/20 bg-current/10 px-3 py-1 text-xs font-bold tracking-wide uppercase',
                   })}
                 >
                   {props.label}

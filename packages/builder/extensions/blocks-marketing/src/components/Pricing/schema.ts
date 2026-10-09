@@ -22,13 +22,20 @@ export const pricingSchema = defineBlockSchema({
   surfaces: ['site', 'store'],
   props: z.object({
     heading: z.string().min(1).max(80).default('Pricing'),
+    /*
+      The small line above the heading (blocks-polish 2026-10-08). It used to
+      be the literal word "Plans" in the component, so every Arabic pricing
+      section said "Plans". Optional, with no default: a section that sets
+      none shows none.
+    */
+    eyebrow: z.string().min(1).max(40).optional(),
     body: z.string().min(1).max(200).optional(),
 
     columns: z.enum(['auto', '2', '3', '4']).default('auto'),
     align: z.enum(sectionAlignments).default('start'),
     tone: z.enum(sectionTones).default('transparent'),
     spacing: z.enum(sectionSpacings).default('md'),
-    width: z.enum(sectionWidths).default('full'),
+    width: z.enum(sectionWidths).default('wide'),
     ...sectionColorProps,
     ...sectionMotionProps,
     ...sectionCustomProps,
@@ -44,6 +51,7 @@ export const pricingSchema = defineBlockSchema({
     shaping it, or making a rare structural choice.
   */
   propertyGroups: {
+    eyebrow: { tab: 'content', section: 'Text' },
     heading: { tab: 'content', section: 'Text' },
     body: { tab: 'content', section: 'Text', kind: 'multiline' },
     columns: { tab: 'design', section: 'Layout' },
@@ -60,6 +68,12 @@ export const pricingSchema = defineBlockSchema({
   inlineEditable: 'heading',
   /* The section's own text (block-parts DESIGN §1); each plan card is a pricingPlan node with its own parts. */
   parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['kicker', 'overline', 'label', 'شارة'],
+    },
     heading: {
       kind: 'text',
       bind: 'heading',

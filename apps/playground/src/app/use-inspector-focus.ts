@@ -14,6 +14,8 @@ export interface InspectorFocus {
   readonly openStyleSector: (sector: StyleSectorId) => void;
   /** Quick bar "Animate": the Interactions tab. */
   readonly animate: () => void;
+  /** gsap-pixi additions (2026-10-08) — block bar "Animate": the block's Design › Motion. */
+  readonly animateBlock: () => void;
   /** The element panel's open sector and forced state, handed to the canvas. */
   readonly styleContext: InspectorStyleContext;
   readonly onStyleContextChange: (context: InspectorStyleContext) => void;
@@ -49,6 +51,10 @@ export function useInspectorFocus(reveal: () => void): InspectorFocus {
   const animate = useCallback(() => {
     ask({ tab: 'interactions' });
   }, [ask]);
+  // gsap-pixi additions (2026-10-08): the Inspector opens a block's Motion section for this request.
+  const animateBlock = useCallback(() => {
+    ask({ tab: 'design', sector: 'motion' });
+  }, [ask]);
   const onRequestHandled = useCallback((handled: number) => {
     setRequest((current) => (current?.nonce === handled ? undefined : current));
   }, []);
@@ -57,5 +63,5 @@ export function useInspectorFocus(reveal: () => void): InspectorFocus {
       current.sector === next.sector && current.state === next.state ? current : next,
     );
   }, []);
-  return { request, onRequestHandled, openStyleSector, animate, styleContext, onStyleContextChange };
+  return { request, onRequestHandled, openStyleSector, animate, animateBlock, styleContext, onStyleContextChange };
 }

@@ -23,6 +23,7 @@ import { ChoiceGroup } from '../../style-manager/controls/ChoiceGroup';
 import type { ColorSwatch } from '../../style-manager/controls/StyleColorControl';
 import { partSource, type PartStyleScope } from '../../style-manager/part-source';
 import { STYLE_PANEL_LABELS_AR, STYLE_PANEL_LABELS_EN, StylePanel } from '../../style-manager/StylePanel';
+import { COLOR_ROLE_NAMES_AR } from '../DesignSystemPanel/DesignSystemPanel.labels';
 import { EMPTY_OVERRIDES } from './constants';
 import { InspectorRowBody } from './InspectorRowBody';
 import type { InspectorFocusRequest, InspectorStyleContext } from './inspector-request';
@@ -203,8 +204,14 @@ export function InspectorPartPanel({
     [kernel, nodeId, ref, repeated, scope, locale, words, frameDocument],
   );
   const tokens = useMemo<ColorSwatch[]>(
-    () => palette.map((entry) => ({ id: roleToken(entry.role), name: entry.name, css: entry.value })),
-    [palette],
+    () =>
+      palette.map((entry) => ({
+        id: roleToken(entry.role),
+        // The colour popover speaks the editor's language (walk 2026-10-08).
+        name: locale === 'ar' ? COLOR_ROLE_NAMES_AR[entry.role] : entry.name,
+        css: entry.value,
+      })),
+    [palette, locale],
   );
   const rows = useMemo(
     () => (schema === undefined || decl === undefined ? [] : partContentRows(schema.props, decl, ref)),

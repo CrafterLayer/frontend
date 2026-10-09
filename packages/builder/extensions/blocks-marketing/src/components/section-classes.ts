@@ -9,6 +9,7 @@ import type {
   sectionWidths,
   sectionWraps,
 } from './section-options';
+import { SLAB_CLASSES } from './section-tone';
 
 /**
  * The shared vocabulary → Tailwind mapping every marketing section reads.
@@ -118,7 +119,12 @@ type Wrap = (typeof sectionWraps)[number];
 export const TONE_CLASSES: Readonly<Record<Tone, string>> = {
   transparent: 'bg-transparent text-inherit',
   light: 'bg-surface text-text',
-  dark: 'bg-surface-inverse text-text-inverse',
+  /*
+    `mkt-slab` keeps the ground dark under a dark theme, whose inverse surface
+    is light (section-tone.ts). It only marks the element: the inverse
+    utilities stay, so a caller's own `bg-*` still merges them away.
+  */
+  dark: SLAB_CLASSES,
 };
 
 /** The rhythm BETWEEN sections — block padding, never margin. */

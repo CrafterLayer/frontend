@@ -149,3 +149,37 @@ describe('PricingPlan', () => {
     });
   });
 });
+
+// blocks-polish additions (2026-10-08): the card's own words and one axis.
+describe('PricingPlan copy and alignment', () => {
+  it('says its badge and period in the words the page gives it', () => {
+    renderPlan({
+      name: 'الفريق',
+      price: '٢٩ د.أ',
+      emphasis: 'featured',
+      badge: 'الأكثر طلبًا',
+      periodLabel: 'شهريًا',
+    });
+    expect(screen.getByText('الأكثر طلبًا')).toBeInTheDocument();
+    expect(screen.getByText('شهريًا')).toBeInTheDocument();
+    expect(screen.queryByText('Popular')).toBeNull();
+    expect(screen.queryByText('per month')).toBeNull();
+  });
+
+  it('keeps the English words when none are given', () => {
+    renderPlan({ name: 'Pro', price: '$29', emphasis: 'featured' });
+    expect(screen.getByText('Popular')).toBeInTheDocument();
+    expect(screen.getByText('per month')).toBeInTheDocument();
+  });
+
+  it('sets name and price on one start axis, reserving badge room only on the featured card', () => {
+    const { container, unmount } = renderPlan({ name: 'Solo', price: '$9' });
+    const header = container.querySelector('header');
+    expect(header).toHaveClass('text-start');
+    expect(header).not.toHaveClass('pe-16');
+    expect(header).not.toHaveClass('pe-24');
+    unmount();
+    const featured = renderPlan({ name: 'Team', price: '$29', emphasis: 'featured' });
+    expect(featured.container.querySelector('header')).toHaveClass('text-start', 'pe-24');
+  });
+});

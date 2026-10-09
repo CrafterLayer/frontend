@@ -132,7 +132,7 @@
   border-radius: var(--bldr-radius-md);
   color: var(--bldr-panel-text, #334155);
   font: inherit;
-  inline-size: 14rem;
+  inline-size: var(--bldr-measure-bubble-input);
   max-inline-size: 60vw;
   min-block-size: var(--bldr-control-lg);
   padding-inline: var(--bldr-space-xs);

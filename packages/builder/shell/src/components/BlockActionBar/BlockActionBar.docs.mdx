@@ -31,6 +31,12 @@ Edit text is deliberately outside `performBlockAction`: entering an inline sessi
 dispatches nothing (contract §3). It appears only when `inlineTargetOf` resolves the selected
 block's declaration; the canvas handles it by opening that session.
 
+**Animate** («تحريك», gsap-pixi 2026-10-08) sits before Deselect when the host passes
+`resolveBlockActions(kernel, id, { animate: { locale } })` (EditorCanvas does when it has
+`onAnimateBlock`) AND the block declares a `kind: 'motion'` property (`blockMotionProperty`). It
+dispatches nothing: the canvas calls `onAnimateBlock(nodeId)` and the host asks the Inspector for
+Design › Motion (Cinematic motion, Animated background), which opens and scrolls to that section.
+
 Deselect is the way OUT. Clicking the page background inside the frame selects the document root on
 purpose (page-level props live in the Inspector), so even the root — which can be none of the
 structural things — offers it; it is never disabled. It goes through the kernel's own

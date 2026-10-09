@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { Node } from '@craftkit/builder-schema';
@@ -54,9 +54,15 @@ function renderTable(overrides: Record<string, unknown>, isCanvas: boolean, swap
   );
 }
 
+/*
+  The table's parts. The phone cards (blocks-polish 2026-10-08) carry the same
+  parts again so a click on a card edits the same value; they are counted in
+  their own test below.
+*/
 function partsNamed(container: HTMLElement, name: string): HTMLElement[] {
   return [...container.querySelectorAll<HTMLElement>('[data-ck-part]')].filter(
-    (element) => element.dataset['ckPart'] === name,
+    (element) =>
+      element.dataset['ckPart'] === name && element.closest('[data-comparison-cards]') === null,
   );
 }
 
@@ -97,9 +103,10 @@ describe('ComparisonTable parts', () => {
     expect(
       container.querySelectorAll('[data-ck-part],[data-ck-part-index],[data-ck-bind]'),
     ).toHaveLength(0);
-    expect(screen.getByRole('table', { name: 'Compare plans.' })).toBeInTheDocument();
+    const table = screen.getByRole('table', { name: 'Compare plans.' });
     expect(container.querySelector('caption')).toBeNull();
-    expect(screen.getByRole('link', { name: 'Go Growth' })).toHaveAttribute(
+    /* The phone cards repeat the action; the table's own is the one named here. */
+    expect(within(table).getByRole('link', { name: 'Go Growth' })).toHaveAttribute(
       'href',
       '/signup/growth',
     );
@@ -161,5 +168,26 @@ describe('ComparisonTable parts', () => {
       expect(found, key).toHaveLength(1);
       expect(found[0]?.closest('[data-ck-bind]')).toHaveAttribute('data-ck-bind', key);
     }
+  });
+});
+
+// blocks-polish additions (2026-10-08)
+describe('ComparisonTable phone card parts', () => {
+  it('binds each card text to the same value the table cell edits', () => {
+    const { container } = renderTable({}, true);
+    const cards = container.querySelector<HTMLElement>('[data-comparison-cards]')!;
+    const names = [...cards.querySelectorAll<HTMLElement>('[data-ck-part="plan.name"]')];
+    expect(names.map((name) => name.dataset['ckBind'])).toEqual(['plans.0.name', 'plans.1.name']);
+    const values = [...cards.querySelectorAll<HTMLElement>('[data-ck-part="row.value"]')];
+    expect(values.map((value) => value.dataset['ckBind'])).toEqual(
+      expect.arrayContaining(['rows.0.values.0', 'rows.0.values.1']),
+    );
+  });
+
+  it('publishes cards without part markers', () => {
+    const { container } = renderTable({}, false);
+    expect(
+      container.querySelector('[data-comparison-cards] [data-ck-part],[data-comparison-cards] [data-ck-bind]'),
+    ).toBeNull();
   });
 });

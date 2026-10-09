@@ -125,6 +125,52 @@ export function InlineRichText({
     view.focus();
   }, [editor]);
 
+  /*
+    The caret goes where the person double-clicked (walk 2026-10-08: it
+    opened at the start of the document, on the H2, every time). The canvas
+    places a DOM caret at the click point when this surface appears, but
+    ProseMirror, on focus, writes ITS selection (the document start) back to
+    the DOM about 20ms later. So when focus arrives, the DOM caret — if it is
+    inside this editor — is adopted into the editor's own selection first.
+  */
+  useEffect(() => {
+    if (editor === null || editor.isDestroyed) {
+      return undefined;
+    }
+    let dom: HTMLElement;
+    try {
+      dom = editor.view.dom;
+    } catch {
+      return undefined;
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const adopt = () => {
+      timer = undefined;
+      const view = liveViewOf(editor);
+      if (view === null) return;
+      const selection = view.dom.ownerDocument.getSelection();
+      const anchor = selection?.anchorNode;
+      if (selection === null || anchor === null || anchor === undefined || !view.dom.contains(anchor)) return;
+      let pos: number;
+      try {
+        pos = view.posAtDOM(anchor, selection.anchorOffset);
+      } catch {
+        return;
+      }
+      if (!selection.isCollapsed || pos === view.state.selection.from) return;
+      editor.commands.setTextSelection(pos);
+    };
+    const onFocus = () => {
+      timer ??= setTimeout(adopt, 0);
+    };
+    dom.addEventListener('focus', onFocus);
+    if (dom.ownerDocument.activeElement === dom) onFocus();
+    return () => {
+      dom.removeEventListener('focus', onFocus);
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [editor]);
+
   // Selection visibility is synchronous; geometry stays deferred until the
   // canvas's frame-coalesced anchor channel invokes this source.
   useEffect(() => {

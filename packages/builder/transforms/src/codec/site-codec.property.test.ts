@@ -1,12 +1,13 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import type {
-  AssetEntry,
-  BuilderDocument,
-  BuilderSite,
-  Patch,
-  SharedRegion,
+import {
+  LATEST_SITE_VERSION,
+  type AssetEntry,
+  type BuilderDocument,
+  type BuilderSite,
+  type Patch,
+  type SharedRegion,
 } from '@craftkit/builder-schema';
 
 import { canonicalJson } from './canonical-json';
@@ -609,7 +610,7 @@ describe('what the manifest refuses', () => {
     expect(
       refusal(
         editManifest((value) => {
-          value['siteVersion'] = 2;
+          value['siteVersion'] = LATEST_SITE_VERSION + 1;
         }),
       ),
     ).toContain('owned by migrations');

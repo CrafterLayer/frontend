@@ -601,6 +601,32 @@ function splitSetProp(changes: Changes): (step: unknown) => unknown[] {
 }
 
 /**
+ * `patchTreeNode` takes `attributes` BESIDE `set`, never inside it. Measured
+ * 2026-10-08 (a GSAP request): the model wrote `set: { attributes: {…} }` on
+ * five steps, the door said only "Invalid input", and the repair round sent
+ * the same plan back. The intent is unambiguous, so the attributes are lifted
+ * to where the command reads them (merged over any already there).
+ */
+function liftPatchAttributes(changes: Changes): (step: unknown) => unknown {
+  return (step) => {
+    if (!isRecord(step) || step['command'] !== 'patchTreeNode' || !isRecord(step['args'])) return step;
+    const args = step['args'];
+    const set = args['set'];
+    if (!isRecord(set) || !isRecord(set['attributes'])) return step;
+    const { attributes, ...rest } = set;
+    const lifted = {
+      ...(isRecord(args['attributes']) ? args['attributes'] : {}),
+      ...attributes,
+    };
+    changes.adjustments.push('lifted set.attributes beside set');
+    const nextArgs: JsonRecord = { ...args, attributes: lifted };
+    if (Object.keys(rest).length === 0) delete nextArgs['set'];
+    else nextArgs['set'] = rest;
+    return { ...step, args: nextArgs };
+  };
+}
+
+/**
  * Bring the trees a plan writes into the tree vocabulary, before the door.
  *
  * Measured 2026-09-27: one ordinary Tailwind class the site vocabulary did
@@ -628,7 +654,7 @@ export function normalizeAiPlanTrees(
     return { plan: candidate, removedClasses: [], removedIcons: [], adjustments: [] };
   }
   const commands = candidate['commands'] as unknown[];
-  const cleaned = commands.flatMap(splitSetProp(changes)).map((original) => {
+  const cleaned = commands.flatMap(splitSetProp(changes)).map(liftPatchAttributes(changes)).map((original) => {
     const step = readSetPropMarkup(original, changes);
     if (!isRecord(step)) return step;
     const args = cleanArgs(step['args'], colourPolicy, changes);

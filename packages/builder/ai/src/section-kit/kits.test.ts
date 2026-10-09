@@ -255,8 +255,10 @@ describe('section kits', () => {
     expect(fallback).toMatch(/https:\/\//u);
     // A generic stand-in is described as what it shows, not as what was asked for.
     expect(fallback).not.toContain('An invoice on a laptop');
-    // A subject that matches keeps the writer's own alt.
-    expect(image('coffee', 'A cup of coffee')).toContain('A cup of coffee');
+    // A catalog photo is described by its own entry, never by the writer's hope (walk 2026-10-08).
+    const matched = image('coffee', 'A table of rice, salads and grills');
+    expect(matched).not.toContain('A table of rice, salads and grills');
+    expect(matched).toMatch(/"alt":"[^"]+"/u);
   });
 
   it('fills the testimonial stars: a rating reads as five stars, not five outlines', () => {

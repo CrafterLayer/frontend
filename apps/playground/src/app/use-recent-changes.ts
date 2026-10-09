@@ -82,6 +82,11 @@ export interface RecentChangesOptions {
   readonly exclude?: ChangeDoor | undefined;
   /** Commands phrased in the editor's language (arabic-editor); English otherwise. */
   readonly phrases?: Readonly<Record<string, string>> | undefined;
+  /**
+   * Reads a recorded label in the editor's language ("Edit text · Hero heading"
+   * in the Arabic chrome); labels are shown as recorded without it.
+   */
+  readonly localize?: ((label: string) => string) | undefined;
 }
 
 /** What the strip lists, and whether it left out changes another surface speaks for. */
@@ -96,6 +101,15 @@ export interface RecentChanges {
   readonly spokenElsewhere: boolean;
 }
 
+/**
+ * A phrase opens with a capital, like every labelled change ("Size · Hero
+ * heading"): the strip read "Canvas: add block" beside "Insert · Hero".
+ * Scripts without case (Arabic) pass through unchanged.
+ */
+function sentenceCase(label: string): string {
+  return label.charAt(0).toLocaleUpperCase() + label.slice(1);
+}
+
 /** The pure projection behind the hook: the log in, the strip's rows out. */
 export function recentChangesOf(
   transactions: readonly {
@@ -103,17 +117,34 @@ export function recentChangesOf(
     readonly author: string;
     readonly command: string;
   }[],
-  { limit = 3, exclude, phrases }: RecentChangesOptions = {},
+  { limit = 3, exclude, phrases, localize }: RecentChangesOptions = {},
 ): RecentChanges {
   const all = transactions.map((transaction) => ({
     id: transaction.id,
     door: DOOR_BY_AUTHOR[transaction.author] ?? 'canvas',
-    label: phrases?.[transaction.command] ?? phraseOf(transaction.command),
+    label: sentenceCase(
+      phrases?.[transaction.command] ??
+        (localize === undefined ? phraseOf(transaction.command) : localize(phraseOf(transaction.command))),
+    ),
   }));
   const shown = all.filter((change) => change.door !== exclude);
+  /*
+    A run of the same change through the same door is ONE row: a rich-text
+    session commits per keystroke, and the strip filled with three identical
+    "Edit text · Rich Text" chips. The row keeps the newest id.
+  */
+  const runs: typeof shown = [];
+  for (const change of shown) {
+    const last = runs.at(-1);
+    if (last?.door === change.door && last.label === change.label) {
+      runs[runs.length - 1] = change;
+    } else {
+      runs.push(change);
+    }
+  }
   return {
     // Newest first, which is the order the strip reads in.
-    changes: shown.slice(-limit).reverse(),
+    changes: runs.slice(-limit).reverse(),
     spokenElsewhere: shown.length < all.length,
   };
 }

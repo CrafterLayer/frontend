@@ -80,6 +80,16 @@ function pathOf(url: string): string {
 }
 
 
+/** A catalog photo's own description in the page's language, when it has one. */
+function catalogAlt(
+  entry: { readonly alt: { readonly ar: string; readonly en: string } } | undefined,
+  lang: string,
+): string | undefined {
+  if (entry === undefined) return undefined;
+  const text = (lang.trim().toLowerCase().startsWith('ar') ? entry.alt.ar : entry.alt.en).trim();
+  return text === '' ? undefined : text;
+}
+
 function run(input: ImageSetInput, context: AgentToolContext): AgentToolRun {
   const tree = readTree(context, input.id);
   if (tree === undefined) return { ok: false, error: `"${input.id}" is not a composed region on this page.` };
@@ -115,7 +125,8 @@ function run(input: ImageSetInput, context: AgentToolContext): AgentToolRun {
       attributes: {
         ...kept,
         src: photo.url,
-        alt: input.alt.trim(),
+        // The catalog entry was written from the picture; the caller's words describe the request.
+        alt: catalogAlt(entry, context.locale.lang) ?? input.alt.trim(),
         ...(entry === undefined ? {} : { width: String(entry.width), height: String(entry.height) }),
         ...(srcset === undefined ? {} : { srcset, sizes: COLUMN_IMAGE_SIZES }),
       },

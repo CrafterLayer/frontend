@@ -58,13 +58,13 @@ describe('ComparisonTable', () => {
     expect(table).toHaveClass('rounded-xl', 'shadow-elevated');
     expect(within(table).getByRole('columnheader', { name: /Starter/ })).toBeInTheDocument();
     expect(within(table).getByRole('rowheader', { name: 'Projects' })).toBeInTheDocument();
-    expect(screen.getByText('Popular')).toBeInTheDocument();
-    expect(screen.getByText('/ month')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Start free Growth' })).toHaveAttribute(
+    expect(within(table).getByText('Popular')).toBeInTheDocument();
+    expect(within(table).getByText('/ month')).toBeInTheDocument();
+    expect(within(table).getByRole('link', { name: 'Start free Growth' })).toHaveAttribute(
       'href',
       '/signup/growth',
     );
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(within(table).getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Cancel anytime.')).toBeInTheDocument();
     expect(screen.getByLabelText('Scrollable plan comparison')).toHaveAttribute('tabindex', '0');
   });
@@ -82,6 +82,7 @@ describe('ComparisonTable', () => {
             : 'bg-surface-inverse',
       );
       if (variant === 'minimal') expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      if (variant === 'contrast') expect(table).toHaveClass('mkt-slab');
     },
   );
 
@@ -97,7 +98,9 @@ describe('ComparisonTable', () => {
     const defaults = comparisonTableSchema.props.parse({});
     expect(defaults).toMatchObject({
       emptyValue: '—',
+      excludedLabel: 'Not included',
       featureLabel: 'Features',
+      includedLabel: 'Included',
       heading: 'Compare plans',
       plans: [],
       rows: [],
@@ -126,5 +129,70 @@ describe('ComparisonTable', () => {
         })),
       }).success,
     ).toBe(false);
+  });
+});
+
+// blocks-polish additions (2026-10-08): the phone layout and glyph alternatives.
+describe('ComparisonTable below a 640px container', () => {
+  it('renders one stacked card per plan beside the table, each layout in its own container class', () => {
+    const { container } = renderComparison();
+    const scroll = container.querySelector('[data-comparison-scroll]');
+    const cards = container.querySelector('[data-comparison-cards]');
+    /* section-layout.css swaps the two at 40rem; neither hides behind aria-hidden. */
+    expect(scroll).toHaveClass('mkt-compare__table');
+    expect(cards).toHaveClass('mkt-compare__cards');
+    expect(cards?.closest('[aria-hidden]')).toBeNull();
+    expect(scroll?.closest('[aria-hidden]')).toBeNull();
+    expect(within(cards as HTMLElement).getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('gives each card its name, price, rows as label and value, and its action', () => {
+    const { container } = renderComparison();
+    const cards = within(container.querySelector<HTMLElement>('[data-comparison-cards]')!);
+    const growth = cards.getByRole('heading', { level: 3, name: 'Growth' }).closest('li') as HTMLElement;
+    expect(growth).toHaveAttribute('data-comparison-card', 'featured');
+    expect(within(growth).getByText('$49')).toBeInTheDocument();
+    expect(within(growth).getByText('Popular')).toBeInTheDocument();
+    const terms = within(growth).getAllByRole('term').map((term) => term.textContent);
+    const values = within(growth).getAllByRole('definition').map((value) => value.textContent);
+    expect(terms).toEqual(['Projects', 'Priority support']);
+    /* The missing value shows the empty text, read out as "Not included". */
+    expect(values).toEqual(['Unlimited', '—']);
+    expect(within(growth).getByRole('img', { name: 'Not included' })).toHaveTextContent('—');
+    expect(within(growth).getByRole('link', { name: 'Start free Growth' })).toHaveAttribute(
+      'href',
+      '/signup/growth',
+    );
+    const starter = cards.getByRole('heading', { level: 3, name: 'Starter' }).closest('li') as HTMLElement;
+    expect(within(starter).getByText('/ month')).toBeInTheDocument();
+    expect(within(starter).getByRole('link', { name: 'Start free Starter' })).toBeInTheDocument();
+  });
+
+  it('pairs a check or a cross with words in both layouts, in the language the page sets', () => {
+    const { container } = renderComparison({
+      rows: [{ feature: 'Custom domain', values: ['✗', '✓'] }],
+      includedLabel: 'مشمول',
+      excludedLabel: 'غير مشمول',
+    });
+    const table = screen.getByRole('table');
+    expect(within(table).getByRole('img', { name: 'مشمول' })).toHaveTextContent('✓');
+    expect(within(table).getByRole('img', { name: 'غير مشمول' })).toHaveTextContent('✗');
+    const cards = container.querySelector<HTMLElement>('[data-comparison-cards]')!;
+    expect(within(cards).getAllByRole('img', { name: 'مشمول' })).toHaveLength(1);
+    expect(within(cards).getAllByRole('img', { name: 'غير مشمول' })).toHaveLength(1);
+    /* The words live in the glyph's name, never as a second text node in the cell. */
+    expect(table.textContent).not.toContain('مشمول');
+  });
+
+  it('keeps an ordinary value as plain text and the contrast cards on a slab', () => {
+    const { container } = renderComparison({ variant: 'contrast' });
+    const cards = container.querySelector<HTMLElement>('[data-comparison-cards]')!;
+    for (const card of within(cards).getAllByRole('listitem')) expect(card).toHaveClass('mkt-slab');
+    expect(within(cards).getAllByText('Unlimited')[0]?.children).toHaveLength(0);
+  });
+
+  it('renders no cards when there are no plans', () => {
+    const { container } = renderComparison({ plans: [] });
+    expect(container.querySelector('[data-comparison-cards]')).toBeNull();
   });
 });

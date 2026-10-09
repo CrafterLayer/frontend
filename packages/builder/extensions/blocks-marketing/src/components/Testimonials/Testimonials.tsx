@@ -30,11 +30,16 @@ function shows(value: unknown): boolean {
   return value !== undefined && value !== '';
 }
 
+/*
+  A quote is a paragraph, so it needs a wider card than a feature (blocks-polish
+  2026-10-08): two quotes side by side on a 390px screen were one-word lines.
+  Two columns from 36rem, three from 56rem.
+*/
 const COLUMN_CLASSES: Record<TestimonialsProps['columns'], string> = {
-  auto: 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3',
+  auto: 'grid-cols-1 @xl:grid-cols-2 @4xl:grid-cols-3',
   '1': 'grid-cols-1',
-  '2': 'grid-cols-1 @sm:grid-cols-2',
-  '3': 'grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3',
+  '2': 'grid-cols-1 @xl:grid-cols-2',
+  '3': 'grid-cols-1 @xl:grid-cols-2 @4xl:grid-cols-3',
 };
 
 const CARD_CLASSES: Record<TestimonialsProps['variant'], string> = {

@@ -26,7 +26,7 @@ const MOSAIC_SPAN_CLASSES: Record<BentoGridProps['items'][number]['size'], strin
 const EMPHASIS_CLASSES: Record<BentoGridProps['items'][number]['emphasis'], string> = {
   neutral: 'border-text-muted/20 bg-surface text-text',
   accent: 'border-accent bg-accent text-accent-text',
-  inverse: 'border-surface-inverse bg-surface-inverse text-text-inverse',
+  inverse: 'border-surface-inverse bg-surface-inverse text-text-inverse mkt-slab',
 };
 
 const MUTED_CLASSES: Record<BentoGridProps['items'][number]['emphasis'], string> = {

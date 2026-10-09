@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
@@ -239,6 +239,12 @@ const TWELVE = Array.from({ length: 12 }, (_, index) => ({
 }));
 
 const DOCUMENT_ORDER = ['Hero', 'Proof', 'Pricing'] as const;
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('runAiBuild', () => {
   it('splits a three-section page into one scaffold and three labelled fills, in document order', async () => {

@@ -78,6 +78,17 @@ const STACK_CHILDREN = [
   'marquee',
   'dotPatternSurface',
   'shimmerButton',
+  // templates-core additions
+  /*
+    Page chrome inside a template's root column. A Library template is ONE
+    subtree (`insertComposition` places a single root), and that root is a
+    full-width column stack holding the whole page — so a template that opens
+    with a header and closes with a footer needs its stack to accept them.
+    The page root still lists them too; this only widens where they may sit.
+  */
+  'pageHeader',
+  'pageFooter',
+  // end templates-core additions
 ] as const;
 
 export const stackSchema = defineBlockSchema({

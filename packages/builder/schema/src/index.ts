@@ -677,6 +677,11 @@ export {
   isCustomCodeEngineMarker,
   isCustomCodeMediaBehavior,
   isCustomCodeScene,
+  // gsap-pixi additions (2026-10-08)
+  HOSTED_SCENES,
+  isHostedScene,
+  SCENE_HOST_TAGS,
+  type HostedScene,
   isCustomCodeTimelineRecipe,
   MEDIA_SWITCH_VALUES,
   SCENE_DENSITIES,

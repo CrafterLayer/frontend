@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
-import { clearMotionPatch, presetPatch, triggerOf, triggerPatch } from './motion-attributes';
+import { clearMotionPatch, hasAnimation, presetPatch, triggerOf, triggerPatch } from './motion-attributes';
+
+describe('timeline recipes count as animation (2026-10-08)', () => {
+  it('treats an element animated only by a timeline recipe as animated, so Preview and Remove work', () => {
+    expect(hasAnimation({ 'data-ck-timeline': 'stagger-in' })).toBe(true);
+    expect(hasAnimation({})).toBe(false);
+  });
+
+  it('clears the timeline recipe and its scrub with the rest of the motion', () => {
+    expect(clearMotionPatch({ 'data-ck-timeline': 'split-reveal', 'data-ck-scrub': 'true' })).toEqual({
+      'data-ck-timeline': null,
+      'data-ck-scrub': null,
+    });
+  });
+});
 
 describe('motion attributes', () => {
   it('reads the trigger, defaulting to view', () => {

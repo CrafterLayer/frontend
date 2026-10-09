@@ -44,6 +44,33 @@ describe('history', () => {
     expect(kernel.canUndo()).toBe(false);
   });
 
+  it('merges a person\'s repeated labelled edit on the same paths (a rich-text burst) into one undo step', () => {
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(0, 1), ids: seededIds('h') },
+    });
+    const edit = (value: string, author: 'user' | 'ai' = 'user') => {
+      kernel.dispatchGroup([{ command: 'setProp', args: { id: 'p1', key: 'content', value } }], {
+        author,
+        label: 'Edit text · Rich Text',
+      });
+    };
+    edit('w');
+    edit('wo');
+    edit('wor');
+    edit('word');
+    expect(kernel.history?.().entries()).toHaveLength(1);
+    expect(kernel.undo()).toBe(true);
+    expect(kernel.getDocument().nodes['p1']?.props['content']).toBe('Welcome aboard.');
+    expect(kernel.canUndo()).toBe(false);
+
+    // Another author's identical edits are not a person's typing burst.
+    edit('a', 'ai');
+    edit('ab', 'ai');
+    expect(kernel.history?.().entries()).toHaveLength(2);
+  });
+
   it('a new change clears the redo stack', () => {
     const kernel = createBuilder({
       document: landingFixture(),

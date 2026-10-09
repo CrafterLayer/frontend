@@ -12,7 +12,7 @@
   display: grid;
   /* About 40% of the row (fix pass 2026-10-06): a fixed 80–88px column cut
      31 of 55 English labels to "Decora…" / "Backgr…" at 287px. */
-  grid-template-columns: var(--bldr-style-label-column, 40%) minmax(0, 1fr);
+  grid-template-columns: var(--style-label-column, 40%) minmax(0, 1fr);
   min-inline-size: 0;
   row-gap: var(--bldr-space-xs);
 }

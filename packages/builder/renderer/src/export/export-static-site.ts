@@ -267,6 +267,8 @@ function fontLinks(fonts: readonly string[]): string {
 }
 
 // media-motion (2026-10-06): the engine assets, imported only when a page uses one (the loadTablerIcons precedent).
+// gsap-pixi additions (2026-10-08): ck-timeline.js now carries the MIT anime.js 4.5.0 subset
+// (about 23 kB gzip with its banner), not GSAP; the asset shape (banner + source + runner) is unchanged.
 const ENGINE_ORDER: readonly PageEngine[] = ['timeline', 'scene', 'lottie'];
 
 async function engineAsset(kind: PageEngine): Promise<string> {

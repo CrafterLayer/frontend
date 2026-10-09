@@ -1063,13 +1063,24 @@ describe('per-call model and effort', () => {
   }
   const allowlist = { model: 'cli:sonnet', models: ['cli:haiku', 'vendor/free:free'] };
 
-  it("runs a call on the model its body names, over the picker's header, when it is allowed", async () => {
+  it("runs a call on the person's picked model (the header), over the host's fast edit model in the body", async () => {
+    // 2026-10-08: the owner picked Opus and every edit ran on `haiku, effort low`.
     const { client, seen } = recording();
     const handle = createHandler({ client, ...allowlist });
 
     const response = await handle(
       post(wireBody({ model: 'cli:haiku' }), { 'x-craftkit-ai-model': 'vendor/free:free' }),
     );
+
+    expect(response.status).toBe(200);
+    expect((seen[0]?.params as { model: string }).model).toBe('vendor/free:free');
+  });
+
+  it("runs a call on the host's fast edit model in the body when the person picked none", async () => {
+    const { client, seen } = recording();
+    const handle = createHandler({ client, ...allowlist });
+
+    const response = await handle(post(wireBody({ model: 'cli:haiku' })));
 
     expect(response.status).toBe(200);
     expect((seen[0]?.params as { model: string }).model).toBe('cli:haiku');

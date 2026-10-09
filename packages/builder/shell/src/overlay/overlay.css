@@ -165,11 +165,11 @@
 }
 
 .bldr-box-band--padding {
-  background: var(--bldr-box-padding, rgb(34 197 94 / 22%));
+  background: var(--bldr-stage-box-padding);
 }
 
 .bldr-box-band--margin {
-  background: var(--bldr-box-margin, rgb(249 115 22 / 22%));
+  background: var(--bldr-stage-box-margin);
 }
 
 .bldr-box-band[data-physical='top'],
@@ -211,7 +211,7 @@
 }
 
 .bldr-snap-guide {
-  background: var(--bldr-guide, #ec4899);
+  background: var(--bldr-stage-guide);
   left: 0;
   pointer-events: none;
   position: absolute;
@@ -228,7 +228,7 @@
 }
 
 .bldr-grid-track--column {
-  background: var(--bldr-grid-track, rgb(79 70 229 / 8%));
+  background: var(--bldr-stage-grid-track);
   outline: var(--bldr-border-hairline) dashed var(--bldr-selection, #4f46e5);
 }
 

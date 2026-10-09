@@ -64,9 +64,13 @@ describe('Grid', () => {
       'dotPatternSurface',
       'shimmerButton',
     ]);
+    // templates-core additions
+    // Page chrome rides only in a template's root column (a Stack), never a grid cell.
+    const pageChrome = new Set(['pageHeader', 'pageFooter']);
     expect(new Set(gridSchema.slots?.['default']?.allow)).toEqual(
-      new Set(stackSchema.slots?.['default']?.allow),
+      new Set(stackSchema.slots?.['default']?.allow.filter((type) => !pageChrome.has(type))),
     );
+    // end templates-core additions
   });
 
   it('schema: defaults layout properties and deliberately defaults no colour or spacing', () => {

@@ -7,6 +7,9 @@ import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import {
   customCodeTreeProblems,
   customCodeTreeSchema,
+  // gsap-pixi additions (2026-10-08)
+  mediaRecipeProblems,
+  // end gsap-pixi additions
   type CustomCodeRoot,
   type SavedTemplate,
 } from '@craftkit/builder-schema';
@@ -33,7 +36,8 @@ describe('LibraryPanel', () => {
   });
 
   it.each(['en', 'ar'] as const)('every Elements preset is a valid tree node (%s)', (language) => {
-    expect(LIBRARY_ELEMENT_PRESETS).toHaveLength(31);
+    // gsap-pixi additions (2026-10-08): +3 motion sections (animated hero, scroll reveal features / section)
+    expect(LIBRARY_ELEMENT_PRESETS).toHaveLength(34);
     for (const preset of LIBRARY_ELEMENT_PRESETS) {
       const tree = { kind: 'root', children: [preset.node(language)] };
       expect({ id: preset.id, problems: customCodeTreeProblems(tree) }).toEqual({ id: preset.id, problems: [] });
@@ -224,3 +228,65 @@ describe('LibraryPanel — media presets (media-motion DESIGN D10)', () => {
     expect(kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(3);
   });
 });
+
+// gsap-pixi additions (2026-10-08): sections that move (diagnosis blocker 10).
+describe('LibraryPanel — motion presets (gsap-pixi)', () => {
+  const MOTION_IDS = ['animated-hero', 'scroll-reveal-features', 'scroll-reveal-section'];
+  const preset = (id: string) => {
+    const found = LIBRARY_ELEMENT_PRESETS.find((entry) => entry.id === id);
+    if (found === undefined) throw new Error(`no preset ${id}`);
+    return found;
+  };
+  type TreeNode = CustomCodeRoot['children'][number];
+  const all = (node: TreeNode): TreeNode[] =>
+    node.kind === 'element' ? [node, ...(node.children ?? []).flatMap(all)] : [node];
+  const timelines = (node: TreeNode) =>
+    all(node).flatMap((entry) => (entry.kind === 'element' && entry.attributes?.['data-ck-timeline'] !== undefined ? [entry.attributes['data-ck-timeline']] : []));
+
+  beforeAll(() => {
+    installBrowserStandIns();
+  });
+
+  it.each(['en', 'ar'] as const)('each motion preset passes the media door and carries its engine markers (%s)', (language) => {
+    for (const id of MOTION_IDS) {
+      const node = preset(id).node(language);
+      expect(mediaRecipeProblems({ label: { ar: id, en: id }, tree: { kind: 'root', children: [node] }, css: '' }), id).toEqual([]);
+      expect(node).toMatchObject({ tag: 'section', attributes: language === 'ar' ? { lang: 'ar', dir: 'rtl' } : { lang: 'en', dir: 'ltr' } });
+    }
+    const hero = preset('animated-hero').node(language);
+    expect(hero.kind === 'element' ? hero.attributes : {}).toMatchObject({ 'data-ck-scene': 'particles' });
+    expect(timelines(hero)).toEqual(['split-reveal', 'fade-in', 'fade-in']);
+    expect(timelines(preset('scroll-reveal-features').node(language))).toEqual(['fade-in', 'fade-in', 'stagger-in']);
+    expect(timelines(preset('scroll-reveal-section').node(language))).toEqual(['stagger-in']);
+  });
+
+  it.each([
+    ['animated hero', 'Insert Animated hero'],
+    ['scroll reveal', 'Insert Scroll reveal features'],
+    ['حركة', 'Insert Scroll reveal features'],
+    ['انميشن', 'Insert Animated hero'],
+    ['متحرك', 'Insert Animated hero'],
+  ])('search «%s» finds the motion sections', async (query, expected) => {
+    const user = userEvent.setup();
+    render(<LibraryPanel kernel={makeKernel()} />);
+    await user.type(screen.getByRole('searchbox'), query);
+    const names = screen.getAllByRole('button', { name: /^Insert / }).map((tile) => tile.getAttribute('aria-label'));
+    expect(names).toContain(expected);
+  });
+
+  it('inserting the animated hero is ONE transaction; one undo removes it', async () => {
+    const kernel = makeKernel();
+    const user = userEvent.setup();
+    render(<LibraryPanel kernel={kernel} labels={LIBRARY_PANEL_LABELS_AR} />);
+    await user.click(screen.getByRole('button', { name: 'إدراج هيرو متحرك' }));
+    expect(kernel.transactions()).toHaveLength(1);
+    const slots = kernel.getDocument().nodes['root']?.slots?.['default'] ?? [];
+    const created = slots[3] ?? '';
+    expect(treeOf(kernel, created).children[0]).toMatchObject({ tag: 'section', attributes: { 'data-ck-scene': 'particles' } });
+    act(() => {
+      kernel.undo();
+    });
+    expect(kernel.getDocument().nodes['root']?.slots?.['default']).toHaveLength(3);
+  });
+});
+// end gsap-pixi additions

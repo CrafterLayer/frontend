@@ -12,8 +12,14 @@ beforeAll(() => {
 
 afterEach(cleanup);
 
+/*
+  CodeMirror arrives through a lazy import, which outlives testing-library's 1s
+  findBy default under a full parallel run. The budget only bounds a hang.
+*/
+const LAZY_EDITOR_BUDGET = { timeout: 10_000 };
+
 async function readyEditor(label = 'Page source'): Promise<HTMLElement> {
-  return screen.findByRole('textbox', { name: label });
+  return screen.findByRole('textbox', { name: label }, LAZY_EDITOR_BUDGET);
 }
 
 describe('CodeEditor', () => {

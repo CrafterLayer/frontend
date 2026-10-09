@@ -465,39 +465,38 @@ curve table was copied.
 
 <!-- media-motion (2026-10-06) engine-timeline additions -->
 
-## gsap — timeline recipes for agent-chosen motion
+<!-- gsap-pixi (2026-10-08) additions -->
 
-**Owner-approved exception (2026-10-06). NOT OSI.** GSAP is the one library in this repository
-outside the MIT / Apache-2.0 / ISC list. The owner asked for it explicitly ("especially GSAP") on
-2026-10-06; the earlier rejection (style-manager LIBRARIES.md §C, 2026-10-05) is superseded under
-the conditions below (media-motion DESIGN.md §C.1).
+## animejs — the MIT timeline engine (replaced GSAP, 2026-10-08)
+
+GSAP left the repository on 2026-10-08. Its Standard "No Charge" licence prohibits use "in tools
+that allow users to build visual animations without code", which is what the CraftKit editor is
+(decision and quote: `durable/gsap-pixi/LICENCE.md`). The engine is now an anime.js subset. The
+recipe names and attributes are unchanged (`data-ck-timeline`, `data-ck-scrub`,
+`data-ck-ease/speed/stagger/delay/depth`), so no page changes.
 
 | | |
 | --- | --- |
-| Upstream | [gsap.com](https://gsap.com) (GreenSock, a Webflow company) |
-| Release | `gsap@3.15.0` (npm, published 2026-04-13), pinned |
-| Tarball | `https://registry.npmjs.org/gsap/-/gsap-3.15.0.tgz`, integrity `sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==` (checked on download) |
-| License | GSAP Standard "No Charge" License (Webflow; effective 2025-04-30, modified 2025-05-30) — `vendor/gsap/LICENSE.md` (page text fetched 2026-10-06); text also in THIRD_PARTY_LICENSES.md |
-| Verbatim copies | `vendor/gsap/gsap.min.js` (sha256 `92bb9a96476f983d212a2bc4f54c889039c1696dd4461d40a736860938570fbb`), `vendor/gsap/ScrollTrigger.min.js` (sha256 `b0b14d67b55b0c43c756ac0b106cfcb09d0879945f6ead64451065b0672916a2`), `vendor/gsap/SplitText.min.js` (sha256 `419f7027a5f086a12cb7988736d8fdd3a6ed2200229661de25b6628ca7ced344`), `vendor/gsap/LICENSE.md`, `vendor/gsap/PROVENANCE.md` |
-| Script | `scripts/vendor-gsap.mjs` (download + integrity check + licence page fetch + generation; `--offline` regenerates from `vendor/gsap/`) |
-| Adapted into | `packages/builder/renderer/src/engines/timeline-source.ts` (generated: `GSAP_VERSION`, `TIMELINE_LICENSE`, `TIMELINE_PARTS`, `TIMELINE_BANNER`, `TIMELINE_SOURCE`); the recipe runner `timeline-runner.ts` (`installTimelineEngine`) is our own code. `sources.test.ts` hashes every slice against the vendored files |
+| Upstream | [juliangarnier/anime](https://github.com/juliangarnier/anime) ([animejs.com](https://animejs.com)) |
+| Release | `animejs@4.5.0` (npm, published 2026-06-22; passes `minimumReleaseAge`), pinned |
+| Tarball | `https://registry.npmjs.org/animejs/-/animejs-4.5.0.tgz`, integrity `sha512-NQimYX+lz8WaXonGS9zVVoviCIAjONeJayxacUditaivYLqyXgGjFKjuyl0aUUhFKm5MriX9ty1TGovNzoJQWA==` (checked on download) |
+| License | MIT (c) 2025 Julian Garnier — `vendor/animejs/LICENSE.md` (the tarball's, verbatim; npm `license` field `MIT`, both checked by the script); text in THIRD_PARTY_LICENSES.md |
+| Files | `vendor/animejs/anime.ck.min.js` (sha256 `79207dd3aa8635a180d55cecbe68b17bfda713635e18486f825af35f833a2969`, 57,077 B, 22,318 B gzip), `vendor/animejs/LICENSE.md`, `vendor/animejs/PROVENANCE.md` |
+| What the bundle is | NOT a verbatim copy: esbuild 0.28.2 bundles the tarball's ESM `dist/modules/` keeping only `createTimeline`, `animate`, `stagger`, `onScroll`, `splitText` (iife, es2020, minified) and sets `window.ckAnime`. MIT permits the modification; the full licence travels in the asset banner. The full UMD bundle would be 118 kB / 41 kB gzip |
+| Script | `scripts/vendor-timeline-engine.mjs` (download + integrity + MIT checks + bundle + generation; `--offline` regenerates from `vendor/animejs/`) |
+| Adapted into | `packages/builder/renderer/src/engines/timeline-source.ts` (generated: `TIMELINE_ENGINE`, `ANIME_VERSION`, `TIMELINE_LICENSE`, `TIMELINE_GLOBAL`, `TIMELINE_EXPORTS`, `TIMELINE_SHA256`, `TIMELINE_BANNER`, `TIMELINE_SOURCE`); the recipe runner `timeline-runner.ts` (`installTimelineEngine`) is our own code. `sources.test.ts` hashes the bundle; `timeline-runner.test.ts` evaluates the real asset in jsdom |
 
-**Conditions (DESIGN §C.1), all binding:**
+Shipped as `assets/ck-timeline.js` (banner + bundle + runner) only on pages with
+`data-ck-timeline`; the editor reaches it only by dynamic `import()`. anime.js has no pin: the
+runner emulates `pin-sequence` / `horizontal-scroll` holds with a transform plus a reserved
+`margin-block-end`, never reparenting nodes. With the MIT engine in, the style-manager recipe picker
+is on (`TIMELINE_PANEL_ENABLED = true`).
 
-1. **Agent recipes are the primary path.** The agent picks one of seven fixed recipe names
-   (`data-ck-timeline`); our fixed runner executes it. The licence FAQ: "AI-generated code is not
-   a 'Prohibited Use'."
-2. **No visual GSAP timeline or keyframe editor, ever** — that is the licence's Prohibited Use
-   ("tools that allow users to build visual animations without code … that competes with
-   Webflow's visual animation building capabilities"). The style-manager gets at most a named
-   recipe select, behind `TIMELINE_PANEL_ENABLED = false`, until the owner answers Q1 (paid
-   product?) and, if needed, Webflow consents in writing.
-3. **Pinned at 3.15.0, files unmodified, banners intact** (§III: do not remove or alter notices).
-   An upgrade may carry new terms (§VI Amendments) and is an owner decision.
-4. **Published-site use is a Permitted Use** ("use … on any website"). `assets/ck-timeline.js`
-   ships only on pages that carry `data-ck-timeline`; the editor loads it only by dynamic import.
-5. **Swap path.** The markers are engine-neutral; an MIT engine (Motion vanilla, WAAPI + scroll
-   timelines) can replace `timeline-source.ts` behind the same recipe names.
+**Removed:** `vendor/gsap/` (gsap 3.15.0 `gsap.min.js`, `ScrollTrigger.min.js`, `SplitText.min.js`,
+`LICENSE.md`, `PROVENANCE.md`) and `scripts/vendor-gsap.mjs`. They stay in git history (added in commit
+`537acb0`) for the record; nothing ships or loads them.
+
+<!-- end gsap-pixi additions -->
 
 ## lottie-web — the light Lottie player for published sites
 

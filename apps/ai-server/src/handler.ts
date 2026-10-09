@@ -172,11 +172,12 @@ export const MODEL_HEADER = 'x-craftkit-ai-model';
  * pick the most expensive model on someone else's key. The configured default
  * is always allowed by name; anything else has to be in `models`.
  *
- * Two places may name it (2026-09-28). The header is the picker's standing
- * choice for every call of a provider; the body's `model` is ONE call's —
- * the fast model a host names for a small edit (the fast-edits contract:
- * `RunAiAgentOptions.editModel`), while page builds keep the picker's. The
- * call's own wins, under the same allowlist.
+ * Two places may name it (2026-09-28). The header is the PERSON's choice in
+ * the picker; the body's `model` is the fast model a host names for a small
+ * edit (the fast-edits contract: `RunAiAgentOptions.editModel`). The person's
+ * choice wins (2026-10-08): the owner picked Opus and the log showed every edit
+ * running on `haiku, effort low`, because the body used to win. The host's fast
+ * model now applies only when the person picked nothing. Same allowlist either way.
  */
 async function resolveModel(
   request: Request,
@@ -188,7 +189,8 @@ async function resolveModel(
     return { refused: 'The request\'s "model" must be a model name.' };
   }
   const called = (perCall ?? '').trim();
-  const named = called !== '' ? called : (request.headers.get(MODEL_HEADER) ?? '').trim();
+  const picked = pickedModel(request);
+  const named = picked !== '' ? picked : called;
   if (named === '') return { model: options.model };
   /*
     Match by the model's name WITHOUT its `cli:` prefix, and answer with the
@@ -233,11 +235,23 @@ const DEEP_EFFORTS: ReadonlySet<unknown> = new Set(['high', 'xhigh', 'max']);
  */
 export const EFFORT_HEADER = 'x-craftkit-ai-effort';
 
-/** The budget one call asked for — its body's, else its header's — or undefined. */
+/** The model the person picked in the panel's picker (the header), or ''. */
+function pickedModel(request: Request): string {
+  return (request.headers.get(MODEL_HEADER) ?? '').trim();
+}
+
+/**
+ * The budget one call asked for, or undefined. When the person picked a model,
+ * the whole call is theirs: their header budget (or the default), never the
+ * host's small-edit `effort` in the body, which belongs to the host's fast
+ * model (2026-10-08, the owner's Opus edits ran at `effort low`). With no pick,
+ * the body's budget, else the header's.
+ */
 function askedEffort(request: Request, wire: AiPlanWireRequest): unknown {
+  const inHeader = (request.headers.get(EFFORT_HEADER) ?? '').trim();
+  if (pickedModel(request) !== '') return inHeader === '' ? undefined : inHeader;
   const inBody: unknown = (wire as { effort?: unknown }).effort;
   if (inBody !== undefined) return inBody;
-  const inHeader = (request.headers.get(EFFORT_HEADER) ?? '').trim();
   return inHeader === '' ? undefined : inHeader;
 }
 

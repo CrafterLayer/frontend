@@ -13,7 +13,7 @@ import { announcementBarSchema, type AnnouncementBarProps } from './schema';
 const EMPHASIS_CLASSES: Readonly<Record<AnnouncementBarProps['emphasis'], string>> = {
   subtle: 'border-y border-text/10 bg-surface text-text',
   accent: 'border-y border-accent/20 bg-accent text-accent-text shadow-soft',
-  inverse: 'border-y border-text-inverse/10 bg-surface-inverse text-text-inverse',
+  inverse: 'border-y border-text-inverse/10 bg-surface-inverse text-text-inverse mkt-slab',
 };
 
 const DENSITY_CLASSES: Readonly<Record<AnnouncementBarProps['density'], string>> = {
@@ -23,7 +23,7 @@ const DENSITY_CLASSES: Readonly<Record<AnnouncementBarProps['density'], string>>
 
 const LAYOUT_CLASSES: Readonly<Record<AnnouncementBarProps['layout'], string>> = {
   inline: 'items-center justify-center text-center',
-  split: 'items-stretch justify-between text-start @sm:items-center',
+  split: 'items-stretch justify-between text-start @lg:items-center',
 };
 
 /** A concise, semantic announcement with an optional destination link. */
@@ -55,14 +55,19 @@ export function AnnouncementBar({ node, props, isCanvas }: BlockRenderProps<Anno
       <div
         className={cx(
           sectionContentClasses(props.width, props.align, props.gutter),
-          'flex flex-col @sm:flex-row',
+          /*
+            One row only once the bar is wider than a phone (32rem): at 390px a
+            row squeezed the message into a one-word column between the label
+            and the link, so below that the link goes under the message.
+          */
+          'flex flex-col @lg:flex-row',
           DENSITY_CLASSES[props.density],
           GAP_CLASSES.sm,
           LAYOUT_CLASSES[props.layout],
         )}
         data-announcement-content=""
       >
-        <div className="flex min-w-0 items-center justify-center gap-3 @sm:justify-start">
+        <div className="flex min-w-0 items-center justify-center gap-3 @lg:justify-start">
           {props.showLabel ? (
             <span
               {...part('label', {

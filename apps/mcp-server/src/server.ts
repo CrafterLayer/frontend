@@ -24,6 +24,21 @@ import {
   type Transaction,
   type TrustedExtensionManifest,
 } from '@craftkit/builder/headless';
+// script-servers additions (2026-10-08): tool, editTree and script.run steps over MCP (agent-script DESIGN §A.13).
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+import {
+  createNodeScriptRunner,
+  expandAgentTools,
+  expandScriptSteps,
+  expandTreeEdits,
+  type AiEffectiveCommandPolicy,
+  type AiPlanValidationIssue,
+  type ScriptRunner,
+  type ScriptRunReport,
+} from '@craftkit/builder/headless';
+// end script-servers additions
 
 import {
   createMemoryDocumentStore,
@@ -67,6 +82,21 @@ export interface CraftkitMcpServerOptions {
    * hard-coded list, so the answer stays true under any override.
    */
   extensions?: readonly TrustedExtensionManifest[];
+  // script-servers additions (2026-10-08)
+  /**
+   * The `worker_threads` file the `script.run` sandbox runs in. The built
+   * server finds its own `dist/script-worker.mjs` (vite.config.ts emits it next
+   * to `main.js`); run from source (tests), builder-ai's `sandbox-worker.node.mjs`
+   * is used. A host bundling this server elsewhere passes its own.
+   */
+  scriptWorkerUrl?: URL;
+  /**
+   * A script runner used INSTEAD of the server's own Node worker runner. Only
+   * for an embedding host that already owns one: an in-thread runner has no
+   * hard stop and must never run plans from an untrusted client.
+   */
+  scriptRunner?: ScriptRunner;
+  // end script-servers additions
 }
 
 /** The document-shaped half of every tool's input, described once. */
@@ -162,6 +192,24 @@ function serializeBlock(block: RegisteredBlock): unknown {
   };
 }
 
+// script-servers additions (2026-10-08)
+/**
+ * The worker the BUILT server ships: `dist/script-worker.mjs`, next to the
+ * bundle this line ends up in (vite.config.ts). Run from source there is no
+ * such file beside `src/server.ts`, and the runner's own default — builder-ai's
+ * `sandbox-worker.node.mjs`, plain ESM Node loads as it is — applies.
+ */
+function builtScriptWorker(): URL | undefined {
+  const url = new URL('./script-worker.mjs', import.meta.url);
+  return existsSync(fileURLToPath(url)) ? url : undefined;
+}
+
+/** A plan with its script, tool and editTree steps turned into kernel steps, or why it could not be. */
+type ExpandedPlan =
+  | { readonly ok: true; readonly plan: unknown; readonly scripts: readonly ScriptRunReport[] }
+  | { readonly ok: false; readonly issues: readonly AiPlanValidationIssue[] };
+// end script-servers additions
+
 export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}): McpServer {
   const store = options.store ?? createMemoryDocumentStore();
   const ids = options.ports?.ids ?? systemIds;
@@ -209,6 +257,52 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
     return 'kernel' in value;
   }
 
+  // script-servers additions (2026-10-08)
+  /*
+    ONE script runner per server, started by the first `script.run` step: the
+    QuickJS sandbox in a `worker_threads` worker with a 1 s interrupt, a 3 s
+    hard stop and a 16 MB heap (builder-ai `createNodeScriptRunner`). Never the
+    in-thread runner: plans here come from a remote client. A plan without a
+    script never starts it, and it is disposed with the connection below.
+  */
+  const scriptWorkerUrl = options.scriptWorkerUrl ?? builtScriptWorker();
+  let scriptWorker: ScriptRunner | undefined;
+  const scriptRunner: ScriptRunner = options.scriptRunner ?? {
+    run: (request) => {
+      scriptWorker ??= createNodeScriptRunner(
+        scriptWorkerUrl === undefined ? {} : { workerUrl: scriptWorkerUrl },
+      );
+      return scriptWorker.run(request);
+    },
+    dispose: () => {
+      scriptWorker?.dispose();
+      scriptWorker = undefined;
+    },
+  };
+
+  /**
+   * The plan's non-kernel steps expanded BEFORE the door, in the editor's own
+   * order (generate-plan.ts): `script.run` first, whose queued writes become
+   * ordinary kernel steps (coalesced per node and prop, still one plan); then
+   * the agent tool steps; then `editTree`. Each issue is an `invalid-args`
+   * whose message is the repair instruction — a script's carries its `E_*`
+   * code — so a refusal hands the client exactly what to fix.
+   */
+  async function expandPlan(
+    plan: unknown,
+    kernel: BuilderKernel,
+    policy: AiEffectiveCommandPolicy,
+  ): Promise<ExpandedPlan> {
+    const scripts = await expandScriptSteps(plan, kernel, { runner: scriptRunner, policy });
+    if (scripts.issues.length > 0) return { ok: false, issues: scripts.issues };
+    const tools = expandAgentTools(scripts.plan, kernel);
+    const trees = expandTreeEdits(tools.plan, kernel);
+    const issues = [...tools.issues, ...trees.issues];
+    if (issues.length > 0) return { ok: false, issues };
+    return { ok: true, plan: trees.plan, scripts: scripts.runs };
+  }
+  // end script-servers additions
+
   const server = new McpServer(
     { name: 'craftkit-builder', version: '0.1.0' },
     {
@@ -220,6 +314,14 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
         'with the reasons, which are the repair instructions.',
     },
   );
+  // script-servers additions (2026-10-08): a live worker keeps Node running, so it ends with the connection.
+  const closeConnection = server.server.onclose;
+  server.server.onclose = () => {
+    closeConnection?.();
+    scriptWorker?.dispose();
+    scriptWorker = undefined;
+  };
+  // end script-servers additions
 
   server.registerTool(
     'craftkit_catalog',
@@ -368,7 +470,21 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
         'as ONE transaction — one history entry, one undo, all-or-nothing. A plan that names an ' +
         'unknown command, sends malformed arguments, or would leave the document invalid is ' +
         "REFUSED, and the validator's own reasons come back unchanged so they can be repaired " +
-        'and resubmitted. Nothing is half-applied.',
+        'and resubmitted. Nothing is half-applied.' +
+        // script-servers additions (2026-10-08): tool and script steps (agent-script DESIGN §A.13).
+        ' Besides kernel commands, a step may be an agent tool the server expands before the door, ' +
+        '{"command":"tool","args":{"name":"theme.apply","input":{"accent":"emerald-700"}}}, or ONE ' +
+        'edit script for the same change on many elements or content built from data: ' +
+        '{"command":"tool","args":{"name":"script.run","input":{"code":"ck.style(ck.find({kind:' +
+        "'button'}),{borderRadius:'full'})\"}}}. The code is plain JavaScript run once in a " +
+        'sandbox (no import, await, network or DOM; 1 s of CPU). It reads the page with ' +
+        'ck.find({kind?,text?,section?}) -> [{id,kind,text,node,section,part?,index?,src?,href?}] ' +
+        'and ck.pages(), queues writes with ck.set(els,{text?,href?,src?,alt?}), ' +
+        "ck.style(els,{borderRadius:'full',textColor:'accent'}) and ck.tool(name,input), and " +
+        'gets ck.photos(topic,n), ck.fmt.num/money and ck.note(text). Its writes join THIS plan: ' +
+        'still one transaction and one undo. A refused script names an E_* code and how to fix ' +
+        'it. editTree steps are expanded here too.',
+      // end script-servers additions
       inputSchema: {
         documentId: documentIdArg,
         plan: planArg,
@@ -378,7 +494,7 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
           .describe("History label for the transaction. Defaults to 'AI: <rationale>'."),
       },
     },
-    ({ documentId, plan, label }) => {
+    async ({ documentId, plan, label }) => {
       const found = session(documentId);
       if (!isSession(found)) return found;
       const { kernel } = found;
@@ -386,6 +502,17 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
       const policy = resolveAiCommandPolicy({
         registeredCommands: [...kernel.context.registry.commandNames()],
       });
+      // script-servers additions (2026-10-08): script, tool and editTree steps become kernel steps first.
+      const expanded = await expandPlan(plan, kernel, policy);
+      if (!expanded.ok) {
+        return refusal({
+          error: 'plan-rejected',
+          message:
+            'A script, tool or editTree step could not be expanded into kernel steps. Nothing was applied.',
+          issues: expanded.issues,
+        });
+      }
+      // end script-servers additions
       /*
         The plan is handed over as it arrived. `validateAiPlan` takes `unknown`
         on purpose — it is the parser as well as the checker — so re-shaping it
@@ -393,7 +520,7 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
         real one would show up as plans this server accepted and the editor
         would not.
       */
-      const verdict = validateAiPlan(plan, kernel, preflightPorts(), policy);
+      const verdict = validateAiPlan(expanded.plan, kernel, preflightPorts(), policy);
       if (!verdict.ok) {
         return refusal({
           error: 'plan-rejected',
@@ -418,6 +545,9 @@ export function createCraftkitMcpServer(options: CraftkitMcpServerOptions = {}):
           can check rather than as a sentence it has to believe.
         */
         transactionsAdded: kernel.transactions().length - before,
+        // script-servers additions (2026-10-08): each script's notes and summary, for the person.
+        ...(expanded.scripts.length === 0 ? {} : { scripts: expanded.scripts }),
+        // end script-servers additions
         document: kernel.getDocument(),
       });
     },

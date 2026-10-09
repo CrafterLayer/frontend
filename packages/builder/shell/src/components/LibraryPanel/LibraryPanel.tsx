@@ -15,6 +15,18 @@ import { LIBRARY_ELEMENT_PRESETS, type LibraryLanguage } from './library-presets
 import { previewMarkup, previewSrcdoc, treeClassNames } from './library-preview';
 import { LIBRARY_PANEL_LABELS_EN, type LibraryPanelLabels } from './LibraryPanel.labels';
 import { LibraryTile } from './LibraryTile';
+// library-playground additions (2026-10-08): template cards, the Templates tab, the section page kit.
+import {
+  TEMPLATE_CARD_LABELS_AR,
+  TEMPLATE_CARD_LABELS_EN,
+  TemplateCard,
+  orderTemplateCards,
+  pageContentLanguage,
+  templateCardSearchText,
+  type TemplateCardInfo,
+} from '../TemplateCard';
+import type { LibraryPageKit } from './library-insert';
+// end library-playground additions
 import './LibraryPanel.css';
 
 /** A ready-made section the host offers (P11 maps the section-kit catalogue to these). */
@@ -26,9 +38,19 @@ export interface LibrarySectionEntry {
   readonly group?: string | undefined;
   readonly tree: CustomCodeRoot;
   readonly css?: string | undefined;
+  // library-playground additions (2026-10-08)
+  /**
+   * The page-level stylesheet the section's `ck-*` classes need. Inserting the
+   * section adds it to the page root's `pageCss` in the same transaction when
+   * the page does not yet contain `marker`; its thumbnail is drawn with it.
+   */
+  readonly pageKit?: LibraryPageKit | undefined;
+  // end library-playground additions
 }
 
-export type LibraryTab = 'elements' | 'sections' | 'blocks' | 'saved';
+// library-playground additions (2026-10-08): 'templates' is a top-level tab.
+export type LibraryTab = 'elements' | 'sections' | 'templates' | 'blocks' | 'saved';
+// end library-playground additions
 
 export interface LibraryPanelProps {
   /** BY PROP — the shell never reads React context. */
@@ -56,6 +78,15 @@ export interface LibraryPanelProps {
   /** Compiles exactly the classes a thumbnail uses (the live compiler's `compileFor`). */
   compilePreviewCss?: ((classNames: readonly string[]) => Promise<string>) | undefined;
   defaultTab?: LibraryTab | undefined;
+  // library-playground additions (2026-10-08)
+  /**
+   * Template cards (photo, bilingual name and description, content language)
+   * for registered compositions — `marketingTemplateCatalog` in the editor. A
+   * composition with a card renders as a `TemplateCard` in the Templates tab;
+   * one without keeps a plain tile. Absent ⇒ every composition is a plain tile.
+   */
+  templateCards?: readonly TemplateCardInfo[] | undefined;
+  // end library-playground additions
 }
 
 interface Entry {
@@ -70,7 +101,22 @@ interface Entry {
   readonly compositionId?: string | undefined;
   readonly rootType?: string | undefined;
   readonly templateId?: string | undefined;
+  // library-playground additions (2026-10-08)
+  readonly pageKit?: LibraryPageKit | undefined;
+  // end library-playground additions
 }
+
+// library-playground additions (2026-10-08)
+/** One registered composition in the Templates tab: with its card when the host gave one. */
+interface TemplateTabEntry {
+  readonly key: string;
+  readonly compositionId: string;
+  readonly rootType: string;
+  readonly name: string;
+  readonly search: string;
+  readonly card?: TemplateCardInfo | undefined;
+}
+// end library-playground additions
 
 function glyphOf(node: CustomCodeNode | undefined): string {
   if (node === undefined) return '▭';
@@ -99,6 +145,7 @@ export function LibraryPanel({
   previewStylesheet = '',
   compilePreviewCss,
   defaultTab = 'elements',
+  templateCards, // library-playground additions (2026-10-08)
 }: LibraryPanelProps) {
   const searchId = useId();
   const [tab, setTab] = useState<LibraryTab>(defaultTab);
@@ -141,12 +188,48 @@ export function LibraryPanel({
     [language],
   );
 
+  // library-playground additions (2026-10-08): the Templates tab (agent-script DESIGN §B.5).
+  const carded = useMemo(
+    () => new Map((templateCards ?? []).map((card) => [card.id, card] as const)),
+    [templateCards],
+  );
+  // The page's CONTENT language orders the cards: the root lang, else the direction.
+  const pageLanguage = useSyncExternalStore(
+    useCallback((onChange: () => void) => kernel.context.store.subscribe(onChange), [kernel]),
+    useCallback(() => pageContentLanguage(kernel.getDocument()), [kernel]),
+  );
+  const templateEntries = useMemo<TemplateTabEntry[]>(() => {
+    void catalogVersion;
+    const surface = kernel.getDocument().surface;
+    return kernel.context.registry.compositions(surface).flatMap((composition): TemplateTabEntry[] => {
+      const root = composition.nodes[composition.rootId];
+      if (root === undefined) return [];
+      const card = carded.get(composition.id);
+      return [
+        {
+          key: `template:${composition.id}`,
+          compositionId: composition.id,
+          rootType: root.type,
+          name: card === undefined ? composition.name : card.name[language],
+          search:
+            `${composition.name} ${composition.id} ${root.type} ${card === undefined ? '' : templateCardSearchText(card)}`.toLocaleLowerCase(),
+          card,
+        },
+      ];
+    });
+  }, [kernel, catalogVersion, carded, language]);
+  const templateCardLabels = language === 'ar' ? TEMPLATE_CARD_LABELS_AR : TEMPLATE_CARD_LABELS_EN;
+  // end library-playground additions
+
   const sectionEntries = useMemo<Entry[]>(() => {
     void catalogVersion;
     const surface = kernel.getDocument().surface;
     const compositions = kernel.context.registry.compositions(surface).flatMap((composition): Entry[] => {
       const root = composition.nodes[composition.rootId];
       if (root === undefined) return [];
+      // library-playground additions (2026-10-08): a carded template lives in the Templates tab.
+      if (carded.has(composition.id)) return [];
+      // end library-playground additions
       return [
         {
           key: `composition:${composition.id}`,
@@ -169,10 +252,11 @@ export function LibraryPanel({
         badge: section.group,
         tree: section.tree,
         css: section.css,
+        pageKit: section.pageKit, // library-playground additions (2026-10-08)
       }),
     );
     return [...offered, ...compositions];
-  }, [kernel, catalogVersion, sections, language]);
+  }, [kernel, catalogVersion, sections, language, carded]); // library-playground additions: + carded
 
   const savedEntries = useMemo<Entry[]>(
     () =>
@@ -203,7 +287,11 @@ export function LibraryPanel({
       const tree = entry.tree;
       if (tree === undefined) continue;
       map.set(entry.key, async () => {
-        const markup = previewMarkup(kernel, tree, entry.css, dir);
+        // library-playground additions (2026-10-08): a kit section's thumbnail is drawn with its page
+        // kit, scoped like the page would scope it, so the tile looks like the inserted result.
+        const regionCss = entry.pageKit === undefined ? entry.css : `${entry.css ?? ''}\n${entry.pageKit.css}`;
+        const markup = previewMarkup(kernel, tree, regionCss, dir);
+        // end library-playground additions
         if (markup === undefined) return undefined;
         const compiled = compilePreviewCss === undefined ? '' : await compilePreviewCss(treeClassNames(tree)).catch(() => '');
         return previewSrcdoc({
@@ -237,11 +325,22 @@ export function LibraryPanel({
         actionLabels,
         words,
         noRegionType: labels.noRegionType,
+        pageKit: entry.pageKit, // library-playground additions (2026-10-08)
       });
       announce(outcome.ok ? labels.inserted(entry.name) : outcome.message);
     },
     [kernel, actionLabels, words, labels, announce],
   );
+
+  // library-playground additions (2026-10-08): a template inserts like the Palette's, one transaction.
+  const insertTemplate = useCallback(
+    (entry: TemplateTabEntry) => {
+      const ok = insertCompositionAtSelection(kernel, entry.compositionId, entry.rootType);
+      announce(ok ? labels.inserted(entry.name) : labels.cannotInsert(entry.name));
+    },
+    [kernel, labels, announce],
+  );
+  // end library-playground additions
 
   /**
    * The element drag: the host's `beginElementDrag`, else the canvas handle's
@@ -318,6 +417,77 @@ export function LibraryPanel({
     );
   };
 
+  // library-playground additions (2026-10-08): the Templates tab — the page's language first,
+  // then "Other language"; a composition without a card keeps a plain tile. Nothing is hidden.
+  const otherLanguageId = `${searchId}-other-language`;
+  const renderTemplateItems = (list: readonly TemplateTabEntry[]) =>
+    list.map((entry) =>
+      entry.card === undefined ? (
+        <LibraryTile
+          key={entry.key}
+          name={entry.name}
+          glyph="▤"
+          insertLabel={labels.insert(entry.name)}
+          description={labels.insertHint}
+          onInsert={() => {
+            insertTemplate(entry);
+          }}
+        />
+      ) : (
+        <li key={entry.key} className="bldr-library__template">
+          <TemplateCard
+            card={entry.card}
+            labels={templateCardLabels}
+            onInsert={() => {
+              insertTemplate(entry);
+            }}
+          />
+        </li>
+      ),
+    );
+  const renderTemplates = () => {
+    const visible =
+      normalized === ''
+        ? templateEntries
+        : templateEntries.filter((entry) => entry.search.includes(normalized) || entry.name.toLocaleLowerCase().includes(normalized));
+    if (visible.length === 0) {
+      return (
+        <p className="bldr-library__empty" role="status">
+          {templateEntries.length === 0
+            ? (labels.noTemplates ?? labels.palette.noTemplates)
+            : labels.noResults}
+        </p>
+      );
+    }
+    const withCards = visible.filter((entry): entry is TemplateTabEntry & { card: TemplateCardInfo } => entry.card !== undefined);
+    const { matching, other } = orderTemplateCards(withCards, pageLanguage);
+    const plain = visible.filter((entry) => entry.card === undefined);
+    return (
+      <>
+        {matching.length + plain.length === 0 ? null : (
+          <ul className="bldr-library__template-grid" data-group="page-language">
+            {renderTemplateItems([...matching, ...plain])}
+          </ul>
+        )}
+        {other.length === 0 ? null : (
+          <section className="bldr-library__template-group" aria-labelledby={otherLanguageId}>
+            <h3 id={otherLanguageId} className="bldr-library__group-heading">
+              {labels.otherLanguage ?? (language === 'ar' ? 'لغة أخرى' : 'Other language')}
+            </h3>
+            <ul className="bldr-library__template-grid" data-group="other-language">
+              {renderTemplateItems(other)}
+            </ul>
+          </section>
+        )}
+      </>
+    );
+  };
+  const tabLabel = (value: LibraryTab): string =>
+    value === 'templates'
+      ? (labels.tabs.templates ?? (language === 'ar' ? 'القوالب' : 'Templates'))
+      : labels.tabs[value];
+  // end library-playground additions
+
   return (
     <nav className="bldr-library" aria-label={labels.title} lang={labels.language}>
       <Tabs.Root
@@ -330,9 +500,10 @@ export function LibraryPanel({
         }}
       >
         <Tabs.List className="bldr-library__tablist" aria-label={labels.title}>
-          {(['elements', 'sections', 'blocks', 'saved'] as const).map((value) => (
+          {/* library-playground additions (2026-10-08): Templates sits at the top level. */}
+          {(['elements', 'sections', 'templates', 'blocks', 'saved'] as const).map((value) => (
             <Tabs.Trigger key={value} value={value} className="bldr-library__tab">
-              {labels.tabs[value]}
+              {tabLabel(value)}
               {value === 'saved' && savedEntries.length > 0 ? (
                 <span className="bldr-library__count">{savedEntries.length}</span>
               ) : null}
@@ -362,8 +533,18 @@ export function LibraryPanel({
         <Tabs.Content value="sections" className="bldr-library__panel">
           {renderGrid(sectionEntries, labels.noSections)}
         </Tabs.Content>
+        {/* library-playground additions (2026-10-08) */}
+        <Tabs.Content value="templates" className="bldr-library__panel">
+          {renderTemplates()}
+        </Tabs.Content>
+        {/* end library-playground additions */}
         <Tabs.Content value="blocks" className="bldr-library__panel bldr-library__panel--blocks">
-          <Palette kernel={kernel} dragHandle={dragHandle} labels={labels.palette} />
+          <Palette
+            kernel={kernel}
+            dragHandle={dragHandle}
+            labels={labels.palette}
+            templateCards={templateCards} /* library-playground additions (2026-10-08) */
+          />
         </Tabs.Content>
         <Tabs.Content value="saved" className="bldr-library__panel">
           {renderGrid(savedEntries, labels.noSaved)}

@@ -20,11 +20,19 @@ const BUTTON_WIDTH_CLASSES: Record<CtaProps['width'], string | undefined> = {
   full: 'w-full',
 };
 
+/*
+  A ghost or link action draws in the accent — unless the section it sits in
+  says its ink is the surrounding one (`--ck-cta-ink`, set by a dark or
+  transparent hero): accent on dark navy measured about 2.5:1, so there the
+  action takes the section's own ink instead.
+*/
+const ACTION_INK = 'text-[color:var(--ck-cta-ink,var(--t-accent))]';
+
 const EMPHASIS_CLASSES: Record<CtaProps['emphasis'], string> = {
   primary: 'border-accent bg-accent text-accent-text shadow-soft hover:shadow-strong',
   secondary: 'border-text/15 bg-surface text-text shadow-soft hover:border-accent/40',
-  ghost: 'border-accent/40 bg-transparent text-accent hover:bg-accent/10',
-  link: 'border-transparent bg-transparent px-0 text-accent underline-offset-4 hover:underline',
+  ghost: `border-[color:var(--ck-cta-ink,var(--t-accent))]/40 bg-transparent ${ACTION_INK} hover:bg-accent/10`,
+  link: `border-transparent bg-transparent px-0 ${ACTION_INK} underline-offset-4 hover:underline`,
 };
 
 const SIZE_CLASSES: Record<CtaProps['size'], string> = {

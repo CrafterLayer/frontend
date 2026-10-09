@@ -1,0 +1,70 @@
+/*
+  The bar above Preview: a row of its own, so nothing overlays the preview
+  frame. Chrome tokens only (light and dark follow the theme); logical
+  properties only (it mirrors in the Arabic editor).
+*/
+.pg-preview-toolbar {
+  align-items: center;
+  background: var(--bldr-panel);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex: 0 0 auto;
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-control-lg);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+}
+
+.pg-preview-toolbar:lang(ar) {
+  font-family: var(--bldr-font-arabic);
+}
+
+.pg-preview-chip {
+  align-items: center;
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-sm);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-md);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-preview-chip:hover {
+  border-color: var(--bldr-accent-ring);
+}
+
+.pg-preview-chip[aria-pressed='true'] {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-strong);
+}
+
+.pg-preview-chip:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-preview-chip__icon {
+  block-size: var(--bldr-space-xl);
+  flex: 0 0 auto;
+  inline-size: var(--bldr-space-xl);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-preview-chip {
+    transition: none;
+  }
+}

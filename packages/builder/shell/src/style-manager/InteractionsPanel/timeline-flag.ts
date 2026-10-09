@@ -1,14 +1,15 @@
 /**
- * Whether the Interactions panel shows the "Cinematic motion" section — the
- * named scroll-timeline picker (media-motion DESIGN §C.1, condition 2).
+ * Whether the Interactions panel shows the "Cinematic motion" section
+ * («حركة سينمائية») — the recipe-name picker for `data-ck-timeline`
+ * (media-motion DESIGN §C.1, condition 2; gsap-pixi SPEC, 2026-10-08).
  *
- * OFF until the owner decides. The timeline engine today is GSAP 3.15.0 under
- * the GSAP Standard "No Charge" License (Webflow), which permits AI-generated
- * use and use on any website but prohibits no-code visual animation builders.
- * So recipes are agent-only (`motion.add`), and this manual picker — a select
- * of recipe NAMES, never a timeline or keyframe editor — stays hidden until
- * the owner answers open question Q1 (is CraftKit, or will it be, a paid
- * product?) and, if so, Webflow gives written consent. Flip it here only then.
- * Stories and tests opt in with the panel's `timelinePanel` prop instead.
+ * ON. The timeline engine is now an MIT library: an anime.js 4.5.0 subset
+ * (vendor/animejs, `renderer/src/engines/timeline-source.ts`), which carries no
+ * restriction on visual or no-code animation tools. GSAP is gone: its Standard
+ * "No Charge" licence prohibited exactly this picker in a no-code builder
+ * (durable/gsap-pixi/LICENCE.md). The picker still offers recipe NAMES only
+ * (`CUSTOM_CODE_TIMELINE_RECIPES` + `data-ck-scrub`), never a timeline or
+ * keyframe editor. Set it to false to hide the section; stories and tests can
+ * still opt in with the panel's `timelinePanel` prop.
  */
-export const TIMELINE_PANEL_ENABLED = false as boolean;
+export const TIMELINE_PANEL_ENABLED = true as boolean;

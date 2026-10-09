@@ -67,9 +67,9 @@
 }
 
 .bldr-bucket-state-switcher__visually-hidden {
-  block-size: 1px;
+  block-size: var(--bldr-border-hairline);
   clip-path: inset(50%);
-  inline-size: 1px;
+  inline-size: var(--bldr-border-hairline);
   overflow: hidden;
   position: absolute;
   white-space: nowrap;

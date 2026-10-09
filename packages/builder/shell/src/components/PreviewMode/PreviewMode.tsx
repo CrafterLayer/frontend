@@ -11,7 +11,14 @@ import {
 import type { ContentDirection } from '@craftkit/builder-schema';
 
 import '../../styles/visually-hidden.css';
+// library-playground additions (2026-10-08): the frame's <html lang> follows the page.
+import { useFrameLang } from '../EditorCanvas/frame-lang';
+// end library-playground additions
 import './PreviewMode.css';
+
+// gsap-pixi additions (2026-10-08): engines on registered blocks play as on the published page.
+const PREVIEW_SITE_ENGINES = { interactive: true } as const;
+// end gsap-pixi additions
 
 export interface PreviewModeProps {
   /** BY PROP — the shell never reads React context. */
@@ -63,6 +70,9 @@ export function PreviewMode({
   const dir = dirOverride ?? docDir;
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   const regionRef = useRef<HTMLDivElement | null>(null);
+  // library-playground additions (2026-10-08): the document's language, not the flip's direction.
+  useFrameLang(kernel, frame);
+  // end library-playground additions
 
   // Mount focus: preview is a modal surface — focus moves into the region on
   // ENTRY, once. Deliberately separate from the Escape effect below: an onExit
@@ -131,7 +141,13 @@ export function PreviewMode({
             : undefined
         }
       >
-        <CanvasFrame theme={theme} dir={dir} title="Preview" onFrame={setFrame}>
+        <CanvasFrame
+          theme={theme}
+          dir={dir}
+          title="Preview"
+          onFrame={setFrame}
+          siteEngines={PREVIEW_SITE_ENGINES} /* gsap-pixi additions (2026-10-08) */
+        >
           {/*
             `isCanvas={false}` is the whole difference between this and the
             canvas: a block's editing-only scaffolding — empty-state hints, drop

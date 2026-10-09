@@ -27,6 +27,9 @@ import { classifyAiRunFailure, type AiRunFailure } from './errors';
 import { checkSection, tokeniseColourClasses } from './page-plan/check-section';
 import { completeKitSlots, fillSlotPhotos, pagePhotoPlan } from './page-plan/kit-slots';
 import { planKit, planKitIndex, writerKitRoles } from './page-plan/kits';
+// script-wiring additions
+import { sectionScriptCard } from './section-script-card';
+// end script-wiring additions
 import { summarizeNeighbours } from './page-plan/neighbours';
 import {
   provisionalCandidate,
@@ -2603,6 +2606,9 @@ function kitContractRequest(
     planKitIndex(writerKitRoles(contract)),
     '',
     agentToolPrompt('section'),
+    // script-wiring additions
+    ...sectionScriptCard(contract, planKit(contract.kit)),
+    // end script-wiring additions
     '',
     `ANSWER with ONE tool step and nothing else: ${JSON.stringify(shape)} — "id" is this region's id (${task.id}); "kit" is ${contract.kit}, or another kit listed above; fill "slots" with this section's copy in the page's language (${plan.locale.lang}): the MUST SAY claims, the SAMPLE FACTS exactly as written, every action link as the PRIMARY ACTION. No markup and no css: the kit is styled by the page.`,
     ...(neighbours.trim() === '' ? [] : ['', 'THE SECTIONS AROUND IT:', neighbours.trim()]),

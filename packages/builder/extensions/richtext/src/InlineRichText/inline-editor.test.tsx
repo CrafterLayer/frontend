@@ -241,6 +241,8 @@ describe('inline-editor — the registry adapter (009 inlineEditors contribution
       'bold',
       'italic',
       'link',
+      'heading2',
+      'heading3',
       'bulletList',
       'orderedList',
       'clear',
@@ -249,6 +251,8 @@ describe('inline-editor — the registry adapter (009 inlineEditors contribution
       'Bold',
       'Italic',
       'Link',
+      'Heading 2',
+      'Heading 3',
       'Bulleted list',
       'Numbered list',
       'Clear formatting',
@@ -256,7 +260,7 @@ describe('inline-editor — the registry adapter (009 inlineEditors contribution
     // Toggles carry pressed; the one-shot carries NO pressed key at all.
     expect(actions[0]?.pressed).toBe(false);
     expect(actions[0]?.disabled).toBe(false);
-    expect(Object.keys(actions[5] ?? {})).not.toContain('pressed');
+    expect(Object.keys(actions[7] ?? {})).not.toContain('pressed');
 
     // A collapsed caret keeps the chrome (the canvas docks it at the surface):
     // marks and lists stay usable, Link needs characters to carry it.

@@ -6,12 +6,12 @@
   not the published CSS (that lives in the renderer's motion presets).
 
   Sideways presets read the PAGE direction: on an RTL page "from start"
-  comes from the right, so `--bldr-motion-sign` flips the inline offsets.
+  comes from the right, so `--motion-preset-sign` flips the inline offsets.
 */
 .bldr-motion-grid {
-  --bldr-motion-sign: 1;
-  --bldr-motion-clip-start: 0;
-  --bldr-motion-clip-end: 100%;
+  --motion-preset-sign: 1;
+  --motion-preset-clip-start: 0;
+  --motion-preset-clip-end: 100%;
   display: grid;
   gap: var(--bldr-space-xs);
   /* Two or three readable columns in the panel; never a strip of slivers. */
@@ -19,9 +19,9 @@
 }
 
 .bldr-motion-grid:dir(rtl) {
-  --bldr-motion-sign: -1;
-  --bldr-motion-clip-start: 100%;
-  --bldr-motion-clip-end: 0;
+  --motion-preset-sign: -1;
+  --motion-preset-clip-start: 100%;
+  --motion-preset-clip-end: 0;
 }
 
 .bldr-motion-grid__card {
@@ -322,11 +322,11 @@
 }
 
 @keyframes bldr-m-fade-start {
-  from { opacity: 0; translate: calc(-60% * var(--bldr-motion-sign)) 0; }
+  from { opacity: 0; translate: calc(-60% * var(--motion-preset-sign)) 0; }
 }
 
 @keyframes bldr-m-fade-end {
-  from { opacity: 0; translate: calc(60% * var(--bldr-motion-sign)) 0; }
+  from { opacity: 0; translate: calc(60% * var(--motion-preset-sign)) 0; }
 }
 
 @keyframes bldr-m-zoom-in {
@@ -338,11 +338,11 @@
 }
 
 @keyframes bldr-m-blur-in {
-  from { opacity: 0; filter: blur(4px); }
+  from { opacity: 0; filter: blur(var(--bldr-effect-blur-md)); }
 }
 
 @keyframes bldr-m-flip-up {
-  from { transform: perspective(60px) rotateX(85deg); }
+  from { transform: perspective(var(--bldr-effect-perspective)) rotateX(85deg); }
 }
 
 @keyframes bldr-m-clip-up {
@@ -350,7 +350,7 @@
 }
 
 @keyframes bldr-m-clip-start {
-  from { clip-path: inset(0 var(--bldr-motion-clip-end) 0 var(--bldr-motion-clip-start)); }
+  from { clip-path: inset(0 var(--motion-preset-clip-end) 0 var(--motion-preset-clip-start)); }
 }
 
 @keyframes bldr-m-rise-mask {
@@ -358,7 +358,7 @@
 }
 
 @keyframes bldr-m-tilt-in {
-  from { opacity: 0; rotate: calc(-20deg * var(--bldr-motion-sign)); translate: 0 30%; }
+  from { opacity: 0; rotate: calc(-20deg * var(--motion-preset-sign)); translate: 0 30%; }
 }
 
 @keyframes bldr-m-stagger-up {
@@ -406,7 +406,7 @@
 }
 
 @keyframes bldr-m-horizontal-scroll {
-  from { translate: calc(80% * var(--bldr-motion-sign)) 0; } to { translate: calc(-80% * var(--bldr-motion-sign)) 0; }
+  from { translate: calc(80% * var(--motion-preset-sign)) 0; } to { translate: calc(-80% * var(--motion-preset-sign)) 0; }
 }
 
 @keyframes bldr-m-float {
@@ -434,7 +434,7 @@
 }
 
 @keyframes bldr-m-meteors {
-  from { translate: calc(80% * var(--bldr-motion-sign)) -80%; opacity: 0; } 30% { opacity: 1; } to { translate: calc(-80% * var(--bldr-motion-sign)) 80%; opacity: 0; }
+  from { translate: calc(80% * var(--motion-preset-sign)) -80%; opacity: 0; } 30% { opacity: 1; } to { translate: calc(-80% * var(--motion-preset-sign)) 80%; opacity: 0; }
 }
 
 @keyframes bldr-m-split-chars {
@@ -450,11 +450,11 @@
 }
 
 @keyframes bldr-m-typewriter {
-  from { clip-path: inset(0 var(--bldr-motion-clip-end) 0 var(--bldr-motion-clip-start)); }
+  from { clip-path: inset(0 var(--motion-preset-clip-end) 0 var(--motion-preset-clip-start)); }
 }
 
 @keyframes bldr-m-word-rotate {
-  from { transform: perspective(60px) rotateX(-90deg); }
+  from { transform: perspective(var(--bldr-effect-perspective)) rotateX(-90deg); }
 }
 
 @keyframes bldr-m-gradient-text {
@@ -466,7 +466,7 @@
 }
 
 @keyframes bldr-m-blur-words {
-  from { filter: blur(3px); opacity: 0.4; }
+  from { filter: blur(var(--bldr-effect-blur-sm)); opacity: 0.4; }
 }
 
 @keyframes bldr-m-draw-line {
@@ -486,11 +486,11 @@
 }
 
 @keyframes bldr-m-tilt {
-  to { transform: perspective(60px) rotateY(calc(25deg * var(--bldr-motion-sign))); }
+  to { transform: perspective(var(--bldr-effect-perspective)) rotateY(calc(25deg * var(--motion-preset-sign))); }
 }
 
 @keyframes bldr-m-magnetic {
-  to { translate: calc(20% * var(--bldr-motion-sign)) -20%; }
+  to { translate: calc(20% * var(--motion-preset-sign)) -20%; }
 }
 
 @keyframes bldr-m-shine-sweep {
@@ -510,5 +510,5 @@
 }
 
 @keyframes bldr-m-icon-nudge {
-  to { translate: calc(30% * var(--bldr-motion-sign)) 0; }
+  to { translate: calc(30% * var(--motion-preset-sign)) 0; }
 }

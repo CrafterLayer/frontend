@@ -123,3 +123,32 @@ describe('mergePartClasses — a stored size beats the block\'s responsive size 
   });
 });
 // ── /block-parts ──
+
+// gsap-pixi additions (2026-10-08)
+describe('blockPartProps — part timelines', () => {
+  it('emits data-ck-timeline / data-ck-scrub on the canvas AND in the published render', () => {
+    const props = {
+      partStyles: {
+        heading: { timeline: 'split-reveal', scrub: false },
+        'item.title': { timeline: 'fade-in' },
+        'item.title@1': { timeline: 'slide-in', scrub: true },
+      },
+    };
+    for (const isCanvas of [true, false]) {
+      const part = blockPartProps({ node, props, isCanvas }, parts);
+      expect(part('heading')['data-ck-timeline']).toBe('split-reveal');
+      expect(part('heading')['data-ck-scrub']).toBe('false');
+      expect(part('item.title', { index: [0] })['data-ck-timeline']).toBe('fade-in');
+      expect(part('item.title', { index: [0] })['data-ck-scrub']).toBeUndefined();
+      // `this` wins over `all`
+      expect(part('item.title', { index: [1] })['data-ck-timeline']).toBe('slide-in');
+      expect(part('item.title', { index: [1] })['data-ck-scrub']).toBe('true');
+    }
+  });
+
+  it('ignores an unknown recipe name in a stored part style', () => {
+    const part = blockPartProps({ node, props: { partStyles: { heading: { timeline: 'explode' } } }, isCanvas: false }, parts);
+    expect(part('heading')['data-ck-timeline']).toBeUndefined();
+  });
+});
+

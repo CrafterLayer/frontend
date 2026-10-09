@@ -43,7 +43,9 @@ describe('mountEmbedFacade', () => {
     expect(frame?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin allow-presentation allow-popups');
     expect(frame?.getAttribute('allow')).toContain('autoplay');
     expect(frame?.getAttribute('referrerpolicy')).toBe('strict-origin-when-cross-origin');
-    expect(frame?.hasAttribute('allowfullscreen')).toBe(true);
+    // Fullscreen comes from `allow` alone: both made Chrome warn on every play.
+    expect(frame?.getAttribute('allow')).toContain('fullscreen');
+    expect(frame?.hasAttribute('allowfullscreen')).toBe(false);
     expect(frame?.getAttribute('title')).toBe('شغّل: جولة في المطبخ');
     expect(document.activeElement).toBe(frame);
     const link = host.querySelector('a');

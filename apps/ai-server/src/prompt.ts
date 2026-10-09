@@ -13,6 +13,9 @@ import {
   PAGE_PLAN_SECTION_VARIANTS,
   PAGE_PLAN_SEO_KINDS,
 } from './plan-shape';
+// script-servers additions (2026-10-08)
+import { prefersScriptServer } from './script-intent';
+// end script-servers additions
 
 /*
   The agent tools a plan may call (2026-09-30, DESIGN §0/§A): a step
@@ -25,14 +28,42 @@ import {
 */
 // BEGIN AGENT TOOL PROMPTS
 export const EDIT_TOOL_PROMPT =
-  "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\ntheme.apply\nfonts.set {display?,body?:verified family}\ncopy.set {edits:[{find,text}],id?}\ndirection.set {lang,dir?}\nimage.set {id,find:src,subject,aspect?,alt}\nicon.set {id,find:icon,icon}\nsection.ops\nnav.sync {} — Rebuild menus from sections\nbehavior.attach\nkit.section {id,kit,slots,heading?:'h1'|'h2'}\nkit.swap {id,kit}\nkit.insert {kit,slots,after?:id}\nseo.meta\nseo.business\nelement.style\nelement.animate\nelement.insert\nelement.remove {id,path|find}\nelement.move\nelement.duplicate {id,path|find}\nelement.wrap\nelement.attr {id,path|find,set:{name:value|null}}\nelement.effect\nstyle.define {name,className}\nstyle.apply\npalette.set {colors:[{name,value}],ramp?:name}\nblock.convert {nodeId}\npart.text {id,part,index?,text}\npart.style {id,part,index?,style}\npart.link {id,part,index?,text?,href?}\npart.image {id,part,index?,src?,alt?}\npart.list {id,part,op,index,to?,item?}\nmedia.add {kind,after?:id,into?:id,behind?:id,…}\nmotion.add {id,find?|path?,recipe,scrub?}\nmedia.add kinds: gallery{layout?:grid|masonry|bento|carousel|filmstrip,images?:'catalog:<topic>'|[{src,alt}],count?} video{url,mode?:background} scene{scene:particles|mesh-gradient|parallax-layers|mural|ripple,behind?:hero id} compare{images?} pricing{plans:[{name,a,b}]} map{address} lottie{src}\nmotion.add recipe: split-reveal|stagger-in|pin-sequence|horizontal-scroll|parallax-depth|scrub-scale|velocity-marquee\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"theme.apply\",\"input\":{\"accent\":\"emerald-700\"}}}";
+  "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\ntheme.apply\nfonts.set {display?,body?:verified family}\ncopy.set {edits:[{find,text}],id?}\ndirection.set {lang,dir?}\nimage.set {id,find:src,subject,aspect?,alt}\nicon.set {id,find:icon,icon}\nsection.ops\nnav.sync {} — Rebuild menus from sections\nbehavior.attach\nkit.section {id,kit,slots,heading?:'h1'|'h2'}\nkit.swap {id,kit}\nkit.insert {kit,slots,after?:id}\nseo.meta\nseo.business\nelement.style\nelement.animate\nelement.insert\nelement.remove {id,path|find}\nelement.move\nelement.duplicate {id,path|find}\nelement.wrap\nelement.attr\nelement.effect\nstyle.define {name,className}\nstyle.apply\npalette.set {colors:[{name,value}],ramp?:name}\nblock.convert {nodeId}\npart.text {id,part,index?,text}\npart.style {id,part,index?,style}\npart.link {id,part,index?,text?,href?}\npart.image {id,part,index?,src?,alt?}\npart.list {id,part,op,index,to?,item?}\nmedia.add {kind,after?:id,into?:id,behind?:id,…}\nmotion.add {id,find?|path?|part?,recipe,scrub?}\nmedia.add kinds: gallery{layout?:grid|masonry|bento|carousel|filmstrip,images?:'catalog:<topic>'|[{src,alt}],count?} video{url,mode?:background} scene{scene:particles|mesh-gradient|parallax-layers|mural|ripple,behind?:hero id} compare{images?} pricing{plans:[{name,a,b}]} map{address} lottie{src}\nmotion.add recipe: split-reveal|stagger-in|pin-sequence|horizontal-scroll|parallax-depth|scrub-scale|velocity-marquee|fade-in|slide-in\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"theme.apply\",\"input\":{\"accent\":\"emerald-700\"}}}";
 export const SEO_TOOL_PROMPT =
   "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\nseo.meta {title?,description?,keyword?,slug?} — omitted fields fill from the h1 and lead — Set page title, description, slug and keyword\nseo.business {type,name,telephone?,whatsapp?,email?,address?:{city,country,street?},hours?,priceRange?,cuisine?,sameAs?} — Record the owner's real business facts\nseo.schema {kinds:[FAQPage|Menu|Product|Service|Article|BreadcrumbList|Event]} — Choose which structured data this page publishes\nseo.fix {} — Apply every safe SEO fix on this page\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"seo.fix\",\"input\":{}}}";
 // END AGENT TOOL PROMPTS
 
-/** When a tool fits, the edit takes it; the rest stays markup; scripts never go inline. */
+// script-servers additions (2026-10-08): edit scripts, agent-script DESIGN §A.10-§A.11.
+/*
+  The edit-script card: how a plan answers bulk or data-driven work with ONE
+  step {"command":"tool","args":{"name":"script.run","input":{"code"}}} that
+  the CLIENT runs in its QuickJS sandbox and expands into ordinary kernel
+  steps before its door — this server never executes a script. It is
+  `SCRIPT_CARD` from builder-ai (script/api-card.ts), copied: this app reaches
+  the builder family only through `@craftkit/builder/wire`, which carries no
+  script API. script-card.test.ts imports the real one and fails on a drift.
+*/
+// BEGIN SCRIPT CARD
+export const SCRIPT_CARD =
+  "EDIT SCRIPT — for ONE change on 5+ elements, or content from data (menu, prices, team, FAQ), answer with one step {\"command\":\"tool\",\"args\":{\"name\":\"script.run\",\"input\":{\"code\":\"...\"}}}. code: plain JavaScript run once, sandboxed: no TypeScript/import/await/fetch/DOM; single quotes; ';' between statements. Its writes join this plan (one Undo). Not page code.\nck.find({kind?,text?,section?,page?}) -> El[] kind: section|heading|text|button|link|image|icon|card|item|input\nEl={id,kind,text,tag,node,section,page,path?,part?,index?,src?,href?}\nck.set(el|els,{text?,href?,src?,alt?}) ck.style(el|els,{textColor:'accent'},{bucket?,state?})\nck.tool(name,input) any tool above (kit.insert, part.list, media.add)\nck.pages() ck.photos(topic,n)->[{src,alt}] ck.fmt.num(n,{digits:'arab'|'latn'}) ck.fmt.money(n,'JOD') ck.note(text)\ne.g. ck.style(ck.find({kind:'button'}),{borderRadius:'full'})\ne.g. const t={'Our menu':'قائمتنا'};ck.find({kind:'heading'}).forEach(h=>{if(t[h.text])ck.set(h,{text:t[h.text]})})";
+// END SCRIPT CARD
+
+/**
+ * When a tool fits, the edit takes it; the same change on many elements or
+ * content from data is ONE edit script; the rest stays markup. Worded so
+ * `script.run` (an edit the editor runs) is never read as leave to put a page
+ * `<script>` in a tree, and vice versa (agent-script audit §A.5-5).
+ */
 const TOOL_PREFERENCE =
-  'Prefer ONE tool step over markup whenever a tool above fits the request; editTree and setProp remain for everything else. A bespoke script (anything a data-ck-behavior cannot do) needs a code page: say so in followUp, and never put a script inline in a tree.';
+  'Prefer ONE tool step over markup whenever a tool above fits the request; for the same change on 5+ elements or content built from data, prefer ONE script.run step (Edit scripts below). editTree and setProp remain for everything else. script.run is an edit script the editor runs, not page code: a bespoke page script (anything a data-ck-behavior cannot do) still needs a code page — say so in followUp — and never put a <script> inline in a tree.';
+
+/** The card's own block in the frozen edit rules, so it caches in system[0] with them. */
+const EDIT_SCRIPTS = `## Edit scripts\n\n${SCRIPT_CARD}`;
+
+/** The per-request nudge after the cached prefix, on an edit that `prefersScriptServer` reads as bulk. */
+export const SCRIPT_TIP =
+  'This request repeats one change over many elements or builds content from data: answer with ONE script.run step (Edit scripts above).';
+// end script-servers additions
 
 /**
  * Turning an assembled context into a Claude request.
@@ -194,6 +225,8 @@ ${REGION_CSS}
 
 ${EDIT_TOOL_PROMPT}
 ${TOOL_PREFERENCE}
+
+${EDIT_SCRIPTS}
 
 ## Refusing
 
@@ -778,6 +811,12 @@ function volatileContext(request: AiPlanWireRequest): string {
   if (planPromptVariant(request) === 'edit' && mentionsSeo(request.request)) {
     parts.push('', '# SEO tools', SEO_TOOL_PROMPT);
   }
+
+  // script-servers additions (2026-10-08): the edit-script tip, per request, so the cached prefix never moves.
+  if (planPromptVariant(request) === 'edit' && prefersScriptServer(request.request)) {
+    parts.push('', '# Tip', SCRIPT_TIP);
+  }
+  // end script-servers additions
 
   parts.push('', '# The request', request.request);
   return parts.join('\n');

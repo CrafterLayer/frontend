@@ -13,7 +13,7 @@ import { pageEngines, type PageEngine } from '../behaviors/script';
  * registers in the frame realm: its `window`, `document` and scroller are the
  * iframe's, the same ones the `engines` pack queued on.
  *
- * - Dynamic imports ONLY: the string modules (GSAP, Pixi, Lottie) never reach
+ * - Dynamic imports ONLY: the string modules (anime.js, Pixi, Lottie) never reach
  *   the editor's main chunk (held by inject.test.ts).
  * - Once per document: a present script is never added again; the source text
  *   is loaded once per page session.

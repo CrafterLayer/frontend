@@ -102,11 +102,12 @@ describe('InteractionsPanel', () => {
 
 // media-motion (2026-10-06) additions: the flag-gated "Cinematic motion" section.
 describe('InteractionsPanel — Cinematic motion (media-motion DESIGN §C.1.2, §C.4)', () => {
-  it('the section is hidden by default: the flag is off until the owner answers Q1', () => {
-    expect(TIMELINE_PANEL_ENABLED).toBe(false);
+  it('the section shows by default now that the engine is MIT (anime.js), not GSAP', () => {
+    // 2026-10-08: GSAP's licence forbids it inside a visual animation builder, so the
+    // timeline engine moved to anime.js (MIT) and the picker is on for everyone.
+    expect(TIMELINE_PANEL_ENABLED).toBe(true);
     setup({ attributes: { 'data-ck-motion': 'fade-up' } });
-    expect(screen.queryByRole('region', { name: 'Cinematic motion' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: 'Cinematic motion' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Cinematic motion' })).toBeInTheDocument();
   });
 
   it('the timelinePanel prop shows it; picking a recipe drops the CSS preset in the SAME write', async () => {

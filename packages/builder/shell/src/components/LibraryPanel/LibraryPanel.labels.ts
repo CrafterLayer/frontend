@@ -9,6 +9,9 @@ export interface LibraryPanelLabels {
     readonly sections: string;
     readonly blocks: string;
     readonly saved: string;
+    // library-playground additions (2026-10-08): the top-level Templates tab (absent ⇒ by language).
+    readonly templates?: string | undefined;
+    // end library-playground additions
   };
   readonly search: string;
   readonly noResults: string;
@@ -24,12 +27,24 @@ export interface LibraryPanelLabels {
   readonly removeTemplate: (name: string) => string;
   /** The Blocks tab's composed palette (its tabs, search, groups and names). */
   readonly palette: PaletteLabels;
+  // library-playground additions (2026-10-08)
+  /** The heading over template cards in another language than the page's. */
+  readonly otherLanguage?: string | undefined;
+  /** The Templates tab when nothing is registered. */
+  readonly noTemplates?: string | undefined;
+  // end library-playground additions
 }
 
 export const LIBRARY_PANEL_LABELS_EN: LibraryPanelLabels = {
   language: 'en',
   title: 'Library',
-  tabs: { elements: 'Elements', sections: 'Sections', blocks: 'Blocks', saved: 'Saved' },
+  tabs: {
+    elements: 'Elements',
+    sections: 'Sections',
+    blocks: 'Blocks',
+    saved: 'Saved',
+    templates: 'Templates', // library-playground additions (2026-10-08)
+  },
   search: 'Search the library',
   noResults: 'Nothing matches. Try another word.',
   noSections: 'No sections are available for this site yet.',
@@ -42,12 +57,22 @@ export const LIBRARY_PANEL_LABELS_EN: LibraryPanelLabels = {
   savedKinds: { element: 'Element', section: 'Section' },
   removeTemplate: (name) => `Remove ${name} from Saved`,
   palette: PALETTE_LABELS_EN,
+  // library-playground additions (2026-10-08)
+  otherLanguage: 'Other language',
+  noTemplates: 'No page templates are registered for this site yet.',
+  // end library-playground additions
 };
 
 export const LIBRARY_PANEL_LABELS_AR: LibraryPanelLabels = {
   language: 'ar',
   title: 'المكتبة',
-  tabs: { elements: 'العناصر', sections: 'الأقسام', blocks: 'الكتل', saved: 'المحفوظة' },
+  tabs: {
+    elements: 'العناصر',
+    sections: 'الأقسام',
+    blocks: 'الكتل',
+    saved: 'المحفوظة',
+    templates: 'القوالب', // library-playground additions (2026-10-08)
+  },
   search: 'ابحث في المكتبة',
   noResults: 'لا نتائج. جرّب كلمة أخرى.',
   noSections: 'لا أقسام متاحة لهذا الموقع بعد.',
@@ -60,4 +85,8 @@ export const LIBRARY_PANEL_LABELS_AR: LibraryPanelLabels = {
   savedKinds: { element: 'عنصر', section: 'قسم' },
   removeTemplate: (name) => `إزالة ${name} من المحفوظة`,
   palette: PALETTE_LABELS_AR,
+  // library-playground additions (2026-10-08)
+  otherLanguage: 'لغة أخرى',
+  noTemplates: 'لا قوالب صفحات مسجّلة لهذا الموقع بعد.',
+  // end library-playground additions
 };

@@ -45,6 +45,9 @@ import { useInspectorFocus } from './use-inspector-focus';
 import { usePartWiring } from './use-part-wiring';
 // ── /block-parts ──
 import { librarySections } from './library-sections';
+// library-playground additions (2026-10-08): the direction flip is a toolbar chip, not an overlay.
+import { PreviewToolbar } from './preview-toolbar';
+// end library-playground additions
 import { useRecentChanges } from './use-recent-changes';
 import {
   useCallback,
@@ -96,6 +99,10 @@ import {
   type BuilderSite,
   type ArtifactFile,
   type StatusBarLabels,
+  localHistoryLabel,
+  // library-playground additions (2026-10-08): the Library's photo template cards.
+  marketingTemplateCatalog,
+  // end library-playground additions
 } from '@craftkit/builder';
 
 import {
@@ -276,9 +283,12 @@ function ProvenanceStatusBar({
   agent,
   labels,
   phrases,
+  locale,
 }: {
   labels: StatusBarLabels;
   phrases: Readonly<Record<string, string>>;
+  /** Recorded labels ("Edit text · Hero heading") read in this language. */
+  locale: EditorLocale;
   kernel: BuilderKernel;
   deviceLabel: string;
   saveState: 'saved' | 'saving' | undefined;
@@ -286,9 +296,10 @@ function ProvenanceStatusBar({
   agentSpeaks: boolean;
   agent: ReactNode;
 }) {
+  const localize = useCallback((label: string) => localHistoryLabel(label, locale), [locale]);
   const { changes, spokenElsewhere } = useRecentChanges(
     kernel,
-    agentSpeaks ? { exclude: 'assistant', phrases } : { phrases },
+    agentSpeaks ? { exclude: 'assistant', phrases, localize } : { phrases, localize },
   );
   return (
     <StatusBar
@@ -863,7 +874,19 @@ export function App() {
     const dirOverride = previewFlipped ? (docDir === 'ltr' ? 'rtl' : 'ltr') : null;
     return (
       <SiteDesignHost siteKernel={siteKernel}>
-      <div style={{ blockSize: '100vh', position: 'relative' }}>
+      {/* library-playground additions (2026-10-08): the flip is a tokenized toggle chip in a
+          toolbar row ABOVE the frame (audit §B.3.8: the raw button sat over every page). */}
+      <div style={{ blockSize: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <PreviewToolbar
+          language={editorLocale}
+          dir={labels.dir}
+          flipLabel={labels.chrome.flipPreview}
+          flipped={previewFlipped}
+          onFlip={() => {
+            setPreviewFlipped((flipped) => !flipped);
+          }}
+        />
+        <div style={{ flex: '1 1 auto', minBlockSize: 0, position: 'relative' }}>
         <PreviewMode
           kernel={kernel}
           theme={theme}
@@ -881,16 +904,9 @@ export function App() {
             });
           }}
         />
-        <button
-          type="button"
-          style={{ insetBlockStart: '12px', insetInlineStart: '12px', position: 'absolute' }}
-          onClick={() => {
-            setPreviewFlipped((flipped) => !flipped);
-          }}
-        >
-          {labels.chrome.flipPreview}
-        </button>
+        </div>
       </div>
+      {/* end library-playground additions */}
       </SiteDesignHost>
     );
   }
@@ -1457,6 +1473,9 @@ export function App() {
                     actionLabels={labels.elementActions}
                     words={labels.elementWords}
                     sections={libraryKitSections}
+                    // library-playground additions (2026-10-08): photo cards in the top-level Templates tab.
+                    templateCards={marketingTemplateCatalog}
+                    // end library-playground additions
                     previewStylesheet={libraryPreviewCss}
                     {...(liveUtilities === undefined
                       ? {}
@@ -1466,7 +1485,11 @@ export function App() {
                   // Code: the palette stays beside the projection, because
                   // reading the document as text is not a reason to lose the
                   // ability to add to it.
-                  <Palette kernel={session.kernel} dragHandle={dragHandle} />
+                  <Palette
+                    kernel={session.kernel}
+                    dragHandle={dragHandle}
+                    templateCards={marketingTemplateCatalog} /* library-playground additions (2026-10-08) */
+                  />
                 )}
               </>
             )
@@ -1589,6 +1612,7 @@ export function App() {
                   styleBucket={styleBucket}
                   onOpenStyleSector={inspectorFocus.openStyleSector}
                   onAnimate={inspectorFocus.animate}
+                  onAnimateBlock={inspectorFocus.animateBlock} /* gsap-pixi additions (2026-10-08) */
                   activeSector={inspectorFocus.styleContext.sector}
                   styleState={inspectorFocus.styleContext.state}
                   onEditWithAi={editWithAi}
@@ -1626,6 +1650,7 @@ export function App() {
                   agentSpeaks={AGENT_PANEL === 'v2'}
                   labels={labels.statusBar}
                   phrases={labels.chrome.changes}
+                  locale={editorLocale}
                   agent={
                     AGENT_PANEL === 'v2' ? (
                       <span ref={setAgentPillHost} className="pg-agent-pill-host" />

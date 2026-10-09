@@ -2,6 +2,7 @@ import fc, { type Arbitrary } from 'fast-check';
 
 import {
   defaultDesignSystem,
+  LATEST_SITE_VERSION,
   validateSite,
   type AssetEntry,
   type BuilderDocument,
@@ -124,7 +125,7 @@ function buildSite(seed: SiteSeed): BuilderSite {
   }
 
   const site: BuilderSite = {
-    siteVersion: 1,
+    siteVersion: LATEST_SITE_VERSION,
     dir: seed.dir,
     pages,
     sharedRegions,

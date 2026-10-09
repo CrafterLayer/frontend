@@ -5,7 +5,7 @@
   page. Under 264px the label column narrows rather than the controls.
 */
 .bldr-style-panel {
-  --bldr-style-label-column: 40%;
+  --style-label-column: 40%;
 
   container-type: inline-size;
   display: flex;
@@ -15,7 +15,7 @@
 
 @container (inline-size < 264px) {
   .bldr-style-panel .bldr-style-property {
-    --bldr-style-label-column: 38%;
+    --style-label-column: 38%;
   }
 }
 
@@ -28,7 +28,7 @@
 
 @container (inline-size > 340px) {
   .bldr-style-panel .bldr-style-property {
-    --bldr-style-label-column: 36%;
+    --style-label-column: 36%;
   }
 }
 

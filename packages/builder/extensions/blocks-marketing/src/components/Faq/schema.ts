@@ -40,7 +40,7 @@ export const faqSchema = defineBlockSchema({
     align: z.enum(sectionAlignments).default('start'),
     tone: z.enum(sectionTones).default('transparent'),
     spacing: z.enum(sectionSpacings).default('lg'),
-    width: z.enum(sectionWidths).default('standard'),
+    width: z.enum(sectionWidths).default('wide'),
     ...sectionColorProps,
     ...sectionMotionProps,
     ...sectionCustomProps,

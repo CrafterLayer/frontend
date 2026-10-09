@@ -60,7 +60,7 @@ export function Newsletter({ node, props, isCanvas }: BlockRenderProps<Newslette
               'flex min-w-0 flex-col',
               ALIGN_CLASSES[props.align],
               GAP_CLASSES.sm,
-              isSplit ? 'bg-surface-inverse p-6 text-text-inverse @lg:p-10' : undefined,
+              isSplit ? 'bg-surface-inverse p-6 text-text-inverse @lg:p-10 mkt-slab' : undefined,
             )}
             data-newsletter-copy=""
           >
@@ -118,7 +118,8 @@ export function Newsletter({ node, props, isCanvas }: BlockRenderProps<Newslette
             <div
               className={cx(
                 'flex min-w-0 flex-col gap-gap-sm',
-                props.formLayout === 'row' ? '@sm:flex-row' : undefined,
+                /* A row only from 32rem: at 390px the button squeezed the field to "name@comp". */
+                props.formLayout === 'row' ? '@lg:flex-row' : undefined,
               )}
             >
               <input

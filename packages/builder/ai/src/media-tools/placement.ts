@@ -1,5 +1,14 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import {
+  // gsap-pixi additions (2026-10-08)
+  CUSTOM_CODE_SCENE_INFO,
+  HOSTED_SCENES,
+  isHostedScene,
+  MOTION_PROP,
+  type CustomCodeScene,
+  type SceneDensity,
+  type ScenePalette,
+  // end gsap-pixi additions
   mediaRecipeNode,
   mediaRecipeProblems,
   type CustomCodeElement,
@@ -8,9 +17,24 @@ import {
 } from '@craftkit/builder-schema';
 
 import { finish, step } from '../style-tools/finish';
+// gsap-pixi additions (2026-10-08)
+import { blockDisplayName } from '../style-tools/part-address';
+// end gsap-pixi additions
 import { liveToolContext } from '../style-tools/run-direct';
-import { isElement, isRecord, readTree, rootChildren, rootIdOf, type TreeElementNode, type TreeRoot } from '../tools/agent/shared';
+import {
+  declaresProp,
+  isElement,
+  isRecord,
+  readTree,
+  rootChildren,
+  rootIdOf,
+  type TreeElementNode,
+  type TreeRoot,
+} from '../tools/agent/shared';
 import type { AgentToolContext, AgentToolRun, AgentToolStep } from '../tools/agent/types';
+// gsap-pixi additions (2026-10-08)
+import { registeredHero } from './registered-sections';
+// end gsap-pixi additions
 import { mediaLocale } from './resolve-images';
 
 /**
@@ -62,6 +86,8 @@ function isFooterRegion(context: AgentToolContext, id: string): boolean {
 /**
  * The hero: the first region holding the page's h1, else the first region
  * whose outer element is a `<section>` (a header or nav bar is never the hero).
+ * gsap-pixi (2026-10-08): on a page of registered blocks (the playground), the
+ * registered `hero` block — a hero inside a background surface included.
  */
 export function heroRegionId(context: AgentToolContext): string | undefined {
   const regions = rootChildren(context.kernel).flatMap((id) => {
@@ -70,6 +96,10 @@ export function heroRegionId(context: AgentToolContext): string | undefined {
   });
   const withH1 = regions.find(({ tree }) => JSON.stringify(tree).includes('"tag":"h1"'));
   if (withH1 !== undefined) return withH1.id;
+  // gsap-pixi additions (2026-10-08): a registered `hero` block is the hero before any guess from a region's tag.
+  const registered = registeredHero(context.kernel)?.id;
+  if (registered !== undefined) return registered;
+  // end gsap-pixi additions
   return regions.find(({ tree }) => tree.children.find(isElement)?.tag === 'section')?.id;
 }
 
@@ -284,3 +314,61 @@ export function insertBehind(
   if (!run.ok) return run;
   return { ...run, steps: [...run.steps, ...cssStep(context, id, recipe.css)] };
 }
+
+// gsap-pixi additions (2026-10-08)
+/** What a scene behind a registered block is asked for. */
+export interface BlockSceneRequest {
+  readonly scene: CustomCodeScene;
+  readonly density?: SceneDensity | undefined;
+  readonly palette?: ScenePalette | undefined;
+  /** The call named images (a hosted scene draws from the palette, never from images). */
+  readonly images?: boolean | undefined;
+}
+
+/**
+ * A scene behind a REGISTERED block (diagnosis blocker 11): a registered
+ * section has no tree to insert a layer into, so the scene goes into its
+ * `motion` prop (`scene`, `sceneDensity`, `scenePalette`) with ONE setProp,
+ * and the engine hosts it behind the block's content at runtime. Only the
+ * palette scenes (particles, mesh-gradient) can be hosted. Undefined when
+ * `id` is not a registered block (a composed region, or no node at all).
+ */
+export function sceneOnBlock(context: AgentToolContext, id: string, request: BlockSceneRequest): AgentToolRun | undefined {
+  const nodes = context.kernel.getDocument().nodes;
+  if (!Object.hasOwn(nodes, id)) return undefined;
+  const node = nodes[id];
+  if (node === undefined || node.type === 'customCode' || readTree(context, id) !== undefined) return undefined;
+  if (context.kernel.context.registry.block(node.type) === undefined) return undefined;
+  const name = blockDisplayName(node.type);
+  if (!isHostedScene(request.scene)) {
+    return refuse(
+      `"${id}" is a registered ${name} block: only ${HOSTED_SCENES.join(' or ')} can draw behind its content (the ${request.scene} scene needs a composed region's layer) · use one of those, or omit "behind" for a new ${request.scene} section.`,
+    );
+  }
+  if (request.images === true) {
+    return refuse(`a ${request.scene} background behind a registered block draws in the theme's colours · drop "images".`);
+  }
+  if (!declaresProp(context.kernel, id, MOTION_PROP)) {
+    return refuse(
+      `${name} "${id}" has no motion setting to carry a background · put the scene behind a section block (e.g. the hero), or omit "behind" for a new scene section.`,
+    );
+  }
+  const current = context.readProp(id, MOTION_PROP);
+  const base: Record<string, unknown> = isRecord(current) ? { ...current } : {};
+  const next: Record<string, unknown> = { ...base, scene: request.scene };
+  delete next['sceneDensity'];
+  delete next['scenePalette'];
+  if (request.density !== undefined) next['sceneDensity'] = request.density;
+  if (request.palette !== undefined) next['scenePalette'] = request.palette;
+  if (JSON.stringify(Object.entries(base).sort()) === JSON.stringify(Object.entries(next).sort())) {
+    return refuse(`${name} "${id}" already has the ${request.scene} background.`);
+  }
+  const label = CUSTOM_CODE_SCENE_INFO[request.scene].label;
+  const title = mediaLocale(context) === 'ar' ? `خلفية متحركة: ${label.ar}` : `Animated background: ${label.en}`;
+  return {
+    ok: true,
+    steps: [{ command: 'setProp', args: { id, key: MOTION_PROP, value: next }, title }],
+    note: `scene ${request.scene} behind ${id}`,
+  };
+}
+// end gsap-pixi additions

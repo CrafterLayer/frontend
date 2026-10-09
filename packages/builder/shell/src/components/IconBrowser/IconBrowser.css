@@ -39,10 +39,10 @@
 .bldr-icons__grid {
   display: grid;
   gap: var(--bldr-space-2xs);
-  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--bldr-measure-icon-cell), 1fr));
   list-style: none;
   margin: var(--bldr-space-0);
-  max-block-size: 18rem;
+  max-block-size: var(--bldr-measure-list-md);
   overflow-y: auto;
   padding: var(--bldr-space-0);
 }

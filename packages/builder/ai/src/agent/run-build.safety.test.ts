@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
@@ -227,6 +227,12 @@ async function settle(until: () => boolean, rounds = 400): Promise<void> {
 
 const FOUR = ['Hero', 'Features', 'Pricing', 'Footer'] as const;
 const EIGHT = ['Hero', 'Proof', 'Features', 'How', 'Pricing', 'FAQ', 'CTA', 'Footer'] as const;
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('P0-2 — a section writer may only write its own region', () => {
   it('drops a fill’s writes outside its region before landing, and reports them (scope.mjs)', async () => {

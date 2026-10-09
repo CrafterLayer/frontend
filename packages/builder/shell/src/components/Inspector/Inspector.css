@@ -74,12 +74,14 @@
 .bldr-inspector__identity {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--bldr-space-sm);
   min-inline-size: var(--bldr-space-0);
 }
 
 /* The block's display name — the same string as the canvas chip and the
-   layers tree — is the visible title. One line, elided, never wrapped. */
+   layers tree — is the visible title. It wraps rather than elides (walk
+   2026-10-08: beside the MOBILE chip it read "Heading · H"). */
 .bldr-inspector__block-name {
   align-items: center;
   color: var(--bldr-panel-text);
@@ -91,9 +93,7 @@
   margin: var(--bldr-space-0);
   min-block-size: var(--bldr-control-height-sm);
   min-inline-size: var(--bldr-space-0);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .bldr-inspector__block-name[data-empty='true'] {
@@ -462,6 +462,14 @@
 }
 
 .bldr-inspector__advanced-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+/* A part's own control row (Text direction): its label above the control, never run into it. */
+.bldr-inspector__part-control {
   display: flex;
   flex-direction: column;
   gap: var(--bldr-space-2xs);

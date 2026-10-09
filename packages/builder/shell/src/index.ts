@@ -132,6 +132,11 @@ export {
   type BlockAction,
   type BlockActionId,
   type BlockActionResult,
+  // gsap-pixi additions (2026-10-08)
+  BLOCK_ANIMATE_LABELS,
+  blockMotionProperty,
+  type BlockActionOptions,
+  // ── end gsap-pixi additions ──
 } from './overlay/block-actions';
 export {
   createAnchorChannel,
@@ -296,3 +301,21 @@ export {
   type RichTextActionLabels,
 } from './overlay/inline-dock-anchor';
 // end shell-playground additions
+// library-playground additions (2026-10-08): the Library's photo template cards (agent-script
+// DESIGN §B.5) — `TemplateCardInfo` is structurally equal to blocks-marketing's MarketingTemplateCard;
+// the section page kit (`LibraryPageKit`); the frames' <html lang> rule.
+export {
+  TEMPLATE_CARD_LABELS_AR,
+  TEMPLATE_CARD_LABELS_EN,
+  TemplateCard,
+  documentLanguage,
+  orderTemplateCards,
+  pageContentLanguage,
+  templateCardSearchText,
+  type TemplateCardInfo,
+  type TemplateCardLabels,
+  type TemplateCardProps,
+} from './components/TemplateCard';
+export { pageKitStep, type LibraryPageKit } from './components/LibraryPanel/library-insert';
+export { applyFrameLang, useFrameLang } from './components/EditorCanvas/frame-lang';
+// end library-playground additions

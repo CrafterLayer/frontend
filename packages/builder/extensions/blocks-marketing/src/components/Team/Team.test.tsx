@@ -59,7 +59,44 @@ describe('Team', () => {
       'href',
       '/team/maya',
     );
-    expect(screen.getByText('L', { selector: '[aria-hidden="true"]' })).toBeInTheDocument();
+    expect(screen.getByText('LF', { selector: '[aria-hidden="true"]' })).toBeInTheDocument();
+  });
+
+  // blocks-polish additions (2026-10-08): a compact avatar, never a portrait box of one letter.
+  it('gives a member without a photo a 64px initials avatar and a photo a 4:5 cover frame', () => {
+    const { container } = renderTeam();
+    const lina = screen.getByRole('heading', { level: 3, name: 'Lina Faris' }).closest('li');
+    expect(lina).toHaveAttribute('data-team-photo', 'avatar');
+    const avatar = lina?.querySelector('[data-team-avatar]');
+    expect(avatar).toHaveClass('size-16', 'rounded-full');
+    expect(avatar).toHaveTextContent('LF');
+    expect(lina?.querySelector('.aspect-4\\/5')).toBeNull();
+
+    const omar = screen.getByRole('heading', { level: 3, name: 'Omar Haddad' }).closest('li');
+    expect(omar).toHaveAttribute('data-team-photo', 'photo');
+    const frame = omar?.querySelector('img')?.parentElement;
+    expect(frame).toHaveClass('aspect-4/5');
+    expect(omar?.querySelector('img')).toHaveClass('object-cover', 'h-full', 'w-full');
+    expect(container.querySelectorAll('[data-team-avatar]')).toHaveLength(1);
+  });
+
+  it('stacks an editorial card that has no photo and uses one letter for an Arabic name', () => {
+    render(
+      <Team
+        node={{ id: 'team-ar', type: 'team', props: {} }}
+        props={teamSchema.props.parse({
+          heading: 'فريقنا',
+          variant: 'editorial',
+          members: [{ name: 'ليلى حداد', role: 'التصميم' }],
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    const card = screen.getByRole('listitem');
+    expect(card).toHaveClass('@md:grid-cols-1');
+    expect(card.querySelector('[data-team-avatar]')).toHaveTextContent(/^ل$/u);
   });
 
   it.each(['cards', 'editorial', 'compact'] as const)('renders the %s layout', (variant) => {

@@ -51,6 +51,11 @@ import type { AgentToolLane } from '../tools/agent/types';
 import { expandTreeEdits } from './tree-edits';
 import { salvageAiPlan, type SalvagedAiPlan } from './salvage-plan';
 import { AiPlanRejectedError, validateAiPlan } from './validate-plan';
+// script-wiring additions
+import { attachScriptCrossPage, planHasScriptStep } from '../script/cross-page';
+import type { ScriptExpansion, ScriptRunReport, ScriptSite } from '../script/expand-scripts';
+import { SCRIPT_TOOL_NAME, type ScriptRunner } from '../script/types';
+// end script-wiring additions
 
 export interface GenerateAiPlanOptions {
   kernel: BuilderKernel;
@@ -119,6 +124,23 @@ export interface GenerateAiPlanOptions {
    * `intent` is absent. Absent too, it is summarised from `kernel.getDocument()`.
    */
   document?: IntentDocumentSummary;
+  // script-wiring additions
+  /**
+   * agent-script: the sandbox that runs a `script.run` step's code. Absent ⇒
+   * `defaultScriptRunner()` (a browser Worker, or in-thread under Node), loaded
+   * only when a plan names `script.run`.
+   */
+  scriptRunner?: ScriptRunner;
+  /**
+   * agent-script: the site the open page belongs to. With it a script reads
+   * every page and may write to other pages (one transaction, one Undo, via
+   * `applyAiPlan`'s `site` + `crossPage`); without it such a write is refused
+   * with E_OTHER_PAGE.
+   */
+  scriptSite?: ScriptSite;
+  /** agent-script: one report per script run (ms, calls, steps, notes, result), for the host's log. */
+  onScriptRun?: (report: ScriptRunReport) => void;
+  // end script-wiring additions
 }
 
 export const DEFAULT_AI_CONTEXT_TOKEN_BUDGET = 64_000;
@@ -442,6 +464,122 @@ function judgedCandidate(
   };
 }
 
+// script-wiring additions
+/** DESIGN §A.8 E_ENGINE, for an engine that could not even be loaded. */
+const SCRIPT_ENGINE_UNAVAILABLE =
+  'E_ENGINE: the script engine is unavailable right now. Write the same change as plain tool steps.';
+
+function firstScriptStep(raw: unknown): number {
+  const commands = (raw as { commands?: unknown }).commands;
+  if (!Array.isArray(commands)) return 0;
+  const at = commands.findIndex(
+    (step: unknown) =>
+      typeof step === 'object' &&
+      step !== null &&
+      (step as { command?: unknown }).command === 'tool' &&
+      ((step as { args?: { name?: unknown } }).args?.name ?? '') === SCRIPT_TOOL_NAME,
+  );
+  return at === -1 ? 0 : at;
+}
+
+/**
+ * A script whose every write lands on OTHER pages leaves the open page with no
+ * command, which the door refuses as an empty plan. Its words still stand:
+ * the other pages' steps were door-validated on their own lenses during
+ * expansion, and `applyAiPlan` re-validates them before the one site write.
+ */
+function crossPageOnlyPlan(expanded: unknown): AiPlan | undefined {
+  if (typeof expanded !== 'object' || expanded === null) return undefined;
+  const { rationale, commands, followUp } = expanded as {
+    rationale?: unknown;
+    commands?: unknown;
+    followUp?: unknown;
+  };
+  if (!Array.isArray(commands) || commands.length > 0) return undefined;
+  const reason = typeof rationale === 'string' && rationale.trim() !== '' ? rationale : 'Script';
+  return Object.freeze({
+    rationale: reason,
+    commands: Object.freeze([]),
+    ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
+  });
+}
+
+/**
+ * `judgedCandidate`, with every `script.run` step run first (agent-script
+ * DESIGN §A.1/§A.7). A plan without one goes straight through — same object,
+ * nothing imported. Otherwise the script runs in the sandbox, its queued
+ * writes become ordinary kernel steps in the script's place, and the result
+ * meets the door exactly as a hand-written plan would: one plan, one labelled
+ * transaction, one Undo.
+ *
+ * A script that fails (E_* issues) is judged as the ORIGINAL answer, so the
+ * repair round shows the model its own script step next to the message that
+ * says how to fix it. Writes to other pages travel beside the validated plan
+ * (`attachScriptCrossPage`), never inside it.
+ */
+async function judgedScriptedCandidate(
+  raw: unknown,
+  options: GenerateAiPlanOptions,
+  policy: AiEffectiveCommandPolicy,
+): Promise<{ readonly candidate: unknown; readonly result: AiPlanValidationResult }> {
+  if (!planHasScriptStep(raw)) return judgedCandidate(raw, options, policy);
+  let expansion: ScriptExpansion;
+  try {
+    const { expandScriptSteps } = await import('../script/expand-scripts');
+    expansion = await expandScriptSteps(raw, options.kernel, {
+      ...(options.toolLanes === undefined ? {} : { lanes: options.toolLanes }),
+      ...(options.scriptRunner === undefined ? {} : { runner: options.scriptRunner }),
+      ...(options.sampleValues === undefined ? {} : { sampleValues: options.sampleValues }),
+      ...(options.scriptSite === undefined ? {} : { site: options.scriptSite }),
+      policy,
+      validationPorts: options.validationPorts,
+    });
+  } catch {
+    throwIfAborted(options.signal);
+    const step = firstScriptStep(raw);
+    return {
+      candidate: raw,
+      result: {
+        ok: false,
+        issues: [
+          {
+            code: 'invalid-args',
+            step,
+            message: `Step ${String(step)} (tool ${SCRIPT_TOOL_NAME}): ${SCRIPT_ENGINE_UNAVAILABLE}`,
+          },
+        ],
+      },
+    };
+  }
+  throwIfAborted(options.signal);
+  for (const run of expansion.runs) {
+    try {
+      options.onScriptRun?.(run);
+    } catch {
+      // A host's log is telemetry; it never decides what lands.
+    }
+  }
+  if (expansion.issues.length > 0) {
+    return { candidate: raw, result: { ok: false, issues: expansion.issues } };
+  }
+  const crossPage = expansion.crossPage;
+  if (crossPage.length > 0) {
+    const elsewhereOnly = crossPageOnlyPlan(expansion.plan);
+    if (elsewhereOnly !== undefined) {
+      return {
+        candidate: expansion.plan,
+        result: { ok: true, plan: attachScriptCrossPage(elsewhereOnly, crossPage) },
+      };
+    }
+  }
+  const judged = judgedCandidate(expansion.plan, options, policy);
+  if (judged.result.ok && crossPage.length > 0) {
+    attachScriptCrossPage(judged.result.plan, crossPage);
+  }
+  return judged;
+}
+// end script-wiring additions
+
 /**
  * What the repair rung returns. A failed repair keeps its CANDIDATE rather than
  * throwing it away, because the salvage rung below works on the best answer the
@@ -468,7 +606,11 @@ async function repairAiPlanOnce(
   assertWireRequestBudget(wireRequest(options, context, attempt), maxContextTokens);
   const raw = await repair(options.request, context, attempt.plan, attempt.issues, live);
   throwIfAborted(options.signal);
-  const { candidate, result: repaired } = judgedCandidate(raw, options, policy);
+  // script-wiring additions
+  const { candidate, result: repaired } = planHasScriptStep(raw)
+    ? await judgedScriptedCandidate(raw, options, policy)
+    : judgedCandidate(raw, options, policy);
+  // end script-wiring additions
   if (!repaired.ok) return { ok: false, candidate, issues: repaired.issues };
   return { ok: true, plan: repaired.plan };
 }
@@ -577,7 +719,11 @@ export async function generateAiPlanWithPreparedSkills(
     return salvageOrReject(options, policy, [recovered.candidate], recovered.issues);
   }
   throwIfAborted(options.signal);
-  const { candidate, result: first } = judgedCandidate(raw, options, policy);
+  // script-wiring additions
+  const { candidate, result: first } = planHasScriptStep(raw)
+    ? await judgedScriptedCandidate(raw, options, policy)
+    : judgedCandidate(raw, options, policy);
+  // end script-wiring additions
   if (first.ok) return first.plan;
   /*
     The answer failed the door, so the provider must not serve it again. A

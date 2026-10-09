@@ -23,6 +23,10 @@ data.
 - `showRatings: boolean = true`
 - `ratingPrefix`, `ratingSuffix`, and `reviewCountLabel` localize generated accessible labels.
 - `variant: 'grid' | 'featured' = 'grid'`
+  - `featured` gives the featured product a full row of its own (photo and copy side by side from a
+    32rem container, the photo filling its half), and lays the remaining products out in the column
+    count nearest `columns` that divides them evenly, so no row ends with an empty cell.
+  - A product without a photo shows a short monogram band rather than an empty full-ratio frame.
 - `columns: '2' | '3' | '4' = '4'`
 - `imageRatio: 'square' | 'portrait' = 'square'`
 

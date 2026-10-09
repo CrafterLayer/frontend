@@ -14,6 +14,17 @@
  */
 import { z } from 'zod';
 
+import {
+  CUSTOM_CODE_TIMELINE_RECIPES,
+  HOSTED_SCENES,
+  SCENE_DENSITIES,
+  SCENE_PALETTES,
+  type CustomCodeTimelineRecipe,
+  type HostedScene,
+  type SceneDensity,
+  type ScenePalette,
+} from '../custom-code/media-vocabulary';
+
 /**
  * What a section does as it enters the viewport.
  *
@@ -97,6 +108,15 @@ export interface MotionSpec {
    * way scroll animation makes a professional site feel cheap.
    */
   repeat?: boolean | undefined;
+  // gsap-pixi additions (2026-10-08) — engine motion on a registered section.
+  /** A named scroll-timeline recipe on the section root (`data-ck-timeline`); replaces `reveal` when set. */
+  timeline?: CustomCodeTimelineRecipe | undefined;
+  /** true: tied to the scrollbar; false: plays once on enter; absent: as the recipe plays. */
+  scrub?: boolean | undefined;
+  /** An animated canvas background behind the section's content (`data-ck-scene`, palette-only scenes). */
+  scene?: HostedScene | undefined;
+  sceneDensity?: SceneDensity | undefined;
+  scenePalette?: ScenePalette | undefined;
 }
 
 export const motionSpecSchema: z.ZodType<MotionSpec> = z.strictObject({
@@ -107,6 +127,12 @@ export const motionSpecSchema: z.ZodType<MotionSpec> = z.strictObject({
   easing: z.enum(MOTION_EASINGS).optional(),
   stagger: z.enum(MOTION_STAGGERS).optional(),
   repeat: z.boolean().optional(),
+  // gsap-pixi additions (2026-10-08)
+  timeline: z.enum(CUSTOM_CODE_TIMELINE_RECIPES).optional(),
+  scrub: z.boolean().optional(),
+  scene: z.enum(HOSTED_SCENES).optional(),
+  sceneDensity: z.enum(SCENE_DENSITIES).optional(),
+  scenePalette: z.enum(SCENE_PALETTES).optional(),
 });
 
 /**

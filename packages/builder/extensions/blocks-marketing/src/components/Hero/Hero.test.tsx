@@ -304,7 +304,7 @@ describe('Hero', () => {
       spacing: 'lg',
       tone: 'light',
       variant: 'centered',
-      width: 'full',
+      width: 'wide', // one shared column by default (blocks-polish 2026-10-08)
     });
     expect(defaults.eyebrow).toBeUndefined();
     for (const sharedProp of [

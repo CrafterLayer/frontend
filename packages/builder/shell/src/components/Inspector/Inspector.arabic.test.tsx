@@ -37,7 +37,7 @@ const VOCAB: TrustedExtensionManifest = {
           type: 'page',
           description: 'Page',
           props: z.object({}),
-          slots: { default: { allow: ['region', 'card'] } },
+          slots: { default: { allow: ['region', 'card', 'hero'] } },
           examples: [],
         }),
         render: NullRender,
@@ -53,6 +53,35 @@ const VOCAB: TrustedExtensionManifest = {
           propertyGroups: {
             label: { tab: 'content', section: 'Identity' },
             tree: { tab: 'content', section: 'Composition' },
+          },
+          examples: [],
+        }),
+        render: NullRender,
+      },
+      {
+        schema: defineBlockSchema({
+          type: 'hero',
+          description: 'Hero',
+          props: z.object({
+            eyebrow: z.string().default('جديد'),
+            heading: z.string().default('ابدأ'),
+            trustLine: z.string().default('موثوق'),
+            align: z.enum(['start', 'center', 'end']).default('start'),
+            background: z.enum(['transparent', 'surface']).default('transparent'),
+            width: z.enum(['lg', 'full']).default('full'),
+            fields: z
+              .array(z.object({ name: z.string(), label: z.string() }))
+              .max(4)
+              .default([]),
+          }),
+          propertyGroups: {
+            eyebrow: { tab: 'content', section: 'Text' },
+            heading: { tab: 'content', section: 'Text' },
+            trustLine: { tab: 'content', section: 'Text' },
+            align: { tab: 'content', section: 'Content' },
+            background: { tab: 'content', section: 'Content' },
+            width: { tab: 'content', section: 'Content' },
+            fields: { tab: 'content', section: 'Fields' },
           },
           examples: [],
         }),
@@ -81,7 +110,7 @@ const DOC: BuilderDocument = {
   dir: 'ltr',
   rootId: 'root',
   nodes: {
-    root: { id: 'root', type: 'page', props: {}, slots: { default: ['r1', 'c1'] } },
+    root: { id: 'root', type: 'page', props: {}, slots: { default: ['r1', 'c1', 'h1'] } },
     r1: {
       id: 'r1',
       type: 'region',
@@ -94,6 +123,22 @@ const DOC: BuilderDocument = {
       },
     },
     c1: { id: 'c1', type: 'card', props: { title: 'Hello', tone: 'calm' } },
+    h1: {
+      id: 'h1',
+      type: 'hero',
+      props: {
+        eyebrow: 'جديد',
+        heading: 'ابدأ الآن',
+        trustLine: 'يثق بنا الآلاف',
+        align: 'start',
+        background: 'transparent',
+        width: 'full',
+        fields: [
+          { name: 'الاسم', label: 'اسمك' },
+          { name: 'البريد', label: 'بريدك' },
+        ],
+      },
+    },
   },
 };
 
@@ -144,6 +189,35 @@ describe('Inspector in Arabic', () => {
     await user.click(within(panel).getByRole('button', { name: 'إلغاء التحديد' }));
     expect(kernel.context.store.getState().selection).toEqual([]);
     expect(screen.getByRole('status', { name: 'رسائل لوحة الخصائص' })).toHaveTextContent('أُلغي التحديد');
+  });
+
+  it('names every field, section, option and list action of a block in Arabic', () => {
+    const kernel = makeKernel();
+    kernel.setSelection(['h1']);
+    render(<Inspector kernel={kernel} locale="ar" />);
+    const panel = screen.getByRole('region', { name: 'الخصائص' });
+    for (const name of ['النص', 'المحتوى', 'الحقول']) {
+      expect(within(panel).getByRole('button', { name })).toBeInTheDocument();
+    }
+    for (const label of ['العنوان التمهيدي', 'العنوان', 'سطر الثقة', 'الخلفية', 'العرض']) {
+      expect(within(panel).getAllByText(label).length).toBeGreaterThan(0);
+    }
+    expect(within(panel).getByRole('option', { name: 'شفاف' })).toBeInTheDocument();
+    expect(within(panel).getByRole('option', { name: 'كامل' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'إضافة عنصر إلى الحقول' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'إزالة الاسم' })).toBeInTheDocument();
+    // "1. الاسم" is isolated, so it never reads "الاسم .1".
+    expect(panel.querySelector('.bldr-repeater__item-label bdi')).toHaveTextContent('1. الاسم');
+    // No chrome word in Latin letters: every visible and spoken string is Arabic.
+    const latin = [...panel.querySelectorAll('*')]
+      .flatMap((element) => [...element.childNodes])
+      .filter((node) => node.nodeType === Node.TEXT_NODE && /[A-Za-z]/u.test(node.textContent ?? ''))
+      .map((node) => node.textContent);
+    expect(latin).toEqual([]);
+    const latinNames = [...panel.querySelectorAll('[aria-label]')]
+      .map((element) => element.getAttribute('aria-label') ?? '')
+      .filter((name) => /[A-Za-z]/u.test(name));
+    expect(latinNames).toEqual([]);
   });
 
   it('mirrors the tab arrows by the chrome direction, even over an LTR page', async () => {

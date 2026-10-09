@@ -177,6 +177,38 @@ describe('attachPlaybackPolicy', () => {
     play();
     expect(ticker.start).toHaveBeenCalledTimes(1);
   });
+
+  // gsap-pixi additions (2026-10-08)
+  it('on the running editor canvas ({ still: false, canvas: true }) plays, pauses off-screen, and survives a Preview', () => {
+    const io = fakeIntersectionObserver();
+    const ticker = fakeTicker();
+    const base = fakeContext(false);
+    const ctx: CkEngineContext = { ...base.ctx, canvas: true };
+    const policy = attachPlaybackPolicy({
+      el: document.createElement('div'),
+      ctx,
+      ticker,
+      renderOnce: vi.fn(),
+      IntersectionObserverImpl: io.Impl,
+    });
+    expect(policy.running).toBe(true);
+
+    io.fire(false);
+    expect(policy.running).toBe(false);
+    io.fire(true);
+    expect(policy.running).toBe(true);
+
+    setHidden(true);
+    expect(policy.running).toBe(false);
+    setHidden(false);
+    expect(policy.running).toBe(true);
+
+    // The end of a Preview returns a live scene to running: it never freezes the canvas.
+    base.play();
+    base.stop();
+    expect(policy.running).toBe(true);
+    policy.dispose();
+  });
 });
 
 describe('device policy', () => {

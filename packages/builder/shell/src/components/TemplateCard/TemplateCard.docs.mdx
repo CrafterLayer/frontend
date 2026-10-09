@@ -1,0 +1,53 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TemplateCardStories from './TemplateCard.stories';
+
+<Meta of={TemplateCardStories} />
+
+# TemplateCard
+
+One page template in the Library's **Templates** tab (agent-script DESIGN §B.5). It replaces the
+abstract lavender preview with what a person actually chooses by: a real photo, a name, one line of
+what the page is for, the page's language and how many sections it holds.
+
+<Canvas of={TemplateCardStories.English} />
+
+## What it shows
+
+- A **16:10 photo** thumbnail, loaded lazily, with its `alt` in the template's content language
+  (`lang` is set on the image). Until it paints, the ground is an accent-tinted skeleton; a photo
+  that fails keeps that ground instead of a broken-image glyph.
+- An **accent skeleton strip** over the photo: three bars, a page of sections in miniature.
+- The **name and description in the editor's language** (`labels.language`), so an Arabic editor
+  reads Arabic copy for an English template too.
+- A **content-language badge** — `EN` or `ع` — with its meaning spoken in the editor's language,
+  and the **section count**.
+
+<Canvas of={TemplateCardStories.Arabic} />
+
+<Canvas of={TemplateCardStories.RightToLeft} />
+
+## The data
+
+`TemplateCardInfo` is structurally equal to blocks-marketing's `MarketingTemplateCard`. The shell
+never imports blocks-marketing or builder-ai: a host passes `marketingTemplateCatalog` straight to
+`LibraryPanel`/`Palette` through their `templateCards` prop.
+
+```tsx
+<LibraryPanel kernel={kernel} templateCards={marketingTemplateCatalog} />
+```
+
+`orderTemplateCards(entries, pageContentLanguage(document))` puts the cards in the page's language
+first (the root `lang` prop, else `ar` for a right-to-left page and `en` otherwise — the static
+export's own rule); the rest follow under "Other language" / «لغة أخرى». Nothing is hidden.
+
+## Accessibility
+
+- One native `button`: click, Enter and Space all insert. Its name is "Insert template {name}"; the
+  description and the badge + count are its description (`aria-describedby`).
+- A visible focus ring from `--bldr-focus-ring`; logical properties only, so it mirrors in RTL.
+- Tokens only: light and dark follow the chrome theme.
+
+<Canvas of={TemplateCardStories.Dark} />
+
+<Canvas of={TemplateCardStories.MissingPhoto} />

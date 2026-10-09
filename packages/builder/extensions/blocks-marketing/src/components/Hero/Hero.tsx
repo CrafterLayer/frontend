@@ -118,7 +118,8 @@ export function Hero({ node, props, slots, isCanvas }: BlockRenderProps<HeroProp
                 {...part('eyebrow', {
                   className: cx(
                     'inline-flex w-fit items-center rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-semibold tracking-wide uppercase',
-                    props.tone === 'dark' ? 'text-inherit' : 'text-accent',
+                    // On a dark or see-through ground the accent fails contrast: take the section's ink.
+                    inheritsSurroundingInk ? 'text-inherit' : 'text-accent',
                   ),
                 })}
               >
@@ -179,6 +180,8 @@ export function Hero({ node, props, slots, isCanvas }: BlockRenderProps<HeroProp
                 `justify` puts them, so a centred hero looks unchanged.
               */
                   'flex w-full min-w-0',
+                  // Ghost and link actions draw in this ink instead of the accent (see Cta).
+                  inheritsSurroundingInk ? '[--ck-cta-ink:currentColor]' : undefined,
                   DIRECTION_CLASSES[props.layoutDirection ?? 'row'],
                   JUSTIFY_CLASSES[props.layoutJustify ?? props.align],
                   ALIGN_CLASSES[props.layoutAlign ?? 'center'],

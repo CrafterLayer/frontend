@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
@@ -168,6 +168,12 @@ function photosOf(call: Call | undefined): { subject: string }[] | undefined {
 const FOUR = ['Hero', 'Menu', 'Gallery', 'Footer'] as const;
 const DIRECTION =
   'A roastery in Amman. Palette stone-50, emerald-800. 1 Hero · 2 Menu · 3 Gallery · 4 Footer';
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('A(1) — the photo list reaches the skeleton and every section writer', () => {
   it('briefs the scaffold with the request and each writer with the request and its own title', async () => {

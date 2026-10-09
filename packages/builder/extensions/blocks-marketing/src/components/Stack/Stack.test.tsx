@@ -64,6 +64,11 @@ describe('Stack', () => {
       'marquee',
       'dotPatternSurface',
       'shimmerButton',
+      // templates-core additions
+      // A Library template's root column holds the page header and footer.
+      'pageHeader',
+      'pageFooter',
+      // end templates-core additions
     ];
     /*
       `image` moved from refused to accepted when the Image block arrived — a

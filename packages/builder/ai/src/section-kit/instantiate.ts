@@ -1,6 +1,7 @@
 import { CUSTOM_CODE_ATTRIBUTES, isLucideIconName, safeCustomCodeUrl } from '@craftkit/builder-schema';
 
 import { selectCatalogPhotos } from '../context/providers/photo-catalog';
+import { catalogEntryFor } from '../seo/alt-text';
 import {
   HEADING_MARKER,
   captureString,
@@ -149,6 +150,14 @@ function checkImage(where: string, value: unknown, context: CheckContext): SlotC
       alt = context.lang.startsWith('ar') ? photo.alt.ar : photo.alt.en;
     }
   }
+  /*
+    A catalog photo is described by its own entry, written from the picture
+    (walk 2026-10-08): a labneh bowl went out as «مائدة أرز وسلطات ومشاوي»
+    because the writer's alt described the photo it hoped for.
+  */
+  const described = catalogEntryFor(src)?.alt;
+  const own = described === undefined ? '' : context.lang.startsWith('ar') ? described.ar : described.en;
+  if (own.trim() !== '') alt = cleanText(own);
   if (src === '') {
     return { ok: false, error: `slot "${where}" needs "src" (an https photo address) or "subject".` };
   }

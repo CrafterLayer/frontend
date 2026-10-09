@@ -93,3 +93,31 @@ export const Parts: Story = {
     );
   },
 };
+
+/*
+  Without photos (blocks-polish 2026-10-08): each member gets a 64px initials
+  avatar above the name, never a portrait-sized box around one letter.
+*/
+export const WithoutPhotos: Story = {
+  args: {
+    node: { ...node, id: 'team-avatars' },
+    props: teamSchema.props.parse({
+      heading: 'The people you will work with',
+      columns: '3',
+      members: [
+        { name: 'Amal Rahman', role: 'Managing partner', bio: 'Leads strategy and delivery.' },
+        { name: 'Thomas Reed', role: 'Partner', bio: 'Operating models and transformation.' },
+        { name: 'Sara Lin', role: 'Principal', bio: 'Growth strategy and customer insight.' },
+      ],
+    }),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    const avatars = canvasElement.querySelectorAll('[data-team-avatar]');
+    await expect(avatars).toHaveLength(3);
+    await expect(avatars[0]).toHaveTextContent('AR');
+    await expect((avatars[0] as HTMLElement).getBoundingClientRect().height).toBeLessThanOrEqual(64);
+  },
+};

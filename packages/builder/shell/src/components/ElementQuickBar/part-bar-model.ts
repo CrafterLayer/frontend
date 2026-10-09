@@ -4,6 +4,7 @@ import {
   blockPartsOf,
   getAtPropPath,
   hasPartInstance,
+  isCustomCodeTimelineRecipe, // gsap-pixi additions (2026-10-08)
   partStyleKey,
   partStylesKeyOf,
   planPartStyle,
@@ -53,6 +54,32 @@ export const PART_NO_ATTRIBUTES =
   'Parts have no free attributes · use Link or Alt text, or Convert to editable for free attributes';
 /** Why a part refuses an icon edit. */
 export const PART_NO_ICON = 'Parts have no icon of their own · replace the image or edit the text';
+
+// gsap-pixi additions (2026-10-08)
+/** The attributes a part's Cinematic motion is written as (stored in `partStyles`). */
+export const PART_MOTION_ATTRIBUTES: readonly string[] = ['data-ck-timeline', 'data-ck-scrub'];
+/** Why a part refuses a CSS animation preset or a hover effect. */
+export const PART_NO_CSS_MOTION =
+  'Parts take Cinematic motion only · choose a Cinematic motion recipe, or Convert to editable for CSS animation presets and hover effects';
+
+/** A part's Cinematic motion at a scope, as the renderer resolves it (`this` wins over `all`). */
+export function partMotion(
+  props: Readonly<Record<string, unknown>>,
+  stylesKey: string,
+  ref: PartRef,
+  scope: 'all' | 'this',
+): { readonly timeline?: string; readonly scrub?: boolean } {
+  const styles = readPartStyles(props, stylesKey);
+  const all = styles[partStyleKey(ref, 'all')];
+  const one = scope === 'this' && ref.index.length > 0 ? styles[partStyleKey(ref, 'this')] : undefined;
+  const timeline = one?.timeline ?? all?.timeline;
+  const scrub = one?.timeline !== undefined ? one.scrub : all?.scrub;
+  return {
+    ...(timeline === undefined ? {} : { timeline }),
+    ...(timeline === undefined || scrub === undefined ? {} : { scrub }),
+  };
+}
+// ── end gsap-pixi additions ──
 
 export interface PartBarModelOptions extends Omit<ElementBarModelOptions, 'writeOptions'> {
   /** `this` styles one instance of a repeated part; `all` (default) styles every one. */
@@ -206,6 +233,51 @@ export function createPartBarModel(
 
   const value = (which: 'text' | 'href' | 'src' | 'alt') => partStringValue(node, decl, ref, which);
 
+  // gsap-pixi additions (2026-10-08)
+  /*
+    The part's recipe and how it plays, on its own partStyles entry at the
+    bar's scope (every other field of the entry kept): ONE setProp, one Undo,
+    labelled "Cinematic motion · Hero heading" (history labels stay English).
+    `undefined` leaves a field as it is, `null` removes it; a scrub without a
+    recipe means nothing and goes with it. Nothing changed ⇒ no transaction.
+  */
+  const writePartMotion = (
+    timeline: string | null | undefined,
+    scrub: string | null | undefined,
+  ): QuickWriteResult => {
+    if (typeof timeline === 'string' && !isCustomCodeTimelineRecipe(timeline)) {
+      return { ok: false, message: `"${timeline}" is not a Cinematic motion recipe · choose one from the list` };
+    }
+    if (typeof scrub === 'string' && scrub !== 'true' && scrub !== 'false') {
+      return { ok: false, message: 'How a recipe plays is true or false · choose with scroll or once' };
+    }
+    const isRecord = (raw: unknown): raw is Record<string, JsonValue> =>
+      typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+    const raw = Object.hasOwn(node.props, stylesKey) ? node.props[stylesKey] : undefined;
+    const stored: Record<string, JsonValue> = isRecord(raw) ? { ...raw } : {};
+    const key = partStyleKey(ref, scope);
+    const before = stored[key];
+    const previous: Record<string, JsonValue> = isRecord(before) ? before : {};
+    const entry: Record<string, JsonValue> = { ...previous };
+    if (timeline === null) delete entry['timeline'];
+    else if (timeline !== undefined) entry['timeline'] = timeline;
+    if (scrub === null) delete entry['scrub'];
+    else if (scrub !== undefined) entry['scrub'] = scrub === 'true';
+    if (entry['timeline'] === undefined) delete entry['scrub'];
+    if (JSON.stringify(entry) === JSON.stringify(previous)) return { ok: true };
+    const nextStyles: Record<string, JsonValue> = {};
+    for (const [styleKey, style] of Object.entries(stored)) {
+      if (styleKey !== key) nextStyles[styleKey] = style;
+    }
+    if (Object.keys(entry).length > 0) nextStyles[key] = entry;
+    return dispatchPartPlan(kernel, {
+      ok: true,
+      steps: [{ command: 'setProp', args: { id: node.id, key: stylesKey, value: nextStyles } }],
+      label: `Cinematic motion · ${historyBlockName} ${decl.label.en.toLowerCase()}`,
+    });
+  };
+  // ── end gsap-pixi additions ──
+
   return {
     kind: partQuickKind(decl.kind),
     name,
@@ -214,11 +286,19 @@ export function createPartBarModel(
     bucket: options.bucket,
     state: options.state,
     node: synthesized,
+    motionScope: 'part', // gsap-pixi additions (2026-10-08)
     read: (property: StylePropertyId) => quick(reading.get(property)),
     readSide: (property, side) => quick(sideOf(reading.get(property), side)),
     attribute: (attribute) => {
       if (attribute === 'href' && decl.kind === 'link') return value('href');
       if ((attribute === 'alt' || attribute === 'src') && decl.kind === 'image') return value(attribute);
+      // gsap-pixi additions (2026-10-08): the part's Cinematic motion, read from partStyles at the bar's scope.
+      if (attribute === 'data-ck-timeline') return partMotion(node.props, stylesKey, ref, scope).timeline;
+      if (attribute === 'data-ck-scrub') {
+        const scrub = partMotion(node.props, stylesKey, ref, scope).scrub;
+        return scrub === undefined ? undefined : String(scrub);
+      }
+      // ── end gsap-pixi additions ──
       return undefined;
     },
     apply: (intents) =>
@@ -234,6 +314,21 @@ export function createPartBarModel(
         ),
       ),
     setAttributes: (attributes, propertyLabel) => {
+      // gsap-pixi additions (2026-10-08): Cinematic motion is the one engine
+      // marker a part takes, stored in its own partStyles entry. A CSS preset
+      // or hover effect is refused; removing one a part never has is nothing.
+      const entries = Object.entries(attributes);
+      const cssMotion = (name: string) => name === 'data-ck-motion' || name === 'data-ck-hover';
+      if (entries.some(([name, next]) => cssMotion(name) && next !== null)) {
+        return { ok: false, message: PART_NO_CSS_MOTION };
+      }
+      if (entries.some(([name]) => PART_MOTION_ATTRIBUTES.includes(name))) {
+        if (entries.some(([name]) => !PART_MOTION_ATTRIBUTES.includes(name) && !cssMotion(name))) {
+          return { ok: false, message: PART_NO_ATTRIBUTES };
+        }
+        return writePartMotion(attributes['data-ck-timeline'], attributes['data-ck-scrub']);
+      }
+      // ── end gsap-pixi additions ──
       // Only the attributes a part BINDS can be written, and only through its
       // own planner; a cleared target/rel (the link editor's new-tab pair) is
       // nothing to write. Everything else is refused, never half-applied.
@@ -248,6 +343,7 @@ export function createPartBarModel(
               : undefined;
         if (slot === undefined) {
           if (next === null && (attribute === 'target' || attribute === 'rel')) continue;
+          if (next === null && cssMotion(attribute)) continue; // gsap-pixi additions (2026-10-08)
           return { ok: false, message: PART_NO_ATTRIBUTES };
         }
         const plan = planPartValue(current, parts, ref, slot, next ?? '', historyBlockName);
@@ -268,9 +364,13 @@ export function createPartBarModel(
       const before = styles[key]?.className ?? '';
       const after = transform(before).replace(/\s+/gu, ' ').trim();
       if (after === before) return { ok: true };
-      const entry: Record<string, string> = {};
+      const entry: Record<string, JsonValue> = {};
       const stored = styles[key];
       if (stored?.dir !== undefined) entry['dir'] = stored.dir;
+      // gsap-pixi additions (2026-10-08): a class edit keeps the part's Cinematic motion.
+      if (stored?.timeline !== undefined) entry['timeline'] = stored.timeline;
+      if (stored?.scrub !== undefined) entry['scrub'] = stored.scrub;
+      // ── end gsap-pixi additions ──
       if (after !== '') entry['className'] = after;
       const nextStyles: Record<string, JsonValue> = {};
       for (const [styleKey, style] of Object.entries(styles)) {

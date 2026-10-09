@@ -22,7 +22,18 @@ import { teamSchema, type TeamProps } from './schema';
   letter to derive and the portrait stays empty for that moment.
 */
 function initialOf(name: unknown): string {
-  return typeof name === 'string' ? name.trim().slice(0, 1).toLocaleUpperCase() : '';
+  if (typeof name !== 'string') return '';
+  const words = name.trim().split(/\s+/u).filter((word) => word !== '');
+  /*
+    Two initials for a Latin name ("Amal Rahman" → "AR"), one letter for an
+    Arabic one: Arabic has no capitals, and two isolated letters side by side
+    read as a word fragment rather than a monogram.
+  */
+  if (/[\u0600-\u06FF]/u.test(name)) return (words[0] ?? '').slice(0, 1);
+  return words
+    .slice(0, 2)
+    .map((word) => word.slice(0, 1).toLocaleUpperCase())
+    .join('');
 }
 
 const COLUMN_CLASSES: Record<TeamProps['columns'], string> = {
@@ -44,6 +55,20 @@ const PORTRAIT_CLASSES: Record<TeamProps['variant'], string> = {
   cards: 'aspect-4/5 w-full',
   editorial: 'aspect-4/5 w-full',
   compact: 'size-20 shrink-0 rounded-full',
+};
+
+/*
+  No photo: a 64px avatar with initials, never a portrait-sized box (blocks-
+  polish 2026-10-08). A 4:5 frame around one letter was ~250px of lavender on a
+  phone per person; the frame is for a photograph, and only a photograph earns
+  it. The avatar sits inside the card's own padding, above the name.
+*/
+const AVATAR_CLASSES =
+  'grid size-16 shrink-0 place-items-center rounded-full bg-accent/10 text-lg font-bold text-accent';
+const AVATAR_INSET: Record<TeamProps['variant'], string> = {
+  cards: 'ms-6 mt-6',
+  editorial: 'ms-6 mt-6 @lg:ms-8 @lg:mt-8',
+  compact: '',
 };
 
 const COPY_CLASSES: Record<TeamProps['variant'], string> = {
@@ -164,19 +189,33 @@ export function Team({ node, props, isCanvas }: BlockRenderProps<TeamProps>) {
               /* Keyed by position: a bound value may be an inline editor element. */
               <li
                 key={index}
-                {...part('member', { index: at, className: CARD_CLASSES[props.variant] })}
+                {...part('member', {
+                  index: at,
+                  className: cx(
+                    CARD_CLASSES[props.variant],
+                    /* A 64px avatar has no half-card column to fill: the card stacks. */
+                    member.imageSrc === undefined && props.variant === 'editorial'
+                      ? '@md:grid-cols-1 @md:items-start'
+                      : undefined,
+                  ),
+                })}
+                data-team-photo={member.imageSrc === undefined ? 'avatar' : 'photo'}
               >
+                {member.imageSrc === undefined ? (
+                  <span
+                    aria-hidden="true"
+                    className={cx(AVATAR_CLASSES, AVATAR_INSET[props.variant])}
+                    data-team-avatar=""
+                  >
+                    {initialOf(member.name)}
+                  </span>
+                ) : (
                 <div
                   className={cx(
                     'grid place-items-center overflow-hidden bg-accent/10 text-accent',
                     PORTRAIT_CLASSES[props.variant],
                   )}
                 >
-                  {member.imageSrc === undefined ? (
-                    <span aria-hidden="true" className="text-2xl font-bold">
-                      {initialOf(member.name)}
-                    </span>
-                  ) : (
                     <img
                       {...part('member.image', {
                         index: at,
@@ -188,8 +227,8 @@ export function Team({ node, props, isCanvas }: BlockRenderProps<TeamProps>) {
                       loading="lazy"
                       decoding="async"
                     />
-                  )}
                 </div>
+                )}
 
                 <div className={COPY_CLASSES[props.variant]}>
                   <h3

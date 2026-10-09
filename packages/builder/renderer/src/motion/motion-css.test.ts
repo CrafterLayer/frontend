@@ -10,7 +10,14 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { MOTION_DURATIONS, REVEAL_EFFECTS, SCROLL_EFFECTS } from '@craftkit/builder-schema';
+import {
+  MOTION_DELAYS,
+  MOTION_DURATIONS,
+  MOTION_EASINGS,
+  MOTION_STAGGERS,
+  REVEAL_EFFECTS,
+  SCROLL_EFFECTS,
+} from '@craftkit/builder-schema';
 import { MOTION_CLASS, buildMotionCss, motionAttributes } from './motion-css';
 
 const CHECKED_IN_CSS = fileURLToPath(new URL('./motion.css', import.meta.url));
@@ -119,5 +126,86 @@ describe('motion attributes', () => {
     expect(
       motionAttributes({ reveal: 'fade', repeat: false })['data-motion-repeat'],
     ).toBeUndefined();
+  });
+
+  // gsap-pixi additions (2026-10-08)
+  it('turns a timeline into the engine marker and its params, and drops the CSS reveal', () => {
+    expect(
+      motionAttributes({
+        timeline: 'split-reveal',
+        scrub: false,
+        reveal: 'fade-up',
+        repeat: true,
+        duration: 'deliberate',
+        easing: 'ease-in-out',
+        stagger: 'tight',
+        delay: 'medium',
+      }),
+    ).toEqual({
+      'data-ck-timeline': 'split-reveal',
+      'data-ck-scrub': 'false',
+      'data-ck-speed': 'slow',
+      'data-ck-ease': 'emphasized',
+      'data-ck-stagger': 'sm',
+      'data-ck-delay': '3',
+    });
+  });
+
+  it('maps every named step onto the engine vocabulary', () => {
+    const speed = (duration: (typeof MOTION_DURATIONS)[number]) =>
+      motionAttributes({ timeline: 'fade-in', duration })['data-ck-speed'];
+    expect(MOTION_DURATIONS.map(speed)).toEqual(['fast', 'fast', 'normal', 'slow', 'slow']);
+    const ease = (easing: (typeof MOTION_EASINGS)[number]) =>
+      motionAttributes({ timeline: 'fade-in', easing })['data-ck-ease'];
+    expect(MOTION_EASINGS.map(ease)).toEqual([
+      'linear',
+      'standard',
+      'emphasized',
+      'spring',
+      'bounce',
+    ]);
+    const stagger = (value: (typeof MOTION_STAGGERS)[number]) =>
+      motionAttributes({ timeline: 'stagger-in', stagger: value })['data-ck-stagger'];
+    expect(MOTION_STAGGERS.map(stagger)).toEqual([undefined, 'sm', 'md', 'lg']);
+    const delay = (value: (typeof MOTION_DELAYS)[number]) =>
+      motionAttributes({ timeline: 'fade-in', delay: value })['data-ck-delay'];
+    expect(MOTION_DELAYS.map(delay)).toEqual([undefined, '1', '3', '6']);
+    expect(motionAttributes({ timeline: 'fade-in', scrub: true })['data-ck-scrub']).toBe('true');
+    expect(motionAttributes({ timeline: 'fade-in' })['data-ck-scrub']).toBeUndefined();
+  });
+
+  it('keeps the timing steps on the CSS side only, without a timeline', () => {
+    expect(motionAttributes({ duration: 'slow', scrub: true })).toEqual({
+      class: MOTION_CLASS,
+      'data-duration': 'slow',
+    });
+  });
+
+  it('keeps a CSS scroll effect (and its class) beside a timeline', () => {
+    expect(
+      motionAttributes({ timeline: 'fade-in', scroll: 'parallax-slow', easing: 'spring' }),
+    ).toEqual({
+      class: MOTION_CLASS,
+      'data-scroll': 'parallax-slow',
+      'data-easing': 'spring',
+      'data-ck-timeline': 'fade-in',
+      'data-ck-ease': 'spring',
+    });
+  });
+
+  it('turns a scene into an animated background marker with its density and palette, and no CSS class', () => {
+    expect(
+      motionAttributes({ scene: 'particles', sceneDensity: 'low', scenePalette: 'accent' }),
+    ).toEqual({
+      'data-ck-scene': 'particles',
+      'data-ck-density': 'low',
+      'data-ck-palette': 'accent',
+    });
+    expect(motionAttributes({ sceneDensity: 'low', scenePalette: 'mono' })).toEqual({});
+    expect(motionAttributes({ scene: 'mesh-gradient', reveal: 'fade' })).toEqual({
+      class: MOTION_CLASS,
+      'data-reveal': 'fade',
+      'data-ck-scene': 'mesh-gradient',
+    });
   });
 });

@@ -212,11 +212,32 @@ describe('media and motion in the custom-code door', () => {
     bad('path', 'data-ck-timeline', 'stagger-in');
   });
 
-  it('data-ck-scene: a scene name, on a div only', () => {
+  it('data-ck-scene: a scene name, on a div layer or (gsap-pixi, 2026-10-08) a sectioning host', () => {
     ok('div', 'data-ck-scene', 'mural');
     ok('div', 'data-ck-scene', 'particles');
     bad('div', 'data-ck-scene', 'fire');
-    expect(customCodeAttributeProblem('section', 'data-ck-scene', 'mural')).toMatch(/<div>/u);
+    ok('section', 'data-ck-scene', 'particles');
+    ok('header', 'data-ck-scene', 'mesh-gradient');
+    bad('h2', 'data-ck-scene', 'particles');
+    expect(customCodeAttributeProblem('span', 'data-ck-scene', 'mural')).toMatch(/<div>/u);
+  });
+
+  // gsap-pixi additions (2026-10-08)
+  it('an image scene on a sectioning host is a door problem; a hosted scene is not', () => {
+    const tree = (scene: string) => ({
+      kind: 'root',
+      children: [
+        {
+          kind: 'element',
+          tag: 'section',
+          attributes: { 'data-ck-scene': scene, 'data-ck-density': 'low' },
+          children: [{ kind: 'element', tag: 'h2', text: 'Hello' }],
+        },
+      ],
+    });
+    expect(messages(tree('particles'))).toEqual([]);
+    expect(messages(tree('mesh-gradient'))).toEqual([]);
+    expect(messages(tree('mural')).join(' ')).toMatch(/draws from images/u);
   });
 
   it('data-ck-lottie: bare, on a div; data-ck-src: an https .json of at most 2048 characters', () => {
@@ -257,7 +278,8 @@ describe('media and motion in the custom-code door', () => {
     bad('img', 'data-ck-depth', '4');
     for (const value of ['low', 'medium', 'high']) ok('div', 'data-ck-density', value);
     bad('div', 'data-ck-density', 'max');
-    bad('section', 'data-ck-density', 'low');
+    ok('section', 'data-ck-density', 'low'); // gsap-pixi (2026-10-08): a hosted scene's section
+    bad('h2', 'data-ck-density', 'low');
     for (const value of ['theme', 'accent', 'mono']) ok('div', 'data-ck-palette', value);
     bad('div', 'data-ck-palette', '#ff0000');
     ok('span', 'hidden', '');

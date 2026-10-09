@@ -77,3 +77,34 @@ export const Parts: Story = {
     await expect(cells[1]).toHaveClass('underline');
   },
 };
+
+/*
+  Mobile (blocks-polish 2026-10-08): in a 390px column the comparison is a
+  stack of plan cards — name, price, then label: value rows — and the table is
+  display:none, so the page reads it once. From a 640px container up the table
+  returns (section-layout.css, `.mkt-compare__*`).
+*/
+export const Mobile: Story = {
+  args: {
+    node: { ...node, id: 'comparison-mobile' },
+    props: exampleProps(0),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ inlineSize: 390, marginInline: 'auto' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const cards = canvasElement.querySelector('[data-comparison-cards]');
+    await expect(cards).toBeVisible();
+    await expect(canvasElement.querySelector('[data-comparison-scroll]')).not.toBeVisible();
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Growth' })).toBeVisible();
+    await expect(canvas.getByRole('link', { name: 'Start free Growth' })).toBeVisible();
+  },
+};

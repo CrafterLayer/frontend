@@ -105,3 +105,51 @@ describe('ProcessSteps', () => {
     expect(processStepsSchema.props.safeParse({ layout: 'diagonal' }).success).toBe(false);
   });
 });
+
+// blocks-polish additions (2026-10-08): the step number shows once.
+describe('ProcessSteps step numbers', () => {
+  function renderSteps(showNumbers: boolean, metas: readonly (string | undefined)[]) {
+    return render(
+      <ProcessSteps
+        node={node}
+        props={processStepsSchema.props.parse({
+          heading: 'How we work',
+          showNumbers,
+          steps: metas.map((meta, index) => ({
+            title: `Stage ${['one', 'two', 'three'][index] ?? 'more'}`,
+            body: 'A short description of the stage.',
+            ...(meta === undefined ? {} : { meta }),
+          })),
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+  }
+
+  it('drops a meta line that only repeats the badge number, in any digits', () => {
+    const { container } = renderSteps(true, ['01', 'Step 2', 'الخطوة ٣']);
+    const badges = [...container.querySelectorAll('[data-process-number]')].map((badge) => badge.textContent);
+    expect(badges).toEqual(['01', '02', '03']);
+    expect(screen.queryByText('Step 2')).toBeNull();
+    expect(screen.queryByText('الخطوة ٣')).toBeNull();
+    /* Each number is on the page exactly once: the badge. */
+    expect(screen.getAllByText('01')).toHaveLength(1);
+  });
+
+  it('keeps a meta that says something else, and every meta once the badges are off', () => {
+    renderSteps(true, ['Week 01', 'Discover', '07']);
+    expect(screen.getByText('Week 01')).toBeInTheDocument();
+    expect(screen.getByText('Discover')).toBeInTheDocument();
+    /* "07" is not the third step's number, so it is information, not a repeat. */
+    expect(screen.getByText('07')).toBeInTheDocument();
+  });
+
+  it('shows a number-only meta when the badge is switched off', () => {
+    const { container } = renderSteps(false, ['01', '02']);
+    expect(container.querySelector('[data-process-number]')).toBeNull();
+    expect(screen.getByText('01')).toBeInTheDocument();
+    expect(screen.getByText('02')).toBeInTheDocument();
+  });
+});

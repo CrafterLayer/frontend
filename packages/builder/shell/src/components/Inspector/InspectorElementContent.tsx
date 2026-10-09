@@ -1,6 +1,10 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { PaletteEntry } from '@craftkit/builder-renderer';
-import type { CustomCodeComponent, CustomCodeNode } from '@craftkit/builder-schema';
+import {
+  isCustomCodeIconName,
+  type CustomCodeComponent,
+  type CustomCodeNode,
+} from '@craftkit/builder-schema';
 
 import {
   customCodeElementSections,
@@ -17,6 +21,8 @@ import {
   type TreeTarget,
   type TreeWriteOptions,
 } from '../../style-manager/tree-writes';
+import { IconBrowser } from '../IconBrowser/IconBrowser';
+import { ICON_BROWSER_LABELS_AR, ICON_BROWSER_LABELS_EN } from '../IconBrowser/IconBrowser.labels';
 import { InspectorElementSection } from './InspectorElementSection';
 import { InspectorRowBody } from './InspectorRowBody';
 import type { DocumentDirection } from './types';
@@ -37,6 +43,12 @@ export interface InspectorElementContentProps {
   readonly emptyText: string;
   readonly componentHeading: string;
 }
+
+/** Said when a typed icon name is not in its set (walk 2026-10-08: "zzzz" drew nothing). */
+const UNKNOWN_ICON: Readonly<Record<'en' | 'ar', (name: string) => string>> = {
+  en: (name) => `There is no icon named “${name}” in this set · pick one from the icons below.`,
+  ar: (name) => `لا توجد أيقونة باسم «${name}» في هذه المجموعة · اختر واحدة من الأيقونات أدناه.`,
+};
 
 function componentWithProp(component: CustomCodeComponent, key: string, value: unknown): CustomCodeComponent {
   const props: Record<string, unknown> = Object.fromEntries(
@@ -82,10 +94,30 @@ export function InspectorElementContent({
         return patchTreeTargets(kernel, [{ target, patch: field.patch(next) }], label, writeOptions);
       }
       if (field.write !== undefined) {
-        return setTreeTarget(kernel, target, field.write(current, next), label, writeOptions);
+        const written = field.write(current, next);
+        // An icon whose name its set does not have renders nothing: refused
+        // here with the reason, before it reaches the page.
+        if (written.kind === 'icon' && !isCustomCodeIconName(written.name)) {
+          return { ok: false, message: UNKNOWN_ICON[locale](written.name) };
+        }
+        return setTreeTarget(kernel, target, written, label, writeOptions);
       }
       return { ok: true };
     };
+
+  /* A picked icon replaces the name (set included) as ONE transaction. */
+  const pickIcon = (name: string): void => {
+    const current = readTreeTarget(kernel, target, writeOptions);
+    if (current?.kind !== 'icon' || current.name === name) return;
+    const result = setTreeTarget(
+      kernel,
+      target,
+      { ...current, name },
+      styleTransactionLabel(locale === 'ar' ? 'الأيقونة' : 'Icon', elementName),
+      writeOptions,
+    );
+    if (!result.ok) announce(result.message);
+  };
 
   const basePath = ['element', ...target.path];
 
@@ -166,6 +198,16 @@ export function InspectorElementContent({
               />
             );
           })}
+          {/* An icon is chosen by sight, not by spelling its name. */}
+          {element.kind === 'icon' ? (
+            <IconBrowser
+              value={element.name}
+              onPick={pickIcon}
+              limit={48}
+              labels={locale === 'ar' ? ICON_BROWSER_LABELS_AR : ICON_BROWSER_LABELS_EN}
+              dir={locale === 'ar' ? 'rtl' : 'ltr'}
+            />
+          ) : null}
         </InspectorElementSection>
       ))}
     </>

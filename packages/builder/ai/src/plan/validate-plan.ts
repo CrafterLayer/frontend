@@ -153,6 +153,55 @@ function normalizeFreeCompositionTypes(plan: AiPlan, kernel: BuilderKernel): AiP
   return changed ? Object.freeze({ ...plan, commands: Object.freeze(commands) }) : plan;
 }
 
+/** The fields of a zod issue the repair text reads (zod's own issue type, loosely). */
+interface ArgsIssue {
+  readonly code?: string;
+  readonly message: string;
+  readonly path: readonly PropertyKey[];
+  readonly keys?: readonly string[];
+  readonly errors?: readonly (readonly ArgsIssue[])[];
+}
+
+/*
+  The most specific problem: a union's "Invalid input" says nothing a repair
+  round can act on, so its branches are searched for the issue with the
+  longest path (the one that got furthest into the shape).
+*/
+function specificIssue(issue: ArgsIssue): ArgsIssue {
+  if (issue.code !== 'invalid_union' || issue.errors === undefined) return issue;
+  let best: ArgsIssue | undefined;
+  for (const branch of issue.errors) {
+    for (const candidate of branch) {
+      const inner = specificIssue(candidate);
+      const path = inner.path.length >= issue.path.length ? inner.path : [...issue.path, ...inner.path];
+      const placed = { ...inner, path };
+      if (best === undefined || placed.path.length > best.path.length) best = placed;
+    }
+  }
+  return best ?? issue;
+}
+
+/**
+ * The repair text of an args refusal (GSAP fix, 2026-10-08): WHERE in the
+ * args it failed, and for a key in the wrong place, where it belongs. A bare
+ * "Invalid input" made the repair round resend the very same plan.
+ */
+function argsIssueText(issues: readonly ArgsIssue[]): string {
+  const first = issues[0];
+  if (first === undefined) return '.';
+  const issue = specificIssue(first);
+  const path = issue.path.map(String).join('.');
+  const where = path === '' ? '' : `${path}: `;
+  const keys = issue.code === 'unrecognized_keys' ? (issue.keys ?? []) : [];
+  const hint =
+    path === 'set' && keys.includes('attributes')
+      ? ' · attributes is a sibling of set: send { id, path, set: { className, text }, attributes: { name: value } }'
+      : keys.length > 0
+        ? ` · remove ${keys.map((key) => `"${key}"`).join(', ')}${path === '' ? '' : ` from ${path}`}`
+        : '';
+  return `: ${where}${issue.message}${hint}`;
+}
+
 function commandIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanValidationIssue[] {
   const issues: AiPlanValidationIssue[] = [];
   plan.commands.forEach((step, index) => {
@@ -176,10 +225,9 @@ function commandIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanVali
     }
     const parsed = registered.argsSchema.safeParse(step.args);
     if (!parsed.success) {
-      const first = parsed.error.issues[0];
       issues.push({
         code: 'invalid-args',
-        message: `Step ${String(index)} has invalid arguments for "${step.command}"${first === undefined ? '.' : `: ${first.message}`}`,
+        message: `Step ${String(index)} has invalid arguments for "${step.command}"${argsIssueText(parsed.error.issues)}`,
         step: index,
       });
     }

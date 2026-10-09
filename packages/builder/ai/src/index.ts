@@ -702,3 +702,36 @@ export {
   agentToolPromptMaxChars,
 } from './tools/agent/catalog-prompt';
 // ── end media-motion ──
+// script-servers additions (2026-10-08): `editTree` expansion for a headless host that runs the
+// editor's own pre-door order (script.run → tools → editTree), e.g. mcp-server craftkit_apply_plan.
+export { EDIT_TREE_COMMAND, expandTreeEdits, type TreeEditExpansion } from './plan/tree-edits';
+// end script-servers additions
+// script-wiring additions (2026-10-08): code mode's cross-page sidecar and the run's site
+// (agent-script DESIGN §A.9) — a script's writes to other pages ride beside the validated plan.
+export {
+  attachScriptCrossPage,
+  planHasScriptStep,
+  scriptCrossPage,
+  scriptCrossPageFollowUp,
+  scriptPagesTouched,
+  type AiPlanSite,
+  type ScriptCrossPage,
+  type ScriptCrossPageStep,
+  type ScriptCrossPageWrite,
+} from './script/cross-page';
+export type { AiAgentScriptSite } from './agent/types';
+// end script-wiring additions
+// script-host additions (2026-10-08): code mode (agent-script DESIGN §A) — the engine plus the host side:
+// element index, call → tool-step mapping, coalescing, expandScriptSteps, SCRIPT_CARD, prefersScript, directScript.
+export * from './script';
+// end script-host additions
+// library-playground additions (2026-10-08): the page kit as data (agent-script DESIGN §B.5) — a
+// host writes a Library section's page kit with the SAME function the skeleton writes it with.
+export {
+  hasKitBlock,
+  readPageKit,
+  writePageKit,
+  type KitColours,
+  type PageKitState,
+} from './tools/agent/page-kit';
+// end library-playground additions

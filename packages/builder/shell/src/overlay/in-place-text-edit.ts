@@ -19,6 +19,8 @@
      again.
 */
 
+import { isSpaceKey, typeAtCaret } from '../inline/type-space';
+
 export type InPlaceTextOutcome = 'committed' | 'unchanged' | 'cancelled' | 'rejected';
 
 export type InPlaceTextExit = 'keyboard' | 'blur' | 'api';
@@ -68,24 +70,6 @@ function placeCaretAtEnd(element: HTMLElement): void {
 function shownText(surface: HTMLElement): string {
   const rendered = (surface as { innerText?: string }).innerText;
   return rendered ?? surface.textContent;
-}
-
-/** Insert text at the caret (replacing a selection), leaving the caret after it. */
-function insertAtCaret(surface: HTMLElement, text: string): void {
-  const doc = surface.ownerDocument;
-  const selection = doc.getSelection();
-  if (selection === null || selection.rangeCount === 0) {
-    surface.append(text);
-    return;
-  }
-  const range = selection.getRangeAt(0);
-  range.deleteContents();
-  const node = doc.createTextNode(text);
-  range.insertNode(node);
-  range.setStartAfter(node);
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
 }
 
 /** Open the element's text for typing in place. */
@@ -176,15 +160,16 @@ export function beginInPlaceTextEdit(options: InPlaceTextEditOptions): InPlaceTe
       session.commit();
       return;
     }
-    if (event.key === ' ' && !event.isComposing) {
-      // A <button> part activates on Space; the session types it instead.
+    if (isSpaceKey(event)) {
+      // A <button> part activates on Space; the session types it instead,
+      // extending the text node so no structural mutation follows the key.
       event.preventDefault();
-      insertAtCaret(surface, ' ');
+      typeAtCaret(surface, ' ');
     }
   }
   function onKeyUp(event: KeyboardEvent): void {
     event.stopPropagation();
-    if (event.key === ' ') event.preventDefault();
+    if (isSpaceKey(event)) event.preventDefault();
   }
   function onBlur(): void {
     exit = 'blur';

@@ -132,16 +132,32 @@ export function quickGroup(id: QuickGroupId): QuickGroup {
 // ── block-parts (2026-10-06) ──
 /*
   A registered block's PART gets the same bar minus the groups that write
-  free attributes (direction, motion, hover preset, the attribute link editor)
+  free attributes (direction, hover preset, the attribute link editor)
   or named-style markers: a part's attributes belong to its block, and its
   classes keep the tokens law. Direction has its own part actions
   (`planPartDir`), and a link part edits text + address in PartLinkPopover.
+
+  gsap-pixi additions (2026-10-08): `motion` is back on text, container,
+  media and link parts — Cinematic motion ONLY (the model's `motionScope`
+  is `part`), stored in the part's own `partStyles` entry; CSS presets stay
+  refused there.
 */
 const PART_BY_KIND: Readonly<Record<QuickElementKind, readonly QuickGroupId[]>> = {
-  text: ['fontSize', 'fontWeight', 'textColor', 'background', 'padding', 'textAlign', 'lineHeight', 'radius', 'shadow'],
-  container: ['background', 'padding', 'gap', 'flexDirection', 'align', 'radius', 'border', 'shadow'],
-  media: ['replace', 'fit', 'radius', 'aspect', 'alt', 'padding', 'shadow'],
-  link: ['textColor', 'background', 'padding', 'radius', 'shadow'],
+  text: [
+    'fontSize',
+    'fontWeight',
+    'textColor',
+    'background',
+    'padding',
+    'textAlign',
+    'lineHeight',
+    'radius',
+    'shadow',
+    'motion', // gsap-pixi additions (2026-10-08)
+  ],
+  container: ['background', 'padding', 'gap', 'flexDirection', 'align', 'radius', 'border', 'shadow', 'motion'],
+  media: ['replace', 'fit', 'radius', 'aspect', 'alt', 'padding', 'shadow', 'motion'],
+  link: ['textColor', 'background', 'padding', 'radius', 'shadow', 'motion'],
   icon: [],
   component: [],
 };

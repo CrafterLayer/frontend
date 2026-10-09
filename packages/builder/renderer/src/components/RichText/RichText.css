@@ -30,11 +30,29 @@
   margin-block-start: 0.75em;
 }
 
+/* Headings carry the site's own type scale. The host's reset sets every
+   heading to `font-size: inherit; font-weight: inherit`, so without these an
+   H2 rendered at the paragraph's 16px/400 — on the canvas, in the canvas
+   editor and on the published page alike (walk 2026-10-08). The same rules
+   reach all three because the inline editor's surface carries this class. */
 .bldr-richtext h2,
 .bldr-richtext h3,
 .bldr-richtext h4 {
   font-family: inherit;
+  font-weight: var(--t-font-weight-bold, 700);
   line-height: 1.25;
+}
+
+.bldr-richtext h2 {
+  font-size: var(--t-font-size-xxl, 1.75rem);
+}
+
+.bldr-richtext h3 {
+  font-size: var(--t-font-size-xl, 1.375rem);
+}
+
+.bldr-richtext h4 {
+  font-size: var(--t-font-size-lg, 1.125rem);
 }
 
 .bldr-richtext ul,
@@ -42,7 +60,19 @@
   padding-inline-start: 1.5em;
 }
 
-.bldr-richtext__link {
+/* The reset strips list markers too; prose keeps them. */
+.bldr-richtext ul {
+  list-style-type: disc;
+}
+
+.bldr-richtext ol {
+  list-style-type: decimal;
+}
+
+/* `a` as well as the rendered class: the editor draws a plain <a>, and a link
+   lost its colour and underline the moment editing began. */
+.bldr-richtext__link,
+.bldr-richtext a {
   /* A REAL token (§11 convergence fix): `--t-primary` was never in the set, so
      links were permanently hardcoded — including ~3.8:1 on the dark surface. */
   color: var(--t-accent, #4f46e5);

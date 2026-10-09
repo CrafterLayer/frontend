@@ -226,7 +226,13 @@ function nonEmptyText(value: unknown): string | undefined {
   return text === '' ? undefined : text;
 }
 
-export function repeaterItemLabel(schema: z.ZodType, value: unknown, index: number): string {
+export function repeaterItemLabel(
+  schema: z.ZodType,
+  value: unknown,
+  index: number,
+  /** The name of an item with no words of its own, in the editor's language. */
+  itemName: (position: number) => string = (position) => `Item ${String(position)}`,
+): string {
   const direct = nonEmptyText(value);
   if (direct !== undefined) {
     return direct;
@@ -243,9 +249,9 @@ export function repeaterItemLabel(schema: z.ZodType, value: unknown, index: numb
     );
     const first = required ?? stringFields.find(([key]) => nonEmptyText(record[key]) !== undefined);
     if (first !== undefined) {
-      return nonEmptyText(record[first[0]]) ?? `Item ${String(index + 1)}`;
+      return nonEmptyText(record[first[0]]) ?? itemName(index + 1);
     }
   }
 
-  return `Item ${String(index + 1)}`;
+  return itemName(index + 1);
 }

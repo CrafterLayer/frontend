@@ -37,6 +37,9 @@ import type {
 } from '@craftkit/builder-schema';
 
 import { customCodeElementAt } from '../../custom-code/element-at';
+// library-playground additions (2026-10-08): the frame's <html lang> follows the page.
+import { useFrameLang } from './frame-lang';
+// end library-playground additions
 import {
   ELEMENT_NAME_WORDS_EN,
   type ElementNameWords,
@@ -170,6 +173,11 @@ import {
 import '../../styles/visually-hidden.css';
 import './EditorCanvas.css';
 
+// gsap-pixi additions (2026-10-08): engines on registered blocks RUN on the canvas (never taking
+// pointer input); one stable object, so the frame never re-mounts them on a re-render.
+const CANVAS_SITE_ENGINES = { interactive: false } as const;
+// end gsap-pixi additions
+
 export interface EditorCanvasProps {
   /** BY PROP — the shell hot path never reads React context. */
   kernel: BuilderKernel;
@@ -240,6 +248,14 @@ export interface EditorCanvasProps {
   onSaveTemplate?: ((target: ElementTarget) => void) | undefined;
   /** Element action "Animate": open the Interactions editor. Absent ⇒ the motion sector via `onOpenStyleSector`. */
   onAnimate?: ((target: ElementTarget) => void) | undefined;
+  // gsap-pixi additions (2026-10-08)
+  /**
+   * Block action "Animate" on a selected registered block that declares a
+   * motion control: the host opens the Inspector's Design › Motion (Cinematic
+   * motion, Animated background). Absent ⇒ no Animate action on blocks.
+   */
+  onAnimateBlock?: ((nodeId: NodeId) => void) | undefined;
+  // ── end gsap-pixi additions ──
   /** Image/video "Replace": the host opens its asset manager. Absent ⇒ disabled. */
   onReplaceMedia?: ((target: ElementTarget) => void) | undefined;
   /**
@@ -550,6 +566,7 @@ export function EditorCanvas({
   onEditWithAi,
   onSaveTemplate,
   onAnimate,
+  onAnimateBlock, // gsap-pixi additions (2026-10-08)
   onReplaceMedia,
   onShortcut,
   styleClipboard,
@@ -596,6 +613,9 @@ export function EditorCanvas({
       [],
     ),
   );
+  // library-playground additions (2026-10-08): root `lang` prop, else ar for rtl / en for ltr.
+  useFrameLang(kernel, frame);
+  // end library-playground additions
   const selectedId = useKernelSelector(
     kernel,
     useCallback(
@@ -2506,13 +2526,17 @@ export function EditorCanvas({
     [selectedName, canvasLabels],
   );
 
+  // gsap-pixi additions (2026-10-08): "Animate" joins the bar when the host can open Design › Motion.
+  const animateLocale = canvasLabels.locale ?? 'en';
+  const canAnimateBlock = onAnimateBlock !== undefined;
   const blockActions = useMemo(
     () =>
       selectedId === null || doc.nodes[selectedId] === undefined
         ? []
-        : resolveBlockActions(kernel, selectedId),
-    [kernel, doc, selectedId],
+        : resolveBlockActions(kernel, selectedId, canAnimateBlock ? { animate: { locale: animateLocale } } : {}),
+    [kernel, doc, selectedId, canAnimateBlock, animateLocale],
   );
+  // ── end gsap-pixi additions ──
 
   const runBlockAction = useCallback(
     (id: string) => {
@@ -2520,6 +2544,12 @@ export function EditorCanvas({
       if (selected === undefined) {
         return;
       }
+      // gsap-pixi additions (2026-10-08): a panel to open, never a document write.
+      if (id === 'animate') {
+        onAnimateBlock?.(selected);
+        return;
+      }
+      // ── end gsap-pixi additions ──
       if (id === 'editText') {
         const opened = beginInlineEdit(selected, { kind: 'keyboard' });
         announceGestureRef.current(
@@ -2542,7 +2572,7 @@ export function EditorCanvas({
       // (US3/AC2). Refusals are announced, never thrown at the door.
       announceGestureRef.current(performBlockAction(kernel, selected, id).announcement);
     },
-    [kernel, beginInlineEdit, selectedName],
+    [kernel, beginInlineEdit, selectedName, onAnimateBlock], // gsap-pixi additions: + onAnimateBlock
   );
 
   // ── P7: the element quick bar ─────────────────────────────────────────────
@@ -2822,7 +2852,13 @@ export function EditorCanvas({
           className="bldr-canvas-frame-shell"
           style={hasFrameShellStyle ? frameShellStyle : undefined}
         >
-          <CanvasFrame theme={theme} dir={dir} title={title} onFrame={setFrame}>
+          <CanvasFrame
+            theme={theme}
+            dir={dir}
+            title={title}
+            onFrame={setFrame}
+            siteEngines={CANVAS_SITE_ENGINES} /* gsap-pixi additions (2026-10-08) */
+          >
             <DocumentView
               kernel={kernel}
               breakpoint={breakpoint ?? 'desktop'}

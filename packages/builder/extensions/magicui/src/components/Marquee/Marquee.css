@@ -170,3 +170,37 @@
     display: none;
   }
 }
+
+/* blocks-polish additions (2026-10-08) */
+/*
+  Right to left, the track starts at the inline END (the right edge) and
+  overflows to the left. Travelling by -50% slid the first copy out of view
+  and left an empty rail with two chips (the Arabic landing, templates audit
+  2026-10-08). In RTL the track travels by +50% instead, which brings its
+  second copy in from the left and loops seamlessly; "forward" then already
+  reads in the page's direction, so the direction swap above is undone here.
+  Only where motion is welcome: the reduced-motion rule above stays final.
+*/
+@keyframes mgc-marquee-travel-rtl {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(50%);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [dir='rtl'] .mgc-marquee__track {
+    animation-name: mgc-marquee-travel-rtl;
+  }
+
+  [dir='rtl'] .mgc-marquee__viewport[data-marquee-direction='forward'] .mgc-marquee__track {
+    animation-direction: normal;
+  }
+
+  [dir='rtl'] .mgc-marquee__viewport[data-marquee-direction='reverse'] .mgc-marquee__track {
+    animation-direction: reverse;
+  }
+}
+/* end blocks-polish additions */

@@ -39,7 +39,7 @@ export const featuresSchema = defineBlockSchema({
     align: z.enum(sectionAlignments).default('start'),
     tone: z.enum(sectionTones).default('transparent'),
     spacing: z.enum(sectionSpacings).default('md'),
-    width: z.enum(sectionWidths).default('full'),
+    width: z.enum(sectionWidths).default('wide'),
     ...sectionColorProps,
     ...sectionMotionProps,
     ...sectionCustomProps,

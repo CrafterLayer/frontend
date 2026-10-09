@@ -19,6 +19,29 @@ describe('InspectorHeader', () => {
     expect(screen.queryByText('base')).not.toBeInTheDocument();
   });
 
+  it('says which region an element is in only when its name does not already say it', () => {
+    const view = render(
+      <InspectorHeader
+        blockName="Icon (sparkles)"
+        selected
+        bucket="base"
+        onClearSelection={vi.fn()}
+        within={{ regionName: 'Icon', onBack: vi.fn() }}
+      />,
+    );
+    expect(screen.queryByText('in Icon')).not.toBeInTheDocument();
+    view.rerender(
+      <InspectorHeader
+        blockName="Heading"
+        selected
+        bucket="base"
+        onClearSelection={vi.fn()}
+        within={{ regionName: 'CV header', onBack: vi.fn() }}
+      />,
+    );
+    expect(screen.getByText('in CV header')).toBeInTheDocument();
+  });
+
   it('offers Clear selection only while something is selected, as quiet small chrome in the title row', async () => {
     const onClearSelection = vi.fn();
     const user = userEvent.setup();

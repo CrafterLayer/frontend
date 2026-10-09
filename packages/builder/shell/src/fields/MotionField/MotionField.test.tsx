@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { motionSpecSchema } from '@craftkit/builder-schema';
 
+import { FieldServicesProvider } from '../field-services';
 import { MotionField } from './MotionField';
 
 function renderField(value: unknown, onChange = vi.fn(), disabled?: boolean) {
@@ -140,3 +141,57 @@ describe('MotionField', () => {
     expect(screen.getByLabelText<HTMLSelectElement>('On entry').value).toBe('');
   });
 });
+
+// gsap-pixi additions (2026-10-08)
+describe('MotionField — Cinematic motion and Animated background', () => {
+  it('a recipe is one whole-spec change that keeps the other parts and drops "On entry"', async () => {
+    const onChange = renderField({ reveal: 'fade-up', duration: 'slow' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Stagger in' }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ duration: 'slow', timeline: 'stagger-in' });
+    expect(motionSpecSchema.safeParse(onChange.mock.calls[0]?.[0]).success).toBe(true);
+  });
+
+  it('shows the stored recipe and scene; how it plays, the scene and its density each write the spec', async () => {
+    const onChange = renderField({ timeline: 'fade-in', scene: 'particles', sceneDensity: 'low' });
+
+    expect(screen.getByRole('button', { name: 'Fade in' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Particles' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('radio', { name: 'With scroll' }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      timeline: 'fade-in',
+      scrub: true,
+      scene: 'particles',
+      sceneDensity: 'low',
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Mesh gradient' }));
+    expect(onChange).toHaveBeenLastCalledWith({ timeline: 'fade-in', scene: 'mesh-gradient', sceneDensity: 'low' });
+    await userEvent.click(screen.getByRole('radio', { name: 'High' }));
+    expect(onChange).toHaveBeenLastCalledWith({ timeline: 'fade-in', scene: 'particles', sceneDensity: 'high' });
+    for (const call of onChange.mock.calls) expect(motionSpecSchema.safeParse(call[0]).success).toBe(true);
+  });
+
+  it('clearing removes the keys; choosing an entry effect takes the recipe off', async () => {
+    const onChange = renderField({ timeline: 'slide-in', scrub: false, duration: 'fast' });
+
+    await userEvent.click(within(screen.getByRole('group', { name: 'Cinematic motion' })).getByRole('button', { name: 'None' }));
+    expect(onChange).toHaveBeenLastCalledWith({ duration: 'fast' });
+    await userEvent.selectOptions(screen.getByLabelText('On entry'), 'zoom-in');
+    expect(onChange).toHaveBeenLastCalledWith({ duration: 'fast', reveal: 'zoom-in' });
+  });
+
+  it('speaks the editor’s language: Arabic names, right to left', () => {
+    render(
+      <FieldServicesProvider value={{ locale: 'ar' }}>
+        <MotionField schema={motionSpecSchema} value={{}} path={['motion']} onChange={vi.fn()} controlId="motion-ar" />
+      </FieldServicesProvider>,
+    );
+
+    expect(screen.getByRole('group', { name: 'حركة سينمائية' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'خلفية متحركة' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'جزيئات' })).toBeInTheDocument();
+  });
+});
+// ── end gsap-pixi additions ──

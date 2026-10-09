@@ -163,7 +163,7 @@
   align-items: center;
   display: grid;
   gap: var(--bldr-space-sm);
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 3rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) var(--bldr-measure-value-column);
 }
 
 .bldr-token-rows__label {
@@ -209,10 +209,10 @@
 
 .bldr-token-preview__shape {
   background: var(--bldr-surface-raised);
-  block-size: 1.5rem;
+  block-size: var(--bldr-measure-swatch);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
   display: block;
-  inline-size: 1.5rem;
+  inline-size: var(--bldr-measure-swatch);
 }
 
 .bldr-token-preview[data-kind='length'],
@@ -251,7 +251,7 @@
   gap: var(--bldr-space-2xs);
   list-style: none;
   margin: var(--bldr-space-0);
-  max-block-size: 16rem;
+  max-block-size: var(--bldr-measure-list-sm);
   overflow-y: auto;
   padding: var(--bldr-space-0);
 }
@@ -264,10 +264,10 @@
 }
 
 .bldr-palette__swatch {
-  block-size: 1.25rem;
+  block-size: var(--bldr-measure-handle);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   border-radius: var(--bldr-radius-xs);
-  inline-size: 1.25rem;
+  inline-size: var(--bldr-measure-handle);
 }
 
 .bldr-palette__name {

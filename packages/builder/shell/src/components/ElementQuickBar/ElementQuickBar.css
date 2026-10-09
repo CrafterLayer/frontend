@@ -55,7 +55,7 @@
 
 .bldr-quick-bar__item[aria-expanded='true'],
 .bldr-quick-bar__item[aria-pressed='true'] {
-  background: var(--bldr-selection-soft, rgb(79 70 229 / 12%));
+  background: var(--bldr-accent-soft);
   color: var(--bldr-selection, #4f46e5);
 }
 
@@ -93,7 +93,7 @@
   color: var(--bldr-panel-muted, #64748b);
   cursor: grab;
   display: inline-flex;
-  inline-size: var(--bldr-control-md, 24px);
+  inline-size: var(--bldr-control-md);
   justify-content: center;
   touch-action: none;
   user-select: none;
@@ -112,9 +112,9 @@
   color: var(--bldr-panel-text, #334155);
   font-family: var(--bldr-font, system-ui, sans-serif);
   font-size: var(--bldr-font-size-caption);
-  max-block-size: min(420px, 70vh);
-  max-inline-size: min(320px, 92vw);
-  min-inline-size: 220px;
+  max-block-size: min(var(--bldr-measure-popover-block), 70vh);
+  max-inline-size: min(var(--bldr-measure-popover-max), 92vw);
+  min-inline-size: var(--bldr-measure-popover-min);
   overflow: auto;
   padding: var(--bldr-space-sm);
   z-index: 50;

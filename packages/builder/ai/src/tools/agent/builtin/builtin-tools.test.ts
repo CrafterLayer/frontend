@@ -196,14 +196,16 @@ describe('image.set', () => {
     expect(hero).not.toContain(CAFE_PHOTO.replaceAll('&', '&amp;'));
     expect(hero).toMatch(/width='\d+'/u);
     expect(hero).toContain('640w');
-    expect(hero).toContain("alt='Latte art poured into a cup'");
+    // The catalog entry's own description, written from the picture, not the caller's words.
+    expect(hero).not.toContain("alt='Latte art poured into a cup'");
+    expect(hero).toMatch(/<img alt='[^']+'/u);
   });
 
-  it('keeps Arabic alt text and says when the src is not on the page', () => {
+  it('describes the photo in Arabic from its catalog entry and says when the src is not on the page', () => {
     const kernel = fixtureKernel({ locale: 'ar' });
     const ok = expandAndValidate(kernel, 'image.set', { id: 'r-hero', find: CAFE_PHOTO, subject: 'قهوة', alt: 'فنجان قهوة عربية' });
     expect(ok.issues).toEqual([]);
-    expect(markup(writes(ok).get('r-hero.tree'))).toContain("alt='فنجان قهوة عربية'");
+    expect(markup(writes(ok).get('r-hero.tree'))).toMatch(/<img alt='[\u0600-\u06FF][^']*'/u);
     const missing = expandAndValidate(kernel, 'image.set', { id: 'r-hero', find: 'https://x.test/a.jpg', subject: 'cafe', alt: 'x' });
     expect(missing.issues[0]).toMatch(/has src/u);
   });

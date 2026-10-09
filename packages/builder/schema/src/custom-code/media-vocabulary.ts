@@ -43,6 +43,9 @@ export const CUSTOM_CODE_TIMELINE_RECIPES = [
   'parallax-depth',
   'scrub-scale',
   'velocity-marquee',
+  // gsap-pixi additions (2026-10-08): the two plain entrances the owner asked for.
+  'fade-in',
+  'slide-in',
 ] as const;
 
 export type CustomCodeTimelineRecipe = (typeof CUSTOM_CODE_TIMELINE_RECIPES)[number];
@@ -254,7 +257,40 @@ export const CUSTOM_CODE_TIMELINE_RECIPE_INFO: Readonly<
       en: 'The marquee speeds up and skews with scroll velocity',
     },
   },
+  // gsap-pixi additions (2026-10-08)
+  'fade-in': {
+    label: { ar: 'ظهور تدريجي', en: 'Fade in' },
+    description: {
+      ar: 'يظهر العنصر بنعومة ويرتفع قليلًا عند الوصول إليه',
+      en: 'The element fades in and rises slightly as it enters',
+    },
+  },
+  'slide-in': {
+    label: { ar: 'انزلاق من الجانب', en: 'Slide in' },
+    description: {
+      ar: 'ينزلق العنصر من جهة بداية السطر عند الوصول إليه (يعكس الاتجاه في العربية)',
+      en: 'The element slides in from the start side as it enters (mirrored in RTL)',
+    },
+  },
 };
+
+// gsap-pixi additions (2026-10-08)
+/**
+ * Scenes that draw from the palette alone, so they can sit behind ANY
+ * section's existing content (a registered block's root, a customCode
+ * `section`): the engine adds its own layer at runtime. The image scenes
+ * (`parallax-layers`, `mural`, `ripple`) need a `div` layer with img children.
+ */
+export const HOSTED_SCENES = ['particles', 'mesh-gradient'] as const;
+
+export type HostedScene = (typeof HOSTED_SCENES)[number];
+
+export function isHostedScene(value: string): value is HostedScene {
+  return (HOSTED_SCENES as readonly string[]).includes(value);
+}
+
+/** Sectioning tags a hosted scene may sit on in a customCode tree (besides the classic `div` layer). */
+export const SCENE_HOST_TAGS = ['section', 'header', 'main', 'article', 'aside', 'footer'] as const;
 
 /** Labels and one-line descriptions for the scenes. */
 export const CUSTOM_CODE_SCENE_INFO: Readonly<Record<CustomCodeScene, MediaVocabularyInfo>> = {

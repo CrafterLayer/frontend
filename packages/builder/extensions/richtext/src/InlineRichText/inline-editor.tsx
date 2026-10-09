@@ -17,8 +17,8 @@ import { liveViewOf } from './selection-anchor';
  * whether they are active, how to toggle them — and renders NO chrome and NO
  * geometry of its own.
  *
- * The action set: bold, italic, link, bulleted and numbered lists, clear
- * formatting. Headings stay an inspector concern. Labels match the B3b toolbar
+ * The action set: bold, italic, link, heading 2 and 3, bulleted and
+ * numbered lists, clear formatting. Labels match the B3b toolbar
  * so announcements stay consistent.
  *
  * block-parts (2026-10-06): the actions are reported for the whole time the
@@ -111,6 +111,26 @@ function formatActions(
           !can.chain().focus().setLink({ href: 'https://example.com/' }).run(),
       run: () => {
         runLink(editor);
+      },
+    },
+    // Heading levels on the canvas too (walk 2026-10-08): the Inspector's
+    // toolbar had them and the canvas bar did not.
+    {
+      id: 'heading2',
+      label: 'Heading 2',
+      pressed: editor.isActive('heading', { level: 2 }),
+      disabled: !can.chain().focus().toggleHeading({ level: 2 }).run(),
+      run: () => {
+        editor.chain().focus().toggleHeading({ level: 2 }).run();
+      },
+    },
+    {
+      id: 'heading3',
+      label: 'Heading 3',
+      pressed: editor.isActive('heading', { level: 3 }),
+      disabled: !can.chain().focus().toggleHeading({ level: 3 }).run(),
+      run: () => {
+        editor.chain().focus().toggleHeading({ level: 3 }).run();
       },
     },
     {

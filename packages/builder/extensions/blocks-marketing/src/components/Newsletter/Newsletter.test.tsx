@@ -60,7 +60,7 @@ describe('Newsletter', () => {
     expect(screen.getByText('Product notes').closest('[data-newsletter-copy]')).toHaveClass(
       'bg-surface-inverse',
     );
-    expect(screen.getByRole('textbox').parentElement).not.toHaveClass('@sm:flex-row');
+    expect(screen.getByRole('textbox').parentElement).not.toHaveClass('@lg:flex-row');
   });
 
   it('applies shared color, typography, and logical spacing controls', () => {
@@ -95,5 +95,24 @@ describe('Newsletter', () => {
 
   it('rejects executable script form actions at the schema boundary', () => {
     expect(newsletterSchema.props.safeParse({ action: 'javascript:alert(1)' }).success).toBe(false);
+  });
+});
+
+// blocks-polish additions (2026-10-08)
+describe('Newsletter on a phone', () => {
+  it('puts the field and the button in a row only from a 32rem container', () => {
+    render(
+      <Newsletter
+        node={node}
+        props={newsletterSchema.props.parse({ heading: 'Notes', formLayout: 'row', variant: 'split' })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    const row = screen.getByRole('textbox').parentElement;
+    expect(row).toHaveClass('flex-col', '@lg:flex-row');
+    expect(row).not.toHaveClass('@sm:flex-row');
+    expect(screen.getByText('Notes').closest('[data-newsletter-copy]')).toHaveClass('mkt-slab');
   });
 });

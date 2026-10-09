@@ -278,7 +278,10 @@ export function ScaleNumberControl({
                 </option>
               ))
             : null}
-          {mode === 'tokens' && !keywords.includes(menuValue) ? (
+          {/* The current unit, unless the value IS one of the keywords below:
+              comparing the prefixed menu value with the bare keywords listed
+              "keyword:4xl" as an option of its own (walk 2026-10-08). */}
+          {mode === 'tokens' && !menuValue.startsWith(KEYWORD_PREFIX) ? (
             <option value={menuValue}>{menuValue === '' ? '—' : menuValue}</option>
           ) : null}
           {keywords.map((keyword) => (

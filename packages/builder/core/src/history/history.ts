@@ -1,6 +1,9 @@
 import type { Author, Transaction } from '@craftkit/builder-schema';
 
-/** Consecutive setProp transactions on one (node, key) merge into one undo step. */
+/**
+ * Consecutive setProp transactions on one (node, key) — and a person's repeated
+ * labelled edit on the same paths — merge into one undo step.
+ */
 export const TYPING_MERGE_WINDOW_MS = 1000;
 
 export interface History {
@@ -86,20 +89,34 @@ export function createHistory(mergeWindowMs: number = TYPING_MERGE_WINDOW_MS): H
   };
 }
 
+function samePath(a: readonly unknown[], b: readonly unknown[]): boolean {
+  return a.length === b.length && a.every((segment, index) => segment === b[index]);
+}
+
 function isTypingContinuation(previous: Transaction, next: Transaction, windowMs: number): boolean {
-  if (previous.command !== 'setProp' || next.command !== 'setProp') {
-    return false;
-  }
   if (next.ts - previous.ts > windowMs) {
     return false;
   }
-  const previousPath = previous.patches[0]?.path;
-  const nextPath = next.patches[0]?.path;
-  if (previousPath === undefined || nextPath === undefined) {
+  if (previous.command === 'setProp' && next.command === 'setProp') {
+    const previousPath = previous.patches[0]?.path;
+    const nextPath = next.patches[0]?.path;
+    return previousPath !== undefined && nextPath !== undefined && samePath(previousPath, nextPath);
+  }
+  /*
+    A labelled edit a PERSON repeats on exactly the same paths — a rich-text
+    session on the canvas or in the Inspector commits once per editor update
+    ("Edit text · Rich Text"), so typing "word" was four Undos where plain
+    text is one (walk 2026-10-08). The same burst rule applies: same label,
+    same author, the same set of written paths, inside the window.
+  */
+  if (previous.command !== next.command || previous.author !== 'user' || next.author !== 'user') {
     return false;
   }
-  return (
-    previousPath.length === nextPath.length &&
-    previousPath.every((segment, index) => segment === nextPath[index])
-  );
+  if (previous.patches.length === 0 || previous.patches.length !== next.patches.length) {
+    return false;
+  }
+  return previous.patches.every((patch, index) => {
+    const other = next.patches[index];
+    return other !== undefined && samePath(patch.path, other.path);
+  });
 }

@@ -52,6 +52,8 @@ export interface RichTextActionLabels {
   readonly bold: string;
   readonly italic: string;
   readonly link: string;
+  readonly heading2: string;
+  readonly heading3: string;
   readonly bulletList: string;
   readonly orderedList: string;
   readonly clear: string;
@@ -62,6 +64,8 @@ export const RICH_TEXT_ACTION_LABELS_EN: RichTextActionLabels = {
   bold: 'Bold',
   italic: 'Italic',
   link: 'Link',
+  heading2: 'Heading 2',
+  heading3: 'Heading 3',
   bulletList: 'Bulleted list',
   orderedList: 'Numbered list',
   clear: 'Clear formatting',
@@ -72,13 +76,24 @@ export const RICH_TEXT_ACTION_LABELS_AR: RichTextActionLabels = {
   bold: 'عريض',
   italic: 'مائل',
   link: 'رابط',
+  heading2: 'عنوان 2',
+  heading3: 'عنوان 3',
   bulletList: 'قائمة نقطية',
   orderedList: 'قائمة مرقّمة',
   clear: 'مسح التنسيق',
   formatting: 'التنسيق',
 };
 
-const LABELLED_IDS = new Set<string>(['bold', 'italic', 'link', 'bulletList', 'orderedList', 'clear']);
+const LABELLED_IDS = new Set<string>([
+  'bold',
+  'italic',
+  'link',
+  'heading2',
+  'heading3',
+  'bulletList',
+  'orderedList',
+  'clear',
+]);
 
 /**
  * The editor's actions with the editor locale's labels. An id this map does

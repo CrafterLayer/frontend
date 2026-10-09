@@ -262,6 +262,41 @@ describe('live utilities watch what renders in AI regions', () => {
     live.dispose();
   });
 
+  it('generates the classes a person wrote on a built-in part that no other sheet defines, unscoped', async () => {
+    const staticSheet = document.createElement('style');
+    staticSheet.textContent = '.ps-6 { padding-inline-start: 1.5rem; } .max-md\\:p-2 { padding: 0.5rem; }';
+    document.head.append(staticSheet);
+    const live = await createLiveUtilities({ document });
+    const stop = live.watch(document);
+
+    const heading = document.createElement('h1');
+    heading.setAttribute('data-ck-part', 'heading');
+    heading.setAttribute('data-ck-part-own', 'm-0 text-4xl');
+    heading.className = 'm-0 text-4xl ps-6 max-md:p-2 pbs-8';
+    document.body.append(heading);
+    await settle();
+
+    const css = live.css();
+    // The person's classes the static sheet lacks get CSS…
+    expect(css).toContain('.pbs-8');
+    // …outside the region scope, because the part is not in a region…
+    expect(blockBody(css, `@scope ([${CUSTOM_CODE_REGION_ATTRIBUTE}])`)).not.toContain('pbs-8');
+    // …and nothing the static sheet already carries, nor the block's own classes, is duplicated.
+    expect(css).not.toContain('.ps-6');
+    expect(css).not.toContain('max-md\\:p-2');
+    expect(css).not.toContain('.text-4xl');
+
+    // A class written later (the Mobile size override) is generated as it appears.
+    heading.className = `${heading.className} max-md:text-2xl`;
+    await settle();
+    expect(live.css()).toContain('.max-md\\:text-2xl');
+
+    stop();
+    live.dispose();
+    staticSheet.remove();
+    heading.remove();
+  });
+
   it('reads regions already on the page and class changes inside them', async () => {
     const tree = regionWith('<p class="text-[13px]">Hi</p>');
     document.body.append(tree);

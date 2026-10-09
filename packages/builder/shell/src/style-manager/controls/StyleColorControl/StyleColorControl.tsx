@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { HexAlphaColorPicker, HexColorInput } from 'react-colorful';
+import { HexAlphaColorPicker } from 'react-colorful';
 
 import type { StyleMode, StyleValue } from '@craftkit/builder-schema';
 
@@ -57,6 +57,21 @@ function swatchKey(kind: 'token' | 'palette', id: string): string {
   return `${kind}:${id}`;
 }
 
+/** What the hex field shows at rest: a hex colour as is, anything else (a variable, `oklch`) as empty. */
+function hexText(color: string | undefined): string {
+  return color !== undefined && /^#[0-9a-f]{3,8}$/iu.test(color) ? color : '';
+}
+
+/**
+ * The typed text as a colour, or `undefined` while it is not one yet. Only the
+ * four lengths a hex colour has (3, 4, 6, 8 digits) parse; nothing else does.
+ */
+function typedHex(text: string): string | undefined {
+  const digits = text.trim().replace(/^#/u, '');
+  if (!/^(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(digits)) return undefined;
+  return normalizeHex(`#${digits}`);
+}
+
 /**
  * The colour control of every element (style-manager DESIGN.md §A.4–A.5).
  *
@@ -87,6 +102,15 @@ export function StyleColorControl({
   const groupRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
+  /*
+    The hex field's own text while a person types in it (fix pass 2026-10-08).
+    It is never re-derived from the value or the picker until the field
+    commits: in the Arabic editor, typing e11d48 at speed gave #ee1111de,
+    because the 3-digit prefix "#e11" was a valid colour, came back expanded
+    as "#ee1111" and replaced the text under the caret. Now the text is only
+    parsed on Enter or blur.
+  */
+  const [hexDraft, setHexDraft] = useState<string | null>(null);
   const [opacityDraft, setOpacityDraft] = useState<string | null>(null);
   const { attach, scope } = useThemeScope();
 
@@ -136,6 +160,20 @@ export function StyleColorControl({
     }
   };
 
+  const commitHex = () => {
+    if (hexDraft === null) {
+      commitDraft();
+      return;
+    }
+    const hex = typedHex(hexDraft);
+    setHexDraft(null);
+    setDraft(null);
+    onPreview?.(null);
+    if (hex !== undefined && !(value?.kind === 'raw' && value.css === hex)) {
+      onCommit({ kind: 'raw', css: hex });
+    }
+  };
+
   const commitOpacity = (base: string) => {
     if (opacityDraft === null) return;
     const typed = Number(opacityDraft);
@@ -177,18 +215,27 @@ export function StyleColorControl({
           }}
         />
       </div>
-      <HexColorInput
+      {/* A colour code reads left to right in every editor language: in the
+          Arabic chrome the inherited rtl showed #ee1111de as "ee1111de#". */}
+      <input
+        type="text"
         className="bldr-style-color__hex"
         aria-label={labels.hex}
-        alpha
-        prefixed
-        color={draft ?? (value?.kind === 'raw' ? value.css : (shown ?? ''))}
-        onChange={(next) => {
-          setDraft(next);
+        dir="ltr"
+        spellCheck={false}
+        autoComplete="off"
+        maxLength={9}
+        disabled={disabled}
+        value={hexDraft ?? hexText(draft ?? (value?.kind === 'raw' ? value.css : shown))}
+        onChange={(event) => {
+          setHexDraft(event.target.value.replace(/[^#0-9a-f]/giu, ''));
         }}
-        onBlur={commitDraft}
+        onBlur={commitHex}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') commitDraft();
+          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            commitHex();
+          }
         }}
       />
     </>
@@ -282,6 +329,7 @@ export function StyleColorControl({
           <input
             className="bldr-style-color__opacity"
             type="number"
+            dir="ltr"
             min={0}
             max={100}
             step={5}

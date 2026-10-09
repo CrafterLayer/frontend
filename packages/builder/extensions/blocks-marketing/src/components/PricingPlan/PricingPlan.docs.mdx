@@ -69,6 +69,13 @@ paragraph, so they announce as `"$29 per month"` rather than as two unrelated fr
 
 The card is an `<article>`: a self-contained unit a reader can navigate to.
 
+## Words and alignment
+
+`badge?` (shown on the featured card) and `periodLabel?` replace the English defaults "Popular" and
+"per month"/"per year"/"one-time", so an Arabic plan reads «الأكثر طلبًا» and «شهريًا». Both are
+parts (`badge`, `period`). The card's header is start-aligned whatever the section's alignment, so
+the name and the price share one axis; only the featured card reserves room for its badge.
+
 ## Known limitations
 
 - **It must live inside a pricing section** to be laid out as a column of a row; rendered elsewhere

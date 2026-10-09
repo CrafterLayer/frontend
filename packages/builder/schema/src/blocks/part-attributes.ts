@@ -48,6 +48,9 @@ export interface PartAttributes {
   // ── block-parts (2026-10-06) ── canvas only: the block's own classes, the Design tab's baseline
   'data-ck-part-own'?: string;
   // ── /block-parts ──
+  // gsap-pixi additions (2026-10-08): canvas AND published — the timeline engine plays them.
+  'data-ck-timeline'?: string;
+  'data-ck-scrub'?: string;
 }
 
 /** The render facts the helper reads; a block passes its own render props. */
@@ -159,6 +162,14 @@ export function blockPartProps(
 
     const dir = one?.dir ?? all?.dir ?? (TEXTUAL_KINDS.has(decl.kind) ? 'auto' : undefined);
     if (dir !== undefined) attributes.dir = dir;
+
+    // gsap-pixi additions (2026-10-08): a part's scroll-timeline recipe (`this` wins over `all`).
+    const timeline = one?.timeline ?? all?.timeline;
+    if (timeline !== undefined) {
+      attributes['data-ck-timeline'] = timeline;
+      const scrub = one?.timeline !== undefined ? one.scrub : all?.scrub;
+      if (scrub !== undefined) attributes['data-ck-scrub'] = scrub ? 'true' : 'false';
+    }
 
     if (render.isCanvas) {
       attributes['data-ck-part'] = name;

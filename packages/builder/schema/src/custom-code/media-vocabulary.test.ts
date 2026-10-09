@@ -50,6 +50,8 @@ describe('media vocabulary (media-motion 2026-10-06)', () => {
       'parallax-depth',
       'scrub-scale',
       'velocity-marquee',
+      'fade-in',
+      'slide-in',
     ]);
     expect(CUSTOM_CODE_SCENES).toEqual(['particles', 'mesh-gradient', 'parallax-layers', 'mural', 'ripple']);
     expect(SCENE_DENSITIES).toEqual(['low', 'medium', 'high']);

@@ -51,6 +51,35 @@ describe('in-place tree text editing (DESIGN §E)', () => {
     expect(onEnd).toHaveBeenCalledWith('committed', 'keyboard');
   });
 
+  it('types Space itself inside a tab button, so the button never activates and the edit stays open', () => {
+    const kernel = treeKernel([TREE]);
+    const element = document.createElement('button');
+    element.setAttribute('role', 'tab');
+    element.append(document.createTextNode('Our story'));
+    document.body.append(element);
+    const onClick = vi.fn();
+    element.addEventListener('click', onClick);
+    const onEnd = vi.fn();
+    const session = beginTreeTextEdit({ kernel, element, target, storedText: 'Our story', name: 'Tab', onEnd });
+    const selection = document.getSelection();
+    const range = document.createRange();
+    range.setStart(element.firstChild as Text, 3);
+    range.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const down = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+    const up = new KeyboardEvent('keyup', { key: ' ', bubbles: true, cancelable: true });
+    element.dispatchEvent(down);
+    element.dispatchEvent(up);
+    expect(down.defaultPrevented).toBe(true);
+    expect(up.defaultPrevented).toBe(true);
+    expect(element.textContent).toBe('Our  story');
+    expect(element.childNodes).toHaveLength(1);
+    expect(session.isOpen()).toBe(true);
+    expect(onClick).not.toHaveBeenCalled();
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+
   it('Escape cancels: no transaction, the stored text shows again', () => {
     const kernel = treeKernel([TREE]);
     const element = heading();

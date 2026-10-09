@@ -7,12 +7,21 @@ describe('createPlaygroundKernel', () => {
     const kernel = createPlaygroundKernel({ fixture: 'landing' });
 
     expect(kernel.validate()).toEqual([]);
-    expect(kernel.context.registry.compositions('site').map(({ id }) => id)).toEqual([
-      'saas-launch',
-      'creative-agency',
-      'commerce-launch',
-      'professional-services',
-    ]);
+    // templates-core additions
+    // Every template ships in English and Arabic; the historical English ids stay.
+    expect(kernel.context.registry.compositions('site').map(({ id }) => id)).toEqual(
+      expect.arrayContaining([
+        'saas-launch',
+        'saas-launch-ar',
+        'creative-agency',
+        'creative-agency-ar',
+        'commerce-launch',
+        'commerce-launch-ar',
+        'professional-services',
+        'professional-services-ar',
+      ]),
+    );
+    // end templates-core additions
     expect(kernel.getDocument().nodes['root']?.slots?.['default']).toEqual(
       expect.arrayContaining([
         'announcement',

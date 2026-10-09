@@ -75,7 +75,47 @@ export interface LibraryInsertRequest {
   readonly actionLabels: ElementActionLabels;
   readonly words?: ElementNameWords | undefined;
   readonly noRegionType: string;
+  // library-playground additions (2026-10-08)
+  /** The page kit a section's `ck-*` classes need; installed on the page root in the SAME transaction. */
+  readonly pageKit?: LibraryPageKit | undefined;
+  // end library-playground additions
 }
+
+// library-playground additions (2026-10-08): the section page kit (agent-script DESIGN §B.5).
+/**
+ * The stylesheet a ready-made section's classes (`ck-btn`, `ck-card`, the
+ * `--ck-*` tokens) need, written ONCE on the page root's `pageCss`. `marker`
+ * says whether a page already has it (the page plan's fence, `.ck-page-plan{`).
+ */
+export interface LibraryPageKit {
+  readonly marker: string;
+  readonly css: string;
+}
+
+/**
+ * The step that installs a page kit on the current page root, or undefined
+ * when the page already holds it (its `pageCss` contains the marker), the kit
+ * is empty, or the root block has no `pageCss` prop to hold it.
+ */
+export function pageKitStep(
+  kernel: BuilderKernel,
+  pageKit: LibraryPageKit | undefined,
+): { readonly command: 'setProp'; readonly args: { id: NodeId; key: 'pageCss'; value: string } } | undefined {
+  if (pageKit === undefined || pageKit.css.trim() === '' || pageKit.marker === '') return undefined;
+  const doc = kernel.getDocument();
+  const root = doc.nodes[doc.rootId];
+  if (root === undefined) return undefined;
+  const rootSchema = kernel.context.registry.block(root.type)?.schema;
+  if (rootSchema === undefined || !('pageCss' in propsShapeOf(rootSchema.props))) return undefined;
+  const raw = root.props['pageCss'];
+  const current = typeof raw === 'string' ? raw : '';
+  if (current.includes(pageKit.marker)) return undefined;
+  return {
+    command: 'setProp',
+    args: { id: doc.rootId, key: 'pageCss', value: current === '' ? pageKit.css : `${current}\n${pageKit.css}` },
+  };
+}
+// end library-playground additions
 
 /** Insert a library entry at the selection — one transaction either way. */
 export function insertLibraryTree(request: LibraryInsertRequest): LibraryInsertOutcome {
@@ -105,9 +145,21 @@ export function insertLibraryTree(request: LibraryInsertRequest): LibraryInsertO
   if ('label' in shape) props['label'] = request.name.slice(0, 80);
   const label = `${actionLabels.insert} · ${request.name}`;
   try {
-    const tx = kernel.dispatchGroup([{ command: 'insertNode', args: { type, props, ...placement } }], {
-      label: label.slice(0, 160),
-    });
+    // library-playground additions (2026-10-08): the page kit rides in the SAME group — one
+    // transaction, one Undo. A page whose css cannot take it (over the prop's limit) still gets the section.
+    const insertStep = { command: 'insertNode', args: { type, props, ...placement } };
+    const kitStep = pageKitStep(kernel, request.pageKit);
+    const options = { label: label.slice(0, 160) };
+    const dispatchWithKit = () => {
+      if (kitStep === undefined) return kernel.dispatchGroup([insertStep], options);
+      try {
+        return kernel.dispatchGroup([insertStep, kitStep], options);
+      } catch {
+        return kernel.dispatchGroup([insertStep], options);
+      }
+    };
+    const tx = dispatchWithKit();
+    // end library-playground additions
     const inserted = insertedNodeId(tx.patches);
     if (inserted !== undefined) {
       if (tree.children.length > 0) kernel.focusElement(inserted, [0]);

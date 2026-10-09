@@ -23,7 +23,7 @@ const TABLE_CLASSES: Record<ComparisonTableProps['variant'], string> = {
     'border-separate border-spacing-0 overflow-hidden rounded-xl border border-text/10 bg-surface text-text shadow-elevated',
   minimal: 'border-collapse text-inherit',
   contrast:
-    'border-separate border-spacing-0 overflow-hidden rounded-xl bg-surface-inverse text-text-inverse shadow-elevated',
+    'border-separate border-spacing-0 overflow-hidden rounded-xl bg-surface-inverse text-text-inverse shadow-elevated mkt-slab',
 };
 
 function featuredCellClasses(featured: boolean, variant: ComparisonTableProps['variant']): string {
@@ -39,6 +39,44 @@ function featuredCellClasses(featured: boolean, variant: ComparisonTableProps['v
 function sharedText(value: ReactNode, host: boolean): ReactNode {
   return host || typeof value === 'string' ? value : null;
 }
+
+// blocks-polish additions (2026-10-08): glyph alternatives and the phone cards.
+const INCLUDED = /^\s*[\u2713\u2714\u2611\u2705][\uFE0E\uFE0F]?\s*$/u;
+const EXCLUDED = /^\s*(?:[\u2717\u2715\u2716\u2718\u00D7\u274C][\uFE0E\uFE0F]?|[\u2014\u2013-])\s*$/u;
+
+/**
+ * A cell's value as people read it. A lone check or cross (or the dash an
+ * empty plan cell shows) keeps its glyph for the eye and gains words for a
+ * screen reader; anything else, including an inline editor element, passes
+ * through untouched. The words are the glyph's accessible NAME (an attribute),
+ * not a hidden text node: they are a11y-only copy, and a second text node in
+ * the cell would read as a second, unbound value on the canvas.
+ */
+function readableValue(
+  value: ReactNode,
+  labels: { readonly included: string; readonly excluded: string },
+): ReactNode {
+  if (typeof value !== 'string') return value;
+  const words = INCLUDED.test(value) ? labels.included : EXCLUDED.test(value) ? labels.excluded : undefined;
+  if (words === undefined) return value;
+  return (
+    <span role="img" aria-label={words} data-comparison-glyph="">
+      {value}
+    </span>
+  );
+}
+
+/* The phone cards read committed text only: an editor element renders once, in the table. */
+function committed(value: ReactNode): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+const CARD_CLASSES: Record<ComparisonTableProps['variant'], string> = {
+  boxed: 'border border-text/10 bg-surface text-text shadow-soft',
+  minimal: 'border border-text/10',
+  contrast: 'border border-transparent bg-surface-inverse text-text-inverse shadow-soft mkt-slab',
+};
+// end blocks-polish additions
 
 /** A semantic, horizontally resilient plan or product comparison table. */
 export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<ComparisonTableProps>) {
@@ -58,6 +96,7 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
     colorStyle === undefined && spacingStyle === undefined
       ? undefined
       : { ...colorStyle, ...spacingStyle };
+  const glyphLabels = { included: props.includedLabel, excluded: props.excludedLabel };
 
   return (
     <section
@@ -121,7 +160,7 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
         </header>
 
         <div
-          className="w-full max-w-full overflow-x-auto pb-gap-xs"
+          className="mkt-compare__table w-full max-w-full overflow-x-auto pb-gap-xs"
           tabIndex={0}
           aria-label={props.scrollLabel}
           data-comparison-scroll=""
@@ -132,7 +171,12 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
           */}
           <table
             className={cx(
-              'w-full min-w-content-standard table-fixed',
+              /*
+                No minimum width any more: below a 40rem container the cards
+                take over (section-layout.css), and from there up the plans fit
+                the column instead of hiding in a scroller nobody sees.
+              */
+              'w-full table-fixed',
               TABLE_CLASSES[props.variant],
             )}
             aria-labelledby={headingId}
@@ -142,7 +186,7 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
                 <th
                   {...part('featureLabel', {
                     className:
-                      'w-1/4 border-b border-text/10 p-6 text-start align-bottom text-sm font-semibold tracking-wide uppercase',
+                      'w-1/4 border-b border-text/10 p-4 text-start align-bottom text-sm font-semibold tracking-wide uppercase @3xl:p-6',
                   })}
                   scope="col"
                 >
@@ -159,7 +203,7 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
                       {...part('plan', {
                         index: at,
                         className: cx(
-                          'border-b border-text/10 p-6 text-center align-bottom',
+                          'border-b border-text/10 p-4 text-center align-bottom @3xl:p-6',
                           featuredCellClasses(plan.featured === true, props.variant),
                         ),
                       })}
@@ -258,7 +302,7 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
                   <th
                     {...part('row.feature', {
                       index: [rowIndex],
-                      className: 'border-b border-text/10 p-6 text-start align-middle font-medium',
+                      className: 'border-b border-text/10 p-4 text-start align-middle font-medium @3xl:p-6',
                     })}
                     scope="row"
                   >
@@ -267,7 +311,7 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
                   {props.plans.map((plan, planIndex) => {
                     const value = row.values[planIndex];
                     const className = cx(
-                      'border-b border-text/10 p-6 text-center align-middle text-sm font-medium',
+                      'border-b border-text/10 p-4 text-center align-middle text-sm font-medium @3xl:p-6',
                       featuredCellClasses(plan.featured === true, props.variant),
                     );
                     if (value !== undefined) {
@@ -276,14 +320,14 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
                           key={planIndex}
                           {...part('row.value', { index: [rowIndex, planIndex], className })}
                         >
-                          {value}
+                          {readableValue(value, glyphLabels)}
                         </td>
                       );
                     }
                     const host = rowIndex === firstEmptyRow && planIndex === firstEmptyPlan;
                     return (
                       <td key={planIndex} {...part('emptyValue', { className })}>
-                        {sharedText(props.emptyValue, host)}
+                        {readableValue(sharedText(props.emptyValue, host), glyphLabels)}
                       </td>
                     );
                   })}
@@ -292,6 +336,141 @@ export function ComparisonTable({ node, props, isCanvas }: BlockRenderProps<Comp
             </tbody>
           </table>
         </div>
+
+        {/* blocks-polish additions (2026-10-08): the same comparison as plan cards below 40rem. */}
+        {props.plans.length === 0 ? null : (
+          <ul className="mkt-compare__cards m-0 w-full list-none p-0" data-comparison-cards="">
+            {props.plans.map((plan, planIndex) => {
+              const featured = plan.featured === true;
+              const nameId = `${node.id}-card-${String(planIndex)}-name`;
+              const actionId = `${node.id}-card-${String(planIndex)}-action`;
+              const name = committed(plan.name);
+              const price = committed(plan.price);
+              const period = committed(plan.period);
+              const badge = committed(plan.badge);
+              const description = committed(plan.description);
+              const actionLabel = committed(plan.actionLabel);
+              const at = [planIndex];
+              return (
+                <li
+                  key={planIndex}
+                  className={cx(
+                    'flex min-w-0 flex-col gap-gap-sm rounded-xl p-5',
+                    CARD_CLASSES[props.variant],
+                    featured ? 'border-accent ring-1 ring-accent/30' : undefined,
+                  )}
+                  data-comparison-card={featured ? 'featured' : 'standard'}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-gap-sm">
+                    <h3
+                      {...part('plan.name', {
+                        index: at,
+                        id: nameId,
+                        className: 'm-0 text-xl leading-tight font-semibold tracking-tight',
+                      })}
+                    >
+                      {name}
+                    </h3>
+                    {badge === undefined ? null : (
+                      <span
+                        {...part('plan.badge', {
+                          index: at,
+                          className:
+                            'inline-flex rounded-full bg-accent px-control-inline-sm py-control-block-sm text-xs font-semibold text-accent-text',
+                        })}
+                      >
+                        {badge}
+                      </span>
+                    )}
+                  </div>
+                  {description === undefined ? null : (
+                    <p
+                      {...part('plan.description', {
+                        index: at,
+                        className: 'm-0 text-sm leading-relaxed text-text-muted',
+                      })}
+                    >
+                      {description}
+                    </p>
+                  )}
+                  {price === undefined ? null : (
+                    <p className="m-0 flex flex-wrap items-baseline gap-gap-xs">
+                      <span
+                        {...part('plan.price', {
+                          index: at,
+                          className: 'text-3xl leading-tight font-bold tracking-tight',
+                        })}
+                      >
+                        {price}
+                      </span>
+                      {period === undefined ? null : (
+                        <span {...part('plan.period', { index: at, className: 'text-sm text-text-muted' })}>
+                          {period}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {props.rows.length === 0 ? null : (
+                    <dl className="m-0 flex flex-col">
+                      {props.rows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={cx(
+                            'flex items-baseline justify-between gap-gap border-t border-text/10 py-2',
+                            row.highlight === true ? 'bg-accent/5' : undefined,
+                          )}
+                        >
+                          <dt
+                            {...part('row.feature', {
+                              index: [rowIndex],
+                              className: 'min-w-0 text-sm font-medium',
+                            })}
+                          >
+                            {committed(row.feature)}
+                          </dt>
+                          {row.values[planIndex] === undefined ? (
+                            <dd {...part('emptyValue', { className: 'm-0 text-end text-sm font-semibold' })}>
+                              {readableValue(committed(props.emptyValue), glyphLabels)}
+                            </dd>
+                          ) : (
+                            <dd
+                              {...part('row.value', {
+                                index: [rowIndex, planIndex],
+                                className: 'm-0 text-end text-sm font-semibold',
+                              })}
+                            >
+                              {readableValue(committed(row.values[planIndex]), glyphLabels)}
+                            </dd>
+                          )}
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {!props.showActions ||
+                  plan.actionHref === undefined ||
+                  actionLabel === undefined ? null : (
+                    <a
+                      {...part('plan.action', {
+                        index: at,
+                        id: actionId,
+                        className: cx(
+                          'mt-gap-xs inline-flex min-h-11 w-full items-center justify-center rounded-xl border px-control-inline-md py-control-block-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent',
+                          featured
+                            ? 'border-accent bg-accent text-accent-text'
+                            : 'border-text-muted/30 bg-transparent text-inherit',
+                        ),
+                      })}
+                      href={plan.actionHref}
+                      aria-labelledby={`${actionId} ${nameId}`}
+                    >
+                      {actionLabel}
+                    </a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         {props.note === undefined ? null : (
           <p

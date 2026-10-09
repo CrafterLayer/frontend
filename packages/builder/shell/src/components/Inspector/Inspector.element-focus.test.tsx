@@ -233,6 +233,28 @@ describe('Inspector — a focused element inside a composed region', () => {
     expect(name.closest('.bldr-inspector__row')?.textContent).toMatch(/invalid|regex|match|name/iu);
   });
 
+  it('an icon name its set does not have is refused with the reason; a picked icon lands once', async () => {
+    const kernel = makeKernel();
+    kernel.focusElement('r1', [0, 3]);
+    const user = userEvent.setup();
+    render(<Inspector kernel={kernel} />);
+    await openTab(user, 'Content');
+    const name = screen.getByRole('textbox', { name: 'name' });
+    await user.clear(name);
+    await user.type(name, 'zzzz');
+    await user.tab();
+    expect(kernel.transactions()).toHaveLength(0);
+    expect(name.closest('.bldr-inspector__row')?.textContent).toContain('There is no icon named “zzzz”');
+
+    const icons = screen.getByRole('region', { name: 'Icons' });
+    await user.type(within(icons).getByRole('searchbox'), 'heart');
+    await user.click(within(icons).getByRole('button', { name: /^heart$|Icon heart|heart icon/iu }));
+    expect(kernel.transactions()).toHaveLength(1);
+    expect(elementAt(kernel, 0, 3)['name']).toBe('heart');
+    expect(kernel.undo()).toBe(true);
+    expect(elementAt(kernel, 0, 3)['name']).toBe('mail');
+  });
+
   it('Design: a control writes the class at the bucket as one labelled transaction', async () => {
     const kernel = makeKernel();
     kernel.focusElement('r1', [0, 1]);

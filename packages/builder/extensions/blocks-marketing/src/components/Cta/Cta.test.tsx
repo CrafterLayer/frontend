@@ -32,9 +32,9 @@ describe('Cta', () => {
     expect(screen.getByText('Free trial')).toBeInTheDocument();
     expect(button.parentElement).toHaveClass('inline-flex', 'flex-col', 'gap-gap-xs');
     expect(button).toHaveClass(
-      'border-accent/40',
+      'border-[color:var(--ck-cta-ink,var(--t-accent))]/40',
       'bg-transparent',
-      'text-accent',
+      'text-[color:var(--ck-cta-ink,var(--t-accent))]',
       'px-control-inline-md',
       'py-control-block-md',
     );

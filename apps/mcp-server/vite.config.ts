@@ -1,4 +1,21 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vite';
+
+/**
+ * The QuickJS sandbox's Node worker (agent-script DESIGN §A.2.2, §A.13).
+ *
+ * `craftkit_apply_plan` runs `script.run` steps in a `worker_threads` worker,
+ * and a worker is a FILE Node loads by URL — it cannot live inside `main.js`.
+ * So the worker source from `@craftkit/builder-ai` is a second entry here,
+ * bundled like `main.js` (its `./sandbox-core.js` and `./ck-prelude.js`
+ * imports come in) and emitted as `dist/script-worker.mjs`, the URL `main.ts`
+ * hands the runner. It is plain ESM JavaScript, so it is referenced by path:
+ * it has no TypeScript importer to name it.
+ */
+const SCRIPT_WORKER = fileURLToPath(
+  new URL('../../packages/builder/ai/src/script/sandbox-worker.node.mjs', import.meta.url),
+);
 
 /**
  * Why this server is BUILT rather than run from source.
@@ -12,18 +29,23 @@ import { defineConfig } from 'vite';
  * hit exactly this and this file is the same fix.
  *
  * Vite's SSR build resolves the same way the tests do, bundles the workspace
- * packages in, and emits one plain ESM file Node runs with nothing else.
+ * packages in, and emits plain ESM files Node runs with nothing else: the
+ * server (`main.js`) and the script sandbox's worker (`script-worker.mjs`).
  */
 export default defineConfig({
   build: {
-    ssr: 'src/main.ts',
+    // `true` + `input` (not `ssr: 'src/main.ts'`): two entries, the ai-server's own pattern.
+    ssr: true,
     target: 'node24',
     outDir: 'dist',
     emptyOutDir: true,
     minify: false,
     sourcemap: true,
     rollupOptions: {
-      output: { entryFileNames: 'main.js' },
+      input: { main: 'src/main.ts', 'script-worker': SCRIPT_WORKER },
+      output: {
+        entryFileNames: (chunk) => (chunk.name === 'script-worker' ? '[name].mjs' : '[name].js'),
+      },
       /*
         `moduleSideEffects: true` is NOT a precaution — without it this server
         builds cleanly and then rejects every plan at the kernel door with
@@ -50,8 +72,19 @@ export default defineConfig({
       zod stay external, because both ship real published JavaScript that Node
       resolves on its own and the SDK's own dynamic requires (transports, auth)
       do not survive bundling.
+
+      The QuickJS packages stay external too (script-servers, 2026-10-08): the
+      variant package finds its `.wasm` next to its own module file, which a
+      bundle would move away from it. They are this app's own dependencies, so
+      Node resolves them from `apps/mcp-server/node_modules` at run time.
     */
     noExternal: [/^@craftkit\//],
-    external: ['@modelcontextprotocol/sdk', 'zod'],
+    external: [
+      '@modelcontextprotocol/sdk',
+      'zod',
+      'quickjs-emscripten-core',
+      '@jitl/quickjs-wasmfile-release-sync',
+      '@jitl/quickjs-ffi-types',
+    ],
   },
 });

@@ -76,6 +76,7 @@ export function LayersPartRow({
         registerRow(row.key, element);
       }}
       role="treeitem"
+      aria-label={preview === undefined || preview === '' ? name : `${name}: ${preview}`}
       aria-selected={selected}
       {...(row.expandable ? { 'aria-expanded': !collapsed } : {})}
       aria-level={row.depth + 1}

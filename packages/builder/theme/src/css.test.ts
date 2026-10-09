@@ -97,6 +97,10 @@ const STAGE_VALUES: Readonly<Record<(typeof STAGE_TOKENS)[number], string>> = {
   'stage-veil': 'rgb(246 247 250 / 94%)',
   'stage-ink': '#4c5568',
   'stage-danger': '#b91c1c',
+  'stage-box-padding': 'rgb(34 197 94 / 22%)',
+  'stage-box-margin': 'rgb(249 115 22 / 22%)',
+  'stage-guide': '#ec4899',
+  'stage-grid-track': 'rgb(91 91 214 / 8%)',
 };
 
 /** SPEC §2.2 reading scale, `[role, latin size, latin line, arabic size, arabic line]`. */
@@ -333,7 +337,7 @@ describe('the agent panel tokens (design SPEC §2)', () => {
       be tuned for the wrong ground. They are still declared in every block,
       because the contract requires every token in each one.
     */
-    expect(STAGE_TOKENS).toHaveLength(6);
+    expect(STAGE_TOKENS).toHaveLength(10);
     for (const [state, tokens] of Object.entries(themeBlocks(generated()))) {
       for (const token of STAGE_TOKENS) {
         expect({ state, token, value: tokens.get(token) }).toEqual({

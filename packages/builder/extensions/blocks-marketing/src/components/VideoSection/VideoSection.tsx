@@ -148,7 +148,7 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
           >
             {props.src === undefined ? (
               <div
-                className="grid aspect-video w-full place-items-center rounded-lg bg-surface-inverse p-6 text-center text-text-inverse"
+                className="mkt-slab grid aspect-video w-full place-items-center rounded-lg bg-surface-inverse p-6 text-center text-text-inverse"
                 role="status"
               >
                 <span className="flex flex-col items-center gap-gap-sm">
@@ -167,7 +167,12 @@ export function VideoSection({ node, props, isCanvas }: BlockRenderProps<VideoSe
             ) : (
               <video
                 className={cx(
-                  'block aspect-video w-full rounded-lg bg-surface-inverse',
+                  /*
+                    A neutral token gradient until the poster or the first frame
+                    paints (blocks-polish 2026-10-08): the video used to sit as a
+                    black box until the file loaded, which read as broken.
+                  */
+                  'block aspect-video w-full rounded-lg bg-linear-to-br from-accent/20 via-surface to-accent/10',
                   VIDEO_FIT_CLASSES[props.videoFit],
                 )}
                 src={props.src}

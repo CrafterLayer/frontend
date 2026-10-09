@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import type { ContentDirection } from '@craftkit/builder-schema';
 
 import { TEXT_BIDI_CANVAS_CSS, TEXT_BIDI_STYLE_ID } from '../../bidi';
+import { mountDocumentEngines } from '../../engines/document-engines'; // gsap-pixi additions (2026-10-08)
 import { themeToCssVars, type Theme } from '../../resolve/theme';
 
 export interface CanvasFrameProps {
@@ -19,6 +20,15 @@ export interface CanvasFrameProps {
    * geometry index and chrome from it. Absent ⇒ behavior identical to 004.
    */
   onFrame?: ((frame: HTMLIFrameElement | null) => void) | undefined;
+  // gsap-pixi additions (2026-10-08)
+  /**
+   * Mount the engines (scene, timeline, Lottie) that REGISTERED blocks' markers name, on the
+   * frame body (`mountDocumentEngines`): `interactive: false` on the editor canvas (they run, but
+   * never restructure the DOM or take pointer input), `true` in Preview. customCode regions mount
+   * their own. Absent ⇒ no engine outside customCode (behaviour identical to before).
+   */
+  siteEngines?: { readonly interactive: boolean } | undefined;
+  // end gsap-pixi additions
   children: ReactNode;
 }
 
@@ -38,6 +48,7 @@ export function CanvasFrame({
   dir,
   title = 'Preview',
   onFrame,
+  siteEngines,
   children,
 }: CanvasFrameProps) {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
@@ -155,6 +166,17 @@ export function CanvasFrame({
       frameDocument.documentElement.setAttribute('dir', dir);
     }
   }, [dir, frameBody]);
+
+  // gsap-pixi additions (2026-10-08): engines on registered blocks, keyed on the mode only, so a
+  // caller's fresh object identity never re-mounts them.
+  const engineMode = siteEngines === undefined ? undefined : siteEngines.interactive;
+  useEffect(() => {
+    if (frameBody === null || engineMode === undefined) {
+      return undefined;
+    }
+    return mountDocumentEngines(frameBody, { interactive: engineMode });
+  }, [frameBody, engineMode]);
+  // end gsap-pixi additions
 
   return (
     <iframe

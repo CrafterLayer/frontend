@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { isSpaceKey, typeAtCaret } from '../../inline/type-space';
+
 import './InlineTextSurface.css';
 
 /** Why a buffered edit was handed to the host. */
@@ -183,6 +185,13 @@ export function InlineTextSurface({
         exitRef.current?.();
         return;
       }
+      if (isSpaceKey(event)) {
+        // Inside a <button> part the browser activates the button on the Space
+        // keyup and the canvas reads that click as a press: typed here instead.
+        event.preventDefault();
+        typeAtCaret(element, ' ');
+        return;
+      }
       if (event.key !== 'Enter' || event.isComposing) {
         return;
       }
@@ -213,6 +222,11 @@ export function InlineTextSurface({
       // canvas selection path or start a drag.
       event.stopPropagation();
     };
+    const onKeyUp = (event: KeyboardEvent) => {
+      event.stopPropagation();
+      // The keyup is what activates a <button>: its default must not run.
+      if (isSpaceKey(event)) event.preventDefault();
+    };
     const onOver = () => {
       setHovering(true);
     };
@@ -230,7 +244,7 @@ export function InlineTextSurface({
     element.addEventListener('input', onInput);
     element.addEventListener('beforeinput', onBeforeInput as EventListener);
     element.addEventListener('keydown', onKeyDown);
-    element.addEventListener('keyup', stop);
+    element.addEventListener('keyup', onKeyUp);
     element.addEventListener('click', stop);
     element.addEventListener('dblclick', stop);
     element.addEventListener('pointerdown', stop);
@@ -242,7 +256,7 @@ export function InlineTextSurface({
       element.removeEventListener('input', onInput);
       element.removeEventListener('beforeinput', onBeforeInput as EventListener);
       element.removeEventListener('keydown', onKeyDown);
-      element.removeEventListener('keyup', stop);
+      element.removeEventListener('keyup', onKeyUp);
       element.removeEventListener('click', stop);
       element.removeEventListener('dblclick', stop);
       element.removeEventListener('pointerdown', stop);

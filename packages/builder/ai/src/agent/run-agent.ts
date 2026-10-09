@@ -47,6 +47,15 @@ import type {
   RunAiAgentOptions,
 } from './types';
 import { classifyAiRunFailure } from './errors';
+// script-wiring additions
+import {
+  scriptCrossPage,
+  scriptCrossPageFollowUp,
+  scriptPagesTouched,
+} from '../script/cross-page';
+import { directScript } from '../script/direct-scripts';
+import { SCRIPT_TOOL_NAME } from '../script/types';
+// end script-wiring additions
 
 type EventPayload<T = AiAgentEvent> = T extends AiAgentEvent
   ? Omit<T, 'runId' | 'seq' | 'at'>
@@ -307,6 +316,11 @@ function generationOptions(
     ...(reading === undefined ? {} : { intent: reading.route, document: reading.document }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
     ...(onProgress === undefined ? {} : { onProgress }),
+    // script-wiring additions
+    ...(options.site === undefined ? {} : { scriptSite: options.site }),
+    ...(options.scriptRunner === undefined ? {} : { scriptRunner: options.scriptRunner }),
+    ...(options.onScriptRun === undefined ? {} : { onScriptRun: options.onScriptRun }),
+    // end script-wiring additions
   };
 }
 
@@ -652,6 +666,145 @@ function directToolRun(
 }
 // end agent-tools additions
 
+// script-wiring additions
+/** The language a run's own sentences are said in: the request's script, else the page's direction. */
+function runLanguage(options: RunAiAgentOptions): 'ar' | 'en' {
+  if (/[؀-ۿ]/u.test(options.request)) return 'ar';
+  if (/[A-Za-z]/u.test(options.request)) return 'en';
+  return options.kernel.getDocument().dir === 'rtl' ? 'ar' : 'en';
+}
+
+/**
+ * A zero-token SCRIPT (agent-script DESIGN §A.10): «خلي كل الأزرار مدورة»,
+ * "round all buttons", «ظل لكل البطاقات», Arabic or Latin digits — readings so
+ * common that `directScript` writes their script with no model. The script
+ * runs in the sandbox and expands into ordinary kernel steps on the open page,
+ * then is proposed or applied exactly as a direct tool is: one validated
+ * proposal, the same grouped door, one labelled transaction, 0 provider calls.
+ * Anything that does not land cleanly — no reading, an E_* issue (E_EMPTY on a
+ * page with no buttons), a refused plan — returns undefined, silently, and the
+ * model path runs as before.
+ */
+function directScriptCode(
+  options: RunAiAgentOptions,
+  reading: RunReading | undefined,
+  policy: AiEffectiveCommandPolicy | undefined,
+): string | undefined {
+  if (options.directEdits === false || reading === undefined || policy === undefined) {
+    return undefined;
+  }
+  if (reading.route.kind === 'build-page' || reading.route.kind === 'build-site') return undefined;
+  try {
+    return directScript(options.request, runLanguage(options));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Runs the direct script `directScriptCode` read. Called only when it read
+ * one, so every other run pays nothing here — not even a microtask.
+ */
+async function directScriptRun(
+  options: RunAiAgentOptions,
+  reading: RunReading,
+  policy: AiEffectiveCommandPolicy,
+  apply: 'never' | 'auto',
+  emit: Emit,
+  code: string,
+  onTaken?: () => void,
+): Promise<AiAgentRunResult | undefined> {
+  const language = runLanguage(options);
+  let plan: AiPlan;
+  try {
+    const candidate = {
+      rationale: `${language === 'ar' ? 'سكربت' : 'Script'}: ${options.request.replace(/\s+/gu, ' ').trim()}`,
+      commands: [{ command: 'tool', args: { name: SCRIPT_TOOL_NAME, input: { code } } }],
+    };
+    const { expandScriptSteps } = await import('../script/expand-scripts');
+    const expansion = await expandScriptSteps(candidate, options.kernel, {
+      ...(options.toolLanes === undefined ? {} : { lanes: options.toolLanes }),
+      ...(options.scriptRunner === undefined ? {} : { runner: options.scriptRunner }),
+      policy,
+      validationPorts: options.validationPorts,
+    });
+    for (const run of expansion.runs) {
+      try {
+        options.onScriptRun?.(run);
+      } catch {
+        // A host's log is telemetry; it never decides what lands.
+      }
+    }
+    if (expansion.issues.length > 0 || expansion.crossPage.length > 0) return undefined;
+    const verdict = validateAiPlan(
+      expansion.plan,
+      options.kernel,
+      options.validationPorts,
+      policy,
+      resolveAiCompositionPolicy(options.composition),
+    );
+    if (!verdict.ok || verdict.plan.commands.length === 0) return undefined;
+    plan = verdict.plan;
+  } catch {
+    // An optimisation that fails must never cost the person their edit: the model path runs.
+    return undefined;
+  }
+  // The sandbox ran asynchronously: a run superseded or stopped meanwhile must not land.
+  assertRunActive(options);
+  onTaken?.();
+
+  const nodeIds = [
+    ...new Set(
+      plan.commands.flatMap(({ args }) => {
+        const id = (args as { id?: unknown } | undefined)?.id;
+        return typeof id === 'string' ? [id] : [];
+      }),
+    ),
+  ];
+  const selection = options.selection ?? options.kernel.context.store.getState().selection;
+  const context = assembleDirectEditContext(options.kernel.context, { nodeIds, selection });
+  const proposal = createAiValidatedProposal({ plan, policy, skillActivations: [], context });
+  const common = {
+    runId: options.runId,
+    proposal,
+    plan: proposal.plan,
+    context,
+    policy: proposal.policy,
+    source: 'direct' as const,
+    tokens: 0,
+    route: reading.route,
+  };
+
+  emit({ type: 'context.gathering' });
+  assertRunActive(options);
+  emit({ type: 'context.ready', fragmentCount: 0, totalTokens: 0, source: 'direct', tokens: 0 });
+  assertRunActive(options);
+  if (apply === 'never') {
+    emit({ type: 'plan.proposed', plan: proposal.plan, proposal, source: 'direct', tokens: 0 });
+    assertRunActive(options);
+    const done = emit({ type: 'run.completed', status: 'proposed', source: 'direct', tokens: 0 });
+    return Object.freeze({ ...common, status: 'proposed', elapsedMs: done?.elapsedMs ?? 0 });
+  }
+  emit({ type: 'plan.applying', source: 'direct', tokens: 0 });
+  assertRunActive(options);
+  let applied: ReturnType<typeof applyAiPlan>;
+  try {
+    applied = applyAiPlan({
+      kernel: options.kernel,
+      proposal,
+      validationPorts: options.validationPorts,
+      ...(options.label === undefined ? {} : { label: options.label }),
+    });
+  } catch (cause) {
+    // Refused before any write: the model path runs, as it does for a refused direct tool.
+    if (cause instanceof AiPlanRejectedError) return undefined;
+    throw cause;
+  }
+  const done = emit({ type: 'run.completed', status: 'applied', source: 'direct', tokens: 0 });
+  return Object.freeze({ ...common, status: 'applied', applied, elapsedMs: done?.elapsedMs ?? 0 });
+}
+// end script-wiring additions
+
 // ── A model plan that changes nothing on screen ──────────────────────────────
 
 /**
@@ -777,6 +930,16 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
         assertRunActive(options);
       });
       if (direct !== undefined) return direct;
+      // script-wiring additions
+      const scriptCode = directScriptCode(options, reading, policy);
+      if (scriptCode !== undefined && reading !== undefined && policy !== undefined) {
+        const scripted = await directScriptRun(options, reading, policy, apply, emit, scriptCode, () => {
+          emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
+          assertRunActive(options);
+        });
+        if (scripted !== undefined) return scripted;
+      }
+      // end script-wiring additions
     }
 
     const skills: AiPreparedSkillContext | undefined =
@@ -805,6 +968,13 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
 
       const direct = directRun(options, reading, policy, apply, emit);
       if (direct !== undefined) return direct;
+      // script-wiring additions
+      const scriptCode = directScriptCode(options, reading, policy);
+      if (scriptCode !== undefined && reading !== undefined && policy !== undefined) {
+        const scripted = await directScriptRun(options, reading, policy, apply, emit, scriptCode);
+        if (scripted !== undefined) return scripted;
+      }
+      // end script-wiring additions
     }
 
     emit({ type: 'context.gathering' });
@@ -867,6 +1037,42 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       ...(reading?.focus === undefined ? {} : { focus: reading.focus }),
     };
 
+    // script-wiring additions
+    /*
+      A script that also wrote other pages (DESIGN §A.9). A proposal rehearses
+      ONE page, so a cross-page change is not proposed in part (follow-up F3):
+      the run answers in words — how many pages, and that Auto lands it as one
+      Undo — and offers the same request again as its follow-up.
+    */
+    const crossPage = scriptCrossPage(plan);
+    if (apply === 'never' && crossPage.length > 0) {
+      const said = createAiValidatedProposal({
+        plan: {
+          rationale: scriptCrossPageFollowUp(scriptPagesTouched(plan, crossPage), runLanguage(options)),
+          commands: [],
+          followUp: options.request,
+        },
+        policy,
+        skillActivations: skills?.activations ?? [],
+        context: assembledContext,
+      });
+      emit({ type: 'plan.proposed', plan: said.plan, proposal: said, ...origin });
+      assertRunActive(options);
+      const done = emit({ type: 'run.completed', status: 'proposed', ...origin });
+      return Object.freeze({
+        runId: options.runId,
+        status: 'proposed',
+        proposal: said,
+        plan: said.plan,
+        context: assembledContext,
+        ...(skills === undefined ? {} : { skills }),
+        policy: said.policy,
+        ...reported,
+        elapsedMs: done?.elapsedMs ?? 0,
+      });
+    }
+    // end script-wiring additions
+
     if (apply === 'never') {
       emit({ type: 'plan.proposed', plan: proposal.plan, proposal, ...origin });
       assertRunActive(options);
@@ -891,6 +1097,11 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       proposal,
       validationPorts: options.validationPorts,
       ...(options.label === undefined ? {} : { label: options.label }),
+      // script-wiring additions
+      ...(crossPage.length === 0
+        ? {}
+        : { crossPage, ...(options.site === undefined ? {} : { site: options.site }) }),
+      // end script-wiring additions
     });
     const done = emit({ type: 'run.completed', status: 'applied', ...origin });
     return Object.freeze({

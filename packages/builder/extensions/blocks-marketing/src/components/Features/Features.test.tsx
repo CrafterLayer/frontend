@@ -31,7 +31,9 @@ describe('Features', () => {
       'py-section-md',
       '@container',
     );
-    expect(screen.getByRole('list')).toHaveClass('grid', '@sm:grid-cols-2', 'gap-gap');
+    expect(screen.getByRole('list')).toHaveClass('grid', '@md:grid-cols-2', 'gap-gap');
+    /* blocks-polish 2026-10-08: one card a row on a phone. */
+    expect(screen.getByRole('list')).not.toHaveClass('@sm:grid-cols-2');
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByRole('heading', { level: 3, name: 'Fast' }).closest('li')).toHaveClass(
       'rounded-xl',
@@ -165,7 +167,7 @@ describe('Features', () => {
       spacing: 'md',
       tone: 'transparent',
       variant: 'cards',
-      width: 'full',
+      width: 'wide', // one shared column by default (blocks-polish 2026-10-08)
     });
     expect(props.body).toBeUndefined();
     for (const sharedProp of [

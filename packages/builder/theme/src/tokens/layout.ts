@@ -58,6 +58,39 @@ export const measure = {
     looking at, so it has to be big enough to aim inside and no bigger.
   */
   picker: '208px',
+  /* A small mark a person aims at or reads a colour from: a crop handle, a palette swatch. */
+  handle: '20px',
+  /* A token's preview shape. */
+  swatch: '24px',
+  /* The narrowest cell an icon grid gives one glyph. */
+  'icon-cell': '40px',
+  /* The trailing value column of a token row (a preview, a short figure). */
+  'value-column': '48px',
+  /* A colour picker's saturation field. */
+  'picker-field': '144px',
+  /* A text field floating over the canvas: the text bubble's prompt. */
+  'bubble-input': '224px',
+  /* Scrolling lists inside a panel or a popover, shortest to tallest. */
+  'list-sm': '256px',
+  'list-md': '288px',
+  'list-lg': '352px',
+  /* A floating group popover (the quick bar's): narrowest, widest, tallest. */
+  'popover-min': '220px',
+  'popover-max': '320px',
+  'popover-block': '420px',
+} as const;
+
+/**
+ * Lengths inside an EFFECT rather than a layout: the blur and the 3D depth a
+ * motion preview tile animates through. They are tokens for the same reason
+ * every other length is — a host re-points them — and they are their own group
+ * because spending a spacing step on a blur radius breaks the day the spacing
+ * scale moves.
+ */
+export const effect = {
+  'blur-sm': '3px',
+  'blur-md': '4px',
+  perspective: '60px',
 } as const;
 
 /**

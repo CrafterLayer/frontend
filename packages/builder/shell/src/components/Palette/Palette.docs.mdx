@@ -107,3 +107,22 @@ name from `BLOCK_NAMES_AR`, and search matches the Arabic name, the English name
 keeps its long-standing wording, announcements included.
 
 <Canvas of={PaletteStories.Arabic} />
+
+{/* library-playground additions (2026-10-08) */}
+
+## Template cards
+
+`templateCards` (optional) takes the host's template catalog — `marketingTemplateCatalog` in the
+editor, whose entries are structurally `TemplateCardInfo`. A composition with a card renders as a
+[`TemplateCard`](?path=/docs/shell-templatecard--docs): a real photo, the name and description in the
+editor's language, an `EN` / `ع` content-language badge and the section count. Cards in the page's
+content language (the root `lang` prop, else `ar` for a right-to-left page and `en` otherwise) come
+first, followed by any composition without a card (the abstract preview it always had); the rest sit
+under "Other language" / «لغة أخرى». Nothing is hidden, and search matches the names and descriptions
+in both languages.
+
+```tsx
+<Palette kernel={kernel} templateCards={marketingTemplateCatalog} />
+```
+
+{/* end library-playground additions */}

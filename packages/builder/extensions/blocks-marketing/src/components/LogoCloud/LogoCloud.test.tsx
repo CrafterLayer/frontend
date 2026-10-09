@@ -33,12 +33,8 @@ describe('LogoCloud', () => {
       '@container',
       'bg-surface',
     );
-    expect(screen.getByRole('list')).toHaveClass(
-      'grid',
-      'grid-cols-1',
-      '@sm:grid-cols-2',
-      '@xl:grid-cols-3',
-    );
+    expect(screen.getByRole('list')).toHaveClass('grid', 'grid-cols-2', '@lg:grid-cols-3');
+    expect(screen.getByRole('list')).not.toHaveClass('grid-cols-1');
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
     expect(screen.getByText('Northstar')).toHaveClass('break-words');
     expect(screen.getByText('Northstar')).not.toHaveClass('truncate');
@@ -126,7 +122,7 @@ describe('LogoCloud', () => {
     );
 
     const wideBreakpoints = {
-      '3': '@xl:grid-cols-3',
+      '3': '@lg:grid-cols-3',
       '4': '@3xl:grid-cols-4',
       '5': '@4xl:grid-cols-5',
       '6': '@5xl:grid-cols-6',
@@ -135,7 +131,12 @@ describe('LogoCloud', () => {
       const grid = container.querySelector(
         `[aria-labelledby="logos-${count}-heading"] [data-logo-cloud-grid]`,
       );
-      expect(grid).toHaveClass('grid-cols-1', '@sm:grid-cols-2', wideBreakpoints[count]);
+      /* blocks-polish 2026-10-08: two logos a row on a phone, never one. */
+      expect(grid).toHaveClass('grid-cols-2', wideBreakpoints[count]);
+      expect(grid).not.toHaveClass('grid-cols-1');
+      /* Three a row from 32rem, except four logos, which go 2 → 4 with no orphan. */
+      if (count === '4') expect(grid).not.toHaveClass('@lg:grid-cols-3');
+      else expect(grid).toHaveClass('@lg:grid-cols-3');
     }
   });
 });

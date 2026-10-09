@@ -85,6 +85,16 @@ export const blocksMarketing: TrustedExtensionManifest = {
 };
 
 export { marketingTemplates } from './templates';
+// templates-core additions
+// The Library's template cards (one per en/ar composition) and their shape.
+export {
+  marketingTemplateCatalog,
+  TEMPLATE_PHOTOS,
+  type MarketingTemplateCard,
+  type TemplateCategory,
+  type TemplateLang,
+} from './templates';
+// end templates-core additions
 
 export { Cta, ctaSchema, type CtaProps } from './components/Cta';
 export {

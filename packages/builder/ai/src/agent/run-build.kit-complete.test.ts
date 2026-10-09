@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { checkKitSlots } from '../section-kit';
 import { AGENT_TOOL_COMMAND } from '../tools/agent/types';
@@ -58,6 +58,12 @@ function slotsOf(plan: AiPlan): Record<string, unknown> {
   const args = plan.commands[0]?.args as { input: { slots: Record<string, unknown> } };
   return args.input.slots;
 }
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in ~10s per file alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('completeKitSteps', () => {
   it("fills the caption the writer left out and gives the image the section's own photo", () => {

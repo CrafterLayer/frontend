@@ -105,6 +105,11 @@ catalog:
   pixi.js: 8.22.0
   pngjs: 7.0.0
   promptfoo: 0.122.2
+  # script-engine additions (2026-10-08): QuickJS-wasm sandbox for agent code mode
+  # (MIT; licence check in the agent-script LIBRARIES.md). Used by @craftkit/builder-ai.
+  '@jitl/quickjs-wasmfile-release-sync': 0.32.0
+  quickjs-emscripten-core: 0.32.0
+  # end script-engine additions
 
 sharedWorkspaceLockfile: true
 saveWorkspaceProtocol: rolling

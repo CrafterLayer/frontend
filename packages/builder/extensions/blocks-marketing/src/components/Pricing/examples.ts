@@ -15,6 +15,7 @@ export const pricingExamples: { prompt: string; node: JsonValue }[] = [
     node: {
       type: 'pricing',
       props: {
+        eyebrow: 'الخطط',
         heading: 'الباقات',
         body: 'اختر الخطة المناسبة اليوم ويمكنك الترقية في أي وقت.',
         columns: '3',

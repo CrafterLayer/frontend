@@ -20,6 +20,9 @@ import {
   PAGE_PLAN_CONTRACT_MARK,
   SEO_TOOL_PROMPT,
   SYSTEM_RULES_TEXT,
+  // script-servers additions (2026-10-08)
+  SCRIPT_CARD,
+  // end script-servers additions
   buildPrompt,
   markupVocabulary,
   mentionsSeo,
@@ -1418,10 +1421,24 @@ describe('agent tools in the edit prompt', () => {
     expect(rules).toContain('Prefer ONE tool step over markup');
     expect(rules).toContain('editTree and setProp remain for everything else');
     expect(rules).toContain('needs a code page');
-    expect(rules).toContain('never put a script inline');
+    // script-servers additions (2026-10-08): the rule reworded so script.run is never read as a page <script>.
+    expect(rules).toContain('never put a <script> inline in a tree');
+    expect(rules).toContain('prefer ONE script.run step (Edit scripts below)');
+    expect(rules).toContain('script.run is an edit script the editor runs, not page code');
+    // end script-servers additions
     // A build never sees them: its rules are byte-for-byte the recorded ones.
     expect(buildPrompt(wireRequest()).system[0]?.text).toBe(SYSTEM_RULES_TEXT);
   });
+
+  // script-servers additions (2026-10-08): the edit-script card, cached with the edit rules.
+  it('carries the edit-script card in the frozen edit rules, and never in a build', () => {
+    const rules = buildPrompt(editRequest()).system[0]?.text ?? '';
+    expect(rules).toContain(`## Edit scripts\n\n${SCRIPT_CARD}`);
+    expect(buildPrompt(wireRequest()).system[0]?.text).not.toContain(SCRIPT_CARD);
+    // The precise edit this file sends is not bulk work: no tip after the prefix.
+    expect(buildPrompt(editRequest()).messages.at(-1)?.content).not.toContain('# Tip');
+  });
+  // end script-servers additions
 
   it('adds the seo lane only to an edit that asks about SEO, after the cached prefix', () => {
     const plain = buildPrompt(editRequest());

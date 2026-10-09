@@ -28,6 +28,25 @@ import './StylePanel.css';
 /** The most-used sectors start open; the rest are one click (or one search) away. */
 const OPEN_BY_DEFAULT: readonly StyleSectorId[] = ['layout', 'spacing', 'size', 'typography', 'backgrounds'];
 
+/** Tags whose job is words: their panel opens on Typography, with Layout after the look. */
+const TEXT_TAGS: ReadonlySet<string> = new Set([
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'li', 'blockquote', 'label', 'strong',
+  'em', 'small', 'figcaption', 'dt', 'dd', 'cite', 'q', 'time', 'abbr', 'code',
+]);
+
+/** Where a sector sits for a text element (walk 2026-10-08: Typography came fifth on a heading). */
+const TEXT_SECTOR_RANK: Readonly<Partial<Record<StyleSectorId, number>>> = {
+  typography: 0,
+  layout: 20,
+  position: 21,
+};
+
+function sectorOrderFor(tag: string | undefined): (a: StyleSectorId, b: StyleSectorId) => number {
+  if (tag === undefined || !TEXT_TAGS.has(tag.toLowerCase())) return () => 0;
+  const rank = (id: StyleSectorId) => TEXT_SECTOR_RANK[id] ?? 10;
+  return (a, b) => rank(a) - rank(b);
+}
+
 /** Case- and diacritic-insensitive text for the property filter (Arabic tashkil too). */
 function searchable(text: string): string {
   return text
@@ -186,7 +205,9 @@ export function StylePanel({
           (source.mode === 'free' || isTokenCapable(def)),
       ),
     }))
-    .filter((entry) => entry.properties.length > 0);
+    .filter((entry) => entry.properties.length > 0)
+    // A stable sort: for text, Typography first and Layout after the look; others keep the catalogue order.
+    .sort((left, right) => sectorOrderFor(tag)(left.sector.id, right.sector.id));
 
   // The filter matches a property's name in either language, its id, or its
   // sector's name (which keeps the whole sector). A row drawn with a companion

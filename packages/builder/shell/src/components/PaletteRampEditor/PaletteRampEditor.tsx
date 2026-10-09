@@ -48,13 +48,14 @@ export function PaletteRampEditor({
   commit,
   existingIds = [],
   contrastColumns = [],
-  defaultName = 'Brand',
+  defaultName,
   defaultColor = '#0f766e',
   disabled = false,
   labels = PALETTE_RAMP_EDITOR_LABELS_EN,
   dir,
 }: PaletteRampEditorProps) {
-  const [name, setName] = useState(defaultName);
+  // The name opens in the editor's language ("Brand" read as English in the Arabic chrome).
+  const [name, setName] = useState(defaultName ?? labels.defaultName);
   const [color, setColor] = useState(defaultColor);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const nameId = useId();

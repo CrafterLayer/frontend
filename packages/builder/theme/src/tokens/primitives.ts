@@ -110,6 +110,17 @@ export const alpha = {
   /* slate-50 held at 94%: a veil that hides what is under it without erasing
      it, so a person still sees that SOMETHING is there. */
   paper94: 'rgb(246 247 250 / 94%)',
+  /* The box-model bands: green padding and orange margin, the colours every
+     browser's devtools taught people to read, held light enough to see through. */
+  padding22: 'rgb(34 197 94 / 22%)',
+  margin22: 'rgb(249 115 22 / 22%)',
+  /* A grid container's columns, tinted with the selection violet. */
+  violet8: 'rgb(91 91 214 / 8%)',
+} as const;
+
+/** The snap guide: a hue no page palette and no other mark uses, so it reads as the editor's. */
+export const pink = {
+  500: '#ec4899',
 } as const;
 
 /**

@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CkEngineContext } from './ck-engines';
 import {
+  HOST_ATTR,
+  LAYER_ATTR,
   READY_ATTR,
   createSceneEngine,
+  isSceneHost,
   type SceneApp,
   type SceneContext,
   type SceneName,
@@ -15,6 +18,8 @@ const noop = (): void => {
 
 class FakeApp implements SceneApp {
   static instances: FakeApp[] = [];
+  /** gsap-pixi additions: make init reject, as a device without a renderer does. */
+  static failInit = false;
   readonly canvas = document.createElement('canvas');
   initOptions: Record<string, unknown> | undefined;
   readonly start = vi.fn();
@@ -30,7 +35,7 @@ class FakeApp implements SceneApp {
   }
   init(options: Record<string, unknown>) {
     this.initOptions = options;
-    return Promise.resolve();
+    return FakeApp.failInit ? Promise.reject(new Error('no renderer')) : Promise.resolve();
   }
 }
 
@@ -110,6 +115,7 @@ afterEach(() => {
       restore();
     });
   FakeApp.instances = [];
+  FakeApp.failInit = false;
   document.body.replaceChildren();
 });
 
@@ -230,5 +236,128 @@ describe('scene engine mount', () => {
 
     expect(createApp).not.toHaveBeenCalled();
     expect(el.hasAttribute(READY_ATTR)).toBe(false);
+  });
+
+  // gsap-pixi additions (2026-10-08)
+  it('on the editor canvas a ripple runs but never takes pointer input, and the scene is told so', async () => {
+    const { engine, received } = setup();
+    const el = sceneElement('ripple', ['https://images.example/a.jpg']);
+    engine.mount(el, { ...ctx(false), canvas: true });
+    await settle();
+    expect(el.querySelector('canvas')?.style.pointerEvents).toBe('none');
+    expect(received[0]?.still).toBe(false);
+    expect(received[0]?.canvas).toBe(true);
+  });
+});
+
+/* ── gsap-pixi additions (2026-10-08): HOST mode ─────────────────────────── */
+
+function hostElement(name: string, html: string, style?: string): HTMLElement {
+  const host = document.createElement('section');
+  host.setAttribute('data-ck-scene', name);
+  if (style !== undefined) {
+    host.setAttribute('style', style);
+  }
+  host.innerHTML = html;
+  document.body.append(host);
+  return host;
+}
+
+describe('scene engine — host mode', () => {
+  it('detects a host by an element child that is not an img (its own artefacts excluded)', () => {
+    expect(isSceneHost(hostElement('particles', '<h2>مرحبا</h2>'))).toBe(true);
+    expect(isSceneHost(hostElement('particles', '<img src="a.jpg" alt=""><p>x</p>'))).toBe(true);
+    expect(isSceneHost(sceneElement('mural', ['https://images.example/a.jpg']))).toBe(false);
+    expect(isSceneHost(sceneElement('particles'))).toBe(false);
+    const layered = sceneElement('mural', ['https://images.example/a.jpg']);
+    layered.insertAdjacentHTML(
+      'beforeend',
+      `<div ${LAYER_ATTR}></div><canvas data-ck-scene-canvas></canvas>`,
+    );
+    expect(isSceneHost(layered)).toBe(false);
+  });
+
+  it('draws into a first-child layer behind the content, loads no texture, and restores the host on dispose', async () => {
+    const { engine, loadTexture, received } = setup();
+    const host = hostElement(
+      'particles',
+      '<h2>مرحبا</h2><img src="https://images.example/content.jpg" alt="محتوى">',
+    );
+    host.setAttribute('data-ck-density', 'high');
+
+    const dispose = engine.mount(host, ctx(false, true));
+    await settle();
+
+    expect(loadTexture).not.toHaveBeenCalled();
+    const layer = host.firstElementChild as HTMLElement;
+    expect(layer.hasAttribute(LAYER_ATTR)).toBe(true);
+    expect(layer.getAttribute('aria-hidden')).toBe('true');
+    expect(layer.style.position).toBe('absolute');
+    expect(layer.style.getPropertyValue('inset')).toMatch(/^0(px)?$/u);
+    expect(layer.style.zIndex).toBe('-1');
+    expect(layer.style.pointerEvents).toBe('none');
+    expect(layer.style.overflow).toBe('hidden');
+    expect(host.hasAttribute(HOST_ATTR)).toBe(true);
+    expect(host.style.getPropertyValue('isolation')).toBe('isolate');
+    expect(host.style.position).toBe('relative');
+
+    const app = FakeApp.instances[0];
+    expect(app?.initOptions?.['resizeTo']).toBe(layer);
+    expect(layer.querySelector('canvas')).toBe(app?.canvas);
+    expect(app?.canvas.style.pointerEvents).toBe('none');
+    expect(received[0]?.textures).toEqual([]);
+    expect(received[0]?.pointerHost).toBe(host);
+    expect(received[0]?.density).toBe('high');
+    expect(received[0]?.sign).toBe(-1);
+    expect(host.hasAttribute(READY_ATTR)).toBe(true);
+    // The content stays where it was, after the layer.
+    expect(host.querySelector('h2')?.previousElementSibling).toBe(layer);
+    expect(host.querySelector('img')).not.toBeNull();
+
+    dispose();
+    expect(host.querySelector(`[${LAYER_ATTR}]`)).toBeNull();
+    expect(host.querySelector('canvas')).toBeNull();
+    expect(host.hasAttribute(HOST_ATTR)).toBe(false);
+    expect(host.hasAttribute(READY_ATTR)).toBe(false);
+    expect(host.hasAttribute('style')).toBe(false);
+    expect(host.firstElementChild?.localName).toBe('h2');
+  });
+
+  it('keeps a positioned host’s own position and restores its inline style exactly', async () => {
+    const { engine } = setup();
+    const host = hostElement('mesh-gradient', '<div>x</div>', 'position: absolute; color: red;');
+
+    const dispose = engine.mount(host, ctx());
+    await settle();
+    expect(host.style.position).toBe('absolute');
+    expect(host.style.getPropertyValue('isolation')).toBe('isolate');
+
+    dispose();
+    expect(host.style.position).toBe('absolute');
+    expect(host.style.color).toBe('red');
+    expect(host.style.getPropertyValue('isolation')).toBe('');
+  });
+
+  it('mounts again after a dispose with exactly one layer', async () => {
+    const { engine } = setup();
+    const host = hostElement('particles', '<h2>x</h2>');
+    engine.mount(host, ctx())();
+    await settle();
+    engine.mount(host, ctx());
+    await settle();
+    expect(host.querySelectorAll(`[${LAYER_ATTR}]`)).toHaveLength(1);
+    expect(host.firstElementChild?.hasAttribute(LAYER_ATTR)).toBe(true);
+  });
+
+  it('a renderer that fails to start leaves no layer and an untouched host', async () => {
+    FakeApp.failInit = true;
+    const { engine } = setup();
+    const host = hostElement('particles', '<h2>x</h2>');
+    engine.mount(host, ctx());
+    await settle();
+    expect(host.querySelector(`[${LAYER_ATTR}]`)).toBeNull();
+    expect(host.hasAttribute(HOST_ATTR)).toBe(false);
+    expect(host.hasAttribute(READY_ATTR)).toBe(false);
+    expect(host.hasAttribute('style')).toBe(false);
   });
 });

@@ -269,3 +269,42 @@ export const craftkitHeadlessBlocks: TrustedExtensionManifest = headlessBlockMan
   something `createBuilder` accepts.
 */
 export { marketingBlockSchemas } from '@craftkit/builder-blocks-marketing/schemas';
+
+// script-servers additions (2026-10-08)
+/*
+  Tool steps and edit scripts for a headless host (agent-script DESIGN §A.13).
+
+  A plan the editor accepts may carry steps that are not kernel commands:
+  agent tools `{"command":"tool"}`, `editTree`, and `script.run` — a short
+  script whose queued writes become ordinary kernel steps. The editor expands
+  them before its door in one order (generate-plan.ts): scripts, then tools,
+  then editTree. A host that validates plans itself (mcp-server
+  `craftkit_apply_plan`) needs the same three expansions, or it refuses every
+  plan the editor would apply.
+
+  `createNodeScriptRunner` runs the QuickJS sandbox in a `worker_threads`
+  worker with a hard stop. It ships on builder-ai's `script-node` subpath so
+  browser bundles never see `node:worker_threads`; this door is the Node one by
+  definition (every importer is a Node service), so it re-exports it. A host
+  that bundles itself emits builder-ai's `sandbox-worker.node.mjs` as an entry
+  and passes its URL as `workerUrl` (apps/mcp-server/vite.config.ts).
+*/
+export {
+  EDIT_TREE_COMMAND,
+  expandAgentTools,
+  expandScriptSteps,
+  expandTreeEdits,
+  SCRIPT_TOOL_NAME,
+  type AgentToolExpansion,
+  type ScriptExpansion,
+  type ScriptExpansionOptions,
+  type ScriptRunner,
+  type ScriptRunReport,
+  type ScriptRunResult,
+  type TreeEditExpansion,
+} from '@craftkit/builder-ai';
+export {
+  createNodeScriptRunner,
+  type NodeScriptRunnerOptions,
+} from '@craftkit/builder-ai/script-node';
+// end script-servers additions

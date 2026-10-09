@@ -33,7 +33,8 @@ import {
 
 import { isRecord, readTree } from '../tools/agent/shared';
 import { defineAgentTool, type AgentToolContext, type AgentToolParse, type AgentToolRun } from '../tools/agent/types';
-import { heroRegionId, insertBehind, insertInto, insertSection } from './placement';
+// gsap-pixi additions (2026-10-08): sceneOnBlock
+import { heroRegionId, insertBehind, insertInto, insertSection, sceneOnBlock } from './placement';
 import {
   mediaLocale,
   pagePoster,
@@ -450,6 +451,17 @@ const SCENE_IMAGE_COUNT: Readonly<Record<CustomCodeScene, number>> = {
 
 function runScene(input: MediaAddInput, context: AgentToolContext): AgentToolRun {
   const scene = input.scene ?? 'particles';
+  // gsap-pixi additions (2026-10-08): behind a REGISTERED block → one setProp of its motion prop.
+  if (input.behind !== undefined) {
+    const onBlock = sceneOnBlock(context, input.behind, {
+      scene,
+      density: input.density,
+      palette: input.palette,
+      images: input.images !== undefined,
+    });
+    if (onBlock !== undefined) return onBlock;
+  }
+  // end gsap-pixi additions
   const needsImages = SCENES_NEEDING_IMAGES.includes(scene);
   let images: readonly MediaImage[] = [];
   if (needsImages || input.images !== undefined) {

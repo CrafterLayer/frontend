@@ -54,3 +54,32 @@ and exactly the classes it uses.
 `LIBRARY_PANEL_LABELS_AR` carries the composed palette's own set (`labels.palette`), so the Blocks
 tab's inner tabs ("الكتل / القوالب"), groups, block names and search are Arabic too, and the tab
 strip's arrow keys run right to left.
+
+{/* library-playground additions (2026-10-08) */}
+
+## Templates (top level)
+
+A fifth tab, **Templates**, lists the registered page templates as photo cards
+([`TemplateCard`](?path=/docs/shell-templatecard--docs)) when the host passes `templateCards`
+(`marketingTemplateCatalog` in the editor). The page's language comes first — the root `lang` prop,
+else `ar` for a right-to-left page — then "Other language" / «لغة أخرى»; nothing is hidden, and the
+one search matches the names in both languages. A template with a card lives here rather than in
+Sections; one without a card keeps a plain tile in both. The Blocks tab's own Blocks/Templates toggle
+stays for compatibility and shows the same cards.
+
+```tsx
+<LibraryPanel kernel={kernel} sections={sections} templateCards={marketingTemplateCatalog} />
+```
+
+<Canvas of={LibraryPanelStories.Templates} />
+
+## The section page kit
+
+A ready-made section is written in the page kit's classes (`ck-btn`, `ck-card`, the `--ck-*`
+tokens). An entry may carry `pageKit: { marker, css }`; inserting it adds `css` to the page root's
+`pageCss` in the **same** grouped dispatch as the `insertNode` — one transaction, one Undo — unless
+the page's `pageCss` already contains `marker` (the page plan's fence, `.ck-page-plan{`). A page whose
+css cannot take the kit still gets the section. The tile's thumbnail is drawn with the kit too, so it
+looks like what lands on the page.
+
+{/* end library-playground additions */}

@@ -139,7 +139,8 @@ export function mountEmbedFacade(
       made.setAttribute('sandbox', SANDBOX);
       made.setAttribute('allow', ALLOW);
       made.setAttribute('referrerpolicy', REFERRER);
-      made.setAttribute('allowfullscreen', '');
+      // The allow list already grants fullscreen; a second allowfullscreen
+      // attribute made Chrome warn on every play that one overrides the other.
       made.setAttribute('loading', 'eager');
       for (const child of Array.from(link.childNodes)) {
         if (child.nodeType === 1) setAttr(child as Element, 'hidden', '');

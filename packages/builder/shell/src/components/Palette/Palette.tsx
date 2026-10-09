@@ -10,6 +10,17 @@ import './Palette.css';
 import { localBlockName } from '../../i18n/block-names';
 import { diagramForBlockType } from './diagrams';
 import { PALETTE_LABELS_EN, type PaletteCategory, type PaletteLabels } from './Palette.labels';
+// library-playground additions (2026-10-08): photo template cards, ordered by the page language.
+import {
+  TEMPLATE_CARD_LABELS_AR,
+  TEMPLATE_CARD_LABELS_EN,
+  TemplateCard,
+  orderTemplateCards,
+  pageContentLanguage,
+  templateCardSearchText,
+  type TemplateCardInfo,
+} from '../TemplateCard';
+// end library-playground additions
 
 const PALETTE_CATEGORIES = [
   'Layout',
@@ -110,6 +121,9 @@ interface TemplateEntry {
   readonly rootType: string;
   readonly sectionCount: number;
   readonly searchText: string;
+  // library-playground additions (2026-10-08)
+  readonly card?: TemplateCardInfo | undefined;
+  // end library-playground additions
 }
 
 interface InsertionPlacement {
@@ -283,6 +297,14 @@ export interface PaletteProps {
   dragHandle?: CanvasDragHandle | undefined;
   /** Every string the palette shows or announces (arabic-editor); English by default. */
   labels?: PaletteLabels | undefined;
+  // library-playground additions (2026-10-08)
+  /**
+   * Template cards for registered compositions (`marketingTemplateCatalog` in
+   * the editor): a composition with a card renders as a `TemplateCard`, the
+   * page's language first; one without keeps the abstract preview.
+   */
+  templateCards?: readonly TemplateCardInfo[] | undefined;
+  // end library-playground additions
 }
 
 /**
@@ -292,7 +314,14 @@ export interface PaletteProps {
  * dragging onto the canvas (payload handoff p3 — the canvas owns chrome and
  * resolution; the palette owns nothing but the payload).
  */
-export function Palette({ kernel, dragHandle, labels = PALETTE_LABELS_EN }: PaletteProps) {
+// library-playground additions (2026-10-08): the signature is split over lines to take `templateCards`.
+export function Palette({
+  kernel,
+  dragHandle,
+  labels = PALETTE_LABELS_EN,
+  templateCards,
+}: PaletteProps) {
+  // end library-playground additions
   const blockNames = labels.blockNames;
   const paletteId = useId();
   const searchId = `${paletteId}-search`;
@@ -355,6 +384,12 @@ export function Palette({ kernel, dragHandle, labels = PALETTE_LABELS_EN }: Pale
       });
   }, [kernel, catalogVersion, blockNames, labels]);
 
+  // library-playground additions (2026-10-08)
+  const cardsById = useMemo(
+    () => new Map((templateCards ?? []).map((card) => [card.id, card] as const)),
+    [templateCards],
+  );
+  // end library-playground additions
   const templates = useMemo(() => {
     void catalogVersion;
     const surface = kernel.getDocument().surface;
@@ -365,18 +400,34 @@ export function Palette({ kernel, dragHandle, labels = PALETTE_LABELS_EN }: Pale
         (total, children) => total + children.length,
         0,
       );
+      // library-playground additions (2026-10-08): a card names the template in the editor's
+      // language, and its search matches both languages.
+      const card = cardsById.get(composition.id);
+      const shown = card === undefined ? composition.name : card.name[labels.language];
+      // end library-playground additions
       return [
         {
           id: composition.id,
-          name: composition.name,
+          name: shown, // library-playground additions (2026-10-08)
           previewKind: templatePreviewKind(composition.id, composition.name),
           rootType: root.type,
           sectionCount: Math.max(1, sectionCount),
-          searchText: `${composition.name} ${composition.id} ${root.type}`.toLocaleLowerCase(),
+          // library-playground additions (2026-10-08): both languages' names and descriptions.
+          searchText:
+            `${composition.name} ${composition.id} ${root.type} ${card === undefined ? '' : templateCardSearchText(card)}`.toLocaleLowerCase(),
+          card,
+          // end library-playground additions
         },
       ];
     });
-  }, [kernel, catalogVersion]);
+  }, [kernel, catalogVersion, cardsById, labels.language]); // library-playground additions: + cards, language
+  // library-playground additions (2026-10-08): the page's content language orders the cards.
+  const pageLanguage = useSyncExternalStore(
+    useCallback((onChange: () => void) => kernel.context.store.subscribe(onChange), [kernel]),
+    useCallback(() => pageContentLanguage(kernel.getDocument()), [kernel]),
+  );
+  const templateCardLabels = labels.language === 'ar' ? TEMPLATE_CARD_LABELS_AR : TEMPLATE_CARD_LABELS_EN;
+  // end library-playground additions
 
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleEntries = entries.filter(
@@ -422,6 +473,58 @@ export function Palette({ kernel, dragHandle, labels = PALETTE_LABELS_EN }: Pale
     },
     [kernel, setMessage, labels],
   );
+
+  // library-playground additions (2026-10-08): one template entry — a photo card when the host
+  // gave one, else today's abstract preview.
+  const otherLanguageId = `${paletteId}-other-language`;
+  const cardedTemplates = visibleTemplates.filter(
+    (template): template is TemplateEntry & { card: TemplateCardInfo } => template.card !== undefined,
+  );
+  const orderedCards = orderTemplateCards(cardedTemplates, pageLanguage);
+  const pageLanguageTemplates: readonly TemplateEntry[] = [
+    ...orderedCards.matching,
+    ...visibleTemplates.filter((template) => template.card === undefined),
+  ];
+  const otherLanguageTemplates: readonly TemplateEntry[] = orderedCards.other;
+  const renderTemplate = (template: TemplateEntry) => (
+    <li key={template.id} className={template.card === undefined ? undefined : 'bldr-palette__template-card'}>
+      {template.card === undefined ? (
+        <button
+          type="button"
+          className="bldr-palette__template"
+          onClick={() => {
+            insertTemplateAtSelection(template.id, template.rootType, template.name);
+          }}
+        >
+          <span
+            className="bldr-palette__template-preview"
+            data-preview-kind={template.previewKind}
+            aria-hidden="true"
+          >
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="bldr-palette__template-copy">
+            <strong>{template.name}</strong>
+            <small>{labels.sections(template.sectionCount)}</small>
+          </span>
+        </button>
+      ) : (
+        <TemplateCard
+          card={template.card}
+          labels={templateCardLabels}
+          onInsert={() => {
+            insertTemplateAtSelection(template.id, template.rootType, template.name);
+          }}
+        />
+      )}
+    </li>
+  );
+  // end library-playground additions
 
   const toggleCategory = (category: PaletteCategory) => {
     setCollapsedCategories((current) => {
@@ -498,36 +601,26 @@ export function Palette({ kernel, dragHandle, labels = PALETTE_LABELS_EN }: Pale
             {templates.length === 0 ? labels.noTemplates : labels.noTemplateMatch}
           </p>
         ) : (
-          <ul className="bldr-palette__template-grid">
-            {visibleTemplates.map((template) => (
-              <li key={template.id}>
-                <button
-                  type="button"
-                  className="bldr-palette__template"
-                  onClick={() => {
-                    insertTemplateAtSelection(template.id, template.rootType, template.name);
-                  }}
-                >
-                  <span
-                    className="bldr-palette__template-preview"
-                    data-preview-kind={template.previewKind}
-                    aria-hidden="true"
-                  >
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                  <span className="bldr-palette__template-copy">
-                    <strong>{template.name}</strong>
-                    <small>{labels.sections(template.sectionCount)}</small>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          // library-playground additions (2026-10-08): cards in the page's language, the plain
+          // previews, then "Other language". Nothing is hidden.
+          <>
+            {pageLanguageTemplates.length === 0 ? null : (
+              <ul className="bldr-palette__template-grid" data-group="page-language">
+                {pageLanguageTemplates.map(renderTemplate)}
+              </ul>
+            )}
+            {otherLanguageTemplates.length === 0 ? null : (
+              <section className="bldr-palette__template-group" aria-labelledby={otherLanguageId}>
+                <h3 id={otherLanguageId} className="bldr-palette__template-group-heading">
+                  {labels.otherLanguage ?? (labels.language === 'ar' ? 'لغة أخرى' : 'Other language')}
+                </h3>
+                <ul className="bldr-palette__template-grid" data-group="other-language">
+                  {otherLanguageTemplates.map(renderTemplate)}
+                </ul>
+              </section>
+            )}
+          </>
+          // end library-playground additions
         )
       ) : groups.length === 0 ? (
         <p className="bldr-palette__empty" role="status">

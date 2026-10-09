@@ -1,0 +1,176 @@
+/*
+  TemplateCard (agent-script DESIGN §B.5). Tokens only: every colour, radius,
+  space and shadow is a chrome token, so the card follows light, dark and the
+  host's theme. Logical properties only, so it mirrors in an Arabic editor.
+*/
+
+.bldr-template-card {
+  align-items: stretch;
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  inline-size: 100%;
+  overflow: hidden;
+  padding: var(--bldr-space-0);
+  text-align: start;
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    box-shadow var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-template-card:hover {
+  border-color: var(--bldr-accent);
+  box-shadow: var(--bldr-shadow-raised);
+}
+
+.bldr-template-card:focus-visible {
+  border-color: var(--bldr-accent);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* The thumbnail: 16:10, a skeleton ground in the accent's soft tone until the photo paints. */
+.bldr-template-card__thumb {
+  aspect-ratio: 16 / 10;
+  background:
+    linear-gradient(
+      100deg,
+      var(--bldr-accent-soft) 30%,
+      var(--bldr-accent-soft-hover) 50%,
+      var(--bldr-accent-soft) 70%
+    )
+    0 0 / 200% 100%;
+  display: block;
+  overflow: hidden;
+  position: relative;
+}
+
+.bldr-template-card__thumb[data-photo='loading'] {
+  animation: bldr-template-card-shimmer 1.4s linear infinite;
+}
+
+.bldr-template-card__photo {
+  block-size: 100%;
+  display: block;
+  inline-size: 100%;
+  object-fit: cover;
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-template-card:hover .bldr-template-card__photo {
+  transform: scale(1.03);
+}
+
+/* The skeleton strip: three accent bars on a raised chip, a page of sections in miniature. */
+.bldr-template-card__strip {
+  background: var(--bldr-surface-raised);
+  border-radius: var(--bldr-radius-sm);
+  box-shadow: var(--bldr-shadow-raised);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  inline-size: 28%;
+  inset-block-end: var(--bldr-space-sm);
+  inset-inline-start: var(--bldr-space-sm);
+  padding: var(--bldr-space-xs);
+  position: absolute;
+}
+
+.bldr-template-card__strip > span {
+  background: var(--bldr-accent);
+  block-size: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+  display: block;
+}
+
+.bldr-template-card__strip > span:nth-child(2) {
+  inline-size: 72%;
+  opacity: 0.6;
+}
+
+.bldr-template-card__strip > span:nth-child(3) {
+  inline-size: 48%;
+  opacity: 0.35;
+}
+
+.bldr-template-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-sm) var(--bldr-space-md) var(--bldr-space-md);
+}
+
+.bldr-template-card__name {
+  font-size: var(--bldr-font-size-body);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+}
+
+.bldr-template-card__description {
+  -webkit-box-orient: vertical;
+  color: var(--bldr-panel-muted);
+  display: -webkit-box;
+  font-size: var(--bldr-font-size-caption);
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: var(--bldr-line-height-snug);
+  overflow: hidden;
+}
+
+.bldr-template-card__meta {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-sm);
+  margin-block-start: var(--bldr-space-2xs);
+}
+
+.bldr-template-card__badge {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent-strong);
+  display: inline-flex;
+  font-weight: var(--bldr-font-weight-semibold);
+  justify-content: center;
+  min-inline-size: var(--bldr-space-2xl);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-template-card__badge[data-lang='ar'] {
+  font-family: var(--bldr-font-arabic);
+}
+
+@keyframes bldr-template-card-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-template-card,
+  .bldr-template-card__photo {
+    transition: none;
+  }
+
+  .bldr-template-card__thumb[data-photo='loading'] {
+    animation: none;
+  }
+
+  .bldr-template-card:hover .bldr-template-card__photo {
+    transform: none;
+  }
+}

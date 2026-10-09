@@ -65,6 +65,16 @@ export interface AiPlanWireRequest {
   model?: string;
   /** One call's reasoning budget, beside `model` (handler.ts `callEffort`). */
   effort?: 'low' | 'medium';
+  /**
+   * The composer's «وضع الكود الحر» switch (2026-10-09, additive to wire v1):
+   * present and `true` ONLY when the person turned free code mode on, so the
+   * agent may write page JavaScript (a customCode block's `js` prop) and
+   * custom PixiJS scenes. Absent = off; a server reads it strictly
+   * (`=== true`) and then adds its free-code card to the per-request part of
+   * its prompt. Never part of the token estimate below: it is a mode, not
+   * content, and the card it buys is the server's cost.
+   */
+  freeCode?: boolean;
 }
 
 /** The kinds of answer the plan endpoint gives. Absent on the wire = `'plan'`. */

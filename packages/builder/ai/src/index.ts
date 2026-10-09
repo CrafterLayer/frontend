@@ -735,3 +735,13 @@ export {
   type PageKitState,
 } from './tools/agent/page-kit';
 // end library-playground additions
+// free-code additions (2026-10-09): free code mode — the card the model reads for a customCode block's `js`
+// (the ai-server carries a verbatim copy), the line a request for code gets while the switch is off, the door's limit.
+export {
+  FREE_CODE_CARD,
+  FREE_CODE_CARD_MAX_CHARS,
+  FREE_CODE_OFF_HINT,
+  freeCodeCardExamples,
+} from './agent/free-code-card';
+export { CUSTOM_CODE_JS_MAX_LENGTH } from './plan/validate-plan';
+// end free-code additions

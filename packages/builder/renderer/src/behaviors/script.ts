@@ -7,6 +7,7 @@ import {
   mountEngines,
   mountGallery,
   mountMailtoForm,
+  mountScripts,
   mountToggleGroup,
   mountVideoPlayer,
   type BehaviorPack,
@@ -33,6 +34,8 @@ const PACK_MARKERS: ReadonlyMap<BehaviorPack, RegExp> = new Map<BehaviorPack, Re
   [mountToggleGroup, behavior('toggle-group')],
   [mountMailtoForm, behavior('mailto-form')],
   [mountEngines, /\sdata-ck-(?:scene|timeline|lottie)(?=[\s=>/])/u],
+  // free-code mode (2026-10-09): a region's `js` is rendered as `data-ck-js="…"`.
+  [mountScripts, /\sdata-ck-js(?=[\s=>/])/u],
 ]);
 
 /** The packs rendered markup uses, in `BEHAVIOR_PACKS` order. */
@@ -64,6 +67,13 @@ export function behaviorRuntimeScript(markup?: string | readonly string[]): stri
 export const BEHAVIOR_RUNTIME_SELECTOR =
   '[data-ck-behavior], [data-ck-motion], [data-ck-hover], .ck-fx-spotlight, [data-ck-scene], [data-ck-timeline], [data-ck-lottie]';
 
+/**
+ * A region script (free-code mode, 2026-10-09). Not part of `BEHAVIOR_RUNTIME_SELECTOR`: that one
+ * is held equal to the core runtime's, which has nothing to do for a script — the `scripts`
+ * pack owns this marker. `hasBehaviors` and the exporter still count it as needing the runtime.
+ */
+export const SCRIPT_SELECTOR = '[data-ck-js]';
+
 const RUNTIME_MARKERS = [
   'data-ck-behavior',
   'data-ck-motion',
@@ -73,6 +83,8 @@ const RUNTIME_MARKERS = [
   'data-ck-scene',
   'data-ck-timeline',
   'data-ck-lottie',
+  // free-code mode (2026-10-09): a region script.
+  'data-ck-js',
 ] as const;
 
 /**
@@ -87,7 +99,11 @@ export function hasBehaviors(markupOrDocument: unknown): boolean {
   if (typeof markupOrDocument !== 'object' || markupOrDocument === null) return false;
   const node = markupOrDocument as { querySelector?: unknown };
   if (typeof node.querySelector === 'function') {
-    return (markupOrDocument as ParentNode).querySelector(BEHAVIOR_RUNTIME_SELECTOR) !== null;
+    const parent = markupOrDocument as ParentNode;
+    return (
+      parent.querySelector(BEHAVIOR_RUNTIME_SELECTOR) !== null ||
+      parent.querySelector(SCRIPT_SELECTOR) !== null
+    );
   }
   try {
     const json = JSON.stringify(markupOrDocument);
@@ -99,26 +115,46 @@ export function hasBehaviors(markupOrDocument: unknown): boolean {
       // media-motion (2026-10-06): the engine markers.
       json.includes('"data-ck-scene"') ||
       json.includes('"data-ck-timeline"') ||
-      json.includes('"data-ck-lottie"')
+      json.includes('"data-ck-lottie"') ||
+      json.includes('"data-ck-js"')
     );
   } catch {
     return false;
   }
 }
 
-// media-motion (2026-10-06)
-export type PageEngine = 'scene' | 'timeline' | 'lottie';
+// media-motion (2026-10-06); free-code mode (2026-10-09): + 'pixi', the FULL pixi.js bundle for region scripts.
+export type PageEngine = 'scene' | 'timeline' | 'lottie' | 'pixi';
 
-const ENGINE_ATTRIBUTES: readonly (readonly [PageEngine, string])[] = [
+const ENGINE_ATTRIBUTES: readonly (readonly [Exclude<PageEngine, 'pixi'>, string])[] = [
   ['scene', 'data-ck-scene'],
   ['timeline', 'data-ck-timeline'],
   ['lottie', 'data-ck-lottie'],
 ];
 
 /**
+ * Whether a region's code asks for the full pixi.js bundle: it names Pixi or calls `ck.stage`.
+ * This is the contract the exporter and the canvas share — `ck.pixi()` and `ck.stage()` both
+ * match, and so does an honest comment. Code that hides the call (`ck['pi'+'xi']()`) is not
+ * detected, so its `ck.pixi()` rejects with a message saying so rather than hanging.
+ */
+export function codeUsesPixi(code: string): boolean {
+  return /pixi|ck\.stage/iu.test(code);
+}
+
+/** Whether any `data-ck-js="…"` attribute in rendered markup (double or single quoted) uses Pixi. */
+function markupScriptsUsePixi(markup: string): boolean {
+  for (const match of markup.matchAll(/\sdata-ck-js=(?:"([^"]*)"|'([^']*)')/gu)) {
+    if (codeUsesPixi(match[1] ?? match[2] ?? '')) return true;
+  }
+  return false;
+}
+
+/**
  * Which lazily loaded engines a page uses (media-motion DESIGN §2.2): read from
  * rendered markup (an attribute name followed by `=`, whitespace, `>` or `/`),
  * a DOM node (itself or a descendant), or a stored JSON value (an attribute key).
+ * `pixi` is not a marker but a use: some `data-ck-js` code that matches `codeUsesPixi`.
  */
 export function pageEngines(markupOrNode: unknown): Set<PageEngine> {
   const used = new Set<PageEngine>();
@@ -126,6 +162,7 @@ export function pageEngines(markupOrNode: unknown): Set<PageEngine> {
     for (const [kind, attribute] of ENGINE_ATTRIBUTES) {
       if (new RegExp(`\\s${attribute}(?=[\\s=>/])`, 'u').test(markupOrNode)) used.add(kind);
     }
+    if (markupScriptsUsePixi(markupOrNode)) used.add('pixi');
     return used;
   }
   if (typeof markupOrNode !== 'object' || markupOrNode === null) return used;
@@ -137,6 +174,11 @@ export function pageEngines(markupOrNode: unknown): Set<PageEngine> {
       const self = node.nodeType === 1 && typeof node.matches === 'function' && (markupOrNode as Element).matches(selector);
       if (self || parent.querySelector(selector) !== null) used.add(kind);
     }
+    const scripted: Element[] = Array.from(parent.querySelectorAll(SCRIPT_SELECTOR));
+    if (node.nodeType === 1 && typeof node.matches === 'function' && (markupOrNode as Element).matches(SCRIPT_SELECTOR)) {
+      scripted.push(markupOrNode as Element);
+    }
+    if (scripted.some((el) => codeUsesPixi(el.getAttribute('data-ck-js') ?? ''))) used.add('pixi');
     return used;
   }
   let json = '';
@@ -146,5 +188,8 @@ export function pageEngines(markupOrNode: unknown): Set<PageEngine> {
     return used;
   }
   for (const [kind, attribute] of ENGINE_ATTRIBUTES) if (json.includes(`"${attribute}"`)) used.add(kind);
+  for (const match of json.matchAll(/"data-ck-js":"((?:[^"\\]|\\.)*)"/gu)) {
+    if (codeUsesPixi(match[1] ?? '')) used.add('pixi');
+  }
   return used;
 }

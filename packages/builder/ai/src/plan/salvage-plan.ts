@@ -1,9 +1,8 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 
-import type { ResolvedAiCompositionPolicy } from '../context/composition-policy';
 import type { AiEffectiveCommandPolicy } from '../skills';
 import type { AiPlan, AiPlanStep, AiValidationPorts } from '../types';
-import { validateAiPlan } from './validate-plan';
+import { validateAiPlan, type AiDoorComposition } from './validate-plan';
 
 /** A command the salvage left behind, and the reason the door gave for it. */
 export interface DroppedAiPlanStep {
@@ -73,9 +72,7 @@ export function salvageAiPlan(
   kernel: BuilderKernel,
   ports: AiValidationPorts,
   policy?: AiEffectiveCommandPolicy,
-  composition?: Partial<
-    Pick<ResolvedAiCompositionPolicy, 'enforceUtilityVocabulary' | 'colourPolicy'>
-  >,
+  composition?: AiDoorComposition,
 ): SalvagedAiPlan | undefined {
   const kept: AiPlanStep[] = [];
   const dropped: DroppedAiPlanStep[] = [];

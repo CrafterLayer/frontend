@@ -261,10 +261,19 @@ function generationOptions(
   onProgress?: (text: string) => void,
   onSalvage?: (salvaged: SalvagedAiPlan) => void,
 ): GenerateAiPlanOptions {
+  /*
+    Free code mode rides the composition: that is the object the door (and its
+    salvage) and every provider call of this generation already read, so the
+    switch reaches validation, repair and the wire's `freeCode` together.
+  */
   const composition =
-    reading?.focus === undefined
+    reading?.focus === undefined && options.freeCode !== true
       ? options.composition
-      : { ...options.composition, documentFocus: reading.focus };
+      : {
+          ...options.composition,
+          ...(reading?.focus === undefined ? {} : { documentFocus: reading.focus }),
+          ...(options.freeCode === true ? { freeCode: true } : {}),
+        };
   return {
     kernel: options.kernel,
     /*

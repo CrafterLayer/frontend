@@ -6,7 +6,11 @@
   document validated, undoable, and renderable by the same paths as everything
   else.
 */
-import { isCustomCodeTreeSchema, isCustomCssSchema } from '@craftkit/builder-schema';
+import {
+  isCustomCodeTreeSchema,
+  isCustomCssSchema,
+  isCustomJsSchema,
+} from '@craftkit/builder-schema';
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { CustomCodeBlock, customCodeSchema } from './CustomCodeBlock';
@@ -56,6 +60,15 @@ export const builderCustomCode: TrustedExtensionManifest = {
         match: (schema) => (isCustomCssSchema(schema) ? 100 : 0),
         load: () =>
           import('./CustomCodeCssField/CustomCodeCssField').then((module) => ({
+            default: module.default,
+          })),
+      },
+      // Free-code mode (2026-10-09): a region's own script, found by the `customJs()` marker.
+      {
+        id: 'craftkit.custom-code.js',
+        match: (schema) => (isCustomJsSchema(schema) ? 100 : 0),
+        load: () =>
+          import('./CustomCodeJsField/CustomCodeJsField').then((module) => ({
             default: module.default,
           })),
       },

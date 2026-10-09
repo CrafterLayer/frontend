@@ -13,7 +13,7 @@
   DESIGN §2.3 first, then both copies.
 */
 
-export type CkEngineKind = 'scene' | 'timeline' | 'lottie';
+export type CkEngineKind = 'scene' | 'timeline' | 'lottie' | 'pixi';
 
 export interface CkEngineContext {
   /** Editor canvas: draw the first frame, run no ticker. */
@@ -31,6 +31,8 @@ export interface CkEngineContext {
    */
   canvas?: boolean;
   // end gsap-pixi additions
+  /** `pixi` engine only: receives the full pixi.js namespace for the script that queued the entry. */
+  provide?: (namespace: unknown) => void;
 }
 
 export interface CkEngine {

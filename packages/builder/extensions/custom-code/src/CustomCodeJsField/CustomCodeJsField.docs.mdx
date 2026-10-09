@@ -1,0 +1,42 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CustomCodeJsFieldStories from './CustomCodeJsField.stories';
+
+<Meta of={CustomCodeJsFieldStories} />
+
+# CustomCodeJsField
+
+The Inspector control for a region's own script — the `js` prop of a custom-code block, declared
+with `customJs()` and found by that marker, never by the prop's name.
+
+<Canvas of={CustomCodeJsFieldStories.Empty} />
+
+## What the script is
+
+The text is the **body of an async function with one parameter, `ck`**. It runs when the region
+mounts, on the editor canvas and on the published site alike:
+
+| Member                     | Meaning                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| `ck.root`                  | the region element to draw inside (`position: relative` if static)    |
+| `ck.editor`                | `true` on the editor canvas, `false` on Preview and the live site     |
+| `ck.reducedMotion`         | the visitor's reduced-motion preference                               |
+| `ck.onDispose(fn)`         | cleanup: re-run, region removal, page teardown                        |
+| `await ck.pixi()`          | the full pixi.js v8 namespace, loaded lazily                          |
+| `await ck.stage(options?)` | a ready `PIXI.Application` filling `ck.root`: `{ PIXI, app, canvas }` |
+
+<Canvas of={CustomCodeJsFieldStories.Written} />
+
+## A plain box, on purpose
+
+The field does not lint, refuse or strip. This is the owner-approved free-code mode: a script has
+full page access on the published site, and on the canvas it runs inside the editor's frame. What
+gates it is who may **author** `js` — the composer toggle — not this control. A saved script always
+runs.
+
+## One undo entry per edit, not per keystroke
+
+The commit is on **blur**, like the stylesheet field: every accepted edit is a dispatched command
+and therefore a history entry. Leaving the box with text that never changed commits nothing.
+
+<Canvas of={CustomCodeJsFieldStories.Disabled} />

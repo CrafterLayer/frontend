@@ -4,6 +4,7 @@ import type {
   EffortLevel,
   EffortSelectionView,
   EnhancementView,
+  FreeCodeView,
   Locale,
   ModelSelectionView,
   SendState,
@@ -24,6 +25,8 @@ export interface ComposerToolbarProps {
   readonly model: ModelSelectionView | null;
   /** The effort picker; absent or `null` when the provider takes no budget, and none is drawn. */
   readonly effort?: EffortSelectionView | null | undefined;
+  /** The free-code switch; absent or `null` when the host keeps none, and then none is drawn. */
+  readonly freeCode?: FreeCodeView | null | undefined;
   readonly send: SendState;
   readonly enhancement: EnhancementView;
   /** A run is live: Mode says its change applies next time, Improve waits. */
@@ -31,6 +34,7 @@ export interface ComposerToolbarProps {
   readonly onModeChange: (mode: AssistantMode) => void;
   readonly onModelChange: (id: string) => void;
   readonly onEffortChange?: ((level: EffortLevel) => void) | undefined;
+  readonly onFreeCodeChange?: ((enabled: boolean) => void) | undefined;
   /** `[@]`: start a mention in the draft (the Composer types the `@` and opens the list). */
   readonly onMention: () => void;
   readonly onEnhance: () => void;
@@ -53,12 +57,14 @@ export function ComposerToolbar({
   mode,
   model,
   effort,
+  freeCode,
   send,
   enhancement,
   running,
   onModeChange,
   onModelChange,
   onEffortChange,
+  onFreeCodeChange,
   onMention,
   onEnhance,
   onSend,
@@ -76,6 +82,18 @@ export function ComposerToolbar({
         )}
       </div>
       <div className="ck-agent-toolbar__actions">
+        {freeCode == null || onFreeCodeChange === undefined ? null : (
+          <IconButton
+            icon="code"
+            label={t(locale, 'freeCode.button')}
+            hint={t(locale, freeCode.enabled ? 'freeCode.on' : 'freeCode.off')}
+            pressed={freeCode.enabled}
+            tooltipSide="top"
+            onClick={() => {
+              onFreeCodeChange(!freeCode.enabled);
+            }}
+          />
+        )}
         <EnhanceButton
           locale={locale}
           enhancement={enhancement}

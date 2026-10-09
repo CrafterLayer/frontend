@@ -130,6 +130,8 @@ const SCAFFOLD_COMMANDS: readonly string[] = Object.freeze(['insertNode', 'setPr
 const FILL_COMMANDS: readonly string[] = Object.freeze(['setProp']);
 /** The only props a section writer may set, and only on its own region. */
 const FILL_KEYS: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css']);
+/** With free code mode on a writer may also give its region a scene: its own `js`. */
+const FILL_KEYS_WITH_CODE: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css', 'js']);
 const SCAFFOLD_SKILL = 'craftkit.build-scaffold';
 const FILL_SKILL = 'craftkit.build-fill';
 /**
@@ -244,6 +246,8 @@ function sharedStepOptions(
       : { selectedSkillIds: options.selectedSkillIds }),
     ...(options.policy === undefined ? {} : { policy: options.policy }),
     ...(options.composition === undefined ? {} : { composition: options.composition }),
+    // Free code mode is the person's, for the whole build: every step's request carries it.
+    ...(options.freeCode === true ? { freeCode: true } : {}),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
     /*
       A step's run id is NOT the build's, so the caller's lease check would
@@ -828,7 +832,11 @@ export function completeKitSteps(plan: PagePlan, contract: SectionContract, answ
 function fillComposition(
   options: RunAiBuildOptions,
 ): NonNullable<RunAiAgentOptions['composition']> {
-  return { ...options.composition, documentTreeMode: 'scoped' };
+  return {
+    ...options.composition,
+    documentTreeMode: 'scoped',
+    ...(options.freeCode === true ? { freeCode: true } : {}),
+  };
 }
 
 const SECTION_TOOL_LANES: readonly AgentToolLane[] = Object.freeze(['section']);
@@ -901,8 +909,8 @@ function stringArg(args: unknown, name: 'id' | 'key'): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-function isFillKey(key: string | undefined): key is AiBuildSectionKey {
-  return key !== undefined && (FILL_KEYS as readonly string[]).includes(key);
+function isFillKey(key: string | undefined, allowed: readonly AiBuildSectionKey[]): key is AiBuildSectionKey {
+  return key !== undefined && (allowed as readonly string[]).includes(key);
 }
 
 /**
@@ -920,14 +928,15 @@ function isFillKey(key: string | undefined): key is AiBuildSectionKey {
  * Everything outside is dropped before landing and handed back to be
  * REPORTED on the section, never silently counted as applied.
  */
-function guardFill(plan: AiPlan, task: AiBuildTask): GuardedFill {
+function guardFill(plan: AiPlan, task: AiBuildTask, freeCode = false): GuardedFill {
+  const allowed = freeCode ? FILL_KEYS_WITH_CODE : FILL_KEYS;
   const commands: AiPlan['commands'][number][] = [];
   const keys = new Set<AiBuildSectionKey>();
   const outOfScope: AiBuildOutOfScopeStep[] = [];
   for (const step of plan.commands) {
     const id = stringArg(step.args, 'id');
     const key = stringArg(step.args, 'key');
-    if (step.command === 'setProp' && id === task.id && isFillKey(key)) {
+    if (step.command === 'setProp' && id === task.id && isFillKey(key, allowed)) {
       commands.push(step);
       keys.add(key);
       continue;
@@ -937,13 +946,13 @@ function guardFill(plan: AiPlan, task: AiBuildTask): GuardedFill {
         command: step.command,
         ...(id === undefined ? {} : { id }),
         ...(key === undefined ? {} : { key }),
-        reason: `A section writer may set only its own region's tree and css (region ${task.id}); this ${step.command}${key === undefined ? '' : ` of "${key}"`}${id === undefined ? '' : ` on ${id}`} reached outside it and was dropped.`,
+        reason: `A section writer may set only its own region's ${freeCode ? 'tree, css and js' : 'tree and css'} (region ${task.id}); this ${step.command}${key === undefined ? '' : ` of "${key}"`}${id === undefined ? '' : ` on ${id}`} reached outside it and was dropped.`,
       }),
     );
   }
   return {
     commands: Object.freeze(commands),
-    keys: FILL_KEYS.filter((key) => keys.has(key)),
+    keys: allowed.filter((key) => keys.has(key)),
     outOfScope: Object.freeze(outOfScope),
   };
 }
@@ -1501,7 +1510,7 @@ async function checkAndRepair(
       jobSignal,
     );
     emit({ type: 'plan.validating', attempt: 2 });
-    const guardedSecond = guardFill(repaired, job.task);
+    const guardedSecond = guardFill(repaired, job.task, options.freeCode === true);
     const tidiedSecond = job.tidy?.(guardedSecond.commands);
     const second =
       tidiedSecond === undefined || tidiedSecond === guardedSecond.commands
@@ -1760,7 +1769,7 @@ function startFill(
           signal,
         );
         if (stale()) return undefined;
-        const guarded = guardFill(run.proposal.plan, task);
+        const guarded = guardFill(run.proposal.plan, task, options.freeCode === true);
         outOfScope = guarded.outOfScope;
         if (guarded.commands.length === 0) {
           // Everything it wrote was somewhere else: a failed attempt, not a landing.
@@ -2743,6 +2752,7 @@ async function planStep(
       ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
       ...(options.policy === undefined ? {} : { policy: options.policy }),
       ...(options.composition === undefined ? {} : { composition: options.composition }),
+      ...(options.freeCode === true ? { freeCode: true } : {}),
       ...(options.contextProviders === undefined
         ? {}
         : { contextProviders: options.contextProviders }),

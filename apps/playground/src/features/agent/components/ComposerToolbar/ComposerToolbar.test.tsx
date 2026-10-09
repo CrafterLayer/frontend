@@ -117,6 +117,29 @@ describe('ComposerToolbar', () => {
     expect(given.onSend).toHaveBeenCalledTimes(1);
   });
 
+  it('draws no free-code switch where the host keeps none', () => {
+    render(<ComposerToolbar {...props()} />);
+    expect(screen.queryByRole('button', { name: t('en', 'freeCode.button') })).toBeNull();
+  });
+
+  it('shows the free-code switch as pressed when on and asks for the opposite on a press', async () => {
+    const user = userEvent.setup();
+    const onFreeCodeChange = vi.fn();
+    const { rerender } = render(
+      <ComposerToolbar {...props({ freeCode: { enabled: false }, onFreeCodeChange })} />,
+    );
+    const off = screen.getByRole('button', { name: t('en', 'freeCode.button') });
+    expect(off).toHaveAttribute('aria-pressed', 'false');
+    await user.click(off);
+    expect(onFreeCodeChange).toHaveBeenLastCalledWith(true);
+
+    rerender(<ComposerToolbar {...props({ freeCode: { enabled: true }, onFreeCodeChange })} />);
+    const on = screen.getByRole('button', { name: t('en', 'freeCode.button') });
+    expect(on).toHaveAttribute('aria-pressed', 'true');
+    await user.click(on);
+    expect(onFreeCodeChange).toHaveBeenLastCalledWith(false);
+  });
+
   it('is never disabled for the mode while a run is live', () => {
     render(<ComposerToolbar {...props({ running: true, send: 'running-empty' })} />);
     const mode = screen.getByRole('button', { name: 'Mode: Auto' });

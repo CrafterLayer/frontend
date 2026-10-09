@@ -492,6 +492,16 @@ function modelChoiceFields(live: unknown): { model?: string; effort?: 'low' | 'm
   };
 }
 
+/**
+ * Free code mode, when a run turned it on (`AiProposeOptions.freeCode`): the
+ * body carries `freeCode: true` and nothing otherwise, so a request from a run
+ * without the mode is byte-identical to one written before the field existed.
+ */
+function freeCodeField(live: unknown): { freeCode?: true } {
+  if (live === null || typeof live !== 'object') return {};
+  return (live as { freeCode?: unknown }).freeCode === true ? { freeCode: true } : {};
+}
+
 /** One POST: where, what, how long it may take, and how its answer is read. */
 interface RemoteExchange<T> {
   readonly url: string;
@@ -700,6 +710,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
             context,
             ...(live?.history === undefined ? {} : { history: live.history }),
             ...modelChoiceFields(live),
+            ...freeCodeField(live),
           },
           parseWireResponse,
         ),
@@ -722,6 +733,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
             ...(live?.history === undefined ? {} : { history: live.history }),
             attempt: { plan, issues },
             ...modelChoiceFields(live),
+            ...freeCodeField(live),
           },
           parseWireResponse,
         ),
@@ -753,6 +765,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
             ...(attempt === undefined
               ? {}
               : { pagePlanAttempt: { pagePlan: attempt.pagePlan, issues: attempt.issues } }),
+            ...freeCodeField(live),
           },
           (payload) => parsePagePlanResponse(payload, remember),
           true,

@@ -128,6 +128,83 @@ describe('custom-code canvas/static parity', () => {
     expect(published).not.toContain('<style>');
   });
 
+  describe('a region script (free-code mode, 2026-10-09)', () => {
+    const js = 'const ok = "a" < "b" && \'c\' > "d";\nck.onDispose(() => {});';
+
+    /** The canvas region with the runtime's own after-mount bookkeeping removed. */
+    function canvasRegionHtml(container: HTMLElement): string {
+      const region = container.querySelector('[data-ck="region"]')?.cloneNode(true) as HTMLElement;
+      region.removeAttribute('style'); // `position: relative`, set by the script runtime
+      region.removeAttribute('data-ck-js-mounted');
+      return region.outerHTML;
+    }
+
+    it('publishes the same markup the canvas renders, with the code on the region', () => {
+      const document = documentWith({ label: 'Experience', tree, css: '', js });
+      const kernel = kernelFor(document);
+
+      const canvas = render(<DocumentView kernel={kernel} isCanvas={false} />);
+      const published = renderStaticMarkup(document, {
+        blocks: (type) => kernel.context.registry.block(type),
+      });
+
+      /*
+        Compared as DOM, not as strings: React's server markup escapes `<`, `>` and `'` in an
+        attribute value, the DOM serializer does not, and the two are the same attribute. What must
+        hold is that the page the visitor parses has the region the canvas rendered.
+      */
+      const parsed = new DOMParser().parseFromString(published, 'text/html');
+      const publishedRegion = parsed.querySelector('[data-ck="region"]');
+      expect(normalize(publishedRegion?.outerHTML ?? 'MISSING')).toBe(
+        normalize(canvasRegionHtml(canvas.container)),
+      );
+      expect(publishedRegion?.getAttribute('data-ck-js')).toBe(js);
+      const region = canvas.container.querySelector('[data-ck="region"]');
+      expect(region?.getAttribute('data-ck-js')).toBe(js);
+      expect(region?.getAttribute('data-ck-js-id')).toBe('region');
+      expect(published).toContain('data-ck-js-id="region"');
+    });
+
+    it('never publishes the code as a <script>', () => {
+      const document = documentWith({ label: 'Experience', tree, css: '', js });
+      const kernel = kernelFor(document);
+
+      const published = renderStaticMarkup(document, {
+        blocks: (type) => kernel.context.registry.block(type),
+      });
+
+      expect(published).not.toContain('<script');
+    });
+
+    it('writes no attribute, on either path, for an empty or blank script', () => {
+      for (const blank of ['', '  \n ']) {
+        const document = documentWith({ label: 'Experience', tree, css: '', js: blank });
+        const kernel = kernelFor(document);
+
+        const canvas = render(<DocumentView kernel={kernel} isCanvas={false} />);
+        const published = renderStaticMarkup(document, {
+          blocks: (type) => kernel.context.registry.block(type),
+        });
+
+        expect(canvas.container.querySelector('[data-ck-js]')).toBeNull();
+        expect(published).not.toContain('data-ck-js');
+        canvas.unmount();
+      }
+    });
+
+    it('renders the attribute on the editor canvas too, where the same script runs under the guard', () => {
+      const document = documentWith({ label: 'Experience', tree, css: '', js });
+      const kernel = kernelFor(document);
+
+      const canvas = render(<DocumentView kernel={kernel} isCanvas />);
+      const region = canvas.container.querySelector('[data-ck="region"]');
+
+      expect(region?.getAttribute('data-ck-js')).toBe(js);
+      expect(region?.getAttribute('data-ck-js-id')).toBe('region');
+      canvas.unmount();
+    });
+  });
+
   it('is registered against the page root vocabulary it will be inserted into', () => {
     // The block exists to be inserted at the root; a registration the root
     // refuses is a block that can never be used.

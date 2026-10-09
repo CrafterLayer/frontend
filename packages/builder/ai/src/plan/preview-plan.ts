@@ -8,7 +8,7 @@ import {
   resolveAiProposalAuthority,
   type AiValidatedProposal,
 } from './validated-proposal';
-import { assertValidAiPlan, createValidationKernel } from './validate-plan';
+import { assertValidAiPlan, AUTHORED_PLAN_DOOR, createValidationKernel } from './validate-plan';
 
 interface PreviewAiPlanOptionsBase {
   kernel: BuilderKernel;
@@ -44,6 +44,7 @@ export function previewAiPlan(options: PreviewAiPlanOptions): BuilderDocument {
     options.kernel,
     options.validationPorts,
     authority.policy,
+    AUTHORED_PLAN_DOOR,
   );
   const scratch = createValidationKernel(plan, options.kernel, options.validationPorts);
   if (authority.proposal !== undefined) {

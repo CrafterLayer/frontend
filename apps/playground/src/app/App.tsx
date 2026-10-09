@@ -172,6 +172,16 @@ const envPlanModels = planModelsFromEnv(import.meta.env);
 const PLAN_MODEL_KEY = 'pg-ai-model-v1';
 /* How hard the model may think (the composer's effort menu); `medium` until a person says otherwise. */
 const PLAN_EFFORT_KEY = 'pg-ai-effort-v1';
+/* The composer's free-code switch (the agent may write JavaScript and full PixiJS scenes); off until a person turns it on. */
+const FREE_CODE_KEY = 'pg-ai-free-code-v1';
+function initialFreeCode(): boolean {
+  try {
+    return localStorage.getItem(FREE_CODE_KEY) === '1';
+  } catch {
+    // A private window has no memory; the switch starts off.
+    return false;
+  }
+}
 function initialPlanEffort(): EffortLevel {
   try {
     return effortLevel(localStorage.getItem(PLAN_EFFORT_KEY)) ?? DEFAULT_EFFORT;
@@ -442,6 +452,15 @@ export function App() {
       localStorage.setItem(PLAN_EFFORT_KEY, level);
     } catch {
       // A private window forgets the choice; the menu still works for the session.
+    }
+  }, []);
+  const [freeCode, setFreeCode] = useState<boolean>(initialFreeCode);
+  const toggleFreeCode = useCallback((enabled: boolean) => {
+    setFreeCode(enabled);
+    try {
+      localStorage.setItem(FREE_CODE_KEY, enabled ? '1' : '0');
+    } catch {
+      // A private window forgets the choice; the switch still works for the session.
     }
   }, []);
   /*
@@ -1231,6 +1250,8 @@ export function App() {
                         {...(envPlanProvider === undefined
                           ? {}
                           : { effort: planEffort, onSelectEffort: selectPlanEffort })}
+                        freeCode={freeCode}
+                        onToggleFreeCode={toggleFreeCode}
                         editModel={agentEditModel}
                         editEffort={AGENT_EDIT_EFFORT}
                         addPage={openAgentPage}

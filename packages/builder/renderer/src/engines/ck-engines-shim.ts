@@ -24,7 +24,13 @@
  * inject a module-scope helper into it.
  */
 
-export type CkEngineKind = 'scene' | 'timeline' | 'lottie';
+/*
+  `pixi` is the odd one out (free-code mode, 2026-10-09): it is not a marker the `engines` pack
+  finds on an element but the FULL pixi.js namespace (`assets/ck-pixi.js`) a region script asks for
+  through `ck.pixi()` / `ck.stage()`. The `scripts` pack queues `{kind: 'pixi', el: region, ctx}`
+  with `ctx.provide` set, and the bundle's `mount` hands the namespace to that callback.
+*/
+export type CkEngineKind = 'scene' | 'timeline' | 'lottie' | 'pixi';
 
 export interface CkEngineContext {
   /** Canvas: draw the final/first frame, no ticker, no scroll. */
@@ -43,6 +49,8 @@ export interface CkEngineContext {
    */
   canvas?: boolean;
   // end gsap-pixi additions
+  /** `pixi` engine only: receives the full pixi.js namespace for the script that queued the entry. */
+  provide?: (namespace: unknown) => void;
 }
 
 export interface CkEngine {

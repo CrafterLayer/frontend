@@ -16,6 +16,7 @@ import { ENGINES_PACK_CSS, mountEngines } from './engines';
 import { CAROUSEL_PACK_CSS, GALLERY_PACK_CSS } from './gallery-css';
 import { mountGallery } from './gallery';
 import { mountMailtoForm } from './mailto-form';
+import { mountScripts } from './scripts';
 import { mountToggleGroup } from './toggle-group';
 import { VIDEO_PACK_CSS } from './video-css';
 import { mountVideoPlayer } from './video-player';
@@ -36,6 +37,8 @@ export const BEHAVIOR_PACKS: readonly BehaviorPack[] = [
   mountToggleGroup,
   mountMailtoForm,
   mountEngines,
+  // free-code mode (2026-10-09): a region's `js` (data-ck-js).
+  mountScripts,
 ];
 
 export const PACK_CSS: string = [
@@ -57,6 +60,8 @@ export {
   mountEngines,
   mountGallery,
   mountMailtoForm,
+  mountScripts,
   mountToggleGroup,
   mountVideoPlayer,
 };
+export type { CkScriptApi } from './scripts';

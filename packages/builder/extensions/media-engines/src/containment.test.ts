@@ -39,6 +39,9 @@ const repoRoot = resolve(import.meta.dirname, '../../../../..');
  * instead for what matters: no real import statement at all.
  */
 const GENERATED_BUNDLE = 'packages/builder/renderer/src/engines/scene-source.ts';
+/** The FULL pixi.js bundle for region scripts (free-code mode, 2026-10-09): same rules, same reason. */
+const GENERATED_FULL_BUNDLE = 'packages/builder/renderer/src/engines/pixi-full-source.ts';
+const GENERATED_BUNDLES = [GENERATED_BUNDLE, GENERATED_FULL_BUNDLE];
 
 function directoriesIn(relativeRoot: string): string[] {
   const base = join(repoRoot, relativeRoot);
@@ -87,7 +90,7 @@ function* walk(dir: string): Generator<string> {
 }
 
 function importsIn(file: string): string[] {
-  if (relative(repoRoot, file).replaceAll('\\', '/') === GENERATED_BUNDLE) {
+  if (GENERATED_BUNDLES.includes(relative(repoRoot, file).replaceAll('\\', '/'))) {
     return [];
   }
   const found: string[] = [];
@@ -141,8 +144,8 @@ describe('canvas scene engine containment (media-motion)', () => {
     expect(offenders).toEqual([]);
   }, 30_000);
 
-  it('the generated bundle module imports nothing at all', () => {
-    const generated = readFileSync(join(repoRoot, GENERATED_BUNDLE), 'utf8');
+  it.each(GENERATED_BUNDLES)('the generated bundle module %s imports nothing at all', (path) => {
+    const generated = readFileSync(join(repoRoot, path), 'utf8');
     expect(generated).toContain('GENERATED FILE');
     expect(generated).not.toMatch(
       /^\s*(?:import|export\s+\*\s+from|export\s+\{[^}]*\}\s+from)\s/mu,

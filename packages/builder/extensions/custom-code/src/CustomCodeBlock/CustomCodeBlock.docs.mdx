@@ -27,7 +27,8 @@ layers tree — this region was authored, and it is edited as a unit.
 
 ## What this file owns
 
-Only two things: the stored props, and the stylesheet that belongs to this one region. The walk
+Only three things: the stored props, the stylesheet that belongs to this one region, and the
+region's own script (below). The walk
 itself lives in the renderer package as
 [`CustomCode`](?path=/docs/builder-renderer-customcode--docs), because the tolerant read, the depth
 ceiling and component resolution are rendering concerns shared by the canvas and the static export.
@@ -55,5 +56,35 @@ So the canvas says why, in the same voice `UnknownBlock` uses, naming the rule t
 
 The published page never carries the note. A visitor cannot act on it, and a page that explains its
 own chrome to a reader is talking to the wrong person.
+
+## A region can run its own script
+
+<Canvas of={CustomCodeBlockStories.WithScript} />
+
+`js` (up to 32 000 characters, the `customJs()` marker, the **Custom JS** field in the Advanced tab)
+is the owner-approved free-code mode: the text is the **body of an async function with one parameter,
+`ck`**, and it runs when the region mounts — on the editor canvas _and_ on the published site. The
+composer toggle gates who may **author** it; a block that already carries `js` always runs.
+
+| `ck` member                | Meaning                                                              |
+| -------------------------- | -------------------------------------------------------------------- |
+| `ck.root`                  | the region element to draw inside (`position: relative` if static)   |
+| `ck.editor`                | `true` on the editor canvas, `false` on Preview and the live site    |
+| `ck.reducedMotion`         | the visitor's reduced-motion preference                              |
+| `ck.onDispose(fn)`         | cleanup on re-run, region removal and page teardown                  |
+| `await ck.pixi()`          | the **full** pixi.js v8 namespace, loaded lazily                     |
+| `await ck.stage(options?)` | a ready `PIXI.Application` filling `ck.root`: `{ PIXI, app, canvas }` |
+
+It is a prop of its own, not part of the tree: **the tree still cannot express a `<script>`**, and the
+renderer never emits one. The code rides on the region as `data-ck-js` (plus `data-ck-js-id`, the node
+id), which the same attribute escaping round-trips, so the canvas and the published page stay equal;
+the `scripts` behaviour pack evaluates it. `ck-pixi.js` ships on a published site only when some
+page's code names Pixi (`ck.pixi()` / `ck.stage()`).
+
+Errors never escape: each run is try/caught, logged as `[ck-js]`, and on the canvas the region gets
+`data-ck-js-error="<message>"` for the shell to show. A script has full page access on the published
+site, by design. On the canvas a **crash guard** protects the editor from a synchronous infinite
+loop: it records that scripts are running in `localStorage['ck-js-guard']` and clears it on the next
+task; if the page boots with the flag still set, no script runs and each region says so.
 
 <Canvas of={CustomCodeBlockStories.Empty} />

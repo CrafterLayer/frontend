@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 import type { BlockSchema } from '../blocks/define-block-schema';
 import { findRawStyleLiterals } from '../blocks/style-values';
-import { isCustomCodeTreeSchema, isCustomCssSchema } from '../custom-code/custom-code-tree';
+import {
+  isCustomCodeTreeSchema,
+  isCustomCssSchema,
+  isCustomJsSchema,
+} from '../custom-code/custom-code-tree';
 import { type BuilderError, builderError } from '../errors';
 import { RESERVED_JSON_KEYS, findJsonViolation, type JsonValue } from '../json/json-value';
 import { BREAKPOINTS, type BuilderDocument, type Node, type NodeId } from './types';
@@ -374,11 +378,13 @@ function validatePropsAgainstSchema(
  * Props the intent-only law does not apply to.
  *
  * The law exists so a registered block's props hold ROLES the site can
- * re-theme — `bg-accent`, not `#1e3a8a`. Two kinds of prop are authored
+ * re-theme — `bg-accent`, not `#1e3a8a`. Three kinds of prop are authored
  * values by their nature and were never meant to be governed by it:
  *
  * - a stylesheet (`customCss()`): CSS is made of colour codes and lengths;
  *   a stylesheet with none of them is a stylesheet that cannot say anything;
+ * - a region script (`customJs()`): code is not styling — a canvas scene
+ *   writes `0x1e3a8a` and `16px` as ordinary literals;
  * - a composed region (`customCodeTree()`): its text may say "Ticket #ff0",
  *   and its classes are policed by the AI door's own vocabulary law.
  *
@@ -396,7 +402,10 @@ function stylePropsExemptFromLaw(schema: BlockSchema | undefined): ReadonlySet<s
   if (shape === undefined) return new Set();
   return new Set(
     Object.entries(shape)
-      .filter(([, field]) => isCustomCssSchema(field) || isCustomCodeTreeSchema(field))
+      .filter(
+        ([, field]) =>
+          isCustomCssSchema(field) || isCustomJsSchema(field) || isCustomCodeTreeSchema(field),
+      )
       .map(([name]) => name),
   );
 }

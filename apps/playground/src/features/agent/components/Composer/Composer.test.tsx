@@ -66,6 +66,7 @@ function spies(): Spies {
     setMode: vi.fn<ComposerActions['setMode']>(),
     setModel: vi.fn<ComposerActions['setModel']>(),
     setEffort: vi.fn<NonNullable<ComposerActions['setEffort']>>(),
+    setFreeCode: vi.fn<NonNullable<ComposerActions['setFreeCode']>>(),
     enhanceDraft: vi.fn<ComposerActions['enhanceDraft']>(),
     restoreDraft: vi.fn<ComposerActions['restoreDraft']>(),
     answerClarify: vi.fn<ComposerActions['answerClarify']>(),

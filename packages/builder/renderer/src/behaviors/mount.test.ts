@@ -9,7 +9,7 @@ vi.mock('../engines/inject', () => ({
   },
 }));
 
-import { mountSiteBehaviors } from './mount';
+import { mountRegionScripts, mountSiteBehaviors } from './mount';
 
 function host(html: string): HTMLElement {
   const el = document.createElement('div');
@@ -70,5 +70,36 @@ describe('mountSiteBehaviors', () => {
     mountSiteBehaviors(root, { interactive: false });
     root.querySelector('img')?.click();
     expect(document.querySelector('dialog[data-ck-lightbox]')).toBeNull();
+  });
+});
+
+describe('region scripts (free-code mode, 2026-10-09)', () => {
+  const SCRIPT = `<div id="s" data-ck-js-id="s" data-ck-js="ck.root.setAttribute('data-ran', 'yes')"></div>`;
+
+  it('mountSiteBehaviors runs the scripts pack with the rest, unless told not to', () => {
+    const on = host(SCRIPT);
+    mountSiteBehaviors(on)();
+    expect(on.querySelector('#s')?.getAttribute('data-ran')).toBe('yes');
+
+    document.body.innerHTML = '';
+    const off = host(SCRIPT);
+    mountSiteBehaviors(off, { scripts: false })();
+    expect(off.querySelector('#s')?.hasAttribute('data-ran')).toBe(false);
+  });
+
+  it('mountRegionScripts runs the script and injects the canvas engines it may need, with ONE disposer', () => {
+    const root = host(SCRIPT);
+    const dispose = mountRegionScripts(root, { interactive: false, watch: false });
+    expect(root.querySelector('#s')?.getAttribute('data-ran')).toBe('yes');
+    expect(inject.calls).toEqual([root]);
+    dispose();
+    dispose();
+    expect(inject.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('mountRegionScripts leaves engine loading to the page where an exported locator link exists', () => {
+    document.head.innerHTML = '<link rel="ck-engine" href="/assets/ck-pixi.js" data-ck-engine="pixi">';
+    mountRegionScripts(host(SCRIPT))();
+    expect(inject.calls).toHaveLength(0);
   });
 });

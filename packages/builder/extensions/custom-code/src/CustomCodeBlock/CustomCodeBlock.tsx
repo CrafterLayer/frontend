@@ -11,7 +11,8 @@ import { findCssRejection, scopeCustomCodeCss } from './scope-css';
  * the depth ceiling, and the component-reference resolution are rendering
  * concerns shared by the canvas and the static export. This file owns only
  * what is specific to the BLOCK: its stored props, and the stylesheet that
- * belongs to this one region.
+ * belongs to this one region. The region's `js` is handed straight through:
+ * `CustomCode` puts it on the wrapper as `data-ck-js` (never a `<script>`).
  */
 export function CustomCodeBlock({ node, props, isCanvas }: BlockRenderProps<CustomCodeBlockProps>) {
   const css = scopeCustomCodeCss(props.css, node.id);
@@ -34,7 +35,7 @@ export function CustomCodeBlock({ node, props, isCanvas }: BlockRenderProps<Cust
           the rest of the stylesheet will apply.
         </p>
       )}
-      <CustomCode tree={props.tree} hostId={node.id} isCanvas={isCanvas} />
+      <CustomCode tree={props.tree} hostId={node.id} isCanvas={isCanvas} js={props.js} />
     </>
   );
 }

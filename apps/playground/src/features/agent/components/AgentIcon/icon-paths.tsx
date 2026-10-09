@@ -168,6 +168,16 @@ export const ICONS = {
     ),
     mirror: false,
   },
+  /** The composer's free-code switch `</>`: code the agent writes outright. Never mirrors. */
+  code: {
+    shapes: (
+      <>
+        <path d="M10.5 11.5 14 8l-3.5-3.5" />
+        <path d="M5.5 4.5 2 8l3.5 3.5" />
+      </>
+    ),
+    mirror: false,
+  },
   /** The plan's mood field `[✎]`. */
   pencil: {
     shapes: (

@@ -34,6 +34,12 @@ const REVERT_PREFIX = 'Assistant: revert ';
 /** The kernel refuses a longer grouped-dispatch label outright. */
 const MAX_LABEL_LENGTH = 160;
 const SECTION_KEYS: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css']);
+/**
+ * Every prop a fill may have written. `js` (free code mode) is not in the
+ * default snapshot — a region carries it as '' in every ordinary build — but a
+ * landing that recorded it is compared and put back like the others.
+ */
+const WRITTEN_KEYS: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css', 'js']);
 
 export type AiBuildRevertErrorCode = 'not-landed' | 'region-missing' | 'changed-since';
 
@@ -76,7 +82,7 @@ function stillHolds(
   id: NodeId,
   expected: AiBuildSectionValues,
 ): boolean {
-  const keys = SECTION_KEYS.filter((key) => key in expected);
+  const keys = WRITTEN_KEYS.filter((key) => key in expected);
   const current = readSectionValues(document, id, keys);
   return keys.every(
     (key) => canonicalJsonStringify(current[key]) === canonicalJsonStringify(expected[key]),
@@ -132,7 +138,7 @@ export function revertBuildSection(
       `Section "${report.title}" was changed after the build wrote it; reverting it would discard that change.`,
     );
   }
-  const commands: AiPlan['commands'] = SECTION_KEYS.flatMap((key) => {
+  const commands: AiPlan['commands'] = WRITTEN_KEYS.flatMap((key) => {
     const value = landing.before[key];
     return value === undefined ? [] : [{ command: 'setProp', args: { id: report.id, key, value } }];
   });

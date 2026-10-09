@@ -33,6 +33,8 @@ export const ENGINE_LOADERS: Readonly<Record<PageEngine, EngineLoader>> = {
   },
   // The scene bundle already holds its banner and installs itself (`installSceneEngine(window)`).
   scene: async () => (await import('./scene-source')).SCENE_SOURCE,
+  // The FULL pixi.js bundle for region scripts (free-code mode, 2026-10-09): same shape, installs itself.
+  pixi: async () => (await import('./pixi-full-source')).PIXI_FULL_SOURCE,
   lottie: async () => {
     const [{ LOTTIE_BANNER, LOTTIE_SOURCE }, { installLottieEngine }] = await Promise.all([
       import('./lottie-source'),
@@ -70,9 +72,18 @@ export function ensureCanvasEngines(
   const noop = (): void => undefined;
   if (doc === null) return noop;
   const view = doc.defaultView;
-  if (view !== null && typeof view.matchMedia === 'function' && view.matchMedia('(prefers-reduced-motion: reduce)').matches)
-    return noop;
-  const kinds = [...pageEngines(root)].filter((kind) => !present(doc, kind));
+  const reduced =
+    view !== null &&
+    typeof view.matchMedia === 'function' &&
+    view.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /*
+    Under reduced motion nothing loads, except the full pixi.js bundle (free-code mode): a region
+    script asked for it by name and decides for itself what to draw (`ck.reducedMotion`); without
+    it `ck.pixi()` would wait for a bundle that never comes.
+  */
+  const kinds = [...pageEngines(root)].filter(
+    (kind) => (!reduced || kind === 'pixi') && !present(doc, kind),
+  );
   if (kinds.length === 0) return noop;
   let cancelled = false;
   for (const kind of kinds) {

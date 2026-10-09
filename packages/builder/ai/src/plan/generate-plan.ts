@@ -164,7 +164,8 @@ export class AiContextBudgetError extends Error {
  * call that never reaches the door.
  */
 export function liveOptionsForOutline(options: GenerateAiPlanOptions): AiProposeOptions {
-  return liveOptions(options);
+  // An outline proposes no commands, so there is no page code for free code mode to author.
+  return channelOptions(options);
 }
 
 /**
@@ -184,7 +185,7 @@ export function contextOptionsForOutline(
   };
 }
 
-function liveOptions(options: GenerateAiPlanOptions): AiProposeOptions {
+function channelOptions(options: GenerateAiPlanOptions): AiProposeOptions {
   const live: AiProposeOptions = {};
   if (options.signal !== undefined) {
     live.signal = options.signal;
@@ -194,6 +195,20 @@ function liveOptions(options: GenerateAiPlanOptions): AiProposeOptions {
   }
   if (options.history !== undefined) {
     live.history = options.history;
+  }
+  return live;
+}
+
+/**
+ * What every propose, repair and forget of one generation carries. Free code
+ * mode rides here (not only on the provider wrapper) so the three calls agree
+ * on it: a caching provider that keys on it must `forget` under the key it
+ * stored the answer by.
+ */
+function liveOptions(options: GenerateAiPlanOptions): AiProposeOptions {
+  const live = channelOptions(options);
+  if (options.composition?.freeCode === true) {
+    live.freeCode = true;
   }
   return live;
 }

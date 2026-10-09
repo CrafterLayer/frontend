@@ -116,6 +116,19 @@ export interface AiCompositionPolicy {
    */
   readonly colourPolicy?: 'free' | 'tokens';
   /**
+   * Whether the run may AUTHOR page code: a non-empty `js` on a `customCode`
+   * block (custom JavaScript, custom PixiJS scenes). Defaults to `false`.
+   *
+   * The composer's «وضع الكود الحر» switch (`RunAiAgentOptions.freeCode` sets
+   * this for a run). Off, the door refuses such a step with a reason that
+   * names the switch, so the person hears what to do instead of the model
+   * quietly dropping the request. On, the door still holds the code to its
+   * size and to the one literal that would end the page's own script early.
+   * Like the colour policy it gates what the assistant WRITES: a plan that
+   * already passed it is applied and previewed without asking again.
+   */
+  readonly freeCode?: boolean;
+  /**
    * How much of an ALREADY-COMPOSED region's tree the document context carries.
    * Defaults to `'full'`.
    *
@@ -148,6 +161,7 @@ export interface ResolvedAiCompositionPolicy {
   readonly alwaysDetailedBlockTypes: ReadonlySet<string>;
   readonly enforceUtilityVocabulary: boolean;
   readonly colourPolicy: 'free' | 'tokens';
+  readonly freeCode: boolean;
   readonly documentTreeMode: 'full' | 'scoped';
   readonly treeScopeNodeIds: ReadonlySet<string>;
 }
@@ -184,6 +198,7 @@ export function resolveAiCompositionPolicy(
     ),
     enforceUtilityVocabulary: policy?.enforceUtilityVocabulary ?? true,
     colourPolicy: policy?.colourPolicy ?? 'free',
+    freeCode: policy?.freeCode === true,
     documentTreeMode: policy?.documentTreeMode ?? 'full',
     treeScopeNodeIds:
       policy?.treeScopeNodeIds === undefined

@@ -34,7 +34,7 @@ import {
 import { resolveCustomCodeAssetSrc, useAssetTable, type AssetTable } from '../../assets/asset-table';
 import { ensureBehaviorCss, ensureMotionCss } from '../../behaviors/behaviors-css';
 import { BEHAVIOR_RUNTIME_SELECTOR } from '../../behaviors/script';
-import { mountSiteBehaviors } from '../../behaviors/mount'; // media-motion (2026-10-06)
+import { mountRegionScripts, mountSiteBehaviors } from '../../behaviors/mount'; // media-motion (2026-10-06); + free-code scripts
 import { CUSTOM_CODE_REGION_ATTRIBUTE } from '../../tailwind/live-utilities';
 import { safeHref } from '../RichText/safe-href';
 import { UnknownBlock } from '../UnknownBlock';
@@ -727,6 +727,13 @@ export interface CustomCodeProps {
   className?: string | undefined;
   /** Overrides the context lookup; the static export path passes one directly. */
   blockLookup?: CustomCodeBlockLookup | undefined;
+  /**
+   * The region's own script (free-code mode, 2026-10-09). Never emitted as a `<script>`: it rides
+   * on the region as `data-ck-js` (plus `data-ck-js-id`), and the `scripts` behaviour pack
+   * evaluates it — in the canvas through the effect below, on a published page through
+   * `assets/ck-behaviors.js`. Empty or blank: no attribute.
+   */
+  js?: string | undefined;
 }
 
 /** Render a stored custom-code tree. Never throws; never injects raw HTML. */
@@ -736,6 +743,7 @@ export function CustomCode({
   isCanvas = false,
   className,
   blockLookup,
+  js,
 }: CustomCodeProps) {
   const contextLookup = useCustomCodeBlockLookup();
   const classTransform = useCustomCodeClassTransform();
@@ -773,8 +781,23 @@ export function CustomCode({
     if (region.querySelector('[class*="ck-fx-"]') !== null) ensureMotionCss(region.ownerDocument);
     if (region.querySelector(BEHAVIOR_RUNTIME_SELECTOR) === null) return undefined;
     ensureBehaviorCss(region.ownerDocument);
-    return mountSiteBehaviors(region, { interactive: !isCanvas }); // media-motion (2026-10-06): core + packs + canvas engines
+    // media-motion (2026-10-06): core + packs + canvas engines. The region's own script is not
+    // among them (`scripts: false`): it has its own effect below, so a tree edit never restarts it.
+    return mountSiteBehaviors(region, { interactive: !isCanvas, scripts: false });
   }, [tree, isCanvas]);
+  /*
+    The region's script (free-code mode, 2026-10-09), keyed on the CODE: editing the tree leaves
+    a running Pixi stage alone, editing the code disposes it and runs the new one. React drives
+    the re-run, so the pack's own MutationObserver is off (`watch: false`). On the canvas the
+    pack applies its crash guard; once a block carries `js` it runs here and on the published
+    site alike (the composer toggle gates AUTHORING only).
+  */
+  const script = js === undefined || js.trim() === '' ? undefined : js;
+  useEffect(() => {
+    const region = regionRef.current;
+    if (region === null || script === undefined) return undefined;
+    return mountRegionScripts(region, { interactive: !isCanvas, watch: false });
+  }, [script, isCanvas]);
   const root = asRecord(tree);
   const context: RenderContext = {
     hostId,
@@ -787,7 +810,12 @@ export function CustomCode({
   };
   const children = root === null ? [] : childrenOf(root);
   // The region marker is where the live Tailwind sheet's `@scope` begins.
-  const region = { [CUSTOM_CODE_REGION_ATTRIBUTE]: '' };
+  const region: Record<string, string> = { [CUSTOM_CODE_REGION_ATTRIBUTE]: '' };
+  // React escapes the attribute value, so the code round-trips through innerHTML and `getAttribute`.
+  if (script !== undefined) {
+    region['data-ck-js'] = script;
+    region['data-ck-js-id'] = hostId;
+  }
   return (
     <div ref={regionRef} className={className} data-ck={hostId} {...region}>
       {children.map((child, at) => renderNode(child, String(at), 0, context))}

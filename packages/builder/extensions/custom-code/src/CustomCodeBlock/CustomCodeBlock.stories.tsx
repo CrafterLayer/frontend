@@ -37,7 +37,7 @@ const STYLED = `
 function Region(props: { block: Partial<CustomCodeBlockProps>; isCanvas?: boolean }) {
   const renderProps: BlockRenderProps<CustomCodeBlockProps> = {
     node,
-    props: { label: 'Region', css: '', tree: TREE, ...props.block },
+    props: { label: 'Region', css: '', js: '', tree: TREE, ...props.block },
     slots: {},
     data: {},
     isCanvas: props.isCanvas ?? false,
@@ -76,6 +76,19 @@ export const RefusedOnCanvas: Story = {
 /** The same document published. No styling, and no note: a page explains nothing. */
 export const RefusedWhenPublished: Story = {
   args: { block: { css: `@import url("https://evil.test/x.css");\n${STYLED}` } },
+};
+
+/**
+ * A region with its own script (free-code mode). It is the body of an async function with one
+ * parameter, `ck`; here it just marks its root. The region carries it as `data-ck-js`, never a
+ * `<script>`.
+ */
+export const WithScript: Story = {
+  args: {
+    block: {
+      js: "ck.root.style.outline = '2px dashed currentColor';\nck.onDispose(() => { ck.root.style.outline = ''; });",
+    },
+  },
 };
 
 /** An empty region. Still a region, still addressable, still not an error. */

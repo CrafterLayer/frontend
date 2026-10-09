@@ -61,6 +61,24 @@ The bundle registers `window.ckEngines.engines.scene` through the `ckEngines` ha
   RTL;
 - returns a disposer that calls `app.destroy(true)` and removes `data-ck-ready`.
 
+## The full pixi.js bundle (free-code mode, 2026-10-09)
+
+A custom-code block's `js` can draw its own Pixi scene (`ck.pixi()` / `ck.stage()`), which needs the
+whole library, not the five-scene subset above. `src/pixi-entry.ts` (+ `src/pixi-engine.ts`) is that
+second bundle: `import * as PIXI from 'pixi.js'` handed to the page through the same `ckEngines`
+handshake as the `pixi` engine, whose `mount` calls `ctx.provide(PIXI)` for the script that queued
+the entry. It writes no `window.PIXI`.
+
+```sh
+node scripts/build-scene-engine.mjs pixi     # → renderer/src/engines/pixi-full-source.ts (PIXI_FULL_*)
+```
+
+`ck-pixi.js` is **268.5 kB gzip** on pixi.js 8.22.0 against a **300 kB** budget of its own (the
+200 kB scene budget is unchanged). The export ships it only when some page's `data-ck-js` code
+matches `/pixi|ck\.stage/i`; the canvas injects it into the frame head on the same condition.
+`node scripts/build-scene-engine.mjs` with no argument rebuilds both. Its bundled packages are the
+list below plus `@xmldom/xmldom` (MIT).
+
 ## Licences
 
 pixi.js is MIT. The bundle also carries `@pixi/colord` (MIT), `earcut` (ISC), `eventemitter3` (MIT),

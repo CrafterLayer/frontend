@@ -16,6 +16,9 @@ import {
 // script-servers additions (2026-10-08)
 import { prefersScriptServer } from './script-intent';
 // end script-servers additions
+// free-code additions (2026-10-09)
+import { asksForFreeCode } from './free-code-intent';
+// end free-code additions
 
 /*
   The agent tools a plan may call (2026-09-30, DESIGN §0/§A): a step
@@ -64,6 +67,30 @@ const EDIT_SCRIPTS = `## Edit scripts\n\n${SCRIPT_CARD}`;
 export const SCRIPT_TIP =
   'This request repeats one change over many elements or builds content from data: answer with ONE script.run step (Edit scripts above).';
 // end script-servers additions
+
+// free-code additions (2026-10-09): the composer's free-code switch, per request, so the cached prefix never moves.
+/*
+  The free-code card: how a customCode block's `js` prop is written (the `ck`
+  runtime, a PixiJS stage) — page code the PAGE runs, unrelated to the edit
+  scripts above. It is `FREE_CODE_CARD` from builder-ai (agent/free-code-card.ts),
+  copied: this app reaches the builder family only through
+  `@craftkit/builder/wire`, which carries no card. free-code-card.test.ts
+  imports the real one and fails on a drift.
+
+  Unlike SCRIPT_CARD it is NOT in the frozen rules: it is appended to the
+  user message only when the wire request says `freeCode === true`, so the
+  switch never moves the cached prefix. While the switch is off, a request
+  that asks for page code (`asksForFreeCode`) gets FREE_CODE_OFF_HINT instead:
+  one line that sends the person to the switch and keeps the model from
+  answering "this needs a programmatic page outside this editor".
+*/
+// BEGIN FREE CODE CARD
+export const FREE_CODE_CARD =
+  "FREE CODE MODE is ON: real page JavaScript and custom PixiJS scenes are allowed. It OVERRIDES any \"needs a code page\" or \"cannot\" answer above: write the code.\nWHERE: the \"js\" prop of a customCode block (max 32000 chars), beside \"css\": insertNode props.js, or setProp {id,key:\"js\",value}. Give the region a css height (e.g. min-height:70vh). No <script> tag.\nRUNTIME: js is the BODY of an async function of one parameter ck, run once per mount in the page (window, document reachable); errors are logged.\nck.root the region element: draw only inside it. ck.editor true on the editor canvas. ck.reducedMotion true when motion is unwanted. ck.onDispose(fn) cleanup: timers, listeners, observers, frames.\nawait ck.pixi() the full pixi.js v8 namespace. await ck.stage({background?,pointer?,resolution?}) -> {PIXI,app,canvas}: a ready transparent PIXI.Application sized to ck.root, its canvas filling it (clicks only with pointer:true), destroyed on dispose.\nRULES: no eval, document.write, host localStorage, or network calls the person did not ask for. Guard motion with ck.reducedMotion (one still frame). Hex colours are free. Arabic page: keep text in the tree, not in Pixi, unless asked.\ne.g. Pixi walkers: const {PIXI,app}=await ck.stage();const ws=Array.from({length:5},(_,i)=>{const g=new PIXI.Graphics().roundRect(-14,-8,28,34,10).fill(0xf59e0b).circle(0,-20,11).fill(0xfde68a);g.x=i*140;g.y=app.screen.height*.7;app.stage.addChild(g);return g});if(!ck.reducedMotion)app.ticker.add(t=>ws.forEach(g=>{g.x=(g.x+1.5*t.deltaTime)%(app.screen.width+60)}));\ne.g. DOM count-up on scroll (<b data-count=\"250\"> in the tree): const el=ck.root.querySelector('[data-count]');if(el){const to=+el.dataset.count;let id=0;const io=new IntersectionObserver(([e])=>{if(!e.isIntersecting)return;io.disconnect();const t0=performance.now(),f=n=>{const k=ck.reducedMotion?1:Math.min(1,(n-t0)/1200);el.textContent=Math.round(to*k);if(k<1)id=requestAnimationFrame(f)};f(t0)});io.observe(el);ck.onDispose(()=>{io.disconnect();cancelAnimationFrame(id)})}\ne.g. cleanup: const h=()=>ck.root.classList.toggle('narrow',innerWidth<600);h();addEventListener('resize',h);ck.onDispose(()=>removeEventListener('resize',h))";
+export const FREE_CODE_OFF_HINT =
+  "Custom page JavaScript and custom PixiJS scenes are OFF; tell the user to enable the free-code switch («وضع الكود الحر») in the composer (say so in the rationale), and meanwhile use a closed motion scene (mural/parallax-layers/particles/…) instead of refusing.";
+// END FREE CODE CARD
+// end free-code additions
 
 /**
  * Turning an assembled context into a Claude request.
@@ -769,6 +796,26 @@ function pushSessionFragments(parts: string[], request: AiPlanWireRequest): void
   }
 }
 
+// free-code additions (2026-10-09)
+/**
+ * The composer's free-code switch, per request (after the cached prefix, so a
+ * flipped switch moves nothing cached). On — `freeCode === true` and nothing
+ * else — it carries `on` (the card); off, a request that asks for page code
+ * carries the one-line hint, and every other request carries nothing.
+ */
+function pushFreeCode(parts: string[], request: AiPlanWireRequest, on: string): void {
+  if (request.freeCode === true) {
+    parts.push('', '# Free code mode', on);
+  } else if (asksForFreeCode(request.request)) {
+    parts.push('', '# Free code mode', FREE_CODE_OFF_HINT);
+  }
+}
+
+/** The page planner's line when the switch is on: the card is for the writers, the plan only has to leave room for code. */
+const FREE_CODE_PAGE_PLAN_NOTE =
+  'FREE CODE MODE is ON: a section may be page JavaScript or a custom PixiJS scene (a customCode region with a js prop). When the request asks for one, say so in that section\'s purpose, so its writer builds it.';
+// end free-code additions
+
 /**
  * The volatile half: what the page is right now, and what was asked.
  *
@@ -818,6 +865,8 @@ function volatileContext(request: AiPlanWireRequest): string {
   }
   // end script-servers additions
 
+  pushFreeCode(parts, request, FREE_CODE_CARD);
+
   parts.push('', '# The request', request.request);
   return parts.join('\n');
 }
@@ -862,6 +911,9 @@ function pagePlanVolatileContext(request: AiPlanWireRequest): string {
       JSON.stringify(request.pagePlanAttempt.issues),
     );
   }
+  // free-code additions (2026-10-09)
+  pushFreeCode(parts, request, FREE_CODE_PAGE_PLAN_NOTE);
+  // end free-code additions
   parts.push('', '# The request', request.request);
   return parts.join('\n');
 }

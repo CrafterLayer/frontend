@@ -803,6 +803,146 @@ function customCssIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanVa
   return issues;
 }
 
+// free-code (2026-10-09)
+/** The longest `js` a customCode region holds: the block's own limit, said here first so the repair names it. */
+export const CUSTOM_CODE_JS_MAX_LENGTH = 32_000;
+
+/** One value a plan writes into a `js` prop, and what the args say it belongs to. */
+interface PlanJs {
+  readonly source: unknown;
+  /** The block type it lands on: the node's own, else the nearest `type` around it. */
+  readonly type: string | undefined;
+  readonly owner: string | undefined;
+}
+
+/**
+ * Every `js` a plan writes, wherever in the args it appears — shape-driven like
+ * the stylesheet walk: `insertNode` props (nested trees included), the `value`
+ * beside a `setProp` key, or a JSON patch value whose path names it. The block
+ * type rides down the walk, so a `js` inside a customCode insert is a
+ * customCode's, and a caption another block calls `js` is not.
+ */
+function customCodeJsInArgs(args: unknown, kernel: BuilderKernel): readonly PlanJs[] {
+  const found: PlanJs[] = [];
+  const nodes = kernel.getDocument().nodes;
+  const typeOf = (owner: string | undefined, around: string | undefined): string | undefined =>
+    (owner === undefined ? undefined : nodes[owner]?.type) ?? around;
+  const stack: { readonly value: unknown; readonly around: string | undefined }[] = [
+    { value: args, around: undefined },
+  ];
+  let visited = 0;
+  while (stack.length > 0 && visited < 10_000) {
+    const item = stack.pop();
+    if (item === undefined) break;
+    visited += 1;
+    const { value, around } = item;
+    if (Array.isArray(value)) {
+      for (const child of value) stack.push({ value: child, around });
+      continue;
+    }
+    if (typeof value !== 'object' || value === null) continue;
+    const record = value as Record<string, unknown>;
+    const declared = record['type'];
+    const type = typeof declared === 'string' && declared !== '' ? declared : around;
+
+    // `{ id, key: 'js', value }` — setProp names the property beside the value.
+    if (record['key'] === 'js' && 'value' in record) {
+      const owner = nodeIdIn(record['id']);
+      found.push({ source: record['value'], type: typeOf(owner, type), owner });
+    }
+    // `{ path: [..., 'js'], value }` — a JSON patch names it inside its path.
+    const path = record['path'];
+    if (Array.isArray(path) && path.includes('js') && 'value' in record) {
+      const owner = path[0] === 'nodes' ? nodeIdIn(path[1]) : undefined;
+      found.push({ source: record['value'], type: typeOf(owner, type), owner });
+    }
+
+    for (const [name, child] of Object.entries(record)) {
+      if (name === 'js') {
+        found.push({ source: child, type, owner: undefined });
+        continue;
+      }
+      stack.push({ value: child, around: type });
+    }
+  }
+  return found;
+}
+
+/*
+  Said in both languages because the person reads it: a plan refused for code
+  surfaces as the run's error, and the fix is theirs — a switch in the
+  composer — not the model's. The model gets the way around it in the same
+  breath, so the repair round builds the closest thing a page without code can
+  do instead of retrying the code.
+*/
+function freeCodeOffIssue(index: number): AiPlanValidationIssue {
+  return {
+    code: 'policy-rejected',
+    message: `Step ${String(index)} writes page JavaScript (the "js" prop of a customCode block), but free code mode is OFF — turn on the «وضع الكود الحر» (Free code) switch in the composer, then ask again. وضع الكود الحر مطفأ: فعّل مفتاح «وضع الكود الحر» في صندوق الكتابة ثم أعد الطلب. Until then write no "js": build the closest effect without code (a closed motion scene such as media.add scene mural, parallax-layers, particles, mesh-gradient or ripple, motion.add, or region css) and say in the rationale that real code needs the switch.`,
+    step: index,
+  };
+}
+
+/**
+ * Refuse page code the run was not allowed to author, and hold the code it was
+ * allowed to author to its limits.
+ *
+ * Off (`freeCode` not true): any non-empty `js` on a customCode block is
+ * refused with the reason above. On: it must be a string of at most
+ * `CUSTOM_CODE_JS_MAX_LENGTH` characters that does not contain `</script`
+ * (belt and braces: the renderer must never be able to close its own script
+ * element early). An empty `js` is the default and is always fine. Runs before
+ * the dry run, which takes a valid string happily whether the person allowed
+ * it or not.
+ */
+function customCodeJsIssues(
+  plan: AiPlan,
+  kernel: BuilderKernel,
+  freeCode: boolean,
+): readonly AiPlanValidationIssue[] {
+  const issues: AiPlanValidationIssue[] = [];
+  plan.commands.forEach((step, index) => {
+    const args = isRecord(step.args) ? step.args : {};
+    let refusedOff = false;
+    for (const written of customCodeJsInArgs(args, kernel)) {
+      // Same name, different block: not page code.
+      if (written.type !== undefined && written.type !== 'customCode') continue;
+      const { source } = written;
+      const owner = written.owner ?? stylesheetOwnerInArgs(args);
+      const on = owner === undefined ? '' : ` on "${owner}"`;
+      if (typeof source !== 'string') {
+        issues.push({
+          code: 'invalid-args',
+          message: `Step ${String(index)} writes "js"${on} as ${source === null ? 'null' : typeof source}: it is a string of JavaScript, "" for none.`,
+          step: index,
+        });
+        continue;
+      }
+      if (source.trim() === '') continue;
+      if (!freeCode) {
+        if (!refusedOff) issues.push(freeCodeOffIssue(index));
+        refusedOff = true;
+        continue;
+      }
+      if (source.length > CUSTOM_CODE_JS_MAX_LENGTH) {
+        issues.push({
+          code: 'invalid-args',
+          message: `Step ${String(index)} writes "js"${on} of ${String(source.length)} characters; a region holds at most ${String(CUSTOM_CODE_JS_MAX_LENGTH)}. Split the scene across regions or write less code.`,
+          step: index,
+        });
+      } else if (/<\/script/iu.test(source)) {
+        issues.push({
+          code: 'invalid-args',
+          message: `Step ${String(index)} writes "js"${on} containing "</script": the code is stored as a string and never wrapped in a script tag, so remove it (write the string as "<\\/script" if you truly need the text).`,
+          step: index,
+        });
+      }
+    }
+  });
+  return issues;
+}
+// end free-code
+
 // media-motion (2026-10-06, fix pass)
 /** The stylesheets step `index` writes, as `customCssIssues` reads them (a caption named css is not one). */
 function planSheets(plan: AiPlan, kernel: BuilderKernel, index: number): readonly string[] {
@@ -980,15 +1120,33 @@ function dryRun(
   return { ok: true, plan };
 }
 
-/** Parse, validate every command schema, then execute the ordered plan against a scratch kernel. */
+/** The slice of the run's composition policy the door reads. */
+export type AiDoorComposition = Partial<
+  Pick<ResolvedAiCompositionPolicy, 'enforceUtilityVocabulary' | 'colourPolicy' | 'freeCode'>
+>;
+
+/**
+ * The door's composition when a plan is APPLIED or previewed. Free code mode
+ * gates what the assistant AUTHORS, and a proposal exists only because
+ * generation's door already ruled on it with the run's own mode — Ask mode and
+ * a build's queued section fills apply later, when no run's composition is at
+ * hand, and re-asking with the default (off) would refuse code the person
+ * allowed. The size and `</script` limits still run.
+ */
+export const AUTHORED_PLAN_DOOR: AiDoorComposition = Object.freeze({ freeCode: true });
+
+/**
+ * Parse, validate every command schema, then execute the ordered plan against a scratch kernel.
+ *
+ * `composition.freeCode` is the composer's free code mode: only `true` lets a
+ * plan write a non-empty `js` on a customCode block; absent or false refuses it.
+ */
 export function validateAiPlan(
   candidate: unknown,
   kernel: BuilderKernel,
   ports: AiValidationPorts,
   policy?: AiEffectiveCommandPolicy,
-  composition?: Partial<
-    Pick<ResolvedAiCompositionPolicy, 'enforceUtilityVocabulary' | 'colourPolicy'>
-  >,
+  composition?: AiDoorComposition,
 ): AiPlanValidationResult {
   const overLimit = rawCommandLimitIssue(candidate, policy);
   if (overLimit !== undefined) return { ok: false, issues: [overLimit] };
@@ -1024,6 +1182,10 @@ export function validateAiPlan(
   */
   const cssIssues = customCssIssues(plan, kernel);
   if (cssIssues.length > 0) return { ok: false, issues: cssIssues };
+  // free-code (2026-10-09): page code is the person's to allow, and it too must be said before the dry run.
+  const jsIssues = customCodeJsIssues(plan, kernel, composition?.freeCode === true);
+  if (jsIssues.length > 0) return { ok: false, issues: jsIssues };
+  // end free-code
   // media-motion (2026-10-06, fix pass): before the dry run, which takes both happily.
   const mediaIssues = mediaMotionIssues(plan, kernel, (index) => planSheets(plan, kernel, index));
   if (mediaIssues.length > 0) return { ok: false, issues: mediaIssues };
@@ -1046,8 +1208,9 @@ export function assertValidAiPlan(
   kernel: BuilderKernel,
   ports: AiValidationPorts,
   policy?: AiEffectiveCommandPolicy,
+  composition?: AiDoorComposition,
 ): AiPlan {
-  const result = validateAiPlan(candidate, kernel, ports, policy);
+  const result = validateAiPlan(candidate, kernel, ports, policy, composition);
   if (!result.ok) {
     throw new AiPlanRejectedError(result.issues);
   }

@@ -13,7 +13,8 @@
     "./palette": "./src/palette.ts"
   },
   "scripts": {
-    "build:scene": "node ../../../../scripts/build-scene-engine.mjs",
+    "build:scene": "node ../../../../scripts/build-scene-engine.mjs scene",
+    "build:pixi": "node ../../../../scripts/build-scene-engine.mjs pixi",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",

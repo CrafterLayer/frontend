@@ -12,6 +12,7 @@ function renderBlock(css: string, isCanvas: boolean) {
   const props: CustomCodeBlockProps = {
     label: 'Region',
     css,
+    js: '',
     tree: { kind: 'root', children: [{ kind: 'element', tag: 'p', text: 'hello' }] },
   };
   const renderProps: BlockRenderProps<CustomCodeBlockProps> = {

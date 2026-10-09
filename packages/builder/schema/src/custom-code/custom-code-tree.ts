@@ -2327,3 +2327,51 @@ export function isCustomCssSchema(schema: z.ZodType): boolean {
     current = def.innerType;
   }
 }
+
+/*
+  ── Custom JS declaration ───────────────────────────────────────────────────
+
+  The tree cannot express a `<script>` and must not learn to (see the header of
+  this file): a script in the TREE would be reachable from every producer that
+  writes a tree. A region's `js` is a SEPARATE prop for the same reason `css` is
+  — a string that is code, marked so the Inspector offers a code surface and
+  the style law leaves it alone, recognised by DECLARATION and never by name.
+
+  This is the owner-approved free-code mode: once a block carries `js`, it runs
+  — in the editor canvas and on the published site. What gates it is who may
+  AUTHOR it (the composer toggle), not whether a saved script executes. The
+  renderer never emits a literal `<script>`; it puts the source on the region as
+  `data-ck-js` and a small runtime evaluates it.
+*/
+
+/** The meta marker a JS field type matches on. */
+export const CUSTOM_JS_META_VALUE = 'custom-js';
+
+/** The ceiling on a custom-code region's own script. */
+export const CUSTOM_CODE_REGION_JS_MAX = 32_000;
+
+/** Declare a region-script prop: a string, marked as code that runs. */
+export function customJs(max = CUSTOM_CODE_REGION_JS_MAX): z.ZodType<string> {
+  return z
+    .string()
+    .max(max)
+    .default('')
+    .meta({ [CUSTOM_CODE_META_KEY]: CUSTOM_JS_META_VALUE });
+}
+
+/** True when a property schema is a region-script declaration; unwraps wrappers. */
+export function isCustomJsSchema(schema: z.ZodType): boolean {
+  let current: z.ZodType = schema;
+  for (;;) {
+    const meta = (current as { meta?: () => Record<string, unknown> | undefined }).meta?.();
+    if (meta?.[CUSTOM_CODE_META_KEY] === CUSTOM_JS_META_VALUE) {
+      return true;
+    }
+    const def = current._zod.def as { type: string; innerType?: z.ZodType };
+    const isWrapper = def.type === 'optional' || def.type === 'default' || def.type === 'nullable';
+    if (!isWrapper || def.innerType === undefined) {
+      return false;
+    }
+    current = def.innerType;
+  }
+}

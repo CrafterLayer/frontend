@@ -21,13 +21,28 @@ export interface CachingAiPlanProviderOptions {
 
 const DEFAULT_CAPACITY = 32;
 
+/**
+ * Free code mode changes the question (the server adds its code card), so an
+ * answer written with it off — a closed motion scene, "turn the switch on" —
+ * is never served to a run with it on. Only when true: a run without the mode
+ * keeps the key it always had.
+ */
+function freeCodeIdentity(freeCode: boolean | undefined): { freeCode?: true } {
+  return freeCode === true ? { freeCode: true } : {};
+}
+
 /** Every prompt-visible context byte participates in cache identity. */
 function cacheKey(
   request: string,
   context: AssembledAiContext,
   live: AiProposeOptions | undefined,
 ): string {
-  return canonicalJsonStringify({ context, history: live?.history ?? [], request });
+  return canonicalJsonStringify({
+    context,
+    history: live?.history ?? [],
+    request,
+    ...freeCodeIdentity(live?.freeCode),
+  });
 }
 
 /**
@@ -40,6 +55,7 @@ function pagePlanKey(
   context: AssembledAiContext,
   history: readonly AiChatTurn[] | undefined,
   attempt: AiPagePlanAttempt | undefined,
+  freeCode?: boolean,
 ): string {
   return canonicalJsonStringify({
     attempt: attempt ?? null,
@@ -47,6 +63,7 @@ function pagePlanKey(
     history: history ?? [],
     request,
     task: 'page-plan',
+    ...freeCodeIdentity(freeCode),
   });
 }
 
@@ -204,11 +221,11 @@ export function createCachingAiPlanProvider(
           identical ask, be refused again, and cost a paid repair round every
           time instead of one fresh first answer.
         */
-        pagePlans.delete(pagePlanKey(request, context, live.history, undefined));
+        pagePlans.delete(pagePlanKey(request, context, live.history, undefined, live.freeCode));
       }
       return remembered(
         pagePlans,
-        pagePlanKey(request, context, live?.history, live?.attempt),
+        pagePlanKey(request, context, live?.history, live?.attempt, live?.freeCode),
         live?.signal,
         () => innerProposePagePlan(request, context, live),
       );

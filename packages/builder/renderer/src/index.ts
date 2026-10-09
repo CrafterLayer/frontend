@@ -156,6 +156,10 @@ export { resolveCustomCodeAssetSrc } from './assets/asset-table';
 // (scene, timeline, lottie) a page's markup uses. Engine sources stay dynamic.
 export { BEHAVIOR_PACKS, mountSiteBehaviors, pageEngines, type BehaviorPack, type PageEngine } from './behaviors';
 // end media-motion (2026-10-06) additions
+// free-code mode additions (2026-10-09): a region's `js` (data-ck-js) — the runtime that evaluates
+// it, the `ck` object it receives, and the rule that decides whether the full pixi.js bundle ships.
+export { codeUsesPixi, mountRegionScripts, mountScripts, type CkScriptApi } from './behaviors';
+// end free-code mode additions
 // P2-bidi additions (block-parts 2026-10-06): the text-direction rule the
 // canvas frame injects and the static export carries in its base layer, so an
 // English line on an RTL page keeps its full stop at the end (DESIGN §2.11).

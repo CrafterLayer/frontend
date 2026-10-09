@@ -14,7 +14,7 @@ const TREE: CustomCodeRoot = {
 };
 
 function renderBlock(overrides: Partial<CustomCodeBlockProps> = {}, isCanvas = false) {
-  const props: CustomCodeBlockProps = { label: 'Region', css: '', tree: TREE, ...overrides };
+  const props: CustomCodeBlockProps = { label: 'Region', css: '', js: '', tree: TREE, ...overrides };
   const renderProps: BlockRenderProps<CustomCodeBlockProps> = {
     node,
     props,

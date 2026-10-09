@@ -392,6 +392,18 @@ export function createHandler(options: HandlerOptions) {
       return json({ error: `Unknown task "${named}".` }, 400);
     }
 
+    /*
+      The composer's free-code switch (2026-10-09) is a mode, so it is a
+      boolean or absent; like `task` and `effort`, anything else is refused. A
+      client that sends "true" thinks it asked, and a prompt without the card
+      would answer as if it had not. `buildPrompt` reads it with `=== true`
+      and nothing more.
+    */
+    const freeCode: unknown = body.freeCode;
+    if (freeCode !== undefined && typeof freeCode !== 'boolean') {
+      return json({ error: 'freeCode must be true or false when present.' }, 400);
+    }
+
     const chosen = await resolveModel(request, body, options);
     if ('refused' in chosen) {
       return json({ error: chosen.refused }, 400);

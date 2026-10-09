@@ -8,7 +8,13 @@ import { gzipSync } from 'node:zlib';
 import { BEHAVIOR_CSS, ensureBehaviorCss } from './behaviors-css';
 import { BEHAVIOR_PACKS, PACK_CSS } from './packs';
 import { mountBehaviors } from './runtime';
-import { BEHAVIOR_RUNTIME_SELECTOR, behaviorRuntimeScript, hasBehaviors, pageEngines } from './script';
+import {
+  BEHAVIOR_RUNTIME_SELECTOR,
+  SCRIPT_SELECTOR,
+  behaviorRuntimeScript,
+  hasBehaviors,
+  pageEngines,
+} from './script';
 
 describe('behaviorRuntimeScript', () => {
   it('is self-contained: evaluated alone in a fresh document, it mounts count-up', async () => {
@@ -112,7 +118,12 @@ describe('hasBehaviors — motion', () => {
   42 835 chars, 12 605 B gzip). The packs measured 24 564 B gzip in all then.
 */
 const BASELINE_GZIP_BYTES = 12_605;
-const PACKS_BUDGET_GZIP_BYTES = 14_000;
+/*
+  14 000 → 16 000 on 2026-10-09 (free-code mode): the `scripts` pack adds 2 669 B gzip to the
+  every-pack bundle (25 015 → 27 684 B). It ships only on a site whose markup carries `data-ck-js`
+  (see the "ships only the packs" test below), so a page that uses no script pays nothing.
+*/
+const PACKS_BUDGET_GZIP_BYTES = 16_000;
 
 describe('behaviorRuntimeScript — packs', () => {
   it('serialises the core runtime and then every pack, each called on the document', () => {
@@ -155,7 +166,7 @@ describe('behaviorRuntimeScript — packs', () => {
     frame.remove();
   });
 
-  it('grows ck-behaviors.js by at most 14 kB gzip over the pre-pack runtime', () => {
+  it('grows ck-behaviors.js by at most 16 kB gzip over the pre-pack runtime', () => {
     const size = gzipSync(behaviorRuntimeScript()).length;
     expect(size - BASELINE_GZIP_BYTES).toBeLessThanOrEqual(PACKS_BUDGET_GZIP_BYTES);
   });
@@ -221,5 +232,65 @@ describe('BEHAVIOR_CSS — packs', () => {
     expect(BEHAVIOR_CSS.split("[data-ck-behavior='carousel'] [data-ck-track] > * {").length).toBe(2);
     // gsap-pixi (2026-10-08): a scene HOST keeps its content imgs.
     expect(BEHAVIOR_CSS).toContain('[data-ck-scene][data-ck-ready]:not([data-ck-scene-host]) > img');
+  });
+});
+
+/* ── free-code mode (2026-10-09): a region's script is a marker, and Pixi is a use ── */
+
+describe('region scripts (data-ck-js)', () => {
+  const quoted = (code: string) => `<div data-ck data-ck-custom-code="" data-ck-js="${code}" data-ck-js-id="n1"></div>`;
+
+  it('makes a page with only a script need the runtime, in all four readings', () => {
+    expect(hasBehaviors(quoted('ck.root.title = 1'))).toBe(true);
+    const main = document.createElement('main');
+    main.innerHTML = quoted('ck.root.title = 1');
+    expect(hasBehaviors(main)).toBe(true);
+    expect(hasBehaviors({ attributes: { 'data-ck-js': 'x' } })).toBe(true);
+    expect(hasBehaviors('<p>js</p>')).toBe(false);
+  });
+
+  it('keeps BEHAVIOR_RUNTIME_SELECTOR equal to the core runtime: the script marker is not in it', () => {
+    expect(BEHAVIOR_RUNTIME_SELECTOR).not.toContain('data-ck-js');
+    expect(SCRIPT_SELECTOR).toBe('[data-ck-js]');
+  });
+
+  it('reads Pixi from the CODE, not from the marker', () => {
+    expect([...pageEngines(quoted('ck.root.title = 1'))]).toEqual([]);
+    expect([...pageEngines(quoted('const { app } = await ck.stage();'))]).toEqual(['pixi']);
+    expect([...pageEngines(quoted('const PIXI = await ck.pixi();'))]).toEqual(['pixi']);
+    expect([...pageEngines(quoted('// a PIXI scene'))]).toEqual(['pixi']);
+    expect([...pageEngines(quoted('ck.stage'))]).toEqual(['pixi']);
+    // Only inside a script attribute: prose that merely says "pixi" is not a use.
+    expect([...pageEngines('<p>pixi dust</p><div data-ck-js-id="n1"></div>')]).toEqual([]);
+  });
+
+  it('reads single-quoted attributes, a DOM node (itself included) and a stored JSON value', () => {
+    expect([...pageEngines("<div data-ck-js='await ck.stage()'></div>")]).toEqual(['pixi']);
+
+    const own = document.createElement('div');
+    own.setAttribute('data-ck-js', 'await ck.stage()');
+    expect([...pageEngines(own)]).toEqual(['pixi']);
+    const main = document.createElement('main');
+    main.innerHTML = quoted('await ck.pixi()');
+    expect([...pageEngines(main)]).toEqual(['pixi']);
+    const plain = document.createElement('main');
+    plain.innerHTML = quoted('ck.root.title = 1');
+    expect([...pageEngines(plain)]).toEqual([]);
+
+    expect([...pageEngines({ attributes: { 'data-ck-js': 'await ck.stage()' } })]).toEqual(['pixi']);
+    expect([...pageEngines({ attributes: { 'data-ck-js': 'ck.root.title = 1' } })]).toEqual([]);
+  });
+
+  it('reads Pixi through the markup escaping React applies to the attribute value', () => {
+    expect([...pageEngines('<div data-ck-js="const a = &quot;x&quot;; await ck.stage({ background: &quot;#000&quot; })"></div>')]).toEqual([
+      'pixi',
+    ]);
+  });
+
+  it('adds the scripts pack to a page that carries one, and to no other', () => {
+    const script = behaviorRuntimeScript([quoted('ck.root.title = 1')]);
+    const included = BEHAVIOR_PACKS.filter((pack) => script.includes(pack.toString())).map((pack) => pack.name);
+    expect(included).toEqual(['mountScripts']);
+    expect(behaviorRuntimeScript(['<p>x</p>'])).not.toContain('function mountScripts');
   });
 });

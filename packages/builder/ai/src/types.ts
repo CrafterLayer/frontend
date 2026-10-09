@@ -211,6 +211,13 @@ export interface AiProposeOptions {
   signal?: AbortSignal;
   onProgress?: (text: string) => void;
   history?: readonly AiChatTurn[];
+  /**
+   * Free code mode (`RunAiAgentOptions.freeCode`): the person allowed page
+   * JavaScript and custom PixiJS scenes for this call. Set only when `true`; a
+   * wire provider carries it into the body as `freeCode: true`, a provider
+   * that does not simply runs without the mode.
+   */
+  freeCode?: boolean;
 }
 
 /** The provider boundary. A network-backed provider implements the same contract. */

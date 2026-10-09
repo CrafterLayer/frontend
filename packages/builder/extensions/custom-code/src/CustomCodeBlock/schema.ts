@@ -2,8 +2,10 @@ import { z } from 'zod';
 
 import {
   CUSTOM_CODE_REGION_CSS_MAX,
+  CUSTOM_CODE_REGION_JS_MAX,
   customCodeTree,
   customCss,
+  customJs,
   defineBlockSchema,
   emptyCustomCodeTree,
 } from '@craftkit/builder-schema';
@@ -59,11 +61,23 @@ export const customCodeSchema = defineBlockSchema({
      * precisely because their CSS is expected to come from here.
      */
     css: customCss(CUSTOM_CODE_REGION_CSS_MAX),
+    /**
+     * Region script (free-code mode, 2026-10-09). The BODY of an async function with one
+     * parameter, `ck` (`root`, `editor`, `reducedMotion`, `onDispose`, `pixi()`, `stage()`),
+     * run when the region mounts — on the editor canvas and on the published site alike.
+     *
+     * It is a prop of its own and not part of `tree`, which cannot express a `<script>` and
+     * must not learn to. The renderer never emits one either: the code rides on the region as
+     * `data-ck-js`, and the `scripts` behaviour pack evaluates it. The composer toggle gates who
+     * may AUTHOR it; a saved script always runs.
+     */
+    js: customJs(CUSTOM_CODE_REGION_JS_MAX),
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Identity' },
     tree: { tab: 'content', section: 'Composition' },
     css: { tab: 'advanced', section: 'Custom CSS' },
+    js: { tab: 'advanced', section: 'Custom JS' },
   },
   /*
     No slots. Children live INSIDE the tree, where the assistant places them,

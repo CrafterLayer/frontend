@@ -720,6 +720,15 @@ export interface EffortSelectionView {
   readonly options: readonly EffortLevel[];
 }
 
+/**
+ * The free-code switch's state; `null` in AgentViewState when the host cannot carry it.
+ * On, the agent may write JavaScript and full PixiJS scenes into a custom-code block;
+ * off, it stays inside the blocks and the closed motion scenes.
+ */
+export interface FreeCodeView {
+  readonly enabled: boolean;
+}
+
 /* ── Empty state, suggestions, conversations (SPEC §4.16, §4.18) ─────────────── */
 
 /**
@@ -849,6 +858,8 @@ export interface AgentViewState {
   readonly model: ModelSelectionView | null;
   /** Absent or `null`: the provider takes no reasoning budget, and no effort menu is drawn. */
   readonly effort?: EffortSelectionView | null;
+  /** Absent or `null`: the host keeps no free-code switch, and none is drawn. */
+  readonly freeCode?: FreeCodeView | null;
   readonly send: SendState;
   readonly run: RunBarView | null;
   readonly queue: QueueView | null;
@@ -931,6 +942,8 @@ export interface AgentController {
   readonly setModel: (id: string) => void;
   /** Optional like `setComposerFocused`: a host with no budget to set leaves it out. */
   readonly setEffort?: (level: EffortLevel) => void;
+  /** Optional like `setEffort`: a host with nowhere to keep the switch leaves it out. */
+  readonly setFreeCode?: (enabled: boolean) => void;
   readonly newConversation: () => void;
   readonly openConversation: (id: string) => void;
   readonly deleteConversation: (id: string) => void;

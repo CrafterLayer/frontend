@@ -42,6 +42,7 @@ export type ComposerView = Pick<
   | 'mode'
   | 'model'
   | 'effort'
+  | 'freeCode'
   | 'send'
   | 'run'
   | 'queue'
@@ -62,6 +63,7 @@ export type ComposerActions = Pick<
   | 'setMode'
   | 'setModel'
   | 'setEffort'
+  | 'setFreeCode'
   | 'enhanceDraft'
   | 'restoreDraft'
   | 'answerClarify'
@@ -145,6 +147,7 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
     mode,
     model,
     effort,
+    freeCode,
     send,
     run,
     queue,
@@ -500,12 +503,14 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
             mode={mode}
             model={model}
             effort={effort}
+            freeCode={freeCode}
             send={send}
             enhancement={enhancement}
             running={run !== null}
             onModeChange={actions.setMode}
             onModelChange={actions.setModel}
             onEffortChange={actions.setEffort}
+            onFreeCodeChange={actions.setFreeCode}
             onMention={startMention}
             onEnhance={actions.enhanceDraft}
             onSend={() => {

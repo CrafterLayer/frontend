@@ -269,7 +269,9 @@ function fontLinks(fonts: readonly string[]): string {
 // media-motion (2026-10-06): the engine assets, imported only when a page uses one (the loadTablerIcons precedent).
 // gsap-pixi additions (2026-10-08): ck-timeline.js now carries the MIT anime.js 4.5.0 subset
 // (about 23 kB gzip with its banner), not GSAP; the asset shape (banner + source + runner) is unchanged.
-const ENGINE_ORDER: readonly PageEngine[] = ['timeline', 'scene', 'lottie'];
+// free-code mode (2026-10-09): 'pixi' is the FULL pixi.js bundle, shipped only when some page's
+// `data-ck-js` code names Pixi (`ck.pixi()` / `ck.stage()`); the `scripts` pack requests it on demand.
+const ENGINE_ORDER: readonly PageEngine[] = ['timeline', 'scene', 'lottie', 'pixi'];
 
 async function engineAsset(kind: PageEngine): Promise<string> {
   if (kind === 'timeline') {
@@ -286,6 +288,10 @@ async function engineAsset(kind: PageEngine): Promise<string> {
     ]);
     return `${LOTTIE_BANNER}${LOTTIE_SOURCE}\n;(${installLottieEngine.toString()})(window);\n`;
   }
+  if (kind === 'pixi') {
+    // The full pixi.js bundle carries its own banner (Pixi + dependency notices) and installs itself.
+    return (await import('../engines/pixi-full-source')).PIXI_FULL_SOURCE;
+  }
   // The scene bundle carries its own banner (Pixi + dependency notices) and installs itself.
   return (await import('../engines/scene-source')).SCENE_SOURCE;
 }
@@ -300,7 +306,7 @@ interface RenderedPage {
   readonly fonts: readonly string[];
   readonly css: string;
   readonly behaviors: boolean;
-  /** media-motion (2026-10-06): the lazy engines (scene, timeline, lottie) the page's markup uses. */
+  /** media-motion (2026-10-06): the lazy engines (scene, timeline, lottie, pixi) the page's markup uses. */
   readonly engines: ReadonlySet<PageEngine>;
   readonly motion: boolean;
   readonly seo: PageSeo | undefined;

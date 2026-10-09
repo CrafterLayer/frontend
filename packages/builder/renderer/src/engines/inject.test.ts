@@ -79,6 +79,43 @@ describe('ensureCanvasEngines', () => {
     expect(load.scene).not.toHaveBeenCalled();
     expect(document.querySelector('script[data-ck-engine]')).toBeNull();
   });
+
+  describe('the full pixi.js bundle (free-code mode, 2026-10-09)', () => {
+    const scripted = (code: string) => {
+      const el = host('<div data-ck-custom-code=""></div>').firstElementChild as HTMLElement;
+      el.setAttribute('data-ck-js', code);
+      return el;
+    };
+
+    it('is injected for a region whose code names Pixi — the region itself carries the marker', async () => {
+      const pixi = vi.fn<EngineLoader>(() => Promise.resolve('/* pixi */'));
+      ensureCanvasEngines(scripted('const { app } = await ck.stage();'), { loaders: { pixi } });
+      await flush();
+      expect(document.head.querySelector('script[data-ck-engine="pixi"]')?.textContent).toBe('/* pixi */');
+      expect(pixi).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not loaded for a script that never mentions Pixi', async () => {
+      const pixi = vi.fn<EngineLoader>(() => Promise.resolve('/* pixi */'));
+      ensureCanvasEngines(scripted('ck.root.title = "x"'), { loaders: { pixi } });
+      await flush();
+      expect(pixi).not.toHaveBeenCalled();
+      expect(document.querySelector('script[data-ck-engine]')).toBeNull();
+    });
+
+    it('is the one engine that loads under reduced motion: the script asked for it by name', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce') }));
+      const load = loaders();
+      const pixi = vi.fn<EngineLoader>(() => Promise.resolve('/* pixi */'));
+      const root = host('<div data-ck-scene="particles"></div>');
+      root.firstElementChild?.setAttribute('data-ck-js', 'await ck.pixi()');
+      ensureCanvasEngines(root, { loaders: { ...load, pixi } });
+      await flush();
+      expect(document.head.querySelector('script[data-ck-engine="pixi"]')).not.toBeNull();
+      expect(load.scene).not.toHaveBeenCalled();
+      expect(document.head.querySelector('script[data-ck-engine="scene"]')).toBeNull();
+    });
+  });
 });
 
 describe('ENGINE_LOADERS', () => {
@@ -97,13 +134,18 @@ describe('ENGINE_LOADERS', () => {
     expect(lottie).toMatch(/;\(function installLottieEngine\([\s\S]*\)\(window\);\n$/u);
     expect(scene).toBe(SCENE_SOURCE);
   });
+
+  it('carries the full pixi.js bundle as it is (banner and self-install included)', async () => {
+    const { PIXI_FULL_SOURCE } = await import('./pixi-full-source');
+    expect(await ENGINE_LOADERS.pixi()).toBe(PIXI_FULL_SOURCE);
+  });
 });
 
 /* ── the engine sources never reach the editor's main chunk ── */
 
 const SRC = join(process.cwd(), 'src');
 const STATIC_IMPORT = /(?:^|\n)\s*(?:import|export)\s(?:[^;'"]*?\sfrom\s+)?['"]([^'"]+)['"]/gu;
-const ENGINE_SOURCE = /engines\/(?:timeline|scene|lottie)-source\.ts$/u;
+const ENGINE_SOURCE = /engines\/(?:timeline|scene|lottie|pixi-full)-source\.ts$/u;
 
 function resolveImport(from: string, specifier: string): string | undefined {
   const base = resolve(dirname(from), specifier);
@@ -144,7 +186,8 @@ describe('engine sources are dynamic imports only', () => {
   it('inject.ts and the exporter name each source in a dynamic import()', () => {
     const inject = readFileSync(join(SRC, 'engines/inject.ts'), 'utf8');
     const exporter = readFileSync(join(SRC, 'export/export-static-site.ts'), 'utf8');
-    for (const kind of ['timeline', 'scene', 'lottie']) {
+    // free-code mode (2026-10-09): the full pixi.js bundle is a dynamic import too.
+    for (const kind of ['timeline', 'scene', 'lottie', 'pixi-full']) {
       expect(inject).toContain(`import('./${kind}-source')`);
       expect(exporter).toContain(`import('../engines/${kind}-source')`);
     }

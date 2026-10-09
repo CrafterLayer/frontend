@@ -405,6 +405,8 @@ export interface PagePlanStepInput {
   readonly additionalContextProviders?: readonly AiContextProvider[];
   readonly target?: IntentTarget;
   readonly maxSections?: number;
+  /** Free code mode (`RunAiAgentOptions.freeCode`): both attempts' requests carry `freeCode: true`. */
+  readonly freeCode?: boolean;
   /**
    * The streamed answer's text (DESIGN §6.2, 2026-10-05), forwarded to the
    * provider's `live.onDraft` on BOTH attempts — a `start` opens each
@@ -595,6 +597,9 @@ export async function proposeValidatedPagePlan(
         },
         ...(attempt === undefined ? {} : { attempt }),
         ...(input.onDraft === undefined ? {} : { onDraft: input.onDraft }),
+        ...(input.freeCode === true || input.composition?.freeCode === true
+          ? { freeCode: true }
+          : {}),
       };
       const answer = await propose(request, context, live);
       assertActive();
@@ -713,6 +718,7 @@ export async function planAiPage(
       ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
       ...(options.policy === undefined ? {} : { policy: options.policy }),
       ...(options.composition === undefined ? {} : { composition: options.composition }),
+      ...(options.freeCode === true ? { freeCode: true } : {}),
       ...(options.contextProviders === undefined
         ? {}
         : { contextProviders: options.contextProviders }),

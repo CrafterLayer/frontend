@@ -198,8 +198,11 @@ export interface AiBuildTask {
  */
 export type AiBuildTaskStatus = 'applied' | 'skipped' | 'not-started';
 
-/** The two props a section writer owns on its region. */
-export type AiBuildSectionKey = 'tree' | 'css';
+/**
+ * The props a section writer owns on its region: `tree` and `css`, and — only
+ * in a build that turned free code mode on (`RunAiBuildOptions.freeCode`) — `js`.
+ */
+export type AiBuildSectionKey = 'tree' | 'css' | 'js';
 
 /** A region's writer-owned props at one moment, keyed by prop; a prop the node lacks is absent. */
 export type AiBuildSectionValues = Readonly<Partial<Record<AiBuildSectionKey, JsonValue>>>;
@@ -786,6 +789,17 @@ export interface RunAiAgentOptions {
   editModel?: string;
   /** The reasoning budget that goes with `editModel`. Absent: the server's default. */
   editEffort?: AiEditEffort;
+  /**
+   * Free code mode — the composer's «وضع الكود الحر» switch (2026-10-09).
+   * `true`: the run may author page JavaScript (a customCode block's `js`) and
+   * custom PixiJS scenes. Every plan, page-plan and section request it sends
+   * carries `freeCode: true` on the wire (the server then teaches the model
+   * the `ck` runtime), and the door lets a non-empty `js` through. Absent or
+   * `false` (the default): the body carries no field and the door refuses `js`
+   * with a reason that names the switch. Edit scripts (`script.run`) are
+   * unrelated and unchanged. Equivalent to `composition.freeCode`.
+   */
+  freeCode?: boolean;
   /**
    * The facts ledger's sample values (a page build's writers): tool steps are
    * expanded with them, so no SEO tool writes one as data. Forwarded to

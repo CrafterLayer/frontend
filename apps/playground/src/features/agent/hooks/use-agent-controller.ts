@@ -220,6 +220,7 @@ import {
   type ContextChipView,
   type CopyParams,
   type CopyTarget,
+  type FreeCodeView,
   type EmptyStateView,
   type EndNoteKey,
   type FaceView,
@@ -294,6 +295,12 @@ export interface UseAgentControllerOptions {
    */
   readonly effort?: EffortLevel | undefined;
   readonly onSelectEffort?: ((level: EffortLevel) => void) | undefined;
+  /**
+   * The free-code switch (the engine's `RunAiAgentOptions.freeCode`): on, the agent may write
+   * JavaScript and full PixiJS scenes. Without the setter no switch is drawn.
+   */
+  readonly freeCode?: boolean | undefined;
+  readonly onToggleFreeCode?: ((enabled: boolean) => void) | undefined;
   readonly skillRegistry?: AiSkillRegistry | undefined;
   readonly selectedSkillIds?: readonly string[] | undefined;
   readonly agentPolicy?: Partial<AiAgentPolicy> | undefined;
@@ -698,6 +705,8 @@ function commonRunOptions(
       ? {}
       : { selectedSkillIds: options.selectedSkillIds }),
     ...catalogPolicyFor(options.providerKind ?? 'offline', selection, options.agentPolicy),
+    // The composer's free-code switch, read per run: only `true` ever reaches the engine.
+    ...(options.freeCode === true ? { freeCode: true } : {}),
     signal: slot.controller.signal,
     isCurrentRun: (candidate) => flow.runtime.lease?.runId === candidate,
   };
@@ -3123,6 +3132,9 @@ function createActions(flow: Flow): Actions {
     setEffort: (level) => {
       env().options.onSelectEffort?.(level);
     },
+    setFreeCode: (enabled) => {
+      env().options.onToggleFreeCode?.(enabled);
+    },
     newConversation,
     openConversation,
     deleteConversation,
@@ -3594,6 +3606,11 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     () => effortSelection(options.effort, options.onSelectEffort !== undefined),
     [options.effort, options.onSelectEffort],
   );
+  const freeCode = useMemo<FreeCodeView | null>(
+    () =>
+      options.onToggleFreeCode === undefined ? null : { enabled: options.freeCode === true },
+    [options.freeCode, options.onToggleFreeCode],
+  );
   const queue = useMemo(
     () => (uiState.queue === null ? null : queueView(uiState.queue, document)),
     [uiState.queue, document],
@@ -3615,6 +3632,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     mode: sessions.state.mode,
     model,
     effort,
+    freeCode,
     send: sendSlot,
     run: runBar,
     queue,

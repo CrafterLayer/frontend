@@ -30,6 +30,7 @@ import type {
 import {
   PAGE_SKELETON_LABEL,
   fillConcurrencyFor,
+  revertBuildSection,
   runAiBuild,
   validatePagePlan,
   type AiBuildEvent,
@@ -82,6 +83,7 @@ function manifest(): TrustedExtensionManifest {
               label: z.string().max(80).default('Custom section'),
               tree: customCodeTree().default(emptyCustomCodeTree()),
               css: customCss(8_000),
+              js: z.string().max(32_000).default(''),
             }),
             examples: [],
           }),
@@ -221,6 +223,8 @@ interface FillCall {
   readonly context: AssembledAiContext;
   readonly history: readonly AiChatTurn[] | undefined;
   readonly signal: AbortSignal | undefined;
+  /** The live options' free code mode, as the provider was handed it. */
+  readonly freeCode: boolean | undefined;
 }
 
 /** What a writer that honours its contract writes, read back from the request it was given. */
@@ -278,6 +282,7 @@ interface Scripted {
     request: string;
     context: AssembledAiContext;
     attempt?: AiPagePlanAttempt;
+    freeCode?: boolean;
   }[];
   readonly fills: FillCall[];
   readonly repairs: { request: string; issues: readonly AiPlanValidationIssue[] }[];
@@ -296,7 +301,13 @@ function scripted(
   const repairs: Scripted['repairs'] = [];
   const provider: AiPlanProvider = {
     async propose(request, context, live) {
-      const call: FillCall = { request, context, history: live?.history, signal: live?.signal };
+      const call: FillCall = {
+        request,
+        context,
+        history: live?.history,
+        signal: live?.signal,
+        freeCode: live?.freeCode,
+      };
       fills.push(call);
       if (options.fill !== undefined) return options.fill(call);
       return {
@@ -328,12 +339,13 @@ function scripted(
           proposePagePlan(
             request: string,
             context: AssembledAiContext,
-            live?: { attempt?: AiPagePlanAttempt },
+            live?: { attempt?: AiPagePlanAttempt; freeCode?: boolean },
           ) {
             planCalls.push({
               request,
               context,
               ...(live?.attempt === undefined ? {} : { attempt: live.attempt }),
+              ...(live?.freeCode === undefined ? {} : { freeCode: live.freeCode }),
             });
             return Promise.resolve({
               pagePlan: options.pagePlan?.(live?.attempt) ?? roastery(),
@@ -1130,5 +1142,105 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
     expect(menu?.status).toBe('applied');
     expect(menu?.check?.repaired).toBe(false);
     expect(menu?.check?.issues.length).toBeGreaterThan(0);
+  });
+});
+
+describe('runAiBuild — free code mode (the composer switch «وضع الكود الحر»)', () => {
+  /** A writer that also gives its region a scene: the tree, then page code. */
+  function writesScene(call: FillCall): AiPlan {
+    const id = regionIdOf(call.request);
+    return {
+      rationale: 'filled, with a scene',
+      commands: [
+        { command: 'setProp', args: { id, key: 'tree', value: honestSection(call.request) } },
+        { command: 'setProp', args: { id, key: 'js', value: 'const {app}=await ck.stage();' } },
+      ],
+    };
+  }
+
+  function codeOf(live: BuilderKernel): readonly unknown[] {
+    return Object.values(live.getDocument().nodes)
+      .filter(({ type }) => type === 'customCode')
+      .map(({ props }) => props['js']);
+  }
+
+  it('is on the plan call and on every writer when the build turned it on, and on neither when it did not', async () => {
+    const on = scripted();
+    await runAiBuild({ ...baseOptions(kernel(), on.provider), target: 'replace', freeCode: true });
+    expect(on.planCalls.length).toBeGreaterThan(0);
+    expect(on.planCalls.every(({ freeCode }) => freeCode === true)).toBe(true);
+    expect(on.fills.length).toBeGreaterThan(0);
+    expect(on.fills.every(({ freeCode }) => freeCode === true)).toBe(true);
+
+    const off = scripted();
+    await runAiBuild({ ...baseOptions(kernel(), off.provider), target: 'replace' });
+    expect(off.planCalls.length).toBeGreaterThan(0);
+    expect(off.planCalls.every(({ freeCode }) => freeCode === undefined)).toBe(true);
+    expect(off.fills.every(({ freeCode }) => freeCode === undefined)).toBe(true);
+  });
+
+  it('lands a scene a writer gives its region when it is on, though the apply door has no run composition', async () => {
+    const live = kernel();
+    const script = scripted({ fill: writesScene });
+
+    const result = await runAiBuild({
+      ...baseOptions(live, script.provider),
+      target: 'replace',
+      freeCode: true,
+    });
+
+    expect(result.outcome).toBe('completed');
+    expect(codeOf(live).filter((js) => js === 'const {app}=await ck.stage();').length).toBeGreaterThan(0);
+  });
+
+  it('puts a section back with its scene: the revert restores the js the fill wrote', async () => {
+    const live = kernel();
+    const script = scripted({ fill: writesScene });
+    const result = await runAiBuild({
+      ...baseOptions(live, script.provider),
+      target: 'replace',
+      freeCode: true,
+    });
+    // A section a writer wrote (the header and footer are laid whole by code, with no writer).
+    const landed = result.tasks.find(({ status, attempts }) => status === 'applied' && attempts > 0);
+    if (landed === undefined) throw new Error('no section landed');
+    expect(landed.landing?.after).toHaveProperty('js', 'const {app}=await ck.stage();');
+
+    revertBuildSection(live, landed, ports());
+
+    expect(live.getDocument().nodes[landed.id]?.props['js']).toBe('');
+  });
+
+  it('keeps the section a writer wrote and drops only its scene when it is off', async () => {
+    const live = kernel();
+    const script = scripted({ fill: writesScene });
+
+    const result = await runAiBuild({ ...baseOptions(live, script.provider), target: 'replace' });
+
+    expect(result.outcome).toBe('completed');
+    expect(codeOf(live).every((js) => js === '' || js === undefined)).toBe(true);
+    expect(result.tasks.filter(({ status }) => status === 'applied').length).toBeGreaterThan(0);
+  });
+
+  it('is on both attempts of Plan mode (planAiPage), the first and the repair', async () => {
+    const asked: (boolean | undefined)[] = [];
+    const provider: AiPlanProvider = {
+      propose: () => Promise.reject(new Error('Plan mode never writes sections.')),
+      proposePagePlan(_request, _context, live) {
+        asked.push(live?.freeCode);
+        return Promise.resolve({ pagePlan: { title: 'No sections', sections: [] } });
+      },
+    };
+
+    const refused = await planAiPage(REQUEST, {
+      runId: 'plan-only',
+      clock: { now: () => 1 },
+      kernel: kernel(),
+      provider,
+      freeCode: true,
+    });
+
+    expect('error' in refused).toBe(true);
+    expect(asked).toEqual([true, true]);
   });
 });

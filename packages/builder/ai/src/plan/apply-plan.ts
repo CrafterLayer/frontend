@@ -12,7 +12,7 @@ import {
   resolveAiProposalAuthority,
   type AiValidatedProposal,
 } from './validated-proposal';
-import { assertValidAiPlan } from './validate-plan';
+import { assertValidAiPlan, AUTHORED_PLAN_DOOR } from './validate-plan';
 // script-wiring additions
 import type { SiteGroupStep } from '@craftkit/builder-core';
 import type { AiPlanSite, ScriptCrossPage } from '../script/cross-page';
@@ -159,7 +159,13 @@ function applyAcrossPages(
   const plan =
     authority.plan.commands.length === 0
       ? authority.plan
-      : assertValidAiPlan(authority.plan, options.kernel, options.validationPorts, authority.policy);
+      : assertValidAiPlan(
+          authority.plan,
+          options.kernel,
+          options.validationPorts,
+          authority.policy,
+          AUTHORED_PLAN_DOOR,
+        );
   const elsewhere = crossPage.map(({ pageId, commands }) => {
     if (pageId === currentPage) {
       throw new Error(`applyAiPlan: cross-page writes name the open page "${pageId}".`);
@@ -169,6 +175,7 @@ function applyAcrossPages(
       site.page(pageId),
       options.validationPorts,
       authority.policy,
+      AUTHORED_PLAN_DOOR,
     );
     return { pageId, commands: checked.commands };
   });
@@ -213,6 +220,7 @@ export function applyAiPlan(options: ApplyAiPlanOptions): AppliedAiPlan {
     options.kernel,
     options.validationPorts,
     authority.policy,
+    AUTHORED_PLAN_DOOR,
   );
   // Keep the authentication check adjacent to the only live mutation door.
   if (authority.proposal !== undefined) {

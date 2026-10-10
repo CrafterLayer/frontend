@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createBuilder } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
@@ -130,6 +130,32 @@ function setup() {
 }
 
 describe('createDragSession (006 contract §1)', () => {
+  it('a library element dropped outside a tree uses the precise block seat', () => {
+    const h = setup();
+    const onDrop = vi.fn();
+    h.setHovered('root');
+    h.session.press({ kind: 'tree-insert', node: { kind: 'element', tag: 'h2', text: 'Heading' }, label: 'Heading', fallback: { kind: 'insert', type: 'section', onDrop } }, -50, 50, 'handle');
+    h.session.move(5, 265);
+    h.session.release();
+    expect(onDrop).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ parentId: 'root', slot: 'default', index: 1 }));
+    expect(h.kernel.transactions()).toHaveLength(0);
+    h.session.dispose();
+  });
+
+  it('does not invoke a library drop callback after Escape or an outside release', () => {
+    const h = setup();
+    const onDrop = vi.fn();
+    h.session.press({ kind: 'insert', type: 'section', onDrop }, -50, 50, 'handle');
+    h.session.move(50, 265);
+    h.session.cancel();
+    h.session.release();
+    h.session.press({ kind: 'insert', type: 'section', onDrop }, -50, 50, 'handle');
+    h.session.move(450, 265);
+    h.session.release();
+    expect(onDrop).not.toHaveBeenCalled();
+    expect(h.kernel.transactions()).toHaveLength(0);
+    h.session.dispose();
+  });
   it('s1: a press without crossing the threshold is a plain click — no chrome ever', () => {
     const h = setup();
     h.session.press({ kind: 'move', id: 't1' }, 50, 50, 'handle');

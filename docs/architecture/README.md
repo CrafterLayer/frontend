@@ -14,6 +14,8 @@ remain scoped to future application decisions.
   rules.
 - [`frontend.md`](frontend.md) — React composition, feature slices, UI contracts, and frontend
   dependency flow.
+- [`builder-design-libraries.md`](builder-design-libraries.md) — actual Builder library/AI
+  capabilities, shared element recipes, and authored-site runtime boundaries.
 - [`decisions/`](decisions/README.md) — accepted architecture decision records (ADRs).
 - [`decisions/0001-select-pnpm-turborepo.md`](decisions/0001-select-pnpm-turborepo.md) — accepted
   workspace package-manager and task-graph decision.

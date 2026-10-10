@@ -39,6 +39,9 @@ import {
   isHostedScene,
   SCENE_HOST_TAGS,
 } from './media-vocabulary';
+// pixi-studio:sound-engine additions (2026-10-10)
+import { soundAttributeProblem } from '../sound/attribute';
+// end pixi-studio:sound-engine additions
 
 /**
  * The custom-code tree: what the assistant writes when no registered
@@ -448,6 +451,10 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   // and `hidden`, which a toggle group's second option carries without script.
   ...CUSTOM_CODE_MEDIA_ATTRIBUTES,
   'hidden',
+  // pixi-studio:sound-engine additions (2026-10-10): sound as DATA, `trigger:ref[@vol]` tokens
+  // (sound/attribute.ts); muted by default, played only by ck-sound.js after a gesture.
+  'data-ck-sound',
+  // end pixi-studio:sound-engine additions
 ] as const;
 
 /**
@@ -1061,6 +1068,9 @@ const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   'data-ck-density': { on: ['div', ...SCENE_HOST_TAGS], value: oneOf(...SCENE_DENSITIES) }, // gsap-pixi additions (2026-10-08)
   'data-ck-palette': { on: ['div', ...SCENE_HOST_TAGS], value: oneOf(...SCENE_PALETTES) }, // gsap-pixi additions (2026-10-08)
   hidden: { on: 'html', value: bare },
+  // pixi-studio:sound-engine additions (2026-10-10)
+  'data-ck-sound': { on: 'html', value: (value) => soundAttributeProblem(value) },
+  // end pixi-studio:sound-engine additions
 };
 
 const SVG_ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {

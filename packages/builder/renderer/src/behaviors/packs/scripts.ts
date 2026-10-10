@@ -5,7 +5,79 @@ import type {
   CkEngineQueueEntry,
   CkEngines,
   CkEnginesHost,
+  CkLibraryFactory,
 } from '../../engines/ck-engines-shim';
+
+// pixi-studio:runtime-wiring additions (2026-10-10)
+/** A script parameter's value (DESIGN §A.1 `ScriptParamValue`). */
+export type CkScriptParamValue = number | string | boolean | readonly string[];
+
+/** `ck.sound.analyser()` per frame: zeros until the reader unmutes (DESIGN §C.1). */
+export interface CkAudioBands {
+  readonly level: number;
+  readonly bass: number;
+  readonly mid: number;
+  readonly treble: number;
+  readonly beat: boolean;
+  readonly active: boolean;
+}
+
+/**
+ * `ck.sound` (DESIGN §C.1, §C.3): a lazy proxy onto `assets/ck-sound.js`. On the editor canvas it
+ * is a silent stub (`play` returns false, `analyser` returns zeros). Elsewhere the first use loads
+ * the engine; nothing sounds before the reader's own gesture unmutes it (muted by default).
+ */
+export interface CkSoundApi {
+  /** A bank id, `lib:<projectSoundId>`, `asset:<assetId>` or zzfx numbers. False when nothing played. */
+  play(ref: string | readonly number[], options?: Readonly<Record<string, unknown>>): boolean;
+  /** An ambient bed while the region is visible (never under reduced motion); returns its stop. */
+  ambient(ref: string | readonly number[], options?: Readonly<Record<string, unknown>>): () => void;
+  analyser(): CkAudioBands;
+  readonly muted: boolean;
+  readonly unlocked: boolean;
+  setMuted(muted: boolean): void;
+  onChange(fn: () => void): void;
+}
+
+/** `ck.scene(options)` (DESIGN §B.2 `SceneOptions`). Write `libs` as a literal array. */
+export interface CkSceneOptions {
+  readonly libs?: readonly string[];
+  readonly background?: string | null;
+  /** The canvas takes pointer events (never on the editor canvas). */
+  readonly pointer?: boolean;
+  /** Advanced blend modes (`useBackBuffer`). */
+  readonly blend?: boolean;
+  /** Wants `s.audio` bands (loads ck-sound.js; silent until a gesture). */
+  readonly audio?: boolean;
+  readonly quality?: 'auto' | 'low' | 'high';
+  readonly seed?: number;
+  readonly maxFps?: 30 | 60 | 120;
+}
+
+/**
+ * What `ck.scene` hands to `kit.createScene(context)` (the `ck-lib-kit.js` namespace): the stage
+ * is already open and every library loaded; the kit builds the `Scene` of DESIGN §B.2 from this
+ * and registers its own cleanups through `onDispose`.
+ */
+export interface CkSceneContext {
+  readonly ck: CkScriptApi;
+  readonly PIXI: unknown;
+  readonly app: unknown;
+  readonly canvas: HTMLCanvasElement;
+  readonly root: HTMLElement;
+  /** The non-kit libraries the options named, by key. */
+  readonly lib: Readonly<Record<string, unknown>>;
+  readonly options: CkSceneOptions;
+  /** The values `ck.params` merged, or `{}` when the script never called it. */
+  readonly params: Readonly<Record<string, CkScriptParamValue>>;
+  readonly editor: boolean;
+  readonly reducedMotion: boolean;
+  readonly lang: string;
+  readonly rtl: boolean;
+  readonly sound: CkSoundApi;
+  onDispose(fn: () => void): void;
+}
+// end pixi-studio:runtime-wiring additions
 
 /** What a region script receives as its one parameter, `ck`. */
 export interface CkScriptApi {
@@ -24,7 +96,27 @@ export interface CkScriptApi {
     readonly background?: string | null;
     readonly pointer?: boolean;
     readonly resolution?: number;
+    /** pixi-studio (2026-10-10): advanced blend modes (`useBackBuffer`, DESIGN D6). */
+    readonly blend?: boolean;
   }): Promise<{ PIXI: unknown; app: unknown; canvas: HTMLCanvasElement }>;
+  // pixi-studio:runtime-wiring additions (2026-10-10) — DESIGN §B.2
+  /**
+   * `defaults` merged with the region's `data-ck-params` (the block's `jsParams`): unknown keys
+   * dropped, each value coerced to its default's type. A params edit re-runs the region.
+   */
+  params<T extends Record<string, CkScriptParamValue>>(defaults: T): T;
+  /**
+   * Loads `assets/ck-lib-<key>.js` per key (pixi first for Pixi-bound keys) and resolves
+   * `{ [key]: namespace }`, one namespace per document. Write the keys LITERALLY.
+   */
+  use(...keys: readonly (string | readonly string[])[]): Promise<Record<string, unknown>>;
+  /** stage + use('kit', ...libs) + kit.createScene: the one stable scene API. */
+  scene(options?: CkSceneOptions): Promise<unknown>;
+  readonly sound: CkSoundApi;
+  /** `<html lang>` (or the nearest `lang`) and whether the region reads right to left. */
+  readonly lang: string;
+  readonly rtl: boolean;
+  // end pixi-studio:runtime-wiring additions
 }
 
 /** The crash guard lives on the frame's window, so every region's mount shares it. */
@@ -131,6 +223,12 @@ export function mountScripts(
     readonly cleanups: (() => void)[];
     stopped: boolean;
     pixi?: Promise<unknown>;
+    // pixi-studio:runtime-wiring additions (2026-10-10)
+    /** The region's `data-ck-params` at start: a change re-runs it. */
+    readonly paramsText: string;
+    /** What `ck.params` merged (the scene's `params`). */
+    params?: Record<string, CkScriptParamValue>;
+    // end pixi-studio:runtime-wiring additions
   }
   interface PixiApplication {
     canvas: HTMLCanvasElement;
@@ -147,6 +245,7 @@ export function mountScripts(
     };
   const page: Document = doc;
   const view = win as Window & CkEnginesHost & ScriptsHost;
+  const logger = (view as Window & { console: Pick<Console, 'error'> }).console;
 
   const ATTRIBUTE = 'data-ck-js';
   const ID_ATTRIBUTE = 'data-ck-js-id';
@@ -155,6 +254,21 @@ export function mountScripts(
   const GUARD_KEY = 'ck-js-guard';
   const PAUSED_MESSAGE = 'Scripts paused after the editor froze last time';
   const SELECTOR = '[' + ATTRIBUTE + ']';
+  // pixi-studio:runtime-wiring additions (2026-10-10): held equal to STUDIO_LIB_KEYS and
+  // STUDIO_PIXI_BOUND_KEYS by scripts.studio.test.ts (this body cannot import them).
+  const PARAMS_ATTRIBUTE = 'data-ck-params';
+  const LIB_KEYS: readonly string[] = [
+    'kit',
+    'filters',
+    'emitter',
+    'physics',
+    'brush',
+    'rough',
+    'viewport',
+  ];
+  const PIXI_BOUND: readonly string[] = ['kit', 'filters', 'emitter', 'viewport'];
+  const LATE_MS = 20000;
+  // end pixi-studio:runtime-wiring additions
   const canvas = options?.interactive === false;
   const watch = options?.watch !== false;
   const reducedMotion =
@@ -256,7 +370,7 @@ export function mountScripts(
 
   function fail(run: Run, error: unknown): void {
     if (run.stopped) return;
-    console.error('[ck-js]', run.id, error);
+    logger.error('[ck-js]', run.id, error);
     if (!canvas) return;
     const written =
       error !== null &&
@@ -271,23 +385,31 @@ export function mountScripts(
     try {
       fn();
     } catch (error) {
-      console.error('[ck-js]', run.id, error);
+      logger.error('[ck-js]', run.id, error);
     }
   }
 
   /* ── pixi (ck.pixi / ck.stage) ───────────────────────────────────────── */
 
   function requestBundle(onError: (error: Error) => void): void {
-    if (page.querySelector('script[data-ck-engine="pixi"]') !== null) return;
-    const link = page.querySelector<HTMLLinkElement>('link[data-ck-engine="pixi"]');
-    // No locator: the editor canvas, where the bundle is injected into the frame head.
+    requestAsset('pixi', onError);
+  }
+
+  /*
+    pixi-studio:runtime-wiring (2026-10-10): any engine asset, the way `pixi` always was — the
+    export's `link[data-ck-engine="<kind>"]` locator names it, and it is requested once per
+    document. No locator: the editor canvas or a host Preview, where `inject.ts` adds it.
+  */
+  function requestAsset(kind: CkEngineKind, onError: (error: Error) => void): void {
+    if (page.querySelector('script[data-ck-engine="' + kind + '"]') !== null) return;
+    const link = page.querySelector<HTMLLinkElement>('link[data-ck-engine="' + kind + '"]');
     if (link === null) return;
     const href = link.href !== '' ? link.href : (link.getAttribute('href') ?? '');
     if (href === '') return;
     const script = page.createElement('script');
     script.src = href;
     script.async = true;
-    script.setAttribute('data-ck-engine', 'pixi');
+    script.setAttribute('data-ck-engine', kind);
     script.addEventListener('error', function failed() {
       onError(new Error('Could not load ' + href));
     });
@@ -350,6 +472,7 @@ export function mountScripts(
       readonly background?: string | null;
       readonly pointer?: boolean;
       readonly resolution?: number;
+      readonly blend?: boolean;
     },
   ): Promise<{ PIXI: unknown; app: unknown; canvas: HTMLCanvasElement }> {
     return loadPixi(run).then(function create(namespace: unknown) {
@@ -371,6 +494,9 @@ export function mountScripts(
       } else {
         init['backgroundAlpha'] = 0;
       }
+      // pixi-studio:runtime-wiring additions (2026-10-10): advanced blend modes (DESIGN D6).
+      if (given.blend === true) init['useBackBuffer'] = true;
+      // end pixi-studio:runtime-wiring additions
       function discard(): void {
         try {
           app.destroy(true, { children: true });
@@ -391,7 +517,8 @@ export function mountScripts(
           style.left = '0';
           style.display = 'block';
           style.zIndex = '0';
-          style.pointerEvents = given.pointer === true ? 'auto' : 'none';
+          // pixi-studio (2026-10-10): the editor canvas never captures pointer input (a click selects).
+          style.pointerEvents = given.pointer === true && !canvas ? 'auto' : 'none';
           run.el.appendChild(surface);
           run.cleanups.push(function destroyStage(): void {
             app.destroy({ removeView: true }, { children: true });
@@ -405,6 +532,384 @@ export function mountScripts(
       );
     });
   }
+
+  /* ── pixi-studio:runtime-wiring additions (2026-10-10): DESIGN §B.2, §C.3 ── */
+
+  /* `<html lang>` and direction, read at the region (the nearest `lang` / `dir` wins). */
+  function langOf(el: Element): string {
+    const owner = el.closest('[lang]');
+    return (owner === null ? '' : (owner.getAttribute('lang') ?? '')).trim();
+  }
+
+  function rtlOf(el: Element): boolean {
+    const owner = el.closest('[dir]');
+    return (owner === null ? '' : (owner.getAttribute('dir') ?? '')).trim().toLowerCase() === 'rtl';
+  }
+
+  function readParams(run: Run): Record<string, unknown> {
+    if (run.paramsText.trim() === '') return {};
+    try {
+      const parsed: unknown = JSON.parse(run.paramsText);
+      return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function stringList(value: unknown): string[] | null {
+    if (!Array.isArray(value)) return null;
+    const out: string[] = [];
+    for (const item of value as unknown[]) {
+      if (typeof item !== 'string') return null;
+      out.push(item);
+    }
+    return out;
+  }
+
+  /* `value` as the type of `fallback`, or `fallback` when it cannot be (DESIGN §B.2 ck.params). */
+  function coerceParam(value: unknown, fallback: CkScriptParamValue): CkScriptParamValue {
+    if (typeof fallback === 'number') {
+      const number =
+        typeof value === 'number'
+          ? value
+          : typeof value === 'string' && value.trim() !== ''
+            ? Number(value)
+            : Number.NaN;
+      return Number.isFinite(number) ? number : fallback;
+    }
+    if (typeof fallback === 'boolean') {
+      if (value === true || value === false) return value;
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return fallback;
+    }
+    const list = stringList(value);
+    if (Array.isArray(fallback)) {
+      // A palette: a list of colours, or 'theme'.
+      if (list !== null) return list;
+      return value === 'theme' ? 'theme' : fallback;
+    }
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    // A palette whose default is 'theme' takes a list of colours.
+    if (list !== null && fallback === 'theme') return list;
+    return fallback;
+  }
+
+  function mergeParams(run: Run, defaults: unknown): Record<string, CkScriptParamValue> {
+    const given = readParams(run);
+    const merged: Record<string, CkScriptParamValue> = {};
+    if (defaults !== null && typeof defaults === 'object' && !Array.isArray(defaults)) {
+      const source = defaults as Record<string, CkScriptParamValue>;
+      for (const [key, fallback] of Object.entries(source)) {
+        merged[key] = Object.prototype.hasOwnProperty.call(given, key)
+          ? coerceParam(given[key], fallback)
+          : fallback;
+      }
+    }
+    run.params = merged;
+    return merged;
+  }
+
+  /*
+    What a `lib-<key>` or `sound` engine provides, requested ONCE per document: queued on the
+    document element (always connected, so a region leaving does not strand the others) and
+    cached on `window.ckEngines`. A request that fails or never arrives (20 s) is forgotten, so a
+    later use may ask again.
+  */
+  function provided(kind: CkEngineKind, advice: string): Promise<unknown> {
+    const api = ensureCkEngines(view);
+    const cache = api.provided ?? {};
+    api.provided = cache;
+    const known = cache[kind];
+    if (known !== undefined) return known;
+    const host = page.documentElement;
+    const loading = new Promise<unknown>(function executor(resolve, reject) {
+      let entry: CkEngineQueueEntry | null = null;
+      const timer = view.setTimeout(function late(): void {
+        if (entry !== null) {
+          const at = api.queue.indexOf(entry);
+          if (at >= 0) api.queue.splice(at, 1);
+        }
+        reject(new Error(advice));
+      }, LATE_MS);
+      const ctx: CkEngineContext = {
+        still: false,
+        canvas,
+        rtl: rtlOf(host),
+        lang: langOf(host),
+        onPlay: function onPlay(): void {
+          /* a library has nothing to replay */
+        },
+        onStop: function onStop(): void {
+          /* a library has nothing to stop */
+        },
+        provide: function provide(value: unknown): void {
+          view.clearTimeout(timer);
+          resolve(value);
+        },
+      };
+      const engine = api.engines[kind];
+      if (engine) {
+        try {
+          engine.mount(host, ctx);
+        } catch (error) {
+          view.clearTimeout(timer);
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+        return;
+      }
+      entry = { kind, el: host, ctx };
+      api.queue.push(entry);
+      requestAsset(kind, function failed(error: Error): void {
+        view.clearTimeout(timer);
+        reject(error);
+      });
+    });
+    cache[kind] = loading;
+    loading.then(undefined, function forget(): void {
+      if (cache[kind] === loading) Reflect.deleteProperty(cache, kind);
+    });
+    return loading;
+  }
+
+  /* The namespace a library's factory makes, ONCE per document (DESIGN D2). */
+  function made(kind: CkEngineKind, factory: unknown, PIXI: unknown): unknown {
+    const api = ensureCkEngines(view);
+    const store = api.made ?? {};
+    api.made = store;
+    if (Object.prototype.hasOwnProperty.call(store, kind)) return store[kind];
+    let namespace: unknown = factory;
+    if (
+      factory !== null &&
+      typeof factory === 'object' &&
+      typeof (factory as Partial<CkLibraryFactory>).create === 'function'
+    ) {
+      namespace = (factory as CkLibraryFactory).create(PIXI);
+    }
+    store[kind] = namespace;
+    return namespace;
+  }
+
+  function libraryAdvice(key: string): string {
+    return (
+      'The ck-lib-' +
+      key +
+      ".js library did not load. Name it literally — ck.use('" +
+      key +
+      "') or ck.scene({ libs: ['" +
+      key +
+      "'] }) — so the page knows to ship it."
+    );
+  }
+
+  function loadLibraries(
+    run: Run,
+    requested: readonly unknown[],
+  ): Promise<Record<string, unknown>> {
+    const keys: string[] = [];
+    for (const item of requested) {
+      const list: readonly unknown[] = Array.isArray(item) ? (item as unknown[]) : [item];
+      for (const key of list) {
+        if (typeof key !== 'string' || !LIB_KEYS.includes(key)) {
+          return Promise.reject(
+            new Error(
+              'Unknown library "' +
+                String(key) +
+                '". Known libraries: ' +
+                LIB_KEYS.join(', ') +
+                '.',
+            ),
+          );
+        }
+        if (!keys.includes(key)) keys.push(key);
+      }
+    }
+    // Pixi FIRST for a Pixi-bound key: its factory binds to the page's one namespace.
+    const bound = keys.some(function pixiBound(key: string): boolean {
+      return PIXI_BOUND.includes(key);
+    });
+    const pixi = bound ? loadPixi(run) : null;
+    if (pixi !== null)
+      pixi.then(undefined, function handledBelow(): void {
+        /* each library below reports the failure */
+      });
+    const loading = keys.map(function each(key: string): Promise<unknown> {
+      const kind = ('lib-' + key) as CkEngineKind;
+      return provided(kind, libraryAdvice(key)).then(function bind(factory: unknown) {
+        const wantsPixi =
+          PIXI_BOUND.includes(key) ||
+          (factory !== null &&
+            typeof factory === 'object' &&
+            (factory as Partial<CkLibraryFactory>).pixi === true);
+        if (!wantsPixi) return made(kind, factory, undefined);
+        return (pixi ?? loadPixi(run)).then(function withPixi(PIXI: unknown) {
+          return made(kind, factory, PIXI);
+        });
+      });
+    });
+    return Promise.all(loading).then(function collect(namespaces: unknown[]) {
+      const out: Record<string, unknown> = {};
+      keys.forEach(function put(key: string, at: number): void {
+        out[key] = namespaces[at];
+      });
+      return out;
+    });
+  }
+
+  function openScene(run: Run, ck: CkScriptApi, options: unknown): Promise<unknown> {
+    const given = (
+      options !== null && typeof options === 'object' ? options : {}
+    ) as CkSceneOptions;
+    const keys: string[] = ['kit'];
+    const extra: readonly unknown[] = Array.isArray(given.libs) ? (given.libs as unknown[]) : [];
+    for (const key of extra) {
+      if (typeof key !== 'string' || !keys.includes(key)) keys.push(key as string);
+    }
+    // Audio bands start loading the sound engine (never on the canvas, never under reduced motion).
+    if (given.audio === true && !canvas && !reducedMotion) ck.sound.analyser();
+    const stage = openStage(run, {
+      background: given.background ?? null,
+      pointer: given.pointer === true,
+      blend: given.blend === true,
+    });
+    const libs = loadLibraries(run, keys);
+    return Promise.all([stage, libs]).then(function compose(pair) {
+      const opened = pair[0];
+      const loaded = pair[1];
+      const kit = loaded['kit'] as { createScene?: unknown } | null | undefined;
+      if (kit === null || kit === undefined || typeof kit.createScene !== 'function') {
+        throw new Error('ck-lib-kit.js loaded without createScene().');
+      }
+      const lib: Record<string, unknown> = {};
+      for (const key of keys) if (key !== 'kit') lib[key] = loaded[key];
+      const context: CkSceneContext = {
+        ck,
+        PIXI: opened.PIXI,
+        app: opened.app,
+        canvas: opened.canvas,
+        root: run.el,
+        lib,
+        options: given,
+        params: run.params ?? {},
+        editor: canvas,
+        reducedMotion,
+        lang: ck.lang,
+        rtl: ck.rtl,
+        sound: ck.sound,
+        onDispose: function onDispose(fn: () => void): void {
+          ck.onDispose(fn);
+        },
+      };
+      return (kit.createScene as (context: CkSceneContext) => unknown)(context);
+    });
+  }
+
+  function silentBands(): CkAudioBands {
+    return { level: 0, bass: 0, mid: 0, treble: 0, beat: false, active: false };
+  }
+
+  /*
+    `ck.sound` (DESIGN §C.3): a proxy that loads ck-sound.js on first use — never on the editor
+    canvas, where it stays a silent stub. Before the engine arrives `play` is a no-op (false), an
+    ambient bed waits for it, `analyser` reads zeros. The engine alone decides when anything is
+    audible: muted by default, unlocked only inside the reader's gesture.
+  */
+  function createSound(run: Run): CkSoundApi {
+    let real: CkSoundApi | null = null;
+    let loading: Promise<unknown> | null = null;
+    let wantMuted: boolean | null = null;
+    const listeners: (() => void)[] = [];
+    function load(): Promise<unknown> | null {
+      if (canvas) return null;
+      if (loading !== null) return loading;
+      const pending = provided(
+        'sound',
+        'The ck-sound.js engine did not load. Call ck.sound literally (or use data-ck-sound) so the page knows to ship it.',
+      ).then(function got(engine: unknown) {
+        const api = engine as CkSoundApi;
+        real = api;
+        if (wantMuted !== null) api.setMuted(wantMuted);
+        for (const fn of listeners) api.onChange(fn);
+        listeners.length = 0;
+        return engine;
+      });
+      loading = pending;
+      pending.then(undefined, function failed(error: unknown): void {
+        loading = null;
+        fail(run, error);
+      });
+      return pending;
+    }
+    function noop(): void {
+      /* nothing is playing */
+    }
+    const proxy = {
+      play: function play(
+        ref: string | readonly number[],
+        playOptions?: Readonly<Record<string, unknown>>,
+      ): boolean {
+        if (canvas) return false;
+        if (real !== null) return real.play(ref, playOptions);
+        void load();
+        return false;
+      },
+      ambient: function ambient(
+        ref: string | readonly number[],
+        ambientOptions?: Readonly<Record<string, unknown>>,
+      ): () => void {
+        if (canvas || reducedMotion) return noop;
+        let stopped = false;
+        let stopReal: (() => void) | null = null;
+        function stop(): void {
+          if (stopped) return;
+          stopped = true;
+          if (stopReal !== null) stopReal();
+        }
+        function begin(): void {
+          if (stopped || real === null) return;
+          const result = real.ambient(ref, ambientOptions);
+          stopReal = typeof result === 'function' ? result : null;
+        }
+        if (real !== null) begin();
+        else load()?.then(begin, noop);
+        run.cleanups.push(stop);
+        return stop;
+      },
+      analyser: function analyser(): CkAudioBands {
+        if (real !== null && !reducedMotion) return real.analyser();
+        if (!canvas) void load();
+        return silentBands();
+      },
+      setMuted: function setMuted(muted: boolean): void {
+        wantMuted = muted;
+        if (real !== null) real.setMuted(wantMuted);
+        else void load();
+      },
+      onChange: function onChange(fn: () => void): void {
+        if (typeof fn !== 'function') return;
+        if (real !== null) real.onChange(fn);
+        else listeners.push(fn);
+      },
+    };
+    Object.defineProperty(proxy, 'muted', {
+      enumerable: true,
+      get: function muted(): boolean {
+        return real === null ? true : real.muted;
+      },
+    });
+    Object.defineProperty(proxy, 'unlocked', {
+      enumerable: true,
+      get: function unlocked(): boolean {
+        return real === null ? false : real.unlocked;
+      },
+    });
+    return proxy as unknown as CkSoundApi;
+  }
+
+  /* ── end pixi-studio:runtime-wiring additions ── */
 
   /* ── one region ──────────────────────────────────────────────────────── */
 
@@ -423,7 +928,7 @@ export function mountScripts(
         if (el.style.position === 'relative') el.style.position = before;
       });
     }
-    return {
+    const ck: CkScriptApi = {
       root: el,
       editor: canvas,
       reducedMotion,
@@ -438,7 +943,24 @@ export function mountScripts(
       stage: function stage(stageOptions) {
         return openStage(run, stageOptions);
       },
+      // pixi-studio:runtime-wiring additions (2026-10-10)
+      params: function params<T extends Record<string, CkScriptParamValue>>(defaults: T): T {
+        return mergeParams(run, defaults) as T;
+      },
+      use: function use(): Promise<Record<string, unknown>> {
+        // `arguments`, not a rest parameter: the body stays plain ES2015 for every target.
+        // eslint-disable-next-line prefer-rest-params -- see above
+        return loadLibraries(run, Array.prototype.slice.call(arguments) as unknown[]);
+      },
+      scene: function scene(sceneOptions?: CkSceneOptions): Promise<unknown> {
+        return openScene(run, ck, sceneOptions);
+      },
+      sound: createSound(run),
+      lang: langOf(el),
+      rtl: rtlOf(el),
+      // end pixi-studio:runtime-wiring additions
     };
+    return ck;
   }
 
   function execute(run: Run): void {
@@ -470,7 +992,8 @@ export function mountScripts(
     const code = el.getAttribute(ATTRIBUTE) ?? '';
     if (code.trim() === '' || runs.has(el) || el.hasAttribute(MARK)) return;
     const id = el.getAttribute(ID_ATTRIBUTE) ?? '';
-    const run: Run = { el, code, id, cleanups: [], stopped: false };
+    const paramsText = el.getAttribute(PARAMS_ATTRIBUTE) ?? ''; // pixi-studio:runtime-wiring (2026-10-10)
+    const run: Run = { el, code, id, cleanups: [], stopped: false, paramsText };
     runs.set(el, run);
     el.setAttribute(MARK, '');
     el.removeAttribute(ERROR_ATTRIBUTE);
@@ -497,7 +1020,12 @@ export function mountScripts(
     }
     for (const el of regionsIn()) {
       const run = runs.get(el);
-      if (run?.code === (el.getAttribute(ATTRIBUTE) ?? '')) continue;
+      // pixi-studio:runtime-wiring (2026-10-10): a params edit re-runs the region too.
+      if (
+        run?.code === (el.getAttribute(ATTRIBUTE) ?? '') &&
+        run.paramsText === (el.getAttribute(PARAMS_ATTRIBUTE) ?? '')
+      )
+        continue;
       if (run !== undefined) stop(run);
       start(el);
     }
@@ -530,7 +1058,7 @@ export function mountScripts(
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: [ATTRIBUTE],
+      attributeFilter: [ATTRIBUTE, PARAMS_ATTRIBUTE], // pixi-studio:runtime-wiring (2026-10-10): + params
     });
   }
 

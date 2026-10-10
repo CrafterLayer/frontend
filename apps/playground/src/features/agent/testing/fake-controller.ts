@@ -195,16 +195,7 @@ const SWATCHES: DirectionView['swatches'] = [
 
 const WORDS: Readonly<Record<Locale, Words>> = {
   en: {
-    sections: [
-      'Header',
-      'Hero',
-      'Services',
-      'Why us',
-      'Doctors',
-      'Testimonials',
-      'FAQ',
-      'Contact',
-    ],
+    sections: ['Header', 'Hero', 'Services', 'Why us', 'Doctors', 'Testimonials', 'FAQ', 'Contact'],
     request: 'A dental clinic page in Amman, WhatsApp booking',
     direction: {
       mood: 'Calm, clinical, teal',
@@ -297,8 +288,7 @@ const WORDS: Readonly<Record<Locale, Words>> = {
       },
     ],
     question: 'كيف أغيّر الخط في هذه الصفحة؟',
-    answer:
-      'يُغيَّر الخط من لوحة «السمة» في المحرّر باختيار خط العناوين، وخط النص تحته مباشرة.',
+    answer: 'يُغيَّر الخط من لوحة «السمة» في المحرّر باختيار خط العناوين، وخط النص تحته مباشرة.',
     steps: [
       'جعل خلفية الواجهة كحلية داكنة.',
       'إضافة زر واتساب بجانب «احجز موعدًا».',
@@ -499,6 +489,7 @@ function base(locale: Locale, words: Words): AgentViewState {
     chips: [PAGE_CHIP],
     mention: null,
     mode: 'auto',
+    workers: 3,
     model: MODELS,
     send: 'idle-empty',
     run: null,
@@ -523,7 +514,10 @@ function conversation(
   return [userTurn(USER_TURN, request, chips), record];
 }
 
-function announce(key: AnnouncementView['key'], params: AnnouncementView['params'] = {}): AnnouncementView {
+function announce(
+  key: AnnouncementView['key'],
+  params: AnnouncementView['params'] = {},
+): AnnouncementView {
   return { key, params, seq: 1 };
 }
 
@@ -641,7 +635,11 @@ export function fakeViewState(
     case 'empty':
       return start;
     case 'emptyHasContent':
-      return { ...start, empty: { kind: 'hasContent', sections: 8 }, suggestions: suggestions(words, 'followUp') };
+      return {
+        ...start,
+        empty: { kind: 'hasContent', sections: 8 },
+        suggestions: suggestions(words, 'followUp'),
+      };
     case 'emptySelection':
       return {
         ...start,
@@ -673,7 +671,10 @@ export function fakeViewState(
     case 'skeleton':
       return {
         ...running(
-          { kind: 'build', view: buildView(words, { phase: 'skeleton', rows: [], direction: undefined }) },
+          {
+            kind: 'build',
+            view: buildView(words, { phase: 'skeleton', rows: [], direction: undefined }),
+          },
           runBar({ activity: 'build', statusKey: 'build.started' }, now, 4_000),
         ),
         empty: { kind: 'greeting' },
@@ -687,9 +688,22 @@ export function fakeViewState(
       );
     case 'blocked':
       return running(
-        buildingRecord(['landed', 'writing', 'drafted', 'drafted', 'drafted', 'waiting', 'waiting', 'waiting']),
+        buildingRecord([
+          'landed',
+          'writing',
+          'drafted',
+          'drafted',
+          'drafted',
+          'waiting',
+          'waiting',
+          'waiting',
+        ]),
         runBar(
-          { activity: 'build', statusKey: 'build.blocked', params: { title: words.sections[1] ?? '' } },
+          {
+            activity: 'build',
+            statusKey: 'build.blocked',
+            params: { title: words.sections[1] ?? '' },
+          },
           now,
           95_000,
         ),
@@ -716,7 +730,9 @@ export function fakeViewState(
     case 'builtCollapsed': {
       const record = built();
       const collapsed: TurnView =
-        record.kind === 'build' ? { kind: 'build', view: { ...record.view, collapsed: true } } : record;
+        record.kind === 'build'
+          ? { kind: 'build', view: { ...record.view, collapsed: true } }
+          : record;
       return {
         ...start,
         ...hasContent,
@@ -742,7 +758,10 @@ export function fakeViewState(
     case 'stopping':
       return {
         ...running(
-          { kind: 'build', view: buildView(words, { phase: 'stopping', rows: rows(words, WRITING_STATES) }) },
+          {
+            kind: 'build',
+            view: buildView(words, { phase: 'stopping', rows: rows(words, WRITING_STATES) }),
+          },
           runBar({ activity: 'build', statusKey: 'stopping', stopping: true }, now, 110_000),
         ),
         announcement: announce('stopping'),
@@ -750,7 +769,16 @@ export function fakeViewState(
     case 'stopped':
     case 'stoppedBudget':
     case 'stoppedMaxTasks': {
-      const states: RowState[] = ['landed', 'landed', 'landed', 'landed', 'landed', 'notWritten', 'notWritten', 'notWritten'];
+      const states: RowState[] = [
+        'landed',
+        'landed',
+        'landed',
+        'landed',
+        'landed',
+        'notWritten',
+        'notWritten',
+        'notWritten',
+      ];
       const stopReason =
         scenario === 'stopped' ? 'signal' : scenario === 'stoppedBudget' ? 'budget' : 'maxTasks';
       return settled(
@@ -773,13 +801,24 @@ export function fakeViewState(
       );
     }
     case 'interrupted': {
-      const states: RowState[] = ['landed', 'landed', 'landed', 'notWritten', 'notWritten', 'notWritten', 'notWritten', 'notWritten'];
+      const states: RowState[] = [
+        'landed',
+        'landed',
+        'landed',
+        'notWritten',
+        'notWritten',
+        'notWritten',
+        'notWritten',
+        'notWritten',
+      ];
       return settled({
         kind: 'build',
         view: buildView(words, {
           phase: 'interrupted',
           rows: rows(words, states).map((row) =>
-            row.state === 'landed' ? { ...row, undo: { kind: 'unavailable', why: 'revived' } } : row,
+            row.state === 'landed'
+              ? { ...row, undo: { kind: 'unavailable', why: 'revived' } }
+              : row,
           ),
           revived: true,
           actions: { ...NO_ACTIONS, finishRest: 5, removeEmpty: 5 },
@@ -793,7 +832,10 @@ export function fakeViewState(
           kind: 'build',
           view: buildView(words, {
             phase: 'failed',
-            rows: rows(words, WRITING_STATES.map(() => 'failed')),
+            rows: rows(
+              words,
+              WRITING_STATES.map(() => 'failed'),
+            ),
             elapsedMs: 31_000,
             menu: ['reuse', 'copyError'],
             error: {
@@ -811,7 +853,10 @@ export function fakeViewState(
         kind: 'build',
         view: buildView(words, {
           phase: 'undone',
-          rows: rows(words, ALL_LANDED.map(() => 'undone')).map((row) => {
+          rows: rows(
+            words,
+            ALL_LANDED.map(() => 'undone'),
+          ).map((row) => {
             const { nodeId, ...rest } = row;
             void nodeId;
             return rest;
@@ -886,7 +931,12 @@ export function fakeViewState(
     case 'editStopped':
       return settled({
         kind: 'edit',
-        view: editView({ phase: 'stopped', target: words.sections[1], elapsedMs: 5_000, menu: ['reuse'] }),
+        view: editView({
+          phase: 'stopped',
+          target: words.sections[1],
+          elapsedMs: 5_000,
+          menu: ['reuse'],
+        }),
       });
     case 'answer':
       return {
@@ -896,7 +946,10 @@ export function fakeViewState(
         }),
         turns: conversation(
           words,
-          { kind: 'answer', view: { turnId: RECORD_TURN, text: words.answer, menu: ['reuse', 'copyAnswer'] } },
+          {
+            kind: 'answer',
+            view: { turnId: RECORD_TURN, text: words.answer, menu: ['reuse', 'copyAnswer'] },
+          },
           words.question,
         ),
       };
@@ -920,7 +973,10 @@ export function fakeViewState(
     case 'planDrafting':
       return {
         ...running(
-          { kind: 'page-plan', view: planView(words, { status: 'drafting', sections: [], direction: undefined }) },
+          {
+            kind: 'page-plan',
+            view: planView(words, { status: 'drafting', sections: [], direction: undefined }),
+          },
           runBar({ activity: 'plan', statusKey: 'plan.drafting' }, now, 6_000),
         ),
         mode: 'plan',
@@ -937,7 +993,9 @@ export function fakeViewState(
           ? {
               edited: true,
               sections: planView(words, {}).sections.map((section, index) =>
-                index === 5 ? { ...section, title: locale === 'ar' ? 'قصص المرضى' : 'Patient stories' } : section,
+                index === 5
+                  ? { ...section, title: locale === 'ar' ? 'قصص المرضى' : 'Patient stories' }
+                  : section,
               ),
             }
           : scenario === 'planInvalid'
@@ -967,7 +1025,10 @@ export function fakeViewState(
     case 'proposalDrafting':
       return {
         ...running(
-          { kind: 'proposal', view: proposalView(words, { status: 'drafting', changes: [], menu: [] }) },
+          {
+            kind: 'proposal',
+            view: proposalView(words, { status: 'drafting', changes: [], menu: [] }),
+          },
           runBar({ activity: 'proposal', statusKey: 'proposal.drafting' }, now, 5_000),
           words.proposalRequest,
         ),
@@ -1020,7 +1081,16 @@ export function fakeViewState(
     case 'queued':
     case 'queueStale':
     case 'queueMissing': {
-      const states: RowState[] = ['landed', 'landed', 'landed', 'landed', 'landed', 'writing', 'drafted', 'writing'];
+      const states: RowState[] = [
+        'landed',
+        'landed',
+        'landed',
+        'landed',
+        'landed',
+        'writing',
+        'drafted',
+        'writing',
+      ];
       const state = running(
         buildingRecord(states),
         runBar({ activity: 'build', statusKey: 'build.writing', params: { n: 2 } }, now, 100_000),
@@ -1059,7 +1129,9 @@ export function fakeViewState(
     case 'long': {
       const record = built();
       const collapsed: TurnView =
-        record.kind === 'build' ? { kind: 'build', view: { ...record.view, collapsed: true } } : record;
+        record.kind === 'build'
+          ? { kind: 'build', view: { ...record.view, collapsed: true } }
+          : record;
       return {
         ...start,
         ...hasContent,
@@ -1078,10 +1150,21 @@ export function fakeViewState(
               undo: { kind: 'undo', transactionId: 'tx-edit' },
             }),
           },
-          userTurn('turn-5', locale === 'ar' ? 'أضف الأسعار وخريطة لقسم التواصل' : 'Add pricing and a map to the contact section'),
+          userTurn(
+            'turn-5',
+            locale === 'ar'
+              ? 'أضف الأسعار وخريطة لقسم التواصل'
+              : 'Add pricing and a map to the contact section',
+          ),
           {
             kind: 'edit',
-            view: editView({ turnId: 'turn-6', phase: 'running', stage: 'edit.writing', target: words.sections[7], menu: [] }),
+            view: editView({
+              turnId: 'turn-6',
+              phase: 'running',
+              stage: 'edit.writing',
+              target: words.sections[7],
+              menu: [],
+            }),
           },
         ],
         run: runBar({ turnId: 'turn-6', activity: 'edit', statusKey: 'edit.writing' }, now, 41_000),
@@ -1154,7 +1237,9 @@ export function fakeViewState(
 
 /** Every AgentController action, by name. */
 export type FakeAction = {
-  [K in keyof AgentController]-?: NonNullable<AgentController[K]> extends (...args: never[]) => unknown
+  [K in keyof AgentController]-?: NonNullable<AgentController[K]> extends (
+    ...args: never[]
+  ) => unknown
     ? K
     : never;
 }[keyof AgentController];
@@ -1199,6 +1284,7 @@ const ACTIONS: readonly FakeAction[] = [
   'setDraft',
   'setMode',
   'setModel',
+  'setWorkers',
   'newConversation',
   'openConversation',
   'deleteConversation',
@@ -1292,7 +1378,11 @@ function runLife(state: AgentViewState): 'idle' | 'live' {
   return state.run === null ? 'idle' : 'live';
 }
 
-function sendStateOf(state: AgentViewState, draft: string, queued: boolean): AgentViewState['send'] {
+function sendStateOf(
+  state: AgentViewState,
+  draft: string,
+  queued: boolean,
+): AgentViewState['send'] {
   const empty = draft.trim() === '';
   if (runLife(state) === 'idle') return empty ? 'idle-empty' : 'idle-ready';
   if (empty) return 'running-empty';
@@ -1380,12 +1470,11 @@ export function useFakeController(
             draft,
             mention: mentionFor(draft, WORDS[current.locale]),
             enhancement,
-            queue:
-              queued
-                ? draft.trim() === ''
-                  ? null
-                  : { ...current.queue, text: draft }
-                : current.queue,
+            queue: queued
+              ? draft.trim() === ''
+                ? null
+                : { ...current.queue, text: draft }
+              : current.queue,
             send: sendStateOf(current, draft, queued && draft.trim() !== ''),
           };
         });
@@ -1398,7 +1487,11 @@ export function useFakeController(
               ...current,
               queue: { text: current.draft, chips: current.chips, status: 'editable' },
               send: 'running-queued',
-              announcement: { key: 'queue.queued', params: {}, seq: (current.announcement?.seq ?? 0) + 1 },
+              announcement: {
+                key: 'queue.queued',
+                params: {},
+                seq: (current.announcement?.seq ?? 0) + 1,
+              },
             };
           }
           const id = `turn-${String(current.turns.length + 1)}`;
@@ -1418,8 +1511,7 @@ export function useFakeController(
             : {
                 ...current,
                 run: { ...current.run, stopping: true, statusKey: 'stopping', params: {} },
-                queue:
-                  current.queue === null ? null : { ...current.queue, status: 'paused' },
+                queue: current.queue === null ? null : { ...current.queue, status: 'paused' },
               },
         );
       },
@@ -1436,6 +1528,10 @@ export function useFakeController(
       },
       setMode: (mode) => {
         setState((current) => ({ ...current, mode: mode as AgentViewState['mode'] }));
+      },
+      setWorkers: (value) => {
+        if (value !== 1 && value !== 3 && value !== 6) return;
+        setState((current) => (current.run === null ? { ...current, workers: value } : current));
       },
       setModel: (id) => {
         setState((current) => {
@@ -1589,7 +1685,12 @@ export function useFakeController(
             };
           }),
           run: runBar(
-            { turnId: String(turnId), activity: 'build', statusKey: 'build.writing', params: { n: 5 } },
+            {
+              turnId: String(turnId),
+              activity: 'build',
+              statusKey: 'build.writing',
+              params: { n: 5 },
+            },
             Date.now(),
             0,
           ),

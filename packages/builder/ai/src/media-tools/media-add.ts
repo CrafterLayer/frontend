@@ -358,18 +358,25 @@ function runGallery(input: MediaAddInput, context: AgentToolContext): AgentToolR
   const count = input.count ?? (input.images?.kind === 'list' ? input.images.images.length : GALLERY_DEFAULT_COUNT);
   const images = resolveImages(context, input.images, count);
   if (!images.ok) return images;
+  /*
+    A gallery added as its own section has a visible heading, as a video does
+    (walk 2026-10-08: «ضيف معرض صور للأطباق» added a section with no heading).
+  */
+  const locale = mediaLocale(context);
+  const title =
+    input.title ?? (input.into === undefined ? (locale === 'ar' ? 'معرض الصور' : 'Gallery') : undefined);
   const recipe = built(
     buildGallery({
       layout: input.layout,
       images: images.value,
       captions: input.captions,
-      title: input.title,
-      locale: mediaLocale(context),
+      title,
+      locale,
       standalone: input.into === undefined,
     }),
   );
   if (!recipe.ok) return recipe;
-  const run = place(context, input, recipe.recipe, 'gallery');
+  const run = place(context, { ...input, ...(title === undefined ? {} : { title }) }, recipe.recipe, 'gallery');
   return run.ok ? { ...run, note: `gallery ${input.layout ?? 'grid'} · ${String(images.value.length)} images` } : run;
 }
 

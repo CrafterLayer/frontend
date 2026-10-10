@@ -334,6 +334,8 @@ export interface BuildRecordView {
   readonly stopReason?: BuildStopReason | undefined;
   readonly landed: number;
   readonly total: number;
+  /** Actual engine pool capacity; omitted/null on historical records with no evidence. */
+  readonly writers?: number | null | undefined;
   readonly elapsedMs?: number | undefined;
   readonly remainingMs: number | null;
   readonly direction?: DirectionView | undefined;
@@ -714,6 +716,9 @@ export interface ModelSelectionView {
  */
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+/** User-selected limit for independent build tasks, not model reasoning effort. */
+export type BuildWorkerCount = 1 | 3 | 6;
+
 /** The effort picker's state; `null` in AgentViewState when the provider takes no budget. */
 export interface EffortSelectionView {
   readonly selected: EffortLevel;
@@ -742,12 +747,7 @@ export type EmptyStateView =
 
 /** Where a suggestion came from, in `panelSuggestions`' priority order (SPEC §4.16). */
 export type SuggestionSource =
-  | 'starter'
-  | 'salvage'
-  | 'followUp'
-  | 'selection'
-  | 'page'
-  | 'catalog';
+  'starter' | 'salvage' | 'followUp' | 'selection' | 'page' | 'catalog';
 
 /** One suggestion row: choosing it fills the composer with `text` and never sends (SPEC §4.16). */
 export interface SuggestionView {
@@ -855,6 +855,8 @@ export interface AgentViewState {
   readonly chips: readonly ContextChipView[];
   readonly mention: MentionView | null;
   readonly mode: AssistantMode;
+  /** Build-only pool selection. Single-target edits still use one worker. */
+  readonly workers?: BuildWorkerCount | undefined;
   readonly model: ModelSelectionView | null;
   /** Absent or `null`: the provider takes no reasoning budget, and no effort menu is drawn. */
   readonly effort?: EffortSelectionView | null;
@@ -885,14 +887,7 @@ export interface AgentViewState {
  */
 export interface FaceView {
   readonly mood:
-    | 'idle'
-    | 'listening'
-    | 'thinking'
-    | 'planning'
-    | 'working'
-    | 'done'
-    | 'failed'
-    | 'stopped';
+    'idle' | 'listening' | 'thinking' | 'planning' | 'working' | 'done' | 'failed' | 'stopped';
   readonly variant?: 'checking' | 'repairing' | undefined;
   readonly outcome?: 'proposed' | 'applied' | 'planned' | 'discarded' | undefined;
   readonly typing: boolean;
@@ -940,6 +935,8 @@ export interface AgentController {
   readonly setDraft: (text: string) => void;
   readonly setMode: (mode: AssistantMode) => void;
   readonly setModel: (id: string) => void;
+  /** Locked while a run or request check owns the panel. */
+  readonly setWorkers?: ((workers: BuildWorkerCount) => void) | undefined;
   /** Optional like `setComposerFocused`: a host with no budget to set leaves it out. */
   readonly setEffort?: (level: EffortLevel) => void;
   /** Optional like `setEffort`: a host with nowhere to keep the switch leaves it out. */

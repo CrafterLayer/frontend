@@ -117,7 +117,27 @@ function sectionIndex(context: AgentToolContext, after: string | undefined): { i
   }
   // At the end, but never under the footer.
   const footer = children.findIndex((id) => isFooterRegion(context, id));
+  /*
+    Nor under the closing call to action (walk 2026-10-08): a gallery and a
+    video landed after «احجز طاولتك الآن», which broke the page's flow — the
+    closing invitation is the last thing before the footer.
+  */
+  const end = footer >= 0 ? footer : children.length;
+  const last = children[end - 1];
+  if (end > 1 && last !== undefined && isClosingAction(context, last)) return { index: end - 1 };
   return footer >= 0 ? { index: footer } : {};
+}
+
+/** A closing call-to-action section: by its anchor or class words, or a registered CTA block. */
+const CLOSING_WORD =
+  /(?:^|[-_\s])(?:cta|call-to-action|book|booking|reserve|reservation|closing|final-cta|signup|sign-up|get-started|order-now)(?:[-_\s]|$)/u;
+function isClosingAction(context: AgentToolContext, id: string): boolean {
+  const type = context.kernel.getDocument().nodes[id]?.type ?? '';
+  if (/^(?:cta|calltoaction)$/iu.test(type.replace(/[^a-z]/giu, ''))) return true;
+  const outer = readTree(context, id)?.children.find(isElement);
+  if (outer === undefined) return false;
+  const words = `${outer.attributes?.['id'] ?? ''} ${outer.className ?? ''}`.toLowerCase();
+  return CLOSING_WORD.test(words);
 }
 
 /** The recipe's outer section, carrying a fresh anchor id when it has none. */

@@ -13,7 +13,10 @@
   DESIGN §2.3 first, then both copies.
 */
 
-export type CkEngineKind = 'scene' | 'timeline' | 'lottie' | 'pixi';
+import type { StudioLibKey } from './studio/kit/types';
+
+export type CkEngineKind =
+  'scene' | 'timeline' | 'lottie' | 'pixi' | 'sound' | `lib-${StudioLibKey}`;
 
 export interface CkEngineContext {
   /** Editor canvas: draw the first frame, run no ticker. */

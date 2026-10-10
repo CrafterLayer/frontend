@@ -1,6 +1,7 @@
 import { t } from '../../copy';
 import type {
   AssistantMode,
+  BuildWorkerCount,
   EffortLevel,
   EffortSelectionView,
   EnhancementView,
@@ -15,12 +16,15 @@ import { IconButton } from '../IconButton';
 import { ModeMenu } from '../ModeMenu';
 import { ModelMenu } from '../ModelMenu';
 import { SendButton } from '../SendButton';
+import { WorkerMenu } from '../WorkerMenu';
 
 import './ComposerToolbar.css';
 
 export interface ComposerToolbarProps {
   readonly locale: Locale;
   readonly mode: AssistantMode;
+  readonly workers?: BuildWorkerCount | undefined;
+  readonly onWorkersChange?: ((workers: BuildWorkerCount) => void) | undefined;
   /** The model picker; `null` when the provider offers no choice, and then none is drawn. */
   readonly model: ModelSelectionView | null;
   /** The effort picker; absent or `null` when the provider takes no budget, and none is drawn. */
@@ -45,8 +49,9 @@ export interface ComposerToolbarProps {
 
 /**
  * The composer's bottom row (SPEC §4.17 ComposerToolbar): Mode ▾, Model ▾ and, when the
- * provider takes a reasoning budget, Effort ▾ at the inline start, then ✨ Improve, `[@]` and the Send slot at the inline end. 36px tall with
- * 32px items and 4px between them; 52 and 44 with 8 between them on a coarse pointer.
+ * provider takes a reasoning budget, Effort ▾ and the independent build-worker choice at
+ * the inline start, then ✨ Improve, `[@]` and Send. Items are 32px with 4px gaps;
+ * 44px with 8px gaps on a coarse pointer. Choice and action rows may wrap independently.
  *
  * Read in the order a request is made: how it may touch the page, who writes it, then the
  * tools for the words, then Send, which is the last thing the hand reaches. The row wraps
@@ -55,6 +60,7 @@ export interface ComposerToolbarProps {
 export function ComposerToolbar({
   locale,
   mode,
+  workers,
   model,
   effort,
   freeCode,
@@ -62,6 +68,7 @@ export function ComposerToolbar({
   enhancement,
   running,
   onModeChange,
+  onWorkersChange,
   onModelChange,
   onEffortChange,
   onFreeCodeChange,
@@ -79,6 +86,14 @@ export function ComposerToolbar({
         )}
         {effort == null || onEffortChange === undefined ? null : (
           <EffortMenu locale={locale} effort={effort} onEffortChange={onEffortChange} />
+        )}
+        {workers === undefined || onWorkersChange === undefined ? null : (
+          <WorkerMenu
+            locale={locale}
+            value={workers}
+            running={running || enhancement.status === 'enhancing'}
+            onChange={onWorkersChange}
+          />
         )}
       </div>
       <div className="ck-agent-toolbar__actions">

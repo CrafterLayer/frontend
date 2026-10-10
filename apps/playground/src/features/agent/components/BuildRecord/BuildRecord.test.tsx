@@ -144,6 +144,23 @@ describe('BuildRecord: the head says the state in words', () => {
 });
 
 describe('BuildRecord: honest figures', () => {
+  it('summarizes the real live pool without duplicating section rows', () => {
+    const view: BuildRecordView = { ...buildBuilding('en'), writers: 6 };
+    renderRecord(view);
+    expect(screen.getByRole('region', { name: t('en', 'tasks.label') })).toBeInTheDocument();
+    expect(screen.getByText(t('en', 'tasks.pool', { n: 6 }))).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('value', String(view.landed));
+    expect(screen.getAllByRole('list', { name: 'Page sections' })).toHaveLength(1);
+  });
+
+  it('does not leave an active task summary on a settled or collapsed record', () => {
+    const rendered = renderRecord({ ...buildBuilding('en'), writers: 3 });
+    rendered.rerender({ ...buildDone('en'), writers: 3 });
+    expect(screen.queryByRole('region', { name: t('en', 'tasks.label') })).not.toBeInTheDocument();
+    rendered.rerender({ ...buildCollapsed('en'), writers: 3 });
+    expect(screen.queryByRole('region', { name: t('en', 'tasks.label') })).not.toBeInTheDocument();
+  });
+
   it('counts landed sections only while live, read as a sentence, with no clock', () => {
     // §3.4: one landed, one drafted, four writing: the draft is not counted.
     const view = buildBuilding('en');
@@ -340,7 +357,9 @@ describe('BuildRecord: actions call the controller, never post a message', () =>
 
   it('says a stopped row was not written, in words, at any width', () => {
     renderRecord(buildStopped('en', 'budget'));
-    expect(screen.getByRole('button', { name: 'Section 6 of 8: Testimonials, Not written' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Section 6 of 8: Testimonials, Not written' }),
+    ).toBeInTheDocument();
   });
 
   it('confirms Undo build in place, then undoes it and sends focus to the head', async () => {
@@ -401,11 +420,21 @@ describe('BuildRecord: actions call the controller, never post a message', () =>
     await user.click(copy);
     expect(onMenuSelect).toHaveBeenCalledExactlyOnceWith('copySummary');
     const css = readFileSync(
-      join(process.cwd(), 'src', 'features', 'agent', 'components', 'BuildRecord', 'BuildRecord.css'),
+      join(
+        process.cwd(),
+        'src',
+        'features',
+        'agent',
+        'components',
+        'BuildRecord',
+        'BuildRecord.css',
+      ),
       'utf8',
     );
     expect(css).toMatch(/\.ck-agent-build__copy[^{]*\{[^}]*display:\s*none/u);
-    expect(css).toMatch(/@container agent \(inline-size >= 400px\)\s*\{[^@]*\.ck-agent-build__copy/u);
+    expect(css).toMatch(
+      /@container agent \(inline-size >= 400px\)\s*\{[^@]*\.ck-agent-build__copy/u,
+    );
   });
 
   it('keeps Copy summary in the menu alone while a build is stopped', () => {
@@ -524,9 +553,9 @@ describe('BuildRecord: the completion sweep', () => {
       });
     });
     const delayOf = (selector: string): string =>
-      container.querySelector<HTMLElement>(selector)?.style.getPropertyValue(
-        '--ck-agent-land-delay',
-      ) ?? '';
+      container
+        .querySelector<HTMLElement>(selector)
+        ?.style.getPropertyValue('--ck-agent-land-delay') ?? '';
     expect(delayOf('li[data-land-key="sec-2"]')).toBe('0ms');
     expect(delayOf('li[data-land-key="sec-3"]')).toBe('80ms');
     expect(delayOf('li[data-land-key="sec-6"]')).toBe('320ms');
@@ -562,7 +591,9 @@ describe('BuildRecord: no internals on screen', () => {
     for (const view of EVERY_PHASE) {
       const { container, unmount } = renderRecord(view);
       const text = container.textContent;
-      expect(text, view.phase).not.toMatch(/setProp|craftkit\.|fill-\d|~?\d+(\.\d+)?k tokens|\d+ms\b|tokens?\b/iu);
+      expect(text, view.phase).not.toMatch(
+        /setProp|craftkit\.|fill-\d|~?\d+(\.\d+)?k tokens|\d+ms\b|tokens?\b/iu,
+      );
       unmount();
     }
   });
@@ -617,10 +648,9 @@ describe('the records’ stylesheets', () => {
     for (const { file, css } of sheets) {
       for (const [, name] of css.matchAll(/\.([a-z][\w-]*)/giu)) {
         if (name === undefined || /^\d/u.test(name)) continue;
-        expect(
-          name.startsWith('ck-agent') || name.startsWith('bldr-'),
-          `${file}: .${name}`,
-        ).toBe(true);
+        expect(name.startsWith('ck-agent') || name.startsWith('bldr-'), `${file}: .${name}`).toBe(
+          true,
+        );
       }
     }
   });
@@ -634,7 +664,9 @@ describe('the records’ stylesheets', () => {
 
   it('keep undo a row away under a fine pointer, and always in view under a coarse one', () => {
     const row = sheets.find(({ file }) => file === 'SpineRow/SpineRow.css')?.css ?? '';
-    expect(row).toMatch(/@media \(pointer: coarse\) \{\s*\.ck-agent-spine-row__trailing\[data-reveal='hover'\] \{\s*opacity: 1;/);
+    expect(row).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.ck-agent-spine-row__trailing\[data-reveal='hover'\] \{\s*opacity: 1;/,
+    );
   });
 
   it('mirror by logical properties alone: no direction is special-cased (SPEC §3.15)', () => {

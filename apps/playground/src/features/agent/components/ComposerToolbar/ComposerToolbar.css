@@ -30,6 +30,22 @@
   min-inline-size: 0;
 }
 
+.ck-agent-toolbar__choices {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+/* Provider names cannot push Effort or the next-run worker choice out of the panel. */
+.ck-agent-toolbar__choices .ck-agent-choice {
+  --ck-agent-choice-measure: 12ch;
+}
+
+@container agent (inline-size < 360px) {
+  .ck-agent-toolbar__choices .ck-agent-model {
+    --ck-agent-choice-measure: 8ch;
+  }
+}
+
 .ck-agent-toolbar__actions {
   flex: none;
   margin-inline-start: auto;

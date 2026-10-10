@@ -35,13 +35,17 @@
 
 /* One line, ending in an ellipsis at the inline end; the full title lives in the thread. */
 .ck-agent-record__title {
+  display: -webkit-box;
   overflow: hidden;
   color: var(--bldr-panel-text);
   font-size: var(--bldr-font-size-read);
   font-weight: var(--bldr-font-weight-semibold);
   line-height: var(--bldr-line-height-read);
   text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* A focus destination, not a control: the ring hugs the words, clear of the glyph. */

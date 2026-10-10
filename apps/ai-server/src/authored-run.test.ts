@@ -109,6 +109,14 @@ describe('authored run coordinator', () => {
       expect.objectContaining({ cache_control: { type: 'ephemeral', ttl: '1h' } }),
     ]);
     expect(JSON.stringify(sent?.['messages'])).toContain('sourceRevision');
+    const system = JSON.stringify(sent?.['system']);
+    expect(system).toContain(
+      'Interactive websites, dashboards, tools and multi-step Frontend flows',
+    );
+    expect(system).toContain('tabs switch content');
+    expect(system).toContain('Never pretend authentication');
+    expect(system).toContain('embla-carousel-react');
+    expect(system).toContain('only inside allowedPaths');
     expect(caches.prompt.metrics()).toMatchObject({ cacheReadTokens: 80, cacheWriteTokens: 20 });
     expect(ledger.summary()).toMatchObject({
       attempts: 1,

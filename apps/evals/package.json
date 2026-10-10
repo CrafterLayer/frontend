@@ -12,6 +12,9 @@
     "eval:view": "promptfoo view",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --config vitest.config.ts",
+    "test:accessibility:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/accessibility/axe.browser.test.ts",
+    "test:frontend:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/professional-builder/frontend.browser.test.ts",
+    "test:agent-chat:browser": "node src/browser/agent-chat.mjs",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -19,6 +22,7 @@
     "@craftkit/builder": "workspace:*"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
     "@craftkit/eslint-config": "workspace:*",
     "@craftkit/test-config": "workspace:*",
     "@craftkit/typescript-config": "workspace:*",

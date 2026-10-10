@@ -17,6 +17,7 @@ import { normalizeAiPlanTrees } from '../plan/normalize-plan';
 import { parseTreeMarkup } from '../plan/tree-markup';
 import { CRAFTKIT_AI_SKILL_DEFINITIONS, createCraftkitAiSkillRegistry } from './builtins';
 import { DESIGN_CODE_SKILL } from './design-code';
+import { DESIGN_LIBRARY_TEACHING, DESIGN_QUALITY_TEACHING } from './design-libraries';
 
 /*
   craftkit.design-code (2026-09-28) teaches the markup and CSS the door
@@ -42,6 +43,15 @@ function landed(markup: string) {
 }
 
 describe('craftkit.design-code', () => {
+  it('teaches actual library/runtime boundaries and ships layout checks to the fill skill', () => {
+    expect(text).toContain(DESIGN_LIBRARY_TEACHING);
+    for (const name of ['shadcn', 'Magic UI', 'Aceternity', 'motion/react', 'free-code']) expect(text).toContain(name);
+    expect(DESIGN_LIBRARY_TEACHING).toContain('propsSchema');
+    expect(DESIGN_LIBRARY_TEACHING).toContain('never in a region tree');
+    const fill = CRAFTKIT_AI_SKILL_DEFINITIONS.find(({ id }) => id === 'craftkit.build-fill');
+    expect(fill?.instructions).toContain(DESIGN_QUALITY_TEACHING);
+    expect(DESIGN_QUALITY_TEACHING.length).toBeLessThan(700);
+  });
   it('is explicit-only, depends on nothing, and fits under the single-skill ceiling', () => {
     expect(DESIGN_CODE_SKILL.activation).toEqual({ mode: 'explicit' });
     expect(DESIGN_CODE_SKILL.dependencies ?? []).toEqual([]);

@@ -169,3 +169,26 @@ export { TEXT_BIDI_CANVAS_CSS, TEXT_BIDI_CSS, TEXT_BIDI_STYLE_ID } from './bidi'
 // mounted per element on a document view; CanvasFrame's `siteEngines` prop wires it.
 export { mountDocumentEngines } from './engines/document-engines';
 // end gsap-pixi additions
+// pixi-studio:runtime-wiring additions (2026-10-10): the Pixi Studio runtime (DESIGN §B.2, §C.3,
+// §D.3) — the `ck` scene/sound types, the sandboxed Studio preview document and its message
+// protocol, and the lazily loaded add-on asset loaders (the generated sources stay dynamic).
+export type {
+  CkAudioBands,
+  CkSceneContext,
+  CkSceneOptions,
+  CkScriptParamValue,
+  CkSoundApi,
+} from './behaviors/packs/scripts';
+export type { CkLibraryFactory } from './engines/ck-engines-shim';
+export { STUDIO_ENGINE_LOADERS, studioAssetFile, type StudioEngineKind } from './engines/studio/loaders';
+export { customCodeParamsAttribute } from './components/CustomCode/params-attribute';
+export {
+  STUDIO_PREVIEW_MESSAGES,
+  STUDIO_PREVIEW_REGION_ID,
+  buildStudioPreviewHtml,
+  studioPreviewCsp,
+  studioPreviewEngines,
+  type StudioPreviewOptions,
+  type StudioPreviewTrust,
+} from './studio/preview-document';
+// end pixi-studio:runtime-wiring additions

@@ -35,6 +35,20 @@ function snapshot(): RuntimeSnapshot {
 const ENGINE = ['mo', 'tion'].join('');
 
 describe('pinned managed runtime catalog', () => {
+  it('admits vanilla Embla only when explicitly locked, preserving existing v1 projects', async () => {
+    const page = snapshot();
+    page.project.files[page.entry]!.source =
+      `import Embla from 'embla-carousel'; export default function Page(){ return <button onClick={()=>void Embla}>Slides</button>; }`;
+    const catalog = await buildManagedCatalog();
+    expect(await compileProject(page, { catalog })).toMatchObject({ ok: false });
+    page.project.dependencyLock.packages['embla-carousel'] = '8.6.0';
+    const result = await compileProject(page, { catalog });
+    if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
+    expect(catalog.modules['embla-carousel']?.source).toContain('Copyright (c) David Jerleke.');
+    expect(result.artifact.js.map((file) => file.content).join('\n')).not.toContain('from "embla');
+    page.project.dependencyLock.packages['embla-carousel'] = '8.5.0';
+    expect(await compileProject(page, { catalog })).toMatchObject({ ok: false });
+  });
   it('bundles real React and DOM, preserves license metadata, and detaches callers', async () => {
     const catalog = await buildManagedCatalog();
     const source = catalog.modules[MANAGED_RUNTIME_SPECIFIER]?.source;
@@ -58,7 +72,8 @@ describe('pinned managed runtime catalog', () => {
       containment gate, which scans every member's source for engine imports,
       does not read this user-authored page text as an import of its own.
     */
-    page.project.files[page.entry]!.source = `import {ArrowRight} from 'lucide-react'; import {motion} from '${ENGINE}/react'; export default function Page() { return <motion.main initial={{opacity:0}} animate={{opacity:1}} className="grid gap-6 bg-[#123456] p-7 md:grid-cols-2"><ArrowRight aria-label="Continue"/><h1>Free composition</h1></motion.main> }`;
+    page.project.files[page.entry]!.source =
+      `import {ArrowRight} from 'lucide-react'; import {motion} from '${ENGINE}/react'; export default function Page() { return <motion.main initial={{opacity:0}} animate={{opacity:1}} className="grid gap-6 bg-[#123456] p-7 md:grid-cols-2"><ArrowRight aria-label="Continue"/><h1>Free composition</h1></motion.main> }`;
     const result = await compileProject(page, { catalog: await buildManagedCatalog() });
     if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
     const css = result.artifact.css.map((file) => file.content).join('\n');

@@ -1,7 +1,10 @@
 {
   "extends": "@craftkit/typescript-config/react-library.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@craftkit/builder-schema": ["../../schema/src/sound/runtime.ts"]
+    }
   },
   "include": ["src", "vitest.config.ts"],
   "exclude": ["coverage"]

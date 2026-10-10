@@ -9,6 +9,10 @@ import {
 } from '../custom-code/custom-code-tree';
 import { findCssRejection } from '../custom-code/custom-css';
 import { unknownUtilityClasses } from '../custom-code/utility-vocabulary';
+// pixi-studio:schema-library additions (2026-10-10): the Studio's script and sound entries (DESIGN §A.1).
+import { scriptEntrySchema, soundEntrySchema } from '../studio/schemas';
+import type { ScriptEntry, SoundEntry } from '../studio/types';
+// end pixi-studio:schema-library additions
 
 /**
  * The SITE DESIGN LIBRARY (style-manager DESIGN.md §2, decisions D5/D6).
@@ -70,6 +74,10 @@ export const LIBRARY_LIMITS = {
   overrideText: 10_000,
   /** Decoded bytes of an uploaded woff2. */
   uploadedFontBytes: 600 * 1024,
+  // pixi-studio:schema-library additions (2026-10-10)
+  scripts: 200,
+  sounds: 120,
+  // end pixi-studio:schema-library additions
 } as const;
 
 // ── Types (DESIGN §2, exact; optionals admit `undefined` for zod parity) ─────
@@ -140,6 +148,10 @@ export interface SiteLibrary {
   templates?: Record<LibraryId, SavedTemplate> | undefined;
   fonts?: SiteFont[] | undefined;
   settings?: SiteLibrarySettings | undefined;
+  // pixi-studio:schema-library additions (2026-10-10): Pixi Studio project tier (§A.2).
+  scripts?: Record<LibraryId, ScriptEntry> | undefined;
+  sounds?: Record<LibraryId, SoundEntry> | undefined;
+  // end pixi-studio:schema-library additions
 }
 
 // ── Markers and names other layers share ─────────────────────────────────────
@@ -437,6 +449,10 @@ export const siteLibrarySchema: z.ZodType<SiteLibrary> = z.strictObject({
     })
     .optional(),
   settings: siteLibrarySettingsSchema.optional(),
+  // pixi-studio:schema-library additions (2026-10-10)
+  scripts: libraryRecord(scriptEntrySchema, LIBRARY_LIMITS.scripts, 'scripts').optional(),
+  sounds: libraryRecord(soundEntrySchema, LIBRARY_LIMITS.sounds, 'sounds').optional(),
+  // end pixi-studio:schema-library additions
 });
 
 export type SiteLibraryValidationResult =

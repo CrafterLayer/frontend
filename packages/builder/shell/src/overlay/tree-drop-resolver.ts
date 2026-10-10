@@ -12,6 +12,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { asCustomCodeRoot, customCodeTreeKey } from '../custom-code/element-at';
+import type { DragPayload } from './drop-resolver';
 
 /*
   ── Dropping into a custom-code tree (style-manager DESIGN.md §E, P7) ────────
@@ -35,7 +36,11 @@ import { asCustomCodeRoot, customCodeTreeKey } from '../custom-code/element-at';
 
 export type TreeDragPayload =
   | { readonly kind: 'tree-move'; readonly id: NodeId; readonly path: CustomCodePath }
-  | { readonly kind: 'tree-insert'; readonly node: CustomCodeNode; readonly label: string };
+  | {
+      readonly kind: 'tree-insert'; readonly node: CustomCodeNode; readonly label: string;
+      readonly onDrop?: ((target: TreeDropTarget) => void) | undefined;
+      readonly fallback?: Extract<DragPayload, { kind: 'insert' }> | undefined;
+    };
 
 export interface Box {
   readonly x: number;

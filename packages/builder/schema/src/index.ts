@@ -709,6 +709,7 @@ export {
   type ToggleOption,
 } from './custom-code/media-vocabulary';
 export * from './media-recipes';
+export * from './element-recipes';
 // ── end schema-media additions ──
 // ── block-parts (2026-10-06) ──
 // Named inner elements of registered blocks (block-parts DESIGN §2.1–§2.5):
@@ -771,3 +772,14 @@ export {
 } from './blocks/part-edits';
 export type { PartFocus } from './extensions/contribution-points';
 // ── /block-parts ──
+// pixi-studio:sound-engine additions (2026-10-10): the sound bank as data, the ZzFX parameter rule
+// and the `data-ck-sound` grammar (pixi-studio DESIGN §C). `SoundBus`/`SOUND_BUSES` and the
+// `SoundEntry` types are the schema-library block's (studio/types.ts).
+export * from './sound';
+// end pixi-studio:sound-engine additions
+// pixi-studio:schema-library additions (2026-10-10)
+// Pixi Studio (pixi-studio DESIGN.md §A.1): the script/sound library model,
+// param helpers, the script lint, library detection, search, the scene API
+// reference and the bilingual labels.
+export * from './studio';
+// end pixi-studio:schema-library additions

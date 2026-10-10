@@ -50,7 +50,6 @@ export function mountCarousel(
   const view: Window = win;
   const page: Document = doc;
   const interactive = options?.interactive !== false;
-  /* The editing canvas shows a still carousel: no autoplay, inert controls. */
   const still = !interactive;
   const reduced =
     typeof view.matchMedia === 'function' &&
@@ -60,8 +59,8 @@ export function mountCarousel(
   const SELECTOR = "[data-ck-behavior='carousel']";
   const cleanups: (() => void)[] = [];
 
-  /* ── attribute bookkeeping: restore only what the host has not rewritten ── */
-  const saved: { el: Element; name: string; original: string | null; applied: string | null }[] = [];
+  const saved: { el: Element; name: string; original: string | null; applied: string | null }[] =
+    [];
   function setAttr(el: Element, name: string, value: string | null): void {
     let entry = null as (typeof saved)[number] | null;
     for (const item of saved) {
@@ -114,12 +113,15 @@ export function mountCarousel(
     return (page.documentElement.getAttribute('dir') ?? '').toLowerCase() === 'rtl';
   }
 
-  /* The page language; Arabic counts in Arabic-Indic digits unless the region writes Latin ones. */
   function langOf(el: Element): string {
     const owner = el.closest('[lang]');
     const lang = owner === null ? '' : (owner.getAttribute('lang') ?? '');
     const chosen = lang !== '' ? lang : page.documentElement.lang;
-    if (/^ar(?:-|$)/iu.test(chosen) && !/-u-/iu.test(chosen) && !/^ar-(?:MA|DZ|TN|LY|EH)\b/iu.test(chosen)) {
+    if (
+      /^ar(?:-|$)/iu.test(chosen) &&
+      !/-u-/iu.test(chosen) &&
+      !/^ar-(?:MA|DZ|TN|LY|EH)\b/iu.test(chosen)
+    ) {
       return `${chosen}-u-nu-arab`;
     }
     return chosen;
@@ -127,7 +129,9 @@ export function mountCarousel(
 
   function digits(lang: string, value: number): string {
     try {
-      return new Intl.NumberFormat(lang === '' ? undefined : lang, { useGrouping: false }).format(value);
+      return new Intl.NumberFormat(lang === '' ? undefined : lang, { useGrouping: false }).format(
+        value,
+      );
     } catch {
       return String(value);
     }
@@ -142,7 +146,6 @@ export function mountCarousel(
     });
     const rtl = isRtl(el);
 
-    /* ── the ported core: derived track and buttons, RTL-signed scrollBy ── */
     let track: Element = el;
     for (const child of Array.from(el.children)) {
       if (child.tagName === 'BUTTON') continue;
@@ -159,7 +162,22 @@ export function mountCarousel(
     const prev = buttons.length >= 2 ? buttons[0] : undefined;
     const next = buttons.length >= 2 ? buttons[buttons.length - 1] : undefined;
     const scroller = track as HTMLElement & { scrollBy?: unknown; scrollTo?: unknown };
+    interface SnapEngine {
+      scrollPrev(jump?: boolean): void;
+      scrollNext(jump?: boolean): void;
+      scrollTo(index: number, jump?: boolean): void;
+      selectedScrollSnap(): number;
+      on(event: 'select' | 'reInit', callback: () => void): void;
+      destroy(): void;
+    }
+    type SnapFactory = (track: HTMLElement, options: Record<string, unknown>) => SnapEngine;
+    let engine: SnapEngine | undefined;
     function go(forward: boolean): void {
+      if (engine !== undefined) {
+        if (forward) engine.scrollNext(reduced);
+        else engine.scrollPrev(reduced);
+        return;
+      }
       const step = Math.max(160, scroller.clientWidth * 0.85 || 0);
       const sign = (forward ? 1 : -1) * (rtl ? -1 : 1);
       if (typeof scroller.scrollBy === 'function') {
@@ -168,10 +186,15 @@ export function mountCarousel(
         scroller.scrollLeft += sign * step;
       }
     }
-    if (prev !== undefined) listen(prev, 'click', () => { go(false); });
-    if (next !== undefined) listen(next, 'click', () => { go(true); });
+    if (prev !== undefined)
+      listen(prev, 'click', () => {
+        go(false);
+      });
+    if (next !== undefined)
+      listen(next, 'click', () => {
+        go(true);
+      });
 
-    /* ── slides and the current one ── */
     const slides = Array.from(track.children).filter(
       (child) => !child.hasAttribute('data-ck-clone') && child.tagName !== 'BUTTON',
     ) as HTMLElement[];
@@ -187,6 +210,7 @@ export function mountCarousel(
       return width > 0 ? width : scroller.clientWidth;
     }
     function current(): number {
+      if (engine !== undefined) return engine.selectedScrollSnap();
       if (count <= 1) return 0;
       const at = Math.abs(scroller.scrollLeft);
       const end = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
@@ -196,6 +220,10 @@ export function mountCarousel(
       return Math.min(count - 1, Math.max(0, Math.round(at / step)));
     }
     function goTo(target: number): void {
+      if (engine !== undefined) {
+        engine.scrollTo(target, reduced);
+        return;
+      }
       const left = (rtl ? -1 : 1) * Math.max(0, target) * stride();
       if (typeof scroller.scrollTo === 'function') {
         scroller.scrollTo({ left, behavior: reduced ? 'auto' : 'smooth' });
@@ -204,11 +232,11 @@ export function mountCarousel(
       }
     }
 
-    /* ── built controls: dots or counter, and the autoplay toggle ── */
     const lang = langOf(el);
     const arabic = lang.toLowerCase().startsWith('ar');
     const indicator = el.getAttribute('data-ck-indicator');
-    const autoplay = el.getAttribute('data-ck-autoplay') === 'true' && !reduced && !still && count > 1;
+    const autoplay =
+      el.getAttribute('data-ck-autoplay') === 'true' && !reduced && !still && count > 1;
     const ui = page.createElement('div');
     ui.setAttribute('data-ck-carousel-ui', '');
     const dots: HTMLButtonElement[] = [];
@@ -273,8 +301,12 @@ export function mountCarousel(
         toggle.setAttribute(
           'aria-label',
           pausedByUser
-            ? arabic ? 'تشغيل العرض' : 'Play slideshow'
-            : arabic ? 'إيقاف العرض مؤقتًا' : 'Pause slideshow',
+            ? arabic
+              ? 'تشغيل العرض'
+              : 'Play slideshow'
+            : arabic
+              ? 'إيقاف العرض مؤقتًا'
+              : 'Pause slideshow',
         );
         toggle.setAttribute('data-ck-paused', pausedByUser ? 'true' : 'false');
         toggle.textContent = pausedByUser ? '►' : '❚❚';
@@ -297,14 +329,27 @@ export function mountCarousel(
           const active = current();
           goTo(active >= count - 1 ? 0 : active + 1);
         },
-        el.getAttribute('data-ck-speed') === 'slow' ? 7000 : el.getAttribute('data-ck-speed') === 'fast' ? 3500 : 5000,
+        el.getAttribute('data-ck-speed') === 'slow'
+          ? 7000
+          : el.getAttribute('data-ck-speed') === 'fast'
+            ? 3500
+            : 5000,
       );
       cleanups.push(function unplay() {
         view.clearInterval(timer);
       });
-      listen(el, 'pointerenter', () => { hovering = true; sync(); });
-      listen(el, 'pointerleave', () => { hovering = false; sync(); });
-      listen(el, 'focusin', () => { focused = true; sync(); });
+      listen(el, 'pointerenter', () => {
+        hovering = true;
+        sync();
+      });
+      listen(el, 'pointerleave', () => {
+        hovering = false;
+        sync();
+      });
+      listen(el, 'focusin', () => {
+        focused = true;
+        sync();
+      });
       listen(el, 'focusout', function left(event) {
         const to = (event as FocusEvent).relatedTarget as Node | null;
         if (to !== null && el.contains(to)) return;
@@ -334,11 +379,70 @@ export function mountCarousel(
       sync();
       listen(track, 'scroll', sync, true);
     }
+    if (!still) {
+      listen(track, 'keydown', function navigate(event) {
+        const key = event as KeyboardEvent;
+        if (event.target !== track || key.altKey || key.ctrlKey || key.metaKey || key.shiftKey)
+          return;
+        if (key.key === 'ArrowRight' || key.key === 'ArrowLeft') {
+          key.preventDefault();
+          go(key.key === (rtl ? 'ArrowLeft' : 'ArrowRight'));
+        } else if (key.key === 'Home' || key.key === 'End') {
+          key.preventDefault();
+          goTo(key.key === 'Home' ? 0 : count - 1);
+        }
+      });
+    }
+
+    if (!still && track !== el && count > 1) {
+      const snapTrack = track as HTMLElement;
+      function activate(): void {
+        if (engine !== undefined || !snapTrack.isConnected) return;
+        const factory = (view as Window & { ckCarouselFactory?: SnapFactory }).ckCarouselFactory;
+        if (typeof factory !== 'function') return;
+        try {
+          engine = factory(snapTrack, {
+            direction: rtl ? 'rtl' : 'ltr',
+            duration: reduced ? 0 : 25,
+            startIndex: current(),
+          });
+          engine.on('select', sync);
+          engine.on('reInit', sync);
+          setAttr(el, 'data-ck-carousel-engine', 'embla');
+          sync();
+        } catch {
+          engine?.destroy();
+          engine = undefined;
+        }
+      }
+      cleanups.push(function unsnap() {
+        engine?.destroy();
+        engine = undefined;
+      });
+      listen(view, 'ck-carousel-ready', activate);
+      activate();
+      const locator = page.querySelector<HTMLLinkElement>('link[data-ck-engine="carousel"]');
+      if (locator !== null && !page.querySelector('script[data-ck-engine="carousel"]')) {
+        const script = page.createElement('script');
+        script.setAttribute('data-ck-engine', 'carousel');
+        script.src = locator.href;
+        script.async = true;
+        script.addEventListener(
+          'error',
+          () => {
+            script.remove();
+          },
+          { once: true },
+        );
+        page.head.append(script);
+      }
+    }
     if (!el.hasAttribute(MARK)) setAttr(el, MARK, reduced ? 'static' : '');
   }
 
   const found: Element[] = [];
-  if ((root as Node).nodeType === 1 && (root as Element).matches(SELECTOR)) found.push(root as Element);
+  if ((root as Node).nodeType === 1 && (root as Element).matches(SELECTOR))
+    found.push(root as Element);
   found.push(...Array.from(root.querySelectorAll(SELECTOR)));
   for (const el of found) {
     if (el.hasAttribute('data-ck-clone') || el.closest('[data-ck-clone]') !== null) continue;

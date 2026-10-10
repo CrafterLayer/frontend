@@ -26,18 +26,18 @@ region and the resize separator. It adds no copy of its own; the region is named
 
 ## Props
 
-| prop            | type                                   | default | notes                                                                   |
-| --------------- | -------------------------------------- | ------- | ----------------------------------------------------------------------- |
-| `controller`    | `AgentController`                      | none    | state and every action                                                  |
-| `visible`       | `boolean`                              | `true`  | hidden keeps it mounted, pauses the ticker; the pill speaks for it      |
-| `width`         | `number`                               | 320     | px, clamped to 288 to 480; uncontrolled when left out                   |
-| `onWidthChange` | `(width) => void`                      | none    | the separator moved; the host resizes its column                        |
-| `presentation`  | `'auto' \| 'dock' \| 'sheet'`          | `auto`  | `auto`: the sheet below 600px on a coarse pointer                       |
-| `onClose`       | `() => void`                           | none    | the sheet's `[×]` or Esc: the host hides the panel                      |
-| `returnFocus`   | `() => HTMLElement \| null`            | none    | the rail's agent button, focused when the sheet closes                  |
-| `pillContainer` | `Element \| null`                      | none    | an element in the status bar the pill is portalled into while hidden    |
-| `onOpen`        | `() => void`                           | none    | the pill was activated                                                  |
-| `tooltipDelay`  | `number`                               | 500     | tests pass 0                                                            |
+| prop            | type                          | default | notes                                                                |
+| --------------- | ----------------------------- | ------- | -------------------------------------------------------------------- |
+| `controller`    | `AgentController`             | none    | state and every action                                               |
+| `visible`       | `boolean`                     | `true`  | hidden keeps it mounted, pauses the ticker; the pill speaks for it   |
+| `width`         | `number`                      | 320     | px, clamped to 288 to 480; uncontrolled when left out                |
+| `onWidthChange` | `(width) => void`             | none    | the separator moved; the host resizes its column                     |
+| `presentation`  | `'auto' \| 'dock' \| 'sheet'` | `auto`  | `auto`: the sheet below 600px on a coarse pointer                    |
+| `onClose`       | `() => void`                  | none    | the sheet's `[×]` or Esc: the host hides the panel                   |
+| `returnFocus`   | `() => HTMLElement \| null`   | none    | the rail's agent button, focused when the sheet closes               |
+| `pillContainer` | `Element \| null`             | none    | an element in the status bar the pill is portalled into while hidden |
+| `onOpen`        | `() => void`                  | none    | the pill was activated                                               |
+| `tooltipDelay`  | `number`                      | 500     | tests pass 0                                                         |
 
 `LiveAgentPanel` takes every `UseAgentControllerOptions` field (`kernel`, `locale`, `provider`,
 `providerKind`, `addPage`, `selection`, `editModel`, `editEffort`, `models`, `model`,
@@ -52,6 +52,15 @@ step plan or proposal), `hidden`. Stories cover every SPEC §3 frame the fake co
 (3.6), plan and Ask (3.7, 3.8), queue, stopping, stopped, error (3.9 to 3.11), long (3.12),
 Conversations (3.13), 420px (3.14), Arabic (3.15), the phone sheet (3.16), Improve and clarify, and
 hidden with the pill.
+
+`ShortViewport` covers a 288px-wide, 400px-high editor with a long conversation;
+`ShortViewportClarifyingArabic` covers the same constrained height with Arabic questions in dark
+chrome. Their plays measure usable thread/field/toolbar geometry rather than relying on screenshots.
+
+The column is a size container for bounded auxiliary composer content. The thread retains its own
+scrolling area, the dock uses a small separating gutter, and hidden mounting preserves drafts,
+reading position and the captured run. Questions scroll separately; the composer itself does not
+clip its popups or controls.
 
 ## Anatomy
 

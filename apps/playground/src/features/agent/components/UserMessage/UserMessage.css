@@ -86,6 +86,7 @@
 .ck-agent-message__text {
   min-inline-size: 0;
   font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-regular);
   line-height: var(--bldr-line-height-read);
   overflow-wrap: anywhere;
 }

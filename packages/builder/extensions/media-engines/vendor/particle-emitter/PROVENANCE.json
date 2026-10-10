@@ -1,0 +1,12 @@
+{
+  "name": "@spd789562/particle-emitter",
+  "version": "1.0.2",
+  "license": "MIT",
+  "upstream": "https://github.com/spd789562/pixi-v8-particle-emitter",
+  "path": "packages/emitter/src",
+  "commit": "5f37dce36425f1a52fe63f7e5207191010d7413a",
+  "tag": "v1.0.2",
+  "npmIntegrity": "sha512-6uRa/f0i8sf3AnJZYb0WB/jWnALKId/chSAymkBlrENST3BOqHQ3zaWEpMRKuBQ5fU4UvuCuhKPv+YxI2Ixt9A==",
+  "fetched": "2026-10-10",
+  "patches": "PATCHES.md"
+}

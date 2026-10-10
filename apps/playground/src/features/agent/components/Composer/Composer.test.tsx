@@ -66,6 +66,7 @@ function spies(): Spies {
     setMode: vi.fn<ComposerActions['setMode']>(),
     setModel: vi.fn<ComposerActions['setModel']>(),
     setEffort: vi.fn<NonNullable<ComposerActions['setEffort']>>(),
+    setWorkers: vi.fn<NonNullable<ComposerActions['setWorkers']>>(),
     setFreeCode: vi.fn<NonNullable<ComposerActions['setFreeCode']>>(),
     enhanceDraft: vi.fn<ComposerActions['enhanceDraft']>(),
     restoreDraft: vi.fn<ComposerActions['restoreDraft']>(),
@@ -204,7 +205,10 @@ describe('Composer: the @ list', () => {
     await user.type(box(), 'Move @se');
     const list = screen.getByRole('listbox');
     const options = within(list).getAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual(['Services3 of 8', 'Session prices']);
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Services3 of 8',
+      'Session prices',
+    ]);
     expect(box()).toHaveAttribute('aria-expanded', 'true');
     expect(box()).toHaveAttribute('aria-controls', list.id);
     expect(box()).toHaveAttribute('aria-activedescendant', options[0]?.id);
@@ -352,6 +356,15 @@ describe('Composer: Stop', () => {
 /* ── The one queued request ────────────────────────────────────────────────── */
 
 describe('Composer: the queued request is the composer’s own text', () => {
+  it('keeps questions and the paused queue in an auxiliary area outside the writing controls', () => {
+    const { composer } = mount({ queue: queued('en', 'paused'), clarify: clarifying('en', 3) });
+    const auxiliary = composer.querySelector('.ck-agent-composer__auxiliary');
+    expect(auxiliary).toContainElement(screen.getByRole('group', { name: t('en', 'queue.label') }));
+    expect(auxiliary).toContainElement(screen.getAllByRole('radio')[0] ?? null);
+    expect(auxiliary).not.toContainElement(box());
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+  });
+
   it('queues the draft on Enter while running: the text stays, headed by Up next', async () => {
     const { user, spy } = mount({ run: liveRun(Date.now()) });
     await user.type(box(), 'Make the header sticky');
@@ -645,7 +658,9 @@ describe('the composer family’s stylesheets', () => {
   it('prefixes every class with ck-agent-', () => {
     for (const path of SHEETS) {
       const classes = [...sheet(path).matchAll(/\.([a-z][\w-]*)/gu)].map(([, name = '']) => name);
-      expect(classes.filter((name) => !name.startsWith('ck-agent-') && name !== 'bldr-visually-hidden')).toEqual([]);
+      expect(
+        classes.filter((name) => !name.startsWith('ck-agent-') && name !== 'bldr-visually-hidden'),
+      ).toEqual([]);
     }
   });
 

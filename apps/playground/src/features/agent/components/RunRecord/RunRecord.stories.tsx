@@ -263,6 +263,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+export const LongTargetAt288: Story = {
+  args: {
+    glyph: 'working',
+    title: 'Refining the peace and war mural with a clearer responsive reading order',
+  },
+  parameters: { panel: { width: 288 } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('article')).toHaveAccessibleName(
+      'Refining the peace and war mural with a clearer responsive reading order',
+    );
+  },
+};
+
 /** A live build's head: the count, never a clock (the RunBar owns the one clock). */
 export const BuildRunning: Story = {
   render: () => <BuildingRecord locale="en" />,

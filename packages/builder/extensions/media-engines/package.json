@@ -10,18 +10,30 @@
   "exports": {
     "./entry": "./src/entry.ts",
     "./policy": "./src/policy.ts",
-    "./palette": "./src/palette.ts"
+    "./palette": "./src/palette.ts",
+    "./carousel": "./src/carousel.ts"
   },
   "scripts": {
     "build:scene": "node ../../../../scripts/build-scene-engine.mjs scene",
     "build:pixi": "node ../../../../scripts/build-scene-engine.mjs pixi",
+    "build:studio": "node ../../../../scripts/build-studio-engines.mjs all",
+    "build:sound": "node ../../../../scripts/build-sound-engine.mjs",
+    "build:carousel": "node ../../../../scripts/build-carousel-engine.mjs",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "pixi.js": "catalog:"
+    "@craftkit/builder-schema": "workspace:*",
+    "embla-carousel": "catalog:",
+    "matter-js": "catalog:",
+    "perfect-freehand": "catalog:",
+    "pixi-filters": "catalog:",
+    "pixi-viewport": "catalog:",
+    "pixi.js": "catalog:",
+    "roughjs": "catalog:",
+    "simplex-noise": "catalog:"
   },
   "devDependencies": {
     "@craftkit/eslint-config": "workspace:*",

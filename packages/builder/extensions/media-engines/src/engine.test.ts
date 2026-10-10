@@ -361,3 +361,30 @@ describe('scene engine — host mode', () => {
     expect(host.hasAttribute('style')).toBe(false);
   });
 });
+
+describe('scene engine — afterInit (fix pass 2026-10-10)', () => {
+  it('calls afterInit once per app, after init and before the scene is built', async () => {
+    setup();
+    const order: string[] = [];
+    const scene = vi.fn(() => {
+      order.push('scene');
+      return noop;
+    });
+    const scenes = Object.fromEntries(
+      (['particles', 'mesh-gradient', 'parallax-layers', 'mural', 'ripple'] as SceneName[]).map((name) => [name, scene]),
+    ) as Record<SceneName, typeof scene>;
+    const afterInit = vi.fn((app: FakeApp) => {
+      order.push(app.initOptions === undefined ? 'before-init' : 'after-init');
+    });
+    const engine = createSceneEngine<FakeApp, string>({
+      createApp: () => new FakeApp(),
+      loadTexture: (url) => Promise.resolve(url),
+      scenes,
+      afterInit,
+    });
+    engine.mount(sceneElement('particles'), ctx(false, false));
+    await settle();
+    expect(afterInit).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['after-init', 'scene']);
+  });
+});

@@ -46,6 +46,18 @@ export const KEYS = [
   'sheet.showPage',
   'sheet.backToChat',
   'panel.resize',
+  'workers.label',
+  'workers.option',
+  'workers.hint',
+  'tasks.label',
+  'tasks.coordinator',
+  'tasks.active',
+  'tasks.pool',
+  'tasks.queued',
+  'tasks.drafted',
+  'tasks.applied',
+  'tasks.failed',
+  'tasks.progress',
 
   // §4.3 the visible status line (exactly `StatusKey`)
   'run.understanding',

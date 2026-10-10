@@ -1,0 +1,11 @@
+{
+  "name": "webgl-noise",
+  "version": "git-22434e0",
+  "license": "MIT",
+  "upstream": "https://github.com/stegu/webgl-noise",
+  "commit": "22434e04d7753f7e949e8d724ab3da2864c17a0f",
+  "files": ["src/noise2D.glsl", "src/noise3D.glsl", "LICENSE"],
+  "fetched": "2026-10-10",
+  "adaptedInto": "packages/builder/extensions/media-engines/src/studio/kit/glsl-noise.ts",
+  "note": "The two simplex functions are copied verbatim (comments trimmed, shared helpers de-duplicated) into GLSL_NOISE; the fbm wrappers after them are CraftKit's own. Upstream files kept verbatim as *.upstream.glsl."
+}

@@ -90,6 +90,13 @@ export type SceneFactory<TApp, TTexture> = (
 
 export interface SceneEngineDeps<TApp extends SceneApp, TTexture> {
   createApp(): TApp;
+  /**
+   * Called once the app is initialised, before the scene is built. The bundle
+   * uses it to drop Pixi's interaction ticker: no scene reads Pixi's own pointer
+   * events, and that ticker kept a page at 60 requestAnimationFrame calls a
+   * second with the scene off screen (walk 2026-10-08).
+   */
+  afterInit?(app: TApp): void;
   loadTexture(url: string): Promise<TTexture>;
   scenes: Readonly<Record<SceneName, SceneFactory<TApp, TTexture>>>;
 }
@@ -289,6 +296,7 @@ export function createSceneEngine<TApp extends SceneApp, TTexture>(
           teardown();
           return;
         }
+        deps.afterInit?.(app);
 
         const canvas = app.canvas;
         // Only a live ripple on a published page takes pointer input; the editor canvas never does.

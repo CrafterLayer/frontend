@@ -116,6 +116,8 @@ export const UTILITY_VOCABULARY: readonly UtilityPattern[] = Object.freeze([
 
   // ── Grid ──────────────────────────────────────────────────────────────────
   '{sm:,md:,lg:,}grid-cols-{1..12} grid-cols-none',
+  // Shared element recipes retain desktop-first layouts even without a runtime class oracle.
+  'max-md:grid-cols-1 max-md:col-span-1',
   '{sm:,md:,lg:,}col-span-{1..12} col-span-full col-start-{1..12} col-end-{1..13}',
   '{sm:,md:,lg:,}row-span-{1..6} row-start-{1..6} row-end-{1..7}',
   '{sm:,md:,lg:,}grid-rows-{1..6} grid-flow-{row,col,dense,row-dense,col-dense}',

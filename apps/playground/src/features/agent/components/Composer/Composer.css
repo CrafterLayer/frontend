@@ -44,7 +44,7 @@
 .ck-agent-composer__card:focus-within {
   border-color: var(--bldr-accent);
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
-  outline-offset: var(--bldr-focus-ring-offset);
+  outline-offset: calc(-1 * var(--bldr-focus-ring-width));
 }
 
 @supports selector(:has(*)) {
@@ -56,7 +56,7 @@
   .ck-agent-composer__card:has(.ck-agent-composer__input:focus) {
     border-color: var(--bldr-accent);
     outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
-    outline-offset: var(--bldr-focus-ring-offset);
+    outline-offset: calc(-1 * var(--bldr-focus-ring-width));
   }
 }
 
@@ -69,8 +69,20 @@
   border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
 }
 
+/* Questions and a paused request scroll without clipping the toolbar or floating menus. */
+.ck-agent-composer__auxiliary {
+  max-block-size: clamp(64px, 25cqb, 180px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
 .ck-agent-composer__write {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max-content;
+  align-content: start;
   row-gap: var(--bldr-space-xs);
 }
 
@@ -87,6 +99,7 @@
 .ck-agent-composer__field {
   position: relative;
   min-inline-size: 0;
+  align-self: start;
 }
 
 /*
@@ -100,6 +113,8 @@
   display: block;
   box-sizing: border-box;
   inline-size: 100%;
+  /* Never stretch an empty writing field to consume spare grid space. */
+  align-self: start;
   min-block-size: calc(2 * var(--bldr-line-height-input));
   max-block-size: calc(6 * var(--bldr-line-height-input));
   margin: 0;
@@ -123,6 +138,21 @@
 
 .ck-agent-composer__input:focus-visible {
   outline: none;
+}
+
+/* A short dock keeps a useful conversation viewport even with a long next request. */
+@container agent-conversation (max-height: 480px) {
+  .ck-agent-composer__input {
+    max-block-size: clamp(
+      calc(2 * var(--bldr-line-height-input)),
+      calc(30cqb - 60px),
+      calc(6 * var(--bldr-line-height-input))
+    );
+  }
+
+  .ck-agent-composer__auxiliary {
+    max-block-size: clamp(64px, 15cqb, 100px);
+  }
 }
 
 /* Slate on the Sheet, 4.69:1 (SPEC §2.1). */

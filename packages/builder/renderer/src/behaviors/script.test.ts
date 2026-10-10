@@ -130,7 +130,8 @@ describe('behaviorRuntimeScript — packs', () => {
     const script = behaviorRuntimeScript();
     const calls = script.split('\n').filter((line) => line.endsWith(')(document);'));
     expect(calls.length).toBeGreaterThanOrEqual(1 + BEHAVIOR_PACKS.length);
-    for (const mount of [mountBehaviors, ...BEHAVIOR_PACKS]) expect(script).toContain(mount.toString());
+    for (const mount of [mountBehaviors, ...BEHAVIOR_PACKS])
+      expect(script).toContain(mount.toString());
     expect(script.indexOf(mountBehaviors.toString())).toBe(1);
   });
 
@@ -161,7 +162,9 @@ describe('behaviorRuntimeScript — packs', () => {
     expect(el('toggle')?.hasAttribute('data-ck-mounted')).toBe(true);
     expect(el('mailto')?.hasAttribute('data-ck-mounted')).toBe(true);
     expect(el('scene')?.hasAttribute('data-ck-engine-mounted')).toBe(true);
-    const engines = (frame.contentWindow as unknown as { ckEngines?: { queue: { kind: string }[] } }).ckEngines;
+    const engines = (
+      frame.contentWindow as unknown as { ckEngines?: { queue: { kind: string }[] } }
+    ).ckEngines;
     expect(engines?.queue.map((entry) => entry.kind)).toEqual(['scene']);
     frame.remove();
   });
@@ -181,10 +184,14 @@ describe('behaviorRuntimeScript — packs', () => {
       '<div data-ck-behavior="gallery"></div>',
       '<section><div data-ck-scene="particles"></div></section>',
     ]);
-    const included = BEHAVIOR_PACKS.filter((pack) => gallery.includes(pack.toString())).map((pack) => pack.name);
+    const included = BEHAVIOR_PACKS.filter((pack) => gallery.includes(pack.toString())).map(
+      (pack) => pack.name,
+    );
     expect(included).toEqual(['mountGallery', 'mountEngines']);
     // The single-image lightbox is the gallery pack's too.
-    expect(behaviorRuntimeScript(["<img data-ck-behavior='lightbox'>"])).toContain('function mountGallery');
+    expect(behaviorRuntimeScript(["<img data-ck-behavior='lightbox'>"])).toContain(
+      'function mountGallery',
+    );
   });
 });
 
@@ -198,7 +205,11 @@ describe('BEHAVIOR_RUNTIME_SELECTOR — engine markers', () => {
   it('makes a page with only an engine marker need the runtime', () => {
     expect(hasBehaviors('<div data-ck-scene="mural"></div>')).toBe(true);
     expect(hasBehaviors('<h2 data-ck-timeline="split-reveal">x</h2>')).toBe(true);
-    expect(hasBehaviors({ attributes: { 'data-ck-lottie': '', 'data-ck-src': 'https://a.example/x.json' } })).toBe(true);
+    expect(
+      hasBehaviors({
+        attributes: { 'data-ck-lottie': '', 'data-ck-src': 'https://a.example/x.json' },
+      }),
+    ).toBe(true);
     const main = document.createElement('main');
     main.innerHTML = '<div data-ck-timeline="stagger-in"></div>';
     expect(hasBehaviors(main)).toBe(true);
@@ -206,12 +217,27 @@ describe('BEHAVIOR_RUNTIME_SELECTOR — engine markers', () => {
 });
 
 describe('pageEngines', () => {
+  it('detects carousels in markup, stored trees and a marker root, not ordinary text', () => {
+    expect([...pageEngines('<section data-ck-behavior="carousel"></section>')]).toEqual([
+      'carousel',
+    ]);
+    expect([...pageEngines({ attributes: { 'data-ck-behavior': 'carousel' } })]).toEqual([
+      'carousel',
+    ]);
+    const root = document.createElement('section');
+    root.setAttribute('data-ck-behavior', 'carousel');
+    expect([...pageEngines(root)]).toEqual(['carousel']);
+    expect([...pageEngines('<p>carousel</p>')]).toEqual([]);
+  });
   it('reads the engines from markup, a DOM node (itself included) and a stored JSON value', () => {
     expect([...pageEngines('<div data-ck-scene="mural"><img src="a"></div>')]).toEqual(['scene']);
-    expect([...pageEngines('<h2 class="x" data-ck-timeline="split-reveal">x</h2><div data-ck-lottie="" data-ck-src="y"></div>')].sort()).toEqual([
-      'lottie',
-      'timeline',
-    ]);
+    expect(
+      [
+        ...pageEngines(
+          '<h2 class="x" data-ck-timeline="split-reveal">x</h2><div data-ck-lottie="" data-ck-src="y"></div>',
+        ),
+      ].sort(),
+    ).toEqual(['lottie', 'timeline']);
     expect(pageEngines('<p data-ck-scene-canvas="">x</p><p>data-ck-scene</p>').size).toBe(0);
     const node = document.createElement('div');
     node.setAttribute('data-ck-scene', 'particles');
@@ -219,7 +245,9 @@ describe('pageEngines', () => {
     const main = document.createElement('main');
     main.innerHTML = '<h2 data-ck-timeline="stagger-in">x</h2>';
     expect([...pageEngines(main)]).toEqual(['timeline']);
-    expect([...pageEngines({ kind: 'root', children: [{ attributes: { 'data-ck-lottie': '' } }] })]).toEqual(['lottie']);
+    expect([
+      ...pageEngines({ kind: 'root', children: [{ attributes: { 'data-ck-lottie': '' } }] }),
+    ]).toEqual(['lottie']);
     expect(pageEngines(null).size).toBe(0);
     expect(pageEngines('<div data-ck-behavior="gallery"></div>').size).toBe(0);
   });
@@ -229,16 +257,21 @@ describe('BEHAVIOR_CSS — packs', () => {
   it('carries every pack style once, and the old lightbox/carousel rules only from the packs', () => {
     expect(BEHAVIOR_CSS).toContain(PACK_CSS);
     expect(BEHAVIOR_CSS.split("[data-ck-behavior='lightbox'] {").length).toBe(2);
-    expect(BEHAVIOR_CSS.split("[data-ck-behavior='carousel'] [data-ck-track] > * {").length).toBe(2);
+    expect(BEHAVIOR_CSS.split("[data-ck-behavior='carousel'] [data-ck-track] > * {").length).toBe(
+      2,
+    );
     // gsap-pixi (2026-10-08): a scene HOST keeps its content imgs.
-    expect(BEHAVIOR_CSS).toContain('[data-ck-scene][data-ck-ready]:not([data-ck-scene-host]) > img');
+    expect(BEHAVIOR_CSS).toContain(
+      '[data-ck-scene][data-ck-ready]:not([data-ck-scene-host]) > img',
+    );
   });
 });
 
 /* ── free-code mode (2026-10-09): a region's script is a marker, and Pixi is a use ── */
 
 describe('region scripts (data-ck-js)', () => {
-  const quoted = (code: string) => `<div data-ck data-ck-custom-code="" data-ck-js="${code}" data-ck-js-id="n1"></div>`;
+  const quoted = (code: string) =>
+    `<div data-ck data-ck-custom-code="" data-ck-js="${code}" data-ck-js-id="n1"></div>`;
 
   it('makes a page with only a script need the runtime, in all four readings', () => {
     expect(hasBehaviors(quoted('ck.root.title = 1'))).toBe(true);
@@ -277,19 +310,25 @@ describe('region scripts (data-ck-js)', () => {
     plain.innerHTML = quoted('ck.root.title = 1');
     expect([...pageEngines(plain)]).toEqual([]);
 
-    expect([...pageEngines({ attributes: { 'data-ck-js': 'await ck.stage()' } })]).toEqual(['pixi']);
+    expect([...pageEngines({ attributes: { 'data-ck-js': 'await ck.stage()' } })]).toEqual([
+      'pixi',
+    ]);
     expect([...pageEngines({ attributes: { 'data-ck-js': 'ck.root.title = 1' } })]).toEqual([]);
   });
 
   it('reads Pixi through the markup escaping React applies to the attribute value', () => {
-    expect([...pageEngines('<div data-ck-js="const a = &quot;x&quot;; await ck.stage({ background: &quot;#000&quot; })"></div>')]).toEqual([
-      'pixi',
-    ]);
+    expect([
+      ...pageEngines(
+        '<div data-ck-js="const a = &quot;x&quot;; await ck.stage({ background: &quot;#000&quot; })"></div>',
+      ),
+    ]).toEqual(['pixi']);
   });
 
   it('adds the scripts pack to a page that carries one, and to no other', () => {
     const script = behaviorRuntimeScript([quoted('ck.root.title = 1')]);
-    const included = BEHAVIOR_PACKS.filter((pack) => script.includes(pack.toString())).map((pack) => pack.name);
+    const included = BEHAVIOR_PACKS.filter((pack) => script.includes(pack.toString())).map(
+      (pack) => pack.name,
+    );
     expect(included).toEqual(['mountScripts']);
     expect(behaviorRuntimeScript(['<p>x</p>'])).not.toContain('function mountScripts');
   });

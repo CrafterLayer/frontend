@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import type { AiPlanWireRequest, ContextFragment } from '@craftkit/builder/wire';
+import { DESIGN_LIBRARY_TEACHING, DESIGN_QUALITY_TEACHING } from '@craftkit/builder/wire';
 
 import {
   PAGE_PLAN_ARABIC_FAMILIES,
@@ -59,6 +60,15 @@ function withFragments(fragments: readonly ContextFragment[]): AiPlanWireRequest
 }
 
 const SKILL_INSTRUCTIONS = 'Use a two-column layout.';
+describe('supported design capabilities', () => {
+  it('shares library/runtime guidance with both build and edit prompts', () => {
+    expect(SYSTEM_RULES_TEXT).toContain(DESIGN_LIBRARY_TEACHING);
+    expect(SYSTEM_RULES_TEXT).toContain(DESIGN_QUALITY_TEACHING);
+    const edit = buildPrompt(wireRequest({ request: 'Change this title' }));
+    expect(edit.system.map(({ text }) => text).join('\n')).toContain(DESIGN_LIBRARY_TEACHING);
+    expect(EDIT_TOOL_PROMPT).toContain('element.insert preset:');
+  });
+});
 const SKILL_REFERENCE = '# Guide\nkeep it short';
 
 /**
@@ -554,12 +564,13 @@ describe('ordinary requests after the page-plan task', () => {
   ];
 
   const RECORDED: Readonly<Record<string, string>> = {
-    'a bare request': '283c79d1abb4edb5819bbba460c21b25fdbf068d805db2b70e72c78151c3b9b0',
-    'a large catalog': '1577b7fcdf689672e9115315e5166245ef3d7a68825fac5fb4fbff77267b22fc',
-    'every branch at once': 'a93846e4a7eec1fc7e187f5eab3f89ecbde97eebfd21efa8369716afee4e8f2d',
+    // Intentional design-capability prefix update, 2026-10-10; data/message routing is unchanged.
+    'a bare request': 'bbe3d403946fdc95111939365a980d8501d031864fb9593858b477657a6dcfe6',
+    'a large catalog': 'a243bc3d8cf6d06329692ad5f38e783d48b7eb2cf7caa4310e375bce807b7b8f',
+    'every branch at once': '1a245941df48a10fa04fed05eb474c5e9d9e065c3d4c0396af1b60f27a3f43b7',
   };
 
-  it.each(FIXTURES)('builds %s exactly as before the task existed', (name, build) => {
+  it.each(FIXTURES)('builds %s with the recorded design-capability prefix', (name, build) => {
     expect(digest(build())).toBe(RECORDED[name]);
   });
 
@@ -1456,9 +1467,9 @@ describe('agent tools in the edit prompt', () => {
     expect(mentionsSeo('بدي سيو قوي')).toBe(true);
   });
 
-  // media-motion (2026-10-06): the edit lane's cap is 1600 (red-tests: was 1400; part.* signatures, see catalog-prompt.ts); seo stays 900.
-  it('keeps the edit prompt compact: edit within 1600 characters, seo within 900, the edit rules still < 80% of a build', () => {
-    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(1_600);
+  // Shared presets add a bounded capability line without stripping existing tool signatures.
+  it('keeps the edit prompt compact: edit within 1900 characters, seo within 900, the edit rules still < 80% of a build', () => {
+    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(1_900);
     expect(SEO_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
     const edit = buildPrompt(editRequest());
     const build = buildPrompt({

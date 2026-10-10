@@ -1,0 +1,43 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as Stories from './WorkerMenu.stories';
+
+<Meta of={Stories} />
+
+# WorkerMenu
+
+Native, compact selection of the next page build's maximum section writers: one, three or six. One
+main coordinator still applies validated sections in page order.
+
+<Canvas of={Stories.Balanced} />
+
+## Usage and API
+
+Use in the Agent composer when the host forwards the selection into the real build engine. Do not
+treat it as a model picker, a promise of better accuracy, or permission to run several mutating
+edits against the same page or file.
+
+| Prop       | Type                                | Meaning                                            |
+| ---------- | ----------------------------------- | -------------------------------------------------- |
+| `locale`   | `'en' \| 'ar'`                      | Label, options and build-only hint.                |
+| `value`    | `BuildWorkerCount` (`1 \| 3 \| 6`)  | Controlled choice owned by the host/controller.    |
+| `running`  | `boolean`                           | Disables the native select during the current run. |
+| `onChange` | `(count: BuildWorkerCount) => void` | Emits only allowed numeric limits.                 |
+
+```tsx
+<WorkerMenu locale={locale} value={workers} running={run !== null} onChange={setWorkers} />
+```
+
+Stories cover default three workers, sequential work, six workers, disabled during a run, and narrow
+RTL dark chrome. This component does not start tasks or alter an active pool.
+
+## Accessibility and layout
+
+The native select is named, has a build-only accessible description and title, and keeps the
+browser's keyboard interaction. Disabled behavior also guards the callback. Logical spacing, editor
+color/type/focus tokens and a coarse-pointer target preserve compact responsive layout and RTL.
+There is no animation or extra live region. The browser owns the options popup and high-contrast
+behavior.
+
+Larger limits may consume more provider concurrency and cost; speed and output quality must be
+measured separately. The host must capture the chosen limit for each run.

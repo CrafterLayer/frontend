@@ -42,6 +42,18 @@ export const ar = {
   'sheet.backToChat': 'العودة إلى المحادثة',
   // (added) §4.1: the resize separator needs an accessible name.
   'panel.resize': 'تغيير عرض اللوحة',
+  'workers.label': 'عدد عمال البناء',
+  'workers.option': 'عمال: {n}',
+  'workers.hint': 'تُنفّذ مهام البناء المستقلة معًا؛ تعديل العنصر الواحد يستخدم عاملًا واحدًا.',
+  'tasks.label': 'مهام البناء',
+  'tasks.coordinator': 'منسّق واحد · فحص بالترتيب',
+  'tasks.active': 'قيد التنفيذ: {n}',
+  'tasks.pool': 'حتى {n} عمال',
+  'tasks.queued': 'في الانتظار: {n}',
+  'tasks.drafted': 'جاهزة للفحص: {n}',
+  'tasks.applied': 'طُبّقت: {n}',
+  'tasks.failed': 'لم تنجح: {n}',
+  'tasks.progress': 'طُبّقت {n} من {total} مهام',
 
   /* §4.3 visible status: at most 20 characters before interpolation */
   'run.understanding': 'يقرأ الطلب…',

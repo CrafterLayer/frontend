@@ -95,6 +95,8 @@ const meta = {
     send: 'idle-ready',
     enhancement: { status: 'idle' },
     running: false,
+    workers: 3,
+    onWorkersChange: fn(),
     onModeChange: fn(),
     onModelChange: fn(),
     onMention: fn(),
@@ -126,9 +128,43 @@ export const Ready: Story = {
   },
 };
 
+/** Build workers are a separate choice from model and effort, fixed while running. */
+export const BuildWorkers: Story = {
+  play: async ({ canvasElement, args }) => {
+    const pool = within(canvasElement).getByRole('combobox', { name: t('en', 'workers.label') });
+    await userEvent.selectOptions(pool, '6');
+    await expect(args.onWorkersChange).toHaveBeenCalledWith(6);
+  },
+};
+
 /** Nothing written: ✨ and Send wait, both still focusable and explained. */
 export const Empty: Story = {
   args: { send: 'idle-empty' },
+};
+
+export const LongModelAndEffort: Story = {
+  args: {
+    model: {
+      selected: { ...MODEL.selected, product: 'Professional design and code model 550B' },
+      options: [
+        { ...MODEL.selected, product: 'Professional design and code model 550B' },
+        { ...MODEL.selected, id: 'comparison-model', product: 'Alternate model' },
+      ],
+    },
+    effort: { selected: 'high', options: ['low', 'medium', 'high', 'xhigh', 'max'] },
+    onEffortChange: fn(),
+  },
+  parameters: { panel: { width: 288 } },
+  play: async ({ canvasElement }) => {
+    const toolbar = canvasElement.querySelector('.ck-agent-toolbar');
+    if (!(toolbar instanceof HTMLElement)) throw new Error('No toolbar');
+    const bounds = toolbar.getBoundingClientRect();
+    for (const button of within(toolbar).getAllByRole('button')) {
+      const rect = button.getBoundingClientRect();
+      await expect(rect.left).toBeGreaterThanOrEqual(bounds.left - 1);
+      await expect(rect.right).toBeLessThanOrEqual(bounds.right + 1);
+    }
+  },
 };
 
 /** A run is live with a draft: Queue as next; the mode's tooltip says it applies next time. */

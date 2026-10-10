@@ -124,6 +124,7 @@ import {
   landedCount,
   lastEvidenceAt,
   reduceBuildProgress,
+  withWriters,
   type BuildProgress,
   type BuildTask,
 } from '../model/build-progress';
@@ -174,7 +175,6 @@ import { sendState } from '../model/send-state';
 import { stepsOf } from '../model/steps';
 import {
   FILL_SKILL_ID,
-  SUCCESSOR_WRITERS,
   failedKeys,
   guardSection,
   holdsValues,
@@ -214,6 +214,7 @@ import {
   type AgentController,
   type AgentViewState,
   type AssistantMode,
+  type BuildWorkerCount,
   type EffortLevel,
   type ClarifyQuestionView,
   type ClarifyView,
@@ -312,6 +313,8 @@ export interface UseAgentControllerOptions {
   readonly storage?: AgentStorage | null | undefined;
   /** The mode a person starts in until they choose one (default `auto`). */
   readonly defaultMode?: AssistantMode | undefined;
+  /** Initial independent section-worker limit; three by default. Captured per run. */
+  readonly fillConcurrency?: BuildWorkerCount | undefined;
   /** The engine's prerequisites; read off the engine when absent (`capabilitiesFromEngine`). */
   readonly capabilities?: AgentCapabilities | undefined;
   /** The developer flag: record menus offer Technical details (SPEC §4.15). */
@@ -364,6 +367,7 @@ interface Clarifying {
 
 interface UiState {
   readonly draft: string;
+  readonly workers: BuildWorkerCount;
   /** Mention chips, by node id, with the label they had when picked. */
   readonly mentions: readonly { readonly id: NodeId; readonly label: string }[];
   /** A selection the person took off the request (its ids joined); shown again once it changes. */
@@ -379,6 +383,7 @@ interface UiState {
 
 const INITIAL_UI: UiState = {
   draft: '',
+  workers: 3,
   mentions: [],
   dismissedSelection: null,
   run: null,
@@ -531,12 +536,7 @@ function insertAfter(
 }
 
 /** Put `record` at `turnId`: replace it when it is there, else add it after `anchorId`. */
-function placeRecord(
-  flow: Flow,
-  sessionId: string,
-  anchorId: string | null,
-  record: Turn,
-): void {
+function placeRecord(flow: Flow, sessionId: string, anchorId: string | null, record: Turn): void {
   const exists = sessionOf(flow, sessionId)?.turns.some((turn) => turn.id === record.id) ?? false;
   if (exists) {
     patchTurn(flow, sessionId, record.id, () => record);
@@ -774,7 +774,12 @@ function rehearse(flow: Flow, kernel: BuilderKernel, proposal: AiValidatedPropos
 }
 
 /** What an applied change did, between two documents. */
-function compare(flow: Flow, kernel: BuilderKernel, before: BuilderDocument, after: BuilderDocument): Changes {
+function compare(
+  flow: Flow,
+  kernel: BuilderKernel,
+  before: BuilderDocument,
+  after: BuilderDocument,
+): Changes {
   return {
     lines: impactLines(before, after, namingFor(flow, kernel)),
     empty: planImpact(before, after).empty,
@@ -947,7 +952,9 @@ function openExchange(
     const turns = sessionOf(flow, placement.sessionId)?.turns ?? [];
     const anchor = located === null ? null : (turns[located.index - 1]?.id ?? null);
     if (record === null) {
-      sessions.updateTurns(placement.sessionId, (current) => current.filter((turn) => turn.id !== reuse));
+      sessions.updateTurns(placement.sessionId, (current) =>
+        current.filter((turn) => turn.id !== reuse),
+      );
     } else {
       patchTurn(flow, placement.sessionId, reuse, () => record);
     }
@@ -1033,7 +1040,15 @@ async function runWords(
     placement,
     outgoing,
     kind === 'steps'
-      ? { id: turnId, kind: 'step-plan', request, status: 'drafting', steps: [], text: '', dropped: 0 }
+      ? {
+          id: turnId,
+          kind: 'step-plan',
+          request,
+          status: 'drafting',
+          steps: [],
+          text: '',
+          dropped: 0,
+        }
       : null,
   );
   env.mood.beginRun(slot.runId, target.label ?? '');
@@ -1090,7 +1105,11 @@ async function runWords(
     env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
   } catch (cause: unknown) {
     if (slot.controller.signal.aborted) {
-      placeRecord(flow, slot.sessionId, anchor, { id: turnId, kind: 'end', key: 'stoppedBeforeChange' });
+      placeRecord(flow, slot.sessionId, anchor, {
+        id: turnId,
+        kind: 'end',
+        key: 'stoppedBeforeChange',
+      });
       markNotRun(flow, slot.sessionId, anchor);
       say(flow, 'stopped.none');
       env.mood.settleTurn({ runId: slot.runId, outcome: 'stopped' });
@@ -1161,12 +1180,22 @@ async function runEdit(
   };
   const drafting: Turn =
     apply === 'auto'
-      ? { ...common, kind: 'edit', origin: 'request', status: 'running', mode: 'auto', run, changes: [] }
+      ? {
+          ...common,
+          kind: 'edit',
+          origin: 'request',
+          status: 'running',
+          mode: 'auto',
+          run,
+          changes: [],
+        }
       : { ...common, kind: 'proposal', status: 'drafting', mode: 'ask', run, changes: [] };
   const anchor = openExchange(flow, placement, outgoing, drafting);
   env.mood.beginRun(slot.runId, target.label ?? '');
   const start = runStartAnnouncement(
-    activity === 'edit' ? { activity: 'edit', target: target.label ?? null } : { activity: 'proposal' },
+    activity === 'edit'
+      ? { activity: 'edit', target: target.label ?? null }
+      : { activity: 'proposal' },
   );
   if (start !== null) say(flow, start.key, start.params);
   const logBefore = kernel.transactions().length;
@@ -1203,7 +1232,8 @@ async function runEdit(
         }
         if (event.type === 'plan.applying') beforeApply = kernel.getDocument();
         patchTurn(flow, slot.sessionId, turnId, (turn) => {
-          if ((turn.kind !== 'edit' && turn.kind !== 'proposal') || turn.run === undefined) return turn;
+          if ((turn.kind !== 'edit' && turn.kind !== 'proposal') || turn.run === undefined)
+            return turn;
           const next = reduceRunProgress(turn.run, event);
           return next === turn.run ? turn : { ...turn, run: next };
         });
@@ -1295,7 +1325,11 @@ async function runEdit(
           changes: [],
         }));
       } else {
-        patchTurn(flow, slot.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'stoppedBeforeChange' }));
+        patchTurn(flow, slot.sessionId, turnId, () => ({
+          id: turnId,
+          kind: 'end',
+          key: 'stoppedBeforeChange',
+        }));
         markNotRun(flow, slot.sessionId, anchor);
       }
       say(flow, 'stopped.none');
@@ -1303,8 +1337,7 @@ async function runEdit(
     } else if (spokeInWords(cause, heard, kernel, logBefore)) {
       // The model answered in words (most often asking what was meant): its answer.
       const said = wordsSaid(cause, heard);
-      const words =
-        said === null ? null : answerFromPlan({ id: turnId, request, plan: said });
+      const words = said === null ? null : answerFromPlan({ id: turnId, request, plan: said });
       if (words !== null) patchTurn(flow, slot.sessionId, turnId, () => words);
       say(flow, 'answer.ready');
       env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
@@ -1621,6 +1654,7 @@ async function runBuild(
       ...(plan.pagePlan === undefined ? {} : { pagePlan: plan.pagePlan }),
       ...(plan.approval ? { onPlanned: askToBuild } : {}),
       onEvent,
+      fillConcurrency: flow.ui.getState().workers,
     };
     const result = await runAiBuild(buildOptions);
     settleBuild(flow, slot, turnId, anchor, kernel, result, plan, { logBefore, documentBefore });
@@ -1630,7 +1664,9 @@ async function runBuild(
     flow.runtime.approvals.delete(turnId);
     if (flow.runtime.superseded.delete(turnId)) {
       patchTurn(flow, slot.sessionId, turnId, (turn) =>
-        turn.kind === 'page-plan' || turn.kind === 'end' || (turn.kind === 'build' && turn.progress.tasks.length === 0)
+        turn.kind === 'page-plan' ||
+        turn.kind === 'end' ||
+        (turn.kind === 'build' && turn.progress.tasks.length === 0)
           ? { id: turnId, kind: 'end', key: 'planSuperseded' }
           : turn,
       );
@@ -1640,7 +1676,12 @@ async function runBuild(
 }
 
 /** A build's transactions: every AI transaction it landed (direction, skeleton, sections). */
-function buildTransactions(flow: Flow, slot: Slot, kernel: BuilderKernel, logBefore: number): readonly string[] {
+function buildTransactions(
+  flow: Flow,
+  slot: Slot,
+  kernel: BuilderKernel,
+  logBefore: number,
+): readonly string[] {
   const seen = collected(flow, slot);
   if (seen.length > 0) return seen;
   return kernel
@@ -1752,9 +1793,17 @@ function settleBuild(
       its own ending; anything else is a plain stop, with nothing to undo.
     */
     if (current?.kind === 'page-plan' && !flow.runtime.superseded.has(turnId)) {
-      patchTurn(flow, slot.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'planDiscarded' }));
+      patchTurn(flow, slot.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'planDiscarded',
+      }));
     } else if (current?.kind === 'build') {
-      patchTurn(flow, slot.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'stoppedBeforeChange' }));
+      patchTurn(flow, slot.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'stoppedBeforeChange',
+      }));
       markNotRun(flow, slot.sessionId, anchor);
       say(flow, 'stopped.none');
     }
@@ -1779,11 +1828,16 @@ function settleBuild(
   if (after?.kind !== 'build') return;
   const landed = landedCount(after.progress);
   const total = after.progress.tasks.length;
-  const stopped = result.outcome === 'signal' || result.outcome === 'budget' || result.outcome === 'max-tasks';
+  const stopped =
+    result.outcome === 'signal' || result.outcome === 'budget' || result.outcome === 'max-tasks';
   const announcement = buildEndAnnouncement({
     phase: stopped ? 'stopped' : landed === total ? 'done' : landed === 0 ? 'failed' : 'partial',
     stopReason:
-      result.outcome === 'budget' ? 'budget' : result.outcome === 'max-tasks' ? 'maxTasks' : 'signal',
+      result.outcome === 'budget'
+        ? 'budget'
+        : result.outcome === 'max-tasks'
+          ? 'maxTasks'
+          : 'signal',
     landed,
     total,
     skeleton: after.progress.tasks.some((task) => task.status !== 'landed'),
@@ -1817,7 +1871,11 @@ function failBuild(
   if (turn?.kind === 'page-plan') {
     // Answered by Discard or by a newer request while it was held.
     if (!flow.runtime.superseded.has(turnId)) {
-      patchTurn(flow, slot.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'planDiscarded' }));
+      patchTurn(flow, slot.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'planDiscarded',
+      }));
     }
     env.mood.settleTurn({ runId: slot.runId, outcome: 'stopped' });
     return;
@@ -1827,7 +1885,11 @@ function failBuild(
   const landed = landedCount(progress);
   if (slot.controller.signal.aborted) {
     if (progress.tasks.length === 0) {
-      patchTurn(flow, slot.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'stoppedBeforeChange' }));
+      patchTurn(flow, slot.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'stoppedBeforeChange',
+      }));
       markNotRun(flow, slot.sessionId, anchor);
       say(flow, 'stopped.none');
     } else {
@@ -1852,7 +1914,13 @@ function failBuild(
   const failure = failureOf(cause);
   if (progress.tasks.length === 0) {
     patchTurn(flow, slot.sessionId, turnId, () =>
-      failureTurn(turnId, request, cause, { kind: 'unchanged' }, flow.clock.now() - progress.startedAt),
+      failureTurn(
+        turnId,
+        request,
+        cause,
+        { kind: 'unchanged' },
+        flow.clock.now() - progress.startedAt,
+      ),
     );
     say(flow, 'failed');
   } else {
@@ -1957,7 +2025,11 @@ async function runPlanPage(
     env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
   } catch (cause: unknown) {
     if (slot.controller.signal.aborted) {
-      patchTurn(flow, slot.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'stoppedBeforeChange' }));
+      patchTurn(flow, slot.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'stoppedBeforeChange',
+      }));
       markNotRun(flow, slot.sessionId, anchor);
       say(flow, 'stopped.none');
       env.mood.settleTurn({ runId: slot.runId, outcome: 'stopped' });
@@ -1992,7 +2064,8 @@ async function runSuccessor(flow: Flow, turnId: string, keys: readonly string[])
   const document = kernel.getDocument();
   // Only sections whose region is still on the page can be written into.
   const tasks = original.progress.tasks.filter(
-    (task) => wanted.has(task.id) && task.status !== 'landed' && document.nodes[task.id] !== undefined,
+    (task) =>
+      wanted.has(task.id) && task.status !== 'landed' && document.nodes[task.id] !== undefined,
   );
   if (tasks.length === 0) return;
   const slot = claim(flow, located.sessionId, turnId, 'build');
@@ -2002,13 +2075,27 @@ async function runSuccessor(flow: Flow, turnId: string, keys: readonly string[])
   const priorElapsedMs =
     original.progress.report?.elapsedMs ??
     Math.max(0, lastEvidenceAt(original.progress) - original.progress.startedAt);
-  const reopened = reopenForSuccessor(original.progress, new Set(tasks.map((task) => task.id)), startedAt);
-  const { revived: _revived, undone: _undone, failure: _failure, stopping: _stopping, ...rest } = original;
+  const writers = Math.min(tasks.length, flow.ui.getState().workers);
+  const reopened = withWriters(
+    reopenForSuccessor(original.progress, new Set(tasks.map((task) => task.id)), startedAt),
+    writers,
+  );
+  const {
+    revived: _revived,
+    undone: _undone,
+    failure: _failure,
+    stopping: _stopping,
+    ...rest
+  } = original;
   void _revived;
   void _undone;
   void _failure;
   void _stopping;
-  patchTurn(flow, slot.sessionId, turnId, (): Turn => ({ ...rest, progress: reopened, status: 'running' }));
+  patchTurn(flow, slot.sessionId, turnId, (): Turn => ({
+    ...rest,
+    progress: reopened,
+    status: 'running',
+  }));
   env.mood.beginRun(slot.runId, '');
   say(flow, 'build.started');
   let seq = 0;
@@ -2062,7 +2149,7 @@ async function runSuccessor(flow: Flow, turnId: string, keys: readonly string[])
   const waiting = [...tasks];
   const pending = new Map<string, Promise<Written>>();
   const startNext = (): void => {
-    while (pending.size < SUCCESSOR_WRITERS && waiting.length > 0) {
+    while (pending.size < writers && waiting.length > 0 && holds(flow, slot)) {
       const next = waiting.shift();
       if (next !== undefined) pending.set(next.id, write(next));
     }
@@ -2141,7 +2228,8 @@ async function runSuccessor(flow: Flow, turnId: string, keys: readonly string[])
             progressNow(),
             task,
             {
-              reason: cause instanceof Error ? cause.message : 'The section was refused on landing.',
+              reason:
+                cause instanceof Error ? cause.message : 'The section was refused on landing.',
               reasonCode: 'page-changed',
             },
             flow.clock.now(),
@@ -2247,7 +2335,9 @@ function outgoingOf(flow: Flow, text: string): Outgoing {
   const blocks: SentContext[] = [
     ...selection.map((id) => ({ kind: 'selection' as const, id, label: blockName(kernel, id) })),
     ...ui.mentions
-      .filter((mention) => !selection.includes(mention.id) && document.nodes[mention.id] !== undefined)
+      .filter(
+        (mention) => !selection.includes(mention.id) && document.nodes[mention.id] !== undefined,
+      )
       .map((mention) => ({ kind: 'mention' as const, id: mention.id, label: mention.label })),
   ];
   return {
@@ -2264,7 +2354,9 @@ function outgoingOf(flow: Flow, text: string): Outgoing {
  * planned only because the router was unsure (`PagePlanTurn.unsure`) is not one a newer
  * request changes: that request is routed, and checked, on its own words.
  */
-function pendingPlan(flow: Flow): { readonly sessionId: string; readonly turn: PagePlanTurn } | null {
+function pendingPlan(
+  flow: Flow,
+): { readonly sessionId: string; readonly turn: PagePlanTurn } | null {
   const sessions = flow.env().sessions.store.getState();
   const session = sessions.sessions.find((entry) => entry.id === sessions.activeId);
   const turn = session?.turns.at(-1);
@@ -2321,7 +2413,10 @@ async function send(flow: Flow, input: Outgoing, options: SendOptions = {}): Pro
         key: 'planSuperseded',
       }));
     }
-    outgoing = { ...input, request: `${pending.turn.request ?? pending.turn.subject}\n${input.text}` };
+    outgoing = {
+      ...input,
+      request: `${pending.turn.request ?? pending.turn.subject}\n${input.text}`,
+    };
     route = { kind: 'build-page', confidence: 1, reason: 'A change to the plan on screen.' };
   }
 
@@ -2402,12 +2497,21 @@ type Actions = Omit<AgentController, 'state' | 'capabilities'>;
 function createActions(flow: Flow): Actions {
   const env = flow.env;
 
-  const buildTurnOf = (turnId: string): { readonly sessionId: string; readonly turn: BuildTurn } | null => {
+  const buildTurnOf = (
+    turnId: string,
+  ): { readonly sessionId: string; readonly turn: BuildTurn } | null => {
     const located = locateTurn(flow, turnId);
-    return located?.turn.kind === 'build' ? { sessionId: located.sessionId, turn: located.turn } : null;
+    return located?.turn.kind === 'build'
+      ? { sessionId: located.sessionId, turn: located.turn }
+      : null;
   };
 
-  const setOutcome = (sessionId: string, turnId: string, key: string, outcome: LandingOutcome): void => {
+  const setOutcome = (
+    sessionId: string,
+    turnId: string,
+    key: string,
+    outcome: LandingOutcome,
+  ): void => {
     patchKind(flow, sessionId, turnId, 'build', (turn) => ({
       ...turn,
       outcomes: { ...turn.outcomes, [key]: outcome },
@@ -2512,12 +2616,20 @@ function createActions(flow: Flow): Actions {
     if (located === null || turn === undefined) return;
     if (turn.kind === 'proposal') {
       endPreview(turnId);
-      patchTurn(flow, located.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'proposalDiscarded' }));
+      patchTurn(flow, located.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'proposalDiscarded',
+      }));
       env().mood.noteTurn('discarded');
       return;
     }
     if (turn.kind === 'page-plan' || turn.kind === 'step-plan') {
-      patchTurn(flow, located.sessionId, turnId, () => ({ id: turnId, kind: 'end', key: 'planDiscarded' }));
+      patchTurn(flow, located.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'planDiscarded',
+      }));
       // An Ask card's held build is answered Stop: nothing is written.
       flow.runtime.approvals.get(turnId)?.('stop');
       env().mood.noteTurn('discarded');
@@ -2553,7 +2665,10 @@ function createActions(flow: Flow): Actions {
       */
       runViewTransition(() => {
         patchTurn(flow, located.sessionId, turnId, () =>
-          inked(turn.heldBuild ?? initialBuildProgress(flow.runtime.lease?.runId ?? turnId, flow.clock.now())),
+          inked(
+            turn.heldBuild ??
+              initialBuildProgress(flow.runtime.lease?.runId ?? turnId, flow.clock.now()),
+          ),
         );
         flow.ui.setState((ui) =>
           ui.run === null ? ui : { ...ui, run: { ...ui.run, activity: 'build', awaiting: false } },
@@ -2567,7 +2682,9 @@ function createActions(flow: Flow): Actions {
     const history = historyOf(sessionOf(flow, located.sessionId)?.turns ?? []);
     const outgoing: Outgoing = { text: request, context: [{ kind: 'page' }], pointed: [] };
     runViewTransition(() => {
-      patchTurn(flow, located.sessionId, turnId, () => inked(initialBuildProgress(turnId, flow.clock.now())));
+      patchTurn(flow, located.sessionId, turnId, () =>
+        inked(initialBuildProgress(turnId, flow.clock.now())),
+      );
       void track(
         flow,
         buildPlanned(
@@ -2736,7 +2853,10 @@ function createActions(flow: Flow): Actions {
     try {
       const removal = removeUnfilledSections(kernel, { unfilled }, preflightPorts());
       if (removal.removed.length > 0) {
-        patchKind(flow, found.sessionId, turnId, 'build', (turn) => ({ ...turn, placeholdersRemoved: true }));
+        patchKind(flow, found.sessionId, turnId, 'build', (turn) => ({
+          ...turn,
+          placeholdersRemoved: true,
+        }));
         env().mood.noteTurn('discarded');
       }
     } catch {
@@ -2762,7 +2882,9 @@ function createActions(flow: Flow): Actions {
     }
     if (!env().capabilities.rowUndo || !env().capabilities.undoBuild) return;
     // Engine E3 present: every landed section back, newest first, then the empty regions.
-    const landed = [...found.turn.progress.tasks].reverse().filter((task) => task.status === 'landed');
+    const landed = [...found.turn.progress.tasks]
+      .reverse()
+      .filter((task) => task.status === 'landed');
     for (const task of landed) undoSection(turnId, task.id);
     removeEmpty(turnId);
     const after = buildTurnOf(turnId)?.turn;
@@ -2800,7 +2922,8 @@ function createActions(flow: Flow): Actions {
     const turn = located?.turn;
     if (located === null || turn?.kind !== 'edit' || turn.revived === true) return;
     if (turn.outcome?.kind === 'undone' || flow.runtime.lease !== null) return;
-    const transactionId = turn.outcome?.kind === 'redone' ? turn.outcome.transactionId : turn.transactionId;
+    const transactionId =
+      turn.outcome?.kind === 'redone' ? turn.outcome.transactionId : turn.transactionId;
     const kernel = env().options.kernel;
     if (transactionId === undefined || !isNewest(shadowOf(flow, kernel), [transactionId])) return;
     kernel.undo();
@@ -2862,7 +2985,11 @@ function createActions(flow: Flow): Actions {
       flow,
       dispatchRequest(
         flow,
-        { text: origin.text, context: context.length === 0 ? [{ kind: 'page' }] : context, pointed },
+        {
+          text: origin.text,
+          context: context.length === 0 ? [{ kind: 'page' }] : context,
+          pointed,
+        },
         route,
         { sessionId: located.sessionId, recordTurnId: turnId, history },
         mode,
@@ -2966,10 +3093,17 @@ function createActions(flow: Flow): Actions {
     flow.ui.setState((ui) =>
       ui.clarify === null
         ? ui
-        : { ...ui, clarify: { ...ui.clarify, questions, status: complete ? 'rewriting' : 'asking' } },
+        : {
+            ...ui,
+            clarify: { ...ui.clarify, questions, status: complete ? 'rewriting' : 'asking' },
+          },
     );
     if (!complete) return;
-    const outgoing: Outgoing = { text: clarify.request, context: clarify.context, pointed: clarify.pointed };
+    const outgoing: Outgoing = {
+      text: clarify.request,
+      context: clarify.context,
+      pointed: clarify.pointed,
+    };
     void (async () => {
       let text = requestWithAnswers(clarify.request, questions);
       try {
@@ -3085,7 +3219,14 @@ function createActions(flow: Flow): Actions {
     // "Available when the current work ends" (SPEC §4.2 `header.new.busy`).
     if (flow.runtime.lease !== null) return;
     env().sessions.newConversation();
-    flow.ui.setState((ui) => ({ ...ui, draft: '', mentions: [], queue: null, clarify: null, previewing: null }));
+    flow.ui.setState((ui) => ({
+      ...ui,
+      draft: '',
+      mentions: [],
+      queue: null,
+      clarify: null,
+      previewing: null,
+    }));
     env().enhancer.edited('');
     env().mood.reset();
   };
@@ -3129,6 +3270,11 @@ function createActions(flow: Flow): Actions {
     setModel: (id) => {
       env().options.onSelectModel?.(id);
     },
+    setWorkers: (workers) => {
+      if (flow.runtime.lease !== null || flow.ui.getState().checking) return;
+      if (![1, 3, 6].includes(workers)) return;
+      flow.ui.setState((ui) => (ui.workers === workers ? ui : { ...ui, workers }));
+    },
     setEffort: (level) => {
       env().options.onSelectEffort?.(level);
     },
@@ -3162,7 +3308,9 @@ function createActions(flow: Flow): Actions {
     sendAsWritten,
     dismissClarify,
     setComposerFocused: (focused) => {
-      flow.ui.setState((ui) => (ui.composerFocused === focused ? ui : { ...ui, composerFocused: focused }));
+      flow.ui.setState((ui) =>
+        ui.composerFocused === focused ? ui : { ...ui, composerFocused: focused },
+      );
     },
   };
 }
@@ -3279,7 +3427,10 @@ function stableKernelReader(store: BuilderKernel['context']['store']): () => Ker
 export function useAgentController(options: UseAgentControllerOptions): AgentController {
   const { kernel, locale } = options;
   const [clock] = useState<AgentClock>(() => options.clock ?? systemClock);
-  const provider = useMemo(() => options.provider ?? createLocalAiPlanProvider(), [options.provider]);
+  const provider = useMemo(
+    () => options.provider ?? createLocalAiPlanProvider(),
+    [options.provider],
+  );
   const registry = options.skillRegistry ?? DEFAULT_REGISTRY;
   const capabilities = useMemo(
     () => options.capabilities ?? capabilitiesFromEngine(),
@@ -3316,7 +3467,12 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   const selection = source === undefined ? kernelState.selection : external;
 
   /* The controller's own state. */
-  const [ui] = useState(() => createStore<UiState>(INITIAL_UI));
+  const [ui] = useState(() =>
+    createStore<UiState>({
+      ...INITIAL_UI,
+      workers: options.fillConcurrency ?? 3,
+    }),
+  );
   const uiState = useSyncExternalStore(ui.subscribe, ui.getState, ui.getState);
 
   const mood = useAgentMood({
@@ -3416,7 +3572,8 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
       previewing,
       buildHistory: (turn: BuildTurn) => {
         if (turn.revived === true || turn.status !== 'settled') return undefined;
-        const shadow = runtime.shadows.get(runtime.builds.get(turn.id)?.kernel ?? kernel) ?? EMPTY_HISTORY;
+        const shadow =
+          runtime.shadows.get(runtime.builds.get(turn.id)?.kernel ?? kernel) ?? EMPTY_HISTORY;
         const ids = turn.transactionIds ?? [];
         return {
           undone: turn.undone === true,
@@ -3428,7 +3585,8 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
         if (turn.revived === true) return undefined;
         const shadow = runtime.shadows.get(kernel) ?? EMPTY_HISTORY;
         const undoneId = turn.outcome?.kind === 'undone' ? turn.outcome.transactionId : undefined;
-        const liveId = turn.outcome?.kind === 'redone' ? turn.outcome.transactionId : turn.transactionId;
+        const liveId =
+          turn.outcome?.kind === 'redone' ? turn.outcome.transactionId : turn.transactionId;
         return {
           canUndo: liveId !== undefined && isNewest(shadow, [liveId]),
           canRedo: undoneId !== undefined && isNextRedo(shadow, [undoneId]),
@@ -3458,7 +3616,8 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   }, [liveRun, runRecord, clock, tick]);
 
   // The live region hears the RunBar line change: how a blocked episode starts and ends.
-  const statusLine = visible === null ? null : `${visible.statusKey} ${JSON.stringify(visible.params)}`;
+  const statusLine =
+    visible === null ? null : `${visible.statusKey} ${JSON.stringify(visible.params)}`;
   const reportStatus = live.status;
   useEffect(() => {
     reportStatus(visible);
@@ -3549,7 +3708,9 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
       blocks: kernel.context.registry.blocks(kernel.context.surface),
       nameOf: (block) =>
         block.nodeId === undefined ? blockTypeName(block.type) : blockName(kernel, block.nodeId),
-      ...(first !== undefined && schema !== undefined ? { selected: { nodeId: first, schema } } : {}),
+      ...(first !== undefined && schema !== undefined
+        ? { selected: { nodeId: first, schema } }
+        : {}),
       followUp: lastFollowUp(activeTurns),
       ...(salvaged === undefined ? {} : { salvaged: [salvaged] }),
       ...(ranOnPage(activeTurns) ? { pageSections: page.sectionLabels } : {}),
@@ -3562,7 +3723,9 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   useEffect(() => {
     if (suggestions.length === 0) return;
     shownCatalog.current = new Set(
-      suggestions.flatMap((suggestion) => (suggestion.source === 'catalog' ? [suggestion.text.trim()] : [])),
+      suggestions.flatMap((suggestion) =>
+        suggestion.source === 'catalog' ? [suggestion.text.trim()] : [],
+      ),
     );
   }, [suggestions]);
 
@@ -3571,7 +3734,9 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     if (first !== undefined) return { kind: 'selection', title: blockName(kernel, first) };
     const sections = Object.values(document.nodes[document.rootId]?.slots ?? {}).flat().length;
     const page = summarizeDocumentForIntent(document);
-    return sections > 0 && !page.placeholderOnly ? { kind: 'hasContent', sections } : { kind: 'greeting' };
+    return sections > 0 && !page.placeholderOnly
+      ? { kind: 'hasContent', sections }
+      : { kind: 'greeting' };
   }, [shownSelection, document, kernel]);
 
   const snapshot = mood.snapshot;
@@ -3607,8 +3772,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     [options.effort, options.onSelectEffort],
   );
   const freeCode = useMemo<FreeCodeView | null>(
-    () =>
-      options.onToggleFreeCode === undefined ? null : { enabled: options.freeCode === true },
+    () => (options.onToggleFreeCode === undefined ? null : { enabled: options.freeCode === true }),
     [options.freeCode, options.onToggleFreeCode],
   );
   const queue = useMemo(
@@ -3631,6 +3795,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     mention,
     mode: sessions.state.mode,
     model,
+    workers: uiState.workers,
     effort,
     freeCode,
     send: sendSlot,

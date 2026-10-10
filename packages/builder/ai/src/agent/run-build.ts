@@ -2490,6 +2490,25 @@ function imageLines(
   ];
 }
 
+/*
+  Parallel writers contradicted each other (walk 2026-10-08): grilled chicken
+  cost 18 JOD in one section and 35 JOD in the menu, because each writer saw
+  only its own section's facts. Every writer now also reads the facts the
+  OTHER sections carry, so a dish, price, phone or hour it mentions is the
+  same value everywhere on the page.
+*/
+const MAX_PAGE_FACTS = 24;
+
+function pageFactsLines(plan: PagePlan, sectionKey: string): readonly string[] {
+  const others = plan.facts.filter(({ section }) => section !== sectionKey).slice(0, MAX_PAGE_FACTS);
+  if (others.length === 0) return [];
+  return [
+    `FACTS ELSEWHERE ON THE PAGE (if this section mentions one, write the same value — never a different price, name, phone or hour; do not invent new prices for these items): ${others
+      .map(({ key, sample }) => `${key}: ${sample}`)
+      .join(' · ')}`,
+  ];
+}
+
 /**
  * A section writer's whole brief: the page's tokens and its one contract.
  *
@@ -2553,6 +2572,7 @@ function contractRequest(
             .map(({ key, sample }) => `${key}: ${sample}`)
             .join(' · ')}`,
         ]),
+    ...pageFactsLines(plan, contract.key),
     ...(neighbours.trim() === '' ? [] : ['', 'THE SECTIONS AROUND IT:', neighbours.trim()]),
   ].join('\n');
 }
@@ -2611,6 +2631,7 @@ function kitContractRequest(
             .map(({ key, sample }) => `${key}: ${sample}`)
             .join(' · ')}`,
         ]),
+    ...pageFactsLines(plan, contract.key),
     '',
     planKitIndex(writerKitRoles(contract)),
     '',

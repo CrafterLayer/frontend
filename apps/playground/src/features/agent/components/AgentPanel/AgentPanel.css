@@ -8,7 +8,7 @@
   the `agent` inline-size container every component's container queries read, Paper.
 
   The panel is a three-row grid: the 44px header (none), the thread (1fr, the only
-  scroller) and the dock (none) with the composer, padded 0 8px 8px so typed text starts on
+  scroller) and the dock (none) with the composer, padded 4px 8px 8px so typed text starts on
   the thread's 16px gutter. Suggestions live in the thread, never in the dock, so the dock's
   height does not change with them.
 */
@@ -59,6 +59,8 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-block-size: 0;
   min-inline-size: 0;
+  /* Auxiliary composer content is bounded by this panel, not the browser window. */
+  container: agent-conversation / size;
 }
 
 .ck-agent-panel__header {
@@ -67,8 +69,9 @@
 
 .ck-agent-panel__dock {
   min-inline-size: 0;
-  padding-block: 0 var(--bldr-space-md);
+  padding-block: var(--bldr-space-xs) var(--bldr-space-md);
   padding-inline: var(--bldr-space-md);
+  background-color: var(--bldr-panel);
 }
 
 /*

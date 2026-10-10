@@ -7,8 +7,8 @@
 Extend the existing one-site kernel with versioned authored React projects. Render code-backed pages
 through an isolated page runtime, connect visual selection to stable source identities, add reliable
 draft recovery and page commands, then route the Agent through small deterministic tools and measured
-model policies. Existing declarative pages stay supported. Dashboard generation and generated
-backends remain outside this feature.
+model policies. Existing declarative pages stay supported. The approved 2026-10-10 increment adds
+Frontend dashboards and workflows; generated backends remain outside this feature.
 
 ## Technical Context
 
@@ -180,3 +180,42 @@ pnpm verify
 
 Turbo-backed critical tests are rerun once with `--force`. Live provider and human-review evidence is
 separate from deterministic local and CI checks. Details are in [quickstart.md](quickstart.md).
+
+## Agent conversation and parallel-task implementation — 2026-10-10
+
+Scope: `apps/playground/src/features/agent` owns the live panel, bounded composer, scrolling hook,
+per-build concurrency choice and task display. `builder-ai` retains its real bounded section pool
+and ordered landing; changes there are limited to regression coverage or proven integration gaps.
+`apps/evals` owns an isolated local browser regression. No new dependency or server rewrite.
+
+Design direction: quiet, dense professional workspace, strong conversation/action hierarchy,
+existing tokens and logical RTL geometry, one focused composer edge. Task display uses actual engine
+events, not synthetic personas. Existing auto engine maximum eight is a staged legacy behavior,
+distinct from the authored scheduler's default-three/max-six contract; the new live panel defaults
+to three and offers one/three/six explicitly without silently rewriting legacy callers.
+
+Independent UI work may own only existing panel/composer/thread/header styling, artifacts and the
+scrolling hook. The primary owns concurrency contracts, controller wiring, task UI, integration,
+browser evidence and continuity. Every new component needs its full five-artifact contract.
+
+## Approved quality and Frontend increment — 2026-10-10
+
+Scope: `apps/evals` owns Node/Playwright axe evaluation and bounded reports; `builder-media-engines`
+owns pinned Embla and its lazy browser entry; `builder-renderer` owns serialized carousel
+integration and export/injection; `builder-editor` owns managed-catalog admission; `builder-ai` owns
+shared authored design guidance; `apps/ai-server` consumes it through the public wire facade. No new
+React UI component.
+
+Keep axe (MPL-2.0) in development evaluation only, never generated-site assets. Embla (MIT) gets a
+generated self-contained lazy asset with its full notice, a gzip budget and digest. Carousel pack
+stays serializable with native fallback, no DOM reparenting (including React previews), no editor
+drag capture, cancellation and exact teardown. Managed catalog builds Embla separately. Its complete
+manifest/module fingerprint changes artifact identity; the existing v1 lock/profile identifier stays
+compatible because all old pins and modules are retained.
+
+Shared authored teaching chooses composition from the user brief and existing page purpose; it does
+not introduce a rigid classifier, mandatory page count, fake backend or unrestricted package
+imports. Use mocked provider capture tests for actual prompt wiring and real compiler/catalog tests.
+Browser checks exercise published Embla and actual axe positive/negative fixtures without provider
+calls. Independent read-only review and scoped evidence are required; the rest of feature 014 is not
+complete.

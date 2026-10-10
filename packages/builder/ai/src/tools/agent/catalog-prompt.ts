@@ -1,12 +1,12 @@
-import { CUSTOM_CODE_SCENES, CUSTOM_CODE_TIMELINE_RECIPES, GALLERY_LAYOUTS } from '@craftkit/builder-schema';
+import { CUSTOM_CODE_SCENES, CUSTOM_CODE_TIMELINE_RECIPES, ELEMENT_RECIPE_IDS, GALLERY_LAYOUTS } from '@craftkit/builder-schema';
 
 import { agentToolsForLane } from './registry';
 import { AGENT_TOOL_COMMAND, type AgentTool, type AgentToolLane } from './types';
 
 /**
  * The tools a lane may name, as the prompt lists them: one compact line each
- * (`<name> <signature> — <summary>`) and one example step. At most 900
- * characters per lane — a section writer sees ~3 tools, an edit ~10. When
+ * (`<name> <signature> — <summary>`) and one example step. Each lane has a
+ * bounded character cap below. When
  * the lines would not fit, summaries go first, then signatures, so every
  * tool stays nameable.
  */
@@ -22,8 +22,9 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // lane is part of the frozen, cached system[0]: +200 characters is ~50 cached tokens per edit.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
   build: AGENT_TOOL_PROMPT_MAX_CHARS,
-  section: AGENT_TOOL_PROMPT_MAX_CHARS,
-  edit: 1_600,
+  // Eight shared presets add a bounded capability line; retain usable tool signatures.
+  section: 1_200,
+  edit: 1_900,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -54,6 +55,7 @@ const EXAMPLES: Readonly<Record<string, unknown>> = {
 
 // media-motion (2026-10-06): one line of fields per tool whose signature cannot hold them (DESIGN §F.1).
 const DETAILS: Readonly<Record<string, string>> = {
+  'element.insert': `element.insert preset:${ELEMENT_RECIPE_IDS.join('|')} content:{title?,text?,value?,label?,href?,items?:[{title,text?}]}; markup OR preset`,
   'media.add': `media.add kinds: gallery{layout?:${GALLERY_LAYOUTS.join('|')},images?:'catalog:<topic>'|[{src,alt}],count?} video{url,mode?:background} scene{scene:${CUSTOM_CODE_SCENES.join('|')},behind?:hero id} compare{images?} pricing{plans:[{name,a,b}]} map{address} lottie{src}`,
   'motion.add': `motion.add recipe: ${CUSTOM_CODE_TIMELINE_RECIPES.join('|')}`,
 };

@@ -1,0 +1,52 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as Stories from './BuildTaskBoard.stories';
+
+<Meta of={Stories} />
+
+# BuildTaskBoard
+
+A quiet, compact summary of the real section writers in one coordinated page build. It augments
+`BuildRecord` and its existing section spine; it never duplicates section rows.
+
+<Canvas of={Stories.Active} />
+
+## Usage and API
+
+Use for a page build with engine-backed task states. Do not use for one selected-element edit, a
+planning call or an invented team of agents.
+
+| Prop      | Type                      | Meaning                                                                                                 |
+| --------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `locale`  | `'en' \| 'ar'`            | Authored catalog labels.                                                                                |
+| `rows`    | `readonly SpineRowView[]` | The same actual rows shown on the build spine. Empty renders nothing.                                   |
+| `writers` | `number \| null`          | Engine-reported pool capacity, not a count of currently active workers. Unknown/invalid hides capacity. |
+| `phase`   | `BuildPhase`              | Only building/stopping phases report current workers, queued work and drafts.                           |
+
+```tsx
+<BuildTaskBoard
+  locale={locale}
+  rows={view.rows}
+  writers={view.writers ?? null}
+  phase={view.phase}
+/>
+```
+
+Writing and retrying rows count as active. Planned/waiting rows are queued; drafted rows have
+finished writing but await ordered landing/validation. Only landed rows advance the progress bar.
+Failed, undone and merely drafted rows never count as applied. Terminal or historical stopped
+records never claim workers are still running.
+
+## States, accessibility and layout
+
+Stories cover active, queued, draft-blocked, unknown capacity, empty, failed and stopped states,
+plus narrow Arabic/dark chrome. The named section and native labelled progress bar expose numeric
+applied progress. There is no extra live region: the owning panel's existing `LiveStatus` remains
+the sole announcement source.
+
+Labels wrap in a flat layout without adding cards or nested scroll areas. Logical CSS properties
+preserve RTL; colors and type inherit editor tokens. There is no animation, so reduced-motion users
+receive the same state. Forced-colors uses native progress rendering.
+
+This component displays evidence; it neither schedules work nor proves that additional workers
+improve visual quality or latency. The primary coordinator retains all writes.

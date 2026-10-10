@@ -17,7 +17,13 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { AssetTableContext, type AssetTable } from '../assets/asset-table';
-import { BEHAVIOR_CSS, behaviorRuntimeScript, hasBehaviors, pageEngines, type PageEngine } from '../behaviors'; // media-motion (2026-10-06): + engines
+import {
+  BEHAVIOR_CSS,
+  behaviorRuntimeScript,
+  hasBehaviors,
+  pageEngines,
+  type PageEngine,
+} from '../behaviors'; // media-motion (2026-10-06): + engines
 import { LENIS_BANNER, LENIS_CSS, LENIS_SOURCE } from '../behaviors/lenis-source';
 import { CustomCodeClassTransformContext } from '../components/CustomCode/class-transform-context';
 import { loadTablerIcons } from '../components/CustomCode/tabler-icons';
@@ -29,6 +35,11 @@ import { buildLibraryCss } from '../site-design/build-library-css';
 import { createNamedStyleTransform } from '../site-design/named-style-transform';
 import { SiteDesignContext, type SiteDesign } from '../site-design/site-design-context';
 import { createAssetFileWriter } from './asset-files'; // page-defects additions (2026-10-06)
+// pixi-studio:runtime-wiring additions (2026-10-10)
+import { decodeMarkupAttribute } from '../behaviors/script';
+import { STUDIO_ENGINE_LOADERS, type StudioEngineKind } from '../engines/studio/loaders';
+import { STUDIO_LIB_KEYS, declaredLibs, fnv1a64 } from '../studio/contract';
+// end pixi-studio:runtime-wiring additions
 import { STATIC_BASE_CSS } from './base-css';
 import { normalRoute, relativeRoot, routeFile } from './routes';
 
@@ -174,7 +185,9 @@ function escapeAttribute(value: string): string {
 
 /** A file-name-safe key for a page's own stylesheet. */
 function cssKey(pageId: string, index: number, used: Set<string>): string {
-  const base = pageId.replace(/[^a-zA-Z0-9_-]+/gu, '-').replace(/^-+|-+$/gu, '') || `page-${String(index + 1)}`;
+  const base =
+    pageId.replace(/[^a-zA-Z0-9_-]+/gu, '-').replace(/^-+|-+$/gu, '') ||
+    `page-${String(index + 1)}`;
   let key = base;
   for (let n = 2; used.has(key); n += 1) key = `${base}-${String(n)}`;
   used.add(key);
@@ -213,26 +226,43 @@ function liftLibraryImports(css: string): { css: string; fonts: string[] } {
   return { css: rest.trim(), fonts };
 }
 
-const ENTITY: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'" };
+const ENTITY: Readonly<Record<string, string>> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  '#39': "'",
+  '#x27': "'",
+};
 
 /** Every class the rendered markup carries (attribute values decoded). */
 function renderedClasses(markup: string): Set<string> {
   const classes = new Set<string>();
   for (const match of markup.matchAll(/\sclass="([^"]*)"/gu)) {
-    const value = (match[1] ?? '').replace(/&(amp|lt|gt|quot|#39|#x27);/gu, (_all, name: string) => ENTITY[name] ?? '');
+    const value = (match[1] ?? '').replace(
+      /&(amp|lt|gt|quot|#39|#x27);/gu,
+      (_all, name: string) => ENTITY[name] ?? '',
+    );
     for (const name of value.split(/\s+/u)) if (name !== '') classes.add(name);
   }
   return classes;
 }
 
 /** Which presets, hovers and effects a page's markup names. */
-function motionUsage(markup: string): { presets: Set<string>; hovers: Set<string>; effects: Set<string> } {
+function motionUsage(markup: string): {
+  presets: Set<string>;
+  hovers: Set<string>;
+  effects: Set<string>;
+} {
   const presets = new Set<string>();
   const hovers = new Set<string>();
   const effects = new Set<string>();
-  for (const match of markup.matchAll(/\sdata-ck-motion="([a-z0-9-]+)"/gu)) presets.add(match[1] ?? '');
-  for (const match of markup.matchAll(/\sdata-ck-hover="([a-z0-9-]+)"/gu)) hovers.add(match[1] ?? '');
-  for (const name of renderedClasses(markup)) if (name.startsWith('ck-fx-')) effects.add(name.slice('ck-fx-'.length));
+  for (const match of markup.matchAll(/\sdata-ck-motion="([a-z0-9-]+)"/gu))
+    presets.add(match[1] ?? '');
+  for (const match of markup.matchAll(/\sdata-ck-hover="([a-z0-9-]+)"/gu))
+    hovers.add(match[1] ?? '');
+  for (const name of renderedClasses(markup))
+    if (name.startsWith('ck-fx-')) effects.add(name.slice('ck-fx-'.length));
   return { presets, hovers, effects };
 }
 
@@ -263,7 +293,10 @@ function fontLinks(fonts: readonly string[]): string {
         ]
       : [`<link rel="preconnect" href="${host}" crossorigin>`],
   );
-  return [...preconnect, ...fonts.map((url) => `<link rel="stylesheet" href="${escapeAttribute(url)}">`)].join('');
+  return [
+    ...preconnect,
+    ...fonts.map((url) => `<link rel="stylesheet" href="${escapeAttribute(url)}">`),
+  ].join('');
 }
 
 // media-motion (2026-10-06): the engine assets, imported only when a page uses one (the loadTablerIcons precedent).
@@ -271,9 +304,126 @@ function fontLinks(fonts: readonly string[]): string {
 // (about 23 kB gzip with its banner), not GSAP; the asset shape (banner + source + runner) is unchanged.
 // free-code mode (2026-10-09): 'pixi' is the FULL pixi.js bundle, shipped only when some page's
 // `data-ck-js` code names Pixi (`ck.pixi()` / `ck.stage()`); the `scripts` pack requests it on demand.
-const ENGINE_ORDER: readonly PageEngine[] = ['timeline', 'scene', 'lottie', 'pixi'];
+const ENGINE_ORDER: readonly PageEngine[] = [
+  'carousel',
+  'timeline',
+  'scene',
+  'lottie',
+  'pixi',
+  // pixi-studio:runtime-wiring additions (2026-10-10): the add-on libraries after pixi (each
+  // binds to its namespace), then the sound engine — `assets/ck-lib-<key>.js`, `assets/ck-sound.js`.
+  ...STUDIO_LIB_KEYS.map((key): PageEngine => `lib-${key}`),
+  'sound',
+  // end pixi-studio:runtime-wiring additions
+];
+
+// pixi-studio:runtime-wiring additions (2026-10-10)
+function isStudioEngine(kind: PageEngine): kind is StudioEngineKind {
+  return kind === 'sound' || kind.startsWith('lib-');
+}
+
+/** The sounds one page references (DESIGN §B.1, §C.2): `asset:<id>` and `lib:<id>` refs. */
+interface SoundUse {
+  /** Site asset ids (uploaded `data:audio/*` sounds) the page plays. */
+  readonly assets: Set<string>;
+  /** Project sound-bank ids (`site.library.sounds`) the page plays. */
+  readonly bank: Set<string>;
+  /** Some element carries `data-ck-sound`: the engine binds it at load, so it is not lazy. */
+  readonly markup: boolean;
+}
+
+function addSoundRef(ref: string, use: SoundUse): void {
+  const at = ref.indexOf(':');
+  if (at < 0) return;
+  const scheme = ref.slice(0, at);
+  const id = ref.slice(at + 1);
+  if (id === '') return;
+  if (scheme === 'asset') use.assets.add(id);
+  else if (scheme === 'lib') use.bank.add(id);
+}
+
+/** What sounds a page's rendered markup references: `data-ck-sound` tokens and literal script refs. */
+function soundUsage(body: string): SoundUse {
+  const use: SoundUse = {
+    assets: new Set(),
+    bank: new Set(),
+    markup: /\sdata-ck-sound(?=[\s=>/])/u.test(body),
+  };
+  for (const match of body.matchAll(/\sdata-ck-sound=(?:"([^"]*)"|'([^']*)')/gu)) {
+    for (const token of decodeMarkupAttribute(match[1] ?? match[2] ?? '').split(/\s+/u)) {
+      const colon = token.indexOf(':');
+      if (colon < 0) continue;
+      // `<trigger>:<ref>[@volume]`
+      addSoundRef(token.slice(colon + 1).replace(/@[0-9.]+$/u, ''), use);
+    }
+  }
+  for (const match of body.matchAll(/\sdata-ck-js=(?:"([^"]*)"|'([^']*)')/gu)) {
+    const code = decodeMarkupAttribute(match[1] ?? match[2] ?? '');
+    if (!declaredLibs(code).sound) continue;
+    for (const ref of code.matchAll(/(['"`])((?:asset|lib):[^'"`\s@]+)\1/gu))
+      addSoundRef(ref[2] ?? '', use);
+  }
+  return use;
+}
+
+/** A project sound-bank entry, read loosely: only `source.kind` / `source.assetId` matter here. */
+interface BankEntry {
+  readonly source?: { readonly kind?: unknown; readonly assetId?: unknown };
+}
+
+function soundBankOf(library: SiteLibrary | undefined): Readonly<Record<string, BankEntry>> {
+  const sounds = (library as { readonly sounds?: unknown } | undefined)?.sounds;
+  return sounds !== null && typeof sounds === 'object' ? (sounds as Record<string, BankEntry>) : {};
+}
+
+const AUDIO_EXTENSIONS: Readonly<Record<string, string>> = {
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/ogg': 'ogg',
+  'audio/wav': 'wav',
+  'audio/wave': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/mp4': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/m4a': 'm4a',
+  'audio/aac': 'm4a',
+  'audio/webm': 'webm',
+};
+
+function decodeAudioDataUrl(
+  url: string,
+): { readonly bytes: Uint8Array; readonly extension: string } | undefined {
+  const match =
+    /^data:(audio\/[a-z0-9.+-]+)(?:;[a-z0-9-]+=[^;,]+)*;base64,([A-Za-z0-9+/]+={0,2})$/iu.exec(
+      url.trim(),
+    );
+  if (match === null) return undefined;
+  const extension = AUDIO_EXTENSIONS[(match[1] ?? '').toLowerCase()];
+  if (extension === undefined) return undefined;
+  try {
+    const binary = atob(match[2] ?? '');
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes.length === 0 ? undefined : { bytes, extension };
+  } catch {
+    return undefined;
+  }
+}
+
+/** JSON inside `<script type="application/json">`: no `</script>`, no comment opener. */
+function inlineJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</gu, '\\u003c')
+    .replace(/\u2028/gu, '\\u2028')
+    .replace(/\u2029/gu, '\\u2029');
+}
+// end pixi-studio:runtime-wiring additions
 
 async function engineAsset(kind: PageEngine): Promise<string> {
+  if (kind === 'carousel') return (await import('../engines/carousel-source')).CAROUSEL_SOURCE;
+  // pixi-studio:runtime-wiring additions (2026-10-10): each asset installs itself (D1/D2).
+  if (isStudioEngine(kind)) return STUDIO_ENGINE_LOADERS[kind]();
+  // end pixi-studio:runtime-wiring additions
   if (kind === 'timeline') {
     const [{ TIMELINE_BANNER, TIMELINE_SOURCE }, { installTimelineEngine }] = await Promise.all([
       import('../engines/timeline-source'),
@@ -308,14 +458,24 @@ interface RenderedPage {
   readonly behaviors: boolean;
   /** media-motion (2026-10-06): the lazy engines (scene, timeline, lottie, pixi) the page's markup uses. */
   readonly engines: ReadonlySet<PageEngine>;
+  /** pixi-studio:runtime-wiring (2026-10-10): the sounds the page references. */
+  readonly sound: SoundUse;
   readonly motion: boolean;
   readonly seo: PageSeo | undefined;
   readonly noIndex: boolean;
 }
 
 const NOT_FOUND_COPY = {
-  ar: { title: 'الصفحة غير موجودة', lead: 'لم نجد الصفحة التي تبحث عنها.', home: 'العودة إلى الصفحة الرئيسية' },
-  en: { title: 'Page not found', lead: 'We could not find the page you were looking for.', home: 'Back to the home page' },
+  ar: {
+    title: 'الصفحة غير موجودة',
+    lead: 'لم نجد الصفحة التي تبحث عنها.',
+    home: 'العودة إلى الصفحة الرئيسية',
+  },
+  en: {
+    title: 'Page not found',
+    lead: 'We could not find the page you were looking for.',
+    home: 'Back to the home page',
+  },
 } as const;
 
 function notFoundPage(lang: string, dir: 'ltr' | 'rtl', site: SiteSeo): string {
@@ -336,7 +496,9 @@ function notFoundPage(lang: string, dir: 'ltr' | 'rtl', site: SiteSeo): string {
   return `<!doctype html><html lang="${escapeAttribute(lang)}" dir="${dir}"><head>${head}<style>${style}</style></head><body><main><h1>${escapeAttribute(copy.title)}</h1><p>${escapeAttribute(copy.lead)}</p><p><a href="/">${escapeAttribute(copy.home)}</a></p></main></body></html>`;
 }
 
-export async function exportStaticSite(options: ExportStaticSiteOptions): Promise<StaticSiteResult> {
+export async function exportStaticSite(
+  options: ExportStaticSiteOptions,
+): Promise<StaticSiteResult> {
   if (options.pages.length === 0) throw new Error('Publishing needs at least one page.');
 
   // Routes first: a bad or duplicate address fails before any render or compile.
@@ -350,7 +512,8 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
   });
 
   const home = routed.find(({ route }) => route === '/') ?? routed[0];
-  const homeSeo = home === undefined ? undefined : parsePageSeo(rootProps(home.input.document)['seo']);
+  const homeSeo =
+    home === undefined ? undefined : parsePageSeo(rootProps(home.input.document)['seo']);
   const origin = validOrigin(options.origin) ?? validOrigin(homeSeo?.site?.origin);
   const site: SiteSeo = { ...(homeSeo?.site ?? {}), ...(origin === undefined ? {} : { origin }) };
 
@@ -367,7 +530,11 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
   ].filter((part) => part !== '');
 
   // A static render cannot wait inside a render: Tabler's drawing data is loaded once, first.
-  if (options.pages.some((page) => /"tabler(?:-filled)?:/u.test(JSON.stringify([page.before, page.document, page.after]))))
+  if (
+    options.pages.some((page) =>
+      /"tabler(?:-filled)?:/u.test(JSON.stringify([page.before, page.document, page.after])),
+    )
+  )
     await loadTablerIcons();
 
   // page-defects additions (2026-10-06): uploaded pictures leave the HTML and CSS as files, once each.
@@ -404,7 +571,8 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
     const fonts = lifted.fonts;
     const body = assetFiles.rewrite(lifted.body, `${relativeRoot(file)}assets/`); // page-defects additions
     const sheets = await Promise.all(documents.map((document) => options.compileCss(document)));
-    if (options.compileClasses !== undefined) sheets.push(await options.compileClasses(renderedClasses(body)));
+    if (options.compileClasses !== undefined)
+      sheets.push(await options.compileClasses(renderedClasses(body)));
     const usage = motionUsage(body);
     for (const name of usage.presets) usedPresets.add(name);
     for (const name of usage.hovers) usedHovers.add(name);
@@ -430,6 +598,7 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
       css,
       behaviors: hasBehaviors(body),
       engines: pageEngines(body), // media-motion (2026-10-06)
+      sound: soundUsage(body), // pixi-studio:runtime-wiring (2026-10-10)
       motion: usage.presets.size + usage.hovers.size + usage.effects.size > 0,
       seo: parsePageSeo(props['seo']),
       noIndex: props['noIndex'] === true,
@@ -460,7 +629,10 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
   if (anyBehaviors) {
     out.push({ path: 'assets/ck-behaviors.css', content: BEHAVIOR_CSS });
     // fix pass (2026-10-06): only the packs the site's pages use.
-    out.push({ path: 'assets/ck-behaviors.js', content: behaviorRuntimeScript(rendered.map((page) => page.body)) });
+    out.push({
+      path: 'assets/ck-behaviors.js',
+      content: behaviorRuntimeScript(rendered.map((page) => page.body)),
+    });
   }
   // Only the presets, hovers and effects the site names: a page pays for what it uses.
   const motionCss = [
@@ -471,18 +643,70 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
     .join('\n');
   if (motionCss !== '') out.push({ path: 'assets/ck-motion.css', content: motionCss });
   if (smoothScroll) {
-    out.push({ path: 'assets/ck-smooth-scroll.js', content: `${LENIS_BANNER}${LENIS_SOURCE}\n${SMOOTH_SCROLL_INIT}` });
+    out.push({
+      path: 'assets/ck-smooth-scroll.js',
+      content: `${LENIS_BANNER}${LENIS_SOURCE}\n${SMOOTH_SCROLL_INIT}`,
+    });
   }
   // media-motion (2026-10-06): each engine any page uses ships ONCE, loaded only when used.
   const usedEngines = new Set<PageEngine>(rendered.flatMap((page) => [...page.engines]));
   for (const kind of ENGINE_ORDER) {
-    if (usedEngines.has(kind)) out.push({ path: `assets/ck-${kind}.js`, content: await engineAsset(kind) });
+    if (usedEngines.has(kind))
+      out.push({ path: `assets/ck-${kind}.js`, content: await engineAsset(kind) });
   }
+
+  // pixi-studio:runtime-wiring additions (2026-10-10): the sounds a page plays (DESIGN §B.1, §C.4).
+  // Only pages that load the sound engine count; each referenced upload is ONE file, named by hash.
+  const bank = soundBankOf(library);
+  const pageSounds = new Map<
+    RenderedPage,
+    { readonly assets: string[]; readonly bank: Record<string, unknown> }
+  >();
+  const soundHref = new Map<string, string>();
+  for (const page of rendered) {
+    if (!page.engines.has('sound')) continue;
+    const entries: Record<string, unknown> = {};
+    const assetIds = new Set(page.sound.assets);
+    for (const id of page.sound.bank) {
+      if (!Object.hasOwn(bank, id)) continue;
+      const entry = bank[id];
+      entries[id] = entry;
+      const source = entry?.source;
+      if (source?.kind === 'asset' && typeof source.assetId === 'string')
+        assetIds.add(source.assetId);
+    }
+    const resolved: string[] = [];
+    for (const id of assetIds) {
+      const url =
+        options.assets !== undefined && Object.hasOwn(options.assets, id)
+          ? options.assets[id]?.url
+          : undefined;
+      if (url === undefined) continue;
+      if (!soundHref.has(id)) {
+        const decoded = decodeAudioDataUrl(url);
+        if (decoded !== undefined) {
+          const path = `assets/sounds/${fnv1a64(url)}.${decoded.extension}`;
+          if (!out.some((file) => file.path === path))
+            out.push({ path, content: '', bytes: decoded.bytes });
+          soundHref.set(id, path);
+        } else if (url.startsWith('https://')) {
+          soundHref.set(id, url);
+        } else {
+          continue;
+        }
+      }
+      resolved.push(id);
+    }
+    pageSounds.set(page, { assets: resolved, bank: entries });
+  }
+  // end pixi-studio:runtime-wiring additions
 
   for (const page of rendered) {
     const props = rootProps(page.input.document);
     const content = extractSeoContent(page.input.document);
-    const hero = content.images.find((image) => !image.decorative && image.src.startsWith("https://"));
+    const hero = content.images.find(
+      (image) => !image.decorative && image.src.startsWith('https://'),
+    );
     const socialImage = text(props['socialImage']);
     const head = buildSeoHead({
       title: text(props['title']) ?? page.input.title ?? '',
@@ -504,13 +728,18 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
     });
     const up = relativeRoot(page.file);
     // page-defects additions (2026-10-06): a head reference (og:image, a JSON-LD logo) is absolute when the origin is known.
-    const headHtml = assetFiles.rewrite(head, origin === undefined ? `${up}assets/` : `${origin}/assets/`);
+    const headHtml = assetFiles.rewrite(
+      head,
+      origin === undefined ? `${up}assets/` : `${origin}/assets/`,
+    );
     const stylesheet = cssPath.get(page);
     const links = [
       fontLinks(page.fonts),
       stylesheet === undefined ? '' : `<link rel="stylesheet" href="${up}${stylesheet}">`,
       page.behaviors ? `<link rel="stylesheet" href="${up}assets/ck-behaviors.css">` : '',
-      page.motion && motionCss !== '' ? `<link rel="stylesheet" href="${up}assets/ck-motion.css">` : '',
+      page.motion && motionCss !== ''
+        ? `<link rel="stylesheet" href="${up}assets/ck-motion.css">`
+        : '',
       page.behaviors ? `<script defer src="${up}assets/ck-behaviors.js"></script>` : '',
       smoothScroll ? `<script defer src="${up}assets/ck-smooth-scroll.js"></script>` : '',
       /*
@@ -521,8 +750,24 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
         (fix pass 2026-10-06). An unknown rel fetches nothing.
       */
       ...ENGINE_ORDER.filter((kind) => page.engines.has(kind)).map(
-        (kind) => `<link rel="ck-engine" href="${up}assets/ck-${kind}.js" data-ck-engine="${kind}">`,
+        (kind) =>
+          `<link rel="ck-engine" href="${up}assets/ck-${kind}.js" data-ck-engine="${kind}">`,
       ),
+      // pixi-studio:runtime-wiring additions (2026-10-10): `data-ck-sound` elements are bound by
+      // the sound engine when it loads, so a page that has them loads it (deferred, ~10 kB);
+      // a script's `ck.sound` alone requests it lazily from the locator above.
+      page.engines.has('sound') && page.sound.markup
+        ? `<script defer src="${up}assets/ck-sound.js" data-ck-engine="sound"></script>`
+        : '',
+      ...(pageSounds.get(page)?.assets ?? []).map((id) => {
+        const href = soundHref.get(id) ?? '';
+        const target = href.startsWith('https://') ? href : `${up}${href}`;
+        return `<link rel="ck-sound-asset" data-ck-sound-asset="${escapeAttribute(id)}" href="${escapeAttribute(target)}">`;
+      }),
+      Object.keys(pageSounds.get(page)?.bank ?? {}).length > 0
+        ? `<script type="application/json" data-ck-sound-bank>${inlineJson(pageSounds.get(page)?.bank)}</script>`
+        : '',
+      // end pixi-studio:runtime-wiring additions
       // fix pass (2026-10-06): no site icon → an empty one, so no page logs GET /favicon.ico 404.
       headHtml.includes('rel="icon"') ? '' : '<link rel="icon" href="data:,">',
     ].join('');
@@ -553,7 +798,12 @@ export async function exportStaticSite(options: ExportStaticSiteOptions): Promis
           lastmod,
           ...(alternates.length === 0
             ? {}
-            : { alternates: [{ lang: page.lang, href: `${origin}${encodeRoute(page.route)}` }, ...alternates] }),
+            : {
+                alternates: [
+                  { lang: page.lang, href: `${origin}${encodeRoute(page.route)}` },
+                  ...alternates,
+                ],
+              }),
         };
       });
     out.push({ path: 'sitemap.xml', content: sitemapXml(entries) });

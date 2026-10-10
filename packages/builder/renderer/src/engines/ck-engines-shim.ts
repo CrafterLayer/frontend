@@ -24,13 +24,41 @@
  * inject a module-scope helper into it.
  */
 
+import type { StudioLibKey } from '../studio/contract'; // pixi-studio:runtime-wiring (2026-10-10)
+
 /*
   `pixi` is the odd one out (free-code mode, 2026-10-09): it is not a marker the `engines` pack
   finds on an element but the FULL pixi.js namespace (`assets/ck-pixi.js`) a region script asks for
   through `ck.pixi()` / `ck.stage()`. The `scripts` pack queues `{kind: 'pixi', el: region, ctx}`
   with `ctx.provide` set, and the bundle's `mount` hands the namespace to that callback.
 */
-export type CkEngineKind = 'scene' | 'timeline' | 'lottie' | 'pixi';
+export type CkEngineKind =
+  | 'scene'
+  | 'timeline'
+  | 'lottie'
+  | 'pixi'
+  // pixi-studio:runtime-wiring additions (2026-10-10)
+  /*
+    Pixi Studio (DESIGN §B.1, D1/D2): each add-on library is its own lazy asset
+    `assets/ck-lib-<key>.js` registering `ready('lib-<key>', …)`, and `assets/ck-sound.js`
+    registers `ready('sound', …)`. Neither is a marker: the `scripts` pack queues them on
+    `document.documentElement` with `ctx.provide` set (`ck.use`, `ck.scene`, `ck.sound`).
+  */
+  | 'sound'
+  | `lib-${StudioLibKey}`;
+// end pixi-studio:runtime-wiring additions
+
+// pixi-studio:runtime-wiring additions (2026-10-10)
+/**
+ * What a `lib-<key>` asset hands to `ctx.provide` (DESIGN D2). A Pixi-bound library provides
+ * `{ pixi: true, create(PIXI) }` and `ck.use` calls `create` ONCE per document with the page's
+ * one pixi.js namespace; a plain library provides `{ create() }` or its namespace directly.
+ */
+export interface CkLibraryFactory {
+  readonly pixi?: boolean;
+  create(PIXI?: unknown): unknown;
+}
+// end pixi-studio:runtime-wiring additions
 
 export interface CkEngineContext {
   /** Canvas: draw the final/first frame, no ticker, no scroll. */
@@ -49,7 +77,11 @@ export interface CkEngineContext {
    */
   canvas?: boolean;
   // end gsap-pixi additions
-  /** `pixi` engine only: receives the full pixi.js namespace for the script that queued the entry. */
+  /**
+   * `pixi` engine: receives the full pixi.js namespace for the script that queued the entry.
+   * pixi-studio:runtime-wiring (2026-10-10): `lib-<key>` engines provide a `CkLibraryFactory`
+   * (or a namespace); the `sound` engine provides its `CkSoundApi`.
+   */
   provide?: (namespace: unknown) => void;
 }
 
@@ -69,6 +101,16 @@ export interface CkEngines {
   queue: CkEngineQueueEntry[];
   /** Registers `engine` for `kind` and mounts (then drops) the queued entries of that kind. */
   ready(kind: CkEngineKind, engine: CkEngine): void;
+  // pixi-studio:runtime-wiring additions (2026-10-10)
+  /**
+   * Written by the `scripts` pack only (never by `ensureCkEngines`, whose body stays identical
+   * in every copy): what each `lib-<key>` / `sound` engine provided, one pending or settled
+   * request per document…
+   */
+  provided?: Partial<Record<CkEngineKind, Promise<unknown>>>;
+  /** …and the namespace `create(PIXI)` made from it, once per document. */
+  made?: Partial<Record<CkEngineKind, unknown>>;
+  // end pixi-studio:runtime-wiring additions
 }
 
 export interface CkEnginesHost {

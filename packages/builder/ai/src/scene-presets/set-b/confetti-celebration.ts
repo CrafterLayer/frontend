@@ -1,0 +1,121 @@
+import { definePreset, range, select, sharedParams, soundToggle } from './define';
+
+/**
+ * A celebration. Two cannons at the bottom corners fire a palette salvo when the section scrolls
+ * into view (or on a loop), and every tap inside pops a burst at the pointer. Paper is rectangles,
+ * ribbons and dots in the palette, flipping as it falls (a pulsing scale list) and spinning.
+ * Sound is OFF by default; turned on, a burst plays the bank's 'pop' only after a visitor gesture.
+ * Reduced motion: a still scatter of settled confetti.
+ */
+export const CONFETTI_CELEBRATION = definePreset({
+  id: 'confetti-celebration',
+  name: { en: 'Confetti celebration', ar: 'احتفال القصاصات' },
+  description: {
+    en: 'Palette confetti fired from two cannons when the section comes into view, plus a burst wherever you tap. Optional pop sound, muted until a visitor turns it on.',
+    ar: 'قصاصات ملوّنة بألوان الموقع تنطلق من مدفعين حين يظهر القسم، مع دفقة حيث تنقر. صوت فرقعة اختياري مكتوم حتى يشغّله الزائر.',
+  },
+  tags: ['interactive', 'particles', 'bold', 'hero'],
+  libs: ['kit', 'emitter'],
+  sound: true,
+  params: [
+    ...sharedParams({ seed: 29 }),
+    select(
+      'trigger',
+      'Fire when',
+      'الإطلاق عند',
+      'enter',
+      [
+        ['enter', 'Section enters view', 'ظهور القسم'],
+        ['loop', 'Every few seconds', 'كل بضع ثوانٍ'],
+        ['click', 'Only on tap', 'عند النقر فقط'],
+      ],
+      'interaction',
+    ),
+    range('spread', 'Spread', 'الانتشار', 70, 10, 180, 1, 'look'),
+    range('gravity', 'Gravity', 'الجاذبية', 1, 0, 3, 0.05, 'motion'),
+    soundToggle(),
+  ],
+  code: String.raw`
+const p = ck.params({ palette: 'theme', seed: 29, speed: 1, density: 1, interactive: true, trigger: 'enter', spread: 70, gravity: 1, sound: false });
+const s = await ck.scene({ libs: ['emitter'], pointer: false });
+const P = s.PIXI, E = s.lib.emitter, pal = s.palette;
+const texs = [];
+function bake(g) { const t = s.app.renderer.generateTexture(g); g.destroy(); texs.push(t); }
+for (let i = 0; i < 5; i++) {
+  const c = pal.colors[i];
+  bake(new P.Graphics().rect(0, 0, 14, 7).fill(c));
+  bake(new P.Graphics().roundRect(0, 0, 5, 18, 2).fill(c));
+  bake(new P.Graphics().circle(5, 5, 5).fill(c));
+}
+s.dispose(() => { for (const t of texs) t.destroy(true); });
+
+if (s.reducedMotion) {
+  // the still frame: confetti already settled, scattered by poisson so nothing overlaps
+  const g = new P.Graphics();
+  s.stage.addChild(g);
+  s.still(() => {
+    for (const pt of s.poisson(s.width, s.height, 34, s.count(160))) {
+      const a = s.rand(0, Math.PI), cs = Math.cos(a), sn = Math.sin(a), w = s.rand(4, 8), h = s.rand(2, 4);
+      const x = pt[0], y = pt[1];
+      g.poly([x - cs * w + sn * h, y - sn * w - cs * h, x + cs * w + sn * h, y + sn * w - cs * h, x + cs * w - sn * h, y + sn * w + cs * h, x - cs * w - sn * h, y - sn * w + cs * h]).fill(s.pick(pal.colors));
+    }
+  });
+  return;
+}
+
+const layer = new P.Container();
+s.stage.addChild(layer);
+const per = Math.min(400, s.count(140));
+function cannon(angle, spread) {
+  return new E.Emitter(layer, {
+    lifetime: { min: 2.2, max: 3.6 },
+    frequency: 0.004,
+    particlesPerWave: Math.max(1, Math.ceil(per / 30)),
+    emitterLifetime: 0.12,
+    maxParticles: per,
+    addAtBack: false,
+    emit: false,
+    pos: { x: 0, y: 0 },
+    behaviors: [
+      { type: 'alpha', config: { alpha: { list: [{ value: 1, time: 0 }, { value: 1, time: 0.75 }, { value: 0, time: 1 }] } } },
+      { type: 'scale', config: { scale: { list: [{ value: 1, time: 0 }, { value: 0.3, time: 0.15 }, { value: 1, time: 0.3 }, { value: 0.3, time: 0.45 }, { value: 1, time: 0.6 }, { value: 0.3, time: 0.75 }, { value: 1, time: 0.9 }, { value: 0.6, time: 1 }] }, minMult: 0.6 } },
+      { type: 'moveAcceleration', config: { accel: { x: 0, y: 900 * p.gravity }, minStart: 520, maxStart: 1050, rotate: false, maxSpeed: 0 } },
+      { type: 'rotation', config: { accel: 0, minSpeed: -540, maxSpeed: 540, minStart: angle - spread / 2, maxStart: angle + spread / 2 } },
+      { type: 'spawnPoint', config: {} },
+      { type: 'textureRandom', config: { textures: texs } },
+    ],
+  });
+}
+const left = cannon(-60, p.spread), right = cannon(-120, p.spread), pop = cannon(-90, Math.min(300, p.spread * 2.2));
+s.dispose(() => { left.destroy(); right.destroy(); pop.destroy(); });
+
+let armed = false, fired = false, loopT = 0;
+function burst(em, x, y) {
+  em.updateSpawnPos(x, y);
+  em.resetPositionTracking();
+  em.emit = true;
+}
+function salvo() {
+  burst(left, s.dir > 0 ? 0 : s.width, s.height);
+  burst(right, s.dir > 0 ? s.width : 0, s.height);
+  if (p.sound && armed) ck.sound.play('pop', { volume: 0.45 });
+}
+s.pointer.onDown(() => {
+  armed = true;
+  if (!p.interactive || !s.pointer.inside) return;
+  burst(pop, s.pointer.x, s.pointer.y);
+  if (p.sound) ck.sound.play('pop', { volume: 0.5, rate: s.rand(0.9, 1.15) });
+});
+
+s.tick(({ dt }) => {
+  if (s.scroll.visible) {
+    if (p.trigger === 'enter' && !fired) { fired = true; salvo(); }
+    if (p.trigger === 'loop') { loopT -= dt * p.speed; if (loopT <= 0) { loopT = 4; salvo(); } }
+  }
+  const d = dt * p.speed;
+  left.update(d);
+  right.update(d);
+  pop.update(d);
+});
+`,
+});

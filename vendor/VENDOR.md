@@ -171,6 +171,14 @@ code fails the adapted tests: five reduced-motion tests, and two wheel tests.
   "scrolled away" while the thread sat at the bottom following.
 - **`isScrolled`**, new: the thread is scrolled away from its top, which is when the header draws
   its hairline (SPEC §2.5).
+- **Viewport and hidden-panel handling.** The same observer watches both the thread viewport
+  and its content. Resizing the composer follows only a pinned reader; zero-height hidden reports
+  preserve the reading offset and escape state. A pinned reader resumes at the newest content on
+  reopening, while a reader browsing history stays put. A visible shrink never silently re-locks
+  a reader. The non-negative target also avoids a negative offset for an empty thread.
+- **Touch and keyboard intent.** Upward touch movement and ArrowUp/PageUp/Home/Shift+Space on
+  the focused thread release an active spring before a browser scroll can be overwritten.
+  Descendant controls keep their arrow keys, and inner scrollers with room keep their touch scroll.
 - **Out of React.** Upstream's hook body mutates a `useMemo` object and writes a ref during render,
   both of which the React Compiler lint rules reject. The logic now lives in a plain controller made
   once in a lazy `useState`, React holds only the four booleans a component renders, and the ref

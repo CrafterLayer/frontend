@@ -1,0 +1,49 @@
+.ck-agent-workers {
+  display: inline-flex;
+  align-items: center;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.ck-agent-workers__select {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: var(--bldr-control-md, 32px);
+  padding-block: 2px;
+  padding-inline: var(--bldr-space-xs, 4px);
+  border: var(--bldr-border-hairline, 1px) solid transparent;
+  border-radius: var(--bldr-radius-sm, 6px);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font, inherit);
+  font-size: var(--bldr-font-size-meta, 12px);
+  font-weight: var(--bldr-font-weight-medium, 500);
+  line-height: var(--bldr-line-height-meta, 1.5);
+  cursor: pointer;
+}
+
+.ck-agent-workers__select:enabled:hover {
+  border-color: var(--bldr-surface-border);
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-workers__select:focus-visible {
+  outline: var(--bldr-focus-ring-width, 2px) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset, 2px);
+}
+
+.ck-agent-workers__select:disabled {
+  color: var(--bldr-panel-muted);
+  cursor: default;
+}
+
+:where([data-bldr-theme='dark']) .ck-agent-workers__select {
+  color-scheme: dark;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-workers__select {
+    min-block-size: var(--bldr-hit-target-min, 44px);
+  }
+}

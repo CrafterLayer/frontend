@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { ensureCanvasEngines } from '../../../engines/inject';
 
 import { mountCarousel } from '../carousel';
 import { mountGallery } from '../gallery';
@@ -34,7 +35,11 @@ export function PackDemo({
     const el = region.current;
     if (el === null) return undefined;
     ensurePackCss(el.ownerDocument);
-    const disposers = [mountGallery(el, { interactive }), mountCarousel(el, { interactive })];
+    const disposers = [
+      mountGallery(el, { interactive }),
+      mountCarousel(el, { interactive }),
+      ensureCanvasEngines(el, { canvas: !interactive }),
+    ];
     return () => {
       for (const dispose of disposers) dispose();
     };

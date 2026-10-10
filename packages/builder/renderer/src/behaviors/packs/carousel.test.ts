@@ -55,6 +55,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Reflect.deleteProperty(window, 'ckCarouselFactory');
   vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.innerHTML = '';
@@ -85,7 +86,88 @@ function scrollTo(track: HTMLElement, left: number): void {
   track.dispatchEvent(new Event('scroll'));
 }
 
-const SLIDES = '<ul><li>1</li><li>2</li><li>3</li></ul><div><button>prev</button><button>next</button></div>';
+const SLIDES =
+  '<ul><li>1</li><li>2</li><li>3</li></ul><div><button>prev</button><button>next</button></div>';
+
+describe('lazy snap engine seam', () => {
+  it('mounts once when the asset arrives late, updates indicators, and destroys on dispose', () => {
+    const host = mount(carousel('data-ck-indicator="dots"', 'ar', 'rtl'));
+    const track = layout(host);
+    const dispose = mountCarousel(host);
+    let selected = 0;
+    const listeners: (() => void)[] = [];
+    const engine = {
+      scrollPrev: vi.fn(),
+      scrollNext: vi.fn(),
+      scrollTo: vi.fn((at: number) => {
+        selected = at;
+        listeners.forEach((fn) => {
+          fn();
+        });
+      }),
+      selectedScrollSnap: () => selected,
+      on: (_event: string, fn: () => void) => {
+        listeners.push(fn);
+      },
+      destroy: vi.fn(),
+    };
+    const factory = vi.fn(() => engine);
+    Object.assign(window, { ckCarouselFactory: factory });
+    window.dispatchEvent(new Event('ck-carousel-ready'));
+    window.dispatchEvent(new Event('ck-carousel-ready'));
+    expect(factory).toHaveBeenCalledTimes(1);
+    expect(factory).toHaveBeenCalledWith(track, expect.objectContaining({ direction: 'rtl' }));
+    dots(host)[2]?.click();
+    expect(engine.scrollTo).toHaveBeenCalledWith(2, false);
+    expect(dots(host)[2]).toHaveAttribute('aria-current', 'true');
+    track.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(engine.scrollNext).toHaveBeenCalledWith(false);
+    dispose();
+    window.dispatchEvent(new Event('ck-carousel-ready'));
+    expect(engine.destroy).toHaveBeenCalledTimes(1);
+    expect(factory).toHaveBeenCalledTimes(1);
+    expect(host.querySelector('[data-ck-carousel-engine]')).toBeNull();
+  });
+
+  it('does not invoke a ready engine on the editing canvas or after disposal', () => {
+    const factory = vi.fn();
+    Object.assign(window, { ckCarouselFactory: factory });
+    const host = mount(carousel(''));
+    mountCarousel(host, { interactive: false })();
+    expect(factory).not.toHaveBeenCalled();
+    Reflect.deleteProperty(window, 'ckCarouselFactory');
+    const dispose = mountCarousel(host);
+    dispose();
+    Object.assign(window, { ckCarouselFactory: factory });
+    window.dispatchEvent(new Event('ck-carousel-ready'));
+    expect(factory).not.toHaveBeenCalled();
+  });
+
+  it('uses instant snap with reduced motion and ignores keys from slide fields', () => {
+    reducedMotion = true;
+    const next = vi.fn();
+    const factory = vi.fn(() => ({
+      scrollPrev: vi.fn(),
+      scrollNext: next,
+      scrollTo: vi.fn(),
+      selectedScrollSnap: () => 0,
+      on: vi.fn(),
+      destroy: vi.fn(),
+    }));
+    Object.assign(window, { ckCarouselFactory: factory });
+    const host = mount(carousel(''));
+    const track = layout(host);
+    const field = document.createElement('input');
+    track.firstElementChild?.append(field);
+    const dispose = mountCarousel(host);
+    expect(factory).toHaveBeenCalledWith(track, expect.objectContaining({ duration: 0 }));
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(next).not.toHaveBeenCalled();
+    track.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(next).toHaveBeenCalledWith(true);
+    dispose();
+  });
+});
 
 function carousel(attrs: string, lang = 'en', dir = 'ltr'): string {
   return `<div lang="${lang}" dir="${dir}"><div data-ck-behavior="carousel" ${attrs}>${SLIDES}</div></div>`;
@@ -156,7 +238,9 @@ describe('mountCarousel — indicators', () => {
     mountCarousel(host);
     const all = dots(host);
     expect(all[1]?.getAttribute('aria-label')).toBe('الشريحة ٢ من ٣');
-    expect(host.querySelector('[data-ck-carousel-dots]')?.getAttribute('aria-label')).toBe('الشرائح');
+    expect(host.querySelector('[data-ck-carousel-dots]')?.getAttribute('aria-label')).toBe(
+      'الشرائح',
+    );
     scrollTo(track, -300);
     expect(all[1]?.getAttribute('aria-current')).toBe('true');
     all[2]?.click();
@@ -248,7 +332,9 @@ describe('mountCarousel — autoplay', () => {
     expect(calls).toHaveLength(0);
     dots(host)[1]?.click();
     expect(calls).toEqual([{ left: 300, behavior: 'auto' }]);
-    expect(host.querySelector('[data-ck-behavior="carousel"]')?.getAttribute('data-ck-mounted')).toBe('static');
+    expect(
+      host.querySelector('[data-ck-behavior="carousel"]')?.getAttribute('data-ck-mounted'),
+    ).toBe('static');
   });
 
   it('is still on the editing canvas: no autoplay, dots drawn but inert', () => {
@@ -310,9 +396,13 @@ describe('mountCarousel — idempotence, dispose, serialisation', () => {
   });
 
   it('carries the old track rules verbatim and gates its transitions on the preference', () => {
-    expect(CAROUSEL_PACK_CSS).toContain("[data-ck-behavior='carousel'] [data-ck-track] > * {\n  scroll-snap-align: start;\n}");
+    expect(CAROUSEL_PACK_CSS).toContain(
+      "[data-ck-behavior='carousel'] [data-ck-track] > * {\n  scroll-snap-align: start;\n}",
+    );
     expect(CAROUSEL_PACK_CSS).toContain('@media (prefers-reduced-motion: no-preference)');
     expect(CAROUSEL_PACK_CSS).not.toMatch(/(?:^|[\s;{])(?:left|right)\s*:/mu);
-    expect(CAROUSEL_PACK_CSS).toContain("[data-ck-carousel-dots] > button[aria-current='true']::before");
+    expect(CAROUSEL_PACK_CSS).toContain(
+      "[data-ck-carousel-dots] > button[aria-current='true']::before",
+    );
   });
 });

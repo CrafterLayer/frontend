@@ -18,6 +18,7 @@ import {
   BlurFilter,
   Container,
   DisplacementFilter,
+  EventsTicker,
   Graphics,
   NoiseFilter,
   Particle,
@@ -65,6 +66,11 @@ export const SCENES: Readonly<Record<SceneName, PixiScene>> = Object.freeze({
 export function installSceneEngine(win: CkEnginesHost): CkEngine {
   const engine = createSceneEngine<Application, Texture>({
     createApp: () => new Application(),
+    // Scenes read pointer input from the DOM, never Pixi's events: its interaction
+    // ticker would keep requestAnimationFrame running while every scene is stopped.
+    afterInit: () => {
+      EventsTicker.removeTickerListener();
+    },
     // `parser: 'texture'` because catalog URLs often carry no file extension.
     loadTexture: (url) => Assets.load<Texture>({ src: url, parser: 'texture' }),
     scenes: SCENES,

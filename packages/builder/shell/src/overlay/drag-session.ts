@@ -148,9 +148,14 @@ export function createDragSession(options: {
               ports: options.treePorts,
             });
       if (currentTreeTarget === null) {
-        chrome.hideTarget();
+        currentTarget = payload.kind === 'tree-insert' && payload.fallback !== undefined
+          ? resolveDropTarget(kernel.getDocument(), kernel.context.registry, index, payload.fallback, pointer.x, pointer.y)
+          : null;
+        if (currentTarget === null) chrome.hideTarget();
+        else chrome.showTarget(currentTarget.indicatorRect, index.rect(currentTarget.parentId));
         guides.hide();
       } else {
+        currentTarget = null;
         chrome.showTarget(currentTreeTarget.indicatorRect, currentTreeTarget.parentRect);
         guides.show(alignmentGuides(currentTreeTarget.siblingRects, currentTreeTarget.parentRect));
       }
@@ -244,6 +249,10 @@ export function createDragSession(options: {
   });
 
   const commitTree = (committed: TreeDragPayload, target: TreeDropTarget) => {
+    if (committed.kind === 'tree-insert' && committed.onDrop !== undefined) {
+      committed.onDrop(target);
+      return;
+    }
     const label = labelFor(committed);
     const plan = treeDropSteps(committed, target);
     if (plan === undefined) {
@@ -261,6 +270,10 @@ export function createDragSession(options: {
   };
 
   const commit = (committed: DragPayload, target: DropTarget) => {
+    if (committed.kind === 'insert' && committed.onDrop !== undefined) {
+      committed.onDrop(target);
+      return;
+    }
     if (committed.kind === 'move') {
       const seat = seatOf(kernel.getDocument(), committed.id);
       const samePosition =
@@ -335,8 +348,13 @@ export function createDragSession(options: {
       const committed = payload;
       if (committed !== null && isTreePayload(committed)) {
         const treeTarget = currentTreeTarget;
+        const blockTarget = currentTarget;
         reset();
         if (treeTarget === null) {
+          if (committed.kind === 'tree-insert' && committed.fallback !== undefined && blockTarget !== null) {
+            commit(committed.fallback, blockTarget);
+            return;
+          }
           announce('No valid target');
           return;
         }

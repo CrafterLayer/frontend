@@ -94,3 +94,11 @@ export {
 } from './kernel/create-builder';
 export type { HistoryEntry } from './history/history';
 // ── end P8-manual-editor ──
+// pixi-studio:schema-library additions (2026-10-10)
+// The Pixi Studio project tier (pixi-studio DESIGN.md §A.2), spread into `siteCommands`.
+export {
+  scriptLibraryCommands,
+  type ScriptLibraryCommandName,
+  type ScriptLibraryCommands,
+} from './commands/script-library-commands';
+// end pixi-studio:schema-library additions

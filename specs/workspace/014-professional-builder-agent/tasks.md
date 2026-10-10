@@ -268,3 +268,36 @@ record every attempt and compare blind visual quality, follow-up success, latenc
 3. Add US4 and US5 to establish multi-page correctness and trustworthy persistence.
 4. Add US6 routing and evaluation only after deterministic local tooling is stable.
 5. Promote flags only after Phase 9 evidence meets the release gates; keep v2 readers enabled during rollback.
+
+## Approved quality and Frontend increment — 2026-10-10
+
+These tasks implement QF-001..005 only; they do not finish the remaining production rollout above.
+
+- [x] T148 Pin verified axe/Embla dependencies in the workspace catalog and owning manifests.
+- [x] T149 Add bounded axe evaluation and positive/negative real-browser tests in `apps/evals/src/accessibility/`.
+- [x] T150 Add licensed, budgeted Embla asset build and interactive carousel integration with native editor fallback, keyboard/RTL/dispose tests.
+- [x] T151 Admit Embla in the versioned managed React catalog with compiler and lock rejection coverage.
+- [x] T152 Wire authored design/application teaching through the public wire facade into real authored model requests, with request-capture coverage.
+- [x] T153 Update architecture/component docs, run scoped checks and independent review, fix accepted findings and record evidence/remaining gates.
+
+Evidence: [verification-quality-frontend-2026-10-10.md](verification-quality-frontend-2026-10-10.md).
+Full feature release/review/convergence remains open; the historical task ledger above was not
+bulk-checked from this increment's local evidence.
+
+## Approved Agent conversation and parallel tasks — 2026-10-10
+
+- [x] T154 Diagnose and repair live panel/composer height and stream scrolling; add focused tests
+      and document viewport/hidden behavior.
+- [x] T155 [P] Refine existing Agent panel, header, composer, toolbar and record design; update
+      affected stories/docs/tests and preserve keyboard/RTL behavior.
+- [x] T156 Add captured one/three/six worker choice to the live build controller and real engine
+      calls with no parallel claim for single edits; cover locks and queue/retry behavior.
+- [x] T157 Add actual task-level execution summary with full component export/story/MDX/test
+      artifacts; preserve ordered validation/application and expose failures honestly.
+- [x] T158 Verify concurrent execution/cancellation and isolated browser scrolling/geometry at
+      short/narrow/LTR/RTL/theme variants without paid providers.
+- [x] T159 Independently review the real increment diff, repair accepted findings, rerun scoped
+      checks and record evidence/handoff without claiming the whole release complete.
+
+Evidence: [verification-agent-chat-2026-10-10.md](verification-agent-chat-2026-10-10.md).
+CHAT-001..005 is locally verified; full feature 014 release and live model quality remain open.

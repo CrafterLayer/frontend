@@ -16,6 +16,7 @@ import type {
   RecordMenuItem,
 } from '../../model/view-types';
 import { AgentIcon } from '../AgentIcon';
+import { BuildTaskBoard } from '../BuildTaskBoard';
 import { DirectionLine } from '../DirectionLine';
 import { ErrorBody } from '../ErrorRecord';
 import { FactsDisclosure } from '../FactsDisclosure';
@@ -214,6 +215,17 @@ export function BuildRecord({
     );
   }
   if (!collapsedClosed) {
+    if (rows.length > 0 && (phase === 'building' || phase === 'stopping')) {
+      lines.push(
+        <BuildTaskBoard
+          key="tasks"
+          locale={locale}
+          rows={rows}
+          writers={view.writers ?? null}
+          phase={phase}
+        />,
+      );
+    }
     if (WITH_DIRECTION.has(phase) && view.direction !== undefined) {
       lines.push(<DirectionLine key="direction" locale={locale} direction={view.direction} />);
     }

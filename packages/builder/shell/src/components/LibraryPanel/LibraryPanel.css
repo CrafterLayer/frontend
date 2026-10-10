@@ -23,6 +23,7 @@
 }
 
 .bldr-library__tablist {
+  flex-shrink: 0;
   border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   display: flex;
   gap: var(--bldr-space-2xs);
@@ -67,6 +68,7 @@
 }
 
 .bldr-library__search {
+  flex-shrink: 0;
   padding-block: var(--bldr-space-sm);
   padding-inline: var(--bldr-space-md);
 }
@@ -81,6 +83,28 @@
   font: inherit;
   inline-size: 100%;
   padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-library__filters {
+  margin-block-start: var(--bldr-space-sm);
+}
+
+.bldr-library__filters select {
+  background: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  min-block-size: var(--bldr-control-height-sm);
+  inline-size: 100%;
+  font: inherit;
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-library__hint {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-snug);
+  margin-block: var(--bldr-space-sm) var(--bldr-space-0);
 }
 
 .bldr-library__panel {
@@ -110,6 +134,7 @@
 }
 
 .bldr-library__tile {
+  min-inline-size: 0;
   position: relative;
 }
 
@@ -146,6 +171,7 @@
   justify-content: center;
   overflow: hidden;
   position: relative;
+  inline-size: 100%;
 }
 
 .bldr-library__glyph {
@@ -155,15 +181,16 @@
 }
 
 .bldr-library__frame {
-  block-size: 100%;
   border: 0;
-  inline-size: 100%;
-  inset: var(--bldr-space-0);
+  left: 0;
+  top: 0;
   pointer-events: none;
   position: absolute;
+  transform-origin: top left;
 }
 
 .bldr-library__tile-name {
+  display: block;
   font-size: var(--bldr-font-size-caption);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -188,6 +215,13 @@
   line-height: 1;
   padding: var(--bldr-space-0);
   position: absolute;
+}
+
+.bldr-library__tile-caption {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-snug);
+  overflow-wrap: anywhere;
 }
 
 .bldr-library__remove:hover {

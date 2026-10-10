@@ -27,6 +27,8 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* This hook owns following; browser anchoring must not apply a second scroll. */
+  overflow-anchor: none;
   /* Keyboard focus that scrolls an element into view stops above the pill's band. */
   scroll-padding-block-end: calc(var(--bldr-space-xl) + var(--bldr-hit-target-min));
   /* The scrollbar's arrival never reflows a live build's rows. */

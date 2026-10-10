@@ -14,6 +14,10 @@ what the page is for, the page's language and how many sections it holds.
 
 ## What it shows
 
+The optional `onBeginDrag` connects pointer gestures to the canvas insertion line. A completed
+or cancelled drag suppresses the following click; ordinary click, Enter and Space still insert.
+Native image dragging is disabled so it cannot steal the canvas gesture.
+
 - A **16:10 photo** thumbnail, loaded lazily, with its `alt` in the template's content language
   (`lang` is set on the image). Until it paints, the ground is an accent-tinted skeleton; a photo
   that fails keeps that ground instead of a broken-image glyph.

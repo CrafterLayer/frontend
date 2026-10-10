@@ -74,10 +74,21 @@ describe('expandAgentTools', () => {
 });
 
 describe('agentToolPrompt', () => {
-  // media-motion (2026-10-06): per-lane caps — the edit lane takes 1600 (red-tests: was 1400), every other lane 900.
-  it('stays within its lane cap (900, the edit lane 1600) and shows one example step', () => {
-    expect(agentToolPromptMaxChars('edit')).toBe(1_600);
-    for (const lane of ['build', 'section', 'seo'] as const) expect(agentToolPromptMaxChars(lane)).toBe(AGENT_TOOL_PROMPT_MAX_CHARS);
+  it('names every shared preset without losing the high-value edit signatures', () => {
+    const prompt = agentToolPrompt('edit');
+    for (const line of [
+      'element.insert preset:feature-card',
+      'fonts.set {display?,body?:verified family}',
+      'image.set {id,find:src,subject,aspect?,alt}',
+      "kit.section {id,kit,slots,heading?:'h1'|'h2'}",
+      'palette.set {colors:[{name,value}]',
+    ]) expect(prompt).toContain(line);
+  });
+  // Recipe guidance keeps edit/section bounded while retaining existing signatures.
+  it('stays within its lane cap and shows one example step', () => {
+    expect(agentToolPromptMaxChars('edit')).toBe(1_900);
+    expect(agentToolPromptMaxChars('section')).toBe(1_200);
+    for (const lane of ['build', 'seo'] as const) expect(agentToolPromptMaxChars(lane)).toBe(AGENT_TOOL_PROMPT_MAX_CHARS);
     for (const lane of AGENT_TOOL_LANES) {
       const prompt = agentToolPrompt(lane);
       expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars(lane));

@@ -49,6 +49,8 @@ interface PanelStoryProps {
   /** Start hidden: the status bar's pill speaks for the panel. */
   readonly hidden?: boolean;
   readonly presentation?: AgentPanelPresentation;
+  /** Short editor windows must keep the conversation and composer reachable. */
+  readonly height?: number;
 }
 
 /** The story's action log: every controller call, by name and arguments. */
@@ -66,6 +68,7 @@ function PanelStory({
   width = 320,
   hidden = false,
   presentation = 'dock',
+  height = 720,
 }: PanelStoryProps) {
   // Measured to now, so a live run's clock reads its elapsed time rather than days.
   const [initial] = useState(() => fakeViewState(scenario, locale, { now: Date.now() }));
@@ -78,7 +81,7 @@ function PanelStory({
       style={{
         display: 'grid',
         gridTemplateRows: 'minmax(0, 1fr) auto',
-        blockSize: 720,
+        blockSize: height,
         inlineSize: 'max-content',
         minInlineSize: 480,
         border: 'var(--bldr-border-hairline) solid var(--bldr-panel-border)',
@@ -231,6 +234,42 @@ export const FailedArabic: Story = story('error', 'ar');
 
 export const Long: Story = story('long');
 
+export const ShortViewport: Story = {
+  args: { scenario: 'long', height: 400, width: 288 },
+  play: async ({ canvasElement }) => {
+    const panel = await expectShell(canvasElement, 'en');
+    const input = within(panel).getByRole('combobox', { name: t('en', 'input.aria') });
+    await waitFor(async () => {
+      const thread = panel.querySelector('.ck-agent-thread__scroller');
+      if (!(thread instanceof HTMLElement)) throw new Error('No conversation viewport');
+      await expect(thread.getBoundingClientRect().height).toBeGreaterThan(80);
+      await expect(input.getBoundingClientRect().height).toBeLessThanOrEqual(48);
+      await expect(input.getBoundingClientRect().bottom).toBeLessThan(
+        panel.getBoundingClientRect().bottom,
+      );
+    });
+  },
+};
+
+export const ShortViewportClarifyingArabic: Story = {
+  args: { scenario: 'clarifyAsking', locale: 'ar', height: 400, width: 288 },
+  parameters: DARK,
+  play: async ({ canvasElement }) => {
+    const panel = await expectShell(canvasElement, 'ar');
+    await waitFor(async () => {
+      const auxiliary = panel.querySelector('.ck-agent-composer__auxiliary');
+      const toolbar = panel.querySelector('.ck-agent-toolbar');
+      if (!(auxiliary instanceof HTMLElement) || !(toolbar instanceof HTMLElement)) {
+        throw new Error('No auxiliary scroller or toolbar');
+      }
+      await expect(auxiliary.clientHeight).toBeLessThanOrEqual(panel.clientHeight * 0.25 + 1);
+      await expect(toolbar.getBoundingClientRect().bottom).toBeLessThan(
+        panel.getBoundingClientRect().bottom,
+      );
+    });
+  },
+};
+
 export const Conversations: Story = {
   args: { scenario: 'conversations', locale: 'en' },
   play: async ({ canvasElement }) => {
@@ -296,6 +335,8 @@ export const PhoneSheet: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     const sheet = await page.findByRole('dialog', { name: t('ar', 'header.name') });
-    await expect(within(sheet).getByRole('button', { name: t('ar', 'sheet.showPage') })).toBeVisible();
+    await expect(
+      within(sheet).getByRole('button', { name: t('ar', 'sheet.showPage') }),
+    ).toBeVisible();
   },
 };

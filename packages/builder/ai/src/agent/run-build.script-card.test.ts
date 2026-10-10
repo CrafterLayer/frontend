@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
@@ -208,3 +208,9 @@ describe('runAiBuild — the card in a kit writer’s brief', () => {
     expect(at).toBeLessThan(bulk?.indexOf('ANSWER with ONE tool step') ?? -1);
   });
 });
+
+/*
+  A whole build per test: under a full parallel run these outlive vitest's 5s
+  default (they pass in seconds alone). The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });

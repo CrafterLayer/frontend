@@ -247,6 +247,42 @@ describe('slotAccepts (contract §2 r2)', () => {
 });
 
 describe('resolveDropTarget (contract §2 r1 — three-band rule)', () => {
+  it.each([
+    ['ltr', 'row', 25, 0], ['ltr', 'row', 370, 1],
+    ['rtl', 'row', 25, 1], ['rtl', 'row', 370, 0],
+    ['rtl', 'row-reverse', 25, 0],
+  ] as const)('resolves horizontal sibling gaps in %s %s at x=%i', (dir, flexDirection, x, expected) => {
+    const kernel = makeKernel();
+    const owner = document.createElement('div');
+    owner.style.display = 'flex';
+    owner.style.flexDirection = flexDirection;
+    owner.style.direction = dir;
+    const slot = document.createElement('div');
+    slot.dataset['bldrSlot'] = 'default';
+    slot.dataset['bldrSlotOf'] = 'secA';
+    owner.append(slot);
+    document.body.append(owner);
+    try {
+      const index = { ...stubIndex(() => 't1'), element: (id: string) => id === 'secA' ? owner : undefined };
+      const result = resolveDropTarget(kernel.getDocument(), kernel.context.registry, index, { kind: 'insert', type: 'text' }, x, 60);
+      expect(result).toMatchObject({ parentId: 'secA', index: expected, indicatorRect: { width: 2, height: 80 } });
+    } finally {
+      owner.remove();
+    }
+  });
+  it.each([[5, 0], [215, 1], [375, 2], [700, 4]])('places a root-padding drop at y=%i near the pointer, not always at the end', (y, expected) => {
+    const kernel = makeKernel();
+    const result = resolveOver(kernel, { kind: 'insert', type: 'section' }, 'root', y, 5);
+    expect(result).toMatchObject({ parentId: 'root', slot: 'default', index: expected });
+  });
+
+  it('inserts in a container gap between children and adjusts same-slot moves', () => {
+    const kernel = makeKernel();
+    expect(resolveOver(kernel, { kind: 'insert', type: 'text' }, 'secA', 105, 15))
+      .toMatchObject({ parentId: 'secA', index: 1 });
+    expect(resolveOver(kernel, { kind: 'move', id: 't1' }, 'secA', 180, 15))
+      .toMatchObject({ parentId: 'secA', index: 1 });
+  });
   it('targets empty center and populated end slots by pointer geometry instead of schema order', () => {
     const kernel = makeMultiSlotKernel();
     const index = stubIndex(() => 'layout', MULTI_NODE_RECTS, MULTI_SLOT_RECTS);

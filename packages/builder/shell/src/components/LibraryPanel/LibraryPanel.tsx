@@ -5,12 +5,14 @@ import type { BuilderKernel } from '@craftkit/builder-core';
 import type { CustomCodeNode, CustomCodeRoot, SavedTemplate } from '@craftkit/builder-schema';
 
 import { ELEMENT_ACTION_LABELS_EN, type ElementActionLabels } from '../../clipboard/element-actions.labels';
+import { insertPayloads } from '../../clipboard/element-clipboard';
 import { elementPayload, type ElementPayload } from '../../custom-code/element-drag-payload';
 import type { ElementNameWords } from '../../custom-code/element-target';
 import type { CanvasDragHandle } from '../EditorCanvas';
 import { Palette } from '../Palette';
 import '../../styles/visually-hidden.css';
-import { insertCompositionAtSelection, insertLibraryTree } from './library-insert';
+import { insertCompositionAtSelection, insertLibraryTree, regionBlockType, type Placement } from './library-insert';
+import { elementCategory, ELEMENT_CATEGORIES } from './library-categories';
 import { LIBRARY_ELEMENT_PRESETS, type LibraryLanguage } from './library-presets';
 import { previewMarkup, previewSrcdoc, treeClassNames } from './library-preview';
 import { LIBRARY_PANEL_LABELS_EN, type LibraryPanelLabels } from './LibraryPanel.labels';
@@ -95,6 +97,7 @@ interface Entry {
   readonly name: string;
   readonly search: string;
   readonly glyph: string;
+  readonly description?: string | undefined;
   readonly badge?: string | undefined;
   readonly tree?: CustomCodeRoot | undefined;
   readonly css?: string | undefined;
@@ -126,8 +129,8 @@ function glyphOf(node: CustomCodeNode | undefined): string {
 }
 
 /**
- * The Library (style-manager DESIGN.md §E): Elements (twenty widget presets),
- * Sections (registered page templates + the host's ready-made sections),
+ * The Library (style-manager DESIGN.md §E): Elements (42 editable presets),
+ * Sections (the host's ready-made sections), Templates (registered page templates),
  * Blocks (the Palette, composed), and Saved (the site's templates). One
  * search filters the open tab; a click inserts at the selection as one
  * labelled transaction; a press-and-drag hands the element to the canvas.
@@ -150,6 +153,7 @@ export function LibraryPanel({
   const searchId = useId();
   const [tab, setTab] = useState<LibraryTab>(defaultTab);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all');
   const [message, setMessageState] = useState({ text: '', nonce: 0 });
   const announce = useCallback((text: string) => {
     setMessageState((current) => ({ text, nonce: current.nonce + 1 }));
@@ -171,21 +175,32 @@ export function LibraryPanel({
   const getVersion = useCallback(() => kernel.extensions.version(), [kernel]);
   const catalogVersion = useSyncExternalStore(subscribe, getVersion, getVersion);
 
+  const pageCss = useSyncExternalStore(
+    useCallback((onChange: () => void) => kernel.context.store.subscribe(onChange), [kernel]),
+    useCallback(() => {
+      const document = kernel.getDocument();
+      const css = document.nodes[document.rootId]?.props['pageCss'];
+      return typeof css === 'string' ? css : '';
+    }, [kernel]),
+  );
+  const pagePalette = pageCss.includes('.ck-page-plan{');
+
   const elements = useMemo<Entry[]>(
     () =>
       LIBRARY_ELEMENT_PRESETS.map((preset) => {
-        const node = preset.node(language);
+        const node = preset.node(language, pagePalette ? 'page' : 'site');
         return {
           key: `element:${preset.id}`,
           kind: 'element',
           name: preset.labels[language],
           search: `${preset.labels.en} ${preset.labels.ar} ${preset.keywords}`.toLocaleLowerCase(),
           glyph: glyphOf(node),
+          description: preset.description?.[language],
           tree: { kind: 'root', children: [node] },
           css: preset.css?.(language), // media-motion (2026-10-06): a media preset's region hooks
         };
       }),
-    [language],
+    [language, pagePalette],
   );
 
   // library-playground additions (2026-10-08): the Templates tab (agent-script DESIGN §B.5).
@@ -290,7 +305,7 @@ export function LibraryPanel({
         // library-playground additions (2026-10-08): a kit section's thumbnail is drawn with its page
         // kit, scoped like the page would scope it, so the tile looks like the inserted result.
         const regionCss = entry.pageKit === undefined ? entry.css : `${entry.css ?? ''}\n${entry.pageKit.css}`;
-        const markup = previewMarkup(kernel, tree, regionCss, dir);
+        const markup = previewMarkup(kernel, tree, regionCss, dir, pagePalette && entry.kind === 'element' ? pageCss : undefined);
         // end library-playground additions
         if (markup === undefined) return undefined;
         const compiled = compilePreviewCss === undefined ? '' : await compilePreviewCss(treeClassNames(tree)).catch(() => '');
@@ -303,10 +318,10 @@ export function LibraryPanel({
       });
     }
     return map;
-  }, [elements, sectionEntries, savedEntries, kernel, dir, compilePreviewCss, previewStylesheet, language]);
+  }, [elements, sectionEntries, savedEntries, kernel, dir, compilePreviewCss, previewStylesheet, language, pagePalette, pageCss]);
 
   const insert = useCallback(
-    (entry: Entry) => {
+    (entry: Entry, placement?: Placement) => {
       if (entry.kind === 'composition') {
         const ok =
           entry.compositionId !== undefined &&
@@ -326,6 +341,7 @@ export function LibraryPanel({
         words,
         noRegionType: labels.noRegionType,
         pageKit: entry.pageKit, // library-playground additions (2026-10-08)
+        placement,
       });
       announce(outcome.ok ? labels.inserted(entry.name) : outcome.message);
     },
@@ -334,8 +350,8 @@ export function LibraryPanel({
 
   // library-playground additions (2026-10-08): a template inserts like the Palette's, one transaction.
   const insertTemplate = useCallback(
-    (entry: TemplateTabEntry) => {
-      const ok = insertCompositionAtSelection(kernel, entry.compositionId, entry.rootType);
+    (entry: TemplateTabEntry, placement?: Placement) => {
+      const ok = insertCompositionAtSelection(kernel, entry.compositionId, entry.rootType, placement);
       announce(ok ? labels.inserted(entry.name) : labels.cannotInsert(entry.name));
     },
     [kernel, labels, announce],
@@ -347,22 +363,25 @@ export function LibraryPanel({
    * own tree insert (P7) when it offers one.
    */
   const elementDragStarter = (
-    name: string,
+    entry: Entry,
   ): ((payload: ElementPayload, hostX: number, hostY: number) => { didActivate: () => boolean }) | undefined => {
-    if (beginElementDrag !== undefined) return beginElementDrag;
-    const handle = dragHandle as
-      | (CanvasDragHandle & {
-          beginTreeInsert?: (
-            node: CustomCodeNode,
-            label: string,
-            hostX: number,
-            hostY: number,
-          ) => { didActivate: () => boolean };
-        })
-      | undefined;
-    if (handle?.beginTreeInsert === undefined) return undefined;
-    return (payload, hostX, hostY) =>
-      handle.beginTreeInsert?.(payload.node, name, hostX, hostY) ?? { didActivate: () => false };
+    if (entry.kind === 'element' && entry.tree?.children.length === 1 && beginElementDrag !== undefined) return beginElementDrag;
+    const type = regionBlockType(kernel);
+    if (dragHandle === undefined || type === undefined) return undefined;
+    const onDrop = (placement: Placement) => { insert(entry, placement); };
+    return (payload, hostX, hostY) => {
+      if (entry.kind !== 'element' || dragHandle.beginTreeInsert === undefined) {
+        return dragHandle.beginInsert(type, hostX, hostY, onDrop);
+      }
+      return dragHandle.beginTreeInsert(payload.node, entry.name, hostX, hostY, {
+        fallback: { kind: 'insert', type, onDrop },
+        onDrop: (target) => {
+          const payloads = entry.tree?.children.map((node) => elementPayload(node, entry.css)) ?? [payload];
+          const result = insertPayloads({ kernel, targets: [], labels: actionLabels, words }, payloads, target, actionLabels.insert);
+          announce(result.ok ? labels.inserted(entry.name) : result.message);
+        },
+      });
+    };
   };
 
   const normalized = query.trim().toLocaleLowerCase();
@@ -370,7 +389,7 @@ export function LibraryPanel({
     normalized === '' ? list : list.filter((entry) => entry.search.includes(normalized) || entry.name.toLocaleLowerCase().includes(normalized));
 
   const renderGrid = (list: readonly Entry[], empty: string) => {
-    const visible = filter(list);
+    const visible = filter(list).filter((entry) => tab !== 'elements' || category === 'all' || elementCategory(entry.key.slice('element:'.length)) === category);
     if (visible.length === 0) {
       return (
         <p className="bldr-library__empty" role="status">
@@ -382,8 +401,8 @@ export function LibraryPanel({
       <ul className="bldr-library__grid">
         {visible.map((entry) => {
           const first = entry.tree?.children[0];
-          const startDrag = elementDragStarter(entry.name);
-          const draggable = startDrag !== undefined && entry.kind === 'element' && first !== undefined && entry.tree?.children.length === 1;
+          const startDrag = elementDragStarter(entry);
+          const draggable = startDrag !== undefined && first !== undefined && entry.tree !== undefined;
           const templateId = entry.templateId;
           return (
             <LibraryTile
@@ -393,7 +412,9 @@ export function LibraryPanel({
               badge={entry.badge}
               insertLabel={labels.insert(entry.name)}
               description={labels.insertHint}
+              caption={entry.description}
               preview={previews.get(entry.key)}
+              previewWidth={entry.kind === 'element' ? 400 : 1040}
               onInsert={() => {
                 insert(entry);
               }}
@@ -429,6 +450,7 @@ export function LibraryPanel({
           glyph="▤"
           insertLabel={labels.insert(entry.name)}
           description={labels.insertHint}
+          onBeginDrag={dragHandle === undefined ? undefined : (x, y) => dragHandle.beginInsert(entry.rootType, x, y, (target) => { insertTemplate(entry, target); })}
           onInsert={() => {
             insertTemplate(entry);
           }}
@@ -438,6 +460,7 @@ export function LibraryPanel({
           <TemplateCard
             card={entry.card}
             labels={templateCardLabels}
+            onBeginDrag={dragHandle === undefined ? undefined : (x, y) => dragHandle.beginInsert(entry.rootType, x, y, (target) => { insertTemplate(entry, target); })}
             onInsert={() => {
               insertTemplate(entry);
             }}
@@ -525,6 +548,19 @@ export function LibraryPanel({
                 setQuery(event.currentTarget.value);
               }}
             />
+            {tab === 'elements' ? (
+              <div className="bldr-library__filters">
+                <label className="bldr-visually-hidden" htmlFor={`${searchId}-category`}>
+                  {language === 'ar' ? 'فئة العناصر' : 'Element category'}
+                </label>
+                <select id={`${searchId}-category`} value={category} onChange={(event) => { setCategory(event.currentTarget.value); }}>
+                  {Object.entries(ELEMENT_CATEGORIES).map(([key, names]) => (
+                    <option key={key} value={key}>{names[language]} · {key === 'all' ? elements.length : elements.filter((entry) => elementCategory(entry.key.slice('element:'.length)) === key).length}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <p className="bldr-library__hint">{labels.insertHint}</p>
           </div>
         )}
         <Tabs.Content value="elements" className="bldr-library__panel">

@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { BuilderDocument } from '@craftkit/builder-schema';
 
 import { TemplateCard } from './TemplateCard';
+import { installBrowserStandIns } from '../../style-manager/test-support';
 import { TEMPLATE_CARD_LABELS_AR } from './TemplateCard.labels';
 import {
   documentLanguage,
@@ -45,6 +46,18 @@ function page(props: Record<string, string>, dir: 'ltr' | 'rtl'): BuilderDocumen
 }
 
 describe('TemplateCard', () => {
+  beforeAll(installBrowserStandIns);
+  it('suppresses click insertion after a drag and blocks the native image drag', () => {
+    const onInsert = vi.fn();
+    const onBeginDrag = vi.fn(() => ({ didActivate: () => true }));
+    render(<TemplateCard card={CARD} onInsert={onInsert} onBeginDrag={onBeginDrag} />);
+    const button = screen.getByRole('button');
+    fireEvent.pointerDown(button, { button: 0, clientX: 20, clientY: 30 });
+    expect(onBeginDrag).toHaveBeenCalledWith(20, 30);
+    fireEvent.click(button);
+    expect(onInsert).not.toHaveBeenCalled();
+    expect(fireEvent.dragStart(screen.getByRole('img'))).toBe(false);
+  });
   it('renders the photo, the name and description in the editor language, the badge and the count', () => {
     render(<TemplateCard card={CARD} onInsert={() => undefined} />);
     const button = screen.getByRole('button', { name: 'Insert template Restaurant' });

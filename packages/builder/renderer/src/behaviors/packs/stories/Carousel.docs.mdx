@@ -13,11 +13,14 @@ published `Carousel` block renders this markup in its static export.
 
 ## Markup: the parts are derived
 
-The vocabulary has no `data-ck-carousel-prev/next`. The **track** is the first element child that
-is not a button or a row of buttons. The **buttons** are every `<button>` inside the carousel but
+The vocabulary has no `data-ck-carousel-prev/next`. The **track** is the first element child that is
+not a button or a row of buttons. The **buttons** are every `<button>` inside the carousel but
 outside the track: the first is "previous", the last is "next". The first button sits at the inline
 start (the right in RTL), so it always means "back"; what flips in RTL is the physical scroll
-direction. A step is 85% of the track's width, smooth unless the visitor prefers reduced motion.
+direction. Interactive preview/export lazily loads Embla 8.6.0: swiping and previous/next snap to
+one slide, with RTL direction and instant movement under reduced motion. The still editor keeps
+native scrolling (85% width per action) without wrapping its React-owned track or capturing drags.
+If the lazy asset fails, the native scroll/snap fallback and controls remain usable.
 
 <Canvas of={CarouselStories.Dots} />
 
@@ -28,8 +31,9 @@ direction. A step is 85% of the track's width, smooth unless the visitor prefers
 - `counter`: «٢ / ٥» / `2 / 5` in a polite live region.
 - `none`, or no attribute: nothing.
 
-The current slide is read from `scrollLeft`, normalised for RTL, where Chrome and Firefox report a
-negative value. The end of the track always counts as the last slide.
+With Embla, selection follows its snap index. The fallback reads `scrollLeft`, normalised for RTL.
+Focus the track to use Left/Right (mirrored in RTL), Home and End. Arrow keys inside a slide's input
+are never intercepted.
 
 <Canvas of={CarouselStories.DotsArabic} />
 
@@ -49,6 +53,9 @@ negative value. The end of the track always counts as the last slide.
 
 On the editing canvas (`interactive: false`) the dots or counter are drawn but inert, so a click
 selects the element. The disposer removes the built row and every listener, timer and observer, and
-restores each attribute the host has not rewritten.
+restores each attribute the host has not rewritten. In an interactive document it also destroys
+Embla and restores viewport/track styles. It uses the existing parent as the viewport and never
+reparents React-owned nodes, including interactive previews. The licensed engine ships as
+`ck-carousel.js` only when the page uses a carousel; it is not part of the editor's initial bundle.
 
 <Canvas of={CarouselStories.Canvas} />

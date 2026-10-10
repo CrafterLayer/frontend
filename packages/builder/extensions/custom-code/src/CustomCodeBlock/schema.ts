@@ -9,6 +9,9 @@ import {
   defineBlockSchema,
   emptyCustomCodeTree,
 } from '@craftkit/builder-schema';
+// pixi-studio:schema-library additions (2026-10-10): script values and library meta beside `js` (DESIGN D8).
+import { customCodeJsMeta, customCodeJsParams } from '@craftkit/builder-schema';
+// end pixi-studio:schema-library additions
 
 /**
  * The assistant's escape hatch, as a block.
@@ -72,12 +75,27 @@ export const customCodeSchema = defineBlockSchema({
      * may AUTHOR it; a saved script always runs.
      */
     js: customJs(CUSTOM_CODE_REGION_JS_MAX),
+    // pixi-studio:schema-library additions (2026-10-10)
+    /**
+     * Pixi Studio (DESIGN D8). `jsParams` holds the values the script reads through
+     * `ck.params(defaults)` — rendered as `data-ck-params`, so changing one re-runs the region
+     * without touching its code; only keys that differ from the defaults are stored. `jsMeta`
+     * holds the library reference (`ref`) and the param spec (`params`) that drives the
+     * Inspector form; it is never rendered. Both optional: documents without them are unchanged.
+     */
+    jsParams: customCodeJsParams(),
+    jsMeta: customCodeJsMeta(),
+    // end pixi-studio:schema-library additions
   }),
   propertyGroups: {
     label: { tab: 'content', section: 'Identity' },
     tree: { tab: 'content', section: 'Composition' },
     css: { tab: 'advanced', section: 'Custom CSS' },
     js: { tab: 'advanced', section: 'Custom JS' },
+    // pixi-studio:schema-library additions (2026-10-10)
+    jsParams: { tab: 'advanced', section: 'Script controls' },
+    jsMeta: { tab: 'advanced', section: 'Script controls' },
+    // end pixi-studio:schema-library additions
   },
   /*
     No slots. Children live INSIDE the tree, where the assistant places them,

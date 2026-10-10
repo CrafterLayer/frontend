@@ -455,6 +455,7 @@ export function buildRecordView(
     ...(derived.stopReason === undefined ? {} : { stopReason: derived.stopReason }),
     landed,
     total: rows.length,
+    writers: input.progress.writers,
     ...(elapsedMs === undefined ? {} : { elapsedMs }),
     /*
       Read at the newest build event, never at `context.now`: this view is rebuilt on every

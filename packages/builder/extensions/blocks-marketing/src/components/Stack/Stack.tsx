@@ -50,6 +50,11 @@ export function Stack({ node, props, slots }: BlockRenderProps<StackProps>) {
           GAP_CLASSES[props.gap],
           WRAP_CLASSES[props.wrap],
           props.direction === 'row' ? '*:min-w-0 *:flex-1' : undefined,
+          // The canvas slot is display:contents, but CSS child selectors still
+          // see it. Apply the same layout to its real, measurable node wrappers.
+          props.direction === 'row'
+            ? '[&>[data-bldr-slot]>[data-bldr-node]]:min-w-0 [&>[data-bldr-slot]>[data-bldr-node]]:flex-1'
+            : '[&>[data-bldr-slot]>[data-bldr-node]]:w-full [&>[data-bldr-slot]>[data-bldr-node]]:min-w-0',
         )}
       >
         {slots['default']}

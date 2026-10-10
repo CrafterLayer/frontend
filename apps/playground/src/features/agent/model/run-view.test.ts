@@ -157,6 +157,13 @@ function view(progress: BuildProgress, extra: Partial<BuildRecordInput> = {}, co
 
 const states = (record: BuildRecordView): RowState[] => record.rows.map((row) => row.state);
 
+describe('worker capacity evidence', () => {
+  it('exposes only the engine-declared pool and leaves old records unknown', () => {
+    expect(view(progressOf([planned(3), started(1, 2000)])).writers).toBe(3);
+    expect(view(progressOf([planned(), started(1, 2000)])).writers).toBeNull();
+  });
+});
+
 /* ── Phases (SPEC §4.8 phase table) ───────────────────────────────────────────── */
 
 describe('buildRecordView: phases', () => {

@@ -33,7 +33,7 @@ export function regionBlockType(kernel: BuilderKernel): string | undefined {
     .find((type) => customCodeTreeKey(kernel, type) !== undefined);
 }
 
-interface Placement {
+export interface Placement {
   readonly parentId: NodeId;
   readonly slot: string;
   readonly index: number;
@@ -67,6 +67,8 @@ function regionPlacement(kernel: BuilderKernel, type: string): Placement | undef
 export type LibraryInsertOutcome = { readonly ok: true } | { readonly ok: false; readonly message: string };
 
 export interface LibraryInsertRequest {
+  /** Exact canvas drop seat. When present, never substitute the selection. */
+  readonly placement?: Placement | undefined;
   readonly kernel: BuilderKernel;
   readonly kind: 'element' | 'section';
   readonly name: string;
@@ -120,7 +122,7 @@ export function pageKitStep(
 /** Insert a library entry at the selection — one transaction either way. */
 export function insertLibraryTree(request: LibraryInsertRequest): LibraryInsertOutcome {
   const { kernel, tree, css, actionLabels } = request;
-  if (request.kind === 'element') {
+  if (request.kind === 'element' && request.placement === undefined) {
     const destination = pasteDestination(kernel, primaryTarget(kernel));
     if (destination !== undefined) {
       const payloads = tree.children.map((node) => elementPayload(node, css));
@@ -135,7 +137,7 @@ export function insertLibraryTree(request: LibraryInsertRequest): LibraryInsertO
   }
   const type = regionBlockType(kernel);
   if (type === undefined) return { ok: false, message: request.noRegionType };
-  const placement = regionPlacement(kernel, type);
+  const placement = request.placement ?? regionPlacement(kernel, type);
   if (placement === undefined) return { ok: false, message: actionLabels.refused(actionLabels.insert, request.name) };
   const treeKey = customCodeTreeKey(kernel, type) ?? 'tree';
   const schema = kernel.context.registry.block(type)?.schema;
@@ -147,7 +149,7 @@ export function insertLibraryTree(request: LibraryInsertRequest): LibraryInsertO
   try {
     // library-playground additions (2026-10-08): the page kit rides in the SAME group — one
     // transaction, one Undo. A page whose css cannot take it (over the prop's limit) still gets the section.
-    const insertStep = { command: 'insertNode', args: { type, props, ...placement } };
+    const insertStep = { command: 'insertNode', args: { type, props, parentId: placement.parentId, slot: placement.slot, index: placement.index } };
     const kitStep = pageKitStep(kernel, request.pageKit);
     const options = { label: label.slice(0, 160) };
     const dispatchWithKit = () => {
@@ -176,11 +178,12 @@ export function insertCompositionAtSelection(
   kernel: BuilderKernel,
   compositionId: string,
   rootType: string,
+  dropPlacement?: Placement,
 ): boolean {
-  const placement = regionPlacement(kernel, rootType);
+  const placement = dropPlacement ?? regionPlacement(kernel, rootType);
   if (placement === undefined) return false;
   try {
-    const tx = kernel.dispatch('insertComposition', { compositionId, ...placement });
+    const tx = kernel.dispatch('insertComposition', { compositionId, parentId: placement.parentId, slot: placement.slot, index: placement.index });
     const inserted = insertedNodeId(tx.patches);
     if (inserted !== undefined) kernel.setSelection([inserted]);
     return true;

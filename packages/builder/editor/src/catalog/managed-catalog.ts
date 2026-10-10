@@ -1,5 +1,7 @@
 import type { ManagedCatalog } from '@craftkit/builder-code-runtime';
 
+// Additive admission retains the existing lock/profile version. Full catalog content is hashed
+// into every artifact identity, so adding Embla invalidates caches without breaking saved locks.
 export const REFERENCE_MANAGED_CATALOG_VERSION = 'craftkit-managed-reference-v1';
 export const MANAGED_REACT_VERSION = '19.2.8';
 export const MANAGED_RUNTIME_SPECIFIER = 'react/managed-runtime';
@@ -68,16 +70,40 @@ export const referenceManagedCatalog: ManagedCatalog = {
         integrity: 'unbuilt',
       },
       {
-        packageId: 'lucide-react', version: '1.43.0', importSpecifiers: ['lucide-react'],
-        sourceArtifactId: 'craftkit-lucide-react-1.43.0', cssArtifactIds: [], license: 'ISC', integrity: 'unbuilt',
+        packageId: 'lucide-react',
+        version: '1.43.0',
+        importSpecifiers: ['lucide-react'],
+        sourceArtifactId: 'craftkit-lucide-react-1.43.0',
+        cssArtifactIds: [],
+        license: 'ISC',
+        integrity: 'unbuilt',
       },
       {
-        packageId: 'motion', version: '13.1.1', importSpecifiers: ['motion/react'],
-        sourceArtifactId: 'craftkit-motion-13.1.1', cssArtifactIds: [], license: 'MIT', integrity: 'unbuilt',
+        packageId: 'motion',
+        version: '13.1.1',
+        importSpecifiers: ['motion/react'],
+        sourceArtifactId: 'craftkit-motion-13.1.1',
+        cssArtifactIds: [],
+        license: 'MIT',
+        integrity: 'unbuilt',
       },
       {
-        packageId: 'tailwindcss', version: '4.3.3', importSpecifiers: ['tailwindcss'],
-        sourceArtifactId: 'craftkit-tailwind-4.3.3', cssArtifactIds: ['craftkit-tailwind-4.3.3'], license: 'MIT', integrity: 'unbuilt',
+        packageId: 'tailwindcss',
+        version: '4.3.3',
+        importSpecifiers: ['tailwindcss'],
+        sourceArtifactId: 'craftkit-tailwind-4.3.3',
+        cssArtifactIds: ['craftkit-tailwind-4.3.3'],
+        license: 'MIT',
+        integrity: 'unbuilt',
+      },
+      {
+        packageId: 'embla-carousel',
+        version: '8.6.0',
+        importSpecifiers: ['embla-carousel'],
+        sourceArtifactId: 'craftkit-embla-carousel-8.6.0',
+        cssArtifactIds: [],
+        license: 'MIT',
+        integrity: 'unbuilt',
       },
     ],
   },

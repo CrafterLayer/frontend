@@ -1,0 +1,33 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EffortMenuStories from './EffortMenu.stories';
+
+<Meta of={EffortMenuStories} />
+
+# EffortMenu
+
+The Agent composer's reasoning-budget choice. Use it only when the selected provider supports
+effort; the toolbar omits it otherwise. It does not choose a model or a worker count, and a higher
+effort is not a promise of a better design.
+
+<Canvas of={EffortMenuStories.Default} />
+
+## API and states
+
+`locale` is Arabic or English; `effort` supplies the selected level and allowed options;
+`onEffortChange(level)` requests the next selection. Supported levels are low, medium, high, xhigh
+and max. The current controller defaults to medium. During a run a changed effort applies to the
+next request, not the captured active run. Stories cover default, high, Arabic/dark and keyboard
+selection. There is no loading state: this is a local synchronous choice.
+
+## Accessibility and layout
+
+The named button opens a Radix radio menu with a checked item. Keyboard arrows, Home/End and Enter
+select; Escape closes and returns focus to the trigger. Each level includes a short time/cost
+description in the current locale. Logical geometry and Radix direction support RTL; the shared
+choice trigger and collision-aware scrollable menu use editor theme tokens.
+
+## Composition
+
+ComposerToolbar passes the controller's effort view and callback. The local export is `EffortMenu`;
+render it under AgentTooltipProvider when used outside the Agent panel.

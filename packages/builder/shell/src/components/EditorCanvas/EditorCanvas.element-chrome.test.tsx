@@ -223,6 +223,18 @@ describe('EditorCanvas — P7 element chrome', () => {
     expect(h.state().elementFocus).toEqual({ id: 'r1', path: [0] });
   });
 
+  it('clicking iframe text while editing keeps the caret session open', () => {
+    const h = harness();
+    h.tick();
+    h.click(h.inFrame('h2'));
+    fireEvent.keyDown(h.host(), { key: 'Enter' });
+    const heading = h.inFrame('h2')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(heading).toHaveAttribute('contenteditable', 'plaintext-only');
+    expect(h.frameDocument.activeElement).toBe(heading);
+    expect(h.kernel.transactions()).toHaveLength(0);
+  });
+
   it('More opens the matching panel sector for the element', () => {
     const h = harness();
     h.tick();

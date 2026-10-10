@@ -1,0 +1,60 @@
+.ck-agent-tasks {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--bldr-space-xs, 4px);
+  padding-block: var(--bldr-space-xs, 4px) var(--bldr-space-sm, 6px);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta, 12px);
+  line-height: var(--bldr-line-height-meta, 1.5);
+}
+
+.ck-agent-tasks__head,
+.ck-agent-tasks__counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--bldr-space-lg, 12px);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-tasks__coordinator,
+.ck-agent-tasks__applied {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-tasks__active {
+  color: var(--bldr-panel-text);
+  font-weight: var(--bldr-font-weight-medium, 500);
+}
+
+.ck-agent-tasks__progress {
+  appearance: none;
+  display: block;
+  inline-size: 100%;
+  block-size: 3px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 2px;
+  background: var(--bldr-surface-border);
+  color: var(--bldr-accent);
+  accent-color: var(--bldr-accent);
+}
+
+.ck-agent-tasks__progress::-webkit-progress-bar {
+  background: var(--bldr-surface-border);
+}
+
+.ck-agent-tasks__progress::-webkit-progress-value {
+  background: var(--bldr-accent);
+}
+
+.ck-agent-tasks__progress::-moz-progress-bar {
+  background: var(--bldr-accent);
+}
+
+@media (forced-colors: active) {
+  .ck-agent-tasks__progress {
+    appearance: auto;
+  }
+}

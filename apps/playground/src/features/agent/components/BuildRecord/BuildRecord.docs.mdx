@@ -6,67 +6,71 @@ import * as BuildRecordStories from './BuildRecord.stories';
 
 # BuildRecord
 
-One page build, in every phase (SPEC §4.8, §3.3 to §3.5, §3.10, §3.12): the signature of the
-panel. The page spine is drawn in pencil and inked section by section as each section lands.
+One page build, in every phase (SPEC §4.8, §3.3 to §3.5, §3.10, §3.12): the signature of the panel.
+The page spine is drawn in pencil and inked section by section as each section lands.
 
 <Canvas of={BuildRecordStories.LiveBuildPencilToInk} />
 
 ## Purpose
 
-A build writes several sections at once and lands them on the page in page order. The record
-tells the truth about each one at a glance: dashed pencil while a section waits, a pale line
-with a travelling light while a writer is on it, a still pale line and an open Indigo ring once
-its draft is written and waits its turn, solid Indigo ink the moment it is on the page. When
-the last section lands, the spine is one unbroken Indigo stroke and one light sweeps it.
+A build writes several sections at once and lands them on the page in page order. The record tells
+the truth about each one at a glance: dashed pencil while a section waits, a pale line with a
+travelling light while a writer is on it, a still pale line and an open Indigo ring once its draft
+is written and waits its turn, solid Indigo ink the moment it is on the page. When the last section
+lands, the spine is one unbroken Indigo stroke and one light sweeps it.
 
-**Ink means landed.** The head's count is `landed/total` and counts landed sections only; a
-drafted, writing or failed section is never counted and never inked.
+**Ink means landed.** The head's count is `landed/total` and counts landed sections only; a drafted,
+writing or failed section is never counted and never inked.
+
+During a non-collapsed live build, `BuildTaskBoard` adds a flat summary above the direction: one
+coordinator, actual active writers, known pool capacity, queued sections and drafted sections
+waiting for ordered landing. Its native progress bar advances only for landed rows. `view.writers`
+is optional for old records; unknown capacity is not guessed. The summary disappears when the build
+settles, without duplicating the spine's section rows.
 
 ## When to use / not
 
-Use it for every `build` turn, live or settled, and for builds read back after a reload. A
-build the engine skipped (`build.skipped`) is an EditRecord, not a BuildRecord. A plan still
-waiting for approval is a PagePlanCard; on Build the same turn becomes this record, so the list
-inks in place.
+Use it for every `build` turn, live or settled, and for builds read back after a reload. A build the
+engine skipped (`build.skipped`) is an EditRecord, not a BuildRecord. A plan still waiting for
+approval is a PagePlanCard; on Build the same turn becomes this record, so the list inks in place.
 
 ## Props
 
-| prop             | type                                   | default | notes                                                              |
-| ---------------- | -------------------------------------- | ------- | ------------------------------------------------------------------ |
-| `locale`         | `Locale`                               | none    | `ar` or `en`: every string comes from the catalog                  |
-| `view`           | `BuildRecordView`                      | none    | from `model/run-view.ts`; phase, rows, counts, actions, menu       |
-| `actions`        | `BuildRecordActions`                   | none    | the controller's `undoSection`, `retrySections`, `finishRest`, …   |
-| `onMenuSelect`   | `(item: RecordMenuItem) => void`       | none    | Restore page…, Reuse request, Copy summary; the caller runs them   |
-| `menuFocusAfter` | `RecordMenuProps['focusAfterSelect']`  | none    | where focus goes after a menu item (Reuse → the composer)          |
-| `menuTriggerRef` | `Ref<HTMLButtonElement>`               | none    | `[⋯]`, which a dialog opened from the menu returns focus to        |
-| `headingRef`     | `Ref<HTMLHeadingElement>`              | none    | the `h3`, for Build this page → the new record's head (SPEC §6.3)  |
-| `className`      | `string`                               | none    | appended to `ck-agent-record ck-agent-build`                       |
+| prop             | type                                  | default | notes                                                             |
+| ---------------- | ------------------------------------- | ------- | ----------------------------------------------------------------- |
+| `locale`         | `Locale`                              | none    | `ar` or `en`: every string comes from the catalog                 |
+| `view`           | `BuildRecordView`                     | none    | from `model/run-view.ts`; phase, rows, counts, actions, menu      |
+| `actions`        | `BuildRecordActions`                  | none    | the controller's `undoSection`, `retrySections`, `finishRest`, …  |
+| `onMenuSelect`   | `(item: RecordMenuItem) => void`      | none    | Restore page…, Reuse request, Copy summary; the caller runs them  |
+| `menuFocusAfter` | `RecordMenuProps['focusAfterSelect']` | none    | where focus goes after a menu item (Reuse → the composer)         |
+| `menuTriggerRef` | `Ref<HTMLButtonElement>`              | none    | `[⋯]`, which a dialog opened from the menu returns focus to       |
+| `headingRef`     | `Ref<HTMLHeadingElement>`             | none    | the `h3`, for Build this page → the new record's head (SPEC §6.3) |
+| `className`      | `string`                              | none    | appended to `ck-agent-record ck-agent-build`                      |
 
-`BuildRecordActions` is `Pick<AgentController, 'undoSection' | 'redoSection' | 'undoBuild' |
-'redoBuild' | 'retrySections' | 'finishRest' | 'removeEmpty' | 'tryAgain' | 'reveal' | 'peek' |
-'openPageHistory'>`. Every one is an action on the page or a successor run: none posts a
-sentence as the person's turn.
+`BuildRecordActions` is
+`Pick<AgentController, 'undoSection' | 'redoSection' | 'undoBuild' | 'redoBuild' | 'retrySections' | 'finishRest' | 'removeEmpty' | 'tryAgain' | 'reveal' | 'peek' | 'openPageHistory'>`.
+Every one is an action on the page or a successor run: none posts a sentence as the person's turn.
 
 ## States
 
 One story per phase of the §4.8 table, each with its Arabic twin (`…RightToLeft`), and the main
 phases in dark:
 
-| Phase                   | Head glyph | Head figure | Stories                                                              |
-| ----------------------- | ---------- | ----------- | -------------------------------------------------------------------- |
-| skeleton                | working    | none        | `Skeleton`: an indeterminate spine and a shimmer line, no claim yet  |
-| building                | working    | `1/8`       | `Building`, `BuildingDark`, `EveryRowStateAt420`, `EveryRowStateAt320`, `DirectionProseOnly` |
-| blocked (building)      | working    | count       | `Blocked`: one writer holds the drafts below it                      |
-| stopping                | working    | count       | `Stopping`                                                           |
-| done                    | landed     | `2:21`      | `Done`, `DoneDark`, `UndoBuildConfirming`                            |
-| partial                 | partial    | final time  | `Partial`, `PartialDark`                                             |
-| stopped                 | absent     | final time  | `Stopped`, `StoppedBudget`, `StoppedMaxTasks`                        |
-| interrupted             | absent     | none        | `InterruptedResumable`, `InterruptedNotResumable`                    |
-| failed                  | failed     | final time  | `Failed`: ErrorBody's two sentences, Try again, Remove the empty layout |
-| undone                  | absent     | final time  | `Undone`: the sections fold away; Redo build                         |
-| revived (done, reload)  | landed     | final time  | `Revived`: Undo `aria-disabled`, described by the caption            |
-| collapsed (older turn)  | as phase   | as phase    | `Collapsed`: head, caption, Show sections                            |
-| after a row's Undo      | landed     | final time  | `AfterRowUndo`: that row undone with Redo; a refused Undo says why   |
+| Phase                  | Head glyph | Head figure | Stories                                                                                      |
+| ---------------------- | ---------- | ----------- | -------------------------------------------------------------------------------------------- |
+| skeleton               | working    | none        | `Skeleton`: an indeterminate spine and a shimmer line, no claim yet                          |
+| building               | working    | `1/8`       | `Building`, `BuildingDark`, `EveryRowStateAt420`, `EveryRowStateAt320`, `DirectionProseOnly` |
+| blocked (building)     | working    | count       | `Blocked`: one writer holds the drafts below it                                              |
+| stopping               | working    | count       | `Stopping`                                                                                   |
+| done                   | landed     | `2:21`      | `Done`, `DoneDark`, `UndoBuildConfirming`                                                    |
+| partial                | partial    | final time  | `Partial`, `PartialDark`                                                                     |
+| stopped                | absent     | final time  | `Stopped`, `StoppedBudget`, `StoppedMaxTasks`                                                |
+| interrupted            | absent     | none        | `InterruptedResumable`, `InterruptedNotResumable`                                            |
+| failed                 | failed     | final time  | `Failed`: ErrorBody's two sentences, Try again, Remove the empty layout                      |
+| undone                 | absent     | final time  | `Undone`: the sections fold away; Redo build                                                 |
+| revived (done, reload) | landed     | final time  | `Revived`: Undo `aria-disabled`, described by the caption                                    |
+| collapsed (older turn) | as phase   | as phase    | `Collapsed`: head, caption, Show sections                                                    |
+| after a row's Undo     | landed     | final time  | `AfterRowUndo`: that row undone with Redo; a refused Undo says why                           |
 
 `LiveBuildPencilToInk` steps a build through laid out, planned, writers, drafts and landings to
 whole, then replays; it is the one story that shows the landing stroke, the stagger and the
@@ -87,15 +91,15 @@ completion sweep. The spine under `forced-colors` is SpineList's `ForcedColors` 
 ```
 
 - **Head:** RunRecord's; the title says the state in words (`build.title.*`), the figure is the
-  count while live (read as "1 of 8 sections are on the page") and the final time once settled.
-  One clock per run: while live, the RunBar owns it.
+  count while live (read as "1 of 8 sections are on the page") and the final time once settled. One
+  clock per run: while live, the RunBar owns it.
 - **Lead:** RecordLead draws the spine's first stretch from the head's node down, beside the
   captions, the DirectionLine and the estimate, to the first row's node.
 - **Spine:** SpineList spans both body columns, so the head's node, every row's node and the
   stretches between them sit on one vertical line, 7px in.
-- **Footer:** at most one primary (Try again, Write the failed sections again, Finish the rest)
-  and one secondary (Undo build, Redo build), then text buttons (Remove empty sections, Remove
-  the empty layout) and `[⋯]`. Undo build opens an InlineConfirm with focus on Cancel.
+- **Footer:** at most one primary (Try again, Write the failed sections again, Finish the rest) and
+  one secondary (Undo build, Redo build), then text buttons (Remove empty sections, Remove the empty
+  layout) and `[⋯]`. Undo build opens an InlineConfirm with focus on Cancel.
 - **Collapsed** under a newer turn: head, caption and "Show sections (n)", a disclosure over
   `grid-template-rows` 0fr → 1fr.
 
@@ -103,26 +107,26 @@ completion sweep. The spine under `forced-colors` is SpineList's `ForcedColors` 
 
 - An `<article>` named by its `h3`; the title says the state, the glyph is `aria-hidden`.
 - The count's accessible text is the catalog sentence; the final time is an LTR `<bdi>`.
-- Every row names its place, title and state word ("Section 4 of 8: Why us, Written, waiting
-  its turn"); the spine's stretches are `aria-hidden`.
-- Row Undo exists only where the view gives the row its landing record, after
-  `build.completed`. A revived record's Undo stays in place, `aria-disabled`, described by
-  `build.caption.revived`, with Page history beside it.
-- Focus destinations (SPEC §6.3): Retry, Write the failed sections again, Finish the rest,
-  Remove empty sections, Undo build and Try again send focus to the record's head; a row's Undo
-  keeps focus on the same button, now Redo; Show sections keeps focus on itself.
+- Every row names its place, title and state word ("Section 4 of 8: Why us, Written, waiting its
+  turn"); the spine's stretches are `aria-hidden`.
+- Row Undo exists only where the view gives the row its landing record, after `build.completed`. A
+  revived record's Undo stays in place, `aria-disabled`, described by `build.caption.revived`, with
+  Page history beside it.
+- Focus destinations (SPEC §6.3): Retry, Write the failed sections again, Finish the rest, Remove
+  empty sections, Undo build and Try again send focus to the record's head; a row's Undo keeps focus
+  on the same button, now Redo; Show sections keeps focus on itself.
 - No token counts, costs, run ids, command names or millisecond timings are rendered.
 
 ## RTL
 
-Logical properties only: in Arabic the spine runs down the right edge, the count sits at the
-left in its LTR island, swatches follow the reading direction, and the travelling light and the
-shimmer move in the reading direction. Nothing is special-cased.
+Logical properties only: in Arabic the spine runs down the right edge, the count sits at the left in
+its LTR island, swatches follow the reading direction, and the travelling light and the shimmer move
+in the reading direction. Nothing is special-cased.
 
 ## Motion
 
-Only while live, and only what SPEC §5 lists: rows arrive in page order (24ms stagger, capped
-at 8 steps); a light travels down each writer's stretch (1.4s loop, paused off screen); each
-landing fills its stretch top-down over 360ms, consecutive landings at least 80ms apart; once,
-when every section landed, one light sweeps the whole stroke (720ms). A record mounted already
-settled replays nothing. Under reduced motion every state is instant.
+Only while live, and only what SPEC §5 lists: rows arrive in page order (24ms stagger, capped at 8
+steps); a light travels down each writer's stretch (1.4s loop, paused off screen); each landing
+fills its stretch top-down over 360ms, consecutive landings at least 80ms apart; once, when every
+section landed, one light sweeps the whole stroke (720ms). A record mounted already settled replays
+nothing. Under reduced motion every state is instant.

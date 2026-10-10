@@ -44,6 +44,7 @@ import {
   type CustomCodeClassTransform,
 } from './class-transform-context';
 import { lucideIconNode } from './lucide-icon-node';
+import { customCodeParamsAttribute } from './params-attribute'; // pixi-studio:runtime-wiring (2026-10-10)
 import { useCustomCodeBlockLookup, type CustomCodeBlockLookup } from './registry-context';
 import {
   loadTablerIcons,
@@ -734,6 +735,14 @@ export interface CustomCodeProps {
    * `assets/ck-behaviors.js`. Empty or blank: no attribute.
    */
   js?: string | undefined;
+  // pixi-studio:runtime-wiring additions (2026-10-10)
+  /**
+   * The script's parameter values (the block's `jsParams`, DESIGN D8): rendered as
+   * `data-ck-params="<JSON>"` beside `data-ck-js` when it is a non-empty object, read by
+   * `ck.params(defaults)`. A change re-runs the script (here through the effect below).
+   */
+  jsParams?: unknown;
+  // end pixi-studio:runtime-wiring additions
 }
 
 /** Render a stored custom-code tree. Never throws; never injects raw HTML. */
@@ -744,6 +753,7 @@ export function CustomCode({
   className,
   blockLookup,
   js,
+  jsParams, // pixi-studio:runtime-wiring (2026-10-10)
 }: CustomCodeProps) {
   const contextLookup = useCustomCodeBlockLookup();
   const classTransform = useCustomCodeClassTransform();
@@ -793,11 +803,13 @@ export function CustomCode({
     site alike (the composer toggle gates AUTHORING only).
   */
   const script = js === undefined || js.trim() === '' ? undefined : js;
+  // pixi-studio:runtime-wiring (2026-10-10): the params ride beside the code; a change re-runs it.
+  const params = script === undefined ? undefined : customCodeParamsAttribute(jsParams);
   useEffect(() => {
     const region = regionRef.current;
     if (region === null || script === undefined) return undefined;
     return mountRegionScripts(region, { interactive: !isCanvas, watch: false });
-  }, [script, isCanvas]);
+  }, [script, params, isCanvas]);
   const root = asRecord(tree);
   const context: RenderContext = {
     hostId,
@@ -815,6 +827,7 @@ export function CustomCode({
   if (script !== undefined) {
     region['data-ck-js'] = script;
     region['data-ck-js-id'] = hostId;
+    if (params !== undefined) region['data-ck-params'] = params; // pixi-studio:runtime-wiring (2026-10-10)
   }
   return (
     <div ref={regionRef} className={className} data-ck={hostId} {...region}>

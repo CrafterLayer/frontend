@@ -32,6 +32,10 @@ import * as preset from './index';
 // the preset is the ONLY entrypoint applications may import, so every promised
 // value must actually be re-exported — a missing one is unreachable by law.
 const PROMISED_VALUES = [
+  'buildElementRecipe',
+  'ELEMENT_RECIPE_CATALOG',
+  'ELEMENT_RECIPE_IDS',
+  'elementRecipeContentSchema',
   'BUCKET_THRESHOLDS',
   'BlockActionBar',
   'Builder',

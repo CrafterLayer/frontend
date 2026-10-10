@@ -118,6 +118,13 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.page-composition',
       // Explicit, beside the photo-catalog context provider.
       'craftkit.photo-direction',
+      // pixi-skills additions (2026-10-10): PixiJS v8 for free-code scene scripts.
+      'craftkit.pixi-v8-core',
+      'craftkit.pixi-v8-effects',
+      'craftkit.pixi-v8-graphics',
+      'craftkit.pixi-v8-interaction-perf',
+      'craftkit.pixi-v8-text-assets',
+      // end pixi-skills additions
       // Plan mode: explicit-only, and the only built-in whose command
       // restriction is the EMPTY set.
       'craftkit.plan-mode',

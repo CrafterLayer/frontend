@@ -1,4 +1,6 @@
 import {
+  buildElementRecipe,
+  ELEMENT_RECIPE_CATALOG,
   buildCompare,
   buildGallery,
   buildMapFacade,
@@ -15,13 +17,14 @@ import {
   buildScrollRevealSection,
   // end gsap-pixi additions
   type CustomCodeNode,
+  type ElementRecipePalette,
   type GalleryLayout,
   type MediaImage,
   type MediaRecipeResult,
 } from '@craftkit/builder-schema';
 
 /*
-  The Library's Elements tab (style-manager DESIGN.md §E): twenty starting
+  The Library's Elements tab (style-manager DESIGN.md §E): editable starting
   points, each an ordinary custom-code node — so once inserted it is a widget
   like any other (every Design sector, the quick bar, Layers, the agent).
 
@@ -39,7 +42,8 @@ export interface LibraryElementPreset {
   readonly labels: { readonly en: string; readonly ar: string };
   /** Extra search words in both languages. */
   readonly keywords: string;
-  readonly node: (language: LibraryLanguage) => CustomCodeNode;
+  readonly description?: { readonly en: string; readonly ar: string } | undefined;
+  readonly node: (language: LibraryLanguage, palette?: ElementRecipePalette) => CustomCodeNode;
   /** Region CSS the node's own `ck-` hooks need (media-motion (2026-10-06): masonry, bento, carousel). */
   readonly css?: ((language: LibraryLanguage) => string) | undefined;
 }
@@ -636,4 +640,8 @@ export const LIBRARY_ELEMENT_PRESETS: readonly LibraryElementPreset[] = Object.f
   // gsap-pixi additions (2026-10-08): animated hero, scroll-reveal features and section.
   ...motionPresets(),
   // end gsap-pixi additions
+  ...ELEMENT_RECIPE_CATALOG.map((recipe): LibraryElementPreset => ({
+    ...recipe,
+    node: (language, palette) => buildElementRecipe(recipe.id, language, {}, palette),
+  })),
 ] satisfies LibraryElementPreset[]);

@@ -70,6 +70,7 @@ import {
   type GuideChrome,
 } from '../../overlay/snap-guides';
 import type { TreeDragPayload, TreeDropPorts } from '../../overlay/tree-drop-resolver';
+import type { DropTarget } from '../../overlay/drop-resolver';
 import {
   TREE_TEXT_ACTION_LABELS_EN,
   treeTextBubbleActions,
@@ -328,7 +329,7 @@ export interface CanvasDragHandle {
    * click-insert after a real (even cancelled) drag, keeping "an aborted drag
    * inserts nothing" true on the palette side too (§9 convergence fix).
    */
-  beginInsert(type: string, hostX: number, hostY: number): { didActivate: () => boolean };
+  beginInsert(type: string, hostX: number, hostY: number, onDrop?: (target: DropTarget) => void): { didActivate: () => boolean };
   /**
    * P7: start inserting a custom-code tree node (P2's element payload, from
    * the Library panel). It drops into a region's tree at the seat under the
@@ -339,6 +340,7 @@ export interface CanvasDragHandle {
     label: string,
     hostX: number,
     hostY: number,
+    options?: Pick<Extract<TreeDragPayload, { kind: 'tree-insert' }>, 'onDrop' | 'fallback'>,
   ): { didActivate: () => boolean };
 }
 
@@ -520,13 +522,31 @@ const EDITABLE_TARGET_SELECTOR =
   'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
 
 function isEditableTarget(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest(EDITABLE_TARGET_SELECTOR) !== null;
+  return isDomNode(target) && target.nodeType === 1 && (target as Element).closest(EDITABLE_TARGET_SELECTOR) !== null;
+}
+
+/** Frame event targets belong to another realm: host instanceof Node rejects them. */
+function isDomNode(target: EventTarget | null): target is Node {
+  return target !== null && 'nodeType' in target;
 }
 
 // ── block-parts (2026-10-06) ──
 /** A part's bar has no element actions; its own row comes from `resolvePartActions`. */
 const NO_ELEMENT_ACTIONS: readonly ElementAction[] = [];
 const ignoreElementAction = (): void => undefined;
+
+/**
+ * "Heading in Hero" — but never a name inside itself: a button block named for
+ * its label read "Button label · Get started in Get started", and an icon
+ * "Icon (sparkles) in Icon" (walk 2026-10-08). When the element's own name
+ * already carries the region's, the region is left out.
+ */
+function nameWithin(labels: Pick<EditorCanvasLabels, 'within'>, element: string, region: string): string {
+  const own = element.trim();
+  const around = region.trim();
+  if (around === '' || own.toLocaleLowerCase().includes(around.toLocaleLowerCase())) return own;
+  return labels.within(own, around);
+}
 
 /** The anchor path that means "the focused part" (no authored element path is negative). */
 const PART_ANCHOR_PATH = [-1] as const;
@@ -1352,7 +1372,7 @@ export function EditorCanvas({
       if (
         target === undefined ||
         element === null ||
-        !(event.target instanceof Node) ||
+        !isDomNode(event.target) ||
         !element.contains(event.target) ||
         !isFreelyPositioned(element)
       ) {
@@ -1446,7 +1466,7 @@ export function EditorCanvas({
       // A click inside text being edited in place places the caret: it is the
       // editor's, and pulling focus to the host would end the edit.
       const editing = treeSessionRef.current;
-      if (editing !== null && event.target instanceof Node && editing.element.contains(event.target)) {
+      if (editing !== null && isDomNode(event.target) && editing.element.contains(event.target)) {
         return;
       }
       const hit = hitAt(event.clientX, event.clientY);
@@ -1542,14 +1562,14 @@ export function EditorCanvas({
       // The palette's entry point rides the same net — press only; activation
       // still requires crossing the threshold (a palette CLICK stays a click).
       onDragHandleRef.current?.({
-        beginInsert(type, hostX, hostY) {
+        beginInsert(type, hostX, hostY, onDrop) {
           const start = toFrame(hostX, hostY);
-          session.press({ kind: 'insert', type }, start.x, start.y, 'handle');
+          session.press({ kind: 'insert', type, onDrop }, start.x, start.y, 'handle');
           return { didActivate: () => session.lastGestureActivated() };
         },
-        beginTreeInsert(node, label, hostX, hostY) {
+        beginTreeInsert(node, label, hostX, hostY, options) {
           const start = toFrame(hostX, hostY);
-          session.press({ kind: 'tree-insert', node, label }, start.x, start.y, 'handle');
+          session.press({ kind: 'tree-insert', node, label, ...options }, start.x, start.y, 'handle');
           return { didActivate: () => session.lastGestureActivated() };
         },
       });
@@ -2487,6 +2507,46 @@ export function EditorCanvas({
   );
   // ── /block-parts ──
 
+  /*
+    A selection made OUTSIDE the canvas — a library card inserting at the end
+    of the page, a Layers row, the agent — is brought into view when it sits
+    wholly off screen (walk 2026-10-08: an inserted Icon landed 8229px down
+    while the canvas stayed at the top, and nothing visible changed). A click
+    on the canvas selects something already on screen, so this never moves it.
+  */
+  useEffect(() => {
+    if (frame === null || (selectedId === null && elementFocus === null)) return undefined;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      // Two frames: the insert's render lands, then its layout settles.
+      second = requestAnimationFrame(() => {
+        const machinery = machineryRef.current;
+        const element =
+          elementFocus !== null && machinery !== null
+            ? elementDomOf(machinery.index, elementFocus.id, elementFocus.path)
+            : selectedId === null
+              ? null
+              : (elementsRef.current.get(selectedId) ?? null);
+        const view = element?.ownerDocument.defaultView;
+        if (element == null || view == null) return;
+        const rect = element.getBoundingClientRect();
+        const offScreen = rect.bottom < 0 || rect.top > view.innerHeight;
+        if (!offScreen) return;
+        try {
+          const still = view.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          element.scrollIntoView({ block: rect.height > view.innerHeight ? 'start' : 'center', inline: 'nearest', behavior: still ? 'auto' : 'smooth' });
+        } catch {
+          // A document without layout (jsdom) has nothing to scroll.
+        }
+        machinery?.anchors.refresh();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [selectedId, elementFocus, frame]);
+
   const selectedName = useMemo(() => {
     const node = selectedId === null ? undefined : doc.nodes[selectedId];
     if (node === undefined) {
@@ -2496,7 +2556,8 @@ export function EditorCanvas({
     // A focused part is announced inside its block — "Heading in Hero",
     // «العنوان في البطل» — with the part's own label in the editor's language.
     if (partFocus !== null && partFocus.id === node.id) {
-      return canvasLabels.within(
+      return nameWithin(
+        canvasLabels,
         partInstanceName(kernel, node.id, partFocus, canvasLabels.locale ?? 'en'),
         blockDisplayName(kernel, node.id, elementNameWords),
       );
@@ -2509,7 +2570,8 @@ export function EditorCanvas({
         ? customCodeElementAt(kernel, node.id, elementFocus.path)
         : undefined;
     if (located !== undefined) {
-      return canvasLabels.within(
+      return nameWithin(
+        canvasLabels,
         customCodeElementName(located.element, elementNameWords),
         blockDisplayName(kernel, node.id, elementNameWords),
       );

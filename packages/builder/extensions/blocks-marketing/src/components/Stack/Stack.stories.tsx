@@ -69,6 +69,27 @@ export const Row: Story = {
   },
 };
 
+export const CanvasRow: Story = {
+  args: {
+    ...args({ direction: 'row' }),
+    isCanvas: true,
+    slots: { default: (
+      <div data-bldr-slot="default" style={{ display: 'contents' }}>
+        <div data-bldr-node="a">{child('a')}</div>
+        <div data-bldr-node="b">{child('b')}</div>
+      </div>
+    ) },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const a = canvas.getByTestId('child-a').getBoundingClientRect();
+    const b = canvas.getByTestId('child-b').getBoundingClientRect();
+    await expect(a.width).toBeGreaterThan(0);
+    await expect(b.left).toBeGreaterThan(a.left);
+    await expect(Math.abs(b.top - a.top)).toBeLessThan(1);
+  },
+};
+
 export const Column: Story = {
   args: args({ direction: 'column' }),
   play: async ({ canvasElement }) => {

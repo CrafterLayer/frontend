@@ -10,7 +10,17 @@ import { SECTION_VARIANTS_SKILL } from './section-variants';
 import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 // design-code additions (2026-09-28)
 import { DESIGN_CODE_SKILL } from './design-code';
+import { DESIGN_QUALITY_TEACHING } from './design-libraries';
 // end design-code additions
+// pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see PIXI_SOURCES.md.
+import {
+  PIXI_V8_CORE_SKILL,
+  PIXI_V8_EFFECTS_SKILL,
+  PIXI_V8_GRAPHICS_SKILL,
+  PIXI_V8_INTERACTION_PERF_SKILL,
+  PIXI_V8_TEXT_ASSETS_SKILL,
+} from './pixi-v8';
+// end pixi-skills additions
 
 function freezeData(value: unknown): void {
   if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return;
@@ -110,7 +120,7 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '3.3.0',
+  version: '3.4.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
@@ -122,7 +132,8 @@ VARIANT: the direction names this section's layout in brackets — Menu[menu] bu
 THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finished section in full. Other regions arrive described rather than quoted ("filled · 34 nodes · …"); that is deliberate. Do not try to edit them and do not repeat their content.
 SHELL BY ROLE — the request states this region's ROLE; follow it, whatever the section's number. HERO: the first screen, not a band: section relative overflow-hidden py-24 md:py-32 lg:py-40, the page's one h1 (text-4xl md:text-6xl lg:text-7xl font-bold leading-tight; Arabic leading-snug), a lead p text-lg md:text-xl max-w-2xl, then the primary action and a secondary one; an active archetype's own opening (a CV header, an occasion card) replaces this shell. CHROME: the site header, navigation or footer its title names — a header holds the brand, links to the page's section ids and one action; a footer holds a brand column, link columns and the copyright line; no h1, no h2 of its own, no hero shell. BAND: section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8, keeping its h2 text (restyle it freely), then content with real depth — cards, lists, figures, icons — never a heading over a single paragraph.
 FINISHED, NOT DRAFTED: a published page never shows "[price]" or "[اسم العميل]". When the request does not give a business fact the section needs — menu items and prices, a customer's quote and name, opening hours, an address — write a realistic, specific sample that fits the business, its city and its language: prices in the local currency, names usual in that locale, quotes that sound like real customers. List every sample fact in followUp so the owner can replace it. Phone and email follow the same rule in an obviously generic form (info@ the brand's name, a local-format number of zeros). A person's own facts (a CV's employers and dates, an invitation's names and date) are never invented: they stay bracketed and listed in followUp, as the copywriting rules say.
-SIZE: one section, not a page. Aim for 20-70 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.`,
+SIZE: one section, not a page. Aim for 20-70 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.
+${DESIGN_QUALITY_TEACHING}`,
   references: {
     'checks/fill.md':
       "One setProp on the named region's tree, plus one for its css only when the tree uses ck- classes; the shell its ROLE names — the hero holds the page's one h1, a band keeps its h2 text, chrome carries neither; every colour and face from the given direction, role classes only for a site-theme direction; no other node touched; no other region's content repeated; no bracketed placeholder for a business fact — samples are realistic and listed in followUp; only a person's own facts stay bracketed.",
@@ -1135,6 +1146,13 @@ const SHOP_PAGE = builtin(SHOP_PAGE_SKILL);
 // design-code additions (2026-09-28): explicit, for section writers and the page plan.
 const DESIGN_CODE = builtin(DESIGN_CODE_SKILL);
 // end design-code additions
+// pixi-skills additions (2026-10-10): free-code scene scripts in PixiJS v8; the core is every other one's dependency.
+const PIXI_V8_CORE = builtin(PIXI_V8_CORE_SKILL);
+const PIXI_V8_GRAPHICS = builtin(PIXI_V8_GRAPHICS_SKILL);
+const PIXI_V8_TEXT_ASSETS = builtin(PIXI_V8_TEXT_ASSETS_SKILL);
+const PIXI_V8_EFFECTS = builtin(PIXI_V8_EFFECTS_SKILL);
+const PIXI_V8_INTERACTION_PERF = builtin(PIXI_V8_INTERACTION_PERF_SKILL);
+// end pixi-skills additions
 
 /**
  * Reviewed, data-only defaults, ordered by priority descending. Hosts opt in
@@ -1167,6 +1185,13 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   COPYWRITING,
   MOTION,
   SCROLL_CINEMATIC,
+  // pixi-skills additions (2026-10-10): priorities 43-41, between scroll-cinematic and accessibility.
+  PIXI_V8_CORE,
+  PIXI_V8_GRAPHICS,
+  PIXI_V8_TEXT_ASSETS,
+  PIXI_V8_EFFECTS,
+  PIXI_V8_INTERACTION_PERF,
+  // end pixi-skills additions
   ACCESSIBILITY,
   UI_UX_PRO,
   CRAFT_MANUAL,

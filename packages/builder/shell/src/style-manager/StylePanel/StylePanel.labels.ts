@@ -61,6 +61,8 @@ export interface StylePanelLabels {
   readonly mixed: string;
   readonly unset: string;
   readonly customBreakpoint: string;
+  /** Why the badge is there: classes at a breakpoint this panel does not edit still apply. */
+  readonly customBreakpointHint: string;
   readonly imageUrl: string;
   /** Announced after a write: "Padding updated". */
   readonly updated: (property: string) => string;
@@ -97,6 +99,8 @@ export const STYLE_PANEL_LABELS_EN: StylePanelLabels = {
   mixed: 'Mixed',
   unset: '—',
   customBreakpoint: 'Custom breakpoint',
+  customBreakpointHint:
+    'This property also has classes at another breakpoint (sm, xl, @md…). This panel leaves them as they are, and they still apply on those screens.',
   imageUrl: 'Image URL',
   updated: (property) => `${property} updated`,
   refused: (property, reason) => `${property} not changed: ${reason}`,
@@ -126,6 +130,8 @@ export const STYLE_PANEL_LABELS_AR: StylePanelLabels = {
   mixed: 'مختلطة',
   unset: '—',
   customBreakpoint: 'نقطة توقف مخصّصة',
+  customBreakpointHint:
+    'لهذه الخاصية أصناف أخرى عند نقطة توقف مختلفة (sm أو xl أو @md…). تتركها هذه اللوحة كما هي، وتبقى سارية على تلك الشاشات.',
   imageUrl: 'رابط الصورة',
   updated: (property) => `تم تحديث ${property}`,
   refused: (property, reason) => `لم يتغير ${property}: ${reason}`,

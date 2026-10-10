@@ -2,7 +2,14 @@ import type { BuilderDocument, NodeId, RegistryRead, SlotName } from '@craftkit/
 
 import type { RectIndex } from '../rects';
 
-export type DragPayload = { kind: 'move'; id: NodeId } | { kind: 'insert'; type: string };
+export type DragPayload =
+  | { kind: 'move'; id: NodeId }
+  | {
+      kind: 'insert';
+      type: string;
+      /** A library entry supplies its content; the resolver still owns the seat. */
+      onDrop?: ((target: DropTarget) => void) | undefined;
+    };
 
 export interface DropTarget {
   parentId: NodeId;
@@ -191,6 +198,68 @@ export function resolveDropTarget(
   x: number,
   y: number,
 ): DropTarget | null {
+  const layoutOfSlot = (id: NodeId, slot: SlotName) => {
+    const owner = index.element(id);
+    const slotElement = Array.from(
+      owner?.querySelectorAll<HTMLElement>('[data-bldr-slot]') ?? [],
+    ).find(
+      (element) =>
+        element.getAttribute('data-bldr-slot-of') === id &&
+        element.getAttribute('data-bldr-slot') === slot,
+    );
+    const layoutElement = slotElement?.parentElement;
+    const style = layoutElement?.ownerDocument.defaultView?.getComputedStyle(layoutElement);
+    const inline =
+      style?.display.includes('flex') === true && style.flexDirection.startsWith('row');
+    const reverse = inline
+      ? (style.direction === 'rtl') !== (style.flexDirection === 'row-reverse')
+      : style?.flexDirection === 'column-reverse';
+    return { inline, reverse };
+  };
+  // Container padding and gaps are real insertion positions, not an instruction
+  // to append. Compare only the receiving slot's children (never the whole tree).
+  const slotTarget = (
+    id: NodeId,
+    slot: SlotName,
+    containerRect: DropTarget['indicatorRect'],
+  ): DropTarget => {
+    const children = doc.nodes[id]?.slots?.[slot] ?? [];
+    let nearest: { at: number; rect: DropTarget['indicatorRect']; distance: number } | undefined;
+    children.forEach((child, at) => {
+      if (payload.kind === 'move' && child === payload.id) return;
+      const rect = index.rect(child);
+      if (rect === undefined || rect.width <= 0 || rect.height <= 0) return;
+      const dx = x - Math.max(rect.x, Math.min(x, rect.x + rect.width));
+      const dy = y - Math.max(rect.y, Math.min(y, rect.y + rect.height));
+      const distance = Math.hypot(dx, dy);
+      if (nearest === undefined || distance < nearest.distance) nearest = { at, rect, distance };
+    });
+    if (nearest === undefined) {
+      return {
+        parentId: id,
+        slot,
+        index: postRemovalIndex(doc, payload, id, slot, children.length),
+        indicatorRect: intoIndicator(containerRect),
+      };
+    }
+    const { inline, reverse } = layoutOfSlot(id, slot);
+    const rect = nearest.rect;
+    const leading = inline ? x < rect.x + rect.width / 2 : y < rect.y + rect.height / 2;
+    const before = reverse ? !leading : leading;
+    return {
+      parentId: id,
+      slot,
+      index: postRemovalIndex(doc, payload, id, slot, nearest.at + (before ? 0 : 1)),
+      indicatorRect: inline
+        ? {
+            x: (before !== reverse ? rect.x : rect.x + rect.width) - 1,
+            y: rect.y,
+            width: 2,
+            height: rect.height,
+          }
+        : gapIndicator(rect, before !== reverse ? 'before' : 'after'),
+    };
+  };
   const intoTargetOf = (id: NodeId): DropTarget | null => {
     const nodeRect = index.rect(id);
     if (nodeRect === undefined) {
@@ -204,25 +273,13 @@ export function resolveDropTarget(
       firstAcceptingSlot ??= slot;
       const slotRect = index.slotRect?.(id, slot);
       if (slotRect !== undefined && containsPoint(slotRect, x, y)) {
-        const end = doc.nodes[id]?.slots?.[slot]?.length ?? 0;
-        return {
-          parentId: id,
-          slot,
-          index: postRemovalIndex(doc, payload, id, slot, end),
-          indicatorRect: intoIndicator(slotRect),
-        };
+        return slotTarget(id, slot, slotRect);
       }
     }
     if (firstAcceptingSlot === undefined) {
       return null;
     }
-    const end = doc.nodes[id]?.slots?.[firstAcceptingSlot]?.length ?? 0;
-    return {
-      parentId: id,
-      slot: firstAcceptingSlot,
-      index: postRemovalIndex(doc, payload, id, firstAcceptingSlot, end),
-      indicatorRect: intoIndicator(nodeRect),
-    };
+    return slotTarget(id, firstAcceptingSlot, nodeRect);
   };
 
   const gapTargetOf = (id: NodeId): DropTarget | null => {
@@ -234,13 +291,22 @@ export function resolveDropTarget(
     if (!slotAccepts(doc, registry, seat.parentId, seat.slot, payload)) {
       return null;
     }
-    const edge: 'before' | 'after' = y < rect.y + rect.height / 2 ? 'before' : 'after';
-    const rawIndex = edge === 'before' ? seat.index : seat.index + 1;
+    const { inline, reverse } = layoutOfSlot(seat.parentId, seat.slot);
+    const leading = inline ? x < rect.x + rect.width / 2 : y < rect.y + rect.height / 2;
+    const before = reverse ? !leading : leading;
+    const rawIndex = before ? seat.index : seat.index + 1;
     return {
       parentId: seat.parentId,
       slot: seat.slot,
       index: postRemovalIndex(doc, payload, seat.parentId, seat.slot, rawIndex),
-      indicatorRect: gapIndicator(rect, edge),
+      indicatorRect: inline
+        ? {
+            x: (leading ? rect.x : rect.x + rect.width) - 1,
+            y: rect.y,
+            width: 2,
+            height: rect.height,
+          }
+        : gapIndicator(rect, leading ? 'before' : 'after'),
     };
   };
 
@@ -253,9 +319,12 @@ export function resolveDropTarget(
     if (rect !== undefined) {
       // Three-band rule: the middle band prefers INTO (an empty container is
       // otherwise untargetable); the outer quarters prefer the sibling gap.
-      const bandTop = rect.y + rect.height * 0.25;
-      const bandBottom = rect.y + rect.height * 0.75;
-      const preferInto = y >= bandTop && y < bandBottom;
+      const seat = seatOf(doc, current);
+      const inline = seat !== undefined && layoutOfSlot(seat.parentId, seat.slot).inline;
+      const start = inline ? rect.x : rect.y;
+      const size = inline ? rect.width : rect.height;
+      const point = inline ? x : y;
+      const preferInto = point >= start + size * 0.25 && point < start + size * 0.75;
       const first = preferInto ? intoTargetOf(current) : gapTargetOf(current);
       const second = preferInto ? gapTargetOf(current) : intoTargetOf(current);
       const resolved = first ?? second;

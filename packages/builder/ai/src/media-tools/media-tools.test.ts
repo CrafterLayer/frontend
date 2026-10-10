@@ -558,3 +558,28 @@ describe('runAiAgent — a media request is zero tokens and one Undo (acceptance
     expect(rootCount(kernel)).toBe(before);
   });
 });
+
+describe('media.add placement and heading (fix pass 2026-10-10)', () => {
+  it('a gallery lands before a closing call to action, and its own section carries a heading', async () => {
+    const { createBuilder } = await import('@craftkit/builder-core');
+    const { agentToolsFixtureBlocks, fixtureDocument } = await import('../tools/agent/agent-tools.fixtures');
+    const { treeCommandsFixture } = await import('../style-tools/style-tools.fixtures');
+    const document = structuredClone(fixtureDocument()) as unknown as {
+      nodes: Record<string, { props: { tree: { children: { attributes?: Record<string, string> }[] } } }>;
+    };
+    // r-story (index 3, just above the footer) becomes the page's closing invitation.
+    const outer = document.nodes['r-story']?.props.tree.children[0];
+    if (outer === undefined) throw new Error('fixture: r-story has no outer element');
+    outer.attributes = { ...outer.attributes, id: 'book' };
+    const kernel = createBuilder({
+      document: document as never,
+      extensions: [agentToolsFixtureBlocks, treeCommandsFixture],
+      ports: { clock: fixedClock(1), ids: seededIds('placement') },
+    });
+    const result = door(kernel, 'media.add', { kind: 'gallery', images: 'catalog:restaurant' });
+    expect(result.issues).toEqual([]);
+    expect(result.steps[0]?.args).toMatchObject({ type: 'customCode', parentId: 'root', index: 3 });
+    const headings = elements(insertedTree(result.steps)).filter((node) => node.tag === 'h2');
+    expect(headings).toHaveLength(1);
+  });
+});

@@ -1,5 +1,5 @@
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
-import { UTILITY_VOCABULARY, type ContextFragment } from '@craftkit/builder/wire';
+import { DESIGN_LIBRARY_TEACHING, DESIGN_QUALITY_TEACHING, UTILITY_VOCABULARY, type ContextFragment } from '@craftkit/builder/wire';
 
 import {
   PAGE_PLAN_ARABIC_FAMILIES,
@@ -31,7 +31,7 @@ import { asksForFreeCode } from './free-code-intent';
 */
 // BEGIN AGENT TOOL PROMPTS
 export const EDIT_TOOL_PROMPT =
-  "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\ntheme.apply\nfonts.set {display?,body?:verified family}\ncopy.set {edits:[{find,text}],id?}\ndirection.set {lang,dir?}\nimage.set {id,find:src,subject,aspect?,alt}\nicon.set {id,find:icon,icon}\nsection.ops\nnav.sync {} — Rebuild menus from sections\nbehavior.attach\nkit.section {id,kit,slots,heading?:'h1'|'h2'}\nkit.swap {id,kit}\nkit.insert {kit,slots,after?:id}\nseo.meta\nseo.business\nelement.style\nelement.animate\nelement.insert\nelement.remove {id,path|find}\nelement.move\nelement.duplicate {id,path|find}\nelement.wrap\nelement.attr\nelement.effect\nstyle.define {name,className}\nstyle.apply\npalette.set {colors:[{name,value}],ramp?:name}\nblock.convert {nodeId}\npart.text {id,part,index?,text}\npart.style {id,part,index?,style}\npart.link {id,part,index?,text?,href?}\npart.image {id,part,index?,src?,alt?}\npart.list {id,part,op,index,to?,item?}\nmedia.add {kind,after?:id,into?:id,behind?:id,…}\nmotion.add {id,find?|path?|part?,recipe,scrub?}\nmedia.add kinds: gallery{layout?:grid|masonry|bento|carousel|filmstrip,images?:'catalog:<topic>'|[{src,alt}],count?} video{url,mode?:background} scene{scene:particles|mesh-gradient|parallax-layers|mural|ripple,behind?:hero id} compare{images?} pricing{plans:[{name,a,b}]} map{address} lottie{src}\nmotion.add recipe: split-reveal|stagger-in|pin-sequence|horizontal-scroll|parallax-depth|scrub-scale|velocity-marquee|fade-in|slide-in\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"theme.apply\",\"input\":{\"accent\":\"emerald-700\"}}}";
+  "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\ntheme.apply\nfonts.set {display?,body?:verified family}\ncopy.set {edits:[{find,text}],id?}\ndirection.set {lang,dir?}\nimage.set {id,find:src,subject,aspect?,alt}\nicon.set {id,find:icon,icon}\nsection.ops\nnav.sync {} — Rebuild menus from sections\nbehavior.attach\nkit.section {id,kit,slots,heading?:'h1'|'h2'}\nkit.swap {id,kit}\nkit.insert {kit,slots,after?:id}\nseo.meta\nseo.business\nelement.style\nelement.animate\nelement.insert {id,parent:path|after:path|text|before:path|text,index?,markup?|preset?,content?}\nelement.remove {id,path|find}\nelement.move\nelement.duplicate {id,path|find}\nelement.wrap\nelement.attr {id,path|find,set:{name:value|null}}\nelement.effect\nstyle.define {name,className}\nstyle.apply\npalette.set {colors:[{name,value}],ramp?:name}\nblock.convert {nodeId}\npart.text {id,part,index?,text}\npart.style {id,part,index?,style}\npart.link {id,part,index?,text?,href?}\npart.image {id,part,index?,src?,alt?}\npart.list {id,part,op,index,to?,item?}\nmedia.add {kind,after?:id,into?:id,behind?:id,…}\nmotion.add {id,find?|path?|part?,recipe,scrub?}\nelement.insert preset:feature-card|metric-card|quote-card|notice|checklist|process-steps|contact-card|bento-grid content:{title?,text?,value?,label?,href?,items?:[{title,text?}]}; markup OR preset\nmedia.add kinds: gallery{layout?:grid|masonry|bento|carousel|filmstrip,images?:'catalog:<topic>'|[{src,alt}],count?} video{url,mode?:background} scene{scene:particles|mesh-gradient|parallax-layers|mural|ripple,behind?:hero id} compare{images?} pricing{plans:[{name,a,b}]} map{address} lottie{src}\nmotion.add recipe: split-reveal|stagger-in|pin-sequence|horizontal-scroll|parallax-depth|scrub-scale|velocity-marquee|fade-in|slide-in\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"theme.apply\",\"input\":{\"accent\":\"emerald-700\"}}}";
 export const SEO_TOOL_PROMPT =
   "TOOLS — a step {\"command\":\"tool\",\"args\":{\"name\",\"input\"}} is expanded to kernel steps for you; prefer it to rewriting markup:\nseo.meta {title?,description?,keyword?,slug?} — omitted fields fill from the h1 and lead — Set page title, description, slug and keyword\nseo.business {type,name,telephone?,whatsapp?,email?,address?:{city,country,street?},hours?,priceRange?,cuisine?,sameAs?} — Record the owner's real business facts\nseo.schema {kinds:[FAQPage|Menu|Product|Service|Article|BreadcrumbList|Event]} — Choose which structured data this page publishes\nseo.fix {} — Apply every safe SEO fix on this page\ne.g. {\"command\":\"tool\",\"args\":{\"name\":\"seo.fix\",\"input\":{}}}";
 // END AGENT TOOL PROMPTS
@@ -200,6 +200,8 @@ Style with \`className\` utilities as the "# Utility classes" section of your co
 Icons: \`{"kind":"icon","name":"mail"}\` draws an icon from the Lucide set (lucide.dev/icons) by its kebab-case name — \`mail\`, \`phone\`, \`map-pin\`, \`globe\`, \`link\`, \`external-link\`, \`arrow-right\`, \`check\`, \`star\`, \`briefcase\`, \`graduation-cap\`, \`calendar\`, \`download\`. Optional \`size\` (px), \`strokeWidth\`, \`className\` (\`text-amber-700\`, \`h-6 w-6\`). Give it a \`label\` only when it carries meaning on its own; leave it out when text beside it already says the same thing. **Lucide has no brand logos** — there is no \`github\`, \`linkedin\`, \`twitter\`, \`instagram\`: for a social or profile link use \`link\`, \`globe\`, or \`external-link\` beside the text. A name that is not in the set is refused by name, so use names you are sure exist.
 
 Design to a professional standard: generous spacing on a consistent scale, one clear typographic hierarchy, a real responsive layout (\`md:\`/\`lg:\` variants), and a deliberate palette applied the same way in every section.
+${DESIGN_QUALITY_TEACHING}
+${DESIGN_LIBRARY_TEACHING}
 
 ## Refusing
 
@@ -252,6 +254,7 @@ ${REGION_CSS}
 
 ${EDIT_TOOL_PROMPT}
 ${TOOL_PREFERENCE}
+${DESIGN_LIBRARY_TEACHING}
 
 ${EDIT_SCRIPTS}
 

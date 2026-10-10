@@ -1,4 +1,5 @@
 import { pageEngines, type PageEngine } from '../behaviors/script';
+import { STUDIO_ENGINE_LOADERS } from './studio/loaders'; // pixi-studio:runtime-wiring (2026-10-10)
 
 /**
  * Canvas injection of the lazily loaded engines (media-motion DESIGN §2.4).
@@ -18,12 +19,13 @@ import { pageEngines, type PageEngine } from '../behaviors/script';
  * - Once per document: a present script is never added again; the source text
  *   is loaded once per page session.
  * - The returned disposer cancels the injections still waiting on an import.
- * - Under reduced motion nothing is loaded: the `engines` pack queues nothing.
+ * - Reduced motion skips decorative engines, not carousel interaction or explicit script APIs.
  */
 export type EngineLoader = () => Promise<string>;
 
 /** The script text each engine asset carries: banner + vendored/bundled source + runner call. */
 export const ENGINE_LOADERS: Readonly<Record<PageEngine, EngineLoader>> = {
+  carousel: async () => (await import('./carousel-source')).CAROUSEL_SOURCE,
   timeline: async () => {
     const [{ TIMELINE_BANNER, TIMELINE_SOURCE }, { installTimelineEngine }] = await Promise.all([
       import('./timeline-source'),
@@ -42,6 +44,10 @@ export const ENGINE_LOADERS: Readonly<Record<PageEngine, EngineLoader>> = {
     ]);
     return `${LOTTIE_BANNER}${LOTTIE_SOURCE}\n;(${installLottieEngine.toString()})(window);\n`;
   },
+  // pixi-studio:runtime-wiring additions (2026-10-10): the add-on libraries and the sound engine,
+  // each a dynamic import of its generated string module (engines/studio/loaders.ts).
+  ...STUDIO_ENGINE_LOADERS,
+  // end pixi-studio:runtime-wiring additions
 };
 
 const loaded = new WeakMap<EngineLoader, Promise<string>>();
@@ -65,7 +71,16 @@ function present(doc: Document, kind: PageEngine): boolean {
 
 export function ensureCanvasEngines(
   root: ParentNode,
-  options?: { readonly loaders?: Partial<Readonly<Record<PageEngine, EngineLoader>>> },
+  options?: {
+    readonly loaders?: Partial<Readonly<Record<PageEngine, EngineLoader>>>;
+    // pixi-studio:runtime-wiring additions (2026-10-10)
+    /**
+     * `false` only for a host Preview (a view a reader interacts with). Absent or `true`: the
+     * editor canvas, which never loads `sound` (DESIGN D12) — the safe default.
+     */
+    readonly canvas?: boolean;
+    // end pixi-studio:runtime-wiring additions
+  },
 ): () => void {
   const doc: Document | null =
     (root as Node).nodeType === 9 ? (root as Document) : (root as Node).ownerDocument;
@@ -77,13 +92,21 @@ export function ensureCanvasEngines(
     typeof view.matchMedia === 'function' &&
     view.matchMedia('(prefers-reduced-motion: reduce)').matches;
   /*
-    Under reduced motion nothing loads, except the full pixi.js bundle (free-code mode): a region
-    script asked for it by name and decides for itself what to draw (`ck.reducedMotion`); without
-    it `ck.pixi()` would wait for a bundle that never comes.
+    Reduced motion skips decorative engines. Explicit script APIs decide what to draw via
+    `ck.reducedMotion`; carousel navigation remains available and jumps without animation.
   */
+  // pixi-studio:runtime-wiring additions (2026-10-10): the add-on libraries load under reduced
+  // motion like pixi (the script decides what to draw); sound never loads on the editor canvas.
+  const canvas = options?.canvas !== false;
+  const always = (kind: PageEngine): boolean =>
+    kind === 'pixi' || kind === 'carousel' || kind.startsWith('lib-') || kind === 'sound';
   const kinds = [...pageEngines(root)].filter(
-    (kind) => (!reduced || kind === 'pixi') && !present(doc, kind),
+    (kind) =>
+      (!reduced || always(kind)) &&
+      !(canvas && (kind === 'sound' || kind === 'carousel')) &&
+      !present(doc, kind),
   );
+  // end pixi-studio:runtime-wiring additions
   if (kinds.length === 0) return noop;
   let cancelled = false;
   for (const kind of kinds) {

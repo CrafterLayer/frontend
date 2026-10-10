@@ -29,15 +29,31 @@ afterEach(() => {
 });
 
 describe('ensureCanvasEngines', () => {
+  it('loads the carousel only for interactive preview, including reduced motion', async () => {
+    const carousel = vi.fn<EngineLoader>(() => Promise.resolve('/* snap engine */'));
+    const root = host('<section data-ck-behavior="carousel"><ul><li>1</li></ul></section>');
+    ensureCanvasEngines(root, { loaders: { carousel } });
+    await flush();
+    expect(carousel).not.toHaveBeenCalled();
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    ensureCanvasEngines(root, { canvas: false, loaders: { carousel } });
+    await flush();
+    expect(carousel).toHaveBeenCalledTimes(1);
+    expect(document.head.querySelector('script[data-ck-engine="carousel"]')).not.toBeNull();
+  });
   it('appends one script per engine the root uses to its own document head, once', async () => {
     const load = loaders();
-    const root = host('<div data-ck-scene="mural"></div><h2 data-ck-timeline="split-reveal">x</h2>');
+    const root = host(
+      '<div data-ck-scene="mural"></div><h2 data-ck-timeline="split-reveal">x</h2>',
+    );
     ensureCanvasEngines(root, { loaders: load });
     await flush();
     ensureCanvasEngines(root, { loaders: load });
     await flush();
     expect(document.head.querySelectorAll('script[data-ck-engine="scene"]')).toHaveLength(1);
-    expect(document.head.querySelector('script[data-ck-engine="scene"]')?.textContent).toBe('/* scene */');
+    expect(document.head.querySelector('script[data-ck-engine="scene"]')?.textContent).toBe(
+      '/* scene */',
+    );
     expect(document.head.querySelectorAll('script[data-ck-engine="timeline"]')).toHaveLength(1);
     expect(document.head.querySelector('script[data-ck-engine="lottie"]')).toBeNull();
     // The text is loaded once per loader, not once per call.
@@ -49,7 +65,10 @@ describe('ensureCanvasEngines', () => {
     const frame = document.createElement('iframe');
     document.body.appendChild(frame);
     const inner = frame.contentDocument!;
-    const root = host('<div data-ck-lottie="" data-ck-src="https://a.example/x.json"></div>', inner);
+    const root = host(
+      '<div data-ck-lottie="" data-ck-src="https://a.example/x.json"></div>',
+      inner,
+    );
     ensureCanvasEngines(root, { loaders: loaders() });
     await flush();
     expect(inner.head.querySelector('script[data-ck-engine="lottie"]')).not.toBeNull();
@@ -63,7 +82,9 @@ describe('ensureCanvasEngines', () => {
       new Promise((done) => {
         resolve = done;
       });
-    const dispose = ensureCanvasEngines(host('<div data-ck-scene="particles"></div>'), { loaders: { scene: slow } });
+    const dispose = ensureCanvasEngines(host('<div data-ck-scene="particles"></div>'), {
+      loaders: { scene: slow },
+    });
     dispose();
     resolve('/* late */');
     await flush();
@@ -91,7 +112,9 @@ describe('ensureCanvasEngines', () => {
       const pixi = vi.fn<EngineLoader>(() => Promise.resolve('/* pixi */'));
       ensureCanvasEngines(scripted('const { app } = await ck.stage();'), { loaders: { pixi } });
       await flush();
-      expect(document.head.querySelector('script[data-ck-engine="pixi"]')?.textContent).toBe('/* pixi */');
+      expect(document.head.querySelector('script[data-ck-engine="pixi"]')?.textContent).toBe(
+        '/* pixi */',
+      );
       expect(pixi).toHaveBeenCalledTimes(1);
     });
 
@@ -145,11 +168,21 @@ describe('ENGINE_LOADERS', () => {
 
 const SRC = join(process.cwd(), 'src');
 const STATIC_IMPORT = /(?:^|\n)\s*(?:import|export)\s(?:[^;'"]*?\sfrom\s+)?['"]([^'"]+)['"]/gu;
-const ENGINE_SOURCE = /engines\/(?:timeline|scene|lottie|pixi-full)-source\.ts$/u;
+// pixi-studio:runtime-wiring additions (2026-10-10): + the generated Studio sources
+// (engines/studio/<key>-source.ts, engines/studio/sound-source.ts), reached only via loaders.ts.
+const ENGINE_SOURCE =
+  /engines\/(?:(?:timeline|scene|lottie|pixi-full|carousel)|studio\/[a-z]+)-source\.ts$/u;
+// end pixi-studio:runtime-wiring additions
 
 function resolveImport(from: string, specifier: string): string | undefined {
   const base = resolve(dirname(from), specifier);
-  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+  for (const candidate of [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    join(base, 'index.ts'),
+    join(base, 'index.tsx'),
+  ]) {
     if (candidate.endsWith('.ts') || candidate.endsWith('.tsx')) {
       if (existsSync(candidate)) return candidate;
     }
@@ -181,6 +214,10 @@ describe('engine sources are dynamic imports only', () => {
     expect(graph.has(join(SRC, 'engines/inject.ts'))).toBe(true);
     expect(graph.has(join(SRC, 'export/export-static-site.ts'))).toBe(true);
     expect([...graph].filter((file) => ENGINE_SOURCE.test(file))).toEqual([]);
+    // pixi-studio:runtime-wiring additions (2026-10-10): the Studio loaders ARE in the main chunk;
+    // what they import is not (each generated module is an import() inside a loader).
+    expect(graph.has(join(SRC, 'engines/studio/loaders.ts'))).toBe(true);
+    // end pixi-studio:runtime-wiring additions
   });
 
   it('inject.ts and the exporter name each source in a dynamic import()', () => {

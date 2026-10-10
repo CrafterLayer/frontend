@@ -528,7 +528,9 @@ export function StyleProperty({
       </div>
       <div className="bldr-style-property__control">{control}</div>
       {view.customBreakpoint ? (
-        <span className="bldr-style-property__badge">{labels.customBreakpoint}</span>
+        <span className="bldr-style-property__badge" title={labels.customBreakpointHint}>
+          {labels.customBreakpoint}
+        </span>
       ) : null}
     </div>
   );

@@ -70,6 +70,14 @@ the panel's growth alone never moves a reader.
   wheeled back to the bottom instead of pressing it), focus goes where pressing it would have sent
   it: the newest record's head.
 - **Empty**: no list; EmptyState and its starters, pushed to the bottom.
+- **Viewport changes**: the scrolling hook observes both the viewport and the content. A growing
+  composer follows the latest only while pinned; a reader browsing history keeps their offset.
+- **Hidden panels**: zero-size reports are ignored. Reopening restores the reader's position, or
+  resumes following the latest when they had been pinned. A resize never opts a released reader back
+  in. Browser scroll anchoring is disabled so it cannot compete with this ownership.
+- **Input intent**: wheel-up, upward touch movement, and ArrowUp/PageUp/Home/Shift+Space on the
+  focused conversation release an active spring before it can overwrite the browser scroll.
+  Descendant controls and inner scrollers retain their own input.
 
 ## Stories
 

@@ -13,6 +13,7 @@ import {
   type BehaviorPack,
 } from './packs';
 import { mountBehaviors } from './runtime';
+import { declaredLibs, type StudioLibKey } from '../studio/contract'; // pixi-studio:runtime-wiring (2026-10-10)
 
 /*
   media-motion fix pass (2026-10-06): ck-behaviors.js carried every pack to
@@ -124,9 +125,21 @@ export function hasBehaviors(markupOrDocument: unknown): boolean {
 }
 
 // media-motion (2026-10-06); free-code mode (2026-10-09): + 'pixi', the FULL pixi.js bundle for region scripts.
-export type PageEngine = 'scene' | 'timeline' | 'lottie' | 'pixi';
+export type PageEngine =
+  | 'scene'
+  | 'timeline'
+  | 'lottie'
+  | 'pixi'
+  | 'carousel'
+  // pixi-studio:runtime-wiring additions (2026-10-10): the add-on libraries and the sound engine.
+  | 'sound'
+  | `lib-${StudioLibKey}`;
+// end pixi-studio:runtime-wiring additions
 
-const ENGINE_ATTRIBUTES: readonly (readonly [Exclude<PageEngine, 'pixi'>, string])[] = [
+const ENGINE_ATTRIBUTES: readonly (readonly [
+  Exclude<PageEngine, 'pixi' | 'carousel' | 'sound' | `lib-${StudioLibKey}`>,
+  string,
+])[] = [
   ['scene', 'data-ck-scene'],
   ['timeline', 'data-ck-timeline'],
   ['lottie', 'data-ck-lottie'],
@@ -150,6 +163,71 @@ function markupScriptsUsePixi(markup: string): boolean {
   return false;
 }
 
+// pixi-studio:runtime-wiring additions (2026-10-10)
+/*
+  Pixi Studio (DESIGN §B.1): a region's code may also ask for add-on libraries (`ck.use('filters')`,
+  `ck.scene({ libs: ['physics'] })`) and for sound (`ck.sound`, `audio: true`); a customCode tree
+  element may carry `data-ck-sound`. One reader, `declaredLibs` (the export uses the same one),
+  turns each code string into engine kinds. `ck.scene(` always implies `pixi` and `lib-kit`.
+*/
+const SOUND_ATTRIBUTE = 'data-ck-sound';
+const SOUND_MARKUP = /\sdata-ck-sound(?=[\s=>/])/u;
+
+const MARKUP_ENTITIES: Readonly<Record<string, string>> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  '#39': "'",
+  '#x27': "'",
+  '#X27': "'",
+};
+
+/** An attribute value as rendered markup escapes it, decoded back to the code it carries. */
+export function decodeMarkupAttribute(value: string): string {
+  return value.replace(
+    /&(amp|lt|gt|quot|#39|#x27|#X27);/gu,
+    (_all, name: string) => MARKUP_ENTITIES[name] ?? '',
+  );
+}
+
+/** The engines one region's code asks for, beyond the `codeUsesPixi` rule. */
+export function codeEngines(
+  code: string,
+  into: Set<PageEngine> = new Set<PageEngine>(),
+): Set<PageEngine> {
+  if (codeUsesPixi(code)) into.add('pixi');
+  const declared = declaredLibs(code);
+  if (declared.pixi || declared.scene) into.add('pixi');
+  for (const key of declared.libs) into.add(`lib-${key}`);
+  if (declared.scene) into.add('lib-kit');
+  if (declared.sound) into.add('sound');
+  return into;
+}
+
+/** Every `data-ck-js` code string in rendered markup, decoded. */
+function markupScripts(markup: string): string[] {
+  const codes: string[] = [];
+  for (const match of markup.matchAll(/\sdata-ck-js=(?:"([^"]*)"|'([^']*)')/gu)) {
+    codes.push(decodeMarkupAttribute(match[1] ?? match[2] ?? ''));
+  }
+  return codes;
+}
+
+/** Every `data-ck-js` code string in a stored JSON value (a document, a tree), decoded. */
+function jsonScripts(json: string): string[] {
+  const codes: string[] = [];
+  for (const match of json.matchAll(/"data-ck-js":"((?:[^"\\]|\\.)*)"/gu)) {
+    try {
+      codes.push(JSON.parse(`"${match[1] ?? ''}"`) as string);
+    } catch {
+      codes.push(match[1] ?? '');
+    }
+  }
+  return codes;
+}
+// end pixi-studio:runtime-wiring additions
+
 /**
  * Which lazily loaded engines a page uses (media-motion DESIGN §2.2): read from
  * rendered markup (an attribute name followed by `=`, whitespace, `>` or `/`),
@@ -159,26 +237,55 @@ function markupScriptsUsePixi(markup: string): boolean {
 export function pageEngines(markupOrNode: unknown): Set<PageEngine> {
   const used = new Set<PageEngine>();
   if (typeof markupOrNode === 'string') {
+    if (behavior('carousel').test(markupOrNode)) used.add('carousel');
     for (const [kind, attribute] of ENGINE_ATTRIBUTES) {
       if (new RegExp(`\\s${attribute}(?=[\\s=>/])`, 'u').test(markupOrNode)) used.add(kind);
     }
     if (markupScriptsUsePixi(markupOrNode)) used.add('pixi');
+    // pixi-studio:runtime-wiring additions (2026-10-10)
+    for (const code of markupScripts(markupOrNode)) codeEngines(code, used);
+    if (SOUND_MARKUP.test(markupOrNode)) used.add('sound');
+    // end pixi-studio:runtime-wiring additions
     return used;
   }
   if (typeof markupOrNode !== 'object' || markupOrNode === null) return used;
   const node = markupOrNode as { querySelector?: unknown; nodeType?: unknown; matches?: unknown };
   if (typeof node.querySelector === 'function') {
     const parent = markupOrNode as ParentNode;
+    const carouselSelector = '[data-ck-behavior="carousel"]';
+    if (
+      (node.nodeType === 1 &&
+        typeof node.matches === 'function' &&
+        (markupOrNode as Element).matches(carouselSelector)) ||
+      parent.querySelector(carouselSelector) !== null
+    )
+      used.add('carousel');
     for (const [kind, attribute] of ENGINE_ATTRIBUTES) {
       const selector = `[${attribute}]`;
-      const self = node.nodeType === 1 && typeof node.matches === 'function' && (markupOrNode as Element).matches(selector);
+      const self =
+        node.nodeType === 1 &&
+        typeof node.matches === 'function' &&
+        (markupOrNode as Element).matches(selector);
       if (self || parent.querySelector(selector) !== null) used.add(kind);
     }
     const scripted: Element[] = Array.from(parent.querySelectorAll(SCRIPT_SELECTOR));
-    if (node.nodeType === 1 && typeof node.matches === 'function' && (markupOrNode as Element).matches(SCRIPT_SELECTOR)) {
+    if (
+      node.nodeType === 1 &&
+      typeof node.matches === 'function' &&
+      (markupOrNode as Element).matches(SCRIPT_SELECTOR)
+    ) {
       scripted.push(markupOrNode as Element);
     }
     if (scripted.some((el) => codeUsesPixi(el.getAttribute('data-ck-js') ?? ''))) used.add('pixi');
+    // pixi-studio:runtime-wiring additions (2026-10-10)
+    for (const el of scripted) codeEngines(el.getAttribute('data-ck-js') ?? '', used);
+    const soundSelector = `[${SOUND_ATTRIBUTE}]`;
+    const soundSelf =
+      node.nodeType === 1 &&
+      typeof node.matches === 'function' &&
+      (markupOrNode as Element).matches(soundSelector);
+    if (soundSelf || parent.querySelector(soundSelector) !== null) used.add('sound');
+    // end pixi-studio:runtime-wiring additions
     return used;
   }
   let json = '';
@@ -187,9 +294,15 @@ export function pageEngines(markupOrNode: unknown): Set<PageEngine> {
   } catch {
     return used;
   }
-  for (const [kind, attribute] of ENGINE_ATTRIBUTES) if (json.includes(`"${attribute}"`)) used.add(kind);
+  for (const [kind, attribute] of ENGINE_ATTRIBUTES)
+    if (json.includes(`"${attribute}"`)) used.add(kind);
+  if (json.includes('"data-ck-behavior":"carousel"')) used.add('carousel');
   for (const match of json.matchAll(/"data-ck-js":"((?:[^"\\]|\\.)*)"/gu)) {
     if (codeUsesPixi(match[1] ?? '')) used.add('pixi');
   }
+  // pixi-studio:runtime-wiring additions (2026-10-10)
+  for (const code of jsonScripts(json)) codeEngines(code, used);
+  if (json.includes(`"${SOUND_ATTRIBUTE}"`)) used.add('sound');
+  // end pixi-studio:runtime-wiring additions
   return used;
 }

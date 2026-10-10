@@ -6,10 +6,10 @@ import * as LibraryPanelStories from './LibraryPanel.stories';
 
 # LibraryPanel
 
-Everything a person can add, in one place (style-manager DESIGN.md §E). Four tabs share one search,
+Everything a person can add, in one place (style-manager DESIGN.md §E). Five tabs share one search,
 which matches English and Arabic names alike:
 
-- **Elements** — twenty starting points (heading, text, button, link, image, video, icon, divider,
+- **Elements** — 42 starting points, including the original essentials (heading, text, button, link, image, video, icon, divider,
   spacer, container, columns, grid, card, list, form, input, map embed, video embed, accordion, tabs).
   Each is an ordinary custom-code node with logical, token-based classes, so once inserted it is a
   widget like any other: every Design sector, the quick bar, Layers and the agent work on it.
@@ -19,6 +19,20 @@ which matches English and Arabic names alike:
 - **Saved** — the site's own templates (`site.library.templates`), saved from Layers.
 
 <Canvas of={LibraryPanelStories.Elements} />
+
+## Ready-made patterns and the AI agent
+
+The new category has eight compound patterns: feature, metric and quote cards, notice, checklist,
+process steps, contact card and Bento grid. Bilingual descriptions explain what each is for.
+These are ordinary editable trees, not screenshots or a separate locked component system.
+
+The same schema recipes power AI `element.insert` with `preset` and structured `content`, using
+`before`, `after` or `parent` + `index` for placement. Existing markup insertion is unchanged.
+One insertion is one Undo. Blank patterns never fabricate statistics, endorsements or contact links.
+When a page already has a generated page kit, both paths use its palette and radius; thumbnails
+scope that kit through the normal renderer rather than inserting raw page CSS.
+
+<Canvas of={LibraryPanelStories.ReadyPatterns} />
 
 ## Inserting is the kernel's door
 
@@ -38,10 +52,24 @@ drop.
 
 ## Thumbnails
 
+Element categories separate essentials, layout, media, forms and motion. Category filtering
+combines with the bilingual search. Tabs and filters never shrink when the results scroll.
+
+Dragging an element into a custom section uses the exact tree seat and carries its CSS.
+Elsewhere it creates a region at the visible block insertion line, not at the selection or
+the page end. Sections and page templates can also be dragged to that line. Cancelling a
+drag writes nothing; insertion remains one undoable transaction. This is responsive flow
+placement, not automatic absolute positioning.
+
 Previews are built only when a tile scrolls into view: the entry is rendered by the same static
 renderer the export uses and shown in a scaled, sandboxed `srcdoc` iframe (no script, never
 focusable), in the page's direction. `previewStylesheet` and `compilePreviewCss` give it the theme
 and exactly the classes it uses.
+
+The iframe keeps an authored viewport (400px for elements, 1040px for sections); its host
+scales it to the measured card width using ResizeObserver. Scaling stays top-left for both
+directions while text inside retains the page direction. This avoids cropped RTL thumbnails
+and adapts to panel resizing.
 
 <Canvas of={LibraryPanelStories.Arabic} />
 

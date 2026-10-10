@@ -360,3 +360,22 @@ describe('"add a scroll reveal to the features" — a section noun names a regis
     expect(direct?.plan.commands[0]).toMatchObject({ command: 'patchTreeNode', args: { id: 'r-menu', attributes: { 'data-ck-timeline': 'stagger-in' } } });
   });
 });
+
+describe('motion requests that name no section, or wrap the noun in reveal words (fix pass 2026-10-10)', () => {
+  it.each([
+    ['ضيف حركة GSAP', 'ar'],
+    ['ضيف حركة GSAP تظهر الأقسام عند التمرير', 'ar'],
+    ['add scroll reveal animation', 'en'],
+  ] as const)('«%s» animates every content section with no provider call', (request, locale) => {
+    const composed = tryDirectTool(request, styleKernel({ locale }));
+    expect(composed?.label).toBe(locale === 'ar' ? 'أُضيفت حركة للأقسام' : 'Scroll animation added to the sections');
+    expect((composed?.plan.commands ?? []).length).toBe(3);
+    expect((tryDirectTool(request, playgroundLikeKernel({ locale }))?.plan.commands ?? []).length).toBe(7);
+  });
+
+  it('«حركة ظهور عند التمرير لقائمة الطعام» reads the menu section past the reveal and scroll words', () => {
+    const direct = tryDirectTool('حركة ظهور عند التمرير لقائمة الطعام', styleKernel({ locale: 'ar' }));
+    const commands = (direct?.plan.commands ?? []) as readonly Step[];
+    expect(commands.map(({ args }) => args['id'])).toEqual(['r-menu']);
+  });
+});

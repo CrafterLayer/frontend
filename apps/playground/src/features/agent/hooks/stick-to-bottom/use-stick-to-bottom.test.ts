@@ -67,6 +67,8 @@ interface Thread {
   readonly line: HTMLElement;
   /** Content height changes and the ResizeObserver reports it, as after a render. */
   grow: (height: number) => void;
+  /** Composer/panel changes the viewport, including zero while hidden. */
+  resizeViewport: (height: number) => void;
   /** The reader moves the thread (scrollbar, touch, keyboard): no ignore marker. */
   userScrollTo: (top: number) => void;
   /** The reader turns the wheel over `target` (default: a line in the thread). */
@@ -123,6 +125,7 @@ function mountThread(options?: StickToBottomOptions, contentHeight = 1000): Thre
   document.body.append(scroll);
 
   let height = contentHeight;
+  let viewportHeight = VIEWPORT;
   // A browser fires one `scroll` per frame however many times scrollTop was written,
   // and never synchronously inside the write.
   let scrollQueued = false;
@@ -136,7 +139,7 @@ function mountThread(options?: StickToBottomOptions, contentHeight = 1000): Thre
   };
   const layout = defineLayout(
     scroll,
-    { clientHeight: () => VIEWPORT, scrollHeight: () => Math.max(height, VIEWPORT) },
+    { clientHeight: () => viewportHeight, scrollHeight: () => Math.max(height, viewportHeight) },
     queueScroll,
   );
 
@@ -155,6 +158,14 @@ function mountThread(options?: StickToBottomOptions, contentHeight = 1000): Thre
       act(() => {
         for (const observer of FakeResizeObserver.live) {
           if (observer.targets.has(content)) observer.fire(content, next);
+        }
+      });
+    },
+    resizeViewport: (next) => {
+      viewportHeight = next;
+      act(() => {
+        for (const observer of FakeResizeObserver.live) {
+          if (observer.targets.has(scroll)) observer.fire(scroll, next);
         }
       });
     },
@@ -225,9 +236,76 @@ describe('useStickToBottom — following', () => {
     expect(thread.scroll.scrollTop).toBeGreaterThanOrEqual(bottomOf(1400));
     expect(thread.hook.result.current.isAtBottom).toBe(true);
   });
+
+  it('follows a pinned reader when the composer shrinks the viewport without new content', async () => {
+    const thread = await mountAtBottom();
+    thread.resizeViewport(180);
+    await advance(SETTLE_MS);
+    expect(thread.scroll.scrollTop).toBeGreaterThanOrEqual(1000 - 1 - 180);
+    expect(thread.hook.result.current.escapedFromLock).toBe(false);
+  });
 });
 
 describe('useStickToBottom — the reader is in charge', () => {
+  it('viewport changes never move a released reader or re-enable following', async () => {
+    const thread = await mountAtBottom();
+    thread.userScrollTo(300);
+    await advance(FRAME_MS);
+    thread.resizeViewport(180);
+    await advance(SETTLE_MS);
+    expect(thread.scroll.scrollTop).toBe(300);
+    thread.resizeViewport(500);
+    await advance(SETTLE_MS);
+    expect(thread.scroll.scrollTop).toBe(300);
+    expect(thread.hook.result.current.escapedFromLock).toBe(true);
+  });
+
+  it('upward touch intent releases the spring before the browser can dispatch scroll', async () => {
+    const thread = await mountAtBottom();
+    thread.grow(3000);
+    await advance(FRAME_MS * 3);
+    const touch = (type: string, clientY: number): void => {
+      const event = new Event(type, { bubbles: true });
+      Object.defineProperty(event, 'touches', { value: [{ clientY }] });
+      act(() => {
+        thread.line.dispatchEvent(event);
+      });
+    };
+    touch('touchstart', 100);
+    touch('touchmove', 140);
+    const releasedAt = thread.scroll.scrollTop;
+    await advance(SETTLE_MS);
+    expect(thread.scroll.scrollTop).toBe(releasedAt);
+    expect(thread.hook.result.current.escapedFromLock).toBe(true);
+  });
+
+  it.each(['ArrowUp', 'PageUp', 'Home'])(
+    '%s releases a focused thread during streaming',
+    async (key) => {
+      const thread = await mountAtBottom();
+      thread.grow(3000);
+      await advance(FRAME_MS * 3);
+      act(() => {
+        thread.scroll.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      });
+      const releasedAt = thread.scroll.scrollTop;
+      await advance(SETTLE_MS);
+      expect(thread.scroll.scrollTop).toBe(releasedAt);
+      expect(thread.hook.result.current.escapedFromLock).toBe(true);
+    },
+  );
+
+  it('a descendant control keeps its ArrowUp instead of releasing the thread', async () => {
+    const thread = await mountAtBottom();
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    thread.line.append(radio);
+    act(() => {
+      radio.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    });
+    expect(thread.hook.result.current.escapedFromLock).toBe(false);
+  });
+
   it('wheel-up releases the follow at once, before any scroll event', async () => {
     const thread = await mountAtBottom();
 
@@ -407,6 +485,32 @@ describe('useStickToBottom — reduced motion', () => {
 });
 
 describe('useStickToBottom — header state and lifecycle', () => {
+  it('hiding and restoring a released reader preserves position even if content streams while hidden', async () => {
+    const thread = await mountAtBottom();
+    thread.userScrollTo(300);
+    await advance(FRAME_MS);
+    thread.resizeViewport(0);
+    thread.grow(0);
+    await advance(SETTLE_MS);
+    expect(thread.hook.result.current.escapedFromLock).toBe(true);
+    thread.grow(1600);
+    thread.resizeViewport(VIEWPORT);
+    await advance(SETTLE_MS);
+    expect(thread.scroll.scrollTop).toBe(300);
+    expect(thread.hook.result.current.escapedFromLock).toBe(true);
+  });
+
+  it('a pinned reader resumes at the newest content on reopening', async () => {
+    const thread = await mountAtBottom();
+    thread.resizeViewport(0);
+    thread.grow(0);
+    thread.grow(1800);
+    thread.resizeViewport(VIEWPORT);
+    await advance(SETTLE_MS);
+    expect(thread.scroll.scrollTop).toBeGreaterThanOrEqual(bottomOf(1800));
+    expect(thread.hook.result.current.escapedFromLock).toBe(false);
+  });
+
   it('isScrolled says whether anything sits under the header', async () => {
     const thread = mountThread();
     expect(thread.hook.result.current.isScrolled).toBe(false);

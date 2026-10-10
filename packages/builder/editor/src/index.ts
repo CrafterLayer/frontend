@@ -530,6 +530,10 @@ export {
   first, and it drifts the moment the engine gains an export.
 */
 export * from '@craftkit/builder-ai';
+export {
+  buildElementRecipe, ELEMENT_RECIPE_CATALOG, ELEMENT_RECIPE_IDS, elementRecipeContentSchema,
+  type ElementRecipeContent, type ElementRecipeId, type ElementRecipePalette,
+} from '@craftkit/builder-schema';
 
 /*
   The SITE codec, re-exported for the same reason the engine is.
@@ -823,3 +827,20 @@ export {
   type TemplateCardProps,
 } from '@craftkit/builder-shell';
 // end library-playground additions
+// pixi-studio:runtime-wiring additions (2026-10-10): the Script Studio's sandboxed preview
+// (DESIGN §D.3) and the `ck` scene/sound types, so the playground reaches them through this door.
+export {
+  STUDIO_PREVIEW_MESSAGES,
+  STUDIO_PREVIEW_REGION_ID,
+  buildStudioPreviewHtml,
+  studioPreviewCsp,
+  type CkAudioBands,
+  type CkSceneContext,
+  type CkSceneOptions,
+  type CkScriptApi,
+  type CkScriptParamValue,
+  type CkSoundApi,
+  type StudioPreviewOptions,
+  type StudioPreviewTrust,
+} from '@craftkit/builder-renderer';
+// end pixi-studio:runtime-wiring additions

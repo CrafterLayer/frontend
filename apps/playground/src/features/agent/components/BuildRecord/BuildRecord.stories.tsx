@@ -101,7 +101,10 @@ function rectOf(element: Element | null | undefined, what: string): DOMRect {
  */
 async function expectSpineGeometry(canvasElement: HTMLElement): Promise<void> {
   const article = canvasElement.querySelector('.ck-agent-build');
-  const head = rectOf(article?.querySelector('.ck-agent-record__head .ck-agent-glyph'), 'head node');
+  const head = rectOf(
+    article?.querySelector('.ck-agent-record__head .ck-agent-glyph'),
+    'head node',
+  );
   const centre = head.left + head.width / 2;
   const nodes = [...canvasElement.querySelectorAll('.ck-agent-spine-row__node')];
   for (const node of nodes) {
@@ -162,11 +165,62 @@ function liveTimeline(locale: Locale): readonly BuildRecordView[] {
   };
   return [
     { ...buildSkeleton(locale), turnId: 'build-live' },
-    building(['waiting', 'waiting', 'waiting', 'waiting', 'waiting', 'waiting', 'waiting', 'waiting']),
-    building(['writing', 'writing', 'writing', 'writing', 'writing', 'waiting', 'waiting', 'waiting']),
-    building(['landed', 'writing', 'writing', 'drafted', 'writing', 'writing', 'waiting', 'waiting']),
-    { ...building(['landed', 'landed', 'writing', 'drafted', 'writing', 'writing', 'writing', 'waiting']), remainingMs: 90_000 },
-    { ...building(['landed', 'landed', 'landed', 'landed', 'drafted', 'writing', 'writing', 'writing']), remainingMs: 45_000 },
+    building([
+      'waiting',
+      'waiting',
+      'waiting',
+      'waiting',
+      'waiting',
+      'waiting',
+      'waiting',
+      'waiting',
+    ]),
+    building([
+      'writing',
+      'writing',
+      'writing',
+      'writing',
+      'writing',
+      'waiting',
+      'waiting',
+      'waiting',
+    ]),
+    building([
+      'landed',
+      'writing',
+      'writing',
+      'drafted',
+      'writing',
+      'writing',
+      'waiting',
+      'waiting',
+    ]),
+    {
+      ...building([
+        'landed',
+        'landed',
+        'writing',
+        'drafted',
+        'writing',
+        'writing',
+        'writing',
+        'waiting',
+      ]),
+      remainingMs: 90_000,
+    },
+    {
+      ...building([
+        'landed',
+        'landed',
+        'landed',
+        'landed',
+        'drafted',
+        'writing',
+        'writing',
+        'writing',
+      ]),
+      remainingMs: 45_000,
+    },
     building(['landed', 'landed', 'landed', 'landed', 'landed', 'drafted', 'writing', 'drafted']),
     building(['landed', 'landed', 'landed', 'landed', 'landed', 'landed', 'landed', 'drafted']),
     done,
@@ -248,7 +302,7 @@ export const SkeletonRightToLeft: Story = arabic(buildSkeleton('ar'));
  * landed sections only; the estimate simulates the writers.
  */
 export const Building: Story = {
-  args: { view: buildBuilding('en') },
+  args: { view: { ...buildBuilding('en'), writers: 6 } },
   play: async ({ canvasElement }) => {
     await expectSpineGeometry(canvasElement);
     await expectNoSidewaysScroll(canvasElement);
@@ -256,6 +310,16 @@ export const Building: Story = {
     await expect(
       canvas.getByRole('button', { name: 'Section 4 of 8: Why us, Written, waiting its turn' }),
     ).toBeVisible();
+  },
+};
+
+export const CoordinatedWorkers: Story = {
+  args: { view: { ...buildBuilding('en'), writers: 6 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('region', { name: t('en', 'tasks.label') })).toBeVisible();
+    await expect(canvas.getByRole('progressbar')).toHaveAttribute('value', '1');
+    await expectNoSidewaysScroll(canvasElement);
   },
 };
 
@@ -324,7 +388,10 @@ export const DoneRightToLeft: Story = {
   },
 };
 
-export const DoneDark: Story = { args: { view: buildDone('en') }, parameters: { panel: { theme: 'dark' } } };
+export const DoneDark: Story = {
+  args: { view: buildDone('en') },
+  parameters: { panel: { theme: 'dark' } },
+};
 export const DoneRightToLeftDark: Story = arabic(buildDone('ar'), { theme: 'dark' });
 
 /** Undo build confirms in place, focus on Cancel. */
@@ -349,7 +416,10 @@ export const Partial: Story = {
 };
 
 export const PartialRightToLeft: Story = arabic(buildPartial('ar'));
-export const PartialDark: Story = { args: { view: buildPartial('en') }, parameters: { panel: { theme: 'dark' } } };
+export const PartialDark: Story = {
+  args: { view: buildPartial('en') },
+  parameters: { panel: { theme: 'dark' } },
+};
 
 /** §3.10: stopped by the person; "Not written" said at every width; Finish the rest. */
 export const Stopped: Story = { args: { view: buildStopped('en', 'signal') } };

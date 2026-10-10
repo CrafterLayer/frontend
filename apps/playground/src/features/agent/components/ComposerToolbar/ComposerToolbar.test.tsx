@@ -62,6 +62,48 @@ function names(): (string | null)[] {
 }
 
 describe('ComposerToolbar', () => {
+  it('changes the build pool independently and locks it during a live run', async () => {
+    const user = userEvent.setup();
+    const onWorkersChange = vi.fn();
+    const given = props({ workers: 3, onWorkersChange });
+    const { rerender } = render(<ComposerToolbar {...given} />);
+    const pool = screen.getByRole('combobox', { name: t('en', 'workers.label') });
+    expect(pool).toHaveValue('3');
+    await user.selectOptions(pool, '6');
+    expect(onWorkersChange).toHaveBeenLastCalledWith(6);
+    rerender(<ComposerToolbar {...given} running />);
+    expect(pool).toBeDisabled();
+    await user.selectOptions(pool, '1');
+    expect(onWorkersChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the pool when the host does not provide worker selection', () => {
+    render(<ComposerToolbar {...props()} />);
+    expect(screen.queryByRole('combobox', { name: t('en', 'workers.label') })).toBeNull();
+  });
+
+  it('preserves the full accessible model name beside effort even when its visual label is bounded', () => {
+    const name = 'Professional design and code model 550B';
+    render(
+      <ComposerToolbar
+        {...props({
+          model: {
+            selected: { ...MODEL.selected, product: name },
+            options: [
+              { ...MODEL.selected, product: name },
+              { ...MODEL.selected, id: 'comparison-model', product: 'Alternate model' },
+            ],
+          },
+          effort: { selected: 'high', options: ['low', 'medium', 'high', 'xhigh', 'max'] },
+          onEffortChange: vi.fn(),
+        })}
+      />,
+    );
+    expect(screen.getByRole('button', { name: `Model: ${name}` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thinking: High' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
+  });
+
   it('reads in the order a request is made: mode, model, ✨, @, Send', () => {
     render(<ComposerToolbar {...props()} />);
     expect(names()).toEqual([
@@ -96,13 +138,13 @@ describe('ComposerToolbar', () => {
 
   it('holds ✨ back on an empty draft and while running, with the reason', () => {
     const { rerender } = render(<ComposerToolbar {...props({ send: 'idle-empty' })} />);
-    expect(screen.getByRole('button', { name: t('en', 'enhance.button') })).toHaveAccessibleDescription(
-      t('en', 'enhance.empty'),
-    );
+    expect(
+      screen.getByRole('button', { name: t('en', 'enhance.button') }),
+    ).toHaveAccessibleDescription(t('en', 'enhance.empty'));
     rerender(<ComposerToolbar {...props({ send: 'running-ready', running: true })} />);
-    expect(screen.getByRole('button', { name: t('en', 'enhance.button') })).toHaveAccessibleDescription(
-      t('en', 'enhance.busy'),
-    );
+    expect(
+      screen.getByRole('button', { name: t('en', 'enhance.button') }),
+    ).toHaveAccessibleDescription(t('en', 'enhance.busy'));
   });
 
   it('calls each control’s own callback', async () => {

@@ -11,8 +11,11 @@ function injectEngines(root: ParentNode, options?: { readonly interactive?: bool
     (root as Node).nodeType === 9 ? (root as Document) : (root as Node).ownerDocument;
   const prefetched = doc === null ? null : doc.querySelector('link[data-ck-engine]');
   return options?.interactive === false || prefetched === null
-    ? ensureCanvasEngines(root)
-    : () => undefined;
+    ? // pixi-studio:runtime-wiring additions (2026-10-10): a Preview (interactive) may load the
+      // sound engine; the editor canvas never does (DESIGN D12).
+      ensureCanvasEngines(root, { canvas: options?.interactive === false })
+    : // end pixi-studio:runtime-wiring additions
+      () => undefined;
 }
 
 /**

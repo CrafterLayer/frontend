@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-10",
+  "updatedAt": "2026-10-10",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-implementation-in-progress",
+    "phase": "professional-builder-agent-014-chat-increment-verified-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
@@ -227,15 +227,15 @@
     ]
   },
   "currentWork": {
-    "status": "feature-014-implementation-and-integration-in-progress",
-    "scope": "workspace-cross-cutting-builder-site-and-agent",
+    "status": "idle-chat-increment-locally-verified-feature-014-release-open",
+    "scope": "apps/playground/features/agent-live-panel-scrolling-build-worker-selection-and-task-summary; apps/evals-local-browser-regression",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "completedTasks": "See feature 014 tasks and implementation evidence; feature 013 completion counts do not apply.",
-    "nextUncompletedTask": "T042",
+    "completedTasks": "T154-T159 checked with verification-agent-chat-2026-10-10.md; CHAT-001..005 locally verified. T148-T153 prior quality evidence and element/library evidence remain separate. Historical feature 014 tasks were not bulk-checked.",
+    "nextUncompletedTask": "T045",
     "blocked": {
       "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence."
     },
-    "nextAction": "Integrate real runtime/compiler/catalog/export in Playground, complete durable Vault, lazy CodeMirror, source-aware Agent, then browser verification and remaining feature 014 gates. Current root owns App/facade/runtime integration; check live agent ownership before edits. No git add, commit, push, or deployment authorized."
+    "nextAction": "No requested chat work remains. See verification-agent-chat-2026-10-10.md for 298 scoped tests, 90 Chromium story plays, nine browser variants, Playground/scoped Storybook builds, types/lint/format and 36-member workspace/boundary passes. Full Storybook is blocked by baseline InspectorPartPanel.docs.mdx:13; four baseline ScriptParamsForm artifacts remain missing. All-packs bundle debt is prior evidence, not rerun here. On a newly authorized feature continuation, inspect revision-bound inspect_preview adapters and the Source Agent apply path for T045/T122 before preview-feedback repair. New panel defaults3 and selects1/3/6; legacy auto8 and separate authored scheduler unchanged. Preserve staged baseline. Task-owned port5186 stopped; existing servers untouched. No staging, commit, push, deployment or paid provider calls."
   },
   "qualityGates": {
     "governanceConfigured": true,

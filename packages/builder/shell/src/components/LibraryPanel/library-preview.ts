@@ -31,12 +31,19 @@ export function previewMarkup(
   tree: CustomCodeRoot,
   css: string | undefined,
   dir: ContentDirection,
+  pageCss?: string,
 ): string | undefined {
   const type = regionBlockType(kernel);
   const key = type === undefined ? undefined : customCodeTreeKey(kernel, type);
   if (type === undefined || key === undefined) return undefined;
-  const props: Record<string, JsonValue> = { [key]: tree as unknown as JsonValue };
-  if (css !== undefined) props['css'] = css;
+  const previewTree: CustomCodeRoot = pageCss === undefined ? tree : {
+    kind: 'root',
+    children: [{ kind: 'element', tag: 'div', className: 'ck-page-plan', children: tree.children }],
+  };
+  const props: Record<string, JsonValue> = { [key]: previewTree as unknown as JsonValue };
+  // Page-kit selectors (including `> *` tokens) must go through the renderer's CSS scope.
+  const regionCss = [pageCss, css].filter((sheet) => sheet !== undefined).join('\n');
+  if (regionCss !== '') props['css'] = regionCss;
   const document: BuilderDocument = {
     schemaVersion: kernel.getDocument().schemaVersion,
     surface: kernel.getDocument().surface,
@@ -78,8 +85,8 @@ export function previewSrcdoc(options: {
     '<head><meta charset="utf-8">',
     `<style>${css}</style>`,
     '<style>html,body{margin:0;overflow:hidden;background:transparent}',
-    'body{padding:24px;inline-size:1040px;transform:scale(.25);transform-origin:top left}',
-    '[dir=rtl] body{transform-origin:top right}',
+    'html,body{inline-size:100%;min-block-size:100%;box-sizing:border-box}',
+    'body{padding:24px}*,*::before,*::after{box-sizing:border-box}',
     '.ck-embed-poster{min-block-size:160px;background:color-mix(in srgb,currentColor 12%,transparent);border-radius:12px}</style>',
     `</head><body>${markup}</body></html>`,
   ].join('');

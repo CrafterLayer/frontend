@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import '../../styles/visually-hidden.css';
 import { TEMPLATE_CARD_LABELS_EN, type TemplateCardLabels } from './TemplateCard.labels';
@@ -12,6 +12,7 @@ export interface TemplateCardProps {
   readonly labels?: TemplateCardLabels | undefined;
   /** Inserts the card's composition; called on click, Enter and Space. */
   readonly onInsert: (card: TemplateCardInfo) => void;
+  readonly onBeginDrag?: ((x: number, y: number) => { didActivate: () => boolean }) | undefined;
 }
 
 /**
@@ -21,8 +22,9 @@ export interface TemplateCardProps {
  * the EDITOR's language, and a badge for the CONTENT language (`EN` / `ع`)
  * beside the section count. It is one native button: Enter and Space insert.
  */
-export function TemplateCard({ card, labels = TEMPLATE_CARD_LABELS_EN, onInsert }: TemplateCardProps) {
+export function TemplateCard({ card, labels = TEMPLATE_CARD_LABELS_EN, onInsert, onBeginDrag }: TemplateCardProps) {
   const id = useId();
+  const gesture = useRef<{ didActivate: () => boolean } | null>(null);
   const descriptionId = `${id}-description`;
   const metaId = `${id}-meta`;
   // A photo that fails to load leaves the skeleton ground, never a broken-image glyph.
@@ -37,7 +39,14 @@ export function TemplateCard({ card, labels = TEMPLATE_CARD_LABELS_EN, onInsert 
       aria-label={labels.insert(name)}
       aria-describedby={`${descriptionId} ${metaId}`}
       data-content-lang={card.lang}
+      onDragStart={(event) => { event.preventDefault(); }}
+      onPointerDown={(event) => {
+        if (event.button === 0) gesture.current = onBeginDrag?.(event.clientX, event.clientY) ?? null;
+      }}
       onClick={() => {
+        const dragged = gesture.current?.didActivate() === true;
+        gesture.current = null;
+        if (dragged) return;
         onInsert(card);
       }}
     >

@@ -8,7 +8,8 @@
 
 **Monorepo Scope**: Workspace, cross-cutting. Extends the site model, editing kernel, canvas,
 code-editing surface, AI generation, local persistence, evaluation application, and preview/export
-runtime. Dashboard generation and generated application backends are excluded.
+runtime. The approved 2026-10-10 increment adds Frontend dashboards and workflows; generated
+application backends remain excluded.
 
 **Input**: User description: "Build a professional website builder and agent with compact chat,
 precise visual selection and insertion, complete page management, free interactive page composition,
@@ -330,5 +331,51 @@ and perform blind human review at phone, tablet, and desktop sizes.
 - A browser with persistent storage disabled may continue in a clearly labelled session-only mode.
 - Live model benchmarking and three-person visual scoring require configured provider access and human
   raters; their absence does not justify synthetic success data.
-- Dashboard generation, generated authentication, generated databases, server actions, and generated
-  business backends are outside this feature.
+- Generated authentication, generated databases, server actions, and generated business backends
+  remain outside this feature.
+
+## Approved Agent conversation and parallel-task increment — 2026-10-10
+
+The user's follow-up authorizes improving the live `features/agent` conversation, scrolling, and
+multiple workers cooperating on one build. This increment does not authorize provider calls during
+verification, deployment, or rewriting existing staged features.
+
+- CHAT-001: The conversation fills the available panel height; the composer remains reachable,
+  starts at two lines, and does not waste conversation space. Long requests and auxiliary questions
+  remain bounded and scrollable. Light/dark, Arabic/English, keyboard and reduced motion work.
+- CHAT-002: Streaming follows only a reader already at the bottom. Scrolling upward releases the
+  follow, viewport/composer resizing follows the latest only while pinned, and hiding/reopening the
+  panel must not reset the reading position. Jump to latest resumes following.
+- CHAT-003: A build exposes its actual independent section tasks, active writers, queued work,
+  verification/application, failures and completion. Concurrent generation retains ordered
+  validation/application and isolated task ownership. A single-section edit is not advertised as
+  parallel work, and no fabricated worker identities or quality claims are shown.
+- CHAT-004: The user can select sequential, three-worker, or six-worker build execution before a
+  request; the choice is captured for that run and locked while it runs. Existing automatic legacy
+  engine defaults are preserved for consumers that do not opt into this control.
+- CHAT-005: Deterministic concurrency/cancellation tests and isolated real-browser scrolling and
+  geometry checks prove this increment. Whole-feature release and live-generation quality remain
+  open.
+
+## Approved quality and Frontend increment — 2026-10-10
+
+The user's `1+2` clarification adds interactive React websites and Frontend applications (including
+dashboards and multi-step flows). This expands creative output, not filesystem authority or backend
+capabilities. Existing page/file ownership, dependency locks, isolated execution and atomic undo
+stay.
+
+- QF-001: Accessibility evaluation runs real axe in Chromium, reports every blocking count before
+  truncating evidence, and distinguishes automated pass, manual-review-needed and execution failure.
+  It must detect an intentionally inaccessible fixture; an empty or skipped scan is not a pass.
+- QF-002: Existing carousel markup gains lazy Embla swipe/snap behavior in interactive preview and
+  static export. RTL, keyboard, indicators, reduced motion and disposer remain coherent. The editing
+  canvas retains its native still layout and must not capture drag input or restructure React's DOM.
+- QF-003: Managed React projects may import the pinned Embla module only through their dependency
+  lock. Installing it alone does not make it available to existing projects.
+- QF-004: Actual authored-source model requests receive project-kind-aware design and interaction
+  guidance, not a mandatory marketing-page formula. Dashboard and workflow requests require real
+  stateful controls, responsive/RTL layouts and honest sample data, never pretend server
+  integrations.
+- QF-005: Local deterministic and browser evidence is separate from paid-provider output quality,
+  blind human design scores and production readiness. No global/professional certification is
+  implied.

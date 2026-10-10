@@ -34,6 +34,24 @@ type Story = StoryObj<typeof meta>;
 
 export const Elements: Story = {};
 
+export const Categorized: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.selectOptions(canvas.getByRole('combobox', { name: 'Element category' }), 'layout');
+    await expect(canvas.getByRole('button', { name: 'Insert Columns' })).toBeVisible();
+    await expect(canvas.queryByRole('button', { name: 'Insert Heading' })).not.toBeInTheDocument();
+  },
+};
+
+export const ReadyPatterns: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.selectOptions(canvas.getByRole('combobox', { name: 'Element category' }), 'professional');
+    await expect(canvas.getAllByRole('button', { name: /^Insert / })).toHaveLength(8);
+    await expect(canvas.getByText('A real number with its label and context.')).toBeVisible();
+  },
+};
+
 export const Sections: Story = {
   args: {
     kernel: kernel(),

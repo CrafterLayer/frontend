@@ -28,6 +28,10 @@
  *   jump pill brings the reader back, and the flag now says so.
  * - `isScrolled`, new: the thread is scrolled away from its top, which is when the header
  *   draws its hairline (SPEC §2.5).
+ * - Both viewport and content are observed. Composer growth, panel resizing and restoring
+ *   a hidden panel follow only a pinned reader. Zero-size reports never overwrite the
+ *   reading position or release state. Upward touch and keyboard intent stop the spring
+ *   before the browser's scroll event, as wheel intent already does.
  *
  * The rest is upstream's logic, moved out of React: a plain controller owns the DOM
  * listeners and the spring, and React holds only the four booleans a component renders.
@@ -246,6 +250,10 @@ function createController(initialOptions: StickToBottomOptions, publish: Publish
   let contentElement: HTMLElement | null = null;
   let resizeObserver: ResizeObserver | undefined;
   let lastCalculation: { targetScrollTop: number; calculatedScrollTop: number } | undefined;
+  let previousContentHeight: number | undefined;
+  let previousViewportHeight: number | undefined;
+  let hiddenScrollTop: number | undefined;
+  let touchY: number | undefined;
 
   // Upstream's `state`: the scroll position through getters, plus the spring's memory.
   const state = {
@@ -278,7 +286,7 @@ function createController(initialOptions: StickToBottomOptions, publish: Publish
 
     get targetScrollTop(): number {
       if (scrollElement === null || contentElement === null) return 0;
-      return scrollElement.scrollHeight - 1 - scrollElement.clientHeight;
+      return Math.max(0, scrollElement.scrollHeight - 1 - scrollElement.clientHeight);
     },
 
     get calculatedTargetScrollTop(): number {
@@ -363,7 +371,7 @@ function createController(initialOptions: StickToBottomOptions, publish: Publish
       const promise: Promise<boolean> = new Promise<number>((resolve) => {
         requestAnimationFrame(resolve);
       }).then((): Promise<boolean> | boolean => {
-        if (!state.isAtBottom) {
+        if (!state.isAtBottom || scrollElement === null || scrollElement.clientHeight === 0) {
           state.animation = undefined;
           return false;
         }
@@ -439,7 +447,12 @@ function createController(initialOptions: StickToBottomOptions, publish: Publish
   };
 
   const handleScroll = (event: Event): void => {
-    if (event.target !== scrollElement) return;
+    if (
+      event.target !== scrollElement ||
+      scrollElement === null ||
+      scrollElement.clientHeight === 0
+    )
+      return;
 
     const { scrollTop, ignoreScrollToTop } = state;
     let lastScrollTop = state.lastScrollTop ?? scrollTop;
@@ -458,6 +471,7 @@ function createController(initialOptions: StickToBottomOptions, publish: Publish
     // A scroll event can arrive before the ResizeObserver's, so decide a tick later.
     // https://github.com/WICG/resize-observer/issues/25#issuecomment-248757228
     setTimeout(() => {
+      if (scrollElement === null || scrollElement.clientHeight === 0) return;
       if (state.resizeDifference !== 0 || scrollTop === ignoreScrollToTop) return;
 
       if (isSelecting()) {
@@ -499,55 +513,87 @@ function createController(initialOptions: StickToBottomOptions, publish: Publish
     }
   };
 
-  const scrollRef: RefCallback<HTMLElement> = (scroll) => {
-    scrollElement?.removeEventListener('scroll', handleScroll);
-    scrollElement?.removeEventListener('wheel', handleWheel);
-    scrollElement = scroll;
-    if (scroll === null) return;
-    trackMouseButton();
-    scroll.addEventListener('scroll', handleScroll, { passive: true });
-    scroll.addEventListener('wheel', handleWheel, { passive: true });
+  const handleTouchStart = (event: TouchEvent): void => {
+    touchY = event.touches[0]?.clientY;
   };
 
-  const contentRef: RefCallback<HTMLElement> = (content) => {
+  const handleTouchMove = (event: TouchEvent): void => {
+    const currentY = event.touches[0]?.clientY;
+    const scroll = scrollElement;
+    if (
+      scroll !== null &&
+      currentY !== undefined &&
+      touchY !== undefined &&
+      currentY > touchY &&
+      scroll.scrollHeight > scroll.clientHeight &&
+      state.animation?.ignoreEscapes !== true &&
+      !innerElementTakesWheel(event.target, scroll)
+    ) {
+      stopScroll();
+    }
+    touchY = currentY;
+  };
+
+  const handleKeyDown = (event: KeyboardEvent): void => {
+    const scroll = scrollElement;
+    // Descendant inputs/radios own their arrows; only a focused conversation scrolls.
+    if (scroll === null || event.target !== scroll || event.defaultPrevented) return;
+    if (
+      (event.key === 'ArrowUp' ||
+        event.key === 'PageUp' ||
+        event.key === 'Home' ||
+        (event.key === ' ' && event.shiftKey)) &&
+      scroll.scrollHeight > scroll.clientHeight &&
+      state.animation?.ignoreEscapes !== true
+    ) {
+      stopScroll();
+    }
+  };
+
+  const observeLayout = (): void => {
     resizeObserver?.disconnect();
     resizeObserver = undefined;
-    contentElement = content;
-    if (content === null) return;
+    const scroll = scrollElement;
+    const content = contentElement;
+    if (scroll === null || content === null) return;
 
-    let previousHeight: number | undefined;
+    resizeObserver = new ResizeObserver(() => {
+      if (scroll.clientHeight === 0) {
+        hiddenScrollTop ??= state.lastScrollTop ?? state.scrollTop;
+        state.animation = undefined;
+        return;
+      }
 
-    resizeObserver = new ResizeObserver(([entry]) => {
-      if (entry === undefined) return;
-      const { height } = entry.contentRect;
-      const difference = height - (previousHeight ?? height);
-
+      const height = scroll.scrollHeight;
+      const viewportHeight = scroll.clientHeight;
+      const firstReport = previousContentHeight === undefined;
+      const difference =
+        height -
+        (previousContentHeight ?? height) +
+        (previousViewportHeight ?? viewportHeight) -
+        viewportHeight;
       state.resizeDifference = difference;
 
-      // The browser can overscroll past the bottom; pull back to it.
+      if (hiddenScrollTop !== undefined) {
+        if (!state.isAtBottom) state.scrollTop = hiddenScrollTop;
+        hiddenScrollTop = undefined;
+      }
+      // A real visible shrink may clamp the offset; a hidden zero-size report must not.
       if (state.scrollTop > state.targetScrollTop) state.scrollTop = state.targetScrollTop;
+      publish({ isNearBottom: state.isNearBottom, isScrolled: state.scrollTop > 0 });
 
-      publish({ isNearBottom: state.isNearBottom });
-
-      if (difference >= 0) {
-        // Grew (or first report): follow, if the reader is at the bottom.
-        const animation = behaviorFor(options, previousHeight ? options.resize : options.initial);
+      if (state.isAtBottom) {
+        const animation = behaviorFor(options, firstReport ? options.initial : options.resize);
         void scrollToBottom({
           animation,
           wait: true,
           preserveScrollPosition: true,
           duration: animation === 'instant' ? undefined : RETAIN_ANIMATION_DURATION_MS,
         });
-      } else if (state.isNearBottom) {
-        // Shrank to the bottom under the reader: that is being back.
-        setEscapedFromLock(false);
-        setIsAtBottom(true);
       }
 
-      previousHeight = height;
-
-      // Clear the difference once this resize's scroll event has been handled: a frame
-      // for the event, and a tick for the timeout in handleScroll.
+      previousContentHeight = height;
+      previousViewportHeight = viewportHeight;
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (state.resizeDifference === difference) state.resizeDifference = 0;
@@ -556,6 +602,29 @@ function createController(initialOptions: StickToBottomOptions, publish: Publish
     });
 
     resizeObserver.observe(content);
+    resizeObserver.observe(scroll);
+  };
+
+  const scrollRef: RefCallback<HTMLElement> = (scroll) => {
+    scrollElement?.removeEventListener('scroll', handleScroll);
+    scrollElement?.removeEventListener('wheel', handleWheel);
+    scrollElement?.removeEventListener('touchstart', handleTouchStart);
+    scrollElement?.removeEventListener('touchmove', handleTouchMove);
+    scrollElement?.removeEventListener('keydown', handleKeyDown);
+    scrollElement = scroll;
+    observeLayout();
+    if (scroll === null) return;
+    trackMouseButton();
+    scroll.addEventListener('scroll', handleScroll, { passive: true });
+    scroll.addEventListener('wheel', handleWheel, { passive: true });
+    scroll.addEventListener('touchstart', handleTouchStart, { passive: true });
+    scroll.addEventListener('touchmove', handleTouchMove, { passive: true });
+    scroll.addEventListener('keydown', handleKeyDown);
+  };
+
+  const contentRef: RefCallback<HTMLElement> = (content) => {
+    contentElement = content;
+    observeLayout();
   };
 
   return {

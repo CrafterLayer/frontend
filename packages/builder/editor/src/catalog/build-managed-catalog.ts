@@ -36,12 +36,15 @@ export async function buildManagedCatalog(): Promise<ManagedCatalog> {
 
 async function buildPinnedCatalog(): Promise<ManagedCatalog> {
   const motionRequire = createRequire(require.resolve('@craftkit/builder-motion/react'));
+  const carouselEntry = require.resolve('@craftkit/builder-media-engines/carousel');
+  const carouselRequire = createRequire(carouselEntry);
   const pins = [
     { name: 'react', version: MANAGED_REACT_VERSION, resolver: require },
     { name: 'react-dom', version: MANAGED_REACT_VERSION, resolver: require },
     { name: 'lucide-react', version: '1.43.0', resolver: require },
     { name: 'tailwindcss', version: '4.3.3', resolver: require },
     { name: 'motion', version: '13.1.1', resolver: motionRequire },
+    { name: 'embla-carousel', version: '8.6.0', resolver: carouselRequire },
   ];
   const licenses: Record<string, string> = {};
   for (const { name, version, resolver } of pins) {
@@ -53,7 +56,7 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
       throw new Error(`Managed ${name} must be pinned to ${version}.`);
     }
     licenses[name] =
-      `/*! ${name}@${version}\n${(await readFile(join(dirname(path), name === 'motion' ? 'LICENSE.md' : 'LICENSE'), 'utf8')).replaceAll('*/', '* /')}\n*/\n`;
+      `/*! ${name}@${version}\n${(await readFile(name === 'embla-carousel' ? join(dirname(carouselEntry), '../vendor/embla-carousel/LICENSE') : join(dirname(path), name === 'motion' ? 'LICENSE.md' : 'LICENSE'), 'utf8')).replaceAll('*/', '* /')}\n*/\n`;
   }
   const result = await build({
     stdin: {
@@ -81,19 +84,22 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
   const source = result.outputFiles[0]?.text;
   if (source === undefined) throw new Error('The trusted runtime build produced no module.');
   const integrity = await fingerprint(source);
-  const [lucideBundle, motionBundle, theme, preflight] = await Promise.all([
+  const [lucideBundle, motionBundle, carouselBundle, theme, preflight] = await Promise.all([
     buildLibrary('lucide-react'),
     buildLibrary('@craftkit/builder-motion/react'),
+    buildLibrary('@craftkit/builder-media-engines/carousel', true),
     readFile(require.resolve('tailwindcss/theme.css'), 'utf8'),
     readFile(require.resolve('tailwindcss/preflight.css'), 'utf8'),
   ]);
   const lucide = (licenses['lucide-react'] ?? '') + lucideBundle;
   const motion = (licenses['motion'] ?? '') + motionBundle;
+  const carousel = (licenses['embla-carousel'] ?? '') + carouselBundle;
   const stylesheet = `${licenses['tailwindcss'] ?? ''}@layer theme, base, components, utilities;\n@layer theme {${theme}}\n@layer base {${preflight}}\n@layer utilities { @tailwind utilities; }`;
   const librarySources: Record<string, string> = {
     'lucide-react': lucide,
     motion,
     tailwindcss: stylesheet,
+    'embla-carousel': carousel,
   };
   const packages = await Promise.all(
     referenceManagedCatalog.manifest.packages.map(async (entry) => ({
@@ -114,6 +120,7 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
       [MANAGED_RUNTIME_SPECIFIER]: { language: 'js', source },
       'lucide-react': { language: 'js', source: lucide },
       'motion/react': { language: 'js', source: motion },
+      'embla-carousel': { language: 'js', source: carousel },
       tailwindcss: { language: 'css', source: stylesheet },
     },
     stylesheet,
@@ -121,12 +128,14 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
 }
 
 async function buildLibrary(
-  specifier: 'lucide-react' | '@craftkit/builder-motion/react',
+  specifier:
+    'lucide-react' | '@craftkit/builder-motion/react' | '@craftkit/builder-media-engines/carousel',
+  defaultExport = false,
 ): Promise<string> {
   const result = await build({
     absWorkingDir: catalogDirectory,
     stdin: {
-      contents: `export * from '${specifier}';`,
+      contents: `export * from '${specifier}';${defaultExport ? ` export { default } from '${specifier}';` : ''}`,
       resolveDir: catalogDirectory,
       loader: 'js',
     },

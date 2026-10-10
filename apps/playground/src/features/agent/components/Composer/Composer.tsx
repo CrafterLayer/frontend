@@ -40,6 +40,7 @@ export type ComposerView = Pick<
   | 'chips'
   | 'mention'
   | 'mode'
+  | 'workers'
   | 'model'
   | 'effort'
   | 'freeCode'
@@ -61,6 +62,7 @@ export type ComposerActions = Pick<
   | 'removeChip'
   | 'addMention'
   | 'setMode'
+  | 'setWorkers'
   | 'setModel'
   | 'setEffort'
   | 'setFreeCode'
@@ -138,13 +140,20 @@ function lastRemovableChip(chips: readonly ContextChipView[]): ContextChipView |
  * UI, so the placeholder does. While ✨ Improve rewrites the draft the box is read-only
  * and its words shimmer in the reading direction (still Slate under reduced motion).
  */
-export function Composer({ view, actions, awaitingPlan = false, inputRef, className }: ComposerProps) {
+export function Composer({
+  view,
+  actions,
+  awaitingPlan = false,
+  inputRef,
+  className,
+}: ComposerProps) {
   const {
     locale,
     draft,
     chips,
     mention,
     mode,
+    workers,
     model,
     effort,
     freeCode,
@@ -153,8 +162,7 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
     queue,
     enhancement,
     clarify,
-  } =
-    view;
+  } = view;
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
   const listboxId = useId();
   const optionPrefix = useId();
@@ -257,8 +265,11 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
   useLayoutEffect(() => {
     const field = input.current;
     if (field === null || FIELD_SIZING) return;
-    field.style.removeProperty('block-size');
+    // Measuring from the old (possibly stretched) height makes an empty draft stay tall.
+    // CSS still supplies the two-line minimum while this removes that stale height.
+    field.style.blockSize = '0px';
     if (field.scrollHeight > 0) field.style.blockSize = `${String(field.scrollHeight)}px`;
+    else field.style.removeProperty('block-size');
   }, [draft]);
 
   // The shimmer is a copy of the words laid exactly over the locked box (same box, same
@@ -348,7 +359,11 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
     .filter((id) => id !== '')
     .join(' ');
   const placeholderKey: Key =
-    run !== null ? 'placeholder.running' : awaitingPlan ? 'placeholder.afterPlan' : PLACEHOLDER_KEY[mode];
+    run !== null
+      ? 'placeholder.running'
+      : awaitingPlan
+        ? 'placeholder.afterPlan'
+        : PLACEHOLDER_KEY[mode];
 
   return (
     <div
@@ -382,35 +397,39 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
           />
         )}
 
-        {queue?.status === 'paused' ? (
-          <div className="ck-agent-composer__section">
-            <QueueHeader
-              locale={locale}
-              queue={queue}
-              dockChips={chips}
-              onRemove={() => {
-                actions.removeQueued();
-                focusInput();
-              }}
-              onContinue={() => {
-                actions.continueQueued();
-                focusInput();
-              }}
-            />
+        {queue?.status === 'paused' || clarify !== null ? (
+          <div className="ck-agent-composer__auxiliary">
+            {queue?.status === 'paused' ? (
+              <div className="ck-agent-composer__section">
+                <QueueHeader
+                  locale={locale}
+                  queue={queue}
+                  dockChips={chips}
+                  onRemove={() => {
+                    actions.removeQueued();
+                    focusInput();
+                  }}
+                  onContinue={() => {
+                    actions.continueQueued();
+                    focusInput();
+                  }}
+                />
+              </div>
+            ) : null}
+
+            {clarify === null ? null : (
+              <div className="ck-agent-composer__section">
+                <ClarifyPanel
+                  locale={locale}
+                  clarify={clarify}
+                  onAnswer={actions.answerClarify}
+                  onSendAsWritten={actions.sendAsWritten}
+                  onDismiss={actions.dismissClarify}
+                />
+              </div>
+            )}
           </div>
         ) : null}
-
-        {clarify === null ? null : (
-          <div className="ck-agent-composer__section">
-            <ClarifyPanel
-              locale={locale}
-              clarify={clarify}
-              onAnswer={actions.answerClarify}
-              onSendAsWritten={actions.sendAsWritten}
-              onDismiss={actions.dismissClarify}
-            />
-          </div>
-        )}
 
         <div className="ck-agent-composer__section ck-agent-composer__write">
           {queue !== null && queue.status !== 'paused' ? (
@@ -465,7 +484,9 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
               aria-haspopup="listbox"
               aria-expanded={listOpen && candidates.length > 0}
               aria-controls={listOpen && candidates.length > 0 ? listboxId : undefined}
-              aria-activedescendant={listOpen && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+              aria-activedescendant={
+                listOpen && activeIndex >= 0 ? optionId(activeIndex) : undefined
+              }
               aria-describedby={describedBy === '' ? undefined : describedBy}
               aria-busy={enhancing ? true : undefined}
               // The ring is the card's (`:has(:focus)`): one control, one ring.
@@ -488,7 +509,8 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
                 actions.setComposerFocused?.(false);
               }}
               onScroll={(event: UIEvent<HTMLTextAreaElement>) => {
-                if (mirror.current !== null) mirror.current.scrollTop = event.currentTarget.scrollTop;
+                if (mirror.current !== null)
+                  mirror.current.scrollTop = event.currentTarget.scrollTop;
               }}
             />
             {shimmer ? (
@@ -501,6 +523,7 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
           <ComposerToolbar
             locale={locale}
             mode={mode}
+            workers={workers}
             model={model}
             effort={effort}
             freeCode={freeCode}
@@ -508,6 +531,7 @@ export function Composer({ view, actions, awaitingPlan = false, inputRef, classN
             enhancement={enhancement}
             running={run !== null}
             onModeChange={actions.setMode}
+            onWorkersChange={actions.setWorkers}
             onModelChange={actions.setModel}
             onEffortChange={actions.setEffort}
             onFreeCodeChange={actions.setFreeCode}

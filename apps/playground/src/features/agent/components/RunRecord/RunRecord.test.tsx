@@ -30,6 +30,16 @@ function ruleBody(selector: string): string {
 }
 
 describe('RunRecord', () => {
+  it('keeps a long target fully named for assistive technology while bounding its visual title', () => {
+    const title = 'Refining the peace and war mural with a clearer responsive reading order';
+    render(<RunRecord glyph="working" title={title} />);
+    const article = screen.getByRole('article', { name: title });
+    expect(within(article).getByRole('heading', { level: 3, name: title })).toHaveTextContent(
+      title,
+    );
+    expect(ruleBody('.ck-agent-record__title')).toContain('-webkit-line-clamp: 2');
+  });
+
   it('is an article named by its h3 title', () => {
     render(<RunRecord glyph="landed" title="Page built" />);
     const article = screen.getByRole('article', { name: 'Page built' });
@@ -167,12 +177,14 @@ describe('RunRecord.css', () => {
     expect(head).toMatch(/min-block-size:\s*var\(--bldr-control-md\)/);
   });
 
-  it('sets the title as one line of Heading type in Ink, ending in an ellipsis', () => {
+  it('sets the title in Heading type with a two-line visual bound and safe wrapping', () => {
     const title = ruleBody('.ck-agent-record__title');
     expect(title).toMatch(/font-size:\s*var\(--bldr-font-size-read\)/);
     expect(title).toMatch(/font-weight:\s*var\(--bldr-font-weight-semibold\)/);
     expect(title).toMatch(/color:\s*var\(--bldr-panel-text\)/);
-    expect(title).toMatch(/white-space:\s*nowrap/);
+    expect(title).toMatch(/white-space:\s*normal/);
+    expect(title).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(title).toMatch(/-webkit-line-clamp:\s*2/);
     expect(title).toMatch(/text-overflow:\s*ellipsis/);
   });
 

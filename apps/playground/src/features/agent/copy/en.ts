@@ -25,6 +25,18 @@ export const en = {
   'sheet.backToChat': 'Back to the chat',
   // (added) §4.1: the resize separator needs an accessible name.
   'panel.resize': 'Resize the panel',
+  'workers.label': 'Build workers',
+  'workers.option': { one: '{n} worker', other: '{n} workers' },
+  'workers.hint': 'Independent build tasks run together; single-target edits use one worker.',
+  'tasks.label': 'Build tasks',
+  'tasks.coordinator': 'One coordinator · ordered checks',
+  'tasks.active': '{n} active',
+  'tasks.pool': 'Up to {n} workers',
+  'tasks.queued': '{n} queued',
+  'tasks.drafted': '{n} ready for checks',
+  'tasks.applied': '{n} applied',
+  'tasks.failed': '{n} failed',
+  'tasks.progress': '{n} of {total} tasks applied',
 
   /* §4.3 visible status: at most 24 characters before interpolation */
   'run.understanding': 'Reading your request…',

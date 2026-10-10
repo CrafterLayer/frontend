@@ -46,6 +46,7 @@
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-custom-code": "workspace:*",
     "@craftkit/builder-magicui": "workspace:*",
+    "@craftkit/builder-media-engines": "workspace:*",
     "@craftkit/builder-motion": "workspace:*",
     "@craftkit/builder-primitives": "workspace:*",
     "@craftkit/builder-react": "workspace:*",

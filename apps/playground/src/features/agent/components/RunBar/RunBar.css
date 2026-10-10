@@ -13,10 +13,13 @@
 */
 
 .ck-agent-runbar {
-  --ck-agent-ground: var(--bldr-surface);
+  --ck-agent-ground: var(--bldr-surface-hover);
 
   display: grid;
   grid-template-rows: 1fr;
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+  background-color: var(--bldr-surface-hover);
   border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   animation: ck-agent-runbar-in var(--bldr-duration-enter) var(--bldr-easing-enter);
 }
@@ -42,7 +45,7 @@
   min-inline-size: 0;
   margin: 0;
   overflow: hidden;
-  color: var(--bldr-panel-text);
+  color: var(--bldr-panel-text-soft);
   font-family: var(--bldr-font);
   font-size: var(--bldr-font-size-meta);
   font-weight: var(--bldr-font-weight-medium);

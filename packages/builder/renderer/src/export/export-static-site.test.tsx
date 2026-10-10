@@ -12,7 +12,11 @@ import {
 
 import { CustomCode } from '../components/CustomCode';
 import { STATIC_BASE_CSS } from './base-css';
-import { exportStaticSite, VIEW_TRANSITION_CSS, type StaticSitePageInput } from './export-static-site';
+import {
+  exportStaticSite,
+  VIEW_TRANSITION_CSS,
+  type StaticSitePageInput,
+} from './export-static-site';
 import { routeFile } from './routes';
 
 /* A real registered schema from the kernel fixtures; the renderers are this test's own. */
@@ -86,7 +90,10 @@ function arabicSite(): StaticSitePageInput[] {
           title: 'مطعم الياسمين',
           description: 'مطعم شرقي في عمّان يقدم أطباقاً طازجة كل يوم مع توصيل سريع.',
           lang: 'ar',
-          seo: { pageKind: 'home', site: { origin: 'https://example.com', siteName: 'الياسمين', business } },
+          seo: {
+            pageKind: 'home',
+            site: { origin: 'https://example.com', siteName: 'الياسمين', business },
+          },
         },
         [{ heading: 'أهلاً بكم' }],
       ),
@@ -103,7 +110,8 @@ function arabicSite(): StaticSitePageInput[] {
 
 async function run(
   pages = arabicSite(),
-  compileCss: (document: BuilderDocument) => Promise<string> = () => Promise.resolve('.p-4{padding:1rem}'),
+  compileCss: (document: BuilderDocument) => Promise<string> = () =>
+    Promise.resolve('.p-4{padding:1rem}'),
 ) {
   const { files } = await exportStaticSite({
     pages,
@@ -116,10 +124,39 @@ async function run(
 }
 
 describe('exportStaticSite', () => {
+  it('ships Embla only on pages with a carousel, including nested-route locators', async () => {
+    const { file } = await run([
+      {
+        pageId: 'home',
+        address: '/',
+        document: doc({ title: 'Home' }, [{ heading: 'Welcome' }], 'ltr'),
+      },
+      {
+        pageId: 'slides',
+        address: '/work',
+        document: doc({ title: 'Work' }, [{ behavior: 'carousel', heading: 'Projects' }], 'ltr'),
+      },
+    ]);
+    expect(file('assets/ck-carousel.js')).toContain('Copyright (c) David Jerleke.');
+    expect(file('work/index.html')).toContain(
+      'href="../assets/ck-carousel.js" data-ck-engine="carousel"',
+    );
+    expect(file('index.html')).not.toContain('data-ck-engine="carousel"');
+    const plain = await run([
+      {
+        pageId: 'home',
+        address: '/',
+        document: doc({ title: 'Home' }, [{ heading: 'Welcome' }], 'ltr'),
+      },
+    ]);
+    expect(plain.file('assets/ck-carousel.js')).toBeUndefined();
+  });
   it('publishes a two-page Arabic site with lang/dir, the SEO head and JSON-LD from seo.site', async () => {
     const { file } = await run();
     const home = file('index.html') ?? '';
-    expect(home.startsWith('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">')).toBe(true);
+    expect(
+      home.startsWith('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">'),
+    ).toBe(true);
     expect(home).toContain('<link rel="canonical" href="https://example.com/">');
     expect(home).toContain('property="og:locale" content="ar_AR"');
     expect(home).toContain('application/ld+json');
@@ -132,7 +169,9 @@ describe('exportStaticSite', () => {
 
   it('writes a percent-encoded sitemap, robots.txt and an Arabic 404', async () => {
     const { file } = await run();
-    expect(file('sitemap.xml')).toContain(`<loc>https://example.com${encodeURI('/قائمة-الطعام')}</loc>`);
+    expect(file('sitemap.xml')).toContain(
+      `<loc>https://example.com${encodeURI('/قائمة-الطعام')}</loc>`,
+    );
     expect(file('sitemap.xml')).toContain('<lastmod>2026-09-30</lastmod>');
     expect(file('robots.txt')).toContain('Sitemap: https://example.com/sitemap.xml');
     const notFound = file('404.html') ?? '';
@@ -153,17 +192,25 @@ describe('exportStaticSite', () => {
 
   it('shares one site.css when every page compiles alike, and splits it when they differ', async () => {
     const same = await run();
-    expect(same.file('assets/site.css')).toBe(`${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.p-4{padding:1rem}`);
+    expect(same.file('assets/site.css')).toBe(
+      `${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.p-4{padding:1rem}`,
+    );
     expect(same.file('index.html')).toContain('<link rel="stylesheet" href="assets/site.css">');
     expect(same.file('قائمة-الطعام/index.html')).toContain('href="../assets/site.css"');
 
     const compileCss = vi.fn((document: BuilderDocument) =>
-      Promise.resolve(document.nodes['root']?.props['title'] === 'قائمة الطعام' ? '.menu{}' : '.home{}'),
+      Promise.resolve(
+        document.nodes['root']?.props['title'] === 'قائمة الطعام' ? '.menu{}' : '.home{}',
+      ),
     );
     const split = await run(arabicSite(), compileCss);
     expect(split.file('assets/site.css')).toBeUndefined();
-    expect(split.file('assets/home.css')).toBe(`${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.home{}`);
-    expect(split.file('assets/menu.css')).toBe(`${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.menu{}`);
+    expect(split.file('assets/home.css')).toBe(
+      `${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.home{}`,
+    );
+    expect(split.file('assets/menu.css')).toBe(
+      `${STATIC_BASE_CSS}\n${VIEW_TRANSITION_CSS}\n.menu{}`,
+    );
     expect(split.file('قائمة-الطعام/index.html')).toContain('href="../assets/menu.css"');
   });
 
@@ -235,7 +282,9 @@ describe('exportStaticSite', () => {
     const body = html.slice(html.indexOf('<body>'));
     expect(head).toContain('<link rel="preconnect" href="https://fonts.googleapis.com">');
     expect(head).toContain('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
-    expect(head.split(`<link rel="stylesheet" href="${font.replaceAll('&', '&amp;')}">`)).toHaveLength(2);
+    expect(
+      head.split(`<link rel="stylesheet" href="${font.replaceAll('&', '&amp;')}">`),
+    ).toHaveLength(2);
     expect(head.indexOf('fonts.googleapis.com/css2')).toBeLessThan(head.indexOf('assets/site.css'));
     expect(body).not.toContain('@import');
     expect(body).toContain('<style>.ck-x{color:red}</style>');
@@ -247,7 +296,8 @@ describe('exportStaticSite', () => {
     const [home] = arabicSite();
     const page = home ?? raise();
     const src = 'https://images.unsplash.com/photo-1?w=1600&q=80';
-    const srcset = 'https://images.unsplash.com/photo-1?w=640&q=80 640w, https://images.unsplash.com/photo-1?w=1600&q=80 1600w';
+    const srcset =
+      'https://images.unsplash.com/photo-1?w=640&q=80 640w, https://images.unsplash.com/photo-1?w=1600&q=80 1600w';
     const { file } = await run([
       {
         ...page,
@@ -257,7 +307,13 @@ describe('exportStaticSite', () => {
             // The customCode tree the SEO extractor reads (the renderer here is the test's own).
             tree: {
               kind: 'root',
-              children: [{ kind: 'element', tag: 'img', attributes: { src, alt: 'قهوة', srcset, sizes: '100vw' } }],
+              children: [
+                {
+                  kind: 'element',
+                  tag: 'img',
+                  attributes: { src, alt: 'قهوة', srcset, sizes: '100vw' },
+                },
+              ],
             },
           },
         ]),
@@ -303,7 +359,12 @@ function codeDoc(tree: JsonValue): BuilderDocument {
     dir: 'rtl',
     rootId: 'root',
     nodes: {
-      root: { id: 'root', type: 'page', props: { title: 'الرئيسية', lang: 'ar' }, slots: { default: ['c'] } },
+      root: {
+        id: 'root',
+        type: 'page',
+        props: { title: 'الرئيسية', lang: 'ar' },
+        slots: { default: ['c'] },
+      },
       c: { id: 'c', type: 'code', props: { tree } },
     },
   };
@@ -313,11 +374,19 @@ const animatedTree: JsonValue = {
   kind: 'root',
   children: [
     { kind: 'element', tag: 'h1', text: 'مرحبا', attributes: { 'data-ck-motion': 'fade-up' } },
-    { kind: 'element', tag: 'a', text: 'اطلب', attributes: { href: '/menu', 'data-ck-hover': 'lift' } },
+    {
+      kind: 'element',
+      tag: 'a',
+      text: 'اطلب',
+      attributes: { href: '/menu', 'data-ck-hover': 'lift' },
+    },
     { kind: 'element', tag: 'div', className: 'ck-fx-glass ck-s-card p-2', text: 'بطاقة' },
   ],
 };
-const plainTree: JsonValue = { kind: 'root', children: [{ kind: 'element', tag: 'p', text: 'قائمة' }] };
+const plainTree: JsonValue = {
+  kind: 'root',
+  children: [{ kind: 'element', tag: 'p', text: 'قائمة' }],
+};
 
 const designLibrary: SiteLibrary = {
   styles: { card: { id: 'card', name: 'Card', className: 'rounded-lg p-6 bg-accent' } },
@@ -329,7 +398,11 @@ async function exportCode(
   extra: Partial<Parameters<typeof exportStaticSite>[0]> = {},
 ) {
   const { files } = await exportStaticSite({
-    pages: pages.map(({ address, tree }, at) => ({ pageId: `p${String(at)}`, address, document: codeDoc(tree) })),
+    pages: pages.map(({ address, tree }, at) => ({
+      pageId: `p${String(at)}`,
+      address,
+      document: codeDoc(tree),
+    })),
     blocks: (type: string) => codeRegistry[type],
     compileCss: () => Promise.resolve(''),
     ...extra,
@@ -380,8 +453,12 @@ describe('exportStaticSite — design library and motion', () => {
     expect(smooth).toContain('MIT License');
     expect(smooth).toContain('Lenis');
     expect(smooth).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
-    expect(file('index.html')).toContain('<script defer src="assets/ck-smooth-scroll.js"></script>');
-    expect(file('menu/index.html')).toContain('<script defer src="../assets/ck-smooth-scroll.js"></script>');
+    expect(file('index.html')).toContain(
+      '<script defer src="assets/ck-smooth-scroll.js"></script>',
+    );
+    expect(file('menu/index.html')).toContain(
+      '<script defer src="../assets/ck-smooth-scroll.js"></script>',
+    );
     expect(file('assets/site.css')).toContain('html.lenis');
   });
 
@@ -405,7 +482,10 @@ describe('exportStaticSite — design library and motion', () => {
     const compileClasses = vi.fn((names: Iterable<string>) =>
       Promise.resolve([...names].includes('rounded-lg') ? '.rounded-lg{border-radius:.5rem}' : ''),
     );
-    const file = await exportCode([{ address: '/', tree: animatedTree }], { library: designLibrary, compileClasses });
+    const file = await exportCode([{ address: '/', tree: animatedTree }], {
+      library: designLibrary,
+      compileClasses,
+    });
     expect(compileClasses).toHaveBeenCalled();
     expect(file('assets/site.css')).toContain('.rounded-lg{border-radius:.5rem}');
   });
@@ -426,7 +506,13 @@ const sceneTree: JsonValue = {
           tag: 'div',
           className: 'absolute inset-0 -z-10',
           attributes: { 'data-ck-scene': 'particles' },
-          children: [{ kind: 'element', tag: 'img', attributes: { src: 'https://images.example.com/a.jpg', alt: '' } }],
+          children: [
+            {
+              kind: 'element',
+              tag: 'img',
+              attributes: { src: 'https://images.example.com/a.jpg', alt: '' },
+            },
+          ],
         },
         { kind: 'element', tag: 'h1', text: 'جدارية' },
       ],
@@ -435,7 +521,14 @@ const sceneTree: JsonValue = {
 };
 const timelineTree: JsonValue = {
   kind: 'root',
-  children: [{ kind: 'element', tag: 'h2', text: 'قصتنا', attributes: { 'data-ck-timeline': 'split-reveal' } }],
+  children: [
+    {
+      kind: 'element',
+      tag: 'h2',
+      text: 'قصتنا',
+      attributes: { 'data-ck-timeline': 'split-reveal' },
+    },
+  ],
 };
 const lottieTree: JsonValue = {
   kind: 'root',
@@ -444,7 +537,13 @@ const lottieTree: JsonValue = {
       kind: 'element',
       tag: 'div',
       attributes: { 'data-ck-lottie': '', 'data-ck-src': 'https://assets.example.com/a.json' },
-      children: [{ kind: 'element', tag: 'img', attributes: { src: 'https://images.example.com/p.png', alt: '' } }],
+      children: [
+        {
+          kind: 'element',
+          tag: 'img',
+          attributes: { src: 'https://images.example.com/p.png', alt: '' },
+        },
+      ],
     },
   ],
 };
@@ -455,7 +554,13 @@ const galleryTree: JsonValue = {
       kind: 'element',
       tag: 'div',
       attributes: { 'data-ck-behavior': 'gallery' },
-      children: [{ kind: 'element', tag: 'img', attributes: { src: 'https://images.example.com/g.jpg', alt: 'طبق' } }],
+      children: [
+        {
+          kind: 'element',
+          tag: 'img',
+          attributes: { src: 'https://images.example.com/g.jpg', alt: 'طبق' },
+        },
+      ],
     },
   ],
 };
@@ -495,10 +600,14 @@ describe('exportStaticSite — media packs and engines', () => {
       { address: '/anim', tree: lottieTree },
     ]);
     const home = file('index.html') ?? '';
-    expect(home).toContain('<link rel="ck-engine" href="assets/ck-timeline.js" data-ck-engine="timeline">');
+    expect(home).toContain(
+      '<link rel="ck-engine" href="assets/ck-timeline.js" data-ck-engine="timeline">',
+    );
     expect(home).not.toContain('data-ck-engine="lottie"');
     const anim = file('anim/index.html') ?? '';
-    expect(anim).toContain('<link rel="ck-engine" href="../assets/ck-lottie.js" data-ck-engine="lottie">');
+    expect(anim).toContain(
+      '<link rel="ck-engine" href="../assets/ck-lottie.js" data-ck-engine="lottie">',
+    );
     expect(anim).not.toContain('data-ck-engine="timeline"');
     const timeline = file('assets/ck-timeline.js') ?? '';
     expect(timeline.startsWith(TIMELINE_BANNER + TIMELINE_SOURCE)).toBe(true);
@@ -512,9 +621,16 @@ describe('exportStaticSite — media packs and engines', () => {
   it('carries the packs the site uses inside ck-behaviors.js, and every pack style in ck-behaviors.css', async () => {
     const file = await exportCode([{ address: '/', tree: galleryTree }]);
     const script = file('assets/ck-behaviors.js') ?? '';
-    for (const name of ['mountBehaviors', 'mountGallery']) expect(script).toContain(`function ${name}(`);
+    for (const name of ['mountBehaviors', 'mountGallery'])
+      expect(script).toContain(`function ${name}(`);
     // fix pass (2026-10-06): a pack the site does not use is not shipped.
-    for (const name of ['mountCarousel', 'mountVideoPlayer', 'mountBgVideo', 'mountEmbedFacade', 'mountEngines'])
+    for (const name of [
+      'mountCarousel',
+      'mountVideoPlayer',
+      'mountBgVideo',
+      'mountEmbedFacade',
+      'mountEngines',
+    ])
       expect(script).not.toContain(`function ${name}(`);
     const css = file('assets/ck-behaviors.css') ?? '';
     expect(css).toContain('dialog[data-ck-lightbox]');

@@ -10,6 +10,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import type { AiSkillDefinitionV1 } from './types';
+import { DESIGN_LIBRARY_TEACHING } from './design-libraries';
 
 // P10-agent-power additions (style-manager DESIGN.md §D.3): the element
 // vocabulary widened on 2026-10-05 — style tools, the desktop-first prefix
@@ -61,7 +62,7 @@ export const DESIGN_CODE_SKILL: AiSkillDefinitionV1 = {
   name: 'Design code',
   description:
     'Region CSS for a signature effect, and interactive markup that needs no script.',
-  version: '1.2.0',
+  version: '1.3.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 91,
@@ -82,6 +83,7 @@ ONLINE BOOKING, when the request names booking or appointments online — a real
 TAP TARGETS: every link in a footer or a nav list is a 44px target on a phone: a class='inline-flex min-h-11 items-center'.
 ${STYLE_MANAGER_TEACHING}
 ${MEDIA_MOTION_TEACHING}
+${DESIGN_LIBRARY_TEACHING}
 NEVER: script, on… handlers, a style attribute, an iframe from another host, form action or method, http:// addresses.`,
   references: {
     'checks/design-code.md':

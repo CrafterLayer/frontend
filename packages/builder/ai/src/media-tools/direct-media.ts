@@ -557,11 +557,53 @@ function readAllSections(kernel: BuilderKernel): MediaReading | undefined {
 }
 // end gsap-pixi additions
 
+// fix pass (2026-10-10) ─────────────────────────────────────────────────────
+/*
+  «ضيف حركة GSAP», "add scroll reveal animation" named no section, and
+  «ضيف حركة GSAP تظهر الأقسام عند التمرير» / «حركة ظهور عند التمرير لقائمة
+  الطعام» put a reveal verb or the scroll words around the section noun: all
+  four reached the model (2 calls, ~26k tokens, nothing written). A request
+  with no section is every content section; the words around a noun are
+  dropped before the noun is read.
+*/
+const MOTION_SCROLL_AR = '(?:عند|مع|اثناء|وقت|ب)\\s*(?:ال)?(?:تمرير|سكرول|scroll|نزول)';
+const MOTION_EXTRA_AR = `(?:(?:ال)?(?:gsap|جي ساب|جيساب)|ظهور|اظهار|دخول|تدريجي|تدريجيه|${MOTION_SCROLL_AR})`;
+const MOTION_BARE_AR = new RegExp(
+  `^(?:${VERB_AR}\\s+)?(?:ال)?(?:حركه|حركات|انيميشن|انميشن|تحريك)(?:\\s+${MOTION_EXTRA_AR})*$`,
+  'u',
+);
+const MOTION_BARE_EN = new RegExp(
+  `^(?:${VERB_EN}\\s+)?(?:(?:gsap|scroll|scroll-triggered|on-scroll|entrance|fade|fade-in|reveal)\\s+)*(?:reveal|reveals|animation|animations|motion|entrance|effects?)(?:\\s+(?:on|while)\\s+scroll(?:ing)?)?(?:\\s+with\\s+gsap)?$`,
+  'u',
+);
+const MOTION_NOUN_LEAD = new RegExp(
+  `^(?:(?:تظهر|يظهر|لتظهر|ليظهر|تبرز|ظهور|اظهار|دخول|تدريجي|تدريجيه|${MOTION_SCROLL_AR})\\s+)+`,
+  'u',
+);
+const MOTION_NOUN_TAIL = new RegExp(
+  `(?:\\s+(?:${MOTION_SCROLL_AR}|(?:on|while)\\s+scroll(?:ing)?|with\\s+gsap))+$`,
+  'u',
+);
+const MOTION_NOUN_PREFIX = /^(?:(?:لل|ل|على|علي|في|ب)\s*)?(?:(?:ال)?(?:قسم|سكشن|جزء)\s+)?/u;
+
+/** The section noun of a motion request, without the reveal verb or scroll words around it. */
+function cleanMotionNoun(raw: string): string {
+  const trimmed = raw.trim();
+  const lead = trimmed.replace(MOTION_NOUN_LEAD, '');
+  const bare = lead.replace(MOTION_NOUN_TAIL, '').trim();
+  // Only a noun that lost its lead words is read again for its preposition («لقائمة الطعام»).
+  return lead === trimmed ? bare : bare.replace(MOTION_NOUN_PREFIX, '').trim();
+}
+// end fix pass (2026-10-10)
+
 function readMotion(text: string, kernel: BuilderKernel): MediaReading | undefined {
   // gsap-pixi additions (2026-10-08): "animate all sections" names no one section
   if (ANIMATE_ALL_EN.test(text)) return readAllSections(kernel);
   // end gsap-pixi additions
-  const noun = (MOTION_AR.exec(text) ?? MOTION_EN.exec(text) ?? ANIMATE_EN.exec(text))?.[1]?.trim();
+  // fix pass (2026-10-10): no section named at all → every content section
+  if (MOTION_BARE_AR.test(text) || MOTION_BARE_EN.test(text)) return readAllSections(kernel);
+  const raw = (MOTION_AR.exec(text) ?? MOTION_EN.exec(text) ?? ANIMATE_EN.exec(text))?.[1];
+  const noun = raw === undefined ? undefined : cleanMotionNoun(raw);
   if (noun === undefined || noun === '' || noun.split(' ').length > 6) return undefined;
   // gsap-pixi additions (2026-10-08): «للأقسام», "to the sections", "to the page" → every content section
   if (ALL_SECTIONS_NOUN.test(noun)) return readAllSections(kernel);

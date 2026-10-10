@@ -30,6 +30,12 @@ import { defineSiteCommand } from './define-site-command';
 import { codeProjectCommands, type CodeProjectCommands } from './code-project-commands';
 import { libraryCommands, type LibraryCommands } from './library-commands';
 import { pageCommands, type PageCommands } from './page-commands';
+// pixi-studio:schema-library additions (2026-10-10): the Pixi Studio project tier (DESIGN §A.2).
+import {
+  scriptLibraryCommands,
+  type ScriptLibraryCommands,
+} from './script-library-commands';
+// end pixi-studio:schema-library additions
 
 /**
  * The SITE command set (013, ق١).
@@ -71,6 +77,13 @@ export interface SiteCommands extends CodeProjectCommands, PageCommands, Library
   setSiteDirection: { dir: ContentDirection };
   applySitePatches: { patches: RootPatch[] };
 }
+
+// pixi-studio:schema-library additions (2026-10-10): saveScript, removeScript, renameScript, saveSound,
+// removeSound join the site namespace by declaration merging, so the interface
+// above stays untouched.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- declaration merging
+export interface SiteCommands extends ScriptLibraryCommands {}
+// end pixi-studio:schema-library additions
 
 export type SiteCommandName = keyof SiteCommands;
 
@@ -289,6 +302,9 @@ export const siteCommands: Record<SiteCommandName, RegisteredSiteCommand> = {
   ...codeProjectCommands,
   /* style-manager DESIGN.md §2: the site design library (P5). */
   ...libraryCommands,
+  // pixi-studio:schema-library additions (2026-10-10)
+  ...scriptLibraryCommands,
+  // end pixi-studio:schema-library additions
 };
 
 // ── Refusal helpers ──────────────────────────────────────────────────────────

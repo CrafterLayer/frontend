@@ -476,6 +476,8 @@ function targetForEvent(
       return { target: failedPose(event.error.retryable), settled: true };
     case 'run.cancelled':
       return { target: STOPPED, settled: true };
+    case 'provider.usage':
+      return null;
     case 'build.scaffolding':
     case 'build.skipped':
     case 'build.planned':

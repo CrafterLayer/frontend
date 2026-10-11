@@ -155,6 +155,19 @@
   }
 }
 
+/* Full model/effort/worker controls must share wrapping rows with the actions in a
+   narrow, short panel. Separate flex groups otherwise consume three toolbar rows. */
+@container agent-conversation (max-height: 480px) and (max-width: 359.98px) {
+  .ck-agent-composer .ck-agent-toolbar {
+    justify-content: flex-start;
+  }
+
+  .ck-agent-composer .ck-agent-toolbar__choices,
+  .ck-agent-composer .ck-agent-toolbar__actions {
+    display: contents;
+  }
+}
+
 /* Slate on the Sheet, 4.69:1 (SPEC §2.1). */
 .ck-agent-composer__input::placeholder {
   color: var(--bldr-panel-muted);

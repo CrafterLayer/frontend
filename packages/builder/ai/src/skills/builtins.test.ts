@@ -118,6 +118,9 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.page-composition',
       // Explicit, beside the photo-catalog context provider.
       'craftkit.photo-direction',
+      'craftkit.pixi-games',
+      'craftkit.pixi-murals',
+      'craftkit.pixi-stories',
       // pixi-skills additions (2026-10-10): PixiJS v8 for free-code scene scripts.
       'craftkit.pixi-v8-core',
       'craftkit.pixi-v8-effects',

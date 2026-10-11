@@ -362,8 +362,13 @@ function reasoningOf(delta: Record<string, unknown>): string {
   return text;
 }
 
-function count(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+function count(value: unknown): number | null {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= 1_000_000_000_000
+    ? value
+    : null;
 }
 
 /**
@@ -379,7 +384,8 @@ function usageOf(usage: Record<string, unknown> | undefined): Anthropic.Message[
   const written = count(details['cache_write_tokens']);
   const cost = usage?.['cost'];
   return {
-    input_tokens: Math.max(0, prompt - cached - written),
+    // Unknown cache counts remain unknown, but cannot erase a reported prompt count.
+    input_tokens: prompt === null ? null : Math.max(0, prompt - (cached ?? 0) - (written ?? 0)),
     output_tokens: count(usage?.['completion_tokens']),
     cache_read_input_tokens: cached,
     cache_creation_input_tokens: written,

@@ -33,6 +33,7 @@ import {
   type Turn,
 } from './turns';
 import { TURN_KINDS, type ErrorPageState, type TurnKind } from './view-types';
+import { telemetryTotals } from './run-telemetry';
 
 /* ── Fixtures ────────────────────────────────────────────────────────────── */
 
@@ -278,7 +279,10 @@ describe('answerFromPlan: a plan with words and no command is an answer', () => 
 
   it('answers with the follow-up when the rationale is empty', () => {
     const plan: AiPlan = { rationale: '  ', commands: [], followUp: 'Which page?' };
-    expect(answerFromPlan({ id: 'turn-4', plan })).toMatchObject({ kind: 'answer', text: 'Which page?' });
+    expect(answerFromPlan({ id: 'turn-4', plan })).toMatchObject({
+      kind: 'answer',
+      text: 'Which page?',
+    });
   });
 
   it('is not an answer when the plan proposed a command, or said nothing at all', () => {
@@ -521,6 +525,154 @@ describe('reviveTurn: a reload ends every run and every runtime authority', () =
 });
 
 describe('reviveState: reading pg-agent-sessions-v2 defensively', () => {
+  it('preserves an overflowed receipt as unknown across reload and rejects malformed flags', () => {
+    const receipt = {
+      activity: [],
+      attempts: {
+        'run/attempt-1': {
+          inputTokens: 20,
+          outputTokens: 8,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          costUsd: 0.01,
+        },
+      },
+      overflowed: true,
+    };
+    const state = reviveState(
+      JSON.parse(
+        JSON.stringify({
+          activeId: 's',
+          sessions: [
+            {
+              id: 's',
+              turns: [{ id: 'a', kind: 'answer', text: 'Saved reply', telemetry: receipt }],
+            },
+          ],
+        }),
+      ),
+    );
+    const telemetry = state?.sessions[0]?.turns[0]?.telemetry;
+    expect(telemetry?.overflowed).toBe(true);
+    if (telemetry === undefined) throw new Error('Missing bounded overflow receipt');
+    expect(telemetryTotals(telemetry)).toMatchObject({
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+      costUsd: null,
+    });
+    const malformed = reviveState({
+      activeId: 's',
+      sessions: [
+        {
+          id: 's',
+          turns: [
+            {
+              id: 'a',
+              kind: 'answer',
+              text: 'Saved reply',
+              telemetry: { ...receipt, overflowed: 'true' },
+            },
+          ],
+        },
+      ],
+    });
+    expect(malformed?.sessions[0]?.turns[0]).toEqual({
+      id: 'a',
+      kind: 'answer',
+      text: 'Saved reply',
+    });
+  });
+  it('drops malformed optional telemetry without losing a readable answer', () => {
+    for (const telemetry of [
+      {},
+      { activity: [], attempts: [] },
+      { activity: 'private', attempts: {} },
+    ]) {
+      const state = reviveState({
+        activeId: 's',
+        sessions: [
+          { id: 's', turns: [{ id: 'a', kind: 'answer', text: 'Saved reply', telemetry }] },
+        ],
+      });
+      expect(state?.sessions[0]?.turns[0]).toEqual({
+        id: 'a',
+        kind: 'answer',
+        text: 'Saved reply',
+      });
+    }
+  });
+  it('retains bounded measured receipts and preserves bad or absent counts as unknown', () => {
+    const state = reviveState({
+      activeId: 's',
+      sessions: [
+        {
+          id: 's',
+          turns: [
+            {
+              id: 'a',
+              kind: 'answer',
+              text: 'Saved reply',
+              telemetry: {
+                activity: [
+                  { stage: 'checking', scope: 'x'.repeat(500) },
+                  { stage: 'private reasoning' },
+                ],
+                attempts: {
+                  'run/attempt-1': {
+                    inputTokens: 20,
+                    outputTokens: -1,
+                    cacheReadTokens: Infinity,
+                    cacheWriteTokens: Number.MAX_SAFE_INTEGER,
+                    costUsd: -1,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const telemetry = state?.sessions[0]?.turns[0]?.telemetry;
+    expect(telemetry?.activity).toEqual([{ stage: 'checking', scope: 'x'.repeat(120) }]);
+    if (telemetry === undefined) throw new Error('Missing measured receipt');
+    expect(telemetryTotals(telemetry)).toMatchObject({
+      inputTokens: 20,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+      costUsd: null,
+    });
+  });
+  it('rejects prototype-bearing, dangerous-key and oversized persisted ledgers', () => {
+    const ledgers: readonly unknown[] = [
+      Object.create({ 'inherited/attempt-1': null }),
+      JSON.parse('{"__proto__":null}'),
+      Object.fromEntries(
+        Array.from({ length: 65 }, (_, i) => [`run-${String(i)}/attempt-1`, null]),
+      ),
+    ];
+    for (const attempts of ledgers) {
+      const state = reviveState({
+        activeId: 's',
+        sessions: [
+          {
+            id: 's',
+            turns: [
+              {
+                id: 'a',
+                kind: 'answer',
+                text: 'Saved reply',
+                telemetry: { activity: [], attempts },
+              },
+            ],
+          },
+        ],
+      });
+      expect(state?.sessions[0]?.turns[0]?.telemetry).toBeUndefined();
+    }
+  });
   const saved = {
     version: 2,
     sessions: [session([{ id: 'turn-2', kind: 'user', text: 'hi', context: [] }, build()])],

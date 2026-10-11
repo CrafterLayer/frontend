@@ -423,7 +423,18 @@ describe('runAiBuild', () => {
       runId: 'build-retry',
       clock: fixedClock(1000),
       kernel: live,
-      provider,
+      provider: {
+        ...provider,
+        propose: (...args) => {
+          args[2]?.onUsage?.({
+            inputTokens: 20,
+            outputTokens: 8,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+          });
+          return provider.propose(...args);
+        },
+      },
       request: 'A studio page',
       validationPorts: ports('retry'),
       skillRegistry: createCraftkitAiSkillRegistry(),
@@ -435,6 +446,16 @@ describe('runAiBuild', () => {
     expect(result.applied).toBe(3);
     expect(result.skipped).toBe(0);
     expect(result.tasks[0]).toMatchObject({ title: 'Hero', status: 'applied', attempts: 2 });
+    const receipts = events.filter((event) => event.type === 'provider.usage');
+    expect(receipts).toHaveLength(5);
+    expect(new Set(receipts.map((event) => event.attemptId)).size).toBe(5);
+    expect(receipts.reduce((sum, event) => sum + (event.usage.inputTokens ?? 0), 0)).toBe(100);
+    expect(receipts.reduce((sum, event) => sum + (event.usage.outputTokens ?? 0), 0)).toBe(40);
+    expect(
+      receipts
+        .filter((event) => event.runId.startsWith('build-retry/fill-1'))
+        .map((event) => event.attemptId),
+    ).toEqual(['build-retry/fill-1/attempt-1', 'build-retry/fill-1-2/attempt-1']);
     expect(live.transactions().map(({ command }) => command)).toEqual([
       'Assistant: page skeleton',
       'Assistant: 1/3 — Hero',

@@ -15,9 +15,11 @@ import {
 import type { IntentKind, IntentTarget } from '../intent';
 import { applyAiPlan, type AppliedAiPlan } from '../plan/apply-plan';
 import { repairAiPlanForIssues } from '../plan/generate-plan';
+import { readProviderUsage } from '../provider/usage';
 import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/validated-proposal';
 import { AiPlanRejectedError } from '../plan/validate-plan';
 import type { AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
+import { pixiSkillIdsFor } from '../skills/pixi-selection';
 import { seoAutofixPlan, SEO_AUTOFIX_LABEL } from '../seo/autofix';
 import { agentToolPrompt } from '../tools/agent/catalog-prompt';
 import { expandAgentTools } from '../tools/agent/expand';
@@ -381,6 +383,7 @@ function fillSkillIds(
   arabic: boolean,
   photos = true,
   variants = true,
+  creativeRequest = '',
 ): readonly string[] {
   const registry = options.skillRegistry;
   const named = [...FILL_SKILLS, ...(arabic ? [ARABIC_FILL_SKILL] : [])].filter(
@@ -389,10 +392,13 @@ function fillSkillIds(
   return fittingSkillIds(
     options,
     [FILL_SKILL, ...named],
-    FILL_SKILLS_WHEN_PRESENT.filter(
-      (id) =>
-        (photos || id !== PHOTO_DIRECTION_SKILL) && (variants || id !== SECTION_VARIANTS_SKILL),
-    ),
+    [
+      ...pixiSkillIdsFor(registry, creativeRequest),
+      ...FILL_SKILLS_WHEN_PRESENT.filter(
+        (id) =>
+          (photos || id !== PHOTO_DIRECTION_SKILL) && (variants || id !== SECTION_VARIANTS_SKILL),
+      ),
+    ],
   );
 }
 
@@ -765,9 +771,13 @@ interface FillBrief {
  * The provider a writer proposes through, with every answer — first and
  * repaired — completed by `complete` before validation. Forget passes through.
  */
-function completingProvider(inner: AiPlanProvider, complete: (answer: AiPlan) => AiPlan): AiPlanProvider {
+function completingProvider(
+  inner: AiPlanProvider,
+  complete: (answer: AiPlan) => AiPlan,
+): AiPlanProvider {
   const provider: AiPlanProvider = {
-    propose: async (request, context, live) => complete(await inner.propose(request, context, live)),
+    propose: async (request, context, live) =>
+      complete(await inner.propose(request, context, live)),
   };
   const repair = inner.repair?.bind(inner);
   if (repair !== undefined) {
@@ -789,14 +799,22 @@ function isPlainObject(value: unknown): value is Readonly<Record<string, unknown
  * and every catalog image given the section's assigned photo (no photo twice
  * on a page). Anything else is returned as written; never throws.
  */
-export function completeKitSteps(plan: PagePlan, contract: SectionContract, answer: AiPlan): AiPlan {
+export function completeKitSteps(
+  plan: PagePlan,
+  contract: SectionContract,
+  answer: AiPlan,
+): AiPlan {
   try {
     const written: unknown = (answer as { readonly commands?: unknown }).commands;
     if (!Array.isArray(written)) return answer;
     const steps = written as readonly AiPlanStep[];
     const commands = steps.map((step): AiPlanStep => {
       const args: unknown = step.args;
-      if (step.command !== AGENT_TOOL_COMMAND || !isPlainObject(args) || args['name'] !== 'kit.section') {
+      if (
+        step.command !== AGENT_TOOL_COMMAND ||
+        !isPlainObject(args) ||
+        args['name'] !== 'kit.section'
+      ) {
         return step;
       }
       const input = args['input'];
@@ -849,6 +867,7 @@ function runFill(
   total: number,
   brief: FillBrief,
   signal: AbortSignal,
+  invocation: number,
 ): Promise<AiAgentRunResult> {
   const { history, additionalContextProviders, skillRegistry, ...step } = shared;
   void additionalContextProviders;
@@ -860,7 +879,9 @@ function runFill(
   */
   const samples = brief.sampleValues === undefined ? {} : { sampleValues: brief.sampleValues };
   const provider =
-    brief.completeStep === undefined ? step.provider : completingProvider(step.provider, brief.completeStep);
+    brief.completeStep === undefined
+      ? step.provider
+      : completingProvider(step.provider, brief.completeStep);
   return runAiAgent({
     ...step,
     provider,
@@ -870,7 +891,10 @@ function runFill(
     ...(brief.history && history !== undefined ? { history } : {}),
     ...(skills === undefined ? {} : { skillRegistry: skills }),
     additionalContextProviders: brief.providers,
-    runId: stepRunId(options.runId, `fill-${String(position)}`),
+    runId: stepRunId(
+      options.runId,
+      `fill-${String(position)}${invocation === 1 ? '' : `-${String(invocation)}`}`,
+    ),
     request: brief.request,
     selection: [task.id],
     selectedSkillIds: brief.skillIds,
@@ -909,7 +933,10 @@ function stringArg(args: unknown, name: 'id' | 'key'): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-function isFillKey(key: string | undefined, allowed: readonly AiBuildSectionKey[]): key is AiBuildSectionKey {
+function isFillKey(
+  key: string | undefined,
+  allowed: readonly AiBuildSectionKey[],
+): key is AiBuildSectionKey {
   return key !== undefined && (allowed as readonly string[]).includes(key);
 }
 
@@ -1325,6 +1352,8 @@ interface Slot {
   settled: boolean;
   /** Attempts begun so far, for a section a Stop cuts off. */
   attempts: number;
+  /** Physical writers across outer retries and changed streamed contracts. */
+  invocations: number;
   /**
    * Bumped whenever the slot is opened again (a streamed build reruns a
    * section whose contract the final plan changed): a write begun under an
@@ -1367,6 +1396,7 @@ function createSlot(released: boolean): Slot {
     claimed: false,
     settled: false,
     attempts: 0,
+    invocations: 0,
     generation: 0,
     released,
     counted: false,
@@ -1460,6 +1490,7 @@ async function checkAndRepair(
   request: string,
   placeholder: AiBuildSectionValues,
   budgetSpent: () => boolean,
+  invocation: number,
   jobSignal?: AbortSignal,
 ): Promise<{
   readonly guarded: GuardedFill;
@@ -1480,7 +1511,8 @@ async function checkAndRepair(
     return { ...first, check: Object.freeze({ issues, repaired: false }) };
   }
 
-  const emit = stepEmitter(build, `check-${String(job.position)}`);
+  const step = `check-${String(job.position)}${invocation === 1 ? '' : `-${String(invocation)}`}`;
+  const emit = stepEmitter(build, step);
   emit({ type: 'run.started', apply: 'never' });
   emit({ type: 'plan.repairing', issues: issues.map(({ message }) => message) });
   const landedPlan: AiPlan = { ...run.proposal.plan, commands: guarded.commands };
@@ -1489,11 +1521,37 @@ async function checkAndRepair(
       options,
       job.task,
       build.taskTimeoutMs,
-      (signal) =>
-        repairAiPlanForIssues(
+      (signal) => {
+        const repair = options.provider.repair?.bind(options.provider);
+        let reported = false;
+        const provider: AiPlanProvider = {
+          ...options.provider,
+          repair: (repairRequest, context, plan, findings, live) => {
+            if (repair === undefined) throw new Error('This provider cannot repair a plan.');
+            return repair(repairRequest, context, plan, findings, {
+              ...live,
+              onProgress: (text) => {
+                if (!signal.aborted && !build.personStopped())
+                  emit({ type: 'plan.progress', text });
+              },
+              onUsage: (value) => {
+                if (reported || signal.aborted || build.personStopped()) return;
+                const usage = readProviderUsage(value);
+                if (usage === undefined) return;
+                reported = true;
+                emit({
+                  type: 'provider.usage',
+                  attemptId: `${stepRunId(options.runId, step)}/attempt-1`,
+                  usage,
+                });
+              },
+            });
+          },
+        };
+        return repairAiPlanForIssues(
           {
             kernel: options.kernel,
-            provider: options.provider,
+            provider,
             request,
             validationPorts: options.validationPorts,
             signal,
@@ -1506,7 +1564,8 @@ async function checkAndRepair(
           landedPlan,
           repairIssues(issues),
           run.policy,
-        ),
+        );
+      },
       jobSignal,
     );
     emit({ type: 'plan.validating', attempt: 2 });
@@ -1761,11 +1820,13 @@ function startFill(
       const brief = job.brief?.(attempt);
       if (brief === undefined) break;
       try {
+        const invocation = ++slot.invocations;
         const run = await underDeadline(
           options,
           task,
           build.taskTimeoutMs,
-          (deadline) => runFill(options, build.shared, task, position, total, brief, deadline),
+          (deadline) =>
+            runFill(options, build.shared, task, position, total, brief, deadline, invocation),
           signal,
         );
         if (stale()) return undefined;
@@ -1787,6 +1848,7 @@ function startFill(
           brief.request,
           placeholder,
           budgetSpent,
+          invocation,
           signal,
         );
         if (stale()) return undefined;
@@ -2500,7 +2562,9 @@ function imageLines(
 const MAX_PAGE_FACTS = 24;
 
 function pageFactsLines(plan: PagePlan, sectionKey: string): readonly string[] {
-  const others = plan.facts.filter(({ section }) => section !== sectionKey).slice(0, MAX_PAGE_FACTS);
+  const others = plan.facts
+    .filter(({ section }) => section !== sectionKey)
+    .slice(0, MAX_PAGE_FACTS);
   if (others.length === 0) return [];
   return [
     `FACTS ELSEWHERE ON THE PAGE (if this section mentions one, write the same value — never a different price, name, phone or hour; do not invent new prices for these items): ${others
@@ -2659,8 +2723,10 @@ function neighbourSummary(
 }
 
 /** The step events T1 sends under a build: `<build>/page-plan`, shaped as any step's. */
-function planStepEvents(build: BuildRun): (note: PagePlanStepNote) => void {
-  const emit = stepEmitter(build, PAGE_PLAN_STEP);
+function planStepEvents(
+  build: BuildRun,
+  emit = stepEmitter(build, PAGE_PLAN_STEP),
+): (note: PagePlanStepNote) => void {
   return (note) => {
     switch (note.type) {
       case 'started':
@@ -2686,6 +2752,9 @@ function planStepEvents(build: BuildRun): (note: PagePlanStepNote) => void {
         return;
       case 'progress':
         emit({ type: 'plan.progress', text: note.text });
+        return;
+      case 'usage':
+        emit({ type: 'provider.usage', attemptId: note.attemptId, usage: note.usage });
         return;
       case 'repairing':
         emit({
@@ -2753,6 +2822,7 @@ async function planStep(
   // A plan is laid as `customCode` regions; a registry without them keeps the scaffold build.
   if (options.kernel.context.registry.block(REGION_TYPE) === undefined) return undefined;
   const isCurrentRun = options.isCurrentRun;
+  const emit = stepEmitter(build, PAGE_PLAN_STEP);
   const result = await proposeValidatedPagePlan(
     {
       runId: stepRunId(options.runId, PAGE_PLAN_STEP),
@@ -2784,7 +2854,7 @@ async function planStep(
       maxSections: planMaxSections(build),
       ...(onDraft === undefined ? {} : { onDraft }),
     },
-    planStepEvents(build),
+    planStepEvents(build, emit),
   );
   if (!('plan' in result)) {
     return {
@@ -3037,12 +3107,24 @@ function sectionBriefing(
   const images = contract.images ?? [];
   // A hero is handed the person's own photos even when the plan made it type-led (see imageLines).
   const photos = images.length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
-  const skillIds = fillSkillIds(options, arabic, photos);
-  const kitBacked = planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
+  // A scene's own contract carries its expertise. The lead scene may also use the original
+  // creative brief; ordinary supporting bands never inherit it just from page-level words.
+  const creativeRequest = [
+    contract.title,
+    contract.purpose,
+    ...(contract.role === 'hero' ? [options.request] : []),
+  ].join(' ');
+  const skillIds = fillSkillIds(options, arabic, photos, true, creativeRequest);
+  const needsSceneCode =
+    options.freeCode === true && pixiSkillIdsFor(options.skillRegistry, creativeRequest).length > 0;
+  const kitBacked =
+    !needsSceneCode && planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
   return {
     kitBacked,
     skillIds,
-    kitSkillIds: kitBacked ? fillSkillIds(options, arabic, photos, false) : skillIds,
+    kitSkillIds: kitBacked
+      ? fillSkillIds(options, arabic, photos, false, creativeRequest)
+      : skillIds,
     // The catalog is where the contract's subjects come from; the person's own need none.
     providers:
       images.length > 0
@@ -3188,19 +3270,13 @@ const KIT_MISSES = new WeakMap<AiBuildTask, readonly string[]>();
  * "in seconds… no credit card" in other words than its mustSay, so a writer
  * rewrote it and the first section landed at 28.5 s instead of ≈ 12 s.
  */
-function kitSlotMisses(
-  task: AiBuildTask,
-  check: () => readonly SectionCheckIssue[],
-): boolean {
+function kitSlotMisses(task: AiBuildTask, check: () => readonly SectionCheckIssue[]): boolean {
   const misses = guardedCheck(check).filter(({ code }) => code !== 'must-say');
   if (misses.length === 0) {
     KIT_MISSES.delete(task);
     return false;
   }
-  KIT_MISSES.set(
-    task,
-    Object.freeze(misses.map(({ code, message }) => `${code}: ${message}`)),
-  );
+  KIT_MISSES.set(task, Object.freeze(misses.map(({ code, message }) => `${code}: ${message}`)));
   return true;
 }
 
@@ -3938,7 +4014,6 @@ async function buildFromScaffold(
     ARABIC_SCRIPT.test(direction) ||
     laid.dir === 'rtl' ||
     (typeof rootLang === 'string' && ARABIC_LANG.test(rootLang));
-  const skillIds = fillSkillIds(options, arabic);
   const total = tasks.length;
   const jobs: SectionJob[] = tasks.map((task, index) => {
     const position = index + 1;
@@ -3954,7 +4029,13 @@ async function buildFromScaffold(
           attempt === 1
             ? fillRequest(direction, task, position, total, role, options.request)
             : retryRequest(direction, task, position, total, role),
-        skillIds,
+        skillIds: fillSkillIds(
+          options,
+          arabic,
+          true,
+          true,
+          `${task.title} ${role === 'hero' ? options.request : ''}`,
+        ),
         providers,
         history: true,
       }),

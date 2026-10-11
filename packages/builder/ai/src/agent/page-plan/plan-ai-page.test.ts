@@ -98,6 +98,45 @@ function documentedPlan(): { readonly rationale: string; readonly pagePlan: Page
 const REQUEST = 'Build a landing page for my specialty coffee roastery in Amman';
 
 describe('planAiPage from the package root — Plan mode', () => {
+  it('attributes measured page-plan usage once and keeps operational phases before readiness', async () => {
+    const { pagePlan, rationale } = documentedPlan();
+    const events: AiPagePlanEvent[] = [];
+    await root.planAiPage(REQUEST, {
+      runId: 'measured-plan',
+      clock: { now: () => 1 },
+      kernel: kernel(),
+      provider: {
+        propose: () => Promise.resolve({ rationale: 'unused', commands: [] }),
+        proposePagePlan: (_request, _context, live) => {
+          live?.onProgress?.('Planning the layout…');
+          const usage = {
+            inputTokens: 31,
+            outputTokens: 16,
+            cacheReadTokens: null,
+            cacheWriteTokens: 0,
+          };
+          live?.onUsage?.(usage);
+          live?.onUsage?.(usage);
+          return Promise.resolve({ pagePlan, rationale });
+        },
+      },
+      onEvent: (event) => events.push(event),
+    });
+    const usage = events.filter((event) => event.type === 'provider.usage');
+    expect(usage).toHaveLength(1);
+    expect(usage[0]).toMatchObject({
+      runId: 'measured-plan',
+      attemptId: 'measured-plan/attempt-1',
+      usage: { inputTokens: 31, outputTokens: 16 },
+    });
+    expect(events.map((event) => event.type)).toEqual([
+      'page-plan.started',
+      'page-plan.proposing',
+      'page-plan.progress',
+      'provider.usage',
+      'page-plan.ready',
+    ]);
+  });
   it('is the real implementation, not a stub', () => {
     expect(root.planAiPage).toBe(realPlanAiPage);
   });
@@ -148,7 +187,11 @@ describe('planAiPage from the package root — Plan mode', () => {
     expect(result.plan.title).toBe('Cardamom Roasters — specialty coffee in Amman');
     // An empty page is replaced, whatever the model said (the build's own rule).
     expect(result.plan.intent).toBe('replace');
-    expect(events.map(({ type }) => type)).toEqual(['page-plan.started', 'page-plan.ready']);
+    expect(events.map(({ type }) => type)).toEqual([
+      'page-plan.started',
+      'page-plan.proposing',
+      'page-plan.ready',
+    ]);
     expect(live.transactions()).toHaveLength(0);
   });
 

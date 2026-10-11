@@ -325,12 +325,13 @@ function reduceOwnEvent(progress: BuildProgress, event: AiBuildOwnEvent): BuildP
   }
 }
 
-/** `<build>/fill-N` → N, or null for any other step. */
+/** `<build>/fill-N[-invocation]` → N, or null for any other step. */
 function fillPosition(prefix: string, runId: string): number | null {
   if (!runId.startsWith(prefix)) return null;
   const rest = runId.slice(prefix.length);
-  if (!/^\d+$/u.test(rest)) return null;
-  const position = Number(rest);
+  const match = /^(\d+)(?:-\d+)?$/u.exec(rest);
+  if (match === null) return null;
+  const position = Number(match[1]);
   return Number.isSafeInteger(position) && position > 0 ? position : null;
 }
 

@@ -13,6 +13,7 @@ import type {
   AssembledAiContext,
 } from '../types';
 import { canonicalJsonStringify } from '../internal/canonical-json';
+import { CACHED_PROVIDER_USAGE, notifyProviderUsage } from './usage';
 
 export interface CachingAiPlanProviderOptions {
   /** Entries kept before the oldest is evicted — per kind of answer (plan, page plan, rewrite). */
@@ -114,11 +115,13 @@ async function remembered<T>(
   key: string,
   signal: AbortSignal | undefined,
   ask: () => Promise<T>,
+  onHit?: () => void,
 ): Promise<T> {
   throwIfAborted(signal);
   const hit = memory.get(key);
   if (hit !== undefined) {
     throwIfAborted(signal);
+    onHit?.();
     return hit;
   }
   const answer = await ask();
@@ -163,8 +166,14 @@ export function createCachingAiPlanProvider(
       context: AssembledAiContext,
       live?: AiProposeOptions,
     ): Promise<AiPlan> {
-      return remembered(plans, cacheKey(request, context, live), live?.signal, () =>
-        inner.propose(request, context, live),
+      return remembered(
+        plans,
+        cacheKey(request, context, live),
+        live?.signal,
+        () => inner.propose(request, context, live),
+        () => {
+          notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
+        },
       );
     },
     /*
@@ -228,6 +237,9 @@ export function createCachingAiPlanProvider(
         pagePlanKey(request, context, live?.history, live?.attempt, live?.freeCode),
         live?.signal,
         () => innerProposePagePlan(request, context, live),
+        () => {
+          notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
+        },
       );
     };
   }

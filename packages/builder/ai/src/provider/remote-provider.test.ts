@@ -70,6 +70,47 @@ function jsonResponse(payload: unknown, status = 200): Response {
 }
 
 describe('createRemoteAiPlanProvider', () => {
+  it('observes validated actual usage once before a refused streamed result', async () => {
+    const received: unknown[] = [];
+    const usage = { inputTokens: 42, outputTokens: 9, cacheReadTokens: null, cacheWriteTokens: 0 };
+    const { fetchImpl } = fakeFetch(
+      () =>
+        new Response(
+          `event: usage\ndata: ${JSON.stringify(usage)}\n\nevent: usage\ndata: ${JSON.stringify(usage)}\n\nevent: result\ndata: {"refusal":"No."}\n\n`,
+          { headers: { 'content-type': 'text/event-stream' } },
+        ),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+    await expect(
+      provider.propose('request', context(), { onUsage: (value) => received.push(value) }),
+    ).rejects.toThrow('No.');
+    expect(received).toEqual([{ ...usage, costUsd: null }]);
+  });
+  it('observes JSON usage metadata without changing the returned plan', async () => {
+    const received: unknown[] = [];
+    const { fetchImpl } = fakeFetch(
+      () =>
+        new Response(JSON.stringify(plan), {
+          headers: {
+            'content-type': 'application/json',
+            'x-craftkit-ai-usage': JSON.stringify({ inputTokens: 17, outputTokens: 4 }),
+          },
+        }),
+    );
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+    expect(
+      await provider.propose('request', context(), { onUsage: (value) => received.push(value) }),
+    ).toEqual(plan);
+    expect(received).toEqual([
+      {
+        inputTokens: 17,
+        outputTokens: 4,
+        cacheReadTokens: null,
+        cacheWriteTokens: null,
+        costUsd: null,
+      },
+    ]);
+  });
   it('POSTs the request and assembled context, then returns the proposed plan', async () => {
     const { calls, fetchImpl } = fakeFetch(() => jsonResponse(plan));
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });

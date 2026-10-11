@@ -51,6 +51,39 @@ function skills() {
 }
 
 describe('runAiAgent', () => {
+  it('attributes measured usage once per attempt, separate from request estimates', async () => {
+    const events: AiAgentEvent[] = [];
+    const measured = {
+      inputTokens: 25,
+      outputTokens: 8,
+      cacheReadTokens: null,
+      cacheWriteTokens: 0,
+    };
+    await runAiAgent({
+      runId: 'measured',
+      clock: fixedClock(100, 5),
+      kernel: kernel(),
+      provider: {
+        propose: (_request, _context, live) => {
+          live?.onUsage?.(measured);
+          live?.onUsage?.(measured);
+          return Promise.resolve(validPlan);
+        },
+      },
+      request: 'Improve this hero',
+      selection: ['hero1'],
+      validationPorts: validationPorts('usage'),
+      apply: 'never',
+      onEvent: (event) => events.push(event),
+    });
+    const usage = events.filter((event) => event.type === 'provider.usage');
+    expect(usage).toHaveLength(1);
+    expect(usage[0]).toMatchObject({
+      runId: 'measured',
+      attemptId: 'measured/attempt-1',
+      usage: measured,
+    });
+  });
   it('runs a review-only proposal with deterministic ordered events and one terminal event', async () => {
     const events: AiAgentEvent[] = [];
     const live = kernel();

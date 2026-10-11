@@ -1,0 +1,86 @@
+import { formatNumber, t, type Key } from '../../copy';
+import {
+  telemetryTotals,
+  type OperationalStage,
+  type RunTelemetryState,
+} from '../../model/run-telemetry';
+import type { Locale } from '../../model/view-types';
+import './RunTelemetry.css';
+
+export interface RunTelemetryProps {
+  readonly locale: Locale;
+  readonly state: RunTelemetryState;
+  /** False on saved/settled turns: phases remain history, not a busy announcement. */
+  readonly live?: boolean;
+}
+const STAGE_KEY: Readonly<Record<OperationalStage, Key>> = {
+  reading: 'run.understanding',
+  planning: 'telemetry.planning',
+  writing: 'edit.writing',
+  checking: 'edit.checking',
+  repairing: 'edit.repairing',
+  applying: 'edit.applying',
+};
+const COUNTS = [
+  ['inputTokens', 'telemetry.input'],
+  ['outputTokens', 'telemetry.output'],
+  ['cacheReadTokens', 'telemetry.cacheRead'],
+  ['cacheWriteTokens', 'telemetry.cacheWrite'],
+] as const;
+
+/** Bounded public work phases and actual measurements, separate from context estimates. */
+export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps) {
+  const totals = telemetryTotals(state);
+  const latest = state.activity.at(-1);
+  if (latest === undefined && totals.requests === 0) return null;
+  return (
+    <section className="ck-agent-telemetry" aria-label={t(locale, 'telemetry.activity')}>
+      {latest === undefined || !live ? null : (
+        <p className="ck-agent-telemetry__live" role="status" aria-atomic="true">
+          {latest.scope === undefined ? null : <bdi>{latest.scope} · </bdi>}
+          {t(locale, STAGE_KEY[latest.stage])}
+        </p>
+      )}
+      {state.activity.length < (live ? 2 : 1) ? null : (
+        <details className="ck-agent-telemetry__history">
+          <summary>{t(locale, 'telemetry.activity')}</summary>
+          <ol>
+            {state.activity.slice(-16).map((item, index) => (
+              <li key={index}>
+                {item.scope === undefined ? null : <bdi>{item.scope} · </bdi>}
+                {t(locale, STAGE_KEY[item.stage])}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+      {totals.requests === 0 ? null : (
+        <div className="ck-agent-telemetry__usage">
+          <p>{t(locale, 'telemetry.usage')}</p>
+          <dl>
+            {COUNTS.map(([field, key]) => (
+              <div key={field}>
+                <dt>{t(locale, key)}</dt>
+                <dd>
+                  <bdi dir="ltr">
+                    {totals[field] === null
+                      ? t(locale, 'telemetry.unknown')
+                      : formatNumber(locale, totals[field])}
+                  </bdi>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {totals.cachedReplies === 0 ? null : (
+            <p>{t(locale, 'telemetry.cached', { n: totals.cachedReplies })}</p>
+          )}
+          {totals.costUsd == null ? null : (
+            <p>
+              {t(locale, 'telemetry.cost')}: <bdi dir="ltr">{totals.costUsd.toFixed(4)}</bdi>
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}

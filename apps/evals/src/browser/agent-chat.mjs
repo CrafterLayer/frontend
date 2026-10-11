@@ -35,6 +35,7 @@ try {
   const cases = [
     { width: 320, height: 720, locale: 'ar', theme: 'dark', scenario: 'long' },
     { width: 288, height: 400, locale: 'en', theme: 'light', scenario: 'long' },
+    { width: 288, height: 400, locale: 'ar', theme: 'dark', scenario: 'long', fullControls: true },
     { width: 480, height: 720, locale: 'en', theme: 'dark', scenario: 'long' },
     { width: 320, height: 480, locale: 'ar', theme: 'light', scenario: 'clarifyAsking' },
     { width: 320, height: 720, locale: 'ar', theme: 'dark', scenario: 'editRunning' },
@@ -105,6 +106,14 @@ try {
         `Conversation share: ${geometry.thread.height}`,
       );
     if (fixture.scenario === 'long') {
+      await page.evaluate(() => window.agentQa.progress('Understanding the request…'));
+      await page.waitForTimeout(80);
+      assert.ok(
+        await page
+          .locator('[data-agent-browser-fixture] .ck-agent-telemetry [role="status"]')
+          .isVisible(),
+        'Operational status must render before completion',
+      );
       // Leave the live bottom using a real upward gesture, then append stream content.
       await scroller.hover();
       await page.mouse.wheel(0, -300);
@@ -112,12 +121,24 @@ try {
       const top = await scroller.evaluate((node) => node.scrollTop);
       assert.ok(top > 0, 'Reading-position fixture must test a nonzero offset');
       await page.evaluate(() => {
+        window.agentQa.progress('Writing the design…');
+        window.agentQa.progress('Checking the generated result…', true);
+        window.agentQa.progress('Private model reasoning must not be rendered');
         window.agentQa.append();
       });
       await page.waitForTimeout(150);
       assert.ok(
         Math.abs((await scroller.evaluate((node) => node.scrollTop)) - top) < 2,
         'Stream pulled a reader to the bottom',
+      );
+      assert.equal(await page.getByText('Private model reasoning must not be rendered').count(), 0);
+      assert.ok(
+        (await page
+          .locator('[data-agent-browser-fixture] .ck-agent-telemetry')
+          .getByText('123', { exact: true })
+          .first()
+          .count()) > 0,
+        'Measured usage missing',
       );
       await page.evaluate(() => {
         window.agentQa.show(false);

@@ -1,7 +1,7 @@
 # Builder design libraries and AI capabilities
 
 Scope: the existing professional-builder-agent feature, Element Library and AI design guidance.
-Checked against local registrations and official documentation on 2026-10-10. This is not a claim
+Checked against local registrations and official documentation on 2026-10-11. This is not a claim
 that every upstream component is installed, nor a certification of generated visual quality.
 
 This increment stays within the
@@ -104,3 +104,97 @@ Next release gates: revision-bound preview inspections fed into bounded repair, 
 website/dashboard/workflow corpus with interaction assertions, blind visual review, and live model
 quality/cost comparisons with approval. Backend/auth/payment work remains separately scoped. This
 increment does not certify global product quality or complete all feature 014 release requirements.
+
+## Pixi creative increment: games, stories and murals
+
+PX-001..005 in the existing feature plan govern this additive increment. `ck.scene()` now exposes
+the 1.1.0 kit: focus-scoped native/virtual input, fixed-step simulation and manual chapter
+navigation. Existing `s.tick`, seeded composition, palette/noise, resize and quality helpers remain.
+Simulation stops in the editor and under reduced motion; story chapters still render on manual
+navigation. Generated assets retain their existing licence, digest and 16 kB gzip kit budget.
+
+| Installed capability       | Actual access                                         | Intended use                                                                                          |
+| -------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| PixiJS 8.22.0              | `s.PIXI` from `await ck.scene()`                      | Containers, Graphics, sprites, text, assets and custom scenes; one namespace                          |
+| Matter.js 0.20.0           | `libs: ['physics']`, `s.lib.physics`                  | Collisions/rigid bodies; `Engine.update(engine, dt * 1000)` inside `s.fixedTick`, not a second Runner |
+| pixi-viewport 6.0.3        | `libs: ['viewport']`, `s.lib.viewport.Viewport`       | World camera; own plugin teardown, manual update when appropriate                                     |
+| pixi-filters 6.1.5         | `libs: ['filters']`, reviewed `s.lib.filters` adapter | Fifteen registered filter constructors, not the whole upstream filter catalog                         |
+| Particle emitter v8 port   | `libs: ['emitter']`, `s.lib.emitter`                  | Tracked emitters; update with seconds, release on scene disposal                                      |
+| perfect-freehand / roughjs | `libs: ['brush', 'rough']`                            | Stroke polygons and hand-drawn Graphics paths                                                         |
+| Existing sound engine      | `s.sound` / `ck.sound`, with explicit audio request   | Procedural effects and admitted project sound assets; gesture unlock, mute and voice caps             |
+
+The new built-in project skills are `craftkit.pixi-games`, `craftkit.pixi-stories` and
+`craftkit.pixi-murals`. Arabic/English playable or narrative requests activate the relevant skill
+and core dependency; ordinary business "our story" copy and a games-store landing page do not
+activate gameplay guidance. These are instructions on actual runtime APIs, not new tool grants or
+global coding-agent skill installations. Their worked examples are also exported as data through
+`@craftkit/builder/wire` for deterministic evals. Context estimates are not billed tokens.
+
+Full-build and Plan lanes explicitly select matching expertise rather than assuming automatic
+activation. The planner receives the original brief; a writer receives only its own scene contract,
+with the original creative brief additionally available to the hero. Retry/Finish preserve this
+targeting. With free code on, a creative scene uses a JS-capable writer instead of a fixed section
+kit; ordinary sections keep their existing kit path. Existing skill/context budgets and policies
+still apply, and unrelated automatic skills are not enabled.
+
+Try briefs such as:
+
+- `ابني لعبة جمع نجوم ثنائية الأبعاد، مع بدء وإيقاف وإعادة لعب وأزرار لمس.`
+- `اعمل قصة تفاعلية من ثلاثة فصول، بنص عربي وأزرار السابق والتالي وإعادة القصة.`
+- `اعمل جدارية توليدية بطبقات وألوان الموقع، تحريك خفيف واحترام تقليل الحركة.`
+
+Free code must be enabled for custom runtime JS; otherwise the agent stays with the registered
+closed `media.add` scenes and explains the opt-in. This does not automatically admit `pixi.js` into
+a managed React project's dependency lock. Full games/backends, arbitrary imports and multiplayer
+services are not implied by this capability.
+
+### Dependency decisions, checked 2026-10-11
+
+No dependency was added for this increment: physics, camera, filters, drawing and audio were already
+installed and integrated. Official [Pixi ticker](https://pixijs.com/8.x/guides/components/ticker),
+[scene graph](https://pixijs.com/8.x/guides/concepts/scene-graph) and
+[performance](https://pixijs.com/8.x/guides/production/performance-tips/) guidance support reusing
+one render loop and bounded scene objects. The existing
+[filters v6](https://github.com/pixijs/filters) and
+[viewport](https://github.com/pixijs-userland/pixi-viewport) target Pixi v8.
+
+Proposed, **not installed or agent-admitted**:
+[@pixi/tilemap v5](https://github.com/pixijs-userland/tilemap) for a concrete large tile-world
+requirement; MIT and officially mapped to Pixi v8. It needs its own lazy adapter, single-namespace
+test, license banner, export path and measured budget before admission.
+[@pixi/sound v6](https://github.com/pixijs/sound) is compatible/MIT but would duplicate existing
+basic playback; reconsider only for audio-sprite/filter requirements the current engine cannot meet.
+Do not install Phaser alongside Pixi merely to label this a game builder; that is a separate engine
+and lifecycle decision.
+
+Run exact taught examples against generated runtime assets with:
+
+```sh
+node scripts/build-studio-engines.mjs kit
+pnpm --filter @craftkit/evals test:pixi-creative:browser
+```
+
+These checks exercise local runtime capability, not paid model output quality or all game genres.
+The creative browser fixture has a local DOM/JSX-capable TypeScript project. Evals `typecheck`
+checks it separately from the headless model-quality harness; Node service configuration is
+unchanged.
+
+## Live Agent work and measured usage
+
+The existing HTTP bridge streams public lifecycle `status` frames and an additive `usage` frame
+before its unchanged final `result`. Unary peers expose the bounded `x-craftkit-ai-usage` response
+header. Older peers remain readable; missing counts are unknown. Provider callbacks become
+attributed run events, and the chat keeps a bounded operational history and deduplicated attempt
+receipts. Private reasoning text is not surfaced. Cached local replies add zero newly incurred
+usage; token counts and reported USD are separate from request/context estimates.
+
+Each physical writer retry, checker repair and successor has its own receipt identity. The chat
+retains up to 64 attempts and 16 operational updates. If an additional attempt exceeds that ledger,
+an overflow marker survives reload and totals remain unknown, not a misleading partial bill.
+Likewise, any missing receipt keeps its corresponding aggregate unknown. These are provider-reported
+counts and costs, not an invoice or a reconstruction of unmeasured fallback calls.
+
+Actual parallelism still means independent section writers with ordered validation/application. A
+single-target edit is one writer; changing the worker menu does not accelerate one long model call.
+Old unmeasured runs cannot be retroactively assigned exact token spending. Paid-model latency,
+fallback costs and final design quality require separately authorized representative live evals.

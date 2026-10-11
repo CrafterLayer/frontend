@@ -493,6 +493,19 @@ describe('openrouter answer', () => {
       cost_usd: 0.004,
     });
   });
+  it('never turns omitted provider usage into zero actual tokens', async () => {
+    const fetch = fetchAnswering(() =>
+      streamResponse(chunk({ content: '{"rationale":"ok"}' }, {}, 'stop') + DONE),
+    );
+    const client = createOpenRouterClient({ apiKey: 'k', model: 'm', fetch });
+    const message = await client.messages.stream(REQUEST as never).finalMessage();
+    expect(message.usage).toMatchObject({
+      input_tokens: null,
+      output_tokens: null,
+      cache_read_input_tokens: null,
+      cache_creation_input_tokens: null,
+    });
+  });
 
   /*
     Models that ignore `response_format` wrap the JSON in a fence or a sentence.

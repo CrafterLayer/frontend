@@ -1,0 +1,35 @@
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+import * as Stories from './RunTelemetry.stories';
+
+<Meta of={Stories} />
+
+# RunTelemetry
+
+Agent-owned operational feedback and measured provider usage beneath a conversation record. It is
+not model reasoning, a token estimator, an invoice or a worker speed guarantee.
+
+<Canvas of={Stories.Live} />
+
+Props: `locale` is `en` or `ar`; `state` contains bounded public phase history and attempt-id keyed
+provider measurements. `live` defaults to false: settled/restored phases are history, never a busy
+announcement. Empty historical state renders nothing. Known counts are summed once; any missing
+attempt/count remains **Not reported**, never zero. Input, output, cache read and cache write are
+separate. Local cached replies explicitly incur no new model request. Dollar cost appears only if
+every attempt reports it.
+
+Live, measured, partial, cached, empty and Arabic narrow states are illustrated in the stories. The
+latest phase uses a polite atomic status announcement. Native disclosure is keyboard accessible;
+counts use Latin digits and bidi isolation. Logical layout wraps within narrow RTL/light/dark
+chrome. No spinner or live state is inferred from saved history. Public phases are allowlisted by
+the model reducer; old peers' arbitrary narration is not rendered.
+
+Compose through `AgentThread`: a turn carries optional `telemetry` across proposal/edit/error
+transitions. No additional provider request is initiated by this component. Older peers and
+unmeasured historical runs cannot supply actual counts retroactively. Physical outer retries,
+checker repairs and Finish/Retry successor runs each retain independent attempt identities in the
+same turn's receipt. Reload validates the bounded optional ledger; malformed telemetry is dropped
+without losing the conversation, and absent or invalid counts remain unknown. The receipt is not an
+invoice for failed transport fallback calls whose backend did not return usage. The attempt ledger
+remains capped at 64. If another physical attempt exceeds that cap, a persisted overflow marker
+makes all aggregate token counts and reported cost unknown; the retained subset is never presented
+as a complete total, even after reload.

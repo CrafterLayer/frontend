@@ -39,7 +39,7 @@ const TARGETS = {
     factory: 'createKitLibrary',
     pixi: true,
     budget: 16_000,
-    version: '1.0.0',
+    version: '1.1.0',
     vendored: [
       {
         name: 'webgl-noise',

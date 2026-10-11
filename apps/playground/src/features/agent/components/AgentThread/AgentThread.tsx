@@ -25,6 +25,7 @@ import {
 import { EmptyState } from '../EmptyState';
 import { JumpToLatest } from '../JumpToLatest';
 import { SuggestionList } from '../SuggestionList';
+import { RunTelemetry } from '../RunTelemetry';
 
 import './AgentThread.css';
 import { focusNewestHead, isUnderPill, turnIdOf } from './thread-focus';
@@ -234,6 +235,19 @@ export function AgentThread({
                   data-turn-kind={turn.kind}
                 >
                   {renderTurn(turn)}
+                  {turn.telemetry === undefined ? null : (
+                    <RunTelemetry
+                      locale={locale}
+                      state={turn.telemetry}
+                      live={
+                        (turn.kind === 'edit' && turn.view.phase === 'running') ||
+                        (turn.kind === 'build' &&
+                          ['skeleton', 'building', 'stopping'].includes(turn.view.phase)) ||
+                        (turn.kind === 'proposal' && turn.view.status === 'drafting') ||
+                        (turn.kind === 'page-plan' && turn.view.status === 'drafting')
+                      }
+                    />
+                  )}
                 </li>
               ))}
             </ol>

@@ -18,6 +18,9 @@
 */
 
 import { delaunay as buildDelaunay } from './delaunay';
+import { createFixedStep } from './fixed-step';
+import { createSceneInput } from './input';
+import { createStory } from './story';
 import { createNoise } from './noise';
 import { buildScenePalette, paletteOverride, readPaletteRoles } from './palette-oklab';
 import { createPointerTracker } from './pointer';
@@ -39,7 +42,7 @@ import type {
   ScriptParamValue,
 } from './types';
 
-export const KIT_VERSION = '1.0.0';
+export const KIT_VERSION = '1.1.0';
 
 const SILENT_BANDS: Readonly<SceneAudioBands> = Object.freeze({
   level: 0,
@@ -80,7 +83,9 @@ const contextLosses = new WeakMap<Element, number>();
 
 interface PixiKitNamespace {
   Graphics: new () => { svg(markup: string): unknown };
-  RenderTexture: { create(options: Record<string, unknown>): { destroy(destroySource?: boolean): void } };
+  RenderTexture: {
+    create(options: Record<string, unknown>): { destroy(destroySource?: boolean): void };
+  };
   Assets: { load(asset: unknown): Promise<unknown> };
 }
 
@@ -108,7 +113,9 @@ function readDirection(root: HTMLElement, given: boolean | undefined): boolean {
 function readLang(root: HTMLElement, given: string | undefined): string {
   if (typeof given === 'string' && given !== '') return given;
   const marked = root.closest('[lang]');
-  return marked?.getAttribute('lang') ?? root.ownerDocument.documentElement.getAttribute('lang') ?? '';
+  return (
+    marked?.getAttribute('lang') ?? root.ownerDocument.documentElement.getAttribute('lang') ?? ''
+  );
 }
 
 function readFontFamily(root: HTMLElement): string | undefined {
@@ -176,6 +183,10 @@ export function createScene(
 
   /* ── pointer, scroll, clock, governor ───────────────────────────────── */
   const pointerTracker = createPointerTracker(root, win);
+  const input = createSceneInput(root, canvas, editor);
+  cleanups.push(() => {
+    input.dispose();
+  });
   cleanups.push(() => {
     pointerTracker.dispose();
   });
@@ -193,7 +204,11 @@ export function createScene(
     const quality = governor.quality;
     if (baseResolution > 1 && typeof app.renderer.resize === 'function') {
       guard(() => {
-        app.renderer.resize?.(app.screen.width, app.screen.height, Math.max(1, baseResolution * quality));
+        app.renderer.resize?.(
+          app.screen.width,
+          app.screen.height,
+          Math.max(1, baseResolution * quality),
+        );
       });
     }
     for (const fn of qualityFns) {
@@ -288,7 +303,13 @@ export function createScene(
 
   function feedShaders(): void {
     for (const handle of shaders) {
-      handle.update(clock.time.t, app.screen.width, app.screen.height, pointerTracker.pointer.nx, pointerTracker.pointer.ny);
+      handle.update(
+        clock.time.t,
+        app.screen.width,
+        app.screen.height,
+        pointerTracker.pointer.nx,
+        pointerTracker.pointer.ny,
+      );
     }
   }
 
@@ -315,7 +336,11 @@ export function createScene(
       const fn = tickFns[index] as (time: SceneTime) => void;
       if (!runTick(fn, time)) {
         // A tick that throws is dropped: one report, not one per frame.
-        tickFns.splice(index, 1);
+        const failedIndex = tickFns.indexOf(fn);
+        if (failedIndex >= 0) tickFns.splice(failedIndex, 1);
+        index -= 1;
+      } else if (tickFns[index] !== fn) {
+        // A fixed-step subscription may remove itself from inside its callback.
         index -= 1;
       }
     }
@@ -327,6 +352,7 @@ export function createScene(
 
   function syncRunning(): void {
     if (disposed) return;
+    if (pauses.size > 0) input.clear();
     guard(() => {
       if (pauses.size === 0 && !stillMode) {
         if (!ticker.started) {
@@ -394,7 +420,8 @@ export function createScene(
   }
 
   /* ── visibility: offscreen and hidden pauses ────────────────────────── */
-  const Observer = (win as unknown as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver;
+  const Observer = (win as unknown as { IntersectionObserver?: typeof IntersectionObserver })
+    .IntersectionObserver;
   if (typeof Observer === 'function') {
     const observer = new Observer(
       (entries) => {
@@ -527,6 +554,7 @@ export function createScene(
     params,
     palette,
     pointer: pointerTracker.pointer,
+    input,
     scroll: scrollTracker.scroll,
     time: clock.time,
     audio,
@@ -556,6 +584,42 @@ export function createScene(
       tickFns.push(fn);
       queueStill();
     },
+    fixedTick(fn, fixedOptions) {
+      const simulation = createFixedStep(fn, fixedOptions);
+      const update = (time: SceneTime): void => {
+        if (!editor && !stillMode) simulation.advance(time.dt);
+      };
+      function unsubscribe(): void {
+        simulation.dispose();
+        const index = tickFns.indexOf(update);
+        if (index >= 0) tickFns.splice(index, 1);
+      }
+      if (disposed) {
+        simulation.dispose();
+        return unsubscribe;
+      }
+      tickFns.push(update);
+      cleanups.push(unsubscribe);
+      return unsubscribe;
+    },
+    story(chapters, initial) {
+      if (disposed) throw new Error('scene has been disposed');
+      const story = createStory(
+        chapters.map((chapter) => ({
+          ...chapter,
+          enter() {
+            chapter.enter?.();
+            // Manual chapter navigation stays usable after the reduced-motion still frame.
+            if (stillMode) render();
+          },
+        })),
+        initial,
+      );
+      cleanups.push(() => {
+        story.dispose();
+      });
+      return story;
+    },
     still(fn) {
       if (typeof fn !== 'function' || disposed) return;
       stillFns.push(fn);
@@ -572,7 +636,9 @@ export function createScene(
       const value = String(url ?? '').trim();
       if (!TEXTURE_URL.test(value)) {
         return Promise.reject(
-          new Error(`s.texture: only https:, data:image/ and blob: URLs load (got "${value.slice(0, 60)}")`),
+          new Error(
+            `s.texture: only https:, data:image/ and blob: URLs load (got "${value.slice(0, 60)}")`,
+          ),
         );
       }
       return namespace.Assets.load({ src: value, parser: 'texture' }).then((texture) => {
@@ -588,7 +654,13 @@ export function createScene(
         width: app.screen.width,
         height: app.screen.height,
       });
-      handle.update(clock.time.t, app.screen.width, app.screen.height, pointerTracker.pointer.nx, pointerTracker.pointer.ny);
+      handle.update(
+        clock.time.t,
+        app.screen.width,
+        app.screen.height,
+        pointerTracker.pointer.nx,
+        pointerTracker.pointer.ny,
+      );
       shaders.push(handle);
       return handle.filter;
     },

@@ -76,7 +76,10 @@ floating menus reachable. The writing-field focus edge is inset, not a second ou
 
 Below 480px panel height, both the input and auxiliary scroller receive smaller bounds. A long draft
 scrolls within the field instead of removing the conversation; its minimum remains two lines. The
-separate worker choice controls the next build's section pool and is fixed during a live run.
+separate worker choice controls the next build's section pool and is fixed during a live run. In
+narrow panels below 480px height, choices and actions share the same wrapping flow. This keeps every
+control available while avoiding a third toolbar row that can squeeze the thread when model, effort,
+worker selection and a long next request are all present.
 
 Every section pads 7 inside the 1px border, so the text, the chips and the toolbar's first item
 start on the thread's 16px gutter, and every control sits 8px from the card's outer edge.

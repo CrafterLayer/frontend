@@ -15,8 +15,9 @@
     "test:accessibility:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/accessibility/axe.browser.test.ts",
     "test:frontend:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/professional-builder/frontend.browser.test.ts",
     "test:agent-chat:browser": "node src/browser/agent-chat.mjs",
+    "test:pixi-creative:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/pixi-creative/creative.browser.test.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/pixi-creative/tsconfig.json"
   },
   "dependencies": {
     "@craftkit/builder": "workspace:*"

@@ -13,6 +13,8 @@ import {
 import { normalizeArabic, summarizeDocumentForIntent, type IntentTarget } from '../intent';
 import { AiContextBudgetError, DEFAULT_AI_CONTEXT_TOKEN_BUDGET } from '../plan/generate-plan';
 import { AI_PLAN_WIRE_VERSION, estimateAiPlanWireRequestTokens } from '../provider/wire';
+import { readProviderUsage } from '../provider/usage';
+import { pixiSkillIdsFor } from '../skills/pixi-selection';
 import type { AiPreparedSkillContext, AiSkillRegistry } from '../skills';
 import type {
   AiChatTurn,
@@ -20,6 +22,7 @@ import type {
   AiPagePlanDraftEvent,
   AiPlanProvider,
   AiProposePagePlanOptions,
+  AiProviderUsage,
   AssembledAiContext,
   PagePlanCandidate,
 } from '../types';
@@ -332,12 +335,14 @@ function planSkillIds(
   policy: Partial<AiAgentPolicy> | undefined,
   arabic: boolean,
   kits: boolean = kitsAvailable(),
+  creative: readonly string[] = [],
 ): readonly string[] {
   return fittingSkillIds(
     registry,
     policy,
     [],
     [
+      ...creative,
       DIRECTION_DECK,
       // The kit index replaces the variant library when there are kits to name.
       ...(kits ? [] : [SECTION_VARIANTS]),
@@ -368,7 +373,13 @@ export function pagePlanningBrief(
   const arabic = isArabicPage(kernel, input.request);
   return {
     request: planningRequest(input.request, input.target, kits),
-    skillIds: planSkillIds(input.skillRegistry, input.policy, arabic, kits),
+    skillIds: planSkillIds(
+      input.skillRegistry,
+      input.policy,
+      arabic,
+      kits,
+      pixiSkillIdsFor(input.skillRegistry, input.request),
+    ),
   };
 }
 
@@ -423,6 +434,7 @@ export type PagePlanStepNote =
   | { readonly type: 'skills'; readonly skills: AiPreparedSkillContext | undefined }
   | { readonly type: 'proposing'; readonly attempt: 1 | 2 }
   | { readonly type: 'progress'; readonly text: string }
+  | { readonly type: 'usage'; readonly attemptId: string; readonly usage: AiProviderUsage }
   | { readonly type: 'repairing'; readonly issues: readonly PagePlanIssue[] }
   | { readonly type: 'ready'; readonly plan: PagePlan }
   | { readonly type: 'failed'; readonly error: AiRunFailure };
@@ -525,7 +537,13 @@ export async function proposeValidatedPagePlan(
     const request = planningRequest(input.request, input.target);
     const arabic = isArabicPage(input.kernel, input.request);
     const registry = input.skillRegistry;
-    const selectedSkillIds = planSkillIds(registry, input.policy, arabic);
+    const selectedSkillIds = planSkillIds(
+      registry,
+      input.policy,
+      arabic,
+      kitsAvailable(),
+      pixiSkillIdsFor(registry, input.request),
+    );
     const skills = registry?.prepare({
       request,
       // A page plan is a page, whatever the words read as on the page it lands on.
@@ -589,11 +607,23 @@ export async function proposeValidatedPagePlan(
       assertBudget(attempt);
       assertActive();
       note({ type: 'proposing', attempt: attempt === undefined ? 1 : 2 });
+      let usageReported = false;
       const live: AiProposePagePlanOptions = {
         ...(input.signal === undefined ? {} : { signal: input.signal }),
         ...(input.history === undefined ? {} : { history: input.history }),
         onProgress: (text: string) => {
           if (active() && text.trim().length > 0) note({ type: 'progress', text });
+        },
+        onUsage: (value) => {
+          if (usageReported || !active()) return;
+          const usage = readProviderUsage(value);
+          if (usage === undefined) return;
+          usageReported = true;
+          note({
+            type: 'usage',
+            attemptId: `${input.runId}/attempt-${attempt === undefined ? '1' : '2'}`,
+            usage,
+          });
         },
         ...(attempt === undefined ? {} : { attempt }),
         ...(input.onDraft === undefined ? {} : { onDraft: input.onDraft }),
@@ -735,6 +765,12 @@ export async function planAiPage(
           return;
         case 'progress':
           emit({ type: 'page-plan.progress', text: step.text });
+          return;
+        case 'proposing':
+          emit({ type: 'page-plan.proposing', attempt: step.attempt });
+          return;
+        case 'usage':
+          emit({ type: 'provider.usage', attemptId: step.attemptId, usage: step.usage });
           return;
         case 'repairing':
           emit({ type: 'page-plan.repairing', issues: step.issues });

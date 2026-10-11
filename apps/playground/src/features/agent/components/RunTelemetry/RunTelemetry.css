@@ -1,0 +1,45 @@
+.ck-agent-telemetry {
+  min-inline-size: 0;
+  margin-block-start: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--bldr-panel-border);
+  border-radius: 10px;
+  color: var(--bldr-panel-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.ck-agent-telemetry p {
+  margin: 0;
+}
+.ck-agent-telemetry__live {
+  color: var(--bldr-panel-text);
+}
+.ck-agent-telemetry__history,
+.ck-agent-telemetry__usage {
+  margin-block-start: 8px;
+}
+.ck-agent-telemetry summary {
+  cursor: pointer;
+}
+.ck-agent-telemetry summary:focus-visible {
+  outline: 2px solid var(--bldr-accent);
+  outline-offset: 3px;
+}
+.ck-agent-telemetry ol {
+  margin: 8px 0 0;
+  padding-inline-start: 18px;
+}
+.ck-agent-telemetry dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+.ck-agent-telemetry dt,
+.ck-agent-telemetry dd {
+  margin: 0;
+}
+.ck-agent-telemetry dd {
+  color: var(--bldr-panel-text);
+  font-variant-numeric: tabular-nums;
+}

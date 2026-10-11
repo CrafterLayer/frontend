@@ -21,6 +21,12 @@ export {
   DESIGN_LIBRARY_TEACHING,
   DESIGN_QUALITY_TEACHING,
   AUTHORED_DESIGN_TEACHING,
+  PIXI_CREATIVE_SKILLS,
+  PIXI_GAME_EXAMPLE,
+  PIXI_GAME_CONTROLS,
+  PIXI_STORY_EXAMPLE,
+  PIXI_STORY_CONTROLS,
+  PIXI_MURAL_EXAMPLE,
   AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH,
   boundAiPlanWireInvalidOutputMessage,
   estimateAiPlanWireRequestTokens,
@@ -38,4 +44,4 @@ export {
   type ContextFragmentTrust,
 } from '@craftkit/builder-schema';
 
-export type { AssembledAiContext, AiPlan } from '@craftkit/builder-ai';
+export type { AssembledAiContext, AiPlan, AiProviderUsage } from '@craftkit/builder-ai';

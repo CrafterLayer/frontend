@@ -73,8 +73,9 @@ export interface ClaudeOptions {
    * where thinking was over 85% of the output (measured 2026-09-30).
    */
   readonly thinkingOff?: boolean;
-  /** Receives Claude's own narration; becomes SSE `status` frames. */
+  /** Public lifecycle status only; never model reasoning text. */
   readonly onProgress?: (text: string) => void;
+  readonly onUsage?: (usage: UsageReport) => void;
   /** Receives the raw answer text before it is parsed — what the model actually said. */
   readonly onAnswer?: (text: string) => void;
   /**
@@ -97,18 +98,31 @@ export type ClaudeOutcome =
   | { readonly kind: 'invalid-output'; readonly message: string };
 
 export interface UsageReport {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens: number;
-  readonly cacheWriteTokens: number;
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
+  readonly costUsd?: number | null;
+}
+
+function measuredCount(value: unknown): number | null {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= 1_000_000_000_000
+    ? value
+    : null;
 }
 
 function usageOf(message: Anthropic.Message): UsageReport {
+  const usage = message.usage as unknown as Record<string, unknown> | undefined;
+  const cost = usage?.['cost_usd'];
   return {
-    inputTokens: message.usage.input_tokens,
-    outputTokens: message.usage.output_tokens,
-    cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
-    cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
+    inputTokens: measuredCount(usage?.['input_tokens']),
+    outputTokens: measuredCount(usage?.['output_tokens']),
+    cacheReadTokens: measuredCount(usage?.['cache_read_input_tokens']),
+    cacheWriteTokens: measuredCount(usage?.['cache_creation_input_tokens']),
+    costUsd: typeof cost === 'number' && Number.isFinite(cost) && cost >= 0 ? cost : null,
   };
 }
 
@@ -218,7 +232,7 @@ function answerText(message: Anthropic.Message): string {
 
 /**
  * The one model call both tasks make: the prompt for the request, decoded into
- * `schema`, narrated from the thinking summary. Every backend — the Messages
+ * `schema`, with observed public lifecycle phases. Every backend — the Messages
  * API, the CLI shim, OpenRouter — is reached through this same
  * `messages.stream` seam, which is why a task added here needs nothing from
  * any of them.
@@ -231,6 +245,7 @@ async function ask(
   const { system, messages } = buildPrompt(request);
   const effort = API_EFFORT_LEVELS.find((level) => level === options.effort);
 
+  options.onProgress?.('Understanding the request…');
   const stream = options.client.messages.stream(
     {
       model: options.model ?? DEFAULT_MODEL,
@@ -264,26 +279,20 @@ async function ask(
     },
   );
 
-  /*
-    Narration comes from the thinking summary rather than invented server-side.
-    A status line that says "Working…" tells the user nothing they cannot see;
-    one that says what the model is actually considering is the only kind worth
-    streaming.
-  */
-  if (options.onProgress !== undefined) {
-    const report = options.onProgress;
-    let carried = '';
-    stream.on('thinking', (delta: string) => {
-      carried += delta;
-      const boundary = carried.lastIndexOf('\n');
-      if (boundary === -1) return;
-      for (const line of carried.slice(0, boundary).split('\n')) {
-        const text = line.trim();
-        if (text !== '') report(text);
-      }
-      carried = carried.slice(boundary + 1);
-    });
-  }
+  // Drain private summaries while emitting only the first observable planning signal.
+  let planning = false;
+  stream.on('thinking', () => {
+    if (planning) return;
+    planning = true;
+    options.onProgress?.('Planning the layout…');
+  });
+  // SDK signals identify observable phases. Never forward the contents of `thinking`.
+  let writing = false;
+  const reportWriting = (): void => {
+    if (writing) return;
+    writing = true;
+    options.onProgress?.('Writing the design…');
+  };
 
   if (options.onDraft !== undefined) {
     const onDraft = options.onDraft;
@@ -297,6 +306,7 @@ async function ask(
     };
     // The SDK passes (delta, snapshot); the delta is the draft.
     stream.on('text', (delta: string) => {
+      reportWriting();
       tell({ text: delta });
     });
     // Not an SDK event: the routing client's own, when it hands the call to its fallback.
@@ -306,9 +316,14 @@ async function ask(
         tell({ reset: true });
       },
     );
+  } else if (options.onProgress !== undefined) {
+    stream.on('text', reportWriting);
   }
 
-  return stream.finalMessage();
+  const message = await stream.finalMessage();
+  options.onUsage?.(usageOf(message));
+  options.onProgress?.('Checking the generated result…');
+  return message;
 }
 
 /** The rationale of an `impossible` plan, or undefined when the plan is a real one. */

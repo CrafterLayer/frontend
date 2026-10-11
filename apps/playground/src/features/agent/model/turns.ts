@@ -11,6 +11,8 @@ import type {
 
 import type { BuildProgress } from './build-progress';
 import type { RunProgress } from './run-progress';
+import type { RunTelemetryState } from './run-telemetry';
+import { readRunTelemetry } from './run-telemetry';
 import type { SectionOutcome } from './run-view';
 import {
   TURN_KINDS,
@@ -102,6 +104,7 @@ export interface Salvage {
  * - `revived`: read back from storage, so the kernel history its Undo needs is gone.
  */
 export interface BuildTurn {
+  readonly telemetry?: RunTelemetryState;
   readonly id: string;
   readonly kind: 'build';
   readonly request: string;
@@ -309,7 +312,7 @@ export interface EndTurn {
   readonly key: EndNoteKey;
 }
 
-export type Turn =
+export type Turn = (
   | UserTurn
   | BuildTurn
   | EditTurn
@@ -318,7 +321,8 @@ export type Turn =
   | StepPlanTurn
   | ProposalTurn
   | ErrorTurn
-  | EndTurn;
+  | EndTurn
+) & { readonly telemetry?: RunTelemetryState };
 
 /**
  * One conversation. `title` is its first request, whole (HistoryRow ellipsizes it);
@@ -517,6 +521,14 @@ function without<T extends object, K extends keyof T>(value: T, keys: readonly K
  * Idempotent: reviving a revived turn changes nothing.
  */
 export function reviveTurn(turn: Turn): Turn {
+  if (turn.telemetry === undefined) return reviveTurnRecord(turn);
+  const telemetry = readRunTelemetry(turn.telemetry);
+  // Removing an optional field preserves each turn's discriminated variant.
+  const revived = reviveTurnRecord(without(turn, ['telemetry']) as Turn);
+  return telemetry === undefined ? revived : { ...revived, telemetry };
+}
+
+function reviveTurnRecord(turn: Turn): Turn {
   switch (turn.kind) {
     case 'build': {
       const rest = without(turn, ['stopping']);

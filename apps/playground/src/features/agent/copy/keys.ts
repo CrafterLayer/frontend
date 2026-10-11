@@ -58,6 +58,16 @@ export const KEYS = [
   'tasks.applied',
   'tasks.failed',
   'tasks.progress',
+  'telemetry.activity',
+  'telemetry.planning',
+  'telemetry.usage',
+  'telemetry.input',
+  'telemetry.output',
+  'telemetry.cacheRead',
+  'telemetry.cacheWrite',
+  'telemetry.unknown',
+  'telemetry.cached',
+  'telemetry.cost',
 
   // §4.3 the visible status line (exactly `StatusKey`)
   'run.understanding',

@@ -54,6 +54,16 @@ export const ar = {
   'tasks.applied': 'طُبّقت: {n}',
   'tasks.failed': 'لم تنجح: {n}',
   'tasks.progress': 'طُبّقت {n} من {total} مهام',
+  'telemetry.activity': 'النشاط المباشر',
+  'telemetry.planning': 'يخطّط للتصميم…',
+  'telemetry.usage': 'التوكنات المبلّغة · ليست تقديرات',
+  'telemetry.input': 'الإدخال',
+  'telemetry.output': 'الإخراج',
+  'telemetry.cacheRead': 'قراءة الكاش',
+  'telemetry.cacheWrite': 'كتابة الكاش',
+  'telemetry.unknown': 'غير مبلّغ',
+  'telemetry.cached': 'ردود محفوظة · بلا تكلفة نموذج جديدة: {n}',
+  'telemetry.cost': 'التكلفة المبلّغة بالدولار',
 
   /* §4.3 visible status: at most 20 characters before interpolation */
   'run.understanding': 'يقرأ الطلب…',

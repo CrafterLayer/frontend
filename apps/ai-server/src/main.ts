@@ -111,7 +111,9 @@ const sectionEffort =
 */
 const planDrafts = setting('CRAFTKIT_AI_PLAN_DRAFTS') !== 'off';
 if (!planDrafts) {
-  console.log('[ai-server] CRAFTKIT_AI_PLAN_DRAFTS=off: page plans arrive whole, with no draft frames');
+  console.log(
+    '[ai-server] CRAFTKIT_AI_PLAN_DRAFTS=off: page plans arrive whole, with no draft frames',
+  );
 }
 
 /*
@@ -126,7 +128,9 @@ function sharedWarmPool(): CliWarmPool | undefined {
   if (!cliWarm) return undefined;
   if (cliWarmPool === undefined) {
     cliWarmPool = createCliWarmPool();
-    console.log('[ai-server] cli warm spares: on (one per running call of a shape, at most 8, 60 s each)');
+    console.log(
+      '[ai-server] cli warm spares: on (one per running call of a shape, at most 8, 60 s each)',
+    );
   }
   return cliWarmPool;
 }
@@ -567,7 +571,7 @@ const handle = createHandler({
     console.log(
       `${usage.task ?? 'plan'} in=${String(usage.inputTokens)} out=${String(usage.outputTokens)} ` +
         `cache_read=${String(usage.cacheReadTokens)} cache_write=${String(usage.cacheWriteTokens)} ` +
-        `cached=${(usage.cachedShare * 100).toFixed(0)}%`,
+        `cached=${usage.cachedShare === null ? 'unknown' : `${(usage.cachedShare * 100).toFixed(0)}%`}`,
     );
   },
 });

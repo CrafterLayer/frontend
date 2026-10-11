@@ -9,16 +9,32 @@
 */
 
 import type { Delaunay, Point2Like } from './delaunay';
+import type { FixedStepOptions } from './fixed-step';
+import type { SceneInput } from './input';
+import type { SceneStory, StoryChapter } from './story';
 import type { ScenePaletteApi } from './palette-oklab';
 import type { ScenePointer } from './pointer';
 import type { Point2 } from './poisson';
 import type { SceneScroll } from './scroll';
 import type { QualityMode, SceneTime } from './time-governor';
 
-export const STUDIO_LIB_KEYS = ['kit', 'filters', 'emitter', 'physics', 'brush', 'rough', 'viewport'] as const;
+export const STUDIO_LIB_KEYS = [
+  'kit',
+  'filters',
+  'emitter',
+  'physics',
+  'brush',
+  'rough',
+  'viewport',
+] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 /** Keys whose asset binds to the page's Pixi namespace (D2); the others are plain. */
-export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = ['kit', 'filters', 'emitter', 'viewport'];
+export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [
+  'kit',
+  'filters',
+  'emitter',
+  'viewport',
+];
 
 export type ScriptParamValue = number | string | boolean | readonly string[];
 
@@ -105,6 +121,7 @@ export interface Scene {
   params: Record<string, ScriptParamValue>;
   palette: ScenePaletteApi;
   pointer: ScenePointer;
+  input: SceneInput;
   scroll: SceneScroll;
   time: SceneTime;
   audio: SceneAudioBands;
@@ -122,6 +139,8 @@ export interface Scene {
   readonly quality: number;
   onQuality(fn: (quality: number) => void): void;
   tick(fn: (time: SceneTime) => void): void;
+  fixedTick(fn: (dtSeconds: number) => void, options?: FixedStepOptions): () => void;
+  story(chapters: readonly StoryChapter[], initial?: string): SceneStory;
   still(fn: () => void): void;
   onResize(fn: (width: number, height: number) => void): void;
   text(text: string, style?: Record<string, unknown>): unknown;
@@ -152,6 +171,7 @@ export const SCENE_MEMBERS = [
   'params',
   'palette',
   'pointer',
+  'input',
   'scroll',
   'time',
   'audio',
@@ -169,6 +189,8 @@ export const SCENE_MEMBERS = [
   'quality',
   'onQuality',
   'tick',
+  'fixedTick',
+  'story',
   'still',
   'onResize',
   'text',

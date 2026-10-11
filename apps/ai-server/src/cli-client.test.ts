@@ -311,6 +311,20 @@ describe('cli backend system prompt', () => {
 });
 
 describe('cli backend usage', () => {
+  it('keeps missing CLI usage unknown, rather than inventing a zero-cost model call', async () => {
+    const child = new FakeChild();
+    const { client } = clientWith(child);
+    const finished = client.messages.stream(REQUEST as never).finalMessage();
+    child.stdout.write(line({ type: 'result', is_error: false, result: '{"rationale":"ok"}' }));
+    await Promise.resolve();
+    child.emit('close', 0, null);
+    expect((await finished).usage).toMatchObject({
+      input_tokens: null,
+      output_tokens: null,
+      cache_read_input_tokens: null,
+      cache_creation_input_tokens: null,
+    });
+  });
   it("reports the run's real token usage instead of zeros", async () => {
     const child = new FakeChild();
     const { client } = clientWith(child);
@@ -1059,9 +1073,7 @@ describe('cli backend warm spares', () => {
     runs[0]?.child.emit('close', 0, null);
     await first;
 
-    expect(lines.find((text) => text.startsWith('cli usage'))).toMatch(
-      /stdin→first event \d+ ms/u,
-    );
+    expect(lines.find((text) => text.startsWith('cli usage'))).toMatch(/stdin→first event \d+ ms/u);
     pool.dispose();
   });
 

@@ -35,6 +35,7 @@ import type {
   AiChatTurn,
   AiPlan,
   AiPlanProvider,
+  AiProviderUsage,
   AiValidationPorts,
   AssembledAiContext,
 } from '../types';
@@ -143,6 +144,7 @@ export type AiAgentEvent =
     })
   | (AiAgentEventBase & { type: 'plan.proposing' })
   | (AiAgentEventBase & { type: 'plan.progress'; text: string })
+  | (AiAgentEventBase & { type: 'provider.usage'; attemptId: string; usage: AiProviderUsage })
   | (AiAgentEventBase & { type: 'plan.validating'; attempt: 1 | 2 })
   | (AiAgentEventBase & { type: 'plan.repairing'; issues: readonly string[] })
   /*
@@ -730,7 +732,9 @@ export type PlanAiPage = (request: string, options: PlanAiPageOptions) => Promis
 /** What Plan mode's one call reports while it works. `runId` is the plan's. */
 export type AiPagePlanEvent =
   | (AiAgentEventBase & { type: 'page-plan.started' })
+  | (AiAgentEventBase & { type: 'page-plan.proposing'; attempt: 1 | 2 })
   | (AiAgentEventBase & { type: 'page-plan.progress'; text: string })
+  | (AiAgentEventBase & { type: 'provider.usage'; attemptId: string; usage: AiProviderUsage })
   | (AiAgentEventBase & { type: 'page-plan.repairing'; issues: readonly PagePlanIssue[] })
   | (AiAgentEventBase & { type: 'page-plan.ready'; plan: PagePlan })
   | (AiAgentEventBase & { type: 'page-plan.failed'; error: AiRunFailure });

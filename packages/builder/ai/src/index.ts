@@ -335,6 +335,7 @@ export {
   type AiPlanValidationIssue,
   type AiPlanValidationResult,
   type AiProposeOptions,
+  type AiProviderUsage,
   type AiSelectedNodeContext,
   type AiSelectionContext,
   type AiTemplateContext,
@@ -357,6 +358,15 @@ export { canonicalJsonStringify } from './internal/canonical-json';
 export { sha256Hex } from './skills/sha256';
 export { DESIGN_LIBRARY_TEACHING, DESIGN_QUALITY_TEACHING } from './skills/design-libraries';
 export { AUTHORED_DESIGN_TEACHING } from './skills/authored-design';
+export {
+  PIXI_CREATIVE_SKILLS,
+  PIXI_GAME_EXAMPLE,
+  PIXI_GAME_CONTROLS,
+  PIXI_STORY_EXAMPLE,
+  PIXI_STORY_CONTROLS,
+  PIXI_MURAL_EXAMPLE,
+} from './skills/pixi-creative';
+export { pixiSkillIdsFor } from './skills/pixi-selection';
 
 /*
   The quality gate's DOM-FREE half: one implementation, two callers.
@@ -697,7 +707,11 @@ export {
   type VideoMode,
 } from './media-tools';
 // media-motion (2026-10-06, fix pass): the 0-token question a video with no link gets.
-export { AiNeedsInputError, isAiNeedsInputError, type AiNeedsInputWords } from './agent/needs-input';
+export {
+  AiNeedsInputError,
+  isAiNeedsInputError,
+  type AiNeedsInputWords,
+} from './agent/needs-input';
 export { askMedia, type MediaQuestion } from './media-tools/direct-media';
 export {
   AGENT_TOOL_PROMPT_LANE_MAX_CHARS,

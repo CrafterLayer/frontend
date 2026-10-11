@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-10",
+  "updatedAt": "2026-10-11",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-baseline-quality-repair-verified-release-open",
+    "phase": "professional-builder-agent-014-pixi-telemetry-verified-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "builder-core",
-    "gitCommitCount": 17
+    "gitCommitCount": 44
   },
   "technologyBaseline": {
     "react": {
@@ -227,15 +227,15 @@
     ]
   },
   "currentWork": {
-    "status": "idle-baseline-quality-repair-locally-verified-feature-014-release-open",
-    "scope": "builder-shell InspectorPartPanel MDX; builder-custom-code ScriptParamsForm component artifacts and stylesheet; existing shared Storybook catalog",
+    "status": "idle-pixi-telemetry-locally-verified-feature-014-release-open",
+    "scope": "builder-ai provider/agent usage and creative skills; ai-server usage/progress transport; Playground Agent telemetry/short-panel scroll; media-engines scene kit 1.1.0; schema CK reference; renderer generated kit; Evals creative browser fixture; existing shared Storybook catalog",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "completedTasks": "T160-T164 checked with verification-baseline-quality-2026-10-10.md; BQ-001..003 locally verified. Prior T154-T159 CHAT and T148-T153 QF evidence remain separate. Historical feature 014 tasks were not bulk-checked.",
+    "completedTasks": "T165-T170 checked with verification-pixi-telemetry-2026-10-11.md; PX-001..005 locally verified. Prior BQ T160-T164, CHAT T154-T159 and QF T148-T153 evidence remain separate. Historical feature 014 tasks were not bulk-checked.",
     "nextUncompletedTask": "T045",
     "blocked": {
       "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence."
     },
-    "nextAction": "No requested baseline-repair task remains. Inspector MDX indexing and four ScriptParamsForm artifact blockers are resolved, including missing CSS and three source lint errors. Fresh evidence: custom-code 180 tests, selected Inspector 16 tests, original-config Chromium 16 story/a11y tests, full static Storybook rebuild, custom-code lint/types, component221/workspace36/boundary contracts, diff/format and independent read-only final review pass. See verification-baseline-quality-2026-10-10.md for failed/repaired story fixtures, sandbox listener retry, and an interrupted broad shell suite with two test timeouts; do not claim full pnpm verify or shell-suite success. Existing bundle warnings/budget debt and full feature 014 release remain separate. On a newly authorized continuation inspect T045/T122. Preserve prior staged features and unstaged chat; ScriptParamsForm remains dormant, local export only. No dependencies, staging, commits, deployment or paid provider calls."
+    "nextAction": "No requested PX task remains. See verification-pixi-telemetry-2026-10-11.md: real generated-runtime game/story/mural 4 Chromium matrices, live chat 10 variants, Storybook 6 plays/full static build, Playground/server builds, AI 92 and UI 70 final regressions, media 60 and renderer 34 tests, owner/consumer types, workspace36/component222/boundary4506 contracts and fresh independent review/scoped convergence passed. Creative skills reach actual planning, scene-writing and successor contexts; free-code opt-in, ordinary kit writers, budgets and public API boundaries remain intact. Usage is measured/unknown, retries have distinct receipts, 65th-attempt overflow remains unknown after reload. Existing create-scene lint debt and bundle warnings remain; do not claim full pnpm verify, all-game support or live-model speed/quality/cost. On a newly authorized continuation inspect T045/T122; representative paid evals require separate authorization. All new work is unstaged; preserve unrelated direction-set.ts/nav-sync.ts user edits. Task-owned local server5194 was stopped. No package installs, paid calls, staging, commits, pushes or deployment."
   },
   "qualityGates": {
     "governanceConfigured": true,

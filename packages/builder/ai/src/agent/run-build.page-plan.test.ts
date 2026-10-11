@@ -170,7 +170,13 @@ function roastery(): Record<string, unknown> {
     primaryCta: { label: 'Order beans', href: '#order' },
     nav: [{ label: 'Menu', anchorId: 'menu' }],
     sections: [
-      { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Brand and menu.' },
+      {
+        key: 'header',
+        role: 'header',
+        title: 'Header',
+        anchorId: 'top',
+        purpose: 'Brand and menu.',
+      },
       {
         key: 'hero',
         role: 'hero',
@@ -695,7 +701,12 @@ describe('the one approval, on a page plan', () => {
     });
 
     expect(childLabels(live)).toEqual(['Header', 'Roasted this morning', 'Order today', 'Footer']);
-    expect(result.pagePlan?.sections.map(({ key }) => key)).toEqual(['header', 'hero', 'order', 'footer']);
+    expect(result.pagePlan?.sections.map(({ key }) => key)).toEqual([
+      'header',
+      'hero',
+      'order',
+      'footer',
+    ]);
     // The direction is prose; the sections of the plan that was BUILT are data.
     expect(result.direction).toBe('A warm, bean-forward roastery page.');
   });
@@ -985,7 +996,48 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
       }),
     });
 
-    const result = await runAiBuild({ ...baseOptions(live, script.provider), target: 'replace' });
+    const events: AiBuildEvent[] = [];
+    const repair = script.provider.repair?.bind(script.provider);
+    if (repair === undefined) throw new Error('Missing checker repair fixture');
+    const result = await runAiBuild({
+      ...baseOptions(live, {
+        ...script.provider,
+        repair: (...args) => {
+          args[4]?.onProgress?.('Writing the design…');
+          args[4]?.onUsage?.({
+            inputTokens: 23,
+            outputTokens: 9,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+          });
+          args[4]?.onUsage?.({
+            inputTokens: 23,
+            outputTokens: 9,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+          });
+          return repair(...args);
+        },
+      }),
+      target: 'replace',
+      onEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const receipts = events.filter((event) => event.type === 'provider.usage');
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]).toMatchObject({
+      runId: 'plan-build/check-3',
+      attemptId: 'plan-build/check-3/attempt-1',
+      usage: { inputTokens: 23, outputTokens: 9 },
+    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'plan.progress',
+        text: 'Writing the design…',
+        runId: 'plan-build/check-3',
+      }),
+    );
 
     expect(script.repairs).toHaveLength(1);
     expect(script.repairs[0]?.request).toContain('SECTION 3 OF 5');
@@ -1146,6 +1198,67 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
 });
 
 describe('runAiBuild — free code mode (the composer switch «وضع الكود الحر»)', () => {
+  it.each([
+    ['Make a playable 2d game with stars', 'craftkit.pixi-games'],
+    ['بدي لعبة تجمع فيها نجوم', 'craftkit.pixi-games'],
+    ['Create an interactive story in chapters', 'craftkit.pixi-stories'],
+    ['بدي قصة تفاعلية بثلاث فصول', 'craftkit.pixi-stories'],
+    ['Design a layered mural', 'craftkit.pixi-murals'],
+    ['بدي جدارية تفاعلية', 'craftkit.pixi-murals'],
+  ])(
+    'sends requested creative expertise to actual planning/scene provider contexts: %s',
+    async (request, skillId) => {
+      const script = scripted();
+      const result = await runAiBuild({
+        ...baseOptions(kernel(), script.provider),
+        request,
+        freeCode: true,
+      });
+      expect(result.outcome).toBe('completed');
+      expect(script.planCalls[0]?.context.skills?.map(({ id }) => id)).toContain(skillId);
+      const hero = script.fills.find((call) => call.request.includes('ROLE: HERO'));
+      expect(hero?.context.skills?.map(({ id }) => id)).toContain(skillId);
+      expect(hero?.context.skills?.map(({ id }) => id)).toContain('craftkit.pixi-v8-core');
+      expect(hero?.context.skills?.map(({ id }) => id)).not.toContain('craftkit.page-composition');
+      // A fixed kit cannot author scene JS; only the opted-in creative region bypasses it.
+      expect(hero?.request).not.toContain('"kit":"hero-split"');
+      const menu = script.fills.find((call) =>
+        /^SECTION \d+ OF \d+: Our coffees$/mu.test(call.request),
+      );
+      expect(menu).toBeDefined();
+      expect(menu?.context.skills?.map(({ id }) => id)).not.toContain(skillId);
+    },
+  );
+
+  it('preserves Plan-only expertise and the free-code opt-in boundary', async () => {
+    const script = scripted();
+    const plan = await planAiPage('بدي لعبة تجمع فيها نجوم', {
+      runId: 'plan-mode',
+      clock: { now: () => 1 },
+      kernel: kernel(),
+      provider: script.provider,
+      skillRegistry: createCraftkitAiSkillRegistry(),
+      freeCode: false,
+    });
+    expect('plan' in plan).toBe(true);
+    expect(script.planCalls[0]?.context.skills?.map(({ id }) => id)).toContain(
+      'craftkit.pixi-games',
+    );
+    expect(script.planCalls[0]?.freeCode).toBeUndefined();
+    expect(script.fills).toEqual([]);
+  });
+
+  it('does not send game expertise to actual ordinary studio-site provider contexts', async () => {
+    const script = scripted();
+    await runAiBuild({
+      ...baseOptions(kernel(), script.provider),
+      request: 'Build a game studio landing page',
+    });
+    for (const context of [...script.planCalls, ...script.fills].map((call) => call.context)) {
+      expect(context.skills?.some(({ id }) => id.startsWith('craftkit.pixi-'))).toBe(false);
+    }
+  });
+
   /** A writer that also gives its region a scene: the tree, then page code. */
   function writesScene(call: FillCall): AiPlan {
     const id = regionIdOf(call.request);
@@ -1163,6 +1276,65 @@ describe('runAiBuild — free code mode (the composer switch «وضع الكود
       .filter(({ type }) => type === 'customCode')
       .map(({ props }) => props['js']);
   }
+
+  it('lands opted-in scene code from a kit-backed creative hero without spreading expertise to ordinary writers', async () => {
+    const live = kernel();
+    const script = scripted({
+      fill: (call): AiPlan =>
+        call.request.includes('ROLE: HERO')
+          ? writesScene(call)
+          : {
+              rationale: 'Filled the ordinary supporting section.',
+              commands: [
+                {
+                  command: 'setProp',
+                  args: {
+                    id: regionIdOf(call.request),
+                    key: 'tree',
+                    value: honestSection(call.request),
+                  },
+                },
+              ],
+            },
+    });
+    const result = await runAiBuild({
+      ...baseOptions(live, script.provider),
+      request: 'Build a website with a playable 2d game with stars',
+      freeCode: true,
+    });
+    expect(result.outcome).toBe('completed');
+    expect(codeOf(live)).toContain('const {app}=await ck.stage();');
+    const hero = script.fills.find((call) => call.request.includes('ROLE: HERO'));
+    expect(hero?.request).not.toContain('"kit":"hero-split"');
+    expect(hero?.context.skills?.map(({ id }) => id)).toContain('craftkit.pixi-games');
+    const cta = script.fills.find((call) => call.request.includes('ROLE: CTA'));
+    expect(cta).toBeDefined();
+    expect(cta?.context.skills?.map(({ id }) => id)).not.toContain('craftkit.pixi-games');
+  });
+
+  it('targets expertise to a scene contract outside the hero instead of every page writer', async () => {
+    const script = scripted({
+      pagePlan: () => {
+        const candidate = validated(roastery());
+        return {
+          ...candidate,
+          sections: candidate.sections.map((section) =>
+            section.key === 'menu'
+              ? { ...section, purpose: 'A playable 2d game with stars' }
+              : section,
+          ),
+        };
+      },
+    });
+    await runAiBuild({ ...baseOptions(kernel(), script.provider), freeCode: true });
+    const menu = script.fills.find((call) =>
+      /^SECTION \d+ OF \d+: Our coffees$/mu.test(call.request),
+    );
+    expect(menu?.context.skills?.map(({ id }) => id)).toContain('craftkit.pixi-games');
+    const hero = script.fills.find((call) => call.request.includes('ROLE: HERO'));
+    expect(hero?.context.skills?.map(({ id }) => id)).not.toContain('craftkit.pixi-games');
+    expect(hero?.request).toContain('"kit":"hero-split"');
+  });
 
   it('is on the plan call and on every writer when the build turned it on, and on neither when it did not', async () => {
     const on = scripted();
@@ -1190,7 +1362,9 @@ describe('runAiBuild — free code mode (the composer switch «وضع الكود
     });
 
     expect(result.outcome).toBe('completed');
-    expect(codeOf(live).filter((js) => js === 'const {app}=await ck.stage();').length).toBeGreaterThan(0);
+    expect(
+      codeOf(live).filter((js) => js === 'const {app}=await ck.stage();').length,
+    ).toBeGreaterThan(0);
   });
 
   it('puts a section back with its scene: the revert restores the js the fill wrote', async () => {
@@ -1202,7 +1376,9 @@ describe('runAiBuild — free code mode (the composer switch «وضع الكود
       freeCode: true,
     });
     // A section a writer wrote (the header and footer are laid whole by code, with no writer).
-    const landed = result.tasks.find(({ status, attempts }) => status === 'applied' && attempts > 0);
+    const landed = result.tasks.find(
+      ({ status, attempts }) => status === 'applied' && attempts > 0,
+    );
     if (landed === undefined) throw new Error('no section landed');
     expect(landed.landing?.after).toHaveProperty('js', 'const {app}=await ck.stage();');
 

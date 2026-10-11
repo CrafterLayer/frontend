@@ -37,6 +37,16 @@ export const en = {
   'tasks.applied': '{n} applied',
   'tasks.failed': '{n} failed',
   'tasks.progress': '{n} of {total} tasks applied',
+  'telemetry.activity': 'Live activity',
+  'telemetry.planning': 'Planning the layout…',
+  'telemetry.usage': 'Reported tokens · not estimates',
+  'telemetry.input': 'Input',
+  'telemetry.output': 'Output',
+  'telemetry.cacheRead': 'Cache read',
+  'telemetry.cacheWrite': 'Cache write',
+  'telemetry.unknown': 'Not reported',
+  'telemetry.cached': 'Cached replies · no new model charge: {n}',
+  'telemetry.cost': 'Reported cost (USD)',
 
   /* §4.3 visible status: at most 24 characters before interpolation */
   'run.understanding': 'Reading your request…',

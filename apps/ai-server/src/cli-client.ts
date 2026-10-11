@@ -276,16 +276,21 @@ function buildArgs(
 
 /** What a CLI run actually cost, from its `result` event. */
 interface CliUsage {
-  readonly input: number;
-  readonly output: number;
-  readonly cacheRead: number;
-  readonly cacheWrite: number;
+  readonly input: number | null;
+  readonly output: number | null;
+  readonly cacheRead: number | null;
+  readonly cacheWrite: number | null;
   /** Time spent inside the model API, as the CLI measured it — the rest is process overhead. */
   readonly apiMs: number | undefined;
 }
 
-function count(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+function count(value: unknown): number | null {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= 1_000_000_000_000
+    ? value
+    : null;
 }
 
 /**
@@ -331,10 +336,14 @@ interface CliTiming {
  * it makes while starting, so the difference understated it (a haiku run
  * logged model 00:08 of 00:25 with 00:18 before its first event).
  */
+function measuredCount(value: number | null): string {
+  return value === null ? 'unknown' : formatCount(value);
+}
+
 function usageLine(usage: CliUsage, timing: CliTiming): string {
   return (
-    `cli usage — in ${formatCount(usage.input)}, cache read ${formatCount(usage.cacheRead)}, ` +
-    `cache write ${formatCount(usage.cacheWrite)}, out ${formatCount(usage.output)}` +
+    `cli usage — in ${measuredCount(usage.input)}, cache read ${measuredCount(usage.cacheRead)}, ` +
+    `cache write ${measuredCount(usage.cacheWrite)}, out ${measuredCount(usage.output)}` +
     (usage.apiMs === undefined ? '' : `, model ${formatElapsed(usage.apiMs)}`) +
     `, start-up ${formatElapsed(timing.startupMs)}, run ${formatElapsed(timing.elapsedMs)}` +
     `, stdin→first event ${String(timing.firstEventMs)} ms`
@@ -562,10 +571,10 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
             stop_details: null,
             content: [{ type: 'text', text: stripCodeFence(finalText) }],
             usage: {
-              input_tokens: usage?.input ?? 0,
-              output_tokens: usage?.output ?? 0,
-              cache_read_input_tokens: usage?.cacheRead ?? 0,
-              cache_creation_input_tokens: usage?.cacheWrite ?? 0,
+              input_tokens: usage?.input ?? null,
+              output_tokens: usage?.output ?? null,
+              cache_read_input_tokens: usage?.cacheRead ?? null,
+              cache_creation_input_tokens: usage?.cacheWrite ?? null,
             },
           } as unknown as Anthropic.Message);
         }
@@ -745,17 +754,21 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
     if (warmPool !== undefined && key !== undefined) {
       // As many spares as calls of this shape are running: a writer wave's next call finds one each.
       const want = Math.max(1, running.get(key) ?? 1);
-      warmPool.prime(key, () => {
-        const next = spawnShape();
-        // An idle spare's input is nobody's to fail on; its run attaches its own handler.
-        next.child.stdin.on('error', () => undefined);
-        next.child.stdin.write?.(SPARE_KEEPALIVE);
-        return {
-          child: next.child,
-          ...(next.systemFile === undefined ? {} : { systemFile: next.systemFile }),
-          spawnedAt: Date.now(),
-        };
-      }, want);
+      warmPool.prime(
+        key,
+        () => {
+          const next = spawnShape();
+          // An idle spare's input is nobody's to fail on; its run attaches its own handler.
+          next.child.stdin.on('error', () => undefined);
+          next.child.stdin.write?.(SPARE_KEEPALIVE);
+          return {
+            child: next.child,
+            ...(next.systemFile === undefined ? {} : { systemFile: next.systemFile }),
+            spawnedAt: Date.now(),
+          };
+        },
+        want,
+      );
     }
     return shim(done);
   };

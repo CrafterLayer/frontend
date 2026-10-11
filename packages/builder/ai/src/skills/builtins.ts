@@ -6,6 +6,7 @@ import { PROPERTY_PAGE_SKILL } from './industry/property-page';
 import { SHOP_PAGE_SKILL } from './industry/shop-page';
 import { PHOTO_DIRECTION_SKILL } from './photo-direction';
 import { createAiSkillRegistry } from './registry';
+import { PIXI_CREATIVE_SKILLS } from './pixi-creative';
 import { SECTION_VARIANTS_SKILL } from './section-variants';
 import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 // design-code additions (2026-09-28)
@@ -1185,6 +1186,7 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   COPYWRITING,
   MOTION,
   SCROLL_CINEMATIC,
+  ...PIXI_CREATIVE_SKILLS.map(builtin),
   // pixi-skills additions (2026-10-10): priorities 43-41, between scroll-cinematic and accessibility.
   PIXI_V8_CORE,
   PIXI_V8_GRAPHICS,

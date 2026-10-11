@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { AgentPanel } from '../components/AgentPanel';
 import type { AgentViewState, BuildWorkerCount, EffortLevel, Locale } from '../model/view-types';
 import { createFakeController, fakeViewState, type FakeScenario } from './fake-controller';
+import { reduceRunTelemetry } from '../model/run-telemetry';
 
 export interface AgentBrowserFixtureOptions {
   readonly width: number;
@@ -122,6 +123,25 @@ export function mountAgentBrowserFixture(options: AgentBrowserFixtureOptions) {
   draw();
   return {
     update,
+    progress: (text: string, measured = false) => {
+      const last = state.turns.at(-1);
+      if (last === undefined) return;
+      const base = { runId: 'qa-stream', at: Date.now(), seq: 1 };
+      let telemetry = reduceRunTelemetry(last.telemetry, { ...base, type: 'plan.progress', text });
+      if (measured)
+        telemetry = reduceRunTelemetry(telemetry, {
+          ...base,
+          type: 'provider.usage',
+          attemptId: 'qa-stream/attempt-1',
+          usage: {
+            inputTokens: 123,
+            outputTokens: 45,
+            cacheReadTokens: 0,
+            cacheWriteTokens: null,
+          },
+        });
+      update({ turns: state.turns.map((turn) => (turn === last ? { ...turn, telemetry } : turn)) });
+    },
     append: () => {
       const last = state.turns.at(-1);
       if (last === undefined) return;

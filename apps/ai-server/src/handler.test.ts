@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createRemoteAiPlanProvider, type AssembledAiContext } from '@craftkit/builder/headless';
 
 import { DRAFT_FLUSH_CHARS, DRAFT_FLUSH_MS, createHandler } from './handler';
 import { createOpenRouterClient, type OpenRouterFetch } from './openrouter-client';
@@ -583,7 +584,10 @@ describe('streaming', () => {
 
     expect(response.headers.get('content-type')).toBe('text/event-stream');
     expect(body).toContain('event: status');
-    expect(body).toContain('Reading the catalog');
+    expect(body).toContain('Understanding the request…');
+    expect(body).not.toContain('Reading the catalog');
+    expect(body).not.toContain('Choosing a parent');
+    expect(body).toContain('event: usage');
     expect(body.match(/event: result/gu)).toHaveLength(1);
   });
 
@@ -634,6 +638,61 @@ describe('answer reporting', () => {
 });
 
 describe('usage reporting', () => {
+  it('streams public activity before completion and measured usage through the real remote adapter', async () => {
+    let finish: ((value: FakeMessage) => void) | undefined;
+    const held = new Promise<FakeMessage>((resolve) => {
+      finish = resolve;
+    });
+    const client = {
+      messages: { stream: () => ({ on: () => undefined, finalMessage: () => held }) },
+    } as unknown as Anthropic;
+    const handle = createHandler({ client });
+    const progress: string[] = [];
+    const measurements: unknown[] = [];
+    const provider = createRemoteAiPlanProvider({
+      endpoint: 'https://assistant.example.test/plan',
+      fetch: async (_input, init) =>
+        handle(new Request('https://assistant.example.test/plan', init)),
+    });
+    const wire = wireBody() as { context: AssembledAiContext };
+    const pending = provider.propose('Improve the hero', wire.context, {
+      onProgress: (text) => {
+        progress.push(text);
+      },
+      onUsage: (usage) => {
+        measurements.push(usage);
+      },
+    });
+    await vi.waitFor(() => {
+      expect(progress).toContain('Understanding the request…');
+    });
+    expect(measurements).toHaveLength(0);
+    finish?.(planAnswer());
+    await pending;
+    expect(progress).toContain('Checking the generated result…');
+    expect(measurements).toEqual([
+      expect.objectContaining({ inputTokens: 400, outputTokens: 220, cacheReadTokens: 57_000 }),
+    ]);
+  });
+  it('preserves missing counts as unknown and contains a throwing telemetry observer', async () => {
+    const handle = createHandler({
+      client: fakeClient({
+        content: [{ type: 'text', text: '{"rationale":"ok","commands":[]}' }],
+        usage: {},
+      }),
+      onUsage: () => {
+        throw new Error('host telemetry');
+      },
+    });
+    const response = await handle(post(wireBody()));
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.headers.get('x-craftkit-ai-usage') ?? 'null')).toMatchObject({
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+    });
+  });
   it('reports the cached share, the number that reveals a broken prefix', async () => {
     const onUsage = vi.fn();
     const handle = createHandler({ client: fakeClient(planAnswer()), onUsage });
@@ -647,16 +706,20 @@ describe('usage reporting', () => {
     expect(report.cachedShare).toBeGreaterThan(0.98);
   });
 
-  it('reports nothing for an answer that never became a plan', async () => {
+  it('reports measured usage for a refusal without losing the refusal body', async () => {
     const onUsage = vi.fn();
     const handle = createHandler({
       client: fakeClient({ stop_reason: 'refusal', stop_details: { explanation: 'No.' } }),
       onUsage,
     });
 
-    await handle(post(wireBody()));
+    const response = await handle(post(wireBody()));
 
-    expect(onUsage).not.toHaveBeenCalled();
+    expect(onUsage).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(response.headers.get('x-craftkit-ai-usage') ?? 'null')).toMatchObject({
+      inputTokens: 10,
+      outputTokens: 5,
+    });
   });
 });
 
@@ -782,7 +845,9 @@ describe('per-call reasoning budget', () => {
     expect(seen[0]).toMatchObject({ headers: { 'x-craftkit-internal-reasoning-effort': 'high' } });
     // Medium is the default: the writer still skips thinking, but runs at the budget named.
     expect(params[1]).toMatchObject({ thinking: { type: 'disabled' } });
-    expect(seen[1]).toMatchObject({ headers: { 'x-craftkit-internal-reasoning-effort': 'medium' } });
+    expect(seen[1]).toMatchObject({
+      headers: { 'x-craftkit-internal-reasoning-effort': 'medium' },
+    });
   });
 });
 
@@ -840,7 +905,8 @@ describe('the page-plan task', () => {
       await handle(post(pagePlanBody(), { accept: 'text/event-stream, application/json' })),
     );
 
-    expect(body).toContain('Choosing the cafe row');
+    expect(body).toContain('Understanding the request…');
+    expect(body).not.toContain('Choosing the cafe row');
     expect(body.match(/event: result/gu)).toHaveLength(1);
     expect(resultFrame(body)).toEqual({ version: 1, rationale: RATIONALE, pagePlan: PAGE_PLAN });
   });
@@ -1696,7 +1762,11 @@ describe('page-plan drafts', () => {
     live.release();
 
     const frames = framesOf(await new Response(response.body).text());
-    expect(frames.filter((entry) => entry.event !== 'status').map((entry) => entry.data)).toEqual([
+    expect(
+      frames
+        .filter((entry) => entry.event === 'draft' || entry.event === 'result')
+        .map((entry) => entry.data),
+    ).toEqual([
       { reset: true },
       { text: '{"from":"cli"}' },
       expect.objectContaining({ version: 1 }),
@@ -1714,7 +1784,7 @@ describe('page-plan drafts', () => {
     const frames = framesOf(await new Response(response.body).text());
     expect(frames.some((entry) => entry.event === 'draft')).toBe(false);
     expect(frames.filter((entry) => entry.event === 'result')).toHaveLength(1);
-    expect(live.subscribed).not.toContain('text');
+    expect(live.subscribed).toContain('text'); // Public lifecycle signal, not raw drafts.
   });
 
   it('sends no drafts for an ordinary plan', async () => {
@@ -1726,7 +1796,7 @@ describe('page-plan drafts', () => {
     const frames = framesOf(await new Response(response.body).text());
     expect(frames.some((entry) => entry.event === 'draft')).toBe(false);
     expect(frames.filter((entry) => entry.event === 'result')).toHaveLength(1);
-    expect(live.subscribed).not.toContain('text');
+    expect(live.subscribed).toContain('text'); // Public lifecycle signal, not raw drafts.
   });
 
   it('answers a unary page plan exactly as before, with no draft subscription', async () => {

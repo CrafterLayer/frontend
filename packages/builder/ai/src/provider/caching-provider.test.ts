@@ -30,6 +30,37 @@ const plan: AiPlan = {
   commands: [{ command: 'insertNode', args: { type: 'hero', parentId: 'root' } }],
 };
 
+it('does not replay measured billing on a cached plan', async () => {
+  const received: unknown[] = [];
+  const provider = createCachingAiPlanProvider({
+    propose: (_request, _context, live) => {
+      live?.onUsage?.({
+        inputTokens: 7,
+        outputTokens: 3,
+        cacheReadTokens: null,
+        cacheWriteTokens: null,
+      });
+      return Promise.resolve(plan);
+    },
+  });
+  const onUsage = (usage: unknown) => {
+    received.push(usage);
+  };
+  await provider.propose('ask', context(), { onUsage });
+  await provider.propose('ask', context(), { onUsage });
+  expect(received).toEqual([
+    { inputTokens: 7, outputTokens: 3, cacheReadTokens: null, cacheWriteTokens: null },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUsd: 0,
+      cached: true,
+    },
+  ]);
+});
+
 function countingProvider(): { provider: AiPlanProvider; calls: () => number } {
   let calls = 0;
   return {

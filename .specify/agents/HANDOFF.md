@@ -1,6 +1,76 @@
 # Active Work Handoff
 
-## Current continuation — baseline repair, 2026-10-10
+## Current continuation — Pixi creative and live telemetry, 2026-10-11
+
+Requested PX increment: **idle / locally verified**. PX-001..005 / T165..170 are complete.
+Overall feature 014 production release remains open. All new work is unstaged/untracked; no staged
+diff currently exists. Unrelated concurrent user edits in AI `direction-set.ts` and `nav-sync.ts`
+were preserved and excluded. Do not reset, bulk-stage, commit, push or deploy.
+
+### Delivered scope
+
+- Media engines' kit 1.1.0 adds focus-scoped native/virtual input, bounded fixed updates and manual
+  story chapters. Editor typing, reduced motion, visibility, resize, listener ownership and teardown
+  are preserved. Manual chapter changes redraw after the still timer. Schema CK/member reference
+  and renderer generated kit remain aligned with the existing lazy asset builder/license/budget.
+- AI project builtins for games/stories/murals teach runnable controls, actual scene/library APIs,
+  game states/collisions, manual chapters and bounded mural composition. Arabic/English activation
+  excludes ordinary business stories/game stores. Explicit planning/build/Retry/Finish lanes now
+  actually select relevant expertise; scene contracts target individual writers, the hero also gets
+  the original brief. Free-code creative regions can author scene JS instead of fixed kit-only
+  writing; ordinary writers, skill/context budgets and permission boundaries remain unchanged.
+- Provider/server/run/UI usage is additive and measured or unknown; retries/checker/successors have
+  distinct physical receipt identities. SSE phases update before completion and never render private
+  reasoning. Bounded 64-attempt overflow invalidates sums and survives reload; malformed optional
+  saved receipts do not crash conversations. `RunTelemetry` has all five required artifacts.
+- The short/narrow Composer control layout preserves all controls and conversation height; existing
+  pin/unpin scrolling and actual 1/3/6 independent section pools remain. One long single edit is
+  still one model call, not universally faster work.
+- Evals' exact taught game/story/mural fixture uses public builder/wire APIs and real generated
+  assets in an isolated sandbox. Its feature-local DOM/JSX config leaves Node services and the
+  model-quality harness headless. No new dependency was installed: existing physics/camera/filters/
+  drawing/audio are reused. Tilemap is researched/proposed, not admitted. No managed React lock
+  expansion, new backend/multiplayer service or unrestricted package execution.
+
+Evidence: `specs/workspace/014-professional-builder-agent/verification-pixi-telemetry-2026-10-11.md`.
+Architecture: `docs/architecture/builder-design-libraries.md`.
+
+### Checks and continuation limits
+
+- Fresh final AI regression92, Playground workers/telemetry/storage/component70, media60,
+  renderer34 passed. Delegated broader skill/context789, server173 and UI/model112/component164
+  runs are recorded separately and overlap; do not add them into a workspace-wide total.
+- Actual Pixi browser examples pass all four LTR/RTL × narrow/wide matrices after the collision
+  repair. Chat ten Chromium variants passed twice; full-control short Arabic thread height and
+  streaming/reading/reopen/resize/long draft/usage/worker-lock behavior are covered. This is local QA,
+  not reproduction in every original-user environment or proof on physical phones.
+- Owner/consumer types passed, including both Evals projects; scoped new-source lint/format and
+  whitespace passed. Full original-config Storybook build (5180 modules/2275 entries), six focused
+  Chromium plays, Playground/server production builds, workspace36/component222/boundary4506 and
+  graph dry-run contracts passed. Generated kit body hash matches and level9 gzip is14930<16000.
+- Fresh native independent read-only review resolved actual skill forwarding, retry/checker/
+  successor receipts, storage shape, activation and overflow findings. Scoped native convergence
+  checked five PX requirements/eight plan decisions/nine principles with no new gaps; tasks stayed
+  unchanged during assessment, then completion tracking was updated separately. This is not a
+  pinned professional-sdd workflow-run claim or full014 release approval.
+- Existing create-scene19 lint errors match baseline rule counts; full media/root lint and full
+  pnpm verify are not claimed. Existing example-URL/dynamic-import/large-chunk warnings remain;
+  budgets/configured catalog scope were not relaxed. Full coverage/catalog-browser matrix,
+  Firefox/WebKit, screen-reader/audio-device checks and paid provider output quality/speed/cost
+  remain unverified. Missing/fallback receipts and old runs cannot become invented bills.
+
+No PX repair task remains. For newly authorized feature work inspect historical T045/T122 preview
+feedback/source-agent adapters. For creative quality calibration first obtain authorization for
+representative live model calls and report actual outputs/latency/usage, not estimates as spending.
+Custom scenes require Free code enabled; otherwise closed media scenes plus an opt-in explanation
+remain the boundary. Do not promise all Pixi APIs/add-ons or every game genre.
+
+Node24.19.0 / pnpm11.23.0; branch builder-core / commit count44 verified read-only. The task-owned
+Vite server5194 was stopped; existing servers were untouched. Browser/model/provider networking was
+blocked in local fixtures. No package installs, paid calls, staging, commits, pushes, deployment or
+global memory writes. Preserve historical notes below as prior snapshots, not current Git facts.
+
+## Previous baseline repair — 2026-10-10
 
 Requested baseline repair: **idle / locally verified**. BQ-001..003 / T160..164 are complete.
 Overall feature 014 production release remains open. Preserve the staged user baseline and all

@@ -73,13 +73,56 @@ the entry. It writes no `window.PIXI`.
 node scripts/build-scene-engine.mjs pixi     # → renderer/src/engines/pixi-full-source.ts (PIXI_FULL_*)
 ```
 
-`ck-pixi.js` is **268.5 kB gzip** on pixi.js 8.22.0 against a **300 kB** budget of its own (the
-200 kB scene budget is unchanged). The export ships it only when some page's `data-ck-js` code
-matches `/pixi|ck\.stage/i`; the canvas injects it into the frame head on the same condition.
+`ck-pixi.js` is **268.5 kB gzip** on pixi.js 8.22.0 against a **300 kB** budget of its own (the 200
+kB scene budget is unchanged). The export ships it only when some page's `data-ck-js` code matches
+`/pixi|ck\.stage/i`; the canvas injects it into the frame head on the same condition.
 `node scripts/build-scene-engine.mjs` with no argument rebuilds both. Its bundled packages are the
 list below plus `@xmldom/xmldom` (MIT).
 
-## Licences
+## Creative scene kit (1.1.0)
+
+`await ck.scene()` uses the same lazy full Pixi namespace and adds input, simulation and story
+helpers. It is available inside an opted-in custom-code region, not an arbitrary import in a managed
+React project. Details and library decisions live in the canonical
+[design libraries guide](../../../../docs/architecture/builder-design-libraries.md).
+
+```js
+const s = await ck.scene({ seed: 7, libs: ['physics'] });
+const M = s.lib.physics;
+const engine = M.Engine.create();
+M.Composite.add(engine.world, M.Bodies.circle(40, 20, 12));
+const stop = s.fixedTick((dt) => {
+  // dt is seconds, default 1/60; catch-up is capped at 5 steps per rendered frame.
+  M.Engine.update(engine, dt * 1000);
+});
+s.dispose(stop);
+```
+
+Attach visible Graphics/sprites to `s.stage` and synchronize them with the bodies. The kit owns
+created Matter engines' cleanup. Do not start Matter's Runner or a second Pixi ticker. A game still
+needs an objective, state, score, controls, collision handling and restart; the helper does not
+invent these.
+
+- `s.input.down(code)` and `axis(negativeCodes, positiveCodes)` enable keyboard input lazily on the
+  focused canvas only. `set(code, held)` supports native DOM/touch buttons; release on pointer up,
+  cancel and lost capture. `clear()` releases everything. Native/virtual sources are independent.
+  Input never captures editor typing and is cleared when hidden/blurred. Decorative scenes remain
+  unfocusable unless input is used. Name a game canvas rather than hiding a focusable surface.
+- `s.fixedTick(fn, { step?, maxSteps? })` accepts steps 1/240..0.1 seconds and limits 1..8. It
+  returns an idempotent unsubscribe, drops excess catch-up and never simulates in the editor/reduced
+  motion. Draw a finished still state; accessible manual controls can redraw with `s.app.render()`.
+- `s.story([{ id, enter?, leave? }], initial?)` enters once and returns `current`, `go(id)`,
+  `next()`, `back()`, `reset()` and `dispose()`. IDs are unique (1..64 letters/digits/_/-), chapters
+  1..32. Navigation does not wrap or autoplay. Keep narrative/control text in the DOM and callbacks
+  synchronous/lightweight. Manual chapter changes render even when motion is reduced.
+
+After scene-kit edits, run `node scripts/build-studio-engines.mjs kit` from repository root. It
+regenerates only the renderer's kit asset and verifies the unchanged 16 kB gzip budget. The
+component/scene unit tests and `pnpm --filter @craftkit/evals test:pixi-creative:browser` are
+distinct from live model quality, audio hardware behavior or browser support outside the tested
+Chromium.
+
+## Bundled licences
 
 pixi.js is MIT. The bundle also carries `@pixi/colord` (MIT), `earcut` (ISC), `eventemitter3` (MIT),
 `ismobilejs` (MIT), `parse-svg-path` (MIT) and `tiny-lru` (**BSD-3-Clause**, permissive; its notice

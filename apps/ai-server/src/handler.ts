@@ -47,7 +47,7 @@ export interface HandlerOptions {
   readonly maxRequestBytes?: number;
   /** Receives one line per completed request; `task` says which endpoint's call it was. */
   readonly onUsage?: (
-    report: UsageReport & { readonly cachedShare: number; readonly task?: UsageTask },
+    report: UsageReport & { readonly cachedShare: number | null; readonly task?: UsageTask },
   ) => void;
   /** Receives every answer's raw text before it is parsed; for the owner's log. */
   readonly onAnswer?: (text: string) => void;
@@ -152,7 +152,7 @@ function authorized(request: Request, expected: string | undefined): boolean {
  * is written (`{text}`, or `{reset: true}` when the answer starts over);
  * exactly one `result` ends the stream.
  */
-function frame(event: 'status' | 'unit' | 'draft' | 'result', data: unknown): string {
+function frame(event: 'status' | 'unit' | 'draft' | 'usage' | 'result', data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
@@ -200,8 +200,13 @@ async function resolveModel(
     متوقع» on everything. Both spellings name the same CLI model.
   */
   const bare = (name: string): string => name.replace(/^cli:/u, '');
-  const allowed = [...(options.model === undefined ? [] : [options.model]), ...(options.models ?? [])];
-  const match = allowed.find((entry) => entry === named) ?? allowed.find((entry) => bare(entry) === bare(named));
+  const allowed = [
+    ...(options.model === undefined ? [] : [options.model]),
+    ...(options.models ?? []),
+  ];
+  const match =
+    allowed.find((entry) => entry === named) ??
+    allowed.find((entry) => bare(entry) === bare(named));
   if (match !== undefined) return { model: match };
   // A free model OpenRouter lists right now costs nothing, so it needs no place in the owner's list.
   if (named.endsWith(':free') && (await options.freeModels?.has(named)) === true) {
@@ -288,7 +293,10 @@ async function modelsListing(options: HandlerOptions): Promise<{
   const liveById = new Map((live?.models ?? []).map((model) => [model.id, model]));
   const liveKnown = live !== undefined && live.fetchedAt > 0;
   const configured = [
-    ...new Set([...(options.model === undefined ? [] : [options.model]), ...(options.models ?? [])]),
+    ...new Set([
+      ...(options.model === undefined ? [] : [options.model]),
+      ...(options.models ?? []),
+    ]),
   ].filter((id) => !(liveKnown && id.endsWith(':free') && !liveById.has(id)));
   const models: OfferedModel[] = configured.map((id) => {
     const facts = liveById.get(id);
@@ -657,14 +665,26 @@ async function enhanceResponse(
 
 function reportUsage(options: HandlerOptions, usage: UsageReport, task: UsageTask): void {
   if (options.onUsage === undefined) return;
-  const billedInput = usage.inputTokens + usage.cacheWriteTokens + usage.cacheReadTokens;
-  options.onUsage({
-    ...usage,
-    // The number worth watching: a cached share near zero means a silent
-    // invalidator got into the prefix and the catalog is being re-billed.
-    cachedShare: billedInput === 0 ? 0 : usage.cacheReadTokens / billedInput,
-    task,
-  });
+  const billedInput =
+    usage.inputTokens === null || usage.cacheWriteTokens === null || usage.cacheReadTokens === null
+      ? null
+      : usage.inputTokens + usage.cacheWriteTokens + usage.cacheReadTokens;
+  try {
+    options.onUsage({
+      ...usage,
+      // The number worth watching: a cached share near zero means a silent
+      // invalidator got into the prefix and the catalog is being re-billed.
+      cachedShare:
+        billedInput === null || usage.cacheReadTokens === null
+          ? null
+          : billedInput === 0
+            ? 0
+            : usage.cacheReadTokens / billedInput,
+      task,
+    });
+  } catch {
+    /* Telemetry must not turn a valid answer into a failure. */
+  }
 }
 
 /** The skill a build pins on every section writer (run-build.ts). */
@@ -741,9 +761,13 @@ async function answer(
   onProgress?: (text: string) => void,
   onDraft?: (draft: AnswerDraft) => void,
 ): Promise<Answered> {
+  let measured: UsageReport | undefined;
   const call: ClaudeOptions = {
     client: options.client,
     signal,
+    onUsage: (usage) => {
+      measured = usage;
+    },
     ...(options.model === undefined ? {} : { model: options.model }),
     ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
     ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
@@ -754,8 +778,16 @@ async function answer(
   };
   if (wire.task === 'page-plan') {
     const outcome = await proposePagePlan(wire, call);
-    if (outcome.kind === 'refusal') return { body: refusalBody(outcome.message) };
-    if (outcome.kind === 'invalid-output') return { body: invalidOutputBody(outcome.message) };
+    if (outcome.kind === 'refusal')
+      return {
+        body: refusalBody(outcome.message),
+        ...(measured === undefined ? {} : { usage: measured }),
+      };
+    if (outcome.kind === 'invalid-output')
+      return {
+        body: invalidOutputBody(outcome.message),
+        ...(measured === undefined ? {} : { usage: measured }),
+      };
     return {
       body: {
         version: AI_PLAN_WIRE_VERSION,
@@ -766,8 +798,16 @@ async function answer(
     };
   }
   const outcome = await proposePlan(wire, call);
-  if (outcome.kind === 'refusal') return { body: refusalBody(outcome.message) };
-  if (outcome.kind === 'invalid-output') return { body: invalidOutputBody(outcome.message) };
+  if (outcome.kind === 'refusal')
+    return {
+      body: refusalBody(outcome.message),
+      ...(measured === undefined ? {} : { usage: measured }),
+    };
+  if (outcome.kind === 'invalid-output')
+    return {
+      body: invalidOutputBody(outcome.message),
+      ...(measured === undefined ? {} : { usage: measured }),
+    };
   return { body: outcome.plan, usage: outcome.usage };
 }
 
@@ -779,7 +819,12 @@ async function unary(
   try {
     const answered = await answer(wire, options, signal);
     if (answered.usage !== undefined) reportUsage(options, answered.usage, taskOf(wire));
-    return json(answered.body);
+    const response = json(answered.body);
+    if (answered.usage !== undefined) {
+      response.headers.set('x-craftkit-ai-usage', JSON.stringify(answered.usage));
+      response.headers.set('access-control-expose-headers', 'x-craftkit-ai-usage');
+    }
+    return response;
   } catch (cause) {
     return errorResponse(cause);
   }
@@ -789,15 +834,14 @@ async function unary(
  * The streaming answer.
  *
  * Worth the extra code for one reason: a plan takes tens of seconds and a
- * silent wait of that length reads as a hang. `status` frames carry Claude's
- * own reasoning summary, so the narration is what the model is actually
- * considering rather than a spinner's worth of invented reassurance.
+ * silent wait of that length reads as a hang. `status` frames carry bounded
+ * public lifecycle phases observed by the adapter, never private reasoning.
  */
 function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: AbortSignal): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (event: 'status' | 'draft' | 'result', data: unknown): void => {
+      const send = (event: 'status' | 'draft' | 'usage' | 'result', data: unknown): void => {
         controller.enqueue(encoder.encode(frame(event, data)));
       };
       const drafts =
@@ -826,6 +870,7 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
           drafts?.take,
         );
         if (answered.usage !== undefined) reportUsage(options, answered.usage, taskOf(wire));
+        if (answered.usage !== undefined) send('usage', answered.usage);
         // Every draft before the one result, never after it.
         drafts?.flush();
         send('result', answered.body);

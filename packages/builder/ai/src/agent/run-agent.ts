@@ -32,6 +32,7 @@ import {
 } from '../plan/generate-plan';
 import type { SalvagedAiPlan } from '../plan/salvage-plan';
 import { AI_PLAN_WIRE_VERSION, estimateAiPlanWireRequestTokens } from '../provider/wire';
+import { readProviderUsage } from '../provider/usage';
 import type {
   AiEffectiveCommandPolicy,
   AiPreparedSkillContext,
@@ -48,11 +49,7 @@ import type {
 } from './types';
 import { classifyAiRunFailure } from './errors';
 // script-wiring additions
-import {
-  scriptCrossPage,
-  scriptCrossPageFollowUp,
-  scriptPagesTouched,
-} from '../script/cross-page';
+import { scriptCrossPage, scriptCrossPageFollowUp, scriptPagesTouched } from '../script/cross-page';
 import { directScript } from '../script/direct-scripts';
 import { SCRIPT_TOOL_NAME } from '../script/types';
 // end script-wiring additions
@@ -356,6 +353,26 @@ function instrumentProvider(
   onRequestTokens: (tokens: number) => void,
 ): AiPlanProvider {
   let contextSeen = false;
+  let attempt = 0;
+  const measuredOptions = (live: AiProposeOptions | undefined): AiProposeOptions => {
+    const attemptId = `${options.runId}/attempt-${String(++attempt)}`;
+    let reported = false;
+    return {
+      ...withModel(live, model),
+      onUsage: (value) => {
+        if (reported || !mayEmitLiveProgress(options)) return;
+        const usage = readProviderUsage(value);
+        if (usage === undefined) return;
+        reported = true;
+        emit({ type: 'provider.usage', attemptId, usage });
+        try {
+          live?.onUsage?.(usage);
+        } catch {
+          /* Advisory host callback. */
+        }
+      },
+    };
+  };
   const provider: AiPlanProvider = {
     async propose(request, context, live): Promise<AiPlan> {
       assertRunActive(options);
@@ -379,7 +396,7 @@ function instrumentProvider(
           ...(live?.history === undefined ? {} : { history: live.history }),
         }),
       );
-      const plan = await inner.propose(request, context, withModel(live, model));
+      const plan = await inner.propose(request, context, measuredOptions(live));
       assertRunActive(options);
       emit({ type: 'plan.validating', attempt: 1 });
       assertRunActive(options);
@@ -402,7 +419,7 @@ function instrumentProvider(
           attempt: { plan, issues },
         }),
       );
-      const repaired = await repair(request, context, plan, issues, withModel(live, model));
+      const repaired = await repair(request, context, plan, issues, measuredOptions(live));
       assertRunActive(options);
       emit({ type: 'plan.validating', attempt: 2 });
       assertRunActive(options);
@@ -441,9 +458,11 @@ function skillsCannotNarrow(
     return false;
   }
   const narrowing = new Set(
-    manifests.filter(({ restrictToCommands }) => restrictToCommands !== undefined).map(({ id }) => id),
+    manifests
+      .filter(({ restrictToCommands }) => restrictToCommands !== undefined)
+      .map(({ id }) => id),
   );
-  for (let grew = true; grew; ) {
+  for (let grew = true; grew;) {
     grew = false;
     for (const { id, dependencies } of manifests) {
       if (!narrowing.has(id) && dependencies.some((dependency) => narrowing.has(dependency))) {
@@ -452,7 +471,9 @@ function skillsCannotNarrow(
       }
     }
   }
-  return manifests.every(({ id, activation }) => !narrowing.has(id) || activation.mode === 'explicit');
+  return manifests.every(
+    ({ id, activation }) => !narrowing.has(id) || activation.mode === 'explicit',
+  );
 }
 
 /**
@@ -487,7 +508,8 @@ function directRun(
     return undefined;
   }
   // agent-tools additions: a request no direct edit reads may still be a zero-token tool (tryDirectTool).
-  if (reading.route.kind !== 'edit') return directToolRun(options, reading, policy, apply, emit, onTaken);
+  if (reading.route.kind !== 'edit')
+    return directToolRun(options, reading, policy, apply, emit, onTaken);
   // end agent-tools additions
   const selection = options.selection ?? options.kernel.context.store.getState().selection;
   let direct: ReturnType<typeof tryDirectEdit>;
@@ -863,9 +885,17 @@ async function repairInvisibleThemePlan(
   policy: AiEffectiveCommandPolicy,
   kernel: RunAiAgentOptions['kernel'],
 ): Promise<AiPlan> {
-  if (options.provider.repair === undefined) throw new AiPlanRejectedError([INVISIBLE_THEME_PLAN_ISSUE]);
-  const repaired = await repairAiPlanForIssues(options, context, plan, [INVISIBLE_THEME_PLAN_ISSUE], policy);
-  if (isInvisibleThemeOnlyPlan(repaired, kernel)) throw new AiPlanRejectedError([INVISIBLE_THEME_PLAN_ISSUE]);
+  if (options.provider.repair === undefined)
+    throw new AiPlanRejectedError([INVISIBLE_THEME_PLAN_ISSUE]);
+  const repaired = await repairAiPlanForIssues(
+    options,
+    context,
+    plan,
+    [INVISIBLE_THEME_PLAN_ISSUE],
+    policy,
+  );
+  if (isInvisibleThemeOnlyPlan(repaired, kernel))
+    throw new AiPlanRejectedError([INVISIBLE_THEME_PLAN_ISSUE]);
   return repaired;
 }
 
@@ -942,10 +972,18 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       // script-wiring additions
       const scriptCode = directScriptCode(options, reading, policy);
       if (scriptCode !== undefined && reading !== undefined && policy !== undefined) {
-        const scripted = await directScriptRun(options, reading, policy, apply, emit, scriptCode, () => {
-          emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
-          assertRunActive(options);
-        });
+        const scripted = await directScriptRun(
+          options,
+          reading,
+          policy,
+          apply,
+          emit,
+          scriptCode,
+          () => {
+            emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
+            assertRunActive(options);
+          },
+        );
         if (scripted !== undefined) return scripted;
       }
       // end script-wiring additions
@@ -989,7 +1027,9 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
     emit({ type: 'context.gathering' });
     assertRunActive(options);
     if (policyFailure !== undefined || policy === undefined) {
-      throw policyFailure === undefined ? new Error('The AI run has no command policy.') : policyFailure.cause;
+      throw policyFailure === undefined
+        ? new Error('The AI run has no command policy.')
+        : policyFailure.cause;
     }
     let assembledContext: AssembledAiContext | undefined;
     let requestTokens = 0;
@@ -1026,7 +1066,13 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       throw new Error('The AI provider was not given an assembled context.');
     }
     if (reading !== undefined && isInvisibleThemeOnlyPlan(plan, options.kernel)) {
-      plan = await repairInvisibleThemePlan(preparedOptions, assembledContext, plan, policy, options.kernel);
+      plan = await repairInvisibleThemePlan(
+        preparedOptions,
+        assembledContext,
+        plan,
+        policy,
+        options.kernel,
+      );
       assertRunActive(options);
     }
     const proposal = createAiValidatedProposal({
@@ -1057,7 +1103,10 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
     if (apply === 'never' && crossPage.length > 0) {
       const said = createAiValidatedProposal({
         plan: {
-          rationale: scriptCrossPageFollowUp(scriptPagesTouched(plan, crossPage), runLanguage(options)),
+          rationale: scriptCrossPageFollowUp(
+            scriptPagesTouched(plan, crossPage),
+            runLanguage(options),
+          ),
           commands: [],
           followUp: options.request,
         },

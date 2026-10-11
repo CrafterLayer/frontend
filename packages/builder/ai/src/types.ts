@@ -199,17 +199,30 @@ export interface AiChatTurn {
   text: string;
 }
 
+/** Measured provider counts, not the context estimator. Null means not reported. */
+export interface AiProviderUsage {
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
+  readonly costUsd?: number | null;
+  /** A local answer-cache hit: no new model request or charge. */
+  readonly cached?: true;
+}
+
 /**
  * Live options for one proposal. `signal` cancels the work for real — a
  * provider must stop, not merely ignore the answer — and surfaces as the
  * platform's AbortError, never as a provider failure. `onProgress` carries the
- * provider's own words about what it is doing right now, for a UI to show
+ * provider's public operational phases, never private model reasoning, for a UI to show
  * while the person waits. `history` is the conversation so far, so "make it
  * blue" can mean the hero the previous turn just added.
  */
 export interface AiProposeOptions {
   signal?: AbortSignal;
   onProgress?: (text: string) => void;
+  /** At most once per call, including refused/invalid answers when counts are available. */
+  onUsage?: (usage: AiProviderUsage) => void;
   history?: readonly AiChatTurn[];
   /**
    * Free code mode (`RunAiAgentOptions.freeCode`): the person allowed page

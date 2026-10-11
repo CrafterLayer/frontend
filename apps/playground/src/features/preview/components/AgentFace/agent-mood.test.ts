@@ -553,6 +553,30 @@ describe('reduceAgentMood', () => {
 /* ── A whole build (SPEC §7.4, P2-18) ────────────────────────────────────── */
 
 describe('reduceAgentMood over a page build', () => {
+  it('measured usage does not change the face or its current operational line', () => {
+    const states = drive([
+      [0, begin()],
+      [500, event(B.planned())],
+      [
+        510,
+        event(
+          ev({
+            type: 'provider.usage',
+            attemptId: 'run-1/attempt-1',
+            usage: {
+              inputTokens: 90,
+              outputTokens: 20,
+              cacheReadTokens: null,
+              cacheWriteTokens: null,
+            },
+          }),
+        ),
+      ],
+    ]);
+    expect(states[2]?.snapshot).toEqual(states[1]?.snapshot);
+    expect(states[2]?.run?.settled).toBe(false);
+  });
+
   it('plans the skeleton, works while sections land, and ends done: never "thinking" throughout', () => {
     const states = drive(
       [

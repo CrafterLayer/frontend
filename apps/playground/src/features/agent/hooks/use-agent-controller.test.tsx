@@ -185,7 +185,19 @@ describe('useAgentController: builds', () => {
   it('finishes the rest in place, writing exactly the sections that were not written', async () => {
     const kernel = createBuildKernel();
     const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
-    const { c } = mount({ kernel, provider: script.provider });
+    const provider = {
+      ...script.provider,
+      propose: (...args: Parameters<typeof script.provider.propose>) => {
+        args[2]?.onUsage?.({
+          inputTokens: 10,
+          outputTokens: 4,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        });
+        return script.provider.propose(...args);
+      },
+    };
+    const { c } = mount({ kernel, provider });
 
     ask(c, BUILD_REQUEST);
     await waitFor(() => {
@@ -217,6 +229,14 @@ describe('useAgentController: builds', () => {
       ['Pricing', 'Body for Pricing.'],
     ]);
     expect(build(c).landed).toBe(3);
+    const telemetry = c().state.turns.find((turn) => turn.kind === 'build')?.telemetry;
+    expect(Object.values(telemetry?.attempts ?? {})).toHaveLength(6);
+    expect(
+      Object.values(telemetry?.attempts ?? {}).reduce(
+        (sum, usage) => sum + (usage?.inputTokens ?? 0),
+        0,
+      ),
+    ).toBe(60);
     // A successor is an action, never a sentence posted as the person's turn.
     expect(turnsOf(c, 'user')).toHaveLength(bubbles);
   }, 60_000);
@@ -263,7 +283,11 @@ describe('useAgentController: builds', () => {
     expect(record.rows.every((row) => row.undo?.kind === 'undo')).toBe(true);
 
     act(() => {
-      kernel.dispatch('setProp', { id: regionId(kernel, 'Hero'), key: 'tree', value: 'Written by hand.' });
+      kernel.dispatch('setProp', {
+        id: regionId(kernel, 'Hero'),
+        key: 'tree',
+        value: 'Written by hand.',
+      });
     });
     act(() => {
       c().undoSection(record.turnId, regionId(kernel, 'Proof'));
@@ -548,7 +572,10 @@ describe('useAgentController: edits and questions', () => {
     const { c } = mount({
       kernel,
       provider: editProvider([
-        { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'Welcome home' } },
+        {
+          command: 'setProp',
+          args: { id: 'selected-hero', key: 'heading', value: 'Welcome home' },
+        },
       ]),
     });
     act(() => {
@@ -654,7 +681,9 @@ describe('useAgentController: fast edits', () => {
     act(() => {
       if (edit !== undefined) c().undoEdit(edit.turnId);
     });
-    expect(JSON.stringify(kernel.getDocument().nodes['mine-0']?.props['tree'])).not.toContain('مرحبا');
+    expect(JSON.stringify(kernel.getDocument().nodes['mine-0']?.props['tree'])).not.toContain(
+      'مرحبا',
+    );
     expect(turnsOf(c, 'edit')[0]?.phase).toBe('undone');
   }, 30_000);
 
@@ -662,7 +691,10 @@ describe('useAgentController: fast edits', () => {
     const kernel = createEditKernel();
     kernel.setSelection(['selected-hero']);
     const provider = recordingProvider([
-      { command: 'setProp', args: { id: 'selected-hero', key: 'heading', value: 'A warmer welcome' } },
+      {
+        command: 'setProp',
+        args: { id: 'selected-hero', key: 'heading', value: 'A warmer welcome' },
+      },
     ]);
     const { c } = mount({ kernel, provider, editModel: 'vendor/fast:free', editEffort: 'low' });
 
@@ -778,7 +810,10 @@ describe('useAgentController: Improve and clarify', () => {
     expect(c().state.draft).toBe(
       'Build a one-page site for a dental clinic in Amman with WhatsApp booking.',
     );
-    expect(c().state.enhancement).toMatchObject({ understood: 'A dental clinic page in Amman', canRestore: true });
+    expect(c().state.enhancement).toMatchObject({
+      understood: 'A dental clinic page in Amman',
+      canRestore: true,
+    });
     expect(c().state.announcement?.key).toBe('enhance.ready');
     expect(enhancer.calls[0]).toMatchObject({ text: 'dental page amman', locale: 'en' });
 
@@ -822,7 +857,11 @@ describe('useAgentController: Improve and clarify', () => {
     });
     expect(failing.c().state.draft).toBe('dental page');
 
-    const none = mount({ kernel: createEditKernel(), provider: wordsProvider('unused'), enhancer: null });
+    const none = mount({
+      kernel: createEditKernel(),
+      provider: wordsProvider('unused'),
+      enhancer: null,
+    });
     expect(none.c().state.enhancement.status).toBe('unavailable');
   }, 30_000);
 
@@ -870,7 +909,9 @@ describe('useAgentController: Improve and clarify', () => {
 
     expect(c().state.clarify).toBeNull();
     // The person's turn shows the rewritten request: it is what ran.
-    expect(turnsOf(c, 'user')[0]?.text).toBe('Which colour suits a dental clinic, teal everywhere?');
+    expect(turnsOf(c, 'user')[0]?.text).toBe(
+      'Which colour suits a dental clinic, teal everywhere?',
+    );
     expect(enhancer.calls.at(-1)?.answers).toEqual([
       { id: 'colour', question: 'Which colour?', answer: 'Teal' },
       { id: 'where', question: 'Where?', answer: 'Everywhere' },

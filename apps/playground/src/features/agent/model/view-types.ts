@@ -23,6 +23,8 @@
  * Only two small guards ship as code; everything else is erased at build time.
  */
 
+import type { RunTelemetryState } from './run-telemetry';
+
 /* ── Primitives ──────────────────────────────────────────────────────────────── */
 
 /** The UI locale; Arabic is the default (SPEC §7.3, §4.0). */
@@ -597,7 +599,7 @@ export interface ProposalView {
  * turn kinds of SPEC §7.4. A turn keeps its `turnId` across kinds (plan → build,
  * proposal → edit or end), so its `<li>` and focus target survive the change.
  */
-export type TurnView =
+export type TurnView = (
   | { readonly kind: 'user'; readonly view: UserMessageView }
   | { readonly kind: 'build'; readonly view: BuildRecordView }
   | { readonly kind: 'edit'; readonly view: EditRecordView }
@@ -606,7 +608,10 @@ export type TurnView =
   | { readonly kind: 'step-plan'; readonly view: StepPlanView }
   | { readonly kind: 'proposal'; readonly view: ProposalView }
   | { readonly kind: 'error'; readonly view: ErrorView }
-  | { readonly kind: 'end'; readonly view: EndNoteView };
+  | { readonly kind: 'end'; readonly view: EndNoteView }
+) & {
+  readonly telemetry?: RunTelemetryState;
+};
 
 /** The v2 turn kinds (SPEC §7.4). */
 export type TurnKind = TurnView['kind'];

@@ -1,4 +1,5 @@
 import type { AiSkillDefinitionV1 } from './types';
+import { PIXI_GAME_KEYWORDS, PIXI_STORY_KEYWORDS } from './pixi-creative';
 
 /**
  * PixiJS v8 for the scene scripts أبو غضب writes in free code mode (2026-10-10).
@@ -22,6 +23,8 @@ import type { AiSkillDefinitionV1 } from './types';
 
 /** A scene of any kind: what loads the core and the graphics skill. */
 const PIXI_SCENE_KEYWORDS = [
+  ...PIXI_GAME_KEYWORDS,
+  ...PIXI_STORY_KEYWORDS,
   'pixi',
   'pixijs',
   'webgl',
@@ -45,7 +48,7 @@ export const PIXI_V8_CORE_SKILL: AiSkillDefinitionV1 = {
   name: 'PixiJS v8: stage, loop and cleanup',
   description:
     'Scene scripts in free code mode as PixiJS v8 code: the ck.stage application, scene graph, Ticker, resize, reduced motion, pausing, cleanup, and the v7 habits that break.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 43,
@@ -87,7 +90,7 @@ export const PIXI_V8_GRAPHICS_SKILL: AiSkillDefinitionV1 = {
   name: 'PixiJS v8: Graphics, gradients and colour',
   description:
     'The v8 Graphics API — build a shape then fill or stroke it — with gradients, holes, shared contexts, colour and the v7 drawing calls that no longer exist.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 42,

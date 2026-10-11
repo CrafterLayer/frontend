@@ -17,7 +17,12 @@ import {
   unknownKeys,
   type TreeNode,
 } from '../shared';
-import { defineAgentTool, type AgentToolContext, type AgentToolRun, type AgentToolStep } from '../types';
+import {
+  defineAgentTool,
+  type AgentToolContext,
+  type AgentToolRun,
+  type AgentToolStep,
+} from '../types';
 import { faceFor } from './fonts-set';
 
 /**
@@ -49,16 +54,26 @@ export function directionOf(lang: string): 'rtl' | 'ltr' {
 
 function parse(input: unknown) {
   const record = inputRecord(input);
-  if (record === undefined) return fail<DirectionSetInput>('input must be an object like {"lang":"ar"}.');
+  if (record === undefined)
+    return fail<DirectionSetInput>('input must be an object like {"lang":"ar"}.');
   const extra = unknownKeys(record, ['lang', 'dir']);
-  if (extra.length > 0) return fail<DirectionSetInput>(`unknown keys ${extra.join(', ')}; use lang and optional dir.`);
+  if (extra.length > 0)
+    return fail<DirectionSetInput>(`unknown keys ${extra.join(', ')}; use lang and optional dir.`);
   const lang = record['lang'];
-  if (typeof lang !== 'string' || !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/iu.test(lang) || lang.length > 12) {
+  if (
+    typeof lang !== 'string' ||
+    !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/iu.test(lang) ||
+    lang.length > 12
+  ) {
     return fail<DirectionSetInput>('"lang" must be a language tag such as ar, en or ar-jo.');
   }
   const dir = record['dir'];
-  if (dir !== undefined && dir !== 'rtl' && dir !== 'ltr') return fail<DirectionSetInput>('"dir" is rtl or ltr.');
-  return okParse<DirectionSetInput>({ lang: lang.toLowerCase(), ...(dir === undefined ? {} : { dir }) });
+  if (dir !== undefined && dir !== 'rtl' && dir !== 'ltr')
+    return fail<DirectionSetInput>('"dir" is rtl or ltr.');
+  return okParse<DirectionSetInput>({
+    lang: lang.toLowerCase(),
+    ...(dir === undefined ? {} : { dir }),
+  });
 }
 
 /** Physical side → logical side, on the class stem after any variant prefix. */
@@ -104,8 +119,11 @@ export function logicalClassName(className: string): string {
 
 /** `arrow-right` ↔ `arrow-left`, `chevrons-left` ↔ `chevrons-right`, … when the mirror exists. */
 export function mirroredIcon(name: string): string {
-  if (!/(?:arrow|chevron|caret|move|corner|undo|redo|reply|forward|log-in|log-out)/u.test(name)) return name;
-  const swapped = name.replace(/\b(left|right)\b/gu, (side) => (side === 'left' ? 'right' : 'left'));
+  if (!/(?:arrow|chevron|caret|move|corner|undo|redo|reply|forward|log-in|log-out)/u.test(name))
+    return name;
+  const swapped = name.replace(/\b(left|right)\b/gu, (side) =>
+    side === 'left' ? 'right' : 'left',
+  );
   return swapped !== name && isLucideIconName(swapped) ? swapped : name;
 }
 
@@ -149,13 +167,21 @@ function run(input: DirectionSetInput, context: AgentToolContext): AgentToolRun 
       const serif = /serif|garamond|fraunces|gloock|young/iu.test(kit.state.display.family);
       const next = {
         ...kit.state,
-        display: latinOnly(kit.state.display.family) ? faceFor(serif ? 'El Messiri' : 'Readex Pro', 'display') : kit.state.display,
-        body: latinOnly(kit.state.body.family) ? faceFor(serif ? 'Noto Naskh Arabic' : 'IBM Plex Sans Arabic', 'body') : kit.state.body,
+        display: latinOnly(kit.state.display.family)
+          ? faceFor(serif ? 'El Messiri' : 'Readex Pro', 'display')
+          : kit.state.display,
+        body: latinOnly(kit.state.body.family)
+          ? faceFor(serif ? 'Noto Naskh Arabic' : 'IBM Plex Sans Arabic', 'body')
+          : kit.state.body,
       };
-      steps.push(setProp(rootId, 'pageCss', writePageKit(pageCss, next, { lang: input.lang, dir })));
+      steps.push(
+        setProp(rootId, 'pageCss', writePageKit(pageCss, next, { lang: input.lang, dir })),
+      );
     }
   }
-  return steps.length === 0 ? { ok: true, steps, note: 'the page already reads this way' } : { ok: true, steps };
+  return steps.length === 0
+    ? { ok: true, steps, note: 'the page already reads this way' }
+    : { ok: true, steps };
 }
 
 export const directionSetTool = defineAgentTool<DirectionSetInput>({

@@ -160,6 +160,17 @@ describe('reduceBuildProgress: the skeleton and the list', () => {
 });
 
 describe('reduceBuildProgress: parallel writers', () => {
+  it('attributes a physical retry suffix to the same section without claiming a landing', () => {
+    const progress = feed(initialBuildProgress(BUILD, 0), [planned(0), started(1, 10, 2)]);
+    const next = reduceBuildProgress(
+      progress,
+      event(20, { type: 'run.completed', status: 'proposed' }, `${BUILD}/fill-1-2`),
+    );
+    expect(next.tasks[0]?.status).toBe('drafted');
+    expect(next.tasks[0]?.draftedAt).toBe(20);
+    expect(landedCount(next)).toBe(0);
+    expect(next.tasks.slice(1)).toEqual(progress.tasks.slice(1));
+  });
   it('runs several writers at once; the count is landed sections only', () => {
     const progress = feed(initialBuildProgress(BUILD, 0), [
       planned(0),

@@ -13,6 +13,7 @@ import type {
   AssembledAiContext,
 } from '../types';
 import { AiProviderError, type AiProviderErrorDetails } from './errors';
+import { notifyProviderUsage } from './usage';
 import {
   AI_PLAN_WIRE_VERSION,
   AI_PROMPT_ENHANCE_PATH,
@@ -355,6 +356,7 @@ async function readSseResponse(
   onProgress: ((text: string) => void) | undefined,
   maxResponseBytes: number,
   onDraft?: (event: AiPagePlanDraftEvent) => void,
+  onUsage?: (value: unknown) => void,
 ): Promise<unknown> {
   if (response.body === null) {
     throw new RemoteAiProviderError('The assistant server stream had no body.', {
@@ -399,6 +401,8 @@ async function readSseResponse(
           // Host observers are non-authoritative; their failure cannot alter transport outcome.
         }
       }
+    } else if (event === 'usage') {
+      if (!resultSeen) onUsage?.(payload);
     } else if (event === 'result') {
       if (resultSeen) {
         throw new RemoteAiProviderError('The assistant server streamed more than one result.', {
@@ -473,6 +477,7 @@ function assertEndpointAllowed(endpoint: string, allowInsecureHttp: boolean): vo
  * says `drafts: true`).
  */
 interface RemoteLive {
+  onUsage?: AiProposeOptions['onUsage'];
   readonly signal?: AbortSignal | undefined;
   readonly onProgress?: ((text: string) => void) | undefined;
   readonly onDraft?: ((event: AiPagePlanDraftEvent) => void) | undefined;
@@ -575,6 +580,14 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       controller.abort(live?.signal?.reason);
     };
     live?.signal?.addEventListener('abort', cancel, { once: true });
+    let usageSeen = false;
+    const takeUsage = (value: unknown): void => {
+      if (usageSeen || controller.signal.aborted) return;
+      notifyProviderUsage((usage) => {
+        usageSeen = true;
+        live?.onUsage?.(usage);
+      }, value);
+    };
 
     try {
       let response: Response;
@@ -631,6 +644,14 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       }
 
       let payload: unknown;
+      const usageHeader = response.headers.get('x-craftkit-ai-usage');
+      if (usageHeader !== null && usageHeader.length <= 2_048) {
+        try {
+          takeUsage(JSON.parse(usageHeader) as unknown);
+        } catch {
+          /* Advisory metadata. */
+        }
+      }
       try {
         if ((response.headers.get('content-type') ?? '').startsWith('text/event-stream')) {
           payload = await readSseResponse(
@@ -638,6 +659,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
             live?.onProgress,
             maxResponseBytes,
             exchange.drafts === true ? live?.onDraft : undefined,
+            takeUsage,
           );
         } else {
           payload = await readJsonResponse(response, maxResponseBytes);
@@ -646,6 +668,8 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
         throw abortAware(cause, live, timedOut, exchange.timeoutMs);
       }
       throwIfEnded(live, timedOut, exchange.timeoutMs);
+      // Before parsing refusals/invalid output: a failed answer may still have incurred usage.
+      if (isRecord(payload)) takeUsage(payload['usage']);
       return exchange.read(payload);
     } finally {
       clearTimeout(deadline);

@@ -93,7 +93,9 @@ export function userMessageView(turn: UserTurn, document: BuilderDocument): User
     turnId: turn.id,
     text: turn.text,
     // The page scope is the default a bubble need not repeat; its blocks are the context.
-    chips: turn.context.filter((entry) => entry.kind !== 'page').map((entry) => chipOf(entry, document)),
+    chips: turn.context
+      .filter((entry) => entry.kind !== 'page')
+      .map((entry) => chipOf(entry, document)),
     notRun: turn.notRun === true,
   };
 }
@@ -148,13 +150,19 @@ export function buildTurnView(
     };
     return { kind: 'edit', view: edit };
   }
-  const view: BuildRecordView | null = buildRecordView(buildInput(turn, collapsed, context), context);
+  const view: BuildRecordView | null = buildRecordView(
+    buildInput(turn, collapsed, context),
+    context,
+  );
   if (view === null) {
     return {
       kind: 'end',
       view: {
         turnId: turn.id,
-        key: turn.revived === true || turn.status === 'interrupted' ? 'interrupted' : 'stoppedBeforeChange',
+        key:
+          turn.revived === true || turn.status === 'interrupted'
+            ? 'interrupted'
+            : 'stoppedBeforeChange',
       },
     };
   }
@@ -174,8 +182,7 @@ export function editTurnView(turn: EditTurn, context: TurnViewContext): EditReco
   const endedAt = run.startedAt + (turn.elapsedMs ?? 0);
   const outcome = turn.outcome;
   const settled = turn.status === 'done' || turn.status === 'noChange';
-  const transactionId =
-    outcome?.kind === 'redone' ? outcome.transactionId : turn.transactionId;
+  const transactionId = outcome?.kind === 'redone' ? outcome.transactionId : turn.transactionId;
   const history = context.editHistory?.(turn);
   const undone =
     outcome?.kind === 'undone' && outcome.transactionId !== undefined
@@ -277,7 +284,7 @@ export function proposalTurnView(turn: ProposalTurn, context: TurnViewContext): 
  * build shows its whole spine (SPEC §3.12), and an end note after a build is part of that
  * build's exchange, never a reason to fold it.
  */
-export function turnViewOf(turn: Turn, collapsed: boolean, context: TurnViewContext): TurnView {
+function recordViewOf(turn: Turn, collapsed: boolean, context: TurnViewContext): TurnView {
   switch (turn.kind) {
     case 'user':
       return { kind: 'user', view: userMessageView(turn, context.document) };
@@ -307,11 +314,13 @@ export function turnViewOf(turn: Turn, collapsed: boolean, context: TurnViewCont
   }
 }
 
+export function turnViewOf(turn: Turn, collapsed: boolean, context: TurnViewContext): TurnView {
+  const view = recordViewOf(turn, collapsed, context);
+  return turn.telemetry === undefined ? view : { ...view, telemetry: turn.telemetry };
+}
+
 /** A conversation's turns as the thread renders them, newest last. */
-export function turnViewsOf(
-  turns: readonly Turn[],
-  context: TurnViewContext,
-): readonly TurnView[] {
+export function turnViewsOf(turns: readonly Turn[], context: TurnViewContext): readonly TurnView[] {
   // The person's newest request opens the newest exchange; everything before it folds.
   const newestRequest = turns.findLastIndex((turn) => turn.kind === 'user');
   return turns.map((turn, index) => turnViewOf(turn, index < newestRequest, context));

@@ -58,6 +58,7 @@ import {
   customCodeSchema,
   outlineAiPlan,
   planAiPage,
+  pixiSkillIdsFor,
   previewAiPlan,
   removeUnfilledSections,
   revertBuildSection,
@@ -192,6 +193,7 @@ import {
 import { panelSuggestions, starterSuggestions } from '../model/suggestions';
 import { createStore, type Store } from '../model/tiny-store';
 import { turnViewsOf, withPendingRequest, type TurnViewContext } from '../model/turn-views';
+import { reduceRunTelemetry } from '../model/run-telemetry';
 import {
   answerFromPlan,
   historyOf,
@@ -503,7 +505,14 @@ function patchTurn(
   change: (turn: Turn) => Turn,
 ): void {
   flow.env().sessions.updateTurns(sessionId, (turns) => {
-    const next = turns.map((turn) => (turn.id === turnId ? change(turn) : turn));
+    const next = turns.map((turn) => {
+      if (turn.id !== turnId) return turn;
+      const changed = change(turn);
+      // A proposal becoming an edit, an answer, or an error keeps its measured receipt.
+      return changed === turn || changed.telemetry !== undefined || turn.telemetry === undefined
+        ? changed
+        : { ...changed, telemetry: turn.telemetry };
+    });
     // Unchanged stays the same array: the conversation is neither re-dated nor re-saved.
     return next.some((turn, index) => turn !== turns[index]) ? next : turns;
   });
@@ -1235,7 +1244,10 @@ async function runEdit(
           if ((turn.kind !== 'edit' && turn.kind !== 'proposal') || turn.run === undefined)
             return turn;
           const next = reduceRunProgress(turn.run, event);
-          return next === turn.run ? turn : { ...turn, run: next };
+          const telemetry = reduceRunTelemetry(turn.telemetry, event, target.label);
+          return next === turn.run && telemetry === turn.telemetry
+            ? turn
+            : { ...turn, run: next, telemetry };
         });
       },
     };
@@ -1636,7 +1648,17 @@ async function runBuild(
     }
     patchBuild((turn) => {
       const progress = reduceBuildProgress(turn.progress, event);
-      return progress === turn.progress ? turn : { ...turn, progress };
+      const step = event.runId.slice(slot.runId.length + 1);
+      const match = /^(?:fill|check)-(\d+)(?:-\d+)?$/u.exec(step);
+      const task =
+        event.runId.startsWith(`${slot.runId}/`) && match !== null
+          ? turn.progress.tasks.find((row) => row.position === Number(match[1]))
+          : undefined;
+      const scope = task?.title;
+      const telemetry = reduceRunTelemetry(turn.telemetry, event, scope);
+      return progress === turn.progress && telemetry === turn.telemetry
+        ? turn
+        : { ...turn, progress, telemetry };
     });
     if (event.type === 'task.completed') {
       const record = locateTurn(flow, turnId)?.turn;
@@ -1977,6 +1999,13 @@ async function runPlanPage(
       const answer = await planAiPage(request, {
         ...commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history),
         ...(landing === undefined ? {} : { target: landing }),
+        onEvent: (event) => {
+          if (!holds(flow, slot)) return;
+          patchTurn(flow, slot.sessionId, turnId, (turn) => {
+            const telemetry = reduceRunTelemetry(turn.telemetry, event);
+            return telemetry === turn.telemetry ? turn : { ...turn, telemetry };
+          });
+        },
       });
       if (!holds(flow, slot)) throw stoppedError();
       if ('plan' in answer) {
@@ -2003,6 +2032,13 @@ async function runPlanPage(
         ...commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history),
         ...(landing === undefined ? {} : { target: landing }),
         apply: 'never',
+        onEvent: (event) => {
+          if (!holds(flow, slot)) return;
+          patchTurn(flow, slot.sessionId, turnId, (turn) => {
+            const telemetry = reduceRunTelemetry(turn.telemetry, event);
+            return telemetry === turn.telemetry ? turn : { ...turn, telemetry };
+          });
+        },
       });
       if (!holds(flow, slot)) throw stoppedError();
       const mood = result.direction.replace(/\s+/gu, ' ').trim();
@@ -2099,10 +2135,19 @@ async function runSuccessor(flow: Flow, turnId: string, keys: readonly string[])
   env.mood.beginRun(slot.runId, '');
   say(flow, 'build.started');
   let seq = 0;
-  const feed = (event: AiBuildEvent): void => {
+  const feed = (event: AiBuildEvent, scope?: string): void => {
+    if (!holds(flow, slot)) return;
     patchKind(flow, slot.sessionId, turnId, 'build', (turn) => {
-      const progress = reduceBuildProgress(turn.progress, event);
-      return progress === turn.progress ? turn : { ...turn, progress };
+      // Row identity belongs to the original build; physical attempt identity belongs
+      // to this fresh lease so retried receipts cannot collide with old measurements.
+      const logical = event.runId.startsWith(`${slot.runId}/fill-`)
+        ? { ...event, runId: event.runId.replace(`${slot.runId}/`, `${original.progress.runId}/`) }
+        : event;
+      const progress = reduceBuildProgress(turn.progress, logical);
+      const telemetry = reduceRunTelemetry(turn.telemetry, event, scope);
+      return progress === turn.progress && telemetry === turn.telemetry
+        ? turn
+        : { ...turn, progress, telemetry };
     });
   };
   const progressNow = (): BuildProgress => {
@@ -2125,12 +2170,22 @@ async function runSuccessor(flow: Flow, turnId: string, keys: readonly string[])
       plan: original.pagePlan,
     });
     const base = commonRunOptions(flow, kernel, slot, brief, [task.id], undefined);
+    const contract = original.pagePlan?.sections.find((section) => section.key === task.sectionKey);
+    const creativeRequest = [
+      task.title,
+      contract?.purpose ?? '',
+      ...(contract?.role === 'hero' || task.position === 1 ? [original.request] : []),
+    ].join(' ');
+    const selectedSkillIds = [
+      ...(hasFillSkill ? [FILL_SKILL_ID] : []),
+      ...pixiSkillIdsFor(env.registry, creativeRequest),
+    ];
     try {
       const result = await runAiAgent({
         ...base,
-        runId: `${original.progress.runId}/fill-${String(task.position)}`,
+        runId: `${slot.runId}/fill-${String(task.position)}`,
         isCurrentRun: () => flow.runtime.lease?.runId === slot.runId,
-        ...(hasFillSkill ? { selectedSkillIds: [FILL_SKILL_ID] } : {}),
+        ...(selectedSkillIds.length === 0 ? {} : { selectedSkillIds }),
         autoSkills: false,
         // The build's own writer policy: `setProp` only, its own region whole, the rest summarised.
         policy: { ...base.policy, allowedCommands: ['setProp'] },
@@ -2138,7 +2193,7 @@ async function runSuccessor(flow: Flow, turnId: string, keys: readonly string[])
         apply: 'never',
         onEvent: (event) => {
           env.options.onAgentEvent?.(event);
-          feed(event);
+          feed(event, task.title);
         },
       });
       return { task, result };

@@ -554,3 +554,36 @@ release or live model quality gates.
 Evidence: [verification-pixi-telemetry-2026-10-11.md](verification-pixi-telemetry-2026-10-11.md).
 PX-001..005 is locally verified; full feature 014 release and live provider quality/cost gates
 remain open. No new package, paid provider call or external release was made.
+
+## Deferred Pixi package roadmap — next session, 2026-10-12
+
+Planning backlog only, recorded 2026-10-11. These tasks are **not started or approved for execution
+today**; completed PX work and historical release tasks stay unchanged. Follow the
+[roadmap in plan.md](plan.md#deferred-pixi-package-roadmap--next-session-2026-10-12).
+
+- [ ] T171 On an authorized continuation, amend scoped spec/acceptance scenarios, clarify the first
+      slice and approve plan/tasks; recheck official versions/licenses, package ownership, catalog
+      pins, provenance and budgets before installing anything.
+- [ ] T172 Integrate Tilemap in the media-engine owner with bounded schema/API, a lazy
+      single-Pixi-namespace asset, shared preview/export loader and a playable admitted-tileset
+      fixture; cover camera/input, limits and disposal.
+- [ ] T173 Integrate Inkjs with tool-side story compilation, bounded narrative execution,
+      accessible choices, variables/outcomes and validated versioned save/restore; preserve manual
+      chapters and verify preview/export plus malformed-data and step-limit behavior.
+- [ ] T174 Add AssetPack only to owning build tooling after the first runtime slices; generate
+      reproducible atlases/optimized images/manifests from approved assets and measure outputs;
+      preserve asset identities/licenses and keep tooling out of browser bundles.
+- [ ] T175 For each admitted slice, extend real Agent planning/writer/Retry/Finish teaching and
+      Arabic/English activation tests; extend deterministic and generated-runtime preview/export
+      browser fixtures, owner/consumer checks and bounded usage/quality evidence.
+- [ ] T176 Assess Layout only for a demonstrated in-canvas HUD need; verify Yoga/WASM load order,
+      responsive behavior and packaging before deciding on an adapter. Keep ordinary controls DOM.
+- [ ] T177 Assess Spine only after licensing and licensed skeleton/atlas assets are available;
+      verify editor/runtime version matching before approving any installation or integration.
+- [ ] T178 Independently review each actual increment, resolve findings, run scoped convergence
+      and update evidence/handoff. Record conditional deferrals and remaining live-eval/release
+      gates; do not claim all packages supported or all tasks complete from installation alone.
+
+Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
+conditional assessments, not permission to automatically install Layout or Spine. No task above
+requires a paid provider call, commit, push or deployment without separate authorization.

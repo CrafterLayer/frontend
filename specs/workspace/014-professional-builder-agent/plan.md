@@ -292,3 +292,85 @@ imports. Use mocked provider capture tests for actual prompt wiring and real com
 Browser checks exercise published Embla and actual axe positive/negative fixtures without provider
 calls. Independent read-only review and scoped evidence are required; the rest of feature 014 is not
 complete.
+
+## Deferred Pixi package roadmap — next session, 2026-10-12
+
+Recorded at the user's request on 2026-10-11 for tomorrow's work. **Planning only: not installed,
+implemented or agent-admitted.** This backlog does not reopen completed PX-001..005 or authorize
+execution today. On an authorized continuation, amend the scoped specification, clarify the first
+slice, revalidate dependency versions/licenses and approve its plan/tasks before implementation.
+The date is a continuation target, not an automatic scheduled run or a one-day completion promise.
+
+### Priority and outcomes
+
+| Order | Candidate | Concrete capability and acceptance example | Admission condition |
+| ----- | --------- | ------------------------------------------ | ------------------- |
+| 1 | [@pixi/tilemap v5](https://github.com/pixijs-userland/tilemap) | A tile-based 2D level with a working camera and playable controls, using admitted tileset assets | Verify the Pixi v8 peer range and a lazy adapter using the existing Pixi namespace; tilemap renders a world, not a complete game engine |
+| 2 | [inkjs](https://github.com/y-lohse/inkjs) | A branching Arabic/English story with actual choices, variables, different outcomes and validated state restoration | Keep story compilation in tooling; admit only a bounded runtime/data contract, not arbitrary imports or external functions |
+| 3 | [@assetpack/core](https://pixijs.io/assetpack/docs/guide/getting-started/pixi/) | Generate a sprite atlas, optimized images and an asset manifest from approved project assets; compare actual sizes and loading with the original fixture | Build-time dev dependency only, with a declared owner and reproducible outputs; never ship the asset-processing toolchain in editor or exported runtime bundles |
+| 4, conditional | [@pixi/layout](https://github.com/pixijs/layout) | Responsive in-canvas HUD/inventory layout at narrow/wide widths | Use only for real canvas UI needs; verify Yoga/WASM packaging and extension load order before admission. Ordinary forms/navigation remain accessible DOM |
+| 5, conditional | [@esotericsoftware/spine-pixi-v8](https://esotericsoftware.com/spine-pixi) | One licensed skeletal character with meaningful idle/move/action transitions and exact teardown | Resolve [Spine runtime licensing](https://esotericsoftware.com/spine-runtimes-license), obtain licensed skeleton/atlas assets and match editor/runtime export versions before installation or integration |
+
+Start with Tilemap and Inkjs as separate verified slices, then AssetPack. Layout and Spine are
+conditional follow-ups, not an automatic install list. Existing Matter, viewport, filters, brush,
+rough drawing and sound stay in use; do not add a duplicate engine or replace them without evidence.
+
+### Owners, contracts and compatibility
+
+- `packages/builder/extensions/media-engines/src/studio/` owns runtime adapters and lifecycle tests;
+  its manifest owns admitted runtime dependencies. AssetPack's initial tooling owner is the same
+  package, through a build-time public/tooling entry only.
+- `packages/builder/schema/src/studio/` owns bounded library keys, scene/member references and any
+  versioned narrative data/save contract. Existing `s.story()` chapter behavior remains supported;
+  new story state must not silently migrate or overwrite saved pages.
+- `scripts/build-studio-engines.mjs` and
+  `packages/builder/renderer/src/engines/studio/` own generated lazy assets and shared
+  preview/export loading. AssetPack configuration belongs with its owning package; outputs carry
+  asset identity/provenance and deterministic manifests. Regenerate sources; never hand-edit them.
+- `packages/builder/ai/src/skills/` owns precise Arabic/English activation, actual APIs and runnable
+  worked examples. `apps/ai-server` consumes teaching only through public builder/wire APIs;
+  `apps/evals/src/pixi-creative/` owns deterministic/browser fixtures. Apps never import other apps.
+- The primary owns shared contracts, manifest/catalog pins, lockfile, provenance, integration and
+  review. Delegate adapter, teaching or QA work only after exact path-disjoint leases are agreed.
+  Do not create a new package or new editor UI solely for these dependencies. Any justified new UI
+  needs its TSX, local export, typed story, MDX and behavior/accessibility test before acceptance.
+
+### Definition of done for each admitted capability
+
+1. Verify current official compatibility, licenses and exact catalog pins at implementation time.
+   Record provenance; measure its gzip/asset budget without raising existing gates to hide growth.
+2. Runtime add-ons are separate lazy assets, share one Pixi namespace and do not inflate the main
+   editor bundle. Preserve owned cleanup, scene-local input, cancellation, resize, visibility,
+   reduced motion and the existing Free-code opt-in. Bound tile counts, story steps and asset input.
+3. Wire the real allowlist/API, loader, preview and standalone export before advertising support.
+   Studio admission is not managed React catalog admission and must not rewrite project locks.
+4. Teach the Agent the implemented capability in planning, relevant scene-writing and Retry/Finish
+   contexts. Cover positive creative briefs and negative ordinary-business briefs; skills grant no
+   extra authority. Use licensed asset examples and honest missing-asset fallback, not fabricated art.
+5. Run owner module tests/types first, then real generated-runtime preview and standalone export
+   examples at narrow/wide LTR/RTL with keyboard/touch controls and reduced motion. Include malformed
+   input, missing assets, bounded execution and disposal regressions. Extend existing browser tests
+   to cover each new capability; passing today's fixtures alone does not prove new support.
+6. Record fresh independent diff review, scoped convergence and measured results. Local fixtures
+   prove capability, not stronger model designs, faster generation or lower bills. Representative
+   paid-provider evals and blinded visual ratings need separate authorization/availability.
+
+Baseline commands to retain and extend after implementation:
+
+```sh
+pnpm --filter @craftkit/builder-media-engines build:studio
+pnpm --filter @craftkit/builder-media-engines test
+pnpm --filter @craftkit/evals test:pixi-creative:browser
+pnpm --filter @craftkit/evals typecheck
+pnpm check:workspace
+pnpm check:components
+pnpm check:boundaries
+pnpm check:graph
+```
+
+Run owning AI/schema/renderer tests/types and direct-consumer builds as well; full release gates stay
+separate. Dependency/asset fingerprints invalidate affected build caches. Rollback disables new
+admission/creation while retaining readers and data for existing projects; never delete sources or
+validated saves to undo a dependency change. No deployment or external asset upload is implied.
+
+Execution checklist: [deferred tasks T171–T178](tasks.md#deferred-pixi-package-roadmap--next-session-2026-10-12).

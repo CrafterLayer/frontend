@@ -1,5 +1,15 @@
 # Active Work Handoff
 
+## Next-session package roadmap — recorded 2026-10-11
+
+The user requested saving the package recommendations for tomorrow, **2026-10-12**, not executing
+them today. The canonical roadmap is in feature 014 `plan.md`, section "Deferred Pixi package
+roadmap", with unchecked T171..178 in `tasks.md`. Priorities: Tilemap → Inkjs → AssetPack;
+Layout/Spine remain conditional, with Spine licensing/assets unresolved. Resume by confirming the
+first slice and completing T171's spec/plan/task/dependency gates. No package has been installed or
+agent-admitted by this planning update; prior PX completion and whole-feature release status stay
+unchanged. This is not an automatic scheduled run. Preserve historical snapshots below.
+
 ## Current continuation — Pixi creative and live telemetry, 2026-10-11
 
 Requested PX increment: **idle / locally verified**. PX-001..005 / T165..170 are complete.
